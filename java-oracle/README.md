@@ -1,0 +1,99 @@
+# Java-WebSocket semantic oracle
+
+This is a dependency-free Java 17 JSONL adapter over the accepted
+`org.java-websocket:Java-WebSocket:1.6.0` runtime. It does not modify or compile
+upstream production source and it is not part of the upstream Maven test
+inventory. The adapter compiles with `javac`, runs out of process, and loads its
+runtime classpath externally.
+
+At startup, the adapter locates the JAR that supplied `Draft_6455` and verifies
+its bytes against the promoted digest:
+
+`sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f`
+
+A missing runtime, a classes directory in place of the JAR, or any other JAR
+fails before the JSONL loop starts. The Java-WebSocket runtime also requires its
+SLF4J API at runtime; supply that transitive runtime support through
+`RUNTIME_SUPPORT_CP`. It is not an adapter dependency and is not bundled.
+
+## Build and test
+
+```text
+make -C java-oracle test \
+  JAVA_WEBSOCKET_JAR=/materialized/Java-WebSocket-1.6.0.jar \
+  RUNTIME_SUPPORT_CP=/isolated-cache/slf4j-api.jar
+```
+
+The build uses `--release 17`, `-Xlint:all`, and `-Werror`. The pure Java test
+harness covers deterministic replay, arbitrary input partitioning, local
+actions, close transitions, Java runtime rejection, strict JSON, strict base64,
+all resource limits, JSONL framing, canonical output, and stdout isolation.
+
+Run it with the same variables using `make -C java-oracle run`. Standard input
+and standard output are UTF-8 JSONL. Standard output contains protocol records
+only. Expected request failures are protocol responses; only bounded fatal
+adapter diagnostics go to standard error.
+
+## Protocol 1.0.0
+
+Every input line is exactly one object with these fields. Unknown and duplicate
+fields are rejected at every object boundary.
+
+```json
+{
+  "protocol": "java-websocket-oracle",
+  "version": "1.0.0",
+  "request_id": "scenario-001",
+  "role": "client",
+  "initial_state": "open",
+  "steps": [
+    {"kind": "bytes", "data_base64": "gQJoaQ=="},
+    {"kind": "action", "action": "send_ping", "data_base64": ""},
+    {"kind": "action", "action": "send_close", "code": 1000, "reason": "done"},
+    {"kind": "action", "action": "eof"}
+  ],
+  "limits": {
+    "max_input_bytes": 1048576,
+    "max_buffered_bytes": 1048576,
+    "max_actions": 1024,
+    "max_frames": 4096,
+    "max_output_bytes": 4194304
+  }
+}
+```
+
+`role` is `client` or `server`. `initial_state` is `open`, `closing`, or
+`closed`. Steps are ordered, so byte chunks and local actions may be interleaved.
+Byte data is canonical RFC 4648 base64.
+
+Supported actions are:
+
+- `send_text` with `text`
+- `send_binary`, `send_ping`, and `send_pong` with `data_base64`
+- `send_fragment` with `opcode` (`text` or `binary`), `data_base64`, and `fin`
+- `send_close` with integer `code` and string `reason`
+- `eof` with no additional fields
+
+The caller chooses limits within hard adapter ceilings. A request cannot relax
+the 1 MiB line/input/buffer ceilings, 1,024-action ceiling, 4,096-frame ceiling,
+or 4 MiB output ceiling. Java-WebSocket receives `max_buffered_bytes` as its
+maximum frame/message size. A request below its declared limit fails closed.
+
+## Output
+
+Success records contain normalized inbound and outbound semantic frames,
+listener events, state transitions, close details, and exact input, consumed,
+wire-buffered, message-buffered, action, and frame counts. Frame observations
+include opcode, FIN/RSV/mask flags, semantic payload base64, payload size, and
+wire size. Client output mask keys are intentionally absent: Java-WebSocket
+randomizes them, while the semantic observation remains deterministic.
+
+Object keys are emitted in lexical order, array order is observational order,
+and the same request produces byte-identical output. Errors have stable typed
+codes and bounded details; Java protocol errors include their close code. Partial
+execution errors retain counts and final state. RFC 6455 remains normative: this
+adapter reports Java behavior and does not claim that behavior is correct.
+
+The adapter deliberately owns no sockets, clocks, caches, credentials, files,
+or network policy. The qualification orchestrator supplies the exact runtime
+classpath and enforces sandbox, source, cache, resource, and egress controls.
