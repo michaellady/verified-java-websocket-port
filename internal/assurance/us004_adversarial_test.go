@@ -91,6 +91,115 @@ func TestUS004Adversarial_UpstreamManifestBoundaries(t *testing.T) {
 	}
 }
 
+func TestUS004Adversarial_UpstreamManifestSelfTrust(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		mutate      func(t *testing.T, root string)
+		expected    string
+		disposition vendorprotocol.Disposition
+	}{
+		{
+			name: "file and mutable manifest drift together still fail",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				target := filepath.Join(root, "assurance", "schema", "developer-tool-run.schema.json")
+				drifted := []byte(`{"schema_version":"1.0.0","drifted":true}`)
+				writeRawFile(t, target, drifted)
+				manifest := readUpstreamManifest(t, root)
+				for index := range manifest.Entries {
+					if manifest.Entries[index].TargetPath == "assurance/schema/developer-tool-run.schema.json" {
+						manifest.Entries[index].SHA256 = vendorprotocol.DigestBytes(drifted)
+					}
+				}
+				writeJSONFile(t, filepath.Join(root, upstreamManifestPath), manifest)
+			},
+			expected:    "INVALID_UPSTREAM_MANIFEST",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "removing file and manifest entry still fails",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				target := filepath.Join(root, "assurance", "schema", "developer-tool-run.schema.json")
+				if err := os.Remove(target); err != nil {
+					t.Fatalf("remove vendored schema: %v", err)
+				}
+				manifest := readUpstreamManifest(t, root)
+				filtered := manifest.Entries[:0]
+				for _, entry := range manifest.Entries {
+					if entry.TargetPath != "assurance/schema/developer-tool-run.schema.json" {
+						filtered = append(filtered, entry)
+					}
+				}
+				manifest.Entries = filtered
+				writeJSONFile(t, filepath.Join(root, upstreamManifestPath), manifest)
+			},
+			expected:    "INVALID_UPSTREAM_MANIFEST",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "duplicate target path in manifest",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				manifest := readUpstreamManifest(t, root)
+				manifest.Entries = append(manifest.Entries, manifest.Entries[0])
+				writeJSONFile(t, filepath.Join(root, upstreamManifestPath), manifest)
+			},
+			expected:    "INVALID_UPSTREAM_MANIFEST",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "source path drift in manifest",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				manifest := readUpstreamManifest(t, root)
+				manifest.Entries[0].SourcePath = "tampered.go"
+				writeJSONFile(t, filepath.Join(root, upstreamManifestPath), manifest)
+			},
+			expected:    "INVALID_UPSTREAM_MANIFEST",
+			disposition: vendorprotocol.Block,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			root := copiedAssuranceRoot(t)
+			testCase.mutate(t, root)
+
+			verdict, err := Verify(context.Background(), Request{
+				RootPath:      root,
+				LifecyclePath: lifecyclePathDefault,
+				Mode:          ModeVerify,
+			})
+			if err != nil {
+				t.Fatalf("verify: %v", err)
+			}
+			assertFinding(t, verdict.Findings, testCase.expected, testCase.disposition)
+		})
+	}
+}
+
+func TestUS004Adversarial_EvidenceArtifactBindings(t *testing.T) {
+	t.Parallel()
+
+	root := copiedAssuranceRoot(t)
+	writeRawFile(t, filepath.Join(root, evidenceModelPath), append(mustReadRepoFile(t, evidenceModelPath), '\n'))
+
+	verdict, err := Verify(context.Background(), Request{
+		RootPath:      root,
+		LifecyclePath: lifecyclePathDefault,
+		Mode:          ModeVerify,
+	})
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	assertFinding(t, verdict.Findings, "EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block)
+	assertFinding(t, verdict.Findings, "CHECKPOINT_INVALID", vendorprotocol.Block)
+}
+
 func TestUS004Adversarial_StrictLifecycleJSON(t *testing.T) {
 	t.Parallel()
 
@@ -243,6 +352,7 @@ func TestUS004Adversarial_RootConfinement(t *testing.T) {
 		errorSubstring string
 	}{
 		{name: "absolute path", lifecyclePath: "/tmp/lifecycle.json", errorSubstring: "path must be slash-relative"},
+		{name: "dot slash path", lifecyclePath: "./assurance/lifecycle.json", errorSubstring: "path must be canonical"},
 		{name: "parent path", lifecyclePath: "../assurance/lifecycle.json", errorSubstring: "path escapes root"},
 		{name: "backslash path", lifecyclePath: `assurance\\lifecycle.json`, errorSubstring: "path must be slash-relative"},
 		{name: "redundant slash path", lifecyclePath: "assurance//lifecycle.json", errorSubstring: "path must be canonical"},
@@ -371,6 +481,42 @@ func TestUS004Adversarial_DeveloperToolRuns(t *testing.T) {
 			expected:    "LSP_ASSURANCE_BOUNDARY",
 			disposition: vendorprotocol.Block,
 		},
+		{
+			name: "nested unknown field",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				run := readToolRun(t, root, jdtLSPath)
+				tool := run["tool"].(map[string]any)
+				tool["unexpected"] = true
+				writeJSONFile(t, filepath.Join(root, jdtLSPath), run)
+			},
+			expected:    "INVALID_DEVELOPER_TOOL_RUN",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "invalid episode cache state",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				run := readToolRun(t, root, rustAnalyzerPath)
+				episodes := run["episodes"].([]any)
+				episodes[0].(map[string]any)["cache_state"] = "hot"
+				writeJSONFile(t, filepath.Join(root, rustAnalyzerPath), run)
+			},
+			expected:    "INVALID_DEVELOPER_TOOL_RUN",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "invalid reproduction network",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				run := readToolRun(t, root, glancerPath)
+				reproduction := run["reproduction"].(map[string]any)
+				reproduction["network"] = "ALLOW"
+				writeJSONFile(t, filepath.Join(root, glancerPath), run)
+			},
+			expected:    "INVALID_DEVELOPER_TOOL_RUN",
+			disposition: vendorprotocol.Block,
+		},
 	}
 
 	for _, testCase := range testCases {
@@ -386,6 +532,87 @@ func TestUS004Adversarial_DeveloperToolRuns(t *testing.T) {
 			})
 			if err != nil {
 				t.Fatalf("verify: %v", err)
+			}
+			assertFinding(t, verdict.Findings, testCase.expected, testCase.disposition)
+		})
+	}
+}
+
+func TestUS004Adversarial_FailureRegistryHardening(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		mutate      func(t *testing.T, root string)
+		expected    string
+		disposition vendorprotocol.Disposition
+	}{
+		{
+			name: "schema version mismatch",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				registry := readFailureRegistry(t, root)
+				registry.SchemaVersion = "9.9.9"
+				writeJSONFile(t, filepath.Join(root, failuresPath), registry)
+			},
+			expected:    "INVALID_FAILURE_REGISTRY",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "unexpected code in registry",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				registry := readFailureRegistry(t, root)
+				registry.Entries = append(registry.Entries, failureRegistryEntry{Code: "UNEXPECTED", Disposition: vendorprotocol.Block})
+				writeJSONFile(t, filepath.Join(root, failuresPath), registry)
+			},
+			expected:    "INVALID_FAILURE_REGISTRY",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "duplicate code in registry",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				registry := readFailureRegistry(t, root)
+				registry.Entries = append(registry.Entries, registry.Entries[0])
+				writeJSONFile(t, filepath.Join(root, failuresPath), registry)
+			},
+			expected:    "INVALID_FAILURE_REGISTRY",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "quarantine unavailable retry outside ingest",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				bundle := readLifecycleBundle(t, root, lifecyclePathDefault)
+				bundle = appendFailedAttemptAndFailure(bundle, failedAttemptOptions{
+					StageID:     "verify",
+					AttemptID:   "attempt-verify-2",
+					FailureID:   "failure.attempt-verify-2",
+					Ordinal:     2,
+					ErrorType:   "QUARANTINE_UNAVAILABLE",
+					Disposition: vendorprotocol.Retry,
+				})
+				writeJSONFile(t, filepath.Join(root, lifecyclePathDefault), bundle)
+			},
+			expected:    "INVALID_RETRY_ERROR_TYPE",
+			disposition: vendorprotocol.Block,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			root := copiedAssuranceRoot(t)
+			testCase.mutate(t, root)
+
+			verdict, err := Replay(context.Background(), Request{
+				RootPath:      root,
+				LifecyclePath: lifecyclePathDefault,
+				Mode:          ModeReplay,
+			})
+			if err != nil {
+				t.Fatalf("replay: %v", err)
 			}
 			assertFinding(t, verdict.Findings, testCase.expected, testCase.disposition)
 		})
@@ -422,6 +649,103 @@ func TestUS004Adversarial_PublicContractLeakage(t *testing.T) {
 			assertFinding(t, verdict.Findings, "PROTECTED_PUBLICATION_DISCLOSURE", vendorprotocol.Revoke)
 		})
 	}
+}
+
+func TestUS004Adversarial_PublicBoundaryHardening(t *testing.T) {
+	t.Parallel()
+
+	t.Run("verdict state remains blocked even if lifecycle snapshot state changes", func(t *testing.T) {
+		root := copiedAssuranceRoot(t)
+		bundle := readLifecycleBundle(t, root, lifecyclePathDefault)
+		bundle.Snapshot.PreviousState = "QUALIFIED"
+		bundle.Snapshot.State = "PUBLISHED"
+		writeJSONFile(t, filepath.Join(root, lifecyclePathDefault), bundle)
+
+		verdict, err := Verify(context.Background(), Request{
+			RootPath:      root,
+			LifecyclePath: lifecyclePathDefault,
+			Mode:          ModeVerify,
+		})
+		if err != nil {
+			t.Fatalf("verify: %v", err)
+		}
+		if verdict.State != "BLOCKED" {
+			t.Fatalf("state = %q, want BLOCKED", verdict.State)
+		}
+	})
+
+	testCases := []struct {
+		name        string
+		mutate      func(t *testing.T, root string)
+		expected    string
+		disposition vendorprotocol.Disposition
+	}{
+		{
+			name: "public contract replay command drift",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				contract := readPublicContractMap(t, root)
+				contract["replay_command"] = "go run ./cmd/assurectl replay --root . --lifecycle hacked.json"
+				writeJSONFile(t, filepath.Join(root, publicContractPath), contract)
+			},
+			expected:    "INVALID_PUBLIC_CONTRACT",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "publication requested false does not bypass protected disclosure check",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				bundle := readLifecycleBundle(t, root, lifecyclePathDefault)
+				for index := range bundle.Nodes {
+					if bundle.Nodes[index].ID == "evidence-evolution" {
+						bundle.Nodes[index].Classification = "PRIVATE"
+					}
+				}
+				bundle.Publication.Requested = false
+				writeJSONFile(t, filepath.Join(root, lifecyclePathDefault), bundle)
+			},
+			expected:    "INVALID_PUBLIC_CONTRACT",
+			disposition: vendorprotocol.Block,
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			root := copiedAssuranceRoot(t)
+			testCase.mutate(t, root)
+
+			verdict, err := Verify(context.Background(), Request{
+				RootPath:      root,
+				LifecyclePath: lifecyclePathDefault,
+				Mode:          ModeVerify,
+			})
+			if err != nil {
+				t.Fatalf("verify: %v", err)
+			}
+			assertFinding(t, verdict.Findings, testCase.expected, testCase.disposition)
+		})
+	}
+}
+
+func TestUS004Adversarial_DAGEdgeKindProjection(t *testing.T) {
+	t.Parallel()
+
+	root := copiedAssuranceRoot(t)
+	value := readGenericJSONFile(t, filepath.Join(root, evidenceDAGPath))
+	edges := value["edges"].([]any)
+	edges[0].(map[string]any)["kind"] = "attests"
+	writeJSONFile(t, filepath.Join(root, evidenceDAGPath), value)
+
+	verdict, err := Replay(context.Background(), Request{
+		RootPath:      root,
+		LifecyclePath: lifecyclePathDefault,
+		Mode:          ModeReplay,
+	})
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	assertFinding(t, verdict.Findings, "ROOT_BINDING_MISMATCH", vendorprotocol.Block)
 }
 
 func TestUS004Adversarial_CanonicalVerifyReplayAgreement(t *testing.T) {
@@ -537,6 +861,45 @@ func readPublicContract(t *testing.T, root string) publicContract {
 		t.Fatalf("decode public contract: %v", err)
 	}
 	return contract
+}
+
+func readPublicContractMap(t *testing.T, root string) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(publicContractPath)))
+	if err != nil {
+		t.Fatalf("read public contract: %v", err)
+	}
+	var contract map[string]any
+	if err := vendorprotocol.DecodeStrict(data, &contract); err != nil {
+		t.Fatalf("decode public contract map: %v", err)
+	}
+	return contract
+}
+
+func readFailureRegistry(t *testing.T, root string) failureRegistry {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(failuresPath)))
+	if err != nil {
+		t.Fatalf("read failure registry: %v", err)
+	}
+	var registry failureRegistry
+	if err := vendorprotocol.DecodeStrict(data, &registry); err != nil {
+		t.Fatalf("decode failure registry: %v", err)
+	}
+	return registry
+}
+
+func readGenericJSONFile(t *testing.T, path string) map[string]any {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	var value map[string]any
+	if err := vendorprotocol.DecodeStrict(data, &value); err != nil {
+		t.Fatalf("decode %s: %v", path, err)
+	}
+	return value
 }
 
 func writeJSONFile(t *testing.T, path string, value any) {

@@ -3,13 +3,14 @@ package assurance
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"io/fs"
 	"os"
-	"path/filepath"
+	"path"
 	"sort"
 	"strings"
 	"syscall"
@@ -92,9 +93,16 @@ type publicContract struct {
 	Assurance                string   `json:"assurance"`
 	IndependentReviewClaimed bool     `json:"independent_review_claimed"`
 	ReplayCommand            string   `json:"replay_command"`
+	ReplayTool               string   `json:"replay_tool"`
 	WhyBlocked               string   `json:"why_blocked"`
 	Freshness                string   `json:"freshness"`
 	DeveloperTools           []string `json:"developer_tools"`
+	PublicationRequested     bool     `json:"publication_requested"`
+	PublicEvidence           []struct {
+		ID             string `json:"id"`
+		Classification string `json:"classification"`
+		Reachable      bool   `json:"reachable"`
+	} `json:"public_evidence"`
 }
 
 func Verify(ctx context.Context, request Request) (Verdict, error) {
@@ -160,14 +168,17 @@ func evaluate(ctx context.Context, request Request, expectedMode string) (Verdic
 	}
 
 	validateEvidenceArtifacts(root, add)
-	if checkpointEligible {
+	bindingValid := validateEvidenceNodeBindings(root, bundle, add)
+	if checkpointEligible && bindingValid {
 		validateCheckpoint(root, bundle, policy, add)
+	} else if !bindingValid {
+		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, "checkpoint identity is stale because retained evidence bytes no longer match the lifecycle snapshot binding")
 	}
 	validateIdentifierUniqueness(bundle, add)
 	validateFailureRegistry(root, bundle, add)
 	validateDeveloperToolRuns(root, add)
 	validateEvidenceDAG(root, bundle, add)
-	validatePublicContract(root, add)
+	validatePublicContract(root, bundle, add)
 
 	findings = vendorprotocol.NormalizeFindings(findings)
 	if findings == nil {
@@ -182,12 +193,8 @@ func evaluate(ctx context.Context, request Request, expectedMode string) (Verdic
 		return Verdict{}, err
 	}
 	publicRoot := vendorprotocol.DigestBytes(publicData)
-	state := bundle.Snapshot.State
-	if len(findings) != 0 {
-		state = "BLOCKED"
-	}
 	return Verdict{
-		State:                    state,
+		State:                    "BLOCKED",
 		SnapshotRoot:             snapshotRoot,
 		PublicEvidenceRoot:       publicRoot,
 		Findings:                 findings,
@@ -202,6 +209,7 @@ func childPolicy() vendorprotocol.Policy {
 	policy.Company = "open-source-projects"
 	policy.Project = "verified-java-websocket-port"
 	policy.RequiredAttestationRoles = nil
+	policy.TransientErrorTypes = append(append([]string(nil), policy.TransientErrorTypes...), "QUARANTINE_UNAVAILABLE")
 	policy.ActionRoles = map[string][]string{
 		"COMPLETE_ATTEMPT:ingest":  {"port-implementer"},
 		"COMPLETE_ATTEMPT:verify":  {"port-implementer"},
@@ -215,22 +223,46 @@ func childPolicy() vendorprotocol.Policy {
 func verifyUpstreamManifest(root *projectRoot, add func(string, vendorprotocol.Disposition, string, string)) error {
 	data, err := readRegularFile(root, upstreamManifestPath, vendorprotocol.MaxJSONBytes)
 	if err != nil {
-		return err
+		add("INVALID_UPSTREAM_MANIFEST", vendorprotocol.Block, upstreamManifestPath, err.Error())
+		return nil
 	}
 	var manifest upstreamManifest
 	if err := vendorprotocol.DecodeStrict(data, &manifest); err != nil {
-		return err
+		add("INVALID_UPSTREAM_MANIFEST", vendorprotocol.Block, upstreamManifestPath, err.Error())
+		return nil
 	}
 	if manifest.AcceptedSnapshotRoot != upstreamSnapshotRoot || manifest.AcceptedPublicRoot != upstreamPublicRoot {
 		add("UPSTREAM_ROOT_MISMATCH", vendorprotocol.Block, upstreamManifestPath, "accepted upstream roots do not match the frozen Laboratory Zero pin")
 	}
-	expected := make(map[string]string, len(manifest.Entries))
+	expectedByTarget := make(map[string]upstreamManifestEntry, len(expectedUpstreamEntries))
+	for _, entry := range expectedUpstreamEntries {
+		expectedByTarget[entry.TargetPath] = entry
+	}
+	seenTargets := make(map[string]bool, len(manifest.Entries))
+	if len(manifest.Entries) != len(expectedUpstreamEntries) {
+		add("INVALID_UPSTREAM_MANIFEST", vendorprotocol.Block, upstreamManifestPath, "entry count drifted from the accepted closed set")
+	}
 	for index, entry := range manifest.Entries {
-		if entry.TargetPath == "" || entry.SHA256 == "" {
-			add("INVALID_UPSTREAM_MANIFEST", vendorprotocol.Block, fmt.Sprintf("$.entries[%d]", index), "target path and digest are required")
+		expected, ok := expectedByTarget[entry.TargetPath]
+		switch {
+		case entry.TargetPath == "" || entry.SHA256 == "" || entry.SourcePath == "":
+			add("INVALID_UPSTREAM_MANIFEST", vendorprotocol.Block, fmt.Sprintf("$.entries[%d]", index), "source path, target path, and digest are required")
 			continue
+		case seenTargets[entry.TargetPath]:
+			add("INVALID_UPSTREAM_MANIFEST", vendorprotocol.Block, fmt.Sprintf("$.entries[%d].target_path", index), "manifest target paths must be unique")
+			continue
+		case !ok:
+			add("INVALID_UPSTREAM_MANIFEST", vendorprotocol.Block, fmt.Sprintf("$.entries[%d].target_path", index), "manifest target path is outside the accepted closed set")
+			continue
+		case entry.SourcePath != expected.SourcePath || entry.SHA256 != expected.SHA256:
+			add("INVALID_UPSTREAM_MANIFEST", vendorprotocol.Block, fmt.Sprintf("$.entries[%d]", index), "manifest entry drifted from the accepted source-path and digest anchor")
 		}
-		expected[entry.TargetPath] = entry.SHA256
+		seenTargets[entry.TargetPath] = true
+	}
+	for _, entry := range expectedUpstreamEntries {
+		if !seenTargets[entry.TargetPath] {
+			add("INVALID_UPSTREAM_MANIFEST", vendorprotocol.Block, upstreamManifestPath, "manifest is missing an accepted vendored target")
+		}
 		data, readErr := readRegularFile(root, entry.TargetPath, 8<<20)
 		if readErr != nil {
 			add("MISSING_VENDORED_FILE", vendorprotocol.Block, entry.TargetPath, readErr.Error())
@@ -240,12 +272,72 @@ func verifyUpstreamManifest(root *projectRoot, add func(string, vendorprotocol.D
 			add("VENDORED_FILE_DIGEST_MISMATCH", vendorprotocol.Block, entry.TargetPath, "vendored or copied upstream bytes drifted from the frozen pin")
 		}
 	}
+	closedSet := make(map[string]string, len(expectedUpstreamEntries))
+	for _, entry := range expectedUpstreamEntries {
+		closedSet[entry.TargetPath] = entry.SHA256
+	}
 	for _, prefix := range []string{"third_party/verified-java-to-rust-foundation", "assurance/schema"} {
-		if err := walkClosedSet(root, prefix, expected, add); err != nil {
+		if err := walkClosedSet(root, prefix, closedSet, add); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func validateEvidenceNodeBindings(root *projectRoot, bundle vendorprotocol.Bundle, add func(string, vendorprotocol.Disposition, string, string)) bool {
+	nodeByID := make(map[string]vendorprotocol.Node, len(bundle.Nodes))
+	for _, node := range bundle.Nodes {
+		nodeByID[node.ID] = node
+	}
+	digests := make(map[string]string, len(expectedEvidenceNodes))
+	valid := true
+	for _, expected := range expectedEvidenceNodes {
+		node, ok := nodeByID[expected.ID]
+		if !ok {
+			add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, expected.Path, "lifecycle is missing a retained evidence node")
+			valid = false
+			continue
+		}
+		data, err := readRegularFile(root, expected.Path, 8<<20)
+		if err != nil {
+			add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, expected.Path, err.Error())
+			valid = false
+			continue
+		}
+		decoded, decodeErr := base64.StdEncoding.DecodeString(node.ContentBase64)
+		var binding struct {
+			Path   string `json:"path"`
+			SHA256 string `json:"sha256"`
+		}
+		if decodeErr != nil || vendorprotocol.DecodeStrict(decoded, &binding) != nil || binding.Path != expected.Path || binding.SHA256 != vendorprotocol.DigestBytes(data) || node.Digest != vendorprotocol.DigestBytes(decoded) || node.Classification != expected.Classification {
+			add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, expected.Path, "lifecycle evidence node does not bind the exact retained artifact bytes and classification")
+			valid = false
+		}
+		digests[expected.ID] = vendorprotocol.DigestBytes(data)
+	}
+	if digest, err := snapshotBindingDigest(bundle, digests); err != nil {
+		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, lifecyclePathDefault, err.Error())
+		valid = false
+	} else if bundle.Snapshot.CandidateDigest != digest {
+		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, "$.snapshot.candidate_digest", "snapshot identity drifted from the retained evidence-byte binding")
+		valid = false
+	}
+	return valid
+}
+
+func snapshotBindingDigest(bundle vendorprotocol.Bundle, digests map[string]string) (string, error) {
+	type binding struct {
+		Company       string            `json:"company"`
+		Project       string            `json:"project"`
+		RootNodeID    string            `json:"root_node_id"`
+		EvidenceBytes map[string]string `json:"evidence_bytes"`
+	}
+	return vendorprotocol.Digest(binding{
+		Company:       bundle.Company,
+		Project:       bundle.Project,
+		RootNodeID:    bundle.RootNodeID,
+		EvidenceBytes: digests,
+	})
 }
 
 func walkClosedSet(root *projectRoot, prefix string, expected map[string]string, add func(string, vendorprotocol.Disposition, string, string)) error {
@@ -313,9 +405,49 @@ func validateFailureRegistry(root *projectRoot, bundle vendorprotocol.Bundle, ad
 		add("INVALID_FAILURE_REGISTRY", vendorprotocol.Block, failuresPath, err.Error())
 		return
 	}
+	if registry.SchemaVersion != vendorprotocol.SchemaVersion {
+		add("INVALID_FAILURE_REGISTRY", vendorprotocol.Block, failuresPath, "failure registry schema version drifted from the accepted child schema")
+	}
+	expected := make(map[string]vendorprotocol.Disposition, len(expectedFailureRegistryEntries))
+	expectedRetry := make([]string, 0, 5)
+	for _, entry := range expectedFailureRegistryEntries {
+		expected[entry.Code] = entry.Disposition
+		if entry.Disposition == vendorprotocol.Retry {
+			expectedRetry = append(expectedRetry, entry.Code)
+		}
+	}
 	known := make(map[string]vendorprotocol.Disposition, len(registry.Entries))
-	for _, entry := range registry.Entries {
+	actualRetry := make([]string, 0, len(registry.Entries))
+	for index, entry := range registry.Entries {
+		switch {
+		case entry.Code == "":
+			add("INVALID_FAILURE_REGISTRY", vendorprotocol.Block, fmt.Sprintf("$.entries[%d].code", index), "failure registry codes must be non-empty")
+		case known[entry.Code] != "":
+			add("INVALID_FAILURE_REGISTRY", vendorprotocol.Block, fmt.Sprintf("$.entries[%d].code", index), "failure registry codes must be unique")
+		case expected[entry.Code] == "":
+			add("INVALID_FAILURE_REGISTRY", vendorprotocol.Block, fmt.Sprintf("$.entries[%d].code", index), "failure registry code is outside the accepted closed set")
+		}
 		known[entry.Code] = entry.Disposition
+		if entry.Disposition == vendorprotocol.Retry {
+			actualRetry = append(actualRetry, entry.Code)
+		}
+	}
+	if len(registry.Entries) != len(expectedFailureRegistryEntries) {
+		add("INVALID_FAILURE_REGISTRY", vendorprotocol.Block, failuresPath, "failure registry entry count drifted from the accepted closed set")
+	}
+	for code, disposition := range expected {
+		if known[code] == "" {
+			add("INVALID_FAILURE_REGISTRY", vendorprotocol.Block, failuresPath, "failure registry is missing an accepted code")
+			continue
+		}
+		if known[code] != disposition {
+			add("INVALID_FAILURE_REGISTRY", vendorprotocol.Block, failuresPath, "failure registry disposition drifted from the accepted closed set")
+		}
+	}
+	actualRetryJSON, _ := vendorprotocol.CanonicalJSON(sortedStringsStable(actualRetry))
+	expectedRetryJSON, _ := vendorprotocol.CanonicalJSON(sortedStringsStable(expectedRetry))
+	if !bytes.Equal(actualRetryJSON, expectedRetryJSON) {
+		add("INVALID_FAILURE_REGISTRY", vendorprotocol.Block, failuresPath, "failure registry retry allowlist drifted from the accepted closed set")
 	}
 	for _, disposition := range []vendorprotocol.Disposition{
 		vendorprotocol.Retry, vendorprotocol.DegradeNonAssurance, vendorprotocol.Block,
@@ -334,13 +466,13 @@ func validateFailureRegistry(root *projectRoot, bundle vendorprotocol.Bundle, ad
 		if disposition != failure.Disposition {
 			add("INVALID_FAILURE_BINDING", vendorprotocol.Block, fmt.Sprintf("$.failures[%d].disposition", index), "failure disposition does not match the closed registry")
 		}
-		if failure.Disposition == vendorprotocol.Retry && !retryAllowlist[failure.ErrorType] {
-			add("INVALID_RETRY_ERROR_TYPE", vendorprotocol.Block, fmt.Sprintf("$.failures[%d].error_type", index), "only the retry allowlist may emit RETRY")
+		if failure.Disposition == vendorprotocol.Retry && (!retryAllowlist[failure.ErrorType] || (failure.ErrorType == "QUARANTINE_UNAVAILABLE" && failure.StageID != "ingest")) {
+			add("INVALID_RETRY_ERROR_TYPE", vendorprotocol.Block, fmt.Sprintf("$.failures[%d].error_type", index), "only the retry allowlist may emit RETRY, and QUARANTINE_UNAVAILABLE may retry only during ingest")
 		}
 	}
 	for index, attempt := range bundle.Attempts {
-		if attempt.Disposition == vendorprotocol.Retry && !retryAllowlist[attempt.ErrorType] {
-			add("INVALID_RETRY_ERROR_TYPE", vendorprotocol.Block, fmt.Sprintf("$.attempts[%d].error_type", index), "only the retry allowlist may emit RETRY")
+		if attempt.Disposition == vendorprotocol.Retry && (!retryAllowlist[attempt.ErrorType] || (attempt.ErrorType == "QUARANTINE_UNAVAILABLE" && attempt.StageID != "ingest")) {
+			add("INVALID_RETRY_ERROR_TYPE", vendorprotocol.Block, fmt.Sprintf("$.attempts[%d].error_type", index), "only the retry allowlist may emit RETRY, and QUARANTINE_UNAVAILABLE may retry only during ingest")
 		}
 	}
 }
@@ -365,44 +497,29 @@ func validateIdentifierUniqueness(bundle vendorprotocol.Bundle, add func(string,
 }
 
 func validateDeveloperToolRuns(root *projectRoot, add func(string, vendorprotocol.Disposition, string, string)) {
-	type expectedRun struct {
-		path      string
-		profileID string
-		language  string
-		name      string
-		version   string
-	}
-	expected := []expectedRun{
-		{path: jdtLSPath, profileID: "profile.jdt-ls.java.v1", language: "java", name: "Eclipse JDT Language Server", version: "1.60.0"},
-		{path: rustAnalyzerPath, profileID: "profile.rust-analyzer.baseline.v1", language: "rust", name: "rust-analyzer", version: "2026-08-17.4"},
-		{path: glancerPath, profileID: "profile.glancer.experimental.v1", language: "rust", name: "Rust Glancer", version: "v0.1.1"},
-	}
 	seenProfiles := map[string]bool{}
-	for _, item := range expected {
-		data, err := readRegularFile(root, item.path, 8<<20)
+	for _, item := range expectedDeveloperToolRuns {
+		data, err := readRegularFile(root, item.Path, 8<<20)
 		if err != nil {
-			add("MISSING_DEVELOPER_TOOL_RUN", vendorprotocol.Block, item.path, err.Error())
+			add("MISSING_DEVELOPER_TOOL_RUN", vendorprotocol.Block, item.Path, err.Error())
 			continue
 		}
-		var run map[string]any
+		if err := validateDeveloperToolRunDocument(data, item); err != nil {
+			add("INVALID_DEVELOPER_TOOL_RUN", vendorprotocol.Block, item.Path, err.Error())
+			continue
+		}
+		var run developerToolRunDocument
 		if err := vendorprotocol.DecodeStrict(data, &run); err != nil {
-			add("INVALID_DEVELOPER_TOOL_RUN", vendorprotocol.Block, item.path, err.Error())
+			add("INVALID_DEVELOPER_TOOL_RUN", vendorprotocol.Block, item.Path, err.Error())
 			continue
 		}
-		tool, _ := run["tool"].(map[string]any)
-		claims, claimsOK := run["assurance_claims"].([]any)
-		effects, effectsOK := run["gate_effects"].([]any)
-		if run["schema_version"] != "1.0.0" || run["entity_type"] != "DeveloperToolRun" || run["profile_id"] != item.profileID || run["language"] != item.language || tool["name"] != item.name || tool["version"] != item.version {
-			add("INVALID_DEVELOPER_TOOL_RUN", vendorprotocol.Block, item.path, "developer-tool run does not match the frozen profile identity")
+		if len(run.AssuranceClaims) != 0 || len(run.GateEffects) != 0 {
+			add("LSP_ASSURANCE_BOUNDARY", vendorprotocol.Block, item.Path, "developer-tool evidence must keep assurance claims and gate effects empty")
 		}
-		if !claimsOK || !effectsOK || len(claims) != 0 || len(effects) != 0 {
-			add("LSP_ASSURANCE_BOUNDARY", vendorprotocol.Block, item.path, "developer-tool evidence must keep assurance claims and gate effects empty")
+		if seenProfiles[run.ProfileID] {
+			add("LSP_PROFILE_OVERLAP", vendorprotocol.Block, item.Path, "developer-tool profiles must be mutually exclusive and unique")
 		}
-		profileID, _ := run["profile_id"].(string)
-		if seenProfiles[profileID] {
-			add("LSP_PROFILE_OVERLAP", vendorprotocol.Block, item.path, "developer-tool profiles must be mutually exclusive and unique")
-		}
-		seenProfiles[profileID] = true
+		seenProfiles[run.ProfileID] = true
 	}
 }
 
@@ -419,6 +536,7 @@ func validateEvidenceDAG(root *projectRoot, bundle vendorprotocol.Bundle, add fu
 	type graphEdge struct {
 		From string `json:"from"`
 		To   string `json:"to"`
+		Kind string `json:"kind"`
 	}
 	type projection struct {
 		SchemaVersion string      `json:"schema_version"`
@@ -436,14 +554,17 @@ func validateEvidenceDAG(root *projectRoot, bundle vendorprotocol.Bundle, add fu
 		computed.Nodes = append(computed.Nodes, graphNode{ID: node.ID, Kind: node.Kind})
 	}
 	for _, edge := range bundle.Edges {
-		computed.Edges = append(computed.Edges, graphEdge{From: edge.From, To: edge.To})
+		computed.Edges = append(computed.Edges, graphEdge{From: edge.From, To: edge.To, Kind: edge.Kind})
 	}
 	sort.Slice(computed.Nodes, func(i, j int) bool { return computed.Nodes[i].ID < computed.Nodes[j].ID })
 	sort.Slice(computed.Edges, func(i, j int) bool {
 		if computed.Edges[i].From != computed.Edges[j].From {
 			return computed.Edges[i].From < computed.Edges[j].From
 		}
-		return computed.Edges[i].To < computed.Edges[j].To
+		if computed.Edges[i].To != computed.Edges[j].To {
+			return computed.Edges[i].To < computed.Edges[j].To
+		}
+		return computed.Edges[i].Kind < computed.Edges[j].Kind
 	})
 	expected, err := vendorprotocol.CanonicalJSON(computed)
 	if err != nil {
@@ -475,7 +596,7 @@ func validateEvidenceDAG(root *projectRoot, bundle vendorprotocol.Bundle, add fu
 	}
 }
 
-func validatePublicContract(root *projectRoot, add func(string, vendorprotocol.Disposition, string, string)) {
+func validatePublicContract(root *projectRoot, bundle vendorprotocol.Bundle, add func(string, vendorprotocol.Disposition, string, string)) {
 	data, err := readRegularFile(root, publicContractPath, vendorprotocol.MaxJSONBytes)
 	if err != nil {
 		add("MISSING_PUBLIC_CONTRACT", vendorprotocol.Block, publicContractPath, err.Error())
@@ -486,6 +607,12 @@ func validatePublicContract(root *projectRoot, add func(string, vendorprotocol.D
 		add("INVALID_PUBLIC_CONTRACT", vendorprotocol.Block, publicContractPath, err.Error())
 		return
 	}
+	expected := expectedPublicContract(bundle)
+	left, leftErr := vendorprotocol.CanonicalJSON(value)
+	right, rightErr := vendorprotocol.CanonicalJSON(expected)
+	if leftErr != nil || rightErr != nil || !bytes.Equal(left, right) {
+		add("INVALID_PUBLIC_CONTRACT", vendorprotocol.Block, publicContractPath, "public contract drifted from the exact blocked owner-only public boundary")
+	}
 	if value.Assurance != assuranceCeiling || value.IndependentReviewClaimed {
 		add("INVALID_PUBLIC_CONTRACT", vendorprotocol.Block, publicContractPath, "public contract must disclose the single-owner assurance ceiling")
 	}
@@ -495,6 +622,55 @@ func validatePublicContract(root *projectRoot, add func(string, vendorprotocol.D
 			add("PROTECTED_PUBLICATION_DISCLOSURE", vendorprotocol.Revoke, publicContractPath, "public contract leaked protected or raw diagnostic material")
 			return
 		}
+	}
+}
+
+func expectedPublicContract(bundle vendorprotocol.Bundle) publicContract {
+	adjacency := make(map[string][]string, len(bundle.Edges))
+	for _, edge := range bundle.Edges {
+		adjacency[edge.From] = append(adjacency[edge.From], edge.To)
+	}
+	visited := map[string]bool{bundle.RootNodeID: true}
+	queue := []string{bundle.RootNodeID}
+	for len(queue) != 0 {
+		current := queue[0]
+		queue = queue[1:]
+		for _, next := range adjacency[current] {
+			if !visited[next] {
+				visited[next] = true
+				queue = append(queue, next)
+			}
+		}
+	}
+	publicEvidence := make([]struct {
+		ID             string `json:"id"`
+		Classification string `json:"classification"`
+		Reachable      bool   `json:"reachable"`
+	}, 0, len(expectedEvidenceNodes))
+	nodeByID := make(map[string]vendorprotocol.Node, len(bundle.Nodes))
+	for _, node := range bundle.Nodes {
+		nodeByID[node.ID] = node
+	}
+	for _, item := range expectedEvidenceNodes {
+		node := nodeByID[item.ID]
+		publicEvidence = append(publicEvidence, struct {
+			ID             string `json:"id"`
+			Classification string `json:"classification"`
+			Reachable      bool   `json:"reachable"`
+		}{ID: item.ID, Classification: node.Classification, Reachable: visited[item.ID]})
+	}
+	sort.Slice(publicEvidence, func(i, j int) bool { return publicEvidence[i].ID < publicEvidence[j].ID })
+	return publicContract{
+		State:                    "BLOCKED",
+		Assurance:                assuranceCeiling,
+		IndependentReviewClaimed: false,
+		ReplayCommand:            "go run ./cmd/assurectl replay --root . --lifecycle assurance/lifecycle.json",
+		ReplayTool:               "assurectl",
+		WhyBlocked:               "US-004 instantiates the inherited lifecycle mechanics with synthetic non-claim evidence and no independent attestation.",
+		Freshness:                "FRESH",
+		DeveloperTools:           []string{jdtLSPath, rustAnalyzerPath, glancerPath},
+		PublicationRequested:     false,
+		PublicEvidence:           publicEvidence,
 	}
 }
 
@@ -559,6 +735,14 @@ func readRegularFile(root *projectRoot, name string, limit int64) ([]byte, error
 		return nil, err
 	}
 	defer file.Close()
+	fileInfoBefore, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	fileIdentityBefore, ok := fileIdentityOf(fileInfoBefore)
+	if !ok || beforeIdentity != fileIdentityBefore || beforeInfo.Size() != fileInfoBefore.Size() {
+		return nil, fmt.Errorf("%s changed while being opened", canonical)
+	}
 	data, err := io.ReadAll(io.LimitReader(file, limit+1))
 	if err != nil {
 		return nil, err
@@ -566,7 +750,15 @@ func readRegularFile(root *projectRoot, name string, limit int64) ([]byte, error
 	if int64(len(data)) > limit {
 		return nil, fmt.Errorf("%s exceeds limit", canonical)
 	}
-	afterInfo, err := root.Stat(canonical)
+	fileInfoAfter, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	fileIdentityAfter, ok := fileIdentityOf(fileInfoAfter)
+	if !ok || beforeIdentity != fileIdentityAfter || fileInfoBefore.Size() != fileInfoAfter.Size() {
+		return nil, fmt.Errorf("%s changed while being read", canonical)
+	}
+	afterInfo, err := root.Lstat(canonical)
 	if err != nil {
 		return nil, err
 	}
@@ -581,10 +773,10 @@ func canonicalPath(name string) (string, error) {
 	if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, "\\") {
 		return "", fmt.Errorf("path must be slash-relative")
 	}
-	if strings.Contains(name, "//") {
+	if strings.Contains(name, "//") || strings.HasPrefix(name, "./") || strings.Contains(name, "/./") {
 		return "", fmt.Errorf("path must be canonical")
 	}
-	clean := filepath.ToSlash(filepath.Clean(name))
+	clean := path.Clean(name)
 	if clean == "." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") {
 		return "", fmt.Errorf("path escapes root")
 	}
