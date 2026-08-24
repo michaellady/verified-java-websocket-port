@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "company": "open-source-projects",
+  "project": "verified-java-websocket-port",
+  "laboratory_id": "lab-java-websocket",
+  "policy_version": "foundation-1.0.0",
+  "policy_digest": "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54",
+  "candidate_payload": {
+    "root_algorithm": "sha256 over newline-delimited ordered path=digest records",
+    "root_digest": "sha256:c260d88471986e2e44ad37d8ade93830525d47c954529c612069e4923479aae2",
+    "files": [
+      {"path": "source-pins.json", "sha256": "sha256:247bab625a90997cf915f5fd08a06ade4913f6113ec14c768176feaac4d4425e"},
+      {"path": "toolchain-pins.json", "sha256": "sha256:0f5b3b8418d33d3ede7331199e572b5879719d36d4b5193fac926eb99118c717"},
+      {"path": "sbom.json", "sha256": "sha256:1cd0d3fedf82633c779d2604ca0b1afb58fa76eda6c8eda485a77fe35cc80d32"},
+      {"path": "vulnerability-snapshot.json", "sha256": "sha256:761c5c9f5e750756f260c269db52dca44ea4b1e5c1919fec675f40be384535ab"}
+    ]
+  },
+  "status": "BLOCKED_PENDING_EXTERNAL_ATTESTATION_AND_RISK_DISPOSITION",
+  "publication_requested": false,
+  "publication_count": 0,
+  "protected_access_count": 0,
+  "accepted_object_count": 0,
+  "signed_actions": [],
+  "authoritative_snapshot_projections": [],
+  "required_actions": [
+    {"stage": "acquisition", "role": "method-schema-steward", "requested_sandbox_access": [], "publication_requested": false, "status": "EXISTING_IDENTITY_SIGNATURE_REQUIRED"},
+    {"stage": "quarantine", "role": "port-implementer", "requested_sandbox_access": [], "publication_requested": false, "status": "EXISTING_IDENTITY_SIGNATURE_REQUIRED"},
+    {"stage": "qualification", "role": "port-implementer", "requested_sandbox_access": ["quarantined-source"], "publication_requested": false, "status": "BLOCKED_BY_VULNERABILITY_STATE_AND_EXISTING_IDENTITY_SIGNATURE"},
+    {"stage": "independent-promotion", "role": "release-attestor", "requested_sandbox_access": [], "publication_requested": false, "status": "BLOCKED_BY_VULNERABILITY_STATE_AND_EXISTING_IDENTITY_SIGNATURE"}
+  ],
+  "approval_policy": {
+    "authority_model": "existing-identities-only",
+    "independent_approvals_required": 2,
+    "independent_approvals_present": 0,
+    "roles_mutually_exclusive": ["method-schema-steward", "port-implementer", "oracle-held-out-custodian", "release-attestor"],
+    "nonce_ledger": "PROTECTED_HELD_OUT and absent from this public projection",
+    "role_and_revocation_snapshots": "must be supplied by the protected caller and are absent until real identities act"
+  },
+  "blocking_findings": [
+    {"code": "MISSING_PROMOTION_REQUIREMENT", "path": "$.signed_actions", "message": "No existing-identity cryptographic actions or authoritative protected snapshots have been supplied."},
+    {"code": "VULNERABILITY_STATE_BLOCKED", "path": "$.candidate_payload.files[3]", "message": "The exact mandatory Autobahn image snapshot contains 12 critical and 147 high vulnerability rules."},
+    {"code": "INDEPENDENT_APPROVAL_REQUIRED", "path": "$.approval_policy.independent_approvals_present", "message": "Two independent approvals are required and zero are present."}
+  ],
+  "safe_next_action": "An existing method-schema steward and port implementer may review the immutable candidate and sign acquisition/qualification actions. A distinct existing release attestor must explicitly disposition the retained vulnerability snapshot and sign independent promotion. No signature may be generated or role assigned by candidate code.",
+  "claim": "This file is a fail-closed request and blocker receipt, not a promotion receipt."
+}

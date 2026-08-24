@@ -2,7 +2,11 @@ package intake
 
 import (
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/hex"
+	"errors"
+	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"sync"
@@ -31,6 +35,40 @@ func (l *MemoryLedger) Consume(actorID, nonce string) bool {
 	}
 	l.used[key] = struct{}{}
 	return true
+}
+
+// FileLedger is the protected caller's durable nonce-consumption primitive.
+// The filename is a hash of the signed actor/nonce tuple, so candidate text
+// cannot escape the ledger directory. O_EXCL makes concurrent reuse fail.
+type FileLedger struct {
+	Directory string
+}
+
+func (l FileLedger) Consume(actorID, nonce string) bool {
+	if l.Directory == "" || actorID == "" || !noncePattern.MatchString(nonce) {
+		return false
+	}
+	if err := os.MkdirAll(l.Directory, 0o700); err != nil {
+		return false
+	}
+	sum := sha256.Sum256([]byte(actorID + "\x00" + nonce))
+	name := hex.EncodeToString(sum[:]) + ".consumed"
+	file, err := os.OpenFile(filepath.Join(l.Directory, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return false
+	}
+	if err != nil {
+		return false
+	}
+	if _, err := file.WriteString(DigestBytes(CanonicalAction(Action{ActorID: actorID, Nonce: nonce})) + "\n"); err != nil {
+		_ = file.Close()
+		return false
+	}
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
+		return false
+	}
+	return file.Close() == nil
 }
 
 func ValidateRoleStage(stage, role string, sandbox []string, publication PublicationIntent) error {

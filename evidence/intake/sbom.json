@@ -1,0 +1,93 @@
+{
+  "bomFormat": "CycloneDX-derived-public-projection",
+  "specVersion": "1.4",
+  "schema_version": "1.0.0",
+  "company": "open-source-projects",
+  "project": "verified-java-websocket-port",
+  "laboratory_id": "lab-java-websocket",
+  "generated_at": "2026-08-24T12:26:43Z",
+  "classification": "PUBLIC_DERIVED",
+  "scanner": {
+    "name": "docker-sbom-cli-plugin",
+    "version": "0.6.0",
+    "build": "741c56e0db8c65d853f18e0a9b23287d33b30e05",
+    "binary_sha256": "sha256:78b3409b06b3e608bb7943de32b3f3a4ebf4d822ec3d95b7fe3cd4e73df3b841",
+    "raw_cyclonedx_sha256": "sha256:41482069482e72668e00a27ec00626ef132cd3f64855479c0630b7b3e6dd61b9",
+    "raw_cyclonedx_bytes": 1536551,
+    "raw_gzip_sha256": "sha256:84a765d4125fd61dd934c96caeabbb4a4e6d6c5e240ea79c8fcb7ec7f7d5209c",
+    "raw_gzip_bytes": 54479,
+    "internal_evidence_path": "companies/open-source-projects/projects/verified-java-websocket-port/research/evidence/us001/autobahn-sbom.cdx.json.gz",
+    "replay": "docker sbom exact Autobahn image digest with --platform linux/amd64 --layers all --format cyclonedx-json; random serial/timestamp fields are not identity"
+  },
+  "components": [
+    {
+      "bom-ref": "component-openjdk-17.0.19-homebrew",
+      "type": "application",
+      "name": "Homebrew OpenJDK",
+      "version": "17.0.19+0",
+      "purl": "pkg:generic/homebrew-openjdk@17.0.19?arch=arm64&os=macos",
+      "hashes": ["sha256:6d51e51e754dc75437c5c552eea568ec2f166e39fc3faa256e668083a8620c17", "sha256:7db0dd5c0c4dc931244875d0723783a32cc7912922e6aaac1dbb744bf8ae837f", "sha256:a7905f0d4944e3aee8aa20673f199a688b815545f930ee537b3d28a578ae2861"],
+      "licenses": ["GPL-2.0-only WITH Classpath-exception-2.0"]
+    },
+    {
+      "bom-ref": "component-apache-maven-3.9.11",
+      "type": "application",
+      "name": "Apache Maven",
+      "version": "3.9.11",
+      "purl": "pkg:maven/org.apache.maven/maven-core@3.9.11",
+      "hashes": ["sha256:4b7195b6a4f5c81af4c0212677a32ee8143643401bc6e1e8412e6b06ea82beac", "sha256:93d3c0523dda6c86c6620d9e692e7df39d0e2e4e4cd860061a8c0d274c2ad185", "sha256:1ad3292cd563381e3fd632f3fded1988f9e9b2be7a9f3db63ff4c4cedba13fa5"],
+      "licenses": ["Apache-2.0"]
+    },
+    {
+      "bom-ref": "component-rust-1.95.0-aarch64-apple-darwin",
+      "type": "application",
+      "name": "Rust toolchain",
+      "version": "1.95.0",
+      "purl": "pkg:generic/rust-toolchain@1.95.0?arch=aarch64&os=macos",
+      "hashes": ["sha256:821ff14e4c4a1cbe1e8915f35aff0a3fbbdf8d293ad48ab8f31e3b0440c581f9", "sha256:149e85a285b6eba58eb6c8bdf7deb1b93763890598e62cb635a712e3a8454f04", "sha256:6c2ffed8e1ac9cf4dc9e80f282a869a6b237a153e7c55cca039d33de29d80aaf", "sha256:9b30089b0f767cb91b2190ffec55a9beeb2a21a1405d8da0f664d7e09d08e6d8", "sha256:67b09138c8db96afc4bbfc69ea771ac9a091fd777698acb43f6dfd9fb7dea363"],
+      "licenses": ["Apache-2.0", "MIT"]
+    },
+    {
+      "bom-ref": "component-eclipse-jdt-ls-1.60.0",
+      "type": "application",
+      "name": "Eclipse JDT Language Server",
+      "version": "1.60.0-202606262232",
+      "purl": "pkg:generic/eclipse-jdt-ls@1.60.0",
+      "hashes": ["sha256:e94c303d8198f977930803582738771fd18c52c5492878410bf222b1aa81ef1d", "sha256:89007de5f1c1b600af7d6985665061b515f8678738a02c57098f0b3eece6e02e", "sha256:e83035adc685b4519f2d8a8d42fe8651ce7ea4f4daf396f47ec453b5bff07be5"],
+      "licenses": ["EPL-2.0"]
+    },
+    {
+      "bom-ref": "component-rust-analyzer-2026-08-17.4",
+      "type": "application",
+      "name": "rust-analyzer",
+      "version": "2026-08-17.4",
+      "purl": "pkg:generic/rust-analyzer@2026-08-17.4",
+      "hashes": ["sha256:ece932daf2f077be87bf745d2eb0a62cbc550f4b1e2e31ca76dfafdd0cc599b3", "sha256:5142e0d6d0a48bc8ba0638125eaa68296defba7d32628362175eff967d12e145"],
+      "licenses": ["Apache-2.0", "MIT"]
+    },
+    {
+      "bom-ref": "component-rust-glancer-0.1.1",
+      "type": "application",
+      "name": "Rust Glancer",
+      "version": "0.1.1",
+      "purl": "pkg:generic/rust-glancer@0.1.1",
+      "hashes": ["sha256:dac95f6a2ad7cef36c552fd14eb5cf475a6eb3093f4589ecc65aaa841a0339a3", "sha256:bf45ccc62056fcc71817604b0a608908554f4483a9ef4a5b6997d52be4a617f6"],
+      "licenses": ["Apache-2.0", "MIT"]
+    },
+    {
+      "bom-ref": "component-autobahn-image-25.10.1-linux-amd64",
+      "type": "container",
+      "name": "docker.io/crossbario/autobahn-testsuite",
+      "version": "25.10.1",
+      "purl": "pkg:oci/autobahn-testsuite@sha256%3A519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074?repository_url=docker.io/crossbario/autobahn-testsuite",
+      "hashes": ["sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074", "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f"],
+      "licenses": ["Apache-2.0", "460 scanner-emitted package license records retained in internal raw SBOM"],
+      "scanner_component_count": 460
+    }
+  ],
+  "dependencies": [
+    {"ref": "component-apache-maven-3.9.11", "dependsOn": ["component-openjdk-17.0.19-homebrew"]},
+    {"ref": "component-eclipse-jdt-ls-1.60.0", "dependsOn": ["component-openjdk-17.0.19-homebrew"]},
+    {"ref": "component-rust-analyzer-2026-08-17.4", "dependsOn": ["component-rust-1.95.0-aarch64-apple-darwin"]}
+  ]
+}

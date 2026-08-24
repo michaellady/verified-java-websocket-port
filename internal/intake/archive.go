@@ -2,6 +2,7 @@ package intake
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bufio"
 	"bytes"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 
 type ArchivePolicy struct {
 	DeclaredExecutables map[string]bool
+	DeclaredNested      map[string]string
 	MaxEntries          int
 	MaxFileBytes        int64
 	MaxTotalBytes       int64
@@ -74,7 +76,7 @@ func InspectTar(reader io.Reader, policy ArchivePolicy) ([]ArchiveEntry, error) 
 		limited := io.LimitReader(tarReader, header.Size+1)
 		buffered := bufio.NewReader(limited)
 		prefix, _ := buffered.Peek(512)
-		if nestedArchive(prefix) {
+		if nestedArchive(prefix) && policy.DeclaredNested[clean] == "" {
 			return nil, deny("NESTED_ARCHIVE_DENIED", clean, "nested archive content is not allowed in this transport")
 		}
 		data, err := io.ReadAll(buffered)
@@ -83,6 +85,74 @@ func InspectTar(reader io.Reader, policy ArchivePolicy) ([]ArchiveEntry, error) 
 		}
 		total += header.Size
 		entries = append(entries, ArchiveEntry{Path: clean, Size: header.Size, Digest: DigestBytes(data)})
+	}
+	return entries, nil
+}
+
+// InspectZip validates ZIP/JAR/VSIX metadata and streams every entry through
+// strict expansion bounds. It never extracts candidate paths to the host.
+func InspectZip(reader io.ReaderAt, compressedSize int64, policy ArchivePolicy) ([]ArchiveEntry, error) {
+	if compressedSize <= 0 || policy.MaxEntries <= 0 || policy.MaxFileBytes <= 0 || policy.MaxTotalBytes <= 0 || policy.MaxDepth <= 0 {
+		return nil, deny("INVALID_ARCHIVE_POLICY", "$", "all archive bounds must be positive")
+	}
+	archive, err := zip.NewReader(reader, compressedSize)
+	if err != nil {
+		return nil, deny("INVALID_ARCHIVE", "$", err.Error())
+	}
+	if len(archive.File) > policy.MaxEntries {
+		return nil, deny("ARCHIVE_LIMIT_EXCEEDED", "$", "archive entry count exceeds policy")
+	}
+	seen := make(map[string]string)
+	entries := make([]ArchiveEntry, 0, len(archive.File))
+	var total int64
+	for _, file := range archive.File {
+		clean, err := validateArchivePath(strings.TrimSuffix(file.Name, "/"), policy.MaxDepth)
+		if file.FileInfo().IsDir() && err == nil {
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		mode := file.Mode()
+		if !mode.IsRegular() {
+			return nil, deny("UNSAFE_ARCHIVE_ENTRY", clean, "links and special files are forbidden")
+		}
+		key, err := normalizationKey(clean)
+		if err != nil {
+			return nil, err
+		}
+		if prior, exists := seen[key]; exists {
+			if prior == clean {
+				return nil, deny("DUPLICATE_ARCHIVE_ENTRY", clean, "duplicate archive path")
+			}
+			return nil, deny("NORMALIZATION_COLLISION", clean, "path collides with "+prior)
+		}
+		seen[key] = clean
+		uncompressed := int64(file.UncompressedSize64)
+		compressed := int64(file.CompressedSize64)
+		if uncompressed < 0 || uncompressed > policy.MaxFileBytes || total > policy.MaxTotalBytes-uncompressed {
+			return nil, deny("ARCHIVE_LIMIT_EXCEEDED", clean, "archive size bound exceeded")
+		}
+		if compressed == 0 && uncompressed > 0 || compressed > 0 && uncompressed/compressed > 100 {
+			return nil, deny("ARCHIVE_LIMIT_EXCEEDED", clean, "archive expansion ratio exceeds 100:1")
+		}
+		if mode&0o111 != 0 && !policy.DeclaredExecutables[clean] {
+			return nil, deny("UNDECLARED_EXECUTABLE", clean, "executable mode was not declared")
+		}
+		stream, err := file.Open()
+		if err != nil {
+			return nil, deny("INVALID_ARCHIVE", clean, err.Error())
+		}
+		data, readErr := io.ReadAll(io.LimitReader(stream, policy.MaxFileBytes+1))
+		closeErr := stream.Close()
+		if readErr != nil || closeErr != nil || int64(len(data)) != uncompressed {
+			return nil, deny("INVALID_ARCHIVE", clean, "entry bytes do not match declared size")
+		}
+		if nestedArchive(data) && policy.DeclaredNested[clean] == "" {
+			return nil, deny("NESTED_ARCHIVE_DENIED", clean, "undeclared nested archive content is forbidden")
+		}
+		total += uncompressed
+		entries = append(entries, ArchiveEntry{Path: clean, Size: uncompressed, Digest: DigestBytes(data)})
 	}
 	return entries, nil
 }

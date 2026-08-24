@@ -1,0 +1,264 @@
+{
+  "schema_version": "1.0.0",
+  "company": "open-source-projects",
+  "project": "verified-java-websocket-port",
+  "laboratory_id": "lab-java-websocket",
+  "catalog_id": "java-websocket-us001-inputs-v1",
+  "acquired_at": "2026-08-24T12:26:43Z",
+  "acquisition_mode": "downloaded-or-content-store-acquired, digest-verified, static-inspection-only",
+  "publication_requested": false,
+  "default_classification": "QUARANTINED",
+  "lifecycle": {
+    "expires_at": "2026-09-23T12:26:43Z",
+    "rotation": "reacquire every byte and refresh vulnerability evidence before expiration or any upstream/revocation signal",
+    "revocation": "fail closed on artifact, tool, license, policy, repository, role, identity, or vulnerability-state revocation"
+  },
+  "repository": {
+    "owner": "michaellady",
+    "name": "verified-java-websocket-port",
+    "https_url": "https://github.com/michaellady/verified-java-websocket-port",
+    "binding_commit": "156b459a1d0cc8d9bc4e624ddbd7a1c7bc9ded62"
+  },
+  "artifacts": [
+    {
+      "id": "java-websocket-source-archive",
+      "kind": "source-archive",
+      "immutable_url": "https://github.com/TooTallNate/Java-WebSocket/archive/da3cf2a777aed862f2f5b5cf060cae7969958667.tar.gz",
+      "sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+      "byte_size": 190008,
+      "license": "MIT:java-websocket-license",
+      "provenance": "git commit da3cf2a777aed862f2f5b5cf060cae7969958667 tree 30c108fd7b68663f645ee9cb8e3daaf4a39235ea tag v1.6.0",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "java-websocket-license",
+      "kind": "license",
+      "immutable_url": "https://raw.githubusercontent.com/TooTallNate/Java-WebSocket/da3cf2a777aed862f2f5b5cf060cae7969958667/LICENSE",
+      "sha256": "sha256:15101a7cbdaa7f1c161424b760e907e7832e4a1e7f05d03373ca91fbffdb95ee",
+      "byte_size": 1082,
+      "license": "MIT",
+      "provenance": "Java-WebSocket commit da3cf2a777aed862f2f5b5cf060cae7969958667 LICENSE",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "java-websocket-source-pom",
+      "kind": "dependency-manifest",
+      "immutable_url": "https://raw.githubusercontent.com/TooTallNate/Java-WebSocket/da3cf2a777aed862f2f5b5cf060cae7969958667/pom.xml",
+      "sha256": "sha256:56a83e3452869e9c8e02ef0650fec57148a68820c8a815ab99d9774d5b9dbce9",
+      "byte_size": 13425,
+      "license": "MIT",
+      "provenance": "Java-WebSocket commit da3cf2a777aed862f2f5b5cf060cae7969958667 pom.xml",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "java-websocket-runtime-jar",
+      "kind": "java-archive",
+      "immutable_url": "https://repo1.maven.org/maven2/org/java-websocket/Java-WebSocket/1.6.0/Java-WebSocket-1.6.0.jar",
+      "sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+      "byte_size": 140686,
+      "license": "MIT:java-websocket-license",
+      "provenance": "Maven Central org.java-websocket:Java-WebSocket:1.6.0",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "java-websocket-runtime-pom",
+      "kind": "dependency-manifest",
+      "immutable_url": "https://repo1.maven.org/maven2/org/java-websocket/Java-WebSocket/1.6.0/Java-WebSocket-1.6.0.pom",
+      "sha256": "sha256:a8e84d553c34d793e2ea7e4a54b073f44ddb0bb442f4dd6fad0cecd755d1ceac",
+      "byte_size": 13737,
+      "license": "MIT",
+      "provenance": "Maven Central org.java-websocket:Java-WebSocket:1.6.0 POM",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "rfc6455-text",
+      "kind": "normative-standard",
+      "immutable_url": "https://www.rfc-editor.org/rfc/rfc6455.txt",
+      "sha256": "sha256:765775326aee0ecca9b04bde3fd1f52932d498e33e34e428bd61b8a24da0fa3b",
+      "byte_size": 162067,
+      "license": "IETF-Trust",
+      "provenance": "RFC Editor canonical RFC 6455 text",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "autobahn-source-archive",
+      "kind": "source-archive",
+      "immutable_url": "https://github.com/crossbario/autobahn-testsuite/archive/6ed6f439dc7ed0d7432fe2cf7481b110905ecc5c.tar.gz",
+      "sha256": "sha256:c17e0e22b9ca0f6ebd415bb14dc60e7fd7ea57b50fbc4ba12892dd454b98e66b",
+      "byte_size": 1325014,
+      "license": "Apache-2.0:autobahn-license",
+      "provenance": "annotated tag object 9be4133c639cb000e0a486df9f8722f7dfe92453 commit 6ed6f439dc7ed0d7432fe2cf7481b110905ecc5c tree 7ac651d1a9974a6944bb92947757e5e713d803cb",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "autobahn-license",
+      "kind": "license",
+      "immutable_url": "https://raw.githubusercontent.com/crossbario/autobahn-testsuite/6ed6f439dc7ed0d7432fe2cf7481b110905ecc5c/LICENSE",
+      "sha256": "sha256:0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "byte_size": 10174,
+      "license": "Apache-2.0",
+      "provenance": "Autobahn commit 6ed6f439dc7ed0d7432fe2cf7481b110905ecc5c LICENSE",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "autobahn-case-registry",
+      "kind": "suite-registry",
+      "immutable_url": "https://raw.githubusercontent.com/crossbario/autobahn-testsuite/6ed6f439dc7ed0d7432fe2cf7481b110905ecc5c/autobahntestsuite/autobahntestsuite/case/__init__.py",
+      "sha256": "sha256:12ce097739b14751daefa1fd1ee4125ca1b95584759100563c00cf796eac7cb4",
+      "byte_size": 10072,
+      "license": "Apache-2.0:autobahn-license",
+      "provenance": "Autobahn commit 6ed6f439dc7ed0d7432fe2cf7481b110905ecc5c case registry",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "autobahn-linux-amd64-image",
+      "kind": "oci-image",
+      "immutable_url": "docker://docker.io/crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+      "sha256": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+      "byte_size": 388892885,
+      "license": "Apache-2.0:autobahn-license plus component licenses in sbom.json",
+      "provenance": "linux/amd64 OCI manifest; config sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f; source label 6ed6f43",
+      "replay": "docker pull --platform linux/amd64 immutable_url; never run during intake"
+    },
+    {
+      "id": "openjdk-17.0.19-homebrew-bottle",
+      "kind": "toolchain-distribution",
+      "immutable_url": "https://ghcr.io/v2/homebrew/core/openjdk/17/blobs/sha256:6d51e51e754dc75437c5c552eea568ec2f166e39fc3faa256e668083a8620c17",
+      "sha256": "sha256:6d51e51e754dc75437c5c552eea568ec2f166e39fc3faa256e668083a8620c17",
+      "byte_size": 186238433,
+      "license": "GPL-2.0-only WITH Classpath-exception-2.0",
+      "provenance": "Homebrew openjdk@17 17.0.19 arm64_tahoe bottle, OCI manifest sha256:59ae24177e22b95394a589312862710c02040964523785b336bd34fb58c7dd45",
+      "replay": "registry blob GET with Homebrew/GHCR public-token flow then require exact sha256"
+    },
+    {
+      "id": "apache-maven-3.9.11",
+      "kind": "toolchain-distribution",
+      "immutable_url": "https://archive.apache.org/dist/maven/maven-3/3.9.11/binaries/apache-maven-3.9.11-bin.tar.gz",
+      "sha256": "sha256:4b7195b6a4f5c81af4c0212677a32ee8143643401bc6e1e8412e6b06ea82beac",
+      "sha512": "bcfe4fe305c962ace56ac7b5fc7a08b87d5abd8b7e89027ab251069faebee516b0ded8961445d6d91ec1985dfe30f8153268843c89aa392733d1a3ec956c9978",
+      "byte_size": 9160848,
+      "license": "Apache-2.0",
+      "provenance": "Apache Maven archive distribution 3.9.11; published SHA-512 and independently observed SHA-256",
+      "replay": "HTTP GET immutable_url then require both exact digests"
+    },
+    {
+      "id": "rustc-1.95.0-aarch64-apple-darwin",
+      "kind": "toolchain-distribution",
+      "immutable_url": "https://static.rust-lang.org/dist/2026-04-16/rustc-1.95.0-aarch64-apple-darwin.tar.xz",
+      "sha256": "sha256:149e85a285b6eba58eb6c8bdf7deb1b93763890598e62cb635a712e3a8454f04",
+      "byte_size": 67652240,
+      "license": "Apache-2.0 OR MIT",
+      "provenance": "rustc 1.95.0 commit 59807616e1fa2540724bfbac14d7976d7e4a3860; LLVM 22.1.2",
+      "replay": "HTTP GET immutable_url then verify against dated Rust channel manifest"
+    },
+    {
+      "id": "cargo-1.95.0-aarch64-apple-darwin",
+      "kind": "toolchain-distribution",
+      "immutable_url": "https://static.rust-lang.org/dist/2026-04-16/cargo-1.95.0-aarch64-apple-darwin.tar.xz",
+      "sha256": "sha256:6c2ffed8e1ac9cf4dc9e80f282a869a6b237a153e7c55cca039d33de29d80aaf",
+      "byte_size": 8731256,
+      "license": "Apache-2.0 OR MIT",
+      "provenance": "cargo 1.95.0 commit f2d3ce0bd 2026-03-21",
+      "replay": "HTTP GET immutable_url then verify against dated Rust channel manifest"
+    },
+    {
+      "id": "rust-std-1.95.0-aarch64-apple-darwin",
+      "kind": "toolchain-component",
+      "immutable_url": "https://static.rust-lang.org/dist/2026-04-16/rust-std-1.95.0-aarch64-apple-darwin.tar.xz",
+      "sha256": "sha256:9b30089b0f767cb91b2190ffec55a9beeb2a21a1405d8da0f664d7e09d08e6d8",
+      "byte_size": 27317176,
+      "license": "Apache-2.0 OR MIT",
+      "provenance": "Rust 1.95.0 dated distribution standard library",
+      "replay": "HTTP GET immutable_url then verify against dated Rust channel manifest"
+    },
+    {
+      "id": "rust-src-1.95.0",
+      "kind": "toolchain-component",
+      "immutable_url": "https://static.rust-lang.org/dist/2026-04-16/rust-src-1.95.0.tar.xz",
+      "sha256": "sha256:67b09138c8db96afc4bbfc69ea771ac9a091fd777698acb43f6dfd9fb7dea363",
+      "byte_size": 3827368,
+      "license": "Apache-2.0 OR MIT",
+      "provenance": "Rust 1.95.0 dated distribution source component",
+      "replay": "HTTP GET immutable_url then verify against dated Rust channel manifest"
+    },
+    {
+      "id": "rust-channel-1.95.0",
+      "kind": "dependency-lock-manifest",
+      "immutable_url": "https://static.rust-lang.org/dist/2026-04-16/channel-rust-1.95.0.toml",
+      "sha256": "sha256:821ff14e4c4a1cbe1e8915f35aff0a3fbbdf8d293ad48ab8f31e3b0440c581f9",
+      "byte_size": 848342,
+      "license": "Apache-2.0 OR MIT",
+      "provenance": "dated Rust 1.95.0 channel manifest",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "eclipse-jdt-ls-1.60.0",
+      "kind": "developer-tool-distribution",
+      "immutable_url": "https://download.eclipse.org/jdtls/milestones/1.60.0/jdt-language-server-1.60.0-202606262232.tar.gz",
+      "sha256": "sha256:e94c303d8198f977930803582738771fd18c52c5492878410bf222b1aa81ef1d",
+      "byte_size": 50925681,
+      "license": "EPL-2.0 plus component licenses",
+      "provenance": "Eclipse JDT LS milestone 1.60.0 build 202606262232",
+      "replay": "HTTP GET immutable_url then require exact sha256; mandatory non-assurance tool"
+    },
+    {
+      "id": "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
+      "kind": "developer-tool-distribution",
+      "immutable_url": "https://github.com/rust-lang/rust-analyzer/releases/download/2026-08-17.4/rust-analyzer-aarch64-apple-darwin.gz",
+      "asset_api_url": "https://api.github.com/repos/rust-lang/rust-analyzer/releases/assets/518115984",
+      "sha256": "sha256:ece932daf2f077be87bf745d2eb0a62cbc550f4b1e2e31ca76dfafdd0cc599b3",
+      "byte_size": 13829387,
+      "license": "Apache-2.0 OR MIT",
+      "provenance": "rust-analyzer 2026-08-17.4 commit bb3bbbd9e4; GitHub asset 518115984",
+      "replay": "HTTP GET immutable_url or asset_api_url with octet-stream accept then require exact sha256; mandatory non-assurance tool"
+    },
+    {
+      "id": "rust-glancer-0.1.1-darwin-arm64",
+      "kind": "developer-tool-distribution",
+      "immutable_url": "https://github.com/rust-glancer/rust-glancer/releases/download/v0.1.1/rust-glancer-0.1.1-darwin-arm64.vsix",
+      "asset_api_url": "https://api.github.com/repos/rust-glancer/rust-glancer/releases/assets/522432616",
+      "sha256": "sha256:dac95f6a2ad7cef36c552fd14eb5cf475a6eb3093f4589ecc65aaa841a0339a3",
+      "byte_size": 9576452,
+      "license": "Apache-2.0 OR MIT",
+      "provenance": "rust-glancer v0.1.1 commit 9502e2a6044bd95731c4de7467b46bd7859af8ac; GitHub asset 522432616",
+      "replay": "HTTP GET immutable_url or asset_api_url with octet-stream accept then require exact sha256; bounded non-assurance trial only"
+    },
+    {
+      "id": "frozen-laboratory-template",
+      "kind": "policy-contract",
+      "immutable_url": "https://raw.githubusercontent.com/michaellady/verified-java-websocket-port/156b459a1d0cc8d9bc4e624ddbd7a1c7bc9ded62/contracts/laboratory-template.json",
+      "sha256": "sha256:eb8afd7c9089456c08515b3b43182a57545ef50f40b1953944f85acdae308599",
+      "byte_size": 1000,
+      "license": "Apache-2.0 repository license",
+      "provenance": "exact parent template bytes imported before evidence at repository commit 156b459a1d0cc8d9bc4e624ddbd7a1c7bc9ded62",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "toolchain-promotion-policy",
+      "kind": "policy-contract",
+      "immutable_url": "https://raw.githubusercontent.com/michaellady/verified-java-websocket-port/156b459a1d0cc8d9bc4e624ddbd7a1c7bc9ded62/contracts/toolchain-promotion.json",
+      "sha256": "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54",
+      "byte_size": 4947,
+      "license": "Apache-2.0 repository license",
+      "provenance": "exact parent policy bytes imported before evidence at repository commit 156b459a1d0cc8d9bc4e624ddbd7a1c7bc9ded62",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    },
+    {
+      "id": "intake-bundle-schema-1.0.0",
+      "kind": "schema",
+      "immutable_url": "https://raw.githubusercontent.com/michaellady/verified-java-websocket-port/156b459a1d0cc8d9bc4e624ddbd7a1c7bc9ded62/schemas/intake-bundle-1.0.0.schema.json",
+      "sha256": "sha256:24093e9dc70c64690ac551282ba478d3ca9fe464e22f6ade9f120b5b26b68ff9",
+      "byte_size": 4357,
+      "license": "Apache-2.0 repository license",
+      "provenance": "child intake schema at repository commit 156b459a1d0cc8d9bc4e624ddbd7a1c7bc9ded62",
+      "replay": "HTTP GET immutable_url then require exact sha256"
+    }
+  ],
+  "deferred_platform_inputs": [
+    {
+      "platform": "x86_64-unknown-linux-gnu",
+      "status": "NOT_YET_AN_INPUT",
+      "reason": "Child US-008 must bind the external Linux host before Linux-native Java/Rust compiler bytes exist; this catalog does not claim them promoted."
+    }
+  ]
+}

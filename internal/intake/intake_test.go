@@ -2,10 +2,14 @@ package intake
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
+	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 )
@@ -144,6 +148,58 @@ func TestArchiveInspectionRejectsNormalizationCollision(t *testing.T) {
 	assertCode(t, err, "NORMALIZATION_COLLISION")
 }
 
+func TestZipInspectionRejectsBombAndUnsafePaths(t *testing.T) {
+	t.Parallel()
+	var buffer bytes.Buffer
+	writer := zip.NewWriter(&buffer)
+	header := &zip.FileHeader{Name: "large.txt", Method: zip.Deflate}
+	entry, err := writer.CreateHeader(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write(bytes.Repeat([]byte("a"), 1<<20)); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	_, err = InspectZip(bytes.NewReader(buffer.Bytes()), int64(buffer.Len()), ArchivePolicy{MaxEntries: 4, MaxFileBytes: 2 << 20, MaxTotalBytes: 2 << 20, MaxDepth: 4})
+	assertCode(t, err, "ARCHIVE_LIMIT_EXCEEDED")
+}
+
+func TestFileLedgerConsumesNonceOnceUnderConcurrency(t *testing.T) {
+	t.Parallel()
+	ledger := FileLedger{Directory: filepath.Join(t.TempDir(), "protected-ledger")}
+	const callers = 32
+	results := make(chan bool, callers)
+	var group sync.WaitGroup
+	for range callers {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			results <- ledger.Consume("github:existing-actor", "nonce-concurrent-0000000001")
+		}()
+	}
+	group.Wait()
+	close(results)
+	winners := 0
+	for result := range results {
+		if result {
+			winners++
+		}
+	}
+	if winners != 1 {
+		t.Fatalf("got %d successful nonce consumers, want 1", winners)
+	}
+	entries, err := os.ReadDir(ledger.Directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("got %d ledger records, want 1", len(entries))
+	}
+}
+
 func TestPromoteBatchIsAtomicAndIdempotent(t *testing.T) {
 	t.Parallel()
 	store := NewMemoryStore()
@@ -166,6 +222,41 @@ func TestPromoteBatchIsAtomicAndIdempotent(t *testing.T) {
 	}
 }
 
+func TestDurablePromotionIsAtomicAndIdempotent(t *testing.T) {
+	t.Parallel()
+	base := filepath.Join(t.TempDir(), "protected-promotion-store")
+	objects := []Object{{ID: "artifact-a", Digest: DigestBytes([]byte("a")), Bytes: []byte("a")}, {ID: "artifact-b", Digest: DigestBytes([]byte("b")), Bytes: []byte("b")}}
+	root, err := PromoteDirectory(base, objects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := PromoteDirectory(base, objects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replayed != root {
+		t.Fatalf("idempotent root changed: %s != %s", replayed, root)
+	}
+	accepted, err := os.ReadDir(filepath.Join(base, "accepted"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accepted) != 1 {
+		t.Fatalf("got %d accepted batches, want 1", len(accepted))
+	}
+	bad := append([]Object(nil), objects...)
+	bad[1].Digest = DigestBytes([]byte("mutated"))
+	_, err = PromoteDirectory(base, bad)
+	assertCode(t, err, "DIGEST_MISMATCH")
+	accepted, err = os.ReadDir(filepath.Join(base, "accepted"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(accepted) != 1 {
+		t.Fatalf("invalid batch changed accepted state: %d", len(accepted))
+	}
+}
+
 func TestValidateAutobahnDescriptorRejectsFloatingOrWrongPlatform(t *testing.T) {
 	t.Parallel()
 	valid := ContainerDescriptor{Reference: "docker.io/crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074", Platform: "linux/amd64", ManifestDigest: AutobahnManifestDigest, ConfigDigest: "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f"}
@@ -176,6 +267,7 @@ func TestValidateAutobahnDescriptorRejectsFloatingOrWrongPlatform(t *testing.T) 
 		func(d *ContainerDescriptor) { d.Reference = "docker.io/crossbario/autobahn-testsuite:25.10.1" },
 		func(d *ContainerDescriptor) { d.Platform = "linux/arm64" },
 		func(d *ContainerDescriptor) { d.ManifestDigest = "sha256:" + string(bytes.Repeat([]byte("a"), 64)) },
+		func(d *ContainerDescriptor) { d.ConfigDigest = "sha256:" + string(bytes.Repeat([]byte("b"), 64)) },
 	} {
 		candidate := valid
 		mutate(&candidate)

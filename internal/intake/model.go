@@ -11,6 +11,7 @@ const (
 	RequiredLaboratory = "lab-java-websocket"
 
 	AutobahnManifestDigest = "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074"
+	AutobahnConfigDigest   = "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f"
 )
 
 // Finding is the stable fail-closed interface exposed by the intake verifier.
