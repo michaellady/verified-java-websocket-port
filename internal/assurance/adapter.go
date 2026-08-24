@@ -18,6 +18,7 @@ import (
 
 	vendorprotocol "github.com/michaellady/verified-java-to-rust/foundation/protocol"
 	vendorvalidators "github.com/michaellady/verified-java-to-rust/foundation/validators"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 const (
@@ -28,17 +29,30 @@ const (
 	upstreamSnapshotRoot = "sha256:3362b2e93e78dd10a739af3f474286a60a4ae487e93d1b24c91a029e5faeb14b"
 	upstreamPublicRoot   = "sha256:7868eb6731d3703ff1cf5048b7e9c353444dd1ee5a41faff439862e274c4f487"
 
-	upstreamManifestPath = "assurance/upstream-manifest.json"
-	lifecyclePathDefault = "assurance/lifecycle.json"
-	evidenceModelPath    = "assurance/evidence-model.json"
-	evolutionPath        = "assurance/evolution.json"
-	evidenceDAGPath      = "assurance/evidence-dag.json"
-	checkpointPath       = "assurance/replay/checkpoint.json"
-	failuresPath         = "assurance/failures.json"
-	publicContractPath   = "assurance/public-contract.json"
-	jdtLSPath            = "assurance/developer-tools/jdt-ls.json"
-	rustAnalyzerPath     = "assurance/developer-tools/rust-analyzer.json"
-	glancerPath          = "assurance/developer-tools/glancer.json"
+	upstreamManifestPath            = "assurance/upstream-manifest.json"
+	lifecyclePathDefault            = "assurance/lifecycle.json"
+	evidenceModelPath               = "assurance/evidence-model.json"
+	evolutionPath                   = "assurance/evolution.json"
+	evidenceDAGPath                 = "assurance/evidence-dag.json"
+	checkpointPath                  = "assurance/replay/checkpoint.json"
+	failuresPath                    = "assurance/failures.json"
+	publicContractPath              = "assurance/public-contract.json"
+	jdtLSPath                       = "assurance/developer-tools/jdt-ls.json"
+	rustAnalyzerPath                = "assurance/developer-tools/rust-analyzer.json"
+	glancerPath                     = "assurance/developer-tools/glancer.json"
+	jdtLSEvidencePath               = "assurance/developer-tools/evidence/jdt-ls.json"
+	rustAnalyzerEvidencePath        = "assurance/developer-tools/evidence/rust-analyzer.json"
+	glancerEvidencePath             = "assurance/developer-tools/evidence/glancer.json"
+	javaIntakePath                  = "assurance/developer-tools/java-intake.json"
+	compatibilitySurfacePath        = "assurance/developer-tools/compatibility-surface.json"
+	cutoverContractPath             = "assurance/developer-tools/cutover-contract.json"
+	portSeamDossierPath             = "assurance/developer-tools/port-seam-dossier.json"
+	behaviorDeltaLedgerPath         = "assurance/developer-tools/behavior-delta-ledger.json"
+	languageIntelligenceProfilePath = "assurance/developer-tools/language-intelligence-profile.json"
+	profileSwitchingPath            = "assurance/developer-tools/profile-switching.json"
+	navigationCorpusPath            = "assurance/developer-tools/navigation-corpus.json"
+	replayReadmePath                = "assurance/replay/README.md"
+	replayProvenancePath            = "assurance/replay/provenance.json"
 )
 
 var retryAllowlist = map[string]bool{
@@ -105,6 +119,21 @@ type publicContract struct {
 	} `json:"public_evidence"`
 }
 
+type evaluationSnapshot struct {
+	root       *projectRoot
+	files      map[string][]byte
+	missing    map[string]error
+	lifecycle  string
+	bundleData []byte
+	bundle     vendorprotocol.Bundle
+	schemas    map[string]*jsonschema.Schema
+}
+
+type retainedDigest struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+}
+
 func Verify(ctx context.Context, request Request) (Verdict, error) {
 	return evaluate(ctx, request, ModeVerify)
 }
@@ -143,22 +172,15 @@ func evaluate(ctx context.Context, request Request, expectedMode string) (Verdic
 	if err := verifyUpstreamManifest(root, add); err != nil {
 		return Verdict{}, err
 	}
-
-	bundleData, err := readRegularFile(root, request.LifecyclePath, vendorprotocol.MaxJSONBytes)
+	snapshot, err := loadEvaluationSnapshot(root, request.LifecyclePath)
 	if err != nil {
 		return Verdict{}, err
 	}
-	if err := rejectNullRequiredBundleFields(bundleData); err != nil {
-		return Verdict{}, err
-	}
-	var bundle vendorprotocol.Bundle
-	if err := vendorprotocol.DecodeStrict(bundleData, &bundle); err != nil {
-		return Verdict{}, err
-	}
+	validateSchemas(snapshot, add)
 
 	policy := childPolicy()
-	reference := vendorprotocol.NormalizeFindings(vendorvalidators.VerifyReference(bundle, policy))
-	independent := vendorprotocol.NormalizeFindings(vendorvalidators.VerifyIndependent(bundle, policy))
+	reference := vendorprotocol.NormalizeFindings(vendorvalidators.VerifyReference(snapshot.bundle, policy))
+	independent := vendorprotocol.NormalizeFindings(vendorvalidators.VerifyIndependent(snapshot.bundle, policy))
 	checkpointEligible := false
 	if !sameFindings(reference, independent) {
 		add("PARENT_VALIDATOR_DISAGREEMENT", vendorprotocol.Block, request.LifecyclePath, "reference and independent protocol validators disagree")
@@ -167,40 +189,191 @@ func evaluate(ctx context.Context, request Request, expectedMode string) (Verdic
 		checkpointEligible = len(reference) == 0
 	}
 
-	validateEvidenceArtifacts(root, add)
-	bindingValid := validateEvidenceNodeBindings(root, bundle, add)
+	validateEvidenceArtifacts(snapshot, add)
+	bindingValid := validateEvidenceNodeBindings(snapshot, add)
 	if checkpointEligible && bindingValid {
-		validateCheckpoint(root, bundle, policy, add)
+		validateCheckpoint(snapshot, policy, add)
 	} else if !bindingValid {
 		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, "checkpoint identity is stale because retained evidence bytes no longer match the lifecycle snapshot binding")
 	}
-	validateIdentifierUniqueness(bundle, add)
-	validateFailureRegistry(root, bundle, add)
-	validateDeveloperToolRuns(root, add)
-	validateEvidenceDAG(root, bundle, add)
-	validatePublicContract(root, bundle, add)
+	validateIdentifierUniqueness(snapshot.bundle, add)
+	validateFailureRegistry(snapshot, add)
+	validateDeveloperToolRuns(snapshot, add)
+	validateEvidenceDAG(snapshot, add)
+	validatePublicContract(snapshot, add)
 
 	findings = vendorprotocol.NormalizeFindings(findings)
 	if findings == nil {
 		findings = []vendorprotocol.Finding{}
 	}
-	snapshotRoot, err := vendorprotocol.Digest(bundle)
+	snapshotRoot, err := vendorprotocol.Digest(snapshot.bundle)
 	if err != nil {
 		return Verdict{}, err
 	}
-	publicData, err := readRegularFile(root, publicContractPath, vendorprotocol.MaxJSONBytes)
-	if err != nil {
-		return Verdict{}, err
-	}
-	publicRoot := vendorprotocol.DigestBytes(publicData)
 	return Verdict{
 		State:                    "BLOCKED",
 		SnapshotRoot:             snapshotRoot,
-		PublicEvidenceRoot:       publicRoot,
+		PublicEvidenceRoot:       digestOrEmpty(snapshot.files[publicContractPath]),
 		Findings:                 findings,
 		Assurance:                assuranceCeiling,
 		IndependentReviewClaimed: false,
 	}, nil
+}
+
+func loadEvaluationSnapshot(root *projectRoot, lifecyclePath string) (*evaluationSnapshot, error) {
+	files := make(map[string][]byte, len(expectedRetainedArtifacts)+len(expectedUpstreamEntries)+len(expectedSchemaValidations))
+	missing := make(map[string]error)
+	for _, artifact := range expectedRetainedArtifacts {
+		limit := int64(8 << 20)
+		if artifact.Path == replayReadmePath {
+			limit = vendorprotocol.MaxJSONBytes
+		}
+		data, err := readRegularFile(root, artifact.Path, limit)
+		if err != nil {
+			missing[artifact.Path] = err
+			continue
+		}
+		files[artifact.Path] = data
+	}
+	if _, ok := files[lifecyclePath]; !ok {
+		data, err := readRegularFile(root, lifecyclePath, vendorprotocol.MaxJSONBytes)
+		if err != nil {
+			return nil, err
+		}
+		files[lifecyclePath] = data
+	}
+	for _, item := range expectedSchemaValidations {
+		if _, ok := files[item.Artifact]; ok {
+			continue
+		}
+		data, err := readRegularFile(root, item.Artifact, 8<<20)
+		if err != nil {
+			missing[item.Artifact] = err
+			continue
+		}
+		files[item.Artifact] = data
+	}
+	for _, entry := range expectedUpstreamEntries {
+		if _, ok := files[entry.TargetPath]; ok {
+			continue
+		}
+		data, err := readRegularFile(root, entry.TargetPath, 8<<20)
+		if err != nil {
+			missing[entry.TargetPath] = err
+			continue
+		}
+		files[entry.TargetPath] = data
+	}
+	bundleData := files[lifecyclePath]
+	if err := rejectNullRequiredBundleFields(bundleData); err != nil {
+		return nil, err
+	}
+	var bundle vendorprotocol.Bundle
+	if err := vendorprotocol.DecodeStrict(bundleData, &bundle); err != nil {
+		return nil, err
+	}
+	schemas, err := compileSchemas(files)
+	if err != nil {
+		return nil, err
+	}
+	return &evaluationSnapshot{
+		root:       root,
+		files:      files,
+		missing:    missing,
+		lifecycle:  lifecyclePath,
+		bundleData: bundleData,
+		bundle:     bundle,
+		schemas:    schemas,
+	}, nil
+}
+
+func compileSchemas(files map[string][]byte) (map[string]*jsonschema.Schema, error) {
+	compiler := jsonschema.NewCompiler()
+	compiler.DefaultDraft(jsonschema.Draft2020)
+	compiler.AssertFormat()
+	compiler.AssertContent()
+	for _, entry := range expectedUpstreamEntries {
+		if !strings.HasSuffix(entry.TargetPath, ".schema.json") {
+			continue
+		}
+		if files[entry.TargetPath] == nil {
+			continue
+		}
+		var resource any
+		if err := json.Unmarshal(files[entry.TargetPath], &resource); err != nil {
+			return nil, err
+		}
+		if err := compiler.AddResource("mem:///"+entry.TargetPath, resource); err != nil {
+			return nil, err
+		}
+	}
+	compiled := make(map[string]*jsonschema.Schema, len(expectedSchemaValidations))
+	for _, item := range expectedSchemaValidations {
+		if _, ok := compiled[item.SchemaPath]; ok {
+			continue
+		}
+		if files[item.SchemaPath] == nil {
+			continue
+		}
+		schema, err := compiler.Compile("mem:///" + item.SchemaPath)
+		if err != nil {
+			return nil, err
+		}
+		compiled[item.SchemaPath] = schema
+	}
+	return compiled, nil
+}
+
+func (snapshot *evaluationSnapshot) mustBytes(path string) []byte {
+	return snapshot.files[path]
+}
+
+func (snapshot *evaluationSnapshot) read(path string) ([]byte, error) {
+	if err, ok := snapshot.missing[path]; ok {
+		return nil, err
+	}
+	data, ok := snapshot.files[path]
+	if !ok {
+		return nil, fs.ErrNotExist
+	}
+	return data, nil
+}
+
+func digestOrEmpty(data []byte) string {
+	if len(data) == 0 {
+		return ""
+	}
+	return vendorprotocol.DigestBytes(data)
+}
+
+func validateSchemas(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
+	for _, item := range expectedSchemaValidations {
+		data, err := snapshot.read(item.Artifact)
+		if err != nil {
+			add(item.Finding, vendorprotocol.Block, item.Artifact, err.Error())
+			continue
+		}
+		if item.Artifact == checkpointPath {
+			if err := rejectNullRequiredCheckpointFields(data); err != nil {
+				add(item.Finding, vendorprotocol.Block, item.Artifact, err.Error())
+				continue
+			}
+		}
+		var value any
+		if item.Artifact == replayReadmePath {
+			continue
+		}
+		if err := vendorprotocol.DecodeStrict(data, &value); err != nil {
+			add(item.Finding, vendorprotocol.Block, item.Artifact, err.Error())
+			continue
+		}
+		if snapshot.schemas[item.SchemaPath] == nil {
+			continue
+		}
+		if err := snapshot.schemas[item.SchemaPath].Validate(value); err != nil {
+			add(item.Finding, vendorprotocol.Block, item.Artifact, err.Error())
+		}
+	}
 }
 
 func childPolicy() vendorprotocol.Policy {
@@ -284,12 +457,12 @@ func verifyUpstreamManifest(root *projectRoot, add func(string, vendorprotocol.D
 	return nil
 }
 
-func validateEvidenceNodeBindings(root *projectRoot, bundle vendorprotocol.Bundle, add func(string, vendorprotocol.Disposition, string, string)) bool {
-	nodeByID := make(map[string]vendorprotocol.Node, len(bundle.Nodes))
-	for _, node := range bundle.Nodes {
+func validateEvidenceNodeBindings(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) bool {
+	nodeByID := make(map[string]vendorprotocol.Node, len(snapshot.bundle.Nodes))
+	for _, node := range snapshot.bundle.Nodes {
 		nodeByID[node.ID] = node
 	}
-	digests := make(map[string]string, len(expectedEvidenceNodes))
+	digests := make(map[string]string, len(expectedRetainedArtifacts))
 	valid := true
 	for _, expected := range expectedEvidenceNodes {
 		node, ok := nodeByID[expected.ID]
@@ -298,27 +471,33 @@ func validateEvidenceNodeBindings(root *projectRoot, bundle vendorprotocol.Bundl
 			valid = false
 			continue
 		}
-		data, err := readRegularFile(root, expected.Path, 8<<20)
+		data, err := snapshot.read(expected.Path)
 		if err != nil {
 			add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, expected.Path, err.Error())
 			valid = false
 			continue
 		}
 		decoded, decodeErr := base64.StdEncoding.DecodeString(node.ContentBase64)
-		var binding struct {
-			Path   string `json:"path"`
-			SHA256 string `json:"sha256"`
-		}
+		var binding retainedDigest
 		if decodeErr != nil || vendorprotocol.DecodeStrict(decoded, &binding) != nil || binding.Path != expected.Path || binding.SHA256 != vendorprotocol.DigestBytes(data) || node.Digest != vendorprotocol.DigestBytes(decoded) || node.Classification != expected.Classification {
 			add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, expected.Path, "lifecycle evidence node does not bind the exact retained artifact bytes and classification")
 			valid = false
 		}
 		digests[expected.ID] = vendorprotocol.DigestBytes(data)
 	}
-	if digest, err := snapshotBindingDigest(bundle, digests); err != nil {
+	for _, artifact := range expectedRetainedArtifacts {
+		if data, err := snapshot.read(artifact.Path); err == nil {
+			digests[artifact.Path] = vendorprotocol.DigestBytes(data)
+		}
+	}
+	if len(nodeByID) != len(expectedEvidenceNodes)+1 {
+		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, snapshot.lifecycle, "lifecycle node set drifted from the exact frozen owner-only closure")
+		valid = false
+	}
+	if digest, err := snapshotBindingDigest(snapshot.bundle, digests); err != nil {
 		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, lifecyclePathDefault, err.Error())
 		valid = false
-	} else if bundle.Snapshot.CandidateDigest != digest {
+	} else if snapshot.bundle.Snapshot.CandidateDigest != digest {
 		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, "$.snapshot.candidate_digest", "snapshot identity drifted from the retained evidence-byte binding")
 		valid = false
 	}
@@ -330,13 +509,13 @@ func snapshotBindingDigest(bundle vendorprotocol.Bundle, digests map[string]stri
 		Company       string            `json:"company"`
 		Project       string            `json:"project"`
 		RootNodeID    string            `json:"root_node_id"`
-		EvidenceBytes map[string]string `json:"evidence_bytes"`
+		RetainedBytes map[string]string `json:"retained_bytes"`
 	}
 	return vendorprotocol.Digest(binding{
 		Company:       bundle.Company,
 		Project:       bundle.Project,
 		RootNodeID:    bundle.RootNodeID,
-		EvidenceBytes: digests,
+		RetainedBytes: digests,
 	})
 }
 
@@ -355,8 +534,8 @@ func walkClosedSet(root *projectRoot, prefix string, expected map[string]string,
 	})
 }
 
-func validateEvidenceArtifacts(root *projectRoot, add func(string, vendorprotocol.Disposition, string, string)) {
-	evidenceData, err := readRegularFile(root, evidenceModelPath, 8<<20)
+func validateEvidenceArtifacts(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
+	evidenceData, err := snapshot.read(evidenceModelPath)
 	if err != nil {
 		add("MISSING_EVIDENCE", vendorprotocol.Block, evidenceModelPath, err.Error())
 		return
@@ -364,7 +543,11 @@ func validateEvidenceArtifacts(root *projectRoot, add func(string, vendorprotoco
 	for _, failure := range vendorvalidators.VerifyFoundationEvidence(evidenceData) {
 		add(failure.Code, vendorprotocol.Block, evidenceModelPath+failure.Path, failure.Message)
 	}
-	evolutionData, err := readRegularFile(root, evolutionPath, 8<<20)
+	var evidenceModel map[string]any
+	if err := vendorprotocol.DecodeStrict(evidenceData, &evidenceModel); err == nil {
+		validateOwnerBoundaryEvidenceModel(evidenceModel, add)
+	}
+	evolutionData, err := snapshot.read(evolutionPath)
 	if err != nil {
 		add("MISSING_EVIDENCE", vendorprotocol.Block, evolutionPath, err.Error())
 		return
@@ -374,13 +557,9 @@ func validateEvidenceArtifacts(root *projectRoot, add func(string, vendorprotoco
 	}
 }
 
-func validateCheckpoint(root *projectRoot, bundle vendorprotocol.Bundle, policy vendorprotocol.Policy, add func(string, vendorprotocol.Disposition, string, string)) {
-	data, err := readRegularFile(root, checkpointPath, vendorprotocol.MaxJSONBytes)
+func validateCheckpoint(snapshot *evaluationSnapshot, policy vendorprotocol.Policy, add func(string, vendorprotocol.Disposition, string, string)) {
+	data, err := snapshot.read(checkpointPath)
 	if err != nil {
-		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, err.Error())
-		return
-	}
-	if err := rejectNullRequiredCheckpointFields(data); err != nil {
 		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, err.Error())
 		return
 	}
@@ -389,13 +568,13 @@ func validateCheckpoint(root *projectRoot, bundle vendorprotocol.Bundle, policy 
 		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, err.Error())
 		return
 	}
-	if _, err := vendorprotocol.Resume(checkpoint, bundle, policy, nil, checkpointClock(bundle), protocolVerifiers()...); err != nil {
+	if _, err := vendorprotocol.Resume(checkpoint, snapshot.bundle, policy, nil, checkpointClock(snapshot.bundle), protocolVerifiers()...); err != nil {
 		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, err.Error())
 	}
 }
 
-func validateFailureRegistry(root *projectRoot, bundle vendorprotocol.Bundle, add func(string, vendorprotocol.Disposition, string, string)) {
-	data, err := readRegularFile(root, failuresPath, vendorprotocol.MaxJSONBytes)
+func validateFailureRegistry(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
+	data, err := snapshot.read(failuresPath)
 	if err != nil {
 		add("MISSING_FAILURE_REGISTRY", vendorprotocol.Block, failuresPath, err.Error())
 		return
@@ -457,7 +636,7 @@ func validateFailureRegistry(root *projectRoot, bundle vendorprotocol.Bundle, ad
 			add("INCOMPLETE_FAILURE_REGISTRY", vendorprotocol.Block, failuresPath, "registry must retain all six protocol dispositions")
 		}
 	}
-	for index, failure := range bundle.Failures {
+	for index, failure := range snapshot.bundle.Failures {
 		disposition, ok := known[failure.ErrorType]
 		if !ok {
 			add("UNKNOWN_FAILURE_CODE", vendorprotocol.Block, fmt.Sprintf("$.failures[%d].error_type", index), "failure error type is absent from the closed registry")
@@ -470,7 +649,7 @@ func validateFailureRegistry(root *projectRoot, bundle vendorprotocol.Bundle, ad
 			add("INVALID_RETRY_ERROR_TYPE", vendorprotocol.Block, fmt.Sprintf("$.failures[%d].error_type", index), "only the retry allowlist may emit RETRY, and QUARANTINE_UNAVAILABLE may retry only during ingest")
 		}
 	}
-	for index, attempt := range bundle.Attempts {
+	for index, attempt := range snapshot.bundle.Attempts {
 		if attempt.Disposition == vendorprotocol.Retry && (!retryAllowlist[attempt.ErrorType] || (attempt.ErrorType == "QUARANTINE_UNAVAILABLE" && attempt.StageID != "ingest")) {
 			add("INVALID_RETRY_ERROR_TYPE", vendorprotocol.Block, fmt.Sprintf("$.attempts[%d].error_type", index), "only the retry allowlist may emit RETRY, and QUARANTINE_UNAVAILABLE may retry only during ingest")
 		}
@@ -496,10 +675,11 @@ func validateIdentifierUniqueness(bundle vendorprotocol.Bundle, add func(string,
 	}
 }
 
-func validateDeveloperToolRuns(root *projectRoot, add func(string, vendorprotocol.Disposition, string, string)) {
+func validateDeveloperToolRuns(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
 	seenProfiles := map[string]bool{}
+	seenWorkspaces := map[string]string{}
 	for _, item := range expectedDeveloperToolRuns {
-		data, err := readRegularFile(root, item.Path, 8<<20)
+		data, err := snapshot.read(item.Path)
 		if err != nil {
 			add("MISSING_DEVELOPER_TOOL_RUN", vendorprotocol.Block, item.Path, err.Error())
 			continue
@@ -519,12 +699,18 @@ func validateDeveloperToolRuns(root *projectRoot, add func(string, vendorprotoco
 		if seenProfiles[run.ProfileID] {
 			add("LSP_PROFILE_OVERLAP", vendorprotocol.Block, item.Path, "developer-tool profiles must be mutually exclusive and unique")
 		}
+		if prior, ok := seenWorkspaces[run.WorkspaceProfileID]; ok && prior != run.ProfileID {
+			add("LSP_PROFILE_OVERLAP", vendorprotocol.Block, item.Path, "rust-analyzer and Glancer workspace profiles must remain distinct and mutually exclusive")
+		}
 		seenProfiles[run.ProfileID] = true
+		seenWorkspaces[run.WorkspaceProfileID] = run.ProfileID
+		validateDeveloperToolReferences(snapshot, run, item.Path, add)
 	}
+	validateLanguageToolingMaterials(snapshot, add)
 }
 
-func validateEvidenceDAG(root *projectRoot, bundle vendorprotocol.Bundle, add func(string, vendorprotocol.Disposition, string, string)) {
-	declared, err := readRegularFile(root, evidenceDAGPath, vendorprotocol.MaxJSONBytes)
+func validateEvidenceDAG(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
+	declared, err := snapshot.read(evidenceDAGPath)
 	if err != nil {
 		add("MISSING_EVIDENCE_DAG", vendorprotocol.Block, evidenceDAGPath, err.Error())
 		return
@@ -546,14 +732,14 @@ func validateEvidenceDAG(root *projectRoot, bundle vendorprotocol.Bundle, add fu
 	}
 	computed := projection{
 		SchemaVersion: "1.0.0",
-		RootNodeID:    bundle.RootNodeID,
-		Nodes:         make([]graphNode, 0, len(bundle.Nodes)),
-		Edges:         make([]graphEdge, 0, len(bundle.Edges)),
+		RootNodeID:    snapshot.bundle.RootNodeID,
+		Nodes:         make([]graphNode, 0, len(snapshot.bundle.Nodes)),
+		Edges:         make([]graphEdge, 0, len(snapshot.bundle.Edges)),
 	}
-	for _, node := range bundle.Nodes {
+	for _, node := range snapshot.bundle.Nodes {
 		computed.Nodes = append(computed.Nodes, graphNode{ID: node.ID, Kind: node.Kind})
 	}
-	for _, edge := range bundle.Edges {
+	for _, edge := range snapshot.bundle.Edges {
 		computed.Edges = append(computed.Edges, graphEdge{From: edge.From, To: edge.To, Kind: edge.Kind})
 	}
 	sort.Slice(computed.Nodes, func(i, j int) bool { return computed.Nodes[i].ID < computed.Nodes[j].ID })
@@ -594,10 +780,13 @@ func validateEvidenceDAG(root *projectRoot, bundle vendorprotocol.Bundle, add fu
 	if !bytes.Equal(normalizedExpected, normalizedDeclared) {
 		add("ROOT_BINDING_MISMATCH", vendorprotocol.Block, evidenceDAGPath, "evidence-dag projection does not match the canonical lifecycle DAG")
 	}
+	if len(snapshot.bundle.Nodes) != len(expectedEvidenceNodes)+1 {
+		add("ROOT_BINDING_MISMATCH", vendorprotocol.Block, evidenceDAGPath, "lifecycle DAG node set drifted from the exact frozen owner-only closure")
+	}
 }
 
-func validatePublicContract(root *projectRoot, bundle vendorprotocol.Bundle, add func(string, vendorprotocol.Disposition, string, string)) {
-	data, err := readRegularFile(root, publicContractPath, vendorprotocol.MaxJSONBytes)
+func validatePublicContract(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
+	data, err := snapshot.read(publicContractPath)
 	if err != nil {
 		add("MISSING_PUBLIC_CONTRACT", vendorprotocol.Block, publicContractPath, err.Error())
 		return
@@ -607,7 +796,7 @@ func validatePublicContract(root *projectRoot, bundle vendorprotocol.Bundle, add
 		add("INVALID_PUBLIC_CONTRACT", vendorprotocol.Block, publicContractPath, err.Error())
 		return
 	}
-	expected := expectedPublicContract(bundle)
+	expected := expectedPublicContract(snapshot.bundle)
 	left, leftErr := vendorprotocol.CanonicalJSON(value)
 	right, rightErr := vendorprotocol.CanonicalJSON(expected)
 	if leftErr != nil || rightErr != nil || !bytes.Equal(left, right) {
@@ -621,6 +810,14 @@ func validatePublicContract(root *projectRoot, bundle vendorprotocol.Bundle, add
 		if strings.Contains(lower, forbidden) {
 			add("PROTECTED_PUBLICATION_DISCLOSURE", vendorprotocol.Revoke, publicContractPath, "public contract leaked protected or raw diagnostic material")
 			return
+		}
+	}
+	for _, node := range snapshot.bundle.Nodes {
+		if node.ID == snapshot.bundle.RootNodeID {
+			continue
+		}
+		if node.Classification == "PROTECTED_HELD_OUT" || node.Classification == "QUARANTINED" {
+			add("PROTECTED_PUBLICATION_DISCLOSURE", vendorprotocol.Revoke, snapshot.lifecycle, "protected evidence remained reachable at the owner/public boundary")
 		}
 	}
 }
@@ -671,6 +868,144 @@ func expectedPublicContract(bundle vendorprotocol.Bundle) publicContract {
 		DeveloperTools:           []string{jdtLSPath, rustAnalyzerPath, glancerPath},
 		PublicationRequested:     false,
 		PublicEvidence:           publicEvidence,
+	}
+}
+
+func validateOwnerBoundaryEvidenceModel(model map[string]any, add func(string, vendorprotocol.Disposition, string, string)) {
+	if scenario, _ := model["scenario"].(string); scenario != "synthetic-non-claim" {
+		add("INVALID_EVIDENCE_MODEL", vendorprotocol.Block, evidenceModelPath, "evidence model must remain a synthetic non-claim owner-boundary artifact")
+	}
+	if snapshot, ok := model["snapshot"].(map[string]any); ok {
+		if state, _ := snapshot["state"].(string); state == "ACCEPTED" || state == "PUBLISHED" {
+			add("INVALID_EVIDENCE_MODEL", vendorprotocol.Block, evidenceModelPath, "evidence model snapshot must not claim accepted or published state")
+		}
+		if attestations, ok := snapshot["reviewer_attestations"].([]any); ok {
+			for _, item := range attestations {
+				if strings.Contains(strings.ToLower(fmt.Sprint(item)), "independent") {
+					add("INVALID_EVIDENCE_MODEL", vendorprotocol.Block, evidenceModelPath, "evidence model must not claim independent reviewer attestation")
+					break
+				}
+			}
+		}
+	}
+	if claims, ok := model["claims"].([]any); ok {
+		for index, raw := range claims {
+			claim, _ := raw.(map[string]any)
+			status, _ := claim["status"].(string)
+			readiness, _ := claim["readiness"].(string)
+			assurance, _ := claim["assurance"].(string)
+			required, _ := claim["required_level"].(string)
+			if status == "CONTRADICTORY" || readiness == "ACCEPTED" || readiness == "PUBLISHED" || strings.Contains(assurance, "proved-production") || strings.Contains(required, "proved-production") {
+				add("INVALID_EVIDENCE_MODEL", vendorprotocol.Block, fmt.Sprintf("$.claims[%d]", index), "evidence model must not claim contradictory, published, or proved-production assurance at the owner-only boundary")
+			}
+		}
+	}
+}
+
+func validateDeveloperToolReferences(snapshot *evaluationSnapshot, run developerToolRunDocument, artifactPath string, add func(string, vendorprotocol.Disposition, string, string)) {
+	referenced, ok := snapshot.files[run.ExecutionEvidence.Path]
+	if !ok {
+		add("MISSING_DEVELOPER_TOOL_EVIDENCE", vendorprotocol.Block, artifactPath, "developer-tool execution evidence must exist under a project-owned retained path")
+	} else if vendorprotocol.DigestBytes(referenced) != run.ExecutionEvidence.SHA256 {
+		add("INVALID_DEVELOPER_TOOL_EVIDENCE", vendorprotocol.Block, artifactPath, "developer-tool execution evidence digest drifted from the retained project-owned file")
+	}
+	if !strings.Contains(run.Reproduction.Procedure, replayReadmePath) || !strings.Contains(run.Reproduction.Procedure, replayProvenancePath) {
+		add("INVALID_REPLAY_MATERIAL", vendorprotocol.Block, artifactPath, "developer-tool reproduction procedure must reference the retained project-owned replay materials")
+	}
+}
+
+func validateLanguageToolingMaterials(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
+	var profile map[string]any
+	profileData, err := snapshot.read(languageIntelligenceProfilePath)
+	if err != nil {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, err.Error())
+		return
+	}
+	if err := vendorprotocol.DecodeStrict(profileData, &profile); err != nil {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, err.Error())
+		return
+	}
+	corpus, _ := profile["corpus"].(map[string]any)
+	navigationData, err := snapshot.read(navigationCorpusPath)
+	if err != nil {
+		add("INVALID_NAVIGATION_CORPUS", vendorprotocol.Block, navigationCorpusPath, err.Error())
+		return
+	}
+	if corpus["manifest_path"] != navigationCorpusPath || corpus["sha256"] != vendorprotocol.DigestBytes(navigationData) {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, "language-intelligence profile corpus binding drifted from the retained navigation corpus")
+	}
+	switchData, err := snapshot.read(profileSwitchingPath)
+	if err != nil {
+		add("INVALID_PROFILE_SWITCHING", vendorprotocol.Block, profileSwitchingPath, err.Error())
+		return
+	}
+	if profileSwitch, _ := profile["profile_switch_artifact"].(map[string]any); profileSwitch["path"] != profileSwitchingPath || profileSwitch["sha256"] != vendorprotocol.DigestBytes(switchData) {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, "language-intelligence profile switch-artifact binding drifted from the retained fixture")
+	}
+	javaProfile, _ := profile["java_profile"].(map[string]any)
+	jdtData, err := snapshot.read(jdtLSPath)
+	if err != nil {
+		add("INVALID_DEVELOPER_TOOL_RUN", vendorprotocol.Block, jdtLSPath, err.Error())
+		return
+	}
+	if runArtifact, _ := javaProfile["run_artifact"].(map[string]any); runArtifact["path"] != jdtLSPath || runArtifact["sha256"] != vendorprotocol.DigestBytes(jdtData) {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, "java profile must bind the retained JDT LS run artifact")
+	}
+	rustProfiles, _ := profile["rust_profiles"].([]any)
+	seen := map[string]map[string]any{}
+	for _, raw := range rustProfiles {
+		item, _ := raw.(map[string]any)
+		id, _ := item["profile_id"].(string)
+		seen[id] = item
+	}
+	ra := seen["profile.rust-analyzer.baseline.v1"]
+	gl := seen["profile.glancer.experimental.v1"]
+	if ra == nil || gl == nil {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, "language-intelligence profile must contain the exact rust-analyzer and Glancer profiles")
+		return
+	}
+	if ra["mutually_exclusive_group"] != gl["mutually_exclusive_group"] {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, "rust profiles must share the same mutually exclusive group identity")
+	}
+	if ra["profile_id"] == gl["profile_id"] {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, "rust profile identities must remain distinct")
+	}
+	validateRustProfileBinding(snapshot, languageIntelligenceProfilePath, ra, rustAnalyzerPath, "profile.glancer.experimental.v1", add)
+	validateRustProfileBinding(snapshot, languageIntelligenceProfilePath, gl, glancerPath, "profile.rust-analyzer.baseline.v1", add)
+
+	var switching map[string]any
+	if err := vendorprotocol.DecodeStrict(switchData, &switching); err != nil {
+		add("INVALID_PROFILE_SWITCHING", vendorprotocol.Block, profileSwitchingPath, err.Error())
+		return
+	}
+	profiles, _ := switching["profiles"].([]any)
+	if len(profiles) != 2 || profiles[0] == profiles[1] {
+		add("INVALID_PROFILE_SWITCHING", vendorprotocol.Block, profileSwitchingPath, "profile switching fixture must carry the exact two mutually exclusive rust profiles")
+	}
+	cacheRoots, _ := switching["cache_roots"].(map[string]any)
+	workspaceRoots, _ := switching["workspace_roots"].(map[string]any)
+	if fmt.Sprint(cacheRoots["profile.rust-analyzer.baseline.v1"]) == fmt.Sprint(cacheRoots["profile.glancer.experimental.v1"]) ||
+		fmt.Sprint(workspaceRoots["profile.rust-analyzer.baseline.v1"]) == fmt.Sprint(workspaceRoots["profile.glancer.experimental.v1"]) {
+		add("INVALID_PROFILE_SWITCHING", vendorprotocol.Block, profileSwitchingPath, "rust-analyzer and Glancer cache and workspace roots must remain distinct")
+	}
+}
+
+func validateRustProfileBinding(snapshot *evaluationSnapshot, findingPath string, profile map[string]any, runPath, fallback string, add func(string, vendorprotocol.Disposition, string, string)) {
+	runArtifact, _ := profile["run_artifact"].(map[string]any)
+	runData, err := snapshot.read(runPath)
+	if err != nil {
+		add("INVALID_DEVELOPER_TOOL_RUN", vendorprotocol.Block, runPath, err.Error())
+		return
+	}
+	if runArtifact["path"] != runPath || runArtifact["sha256"] != vendorprotocol.DigestBytes(runData) {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, findingPath, "rust profile run-artifact binding drifted from the retained tool run")
+	}
+	if fmt.Sprint(profile["fallback_profile_id"]) != fallback {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, findingPath, "rust profile fallback identity drifted from the accepted mutual-exclusion relationship")
+	}
+	isolation, _ := profile["isolation"].(map[string]any)
+	if fmt.Sprint(isolation["workspace_data_dir"]) == "" || fmt.Sprint(isolation["cache_dir"]) == "" {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, findingPath, "rust profile isolation paths must remain explicit and non-empty")
 	}
 }
 

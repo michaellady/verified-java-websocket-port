@@ -11,8 +11,8 @@ func TestVerifyCommandEmitsCanonicalJSON(t *testing.T) {
 	repo := repoRoot(t)
 	command := exec.Command(assurectlBinary(t), "verify", "--root", repo, "--lifecycle", "assurance/lifecycle.json")
 	output, err := command.CombinedOutput()
-	if err != nil {
-		t.Fatalf("verify command failed: %v\n%s", err, output)
+	if err == nil {
+		t.Fatalf("expected verify command to fail closed for canonical owner-only lifecycle, output=%s", output)
 	}
 	var result map[string]any
 	if err := json.Unmarshal(output, &result); err != nil {
@@ -20,6 +20,10 @@ func TestVerifyCommandEmitsCanonicalJSON(t *testing.T) {
 	}
 	if result["state"] != "BLOCKED" {
 		t.Fatalf("state = %v, want BLOCKED", result["state"])
+	}
+	findings, ok := result["findings"].([]any)
+	if !ok || len(findings) != 2 {
+		t.Fatalf("findings = %#v, want exactly two inherited attestation blockers", result["findings"])
 	}
 }
 

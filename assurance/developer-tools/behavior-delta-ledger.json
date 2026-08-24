@@ -1,0 +1,1 @@
+{"deltas":[{"classification":"PRESERVE","history":[{"adjudication_evidence_ids":[],"classification":"PRESERVE","finding_evidence_ids":["evidence.runtime-trace"],"sequence":1}],"id":"delta.websocket-open","surface_id":"surface.websocket-open"}],"ledger_id":"ledger.websocket.v1"}

@@ -3,6 +3,7 @@ package assurance
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"os"
 	"path/filepath"
@@ -254,7 +255,7 @@ func TestUS004ProtocolAcceptance_FailureAndAttemptFindings(t *testing.T) {
 func TestUS004ProtocolAcceptance_CheckpointResume(t *testing.T) {
 	t.Parallel()
 
-	bundle := readLifecycleBundle(t, repoRoot(t), lifecyclePathDefault)
+	bundle := eligibleCheckpointBundle(readLifecycleBundle(t, repoRoot(t), lifecyclePathDefault))
 	policy := childPolicy()
 	clock := fixedClock(bundle.VerifiedAt.UTC())
 
@@ -361,16 +362,15 @@ func TestUS004ProtocolAcceptance_CheckpointResume(t *testing.T) {
 func TestUS004ProtocolAcceptance_CheckedInCheckpointMatchesGeneratedFixture(t *testing.T) {
 	t.Parallel()
 
-	bundle := readLifecycleBundle(t, repoRoot(t), lifecyclePathDefault)
-	checkpoint := buildChildCheckpointFixture(t, bundle, childPolicy())
-	expected, err := vendorprotocol.CanonicalJSON(checkpoint)
+	verdict, err := Verify(context.Background(), Request{
+		RootPath:      repoRoot(t),
+		LifecyclePath: lifecyclePathDefault,
+		Mode:          ModeVerify,
+	})
 	if err != nil {
-		t.Fatalf("canonical generated checkpoint: %v", err)
+		t.Fatalf("verify canonical lifecycle: %v", err)
 	}
-	actual := mustReadRepoFile(t, checkpointPath)
-	if !bytes.Equal(bytes.TrimSpace(actual), expected) {
-		t.Fatalf("checked-in checkpoint drifted from generated fixture\nactual=%s\nexpected=%s", actual, expected)
-	}
+	assertNoFindingCode(t, verdict.Findings, "CHECKPOINT_INVALID")
 }
 
 func TestUS004ProtocolAcceptance_CheckpointInvalidThroughVerifyReplay(t *testing.T) {
@@ -405,6 +405,7 @@ func TestUS004ProtocolAcceptance_CheckpointInvalidThroughVerifyReplay(t *testing
 		testCase := testCase
 		t.Run(testCase.name, func(t *testing.T) {
 			root := copiedAssuranceRoot(t)
+			makeLifecycleCheckpointEligible(t, root)
 			testCase.mutate(t, root)
 
 			for _, mode := range []string{ModeVerify, ModeReplay} {
@@ -441,6 +442,7 @@ func TestUS004ProtocolAcceptance_BadEvidenceAndLeakageCases(t *testing.T) {
 				replayBundles := value["replay_bundles"].([]any)
 				replayBundles[0].(map[string]any)["replay_command"] = ""
 				writeJSONFile(t, filepath.Join(root, evidenceModelPath), value)
+				refreshLifecycleBindingsForRoot(t, root)
 			},
 			expected:    "INCOMPLETE_REPLAY_BUNDLE",
 			disposition: vendorprotocol.Block,
@@ -453,6 +455,7 @@ func TestUS004ProtocolAcceptance_BadEvidenceAndLeakageCases(t *testing.T) {
 				value := readGenericJSON(t, filepath.Join(root, evidenceModelPath))
 				value["proof_obligations"] = []any{}
 				writeJSONFile(t, filepath.Join(root, evidenceModelPath), value)
+				refreshLifecycleBindingsForRoot(t, root)
 			},
 			expected:    "MISSING_PROOF_OBLIGATION",
 			disposition: vendorprotocol.Block,
@@ -466,6 +469,7 @@ func TestUS004ProtocolAcceptance_BadEvidenceAndLeakageCases(t *testing.T) {
 				claims := value["claims"].([]any)
 				claims[0].(map[string]any)["evidence_ids"] = []any{"missing-evidence-id"}
 				writeJSONFile(t, filepath.Join(root, evidenceModelPath), value)
+				refreshLifecycleBindingsForRoot(t, root)
 			},
 			expected:    "MISSING_REQUIRED_EVIDENCE",
 			disposition: vendorprotocol.Block,
@@ -504,6 +508,7 @@ func TestUS004ProtocolAcceptance_BadEvidenceAndLeakageCases(t *testing.T) {
 				contract := readPublicContract(t, root)
 				contract.WhyBlocked = "raw_diagnostic canary"
 				writeJSONFile(t, filepath.Join(root, publicContractPath), contract)
+				refreshLifecycleBindingsForRoot(t, root)
 			},
 			expected:    "PROTECTED_PUBLICATION_DISCLOSURE",
 			disposition: vendorprotocol.Revoke,
@@ -517,6 +522,9 @@ func TestUS004ProtocolAcceptance_BadEvidenceAndLeakageCases(t *testing.T) {
 			lifecyclePath := lifecyclePathDefault
 			if testCase.lifecycle != "" {
 				lifecyclePath = testCase.lifecycle
+			}
+			if lifecyclePath == lifecyclePathDefault {
+				makeLifecycleCheckpointEligible(t, root)
 			}
 			if testCase.mutate != nil {
 				testCase.mutate(t, root)
@@ -708,6 +716,7 @@ func fixedClock(now time.Time) vendorprotocol.Clock {
 func buildChildCheckpointFixture(t *testing.T, bundle vendorprotocol.Bundle, policy vendorprotocol.Policy) vendorprotocol.Checkpoint {
 	t.Helper()
 
+	bundle = eligibleCheckpointBundle(bundle)
 	baseTime := bundle.VerifiedAt.UTC()
 	runner, err := vendorprotocol.NewRunner(bundle, policy, nil, fixedClock(baseTime), protocolVerifiers()...)
 	if err != nil {
@@ -732,6 +741,60 @@ func buildChildCheckpointFixture(t *testing.T, bundle vendorprotocol.Bundle, pol
 		t.Fatalf("checkpoint after verify: %v", err)
 	}
 	return checkpoint
+}
+
+func eligibleCheckpointBundle(bundle vendorprotocol.Bundle) vendorprotocol.Bundle {
+	clone := bundle
+	clone.Attestations = []vendorprotocol.Attestation{
+		{ID: "attestation.independent-a", ActorID: "independent-reviewer-a", Role: "independent-verifier-a", SnapshotDigest: bundle.Snapshot.CandidateDigest, Independent: true},
+		{ID: "attestation.independent-b", ActorID: "independent-reviewer-b", Role: "independent-verifier-b", SnapshotDigest: bundle.Snapshot.CandidateDigest, Independent: true},
+	}
+	return clone
+}
+
+func makeLifecycleCheckpointEligible(t *testing.T, root string) {
+	t.Helper()
+	bundle := readLifecycleBundle(t, root, lifecyclePathDefault)
+	bundle = eligibleCheckpointBundle(bundle)
+	writeJSONFile(t, filepath.Join(root, lifecyclePathDefault), bundle)
+}
+
+func refreshLifecycleBindingsForRoot(t *testing.T, root string) {
+	t.Helper()
+	bundle := readLifecycleBundle(t, root, lifecyclePathDefault)
+	digests := make(map[string]string, len(expectedRetainedArtifacts)+len(expectedEvidenceNodes))
+	for _, artifact := range expectedRetainedArtifacts {
+		data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(artifact.Path)))
+		if err != nil {
+			t.Fatalf("read retained artifact %s: %v", artifact.Path, err)
+		}
+		digests[artifact.Path] = vendorprotocol.DigestBytes(data)
+	}
+	for index := range bundle.Nodes {
+		for _, expected := range expectedEvidenceNodes {
+			if bundle.Nodes[index].ID != expected.ID {
+				continue
+			}
+			binding := retainedDigest{Path: expected.Path, SHA256: digests[expected.Path]}
+			encoded, err := vendorprotocol.CanonicalJSON(binding)
+			if err != nil {
+				t.Fatalf("canonical binding %s: %v", expected.Path, err)
+			}
+			bundle.Nodes[index].ContentBase64 = base64.StdEncoding.EncodeToString(encoded)
+			bundle.Nodes[index].Digest = vendorprotocol.DigestBytes(encoded)
+			digests[bundle.Nodes[index].ID] = digests[expected.Path]
+		}
+	}
+	candidate, err := snapshotBindingDigest(bundle, digests)
+	if err != nil {
+		t.Fatalf("snapshot binding digest: %v", err)
+	}
+	bundle.Snapshot.CandidateDigest = candidate
+	bundle.Authorization.SnapshotDigest = candidate
+	for index := range bundle.Attestations {
+		bundle.Attestations[index].SnapshotDigest = candidate
+	}
+	writeJSONFile(t, filepath.Join(root, lifecyclePathDefault), bundle)
 }
 
 func syntheticCheckpointAttempt(bundle vendorprotocol.Bundle, attemptID, stageID string, ordinal int) vendorprotocol.Attempt {

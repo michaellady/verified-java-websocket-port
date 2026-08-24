@@ -16,6 +16,17 @@ type developerToolExpectation struct {
 	Version   string
 }
 
+type schemaExpectation struct {
+	SchemaPath string
+	Artifact   string
+	Finding    string
+}
+
+type retainedArtifactExpectation struct {
+	Path string
+	Kind string
+}
+
 var expectedUpstreamEntries = []upstreamManifestEntry{
 	{SourcePath: "go.mod", TargetPath: "third_party/verified-java-to-rust-foundation/go.mod", SHA256: "sha256:f2f360abf946bd2dbed13f01f4813759f9d3daf54beb40b4afaf4302a6981e63"},
 	{SourcePath: "go.sum", TargetPath: "third_party/verified-java-to-rust-foundation/go.sum", SHA256: "sha256:190d9eb7b0bf958a72cdfa38e70887ba644442b0389537f21fcf5eff3daf325f"},
@@ -63,6 +74,49 @@ var expectedDeveloperToolRuns = []developerToolExpectation{
 	{Path: jdtLSPath, ProfileID: "profile.jdt-ls.java.v1", Language: "java", Name: "Eclipse JDT Language Server", Version: "1.60.0"},
 	{Path: rustAnalyzerPath, ProfileID: "profile.rust-analyzer.baseline.v1", Language: "rust", Name: "rust-analyzer", Version: "2026-08-17.4"},
 	{Path: glancerPath, ProfileID: "profile.glancer.experimental.v1", Language: "rust", Name: "Rust Glancer", Version: "v0.1.1"},
+}
+
+var expectedSchemaValidations = []schemaExpectation{
+	{SchemaPath: "third_party/verified-java-to-rust-foundation/protocol/schemas/protocol-bundle-1.0.0.schema.json", Artifact: lifecyclePathDefault, Finding: "INVALID_LIFECYCLE_SCHEMA"},
+	{SchemaPath: "third_party/verified-java-to-rust-foundation/protocol/schemas/checkpoint-1.0.0.schema.json", Artifact: checkpointPath, Finding: "CHECKPOINT_INVALID"},
+	{SchemaPath: "assurance/schema/evidence-model-1.1.0.schema.json", Artifact: evidenceModelPath, Finding: "INVALID_EVIDENCE_MODEL"},
+	{SchemaPath: "assurance/schema/evolution-1.1.0.schema.json", Artifact: evolutionPath, Finding: "INVALID_EVOLUTION"},
+	{SchemaPath: "assurance/schema/developer-tool-run.schema.json", Artifact: jdtLSPath, Finding: "INVALID_DEVELOPER_TOOL_RUN"},
+	{SchemaPath: "assurance/schema/developer-tool-run.schema.json", Artifact: rustAnalyzerPath, Finding: "INVALID_DEVELOPER_TOOL_RUN"},
+	{SchemaPath: "assurance/schema/developer-tool-run.schema.json", Artifact: glancerPath, Finding: "INVALID_DEVELOPER_TOOL_RUN"},
+	{SchemaPath: "assurance/schema/java-intake.schema.json", Artifact: javaIntakePath, Finding: "INVALID_JAVA_INTAKE"},
+	{SchemaPath: "assurance/schema/compatibility-surface.schema.json", Artifact: compatibilitySurfacePath, Finding: "INVALID_COMPATIBILITY_SURFACE"},
+	{SchemaPath: "assurance/schema/cutover-contract.schema.json", Artifact: cutoverContractPath, Finding: "INVALID_CUTOVER_CONTRACT"},
+	{SchemaPath: "assurance/schema/port-seam-dossier.schema.json", Artifact: portSeamDossierPath, Finding: "INVALID_PORT_SEAM_DOSSIER"},
+	{SchemaPath: "assurance/schema/behavior-delta-ledger.schema.json", Artifact: behaviorDeltaLedgerPath, Finding: "INVALID_BEHAVIOR_DELTA_LEDGER"},
+	{SchemaPath: "assurance/schema/language-intelligence-profile.schema.json", Artifact: languageIntelligenceProfilePath, Finding: "INVALID_LANGUAGE_INTELLIGENCE_PROFILE"},
+	{SchemaPath: "assurance/schema/profile-switching.schema.json", Artifact: profileSwitchingPath, Finding: "INVALID_PROFILE_SWITCHING"},
+	{SchemaPath: "assurance/schema/navigation-corpus.schema.json", Artifact: navigationCorpusPath, Finding: "INVALID_NAVIGATION_CORPUS"},
+}
+
+var expectedRetainedArtifacts = []retainedArtifactExpectation{
+	{Path: upstreamManifestPath, Kind: "retained-evidence"},
+	{Path: evidenceModelPath, Kind: "retained-evidence"},
+	{Path: evolutionPath, Kind: "retained-evidence"},
+	{Path: failuresPath, Kind: "retained-evidence"},
+	{Path: evidenceDAGPath, Kind: "retained-evidence"},
+	{Path: publicContractPath, Kind: "retained-evidence"},
+	{Path: jdtLSPath, Kind: "retained-evidence"},
+	{Path: rustAnalyzerPath, Kind: "retained-evidence"},
+	{Path: glancerPath, Kind: "retained-evidence"},
+	{Path: jdtLSEvidencePath, Kind: "developer-tool-evidence"},
+	{Path: rustAnalyzerEvidencePath, Kind: "developer-tool-evidence"},
+	{Path: glancerEvidencePath, Kind: "developer-tool-evidence"},
+	{Path: javaIntakePath, Kind: "developer-tool-material"},
+	{Path: compatibilitySurfacePath, Kind: "developer-tool-material"},
+	{Path: cutoverContractPath, Kind: "developer-tool-material"},
+	{Path: portSeamDossierPath, Kind: "developer-tool-material"},
+	{Path: behaviorDeltaLedgerPath, Kind: "developer-tool-material"},
+	{Path: languageIntelligenceProfilePath, Kind: "developer-tool-material"},
+	{Path: profileSwitchingPath, Kind: "developer-tool-material"},
+	{Path: navigationCorpusPath, Kind: "developer-tool-material"},
+	{Path: replayReadmePath, Kind: "replay-material"},
+	{Path: replayProvenancePath, Kind: "replay-material"},
 }
 
 var expectedFailureRegistryEntries = []failureRegistryEntry{

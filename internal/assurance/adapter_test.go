@@ -23,8 +23,9 @@ func TestVerifyCanonicalLifecycle(t *testing.T) {
 	if verdict.State != "BLOCKED" {
 		t.Fatalf("state = %q, want BLOCKED", verdict.State)
 	}
-	if len(verdict.Findings) != 0 {
-		t.Fatalf("canonical lifecycle produced findings: %+v", verdict.Findings)
+	assertFinding(t, verdict.Findings, "INVALID_ATTESTATION", vendorprotocol.Block)
+	if len(verdict.Findings) != 2 {
+		t.Fatalf("canonical lifecycle produced unexpected findings: %+v", verdict.Findings)
 	}
 	if verdict.Assurance != assuranceCeiling {
 		t.Fatalf("assurance = %q, want %q", verdict.Assurance, assuranceCeiling)
