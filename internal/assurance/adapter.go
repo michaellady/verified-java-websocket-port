@@ -3,6 +3,7 @@ package assurance
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -135,6 +136,9 @@ func evaluate(ctx context.Context, request Request, expectedMode string) (Verdic
 
 	bundleData, err := readRegularFile(root, request.LifecyclePath, vendorprotocol.MaxJSONBytes)
 	if err != nil {
+		return Verdict{}, err
+	}
+	if err := rejectNullRequiredBundleFields(bundleData); err != nil {
 		return Verdict{}, err
 	}
 	var bundle vendorprotocol.Bundle
@@ -517,6 +521,9 @@ func canonicalPath(name string) (string, error) {
 	if name == "" || strings.HasPrefix(name, "/") || strings.Contains(name, "\\") {
 		return "", fmt.Errorf("path must be slash-relative")
 	}
+	if strings.Contains(name, "//") {
+		return "", fmt.Errorf("path must be canonical")
+	}
 	clean := filepath.ToSlash(filepath.Clean(name))
 	if clean == "." || strings.HasPrefix(clean, "../") || strings.Contains(clean, "/../") {
 		return "", fmt.Errorf("path escapes root")
@@ -528,6 +535,59 @@ func canonicalPath(name string) (string, error) {
 		}
 	}
 	return clean, nil
+}
+
+func rejectNullRequiredBundleFields(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+	required := []string{
+		"schema_version",
+		"company",
+		"project",
+		"verified_at",
+		"snapshot",
+		"root_node_id",
+		"nodes",
+		"edges",
+		"stages",
+		"attempts",
+		"failures",
+		"authorization",
+		"attestations",
+		"publication",
+	}
+	for _, field := range required {
+		value, ok := raw[field]
+		if !ok {
+			continue
+		}
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return fmt.Errorf("cannot unmarshal null into required lifecycle field %q", field)
+		}
+	}
+	return rejectNullPublicationFields(raw["publication"])
+}
+
+func rejectNullPublicationFields(data json.RawMessage) error {
+	if len(data) == 0 {
+		return nil
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+	for _, field := range []string{"requested", "complete", "classification", "object_digests", "replay_command"} {
+		value, ok := raw[field]
+		if !ok {
+			continue
+		}
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return fmt.Errorf("cannot unmarshal null into required lifecycle field %q", "publication."+field)
+		}
+	}
+	return nil
 }
 
 type fileIdentity struct {
