@@ -55,33 +55,6 @@ func TestVerifyRejectsVendoredManifestDrift(t *testing.T) {
 	assertFinding(t, verdict.Findings, "VENDORED_FILE_DIGEST_MISMATCH", vendorprotocol.Block)
 }
 
-func TestReplayFixturesProduceStableFindings(t *testing.T) {
-	root := repoRoot(t)
-	data, err := os.ReadFile(filepath.Join(root, "assurance", "replay", "fixtures", "cases.json"))
-	if err != nil {
-		t.Fatalf("read replay cases: %v", err)
-	}
-	var catalog replayCaseCatalog
-	if err := json.Unmarshal(data, &catalog); err != nil {
-		t.Fatalf("decode replay cases: %v", err)
-	}
-	for _, fixture := range catalog.Cases {
-		t.Run(fixture.ID, func(t *testing.T) {
-			verdict, err := Replay(context.Background(), Request{
-				RootPath:      root,
-				LifecyclePath: fixture.LifecyclePath,
-				Mode:          ModeReplay,
-			})
-			if err != nil {
-				t.Fatalf("replay fixture %s: %v", fixture.ID, err)
-			}
-			for _, expected := range fixture.ExpectedFindings {
-				assertFinding(t, verdict.Findings, expected.Code, vendorprotocol.Disposition(expected.Disposition))
-			}
-		})
-	}
-}
-
 func repoRoot(t *testing.T) string {
 	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
@@ -138,16 +111,55 @@ func assertFinding(t *testing.T, findings []vendorprotocol.Finding, code string,
 }
 
 type replayCaseCatalog struct {
-	Cases []replayCase `json:"cases"`
+	DispositionCoverage replayDispositionCoverage `json:"disposition_coverage"`
+	Cases               []replayCase              `json:"cases"`
 }
 
 type replayCase struct {
-	ID               string                  `json:"id"`
-	LifecyclePath    string                  `json:"lifecycle_path"`
-	ExpectedFindings []replayCaseExpectation `json:"expected_findings"`
+	ID                   string                  `json:"id"`
+	LifecyclePath        string                  `json:"lifecycle_path"`
+	MutationManifestPath string                  `json:"mutation_manifest_path"`
+	ExactFindings        bool                    `json:"exact_findings"`
+	VerifyFindings       []replayCaseExpectation `json:"verify_findings"`
+	ReplayFindings       []replayCaseExpectation `json:"replay_findings"`
+	CLI                  replayCaseCLI           `json:"cli"`
 }
 
 type replayCaseExpectation struct {
 	Code        string `json:"code"`
 	Disposition string `json:"disposition"`
+	Count       int    `json:"count"`
+}
+
+type replayCaseCLI struct {
+	VerifyExitCode int `json:"verify_exit_code"`
+	ReplayExitCode int `json:"replay_exit_code"`
+}
+
+type replayDispositionCoverage struct {
+	CaseMapped   []replayDispositionMapping `json:"case_mapped"`
+	RegistryOnly []replayDispositionCodes   `json:"registry_only"`
+}
+
+type replayDispositionMapping struct {
+	Disposition string   `json:"disposition"`
+	CaseIDs     []string `json:"case_ids"`
+}
+
+type replayDispositionCodes struct {
+	Disposition string   `json:"disposition"`
+	Codes       []string `json:"codes"`
+}
+
+func loadReplayCaseCatalog(t *testing.T) replayCaseCatalog {
+	t.Helper()
+	data, err := os.ReadFile(filepath.Join(repoRoot(t), "assurance", "replay", "fixtures", "cases.json"))
+	if err != nil {
+		t.Fatalf("read replay cases: %v", err)
+	}
+	var catalog replayCaseCatalog
+	if err := json.Unmarshal(data, &catalog); err != nil {
+		t.Fatalf("decode replay cases: %v", err)
+	}
+	return catalog
 }

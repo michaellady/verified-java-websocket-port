@@ -1,0 +1,13 @@
+{
+  "operations": [
+    {
+      "kind": "json_set",
+      "target": "assurance/public-contract.json",
+      "pointer": "/why_blocked",
+      "value": "raw_diagnostic canary"
+    },
+    {
+      "kind": "refresh_bindings"
+    }
+  ]
+}

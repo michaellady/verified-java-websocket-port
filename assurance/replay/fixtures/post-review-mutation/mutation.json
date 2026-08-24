@@ -1,0 +1,10 @@
+{
+  "operations": [
+    {
+      "kind": "json_set",
+      "target": "assurance/lifecycle.json",
+      "pointer": "/nodes/1/digest",
+      "value": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ]
+}
