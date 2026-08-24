@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"syscall"
+	"time"
 
 	vendorprotocol "github.com/michaellady/verified-java-to-rust/foundation/protocol"
 	vendorvalidators "github.com/michaellady/verified-java-to-rust/foundation/validators"
@@ -31,6 +32,7 @@ const (
 	evidenceModelPath    = "assurance/evidence-model.json"
 	evolutionPath        = "assurance/evolution.json"
 	evidenceDAGPath      = "assurance/evidence-dag.json"
+	checkpointPath       = "assurance/replay/checkpoint.json"
 	failuresPath         = "assurance/failures.json"
 	publicContractPath   = "assurance/public-contract.json"
 	jdtLSPath            = "assurance/developer-tools/jdt-ls.json"
@@ -149,13 +151,19 @@ func evaluate(ctx context.Context, request Request, expectedMode string) (Verdic
 	policy := childPolicy()
 	reference := vendorprotocol.NormalizeFindings(vendorvalidators.VerifyReference(bundle, policy))
 	independent := vendorprotocol.NormalizeFindings(vendorvalidators.VerifyIndependent(bundle, policy))
+	checkpointEligible := false
 	if !sameFindings(reference, independent) {
 		add("PARENT_VALIDATOR_DISAGREEMENT", vendorprotocol.Block, request.LifecyclePath, "reference and independent protocol validators disagree")
 	} else {
 		findings = append(findings, reference...)
+		checkpointEligible = len(reference) == 0
 	}
 
 	validateEvidenceArtifacts(root, add)
+	if checkpointEligible {
+		validateCheckpoint(root, bundle, policy, add)
+	}
+	validateIdentifierUniqueness(bundle, add)
 	validateFailureRegistry(root, bundle, add)
 	validateDeveloperToolRuns(root, add)
 	validateEvidenceDAG(root, bundle, add)
@@ -199,6 +207,7 @@ func childPolicy() vendorprotocol.Policy {
 		"COMPLETE_ATTEMPT:verify":  {"port-implementer"},
 		"COMPLETE_ATTEMPT:attest":  {"port-implementer"},
 		"COMPLETE_ATTEMPT:publish": {"release-attestor"},
+		"VERIFY_CHECKPOINT:":       {"release-attestor"},
 	}
 	return policy
 }
@@ -273,6 +282,26 @@ func validateEvidenceArtifacts(root *projectRoot, add func(string, vendorprotoco
 	}
 }
 
+func validateCheckpoint(root *projectRoot, bundle vendorprotocol.Bundle, policy vendorprotocol.Policy, add func(string, vendorprotocol.Disposition, string, string)) {
+	data, err := readRegularFile(root, checkpointPath, vendorprotocol.MaxJSONBytes)
+	if err != nil {
+		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, err.Error())
+		return
+	}
+	if err := rejectNullRequiredCheckpointFields(data); err != nil {
+		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, err.Error())
+		return
+	}
+	var checkpoint vendorprotocol.Checkpoint
+	if err := vendorprotocol.DecodeStrict(data, &checkpoint); err != nil {
+		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, err.Error())
+		return
+	}
+	if _, err := vendorprotocol.Resume(checkpoint, bundle, policy, nil, checkpointClock(bundle), protocolVerifiers()...); err != nil {
+		add("CHECKPOINT_INVALID", vendorprotocol.Block, checkpointPath, err.Error())
+	}
+}
+
 func validateFailureRegistry(root *projectRoot, bundle vendorprotocol.Bundle, add func(string, vendorprotocol.Disposition, string, string)) {
 	data, err := readRegularFile(root, failuresPath, vendorprotocol.MaxJSONBytes)
 	if err != nil {
@@ -313,6 +342,25 @@ func validateFailureRegistry(root *projectRoot, bundle vendorprotocol.Bundle, ad
 		if attempt.Disposition == vendorprotocol.Retry && !retryAllowlist[attempt.ErrorType] {
 			add("INVALID_RETRY_ERROR_TYPE", vendorprotocol.Block, fmt.Sprintf("$.attempts[%d].error_type", index), "only the retry allowlist may emit RETRY")
 		}
+	}
+}
+
+func validateIdentifierUniqueness(bundle vendorprotocol.Bundle, add func(string, vendorprotocol.Disposition, string, string)) {
+	seenAttempts := make(map[string]bool, len(bundle.Attempts))
+	for index, attempt := range bundle.Attempts {
+		if attempt.ID == "" || seenAttempts[attempt.ID] {
+			add("DUPLICATE_ID", vendorprotocol.Block, fmt.Sprintf("$.attempts[%d].id", index), "attempt identity is empty or duplicated")
+			continue
+		}
+		seenAttempts[attempt.ID] = true
+	}
+	seenFailures := make(map[string]bool, len(bundle.Failures))
+	for index, failure := range bundle.Failures {
+		if failure.ID == "" || seenFailures[failure.ID] {
+			add("DUPLICATE_ID", vendorprotocol.Block, fmt.Sprintf("$.failures[%d].id", index), "failure identity is empty or duplicated")
+			continue
+		}
+		seenFailures[failure.ID] = true
 	}
 }
 
@@ -465,6 +513,18 @@ func registryHasDisposition(values map[string]vendorprotocol.Disposition, wanted
 	return false
 }
 
+func protocolVerifiers() []vendorprotocol.NamedVerifier {
+	return []vendorprotocol.NamedVerifier{
+		{ID: "reference", Verify: vendorvalidators.VerifyReference},
+		{ID: "independent", Verify: vendorvalidators.VerifyIndependent},
+	}
+}
+
+func checkpointClock(bundle vendorprotocol.Bundle) vendorprotocol.Clock {
+	now := bundle.VerifiedAt.UTC()
+	return func() time.Time { return now }
+}
+
 func openProjectRoot(path string) (*projectRoot, error) {
 	root, err := os.OpenRoot(path)
 	if err != nil {
@@ -568,6 +628,23 @@ func rejectNullRequiredBundleFields(data []byte) error {
 		}
 	}
 	return rejectNullPublicationFields(raw["publication"])
+}
+
+func rejectNullRequiredCheckpointFields(data []byte) error {
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return nil
+	}
+	for _, field := range []string{"schema_version", "state_digest", "created_at", "state"} {
+		value, ok := raw[field]
+		if !ok {
+			continue
+		}
+		if bytes.Equal(bytes.TrimSpace(value), []byte("null")) {
+			return fmt.Errorf("cannot unmarshal null into required checkpoint field %q", field)
+		}
+	}
+	return nil
 }
 
 func rejectNullPublicationFields(data json.RawMessage) error {
