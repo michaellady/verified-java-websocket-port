@@ -1,0 +1,51 @@
+{
+  "$schema": "../../schemas/java-test-manifest-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "java-test-manifest",
+  "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "status": "BLOCKED",
+  "inventory_status": "NOT_RECONCILED",
+  "counts": {
+    "static_annotation_occurrences": 231,
+    "discovered": null,
+    "executed": null,
+    "passed": null,
+    "failed": null,
+    "skipped": null,
+    "filtered": null,
+    "timed_out": null,
+    "quarantined": null
+  },
+  "non_tests": [
+    {
+      "path": "src/test/resources/org/java_websocket/AutobahnClient.feature",
+      "kind": "feature-file",
+      "executable": false,
+      "counted_as_test": false
+    },
+    {
+      "path": "src/test/java/org/java_websocket/example/AutobahnClientTest.java",
+      "kind": "autobahn-utility",
+      "executable": true,
+      "counted_as_test": false
+    },
+    {
+      "path": "src/test/java/org/java_websocket/example/AutobahnSSLServerTest.java",
+      "kind": "autobahn-utility",
+      "executable": true,
+      "counted_as_test": false
+    },
+    {
+      "path": "src/test/java/org/java_websocket/example/AutobahnServerTest.java",
+      "kind": "autobahn-utility",
+      "executable": true,
+      "counted_as_test": false
+    }
+  ],
+  "blocker": {
+    "code": "AUTHORITATIVE_TEST_RUN_UNAVAILABLE",
+    "detail": "Static method identities, Maven discovery, and terminal result identities remain unclaimed until the verified offline sandbox run completes."
+  },
+  "production": false,
+  "publication": false
+}

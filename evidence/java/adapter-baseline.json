@@ -1,0 +1,31 @@
+{
+  "$schema": "../../schemas/java-adapter-baseline-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "java-adapter-baseline",
+  "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "status": "QUALIFIED_COMPONENT_ONLY",
+  "protocol": {
+    "name": "java-websocket-oracle",
+    "version": "1.0.0",
+    "transport": "strict-jsonl",
+    "stdout_protocol_only": true,
+    "diagnostics_bounded": true
+  },
+  "runtime": {
+    "object_id": "java-websocket-runtime-jar",
+    "digest": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+    "version": "1.6.0",
+    "startup_digest_enforced": true
+  },
+  "tests": {
+    "groups_passed": 12,
+    "deterministic_replay_passed": true,
+    "strict_input_canaries_passed": true,
+    "runtime_binding_canaries_passed": true
+  },
+  "authoritative_sandbox_run": false,
+  "production_source_modified": false,
+  "rfc6455_normative": true,
+  "production": false,
+  "publication": false
+}

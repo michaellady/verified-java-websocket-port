@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/autobahn-baseline-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "image", "selected_families", "excluded_families", "registry", "client", "server", "risk_disposition", "blocker", "production", "publication"],
+  "properties": {
+    "$schema": {"const": "../../schemas/autobahn-baseline-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "autobahn-baseline"},
+    "accepted_root_digest": {"$ref": "#/$defs/digest"},
+    "status": {"enum": ["PASS", "BLOCKED"]},
+    "image": {"type": "object", "additionalProperties": false, "required": ["manifest_digest", "manifest_bytes", "config_digest", "platform", "layers", "pull_policy", "identity_verified"], "properties": {"manifest_digest": {"$ref": "#/$defs/digest"}, "manifest_bytes": {"const": 3477}, "config_digest": {"$ref": "#/$defs/digest"}, "platform": {"const": "linux/amd64"}, "layers": {"const": 15}, "pull_policy": {"const": "never"}, "identity_verified": {"type": "boolean"}}},
+    "selected_families": {"const": ["1.*", "2.*", "3.*", "4.*", "5.*", "6.*", "7.*", "10.*"]},
+    "excluded_families": {"const": ["9.*", "12.*", "13.*"]},
+    "registry": {"type": "object", "additionalProperties": false, "required": ["digest", "static_expansion_complete"], "properties": {"digest": {"$ref": "#/$defs/digest"}, "static_expansion_complete": {"type": "boolean"}}},
+    "client": {"$ref": "#/$defs/run"},
+    "server": {"$ref": "#/$defs/run"},
+    "risk_disposition": {"type": "object", "additionalProperties": false, "required": ["classification", "approved_critical_findings", "approved_high_findings"], "properties": {"classification": {"const": "QUARANTINED_LABORATORY_QUALIFICATION_ONLY"}, "approved_critical_findings": {"const": 12}, "approved_high_findings": {"const": 147}}},
+    "blocker": {"$ref": "#/$defs/finding"},
+    "production": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "count": {"type": ["integer", "null"], "minimum": 0},
+    "run": {"type": "object", "additionalProperties": false, "required": ["executed", "selected_count", "result_count"], "properties": {"executed": {"type": "boolean"}, "selected_count": {"$ref": "#/$defs/count"}, "result_count": {"$ref": "#/$defs/count"}}},
+    "finding": {"type": "object", "additionalProperties": false, "required": ["code", "detail"], "properties": {"code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}, "detail": {"type": "string", "minLength": 1, "maxLength": 2048}}}
+  }
+}

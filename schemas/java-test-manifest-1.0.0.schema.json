@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/java-test-manifest-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "inventory_status", "counts", "non_tests", "blocker", "production", "publication"],
+  "properties": {
+    "$schema": {"const": "../../schemas/java-test-manifest-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "java-test-manifest"},
+    "accepted_root_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "status": {"enum": ["PASS", "BLOCKED"]},
+    "inventory_status": {"enum": ["RECONCILED", "NOT_RECONCILED"]},
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["static_annotation_occurrences", "discovered", "executed", "passed", "failed", "skipped", "filtered", "timed_out", "quarantined"],
+      "properties": {
+        "static_annotation_occurrences": {"type": "integer", "minimum": 0},
+        "discovered": {"$ref": "#/$defs/count"}, "executed": {"$ref": "#/$defs/count"}, "passed": {"$ref": "#/$defs/count"}, "failed": {"$ref": "#/$defs/count"}, "skipped": {"$ref": "#/$defs/count"}, "filtered": {"$ref": "#/$defs/count"}, "timed_out": {"$ref": "#/$defs/count"}, "quarantined": {"$ref": "#/$defs/count"}
+      }
+    },
+    "non_tests": {
+      "type": "array", "minItems": 4, "maxItems": 256,
+      "items": {"type": "object", "additionalProperties": false, "required": ["path", "kind", "executable", "counted_as_test"], "properties": {"path": {"type": "string", "minLength": 1}, "kind": {"enum": ["feature-file", "autobahn-utility"]}, "executable": {"type": "boolean"}, "counted_as_test": {"const": false}}}
+    },
+    "blocker": {"$ref": "#/$defs/finding"},
+    "production": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {
+    "count": {"type": ["integer", "null"], "minimum": 0},
+    "finding": {"type": "object", "additionalProperties": false, "required": ["code", "detail"], "properties": {"code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}, "detail": {"type": "string", "minLength": 1, "maxLength": 2048}}}
+  }
+}

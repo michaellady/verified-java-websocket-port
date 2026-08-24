@@ -1,0 +1,43 @@
+{
+  "$schema": "../../schemas/autobahn-baseline-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "autobahn-baseline",
+  "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "status": "BLOCKED",
+  "image": {
+    "manifest_digest": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+    "manifest_bytes": 3477,
+    "config_digest": "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f",
+    "platform": "linux/amd64",
+    "layers": 15,
+    "pull_policy": "never",
+    "identity_verified": true
+  },
+  "selected_families": ["1.*", "2.*", "3.*", "4.*", "5.*", "6.*", "7.*", "10.*"],
+  "excluded_families": ["9.*", "12.*", "13.*"],
+  "registry": {
+    "digest": "sha256:12ce097739b14751daefa1fd1ee4125ca1b95584759100563c00cf796eac7cb4",
+    "static_expansion_complete": false
+  },
+  "client": {
+    "executed": false,
+    "selected_count": null,
+    "result_count": null
+  },
+  "server": {
+    "executed": false,
+    "selected_count": null,
+    "result_count": null
+  },
+  "risk_disposition": {
+    "classification": "QUARANTINED_LABORATORY_QUALIFICATION_ONLY",
+    "approved_critical_findings": 12,
+    "approved_high_findings": 147
+  },
+  "blocker": {
+    "code": "AUTOBAHN_EXECUTION_UNAVAILABLE",
+    "detail": "Digest-bound static expansion and a verified local-only executor are required before either mode may run."
+  },
+  "production": false,
+  "publication": false
+}

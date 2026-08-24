@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/behavior-delta-ledger-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "normative_authority", "head", "records", "append_implementation", "unledgered_disagreements", "production", "publication"],
+  "properties": {
+    "$schema": {"const": "../../schemas/behavior-delta-ledger-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "behavior-delta-ledger"},
+    "accepted_root_digest": {"$ref": "#/$defs/digest"},
+    "status": {"enum": ["READY", "BLOCKED_PENDING_BASELINE"]},
+    "normative_authority": {"const": "rfc6455"},
+    "head": {"$ref": "#/$defs/digest"},
+    "records": {"type": "array", "maxItems": 100000, "items": {"type": "object"}},
+    "append_implementation": {"const": "hash-chained-cas"},
+    "unledgered_disagreements": {"type": "integer", "minimum": 0},
+    "production": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+}

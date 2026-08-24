@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/java-build-receipt-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "assurance", "source", "toolchains", "cache", "sandbox", "build", "blockers", "production", "publication"],
+  "properties": {
+    "$schema": {"const": "../../schemas/java-build-receipt-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "java-build-receipt"},
+    "accepted_root_digest": {"$ref": "#/$defs/digest"},
+    "status": {"enum": ["READY", "PASS", "BLOCKED"]},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "source": {
+      "type": "object", "additionalProperties": false,
+      "required": ["object_id", "digest", "version", "production_source_modified"],
+      "properties": {"object_id": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/digest"}, "version": {"type": "string", "minLength": 1}, "production_source_modified": {"const": false}}
+    },
+    "toolchains": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {"type": "object", "additionalProperties": false, "required": ["object_id", "digest", "version"], "properties": {"object_id": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/digest"}, "version": {"type": "string", "minLength": 1}}}
+    },
+    "cache": {"type": "object", "additionalProperties": false, "required": ["isolated", "closure_frozen", "offline_authoritative_run", "qualification"], "properties": {"isolated": {"type": "boolean"}, "closure_frozen": {"type": "boolean"}, "offline_authoritative_run": {"type": "boolean"}, "qualification": {"enum": ["NOT_PROMOTED", "QUALIFIED_NOT_PROMOTED"]}}},
+    "sandbox": {"type": "object", "additionalProperties": false, "required": ["source_read_only_required", "secrets", "egress", "bounded_resources_required", "enforcement_status"], "properties": {"source_read_only_required": {"const": true}, "secrets": {"const": "none"}, "egress": {"const": "deny-by-default"}, "bounded_resources_required": {"const": true}, "enforcement_status": {"enum": ["UNAVAILABLE", "VERIFIED"]}}},
+    "build": {"type": "object", "additionalProperties": false, "required": ["executed", "exit_code", "tests_executed"], "properties": {"executed": {"type": "boolean"}, "exit_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 255}, "tests_executed": {"type": "boolean"}}},
+    "blockers": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "production": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "finding": {"type": "object", "additionalProperties": false, "required": ["code", "detail"], "properties": {"code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}, "detail": {"type": "string", "minLength": 1, "maxLength": 2048}}}
+  }
+}

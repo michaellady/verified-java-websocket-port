@@ -1,0 +1,14 @@
+{
+  "$schema": "../../schemas/behavior-delta-ledger-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "behavior-delta-ledger",
+  "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "status": "BLOCKED_PENDING_BASELINE",
+  "normative_authority": "rfc6455",
+  "head": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "records": [],
+  "append_implementation": "hash-chained-cas",
+  "unledgered_disagreements": 0,
+  "production": false,
+  "publication": false
+}

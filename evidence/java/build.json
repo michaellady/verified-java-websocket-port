@@ -1,0 +1,52 @@
+{
+  "$schema": "../../schemas/java-build-receipt-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "java-build-receipt",
+  "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "status": "BLOCKED",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "source": {
+    "object_id": "java-websocket-source-archive",
+    "digest": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "version": "1.6.0",
+    "production_source_modified": false
+  },
+  "toolchains": [
+    {
+      "object_id": "openjdk-17.0.19-homebrew-bottle",
+      "digest": "sha256:6d51e51e754dc75437c5c552eea568ec2f166e39fc3faa256e668083a8620c17",
+      "version": "17.0.19"
+    },
+    {
+      "object_id": "apache-maven-3.9.11",
+      "digest": "sha256:4b7195b6a4f5c81af4c0212677a32ee8143643401bc6e1e8412e6b06ea82beac",
+      "version": "3.9.11"
+    }
+  ],
+  "cache": {
+    "isolated": true,
+    "closure_frozen": false,
+    "offline_authoritative_run": false,
+    "qualification": "NOT_PROMOTED"
+  },
+  "sandbox": {
+    "source_read_only_required": true,
+    "secrets": "none",
+    "egress": "deny-by-default",
+    "bounded_resources_required": true,
+    "enforcement_status": "UNAVAILABLE"
+  },
+  "build": {
+    "executed": false,
+    "exit_code": null,
+    "tests_executed": false
+  },
+  "blockers": [
+    {
+      "code": "SANDBOX_ENFORCEMENT_UNAVAILABLE",
+      "detail": "No linked executor can yet prove the complete file, process, disk, output, and hostname-scoped egress policy; no authoritative Maven acquisition, offline build, or test receipt was emitted."
+    }
+  ],
+  "production": false,
+  "publication": false
+}

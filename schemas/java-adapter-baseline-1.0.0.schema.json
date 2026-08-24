@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/java-adapter-baseline-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "protocol", "runtime", "tests", "authoritative_sandbox_run", "production_source_modified", "rfc6455_normative", "production", "publication"],
+  "properties": {
+    "$schema": {"const": "../../schemas/java-adapter-baseline-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "java-adapter-baseline"},
+    "accepted_root_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "status": {"enum": ["QUALIFIED_COMPONENT_ONLY", "PASS", "BLOCKED"]},
+    "protocol": {"type": "object", "additionalProperties": false, "required": ["name", "version", "transport", "stdout_protocol_only", "diagnostics_bounded"], "properties": {"name": {"const": "java-websocket-oracle"}, "version": {"const": "1.0.0"}, "transport": {"const": "strict-jsonl"}, "stdout_protocol_only": {"const": true}, "diagnostics_bounded": {"const": true}}},
+    "runtime": {"type": "object", "additionalProperties": false, "required": ["object_id", "digest", "version", "startup_digest_enforced"], "properties": {"object_id": {"const": "java-websocket-runtime-jar"}, "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "version": {"const": "1.6.0"}, "startup_digest_enforced": {"const": true}}},
+    "tests": {"type": "object", "additionalProperties": false, "required": ["groups_passed", "deterministic_replay_passed", "strict_input_canaries_passed", "runtime_binding_canaries_passed"], "properties": {"groups_passed": {"type": "integer", "minimum": 1}, "deterministic_replay_passed": {"type": "boolean"}, "strict_input_canaries_passed": {"type": "boolean"}, "runtime_binding_canaries_passed": {"type": "boolean"}}},
+    "authoritative_sandbox_run": {"type": "boolean"},
+    "production_source_modified": {"const": false},
+    "rfc6455_normative": {"const": true},
+    "production": {"const": false},
+    "publication": {"const": false}
+  }
+}
