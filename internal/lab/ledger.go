@@ -22,16 +22,22 @@ var (
 )
 
 type BehaviorDelta struct {
-	SchemaVersion      string   `json:"schema_version"`
-	DeltaID            string   `json:"delta_id"`
-	SubjectRef         string   `json:"subject_ref"`
-	RFCRefs            []string `json:"rfc_refs"`
-	JavaRef            string   `json:"java_ref"`
-	AutobahnRefs       []string `json:"autobahn_refs"`
-	DisagreementDigest string   `json:"disagreement_digest"`
-	NormativeAuthority string   `json:"normative_authority"`
-	Disposition        string   `json:"disposition"`
-	Rationale          string   `json:"rationale"`
+	SchemaVersion         string   `json:"schema_version"`
+	DeltaID               string   `json:"delta_id"`
+	SubjectRef            string   `json:"subject_ref"`
+	RFCRefs               []string `json:"rfc_refs"`
+	RFCExpectationDigest  string   `json:"rfc_expectation_digest"`
+	RFCValueDigest        string   `json:"rfc_value_digest"`
+	JavaRef               string   `json:"java_ref"`
+	JavaObservationDigest string   `json:"java_observation_digest"`
+	JavaValueDigest       string   `json:"java_value_digest"`
+	AutobahnRefs          []string `json:"autobahn_refs"`
+	AutobahnResultDigest  string   `json:"autobahn_result_digest"`
+	AutobahnValueDigest   string   `json:"autobahn_value_digest"`
+	DisagreementDigest    string   `json:"disagreement_digest"`
+	NormativeAuthority    string   `json:"normative_authority"`
+	Disposition           string   `json:"disposition"`
+	Rationale             string   `json:"rationale"`
 }
 
 func (d BehaviorDelta) Validate() error {
@@ -53,14 +59,32 @@ func (d BehaviorDelta) Validate() error {
 	if err := validateReferences(d.AutobahnRefs, "$.autobahn_refs", autobahnReferencePattern); err != nil {
 		return err
 	}
-	derived, err := (ObservedDisagreement{SubjectRef: d.SubjectRef, RFCRefs: d.RFCRefs, JavaRef: d.JavaRef, AutobahnRefs: d.AutobahnRefs}).Digest()
+	derived, err := (ObservedDisagreement{
+		SubjectRef: d.SubjectRef, RFCRefs: d.RFCRefs, RFCExpectationDigest: d.RFCExpectationDigest, RFCValueDigest: d.RFCValueDigest,
+		JavaRef: d.JavaRef, JavaObservationDigest: d.JavaObservationDigest, JavaValueDigest: d.JavaValueDigest,
+		AutobahnRefs: d.AutobahnRefs, AutobahnResultDigest: d.AutobahnResultDigest, AutobahnValueDigest: d.AutobahnValueDigest,
+	}).Digest()
 	if err != nil {
 		return err
 	}
 	if derived != d.DisagreementDigest {
 		return finding("BEHAVIOR_DELTA_BINDING_MISMATCH", "$.disagreement_digest", "digest does not bind the stable subject and oracle references")
 	}
+	identity, err := BehaviorDeltaID(derived)
+	if err != nil {
+		return err
+	}
+	if d.DeltaID != identity {
+		return finding("BEHAVIOR_DELTA_IDENTITY_MISMATCH", "$.delta_id", "delta identity must derive from the exact bound disagreement")
+	}
 	return nil
+}
+
+func BehaviorDeltaID(disagreementDigest string) (string, error) {
+	if !isDigest(disagreementDigest) {
+		return "", finding("INVALID_DIGEST", "$.disagreement_digest", "disagreement digest must be exact SHA-256")
+	}
+	return "delta-" + disagreementDigest[7:], nil
 }
 
 func validateReferences(values []string, path string, pattern *regexp.Regexp) error {
@@ -269,10 +293,16 @@ func AppendBehaviorDelta(directory, expectedHead string, delta BehaviorDelta) (s
 }
 
 type ObservedDisagreement struct {
-	SubjectRef   string   `json:"subject_ref"`
-	RFCRefs      []string `json:"rfc_refs"`
-	JavaRef      string   `json:"java_ref"`
-	AutobahnRefs []string `json:"autobahn_refs"`
+	SubjectRef            string   `json:"subject_ref"`
+	RFCRefs               []string `json:"rfc_refs"`
+	RFCExpectationDigest  string   `json:"rfc_expectation_digest"`
+	RFCValueDigest        string   `json:"rfc_value_digest"`
+	JavaRef               string   `json:"java_ref"`
+	JavaObservationDigest string   `json:"java_observation_digest"`
+	JavaValueDigest       string   `json:"java_value_digest"`
+	AutobahnRefs          []string `json:"autobahn_refs"`
+	AutobahnResultDigest  string   `json:"autobahn_result_digest"`
+	AutobahnValueDigest   string   `json:"autobahn_value_digest"`
 }
 
 func (d ObservedDisagreement) Digest() (string, error) {
@@ -284,6 +314,18 @@ func (d ObservedDisagreement) Digest() (string, error) {
 	}
 	if err := validateReferences(d.AutobahnRefs, "$.autobahn_refs", autobahnReferencePattern); err != nil {
 		return "", err
+	}
+	for path, digest := range map[string]string{
+		"$.rfc_expectation_digest": d.RFCExpectationDigest, "$.rfc_value_digest": d.RFCValueDigest,
+		"$.java_observation_digest": d.JavaObservationDigest, "$.java_value_digest": d.JavaValueDigest,
+		"$.autobahn_result_digest": d.AutobahnResultDigest, "$.autobahn_value_digest": d.AutobahnValueDigest,
+	} {
+		if !isDigest(digest) {
+			return "", finding("INVALID_DISAGREEMENT_EVIDENCE", path, "every oracle reference must bind exact content and normalized value digests")
+		}
+	}
+	if d.JavaValueDigest == d.RFCValueDigest && d.AutobahnValueDigest == d.RFCValueDigest {
+		return "", finding("NO_BEHAVIOR_DISAGREEMENT", "$.rfc_value_digest", "at least one observed Java or Autobahn value must differ from the RFC expectation")
 	}
 	bytes, err := intake.CanonicalJSON(d)
 	if err != nil {

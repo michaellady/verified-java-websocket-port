@@ -9,24 +9,37 @@
     "schema_version": {"const": "1.0.0"},
     "evidence_kind": {"const": "java-build-receipt"},
     "accepted_root_digest": {"$ref": "#/$defs/digest"},
-    "status": {"enum": ["READY", "PASS", "BLOCKED"]},
+    "status": {"enum": ["PASS", "BLOCKED"]},
     "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
     "source": {
       "type": "object", "additionalProperties": false,
       "required": ["object_id", "digest", "version", "production_source_modified"],
-      "properties": {"object_id": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/digest"}, "version": {"type": "string", "minLength": 1}, "production_source_modified": {"const": false}}
+      "properties": {
+        "object_id": {"const": "java-websocket-source-archive"},
+        "digest": {"const": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4"},
+        "version": {"const": "1.6.0"},
+        "production_source_modified": {"const": false}
+      }
     },
     "toolchains": {
       "type": "array", "minItems": 2, "maxItems": 2,
-      "items": {"type": "object", "additionalProperties": false, "required": ["object_id", "digest", "version"], "properties": {"object_id": {"type": "string", "minLength": 1}, "digest": {"$ref": "#/$defs/digest"}, "version": {"type": "string", "minLength": 1}}}
+      "prefixItems": [
+        {"type": "object", "additionalProperties": false, "required": ["object_id", "digest", "version"], "properties": {"object_id": {"const": "openjdk-17.0.19-homebrew-bottle"}, "digest": {"const": "sha256:6d51e51e754dc75437c5c552eea568ec2f166e39fc3faa256e668083a8620c17"}, "version": {"const": "17.0.19"}}},
+        {"type": "object", "additionalProperties": false, "required": ["object_id", "digest", "version"], "properties": {"object_id": {"const": "apache-maven-3.9.11"}, "digest": {"const": "sha256:4b7195b6a4f5c81af4c0212677a32ee8143643401bc6e1e8412e6b06ea82beac"}, "version": {"const": "3.9.11"}}}
+      ],
+      "items": false
     },
-    "cache": {"type": "object", "additionalProperties": false, "required": ["isolated", "closure_frozen", "offline_authoritative_run", "qualification"], "properties": {"isolated": {"type": "boolean"}, "closure_frozen": {"type": "boolean"}, "offline_authoritative_run": {"type": "boolean"}, "qualification": {"enum": ["NOT_PROMOTED", "QUALIFIED_NOT_PROMOTED"]}}},
+    "cache": {"type": "object", "additionalProperties": false, "required": ["isolated", "closure_frozen", "offline_authoritative_run", "qualification"], "properties": {"isolated": {"const": true}, "closure_frozen": {"type": "boolean"}, "offline_authoritative_run": {"type": "boolean"}, "qualification": {"enum": ["NOT_PROMOTED", "QUALIFIED_NOT_PROMOTED"]}}},
     "sandbox": {"type": "object", "additionalProperties": false, "required": ["source_read_only_required", "secrets", "egress", "bounded_resources_required", "enforcement_status"], "properties": {"source_read_only_required": {"const": true}, "secrets": {"const": "none"}, "egress": {"const": "deny-by-default"}, "bounded_resources_required": {"const": true}, "enforcement_status": {"enum": ["UNAVAILABLE", "VERIFIED"]}}},
     "build": {"type": "object", "additionalProperties": false, "required": ["executed", "exit_code", "tests_executed"], "properties": {"executed": {"type": "boolean"}, "exit_code": {"type": ["integer", "null"], "minimum": 0, "maximum": 255}, "tests_executed": {"type": "boolean"}}},
-    "blockers": {"type": "array", "items": {"$ref": "#/$defs/finding"}},
+    "blockers": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/finding"}},
     "production": {"const": false},
     "publication": {"const": false}
   },
+  "allOf": [
+    {"if": {"properties": {"status": {"const": "PASS"}}}, "then": {"properties": {"cache": {"properties": {"closure_frozen": {"const": true}, "offline_authoritative_run": {"const": true}, "qualification": {"const": "QUALIFIED_NOT_PROMOTED"}}}, "sandbox": {"properties": {"enforcement_status": {"const": "VERIFIED"}}}, "build": {"properties": {"executed": {"const": true}, "exit_code": {"const": 0}, "tests_executed": {"const": true}}}, "blockers": {"maxItems": 0}}}},
+    {"if": {"properties": {"status": {"const": "BLOCKED"}}}, "then": {"properties": {"blockers": {"minItems": 1}}}}
+  ],
   "$defs": {
     "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
     "finding": {"type": "object", "additionalProperties": false, "required": ["code", "detail"], "properties": {"code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}, "detail": {"type": "string", "minLength": 1, "maxLength": 2048}}}

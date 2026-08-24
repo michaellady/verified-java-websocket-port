@@ -1,7 +1,6 @@
 package lab
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"sync"
@@ -13,30 +12,42 @@ import (
 
 func observedDisagreement() ObservedDisagreement {
 	return ObservedDisagreement{
-		SubjectRef:   "semantic:server-mask:provisional-v1",
-		RFCRefs:      []string{"rfc6455#section-5.1", "rfc6455#section-5.2"},
-		JavaRef:      "java-v1.6.0:scenario-server-mask",
-		AutobahnRefs: []string{"autobahn-v25.10.1:1.1"},
+		SubjectRef:            "semantic:server-mask:provisional-v1",
+		RFCRefs:               []string{"rfc6455#section-5.1", "rfc6455#section-5.2"},
+		RFCExpectationDigest:  intake.DigestBytes([]byte("RFC MUST reject masked server frame")),
+		RFCValueDigest:        intake.DigestBytes([]byte("reject")),
+		JavaRef:               "java-v1.6.0:scenario-server-mask",
+		JavaObservationDigest: intake.DigestBytes([]byte(`{"normalized":"accept"}`)),
+		JavaValueDigest:       intake.DigestBytes([]byte("accept")),
+		AutobahnRefs:          []string{"autobahn-v25.10.1:1.1"},
+		AutobahnResultDigest:  intake.DigestBytes([]byte(`{"case":"1.1","status":"FAIL"}`)),
+		AutobahnValueDigest:   intake.DigestBytes([]byte("reject")),
 	}
 }
 
-func validDelta(t *testing.T, id string) BehaviorDelta {
+func validDelta(t *testing.T) BehaviorDelta {
 	t.Helper()
 	disagreement := observedDisagreement()
 	digest, err := disagreement.Digest()
 	if err != nil {
 		t.Fatal(err)
 	}
+	id, err := BehaviorDeltaID(digest)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return BehaviorDelta{
 		SchemaVersion: "1.0.0", DeltaID: id, SubjectRef: disagreement.SubjectRef,
-		RFCRefs: disagreement.RFCRefs, JavaRef: disagreement.JavaRef, AutobahnRefs: disagreement.AutobahnRefs,
+		RFCRefs: disagreement.RFCRefs, RFCExpectationDigest: disagreement.RFCExpectationDigest, RFCValueDigest: disagreement.RFCValueDigest,
+		JavaRef: disagreement.JavaRef, JavaObservationDigest: disagreement.JavaObservationDigest, JavaValueDigest: disagreement.JavaValueDigest,
+		AutobahnRefs: disagreement.AutobahnRefs, AutobahnResultDigest: disagreement.AutobahnResultDigest, AutobahnValueDigest: disagreement.AutobahnValueDigest,
 		DisagreementDigest: digest, NormativeAuthority: "rfc6455", Disposition: "rfc-governs", Rationale: "RFC 6455 remains normative.",
 	}
 }
 
 func TestBehaviorLedgerCASAppendIsAtomicUnderConcurrency(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "ledger")
-	delta := validDelta(t, "delta-000000000000001")
+	delta := validDelta(t)
 	const writers = 24
 	var successes atomic.Int32
 	var wait sync.WaitGroup
@@ -57,9 +68,17 @@ func TestBehaviorLedgerCASAppendIsAtomicUnderConcurrency(t *testing.T) {
 	if err != nil || len(records) != 1 || head == GenesisLedgerHead {
 		t.Fatalf("records=%d head=%s err=%v", len(records), head, err)
 	}
-	second := validDelta(t, "delta-000000000000002")
+	second := validDelta(t)
 	second.SubjectRef = "semantic:close-code:provisional-v1"
-	second.DisagreementDigest, err = (ObservedDisagreement{SubjectRef: second.SubjectRef, RFCRefs: second.RFCRefs, JavaRef: second.JavaRef, AutobahnRefs: second.AutobahnRefs}).Digest()
+	second.DisagreementDigest, err = (ObservedDisagreement{
+		SubjectRef: second.SubjectRef, RFCRefs: second.RFCRefs, RFCExpectationDigest: second.RFCExpectationDigest, RFCValueDigest: second.RFCValueDigest,
+		JavaRef: second.JavaRef, JavaObservationDigest: second.JavaObservationDigest, JavaValueDigest: second.JavaValueDigest,
+		AutobahnRefs: second.AutobahnRefs, AutobahnResultDigest: second.AutobahnResultDigest, AutobahnValueDigest: second.AutobahnValueDigest,
+	}).Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second.DeltaID, err = BehaviorDeltaID(second.DisagreementDigest)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,7 +96,7 @@ func TestBehaviorLedgerCASAppendIsAtomicUnderConcurrency(t *testing.T) {
 
 func TestBehaviorLedgerDetectsUnledgeredAndCorruptRecords(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "ledger")
-	delta := validDelta(t, "delta-000000000000001")
+	delta := validDelta(t)
 	if _, err := AppendBehaviorDelta(directory, GenesisLedgerHead, delta); err != nil {
 		t.Fatal(err)
 	}
@@ -121,19 +140,52 @@ func TestBehaviorLedgerDetectsUnledgeredAndCorruptRecords(t *testing.T) {
 }
 
 func TestBehaviorDeltaNeverElevatesJavaOverRFC(t *testing.T) {
-	delta := validDelta(t, "delta-000000000000001")
+	delta := validDelta(t)
 	delta.NormativeAuthority = "java-v1.6.0"
 	assertFinding(t, delta.Validate(), "INVALID_ORACLE_AUTHORITY")
-	delta = validDelta(t, "delta-000000000000001")
+	delta = validDelta(t)
 	delta.RFCRefs = []string{"https://attacker.invalid"}
 	if err := delta.Validate(); err == nil {
 		t.Fatal("unstable RFC reference accepted")
 	}
-	var findingValue *intake.Finding
-	if !errors.As(SandboxEnforcementUnavailable("x"), &findingValue) {
-		t.Fatal("lab errors must preserve intake.Finding API")
-	}
-	delta = validDelta(t, "delta-000000000000001")
+	delta = validDelta(t)
 	delta.JavaRef = "java-v1.6.0:different"
 	assertFinding(t, delta.Validate(), "BEHAVIOR_DELTA_BINDING_MISMATCH")
+}
+
+func TestBehaviorDeltaBindsEveryOracleObservationAndDifferingValue(t *testing.T) {
+	for name, mutate := range map[string]func(*BehaviorDelta){
+		"rfc expectation": func(delta *BehaviorDelta) { delta.RFCExpectationDigest = intake.DigestBytes([]byte("mutated RFC")) },
+		"rfc value":       func(delta *BehaviorDelta) { delta.RFCValueDigest = intake.DigestBytes([]byte("mutated RFC value")) },
+		"java observation": func(delta *BehaviorDelta) {
+			delta.JavaObservationDigest = intake.DigestBytes([]byte("mutated Java observation"))
+		},
+		"java value": func(delta *BehaviorDelta) { delta.JavaValueDigest = intake.DigestBytes([]byte("mutated Java value")) },
+		"autobahn result": func(delta *BehaviorDelta) {
+			delta.AutobahnResultDigest = intake.DigestBytes([]byte("mutated Autobahn result"))
+		},
+		"autobahn value": func(delta *BehaviorDelta) {
+			delta.AutobahnValueDigest = intake.DigestBytes([]byte("mutated Autobahn value"))
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			delta := validDelta(t)
+			mutate(&delta)
+			assertFinding(t, delta.Validate(), "BEHAVIOR_DELTA_BINDING_MISMATCH")
+		})
+	}
+	disagreement := observedDisagreement()
+	disagreement.JavaValueDigest = disagreement.RFCValueDigest
+	disagreement.AutobahnValueDigest = disagreement.RFCValueDigest
+	assertFinding(t, func() error { _, err := disagreement.Digest(); return err }(), "NO_BEHAVIOR_DISAGREEMENT")
+	delta := validDelta(t)
+	delta.JavaObservationDigest = intake.DigestBytes([]byte("new exact observation"))
+	updated := observedDisagreement()
+	updated.JavaObservationDigest = delta.JavaObservationDigest
+	digest, err := updated.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	delta.DisagreementDigest = digest
+	assertFinding(t, delta.Validate(), "BEHAVIOR_DELTA_IDENTITY_MISMATCH")
 }

@@ -1,34 +1,30 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/java-test-manifest-1.0.0.schema.json",
-  "type": "object",
-  "additionalProperties": false,
+  "type": "object", "additionalProperties": false,
   "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "inventory_status", "counts", "non_tests", "blocker", "production", "publication"],
   "properties": {
     "$schema": {"const": "../../schemas/java-test-manifest-1.0.0.schema.json"},
     "schema_version": {"const": "1.0.0"},
     "evidence_kind": {"const": "java-test-manifest"},
-    "accepted_root_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "accepted_root_digest": {"$ref": "#/$defs/digest"},
     "status": {"enum": ["PASS", "BLOCKED"]},
     "inventory_status": {"enum": ["RECONCILED", "NOT_RECONCILED"]},
-    "counts": {
-      "type": "object", "additionalProperties": false,
-      "required": ["static_annotation_occurrences", "discovered", "executed", "passed", "failed", "skipped", "filtered", "timed_out", "quarantined"],
-      "properties": {
-        "static_annotation_occurrences": {"type": "integer", "minimum": 0},
-        "discovered": {"$ref": "#/$defs/count"}, "executed": {"$ref": "#/$defs/count"}, "passed": {"$ref": "#/$defs/count"}, "failed": {"$ref": "#/$defs/count"}, "skipped": {"$ref": "#/$defs/count"}, "filtered": {"$ref": "#/$defs/count"}, "timed_out": {"$ref": "#/$defs/count"}, "quarantined": {"$ref": "#/$defs/count"}
-      }
-    },
-    "non_tests": {
-      "type": "array", "minItems": 4, "maxItems": 256,
-      "items": {"type": "object", "additionalProperties": false, "required": ["path", "kind", "executable", "counted_as_test"], "properties": {"path": {"type": "string", "minLength": 1}, "kind": {"enum": ["feature-file", "autobahn-utility"]}, "executable": {"type": "boolean"}, "counted_as_test": {"const": false}}}
-    },
-    "blocker": {"$ref": "#/$defs/finding"},
-    "production": {"const": false},
-    "publication": {"const": false}
+    "counts": {"type": "object", "additionalProperties": false, "required": ["static_annotation_occurrences", "discovered", "executed", "passed", "failed", "skipped", "filtered", "timed_out", "quarantined"], "properties": {"static_annotation_occurrences": {"const": 231}, "discovered": {"$ref": "#/$defs/count"}, "executed": {"$ref": "#/$defs/count"}, "passed": {"$ref": "#/$defs/count"}, "failed": {"$ref": "#/$defs/count"}, "skipped": {"$ref": "#/$defs/count"}, "filtered": {"$ref": "#/$defs/count"}, "timed_out": {"$ref": "#/$defs/count"}, "quarantined": {"$ref": "#/$defs/count"}}},
+    "non_tests": {"type": "array", "minItems": 4, "maxItems": 4, "prefixItems": [{"$ref": "#/$defs/feature"}, {"$ref": "#/$defs/client"}, {"$ref": "#/$defs/ssl-server"}, {"$ref": "#/$defs/server"}], "items": false},
+    "blocker": {"anyOf": [{"$ref": "#/$defs/finding"}, {"type": "null"}]},
+    "production": {"const": false}, "publication": {"const": false}
   },
+  "allOf": [
+    {"if": {"properties": {"status": {"const": "PASS"}}}, "then": {"properties": {"inventory_status": {"const": "RECONCILED"}, "counts": {"properties": {"discovered": {"type": "integer"}, "executed": {"type": "integer"}, "passed": {"type": "integer"}, "failed": {"const": 0}, "skipped": {"const": 0}, "filtered": {"const": 0}, "timed_out": {"const": 0}, "quarantined": {"const": 0}}}, "blocker": {"type": "null"}}}},
+    {"if": {"properties": {"status": {"const": "BLOCKED"}}}, "then": {"properties": {"blocker": {"$ref": "#/$defs/finding"}}}}
+  ],
   "$defs": {
-    "count": {"type": ["integer", "null"], "minimum": 0},
-    "finding": {"type": "object", "additionalProperties": false, "required": ["code", "detail"], "properties": {"code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}, "detail": {"type": "string", "minLength": 1, "maxLength": 2048}}}
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "count": {"type": ["integer", "null"], "minimum": 0},
+    "finding": {"type": "object", "additionalProperties": false, "required": ["code", "detail"], "properties": {"code": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}, "detail": {"type": "string", "minLength": 1, "maxLength": 2048}}},
+    "feature": {"type": "object", "additionalProperties": false, "required": ["path", "kind", "executable", "counted_as_test"], "properties": {"path": {"const": "src/test/resources/org/java_websocket/AutobahnClient.feature"}, "kind": {"const": "feature-file"}, "executable": {"const": false}, "counted_as_test": {"const": false}}},
+    "client": {"type": "object", "additionalProperties": false, "required": ["path", "kind", "executable", "counted_as_test"], "properties": {"path": {"const": "src/test/java/org/java_websocket/example/AutobahnClientTest.java"}, "kind": {"const": "autobahn-utility"}, "executable": {"const": true}, "counted_as_test": {"const": false}}},
+    "ssl-server": {"type": "object", "additionalProperties": false, "required": ["path", "kind", "executable", "counted_as_test"], "properties": {"path": {"const": "src/test/java/org/java_websocket/example/AutobahnSSLServerTest.java"}, "kind": {"const": "autobahn-utility"}, "executable": {"const": true}, "counted_as_test": {"const": false}}},
+    "server": {"type": "object", "additionalProperties": false, "required": ["path", "kind", "executable", "counted_as_test"], "properties": {"path": {"const": "src/test/java/org/java_websocket/example/AutobahnServerTest.java"}, "kind": {"const": "autobahn-utility"}, "executable": {"const": true}, "counted_as_test": {"const": false}}}
   }
 }
