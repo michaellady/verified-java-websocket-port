@@ -24,6 +24,42 @@ func TestRetainedEvidenceFailsClosedOnRealBlockers(t *testing.T) {
 	assertFindingCodes(t, report.Blockers, "OWNER_RISK_DISPOSITION_REQUIRED", "MISSING_PROMOTION_REQUIREMENT")
 }
 
+func TestEvidenceMembersCannotEscapeThroughLinks(t *testing.T) {
+	for _, name := range evidenceFiles {
+		t.Run(name, func(t *testing.T) {
+			directory := copyEvidence(t)
+			path := filepath.Join(directory, name)
+			outside := filepath.Join(t.TempDir(), name)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(outside, data, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(outside, path); err != nil {
+				t.Fatal(err)
+			}
+			_, err = VerifyEvidenceDir(directory, time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
+			assertCode(t, err, "UNSAFE_ARCHIVE_ENTRY")
+		})
+
+		t.Run(name+"-hardlink", func(t *testing.T) {
+			directory := copyEvidence(t)
+			path := filepath.Join(directory, name)
+			outside := filepath.Join(t.TempDir(), name)
+			if err := os.Link(path, outside); err != nil {
+				t.Fatal(err)
+			}
+			_, err := VerifyEvidenceDir(directory, time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
+			assertCode(t, err, "UNSAFE_ARCHIVE_ENTRY")
+		})
+	}
+}
+
 func TestEvidenceMutationsDenyBeforePromotion(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -33,6 +69,7 @@ func TestEvidenceMutationsDenyBeforePromotion(t *testing.T) {
 		code string
 	}{
 		{"tenant", `"company": "open-source-projects"`, `"company": "other-company"`, "CROSS_COMPANY_REFERENCE"},
+		{"repository owner", `"owner": "michaellady"`, `"owner": "open-source-projects"`, "OWNER_URL_MISMATCH"},
 		{"classification", `"default_classification": "QUARANTINED"`, `"default_classification": ""`, "UNCLASSIFIED_OBJECT"},
 		{"digest", "f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4", "a44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4", "ARTIFACT_DRIFT"},
 		{"url", "https://github.com/TooTallNate/Java-WebSocket/archive/da3cf2a777aed862f2f5b5cf060cae7969958667.tar.gz", "https://github.com/TooTallNate/Java-WebSocket/archive/v1.6.0.tar.gz", "MUTABLE_SOURCE_REFERENCE"},

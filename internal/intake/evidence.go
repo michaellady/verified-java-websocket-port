@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -301,9 +303,9 @@ func VerifyEvidenceDir(directory string, now time.Time) (*VerifyReport, error) {
 	report := &VerifyReport{FileDigests: make(map[string]string)}
 	contents := make(map[string][]byte)
 	for _, name := range evidenceFiles {
-		data, err := os.ReadFile(filepath.Join(directory, name))
+		data, err := readEvidenceFile(directory, name)
 		if err != nil {
-			return nil, deny("MISSING_PROMOTION_REQUIREMENT", name, err.Error())
+			return nil, err
 		}
 		contents[name] = data
 		report.FileDigests[name] = DigestBytes(data)
@@ -481,6 +483,47 @@ func VerifyEvidenceDir(directory string, now time.Time) (*VerifyReport, error) {
 	return report, nil
 }
 
+// readEvidenceFile rejects links and identity changes before candidate evidence
+// is read. Promotion callers must never be able to turn a checked-in evidence
+// member into an implicit read of protected authority, nonce, or materialized
+// input state.
+func readEvidenceFile(directory, name string) ([]byte, error) {
+	path := filepath.Join(directory, name)
+	before, err := os.Lstat(path)
+	if err != nil {
+		return nil, deny("MISSING_PROMOTION_REQUIREMENT", name, "evidence file cannot be inspected")
+	}
+	if !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() <= 0 || before.Size() > maxJSONBytes || evidenceLinkCount(before) != 1 {
+		return nil, deny("UNSAFE_ARCHIVE_ENTRY", name, "evidence member must be one bounded regular file with no links")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, deny("MISSING_PROMOTION_REQUIREMENT", name, "evidence file cannot be opened")
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(before, opened) || !opened.Mode().IsRegular() || opened.Size() != before.Size() || evidenceLinkCount(opened) != 1 {
+		return nil, deny("UNSAFE_ARCHIVE_ENTRY", name, "evidence member changed while opening")
+	}
+	data, err := io.ReadAll(io.LimitReader(file, maxJSONBytes+1))
+	if err != nil || len(data) > maxJSONBytes {
+		return nil, deny("INPUT_TOO_LARGE", name, "evidence member cannot be read within its bound")
+	}
+	openedAfter, openErr := file.Stat()
+	pathAfter, pathErr := os.Lstat(path)
+	if openErr != nil || pathErr != nil || !os.SameFile(opened, openedAfter) || !os.SameFile(opened, pathAfter) || !pathAfter.Mode().IsRegular() || pathAfter.Mode()&os.ModeSymlink != 0 || pathAfter.Size() != int64(len(data)) || evidenceLinkCount(pathAfter) != 1 {
+		return nil, deny("ARTIFACT_DRIFT", name, "evidence member changed while reading")
+	}
+	return data, nil
+}
+
+func evidenceLinkCount(info os.FileInfo) uint64 {
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		return uint64(stat.Nlink)
+	}
+	return 0
+}
+
 func validateRequiredActionTrace(receiptStatus string, actions []requiredAction) error {
 	if len(actions) != len(requiredActionPolicy) {
 		return deny("ACTION_SCOPE_MISMATCH", "promotion-receipts.json.required_actions", "required-action trace must contain exactly four policy-ordered stages")
@@ -524,7 +567,7 @@ func VerifyAuthorizedEvidenceDir(directory string, now time.Time, authority Trus
 	if authority.AuthorityMode != SingleOwnerAuthorityMode || authority.OwnerActorID != RequiredOwnerActor {
 		return nil, deny("AUTHORITY_MODE_MISMATCH", "protected-authority", "protected caller did not supply the policy-bound single-owner authority")
 	}
-	data, err := os.ReadFile(filepath.Join(directory, "promotion-receipts.json"))
+	data, err := readEvidenceFile(directory, "promotion-receipts.json")
 	if err != nil {
 		return nil, deny("MISSING_PROMOTION_REQUIREMENT", "promotion-receipts.json", err.Error())
 	}

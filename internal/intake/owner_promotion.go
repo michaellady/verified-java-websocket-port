@@ -164,7 +164,7 @@ func PromoteAuthorizedOwnerInputs(input OwnerPromotionInput) (*OwnerPromotionRes
 	pendingReceipt.SafeNextAction = "Protected verification and exact-byte promotion are pending; this staged receipt is not a public promotion receipt."
 	pendingReceipt.Claim = "Owner actions are staged under OWNER_ATTESTED_NOT_INDEPENDENT; no input byte is accepted until protected promotion commits."
 
-	stagedEvidence, err := stageEvidenceDirectory(evidenceDirectory, pendingReceipt)
+	stagedEvidence, err := stageEvidenceDirectory(evidenceSnapshot, pendingReceipt)
 	if err != nil {
 		return nil, err
 	}
@@ -354,7 +354,7 @@ func (l *promotionLock) release() {
 	_ = syncDirectory(l.dir)
 }
 
-func stageEvidenceDirectory(source string, receipt promotionDocument) (string, error) {
+func stageEvidenceDirectory(snapshot map[string][]byte, receipt promotionDocument) (string, error) {
 	stage, err := os.MkdirTemp("", "java-websocket-owner-promotion-")
 	if err != nil {
 		return "", deny("PARTIAL_PUBLICATION", "staged-evidence", err.Error())
@@ -364,7 +364,11 @@ func stageEvidenceDirectory(source string, receipt promotionDocument) (string, e
 		if name == "promotion-receipts.json" {
 			data, err = marshalIndentedJSON(receipt)
 		} else {
-			data, err = os.ReadFile(filepath.Join(source, name))
+			var exists bool
+			data, exists = snapshot[name]
+			if !exists {
+				err = fmt.Errorf("evidence snapshot is missing %s", name)
+			}
 		}
 		if err != nil || writeExclusiveSynced(filepath.Join(stage, name), data, 0o600) != nil {
 			_ = os.RemoveAll(stage)
@@ -394,9 +398,9 @@ func captureEvidenceSnapshot(directory string, verifiedDigests map[string]string
 func readEvidenceSnapshot(directory string) (map[string][]byte, error) {
 	snapshot := make(map[string][]byte, len(evidenceFiles))
 	for _, name := range evidenceFiles {
-		data, err := os.ReadFile(filepath.Join(directory, name))
+		data, err := readEvidenceFile(directory, name)
 		if err != nil {
-			return nil, deny("ARTIFACT_DRIFT", name, "evidence snapshot cannot be read completely")
+			return nil, err
 		}
 		snapshot[name] = data
 	}

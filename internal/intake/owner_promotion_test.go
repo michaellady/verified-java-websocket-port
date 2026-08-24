@@ -1,6 +1,7 @@
 package intake
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"encoding/hex"
@@ -112,6 +113,95 @@ func TestPromoteAuthorizedOwnerInputsRejectsTraversalBeforeNonceConsumption(t *t
 	assertCode(t, err, "PATH_TRAVERSAL")
 	if _, err := os.Stat(ledgerDirectory); !os.IsNotExist(err) {
 		t.Fatalf("traversal reached protected nonce ledger: %v", err)
+	}
+}
+
+func TestPromoteAuthorizedOwnerInputsRejectsLinkedEvidenceBeforeProtectedState(t *testing.T) {
+	directory := copyEvidence(t)
+	receiptPath := filepath.Join(directory, "promotion-receipts.json")
+	initialReceipt, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	materializationRoot := filepath.Join(t.TempDir(), "materialized")
+	manifest, catalog := writeFixtureMaterialization(t, directory, materializationRoot)
+	now := time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC)
+	ledgerDirectory := filepath.Join(t.TempDir(), "ledger")
+	actions, authority := signedOwnerPromotionFixture(t, directory, now, FileLedger{Directory: ledgerDirectory})
+	promotionStore := filepath.Join(t.TempDir(), "promotion-store")
+
+	sourcePath := filepath.Join(directory, "source-pins.json")
+	outsidePath := filepath.Join(t.TempDir(), "outside-source-pins.json")
+	sourceBytes, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(outsidePath, sourceBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(sourcePath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outsidePath, sourcePath); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = PromoteAuthorizedOwnerInputs(OwnerPromotionInput{
+		EvidenceDirectory: directory, MaterializationRoot: materializationRoot,
+		PromotionStore: promotionStore, Manifest: manifest, Actions: actions,
+		Authority: authority, Now: now,
+		testCatalog: catalog,
+	})
+	assertCode(t, err, "UNSAFE_ARCHIVE_ENTRY")
+	if _, err := os.Lstat(ledgerDirectory); !os.IsNotExist(err) {
+		t.Fatalf("linked evidence reached protected nonce state: %v", err)
+	}
+	if _, err := os.Lstat(promotionStore); !os.IsNotExist(err) {
+		t.Fatalf("linked evidence reached protected promotion state: %v", err)
+	}
+	actualReceipt, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(actualReceipt, initialReceipt) {
+		t.Fatal("linked evidence replaced the blocked receipt")
+	}
+}
+
+func TestPromoteAuthorizedOwnerInputsRejectsProtectedCandidatePathOverlap(t *testing.T) {
+	for _, testCase := range []struct {
+		name  string
+		paths func(string) (string, string, string, string)
+	}{
+		{"evidence-materialization", func(root string) (string, string, string, string) {
+			return filepath.Join(root, "evidence"), filepath.Join(root, "evidence"), filepath.Join(root, "store"), filepath.Join(root, "ledger")
+		}},
+		{"materialization-promotion", func(root string) (string, string, string, string) {
+			return filepath.Join(root, "evidence"), filepath.Join(root, "materialized"), filepath.Join(root, "materialized", "store"), filepath.Join(root, "ledger")
+		}},
+		{"ledger-evidence", func(root string) (string, string, string, string) {
+			return filepath.Join(root, "evidence"), filepath.Join(root, "materialized"), filepath.Join(root, "store"), filepath.Join(root, "evidence", "ledger")
+		}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := t.TempDir()
+			evidence, materialized, store, ledger := testCase.paths(root)
+			if err := os.MkdirAll(evidence, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.MkdirAll(materialized, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			_, err := PromoteAuthorizedOwnerInputs(OwnerPromotionInput{
+				EvidenceDirectory: evidence, MaterializationRoot: materialized,
+				PromotionStore: store,
+				Authority:      TrustedAuthority{Ledger: FileLedger{Directory: ledger}},
+			})
+			assertCode(t, err, "CROSS_COMPANY_REFERENCE")
+			if _, err := os.Lstat(filepath.Join(evidence, ".owner-promotion.lock")); !os.IsNotExist(err) {
+				t.Fatalf("overlap validation acquired a promotion lock: %v", err)
+			}
+		})
 	}
 }
 
