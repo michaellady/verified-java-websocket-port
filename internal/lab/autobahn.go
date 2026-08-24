@@ -25,8 +25,10 @@ var excludedAutobahnFamilies = []string{"9.*", "12.*", "13.*"}
 const (
 	PinnedAutobahnSourceArchiveDigest = "sha256:c17e0e22b9ca0f6ebd415bb14dc60e7fd7ea57b50fbc4ba12892dd454b98e66b"
 	PinnedAutobahnRegistryDigest      = "sha256:12ce097739b14751daefa1fd1ee4125ca1b95584759100563c00cf796eac7cb4"
+	PinnedAutobahnReportSourceDigest  = "sha256:3bbb21786744023f1c215763a0aa66ab5db543e1826a1ae22b52d7f2876d8d1a"
 	pinnedAutobahnArchiveRoot         = "autobahn-testsuite-6ed6f439dc7ed0d7432fe2cf7481b110905ecc5c"
 	pinnedAutobahnCaseDirectory       = pinnedAutobahnArchiveRoot + "/autobahntestsuite/autobahntestsuite/case"
+	pinnedAutobahnReportSourcePath    = pinnedAutobahnArchiveRoot + "/autobahntestsuite/autobahntestsuite/fuzzing.py"
 )
 
 var pinnedAutobahnGeneratorMembers = map[string]struct {
@@ -110,11 +112,36 @@ func readPinnedAutobahnArchive(compressed []byte, archiveDigest string) (map[str
 	}
 	registryPath := pinnedAutobahnCaseDirectory + "/__init__.py"
 	requiredPaths[registryPath] = PinnedAutobahnRegistryDigest
+	requiredPaths[pinnedAutobahnReportSourcePath] = PinnedAutobahnReportSourceDigest
 	members, err := validateAndReadAutobahnTar(tarBytes, pinnedAutobahnArchiveRoot, requiredPaths)
 	if err != nil {
 		return nil, err
 	}
 	return members, nil
+}
+
+func verifyPinnedAutobahnReportContract(source []byte) error {
+	if len(source) == 0 || intake.DigestBytes(source) != PinnedAutobahnReportSourceDigest {
+		return finding("AUTOBAHN_REPORT_SOURCE_MISMATCH", "$.archive.fuzzing", "report implementation must equal the accepted source member")
+	}
+	return verifyAutobahnReportSemantics(string(source))
+}
+
+func verifyAutobahnReportSemantics(text string) error {
+	required := []string{
+		`elif self.path == "/updateReports":`,
+		`self.factory.createReports()`,
+		`report_filename = "index.json"`,
+		`report_filename = "index.html"`,
+		`return self.cleanForFilename(agentId) + "_case_" + c + "." + ext`,
+		"self.createReports()\n            reactor.stop()",
+	}
+	for _, fragment := range required {
+		if strings.Count(text, fragment) < 1 {
+			return finding("AUTOBAHN_REPORT_CONTRACT_UNRESOLVED", "$.archive.fuzzing", "accepted source does not prove the fixed one-case report lifecycle and filenames")
+		}
+	}
+	return nil
 }
 
 func derivePinnedAutobahnExpansions(archiveDigest string, members map[string][]byte) (map[string]RegistryExpansion, error) {

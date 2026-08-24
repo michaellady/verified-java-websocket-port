@@ -285,8 +285,10 @@ func validateDefaultPolicyEvidence(value defaultPolicyEvidence) error {
 
 type autobahnEvidence struct {
 	evidenceEnvelope
-	Status string `json:"status"`
-	Image  struct {
+	Status                   string `json:"status"`
+	Assurance                string `json:"assurance"`
+	IndependentReviewClaimed bool   `json:"independent_review_claimed"`
+	Image                    struct {
 		ManifestDigest   string `json:"manifest_digest"`
 		ManifestBytes    int    `json:"manifest_bytes"`
 		ConfigDigest     string `json:"config_digest"`
@@ -312,10 +314,22 @@ type autobahnEvidence struct {
 }
 
 type autobahnEvidenceRun struct {
-	Executed      bool             `json:"executed"`
-	SelectedCount *int             `json:"selected_count"`
-	ResultCount   *int             `json:"result_count"`
-	Results       []AutobahnResult `json:"results,omitempty"`
+	Attempted            bool             `json:"attempted"`
+	AttemptCount         int              `json:"attempt_count"`
+	Completed            bool             `json:"completed"`
+	Executed             bool             `json:"executed"`
+	FirstCaseID          string           `json:"first_case_id"`
+	SelectedCount        int              `json:"selected_count"`
+	CompletedCount       int              `json:"completed_count"`
+	ResultCount          int              `json:"result_count"`
+	AttemptStateDigest   string           `json:"attempt_state_digest"`
+	AttemptReceiptDigest string           `json:"attempt_receipt_digest"`
+	AttemptReceiptBytes  int              `json:"attempt_receipt_bytes"`
+	ConfigurationDigest  string           `json:"configuration_digest"`
+	ConfigurationBytes   int              `json:"configuration_bytes"`
+	BlockerDigest        *string          `json:"blocker_digest"`
+	BlockerBytes         *int             `json:"blocker_bytes"`
+	Results              []AutobahnResult `json:"results,omitempty"`
 }
 
 type ledgerEvidence struct {
@@ -601,7 +615,7 @@ func validateAutobahnEvidence(value autobahnEvidence) error {
 	if err := validateEnvelope(value.evidenceEnvelope, AutobahnEvidenceSchema, "autobahn-baseline"); err != nil {
 		return err
 	}
-	if value.Image.ManifestDigest != intake.AutobahnManifestDigest || value.Image.ManifestBytes != 3477 || value.Image.ConfigDigest != intake.AutobahnConfigDigest || value.Image.Platform != "linux/amd64" || value.Image.Layers != 15 || value.Image.PullPolicy != "never" || !value.Image.IdentityVerified || !equalStrings(value.SelectedFamilies, selectedAutobahnFamilies) || !equalStrings(value.ExcludedFamilies, excludedAutobahnFamilies) || value.Registry.Digest != PinnedAutobahnRegistryDigest || value.RiskDisposition.Classification != "QUARANTINED_LABORATORY_QUALIFICATION_ONLY" || value.RiskDisposition.ApprovedCriticalFindings != 12 || value.RiskDisposition.ApprovedHighFindings != 147 {
+	if value.Assurance != ownerAttestedNotIndependent || value.IndependentReviewClaimed || value.Image.ManifestDigest != intake.AutobahnManifestDigest || value.Image.ManifestBytes != 3477 || value.Image.ConfigDigest != intake.AutobahnConfigDigest || value.Image.Platform != "linux/amd64" || value.Image.Layers != 15 || value.Image.PullPolicy != "never" || !value.Image.IdentityVerified || !equalStrings(value.SelectedFamilies, selectedAutobahnFamilies) || !equalStrings(value.ExcludedFamilies, excludedAutobahnFamilies) || value.Registry.Digest != PinnedAutobahnRegistryDigest || value.RiskDisposition.Classification != "QUARANTINED_LABORATORY_QUALIFICATION_ONLY" || value.RiskDisposition.ApprovedCriticalFindings != 12 || value.RiskDisposition.ApprovedHighFindings != 147 {
 		return finding("AUTOBAHN_BASELINE_IDENTITY_MISMATCH", "$.autobahn", "image, families, registry, and approved risk disposition must equal their pins")
 	}
 	if value.Blocker != nil {
@@ -646,13 +660,19 @@ func validateAutobahnEvidence(value autobahnEvidence) error {
 }
 
 func validateAutobahnEvidenceRun(mode string, run autobahnEvidenceRun) ([]string, bool, error) {
-	if !run.Executed {
-		if run.SelectedCount != nil || run.ResultCount != nil || len(run.Results) != 0 {
-			return nil, false, finding("CONTRADICTORY_AUTOBAHN_RUN", "$.autobahn."+mode, "unexecuted runs cannot claim counts or results")
+	if !run.Attempted || run.AttemptCount != 1 || run.FirstCaseID != "1.1.1" || run.SelectedCount != AutobahnSelectedCaseCount || !isDigest(run.AttemptStateDigest) || !isDigest(run.AttemptReceiptDigest) || run.AttemptReceiptBytes <= 0 || !isDigest(run.ConfigurationDigest) || run.ConfigurationBytes <= 0 {
+		return nil, false, finding("INVALID_AUTOBAHN_ATTEMPT", "$.autobahn."+mode, "each mode requires one exact digest-bound attempt over the 247-case selection")
+	}
+	if run.Completed != run.Executed || run.CompletedCount < 0 || run.CompletedCount > run.SelectedCount || run.ResultCount < 0 || run.ResultCount > run.CompletedCount || len(run.Results) != run.ResultCount {
+		return nil, false, finding("CONTRADICTORY_AUTOBAHN_RUN", "$.autobahn."+mode, "attempt completion, execution, and exact result counts disagree")
+	}
+	if !run.Completed {
+		if run.CompletedCount != 0 || run.ResultCount != 0 || len(run.Results) != 0 || run.BlockerDigest == nil || !isDigest(*run.BlockerDigest) || run.BlockerBytes == nil || *run.BlockerBytes <= 0 {
+			return nil, false, finding("CONTRADICTORY_AUTOBAHN_RUN", "$.autobahn."+mode, "incomplete attempt requires zero completed results and an exact blocker artifact")
 		}
 		return nil, false, nil
 	}
-	if run.SelectedCount == nil || run.ResultCount == nil || *run.SelectedCount <= 0 || *run.ResultCount != *run.SelectedCount || len(run.Results) != *run.ResultCount {
+	if run.CompletedCount != run.SelectedCount || run.ResultCount != run.SelectedCount || run.BlockerDigest != nil || run.BlockerBytes != nil {
 		return nil, false, finding("AUTOBAHN_RESULT_MISMATCH", "$.autobahn."+mode, "executed run must contain every exact selected result")
 	}
 	ids := make([]string, 0, len(run.Results))

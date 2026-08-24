@@ -2,6 +2,7 @@ package lab
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -73,6 +74,9 @@ func readyEvidenceDocuments(t *testing.T) BaselineEvidenceDocuments {
 	autobahn.Registry.StaticExpansionComplete = true
 	autobahn.Blocker = nil
 	caseIDs := []string{"1.1", "2.1", "3.1", "4.1", "5.1", "6.1.1", "7.1", "10.1"}
+	for index := len(caseIDs); index < AutobahnSelectedCaseCount; index++ {
+		caseIDs = append(caseIDs, fmt.Sprintf("6.99.%d", index))
+	}
 	autobahn.Client = readyAutobahnEvidenceRun(t, "client", caseIDs)
 	autobahn.Server = readyAutobahnEvidenceRun(t, "server", caseIDs)
 	ledger.Status = "READY"
@@ -87,7 +91,12 @@ func readyEvidenceDocuments(t *testing.T) BaselineEvidenceDocuments {
 func readyAutobahnEvidenceRun(t *testing.T, mode string, ids []string) autobahnEvidenceRun {
 	t.Helper()
 	count := len(ids)
-	run := autobahnEvidenceRun{Executed: true, SelectedCount: &count, ResultCount: &count}
+	run := autobahnEvidenceRun{
+		Attempted: true, AttemptCount: 1, Completed: true, Executed: true, FirstCaseID: "1.1.1",
+		SelectedCount: count, CompletedCount: count, ResultCount: count,
+		AttemptStateDigest: intake.DigestBytes([]byte("attempt:" + mode)), AttemptReceiptDigest: intake.DigestBytes([]byte("receipt")), AttemptReceiptBytes: 1,
+		ConfigurationDigest: intake.DigestBytes([]byte("configuration:" + mode)), ConfigurationBytes: 1,
+	}
 	for _, id := range ids {
 		result := AutobahnResult{CaseID: id, Status: "OK", ResultDigest: intake.DigestBytes([]byte("result:" + id)), ObservationDigest: intake.DigestBytes([]byte("observation:" + id))}
 		var err error
@@ -171,6 +180,24 @@ func TestVerifyBaselineEvidenceRejectsContradictoryAndHostileClaims(t *testing.T
 			var value autobahnEvidence
 			mustDecodeEvidence(t, documents.Autobahn, &value)
 			value.Client.Executed = false
+			documents.Autobahn = canonicalEvidence(t, value)
+		},
+		"Autobahn independent-review claim": func(t *testing.T, documents *BaselineEvidenceDocuments) {
+			var value autobahnEvidence
+			mustDecodeEvidence(t, documents.Autobahn, &value)
+			value.IndependentReviewClaimed = true
+			documents.Autobahn = canonicalEvidence(t, value)
+		},
+		"replayed Autobahn attempt": func(t *testing.T, documents *BaselineEvidenceDocuments) {
+			var value autobahnEvidence
+			mustDecodeEvidence(t, documents.Autobahn, &value)
+			value.Client.AttemptCount = 2
+			documents.Autobahn = canonicalEvidence(t, value)
+		},
+		"mutated Autobahn attempt receipt": func(t *testing.T, documents *BaselineEvidenceDocuments) {
+			var value autobahnEvidence
+			mustDecodeEvidence(t, documents.Autobahn, &value)
+			value.Client.AttemptReceiptDigest = "sha256:mutated"
 			documents.Autobahn = canonicalEvidence(t, value)
 		},
 		"nonterminal Autobahn": func(t *testing.T, documents *BaselineEvidenceDocuments) {

@@ -4,6 +4,8 @@
   "evidence_kind": "autobahn-baseline",
   "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
   "status": "BLOCKED",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
   "image": {
     "manifest_digest": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
     "manifest_bytes": 3477,
@@ -17,17 +19,41 @@
   "excluded_families": ["9.*", "12.*", "13.*"],
   "registry": {
     "digest": "sha256:12ce097739b14751daefa1fd1ee4125ca1b95584759100563c00cf796eac7cb4",
-    "static_expansion_complete": false
+    "static_expansion_complete": true
   },
   "client": {
+    "attempted": true,
+    "attempt_count": 1,
+    "completed": false,
     "executed": false,
-    "selected_count": null,
-    "result_count": null
+    "first_case_id": "1.1.1",
+    "selected_count": 247,
+    "completed_count": 0,
+    "result_count": 0,
+    "attempt_state_digest": "sha256:7d987a92a1ae8a175644bc5ba852ccb525b4b3c85fe1505ae81819138bda1e8d",
+    "attempt_receipt_digest": "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff",
+    "attempt_receipt_bytes": 18920,
+    "configuration_digest": "sha256:aafb92d0bffe82781ad0085c5e08b57cb66471505c4a04a97155ec6b2e6dc69b",
+    "configuration_bytes": 128,
+    "blocker_digest": "sha256:d147f80d3b01c86cf37ff9a47daf6484130cdce24d333e937fa3f747d187aefd",
+    "blocker_bytes": 599
   },
   "server": {
+    "attempted": true,
+    "attempt_count": 1,
+    "completed": false,
     "executed": false,
-    "selected_count": null,
-    "result_count": null
+    "first_case_id": "1.1.1",
+    "selected_count": 247,
+    "completed_count": 0,
+    "result_count": 0,
+    "attempt_state_digest": "sha256:2814864d32c1a2562aa87e91eb53d6f2ca34cdd80a7a2e5f11182aec26b7447a",
+    "attempt_receipt_digest": "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff",
+    "attempt_receipt_bytes": 18920,
+    "configuration_digest": "sha256:8ede1a49a2a6b3d1c6baa1fb7b9ed21d1b42d402aef3f72b53465e12c92377ba",
+    "configuration_bytes": 238,
+    "blocker_digest": "sha256:59d6d811800b81e69c491d8963de15f72736dc5251eadf6e945a64070dee224b",
+    "blocker_bytes": 928
   },
   "risk_disposition": {
     "classification": "QUARANTINED_LABORATORY_QUALIFICATION_ONLY",
@@ -35,8 +61,8 @@
     "approved_high_findings": 147
   },
   "blocker": {
-    "code": "AUTOBAHN_EXECUTION_UNAVAILABLE",
-    "detail": "Digest-bound static expansion and a verified local-only executor are required before either mode may run."
+    "code": "AUTOBAHN_QUALIFICATION_BLOCKED",
+    "detail": "Plan sha256:53a10ae09a728b63471e5298be777c5e86a5b2f525b43ce247787df9e2139173 selected 247 cases and attempted client once and server once under OWNER_ATTESTED_NOT_INDEPENDENT with independent_review_claimed=false. Both modes completed=false, completed_count=0, result_count=0; raw incomplete-mode counters digest sha256:87ed54d3e3ea233913009bd0a97ad533178eb3807950f82e0e268f28a8dcc2b5. Runtime-private receipt digest sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff (18920 bytes) binds both findings; canonical blocker-set digest sha256:a7dca4868fefd2283407e7b4a595b904c3f2740075b242e79ff8383304bd8bdb (1529 bytes). Client case-1 configuration digest sha256:aafb92d0bffe82781ad0085c5e08b57cb66471505c4a04a97155ec6b2e6dc69b (128 bytes) reached ENDPOINT_DENIED before connection. Server case-1 configuration digest sha256:8ede1a49a2a6b3d1c6baa1fb7b9ed21d1b42d402aef3f72b53465e12c92377ba (238 bytes) paired and completed transport but report extraction found no files after tmpfs teardown. Cleanup digest sha256:99c05fc1242b9b38f3b51d5d71b5df4418a2c7468b68d7652b2cd46c1c2304cb binds zero labeled containers and networks. Final non-live remediation preflight passed as plan sha256:a94500dee3959f14941a749e04fe53b4679dd84041449e45a22572fb296a56f5; it is not live validation and cannot make this baseline READY."
   },
   "production": false,
   "publication": false

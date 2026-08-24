@@ -66,6 +66,21 @@ func TestAutobahnArchiveDataValidationRejectsLinksDuplicatesAndDrift(t *testing.
 	assertFinding(t, func() error { _, err := validateAndReadAutobahnTar(valid, root, mutatedRequired); return err }(), "AUTOBAHN_MEMBER_DIGEST_MISMATCH")
 }
 
+func TestPinnedReportSemanticsRequireOneCaseFlushAndExactFilenames(t *testing.T) {
+	source := strings.Join([]string{
+		`elif self.path == "/updateReports":`, `self.factory.createReports()`, `report_filename = "index.json"`,
+		`report_filename = "index.html"`, `return self.cleanForFilename(agentId) + "_case_" + c + "." + ext`,
+		"self.createReports()\n            reactor.stop()",
+	}, "\n")
+	if err := verifyAutobahnReportSemantics(source); err != nil {
+		t.Fatal(err)
+	}
+	for _, removed := range []string{"/updateReports", "index.json", "index.html", "_case_", "reactor.stop()"} {
+		mutated := strings.Replace(source, removed, "mutated", 1)
+		assertFinding(t, verifyAutobahnReportSemantics(mutated), "AUTOBAHN_REPORT_CONTRACT_UNRESOLVED")
+	}
+}
+
 func autobahnTarFixture(t *testing.T, headers []tar.Header, contents [][]byte) []byte {
 	t.Helper()
 	var buffer bytes.Buffer
