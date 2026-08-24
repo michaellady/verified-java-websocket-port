@@ -29,6 +29,24 @@ harness covers deterministic replay, arbitrary input partitioning, local
 actions, close transitions, Java runtime rejection, strict JSON, strict base64,
 all resource limits, JSONL framing, canonical output, and stdout isolation.
 
+The checked-in Maven project provides the same dependency-free build and fixed
+test-harness execution required by the story:
+
+```text
+/materialized/apache-maven-3.9.11/bin/mvn \
+  --file java-oracle/pom.xml --batch-mode --no-transfer-progress test \
+  -Djava.websocket.jar=/materialized/Java-WebSocket-1.6.0.jar \
+  -Druntime.support.classpath=/isolated-cache/slf4j-api.jar
+```
+
+`java.websocket.jar` is a system-scoped path by design: Maven never substitutes
+a repository artifact for the promoted bytes, and the adapter re-hashes those
+bytes at startup. The POM declares no test framework or repository dependency.
+Every executed fixed-version plugin goal must already exist in the audited
+Maven plugin closure; authoritative replay uses `--offline` and an isolated
+local repository after that closure is promoted. Default resource and Surefire
+executions are unbound, so the pure Java harness is the only test executor.
+
 Run it with the same variables using `make -C java-oracle run`. Standard input
 and standard output are UTF-8 JSONL. Standard output contains protocol records
 only. Expected request failures are protocol responses; only bounded fatal

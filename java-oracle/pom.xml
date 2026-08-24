@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>dev.verifiedport</groupId>
+  <artifactId>java-websocket-oracle</artifactId>
+  <version>1.0.0</version>
+  <packaging>jar</packaging>
+
+  <name>Java-WebSocket semantic oracle</name>
+  <description>Dependency-free JSONL adapter over the externally supplied accepted runtime.</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>17</maven.compiler.release>
+    <java.websocket.jar>${project.basedir}/.missing-Java-WebSocket-1.6.0.jar</java.websocket.jar>
+    <runtime.support.classpath></runtime.support.classpath>
+  </properties>
+
+  <!--
+    This system-scoped artifact is the externally materialized, digest-verified US-001 object.
+    It is deliberately not resolved from a repository and is re-verified by OracleMain at runtime.
+  -->
+  <dependencies>
+    <dependency>
+      <groupId>org.java-websocket</groupId>
+      <artifactId>Java-WebSocket</artifactId>
+      <version>1.6.0</version>
+      <scope>system</scope>
+      <systemPath>${java.websocket.jar}</systemPath>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <!-- No resource trees exist; suppress the default resource-copy plugin entirely. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <version>3.3.1</version>
+        <executions>
+          <execution>
+            <id>default-resources</id>
+            <phase>none</phase>
+          </execution>
+          <execution>
+            <id>default-testResources</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.10.1</version>
+        <configuration>
+          <release>17</release>
+          <encoding>UTF-8</encoding>
+          <compilerArgs>
+            <arg>-Xlint:all</arg>
+            <arg>-Werror</arg>
+          </compilerArgs>
+        </configuration>
+      </plugin>
+
+      <!-- The tests are an executable pure-Java harness, not a framework-discovered suite. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>3.2.5</version>
+        <executions>
+          <execution>
+            <id>default-test</id>
+            <phase>none</phase>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>3.1.0</version>
+        <executions>
+          <execution>
+            <id>run-oracle-main-test</id>
+            <phase>test</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target name="oracle-main-test">
+                <java classname="OracleMainTest" fork="true" failonerror="true"
+                      dir="${project.basedir}">
+                  <classpath>
+                    <pathelement location="${project.build.testOutputDirectory}"/>
+                    <pathelement location="${project.build.outputDirectory}"/>
+                    <pathelement location="${java.websocket.jar}"/>
+                    <pathelement path="${runtime.support.classpath}"/>
+                  </classpath>
+                  <jvmarg value="-ea"/>
+                  <jvmarg value="-Dslf4j.internal.verbosity=ERROR"/>
+                </java>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.3.0</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>OracleMain</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

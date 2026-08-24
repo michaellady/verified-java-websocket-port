@@ -28,6 +28,7 @@ public final class OracleMainTest {
     testLimits();
     testJsonlBoundaryAndStdoutIsolation();
     testCanonicalKeyOrder();
+    testMavenProjectContract();
     System.out.println("PASS " + tests + " java-oracle tests");
   }
 
@@ -242,6 +243,23 @@ public final class OracleMainTest {
     String output = StrictJson.write(OracleEngine.process(request("keys", "[]"), runtimeDigest));
     check(output.startsWith("{\"close\":"), "top-level keys must be lexicographically ordered");
     equal(output, StrictJson.write(StrictJson.parse(output)), "canonical output round-trip");
+    pass();
+  }
+
+  private static void testMavenProjectContract() throws Exception {
+    String pom = java.nio.file.Files.readString(java.nio.file.Path.of("pom.xml"),
+        StandardCharsets.UTF_8);
+    check(pom.contains("<maven.compiler.release>17</maven.compiler.release>"),
+        "Maven build must target Java 17");
+    check(pom.contains("<arg>-Xlint:all</arg>") && pom.contains("<arg>-Werror</arg>"),
+        "Maven build must fail on compiler warnings");
+    check(pom.contains("<systemPath>${java.websocket.jar}</systemPath>"),
+        "Maven build must consume the external promoted runtime path");
+    check(pom.contains("<id>run-oracle-main-test</id>")
+            && pom.contains("classname=\"OracleMainTest\""),
+        "Maven test phase must execute the pure Java harness");
+    check(!pom.contains("<repositories>") && !pom.toLowerCase(java.util.Locale.ROOT).contains("junit"),
+        "Maven project must not add repositories or a test framework");
     pass();
   }
 

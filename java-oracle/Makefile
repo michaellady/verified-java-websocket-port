@@ -9,7 +9,7 @@ MAIN_SOURCES := $(sort $(wildcard src/main/java/*.java))
 TEST_SOURCES := $(sort $(wildcard src/test/java/*.java))
 RUNTIME_CP := $(BUILD_DIR)/test-classes:$(BUILD_DIR)/classes:$(JAVA_WEBSOCKET_JAR)$(if $(RUNTIME_SUPPORT_CP),:$(RUNTIME_SUPPORT_CP))
 
-.PHONY: all build test run clean require-runtime
+.PHONY: all build test maven-test run clean require-runtime
 
 all: test
 
@@ -30,6 +30,11 @@ test: build
 		-cp "$(BUILD_DIR)/classes:$(JAVA_WEBSOCKET_JAR)" \
 		-d "$(BUILD_DIR)/test-classes" $(TEST_SOURCES)
 	$(JAVA) -ea -Dslf4j.internal.verbosity=ERROR -cp "$(RUNTIME_CP)" OracleMainTest
+
+maven-test: require-runtime
+	mvn --batch-mode --no-transfer-progress test \
+		-Djava.websocket.jar="$(abspath $(JAVA_WEBSOCKET_JAR))" \
+		-Druntime.support.classpath="$(RUNTIME_SUPPORT_CP)"
 
 run: build
 	$(JAVA) -Dslf4j.internal.verbosity=ERROR \
