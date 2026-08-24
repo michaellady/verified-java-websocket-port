@@ -4,13 +4,15 @@
 
 The candidate intake catalog is complete for inputs that exist before the external Linux host is bound. All source, standard, suite, macOS toolchain, developer-tool, frozen-contract, and exact Autobahn image bytes were acquired by pinned locator and verified against the retained digest. Downloaded executables and the container were not executed.
 
-Promotion remains blocked. This is intentional and is the only supportable result with the current evidence:
+The exact 23-object set was promoted under the repository owner's protected single-owner authority:
 
 - The exact required Autobahn linux/amd64 image has 740 unique vulnerability rules: 12 critical, 147 high, 181 medium, 321 low, and 79 unspecified.
 - OSV returned no matches for the ten retained queries, but generic-package ecosystem coverage is incomplete and is not treated as proof of absence.
 - The frozen `foundation-1.0.0` policy is amended for this child by the exact `java-websocket-single-owner-1.0.0` contract. The amendment permits the one repository owner to act under each required stage role. It does not claim independent review.
-- Real owner signatures, authoritative role and revocation projections, and unused protected-ledger nonces have not been supplied.
+- The owner supplied four real signatures plus authoritative role and revocation projections outside the repository. The protected transaction validated them and consumed the four nonces in one durable atomic batch.
 - Child US-001 authorizes no publication, release tag, protected access, port implementation, benchmark sampling, or container execution.
+
+The committed receipt records `SINGLE_OWNER_PROMOTED_NO_INDEPENDENT_REVIEW`, assurance ceiling `OWNER_ATTESTED_NOT_INDEPENDENT`, promotion-store root `sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8`, 23 accepted objects, zero publication actions, and zero protected-access actions. The final public evidence root is `sha256:d0fcc851c23233c645895a2fe862128ff576676da10d00c409165707ab0b482a`. Production use and publication remain unauthorized.
 
 The external x86_64 Linux Java/Rust toolchain is explicitly not represented as promoted. It does not become an input until child US-008 binds the independent Linux host.
 
@@ -22,7 +24,7 @@ The public projection is under `evidence/intake/`:
 - `toolchain-pins.json` records seven executable inputs with embedded binary hashes, dependency lock graphs, SBOM/vulnerability links, licenses, provenance, replay, expiration, rotation, and revocation state.
 - `sbom.json` links each executable to a CycloneDX-derived component. The exact Autobahn image produced 460 components in the retained Docker SBOM scan.
 - `vulnerability-snapshot.json` retains the OSV response and exact-image Docker Scout summary.
-- `promotion-receipts.json` is explicitly a blocker/request receipt with zero accepted objects, zero publication actions, zero protected reads, and zero candidate-authored signatures.
+- `promotion-receipts.json` is the completed single-owner promotion receipt. It retains the four owner-signed actions and records 23 accepted objects, zero publication actions, and zero protected-access actions without embedding private key material or authoritative snapshots.
 - `contracts/toolchain-promotion-single-owner-amendment.json` is an exact copy of the governing parent amendment, digest `sha256:ee247975a3a2cf10e8d93221df85505b8ed882630a5658662e9d716afe617cec`. It supersedes only role incompatibility, approval count, and the promotion-stage name; the frozen base policy is unchanged.
 
 The complete compressed CycloneDX and SARIF outputs are retained in the company-scoped HQ evidence store. The public projection records their raw and compressed SHA-256 digests, sizes, scanner identities, and replay commands without exposing protected authorization data.
@@ -59,7 +61,7 @@ go run ./cmd/intakectl sign-owner-actions \
 For native HQ vault injection, pass only the environment-variable name. `hq secrets exec` supplies the value directly to the child; `intakectl` unsets it immediately after reading it and never logs it:
 
 ```sh
-hq secrets --personal exec --only OWNER_ED25519_PRIVATE_KEY -- \
+hq secrets --company open-source-projects exec --only OWNER_ED25519_PRIVATE_KEY -- \
   go run ./cmd/intakectl sign-owner-actions \
     --request /protected/path/owner-action-request.json \
     --private-key-env OWNER_ED25519_PRIVATE_KEY
@@ -84,4 +86,4 @@ go run ./cmd/intakectl promote-owner-inputs \
 
 This command validates every declared byte and frozen pin before consuming the four nonces, calls `VerifyAuthorizedEvidenceDir`, transactionally promotes the 23 objects, rechecks immutable snapshots of all five evidence files, and atomically replaces `promotion-receipts.json` only after promotion succeeds without evidence drift. If evidence drifts after authorization or store promotion, the receipt remains unchanged while the already-durable nonce batch and content-addressed store root remain; recovery must inspect that idempotent store state and use freshly signed nonces. A final public verification remains fail-closed with `OWNER_RISK_DISPOSITION_REQUIRED` and `PROTECTED_CALLER_REQUIRED`; protected authority is never inferred from candidate-authored evidence.
 
-No live invocation has occurred. Until the real protected owner action and exact-byte promotion occur, the expected public command result is `BLOCKED`, and the child PRD story remains `passes:false`.
+The live protected transaction completed and independently rehashed all 23 accepted objects against the content-addressed manifest. One nonce batch was durably consumed. The public command intentionally remains `BLOCKED` with only `OWNER_RISK_DISPOSITION_REQUIRED` and `PROTECTED_CALLER_REQUIRED`: protected authority is not projected back into candidate-authored evidence, and the successful protected receipt does not authorize production use or publication.
