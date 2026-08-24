@@ -412,8 +412,14 @@ func TestRunnerContainerInspectRejectsIdentityIsolationAndMountDrift(t *testing.
 			config["Env"] = append(config["Env"].([]string), "SECRET=value")
 		},
 		"writable binary": func(value map[string]any) { value["Mounts"].([]any)[1].(map[string]any)["RW"] = true },
+		"anonymous volume": func(value map[string]any) {
+			value["Mounts"] = append(value["Mounts"].([]any), map[string]any{"Type": "volume", "Source": "anonymous", "Destination": "/data", "RW": true})
+		},
 		"oversized reports": func(value map[string]any) {
 			value["HostConfig"].(map[string]any)["Tmpfs"].(map[string]any)["/reports"] = "rw,size=1g"
+		},
+		"missing reports tmpfs": func(value map[string]any) {
+			delete(value["HostConfig"].(map[string]any)["Tmpfs"].(map[string]any), "/reports")
 		},
 	}
 	for name, mutate := range mutations {
@@ -450,6 +456,23 @@ func TestRetainedRunnerInspectAcceptsDockerResolvedEnvironmentOrder(t *testing.T
 	}
 }
 
+func TestRetainedRunnerInspectAcceptsDockerResolvedTmpfsMountRepresentation(t *testing.T) {
+	container := autobahnRunnerContainer{
+		name: "vjwt-fuzzclient-0123456789abcdef", role: "fuzzingclient", token: strings.Repeat("a", 64),
+		configDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	}
+	configPath, binaryPath, network := "/private/tmp/config", "/private/tmp/runner", "fixed-network"
+	fixture := validRunnerInspectFixture(container, network, configPath, binaryPath)
+	fixture["Mounts"] = fixture["Mounts"].([]any)[:2]
+	raw, err := json.Marshal([]any{fixture})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateAutobahnRunnerContainerInspect(raw, container, network, configPath, binaryPath); err != nil {
+		t.Fatalf("retained Docker-resolved tmpfs representation rejected: %v", err)
+	}
+}
+
 func validRunnerInspectFixture(container autobahnRunnerContainer, network, configPath, binaryPath string) map[string]any {
 	environment := []string{
 		"PATH=/opt/pypy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "PYPY_VERSION=7.3.20",
@@ -463,8 +486,6 @@ func validRunnerInspectFixture(container autobahnRunnerContainer, network, confi
 		"Mounts": []any{
 			map[string]any{"Type": "bind", "Source": configPath, "Destination": "/config", "RW": false},
 			map[string]any{"Type": "bind", "Source": binaryPath, "Destination": "/autobahn-runner", "RW": false},
-			map[string]any{"Type": "tmpfs", "Source": "", "Destination": "/tmp", "RW": true},
-			map[string]any{"Type": "tmpfs", "Source": "", "Destination": "/reports", "RW": true},
 		},
 	}
 }

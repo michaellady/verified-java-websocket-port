@@ -1808,10 +1808,9 @@ func validateAutobahnRunnerContainerInspect(output []byte, container autobahnRun
 		writable     bool
 	}{
 		"/config": {kind: "bind", source: configDirectory}, "/autobahn-runner": {kind: "bind", source: binaryPath},
-		"/tmp": {kind: "tmpfs", writable: true}, "/reports": {kind: "tmpfs", writable: true},
 	}
 	if len(mounts) != len(expectedMounts) {
-		return finding("AUTOBAHN_RUNNER_CONTAINER_IDENTITY_MISMATCH", "$.runner.container.mount", "runner mount set contains an undeclared or anonymous mount")
+		return finding("AUTOBAHN_RUNNER_CONTAINER_IDENTITY_MISMATCH", "$.runner.container.mount", "runner bind mount set contains an undeclared or anonymous mount")
 	}
 	for _, mount := range mounts {
 		var kind, source, destination string
