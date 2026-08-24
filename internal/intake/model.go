@@ -18,6 +18,7 @@ const (
 	SingleOwnerAmendmentDigest  = "sha256:ee247975a3a2cf10e8d93221df85505b8ed882630a5658662e9d716afe617cec"
 	PromotionStageID            = "owner-promotion"
 	SingleOwnerBlockedStatus    = "BLOCKED_PENDING_OWNER_ACTION_AND_RISK_DISPOSITION"
+	SingleOwnerAuthorizedStatus = "OWNER_AUTHORIZED_PENDING_BYTE_COMMIT"
 	SingleOwnerPromotedStatus   = "SINGLE_OWNER_PROMOTED_NO_INDEPENDENT_REVIEW"
 
 	AutobahnManifestDigest = "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074"
@@ -120,8 +121,8 @@ type OwnerActionRequest struct {
 }
 
 type Snapshot struct {
-	RoleDigest       string
-	RevocationDigest string
+	RoleDigest       string `json:"role_digest"`
+	RevocationDigest string `json:"revocation_digest"`
 }
 
 type ContainerDescriptor struct {

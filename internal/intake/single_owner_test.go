@@ -286,8 +286,9 @@ func writePromotedActionsForTest(t *testing.T, directory string, actions []Actio
 	var promotions promotionDocument
 	path := filepath.Join(directory, "promotion-receipts.json")
 	readStrictTestFile(t, path, &promotions)
-	promotions.Status = SingleOwnerPromotedStatus
-	promotions.AcceptedObjectCount = len(expectedArtifacts)
+	promotions.Status = SingleOwnerAuthorizedStatus
+	promotions.AcceptedObjectCount = 0
+	promotions.PromotionStoreRoot = ""
 	promotions.BlockingFindings = nil
 	promotions.SignedActions = actions
 	writeJSONTestFile(t, path, promotions)

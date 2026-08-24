@@ -4,11 +4,12 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -20,13 +21,19 @@ type NonceLedger interface {
 	Consume(actorID, nonce string) bool
 }
 
-type nonceClaim struct {
-	actorID string
-	nonce   string
+type NonceClaim struct {
+	ActorID string
+	Nonce   string
 }
 
-type batchNonceLedger interface {
-	ConsumeBatch(claims []nonceClaim) bool
+type BatchNonceLedger interface {
+	NonceLedger
+	ConsumeBatch(claims []NonceClaim) bool
+}
+
+type nonceBatchManifest struct {
+	SchemaVersion string   `json:"schema_version"`
+	Claims        []string `json:"claims"`
 }
 
 type MemoryLedger struct {
@@ -37,15 +44,15 @@ type MemoryLedger struct {
 func NewMemoryLedger() *MemoryLedger { return &MemoryLedger{used: make(map[string]struct{})} }
 
 func (l *MemoryLedger) Consume(actorID, nonce string) bool {
-	return l.ConsumeBatch([]nonceClaim{{actorID: actorID, nonce: nonce}})
+	return l.ConsumeBatch([]NonceClaim{{ActorID: actorID, Nonce: nonce}})
 }
 
-func (l *MemoryLedger) ConsumeBatch(claims []nonceClaim) bool {
+func (l *MemoryLedger) ConsumeBatch(claims []NonceClaim) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	keys := make([]string, 0, len(claims))
 	for _, claim := range claims {
-		key := claim.actorID + "\x00" + claim.nonce
+		key := claim.ActorID + "\x00" + claim.Nonce
 		if _, exists := l.used[key]; exists || slices.Contains(keys, key) {
 			return false
 		}
@@ -57,27 +64,31 @@ func (l *MemoryLedger) ConsumeBatch(claims []nonceClaim) bool {
 	return true
 }
 
-// FileLedger is the protected caller's durable nonce-consumption primitive.
-// The filename is a hash of the signed actor/nonce tuple, so candidate text
-// cannot escape the ledger directory. O_EXCL makes concurrent reuse fail.
+// FileLedger commits a nonce batch as one content-addressed manifest under a
+// serialized, protected-directory lock. Each claim digest remains individually
+// replay-detectable across committed batches.
 type FileLedger struct {
 	Directory string
 }
 
 func (l FileLedger) Consume(actorID, nonce string) bool {
-	return l.ConsumeBatch([]nonceClaim{{actorID: actorID, nonce: nonce}})
+	return l.ConsumeBatch([]NonceClaim{{ActorID: actorID, Nonce: nonce}})
 }
 
-func (l FileLedger) ConsumeBatch(claims []nonceClaim) bool {
+func (l FileLedger) ConsumeBatch(claims []NonceClaim) bool {
 	if l.Directory == "" || len(claims) == 0 {
 		return false
 	}
 	for _, claim := range claims {
-		if claim.actorID == "" || !noncePattern.MatchString(claim.nonce) {
+		if claim.ActorID == "" || !noncePattern.MatchString(claim.Nonce) {
 			return false
 		}
 	}
 	if err := os.MkdirAll(l.Directory, 0o700); err != nil {
+		return false
+	}
+	directoryInfo, err := os.Lstat(l.Directory)
+	if err != nil || !directoryInfo.IsDir() || directoryInfo.Mode()&os.ModeSymlink != 0 || directoryInfo.Mode().Perm()&0o077 != 0 {
 		return false
 	}
 	lockPath := filepath.Join(l.Directory, ".nonce-batch.lock")
@@ -91,54 +102,148 @@ func (l FileLedger) ConsumeBatch(claims []nonceClaim) bool {
 		_ = syncDirectory(l.Directory)
 	}()
 
-	paths := make([]string, 0, len(claims))
-	seen := make(map[string]struct{}, len(claims))
+	committed, ok := l.readCommittedClaims(lockPath)
+	if !ok {
+		return false
+	}
+	claimDigests := make([]string, 0, len(claims))
+	batchClaims := make(map[string]struct{}, len(claims))
 	for _, claim := range claims {
-		sum := sha256.Sum256([]byte(claim.actorID + "\x00" + claim.nonce))
-		path := filepath.Join(l.Directory, hex.EncodeToString(sum[:])+".consumed")
-		if _, duplicate := seen[path]; duplicate {
+		digest := nonceClaimDigest(claim)
+		if _, duplicate := batchClaims[digest]; duplicate {
 			return false
 		}
-		seen[path] = struct{}{}
-		if _, err := os.Lstat(path); err == nil || !errors.Is(err, os.ErrNotExist) {
+		if _, replayed := committed[digest]; replayed {
 			return false
 		}
-		paths = append(paths, path)
+		batchClaims[digest] = struct{}{}
+		claimDigests = append(claimDigests, digest)
 	}
-	created := make([]string, 0, len(paths))
-	rollback := func() {
-		for _, path := range created {
-			_ = os.Remove(path)
-		}
+	sort.Strings(claimDigests)
+	manifestBytes, err := CanonicalJSON(nonceBatchManifest{SchemaVersion: "1.0.0", Claims: claimDigests})
+	if err != nil {
+		return false
 	}
-	for index, path := range paths {
-		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if err != nil {
-			rollback()
-			return false
-		}
-		created = append(created, path)
-		claim := claims[index]
-		if _, err := file.WriteString(DigestBytes(CanonicalAction(Action{ActorID: claim.actorID, Nonce: claim.nonce})) + "\n"); err != nil {
-			_ = file.Close()
-			rollback()
-			return false
-		}
-		if err := file.Sync(); err != nil {
-			_ = file.Close()
-			rollback()
-			return false
-		}
-		if err := file.Close(); err != nil {
-			rollback()
-			return false
-		}
+	finalPath := filepath.Join(l.Directory, DigestBytes(manifestBytes)[7:]+".batch")
+	temporary, err := os.CreateTemp(l.Directory, ".nonce-batch-*.tmp")
+	if err != nil {
+		return false
 	}
+	temporaryPath := temporary.Name()
+	committedManifest := false
+	defer func() {
+		_ = temporary.Close()
+		if !committedManifest {
+			_ = os.Remove(temporaryPath)
+		}
+	}()
+	if err := temporary.Chmod(0o600); err != nil {
+		return false
+	}
+	if _, err := temporary.Write(manifestBytes); err != nil {
+		return false
+	}
+	if err := temporary.Sync(); err != nil {
+		return false
+	}
+	if err := temporary.Close(); err != nil {
+		return false
+	}
+	if err := os.Rename(temporaryPath, finalPath); err != nil {
+		return false
+	}
+	committedManifest = true
 	if err := syncDirectory(l.Directory); err != nil {
-		rollback()
 		return false
 	}
 	return true
+}
+
+func (l FileLedger) readCommittedClaims(lockPath string) (map[string]struct{}, bool) {
+	entries, err := os.ReadDir(l.Directory)
+	if err != nil {
+		return nil, false
+	}
+	committed := make(map[string]struct{})
+	for _, entry := range entries {
+		path := filepath.Join(l.Directory, entry.Name())
+		if path == lockPath {
+			continue
+		}
+		if strings.HasPrefix(entry.Name(), ".nonce-batch-") && strings.HasSuffix(entry.Name(), ".tmp") {
+			info, err := os.Lstat(path)
+			if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o077 != 0 || os.Remove(path) != nil {
+				return nil, false
+			}
+			continue
+		}
+		nameParts := strings.Split(entry.Name(), ".")
+		if len(nameParts) != 2 || !isLowerHexDigest(nameParts[0]) {
+			return nil, false
+		}
+		data, ok := readProtectedLedgerFile(path)
+		if !ok {
+			return nil, false
+		}
+		switch nameParts[1] {
+		case "consumed":
+			if !validateDigest(strings.TrimSpace(string(data))) {
+				return nil, false
+			}
+			committed[nameParts[0]] = struct{}{}
+		case "batch":
+			if DigestBytes(data)[7:] != nameParts[0] {
+				return nil, false
+			}
+			var manifest nonceBatchManifest
+			if err := DecodeStrict(data, &manifest); err != nil || manifest.SchemaVersion != "1.0.0" || len(manifest.Claims) == 0 || len(manifest.Claims) > 128 || !sort.StringsAreSorted(manifest.Claims) {
+				return nil, false
+			}
+			for index, claimDigest := range manifest.Claims {
+				if !isLowerHexDigest(claimDigest) || (index > 0 && manifest.Claims[index-1] == claimDigest) {
+					return nil, false
+				}
+				if _, duplicate := committed[claimDigest]; duplicate {
+					return nil, false
+				}
+				committed[claimDigest] = struct{}{}
+			}
+		default:
+			return nil, false
+		}
+	}
+	return committed, true
+}
+
+func readProtectedLedgerFile(path string) ([]byte, bool) {
+	before, err := os.Lstat(path)
+	if err != nil || !before.Mode().IsRegular() || before.Mode().Perm()&0o077 != 0 || before.Size() <= 0 || before.Size() > 32<<10 {
+		return nil, false
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, false
+	}
+	defer file.Close()
+	after, err := file.Stat()
+	if err != nil || !os.SameFile(before, after) || !after.Mode().IsRegular() || after.Mode().Perm()&0o077 != 0 {
+		return nil, false
+	}
+	data, err := io.ReadAll(io.LimitReader(file, (32<<10)+1))
+	return data, err == nil && len(data) <= 32<<10
+}
+
+func nonceClaimDigest(claim NonceClaim) string {
+	sum := sha256.Sum256([]byte(claim.ActorID + "\x00" + claim.Nonce))
+	return hex.EncodeToString(sum[:])
+}
+
+func isLowerHexDigest(value string) bool {
+	if len(value) != 64 || strings.ToLower(value) != value {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
 
 func ValidateRoleStage(stage, role string, sandbox []string, publication PublicationIntent) error {

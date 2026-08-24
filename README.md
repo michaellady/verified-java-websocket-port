@@ -14,7 +14,7 @@ The public verifier therefore exits nonzero with `OWNER_RISK_DISPOSITION_REQUIRE
 go run ./cmd/intakectl verify --evidence-dir evidence/intake
 ```
 
-Passing unit, race, and vet checks validate the fail-closed machinery; they do not override the external attestation gate:
+Passing unit, race, and vet checks validate the fail-closed machinery; they do not override the external attestation gate. The repository includes a protected operator path for external signing and exact-byte promotion, but no real key, signature, authority projection, nonce, or promoted receipt is committed:
 
 ```sh
 go test ./... -count=1

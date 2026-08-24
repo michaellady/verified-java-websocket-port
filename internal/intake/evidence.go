@@ -218,6 +218,7 @@ type promotionDocument struct {
 	PublicationCount                 int               `json:"publication_count"`
 	ProtectedAccessCount             int               `json:"protected_access_count"`
 	AcceptedObjectCount              int               `json:"accepted_object_count"`
+	PromotionStoreRoot               string            `json:"promotion_store_root,omitempty"`
 	SignedActions                    []Action          `json:"signed_actions"`
 	AuthoritativeSnapshotProjections []json.RawMessage `json:"authoritative_snapshot_projections"`
 	RequiredActions                  []requiredAction  `json:"required_actions"`
@@ -458,7 +459,9 @@ func VerifyEvidenceDir(directory string, now time.Time) (*VerifyReport, error) {
 	if err := verifyCandidatePayload(promotions.CandidatePayload, report.FileDigests); err != nil {
 		return nil, err
 	}
-	if promotions.Status == SingleOwnerPromotedStatus && promotions.AcceptedObjectCount == len(expectedArtifacts) && len(promotions.SignedActions) == 4 {
+	if promotions.Status == SingleOwnerPromotedStatus && promotions.AcceptedObjectCount == len(expectedArtifacts) && validateDigest(promotions.PromotionStoreRoot) && len(promotions.SignedActions) == 4 {
+		report.Blockers = append(report.Blockers, Finding{Code: "PROTECTED_CALLER_REQUIRED", Path: "promotion-receipts.json.signed_actions", Message: "candidate evidence cannot verify its own authoritative identities, snapshots, or nonce ledger"})
+	} else if promotions.Status == SingleOwnerAuthorizedStatus && promotions.AcceptedObjectCount == 0 && promotions.PromotionStoreRoot == "" && len(promotions.SignedActions) == 4 {
 		report.Blockers = append(report.Blockers, Finding{Code: "PROTECTED_CALLER_REQUIRED", Path: "promotion-receipts.json.signed_actions", Message: "candidate evidence cannot verify its own authoritative identities, snapshots, or nonce ledger"})
 	} else if promotions.Status == SingleOwnerBlockedStatus && promotions.AcceptedObjectCount == 0 && len(promotions.SignedActions) == 0 {
 		report.Blockers = append(report.Blockers, Finding{Code: "MISSING_PROMOTION_REQUIREMENT", Path: "promotion-receipts.json.signed_actions", Message: "the repository owner's real cryptographic stage actions and protected authority are absent"})
@@ -504,7 +507,7 @@ func VerifyAuthorizedEvidenceDir(directory string, now time.Time, authority Trus
 	if len(promotions.SignedActions) != len(expected) {
 		return nil, deny("MISSING_PROMOTION_REQUIREMENT", "promotion-receipts.json.signed_actions", "exactly four signed stage actions are required")
 	}
-	claims := make([]nonceClaim, 0, len(expected))
+	claims := make([]NonceClaim, 0, len(expected))
 	for index, required := range expected {
 		action := promotions.SignedActions[index]
 		if action.ObjectID != "java-websocket-us001-inputs-v1" || action.ObjectKind != "artifact-set" || action.Stage != required.stage || action.Action != required.action || action.ActorID != RequiredOwnerActor || action.Role != required.role || action.AuthorityMode != promotions.AuthorityMode || action.ArtifactDigest != promotions.CandidatePayload.RootDigest || action.PolicyVersion != promotions.PolicyVersion || action.PolicyDigest != promotions.PolicyDigest || action.PolicyAmendmentVersion != promotions.PolicyAmendmentVersion || action.PolicyAmendmentDigest != promotions.PolicyAmendmentDigest || !slices.Equal(action.RequestedSandboxAccess, required.sandbox) || action.Publication.Requested || action.Publication.Classification != "QUARANTINED" {
@@ -520,9 +523,9 @@ func VerifyAuthorizedEvidenceDir(directory string, now time.Time, authority Trus
 		if err := validateAuthorization(action, authority.Identities, snapshot, now); err != nil {
 			return nil, err
 		}
-		claims = append(claims, nonceClaim{actorID: action.ActorID, nonce: action.Nonce})
+		claims = append(claims, NonceClaim{ActorID: action.ActorID, Nonce: action.Nonce})
 	}
-	ledger, ok := authority.Ledger.(batchNonceLedger)
+	ledger, ok := authority.Ledger.(BatchNonceLedger)
 	if !ok || !ledger.ConsumeBatch(claims) {
 		return nil, deny("REPLAYED_APPROVAL", "promotion-receipts.json.signed_actions", "one or more owner action nonces were already consumed or the protected ledger could not consume the complete batch")
 	}

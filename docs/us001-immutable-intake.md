@@ -36,7 +36,7 @@ The complete compressed CycloneDX and SARIF outputs are retained in the company-
 - qualification sandbox access only for the port implementer and only to `quarantined-source`;
 - owner promotion only under the release-attestor action role;
 - a signed disposition binding the exact vulnerability snapshot, Autobahn image digest, 12 critical and 147 high counts, and `QUARANTINED_LABORATORY_QUALIFICATION_ONLY` scope, with production use and publication both false;
-- atomic all-or-nothing nonce-batch consumption after every action has passed validation;
+- atomic all-or-nothing nonce-batch consumption as one fsynced, content-addressed manifest after every action and every materialized byte has passed validation;
 - no publication intent for US-001;
 - atomic content-addressed batch promotion with idempotent replay.
 
@@ -46,9 +46,9 @@ The public evidence never supplies its own authoritative identity, role, revocat
 
 Tests deny duplicate/unknown/null/trailing JSON; scope drift; owner/URL drift; mutable locators; digest drift; missing classification; role conflicts; revoked identities; invalid or mutated signatures; replayed nonces under concurrency; expiration errors; unauthorized sandbox/publication intent; floating/wrong-platform OCI descriptors; traversal; absolute paths; unsafe links and special files; undeclared executables; nested archives; ZIP expansion bombs; case/normalization collisions; duplicate paths; graph gaps; corrupt accepted objects; and partial batch failure.
 
-## Protected owner signing path
+## Protected owner signing and promotion path
 
-The protected operator constructs a request matching `schemas/owner-action-request-1.0.0.schema.json`. Its artifact digest is the candidate payload root, its vulnerability digest is the exact retained `vulnerability-snapshot.json` digest, its role/revocation digests come from protected authoritative snapshots, and it contains four fresh nonces plus a risk rationale. The Ed25519 private key must remain outside the repository in an owner-only regular file:
+The protected operator constructs a request matching `schemas/owner-action-request-1.0.0.schema.json`. Its artifact digest is the candidate payload root, its vulnerability digest is the exact retained `vulnerability-snapshot.json` digest, its role/revocation digests come from protected authoritative snapshots, and it contains four fresh nonces plus a risk rationale. The Ed25519 private key must remain outside the repository. It may be read from an owner-only regular file:
 
 ```sh
 go run ./cmd/intakectl sign-owner-actions \
@@ -56,4 +56,32 @@ go run ./cmd/intakectl sign-owner-actions \
   --private-key-file /protected/path/owner-ed25519.hex
 ```
 
-The command emits only the four signed public action records. It does not generate a key, assign identity, or supply authoritative snapshot truth. The protected caller must insert and validate the actions with `VerifyAuthorizedEvidenceDir` and a durable nonce ledger. Until that real protected action occurs, the expected public command result is `BLOCKED`, and the child PRD story remains `passes:false`.
+For native HQ vault injection, pass only the environment-variable name. `hq secrets exec` supplies the value directly to the child; `intakectl` unsets it immediately after reading it and never logs it:
+
+```sh
+hq secrets --personal exec --only OWNER_ED25519_PRIVATE_KEY -- \
+  go run ./cmd/intakectl sign-owner-actions \
+    --request /protected/path/owner-action-request.json \
+    --private-key-env OWNER_ED25519_PRIVATE_KEY
+```
+
+The signing command emits only the four signed public action records. It does not generate a key, assign identity, or supply authoritative snapshot truth. The file and environment options are mutually exclusive.
+
+The external authority projection must match `schemas/owner-authority-1.0.0.schema.json`, remain owner-only and outside all candidate/materialization/promotion paths, and bind the exact owner public key plus authoritative role and revocation snapshot digests. The materialization manifest must match `schemas/input-materialization-1.0.0.schema.json`; its 23 entries are sorted by artifact id. Ordinary artifacts must exactly match the frozen `source-pins.json` identities, digests, and byte sizes. The Autobahn entry instead materializes the retained linux/amd64 OCI **manifest blob** with digest `sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074` and its own bounded blob size, not the OCI archive tar byte size.
+
+After separately materializing those bytes without executing them, the protected operator invokes the complete transaction:
+
+```sh
+go run ./cmd/intakectl promote-owner-inputs \
+  --evidence-dir /absolute/repository/evidence/intake \
+  --authority-file /protected/path/owner-authority.json \
+  --signed-actions-file /protected/path/signed-owner-actions.json \
+  --materialization-manifest /protected/path/input-materialization.json \
+  --materialization-root /protected/materialized-inputs \
+  --nonce-ledger /protected/durable-nonce-ledger \
+  --promotion-store /protected/content-addressed-inputs
+```
+
+This command validates every declared byte and frozen pin before consuming the four nonces, calls `VerifyAuthorizedEvidenceDir`, transactionally promotes the 23 objects, and atomically replaces `promotion-receipts.json` only after promotion succeeds. A final public verification remains fail-closed with `OWNER_RISK_DISPOSITION_REQUIRED` and `PROTECTED_CALLER_REQUIRED`; protected authority is never inferred from candidate-authored evidence.
+
+No live invocation has occurred. Until the real protected owner action and exact-byte promotion occur, the expected public command result is `BLOCKED`, and the child PRD story remains `passes:false`.

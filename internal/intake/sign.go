@@ -114,7 +114,13 @@ func ReadExternalPrivateKey(path string) (ed25519.PrivateKey, error) {
 	if err != nil || len(data) > 1024 {
 		return nil, deny("INVALID_IDENTITY_KEY", "private-key", "private-key file cannot be read safely")
 	}
-	decoded, err := hex.DecodeString(strings.TrimSpace(string(data)))
+	return ParseExternalPrivateKey(string(data))
+}
+
+// ParseExternalPrivateKey parses key material injected by a protected secret
+// provider. Errors never contain the supplied value.
+func ParseExternalPrivateKey(value string) (ed25519.PrivateKey, error) {
+	decoded, err := hex.DecodeString(strings.TrimSpace(value))
 	if err != nil || len(decoded) != ed25519.PrivateKeySize {
 		return nil, deny("INVALID_IDENTITY_KEY", "private-key", fmt.Sprintf("external key must contain exactly %d hex-encoded Ed25519 private-key bytes", ed25519.PrivateKeySize))
 	}

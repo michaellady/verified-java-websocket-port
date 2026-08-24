@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/input-materialization-1.0.0.schema.json",
+  "title": "US-001 exact input materialization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "company", "project", "laboratory_id", "candidate_payload_root", "objects"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "company": {"const": "open-source-projects"},
+    "project": {"const": "verified-java-websocket-port"},
+    "laboratory_id": {"const": "lab-java-websocket"},
+    "candidate_payload_root": {"$ref": "#/$defs/digest"},
+    "objects": {
+      "type": "array",
+      "minItems": 23,
+      "maxItems": 23,
+      "items": {"$ref": "#/$defs/object"}
+    }
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "path", "sha256", "byte_size"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "kind": {"enum": ["artifact-bytes", "oci-manifest-blob"]},
+        "path": {"type": "string", "minLength": 1, "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "byte_size": {"type": "integer", "minimum": 1, "maximum": 1073741824}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"id": {"const": "autobahn-linux-amd64-image"}}, "required": ["id"]},
+          "then": {
+            "properties": {
+              "kind": {"const": "oci-manifest-blob"},
+              "sha256": {"const": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074"},
+              "byte_size": {"maximum": 4194304}
+            }
+          },
+          "else": {"properties": {"kind": {"const": "artifact-bytes"}}}
+        }
+      ]
+    }
+  }
+}
