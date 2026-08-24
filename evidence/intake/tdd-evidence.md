@@ -41,3 +41,9 @@ PASS
 - `MISSING_PROMOTION_REQUIREMENT`
 
 This is the correct current result. No accepted object, publication action, protected-store access, identity assignment, signature, or risk acceptance was fabricated to make the story green.
+
+## Declared-final review
+
+The single declared-final full-diff review ran in a clean project-only repository against the initial `main` commit with `codex review -c 'model="gpt-5.4"' --base isolated-base`. It found four blocking boundary/durability defects: the durable nonce ledger did not fsync its containing directory, sandbox evidence did not enforce the exact secret/forbidden-access contract, the deferred Linux-host record was parsed but not enforced, and durable promotion did not fsync every mutated directory.
+
+All four were remediated. Targeted regression tests for concurrent nonce consumption, secret/forbidden-access mutation, Linux-deferral mutation, and durable promotion corruption pass, followed by the full unit, race, vet, and expected-blocked E2E gates. Per the project stopping rule, the full diff was not re-reviewed after these bounded fixes.

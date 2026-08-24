@@ -244,6 +244,18 @@ func TestDurablePromotionIsAtomicAndIdempotent(t *testing.T) {
 	if len(accepted) != 1 {
 		t.Fatalf("got %d accepted batches, want 1", len(accepted))
 	}
+	corruptPath := filepath.Join(base, "accepted", root[7:], "objects", objects[0].Digest[7:])
+	if err := os.Chmod(corruptPath, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(corruptPath, []byte("corrupt"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	_, err = PromoteDirectory(base, objects)
+	assertCode(t, err, "ARTIFACT_DRIFT")
+	if err := os.WriteFile(corruptPath, objects[0].Bytes, 0o400); err != nil {
+		t.Fatal(err)
+	}
 	bad := append([]Object(nil), objects...)
 	bad[1].Digest = DigestBytes([]byte("mutated"))
 	_, err = PromoteDirectory(base, bad)

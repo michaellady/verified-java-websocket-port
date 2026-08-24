@@ -329,6 +329,9 @@ func VerifyEvidenceDir(directory string, now time.Time) (*VerifyReport, error) {
 	if sources.Repository.Owner != "michaellady" || sources.Repository.Name != RequiredProject || sources.Repository.HTTPSURL != "https://github.com/michaellady/verified-java-websocket-port" {
 		return nil, deny("OWNER_URL_MISMATCH", "source-pins.json.repository", "repository binding differs from the authorized owner and URL")
 	}
+	if len(sources.DeferredPlatformInputs) != 1 || sources.DeferredPlatformInputs[0].Platform != "x86_64-unknown-linux-gnu" || sources.DeferredPlatformInputs[0].Status != "NOT_YET_AN_INPUT" || sources.DeferredPlatformInputs[0].Reason == "" {
+		return nil, deny("MISSING_PROMOTION_REQUIREMENT", "source-pins.json.deferred_platform_inputs", "the external Linux toolchain must remain explicitly unbound until child US-008")
+	}
 	if !now.Before(sources.Lifecycle.ExpiresAt) {
 		report.Blockers = append(report.Blockers, Finding{Code: "PROMOTION_EVIDENCE_EXPIRED", Path: "source-pins.json.lifecycle.expires_at", Message: "input acquisition evidence is stale"})
 	}
@@ -362,7 +365,8 @@ func VerifyEvidenceDir(directory string, now time.Time) (*VerifyReport, error) {
 	if err := ValidateAutobahnDescriptor(ContainerDescriptor{Reference: toolchains.Container.Reference, Platform: toolchains.Container.Platform, ManifestDigest: toolchains.Container.ManifestDigest, ConfigDigest: toolchains.Container.ConfigDigest}); err != nil {
 		return nil, err
 	}
-	if toolchains.ExecutionState != "NO_DOWNLOADED_EXECUTABLE_OR_CONTAINER_WAS_EXECUTED_DURING_INTAKE" || toolchains.QualificationSandbox.RequiredRole != "port-implementer" || !toolchains.QualificationSandbox.Disposable || toolchains.QualificationSandbox.Publication {
+	requiredForbiddenAccess := []string{"protected-held-out", "canonical-evidence", "release-signing", "production-credentials", "cross-company-data"}
+	if toolchains.ExecutionState != "NO_DOWNLOADED_EXECUTABLE_OR_CONTAINER_WAS_EXECUTED_DURING_INTAKE" || toolchains.QualificationSandbox.RequiredRole != "port-implementer" || !slices.Equal(toolchains.QualificationSandbox.ForbiddenAccess, requiredForbiddenAccess) || !toolchains.QualificationSandbox.Disposable || toolchains.QualificationSandbox.Secrets != "none" || toolchains.QualificationSandbox.Publication {
 		return nil, deny("FORBIDDEN_SANDBOX_ACCESS", "toolchain-pins.json.qualification_sandbox", "qualification sandbox contract is incomplete")
 	}
 	if err := ValidateRoleStage("qualification", toolchains.QualificationSandbox.RequiredRole, toolchains.QualificationSandbox.RequestedAccess, PublicationIntent{Requested: false, Classification: "QUARANTINED"}); err != nil {

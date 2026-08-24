@@ -97,6 +97,9 @@ func PromoteDirectory(base string, objects []Object) (string, error) {
 			return "", deny("PARTIAL_PUBLICATION", path, err.Error())
 		}
 	}
+	if err := syncDirectory(objectDirectory); err != nil {
+		return "", deny("PARTIAL_PUBLICATION", objectDirectory, err.Error())
+	}
 	if err := writeExclusiveSynced(filepath.Join(stage, "manifest.json"), manifestBytes, 0o400); err != nil {
 		return "", deny("PARTIAL_PUBLICATION", stage, err.Error())
 	}
@@ -113,6 +116,9 @@ func PromoteDirectory(base string, objects []Object) (string, error) {
 	}
 	if err := syncDirectory(accepted); err != nil {
 		return "", deny("DURABILITY_UNCERTAIN", accepted, "complete batch is visible but directory fsync failed: "+err.Error())
+	}
+	if err := syncDirectory(cleanBase); err != nil {
+		return "", deny("DURABILITY_UNCERTAIN", cleanBase, "complete batch is visible but promotion-root fsync failed: "+err.Error())
 	}
 	return manifest.RootDigest, nil
 }

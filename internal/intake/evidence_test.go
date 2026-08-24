@@ -57,6 +57,48 @@ func TestEvidenceMutationsDenyBeforePromotion(t *testing.T) {
 	}
 }
 
+func TestSandboxAndLinuxDeferralMutationsDeny(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		file string
+		edit func(string) string
+		code string
+	}{
+		{"secrets", "toolchain-pins.json", func(data string) string {
+			return strings.Replace(data, `"secrets": "none"`, `"secrets": "available"`, 1)
+		}, "FORBIDDEN_SANDBOX_ACCESS"},
+		{"forbidden-access", "toolchain-pins.json", func(data string) string {
+			return strings.Replace(data, `"forbidden_access": ["protected-held-out", "canonical-evidence", "release-signing", "production-credentials", "cross-company-data"]`, `"forbidden_access": []`, 1)
+		}, "FORBIDDEN_SANDBOX_ACCESS"},
+		{"linux-deferral", "source-pins.json", func(data string) string {
+			start := strings.Index(data, `"deferred_platform_inputs": [`)
+			if start < 0 {
+				return data
+			}
+			return data[:start] + `"deferred_platform_inputs": []` + "\n}"
+		}, "MISSING_PROMOTION_REQUIREMENT"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			directory := copyEvidence(t)
+			path := filepath.Join(directory, tc.file)
+			data, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatal(err)
+			}
+			mutated := tc.edit(string(data))
+			if mutated == string(data) {
+				t.Fatal("test mutation did not apply")
+			}
+			if err := os.WriteFile(path, []byte(mutated), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			_, err = VerifyEvidenceDir(directory, time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
+			assertCode(t, err, tc.code)
+		})
+	}
+}
+
 func TestAuthorizeRejectsAuthoritativeRoleConflictAndRevocation(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)

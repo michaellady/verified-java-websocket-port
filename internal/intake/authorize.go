@@ -68,7 +68,10 @@ func (l FileLedger) Consume(actorID, nonce string) bool {
 		_ = file.Close()
 		return false
 	}
-	return file.Close() == nil
+	if err := file.Close(); err != nil {
+		return false
+	}
+	return syncDirectory(l.Directory) == nil
 }
 
 func ValidateRoleStage(stage, role string, sandbox []string, publication PublicationIntent) error {
