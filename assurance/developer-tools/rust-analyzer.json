@@ -1,0 +1,22 @@
+{
+  "schema_version":"1.0.0","entity_type":"DeveloperToolRun","run_id":"run.rust-analyzer.failed.v3","qualification_id":"qualification.lsp.lab-zero.v1","profile_id":"profile.rust-analyzer.baseline.v1","language":"rust",
+  "tool":{"name":"rust-analyzer","version":"2026-08-17.4","commit":"bb3bbbd9e4529cbf1a6392d5953f03eb01af3792","artifact_sha256":"sha256:ece932daf2f077be87bf745d2eb0a62cbc550f4b1e2e31ca76dfafdd0cc599b3","installation_provenance":"official GitHub 2026-08-17.4 gzip verified and extracted only beneath a disposable root"},
+  "workspace_profile_id":"workspace.rust-analyzer.baseline.v1","source_revision":"sha256:bcaa14761ae06cad7b738fb1bdbfdebdcd0dcd9f3d97348e63f27eed82f80e56","target":"aarch64-apple-darwin","features":["laboratory"],"client":"foundation-lsp-harness/1.0.0","corpus_id":"corpus.lsp.navigation.v1",
+  "execution_evidence":{"path":"profiles/lsp/evidence/rust-analyzer.json","sha256":"sha256:07720aee580d1591c6649f8273888cf06a693e51bbee41e5fced2b3be1757114"},
+  "episodes":[
+    {"cache_state":"cold","sequence":1,"observation_status":"OBSERVED","outcome":"FAIL","failure":"proc-macro hover and standard-library dependency definition remained empty after 20 bounded attempts","recovery":"retain the failure and use cargo check, Clippy, tests, and proof tools as authority"},
+    {"cache_state":"warm","sequence":2,"observation_status":"OBSERVED","outcome":"FAIL","failure":"proc-macro hover and standard-library dependency definition remained empty after 20 bounded attempts","recovery":"retain the warm-cache failure without treating cached results as assurance"},
+    {"cache_state":"invalidated","sequence":3,"observation_status":"OBSERVED","outcome":"FAIL","failure":"the canary was fresh but proc-macro and dependency navigation still failed","recovery":"retain the fresh canary observation and the independent capability failures"},
+    {"cache_state":"corrupted","sequence":4,"observation_status":"OBSERVED","outcome":"FAIL","failure":"cache recovery succeeded but proc-macro and dependency navigation still failed","recovery":"rebuild only the isolated profile cache and retain the failed capability outcomes"}
+  ],
+  "measurements":{"cold_readiness_ms":338,"warm_readiness_ms":778,"initial_index_ms":338,"reindex_ms":771,"idle_rss_bytes":444973056,"peak_rss_bytes":471318528,"cache_size_bytes":4560558,"agent_elapsed_ms":18658,"tool_calls":201,"incorrect_edits":0,"recovery_work_items":1},
+  "capability_observations":[{"capability":"macro","status":"PASS"},{"capability":"proc-macro","status":"FAIL"},{"capability":"generated-code","status":"PASS"},{"capability":"build-script","status":"PASS"},{"capability":"target-specific","status":"PASS"},{"capability":"dependency","status":"FAIL"}],
+  "reliability":{"crashes":"PASS","hangs":"PASS","corruption":"PASS","stale_results":"PASS","recovery":"PASS"},
+  "disagreements":[
+    {"query_id":"rust.proc-macro.derive-debug","lsp_result":"empty hover result after 20 bounded attempts in every cache state","build_result":"pinned cargo check, Clippy -D warnings, and tests compiled the derived traits successfully","resolution":"AUTHORITATIVE_BUILD_WINS"},
+    {"query_id":"rust.dependency.string","lsp_result":"empty definition result for std String after 20 bounded attempts in every cache state","build_result":"pinned cargo check, Clippy -D warnings, and tests compiled the String dependency successfully","resolution":"AUTHORITATIVE_BUILD_WINS"}
+  ],
+  "authoritative_result_source":"CARGO_CHECK_CLIPPY_TESTS_AND_PROOF_TOOLS","build_authoritative":true,"assurance_claims":[],"gate_effects":[],
+  "reproduction":{"mode":"EXECUTED","procedure":"profiles/lsp/replay/README.md and provenance.json; retained bounded evidence profiles/lsp/evidence/rust-analyzer.json","network":"DENY","secrets":"NONE","input_fixture":{"sha256":"sha256:2a69e1d56bf849823b8733a279cde4086dc5fc14fe5a59c719bfcb68cfc872b2","access":"READ_ONLY"},"execution_workspace":{"initial_sha256":"sha256:2a69e1d56bf849823b8733a279cde4086dc5fc14fe5a59c719bfcb68cfc872b2","mode":"WRITABLE_DISPOSABLE_COPY"}},
+  "limitations":["rust-analyzer failed the proc-macro and standard-library dependency navigation probes on this corpus.","Language-server output remains non-assurance even where it agrees with the authoritative Rust build."]
+}

@@ -1,0 +1,13 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://github.com/michaellady/verified-java-to-rust/schemas/navigation-corpus-1.0.0.schema.json",
+  "title":"Curated language-intelligence navigation corpus 1.0.0",
+  "type":"object","additionalProperties":false,
+  "required":["schema_version","corpus_id","files","queries"],
+  "properties":{
+    "schema_version":{"const":"1.0.0"},"corpus_id":{"$ref":"#/$defs/id"},
+    "files":{"type":"array","minItems":2,"x-foundation-unique-item-property":"path","items":{"type":"object","additionalProperties":false,"required":["language","path","sha256"],"properties":{"language":{"enum":["java","rust"]},"path":{"$ref":"#/$defs/path"},"sha256":{"$ref":"#/$defs/sha256"}}}},
+    "queries":{"type":"array","minItems":13,"x-foundation-unique-item-property":"query_id","items":{"type":"object","additionalProperties":false,"required":["query_id","language","capability","symbol"],"properties":{"query_id":{"$ref":"#/$defs/id"},"language":{"enum":["java","rust"]},"capability":{"enum":["definition","references","call-hierarchy","type-hierarchy","hover","annotation","generated-code","macro","proc-macro","build-script","target-specific","dependency"]},"symbol":{"$ref":"#/$defs/text"}}}}
+  },
+  "$defs":{"id":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"},"text":{"type":"string","minLength":1,"pattern":"\\S"},"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"path":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$"}}
+}

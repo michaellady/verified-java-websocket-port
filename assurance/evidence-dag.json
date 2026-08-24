@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "root_node_id": "claim-us004",
+  "nodes": [
+    {"id": "claim-us004", "kind": "claim"},
+    {"id": "evidence-dag", "kind": "evidence"},
+    {"id": "evidence-evidence-model", "kind": "evidence"},
+    {"id": "evidence-evolution", "kind": "evidence"},
+    {"id": "evidence-failures", "kind": "evidence"},
+    {"id": "evidence-glancer", "kind": "evidence"},
+    {"id": "evidence-jdt-ls", "kind": "evidence"},
+    {"id": "evidence-public-contract", "kind": "evidence"},
+    {"id": "evidence-rust-analyzer", "kind": "evidence"},
+    {"id": "evidence-upstream-manifest", "kind": "evidence"}
+  ],
+  "edges": [
+    {"from": "claim-us004", "to": "evidence-dag"},
+    {"from": "claim-us004", "to": "evidence-evidence-model"},
+    {"from": "claim-us004", "to": "evidence-evolution"},
+    {"from": "claim-us004", "to": "evidence-failures"},
+    {"from": "claim-us004", "to": "evidence-glancer"},
+    {"from": "claim-us004", "to": "evidence-jdt-ls"},
+    {"from": "claim-us004", "to": "evidence-public-contract"},
+    {"from": "claim-us004", "to": "evidence-rust-analyzer"},
+    {"from": "claim-us004", "to": "evidence-upstream-manifest"}
+  ]
+}

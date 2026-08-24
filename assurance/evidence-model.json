@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.1.0",
+  "case_id": "case-miniature",
+  "scenario": "passing",
+  "snapshot_time": "2026-08-22T00:00:00Z",
+  "entities": [
+    {"id":"laboratory-miniature","type":"Laboratory","edges":[]},
+    {"id":"source-pin-miniature","type":"SourcePin","edges":[]},
+    {"id":"surface-item-miniature","type":"SurfaceItem","edges":[]},
+    {"id":"semantic-id-miniature","type":"SemanticId","edges":[]},
+    {"id":"migration-map-miniature","type":"MigrationMap","edges":[]},
+    {"id":"port-seam-dossier-miniature","type":"PortSeamDossier","edges":[]},
+    {"id":"behavior-delta-miniature","type":"BehaviorDelta","edges":[]},
+    {"id":"oracle-miniature","type":"Oracle","edges":[]},
+    {"id":"corpus-miniature","type":"Corpus","edges":[]},
+    {"id":"semantic-event-miniature","type":"SemanticEvent","edges":[]},
+    {"id":"trace-differential","type":"Trace","edges":[{"type":"supports","to":"claim-production-equivalence"}]},
+    {"id":"divergence-miniature","type":"Divergence","edges":[]},
+    {"id":"claim-production-equivalence","type":"Claim","edges":[]},
+    {"id":"claim-replay-bundle-miniature","type":"ClaimReplayBundle","edges":[]},
+    {"id":"model-miniature","type":"Model","edges":[{"type":"supports","to":"claim-production-equivalence"}]},
+    {"id":"proofobligation-miniature","type":"ProofObligation","edges":[{"type":"discharges","to":"claim-production-equivalence"}]},
+    {"id":"evidencerun-miniature","type":"EvidenceRun","edges":[{"type":"supports","to":"claim-production-equivalence"}]},
+    {"id":"mutationresult-miniature","type":"MutationResult","edges":[{"type":"supports","to":"claim-production-equivalence"}]},
+    {"id":"benchmarkrun-miniature","type":"BenchmarkRun","edges":[{"type":"supports","to":"claim-production-equivalence"}]},
+    {"id":"review-miniature","type":"Review","edges":[{"type":"attests","to":"claim-production-equivalence"}]},
+    {"id":"skill-revision-miniature","type":"SkillRevision","edges":[]},
+    {"id":"forward-test-miniature","type":"ForwardTest","edges":[]},
+    {"id":"program-snapshot-manifest-miniature","type":"ProgramSnapshotManifest","edges":[]},
+    {"id":"tool-lsp","type":"DeveloperToolRun","edges":[]},
+    {"id":"resource-claim-miniature","type":"ResourceClaim","edges":[]},
+    {"id":"performance-envelope-miniature","type":"PerformanceEnvelope","edges":[]},
+    {"id":"java-intake-manifest-miniature","type":"JavaIntakeManifest","edges":[]},
+    {"id":"compatibility-surface-miniature","type":"CompatibilitySurface","edges":[]},
+    {"id":"cutover-contract-miniature","type":"CutoverContract","edges":[]},
+    {"id":"failure-envelope-miniature","type":"FailureEnvelope","edges":[]},
+    {"id":"attempt-miniature","type":"Attempt","edges":[]},
+    {"id":"generalization-decision-miniature","type":"GeneralizationDecision","edges":[]},
+    {"id":"authorization-action-miniature","type":"AuthorizationAction","edges":[]},
+    {"id":"artifact-classification-miniature","type":"ArtifactClassification","edges":[]},
+    {"id":"staleness-edge-miniature","type":"StalenessEdge","edges":[]}
+  ],
+  "assurance_profiles": [
+    {"label":"observed","required_artifact_types":["EvidenceRun"],"trusted_computing_base":["validator-sha256"],"disclosures":["claim scope remains explicit"],"prohibited_inferences":["project-wide equivalence"],"failure_states":["BLOCKED","STALE"],"expiry_rule":"expires_at is evaluated against snapshot_time","freshness_rule":"typed changed inputs stale their minimal dependent cut","readiness_ceiling":"LAB"},
+    {"label":"differential","required_artifact_types":["EvidenceRun","Trace","Oracle"],"trusted_computing_base":["validator-sha256"],"disclosures":["claim scope remains explicit"],"prohibited_inferences":["project-wide equivalence"],"failure_states":["BLOCKED","STALE"],"expiry_rule":"expires_at is evaluated against snapshot_time","freshness_rule":"typed changed inputs stale their minimal dependent cut","readiness_ceiling":"LAB"},
+    {"label":"bounded","required_artifact_types":["EvidenceRun","ProofObligation","Model"],"trusted_computing_base":["validator-sha256"],"disclosures":["claim scope remains explicit"],"prohibited_inferences":["project-wide equivalence"],"failure_states":["BLOCKED","STALE"],"expiry_rule":"expires_at is evaluated against snapshot_time","freshness_rule":"typed changed inputs stale their minimal dependent cut","readiness_ceiling":"CANDIDATE"},
+    {"label":"proved-model","required_artifact_types":["EvidenceRun","ProofObligation","Model"],"trusted_computing_base":["validator-sha256"],"disclosures":["claim scope remains explicit"],"prohibited_inferences":["project-wide equivalence"],"failure_states":["BLOCKED","STALE"],"expiry_rule":"expires_at is evaluated against snapshot_time","freshness_rule":"typed changed inputs stale their minimal dependent cut","readiness_ceiling":"CANDIDATE"},
+    {"label":"proved-production/refinement","required_artifact_types":["EvidenceRun","Trace","MutationResult","BenchmarkRun","ProofObligation","Review","Model"],"trusted_computing_base":["validator-sha256"],"disclosures":["claim scope remains explicit"],"prohibited_inferences":["project-wide equivalence"],"failure_states":["BLOCKED","STALE"],"expiry_rule":"expires_at is evaluated against snapshot_time","freshness_rule":"typed changed inputs stale their minimal dependent cut","readiness_ceiling":"PUBLISHED"}
+  ],
+  "claims": [{
+    "id": "claim-production-equivalence",
+    "assurance": "proved-production/refinement",
+    "required_level": "proved-production/refinement",
+    "subject_id": "laboratory-miniature",
+    "evidence_ids": ["trace-differential","evidencerun-miniature","mutationresult-miniature","benchmarkrun-miniature","proofobligation-miniature","review-miniature","model-miniature"],
+    "status": "SUPPORTED",
+    "freshness": "FRESH",
+    "expires_at": "2027-08-22T00:00:00Z",
+    "readiness": "PUBLISHED"
+  }],
+  "common_gate": {
+    "conformance_all_pass": true,
+    "unexplained_differential_mismatches": 0,
+    "declared_proofs_pass": true,
+    "bounded_checks_pass": true,
+    "flakes": 0,
+    "first_party_unsafe_rust": 0,
+    "performance_vs_java": "outperform",
+    "missed_eligible_mutations": 0
+  },
+  "mutation_results": [{"id":"mutationresult-miniature","claim_id":"claim-production-equivalence","source_tool":"PIT","raw_status":"KILLED","disposition":"killed","eligible":true,"review_ids":[]}],
+  "signed_mutation_denominator_ids": ["mutationresult-miniature"],
+  "reviews": [
+    {"id":"review-a","claim_id":"claim-production-equivalence","reviewer_id":"reviewer-a","role":"independent-reviewer","blind":true,"disposition":"APPROVE"},
+    {"id":"review-b","claim_id":"claim-production-equivalence","reviewer_id":"reviewer-b","role":"independent-reviewer","blind":true,"disposition":"APPROVE"}
+  ],
+  "proof_obligations": [{"id":"proofobligation-miniature","claim_id":"claim-production-equivalence","required_outcome":"ProofEstablished","outcome":"ProofEstablished","model_id":"model-miniature","production_code_ids":["src/lib.rs#production"],"bounds":[],"unsupported_constructs":[]}],
+  "replay_bundles": [{
+    "id":"claimreplaybundle-miniature","claim_id":"claim-production-equivalence","source_revision":"sha256:source","specification_revision":"sha256:spec","java_revision":"sha256:java","rust_revision":"sha256:rust",
+    "java_semantic_ids":["java:type:Mini"],"rust_semantic_ids":["rust:item:mini"],"command":"./replay claim-production-equivalence","working_directory":".",
+    "tool_hashes":["sha256:tool"],"container_hashes":["sha256:container"],"environment":["LC_ALL=C"],"seed":"42","hardware":"x86_64","assumptions":["deterministic clock"],
+    "bounds":["miniature corpus"],"unsupported_constructs":[],"trusted_base":["validator-sha256"],"exit_count":1,"obligation_count":1,
+    "raw_log_ids":["artifact-log"],"artifact_ids":["trace-differential"],"normalized_diff_id":"artifact-diff","counterexample_or_corpus_ids":["corpus-miniature"],
+    "replay_command":"./replay claim-production-equivalence"
+  }],
+  "migration_maps": [{
+    "id":"migrationmap-miniature","java_semantic_id":"java:type:Mini","java_signature":"Mini.run()V","rust_semantic_id":"rust:item:mini::run","rust_resolver":"rust-analyzer",
+    "applicability_conditions":["source pin exact"],"known_non_equivalent_cases":["unchecked Java exception"],"source_revision":"sha256:java","detection_query":"jdt:type=Mini",
+    "port_slice_id":"slice-mini","touched_files":["src/lib.rs"],"specification_ids":["spec-mini"],"observed_behavior_ids":["trace-differential"],"oracle_ids":["oracle-miniature"],
+    "vector_ids":["corpus-miniature"],"property_claim_ids":["claim-production-equivalence"],"formal_claim_ids":["claim-production-equivalence"],"evidence_ids":["trace-differential"],
+    "status":"REVIEWED","lookup_strength":"semantic"
+  }],
+  "failures": [],
+  "attempts": [],
+  "snapshot": {
+    "id":"programsnapshotmanifest-miniature","state":"PUBLISHED","schemas":["evidence-model@1.1.0"],"validators":["foundationctl@sha256:validator"],"policies":["foundation@1.0.0"],
+    "skill_revision":"sha256:skill","source_commits":["sha256:java"],"port_commits":["sha256:rust"],"suites":["suite-mini@sha256:suite"],
+    "protected_case_set_version":"cases@1","toolchains":["go@1.25"],"platforms":["linux-amd64"],"lsp_profiles":["rust-analyzer@pinned"],
+    "evidence_roots":["sha256:evidence"],"reviewer_attestations":["review-a","review-b"],"cutover_profile":"cutover@1",
+    "cutover_prerequisites":{"common_gate":true,"security_gate":true}
+  }
+}

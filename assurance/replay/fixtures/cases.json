@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {
+      "id": "cycle",
+      "lifecycle_path": "assurance/replay/fixtures/cycle/lifecycle.json",
+      "expected_findings": [
+        {"code": "CYCLIC_GRAPH", "disposition": "BLOCK"}
+      ]
+    },
+    {
+      "id": "cross-company",
+      "lifecycle_path": "assurance/replay/fixtures/cross-company/lifecycle.json",
+      "expected_findings": [
+        {"code": "CROSS_COMPANY_REFERENCE", "disposition": "QUARANTINE"}
+      ]
+    },
+    {
+      "id": "stale",
+      "lifecycle_path": "assurance/replay/fixtures/stale/lifecycle.json",
+      "expected_findings": [
+        {"code": "STALE_INPUT", "disposition": "INVALIDATE"}
+      ]
+    },
+    {
+      "id": "role-conflict",
+      "lifecycle_path": "assurance/replay/fixtures/role-conflict/lifecycle.json",
+      "expected_findings": [
+        {"code": "ROLE_CONFLICT", "disposition": "QUARANTINE"}
+      ]
+    }
+  ]
+}

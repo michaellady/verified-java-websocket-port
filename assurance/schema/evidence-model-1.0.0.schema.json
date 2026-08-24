@@ -1,0 +1,21 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://verified-java-to-rust.example/schemas/evidence-model-1.0.0.schema.json",
+  "title":"Retained evidence model 1.0.0",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema_version","case_id"],
+  "properties":{
+    "schema_version":{"const":"1.0.0"},
+    "case_id":{"$ref":"#/$defs/StableId"},
+    "entities":{"type":"array","items":{"$ref":"#/$defs/VersionedEntity"}},
+    "claims":{"type":"array","items":{"$ref":"#/$defs/Claim"}}
+  },
+  "$defs":{
+    "StableId":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"},
+    "TypedRelationship":{"type":"object","additionalProperties":false,"required":["type","to"],"properties":{"type":{"type":"string"},"to":{"$ref":"#/$defs/StableId"}}},
+    "VersionedEntity":{"type":"object","additionalProperties":false,"required":["id","type","edges"],"properties":{"id":{"$ref":"#/$defs/StableId"},"type":{"type":"string"},"edges":{"type":"array","items":{"$ref":"#/$defs/TypedRelationship"}}}},
+    "Claim":{"type":"object","additionalProperties":false,"required":["id","assurance","subject_id","evidence_ids"],"properties":{"id":{"$ref":"#/$defs/StableId"},"assurance":{"enum":["observed","differential","bounded","proved-model"]},"subject_id":{"$ref":"#/$defs/StableId"},"evidence_ids":{"type":"array","items":{"$ref":"#/$defs/StableId"}}}}
+  },
+  "x-retention-policy":"immutable historical validator; never replace or rewrite"
+}

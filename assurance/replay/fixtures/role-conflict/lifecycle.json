@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "company": "open-source-projects",
+  "project": "verified-java-websocket-port",
+  "verified_at": "2026-08-24T00:00:00Z",
+  "snapshot": {"id": "snapshot-us004", "candidate_digest": "sha256:93417adcf9047fc4cf97f6df95c4a6248f39f922e273c279dfde241d08f890f4", "previous_state": "PROPOSED", "state": "BLOCKED", "stale": false},
+  "root_node_id": "claim-us004",
+  "nodes": [{"id": "claim-us004", "kind": "claim", "digest": "sha256:e9a1b5699b02995513813cfd837140e60729e188a83417d3b64744c2dfbcfba2", "content_base64": "eyJjbGFpbSI6InVzMDA0LWxpZmVjeWNsZSJ9", "classification": "PUBLIC", "stale": false, "contradictory": false, "migrated": false, "migration_lossless": false}],
+  "edges": [],
+  "stages": [
+    {"id": "ingest", "snapshot_id": "snapshot-us004", "idempotency_key": "a", "inputs": [], "outputs": ["claim-us004"], "lease_seconds": 30, "retry": {"maximum_attempts": 1, "initial_backoff": 1000000000, "maximum_backoff": 1000000000}, "state": "SUCCEEDED", "required_roles": ["port-implementer"]},
+    {"id": "verify", "snapshot_id": "snapshot-us004", "idempotency_key": "b", "inputs": [], "outputs": ["claim-us004"], "lease_seconds": 30, "retry": {"maximum_attempts": 1, "initial_backoff": 1000000000, "maximum_backoff": 1000000000}, "state": "SUCCEEDED", "required_roles": ["port-implementer"]},
+    {"id": "attest", "snapshot_id": "snapshot-us004", "idempotency_key": "c", "inputs": [], "outputs": ["claim-us004"], "lease_seconds": 30, "retry": {"maximum_attempts": 1, "initial_backoff": 1000000000, "maximum_backoff": 1000000000}, "state": "SUCCEEDED", "required_roles": ["port-implementer"]},
+    {"id": "publish", "snapshot_id": "snapshot-us004", "idempotency_key": "d", "inputs": [], "outputs": ["claim-us004"], "lease_seconds": 30, "retry": {"maximum_attempts": 1, "initial_backoff": 1000000000, "maximum_backoff": 1000000000}, "state": "SUCCEEDED", "required_roles": ["release-attestor"]}
+  ],
+  "attempts": [
+    {"id": "attempt-ingest-1", "stage_id": "ingest", "snapshot_id": "snapshot-us004", "ordinal": 1, "actor_id": "github:michaellady", "role": "port-implementer", "run_id": "run", "started_at": "2026-08-23T23:56:00Z", "finished_at": "2026-08-23T23:56:01Z", "outcome": "SUCCEEDED", "query_budget_consumed": 0, "security_finding_ids": [], "reviewer_interventions": []},
+    {"id": "attempt-verify-1", "stage_id": "verify", "snapshot_id": "snapshot-us004", "ordinal": 1, "actor_id": "github:michaellady", "role": "port-implementer", "run_id": "run", "started_at": "2026-08-23T23:56:02Z", "finished_at": "2026-08-23T23:56:03Z", "outcome": "SUCCEEDED", "query_budget_consumed": 0, "security_finding_ids": [], "reviewer_interventions": []},
+    {"id": "attempt-attest-1", "stage_id": "attest", "snapshot_id": "snapshot-us004", "ordinal": 1, "actor_id": "github:michaellady", "role": "port-implementer", "run_id": "run", "started_at": "2026-08-23T23:56:04Z", "finished_at": "2026-08-23T23:56:05Z", "outcome": "SUCCEEDED", "query_budget_consumed": 0, "security_finding_ids": [], "reviewer_interventions": []},
+    {"id": "attempt-publish-1", "stage_id": "publish", "snapshot_id": "snapshot-us004", "ordinal": 1, "actor_id": "github:michaellady", "role": "release-attestor", "run_id": "run", "started_at": "2026-08-23T23:56:06Z", "finished_at": "2026-08-23T23:56:07Z", "outcome": "SUCCEEDED", "query_budget_consumed": 0, "security_finding_ids": [], "reviewer_interventions": []}
+  ],
+  "failures": [],
+  "authorization": {"actor_id": "github:michaellady", "role": "method-schema-steward", "snapshot_roles": ["method-schema-steward", "port-implementer"], "snapshot_digest": "sha256:93417adcf9047fc4cf97f6df95c4a6248f39f922e273c279dfde241d08f890f4", "policy_version": "foundation-1.0.0+java-websocket-single-owner-1.0.0", "nonce": "role-1", "prior_nonces": [], "issued_at": "2026-08-23T23:55:00Z", "expires_at": "2026-08-24T23:55:00Z", "signature_verified": true, "revoked": false},
+  "attestations": [],
+  "publication": {"requested": false, "complete": false, "classification": "PUBLIC", "object_digests": [], "replay_command": ""}
+}

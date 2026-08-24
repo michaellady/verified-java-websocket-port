@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-to-rust/schemas/java-intake-1.0.0.schema.json",
+  "title": "JavaIntakeManifest 1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["entity_type","manifest_id","program_snapshot_id","project_kind","jdk","build","modules","source_sets","generated_sources","annotation_processors","dependencies","features_and_profiles","native_libraries","reflection_dynamic_loading","agents","jni","serialization","persistence","concurrency","time_and_randomness","filesystem_effects","network_effects","framework_lifecycle","resource_files","deployment_topology","test_surfaces","observability_surfaces","inventory_artifact","reconciliation","evidence"],
+  "properties": {
+    "entity_type": {"const":"JavaIntakeManifest"},
+    "manifest_id": {"$ref":"#/$defs/id"},
+    "program_snapshot_id": {"$ref":"#/$defs/id"},
+    "project_kind": {"enum":["service","library"]},
+    "jdk": {
+      "type":"object","additionalProperties":false,
+      "required":["vendor","version","java_executable_sha256","javac_executable_sha256","compiler_output_sha256"],
+      "properties":{"vendor":{"$ref":"#/$defs/text"},"version":{"$ref":"#/$defs/text"},"java_executable_sha256":{"$ref":"#/$defs/sha256"},"javac_executable_sha256":{"$ref":"#/$defs/sha256"},"compiler_output_sha256":{"$ref":"#/$defs/sha256"}}
+    },
+    "build": {
+      "type":"object","additionalProperties":false,
+      "required":["system","version","authoritative_command","output_sha256","test_output_sha256"],
+      "properties":{"system":{"enum":["Maven","Gradle"]},"version":{"$ref":"#/$defs/text"},"authoritative_command":{"$ref":"#/$defs/text"},"output_sha256":{"$ref":"#/$defs/sha256"},"test_output_sha256":{"$ref":"#/$defs/sha256"}}
+    },
+    "modules":{"$ref":"#/$defs/strings"},"source_sets":{"$ref":"#/$defs/strings"},"generated_sources":{"$ref":"#/$defs/strings"},"annotation_processors":{"$ref":"#/$defs/strings"},"dependencies":{"$ref":"#/$defs/strings"},"features_and_profiles":{"$ref":"#/$defs/strings"},"native_libraries":{"$ref":"#/$defs/strings"},"reflection_dynamic_loading":{"$ref":"#/$defs/strings"},"agents":{"$ref":"#/$defs/strings"},"jni":{"$ref":"#/$defs/strings"},"serialization":{"$ref":"#/$defs/strings"},"persistence":{"$ref":"#/$defs/strings"},"concurrency":{"$ref":"#/$defs/strings"},"time_and_randomness":{"$ref":"#/$defs/strings"},"filesystem_effects":{"$ref":"#/$defs/strings"},"network_effects":{"$ref":"#/$defs/strings"},"framework_lifecycle":{"$ref":"#/$defs/strings"},"resource_files":{"$ref":"#/$defs/strings"},"deployment_topology":{"$ref":"#/$defs/strings"},"test_surfaces":{"$ref":"#/$defs/strings"},"observability_surfaces":{"$ref":"#/$defs/strings"},
+    "inventory_artifact": {
+      "type":"object","additionalProperties":false,"required":["path","sha256","surface_count"],
+      "properties":{"path":{"type":"string","pattern":"^[A-Za-z0-9][A-Za-z0-9._-]*(?:/[A-Za-z0-9][A-Za-z0-9._-]*)*$"},"sha256":{"$ref":"#/$defs/sha256"},"surface_count":{"type":"integer","minimum":1}}
+    },
+    "reconciliation": {
+      "type":"object","additionalProperties":false,
+      "required":["static_inventory_evidence_id","compiler_evidence_id","build_evidence_id","test_discovery_evidence_id","runtime_trace_evidence_id","jdt_ls_evidence_id","jdt_ls_disagreements"],
+      "properties":{
+        "static_inventory_evidence_id":{"$ref":"#/$defs/id"},"compiler_evidence_id":{"$ref":"#/$defs/id"},"build_evidence_id":{"$ref":"#/$defs/id"},"test_discovery_evidence_id":{"$ref":"#/$defs/id"},"runtime_trace_evidence_id":{"$ref":"#/$defs/id"},"jdt_ls_evidence_id":{"$ref":"#/$defs/id"},
+        "jdt_ls_disagreements":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["surface_id","ls_result","resolution"],"properties":{"surface_id":{"$ref":"#/$defs/id"},"ls_result":{"$ref":"#/$defs/text"},"resolution":{"const":"AUTHORITATIVE_BUILD_WINS"}}}}
+      }
+    },
+    "evidence": {
+      "type":"array","minItems":6,"uniqueItems":true,"x-foundation-unique-item-property":"id",
+      "items":{"type":"object","additionalProperties":false,"required":["id","entity_type","purpose","tool_id","tool_sha256","artifact_sha256","assurance_eligible"],"properties":{"id":{"$ref":"#/$defs/id"},"entity_type":{"enum":["EvidenceRun","Trace","DeveloperToolRun"]},"purpose":{"enum":["static-inventory","compiler-output","authoritative-build","test-discovery","runtime-trace","developer-navigation","performance-primary","performance-independent","differential","sealed","mutation","safety","formal","shadow","canary","soak","rollback","reconciliation"]},"tool_id":{"$ref":"#/$defs/text"},"tool_sha256":{"$ref":"#/$defs/sha256"},"artifact_sha256":{"$ref":"#/$defs/sha256"},"assurance_eligible":{"type":"boolean"}}}
+    }
+  },
+  "$defs": {
+    "id":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"},
+    "text":{"type":"string","minLength":1,"pattern":"\\S"},
+    "sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "strings":{"type":"array","items":{"$ref":"#/$defs/text"},"uniqueItems":true}
+  }
+}

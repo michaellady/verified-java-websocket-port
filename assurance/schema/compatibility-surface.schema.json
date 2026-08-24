@@ -1,0 +1,19 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://github.com/michaellady/verified-java-to-rust/schemas/compatibility-surface-1.0.0.schema.json",
+  "title":"CompatibilitySurface 1.0.0","type":"object","additionalProperties":false,
+  "required":["entity_type","compatibility_surface_id","items"],
+  "properties":{
+    "entity_type":{"const":"CompatibilitySurface"},"compatibility_surface_id":{"$ref":"#/$defs/id"},
+    "items":{"type":"array","minItems":1,"x-foundation-unique-item-property":"surface_id","items":{"type":"object","additionalProperties":false,"required":["surface_id","kind","edge_cases","oracle_id","oracle_evidence_id","evidence_obligation_ids","cutover_obligation_id","observation_status","blocker_code"],"properties":{
+      "surface_id":{"$ref":"#/$defs/id"},"kind":{"enum":["public","wire","file","database","state","error","timing","resource","operational"]},
+      "edge_cases":{"type":"array","uniqueItems":true,"allOf":[{"contains":{"const":"nil"},"minContains":1,"maxContains":1},{"contains":{"const":"empty"},"minContains":1,"maxContains":1},{"contains":{"const":"malformed"},"minContains":1,"maxContains":1},{"contains":{"const":"oversized"},"minContains":1,"maxContains":1},{"contains":{"const":"duplicate"},"minContains":1,"maxContains":1},{"contains":{"const":"interrupted"},"minContains":1,"maxContains":1},{"contains":{"const":"stale"},"minContains":1,"maxContains":1},{"contains":{"const":"upstream-error"},"minContains":1,"maxContains":1}],"minItems":8,"maxItems":8},
+      "oracle_id":{"$ref":"#/$defs/id"},"oracle_evidence_id":{"$ref":"#/$defs/id"},"evidence_obligation_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/id"}},"cutover_obligation_id":{"$ref":"#/$defs/id"},"observation_status":{"enum":["OBSERVED","UNOBSERVABLE","UNSUPPORTED"]},"blocker_code":{"type":"string"}
+    },"allOf":[
+      {"if":{"properties":{"observation_status":{"const":"OBSERVED"}}},"then":{"properties":{"blocker_code":{"const":""}}}},
+      {"if":{"properties":{"observation_status":{"const":"UNOBSERVABLE"}}},"then":{"properties":{"blocker_code":{"const":"COMPATIBILITY_SURFACE_INCOMPLETE"}}}},
+      {"if":{"properties":{"observation_status":{"const":"UNSUPPORTED"}}},"then":{"properties":{"blocker_code":{"const":"UNSUPPORTED_DYNAMIC_FEATURE"}}}}
+    ]}}
+  },
+  "$defs":{"id":{"type":"string","pattern":"^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"}}
+}

@@ -1,0 +1,267 @@
+{
+  "schema_version": "1.0.0",
+  "company": "open-source-projects",
+  "project": "verified-java-websocket-port",
+  "verified_at": "2026-08-24T00:00:00Z",
+  "snapshot": {
+    "id": "snapshot-us004",
+    "candidate_digest": "sha256:93417adcf9047fc4cf97f6df95c4a6248f39f922e273c279dfde241d08f890f4",
+    "previous_state": "PROPOSED",
+    "state": "BLOCKED",
+    "stale": false
+  },
+  "root_node_id": "claim-us004",
+  "nodes": [
+    {
+      "id": "claim-us004",
+      "kind": "claim",
+      "digest": "sha256:e9a1b5699b02995513813cfd837140e60729e188a83417d3b64744c2dfbcfba2",
+      "content_base64": "eyJjbGFpbSI6InVzMDA0LWxpZmVjeWNsZSJ9",
+      "classification": "PUBLIC",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    },
+    {
+      "id": "evidence-upstream-manifest",
+      "kind": "evidence",
+      "digest": "sha256:4bc5dd3c0fa720f1223a69dd13a81c6ff5439bd1f7338b27695559fa2ebd01f7",
+      "content_base64": "eyJwYXRoIjoiYXNzdXJhbmNlL3Vwc3RyZWFtLW1hbmlmZXN0Lmpzb24ifQ==",
+      "classification": "PUBLIC",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    },
+    {
+      "id": "evidence-evidence-model",
+      "kind": "evidence",
+      "digest": "sha256:004511166e8be1de8d239106e74544c3363aad8dca006e123afa4ea734d71c66",
+      "content_base64": "eyJwYXRoIjoiYXNzdXJhbmNlL2V2aWRlbmNlLW1vZGVsLmpzb24ifQ==",
+      "classification": "PUBLIC",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    },
+    {
+      "id": "evidence-evolution",
+      "kind": "evidence",
+      "digest": "sha256:d3bc0bed1264c0cbb86b2d36e4069d067eaef204a29baae48bfbf6501b8eab23",
+      "content_base64": "eyJwYXRoIjoiYXNzdXJhbmNlL2V2b2x1dGlvbi5qc29uIn0=",
+      "classification": "PUBLIC_DERIVED",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    },
+    {
+      "id": "evidence-failures",
+      "kind": "evidence",
+      "digest": "sha256:a0fe59d2d67fc045c532cf8cbe4ab357b8c55a076d4975a2a9eb82b16ae199b2",
+      "content_base64": "eyJwYXRoIjoiYXNzdXJhbmNlL2ZhaWx1cmVzLmpzb24ifQ==",
+      "classification": "PUBLIC",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    },
+    {
+      "id": "evidence-dag",
+      "kind": "evidence",
+      "digest": "sha256:e860dd7d7f1e6de1b9b42bac447c480cc49387230fc0f7eb12585360e90416ca",
+      "content_base64": "eyJwYXRoIjoiYXNzdXJhbmNlL2V2aWRlbmNlLWRhZy5qc29uIn0=",
+      "classification": "PUBLIC_DERIVED",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    },
+    {
+      "id": "evidence-public-contract",
+      "kind": "evidence",
+      "digest": "sha256:a324f8fcfc9b994bb3792218afc86a07cf91231e75fc3a58dc66b8434111e7fb",
+      "content_base64": "eyJwYXRoIjoiYXNzdXJhbmNlL3B1YmxpYy1jb250cmFjdC5qc29uIn0=",
+      "classification": "PUBLIC",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    },
+    {
+      "id": "evidence-jdt-ls",
+      "kind": "evidence",
+      "digest": "sha256:3724b26e9db34277a54c4d0050156403c16574a962abc7ff03a7f2bb0ab584f8",
+      "content_base64": "eyJwYXRoIjoiYXNzdXJhbmNlL2RldmVsb3Blci10b29scy9qZHQtbHMuanNvbiJ9",
+      "classification": "PUBLIC_DERIVED",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    },
+    {
+      "id": "evidence-rust-analyzer",
+      "kind": "evidence",
+      "digest": "sha256:eb765eca0cef1a1a33ce0a0ed16c323dbf12004a242ca486cc6a67a036e4d2e2",
+      "content_base64": "eyJwYXRoIjoiYXNzdXJhbmNlL2RldmVsb3Blci10b29scy9ydXN0LWFuYWx5emVyLmpzb24ifQ==",
+      "classification": "PUBLIC_DERIVED",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    },
+    {
+      "id": "evidence-glancer",
+      "kind": "evidence",
+      "digest": "sha256:78c173d4429aca633aa6b8b55e3cf61bc6b017e55ba6fe3ada322dc821ffb2b1",
+      "content_base64": "eyJwYXRoIjoiYXNzdXJhbmNlL2RldmVsb3Blci10b29scy9nbGFuY2VyLmpzb24ifQ==",
+      "classification": "PUBLIC_DERIVED",
+      "stale": false,
+      "contradictory": false,
+      "migrated": false,
+      "migration_lossless": false
+    }
+  ],
+  "edges": [
+    {"from": "claim-us004", "to": "evidence-upstream-manifest", "kind": "supports"},
+    {"from": "claim-us004", "to": "evidence-evidence-model", "kind": "supports"},
+    {"from": "claim-us004", "to": "evidence-evolution", "kind": "supports"},
+    {"from": "claim-us004", "to": "evidence-failures", "kind": "supports"},
+    {"from": "claim-us004", "to": "evidence-dag", "kind": "supports"},
+    {"from": "claim-us004", "to": "evidence-public-contract", "kind": "supports"},
+    {"from": "claim-us004", "to": "evidence-jdt-ls", "kind": "supports"},
+    {"from": "claim-us004", "to": "evidence-rust-analyzer", "kind": "supports"},
+    {"from": "claim-us004", "to": "evidence-glancer", "kind": "supports"}
+  ],
+  "stages": [
+    {
+      "id": "ingest",
+      "snapshot_id": "snapshot-us004",
+      "idempotency_key": "us004-ingest-1",
+      "inputs": ["evidence-upstream-manifest", "evidence-evidence-model"],
+      "outputs": ["claim-us004"],
+      "lease_seconds": 30,
+      "retry": {"maximum_attempts": 1, "initial_backoff": 1000000000, "maximum_backoff": 1000000000},
+      "state": "SUCCEEDED",
+      "required_roles": ["port-implementer"]
+    },
+    {
+      "id": "verify",
+      "snapshot_id": "snapshot-us004",
+      "idempotency_key": "us004-verify-1",
+      "inputs": ["evidence-evolution", "evidence-failures", "evidence-dag"],
+      "outputs": ["claim-us004"],
+      "lease_seconds": 30,
+      "retry": {"maximum_attempts": 1, "initial_backoff": 1000000000, "maximum_backoff": 1000000000},
+      "state": "SUCCEEDED",
+      "required_roles": ["port-implementer"]
+    },
+    {
+      "id": "attest",
+      "snapshot_id": "snapshot-us004",
+      "idempotency_key": "us004-attest-1",
+      "inputs": ["evidence-jdt-ls", "evidence-rust-analyzer", "evidence-glancer"],
+      "outputs": ["claim-us004"],
+      "lease_seconds": 30,
+      "retry": {"maximum_attempts": 1, "initial_backoff": 1000000000, "maximum_backoff": 1000000000},
+      "state": "SUCCEEDED",
+      "required_roles": ["port-implementer"]
+    },
+    {
+      "id": "publish",
+      "snapshot_id": "snapshot-us004",
+      "idempotency_key": "us004-publish-1",
+      "inputs": ["evidence-public-contract"],
+      "outputs": ["claim-us004"],
+      "lease_seconds": 30,
+      "retry": {"maximum_attempts": 1, "initial_backoff": 1000000000, "maximum_backoff": 1000000000},
+      "state": "SUCCEEDED",
+      "required_roles": ["release-attestor"]
+    }
+  ],
+  "attempts": [
+    {
+      "id": "attempt-ingest-1",
+      "stage_id": "ingest",
+      "snapshot_id": "snapshot-us004",
+      "ordinal": 1,
+      "actor_id": "github:michaellady",
+      "role": "port-implementer",
+      "run_id": "run-ingest-1",
+      "started_at": "2026-08-23T23:56:00Z",
+      "finished_at": "2026-08-23T23:56:05Z",
+      "outcome": "SUCCEEDED",
+      "query_budget_consumed": 0,
+      "security_finding_ids": [],
+      "reviewer_interventions": []
+    },
+    {
+      "id": "attempt-verify-1",
+      "stage_id": "verify",
+      "snapshot_id": "snapshot-us004",
+      "ordinal": 1,
+      "actor_id": "github:michaellady",
+      "role": "port-implementer",
+      "run_id": "run-verify-1",
+      "started_at": "2026-08-23T23:56:10Z",
+      "finished_at": "2026-08-23T23:56:15Z",
+      "outcome": "SUCCEEDED",
+      "query_budget_consumed": 0,
+      "security_finding_ids": [],
+      "reviewer_interventions": []
+    },
+    {
+      "id": "attempt-attest-1",
+      "stage_id": "attest",
+      "snapshot_id": "snapshot-us004",
+      "ordinal": 1,
+      "actor_id": "github:michaellady",
+      "role": "port-implementer",
+      "run_id": "run-attest-1",
+      "started_at": "2026-08-23T23:56:20Z",
+      "finished_at": "2026-08-23T23:56:25Z",
+      "outcome": "SUCCEEDED",
+      "query_budget_consumed": 0,
+      "security_finding_ids": [],
+      "reviewer_interventions": []
+    },
+    {
+      "id": "attempt-publish-1",
+      "stage_id": "publish",
+      "snapshot_id": "snapshot-us004",
+      "ordinal": 1,
+      "actor_id": "github:michaellady",
+      "role": "release-attestor",
+      "run_id": "run-publish-1",
+      "started_at": "2026-08-23T23:56:30Z",
+      "finished_at": "2026-08-23T23:56:35Z",
+      "outcome": "SUCCEEDED",
+      "query_budget_consumed": 0,
+      "security_finding_ids": [],
+      "reviewer_interventions": []
+    }
+  ],
+  "failures": [],
+  "authorization": {
+    "actor_id": "github:michaellady",
+    "role": "port-implementer",
+    "snapshot_roles": ["port-implementer"],
+    "snapshot_digest": "sha256:93417adcf9047fc4cf97f6df95c4a6248f39f922e273c279dfde241d08f890f4",
+    "policy_version": "foundation-1.0.0+java-websocket-single-owner-1.0.0",
+    "nonce": "nonce-us004-1",
+    "prior_nonces": [],
+    "issued_at": "2026-08-23T23:55:00Z",
+    "expires_at": "2026-08-24T23:55:00Z",
+    "signature_verified": true,
+    "revoked": false
+  },
+  "attestations": [],
+  "publication": {
+    "requested": false,
+    "complete": false,
+    "classification": "PUBLIC",
+    "object_digests": [],
+    "replay_command": ""
+  }
+}
