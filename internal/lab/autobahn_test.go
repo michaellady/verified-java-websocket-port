@@ -75,6 +75,9 @@ func TestPinnedReportSemanticsRequireOneCaseFlushAndExactFilenames(t *testing.T)
 	if err := verifyAutobahnReportSemantics(source); err != nil {
 		t.Fatal(err)
 	}
+	if err := verifyAutobahnReportSemantics(strings.ReplaceAll(source, "\n", "\r\n")); err != nil {
+		t.Fatalf("accepted CRLF source: %v", err)
+	}
 	for _, removed := range []string{"/updateReports", "index.json", "index.html", "_case_", "reactor.stop()"} {
 		mutated := strings.Replace(source, removed, "mutated", 1)
 		assertFinding(t, verifyAutobahnReportSemantics(mutated), "AUTOBAHN_REPORT_CONTRACT_UNRESOLVED")

@@ -128,6 +128,7 @@ func verifyPinnedAutobahnReportContract(source []byte) error {
 }
 
 func verifyAutobahnReportSemantics(text string) error {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
 	required := []string{
 		`elif self.path == "/updateReports":`,
 		`self.factory.createReports()`,
