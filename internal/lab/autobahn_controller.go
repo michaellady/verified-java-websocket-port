@@ -976,6 +976,7 @@ func runAttachedRelayTCP(ctx context.Context, docker dockerController, container
 	extra, extraErr := io.ReadAll(io.LimitReader(stdout, 2))
 	waitErr := command.Wait()
 	_ = stdin.Close()
+	_ = connection.Close()
 	inputErr := <-inputDone
 	if decodeErr != nil || inputErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || !exactRelayLifecycle(lifecycle.buffer.Bytes(), relayRoleFromLifecycle(lifecycle.buffer.Bytes()), true) {
 		detail := boundedString(boundedDetail(lifecycle.buffer.Bytes(), waitErr), 2048)
@@ -1099,6 +1100,28 @@ func countExactEnvironment(environment []string, expected string) int {
 		}
 	}
 	return count
+}
+
+func equalUnorderedStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	counts := make(map[string]int, len(left))
+	for _, value := range left {
+		counts[value]++
+	}
+	for _, value := range right {
+		counts[value]--
+		if counts[value] < 0 {
+			return false
+		}
+	}
+	for _, count := range counts {
+		if count != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func countEnvironmentPrefix(environment []string, prefix string) int {
@@ -1764,7 +1787,7 @@ func validateAutobahnRunnerContainerInspect(output []byte, container autobahnRun
 		"PATH=/opt/pypy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "PYPY_VERSION=7.3.20",
 		"DEBIAN_FRONTEND=noninteractive", "NODE_PATH=/usr/local/lib/node_modules/", "AUTOBAHN_RUNNER_ROLE=" + container.role, "AUTOBAHN_RUNNER_TOKEN=" + container.token,
 	}
-	if actualName != "/"+container.name || image != AutobahnImageManifestDigest || executable != "/autobahn-runner" || len(arguments) != 0 || !openStdin || tty || user != "" || !equalStrings(entrypoint, []string{"/autobahn-runner"}) || !equalStrings(environment, expectedEnvironment) || networkMode != network || !readOnly || privileged || !equalStrings(capDrop, []string{"ALL"}) || !equalStrings(securityOptions, []string{"no-new-privileges"}) || len(portBindings) != 0 || len(ports) != 1 || pidsLimit != 128 || memory != 1<<30 || nanoCPUs != 2_000_000_000 {
+	if actualName != "/"+container.name || image != AutobahnImageManifestDigest || executable != "/autobahn-runner" || len(arguments) != 0 || !openStdin || tty || user != "" || !equalStrings(entrypoint, []string{"/autobahn-runner"}) || !equalUnorderedStrings(environment, expectedEnvironment) || networkMode != network || !readOnly || privileged || !equalStrings(capDrop, []string{"ALL"}) || !equalStrings(securityOptions, []string{"no-new-privileges"}) || len(portBindings) != 0 || len(ports) != 1 || pidsLimit != 128 || memory != 1<<30 || nanoCPUs != 2_000_000_000 {
 		return finding("AUTOBAHN_RUNNER_CONTAINER_IDENTITY_MISMATCH", "$.runner.container", "runner entrypoint, image, environment, resources, privilege, or no-publication identity differs")
 	}
 	if labels["org.verified-java-websocket.scope"] != "us002-autobahn" || labels["org.verified-java-websocket.role"] != container.role {

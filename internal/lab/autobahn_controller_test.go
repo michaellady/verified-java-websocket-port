@@ -7,6 +7,8 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +17,16 @@ import (
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 )
+
+func init() {
+	if len(os.Args) == 4 && os.Args[1] == "attach" && os.Args[2] == "--sig-proxy=false" && os.Args[3] == "vjwt-relay-0123456789abcdef" {
+		if err := writeAttachedFrame(os.Stdout, attachFrameData, []byte("x")); err != nil {
+			os.Exit(91)
+		}
+		_, _ = io.Copy(io.Discard, os.Stdin)
+		os.Exit(0)
+	}
+}
 
 func TestReadDockerSaveTarBindsExactConfig(t *testing.T) {
 	config := []byte(`{"architecture":"amd64","os":"linux"}`)
@@ -417,6 +429,27 @@ func TestRunnerContainerInspectRejectsIdentityIsolationAndMountDrift(t *testing.
 	}
 }
 
+func TestRetainedRunnerInspectAcceptsDockerResolvedEnvironmentOrder(t *testing.T) {
+	container := autobahnRunnerContainer{
+		name: "vjwt-fuzzclient-0123456789abcdef", role: "fuzzingclient", token: strings.Repeat("a", 64),
+		configDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	}
+	configPath, binaryPath, network := "/private/tmp/config", "/private/tmp/runner", "fixed-network"
+	fixture := validRunnerInspectFixture(container, network, configPath, binaryPath)
+	fixture["Config"].(map[string]any)["Env"] = []string{
+		"AUTOBAHN_RUNNER_ROLE=" + container.role, "AUTOBAHN_RUNNER_TOKEN=" + container.token,
+		"PATH=/opt/pypy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "PYPY_VERSION=7.3.20",
+		"DEBIAN_FRONTEND=noninteractive", "NODE_PATH=/usr/local/lib/node_modules/",
+	}
+	raw, err := json.Marshal([]any{fixture})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateAutobahnRunnerContainerInspect(raw, container, network, configPath, binaryPath); err != nil {
+		t.Fatalf("retained Docker-resolved runner identity rejected: %v", err)
+	}
+}
+
 func validRunnerInspectFixture(container autobahnRunnerContainer, network, configPath, binaryPath string) map[string]any {
 	environment := []string{
 		"PATH=/opt/pypy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "PYPY_VERSION=7.3.20",
@@ -458,6 +491,49 @@ func TestLiveTmpfsReportsCopyBeforeAuthenticatedRelease(t *testing.T) {
 	})
 	if err == nil || !equalStrings(order, []string{"copy-live-tmpfs"}) {
 		t.Fatalf("release ran after failed copy: order=%v err=%v", order, err)
+	}
+}
+
+func TestCancelledAttachedRelayClosesLoopbackBeforeWaitingForInput(t *testing.T) {
+	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.ParseIP("127.0.0.1")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	client, err := net.DialTCP("tcp4", nil, listener.Addr().(*net.TCPAddr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, err := listener.AcceptTCP()
+	if err != nil {
+		_ = client.Close()
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		_, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server)
+		done <- attachErr
+	}()
+	if err := client.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	marker := make([]byte, 1)
+	if _, err := io.ReadFull(client, marker); err != nil || string(marker) != "x" {
+		t.Fatalf("fake attach did not start: marker=%q err=%v", marker, err)
+	}
+	cancel()
+	select {
+	case err := <-done:
+		if err == nil {
+			t.Fatal("cancelled attach unexpectedly succeeded")
+		}
+	case <-time.After(2 * time.Second):
+		_ = client.Close()
+		<-done
+		t.Fatal("cancelled attach waited on loopback input beyond its cleanup bound")
 	}
 }
 
