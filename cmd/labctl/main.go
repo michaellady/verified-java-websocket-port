@@ -21,6 +21,9 @@ import (
 const maxInputBytes = int64(8 << 20)
 
 func main() {
+	if handled, code := lab.RunSandboxChild(os.Args[1:]); handled {
+		os.Exit(code)
+	}
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
@@ -34,6 +37,8 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		return runVerifyRoot(arguments[1:], stdout, stderr)
 	case "verify-sandbox-plan":
 		return runVerifySandboxPlan(arguments[1:], stdout, stderr)
+	case "execute-sandbox":
+		return runExecuteSandbox(arguments[1:], stdout, stderr)
 	case "verify-test-inventory":
 		return runVerifyTestInventory(arguments[1:], stdout, stderr)
 	case "compare-observations":
@@ -44,6 +49,8 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		return runVerifyAutobahn(arguments[1:], stdout, stderr)
 	case "verify-ledger":
 		return runVerifyLedger(arguments[1:], stdout, stderr)
+	case "verify-baseline-evidence":
+		return runVerifyBaselineEvidence(arguments[1:], stdout, stderr)
 	case "proxy-maven-central":
 		return runMavenCentralProxy(arguments[1:], stdout, stderr)
 	default:
@@ -56,11 +63,13 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "usage:")
 	fmt.Fprintln(output, "  labctl verify-root --store-base DIR --root-digest SHA256")
 	fmt.Fprintln(output, "  labctl verify-sandbox-plan --file FILE --store-base DIR --root-digest SHA256")
+	fmt.Fprintln(output, "  labctl execute-sandbox --file FILE --store-base DIR --root-digest SHA256")
 	fmt.Fprintln(output, "  labctl verify-test-inventory --file FILE")
 	fmt.Fprintln(output, "  labctl compare-observations --first FILE --second FILE")
 	fmt.Fprintln(output, "  labctl select-autobahn --registry-bundle FILE")
 	fmt.Fprintln(output, "  labctl verify-autobahn --registry-bundle FILE --selection FILE --mode client|server --results FILE")
 	fmt.Fprintln(output, "  labctl verify-ledger --ledger-dir DIR --observed FILE")
+	fmt.Fprintln(output, "  labctl verify-baseline-evidence --root-digest SHA256 --build FILE --adapter FILE --tests FILE --autobahn FILE --ledger FILE")
 	fmt.Fprintln(output, "  labctl proxy-maven-central --listen 127.0.0.1:PORT")
 }
 
@@ -140,6 +149,35 @@ func runVerifySandboxPlan(arguments []string, stdout, stderr io.Writer) int {
 		return writeDenied(stdout, err)
 	}
 	return writeReady(stdout, map[string]any{"plan_digest": digest, "execution_spec": spec})
+}
+
+func runExecuteSandbox(arguments []string, stdout, stderr io.Writer) int {
+	flags := newFlags("execute-sandbox", stderr)
+	path := flags.String("file", "", "strict sandbox plan JSON")
+	storeBase := flags.String("store-base", "", "absolute promotion-store root")
+	rootDigest := flags.String("root-digest", "", "accepted root SHA-256 digest")
+	if parseExact(flags, arguments) != nil || *path == "" || *storeBase == "" || *rootDigest == "" {
+		return 2
+	}
+	var plan lab.SandboxPlan
+	if err := decodeFile(*path, &plan); err != nil {
+		return writeDenied(stdout, err)
+	}
+	root, err := lab.LoadAcceptedRoot(*storeBase, *rootDigest)
+	if err != nil {
+		return writeDenied(stdout, err)
+	}
+	receipt, err := lab.ExecuteSandbox(plan, root)
+	if err != nil {
+		return writeDenied(stdout, err)
+	}
+	if receipt.ExitCode != 0 {
+		if err := writeJSON(stdout, map[string]any{"status": "BLOCKED", "result": map[string]any{"receipt": receipt}}); err != nil {
+			return 1
+		}
+		return 1
+	}
+	return writeReady(stdout, map[string]any{"receipt": receipt})
 }
 
 func runVerifyTestInventory(arguments []string, stdout, stderr io.Writer) int {
@@ -236,17 +274,11 @@ func runVerifyAutobahn(arguments []string, stdout, stderr io.Writer) int {
 }
 
 type autobahnRegistryBundle struct {
-	SchemaVersion string                    `json:"schema_version"`
-	SourceDigest  string                    `json:"source_digest"`
-	SourceBase64  string                    `json:"source_base64"`
-	Expansions    []autobahnExpansionSource `json:"expansions"`
-}
-
-type autobahnExpansionSource struct {
-	Name         string   `json:"name"`
-	SourceDigest string   `json:"source_digest"`
-	SourceBase64 string   `json:"source_base64"`
-	CaseIDs      []string `json:"case_ids"`
+	SchemaVersion string `json:"schema_version"`
+	SourceDigest  string `json:"source_digest"`
+	SourceBase64  string `json:"source_base64"`
+	ArchiveDigest string `json:"archive_digest"`
+	ArchiveBase64 string `json:"archive_base64"`
 }
 
 func readAutobahnRegistryBundle(path string) (lab.AutobahnRegistry, error) {
@@ -261,16 +293,16 @@ func readAutobahnRegistryBundle(path string) (lab.AutobahnRegistry, error) {
 	if err != nil {
 		return lab.AutobahnRegistry{}, &intake.Finding{Code: "INVALID_AUTOBAHN_REGISTRY_SOURCE", Path: "$.source_base64", Message: err.Error()}
 	}
-	expansions := make(map[string]lab.RegistryExpansion, len(bundle.Expansions))
-	for index, item := range bundle.Expansions {
-		if _, duplicate := expansions[item.Name]; duplicate || item.Name == "" {
-			return lab.AutobahnRegistry{}, &intake.Finding{Code: "DUPLICATE_ENTRY", Path: fmt.Sprintf("$.expansions[%d].name", index), Message: "expansion name is empty or duplicated"}
-		}
-		bytes, err := decodeCanonicalBase64(item.SourceBase64)
+	expansions := map[string]lab.RegistryExpansion{}
+	if bundle.ArchiveBase64 != "" || bundle.ArchiveDigest != "" {
+		archive, err := decodeCanonicalBase64(bundle.ArchiveBase64)
 		if err != nil {
-			return lab.AutobahnRegistry{}, &intake.Finding{Code: "INVALID_AUTOBAHN_EXPANSION", Path: fmt.Sprintf("$.expansions[%d].source_base64", index), Message: err.Error()}
+			return lab.AutobahnRegistry{}, &intake.Finding{Code: "INVALID_AUTOBAHN_ARCHIVE", Path: "$.archive_base64", Message: err.Error()}
 		}
-		expansions[item.Name] = lab.RegistryExpansion{SourceDigest: item.SourceDigest, Source: bytes, CaseIDs: item.CaseIDs}
+		expansions, err = lab.ParsePinnedAutobahnArchive(archive, bundle.ArchiveDigest)
+		if err != nil {
+			return lab.AutobahnRegistry{}, err
+		}
 	}
 	return lab.ParsePinnedAutobahnRegistry(source, bundle.SourceDigest, expansions)
 }
@@ -310,6 +342,41 @@ func runVerifyLedger(arguments []string, stdout, stderr io.Writer) int {
 		return writeDenied(stdout, err)
 	}
 	return writeReady(stdout, map[string]any{"head": head, "record_count": len(records)})
+}
+
+func runVerifyBaselineEvidence(arguments []string, stdout, stderr io.Writer) int {
+	flags := newFlags("verify-baseline-evidence", stderr)
+	rootDigest := flags.String("root-digest", "", "exact accepted root SHA-256 digest")
+	buildPath := flags.String("build", "", "strict Java build evidence")
+	adapterPath := flags.String("adapter", "", "strict Java adapter evidence")
+	testsPath := flags.String("tests", "", "strict Java test evidence")
+	autobahnPath := flags.String("autobahn", "", "strict Autobahn evidence")
+	ledgerPath := flags.String("ledger", "", "strict behavior ledger evidence")
+	if parseExact(flags, arguments) != nil || *rootDigest == "" || *buildPath == "" || *adapterPath == "" || *testsPath == "" || *autobahnPath == "" || *ledgerPath == "" {
+		return 2
+	}
+	paths := []*string{buildPath, adapterPath, testsPath, autobahnPath, ledgerPath}
+	documents := make([][]byte, len(paths))
+	for index, path := range paths {
+		data, err := readRegular(*path, maxInputBytes)
+		if err != nil {
+			return writeDenied(stdout, err)
+		}
+		documents[index] = data
+	}
+	readiness, err := lab.VerifyBaselineEvidence(*rootDigest, lab.BaselineEvidenceDocuments{
+		Build: documents[0], Adapter: documents[1], Tests: documents[2], Autobahn: documents[3], Ledger: documents[4],
+	})
+	if err != nil {
+		return writeDenied(stdout, err)
+	}
+	if readiness.Status != "READY" {
+		if err := writeJSON(stdout, map[string]any{"status": "BLOCKED", "result": readiness}); err != nil {
+			return 1
+		}
+		return 1
+	}
+	return writeReady(stdout, readiness)
 }
 
 func newFlags(name string, stderr io.Writer) *flag.FlagSet {

@@ -90,7 +90,8 @@ func TestAutobahnSelectionAndExactResults(t *testing.T) {
 		SchemaVersion: "1.0.0",
 		SourceDigest:  intake.DigestBytes(sourceBytes),
 		SourceBase64:  base64.StdEncoding.EncodeToString(sourceBytes),
-		Expansions:    []autobahnExpansionSource{},
+		ArchiveDigest: "",
+		ArchiveBase64: "",
 	})
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"select-autobahn", "--registry-bundle", registryPath}, &stdout, &stderr); code != 0 {
@@ -107,7 +108,12 @@ func TestAutobahnSelectionAndExactResults(t *testing.T) {
 	selectionPath := writeJSONFile(t, "selection.json", response.Result.Selection)
 	results := make([]lab.AutobahnResult, 0, len(response.Result.Selection.SelectedCaseIDs))
 	for _, id := range response.Result.Selection.SelectedCaseIDs {
-		results = append(results, lab.AutobahnResult{CaseID: id, Status: "OK"})
+		result := lab.AutobahnResult{
+			CaseID: id, Status: "OK", ResultDigest: intake.DigestBytes([]byte("result:" + id)),
+			ObservationDigest: intake.DigestBytes([]byte("observation:" + id)),
+		}
+		result.BindingDigest, _ = lab.AutobahnResultBindingDigest("client", result)
+		results = append(results, result)
 	}
 	resultsPath := writeJSONFile(t, "results.json", autobahnResults{SchemaVersion: "1.0.0", Results: results})
 	stdout.Reset()

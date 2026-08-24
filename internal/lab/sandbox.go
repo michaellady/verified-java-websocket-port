@@ -32,6 +32,9 @@ const (
 	SandboxAutobahnServer SandboxOperation = "autobahn-server"
 )
 
+const darwinMavenTestShellDigest = "sha256:094fc5e188feb7cc18906900b1b5c417e03aaed03a9fc132e925f38640d9bd59"
+const darwinMavenTestBashDigest = "sha256:35536aea9733aa345b61134a98d00232380898e55b2ea2a07c497011f7dfc7a3"
+
 var sandboxOperations = map[SandboxOperation]struct{}{
 	SandboxMavenAcquire: {}, SandboxMavenBuild: {}, SandboxMavenTest: {}, SandboxJavaOracle: {},
 	SandboxAutobahnClient: {}, SandboxAutobahnServer: {},
@@ -85,6 +88,7 @@ type SandboxPlan struct {
 	AcceptedRootDigest string                `json:"accepted_root_digest"`
 	ExecutableObjectID string                `json:"executable_object_id"`
 	SourceDirectory    string                `json:"source_directory"`
+	ToolDirectory      string                `json:"tool_directory"`
 	WorkspaceDirectory string                `json:"workspace_directory"`
 	CacheDirectory     string                `json:"cache_directory"`
 	OutputDirectory    string                `json:"output_directory"`
@@ -117,7 +121,7 @@ func (p SandboxPlan) Validate() error {
 	if !isDigest(p.AcceptedRootDigest) || !idPattern.MatchString(p.ExecutableObjectID) {
 		return finding("INVALID_SANDBOX_PLAN", "$.accepted_root_digest", "accepted root or executable object binding is invalid")
 	}
-	paths := []*string{&p.SourceDirectory, &p.WorkspaceDirectory, &p.CacheDirectory, &p.OutputDirectory}
+	paths := []*string{&p.SourceDirectory, &p.ToolDirectory, &p.WorkspaceDirectory, &p.CacheDirectory, &p.OutputDirectory}
 	for index, pointer := range paths {
 		clean, err := cleanAbsoluteDirectory(*pointer, fmt.Sprintf("$.paths[%d]", index))
 		if err != nil {
@@ -128,7 +132,7 @@ func (p SandboxPlan) Validate() error {
 	for left := range paths {
 		for right := left + 1; right < len(paths); right++ {
 			if pathsOverlap(*paths[left], *paths[right]) {
-				return finding("SANDBOX_PATH_OVERLAP", "$.paths", "source, workspace, cache, and output roots must be disjoint")
+				return finding("SANDBOX_PATH_OVERLAP", "$.paths", "source, tool, workspace, cache, and output roots must be disjoint")
 			}
 		}
 	}
@@ -140,6 +144,9 @@ func (p SandboxPlan) Validate() error {
 	}
 	if p.Operation == SandboxMavenAcquire && p.Cache.OfflineAuthoritative {
 		return finding("INVALID_CACHE_POLICY", "$.cache.offline_authoritative", "acquisition populates a disposable cache and is not an authoritative offline run")
+	}
+	if p.Operation == SandboxMavenAcquire && p.Cache.ClosureManifest != GenesisLedgerHead {
+		return finding("INVALID_CACHE_POLICY", "$.cache.closure_manifest_digest", "acquisition must bind the empty genesis cache; its receipt declares the derived closure")
 	}
 	if p.Operation != SandboxMavenAcquire && !p.Cache.OfflineAuthoritative {
 		return finding("NETWORK_POLICY_VIOLATION", "$.cache.offline_authoritative", "authoritative execution after acquisition must be offline")
@@ -165,6 +172,7 @@ type ExecutionSpec struct {
 	Arguments          []string              `json:"arguments"`
 	Environment        []EnvironmentVariable `json:"environment"`
 	SourceDirectory    string                `json:"source_directory"`
+	ToolDirectory      string                `json:"tool_directory"`
 	WorkspaceDirectory string                `json:"workspace_directory"`
 	CacheDirectory     string                `json:"cache_directory"`
 	OutputDirectory    string                `json:"output_directory"`
@@ -187,9 +195,12 @@ func BuildExecutionSpec(plan SandboxPlan, root *AcceptedRoot) (ExecutionSpec, er
 		return ExecutionSpec{}, finding("MISSING_EXECUTABLE_OBJECT", "$.executable_object_id", "frozen operation executable is absent from the accepted root")
 	}
 	arguments := map[SandboxOperation][]string{
-		SandboxMavenAcquire:   {"--batch-mode", "--errors", "--file", "pom.xml", "dependency:go-offline"},
+		SandboxMavenAcquire: {
+			"--batch-mode", "--errors", "--file", "pom.xml", "dependency:go-offline",
+			"-Dtest=org.java_websocket.util.CharsetfunctionsTest", "-DforkCount=0", "test",
+		},
 		SandboxMavenBuild:     {"--offline", "--batch-mode", "--errors", "--file", "pom.xml", "-DskipTests", "package"},
-		SandboxMavenTest:      {"--offline", "--batch-mode", "--errors", "--file", "pom.xml", "test"},
+		SandboxMavenTest:      {"--offline", "--batch-mode", "--errors", "--file", "pom.xml", "-DargLine=-Djava.net.preferIPv4Stack=true", "test"},
 		SandboxJavaOracle:     {"-jar", "java-oracle.jar"},
 		SandboxAutobahnClient: {"fuzzing-client"},
 		SandboxAutobahnServer: {"fuzzing-server"},
@@ -198,32 +209,24 @@ func BuildExecutionSpec(plan SandboxPlan, root *AcceptedRoot) (ExecutionSpec, er
 		Operation: plan.Operation, ExecutableObjectID: plan.ExecutableObjectID,
 		ExecutableDigest: intake.DigestBytes(object), Arguments: append([]string(nil), arguments...),
 		Environment: append([]EnvironmentVariable(nil), plan.Environment...), SourceDirectory: plan.SourceDirectory,
-		WorkspaceDirectory: plan.WorkspaceDirectory, CacheDirectory: plan.CacheDirectory, OutputDirectory: plan.OutputDirectory,
+		ToolDirectory: plan.ToolDirectory, WorkspaceDirectory: plan.WorkspaceDirectory, CacheDirectory: plan.CacheDirectory, OutputDirectory: plan.OutputDirectory,
 		Profile: "read-only-source-disjoint-writes-no-secrets-bounded-deny-default-egress-v1",
 		Network: plan.Network, Resources: plan.Resources,
 	}, nil
 }
 
-// SandboxEnforcementUnavailable is returned unless a platform-specific layer
-// can prove every declared filesystem, process, resource, and network control.
+// SandboxEnforcementUnavailable preserves the typed finding API for callers
+// that diagnose an unsupported platform. The Darwin executor no longer uses
+// this as its implementation path.
 func SandboxEnforcementUnavailable(detail string) error {
 	if detail == "" {
-		detail = "no verified platform sandbox executor is installed"
+		detail = "verified platform enforcement is unavailable"
 	}
 	return finding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "$.sandbox", detail)
 }
 
-// ExecuteSandbox deliberately cannot manufacture a successful receipt. The
-// closed spec is usable only after a platform module proves all controls.
-func ExecuteSandbox(plan SandboxPlan, root *AcceptedRoot) (*SandboxReceipt, error) {
-	if _, err := BuildExecutionSpec(plan, root); err != nil {
-		return nil, err
-	}
-	return nil, SandboxEnforcementUnavailable("no verified OS/container enforcement backend is linked")
-}
-
-func SanitizedEnvironment(sourceDirectory, workspaceDirectory, cacheDirectory string) ([]EnvironmentVariable, error) {
-	source, err := cleanAbsoluteDirectory(sourceDirectory, "$.source_directory")
+func SanitizedEnvironment(toolDirectory, workspaceDirectory, cacheDirectory string) ([]EnvironmentVariable, error) {
+	tool, err := cleanAbsoluteDirectory(toolDirectory, "$.tool_directory")
 	if err != nil {
 		return nil, err
 	}
@@ -235,12 +238,12 @@ func SanitizedEnvironment(sourceDirectory, workspaceDirectory, cacheDirectory st
 	if err != nil {
 		return nil, err
 	}
-	if pathsOverlap(source, workspace) || pathsOverlap(source, cache) || pathsOverlap(workspace, cache) {
-		return nil, finding("SANDBOX_PATH_OVERLAP", "$.environment", "source, workspace, and cache roots must be disjoint")
+	if pathsOverlap(tool, workspace) || pathsOverlap(tool, cache) || pathsOverlap(workspace, cache) {
+		return nil, finding("SANDBOX_PATH_OVERLAP", "$.environment", "tool, workspace, and cache roots must be disjoint")
 	}
 	values := map[string]string{
-		"HOME": filepath.Join(workspace, "home"), "JAVA_HOME": filepath.Join(source, ".lab-tools", "java"),
-		"LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "MAVEN_HOME": filepath.Join(source, ".lab-tools", "maven"),
+		"HOME": filepath.Join(workspace, "home"), "JAVA_HOME": filepath.Join(tool, "openjdk@17", "17.0.19", "libexec", "openjdk.jdk", "Contents", "Home"),
+		"LANG": "C.UTF-8", "LC_ALL": "C.UTF-8", "MAVEN_HOME": filepath.Join(tool, "apache-maven-3.9.11"),
 		"MAVEN_OPTS":        "-Djava.io.tmpdir=" + filepath.Join(workspace, "tmp") + " -Dmaven.repo.local=" + filepath.Join(cache, "repository"),
 		"SOURCE_DATE_EPOCH": "0", "TZ": "UTC",
 	}
@@ -256,7 +259,7 @@ func validateEnvironment(plan SandboxPlan) error {
 	if len(environment) != len(requiredEnvironment) {
 		return finding("ENVIRONMENT_ALLOWLIST_MISMATCH", "$.environment", "environment must contain the exact frozen allowlist")
 	}
-	expected, err := SanitizedEnvironment(plan.SourceDirectory, plan.WorkspaceDirectory, plan.CacheDirectory)
+	expected, err := SanitizedEnvironment(plan.ToolDirectory, plan.WorkspaceDirectory, plan.CacheDirectory)
 	if err != nil {
 		return err
 	}
@@ -282,6 +285,12 @@ func validateNetwork(operation SandboxOperation, network NetworkPolicy) error {
 	if operation == SandboxMavenAcquire {
 		if network.Mode != "maven-central-only" || len(network.AllowedEndpoints) != 1 || network.AllowedEndpoints[0] != "https://repo.maven.apache.org:443" {
 			return finding("NETWORK_POLICY_VIOLATION", "$.network", "Maven acquisition permits exactly audited https://repo.maven.apache.org:443")
+		}
+		return nil
+	}
+	if operation == SandboxMavenTest {
+		if network.Mode != "loopback-only" || len(network.AllowedEndpoints) != 1 || network.AllowedEndpoints[0] != "127.0.0.1:*" {
+			return finding("NETWORK_POLICY_VIOLATION", "$.network", "authoritative tests permit only IPv4 loopback sockets and no external egress")
 		}
 		return nil
 	}
@@ -314,23 +323,50 @@ func (p SandboxPlan) Digest() (string, error) {
 }
 
 type SandboxReceipt struct {
-	SchemaVersion          string    `json:"schema_version"`
-	PlanDigest             string    `json:"plan_digest"`
-	StartedAt              time.Time `json:"started_at"`
-	FinishedAt             time.Time `json:"finished_at"`
-	ExitCode               int       `json:"exit_code"`
-	TimedOut               bool      `json:"timed_out"`
-	ObservedMaxMemory      int64     `json:"observed_max_memory_bytes"`
-	ObservedCPUSeconds     int       `json:"observed_cpu_seconds"`
-	ObservedMaxProcesses   int       `json:"observed_max_processes"`
-	ObservedMaxOpenFiles   int       `json:"observed_max_open_files"`
-	ObservedOutputBytes    int64     `json:"observed_output_bytes"`
-	ObservedWorkspaceBytes int64     `json:"observed_workspace_bytes"`
-	ObservedEndpoints      []string  `json:"observed_endpoints"`
-	EnvironmentDigest      string    `json:"environment_digest"`
-	SourceBeforeDigest     string    `json:"source_before_digest"`
-	SourceAfterDigest      string    `json:"source_after_digest"`
-	CacheManifestDigest    string    `json:"cache_manifest_digest"`
+	SchemaVersion          string                     `json:"schema_version"`
+	PlanDigest             string                     `json:"plan_digest"`
+	StartedAt              time.Time                  `json:"started_at"`
+	FinishedAt             time.Time                  `json:"finished_at"`
+	ExitCode               int                        `json:"exit_code"`
+	TimedOut               bool                       `json:"timed_out"`
+	ObservedMaxMemory      int64                      `json:"observed_max_memory_bytes"`
+	ObservedCPUSeconds     int                        `json:"observed_cpu_seconds"`
+	ObservedMaxProcesses   int                        `json:"observed_max_processes"`
+	ObservedMaxOpenFiles   int                        `json:"observed_max_open_files"`
+	ObservedOutputBytes    int64                      `json:"observed_output_bytes"`
+	ObservedWorkspaceBytes int64                      `json:"observed_workspace_bytes"`
+	ObservedEndpoints      []string                   `json:"observed_endpoints"`
+	ObservedTCBExecutables []TCBExecutable            `json:"observed_tcb_executables"`
+	EnvironmentDigest      string                     `json:"environment_digest"`
+	SourceBeforeDigest     string                     `json:"source_before_digest"`
+	SourceAfterDigest      string                     `json:"source_after_digest"`
+	CacheManifestDigest    string                     `json:"cache_manifest_digest"`
+	EnforcementCanaries    SandboxEnforcementCanaries `json:"enforcement_canaries"`
+}
+
+type TCBExecutable struct {
+	Path      string `json:"path"`
+	Digest    string `json:"digest"`
+	Assurance string `json:"assurance"`
+}
+
+type SandboxEnforcementCanaries struct {
+	SanitizedEnvironment   bool `json:"sanitized_environment"`
+	UserHomeDenied         bool `json:"user_home_denied"`
+	SourceWriteDenied      bool `json:"source_write_denied"`
+	DisjointWritesOnly     bool `json:"disjoint_writes_only"`
+	WallTimeEnforced       bool `json:"wall_time_enforced"`
+	OutputLimitEnforced    bool `json:"output_limit_enforced"`
+	WorkspaceLimitEnforced bool `json:"workspace_limit_enforced"`
+	ProcessLimitEnforced   bool `json:"process_limit_enforced"`
+	CPULimitEnforced       bool `json:"cpu_limit_enforced"`
+	MemoryLimitEnforced    bool `json:"memory_limit_enforced"`
+	OpenFileLimitEnforced  bool `json:"open_file_limit_enforced"`
+	NetworkPolicyEnforced  bool `json:"network_policy_enforced"`
+}
+
+func (c SandboxEnforcementCanaries) complete() bool {
+	return c.SanitizedEnvironment && c.UserHomeDenied && c.SourceWriteDenied && c.DisjointWritesOnly && c.WallTimeEnforced && c.OutputLimitEnforced && c.WorkspaceLimitEnforced && c.ProcessLimitEnforced && c.CPULimitEnforced && c.MemoryLimitEnforced && c.OpenFileLimitEnforced && c.NetworkPolicyEnforced
 }
 
 func DecodeSandboxReceipt(data []byte, plan SandboxPlan) (SandboxReceipt, error) {
@@ -349,6 +385,9 @@ func (r SandboxReceipt) Validate(plan SandboxPlan) error {
 	if r.SchemaVersion != "1.0.0" || r.PlanDigest != planDigest || r.StartedAt.IsZero() || !r.FinishedAt.After(r.StartedAt) || r.ExitCode < 0 || r.ExitCode > 255 {
 		return finding("INVALID_SANDBOX_RECEIPT", "$", "receipt schema, plan binding, time interval, or exit code is invalid")
 	}
+	if !r.EnforcementCanaries.complete() {
+		return finding("SANDBOX_CANARY_INCOMPLETE", "$.enforcement_canaries", "every filesystem, environment, resource, process, and network control must have a passing canary")
+	}
 	if r.ObservedMaxMemory < 0 || r.ObservedMaxMemory > plan.Resources.MemoryBytes || r.ObservedOutputBytes < 0 || r.ObservedOutputBytes > plan.Resources.MaxOutputBytes {
 		return finding("RESOURCE_LIMIT_EXCEEDED", "$.resources", "observed usage exceeds the plan")
 	}
@@ -362,7 +401,11 @@ func (r SandboxReceipt) Validate(plan SandboxPlan) error {
 	if r.SourceBeforeDigest == "" || r.SourceBeforeDigest != r.SourceAfterDigest || !isDigest(r.SourceBeforeDigest) {
 		return finding("SOURCE_MUTATION_DETECTED", "$.source_after_digest", "read-only source changed or was not measured")
 	}
-	if r.CacheManifestDigest != plan.Cache.ClosureManifest {
+	if plan.Operation == SandboxMavenAcquire {
+		if !isDigest(r.CacheManifestDigest) || r.CacheManifestDigest == GenesisLedgerHead {
+			return finding("CACHE_CLOSURE_MISMATCH", "$.cache_manifest_digest", "acquisition must derive a non-genesis frozen cache closure")
+		}
+	} else if r.CacheManifestDigest != plan.Cache.ClosureManifest {
 		return finding("CACHE_CLOSURE_MISMATCH", "$.cache_manifest_digest", "executed cache differs from the planned closure")
 	}
 	allowed := append([]string(nil), plan.Network.AllowedEndpoints...)
@@ -375,6 +418,22 @@ func (r SandboxReceipt) Validate(plan SandboxPlan) error {
 	for index := range observed {
 		if observed[index] != allowed[index] || index > 0 && observed[index] == observed[index-1] {
 			return finding("NETWORK_POLICY_VIOLATION", "$.observed_endpoints", "observed network endpoints differ from the exact plan")
+		}
+	}
+	expectedExecutables := []TCBExecutable{}
+	if plan.Operation == SandboxMavenTest {
+		expectedExecutables = append(expectedExecutables, TCBExecutable{
+			Path: "/bin/sh", Digest: darwinMavenTestShellDigest, Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT",
+		}, TCBExecutable{
+			Path: "/bin/bash", Digest: darwinMavenTestBashDigest, Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT",
+		})
+	}
+	if len(r.ObservedTCBExecutables) != len(expectedExecutables) {
+		return finding("TCB_EXECUTABLE_MISMATCH", "$.observed_tcb_executables", "receipt does not bind the exact operation-specific executable TCB")
+	}
+	for index := range expectedExecutables {
+		if r.ObservedTCBExecutables[index] != expectedExecutables[index] {
+			return finding("TCB_EXECUTABLE_MISMATCH", fmt.Sprintf("$.observed_tcb_executables[%d]", index), "receipt executable identity or assurance differs from its exact pin")
 		}
 	}
 	return nil

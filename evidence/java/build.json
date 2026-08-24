@@ -25,26 +25,38 @@
   ],
   "cache": {
     "isolated": true,
-    "closure_frozen": false,
+    "closure_frozen": true,
     "offline_authoritative_run": false,
-    "qualification": "NOT_PROMOTED"
+    "qualification": "QUALIFIED_NOT_PROMOTED"
   },
   "sandbox": {
     "source_read_only_required": true,
     "secrets": "none",
     "egress": "deny-by-default",
     "bounded_resources_required": true,
-    "enforcement_status": "UNAVAILABLE"
+    "enforcement_status": "VERIFIED"
   },
   "build": {
-    "executed": false,
-    "exit_code": null,
-    "tests_executed": false
+    "executed": true,
+    "exit_code": 1,
+    "tests_executed": true
   },
   "blockers": [
     {
-      "code": "SANDBOX_ENFORCEMENT_UNAVAILABLE",
-      "detail": "No linked executor can yet prove the complete file, process, disk, output, and hostname-scoped egress policy; no authoritative Maven acquisition, offline build, or test receipt was emitted."
+      "code": "JAVA_TEST_TLS_POLICY_INCOMPATIBILITY",
+      "detail": "CustomSSLWebSocketServerFactoryTest.testWrapChannel fails under the promoted JDK 17.0.19 because its explicit TLSv1.2 TLS_RSA_WITH_AES_128_CBC_SHA/TLS_RSA_WITH_AES_256_CBC_SHA configuration is disabled; the exact exception is SSLHandshakeException: No appropriate protocol (protocol is disabled or cipher suites are inappropriate)."
+    },
+    {
+      "code": "JAVA_TEST_WORKER_LIFECYCLE_FAILURE",
+      "detail": "Issue256Test.runReconnectSocketClose produced 16 parked WebSocketWorker threads in each of its standalone and AllIssueTests executions under default Surefire fork semantics."
+    },
+    {
+      "code": "JAVA_TEST_SUITE_HANG",
+      "detail": "The final bounded characterization stopped making output progress at Issue941Test while the forked JVM remained runnable and consumed sustained CPU; the process group was terminated without emitting successful evidence."
+    },
+    {
+      "code": "JAVA_TEST_INVENTORY_UNRECONCILED",
+      "detail": "The authoritative offline test lifecycle did not complete, so discovered, executed, passed, failed, skipped, filtered, timed-out, and quarantined test identities and counts cannot yet reconcile exactly."
     }
   ],
   "production": false,
