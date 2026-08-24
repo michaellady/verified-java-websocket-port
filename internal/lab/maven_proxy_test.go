@@ -4,10 +4,15 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -67,6 +72,9 @@ func TestMavenCentralProxyOnlyTunnelsExactAuthority(t *testing.T) {
 	if err != nil || !strings.Contains(status, "200") {
 		t.Fatalf("exact authority response=%q err=%v", status, err)
 	}
+	if output := audit.String(); !strings.Contains(output, `"result":"connected"`) {
+		t.Fatalf("CONNECT 200 became visible before its audit record: %s", output)
+	}
 	for {
 		line, readErr := reader.ReadString('\n')
 		if readErr != nil {
@@ -98,6 +106,86 @@ func TestMavenCentralProxyOnlyTunnelsExactAuthority(t *testing.T) {
 	}
 }
 
+func TestMavenCentralProxyAuditFailureDeniesBeforeHijack(t *testing.T) {
+	cases := map[string]*auditFailureWriter{
+		"write": {writeErr: errors.New("disk unavailable")},
+		"sync":  {syncErr: errors.New("sync unavailable")},
+	}
+	for name, writer := range cases {
+		t.Run(name, func(t *testing.T) {
+			upstream := &eofConn{}
+			proxy := &mavenCentralProxy{
+				audit: writer,
+				dial:  func(context.Context) (net.Conn, error) { return upstream, nil },
+			}
+			response := &trackingHijackResponse{ResponseRecorder: httptest.NewRecorder()}
+			request := httptest.NewRequest(http.MethodConnect, "https://"+MavenCentralAuthority, nil)
+			request.Host = MavenCentralAuthority
+			request.RequestURI = MavenCentralAuthority
+
+			proxy.ServeHTTP(response, request)
+
+			if response.Code != http.StatusInternalServerError || response.hijacked {
+				t.Fatalf("audit failure status=%d hijacked=%v", response.Code, response.hijacked)
+			}
+			if !upstream.closed {
+				t.Fatal("upstream was not closed after audit failure")
+			}
+			if proxy.sequence != 0 {
+				t.Fatalf("failed audit advanced sequence to %d", proxy.sequence)
+			}
+		})
+	}
+}
+
+func TestMavenCentralProxySyncFailurePoisonsAudit(t *testing.T) {
+	writer := &auditFailureWriter{syncErr: errors.New("sync unavailable")}
+	proxy := &mavenCentralProxy{audit: writer}
+	first := proxy.writeAudit(MavenCentralAuthority, "connected")
+	assertFinding(t, first, "MAVEN_PROXY_AUDIT_FAILED")
+	writer.syncErr = nil
+	second := proxy.writeAudit(MavenCentralAuthority, "denied")
+	assertFinding(t, second, "MAVEN_PROXY_AUDIT_FAILED")
+	if proxy.sequence != 0 || writer.writes != 1 {
+		t.Fatalf("poisoned audit sequence=%d writes=%d", proxy.sequence, writer.writes)
+	}
+}
+
+func TestMavenCentralProxyConcurrentAuditOrderIsSerialized(t *testing.T) {
+	const records = 256
+	var audit bytes.Buffer
+	proxy := &mavenCentralProxy{audit: &audit}
+	var wait sync.WaitGroup
+	errorsSeen := make(chan error, records)
+	for index := 0; index < records; index++ {
+		wait.Add(1)
+		go func(index int) {
+			defer wait.Done()
+			errorsSeen <- proxy.writeAudit(fmt.Sprintf("request-%03d.example:443", index), "denied")
+		}(index)
+	}
+	wait.Wait()
+	close(errorsSeen)
+	for err := range errorsSeen {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	lines := bytes.Split(bytes.TrimSpace(audit.Bytes()), []byte{'\n'})
+	if len(lines) != records {
+		t.Fatalf("audit records=%d want=%d", len(lines), records)
+	}
+	for index, line := range lines {
+		var record mavenProxyAuditRecord
+		if err := json.Unmarshal(line, &record); err != nil {
+			t.Fatalf("record %d: %v", index, err)
+		}
+		if record.Sequence != uint64(index+1) {
+			t.Fatalf("record %d sequence=%d", index, record.Sequence)
+		}
+	}
+}
+
 func TestMavenCentralProxyRejectsNonLoopbackListener(t *testing.T) {
 	listener, err := net.Listen("tcp4", "0.0.0.0:0")
 	if err != nil {
@@ -109,3 +197,47 @@ func TestMavenCentralProxyRejectsNonLoopbackListener(t *testing.T) {
 		t.Fatalf("non-loopback listener error=%v", err)
 	}
 }
+
+type auditFailureWriter struct {
+	writeErr error
+	syncErr  error
+	writes   int
+}
+
+func (w *auditFailureWriter) Write(data []byte) (int, error) {
+	w.writes++
+	if w.writeErr != nil {
+		return 0, w.writeErr
+	}
+	return len(data), nil
+}
+
+func (w *auditFailureWriter) Sync() error { return w.syncErr }
+
+type trackingHijackResponse struct {
+	*httptest.ResponseRecorder
+	hijacked bool
+}
+
+func (r *trackingHijackResponse) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	r.hijacked = true
+	return nil, nil, errors.New("unexpected hijack")
+}
+
+type eofConn struct {
+	closed bool
+}
+
+func (c *eofConn) Read([]byte) (int, error)         { return 0, io.EOF }
+func (c *eofConn) Write(data []byte) (int, error)   { return len(data), nil }
+func (c *eofConn) Close() error                     { c.closed = true; return nil }
+func (c *eofConn) LocalAddr() net.Addr              { return staticAddr("local") }
+func (c *eofConn) RemoteAddr() net.Addr             { return staticAddr("remote") }
+func (c *eofConn) SetDeadline(time.Time) error      { return nil }
+func (c *eofConn) SetReadDeadline(time.Time) error  { return nil }
+func (c *eofConn) SetWriteDeadline(time.Time) error { return nil }
+
+type staticAddr string
+
+func (a staticAddr) Network() string { return string(a) }
+func (a staticAddr) String() string  { return string(a) }

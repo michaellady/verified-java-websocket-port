@@ -61,6 +61,7 @@ fields are rejected at every object boundary.
 {
   "protocol": "java-websocket-oracle",
   "version": "1.0.0",
+  "request_digest": "sha256:<canonical-request-digest>",
   "request_id": "scenario-001",
   "role": "client",
   "initial_state": "open",
@@ -83,6 +84,12 @@ fields are rejected at every object boundary.
 `role` is `client` or `server`. `initial_state` is `open`, `closing`, or
 `closed`. Steps are ordered, so byte chunks and local actions may be interleaved.
 Byte data is canonical RFC 4648 base64.
+
+`request_digest` is SHA-256 over the UTF-8 canonical JSON object after removing
+the `request_digest` member. Canonical objects use lexical key order with no
+insignificant whitespace. The adapter independently recomputes and verifies the
+digest before loading any scenario bytes into Java-WebSocket, then echoes the
+binding on every request-scoped response.
 
 Supported actions are:
 
@@ -115,3 +122,9 @@ adapter reports Java behavior and does not claim that behavior is correct.
 The adapter deliberately owns no sockets, clocks, caches, credentials, files,
 or network policy. The qualification orchestrator supplies the exact runtime
 classpath and enforces sandbox, source, cache, resource, and egress controls.
+`internal/lab.EncodeJavaOracleRequest` is the sole legacy-to-wire translator,
+and `internal/lab.RunJavaOracle` independently pins every classpath member,
+enforces the JSONL boundary, and retains an exact response digest. The
+`oraclee2e` Go test builds this adapter with the promoted JDK, executes the
+accepted US-001 runtime twice, and proves both deterministic replay and typed
+denial of planted response drift.

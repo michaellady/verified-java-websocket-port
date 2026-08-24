@@ -1,9 +1,11 @@
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -27,7 +29,8 @@ import org.java_websocket.handshake.Handshakedata;
 /** Request validation and the narrow Java-WebSocket v1.6.0 oracle projection. */
 final class OracleEngine {
   private static final Set<String> REQUEST_FIELDS = Set.of(
-      "initial_state", "limits", "protocol", "request_id", "role", "steps", "version");
+      "initial_state", "limits", "protocol", "request_digest", "request_id", "role", "steps",
+      "version");
   private static final Set<String> LIMIT_FIELDS = Set.of(
       "max_actions", "max_buffered_bytes", "max_frames", "max_input_bytes",
       "max_output_bytes");
@@ -52,6 +55,17 @@ final class OracleEngine {
     }
     requireLiteral(request, "protocol", OracleMain.PROTOCOL);
     requireLiteral(request, "version", OracleMain.VERSION);
+    String requestDigest = string(request, "request_digest");
+    if (!requestDigest.matches("sha256:[0-9a-f]{64}")) {
+      throw new ProtocolException("INVALID_REQUEST_DIGEST",
+          "request_digest must be a lowercase SHA-256 identity");
+    }
+    String computedDigest = canonicalRequestDigest(request);
+    if (!MessageDigest.isEqual(requestDigest.getBytes(StandardCharsets.US_ASCII),
+        computedDigest.getBytes(StandardCharsets.US_ASCII))) {
+      throw new ProtocolException("REQUEST_DIGEST_MISMATCH",
+          "request_digest does not bind the canonical request");
+    }
     Role role = enumValue(request, "role", Role.class);
     State initialState = enumValue(request, "initial_state", State.class);
     Limits limits = limits(request.get("limits"));
@@ -59,7 +73,7 @@ final class OracleEngine {
 
     Execution execution;
     try {
-      execution = new Execution(requestId, role, initialState, limits, runtimeDigest);
+      execution = new Execution(requestId, requestDigest, role, initialState, limits, runtimeDigest);
     } catch (NoClassDefFoundError e) {
       return OracleMain.error(requestId, "RUNTIME_DEPENDENCY_UNAVAILABLE",
           "Java-WebSocket runtime dependency is unavailable", null);
@@ -86,6 +100,19 @@ final class OracleEngine {
           "normalized response exceeds max_output_bytes"), true);
     }
     return response;
+  }
+
+  private static String canonicalRequestDigest(Map<String, Object> request)
+      throws ProtocolException {
+    try {
+      Map<String, Object> unsigned = new TreeMap<>(request);
+      unsigned.remove("request_digest");
+      byte[] canonical = StrictJson.write(unsigned).getBytes(StandardCharsets.UTF_8);
+      return "sha256:" + HexFormat.of().formatHex(
+          MessageDigest.getInstance("SHA-256").digest(canonical));
+    } catch (java.security.NoSuchAlgorithmException e) {
+      throw new ProtocolException("DIGEST_UNAVAILABLE", "SHA-256 is unavailable");
+    }
   }
 
   private static String safeRuntimeMessage(Exception e) {
@@ -239,6 +266,7 @@ final class OracleEngine {
 
   private static final class Execution {
     private final String requestId;
+    private final String requestDigest;
     private final Role role;
     private final State initialState;
     private final Limits limits;
@@ -258,8 +286,10 @@ final class OracleEngine {
     private Opcode inboundFragmentOpcode;
     private Map<String, Object> close;
 
-    Execution(String requestId, Role role, State state, Limits limits, String runtimeDigest) {
+    Execution(String requestId, String requestDigest, Role role, State state, Limits limits,
+        String runtimeDigest) {
       this.requestId = requestId;
+      this.requestDigest = requestDigest;
       this.role = role;
       this.initialState = state;
       this.state = state;
@@ -574,6 +604,7 @@ final class OracleEngine {
       Map<String, Object> response = new TreeMap<>();
       response.put("outcome", outcome);
       response.put("protocol", OracleMain.PROTOCOL);
+      response.put("request_digest", requestDigest);
       response.put("request_id", requestId);
       response.put("version", OracleMain.VERSION);
       return response;

@@ -137,14 +137,15 @@ public final class OracleMainTest {
     String serverRequest = request("server-mask",
         "[{\"kind\":\"action\",\"action\":\"send_text\",\"text\":\"x\"}]")
         .replace("\"role\":\"client\"", "\"role\":\"server\"");
+    serverRequest = rebind(serverRequest);
     Map<String, Object> server = OracleEngine.process(serverRequest, runtimeDigest);
     equal(Boolean.FALSE, object(list(server.get("frames")).get(0)).get("masked"),
         "server output is unmasked");
 
     Map<String, Object> stateError = OracleEngine.process(
-        request("closed-state",
+        rebind(request("closed-state",
             "[{\"kind\":\"action\",\"action\":\"send_text\",\"text\":\"x\"}]")
-            .replace("\"initial_state\":\"open\"", "\"initial_state\":\"closed\""),
+            .replace("\"initial_state\":\"open\"", "\"initial_state\":\"closed\"")),
         runtimeDigest);
     equal("STATE_VIOLATION", object(stateError.get("error")).get("code"),
         "closed state rejects sends");
@@ -169,10 +170,13 @@ public final class OracleMainTest {
         request("unknown", "[]").replace("\"steps\":[]", "\"steps\":[],\"extra\":1"),
         runtimeDigest));
     expectCode("TYPE_MISMATCH", () -> OracleEngine.process(
-        request("type", "[]").replace("\"max_frames\":32", "\"max_frames\":1.5"),
+        rebind(request("type", "[]").replace("\"max_frames\":32", "\"max_frames\":1.5")),
         runtimeDigest));
     expectCode("INVALID_ENUM", () -> OracleEngine.process(
-        request("case", "[]").replace("\"role\":\"client\"", "\"role\":\"CLIENT\""),
+        rebind(request("case", "[]").replace("\"role\":\"client\"", "\"role\":\"CLIENT\"")),
+        runtimeDigest));
+    expectCode("REQUEST_DIGEST_MISMATCH", () -> OracleEngine.process(
+        request("digest", "[]").replace("\"role\":\"client\"", "\"role\":\"server\""),
         runtimeDigest));
     Map<String, Object> badBase64 = OracleEngine.process(request("b64",
         "[{\"kind\":\"bytes\",\"data_base64\":\"gQ\"}]"), runtimeDigest);
@@ -269,12 +273,28 @@ public final class OracleMainTest {
 
   private static String request(
       String id, String steps, int input, int buffered, int actions, int frames, int output) {
-    return "{\"protocol\":\"java-websocket-oracle\",\"version\":\"1.0.0\","
+    String unsigned = "{\"protocol\":\"java-websocket-oracle\",\"version\":\"1.0.0\","
         + "\"request_id\":\"" + id + "\",\"role\":\"client\","
         + "\"initial_state\":\"open\",\"steps\":" + steps + ",\"limits\":{"
         + "\"max_input_bytes\":" + input + ",\"max_buffered_bytes\":" + buffered + ","
         + "\"max_actions\":" + actions + ",\"max_frames\":" + frames + ","
         + "\"max_output_bytes\":" + output + "}}";
+    return rebind(unsigned);
+  }
+
+  private static String rebind(String json) {
+    try {
+      Map<String, Object> object = object(StrictJson.parse(json));
+      object.remove("request_digest");
+      String canonical = StrictJson.write(object);
+      String digest = "sha256:" + java.util.HexFormat.of().formatHex(
+          java.security.MessageDigest.getInstance("SHA-256")
+              .digest(canonical.getBytes(StandardCharsets.UTF_8)));
+      object.put("request_digest", digest);
+      return StrictJson.write(object);
+    } catch (Exception e) {
+      throw new AssertionError("cannot bind test request digest", e);
+    }
   }
 
   @SuppressWarnings("unchecked")

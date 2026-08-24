@@ -10,7 +10,6 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -68,58 +67,96 @@ func serveMavenCentralProxy(ctx context.Context, listener net.Listener, audit io
 }
 
 type mavenCentralProxy struct {
-	audit    io.Writer
-	dial     mavenProxyDial
-	sequence atomic.Uint64
-	mutex    sync.Mutex
+	audit       io.Writer
+	dial        mavenProxyDial
+	sequence    uint64
+	mutex       sync.Mutex
+	auditPoison error
 }
 
 func (p *mavenCentralProxy) ServeHTTP(response http.ResponseWriter, request *http.Request) {
 	authority := request.Host
 	if request.Method != http.MethodConnect || authority != MavenCentralAuthority || request.RequestURI != MavenCentralAuthority || request.Header.Get("Proxy-Authorization") != "" {
-		p.writeAudit(authority, "denied")
+		if err := p.writeAudit(authority, "denied"); err != nil {
+			http.Error(response, "proxy audit unavailable", http.StatusInternalServerError)
+			return
+		}
 		http.Error(response, "proxy authority denied", http.StatusForbidden)
 		return
 	}
 	upstream, err := p.dial(request.Context())
 	if err != nil {
-		p.writeAudit(authority, "upstream-failed")
+		if auditErr := p.writeAudit(authority, "upstream-failed"); auditErr != nil {
+			http.Error(response, "proxy audit unavailable", http.StatusInternalServerError)
+			return
+		}
 		http.Error(response, "fixed upstream unavailable", http.StatusBadGateway)
 		return
 	}
 	hijacker, ok := response.(http.Hijacker)
 	if !ok {
 		_ = upstream.Close()
-		p.writeAudit(authority, "transport-failed")
+		if err := p.writeAudit(authority, "transport-failed"); err != nil {
+			http.Error(response, "proxy audit unavailable", http.StatusInternalServerError)
+			return
+		}
 		http.Error(response, "tunnel unavailable", http.StatusInternalServerError)
+		return
+	}
+	// A successful, durable audit record is a precondition for granting the
+	// tunnel. In particular, no CONNECT 200 bytes can exist before this returns.
+	if err := p.writeAudit(authority, "connected"); err != nil {
+		_ = upstream.Close()
+		http.Error(response, "proxy audit unavailable", http.StatusInternalServerError)
 		return
 	}
 	downstream, buffered, err := hijacker.Hijack()
 	if err != nil {
 		_ = upstream.Close()
-		p.writeAudit(authority, "transport-failed")
+		_ = p.writeAudit(authority, "transport-failed")
 		return
 	}
 	defer downstream.Close()
 	defer upstream.Close()
 	if _, err := buffered.WriteString("HTTP/1.1 200 Connection Established\r\n\r\n"); err != nil || buffered.Flush() != nil {
-		p.writeAudit(authority, "transport-failed")
+		_ = p.writeAudit(authority, "transport-failed")
 		return
 	}
-	p.writeAudit(authority, "connected")
 	tunnel(downstream, buffered.Reader, upstream)
 }
 
-func (p *mavenCentralProxy) writeAudit(authority, result string) {
+func (p *mavenCentralProxy) writeAudit(authority, result string) error {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	if p.auditPoison != nil {
+		return p.auditPoison
+	}
 	record := mavenProxyAuditRecord{
 		SchemaVersion: "1.0.0",
-		Sequence:      p.sequence.Add(1),
+		Sequence:      p.sequence + 1,
 		Authority:     authority,
 		Result:        result,
 	}
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-	_ = json.NewEncoder(p.audit).Encode(record)
+	data, err := json.Marshal(record)
+	if err == nil {
+		data = append(data, '\n')
+		var written int
+		written, err = p.audit.Write(data)
+		if err == nil && written != len(data) {
+			err = io.ErrShortWrite
+		}
+	}
+	if err == nil {
+		if syncer, ok := p.audit.(interface{ Sync() error }); ok {
+			err = syncer.Sync()
+		}
+	}
+	if err != nil {
+		p.auditPoison = finding("MAVEN_PROXY_AUDIT_FAILED", "$.audit", err.Error())
+		return p.auditPoison
+	}
+	p.sequence = record.Sequence
+	return nil
 }
 
 func tunnel(downstream net.Conn, buffered *bufio.Reader, upstream net.Conn) {
