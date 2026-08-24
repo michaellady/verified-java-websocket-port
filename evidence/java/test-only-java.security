@@ -1,0 +1,7 @@
+# US-002 authoritative Maven-test overlay only.
+# Promoted JDK 17.0.19 master value with exactly TLS_RSA_* removed.
+# Loaded with java.security.properties (append), never as the production master.
+jdk.tls.disabledAlgorithms=SSLv3, TLSv1, TLSv1.1, DTLSv1.0, RC4, DES, \
+    MD5withRSA, DH keySize < 1024, EC keySize < 224, 3DES_EDE_CBC, anon, NULL, \
+    ECDH, rsa_pkcs1_sha1 usage HandshakeSignature, \
+    ecdsa_sha1 usage HandshakeSignature, dsa_sha1 usage HandshakeSignature

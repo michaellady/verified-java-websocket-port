@@ -1,7 +1,9 @@
 package lab
 
 import (
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -41,6 +43,33 @@ func validSandboxPlan(t *testing.T, operation SandboxOperation) SandboxPlan {
 		plan.Cache.ClosureManifest = GenesisLedgerHead
 	}
 	return plan
+}
+
+func TestCanonicalMavenSelectorAndOwnerAttestedOverlayAreExact(t *testing.T) {
+	selector := strings.Split(canonicalMavenTestSelector, ",")
+	set, err := exactSet(selector, "$.selector", 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(set) != 62 {
+		t.Fatalf("canonical selector contains %d classes, want 62", len(set))
+	}
+	for index := 1; index < len(selector); index++ {
+		if selector[index-1] >= selector[index] {
+			t.Fatalf("canonical selector is not strictly sorted at %d", index)
+		}
+	}
+	overlay, err := os.ReadFile(filepath.Join("..", "..", "evidence", "java", mavenTestSecurityOverlayName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(overlay) != mavenTestSecurityOverlay || intake.DigestBytes(overlay) != mavenTestSecurityOverlayDigest {
+		t.Fatal("committed owner-attested overlay differs from its compiled exact pin")
+	}
+	value, ok := javaSecurityProperty(overlay, "jdk.tls.disabledAlgorithms")
+	if !ok || normalizeSecurityList(value) != overlaidTLSDisabledAlgorithms || strings.Contains(normalizeSecurityList(value), "TLS_RSA_*") {
+		t.Fatal("overlay did not remove exactly the TLS_RSA_* token")
+	}
 }
 
 func TestSandboxOperationsAreClosedAndMavenAcquisitionIsSeparate(t *testing.T) {
@@ -100,8 +129,9 @@ func TestSandboxSpecAndReceiptBindExactPlan(t *testing.T) {
 	if spec.Arguments[0] != "--offline" || spec.Profile == "" {
 		t.Fatalf("unsafe spec: %+v", spec)
 	}
-	if spec.Arguments[len(spec.Arguments)-2] != "-DargLine=-Djava.net.preferIPv4Stack=true" {
-		t.Fatalf("test spec omitted the IPv4-only child JVM network identity: %+v", spec.Arguments)
+	joinedArguments := strings.Join(spec.Arguments, "\n")
+	if !strings.Contains(joinedArguments, "-Dtest="+canonicalMavenTestSelector) || !strings.Contains(joinedArguments, "-Djava.security.properties="+filepath.Join(plan.OutputDirectory, mavenTestSecurityOverlayName)) {
+		t.Fatalf("test spec omitted its canonical selector or isolated security overlay: %+v", spec.Arguments)
 	}
 	planDigest, _ := plan.Digest()
 	environment, _ := intake.CanonicalJSON(plan.Environment)
@@ -114,6 +144,7 @@ func TestSandboxSpecAndReceiptBindExactPlan(t *testing.T) {
 	}
 	receipt.ObservedEndpoints = append(receipt.ObservedEndpoints, plan.Network.AllowedEndpoints...)
 	receipt.ObservedTCBExecutables = expectedTCBExecutables(plan)
+	bindTestPolicyReceipt(&receipt, plan)
 	if err := receipt.Validate(plan); err != nil {
 		t.Fatal(err)
 	}
@@ -123,6 +154,9 @@ func TestSandboxSpecAndReceiptBindExactPlan(t *testing.T) {
 	receipt.ObservedEndpoints = []string{"attacker.invalid:443"}
 	assertFinding(t, receipt.Validate(plan), "NETWORK_POLICY_VIOLATION")
 	receipt.ObservedEndpoints = nil
+	receipt.IndependentReview = true
+	assertFinding(t, receipt.Validate(plan), "TEST_POLICY_BINDING_MISMATCH")
+	receipt.IndependentReview = false
 	receipt.ObservedCPUSeconds = plan.Resources.CPUTimeSeconds + 1
 	assertFinding(t, receipt.Validate(plan), "RESOURCE_LIMIT_EXCEEDED")
 }
@@ -140,8 +174,20 @@ func TestSandboxReceiptRequiresEveryEnforcementCanary(t *testing.T) {
 	}
 	receipt.ObservedEndpoints = append(receipt.ObservedEndpoints, plan.Network.AllowedEndpoints...)
 	receipt.ObservedTCBExecutables = expectedTCBExecutables(plan)
+	bindTestPolicyReceipt(&receipt, plan)
 	receipt.EnforcementCanaries.MemoryLimitEnforced = false
 	assertFinding(t, receipt.Validate(plan), "SANDBOX_CANARY_INCOMPLETE")
+}
+
+func bindTestPolicyReceipt(receipt *SandboxReceipt, plan SandboxPlan) {
+	if plan.Operation != SandboxMavenTest {
+		return
+	}
+	receipt.JavaSecurityDigest = promotedJavaSecurityDigest
+	receipt.TestSecurityDigest = mavenTestSecurityOverlayDigest
+	receipt.TestInventoryDigest = intake.DigestBytes([]byte("inventory"))
+	receipt.Assurance = ownerAttestedNotIndependent
+	receipt.IndependentReview = false
 }
 
 func expectedTCBExecutables(plan SandboxPlan) []TCBExecutable {

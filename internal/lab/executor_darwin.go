@@ -73,6 +73,13 @@ func ExecuteSandbox(plan SandboxPlan, root *AcceptedRoot) (*SandboxReceipt, erro
 	if err != nil {
 		return nil, err
 	}
+	var testLayout *mavenTestLayout
+	if plan.Operation == SandboxMavenTest {
+		testLayout, err = prepareMavenTestExecution(plan, javaPath)
+		if err != nil {
+			return nil, err
+		}
+	}
 	observedTCBExecutables := []TCBExecutable{}
 	if plan.Operation == SandboxMavenTest {
 		if err := verifyDarwinMavenTestShell("/bin/sh", darwinMavenTestShellDigest); err != nil {
@@ -138,6 +145,21 @@ func ExecuteSandbox(plan SandboxPlan, root *AcceptedRoot) (*SandboxReceipt, erro
 	if err != nil {
 		return nil, err
 	}
+	testInventoryDigest := ""
+	if plan.Operation == SandboxMavenTest {
+		inventory, reconcileErr := ReconcileSurefireReports(filepath.Join(plan.WorkspaceDirectory, "build", "target", "surefire-reports"), testLayout.staticTests, testLayout.selector, testLayout.suites, testLayout.candidates, testLayout.classifications)
+		if reconcileErr != nil {
+			return nil, reconcileErr
+		}
+		inventoryBytes, canonicalErr := intake.CanonicalJSON(inventory)
+		if canonicalErr != nil {
+			return nil, finding("INVALID_TEST_INVENTORY", "$.test_inventory", canonicalErr.Error())
+		}
+		if err := writeExclusiveDurable(filepath.Join(plan.OutputDirectory, "test-inventory.json"), inventoryBytes); err != nil {
+			return nil, err
+		}
+		testInventoryDigest = intake.DigestBytes(inventoryBytes)
+	}
 	sourceAfter, _, err := digestTree(plan.SourceDirectory, true)
 	if err != nil || sourceAfter != sourceBefore {
 		return nil, finding("SOURCE_MUTATION_DETECTED", "$.source_directory", "accepted source changed during execution")
@@ -177,11 +199,82 @@ func ExecuteSandbox(plan SandboxPlan, root *AcceptedRoot) (*SandboxReceipt, erro
 		SourceBeforeDigest: sourceBefore, SourceAfterDigest: sourceAfter, CacheManifestDigest: cacheAfter,
 		EnforcementCanaries: canaries,
 	}
+	if plan.Operation == SandboxMavenTest {
+		receipt.JavaSecurityDigest = promotedJavaSecurityDigest
+		receipt.TestSecurityDigest = mavenTestSecurityOverlayDigest
+		receipt.TestInventoryDigest = testInventoryDigest
+		receipt.Assurance = ownerAttestedNotIndependent
+		receipt.IndependentReview = false
+	}
 	if err := receipt.Validate(plan); err != nil {
 		return nil, err
 	}
 	_ = spec
 	return receipt, nil
+}
+
+type mavenTestLayout struct {
+	staticTests     []StaticTest
+	selector        []string
+	suites          []AggregateSuite
+	candidates      []NonTestCandidate
+	classifications []NonTestClassification
+}
+
+func prepareMavenTestExecution(plan SandboxPlan, javaPath string) (*mavenTestLayout, error) {
+	javaHome := filepath.Dir(filepath.Dir(javaPath))
+	master, err := readBoundedRegular(filepath.Join(javaHome, "conf", "security", "java.security"), maxManifestBytes)
+	if err != nil {
+		return nil, err
+	}
+	if err := validateMavenTestSecurity(master); err != nil {
+		return nil, err
+	}
+	buildSource := filepath.Join(plan.WorkspaceDirectory, "build")
+	staticTests, selector, suites, err := DiscoverJavaTests(filepath.Join(buildSource, "src", "test", "java"))
+	if err != nil {
+		return nil, err
+	}
+	if len(staticTests) != 231 || len(selector) != 62 || len(suites) != 10 || strings.Join(selector, ",") != canonicalMavenTestSelector {
+		return nil, finding("TEST_SELECTOR_MISMATCH", "$.canonical_selector", "accepted source must derive the exact 231-method, 62-class selector and 10 executable aggregate suites")
+	}
+	candidates, classifications, err := PinnedJavaNonTests(buildSource)
+	if err != nil {
+		return nil, err
+	}
+	if err := writeExclusiveDurable(filepath.Join(plan.OutputDirectory, mavenTestSecurityOverlayName), []byte(mavenTestSecurityOverlay)); err != nil {
+		return nil, err
+	}
+	return &mavenTestLayout{staticTests: staticTests, selector: selector, suites: suites, candidates: candidates, classifications: classifications}, nil
+}
+
+func writeExclusiveDurable(path string, data []byte) error {
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return finding("EVIDENCE_WRITE_FAILED", path, err.Error())
+	}
+	remove := true
+	defer func() {
+		_ = file.Close()
+		if remove {
+			_ = os.Remove(path)
+		}
+	}()
+	written, err := file.Write(data)
+	if err != nil || written != len(data) {
+		return finding("EVIDENCE_WRITE_FAILED", path, errors.Join(err, io.ErrShortWrite).Error())
+	}
+	if err := file.Sync(); err != nil {
+		return finding("EVIDENCE_WRITE_FAILED", path, err.Error())
+	}
+	if err := file.Close(); err != nil {
+		return finding("EVIDENCE_WRITE_FAILED", path, err.Error())
+	}
+	if err := syncDir(filepath.Dir(path)); err != nil {
+		return finding("EVIDENCE_WRITE_FAILED", path, err.Error())
+	}
+	remove = false
+	return nil
 }
 
 func verifyDarwinMavenTestShell(path, expectedDigest string) error {
@@ -1046,7 +1139,8 @@ func RunSandboxChild(arguments []string) (bool, int) {
 		if err := os.WriteFile(settings, mavenOfflineSettings(), 0o600); err != nil {
 			return true, 74
 		}
-		mavenArguments = append(mavenArguments, "--settings", settings, "--offline", "-DargLine=-Djava.net.preferIPv4Stack=true", "test")
+		mavenArguments = append(mavenArguments, "--settings", settings, "--offline")
+		mavenArguments = append(mavenArguments, canonicalMavenTestProperties(output)...)
 	}
 	javaArguments = append(javaArguments, mavenArguments...)
 	if err := syscall.Exec(javaPath, javaArguments, os.Environ()); err != nil {

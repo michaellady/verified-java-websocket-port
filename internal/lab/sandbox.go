@@ -35,6 +35,39 @@ const (
 const darwinMavenTestShellDigest = "sha256:094fc5e188feb7cc18906900b1b5c417e03aaed03a9fc132e925f38640d9bd59"
 const darwinMavenTestBashDigest = "sha256:35536aea9733aa345b61134a98d00232380898e55b2ea2a07c497011f7dfc7a3"
 
+const promotedJavaSecurityDigest = "sha256:ae19f494ffc23bd1a3a43e9a009f6ceabc9139c42c63d5747a602156d0a76e60"
+const mavenTestSecurityOverlayDigest = "sha256:35115b1757d928f1aeeaed799e1d19cdf1b350d9f2071817d68caba12177808b"
+const ownerAttestedNotIndependent = "OWNER_ATTESTED_NOT_INDEPENDENT"
+const mavenTestSecurityOverlayName = "test-only-java.security"
+
+const promotedTLSDisabledAlgorithms = "SSLv3,TLSv1,TLSv1.1,DTLSv1.0,RC4,DES,MD5withRSA,DH keySize < 1024,EC keySize < 224,3DES_EDE_CBC,anon,NULL,ECDH,TLS_RSA_*,rsa_pkcs1_sha1 usage HandshakeSignature,ecdsa_sha1 usage HandshakeSignature,dsa_sha1 usage HandshakeSignature"
+const overlaidTLSDisabledAlgorithms = "SSLv3,TLSv1,TLSv1.1,DTLSv1.0,RC4,DES,MD5withRSA,DH keySize < 1024,EC keySize < 224,3DES_EDE_CBC,anon,NULL,ECDH,rsa_pkcs1_sha1 usage HandshakeSignature,ecdsa_sha1 usage HandshakeSignature,dsa_sha1 usage HandshakeSignature"
+
+const mavenTestSecurityOverlay = `# US-002 authoritative Maven-test overlay only.
+# Promoted JDK 17.0.19 master value with exactly TLS_RSA_* removed.
+# Loaded with java.security.properties (append), never as the production master.
+jdk.tls.disabledAlgorithms=SSLv3, TLSv1, TLSv1.1, DTLSv1.0, RC4, DES, \
+    MD5withRSA, DH keySize < 1024, EC keySize < 224, 3DES_EDE_CBC, anon, NULL, \
+    ECDH, rsa_pkcs1_sha1 usage HandshakeSignature, \
+    ecdsa_sha1 usage HandshakeSignature, dsa_sha1 usage HandshakeSignature
+`
+
+const canonicalMavenTestSelector = "org.java_websocket.client.AttachmentTest,org.java_websocket.client.ConnectBlockingTest,org.java_websocket.client.HeadersTest,org.java_websocket.client.SchemaCheckTest," +
+	"org.java_websocket.drafts.Draft_6455Test,org.java_websocket.exceptions.IncompleteExceptionTest,org.java_websocket.exceptions.IncompleteHandshakeExceptionTest,org.java_websocket.exceptions.InvalidDataExceptionTest," +
+	"org.java_websocket.exceptions.InvalidEncodingExceptionTest,org.java_websocket.exceptions.InvalidFrameExceptionTest,org.java_websocket.exceptions.InvalidHandshakeExceptionTest,org.java_websocket.exceptions.LimitExceededExceptionTest," +
+	"org.java_websocket.exceptions.NotSendableExceptionTest,org.java_websocket.exceptions.WebsocketNotConnectedExceptionTest,org.java_websocket.extensions.CompressionExtensionTest,org.java_websocket.extensions.DefaultExtensionTest," +
+	"org.java_websocket.extensions.PerMessageDeflateExtensionTest,org.java_websocket.framing.BinaryFrameTest,org.java_websocket.framing.CloseFrameTest,org.java_websocket.framing.ContinuousFrameTest," +
+	"org.java_websocket.framing.FramedataImpl1Test,org.java_websocket.framing.PingFrameTest,org.java_websocket.framing.PongFrameTest,org.java_websocket.framing.TextFrameTest," +
+	"org.java_websocket.issues.Issue1142Test,org.java_websocket.issues.Issue1160Test,org.java_websocket.issues.Issue1203Test,org.java_websocket.issues.Issue256Test,org.java_websocket.issues.Issue580Test," +
+	"org.java_websocket.issues.Issue598Test,org.java_websocket.issues.Issue609Test,org.java_websocket.issues.Issue621Test,org.java_websocket.issues.Issue661Test,org.java_websocket.issues.Issue666Test," +
+	"org.java_websocket.issues.Issue677Test,org.java_websocket.issues.Issue713Test,org.java_websocket.issues.Issue732Test,org.java_websocket.issues.Issue764Test,org.java_websocket.issues.Issue765Test," +
+	"org.java_websocket.issues.Issue811Test,org.java_websocket.issues.Issue825Test,org.java_websocket.issues.Issue834Test,org.java_websocket.issues.Issue847Test,org.java_websocket.issues.Issue855Test," +
+	"org.java_websocket.issues.Issue879Test,org.java_websocket.issues.Issue890Test,org.java_websocket.issues.Issue900Test,org.java_websocket.issues.Issue941Test,org.java_websocket.issues.Issue962Test," +
+	"org.java_websocket.issues.Issue997Test,org.java_websocket.misc.OpeningHandshakeRejectionTest,org.java_websocket.protocols.ProtocolHandshakeRejectionTest,org.java_websocket.protocols.ProtocolTest," +
+	"org.java_websocket.server.CustomSSLWebSocketServerFactoryTest,org.java_websocket.server.DaemonThreadTest,org.java_websocket.server.DefaultSSLWebSocketServerFactoryTest," +
+	"org.java_websocket.server.DefaultWebSocketServerFactoryTest,org.java_websocket.server.SSLParametersWebSocketServerFactoryTest,org.java_websocket.server.WebSocketServerTest," +
+	"org.java_websocket.util.Base64Test,org.java_websocket.util.ByteBufferUtilsTest,org.java_websocket.util.CharsetfunctionsTest"
+
 var sandboxOperations = map[SandboxOperation]struct{}{
 	SandboxMavenAcquire: {}, SandboxMavenBuild: {}, SandboxMavenTest: {}, SandboxJavaOracle: {},
 	SandboxAutobahnClient: {}, SandboxAutobahnServer: {},
@@ -200,7 +233,7 @@ func BuildExecutionSpec(plan SandboxPlan, root *AcceptedRoot) (ExecutionSpec, er
 			"-Dtest=org.java_websocket.util.CharsetfunctionsTest", "-DforkCount=0", "test",
 		},
 		SandboxMavenBuild:     {"--offline", "--batch-mode", "--errors", "--file", "pom.xml", "-DskipTests", "package"},
-		SandboxMavenTest:      {"--offline", "--batch-mode", "--errors", "--file", "pom.xml", "-DargLine=-Djava.net.preferIPv4Stack=true", "test"},
+		SandboxMavenTest:      canonicalMavenArguments(plan.OutputDirectory),
 		SandboxJavaOracle:     {"-jar", "java-oracle.jar"},
 		SandboxAutobahnClient: {"fuzzing-client"},
 		SandboxAutobahnServer: {"fuzzing-server"},
@@ -213,6 +246,79 @@ func BuildExecutionSpec(plan SandboxPlan, root *AcceptedRoot) (ExecutionSpec, er
 		Profile: "read-only-source-disjoint-writes-no-secrets-bounded-deny-default-egress-v1",
 		Network: plan.Network, Resources: plan.Resources,
 	}, nil
+}
+
+func canonicalMavenArguments(outputDirectory string) []string {
+	return append([]string{
+		"--offline", "--batch-mode", "--errors", "--file", "pom.xml",
+	}, canonicalMavenTestProperties(outputDirectory)...)
+}
+
+func canonicalMavenTestProperties(outputDirectory string) []string {
+	overlay := filepath.Join(outputDirectory, mavenTestSecurityOverlayName)
+	return []string{"-DargLine=-Djava.net.preferIPv4Stack=true -Djava.security.properties=" + overlay, "-Dtest=" + canonicalMavenTestSelector, "-DforkedProcessTimeoutInSeconds=120", "test"}
+}
+
+func validateMavenTestSecurity(master []byte) error {
+	if intake.DigestBytes(master) != promotedJavaSecurityDigest {
+		return finding("PROMOTED_JAVA_SECURITY_MISMATCH", "$.java_security", "promoted JDK master security policy differs from its exact pin")
+	}
+	original, ok := javaSecurityProperty(master, "jdk.tls.disabledAlgorithms")
+	if !ok || normalizeSecurityList(original) != promotedTLSDisabledAlgorithms {
+		return finding("PROMOTED_JAVA_SECURITY_MISMATCH", "$.java_security.jdk.tls.disabledAlgorithms", "promoted TLS disabled-algorithm policy differs from its exact pin")
+	}
+	if intake.DigestBytes([]byte(mavenTestSecurityOverlay)) != mavenTestSecurityOverlayDigest {
+		return finding("TEST_SECURITY_OVERLAY_MISMATCH", "$.test_security_overlay", "compiled test-only overlay differs from its exact evidence pin")
+	}
+	overlaid, ok := javaSecurityProperty([]byte(mavenTestSecurityOverlay), "jdk.tls.disabledAlgorithms")
+	if !ok || normalizeSecurityList(overlaid) != overlaidTLSDisabledAlgorithms {
+		return finding("TEST_SECURITY_OVERLAY_MISMATCH", "$.test_security_overlay", "test-only overlay is not the exact promoted list minus TLS_RSA_*")
+	}
+	originalTokens := strings.Split(promotedTLSDisabledAlgorithms, ",")
+	overlayTokens := strings.Split(overlaidTLSDisabledAlgorithms, ",")
+	removed := 0
+	filtered := make([]string, 0, len(originalTokens)-1)
+	for _, token := range originalTokens {
+		if token == "TLS_RSA_*" {
+			removed++
+			continue
+		}
+		filtered = append(filtered, token)
+	}
+	if removed != 1 || !equalStrings(filtered, overlayTokens) {
+		return finding("TEST_SECURITY_OVERLAY_MISMATCH", "$.test_security_overlay", "overlay must remove exactly one TLS_RSA_* token and preserve every other promoted restriction")
+	}
+	return nil
+}
+
+func javaSecurityProperty(data []byte, name string) (string, bool) {
+	logical := ""
+	for _, raw := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(raw)
+		if logical == "" && (line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "!")) {
+			continue
+		}
+		continued := strings.HasSuffix(line, "\\")
+		line = strings.TrimSpace(strings.TrimSuffix(line, "\\"))
+		logical += line
+		if continued {
+			continue
+		}
+		separator := strings.IndexByte(logical, '=')
+		if separator > 0 && strings.TrimSpace(logical[:separator]) == name {
+			return strings.TrimSpace(logical[separator+1:]), true
+		}
+		logical = ""
+	}
+	return "", false
+}
+
+func normalizeSecurityList(value string) string {
+	parts := strings.Split(value, ",")
+	for index := range parts {
+		parts[index] = strings.TrimSpace(parts[index])
+	}
+	return strings.Join(parts, ",")
 }
 
 // SandboxEnforcementUnavailable preserves the typed finding API for callers
@@ -341,6 +447,11 @@ type SandboxReceipt struct {
 	SourceBeforeDigest     string                     `json:"source_before_digest"`
 	SourceAfterDigest      string                     `json:"source_after_digest"`
 	CacheManifestDigest    string                     `json:"cache_manifest_digest"`
+	JavaSecurityDigest     string                     `json:"java_security_digest"`
+	TestSecurityDigest     string                     `json:"test_security_overlay_digest"`
+	TestInventoryDigest    string                     `json:"test_inventory_digest"`
+	Assurance              string                     `json:"assurance"`
+	IndependentReview      bool                       `json:"independent_review_claimed"`
 	EnforcementCanaries    SandboxEnforcementCanaries `json:"enforcement_canaries"`
 }
 
@@ -407,6 +518,13 @@ func (r SandboxReceipt) Validate(plan SandboxPlan) error {
 		}
 	} else if r.CacheManifestDigest != plan.Cache.ClosureManifest {
 		return finding("CACHE_CLOSURE_MISMATCH", "$.cache_manifest_digest", "executed cache differs from the planned closure")
+	}
+	if plan.Operation == SandboxMavenTest {
+		if r.JavaSecurityDigest != promotedJavaSecurityDigest || r.TestSecurityDigest != mavenTestSecurityOverlayDigest || !isDigest(r.TestInventoryDigest) || r.Assurance != ownerAttestedNotIndependent || r.IndependentReview {
+			return finding("TEST_POLICY_BINDING_MISMATCH", "$.test_security_overlay_digest", "Maven-test receipt must bind the exact owner-attested policy and reconciled inventory without claiming independent review")
+		}
+	} else if r.JavaSecurityDigest != "" || r.TestSecurityDigest != "" || r.TestInventoryDigest != "" || r.Assurance != "" || r.IndependentReview {
+		return finding("TEST_POLICY_BINDING_MISMATCH", "$.test_security_overlay_digest", "non-test receipt cannot claim Maven-test policy evidence")
 	}
 	allowed := append([]string(nil), plan.Network.AllowedEndpoints...)
 	observed := append([]string(nil), r.ObservedEndpoints...)

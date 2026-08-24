@@ -55,7 +55,6 @@ func readyEvidenceDocuments(t *testing.T) BaselineEvidenceDocuments {
 		}
 	}
 	zero := 0
-	count := tests.Counts.StaticAnnotationOccurrences
 	build.Status = "PASS"
 	build.Cache.ClosureFrozen = true
 	build.Cache.OfflineAuthoritativeRun = true
@@ -69,14 +68,6 @@ func readyEvidenceDocuments(t *testing.T) BaselineEvidenceDocuments {
 	adapter.AuthoritativeSandboxRun = true
 	tests.Status = "PASS"
 	tests.InventoryStatus = "RECONCILED"
-	tests.Counts.Discovered = &count
-	tests.Counts.Executed = &count
-	tests.Counts.Passed = &count
-	tests.Counts.Failed = &zero
-	tests.Counts.Skipped = &zero
-	tests.Counts.Filtered = &zero
-	tests.Counts.TimedOut = &zero
-	tests.Counts.Quarantined = &zero
 	tests.Blocker = nil
 	autobahn.Status = "PASS"
 	autobahn.Registry.StaticExpansionComplete = true
@@ -114,7 +105,7 @@ func TestVerifyBaselineEvidenceAcceptsHonestBlockedAndExactReadySets(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	if blocked.Status != "BLOCKED" || len(blocked.Blockers) < 3 {
+	if blocked.Status != "BLOCKED" || len(blocked.Blockers) < 2 {
 		t.Fatalf("blocked report = %+v", blocked)
 	}
 	ready, err := VerifyBaselineEvidence(evidenceTestRoot, readyEvidenceDocuments(t))
@@ -158,18 +149,22 @@ func TestVerifyBaselineEvidenceRejectsContradictoryAndHostileClaims(t *testing.T
 			value.Blockers = []EvidenceFinding{{Code: "STILL_BLOCKED", Detail: "blocking condition remains"}}
 			documents.Build = canonicalEvidence(t, value)
 		},
+		"false independent-review claim": func(t *testing.T, documents *BaselineEvidenceDocuments) {
+			var value buildEvidence
+			mustDecodeEvidence(t, documents.Build, &value)
+			value.IndependentReviewClaimed = true
+			documents.Build = canonicalEvidence(t, value)
+		},
 		"mismatched tests": func(t *testing.T, documents *BaselineEvidenceDocuments) {
 			var value testEvidence
 			mustDecodeEvidence(t, documents.Tests, &value)
-			changed := *value.Counts.Executed - 1
-			value.Counts.Executed = &changed
+			value.Counts.Executed--
 			documents.Tests = canonicalEvidence(t, value)
 		},
 		"skipped tests": func(t *testing.T, documents *BaselineEvidenceDocuments) {
 			var value testEvidence
 			mustDecodeEvidence(t, documents.Tests, &value)
-			one := 1
-			value.Counts.Skipped = &one
+			value.Counts.Skipped = 1
 			documents.Tests = canonicalEvidence(t, value)
 		},
 		"unexecuted Autobahn": func(t *testing.T, documents *BaselineEvidenceDocuments) {
@@ -230,6 +225,29 @@ func TestVerifyBaselineEvidenceStrictlyRejectsUnknownFields(t *testing.T) {
 	var findingValue *intake.Finding
 	if !errors.As(err, &findingValue) {
 		t.Fatalf("error does not preserve typed finding: %T %v", err, err)
+	}
+}
+
+func TestJavaTestEvidenceBindsExactInventoryDefaultPolicyAndOverlay(t *testing.T) {
+	defaultPolicy := evidenceDocument(t, "default-policy-behavior.json")
+	if _, err := DecodeDefaultPolicyEvidence(defaultPolicy); err != nil {
+		t.Fatal(err)
+	}
+	inventory := evidenceDocument(t, "test-inventory.json")
+	if _, err := DecodeTestInventory(inventory); err != nil {
+		t.Fatal(err)
+	}
+	overlay := evidenceDocument(t, mavenTestSecurityOverlayName)
+	if string(overlay) != mavenTestSecurityOverlay || intake.DigestBytes(overlay) != mavenTestSecurityOverlayDigest {
+		t.Fatal("committed overlay differs from its exact compiled pin")
+	}
+	var manifest testEvidence
+	mustDecodeEvidence(t, evidenceDocument(t, "test-manifest.json"), &manifest)
+	if manifest.Inventory.Digest != intake.DigestBytes(inventory) || manifest.TestPolicy.DefaultPolicyEvidenceDigest != intake.DigestBytes(defaultPolicy) {
+		t.Fatal("test manifest does not content-bind inventory and default-policy evidence")
+	}
+	if _, err := DecodeDefaultPolicyEvidence(append(defaultPolicy[:len(defaultPolicy)-2], []byte(`,"unknown":true}`)...)); err == nil {
+		t.Fatal("unknown default-policy evidence field accepted")
 	}
 }
 

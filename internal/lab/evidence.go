@@ -3,6 +3,7 @@ package lab
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 )
@@ -11,6 +12,7 @@ const (
 	JavaBuildEvidenceSchema   = "../../schemas/java-build-receipt-1.0.0.schema.json"
 	JavaAdapterEvidenceSchema = "../../schemas/java-adapter-baseline-1.0.0.schema.json"
 	JavaTestEvidenceSchema    = "../../schemas/java-test-manifest-1.0.0.schema.json"
+	JavaDefaultPolicySchema   = "../../schemas/java-default-policy-behavior-1.0.0.schema.json"
 	AutobahnEvidenceSchema    = "../../schemas/autobahn-baseline-1.0.0.schema.json"
 	BehaviorLedgerSchema      = "../../schemas/behavior-delta-ledger-1.0.0.schema.json"
 )
@@ -58,9 +60,10 @@ type evidenceObject struct {
 
 type buildEvidence struct {
 	evidenceEnvelope
-	Status    string `json:"status"`
-	Assurance string `json:"assurance"`
-	Source    struct {
+	Status                   string `json:"status"`
+	Assurance                string `json:"assurance"`
+	IndependentReviewClaimed bool   `json:"independent_review_claimed"`
+	Source                   struct {
 		evidenceObject
 		ProductionSourceModified bool `json:"production_source_modified"`
 	} `json:"source"`
@@ -115,16 +118,35 @@ type testEvidence struct {
 	evidenceEnvelope
 	Status          string `json:"status"`
 	InventoryStatus string `json:"inventory_status"`
-	Counts          struct {
-		StaticAnnotationOccurrences int  `json:"static_annotation_occurrences"`
-		Discovered                  *int `json:"discovered"`
-		Executed                    *int `json:"executed"`
-		Passed                      *int `json:"passed"`
-		Failed                      *int `json:"failed"`
-		Skipped                     *int `json:"skipped"`
-		Filtered                    *int `json:"filtered"`
-		TimedOut                    *int `json:"timed_out"`
-		Quarantined                 *int `json:"quarantined"`
+	Inventory       struct {
+		Path   string `json:"path"`
+		Schema string `json:"schema"`
+		Digest string `json:"digest"`
+	} `json:"inventory"`
+	Discovery struct {
+		Strategy                     string `json:"strategy"`
+		ConcreteSelectorCount        int    `json:"concrete_selector_count"`
+		AggregateSuiteContainerCount int    `json:"aggregate_suite_container_count"`
+		AggregateSuitesExecutable    bool   `json:"aggregate_suites_are_executable_containers"`
+		AggregateSuitesExcluded      bool   `json:"aggregate_suites_excluded_from_selector"`
+		DefaultDiscoveryDelta        string `json:"default_discovery_delta"`
+	} `json:"discovery"`
+	Counts struct {
+		StaticAnnotationOccurrences int `json:"static_annotation_occurrences"`
+		ConcreteClasses             int `json:"concrete_classes"`
+		AggregateSuiteContainers    int `json:"aggregate_suite_containers"`
+		Discovered                  int `json:"discovered"`
+		Executed                    int `json:"executed"`
+		Passed                      int `json:"passed"`
+		Failed                      int `json:"failed"`
+		Skipped                     int `json:"skipped"`
+		Filtered                    int `json:"filtered"`
+		TimedOut                    int `json:"timed_out"`
+		Quarantined                 int `json:"quarantined"`
+		RuntimeInvocations          int `json:"runtime_invocations"`
+		PassedInvocations           int `json:"passed_invocations"`
+		FailedInvocations           int `json:"failed_invocations"`
+		SkippedInvocations          int `json:"skipped_invocations"`
 	} `json:"counts"`
 	NonTests []struct {
 		Path          string `json:"path"`
@@ -132,7 +154,133 @@ type testEvidence struct {
 		Executable    bool   `json:"executable"`
 		CountedAsTest bool   `json:"counted_as_test"`
 	} `json:"non_tests"`
+	AuthoritativeRun struct {
+		PlanDigest           string               `json:"plan_digest"`
+		StartedAt            string               `json:"started_at"`
+		FinishedAt           string               `json:"finished_at"`
+		ExitCode             int                  `json:"exit_code"`
+		TimedOut             bool                 `json:"timed_out"`
+		SourceBeforeDigest   string               `json:"source_before_digest"`
+		SourceAfterDigest    string               `json:"source_after_digest"`
+		CacheManifestDigest  string               `json:"cache_manifest_digest"`
+		EnvironmentDigest    string               `json:"environment_digest"`
+		Stdout               evidenceArtifact     `json:"stdout"`
+		Stderr               evidenceArtifact     `json:"stderr"`
+		ExecutionCodeBinding executionCodeBinding `json:"execution_code_binding"`
+		ObservedEndpoints    []string             `json:"observed_endpoints"`
+		AllCanariesPassed    bool                 `json:"all_enforcement_canaries_passed"`
+	} `json:"authoritative_run"`
+	TestPolicy struct {
+		DefaultPolicyEvidencePath   string `json:"default_policy_evidence_path"`
+		DefaultPolicyEvidenceDigest string `json:"default_policy_evidence_digest"`
+		JavaSecurityDigest          string `json:"java_security_digest"`
+		OverlayPath                 string `json:"overlay_path"`
+		OverlayDigest               string `json:"overlay_digest"`
+		Assurance                   string `json:"assurance"`
+		IndependentReviewClaimed    bool   `json:"independent_review_claimed"`
+		LocalOnly                   bool   `json:"local_only"`
+		NoSecretAccess              bool   `json:"no_secret_access"`
+		ProductionPolicyModified    bool   `json:"production_policy_modified"`
+	} `json:"test_policy"`
 	Blocker *EvidenceFinding `json:"blocker"`
+}
+
+type evidenceArtifact struct {
+	Digest string `json:"digest"`
+	Bytes  int    `json:"bytes"`
+}
+
+type executionCodeBinding struct {
+	ArtifactID                   string                  `json:"artifact_id"`
+	Binary                       evidenceArtifact        `json:"binary"`
+	Sources                      []evidenceSourceBinding `json:"sources"`
+	PostRunDriftChecked          bool                    `json:"post_run_drift_checked"`
+	MaterialExecutionPathChanged bool                    `json:"material_execution_path_changed_after_run"`
+}
+
+type evidenceSourceBinding struct {
+	Path   string `json:"path"`
+	Digest string `json:"digest"`
+	Bytes  int    `json:"bytes"`
+}
+
+type defaultPolicyEvidence struct {
+	evidenceEnvelope
+	Status      string `json:"status"`
+	PromotedJDK struct {
+		Version                    string   `json:"version"`
+		JavaSecurityDigest         string   `json:"java_security_digest"`
+		DisabledAlgorithmsContains []string `json:"disabled_algorithms_contains"`
+	} `json:"promoted_jdk"`
+	DefaultPolicyResult struct {
+		Authoritative   bool             `json:"authoritative"`
+		Selector        string           `json:"selector"`
+		Outcome         string           `json:"outcome"`
+		Counts          policyTestCounts `json:"counts"`
+		FailingIdentity string           `json:"failing_identity"`
+		ExceptionClass  string           `json:"exception_class"`
+		Diagnostic      string           `json:"diagnostic"`
+		Report          evidenceArtifact `json:"report"`
+		Stdout          evidenceArtifact `json:"stdout"`
+	} `json:"default_policy_result"`
+	TestOnlyOverlay struct {
+		Path                               string   `json:"path"`
+		Digest                             string   `json:"digest"`
+		LoadMode                           string   `json:"load_mode"`
+		RemovedTokens                      []string `json:"removed_tokens"`
+		OtherPromotedRestrictionsPreserved bool     `json:"other_promoted_restrictions_preserved"`
+		Assurance                          string   `json:"assurance"`
+		IndependentReviewClaimed           bool     `json:"independent_review_claimed"`
+		FocusedResult                      struct {
+			Authoritative bool             `json:"authoritative"`
+			Outcome       string           `json:"outcome"`
+			Counts        policyTestCounts `json:"counts"`
+			Report        evidenceArtifact `json:"report"`
+		} `json:"focused_result"`
+	} `json:"test_only_overlay"`
+	Scope struct {
+		LocalOnly                bool `json:"local_only"`
+		NoSecretAccess           bool `json:"no_secret_access"`
+		TestOnly                 bool `json:"test_only"`
+		ProductionPolicyModified bool `json:"production_policy_modified"`
+	} `json:"scope"`
+}
+
+type policyTestCounts struct {
+	Tests    int `json:"tests"`
+	Passed   int `json:"passed"`
+	Failures int `json:"failures"`
+	Errors   int `json:"errors"`
+	Skipped  int `json:"skipped"`
+}
+
+func DecodeDefaultPolicyEvidence(data []byte) (defaultPolicyEvidence, error) {
+	var value defaultPolicyEvidence
+	if err := intake.DecodeStrict(data, &value); err != nil {
+		return defaultPolicyEvidence{}, err
+	}
+	return value, validateDefaultPolicyEvidence(value)
+}
+
+func validateDefaultPolicyEvidence(value defaultPolicyEvidence) error {
+	if err := validateEnvelope(value.evidenceEnvelope, JavaDefaultPolicySchema, "java-default-policy-behavior"); err != nil {
+		return err
+	}
+	defaultCounts := policyTestCounts{Tests: 4, Passed: 3, Failures: 0, Errors: 1, Skipped: 0}
+	overlayCounts := policyTestCounts{Tests: 4, Passed: 4, Failures: 0, Errors: 0, Skipped: 0}
+	if value.Status != "PASS" || value.PromotedJDK.Version != "17.0.19" || value.PromotedJDK.JavaSecurityDigest != promotedJavaSecurityDigest || !equalStrings(value.PromotedJDK.DisabledAlgorithmsContains, []string{"TLS_RSA_*"}) || value.DefaultPolicyResult.Authoritative || value.DefaultPolicyResult.Selector != "org.java_websocket.server.CustomSSLWebSocketServerFactoryTest" || value.DefaultPolicyResult.Outcome != "EXPECTED_PROMOTED_POLICY_FAILURE" || value.DefaultPolicyResult.Counts != defaultCounts || value.DefaultPolicyResult.FailingIdentity != "org.java_websocket.server.CustomSSLWebSocketServerFactoryTest#testWrapChannel" || value.DefaultPolicyResult.ExceptionClass != "javax.net.ssl.SSLHandshakeException" || value.DefaultPolicyResult.Diagnostic != "No appropriate protocol (protocol is disabled or cipher suites are inappropriate)" {
+		return finding("DEFAULT_POLICY_EVIDENCE_MISMATCH", "$.default_policy_result", "default promoted-JDK TLS policy failure differs from the exact focused observation")
+	}
+	overlay := value.TestOnlyOverlay
+	if overlay.Path != "evidence/java/test-only-java.security" || overlay.Digest != mavenTestSecurityOverlayDigest || overlay.LoadMode != "APPEND_SINGLE_EQUALS" || !equalStrings(overlay.RemovedTokens, []string{"TLS_RSA_*"}) || !overlay.OtherPromotedRestrictionsPreserved || overlay.Assurance != ownerAttestedNotIndependent || overlay.IndependentReviewClaimed || overlay.FocusedResult.Authoritative || overlay.FocusedResult.Outcome != "PASS" || overlay.FocusedResult.Counts != overlayCounts || !value.Scope.LocalOnly || !value.Scope.NoSecretAccess || !value.Scope.TestOnly || value.Scope.ProductionPolicyModified || value.Production || value.Publication {
+		return finding("TEST_SECURITY_OVERLAY_MISMATCH", "$.test_only_overlay", "overlay evidence must remain exact, local, test-only, owner-attested, and non-production")
+	}
+	for path, artifact := range map[string]evidenceArtifact{"$.default_policy_result.report": value.DefaultPolicyResult.Report, "$.default_policy_result.stdout": value.DefaultPolicyResult.Stdout, "$.test_only_overlay.focused_result.report": overlay.FocusedResult.Report} {
+		if !isDigest(artifact.Digest) || artifact.Bytes <= 0 {
+			return finding("INVALID_EVIDENCE_ARTIFACT", path, "focused artifact requires an exact digest and positive size")
+		}
+	}
+	return nil
 }
 
 type autobahnEvidence struct {
@@ -319,7 +467,7 @@ func validateBuildEvidence(value buildEvidence) error {
 	if err := validateEnvelope(value.evidenceEnvelope, JavaBuildEvidenceSchema, "java-build-receipt"); err != nil {
 		return err
 	}
-	if value.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" || value.Source.ObjectID != "java-websocket-source-archive" || value.Source.Version != "1.6.0" || value.Source.Digest != pinnedJavaSourceDigest || value.Source.ProductionSourceModified {
+	if value.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" || value.IndependentReviewClaimed || value.Source.ObjectID != "java-websocket-source-archive" || value.Source.Version != "1.6.0" || value.Source.Digest != pinnedJavaSourceDigest || value.Source.ProductionSourceModified {
 		return finding("JAVA_BUILD_IDENTITY_MISMATCH", "$.build", "source and assurance must equal the pinned Java 1.6.0 baseline")
 	}
 	expectedTools := []evidenceObject{{"openjdk-17.0.19-homebrew-bottle", pinnedJDKDigest, "17.0.19"}, {"apache-maven-3.9.11", pinnedMavenDigest, "3.9.11"}}
@@ -392,8 +540,21 @@ func validateTestEvidence(value testEvidence) error {
 	if err := validateEnvelope(value.evidenceEnvelope, JavaTestEvidenceSchema, "java-test-manifest"); err != nil {
 		return err
 	}
-	if value.Counts.StaticAnnotationOccurrences != 231 {
-		return finding("INVALID_TEST_INVENTORY", "$.tests.counts", "static annotation inventory must equal the pinned source count")
+	if value.Status != "PASS" || value.InventoryStatus != "RECONCILED" || value.Blocker != nil {
+		return finding("CONTRADICTORY_EVIDENCE_STATUS", "$.tests.status", "test evidence requires one exact reconciled authoritative PASS and no blocker")
+	}
+	if value.Inventory.Path != "evidence/java/test-inventory.json" || value.Inventory.Schema != "schemas/java-test-inventory-1.0.0.schema.json" || value.Inventory.Digest != "sha256:cc704b3fa71864bfb065243504e7f5d89315f8d5ae3b793c0a08ad6ba70d3fc7" {
+		return finding("INVALID_TEST_INVENTORY", "$.tests.inventory", "manifest must bind the exact reconciled inventory artifact")
+	}
+	if value.Discovery.Strategy != "EXPLICIT_CONCRETE_CLASS_ONCE" || value.Discovery.ConcreteSelectorCount != 62 || value.Discovery.AggregateSuiteContainerCount != 10 || !value.Discovery.AggregateSuitesExecutable || !value.Discovery.AggregateSuitesExcluded || value.Discovery.DefaultDiscoveryDelta == "" {
+		return finding("TEST_SELECTOR_MISMATCH", "$.tests.discovery", "canonical discovery must retain executable suites while selecting each concrete class once")
+	}
+	wantCounts := []int{231, 62, 10, 231, 231, 231, 0, 0, 0, 0, 0, 326, 326, 0, 0}
+	gotCounts := []int{value.Counts.StaticAnnotationOccurrences, value.Counts.ConcreteClasses, value.Counts.AggregateSuiteContainers, value.Counts.Discovered, value.Counts.Executed, value.Counts.Passed, value.Counts.Failed, value.Counts.Skipped, value.Counts.Filtered, value.Counts.TimedOut, value.Counts.Quarantined, value.Counts.RuntimeInvocations, value.Counts.PassedInvocations, value.Counts.FailedInvocations, value.Counts.SkippedInvocations}
+	for index := range wantCounts {
+		if gotCounts[index] != wantCounts[index] {
+			return finding("TEST_COUNT_MISMATCH", "$.tests.counts", "method identities and raw invocation totals must equal the authoritative reconciliation")
+		}
 	}
 	expected := []struct {
 		path, kind string
@@ -413,35 +574,25 @@ func validateTestEvidence(value testEvidence) error {
 			return finding("INVALID_NON_TEST_CLASSIFICATION", fmt.Sprintf("$.tests.non_tests[%d]", index), "non-test classification differs from the frozen inventory")
 		}
 	}
-	if value.Blocker != nil {
-		if err := validateEvidenceFinding(*value.Blocker, "$.tests.blocker"); err != nil {
-			return err
+	run := value.AuthoritativeRun
+	started, startErr := time.Parse(time.RFC3339Nano, run.StartedAt)
+	finished, finishErr := time.Parse(time.RFC3339Nano, run.FinishedAt)
+	if run.PlanDigest != "sha256:1802bf80d4fd5843be860e9a60136f3add67f9a4c6322cb32b48941e3d1ee89b" || startErr != nil || finishErr != nil || !finished.After(started) || run.ExitCode != 0 || run.TimedOut || run.SourceBeforeDigest != "sha256:455234b5cb26e46a80cd749316e40d6f6fb4bf1c43a096d8c70d1f856908cbc2" || run.SourceAfterDigest != run.SourceBeforeDigest || run.CacheManifestDigest != "sha256:19518e08afbbd7a0dfbf893c713158487db85ea945ae1b8145897e200a007590" || run.EnvironmentDigest != "sha256:d776cfb8105226c3105dd7e47be46107a59c355291c00c465709ad955c148111" || run.Stdout != (evidenceArtifact{Digest: "sha256:62929ef08bcbd1bcca8648ee43e31174786508e72e35d1e97a0b29ffec8810a8", Bytes: 15125}) || run.Stderr != (evidenceArtifact{Digest: "sha256:b111cc480fc22b7e83203b6ea0af9290b3a758f096b61764132e8de8798b26db", Bytes: 4596}) || !equalStrings(run.ObservedEndpoints, []string{"127.0.0.1:*"}) || !run.AllCanariesPassed {
+		return finding("AUTHORITATIVE_TEST_RECEIPT_MISMATCH", "$.tests.authoritative_run", "authoritative receipt differs from the single exact sandbox execution")
+	}
+	binding := run.ExecutionCodeBinding
+	if binding.ArtifactID != "us002-canonical-final-labctl" || binding.Binary != (evidenceArtifact{Digest: "sha256:10f056f86a2a0abc021c310fdb27bc7162ec01b3bb92c2e0cdf034b3a062c94f", Bytes: 9761330}) || len(binding.Sources) != 4 || !binding.PostRunDriftChecked || binding.MaterialExecutionPathChanged {
+		return finding("EXECUTION_CODE_BINDING_MISMATCH", "$.tests.authoritative_run.execution_code_binding", "receipt must bind the exact executor binary/source snapshot and deny post-run drift")
+	}
+	expectedSources := []evidenceSourceBinding{{"internal/lab/executor_darwin.go", "sha256:863bc6d7c2b3e6d4b13332f2b883539676c206d3df283158b8a9c254713cfa42", 52560}, {"internal/lab/inventory.go", "sha256:f34e5787f2055b61a0431f239c9085914dacd3182b2a7392b1acead30816187d", 24593}, {"internal/lab/sandbox.go", "sha256:acb7ecd0b2cf917673342506ad25a43cbce83ab87b2ea4832cdfefd23f7374cf", 30704}, {"cmd/labctl/main.go", "sha256:7197bfc73774ecf2f010d14364f25b8ca49d2dad99605babcbfc087499b1b13f", 17306}}
+	for index := range expectedSources {
+		if binding.Sources[index] != expectedSources[index] {
+			return finding("EXECUTION_CODE_BINDING_MISMATCH", "$.tests.authoritative_run.execution_code_binding.sources", "execution-path source digest differs from the run snapshot")
 		}
 	}
-	counts := []*int{value.Counts.Discovered, value.Counts.Executed, value.Counts.Passed, value.Counts.Failed, value.Counts.Skipped, value.Counts.Filtered, value.Counts.TimedOut, value.Counts.Quarantined}
-	allCounts := true
-	for _, count := range counts {
-		if count == nil {
-			allCounts = false
-		} else if *count < 0 {
-			return finding("INVALID_TEST_INVENTORY", "$.tests.counts", "dynamic counts cannot be negative")
-		}
-	}
-	ready := allCounts && value.InventoryStatus == "RECONCILED" && *value.Counts.Discovered == value.Counts.StaticAnnotationOccurrences && *value.Counts.Executed == *value.Counts.Discovered && *value.Counts.Passed == *value.Counts.Executed && *value.Counts.Failed == 0 && *value.Counts.Skipped == 0 && *value.Counts.Filtered == 0 && *value.Counts.TimedOut == 0 && *value.Counts.Quarantined == 0
-	switch value.Status {
-	case "PASS":
-		if !ready || value.Blocker != nil {
-			return finding("CONTRADICTORY_EVIDENCE_STATUS", "$.tests.status", "PASS requires exact reconciled discovery/execution counts and no blocker")
-		}
-	case "BLOCKED":
-		if ready || value.Blocker == nil {
-			return finding("CONTRADICTORY_EVIDENCE_STATUS", "$.tests.status", "BLOCKED requires an unreconciled or unsuccessful inventory and a blocker")
-		}
-	default:
-		return finding("INVALID_EVIDENCE_STATUS", "$.tests.status", "test status must be PASS or BLOCKED")
-	}
-	if value.InventoryStatus != "RECONCILED" && value.InventoryStatus != "NOT_RECONCILED" {
-		return finding("INVALID_TEST_INVENTORY", "$.tests.inventory_status", "inventory status is outside the exact vocabulary")
+	policy := value.TestPolicy
+	if policy.DefaultPolicyEvidencePath != "evidence/java/default-policy-behavior.json" || policy.DefaultPolicyEvidenceDigest != "sha256:8166ea6baa84399c17074ea771aa126bce612e833642e04dfb736e616ef7ef36" || policy.JavaSecurityDigest != promotedJavaSecurityDigest || policy.OverlayPath != "evidence/java/test-only-java.security" || policy.OverlayDigest != mavenTestSecurityOverlayDigest || policy.Assurance != ownerAttestedNotIndependent || policy.IndependentReviewClaimed || !policy.LocalOnly || !policy.NoSecretAccess || policy.ProductionPolicyModified {
+		return finding("TEST_POLICY_BINDING_MISMATCH", "$.tests.test_policy", "test policy must bind the exact local owner-attested overlay without an independent-review claim")
 	}
 	return nil
 }

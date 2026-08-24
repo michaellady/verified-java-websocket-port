@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/java-test-inventory-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "static_annotations", "canonical_selector", "aggregate_suite_containers", "maven_discovered", "results", "counts", "non_test_candidates", "non_test_classifications"],
+  "properties": {
+    "schema_version": {"const": "1.0.0"},
+    "static_annotations": {"type": "array", "minItems": 231, "maxItems": 231, "items": {"$ref": "#/$defs/static-test"}},
+    "canonical_selector": {"type": "array", "minItems": 62, "maxItems": 62, "items": {"$ref": "#/$defs/class"}},
+    "aggregate_suite_containers": {"type": "array", "minItems": 10, "maxItems": 10, "items": {"$ref": "#/$defs/suite"}},
+    "maven_discovered": {"type": "array", "minItems": 231, "maxItems": 231, "items": {"$ref": "#/$defs/identity"}},
+    "results": {"type": "array", "minItems": 231, "maxItems": 231, "items": {"$ref": "#/$defs/result"}},
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["static_annotations", "concrete_classes", "aggregate_suites", "discovered", "executed", "passed", "failed", "skipped", "filtered", "timed_out", "quarantined", "runtime_invocations", "passed_invocations", "failed_invocations", "skipped_invocations"],
+      "properties": {
+        "static_annotations": {"const": 231}, "concrete_classes": {"const": 62}, "aggregate_suites": {"const": 10}, "discovered": {"const": 231}, "executed": {"const": 231}, "passed": {"const": 231},
+        "failed": {"const": 0}, "skipped": {"const": 0}, "filtered": {"const": 0}, "timed_out": {"const": 0}, "quarantined": {"const": 0},
+        "runtime_invocations": {"const": 326}, "passed_invocations": {"const": 326}, "failed_invocations": {"const": 0}, "skipped_invocations": {"const": 0}
+      }
+    },
+    "non_test_candidates": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/non-test-candidate"}},
+    "non_test_classifications": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/non-test-classification"}}
+  },
+  "$defs": {
+    "class": {"type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+$", "maxLength": 256},
+    "identity": {"type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$.]*#[A-Za-z_$][A-Za-z0-9_$]*$", "maxLength": 320},
+    "path": {"type": "string", "pattern": "^src/test/(java|resources)/[A-Za-z0-9_./-]+$", "maxLength": 512},
+    "static-test": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "class_name", "method_name", "annotation"],
+      "properties": {"id": {"$ref": "#/$defs/identity"}, "class_name": {"$ref": "#/$defs/class"}, "method_name": {"type": "string", "pattern": "^[A-Za-z_$][A-Za-z0-9_$]*$"}, "annotation": {"const": "org.junit.Test"}}
+    },
+    "suite": {
+      "type": "object", "additionalProperties": false,
+      "required": ["class_name", "members"],
+      "properties": {"class_name": {"$ref": "#/$defs/class"}, "members": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"$ref": "#/$defs/class"}}}
+    },
+    "result": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "status", "invocations", "passed_invocations", "failed_invocations", "skipped_invocations"],
+      "properties": {
+        "id": {"$ref": "#/$defs/identity"}, "status": {"const": "passed"},
+        "invocations": {"type": "integer", "minimum": 1, "maximum": 1000}, "passed_invocations": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "failed_invocations": {"const": 0}, "skipped_invocations": {"const": 0}
+      }
+    },
+    "non-test-candidate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "kind", "has_main"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "kind": {"enum": ["feature-file", "autobahn-utility"]}, "has_main": {"type": "boolean"}}
+    },
+    "non-test-classification": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "kind", "counted_as_test", "reason"],
+      "properties": {"path": {"$ref": "#/$defs/path"}, "kind": {"enum": ["feature-file", "autobahn-utility"]}, "counted_as_test": {"const": false}, "reason": {"type": "string", "minLength": 1, "maxLength": 1024}}
+    }
+  }
+}

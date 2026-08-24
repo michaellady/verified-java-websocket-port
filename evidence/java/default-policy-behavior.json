@@ -1,0 +1,41 @@
+{
+  "$schema": "../../schemas/java-default-policy-behavior-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "java-default-policy-behavior",
+  "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "status": "PASS",
+  "promoted_jdk": {
+    "version": "17.0.19",
+    "java_security_digest": "sha256:ae19f494ffc23bd1a3a43e9a009f6ceabc9139c42c63d5747a602156d0a76e60",
+    "disabled_algorithms_contains": ["TLS_RSA_*"]
+  },
+  "default_policy_result": {
+    "authoritative": false,
+    "selector": "org.java_websocket.server.CustomSSLWebSocketServerFactoryTest",
+    "outcome": "EXPECTED_PROMOTED_POLICY_FAILURE",
+    "counts": {"tests": 4, "passed": 3, "failures": 0, "errors": 1, "skipped": 0},
+    "failing_identity": "org.java_websocket.server.CustomSSLWebSocketServerFactoryTest#testWrapChannel",
+    "exception_class": "javax.net.ssl.SSLHandshakeException",
+    "diagnostic": "No appropriate protocol (protocol is disabled or cipher suites are inappropriate)",
+    "report": {"digest": "sha256:c3e8f7e4f422b2c67c12156a1e012364b2b6dae694287794c7bc04d0b7ef495c", "bytes": 10909},
+    "stdout": {"digest": "sha256:951d9b40b4d1a9e94d18bf6ba09dd1691ea8ef1d0b1e38f425d13470cedc157b", "bytes": 20691}
+  },
+  "test_only_overlay": {
+    "path": "evidence/java/test-only-java.security",
+    "digest": "sha256:35115b1757d928f1aeeaed799e1d19cdf1b350d9f2071817d68caba12177808b",
+    "load_mode": "APPEND_SINGLE_EQUALS",
+    "removed_tokens": ["TLS_RSA_*"],
+    "other_promoted_restrictions_preserved": true,
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "focused_result": {
+      "authoritative": false,
+      "outcome": "PASS",
+      "counts": {"tests": 4, "passed": 4, "failures": 0, "errors": 0, "skipped": 0},
+      "report": {"digest": "sha256:ebafeea8a6edcd526ba5c38b4f5c3dcd915606db5f8bd96fff5db6b2bb0b6233", "bytes": 7378}
+    }
+  },
+  "scope": {"local_only": true, "no_secret_access": true, "test_only": true, "production_policy_modified": false},
+  "production": false,
+  "publication": false
+}

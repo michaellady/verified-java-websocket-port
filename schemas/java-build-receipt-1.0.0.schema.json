@@ -3,7 +3,7 @@
   "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/java-build-receipt-1.0.0.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "assurance", "source", "toolchains", "cache", "sandbox", "build", "blockers", "production", "publication"],
+  "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "assurance", "independent_review_claimed", "source", "toolchains", "cache", "sandbox", "build", "blockers", "production", "publication"],
   "properties": {
     "$schema": {"const": "../../schemas/java-build-receipt-1.0.0.schema.json"},
     "schema_version": {"const": "1.0.0"},
@@ -11,6 +11,7 @@
     "accepted_root_digest": {"$ref": "#/$defs/digest"},
     "status": {"enum": ["PASS", "BLOCKED"]},
     "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
     "source": {
       "type": "object", "additionalProperties": false,
       "required": ["object_id", "digest", "version", "production_source_modified"],
