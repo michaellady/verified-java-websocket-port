@@ -1,10 +1,12 @@
 package lab
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
@@ -91,11 +93,17 @@ func readyEvidenceDocuments(t *testing.T) BaselineEvidenceDocuments {
 func readyAutobahnEvidenceRun(t *testing.T, mode string, ids []string) autobahnEvidenceRun {
 	t.Helper()
 	count := len(ids)
+	originalBlocker := EvidenceFinding{Code: "ORIGINAL_ATTEMPT_BLOCKED", Detail: "the original attempt was retained before the authorized remediation"}
+	originalReceipt := intake.DigestBytes([]byte("original-receipt:" + mode))
 	run := autobahnEvidenceRun{
-		Attempted: true, AttemptCount: 1, Completed: true, Executed: true, FirstCaseID: "1.1.1",
+		Attempted: true, AttemptCount: 2, Completed: true, Executed: true, FirstCaseID: "1.1.1",
 		SelectedCount: count, CompletedCount: count, ResultCount: count,
-		AttemptStateDigest: intake.DigestBytes([]byte("attempt:" + mode)), AttemptReceiptDigest: intake.DigestBytes([]byte("receipt")), AttemptReceiptBytes: 1,
+		AttemptStateDigest: intake.DigestBytes([]byte("attempt:" + mode)), AttemptReceiptDigest: originalReceipt, AttemptReceiptBytes: 1,
 		ConfigurationDigest: intake.DigestBytes([]byte("configuration:" + mode)), ConfigurationBytes: 1,
+		Attempts: []autobahnEvidenceAttempt{
+			{Sequence: 1, Classification: "ORIGINAL_AUTHORITATIVE", PlanDigest: intake.DigestBytes([]byte("original-plan:" + mode)), ReceiptDigest: originalReceipt, ReceiptBytes: 1, Blocker: &originalBlocker},
+			{Sequence: 2, Classification: "OWNER_AUTHORIZED_REMEDIATION", PlanDigest: intake.DigestBytes([]byte("remediated-plan:" + mode)), ReceiptDigest: intake.DigestBytes([]byte("remediated-receipt:" + mode)), ReceiptBytes: 1, Completed: true, Executed: true, CompletedCount: count, ResultCount: count},
+		},
 	}
 	for _, id := range ids {
 		result := AutobahnResult{CaseID: id, Status: "OK", ResultDigest: intake.DigestBytes([]byte("result:" + id)), ObservationDigest: intake.DigestBytes([]byte("observation:" + id))}
@@ -123,6 +131,94 @@ func TestVerifyBaselineEvidenceAcceptsHonestBlockedAndExactReadySets(t *testing.
 	}
 	if ready.Status != "READY" || len(ready.Blockers) != 0 {
 		t.Fatalf("ready report = %+v", ready)
+	}
+}
+
+func TestCommittedAutobahnEvidenceRetainsBothAttemptsAndClosesReruns(t *testing.T) {
+	raw := evidenceDocument(t, "autobahn-baseline.json")
+	if strings.Contains(string(raw), "/private/") {
+		t.Fatal("committed Autobahn evidence contains a runtime-private absolute path")
+	}
+	var value struct {
+		Status string `json:"status"`
+		Client struct {
+			AttemptCount int `json:"attempt_count"`
+			Attempts     []struct {
+				Sequence       int              `json:"sequence"`
+				Classification string           `json:"classification"`
+				PlanDigest     string           `json:"plan_digest"`
+				ReceiptDigest  string           `json:"receipt_digest"`
+				ReceiptBytes   int              `json:"receipt_bytes"`
+				Executed       bool             `json:"executed"`
+				CompletedCount int              `json:"completed_count"`
+				ResultCount    int              `json:"result_count"`
+				Blocker        *EvidenceFinding `json:"blocker"`
+			} `json:"attempts"`
+		} `json:"client"`
+		Server struct {
+			AttemptCount int `json:"attempt_count"`
+			Attempts     []struct {
+				Sequence       int              `json:"sequence"`
+				Classification string           `json:"classification"`
+				PlanDigest     string           `json:"plan_digest"`
+				ReceiptDigest  string           `json:"receipt_digest"`
+				ReceiptBytes   int              `json:"receipt_bytes"`
+				Executed       bool             `json:"executed"`
+				CompletedCount int              `json:"completed_count"`
+				ResultCount    int              `json:"result_count"`
+				Blocker        *EvidenceFinding `json:"blocker"`
+			} `json:"attempts"`
+		} `json:"server"`
+		RerunDisposition struct {
+			AuthorizedRemediationAttemptsPerMode int    `json:"authorized_remediation_attempts_per_mode"`
+			ConsumedRemediationAttemptsPerMode   int    `json:"consumed_remediation_attempts_per_mode"`
+			OriginalReceiptRetained              bool   `json:"original_receipt_retained"`
+			FurtherRerunsAuthorized              bool   `json:"further_reruns_authorized"`
+			Disposition                          string `json:"disposition"`
+		} `json:"rerun_disposition"`
+	}
+	if err := json.Unmarshal(raw, &value); err != nil {
+		t.Fatal(err)
+	}
+	const originalPlan = "sha256:53a10ae09a728b63471e5298be777c5e86a5b2f525b43ce247787df9e2139173"
+	const originalReceipt = "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff"
+	const remediatedPlan = "sha256:a94500dee3959f14941a749e04fe53b4679dd84041449e45a22572fb296a56f5"
+	const remediatedReceipt = "sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2"
+	for mode, run := range map[string]struct {
+		count    int
+		attempts []struct {
+			Sequence       int              `json:"sequence"`
+			Classification string           `json:"classification"`
+			PlanDigest     string           `json:"plan_digest"`
+			ReceiptDigest  string           `json:"receipt_digest"`
+			ReceiptBytes   int              `json:"receipt_bytes"`
+			Executed       bool             `json:"executed"`
+			CompletedCount int              `json:"completed_count"`
+			ResultCount    int              `json:"result_count"`
+			Blocker        *EvidenceFinding `json:"blocker"`
+		}
+	}{"client": {value.Client.AttemptCount, value.Client.Attempts}, "server": {value.Server.AttemptCount, value.Server.Attempts}} {
+		if run.count != 2 || len(run.attempts) != 2 {
+			t.Fatalf("%s attempt history = count %d entries %d, want exactly two", mode, run.count, len(run.attempts))
+		}
+		original, remediated := run.attempts[0], run.attempts[1]
+		if original.Sequence != 1 || original.Classification != "ORIGINAL_AUTHORITATIVE" || original.PlanDigest != originalPlan || original.ReceiptDigest != originalReceipt || original.ReceiptBytes != 18920 || original.Executed || original.CompletedCount != 0 || original.ResultCount != 0 || original.Blocker == nil {
+			t.Fatalf("%s original attempt was not retained exactly: %+v", mode, original)
+		}
+		if remediated.Sequence != 2 || remediated.Classification != "OWNER_AUTHORIZED_REMEDIATION" || remediated.PlanDigest != remediatedPlan || remediated.ReceiptDigest != remediatedReceipt || remediated.ReceiptBytes != 20123 || remediated.Executed || remediated.CompletedCount != 0 || remediated.ResultCount != 0 || remediated.Blocker == nil {
+			t.Fatalf("%s remediated attempt was not retained exactly: %+v", mode, remediated)
+		}
+	}
+	disposition := value.RerunDisposition
+	if value.Status != "BLOCKED" || disposition.AuthorizedRemediationAttemptsPerMode != 1 || disposition.ConsumedRemediationAttemptsPerMode != 1 || !disposition.OriginalReceiptRetained || disposition.FurtherRerunsAuthorized || disposition.Disposition != "NO_FURTHER_RERUNS_AUTHORIZED" {
+		t.Fatalf("invalid terminal rerun disposition: status=%s disposition=%+v", value.Status, disposition)
+	}
+	readiness, err := VerifyBaselineEvidence(evidenceTestRoot, blockedEvidenceDocuments(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if readiness.Status != "BLOCKED" {
+		t.Fatalf("aggregate readiness = %s, want BLOCKED", readiness.Status)
 	}
 }
 
@@ -191,7 +287,25 @@ func TestVerifyBaselineEvidenceRejectsContradictoryAndHostileClaims(t *testing.T
 		"replayed Autobahn attempt": func(t *testing.T, documents *BaselineEvidenceDocuments) {
 			var value autobahnEvidence
 			mustDecodeEvidence(t, documents.Autobahn, &value)
-			value.Client.AttemptCount = 2
+			value.Client.AttemptCount = 3
+			documents.Autobahn = canonicalEvidence(t, value)
+		},
+		"removed authorized remediation history": func(t *testing.T, documents *BaselineEvidenceDocuments) {
+			var value autobahnEvidence
+			mustDecodeEvidence(t, documents.Autobahn, &value)
+			value.Client.Attempts = value.Client.Attempts[:1]
+			documents.Autobahn = canonicalEvidence(t, value)
+		},
+		"mutated authorized remediation receipt": func(t *testing.T, documents *BaselineEvidenceDocuments) {
+			var value autobahnEvidence
+			mustDecodeEvidence(t, documents.Autobahn, &value)
+			value.Client.Attempts[1].ReceiptDigest = "sha256:mutated"
+			documents.Autobahn = canonicalEvidence(t, value)
+		},
+		"further Autobahn rerun authorized": func(t *testing.T, documents *BaselineEvidenceDocuments) {
+			var value autobahnEvidence
+			mustDecodeEvidence(t, documents.Autobahn, &value)
+			value.RerunDisposition.FurtherRerunsAuthorized = true
 			documents.Autobahn = canonicalEvidence(t, value)
 		},
 		"mutated Autobahn attempt receipt": func(t *testing.T, documents *BaselineEvidenceDocuments) {
