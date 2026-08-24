@@ -258,6 +258,13 @@ type requiredAction struct {
 	Status                 string   `json:"status"`
 }
 
+var requiredActionPolicy = []requiredAction{
+	{Stage: "acquisition", Role: "method-schema-steward", RequestedSandboxAccess: []string{}, PublicationRequested: false},
+	{Stage: "quarantine", Role: "port-implementer", RequestedSandboxAccess: []string{}, PublicationRequested: false},
+	{Stage: "qualification", Role: "port-implementer", RequestedSandboxAccess: []string{"quarantined-source"}, PublicationRequested: false},
+	{Stage: PromotionStageID, Role: "release-attestor", RequestedSandboxAccess: []string{}, PublicationRequested: false},
+}
+
 type expectedArtifact struct {
 	URL    string
 	Digest string
@@ -456,6 +463,9 @@ func VerifyEvidenceDir(directory string, now time.Time) (*VerifyReport, error) {
 	if promotions.PublicationRequested || promotions.PublicationCount != 0 || promotions.ProtectedAccessCount != 0 {
 		return nil, deny("ROLE_ACTION_MISMATCH", "promotion-receipts.json", "US-001 permits neither publication nor protected access")
 	}
+	if err := validateRequiredActionTrace(promotions.Status, promotions.RequiredActions); err != nil {
+		return nil, err
+	}
 	if err := verifyCandidatePayload(promotions.CandidatePayload, report.FileDigests); err != nil {
 		return nil, err
 	}
@@ -469,6 +479,33 @@ func VerifyEvidenceDir(directory string, now time.Time) (*VerifyReport, error) {
 		return nil, deny("ACTION_SCOPE_MISMATCH", "promotion-receipts.json.status", "receipt status, action count, and accepted-object count are inconsistent")
 	}
 	return report, nil
+}
+
+func validateRequiredActionTrace(receiptStatus string, actions []requiredAction) error {
+	if len(actions) != len(requiredActionPolicy) {
+		return deny("ACTION_SCOPE_MISMATCH", "promotion-receipts.json.required_actions", "required-action trace must contain exactly four policy-ordered stages")
+	}
+	for index, required := range requiredActionPolicy {
+		expectedStatus := ""
+		switch receiptStatus {
+		case SingleOwnerBlockedStatus:
+			expectedStatus = "OWNER_SIGNATURE_REQUIRED"
+			if index == len(requiredActionPolicy)-1 {
+				expectedStatus = "OWNER_SIGNATURE_AND_SCOPED_RISK_DISPOSITION_REQUIRED"
+			}
+		case SingleOwnerAuthorizedStatus:
+			expectedStatus = "OWNER_SIGNED_PENDING_PROTECTED_VERIFICATION"
+		case SingleOwnerPromotedStatus:
+			expectedStatus = "OWNER_SIGNED_AND_PROTECTED_VERIFIED"
+		default:
+			return deny("ACTION_SCOPE_MISMATCH", "promotion-receipts.json.status", "receipt status has no valid required-action trace")
+		}
+		actual := actions[index]
+		if actual.Stage != required.Stage || actual.Role != required.Role || !slices.Equal(actual.RequestedSandboxAccess, required.RequestedSandboxAccess) || actual.PublicationRequested != required.PublicationRequested || actual.Status != expectedStatus {
+			return deny("ACTION_SCOPE_MISMATCH", fmt.Sprintf("promotion-receipts.json.required_actions[%d]", index), "required-action stage, role, sandbox, publication, or status differs from policy")
+		}
+	}
+	return nil
 }
 
 // VerifyAuthorizedEvidenceDir is the only path that can clear the protected

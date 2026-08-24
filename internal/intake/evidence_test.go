@@ -99,6 +99,38 @@ func TestSandboxAndLinuxDeferralMutationsDeny(t *testing.T) {
 	}
 }
 
+func TestRequiredActionTraceRejectsMissingReorderedOrMutatedRecords(t *testing.T) {
+	now := time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC)
+	for _, testCase := range []struct {
+		name   string
+		mutate func(*promotionDocument)
+	}{
+		{"missing", func(document *promotionDocument) { document.RequiredActions = document.RequiredActions[:3] }},
+		{"reordered", func(document *promotionDocument) {
+			document.RequiredActions[0], document.RequiredActions[1] = document.RequiredActions[1], document.RequiredActions[0]
+		}},
+		{"role", func(document *promotionDocument) { document.RequiredActions[0].Role = "release-attestor" }},
+		{"sandbox", func(document *promotionDocument) {
+			document.RequiredActions[0].RequestedSandboxAccess = []string{"quarantined-source"}
+		}},
+		{"publication", func(document *promotionDocument) { document.RequiredActions[0].PublicationRequested = true }},
+		{"status", func(document *promotionDocument) {
+			document.RequiredActions[0].Status = "OWNER_SIGNED_AND_PROTECTED_VERIFIED"
+		}},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			directory := copyEvidence(t)
+			path := filepath.Join(directory, "promotion-receipts.json")
+			var document promotionDocument
+			readStrictTestFile(t, path, &document)
+			testCase.mutate(&document)
+			writeJSONTestFile(t, path, document)
+			_, err := VerifyEvidenceDir(directory, now)
+			assertCode(t, err, "ACTION_SCOPE_MISMATCH")
+		})
+	}
+}
+
 func TestAuthorizeRejectsAuthoritativeRoleConflictAndRevocation(t *testing.T) {
 	t.Parallel()
 	now := time.Date(2026, 8, 24, 12, 0, 0, 0, time.UTC)

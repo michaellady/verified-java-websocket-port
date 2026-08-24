@@ -49,7 +49,8 @@ type OwnerPromotionInput struct {
 	Authority           TrustedAuthority
 	Now                 time.Time
 
-	testCatalog map[string]expectedArtifact
+	testCatalog              map[string]expectedArtifact
+	testBeforeReceiptPersist func()
 }
 
 type OwnerPromotionResult struct {
@@ -128,11 +129,11 @@ func PromoteAuthorizedOwnerInputs(input OwnerPromotionInput) (*OwnerPromotionRes
 		return nil, deny("ACTION_SCOPE_MISMATCH", "promotion-receipts.json", "owner promotion must begin from the exact blocked public receipt")
 	}
 
-	receiptPath := filepath.Join(evidenceDirectory, "promotion-receipts.json")
-	receiptBytes, err := os.ReadFile(receiptPath)
+	evidenceSnapshot, err := captureEvidenceSnapshot(evidenceDirectory, report.FileDigests)
 	if err != nil {
-		return nil, deny("MISSING_PROMOTION_REQUIREMENT", "promotion-receipts.json", err.Error())
+		return nil, err
 	}
+	receiptBytes := evidenceSnapshot["promotion-receipts.json"]
 	var receipt promotionDocument
 	if err := DecodeStrict(receiptBytes, &receipt); err != nil {
 		return nil, err
@@ -185,7 +186,10 @@ func PromoteAuthorizedOwnerInputs(input OwnerPromotionInput) (*OwnerPromotionRes
 	}
 	finalReceipt.SafeNextAction = "Use the accepted content-addressed inputs only within quarantined laboratory qualification; production use and publication remain unauthorized."
 	finalReceipt.Claim = "The exact input bytes were promoted under OWNER_ATTESTED_NOT_INDEPENDENT; this is not independent review and does not authorize production use or publication."
-	if err := persistReceiptAtomically(receiptPath, receiptBytes, finalReceipt); err != nil {
+	if input.testBeforeReceiptPersist != nil {
+		input.testBeforeReceiptPersist()
+	}
+	if err := persistReceiptAtomically(evidenceDirectory, evidenceSnapshot, finalReceipt); err != nil {
 		return nil, err
 	}
 	finalReport, err := VerifyEvidenceDir(evidenceDirectory, input.Now)
@@ -260,12 +264,28 @@ func loadMaterializedObjects(root string, manifest MaterializationManifest, cata
 		expectedIDs = append(expectedIDs, id)
 	}
 	sort.Strings(expectedIDs)
+	entriesByID := make(map[string]MaterializedObject, len(manifest.Objects))
+	entryIndexes := make(map[string]int, len(manifest.Objects))
+	for index, entry := range manifest.Objects {
+		if _, expected := catalog[entry.ID]; !expected {
+			return nil, deny("ARTIFACT_DRIFT", fmt.Sprintf("materialization.objects[%d].id", index), "materialization contains an unknown artifact id")
+		}
+		if _, duplicate := entriesByID[entry.ID]; duplicate {
+			return nil, deny("DUPLICATE_ARCHIVE_ENTRY", fmt.Sprintf("materialization.objects[%d].id", index), "materialization contains a duplicate artifact id")
+		}
+		entriesByID[entry.ID] = entry
+		entryIndexes[entry.ID] = index
+	}
 	objects := make([]Object, 0, len(expectedIDs))
 	var totalBytes int64
-	for index, id := range expectedIDs {
-		entry := manifest.Objects[index]
+	for _, id := range expectedIDs {
+		entry, exists := entriesByID[id]
+		if !exists {
+			return nil, deny("MISSING_PROMOTION_REQUIREMENT", "materialization.objects", "materialization is missing a frozen artifact id")
+		}
+		index := entryIndexes[id]
 		expected := catalog[id]
-		if entry.ID != id || entry.SHA256 != expected.Digest || !validateDigest(entry.SHA256) {
+		if entry.SHA256 != expected.Digest || !validateDigest(entry.SHA256) {
 			return nil, deny("DIGEST_MISMATCH", fmt.Sprintf("materialization.objects[%d]", index), "materialized object identity or digest differs from the frozen catalog")
 		}
 		if id == "autobahn-linux-amd64-image" {
@@ -358,16 +378,50 @@ func stageEvidenceDirectory(source string, receipt promotionDocument) (string, e
 	return stage, nil
 }
 
-func persistReceiptAtomically(path string, expected []byte, receipt promotionDocument) error {
-	actual, err := os.ReadFile(path)
-	if err != nil || !bytes.Equal(actual, expected) {
-		return deny("ARTIFACT_DRIFT", path, "promotion receipt changed during protected promotion")
+func captureEvidenceSnapshot(directory string, verifiedDigests map[string]string) (map[string][]byte, error) {
+	snapshot, err := readEvidenceSnapshot(directory)
+	if err != nil {
+		return nil, err
 	}
+	for _, name := range evidenceFiles {
+		if DigestBytes(snapshot[name]) != verifiedDigests[name] {
+			return nil, deny("ARTIFACT_DRIFT", name, "evidence changed while its immutable promotion snapshot was captured")
+		}
+	}
+	return snapshot, nil
+}
+
+func readEvidenceSnapshot(directory string) (map[string][]byte, error) {
+	snapshot := make(map[string][]byte, len(evidenceFiles))
+	for _, name := range evidenceFiles {
+		data, err := os.ReadFile(filepath.Join(directory, name))
+		if err != nil {
+			return nil, deny("ARTIFACT_DRIFT", name, "evidence snapshot cannot be read completely")
+		}
+		snapshot[name] = data
+	}
+	return snapshot, nil
+}
+
+func compareEvidenceSnapshot(directory string, expected map[string][]byte) error {
+	actual, err := readEvidenceSnapshot(directory)
+	if err != nil {
+		return err
+	}
+	for _, name := range evidenceFiles {
+		if expectedBytes, exists := expected[name]; !exists || !bytes.Equal(actual[name], expectedBytes) {
+			return deny("ARTIFACT_DRIFT", name, "evidence changed after protected verification and before receipt persistence")
+		}
+	}
+	return nil
+}
+
+func persistReceiptAtomically(directory string, expected map[string][]byte, receipt promotionDocument) error {
+	path := filepath.Join(directory, "promotion-receipts.json")
 	data, err := marshalIndentedJSON(receipt)
 	if err != nil {
 		return deny("PARTIAL_PUBLICATION", path, err.Error())
 	}
-	directory := filepath.Dir(path)
 	temporary, err := os.CreateTemp(directory, ".promotion-receipts-*.tmp")
 	if err != nil {
 		return deny("PARTIAL_PUBLICATION", path, err.Error())
@@ -388,6 +442,9 @@ func persistReceiptAtomically(path string, expected []byte, receipt promotionDoc
 	}
 	if err := temporary.Close(); err != nil {
 		return deny("PARTIAL_PUBLICATION", path, err.Error())
+	}
+	if err := compareEvidenceSnapshot(directory, expected); err != nil {
+		return err
 	}
 	if err := os.Rename(temporaryPath, path); err != nil {
 		return deny("PARTIAL_PUBLICATION", path, err.Error())

@@ -291,6 +291,9 @@ func writePromotedActionsForTest(t *testing.T, directory string, actions []Actio
 	promotions.PromotionStoreRoot = ""
 	promotions.BlockingFindings = nil
 	promotions.SignedActions = actions
+	for index := range promotions.RequiredActions {
+		promotions.RequiredActions[index].Status = "OWNER_SIGNED_PENDING_PROTECTED_VERIFICATION"
+	}
 	writeJSONTestFile(t, path, promotions)
 }
 

@@ -153,6 +153,151 @@ func TestPromoteAuthorizedOwnerInputsLeavesReceiptBlockedWhenStoreCommitFails(t 
 	}
 }
 
+func TestPromoteAuthorizedOwnerInputsDeniesConcurrentEvidenceDriftBeforeReceiptReplacement(t *testing.T) {
+	directory := copyEvidence(t)
+	receiptPath := filepath.Join(directory, "promotion-receipts.json")
+	initialReceipt, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(directory, "source-pins.json")
+	initialSource, err := os.ReadFile(sourcePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	materializationRoot := filepath.Join(t.TempDir(), "materialized")
+	manifest, catalog := writeFixtureMaterialization(t, directory, materializationRoot)
+	now := time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC)
+	ledgerDirectory := filepath.Join(t.TempDir(), "ledger")
+	actions, authority := signedOwnerPromotionFixture(t, directory, now, FileLedger{Directory: ledgerDirectory})
+	promotionStore := filepath.Join(t.TempDir(), "promotion-store")
+	hookCalled := false
+	_, err = PromoteAuthorizedOwnerInputs(OwnerPromotionInput{
+		EvidenceDirectory: directory, MaterializationRoot: materializationRoot,
+		PromotionStore: promotionStore, Manifest: manifest, Actions: actions,
+		Authority: authority, Now: now,
+		testCatalog: catalog,
+		testBeforeReceiptPersist: func() {
+			hookCalled = true
+			if writeErr := os.WriteFile(sourcePath, append(initialSource, '\n'), 0o600); writeErr != nil {
+				t.Fatalf("mutate evidence: %v", writeErr)
+			}
+		},
+	})
+	assertCode(t, err, "ARTIFACT_DRIFT")
+	if !hookCalled {
+		t.Fatal("deterministic pre-persistence hook was not reached")
+	}
+	actualReceipt, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(actualReceipt) != string(initialReceipt) {
+		t.Fatal("concurrent non-receipt drift replaced the public receipt")
+	}
+	ledgerEntries, err := os.ReadDir(ledgerDirectory)
+	if err != nil || len(ledgerEntries) != 1 || !strings.HasSuffix(ledgerEntries[0].Name(), ".batch") {
+		t.Fatalf("authorized nonce batch was not honestly retained: entries=%+v err=%v", ledgerEntries, err)
+	}
+	acceptedEntries, err := os.ReadDir(filepath.Join(promotionStore, "accepted"))
+	if err != nil || len(acceptedEntries) != 1 {
+		t.Fatalf("already-promoted store state was not honestly retained: entries=%+v err=%v", acceptedEntries, err)
+	}
+}
+
+func TestPromoteAuthorizedOwnerInputsAcceptsSchemaValidMaterializationOrder(t *testing.T) {
+	directory := copyEvidence(t)
+	materializationRoot := filepath.Join(t.TempDir(), "materialized")
+	manifest, catalog := writeFixtureMaterialization(t, directory, materializationRoot)
+	for left, right := 0, len(manifest.Objects)-1; left < right; left, right = left+1, right-1 {
+		manifest.Objects[left], manifest.Objects[right] = manifest.Objects[right], manifest.Objects[left]
+	}
+	now := time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC)
+	actions, authority := signedOwnerPromotionFixture(t, directory, now, FileLedger{Directory: filepath.Join(t.TempDir(), "ledger")})
+	result, err := PromoteAuthorizedOwnerInputs(OwnerPromotionInput{
+		EvidenceDirectory: directory, MaterializationRoot: materializationRoot,
+		PromotionStore: filepath.Join(t.TempDir(), "promotion-store"),
+		Manifest:       manifest, Actions: actions, Authority: authority, Now: now,
+		testCatalog: catalog,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ObjectCount != 23 {
+		t.Fatalf("promoted %d objects from reordered manifest, want 23", result.ObjectCount)
+	}
+}
+
+func TestPromoteAuthorizedOwnerInputsRejectsDuplicateMissingAndUnknownMaterializationIDs(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(*MaterializationManifest)
+		code   string
+	}{
+		{"duplicate", func(manifest *MaterializationManifest) { manifest.Objects[0] = manifest.Objects[1] }, "DUPLICATE_ARCHIVE_ENTRY"},
+		{"missing", func(manifest *MaterializationManifest) { manifest.Objects = manifest.Objects[:len(manifest.Objects)-1] }, "MISSING_PROMOTION_REQUIREMENT"},
+		{"unknown", func(manifest *MaterializationManifest) { manifest.Objects[0].ID = "unknown-artifact" }, "ARTIFACT_DRIFT"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			directory := copyEvidence(t)
+			materializationRoot := filepath.Join(t.TempDir(), "materialized")
+			manifest, catalog := writeFixtureMaterialization(t, directory, materializationRoot)
+			testCase.mutate(&manifest)
+			now := time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC)
+			ledgerDirectory := filepath.Join(t.TempDir(), "ledger")
+			actions, authority := signedOwnerPromotionFixture(t, directory, now, FileLedger{Directory: ledgerDirectory})
+			_, err := PromoteAuthorizedOwnerInputs(OwnerPromotionInput{
+				EvidenceDirectory: directory, MaterializationRoot: materializationRoot,
+				PromotionStore: filepath.Join(t.TempDir(), "promotion-store"),
+				Manifest:       manifest, Actions: actions, Authority: authority, Now: now,
+				testCatalog: catalog,
+			})
+			assertCode(t, err, testCase.code)
+			if _, err := os.Lstat(ledgerDirectory); !os.IsNotExist(err) {
+				t.Fatalf("invalid id set reached nonce ledger: %v", err)
+			}
+		})
+	}
+}
+
+func TestPromoteAuthorizedOwnerInputsValidatesRequiredActionsBeforeTransition(t *testing.T) {
+	directory := copyEvidence(t)
+	receiptPath := filepath.Join(directory, "promotion-receipts.json")
+	var receipt promotionDocument
+	readStrictTestFile(t, receiptPath, &receipt)
+	receipt.RequiredActions[0], receipt.RequiredActions[1] = receipt.RequiredActions[1], receipt.RequiredActions[0]
+	writeJSONTestFile(t, receiptPath, receipt)
+	corruptReceipt, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	materializationRoot := filepath.Join(t.TempDir(), "materialized")
+	manifest, catalog := writeFixtureMaterialization(t, directory, materializationRoot)
+	now := time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC)
+	ledgerDirectory := filepath.Join(t.TempDir(), "ledger")
+	actions, authority := signedOwnerPromotionFixture(t, directory, now, FileLedger{Directory: ledgerDirectory})
+	promotionStore := filepath.Join(t.TempDir(), "promotion-store")
+	_, err = PromoteAuthorizedOwnerInputs(OwnerPromotionInput{
+		EvidenceDirectory: directory, MaterializationRoot: materializationRoot,
+		PromotionStore: promotionStore, Manifest: manifest, Actions: actions,
+		Authority: authority, Now: now,
+		testCatalog: catalog,
+	})
+	assertCode(t, err, "ACTION_SCOPE_MISMATCH")
+	actualReceipt, err := os.ReadFile(receiptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(actualReceipt) != string(corruptReceipt) {
+		t.Fatal("invalid required-action trace was rewritten before validation")
+	}
+	for _, path := range []string{ledgerDirectory, promotionStore} {
+		if _, err := os.Lstat(path); !os.IsNotExist(err) {
+			t.Fatalf("invalid required-action trace mutated protected state at %s: %v", path, err)
+		}
+	}
+}
+
 func TestBuildTrustedOwnerAuthorityRejectsNonOwnerAndAmbiguousRoles(t *testing.T) {
 	publicKey, _, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
