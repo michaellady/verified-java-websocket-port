@@ -29,9 +29,11 @@ type VerifyReport struct {
 // TrustedAuthority is supplied by the protected caller, never loaded from the
 // candidate evidence directory.
 type TrustedAuthority struct {
-	Identities map[string]Identity
-	Snapshots  map[string]Snapshot
-	Ledger     NonceLedger
+	AuthorityMode string
+	OwnerActorID  string
+	Identities    map[string]Identity
+	Snapshots     map[string]Snapshot
+	Ledger        NonceLedger
 }
 
 type sourceDocument struct {
@@ -204,8 +206,12 @@ type promotionDocument struct {
 	Company                          string            `json:"company"`
 	Project                          string            `json:"project"`
 	LaboratoryID                     string            `json:"laboratory_id"`
+	AuthorityMode                    string            `json:"authority_mode"`
 	PolicyVersion                    string            `json:"policy_version"`
 	PolicyDigest                     string            `json:"policy_digest"`
+	PolicyAmendmentVersion           string            `json:"policy_amendment_version"`
+	PolicyAmendmentDigest            string            `json:"policy_amendment_digest"`
+	AssuranceCeiling                 string            `json:"assurance_ceiling"`
 	CandidatePayload                 candidatePayload  `json:"candidate_payload"`
 	Status                           string            `json:"status"`
 	PublicationRequested             bool              `json:"publication_requested"`
@@ -215,10 +221,21 @@ type promotionDocument struct {
 	SignedActions                    []Action          `json:"signed_actions"`
 	AuthoritativeSnapshotProjections []json.RawMessage `json:"authoritative_snapshot_projections"`
 	RequiredActions                  []requiredAction  `json:"required_actions"`
-	ApprovalPolicy                   json.RawMessage   `json:"approval_policy"`
+	ApprovalPolicy                   approvalPolicy    `json:"approval_policy"`
 	BlockingFindings                 []Finding         `json:"blocking_findings"`
 	SafeNextAction                   string            `json:"safe_next_action"`
 	Claim                            string            `json:"claim"`
+}
+
+type approvalPolicy struct {
+	AuthorityModel                string `json:"authority_model"`
+	OwnerActorID                  string `json:"owner_actor_id"`
+	OwnerActionPrincipalsRequired int    `json:"owner_action_principals_required"`
+	IndependentApprovalsRequired  int    `json:"independent_approvals_required"`
+	IndependentReviewClaimed      bool   `json:"independent_review_claimed"`
+	AssuranceCeiling              string `json:"assurance_ceiling"`
+	NonceLedger                   string `json:"nonce_ledger"`
+	RoleAndRevocationSnapshots    string `json:"role_and_revocation_snapshots"`
 }
 
 type candidatePayload struct {
@@ -424,12 +441,16 @@ func VerifyEvidenceDir(directory string, now time.Time) (*VerifyReport, error) {
 	if !now.Before(vulnerabilities.ExpiresAt) {
 		report.Blockers = append(report.Blockers, Finding{Code: "VULNERABILITY_SNAPSHOT_STALE", Path: "vulnerability-snapshot.json.expires_at", Message: "vulnerability snapshot expired"})
 	}
-	if vulnerabilities.Decision != "CLEAR" {
-		report.Blockers = append(report.Blockers, Finding{Code: "VULNERABILITY_STATE_BLOCKED", Path: "vulnerability-snapshot.json.decision", Message: vulnerabilities.DecisionReason})
+	if vulnerabilities.Decision != "OWNER_DISPOSITION_REQUIRED" || vulnerabilities.DecisionReason == "" {
+		return nil, deny("VULNERABILITY_SNAPSHOT_STALE", "vulnerability-snapshot.json.decision", "single-owner intake must retain an explicit owner-disposition-required state")
 	}
+	report.Blockers = append(report.Blockers, Finding{Code: "OWNER_RISK_DISPOSITION_REQUIRED", Path: "vulnerability-snapshot.json.decision", Message: vulnerabilities.DecisionReason})
 
-	if promotions.PolicyVersion != "foundation-1.0.0" || promotions.PolicyDigest != "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54" {
-		return nil, deny("POLICY_VERSION_MISMATCH", "promotion-receipts.json", "promotion policy binding differs")
+	if promotions.AuthorityMode != SingleOwnerAuthorityMode || promotions.PolicyVersion != BasePolicyVersion || promotions.PolicyDigest != BasePolicyDigest || promotions.PolicyAmendmentVersion != SingleOwnerAmendmentVersion || promotions.PolicyAmendmentDigest != SingleOwnerAmendmentDigest {
+		return nil, deny("POLICY_VERSION_MISMATCH", "promotion-receipts.json", "promotion receipt must bind the frozen base policy and authoritative single-owner amendment")
+	}
+	if promotions.AssuranceCeiling != "OWNER_ATTESTED_NOT_INDEPENDENT" || promotions.ApprovalPolicy.AuthorityModel != SingleOwnerAuthorityMode || promotions.ApprovalPolicy.OwnerActorID != RequiredOwnerActor || promotions.ApprovalPolicy.OwnerActionPrincipalsRequired != 1 || promotions.ApprovalPolicy.IndependentApprovalsRequired != 0 || promotions.ApprovalPolicy.IndependentReviewClaimed || promotions.ApprovalPolicy.AssuranceCeiling != promotions.AssuranceCeiling || promotions.ApprovalPolicy.NonceLedger == "" || promotions.ApprovalPolicy.RoleAndRevocationSnapshots == "" {
+		return nil, deny("POLICY_VERSION_MISMATCH", "promotion-receipts.json.approval_policy", "receipt obscures or widens the single-owner assurance ceiling")
 	}
 	if promotions.PublicationRequested || promotions.PublicationCount != 0 || promotions.ProtectedAccessCount != 0 {
 		return nil, deny("ROLE_ACTION_MISMATCH", "promotion-receipts.json", "US-001 permits neither publication nor protected access")
@@ -437,10 +458,12 @@ func VerifyEvidenceDir(directory string, now time.Time) (*VerifyReport, error) {
 	if err := verifyCandidatePayload(promotions.CandidatePayload, report.FileDigests); err != nil {
 		return nil, err
 	}
-	if promotions.Status != "PROMOTED" || promotions.AcceptedObjectCount != len(expectedArtifacts) || len(promotions.SignedActions) < 4 {
-		report.Blockers = append(report.Blockers, Finding{Code: "MISSING_PROMOTION_REQUIREMENT", Path: "promotion-receipts.json.signed_actions", Message: "real existing-identity actions and independent promotion receipt are absent"})
-	} else {
+	if promotions.Status == SingleOwnerPromotedStatus && promotions.AcceptedObjectCount == len(expectedArtifacts) && len(promotions.SignedActions) == 4 {
 		report.Blockers = append(report.Blockers, Finding{Code: "PROTECTED_CALLER_REQUIRED", Path: "promotion-receipts.json.signed_actions", Message: "candidate evidence cannot verify its own authoritative identities, snapshots, or nonce ledger"})
+	} else if promotions.Status == SingleOwnerBlockedStatus && promotions.AcceptedObjectCount == 0 && len(promotions.SignedActions) == 0 {
+		report.Blockers = append(report.Blockers, Finding{Code: "MISSING_PROMOTION_REQUIREMENT", Path: "promotion-receipts.json.signed_actions", Message: "the repository owner's real cryptographic stage actions and protected authority are absent"})
+	} else {
+		return nil, deny("ACTION_SCOPE_MISMATCH", "promotion-receipts.json.status", "receipt status, action count, and accepted-object count are inconsistent")
 	}
 	return report, nil
 }
@@ -454,9 +477,12 @@ func VerifyAuthorizedEvidenceDir(directory string, now time.Time, authority Trus
 		return nil, err
 	}
 	for _, blocker := range report.Blockers {
-		if blocker.Code != "PROTECTED_CALLER_REQUIRED" {
+		if blocker.Code != "OWNER_RISK_DISPOSITION_REQUIRED" && blocker.Code != "PROTECTED_CALLER_REQUIRED" {
 			return report, &blocker
 		}
+	}
+	if authority.AuthorityMode != SingleOwnerAuthorityMode || authority.OwnerActorID != RequiredOwnerActor {
+		return nil, deny("AUTHORITY_MODE_MISMATCH", "protected-authority", "protected caller did not supply the policy-bound single-owner authority")
 	}
 	data, err := os.ReadFile(filepath.Join(directory, "promotion-receipts.json"))
 	if err != nil {
@@ -473,31 +499,32 @@ func VerifyAuthorizedEvidenceDir(directory string, now time.Time, authority Trus
 		{"acquisition", "acquire", "method-schema-steward", nil},
 		{"quarantine", "quarantine", "port-implementer", nil},
 		{"qualification", "qualify", "port-implementer", []string{"quarantined-source"}},
-		{"independent-promotion", "promote", "release-attestor", nil},
+		{PromotionStageID, "promote", "release-attestor", nil},
 	}
 	if len(promotions.SignedActions) != len(expected) {
 		return nil, deny("MISSING_PROMOTION_REQUIREMENT", "promotion-receipts.json.signed_actions", "exactly four signed stage actions are required")
 	}
-	actors := make(map[string]string)
+	claims := make([]nonceClaim, 0, len(expected))
 	for index, required := range expected {
 		action := promotions.SignedActions[index]
-		if action.ObjectID != "java-websocket-us001-inputs-v1" || action.ObjectKind != "artifact-set" || action.Stage != required.stage || action.Action != required.action || action.Role != required.role || action.ArtifactDigest != promotions.CandidatePayload.RootDigest || action.PolicyVersion != promotions.PolicyVersion || action.PolicyDigest != promotions.PolicyDigest || !slices.Equal(action.RequestedSandboxAccess, required.sandbox) || action.Publication.Requested {
-			return nil, deny("ACTION_SCOPE_MISMATCH", fmt.Sprintf("promotion-receipts.json.signed_actions[%d]", index), "signed action does not bind the exact stage, object, root, sandbox, and non-publication intent")
+		if action.ObjectID != "java-websocket-us001-inputs-v1" || action.ObjectKind != "artifact-set" || action.Stage != required.stage || action.Action != required.action || action.ActorID != RequiredOwnerActor || action.Role != required.role || action.AuthorityMode != promotions.AuthorityMode || action.ArtifactDigest != promotions.CandidatePayload.RootDigest || action.PolicyVersion != promotions.PolicyVersion || action.PolicyDigest != promotions.PolicyDigest || action.PolicyAmendmentVersion != promotions.PolicyAmendmentVersion || action.PolicyAmendmentDigest != promotions.PolicyAmendmentDigest || !slices.Equal(action.RequestedSandboxAccess, required.sandbox) || action.Publication.Requested || action.Publication.Classification != "QUARANTINED" {
+			return nil, deny("ACTION_SCOPE_MISMATCH", fmt.Sprintf("promotion-receipts.json.signed_actions[%d]", index), "signed action does not bind the exact owner, stage, object, roots, policies, sandbox, and non-publication intent")
 		}
-		if priorRole, exists := actors[action.ActorID]; exists && priorRole != action.Role {
-			return nil, deny("ROLE_CONFLICT", fmt.Sprintf("promotion-receipts.json.signed_actions[%d]", index), "one actor appears under incompatible roles")
+		if action.Stage == PromotionStageID && (action.RiskDisposition == nil || action.RiskDisposition.VulnerabilitySnapshotDigest != report.FileDigests["vulnerability-snapshot.json"]) {
+			return nil, deny("RISK_DISPOSITION_MISMATCH", fmt.Sprintf("promotion-receipts.json.signed_actions[%d].risk_disposition", index), "promotion action does not bind the retained vulnerability snapshot bytes")
 		}
-		actors[action.ActorID] = action.Role
 		snapshot, exists := authority.Snapshots[action.ActorID]
 		if !exists {
 			return nil, deny("REVOKED_AUTHORIZATION", fmt.Sprintf("promotion-receipts.json.signed_actions[%d]", index), "authoritative snapshot is absent")
 		}
-		if err := Authorize(action, authority.Identities, snapshot, authority.Ledger, now); err != nil {
+		if err := validateAuthorization(action, authority.Identities, snapshot, now); err != nil {
 			return nil, err
 		}
+		claims = append(claims, nonceClaim{actorID: action.ActorID, nonce: action.Nonce})
 	}
-	if len(actors) != 3 {
-		return nil, deny("INDEPENDENT_APPROVAL_REQUIRED", "promotion-receipts.json.signed_actions", "steward, implementer, and attestor must be three distinct existing identities")
+	ledger, ok := authority.Ledger.(batchNonceLedger)
+	if !ok || !ledger.ConsumeBatch(claims) {
+		return nil, deny("REPLAYED_APPROVAL", "promotion-receipts.json.signed_actions", "one or more owner action nonces were already consumed or the protected ledger could not consume the complete batch")
 	}
 	report.Blockers = nil
 	return report, nil

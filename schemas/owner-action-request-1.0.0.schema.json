@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/owner-action-request-1.0.0.schema.json",
+  "title": "US-001 single-owner action signing request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "actor_id",
+    "key_id",
+    "artifact_digest",
+    "policy_version",
+    "policy_digest",
+    "policy_amendment_version",
+    "policy_amendment_digest",
+    "issued_at",
+    "expires_at",
+    "role_snapshot_digest",
+    "revocation_snapshot_digest",
+    "vulnerability_snapshot_digest",
+    "nonces",
+    "risk_rationale"
+  ],
+  "properties": {
+    "actor_id": {"const": "github:michaellady"},
+    "key_id": {"type": "string", "minLength": 1},
+    "artifact_digest": {"$ref": "#/$defs/digest"},
+    "policy_version": {"const": "foundation-1.0.0"},
+    "policy_digest": {"const": "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54"},
+    "policy_amendment_version": {"const": "java-websocket-single-owner-1.0.0"},
+    "policy_amendment_digest": {"const": "sha256:ee247975a3a2cf10e8d93221df85505b8ed882630a5658662e9d716afe617cec"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "role_snapshot_digest": {"$ref": "#/$defs/digest"},
+    "revocation_snapshot_digest": {"$ref": "#/$defs/digest"},
+    "vulnerability_snapshot_digest": {"$ref": "#/$defs/digest"},
+    "nonces": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$"}
+    },
+    "risk_rationale": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

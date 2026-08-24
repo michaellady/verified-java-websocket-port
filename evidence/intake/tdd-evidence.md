@@ -4,6 +4,8 @@
 
 The first test run failed to compile because the strict decoder, canonical signed action, authoritative identity model, nonce ledger, role/stage policy, archive inspector, exact OCI validator, and atomic promoter did not exist. Representative failures were `undefined: DecodeStrict`, `undefined: CanonicalAction`, `undefined: Authorize`, and `undefined: NewMemoryLedger`.
 
+The single-owner amendment began with regression tests that failed to compile on the absent `BuildAndSignOwnerActions`, `OwnerActionRequest`, `SingleOwnerAuthorityMode`, amendment binding, and scoped risk-disposition types. The GREEN implementation preserves the base contract and binds the separate governing amendment in every signature.
+
 ## GREEN
 
 The implemented suite passes:
@@ -35,9 +37,9 @@ PASS
 
 ## Expected fail-closed E2E result
 
-`go run ./cmd/intakectl verify --evidence-dir evidence/intake` returns a stable evidence root and exits nonzero with exactly:
+`go run ./cmd/intakectl verify --evidence-dir evidence/intake` returns evidence root `sha256:1e226796e8bcc248b10e763211ed8eff92a93caf71adec06d07862be0a0a20a7` and exits nonzero with exactly:
 
-- `VULNERABILITY_STATE_BLOCKED`
+- `OWNER_RISK_DISPOSITION_REQUIRED`
 - `MISSING_PROMOTION_REQUIREMENT`
 
 This is the correct current result. No accepted object, publication action, protected-store access, identity assignment, signature, or risk acceptance was fabricated to make the story green.

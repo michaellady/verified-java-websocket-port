@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 )
@@ -19,6 +20,15 @@ type NonceLedger interface {
 	Consume(actorID, nonce string) bool
 }
 
+type nonceClaim struct {
+	actorID string
+	nonce   string
+}
+
+type batchNonceLedger interface {
+	ConsumeBatch(claims []nonceClaim) bool
+}
+
 type MemoryLedger struct {
 	mu   sync.Mutex
 	used map[string]struct{}
@@ -27,13 +37,23 @@ type MemoryLedger struct {
 func NewMemoryLedger() *MemoryLedger { return &MemoryLedger{used: make(map[string]struct{})} }
 
 func (l *MemoryLedger) Consume(actorID, nonce string) bool {
+	return l.ConsumeBatch([]nonceClaim{{actorID: actorID, nonce: nonce}})
+}
+
+func (l *MemoryLedger) ConsumeBatch(claims []nonceClaim) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	key := actorID + "\x00" + nonce
-	if _, exists := l.used[key]; exists {
-		return false
+	keys := make([]string, 0, len(claims))
+	for _, claim := range claims {
+		key := claim.actorID + "\x00" + claim.nonce
+		if _, exists := l.used[key]; exists || slices.Contains(keys, key) {
+			return false
+		}
+		keys = append(keys, key)
 	}
-	l.used[key] = struct{}{}
+	for _, key := range keys {
+		l.used[key] = struct{}{}
+	}
 	return true
 }
 
@@ -45,41 +65,88 @@ type FileLedger struct {
 }
 
 func (l FileLedger) Consume(actorID, nonce string) bool {
-	if l.Directory == "" || actorID == "" || !noncePattern.MatchString(nonce) {
+	return l.ConsumeBatch([]nonceClaim{{actorID: actorID, nonce: nonce}})
+}
+
+func (l FileLedger) ConsumeBatch(claims []nonceClaim) bool {
+	if l.Directory == "" || len(claims) == 0 {
 		return false
+	}
+	for _, claim := range claims {
+		if claim.actorID == "" || !noncePattern.MatchString(claim.nonce) {
+			return false
+		}
 	}
 	if err := os.MkdirAll(l.Directory, 0o700); err != nil {
 		return false
 	}
-	sum := sha256.Sum256([]byte(actorID + "\x00" + nonce))
-	name := hex.EncodeToString(sum[:]) + ".consumed"
-	file, err := os.OpenFile(filepath.Join(l.Directory, name), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-	if errors.Is(err, os.ErrExist) {
-		return false
-	}
+	lockPath := filepath.Join(l.Directory, ".nonce-batch.lock")
+	lock, err := os.OpenFile(lockPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return false
 	}
-	if _, err := file.WriteString(DigestBytes(CanonicalAction(Action{ActorID: actorID, Nonce: nonce})) + "\n"); err != nil {
-		_ = file.Close()
+	defer func() {
+		_ = lock.Close()
+		_ = os.Remove(lockPath)
+		_ = syncDirectory(l.Directory)
+	}()
+
+	paths := make([]string, 0, len(claims))
+	seen := make(map[string]struct{}, len(claims))
+	for _, claim := range claims {
+		sum := sha256.Sum256([]byte(claim.actorID + "\x00" + claim.nonce))
+		path := filepath.Join(l.Directory, hex.EncodeToString(sum[:])+".consumed")
+		if _, duplicate := seen[path]; duplicate {
+			return false
+		}
+		seen[path] = struct{}{}
+		if _, err := os.Lstat(path); err == nil || !errors.Is(err, os.ErrNotExist) {
+			return false
+		}
+		paths = append(paths, path)
+	}
+	created := make([]string, 0, len(paths))
+	rollback := func() {
+		for _, path := range created {
+			_ = os.Remove(path)
+		}
+	}
+	for index, path := range paths {
+		file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+		if err != nil {
+			rollback()
+			return false
+		}
+		created = append(created, path)
+		claim := claims[index]
+		if _, err := file.WriteString(DigestBytes(CanonicalAction(Action{ActorID: claim.actorID, Nonce: claim.nonce})) + "\n"); err != nil {
+			_ = file.Close()
+			rollback()
+			return false
+		}
+		if err := file.Sync(); err != nil {
+			_ = file.Close()
+			rollback()
+			return false
+		}
+		if err := file.Close(); err != nil {
+			rollback()
+			return false
+		}
+	}
+	if err := syncDirectory(l.Directory); err != nil {
+		rollback()
 		return false
 	}
-	if err := file.Sync(); err != nil {
-		_ = file.Close()
-		return false
-	}
-	if err := file.Close(); err != nil {
-		return false
-	}
-	return syncDirectory(l.Directory) == nil
+	return true
 }
 
 func ValidateRoleStage(stage, role string, sandbox []string, publication PublicationIntent) error {
 	requiredRole := map[string]string{
-		"acquisition":           "method-schema-steward",
-		"quarantine":            "port-implementer",
-		"qualification":         "port-implementer",
-		"independent-promotion": "release-attestor",
+		"acquisition":    "method-schema-steward",
+		"quarantine":     "port-implementer",
+		"qualification":  "port-implementer",
+		PromotionStageID: "release-attestor",
 	}[stage]
 	if requiredRole == "" {
 		return deny("UNKNOWN_STAGE", "$.stage", "stage is outside the frozen promotion policy")
@@ -106,8 +173,27 @@ func ValidateRoleStage(stage, role string, sandbox []string, publication Publica
 }
 
 func Authorize(action Action, identities map[string]Identity, snapshot Snapshot, ledger NonceLedger, now time.Time) error {
+	if err := validateAuthorization(action, identities, snapshot, now); err != nil {
+		return err
+	}
+	if ledger == nil || !ledger.Consume(action.ActorID, action.Nonce) {
+		return deny("REPLAYED_APPROVAL", "$.nonce", "nonce has already been consumed")
+	}
+	return nil
+}
+
+func validateAuthorization(action Action, identities map[string]Identity, snapshot Snapshot, now time.Time) error {
 	if action.Company != RequiredCompany || action.Project != RequiredProject || action.LaboratoryID != RequiredLaboratory {
 		return deny("CROSS_COMPANY_REFERENCE", "$.company", "authorization scope does not match the laboratory")
+	}
+	if action.AuthorityMode != SingleOwnerAuthorityMode {
+		return deny("AUTHORITY_MODE_MISMATCH", "$.authority_mode", "action does not use the policy-bound single-owner authority mode")
+	}
+	if action.ActorID != RequiredOwnerActor {
+		return deny("OWNER_MISMATCH", "$.actor_id", "action actor is not the policy-bound repository owner")
+	}
+	if action.PolicyVersion != BasePolicyVersion || action.PolicyDigest != BasePolicyDigest || action.PolicyAmendmentVersion != SingleOwnerAmendmentVersion || action.PolicyAmendmentDigest != SingleOwnerAmendmentDigest {
+		return deny("POLICY_VERSION_MISMATCH", "$.policy_amendment_digest", "action does not bind the frozen base policy and single-owner amendment")
 	}
 	if !noncePattern.MatchString(action.Nonce) {
 		return deny("INVALID_NONCE", "$.nonce", "nonce must be 16-128 conservative characters")
@@ -121,12 +207,18 @@ func Authorize(action Action, identities map[string]Identity, snapshot Snapshot,
 	if err := ValidateRoleStage(action.Stage, action.Role, action.RequestedSandboxAccess, action.Publication); err != nil {
 		return err
 	}
+	if err := validateActionRiskDisposition(action); err != nil {
+		return err
+	}
 	identity, ok := identities[action.ActorID]
-	if !ok || identity.KeyID != action.KeyID {
+	if !ok || identity.ActorID != action.ActorID || identity.KeyID != action.KeyID {
 		return deny("UNKNOWN_IDENTITY", "$.actor_id", "actor/key is not in the authoritative registry")
 	}
-	if identity.Role != action.Role {
-		return deny("ROLE_CONFLICT", "$.role", "action role differs from authoritative identity role")
+	if identity.AuthorityMode != SingleOwnerAuthorityMode {
+		return deny("AUTHORITY_MODE_MISMATCH", "$.actor_id", "authoritative identity is not registered for single-owner mode")
+	}
+	if !slices.Contains(identity.AllowedRoles, action.Role) {
+		return deny("ROLE_CONFLICT", "$.role", "action role is not present in the owner's authoritative allowed roles")
 	}
 	if identity.Revoked {
 		return deny("REVOKED_AUTHORIZATION", "$.actor_id", "identity is revoked")
@@ -134,7 +226,7 @@ func Authorize(action Action, identities map[string]Identity, snapshot Snapshot,
 	if snapshot.RoleDigest != action.RoleSnapshotDigest || snapshot.RevocationDigest != action.RevocationSnapshotDigest {
 		return deny("REVOKED_AUTHORIZATION", "$.revocation_snapshot_digest", "authoritative snapshots differ from the signed action")
 	}
-	if !validateDigest(action.ArtifactDigest) || !validateDigest(action.PolicyDigest) || !validateDigest(action.RoleSnapshotDigest) || !validateDigest(action.RevocationSnapshotDigest) {
+	if !validateDigest(action.ArtifactDigest) || !validateDigest(action.PolicyDigest) || !validateDigest(action.PolicyAmendmentDigest) || !validateDigest(action.RoleSnapshotDigest) || !validateDigest(action.RevocationSnapshotDigest) {
 		return deny("INVALID_DIGEST", "$.artifact_digest", "signed digests must be canonical sha256 values")
 	}
 	publicKey, err := hex.DecodeString(identity.PublicKey)
@@ -145,8 +237,44 @@ func Authorize(action Action, identities map[string]Identity, snapshot Snapshot,
 	if err != nil || len(signature) != ed25519.SignatureSize || !ed25519.Verify(ed25519.PublicKey(publicKey), CanonicalAction(action), signature) {
 		return deny("INVALID_SIGNATURE", "$.signature", "signature does not bind the complete action")
 	}
-	if ledger == nil || !ledger.Consume(action.ActorID, action.Nonce) {
-		return deny("REPLAYED_APPROVAL", "$.nonce", "nonce has already been consumed")
+	return nil
+}
+
+func validateActionRiskDisposition(action Action) error {
+	if action.Stage != PromotionStageID {
+		if action.RiskDisposition != nil {
+			return deny("RISK_DISPOSITION_MISMATCH", "$.risk_disposition", "risk disposition is allowed only on the promotion action")
+		}
+		return nil
+	}
+	if action.RiskDisposition == nil {
+		return deny("RISK_DISPOSITION_REQUIRED", "$.risk_disposition", "promotion must sign the exact retained Autobahn risk disposition")
+	}
+	disposition := action.RiskDisposition
+	if disposition.Decision != "ACCEPT_RETAINED_FINDINGS_FOR_QUARANTINED_LAB_ONLY" ||
+		disposition.ArtifactID != "autobahn-linux-amd64-image" ||
+		disposition.ArtifactDigest != AutobahnManifestDigest ||
+		!validateDigest(disposition.VulnerabilitySnapshotDigest) ||
+		disposition.CriticalCount != 12 || disposition.HighCount != 147 ||
+		disposition.Scope != "QUARANTINED_LABORATORY_QUALIFICATION_ONLY" ||
+		disposition.ProductionUseAuthorized || disposition.PublicationAuthorized ||
+		strings.TrimSpace(disposition.Rationale) == "" {
+		return deny("RISK_DISPOSITION_MISMATCH", "$.risk_disposition", "signed risk disposition does not accept only the exact retained 12 critical and 147 high findings for quarantined laboratory qualification")
 	}
 	return nil
+}
+
+func validRiskDisposition(vulnerabilitySnapshotDigest string) *RiskDisposition {
+	return &RiskDisposition{
+		Decision:                    "ACCEPT_RETAINED_FINDINGS_FOR_QUARANTINED_LAB_ONLY",
+		ArtifactID:                  "autobahn-linux-amd64-image",
+		ArtifactDigest:              AutobahnManifestDigest,
+		VulnerabilitySnapshotDigest: vulnerabilitySnapshotDigest,
+		CriticalCount:               12,
+		HighCount:                   147,
+		Scope:                       "QUARANTINED_LABORATORY_QUALIFICATION_ONLY",
+		ProductionUseAuthorized:     false,
+		PublicationAuthorized:       false,
+		Rationale:                   "Owner accepts the exact retained findings only for quarantined laboratory qualification.",
+	}
 }

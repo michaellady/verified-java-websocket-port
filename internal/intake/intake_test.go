@@ -47,9 +47,8 @@ func TestValidateActionCryptographicallyBindsScopeAndRoles(t *testing.T) {
 	action.Signature = hex.EncodeToString(ed25519.Sign(privateKey, CanonicalAction(action)))
 	keys := map[string]Identity{
 		action.ActorID: {
-			ActorID:   action.ActorID,
-			Role:      action.Role,
-			KeyID:     action.KeyID,
+			ActorID: action.ActorID, AuthorityMode: SingleOwnerAuthorityMode,
+			AllowedRoles: []string{action.Role}, KeyID: action.KeyID,
 			PublicKey: hex.EncodeToString(publicKey),
 		},
 	}
@@ -98,7 +97,7 @@ func TestRoleStagePolicy(t *testing.T) {
 		{"acquire", "acquisition", "method-schema-steward", nil, false, true},
 		{"quarantine", "quarantine", "port-implementer", nil, false, true},
 		{"qualification", "qualification", "port-implementer", []string{"quarantined-source"}, false, true},
-		{"promotion", "independent-promotion", "release-attestor", nil, false, true},
+		{"promotion", PromotionStageID, "release-attestor", nil, false, true},
 		{"attestor-sandbox", "qualification", "release-attestor", []string{"quarantined-source"}, false, false},
 		{"implementer-publish", "qualification", "port-implementer", []string{"quarantined-source"}, true, false},
 	} {
@@ -290,10 +289,11 @@ func TestValidateAutobahnDescriptorRejectsFloatingOrWrongPlatform(t *testing.T) 
 func validAction(now time.Time) Action {
 	return Action{
 		ObjectID: "object-source-pin-set", ObjectKind: "artifact-set", Stage: "qualification", Action: "qualify",
-		ActorID: "github:port-implementer", Role: "port-implementer", KeyID: "ed25519:port-implementer-2026-08",
+		ActorID: RequiredOwnerActor, Role: "port-implementer", KeyID: "ed25519:owner-2026-08", AuthorityMode: SingleOwnerAuthorityMode,
 		Company: RequiredCompany, Project: RequiredProject, LaboratoryID: RequiredLaboratory,
 		ArtifactDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-		PolicyVersion:  "toolchain-promotion-1.0.0", PolicyDigest: "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54",
+		PolicyVersion:  BasePolicyVersion, PolicyDigest: BasePolicyDigest,
+		PolicyAmendmentVersion: SingleOwnerAmendmentVersion, PolicyAmendmentDigest: SingleOwnerAmendmentDigest,
 		RequestedSandboxAccess: []string{"quarantined-source"}, Publication: PublicationIntent{Requested: false, Classification: "QUARANTINED"},
 		IssuedAt: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour), Nonce: "nonce-valid-0000000000000001",
 		RoleSnapshotDigest:       "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
