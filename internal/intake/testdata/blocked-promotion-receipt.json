@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0.0",
+  "company": "open-source-projects",
+  "project": "verified-java-websocket-port",
+  "laboratory_id": "lab-java-websocket",
+  "authority_mode": "single-owner",
+  "policy_version": "foundation-1.0.0",
+  "policy_digest": "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54",
+  "policy_amendment_version": "java-websocket-single-owner-1.0.0",
+  "policy_amendment_digest": "sha256:ee247975a3a2cf10e8d93221df85505b8ed882630a5658662e9d716afe617cec",
+  "assurance_ceiling": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "candidate_payload": {
+    "root_algorithm": "sha256 over newline-delimited ordered path=digest records",
+    "root_digest": "sha256:9bdab9af62d65b636c2ea447548a811bb3e484fee7f10f7dbc7b53291c51fe2b",
+    "files": [
+      {"path": "source-pins.json", "sha256": "sha256:247bab625a90997cf915f5fd08a06ade4913f6113ec14c768176feaac4d4425e"},
+      {"path": "toolchain-pins.json", "sha256": "sha256:0f5b3b8418d33d3ede7331199e572b5879719d36d4b5193fac926eb99118c717"},
+      {"path": "sbom.json", "sha256": "sha256:1cd0d3fedf82633c779d2604ca0b1afb58fa76eda6c8eda485a77fe35cc80d32"},
+      {"path": "vulnerability-snapshot.json", "sha256": "sha256:6a20c88282c31e8b042af086bd56f0cd6af0ba7e88b867e8e9e38d30d00944e3"}
+    ]
+  },
+  "status": "BLOCKED_PENDING_OWNER_ACTION_AND_RISK_DISPOSITION",
+  "publication_requested": false,
+  "publication_count": 0,
+  "protected_access_count": 0,
+  "accepted_object_count": 0,
+  "signed_actions": [],
+  "authoritative_snapshot_projections": [],
+  "required_actions": [
+    {"stage": "acquisition", "role": "method-schema-steward", "requested_sandbox_access": [], "publication_requested": false, "status": "OWNER_SIGNATURE_REQUIRED"},
+    {"stage": "quarantine", "role": "port-implementer", "requested_sandbox_access": [], "publication_requested": false, "status": "OWNER_SIGNATURE_REQUIRED"},
+    {"stage": "qualification", "role": "port-implementer", "requested_sandbox_access": ["quarantined-source"], "publication_requested": false, "status": "OWNER_SIGNATURE_REQUIRED"},
+    {"stage": "owner-promotion", "role": "release-attestor", "requested_sandbox_access": [], "publication_requested": false, "status": "OWNER_SIGNATURE_AND_SCOPED_RISK_DISPOSITION_REQUIRED"}
+  ],
+  "approval_policy": {
+    "authority_model": "single-owner",
+    "owner_actor_id": "github:michaellady",
+    "owner_action_principals_required": 1,
+    "independent_approvals_required": 0,
+    "independent_review_claimed": false,
+    "assurance_ceiling": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "nonce_ledger": "PROTECTED_HELD_OUT and absent from this public projection",
+    "role_and_revocation_snapshots": "must be supplied by the protected caller and are absent until the repository owner acts"
+  },
+  "blocking_findings": [
+    {"code": "MISSING_PROMOTION_REQUIREMENT", "path": "$.signed_actions", "message": "No repository-owner cryptographic actions or authoritative protected snapshots have been supplied."},
+    {"code": "OWNER_RISK_DISPOSITION_REQUIRED", "path": "$.candidate_payload.files[3]", "message": "The owner must sign acceptance of the exact 12 critical and 147 high findings only for quarantined laboratory qualification."}
+  ],
+  "safe_next_action": "The repository owner github:michaellady may use externally held Ed25519 key material and protected role/revocation snapshots to sign the four exact action roles, including a quarantined-laboratory-only risk disposition. Candidate evidence cannot supply identity truth or clear the protected gate.",
+  "claim": "This file is a fail-closed single-owner action request and blocker receipt, not a promotion receipt and not an independent review."
+}

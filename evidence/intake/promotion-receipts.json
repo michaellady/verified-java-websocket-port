@@ -13,24 +13,194 @@
     "root_algorithm": "sha256 over newline-delimited ordered path=digest records",
     "root_digest": "sha256:9bdab9af62d65b636c2ea447548a811bb3e484fee7f10f7dbc7b53291c51fe2b",
     "files": [
-      {"path": "source-pins.json", "sha256": "sha256:247bab625a90997cf915f5fd08a06ade4913f6113ec14c768176feaac4d4425e"},
-      {"path": "toolchain-pins.json", "sha256": "sha256:0f5b3b8418d33d3ede7331199e572b5879719d36d4b5193fac926eb99118c717"},
-      {"path": "sbom.json", "sha256": "sha256:1cd0d3fedf82633c779d2604ca0b1afb58fa76eda6c8eda485a77fe35cc80d32"},
-      {"path": "vulnerability-snapshot.json", "sha256": "sha256:6a20c88282c31e8b042af086bd56f0cd6af0ba7e88b867e8e9e38d30d00944e3"}
+      {
+        "path": "source-pins.json",
+        "sha256": "sha256:247bab625a90997cf915f5fd08a06ade4913f6113ec14c768176feaac4d4425e"
+      },
+      {
+        "path": "toolchain-pins.json",
+        "sha256": "sha256:0f5b3b8418d33d3ede7331199e572b5879719d36d4b5193fac926eb99118c717"
+      },
+      {
+        "path": "sbom.json",
+        "sha256": "sha256:1cd0d3fedf82633c779d2604ca0b1afb58fa76eda6c8eda485a77fe35cc80d32"
+      },
+      {
+        "path": "vulnerability-snapshot.json",
+        "sha256": "sha256:6a20c88282c31e8b042af086bd56f0cd6af0ba7e88b867e8e9e38d30d00944e3"
+      }
     ]
   },
-  "status": "BLOCKED_PENDING_OWNER_ACTION_AND_RISK_DISPOSITION",
+  "status": "SINGLE_OWNER_PROMOTED_NO_INDEPENDENT_REVIEW",
   "publication_requested": false,
   "publication_count": 0,
   "protected_access_count": 0,
-  "accepted_object_count": 0,
-  "signed_actions": [],
+  "accepted_object_count": 23,
+  "promotion_store_root": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+  "signed_actions": [
+    {
+      "object_id": "java-websocket-us001-inputs-v1",
+      "object_kind": "artifact-set",
+      "stage": "acquisition",
+      "action": "acquire",
+      "actor_id": "github:michaellady",
+      "role": "method-schema-steward",
+      "key_id": "java-websocket-us001-owner-ed25519-2026-08-24",
+      "authority_mode": "single-owner",
+      "company": "open-source-projects",
+      "project": "verified-java-websocket-port",
+      "laboratory_id": "lab-java-websocket",
+      "artifact_digest": "sha256:9bdab9af62d65b636c2ea447548a811bb3e484fee7f10f7dbc7b53291c51fe2b",
+      "policy_version": "foundation-1.0.0",
+      "policy_digest": "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54",
+      "policy_amendment_version": "java-websocket-single-owner-1.0.0",
+      "policy_amendment_digest": "sha256:ee247975a3a2cf10e8d93221df85505b8ed882630a5658662e9d716afe617cec",
+      "requested_sandbox_access": null,
+      "publication": {
+        "requested": false,
+        "classification": "QUARANTINED"
+      },
+      "issued_at": "2026-08-24T15:06:34Z",
+      "expires_at": "2026-08-24T17:06:34Z",
+      "nonce": "owner-5977593bd58eea5c75610c03c2a7ca98c15d91320c81974a",
+      "role_snapshot_digest": "sha256:f7aaa7fc00c339303f6a25fc84f40eb9d255ddf88639a928f9ead468295ecf0d",
+      "revocation_snapshot_digest": "sha256:1bb48bcdb3409127a083dd4204c9ccfabeaf935ab7a68fbafa948c1900d1bb7e",
+      "signature": "30146b5dd144c74b244896565c299892610629e9fa6e8abfa79c8417a97f03ebc5d129b841f7c16d28426799e8dc785edce72df7ec2b867aad15e7a122e4c90d"
+    },
+    {
+      "object_id": "java-websocket-us001-inputs-v1",
+      "object_kind": "artifact-set",
+      "stage": "quarantine",
+      "action": "quarantine",
+      "actor_id": "github:michaellady",
+      "role": "port-implementer",
+      "key_id": "java-websocket-us001-owner-ed25519-2026-08-24",
+      "authority_mode": "single-owner",
+      "company": "open-source-projects",
+      "project": "verified-java-websocket-port",
+      "laboratory_id": "lab-java-websocket",
+      "artifact_digest": "sha256:9bdab9af62d65b636c2ea447548a811bb3e484fee7f10f7dbc7b53291c51fe2b",
+      "policy_version": "foundation-1.0.0",
+      "policy_digest": "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54",
+      "policy_amendment_version": "java-websocket-single-owner-1.0.0",
+      "policy_amendment_digest": "sha256:ee247975a3a2cf10e8d93221df85505b8ed882630a5658662e9d716afe617cec",
+      "requested_sandbox_access": null,
+      "publication": {
+        "requested": false,
+        "classification": "QUARANTINED"
+      },
+      "issued_at": "2026-08-24T15:06:34Z",
+      "expires_at": "2026-08-24T17:06:34Z",
+      "nonce": "owner-fbf3509bba578438377fdd84bc5a6dbdd1a8a87b2d22ad45",
+      "role_snapshot_digest": "sha256:f7aaa7fc00c339303f6a25fc84f40eb9d255ddf88639a928f9ead468295ecf0d",
+      "revocation_snapshot_digest": "sha256:1bb48bcdb3409127a083dd4204c9ccfabeaf935ab7a68fbafa948c1900d1bb7e",
+      "signature": "6a260a1272a76dd02a7436dc6a709a72a004f779da0e85cf51950e5c5cb828f22ad361a2fd343a3670a1b174579c0f8f6f7b323261ea64ee0191b45b36b9ea07"
+    },
+    {
+      "object_id": "java-websocket-us001-inputs-v1",
+      "object_kind": "artifact-set",
+      "stage": "qualification",
+      "action": "qualify",
+      "actor_id": "github:michaellady",
+      "role": "port-implementer",
+      "key_id": "java-websocket-us001-owner-ed25519-2026-08-24",
+      "authority_mode": "single-owner",
+      "company": "open-source-projects",
+      "project": "verified-java-websocket-port",
+      "laboratory_id": "lab-java-websocket",
+      "artifact_digest": "sha256:9bdab9af62d65b636c2ea447548a811bb3e484fee7f10f7dbc7b53291c51fe2b",
+      "policy_version": "foundation-1.0.0",
+      "policy_digest": "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54",
+      "policy_amendment_version": "java-websocket-single-owner-1.0.0",
+      "policy_amendment_digest": "sha256:ee247975a3a2cf10e8d93221df85505b8ed882630a5658662e9d716afe617cec",
+      "requested_sandbox_access": [
+        "quarantined-source"
+      ],
+      "publication": {
+        "requested": false,
+        "classification": "QUARANTINED"
+      },
+      "issued_at": "2026-08-24T15:06:34Z",
+      "expires_at": "2026-08-24T17:06:34Z",
+      "nonce": "owner-8c45df8f3987deef4d2bc4ff4fb0af9058a8fcb0669f39b7",
+      "role_snapshot_digest": "sha256:f7aaa7fc00c339303f6a25fc84f40eb9d255ddf88639a928f9ead468295ecf0d",
+      "revocation_snapshot_digest": "sha256:1bb48bcdb3409127a083dd4204c9ccfabeaf935ab7a68fbafa948c1900d1bb7e",
+      "signature": "b4d5ef59f2ae3537ece4e8ad85c8ea522c2f5f90549199a4825907bb7a4a3ff1a61d12a7e16674a42e008923ccc71c6e829707ecd7c8051a59519425a7331808"
+    },
+    {
+      "object_id": "java-websocket-us001-inputs-v1",
+      "object_kind": "artifact-set",
+      "stage": "owner-promotion",
+      "action": "promote",
+      "actor_id": "github:michaellady",
+      "role": "release-attestor",
+      "key_id": "java-websocket-us001-owner-ed25519-2026-08-24",
+      "authority_mode": "single-owner",
+      "company": "open-source-projects",
+      "project": "verified-java-websocket-port",
+      "laboratory_id": "lab-java-websocket",
+      "artifact_digest": "sha256:9bdab9af62d65b636c2ea447548a811bb3e484fee7f10f7dbc7b53291c51fe2b",
+      "policy_version": "foundation-1.0.0",
+      "policy_digest": "sha256:12a11bc4015ad5fd52e447053b8c3a7a3bc0b9e79389737ec7fc6bac0d465c54",
+      "policy_amendment_version": "java-websocket-single-owner-1.0.0",
+      "policy_amendment_digest": "sha256:ee247975a3a2cf10e8d93221df85505b8ed882630a5658662e9d716afe617cec",
+      "requested_sandbox_access": null,
+      "publication": {
+        "requested": false,
+        "classification": "QUARANTINED"
+      },
+      "risk_disposition": {
+        "decision": "ACCEPT_RETAINED_FINDINGS_FOR_QUARANTINED_LAB_ONLY",
+        "artifact_id": "autobahn-linux-amd64-image",
+        "artifact_digest": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+        "vulnerability_snapshot_digest": "sha256:6a20c88282c31e8b042af086bd56f0cd6af0ba7e88b867e8e9e38d30d00944e3",
+        "critical_count": 12,
+        "high_count": 147,
+        "scope": "QUARANTINED_LABORATORY_QUALIFICATION_ONLY",
+        "production_use_authorized": false,
+        "publication_authorized": false,
+        "rationale": "Mike Lady explicitly approved the exact retained 12 critical and 147 high Autobahn findings only for QUARANTINED_LABORATORY_QUALIFICATION_ONLY via: Approve scoped risk. Production use and publication remain unauthorized."
+      },
+      "issued_at": "2026-08-24T15:06:34Z",
+      "expires_at": "2026-08-24T17:06:34Z",
+      "nonce": "owner-93f400bc05dfb0fffafa1681a981d2bec3bd0e5cbbd57415",
+      "role_snapshot_digest": "sha256:f7aaa7fc00c339303f6a25fc84f40eb9d255ddf88639a928f9ead468295ecf0d",
+      "revocation_snapshot_digest": "sha256:1bb48bcdb3409127a083dd4204c9ccfabeaf935ab7a68fbafa948c1900d1bb7e",
+      "signature": "8227f08fa928f5652a7532e316ffe5dbc175d52ad4d70043c522f8d858157dea76a35e9ac6eb4f611db1531bc2f41934a17846e41c337fb70095910824acdc01"
+    }
+  ],
   "authoritative_snapshot_projections": [],
   "required_actions": [
-    {"stage": "acquisition", "role": "method-schema-steward", "requested_sandbox_access": [], "publication_requested": false, "status": "OWNER_SIGNATURE_REQUIRED"},
-    {"stage": "quarantine", "role": "port-implementer", "requested_sandbox_access": [], "publication_requested": false, "status": "OWNER_SIGNATURE_REQUIRED"},
-    {"stage": "qualification", "role": "port-implementer", "requested_sandbox_access": ["quarantined-source"], "publication_requested": false, "status": "OWNER_SIGNATURE_REQUIRED"},
-    {"stage": "owner-promotion", "role": "release-attestor", "requested_sandbox_access": [], "publication_requested": false, "status": "OWNER_SIGNATURE_AND_SCOPED_RISK_DISPOSITION_REQUIRED"}
+    {
+      "stage": "acquisition",
+      "role": "method-schema-steward",
+      "requested_sandbox_access": [],
+      "publication_requested": false,
+      "status": "OWNER_SIGNED_AND_PROTECTED_VERIFIED"
+    },
+    {
+      "stage": "quarantine",
+      "role": "port-implementer",
+      "requested_sandbox_access": [],
+      "publication_requested": false,
+      "status": "OWNER_SIGNED_AND_PROTECTED_VERIFIED"
+    },
+    {
+      "stage": "qualification",
+      "role": "port-implementer",
+      "requested_sandbox_access": [
+        "quarantined-source"
+      ],
+      "publication_requested": false,
+      "status": "OWNER_SIGNED_AND_PROTECTED_VERIFIED"
+    },
+    {
+      "stage": "owner-promotion",
+      "role": "release-attestor",
+      "requested_sandbox_access": [],
+      "publication_requested": false,
+      "status": "OWNER_SIGNED_AND_PROTECTED_VERIFIED"
+    }
   ],
   "approval_policy": {
     "authority_model": "single-owner",
@@ -40,12 +210,9 @@
     "independent_review_claimed": false,
     "assurance_ceiling": "OWNER_ATTESTED_NOT_INDEPENDENT",
     "nonce_ledger": "PROTECTED_HELD_OUT and absent from this public projection",
-    "role_and_revocation_snapshots": "must be supplied by the protected caller and are absent until the repository owner acts"
+    "role_and_revocation_snapshots": "were supplied and validated by the protected caller but remain absent from this public projection"
   },
-  "blocking_findings": [
-    {"code": "MISSING_PROMOTION_REQUIREMENT", "path": "$.signed_actions", "message": "No repository-owner cryptographic actions or authoritative protected snapshots have been supplied."},
-    {"code": "OWNER_RISK_DISPOSITION_REQUIRED", "path": "$.candidate_payload.files[3]", "message": "The owner must sign acceptance of the exact 12 critical and 147 high findings only for quarantined laboratory qualification."}
-  ],
-  "safe_next_action": "The repository owner github:michaellady may use externally held Ed25519 key material and protected role/revocation snapshots to sign the four exact action roles, including a quarantined-laboratory-only risk disposition. Candidate evidence cannot supply identity truth or clear the protected gate.",
-  "claim": "This file is a fail-closed single-owner action request and blocker receipt, not a promotion receipt and not an independent review."
+  "blocking_findings": null,
+  "safe_next_action": "Use the accepted content-addressed inputs only within quarantined laboratory qualification; production use and publication remain unauthorized.",
+  "claim": "The exact input bytes were promoted under OWNER_ATTESTED_NOT_INDEPENDENT; this is not independent review and does not authorize production use or publication."
 }

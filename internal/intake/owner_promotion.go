@@ -184,6 +184,7 @@ func PromoteAuthorizedOwnerInputs(input OwnerPromotionInput) (*OwnerPromotionRes
 	for index := range finalReceipt.RequiredActions {
 		finalReceipt.RequiredActions[index].Status = "OWNER_SIGNED_AND_PROTECTED_VERIFIED"
 	}
+	finalReceipt.ApprovalPolicy.RoleAndRevocationSnapshots = "were supplied and validated by the protected caller but remain absent from this public projection"
 	finalReceipt.SafeNextAction = "Use the accepted content-addressed inputs only within quarantined laboratory qualification; production use and publication remain unauthorized."
 	finalReceipt.Claim = "The exact input bytes were promoted under OWNER_ATTESTED_NOT_INDEPENDENT; this is not independent review and does not authorize production use or publication."
 	if input.testBeforeReceiptPersist != nil {

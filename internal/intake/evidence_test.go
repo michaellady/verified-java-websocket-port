@@ -12,16 +12,29 @@ import (
 	"time"
 )
 
-func TestRetainedEvidenceFailsClosedOnRealBlockers(t *testing.T) {
+func TestRetainedEvidenceProjectsRealPromotionAndRemainsPubliclyBlocked(t *testing.T) {
 	t.Parallel()
-	report, err := VerifyEvidenceDir(filepath.Join("..", "..", "evidence", "intake"), time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
+	directory := filepath.Join("..", "..", "evidence", "intake")
+	report, err := VerifyEvidenceDir(directory, time.Date(2026, 8, 24, 13, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if report.EvidenceRoot != "sha256:1e226796e8bcc248b10e763211ed8eff92a93caf71adec06d07862be0a0a20a7" {
+	if report.EvidenceRoot != "sha256:d0fcc851c23233c645895a2fe862128ff576676da10d00c409165707ab0b482a" {
 		t.Fatalf("unexpected evidence root %s", report.EvidenceRoot)
 	}
-	assertFindingCodes(t, report.Blockers, "OWNER_RISK_DISPOSITION_REQUIRED", "MISSING_PROMOTION_REQUIREMENT")
+	assertFindingCodes(t, report.Blockers, "OWNER_RISK_DISPOSITION_REQUIRED", "PROTECTED_CALLER_REQUIRED")
+
+	var receipt promotionDocument
+	readStrictTestFile(t, filepath.Join(directory, "promotion-receipts.json"), &receipt)
+	if receipt.Status != SingleOwnerPromotedStatus || receipt.AcceptedObjectCount != len(expectedArtifacts) || receipt.PromotionStoreRoot != "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8" {
+		t.Fatalf("retained promotion projection is incomplete: status=%q accepted=%d root=%q", receipt.Status, receipt.AcceptedObjectCount, receipt.PromotionStoreRoot)
+	}
+	if receipt.PublicationRequested || receipt.PublicationCount != 0 || receipt.ProtectedAccessCount != 0 || len(receipt.SignedActions) != len(requiredActionPolicy) {
+		t.Fatalf("retained promotion projection widened scope or lost actions: publication_requested=%t publication_count=%d protected_access_count=%d signed_actions=%d", receipt.PublicationRequested, receipt.PublicationCount, receipt.ProtectedAccessCount, len(receipt.SignedActions))
+	}
+	if receipt.ApprovalPolicy.RoleAndRevocationSnapshots != "were supplied and validated by the protected caller but remain absent from this public projection" {
+		t.Fatalf("retained approval policy misstates protected snapshots: %q", receipt.ApprovalPolicy.RoleAndRevocationSnapshots)
+	}
 }
 
 func TestEvidenceMembersCannotEscapeThroughLinks(t *testing.T) {
@@ -152,7 +165,7 @@ func TestRequiredActionTraceRejectsMissingReorderedOrMutatedRecords(t *testing.T
 		}},
 		{"publication", func(document *promotionDocument) { document.RequiredActions[0].PublicationRequested = true }},
 		{"status", func(document *promotionDocument) {
-			document.RequiredActions[0].Status = "OWNER_SIGNED_AND_PROTECTED_VERIFIED"
+			document.RequiredActions[0].Status = "OWNER_SIGNATURE_REQUIRED"
 		}},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -160,9 +173,20 @@ func TestRequiredActionTraceRejectsMissingReorderedOrMutatedRecords(t *testing.T
 			path := filepath.Join(directory, "promotion-receipts.json")
 			var document promotionDocument
 			readStrictTestFile(t, path, &document)
+			before, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
 			testCase.mutate(&document)
+			after, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(after) == string(before) {
+				t.Fatal("hostile required-action mutation did not change the receipt")
+			}
 			writeJSONTestFile(t, path, document)
-			_, err := VerifyEvidenceDir(directory, now)
+			_, err = VerifyEvidenceDir(directory, now)
 			assertCode(t, err, "ACTION_SCOPE_MISMATCH")
 		})
 	}
@@ -199,6 +223,19 @@ func copyEvidence(t *testing.T) string {
 		if err := os.WriteFile(filepath.Join(directory, name), data, 0o600); err != nil {
 			t.Fatal(err)
 		}
+	}
+	return directory
+}
+
+func copyBlockedEvidence(t *testing.T) string {
+	t.Helper()
+	directory := copyEvidence(t)
+	blockedReceipt, err := os.ReadFile(filepath.Join("testdata", "blocked-promotion-receipt.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(directory, "promotion-receipts.json"), blockedReceipt, 0o600); err != nil {
+		t.Fatal(err)
 	}
 	return directory
 }

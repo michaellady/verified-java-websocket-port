@@ -14,7 +14,7 @@ import (
 )
 
 func TestPromoteAuthorizedOwnerInputsCommitsExactMaterializedBatchAndReceipt(t *testing.T) {
-	directory := copyEvidence(t)
+	directory := copyBlockedEvidence(t)
 	materializationRoot := filepath.Join(t.TempDir(), "materialized")
 	manifest, catalog := writeFixtureMaterialization(t, directory, materializationRoot)
 
@@ -38,6 +38,9 @@ func TestPromoteAuthorizedOwnerInputsCommitsExactMaterializedBatchAndReceipt(t *
 	if receipt.Status != SingleOwnerPromotedStatus || receipt.AcceptedObjectCount != 23 || receipt.PromotionStoreRoot != result.PromotionRoot || len(receipt.SignedActions) != 4 {
 		t.Fatalf("persisted receipt is incomplete: %+v", receipt)
 	}
+	if receipt.ApprovalPolicy.RoleAndRevocationSnapshots != "were supplied and validated by the protected caller but remain absent from this public projection" {
+		t.Fatalf("persisted receipt misstates protected snapshots: %q", receipt.ApprovalPolicy.RoleAndRevocationSnapshots)
+	}
 	acceptedManifest := filepath.Join(promotionStore, "accepted", result.PromotionRoot[7:], "manifest.json")
 	if _, err := os.Stat(acceptedManifest); err != nil {
 		t.Fatalf("promoted batch is absent: %v", err)
@@ -50,7 +53,7 @@ func TestPromoteAuthorizedOwnerInputsCommitsExactMaterializedBatchAndReceipt(t *
 }
 
 func TestPromoteAuthorizedOwnerInputsRejectsBadBytesBeforeNonceOrReceiptMutation(t *testing.T) {
-	directory := copyEvidence(t)
+	directory := copyBlockedEvidence(t)
 	initialReceipt, err := os.ReadFile(filepath.Join(directory, "promotion-receipts.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +99,7 @@ func TestPromoteAuthorizedOwnerInputsRejectsBadBytesBeforeNonceOrReceiptMutation
 }
 
 func TestPromoteAuthorizedOwnerInputsRejectsTraversalBeforeNonceConsumption(t *testing.T) {
-	directory := copyEvidence(t)
+	directory := copyBlockedEvidence(t)
 	materializationRoot := filepath.Join(t.TempDir(), "materialized")
 	manifest, catalog := writeFixtureMaterialization(t, directory, materializationRoot)
 	manifest.Objects[0].Path = "../escape"
@@ -117,7 +120,7 @@ func TestPromoteAuthorizedOwnerInputsRejectsTraversalBeforeNonceConsumption(t *t
 }
 
 func TestPromoteAuthorizedOwnerInputsRejectsLinkedEvidenceBeforeProtectedState(t *testing.T) {
-	directory := copyEvidence(t)
+	directory := copyBlockedEvidence(t)
 	receiptPath := filepath.Join(directory, "promotion-receipts.json")
 	initialReceipt, err := os.ReadFile(receiptPath)
 	if err != nil {
@@ -206,7 +209,7 @@ func TestPromoteAuthorizedOwnerInputsRejectsProtectedCandidatePathOverlap(t *tes
 }
 
 func TestPromoteAuthorizedOwnerInputsLeavesReceiptBlockedWhenStoreCommitFails(t *testing.T) {
-	directory := copyEvidence(t)
+	directory := copyBlockedEvidence(t)
 	initialReceipt, err := os.ReadFile(filepath.Join(directory, "promotion-receipts.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -244,7 +247,7 @@ func TestPromoteAuthorizedOwnerInputsLeavesReceiptBlockedWhenStoreCommitFails(t 
 }
 
 func TestPromoteAuthorizedOwnerInputsDeniesConcurrentEvidenceDriftBeforeReceiptReplacement(t *testing.T) {
-	directory := copyEvidence(t)
+	directory := copyBlockedEvidence(t)
 	receiptPath := filepath.Join(directory, "promotion-receipts.json")
 	initialReceipt, err := os.ReadFile(receiptPath)
 	if err != nil {
@@ -296,7 +299,7 @@ func TestPromoteAuthorizedOwnerInputsDeniesConcurrentEvidenceDriftBeforeReceiptR
 }
 
 func TestPromoteAuthorizedOwnerInputsAcceptsSchemaValidMaterializationOrder(t *testing.T) {
-	directory := copyEvidence(t)
+	directory := copyBlockedEvidence(t)
 	materializationRoot := filepath.Join(t.TempDir(), "materialized")
 	manifest, catalog := writeFixtureMaterialization(t, directory, materializationRoot)
 	for left, right := 0, len(manifest.Objects)-1; left < right; left, right = left+1, right-1 {
@@ -329,7 +332,7 @@ func TestPromoteAuthorizedOwnerInputsRejectsDuplicateMissingAndUnknownMaterializ
 		{"unknown", func(manifest *MaterializationManifest) { manifest.Objects[0].ID = "unknown-artifact" }, "ARTIFACT_DRIFT"},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
-			directory := copyEvidence(t)
+			directory := copyBlockedEvidence(t)
 			materializationRoot := filepath.Join(t.TempDir(), "materialized")
 			manifest, catalog := writeFixtureMaterialization(t, directory, materializationRoot)
 			testCase.mutate(&manifest)
@@ -351,7 +354,7 @@ func TestPromoteAuthorizedOwnerInputsRejectsDuplicateMissingAndUnknownMaterializ
 }
 
 func TestPromoteAuthorizedOwnerInputsValidatesRequiredActionsBeforeTransition(t *testing.T) {
-	directory := copyEvidence(t)
+	directory := copyBlockedEvidence(t)
 	receiptPath := filepath.Join(directory, "promotion-receipts.json")
 	var receipt promotionDocument
 	readStrictTestFile(t, receiptPath, &receipt)
