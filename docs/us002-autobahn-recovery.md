@@ -23,6 +23,7 @@ blocked while recovery continues.
 | Ongoing-authorization diagnostic blocked receipt 5 | 23,990 | `9679819438b6e66435b3b9bd362b0627ceb01657777b1733fb0f8a2285596b96` |
 | Ongoing-authorization diagnostic blocked receipt 6 | 23,985 | `a45e36c26077dcae4b39d7c8f28c7b30f0744c9b7ce15b451703dd23f1b23533` |
 | Ongoing-authorization diagnostic blocked receipt 7 | 23,985 | `e2ca2baf24e6eaea28bc3b0d828d441da1b2716a308452c6ef8840d0b935f883` |
+| Ongoing-authorization diagnostic blocked receipt 8 | 24,005 | `1b0bfb45a5d125fc2dcd73506325074701241e5fefc4c013ff84e0e5cc9df437` |
 
 These are hashes of the retained receipt bytes before the recovery edits. The
 same files must be rehashed after remediation and review.
@@ -60,7 +61,7 @@ and loopback-only test harness reproduces this without Docker or Autobahn.
 | Stream and extract authenticated report bytes from runner tmpfs | The live tmpfs and host evidence directory require one bounded ownership and materialization protocol | A stronger model still needs the same byte transport and archive validation | Authentication, process I/O, byte bounds, and exclusive file creation contain no rerun judgment | Code |
 | Authorize and deliver runner release without Docker attach EOF | Release must be atomic with report validation and exact single-use token consumption | A stronger model still needs a deterministic authenticated process-control transport | Exact token input, O_EXCL marker creation, fixed signal delivery, and bounded cleanup contain no rerun judgment | Code |
 | Preserve the fixed Autobahn HTTP authority across the loopback relay | The exact socket/authority split must be bound consistently for every case and report update | A stronger model still needs the protocol authority expected by the fixed suite endpoint | Exact argument validation and header transport contain no rerun or result-classification judgment | Code |
-| Encode a verified peer TCP reset as terminal framed input | Concurrent byte transfer needs one deterministic terminal representation | A stronger model still needs the same kernel-to-frame transport mapping | Exact read-error classification only; Autobahn reports retain all protocol judgment | Code |
+| Encode a verified peer TCP close/reset as terminal framed transport | Concurrent byte transfer needs one deterministic terminal representation | A stronger model still needs the same kernel-to-frame transport mapping | Exact read/write error classification and bounded draining only; Autobahn reports retain all protocol judgment | Code |
 | Decide whether another live attempt is warranted or authorized | Owner/assurance decision, not an atomic transport primitive | Better reasoning can change the decision | Contains acceptance and risk judgment | Prompt/owner decision |
 
 The code changes therefore remain limited to deterministic identity
@@ -288,3 +289,28 @@ prefix bounded statuses for decode, input, extra output, trailing bytes,
 process wait, context, and lifecycle validation, so another invocation can
 identify the remaining server terminal field without exposing payloads or
 loosening acceptance.
+
+### Framed output must remain valid after the verified loopback peer closes
+
+The eighth invocation recovered the missing client pairing line and persisted
+39 complete client cases before a later protocol case failed. Its new terminal
+receipt was exact: decode failed while input, extra-output reading, process
+wait, context, and lifecycle all succeeded; two bytes followed the prematurely
+stopped decoder. Server case `3.4` produced the same terminal status. In both
+modes, Java had already closed its verified loopback read side while the relay
+still had bounded, valid framed protocol bytes to deliver. Writing those bytes
+returned a terminal socket error, which caused the decoder to stop before
+validating the frame stream's END marker.
+
+The controller now hashes and validates the complete relay-to-loopback frame
+stream even after only `EPIPE`, `ECONNRESET`, or an already-closed socket makes
+some bytes undeliverable to the verified Java peer. It records the exact
+undeliverable byte count alongside the full output byte count and digest.
+Unknown errors, impossible write counts, and short writes without a terminal
+error still fail. The in-container relay applies the same bounded drain rule
+when its verified TCP peer stops reading controller input, preventing the
+opposite direction from reproducing the same classification bug. In both
+directions framing, cumulative byte bounds, END validation, exact lifecycle,
+and digest-bound report reconciliation remain mandatory. Deterministic
+regressions failed on the retained terminal writes before the correction and
+also prove that unknown write errors and malformed frames remain rejected.

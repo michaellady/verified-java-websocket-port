@@ -171,6 +171,7 @@ func attachedOutputDirection(result chan<- error, source *net.TCPConn, destinati
 func copyFramedInput(source io.Reader, destination io.Writer) error {
 	reader := bufio.NewReaderSize(source, maximumFramePayload+frameHeaderBytes)
 	var total int64
+	destinationClosed := false
 	for {
 		header := make([]byte, frameHeaderBytes)
 		if _, err := io.ReadFull(reader, header); err != nil {
@@ -187,9 +188,16 @@ func copyFramedInput(source io.Reader, destination io.Writer) error {
 			if _, err := io.ReadFull(reader, payload); err != nil {
 				return errors.New("truncated-frame")
 			}
-			written, err := destination.Write(payload)
-			if err != nil || written != len(payload) {
-				return errors.New("transport")
+			if !destinationClosed {
+				written, err := destination.Write(payload)
+				if written < 0 || written > len(payload) {
+					return errors.New("transport")
+				}
+				if terminalWriteError(err) {
+					destinationClosed = true
+				} else if err != nil || written != len(payload) {
+					return errors.New("transport")
+				}
 			}
 			total += length
 		case frameEnd:
@@ -231,6 +239,10 @@ func copyFramedOutput(source io.Reader, destination io.Writer) error {
 
 func terminalReadError(err error) bool {
 	return errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET)
+}
+
+func terminalWriteError(err error) bool {
+	return errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET)
 }
 
 func writeFrame(destination io.Writer, frameType byte, payload []byte) error {

@@ -642,6 +642,28 @@ func TestAttachedInputTreatsVerifiedLoopbackResetAsTerminal(t *testing.T) {
 	}
 }
 
+func TestAttachedOutputDrainsAfterVerifiedLoopbackStopsReading(t *testing.T) {
+	var framed bytes.Buffer
+	if err := writeAttachedFrame(&framed, attachFrameData, []byte("response")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAttachedFrame(&framed, attachFrameEnd, nil); err != nil {
+		t.Fatal(err)
+	}
+	counter := newRelayTransferCounter()
+	output := newRelayLoopbackOutput(&attachedFixedErrorWriter{err: syscall.EPIPE}, counter)
+	if err := decodeAttachedStream(bytes.NewReader(framed.Bytes()), output); err != nil {
+		t.Fatalf("verified loopback terminal write rejected: %v", err)
+	}
+	if output.undeliverableBytes != int64(len("response")) || counter.bytes != int64(len("response")) {
+		t.Fatalf("undeliverable=%d counted=%d", output.undeliverableBytes, counter.bytes)
+	}
+	unknown := newRelayLoopbackOutput(&attachedFixedErrorWriter{err: errors.New("unexpected write failure")}, newRelayTransferCounter())
+	if err := decodeAttachedStream(bytes.NewReader(framed.Bytes()), unknown); err == nil {
+		t.Fatal("unknown loopback write failure accepted")
+	}
+}
+
 func TestRelayCompletionCanBeRecoveredOnlyFromExactDockerLogMarker(t *testing.T) {
 	lifecycle := []byte("RELAY_PAIRED role=listen\n")
 	docker := dockerController{run: func(_ context.Context, arguments ...string) ([]byte, error) {
@@ -691,6 +713,14 @@ func exactRunnerTestReceipt(path string) AutobahnRunnerReceipt {
 type attachedDataThenErrorReader struct {
 	data []byte
 	err  error
+}
+
+type attachedFixedErrorWriter struct {
+	err error
+}
+
+func (writer *attachedFixedErrorWriter) Write([]byte) (int, error) {
+	return 0, writer.err
 }
 
 func (reader *attachedDataThenErrorReader) Read(destination []byte) (int, error) {

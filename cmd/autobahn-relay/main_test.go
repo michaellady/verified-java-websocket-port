@@ -112,6 +112,26 @@ func TestFramedOutputTreatsVerifiedPeerResetAsTerminal(t *testing.T) {
 	}
 }
 
+func TestFramedInputDrainsAfterVerifiedPeerStopsReading(t *testing.T) {
+	var framed bytes.Buffer
+	if err := writeFrame(&framed, frameData, []byte("request")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeFrame(&framed, frameEnd, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyFramedInput(bytes.NewReader(framed.Bytes()), &fixedErrorWriter{err: syscall.EPIPE}); err != nil {
+		t.Fatalf("verified peer terminal write rejected: %v", err)
+	}
+	if err := copyFramedInput(bytes.NewReader(framed.Bytes()), &fixedErrorWriter{err: errors.New("unexpected write failure")}); err == nil || err.Error() != "transport" {
+		t.Fatalf("unknown write failure accepted: %v", err)
+	}
+	malformed := append(append([]byte(nil), framed.Bytes()[:len(framed.Bytes())-frameHeaderBytes]...), 9, 0, 0, 0, 0)
+	if err := copyFramedInput(bytes.NewReader(malformed), &fixedErrorWriter{err: syscall.EPIPE}); err == nil || err.Error() != "unknown-frame" {
+		t.Fatalf("malformed trailing frame accepted after terminal write: %v", err)
+	}
+}
+
 func TestListenRelayRejectsUnknownPeer(t *testing.T) {
 	port := freePort(t)
 	done := make(chan error, 1)
@@ -177,6 +197,14 @@ func dialFrom(t *testing.T, source, destination string) *net.TCPConn {
 type dataThenErrorReader struct {
 	data []byte
 	err  error
+}
+
+type fixedErrorWriter struct {
+	err error
+}
+
+func (writer *fixedErrorWriter) Write([]byte) (int, error) {
+	return 0, writer.err
 }
 
 func (reader *dataThenErrorReader) Read(destination []byte) (int, error) {

@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	AutobahnRelaySourceDigest = "sha256:5aab2d8b0c3c66c68ed4681ef65bd5ee4218c011a35fe4ab3df0eb7e89cc7f5c"
+	AutobahnRelaySourceDigest = "sha256:4afb0adef44526e768947f1fcc0b2f7da281351d980bab37be1282e869601538"
 	AutobahnRelayGoVersion    = "go version go1.25.5 darwin/arm64"
 	AutobahnRelayGoRootDigest = "sha256:f6fcd3d9f790196201d629cb9c1a2f46fc019d829910a578a1c25a802b824c94"
-	AutobahnRelayBinaryDigest = "sha256:7b3509a522d2064cb372fa238d9fa1c550c7134c8cc10e20b39b51dc9026611e"
+	AutobahnRelayBinaryDigest = "sha256:695271edf46f61655d8ba03b48ae78ffdd05e9599dcc4274b7e661f3ae2ab978"
 )
 
 type AutobahnRelayBuildConfig struct {

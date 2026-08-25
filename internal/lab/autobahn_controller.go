@@ -975,9 +975,10 @@ func runAttachedRelayTCP(ctx context.Context, docker dockerController, container
 	}
 	inputCounter := newRelayTransferCounter()
 	outputCounter := newRelayTransferCounter()
+	loopbackOutput := newRelayLoopbackOutput(connection, outputCounter)
 	inputDone := make(chan error, 1)
 	go func() { inputDone <- encodeAttachedStream(io.TeeReader(connection, inputCounter), stdin) }()
-	decodeErr := decodeAttachedStream(stdout, io.MultiWriter(connection, outputCounter))
+	decodeErr := decodeAttachedStream(stdout, loopbackOutput)
 	if decodeErr == nil {
 		_ = connection.CloseWrite()
 	}
@@ -998,7 +999,7 @@ func runAttachedRelayTCP(ctx context.Context, docker dockerController, container
 	_ = connection.Close()
 	lifecycleReceipt := append([]byte(nil), lifecycle.buffer.Bytes()...)
 	lifecycleReceipt = recoverRelayLifecycle(ctx, docker, container, expectedRole, lifecycleReceipt)
-	lifecycleReceipt = append(lifecycleReceipt, []byte(fmt.Sprintf("\nCONTROLLER_TRANSFER input_bytes=%d input_digest=%s output_bytes=%d output_digest=%s output_prefix_hex=%s\n", inputCounter.bytes, inputCounter.digestString(), outputCounter.bytes, outputCounter.digestString(), outputCounter.sampleHex()))...)
+	lifecycleReceipt = append(lifecycleReceipt, []byte(fmt.Sprintf("\nCONTROLLER_TRANSFER input_bytes=%d input_digest=%s output_bytes=%d output_digest=%s output_prefix_hex=%s output_undeliverable_bytes=%d\n", inputCounter.bytes, inputCounter.digestString(), outputCounter.bytes, outputCounter.digestString(), outputCounter.sampleHex(), loopbackOutput.undeliverableBytes))...)
 	lifecycleOK := exactRelayLifecycle(lifecycleReceipt, expectedRole, true)
 	if decodeErr != nil || inputErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || ctx.Err() != nil || !lifecycleOK {
 		terminal := fmt.Sprintf("CONTROLLER_TERMINAL decode=%q input=%q extra=%q trailing=%d wait=%q context=%q lifecycle=%t\n", relayTerminalError(decodeErr), relayTerminalError(inputErr), relayTerminalError(extraErr), len(extra), relayTerminalError(waitErr), relayTerminalError(ctx.Err()), lifecycleOK)
@@ -1012,6 +1013,50 @@ type relayTransferCounter struct {
 	digest hash.Hash
 	bytes  int64
 	sample []byte
+}
+
+type relayLoopbackOutput struct {
+	destination        io.Writer
+	counter            *relayTransferCounter
+	destinationClosed  bool
+	undeliverableBytes int64
+}
+
+func newRelayLoopbackOutput(destination io.Writer, counter *relayTransferCounter) *relayLoopbackOutput {
+	return &relayLoopbackOutput{destination: destination, counter: counter}
+}
+
+func (output *relayLoopbackOutput) Write(data []byte) (int, error) {
+	if len(data) == 0 || output.destination == nil || output.counter == nil {
+		return 0, io.ErrShortWrite
+	}
+	if _, err := output.counter.Write(data); err != nil {
+		return 0, err
+	}
+	if output.destinationClosed {
+		output.undeliverableBytes += int64(len(data))
+		return len(data), nil
+	}
+	written, err := output.destination.Write(data)
+	if written < 0 || written > len(data) {
+		return 0, io.ErrShortWrite
+	}
+	if terminalAttachedWriteError(err) {
+		output.destinationClosed = true
+		output.undeliverableBytes += int64(len(data) - written)
+		return len(data), nil
+	}
+	if err != nil {
+		return written, err
+	}
+	if written != len(data) {
+		return written, io.ErrShortWrite
+	}
+	return written, nil
+}
+
+func terminalAttachedWriteError(err error) bool {
+	return errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET)
 }
 
 func newRelayTransferCounter() *relayTransferCounter {
