@@ -1693,7 +1693,7 @@ func autobahnDockerRunArguments(network, configDirectory, mode, name, token stri
 		address = autobahnFuzzingClientAddress
 	}
 	return []string{
-		"run", "--detach", "--interactive", "--name", name,
+		"run", "--detach", "--name", name,
 		"--label", "org.verified-java-websocket.scope=us002-autobahn", "--label", "org.verified-java-websocket.role=" + mode,
 		"--pull=never", "--platform", "linux/amd64", "--network", network, "--ip", address,
 		"--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "128", "--memory", "1g", "--cpus", "2",
@@ -1797,7 +1797,7 @@ func validateAutobahnRunnerContainerInspect(output []byte, container autobahnRun
 		"PATH=/opt/pypy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "PYPY_VERSION=7.3.20",
 		"DEBIAN_FRONTEND=noninteractive", "NODE_PATH=/usr/local/lib/node_modules/", "AUTOBAHN_RUNNER_ROLE=" + container.role, "AUTOBAHN_RUNNER_TOKEN=" + container.token,
 	}
-	if actualName != "/"+container.name || image != AutobahnImageManifestDigest || executable != "/autobahn-runner" || len(arguments) != 0 || !openStdin || tty || user != "" || !equalStrings(entrypoint, []string{"/autobahn-runner"}) || !equalUnorderedStrings(environment, expectedEnvironment) || networkMode != network || !readOnly || privileged || !equalStrings(capDrop, []string{"ALL"}) || !equalStrings(securityOptions, []string{"no-new-privileges"}) || len(portBindings) != 0 || len(ports) != 1 || pidsLimit != 128 || memory != 1<<30 || nanoCPUs != 2_000_000_000 {
+	if actualName != "/"+container.name || image != AutobahnImageManifestDigest || executable != "/autobahn-runner" || len(arguments) != 0 || openStdin || tty || user != "" || !equalStrings(entrypoint, []string{"/autobahn-runner"}) || !equalUnorderedStrings(environment, expectedEnvironment) || networkMode != network || !readOnly || privileged || !equalStrings(capDrop, []string{"ALL"}) || !equalStrings(securityOptions, []string{"no-new-privileges"}) || len(portBindings) != 0 || len(ports) != 1 || pidsLimit != 128 || memory != 1<<30 || nanoCPUs != 2_000_000_000 {
 		return finding("AUTOBAHN_RUNNER_CONTAINER_IDENTITY_MISMATCH", "$.runner.container", "runner entrypoint, image, environment, resources, privilege, or no-publication identity differs")
 	}
 	if labels["org.verified-java-websocket.scope"] != "us002-autobahn" || labels["org.verified-java-websocket.role"] != container.role {
@@ -1952,19 +1952,37 @@ func copyThenReleaseAutobahnReports(copyReports func() (string, error), release 
 }
 
 func releaseAutobahnRunner(docker dockerController, container autobahnRunnerContainer) error {
+	if docker.path == "" || !regexp.MustCompile(`^vjwt-fuzz(?:server|client)-[0-9a-f]{16}$`).MatchString(container.name) || container.role != "fuzzingserver" && container.role != "fuzzingclient" || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(container.token) {
+		return finding("AUTOBAHN_RUNNER_RELEASE_FAILED", "$.runner", "runner release requires an exact fixed container identity")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, docker.path, "attach", "--sig-proxy=false", container.name)
+	command := exec.CommandContext(ctx, docker.path, autobahnRunnerReleaseArguments(container)...)
 	command.Dir = "/private/tmp"
 	command.Env = []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}
 	command.Stdin = strings.NewReader(container.token + "\n")
 	output := &boundedBuffer{limit: 64 << 10}
 	command.Stdout, command.Stderr = output, output
 	err := command.Run()
-	if err != nil || bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_DENIED")) || !bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_COPY_COMPLETE role="+container.role)) {
+	if err != nil || bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_DENIED")) || !bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_RELEASE_AUTHORIZED role="+container.role)) {
 		return finding("AUTOBAHN_RUNNER_RELEASE_FAILED", "$.runner", boundedDetail(output.buffer.Bytes(), err))
 	}
-	return waitContainerExit(ctx, docker, container.name, "0")
+	killOutput, killErr := docker.output(ctx, "kill", "--signal", "USR1", container.name)
+	if killErr != nil || strings.TrimSpace(string(killOutput)) != container.name {
+		return finding("AUTOBAHN_RUNNER_RELEASE_FAILED", "$.runner", boundedDetail(killOutput, killErr))
+	}
+	if err := waitContainerExit(ctx, docker, container.name, "0"); err != nil {
+		return err
+	}
+	logs, err := docker.output(ctx, "logs", "--tail", "100", container.name)
+	if err != nil || bytes.Contains(logs, []byte("RUNNER_DENIED")) || !bytes.Contains(logs, []byte("RUNNER_COPY_COMPLETE role="+container.role)) {
+		return finding("AUTOBAHN_RUNNER_RELEASE_FAILED", "$.runner", boundedDetail(logs, err))
+	}
+	return nil
+}
+
+func autobahnRunnerReleaseArguments(container autobahnRunnerContainer) []string {
+	return []string{"exec", "--interactive", container.name, "/autobahn-runner", "release"}
 }
 
 func copyAutobahnReports(docker dockerController, container autobahnRunnerContainer, reportDirectory, caseID string) (string, error) {

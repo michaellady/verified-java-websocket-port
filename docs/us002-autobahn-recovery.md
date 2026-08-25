@@ -17,6 +17,7 @@ blocked while recovery continues.
 | Owner-authorized remediation blocked receipt | 20,123 | `ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2` |
 | Owner-authorized recovery blocked receipt | 20,116 | `403e73b64ff7941795d23f0779b272582e7ab1d460eccc17cdf3602977d8a4b7` |
 | Ongoing-authorization diagnostic blocked receipt 1 | 22,406 | `63eef8bf405d7b3623841f26a5499a6c21d236031ad35e7b173eca765eb3047a` |
+| Ongoing-authorization diagnostic blocked receipt 2 | 22,540 | `81b8b91dea9894d01fa2a8e62d5f4dd003e8acea6926f7fd291bd1ccfb8654f4` |
 
 These are hashes of the retained receipt bytes before the recovery edits. The
 same files must be rehashed after remediation and review.
@@ -52,6 +53,7 @@ and loopback-only test harness reproduces this without Docker or Autobahn.
 | Validate Docker tmpfs and bind mounts in their distinct inspect fields | Pure validation has no shared mutable state or read/write race | A stronger model still needs the same Docker transport representation | Exact parsing/comparison contains no recovery judgment | Code |
 | Close canceled loopback transport before joining its reader | Cancellation and the concurrent reader require one deterministic ownership order | A stronger model still needs bounded process/socket cleanup | Process and socket lifecycle only; no retry or authorization judgment | Code |
 | Stream and extract authenticated report bytes from runner tmpfs | The live tmpfs and host evidence directory require one bounded ownership and materialization protocol | A stronger model still needs the same byte transport and archive validation | Authentication, process I/O, byte bounds, and exclusive file creation contain no rerun judgment | Code |
+| Authorize and deliver runner release without Docker attach EOF | Release must be atomic with report validation and exact single-use token consumption | A stronger model still needs a deterministic authenticated process-control transport | Exact token input, O_EXCL marker creation, fixed signal delivery, and bounded cleanup contain no rerun judgment | Code |
 | Decide whether another live attempt is warranted or authorized | Owner/assurance decision, not an atomic transport primitive | Better reasoning can change the decision | Contains acceptance and risk judgment | Prompt/owner decision |
 
 The code changes therefore remain limited to deterministic identity
@@ -109,6 +111,40 @@ tmpfs were removed. Unit regressions reject the retained empty result as well
 as partial sets, directories, symlinks, path escapes, non-USTAR members, and
 oversized members.
 
+The following diagnostic invocation proved this correction against an actual
+Autobahn-generated server report: all four expected files were materialized in
+the host evidence directory. Server mode then failed only at the separate
+runner-release step.
+
+### Docker attach does not deliver the EOF required by exact runner release
+
+The runner originally read its 64-hex release token plus newline with a bounded
+`ReadAll`, deliberately rejecting missing, wrong, or trailing bytes. Docker
+`attach` accepted the token bytes from the controller but did not close the
+container stdin stream when the local reader reached EOF. The 30-second release
+context therefore killed the attach command, even though report extraction had
+succeeded. A separate network-none container running only `stdin.read()`
+reproduced the behavior: the bounded attach client had to be killed and the
+container remained blocked with no output. It was then removed with its
+writable layer.
+
+Runner primary stdin is now closed in the container identity. Release uses a
+fixed authenticated `docker exec --interactive ... /autobahn-runner release`;
+the exec process receives real stdin EOF, revalidates the pinned artifacts and
+configuration, and durably creates one O_EXCL, mode-0400 marker containing only
+the SHA-256 binding of the token. After the exec exits successfully, the
+controller sends `USR1` to the exact validated container name. PID 1 consumes
+and deletes the exact singly-linked marker before stopping or releasing the
+child. Wrong, reused, linked, missing, or malformed markers fail closed. The
+controller then requires exit zero and the primary runner completion marker.
+
+A network-none, read-only, capability-dropped Docker fixture exercised the
+compiled release subcommand, verified the marker binding in its PID 1 signal
+handler, and exited zero only after the authenticated exec followed by exact
+signal delivery. The fixture and tmpfs were removed. This eliminates runner
+`docker attach` without changing report bounds, network isolation, or token
+placement on stdin.
+
 ### Client relay failure was hidden by error discard
 
 The same diagnostic showed that the Java client did not complete its first
@@ -119,4 +155,17 @@ attach framing failure, or bounded cleanup failure. The controller now records
 that relay terminal result ahead of bounded endpoint and runner logs. This is
 an evidence correction, not a retry or timeout relaxation. The next accounted
 invocation will use that evidence to establish the client transport root cause
-before changing its behavior.
+before changing its behavior. The following invocation showed that the dial
+relay reached `RELAY_COMPLETE`; cancellation killed the still-attached Docker
+CLI only after the Java 10-second handshake timeout. The adapter's `onError`
+callback had intentionally suppressed protocol errors, but that also discarded
+the pre-open connection exception needed for diagnosis. It now retains only a
+bounded pre-open exception class/message and continues to ignore post-open
+protocol errors, leaving Autobahn reports authoritative. No timeout was
+increased and no protocol result classification changed.
+
+An experiment that closed relay attach stdin immediately after the framed END
+marker was rejected: the existing non-live reverse-relay canary proved Docker
+detached before returning the response frames. That change was reverted before
+commit. Relay attach byte transport therefore remains unchanged while the next
+accounted invocation captures the actual Java handshake exception.

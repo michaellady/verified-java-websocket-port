@@ -138,7 +138,8 @@ public final class AutobahnEndpoint {
       URI uri = base.resolve("/runCase?case=" + caseNumber + "&agent=" + agent);
       EchoClient client = new EchoClient(uri);
       if (!client.connectBlocking(CONNECT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-        throw new IOException("case " + caseNumber + " did not connect");
+        throw new IOException(
+            "case " + caseNumber + " did not connect: " + client.connectionFailure());
       }
       if (!client.awaitClose(CASE_TIMEOUT)) {
         client.close();
@@ -148,7 +149,7 @@ public final class AutobahnEndpoint {
     }
     EchoClient update = new EchoClient(base.resolve("/updateReports?agent=" + agent));
     if (!update.connectBlocking(CONNECT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-      throw new IOException("report update did not connect");
+      throw new IOException("report update did not connect: " + update.connectionFailure());
     }
     if (!update.awaitClose(CASE_TIMEOUT)) {
       update.close();
@@ -225,6 +226,8 @@ public final class AutobahnEndpoint {
 
   private static final class EchoClient extends WebSocketClient {
     private final CountDownLatch closed = new CountDownLatch(1);
+    private final AtomicReference<String> connectionFailure = new AtomicReference<>();
+    private volatile boolean opened;
 
     EchoClient(URI uri) {
       super(uri, new Draft_6455());
@@ -232,7 +235,9 @@ public final class AutobahnEndpoint {
     }
 
     @Override
-    public void onOpen(ServerHandshake handshake) {}
+    public void onOpen(ServerHandshake handshake) {
+      opened = true;
+    }
 
     @Override
     public void onMessage(String message) {
@@ -251,8 +256,20 @@ public final class AutobahnEndpoint {
 
     @Override
     public void onError(Exception exception) {
+      if (!opened) {
+        String message = exception.getMessage();
+        connectionFailure.compareAndSet(
+            null,
+            exception.getClass().getSimpleName()
+                + (message == null || message.isBlank() ? "" : ":" + message));
+      }
       // Protocol-error cases intentionally surface endpoint errors. Autobahn's
       // digest-bound report, not this thin transport, classifies the outcome.
+    }
+
+    String connectionFailure() {
+      String failure = connectionFailure.get();
+      return failure == null ? "timeout without endpoint error" : failure;
     }
 
     boolean awaitClose(Duration timeout) throws InterruptedException {

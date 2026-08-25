@@ -339,12 +339,12 @@ func TestAutobahnDockerArgumentsAreClosed(t *testing.T) {
 	runner := exactRunnerTestReceipt("/private/tmp/autobahn-runner")
 	arguments := autobahnDockerRunArguments("fixed-network", "/private/tmp/config", "fuzzingclient", "vjwt-fuzzclient-0123456789abcdef", strings.Repeat("a", 64), runner)
 	joined := strings.Join(arguments, " ")
-	for _, required := range []string{"--detach", "--interactive", "--pull=never", "--network fixed-network", "--ip " + autobahnFuzzingClientAddress, "/reports:rw,noexec,nosuid,nodev,size=256m,mode=0700", "dst=/autobahn-runner,readonly", "AUTOBAHN_RUNNER_ROLE=fuzzingclient", "--entrypoint /autobahn-runner", AutobahnImageReference} {
+	for _, required := range []string{"--detach", "--pull=never", "--network fixed-network", "--ip " + autobahnFuzzingClientAddress, "/reports:rw,noexec,nosuid,nodev,size=256m,mode=0700", "dst=/autobahn-runner,readonly", "AUTOBAHN_RUNNER_ROLE=fuzzingclient", "--entrypoint /autobahn-runner", AutobahnImageReference} {
 		if !strings.Contains(joined, required) {
 			t.Fatalf("fixed argument missing: %s", required)
 		}
 	}
-	for _, forbidden := range []string{"--network host", "--privileged", "--add-host", "0.0.0.0:", "--publish", "dst=/reports"} {
+	for _, forbidden := range []string{"--interactive", "--network host", "--privileged", "--add-host", "0.0.0.0:", "--publish", "dst=/reports"} {
 		if strings.Contains(joined, forbidden) {
 			t.Fatalf("forbidden argument present: %s", forbidden)
 		}
@@ -401,6 +401,9 @@ func TestRunnerContainerInspectRejectsIdentityIsolationAndMountDrift(t *testing.
 	}
 	mutations := map[string]func(map[string]any){
 		"wrong image": func(value map[string]any) { value["Image"] = AutobahnImageConfigDigest },
+		"open primary stdin": func(value map[string]any) {
+			value["Config"].(map[string]any)["OpenStdin"] = true
+		},
 		"wildcard port": func(value map[string]any) {
 			value["HostConfig"].(map[string]any)["PortBindings"] = map[string]any{"9001/tcp": []any{map[string]any{"HostIp": "0.0.0.0", "HostPort": "1"}}}
 		},
@@ -432,6 +435,18 @@ func TestRunnerContainerInspectRejectsIdentityIsolationAndMountDrift(t *testing.
 			}
 			assertFinding(t, validateAutobahnRunnerContainerInspect(raw, container, network, configPath, binaryPath), "AUTOBAHN_RUNNER_CONTAINER_IDENTITY_MISMATCH")
 		})
+	}
+}
+
+func TestRunnerReleaseUsesAuthenticatedExecWithoutTokenArguments(t *testing.T) {
+	container := autobahnRunnerContainer{name: "vjwt-fuzzclient-0123456789abcdef", role: "fuzzingclient", token: strings.Repeat("a", 64)}
+	arguments := autobahnRunnerReleaseArguments(container)
+	want := []string{"exec", "--interactive", container.name, "/autobahn-runner", "release"}
+	if !equalStrings(arguments, want) {
+		t.Fatalf("release arguments=%v", arguments)
+	}
+	if strings.Contains(strings.Join(arguments, " "), container.token) || strings.Contains(strings.Join(arguments, " "), "attach") {
+		t.Fatal("release exposed its token or retained Docker attach")
 	}
 }
 
@@ -480,7 +495,7 @@ func validRunnerInspectFixture(container autobahnRunnerContainer, network, confi
 	}
 	return map[string]any{
 		"Name": "/" + container.name, "Image": AutobahnImageManifestDigest, "Path": "/autobahn-runner", "Args": []string{},
-		"Config":          map[string]any{"OpenStdin": true, "Tty": false, "User": "", "Entrypoint": []string{"/autobahn-runner"}, "Env": environment, "Labels": map[string]string{"org.verified-java-websocket.scope": "us002-autobahn", "org.verified-java-websocket.role": container.role}},
+		"Config":          map[string]any{"OpenStdin": false, "Tty": false, "User": "", "Entrypoint": []string{"/autobahn-runner"}, "Env": environment, "Labels": map[string]string{"org.verified-java-websocket.scope": "us002-autobahn", "org.verified-java-websocket.role": container.role}},
 		"HostConfig":      map[string]any{"NetworkMode": network, "ReadonlyRootfs": true, "Privileged": false, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges"}, "PortBindings": map[string]any{}, "Tmpfs": map[string]any{"/tmp": "rw,noexec,nosuid,nodev,size=64m,mode=1777", "/reports": "rw,noexec,nosuid,nodev,size=256m,mode=0700"}, "PidsLimit": int64(128), "Memory": int64(1 << 30), "NanoCpus": int64(2_000_000_000)},
 		"NetworkSettings": map[string]any{"Ports": map[string]any{"9001/tcp": nil}, "Networks": map[string]any{network: map[string]any{"IPAddress": autobahnFuzzingClientAddress}}},
 		"Mounts": []any{

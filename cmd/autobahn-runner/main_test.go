@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"bytes"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -122,5 +123,33 @@ func TestReportArchiveRejectsRetainedAndHostileFilesystemShapes(t *testing.T) {
 				t.Fatal("hostile report directory accepted")
 			}
 		})
+	}
+}
+
+func TestAuthenticatedReleaseMarkerIsExactAndSingleUse(t *testing.T) {
+	token := strings.Repeat("a", 64)
+	path := filepath.Join(t.TempDir(), "runner-release")
+	if err := writeReleaseMarker(path, token); err != nil {
+		t.Fatal(err)
+	}
+	if err := consumeReleaseMarker(path, token); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("consumed release marker remains: %v", err)
+	}
+	if err := consumeReleaseMarker(path, token); err == nil {
+		t.Fatal("release marker was reusable")
+	}
+}
+
+func TestAuthenticatedReleaseMarkerRejectsWrongToken(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "runner-release")
+	if err := writeReleaseMarker(path, strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(path)
+	if err := consumeReleaseMarker(path, strings.Repeat("b", 64)); err == nil {
+		t.Fatal("wrong release token accepted")
 	}
 }
