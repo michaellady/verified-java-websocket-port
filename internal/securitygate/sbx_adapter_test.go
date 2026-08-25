@@ -3,7 +3,8 @@ package securitygate
 import (
 	"context"
 	"crypto/ed25519"
-	"encoding/hex"
+	"encoding/json"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -52,7 +53,6 @@ func TestSbxExecutionRequestBindsExactProtectedProfile(t *testing.T) {
 
 func TestRunControlledCanaryRequiresProtectedCallerBeforeAdapter(t *testing.T) {
 	request := testSbxExecutionRequest(t)
-	launcher := &recordingSbxLauncher{receipt: testSbxReceipt(t, request)}
 	_, err := RunControlledCanary(context.Background(), CanaryRequest{
 		RootPath: repoRoot(t), Execution: request,
 	})
@@ -60,24 +60,19 @@ func TestRunControlledCanaryRequiresProtectedCallerBeforeAdapter(t *testing.T) {
 	if !ok || finding.Code != "PROTECTED_CALLER_REQUIRED" || finding.Disposition != "BLOCK" {
 		t.Fatalf("err=%T %v", err, err)
 	}
-	if launcher.calls != 0 {
-		t.Fatalf("unprotected adapter called %d times", launcher.calls)
-	}
 }
 
-func TestRunControlledCanaryAcceptsOnlyExactProtectedReceipt(t *testing.T) {
+func TestCandidateCanValidateReceiptShapeButNeverAuthorizeLaunch(t *testing.T) {
 	request := testSbxExecutionRequest(t)
-	record, validation := testProtectedSbxAuthorization(t, request)
-	launcher := &recordingSbxLauncher{receipt: testSbxReceipt(t, request)}
-	receipt, err := RunControlledCanary(context.Background(), CanaryRequest{
-		RootPath: repoRoot(t), Execution: request,
-		Protected: &ProtectedCanaryInvocation{Authorization: record, Validation: validation, Launcher: launcher, Now: testSbxNow()},
-	})
+	profile, err := loadSbxExecutionProfile(repoRoot(t))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if launcher.calls != 1 || receipt.CanaryObservationCount != 1 || !receipt.CleanupComplete {
-		t.Fatalf("launcher calls=%d receipt=%#v", launcher.calls, receipt)
+	if err := validateSbxExecutionReceipt(profile, request, testSbxReceipt(t, request)); err != nil {
+		t.Fatalf("valid structural receipt: %v", err)
+	}
+	if _, err := RunControlledCanary(context.Background(), CanaryRequest{RootPath: repoRoot(t), Execution: request}); err == nil || !strings.Contains(err.Error(), "PROTECTED_CALLER_REQUIRED/BLOCK") {
+		t.Fatalf("candidate launch unexpectedly authorized: %v", err)
 	}
 
 	mutations := []struct {
@@ -104,11 +99,7 @@ func TestRunControlledCanaryAcceptsOnlyExactProtectedReceipt(t *testing.T) {
 		t.Run(mutation.name, func(t *testing.T) {
 			bad := testSbxReceipt(t, request)
 			mutation.edit(&bad)
-			launcher := &recordingSbxLauncher{receipt: bad}
-			_, err := RunControlledCanary(context.Background(), CanaryRequest{
-				RootPath: repoRoot(t), Execution: request,
-				Protected: &ProtectedCanaryInvocation{Authorization: record, Validation: validation, Launcher: launcher, Now: testSbxNow()},
-			})
+			err := validateSbxExecutionReceipt(profile, request, bad)
 			finding, ok := err.(*SandboxAdapterFinding)
 			if !ok || finding.Code != mutation.code {
 				t.Fatalf("err=%T %v want=%s", err, err, mutation.code)
@@ -119,7 +110,18 @@ func TestRunControlledCanaryAcceptsOnlyExactProtectedReceipt(t *testing.T) {
 
 func TestSbxCandidatePreflightNeverAuthorizes(t *testing.T) {
 	request := testSbxExecutionRequest(t)
-	record, _ := testProtectedSbxAuthorization(t, request)
+	_, privateKey, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record, err := BuildAndSignSbxLaunchAuthorization(repoRoot(t), SbxLaunchSigningRequest{
+		Execution: request, IssuedAt: testSbxNow().Add(-time.Minute), ExpiresAt: testSbxNow().Add(time.Hour),
+		RoleSnapshotDigest: digestOf("candidate-roles"), RevocationSnapshotDigest: digestOf("candidate-revocations"),
+		Nonces: []string{"candidate-qualification-nonce-0001", "candidate-promotion-nonce-0002"},
+	}, privateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 	data, err := intake.CanonicalJSON(record)
 	if err != nil {
 		t.Fatal(err)
@@ -134,17 +136,6 @@ func TestSbxCandidatePreflightNeverAuthorizes(t *testing.T) {
 	}
 }
 
-type recordingSbxLauncher struct {
-	calls   int
-	receipt SbxExecutionReceipt
-	err     error
-}
-
-func (launcher *recordingSbxLauncher) LaunchProtectedSbx(_ context.Context, _ SbxExecutionRequest) (SbxExecutionReceipt, error) {
-	launcher.calls++
-	return launcher.receipt, launcher.err
-}
-
 func testSbxExecutionRequest(t *testing.T) SbxExecutionRequest {
 	t.Helper()
 	request, err := BuildSbxExecutionRequest(repoRoot(t), SbxExecutionParameters{
@@ -157,39 +148,6 @@ func testSbxExecutionRequest(t *testing.T) SbxExecutionRequest {
 		t.Fatal(err)
 	}
 	return request
-}
-
-func testProtectedSbxAuthorization(t *testing.T, request SbxExecutionRequest) (SbxLaunchAuthorizationRecord, intake.ScopedOwnerValidation) {
-	t.Helper()
-	publicKey, privateKey, err := ed25519.GenerateKey(nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	record, err := BuildAndSignSbxLaunchAuthorization(repoRoot(t), SbxLaunchSigningRequest{
-		Execution: request, IssuedAt: testSbxNow().Add(-time.Minute), ExpiresAt: testSbxNow().Add(time.Hour),
-		RoleSnapshotDigest: digestOf("roles"), RevocationSnapshotDigest: digestOf("revocations"),
-		Nonces: []string{"sbx-qualification-nonce-0001", "sbx-promotion-nonce-0002"},
-	}, privateKey)
-	if err != nil {
-		t.Fatal(err)
-	}
-	authority := intake.TrustedAuthority{
-		AuthorityMode: intake.SingleOwnerAuthorityMode, OwnerActorID: intake.RequiredOwnerActor,
-		Identities: map[string]intake.Identity{intake.RequiredOwnerActor: {
-			ActorID: intake.RequiredOwnerActor, AuthorityMode: intake.SingleOwnerAuthorityMode,
-			AllowedRoles: []string{"port-implementer", "release-attestor"}, KeyID: executablePromotionKeyID,
-			PublicKey: hex.EncodeToString(publicKey),
-		}},
-		Snapshots: map[string]intake.Snapshot{intake.RequiredOwnerActor: {
-			RoleDigest: record.Statements[0].RoleSnapshotDigest, RevocationDigest: record.Statements[0].RevocationSnapshotDigest,
-		}},
-		Ledger: intake.FileLedger{Directory: filepath.Join(t.TempDir(), "protected-ledger")},
-	}
-	validation, err := intake.VerifyScopedOwnerStatements(record.Subject, record.Statements, authority, SbxLaunchOwnerRequirements(), testSbxNow())
-	if err != nil {
-		t.Fatal(err)
-	}
-	return record, validation
 }
 
 func testSbxReceipt(t *testing.T, request SbxExecutionRequest) SbxExecutionReceipt {
@@ -212,9 +170,9 @@ func testSbxReceipt(t *testing.T, request SbxExecutionRequest) SbxExecutionRecei
 		TemplateReference: profile.Runtime.TemplateReference, TemplateIndexDigest: profile.Runtime.TemplateIndexDigest,
 		TemplatePlatform: profile.Runtime.TemplatePlatform, TemplateManifestDigest: profile.Runtime.TemplateManifestDigest,
 		WorkspaceMode: profile.Isolation.WorkspaceMode, CloneSourceReadOnly: true,
-		CPUCount: profile.Isolation.CPUs, MemoryBytes: profile.Isolation.MemoryBytes, SupervisorLimits: profile.SupervisorLimits,
-		SupervisorLimitsApplied: true, NetworkPolicyDigest: profile.Isolation.NetworkPolicy.CanonicalDigest,
-		NetworkPolicyState: "ACTIVE_DENY_ALL", InputRoot: request.InputRoot, OutputRoot: request.OutputRoot,
+		CPUCount: profile.Isolation.CPUs, MemoryBytes: profile.Isolation.MemoryBytes, DeclaredCanaryLimits: profile.SupervisorLimits,
+		NetworkPolicyDigest: profile.Isolation.NetworkPolicy.CanonicalDigest,
+		NetworkPolicyState:  "ACTIVE_DENY_ALL", InputRoot: request.InputRoot, OutputRoot: request.OutputRoot,
 		PlatformControlSecretCount: 1, MCPGatewayInfrastructure: true, CloneGitBridgePortCount: 1,
 		AcceptedRootDigest: request.AcceptedRootDigest, InventoryRootDigest: request.InventoryRootDigest,
 		SourceBeforeDigest: digestOf("source-tree"), SourceAfterDigest: digestOf("source-tree"), OutputRootDigest: digestOf("output-root"),
@@ -246,5 +204,58 @@ func TestSbxRequestRejectsNonCanonicalOutputAndAutobahn(t *testing.T) {
 	bad.CanaryID = "AUTOBAHN_CLIENT"
 	if _, err := BuildSbxExecutionRequest(repoRoot(t), bad); err == nil || !strings.Contains(err.Error(), "AUTOBAHN_RERUN_FORBIDDEN") {
 		t.Fatalf("Autobahn request err=%v", err)
+	}
+}
+
+func TestUS007ExternalSbxPublicProjectionIsExactAndBounded(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(repoRoot(t), "evidence", "sbx-validation.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if digest := intake.DigestBytes(data); digest != "sha256:930b9073555f24d4013773f3f81e7bc354442ded9795812e2888907c4853b6b7" {
+		t.Fatalf("external sbx public projection digest=%s", digest)
+	}
+	var projection struct {
+		Story                    string `json:"story"`
+		TargetCommit             string `json:"target_commit"`
+		NetworkPolicy            string `json:"network_policy"`
+		PlatformControlSecrets   int    `json:"platform_control_secrets"`
+		CloneGitBridgePorts      int    `json:"clone_git_bridge_ports"`
+		RegisteredMCPServers     int    `json:"registered_mcp_servers"`
+		UserSecretImports        int    `json:"user_secret_imports"`
+		UserPublishedPorts       int    `json:"user_published_ports"`
+		SandboxRemoved           bool   `json:"sandbox_removed"`
+		SandboxAbsentAfterRemove bool   `json:"sandbox_absent_after_remove"`
+		AutobahnReruns           int    `json:"autobahn_reruns"`
+		Assurance                string `json:"assurance"`
+		IndependentReviewClaimed bool   `json:"independent_review_claimed"`
+		Production               bool   `json:"production"`
+		Signing                  bool   `json:"signing"`
+		Publication              bool   `json:"publication"`
+		Canaries                 []struct {
+			ID       string `json:"id"`
+			Passed   bool   `json:"passed"`
+			ExitCode int    `json:"exit_code"`
+		} `json:"canaries"`
+	}
+	if err := json.Unmarshal(data, &projection); err != nil {
+		t.Fatal(err)
+	}
+	if projection.Story != "US-007" || projection.TargetCommit != "f1860a4bd0420c8073aec8980cfcf3d118e1ea5a" || projection.NetworkPolicy != "ACTIVE_DENY_ALL" ||
+		projection.PlatformControlSecrets != 1 || projection.CloneGitBridgePorts != 1 || projection.RegisteredMCPServers != 0 || projection.UserSecretImports != 0 || projection.UserPublishedPorts != 0 ||
+		!projection.SandboxRemoved || !projection.SandboxAbsentAfterRemove || projection.AutobahnReruns != 0 || projection.Assurance != AssuranceOwnerOnly || projection.IndependentReviewClaimed || projection.Production || projection.Signing || projection.Publication || len(projection.Canaries) != 15 {
+		t.Fatalf("external sbx projection widened or incomplete: %#v", projection)
+	}
+	seenPID := false
+	for _, canary := range projection.Canaries {
+		if !canary.Passed {
+			t.Fatalf("external sbx canary failed: %#v", canary)
+		}
+		if canary.ID == "PID_BOUND" {
+			seenPID = canary.ExitCode != 0
+		}
+	}
+	if !seenPID {
+		t.Fatal("process bomb did not retain its typed nonzero termination")
 	}
 }

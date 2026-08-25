@@ -1,7 +1,6 @@
 package securitygate
 
 import (
-	"context"
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
@@ -178,8 +177,7 @@ type SbxExecutionReceipt struct {
 	CloneSourceReadOnly        bool      `json:"clone_source_read_only"`
 	CPUCount                   int       `json:"cpu_count"`
 	MemoryBytes                int64     `json:"memory_bytes"`
-	SupervisorLimits           resources `json:"supervisor_limits"`
-	SupervisorLimitsApplied    bool      `json:"supervisor_limits_applied"`
+	DeclaredCanaryLimits       resources `json:"declared_canary_limits"`
 	NetworkPolicyDigest        string    `json:"network_policy_digest"`
 	NetworkPolicyState         string    `json:"network_policy_state"`
 	EnvironmentImportCount     int       `json:"environment_import_count"`
@@ -217,20 +215,6 @@ type SbxExecutionReceipt struct {
 	Production                 bool      `json:"production"`
 	Signing                    bool      `json:"signing"`
 	Publication                bool      `json:"publication"`
-}
-
-// ProtectedSbxLauncher is implemented by the parent-owned protected process.
-// Candidate code provides validation and transport only and has no subprocess
-// implementation of this interface.
-type ProtectedSbxLauncher interface {
-	LaunchProtectedSbx(context.Context, SbxExecutionRequest) (SbxExecutionReceipt, error)
-}
-
-type ProtectedCanaryInvocation struct {
-	Authorization SbxLaunchAuthorizationRecord
-	Validation    intake.ScopedOwnerValidation
-	Launcher      ProtectedSbxLauncher
-	Now           time.Time
 }
 
 // SbxLaunchAuthorizationRecord contains public owner intent only. It carries
@@ -505,8 +489,8 @@ func validateSbxExecutionReceipt(profile sbxExecutionProfile, request SbxExecuti
 	if receipt.Agent != profile.Runtime.Agent || receipt.TemplateReference != profile.Runtime.TemplateReference || receipt.TemplateIndexDigest != profile.Runtime.TemplateIndexDigest || receipt.TemplatePlatform != profile.Runtime.TemplatePlatform || receipt.TemplateManifestDigest != profile.Runtime.TemplateManifestDigest {
 		return sbxFinding("SBX_TEMPLATE_MISMATCH", "QUARANTINE", "$.template", "observed shell template differs from the immutable platform manifest")
 	}
-	if receipt.WorkspaceMode != "clone" || !receipt.CloneSourceReadOnly || receipt.CPUCount != profile.Isolation.CPUs || receipt.MemoryBytes != profile.Isolation.MemoryBytes || receipt.SupervisorLimits != profile.SupervisorLimits || !receipt.SupervisorLimitsApplied {
-		return sbxFinding("SANDBOX_CAPABILITY_MISMATCH", "QUARANTINE", "$.isolation", "clone or resource envelope differs from the protected profile")
+	if receipt.WorkspaceMode != "clone" || !receipt.CloneSourceReadOnly || receipt.CPUCount != profile.Isolation.CPUs || receipt.MemoryBytes != profile.Isolation.MemoryBytes || receipt.DeclaredCanaryLimits != profile.SupervisorLimits {
+		return sbxFinding("SANDBOX_CAPABILITY_MISMATCH", "QUARANTINE", "$.isolation", "clone bounds or declared canary limits differ from the retained profile")
 	}
 	if receipt.NetworkPolicyDigest != profile.Isolation.NetworkPolicy.CanonicalDigest || receipt.NetworkPolicyState != "ACTIVE_DENY_ALL" {
 		return sbxFinding("NETWORK_POLICY_VIOLATION", "QUARANTINE", "$.network_policy", "active deny-all rule was not observed")
@@ -546,38 +530,4 @@ func validateSbxExecutionReceipt(profile sbxExecutionProfile, request SbxExecuti
 		return sbxFinding("ASSURANCE_CEILING_EXCEEDED", "REVOKE", "$.assurance", "receipt exceeds the sole-owner non-production ceiling")
 	}
 	return nil
-}
-
-func runProtectedCanary(ctx context.Context, request CanaryRequest) (SbxExecutionReceipt, error) {
-	if err := ctx.Err(); err != nil {
-		return SbxExecutionReceipt{}, err
-	}
-	if err := validateSbxExecutionRequest(request.RootPath, request.Execution); err != nil {
-		return SbxExecutionReceipt{}, err
-	}
-	if request.Protected == nil || request.Protected.Launcher == nil {
-		return SbxExecutionReceipt{}, sbxFinding("PROTECTED_CALLER_REQUIRED", "BLOCK", "$.protected_launcher", "a separately protected launcher and authorization validation are required")
-	}
-	now := request.Protected.Now
-	if now.IsZero() {
-		now = time.Now().UTC()
-	}
-	if err := ValidateSbxLaunchAuthorizationRecord(request.RootPath, request.Execution, request.Protected.Authorization, now); err != nil {
-		return SbxExecutionReceipt{}, err
-	}
-	if !request.Protected.Validation.MatchesSubject(request.Protected.Authorization.Subject) {
-		return SbxExecutionReceipt{}, sbxFinding("PROTECTED_CALLER_REQUIRED", "BLOCK", "$.protected_authority", "opaque protected authority validation does not match the exact launch subject")
-	}
-	receipt, err := request.Protected.Launcher.LaunchProtectedSbx(ctx, request.Execution)
-	if err != nil {
-		return SbxExecutionReceipt{}, err
-	}
-	profile, err := loadSbxExecutionProfile(request.RootPath)
-	if err != nil {
-		return SbxExecutionReceipt{}, err
-	}
-	if err := validateSbxExecutionReceipt(profile, request.Execution, receipt); err != nil {
-		return SbxExecutionReceipt{}, err
-	}
-	return receipt, nil
 }

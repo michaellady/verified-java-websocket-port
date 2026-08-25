@@ -1,12 +1,49 @@
 # US-007 sandbox and release-firewall isolation design
 
-Status: execution-ready security architecture. This document defines the
-controls and tests for US-007. It does not claim that the controls have been
-implemented or that a release is authorized.
+Status: candidate transport implemented; historical Docker sbx feasibility
+validation retained; acceptance blocked on a universally imposed external
+resource envelope. This remains a quarantined laboratory result and does not
+authorize production use, signing, publication, or independent review.
 
 Assurance: `OWNER_ATTESTED_NOT_INDEPENDENT`.
 `independent_review_claimed` is `false`. Production access, signing,
 publication, and any additional Autobahn run are not authorized.
+
+## Retained live Docker sbx result
+
+The protected parent executed the exact candidate snapshot
+`f1860a4bd0420c8073aec8980cfcf3d118e1ea5a` through Docker sbx v0.39.0 in
+`--clone` mode. The shell template was pinned to linux/arm64 manifest
+`sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec`;
+the multi-platform index digest is retained separately as
+`sha256:c183a8ba03cdb30011c73f555c773c5712b84c6ea066f18409253dcab2cfe799`.
+Creation used 2 CPUs, 2 GiB outer memory, and an explicit sandbox-scoped
+wildcard deny rule. The external operator bounded wall time and captured
+output, while isolated canary commands exercised the retained CPU, memory,
+process, file-descriptor, output, workspace, and wall limits. That validates
+the canary profile; it does not prove the complete retained envelope is imposed
+externally on every future hostile workload. Until that is implemented and
+observed, US-007 remains `SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK`.
+
+Docker clone mode necessarily exposes one localhost-only ephemeral Git-daemon
+bridge and one internal `mcpgateway` control token. The protected inspect
+receipt inventories those separately from workload capabilities: zero host
+environment variables, user/service secrets, registered MCP servers, shared
+skills, user-published ports, protected mounts, and host Docker sockets were
+accepted. Any additional control-plane member is a mismatch. The scoped
+wildcard deny overrides Docker's shell-kit provider allowance, and both the
+policy check and in-VM network canary proved effective denial.
+
+The owner key remained in HQ secret injection outside the candidate repository
+and microVM. The external operator self-hashed, obtained an owner-signed exact
+executable-closure promotion, atomically consumed distinct nonces in a durable
+protected ledger, signed the exact sbx request, ran the closed non-Autobahn
+canary suite, recursively classified the public projection, removed the exact
+sandbox, and proved post-removal absence. The complete protected record remains
+outside this repository. Its classifier-approved public projection is retained
+at `evidence/sbx-validation.json` with digest
+`sha256:930b9073555f24d4013773f3f81e7bc354442ded9795812e2888907c4853b6b7`.
+Autobahn reruns performed by US-007 remain zero.
 
 ## Decision
 
@@ -166,6 +203,7 @@ schemas/
   security-validation-1.0.0.schema.json
 evidence/
   security-validation.json
+  sbx-validation.json                 # externally classified live sbx projection
 cmd/securityctl/
   main.go
   main_test.go
@@ -224,10 +262,12 @@ All functions first load the same policy snapshot. `Verify` and
 `VerifySandbox` are read-only.
 `Ingest` and `Project` may write only to caller-supplied, policy-bound private
 transaction roots after root disjointness checks; their sole durable output is
-an accepted content-addressed root. `RunControlledCanary` is available only to
-the promoted supervisor and may execute a project-owned canary when the plan
-names a closed canary ID. There is no general command, argv, shell,
-environment, URL, container image, or plugin parameter.
+an accepted content-addressed root. `RunControlledCanary` validates only the
+candidate-side request transport and then always returns
+`PROTECTED_CALLER_REQUIRED/BLOCK`. The external protected operator owns launch,
+authority verification, nonce consumption, and authoritative receipts. There
+is no candidate-accessible launcher, general command, argv, shell, environment,
+URL, container image, or plugin parameter.
 
 `cmd/securityctl` accepts only:
 
@@ -238,12 +278,12 @@ securityctl verify-sandbox --root ROOT --plan RELATIVE --receipt RELATIVE
 securityctl project --root ROOT --candidate-root DIGEST --store STORE
 ```
 
-It emits canonical JSON and exits nonzero for any finding. The implementation
-may have a private supervisor-only `__canary` dispatch, but its argument must be
-one cataloged enum plus the supervisor-created, promotion-bound plan digest. It
-cannot accept paths or argv from candidate bytes. `go run` is not an authoritative invocation:
-the executed `securityctl` and sandbox supervisor digests must be in the
-executable inventory and promotion closure.
+It emits canonical JSON and exits nonzero for any finding. A separately
+protected operator may have a private fixed-canary dispatch, but candidate code
+cannot supply that operator or turn a structurally valid receipt into launch
+authority. `go run` is not an authoritative invocation: the executed
+`securityctl` and sandbox supervisor digests must be in the executable inventory
+and promotion closure.
 
 ## Root confinement and immutable snapshots
 
@@ -774,8 +814,9 @@ Implementation follows RED -> GREEN -> REFACTOR, with no upstream execution:
 5. add Maven/Rust/LSP/Autobahn/container metadata tables and prove complete
    inventory/promotion/use reconciliation without resolving or running them;
 6. add sandbox plan and receipt negatives for every capability/resource field,
-   then implement the closed supervisor transport and separately run the fixed
-   project-owned canaries on the supported platform;
+   keep candidate transport non-authorizing, and separately run the fixed
+   project-owned canaries through the protected operator on the supported
+   platform;
 7. add recursive virtual projection and scanner cases for every leak/gap class,
    protected receipt validation, and late mutation before implementing staged
    projection;
@@ -810,8 +851,10 @@ securityctl verify --root .
 ```
 
 `TestUS007E2E_ControlledCanaries` is skipped with a typed
-`SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK` outside the exact promoted supervisor
-platform; a skip cannot pass acceptance. It runs only the fixed Go canary IDs.
+`PROTECTED_CALLER_REQUIRED/BLOCK` because candidate tests cannot acquire the
+external launch authority. A skip cannot pass acceptance. External validation
+runs only the fixed Go canary IDs, and acceptance additionally requires proof
+that the complete resource envelope is imposed outside each hostile workload.
 No generic `go test ./...` is accepted as a substitute because unrelated
 packages include Java-process and Autobahn-capable harnesses. After security
 acceptance is recorded, a separate reviewed whole-repository Go quality pass

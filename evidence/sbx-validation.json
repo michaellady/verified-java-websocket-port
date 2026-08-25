@@ -1,0 +1,134 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-007",
+  "target_commit": "f1860a4bd0420c8073aec8980cfcf3d118e1ea5a",
+  "runtime": "sbx-v0.39.0-def8cb0523a77e757bdd6ef52b459fe374f3783e",
+  "template_index_digest": "sha256:c183a8ba03cdb30011c73f555c773c5712b84c6ea066f18409253dcab2cfe799",
+  "template_manifest_digest": "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+  "network_policy": "ACTIVE_DENY_ALL",
+  "workspace_mode": "clone",
+  "cpu_count": 2,
+  "memory_bytes": 2147483648,
+  "platform_control_secrets": 1,
+  "clone_git_bridge_ports": 1,
+  "registered_mcp_servers": 0,
+  "user_secret_imports": 0,
+  "user_published_ports": 0,
+  "canaries": [
+    {
+      "id": "CLEAN_EXIT",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "ENV_SENTINEL_ABSENT",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "PROTECTED_SENTINEL_DENIED",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "HOST_DOCKER_SOCKET_ABSENT",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "SOURCE_WRITE_DENIED",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "MCP_SERVER_ABSENT",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "NETWORK_SOCKET_DENIED",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "FD_BOUND",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "OUTPUT_BOUND",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "WORKSPACE_BOUND",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "WALL_BOUND",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "CPU_BOUND",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "MEMORY_BOUND",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "id": "PID_BOUND",
+      "expected": "NONZERO_RESOURCE_TERMINATION",
+      "exit_code": 254,
+      "passed": true,
+      "output_digest": "sha256:62fcf09dc54fd954c870db0af81509a54562a4639904fe034309f1fd8c0c225c"
+    },
+    {
+      "id": "BENIGN_BUILD",
+      "expected": "EXIT_0_TYPED_CONTAINMENT",
+      "exit_code": 0,
+      "passed": true,
+      "output_digest": "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "benign_build_passed": true,
+  "safe_projection_passed": true,
+  "sandbox_removed": true,
+  "sandbox_absent_after_remove": true,
+  "autobahn_reruns": 0,
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false
+}

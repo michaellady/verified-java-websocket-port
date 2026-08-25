@@ -67,9 +67,8 @@ type Verdict struct {
 	PublicationAuthorized    bool      `json:"publication_authorized"`
 }
 type CanaryRequest struct {
-	RootPath  string                     `json:"root_path"`
-	Execution SbxExecutionRequest        `json:"execution"`
-	Protected *ProtectedCanaryInvocation `json:"-"`
+	RootPath  string              `json:"root_path"`
+	Execution SbxExecutionRequest `json:"execution"`
 }
 type SandboxReceipt = SbxExecutionReceipt
 
@@ -548,7 +547,13 @@ func scanReleaseFixture(policy releasePolicy, item fixtureCase) (string, bool, e
 }
 
 func RunControlledCanary(ctx context.Context, request CanaryRequest) (SandboxReceipt, error) {
-	return runProtectedCanary(ctx, request)
+	if err := ctx.Err(); err != nil {
+		return SandboxReceipt{}, err
+	}
+	if err := validateSbxExecutionRequest(request.RootPath, request.Execution); err != nil {
+		return SandboxReceipt{}, err
+	}
+	return SandboxReceipt{}, sbxFinding("PROTECTED_CALLER_REQUIRED", "BLOCK", "$.protected_launcher", "candidate code can build and validate untrusted transport, but only the external protected operator may launch sbx or issue an authoritative receipt")
 }
 func baseVerdict(snapshot *policySnapshot) Verdict {
 	return Verdict{State: "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE", SecurityEvidenceRoot: snapshot.digests["evidence/security-validation.json"], Findings: []Finding{}, Assurance: AssuranceOwnerOnly}
