@@ -3,8 +3,13 @@ package securitygate
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/intake"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 func TestSupervisorObservationRejectsMissingRegressionAndDigestDrift(t *testing.T) {
@@ -37,6 +42,48 @@ func TestSupervisorObservationRejectsMissingRegressionAndDigestDrift(t *testing.
 				t.Fatal("invalid supervisor observation accepted")
 			}
 		})
+	}
+}
+
+func TestProtectedRawProjectionRoundTripsStrictDecoderAndSchema(t *testing.T) {
+	request := testSbxExecutionRequest(t)
+	profile, err := loadSbxExecutionProfile(repoRoot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	projected := testSbxReceipt(t, request)
+	raw, err := intake.CanonicalJSON(projected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := DecodeSbxExecutionReceipt(raw)
+	if err != nil || validateSbxExecutionReceipt(profile, request, decoded) != nil {
+		t.Fatalf("protected projection round-trip: decode=%v validate=%v", err, validateSbxExecutionReceipt(profile, request, decoded))
+	}
+	schemaBytes, err := os.ReadFile(filepath.Join(repoRoot(t), "schemas/sbx-execution-receipt-1.0.0.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schemaResource any
+	if err := json.Unmarshal(schemaBytes, &schemaResource); err != nil {
+		t.Fatal(err)
+	}
+	compiler := jsonschema.NewCompiler()
+	if err := compiler.AddResource("sbx-receipt", schemaResource); err != nil {
+		t.Fatal(err)
+	}
+	schema, err := compiler.Compile("sbx-receipt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil || schema.Validate(value) != nil {
+		t.Fatalf("projection schema: unmarshal=%v schema=%v", err, schema.Validate(value))
+	}
+	drift := projected
+	drift.SupervisorObservation.CompleteMountInfoDigest = digestOf("drift")
+	if err := validateSbxExecutionReceipt(profile, request, drift); err == nil {
+		t.Fatal("protected projection field drift accepted")
 	}
 }
 

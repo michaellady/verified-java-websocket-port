@@ -186,12 +186,16 @@ func testSbxReceipt(t *testing.T, request SbxExecutionRequest) SbxExecutionRecei
 }
 
 func testSupervisorObservation(request SbxExecutionRequest) SupervisorObservation {
+	descriptorDigest, _, err := sbxDescriptorContract(request.CanaryID)
+	if err != nil {
+		panic(err)
+	}
 	initial := SupervisorCgroupObservation{
 		MemoryMaxBytes: 536870912, MemorySwapMax: 0, MemoryOOMGroup: 1, PIDsMax: 64,
 		CPUUsageUsec: 1, CPUUserUsec: 1,
 	}
 	return SupervisorObservation{
-		DescriptorDigest: digestOf("descriptor:" + request.CanaryID), SupervisorDigestReopened: request.SupervisorDigest,
+		DescriptorDigest: descriptorDigest, SupervisorDigestReopened: request.SupervisorDigest,
 		RuntimeIdentity: "linux/arm64", SBXIdentity: "docker-sbx-v0.39.0/linux/arm64",
 		CapabilityPreflight: SupervisorCapabilityPreflight{
 			CAPSysAdmin: "CapEff bit 21 observed", CgroupV2: "cgroup2 mount observed",
@@ -199,11 +203,12 @@ func testSupervisorObservation(request SbxExecutionRequest) SupervisorObservatio
 			MountTmpfs:        "private mount namespace and tmpfs available",
 			Stage2Containment: "pid reopened in cgroup.procs before release",
 		},
-		CgroupInitial: initial, CgroupFinal: initial,
+		EnforcementMechanics: SupervisorEnforcementMechanics{RLimitFSizeBytes: 134217728, CPUKillThresholdUsec: 58000000, WallKillThresholdNS: 119000000000},
+		CgroupInitial:        initial, CgroupFinal: initial,
 		RLimits: SupervisorRLimitObservation{
 			CPUCur: 60, CPUMax: 60, ASCur: 536870912, ASMax: 536870912,
 			NProcCur: 64, NProcMax: 64, NOFileCur: 256, NOFileMax: 256,
-			FSizeCur: 8388608, FSizeMax: 8388608,
+			FSizeCur: 134217728, FSizeMax: 134217728,
 		},
 		Identity: SupervisorIdentityObservation{
 			UID: 65534, GID: 65534, CapEff: "0000000000000000", NoNewPrivs: 1, Seccomp: 2, OpenFDs: 3,
@@ -216,15 +221,26 @@ func testSupervisorObservation(request SbxExecutionRequest) SupervisorObservatio
 			{Name: "general", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 16777216, BytesFree: 16777216, InodesTotal: 1024, InodesFree: 1024},
 		},
 		RootMountInfo: "1 0 0:1 / / ro - rootfs rootfs ro", SourceMountInfo: "2 1 0:2 / /run/sandbox/source ro - ext4 source ro",
-		StdoutDigest: digestOf("stdout"), StderrDigest: digestOf("stderr"), Termination: "EXITED", ParentWaitStatus: "exit status 0", WallDurationNanos: int64(time.Second),
+		CompleteMountInfo: testCandidateMountInfo(), CompleteMountInfoDigest: intake.DigestBytes([]byte(testCandidateMountInfo())),
+		StdoutDigest: digestOf("stdout"), StderrDigest: digestOf("stderr"), Termination: "EXITED", ParentWaitStatus: "exit status 0", ParentExitCode: sbxIntPointer(0), WallDurationNanos: int64(time.Second),
 		Cleanup: SupervisorCleanupObservation{
-			ProcessGroupKill: "SIGKILL sent to process group", CgroupKill: "1 written to cgroup.kill", ChildWait: "stage-2 child reaped",
-			CgroupEventsReopened: "populated 0\nfrozen 0", CgroupProcsReopened: "<empty>", NamespaceMounts: "mount namespace reaped",
-			FDClosure: "owned descriptors closed", CgroupRemoval: "cgroup directory removed",
+			ProcessGroupKill: "ALREADY_ABSENT_ESRCH", CgroupKill: "WRITE_SUCCEEDED", ChildWait: "REAP_SUCCEEDED",
+			CgroupEventsReopened: "populated 0\nfrozen 0", CgroupProcsReopened: "<empty>", NamespaceMounts: "PROCESS_MOUNT_NAMESPACE_REAPED",
+			FDClosure: "OWNED_FDS_CLOSED", CgroupRemoval: "REMOVE_SUCCEEDED",
 		},
 		Assurance: AssuranceOwnerOnly,
 	}
 }
+
+func testCandidateMountInfo() string {
+	return strings.Join([]string{
+		"1 0 0:1 / / ro - rootfs rootfs ro", "2 1 0:2 / /run/sandbox/source ro - ext4 source ro",
+		"3 1 0:3 / /run/us007-workspace rw - tmpfs tmpfs rw", "4 1 0:4 / /run/us007-cache rw - tmpfs tmpfs rw",
+		"5 1 0:5 / /run/us007-output rw - tmpfs tmpfs rw", "6 1 0:6 / /run/us007-general rw - tmpfs tmpfs rw",
+	}, "\n")
+}
+
+func sbxIntPointer(value int) *int { return &value }
 
 func digestOf(value string) string { return intake.DigestBytes([]byte(value)) }
 
