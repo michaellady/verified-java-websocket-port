@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/assurance"
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
@@ -33,6 +34,7 @@ const (
 
 var policyPaths = []string{"security/ingestion-policy.json", "security/sandbox-policy.json", "security/release-firewall.json"}
 var schemaPaths = []string{"schemas/security-ingestion-policy-1.0.0.schema.json", "schemas/security-sandbox-policy-1.0.0.schema.json", "schemas/security-release-firewall-1.0.0.schema.json", "schemas/security-fixture-catalog-1.0.0.schema.json", "schemas/security-validation-1.0.0.schema.json"}
+var baselineEvidencePaths = []string{"evidence/java/build.json", "evidence/java/adapter-baseline.json", "evidence/java/test-manifest.json", "evidence/java/autobahn-baseline.json", "evidence/java/behavior-delta-ledger.json"}
 
 type Request struct {
 	RootPath      string `json:"root_path"`
@@ -42,6 +44,11 @@ type Request struct {
 	StorePath     string `json:"store_path,omitempty"`
 	PlanPath      string `json:"plan_path,omitempty"`
 	ReceiptPath   string `json:"receipt_path,omitempty"`
+
+	// fixtureSourcePath is the only mutable-directory source seam. It is
+	// deliberately package-private so command/API callers cannot substitute a
+	// working tree for an accepted content-addressed root.
+	fixtureSourcePath string
 }
 type Finding struct {
 	Code        string `json:"code"`
@@ -199,10 +206,15 @@ type validationEvidence struct {
 	Signing                            bool              `json:"signing"`
 	Publication                        bool              `json:"publication"`
 	SandboxMechanics                   Finding           `json:"sandbox_mechanics"`
+	LifecycleIntegration               Finding           `json:"lifecycle_integration"`
 	Runtime                            runtimeMetadata   `json:"runtime"`
 }
 type fixtureResult struct {
 	ID                  string `json:"id"`
+	Component           string `json:"component"`
+	State               string `json:"state"`
+	InputDigest         string `json:"input_digest"`
+	OutputDigest        string `json:"output_digest"`
 	ExpectedCode        string `json:"expected_code"`
 	ActualCode          string `json:"actual_code"`
 	ExpectedDisposition string `json:"expected_disposition"`
@@ -229,6 +241,7 @@ type policySnapshot struct {
 	digests   map[string]string
 	registry  map[string]string
 	bindings  map[string]string
+	autobahn  autobahnClosure
 }
 
 func Verify(ctx context.Context, request Request) (Verdict, error) {
@@ -248,14 +261,17 @@ func Verify(ctx context.Context, request Request) (Verdict, error) {
 	defer snapshot.root.Close()
 	verdict := baseVerdict(snapshot)
 	if request.FixtureID != "" {
-		verdict.State = "PASS_SYNTHETIC_NON_CLAIM"
 		item, ok := catalogCase(snapshot.catalog, request.FixtureID)
 		if !ok {
 			return Verdict{}, fmt.Errorf("fixture %q is not in the closed catalog", request.FixtureID)
 		}
-		actualCode := snapshot.bindings[item.ID]
-		if actualCode != "" {
-			verdict = findingVerdict(verdict, actualCode, snapshot.registry[actualCode], "security/fixtures/"+item.ID, "inert fixture produced its policy-bound finding")
+		observation, err := evaluateFixture(snapshot, item)
+		if err != nil {
+			return Verdict{}, err
+		}
+		verdict.State = observation.State
+		if observation.Code != "" {
+			verdict = findingVerdict(verdict, observation.Code, observation.Disposition, "security/fixtures/"+item.ID, "inert fixture produced an observed component finding")
 		}
 		return verdict, nil
 	}
@@ -288,51 +304,147 @@ func Ingest(ctx context.Context, request Request) (Verdict, error) {
 	if request.Operation != OperationIngest {
 		return Verdict{}, errors.New("operation must be INGEST")
 	}
-	if pathsOverlap(request.CandidateRoot, request.StorePath) {
-		return findingVerdict(verdict, "ROOT_CONFINEMENT_FAILED", "QUARANTINE", "$.store", "candidate and promotion roots must be disjoint"), nil
+	if finding := validateIngestRoots(request.RootPath, request.StorePath, request.fixtureSourcePath); finding != nil {
+		return findingVerdict(verdict, finding.Code, finding.Disposition, finding.Path, finding.Message), nil
 	}
-	manifest, objects, finding := snapshotCandidate(request.CandidateRoot, snapshot.ingestion)
+	if request.fixtureSourcePath == "" && !isSHA256Digest(request.CandidateRoot) {
+		return findingVerdict(verdict, "PROMOTION_BINDING_MISMATCH", "QUARANTINE", "$.candidate_root", "authoritative ingest requires one exact accepted content-addressed root"), nil
+	}
+	sourcePath := request.fixtureSourcePath
+	if sourcePath == "" {
+		// The inherited adapter verifies the accepted manifest, every object
+		// digest, and the root derivation before these bytes enter US-007.
+		accepted, loadErr := lab.LoadAcceptedRoot(request.StorePath, request.CandidateRoot)
+		if loadErr != nil {
+			return findingVerdict(verdict, "PROMOTION_BINDING_MISMATCH", "QUARANTINE", "$.candidate_root", "accepted source root did not verify: "+loadErr.Error()), nil
+		}
+		manifest, objects, finding := snapshotAcceptedRoot(request.CandidateRoot, accepted, snapshot.ingestion)
+		if finding != nil {
+			return findingVerdict(verdict, finding.Code, finding.Disposition, finding.Path, finding.Message), nil
+		}
+		return promoteCandidate(verdict, request.StorePath, manifest, objects, false)
+	}
+	if request.CandidateRoot != "" {
+		return findingVerdict(verdict, "PROMOTION_BINDING_MISMATCH", "QUARANTINE", "$.candidate_root", "fixture and authoritative source modes cannot be combined"), nil
+	}
+	manifest, objects, finding := snapshotCandidate(sourcePath, snapshot.ingestion)
 	if finding != nil {
 		verdict.State = "BLOCKED"
 		verdict.Findings = []Finding{*finding}
 		return verdict, nil
 	}
+	return promoteCandidate(verdict, request.StorePath, manifest, objects, true)
+}
+
+func promoteCandidate(verdict Verdict, storePath string, manifest candidateManifest, objects []intake.Object, synthetic bool) (Verdict, error) {
 	manifestBytes, err := intake.CanonicalJSON(manifest)
 	if err != nil {
 		return Verdict{}, err
 	}
 	objects = append(objects, intake.Object{ID: "candidate-manifest", Digest: intake.DigestBytes(manifestBytes), Bytes: manifestBytes})
-	if request.StorePath == "" {
+	if storePath == "" {
 		return Verdict{}, errors.New("store path is required")
 	}
-	root, err := intake.PromoteDirectory(request.StorePath, objects)
+	root, err := intake.PromoteDirectory(storePath, objects)
 	if err != nil {
-		return findingVerdict(verdict, "PARTIAL_PROMOTION", "QUARANTINE", request.StorePath, err.Error()), nil
+		return findingVerdict(verdict, "PARTIAL_PROMOTION", "QUARANTINE", storePath, err.Error()), nil
 	}
 	verdict.QuarantineRoot = root
-	accepted, err := lab.LoadAcceptedRoot(request.StorePath, root)
+	accepted, err := lab.LoadAcceptedRoot(storePath, root)
 	if err != nil {
-		return findingVerdict(verdict, "PARTIAL_PROMOTION", "QUARANTINE", request.StorePath, "promoted root did not pass read-back: "+err.Error()), nil
+		return findingVerdict(verdict, "PARTIAL_PROMOTION", "QUARANTINE", storePath, "promoted root did not pass read-back: "+err.Error()), nil
 	}
 	if retained, ok := accepted.Object("candidate-manifest"); !ok || !bytes.Equal(retained, manifestBytes) {
-		return findingVerdict(verdict, "DIGEST_MISMATCH", "QUARANTINE", request.StorePath, "promoted candidate manifest differs from the one-read snapshot"), nil
+		return findingVerdict(verdict, "DIGEST_MISMATCH", "QUARANTINE", storePath, "promoted candidate manifest differs from the one-read snapshot"), nil
 	}
-	verdict.State = "PASS_INGESTION_COMPONENT"
+	if synthetic {
+		verdict.State = "PASS_SYNTHETIC_NON_CLAIM"
+	} else {
+		verdict.State = "PASS_INGESTION_COMPONENT"
+	}
 	return verdict, nil
 }
 
-func pathsOverlap(left, right string) bool {
-	if left == "" || right == "" {
-		return false
+func validateIngestRoots(projectRoot, storePath, fixtureSource string) *Finding {
+	deny := func(path, message string) *Finding {
+		return &Finding{Code: "ROOT_CONFINEMENT_FAILED", Disposition: "QUARANTINE", Path: path, Message: message}
 	}
-	a, errA := filepath.Abs(left)
-	b, errB := filepath.Abs(right)
-	if errA != nil || errB != nil {
-		return true
+	project, err := realDirectoryIdentity(projectRoot)
+	if err != nil {
+		return deny("$.root", err.Error())
 	}
-	a = filepath.Clean(a)
-	b = filepath.Clean(b)
-	return a == b || strings.HasPrefix(a, b+string(filepath.Separator)) || strings.HasPrefix(b, a+string(filepath.Separator))
+	store, err := realDirectoryIdentity(storePath)
+	if err != nil {
+		return deny("$.store", err.Error())
+	}
+	if pathIdentitiesOverlap(project.path, store.path) {
+		return deny("$.store", "project and private promotion roots must be disjoint")
+	}
+	if fixtureSource == "" {
+		return nil
+	}
+	source, err := realDirectoryIdentity(fixtureSource)
+	if err != nil {
+		return deny("$.fixture_source", err.Error())
+	}
+	if pathIdentitiesOverlap(project.path, source.path) || pathIdentitiesOverlap(source.path, store.path) {
+		return deny("$.fixture_source", "project, fixture source, and private promotion roots must be pairwise disjoint")
+	}
+	if source.device != store.device {
+		return deny("$.store", "fixture staging and promotion roots must remain on one verified device")
+	}
+	return nil
+}
+
+type directoryIdentity struct {
+	path   string
+	device uint64
+}
+
+func realDirectoryIdentity(path string) (directoryIdentity, error) {
+	if path == "" {
+		return directoryIdentity{}, errors.New("directory path is required")
+	}
+	clean := filepath.Clean(path)
+	if !filepath.IsAbs(clean) || clean == string(filepath.Separator) {
+		return directoryIdentity{}, errors.New("directory must be a specific absolute path")
+	}
+	info, err := os.Lstat(clean)
+	if err != nil {
+		return directoryIdentity{}, err
+	}
+	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return directoryIdentity{}, errors.New("directory must be a real directory, not a link or special file")
+	}
+	resolved, err := canonicalDirectoryIdentity(clean)
+	if err != nil {
+		return directoryIdentity{}, err
+	}
+	identity, ok := deviceAndLinks(info)
+	if !ok {
+		return directoryIdentity{}, errors.New("directory device identity is unavailable")
+	}
+	return directoryIdentity{path: resolved, device: identity.device}, nil
+}
+
+func canonicalDirectoryIdentity(path string) (string, error) {
+	clean := filepath.Clean(path)
+	if !filepath.IsAbs(clean) || clean == string(filepath.Separator) {
+		return "", errors.New("path must be a specific absolute directory")
+	}
+	resolved, err := filepath.EvalSymlinks(clean)
+	if err != nil {
+		return "", err
+	}
+	abs, err := filepath.Abs(resolved)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(abs), nil
+}
+
+func pathIdentitiesOverlap(left, right string) bool {
+	return left == right || strings.HasPrefix(left, right+string(filepath.Separator)) || strings.HasPrefix(right, left+string(filepath.Separator))
 }
 
 func VerifySandbox(ctx context.Context, request Request) (Verdict, error) {
@@ -367,7 +479,7 @@ func VerifySandbox(ctx context.Context, request Request) (Verdict, error) {
 	if finding := validateSandboxReceipt(snapshot, plan, receipt); finding != nil {
 		return findingVerdict(verdict, finding.Code, finding.Disposition, finding.Path, finding.Message), nil
 	}
-	return verdict, nil
+	return findingVerdict(verdict, "SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_authentication", "external JSON cannot authenticate supervisor-owned enforcement; no ordinary host-process fallback was used"), nil
 }
 
 func Project(ctx context.Context, request Request) (Verdict, error) {
@@ -386,39 +498,38 @@ func Project(ctx context.Context, request Request) (Verdict, error) {
 	if !isSHA256Digest(request.CandidateRoot) {
 		return findingVerdict(verdict, "PROMOTION_BINDING_MISMATCH", "QUARANTINE", "$.candidate_root", "projection requires one exact accepted quarantine-root digest"), nil
 	}
+	projectRoot, rootErr := realDirectoryIdentity(request.RootPath)
+	storeRoot, storeErr := realDirectoryIdentity(request.StorePath)
+	if rootErr != nil || storeErr != nil || pathIdentitiesOverlap(projectRoot.path, storeRoot.path) {
+		return findingVerdict(verdict, "ROOT_CONFINEMENT_FAILED", "QUARANTINE", "$.store", "project and private projection roots must be real and disjoint"), nil
+	}
 	if request.FixtureID != "" {
 		item, ok := catalogCase(snapshot.catalog, request.FixtureID)
 		if !ok || item.Kind != "release" {
 			return Verdict{}, fmt.Errorf("release fixture %q is not cataloged", request.FixtureID)
 		}
-		actualCode := snapshot.bindings[item.ID]
 		detectedCode, detectorExpected, detectionErr := scanReleaseFixture(snapshot.release, item)
-		if detectionErr != nil {
-			return findingVerdict(verdict, "INVALID_SECURITY_POLICY", "BLOCK", "security/fixtures/"+item.ID, detectionErr.Error()), nil
+		if detectionErr != nil || detectorExpected && detectedCode != item.ExpectedCode {
+			return findingVerdict(verdict, "INVALID_SECURITY_POLICY", "BLOCK", "security/fixtures/"+item.ID, "fixture input does not independently produce its cataloged detector finding"), nil
 		}
-		if detectedCode != "" || detectorExpected {
-			if detectedCode != item.ExpectedCode {
-				return findingVerdict(verdict, "INVALID_SECURITY_POLICY", "BLOCK", "security/fixtures/"+item.ID, "fixture input does not produce its cataloged detector finding"), nil
-			}
-			actualCode = detectedCode
-		}
-		if actualCode != "" {
-			return findingVerdict(verdict, actualCode, snapshot.registry[actualCode], "security/fixtures/"+item.ID, "projection denied by closed fixture policy"), nil
-		}
-		projectionBytes, err := intake.CanonicalJSON(struct {
-			CandidateRoot string `json:"candidate_root"`
-			FixtureID     string `json:"fixture_id"`
-			InputDigest   string `json:"input_digest"`
-			PolicyDigest  string `json:"policy_digest"`
-		}{request.CandidateRoot, item.ID, intake.DigestBytes([]byte(item.Input)), snapshot.digests[policyPaths[2]]})
-		if err != nil {
-			return Verdict{}, err
-		}
+	}
+	accepted, err := lab.LoadAcceptedRoot(request.StorePath, request.CandidateRoot)
+	if err != nil {
+		return findingVerdict(verdict, "PROMOTION_BINDING_MISMATCH", "QUARANTINE", "$.candidate_root", "accepted quarantine root did not verify: "+err.Error()), nil
+	}
+	projectionRoot, finding, err := materializeProjection(request.StorePath, request.CandidateRoot, accepted, snapshot.release)
+	if err != nil {
+		return Verdict{}, err
+	}
+	if finding != nil {
+		return findingVerdict(verdict, finding.Code, finding.Disposition, finding.Path, finding.Message), nil
+	}
+	if request.FixtureID != "" {
 		verdict.State = "PASS_SYNTHETIC_NON_CLAIM"
-		verdict.ProjectionRoot = intake.DigestBytes(projectionBytes)
+		verdict.ProjectionRoot = projectionRoot
 		return verdict, nil
 	}
-	return findingVerdict(verdict, "PROTECTED_CLASSIFIER_UNAVAILABLE", "BLOCK", "$.protected_classifier", "a protected-side receipt is required for a real projection"), nil
+	return findingVerdict(verdict, "PROTECTED_CLASSIFIER_UNAVAILABLE", "BLOCK", "$.protected_classifier", "the project-owned projection was materialized, reopened, rehashed, and scanned, but no external protected-classifier receipt is available"), nil
 }
 
 func scanReleaseFixture(policy releasePolicy, item fixtureCase) (string, bool, error) {
@@ -464,13 +575,17 @@ func loadPolicies(rootPath string) (*policySnapshot, error) {
 	if !filepath.IsAbs(clean) || clean == string(filepath.Separator) {
 		return nil, errors.New("root path must be a specific absolute directory")
 	}
+	if _, err := realDirectoryIdentity(clean); err != nil {
+		return nil, fmt.Errorf("ROOT_CONFINEMENT_FAILED/QUARANTINE: %w", err)
+	}
 	root, err := os.OpenRoot(clean)
 	if err != nil {
 		return nil, err
 	}
 	s := &policySnapshot{root: root, bytes: map[string][]byte{}, digests: map[string]string{}, registry: map[string]string{}, bindings: map[string]string{}}
 	paths := append(append([]string{}, policyPaths...), schemaPaths...)
-	paths = append(paths, "security/fixtures/cases.json", "evidence/security-validation.json", "evidence/java/autobahn-baseline.json")
+	paths = append(paths, "security/fixtures/cases.json", "evidence/security-validation.json")
+	paths = append(paths, baselineEvidencePaths...)
 	for _, p := range paths {
 		data, err := readRelative(root, p, 8<<20)
 		if err != nil {
@@ -508,6 +623,12 @@ func loadPolicies(rootPath string) (*policySnapshot, error) {
 		root.Close()
 		return nil, err
 	}
+	closure, err := validateAutobahnClosure(s.bytes)
+	if err != nil {
+		root.Close()
+		return nil, err
+	}
+	s.autobahn = closure
 	return s, nil
 }
 
@@ -678,26 +799,42 @@ func verifyRetainedEvidence(s *policySnapshot) []Finding {
 	if e.FixtureCatalogDigest != s.digests["security/fixtures/cases.json"] {
 		return add("POLICY_DIGEST_MISMATCH", "QUARANTINE", "security/fixtures/cases.json", "fixture catalog digest differs")
 	}
-	if e.AutobahnBaselineDigest != s.digests["evidence/java/autobahn-baseline.json"] || e.ConsumedRemediationAttemptsPerMode != 1 || e.FurtherRerunsAuthorized || e.RerunsPerformedByUS007 != 0 || !equalStrings(e.OriginalReceiptDigests, []string{"sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff", "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff"}) || !equalStrings(e.RemediationReceiptDigests, []string{"sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2", "sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2"}) {
+	if e.AutobahnBaselineDigest != s.digests["evidence/java/autobahn-baseline.json"] || e.ConsumedRemediationAttemptsPerMode != s.autobahn.ConsumedRemediationAttemptsPerMode || e.FurtherRerunsAuthorized != s.autobahn.FurtherRerunsAuthorized || e.RerunsPerformedByUS007 != 0 || !equalStrings(e.OriginalReceiptDigests, s.autobahn.OriginalReceiptDigests) || !equalStrings(e.RemediationReceiptDigests, s.autobahn.RemediationReceiptDigests) {
 		return add("CANONICAL_EVIDENCE_MUTATION", "REVOKE", "evidence/java/autobahn-baseline.json", "Autobahn receipt closure changed")
 	}
 	if e.SandboxMechanics.Code != "SANDBOX_ENFORCEMENT_UNAVAILABLE" || e.SandboxMechanics.Disposition != "BLOCK" {
 		return add("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.sandbox_mechanics", "unsupported platform mechanics must fail closed")
+	}
+	if e.LifecycleIntegration.Code != "LIFECYCLE_INTEGRATION_UNAVAILABLE" || e.LifecycleIntegration.Disposition != "BLOCK" {
+		return add("INVALID_SECURITY_POLICY", "BLOCK", "$.lifecycle_integration", "frozen US-004 lifecycle lacks an authorized US-007 evidence-node adapter")
 	}
 	if len(e.FixtureResults) != len(s.catalog.Cases) {
 		return add("INVALID_SECURITY_POLICY", "BLOCK", "$.fixture_results", "catalog coverage is incomplete")
 	}
 	for i, item := range s.catalog.Cases {
 		r := e.FixtureResults[i]
-		exit := 0
-		if item.ExpectedCode != "" {
-			exit = 1
-		}
-		if r.ID != item.ID || r.ExpectedCode != item.ExpectedCode || r.ActualCode != item.ExpectedCode || r.ExpectedDisposition != item.ExpectedDisposition || r.ActualDisposition != item.ExpectedDisposition || r.CLIExit != exit || !r.Matched {
-			return add("INVALID_SECURITY_POLICY", "BLOCK", "$.fixture_results", "fixture result does not exactly match catalog")
+		observation := fixtureObservation{Component: r.Component, State: r.State, Code: r.ActualCode, Disposition: r.ActualDisposition, Exit: r.CLIExit, InputDigest: r.InputDigest}
+		matched := r.ActualCode == item.ExpectedCode && r.ActualDisposition == item.ExpectedDisposition
+		if r.ID != item.ID || r.ExpectedCode != item.ExpectedCode || r.ExpectedDisposition != item.ExpectedDisposition || r.InputDigest != intake.DigestBytes([]byte(item.Input)) || r.OutputDigest != fixtureObservationDigest(observation) || r.CLIExit != boolExit(r.ActualCode != "") || r.Matched != matched || r.ActualCode != "" && s.registry[r.ActualCode] != r.ActualDisposition {
+			return add("INVALID_SECURITY_POLICY", "BLOCK", "$.fixture_results", "fixture result is not an exact observed component output")
 		}
 	}
+	goodSandbox, ok := catalogCase(s.catalog, "good-sandbox-canaries")
+	if !ok {
+		return add("INVALID_SECURITY_POLICY", "BLOCK", "$.fixture_results", "controlled-canary fixture is absent")
+	}
+	index := sort.Search(len(e.FixtureResults), func(i int) bool { return e.FixtureResults[i].ID >= goodSandbox.ID })
+	if index == len(e.FixtureResults) || e.FixtureResults[index].ActualCode != "SANDBOX_ENFORCEMENT_UNAVAILABLE" || e.FixtureResults[index].Matched {
+		return add("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.fixture_results", "unsupported controlled canary must be retained as an observed blocker, not a synthetic pass")
+	}
 	return nil
+}
+
+func boolExit(failed bool) int {
+	if failed {
+		return 1
+	}
+	return 0
 }
 
 func validDisposition(v string) bool {
@@ -740,43 +877,77 @@ type sandboxPlan struct {
 	PolicyDigest        string    `json:"policy_digest"`
 	AcceptedRootDigest  string    `json:"accepted_root_digest"`
 	InventoryRootDigest string    `json:"inventory_root_digest"`
+	PromotionReceipts   []string  `json:"promotion_receipt_digests"`
+	SecurityctlDigest   string    `json:"securityctl_digest"`
+	SupervisorDigest    string    `json:"supervisor_digest"`
 	CanaryID            string    `json:"canary_id"`
 	Capabilities        []string  `json:"capabilities"`
 	Resources           resources `json:"resources"`
 }
 type securitySandboxReceipt struct {
-	SchemaVersion            string `json:"schema_version"`
-	PlanDigest               string `json:"plan_digest"`
-	PolicyDigest             string `json:"policy_digest"`
-	AcceptedRootDigest       string `json:"accepted_root_digest"`
-	InventoryRootDigest      string `json:"inventory_root_digest"`
-	CanaryID                 string `json:"canary_id"`
-	TerminationReason        string `json:"termination_reason"`
-	SecretValueCount         int    `json:"secret_value_count"`
-	AllowedEndpointCount     int    `json:"allowed_endpoint_count"`
-	ArtifactCaptureComplete  bool   `json:"artifact_capture_complete"`
-	SourceBeforeDigest       string `json:"source_before_digest"`
-	SourceAfterDigest        string `json:"source_after_digest"`
-	CacheBeforeDigest        string `json:"cache_before_digest"`
-	CacheAfterDigest         string `json:"cache_after_digest"`
-	LivePIDsAfter            int    `json:"live_pids_after"`
-	MountsAfter              int    `json:"mounts_after"`
-	InterfacesAfter          int    `json:"interfaces_after"`
-	WritableRootsRemoved     bool   `json:"writable_roots_removed"`
-	CleanupComplete          bool   `json:"cleanup_complete"`
-	Assurance                string `json:"assurance"`
-	IndependentReviewClaimed bool   `json:"independent_review_claimed"`
+	SchemaVersion            string            `json:"schema_version"`
+	AttemptID                string            `json:"attempt_id"`
+	PriorAttemptID           string            `json:"prior_attempt_id"`
+	Company                  string            `json:"company"`
+	Project                  string            `json:"project"`
+	PlanDigest               string            `json:"plan_digest"`
+	PolicyDigest             string            `json:"policy_digest"`
+	AcceptedRootDigest       string            `json:"accepted_root_digest"`
+	InventoryRootDigest      string            `json:"inventory_root_digest"`
+	PromotionReceipts        []string          `json:"promotion_receipt_digests"`
+	SecurityctlDigest        string            `json:"securityctl_digest"`
+	SupervisorDigest         string            `json:"supervisor_digest"`
+	CanaryID                 string            `json:"canary_id"`
+	PlatformIdentity         string            `json:"platform_identity"`
+	NamespaceIDs             map[string]string `json:"namespace_ids"`
+	CgroupID                 string            `json:"cgroup_id"`
+	ProfileDigest            string            `json:"seccomp_or_profile_digest"`
+	MountTableBeforeDigest   string            `json:"mount_table_before_digest"`
+	EnvironmentNames         []string          `json:"environment_names"`
+	EnvironmentDigest        string            `json:"environment_digest"`
+	InheritedFDCount         int               `json:"inherited_fd_count"`
+	StartedAt                string            `json:"started_at"`
+	FinishedAt               string            `json:"finished_at"`
+	ExitCode                 *int              `json:"exit_code"`
+	TerminationReason        string            `json:"termination_reason"`
+	SecretValueCount         int               `json:"secret_value_count"`
+	AllowedEndpointCount     int               `json:"allowed_endpoint_count"`
+	ForbiddenMountCount      int               `json:"forbidden_mount_count"`
+	NetworkAttemptsByClass   map[string]int    `json:"network_attempts_by_class"`
+	ObservedResources        *resources        `json:"observed_resources"`
+	ArtifactCaptureComplete  bool              `json:"artifact_capture_complete"`
+	SourceBeforeDigest       string            `json:"source_before_digest"`
+	SourceAfterDigest        string            `json:"source_after_digest"`
+	CacheBeforeDigest        string            `json:"cache_before_digest"`
+	CacheAfterDigest         string            `json:"cache_after_digest"`
+	ArtifactManifestDigest   string            `json:"artifact_manifest_digest"`
+	LivePIDsAfter            int               `json:"live_pids_after"`
+	MountsAfter              int               `json:"mounts_after"`
+	InterfacesAfter          int               `json:"interfaces_after"`
+	CleanupStartedAt         string            `json:"cleanup_started_at"`
+	CleanupFinishedAt        string            `json:"cleanup_finished_at"`
+	WritableRootsRemoved     bool              `json:"writable_roots_removed"`
+	CleanupComplete          bool              `json:"cleanup_complete"`
+	Assurance                string            `json:"assurance"`
+	IndependentReviewClaimed bool              `json:"independent_review_claimed"`
 }
 
 func validateSandboxReceipt(s *policySnapshot, p sandboxPlan, r securitySandboxReceipt) *Finding {
 	deny := func(code, disp, path, msg string) *Finding {
 		return &Finding{Code: code, Disposition: disp, Path: path, Message: msg}
 	}
-	if p.SchemaVersion != policyVersion || r.SchemaVersion != policyVersion || !isSHA256Digest(p.PlanDigest) || r.PlanDigest != p.PlanDigest || p.PolicyDigest != s.digests[policyPaths[1]] || r.PolicyDigest != p.PolicyDigest || !isSHA256Digest(p.AcceptedRootDigest) || !isSHA256Digest(p.InventoryRootDigest) || r.AcceptedRootDigest != p.AcceptedRootDigest || r.InventoryRootDigest != p.InventoryRootDigest || r.CanaryID != p.CanaryID || !stringInSet(p.CanaryID, s.sandbox.CanaryIDs) {
+	if p.SchemaVersion != policyVersion || r.SchemaVersion != policyVersion || p.PolicyDigest != s.digests[policyPaths[1]] || r.PolicyDigest != p.PolicyDigest || !isSHA256Digest(p.AcceptedRootDigest) || !isSHA256Digest(p.InventoryRootDigest) || r.AcceptedRootDigest != p.AcceptedRootDigest || r.InventoryRootDigest != p.InventoryRootDigest || r.CanaryID != p.CanaryID || !stringInSet(p.CanaryID, s.sandbox.CanaryIDs) || !equalStrings(p.PromotionReceipts, r.PromotionReceipts) || p.SecurityctlDigest != r.SecurityctlDigest || p.SupervisorDigest != r.SupervisorDigest {
 		return deny("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$", "receipt does not bind the exact plan, policy, source, inventory, and canary")
+	}
+	canonicalPlanDigest, err := sandboxPlanDigest(p)
+	if err != nil || p.PlanDigest != canonicalPlanDigest || r.PlanDigest != canonicalPlanDigest {
+		return deny("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.plan_digest", "plan and receipt do not bind the canonical plan bytes")
 	}
 	if !equalSet(p.Capabilities, s.sandbox.RequiredCapabilities) || p.Resources != s.sandbox.Resources {
 		return deny("SANDBOX_CAPABILITY_MISMATCH", "QUARANTINE", "$.capabilities", "capability envelope differs")
+	}
+	if finding := validateCompleteSandboxObservation(s, p, r); finding != nil {
+		return finding
 	}
 	validTerminations := []string{"EXITED", "WALL_LIMIT", "CPU_LIMIT", "MEMORY_LIMIT", "PID_LIMIT", "FD_LIMIT", "OUTPUT_LIMIT", "WORKSPACE_LIMIT", "CACHE_LIMIT", "DISK_LIMIT", "INODE_LIMIT", "POLICY_DENIAL", "SUPERVISOR_FAILURE"}
 	if !stringInSet(r.TerminationReason, validTerminations) {
@@ -800,6 +971,9 @@ func validateSandboxReceipt(s *policySnapshot, p sandboxPlan, r securitySandboxR
 	if r.AllowedEndpointCount != 0 {
 		return deny("NETWORK_POLICY_VIOLATION", "QUARANTINE", "$.allowed_endpoint_count", "deny-all operation exposed an endpoint")
 	}
+	if r.ForbiddenMountCount != 0 {
+		return deny("FORBIDDEN_MOUNT_EXPOSED", "REVOKE", "$.forbidden_mount_count", "receipt observed a forbidden protected/signing/public/cross-company mount")
+	}
 	if !r.ArtifactCaptureComplete {
 		return deny("ARTIFACT_CAPTURE_INCOMPLETE", "QUARANTINE", "$.artifact_capture_complete", "artifact capture was partial")
 	}
@@ -816,6 +990,94 @@ func validateSandboxReceipt(s *policySnapshot, p sandboxPlan, r securitySandboxR
 		return deny("ASSURANCE_CEILING_EXCEEDED", "REVOKE", "$.assurance", "receipt exceeds owner-only ceiling")
 	}
 	return nil
+}
+
+func sandboxPlanDigest(plan sandboxPlan) (string, error) {
+	canonical, err := intake.CanonicalJSON(struct {
+		SchemaVersion       string    `json:"schema_version"`
+		PolicyDigest        string    `json:"policy_digest"`
+		AcceptedRootDigest  string    `json:"accepted_root_digest"`
+		InventoryRootDigest string    `json:"inventory_root_digest"`
+		PromotionReceipts   []string  `json:"promotion_receipt_digests"`
+		SecurityctlDigest   string    `json:"securityctl_digest"`
+		SupervisorDigest    string    `json:"supervisor_digest"`
+		CanaryID            string    `json:"canary_id"`
+		Capabilities        []string  `json:"capabilities"`
+		Resources           resources `json:"resources"`
+	}{
+		SchemaVersion:       plan.SchemaVersion,
+		PolicyDigest:        plan.PolicyDigest,
+		AcceptedRootDigest:  plan.AcceptedRootDigest,
+		InventoryRootDigest: plan.InventoryRootDigest,
+		PromotionReceipts:   plan.PromotionReceipts,
+		SecurityctlDigest:   plan.SecurityctlDigest,
+		SupervisorDigest:    plan.SupervisorDigest,
+		CanaryID:            plan.CanaryID,
+		Capabilities:        plan.Capabilities,
+		Resources:           plan.Resources,
+	})
+	if err != nil {
+		return "", err
+	}
+	return intake.DigestBytes(canonical), nil
+}
+
+func validateCompleteSandboxObservation(s *policySnapshot, p sandboxPlan, r securitySandboxReceipt) *Finding {
+	invalid := func(path, message string) *Finding {
+		return &Finding{Code: "SANDBOX_RECEIPT_INVALID", Disposition: "QUARANTINE", Path: path, Message: message}
+	}
+	if r.AttemptID == "" || r.Company != requiredCompany || r.Project != requiredProject || len(p.PromotionReceipts) == 0 || !allDigests(p.PromotionReceipts) || !isSHA256Digest(p.SecurityctlDigest) || !isSHA256Digest(p.SupervisorDigest) {
+		return invalid("$.identity", "attempt, tenant, executable, and promotion identities must be complete")
+	}
+	if r.PlatformIdentity == "" || r.CgroupID == "" || !isSHA256Digest(r.ProfileDigest) || !isSHA256Digest(r.MountTableBeforeDigest) || !isSHA256Digest(r.EnvironmentDigest) || !isSHA256Digest(r.ArtifactManifestDigest) {
+		return invalid("$.platform_identity", "platform/profile/mount/environment/artifact identities must be complete")
+	}
+	for _, namespace := range []string{"ipc", "mount", "network", "pid", "user", "uts"} {
+		if r.NamespaceIDs[namespace] == "" {
+			return invalid("$.namespace_ids", "all disposable namespace identities must be present")
+		}
+	}
+	if len(r.NamespaceIDs) != 6 || !equalSet(r.EnvironmentNames, s.sandbox.EnvironmentNames) || r.InheritedFDCount != 0 || r.ExitCode == nil || r.NetworkAttemptsByClass == nil || r.ObservedResources == nil {
+		return invalid("$.observation", "environment, descriptor, exit, network, and resource observations must be explicit")
+	}
+	for class, count := range r.NetworkAttemptsByClass {
+		if class == "" || count < 0 {
+			return invalid("$.network_attempts_by_class", "network audit contains an invalid class/count")
+		}
+	}
+	if !resourcesWithin(*r.ObservedResources, p.Resources) {
+		return &Finding{Code: "RESOURCE_LIMIT_EXCEEDED", Disposition: "QUARANTINE", Path: "$.observed_resources", Message: "observed resources exceed the canonical plan envelope"}
+	}
+	started, startErr := time.Parse(time.RFC3339Nano, r.StartedAt)
+	finished, finishErr := time.Parse(time.RFC3339Nano, r.FinishedAt)
+	cleanupStarted, cleanupStartErr := time.Parse(time.RFC3339Nano, r.CleanupStartedAt)
+	cleanupFinished, cleanupFinishErr := time.Parse(time.RFC3339Nano, r.CleanupFinishedAt)
+	if startErr != nil || finishErr != nil || cleanupStartErr != nil || cleanupFinishErr != nil || finished.Before(started) || cleanupStarted.Before(finished) || cleanupFinished.Before(cleanupStarted) {
+		return invalid("$.timestamps", "execution and cleanup timestamps must be complete and ordered")
+	}
+	return nil
+}
+
+func allDigests(values []string) bool {
+	for _, value := range values {
+		if !isSHA256Digest(value) {
+			return false
+		}
+	}
+	return true
+}
+
+func resourcesWithin(observed, limit resources) bool {
+	return observed.WallSeconds >= 0 && observed.WallSeconds <= limit.WallSeconds &&
+		observed.CPUSeconds >= 0 && observed.CPUSeconds <= limit.CPUSeconds &&
+		observed.MemoryBytes >= 0 && observed.MemoryBytes <= limit.MemoryBytes &&
+		observed.PIDs >= 0 && observed.PIDs <= limit.PIDs &&
+		observed.OpenFiles >= 0 && observed.OpenFiles <= limit.OpenFiles &&
+		observed.OutputBytes >= 0 && observed.OutputBytes <= limit.OutputBytes &&
+		observed.WorkspaceBytes >= 0 && observed.WorkspaceBytes <= limit.WorkspaceBytes &&
+		observed.CacheBytes >= 0 && observed.CacheBytes <= limit.CacheBytes &&
+		observed.DiskBytes >= 0 && observed.DiskBytes <= limit.DiskBytes &&
+		observed.Inodes >= 0 && observed.Inodes <= limit.Inodes
 }
 
 func stringInSet(value string, values []string) bool {

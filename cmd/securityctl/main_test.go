@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"testing"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/securitygate"
 )
 
 func TestVerifyExactJSONAndNonzeroSemantics(t *testing.T) {
@@ -44,5 +46,21 @@ func TestRootFlagIsRequired(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if exit := run([]string{"verify"}, &stdout, &stderr); exit != 2 {
 		t.Fatalf("exit=%d", exit)
+	}
+}
+
+func TestOnlyExplicitSuccessStatesExitZero(t *testing.T) {
+	for _, state := range []string{"", "BLOCKED", "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE", "UNKNOWN"} {
+		if verdictSucceeded(securitygate.Verdict{State: state}) {
+			t.Fatalf("state %q was accepted", state)
+		}
+	}
+	for _, state := range []string{"PASS_INGESTION_COMPONENT", "PASS_SYNTHETIC_NON_CLAIM", "PASS_PROJECTION_COMPONENT"} {
+		if !verdictSucceeded(securitygate.Verdict{State: state}) {
+			t.Fatalf("state %q was rejected", state)
+		}
+		if verdictSucceeded(securitygate.Verdict{State: state, Findings: []securitygate.Finding{{Code: "INVALID_SECURITY_POLICY"}}}) {
+			t.Fatalf("state %q accepted a finding", state)
+		}
 	}
 }

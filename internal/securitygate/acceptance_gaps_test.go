@@ -69,10 +69,10 @@ runner = "inert-runner"
 			}
 
 			verdict, err := Ingest(context.Background(), Request{
-				RootPath:      repoRoot(t),
-				Operation:     OperationIngest,
-				CandidateRoot: candidate,
-				StorePath:     t.TempDir(),
+				RootPath:          repoRoot(t),
+				Operation:         OperationIngest,
+				fixtureSourcePath: candidate,
+				StorePath:         t.TempDir(),
 			})
 			if err != nil {
 				t.Fatalf("ingest inert %s metadata: %v", tc.name, err)
@@ -94,10 +94,10 @@ func TestUS007Acceptance_PromotedManifestBindsTenantProvenance(t *testing.T) {
 	}
 	store := t.TempDir()
 	verdict, err := Ingest(context.Background(), Request{
-		RootPath:      repoRoot(t),
-		Operation:     OperationIngest,
-		CandidateRoot: candidate,
-		StorePath:     store,
+		RootPath:          repoRoot(t),
+		Operation:         OperationIngest,
+		fixtureSourcePath: candidate,
+		StorePath:         store,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -139,35 +139,8 @@ func TestUS007Acceptance_SandboxReceiptRequiresExactEnforcementProof(t *testing.
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := "sha256:" + strings.Repeat("c", 64)
-	basePlan := sandboxPlan{
-		SchemaVersion:       policyVersion,
-		PlanDigest:          digest,
-		PolicyDigest:        snapshot.digests[policyPaths[1]],
-		AcceptedRootDigest:  digest,
-		InventoryRootDigest: digest,
-		CanaryID:            "CLEAN_EXIT",
-		Capabilities:        append([]string{}, snapshot.sandbox.RequiredCapabilities...),
-		Resources:           snapshot.sandbox.Resources,
-	}
+	basePlan, baseReceipt := inertSandboxPair(snapshot, "CLEAN_EXIT")
 	snapshot.root.Close()
-	baseReceipt := securitySandboxReceipt{
-		SchemaVersion:           policyVersion,
-		PlanDigest:              digest,
-		PolicyDigest:            basePlan.PolicyDigest,
-		AcceptedRootDigest:      digest,
-		InventoryRootDigest:     digest,
-		CanaryID:                "CLEAN_EXIT",
-		TerminationReason:       "EXITED",
-		ArtifactCaptureComplete: true,
-		SourceBeforeDigest:      digest,
-		SourceAfterDigest:       digest,
-		CacheBeforeDigest:       digest,
-		CacheAfterDigest:        digest,
-		WritableRootsRemoved:    true,
-		CleanupComplete:         true,
-		Assurance:               AssuranceOwnerOnly,
-	}
 
 	tests := []struct {
 		name        string
@@ -201,6 +174,14 @@ func TestUS007Acceptance_SandboxReceiptRequiresExactEnforcementProof(t *testing.
 			},
 		},
 		{
+			name:        "complete-platform-observation",
+			wantCode:    "SANDBOX_RECEIPT_INVALID",
+			wantDispose: "QUARANTINE",
+			mutate: func(_ *sandboxPlan, receipt *securitySandboxReceipt) {
+				receipt.PlatformIdentity = ""
+			},
+		},
+		{
 			name:        "limit-canary-has-exact-termination",
 			wantCode:    "RESOURCE_TERMINATION_MISSING",
 			wantDispose: "QUARANTINE",
@@ -216,8 +197,20 @@ func TestUS007Acceptance_SandboxReceiptRequiresExactEnforcementProof(t *testing.
 		t.Run(tc.name, func(t *testing.T) {
 			plan := basePlan
 			plan.Capabilities = append([]string{}, basePlan.Capabilities...)
+			plan.PromotionReceipts = append([]string{}, basePlan.PromotionReceipts...)
 			receipt := baseReceipt
+			receipt.PromotionReceipts = append([]string{}, baseReceipt.PromotionReceipts...)
+			receipt.EnvironmentNames = append([]string{}, baseReceipt.EnvironmentNames...)
+			receipt.NamespaceIDs = cloneStringMap(baseReceipt.NamespaceIDs)
+			receipt.NetworkAttemptsByClass = cloneIntMap(baseReceipt.NetworkAttemptsByClass)
+			observed := *baseReceipt.ObservedResources
+			receipt.ObservedResources = &observed
 			tc.mutate(&plan, &receipt)
+			plan.PlanDigest, err = sandboxPlanDigest(plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			receipt.PlanDigest = plan.PlanDigest
 			writeJSON(t, filepath.Join(root, "acceptance-plan.json"), plan)
 			writeJSON(t, filepath.Join(root, "acceptance-receipt.json"), receipt)
 
@@ -297,12 +290,13 @@ func TestUS007Acceptance_ReleaseFixtureExpectedFindingCannotGenerateActualFindin
 	evidence.FixtureCatalogDigest = intake.DigestBytes(catalogBytes)
 	writeJSON(t, evidencePath, evidence)
 
+	store, candidateRoot := acceptedProjectionFixture(t, "public/readme.txt", []byte("inert safe public text"), "PUBLIC", true)
 	verdict, err := Project(context.Background(), Request{
 		RootPath:      root,
 		Operation:     OperationProject,
-		CandidateRoot: "sha256:" + strings.Repeat("d", 64),
+		CandidateRoot: candidateRoot,
 		FixtureID:     "credential-leak",
-		StorePath:     t.TempDir(),
+		StorePath:     store,
 	})
 	if err != nil {
 		t.Fatal(err)

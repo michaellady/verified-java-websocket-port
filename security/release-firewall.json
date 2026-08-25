@@ -41,6 +41,7 @@
     {"code":"PROTECTED_CLASSIFIER_REJECTED","disposition":"REVOKE"},
     {"code":"ASSURANCE_CEILING_EXCEEDED","disposition":"REVOKE"},
     {"code":"PUBLICATION_AUTHORITY_MISSING","disposition":"BLOCK"},
-    {"code":"PUBLICATION_NOT_AUTHORIZED","disposition":"BLOCK"}
+    {"code":"PUBLICATION_NOT_AUTHORIZED","disposition":"BLOCK"},
+    {"code":"LIFECYCLE_INTEGRATION_UNAVAILABLE","disposition":"BLOCK"}
   ]
 }

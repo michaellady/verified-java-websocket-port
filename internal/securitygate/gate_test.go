@@ -59,7 +59,7 @@ func TestUS007E2E_InertAttackMatrix(t *testing.T) {
 		"cpu-bomb":                 {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
 		"disk-bomb":                {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
 		"fd-bomb":                  {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
-		"good-sandbox-canaries":    {"", ""},
+		"good-sandbox-canaries":    {"SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK"},
 		"memory-bomb":              {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
 		"output-bomb":              {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
 		"pid-bomb":                 {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
@@ -106,7 +106,7 @@ func TestUS007Acceptance_RootSnapshotRejectsLinks(t *testing.T) {
 	if err := os.Symlink("sentinel.txt", filepath.Join(root, "linked.txt")); err != nil {
 		t.Fatal(err)
 	}
-	verdict, err := Ingest(context.Background(), Request{RootPath: repoRoot(t), Operation: OperationIngest, CandidateRoot: root, StorePath: t.TempDir()})
+	verdict, err := Ingest(context.Background(), Request{RootPath: repoRoot(t), Operation: OperationIngest, fixtureSourcePath: root, StorePath: t.TempDir()})
 	if err != nil {
 		t.Fatalf("ingest: %v", err)
 	}

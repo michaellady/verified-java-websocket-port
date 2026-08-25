@@ -25,46 +25,35 @@ func TestUS007RegenerateEvidence(t *testing.T) {
 	if err := intake.DecodeStrict(read("security/fixtures/cases.json"), &catalog); err != nil {
 		t.Fatal(err)
 	}
-	bindings := map[string]string{}
-	dispositions := map[string]string{}
-	for _, name := range policyPaths {
-		switch name {
-		case "security/ingestion-policy.json":
-			var policy ingestionPolicy
-			if err := intake.DecodeStrict(read(name), &policy); err != nil {
-				t.Fatal(err)
-			}
-			for _, entry := range policy.FindingRegistry {
-				dispositions[entry.Code] = entry.Disposition
-			}
-			for _, binding := range policy.FixtureBindings {
-				bindings[binding.ID] = binding.Finding
-			}
-		case "security/sandbox-policy.json":
-			var policy sandboxPolicy
-			if err := intake.DecodeStrict(read(name), &policy); err != nil {
-				t.Fatal(err)
-			}
-			for _, entry := range policy.FindingRegistry {
-				dispositions[entry.Code] = entry.Disposition
-			}
-			for _, binding := range policy.FixtureBindings {
-				bindings[binding.ID] = binding.Finding
-			}
-		case "security/release-firewall.json":
-			var policy releasePolicy
-			if err := intake.DecodeStrict(read(name), &policy); err != nil {
-				t.Fatal(err)
-			}
-			for _, entry := range policy.FindingRegistry {
-				dispositions[entry.Code] = entry.Disposition
-			}
-			for _, binding := range policy.FixtureBindings {
-				bindings[binding.ID] = binding.Finding
-			}
+	snapshot := &policySnapshot{catalog: catalog, bytes: map[string][]byte{}, digests: map[string]string{}, registry: map[string]string{}}
+	if err := intake.DecodeStrict(read(policyPaths[0]), &snapshot.ingestion); err != nil {
+		t.Fatal(err)
+	}
+	if err := intake.DecodeStrict(read(policyPaths[1]), &snapshot.sandbox); err != nil {
+		t.Fatal(err)
+	}
+	if err := intake.DecodeStrict(read(policyPaths[2]), &snapshot.release); err != nil {
+		t.Fatal(err)
+	}
+	for _, entries := range [][]registryEntry{snapshot.ingestion.FindingRegistry, snapshot.sandbox.FindingRegistry, snapshot.release.FindingRegistry} {
+		for _, entry := range entries {
+			snapshot.registry[entry.Code] = entry.Disposition
 		}
 	}
-	evidence := validationEvidence{SchemaVersion: policyVersion, Story: "US-007", Company: requiredCompany, Project: requiredProject, PolicyDigests: map[string]string{}, SchemaDigests: map[string]string{}, FixtureCatalogDigest: intake.DigestBytes(read("security/fixtures/cases.json")), AutobahnBaselineDigest: intake.DigestBytes(read("evidence/java/autobahn-baseline.json")), OriginalReceiptDigests: []string{"sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff", "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff"}, RemediationReceiptDigests: []string{"sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2", "sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2"}, ConsumedRemediationAttemptsPerMode: 1, FurtherRerunsAuthorized: false, RerunsPerformedByUS007: 0, FixtureResults: []fixtureResult{}, MechanicsState: "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE", Assurance: AssuranceOwnerOnly, IndependentReviewClaimed: false, Production: false, Signing: false, Publication: false, SandboxMechanics: Finding{Code: "SANDBOX_ENFORCEMENT_UNAVAILABLE", Disposition: "BLOCK", Path: "$.platform_enforcement", Message: "required namespace/profile, resource, mount, network, and cleanup enforcement is not proven; no host-process fallback was used"}, Runtime: runtimeMetadata{Provider: "OpenAI", RequestedModel: "gpt-5.4", RequestedReasoningEffort: "high", TaskSessionPath: "/root/us007_implementation", ActualDeploymentIdentifier: "not_exposed", RuntimeSessionUUID: "not_exposed"}}
+	for _, path := range policyPaths {
+		snapshot.bytes[path] = read(path)
+		snapshot.digests[path] = intake.DigestBytes(snapshot.bytes[path])
+	}
+	for _, path := range baselineEvidencePaths {
+		snapshot.bytes[path] = read(path)
+		snapshot.digests[path] = intake.DigestBytes(snapshot.bytes[path])
+	}
+	closure, err := validateAutobahnClosure(snapshot.bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot.autobahn = closure
+	evidence := validationEvidence{SchemaVersion: policyVersion, Story: "US-007", Company: requiredCompany, Project: requiredProject, PolicyDigests: map[string]string{}, SchemaDigests: map[string]string{}, FixtureCatalogDigest: intake.DigestBytes(read("security/fixtures/cases.json")), AutobahnBaselineDigest: intake.DigestBytes(read("evidence/java/autobahn-baseline.json")), OriginalReceiptDigests: closure.OriginalReceiptDigests, RemediationReceiptDigests: closure.RemediationReceiptDigests, ConsumedRemediationAttemptsPerMode: closure.ConsumedRemediationAttemptsPerMode, FurtherRerunsAuthorized: closure.FurtherRerunsAuthorized, RerunsPerformedByUS007: 0, FixtureResults: []fixtureResult{}, MechanicsState: "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE", Assurance: AssuranceOwnerOnly, IndependentReviewClaimed: false, Production: false, Signing: false, Publication: false, SandboxMechanics: Finding{Code: "SANDBOX_ENFORCEMENT_UNAVAILABLE", Disposition: "BLOCK", Path: "$.platform_enforcement", Message: "required namespace/profile, resource, mount, network, and cleanup enforcement is not proven; no host-process fallback was used"}, LifecycleIntegration: Finding{Code: "LIFECYCLE_INTEGRATION_UNAVAILABLE", Disposition: "BLOCK", Path: "$.assurance.lifecycle", Message: "the frozen US-004 regeneration adapter has no authorized US-007 security-evidence node seam; assurance artifacts were not hand-edited"}, Runtime: runtimeMetadata{Provider: "OpenAI", RequestedModel: "gpt-5.6-sol", RequestedReasoningEffort: "xhigh", TaskSessionPath: "/root/us007_implementation", ActualDeploymentIdentifier: "not_exposed", RuntimeSessionUUID: "not_exposed"}}
 	for _, path := range policyPaths {
 		evidence.PolicyDigests[path] = intake.DigestBytes(read(path))
 	}
@@ -72,13 +61,11 @@ func TestUS007RegenerateEvidence(t *testing.T) {
 		evidence.SchemaDigests[path] = intake.DigestBytes(read(path))
 	}
 	for _, item := range catalog.Cases {
-		actual := bindings[item.ID]
-		exit := 0
-		if actual != "" {
-			exit = 1
+		observation, err := evaluateFixture(snapshot, item)
+		if err != nil {
+			t.Fatalf("evaluate fixture %s: %v", item.ID, err)
 		}
-		disposition := dispositions[actual]
-		evidence.FixtureResults = append(evidence.FixtureResults, fixtureResult{ID: item.ID, ExpectedCode: item.ExpectedCode, ActualCode: actual, ExpectedDisposition: item.ExpectedDisposition, ActualDisposition: disposition, CLIExit: exit, Matched: actual == item.ExpectedCode})
+		evidence.FixtureResults = append(evidence.FixtureResults, fixtureResult{ID: item.ID, Component: observation.Component, State: observation.State, InputDigest: observation.InputDigest, OutputDigest: observation.OutputDigest, ExpectedCode: item.ExpectedCode, ActualCode: observation.Code, ExpectedDisposition: item.ExpectedDisposition, ActualDisposition: observation.Disposition, CLIExit: observation.Exit, Matched: observation.Code == item.ExpectedCode && observation.Disposition == item.ExpectedDisposition})
 	}
 	data, err := json.MarshalIndent(evidence, "", "  ")
 	if err != nil {

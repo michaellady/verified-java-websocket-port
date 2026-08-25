@@ -75,10 +75,22 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "cannot write verdict")
 		return 1
 	}
-	if len(verdict.Findings) != 0 {
+	if !verdictSucceeded(verdict) {
 		return 1
 	}
 	return 0
+}
+
+func verdictSucceeded(verdict securitygate.Verdict) bool {
+	if len(verdict.Findings) != 0 {
+		return false
+	}
+	switch verdict.State {
+	case "PASS_INGESTION_COMPONENT", "PASS_SYNTHETIC_NON_CLAIM", "PASS_PROJECTION_COMPONENT":
+		return true
+	default:
+		return false
+	}
 }
 func usage(w io.Writer) {
 	fmt.Fprintln(w, "usage: securityctl verify|ingest|verify-sandbox|project --root ROOT [closed options]")

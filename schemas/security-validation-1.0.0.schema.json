@@ -25,6 +25,7 @@
     "signing",
     "publication",
     "sandbox_mechanics",
+    "lifecycle_integration",
     "runtime"
   ],
   "properties": {
@@ -75,6 +76,10 @@
         "additionalProperties": false,
         "required": [
           "id",
+          "component",
+          "state",
+          "input_digest",
+          "output_digest",
           "expected_code",
           "actual_code",
           "expected_disposition",
@@ -86,6 +91,18 @@
           "id": {
             "type": "string",
             "minLength": 1
+          },
+          "component": {
+            "enum": ["INGESTION", "INVENTORY", "SANDBOX", "RELEASE"]
+          },
+          "state": {
+            "enum": ["PASS_SYNTHETIC_NON_CLAIM", "BLOCKED"]
+          },
+          "input_digest": {
+            "$ref": "#/$defs/digest"
+          },
+          "output_digest": {
+            "$ref": "#/$defs/digest"
           },
           "expected_code": {
             "type": "string"
@@ -106,7 +123,7 @@
             ]
           },
           "matched": {
-            "const": true
+            "type": "boolean"
           }
         }
       }
@@ -155,6 +172,27 @@
         }
       }
     },
+    "lifecycle_integration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "disposition", "path", "message"],
+      "properties": {
+        "code": {
+          "const": "LIFECYCLE_INTEGRATION_UNAVAILABLE"
+        },
+        "disposition": {
+          "const": "BLOCK"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
     "runtime": {
       "type": "object",
       "additionalProperties": false,
@@ -171,10 +209,10 @@
           "const": "OpenAI"
         },
         "requested_model": {
-          "const": "gpt-5.4"
+          "const": "gpt-5.6-sol"
         },
         "requested_reasoning_effort": {
-          "const": "high"
+          "const": "xhigh"
         },
         "task_session_path": {
           "const": "/root/us007_implementation"
