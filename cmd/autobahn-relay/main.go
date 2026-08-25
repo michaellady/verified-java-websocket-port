@@ -107,6 +107,10 @@ func runDialRelay(target string, input io.Reader, output, lifecycle io.Writer) e
 	}
 	deadline := time.Now().Add(sessionLifetime)
 	fmt.Fprintln(lifecycle, "RELAY_READY role=dial target=172.30.242.4:9001")
+	attachedInput, err := waitForAttachedInput(input, deadline)
+	if err != nil {
+		return err
+	}
 	dialer := net.Dialer{Timeout: time.Second}
 	var connection *net.TCPConn
 	for time.Now().Before(deadline) {
@@ -130,7 +134,27 @@ func runDialRelay(target string, input io.Reader, output, lifecycle io.Writer) e
 	if !ok || remote.IP.String() != "172.30.242.4" || remote.Port != 9001 {
 		return errors.New("dial-peer")
 	}
-	return bridgeAttachedSession(connection, input, output, lifecycle, "dial", deadline)
+	return bridgeAttachedSession(connection, attachedInput, output, lifecycle, "dial", deadline)
+}
+
+func waitForAttachedInput(input io.Reader, deadline time.Time) (io.Reader, error) {
+	reader := bufio.NewReaderSize(input, maximumFramePayload+frameHeaderBytes)
+	ready := make(chan error, 1)
+	go func() {
+		_, err := reader.Peek(1)
+		ready <- err
+	}()
+	timer := time.NewTimer(time.Until(deadline))
+	defer timer.Stop()
+	select {
+	case err := <-ready:
+		if err != nil {
+			return nil, errors.New("attach-input")
+		}
+		return reader, nil
+	case <-timer.C:
+		return nil, errors.New("attach-timeout")
+	}
 }
 
 func bridgeAttachedSession(connection *net.TCPConn, input io.Reader, output, lifecycle io.Writer, role string, deadline time.Time) error {

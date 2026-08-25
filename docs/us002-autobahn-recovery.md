@@ -24,6 +24,7 @@ blocked while recovery continues.
 | Ongoing-authorization diagnostic blocked receipt 6 | 23,985 | `a45e36c26077dcae4b39d7c8f28c7b30f0744c9b7ce15b451703dd23f1b23533` |
 | Ongoing-authorization diagnostic blocked receipt 7 | 23,985 | `e2ca2baf24e6eaea28bc3b0d828d441da1b2716a308452c6ef8840d0b935f883` |
 | Ongoing-authorization diagnostic blocked receipt 8 | 24,005 | `1b0bfb45a5d125fc2dcd73506325074701241e5fefc4c013ff84e0e5cc9df437` |
+| Ongoing-authorization diagnostic blocked receipt 9 | 114,632 | `04a6c3b6064d28584213934e389331aa8cbaa8b34fd21574e00f39a30708fd6e` |
 
 These are hashes of the retained receipt bytes before the recovery edits. The
 same files must be rehashed after remediation and review.
@@ -62,6 +63,7 @@ and loopback-only test harness reproduces this without Docker or Autobahn.
 | Authorize and deliver runner release without Docker attach EOF | Release must be atomic with report validation and exact single-use token consumption | A stronger model still needs a deterministic authenticated process-control transport | Exact token input, O_EXCL marker creation, fixed signal delivery, and bounded cleanup contain no rerun judgment | Code |
 | Preserve the fixed Autobahn HTTP authority across the loopback relay | The exact socket/authority split must be bound consistently for every case and report update | A stronger model still needs the protocol authority expected by the fixed suite endpoint | Exact argument validation and header transport contain no rerun or result-classification judgment | Code |
 | Encode a verified peer TCP close/reset as terminal framed transport | Concurrent byte transfer needs one deterministic terminal representation | A stronger model still needs the same kernel-to-frame transport mapping | Exact read/write error classification and bounded draining only; Autobahn reports retain all protocol judgment | Code |
+| Gate dial pairing on attached framed input | Pairing evidence must occur after the one authorized attachment exists | A stronger model still needs deterministic lifecycle ordering | Fixed stdin readiness, timer, and byte preservation contain no protocol or rerun judgment | Code |
 | Decide whether another live attempt is warranted or authorized | Owner/assurance decision, not an atomic transport primitive | Better reasoning can change the decision | Contains acceptance and risk judgment | Prompt/owner decision |
 
 The code changes therefore remain limited to deterministic identity
@@ -314,3 +316,30 @@ directions framing, cumulative byte bounds, END validation, exact lifecycle,
 and digest-bound report reconciliation remain mandatory. Deterministic
 regressions failed on the retained terminal writes before the correction and
 also prove that unknown write errors and malformed frames remain rejected.
+
+### Dial pairing must not precede Docker attach
+
+The ninth invocation fully remediated the retained server blocker: server mode
+executed and reconciled all 247 selected cases, produced 247 results and 247
+transport sessions, and retained normalized report digest
+`sha256:5eeac5714047caedcf807b52f6047f940da051ef6ebe8294b7f6649ba5a06509`.
+Client mode persisted 215 complete cases and transferred the large next case
+with 262,395 input bytes, 262,382 output bytes, zero undeliverable bytes, valid
+END framing, successful process/context conditions, and `RELAY_COMPLETE`; only
+the earlier pairing marker was absent.
+
+The dial relay connected to the fuzzing server immediately after container
+readiness, before the controller could attach Docker stdio. On small cases its
+early `RELAY_PAIRED` line remained in the last-20-line recovery window. The
+large case's mixed binary log displaced that early line, while the final
+completion line remained. Expanding or trusting unbounded mixed logs would
+weaken evidence bounds.
+
+Dial role now emits its exact readiness line and then waits, within the existing
+180-second session lifetime, for the first byte of framed attach input before
+opening the fixed `172.30.242.4:9001` connection. The buffered gate preserves
+that byte for normal frame decoding. Because attach must already be connected
+to supply the byte, `RELAY_PAIRED role=dial` can no longer precede attachment.
+The target, deadline, input framing, byte bounds, exact lifecycle lines, and
+container identity remain unchanged. A deterministic pipe regression proves
+the gate cannot pass before input and does not consume the first frame.

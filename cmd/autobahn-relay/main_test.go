@@ -156,6 +156,46 @@ func TestDialRelayRejectsAnyNonFixedTarget(t *testing.T) {
 	}
 }
 
+func TestDialRelayWaitsForAttachAndPreservesFirstFrame(t *testing.T) {
+	input, attached := io.Pipe()
+	defer input.Close()
+	ready := make(chan io.Reader, 1)
+	failure := make(chan error, 1)
+	go func() {
+		reader, err := waitForAttachedInput(input, time.Now().Add(2*time.Second))
+		if err != nil {
+			failure <- err
+			return
+		}
+		ready <- reader
+	}()
+	select {
+	case <-ready:
+		t.Fatal("dial relay passed its attach gate before framed input arrived")
+	case err := <-failure:
+		t.Fatalf("attach gate failed early: %v", err)
+	case <-time.After(50 * time.Millisecond):
+	}
+	go func() {
+		defer attached.Close()
+		if err := writeFrame(attached, frameData, []byte("request")); err != nil {
+			return
+		}
+		_ = writeFrame(attached, frameEnd, nil)
+	}()
+	select {
+	case reader := <-ready:
+		var decoded bytes.Buffer
+		if err := copyFramedInput(reader, &decoded); err != nil || decoded.String() != "request" {
+			t.Fatalf("first attach frame was not preserved: %q %v", decoded.String(), err)
+		}
+	case err := <-failure:
+		t.Fatalf("attach gate failed: %v", err)
+	case <-time.After(2 * time.Second):
+		t.Fatal("dial relay attach gate exceeded its bound")
+	}
+}
+
 func TestExactPeerRejectsPublicAndMissingValues(t *testing.T) {
 	t.Setenv("AUTOBAHN_RELAY_TEST_PEER", "8.8.8.8")
 	if _, err := exactPeer("AUTOBAHN_RELAY_TEST_PEER"); err == nil {
