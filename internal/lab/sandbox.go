@@ -214,6 +214,48 @@ type ExecutionSpec struct {
 	Resources          ResourceLimits        `json:"resources"`
 }
 
+// ControlledCanaryRequest is deliberately smaller than SandboxPlan. The
+// operation, executable, platform, promotion roles/scope, environment, paths,
+// and child arguments are fixed inside the Darwin adapter and cannot be
+// supplied by a caller.
+type ControlledCanaryRequest struct {
+	CanaryID     string         `json:"canary_id"`
+	PlanDigest   string         `json:"plan_digest"`
+	PolicyDigest string         `json:"policy_digest"`
+	Resources    ResourceLimits `json:"resources"`
+}
+
+type ControlledCanaryReceipt struct {
+	SchemaVersion            string                     `json:"schema_version"`
+	PlanDigest               string                     `json:"plan_digest"`
+	CanaryID                 string                     `json:"canary_id"`
+	PlatformIdentity         string                     `json:"platform_identity"`
+	ExecutableDigest         string                     `json:"executable_digest"`
+	ProfileDigest            string                     `json:"profile_digest"`
+	EnvironmentNames         []string                   `json:"environment_names"`
+	EnvironmentDigest        string                     `json:"environment_digest"`
+	EnforcementCanaries      SandboxEnforcementCanaries `json:"enforcement_canaries"`
+	ProtectedStoreDenied     bool                       `json:"protected_store_denied"`
+	CacheWriteObserved       bool                       `json:"cache_write_observed"`
+	ExitCode                 int                        `json:"exit_code"`
+	ArtifactManifestDigest   string                     `json:"artifact_manifest_digest"`
+	ArtifactCaptureComplete  bool                       `json:"artifact_capture_complete"`
+	SourceBeforeDigest       string                     `json:"source_before_digest"`
+	SourceAfterDigest        string                     `json:"source_after_digest"`
+	CacheBeforeDigest        string                     `json:"cache_before_digest"`
+	CacheAfterDigest         string                     `json:"cache_after_digest"`
+	CleanupComplete          bool                       `json:"cleanup_complete"`
+	Assurance                string                     `json:"assurance"`
+	IndependentReviewClaimed bool                       `json:"independent_review_claimed"`
+}
+
+func validateControlledCanaryRequest(request ControlledCanaryRequest) error {
+	if request.CanaryID != "CLEAN_EXIT" || !isDigest(request.PolicyDigest) {
+		return finding("INVALID_SANDBOX_PLAN", "$.controlled_canary", "controlled canary is fixed to CLEAN_EXIT and one exact policy digest")
+	}
+	return validateResources(request.Resources)
+}
+
 // BuildExecutionSpec resolves an enumerated operation against verified bytes.
 // The platform executor must still prove OS/container enforcement before use.
 func BuildExecutionSpec(plan SandboxPlan, root *AcceptedRoot) (ExecutionSpec, error) {

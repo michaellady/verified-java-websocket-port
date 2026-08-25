@@ -208,6 +208,7 @@ func TestUS007Acceptance_RetainedEvidenceMutationClosure(t *testing.T) {
 		{"POLICY_DIGEST_MISMATCH", func(e *validationEvidence) { e.FixtureCatalogDigest = "sha256:" + strings.Repeat("0", 64) }},
 		{"CANONICAL_EVIDENCE_MUTATION", func(e *validationEvidence) { e.RerunsPerformedByUS007 = 1 }},
 		{"SANDBOX_RECEIPT_INVALID", func(e *validationEvidence) { e.SandboxMechanics.Code = "" }},
+		{"INVALID_SECURITY_POLICY", func(e *validationEvidence) { e.LifecycleIntegration.EvidenceNodeID = "" }},
 		{"INVALID_SECURITY_POLICY", func(e *validationEvidence) { e.FixtureResults = nil }},
 		{"INVALID_SECURITY_POLICY", func(e *validationEvidence) {
 			e.FixtureResults = append([]fixtureResult{}, e.FixtureResults...)

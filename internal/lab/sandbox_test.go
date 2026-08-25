@@ -1,6 +1,7 @@
 package lab
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +10,51 @@ import (
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 )
+
+func TestControlledCanaryRequestIsClosedAndRequiresAuthenticatedPromotions(t *testing.T) {
+	request := ControlledCanaryRequest{
+		CanaryID: "CLEAN_EXIT", PolicyDigest: intake.DigestBytes([]byte("sandbox-policy")),
+		Resources: validSandboxPlan(t, SandboxMavenBuild).Resources,
+	}
+	planDigest, err := ControlledCanaryPlanDigest(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.PlanDigest = planDigest
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"path", "argument", "environment", "operation", "secret", "signing", "publication"} {
+		if strings.Contains(string(encoded), forbidden) {
+			t.Fatalf("closed request exposed caller-controlled %s: %s", forbidden, encoded)
+		}
+	}
+	if _, err := ExecuteControlledCanary(request); err == nil {
+		t.Fatal("unpromoted self executable was allowed to run")
+	} else {
+		assertFinding(t, err, "UNPROMOTED_EXECUTABLE")
+	}
+
+	tests := []struct {
+		name   string
+		mutate func(*ControlledCanaryRequest)
+	}{
+		{"canary", func(r *ControlledCanaryRequest) { r.CanaryID = "CALLER_SELECTED" }},
+		{"policy", func(r *ControlledCanaryRequest) { r.PolicyDigest = "candidate-policy" }},
+		{"plan", func(r *ControlledCanaryRequest) { r.PlanDigest = intake.DigestBytes([]byte("different-plan")) }},
+		{"resources", func(r *ControlledCanaryRequest) { r.Resources.WallTimeSeconds = 0 }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			mutated := request
+			test.mutate(&mutated)
+			if _, err := ExecuteControlledCanary(mutated); err == nil {
+				t.Fatal("open or malformed controlled-canary request was accepted")
+			}
+		})
+	}
+}
 
 func validSandboxPlan(t *testing.T, operation SandboxOperation) SandboxPlan {
 	t.Helper()

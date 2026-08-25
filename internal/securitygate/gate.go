@@ -185,29 +185,37 @@ type fixtureCase struct {
 	ExpectedDisposition string `json:"expected_disposition"`
 }
 type validationEvidence struct {
-	SchemaVersion                      string            `json:"schema_version"`
-	Story                              string            `json:"story"`
-	Company                            string            `json:"company"`
-	Project                            string            `json:"project"`
-	PolicyDigests                      map[string]string `json:"policy_digests"`
-	SchemaDigests                      map[string]string `json:"schema_digests"`
-	FixtureCatalogDigest               string            `json:"fixture_catalog_digest"`
-	AutobahnBaselineDigest             string            `json:"autobahn_baseline_digest"`
-	OriginalReceiptDigests             []string          `json:"original_receipt_digests"`
-	RemediationReceiptDigests          []string          `json:"remediation_receipt_digests"`
-	ConsumedRemediationAttemptsPerMode int               `json:"consumed_remediation_attempts_per_mode"`
-	FurtherRerunsAuthorized            bool              `json:"further_reruns_authorized"`
-	RerunsPerformedByUS007             int               `json:"reruns_performed_by_us007"`
-	FixtureResults                     []fixtureResult   `json:"fixture_results"`
-	MechanicsState                     string            `json:"mechanics_state"`
-	Assurance                          string            `json:"assurance"`
-	IndependentReviewClaimed           bool              `json:"independent_review_claimed"`
-	Production                         bool              `json:"production"`
-	Signing                            bool              `json:"signing"`
-	Publication                        bool              `json:"publication"`
-	SandboxMechanics                   Finding           `json:"sandbox_mechanics"`
-	LifecycleIntegration               Finding           `json:"lifecycle_integration"`
-	Runtime                            runtimeMetadata   `json:"runtime"`
+	SchemaVersion                      string               `json:"schema_version"`
+	Story                              string               `json:"story"`
+	Company                            string               `json:"company"`
+	Project                            string               `json:"project"`
+	PolicyDigests                      map[string]string    `json:"policy_digests"`
+	SchemaDigests                      map[string]string    `json:"schema_digests"`
+	FixtureCatalogDigest               string               `json:"fixture_catalog_digest"`
+	AutobahnBaselineDigest             string               `json:"autobahn_baseline_digest"`
+	OriginalReceiptDigests             []string             `json:"original_receipt_digests"`
+	RemediationReceiptDigests          []string             `json:"remediation_receipt_digests"`
+	ConsumedRemediationAttemptsPerMode int                  `json:"consumed_remediation_attempts_per_mode"`
+	FurtherRerunsAuthorized            bool                 `json:"further_reruns_authorized"`
+	RerunsPerformedByUS007             int                  `json:"reruns_performed_by_us007"`
+	FixtureResults                     []fixtureResult      `json:"fixture_results"`
+	MechanicsState                     string               `json:"mechanics_state"`
+	Assurance                          string               `json:"assurance"`
+	IndependentReviewClaimed           bool                 `json:"independent_review_claimed"`
+	Production                         bool                 `json:"production"`
+	Signing                            bool                 `json:"signing"`
+	Publication                        bool                 `json:"publication"`
+	SandboxMechanics                   Finding              `json:"sandbox_mechanics"`
+	LifecycleIntegration               lifecycleIntegration `json:"lifecycle_integration"`
+	Runtime                            runtimeMetadata      `json:"runtime"`
+}
+type lifecycleIntegration struct {
+	State             string   `json:"state"`
+	EvidenceNodeID    string   `json:"evidence_node_id"`
+	EvidencePath      string   `json:"evidence_path"`
+	LifecyclePath     string   `json:"lifecycle_path"`
+	Classification    string   `json:"classification"`
+	VerificationModes []string `json:"verification_modes"`
 }
 type fixtureResult struct {
 	ID                  string `json:"id"`
@@ -803,8 +811,15 @@ func verifyRetainedEvidence(s *policySnapshot) []Finding {
 	if e.SandboxMechanics.Code != "SANDBOX_ENFORCEMENT_UNAVAILABLE" || e.SandboxMechanics.Disposition != "BLOCK" {
 		return add("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.sandbox_mechanics", "unsupported platform mechanics must fail closed")
 	}
-	if e.LifecycleIntegration.Code != "LIFECYCLE_INTEGRATION_UNAVAILABLE" || e.LifecycleIntegration.Disposition != "BLOCK" {
-		return add("INVALID_SECURITY_POLICY", "BLOCK", "$.lifecycle_integration", "frozen US-004 lifecycle lacks an authorized US-007 evidence-node adapter")
+	wantLifecycle := lifecycleIntegration{
+		State: "BOUND_CANONICAL_VERIFY_REPLAY", EvidenceNodeID: "evidence-security-validation",
+		EvidencePath: "evidence/security-validation.json", LifecyclePath: "assurance/lifecycle.json",
+		Classification: "PUBLIC_DERIVED", VerificationModes: []string{"VERIFY", "REPLAY"},
+	}
+	if e.LifecycleIntegration.State != wantLifecycle.State || e.LifecycleIntegration.EvidenceNodeID != wantLifecycle.EvidenceNodeID ||
+		e.LifecycleIntegration.EvidencePath != wantLifecycle.EvidencePath || e.LifecycleIntegration.LifecyclePath != wantLifecycle.LifecyclePath ||
+		e.LifecycleIntegration.Classification != wantLifecycle.Classification || !equalStrings(e.LifecycleIntegration.VerificationModes, wantLifecycle.VerificationModes) {
+		return add("INVALID_SECURITY_POLICY", "BLOCK", "$.lifecycle_integration", "security evidence is not bound to the exact canonical owner-only Verify/Replay lifecycle seam")
 	}
 	if len(e.FixtureResults) != len(s.catalog.Cases) {
 		return add("INVALID_SECURITY_POLICY", "BLOCK", "$.fixture_results", "catalog coverage is incomplete")

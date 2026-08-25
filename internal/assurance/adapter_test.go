@@ -38,6 +38,45 @@ func TestVerifyCanonicalLifecycle(t *testing.T) {
 	}
 }
 
+func TestVerifyCanonicalLifecycleIntegratesSecurityValidation(t *testing.T) {
+	bundle := readLifecycleBundle(t, repoRoot(t), lifecyclePathDefault)
+
+	foundNode := false
+	for _, node := range bundle.Nodes {
+		if node.ID != "evidence-security-validation" {
+			continue
+		}
+		foundNode = true
+		if node.Kind != "evidence" || node.Classification != "PUBLIC_DERIVED" {
+			t.Fatalf("security validation node = %+v, want evidence/PUBLIC_DERIVED", node)
+		}
+	}
+	if !foundNode {
+		t.Fatal("canonical lifecycle is missing evidence-security-validation")
+	}
+
+	foundEdge := false
+	for _, edge := range bundle.Edges {
+		if edge.From == bundle.RootNodeID && edge.To == "evidence-security-validation" && edge.Kind == "supports" {
+			foundEdge = true
+		}
+	}
+	if !foundEdge {
+		t.Fatal("security validation evidence is not directly reachable from the lifecycle root")
+	}
+
+	verifyStage := mustStage(t, bundle, "verify")
+	foundInput := false
+	for _, input := range verifyStage.Inputs {
+		if input == "evidence-security-validation" {
+			foundInput = true
+		}
+	}
+	if !foundInput {
+		t.Fatal("verify stage does not bind evidence-security-validation as an input")
+	}
+}
+
 func TestVerifyRejectsVendoredManifestDrift(t *testing.T) {
 	root := copiedAssuranceRoot(t)
 	target := filepath.Join(root, "third_party", "verified-java-to-rust-foundation", "protocol", "canonical.go")
@@ -70,6 +109,8 @@ func copiedAssuranceRoot(t *testing.T) string {
 	destination := t.TempDir()
 	for _, relative := range []string{
 		"assurance",
+		"evidence",
+		"schemas",
 		"third_party",
 	} {
 		if err := copyDir(filepath.Join(source, relative), filepath.Join(destination, relative)); err != nil {

@@ -32,6 +32,75 @@ const (
 	promotedClassworlds     = "sha256:1ad3292cd563381e3fd632f3fded1988f9e9b2be7a9f3db63ff4c4cedba13fa5"
 )
 
+const controlledCanaryPlatform = "DARWIN_SANDBOX_EXEC"
+
+func controlledCanaryRoles() []string { return []string{"SANDBOX_SUPERVISOR", "SECURITYCTL"} }
+
+func ControlledCanaryPlanDigest(request ControlledCanaryRequest) (string, error) {
+	if err := validateControlledCanaryRequest(request); err != nil {
+		return "", err
+	}
+	_, executableDigest, err := controlledCanaryExecutableIdentity()
+	if err != nil {
+		return "", err
+	}
+	canonical, err := intake.CanonicalJSON(struct {
+		SchemaVersion    string         `json:"schema_version"`
+		Operation        string         `json:"operation"`
+		CanaryID         string         `json:"canary_id"`
+		PolicyDigest     string         `json:"policy_digest"`
+		PlatformIdentity string         `json:"platform_identity"`
+		ExecutableDigest string         `json:"executable_digest"`
+		ExecutableRoles  []string       `json:"executable_roles"`
+		PromotionScope   string         `json:"promotion_scope"`
+		Resources        ResourceLimits `json:"resources"`
+	}{
+		SchemaVersion: "1.0.0", Operation: "CONTROLLED_CANARY", CanaryID: request.CanaryID,
+		PolicyDigest: request.PolicyDigest, PlatformIdentity: controlledCanaryPlatform,
+		ExecutableDigest: executableDigest, ExecutableRoles: controlledCanaryRoles(),
+		PromotionScope: "CONTROLLED_CANARY", Resources: request.Resources,
+	})
+	if err != nil {
+		return "", err
+	}
+	return intake.DigestBytes(canonical), nil
+}
+
+func ExecuteControlledCanary(request ControlledCanaryRequest) (*ControlledCanaryReceipt, error) {
+	expected, err := ControlledCanaryPlanDigest(request)
+	if err != nil {
+		return nil, err
+	}
+	if request.PlanDigest != expected {
+		return nil, finding("INVALID_SANDBOX_PLAN", "$.plan_digest", "controlled canary plan does not bind the exact policy and os.Executable bytes")
+	}
+	_, digest, err := controlledCanaryExecutableIdentity()
+	if err != nil {
+		return nil, err
+	}
+	return nil, finding("UNPROMOTED_EXECUTABLE", "$.promotion_records", "fresh authenticated owner-only promotion records for SECURITYCTL and SANDBOX_SUPERVISOR roles scoped to CONTROLLED_CANARY are absent for exact executable "+digest)
+}
+
+func controlledCanaryExecutableIdentity() (string, string, error) {
+	self, err := os.Executable()
+	if err != nil {
+		return "", "", finding("TCB_EXECUTABLE_MISMATCH", "$.executable", err.Error())
+	}
+	resolved, err := filepath.EvalSymlinks(self)
+	if err != nil {
+		return "", "", finding("TCB_EXECUTABLE_MISMATCH", "$.executable", err.Error())
+	}
+	info, err := os.Lstat(resolved)
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return "", "", finding("TCB_EXECUTABLE_MISMATCH", "$.executable", "os.Executable must resolve to one regular non-link file")
+	}
+	data, err := readBoundedRegular(resolved, maxObjectBytes)
+	if err != nil {
+		return "", "", finding("TCB_EXECUTABLE_MISMATCH", "$.executable", err.Error())
+	}
+	return resolved, intake.DigestBytes(data), nil
+}
+
 type executionBreach struct {
 	code   string
 	detail string

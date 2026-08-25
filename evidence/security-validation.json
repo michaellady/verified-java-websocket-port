@@ -13,7 +13,7 @@
     "schemas/security-ingestion-policy-1.0.0.schema.json": "sha256:ae96c17cab6c9762a000a57d5c6e5e696f7ff9288ded6c72fe2534701e1da2cb",
     "schemas/security-release-firewall-1.0.0.schema.json": "sha256:5310f3388e7b30aa67f0e86129b494ecadfa94cd0a9d910684ca01f5692df555",
     "schemas/security-sandbox-policy-1.0.0.schema.json": "sha256:232ed1eaf3a957b0c2039261ffb96e64bd167bd69b68e54f9ccc8f40ece64e9a",
-    "schemas/security-validation-1.0.0.schema.json": "sha256:2a28f70953565c244b22fd30395eee6b712dd24dadb1a2b390af7dfa0ee930f3"
+    "schemas/security-validation-1.0.0.schema.json": "sha256:f5334c8d328958f29859d3ec0f62cd8babaca6382e905e84577370dec972e454"
   },
   "fixture_catalog_digest": "sha256:5da747c326b8388889979d3f69716b483149ba36901e94e16174573b3a76614c",
   "autobahn_baseline_digest": "sha256:54fac3c5166e6530ffb4e34ccd5a05d8122d2b2fae4fc4bc1708ac05779ff04d",
@@ -693,10 +693,15 @@
     "message": "required namespace/profile, resource, mount, network, and cleanup enforcement is not proven; no host-process fallback was used"
   },
   "lifecycle_integration": {
-    "code": "LIFECYCLE_INTEGRATION_UNAVAILABLE",
-    "disposition": "BLOCK",
-    "path": "$.assurance.lifecycle",
-    "message": "the frozen US-004 regeneration adapter has no authorized US-007 security-evidence node seam; assurance artifacts were not hand-edited"
+    "state": "BOUND_CANONICAL_VERIFY_REPLAY",
+    "evidence_node_id": "evidence-security-validation",
+    "evidence_path": "evidence/security-validation.json",
+    "lifecycle_path": "assurance/lifecycle.json",
+    "classification": "PUBLIC_DERIVED",
+    "verification_modes": [
+      "VERIFY",
+      "REPLAY"
+    ]
   },
   "runtime": {
     "provider": "OpenAI",

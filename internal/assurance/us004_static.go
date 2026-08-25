@@ -68,6 +68,7 @@ var expectedEvidenceNodes = []staticEvidenceNode{
 	{ID: "evidence-jdt-ls", Path: jdtLSPath, Classification: "PUBLIC_DERIVED"},
 	{ID: "evidence-rust-analyzer", Path: rustAnalyzerPath, Classification: "PUBLIC_DERIVED"},
 	{ID: "evidence-glancer", Path: glancerPath, Classification: "PUBLIC_DERIVED"},
+	{ID: "evidence-security-validation", Path: securityValidationPath, Classification: "PUBLIC_DERIVED"},
 }
 
 var expectedDeveloperToolRuns = []developerToolExpectation{
@@ -92,6 +93,7 @@ var expectedSchemaValidations = []schemaExpectation{
 	{SchemaPath: "assurance/schema/language-intelligence-profile.schema.json", Artifact: languageIntelligenceProfilePath, Finding: "INVALID_LANGUAGE_INTELLIGENCE_PROFILE"},
 	{SchemaPath: "assurance/schema/profile-switching.schema.json", Artifact: profileSwitchingPath, Finding: "INVALID_PROFILE_SWITCHING"},
 	{SchemaPath: "assurance/schema/navigation-corpus.schema.json", Artifact: navigationCorpusPath, Finding: "INVALID_NAVIGATION_CORPUS"},
+	{SchemaPath: securityValidationSchemaPath, Artifact: securityValidationPath, Finding: "INVALID_SECURITY_VALIDATION"},
 }
 
 var expectedRetainedArtifacts = []retainedArtifactExpectation{
@@ -104,6 +106,7 @@ var expectedRetainedArtifacts = []retainedArtifactExpectation{
 	{Path: jdtLSPath, Kind: "retained-evidence"},
 	{Path: rustAnalyzerPath, Kind: "retained-evidence"},
 	{Path: glancerPath, Kind: "retained-evidence"},
+	{Path: securityValidationPath, Kind: "retained-evidence"},
 	{Path: jdtLSEvidencePath, Kind: "developer-tool-evidence"},
 	{Path: rustAnalyzerEvidencePath, Kind: "developer-tool-evidence"},
 	{Path: glancerEvidencePath, Kind: "developer-tool-evidence"},

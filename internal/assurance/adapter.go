@@ -53,6 +53,8 @@ const (
 	navigationCorpusPath            = "assurance/developer-tools/navigation-corpus.json"
 	replayReadmePath                = "assurance/replay/README.md"
 	replayProvenancePath            = "assurance/replay/provenance.json"
+	securityValidationPath          = "evidence/security-validation.json"
+	securityValidationSchemaPath    = "schemas/security-validation-1.0.0.schema.json"
 )
 
 var retryAllowlist = map[string]bool{
@@ -117,6 +119,24 @@ type publicContract struct {
 		Classification string `json:"classification"`
 		Reachable      bool   `json:"reachable"`
 	} `json:"public_evidence"`
+}
+
+type evidenceDAGNode struct {
+	ID   string `json:"id"`
+	Kind string `json:"kind"`
+}
+
+type evidenceDAGEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+	Kind string `json:"kind"`
+}
+
+type evidenceDAGProjection struct {
+	SchemaVersion string            `json:"schema_version"`
+	RootNodeID    string            `json:"root_node_id"`
+	Nodes         []evidenceDAGNode `json:"nodes"`
+	Edges         []evidenceDAGEdge `json:"edges"`
 }
 
 type evaluationSnapshot struct {
@@ -254,6 +274,17 @@ func loadEvaluationSnapshot(root *projectRoot, lifecyclePath string) (*evaluatio
 		}
 		files[item.Artifact] = data
 	}
+	for _, item := range schemaExpectations {
+		if _, ok := files[item.SchemaPath]; ok {
+			continue
+		}
+		data, err := readRegularFile(root, item.SchemaPath, 8<<20)
+		if err != nil {
+			missing[item.SchemaPath] = err
+			continue
+		}
+		files[item.SchemaPath] = data
+	}
 	for _, entry := range expectedUpstreamEntries {
 		if _, ok := files[entry.TargetPath]; ok {
 			continue
@@ -293,6 +324,7 @@ func compileSchemas(files map[string][]byte, schemaExpectations []schemaExpectat
 	compiler.DefaultDraft(jsonschema.Draft2020)
 	compiler.AssertFormat()
 	compiler.AssertContent()
+	addedResources := make(map[string]bool)
 	for _, entry := range expectedUpstreamEntries {
 		if !strings.HasSuffix(entry.TargetPath, ".schema.json") {
 			continue
@@ -307,6 +339,20 @@ func compileSchemas(files map[string][]byte, schemaExpectations []schemaExpectat
 		if err := compiler.AddResource("mem:///"+entry.TargetPath, resource); err != nil {
 			return nil, err
 		}
+		addedResources[entry.TargetPath] = true
+	}
+	for _, item := range schemaExpectations {
+		if addedResources[item.SchemaPath] || files[item.SchemaPath] == nil {
+			continue
+		}
+		var resource any
+		if err := json.Unmarshal(files[item.SchemaPath], &resource); err != nil {
+			return nil, err
+		}
+		if err := compiler.AddResource("mem:///"+item.SchemaPath, resource); err != nil {
+			return nil, err
+		}
+		addedResources[item.SchemaPath] = true
 	}
 	compiled := make(map[string]*jsonschema.Schema, len(schemaExpectations))
 	for _, item := range schemaExpectations {
@@ -349,6 +395,10 @@ func digestOrEmpty(data []byte) string {
 
 func validateSchemas(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
 	for _, item := range resolvedSchemaValidations(snapshot.lifecycle) {
+		if _, err := snapshot.read(item.SchemaPath); err != nil {
+			add(item.Finding, vendorprotocol.Block, item.SchemaPath, err.Error())
+			continue
+		}
 		data, err := snapshot.read(item.Artifact)
 		if err != nil {
 			add(item.Finding, vendorprotocol.Block, item.Artifact, err.Error())
@@ -491,7 +541,7 @@ func validateEvidenceNodeBindings(snapshot *evaluationSnapshot, add func(string,
 		}
 		decoded, decodeErr := base64.StdEncoding.DecodeString(node.ContentBase64)
 		var binding retainedDigest
-		if decodeErr != nil || vendorprotocol.DecodeStrict(decoded, &binding) != nil || binding.Path != expected.Path || binding.SHA256 != vendorprotocol.DigestBytes(data) || node.Digest != vendorprotocol.DigestBytes(decoded) || node.Classification != expected.Classification {
+		if decodeErr != nil || vendorprotocol.DecodeStrict(decoded, &binding) != nil || binding.Path != expected.Path || binding.SHA256 != vendorprotocol.DigestBytes(data) || node.Digest != vendorprotocol.DigestBytes(decoded) || node.Kind != "evidence" || node.Classification != expected.Classification {
 			add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, expected.Path, "lifecycle evidence node does not bind the exact retained artifact bytes and classification")
 			valid = false
 		}
@@ -506,11 +556,48 @@ func validateEvidenceNodeBindings(snapshot *evaluationSnapshot, add func(string,
 		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, snapshot.lifecycle, "lifecycle node set drifted from the exact frozen owner-only closure")
 		valid = false
 	}
+	if !validateSecurityEvidenceTopology(snapshot.bundle, add) {
+		valid = false
+	}
 	if digest, err := snapshotBindingDigest(snapshot.bundle, digests); err != nil {
 		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, lifecyclePathDefault, err.Error())
 		valid = false
 	} else if snapshot.bundle.Snapshot.CandidateDigest != digest {
 		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, "$.snapshot.candidate_digest", "snapshot identity drifted from the retained evidence-byte binding")
+		valid = false
+	}
+	return valid
+}
+
+func validateSecurityEvidenceTopology(bundle vendorprotocol.Bundle, add func(string, vendorprotocol.Disposition, string, string)) bool {
+	const nodeID = "evidence-security-validation"
+	valid := true
+	directEdges := 0
+	for _, edge := range bundle.Edges {
+		if edge.To != nodeID {
+			continue
+		}
+		if edge.From == bundle.RootNodeID && edge.Kind == "supports" {
+			directEdges++
+		}
+	}
+	if directEdges != 1 {
+		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, "$.edges", "security validation evidence must have exactly one direct supports edge from the lifecycle root")
+		valid = false
+	}
+	verifyInputs := 0
+	for _, stage := range bundle.Stages {
+		if stage.ID != "verify" {
+			continue
+		}
+		for _, input := range stage.Inputs {
+			if input == nodeID {
+				verifyInputs++
+			}
+		}
+	}
+	if verifyInputs != 1 {
+		add("EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block, "$.stages[verify].inputs", "verify stage must bind security validation evidence exactly once")
 		valid = false
 	}
 	return valid
@@ -566,6 +653,39 @@ func validateEvidenceArtifacts(snapshot *evaluationSnapshot, add func(string, ve
 	}
 	for _, failure := range vendorvalidators.VerifyFoundationEvolution(evolutionData) {
 		add(failure.Code, vendorprotocol.Block, evolutionPath+failure.Path, failure.Message)
+	}
+	validateSecurityValidation(snapshot, add)
+}
+
+func validateSecurityValidation(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
+	data, err := snapshot.read(securityValidationPath)
+	if err != nil {
+		add("INVALID_SECURITY_VALIDATION", vendorprotocol.Block, securityValidationPath, err.Error())
+		return
+	}
+	var value map[string]any
+	if err := vendorprotocol.DecodeStrict(data, &value); err != nil {
+		add("INVALID_SECURITY_VALIDATION", vendorprotocol.Block, securityValidationPath, err.Error())
+		return
+	}
+	invalidBoundary := value["story"] != "US-007" ||
+		value["company"] != "open-source-projects" ||
+		value["project"] != "verified-java-websocket-port" ||
+		value["assurance"] != assuranceCeiling ||
+		value["independent_review_claimed"] != false ||
+		value["production"] != false ||
+		value["signing"] != false ||
+		value["publication"] != false ||
+		value["further_reruns_authorized"] != false ||
+		value["reruns_performed_by_us007"] != float64(0) ||
+		value["consumed_remediation_attempts_per_mode"] != float64(1)
+	if invalidBoundary {
+		add("INVALID_SECURITY_VALIDATION", vendorprotocol.Block, securityValidationPath, "security validation drifted above the exact owner-only, non-production, no-rerun assurance ceiling")
+	}
+	schemaDigests, ok := value["schema_digests"].(map[string]any)
+	schemaData, schemaErr := snapshot.read(securityValidationSchemaPath)
+	if !ok || schemaErr != nil || schemaDigests[securityValidationSchemaPath] != vendorprotocol.DigestBytes(schemaData) {
+		add("INVALID_SECURITY_VALIDATION", vendorprotocol.Block, securityValidationSchemaPath, "security validation does not bind the exact schema bytes used by the assurance adapter")
 	}
 }
 
@@ -727,43 +847,7 @@ func validateEvidenceDAG(snapshot *evaluationSnapshot, add func(string, vendorpr
 		add("MISSING_EVIDENCE_DAG", vendorprotocol.Block, evidenceDAGPath, err.Error())
 		return
 	}
-	type graphNode struct {
-		ID   string `json:"id"`
-		Kind string `json:"kind"`
-	}
-	type graphEdge struct {
-		From string `json:"from"`
-		To   string `json:"to"`
-		Kind string `json:"kind"`
-	}
-	type projection struct {
-		SchemaVersion string      `json:"schema_version"`
-		RootNodeID    string      `json:"root_node_id"`
-		Nodes         []graphNode `json:"nodes"`
-		Edges         []graphEdge `json:"edges"`
-	}
-	computed := projection{
-		SchemaVersion: "1.0.0",
-		RootNodeID:    snapshot.bundle.RootNodeID,
-		Nodes:         make([]graphNode, 0, len(snapshot.bundle.Nodes)),
-		Edges:         make([]graphEdge, 0, len(snapshot.bundle.Edges)),
-	}
-	for _, node := range snapshot.bundle.Nodes {
-		computed.Nodes = append(computed.Nodes, graphNode{ID: node.ID, Kind: node.Kind})
-	}
-	for _, edge := range snapshot.bundle.Edges {
-		computed.Edges = append(computed.Edges, graphEdge{From: edge.From, To: edge.To, Kind: edge.Kind})
-	}
-	sort.Slice(computed.Nodes, func(i, j int) bool { return computed.Nodes[i].ID < computed.Nodes[j].ID })
-	sort.Slice(computed.Edges, func(i, j int) bool {
-		if computed.Edges[i].From != computed.Edges[j].From {
-			return computed.Edges[i].From < computed.Edges[j].From
-		}
-		if computed.Edges[i].To != computed.Edges[j].To {
-			return computed.Edges[i].To < computed.Edges[j].To
-		}
-		return computed.Edges[i].Kind < computed.Edges[j].Kind
-	})
+	computed := expectedEvidenceDAG(snapshot.bundle)
 	expected, err := vendorprotocol.CanonicalJSON(computed)
 	if err != nil {
 		add("ROOT_BINDING_MISMATCH", vendorprotocol.Block, evidenceDAGPath, err.Error())
@@ -795,6 +879,32 @@ func validateEvidenceDAG(snapshot *evaluationSnapshot, add func(string, vendorpr
 	if len(snapshot.bundle.Nodes) != len(expectedEvidenceNodes)+1 {
 		add("ROOT_BINDING_MISMATCH", vendorprotocol.Block, evidenceDAGPath, "lifecycle DAG node set drifted from the exact frozen owner-only closure")
 	}
+}
+
+func expectedEvidenceDAG(bundle vendorprotocol.Bundle) evidenceDAGProjection {
+	computed := evidenceDAGProjection{
+		SchemaVersion: "1.0.0",
+		RootNodeID:    bundle.RootNodeID,
+		Nodes:         make([]evidenceDAGNode, 0, len(bundle.Nodes)),
+		Edges:         make([]evidenceDAGEdge, 0, len(bundle.Edges)),
+	}
+	for _, node := range bundle.Nodes {
+		computed.Nodes = append(computed.Nodes, evidenceDAGNode{ID: node.ID, Kind: node.Kind})
+	}
+	for _, edge := range bundle.Edges {
+		computed.Edges = append(computed.Edges, evidenceDAGEdge{From: edge.From, To: edge.To, Kind: edge.Kind})
+	}
+	sort.Slice(computed.Nodes, func(i, j int) bool { return computed.Nodes[i].ID < computed.Nodes[j].ID })
+	sort.Slice(computed.Edges, func(i, j int) bool {
+		if computed.Edges[i].From != computed.Edges[j].From {
+			return computed.Edges[i].From < computed.Edges[j].From
+		}
+		if computed.Edges[i].To != computed.Edges[j].To {
+			return computed.Edges[i].To < computed.Edges[j].To
+		}
+		return computed.Edges[i].Kind < computed.Edges[j].Kind
+	})
+	return computed
 }
 
 func validatePublicContract(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {

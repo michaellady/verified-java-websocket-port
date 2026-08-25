@@ -362,15 +362,24 @@ func TestUS004ProtocolAcceptance_CheckpointResume(t *testing.T) {
 func TestUS004ProtocolAcceptance_CheckedInCheckpointMatchesGeneratedFixture(t *testing.T) {
 	t.Parallel()
 
-	verdict, err := Verify(context.Background(), Request{
-		RootPath:      repoRoot(t),
-		LifecyclePath: lifecyclePathDefault,
-		Mode:          ModeVerify,
-	})
-	if err != nil {
-		t.Fatalf("verify canonical lifecycle: %v", err)
+	root := copiedAssuranceRoot(t)
+	makeLifecycleCheckpointEligible(t, root)
+	for _, mode := range []string{ModeVerify, ModeReplay} {
+		request := Request{RootPath: root, LifecyclePath: lifecyclePathDefault, Mode: mode}
+		var (
+			verdict Verdict
+			err     error
+		)
+		if mode == ModeReplay {
+			verdict, err = Replay(context.Background(), request)
+		} else {
+			verdict, err = Verify(context.Background(), request)
+		}
+		if err != nil {
+			t.Fatalf("%s canonical lifecycle: %v", mode, err)
+		}
+		assertNoFindingCode(t, verdict.Findings, "CHECKPOINT_INVALID")
 	}
-	assertNoFindingCode(t, verdict.Findings, "CHECKPOINT_INVALID")
 }
 
 func TestUS004ProtocolAcceptance_CheckpointInvalidThroughVerifyReplay(t *testing.T) {

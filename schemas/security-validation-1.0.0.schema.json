@@ -175,21 +175,29 @@
     "lifecycle_integration": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["code", "disposition", "path", "message"],
+      "required": ["state", "evidence_node_id", "evidence_path", "lifecycle_path", "classification", "verification_modes"],
       "properties": {
-        "code": {
-          "const": "LIFECYCLE_INTEGRATION_UNAVAILABLE"
+        "state": {
+          "const": "BOUND_CANONICAL_VERIFY_REPLAY"
         },
-        "disposition": {
-          "const": "BLOCK"
+        "evidence_node_id": {
+          "const": "evidence-security-validation"
         },
-        "path": {
-          "type": "string",
-          "minLength": 1
+        "evidence_path": {
+          "const": "evidence/security-validation.json"
         },
-        "message": {
-          "type": "string",
-          "minLength": 1
+        "lifecycle_path": {
+          "const": "assurance/lifecycle.json"
+        },
+        "classification": {
+          "const": "PUBLIC_DERIVED"
+        },
+        "verification_modes": {
+          "type": "array",
+          "prefixItems": [{"const": "VERIFY"}, {"const": "REPLAY"}],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
         }
       }
     },

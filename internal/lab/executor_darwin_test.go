@@ -9,6 +9,42 @@ import (
 	"testing"
 )
 
+func TestDarwinControlledCanaryBindsExactSelfAndFailsBeforeLaunch(t *testing.T) {
+	request := ControlledCanaryRequest{
+		CanaryID: "CLEAN_EXIT", PolicyDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		Resources: validSandboxPlan(t, SandboxMavenBuild).Resources,
+	}
+	planDigest, err := ControlledCanaryPlanDigest(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.PlanDigest = planDigest
+	self, executableDigest, err := controlledCanaryExecutableIdentity()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !filepath.IsAbs(self) || !strings.HasPrefix(executableDigest, "sha256:") {
+		t.Fatalf("invalid exact executable identity: path=%q digest=%q", self, executableDigest)
+	}
+	if controlledCanaryPlatform != "DARWIN_SANDBOX_EXEC" {
+		t.Fatalf("platform identity = %q", controlledCanaryPlatform)
+	}
+	if _, err := ExecuteControlledCanary(request); err == nil {
+		t.Fatal("unpromoted executable was launched")
+	} else {
+		assertFinding(t, err, "UNPROMOTED_EXECUTABLE")
+		if !strings.Contains(err.Error(), executableDigest) {
+			t.Fatalf("promotion blocker does not bind exact executable digest: %v", err)
+		}
+	}
+	mutated := request
+	mutated.Resources.MaxOpenFiles++
+	mutatedDigest, err := ControlledCanaryPlanDigest(mutated)
+	if err != nil || mutatedDigest == planDigest {
+		t.Fatalf("resource mutation was not bound: digest=%q err=%v", mutatedDigest, err)
+	}
+}
+
 func TestMain(m *testing.M) {
 	if handled, code := RunSandboxChild(os.Args[1:]); handled {
 		os.Exit(code)

@@ -830,6 +830,209 @@ func TestUS004Adversarial_DAGEdgeKindProjection(t *testing.T) {
 	assertFinding(t, verdict.Findings, "ROOT_BINDING_MISMATCH", vendorprotocol.Block)
 }
 
+func TestUS007SecurityEvidenceLifecycleMutations(t *testing.T) {
+	t.Parallel()
+
+	const nodeID = "evidence-security-validation"
+	testCases := []struct {
+		name   string
+		mutate func(*vendorprotocol.Bundle)
+	}{
+		{
+			name: "missing node",
+			mutate: func(bundle *vendorprotocol.Bundle) {
+				nodes := bundle.Nodes[:0]
+				for _, node := range bundle.Nodes {
+					if node.ID != nodeID {
+						nodes = append(nodes, node)
+					}
+				}
+				bundle.Nodes = nodes
+			},
+		},
+		{
+			name: "wrong digest",
+			mutate: func(bundle *vendorprotocol.Bundle) {
+				for index := range bundle.Nodes {
+					if bundle.Nodes[index].ID == nodeID {
+						bundle.Nodes[index].Digest = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+					}
+				}
+			},
+		},
+		{
+			name: "wrong classification",
+			mutate: func(bundle *vendorprotocol.Bundle) {
+				for index := range bundle.Nodes {
+					if bundle.Nodes[index].ID == nodeID {
+						bundle.Nodes[index].Classification = "PUBLIC"
+					}
+				}
+			},
+		},
+		{
+			name: "unreachable node",
+			mutate: func(bundle *vendorprotocol.Bundle) {
+				edges := bundle.Edges[:0]
+				for _, edge := range bundle.Edges {
+					if edge.To != nodeID {
+						edges = append(edges, edge)
+					}
+				}
+				bundle.Edges = edges
+			},
+		},
+		{
+			name: "missing verify stage input",
+			mutate: func(bundle *vendorprotocol.Bundle) {
+				for index := range bundle.Stages {
+					if bundle.Stages[index].ID != "verify" {
+						continue
+					}
+					inputs := bundle.Stages[index].Inputs[:0]
+					for _, input := range bundle.Stages[index].Inputs {
+						if input != nodeID {
+							inputs = append(inputs, input)
+						}
+					}
+					bundle.Stages[index].Inputs = inputs
+				}
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			root := copiedAssuranceRoot(t)
+			bundle := readLifecycleBundle(t, root, lifecyclePathDefault)
+			testCase.mutate(&bundle)
+			writeJSONFile(t, filepath.Join(root, lifecyclePathDefault), bundle)
+
+			for _, mode := range []string{ModeVerify, ModeReplay} {
+				var (
+					verdict Verdict
+					err     error
+				)
+				request := Request{RootPath: root, LifecyclePath: lifecyclePathDefault, Mode: mode}
+				if mode == ModeReplay {
+					verdict, err = Replay(context.Background(), request)
+				} else {
+					verdict, err = Verify(context.Background(), request)
+				}
+				if err != nil {
+					t.Fatalf("%s: %v", mode, err)
+				}
+				assertFinding(t, verdict.Findings, "EVIDENCE_NODE_BINDING_MISMATCH", vendorprotocol.Block)
+			}
+		})
+	}
+}
+
+func TestUS007SecurityValidationOwnerCeiling(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{
+			name: "independent review claim",
+			mutate: func(value map[string]any) {
+				value["independent_review_claimed"] = true
+			},
+		},
+		{
+			name: "publication claim",
+			mutate: func(value map[string]any) {
+				value["publication"] = true
+			},
+		},
+		{
+			name: "security schema digest drift",
+			mutate: func(value map[string]any) {
+				value["schema_digests"].(map[string]any)[securityValidationSchemaPath] = "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			root := copiedAssuranceRoot(t)
+			path := filepath.Join(root, filepath.FromSlash(securityValidationPath))
+			value := readGenericJSONFile(t, path)
+			testCase.mutate(value)
+			writeJSONFile(t, path, value)
+
+			verdict, err := Verify(context.Background(), Request{
+				RootPath:      root,
+				LifecyclePath: lifecyclePathDefault,
+				Mode:          ModeVerify,
+			})
+			if err != nil {
+				t.Fatalf("verify: %v", err)
+			}
+			assertFinding(t, verdict.Findings, "INVALID_SECURITY_VALIDATION", vendorprotocol.Block)
+		})
+	}
+}
+
+func TestUS007SecurityValidationInvalidDocuments(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name   string
+		mutate func(t *testing.T, root string)
+	}{
+		{
+			name: "missing evidence",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				if err := os.Remove(filepath.Join(root, filepath.FromSlash(securityValidationPath))); err != nil {
+					t.Fatalf("remove security validation: %v", err)
+				}
+			},
+		},
+		{
+			name: "malformed evidence",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				writeRawFile(t, filepath.Join(root, filepath.FromSlash(securityValidationPath)), []byte("{"))
+			},
+		},
+		{
+			name: "missing schema",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				if err := os.Remove(filepath.Join(root, filepath.FromSlash(securityValidationSchemaPath))); err != nil {
+					t.Fatalf("remove security validation schema: %v", err)
+				}
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		testCase := testCase
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			root := copiedAssuranceRoot(t)
+			testCase.mutate(t, root)
+			verdict, err := Verify(context.Background(), Request{
+				RootPath:      root,
+				LifecyclePath: lifecyclePathDefault,
+				Mode:          ModeVerify,
+			})
+			if err != nil {
+				t.Fatalf("verify: %v", err)
+			}
+			assertFinding(t, verdict.Findings, "INVALID_SECURITY_VALIDATION", vendorprotocol.Block)
+		})
+	}
+}
+
 func TestUS004Adversarial_CanonicalVerifyReplayAgreement(t *testing.T) {
 	t.Parallel()
 
