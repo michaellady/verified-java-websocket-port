@@ -250,7 +250,7 @@ func evaluateSandboxFixture(snapshot *policySnapshot, item fixtureCase) (*Findin
 		return nil, nil
 	}
 	if item.ID == "good-sandbox-canaries" {
-		_, err := RunControlledCanary(context.Background(), CanaryRequest{RootPath: "", CanaryID: "CLEAN_EXIT", PlanDigest: "sha256:" + strings.Repeat("a", 64)})
+		_, err := RunControlledCanary(context.Background(), CanaryRequest{})
 		if err != nil {
 			return fixtureFinding(snapshot, "SANDBOX_ENFORCEMENT_UNAVAILABLE", "$.platform_enforcement"), nil
 		}

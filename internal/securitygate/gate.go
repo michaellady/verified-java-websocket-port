@@ -67,18 +67,11 @@ type Verdict struct {
 	PublicationAuthorized    bool      `json:"publication_authorized"`
 }
 type CanaryRequest struct {
-	RootPath   string `json:"root_path"`
-	CanaryID   string `json:"canary_id"`
-	PlanDigest string `json:"plan_digest"`
+	RootPath  string                     `json:"root_path"`
+	Execution SbxExecutionRequest        `json:"execution"`
+	Protected *ProtectedCanaryInvocation `json:"-"`
 }
-type SandboxReceipt struct {
-	SchemaVersion            string `json:"schema_version"`
-	CanaryID                 string `json:"canary_id"`
-	TerminationReason        string `json:"termination_reason"`
-	CleanupComplete          bool   `json:"cleanup_complete"`
-	Assurance                string `json:"assurance"`
-	IndependentReviewClaimed bool   `json:"independent_review_claimed"`
-}
+type SandboxReceipt = SbxExecutionReceipt
 
 type scope struct {
 	Company    string `json:"company"`
@@ -554,8 +547,8 @@ func scanReleaseFixture(policy releasePolicy, item fixtureCase) (string, bool, e
 	return matched, detectorFindings[item.ExpectedCode], nil
 }
 
-func RunControlledCanary(context.Context, CanaryRequest) (SandboxReceipt, error) {
-	return SandboxReceipt{}, errors.New("SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK")
+func RunControlledCanary(ctx context.Context, request CanaryRequest) (SandboxReceipt, error) {
+	return runProtectedCanary(ctx, request)
 }
 func baseVerdict(snapshot *policySnapshot) Verdict {
 	return Verdict{State: "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE", SecurityEvidenceRoot: snapshot.digests["evidence/security-validation.json"], Findings: []Finding{}, Assurance: AssuranceOwnerOnly}

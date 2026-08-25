@@ -116,11 +116,13 @@ func TestUS007Acceptance_RootSnapshotRejectsLinks(t *testing.T) {
 }
 
 func TestUS007E2E_ControlledCanaries(t *testing.T) {
-	_, err := RunControlledCanary(context.Background(), CanaryRequest{RootPath: repoRoot(t), CanaryID: "CLEAN_EXIT", PlanDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"})
-	if err == nil || err.Error() != "SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK" {
+	request := testSbxExecutionRequest(t)
+	_, err := RunControlledCanary(context.Background(), CanaryRequest{RootPath: repoRoot(t), Execution: request})
+	finding, ok := err.(*SandboxAdapterFinding)
+	if !ok || finding.Code != "PROTECTED_CALLER_REQUIRED" || finding.Disposition != "BLOCK" {
 		t.Fatalf("err = %v, want typed fail-closed enforcement result", err)
 	}
-	t.Skip("SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK: no ordinary host-process substitute is allowed")
+	t.Skip("PROTECTED_CALLER_REQUIRED/BLOCK: parent-protected live sbx launcher is not a unit-test seam")
 }
 
 func repoRoot(t *testing.T) string {

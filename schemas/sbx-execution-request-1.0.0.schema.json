@@ -1,0 +1,12 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema","$id":"sbx-execution-request-1.0.0.schema.json","type":"object","additionalProperties":false,
+  "required":["schema_version","company","project","laboratory","attempt_id","sandbox_name","canary_id","plan_digest","profile_digest","sandbox_policy_digest","accepted_root_digest","inventory_root_digest","promotion_record_digest","securityctl_digest","supervisor_digest","input_root","output_root","create_command","remove_command","absence_command","assurance","independent_review_claimed","production","signing","publication"],
+  "properties":{
+    "schema_version":{"const":"1.0.0"},"company":{"const":"open-source-projects"},"project":{"const":"verified-java-websocket-port"},"laboratory":{"const":"lab-java-websocket"},
+    "attempt_id":{"type":"string","pattern":"^[a-z0-9][a-z0-9.-]{15,127}$"},"sandbox_name":{"type":"string","pattern":"^[a-z0-9][a-z0-9.-]{1,62}$"},"canary_id":{"type":"string","pattern":"^[A-Z][A-Z0-9_]+$"},
+    "plan_digest":{"$ref":"#/$defs/digest"},"profile_digest":{"$ref":"#/$defs/digest"},"sandbox_policy_digest":{"$ref":"#/$defs/digest"},"accepted_root_digest":{"$ref":"#/$defs/digest"},"inventory_root_digest":{"$ref":"#/$defs/digest"},"promotion_record_digest":{"$ref":"#/$defs/digest"},"securityctl_digest":{"$ref":"#/$defs/digest"},"supervisor_digest":{"$ref":"#/$defs/digest"},
+    "input_root":{"type":"string","minLength":2},"output_root":{"type":"string","minLength":2},"create_command":{"$ref":"#/$defs/argv"},"remove_command":{"$ref":"#/$defs/argv"},"absence_command":{"$ref":"#/$defs/argv"},
+    "assurance":{"const":"OWNER_ATTESTED_NOT_INDEPENDENT"},"independent_review_claimed":{"const":false},"production":{"const":false},"signing":{"const":false},"publication":{"const":false}
+  },
+  "$defs":{"digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"argv":{"type":"array","minItems":2,"maxItems":32,"items":{"type":"string","minLength":1}}}
+}
