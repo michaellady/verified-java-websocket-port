@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "scope": {"company": "open-source-projects", "project": "verified-java-websocket-port", "laboratory": "lab-java-websocket"},
+  "allowed_classifications": ["INTERNAL", "PROTECTED_HELD_OUT", "PUBLIC", "PUBLIC_DERIVED", "QUARANTINED"],
+  "included_classifications": ["PUBLIC", "PUBLIC_DERIVED"],
+  "detectors": [
+    {"id":"cache","token":"SYNTHETIC_CACHE_STATE","finding":"CACHE_DISCLOSURE"},
+    {"id":"credential","token":"SYNTHETIC_TOKEN_VALUE","finding":"CREDENTIAL_DISCLOSURE"},
+    {"id":"expected-output","token":"SYNTHETIC_GOLDEN_ANSWER","finding":"EXPECTED_OUTPUT_DISCLOSURE"},
+    {"id":"identifier","token":"SYNTHETIC_SESSION_IDENTIFIER","finding":"IDENTIFIER_DISCLOSURE"},
+    {"id":"protected","token":"SYNTHETIC_PROTECTED_CANARY","finding":"PROTECTED_PUBLICATION_DISCLOSURE"},
+    {"id":"raw-diagnostic","token":"SYNTHETIC_RAW_TRACE","finding":"RAW_DIAGNOSTIC_DISCLOSURE"}
+  ],
+  "protected_checker_required": true,
+  "publication_capability": false,
+  "fixture_bindings": [
+    {"id":"cache-leak","finding":"CACHE_DISCLOSURE"},
+    {"id":"credential-leak","finding":"CREDENTIAL_DISCLOSURE"},
+    {"id":"expected-output-leak","finding":"EXPECTED_OUTPUT_DISCLOSURE"},
+    {"id":"good-safe-projection","finding":""},
+    {"id":"identifier-leak","finding":"IDENTIFIER_DISCLOSURE"},
+    {"id":"independence-claim","finding":"ASSURANCE_CEILING_EXCEEDED"},
+    {"id":"late-public-mutation","finding":"PUBLIC_PROJECTION_DRIFT"},
+    {"id":"protected-leak","finding":"PROTECTED_PUBLICATION_DISCLOSURE"},
+    {"id":"provenance-gap","finding":"PUBLIC_PROVENANCE_GAP"},
+    {"id":"publication-attempt","finding":"PUBLICATION_NOT_AUTHORIZED"},
+    {"id":"raw-diagnostic-leak","finding":"RAW_DIAGNOSTIC_DISCLOSURE"},
+    {"id":"unclassified-descendant","finding":"PUBLIC_DESCENDANT_UNCLASSIFIED"}
+  ],
+  "finding_registry": [
+    {"code":"PUBLIC_DESCENDANT_UNCLASSIFIED","disposition":"BLOCK"},
+    {"code":"PUBLIC_PROJECTION_DRIFT","disposition":"REVOKE"},
+    {"code":"PROTECTED_PUBLICATION_DISCLOSURE","disposition":"REVOKE"},
+    {"code":"EXPECTED_OUTPUT_DISCLOSURE","disposition":"REVOKE"},
+    {"code":"RAW_DIAGNOSTIC_DISCLOSURE","disposition":"REVOKE"},
+    {"code":"IDENTIFIER_DISCLOSURE","disposition":"REVOKE"},
+    {"code":"CREDENTIAL_DISCLOSURE","disposition":"REVOKE"},
+    {"code":"CACHE_DISCLOSURE","disposition":"REVOKE"},
+    {"code":"PUBLIC_PROVENANCE_GAP","disposition":"BLOCK"},
+    {"code":"PROTECTED_CLASSIFIER_UNAVAILABLE","disposition":"BLOCK"},
+    {"code":"PROTECTED_CLASSIFIER_REJECTED","disposition":"REVOKE"},
+    {"code":"ASSURANCE_CEILING_EXCEEDED","disposition":"REVOKE"},
+    {"code":"PUBLICATION_AUTHORITY_MISSING","disposition":"BLOCK"},
+    {"code":"PUBLICATION_NOT_AUTHORIZED","disposition":"BLOCK"}
+  ]
+}

@@ -1,0 +1,503 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-007",
+  "company": "open-source-projects",
+  "project": "verified-java-websocket-port",
+  "policy_digests": {
+    "security/ingestion-policy.json": "sha256:8c3f4b7a0d7e7fe803e171267a3ab25c88576b582dd5391ce16954cbdd832d60",
+    "security/release-firewall.json": "sha256:5827d9efa6a24ae6de320831c883159e1a9fbd9f53ae796fc70957a494cb20e6",
+    "security/sandbox-policy.json": "sha256:a6339810d9a52ec8ff2e09b069145d6ce9a674c369ca8150a50d70c053324a32"
+  },
+  "schema_digests": {
+    "schemas/security-fixture-catalog-1.0.0.schema.json": "sha256:2fcabdef691e0040cde28cc1a1d9acaef9e759a071f683b8e0dbc2996a45f92f",
+    "schemas/security-ingestion-policy-1.0.0.schema.json": "sha256:ae96c17cab6c9762a000a57d5c6e5e696f7ff9288ded6c72fe2534701e1da2cb",
+    "schemas/security-release-firewall-1.0.0.schema.json": "sha256:5310f3388e7b30aa67f0e86129b494ecadfa94cd0a9d910684ca01f5692df555",
+    "schemas/security-sandbox-policy-1.0.0.schema.json": "sha256:232ed1eaf3a957b0c2039261ffb96e64bd167bd69b68e54f9ccc8f40ece64e9a",
+    "schemas/security-validation-1.0.0.schema.json": "sha256:fdd41d3b10e35ba1d46518c61903f55a25bf806ff64ae0b06f76499fe742cb18"
+  },
+  "fixture_catalog_digest": "sha256:5da747c326b8388889979d3f69716b483149ba36901e94e16174573b3a76614c",
+  "autobahn_baseline_digest": "sha256:54fac3c5166e6530ffb4e34ccd5a05d8122d2b2fae4fc4bc1708ac05779ff04d",
+  "original_receipt_digests": [
+    "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff",
+    "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff"
+  ],
+  "remediation_receipt_digests": [
+    "sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2",
+    "sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2"
+  ],
+  "consumed_remediation_attempts_per_mode": 1,
+  "further_reruns_authorized": false,
+  "reruns_performed_by_us007": 0,
+  "fixture_results": [
+    {
+      "id": "absolute-path",
+      "expected_code": "ABSOLUTE_PATH",
+      "actual_code": "ABSOLUTE_PATH",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "annotation-processor",
+      "expected_code": "UNPROMOTED_EXECUTABLE",
+      "actual_code": "UNPROMOTED_EXECUTABLE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "archive-bomb",
+      "expected_code": "ARCHIVE_LIMIT_EXCEEDED",
+      "actual_code": "ARCHIVE_LIMIT_EXCEEDED",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "autobahn-python",
+      "expected_code": "UNPROMOTED_EXECUTABLE",
+      "actual_code": "UNPROMOTED_EXECUTABLE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "autobahn-third-run",
+      "expected_code": "AUTOBAHN_RERUN_FORBIDDEN",
+      "actual_code": "AUTOBAHN_RERUN_FORBIDDEN",
+      "expected_disposition": "BLOCK",
+      "actual_disposition": "BLOCK",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "cache-leak",
+      "expected_code": "CACHE_DISCLOSURE",
+      "actual_code": "CACHE_DISCLOSURE",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "capture-failure",
+      "expected_code": "ARTIFACT_CAPTURE_INCOMPLETE",
+      "actual_code": "ARTIFACT_CAPTURE_INCOMPLETE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "case-collision",
+      "expected_code": "NORMALIZATION_COLLISION",
+      "actual_code": "NORMALIZATION_COLLISION",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "cleanup-residue",
+      "expected_code": "SANDBOX_CLEANUP_INCOMPLETE",
+      "actual_code": "SANDBOX_CLEANUP_INCOMPLETE",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "container-entrypoint",
+      "expected_code": "UNPROMOTED_EXECUTABLE",
+      "actual_code": "UNPROMOTED_EXECUTABLE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "cpu-bomb",
+      "expected_code": "RESOURCE_TERMINATION_MISSING",
+      "actual_code": "RESOURCE_TERMINATION_MISSING",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "credential-leak",
+      "expected_code": "CREDENTIAL_DISCLOSURE",
+      "actual_code": "CREDENTIAL_DISCLOSURE",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "cross-company-provenance",
+      "expected_code": "CROSS_COMPANY_REFERENCE",
+      "actual_code": "CROSS_COMPANY_REFERENCE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "dangling-provenance",
+      "expected_code": "DANGLING_PROVENANCE",
+      "actual_code": "DANGLING_PROVENANCE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "digest-mismatch",
+      "expected_code": "DIGEST_MISMATCH",
+      "actual_code": "DIGEST_MISMATCH",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "disk-bomb",
+      "expected_code": "RESOURCE_TERMINATION_MISSING",
+      "actual_code": "RESOURCE_TERMINATION_MISSING",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "expected-output-leak",
+      "expected_code": "EXPECTED_OUTPUT_DISCLOSURE",
+      "actual_code": "EXPECTED_OUTPUT_DISCLOSURE",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "fd-bomb",
+      "expected_code": "RESOURCE_TERMINATION_MISSING",
+      "actual_code": "RESOURCE_TERMINATION_MISSING",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "good-benign-ingest",
+      "expected_code": "",
+      "actual_code": "",
+      "expected_disposition": "",
+      "actual_disposition": "",
+      "cli_exit": 0,
+      "matched": true
+    },
+    {
+      "id": "good-safe-projection",
+      "expected_code": "",
+      "actual_code": "",
+      "expected_disposition": "",
+      "actual_disposition": "",
+      "cli_exit": 0,
+      "matched": true
+    },
+    {
+      "id": "good-sandbox-canaries",
+      "expected_code": "",
+      "actual_code": "",
+      "expected_disposition": "",
+      "actual_disposition": "",
+      "cli_exit": 0,
+      "matched": true
+    },
+    {
+      "id": "hard-link",
+      "expected_code": "HARD_LINK_DENIED",
+      "actual_code": "HARD_LINK_DENIED",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "identifier-leak",
+      "expected_code": "IDENTIFIER_DISCLOSURE",
+      "actual_code": "IDENTIFIER_DISCLOSURE",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "independence-claim",
+      "expected_code": "ASSURANCE_CEILING_EXCEEDED",
+      "actual_code": "ASSURANCE_CEILING_EXCEEDED",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "language-server-import",
+      "expected_code": "UNPROMOTED_EXECUTABLE",
+      "actual_code": "UNPROMOTED_EXECUTABLE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "late-public-mutation",
+      "expected_code": "PUBLIC_PROJECTION_DRIFT",
+      "actual_code": "PUBLIC_PROJECTION_DRIFT",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "maven-plugin",
+      "expected_code": "UNPROMOTED_EXECUTABLE",
+      "actual_code": "UNPROMOTED_EXECUTABLE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "memory-bomb",
+      "expected_code": "RESOURCE_TERMINATION_MISSING",
+      "actual_code": "RESOURCE_TERMINATION_MISSING",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "nested-archive",
+      "expected_code": "NESTED_ARCHIVE_DENIED",
+      "actual_code": "NESTED_ARCHIVE_DENIED",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "network-probe",
+      "expected_code": "NETWORK_POLICY_VIOLATION",
+      "actual_code": "NETWORK_POLICY_VIOLATION",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "output-bomb",
+      "expected_code": "RESOURCE_TERMINATION_MISSING",
+      "actual_code": "RESOURCE_TERMINATION_MISSING",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "partial-promotion",
+      "expected_code": "PARTIAL_PROMOTION",
+      "actual_code": "PARTIAL_PROMOTION",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "path-traversal",
+      "expected_code": "PATH_TRAVERSAL",
+      "actual_code": "PATH_TRAVERSAL",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "pid-bomb",
+      "expected_code": "RESOURCE_TERMINATION_MISSING",
+      "actual_code": "RESOURCE_TERMINATION_MISSING",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "proc-macro",
+      "expected_code": "UNPROMOTED_EXECUTABLE",
+      "actual_code": "UNPROMOTED_EXECUTABLE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "protected-leak",
+      "expected_code": "PROTECTED_PUBLICATION_DISCLOSURE",
+      "actual_code": "PROTECTED_PUBLICATION_DISCLOSURE",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "protected-store-probe",
+      "expected_code": "FORBIDDEN_MOUNT_EXPOSED",
+      "actual_code": "FORBIDDEN_MOUNT_EXPOSED",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "provenance-gap",
+      "expected_code": "PUBLIC_PROVENANCE_GAP",
+      "actual_code": "PUBLIC_PROVENANCE_GAP",
+      "expected_disposition": "BLOCK",
+      "actual_disposition": "BLOCK",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "publication-attempt",
+      "expected_code": "PUBLICATION_NOT_AUTHORIZED",
+      "actual_code": "PUBLICATION_NOT_AUTHORIZED",
+      "expected_disposition": "BLOCK",
+      "actual_disposition": "BLOCK",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "quota-breach",
+      "expected_code": "QUOTA_EXCEEDED",
+      "actual_code": "QUOTA_EXCEEDED",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "raw-diagnostic-leak",
+      "expected_code": "RAW_DIAGNOSTIC_DISCLOSURE",
+      "actual_code": "RAW_DIAGNOSTIC_DISCLOSURE",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "receipt-mutation",
+      "expected_code": "CANONICAL_EVIDENCE_MUTATION",
+      "actual_code": "CANONICAL_EVIDENCE_MUTATION",
+      "expected_disposition": "REVOKE",
+      "actual_disposition": "REVOKE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "rust-build-script",
+      "expected_code": "UNPROMOTED_EXECUTABLE",
+      "actual_code": "UNPROMOTED_EXECUTABLE",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "secret-probe",
+      "expected_code": "SECRET_ACCESS_DENIED",
+      "actual_code": "SECRET_ACCESS_DENIED",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "special-file",
+      "expected_code": "SPECIAL_FILE_DENIED",
+      "actual_code": "SPECIAL_FILE_DENIED",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "static-exec-request",
+      "expected_code": "STATIC_EXECUTION_FORBIDDEN",
+      "actual_code": "STATIC_EXECUTION_FORBIDDEN",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "symlink",
+      "expected_code": "UNSAFE_SYMLINK",
+      "actual_code": "UNSAFE_SYMLINK",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "unclassified-descendant",
+      "expected_code": "PUBLIC_DESCENDANT_UNCLASSIFIED",
+      "actual_code": "PUBLIC_DESCENDANT_UNCLASSIFIED",
+      "expected_disposition": "BLOCK",
+      "actual_disposition": "BLOCK",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "unicode-collision",
+      "expected_code": "NORMALIZATION_COLLISION",
+      "actual_code": "NORMALIZATION_COLLISION",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    },
+    {
+      "id": "wall-bomb",
+      "expected_code": "RESOURCE_TERMINATION_MISSING",
+      "actual_code": "RESOURCE_TERMINATION_MISSING",
+      "expected_disposition": "QUARANTINE",
+      "actual_disposition": "QUARANTINE",
+      "cli_exit": 1,
+      "matched": true
+    }
+  ],
+  "mechanics_state": "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false,
+  "sandbox_mechanics": {
+    "code": "SANDBOX_ENFORCEMENT_UNAVAILABLE",
+    "disposition": "BLOCK",
+    "path": "$.platform_enforcement",
+    "message": "required namespace/profile, resource, mount, network, and cleanup enforcement is not proven; no host-process fallback was used"
+  },
+  "runtime": {
+    "provider": "OpenAI",
+    "requested_model": "gpt-5.4",
+    "requested_reasoning_effort": "high",
+    "task_session_path": "/root/us007_implementation",
+    "actual_deployment_identifier": "not_exposed",
+    "runtime_session_uuid": "not_exposed"
+  }
+}

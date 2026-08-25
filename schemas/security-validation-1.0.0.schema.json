@@ -1,0 +1,212 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "security-validation-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "story",
+    "company",
+    "project",
+    "policy_digests",
+    "schema_digests",
+    "fixture_catalog_digest",
+    "autobahn_baseline_digest",
+    "original_receipt_digests",
+    "remediation_receipt_digests",
+    "consumed_remediation_attempts_per_mode",
+    "further_reruns_authorized",
+    "reruns_performed_by_us007",
+    "fixture_results",
+    "mechanics_state",
+    "assurance",
+    "independent_review_claimed",
+    "production",
+    "signing",
+    "publication",
+    "sandbox_mechanics",
+    "runtime"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "story": {
+      "const": "US-007"
+    },
+    "company": {
+      "const": "open-source-projects"
+    },
+    "project": {
+      "const": "verified-java-websocket-port"
+    },
+    "policy_digests": {
+      "$ref": "#/$defs/digestMap"
+    },
+    "schema_digests": {
+      "$ref": "#/$defs/digestMap"
+    },
+    "fixture_catalog_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "autobahn_baseline_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "original_receipt_digests": {
+      "$ref": "#/$defs/twoDigests"
+    },
+    "remediation_receipt_digests": {
+      "$ref": "#/$defs/twoDigests"
+    },
+    "consumed_remediation_attempts_per_mode": {
+      "const": 1
+    },
+    "further_reruns_authorized": {
+      "const": false
+    },
+    "reruns_performed_by_us007": {
+      "const": 0
+    },
+    "fixture_results": {
+      "type": "array",
+      "minItems": 13,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "expected_code",
+          "actual_code",
+          "expected_disposition",
+          "actual_disposition",
+          "cli_exit",
+          "matched"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_code": {
+            "type": "string"
+          },
+          "actual_code": {
+            "type": "string"
+          },
+          "expected_disposition": {
+            "type": "string"
+          },
+          "actual_disposition": {
+            "type": "string"
+          },
+          "cli_exit": {
+            "enum": [
+              0,
+              1
+            ]
+          },
+          "matched": {
+            "const": true
+          }
+        }
+      }
+    },
+    "mechanics_state": {
+      "const": "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE"
+    },
+    "assurance": {
+      "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+    },
+    "independent_review_claimed": {
+      "const": false
+    },
+    "production": {
+      "const": false
+    },
+    "signing": {
+      "const": false
+    },
+    "publication": {
+      "const": false
+    },
+    "sandbox_mechanics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "disposition",
+        "path",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "const": "SANDBOX_ENFORCEMENT_UNAVAILABLE"
+        },
+        "disposition": {
+          "const": "BLOCK"
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "provider",
+        "requested_model",
+        "requested_reasoning_effort",
+        "task_session_path",
+        "actual_deployment_identifier",
+        "runtime_session_uuid"
+      ],
+      "properties": {
+        "provider": {
+          "const": "OpenAI"
+        },
+        "requested_model": {
+          "const": "gpt-5.4"
+        },
+        "requested_reasoning_effort": {
+          "const": "high"
+        },
+        "task_session_path": {
+          "const": "/root/us007_implementation"
+        },
+        "actual_deployment_identifier": {
+          "const": "not_exposed"
+        },
+        "runtime_session_uuid": {
+          "const": "not_exposed"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "digestMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "$ref": "#/$defs/digest"
+      }
+    },
+    "twoDigests": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "$ref": "#/$defs/digest"
+      }
+    }
+  }
+}

@@ -1,0 +1,202 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "security-ingestion-policy-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "scope",
+    "default_classification",
+    "source_modes",
+    "execute_actions",
+    "fixture_bindings",
+    "executable_classes",
+    "paths",
+    "quotas",
+    "finding_registry"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "scope": {
+      "$ref": "#/$defs/scope"
+    },
+    "default_classification": {
+      "const": "QUARANTINED"
+    },
+    "source_modes": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "ACCEPTED_CONTENT_ADDRESSED_ROOT",
+          "DISPOSABLE_FIXTURE_ROOT"
+        ]
+      }
+    },
+    "execute_actions": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "fixture_bindings": {
+      "$ref": "#/$defs/fixtureBindings"
+    },
+    "executable_classes": {
+      "type": "array",
+      "minItems": 25,
+      "maxItems": 25,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]+$"
+      }
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "no_symlinks",
+        "single_link_only",
+        "same_device",
+        "no_special_files",
+        "max_depth",
+        "max_component_length",
+        "max_path_length",
+        "require_nfc",
+        "casefold_collision"
+      ],
+      "properties": {
+        "no_symlinks": {
+          "const": true
+        },
+        "single_link_only": {
+          "const": true
+        },
+        "same_device": {
+          "const": true
+        },
+        "no_special_files": {
+          "const": true
+        },
+        "max_depth": {
+          "$ref": "#/$defs/positive"
+        },
+        "max_component_length": {
+          "$ref": "#/$defs/positive"
+        },
+        "max_path_length": {
+          "$ref": "#/$defs/positive"
+        },
+        "require_nfc": {
+          "const": true
+        },
+        "casefold_collision": {
+          "const": true
+        }
+      }
+    },
+    "quotas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max_files",
+        "max_directories",
+        "max_file_bytes",
+        "max_total_bytes",
+        "max_archive_entries",
+        "max_expanded_bytes",
+        "max_archive_depth",
+        "max_expansion_ratio"
+      ],
+      "properties": {
+        "max_files": {
+          "$ref": "#/$defs/positive"
+        },
+        "max_directories": {
+          "$ref": "#/$defs/positive"
+        },
+        "max_file_bytes": {
+          "$ref": "#/$defs/positive"
+        },
+        "max_total_bytes": {
+          "$ref": "#/$defs/positive"
+        },
+        "max_archive_entries": {
+          "$ref": "#/$defs/positive"
+        },
+        "max_expanded_bytes": {
+          "$ref": "#/$defs/positive"
+        },
+        "max_archive_depth": {
+          "$ref": "#/$defs/positive"
+        },
+        "max_expansion_ratio": {
+          "$ref": "#/$defs/positive"
+        }
+      }
+    },
+    "finding_registry": {
+      "$ref": "#/$defs/registry"
+    }
+  },
+  "$defs": {
+    "fixtureBindings": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type":"object","additionalProperties":false,"required":["id","finding"],"properties":{"id":{"type":"string","pattern":"^[a-z0-9-]+$"},"finding":{"type":"string"}}}
+    },
+    "positive": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "company",
+        "project",
+        "laboratory"
+      ],
+      "properties": {
+        "company": {
+          "const": "open-source-projects"
+        },
+        "project": {
+          "const": "verified-java-websocket-port"
+        },
+        "laboratory": {
+          "const": "lab-java-websocket"
+        }
+      }
+    },
+    "registry": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "disposition"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[A-Z][A-Z0-9_]+$"
+          },
+          "disposition": {
+            "enum": [
+              "BLOCK",
+              "QUARANTINE",
+              "INVALIDATE",
+              "REVOKE"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
