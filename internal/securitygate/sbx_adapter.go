@@ -68,19 +68,22 @@ type sbxNetworkPolicy struct {
 }
 
 type sbxIsolationProfile struct {
-	WorkspaceMode     string           `json:"workspace_mode"`
-	CPUs              int              `json:"cpus"`
-	Memory            string           `json:"memory"`
-	MemoryBytes       int64            `json:"memory_bytes"`
-	EnvironmentImport string           `json:"environment_import"`
-	SecretImport      string           `json:"secret_import"`
-	HostDockerSocket  bool             `json:"host_docker_socket"`
-	SharedSkills      bool             `json:"shared_skills"`
-	LocalMCP          bool             `json:"local_mcp"`
-	StaticMCPServers  []string         `json:"static_mcp_servers"`
-	Kits              []string         `json:"kits"`
-	PublishedPorts    []string         `json:"published_ports"`
-	NetworkPolicy     sbxNetworkPolicy `json:"network_policy"`
+	WorkspaceMode            string           `json:"workspace_mode"`
+	CPUs                     int              `json:"cpus"`
+	Memory                   string           `json:"memory"`
+	MemoryBytes              int64            `json:"memory_bytes"`
+	EnvironmentImport        string           `json:"environment_import"`
+	SecretImport             string           `json:"secret_import"`
+	PlatformControlSecret    string           `json:"platform_control_secret"`
+	MCPGatewayInfrastructure bool             `json:"mcp_gateway_infrastructure"`
+	CloneGitBridgeRequired   bool             `json:"clone_git_bridge_required"`
+	HostDockerSocket         bool             `json:"host_docker_socket"`
+	SharedSkills             bool             `json:"shared_skills"`
+	LocalMCP                 bool             `json:"local_mcp"`
+	StaticMCPServers         []string         `json:"static_mcp_servers"`
+	Kits                     []string         `json:"kits"`
+	PublishedPorts           []string         `json:"published_ports"`
+	NetworkPolicy            sbxNetworkPolicy `json:"network_policy"`
 }
 
 type sbxCleanupProfile struct {
@@ -180,6 +183,9 @@ type SbxExecutionReceipt struct {
 	NetworkPolicyState         string    `json:"network_policy_state"`
 	EnvironmentImportCount     int       `json:"environment_import_count"`
 	SecretImportCount          int       `json:"secret_import_count"`
+	PlatformControlSecretCount int       `json:"platform_control_secret_count"`
+	MCPGatewayInfrastructure   bool      `json:"mcp_gateway_infrastructure"`
+	CloneGitBridgePortCount    int       `json:"clone_git_bridge_port_count"`
 	PublishedPortCount         int       `json:"published_port_count"`
 	StaticMCPCount             int       `json:"static_mcp_count"`
 	KitCount                   int       `json:"kit_count"`
@@ -278,7 +284,7 @@ func loadSbxExecutionProfile(rootPath string) (sbxExecutionProfile, error) {
 		runtime.CLIPath != "/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx" || runtime.CLIVersion != "v0.39.0" || runtime.CLICommit != "def8cb0523a77e757bdd6ef52b459fe374f3783e" ||
 		runtime.CLIDaemonInvalid() || runtime.Agent != "shell" || runtime.TemplateReference != "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec" ||
 		runtime.TemplateIndexDigest != "sha256:c183a8ba03cdb30011c73f555c773c5712b84c6ea066f18409253dcab2cfe799" || runtime.TemplatePlatform != "linux/arm64" || runtime.TemplateManifestDigest != "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec" ||
-		isolation.WorkspaceMode != "clone" || isolation.CPUs != 2 || isolation.Memory != "2g" || isolation.MemoryBytes != 2147483648 || isolation.EnvironmentImport != "none" || isolation.SecretImport != "none" ||
+		isolation.WorkspaceMode != "clone" || isolation.CPUs != 2 || isolation.Memory != "2g" || isolation.MemoryBytes != 2147483648 || isolation.EnvironmentImport != "none" || isolation.SecretImport != "none" || isolation.PlatformControlSecret != "mcpgateway" || !isolation.MCPGatewayInfrastructure || !isolation.CloneGitBridgeRequired ||
 		isolation.HostDockerSocket || isolation.SharedSkills || isolation.LocalMCP || len(isolation.StaticMCPServers) != 0 || len(isolation.Kits) != 0 || len(isolation.PublishedPorts) != 0 ||
 		network.PolicyID != "default-deny-all" || network.RuleID != "default-deny-all" || network.ResourceType != "network" || network.Decision != "deny" || !slices.Equal(network.Resources, []string{"**"}) || network.Origin != "local" || network.Status != "active" || !isSHA256Digest(network.CanonicalDigest) ||
 		profile.SandboxPolicyDigest != intake.DigestBytes(policyBytes) || profile.SupervisorLimits != retainedSandbox.Resources || profile.SupervisorLimits.MemoryBytes > isolation.MemoryBytes ||
@@ -505,7 +511,10 @@ func validateSbxExecutionReceipt(profile sbxExecutionProfile, request SbxExecuti
 		return sbxFinding("NETWORK_POLICY_VIOLATION", "QUARANTINE", "$.network_policy", "active deny-all rule was not observed")
 	}
 	if receipt.EnvironmentImportCount != 0 || receipt.SecretImportCount != 0 {
-		return sbxFinding("SECRET_ACCESS_DENIED", "QUARANTINE", "$.imports", "environment or secret material entered the sandbox")
+		return sbxFinding("SECRET_ACCESS_DENIED", "QUARANTINE", "$.imports", "host environment or user/service secret material entered the sandbox")
+	}
+	if receipt.PlatformControlSecretCount != 1 || !receipt.MCPGatewayInfrastructure || receipt.CloneGitBridgePortCount != 1 {
+		return sbxFinding("SANDBOX_CAPABILITY_MISMATCH", "QUARANTINE", "$.platform_control_plane", "Docker clone mode must expose exactly its fixed mcpgateway control token and localhost Git bridge, separately from workload capabilities")
 	}
 	if receipt.HostDockerSocketMounted {
 		return sbxFinding("FORBIDDEN_MOUNT_EXPOSED", "REVOKE", "$.host_docker_socket", "host Docker socket was exposed")
