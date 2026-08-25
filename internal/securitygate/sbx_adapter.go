@@ -157,64 +157,176 @@ type SbxExecutionRequest struct {
 // SbxExecutionReceipt is emitted by the protected launcher after execution,
 // sbx rm, and an independent post-removal absence query.
 type SbxExecutionReceipt struct {
-	SchemaVersion              string    `json:"schema_version"`
-	RequestDigest              string    `json:"request_digest"`
-	AttemptID                  string    `json:"attempt_id"`
-	SandboxName                string    `json:"sandbox_name"`
-	CanaryID                   string    `json:"canary_id"`
-	ProfileDigest              string    `json:"profile_digest"`
-	SandboxPolicyDigest        string    `json:"sandbox_policy_digest"`
-	CLIVersion                 string    `json:"cli_version"`
-	CLICommit                  string    `json:"cli_commit"`
-	CLIBinaryDigest            string    `json:"cli_binary_digest"`
-	DaemonVersion              string    `json:"daemon_version"`
-	Agent                      string    `json:"agent"`
-	TemplateReference          string    `json:"template_reference"`
-	TemplateIndexDigest        string    `json:"template_index_digest"`
-	TemplatePlatform           string    `json:"template_platform"`
-	TemplateManifestDigest     string    `json:"template_manifest_digest"`
-	WorkspaceMode              string    `json:"workspace_mode"`
-	CloneSourceReadOnly        bool      `json:"clone_source_read_only"`
-	CPUCount                   int       `json:"cpu_count"`
-	MemoryBytes                int64     `json:"memory_bytes"`
-	DeclaredCanaryLimits       resources `json:"declared_canary_limits"`
-	NetworkPolicyDigest        string    `json:"network_policy_digest"`
-	NetworkPolicyState         string    `json:"network_policy_state"`
-	EnvironmentImportCount     int       `json:"environment_import_count"`
-	SecretImportCount          int       `json:"secret_import_count"`
-	PlatformControlSecretCount int       `json:"platform_control_secret_count"`
-	MCPGatewayInfrastructure   bool      `json:"mcp_gateway_infrastructure"`
-	CloneGitBridgePortCount    int       `json:"clone_git_bridge_port_count"`
-	PublishedPortCount         int       `json:"published_port_count"`
-	StaticMCPCount             int       `json:"static_mcp_count"`
-	KitCount                   int       `json:"kit_count"`
-	HostDockerSocketMounted    bool      `json:"host_docker_socket_mounted"`
-	SharedSkillsEnabled        bool      `json:"shared_skills_enabled"`
-	LocalMCPEnabled            bool      `json:"local_mcp_enabled"`
-	InputRoot                  string    `json:"input_root"`
-	OutputRoot                 string    `json:"output_root"`
-	AcceptedRootDigest         string    `json:"accepted_root_digest"`
-	InventoryRootDigest        string    `json:"inventory_root_digest"`
-	SourceBeforeDigest         string    `json:"source_before_digest"`
-	SourceAfterDigest          string    `json:"source_after_digest"`
-	OutputRootDigest           string    `json:"output_root_digest"`
-	CanaryObservationCount     int       `json:"canary_observation_count"`
-	ArtifactManifestDigest     string    `json:"artifact_manifest_digest"`
-	ExitCode                   *int      `json:"exit_code"`
-	TerminationReason          string    `json:"termination_reason"`
-	StartedAt                  string    `json:"started_at"`
-	FinishedAt                 string    `json:"finished_at"`
-	RemovalStartedAt           string    `json:"removal_started_at"`
-	RemovalFinishedAt          string    `json:"removal_finished_at"`
-	RemoveInvoked              bool      `json:"remove_invoked"`
-	RemoveExitCode             *int      `json:"remove_exit_code"`
-	SandboxPresentAfterRemoval bool      `json:"sandbox_present_after_removal"`
-	CleanupComplete            bool      `json:"cleanup_complete"`
-	Assurance                  string    `json:"assurance"`
-	IndependentReviewClaimed   bool      `json:"independent_review_claimed"`
-	Production                 bool      `json:"production"`
-	Signing                    bool      `json:"signing"`
-	Publication                bool      `json:"publication"`
+	SchemaVersion              string                `json:"schema_version"`
+	RequestDigest              string                `json:"request_digest"`
+	AttemptID                  string                `json:"attempt_id"`
+	SandboxName                string                `json:"sandbox_name"`
+	CanaryID                   string                `json:"canary_id"`
+	ProfileDigest              string                `json:"profile_digest"`
+	SandboxPolicyDigest        string                `json:"sandbox_policy_digest"`
+	CLIVersion                 string                `json:"cli_version"`
+	CLICommit                  string                `json:"cli_commit"`
+	CLIBinaryDigest            string                `json:"cli_binary_digest"`
+	DaemonVersion              string                `json:"daemon_version"`
+	Agent                      string                `json:"agent"`
+	TemplateReference          string                `json:"template_reference"`
+	TemplateIndexDigest        string                `json:"template_index_digest"`
+	TemplatePlatform           string                `json:"template_platform"`
+	TemplateManifestDigest     string                `json:"template_manifest_digest"`
+	WorkspaceMode              string                `json:"workspace_mode"`
+	CloneSourceReadOnly        bool                  `json:"clone_source_read_only"`
+	CPUCount                   int                   `json:"cpu_count"`
+	MemoryBytes                int64                 `json:"memory_bytes"`
+	CompiledSupervisorEnvelope resources             `json:"compiled_supervisor_envelope"`
+	SupervisorObservation      SupervisorObservation `json:"supervisor_observation"`
+	NetworkPolicyDigest        string                `json:"network_policy_digest"`
+	NetworkPolicyState         string                `json:"network_policy_state"`
+	EnvironmentImportCount     int                   `json:"environment_import_count"`
+	SecretImportCount          int                   `json:"secret_import_count"`
+	PlatformControlSecretCount int                   `json:"platform_control_secret_count"`
+	MCPGatewayInfrastructure   bool                  `json:"mcp_gateway_infrastructure"`
+	CloneGitBridgePortCount    int                   `json:"clone_git_bridge_port_count"`
+	PublishedPortCount         int                   `json:"published_port_count"`
+	StaticMCPCount             int                   `json:"static_mcp_count"`
+	KitCount                   int                   `json:"kit_count"`
+	HostDockerSocketMounted    bool                  `json:"host_docker_socket_mounted"`
+	SharedSkillsEnabled        bool                  `json:"shared_skills_enabled"`
+	LocalMCPEnabled            bool                  `json:"local_mcp_enabled"`
+	InputRoot                  string                `json:"input_root"`
+	OutputRoot                 string                `json:"output_root"`
+	AcceptedRootDigest         string                `json:"accepted_root_digest"`
+	InventoryRootDigest        string                `json:"inventory_root_digest"`
+	SourceBeforeDigest         string                `json:"source_before_digest"`
+	SourceAfterDigest          string                `json:"source_after_digest"`
+	OutputRootDigest           string                `json:"output_root_digest"`
+	CanaryObservationCount     int                   `json:"canary_observation_count"`
+	ArtifactManifestDigest     string                `json:"artifact_manifest_digest"`
+	ExitCode                   *int                  `json:"exit_code"`
+	TerminationReason          string                `json:"termination_reason"`
+	StartedAt                  string                `json:"started_at"`
+	FinishedAt                 string                `json:"finished_at"`
+	RemovalStartedAt           string                `json:"removal_started_at"`
+	RemovalFinishedAt          string                `json:"removal_finished_at"`
+	RemoveInvoked              bool                  `json:"remove_invoked"`
+	RemoveExitCode             *int                  `json:"remove_exit_code"`
+	SandboxPresentAfterRemoval bool                  `json:"sandbox_present_after_removal"`
+	CleanupComplete            bool                  `json:"cleanup_complete"`
+	Assurance                  string                `json:"assurance"`
+	IndependentReviewClaimed   bool                  `json:"independent_review_claimed"`
+	Production                 bool                  `json:"production"`
+	Signing                    bool                  `json:"signing"`
+	Publication                bool                  `json:"publication"`
+}
+
+// SupervisorCapabilityPreflight is a set of raw protected-parent observations.
+// Empty values block; candidate declarations are never substituted.
+type SupervisorCapabilityPreflight struct {
+	CAPSysAdmin       string `json:"cap_sys_admin"`
+	CgroupV2          string `json:"cgroup_v2"`
+	Controllers       string `json:"controllers"`
+	CgroupKill        string `json:"cgroup_kill"`
+	MountTmpfs        string `json:"mount_tmpfs"`
+	Stage2Containment string `json:"stage2_containment"`
+}
+
+type SupervisorCgroupObservation struct {
+	MemoryMaxBytes   int64 `json:"memory_max_bytes"`
+	MemorySwapMax    int64 `json:"memory_swap_max"`
+	MemoryOOMGroup   int64 `json:"memory_oom_group"`
+	PIDsMax          int64 `json:"pids_max"`
+	CPUUsageUsec     int64 `json:"cpu_usage_usec"`
+	CPUUserUsec      int64 `json:"cpu_user_usec"`
+	CPUSystemUsec    int64 `json:"cpu_system_usec"`
+	MemoryEventsMax  int64 `json:"memory_events_max"`
+	MemoryEventsOOM  int64 `json:"memory_events_oom"`
+	MemoryEventsKill int64 `json:"memory_events_oom_kill"`
+	MemoryCurrent    int64 `json:"memory_current"`
+	PIDsCurrent      int64 `json:"pids_current"`
+}
+
+type SupervisorRLimitObservation struct {
+	CPUCur    uint64 `json:"cpu_cur"`
+	CPUMax    uint64 `json:"cpu_max"`
+	ASCur     uint64 `json:"as_cur"`
+	ASMax     uint64 `json:"as_max"`
+	NProcCur  uint64 `json:"nproc_cur"`
+	NProcMax  uint64 `json:"nproc_max"`
+	NOFileCur uint64 `json:"nofile_cur"`
+	NOFileMax uint64 `json:"nofile_max"`
+	FSizeCur  uint64 `json:"fsize_cur"`
+	FSizeMax  uint64 `json:"fsize_max"`
+	CoreCur   uint64 `json:"core_cur"`
+	CoreMax   uint64 `json:"core_max"`
+}
+
+type SupervisorIdentityObservation struct {
+	UID         int    `json:"uid"`
+	GID         int    `json:"gid"`
+	CapEff      string `json:"cap_eff"`
+	NoNewPrivs  int    `json:"no_new_privs"`
+	Seccomp     int    `json:"seccomp"`
+	OpenFDs     int64  `json:"open_fds"`
+	FDSemantics string `json:"fd_semantics"`
+}
+
+type SupervisorMountObservation struct {
+	Name        string `json:"name"`
+	MountInfo   string `json:"mountinfo"`
+	FSType      int64  `json:"fstatfs_type"`
+	BytesTotal  int64  `json:"bytes_total"`
+	BytesFree   int64  `json:"bytes_free"`
+	InodesTotal int64  `json:"inodes_total"`
+	InodesFree  int64  `json:"inodes_free"`
+}
+
+type SupervisorPeakObservation struct {
+	CPUUsageUsec      int64 `json:"cpu_usage_usec"`
+	MemoryBytes       int64 `json:"memory_bytes"`
+	PIDs              int64 `json:"pids"`
+	PerProcessOpenFDs int64 `json:"per_process_open_fds"`
+	OutputBytes       int64 `json:"output_bytes"`
+	WorkspaceBytes    int64 `json:"workspace_bytes"`
+	CacheBytes        int64 `json:"cache_bytes"`
+	DiskBytes         int64 `json:"aggregate_writable_bytes"`
+	Inodes            int64 `json:"aggregate_writable_inodes"`
+}
+
+type SupervisorCleanupObservation struct {
+	ProcessGroupKill     string `json:"process_group_kill"`
+	CgroupKill           string `json:"cgroup_kill"`
+	ChildWait            string `json:"child_wait"`
+	CgroupEventsReopened string `json:"cgroup_events_reopened"`
+	CgroupProcsReopened  string `json:"cgroup_procs_reopened"`
+	NamespaceMounts      string `json:"namespace_mounts"`
+	FDClosure            string `json:"fd_closure"`
+	CgroupRemoval        string `json:"cgroup_removal"`
+}
+
+// SupervisorObservation is enforcement evidence from the protected external
+// supervisor. It intentionally has no limits-applied or passed boolean.
+type SupervisorObservation struct {
+	DescriptorDigest         string                        `json:"descriptor_digest"`
+	SupervisorDigestReopened string                        `json:"supervisor_digest_reopened"`
+	RuntimeIdentity          string                        `json:"runtime_identity"`
+	SBXIdentity              string                        `json:"sbx_identity"`
+	CapabilityPreflight      SupervisorCapabilityPreflight `json:"capability_preflight"`
+	CgroupInitial            SupervisorCgroupObservation   `json:"cgroup_initial"`
+	CgroupFinal              SupervisorCgroupObservation   `json:"cgroup_final"`
+	RLimits                  SupervisorRLimitObservation   `json:"rlimits_reopened"`
+	Identity                 SupervisorIdentityObservation `json:"identity_reopened"`
+	Mounts                   []SupervisorMountObservation  `json:"mounts_reopened"`
+	RootMountInfo            string                        `json:"root_mountinfo_reopened"`
+	SourceMountInfo          string                        `json:"source_mountinfo_reopened"`
+	Peaks                    SupervisorPeakObservation     `json:"peaks"`
+	StdoutDigest             string                        `json:"stdout_digest"`
+	StderrDigest             string                        `json:"stderr_digest"`
+	Termination              string                        `json:"termination"`
+	ParentWaitStatus         string                        `json:"parent_wait_status"`
+	WallDurationNanos        int64                         `json:"wall_duration_nanos"`
+	Cleanup                  SupervisorCleanupObservation  `json:"cleanup"`
+	Assurance                string                        `json:"assurance"`
+	IndependentReviewClaimed bool                          `json:"independent_review_claimed"`
+	AutobahnReruns           int                           `json:"autobahn_reruns"`
 }
 
 // SbxLaunchAuthorizationRecord contains public owner intent only. It carries
@@ -475,6 +587,84 @@ func PreflightSbxLaunchCandidate(rootPath string, request SbxExecutionRequest, d
 	return sbxFinding("PROTECTED_CALLER_REQUIRED", "BLOCK", "$.protected_launcher", "candidate-local records cannot prove protected key custody, durable nonce consumption, or launcher provenance")
 }
 
+// DecodeSbxExecutionReceipt rejects unknown fields, including any
+// workload-authored enforcement or success boolean.
+func DecodeSbxExecutionReceipt(data []byte) (SbxExecutionReceipt, error) {
+	var receipt SbxExecutionReceipt
+	if err := intake.DecodeStrict(data, &receipt); err != nil {
+		return SbxExecutionReceipt{}, sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.receipt", err.Error())
+	}
+	return receipt, nil
+}
+
+func validateSupervisorObservation(profile sbxExecutionProfile, request SbxExecutionRequest, observation SupervisorObservation) error {
+	preflight := observation.CapabilityPreflight
+	for name, value := range map[string]string{
+		"cap_sys_admin": preflight.CAPSysAdmin, "cgroup_v2": preflight.CgroupV2,
+		"controllers": preflight.Controllers, "cgroup_kill": preflight.CgroupKill,
+		"mount_tmpfs": preflight.MountTmpfs, "stage2_containment": preflight.Stage2Containment,
+	} {
+		if value == "" {
+			return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.capability_preflight."+name, "required protected-parent observation is absent")
+		}
+	}
+	if !isSHA256Digest(observation.DescriptorDigest) || observation.SupervisorDigestReopened != request.SupervisorDigest || !isSHA256Digest(observation.StdoutDigest) || !isSHA256Digest(observation.StderrDigest) || observation.RuntimeIdentity == "" || observation.SBXIdentity == "" {
+		return sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.supervisor_observation.digests", "descriptor, executable, stream, runtime, or sbx identity is absent or drifted")
+	}
+	limits := profile.SupervisorLimits
+	initial, final := observation.CgroupInitial, observation.CgroupFinal
+	if initial.MemoryMaxBytes != limits.MemoryBytes || initial.MemorySwapMax != 0 || initial.MemoryOOMGroup != 1 || initial.PIDsMax != int64(limits.PIDs) {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.cgroup_initial", "reopened cgroup-v2 configuration differs from the compiled envelope")
+	}
+	if final.CPUUsageUsec < initial.CPUUsageUsec || final.CPUUserUsec < initial.CPUUserUsec || final.CPUSystemUsec < initial.CPUSystemUsec || final.MemoryEventsMax < initial.MemoryEventsMax || final.MemoryEventsOOM < initial.MemoryEventsOOM || final.MemoryEventsKill < initial.MemoryEventsKill {
+		return sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.supervisor_observation.cgroup_final", "reopened kernel counters regressed")
+	}
+	rlimits := observation.RLimits
+	if rlimits.CPUCur != uint64(limits.CPUSeconds) || rlimits.CPUMax != uint64(limits.CPUSeconds) || rlimits.ASCur != uint64(limits.MemoryBytes) || rlimits.ASMax != uint64(limits.MemoryBytes) || rlimits.NProcCur != uint64(limits.PIDs) || rlimits.NProcMax != uint64(limits.PIDs) || rlimits.NOFileCur != uint64(limits.OpenFiles) || rlimits.NOFileMax != uint64(limits.OpenFiles) || rlimits.FSizeCur != uint64(limits.OutputBytes) || rlimits.FSizeMax != uint64(limits.OutputBytes) || rlimits.CoreCur != 0 || rlimits.CoreMax != 0 {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.rlimits_reopened", "stage-2 reopened rlimits differ from the protected envelope")
+	}
+	identity := observation.Identity
+	if identity.UID == 0 || identity.GID == 0 || strings.Trim(identity.CapEff, "0") != "" || identity.NoNewPrivs != 1 || identity.Seccomp == 0 || identity.OpenFDs < 0 || identity.FDSemantics != "per-process RLIMIT_NOFILE; aggregate tree FD count observed but not separately hard-capped" {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.identity_reopened", "stage-2 identity, capabilities, no-new-privileges, seccomp, or exact FD semantics are absent")
+	}
+	if len(observation.Mounts) != 4 {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.mounts_reopened", "exact workspace, cache, output, and general tmpfs observations are required")
+	}
+	if !sbxMountReadOnly(observation.RootMountInfo) || !sbxMountReadOnly(observation.SourceMountInfo) {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.mountinfo", "reopened root and cloned-source mountinfo must both report read-only")
+	}
+	seenMount := map[string]bool{}
+	var allocatedBytes, allocatedInodes int64
+	for _, mount := range observation.Mounts {
+		if !stringInSet(mount.Name, []string{"workspace", "cache", "output", "general"}) || seenMount[mount.Name] || mount.MountInfo == "" || mount.FSType == 0 || mount.BytesTotal <= 0 || mount.BytesFree < 0 || mount.BytesFree > mount.BytesTotal || mount.InodesTotal <= 0 || mount.InodesFree < 0 || mount.InodesFree > mount.InodesTotal {
+			return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.mounts_reopened", "tmpfs mountinfo or fstatfs observations are incomplete")
+		}
+		seenMount[mount.Name] = true
+		allocatedBytes += mount.BytesTotal
+		allocatedInodes += mount.InodesTotal
+	}
+	if allocatedBytes > limits.DiskBytes || allocatedInodes > int64(limits.Inodes) {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.mounts_reopened", "aggregate writable tmpfs allocation exceeds the protected envelope")
+	}
+	peaks := observation.Peaks
+	if peaks.CPUUsageUsec < 0 || peaks.MemoryBytes < 0 || peaks.PIDs < 0 || peaks.PerProcessOpenFDs < 0 || peaks.OutputBytes < 0 || peaks.WorkspaceBytes < 0 || peaks.CacheBytes < 0 || peaks.DiskBytes < 0 || peaks.Inodes < 0 || observation.Termination == "" || observation.ParentWaitStatus == "" || observation.WallDurationNanos < 0 || observation.WallDurationNanos > int64(limits.WallSeconds)*int64(time.Second) {
+		return sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.supervisor_observation.peaks", "resource peaks, parent-derived termination, or monotonic wall observation is incomplete")
+	}
+	cleanup := observation.Cleanup
+	if cleanup.ProcessGroupKill == "" || cleanup.CgroupKill == "" || cleanup.ChildWait == "" || !strings.Contains(cleanup.CgroupEventsReopened, "populated 0") || cleanup.CgroupProcsReopened != "<empty>" || cleanup.NamespaceMounts == "" || cleanup.FDClosure == "" || cleanup.CgroupRemoval == "" {
+		return sbxFinding("SANDBOX_CLEANUP_INCOMPLETE", "REVOKE", "$.supervisor_observation.cleanup", "process-group/cgroup kill, empty reopen, namespace/FD cleanup, and cgroup removal observations are required")
+	}
+	if observation.Assurance != AssuranceOwnerOnly || observation.IndependentReviewClaimed || observation.AutobahnReruns != 0 {
+		return sbxFinding("ASSURANCE_CEILING_EXCEEDED", "REVOKE", "$.supervisor_observation.assurance", "supervisor observation exceeds the sole-owner, zero-Autobahn ceiling")
+	}
+	return nil
+}
+
+func sbxMountReadOnly(line string) bool {
+	fields := strings.Fields(line)
+	return len(fields) >= 6 && slices.Contains(strings.Split(fields[5], ","), "ro")
+}
+
 func validateSbxExecutionReceipt(profile sbxExecutionProfile, request SbxExecutionRequest, receipt SbxExecutionReceipt) error {
 	requestDigest, err := SbxExecutionRequestDigest(request)
 	if err != nil {
@@ -489,8 +679,11 @@ func validateSbxExecutionReceipt(profile sbxExecutionProfile, request SbxExecuti
 	if receipt.Agent != profile.Runtime.Agent || receipt.TemplateReference != profile.Runtime.TemplateReference || receipt.TemplateIndexDigest != profile.Runtime.TemplateIndexDigest || receipt.TemplatePlatform != profile.Runtime.TemplatePlatform || receipt.TemplateManifestDigest != profile.Runtime.TemplateManifestDigest {
 		return sbxFinding("SBX_TEMPLATE_MISMATCH", "QUARANTINE", "$.template", "observed shell template differs from the immutable platform manifest")
 	}
-	if receipt.WorkspaceMode != "clone" || !receipt.CloneSourceReadOnly || receipt.CPUCount != profile.Isolation.CPUs || receipt.MemoryBytes != profile.Isolation.MemoryBytes || receipt.DeclaredCanaryLimits != profile.SupervisorLimits {
-		return sbxFinding("SANDBOX_CAPABILITY_MISMATCH", "QUARANTINE", "$.isolation", "clone bounds or declared canary limits differ from the retained profile")
+	if receipt.WorkspaceMode != "clone" || !receipt.CloneSourceReadOnly || receipt.CPUCount != profile.Isolation.CPUs || receipt.MemoryBytes != profile.Isolation.MemoryBytes || receipt.CompiledSupervisorEnvelope != profile.SupervisorLimits {
+		return sbxFinding("SANDBOX_CAPABILITY_MISMATCH", "QUARANTINE", "$.isolation", "clone bounds or compiled supervisor envelope differ from the retained profile")
+	}
+	if err := validateSupervisorObservation(profile, request, receipt.SupervisorObservation); err != nil {
+		return err
 	}
 	if receipt.NetworkPolicyDigest != profile.Isolation.NetworkPolicy.CanonicalDigest || receipt.NetworkPolicyState != "ACTIVE_DENY_ALL" {
 		return sbxFinding("NETWORK_POLICY_VIOLATION", "QUARANTINE", "$.network_policy", "active deny-all rule was not observed")

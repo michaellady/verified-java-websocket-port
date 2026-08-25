@@ -170,9 +170,10 @@ func testSbxReceipt(t *testing.T, request SbxExecutionRequest) SbxExecutionRecei
 		TemplateReference: profile.Runtime.TemplateReference, TemplateIndexDigest: profile.Runtime.TemplateIndexDigest,
 		TemplatePlatform: profile.Runtime.TemplatePlatform, TemplateManifestDigest: profile.Runtime.TemplateManifestDigest,
 		WorkspaceMode: profile.Isolation.WorkspaceMode, CloneSourceReadOnly: true,
-		CPUCount: profile.Isolation.CPUs, MemoryBytes: profile.Isolation.MemoryBytes, DeclaredCanaryLimits: profile.SupervisorLimits,
-		NetworkPolicyDigest: profile.Isolation.NetworkPolicy.CanonicalDigest,
-		NetworkPolicyState:  "ACTIVE_DENY_ALL", InputRoot: request.InputRoot, OutputRoot: request.OutputRoot,
+		CPUCount: profile.Isolation.CPUs, MemoryBytes: profile.Isolation.MemoryBytes, CompiledSupervisorEnvelope: profile.SupervisorLimits,
+		SupervisorObservation: testSupervisorObservation(request),
+		NetworkPolicyDigest:   profile.Isolation.NetworkPolicy.CanonicalDigest,
+		NetworkPolicyState:    "ACTIVE_DENY_ALL", InputRoot: request.InputRoot, OutputRoot: request.OutputRoot,
 		PlatformControlSecretCount: 1, MCPGatewayInfrastructure: true, CloneGitBridgePortCount: 1,
 		AcceptedRootDigest: request.AcceptedRootDigest, InventoryRootDigest: request.InventoryRootDigest,
 		SourceBeforeDigest: digestOf("source-tree"), SourceAfterDigest: digestOf("source-tree"), OutputRootDigest: digestOf("output-root"),
@@ -180,6 +181,47 @@ func testSbxReceipt(t *testing.T, request SbxExecutionRequest) SbxExecutionRecei
 		StartedAt: "2026-08-25T08:00:00Z", FinishedAt: "2026-08-25T08:00:01Z",
 		RemovalStartedAt: "2026-08-25T08:00:01Z", RemovalFinishedAt: "2026-08-25T08:00:02Z",
 		RemoveInvoked: true, RemoveExitCode: &removeExit, CleanupComplete: true,
+		Assurance: AssuranceOwnerOnly,
+	}
+}
+
+func testSupervisorObservation(request SbxExecutionRequest) SupervisorObservation {
+	initial := SupervisorCgroupObservation{
+		MemoryMaxBytes: 536870912, MemorySwapMax: 0, MemoryOOMGroup: 1, PIDsMax: 64,
+		CPUUsageUsec: 1, CPUUserUsec: 1,
+	}
+	return SupervisorObservation{
+		DescriptorDigest: digestOf("descriptor:" + request.CanaryID), SupervisorDigestReopened: request.SupervisorDigest,
+		RuntimeIdentity: "linux/arm64", SBXIdentity: "docker-sbx-v0.39.0/linux/arm64",
+		CapabilityPreflight: SupervisorCapabilityPreflight{
+			CAPSysAdmin: "CapEff bit 21 observed", CgroupV2: "cgroup2 mount observed",
+			Controllers: "cpu memory pids observed", CgroupKill: "cgroup.kill reopened",
+			MountTmpfs:        "private mount namespace and tmpfs available",
+			Stage2Containment: "pid reopened in cgroup.procs before release",
+		},
+		CgroupInitial: initial, CgroupFinal: initial,
+		RLimits: SupervisorRLimitObservation{
+			CPUCur: 60, CPUMax: 60, ASCur: 536870912, ASMax: 536870912,
+			NProcCur: 64, NProcMax: 64, NOFileCur: 256, NOFileMax: 256,
+			FSizeCur: 8388608, FSizeMax: 8388608,
+		},
+		Identity: SupervisorIdentityObservation{
+			UID: 65534, GID: 65534, CapEff: "0000000000000000", NoNewPrivs: 1, Seccomp: 2, OpenFDs: 3,
+			FDSemantics: "per-process RLIMIT_NOFILE; aggregate tree FD count observed but not separately hard-capped",
+		},
+		Mounts: []SupervisorMountObservation{
+			{Name: "workspace", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 67108864, BytesFree: 67108864, InodesTotal: 4096, InodesFree: 4096},
+			{Name: "cache", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 33554432, BytesFree: 33554432, InodesTotal: 2048, InodesFree: 2048},
+			{Name: "output", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 16777216, BytesFree: 16777216, InodesTotal: 1024, InodesFree: 1024},
+			{Name: "general", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 16777216, BytesFree: 16777216, InodesTotal: 1024, InodesFree: 1024},
+		},
+		RootMountInfo: "1 0 0:1 / / ro - rootfs rootfs ro", SourceMountInfo: "2 1 0:2 / /run/sandbox/source ro - ext4 source ro",
+		StdoutDigest: digestOf("stdout"), StderrDigest: digestOf("stderr"), Termination: "EXITED", ParentWaitStatus: "exit status 0", WallDurationNanos: int64(time.Second),
+		Cleanup: SupervisorCleanupObservation{
+			ProcessGroupKill: "SIGKILL sent to process group", CgroupKill: "1 written to cgroup.kill", ChildWait: "stage-2 child reaped",
+			CgroupEventsReopened: "populated 0\nfrozen 0", CgroupProcsReopened: "<empty>", NamespaceMounts: "mount namespace reaped",
+			FDClosure: "owned descriptors closed", CgroupRemoval: "cgroup directory removed",
+		},
 		Assurance: AssuranceOwnerOnly,
 	}
 }

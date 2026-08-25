@@ -9,6 +9,61 @@ Assurance: `OWNER_ATTESTED_NOT_INDEPENDENT`.
 `independent_review_claimed` is `false`. Production access, signing,
 publication, and any additional Autobahn run are not authorized.
 
+## Protected universal supervisor closeout
+
+The protected implementation is a standalone Go module outside the candidate
+repository and does not import candidate packages. Its Darwin/arm64 host
+operator accepts zero arguments and owns one compiled Docker sbx request. Its
+Linux/arm64 supervisor executes the exact retained 13-canary registry followed
+by one benign operation. Caller input cannot select a descriptor or provide an
+argv, environment, path, resource limit, launcher, authority claim, or success
+claim. The stage-2 mode is an internal, root-owned `0500` executable path and a
+blocked inherited-FD protocol; the parent writes the child PID to the new
+cgroup, reopens `cgroup.procs`, observes that exact PID, and only then releases
+the child to mount, drop identity, and exec its compiled command.
+
+The supervisor requires a successful capability/delegation preflight before a
+workload starts. Missing `CAP_SYS_ADMIN`, cgroup v2 `cpu memory pids`
+controllers, writable per-attempt cgroups, `cgroup.kill`, private mount/tmpfs
+support, or the stage-2 membership handshake yields
+`SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK`. It configures and reopens
+`memory.max=536870912`, `memory.swap.max=0`, `memory.oom.group=1`, and
+`pids.max=64`; monitors aggregate cgroup `cpu.stat` usage against 60 seconds;
+and applies reopened stage-2 rlimits for CPU, address space, per-UID processes,
+per-process open files, file size, and core size. `RLIMIT_NOFILE=256` is exactly
+a per-process hard cap. Aggregate tree FD counts are observed, but are not
+represented as a separate aggregate hard cap.
+
+Each stage-2 process has a private mount namespace, read-only root and cloned
+source, and four fixed tmpfs roots. Their compiled allocation is 64 MiB/4096
+inodes for workspace, 32 MiB/2048 for cache, 16 MiB/1024 for output, and
+16 MiB/1024 for general temporary data: exactly 128 MiB and 8192 inodes in
+aggregate. Independent stdout and stderr brokers retain at most 4 MiB each and
+still count discarded bytes. A monotonic deadline triggers before 120 seconds;
+CPU, output, writable-root, context, or wall breaches cause both process-group
+and cgroup-tree termination. Cleanup reopens `cgroup.events` and
+`cgroup.procs`, requires `populated 0` and an empty process list, observes the
+mount namespace reaped, closes supervisor-owned file descriptors, and removes
+the per-attempt cgroup.
+
+The current receipt contract removes `declared_canary_limits` in favor of the
+compiled supervisor envelope plus raw observations: capability preflight,
+cgroup configuration and monotonic counters, reopened rlimits, UID/GID,
+capabilities, `no_new_privs`, seccomp mode, FDs, mountinfo/fstatfs sizes and
+inodes, resource peaks, stream digests, parent-derived termination, monotonic
+wall duration, and cleanup readbacks. Strict decoding rejects unknown fields,
+including `supervisor_limits_applied`, `passed`, or other workload-authored
+booleans. Candidate `RunControlledCanary` remains unconditionally
+`PROTECTED_CALLER_REQUIRED/BLOCK`; a structurally valid receipt never gives the
+candidate launch authority.
+
+The protected module passed test-first host tests, race detection, vet, a
+Darwin/arm64 host-operator build, and a static Linux/arm64 supervisor
+cross-build. These offline results establish the implementation seam only. The
+exact executable promotion, the sole fixed generic non-Autobahn sbx run, raw
+live observations, protected classification, and post-removal check remain the
+closeout validation; historical live-0011 evidence is unchanged.
+
 ## Retained live Docker sbx result
 
 The protected parent executed the exact candidate snapshot
