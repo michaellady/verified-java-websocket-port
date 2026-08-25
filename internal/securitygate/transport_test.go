@@ -166,15 +166,15 @@ func TestUS007Acceptance_VerifySandboxAndProjectSeams(t *testing.T) {
 	if err != nil || len(verdict.Findings) != 0 {
 		t.Fatalf("sandbox verdict=%#v err=%v", verdict, err)
 	}
-	good, err := Project(context.Background(), Request{RootPath: root, Operation: OperationProject, FixtureID: "good-safe-projection"})
+	good, err := Project(context.Background(), Request{RootPath: root, Operation: OperationProject, CandidateRoot: digest, FixtureID: "good-safe-projection"})
 	if err != nil || good.State != "PASS_SYNTHETIC_NON_CLAIM" || good.ProjectionRoot == "" {
 		t.Fatalf("good projection=%#v err=%v", good, err)
 	}
-	bad, err := Project(context.Background(), Request{RootPath: root, Operation: OperationProject, FixtureID: "credential-leak"})
+	bad, err := Project(context.Background(), Request{RootPath: root, Operation: OperationProject, CandidateRoot: digest, FixtureID: "credential-leak"})
 	if err != nil || len(bad.Findings) != 1 || bad.Findings[0].Code != "CREDENTIAL_DISCLOSURE" {
 		t.Fatalf("bad projection=%#v err=%v", bad, err)
 	}
-	real, err := Project(context.Background(), Request{RootPath: root, Operation: OperationProject})
+	real, err := Project(context.Background(), Request{RootPath: root, Operation: OperationProject, CandidateRoot: digest})
 	if err != nil || len(real.Findings) != 1 || real.Findings[0].Code != "PROTECTED_CLASSIFIER_UNAVAILABLE" {
 		t.Fatalf("real projection=%#v err=%v", real, err)
 	}

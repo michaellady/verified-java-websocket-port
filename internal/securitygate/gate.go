@@ -383,20 +383,58 @@ func Project(ctx context.Context, request Request) (Verdict, error) {
 	if request.Operation != OperationProject {
 		return Verdict{}, errors.New("operation must be PROJECT")
 	}
+	if !isSHA256Digest(request.CandidateRoot) {
+		return findingVerdict(verdict, "PROMOTION_BINDING_MISMATCH", "QUARANTINE", "$.candidate_root", "projection requires one exact accepted quarantine-root digest"), nil
+	}
 	if request.FixtureID != "" {
 		item, ok := catalogCase(snapshot.catalog, request.FixtureID)
 		if !ok || item.Kind != "release" {
 			return Verdict{}, fmt.Errorf("release fixture %q is not cataloged", request.FixtureID)
 		}
 		actualCode := snapshot.bindings[item.ID]
+		detectedCode, detectorExpected, detectionErr := scanReleaseFixture(snapshot.release, item)
+		if detectionErr != nil {
+			return findingVerdict(verdict, "INVALID_SECURITY_POLICY", "BLOCK", "security/fixtures/"+item.ID, detectionErr.Error()), nil
+		}
+		if detectedCode != "" || detectorExpected {
+			if detectedCode != item.ExpectedCode {
+				return findingVerdict(verdict, "INVALID_SECURITY_POLICY", "BLOCK", "security/fixtures/"+item.ID, "fixture input does not produce its cataloged detector finding"), nil
+			}
+			actualCode = detectedCode
+		}
 		if actualCode != "" {
 			return findingVerdict(verdict, actualCode, snapshot.registry[actualCode], "security/fixtures/"+item.ID, "projection denied by closed fixture policy"), nil
 		}
+		projectionBytes, err := intake.CanonicalJSON(struct {
+			CandidateRoot string `json:"candidate_root"`
+			FixtureID     string `json:"fixture_id"`
+			InputDigest   string `json:"input_digest"`
+			PolicyDigest  string `json:"policy_digest"`
+		}{request.CandidateRoot, item.ID, intake.DigestBytes([]byte(item.Input)), snapshot.digests[policyPaths[2]]})
+		if err != nil {
+			return Verdict{}, err
+		}
 		verdict.State = "PASS_SYNTHETIC_NON_CLAIM"
-		verdict.ProjectionRoot = intake.DigestBytes([]byte("good-safe-projection-v1"))
+		verdict.ProjectionRoot = intake.DigestBytes(projectionBytes)
 		return verdict, nil
 	}
 	return findingVerdict(verdict, "PROTECTED_CLASSIFIER_UNAVAILABLE", "BLOCK", "$.protected_classifier", "a protected-side receipt is required for a real projection"), nil
+}
+
+func scanReleaseFixture(policy releasePolicy, item fixtureCase) (string, bool, error) {
+	detectorFindings := map[string]bool{}
+	matched := ""
+	for _, detector := range policy.Detectors {
+		detectorFindings[detector.Finding] = true
+		if !strings.Contains(item.Input, detector.Token) {
+			continue
+		}
+		if matched != "" && matched != detector.Finding {
+			return "", detectorFindings[item.ExpectedCode], errors.New("fixture input matched more than one release detector")
+		}
+		matched = detector.Finding
+	}
+	return matched, detectorFindings[item.ExpectedCode], nil
 }
 
 func RunControlledCanary(context.Context, CanaryRequest) (SandboxReceipt, error) {
@@ -684,6 +722,18 @@ func equalStrings(a, b []string) bool {
 	return true
 }
 
+func isSHA256Digest(value string) bool {
+	if len(value) != len("sha256:")+64 || !strings.HasPrefix(value, "sha256:") {
+		return false
+	}
+	for _, char := range value[len("sha256:"):] {
+		if char < '0' || char > '9' && char < 'a' || char > 'f' {
+			return false
+		}
+	}
+	return true
+}
+
 type sandboxPlan struct {
 	SchemaVersion       string    `json:"schema_version"`
 	PlanDigest          string    `json:"plan_digest"`
@@ -722,11 +772,27 @@ func validateSandboxReceipt(s *policySnapshot, p sandboxPlan, r securitySandboxR
 	deny := func(code, disp, path, msg string) *Finding {
 		return &Finding{Code: code, Disposition: disp, Path: path, Message: msg}
 	}
-	if p.SchemaVersion != policyVersion || r.SchemaVersion != policyVersion || p.PlanDigest == "" || r.PlanDigest != p.PlanDigest || p.PolicyDigest != s.digests[policyPaths[1]] || r.PolicyDigest != p.PolicyDigest || r.AcceptedRootDigest != p.AcceptedRootDigest || r.InventoryRootDigest != p.InventoryRootDigest || r.CanaryID != p.CanaryID {
+	if p.SchemaVersion != policyVersion || r.SchemaVersion != policyVersion || !isSHA256Digest(p.PlanDigest) || r.PlanDigest != p.PlanDigest || p.PolicyDigest != s.digests[policyPaths[1]] || r.PolicyDigest != p.PolicyDigest || !isSHA256Digest(p.AcceptedRootDigest) || !isSHA256Digest(p.InventoryRootDigest) || r.AcceptedRootDigest != p.AcceptedRootDigest || r.InventoryRootDigest != p.InventoryRootDigest || r.CanaryID != p.CanaryID || !stringInSet(p.CanaryID, s.sandbox.CanaryIDs) {
 		return deny("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$", "receipt does not bind the exact plan, policy, source, inventory, and canary")
 	}
-	if !equalSet(p.Capabilities, s.sandbox.RequiredCapabilities) {
+	if !equalSet(p.Capabilities, s.sandbox.RequiredCapabilities) || p.Resources != s.sandbox.Resources {
 		return deny("SANDBOX_CAPABILITY_MISMATCH", "QUARANTINE", "$.capabilities", "capability envelope differs")
+	}
+	validTerminations := []string{"EXITED", "WALL_LIMIT", "CPU_LIMIT", "MEMORY_LIMIT", "PID_LIMIT", "FD_LIMIT", "OUTPUT_LIMIT", "WORKSPACE_LIMIT", "CACHE_LIMIT", "DISK_LIMIT", "INODE_LIMIT", "POLICY_DENIAL", "SUPERVISOR_FAILURE"}
+	if !stringInSet(r.TerminationReason, validTerminations) {
+		return deny("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.termination_reason", "receipt termination reason is absent or outside the closed registry")
+	}
+	limitTerminations := map[string]string{
+		"CPU_BOUND":       "CPU_LIMIT",
+		"MEMORY_BOUND":    "MEMORY_LIMIT",
+		"PID_BOUND":       "PID_LIMIT",
+		"FD_BOUND":        "FD_LIMIT",
+		"OUTPUT_BOUND":    "OUTPUT_LIMIT",
+		"WORKSPACE_BOUND": "WORKSPACE_LIMIT",
+		"WALL_BOUND":      "WALL_LIMIT",
+	}
+	if expected := limitTerminations[p.CanaryID]; expected != "" && r.TerminationReason != expected {
+		return deny("RESOURCE_TERMINATION_MISSING", "QUARANTINE", "$.termination_reason", "limit canary did not record its exact expected termination")
 	}
 	if r.SecretValueCount != 0 {
 		return deny("SECRET_ACCESS_DENIED", "QUARANTINE", "$.secret_value_count", "sandbox exposed secret values")
@@ -750,4 +816,13 @@ func validateSandboxReceipt(s *policySnapshot, p sandboxPlan, r securitySandboxR
 		return deny("ASSURANCE_CEILING_EXCEEDED", "REVOKE", "$.assurance", "receipt exceeds owner-only ceiling")
 	}
 	return nil
+}
+
+func stringInSet(value string, values []string) bool {
+	for _, candidate := range values {
+		if value == candidate {
+			return true
+		}
+	}
+	return false
 }

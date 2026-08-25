@@ -138,7 +138,8 @@ func snapshotCandidate(rootPath string, policy ingestionPolicy) (candidateManife
 		if archiveFinding != nil {
 			return &walkFinding{*archiveFinding}
 		}
-		manifest.Files = append(manifest.Files, candidateFile{Path: rel, CollisionKey: key, ObjectID: objectID, Digest: digest, ByteSize: int64(len(data)), MediaKind: media, Classification: "QUARANTINED", Provenance: "candidate-root:" + intake.DigestBytes([]byte(clean))})
+		provenance := "company:" + requiredCompany + "/project:" + requiredProject + "/source:" + digest
+		manifest.Files = append(manifest.Files, candidateFile{Path: rel, CollisionKey: key, ObjectID: objectID, Digest: digest, ByteSize: int64(len(data)), MediaKind: media, Classification: "QUARANTINED", Provenance: provenance})
 		if !objectDigests[digest] {
 			objectDigests[digest] = true
 			objects = append(objects, intake.Object{ID: objectID, Digest: digest, Bytes: data})
@@ -283,23 +284,38 @@ func translateIntakeFinding(err error, path string) *Finding {
 	return &Finding{Code: "ARCHIVE_LIMIT_EXCEEDED", Disposition: "QUARANTINE", Path: path, Message: err.Error()}
 }
 func classifyExecutable(name string, data []byte, mode os.FileMode) string {
-	lower := strings.ToLower(name)
+	lower := strings.ToLower(filepath.ToSlash(name))
 	text := strings.ToLower(string(data))
 	switch {
 	case mode&0o111 != 0:
 		return "ARCHIVE_DECLARED_EXECUTABLE"
 	case strings.HasSuffix(lower, "build.rs"):
 		return "CARGO_BUILD_SCRIPT"
-	case lower == "pom.xml" && (strings.Contains(text, "<plugin>") || strings.Contains(text, "annotationprocessorpaths")):
+	case lower == "pom.xml" && strings.Contains(text, "annotationprocessorpaths"):
+		return "MAVEN_ANNOTATION_PROCESSOR"
+	case lower == "pom.xml" && strings.Contains(text, "<plugin>"):
 		return "MAVEN_PLUGIN"
+	case lower == "pom.xml" && (strings.Contains(text, "<dependency>") || strings.Contains(text, "<dependencies>")):
+		return "JVM_DEPENDENCY"
+	case lower == ".mvn/extensions.xml" || strings.HasSuffix(lower, "/.mvn/extensions.xml"):
+		return "MAVEN_EXTENSION"
 	case strings.HasSuffix(lower, "cargo.toml") && strings.Contains(text, "proc-macro = true"):
 		return "RUST_PROC_MACRO"
+	case strings.HasSuffix(lower, "cargo.lock") && strings.Contains(text, "[[package]]"):
+		return "RUST_DEPENDENCY"
+	case (lower == ".cargo/config" || lower == ".cargo/config.toml" || strings.HasSuffix(lower, "/.cargo/config") || strings.HasSuffix(lower, "/.cargo/config.toml")) &&
+		(strings.Contains(text, "runner") || strings.Contains(text, "rustc-wrapper") || strings.Contains(text, "rustdoc-wrapper") || strings.Contains(text, "linker")):
+		return "CARGO_RUNNER_OR_WRAPPER"
 	case strings.Contains(lower, "jdt") || strings.Contains(lower, "rust-analyzer") || strings.Contains(lower, "glancer"):
 		return "LANGUAGE_SERVER_PLUGIN"
 	case strings.Contains(lower, "autobahn") || strings.Contains(text, "autobahn-testsuite"):
 		return "AUTOBAHN_SCRIPT"
-	case strings.Contains(lower, "container") && (strings.Contains(text, "entrypoint") || strings.Contains(text, "cmd")):
+	case strings.Contains(lower, "container") && strings.Contains(text, "entrypoint"):
 		return "CONTAINER_ENTRYPOINT"
+	case strings.Contains(lower, "container") && strings.Contains(text, "\"cmd\""):
+		return "CONTAINER_COMMAND"
+	case strings.Contains(lower, "container") && (strings.Contains(text, "oci.image.layer") || strings.Contains(text, "container.layer")):
+		return "CONTAINER_LAYER"
 	}
 	return ""
 }
