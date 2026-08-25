@@ -248,6 +248,63 @@ func TestUS004Adversarial_StrictLifecycleJSON(t *testing.T) {
 	}
 }
 
+func TestUS004Adversarial_SelectedLifecycleSchemaValidation(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid non-default lifecycle is schema checked without default-path dependency", func(t *testing.T) {
+		root := copiedAssuranceRoot(t)
+		customLifecycle := "assurance/replay/fixtures/custom/lifecycle.json"
+		customPath := filepath.Join(root, filepath.FromSlash(customLifecycle))
+		if err := os.MkdirAll(filepath.Dir(customPath), 0o755); err != nil {
+			t.Fatalf("mkdir custom lifecycle dir: %v", err)
+		}
+		writeRawFile(t, customPath, mustReadRepoFile(t, lifecyclePathDefault))
+		if err := os.Remove(filepath.Join(root, filepath.FromSlash(lifecyclePathDefault))); err != nil {
+			t.Fatalf("remove default lifecycle: %v", err)
+		}
+
+		verdict, err := Verify(context.Background(), Request{
+			RootPath:      root,
+			LifecyclePath: customLifecycle,
+			Mode:          ModeVerify,
+		})
+		if err != nil {
+			t.Fatalf("verify custom lifecycle: %v", err)
+		}
+		assertNoFindingCode(t, verdict.Findings, "INVALID_LIFECYCLE_SCHEMA")
+	})
+
+	t.Run("invalid non-default lifecycle reports lifecycle schema finding on requested path", func(t *testing.T) {
+		root := copiedAssuranceRoot(t)
+		customLifecycle := "assurance/replay/fixtures/custom-invalid/lifecycle.json"
+		customPath := filepath.Join(root, filepath.FromSlash(customLifecycle))
+		if err := os.MkdirAll(filepath.Dir(customPath), 0o755); err != nil {
+			t.Fatalf("mkdir invalid custom lifecycle dir: %v", err)
+		}
+		bundle := readGenericJSONFile(t, filepath.Join(root, filepath.FromSlash(lifecyclePathDefault)))
+		delete(bundle, "company")
+		writeJSONFile(t, customPath, bundle)
+		if err := os.Remove(filepath.Join(root, filepath.FromSlash(lifecyclePathDefault))); err != nil {
+			t.Fatalf("remove default lifecycle: %v", err)
+		}
+
+		verdict, err := Verify(context.Background(), Request{
+			RootPath:      root,
+			LifecyclePath: customLifecycle,
+			Mode:          ModeVerify,
+		})
+		if err != nil {
+			t.Fatalf("verify invalid custom lifecycle: %v", err)
+		}
+		assertFinding(t, verdict.Findings, "INVALID_LIFECYCLE_SCHEMA", vendorprotocol.Block)
+		for _, finding := range verdict.Findings {
+			if finding.Code == "INVALID_LIFECYCLE_SCHEMA" && finding.Path != customLifecycle {
+				t.Fatalf("lifecycle schema finding path = %q, want %q", finding.Path, customLifecycle)
+			}
+		}
+	})
+}
+
 func TestUS004Adversarial_ProtocolBoundaryFindings(t *testing.T) {
 	t.Parallel()
 
@@ -515,6 +572,31 @@ func TestUS004Adversarial_DeveloperToolRuns(t *testing.T) {
 				writeJSONFile(t, filepath.Join(root, glancerPath), run)
 			},
 			expected:    "INVALID_DEVELOPER_TOOL_RUN",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "java profile id drift",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				profile := readGenericJSONFile(t, filepath.Join(root, languageIntelligenceProfilePath))
+				javaProfile := profile["java_profile"].(map[string]any)
+				javaProfile["profile_id"] = "profile.java.synthetic.v2"
+				writeJSONFile(t, filepath.Join(root, languageIntelligenceProfilePath), profile)
+				refreshLifecycleBindingsForRoot(t, root)
+			},
+			expected:    "INVALID_LANGUAGE_INTELLIGENCE_PROFILE",
+			disposition: vendorprotocol.Block,
+		},
+		{
+			name: "profile switching arbitrary ids",
+			mutate: func(t *testing.T, root string) {
+				t.Helper()
+				switching := readGenericJSONFile(t, filepath.Join(root, profileSwitchingPath))
+				switching["profiles"] = []any{"profile.alpha.valid.v1", "profile.beta.valid.v1"}
+				writeJSONFile(t, filepath.Join(root, profileSwitchingPath), switching)
+				refreshLifecycleBindingsForRoot(t, root)
+			},
+			expected:    "INVALID_PROFILE_SWITCHING",
 			disposition: vendorprotocol.Block,
 		},
 	}

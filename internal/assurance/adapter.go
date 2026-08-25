@@ -221,7 +221,8 @@ func evaluate(ctx context.Context, request Request, expectedMode string) (Verdic
 }
 
 func loadEvaluationSnapshot(root *projectRoot, lifecyclePath string) (*evaluationSnapshot, error) {
-	files := make(map[string][]byte, len(expectedRetainedArtifacts)+len(expectedUpstreamEntries)+len(expectedSchemaValidations))
+	schemaExpectations := resolvedSchemaValidations(lifecyclePath)
+	files := make(map[string][]byte, len(expectedRetainedArtifacts)+len(expectedUpstreamEntries)+len(schemaExpectations))
 	missing := make(map[string]error)
 	for _, artifact := range expectedRetainedArtifacts {
 		limit := int64(8 << 20)
@@ -242,7 +243,7 @@ func loadEvaluationSnapshot(root *projectRoot, lifecyclePath string) (*evaluatio
 		}
 		files[lifecyclePath] = data
 	}
-	for _, item := range expectedSchemaValidations {
+	for _, item := range schemaExpectations {
 		if _, ok := files[item.Artifact]; ok {
 			continue
 		}
@@ -272,7 +273,7 @@ func loadEvaluationSnapshot(root *projectRoot, lifecyclePath string) (*evaluatio
 	if err := vendorprotocol.DecodeStrict(bundleData, &bundle); err != nil {
 		return nil, err
 	}
-	schemas, err := compileSchemas(files)
+	schemas, err := compileSchemas(files, schemaExpectations)
 	if err != nil {
 		return nil, err
 	}
@@ -287,7 +288,7 @@ func loadEvaluationSnapshot(root *projectRoot, lifecyclePath string) (*evaluatio
 	}, nil
 }
 
-func compileSchemas(files map[string][]byte) (map[string]*jsonschema.Schema, error) {
+func compileSchemas(files map[string][]byte, schemaExpectations []schemaExpectation) (map[string]*jsonschema.Schema, error) {
 	compiler := jsonschema.NewCompiler()
 	compiler.DefaultDraft(jsonschema.Draft2020)
 	compiler.AssertFormat()
@@ -307,8 +308,8 @@ func compileSchemas(files map[string][]byte) (map[string]*jsonschema.Schema, err
 			return nil, err
 		}
 	}
-	compiled := make(map[string]*jsonschema.Schema, len(expectedSchemaValidations))
-	for _, item := range expectedSchemaValidations {
+	compiled := make(map[string]*jsonschema.Schema, len(schemaExpectations))
+	for _, item := range schemaExpectations {
 		if _, ok := compiled[item.SchemaPath]; ok {
 			continue
 		}
@@ -347,7 +348,7 @@ func digestOrEmpty(data []byte) string {
 }
 
 func validateSchemas(snapshot *evaluationSnapshot, add func(string, vendorprotocol.Disposition, string, string)) {
-	for _, item := range expectedSchemaValidations {
+	for _, item := range resolvedSchemaValidations(snapshot.lifecycle) {
 		data, err := snapshot.read(item.Artifact)
 		if err != nil {
 			add(item.Finding, vendorprotocol.Block, item.Artifact, err.Error())
@@ -374,6 +375,17 @@ func validateSchemas(snapshot *evaluationSnapshot, add func(string, vendorprotoc
 			add(item.Finding, vendorprotocol.Block, item.Artifact, err.Error())
 		}
 	}
+}
+
+func resolvedSchemaValidations(lifecyclePath string) []schemaExpectation {
+	resolved := make([]schemaExpectation, 0, len(expectedSchemaValidations))
+	for _, item := range expectedSchemaValidations {
+		if item.Artifact == lifecyclePathDefault {
+			item.Artifact = lifecyclePath
+		}
+		resolved = append(resolved, item)
+	}
+	return resolved
 }
 
 func childPolicy() vendorprotocol.Policy {
@@ -948,6 +960,9 @@ func validateLanguageToolingMaterials(snapshot *evaluationSnapshot, add func(str
 		add("INVALID_DEVELOPER_TOOL_RUN", vendorprotocol.Block, jdtLSPath, err.Error())
 		return
 	}
+	if fmt.Sprint(javaProfile["profile_id"]) != "profile.jdt-ls.java.v1" {
+		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, "java profile identity drifted from the exact accepted JDT LS profile")
+	}
 	if runArtifact, _ := javaProfile["run_artifact"].(map[string]any); runArtifact["path"] != jdtLSPath || runArtifact["sha256"] != vendorprotocol.DigestBytes(jdtData) {
 		add("INVALID_LANGUAGE_INTELLIGENCE_PROFILE", vendorprotocol.Block, languageIntelligenceProfilePath, "java profile must bind the retained JDT LS run artifact")
 	}
@@ -979,7 +994,7 @@ func validateLanguageToolingMaterials(snapshot *evaluationSnapshot, add func(str
 		return
 	}
 	profiles, _ := switching["profiles"].([]any)
-	if len(profiles) != 2 || profiles[0] == profiles[1] {
+	if !sameStringSet(jsonStringSlice(profiles), []string{"profile.rust-analyzer.baseline.v1", "profile.glancer.experimental.v1"}) {
 		add("INVALID_PROFILE_SWITCHING", vendorprotocol.Block, profileSwitchingPath, "profile switching fixture must carry the exact two mutually exclusive rust profiles")
 	}
 	cacheRoots, _ := switching["cache_roots"].(map[string]any)
@@ -988,6 +1003,29 @@ func validateLanguageToolingMaterials(snapshot *evaluationSnapshot, add func(str
 		fmt.Sprint(workspaceRoots["profile.rust-analyzer.baseline.v1"]) == fmt.Sprint(workspaceRoots["profile.glancer.experimental.v1"]) {
 		add("INVALID_PROFILE_SWITCHING", vendorprotocol.Block, profileSwitchingPath, "rust-analyzer and Glancer cache and workspace roots must remain distinct")
 	}
+}
+
+func jsonStringSlice(values []any) []string {
+	items := make([]string, 0, len(values))
+	for _, value := range values {
+		items = append(items, fmt.Sprint(value))
+	}
+	return items
+}
+
+func sameStringSet(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	leftCanonical, err := vendorprotocol.CanonicalJSON(sortedStringsStable(left))
+	if err != nil {
+		return false
+	}
+	rightCanonical, err := vendorprotocol.CanonicalJSON(sortedStringsStable(right))
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(leftCanonical, rightCanonical)
 }
 
 func validateRustProfileBinding(snapshot *evaluationSnapshot, findingPath string, profile map[string]any, runPath, fallback string, add func(string, vendorprotocol.Disposition, string, string)) {
