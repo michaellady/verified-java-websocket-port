@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
@@ -937,12 +938,16 @@ func encodeAttachedStream(source io.Reader, destination io.Writer) error {
 			total += int64(read)
 		}
 		if err != nil {
-			if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
+			if !terminalAttachedReadError(err) {
 				return finding("AUTOBAHN_RELAY_FRAME_FAILED", "$.relay.attach", "loopback input stream failed")
 			}
 			return writeAttachedFrame(destination, attachFrameEnd, nil)
 		}
 	}
+}
+
+func terminalAttachedReadError(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET)
 }
 
 func runAttachedRelayTCP(ctx context.Context, docker dockerController, container string, connection *net.TCPConn) ([]byte, error) {

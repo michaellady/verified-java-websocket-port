@@ -3,10 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"io"
 	"net"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -96,6 +98,20 @@ func TestFramingRejectsMalformedSequences(t *testing.T) {
 	}
 }
 
+func TestFramedOutputTreatsVerifiedPeerResetAsTerminal(t *testing.T) {
+	var framed bytes.Buffer
+	if err := copyFramedOutput(&dataThenErrorReader{data: []byte("response"), err: syscall.ECONNRESET}, &framed); err != nil {
+		t.Fatalf("verified peer reset rejected after bounded response bytes: %v", err)
+	}
+	var decoded bytes.Buffer
+	if err := copyFramedInput(bytes.NewReader(framed.Bytes()), &decoded); err != nil || decoded.String() != "response" {
+		t.Fatalf("terminal reset framing mismatch: %q %v", decoded.String(), err)
+	}
+	if err := copyFramedOutput(&dataThenErrorReader{err: errors.New("unexpected read failure")}, io.Discard); err == nil || err.Error() != "transport" {
+		t.Fatalf("unknown read failure accepted: %v", err)
+	}
+}
+
 func TestListenRelayRejectsUnknownPeer(t *testing.T) {
 	port := freePort(t)
 	done := make(chan error, 1)
@@ -156,4 +172,18 @@ func dialFrom(t *testing.T, source, destination string) *net.TCPConn {
 	}
 	t.Fatalf("dial failed: %v", last)
 	return nil
+}
+
+type dataThenErrorReader struct {
+	data []byte
+	err  error
+}
+
+func (reader *dataThenErrorReader) Read(destination []byte) (int, error) {
+	if len(reader.data) == 0 {
+		return 0, reader.err
+	}
+	read := copy(destination, reader.data)
+	reader.data = reader.data[read:]
+	return read, reader.err
 }

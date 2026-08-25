@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -220,12 +221,16 @@ func copyFramedOutput(source io.Reader, destination io.Writer) error {
 			total += int64(read)
 		}
 		if err != nil {
-			if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
+			if !terminalReadError(err) {
 				return errors.New("transport")
 			}
 			return writeFrame(destination, frameEnd, nil)
 		}
 	}
+}
+
+func terminalReadError(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET)
 }
 
 func writeFrame(destination io.Writer, frameType byte, payload []byte) error {

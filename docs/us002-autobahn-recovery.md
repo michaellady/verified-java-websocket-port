@@ -21,6 +21,7 @@ blocked while recovery continues.
 | Ongoing-authorization diagnostic blocked receipt 3 | 22,640 | `7d8fa4df88188bcec74ea972c05efba421d30a75bc4528d394f6f61eecfaeec9` |
 | Ongoing-authorization diagnostic blocked receipt 4 | 23,436 | `d341915c9b8f0b84afbc7ad1c2c9e4f06bee2e370089d286eaaf4f9aa36c4135` |
 | Ongoing-authorization diagnostic blocked receipt 5 | 23,990 | `9679819438b6e66435b3b9bd362b0627ceb01657777b1733fb0f8a2285596b96` |
+| Ongoing-authorization diagnostic blocked receipt 6 | 23,985 | `a45e36c26077dcae4b39d7c8f28c7b30f0744c9b7ce15b451703dd23f1b23533` |
 
 These are hashes of the retained receipt bytes before the recovery edits. The
 same files must be rehashed after remediation and review.
@@ -58,6 +59,7 @@ and loopback-only test harness reproduces this without Docker or Autobahn.
 | Stream and extract authenticated report bytes from runner tmpfs | The live tmpfs and host evidence directory require one bounded ownership and materialization protocol | A stronger model still needs the same byte transport and archive validation | Authentication, process I/O, byte bounds, and exclusive file creation contain no rerun judgment | Code |
 | Authorize and deliver runner release without Docker attach EOF | Release must be atomic with report validation and exact single-use token consumption | A stronger model still needs a deterministic authenticated process-control transport | Exact token input, O_EXCL marker creation, fixed signal delivery, and bounded cleanup contain no rerun judgment | Code |
 | Preserve the fixed Autobahn HTTP authority across the loopback relay | The exact socket/authority split must be bound consistently for every case and report update | A stronger model still needs the protocol authority expected by the fixed suite endpoint | Exact argument validation and header transport contain no rerun or result-classification judgment | Code |
+| Encode a verified peer TCP reset as terminal framed input | Concurrent byte transfer needs one deterministic terminal representation | A stronger model still needs the same kernel-to-frame transport mapping | Exact read-error classification only; Autobahn reports retain all protocol judgment | Code |
 | Decide whether another live attempt is warranted or authorized | Owner/assurance decision, not an atomic transport primitive | Better reasoning can change the decision | Contains acceptance and risk judgment | Prompt/owner decision |
 
 The code changes therefore remain limited to deterministic identity
@@ -235,3 +237,29 @@ to the loopback-derived authority fails before any suite process can start.
 The source digest and resulting execution-plan digest changed accordingly; no
 identity validation, network boundary, timeout, result interpretation, or
 attempt accounting was relaxed.
+
+### Verified peer resets were misclassified as relay corruption
+
+The sixth invocation proved the Host correction: the fuzzing server returned
+`HTTP/1.1 101 Switching Protocols`, Java completed the selected case exchange,
+and the bounded server response ended with the expected data and close frames.
+The relay then emitted `RELAY_DENIED transport`, which caused the controller to
+cancel before Java's separate `updateReports` connection could succeed. In
+server mode, case `3.4` again transferred both directions and retained exact
+`RELAY_PAIRED` and `RELAY_COMPLETE` markers, yet the controller rejected the
+otherwise successful attach. With decode, extra-output, process-exit, context,
+and lifecycle conditions all successful, the remaining failed condition was
+the loopback input reader's terminal reset.
+
+Both directions had the same root cause: `ECONNRESET` from an already verified
+TCP peer was classified as an infrastructure transport error. Autobahn cases
+intentionally exercise protocol closes and drops, and their digest-bound
+reports—not the relay—must classify those outcomes. Deterministic readers that
+return bounded data followed by `ECONNRESET` reproduced both retained paths:
+the in-container relay refused to emit framed END and the controller refused to
+emit attached framed END. The smallest correction recognizes only
+`ECONNRESET` on a read as end-of-stream, alongside EOF and an already-closed
+socket. Writes, unknown read errors, malformed or trailing frames, missing
+lifecycle evidence, identity drift, byte bounds, and report reconciliation
+remain fail closed. The reset regressions explicitly prove that unknown read
+errors are still rejected.
