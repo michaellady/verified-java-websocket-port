@@ -30,6 +30,7 @@
   "finding_registry": [
     {"code":"AUTOBAHN_RERUN_FORBIDDEN","disposition":"BLOCK"},
     {"code":"CANONICAL_EVIDENCE_MUTATION","disposition":"REVOKE"},
+    {"code":"PROTECTED_CALLER_REQUIRED","disposition":"BLOCK"},
     {"code":"SANDBOX_ENFORCEMENT_UNAVAILABLE","disposition":"BLOCK"},
     {"code":"SANDBOX_CAPABILITY_MISMATCH","disposition":"QUARANTINE"},
     {"code":"SECRET_ACCESS_DENIED","disposition":"QUARANTINE"},

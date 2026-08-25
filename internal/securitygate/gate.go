@@ -33,7 +33,7 @@ const (
 )
 
 var policyPaths = []string{"security/ingestion-policy.json", "security/sandbox-policy.json", "security/release-firewall.json"}
-var schemaPaths = []string{"schemas/security-ingestion-policy-1.0.0.schema.json", "schemas/security-sandbox-policy-1.0.0.schema.json", "schemas/security-release-firewall-1.0.0.schema.json", "schemas/security-fixture-catalog-1.0.0.schema.json", "schemas/security-validation-1.0.0.schema.json"}
+var schemaPaths = []string{"schemas/security-ingestion-policy-1.0.0.schema.json", "schemas/security-sandbox-policy-1.0.0.schema.json", "schemas/security-release-firewall-1.0.0.schema.json", "schemas/security-fixture-catalog-1.0.0.schema.json", "schemas/security-validation-1.0.0.schema.json", executablePromotionSchemaPath}
 var baselineEvidencePaths = []string{"evidence/java/build.json", "evidence/java/adapter-baseline.json", "evidence/java/test-manifest.json", "evidence/java/autobahn-baseline.json", "evidence/java/behavior-delta-ledger.json"}
 
 type Request struct {

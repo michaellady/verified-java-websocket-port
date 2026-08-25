@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"sort"
@@ -217,7 +218,7 @@ func (l FileLedger) readCommittedClaims(lockPath string) (map[string]struct{}, b
 
 func readProtectedLedgerFile(path string) ([]byte, bool) {
 	before, err := os.Lstat(path)
-	if err != nil || !before.Mode().IsRegular() || before.Mode().Perm()&0o077 != 0 || before.Size() <= 0 || before.Size() > 32<<10 {
+	if err != nil || !before.Mode().IsRegular() || !hasSingleLink(before) || before.Mode().Perm()&0o077 != 0 || before.Size() <= 0 || before.Size() > 32<<10 {
 		return nil, false
 	}
 	file, err := os.Open(path)
@@ -226,11 +227,20 @@ func readProtectedLedgerFile(path string) ([]byte, bool) {
 	}
 	defer file.Close()
 	after, err := file.Stat()
-	if err != nil || !os.SameFile(before, after) || !after.Mode().IsRegular() || after.Mode().Perm()&0o077 != 0 {
+	if err != nil || !os.SameFile(before, after) || !after.Mode().IsRegular() || !hasSingleLink(after) || after.Mode().Perm()&0o077 != 0 {
 		return nil, false
 	}
 	data, err := io.ReadAll(io.LimitReader(file, (32<<10)+1))
 	return data, err == nil && len(data) <= 32<<10
+}
+
+func hasSingleLink(info os.FileInfo) bool {
+	value := reflect.Indirect(reflect.ValueOf(info.Sys()))
+	if !value.IsValid() {
+		return false
+	}
+	field := value.FieldByName("Nlink")
+	return field.IsValid() && field.CanUint() && field.Uint() == 1
 }
 
 func nonceClaimDigest(claim NonceClaim) string {

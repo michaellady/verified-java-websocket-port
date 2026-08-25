@@ -366,14 +366,47 @@ console scripts, suite scripts, runner, relay, endpoint, and image layers are
 enumerated but have `allowed_operation_ids: []` because the rerun disposition
 is closed.
 
-“Independently promoted” means the promotion record is produced by the
-protected intake/owner action path from exact bytes and policy, not trusted
-from the candidate's Maven/Cargo/container metadata. Under the approved
-single-owner amendment it does not mean independently reviewed. Every use plan
-binds the inventory root, item digest, promotion receipt digest, operation ID,
-scope `QUARANTINED_LABORATORY_QUALIFICATION_ONLY`, and non-revoked/non-expired
-state. Missing, extra, mutable, dangling, cross-company, expired, or differently
-bound items deny before sandbox creation.
+An executable is promoted only when an external protected launcher verifies a
+two-statement owner record: port-implementer qualification followed by
+release-attestor executable promotion, with distinct nonces. The signed subject
+binds the exact executable digest, roles `SECURITYCTL` and
+`SANDBOX_SUPERVISOR`, operation `CONTROLLED_CANARY`, company/project/lab,
+the exact sandbox-policy digest, current security-evidence root, retained
+US-001 public-evidence and accepted roots, and scope
+`QUARANTINED_LABORATORY_QUALIFICATION_ONLY`. Production, publication, and
+independent-review claims are false.
+
+`internal/intake` provides canonical Ed25519 verification and atomic durable
+nonce transport for a caller-supplied `TrustedAuthority`. Those primitives do
+not establish where the authority came from. In particular, matching the
+retained key ID does not prove historical key continuity: candidate-controlled
+code can pair that ID and the required owner actor with an attacker public key
+and internally valid attacker signatures. The repository therefore never
+treats locally supplied authority/signatures as launch proof. It returns
+`PROTECTED_CALLER_REQUIRED/BLOCK` before nonce consumption or execution. The
+external launcher must provide the protected trust anchor and durable ledger,
+verify the two statements, then bind the same opened executable file to launch.
+
+The repository does not currently wire a promotion record into
+`ControlledCanaryRequest` or `ExecuteControlledCanary`, because doing so would
+turn a self-consistent candidate authority into a self-authenticating shortcut.
+`PreflightExecutablePromotionCandidate` is only a non-authorizing
+candidate-side structural preflight; it can never grant launch authority.
+Absent promotion remains `UNPROMOTED_EXECUTABLE/QUARANTINE`; a structurally or
+semantically changed record is `EXECUTABLE_PROMOTION_MISMATCH/QUARANTINE`; a
+closed valid-looking record remains `PROTECTED_CALLER_REQUIRED/BLOCK`; and
+unproved OS enforcement remains `SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK`.
+
+The protected launcher also owns the irreducible executable identity boundary:
+open with no-follow semantics, reject symlinks and multiple hard links, hash the
+opened regular file, retain that handle/identity across verification, and launch
+those exact bytes without a path-reopen TOCTOU window. Repository code binds an
+exact digest but cannot prove that later external launch operation. Under the
+approved single-owner amendment none of this means independently reviewed.
+Every later use plan must bind inventory root, item digest, promotion record
+digest, operation ID, scope, and non-revoked/non-expired state. Missing, extra,
+mutable, dangling, cross-company, expired, or differently bound items deny
+before sandbox creation.
 
 ## `security/sandbox-policy.json`
 
@@ -581,8 +614,9 @@ mapping together.
 | `DANGLING_PROVENANCE` | `QUARANTINE` | a provenance parent is missing or unreachable |
 | `PROVENANCE_DIGEST_MISMATCH` | `QUARANTINE` | provenance parent bytes/root do not match |
 | `EXECUTABLE_INVENTORY_INCOMPLETE` | `QUARANTINE` | static discovery and declared executable closure differ |
-| `UNPROMOTED_EXECUTABLE` | `QUARANTINE` | an executable lacks a valid independent promotion record |
+| `UNPROMOTED_EXECUTABLE` | `QUARANTINE` | an executable lacks the required protected owner promotion record |
 | `EXECUTABLE_PROMOTION_MISMATCH` | `QUARANTINE` | executable bytes/use differ from their promotion receipt |
+| `PROTECTED_CALLER_REQUIRED` | `BLOCK` | repository-local authority cannot prove protected key custody, continuity, ledger, or launch provenance |
 | `MUTABLE_EXECUTABLE_REFERENCE` | `QUARANTINE` | tag, range, repository head, or unresolved locator is used |
 | `EXECUTABLE_USE_NOT_BOUND` | `QUARANTINE` | operation plan does not bind inventory and promotion roots |
 | `AUTOBAHN_RERUN_FORBIDDEN` | `BLOCK` | any plan attempts a third or otherwise unauthorized Autobahn run |
