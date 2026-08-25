@@ -1533,7 +1533,7 @@ func runJavaAutobahnClientCase(ctx context.Context, docker dockerController, net
 		"-cp", endpointClasspath(endpoint), AutobahnEndpointClass, "client",
 		"--adapter", endpoint.Adapter.Path, "--adapter-digest", endpoint.Adapter.Digest,
 		"--runtime", endpoint.RuntimeCopy.Path, "--support", endpoint.Support.Path,
-		"--url", "ws://127.0.0.1:"+strconv.Itoa(port), "--case-count", "1")
+		"--url", "ws://127.0.0.1:"+strconv.Itoa(port), "--host-header", autobahnFuzzingServerAddress+":9001", "--case-count", "1")
 	if runErr != nil || !bytes.Contains(output, []byte("CLIENT_COMPLETE runtime="+JavaWebSocketRuntimeDigest)) {
 		cancel()
 		_ = listener.Close()

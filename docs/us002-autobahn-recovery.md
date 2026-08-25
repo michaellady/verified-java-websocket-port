@@ -20,6 +20,7 @@ blocked while recovery continues.
 | Ongoing-authorization diagnostic blocked receipt 2 | 22,540 | `81b8b91dea9894d01fa2a8e62d5f4dd003e8acea6926f7fd291bd1ccfb8654f4` |
 | Ongoing-authorization diagnostic blocked receipt 3 | 22,640 | `7d8fa4df88188bcec74ea972c05efba421d30a75bc4528d394f6f61eecfaeec9` |
 | Ongoing-authorization diagnostic blocked receipt 4 | 23,436 | `d341915c9b8f0b84afbc7ad1c2c9e4f06bee2e370089d286eaaf4f9aa36c4135` |
+| Ongoing-authorization diagnostic blocked receipt 5 | 23,990 | `9679819438b6e66435b3b9bd362b0627ceb01657777b1733fb0f8a2285596b96` |
 
 These are hashes of the retained receipt bytes before the recovery edits. The
 same files must be rehashed after remediation and review.
@@ -56,6 +57,7 @@ and loopback-only test harness reproduces this without Docker or Autobahn.
 | Close canceled loopback transport before joining its reader | Cancellation and the concurrent reader require one deterministic ownership order | A stronger model still needs bounded process/socket cleanup | Process and socket lifecycle only; no retry or authorization judgment | Code |
 | Stream and extract authenticated report bytes from runner tmpfs | The live tmpfs and host evidence directory require one bounded ownership and materialization protocol | A stronger model still needs the same byte transport and archive validation | Authentication, process I/O, byte bounds, and exclusive file creation contain no rerun judgment | Code |
 | Authorize and deliver runner release without Docker attach EOF | Release must be atomic with report validation and exact single-use token consumption | A stronger model still needs a deterministic authenticated process-control transport | Exact token input, O_EXCL marker creation, fixed signal delivery, and bounded cleanup contain no rerun judgment | Code |
+| Preserve the fixed Autobahn HTTP authority across the loopback relay | The exact socket/authority split must be bound consistently for every case and report update | A stronger model still needs the protocol authority expected by the fixed suite endpoint | Exact argument validation and header transport contain no rerun or result-classification judgment | Code |
 | Decide whether another live attempt is warranted or authorized | Owner/assurance decision, not an atomic transport primitive | Better reasoning can change the decision | Contains acceptance and risk judgment | Prompt/owner decision |
 
 The code changes therefore remain limited to deterministic identity
@@ -213,3 +215,23 @@ paired role but lacks completion, the controller now polls only that exact
 container's last 20 Docker log lines for up to five seconds and appends only an
 exact `RELAY_COMPLETE role=...` or `RELAY_DENIED` marker—never mixed binary log
 content. Missing or denied completion still fails closed.
+
+### Client socket destination incorrectly became the HTTP Host authority
+
+The fifth ongoing-authorization invocation retained the bounded response bytes
+that Java received through the relay. They decode to an Autobahn HTTP 400:
+the request's `Host` value was `127.0.0.1:<ephemeral relay port>`, which did not
+match the fuzzing server's listening port 9001. This proves that container
+identity, relay pairing, and both byte directions were correct; the remaining
+client failure was the WebSocket client's default derivation of the HTTP
+authority from its deliberately loopback socket URI.
+
+The endpoint now keeps the actual connection destination as the exact loopback
+listener while supplying the fixed suite authority `172.30.242.4:9001` as an
+explicit, exactly validated `Host` header for both `runCase` and
+`updateReports`. The controller supplies only that fixed value. The endpoint
+self-test now observes and requires the overridden Host value, so a regression
+to the loopback-derived authority fails before any suite process can start.
+The source digest and resulting execution-plan digest changed accordingly; no
+identity validation, network boundary, timeout, result interpretation, or
+attempt accounting was relaxed.
