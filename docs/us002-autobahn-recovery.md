@@ -25,6 +25,7 @@ blocked while recovery continues.
 | Ongoing-authorization diagnostic blocked receipt 7 | 23,985 | `e2ca2baf24e6eaea28bc3b0d828d441da1b2716a308452c6ef8840d0b935f883` |
 | Ongoing-authorization diagnostic blocked receipt 8 | 24,005 | `1b0bfb45a5d125fc2dcd73506325074701241e5fefc4c013ff84e0e5cc9df437` |
 | Ongoing-authorization diagnostic blocked receipt 9 | 114,632 | `04a6c3b6064d28584213934e389331aa8cbaa8b34fd21574e00f39a30708fd6e` |
+| Ongoing-authorization qualification PASS receipt 10 | 205,302 | `acd89d20fc6997229090b79f75aad3b911ca02fe77adc0894d1e8a86fe39364f` |
 
 These are hashes of the retained receipt bytes before the recovery edits. The
 same files must be rehashed after remediation and review.
@@ -343,3 +344,18 @@ to supply the byte, `RELAY_PAIRED role=dial` can no longer precede attachment.
 The target, deadline, input framing, byte bounds, exact lifecycle lines, and
 container identity remain unchanged. A deterministic pipe regression proves
 the gate cannot pass before input and does not consume the first frame.
+
+## Qualification outcome
+
+The tenth individually accounted combined invocation passed with plan digest
+`sha256:ba44f0a9ecbd4b5a74fc515d6c2c93ecf46f178f63c644237163d5df56fff279`.
+Client mode executed 247 selected cases, reconciled 247 results across 494 exact
+transport sessions, and retained normalized report digest
+`sha256:e26be10590b4e8955e2ef69be3a45094ab482fa559d0ea8ea2ec001e0d933cb3`.
+Server mode executed 247 selected cases, reconciled 247 results across 247 exact
+transport sessions, and retained normalized report digest
+`sha256:f2065f70a25015b3a6c55e885526d44456b15ba634997b444d187c2710f109ce`.
+The receipt has status `PASS`, no blockers, `production=false`, and
+`publication=false`. Post-run inspection found no retained `vjwt-*` containers
+or networks. This recovery result does not itself change the PRD or story
+status; those remain under the parent execution workflow's authority.
