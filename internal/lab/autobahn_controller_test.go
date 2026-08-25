@@ -628,6 +628,88 @@ func TestCopiedAutobahnReportsRejectHostileEntries(t *testing.T) {
 	}
 }
 
+func TestAuthenticatedReportArchiveReplacesEmptyDockerTmpfsCopy(t *testing.T) {
+	const caseID = "1.1.1"
+	jsonName := autobahnReportFilename(AutobahnEndpointAgent, caseID)
+	htmlName := strings.TrimSuffix(jsonName, ".json") + ".html"
+	want := map[string][]byte{
+		"index.json": []byte("index-json"), "index.html": []byte("index-html"),
+		jsonName: []byte("case-json"), htmlName: []byte("case-html"),
+	}
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	for _, name := range []string{"index.html", "index.json", htmlName, jsonName} {
+		data := want[name]
+		if err := writer.WriteHeader(&tar.Header{Name: name, Mode: 0o400, Size: int64(len(data)), Typeflag: tar.TypeReg, Format: tar.FormatUSTAR}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := writer.Write(data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	digest, err := extractAutobahnReportArchive(&archive, directory, caseID)
+	if err != nil || !isDigest(digest) {
+		t.Fatalf("authenticated tmpfs archive rejected: digest=%s err=%v", digest, err)
+	}
+	if archive.Len() != 0 {
+		t.Fatalf("authenticated report archive left %d unread bytes", archive.Len())
+	}
+	for name, content := range want {
+		got, err := os.ReadFile(filepath.Join(directory, name))
+		if err != nil || !bytes.Equal(got, content) {
+			t.Fatalf("extracted %q=%q err=%v", name, got, err)
+		}
+	}
+}
+
+func TestAuthenticatedReportArchiveRejectsHostileMembers(t *testing.T) {
+	const caseID = "1.1.1"
+	for name, header := range map[string]tar.Header{
+		"path escape": {Name: "../index.json", Mode: 0o400, Size: 1, Typeflag: tar.TypeReg},
+		"link":        {Name: "index.json", Linkname: "target", Typeflag: tar.TypeSymlink},
+		"oversize":    {Name: "index.json", Mode: 0o400, Size: (64 << 20) + 1, Typeflag: tar.TypeReg},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var archive bytes.Buffer
+			writer := tar.NewWriter(&archive)
+			if err := writer.WriteHeader(&header); err != nil {
+				t.Fatal(err)
+			}
+			if header.Size == 1 {
+				_, _ = writer.Write([]byte("x"))
+			}
+			_ = writer.Close()
+			directory := t.TempDir()
+			if err := os.Chmod(directory, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := extractAutobahnReportArchive(&archive, directory, caseID); err == nil {
+				t.Fatal("hostile archive member accepted")
+			}
+		})
+	}
+}
+
+func TestClientEndpointFailurePreservesRelayDiagnostic(t *testing.T) {
+	detail := clientEndpointFailureDetail(
+		[]byte("ENDPOINT_DENIED did not connect"), errors.New("exit status 2"),
+		finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", "RELAY_DENIED dial-timeout"),
+		[]byte("RUNNER_READY role=fuzzingserver"),
+	)
+	for _, required := range []string{"AUTOBAHN_RELAY_ATTACH_FAILED", "RELAY_DENIED dial-timeout", "ENDPOINT_DENIED did not connect", "RUNNER_READY role=fuzzingserver"} {
+		if !strings.Contains(detail, required) {
+			t.Fatalf("client failure detail discarded %q: %s", required, detail)
+		}
+	}
+}
+
 func TestAutobahnControllerPreflightE2E(t *testing.T) {
 	source := os.Getenv("AUTOBAHN_E2E_SOURCE")
 	jdk := os.Getenv("AUTOBAHN_E2E_JDK_HOME")

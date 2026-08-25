@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	AutobahnRunnerSourceDigest = "sha256:11391cfa953e2e8777c0ae649df2507e645f77e8d69350f73bd2726d63cce0f8"
-	AutobahnRunnerBinaryDigest = "sha256:d488f1c020c2bb212d66e532eeb477dc1a26ce7d13090cda211bae974bcb51df"
+	AutobahnRunnerSourceDigest = "sha256:ce4cc2c799002aba787bc3df946f71c164d56a024508339e706497c1ca0c0055"
+	AutobahnRunnerBinaryDigest = "sha256:63154648244571e92f000698d92573e841114a387bbddf8351b7d35a8123e2b9"
 	AutobahnWSTestPath         = "/opt/pypy/bin/wstest"
 	AutobahnWSTestDigest       = "sha256:d8acff20961f3fc8d396944e4d38f3d06ddb11301f123670f557d6284b6ea632"
 	AutobahnPyPyPath           = "/opt/pypy/bin/pypy"

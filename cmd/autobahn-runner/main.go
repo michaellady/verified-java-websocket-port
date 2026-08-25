@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/tar"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -9,7 +10,9 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -23,9 +26,16 @@ const (
 	maximumChildOutput  = int64(16 << 20)
 	maximumChildRuntime = 180 * time.Second
 	copySignalTimeout   = 60 * time.Second
+	maximumReportFile   = int64(64 << 20)
+	maximumReportBytes  = int64(256 << 20)
+	expectedReportFiles = 4
+	reportsPath         = "/reports"
 )
 
-var tokenPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var (
+	tokenPattern      = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	reportNamePattern = regexp.MustCompile(`^[a-z0-9_]+\.(?:html|json)$`)
+)
 
 type runnerContract struct {
 	role       string
@@ -34,7 +44,122 @@ type runnerContract struct {
 }
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "copy-reports" {
+		os.Exit(runReportCopy(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+	}
 	os.Exit(run(os.Args[1:], os.Stdin, os.Stderr))
+}
+
+func runReportCopy(arguments []string, input io.Reader, output, lifecycle io.Writer) int {
+	if len(arguments) != 1 || arguments[0] != "copy-reports" {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-arguments")
+		return 2
+	}
+	role, rolePresent := os.LookupEnv("AUTOBAHN_RUNNER_ROLE")
+	token, tokenPresent := os.LookupEnv("AUTOBAHN_RUNNER_TOKEN")
+	contract, contractErr := fixedContract(role)
+	if !rolePresent || !tokenPresent || contractErr != nil || !tokenPattern.MatchString(token) {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-environment")
+		return 2
+	}
+	if err := readCopySignal(input, token); err != nil {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-signal")
+		return 1
+	}
+	if digest, err := digestRegular(wstestPath, 1<<20); err != nil || digest != wstestDigest {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-wstest")
+		return 2
+	}
+	if digest, err := digestRegular(pypyPath, 32<<20); err != nil || digest != pypyDigest {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-interpreter")
+		return 2
+	}
+	if _, err := digestRegular(contract.configPath, 1<<20); err != nil {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-config")
+		return 2
+	}
+	if err := writeReportArchive(reportsPath, output); err != nil {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-files")
+		return 1
+	}
+	fmt.Fprintf(lifecycle, "RUNNER_REPORTS_COMPLETE role=%s files=%d maximum_bytes=%d\n", role, expectedReportFiles, maximumReportBytes)
+	return 0
+}
+
+func writeReportArchive(directory string, output io.Writer) error {
+	root, err := os.Lstat(directory)
+	if err != nil || !root.IsDir() || root.Mode()&os.ModeSymlink != 0 {
+		return errors.New("report root is not a real directory")
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil || len(entries) != expectedReportFiles {
+		return errors.New("report root does not contain exactly four entries")
+	}
+	names := make([]string, 0, len(entries))
+	var aggregate int64
+	for _, entry := range entries {
+		name := entry.Name()
+		if filepath.Base(name) != name || !reportNamePattern.MatchString(name) {
+			return errors.New("report entry name is not fixed and safe")
+		}
+		path := filepath.Join(directory, name)
+		info, statErr := os.Lstat(path)
+		if statErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() < 1 || info.Size() > maximumReportFile || reportLinkCount(info) != 1 {
+			return errors.New("report entry is not one bounded regular file")
+		}
+		if aggregate > maximumReportBytes-info.Size() {
+			return errors.New("report entries exceed the aggregate bound")
+		}
+		aggregate += info.Size()
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	archive := tar.NewWriter(output)
+	for _, name := range names {
+		path := filepath.Join(directory, name)
+		before, err := os.Lstat(path)
+		if err != nil || !before.Mode().IsRegular() || before.Size() < 1 || before.Size() > maximumReportFile || reportLinkCount(before) != 1 {
+			return errors.New("report entry changed before streaming")
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		opened, statErr := file.Stat()
+		if statErr != nil || !os.SameFile(before, opened) || reportLinkCount(opened) != 1 {
+			_ = file.Close()
+			return errors.New("report entry identity changed before streaming")
+		}
+		header := &tar.Header{Name: name, Mode: 0o400, Size: before.Size(), Typeflag: tar.TypeReg, ModTime: time.Unix(0, 0), Format: tar.FormatUSTAR}
+		if err := archive.WriteHeader(header); err != nil {
+			_ = file.Close()
+			return err
+		}
+		written, copyErr := io.CopyN(archive, file, before.Size())
+		afterFD, fdErr := file.Stat()
+		afterPath, pathErr := os.Lstat(path)
+		closeErr := file.Close()
+		if copyErr != nil || written != before.Size() || fdErr != nil || pathErr != nil || closeErr != nil || !os.SameFile(before, afterFD) || !os.SameFile(afterFD, afterPath) || afterFD.Size() != before.Size() || afterFD.ModTime() != before.ModTime() || reportLinkCount(afterFD) != 1 || reportLinkCount(afterPath) != 1 {
+			return errors.New("report entry changed while streaming")
+		}
+	}
+	afterEntries, err := os.ReadDir(directory)
+	if err != nil || len(afterEntries) != len(names) {
+		return errors.New("report entry set changed while streaming")
+	}
+	for index, entry := range afterEntries {
+		if entry.Name() != names[index] {
+			return errors.New("report entry set changed while streaming")
+		}
+	}
+	return archive.Close()
+}
+
+func reportLinkCount(info os.FileInfo) uint64 {
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		return uint64(stat.Nlink)
+	}
+	return 1
 }
 
 func run(arguments []string, input io.Reader, lifecycle io.Writer) int {

@@ -1276,7 +1276,7 @@ func buildAutobahnExecutionPlan(endpoint AutobahnEndpointReceipt, relay Autobahn
 		RunnerSourceDigest: runner.Source.Digest, RunnerBinaryDigest: runner.Binary.Digest, WSTestDigest: runner.WSTestDigest, InterpreterDigest: runner.InterpreterDigest,
 		ReportSourceDigest: PinnedAutobahnReportSourceDigest, ImageManifestDigest: image.ManifestDigest, ImageConfigDigest: image.ConfigDigest,
 		NetworkSubnet: network.Subnet, ControlTransport: network.ControlTransport, FrameProtocol: "DATA-1-END-2-BE32-64KiB-256MiB-v1",
-		ConfigMount: "read-only-bind", ReportsTransport: "bounded-tmpfs-then-hostile-copy-validation", ReportsTmpfsBytes: 256 << 20, ExpectedReportFilesPerCase: 4,
+		ConfigMount: "read-only-bind", ReportsTransport: "authenticated-bounded-runner-tar-from-tmpfs", ReportsTmpfsBytes: 256 << 20, ExpectedReportFilesPerCase: 4,
 		FailurePolicy:           "attempt-client-once-and-server-once-preserve-blocked-receipt",
 		ClientTransportSessions: len(selection.SelectedCaseIDs) * 2, ServerTransportSessions: len(selection.SelectedCaseIDs),
 		Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", IndependentReviewClaimed: false,
@@ -1467,12 +1467,14 @@ func runJavaAutobahnClientCase(ctx context.Context, docker dockerController, net
 	if runErr != nil || !bytes.Contains(output, []byte("CLIENT_COMPLETE runtime="+JavaWebSocketRuntimeDigest)) {
 		cancel()
 		_ = listener.Close()
+		var sessionErr error
 		select {
-		case <-sessions:
+		case sessionErr = <-sessions:
 		case <-time.After(30 * time.Second):
+			sessionErr = finding("AUTOBAHN_CLIENT_MODE_FAILED", "$.client.sessions", "relay session cleanup did not finish within its bound")
 		}
 		logs, _ := docker.output(context.Background(), "logs", "--tail", "100", fuzzingServer)
-		return finding("AUTOBAHN_CLIENT_MODE_FAILED", "$.client.endpoint", boundedString(boundedDetail(output, runErr)+" docker="+string(logs), 2048))
+		return finding("AUTOBAHN_CLIENT_MODE_FAILED", "$.client.endpoint", clientEndpointFailureDetail(output, runErr, sessionErr, logs))
 	}
 	select {
 	case sessionErr := <-sessions:
@@ -1483,6 +1485,14 @@ func runJavaAutobahnClientCase(ctx context.Context, docker dockerController, net
 		return ctx.Err()
 	}
 	return nil
+}
+
+func clientEndpointFailureDetail(endpointOutput []byte, endpointErr, sessionErr error, runnerLogs []byte) string {
+	session := "relay sessions unexpectedly returned without a failure"
+	if sessionErr != nil {
+		session = sessionErr.Error()
+	}
+	return boundedString("session="+session+" endpoint="+boundedDetail(endpointOutput, endpointErr)+" docker="+string(runnerLogs), 2048)
 }
 
 func runFixedClientRelaySessions(ctx context.Context, docker dockerController, network string, relay AutobahnRelayReceipt, listener *net.TCPListener, expected int) error {
@@ -1907,7 +1917,7 @@ func runFuzzingClient(ctx context.Context, docker dockerController, network, con
 		return output, "", runErr
 	}
 	extractionDigest, copyErr := copyThenReleaseAutobahnReports(
-		func() (string, error) { return copyAutobahnReports(docker, container.name, reportDirectory, caseID) },
+		func() (string, error) { return copyAutobahnReports(docker, container, reportDirectory, caseID) },
 		func() error { return releaseAutobahnRunner(docker, container) },
 	)
 	if copyErr != nil {
@@ -1925,7 +1935,7 @@ func collectAndReleaseAutobahnContainer(docker dockerController, container autob
 		return "", flushErr
 	}
 	return copyThenReleaseAutobahnReports(
-		func() (string, error) { return copyAutobahnReports(docker, container.name, reportDirectory, caseID) },
+		func() (string, error) { return copyAutobahnReports(docker, container, reportDirectory, caseID) },
 		func() error { return releaseAutobahnRunner(docker, container) },
 	)
 }
@@ -1957,24 +1967,103 @@ func releaseAutobahnRunner(docker dockerController, container autobahnRunnerCont
 	return waitContainerExit(ctx, docker, container.name, "0")
 }
 
-func copyAutobahnReports(docker dockerController, container, reportDirectory, caseID string) (string, error) {
-	if !regexp.MustCompile(`^vjwt-fuzz(?:server|client)-[0-9a-f]{16}$`).MatchString(container) {
+func copyAutobahnReports(docker dockerController, container autobahnRunnerContainer, reportDirectory, caseID string) (string, error) {
+	if docker.path == "" || !regexp.MustCompile(`^vjwt-fuzz(?:server|client)-[0-9a-f]{16}$`).MatchString(container.name) || container.role != "fuzzingserver" && container.role != "fuzzingclient" || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(container.token) {
 		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report copy requires an exact fixed container identity")
 	}
+	if err := validateFreshAutobahnReportDirectory(reportDirectory); err != nil {
+		return "", err
+	}
+	copyContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	command := exec.CommandContext(copyContext, docker.path, "exec", "--interactive", container.name, "/autobahn-runner", "copy-reports")
+	command.Dir = "/private/tmp"
+	command.Env = []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}
+	command.Stdin = strings.NewReader(container.token + "\n")
+	stdout, err := command.StdoutPipe()
+	if err != nil {
+		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "authenticated report stdout pipe is unavailable")
+	}
+	lifecycle := &boundedBuffer{limit: 64 << 10}
+	command.Stderr = lifecycle
+	if err := command.Start(); err != nil {
+		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", boundedDetail(lifecycle.buffer.Bytes(), err))
+	}
+	digest, extractionErr := extractAutobahnReportArchive(stdout, reportDirectory, caseID)
+	if extractionErr != nil {
+		_ = command.Process.Kill()
+	}
+	extra, extraErr := io.ReadAll(io.LimitReader(stdout, 2))
+	waitErr := command.Wait()
+	marker := []byte("RUNNER_REPORTS_COMPLETE role=" + container.role + " files=4 maximum_bytes=268435456")
+	if extractionErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || bytes.Contains(lifecycle.buffer.Bytes(), []byte("RUNNER_DENIED")) || !bytes.Contains(lifecycle.buffer.Bytes(), marker) {
+		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", boundedString(boundedDetail(lifecycle.buffer.Bytes(), waitErr)+" extraction="+boundedDetail(nil, extractionErr), 2048))
+	}
+	return digest, nil
+}
+
+func validateFreshAutobahnReportDirectory(reportDirectory string) error {
 	clean, err := cleanAbsoluteDirectory(reportDirectory, "$.reports")
 	if err != nil || clean != reportDirectory || requireRealDirectory(reportDirectory) != nil {
-		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report destination is not an exact real directory")
+		return finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report destination is not an exact real directory")
 	}
 	info, infoErr := os.Stat(reportDirectory)
 	entries, readErr := os.ReadDir(reportDirectory)
 	if infoErr != nil || readErr != nil || info.Mode().Perm() != 0o700 || len(entries) != 0 {
-		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report destination must be fresh, empty, and mode 0700")
+		return finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report destination must be fresh, empty, and mode 0700")
 	}
-	copyContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	output, err := docker.output(copyContext, "cp", container+":/reports/.", reportDirectory)
-	if err != nil {
-		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", boundedDetail(output, err))
+	return nil
+}
+
+func extractAutobahnReportArchive(input io.Reader, reportDirectory, caseID string) (string, error) {
+	if err := validateFreshAutobahnReportDirectory(reportDirectory); err != nil {
+		return "", err
+	}
+	jsonName := autobahnReportFilename(AutobahnEndpointAgent, caseID)
+	htmlName := strings.TrimSuffix(jsonName, ".json") + ".html"
+	expected := map[string]struct{}{"index.json": {}, "index.html": {}, jsonName: {}, htmlName: {}}
+	seen := make(map[string]struct{}, len(expected))
+	reader := tar.NewReader(input)
+	var aggregate int64
+	for entries := 0; ; entries++ {
+		if entries > len(expected) {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive contains too many entries")
+		}
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive is truncated or malformed")
+		}
+		name := header.Name
+		_, allowed := expected[name]
+		_, duplicate := seen[name]
+		if !allowed || duplicate || path.Base(name) != name || name == "." || name == ".." || header.Typeflag != tar.TypeReg || header.Linkname != "" || header.Format != tar.FormatUSTAR || header.Mode != 0o400 || header.Size < 1 || header.Size > 64<<20 {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive contains a hostile entry")
+		}
+		if aggregate > 256<<20-header.Size {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive exceeds its aggregate bound")
+		}
+		aggregate += header.Size
+		target := filepath.Join(reportDirectory, name)
+		file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o400)
+		if err != nil {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", target, "authenticated report file could not be created exclusively")
+		}
+		written, copyErr := io.CopyN(file, reader, header.Size)
+		syncErr := file.Sync()
+		closeErr := file.Close()
+		if copyErr != nil || written != header.Size || syncErr != nil || closeErr != nil {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", target, "authenticated report file could not be durably materialized")
+		}
+		seen[name] = struct{}{}
+	}
+	if len(seen) != len(expected) {
+		return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive does not contain the exact four expected files")
+	}
+	if err := syncDir(reportDirectory); err != nil {
+		return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report directory could not be durably synchronized")
 	}
 	return validateCopiedAutobahnReports(reportDirectory, caseID)
 }
