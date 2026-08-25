@@ -18,6 +18,7 @@ blocked while recovery continues.
 | Owner-authorized recovery blocked receipt | 20,116 | `403e73b64ff7941795d23f0779b272582e7ab1d460eccc17cdf3602977d8a4b7` |
 | Ongoing-authorization diagnostic blocked receipt 1 | 22,406 | `63eef8bf405d7b3623841f26a5499a6c21d236031ad35e7b173eca765eb3047a` |
 | Ongoing-authorization diagnostic blocked receipt 2 | 22,540 | `81b8b91dea9894d01fa2a8e62d5f4dd003e8acea6926f7fd291bd1ccfb8654f4` |
+| Ongoing-authorization diagnostic blocked receipt 3 | 22,640 | `7d8fa4df88188bcec74ea972c05efba421d30a75bc4528d394f6f61eecfaeec9` |
 
 These are hashes of the retained receipt bytes before the recovery edits. The
 same files must be rehashed after remediation and review.
@@ -145,6 +146,10 @@ signal delivery. The fixture and tmpfs were removed. This eliminates runner
 `docker attach` without changing report bounds, network isolation, or token
 placement on stdin.
 
+The next diagnostic invocation confirmed the release path repeatedly: server
+mode durably materialized 32 per-case report directories before encountering a
+separate relay attach completion race.
+
 ### Client relay failure was hidden by error discard
 
 The same diagnostic showed that the Java client did not complete its first
@@ -167,5 +172,27 @@ increased and no protocol result classification changed.
 An experiment that closed relay attach stdin immediately after the framed END
 marker was rejected: the existing non-live reverse-relay canary proved Docker
 detached before returning the response frames. That change was reverted before
-commit. Relay attach byte transport therefore remains unchanged while the next
-accounted invocation captures the actual Java handshake exception.
+commit. The later correction below preserves both framed directions before it
+closes the Docker stdin transport.
+
+### Relay attach must close stdin after both directions, not after process wait
+
+The server's thirty-second case failed after its relay had emitted
+`RELAY_COMPLETE`; Docker attach nevertheless remained alive until its context
+killed the CLI. The controller originally waited for attach stdout EOF and
+process exit before closing the local stdin pipe. As with runner release, that
+ordering can keep attach alive after the container process completes. Closing
+stdin as soon as the input encoder finishes was already refuted because it can
+drop response frames. The safe ordering is instead: consume the relay's
+terminal framed output, wait for the loopback-to-relay encoder to finish its
+own terminal END, close attach stdin, reject any bytes after the output END,
+then wait for the attach process. Cancellation closes the loopback peer before
+joining the encoder, and a separate 30-second post-output input bound remains.
+
+A fake attach process that emits a complete framed response and then waits for
+stdin EOF deadlocked before this correction and passes afterward. The existing
+reverse-relay Docker canary also passes, proving response bytes are not
+truncated. Controller-generated SHA-256/byte-count receipts for both raw
+directions are now appended to failed relay lifecycle evidence; they do not
+alter traffic or acceptance, and will distinguish a missing server response
+from a Java handshake-classification problem in the next invocation.

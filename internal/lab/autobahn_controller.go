@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"net"
 	"os"
@@ -815,10 +816,10 @@ func runAttachedRelay(ctx context.Context, docker dockerController, container st
 		logs, _ := docker.output(context.Background(), "logs", "--tail", "20", container)
 		return nil, append([]byte(nil), lifecycle.buffer.Bytes()...), finding("AUTOBAHN_RELAY_FRAME_MALFORMED", "$.relay.attach", boundedString(decodeErr.Error()+" log_hex="+hex.EncodeToString(logs), 2048))
 	}
-	extra, extraErr := io.ReadAll(io.LimitReader(stdout, 2))
-	_ = stdin.Close()
-	waitErr := command.Wait()
 	writeErr := <-writeDone
+	_ = stdin.Close()
+	extra, extraErr := io.ReadAll(io.LimitReader(stdout, 2))
+	waitErr := command.Wait()
 	if extraErr != nil || len(extra) != 0 {
 		return nil, append([]byte(nil), lifecycle.buffer.Bytes()...), finding("AUTOBAHN_RELAY_FRAME_MALFORMED", "$.relay.attach", "bytes follow the terminal output END frame")
 	}
@@ -967,22 +968,55 @@ func runAttachedRelayTCP(ctx context.Context, docker dockerController, container
 	if err := command.Start(); err != nil {
 		return lifecycle.buffer.Bytes(), err
 	}
+	inputCounter := newRelayTransferCounter()
+	outputCounter := newRelayTransferCounter()
 	inputDone := make(chan error, 1)
-	go func() { inputDone <- encodeAttachedStream(connection, stdin) }()
-	decodeErr := decodeAttachedStream(stdout, connection)
+	go func() { inputDone <- encodeAttachedStream(io.TeeReader(connection, inputCounter), stdin) }()
+	decodeErr := decodeAttachedStream(stdout, io.MultiWriter(connection, outputCounter))
 	if decodeErr == nil {
 		_ = connection.CloseWrite()
 	}
+	var inputErr error
+	select {
+	case inputErr = <-inputDone:
+	case <-ctx.Done():
+		_ = connection.Close()
+		inputErr = <-inputDone
+	case <-time.After(30 * time.Second):
+		_ = connection.Close()
+		<-inputDone
+		inputErr = finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", "loopback input did not finish after the terminal relay output")
+	}
+	_ = stdin.Close()
 	extra, extraErr := io.ReadAll(io.LimitReader(stdout, 2))
 	waitErr := command.Wait()
-	_ = stdin.Close()
 	_ = connection.Close()
-	inputErr := <-inputDone
-	if decodeErr != nil || inputErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || !exactRelayLifecycle(lifecycle.buffer.Bytes(), relayRoleFromLifecycle(lifecycle.buffer.Bytes()), true) {
-		detail := boundedString(boundedDetail(lifecycle.buffer.Bytes(), waitErr), 2048)
-		return append([]byte(nil), lifecycle.buffer.Bytes()...), finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", detail)
+	lifecycleReceipt := append([]byte(nil), lifecycle.buffer.Bytes()...)
+	lifecycleReceipt = append(lifecycleReceipt, []byte(fmt.Sprintf("\nCONTROLLER_TRANSFER input_bytes=%d input_digest=%s output_bytes=%d output_digest=%s\n", inputCounter.bytes, inputCounter.digestString(), outputCounter.bytes, outputCounter.digestString()))...)
+	if decodeErr != nil || inputErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || ctx.Err() != nil || !exactRelayLifecycle(lifecycleReceipt, relayRoleFromLifecycle(lifecycleReceipt), true) {
+		detail := boundedString(boundedDetail(lifecycleReceipt, waitErr), 2048)
+		return lifecycleReceipt, finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", detail)
 	}
-	return append([]byte(nil), lifecycle.buffer.Bytes()...), nil
+	return lifecycleReceipt, nil
+}
+
+type relayTransferCounter struct {
+	digest hash.Hash
+	bytes  int64
+}
+
+func newRelayTransferCounter() *relayTransferCounter {
+	return &relayTransferCounter{digest: sha256.New()}
+}
+
+func (c *relayTransferCounter) Write(data []byte) (int, error) {
+	written, err := c.digest.Write(data)
+	c.bytes += int64(written)
+	return written, err
+}
+
+func (c *relayTransferCounter) digestString() string {
+	return "sha256:" + hex.EncodeToString(c.digest.Sum(nil))
 }
 
 func relayRoleFromLifecycle(lifecycle []byte) string {

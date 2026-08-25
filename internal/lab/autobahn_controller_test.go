@@ -20,10 +20,15 @@ import (
 
 func init() {
 	if len(os.Args) == 4 && os.Args[1] == "attach" && os.Args[2] == "--sig-proxy=false" && os.Args[3] == "vjwt-relay-0123456789abcdef" {
+		_, _ = os.Stderr.WriteString("RELAY_PAIRED role=dial\n")
 		if err := writeAttachedFrame(os.Stdout, attachFrameData, []byte("x")); err != nil {
 			os.Exit(91)
 		}
+		if err := writeAttachedFrame(os.Stdout, attachFrameEnd, nil); err != nil {
+			os.Exit(92)
+		}
 		_, _ = io.Copy(io.Discard, os.Stdin)
+		_, _ = os.Stderr.WriteString("RELAY_COMPLETE role=dial\n")
 		os.Exit(0)
 	}
 }
@@ -548,10 +553,10 @@ func TestCancelledAttachedRelayClosesLoopbackBeforeWaitingForInput(t *testing.T)
 	defer client.Close()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
+	done := make(chan attachedModeResult, 1)
 	go func() {
-		_, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server)
-		done <- attachErr
+		lifecycle, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server)
+		done <- attachedModeResult{lifecycle: lifecycle, err: attachErr}
 	}()
 	if err := client.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
 		t.Fatal(err)
@@ -562,14 +567,63 @@ func TestCancelledAttachedRelayClosesLoopbackBeforeWaitingForInput(t *testing.T)
 	}
 	cancel()
 	select {
-	case err := <-done:
-		if err == nil {
+	case result := <-done:
+		if result.err == nil {
 			t.Fatal("cancelled attach unexpectedly succeeded")
 		}
 	case <-time.After(2 * time.Second):
 		_ = client.Close()
 		<-done
 		t.Fatal("cancelled attach waited on loopback input beyond its cleanup bound")
+	}
+}
+
+func TestAttachedRelayClosesDockerStdinAfterBothFramedDirectionsFinish(t *testing.T) {
+	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.ParseIP("127.0.0.1")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	client, err := net.DialTCP("tcp4", nil, listener.Addr().(*net.TCPAddr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, err := listener.AcceptTCP()
+	if err != nil {
+		_ = client.Close()
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	done := make(chan attachedModeResult, 1)
+	go func() {
+		lifecycle, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server)
+		done <- attachedModeResult{lifecycle: lifecycle, err: attachErr}
+	}()
+	if _, err := client.Write([]byte("request")); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.CloseWrite(); err != nil {
+		t.Fatal(err)
+	}
+	response := make([]byte, 1)
+	if _, err := io.ReadFull(client, response); err != nil || string(response) != "x" {
+		t.Fatalf("relay response=%q err=%v", response, err)
+	}
+	select {
+	case result := <-done:
+		if result.err != nil {
+			t.Fatal(result.err)
+		}
+		for _, marker := range []string{"CONTROLLER_TRANSFER input_bytes=7", "output_bytes=1"} {
+			if !bytes.Contains(result.lifecycle, []byte(marker)) {
+				t.Fatalf("missing %q in lifecycle %q", marker, result.lifecycle)
+			}
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("relay attach kept Docker stdin open after both framed directions finished")
 	}
 }
 
