@@ -24,8 +24,9 @@ const (
 )
 
 var (
-	sbxAttemptPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{15,127}$`)
-	sbxNamePattern    = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
+	sbxAttemptPattern   = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{15,127}$`)
+	sbxNamePattern      = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
+	sbxGitObjectPattern = regexp.MustCompile(`^[0-9a-f]{40}$`)
 )
 
 // SandboxAdapterFinding is a fail-closed result at the protected sbx seam.
@@ -312,6 +313,19 @@ type SupervisorCleanupObservation struct {
 	CgroupRemoval        string `json:"cgroup_removal"`
 }
 
+type SupervisorArtifactObservation struct {
+	ToolPath       string `json:"tool_path"`
+	ToolVersion    string `json:"tool_version"`
+	Target         string `json:"target"`
+	SourceCommit   string `json:"source_commit"`
+	NamespacePath  string `json:"namespace_path"`
+	CapturePath    string `json:"capture_path"`
+	CaptureChannel string `json:"capture_channel"`
+	WorkloadDigest string `json:"workload_digest"`
+	ParentDigest   string `json:"parent_digest"`
+	Bytes          int64  `json:"bytes"`
+}
+
 // SupervisorObservation is enforcement evidence from the protected external
 // supervisor. It intentionally has no limits-applied or passed boolean.
 type SupervisorObservation struct {
@@ -319,6 +333,8 @@ type SupervisorObservation struct {
 	SupervisorDigestReopened string                         `json:"supervisor_digest_reopened"`
 	RuntimeIdentity          string                         `json:"runtime_identity"`
 	SBXIdentity              string                         `json:"sbx_identity"`
+	SourceCommit             string                         `json:"source_commit"`
+	SourceTree               string                         `json:"source_tree"`
 	CapabilityPreflight      SupervisorCapabilityPreflight  `json:"capability_preflight"`
 	EnforcementMechanics     SupervisorEnforcementMechanics `json:"enforcement_mechanics"`
 	CgroupInitial            SupervisorCgroupObservation    `json:"cgroup_initial"`
@@ -339,6 +355,7 @@ type SupervisorObservation struct {
 	ParentSignal             string                         `json:"signal"`
 	WallDurationNanos        int64                          `json:"wall_duration_nanos"`
 	Cleanup                  SupervisorCleanupObservation   `json:"cleanup"`
+	Artifact                 SupervisorArtifactObservation  `json:"artifact"`
 	Assurance                string                         `json:"assurance"`
 	IndependentReviewClaimed bool                           `json:"independent_review_claimed"`
 	AutobahnReruns           int                            `json:"autobahn_reruns"`
@@ -627,7 +644,7 @@ func validateSupervisorObservation(profile sbxExecutionProfile, request SbxExecu
 	if err != nil {
 		return err
 	}
-	if observation.DescriptorDigest != expectedDescriptorDigest || observation.SupervisorDigestReopened != request.SupervisorDigest || !isSHA256Digest(observation.StdoutDigest) || !isSHA256Digest(observation.StderrDigest) || observation.RuntimeIdentity == "" || observation.SBXIdentity == "" {
+	if observation.DescriptorDigest != expectedDescriptorDigest || observation.SupervisorDigestReopened != request.SupervisorDigest || !isSHA256Digest(observation.StdoutDigest) || !isSHA256Digest(observation.StderrDigest) || observation.RuntimeIdentity == "" || observation.SBXIdentity == "" || !sbxGitObjectPattern.MatchString(observation.SourceCommit) || !sbxGitObjectPattern.MatchString(observation.SourceTree) {
 		return sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.supervisor_observation.digests", "descriptor, executable, stream, runtime, or sbx identity is absent or drifted")
 	}
 	limits := profile.SupervisorLimits
@@ -701,6 +718,7 @@ func sbxDescriptorContract(id string) (string, string, error) {
 		ExpectedOutcome string `json:"expected_outcome"`
 	}
 	contracts := map[string]descriptor{
+		"BENIGN_OPERATION":          {id, "benign", "EXIT_0_PINNED_ARTIFACT"},
 		"CACHE_WRITE_DENIED":        {id, "cache", "EXIT_0_DENIED"},
 		"CLEAN_EXIT":                {id, "clean", "EXIT_0"},
 		"CPU_BOUND":                 {id, "cpu", "CPU_PARENT_KILL"},
@@ -732,16 +750,19 @@ func validateSBXDescriptorOutcome(id, expectation string, observation Supervisor
 	switch expectation {
 	case "EXIT_0", "EXIT_0_DENIED", "EXIT_0_ABSENT":
 		valid = observation.Termination == "EXITED" && exit(0)
+	case "EXIT_0_PINNED_ARTIFACT":
+		artifact := observation.Artifact
+		valid = observation.Termination == "EXITED" && exit(0) && artifact.ToolPath == "/usr/local/go/bin/go" && artifact.ToolVersion == "go version go1.25.5 linux/arm64" && artifact.Target == "./cmd/resource-envelope-artifact" && artifact.SourceCommit == observation.SourceCommit && artifact.NamespacePath == "/run/us007-output/resource-envelope-artifact" && artifact.CapturePath == "/tmp/us007-resource-envelope-artifact" && artifact.CaptureChannel == "SUPERVISOR_OWNED_PIPE_REOPENED" && isSHA256Digest(artifact.WorkloadDigest) && artifact.WorkloadDigest == artifact.ParentDigest && artifact.Bytes > 0 && artifact.Bytes <= 16777216
 	case "EXIT_23_RLIMIT_NOFILE":
 		valid = observation.Termination == "PARENT_OBSERVED_NONZERO_EXIT" && exit(23) && observation.Peaks.PerProcessOpenFDs >= int64(limits.OpenFiles-4)
 	case "CPU_PARENT_KILL":
 		valid = observation.Termination == "CPU_LIMIT_EXCEEDED" && deltaCPU >= observation.EnforcementMechanics.CPUKillThresholdUsec
 	case "MEMORY_CGROUP_EVENT":
-		valid = observation.CgroupFinal.MemoryEventsMax > observation.CgroupInitial.MemoryEventsMax || observation.CgroupFinal.MemoryEventsKill > observation.CgroupInitial.MemoryEventsKill
+		valid = observation.Termination == "MEMORY_LIMIT_EXCEEDED" && (observation.CgroupFinal.MemoryEventsMax > observation.CgroupInitial.MemoryEventsMax || observation.CgroupFinal.MemoryEventsKill > observation.CgroupInitial.MemoryEventsKill)
 	case "OUTPUT_PARENT_KILL":
 		valid = observation.Termination == "OUTPUT_LIMIT_EXCEEDED" && observation.Peaks.OutputBytes > limits.OutputBytes
 	case "EXIT_23_PIDS_EVENT":
-		valid = exit(23) && observation.CgroupFinal.PIDsEventsMax > observation.CgroupInitial.PIDsEventsMax
+		valid = observation.Termination == "PARENT_OBSERVED_NONZERO_EXIT" && exit(23) && observation.CgroupFinal.PIDsEventsMax > observation.CgroupInitial.PIDsEventsMax
 	case "WALL_PARENT_KILL":
 		valid = observation.Termination == "WALL_LIMIT_EXCEEDED" && observation.WallDurationNanos >= observation.EnforcementMechanics.WallKillThresholdNS
 	case "EXIT_23_TMPFS_ENOSPC":
@@ -760,6 +781,11 @@ func validateSBXWritableMountClosure(data string) error {
 		separator := slices.Index(fields, "-")
 		if len(fields) < 10 || separator < 6 || separator+1 >= len(fields) {
 			return errors.New("invalid mountinfo")
+		}
+		source := fields[separator+2]
+		forbidden := strings.ToLower(fields[4] + " " + source)
+		if strings.Contains(forbidden, "/protected") || strings.Contains(forbidden, "/canonical") || strings.Contains(forbidden, "/signing") || strings.Contains(forbidden, "/production") || strings.Contains(forbidden, "/cross-company") || strings.Contains(forbidden, "docker.sock") {
+			return errors.New("forbidden mount source or target")
 		}
 		if !slices.Contains(strings.Split(fields[5], ","), "rw") {
 			continue

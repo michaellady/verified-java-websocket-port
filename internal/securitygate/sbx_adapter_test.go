@@ -197,6 +197,7 @@ func testSupervisorObservation(request SbxExecutionRequest) SupervisorObservatio
 	return SupervisorObservation{
 		DescriptorDigest: descriptorDigest, SupervisorDigestReopened: request.SupervisorDigest,
 		RuntimeIdentity: "linux/arm64", SBXIdentity: "docker-sbx-v0.39.0/linux/arm64",
+		SourceCommit: "0123456789abcdef0123456789abcdef01234567", SourceTree: "89abcdef0123456789abcdef0123456789abcdef",
 		CapabilityPreflight: SupervisorCapabilityPreflight{
 			CAPSysAdmin: "CapEff bit 21 observed", CgroupV2: "cgroup2 mount observed",
 			Controllers: "cpu memory pids observed", CgroupKill: "cgroup.kill reopened",

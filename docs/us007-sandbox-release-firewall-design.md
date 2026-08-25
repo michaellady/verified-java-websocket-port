@@ -17,10 +17,15 @@ operator accepts zero arguments and owns one compiled Docker sbx request. Its
 Linux/arm64 supervisor executes the exact retained 13-canary registry followed
 by one benign operation. Caller input cannot select a descriptor or provide an
 argv, environment, path, resource limit, launcher, authority claim, or success
-claim. The stage-2 mode is an internal, root-owned `0500` executable path and a
-blocked inherited-FD protocol; the parent writes the child PID to the new
+claim. The host invokes exactly one compiled command with
+`sbx exec --privileged -u root`: the promoted supervisor itself. The exact
+argv is hashed into the owner promotion closure. No `sbx create` capability
+flag is claimed. Privilege exists only while the trusted supervisor creates
+the cgroup and private mount controls. Its stage-2 blocked inherited-FD
+protocol writes the child PID to the new
 cgroup, reopens `cgroup.procs`, observes that exact PID, and only then releases
-the child to mount, drop identity, and exec its compiled command.
+the child. Before any workload starts, stage-2 drops UID/GID and capabilities,
+sets and reopens `no_new_privs` and seccomp, and reports those raw observations.
 
 The supervisor requires a successful capability/delegation preflight before a
 workload starts. Missing `CAP_SYS_ADMIN`, cgroup v2 `cpu memory pids`
@@ -38,8 +43,9 @@ Each stage-2 process has a private mount namespace, read-only root and cloned
 source, and four fixed tmpfs roots. Their compiled allocation is 64 MiB/4096
 inodes for workspace, 32 MiB/2048 for cache, 16 MiB/1024 for output, and
 16 MiB/1024 for general temporary data: exactly 128 MiB and 8192 inodes in
-aggregate. Independent stdout and stderr brokers retain at most 4 MiB each and
-still count discarded bytes. A monotonic deadline triggers before 120 seconds;
+aggregate. Stdout and stderr share one supervisor-owned aggregate 8 MiB budget;
+neither stream has a private allowance, and discarded bytes remain counted. A
+monotonic deadline triggers before 120 seconds;
 CPU, output, writable-root, context, or wall breaches cause both process-group
 and cgroup-tree termination. Cleanup reopens `cgroup.events` and
 `cgroup.procs`, requires `populated 0` and an empty process list, observes the
@@ -56,6 +62,14 @@ including `supervisor_limits_applied`, `passed`, or other workload-authored
 booleans. Candidate `RunControlledCanary` remains unconditionally
 `PROTECTED_CALLER_REQUIRED/BLOCK`; a structurally valid receipt never gives the
 candidate launch authority.
+
+FD, output, aggregate-memory, and PID boundary workloads are compiled Go modes
+selected only by the fixed protected plan. The benign descriptor uses the
+pinned Go tool to build the reviewed standard-library-only
+`./cmd/resource-envelope-artifact` target from the exact commit with fixed
+cache/output roots. A trusted stage-2 monitor reopens and hashes the artifact,
+streams its bounded bytes to the protected parent, and the host operator copies
+and rehashes those captured bytes before namespace and sandbox teardown.
 
 The protected module passed test-first host tests, race detection, vet, a
 Darwin/arm64 host-operator build, and a static Linux/arm64 supervisor
