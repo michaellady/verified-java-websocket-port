@@ -992,7 +992,8 @@ func runAttachedRelayTCP(ctx context.Context, docker dockerController, container
 	waitErr := command.Wait()
 	_ = connection.Close()
 	lifecycleReceipt := append([]byte(nil), lifecycle.buffer.Bytes()...)
-	lifecycleReceipt = append(lifecycleReceipt, []byte(fmt.Sprintf("\nCONTROLLER_TRANSFER input_bytes=%d input_digest=%s output_bytes=%d output_digest=%s\n", inputCounter.bytes, inputCounter.digestString(), outputCounter.bytes, outputCounter.digestString()))...)
+	lifecycleReceipt = recoverRelayCompletion(ctx, docker, container, lifecycleReceipt)
+	lifecycleReceipt = append(lifecycleReceipt, []byte(fmt.Sprintf("\nCONTROLLER_TRANSFER input_bytes=%d input_digest=%s output_bytes=%d output_digest=%s output_prefix_hex=%s\n", inputCounter.bytes, inputCounter.digestString(), outputCounter.bytes, outputCounter.digestString(), outputCounter.sampleHex()))...)
 	if decodeErr != nil || inputErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || ctx.Err() != nil || !exactRelayLifecycle(lifecycleReceipt, relayRoleFromLifecycle(lifecycleReceipt), true) {
 		detail := boundedString(boundedDetail(lifecycleReceipt, waitErr), 2048)
 		return lifecycleReceipt, finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", detail)
@@ -1003,6 +1004,7 @@ func runAttachedRelayTCP(ctx context.Context, docker dockerController, container
 type relayTransferCounter struct {
 	digest hash.Hash
 	bytes  int64
+	sample []byte
 }
 
 func newRelayTransferCounter() *relayTransferCounter {
@@ -1012,11 +1014,45 @@ func newRelayTransferCounter() *relayTransferCounter {
 func (c *relayTransferCounter) Write(data []byte) (int, error) {
 	written, err := c.digest.Write(data)
 	c.bytes += int64(written)
+	if remaining := 512 - len(c.sample); remaining > 0 {
+		if remaining > len(data) {
+			remaining = len(data)
+		}
+		c.sample = append(c.sample, data[:remaining]...)
+	}
 	return written, err
 }
 
 func (c *relayTransferCounter) digestString() string {
 	return "sha256:" + hex.EncodeToString(c.digest.Sum(nil))
+}
+
+func (c *relayTransferCounter) sampleHex() string {
+	return hex.EncodeToString(c.sample)
+}
+
+func recoverRelayCompletion(ctx context.Context, docker dockerController, container string, lifecycle []byte) []byte {
+	role := relayRoleFromLifecycle(lifecycle)
+	if role == "" || exactRelayLifecycle(lifecycle, role, true) || docker.path == "" && docker.run == nil {
+		return lifecycle
+	}
+	marker := []byte("RELAY_COMPLETE role=" + role)
+	denied := []byte("RELAY_DENIED")
+	for attempt := 0; attempt < 50; attempt++ {
+		logs, err := docker.output(ctx, "logs", "--tail", "20", container)
+		if err == nil && bytes.Contains(logs, denied) {
+			return append(append(lifecycle, '\n'), denied...)
+		}
+		if err == nil && bytes.Contains(logs, marker) {
+			return append(append(lifecycle, '\n'), marker...)
+		}
+		select {
+		case <-ctx.Done():
+			return lifecycle
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	return lifecycle
 }
 
 func relayRoleFromLifecycle(lifecycle []byte) string {

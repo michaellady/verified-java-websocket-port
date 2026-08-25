@@ -617,13 +617,27 @@ func TestAttachedRelayClosesDockerStdinAfterBothFramedDirectionsFinish(t *testin
 		if result.err != nil {
 			t.Fatal(result.err)
 		}
-		for _, marker := range []string{"CONTROLLER_TRANSFER input_bytes=7", "output_bytes=1"} {
+		for _, marker := range []string{"CONTROLLER_TRANSFER input_bytes=7", "output_bytes=1", "output_prefix_hex=78"} {
 			if !bytes.Contains(result.lifecycle, []byte(marker)) {
 				t.Fatalf("missing %q in lifecycle %q", marker, result.lifecycle)
 			}
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("relay attach kept Docker stdin open after both framed directions finished")
+	}
+}
+
+func TestRelayCompletionCanBeRecoveredOnlyFromExactDockerLogMarker(t *testing.T) {
+	lifecycle := []byte("RELAY_PAIRED role=listen\n")
+	docker := dockerController{run: func(_ context.Context, arguments ...string) ([]byte, error) {
+		if !equalStrings(arguments, []string{"logs", "--tail", "20", "vjwt-relay-0123456789abcdef"}) {
+			t.Fatalf("unexpected Docker arguments: %v", arguments)
+		}
+		return []byte("binary-prefix\nRELAY_COMPLETE role=listen\n"), nil
+	}}
+	got := recoverRelayCompletion(context.Background(), docker, "vjwt-relay-0123456789abcdef", lifecycle)
+	if !exactRelayLifecycle(got, "listen", true) || bytes.Contains(got, []byte("binary-prefix")) {
+		t.Fatalf("recovered lifecycle=%q", got)
 	}
 }
 

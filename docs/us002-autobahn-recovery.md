@@ -19,6 +19,7 @@ blocked while recovery continues.
 | Ongoing-authorization diagnostic blocked receipt 1 | 22,406 | `63eef8bf405d7b3623841f26a5499a6c21d236031ad35e7b173eca765eb3047a` |
 | Ongoing-authorization diagnostic blocked receipt 2 | 22,540 | `81b8b91dea9894d01fa2a8e62d5f4dd003e8acea6926f7fd291bd1ccfb8654f4` |
 | Ongoing-authorization diagnostic blocked receipt 3 | 22,640 | `7d8fa4df88188bcec74ea972c05efba421d30a75bc4528d394f6f61eecfaeec9` |
+| Ongoing-authorization diagnostic blocked receipt 4 | 23,436 | `d341915c9b8f0b84afbc7ad1c2c9e4f06bee2e370089d286eaaf4f9aa36c4135` |
 
 These are hashes of the retained receipt bytes before the recovery edits. The
 same files must be rehashed after remediation and review.
@@ -196,3 +197,19 @@ truncated. Controller-generated SHA-256/byte-count receipts for both raw
 directions are now appended to failed relay lifecycle evidence; they do not
 alter traffic or acceptance, and will distinguish a missing server response
 from a Java handshake-classification problem in the next invocation.
+
+That invocation proved the client relay was bidirectional: Java sent 209 raw
+bytes (`sha256:e666d421098b903a10880b5fe0f0901d2d22ae336462fc69e25329a84cd83343`)
+and received 107 raw bytes
+(`sha256:1b2f5b9ee944424541b73f2fc515afa505721a6c99140102d85c37252c2ff593`).
+The response did not complete Java's WebSocket open and produced no pre-open
+exception. A bounded 512-byte maximum hex prefix of only the server-to-Java
+handshake response is therefore added to failed transport evidence; payload
+contents and Java-to-server request bytes remain unlogged.
+
+The same invocation showed that attach may omit a final stderr lifecycle line
+while preserving both raw directions. When the attached stream has an exact
+paired role but lacks completion, the controller now polls only that exact
+container's last 20 Docker log lines for up to five seconds and appends only an
+exact `RELAY_COMPLETE role=...` or `RELAY_DENIED` marker—never mixed binary log
+content. Missing or denied completion still fails closed.
