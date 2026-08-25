@@ -261,6 +261,10 @@ func loadSbxExecutionProfile(rootPath string) (sbxExecutionProfile, error) {
 	if err != nil {
 		return sbxExecutionProfile{}, err
 	}
+	var retainedSandbox sandboxPolicy
+	if err := intake.DecodeStrict(policyBytes, &retainedSandbox); err != nil {
+		return sbxExecutionProfile{}, sbxFinding("INVALID_SECURITY_POLICY", "BLOCK", policyPaths[1], err.Error())
+	}
 	var profile sbxExecutionProfile
 	if err := intake.DecodeStrict(data, &profile); err != nil {
 		return sbxExecutionProfile{}, sbxFinding("INVALID_SECURITY_POLICY", "BLOCK", sbxExecutionProfilePath, err.Error())
@@ -277,7 +281,7 @@ func loadSbxExecutionProfile(rootPath string) (sbxExecutionProfile, error) {
 		isolation.WorkspaceMode != "clone" || isolation.CPUs != 2 || isolation.Memory != "2g" || isolation.MemoryBytes != 2147483648 || isolation.EnvironmentImport != "none" || isolation.SecretImport != "none" ||
 		isolation.HostDockerSocket || isolation.SharedSkills || isolation.LocalMCP || len(isolation.StaticMCPServers) != 0 || len(isolation.Kits) != 0 || len(isolation.PublishedPorts) != 0 ||
 		network.PolicyID != "default-deny-all" || network.RuleID != "default-deny-all" || network.ResourceType != "network" || network.Decision != "deny" || !slices.Equal(network.Resources, []string{"**"}) || network.Origin != "local" || network.Status != "active" || !isSHA256Digest(network.CanonicalDigest) ||
-		profile.SandboxPolicyDigest != intake.DigestBytes(policyBytes) || profile.SupervisorLimits.WallSeconds != 120 || profile.SupervisorLimits.MemoryBytes != isolation.MemoryBytes || profile.SupervisorLimits.PIDs != 256 || profile.SupervisorLimits.OutputBytes != 536870912 || profile.SupervisorLimits.DiskBytes != 536870912 ||
+		profile.SandboxPolicyDigest != intake.DigestBytes(policyBytes) || profile.SupervisorLimits != retainedSandbox.Resources || profile.SupervisorLimits.MemoryBytes > isolation.MemoryBytes ||
 		profile.Cleanup.RemoveMode != "sbx-rm-force" || profile.Cleanup.PostRemovalCheck != "sbx-ls-absence" || !profile.Cleanup.AbsenceRequired ||
 		profile.Assurance != AssuranceOwnerOnly || profile.IndependentReviewClaimed || profile.Production || profile.Signing || profile.Publication {
 		return sbxExecutionProfile{}, sbxFinding("INVALID_SECURITY_POLICY", "BLOCK", sbxExecutionProfilePath, "Docker sbx execution profile differs from the exact protected contract")

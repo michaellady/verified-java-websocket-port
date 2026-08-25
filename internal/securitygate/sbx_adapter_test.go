@@ -33,6 +33,13 @@ func TestSbxExecutionRequestBindsExactProtectedProfile(t *testing.T) {
 		!slices.Equal(request.AbsenceCommand, []string{wantCreate[0], "ls", "--json"}) {
 		t.Fatalf("cleanup commands=%q / %q", request.RemoveCommand, request.AbsenceCommand)
 	}
+	profile, err := loadSbxExecutionProfile(repoRoot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if profile.SupervisorLimits != (resources{WallSeconds: 120, CPUSeconds: 60, MemoryBytes: 536870912, PIDs: 64, OpenFiles: 256, OutputBytes: 8388608, WorkspaceBytes: 67108864, CacheBytes: 67108864, DiskBytes: 134217728, Inodes: 8192}) {
+		t.Fatalf("supervisor limits widened from retained sandbox policy: %#v", profile.SupervisorLimits)
+	}
 	for _, forbidden := range []string{"--env", "--env-file", "--kit", "--publish", "--static-mcp", "--privileged"} {
 		if slices.Contains(request.CreateCommand, forbidden) {
 			t.Fatalf("create command imports forbidden capability %s", forbidden)

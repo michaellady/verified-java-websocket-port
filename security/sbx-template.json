@@ -45,13 +45,13 @@
   "supervisor_limits": {
     "wall_seconds": 120,
     "cpu_seconds": 60,
-    "memory_bytes": 2147483648,
-    "pids": 256,
+    "memory_bytes": 536870912,
+    "pids": 64,
     "open_files": 256,
-    "output_bytes": 536870912,
+    "output_bytes": 8388608,
     "workspace_bytes": 67108864,
     "cache_bytes": 67108864,
-    "disk_bytes": 536870912,
+    "disk_bytes": 134217728,
     "inodes": 8192
   },
   "cleanup": {
