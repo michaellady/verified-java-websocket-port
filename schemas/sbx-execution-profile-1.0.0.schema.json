@@ -30,7 +30,7 @@
         "workspace_mode":{"const":"clone"},"cpus":{"const":2},"memory":{"const":"2g"},"memory_bytes":{"const":2147483648},
         "environment_import":{"const":"none"},"secret_import":{"const":"none"},"platform_control_secret":{"const":"mcpgateway"},"mcp_gateway_infrastructure":{"const":true},"clone_git_bridge_required":{"const":true},"host_docker_socket":{"const":false},"shared_skills":{"const":false},"local_mcp":{"const":false},
         "static_mcp_servers":{"type":"array","maxItems":0},"kits":{"type":"array","maxItems":0},"published_ports":{"type":"array","maxItems":0},
-        "network_policy":{"type":"object","additionalProperties":false,"required":["policy_id","rule_id","resource_type","decision","resources","origin","status","canonical_digest"],"properties":{"policy_id":{"const":"default-deny-all"},"rule_id":{"const":"default-deny-all"},"resource_type":{"const":"network"},"decision":{"const":"deny"},"resources":{"const":["**"]},"origin":{"const":"local"},"status":{"const":"active"},"canonical_digest":{"$ref":"#/$defs/digest"}}}
+        "network_policy":{"type":"object","additionalProperties":false,"required":["policy_id","rule_id","resource_type","decision","resources","origin","status","canonical_digest","per_sandbox_deny_resources"],"properties":{"policy_id":{"const":"default-deny-all"},"rule_id":{"const":"default-deny-all"},"resource_type":{"const":"network"},"decision":{"const":"deny"},"resources":{"const":["**"]},"origin":{"const":"local"},"status":{"const":"active"},"canonical_digest":{"$ref":"#/$defs/digest"},"per_sandbox_deny_resources":{"const":["**"]}}}
       }
     },
     "sandbox_policy_digest":{"$ref":"#/$defs/digest"},

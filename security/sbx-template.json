@@ -42,6 +42,7 @@
       "origin": "local",
       "status": "active",
       "canonical_digest": "sha256:146dc8c6cebf3e5548cd4432c924e6271cbb7958b8427e2874ef1282d8eea541"
+      ,"per_sandbox_deny_resources": ["**"]
     }
   },
   "sandbox_policy_digest": "sha256:12c6db734495d294ed32a32cd18af167595a99f97a0755c47c7a8e40bfb91e97",

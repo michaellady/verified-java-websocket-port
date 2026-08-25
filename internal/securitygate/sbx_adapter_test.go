@@ -22,7 +22,7 @@ func TestSbxExecutionRequestBindsExactProtectedProfile(t *testing.T) {
 		t.Fatalf("root/profile binding=%#v", request)
 	}
 	wantCreate := []string{
-		"/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx", "create", "--clone", "--cpus", "2", "--memory", "2g",
+		"/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx", "create", "--clone", "--cpus", "2", "--memory", "2g", "--deny-network", "**",
 		"--name", "us007-clean-exit", "--template", "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
 		"shell", repoRoot(t),
 	}

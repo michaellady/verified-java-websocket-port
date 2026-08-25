@@ -57,14 +57,15 @@ type sbxRuntimeProfile struct {
 }
 
 type sbxNetworkPolicy struct {
-	PolicyID        string   `json:"policy_id"`
-	RuleID          string   `json:"rule_id"`
-	ResourceType    string   `json:"resource_type"`
-	Decision        string   `json:"decision"`
-	Resources       []string `json:"resources"`
-	Origin          string   `json:"origin"`
-	Status          string   `json:"status"`
-	CanonicalDigest string   `json:"canonical_digest"`
+	PolicyID                string   `json:"policy_id"`
+	RuleID                  string   `json:"rule_id"`
+	ResourceType            string   `json:"resource_type"`
+	Decision                string   `json:"decision"`
+	Resources               []string `json:"resources"`
+	Origin                  string   `json:"origin"`
+	Status                  string   `json:"status"`
+	CanonicalDigest         string   `json:"canonical_digest"`
+	PerSandboxDenyResources []string `json:"per_sandbox_deny_resources"`
 }
 
 type sbxIsolationProfile struct {
@@ -286,7 +287,7 @@ func loadSbxExecutionProfile(rootPath string) (sbxExecutionProfile, error) {
 		runtime.TemplateIndexDigest != "sha256:c183a8ba03cdb30011c73f555c773c5712b84c6ea066f18409253dcab2cfe799" || runtime.TemplatePlatform != "linux/arm64" || runtime.TemplateManifestDigest != "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec" ||
 		isolation.WorkspaceMode != "clone" || isolation.CPUs != 2 || isolation.Memory != "2g" || isolation.MemoryBytes != 2147483648 || isolation.EnvironmentImport != "none" || isolation.SecretImport != "none" || isolation.PlatformControlSecret != "mcpgateway" || !isolation.MCPGatewayInfrastructure || !isolation.CloneGitBridgeRequired ||
 		isolation.HostDockerSocket || isolation.SharedSkills || isolation.LocalMCP || len(isolation.StaticMCPServers) != 0 || len(isolation.Kits) != 0 || len(isolation.PublishedPorts) != 0 ||
-		network.PolicyID != "default-deny-all" || network.RuleID != "default-deny-all" || network.ResourceType != "network" || network.Decision != "deny" || !slices.Equal(network.Resources, []string{"**"}) || network.Origin != "local" || network.Status != "active" || !isSHA256Digest(network.CanonicalDigest) ||
+		network.PolicyID != "default-deny-all" || network.RuleID != "default-deny-all" || network.ResourceType != "network" || network.Decision != "deny" || !slices.Equal(network.Resources, []string{"**"}) || !slices.Equal(network.PerSandboxDenyResources, []string{"**"}) || network.Origin != "local" || network.Status != "active" || !isSHA256Digest(network.CanonicalDigest) ||
 		profile.SandboxPolicyDigest != intake.DigestBytes(policyBytes) || profile.SupervisorLimits != retainedSandbox.Resources || profile.SupervisorLimits.MemoryBytes > isolation.MemoryBytes ||
 		profile.Cleanup.RemoveMode != "sbx-rm-force" || profile.Cleanup.PostRemovalCheck != "sbx-ls-absence" || !profile.Cleanup.AbsenceRequired ||
 		profile.Assurance != AssuranceOwnerOnly || profile.IndependentReviewClaimed || profile.Production || profile.Signing || profile.Publication {
@@ -335,7 +336,7 @@ func BuildSbxExecutionRequest(rootPath string, parameters SbxExecutionParameters
 	if err != nil || pathIdentitiesOverlap(input.path, output.path) {
 		return SbxExecutionRequest{}, sbxFinding("ROOT_CONFINEMENT_FAILED", "QUARANTINE", "$.output_root", "output must be a specific existing root disjoint from clone input")
 	}
-	create := []string{profile.Runtime.CLIPath, "create", "--clone", "--cpus", strconv.Itoa(profile.Isolation.CPUs), "--memory", profile.Isolation.Memory, "--name", parameters.SandboxName, "--template", profile.Runtime.TemplateReference, profile.Runtime.Agent, input.path}
+	create := []string{profile.Runtime.CLIPath, "create", "--clone", "--cpus", strconv.Itoa(profile.Isolation.CPUs), "--memory", profile.Isolation.Memory, "--deny-network", "**", "--name", parameters.SandboxName, "--template", profile.Runtime.TemplateReference, profile.Runtime.Agent, input.path}
 	return SbxExecutionRequest{
 		SchemaVersion: policyVersion, Company: requiredCompany, Project: requiredProject, Laboratory: requiredLaboratory,
 		AttemptID: parameters.AttemptID, SandboxName: parameters.SandboxName, CanaryID: parameters.CanaryID, PlanDigest: parameters.PlanDigest,
