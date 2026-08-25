@@ -107,6 +107,40 @@ func TestRunControlledCanaryRemainsUnconditionallyProtected(t *testing.T) {
 	}
 }
 
+func TestPIDCgroupTriggerRemainsBelowRetainedNProcLimit(t *testing.T) {
+	request := testSbxExecutionRequest(t)
+	request.CanaryID = "PID_BOUND"
+	receipt := testSbxReceipt(t, request)
+	receipt.SupervisorObservation.EnforcementMechanics.CgroupPIDsMax = 56
+	receipt.SupervisorObservation.CgroupInitial.PIDsMax = 56
+	receipt.SupervisorObservation.CgroupFinal.PIDsMax = 56
+	receipt.SupervisorObservation.CgroupFinal.PIDsEventsMax = 1
+	receipt.SupervisorObservation.Termination = "PARENT_OBSERVED_NONZERO_EXIT"
+	receipt.SupervisorObservation.ParentExitCode = sbxIntPointer(23)
+	profile, err := loadSbxExecutionProfile(repoRoot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateSbxExecutionReceipt(profile, request, receipt); err != nil {
+		t.Fatal(err)
+	}
+	receipt.SupervisorObservation.CgroupInitial.PIDsMax = int64(profile.SupervisorLimits.PIDs)
+	if err := validateSbxExecutionReceipt(profile, request, receipt); err == nil {
+		t.Fatal("pids.max equal to retained RLIMIT_NPROC accepted")
+	}
+}
+
+func TestMountinfoForbiddenBindRootFieldIsUnescapedAndRejected(t *testing.T) {
+	realistic := testCandidateMountInfo() + "\n8 1 0:8 /protected/owner /safe ro,relatime - ext4 /dev/disk1 ro"
+	if err := validateSBXWritableMountClosure(realistic); err == nil {
+		t.Fatal("forbidden bind root field accepted")
+	}
+	escaped := testCandidateMountInfo() + "\n8 1 0:8 /protected\\040owner /safe ro,relatime - ext4 /dev/disk1 ro"
+	if err := validateSBXWritableMountClosure(escaped); err == nil {
+		t.Fatal("escaped forbidden bind root field accepted")
+	}
+}
+
 func TestProtectedPublicProjectionGoldenRoundTrip(t *testing.T) {
 	projection := testProtectedPublicProjection()
 	canonical, err := intake.CanonicalJSON(projection)

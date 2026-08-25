@@ -33,7 +33,9 @@ controllers, writable per-attempt cgroups, `cgroup.kill`, private mount/tmpfs
 support, or the stage-2 membership handshake yields
 `SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK`. It configures and reopens
 `memory.max=536870912`, `memory.swap.max=0`, `memory.oom.group=1`, and
-`pids.max=64`; monitors aggregate cgroup `cpu.stat` usage against 60 seconds;
+`pids.max=56`; retains `RLIMIT_NPROC=64` as the declared per-UID process
+ceiling so the lower cgroup trigger deterministically increments
+`pids.events.max`; monitors aggregate cgroup `cpu.stat` usage against 60 seconds;
 and applies reopened stage-2 rlimits for CPU, address space, per-UID processes,
 per-process open files, file size, and core size. `RLIMIT_NOFILE=256` is exactly
 a per-process hard cap. Aggregate tree FD counts are observed, but are not

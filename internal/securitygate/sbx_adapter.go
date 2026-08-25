@@ -253,6 +253,7 @@ type SupervisorEnforcementMechanics struct {
 	RLimitFSizeBytes     int64 `json:"rlimit_fsize_bytes"`
 	CPUKillThresholdUsec int64 `json:"cpu_kill_threshold_usec"`
 	WallKillThresholdNS  int64 `json:"wall_kill_threshold_nanos"`
+	CgroupPIDsMax        int64 `json:"cgroup_pids_max"`
 }
 
 type SupervisorRLimitObservation struct {
@@ -649,11 +650,11 @@ func validateSupervisorObservation(profile sbxExecutionProfile, request SbxExecu
 	}
 	limits := profile.SupervisorLimits
 	mechanics := observation.EnforcementMechanics
-	if mechanics.RLimitFSizeBytes != limits.DiskBytes || mechanics.CPUKillThresholdUsec != int64(limits.CPUSeconds)*1_000_000-2_000_000 || mechanics.WallKillThresholdNS != int64(limits.WallSeconds)*int64(time.Second)-int64(time.Second) {
+	if mechanics.RLimitFSizeBytes != limits.DiskBytes || mechanics.CPUKillThresholdUsec != int64(limits.CPUSeconds)*1_000_000-2_000_000 || mechanics.WallKillThresholdNS != int64(limits.WallSeconds)*int64(time.Second)-int64(time.Second) || mechanics.CgroupPIDsMax != 56 || mechanics.CgroupPIDsMax >= int64(limits.PIDs) {
 		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.enforcement_mechanics", "FSIZE or conservative CPU/wall parent-kill mechanics drifted")
 	}
 	initial, final := observation.CgroupInitial, observation.CgroupFinal
-	if initial.MemoryMaxBytes != limits.MemoryBytes || initial.MemorySwapMax != 0 || initial.MemoryOOMGroup != 1 || initial.PIDsMax != int64(limits.PIDs) {
+	if initial.MemoryMaxBytes != limits.MemoryBytes || initial.MemorySwapMax != 0 || initial.MemoryOOMGroup != 1 || initial.PIDsMax != mechanics.CgroupPIDsMax || final.PIDsMax != mechanics.CgroupPIDsMax {
 		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.cgroup_initial", "reopened cgroup-v2 configuration differs from the compiled envelope")
 	}
 	if final.CPUUsageUsec < initial.CPUUsageUsec || final.CPUUserUsec < initial.CPUUserUsec || final.CPUSystemUsec < initial.CPUSystemUsec || final.MemoryEventsMax < initial.MemoryEventsMax || final.MemoryEventsOOM < initial.MemoryEventsOOM || final.MemoryEventsKill < initial.MemoryEventsKill || final.MemoryPeak < initial.MemoryPeak || final.PIDsEventsMax < initial.PIDsEventsMax {
@@ -779,21 +780,32 @@ func validateSBXWritableMountClosure(data string) error {
 	for _, line := range strings.Split(strings.TrimSpace(data), "\n") {
 		fields := strings.Fields(line)
 		separator := slices.Index(fields, "-")
-		if len(fields) < 10 || separator < 6 || separator+1 >= len(fields) {
+		if len(fields) < 10 || separator < 6 || separator+2 >= len(fields) {
 			return errors.New("invalid mountinfo")
 		}
-		source := fields[separator+2]
-		forbidden := strings.ToLower(fields[4] + " " + source)
+		root, err := unescapeSBXMountInfoField(fields[3])
+		if err != nil {
+			return err
+		}
+		target, err := unescapeSBXMountInfoField(fields[4])
+		if err != nil {
+			return err
+		}
+		source, err := unescapeSBXMountInfoField(fields[separator+2])
+		if err != nil {
+			return err
+		}
+		forbidden := strings.ToLower(root + " " + target + " " + source)
 		if strings.Contains(forbidden, "/protected") || strings.Contains(forbidden, "/canonical") || strings.Contains(forbidden, "/signing") || strings.Contains(forbidden, "/production") || strings.Contains(forbidden, "/cross-company") || strings.Contains(forbidden, "docker.sock") {
 			return errors.New("forbidden mount source or target")
 		}
 		if !slices.Contains(strings.Split(fields[5], ","), "rw") {
 			continue
 		}
-		if _, ok := want[fields[4]]; !ok || want[fields[4]] || fields[separator+1] != "tmpfs" {
+		if _, ok := want[target]; !ok || want[target] || fields[separator+1] != "tmpfs" {
 			return errors.New("unexpected writable mount")
 		}
-		want[fields[4]] = true
+		want[target] = true
 	}
 	for _, seen := range want {
 		if !seen {
@@ -801,6 +813,35 @@ func validateSBXWritableMountClosure(data string) error {
 		}
 	}
 	return nil
+}
+
+func unescapeSBXMountInfoField(value string) (string, error) {
+	var builder strings.Builder
+	for index := 0; index < len(value); {
+		if value[index] != '\\' {
+			builder.WriteByte(value[index])
+			index++
+			continue
+		}
+		if index+4 > len(value) {
+			return "", errors.New("truncated mountinfo escape")
+		}
+		escape := value[index : index+4]
+		switch escape {
+		case `\040`:
+			builder.WriteByte(' ')
+		case `\011`:
+			builder.WriteByte('\t')
+		case `\012`:
+			builder.WriteByte('\n')
+		case `\134`:
+			builder.WriteByte('\\')
+		default:
+			return "", fmt.Errorf("unsupported mountinfo escape %q", escape)
+		}
+		index += 4
+	}
+	return builder.String(), nil
 }
 
 func validateSbxExecutionReceipt(profile sbxExecutionProfile, request SbxExecutionRequest, receipt SbxExecutionReceipt) error {

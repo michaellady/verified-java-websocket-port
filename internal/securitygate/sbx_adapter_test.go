@@ -191,7 +191,7 @@ func testSupervisorObservation(request SbxExecutionRequest) SupervisorObservatio
 		panic(err)
 	}
 	initial := SupervisorCgroupObservation{
-		MemoryMaxBytes: 536870912, MemorySwapMax: 0, MemoryOOMGroup: 1, PIDsMax: 64,
+		MemoryMaxBytes: 536870912, MemorySwapMax: 0, MemoryOOMGroup: 1, PIDsMax: 56,
 		CPUUsageUsec: 1, CPUUserUsec: 1,
 	}
 	return SupervisorObservation{
@@ -204,7 +204,7 @@ func testSupervisorObservation(request SbxExecutionRequest) SupervisorObservatio
 			MountTmpfs:        "private mount namespace and tmpfs available",
 			Stage2Containment: "pid reopened in cgroup.procs before release",
 		},
-		EnforcementMechanics: SupervisorEnforcementMechanics{RLimitFSizeBytes: 134217728, CPUKillThresholdUsec: 58000000, WallKillThresholdNS: 119000000000},
+		EnforcementMechanics: SupervisorEnforcementMechanics{RLimitFSizeBytes: 134217728, CPUKillThresholdUsec: 58000000, WallKillThresholdNS: 119000000000, CgroupPIDsMax: 56},
 		CgroupInitial:        initial, CgroupFinal: initial,
 		RLimits: SupervisorRLimitObservation{
 			CPUCur: 60, CPUMax: 60, ASCur: 536870912, ASMax: 536870912,
