@@ -259,6 +259,56 @@ func TestUS007Acceptance_ProjectionLoadsRecursesAndScansExactAcceptedRoot(t *tes
 	}
 }
 
+func TestUS007Acceptance_ReleaseFixtureBindsObservedProjectionResult(t *testing.T) {
+	tests := []struct {
+		fixture string
+		content string
+		code    string
+	}{
+		{"cache-leak", "SYNTHETIC_CACHE_STATE", "CACHE_DISCLOSURE"},
+		{"credential-leak", "SYNTHETIC_TOKEN_VALUE", "CREDENTIAL_DISCLOSURE"},
+		{"expected-output-leak", "SYNTHETIC_GOLDEN_ANSWER", "EXPECTED_OUTPUT_DISCLOSURE"},
+		{"identifier-leak", "SYNTHETIC_SESSION_IDENTIFIER", "IDENTIFIER_DISCLOSURE"},
+		{"protected-leak", "SYNTHETIC_PROTECTED_CANARY", "PROTECTED_PUBLICATION_DISCLOSURE"},
+		{"raw-diagnostic-leak", "SYNTHETIC_RAW_TRACE", "RAW_DIAGNOSTIC_DISCLOSURE"},
+	}
+	for _, test := range tests {
+		t.Run(test.fixture, func(t *testing.T) {
+			store, candidateRoot := acceptedProjectionFixture(t, "public/readme.txt", []byte(test.content), "PUBLIC", true)
+			before := acceptedRootCount(t, store)
+			verdict, err := Project(context.Background(), Request{
+				RootPath: repoRoot(t), Operation: OperationProject, CandidateRoot: candidateRoot,
+				FixtureID: test.fixture, StorePath: store,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(verdict.Findings) != 1 || verdict.Findings[0].Code != test.code || verdict.Findings[0].Disposition != "REVOKE" || verdict.ProjectionRoot != "" || verdict.PublicationAuthorized {
+				t.Fatalf("verdict=%#v", verdict)
+			}
+			if after := acceptedRootCount(t, store); after != before {
+				t.Fatalf("rejected projection became durable: accepted roots before=%d after=%d", before, after)
+			}
+		})
+	}
+
+	store, candidateRoot := acceptedProjectionFixture(t, "public/readme.txt", []byte("unrelated inert safe bytes"), "PUBLIC", true)
+	before := acceptedRootCount(t, store)
+	verdict, err := Project(context.Background(), Request{
+		RootPath: repoRoot(t), Operation: OperationProject, CandidateRoot: candidateRoot,
+		FixtureID: "credential-leak", StorePath: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(verdict.Findings) != 1 || verdict.Findings[0].Code != "INVALID_SECURITY_POLICY" || verdict.Findings[0].Disposition != "BLOCK" || verdict.ProjectionRoot != "" || verdict.PublicationAuthorized {
+		t.Fatalf("unbound fixture verdict=%#v", verdict)
+	}
+	if after := acceptedRootCount(t, store); after != before {
+		t.Fatalf("unbound fixture projection became durable: accepted roots before=%d after=%d", before, after)
+	}
+}
+
 func TestUS007Acceptance_IncludedDirectoryRequiresRecursivelyIncludedAncestor(t *testing.T) {
 	provenance := "scope:SYNTHETIC_NON_CLAIM/company:" + requiredCompany + "/project:" + requiredProject
 	manifest := candidateManifest{
@@ -366,4 +416,13 @@ func acceptedProjectionFixture(t *testing.T, path string, content []byte, classi
 		t.Fatal(err)
 	}
 	return store, acceptedRoot
+}
+
+func acceptedRootCount(t *testing.T, store string) int {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(store, "accepted"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(entries)
 }

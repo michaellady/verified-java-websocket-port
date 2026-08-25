@@ -107,6 +107,18 @@ func TestProjectUsesCandidateRootAndRejectsOperationSpecificRootFlagMisuse(t *te
 	if len(verdict.Findings) != 1 || verdict.Findings[0].Code != "PROTECTED_CLASSIFIER_UNAVAILABLE" || verdict.ProjectionRoot == "" {
 		t.Fatalf("project verdict=%#v", verdict)
 	}
+	stdout.Reset()
+	stderr.Reset()
+	if exit := run([]string{"project", "--root", root, "--candidate-root", rootDigest, "--store", store, "--fixture", "credential-leak"}, &stdout, &stderr); exit != 1 {
+		t.Fatalf("unbound credential fixture exit=%d stdout=%s stderr=%s", exit, stdout.String(), stderr.String())
+	}
+	verdict = securitygate.Verdict{}
+	if err := json.Unmarshal(stdout.Bytes(), &verdict); err != nil {
+		t.Fatalf("unbound credential fixture JSON: %v", err)
+	}
+	if len(verdict.Findings) != 1 || verdict.Findings[0].Code != "INVALID_SECURITY_POLICY" || verdict.ProjectionRoot != "" {
+		t.Fatalf("unbound credential fixture verdict=%#v", verdict)
+	}
 
 	misuse := [][]string{
 		{"project", "--root", root, "--accepted-root", rootDigest, "--store", store},

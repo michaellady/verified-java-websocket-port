@@ -28,7 +28,7 @@ type projectionFile struct {
 	Provenance     string `json:"provenance"`
 }
 
-func materializeProjection(storePath, sourceRoot string, accepted *lab.AcceptedRoot, policy releasePolicy) (string, *Finding, error) {
+func materializeProjection(storePath, sourceRoot string, accepted *lab.AcceptedRoot, policy releasePolicy, fixture *fixtureCase) (string, *Finding, error) {
 	deny := func(code, disposition, path, message string) (string, *Finding, error) {
 		return "", &Finding{Code: code, Disposition: disposition, Path: path, Message: message}, nil
 	}
@@ -119,6 +119,9 @@ func materializeProjection(storePath, sourceRoot string, accepted *lab.AcceptedR
 		if !stringInSet(file.Classification, policy.IncludedClassifications) {
 			continue
 		}
+		if finding := scanProjectionBytes(policy, file.Path, object.Bytes); finding != nil {
+			return "", finding, nil
+		}
 		publicID := "public." + strings.TrimPrefix(file.Digest, "sha256:")
 		projection.Files = append(projection.Files, projectionFile{Path: file.Path, ObjectID: publicID, Digest: file.Digest, ByteSize: file.ByteSize, Classification: file.Classification, Provenance: file.Provenance})
 		if !promotedIDs[publicID] {
@@ -135,6 +138,9 @@ func materializeProjection(storePath, sourceRoot string, accepted *lab.AcceptedR
 		if stringInSet(directory.Classification, policy.IncludedClassifications) {
 			projection.Directories = append(projection.Directories, directory)
 		}
+	}
+	if fixture != nil && fixture.ExpectedCode != "" {
+		return deny("INVALID_SECURITY_POLICY", "BLOCK", "security/fixtures/"+fixture.ID, "the exact candidate projection produced no observed component finding for the bad fixture")
 	}
 	projectionBytes, err := intake.CanonicalJSON(projection)
 	if err != nil {

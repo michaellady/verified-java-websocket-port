@@ -503,21 +503,19 @@ func Project(ctx context.Context, request Request) (Verdict, error) {
 	if rootErr != nil || storeErr != nil || pathIdentitiesOverlap(projectRoot.path, storeRoot.path) {
 		return findingVerdict(verdict, "ROOT_CONFINEMENT_FAILED", "QUARANTINE", "$.store", "project and private projection roots must be real and disjoint"), nil
 	}
+	var releaseFixture *fixtureCase
 	if request.FixtureID != "" {
 		item, ok := catalogCase(snapshot.catalog, request.FixtureID)
 		if !ok || item.Kind != "release" {
 			return Verdict{}, fmt.Errorf("release fixture %q is not cataloged", request.FixtureID)
 		}
-		detectedCode, detectorExpected, detectionErr := scanReleaseFixture(snapshot.release, item)
-		if detectionErr != nil || detectorExpected && detectedCode != item.ExpectedCode {
-			return findingVerdict(verdict, "INVALID_SECURITY_POLICY", "BLOCK", "security/fixtures/"+item.ID, "fixture input does not independently produce its cataloged detector finding"), nil
-		}
+		releaseFixture = &item
 	}
 	accepted, err := lab.LoadAcceptedRoot(request.StorePath, request.CandidateRoot)
 	if err != nil {
 		return findingVerdict(verdict, "PROMOTION_BINDING_MISMATCH", "QUARANTINE", "$.candidate_root", "accepted quarantine root did not verify: "+err.Error()), nil
 	}
-	projectionRoot, finding, err := materializeProjection(request.StorePath, request.CandidateRoot, accepted, snapshot.release)
+	projectionRoot, finding, err := materializeProjection(request.StorePath, request.CandidateRoot, accepted, snapshot.release, releaseFixture)
 	if err != nil {
 		return Verdict{}, err
 	}
