@@ -559,15 +559,22 @@ sandbox, or `securityctl`. Missing, stale, self-authored, cross-company, or
 nonzero-match receipts fail closed. The public evidence records only safe
 receipt identity/digests and counts.
 
-The broker is an owner-started local process outside the candidate sandbox. It
-accepts exactly one canonical projection manifest plus its digest-addressed
-file stream on anonymous file descriptors and returns exactly one bounded JSON
-receipt on a different descriptor. It accepts no candidate command, path, URL,
-or callback and has no publication/signing role beyond its dedicated classifier
-receipt key. `release-firewall.json` pins that public key, checker identity,
-receipt schema, maximum request/response bytes, and validity window. A test-only
-checker uses a pinned synthetic key and public canary fingerprint set; its
-receipt is labeled `SYNTHETIC_NON_CLAIM` and cannot satisfy a real projection.
+The eventual broker is an owner-started local process outside the candidate
+sandbox. It accepts exactly one canonical projection manifest plus its
+digest-addressed file stream on anonymous file descriptors and returns exactly
+one bounded JSON receipt on a different descriptor. It accepts no candidate
+command, path, URL, or callback and has no publication/signing role beyond its
+dedicated classifier receipt key. Before that broker can satisfy a real
+projection, a protected authority policy must pin its public key, checker
+identity, receipt schema, maximum request/response bytes, validity window,
+revocation state, and durable nonce ledger. The current
+`release-firewall.json` deliberately contains only
+`protected_checker_required:true`; no external classifier identity or key is
+provisioned, so every real projection remains
+`PROTECTED_CLASSIFIER_UNAVAILABLE/BLOCK`. No placeholder or synthetic key is
+treated as that missing authority. A future test-only checker may use a pinned
+synthetic key and public canary fingerprint set, but its receipt must be labeled
+`SYNTHETIC_NON_CLAIM` and can never satisfy a real projection.
 
 A passed firewall produces a safe projection CAS and
 `publication_authorized:false`. A separate owner publication action must bind
