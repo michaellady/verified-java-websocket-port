@@ -22,6 +22,7 @@ blocked while recovery continues.
 | Ongoing-authorization diagnostic blocked receipt 4 | 23,436 | `d341915c9b8f0b84afbc7ad1c2c9e4f06bee2e370089d286eaaf4f9aa36c4135` |
 | Ongoing-authorization diagnostic blocked receipt 5 | 23,990 | `9679819438b6e66435b3b9bd362b0627ceb01657777b1733fb0f8a2285596b96` |
 | Ongoing-authorization diagnostic blocked receipt 6 | 23,985 | `a45e36c26077dcae4b39d7c8f28c7b30f0744c9b7ce15b451703dd23f1b23533` |
+| Ongoing-authorization diagnostic blocked receipt 7 | 23,985 | `e2ca2baf24e6eaea28bc3b0d828d441da1b2716a308452c6ef8840d0b935f883` |
 
 These are hashes of the retained receipt bytes before the recovery edits. The
 same files must be rehashed after remediation and review.
@@ -263,3 +264,27 @@ socket. Writes, unknown read errors, malformed or trailing frames, missing
 lifecycle evidence, identity drift, byte bounds, and report reconciliation
 remain fail closed. The reset regressions explicitly prove that unknown read
 errors are still rejected.
+
+### Docker attach can omit the pairing marker as well as completion
+
+The seventh invocation proved the reset correction at the process boundary:
+both affected relays emitted `RELAY_COMPLETE`. The client attachment preserved
+all 225 request bytes, all 214 response bytes, and the exact completion marker,
+but omitted its earlier `RELAY_PAIRED role=dial` stderr line. The controller
+therefore rejected the otherwise complete lifecycle and canceled before the
+separate `updateReports` connection received a relay. Server case `3.4`
+retained both lifecycle lines and both byte directions, but still failed one
+terminal condition that the old evidence format did not name.
+
+The relay role is already a closed controller input and part of the validated
+container identity. Streaming attach now receives that exact expected role and,
+when either lifecycle line is absent, polls only the exact container's last 20
+log lines for up to five seconds. It appends only whole-line
+`RELAY_PAIRED role=<expected>` and `RELAY_COMPLETE role=<expected>` markers, or
+a whole-line, syntax-validated `RELAY_DENIED <reason>`; embedded substrings and
+wrong roles do not satisfy lifecycle proof. Existing lifecycle validation was
+also tightened from substring matching to exact lines. Failed attachments now
+prefix bounded statuses for decode, input, extra output, trailing bytes,
+process wait, context, and lifecycle validation, so another invocation can
+identify the remaining server terminal field without exposing payloads or
+loosening acceptance.

@@ -556,7 +556,7 @@ func TestCancelledAttachedRelayClosesLoopbackBeforeWaitingForInput(t *testing.T)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan attachedModeResult, 1)
 	go func() {
-		lifecycle, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server)
+		lifecycle, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server, "dial")
 		done <- attachedModeResult{lifecycle: lifecycle, err: attachErr}
 	}()
 	if err := client.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
@@ -600,7 +600,7 @@ func TestAttachedRelayClosesDockerStdinAfterBothFramedDirectionsFinish(t *testin
 	defer cancel()
 	done := make(chan attachedModeResult, 1)
 	go func() {
-		lifecycle, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server)
+		lifecycle, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server, "dial")
 		done <- attachedModeResult{lifecycle: lifecycle, err: attachErr}
 	}()
 	if _, err := client.Write([]byte("request")); err != nil {
@@ -650,9 +650,30 @@ func TestRelayCompletionCanBeRecoveredOnlyFromExactDockerLogMarker(t *testing.T)
 		}
 		return []byte("binary-prefix\nRELAY_COMPLETE role=listen\n"), nil
 	}}
-	got := recoverRelayCompletion(context.Background(), docker, "vjwt-relay-0123456789abcdef", lifecycle)
+	got := recoverRelayLifecycle(context.Background(), docker, "vjwt-relay-0123456789abcdef", "listen", lifecycle)
 	if !exactRelayLifecycle(got, "listen", true) || bytes.Contains(got, []byte("binary-prefix")) {
 		t.Fatalf("recovered lifecycle=%q", got)
+	}
+}
+
+func TestRelayPairingCanBeRecoveredOnlyFromExactDockerLogMarker(t *testing.T) {
+	lifecycle := []byte("RELAY_COMPLETE role=dial\n")
+	docker := dockerController{run: func(_ context.Context, arguments ...string) ([]byte, error) {
+		if !equalStrings(arguments, []string{"logs", "--tail", "20", "vjwt-relay-0123456789abcdef"}) {
+			t.Fatalf("unexpected Docker arguments: %v", arguments)
+		}
+		return []byte("embedded-RELAY_PAIRED role=dial-not-a-marker\nRELAY_PAIRED role=dial\nRELAY_COMPLETE role=dial\n"), nil
+	}}
+	got := recoverRelayLifecycle(context.Background(), docker, "vjwt-relay-0123456789abcdef", "dial", lifecycle)
+	if !exactRelayLifecycle(got, "dial", true) || bytes.Contains(got, []byte("embedded")) {
+		t.Fatalf("recovered lifecycle=%q", got)
+	}
+	embeddedOnly := dockerController{run: func(_ context.Context, _ ...string) ([]byte, error) {
+		return []byte("embedded-RELAY_PAIRED role=dial-not-a-marker\nRELAY_COMPLETE role=dial\n"), nil
+	}}
+	got = recoverRelayLifecycle(context.Background(), embeddedOnly, "vjwt-relay-0123456789abcdef", "dial", lifecycle)
+	if exactRelayLifecycle(got, "dial", true) {
+		t.Fatalf("embedded pairing substring accepted: %q", got)
 	}
 }
 

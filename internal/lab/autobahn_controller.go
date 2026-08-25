@@ -950,8 +950,8 @@ func terminalAttachedReadError(err error) bool {
 	return errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET)
 }
 
-func runAttachedRelayTCP(ctx context.Context, docker dockerController, container string, connection *net.TCPConn) ([]byte, error) {
-	if docker.path == "" || connection == nil || !tcpConnectionIsLoopback(connection) || !regexp.MustCompile(`^vjwt-relay-[0-9a-f]{16}$`).MatchString(container) {
+func runAttachedRelayTCP(ctx context.Context, docker dockerController, container string, connection *net.TCPConn, expectedRole string) ([]byte, error) {
+	if docker.path == "" || connection == nil || !tcpConnectionIsLoopback(connection) || !regexp.MustCompile(`^vjwt-relay-[0-9a-f]{16}$`).MatchString(container) || expectedRole != "dial" && expectedRole != "listen" {
 		return nil, finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay", "streaming attach requires the exact Docker CLI, relay identity, and loopback TCP peer")
 	}
 	defer connection.Close()
@@ -997,10 +997,12 @@ func runAttachedRelayTCP(ctx context.Context, docker dockerController, container
 	waitErr := command.Wait()
 	_ = connection.Close()
 	lifecycleReceipt := append([]byte(nil), lifecycle.buffer.Bytes()...)
-	lifecycleReceipt = recoverRelayCompletion(ctx, docker, container, lifecycleReceipt)
+	lifecycleReceipt = recoverRelayLifecycle(ctx, docker, container, expectedRole, lifecycleReceipt)
 	lifecycleReceipt = append(lifecycleReceipt, []byte(fmt.Sprintf("\nCONTROLLER_TRANSFER input_bytes=%d input_digest=%s output_bytes=%d output_digest=%s output_prefix_hex=%s\n", inputCounter.bytes, inputCounter.digestString(), outputCounter.bytes, outputCounter.digestString(), outputCounter.sampleHex()))...)
-	if decodeErr != nil || inputErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || ctx.Err() != nil || !exactRelayLifecycle(lifecycleReceipt, relayRoleFromLifecycle(lifecycleReceipt), true) {
-		detail := boundedString(boundedDetail(lifecycleReceipt, waitErr), 2048)
+	lifecycleOK := exactRelayLifecycle(lifecycleReceipt, expectedRole, true)
+	if decodeErr != nil || inputErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || ctx.Err() != nil || !lifecycleOK {
+		terminal := fmt.Sprintf("CONTROLLER_TERMINAL decode=%q input=%q extra=%q trailing=%d wait=%q context=%q lifecycle=%t\n", relayTerminalError(decodeErr), relayTerminalError(inputErr), relayTerminalError(extraErr), len(extra), relayTerminalError(waitErr), relayTerminalError(ctx.Err()), lifecycleOK)
+		detail := boundedString(terminal+boundedDetail(lifecycleReceipt, waitErr), 2048)
 		return lifecycleReceipt, finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", detail)
 	}
 	return lifecycleReceipt, nil
@@ -1036,20 +1038,34 @@ func (c *relayTransferCounter) sampleHex() string {
 	return hex.EncodeToString(c.sample)
 }
 
-func recoverRelayCompletion(ctx context.Context, docker dockerController, container string, lifecycle []byte) []byte {
-	role := relayRoleFromLifecycle(lifecycle)
-	if role == "" || exactRelayLifecycle(lifecycle, role, true) || docker.path == "" && docker.run == nil {
+func relayTerminalError(err error) string {
+	if err == nil {
+		return "ok"
+	}
+	return boundedString(err.Error(), 256)
+}
+
+func recoverRelayLifecycle(ctx context.Context, docker dockerController, container, expectedRole string, lifecycle []byte) []byte {
+	if expectedRole != "dial" && expectedRole != "listen" || exactRelayLifecycle(lifecycle, expectedRole, true) || docker.path == "" && docker.run == nil {
 		return lifecycle
 	}
-	marker := []byte("RELAY_COMPLETE role=" + role)
-	denied := []byte("RELAY_DENIED")
+	paired := "RELAY_PAIRED role=" + expectedRole
+	complete := "RELAY_COMPLETE role=" + expectedRole
 	for attempt := 0; attempt < 50; attempt++ {
 		logs, err := docker.output(ctx, "logs", "--tail", "20", container)
-		if err == nil && bytes.Contains(logs, denied) {
-			return append(append(lifecycle, '\n'), denied...)
-		}
-		if err == nil && bytes.Contains(logs, marker) {
-			return append(append(lifecycle, '\n'), marker...)
+		if err == nil {
+			if denied := exactRelayDeniedLine(logs); denied != "" {
+				return append(lifecycle, []byte("\n"+denied+"\n")...)
+			}
+			if !containsExactLine(lifecycle, paired) && containsExactLine(logs, paired) {
+				lifecycle = append(lifecycle, []byte("\n"+paired+"\n")...)
+			}
+			if !containsExactLine(lifecycle, complete) && containsExactLine(logs, complete) {
+				lifecycle = append(lifecycle, []byte("\n"+complete+"\n")...)
+			}
+			if exactRelayLifecycle(lifecycle, expectedRole, true) {
+				return lifecycle
+			}
 		}
 		select {
 		case <-ctx.Done():
@@ -1062,7 +1078,7 @@ func recoverRelayCompletion(ctx context.Context, docker dockerController, contai
 
 func relayRoleFromLifecycle(lifecycle []byte) string {
 	for _, role := range []string{"listen", "dial"} {
-		if bytes.Contains(lifecycle, []byte("RELAY_PAIRED role="+role)) {
+		if containsExactLine(lifecycle, "RELAY_PAIRED role="+role) {
 			return role
 		}
 	}
@@ -1076,10 +1092,30 @@ func tcpConnectionIsLoopback(connection *net.TCPConn) bool {
 }
 
 func exactRelayLifecycle(lifecycle []byte, role string, complete bool) bool {
-	if bytes.Contains(lifecycle, []byte("RELAY_DENIED")) || !bytes.Contains(lifecycle, []byte("RELAY_PAIRED role="+role)) {
+	if exactRelayDeniedLine(lifecycle) != "" || !containsExactLine(lifecycle, "RELAY_PAIRED role="+role) {
 		return false
 	}
-	return !complete || bytes.Contains(lifecycle, []byte("RELAY_COMPLETE role="+role))
+	return !complete || containsExactLine(lifecycle, "RELAY_COMPLETE role="+role)
+}
+
+func containsExactLine(value []byte, expected string) bool {
+	for _, line := range bytes.Split(value, []byte{'\n'}) {
+		if string(bytes.TrimSuffix(line, []byte{'\r'})) == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func exactRelayDeniedLine(value []byte) string {
+	denied := regexp.MustCompile(`^RELAY_DENIED [a-z-]+$`)
+	for _, line := range bytes.Split(value, []byte{'\n'}) {
+		line = bytes.TrimSuffix(line, []byte{'\r'})
+		if denied.Match(line) {
+			return string(line)
+		}
+	}
+	return ""
 }
 
 func removeAutobahnContainer(docker dockerController, name string) {
@@ -1588,7 +1624,7 @@ func runFixedClientRelaySessions(ctx context.Context, docker dockerController, n
 			cleanup()
 			return finding("AUTOBAHN_CLIENT_MODE_FAILED", "$.client.sessions", "Java client did not use the exact loopback listener")
 		}
-		lifecycle, attachErr := runAttachedRelayTCP(ctx, docker, container, connection)
+		lifecycle, attachErr := runAttachedRelayTCP(ctx, docker, container, connection, "dial")
 		exitErr := waitContainerExit(ctx, docker, container, "0")
 		cleanup()
 		if attachErr != nil || exitErr != nil || !exactRelayLifecycle(lifecycle, "dial", true) {
@@ -1649,7 +1685,7 @@ func runAutobahnServerMode(ctx context.Context, docker dockerController, network
 				attached <- attachedModeResult{err: dialErr}
 				return
 			}
-			lifecycle, attachErr := runAttachedRelayTCP(caseContext, docker, container, connection)
+			lifecycle, attachErr := runAttachedRelayTCP(caseContext, docker, container, connection, "listen")
 			attached <- attachedModeResult{lifecycle: lifecycle, err: attachErr}
 		}()
 		output, extractionDigest, runErr := runFuzzingClient(caseContext, docker, network, configDirectory, configDigest, reportDirectory, caseID, runner)
