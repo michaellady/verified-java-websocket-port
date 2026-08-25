@@ -22,7 +22,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet(args[0], flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	root := flags.String("root", "", "project root")
-	accepted := flags.String("accepted-root", "", "accepted root or fixture source")
+	accepted := flags.String("accepted-root", "", "accepted source root (ingest only)")
+	candidate := flags.String("candidate-root", "", "accepted quarantine root (project only)")
 	store := flags.String("store", "", "private CAS store")
 	plan := flags.String("plan", "", "relative sandbox plan")
 	receipt := flags.String("receipt", "", "relative sandbox receipt")
@@ -34,6 +35,12 @@ func run(args []string, stdout, stderr io.Writer) int {
 		usage(stderr)
 		return 2
 	}
+	operation := strings.ToLower(args[0])
+	candidateRoot, flagErr := operationRoot(operation, *accepted, *candidate)
+	if flagErr != nil {
+		fmt.Fprintln(stderr, flagErr)
+		return 2
+	}
 	absoluteRoot, rootErr := filepath.Abs(*root)
 	if rootErr != nil {
 		_ = json.NewEncoder(stdout).Encode(struct {
@@ -42,10 +49,10 @@ func run(args []string, stdout, stderr io.Writer) int {
 		}{"ERROR", "cannot resolve project root"})
 		return 1
 	}
-	request := securitygate.Request{RootPath: absoluteRoot, CandidateRoot: *accepted, StorePath: *store, PlanPath: *plan, ReceiptPath: *receipt, FixtureID: *fixture}
+	request := securitygate.Request{RootPath: absoluteRoot, CandidateRoot: candidateRoot, StorePath: *store, PlanPath: *plan, ReceiptPath: *receipt, FixtureID: *fixture}
 	var verdict securitygate.Verdict
 	var err error
-	switch strings.ToLower(args[0]) {
+	switch operation {
 	case "verify":
 		request.Operation = securitygate.OperationVerify
 		verdict, err = securitygate.Verify(context.Background(), request)
@@ -79,6 +86,28 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+func operationRoot(operation, acceptedRoot, candidateRoot string) (string, error) {
+	switch operation {
+	case "ingest":
+		if candidateRoot != "" {
+			return "", fmt.Errorf("--candidate-root is valid only for project")
+		}
+		return acceptedRoot, nil
+	case "project":
+		if acceptedRoot != "" {
+			return "", fmt.Errorf("--accepted-root is valid only for ingest")
+		}
+		return candidateRoot, nil
+	case "verify", "verify-sandbox":
+		if acceptedRoot != "" || candidateRoot != "" {
+			return "", fmt.Errorf("accepted/candidate root flags are invalid for %s", operation)
+		}
+		return "", nil
+	default:
+		return "", nil
+	}
 }
 
 func verdictSucceeded(verdict securitygate.Verdict) bool {

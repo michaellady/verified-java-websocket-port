@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 	"github.com/michaellady/verified-java-websocket-port/internal/securitygate"
 )
 
@@ -61,6 +63,62 @@ func TestOnlyExplicitSuccessStatesExitZero(t *testing.T) {
 		}
 		if verdictSucceeded(securitygate.Verdict{State: state, Findings: []securitygate.Finding{{Code: "INVALID_SECURITY_POLICY"}}}) {
 			t.Fatalf("state %q accepted a finding", state)
+		}
+	}
+}
+
+func TestProjectUsesCandidateRootAndRejectsOperationSpecificRootFlagMisuse(t *testing.T) {
+	content := []byte("inert public bytes")
+	digest := intake.DigestBytes(content)
+	objectID := "blob." + strings.TrimPrefix(digest, "sha256:")
+	provenance := "scope:SYNTHETIC_NON_CLAIM/company:open-source-projects/project:verified-java-websocket-port"
+	manifest := map[string]any{
+		"schema_version": "1.0.0", "classification": "QUARANTINED",
+		"directories": []map[string]any{{"path": "public", "collision_key": "public", "classification": "PUBLIC", "provenance": provenance}},
+		"files": []map[string]any{{
+			"path": "public/readme.txt", "collision_key": "public/readme.txt", "object_id": objectID,
+			"digest": digest, "byte_size": len(content), "media_kind": "REGULAR", "classification": "PUBLIC",
+			"provenance": provenance + "/source:" + digest,
+		}},
+		"hostile_executables": []any{},
+	}
+	manifestBytes, err := intake.CanonicalJSON(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := t.TempDir()
+	rootDigest, err := intake.PromoteDirectory(store, []intake.Object{
+		{ID: "candidate-manifest", Digest: intake.DigestBytes(manifestBytes), Bytes: manifestBytes},
+		{ID: objectID, Digest: digest, Bytes: content},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	root := filepath.Join("..", "..")
+	var stdout, stderr bytes.Buffer
+	if exit := run([]string{"project", "--root", root, "--candidate-root", rootDigest, "--store", store}, &stdout, &stderr); exit != 1 {
+		t.Fatalf("project exit=%d stdout=%s stderr=%s", exit, stdout.String(), stderr.String())
+	}
+	var verdict securitygate.Verdict
+	if err := json.Unmarshal(stdout.Bytes(), &verdict); err != nil {
+		t.Fatalf("project JSON: %v", err)
+	}
+	if len(verdict.Findings) != 1 || verdict.Findings[0].Code != "PROTECTED_CLASSIFIER_UNAVAILABLE" || verdict.ProjectionRoot == "" {
+		t.Fatalf("project verdict=%#v", verdict)
+	}
+
+	misuse := [][]string{
+		{"project", "--root", root, "--accepted-root", rootDigest, "--store", store},
+		{"project", "--root", root, "--accepted-root", rootDigest, "--candidate-root", rootDigest, "--store", store},
+		{"ingest", "--root", root, "--candidate-root", rootDigest, "--store", store},
+		{"verify", "--root", root, "--accepted-root", rootDigest},
+	}
+	for _, args := range misuse {
+		stdout.Reset()
+		stderr.Reset()
+		if exit := run(args, &stdout, &stderr); exit != 2 {
+			t.Fatalf("args=%v exit=%d stdout=%s stderr=%s", args, exit, stdout.String(), stderr.String())
 		}
 	}
 }

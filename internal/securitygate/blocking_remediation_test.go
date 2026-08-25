@@ -10,7 +10,51 @@ import (
 	"testing"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
+	"github.com/michaellady/verified-java-websocket-port/internal/lab"
 )
+
+func TestUS007Acceptance_AcceptedRootEnforcesIngestionQuotasBeforePromotion(t *testing.T) {
+	store := t.TempDir()
+	objects := []intake.Object{
+		{ID: "a.txt", Digest: intake.DigestBytes([]byte("aaaaa")), Bytes: []byte("aaaaa")},
+		{ID: "b.txt", Digest: intake.DigestBytes([]byte("bbbbb")), Bytes: []byte("bbbbb")},
+	}
+	rootDigest, err := intake.PromoteDirectory(store, objects)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accepted, err := lab.LoadAcceptedRoot(store, rootDigest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := loadPolicies(repoRoot(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer snapshot.root.Close()
+
+	tests := []struct {
+		name   string
+		mutate func(*quotaPolicy)
+	}{
+		{"object count", func(q *quotaPolicy) { q.MaxFiles = 1 }},
+		{"single object bytes", func(q *quotaPolicy) { q.MaxFileBytes = 4 }},
+		{"total object bytes", func(q *quotaPolicy) { q.MaxTotalBytes = 9 }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			policy := snapshot.ingestion
+			test.mutate(&policy.Quotas)
+			manifest, copied, finding := snapshotAcceptedRoot(rootDigest, accepted, policy)
+			if finding == nil || finding.Code != "QUOTA_EXCEEDED" || finding.Disposition != "QUARANTINE" {
+				t.Fatalf("finding=%#v", finding)
+			}
+			if len(manifest.Files) != 0 || len(copied) != 0 {
+				t.Fatalf("quota failure copied/promoted data: manifest=%#v copied=%#v", manifest, copied)
+			}
+		})
+	}
+}
 
 func TestUS007Acceptance_AuthoritativeIngestRejectsMutablePathAndUsesExplicitFixtureSeam(t *testing.T) {
 	candidate := t.TempDir()
@@ -183,8 +227,11 @@ func TestUS007Acceptance_ProjectionLoadsRecursesAndScansExactAcceptedRoot(t *tes
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(good.Findings) != 1 || good.Findings[0].Code != "PROTECTED_CLASSIFIER_UNAVAILABLE" || good.ProjectionRoot != "" {
+	if len(good.Findings) != 1 || good.Findings[0].Code != "PROTECTED_CLASSIFIER_UNAVAILABLE" || !isSHA256Digest(good.ProjectionRoot) {
 		t.Fatalf("good real projection verdict=%#v", good)
+	}
+	if _, err := lab.LoadAcceptedRoot(goodStore, good.ProjectionRoot); err != nil {
+		t.Fatalf("retained projection root did not reopen: %v", err)
 	}
 
 	leakStore, leakRoot := acceptedProjectionFixture(t, "public/readme.txt", []byte("SYNTHETIC_TOKEN_VALUE"), "PUBLIC", true)
@@ -209,6 +256,36 @@ func TestUS007Acceptance_ProjectionLoadsRecursesAndScansExactAcceptedRoot(t *tes
 	}
 	if len(unclassified.Findings) != 1 || unclassified.Findings[0].Code != "PUBLIC_DESCENDANT_UNCLASSIFIED" {
 		t.Fatalf("unclassified projection verdict=%#v", unclassified)
+	}
+}
+
+func TestUS007Acceptance_IncludedDirectoryRequiresRecursivelyIncludedAncestor(t *testing.T) {
+	provenance := "scope:SYNTHETIC_NON_CLAIM/company:" + requiredCompany + "/project:" + requiredProject
+	manifest := candidateManifest{
+		SchemaVersion: "1.0.0", Classification: "QUARANTINED",
+		Directories: []candidateDirectory{
+			{Path: "internal", CollisionKey: "internal", Classification: "INTERNAL", Provenance: provenance},
+			{Path: "internal/public", CollisionKey: "internal/public", Classification: "PUBLIC", Provenance: provenance},
+		},
+		Files: []candidateFile{}, HostileExecutables: []hostileExecutable{},
+	}
+	manifestBytes, err := intake.CanonicalJSON(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := t.TempDir()
+	rootDigest, err := intake.PromoteDirectory(store, []intake.Object{{ID: "candidate-manifest", Digest: intake.DigestBytes(manifestBytes), Bytes: manifestBytes}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	verdict, err := Project(context.Background(), Request{
+		RootPath: repoRoot(t), Operation: OperationProject, CandidateRoot: rootDigest, StorePath: store,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(verdict.Findings) != 1 || verdict.Findings[0].Code != "PUBLIC_DESCENDANT_UNCLASSIFIED" || verdict.Findings[0].Disposition != "BLOCK" {
+		t.Fatalf("verdict=%#v", verdict)
 	}
 }
 

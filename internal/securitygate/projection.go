@@ -75,8 +75,12 @@ func materializeProjection(storePath, sourceRoot string, accepted *lab.AcceptedR
 		}
 		parent := filepath.ToSlash(filepath.Dir(directory.Path))
 		if parent != "." {
-			if _, exists := directories[parent]; !exists {
+			parentDirectory, exists := directories[parent]
+			if !exists {
 				return deny("PUBLIC_DESCENDANT_UNCLASSIFIED", "BLOCK", directory.Path, "directory parent is absent or appears after its child")
+			}
+			if stringInSet(directory.Classification, policy.IncludedClassifications) && !stringInSet(parentDirectory.Classification, policy.IncludedClassifications) {
+				return deny("PUBLIC_DESCENDANT_UNCLASSIFIED", "BLOCK", directory.Path, "included directory has no recursively included classified parent")
 			}
 		}
 		collisions[directory.CollisionKey] = directory.Path

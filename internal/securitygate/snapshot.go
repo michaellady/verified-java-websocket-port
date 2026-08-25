@@ -73,10 +73,22 @@ func snapshotAcceptedRoot(rootDigest string, accepted *lab.AcceptedRoot, policy 
 	if accepted == nil || !isSHA256Digest(rootDigest) {
 		return deny("PROMOTION_BINDING_MISMATCH", "QUARANTINE", "$.candidate_root", "verified accepted source root is absent")
 	}
+	sourceObjects := accepted.Objects()
+	if len(sourceObjects) > policy.Quotas.MaxFiles {
+		return deny("QUOTA_EXCEEDED", "QUARANTINE", "$.objects", "accepted object count exceeds the ingestion file quota")
+	}
+	var totalBytes int64
+	for _, object := range sourceObjects {
+		objectBytes := int64(len(object.Bytes))
+		if objectBytes > policy.Quotas.MaxFileBytes || totalBytes > policy.Quotas.MaxTotalBytes-objectBytes {
+			return deny("QUOTA_EXCEEDED", "QUARANTINE", object.ID, "accepted object exceeds the ingestion file or total byte quota")
+		}
+		totalBytes += objectBytes
+	}
 	manifest := candidateManifest{SchemaVersion: policyVersion, Classification: "QUARANTINED", Directories: []candidateDirectory{}, Files: []candidateFile{}, HostileExecutables: []hostileExecutable{}}
-	objects := make([]intake.Object, 0, len(accepted.Objects()))
+	objects := make([]intake.Object, 0, len(sourceObjects))
 	seenDigests := map[string]bool{}
-	for _, object := range accepted.Objects() {
+	for _, object := range sourceObjects {
 		if code, message := validateCandidatePath(object.ID, policy.Paths); code != "" {
 			return deny(code, "QUARANTINE", object.ID, message)
 		}

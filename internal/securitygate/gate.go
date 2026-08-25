@@ -524,9 +524,9 @@ func Project(ctx context.Context, request Request) (Verdict, error) {
 	if finding != nil {
 		return findingVerdict(verdict, finding.Code, finding.Disposition, finding.Path, finding.Message), nil
 	}
+	verdict.ProjectionRoot = projectionRoot
 	if request.FixtureID != "" {
 		verdict.State = "PASS_SYNTHETIC_NON_CLAIM"
-		verdict.ProjectionRoot = projectionRoot
 		return verdict, nil
 	}
 	return findingVerdict(verdict, "PROTECTED_CLASSIFIER_UNAVAILABLE", "BLOCK", "$.protected_classifier", "the project-owned projection was materialized, reopened, rehashed, and scanned, but no external protected-classifier receipt is available"), nil
