@@ -1,0 +1,38 @@
+{
+  "$schema": "../../schemas/corpus-manifest-1.0.0.schema.json",
+  "artifacts": [
+    {
+      "bytes": 26254,
+      "classification": "PUBLIC",
+      "path": "cases.jsonl",
+      "sha256": "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605",
+      "stored_in_repo": true
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "corpus_id": "us005-handshake",
+  "counts": {
+    "executed": 0,
+    "expected": 49,
+    "failed": 0,
+    "filtered": 0,
+    "passed": 0,
+    "selected": 49,
+    "skipped": 0,
+    "timed_out": 0
+  },
+  "evidence_kind": "corpus-manifest",
+  "execution_status": "NOT_EXECUTED_PENDING_LIVE_CALIBRATION",
+  "generator": {
+    "public_seed": "us005-public-calibration-seed-v1",
+    "seed_visibility": "public",
+    "tool": "corporactl"
+  },
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false,
+  "scenario_format": "corpus-handshake-case-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "signing": false,
+  "tier": "handshake"
+}

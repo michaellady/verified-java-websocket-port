@@ -1,0 +1,322 @@
+{
+  "$schema": "../schemas/corpus-calibration-1.0.0.schema.json",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "corpora": {
+    "handshake": {
+      "expected": 49,
+      "filtered": 0,
+      "manifest_path": "corpora/handshake/manifest.json",
+      "manifest_sha256": "sha256:dabecb666f21019345fdc819b2235433dec8018dc6d2cc780c9cadc6156d38fd",
+      "selected": 49
+    },
+    "hidden": {
+      "expected": 77,
+      "filtered": 0,
+      "manifest_path": "corpora/hidden/manifest.json",
+      "manifest_sha256": "sha256:5752f1e632d749dced838e578aac9fe3997cf410470c1d6cf3c5c296c412922b",
+      "selected": 77
+    },
+    "public": {
+      "expected": 74,
+      "filtered": 0,
+      "manifest_path": "corpora/public/manifest.json",
+      "manifest_sha256": "sha256:9fc081726db40eafd10e61cf326e6f33dfafb33472b312fb3764180fbc71ffe1",
+      "selected": 74
+    },
+    "sealed": {
+      "expected": 77,
+      "filtered": 0,
+      "manifest_path": "corpora/sealed/manifest.json",
+      "manifest_sha256": "sha256:b800076dabccf13cd186fdf947404f8b34f6b4c44a6a3b0fb7383d9596fdf815",
+      "selected": 77
+    }
+  },
+  "evidence_kind": "corpus-calibration",
+  "expectation_status": "REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION",
+  "independent_review_claimed": false,
+  "live_gates": {
+    "empty_rust_target_fails": {
+      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration",
+      "requirement": "an empty or stub Rust target fails the behavior corpus",
+      "status": "BLOCKED_PENDING_LIVE_EXECUTION"
+    },
+    "execution_rerun_reconciliation": {
+      "constraint": "requires the live java-oracle and sbx candidate executions above",
+      "requirement": "two live calibration executions reconcile exactly with zero flakes",
+      "status": "BLOCKED_PENDING_LIVE_EXECUTION"
+    },
+    "java_oracle_pass_rate": {
+      "constraint": "the pinned Java-WebSocket 1.6.0 runtime jar (sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f) is not materialized in this workspace; acquiring it and executing java-oracle are owner-authorized live steps",
+      "requirement": "the pinned Java oracle passes 100% of behavior scenarios",
+      "status": "BLOCKED_PENDING_LIVE_EXECUTION"
+    },
+    "planted_java_rust_mutants_killed": {
+      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration",
+      "requirement": "planted Java and Rust binary mutants are killed with nonzero inventories",
+      "status": "BLOCKED_PENDING_LIVE_EXECUTION"
+    },
+    "sealed_network_denial": {
+      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration",
+      "requirement": "sealed-tier execution observes the default-deny network policy live",
+      "status": "BLOCKED_PENDING_LIVE_EXECUTION"
+    }
+  },
+  "live_steps": [
+    "materialize the pinned Java-WebSocket 1.6.0 jar per evidence/intake/source-pins.json and verify sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+    "build java-oracle (make -C java-oracle build JAVA_WEBSOCKET_JAR=... RUNTIME_SUPPORT_CP=...) and run: corporactl oracle-requests --root . --protected-root \u003croot\u003e --tier public | java -jar java-oracle/build/java-oracle.jar \u003e public-transcript.jsonl",
+    "evaluate: corporactl evaluate --root . --protected-root \u003croot\u003e --tier public --transcript public-transcript.jsonl (requires 100% pass)",
+    "repeat oracle-requests/evaluate for hidden and sealed tiers inside the custodian boundary; transcripts and diagnostics stay in the protected store",
+    "run the empty Rust target and planted Java/Rust mutants inside the accepted US-007 sbx profile (owner authorization per attempt) and evaluate their transcripts; all must fail or be killed",
+    "rerun the full live calibration once more and reconcile both transcripts exactly",
+    "probe sealed-network denial inside the sbx profile and attach the receipt"
+  ],
+  "offline_gates": {
+    "generation_determinism": {
+      "digests": [
+        "sha256:1aa0049313551628dd9d9b191cc12916e3510a39f246fd556c1ef1a6b98e9223",
+        "sha256:1aa0049313551628dd9d9b191cc12916e3510a39f246fd556c1ef1a6b98e9223"
+      ],
+      "reconciled": true,
+      "runs": 2,
+      "status": "PASS"
+    },
+    "manifest_reconciliation": {
+      "findings": [],
+      "findings_count": 0,
+      "status": "PASS"
+    },
+    "protected_rescue_rule": {
+      "rule": "public verdicts derive only from public artifacts; any protected-sourced override of a public result blocks with PROTECTED_RESCUE_BLOCKED",
+      "status": "ENFORCED"
+    },
+    "reference_mutation_analysis": {
+      "killed": 16,
+      "model": "Go reference model mutants measuring corpus discriminative power; not Java or Rust binary mutants (those remain a live gate)",
+      "mutants": [
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 2,
+            "public": 2,
+            "sealed": 2
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-control-limit-200",
+          "operator": "raise the 125-octet control payload limit to 200",
+          "total_killing": 6
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 2,
+            "public": 2,
+            "sealed": 2
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-utf8-off",
+          "operator": "accept invalid UTF-8 in text payloads",
+          "total_killing": 6
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 4,
+            "public": 4,
+            "sealed": 4
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-close-code-any",
+          "operator": "accept reserved close codes on the wire and on send",
+          "total_killing": 12
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 4,
+            "public": 4,
+            "sealed": 4
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-echo-close-off",
+          "operator": "skip echoing the close frame during the two-way close handshake",
+          "total_killing": 12
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 1,
+            "public": 1,
+            "sealed": 1
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-state-open-ignored",
+          "operator": "allow local commands outside the OPEN state",
+          "total_killing": 3
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 4,
+            "public": 4,
+            "sealed": 4
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-continuation-start-off",
+          "operator": "accept continuation frames without a started sequence",
+          "total_killing": 12
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 1,
+            "public": 1,
+            "sealed": 1
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-frame-size-limit-off",
+          "operator": "ignore the declared maximum frame size",
+          "total_killing": 3
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 6,
+            "public": 6,
+            "sealed": 6
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-client-mask-off",
+          "operator": "send client frames unmasked",
+          "total_killing": 18
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 0,
+            "hidden": 3,
+            "public": 3,
+            "sealed": 3
+          },
+          "kind": "behavior",
+          "mutant_id": "mut-rsv-ignored",
+          "operator": "accept frames with reserved bits set",
+          "total_killing": 9
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-method-any",
+          "operator": "accept any HTTP method for the opening handshake",
+          "total_killing": 2
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 3,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-version-any",
+          "operator": "accept any Sec-WebSocket-Version",
+          "total_killing": 3
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-key-length-any",
+          "operator": "accept keys that do not decode to 16 bytes",
+          "total_killing": 2
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-accept-any",
+          "operator": "skip Sec-WebSocket-Accept verification",
+          "total_killing": 2
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-duplicates-ok",
+          "operator": "accept duplicated singleton headers",
+          "total_killing": 2
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 3,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-limits-off",
+          "operator": "ignore configured byte and header limits",
+          "total_killing": 3
+        },
+        {
+          "killed": true,
+          "killing_scenarios": {
+            "handshake": 2,
+            "hidden": 0,
+            "public": 0,
+            "sealed": 0
+          },
+          "kind": "handshake",
+          "mutant_id": "hs-mut-upgrade-value-any",
+          "operator": "accept any Upgrade and Connection values",
+          "total_killing": 2
+        }
+      ],
+      "status": "PASS",
+      "surviving": 0,
+      "total_mutants": 16
+    },
+    "stub_target_analysis": {
+      "failures": 277,
+      "model": "inert empty-behavior stub evaluated by the real corpus evaluator; a negative control of the corpus, not a Rust execution",
+      "passes": 0,
+      "status": "PASS",
+      "total": 277
+    }
+  },
+  "production": false,
+  "publication": false,
+  "schema_version": "1.0.0",
+  "signing": false,
+  "status": "OFFLINE_CALIBRATED_PENDING_LIVE_EXECUTION"
+}
