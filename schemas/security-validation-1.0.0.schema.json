@@ -130,7 +130,7 @@
       }
     },
     "mechanics_state": {
-      "const": "PROVEN_LIVE_RLIMIT_ENVELOPE_ATTEMPT_0123"
+      "const": "RLIMIT_ENVELOPE_PROVEN_LIVE_MEMORY_SCOPED_TO_OUTER_ENVELOPE_ATTEMPT_0123"
     },
     "assurance": {
       "const": "OWNER_ATTESTED_NOT_INDEPENDENT"

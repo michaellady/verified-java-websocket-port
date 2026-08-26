@@ -152,7 +152,7 @@ func TestProtectedPublicProjectionGoldenRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := DecodeProtectedPublicProjection(raw); err != nil {
+	if _, err := DecodeLegacyCgroupEraProjection0012(raw); err != nil {
 		t.Fatal(err)
 	}
 	schemaBytes, err := os.ReadFile(filepath.Join(repoRoot(t), "schemas/sbx-public-projection-1.0.0.schema.json"))
@@ -178,7 +178,7 @@ func TestProtectedPublicProjectionGoldenRoundTrip(t *testing.T) {
 	drift := envelope
 	drift.CanonicalDigest = digestOf("drift")
 	driftBytes, _ := json.Marshal(drift)
-	if _, err := DecodeProtectedPublicProjection(driftBytes); err == nil {
+	if _, err := DecodeLegacyCgroupEraProjection0012(driftBytes); err == nil {
 		t.Fatal("aggregate public projection digest drift accepted")
 	}
 }

@@ -12,7 +12,7 @@ func TestUS007Acceptance_PoliciesCatalogAndOwnerCeiling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if verdict.State != "PROVEN_LIVE_RLIMIT_ENVELOPE_ATTEMPT_0123" {
+	if verdict.State != "RLIMIT_ENVELOPE_PROVEN_LIVE_MEMORY_SCOPED_TO_OUTER_ENVELOPE_ATTEMPT_0123" {
 		t.Fatalf("state = %q", verdict.State)
 	}
 	if len(verdict.Findings) != 0 {

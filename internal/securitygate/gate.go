@@ -34,7 +34,15 @@ const (
 	// The live rlimit-envelope enforcement proof is bound to exactly one
 	// protected-operator attempt. Every constant below is an exact pin; any
 	// drift fails closed back to SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK.
-	provenMechanicsState             = "PROVEN_LIVE_RLIMIT_ENVELOPE_ATTEMPT_0123"
+	//
+	// provenMechanicsState is honestly scoped: the memory dimension is the
+	// owner-accepted scoped guarantee (per-workload 512 MiB RLIMIT_AS proven on
+	// the memory-allocation canary, plus the outer sbx --memory whole-sandbox RSS
+	// envelope for every workload; RLIMIT_DATA is not relied upon). It is NEVER a
+	// uniform per-workload memory cap. See the owner memory-scoping amendment
+	// (sbxMemoryScopingAmendmentDigest). CPU/PID/FD/output/wall/workspace remain
+	// genuinely per-workload enforced and were live-proven in attempt 0123.
+	provenMechanicsState             = "RLIMIT_ENVELOPE_PROVEN_LIVE_MEMORY_SCOPED_TO_OUTER_ENVELOPE_ATTEMPT_0123"
 	sbxLiveEvidencePath              = "evidence/sbx-validation.json"
 	sbxLiveAttemptID                 = "us007-sbx-output-live-0123"
 	sbxLiveEnforcementModel          = "PARENT_SET_POSIX_RLIMIT_ENVELOPE"
@@ -53,10 +61,39 @@ const (
 	sbxLiveWallKillThresholdNanos    = int64(119000000000)
 	sbxLiveOutputLimitBytes          = int64(8388608)
 	sbxLiveWorkspaceLimitBytes       = int64(67108864)
+
+	// B1 — the retained proof is pinned to its exact bytes, never to a
+	// self-referential or asserted digest. sbxLiveEvidenceDigest is the exact
+	// sha256 of evidence/sbx-validation.json; the retained protected projection
+	// (evidence/sbx-projection-0123.json) is pinned to its exact raw bytes and
+	// its inner canonical projection digest is RECOMPUTED from those bytes.
+	sbxLiveEvidenceDigest           = "sha256:ba746b0411cfe4759ee90460106ccc33f47992a5c72c13500f9022e5ce823be2"
+	sbxLiveProjectionPath           = "evidence/sbx-projection-0123.json"
+	sbxLiveProjectionEnvelopeDigest = "sha256:8f7206b352d45d3ade883250f97b3efc34b54d37994bcc5a1e591317c247ae34"
+
+	// B2 — attempt 0123's exact proven policy envelope, as recorded in the
+	// protected projection request. A candidate that widens the sandbox-policy
+	// resources or capabilities, or regenerates a different plan/profile, fails
+	// closed against these pins (both these and the resource/capability set below).
+	sbxLiveFixedPlanDigest     = "sha256:a44761c8ced9a465dfab08e251409d59d476d60b00d2a10061adce2cd3eab68d"
+	sbxLiveProfileDigest       = "sha256:81f3e737e891b042da605b9487abd6878d6c14ae18f3e01a257fc2b2fc84981c"
+	sbxLivePolicyDigest        = "sha256:e153d9f0a5494764e0171817297962faef2bff65e733c4e0cbe536ae95ddbf80"
+	sbxLiveAcceptedRootDigest  = "sha256:6dbe15a2865f4393006eaa297c987f86d50664b2bac1bed88226704beefa4591"
+	sbxLiveInventoryRootDigest = "sha256:caf8a9590eb847afc14ef97c30d2ba5a13f4f3c5b35c3bcba3df47a236bb1da0"
+
+	// The owner-authorized memory-scoping amendment (2026-08-26T13:05Z) that
+	// accepts the scoped memory guarantee and corrects the prior amendment's
+	// per-workload-memory language.
+	sbxMemoryScopingAmendmentDigest = "sha256:615d838d6e5e10c16866170c875d2662f0bc00e7c8f46d0bf75e6cd8b4587645"
+
+	// permittedAcceptCode is the ONLY finding code allowed to carry the ACCEPT
+	// disposition in any policy finding registry (I1). Every other row must be
+	// adverse; a second ACCEPT row, or ACCEPT on any other code, fails closed.
+	permittedAcceptCode = "SANDBOX_RLIMIT_ENVELOPE_PROVEN_LIVE"
 )
 
 var policyPaths = []string{"security/ingestion-policy.json", "security/sandbox-policy.json", "security/release-firewall.json"}
-var sbxLiveEvidencePaths = []string{sbxLiveEvidencePath}
+var sbxLiveEvidencePaths = []string{sbxLiveEvidencePath, sbxLiveProjectionPath}
 var schemaPaths = []string{"schemas/security-ingestion-policy-1.0.0.schema.json", "schemas/security-sandbox-policy-1.0.0.schema.json", "schemas/security-release-firewall-1.0.0.schema.json", "schemas/security-fixture-catalog-1.0.0.schema.json", "schemas/security-validation-1.0.0.schema.json", executablePromotionSchemaPath}
 var baselineEvidencePaths = []string{"evidence/java/build.json", "evidence/java/adapter-baseline.json", "evidence/java/test-manifest.json", "evidence/java/autobahn-baseline.json", "evidence/java/behavior-delta-ledger.json"}
 
@@ -773,10 +810,24 @@ func validatePolicies(s *policySnapshot) error {
 	if s.release.PublicationCapability || !s.release.ProtectedCheckerRequired || !equalSet(s.release.IncludedClassifications, []string{"PUBLIC", "PUBLIC_DERIVED"}) {
 		return errors.New("PUBLICATION_NOT_AUTHORIZED/BLOCK")
 	}
+	acceptRows := 0
 	for _, entries := range [][]registryEntry{s.ingestion.FindingRegistry, s.sandbox.FindingRegistry, s.release.FindingRegistry} {
 		for _, e := range entries {
 			if e.Code == "" || !validDisposition(e.Disposition) {
 				return errors.New("INVALID_SECURITY_POLICY/BLOCK: invalid registry row")
+			}
+			// I1 — the ACCEPT disposition is structurally reserved for exactly
+			// one registered code (the single live-proof mechanics record) and
+			// may appear at most once. Any other ACCEPT row, or a second ACCEPT,
+			// fails closed here rather than relying on a comment.
+			if e.Disposition == "ACCEPT" {
+				if e.Code != permittedAcceptCode {
+					return errors.New("INVALID_SECURITY_POLICY/BLOCK: ACCEPT disposition is reserved for the single live-proof mechanics code")
+				}
+				acceptRows++
+				if acceptRows > 1 {
+					return errors.New("INVALID_SECURITY_POLICY/BLOCK: more than one ACCEPT registry row")
+				}
 			}
 			if _, ok := s.registry[e.Code]; ok {
 				return errors.New("INVALID_SECURITY_POLICY/BLOCK: duplicate registry row")
@@ -849,11 +900,36 @@ func verifyRetainedEvidence(s *policySnapshot) []Finding {
 	if e.SandboxMechanics != provenSandboxMechanics() {
 		return add("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.sandbox_mechanics", "sandbox mechanics must be exactly the retained live rlimit-envelope proof record")
 	}
+	// B2 — bind the sandbox-policy resource limits and required capabilities to
+	// attempt 0123's exact proven envelope. Schema alone permits any positive
+	// values; a candidate that widens memory/CPU/PID/FD/output/workspace or the
+	// capability set fails closed here rather than merely being self-consistent.
+	if s.sandbox.Resources != exactProtectedEnvelope() {
+		return add("SANDBOX_CAPABILITY_MISMATCH", "QUARANTINE", "$.sandbox.resources", "sandbox-policy resource limits differ from attempt 0123's proven envelope")
+	}
+	if !equalSet(s.sandbox.RequiredCapabilities, provenRequiredCapabilities()) {
+		return add("SANDBOX_CAPABILITY_MISMATCH", "QUARANTINE", "$.sandbox.required_capabilities", "sandbox-policy required capabilities differ from attempt 0123's proven set")
+	}
 	live := e.SbxLiveEvidence
-	if live.AttemptID != sbxLiveAttemptID || live.EvidencePath != sbxLiveEvidencePath || live.EvidenceDigest != s.digests[sbxLiveEvidencePath] || live.ProjectionCanonicalDigest != sbxLiveProjectionCanonicalDigest || live.TargetCommit != sbxLiveTargetCommit || live.SourceTree != sbxLiveSourceTree || live.EnforcementModel != sbxLiveEnforcementModel {
-		return add("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.sbx_live_evidence", "retained live sbx enforcement proof binding is absent or drifted")
+	// B1 — pin the retained proof to its exact bytes. EvidenceDigest is checked
+	// both for self-consistency (equal to the loaded file's digest) AND against
+	// the exact pinned constant, so a mutated file cannot simply re-declare its
+	// own new digest.
+	if live.AttemptID != sbxLiveAttemptID || live.EvidencePath != sbxLiveEvidencePath || live.EvidenceDigest != s.digests[sbxLiveEvidencePath] || s.digests[sbxLiveEvidencePath] != sbxLiveEvidenceDigest || live.ProjectionCanonicalDigest != sbxLiveProjectionCanonicalDigest || live.TargetCommit != sbxLiveTargetCommit || live.SourceTree != sbxLiveSourceTree || live.EnforcementModel != sbxLiveEnforcementModel {
+		return add("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.sbx_live_evidence", "retained live sbx enforcement proof binding is absent or drifted from the exact pinned bytes")
+	}
+	// B1/B2 — validate the retained protected projection: pin its exact raw
+	// bytes, RECOMPUTE the canonical projection digest from those bytes (never
+	// accept the asserted string), bind attempt 0123's exact request envelope,
+	// and require the evidence descriptor outcomes to equal the retained
+	// projection observations EXACTLY (not by threshold-equivalence).
+	if finding := validateRetainedProjection(s); finding != nil {
+		return []Finding{*finding}
 	}
 	if finding := validateRetainedSbxLiveEvidence(s.bytes[sbxLiveEvidencePath]); finding != nil {
+		return []Finding{*finding}
+	}
+	if finding := compareRetainedDescriptorOutcomes(s); finding != nil {
 		return []Finding{*finding}
 	}
 	wantLifecycle := lifecycleIntegration{
@@ -888,17 +964,153 @@ func verifyRetainedEvidence(s *policySnapshot) []Finding {
 	return nil
 }
 
+// provenRequiredCapabilities is attempt 0123's exact proven capability set.
+// Binding s.sandbox.RequiredCapabilities to this (B2) closes the gap where the
+// schema permitted an arbitrary capability list.
+func provenRequiredCapabilities() []string {
+	return []string{
+		"DISPOSABLE_CGROUP", "DISPOSABLE_IPC_NAMESPACE", "DISPOSABLE_MOUNT_NAMESPACE",
+		"DISPOSABLE_NETWORK_NAMESPACE", "DISPOSABLE_PID_NAMESPACE", "DISPOSABLE_USER_NAMESPACE",
+		"DISPOSABLE_UTS_NAMESPACE", "EMPTY_AMBIENT_CAPABILITIES", "NO_NEW_PRIVS",
+		"READ_ONLY_ROOT", "SECCOMP_OR_PLATFORM_PROFILE",
+	}
+}
+
+// retainedProjectionEnvelope decodes only the outer envelope. Projection is kept
+// as raw bytes so the canonical digest can be RECOMPUTED (B1) instead of trusting
+// the asserted canonical_digest string.
+type retainedProjectionEnvelope struct {
+	Projection      json.RawMessage `json:"projection"`
+	CanonicalDigest string          `json:"canonical_digest"`
+}
+
+type retainedProjectionBody struct {
+	Request                retainedProjectionRequest       `json:"request"`
+	DescriptorObservations []retainedProjectionObservation `json:"descriptor_observations"`
+}
+
+type retainedProjectionRequest struct {
+	AttemptID           string `json:"attempt_id"`
+	TargetCommit        string `json:"target_commit"`
+	SourceTree          string `json:"source_tree"`
+	FixedPlanDigest     string `json:"fixed_plan_digest"`
+	ProfileDigest       string `json:"profile_digest"`
+	PolicyDigest        string `json:"policy_digest"`
+	AcceptedRootDigest  string `json:"accepted_root_digest"`
+	InventoryRootDigest string `json:"inventory_root_digest"`
+}
+
+type retainedProjectionObservation struct {
+	DescriptorID      string `json:"descriptor_id"`
+	Termination       string `json:"termination"`
+	ExitCode          *int   `json:"exit_code"`
+	Signal            string `json:"signal"`
+	WorkloadSignal    int    `json:"workload_signal"`
+	WallDurationNanos int64  `json:"wall_duration_nanos"`
+	Peaks             struct {
+		CPUUsageUsec   int64 `json:"cpu_usage_usec"`
+		OutputBytes    int64 `json:"output_bytes"`
+		WorkspaceBytes int64 `json:"workspace_bytes"`
+	} `json:"peaks"`
+	RLimits struct {
+		ASCur uint64 `json:"as_cur"`
+	} `json:"rlimits_reopened"`
+}
+
+// validateRetainedProjection pins the retained protected projection to its exact
+// raw bytes, recomputes the canonical projection digest from those bytes, and
+// binds attempt 0123's exact request envelope (B1 + B2). It fails closed on any
+// drift back to SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK.
+func validateRetainedProjection(s *policySnapshot) *Finding {
+	deny := func(message string) *Finding {
+		return &Finding{Code: "SANDBOX_ENFORCEMENT_UNAVAILABLE", Disposition: "BLOCK", Path: sbxLiveProjectionPath, Message: message}
+	}
+	data, ok := s.bytes[sbxLiveProjectionPath]
+	if !ok || s.digests[sbxLiveProjectionPath] != sbxLiveProjectionEnvelopeDigest {
+		return deny("retained protected projection is absent or drifted from its exact pinned bytes")
+	}
+	var envelope retainedProjectionEnvelope
+	if err := json.Unmarshal(data, &envelope); err != nil {
+		return deny("retained protected projection envelope does not decode: " + err.Error())
+	}
+	// Recompute the canonical projection digest from the retained projection
+	// bytes; require it to equal both the envelope's own field and the pin.
+	recomputed := intake.DigestBytes(envelope.Projection)
+	if recomputed != sbxLiveProjectionCanonicalDigest || envelope.CanonicalDigest != sbxLiveProjectionCanonicalDigest {
+		return deny("recomputed canonical projection digest does not match the pinned attempt-0123 digest")
+	}
+	var body retainedProjectionBody
+	if err := json.Unmarshal(envelope.Projection, &body); err != nil {
+		return deny("retained protected projection body does not decode: " + err.Error())
+	}
+	r := body.Request
+	if r.AttemptID != sbxLiveAttemptID || r.TargetCommit != sbxLiveTargetCommit || r.SourceTree != sbxLiveSourceTree ||
+		r.FixedPlanDigest != sbxLiveFixedPlanDigest || r.ProfileDigest != sbxLiveProfileDigest || r.PolicyDigest != sbxLivePolicyDigest ||
+		r.AcceptedRootDigest != sbxLiveAcceptedRootDigest || r.InventoryRootDigest != sbxLiveInventoryRootDigest {
+		return deny("retained projection request envelope (attempt/commit/tree/fixed-plan/profile/policy/roots) drifted from attempt 0123")
+	}
+	if len(body.DescriptorObservations) != len(protectedFixedPlan()) {
+		return deny("retained projection descriptor observation set is not the exact fixed plan")
+	}
+	return nil
+}
+
+// compareRetainedDescriptorOutcomes requires every retained evidence descriptor
+// outcome to equal the retained protected projection observation EXACTLY (B1) —
+// termination, exit code, signals, wall duration, CPU/output/workspace peaks,
+// and the observed RLIMIT_AS. A coordinated bundle that mutates observations but
+// keeps the known projection-digest string fails closed here because the
+// projection bytes are byte-pinned and its canonical digest is recomputed.
+func compareRetainedDescriptorOutcomes(s *policySnapshot) *Finding {
+	deny := func(message string) *Finding {
+		return &Finding{Code: "SANDBOX_ENFORCEMENT_UNAVAILABLE", Disposition: "BLOCK", Path: sbxLiveProjectionPath, Message: message}
+	}
+	var doc sbxLiveEvidenceDocument
+	if err := intake.DecodeStrict(s.bytes[sbxLiveEvidencePath], &doc); err != nil {
+		return deny("retained live sbx evidence does not decode strictly: " + err.Error())
+	}
+	var envelope retainedProjectionEnvelope
+	if err := json.Unmarshal(s.bytes[sbxLiveProjectionPath], &envelope); err != nil {
+		return deny("retained protected projection envelope does not decode: " + err.Error())
+	}
+	var body retainedProjectionBody
+	if err := json.Unmarshal(envelope.Projection, &body); err != nil {
+		return deny("retained protected projection body does not decode: " + err.Error())
+	}
+	if len(doc.Descriptors) != len(body.DescriptorObservations) {
+		return deny("retained evidence and protected projection descriptor counts differ")
+	}
+	intPtrEqual := func(a, b *int) bool {
+		if a == nil || b == nil {
+			return a == b
+		}
+		return *a == *b
+	}
+	for i := range doc.Descriptors {
+		d := doc.Descriptors[i]
+		o := body.DescriptorObservations[i]
+		if d.ID != o.DescriptorID || d.Termination != o.Termination || !intPtrEqual(d.ExitCode, o.ExitCode) ||
+			d.Signal != o.Signal || d.WorkloadSignal != o.WorkloadSignal || d.WallDurationNanos != o.WallDurationNanos ||
+			d.CPUUsageUsecPeak != o.Peaks.CPUUsageUsec || d.OutputBytesPeak != o.Peaks.OutputBytes ||
+			d.WorkspaceBytesPeak != o.Peaks.WorkspaceBytes || d.RLimitASBytes != o.RLimits.ASCur {
+			return deny("retained evidence descriptor outcome does not match the protected projection observation exactly for " + d.ID)
+		}
+	}
+	return nil
+}
+
 // provenSandboxMechanics is the exact post-proof mechanics record. It replaces
 // the SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK finding only because the retained,
-// digest-bound live projection of attempt us007-sbx-output-live-0123 proved
-// the owner-amended parent-set POSIX rlimit envelope; assurance remains
-// owner-attested and not independent.
+// byte-pinned live projection of attempt us007-sbx-output-live-0123 proved the
+// owner-amended parent-set POSIX rlimit envelope; assurance remains
+// owner-attested and not independent. The memory dimension is stated as exactly
+// the owner-accepted scoped guarantee, never a uniform per-workload memory cap.
 func provenSandboxMechanics() Finding {
 	return Finding{
 		Code:        "SANDBOX_RLIMIT_ENVELOPE_PROVEN_LIVE",
 		Disposition: "ACCEPT",
 		Path:        "$.platform_enforcement",
-		Message:     "parent-set POSIX rlimit envelope, supervisor wall/output kills, and /run tmpfs workspace bound were proven live in sbx attempt us007-sbx-output-live-0123 under the owner-authorized rlimit-enforcement contract amendment; seccomp is observed-not-required because the microVM boundary is the syscall barrier; owner-attested, not independently reviewed",
+		Message:     "attempt us007-sbx-output-live-0123 proved live, per-workload and kernel-enforced: RLIMIT_CPU, RLIMIT_NPROC, RLIMIT_NOFILE, supervisor wall-clock SIGKILL, supervisor output-byte kill, and the /run tmpfs workspace (RLIMIT_FSIZE + ENOSPC) bounds. The MEMORY dimension is the owner-accepted scoped guarantee (memory-scoping amendment sha256:615d838d6e5e10c16866170c875d2662f0bc00e7c8f46d0bf75e6cd8b4587645, superseding the enforcement amendment): a 512 MiB per-workload RLIMIT_AS is set before exec on the memory-allocation canary alone (its kill trigger), and every workload's RSS is bounded only by the OUTER sbx --memory whole-sandbox envelope; RLIMIT_DATA is not relied upon (brk-only, does not bound mmap) and no uniform per-workload memory cap is claimed. seccomp-zero is acceptable against the bound platform profile digest sha256:81f3e737e891b042da605b9487abd6878d6c14ae18f3e01a257fc2b2fc84981c, which is the syscall barrier for this runtime. Owner-attested, not independently reviewed.",
 	}
 }
 
@@ -1028,9 +1240,27 @@ func validateSbxLiveDescriptorOutcome(descriptor sbxLiveDescriptorOutcome) *Find
 	exitedWith := func(code int) bool {
 		return descriptor.ExitCode != nil && *descriptor.ExitCode == code && descriptor.Signal == "" && descriptor.WorkloadSignal == 0
 	}
-	tightAS := descriptor.RLimitASBytes == sbxLiveMemoryRLimitASBytes
-	if descriptor.Expected == "RLIMIT_AS_ALLOCATION_FAILURE_EXIT_2" != tightAS {
-		return deny("per-descriptor RLIMIT_AS profile drifted from the amended contract")
+	// B3(a) — the shipped attempt-0123 supervisor (setProtectedRLimits) applies
+	// the tight 512 MiB RLIMIT_AS to exactly ONE descriptor: the memory-allocation
+	// canary (program key "memory", descriptor MEMORY_BOUND), where the cap is the
+	// kill trigger. Every other descriptor runs with a loose/uncapped address
+	// space (RLIM_INFINITY), because a tight per-workload AS cap aborts the Go
+	// runtime at startup and the shell/coreutils workloads need no AS trigger. The
+	// split is memory-canary-vs-everything-else, NOT shell-vs-Go. This mirrors the
+	// protected supervisor's receipt validator exactly and fails closed in BOTH
+	// directions: a loose AS on MEMORY_BOUND and a tight 512 MiB AS on any other
+	// descriptor are rejected. Per-workload RSS is not hard-capped here; it is
+	// bounded by the outer sbx --memory envelope (memory-scoping amendment).
+	memoryCanary := descriptor.ID == "MEMORY_BOUND"
+	if memoryCanary {
+		if descriptor.RLimitASBytes != sbxLiveMemoryRLimitASBytes {
+			return deny("memory canary lost its tight 512 MiB RLIMIT_AS kill trigger")
+		}
+	} else if descriptor.RLimitASBytes <= sbxLiveMemoryRLimitASBytes {
+		return deny("non-memory descriptor carries a tightened RLIMIT_AS; only the memory canary is AS-capped in the proven envelope")
+	}
+	if (descriptor.Expected == "RLIMIT_AS_ALLOCATION_FAILURE_EXIT_2") != memoryCanary {
+		return deny("RLIMIT_AS allocation-failure expectation is bound to the memory canary alone")
 	}
 	valid := false
 	switch descriptor.Expected {

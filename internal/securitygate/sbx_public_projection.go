@@ -1,5 +1,22 @@
 package securitygate
 
+// LEGACY / QUARANTINED — cgroup-era protected public projection (attempt
+// us007-sbx-output-live-0012).
+//
+// This file's ProtectedPublicProjection decoder models the RETIRED Codex
+// cgroup-v2 security model (in-sandbox kernel cgroup controllers, non-zero
+// seccomp required, cgroup memory.max RSS cap). That model was superseded by the
+// owner-authorized rlimit-enforcement amendment; the LIVE canonical model is the
+// parent-set POSIX rlimit envelope proven in attempt us007-sbx-output-live-0123
+// and validated by gate.go's validateRetainedProjection / verifyRetainedEvidence.
+//
+// The legacy decoder (DecodeLegacyCgroupEraProjection0012) is retained ONLY as
+// frozen golden history and is NOT reachable from Verify, VerifySandbox, Project,
+// Ingest, or RunControlledCanary. Do not route live evidence through it; there
+// are not two live canonical models. Only exactProtectedEnvelope and
+// protectedFixedPlan below are shared with the live 0123 path (the 0123 envelope
+// and fixed descriptor plan are unchanged across the amendment).
+
 import (
 	"encoding/json"
 	"errors"
@@ -8,6 +25,10 @@ import (
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 )
+
+// legacyCgroupEraProjectionAttempt is the retired attempt id this quarantined
+// decoder is pinned to. The live model is attempt us007-sbx-output-live-0123.
+const legacyCgroupEraProjectionAttempt = "us007-sbx-output-live-0012"
 
 type ProtectedCPUCounters struct {
 	UsageUsec  int64 `json:"usage_usec"`
@@ -142,7 +163,11 @@ type ProtectedPublicProjectionEnvelope struct {
 	CanonicalDigest string                    `json:"canonical_digest"`
 }
 
-func DecodeProtectedPublicProjection(data []byte) (ProtectedPublicProjectionEnvelope, error) {
+// DecodeLegacyCgroupEraProjection0012 decodes the RETIRED cgroup-era protected
+// public projection (attempt us007-sbx-output-live-0012). QUARANTINED: it is not
+// on any live gate path and exists only to keep the frozen golden round-trip
+// verifiable. The live projection decoder is gate.go's validateRetainedProjection.
+func DecodeLegacyCgroupEraProjection0012(data []byte) (ProtectedPublicProjectionEnvelope, error) {
 	var envelope ProtectedPublicProjectionEnvelope
 	if err := intake.DecodeStrict(data, &envelope); err != nil {
 		return ProtectedPublicProjectionEnvelope{}, fmt.Errorf("PUBLIC_PROJECTION_INVALID/QUARANTINE: %w", err)
@@ -151,15 +176,15 @@ func DecodeProtectedPublicProjection(data []byte) (ProtectedPublicProjectionEnve
 	if err != nil || envelope.CanonicalDigest != intake.DigestBytes(canonical) {
 		return ProtectedPublicProjectionEnvelope{}, errors.New("PUBLIC_PROJECTION_DIGEST_DRIFT/QUARANTINE")
 	}
-	if err := validateProtectedPublicProjection(envelope.Projection); err != nil {
+	if err := validateLegacyCgroupEraProjection0012(envelope.Projection); err != nil {
 		return ProtectedPublicProjectionEnvelope{}, err
 	}
 	return envelope, nil
 }
 
-func validateProtectedPublicProjection(projection ProtectedPublicProjection) error {
+func validateLegacyCgroupEraProjection0012(projection ProtectedPublicProjection) error {
 	request, runtime := projection.Request, projection.Runtime
-	if projection.SchemaVersion != policyVersion || request.AttemptID != "us007-sbx-output-live-0012" || !sbxGitObjectPattern.MatchString(request.TargetCommit) || !sbxGitObjectPattern.MatchString(request.SourceTree) || request.FixedPlanDigest != protectedFixedPlanDigest() || !isSHA256Digest(request.ProfileDigest) || !isSHA256Digest(request.PolicyDigest) || !isSHA256Digest(request.AcceptedRootDigest) || !isSHA256Digest(request.InventoryRootDigest) || request.InputRoot != "/Users/mikelady/hq/workspace/worktrees/verified-java-websocket-port/us007-resource-supervisor" || request.OutputRoot != "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port/protected/us007-sbx-output-live-0012" || request.PrivilegedExecArgvDigest != protectedPrivilegedExecDigest() {
+	if projection.SchemaVersion != policyVersion || request.AttemptID != legacyCgroupEraProjectionAttempt || !sbxGitObjectPattern.MatchString(request.TargetCommit) || !sbxGitObjectPattern.MatchString(request.SourceTree) || request.FixedPlanDigest != protectedFixedPlanDigest() || !isSHA256Digest(request.ProfileDigest) || !isSHA256Digest(request.PolicyDigest) || !isSHA256Digest(request.AcceptedRootDigest) || !isSHA256Digest(request.InventoryRootDigest) || request.InputRoot != "/Users/mikelady/hq/workspace/worktrees/verified-java-websocket-port/us007-resource-supervisor" || request.OutputRoot != "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port/protected/us007-sbx-output-live-0012" || request.PrivilegedExecArgvDigest != protectedPrivilegedExecDigest() {
 		return errors.New("PUBLIC_PROJECTION_REQUEST_INVALID/QUARANTINE")
 	}
 	if runtime.CLIPath != "/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx" || runtime.CLIBinaryDigest != "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf" || !isSHA256Digest(runtime.CLIVersionOutputDigest) || runtime.CLIVersion != "v0.39.0" || runtime.CLICommit != "def8cb0523a77e757bdd6ef52b459fe374f3783e" || !isSHA256Digest(runtime.DaemonStatusDigest) || runtime.DaemonVersion != "v0.39.0" || runtime.DaemonCommit != runtime.CLICommit || runtime.Template != "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec" || runtime.SandboxName != "us007-resource-envelope-0012" || runtime.PrivilegeLifecycle == "" {

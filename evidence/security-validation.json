@@ -14,7 +14,7 @@
     "schemas/security-ingestion-policy-1.0.0.schema.json": "sha256:ae96c17cab6c9762a000a57d5c6e5e696f7ff9288ded6c72fe2534701e1da2cb",
     "schemas/security-release-firewall-1.0.0.schema.json": "sha256:5310f3388e7b30aa67f0e86129b494ecadfa94cd0a9d910684ca01f5692df555",
     "schemas/security-sandbox-policy-1.0.0.schema.json": "sha256:84adb8cc996b70ba8f7281fee4d7b3356a115e57544f02bc4adbe030f75e5346",
-    "schemas/security-validation-1.0.0.schema.json": "sha256:1c86594d14c76c62f9b2cb3ec92510005e1dec6b671e9c11f0e1b9360578340e"
+    "schemas/security-validation-1.0.0.schema.json": "sha256:1dc62ca926532181cded99fd04aaa544dc58deea7f319489b2d0d2fb4fa69a6f"
   },
   "fixture_catalog_digest": "sha256:5da747c326b8388889979d3f69716b483149ba36901e94e16174573b3a76614c",
   "autobahn_baseline_digest": "sha256:54fac3c5166e6530ffb4e34ccd5a05d8122d2b2fae4fc4bc1708ac05779ff04d",
@@ -681,7 +681,7 @@
       "matched": true
     }
   ],
-  "mechanics_state": "PROVEN_LIVE_RLIMIT_ENVELOPE_ATTEMPT_0123",
+  "mechanics_state": "RLIMIT_ENVELOPE_PROVEN_LIVE_MEMORY_SCOPED_TO_OUTER_ENVELOPE_ATTEMPT_0123",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,
   "production": false,
@@ -691,7 +691,7 @@
     "code": "SANDBOX_RLIMIT_ENVELOPE_PROVEN_LIVE",
     "disposition": "ACCEPT",
     "path": "$.platform_enforcement",
-    "message": "parent-set POSIX rlimit envelope, supervisor wall/output kills, and /run tmpfs workspace bound were proven live in sbx attempt us007-sbx-output-live-0123 under the owner-authorized rlimit-enforcement contract amendment; seccomp is observed-not-required because the microVM boundary is the syscall barrier; owner-attested, not independently reviewed"
+    "message": "attempt us007-sbx-output-live-0123 proved live, per-workload and kernel-enforced: RLIMIT_CPU, RLIMIT_NPROC, RLIMIT_NOFILE, supervisor wall-clock SIGKILL, supervisor output-byte kill, and the /run tmpfs workspace (RLIMIT_FSIZE + ENOSPC) bounds. The MEMORY dimension is the owner-accepted scoped guarantee (memory-scoping amendment sha256:615d838d6e5e10c16866170c875d2662f0bc00e7c8f46d0bf75e6cd8b4587645, superseding the enforcement amendment): a 512 MiB per-workload RLIMIT_AS is set before exec on the memory-allocation canary alone (its kill trigger), and every workload's RSS is bounded only by the OUTER sbx --memory whole-sandbox envelope; RLIMIT_DATA is not relied upon (brk-only, does not bound mmap) and no uniform per-workload memory cap is claimed. seccomp-zero is acceptable against the bound platform profile digest sha256:81f3e737e891b042da605b9487abd6878d6c14ae18f3e01a257fc2b2fc84981c, which is the syscall barrier for this runtime. Owner-attested, not independently reviewed."
   },
   "sbx_live_evidence": {
     "attempt_id": "us007-sbx-output-live-0123",
