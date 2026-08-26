@@ -320,6 +320,77 @@ func TestHandshakeTierRequestsAndEvaluate(t *testing.T) {
 	}
 }
 
+// The handshake live adapter is drivable end to end from the CLI: --wire
+// emits digest-bound java-oracle handshake protocol requests, and
+// evaluate --live scores a java-runtime observable transcript fail-closed.
+// Both flags are handshake-tier-only.
+func TestHandshakeWireRequestsAndLiveEvaluate(t *testing.T) {
+	root := t.TempDir()
+	protectedRoot := t.TempDir()
+	if code, _, stderr := runCLI(t, "generate",
+		"--root", root, "--protected-root", protectedRoot); code != 0 {
+		t.Fatalf("generate failed: %s", stderr)
+	}
+	code, stdout, stderr := runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot,
+		"--tier", "handshake", "--wire")
+	if code != 0 {
+		t.Fatalf("wire requests exit %d: %s", code, stderr)
+	}
+	lines := strings.Split(strings.TrimRight(stdout, "\n"), "\n")
+	if len(lines) < 30 {
+		t.Fatalf("too few wire request lines: %d", len(lines))
+	}
+	var request map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &request); err != nil {
+		t.Fatalf("wire request not JSON: %v", err)
+	}
+	if request["protocol"] != "java-websocket-handshake-oracle" ||
+		request["request_digest"] == nil || request["raw_base64"] == nil {
+		t.Fatalf("wire request malformed: %s", lines[0])
+	}
+	if _, present := request["expected"]; present {
+		t.Fatal("wire request must not leak the expected verdict")
+	}
+
+	// --wire is handshake-tier-only.
+	if code, _, _ := runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot,
+		"--tier", "public", "--wire"); code != 2 {
+		t.Fatalf("--wire on a behavior tier must be a usage error, got %d", code)
+	}
+
+	// An empty live transcript must not reconcile.
+	transcript := filepath.Join(t.TempDir(), "live.jsonl")
+	if err := os.WriteFile(transcript, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, _ = runCLI(t, "evaluate",
+		"--root", root, "--protected-root", protectedRoot,
+		"--tier", "handshake", "--transcript", transcript, "--live")
+	if code == 0 {
+		t.Fatal("empty live transcript must not reconcile")
+	}
+	var report map[string]any
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("evaluate output not JSON: %v", err)
+	}
+	if int(report["missing"].(float64)) == 0 {
+		t.Fatalf("missing live responses not reported: %s", stdout)
+	}
+	if _, present := report["divergences"]; !present {
+		t.Fatalf("live evaluation must report the divergences field: %s", stdout)
+	}
+
+	// --live is handshake-tier-only: behavior tiers must never route through
+	// the handshake observable evaluator.
+	if code, _, _ := runCLI(t, "evaluate",
+		"--root", root, "--protected-root", protectedRoot,
+		"--tier", "public", "--transcript", transcript, "--live"); code != 2 {
+		t.Fatalf("--live on a behavior tier must be a usage error, got %d", code)
+	}
+}
+
 // The CLI invocation that TRIGGERS probing detection persists the trigger's
 // own hash-chained denial entry (op query_denied, reason PROBING_DETECTED,
 // latch set) on that same denied invocation — not a success entry.
