@@ -19,3 +19,8 @@ target
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+
+# Quarantined upstream inputs. The Java-WebSocket archive is digest-pinned in
+# evidence/intake/source-pins.json and re-acquired on demand; it is never committed.
+.quarantine/
+java-semantic-oracle/build/

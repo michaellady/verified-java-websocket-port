@@ -1,0 +1,972 @@
+{
+  "$schema": "../../schemas/port-seam-dossier-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "PortSeamDossier",
+  "dossier_id": "port-seam-dossier.us003",
+  "public_boundaries": [
+    "org.java_websocket.WebSocket: the public connection interface (send, close, state)",
+    "org.java_websocket.WebSocketListener: the public inbound callback boundary",
+    "org.java_websocket.WebSocketAdapter: the default listener implementation",
+    "org.java_websocket.drafts.Draft: the public protocol-strategy boundary",
+    "org.java_websocket.framing.Framedata: the public frame accessor boundary",
+    "org.java_websocket.handshake.Handshakedata: the public handshake accessor boundary"
+  ],
+  "internal_boundaries": [
+    "org.java_websocket.WebSocketImpl: the internal connection state machine",
+    "org.java_websocket.drafts.Draft_6455: internal RFC 6455 draft implementation",
+    "org.java_websocket.framing.FramedataImpl1: internal mutable frame representation",
+    "org.java_websocket.handshake.HandshakedataImpl1: internal handshake representation",
+    "org.java_websocket.util.Charsetfunctions: internal strict UTF-8 helpers",
+    "org.java_websocket.util.ByteBufferUtils: internal buffer helpers"
+  ],
+  "handshakes": [
+    "client opening-handshake request construction and response validation (US-010)",
+    "server opening-handshake validation and response construction (US-011)",
+    "Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation via util.Base64",
+    "HandshakeState decision surface (MATCHED / NOT_MATCHED)"
+  ],
+  "frames": [
+    "Opcode discrimination across continuous, text, binary, ping, pong, closing",
+    "FramedataImpl1 fin/rsv/mask/payload-length decoding and encoding",
+    "ControlFrame vs DataFrame validity rules",
+    "CloseFrame code and reason encoding"
+  ],
+  "ownership": [
+    "Java: WebSocketImpl owns the connection state and is mutated from selector and worker threads; the Rust port gives a single owner exclusive ownership",
+    "Java: Framedata payload ByteBuffers are shared and mutable; the Rust port owns payload bytes explicitly per frame",
+    "Java: Draft instances are per-connection copies created by Draft.copyInstance()"
+  ],
+  "buffers": [
+    "WebSocketImpl inbound ByteBuffer accumulation across partial reads",
+    "ByteBufferUtils.transferByteBuffer and empty-buffer sentinel behavior",
+    "Draft_6455 incomplete-frame buffer retained between reads",
+    "allocation limits enforced when decoding payload length"
+  ],
+  "queues": [
+    "WebSocketImpl outgoing BlockingQueue of ByteBuffers (unbounded in Java)",
+    "the Rust port replaces it with a bounded command queue with explicit backpressure"
+  ],
+  "threads": [
+    "org.java_websocket.util.NamedThreadFactory: the study-surface thread seam",
+    "Java's selector thread and worker pool live in the excluded server topology",
+    "the Rust port runs the core on one owner with no interior threads"
+  ],
+  "callbacks": [
+    "WebSocketListener.onWebsocketOpen / onWebsocketMessage / onWebsocketClose / onWebsocketError inbound callbacks",
+    "WebSocketListener.onWriteDemand outbound demand signal",
+    "the Rust port replaces callbacks with typed events drained by the caller"
+  ],
+  "wire_formats": [
+    "RFC 6455 frame octets: fin, rsv1-3, opcode, mask bit, payload length, masking key",
+    "RFC 6455 opening-handshake HTTP/1.1 request and 101 response octets",
+    "close frame status code as a network-order unsigned 16-bit integer"
+  ],
+  "limits": [
+    "maximum control-frame payload of 125 octets",
+    "payload length encodings of 7, 7+16, and 7+64 bits",
+    "LimitExceededException carries the exceeded limit",
+    "the Rust port declares a maximum message size and fails closed at it"
+  ],
+  "time_and_randomness": [
+    "Sec-WebSocket-Key generation uses randomness (Draft_6455 handshake path)",
+    "masking-key generation uses randomness on the client side",
+    "the excluded AbstractWebSocket carries the connection-lost timer; the Rust port takes time and randomness as injected, testable inputs"
+  ],
+  "adapter_seams": [
+    "the byte-channel read and write seam consumed by US-018",
+    "the Autobahn conformance endpoint seam consumed by US-019",
+    "ISSLChannel is an adapter seam whose TLS capability is explicitly excluded"
+  ],
+  "seams": [
+    {
+      "surface_id": "seam.org-java-websocket-drafts-draft",
+      "semantic_id": "migration.org-java-websocket-drafts-draft",
+      "owner": "US-009",
+      "category": "wire_formats",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/drafts/Draft.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-drafts-draft-6455",
+      "semantic_id": "migration.org-java-websocket-drafts-draft-6455",
+      "owner": "US-012",
+      "category": "wire_formats",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/drafts/Draft_6455.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+      "semantic_id": "migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+      "owner": "US-012",
+      "category": "wire_formats",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/drafts/Draft_6455.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-enums-closehandshaketype",
+      "semantic_id": "migration.org-java-websocket-enums-closehandshaketype",
+      "owner": "US-009",
+      "category": "internal_boundaries",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/enums/CloseHandshakeType.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-enums-handshakestate",
+      "semantic_id": "migration.org-java-websocket-enums-handshakestate",
+      "owner": "US-009",
+      "category": "internal_boundaries",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/enums/HandshakeState.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-enums-opcode",
+      "semantic_id": "migration.org-java-websocket-enums-opcode",
+      "owner": "US-012",
+      "category": "internal_boundaries",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/enums/Opcode.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-enums-readystate",
+      "semantic_id": "migration.org-java-websocket-enums-readystate",
+      "owner": "US-009",
+      "category": "internal_boundaries",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/enums/ReadyState.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-enums-role",
+      "semantic_id": "migration.org-java-websocket-enums-role",
+      "owner": "US-009",
+      "category": "internal_boundaries",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/enums/Role.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-incompleteexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-incompleteexception",
+      "owner": "US-012",
+      "category": "limits",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/exceptions/IncompleteException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-incompletehandshakeexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-incompletehandshakeexception",
+      "owner": "US-010",
+      "category": "limits",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/exceptions/IncompleteHandshakeException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-invaliddataexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "owner": "US-012",
+      "category": "limits",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/exceptions/InvalidDataException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-invalidencodingexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-invalidencodingexception",
+      "owner": "US-013",
+      "category": "limits",
+      "child_story_id": "US-013",
+      "touched_files": [
+        "org/java_websocket/exceptions/InvalidEncodingException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property",
+        "property.messages.utf8-strictness"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-invalidframeexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-invalidframeexception",
+      "owner": "US-012",
+      "category": "limits",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/exceptions/InvalidFrameException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-invalidhandshakeexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-invalidhandshakeexception",
+      "owner": "US-010",
+      "category": "limits",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/exceptions/InvalidHandshakeException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-limitexceededexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-limitexceededexception",
+      "owner": "US-012",
+      "category": "limits",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/exceptions/LimitExceededException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-notsendableexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-notsendableexception",
+      "owner": "US-017",
+      "category": "limits",
+      "child_story_id": "US-017",
+      "touched_files": [
+        "org/java_websocket/exceptions/NotSendableException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-017-differential",
+        "evidence.us-017-property",
+        "property.concurrency.single-owner-serialization"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-websocketnotconnectedexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-websocketnotconnectedexception",
+      "owner": "US-016",
+      "category": "limits",
+      "child_story_id": "US-016",
+      "touched_files": [
+        "org/java_websocket/exceptions/WebsocketNotConnectedException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-016-differential",
+        "evidence.us-016-property",
+        "property.close.code-validity"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-exceptions-wrappedioexception",
+      "semantic_id": "migration.org-java-websocket-exceptions-wrappedioexception",
+      "owner": "US-018",
+      "category": "limits",
+      "child_story_id": "US-018",
+      "touched_files": [
+        "org/java_websocket/exceptions/WrappedIOException.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-018-differential",
+        "evidence.us-018-property",
+        "property.adapter.byte-stream-transparency"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-binaryframe",
+      "semantic_id": "migration.org-java-websocket-framing-binaryframe",
+      "owner": "US-013",
+      "category": "frames",
+      "child_story_id": "US-013",
+      "touched_files": [
+        "org/java_websocket/framing/BinaryFrame.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property",
+        "property.messages.utf8-strictness"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-closeframe",
+      "semantic_id": "migration.org-java-websocket-framing-closeframe",
+      "owner": "US-016",
+      "category": "frames",
+      "child_story_id": "US-016",
+      "touched_files": [
+        "org/java_websocket/framing/CloseFrame.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-016-differential",
+        "evidence.us-016-property",
+        "property.close.code-validity"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-continuousframe",
+      "semantic_id": "migration.org-java-websocket-framing-continuousframe",
+      "owner": "US-014",
+      "category": "frames",
+      "child_story_id": "US-014",
+      "touched_files": [
+        "org/java_websocket/framing/ContinuousFrame.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-014-differential",
+        "evidence.us-014-property",
+        "property.fragmentation.bounded-state"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-controlframe",
+      "semantic_id": "migration.org-java-websocket-framing-controlframe",
+      "owner": "US-012",
+      "category": "frames",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/framing/ControlFrame.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-dataframe",
+      "semantic_id": "migration.org-java-websocket-framing-dataframe",
+      "owner": "US-012",
+      "category": "frames",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/framing/DataFrame.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-framedata",
+      "semantic_id": "migration.org-java-websocket-framing-framedata",
+      "owner": "US-012",
+      "category": "frames",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/framing/Framedata.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-framedataimpl1",
+      "semantic_id": "migration.org-java-websocket-framing-framedataimpl1",
+      "owner": "US-012",
+      "category": "frames",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/framing/FramedataImpl1.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-pingframe",
+      "semantic_id": "migration.org-java-websocket-framing-pingframe",
+      "owner": "US-015",
+      "category": "frames",
+      "child_story_id": "US-015",
+      "touched_files": [
+        "org/java_websocket/framing/PingFrame.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-015-differential",
+        "evidence.us-015-property",
+        "property.control.pong-echoes-ping-payload"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-pongframe",
+      "semantic_id": "migration.org-java-websocket-framing-pongframe",
+      "owner": "US-015",
+      "category": "frames",
+      "child_story_id": "US-015",
+      "touched_files": [
+        "org/java_websocket/framing/PongFrame.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-015-differential",
+        "evidence.us-015-property",
+        "property.control.pong-echoes-ping-payload"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-framing-textframe",
+      "semantic_id": "migration.org-java-websocket-framing-textframe",
+      "owner": "US-013",
+      "category": "frames",
+      "child_story_id": "US-013",
+      "touched_files": [
+        "org/java_websocket/framing/TextFrame.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property",
+        "property.messages.utf8-strictness"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-handshake-clienthandshake",
+      "semantic_id": "migration.org-java-websocket-handshake-clienthandshake",
+      "owner": "US-010",
+      "category": "handshakes",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/ClientHandshake.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-handshake-clienthandshakebuilder",
+      "semantic_id": "migration.org-java-websocket-handshake-clienthandshakebuilder",
+      "owner": "US-010",
+      "category": "handshakes",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/ClientHandshakeBuilder.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-handshake-handshakebuilder",
+      "semantic_id": "migration.org-java-websocket-handshake-handshakebuilder",
+      "owner": "US-010",
+      "category": "handshakes",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/HandshakeBuilder.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-handshake-handshakedata",
+      "semantic_id": "migration.org-java-websocket-handshake-handshakedata",
+      "owner": "US-010",
+      "category": "handshakes",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/Handshakedata.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-handshake-handshakedataimpl1",
+      "semantic_id": "migration.org-java-websocket-handshake-handshakedataimpl1",
+      "owner": "US-010",
+      "category": "handshakes",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/HandshakedataImpl1.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-handshake-handshakeimpl1client",
+      "semantic_id": "migration.org-java-websocket-handshake-handshakeimpl1client",
+      "owner": "US-010",
+      "category": "handshakes",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/HandshakeImpl1Client.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-handshake-handshakeimpl1server",
+      "semantic_id": "migration.org-java-websocket-handshake-handshakeimpl1server",
+      "owner": "US-011",
+      "category": "handshakes",
+      "child_story_id": "US-011",
+      "touched_files": [
+        "org/java_websocket/handshake/HandshakeImpl1Server.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-011-differential",
+        "evidence.us-011-property",
+        "property.handshake.server-response-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-handshake-serverhandshake",
+      "semantic_id": "migration.org-java-websocket-handshake-serverhandshake",
+      "owner": "US-011",
+      "category": "handshakes",
+      "child_story_id": "US-011",
+      "touched_files": [
+        "org/java_websocket/handshake/ServerHandshake.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-011-differential",
+        "evidence.us-011-property",
+        "property.handshake.server-response-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-handshake-serverhandshakebuilder",
+      "semantic_id": "migration.org-java-websocket-handshake-serverhandshakebuilder",
+      "owner": "US-011",
+      "category": "handshakes",
+      "child_story_id": "US-011",
+      "touched_files": [
+        "org/java_websocket/handshake/ServerHandshakeBuilder.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-011-differential",
+        "evidence.us-011-property",
+        "property.handshake.server-response-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-interfaces-isslchannel",
+      "semantic_id": "migration.org-java-websocket-interfaces-isslchannel",
+      "owner": "US-009",
+      "category": "adapter_seams",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/interfaces/ISSLChannel.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-util-base64",
+      "semantic_id": "migration.org-java-websocket-util-base64",
+      "owner": "US-010",
+      "category": "buffers",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/util/Base64.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-util-base64-outputstream",
+      "semantic_id": "migration.org-java-websocket-util-base64-outputstream",
+      "owner": "US-010",
+      "category": "buffers",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/util/Base64.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-util-bytebufferutils",
+      "semantic_id": "migration.org-java-websocket-util-bytebufferutils",
+      "owner": "US-012",
+      "category": "buffers",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/util/ByteBufferUtils.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property",
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-util-charsetfunctions",
+      "semantic_id": "migration.org-java-websocket-util-charsetfunctions",
+      "owner": "US-013",
+      "category": "buffers",
+      "child_story_id": "US-013",
+      "touched_files": [
+        "org/java_websocket/util/Charsetfunctions.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property",
+        "property.messages.utf8-strictness"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-util-namedthreadfactory",
+      "semantic_id": "migration.org-java-websocket-util-namedthreadfactory",
+      "owner": "US-017",
+      "category": "buffers",
+      "child_story_id": "US-017",
+      "touched_files": [
+        "org/java_websocket/util/NamedThreadFactory.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-017-differential",
+        "evidence.us-017-property",
+        "property.concurrency.single-owner-serialization"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-websocket",
+      "semantic_id": "migration.org-java-websocket-websocket",
+      "owner": "US-009",
+      "category": "public_boundaries",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/WebSocket.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-websocketadapter",
+      "semantic_id": "migration.org-java-websocket-websocketadapter",
+      "owner": "US-009",
+      "category": "public_boundaries",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/WebSocketAdapter.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-websocketimpl",
+      "semantic_id": "migration.org-java-websocket-websocketimpl",
+      "owner": "US-009",
+      "category": "public_boundaries",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/WebSocketImpl.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    },
+    {
+      "surface_id": "seam.org-java-websocket-websocketlistener",
+      "semantic_id": "migration.org-java-websocket-websocketlistener",
+      "owner": "US-009",
+      "category": "public_boundaries",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/WebSocketListener.java"
+      ],
+      "evidence_obligation_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property",
+        "property.connection.state-machine-total"
+      ],
+      "status": "RESOLVED"
+    }
+  ],
+  "implementation_stories": [
+    {
+      "story_id": "US-009",
+      "title": "Safe Rust ConnectionCore contract",
+      "seam_ids": [
+        "seam.org-java-websocket-drafts-draft",
+        "seam.org-java-websocket-enums-closehandshaketype",
+        "seam.org-java-websocket-enums-handshakestate",
+        "seam.org-java-websocket-enums-readystate",
+        "seam.org-java-websocket-enums-role",
+        "seam.org-java-websocket-interfaces-isslchannel",
+        "seam.org-java-websocket-websocket",
+        "seam.org-java-websocket-websocketadapter",
+        "seam.org-java-websocket-websocketimpl",
+        "seam.org-java-websocket-websocketlistener"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    },
+    {
+      "story_id": "US-010",
+      "title": "Client opening-handshake slice",
+      "seam_ids": [
+        "seam.org-java-websocket-exceptions-incompletehandshakeexception",
+        "seam.org-java-websocket-exceptions-invalidhandshakeexception",
+        "seam.org-java-websocket-handshake-clienthandshake",
+        "seam.org-java-websocket-handshake-clienthandshakebuilder",
+        "seam.org-java-websocket-handshake-handshakebuilder",
+        "seam.org-java-websocket-handshake-handshakedata",
+        "seam.org-java-websocket-handshake-handshakedataimpl1",
+        "seam.org-java-websocket-handshake-handshakeimpl1client",
+        "seam.org-java-websocket-util-base64",
+        "seam.org-java-websocket-util-base64-outputstream"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    },
+    {
+      "story_id": "US-011",
+      "title": "Server opening-handshake slice",
+      "seam_ids": [
+        "seam.org-java-websocket-handshake-handshakeimpl1server",
+        "seam.org-java-websocket-handshake-serverhandshake",
+        "seam.org-java-websocket-handshake-serverhandshakebuilder"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    },
+    {
+      "story_id": "US-012",
+      "title": "Canonical framing, masking, allocation limits",
+      "seam_ids": [
+        "seam.org-java-websocket-drafts-draft-6455",
+        "seam.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+        "seam.org-java-websocket-enums-opcode",
+        "seam.org-java-websocket-exceptions-incompleteexception",
+        "seam.org-java-websocket-exceptions-invaliddataexception",
+        "seam.org-java-websocket-exceptions-invalidframeexception",
+        "seam.org-java-websocket-exceptions-limitexceededexception",
+        "seam.org-java-websocket-framing-controlframe",
+        "seam.org-java-websocket-framing-dataframe",
+        "seam.org-java-websocket-framing-framedata",
+        "seam.org-java-websocket-framing-framedataimpl1",
+        "seam.org-java-websocket-util-bytebufferutils"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    },
+    {
+      "story_id": "US-013",
+      "title": "Strict text and binary messages",
+      "seam_ids": [
+        "seam.org-java-websocket-exceptions-invalidencodingexception",
+        "seam.org-java-websocket-framing-binaryframe",
+        "seam.org-java-websocket-framing-textframe",
+        "seam.org-java-websocket-util-charsetfunctions"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    },
+    {
+      "story_id": "US-014",
+      "title": "Fragment reassembly with bounded state",
+      "seam_ids": [
+        "seam.org-java-websocket-framing-continuousframe"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    },
+    {
+      "story_id": "US-015",
+      "title": "Ping and pong control behavior",
+      "seam_ids": [
+        "seam.org-java-websocket-framing-pingframe",
+        "seam.org-java-websocket-framing-pongframe"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    },
+    {
+      "story_id": "US-016",
+      "title": "Close, EOF, and terminal state",
+      "seam_ids": [
+        "seam.org-java-websocket-exceptions-websocketnotconnectedexception",
+        "seam.org-java-websocket-framing-closeframe"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    },
+    {
+      "story_id": "US-017",
+      "title": "Bounded concurrent commands through one owner",
+      "seam_ids": [
+        "seam.org-java-websocket-exceptions-notsendableexception",
+        "seam.org-java-websocket-util-namedthreadfactory"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    },
+    {
+      "story_id": "US-018",
+      "title": "Thin blocking TCP client and server adapters",
+      "seam_ids": [
+        "seam.org-java-websocket-exceptions-wrappedioexception"
+      ],
+      "status": "TOUCHED_SURFACE_RESOLVED"
+    }
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "signing": false,
+    "publication": false
+  }
+}

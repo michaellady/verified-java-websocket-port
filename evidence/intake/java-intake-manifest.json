@@ -1,0 +1,201 @@
+{
+  "$schema": "../../schemas/java-intake-manifest-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "JavaIntakeManifest",
+  "manifest_id": "java-intake-manifest.us003",
+  "source": {
+    "artifact_id": "java-websocket-source-archive",
+    "sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "version": "1.6.0",
+    "commit": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "production_source_root": "src/main/java",
+    "test_source_root": "src/test/java"
+  },
+  "jdk": {
+    "vendor": "Homebrew",
+    "version": "17.0.19",
+    "pinned_artifact_id": "openjdk-17.0.19-homebrew-bottle",
+    "pinned_sha256": "sha256:6d51e51e754dc75437c5c552eea568ec2f166e39fc3faa256e668083a8620c17",
+    "identity_source": "javax.lang.model elements from com.sun.source.util.JavacTask.analyze() (JDK Compiler Tree API)",
+    "oracle_output_sha256": "sha256:ee8d39fa71d804218ef41889f5a93e13a0aab85c988879448721e35250da3767",
+    "oracle_tool_sha256": "sha256:4a1426180d62a3528db2697e7bdf180ea08e2d23dd596e00c3a7e8bb4a20dace"
+  },
+  "build": {
+    "system": "Maven",
+    "version": "3.9.11",
+    "executed_in_this_story": false,
+    "inherited_evidence_path": "evidence/java/build.json",
+    "inherited_accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
+    "rationale": "US-002 already ran and accepted the authoritative offline Maven build and test run against this exact source digest. US-003 references that accepted evidence rather than re-executing the quarantined build, which stays static-inspection-only in this story."
+  },
+  "reconciliation": {
+    "production_tree": {
+      "files": 78,
+      "physical_lines": 12317
+    },
+    "test_tree": {
+      "files": 79,
+      "physical_lines": 9838
+    },
+    "study_surface": {
+      "files": 52,
+      "physical_lines": 6916
+    },
+    "declaration_totals": {
+      "production_declarations": 969,
+      "study_surface_declarations": 537,
+      "study_surface_types": 47,
+      "analyzed_top_level_types": 67,
+      "compiler_error_count": 0,
+      "package_info_files_without_declarations": 11
+    },
+    "method": "javac 17.0.19 JavacTask.analyze() over the full production source root with org.slf4j:slf4j-api:2.0.13 on the classpath; identities read from the javax.lang.model symbol table, counts read from the source bytes.",
+    "counting_semantics": "physical_lines counts newline bytes, matching wc -l exactly."
+  },
+  "surface_sections": [
+    {
+      "id": "runtime-test-inventory",
+      "title": "Runtime test inventory",
+      "observation_status": "OBSERVED",
+      "evidence_ref": "evidence/java/test-manifest.json",
+      "blocker_code": "",
+      "items": [
+        "79 test source files in src/test/java",
+        "231 discovered, executed, and passed test cases over 326 runtime invocations",
+        "62 concrete test classes selected exactly once; 10 aggregate suite containers retained in inventory but excluded from the selector",
+        "4 Autobahn utility classes and 1 feature file are inventoried as non-tests"
+      ]
+    },
+    {
+      "id": "dependencies",
+      "title": "Dependencies",
+      "observation_status": "OBSERVED",
+      "evidence_ref": "evidence/intake/source-pins.json",
+      "blocker_code": "",
+      "items": [
+        "compile: org.slf4j:slf4j-api:2.0.13 (sole non-JDK compile dependency)",
+        "test: org.slf4j:slf4j-simple:2.0.13",
+        "test: junit:junit:4.13.1",
+        "every other import in the production tree resolves to java.* or javax.* in the pinned OpenJDK 17.0.19"
+      ]
+    },
+    {
+      "id": "generated-reflection-native",
+      "title": "Generated, reflective, and native surfaces",
+      "observation_status": "OBSERVED",
+      "evidence_ref": "evidence/intake/java-intake-manifest.json#jdk.oracle_output_sha256",
+      "blocker_code": "",
+      "items": [
+        "no annotation processors: the identity run compiles with -proc:none and produces zero errors, so no declaration depends on generated code",
+        "no JNI and no native libraries in the production tree",
+        "reflection: java.lang.reflect.InvocationTargetException is imported once, in the excluded server topology, not in the study surface",
+        "src/main/java9/module-info.java is a separate multi-release source root and is not one of the 78 production files"
+      ]
+    },
+    {
+      "id": "serialization",
+      "title": "Serialization",
+      "observation_status": "OBSERVED",
+      "evidence_ref": "evidence/intake/surface-inventory.json",
+      "blocker_code": "",
+      "items": [
+        "no java.io.Serializable state is persisted; the only serialization surface is the RFC 6455 wire encoding itself",
+        "exception types carry no custom writeObject/readObject"
+      ]
+    },
+    {
+      "id": "concurrency",
+      "title": "Concurrency",
+      "observation_status": "OBSERVED",
+      "evidence_ref": "evidence/intake/port-seam-dossier.json",
+      "blocker_code": "",
+      "items": [
+        "study surface: NamedThreadFactory, plus the synchronized regions and outgoing BlockingQueue in WebSocketImpl",
+        "excluded topology: WebSocketServer selector thread and WebSocketWorker pool",
+        "the Rust port replaces this with one bounded owner (US-017)"
+      ]
+    },
+    {
+      "id": "network-effects",
+      "title": "Network effects",
+      "observation_status": "OBSERVED",
+      "evidence_ref": "evidence/intake/compatibility-surface.json",
+      "blocker_code": "",
+      "items": [
+        "the preserved boundary is the RFC 6455 octet stream over a byte channel",
+        "Java's NIO SocketChannel/Selector topology is excluded; US-018 supplies a thin blocking TCP adapter instead"
+      ]
+    },
+    {
+      "id": "filesystem-effects",
+      "title": "Filesystem effects",
+      "observation_status": "OBSERVED",
+      "evidence_ref": "evidence/intake/surface-inventory.json",
+      "blocker_code": "",
+      "items": [
+        "the study surface performs no filesystem access"
+      ]
+    },
+    {
+      "id": "observability",
+      "title": "Observability",
+      "observation_status": "OBSERVED",
+      "evidence_ref": "evidence/intake/surface-inventory.json",
+      "blocker_code": "",
+      "items": [
+        "SLF4J logging appears in exactly 2 of the 52 study-surface files (WebSocketImpl, Draft_6455)",
+        "log output is not part of the preserved wire boundary and carries no parity obligation"
+      ]
+    },
+    {
+      "id": "deployment-topology",
+      "title": "Deployment topology",
+      "observation_status": "OBSERVED",
+      "evidence_ref": "evidence/intake/cutover-contract.json",
+      "blocker_code": "",
+      "items": [
+        "the upstream artifact is a library JAR, not a deployed service",
+        "the cutover boundary is the in-process library surface plus the Autobahn conformance endpoint"
+      ]
+    },
+    {
+      "id": "linux-native-toolchain",
+      "title": "Linux-native Java and Rust compiler bytes",
+      "observation_status": "UNOBSERVABLE",
+      "evidence_ref": "evidence/intake/source-pins.json#deferred_platform_inputs",
+      "blocker_code": "LINUX_HOST_NOT_YET_BOUND",
+      "items": [
+        "x86_64-unknown-linux-gnu inputs are declared NOT_YET_AN_INPUT until US-008 binds the external Linux host"
+      ]
+    },
+    {
+      "id": "rust-semantic-identity",
+      "title": "Rust semantic identity",
+      "observation_status": "UNOBSERVABLE",
+      "evidence_ref": "evidence/intake/semantic-id-migration-map.json#rust_identity_status",
+      "blocker_code": "RUST_WORKSPACE_NOT_YET_CREATED",
+      "items": [
+        "no Rust workspace exists in this repository, so rust-analyzer cannot resolve any Rust identity; US-009 creates the workspace",
+        "every Rust identity in the migration map is PLANNED, not resolver-verified"
+      ]
+    }
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "signing": false,
+    "publication": false
+  },
+  "honesty_notes": [
+    "Every file, line, declaration, and identity count in this manifest is derived from a clean javac run over the digest-verified upstream archive. None is estimated.",
+    "11 production files declare no type at all; all of them are package-info.java documentation units. 67 analyzed top-level types plus 11 package-info files reconcile to 78 production files.",
+    "org.slf4j:slf4j-api:2.0.13 was required on the compile classpath to resolve the logging imports in WebSocketImpl and Draft_6455. Its version comes from the digest-pinned upstream pom.xml and its bytes were verified against the Maven Central published checksum; it is a compile-resolution input only and is not part of the ported surface.",
+    "The Java build system was not executed in this story. Build and runtime test facts are inherited by reference from the US-002 accepted evidence root.",
+    "No Rust identity in this story is resolver-verified: no Rust workspace exists until US-009. Every Rust identity is recorded as PLANNED.",
+    "AC2 says 'the four root connection files' without naming them. Two different 4-file subsets of the 12 root-package files sum to the required 1,478 lines: {WebSocket, WebSocketAdapter, WebSocketListener, WebSocketImpl} and {WrappedByteChannel, AbstractWrappedByteChannel, AbstractWebSocket, WebSocketImpl}. The arithmetic alone does not disambiguate them. This story selects the first because those four are the connection abstraction, its callback boundary, its default adapter, and its state machine, whereas the second mixes byte-channel wrappers and the NIO/keep-alive base class. A reviewer must confirm this reading.",
+    "Migration rows are per-type (47 rows), not per-member (969 declarations). Each row records java_member_count for the members it covers. Per-member rows would be a strictly finer, also-defensible granularity.",
+    "The port slice assignment (which Java type belongs to which child story) is an explicit editorial table in internal/portplan/slices.go, not a compiler-derived fact. It is the weakest link in this document set and should be reviewed directly.",
+    "specification_ids, oracle_ids, vector_ids, property_claim_ids, formal_claim_ids, and evidence_ids are forward-declared obligations. The corpora and claims they name are created by US-005 and US-006 and do not resolve yet; they are declared obligations, not satisfied links."
+  ]
+}

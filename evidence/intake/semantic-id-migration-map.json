@@ -1,0 +1,2537 @@
+{
+  "$schema": "../../schemas/semantic-id-migration-map-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "MigrationMap",
+  "map_id": "semantic-id-migration-map.us003",
+  "map_version": "1.0.0",
+  "java_identity_method": {
+    "tool": "java-semantic-oracle 1.0.0",
+    "api": "javax.lang.model elements from com.sun.source.util.JavacTask.analyze() (JDK Compiler Tree API)",
+    "compiler_vendor": "Homebrew javac 17.0.19",
+    "compiler_flags": "-proc:none -g -encoding UTF-8 --release 17",
+    "strength": "semantic",
+    "statement": "Every Java identity in this map is the binary name and JVM descriptor reported by javac's own symbol table after a zero-error JavacTask.analyze() run. No identity in this map was obtained by text or grep matching, which the story records as strictly weaker and unable to establish a proved claim."
+  },
+  "rust_identity_status": {
+    "rust_workspace_present": false,
+    "planned_resolver": "rust-analyzer",
+    "blocker_code": "RUST_WORKSPACE_NOT_YET_CREATED",
+    "created_by_story": "US-009",
+    "statement": "No Rust workspace exists in this repository yet, so rust-analyzer was not run and no Rust identity here is resolver-verified. Every rust_semantic_id is a planned identity and every row carries rust_identity_verified=false. US-009 creates the workspace; this map must be re-derived and each Rust identity resolved before any row may claim verification."
+  },
+  "rows": [
+    {
+      "id": "migration.org-java-websocket-websocket",
+      "java_semantic_id": "org.java_websocket.WebSocket",
+      "java_binary_name": "org.java_websocket.WebSocket",
+      "java_descriptor": "Lorg/java_websocket/WebSocket;",
+      "java_signature": "org.java_websocket.WebSocket",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 26,
+      "rust_semantic_id": "ws_core::connection::WebSocket",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.WebSocket\" at org/java_websocket/WebSocket.java:39",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/WebSocket.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-websocketadapter",
+      "java_semantic_id": "org.java_websocket.WebSocketAdapter",
+      "java_binary_name": "org.java_websocket.WebSocketAdapter",
+      "java_descriptor": "Lorg/java_websocket/WebSocketAdapter;",
+      "java_signature": "org.java_websocket.WebSocketAdapter",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 8,
+      "rust_semantic_id": "ws_core::connection::WebSocketAdapter",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.WebSocketAdapter\" at org/java_websocket/WebSocketAdapter.java:42",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/WebSocketAdapter.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-websocketimpl",
+      "java_semantic_id": "org.java_websocket.WebSocketImpl",
+      "java_binary_name": "org.java_websocket.WebSocketImpl",
+      "java_descriptor": "Lorg/java_websocket/WebSocketImpl;",
+      "java_signature": "org.java_websocket.WebSocketImpl",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 79,
+      "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.WebSocketImpl\" at org/java_websocket/WebSocketImpl.java:72",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/WebSocketImpl.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-websocketlistener",
+      "java_semantic_id": "org.java_websocket.WebSocketListener",
+      "java_binary_name": "org.java_websocket.WebSocketListener",
+      "java_descriptor": "Lorg/java_websocket/WebSocketListener;",
+      "java_signature": "org.java_websocket.WebSocketListener",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 16,
+      "rust_semantic_id": "ws_core::connection::WebSocketListener",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.WebSocketListener\" at org/java_websocket/WebSocketListener.java:45",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/WebSocketListener.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-drafts-draft",
+      "java_semantic_id": "org.java_websocket.drafts.Draft",
+      "java_binary_name": "org.java_websocket.drafts.Draft",
+      "java_descriptor": "Lorg/java_websocket/drafts/Draft;",
+      "java_signature": "org.java_websocket.drafts.Draft",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 32,
+      "rust_semantic_id": "ws_core::connection::Draft",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.drafts.Draft\" at org/java_websocket/drafts/Draft.java:61",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/drafts/Draft.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-drafts-draft-6455",
+      "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+      "java_binary_name": "org.java_websocket.drafts.Draft_6455",
+      "java_descriptor": "Lorg/java_websocket/drafts/Draft_6455;",
+      "java_signature": "org.java_websocket.drafts.Draft_6455",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 70,
+      "rust_semantic_id": "ws_core::framing::Draft6455",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.drafts.Draft_6455\" at org/java_websocket/drafts/Draft_6455.java:76",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/drafts/Draft_6455.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+      "java_semantic_id": "org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData",
+      "java_binary_name": "org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData",
+      "java_descriptor": "Lorg/java_websocket/drafts/Draft_6455$TranslatedPayloadMetaData;",
+      "java_signature": "org.java_websocket.drafts.Draft_6455.TranslatedPayloadMetaData",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 5,
+      "rust_semantic_id": "ws_core::framing::TranslatedPayloadMetaData",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData\" at org/java_websocket/drafts/Draft_6455.java:1195",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/drafts/Draft_6455.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-closehandshaketype",
+      "java_semantic_id": "org.java_websocket.enums.CloseHandshakeType",
+      "java_binary_name": "org.java_websocket.enums.CloseHandshakeType",
+      "java_descriptor": "Lorg/java_websocket/enums/CloseHandshakeType;",
+      "java_signature": "org.java_websocket.enums.CloseHandshakeType",
+      "java_kind": "ENUM",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 6,
+      "rust_semantic_id": "ws_core::connection::CloseHandshakeType",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.enums.CloseHandshakeType\" at org/java_websocket/enums/CloseHandshakeType.java:6",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/enums/CloseHandshakeType.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-handshakestate",
+      "java_semantic_id": "org.java_websocket.enums.HandshakeState",
+      "java_binary_name": "org.java_websocket.enums.HandshakeState",
+      "java_descriptor": "Lorg/java_websocket/enums/HandshakeState;",
+      "java_signature": "org.java_websocket.enums.HandshakeState",
+      "java_kind": "ENUM",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 5,
+      "rust_semantic_id": "ws_core::connection::HandshakeState",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.enums.HandshakeState\" at org/java_websocket/enums/HandshakeState.java:6",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/enums/HandshakeState.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-opcode",
+      "java_semantic_id": "org.java_websocket.enums.Opcode",
+      "java_binary_name": "org.java_websocket.enums.Opcode",
+      "java_descriptor": "Lorg/java_websocket/enums/Opcode;",
+      "java_signature": "org.java_websocket.enums.Opcode",
+      "java_kind": "ENUM",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 9,
+      "rust_semantic_id": "ws_core::framing::Opcode",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.enums.Opcode\" at org/java_websocket/enums/Opcode.java:6",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/enums/Opcode.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-readystate",
+      "java_semantic_id": "org.java_websocket.enums.ReadyState",
+      "java_binary_name": "org.java_websocket.enums.ReadyState",
+      "java_descriptor": "Lorg/java_websocket/enums/ReadyState;",
+      "java_signature": "org.java_websocket.enums.ReadyState",
+      "java_kind": "ENUM",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 7,
+      "rust_semantic_id": "ws_core::connection::ReadyState",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.enums.ReadyState\" at org/java_websocket/enums/ReadyState.java:6",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/enums/ReadyState.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-role",
+      "java_semantic_id": "org.java_websocket.enums.Role",
+      "java_binary_name": "org.java_websocket.enums.Role",
+      "java_descriptor": "Lorg/java_websocket/enums/Role;",
+      "java_signature": "org.java_websocket.enums.Role",
+      "java_kind": "ENUM",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 5,
+      "rust_semantic_id": "ws_core::connection::Role",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.enums.Role\" at org/java_websocket/enums/Role.java:6",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/enums/Role.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-incompleteexception",
+      "java_semantic_id": "org.java_websocket.exceptions.IncompleteException",
+      "java_binary_name": "org.java_websocket.exceptions.IncompleteException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/IncompleteException;",
+      "java_signature": "org.java_websocket.exceptions.IncompleteException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 4,
+      "rust_semantic_id": "ws_core::framing::IncompleteException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.IncompleteException\" at org/java_websocket/exceptions/IncompleteException.java:31",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/exceptions/IncompleteException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-incompletehandshakeexception",
+      "java_semantic_id": "org.java_websocket.exceptions.IncompleteHandshakeException",
+      "java_binary_name": "org.java_websocket.exceptions.IncompleteHandshakeException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/IncompleteHandshakeException;",
+      "java_signature": "org.java_websocket.exceptions.IncompleteHandshakeException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 5,
+      "rust_semantic_id": "ws_core::handshake::client::IncompleteHandshakeException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.IncompleteHandshakeException\" at org/java_websocket/exceptions/IncompleteHandshakeException.java:31",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/exceptions/IncompleteHandshakeException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidDataException",
+      "java_binary_name": "org.java_websocket.exceptions.InvalidDataException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/InvalidDataException;",
+      "java_signature": "org.java_websocket.exceptions.InvalidDataException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 7,
+      "rust_semantic_id": "ws_core::framing::InvalidDataException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.InvalidDataException\" at org/java_websocket/exceptions/InvalidDataException.java:31",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/exceptions/InvalidDataException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-invalidencodingexception",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidEncodingException",
+      "java_binary_name": "org.java_websocket.exceptions.InvalidEncodingException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/InvalidEncodingException;",
+      "java_signature": "org.java_websocket.exceptions.InvalidEncodingException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 3,
+      "rust_semantic_id": "ws_core::message::InvalidEncodingException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to strict UTF-8 validation of text payloads",
+        "applies to binary payload passthrough without transformation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java uses CharsetDecoder with REPORT actions; the Rust port validates UTF-8 incrementally and must reject the identical set of sequences"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.InvalidEncodingException\" at org/java_websocket/exceptions/InvalidEncodingException.java:10",
+      "port_slice_id": "slice.messages",
+      "child_story_id": "US-013",
+      "touched_files": [
+        "org/java_websocket/exceptions/InvalidEncodingException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-6",
+        "rfc3629.utf8"
+      ],
+      "observed_behavior_ids": [
+        "behavior.messages.text-binary"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-6",
+        "vector.utf8.corpus"
+      ],
+      "property_claim_ids": [
+        "property.messages.utf8-strictness"
+      ],
+      "formal_claim_ids": [
+        "formal.messages.utf8-validation-total"
+      ],
+      "evidence_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-invalidframeexception",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidFrameException",
+      "java_binary_name": "org.java_websocket.exceptions.InvalidFrameException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/InvalidFrameException;",
+      "java_signature": "org.java_websocket.exceptions.InvalidFrameException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 5,
+      "rust_semantic_id": "ws_core::framing::InvalidFrameException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.InvalidFrameException\" at org/java_websocket/exceptions/InvalidFrameException.java:33",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/exceptions/InvalidFrameException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-invalidhandshakeexception",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidHandshakeException",
+      "java_binary_name": "org.java_websocket.exceptions.InvalidHandshakeException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/InvalidHandshakeException;",
+      "java_signature": "org.java_websocket.exceptions.InvalidHandshakeException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 5,
+      "rust_semantic_id": "ws_core::handshake::client::InvalidHandshakeException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.InvalidHandshakeException\" at org/java_websocket/exceptions/InvalidHandshakeException.java:33",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/exceptions/InvalidHandshakeException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-limitexceededexception",
+      "java_semantic_id": "org.java_websocket.exceptions.LimitExceededException",
+      "java_binary_name": "org.java_websocket.exceptions.LimitExceededException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/LimitExceededException;",
+      "java_signature": "org.java_websocket.exceptions.LimitExceededException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 7,
+      "rust_semantic_id": "ws_core::framing::LimitExceededException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.LimitExceededException\" at org/java_websocket/exceptions/LimitExceededException.java:33",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/exceptions/LimitExceededException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-notsendableexception",
+      "java_semantic_id": "org.java_websocket.exceptions.NotSendableException",
+      "java_binary_name": "org.java_websocket.exceptions.NotSendableException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/NotSendableException;",
+      "java_signature": "org.java_websocket.exceptions.NotSendableException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 4,
+      "rust_semantic_id": "ws_core::owner::NotSendableException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to concurrent send and close commands against one connection"
+      ],
+      "known_non_equivalent_cases": [
+        "Java uses synchronized regions plus an unbounded outgoing queue and a per-connection worker thread; the Rust port uses one owner with a bounded queue and explicit backpressure, so a full queue is observable where Java would grow without bound"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.NotSendableException\" at org/java_websocket/exceptions/NotSendableException.java:31",
+      "port_slice_id": "slice.concurrency",
+      "child_story_id": "US-017",
+      "touched_files": [
+        "org/java_websocket/exceptions/NotSendableException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1"
+      ],
+      "observed_behavior_ids": [
+        "behavior.concurrency.bounded-commands"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.concurrency.command-interleaving"
+      ],
+      "property_claim_ids": [
+        "property.concurrency.single-owner-serialization"
+      ],
+      "formal_claim_ids": [
+        "formal.concurrency.no-data-race"
+      ],
+      "evidence_ids": [
+        "evidence.us-017-differential",
+        "evidence.us-017-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-websocketnotconnectedexception",
+      "java_semantic_id": "org.java_websocket.exceptions.WebsocketNotConnectedException",
+      "java_binary_name": "org.java_websocket.exceptions.WebsocketNotConnectedException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/WebsocketNotConnectedException;",
+      "java_signature": "org.java_websocket.exceptions.WebsocketNotConnectedException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 2,
+      "rust_semantic_id": "ws_core::close::WebsocketNotConnectedException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the closing handshake, close codes, and EOF handling"
+      ],
+      "known_non_equivalent_cases": [
+        "Java distinguishes close initiation by role through the excluded topology; the Rust port models one absorbing terminal state reached identically from either side"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.WebsocketNotConnectedException\" at org/java_websocket/exceptions/WebsocketNotConnectedException.java:31",
+      "port_slice_id": "slice.close-eof",
+      "child_story_id": "US-016",
+      "touched_files": [
+        "org/java_websocket/exceptions/WebsocketNotConnectedException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-5-1",
+        "rfc6455.section-7-1",
+        "rfc6455.section-7-4"
+      ],
+      "observed_behavior_ids": [
+        "behavior.close.terminal-state"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-7"
+      ],
+      "property_claim_ids": [
+        "property.close.code-validity"
+      ],
+      "formal_claim_ids": [
+        "formal.close.terminal-absorbing"
+      ],
+      "evidence_ids": [
+        "evidence.us-016-differential",
+        "evidence.us-016-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-wrappedioexception",
+      "java_semantic_id": "org.java_websocket.exceptions.WrappedIOException",
+      "java_binary_name": "org.java_websocket.exceptions.WrappedIOException",
+      "java_descriptor": "Lorg/java_websocket/exceptions/WrappedIOException;",
+      "java_signature": "org.java_websocket.exceptions.WrappedIOException",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 5,
+      "rust_semantic_id": "ws_adapter::tcp::WrappedIOException",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the thin blocking TCP client and server adapters only"
+      ],
+      "known_non_equivalent_cases": [
+        "Java multiplexes many connections on one NIO selector; the Rust adapter is a thin blocking wrapper per connection and carries no protocol logic"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.exceptions.WrappedIOException\" at org/java_websocket/exceptions/WrappedIOException.java:38",
+      "port_slice_id": "slice.tcp-adapter",
+      "child_story_id": "US-018",
+      "touched_files": [
+        "org/java_websocket/exceptions/WrappedIOException.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-1-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.adapter.blocking-io"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.adapter.byte-stream-transparency"
+      ],
+      "formal_claim_ids": [
+        "formal.adapter.no-protocol-logic"
+      ],
+      "evidence_ids": [
+        "evidence.us-018-differential",
+        "evidence.us-018-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-binaryframe",
+      "java_semantic_id": "org.java_websocket.framing.BinaryFrame",
+      "java_binary_name": "org.java_websocket.framing.BinaryFrame",
+      "java_descriptor": "Lorg/java_websocket/framing/BinaryFrame;",
+      "java_signature": "org.java_websocket.framing.BinaryFrame",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 1,
+      "rust_semantic_id": "ws_core::message::BinaryFrame",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to strict UTF-8 validation of text payloads",
+        "applies to binary payload passthrough without transformation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java uses CharsetDecoder with REPORT actions; the Rust port validates UTF-8 incrementally and must reject the identical set of sequences"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.BinaryFrame\" at org/java_websocket/framing/BinaryFrame.java:33",
+      "port_slice_id": "slice.messages",
+      "child_story_id": "US-013",
+      "touched_files": [
+        "org/java_websocket/framing/BinaryFrame.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-6",
+        "rfc3629.utf8"
+      ],
+      "observed_behavior_ids": [
+        "behavior.messages.text-binary"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-6",
+        "vector.utf8.corpus"
+      ],
+      "property_claim_ids": [
+        "property.messages.utf8-strictness"
+      ],
+      "formal_claim_ids": [
+        "formal.messages.utf8-validation-total"
+      ],
+      "evidence_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-closeframe",
+      "java_semantic_id": "org.java_websocket.framing.CloseFrame",
+      "java_binary_name": "org.java_websocket.framing.CloseFrame",
+      "java_descriptor": "Lorg/java_websocket/framing/CloseFrame;",
+      "java_signature": "org.java_websocket.framing.CloseFrame",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 33,
+      "rust_semantic_id": "ws_core::close::CloseFrame",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the closing handshake, close codes, and EOF handling"
+      ],
+      "known_non_equivalent_cases": [
+        "Java distinguishes close initiation by role through the excluded topology; the Rust port models one absorbing terminal state reached identically from either side"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.CloseFrame\" at org/java_websocket/framing/CloseFrame.java:38",
+      "port_slice_id": "slice.close-eof",
+      "child_story_id": "US-016",
+      "touched_files": [
+        "org/java_websocket/framing/CloseFrame.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-5-1",
+        "rfc6455.section-7-1",
+        "rfc6455.section-7-4"
+      ],
+      "observed_behavior_ids": [
+        "behavior.close.terminal-state"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-7"
+      ],
+      "property_claim_ids": [
+        "property.close.code-validity"
+      ],
+      "formal_claim_ids": [
+        "formal.close.terminal-absorbing"
+      ],
+      "evidence_ids": [
+        "evidence.us-016-differential",
+        "evidence.us-016-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-continuousframe",
+      "java_semantic_id": "org.java_websocket.framing.ContinuousFrame",
+      "java_binary_name": "org.java_websocket.framing.ContinuousFrame",
+      "java_descriptor": "Lorg/java_websocket/framing/ContinuousFrame;",
+      "java_signature": "org.java_websocket.framing.ContinuousFrame",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 1,
+      "rust_semantic_id": "ws_core::fragment::ContinuousFrame",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to continuation-frame reassembly and interleaved control frames"
+      ],
+      "known_non_equivalent_cases": [
+        "Java buffers fragments in an unbounded list; the Rust port enforces a declared maximum message size and fails closed at the limit"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.ContinuousFrame\" at org/java_websocket/framing/ContinuousFrame.java:33",
+      "port_slice_id": "slice.fragmentation",
+      "child_story_id": "US-014",
+      "touched_files": [
+        "org/java_websocket/framing/ContinuousFrame.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-4"
+      ],
+      "observed_behavior_ids": [
+        "behavior.fragmentation.reassembly"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-5"
+      ],
+      "property_claim_ids": [
+        "property.fragmentation.bounded-state"
+      ],
+      "formal_claim_ids": [
+        "formal.fragmentation.no-unbounded-growth"
+      ],
+      "evidence_ids": [
+        "evidence.us-014-differential",
+        "evidence.us-014-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-controlframe",
+      "java_semantic_id": "org.java_websocket.framing.ControlFrame",
+      "java_binary_name": "org.java_websocket.framing.ControlFrame",
+      "java_descriptor": "Lorg/java_websocket/framing/ControlFrame;",
+      "java_signature": "org.java_websocket.framing.ControlFrame",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 2,
+      "rust_semantic_id": "ws_core::framing::ControlFrame",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.ControlFrame\" at org/java_websocket/framing/ControlFrame.java:35",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/framing/ControlFrame.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-dataframe",
+      "java_semantic_id": "org.java_websocket.framing.DataFrame",
+      "java_binary_name": "org.java_websocket.framing.DataFrame",
+      "java_descriptor": "Lorg/java_websocket/framing/DataFrame;",
+      "java_signature": "org.java_websocket.framing.DataFrame",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 2,
+      "rust_semantic_id": "ws_core::framing::DataFrame",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.DataFrame\" at org/java_websocket/framing/DataFrame.java:34",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/framing/DataFrame.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-framedata",
+      "java_semantic_id": "org.java_websocket.framing.Framedata",
+      "java_binary_name": "org.java_websocket.framing.Framedata",
+      "java_descriptor": "Lorg/java_websocket/framing/Framedata;",
+      "java_signature": "org.java_websocket.framing.Framedata",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 8,
+      "rust_semantic_id": "ws_core::framing::Framedata",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.Framedata\" at org/java_websocket/framing/Framedata.java:34",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/framing/Framedata.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-framedataimpl1",
+      "java_semantic_id": "org.java_websocket.framing.FramedataImpl1",
+      "java_binary_name": "org.java_websocket.framing.FramedataImpl1",
+      "java_descriptor": "Lorg/java_websocket/framing/FramedataImpl1;",
+      "java_signature": "org.java_websocket.framing.FramedataImpl1",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 27,
+      "rust_semantic_id": "ws_core::framing::FramedataImpl1",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.FramedataImpl1\" at org/java_websocket/framing/FramedataImpl1.java:36",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/framing/FramedataImpl1.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-pingframe",
+      "java_semantic_id": "org.java_websocket.framing.PingFrame",
+      "java_binary_name": "org.java_websocket.framing.PingFrame",
+      "java_descriptor": "Lorg/java_websocket/framing/PingFrame;",
+      "java_signature": "org.java_websocket.framing.PingFrame",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 1,
+      "rust_semantic_id": "ws_core::control::PingFrame",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to ping and pong control frames with payloads of at most 125 octets"
+      ],
+      "known_non_equivalent_cases": [
+        "Java's automatic keep-alive lives in the excluded AbstractWebSocket timer; the Rust port exposes ping scheduling as an explicit caller-driven command"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.PingFrame\" at org/java_websocket/framing/PingFrame.java:33",
+      "port_slice_id": "slice.ping-pong",
+      "child_story_id": "US-015",
+      "touched_files": [
+        "org/java_websocket/framing/PingFrame.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-5-2",
+        "rfc6455.section-5-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.control.ping-pong"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.autobahn.case-3"
+      ],
+      "property_claim_ids": [
+        "property.control.pong-echoes-ping-payload"
+      ],
+      "formal_claim_ids": [
+        "formal.control.payload-length-bound"
+      ],
+      "evidence_ids": [
+        "evidence.us-015-differential",
+        "evidence.us-015-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-pongframe",
+      "java_semantic_id": "org.java_websocket.framing.PongFrame",
+      "java_binary_name": "org.java_websocket.framing.PongFrame",
+      "java_descriptor": "Lorg/java_websocket/framing/PongFrame;",
+      "java_signature": "org.java_websocket.framing.PongFrame",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 2,
+      "rust_semantic_id": "ws_core::control::PongFrame",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to ping and pong control frames with payloads of at most 125 octets"
+      ],
+      "known_non_equivalent_cases": [
+        "Java's automatic keep-alive lives in the excluded AbstractWebSocket timer; the Rust port exposes ping scheduling as an explicit caller-driven command"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.PongFrame\" at org/java_websocket/framing/PongFrame.java:33",
+      "port_slice_id": "slice.ping-pong",
+      "child_story_id": "US-015",
+      "touched_files": [
+        "org/java_websocket/framing/PongFrame.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-5-2",
+        "rfc6455.section-5-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.control.ping-pong"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.autobahn.case-3"
+      ],
+      "property_claim_ids": [
+        "property.control.pong-echoes-ping-payload"
+      ],
+      "formal_claim_ids": [
+        "formal.control.payload-length-bound"
+      ],
+      "evidence_ids": [
+        "evidence.us-015-differential",
+        "evidence.us-015-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-textframe",
+      "java_semantic_id": "org.java_websocket.framing.TextFrame",
+      "java_binary_name": "org.java_websocket.framing.TextFrame",
+      "java_descriptor": "Lorg/java_websocket/framing/TextFrame;",
+      "java_signature": "org.java_websocket.framing.TextFrame",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 2,
+      "rust_semantic_id": "ws_core::message::TextFrame",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to strict UTF-8 validation of text payloads",
+        "applies to binary payload passthrough without transformation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java uses CharsetDecoder with REPORT actions; the Rust port validates UTF-8 incrementally and must reject the identical set of sequences"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.framing.TextFrame\" at org/java_websocket/framing/TextFrame.java:35",
+      "port_slice_id": "slice.messages",
+      "child_story_id": "US-013",
+      "touched_files": [
+        "org/java_websocket/framing/TextFrame.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-6",
+        "rfc3629.utf8"
+      ],
+      "observed_behavior_ids": [
+        "behavior.messages.text-binary"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-6",
+        "vector.utf8.corpus"
+      ],
+      "property_claim_ids": [
+        "property.messages.utf8-strictness"
+      ],
+      "formal_claim_ids": [
+        "formal.messages.utf8-validation-total"
+      ],
+      "evidence_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-clienthandshake",
+      "java_semantic_id": "org.java_websocket.handshake.ClientHandshake",
+      "java_binary_name": "org.java_websocket.handshake.ClientHandshake",
+      "java_descriptor": "Lorg/java_websocket/handshake/ClientHandshake;",
+      "java_signature": "org.java_websocket.handshake.ClientHandshake",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 1,
+      "rust_semantic_id": "ws_core::handshake::client::ClientHandshake",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.handshake.ClientHandshake\" at org/java_websocket/handshake/ClientHandshake.java:31",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/ClientHandshake.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-clienthandshakebuilder",
+      "java_semantic_id": "org.java_websocket.handshake.ClientHandshakeBuilder",
+      "java_binary_name": "org.java_websocket.handshake.ClientHandshakeBuilder",
+      "java_descriptor": "Lorg/java_websocket/handshake/ClientHandshakeBuilder;",
+      "java_signature": "org.java_websocket.handshake.ClientHandshakeBuilder",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 1,
+      "rust_semantic_id": "ws_core::handshake::client::ClientHandshakeBuilder",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.handshake.ClientHandshakeBuilder\" at org/java_websocket/handshake/ClientHandshakeBuilder.java:31",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/ClientHandshakeBuilder.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakebuilder",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakeBuilder",
+      "java_binary_name": "org.java_websocket.handshake.HandshakeBuilder",
+      "java_descriptor": "Lorg/java_websocket/handshake/HandshakeBuilder;",
+      "java_signature": "org.java_websocket.handshake.HandshakeBuilder",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 2,
+      "rust_semantic_id": "ws_core::handshake::client::HandshakeBuilder",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.handshake.HandshakeBuilder\" at org/java_websocket/handshake/HandshakeBuilder.java:31",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/HandshakeBuilder.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakeimpl1client",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakeImpl1Client",
+      "java_binary_name": "org.java_websocket.handshake.HandshakeImpl1Client",
+      "java_descriptor": "Lorg/java_websocket/handshake/HandshakeImpl1Client;",
+      "java_signature": "org.java_websocket.handshake.HandshakeImpl1Client",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 4,
+      "rust_semantic_id": "ws_core::handshake::client::HandshakeImpl1Client",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.handshake.HandshakeImpl1Client\" at org/java_websocket/handshake/HandshakeImpl1Client.java:31",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/HandshakeImpl1Client.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakeimpl1server",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakeImpl1Server",
+      "java_binary_name": "org.java_websocket.handshake.HandshakeImpl1Server",
+      "java_descriptor": "Lorg/java_websocket/handshake/HandshakeImpl1Server;",
+      "java_signature": "org.java_websocket.handshake.HandshakeImpl1Server",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 7,
+      "rust_semantic_id": "ws_core::handshake::server::HandshakeImpl1Server",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to server-side opening-handshake validation and response construction"
+      ],
+      "known_non_equivalent_cases": [
+        "Java's server handshake is produced by the excluded NIO server topology; the Rust port produces it from the adapter-independent core"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.handshake.HandshakeImpl1Server\" at org/java_websocket/handshake/HandshakeImpl1Server.java:31",
+      "port_slice_id": "slice.server-handshake",
+      "child_story_id": "US-011",
+      "touched_files": [
+        "org/java_websocket/handshake/HandshakeImpl1Server.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-2",
+        "rfc6455.section-4-1"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.server-accept"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.server-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.server-response-total"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-011-differential",
+        "evidence.us-011-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakedata",
+      "java_semantic_id": "org.java_websocket.handshake.Handshakedata",
+      "java_binary_name": "org.java_websocket.handshake.Handshakedata",
+      "java_descriptor": "Lorg/java_websocket/handshake/Handshakedata;",
+      "java_signature": "org.java_websocket.handshake.Handshakedata",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 4,
+      "rust_semantic_id": "ws_core::handshake::client::Handshakedata",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.handshake.Handshakedata\" at org/java_websocket/handshake/Handshakedata.java:33",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/Handshakedata.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakedataimpl1",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakedataImpl1",
+      "java_binary_name": "org.java_websocket.handshake.HandshakedataImpl1",
+      "java_descriptor": "Lorg/java_websocket/handshake/HandshakedataImpl1;",
+      "java_signature": "org.java_websocket.handshake.HandshakedataImpl1",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 9,
+      "rust_semantic_id": "ws_core::handshake::client::HandshakedataImpl1",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.handshake.HandshakedataImpl1\" at org/java_websocket/handshake/HandshakedataImpl1.java:35",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/handshake/HandshakedataImpl1.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-serverhandshake",
+      "java_semantic_id": "org.java_websocket.handshake.ServerHandshake",
+      "java_binary_name": "org.java_websocket.handshake.ServerHandshake",
+      "java_descriptor": "Lorg/java_websocket/handshake/ServerHandshake;",
+      "java_signature": "org.java_websocket.handshake.ServerHandshake",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 2,
+      "rust_semantic_id": "ws_core::handshake::server::ServerHandshake",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to server-side opening-handshake validation and response construction"
+      ],
+      "known_non_equivalent_cases": [
+        "Java's server handshake is produced by the excluded NIO server topology; the Rust port produces it from the adapter-independent core"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.handshake.ServerHandshake\" at org/java_websocket/handshake/ServerHandshake.java:31",
+      "port_slice_id": "slice.server-handshake",
+      "child_story_id": "US-011",
+      "touched_files": [
+        "org/java_websocket/handshake/ServerHandshake.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-2",
+        "rfc6455.section-4-1"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.server-accept"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.server-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.server-response-total"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-011-differential",
+        "evidence.us-011-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-serverhandshakebuilder",
+      "java_semantic_id": "org.java_websocket.handshake.ServerHandshakeBuilder",
+      "java_binary_name": "org.java_websocket.handshake.ServerHandshakeBuilder",
+      "java_descriptor": "Lorg/java_websocket/handshake/ServerHandshakeBuilder;",
+      "java_signature": "org.java_websocket.handshake.ServerHandshakeBuilder",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 2,
+      "rust_semantic_id": "ws_core::handshake::server::ServerHandshakeBuilder",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to server-side opening-handshake validation and response construction"
+      ],
+      "known_non_equivalent_cases": [
+        "Java's server handshake is produced by the excluded NIO server topology; the Rust port produces it from the adapter-independent core"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.handshake.ServerHandshakeBuilder\" at org/java_websocket/handshake/ServerHandshakeBuilder.java:31",
+      "port_slice_id": "slice.server-handshake",
+      "child_story_id": "US-011",
+      "touched_files": [
+        "org/java_websocket/handshake/ServerHandshakeBuilder.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-2",
+        "rfc6455.section-4-1"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.server-accept"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.server-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.server-response-total"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-011-differential",
+        "evidence.us-011-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-interfaces-isslchannel",
+      "java_semantic_id": "org.java_websocket.interfaces.ISSLChannel",
+      "java_binary_name": "org.java_websocket.interfaces.ISSLChannel",
+      "java_descriptor": "Lorg/java_websocket/interfaces/ISSLChannel;",
+      "java_signature": "org.java_websocket.interfaces.ISSLChannel",
+      "java_kind": "INTERFACE",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 1,
+      "rust_semantic_id": "(no Rust counterpart: EXCLUDED_TLS_WSS)",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the single-connection state machine only",
+        "applies when the transport is a plain byte stream supplied by the adapter",
+        "this Java type is inside the frozen study surface but its capability is explicitly out of scope (EXCLUDED_TLS_WSS)"
+      ],
+      "known_non_equivalent_cases": [
+        "Java exposes the connection through an abstract class hierarchy; the Rust port exposes a single owned ConnectionCore with explicit command and event types",
+        "Java's ReadyState transitions are observable through public getters at any time from any thread; the Rust port serializes observation through the owner",
+        "the Rust port intentionally provides no counterpart for org.java_websocket.interfaces.ISSLChannel; the behavior is excluded by EXCLUDED_TLS_WSS rather than reimplemented"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.interfaces.ISSLChannel\" at org/java_websocket/interfaces/ISSLChannel.java:36",
+      "port_slice_id": "slice.connection-core",
+      "child_story_id": "US-009",
+      "touched_files": [
+        "org/java_websocket/interfaces/ISSLChannel.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4",
+        "rfc6455.section-7"
+      ],
+      "observed_behavior_ids": [
+        "behavior.connection.state-transitions"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.corpus",
+        "vector.autobahn.case-1"
+      ],
+      "property_claim_ids": [
+        "property.connection.state-machine-total"
+      ],
+      "formal_claim_ids": [
+        "formal.connection.no-terminal-escape"
+      ],
+      "evidence_ids": [
+        "evidence.us-009-differential",
+        "evidence.us-009-property"
+      ],
+      "status": "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED"
+    },
+    {
+      "id": "migration.org-java-websocket-util-base64",
+      "java_semantic_id": "org.java_websocket.util.Base64",
+      "java_binary_name": "org.java_websocket.util.Base64",
+      "java_descriptor": "Lorg/java_websocket/util/Base64;",
+      "java_signature": "org.java_websocket.util.Base64",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 26,
+      "rust_semantic_id": "ws_core::handshake::client::Base64",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.util.Base64\" at org/java_websocket/util/Base64.java:172",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/util/Base64.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-util-base64-outputstream",
+      "java_semantic_id": "org.java_websocket.util.Base64$OutputStream",
+      "java_binary_name": "org.java_websocket.util.Base64$OutputStream",
+      "java_descriptor": "Lorg/java_websocket/util/Base64$OutputStream;",
+      "java_signature": "org.java_websocket.util.Base64.OutputStream",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 16,
+      "rust_semantic_id": "ws_core::handshake::client::OutputStream",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to the RFC 6455 opening handshake request and response parsing",
+        "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java accepts header casing and folding variants through its own parser; the Rust port must reproduce the accepted set exactly and reject the rest",
+        "Java's handshake objects are mutable builders; the Rust port uses owned immutable handshake values"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.util.Base64$OutputStream\" at org/java_websocket/util/Base64.java:882",
+      "port_slice_id": "slice.client-handshake",
+      "child_story_id": "US-010",
+      "touched_files": [
+        "org/java_websocket/util/Base64.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-4-1",
+        "rfc6455.section-1-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.handshake.client-open"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.handshake.client-corpus"
+      ],
+      "property_claim_ids": [
+        "property.handshake.key-accept-roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.handshake.accept-derivation"
+      ],
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-util-bytebufferutils",
+      "java_semantic_id": "org.java_websocket.util.ByteBufferUtils",
+      "java_binary_name": "org.java_websocket.util.ByteBufferUtils",
+      "java_descriptor": "Lorg/java_websocket/util/ByteBufferUtils;",
+      "java_signature": "org.java_websocket.util.ByteBufferUtils",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 3,
+      "rust_semantic_id": "ws_core::framing::ByteBufferUtils",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to canonical RFC 6455 frame parsing and emission",
+        "applies to masking, payload length encoding, and allocation limits"
+      ],
+      "known_non_equivalent_cases": [
+        "Java allocates a fresh ByteBuffer per frame and relies on the GC; the Rust port uses bounded, explicitly owned buffers",
+        "Java signals framing faults through an exception hierarchy; the Rust port returns typed protocol errors"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.util.ByteBufferUtils\" at org/java_websocket/util/ByteBufferUtils.java:33",
+      "port_slice_id": "slice.framing",
+      "child_story_id": "US-012",
+      "touched_files": [
+        "org/java_websocket/util/ByteBufferUtils.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1",
+        "rfc6455.section-5-2",
+        "rfc6455.section-5-3"
+      ],
+      "observed_behavior_ids": [
+        "behavior.framing.parse-and-emit"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-2",
+        "vector.framing.corpus"
+      ],
+      "property_claim_ids": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "formal_claim_ids": [
+        "formal.framing.length-bounds",
+        "formal.framing.allocation-limit"
+      ],
+      "evidence_ids": [
+        "evidence.us-012-differential",
+        "evidence.us-012-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-util-charsetfunctions",
+      "java_semantic_id": "org.java_websocket.util.Charsetfunctions",
+      "java_binary_name": "org.java_websocket.util.Charsetfunctions",
+      "java_descriptor": "Lorg/java_websocket/util/Charsetfunctions;",
+      "java_signature": "org.java_websocket.util.Charsetfunctions",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 11,
+      "rust_semantic_id": "ws_core::message::Charsetfunctions",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to strict UTF-8 validation of text payloads",
+        "applies to binary payload passthrough without transformation"
+      ],
+      "known_non_equivalent_cases": [
+        "Java uses CharsetDecoder with REPORT actions; the Rust port validates UTF-8 incrementally and must reject the identical set of sequences"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.util.Charsetfunctions\" at org/java_websocket/util/Charsetfunctions.java:36",
+      "port_slice_id": "slice.messages",
+      "child_story_id": "US-013",
+      "touched_files": [
+        "org/java_websocket/util/Charsetfunctions.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-6",
+        "rfc3629.utf8"
+      ],
+      "observed_behavior_ids": [
+        "behavior.messages.text-binary"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0",
+        "oracle.autobahn.fuzzingserver"
+      ],
+      "vector_ids": [
+        "vector.autobahn.case-6",
+        "vector.utf8.corpus"
+      ],
+      "property_claim_ids": [
+        "property.messages.utf8-strictness"
+      ],
+      "formal_claim_ids": [
+        "formal.messages.utf8-validation-total"
+      ],
+      "evidence_ids": [
+        "evidence.us-013-differential",
+        "evidence.us-013-property"
+      ],
+      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+    },
+    {
+      "id": "migration.org-java-websocket-util-namedthreadfactory",
+      "java_semantic_id": "org.java_websocket.util.NamedThreadFactory",
+      "java_binary_name": "org.java_websocket.util.NamedThreadFactory",
+      "java_descriptor": "Lorg/java_websocket/util/NamedThreadFactory;",
+      "java_signature": "org.java_websocket.util.NamedThreadFactory",
+      "java_kind": "CLASS",
+      "java_lookup_strength": "semantic",
+      "java_member_count": 7,
+      "rust_semantic_id": "(no Rust counterpart: EXCLUDED_JAVA_NIO_TOPOLOGY)",
+      "rust_resolver": "rust-analyzer",
+      "rust_identity_verified": false,
+      "applicability_conditions": [
+        "applies to concurrent send and close commands against one connection",
+        "this Java type is inside the frozen study surface but its capability is explicitly out of scope (EXCLUDED_JAVA_NIO_TOPOLOGY)"
+      ],
+      "known_non_equivalent_cases": [
+        "Java uses synchronized regions plus an unbounded outgoing queue and a per-connection worker thread; the Rust port uses one owner with a bounded queue and explicit backpressure, so a full queue is observable where Java would grow without bound",
+        "the Rust port intentionally provides no counterpart for org.java_websocket.util.NamedThreadFactory; the behavior is excluded by EXCLUDED_JAVA_NIO_TOPOLOGY rather than reimplemented"
+      ],
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "detection_query": "JavacTask.analyze() then Elements.getBinaryName(TypeElement) == \"org.java_websocket.util.NamedThreadFactory\" at org/java_websocket/util/NamedThreadFactory.java:32",
+      "port_slice_id": "slice.concurrency",
+      "child_story_id": "US-017",
+      "touched_files": [
+        "org/java_websocket/util/NamedThreadFactory.java"
+      ],
+      "specification_ids": [
+        "rfc6455.section-5-1"
+      ],
+      "observed_behavior_ids": [
+        "behavior.concurrency.bounded-commands"
+      ],
+      "oracle_ids": [
+        "oracle.java-websocket.v1-6-0"
+      ],
+      "vector_ids": [
+        "vector.concurrency.command-interleaving"
+      ],
+      "property_claim_ids": [
+        "property.concurrency.single-owner-serialization"
+      ],
+      "formal_claim_ids": [
+        "formal.concurrency.no-data-race"
+      ],
+      "evidence_ids": [
+        "evidence.us-017-differential",
+        "evidence.us-017-property"
+      ],
+      "status": "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED"
+    }
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "signing": false,
+    "publication": false
+  }
+}
