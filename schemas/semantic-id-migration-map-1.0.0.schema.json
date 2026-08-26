@@ -117,8 +117,7 @@
           "known_non_equivalent_cases",
           "source_revision",
           "detection_query",
-          "port_slice_id",
-          "child_story_id",
+          "port_slices",
           "touched_files",
           "specification_ids",
           "observed_behavior_ids",
@@ -187,13 +186,6 @@
           "detection_query": {
             "$ref": "#/$defs/text"
           },
-          "port_slice_id": {
-            "$ref": "#/$defs/id"
-          },
-          "child_story_id": {
-            "type": "string",
-            "pattern": "^US-0(09|1[0-8])$"
-          },
           "touched_files": {
             "type": "array",
             "minItems": 1,
@@ -228,6 +220,35 @@
               "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED",
               "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED"
             ]
+          },
+          "port_slices": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "port_slice_id",
+                "child_story_id",
+                "touched_behavior",
+                "evidence_ids"
+              ],
+              "properties": {
+                "port_slice_id": {
+                  "$ref": "#/$defs/id"
+                },
+                "child_story_id": {
+                  "type": "string",
+                  "pattern": "^US-0(09|1[0-8])$"
+                },
+                "touched_behavior": {
+                  "$ref": "#/$defs/text"
+                },
+                "evidence_ids": {
+                  "$ref": "#/$defs/ids"
+                }
+              }
+            }
           }
         }
       }

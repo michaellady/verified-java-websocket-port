@@ -9,7 +9,7 @@ type PortSlice struct {
 }
 
 // PortSlices are the AC4 implementation slices. Every in-scope semantic item is assigned to
-// exactly one of them, and every one of them is an implementation story in the parent PRD.
+// at least one of them, and every one of them is an implementation story in the parent PRD.
 var PortSlices = []PortSlice{
 	{"slice.connection-core", "US-009", "Safe Rust ConnectionCore contract", "ws_core::connection"},
 	{"slice.client-handshake", "US-010", "Client opening-handshake slice", "ws_core::handshake::client"},
@@ -23,72 +23,203 @@ var PortSlices = []PortSlice{
 	{"slice.tcp-adapter", "US-018", "Thin blocking TCP client and server adapters", "ws_adapter::tcp"},
 }
 
-// sliceAssignment maps each compiler-derived Java binary name in the study surface to its port
-// slice. The table is explicit rather than pattern-matched: an unassigned type is a hard failure,
-// so a new upstream type can never be silently swept into a slice.
-var sliceAssignment = map[string]string{
-	// Root connection files.
-	"org.java_websocket.WebSocket":         "slice.connection-core",
-	"org.java_websocket.WebSocketAdapter":  "slice.connection-core",
-	"org.java_websocket.WebSocketImpl":     "slice.connection-core",
-	"org.java_websocket.WebSocketListener": "slice.connection-core",
+// bindingSpec is one (slice, touched behavior) facet of a Java type. A type with a single
+// bindingSpec ports wholly within that slice; a slice-crossing type carries one bindingSpec per
+// behavioral facet (review B1).
+type bindingSpec struct {
+	SliceID  string
+	Behavior string
+}
 
-	// Protocol draft strategy seam.
-	"org.java_websocket.drafts.Draft":                                "slice.connection-core",
-	"org.java_websocket.drafts.Draft_6455":                           "slice.framing",
-	"org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData": "slice.framing",
+// sliceAssignment maps each compiler-derived Java binary name in the study surface to the port
+// slices that own its behavior. The table is explicit rather than pattern-matched: an unassigned
+// type is a hard failure, so a new upstream type can never be silently swept into a slice.
+// Slice-crossing types enumerate every behavioral facet the reviewer named; the primary
+// (structure-owning) slice is listed first.
+var sliceAssignment = map[string][]bindingSpec{
+	// --- Root connection files (all four are slice-crossing) ---
+	"org.java_websocket.WebSocket": {
+		{"slice.connection-core", "connection command surface: readyState observation, attachment, local/remote addresses, hasBufferedData"},
+		{"slice.messages", "send(String)/send(byte[])/send(ByteBuffer)/sendFrame message command surface"},
+		{"slice.ping-pong", "sendPing command surface"},
+		{"slice.close-eof", "close(code,reason)/close(code)/closeConnection command surface"},
+	},
+	"org.java_websocket.WebSocketAdapter": {
+		{"slice.connection-core", "default no-op listener implementation every callback flows through"},
+		{"slice.ping-pong", "onWebsocketPing default automatic-pong reply and onWebsocketPong default"},
+	},
+	"org.java_websocket.WebSocketImpl": {
+		{"slice.connection-core", "connection state machine: ReadyState transitions, open/error event normalization, attachment"},
+		{"slice.client-handshake", "startHandshake request emission and client-role decodeHandshake path"},
+		{"slice.server-handshake", "server-role decodeHandshake acceptance and 101-response write path"},
+		{"slice.framing", "decode() incomplete-frame buffering and the decodeFrames loop over Draft.translateFrame"},
+		{"slice.messages", "deliverMessage dispatch of completed text/binary payloads to the listener"},
+		{"slice.fragmentation", "continuation delivery ordering through the frame-processing loop"},
+		{"slice.ping-pong", "sendPing emission and onWebsocketPing dispatch producing the automatic pong"},
+		{"slice.close-eof", "close/closeConnection/flushAndClose/eot terminal-state and close-code handling"},
+		{"slice.concurrency", "synchronized send/close regions plus the outQueue/inQueue BlockingQueues"},
+		{"slice.tcp-adapter", "outQueue drain and onWriteDemand contract consumed by the byte-channel adapter"},
+	},
+	"org.java_websocket.WebSocketListener": {
+		{"slice.connection-core", "callback boundary: onWebsocketOpen/onWebsocketError/onWriteDemand"},
+		{"slice.client-handshake", "onWebsocketHandshakeReceivedAsClient/onWebsocketHandshakeSentAsClient validation callbacks"},
+		{"slice.server-handshake", "onWebsocketHandshakeReceivedAsServer validation callback"},
+		{"slice.messages", "onWebsocketMessage text and binary delivery callbacks"},
+		{"slice.ping-pong", "onWebsocketPing/onWebsocketPong dispatch callbacks"},
+		{"slice.close-eof", "onWebsocketClose/onWebsocketClosing/onWebsocketCloseInitiated callbacks"},
+	},
 
-	// Enums.
-	"org.java_websocket.enums.CloseHandshakeType": "slice.connection-core",
-	"org.java_websocket.enums.HandshakeState":     "slice.connection-core",
-	"org.java_websocket.enums.ReadyState":         "slice.connection-core",
-	"org.java_websocket.enums.Role":               "slice.connection-core",
-	"org.java_websocket.enums.Opcode":             "slice.framing",
+	// --- Protocol draft strategy seam ---
+	"org.java_websocket.drafts.Draft": {
+		{"slice.connection-core", "protocol strategy seam: copyInstance, reset, role wiring, continuous-frame checks"},
+		{"slice.client-handshake", "createHandshake/postProcessHandshakeRequestAsClient/translateHandshake contract"},
+		{"slice.server-handshake", "acceptHandshakeAsServer/postProcessHandshakeResponseAsServer contract"},
+		{"slice.framing", "createFrames/translateFrame abstract framing contract"},
+	},
+	"org.java_websocket.drafts.Draft_6455": {
+		{"slice.framing", "RFC 6455 frame encode/decode: translateSingleFrame, createByteBufferFromFramedata, masking, payload-length encodings"},
+		{"slice.client-handshake", "Sec-WebSocket-Key generation, postProcessHandshakeRequestAsClient, acceptHandshakeAsClient accept-derivation check"},
+		{"slice.server-handshake", "acceptHandshakeAsServer validation and postProcessHandshakeResponseAsServer accept derivation"},
+		{"slice.messages", "processFrameText strict UTF-8 enforcement and processFrameBinary delivery"},
+		{"slice.fragmentation", "processFrameContinuousAndNonFin: currentContinuousFrame reassembly state, ordering checks, size accounting"},
+		{"slice.ping-pong", "processFramePing/processFramePong dispatch including the automatic pong reply"},
+		{"slice.close-eof", "processFrameClosing close-code extraction and validation"},
+	},
+	"org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData": {
+		{"slice.framing", "payload-length metadata for a translated frame"},
+	},
 
-	// Interfaces.
-	"org.java_websocket.interfaces.ISSLChannel": "slice.connection-core",
+	// --- Enums ---
+	"org.java_websocket.enums.CloseHandshakeType": {
+		{"slice.connection-core", "draft close-handshake capability declaration (Draft.getCloseHandshakeType)"},
+		{"slice.close-eof", "governs one-way versus two-way closing-handshake behavior"},
+	},
+	"org.java_websocket.enums.HandshakeState": {
+		{"slice.client-handshake", "acceptHandshakeAsClient MATCHED/NOT_MATCHED decision"},
+		{"slice.server-handshake", "acceptHandshakeAsServer MATCHED/NOT_MATCHED decision"},
+	},
+	"org.java_websocket.enums.Opcode":     {{"slice.framing", ""}},
+	"org.java_websocket.enums.ReadyState": {{"slice.connection-core", ""}},
+	"org.java_websocket.enums.Role":       {{"slice.connection-core", ""}},
 
-	// Exceptions, assigned to the slice whose behavior raises them.
-	"org.java_websocket.exceptions.IncompleteException":            "slice.framing",
-	"org.java_websocket.exceptions.InvalidDataException":           "slice.framing",
-	"org.java_websocket.exceptions.InvalidFrameException":          "slice.framing",
-	"org.java_websocket.exceptions.LimitExceededException":         "slice.framing",
-	"org.java_websocket.exceptions.InvalidEncodingException":       "slice.messages",
-	"org.java_websocket.exceptions.IncompleteHandshakeException":   "slice.client-handshake",
-	"org.java_websocket.exceptions.InvalidHandshakeException":      "slice.client-handshake",
-	"org.java_websocket.exceptions.NotSendableException":           "slice.concurrency",
-	"org.java_websocket.exceptions.WebsocketNotConnectedException": "slice.close-eof",
-	"org.java_websocket.exceptions.WrappedIOException":             "slice.tcp-adapter",
+	// --- Interfaces ---
+	"org.java_websocket.interfaces.ISSLChannel": {
+		{"slice.tcp-adapter", "TLS engine accessor context at the adapter seam; capability excluded (EXCLUDED_TLS_WSS), no Rust counterpart"},
+	},
 
-	// Framing.
-	"org.java_websocket.framing.Framedata":       "slice.framing",
-	"org.java_websocket.framing.FramedataImpl1":  "slice.framing",
-	"org.java_websocket.framing.DataFrame":       "slice.framing",
-	"org.java_websocket.framing.ControlFrame":    "slice.framing",
-	"org.java_websocket.framing.BinaryFrame":     "slice.messages",
-	"org.java_websocket.framing.TextFrame":       "slice.messages",
-	"org.java_websocket.framing.ContinuousFrame": "slice.fragmentation",
-	"org.java_websocket.framing.PingFrame":       "slice.ping-pong",
-	"org.java_websocket.framing.PongFrame":       "slice.ping-pong",
-	"org.java_websocket.framing.CloseFrame":      "slice.close-eof",
+	// --- Exceptions, assigned to the slices whose behavior raises them ---
+	"org.java_websocket.exceptions.IncompleteException": {{"slice.framing", ""}},
+	"org.java_websocket.exceptions.InvalidDataException": {
+		{"slice.framing", "checked base carrying the close code for protocol violations found during frame decode"},
+		{"slice.messages", "thrown by Charsetfunctions.stringUtf8 on invalid UTF-8 text payloads"},
+		{"slice.fragmentation", "thrown on continuation-state violations during reassembly"},
+		{"slice.close-eof", "its close code terminates the connection through the closing handshake"},
+	},
+	"org.java_websocket.exceptions.InvalidFrameException": {{"slice.framing", ""}},
+	"org.java_websocket.exceptions.LimitExceededException": {
+		{"slice.framing", "raised when a decoded payload length exceeds the allocation limit"},
+		{"slice.fragmentation", "raised when the reassembled message size exceeds the declared maximum"},
+	},
+	"org.java_websocket.exceptions.InvalidEncodingException":       {{"slice.messages", ""}},
+	"org.java_websocket.exceptions.IncompleteHandshakeException":   {{"slice.client-handshake", ""}},
+	"org.java_websocket.exceptions.InvalidHandshakeException":      {{"slice.client-handshake", ""}},
+	"org.java_websocket.exceptions.NotSendableException":           {{"slice.framing", "raised only from Draft_6455.createFrames when a frame cannot be constructed from the requested payload"}},
+	"org.java_websocket.exceptions.WebsocketNotConnectedException": {{"slice.close-eof", ""}},
+	"org.java_websocket.exceptions.WrappedIOException":             {{"slice.tcp-adapter", ""}},
 
-	// Handshake.
-	"org.java_websocket.handshake.Handshakedata":          "slice.client-handshake",
-	"org.java_websocket.handshake.HandshakedataImpl1":     "slice.client-handshake",
-	"org.java_websocket.handshake.HandshakeBuilder":       "slice.client-handshake",
-	"org.java_websocket.handshake.ClientHandshake":        "slice.client-handshake",
-	"org.java_websocket.handshake.ClientHandshakeBuilder": "slice.client-handshake",
-	"org.java_websocket.handshake.HandshakeImpl1Client":   "slice.client-handshake",
-	"org.java_websocket.handshake.ServerHandshake":        "slice.server-handshake",
-	"org.java_websocket.handshake.ServerHandshakeBuilder": "slice.server-handshake",
-	"org.java_websocket.handshake.HandshakeImpl1Server":   "slice.server-handshake",
+	// --- Framing ---
+	"org.java_websocket.framing.Framedata":       {{"slice.framing", ""}},
+	"org.java_websocket.framing.FramedataImpl1":  {{"slice.framing", ""}},
+	"org.java_websocket.framing.DataFrame":       {{"slice.framing", ""}},
+	"org.java_websocket.framing.ControlFrame":    {{"slice.framing", ""}},
+	"org.java_websocket.framing.BinaryFrame":     {{"slice.messages", ""}},
+	"org.java_websocket.framing.TextFrame":       {{"slice.messages", ""}},
+	"org.java_websocket.framing.ContinuousFrame": {{"slice.fragmentation", ""}},
+	"org.java_websocket.framing.PingFrame":       {{"slice.ping-pong", ""}},
+	"org.java_websocket.framing.PongFrame":       {{"slice.ping-pong", ""}},
+	"org.java_websocket.framing.CloseFrame":      {{"slice.close-eof", ""}},
 
-	// Util.
-	"org.java_websocket.util.Base64":              "slice.client-handshake",
-	"org.java_websocket.util.Base64$OutputStream": "slice.client-handshake",
-	"org.java_websocket.util.ByteBufferUtils":     "slice.framing",
-	"org.java_websocket.util.Charsetfunctions":    "slice.messages",
-	"org.java_websocket.util.NamedThreadFactory":  "slice.concurrency",
+	// --- Handshake ---
+	"org.java_websocket.handshake.Handshakedata":          {{"slice.client-handshake", ""}},
+	"org.java_websocket.handshake.HandshakedataImpl1":     {{"slice.client-handshake", ""}},
+	"org.java_websocket.handshake.HandshakeBuilder":       {{"slice.client-handshake", ""}},
+	"org.java_websocket.handshake.ClientHandshake":        {{"slice.client-handshake", ""}},
+	"org.java_websocket.handshake.ClientHandshakeBuilder": {{"slice.client-handshake", ""}},
+	"org.java_websocket.handshake.HandshakeImpl1Client":   {{"slice.client-handshake", ""}},
+	"org.java_websocket.handshake.ServerHandshake":        {{"slice.server-handshake", ""}},
+	"org.java_websocket.handshake.ServerHandshakeBuilder": {{"slice.server-handshake", ""}},
+	"org.java_websocket.handshake.HandshakeImpl1Server":   {{"slice.server-handshake", ""}},
+
+	// --- Util ---
+	"org.java_websocket.util.Base64":              {{"slice.client-handshake", ""}},
+	"org.java_websocket.util.Base64$OutputStream": {{"slice.client-handshake", ""}},
+	"org.java_websocket.util.ByteBufferUtils":     {{"slice.framing", ""}},
+	"org.java_websocket.util.Charsetfunctions":    {{"slice.messages", ""}},
+	"org.java_websocket.util.NamedThreadFactory": {
+		{"slice.concurrency", "thread-naming seam; capability excluded (EXCLUDED_JAVA_NIO_TOPOLOGY): the Rust owner has no interior threads"},
+	},
+}
+
+// TypeCategories assigns every study-surface type its seam-dossier boundary category by actual
+// role (review I2). The table is explicit and total for the study surface; an uncategorized type
+// is a hard derivation failure. Categories agree with the dossier narratives: WebSocketImpl,
+// Draft_6455, and the Impl1 representations are internal; WebSocket, Draft, Framedata, and
+// Handshakedata are the public accessor boundaries; listener types are callback seams.
+var TypeCategories = map[string]string{
+	"org.java_websocket.WebSocket":         "public_boundaries",
+	"org.java_websocket.WebSocketAdapter":  "callbacks",
+	"org.java_websocket.WebSocketImpl":     "internal_boundaries",
+	"org.java_websocket.WebSocketListener": "callbacks",
+
+	"org.java_websocket.drafts.Draft":                                "public_boundaries",
+	"org.java_websocket.drafts.Draft_6455":                           "internal_boundaries",
+	"org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData": "internal_boundaries",
+
+	"org.java_websocket.enums.CloseHandshakeType": "handshakes",
+	"org.java_websocket.enums.HandshakeState":     "handshakes",
+	"org.java_websocket.enums.Opcode":             "frames",
+	"org.java_websocket.enums.ReadyState":         "internal_boundaries",
+	"org.java_websocket.enums.Role":               "internal_boundaries",
+
+	"org.java_websocket.interfaces.ISSLChannel": "adapter_seams",
+
+	"org.java_websocket.exceptions.IncompleteException":            "frames",
+	"org.java_websocket.exceptions.IncompleteHandshakeException":   "handshakes",
+	"org.java_websocket.exceptions.InvalidDataException":           "frames",
+	"org.java_websocket.exceptions.InvalidEncodingException":       "wire_formats",
+	"org.java_websocket.exceptions.InvalidFrameException":          "frames",
+	"org.java_websocket.exceptions.InvalidHandshakeException":      "handshakes",
+	"org.java_websocket.exceptions.LimitExceededException":         "limits",
+	"org.java_websocket.exceptions.NotSendableException":           "frames",
+	"org.java_websocket.exceptions.WebsocketNotConnectedException": "internal_boundaries",
+	"org.java_websocket.exceptions.WrappedIOException":             "adapter_seams",
+
+	"org.java_websocket.framing.Framedata":       "public_boundaries",
+	"org.java_websocket.framing.FramedataImpl1":  "internal_boundaries",
+	"org.java_websocket.framing.BinaryFrame":     "frames",
+	"org.java_websocket.framing.CloseFrame":      "frames",
+	"org.java_websocket.framing.ContinuousFrame": "frames",
+	"org.java_websocket.framing.ControlFrame":    "frames",
+	"org.java_websocket.framing.DataFrame":       "frames",
+	"org.java_websocket.framing.PingFrame":       "frames",
+	"org.java_websocket.framing.PongFrame":       "frames",
+	"org.java_websocket.framing.TextFrame":       "frames",
+
+	"org.java_websocket.handshake.Handshakedata":          "public_boundaries",
+	"org.java_websocket.handshake.HandshakedataImpl1":     "internal_boundaries",
+	"org.java_websocket.handshake.HandshakeBuilder":       "handshakes",
+	"org.java_websocket.handshake.ClientHandshake":        "handshakes",
+	"org.java_websocket.handshake.ClientHandshakeBuilder": "handshakes",
+	"org.java_websocket.handshake.HandshakeImpl1Client":   "handshakes",
+	"org.java_websocket.handshake.ServerHandshake":        "handshakes",
+	"org.java_websocket.handshake.ServerHandshakeBuilder": "handshakes",
+	"org.java_websocket.handshake.HandshakeImpl1Server":   "handshakes",
+
+	"org.java_websocket.util.Base64":              "handshakes",
+	"org.java_websocket.util.Base64$OutputStream": "handshakes",
+	"org.java_websocket.util.ByteBufferUtils":     "buffers",
+	"org.java_websocket.util.Charsetfunctions":    "wire_formats",
+	"org.java_websocket.util.NamedThreadFactory":  "threads",
 }
 
 // capabilityExcluded names study-surface types whose Java capability is explicitly out of scope

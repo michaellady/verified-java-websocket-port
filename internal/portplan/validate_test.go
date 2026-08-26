@@ -34,6 +34,13 @@ func mutate(t *testing.T, name string, edit func(document map[string]any)) Repor
 	if err := os.Symlink(schemas, filepath.Join(root, "schemas")); err != nil {
 		t.Fatalf("symlink schemas: %v", err)
 	}
+	oracle, err := os.ReadFile(filepath.Join(repoRoot, EvidenceDirectory, OracleEvidenceDocument))
+	if err != nil {
+		t.Fatalf("read oracle evidence: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(target, OracleEvidenceDocument), oracle, 0o644); err != nil {
+		t.Fatalf("write oracle evidence: %v", err)
+	}
 	for _, document := range DocumentNames {
 		content, err := os.ReadFile(filepath.Join(repoRoot, "evidence", "intake", document))
 		if err != nil {
@@ -157,7 +164,7 @@ func TestMigrationRowsCarryCompilerDerivedJavaIdentity(t *testing.T) {
 func TestMigrationRowRejectsMissingSemanticBinding(t *testing.T) {
 	for _, field := range []string{
 		"java_semantic_id", "java_signature", "rust_semantic_id", "source_revision",
-		"detection_query", "port_slice_id", "status",
+		"detection_query", "status",
 	} {
 		report := mutate(t, MigrationMapDocument, func(document map[string]any) {
 			rows := document["rows"].([]any)
@@ -168,7 +175,7 @@ func TestMigrationRowRejectsMissingSemanticBinding(t *testing.T) {
 	for _, field := range []string{
 		"applicability_conditions", "known_non_equivalent_cases", "touched_files",
 		"specification_ids", "oracle_ids", "vector_ids", "property_claim_ids",
-		"formal_claim_ids", "evidence_ids",
+		"formal_claim_ids", "evidence_ids", "port_slices",
 	} {
 		report := mutate(t, MigrationMapDocument, func(document map[string]any) {
 			rows := document["rows"].([]any)
@@ -305,7 +312,8 @@ func TestPlanTraceabilityIsTotal(t *testing.T) {
 func TestPlanTraceabilityRejectsARowWithoutAChildStory(t *testing.T) {
 	report := mutate(t, MigrationMapDocument, func(document map[string]any) {
 		rows := document["rows"].([]any)
-		rows[0].(map[string]any)["child_story_id"] = "US-999"
+		bindings := rows[0].(map[string]any)["port_slices"].([]any)
+		bindings[0].(map[string]any)["child_story_id"] = "US-999"
 	})
 	requireFinding(t, report, FindingUnknownChildStory)
 }

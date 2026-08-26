@@ -18,6 +18,7 @@ type DeriveRequest struct {
 	TestSourceRoot       string
 	OraclePath           string
 	OracleToolPath       string
+	TestManifestPath     string
 	SourceArtifactID     string
 	SourceSHA256         string
 	SourceVersion        string
@@ -63,7 +64,14 @@ func Derive(request DeriveRequest) error {
 	if err != nil {
 		return err
 	}
+	if err := verifyOracleMatchesTree(oracle, request.ProductionSourceRoot); err != nil {
+		return err
+	}
 	toolDigest, err := FileDigest(request.OracleToolPath)
+	if err != nil {
+		return err
+	}
+	runtimeInventory, err := loadRuntimeInventory(request.TestManifestPath)
 	if err != nil {
 		return err
 	}
@@ -199,7 +207,21 @@ func Derive(request DeriveRequest) error {
 				" javax.lang.model symbol table, counts read from the source bytes.",
 			CountingSemantics: "physical_lines counts newline bytes, matching wc -l exactly.",
 		},
-		Sections:  surfaceSections(oracle, testFiles),
+		PromotedInputs: []PromotedInput{
+			{
+				ArtifactID:             "slf4j-api-2.0.13",
+				Kind:                   "compile-resolution-classpath",
+				SHA256:                 SLF4JAPIJarSHA256,
+				ImmutableURL:           "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar",
+				QualifiedBy:            "US-002",
+				QualificationReference: "internal/lab/autobahn_endpoint.go AutobahnSLF4JAPIDigest",
+				EnforcedBy:             "java-semantic-oracle/Makefile require-inputs digest gate (fails closed before javac analyzes the tree)",
+				Role: "resolves the org.slf4j imports in WebSocketImpl and Draft_6455 during" +
+					" JavacTask.analyze(); version pinned by the digest-verified upstream" +
+					" pom.xml; not part of the ported surface",
+			},
+		},
+		Sections:  surfaceSections(oracle, testFiles, runtimeInventory),
 		Assurance: ownerAttested,
 		HonestyNotes: []string{
 			"Every file, line, declaration, and identity count in this manifest is derived from a" +
@@ -209,11 +231,9 @@ func Derive(request DeriveRequest) error {
 				" package-info files reconcile to %d production files.",
 				packageInfoWithoutDeclarations, oracle.Compilation.AnalyzedTopLevelTypes,
 				packageInfoWithoutDeclarations, production.Files),
-			"org.slf4j:slf4j-api:2.0.13 was required on the compile classpath to resolve the" +
-				" logging imports in WebSocketImpl and Draft_6455. Its version comes from the" +
-				" digest-pinned upstream pom.xml and its bytes were verified against the Maven" +
-				" Central published checksum; it is a compile-resolution input only and is not" +
-				" part of the ported surface.",
+			"The SLF4J compile input is bound by identity, not prose: see promoted_inputs." +
+				" Its digest equals the US-002-qualified AutobahnSLF4JAPIDigest and the oracle" +
+				" Makefile refuses to run javac against different bytes.",
 			"The Java build system was not executed in this story. Build and runtime test facts" +
 				" are inherited by reference from the US-002 accepted evidence root.",
 			"No Rust identity in this story is resolver-verified: no Rust workspace exists until" +
@@ -227,13 +247,17 @@ func Derive(request DeriveRequest) error {
 				" callback boundary, its default adapter, and its state machine, whereas the" +
 				" second mixes byte-channel wrappers and the NIO/keep-alive base class. A" +
 				" reviewer must confirm this reading.",
-			"Migration rows are per-type (47 rows), not per-member (969 declarations). Each row" +
-				" records java_member_count for the members it covers. Per-member rows would be" +
-				" a strictly finer, also-defensible granularity.",
-			"The port slice assignment (which Java type belongs to which child story) is an" +
-				" explicit editorial table in internal/portplan/slices.go, not a compiler-derived" +
-				" fact. It is the weakest link in this document set and should be reviewed" +
-				" directly.",
+			"Migration rows are per-type (47 rows), not per-member (969 declarations); the" +
+				" review permitted that granularity provided slice-crossing types carry" +
+				" multi-slice bindings. Crossing types (WebSocketImpl, Draft, Draft_6455, the" +
+				" root connection types, InvalidDataException, LimitExceededException," +
+				" CloseHandshakeType, HandshakeState) bind every behavioral slice with a named" +
+				" touched behavior; leaf types keep a single binding.",
+			"The slice-binding table (which behavioral facet of which Java type belongs to" +
+				" which child story) is an explicit editorial table in" +
+				" internal/portplan/slices.go, not a compiler-derived fact. The validator's" +
+				" RequiredStoryCoverage check fails closed when a frozen behavioral surface" +
+				" loses its covering binding, but the table itself remains reviewed judgment.",
 			"specification_ids, oracle_ids, vector_ids, property_claim_ids, formal_claim_ids," +
 				" and evidence_ids are forward-declared obligations. The corpora and claims they" +
 				" name are created by US-005 and US-006 and do not resolve yet; they are" +
@@ -241,8 +265,14 @@ func Derive(request DeriveRequest) error {
 		},
 	}
 
-	migration := buildMigrationMap(oracle, request, selectedSet)
-	dossier := buildSeamDossier(oracle, migration)
+	migration, err := buildMigrationMap(oracle, request, selectedSet)
+	if err != nil {
+		return err
+	}
+	dossier, err := buildSeamDossier(migration)
+	if err != nil {
+		return err
+	}
 	compatibility := buildCompatibilitySurface(request)
 	cutover := buildCutoverContract(request)
 
@@ -332,7 +362,110 @@ func exclusionNarrative(code, path string) string {
 	return path + " is outside the frozen study surface."
 }
 
-func surfaceSections(oracle OracleOutput, testFiles []FileRecord) []SurfaceSection {
+// verifyOracleMatchesTree binds the committed oracle report to the materialized source tree
+// (review B3): the file sets must be identical and every per-file digest and physical line count
+// must match. Any disagreement is a fail-closed ORACLE_TREE_MISMATCH.
+func verifyOracleMatchesTree(oracle OracleOutput, productionRoot string) error {
+	if productionRoot == "" {
+		return fmt.Errorf("ORACLE_TREE_MISMATCH: no production source root was supplied")
+	}
+	paths, err := ListJavaSources(productionRoot)
+	if err != nil {
+		return fmt.Errorf("ORACLE_TREE_MISMATCH: cannot walk the source tree: %w", err)
+	}
+	onDisk := map[string]bool{}
+	for _, path := range paths {
+		onDisk[path] = true
+	}
+	seen := map[string]bool{}
+	for _, file := range oracle.Files {
+		if !onDisk[file.Path] {
+			return fmt.Errorf("ORACLE_TREE_MISMATCH: oracle names %s, absent from the tree", file.Path)
+		}
+		seen[file.Path] = true
+		full := filepath.Join(productionRoot, filepath.FromSlash(file.Path))
+		digest, err := FileDigest(full)
+		if err != nil {
+			return fmt.Errorf("ORACLE_TREE_MISMATCH: %w", err)
+		}
+		if digest != file.SHA256 {
+			return fmt.Errorf("ORACLE_TREE_MISMATCH: %s digest %s in the tree, %s in the oracle",
+				file.Path, digest, file.SHA256)
+		}
+		lines, err := CountPhysicalLines(full)
+		if err != nil {
+			return fmt.Errorf("ORACLE_TREE_MISMATCH: %w", err)
+		}
+		if lines != file.PhysicalLines {
+			return fmt.Errorf("ORACLE_TREE_MISMATCH: %s has %d lines in the tree, %d in the oracle",
+				file.Path, lines, file.PhysicalLines)
+		}
+	}
+	for _, path := range paths {
+		if !seen[path] {
+			return fmt.Errorf("ORACLE_TREE_MISMATCH: tree file %s is missing from the oracle", path)
+		}
+	}
+	return nil
+}
+
+// runtimeInventory carries the authoritative runtime test facts read from the US-002 accepted
+// test manifest (review I1). Every number in the manifest's runtime section derives from it.
+type runtimeInventory struct {
+	Discovered         int
+	Executed           int
+	Passed             int
+	RuntimeInvocations int
+	ConcreteClasses    int
+	AggregateSuites    int
+	UtilityClasses     int
+	FeatureFiles       int
+}
+
+func loadRuntimeInventory(path string) (runtimeInventory, error) {
+	if path == "" {
+		return runtimeInventory{}, fmt.Errorf("RUNTIME_INVENTORY_UNBOUND: no test manifest path")
+	}
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return runtimeInventory{}, fmt.Errorf("RUNTIME_INVENTORY_UNBOUND: %w", err)
+	}
+	var manifest struct {
+		Counts struct {
+			Discovered               int `json:"discovered"`
+			Executed                 int `json:"executed"`
+			Passed                   int `json:"passed"`
+			RuntimeInvocations       int `json:"runtime_invocations"`
+			ConcreteClasses          int `json:"concrete_classes"`
+			AggregateSuiteContainers int `json:"aggregate_suite_containers"`
+		} `json:"counts"`
+		NonTests []struct {
+			Kind string `json:"kind"`
+		} `json:"non_tests"`
+	}
+	if err := json.Unmarshal(content, &manifest); err != nil {
+		return runtimeInventory{}, fmt.Errorf("RUNTIME_INVENTORY_UNBOUND: %w", err)
+	}
+	inventory := runtimeInventory{
+		Discovered:         manifest.Counts.Discovered,
+		Executed:           manifest.Counts.Executed,
+		Passed:             manifest.Counts.Passed,
+		RuntimeInvocations: manifest.Counts.RuntimeInvocations,
+		ConcreteClasses:    manifest.Counts.ConcreteClasses,
+		AggregateSuites:    manifest.Counts.AggregateSuiteContainers,
+	}
+	for _, entry := range manifest.NonTests {
+		switch entry.Kind {
+		case "autobahn-utility":
+			inventory.UtilityClasses++
+		case "feature-file":
+			inventory.FeatureFiles++
+		}
+	}
+	return inventory, nil
+}
+
+func surfaceSections(oracle OracleOutput, testFiles []FileRecord, runtime runtimeInventory) []SurfaceSection {
 	return []SurfaceSection{
 		{
 			ID: "runtime-test-inventory", Title: "Runtime test inventory",
@@ -340,10 +473,13 @@ func surfaceSections(oracle OracleOutput, testFiles []FileRecord) []SurfaceSecti
 			EvidenceRef:       "evidence/java/test-manifest.json",
 			Items: []string{
 				fmt.Sprintf("%d test source files in src/test/java", len(testFiles)),
-				"231 discovered, executed, and passed test cases over 326 runtime invocations",
-				"62 concrete test classes selected exactly once; 10 aggregate suite containers" +
-					" retained in inventory but excluded from the selector",
-				"4 Autobahn utility classes and 1 feature file are inventoried as non-tests",
+				fmt.Sprintf("%d discovered, executed, and passed test cases over %d runtime"+
+					" invocations", runtime.Passed, runtime.RuntimeInvocations),
+				fmt.Sprintf("%d concrete test classes selected exactly once; %d aggregate suite"+
+					" containers retained in inventory but excluded from the selector",
+					runtime.ConcreteClasses, runtime.AggregateSuites),
+				fmt.Sprintf("%d Autobahn utility classes and %d feature file are inventoried as"+
+					" non-tests", runtime.UtilityClasses, runtime.FeatureFiles),
 			},
 		},
 		{

@@ -52,6 +52,18 @@
     "method": "javac 17.0.19 JavacTask.analyze() over the full production source root with org.slf4j:slf4j-api:2.0.13 on the classpath; identities read from the javax.lang.model symbol table, counts read from the source bytes.",
     "counting_semantics": "physical_lines counts newline bytes, matching wc -l exactly."
   },
+  "promoted_inputs": [
+    {
+      "artifact_id": "slf4j-api-2.0.13",
+      "kind": "compile-resolution-classpath",
+      "sha256": "sha256:e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9",
+      "immutable_url": "https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar",
+      "qualified_by": "US-002",
+      "qualification_reference": "internal/lab/autobahn_endpoint.go AutobahnSLF4JAPIDigest",
+      "enforced_by": "java-semantic-oracle/Makefile require-inputs digest gate (fails closed before javac analyzes the tree)",
+      "role": "resolves the org.slf4j imports in WebSocketImpl and Draft_6455 during JavacTask.analyze(); version pinned by the digest-verified upstream pom.xml; not part of the ported surface"
+    }
+  ],
   "surface_sections": [
     {
       "id": "runtime-test-inventory",
@@ -63,7 +75,7 @@
         "79 test source files in src/test/java",
         "231 discovered, executed, and passed test cases over 326 runtime invocations",
         "62 concrete test classes selected exactly once; 10 aggregate suite containers retained in inventory but excluded from the selector",
-        "4 Autobahn utility classes and 1 feature file are inventoried as non-tests"
+        "3 Autobahn utility classes and 1 feature file are inventoried as non-tests"
       ]
     },
     {
@@ -190,12 +202,12 @@
   "honesty_notes": [
     "Every file, line, declaration, and identity count in this manifest is derived from a clean javac run over the digest-verified upstream archive. None is estimated.",
     "11 production files declare no type at all; all of them are package-info.java documentation units. 67 analyzed top-level types plus 11 package-info files reconcile to 78 production files.",
-    "org.slf4j:slf4j-api:2.0.13 was required on the compile classpath to resolve the logging imports in WebSocketImpl and Draft_6455. Its version comes from the digest-pinned upstream pom.xml and its bytes were verified against the Maven Central published checksum; it is a compile-resolution input only and is not part of the ported surface.",
+    "The SLF4J compile input is bound by identity, not prose: see promoted_inputs. Its digest equals the US-002-qualified AutobahnSLF4JAPIDigest and the oracle Makefile refuses to run javac against different bytes.",
     "The Java build system was not executed in this story. Build and runtime test facts are inherited by reference from the US-002 accepted evidence root.",
     "No Rust identity in this story is resolver-verified: no Rust workspace exists until US-009. Every Rust identity is recorded as PLANNED.",
     "AC2 says 'the four root connection files' without naming them. Two different 4-file subsets of the 12 root-package files sum to the required 1,478 lines: {WebSocket, WebSocketAdapter, WebSocketListener, WebSocketImpl} and {WrappedByteChannel, AbstractWrappedByteChannel, AbstractWebSocket, WebSocketImpl}. The arithmetic alone does not disambiguate them. This story selects the first because those four are the connection abstraction, its callback boundary, its default adapter, and its state machine, whereas the second mixes byte-channel wrappers and the NIO/keep-alive base class. A reviewer must confirm this reading.",
-    "Migration rows are per-type (47 rows), not per-member (969 declarations). Each row records java_member_count for the members it covers. Per-member rows would be a strictly finer, also-defensible granularity.",
-    "The port slice assignment (which Java type belongs to which child story) is an explicit editorial table in internal/portplan/slices.go, not a compiler-derived fact. It is the weakest link in this document set and should be reviewed directly.",
+    "Migration rows are per-type (47 rows), not per-member (969 declarations); the review permitted that granularity provided slice-crossing types carry multi-slice bindings. Crossing types (WebSocketImpl, Draft, Draft_6455, the root connection types, InvalidDataException, LimitExceededException, CloseHandshakeType, HandshakeState) bind every behavioral slice with a named touched behavior; leaf types keep a single binding.",
+    "The slice-binding table (which behavioral facet of which Java type belongs to which child story) is an explicit editorial table in internal/portplan/slices.go, not a compiler-derived fact. The validator's RequiredStoryCoverage check fails closed when a frozen behavioral surface loses its covering binding, but the table itself remains reviewed judgment.",
     "specification_ids, oracle_ids, vector_ids, property_claim_ids, formal_claim_ids, and evidence_ids are forward-declared obligations. The corpora and claims they name are created by US-005 and US-006 and do not resolve yet; they are declared obligations, not satisfied links."
   ]
 }

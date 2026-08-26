@@ -187,7 +187,7 @@ func buildMigrationMap(
 	oracle OracleOutput,
 	request DeriveRequest,
 	selectedSet map[string]bool,
-) MigrationMap {
+) (MigrationMap, error) {
 	memberCounts := map[string]int{}
 	for _, declaration := range oracle.Declarations {
 		if declaration.InStudySurface && !declaration.IsType() {
@@ -201,27 +201,84 @@ func buildMigrationMap(
 			continue
 		}
 		binaryName := declaration.OwnerBinaryName
-		sliceID, assigned := sliceAssignment[binaryName]
-		if !assigned {
-			// Fail loudly rather than sweeping an unknown type into a slice.
-			sliceID = ""
+		specs, assigned := sliceAssignment[binaryName]
+		if !assigned || len(specs) == 0 {
+			return MigrationMap{}, fmt.Errorf(
+				"UNASSIGNED_SEMANTIC_TYPE: %s has no slice binding; refusing to sweep it in",
+				binaryName)
 		}
-		slice, _ := sliceByID(sliceID)
-		evidence := sliceEvidenceBySlice[sliceID]
 
-		applicability := append([]string{}, evidence.Applicability...)
-		nonEquivalence := append([]string{}, evidence.NonEquivalence...)
+		bindings := make([]SliceBinding, 0, len(specs))
+		evidenceUnion := map[string]bool{}
+		applicability := map[string]bool{}
+		nonEquivalence := map[string]bool{}
+		specifications := map[string]bool{}
+		behaviors := map[string]bool{}
+		oracles := map[string]bool{}
+		vectors := map[string]bool{}
+		properties := map[string]bool{}
+		formals := map[string]bool{}
+		for _, spec := range specs {
+			slice, known := sliceByID(spec.SliceID)
+			if !known {
+				return MigrationMap{}, fmt.Errorf(
+					"UNKNOWN_SLICE: %s binds %s", binaryName, spec.SliceID)
+			}
+			behavior := spec.Behavior
+			if behavior == "" {
+				behavior = "entire declared surface of " + binaryName +
+					" ports within this slice (" + slice.Title + ")"
+			}
+			bindingEvidence := []string{
+				stableID("evidence", slice.ChildStoryID+"-differential"),
+				stableID("evidence", slice.ChildStoryID+"-property"),
+			}
+			for _, id := range bindingEvidence {
+				evidenceUnion[id] = true
+			}
+			bindings = append(bindings, SliceBinding{
+				PortSliceID:     slice.ID,
+				ChildStoryID:    slice.ChildStoryID,
+				TouchedBehavior: behavior,
+				EvidenceIDs:     bindingEvidence,
+			})
+			evidence := sliceEvidenceBySlice[slice.ID]
+			for _, value := range evidence.Applicability {
+				applicability[value] = true
+			}
+			for _, value := range evidence.NonEquivalence {
+				nonEquivalence[value] = true
+			}
+			for _, value := range evidence.Specifications {
+				specifications[value] = true
+			}
+			for _, value := range evidence.Behaviors {
+				behaviors[value] = true
+			}
+			for _, value := range evidence.Oracles {
+				oracles[value] = true
+			}
+			for _, value := range evidence.Vectors {
+				vectors[value] = true
+			}
+			for _, value := range evidence.Properties {
+				properties[value] = true
+			}
+			for _, value := range evidence.Formals {
+				formals[value] = true
+			}
+		}
+
+		primary, _ := sliceByID(specs[0].SliceID)
 		status := "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
-		rustID := slice.RustModule + "::" + rustTypeName(binaryName)
+		rustID := primary.RustModule + "::" + rustTypeName(binaryName)
 		if code, excludedCapability := capabilityExcluded[binaryName]; excludedCapability {
 			status = "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED"
 			rustID = "(no Rust counterpart: " + code + ")"
-			applicability = append(applicability,
-				"this Java type is inside the frozen study surface but its capability is"+
-					" explicitly out of scope ("+code+")")
-			nonEquivalence = append(nonEquivalence,
-				"the Rust port intentionally provides no counterpart for "+binaryName+
-					"; the behavior is excluded by "+code+" rather than reimplemented")
+			applicability["this Java type is inside the frozen study surface but its capability"+
+				" is explicitly out of scope ("+code+")"] = true
+			nonEquivalence["the Rust port intentionally provides no counterpart for "+binaryName+
+				"; the behavior is excluded by "+code+" rather than reimplemented"] = true
 		}
 
 		rows = append(rows, MigrationRow{
@@ -236,26 +293,22 @@ func buildMigrationMap(
 			RustSemanticID:          rustID,
 			RustResolver:            "rust-analyzer",
 			RustIdentityVerified:    false,
-			ApplicabilityConditions: applicability,
-			KnownNonEquivalentCases: nonEquivalence,
+			ApplicabilityConditions: sortedKeys(applicability),
+			KnownNonEquivalentCases: sortedKeys(nonEquivalence),
 			SourceRevision:          request.SourceCommit,
 			DetectionQuery: fmt.Sprintf(
 				"JavacTask.analyze() then Elements.getBinaryName(TypeElement) == %q at %s:%d",
 				binaryName, declaration.File, declaration.Line),
-			PortSliceID:         sliceID,
-			ChildStoryID:        slice.ChildStoryID,
+			PortSlices:          bindings,
 			TouchedFiles:        []string{declaration.File},
-			SpecificationIDs:    evidence.Specifications,
-			ObservedBehaviorIDs: evidence.Behaviors,
-			OracleIDs:           evidence.Oracles,
-			VectorIDs:           evidence.Vectors,
-			PropertyClaimIDs:    evidence.Properties,
-			FormalClaimIDs:      evidence.Formals,
-			EvidenceIDs: []string{
-				stableID("evidence", slice.ChildStoryID+"-differential"),
-				stableID("evidence", slice.ChildStoryID+"-property"),
-			},
-			Status: status,
+			SpecificationIDs:    sortedKeys(specifications),
+			ObservedBehaviorIDs: sortedKeys(behaviors),
+			OracleIDs:           sortedKeys(oracles),
+			VectorIDs:           sortedKeys(vectors),
+			PropertyClaimIDs:    sortedKeys(properties),
+			FormalClaimIDs:      sortedKeys(formals),
+			EvidenceIDs:         sortedKeys(evidenceUnion),
+			Status:              status,
 		})
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].JavaBinaryName < rows[j].JavaBinaryName })
@@ -265,7 +318,7 @@ func buildMigrationMap(
 		SchemaVersion: "1.0.0",
 		EntityType:    "MigrationMap",
 		MapID:         "semantic-id-migration-map.us003",
-		MapVersion:    "1.0.0",
+		MapVersion:    "1.1.0",
 		JavaIdentityMethod: JavaIdentityMethod{
 			Tool:           "java-semantic-oracle 1.0.0",
 			API:            oracle.IdentitySource,
@@ -290,53 +343,105 @@ func buildMigrationMap(
 		},
 		Rows:      rows,
 		Assurance: ownerAttested,
+	}, nil
+}
+
+func sortedKeys(set map[string]bool) []string {
+	keys := make([]string, 0, len(set))
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// computeSeamStatus derives a seam's resolution from its actual data instead of asserting it
+// (review B2). The schema accepts only RESOLVED, so an unresolved seam fails derivation closed.
+func computeSeamStatus(touchedFiles, obligations []string) string {
+	if len(touchedFiles) == 0 || len(obligations) == 0 {
+		return "UNRESOLVED"
+	}
+	return "RESOLVED"
+}
+
+// byteChannelContextSeam is the US-018 adapter surface over the excluded byte-channel wrappers
+// (review B2): the adapter story's touched surface must include the files that define the
+// byte-channel contract the Rust adapter replaces, with ISSLChannel as capability-excluded
+// context.
+func byteChannelContextSeam() Seam {
+	touched := []string{
+		"org/java_websocket/AbstractWrappedByteChannel.java",
+		"org/java_websocket/WrappedByteChannel.java",
+	}
+	obligations := []string{
+		stableID("evidence", "US-018-differential"),
+		stableID("evidence", "US-018-property"),
+	}
+	return Seam{
+		SurfaceID:             "seam.adapter.byte-channel-context",
+		SemanticID:            stableID("migration", "org.java_websocket.interfaces.ISSLChannel"),
+		Owner:                 "US-018",
+		Category:              "adapter_seams",
+		ChildStoryID:          "US-018",
+		TouchedFiles:          touched,
+		EvidenceObligationIDs: obligations,
+		Status:                computeSeamStatus(touched, obligations),
 	}
 }
 
-func buildSeamDossier(oracle OracleOutput, migration MigrationMap) SeamDossier {
-	rowsBySlice := map[string][]MigrationRow{}
-	for _, row := range migration.Rows {
-		rowsBySlice[row.PortSliceID] = append(rowsBySlice[row.PortSliceID], row)
-	}
-
+func buildSeamDossier(migration MigrationMap) (SeamDossier, error) {
 	var seams []Seam
+	for _, row := range migration.Rows {
+		category, categorized := TypeCategories[row.JavaBinaryName]
+		if !categorized {
+			return SeamDossier{}, fmt.Errorf(
+				"UNCATEGORIZED_SEMANTIC_TYPE: %s has no explicit seam category", row.JavaBinaryName)
+		}
+		for _, binding := range row.PortSlices {
+			obligations := append(append([]string{}, binding.EvidenceIDs...),
+				row.PropertyClaimIDs...)
+			seams = append(seams, Seam{
+				SurfaceID: stableID("seam",
+					row.JavaBinaryName+"-"+strings.TrimPrefix(binding.PortSliceID, "slice.")),
+				SemanticID:            row.ID,
+				Owner:                 binding.ChildStoryID,
+				Category:              category,
+				ChildStoryID:          binding.ChildStoryID,
+				TouchedFiles:          row.TouchedFiles,
+				EvidenceObligationIDs: obligations,
+				Status:                computeSeamStatus(row.TouchedFiles, obligations),
+			})
+		}
+	}
+	seams = append(seams, byteChannelContextSeam())
+	sort.Slice(seams, func(i, j int) bool { return seams[i].SurfaceID < seams[j].SurfaceID })
+
+	seamsByStory := map[string][]Seam{}
+	for _, seam := range seams {
+		seamsByStory[seam.ChildStoryID] = append(seamsByStory[seam.ChildStoryID], seam)
+	}
 	var stories []ImplementationStory
 	for _, slice := range PortSlices {
-		rows := rowsBySlice[slice.ID]
-		seamIDs := make([]string, 0, len(rows))
-		for _, row := range rows {
-			touched := map[string]bool{}
-			for _, file := range row.TouchedFiles {
-				touched[file] = true
+		owned := seamsByStory[slice.ChildStoryID]
+		seamIDs := make([]string, 0, len(owned))
+		status := "TOUCHED_SURFACE_RESOLVED"
+		if len(owned) == 0 {
+			status = "TOUCHED_SURFACE_UNRESOLVED"
+		}
+		for _, seam := range owned {
+			seamIDs = append(seamIDs, seam.SurfaceID)
+			if seam.Status != "RESOLVED" {
+				status = "TOUCHED_SURFACE_UNRESOLVED"
 			}
-			files := make([]string, 0, len(touched))
-			for file := range touched {
-				files = append(files, file)
-			}
-			sort.Strings(files)
-			seamID := stableID("seam", row.JavaBinaryName)
-			seamIDs = append(seamIDs, seamID)
-			seams = append(seams, Seam{
-				SurfaceID:    seamID,
-				SemanticID:   row.ID,
-				Owner:        slice.ChildStoryID,
-				Category:     seamCategory(row),
-				ChildStoryID: slice.ChildStoryID,
-				TouchedFiles: files,
-				EvidenceObligationIDs: append(append([]string{}, row.EvidenceIDs...),
-					row.PropertyClaimIDs...),
-				Status: "RESOLVED",
-			})
 		}
 		sort.Strings(seamIDs)
 		stories = append(stories, ImplementationStory{
 			StoryID: slice.ChildStoryID,
 			Title:   slice.Title,
 			SeamIDs: seamIDs,
-			Status:  "TOUCHED_SURFACE_RESOLVED",
+			Status:  status,
 		})
 	}
-	sort.Slice(seams, func(i, j int) bool { return seams[i].SurfaceID < seams[j].SurfaceID })
 
 	return SeamDossier{
 		SchemaRef:     "../../schemas/port-seam-dossier-1.0.0.schema.json",
@@ -356,8 +461,6 @@ func buildSeamDossier(oracle OracleOutput, migration MigrationMap) SeamDossier {
 			"org.java_websocket.drafts.Draft_6455: internal RFC 6455 draft implementation",
 			"org.java_websocket.framing.FramedataImpl1: internal mutable frame representation",
 			"org.java_websocket.handshake.HandshakedataImpl1: internal handshake representation",
-			"org.java_websocket.util.Charsetfunctions: internal strict UTF-8 helpers",
-			"org.java_websocket.util.ByteBufferUtils: internal buffer helpers",
 		},
 		Handshakes: []string{
 			"client opening-handshake request construction and response validation (US-010)",
@@ -397,12 +500,14 @@ func buildSeamDossier(oracle OracleOutput, migration MigrationMap) SeamDossier {
 			"WebSocketListener.onWebsocketOpen / onWebsocketMessage / onWebsocketClose /" +
 				" onWebsocketError inbound callbacks",
 			"WebSocketListener.onWriteDemand outbound demand signal",
+			"WebSocketAdapter default onWebsocketPing automatic-pong reply",
 			"the Rust port replaces callbacks with typed events drained by the caller",
 		},
 		WireFormats: []string{
 			"RFC 6455 frame octets: fin, rsv1-3, opcode, mask bit, payload length, masking key",
 			"RFC 6455 opening-handshake HTTP/1.1 request and 101 response octets",
 			"close frame status code as a network-order unsigned 16-bit integer",
+			"strict UTF-8 validity of text payloads (util.Charsetfunctions)",
 		},
 		Limits: []string{
 			"maximum control-frame payload of 125 octets",
@@ -417,34 +522,15 @@ func buildSeamDossier(oracle OracleOutput, migration MigrationMap) SeamDossier {
 				" takes time and randomness as injected, testable inputs",
 		},
 		AdapterSeams: []string{
-			"the byte-channel read and write seam consumed by US-018",
+			"the byte-channel read and write seam consumed by US-018 (WrappedByteChannel," +
+				" AbstractWrappedByteChannel define the wrapped-channel contract)",
 			"the Autobahn conformance endpoint seam consumed by US-019",
 			"ISSLChannel is an adapter seam whose TLS capability is explicitly excluded",
 		},
 		Seams:                 seams,
 		ImplementationStories: stories,
 		Assurance:             ownerAttested,
-	}
-}
-
-func seamCategory(row MigrationRow) string {
-	switch {
-	case strings.Contains(row.JavaBinaryName, ".handshake."):
-		return "handshakes"
-	case strings.Contains(row.JavaBinaryName, ".framing."):
-		return "frames"
-	case strings.Contains(row.JavaBinaryName, ".exceptions."):
-		return "limits"
-	case strings.Contains(row.JavaBinaryName, ".util."):
-		return "buffers"
-	case strings.Contains(row.JavaBinaryName, ".enums."):
-		return "internal_boundaries"
-	case strings.Contains(row.JavaBinaryName, ".interfaces."):
-		return "adapter_seams"
-	case strings.Contains(row.JavaBinaryName, ".drafts."):
-		return "wire_formats"
-	}
-	return "public_boundaries"
+	}, nil
 }
 
 func requiredExclusionRecords() []ExclusionRecord {

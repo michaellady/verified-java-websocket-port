@@ -75,6 +75,8 @@ func Verify(root string) (Report, error) {
 	report.checkAssurance(CutoverDocument, cutover.Assurance)
 
 	report.checkReconciliation(&manifest, &inventory)
+	report.checkOracleBinding(root, &manifest)
+	report.checkPromotedInputs(&manifest)
 	report.checkSurfaceSections(&manifest)
 	report.checkInventory(&inventory, &manifest)
 	report.checkMigration(&migration, &manifest, &dossier, root)
@@ -244,12 +246,13 @@ func (report *Report) checkMigration(
 			"declared Rust workspace presence disagrees with the repository")
 	}
 
+	boundFacets := map[string]bool{}
 	for index, row := range migration.Rows {
 		path := fmt.Sprintf("$.rows[%d]", index)
 		complete := row.ID != "" && row.JavaSemanticID != "" && row.JavaSignature != "" &&
 			row.JavaBinaryName != "" && row.JavaDescriptor != "" && row.RustSemanticID != "" &&
-			row.SourceRevision != "" && row.DetectionQuery != "" && row.PortSliceID != "" &&
-			row.ChildStoryID != "" && row.Status != "" &&
+			row.SourceRevision != "" && row.DetectionQuery != "" && row.Status != "" &&
+			len(row.PortSlices) > 0 &&
 			len(row.ApplicabilityConditions) > 0 && len(row.KnownNonEquivalentCases) > 0 &&
 			len(row.TouchedFiles) > 0 && len(row.SpecificationIDs) > 0 &&
 			len(row.ObservedBehaviorIDs) > 0 && len(row.OracleIDs) > 0 &&
@@ -275,17 +278,80 @@ func (report *Report) checkMigration(
 					"no Rust workspace exists, so no Rust identity can be resolver-verified")
 			}
 		}
-		if row.ChildStoryID != "" && !knownStories[row.ChildStoryID] {
-			report.add(FindingUnknownChildStory, MigrationMapDocument, path+".child_story_id",
-				row.ChildStoryID+" is not an implementation story in the seam dossier")
-			report.UnmappedSemanticItems = append(report.UnmappedSemanticItems, row.JavaSemanticID)
-			continue
+		bindingsSound := len(row.PortSlices) > 0
+		for bindingIndex, binding := range row.PortSlices {
+			bindingPath := fmt.Sprintf("%s.port_slices[%d]", path, bindingIndex)
+			slice, known := sliceByID(binding.PortSliceID)
+			if !known {
+				report.add(FindingIncompleteMigrationRow, MigrationMapDocument,
+					bindingPath+".port_slice_id",
+					binding.PortSliceID+" is not a declared port slice")
+				bindingsSound = false
+				continue
+			}
+			if binding.ChildStoryID != slice.ChildStoryID {
+				report.add(FindingUnknownChildStory, MigrationMapDocument,
+					bindingPath+".child_story_id",
+					fmt.Sprintf("%s is owned by %s, binding names %s",
+						binding.PortSliceID, slice.ChildStoryID, binding.ChildStoryID))
+				bindingsSound = false
+			}
+			if !knownStories[binding.ChildStoryID] {
+				report.add(FindingUnknownChildStory, MigrationMapDocument,
+					bindingPath+".child_story_id",
+					binding.ChildStoryID+" is not an implementation story in the seam dossier")
+				bindingsSound = false
+			}
+			if strings.TrimSpace(binding.TouchedBehavior) == "" {
+				report.add(FindingIncompleteMigrationRow, MigrationMapDocument,
+					bindingPath+".touched_behavior",
+					"every slice binding must name the behavior that slice touches")
+				bindingsSound = false
+			}
+			if len(binding.EvidenceIDs) == 0 {
+				report.add(FindingIncompleteMigrationRow, MigrationMapDocument,
+					bindingPath+".evidence_ids",
+					"every slice binding must carry an evidence obligation")
+				bindingsSound = false
+			}
+			boundFacets[row.JavaBinaryName+"@"+binding.PortSliceID] = true
 		}
-		if !complete {
+		if !complete || !bindingsSound {
 			report.UnmappedSemanticItems = append(report.UnmappedSemanticItems, row.JavaSemanticID)
 			continue
 		}
 		report.TraceableSemanticItems++
+	}
+
+	// Review B2: every implementation story's frozen behavioral surface must keep a covering
+	// binding in the migration map and (for adapter files) in the dossier's touched surface,
+	// regardless of what the dossier claims about itself.
+	touchedByStory := map[string]map[string]bool{}
+	for _, seam := range dossier.Seams {
+		files := touchedByStory[seam.ChildStoryID]
+		if files == nil {
+			files = map[string]bool{}
+			touchedByStory[seam.ChildStoryID] = files
+		}
+		for _, file := range seam.TouchedFiles {
+			files[file] = true
+		}
+	}
+	for _, requirement := range RequiredStoryCoverage {
+		if requirement.JavaBinaryName != "" {
+			if !boundFacets[requirement.JavaBinaryName+"@"+requirement.PortSliceID] {
+				report.add(FindingStoryCoverageGap, MigrationMapDocument, "$.rows",
+					fmt.Sprintf("%s requires %s bound to %s (%s); no covering binding exists",
+						requirement.ChildStoryID, requirement.JavaBinaryName,
+						requirement.PortSliceID, requirement.Reason))
+			}
+			continue
+		}
+		if !touchedByStory[requirement.ChildStoryID][requirement.TouchedFile] {
+			report.add(FindingStoryCoverageGap, SeamDossierDocument, "$.seams",
+				fmt.Sprintf("%s requires touched file %s (%s); no seam covers it",
+					requirement.ChildStoryID, requirement.TouchedFile, requirement.Reason))
+		}
 	}
 
 	if manifest.Reconciliation.DeclarationTotals.StudyTypes != len(migration.Rows) {
@@ -420,13 +486,68 @@ func (report *Report) checkCutover(cutover *CutoverContract) {
 		path := fmt.Sprintf("$.obligations[%d]", index)
 		if obligation.Status == "DECLARED" && len(obligation.EvidenceIDs) != 0 {
 			report.add(FindingUnresolvedBehavior, CutoverDocument, path,
-				"a DECLARED obligation carries no evidence yet")
+				"a DECLARED obligation must not cite evidence")
 		}
 		if obligation.Status == "SATISFIED" && len(obligation.EvidenceIDs) == 0 {
 			report.add(FindingUnresolvedBehavior, CutoverDocument, path,
 				"a SATISFIED obligation must cite evidence")
 		}
 	}
+}
+
+// checkOracleBinding binds the manifest's recorded oracle digest and derived totals to the
+// committed oracle report itself, so neither can drift from the other unnoticed.
+func (report *Report) checkOracleBinding(root string, manifest *IntakeManifest) {
+	oraclePath := filepath.Join(root, EvidenceDirectory, OracleEvidenceDocument)
+	digest, err := FileDigest(oraclePath)
+	if err != nil {
+		report.add(FindingOracleBindingBroken, ManifestDocument, "$.jdk.oracle_output_sha256",
+			"committed oracle report unreadable: "+err.Error())
+		return
+	}
+	if digest != manifest.JDK.OracleOutputSHA {
+		report.add(FindingOracleBindingBroken, ManifestDocument, "$.jdk.oracle_output_sha256",
+			fmt.Sprintf("manifest records %s, committed oracle is %s",
+				manifest.JDK.OracleOutputSHA, digest))
+		return
+	}
+	oracle, _, err := LoadOracle(oraclePath)
+	if err != nil {
+		report.add(FindingOracleBindingBroken, ManifestDocument, "$.jdk",
+			"committed oracle report invalid: "+err.Error())
+		return
+	}
+	reconciliation := manifest.Reconciliation
+	if oracle.Totals.Files != reconciliation.ProductionTree.Files ||
+		oracle.Totals.PhysicalLines != reconciliation.ProductionTree.PhysicalLines ||
+		oracle.Totals.StudySurfaceFiles != reconciliation.StudySurface.Files ||
+		oracle.Totals.StudySurfacePhysicalLines != reconciliation.StudySurface.PhysicalLines ||
+		oracle.Totals.Declarations != reconciliation.DeclarationTotals.ProductionDeclarations {
+		report.add(FindingOracleBindingBroken, ManifestDocument, "$.reconciliation",
+			"manifest totals disagree with the committed oracle report")
+	}
+}
+
+// checkPromotedInputs enforces the SLF4J identity binding (review B4): the manifest must record
+// the compile-classpath jar as a promoted input whose digest equals the US-002-qualified digest.
+func (report *Report) checkPromotedInputs(manifest *IntakeManifest) {
+	for _, input := range manifest.PromotedInputs {
+		if input.ArtifactID != "slf4j-api-2.0.13" {
+			continue
+		}
+		if input.SHA256 != SLF4JAPIJarSHA256 {
+			report.add(FindingPromotedInputUnbound, ManifestDocument, "$.promoted_inputs",
+				fmt.Sprintf("slf4j-api-2.0.13 records %s, the US-002-qualified digest is %s",
+					input.SHA256, SLF4JAPIJarSHA256))
+		}
+		if input.QualifiedBy != "US-002" || strings.TrimSpace(input.EnforcedBy) == "" {
+			report.add(FindingPromotedInputUnbound, ManifestDocument, "$.promoted_inputs",
+				"the SLF4J binding must cite its qualifying story and its enforcement point")
+		}
+		return
+	}
+	report.add(FindingPromotedInputUnbound, ManifestDocument, "$.promoted_inputs",
+		"the SLF4J compile input must be recorded as a promoted input")
 }
 
 // rustWorkspacePresent reports whether a Rust workspace exists yet. US-009 creates it; until then

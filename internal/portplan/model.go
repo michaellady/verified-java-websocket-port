@@ -41,7 +41,19 @@ const (
 	FindingAssurancePosture          = "ASSURANCE_POSTURE_UPGRADED"
 	FindingDocumentUnreadable        = "DOCUMENT_UNREADABLE"
 	FindingSchemaViolation           = "SCHEMA_VIOLATION"
+	FindingStoryCoverageGap          = "STORY_COVERAGE_GAP"
+	FindingOracleBindingBroken       = "ORACLE_BINDING_BROKEN"
+	FindingPromotedInputUnbound      = "PROMOTED_INPUT_UNBOUND"
 )
+
+// OracleEvidenceDocument is the committed compiler-derived identity report the six documents are
+// built from. Verify binds the manifest's recorded digest to these exact bytes.
+const OracleEvidenceDocument = "semantic-id-oracle.json"
+
+// SLF4JAPIJarSHA256 is the identity of the only non-JDK compile input the oracle run may use.
+// It is the exact digest already qualified by US-002 (internal/lab/autobahn_endpoint.go,
+// AutobahnSLF4JAPIDigest); the oracle Makefile fails closed when the jar's bytes differ.
+const SLF4JAPIJarSHA256 = "sha256:e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9"
 
 // RequiredExclusions are the AC5 surfaces that must stay explicitly out of scope.
 var RequiredExclusions = []string{
@@ -153,9 +165,22 @@ type IntakeManifest struct {
 	JDK            JDKRecord        `json:"jdk"`
 	Build          BuildRecord      `json:"build"`
 	Reconciliation Reconciliation   `json:"reconciliation"`
+	PromotedInputs []PromotedInput  `json:"promoted_inputs"`
 	Sections       []SurfaceSection `json:"surface_sections"`
 	Assurance      Assurance        `json:"assurance"`
 	HonestyNotes   []string         `json:"honesty_notes"`
+}
+
+// PromotedInput is a versioned non-source input whose identity is enforced, not assumed.
+type PromotedInput struct {
+	ArtifactID             string `json:"artifact_id"`
+	Kind                   string `json:"kind"`
+	SHA256                 string `json:"sha256"`
+	ImmutableURL           string `json:"immutable_url"`
+	QualifiedBy            string `json:"qualified_by"`
+	QualificationReference string `json:"qualification_reference"`
+	EnforcedBy             string `json:"enforced_by"`
+	Role                   string `json:"role"`
 }
 
 // JDKRecord is the compiler that produced every semantic identity in this story.
@@ -243,34 +268,43 @@ type RustIdentityStatus struct {
 	Statement        string `json:"statement"`
 }
 
+// SliceBinding binds one behavioral facet of a Java type to the port slice (and child story)
+// that implements it. Slice-crossing types carry one binding per touched slice, each naming the
+// concrete behavior that slice owns (review B1).
+type SliceBinding struct {
+	PortSliceID     string   `json:"port_slice_id"`
+	ChildStoryID    string   `json:"child_story_id"`
+	TouchedBehavior string   `json:"touched_behavior"`
+	EvidenceIDs     []string `json:"evidence_ids"`
+}
+
 // MigrationRow binds one compiler-derived Java semantic identity to a planned Rust identity.
 type MigrationRow struct {
-	ID                      string   `json:"id"`
-	JavaSemanticID          string   `json:"java_semantic_id"`
-	JavaBinaryName          string   `json:"java_binary_name"`
-	JavaDescriptor          string   `json:"java_descriptor"`
-	JavaSignature           string   `json:"java_signature"`
-	JavaKind                string   `json:"java_kind"`
-	JavaLookupStrength      string   `json:"java_lookup_strength"`
-	JavaMemberCount         int      `json:"java_member_count"`
-	RustSemanticID          string   `json:"rust_semantic_id"`
-	RustResolver            string   `json:"rust_resolver"`
-	RustIdentityVerified    bool     `json:"rust_identity_verified"`
-	ApplicabilityConditions []string `json:"applicability_conditions"`
-	KnownNonEquivalentCases []string `json:"known_non_equivalent_cases"`
-	SourceRevision          string   `json:"source_revision"`
-	DetectionQuery          string   `json:"detection_query"`
-	PortSliceID             string   `json:"port_slice_id"`
-	ChildStoryID            string   `json:"child_story_id"`
-	TouchedFiles            []string `json:"touched_files"`
-	SpecificationIDs        []string `json:"specification_ids"`
-	ObservedBehaviorIDs     []string `json:"observed_behavior_ids"`
-	OracleIDs               []string `json:"oracle_ids"`
-	VectorIDs               []string `json:"vector_ids"`
-	PropertyClaimIDs        []string `json:"property_claim_ids"`
-	FormalClaimIDs          []string `json:"formal_claim_ids"`
-	EvidenceIDs             []string `json:"evidence_ids"`
-	Status                  string   `json:"status"`
+	ID                      string         `json:"id"`
+	JavaSemanticID          string         `json:"java_semantic_id"`
+	JavaBinaryName          string         `json:"java_binary_name"`
+	JavaDescriptor          string         `json:"java_descriptor"`
+	JavaSignature           string         `json:"java_signature"`
+	JavaKind                string         `json:"java_kind"`
+	JavaLookupStrength      string         `json:"java_lookup_strength"`
+	JavaMemberCount         int            `json:"java_member_count"`
+	RustSemanticID          string         `json:"rust_semantic_id"`
+	RustResolver            string         `json:"rust_resolver"`
+	RustIdentityVerified    bool           `json:"rust_identity_verified"`
+	ApplicabilityConditions []string       `json:"applicability_conditions"`
+	KnownNonEquivalentCases []string       `json:"known_non_equivalent_cases"`
+	SourceRevision          string         `json:"source_revision"`
+	DetectionQuery          string         `json:"detection_query"`
+	PortSlices              []SliceBinding `json:"port_slices"`
+	TouchedFiles            []string       `json:"touched_files"`
+	SpecificationIDs        []string       `json:"specification_ids"`
+	ObservedBehaviorIDs     []string       `json:"observed_behavior_ids"`
+	OracleIDs               []string       `json:"oracle_ids"`
+	VectorIDs               []string       `json:"vector_ids"`
+	PropertyClaimIDs        []string       `json:"property_claim_ids"`
+	FormalClaimIDs          []string       `json:"formal_claim_ids"`
+	EvidenceIDs             []string       `json:"evidence_ids"`
+	Status                  string         `json:"status"`
 }
 
 // SeamDossier is the AC4 port seam inventory.
@@ -380,6 +414,43 @@ type CutoverObligation struct {
 	ChildStoryID string   `json:"child_story_id"`
 	Status       string   `json:"status"`
 	EvidenceIDs  []string `json:"evidence_ids"`
+}
+
+// CoverageRequirement names one binding (or dossier touched file) an implementation story's
+// behavioral surface requires. The validator fails closed when the migration map or the seam
+// dossier no longer provides it (review B2).
+type CoverageRequirement struct {
+	ChildStoryID   string
+	JavaBinaryName string // required (binary name, slice) binding when non-empty
+	PortSliceID    string
+	TouchedFile    string // required dossier seam touched file when non-empty
+	Reason         string
+}
+
+// RequiredStoryCoverage is the frozen behavioral-surface definition per implementation story.
+var RequiredStoryCoverage = []CoverageRequirement{
+	{"US-009", "org.java_websocket.WebSocketImpl", "slice.connection-core", "", "connection state machine owner"},
+	{"US-009", "org.java_websocket.drafts.Draft", "slice.connection-core", "", "protocol strategy seam"},
+	{"US-009", "org.java_websocket.WebSocketListener", "slice.connection-core", "", "callback boundary"},
+	{"US-010", "org.java_websocket.drafts.Draft_6455", "slice.client-handshake", "", "client handshake construction and acceptance"},
+	{"US-010", "org.java_websocket.WebSocketImpl", "slice.client-handshake", "", "client handshake decode path"},
+	{"US-011", "org.java_websocket.drafts.Draft_6455", "slice.server-handshake", "", "server handshake acceptance and response"},
+	{"US-012", "org.java_websocket.drafts.Draft_6455", "slice.framing", "", "canonical frame encode/decode"},
+	{"US-012", "org.java_websocket.WebSocketImpl", "slice.framing", "", "decodeFrames loop"},
+	{"US-013", "org.java_websocket.drafts.Draft_6455", "slice.messages", "", "text/binary frame processing"},
+	{"US-013", "org.java_websocket.util.Charsetfunctions", "slice.messages", "", "strict UTF-8 validation"},
+	{"US-014", "org.java_websocket.drafts.Draft_6455", "slice.fragmentation", "", "continuation reassembly state and checks"},
+	{"US-014", "org.java_websocket.exceptions.LimitExceededException", "slice.fragmentation", "", "reassembly size limit"},
+	{"US-015", "org.java_websocket.drafts.Draft_6455", "slice.ping-pong", "", "ping/pong dispatch and automatic pong"},
+	{"US-015", "org.java_websocket.WebSocketAdapter", "slice.ping-pong", "", "default automatic-pong callback"},
+	{"US-015", "org.java_websocket.WebSocketListener", "slice.ping-pong", "", "ping/pong callback dispatch"},
+	{"US-016", "org.java_websocket.drafts.Draft_6455", "slice.close-eof", "", "close frame processing"},
+	{"US-016", "org.java_websocket.WebSocketImpl", "slice.close-eof", "", "terminal-state handling"},
+	{"US-017", "org.java_websocket.WebSocketImpl", "slice.concurrency", "", "synchronized regions and queues"},
+	{"US-018", "org.java_websocket.WebSocketImpl", "slice.tcp-adapter", "", "outgoing-queue drain contract"},
+	{"US-018", "org.java_websocket.interfaces.ISSLChannel", "slice.tcp-adapter", "", "capability-excluded TLS accessor context"},
+	{"US-018", "", "", "org/java_websocket/WrappedByteChannel.java", "byte-channel adapter surface"},
+	{"US-018", "", "", "org/java_websocket/AbstractWrappedByteChannel.java", "byte-channel adapter surface"},
 }
 
 // Finding is one validation failure.

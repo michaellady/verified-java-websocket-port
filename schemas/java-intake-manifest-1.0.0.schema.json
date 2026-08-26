@@ -13,6 +13,7 @@
     "jdk",
     "build",
     "reconciliation",
+    "promoted_inputs",
     "surface_sections",
     "assurance",
     "honesty_notes"
@@ -255,6 +256,69 @@
     },
     "honesty_notes": {
       "$ref": "#/$defs/strings"
+    },
+    "promoted_inputs": {
+      "type": "array",
+      "minItems": 1,
+      "contains": {
+        "type": "object",
+        "required": [
+          "artifact_id",
+          "sha256",
+          "qualified_by"
+        ],
+        "properties": {
+          "artifact_id": {
+            "const": "slf4j-api-2.0.13"
+          },
+          "sha256": {
+            "const": "sha256:e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9"
+          },
+          "qualified_by": {
+            "const": "US-002"
+          }
+        }
+      },
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_id",
+          "kind",
+          "sha256",
+          "immutable_url",
+          "qualified_by",
+          "qualification_reference",
+          "enforced_by",
+          "role"
+        ],
+        "properties": {
+          "artifact_id": {
+            "$ref": "#/$defs/text"
+          },
+          "kind": {
+            "$ref": "#/$defs/text"
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "immutable_url": {
+            "$ref": "#/$defs/text"
+          },
+          "qualified_by": {
+            "$ref": "#/$defs/text"
+          },
+          "qualification_reference": {
+            "$ref": "#/$defs/text"
+          },
+          "enforced_by": {
+            "$ref": "#/$defs/text"
+          },
+          "role": {
+            "$ref": "#/$defs/text"
+          }
+        }
+      }
     }
   },
   "$defs": {
