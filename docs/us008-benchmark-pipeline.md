@@ -260,20 +260,17 @@ Deliberate non-adoption (not a gate — a standing recommendation):
   protection is ever added, scope it to checks both planes already share,
   never to `benchmark-host`.
 
-Still gated (the pipeline fails closed until each is done):
+Still gated — mechanically fail-closed until each is done (Terraform
+preconditions, `benchplanctl` exit 3, or AWS itself reject the run):
 
 1. **Tier-2 vCPU quota request (AWS support mutation; Tier-2 runs only).**
    Metal types are large (c5n.metal is 72 vCPUs) and the account's
    probed "Running On-Demand Standard instances" quota (L-1216C47A) is
    64 vCPUs — m5zn.metal (48 vCPUs) is the only probed metal candidate
-   that fits it today. The bound Tier-1 c7i.xlarge (4 vCPUs) fits the
+   that fits it today; AWS rejects any larger metal launch until the
+   quota is raised. The bound Tier-1 c7i.xlarge (4 vCPUs) fits the
    standing quota; no request is needed for the campaign default.
-3. **Budget alarm (AWS mutation).** Before enabling the label trigger for
-   measured runs, create an AWS Budgets alarm (suggested: monthly cost
-   budget with alerts at ~$50/$100, plus an EC2-usage-hours alarm) in the
-   dev account so a janitor-missed orphan is surfaced by billing, not by
-   the invoice.
-4. **Remaining owner decisions to bind in
+2. **Remaining owner decisions to bind in
    `benchmarks/environments/confirmation.json`** (the 19 pending
    confirmation fields the completion meter reports): the
    allocation-evidence procedure, the CPU-frequency policy, every
@@ -284,11 +281,21 @@ Still gated (the pipeline fails closed until each is done):
    architecture, OS/kernel identity, CPU model, memory, NUMA topology,
    clocksource) — plus a Tier-2 metal type if the deferred flagship run
    is ever scheduled, and the 7 primary-environment tool identities.
-5. **Plan freeze + independent attestation** of the preregistration itself
+   `benchplanctl` fails closed (exit 3, HOST_BINDING_PENDING) until bound.
+3. **Plan freeze + independent attestation** of the preregistration itself
    (`benchmarks/plan/workloads.json` OWNER_DECISION_PENDING fields resolved,
    then frozen) — the PRD forbids any raw or tuning sample predating the
-   independently attested plan commit. Current assurance posture:
-   `OWNER_ATTESTED_NOT_INDEPENDENT`, `independent_review_claimed: false`.
+   independently attested plan commit; the preflight stays BLOCKED until
+   then. Current assurance posture: `OWNER_ATTESTED_NOT_INDEPENDENT`,
+   `independent_review_claimed: false`.
+
+Recommended before enabling measured runs (owner step, NOT mechanically
+enforced by the pipeline):
+
+- **Budget alarm (AWS mutation).** Create an AWS Budgets alarm (suggested:
+  monthly cost budget with alerts at ~$50/$100, plus an EC2-usage-hours
+  alarm) in the dev account so a janitor-missed orphan is surfaced by
+  billing alerts, not by the invoice.
 
 ## What this file set still explicitly does NOT contain
 
