@@ -73,6 +73,17 @@ const (
 	TargetsFindingHandshakeLiveEvidenceMissing        = "HANDSHAKE_LIVE_EVIDENCE_MISSING"
 	TargetsFindingHandshakeLiveEvidenceDigestMismatch = "HANDSHAKE_LIVE_EVIDENCE_DIGEST_MISMATCH"
 	TargetsFindingStrictnessDeltaUnledgered           = "STRICTNESS_DELTA_UNLEDGERED"
+	TargetsFindingStrengtheningNoteStateInvalid       = "STRENGTHENING_NOTE_STATE_INVALID"
+	TargetsFindingStrengtheningNoteUnledgered         = "STRENGTHENING_NOTE_UNLEDGERED"
+)
+
+// Strengthening-note paired states. A strengthening note records a planned
+// Rust-side behavior STRONGER than shipped Java — a future ledger obligation
+// for the implementing story, never a current formal claim. While PENDING it
+// must cite no ledger record; once LEDGERED it must cite a real one.
+const (
+	targetsNotePending  = "PENDING_BEHAVIOR_DELTA_LEDGER_ENTRY"
+	targetsNoteLedgered = "LEDGERED"
 )
 
 // targetsAC1Families is the closed AC1 property-family inventory: the six
@@ -222,10 +233,25 @@ type ProofTargetInvoker struct {
 // ProofTargetFidelity fixes the shipped-behavior discipline: no formal
 // language may outrun shipped-code evidence without a ledgered delta.
 type ProofTargetFidelity struct {
-	DivergencePolicy    string                     `json:"divergence_policy"`
-	RFCStrictnessDeltas []ProofTargetDelta         `json:"rfc_strictness_deltas"`
-	NonGoals            []string                   `json:"non_goals"`
-	LiveEvidence        *ProofTargetLiveEvidence   `json:"live_evidence"`
+	DivergencePolicy    string                         `json:"divergence_policy"`
+	RFCStrictnessDeltas []ProofTargetDelta             `json:"rfc_strictness_deltas"`
+	NonGoals            []string                       `json:"non_goals"`
+	StrengtheningNotes  []ProofTargetStrengtheningNote `json:"strengthening_notes,omitempty"`
+	LiveEvidence        *ProofTargetLiveEvidence       `json:"live_evidence"`
+}
+
+// ProofTargetStrengtheningNote records a planned Rust-side strengthening of a
+// shipped Java behavior (e.g. exactly-once terminal delivery, checked
+// packet-size arithmetic). It is an explicit future behavior-delta-ledger
+// obligation for the implementing story — never part of the current formal
+// claim. Paired states: PENDING_BEHAVIOR_DELTA_LEDGER_ENTRY carries a null
+// ledger_record_id; LEDGERED must cite a record that exists in the ledger.
+type ProofTargetStrengtheningNote struct {
+	NoteID            string  `json:"note_id"`
+	State             string  `json:"state"`
+	LedgerRecordID    *string `json:"ledger_record_id"`
+	ImplementingStory string  `json:"implementing_story"`
+	Statement         string  `json:"statement"`
 }
 
 // ProofTargetDelta is one deliberate RFC-strictness divergence, valid only
@@ -816,6 +842,32 @@ func targetsCheckStrictnessDeltas(root string, document *ProofTargetsDocument, r
 					fmt.Sprintf("$.targets[%d].behavior_fidelity.rfc_strictness_deltas[%d]", targetIndex, deltaIndex),
 					fmt.Sprintf("delta %s cites ledger record %s which does not exist in %s; formal language may not outrun shipped-code evidence",
 						delta.DeltaID, delta.LedgerRecordID, targetsDeltaLedgerPath))
+			}
+		}
+		for noteIndex, note := range target.BehaviorFidelity.StrengtheningNotes {
+			path := fmt.Sprintf("$.targets[%d].behavior_fidelity.strengthening_notes[%d]", targetIndex, noteIndex)
+			switch note.State {
+			case targetsNotePending:
+				if note.LedgerRecordID != nil {
+					report.add(TargetsFindingStrengtheningNoteStateInvalid, path,
+						fmt.Sprintf("note %s is %s but cites ledger record %q; a pending strengthening must cite no record",
+							note.NoteID, targetsNotePending, *note.LedgerRecordID))
+				}
+			case targetsNoteLedgered:
+				if note.LedgerRecordID == nil {
+					report.add(TargetsFindingStrengtheningNoteStateInvalid, path,
+						fmt.Sprintf("note %s claims %s with a null ledger_record_id", note.NoteID, targetsNoteLedgered))
+					continue
+				}
+				if !ledgerIDs[*note.LedgerRecordID] {
+					report.add(TargetsFindingStrengtheningNoteUnledgered, path,
+						fmt.Sprintf("note %s claims %s citing record %s which does not exist in %s; a strengthening may not outrun the behavior-delta ledger",
+							note.NoteID, targetsNoteLedgered, *note.LedgerRecordID, targetsDeltaLedgerPath))
+				}
+			default:
+				report.add(TargetsFindingStrengtheningNoteStateInvalid, path,
+					fmt.Sprintf("note %s has unknown state %q; want %s or %s",
+						note.NoteID, note.State, targetsNotePending, targetsNoteLedgered))
 			}
 		}
 	}

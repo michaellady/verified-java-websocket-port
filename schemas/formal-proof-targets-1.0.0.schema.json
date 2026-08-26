@@ -450,6 +450,49 @@
         }
       }
     },
+    "strengthening_note": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "note_id",
+        "state",
+        "ledger_record_id",
+        "implementing_story",
+        "statement"
+      ],
+      "properties": {
+        "note_id": {"$ref": "#/$defs/id"},
+        "state": {
+          "enum": ["PENDING_BEHAVIOR_DELTA_LEDGER_ENTRY", "LEDGERED"]
+        },
+        "ledger_record_id": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/id"}
+          ]
+        },
+        "implementing_story": {"$ref": "#/$defs/story_id"},
+        "statement": {"$ref": "#/$defs/text"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {"const": "PENDING_BEHAVIOR_DELTA_LEDGER_ENTRY"}
+            }
+          },
+          "then": {
+            "properties": {"ledger_record_id": {"type": "null"}}
+          }
+        },
+        {
+          "if": {"properties": {"state": {"const": "LEDGERED"}}},
+          "then": {
+            "properties": {"ledger_record_id": {"type": "string"}}
+          }
+        }
+      ]
+    },
     "required_invoker": {
       "type": "object",
       "additionalProperties": false,
@@ -510,6 +553,10 @@
         "non_goals": {
           "type": "array",
           "items": {"$ref": "#/$defs/text"}
+        },
+        "strengthening_notes": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/strengthening_note"}
         },
         "live_evidence": {
           "oneOf": [

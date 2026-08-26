@@ -99,14 +99,14 @@
       "tree_directory": "Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667"
     }
   },
-  "statement": "US-006 lane A production target plan: a bijection from the migration map's ten formal.* claim IDs to proof targets that bind quarantined Java source authority (file:line, digest-pinned), the migration map's planned Rust identities byte-for-byte, future production symbols in honest PLANNED_PENDING_RESOLVER state, and the conformance/differential invocation contract. Formal language never outruns shipped-code evidence: every RFC-strictness divergence requires a behavior-delta-ledger record, and the plan fixes targets only — no proof executes here.",
+  "statement": "US-006 lane A production target plan: a bijection from the migration map's ten formal.* claim IDs to proof targets that bind quarantined Java source authority (file:line, digest-pinned), the migration map's planned Rust identities byte-for-byte, future production symbols in honest PLANNED_PENDING_RESOLVER state, and the conformance/differential invocation contract. Formal language never outruns shipped-code evidence: every RFC-strictness divergence requires a behavior-delta-ledger record, planned Rust-side strengthenings of shipped behavior are recorded only as strengthening_notes in PENDING_BEHAVIOR_DELTA_LEDGER_ENTRY state (future ledger obligations for their implementing stories, never current formal claims), and the plan fixes targets only — no proof executes here.",
   "story_id": "US-006",
   "targets": [
     {
       "target_id": "target.formal.framing.length-bounds",
       "formal_claim_id": "formal.framing.length-bounds",
       "title": "Frame-header decode, canonical 7/16/64-bit payload lengths, masking",
-      "statement": "The shipped frame-header decoder and mask function: translateSingleFrame / translateSingleFramePayloadLength decode the 7-bit inline, 126-\u003e16-bit, and 127-\u003e64-bit big-endian payload-length forms with checked arithmetic (sign-carrying BigInteger parse, explicit \u003eInteger.MAX_VALUE / \u003emaxFrameSize / \u003c0 rejection), and the XOR mask loop is applied on encode for the client role and removed on decode. Proof obligations bind to these shipped behaviors only.",
+      "statement": "The shipped frame-header decoder and mask function: translateSingleFrame / translateSingleFramePayloadLength decode the 7-bit inline, 126-\u003e16-bit, and 127-\u003e64-bit big-endian payload-length forms via sign-carrying BigInteger parse, with the parsed length range-checked in translateSingleFrameCheckLengthLimit (648-661:\u003eInteger.MAX_VALUE / \u003emaxFrameSize / \u003c0 rejection), and the XOR mask loop is applied on encode for the client role and removed on decode. The shipped packet-size accounting is NOT checked arithmetic: realpacketsize is a plain int accumulator (534) advanced by unchecked additions (+2/+8 length-escape bytes at 622/629, +4 mask at 553, += payloadlength at 554) that can overflow to a negative value BEFORE translateSingleFrameCheckPacketSize compares it (555, 670-676); with maxFrameSize at its Integer.MAX_VALUE default (210), a payloadlength near Integer.MAX_VALUE wraps the accumulator and defeats the completeness comparison — overflow-before-check is representable in the shipped code. Proof obligations bind to these shipped behaviors only.",
       "property_families": [
         "canonical-length-encoding-7-16-64",
         "checked-arithmetic",
@@ -124,7 +124,7 @@
           "start_line": 528,
           "end_line": 566,
           "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
-          "behavior": "translateSingleFrame: FIN/RSV/opcode/mask-bit header decode; realpacketsize accumulation with translateSingleFrameCheckPacketSize (552-555); decode-side unmask XOR loop over the 4-byte key (558-563); checkAlloc-guarded payload allocation (557)."
+          "behavior": "translateSingleFrame: FIN/RSV/opcode/mask-bit header decode; realpacketsize is a plain int accumulator (534) advanced by unchecked additions (+4 mask at 553, += payloadlength at 554) and only afterwards compared by translateSingleFrameCheckPacketSize (555) — int overflow before the comparison is representable; decode-side unmask XOR loop over the 4-byte key (558-563); checkAlloc-guarded payload allocation (557)."
         },
         {
           "anchor_id": "anchor.length-bounds.translate-payload-length",
@@ -140,7 +140,7 @@
           "start_line": 648,
           "end_line": 663,
           "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
-          "behavior": "translateSingleFrameCheckLengthLimit: length \u003e Integer.MAX_VALUE, length \u003e maxFrameSize, and length \u003c 0 all throw LimitExceededException — the shipped checked-arithmetic boundary."
+          "behavior": "translateSingleFrameCheckLengthLimit: length \u003e Integer.MAX_VALUE, length \u003e maxFrameSize, and length \u003c 0 all throw LimitExceededException — explicit range checks on the already-parsed long payload length, NOT overflow-checked arithmetic on the packet-size accumulator (see 553-555)."
         },
         {
           "anchor_id": "anchor.length-bounds.encode-frame",
@@ -339,6 +339,15 @@
         "non_goals": [
           "reject-noncanonical-length-encodings: the pinned decode path (Draft_6455.java:612-641) accepts non-minimal 16/64-bit length encodings on receive; no proof obligation may require rejecting them while evidence/java/behavior-delta-ledger.json carries no such delta record."
         ],
+        "strengthening_notes": [
+          {
+            "note_id": "note.framing.checked-packet-size-arithmetic",
+            "state": "PENDING_BEHAVIOR_DELTA_LEDGER_ENTRY",
+            "ledger_record_id": null,
+            "implementing_story": "US-012",
+            "statement": "Planned Rust strengthening, NOT the current formal claim: ws_core::framing::Draft6455::decode_frame_header SHOULD use checked (overflow-rejecting) arithmetic for the packet-size accumulation, so the shipped overflow-before-comparison hazard (Draft_6455.java:554 unchecked int addition before the 555/670-676 comparison, reachable with maxFrameSize at its Integer.MAX_VALUE default, 210) is not reproduced. This is an observable divergence from shipped Java; US-012 must record it in evidence/java/behavior-delta-ledger.json before any proof obligation may assert checked arithmetic. US-006 records the obligation only and writes no ledger entry."
+          }
+        ],
         "live_evidence": null
       }
     },
@@ -346,7 +355,7 @@
       "target_id": "target.formal.framing.allocation-limit",
       "formal_claim_id": "formal.framing.allocation-limit",
       "title": "Allocation caps on the frame decode path",
-      "statement": "Every frame-path allocation is guarded by the shipped Draft.checkAlloc (negative byte counts throw InvalidDataException(PROTOCOL_ERROR)) and bounded by maxFrameSize via translateSingleFrameCheckLengthLimit. Proof obligations for allocation caps bind to these shipped guards.",
+      "statement": "Frame-decode-path allocations are guarded site-by-site by the shipped code: the three translate-path ByteBuffer.allocate sites are wrapped in Draft.checkAlloc (negative byte counts throw InvalidDataException(PROTOCOL_ERROR)) — payload (Draft_6455.java:557), incomplete-frame extension (749), and incomplete-frame stash (768) — with the payload size bounded by maxFrameSize via translateSingleFrameCheckLengthLimit. The fragmented-message reassembly allocation (getPayloadFromByteBufferList, 1171) is NOT checkAlloc-wrapped; it is bounded by checkBufferLimit (at most maxFrameSize, invoked at 1170). Encode-path allocations (482, 512) carry no checkAlloc guard and are outside this claim. Proof obligations for allocation caps bind to these shipped guards exactly as sited.",
       "property_families": [
         "allocation-caps"
       ],
@@ -358,7 +367,7 @@
           "start_line": 322,
           "end_line": 327,
           "sha256": "sha256:608bfe081943ea60dcd68a973ba2167392b3f3f57dda1be84ac08c0f158ec1b3",
-          "behavior": "Draft.checkAlloc: bytecount \u003c 0 throws InvalidDataException(CloseFrame.PROTOCOL_ERROR); the guard wrapped around every frame-path ByteBuffer.allocate."
+          "behavior": "Draft.checkAlloc: bytecount \u003c 0 throws InvalidDataException(CloseFrame.PROTOCOL_ERROR); wrapped around the translate-path ByteBuffer.allocate sites (Draft_6455.java:557, 749, 768) — NOT around the reassembly allocation (1171), which checkBufferLimit bounds instead."
         },
         {
           "anchor_id": "anchor.allocation-limit.payload-alloc",
@@ -375,6 +384,14 @@
           "end_line": 770,
           "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
           "behavior": "translateFrame incomplete-frame path: checkAlloc-guarded buffer growth for extendedframe (749) and incompleteframe (768)."
+        },
+        {
+          "anchor_id": "anchor.allocation-limit.reassembly-alloc",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 1163,
+          "end_line": 1178,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "getPayloadFromByteBufferList: the reassembly ByteBuffer.allocate((int) totalSize) at 1171 is guarded by checkBufferLimit (1170) rather than Draft.checkAlloc; totalSize is at most maxFrameSize when the allocation runs."
         }
       ],
       "migration_bindings": [
@@ -933,8 +950,8 @@
     {
       "target_id": "target.formal.close.terminal-absorbing",
       "formal_claim_id": "formal.close.terminal-absorbing",
-      "title": "Terminal close is absorbing with exactly-once terminal delivery",
-      "statement": "closeConnection is the only terminal transition: it is monitor-guarded, delivers onWebsocketClose exactly once, resets the draft, and sets CLOSED; re-entry returns immediately. flushAndClose's latch makes close initiation idempotent and records the close code/message/remote triple delivered verbatim in the terminal event. Proof obligations bind to these shipped semantics.",
+      "title": "Terminal close is absorbing; terminal delivery is at-least-once (reentrant duplicate representable)",
+      "statement": "closeConnection is the only shipped terminal transition: readyState = CLOSED is assigned solely at WebSocketImpl.java:566, the method is monitor-guarded (synchronized, 530), and re-entry AFTER the terminal transition returns immediately (readyState == CLOSED guard, 531-533). The shipped ordering delivers the terminal onWebsocketClose callback (556-561) BEFORE setting readyState = CLOSED (566), and Java monitors are reentrant, so a listener that re-enters closeConnection from inside onWebsocketClose (any overload, 569-582) passes the 531-533 guard while readyState is still not CLOSED and receives a second terminal callback: the shipped observable semantics are at-least-once terminal delivery — exactly-once holds across threads (monitor plus guard) and for listeners that do not re-enter the close path, but reentrant duplicate delivery is representable in the shipped code. After the callback the draft is reset (562-564) and CLOSED is set (566). flushAndClose's flushandclosestate latch is set (592) BEFORE its onWebsocketClosing callback (597), so close initiation is idempotent even under callback re-entry, and it records the close code/message/remote triple (588-590) that the latched terminal path delivers verbatim. Proof obligations bind to these shipped semantics.",
       "property_families": [
         "close-terminal-absorbing"
       ],
@@ -948,7 +965,7 @@
           "start_line": 530,
           "end_line": 567,
           "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
-          "behavior": "closeConnection: immediate return when already CLOSED (531-533); exactly-once onWebsocketClose (556-558); draft reset (561-563); readyState = CLOSED (566)."
+          "behavior": "closeConnection: immediate return only once readyState is already CLOSED (531-533); terminal onWebsocketClose delivered (556-561) BEFORE readyState = CLOSED is set (566); the synchronized monitor (530) is reentrant, so same-thread re-entry from inside the callback passes the 531-533 guard and duplicates the terminal callback — at-least-once delivery, not exactly-once; draft reset (562-564); readyState = CLOSED (566)."
         },
         {
           "anchor_id": "anchor.close.flush-and-close",
@@ -956,7 +973,7 @@
           "start_line": 584,
           "end_line": 606,
           "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
-          "behavior": "flushAndClose: flushandclosestate latch makes initiation idempotent; records closecode/closemessage/closedremotely; onWebsocketClosing delivered once."
+          "behavior": "flushAndClose: flushandclosestate latch set (592) BEFORE the onWebsocketClosing callback (597), so initiation is idempotent including under callback re-entry; records closecode/closemessage/closedremotely (588-590); onWebsocketClosing delivered once."
         }
       ],
       "migration_bindings": [
@@ -1070,6 +1087,15 @@
         "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
         "rfc_strictness_deltas": [],
         "non_goals": [],
+        "strengthening_notes": [
+          {
+            "note_id": "note.close.exactly-once-terminal-delivery",
+            "state": "PENDING_BEHAVIOR_DELTA_LEDGER_ENTRY",
+            "ledger_record_id": null,
+            "implementing_story": "US-009",
+            "statement": "Planned Rust strengthening, NOT the current formal claim: ws_core::connection::WebSocketImpl::close_connection SHOULD deliver the terminal callback exactly once (terminal state set before, or atomically with, callback dispatch), removing the reentrant duplicate-delivery path shipped Java makes representable (WebSocketImpl.java:557 callback before :566 CLOSED under the reentrant monitor at :530). This is an observable divergence from shipped Java; US-009 must record it in evidence/java/behavior-delta-ledger.json before any proof obligation may assert exactly-once delivery. US-006 records the obligation only and writes no ledger entry."
+          }
+        ],
         "live_evidence": null
       }
     },
@@ -1107,7 +1133,7 @@
           "start_line": 757,
           "end_line": 766,
           "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
-          "behavior": "open: readyState = OPEN exactly once from the completed-handshake path; onWebsocketOpen delivered."
+          "behavior": "open: readyState = OPEN set (759) BEFORE onWebsocketOpen is delivered (761-765), and decode reaches the completed-handshake path only from NOT_YET_CONNECTED, so the OPEN transition fires exactly once on the serialized decode path (unlike closeConnection, the state is set before the callback, so callback re-entry cannot duplicate it); onWebsocketOpen delivered."
         },
         {
           "anchor_id": "anchor.connection.eot",
@@ -1249,7 +1275,7 @@
       "target_id": "target.formal.messages.utf8-validation-total",
       "formal_claim_id": "formal.messages.utf8-validation-total",
       "title": "Total UTF-8 validation of text payloads",
-      "statement": "Text payloads are validated by the shipped CharsetDecoder configured with CodingErrorAction.REPORT: every malformed or unmappable sequence throws InvalidDataException(NO_UTF8), and fragmented text is additionally checked incrementally by isValidUTF8. The Rust port must reject the identical sequence set. Proof obligations bind to these shipped validators.",
+      "statement": "Text payloads are validated by the shipped CharsetDecoder configured with CodingErrorAction.REPORT: every complete text payload delivered to onWebsocketMessage passes stringUtf8 (unfragmented at Draft_6455.java:986, reassembled at 1013), and every malformed or unmappable sequence throws InvalidDataException(NO_UTF8). The shipped isValidUTF8 screen applies ONLY to the initial TEXT-opcode fragment of a fragmented sequence (940-943); intermediate CONTINUOUS fragments are not incrementally validated, so invalid UTF-8 arriving in them is detected only at the fin-frame stringUtf8 pass. The Rust port must reject the identical sequence set at the same shipped observation points. Proof obligations bind to these shipped validators.",
       "property_families": [
         "utf8-validation-total"
       ],
@@ -1271,7 +1297,7 @@
           "start_line": 129,
           "end_line": 152,
           "sha256": "sha256:9051e7760ca8f318238e20db952152283f278f61d8bbb2af97a5daa75b3d5311",
-          "behavior": "isValidUTF8: incremental DFA validity check applied to text fragments."
+          "behavior": "isValidUTF8: incremental DFA validity check; the shipped decode path invokes it only for the initial TEXT-opcode fragment of a fragmented sequence (Draft_6455.java:940-943), never for CONTINUOUS continuation fragments."
         },
         {
           "anchor_id": "anchor.utf8.process-frame-text",
@@ -1407,7 +1433,7 @@
       "target_id": "target.formal.fragmentation.no-unbounded-growth",
       "formal_claim_id": "formal.fragmentation.no-unbounded-growth",
       "title": "Bounded fragmentation reassembly",
-      "statement": "Continuation reassembly appends to the buffer list only under checkBufferLimit: when the reassembled total exceeds maxFrameSize the list is cleared and LimitExceededException is thrown, so fragmented messages cannot grow without bound. Sequencing violations (unstarted or uncompleted sequences) are protocol errors. Proof obligations bind to these shipped bounds.",
+      "statement": "Continuation reassembly enforces its size bound at two shipped checkpoints, not per-append: the sequence-start fragment appends then checks (processFrameIsNotFin, Draft_6455.java:1044-1045) and the fin frame appends then checks before delivery (processFrameIsFin, 1006-1007); when the reassembled total exceeds maxFrameSize, checkBufferLimit clears the buffer list and throws LimitExceededException (1101-1109, clear at 1104). Intermediate CONTINUOUS non-fin fragments are appended WITHOUT a checkBufferLimit call (processFrameContinuousAndNonFin, append at 946), so the shipped buffer list can exceed maxFrameSize and keep growing while non-fin continuations keep arriving — unbounded intermediate growth is representable in the shipped code until the fin checkpoint re-imposes the bound (or getPayloadFromByteBufferList re-checks at 1170). Sequencing violations (unstarted or uncompleted sequences) are protocol errors (905-908, 934-938, 1001-1005, 1038-1042). Proof obligations bind to these shipped checkpoint semantics only.",
       "property_families": [
         "fragmentation-bounded-state"
       ],
@@ -1421,7 +1447,7 @@
           "start_line": 1101,
           "end_line": 1110,
           "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
-          "behavior": "checkBufferLimit: reassembly total \u003e maxFrameSize clears the buffer list and throws LimitExceededException(maxFrameSize)."
+          "behavior": "checkBufferLimit: reassembly total \u003e maxFrameSize clears the buffer list (1104) and throws LimitExceededException(maxFrameSize); invoked at sequence start (1045), at fin (1007), and inside getPayloadFromByteBufferList (1170) — NOT for intermediate CONTINUOUS non-fin appends (946)."
         },
         {
           "anchor_id": "anchor.fragmentation.continuous-dispatch",
@@ -1429,7 +1455,7 @@
           "start_line": 928,
           "end_line": 954,
           "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
-          "behavior": "processFrameContinuousAndNonFin: continuation sequencing; unstarted continuation is a PROTOCOL_ERROR; fragmented text checked incrementally for UTF-8 validity."
+          "behavior": "processFrameContinuousAndNonFin: continuation sequencing; unstarted continuation is a PROTOCOL_ERROR (934-938); the isValidUTF8 screen runs only when the frame opcode is TEXT — the initial fragment (940-943) — never for CONTINUOUS fragments; intermediate CONTINUOUS non-fin payloads are appended (946) without a checkBufferLimit call."
         },
         {
           "anchor_id": "anchor.fragmentation.is-fin",
@@ -1547,6 +1573,15 @@
         "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
         "rfc_strictness_deltas": [],
         "non_goals": [],
+        "strengthening_notes": [
+          {
+            "note_id": "note.fragmentation.per-append-buffer-cap",
+            "state": "PENDING_BEHAVIOR_DELTA_LEDGER_ENTRY",
+            "ledger_record_id": null,
+            "implementing_story": "US-012",
+            "statement": "Planned Rust strengthening, NOT the current formal claim: ws_core::framing::Draft6455::process_frame_continuous SHOULD enforce the reassembly cap on every fragment append, including intermediate CONTINUOUS non-fin fragments, closing the unbounded intermediate growth shipped Java makes representable (append at Draft_6455.java:946 with no checkBufferLimit call). This changes observable behavior (earlier LimitExceededException and close than Java); US-012 must record it in evidence/java/behavior-delta-ledger.json before any proof obligation may assert a per-append bound. US-006 records the obligation only and writes no ledger entry."
+          }
+        ],
         "live_evidence": null
       }
     },
@@ -1700,7 +1735,7 @@
           "start_line": 463,
           "end_line": 507,
           "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
-          "behavior": "The instance monitor across close/closeConnection/flushAndClose is the de-facto connection lock producing exactly-once close initiation and terminal delivery."
+          "behavior": "The instance monitor across close/closeConnection/flushAndClose is the de-facto connection lock: it yields exactly-once close initiation (flushandclosestate latch set at 592 before the onWebsocketClosing callback at 597) and cross-thread mutual exclusion for terminal delivery, but the monitor is reentrant and closeConnection fires onWebsocketClose (557) before setting CLOSED (566), so same-thread callback re-entry can duplicate the terminal callback — see target.formal.close.terminal-absorbing."
         }
       ],
       "migration_bindings": [
