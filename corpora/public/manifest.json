@@ -1,0 +1,38 @@
+{
+  "$schema": "../../schemas/corpus-manifest-1.0.0.schema.json",
+  "artifacts": [
+    {
+      "bytes": 337824,
+      "classification": "PUBLIC",
+      "path": "scenarios.jsonl",
+      "sha256": "sha256:fa58266c8c2d651d141960c33ccebb380bfe581fe29feb9dbd3a989bc97bc377",
+      "stored_in_repo": true
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "corpus_id": "us005-behavior-public",
+  "counts": {
+    "executed": 0,
+    "expected": 74,
+    "failed": 0,
+    "filtered": 0,
+    "passed": 0,
+    "selected": 74,
+    "skipped": 0,
+    "timed_out": 0
+  },
+  "evidence_kind": "corpus-manifest",
+  "execution_status": "NOT_EXECUTED_PENDING_LIVE_CALIBRATION",
+  "generator": {
+    "public_seed": "us005-public-calibration-seed-v1",
+    "seed_visibility": "public",
+    "tool": "corporactl"
+  },
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false,
+  "scenario_format": "corpus-scenario-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "signing": false,
+  "tier": "public"
+}

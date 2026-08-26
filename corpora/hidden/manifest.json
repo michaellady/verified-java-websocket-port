@@ -1,0 +1,53 @@
+{
+  "$schema": "../../schemas/corpus-manifest-1.0.0.schema.json",
+  "artifacts": [
+    {
+      "bytes": 337680,
+      "classification": "PROTECTED_HELD_OUT",
+      "path": "us005-corpora/hidden/scenarios.jsonl",
+      "sha256": "sha256:da501b83285366c710f38296702bf55d8af7280b6cc3a67da6aa959c78dbd042",
+      "stored_in_repo": false
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "commitments": {
+    "committed_line_count": 77,
+    "scenario_commitment_root": "sha256:78f7fbdd3201a8683498b45abc896ccf841cb820476ca18fe992e9462769e339",
+    "scheme": "sha256(salt || canonical_line); salt = stream(secret, commitment-salt|tier|scenario_id)"
+  },
+  "corpus_id": "us005-behavior-hidden",
+  "counts": {
+    "executed": 0,
+    "expected": 77,
+    "failed": 0,
+    "filtered": 0,
+    "passed": 0,
+    "selected": 77,
+    "skipped": 0,
+    "timed_out": 0
+  },
+  "custodian": {
+    "canary_count": 3,
+    "policy_digest": "sha256:7672e036bb2c8071db0a60bdfa6cdb31ddb5186159332efc2e88e57d050dd634"
+  },
+  "evidence_kind": "corpus-manifest",
+  "execution_status": "NOT_EXECUTED_PENDING_LIVE_CALIBRATION",
+  "generator": {
+    "epoch": 1,
+    "secret_seed_commitment": "sha256:08ae5e87916ad20c76dd4d7450e23a87cb966ad4e8ed58be4dffd8430173f331",
+    "seed_visibility": "protected-secret",
+    "tool": "corporactl"
+  },
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false,
+  "scenario_format": "corpus-scenario-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "sealing": {
+    "disclosure": "the sole owner can technically read the protected store; these mechanics prove process, not independence",
+    "mechanism": "digest-committed-before-reveal",
+    "storage": "protected-custodian-store"
+  },
+  "signing": false,
+  "tier": "hidden"
+}
