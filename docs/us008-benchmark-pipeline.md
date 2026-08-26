@@ -1,11 +1,25 @@
 # US-008 benchmark-confirmation pipeline (enabling work)
 
-Status: PREREGISTRATION FROZEN TO THE OWNERLESS MAXIMUM; HOST BINDING
-OWNER-GATED. The pipeline scaffold below is unchanged (SCAFFOLD: no AWS
-resource created, no bootstrap applied, runner still a `NOT_MEASURED`-only
-stub), and the preregistration substance on top of it is now complete to
-the maximum extent possible without owner decisions. **Nothing here claims
-US-008 passes**, and US-008 cannot pass in this state by design:
+Status: PREREGISTRATION FROZEN; TIER-1 HOST IDENTITIES BOUND; FULL HOST
+BINDING STILL OWNER-GATED. Confirmation rigor is TIERED per the
+owner-authorized amendment of 2026-08-26 (workspace protected root
+`us008-contract-amendment-tiered-benchmark-rigor.json`): Tier-1
+`VM_MEASURED_JITTER_AVERAGED` is the campaign default, Tier-2
+`METAL_MEASURED` is the opt-in flagship and is currently
+`DEFERRED_BY_OWNER`. The owner's Tier-1 pinning decision of 2026-08-26
+bound the confirmation-host identities `instance_type: c7i.xlarge`,
+`region: us-east-1`, `ami_id: ami-02b3d83d84b07786d`
+(`al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64`) plus the pipeline
+tool identities (Terraform 1.9.8, the go.mod-directed Go toolchain
+record, the exact runner build literal, yq 4.44.3 — enforced by the
+dialed-setup action). The DIALED bootstrap tier is applied in the EVC dev
+account, and the pipeline's end-to-end plumbing was proven by the green,
+sentinel-only run 33000379021 (`benchmark-plumbing` label, c7i.large,
+latest-AL2023 boot; `NOT_MEASURED` sentinels only — not a measurement).
+The runner remains a `NOT_MEASURED`-only stub, 26 host/tool binding
+fields remain unbound, and `benchplanctl verify` fails closed with the
+single blocker class `HOST_BINDING_PENDING` (exit 3). **Nothing here
+claims US-008 passes**, and US-008 cannot pass in this state by design:
 
 - `benchmarks/plan/workloads.json` is a frozen, schema-enforced
   preregistration (`schemas/benchmark-plan-1.0.0.schema.json`): six exact
@@ -32,14 +46,24 @@ US-008 passes**, and US-008 cannot pass in this state by design:
   PRD-pinned class (macOS 26.4.1, Apple M4 Pro); run-time snapshot fields
   stay `PENDING_FREEZE_AT_MEASUREMENT` and every tool identity stays
   `OWNER_DECISION_PENDING`.
-- `benchmarks/environments/confirmation.json` keeps every host field
-  `OWNER_DECISION_PENDING`/`NOT_MEASURED` and adds the schema-enforced
-  `required_binding_fields` completion meter.
+- `benchmarks/environments/confirmation.json` records the owner's Tier-1
+  binding of 2026-08-26: `instance_type` / `region` / `ami_id` /
+  `ami_name` are `BOUND` (each with its probe-before-wire rationale), the
+  pipeline tool identities `terraform` / `go_toolchain` /
+  `runner_build_flags` / `yq` are `BOUND` and regression-pinned by exact
+  string equality (plus cross-checks against the workflow and action
+  files) in `internal/benchplan/validate_test.go`, Tier-2
+  (`METAL_MEASURED`) is explicitly `DEFERRED_BY_OWNER`, and the remaining
+  19 of its 23 required binding fields stay honestly
+  `OWNER_DECISION_PENDING`/`NOT_MEASURED` behind the schema-enforced
+  `required_binding_fields` completion meter (`binding_status: UNBOUND`).
 - `cmd/benchplanctl verify --root .` validates all benchmark documents,
   re-derives the pair orders, checks the power model, and prints exactly
   which fields remain unbound. Current, verified output: documents
   consistent; **single remaining blocker class `HOST_BINDING_PENDING`**
-  (30 unbound host/tool fields; exit code 3). Exit code 0 additionally
+  (26 unbound host/tool fields — 19 on the confirmation environment plus
+  7 primary tool identities — and 5 primary runtime-snapshot fields
+  deferred to measurement time; exit code 3). Exit code 0 additionally
   requires both environments' `binding_status: BOUND` and the plan's
   `attestation_state: INDEPENDENTLY_ATTESTED` — syntactically complete
   field values with UNBOUND/UNATTESTED status never verify as bound.
@@ -114,7 +138,9 @@ label 'benchmark' on PR (or workflow_dispatch)
        3. terraform apply           → ephemeral VPC + egress-only SG +
                                       boundary-carrying IAM role/profile +
                                       per-job S3 results bucket +
-                                      BARE-METAL instance (c5n.metal candidate)
+                                      tiered confirmation host (Tier-1
+                                      bound c7i.xlarge; opt-in Tier-2
+                                      *.metal, deferred)
        4. wait for SSM Online       → metal boot can take 10-20 min
        5. stage runner in S3, ssm send-command → run natively, no ingress
        6. poll invocation           → fail loudly on Failed/TimedOut
@@ -131,9 +157,11 @@ identifies an orphan (no PR-state check needed, unlike DIALED's pr-janitor).
 
 ### Why job-scoped, not PR-open→PR-close (~140x cost rationale)
 
-The billed resource is a bare-metal instance at an on-demand rate on the
-order of ~$4/hour (c5n.metal, us-east-1 — verify current AWS pricing before
-enabling). A DIALED-standard PR-lifetime stack would bill from PR open to PR
+The rationale was sized against the flagship tier: a bare-metal instance
+at an on-demand rate on the order of ~$4/hour (c5n.metal, us-east-1 —
+verify current AWS pricing before enabling; the bound Tier-1 c7i.xlarge
+probed at USD 0.1785/hour, so job-scoping matters even more at metal
+rates). A DIALED-standard PR-lifetime stack would bill from PR open to PR
 close: a typical week-long review cycle is ~168 instance-hours. The
 job-scoped lifecycle bills roughly 1–2 hours per labeled run. That is the
 ~140x billing-window difference (168h vs ~1.2h) that drove shape A. The
@@ -141,22 +169,41 @@ job-scoped lifecycle bills roughly 1–2 hours per labeled run. That is the
 "no live instance" verification, and the 3-hour janitor are four independent
 layers bounding worst-case spend.
 
-### Why bare metal
+### Tiered rigor: why the flagship tier is bare metal (and Tier-1 is a VM)
 
 Virtualization overhead is the reason Docker sbx is excluded from hosting
-measured benchmark samples; a dedicated-tenancy instance is still a VM, so
-it would reintroduce exactly the overhead class the exclusion exists to
-remove. `terraform/benchmark/variables.tf` therefore validates
-`instance_type` against `*.metal`. `c5n.metal` is the default-candidate
-only — the final type is **OWNER-DECISION-PENDING** in
-`benchmarks/environments/confirmation.json`.
+measured benchmark samples, and a dedicated-tenancy instance is still a
+VM. The original contract therefore required bare metal outright; the
+owner-authorized amendment of 2026-08-26 (workspace protected root
+`us008-contract-amendment-tiered-benchmark-rigor.json`) split that rigor
+into two tiers:
+
+- **Tier 2 — `METAL_MEASURED`** (opt-in flagship): a `*.metal` type with
+  no virtualization overhead. Currently **`DEFERRED_BY_OWNER`**: no
+  flagship run is scheduled and no metal type is bound; `c5n.metal` in
+  `terraform/benchmark/variables.tf` remains the default-candidate only.
+- **Tier 1 — `VM_MEASURED_JITTER_AVERAGED`** (campaign default): an
+  ordinary VM type whose residual virtualization jitter is absorbed by
+  the preregistered N-round protocol. **BOUND** by the owner on
+  2026-08-26 to `c7i.xlarge` (the 4-vCPU variant so the load driver and
+  the endpoint under test do not share a physical core; same CPU family
+  and image as green plumbing run 33000379021).
+
+`terraform/benchmark/variables.tf` no longer restricts `instance_type`
+to `*.metal`: the rigor tier is DERIVED from the type
+(`local.rigor_tier` — `*.metal`/`*.metal-<size>` ⇒ Tier 2, anything else
+⇒ Tier 1), stamped on the instance tags, and exported as a Terraform
+output so the environment binding of every published number records it.
+A Tier-1 number must never be represented as metal-grade.
 
 ### Borrowed DIALED plumbing
 
 - `.github/actions/dialed-setup` — composite action adapted from the DIALED
   skill template: loads `.dialed.yml`, derives
   `arn:aws:iam::<acct>:role/dialed/dialed-vjwp-bench-deploy-dev`, assumes it
-  via GitHub OIDC, installs Terraform, exports auto-tfvars.
+  via GitHub OIDC, enforces the recorded yq pin (4.44.3 — installs the
+  exact pin whenever the resolving yq differs and fails if the pin does
+  not resolve), installs Terraform 1.9.8, exports auto-tfvars.
 - State naming — `dialed-vjwp-bench-<account>-tfstate` bucket +
   `dialed-vjwp-bench-<account>-tflocks` DDB table; workspace `bench-pr-<N>`;
   state key `benchmark/terraform.tfstate`.
@@ -181,22 +228,28 @@ only — the final type is **OWNER-DECISION-PENDING** in
 - The workflow summary states on every run that the output is not a
   benchmark, not a performance claim, and not evidence that US-008 passes.
 
-## Gated NEXT STEPS — owner / parent-session actions required
+## Owner / parent-session actions: done vs still gated
 
-None of these are performed by this scaffold, and the pipeline cannot run
-until they are. Each is an explicit AWS or GitHub mutation requiring owner
-authorization:
+Completed with explicit owner authorization:
 
-1. **DIALED bootstrap apply (AWS mutation).** Create the `vjwp-bench` state
-   bucket + lock table, OIDC provider reference, per-env deploy role, and
-   permissions boundary in the EVC dev account (539402214167), following the
-   DIALED bootstrap templates. Until then, `terraform init` and OIDC role
-   assumption fail closed.
-2. **GitHub `dev` environment (GitHub settings mutation).** Both workflows
-   declare `environment: dev`; the narrowed OIDC trust admits only
-   `pull_request` and `environment:dev` subjects, so the janitor
-   (schedule/dispatch) cannot assume the role without it.
-3. **Branch protection — RECOMMEND NOT adopting DIALED's default
+1. **DIALED bootstrap apply — DONE.** The `vjwp-bench` state bucket + lock
+   table, OIDC trust, deploy role, and permissions boundary exist in the
+   EVC dev account (539402214167); the applied bootstrap tier is committed
+   under `terraform/bootstrap/`.
+2. **End-to-end plumbing — PROVEN, sentinel-only.** The owner-ordered
+   plumbing test (green run 33000379021, `benchmark-plumbing` label)
+   exercised OIDC role assumption, provision, SSM-native runner
+   invocation, result sync, and teardown on a c7i.large with a
+   latest-AL2023 boot. Its output is `NOT_MEASURED` sentinels by
+   construction and can never be a measurement.
+3. **Tier-1 host pinning — DONE (2026-08-26).** `instance_type
+   c7i.xlarge`, `region us-east-1`, and the AMI pin recorded in
+   `benchmarks/environments/confirmation.json`; Tier-2 explicitly
+   `DEFERRED_BY_OWNER`.
+
+Still gated (the pipeline fails closed until each is done):
+
+1. **Branch protection — RECOMMEND NOT adopting DIALED's default
    main-branch-protection checks on this repo.** This is a SHARED repo where
    a second authority plane (Codex) also pushes. DIALED's standard setup
    marks its deploy/system-test jobs as required checks on `main`; here that
@@ -205,34 +258,43 @@ authorization:
    landings (and vice versa). The benchmark workflow should stay label-gated
    and advisory. If any protection is added, scope it to checks both planes
    already share, never to `benchmark-host`.
-4. **vCPU quota request (AWS support mutation).** c5n.metal is 72 vCPUs; a
-   fresh account's "Running On-Demand Standard instances" quota is typically
-   below that. The owner must request/verify ≥72 standard vCPUs in the
-   chosen region before the first plumbing run, or apply fails at instance
-   launch.
-5. **Budget alarm (AWS mutation).** Before enabling the label trigger,
-   create an AWS Budgets alarm (suggested: monthly cost budget with alerts
-   at ~$50/$100, plus an EC2-usage-hours alarm) in the dev account so a
-   janitor-missed orphan is surfaced by billing, not by the invoice.
-6. **Owner decisions to bind in `benchmarks/environments/confirmation.json`:**
-   final instance type (candidate c5n.metal), final region (candidate
-   us-east-1), pinned AMI (after the documented probe), kernel identity,
-   CPU-frequency policy, and every tool identity + digest (JDK, Rust
+2. **Tier-2 vCPU quota request (AWS support mutation; Tier-2 runs only).**
+   Metal types are large (c5n.metal is 72 vCPUs) and the account's
+   probed "Running On-Demand Standard instances" quota (L-1216C47A) is
+   64 vCPUs — m5zn.metal (48 vCPUs) is the only probed metal candidate
+   that fits it today. The bound Tier-1 c7i.xlarge (4 vCPUs) fits the
+   standing quota; no request is needed for the campaign default.
+3. **Budget alarm (AWS mutation).** Before enabling the label trigger for
+   measured runs, create an AWS Budgets alarm (suggested: monthly cost
+   budget with alerts at ~$50/$100, plus an EC2-usage-hours alarm) in the
+   dev account so a janitor-missed orphan is surfaced by billing, not by
+   the invoice.
+4. **Remaining owner decisions to bind in
+   `benchmarks/environments/confirmation.json`** (the 19 pending
+   confirmation fields the completion meter reports): the
+   allocation-evidence procedure, the CPU-frequency policy, every
+   measurement/analyzer tool identity + digest (JDK distribution, Rust
    toolchain, load driver, measurement tools, independently rebuilt
-   analyzer).
-7. **Plan freeze + independent attestation** of the preregistration itself
+   analyzer, digested runner), the booted-host facts recorded at
+   provision of the bound host (instance id, availability zone, observed
+   architecture, OS/kernel identity, CPU model, memory, NUMA topology,
+   clocksource) — plus a Tier-2 metal type if the deferred flagship run
+   is ever scheduled, and the 7 primary-environment tool identities.
+5. **Plan freeze + independent attestation** of the preregistration itself
    (`benchmarks/plan/workloads.json` OWNER_DECISION_PENDING fields resolved,
    then frozen) — the PRD forbids any raw or tuning sample predating the
    independently attested plan commit. Current assurance posture:
    `OWNER_ATTESTED_NOT_INDEPENDENT`, `independent_review_claimed: false`.
 
-## What this scaffold explicitly does NOT do
+## What this file set still explicitly does NOT contain
 
-- No `terraform plan/apply` was run against AWS; no AWS CLI mutation was
-  made; no GitHub setting, environment, or branch protection was touched;
-  no DIALED setup script was executed.
 - No benchmark sample exists; no performance number appears anywhere in
   this file set; every unmeasured value is a `NOT_MEASURED` sentinel and
   every unmade decision an `OWNER_DECISION_PENDING` sentinel.
-- US-008 remains `passes: false` and this scaffold is not evidence toward
-  passing it.
+- The only AWS mutations to date are the owner-authorized DIALED
+  bootstrap apply and the job-scoped, self-destroying plumbing-run stack
+  (run 33000379021); every host/AMI pinning probe was a read-only call.
+  The plumbing run's output is sentinel-only by construction and can
+  never be a measurement.
+- US-008 remains `passes: false`; neither this pipeline state nor the
+  Tier-1 binding is evidence toward passing it.

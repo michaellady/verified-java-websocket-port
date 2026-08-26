@@ -11,6 +11,18 @@ import (
 
 const repoRoot = "../.."
 
+// The exact recorded pipeline tool identities of the owner's Tier-1
+// decision (2026-08-26). Review round 1 (session 01a03f9c, BLOCKING-2/3):
+// every BOUND tool value is regression-pinned by FULL equality here, and
+// cross-checked against the pipeline source files it describes, so silent
+// drift in either the document or the pipeline can never stay green.
+const (
+	pinnedTerraformVersion = "1.9.8"
+	pinnedGoToolchain      = "go1.25.5 (go.mod directive 'go 1.25')"
+	pinnedRunnerBuildFlags = "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner"
+	pinnedYqVersion        = "4.44.3"
+)
+
 func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 	report, err := Verify(repoRoot)
 	if err != nil {
@@ -145,23 +157,13 @@ func TestConfirmationDocumentRecordsOwnerTier1Binding(t *testing.T) {
 	expectPending(tools, "java_executable_digest", "NOT_MEASURED")
 	expectPending(tools, "rust_executable_digest", "NOT_MEASURED")
 
-	// Pipeline tool identities recorded by the same owner decision.
-	for _, name := range []string{"terraform", "go_toolchain", "runner_build_flags", "yq"} {
-		field := record(tools, name)
-		if field["status"] != "BOUND" {
-			t.Errorf("tool_identities.%s status %v, want BOUND", name, field["status"])
-		}
-		if value, _ := field["value"].(string); value == "" {
-			t.Errorf("tool_identities.%s must carry a non-empty value", name)
-		}
-	}
-	// The Go record carries both the resolved toolchain and the go.mod
-	// directive (owner decision: record the resolved version alongside
-	// the directive).
-	goValue, _ := record(tools, "go_toolchain")["value"].(string)
-	if !strings.Contains(goValue, "go1.25") || !strings.Contains(goValue, "go 1.25") {
-		t.Errorf("go_toolchain value %q must record the resolved go1.25.x toolchain alongside the go.mod 'go 1.25' directive", goValue)
-	}
+	// Pipeline tool identities recorded by the same owner decision,
+	// pinned by FULL equality (review round 1 BLOCKING-2: a substring or
+	// non-empty check lets a drifted recorded value stay green).
+	expectBound(tools, "terraform", pinnedTerraformVersion)
+	expectBound(tools, "go_toolchain", pinnedGoToolchain)
+	expectBound(tools, "runner_build_flags", pinnedRunnerBuildFlags)
+	expectBound(tools, "yq", pinnedYqVersion)
 
 	// Tier-2 deferral and the decision-record provenance are explicit.
 	if !strings.Contains(string(raw), "DEFERRED_BY_OWNER") {
@@ -171,6 +173,45 @@ func TestConfirmationDocumentRecordsOwnerTier1Binding(t *testing.T) {
 	rationale, _ := provenance["rationale"].(string)
 	if !strings.Contains(rationale, "us008-owner-pinning-tier1.json") {
 		t.Error("provenance.rationale must reference the owner decision record us008-owner-pinning-tier1.json")
+	}
+	// Review round 1 finding 1: the original decision record's decided_at
+	// was a too-late estimate; the authoritative chronology lives in the
+	// timestamp-correction sidecar, and the provenance must cite BOTH.
+	if !strings.Contains(rationale, "us008-owner-pinning-tier1-timestamp-correction.json") {
+		t.Error("provenance.rationale must reference the timestamp-correction sidecar us008-owner-pinning-tier1-timestamp-correction.json alongside the original decision record")
+	}
+}
+
+// TestBoundPipelineToolClaimsMatchPipelineSources guards each BOUND
+// pipeline-tool claim in confirmation.json against the pipeline file it
+// describes (review round 1 BLOCKING-3): the recorded runner build
+// command must appear verbatim in .github/workflows/benchmark.yml, and
+// the dialed-setup composite action must pin the recorded Terraform
+// version and ENFORCE the recorded yq version (install-exact on
+// mismatch, fail if the pinned version does not resolve) rather than
+// silently accepting whatever yq is preinstalled.
+func TestBoundPipelineToolClaimsMatchPipelineSources(t *testing.T) {
+	workflowRaw, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "benchmark.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(workflowRaw), pinnedRunnerBuildFlags) {
+		t.Errorf("benchmark.yml no longer contains the recorded runner build literal %q; the confirmation.json runner_build_flags claim would be false", pinnedRunnerBuildFlags)
+	}
+
+	actionRaw, err := os.ReadFile(filepath.Join(repoRoot, ".github", "actions", "dialed-setup", "action.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := string(actionRaw)
+	if !strings.Contains(action, "default: \""+pinnedTerraformVersion+"\"") {
+		t.Errorf("dialed-setup action.yml no longer defaults terraform_version to the recorded %q", pinnedTerraformVersion)
+	}
+	if !strings.Contains(action, "yq_pin=\""+pinnedYqVersion+"\"") {
+		t.Errorf("dialed-setup action.yml no longer pins yq_pin=%q", pinnedYqVersion)
+	}
+	if !strings.Contains(action, "refusing to run with an unpinned yq") {
+		t.Error("dialed-setup action.yml must fail closed when the pinned yq version does not resolve (enforcement, not a best-effort download)")
 	}
 }
 

@@ -7,7 +7,7 @@
   "independent_review_claimed": false,
   "provenance": {
     "class": "job-scoped exclusively reserved EC2 instance with tiered confirmation rigor (owner amendment 2026-08-26): Tier-1 VM_MEASURED_JITTER_AVERAGED (campaign default; bound c7i.xlarge) / Tier-2 METAL_MEASURED (opt-in flagship; DEFERRED_BY_OWNER)",
-    "rationale": "PRD US-008: confirmation requires a provenance-distinct dedicated or exclusively reserved Linux x86_64 host. Rigor is tiered per the owner-authorized amendment of 2026-08-26 (workspace protected root us008-contract-amendment-tiered-benchmark-rigor.json): bare metal remains the flagship tier because virtualization overhead is the reason Docker sbx is excluded from hosting measured samples, while the Tier-1 VM tier absorbs residual virtualization jitter through the preregistered N-round protocol. Tier-1 binding basis: owner decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-pinning-tier1.json (explicit owner decisions 2026-08-26 ~19:55Z; options prepared probe-before-wire from real read-only AWS calls against the dev account with profile dev-sso, probe log in workspace drafts/us008-pinning-decision-package.md; the bound AMI reproduces the CPU family, OS release set, and kernel line observed green in plumbing run 33000379021).",
+    "rationale": "PRD US-008: confirmation requires a provenance-distinct dedicated or exclusively reserved Linux x86_64 host. Rigor is tiered per the owner-authorized amendment of 2026-08-26 (workspace protected root us008-contract-amendment-tiered-benchmark-rigor.json): bare metal remains the flagship tier because virtualization overhead is the reason Docker sbx is excluded from hosting measured samples, while the Tier-1 VM tier absorbs residual virtualization jitter through the preregistered N-round protocol. Tier-1 binding basis: owner decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-pinning-tier1.json AS CORRECTED BY the timestamp-correction sidecar /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-pinning-tier1-timestamp-correction.json — the original record's decided_at (~19:55Z) was a too-late estimate typed at record-writing time, and the sidecar is the authoritative chronology: the owner's explicit decision preceded, and occurred no later than, the binding commit ac17b35 (2026-08-26T19:46:21Z). Options were prepared probe-before-wire from real read-only AWS calls against the dev account with profile dev-sso, probe log in workspace drafts/us008-pinning-decision-package.md; the bound AMI reproduces the CPU family, OS release set, and kernel line observed green in plumbing run 33000379021.",
     "provisioner": "terraform/benchmark via .github/workflows/benchmark.yml (DIALED-derived, job-scoped lifecycle)",
     "aws_account": "539402214167 (Enterprise Vibe Code dev; source /Users/mikelady/dev/lore/.dialed.yml, owner-authorized by the project's move into EVC)"
   },
@@ -136,13 +136,13 @@
     },
     "runner_build_flags": {
       "status": "BOUND",
-      "value": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o benchrunner ./cmd/benchrunner",
-      "rationale": "Owner decision 2026-08-26: the exact in-workflow build literal in .github/workflows/benchmark.yml."
+      "value": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner",
+      "rationale": "Owner decision 2026-08-26: the exact in-workflow build literal in .github/workflows/benchmark.yml ('Build and stage benchmark runner in results bucket'), recorded verbatim including the /tmp/benchrunner output path. Review round 1 (session 01a03f9c) corrected an earlier inexact transcription that omitted the /tmp/ prefix; internal/benchplan/validate_test.go now cross-checks this literal against the workflow file."
     },
     "yq": {
       "status": "BOUND",
       "value": "4.44.3",
-      "rationale": "Owner decision 2026-08-26: the dialed-setup composite action's pinned download (exact)."
+      "rationale": "Owner decision 2026-08-26: the exact yq version the dialed-setup composite action ENFORCES. Review round 1 (session 01a03f9c) found the action previously accepted any preinstalled yq and only downloaded 4.44.3 when absent; it now installs the pinned v4.44.3 whenever the resolving yq differs and fails closed if the pinned version does not resolve after install, so this recorded value is enforced, not assumed."
     }
   },
   "required_binding_fields": [
