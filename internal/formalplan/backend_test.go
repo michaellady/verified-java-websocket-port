@@ -510,6 +510,30 @@ func TestFormalPreflightExecutedBackendRules(t *testing.T) {
 		return root
 	}
 
+	// Re-review round 2 BLOCKING: a bare "sha256:" (or short/uppercase hex)
+	// is not a digested counterexample — schema and validator must both
+	// reject it, and the pass must not count.
+	t.Run("bare-sha256-prefix-counterexample-blocks-pass", func(t *testing.T) {
+		t.Parallel()
+		root := prepareExecuted(t)
+		us006MutateDocument(t, root, "/backends/2/canaries/known_bad/counterexample_digest", "sha256:")
+		verdict, err := FormalPreflight(PreflightRequest{RootPath: root})
+		if err != nil {
+			t.Fatalf("preflight: %v", err)
+		}
+		codes := map[string]int{}
+		for _, finding := range verdict.Findings {
+			codes[finding.Code]++
+		}
+		if codes["SCHEMA_VIOLATION"] == 0 && codes["KNOWN_BAD_CANARY_SURVIVED"] == 0 {
+			t.Fatalf("bare sha256: digest must block typed, got %v", codes)
+		}
+		if verdict.ObligationsPassed != 0 || verdict.ProductionLinkedObligationsPassed != 0 {
+			t.Fatalf("bare digest must exclude the pass: passed=%d production=%d",
+				verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
+		}
+	})
+
 	t.Run("clean-executed-backend-passes-production-linked-obligation", func(t *testing.T) {
 		t.Parallel()
 		root := prepareExecuted(t)

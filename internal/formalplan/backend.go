@@ -36,6 +36,21 @@ import (
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
+// isFullSha256Digest accepts only a complete "sha256:" + 64-lowercase-hex
+// digest; a bare prefix or short/uppercase hex is not a digested value.
+func isFullSha256Digest(value string) bool {
+	const prefix = "sha256:"
+	if len(value) != len(prefix)+64 || !strings.HasPrefix(value, prefix) {
+		return false
+	}
+	for _, c := range value[len(prefix):] {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
 const (
 	ModeFormalPreflight = "FORMAL_PREFLIGHT"
 	ModeFormalReplay    = "FORMAL_REPLAY"
@@ -746,7 +761,7 @@ func validateCanaries(evaluation *formalEvaluation, docPath, basePath string, ba
 				backend.BackendID+": executed backend must confirm its known-good canary (status PASSED)")
 			healthy = false
 		}
-		if canaries.KnownBad.Status != "DETECTED" || !strings.HasPrefix(canaries.KnownBad.CounterexampleDigest, "sha256:") {
+		if canaries.KnownBad.Status != "DETECTED" || !isFullSha256Digest(canaries.KnownBad.CounterexampleDigest) {
 			evaluation.add("KNOWN_BAD_CANARY_SURVIVED", vendorprotocol.Block, docPath, basePath+".canaries.known_bad",
 				backend.BackendID+": executed backend must detect its known-bad canary with a digested counterexample; a surviving seeded defect fails qualification")
 			healthy = false

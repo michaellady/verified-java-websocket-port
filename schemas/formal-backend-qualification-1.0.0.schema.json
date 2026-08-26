@@ -440,7 +440,7 @@
                 "description": { "type": "string", "minLength": 1 },
                 "expected_detection": { "enum": ["COUNTEREXAMPLE"] },
                 "status": { "$ref": "#/$defs/canaryStatus" },
-                "counterexample_digest": { "type": "string" }
+                "counterexample_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
               }
             }
           }
