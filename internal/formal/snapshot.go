@@ -1,6 +1,7 @@
 package formal
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/fs"
@@ -100,7 +101,7 @@ func readRegularFile(root *os.Root, name string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	openedID, ok := identityOf(opened)
-	if !ok || openedID != beforeID || opened.Size() != before.Size() {
+	if !ok || openedID != beforeID || opened.Size() != before.Size() || !opened.ModTime().Equal(before.ModTime()) {
 		return nil, fmt.Errorf("%s changed while being opened", name)
 	}
 	data, err := io.ReadAll(io.LimitReader(file, limit+1))
@@ -110,12 +111,22 @@ func readRegularFile(root *os.Root, name string, limit int64) ([]byte, error) {
 	if int64(len(data)) > limit {
 		return nil, fmt.Errorf("%s exceeds the %d-byte limit", name, limit)
 	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	second, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return nil, err
+	}
+	if !bytes.Equal(data, second) {
+		return nil, fmt.Errorf("%s changed between stable snapshot reads", name)
+	}
 	afterOpen, err := file.Stat()
 	if err != nil {
 		return nil, err
 	}
 	afterOpenID, ok := identityOf(afterOpen)
-	if !ok || afterOpenID != beforeID || afterOpen.Size() != before.Size() {
+	if !ok || afterOpenID != beforeID || afterOpen.Size() != before.Size() || !afterOpen.ModTime().Equal(before.ModTime()) {
 		return nil, fmt.Errorf("%s changed while being read", name)
 	}
 	afterPath, err := root.Lstat(name)
@@ -123,7 +134,7 @@ func readRegularFile(root *os.Root, name string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	afterPathID, ok := identityOf(afterPath)
-	if !ok || afterPathID != beforeID || afterPath.Size() != before.Size() {
+	if !ok || afterPathID != beforeID || afterPath.Size() != before.Size() || !afterPath.ModTime().Equal(before.ModTime()) {
 		return nil, fmt.Errorf("%s changed while being read", name)
 	}
 	return data, nil

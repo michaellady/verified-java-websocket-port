@@ -188,7 +188,15 @@
         "input_root_digest",
         "output_root_digest",
         "cleanup_state",
-        "classification_state"
+        "classification_state",
+        "profile",
+        "capability_probe",
+        "request",
+        "receipt",
+        "input_manifest",
+        "output_manifest",
+        "cleanup_receipt",
+        "classifier_projection"
       ],
       "properties": {
         "cli_version": {"type": ["string", "null"]},
@@ -210,7 +218,41 @@
           "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
         },
         "cleanup_state": {"type": ["string", "null"]},
-        "classification_state": {"type": ["string", "null"]}
+        "classification_state": {"type": ["string", "null"]},
+        "profile": {"oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]},
+        "capability_probe": {"oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]},
+        "request": {"oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]},
+        "receipt": {"oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]},
+        "input_manifest": {"oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]},
+        "output_manifest": {"oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]},
+        "cleanup_receipt": {"oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]},
+        "classifier_projection": {"oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]}
+      }
+    },
+    "evidenceBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "run_id", "artifact"],
+      "properties": {
+        "category": {
+          "enum": [
+            "SBX_REQUEST",
+            "SBX_RECEIPT",
+            "TOOL_IDENTITY",
+            "INPUT_MANIFEST",
+            "OUTPUT_MANIFEST",
+            "OBLIGATION_INVENTORY",
+            "GOOD_CANARY_RESULT",
+            "BAD_CANARY_COUNTEREXAMPLE",
+            "RAW_TOOL_RESULT",
+            "NORMALIZED_RESULT",
+            "REPLAY_RECEIPT",
+            "CLEANUP_RECEIPT",
+            "CLASSIFIER_PROJECTION"
+          ]
+        },
+        "run_id": {"$ref": "#/$defs/identifier"},
+        "artifact": {"$ref": "#/$defs/artifactRef"}
       }
     },
     "canary": {
@@ -372,7 +414,8 @@
         "expected_exit_code",
         "semantic_output_digest",
         "repeat_count",
-        "reconciled_identically"
+        "reconciled_identically",
+        "runs"
       ],
       "properties": {
         "replay_id": {
@@ -387,7 +430,24 @@
           "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
         },
         "repeat_count": {"type": "integer", "minimum": 0},
-        "reconciled_identically": {"type": "boolean"}
+        "reconciled_identically": {"type": "boolean"},
+        "runs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/replayRun"}
+        }
+      }
+    },
+    "replayRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["run_id", "receipt", "normalized_output", "semantic_output_digest", "obligation_ids"],
+      "properties": {
+        "run_id": {"$ref": "#/$defs/identifier"},
+        "receipt": {"$ref": "#/$defs/artifactRef"},
+        "normalized_output": {"$ref": "#/$defs/artifactRef"},
+        "semantic_output_digest": {"$ref": "#/$defs/digest"},
+        "obligation_ids": {"$ref": "#/$defs/nonemptyStringSet"}
       }
     },
     "backend": {
@@ -411,6 +471,7 @@
         "unsupported_constructs",
         "trusted_base",
         "required_artifacts",
+        "artifact_bindings",
         "execution_state",
         "claim_scope",
         "outcomes",
@@ -472,6 +533,11 @@
               "CLASSIFIER_PROJECTION"
             ]
           }
+        },
+        "artifact_bindings": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/evidenceBinding"}
         },
         "execution_state": {
           "enum": ["EXECUTED_PASS", "EXECUTED_COUNTEREXAMPLE", "UNAVAILABLE_BACKEND_BLOCKED"]

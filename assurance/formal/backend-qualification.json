@@ -10,12 +10,12 @@
   },
   "connection_model": {
     "path": "assurance/formal/connection-model.tla",
-    "sha256": "sha256:854605230cec3e025b39db8fd2ceeee541a0affd52a5994b0eab59d05f2e2609",
+    "sha256": "sha256:10faead842968b7950a7b7ab74f4e6616bff219738fdc2f02731eaa5d130fe83",
     "attribution": "US006_OWNED"
   },
   "concurrency_plan": {
     "path": "assurance/concurrency/plan.json",
-    "sha256": "sha256:3e4a3ee4ff2db55fc488d723d5b4d844a049d231a2a825b43760317cd8001e3c",
+    "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d",
     "attribution": "US006_OWNED"
   },
   "borrowed_sandbox_foundation": {
@@ -94,7 +94,15 @@
         "input_root_digest": null,
         "output_root_digest": null,
         "cleanup_state": null,
-        "classification_state": null
+        "classification_state": null,
+        "profile": null,
+        "capability_probe": null,
+        "request": null,
+        "receipt": null,
+        "input_manifest": null,
+        "output_manifest": null,
+        "cleanup_receipt": null,
+        "classifier_projection": null
       },
       "expected_property_ids": ["mask.equation", "mask.involution"],
       "obligation_ids": ["obligation.mask-equation", "obligation.mask-involution"],
@@ -151,6 +159,7 @@
       "unsupported_constructs": [],
       "trusted_base": ["Go formal-preflight validator", "Rust compiler and prototype executable only after future promotion", "borrowed Claude US-007 sbx isolation profile"],
       "required_artifacts": ["BAD_CANARY_COUNTEREXAMPLE", "CLASSIFIER_PROJECTION", "CLEANUP_RECEIPT", "GOOD_CANARY_RESULT", "INPUT_MANIFEST", "NORMALIZED_RESULT", "OBLIGATION_INVENTORY", "OUTPUT_MANIFEST", "RAW_TOOL_RESULT", "REPLAY_RECEIPT", "SBX_RECEIPT", "SBX_REQUEST", "TOOL_IDENTITY"],
+      "artifact_bindings": [],
       "execution_state": "UNAVAILABLE_BACKEND_BLOCKED",
       "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED",
       "outcomes": [
@@ -178,7 +187,8 @@
         "expected_exit_code": null,
         "semantic_output_digest": null,
         "repeat_count": 0,
-        "reconciled_identically": false
+        "reconciled_identically": false,
+        "runs": []
       },
       "limitations": ["No retained executable, input, output, canary result, or replay receipt exists."]
     },
@@ -210,7 +220,15 @@
         "input_root_digest": null,
         "output_root_digest": null,
         "cleanup_state": null,
-        "classification_state": null
+        "classification_state": null,
+        "profile": null,
+        "capability_probe": null,
+        "request": null,
+        "receipt": null,
+        "input_manifest": null,
+        "output_manifest": null,
+        "cleanup_receipt": null,
+        "classifier_projection": null
       },
       "expected_property_ids": ["frame.checked-header-arithmetic", "frame.control-fin-and-length", "frame.length-canonical-16", "frame.length-canonical-64-high-bit-zero", "frame.length-canonical-7", "frame.preallocation-cap", "frame.role-masking", "mask.equation", "mask.involution"],
       "obligation_ids": ["obligation.checked-header-arithmetic", "obligation.control-fin-and-length", "obligation.length-canonical-16", "obligation.length-canonical-64-high-bit-zero", "obligation.length-canonical-7", "obligation.mask-equation", "obligation.mask-involution", "obligation.preallocation-cap", "obligation.role-masking"],
@@ -256,6 +274,7 @@
       "unsupported_constructs": [],
       "trusted_base": ["Go formal-preflight validator", "Kani and its solver only after future promotion", "Rust compiler", "borrowed Claude US-007 sbx isolation profile"],
       "required_artifacts": ["BAD_CANARY_COUNTEREXAMPLE", "CLASSIFIER_PROJECTION", "CLEANUP_RECEIPT", "GOOD_CANARY_RESULT", "INPUT_MANIFEST", "NORMALIZED_RESULT", "OBLIGATION_INVENTORY", "OUTPUT_MANIFEST", "RAW_TOOL_RESULT", "REPLAY_RECEIPT", "SBX_RECEIPT", "SBX_REQUEST", "TOOL_IDENTITY"],
+      "artifact_bindings": [],
       "execution_state": "UNAVAILABLE_BACKEND_BLOCKED",
       "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED",
       "outcomes": [
@@ -269,7 +288,7 @@
         {"obligation_id": "obligation.preallocation-cap", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "obligation.role-masking", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null}
       ],
-      "replay": {"replay_id": null, "argv": [], "environment": [], "working_directory": ".", "seed": null, "expected_exit_code": null, "semantic_output_digest": null, "repeat_count": 0, "reconciled_identically": false},
+      "replay": {"replay_id": null, "argv": [], "environment": [], "working_directory": ".", "seed": null, "expected_exit_code": null, "semantic_output_digest": null, "repeat_count": 0, "reconciled_identically": false, "runs": []},
       "limitations": ["No production symbol, promoted tool, execution, result, or replay receipt exists."]
     },
     {
@@ -278,20 +297,20 @@
       "method": "LOOM_SYSTEMATIC_SCHEDULE_EXPLORATION",
       "tool": {"name": "loom", "version": null, "commit": null, "binary_sha256": null, "installation_provenance": "No owner-authorized capability probe or promoted executable exists.", "executable_promotion": null},
       "availability_probe": {"executed": false, "receipt": {"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}, "exit_code": null, "observation": "OWNER_AUTHORIZATION_REQUIRED"},
-      "sbx_execution": {"cli_version": null, "daemon_version": null, "template_reference": null, "sandbox_policy_digest": null, "request_digest": null, "receipt_digest": null, "input_root_digest": null, "output_root_digest": null, "cleanup_state": null, "classification_state": null},
-      "expected_property_ids": ["concurrency.accepted-at-most-once", "concurrency.bounded-counterexample", "concurrency.close-convergence", "concurrency.fifo-owner-order", "concurrency.no-post-terminal", "concurrency.no-write-bypass", "concurrency.queue-bounds", "concurrency.receiver-drop-typed", "concurrency.terminal-exactly-once"],
-      "obligation_ids": ["concurrency.accepted-at-most-once", "concurrency.bounded-counterexample", "concurrency.close-convergence", "concurrency.fifo-owner-order", "concurrency.no-post-terminal", "concurrency.no-write-bypass", "concurrency.queue-bounds", "concurrency.receiver-drop-typed", "concurrency.terminal-exactly-once"],
+      "sbx_execution": {"cli_version": null, "daemon_version": null, "template_reference": null, "sandbox_policy_digest": null, "request_digest": null, "receipt_digest": null, "input_root_digest": null, "output_root_digest": null, "cleanup_state": null, "classification_state": null, "profile": null, "capability_probe": null, "request": null, "receipt": null, "input_manifest": null, "output_manifest": null, "cleanup_receipt": null, "classifier_projection": null},
+      "expected_property_ids": ["concurrency.accepted-eventual-exactly-once", "concurrency.bounded-counterexample", "concurrency.close-convergence", "concurrency.fifo-owner-order", "concurrency.no-post-terminal", "concurrency.no-write-bypass", "concurrency.queue-bounds", "concurrency.receiver-drop-typed", "concurrency.terminal-exactly-once"],
+      "obligation_ids": ["concurrency.accepted-eventual-exactly-once", "concurrency.bounded-counterexample", "concurrency.close-convergence", "concurrency.fifo-owner-order", "concurrency.no-post-terminal", "concurrency.no-write-bypass", "concurrency.queue-bounds", "concurrency.receiver-drop-typed", "concurrency.terminal-exactly-once"],
       "obligation_count": 9,
       "known_good_canaries": [
-        {"canary_id": "canary.good-systematic-plan", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:3e4a3ee4ff2db55fc488d723d5b4d844a049d231a2a825b43760317cd8001e3c", "attribution": "US006_OWNED"}, "expected_outcome": "PASS", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
+        {"canary_id": "canary.good-systematic-plan", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d", "attribution": "US006_OWNED"}, "expected_outcome": "PASS", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
       ],
       "known_bad_canaries": [
-        {"canary_id": "canary.close-race", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:3e4a3ee4ff2db55fc488d723d5b4d844a049d231a2a825b43760317cd8001e3c", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.duplicate-delivery", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:3e4a3ee4ff2db55fc488d723d5b4d844a049d231a2a825b43760317cd8001e3c", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.lock-sharing", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:3e4a3ee4ff2db55fc488d723d5b4d844a049d231a2a825b43760317cd8001e3c", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.lost-command", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:3e4a3ee4ff2db55fc488d723d5b4d844a049d231a2a825b43760317cd8001e3c", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.queue-bypass", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:3e4a3ee4ff2db55fc488d723d5b4d844a049d231a2a825b43760317cd8001e3c", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.write-reorder", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:3e4a3ee4ff2db55fc488d723d5b4d844a049d231a2a825b43760317cd8001e3c", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
+        {"canary_id": "canary.close-race", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.duplicate-delivery", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.lock-sharing", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.lost-command", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.queue-bypass", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.write-reorder", "input": {"path": "assurance/concurrency/plan.json", "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
       ],
       "bounds": {"max_tasks": 7, "max_schedules": 100000, "max_preemptions": 3, "max_branches": 1000000, "queue_capacities": [2], "schedule_count": 0},
       "assumptions": ["Producer admission has no fairness assumption.", "Weak fairness applies only to owner, flush, and callback progress."],
@@ -299,10 +318,11 @@
       "unsupported_constructs": [],
       "trusted_base": ["Go formal-preflight validator", "Loom scheduler only after future promotion", "borrowed Claude US-007 sbx isolation profile"],
       "required_artifacts": ["BAD_CANARY_COUNTEREXAMPLE", "CLASSIFIER_PROJECTION", "CLEANUP_RECEIPT", "GOOD_CANARY_RESULT", "INPUT_MANIFEST", "NORMALIZED_RESULT", "OBLIGATION_INVENTORY", "OUTPUT_MANIFEST", "RAW_TOOL_RESULT", "REPLAY_RECEIPT", "SBX_RECEIPT", "SBX_REQUEST", "TOOL_IDENTITY"],
+      "artifact_bindings": [],
       "execution_state": "UNAVAILABLE_BACKEND_BLOCKED",
       "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED",
       "outcomes": [
-        {"obligation_id": "concurrency.accepted-at-most-once", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
+        {"obligation_id": "concurrency.accepted-eventual-exactly-once", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "concurrency.bounded-counterexample", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "concurrency.close-convergence", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "concurrency.fifo-owner-order", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
@@ -312,7 +332,7 @@
         {"obligation_id": "concurrency.receiver-drop-typed", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "concurrency.terminal-exactly-once", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null}
       ],
-      "replay": {"replay_id": null, "argv": [], "environment": [], "working_directory": ".", "seed": null, "expected_exit_code": null, "semantic_output_digest": null, "repeat_count": 0, "reconciled_identically": false},
+      "replay": {"replay_id": null, "argv": [], "environment": [], "working_directory": ".", "seed": null, "expected_exit_code": null, "semantic_output_digest": null, "repeat_count": 0, "reconciled_identically": false, "runs": []},
       "limitations": ["Loom is systematic bounded testing, never proof or native-thread evidence."]
     },
     {
@@ -321,15 +341,15 @@
       "method": "TLC_EXPLICIT_STATE_MODEL_CHECKING",
       "tool": {"name": "tlc", "version": null, "commit": null, "binary_sha256": null, "installation_provenance": "No owner-authorized capability probe or promoted executable exists.", "executable_promotion": null},
       "availability_probe": {"executed": false, "receipt": {"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}, "exit_code": null, "observation": "OWNER_AUTHORIZATION_REQUIRED"},
-      "sbx_execution": {"cli_version": null, "daemon_version": null, "template_reference": null, "sandbox_policy_digest": null, "request_digest": null, "receipt_digest": null, "input_root_digest": null, "output_root_digest": null, "cleanup_state": null, "classification_state": null},
-      "expected_property_ids": ["model.backpressure-preserves-accepted-work", "model.closed-is-terminal", "model.lifecycle-monotonic", "model.queue-bounds", "model.terminal-delivered-at-most-once", "model.termination-under-fairness"],
-      "obligation_ids": ["model.backpressure-preserves-accepted-work", "model.closed-is-terminal", "model.lifecycle-monotonic", "model.queue-bounds", "model.terminal-delivered-at-most-once", "model.termination-under-fairness"],
-      "obligation_count": 6,
+      "sbx_execution": {"cli_version": null, "daemon_version": null, "template_reference": null, "sandbox_policy_digest": null, "request_digest": null, "receipt_digest": null, "input_root_digest": null, "output_root_digest": null, "cleanup_state": null, "classification_state": null, "profile": null, "capability_probe": null, "request": null, "receipt": null, "input_manifest": null, "output_manifest": null, "cleanup_receipt": null, "classifier_projection": null},
+      "expected_property_ids": ["model.accepted-commands-disposed-exactly-once", "model.accepted-commands-eventually-disposed", "model.backpressure-preserves-accepted-work", "model.closed-is-terminal", "model.lifecycle-monotonic", "model.queue-bounds", "model.terminal-delivered-at-most-once", "model.terminal-delivery-eventually", "model.termination-under-fairness"],
+      "obligation_ids": ["model.accepted-commands-disposed-exactly-once", "model.accepted-commands-eventually-disposed", "model.backpressure-preserves-accepted-work", "model.closed-is-terminal", "model.lifecycle-monotonic", "model.queue-bounds", "model.terminal-delivered-at-most-once", "model.terminal-delivery-eventually", "model.termination-under-fairness"],
+      "obligation_count": 9,
       "known_good_canaries": [
-        {"canary_id": "canary.good-connection-model", "input": {"path": "assurance/formal/connection-model.tla", "sha256": "sha256:854605230cec3e025b39db8fd2ceeee541a0affd52a5994b0eab59d05f2e2609", "attribution": "US006_OWNED"}, "expected_outcome": "PASS", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
+        {"canary_id": "canary.good-connection-model", "input": {"path": "assurance/formal/connection-model.tla", "sha256": "sha256:10faead842968b7950a7b7ab74f4e6616bff219738fdc2f02731eaa5d130fe83", "attribution": "US006_OWNED"}, "expected_outcome": "PASS", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
       ],
       "known_bad_canaries": [
-        {"canary_id": "canary.bad-terminal-duplicate", "input": {"path": "assurance/formal/connection-model.tla", "sha256": "sha256:854605230cec3e025b39db8fd2ceeee541a0affd52a5994b0eab59d05f2e2609", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
+        {"canary_id": "canary.bad-terminal-duplicate", "input": {"path": "assurance/formal/connection-model.tla", "sha256": "sha256:10faead842968b7950a7b7ab74f4e6616bff219738fdc2f02731eaa5d130fe83", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
       ],
       "bounds": {"state_bound": 4, "command_capacity": 2, "write_capacity": 2, "event_capacity": 2, "distinct_states": 0, "transitions": 0, "fairness": ["WEAK_CALLBACK_PROGRESS_WHEN_EVENT_PENDING", "WEAK_FLUSH_PROGRESS_WHEN_WRITABLE", "WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING"]},
       "assumptions": ["Producer admission has no fairness assumption.", "The model contains lifecycle, bounded queues, terminal delivery, and backpressure only."],
@@ -337,17 +357,21 @@
       "unsupported_constructs": [],
       "trusted_base": ["Go formal-preflight validator", "TLA+ semantics and TLC only after future promotion", "borrowed Claude US-007 sbx isolation profile"],
       "required_artifacts": ["BAD_CANARY_COUNTEREXAMPLE", "CLASSIFIER_PROJECTION", "CLEANUP_RECEIPT", "GOOD_CANARY_RESULT", "INPUT_MANIFEST", "NORMALIZED_RESULT", "OBLIGATION_INVENTORY", "OUTPUT_MANIFEST", "RAW_TOOL_RESULT", "REPLAY_RECEIPT", "SBX_RECEIPT", "SBX_REQUEST", "TOOL_IDENTITY"],
+      "artifact_bindings": [],
       "execution_state": "UNAVAILABLE_BACKEND_BLOCKED",
       "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED",
       "outcomes": [
+        {"obligation_id": "model.accepted-commands-disposed-exactly-once", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
+        {"obligation_id": "model.accepted-commands-eventually-disposed", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "model.backpressure-preserves-accepted-work", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "model.closed-is-terminal", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "model.lifecycle-monotonic", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "model.queue-bounds", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "model.terminal-delivered-at-most-once", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
+        {"obligation_id": "model.terminal-delivery-eventually", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null},
         {"obligation_id": "model.termination-under-fairness", "raw_outcome": "BACKEND_UNAVAILABLE", "claim_scope": "UNAVAILABLE_BACKEND_BLOCKED", "artifact_refs": [{"path": "evidence/security-validation.json", "sha256": "sha256:147f6fc2c29762dbf4e5035daefbe3edeecc224dfcb90d9fbf4f1734f857c36b", "attribution": "BORROWED_CLAUDE_US007"}], "counterexample": null}
       ],
-      "replay": {"replay_id": null, "argv": [], "environment": [], "working_directory": ".", "seed": null, "expected_exit_code": null, "semantic_output_digest": null, "repeat_count": 0, "reconciled_identically": false},
+      "replay": {"replay_id": null, "argv": [], "environment": [], "working_directory": ".", "seed": null, "expected_exit_code": null, "semantic_output_digest": null, "repeat_count": 0, "reconciled_identically": false, "runs": []},
       "limitations": ["A future TLC pass can establish PROVED_MODEL only and cannot establish production Rust behavior."]
     }
   ],

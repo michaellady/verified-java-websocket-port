@@ -7,10 +7,12 @@ MaxWrites == 2
 MaxEvents == 2
 
 VARIABLES state, commandQ, writeQ, eventQ, shutdownRequested,
-          terminalQueued, terminalDelivered, backpressureCount
+          terminalQueued, terminalDelivered, backpressureCount,
+          acceptedCount, disposedCount, terminalDeliveryCount
 
 vars == <<state, commandQ, writeQ, eventQ, shutdownRequested,
-          terminalQueued, terminalDelivered, backpressureCount>>
+          terminalQueued, terminalDelivered, backpressureCount,
+          acceptedCount, disposedCount, terminalDeliveryCount>>
 
 Init ==
     /\ state = "Connecting"
@@ -21,26 +23,33 @@ Init ==
     /\ terminalQueued = FALSE
     /\ terminalDelivered = FALSE
     /\ backpressureCount = 0
+    /\ acceptedCount = 0
+    /\ disposedCount = 0
+    /\ terminalDeliveryCount = 0
 
 CompleteHandshake ==
     /\ state = "Connecting"
     /\ state' = "Open"
     /\ UNCHANGED <<commandQ, writeQ, eventQ, shutdownRequested,
-                   terminalQueued, terminalDelivered, backpressureCount>>
+                   terminalQueued, terminalDelivered, backpressureCount,
+                   acceptedCount, disposedCount, terminalDeliveryCount>>
 
 EnqueueCommand ==
     /\ state \in {"Open", "Closing"}
     /\ Len(commandQ) < MaxCommands
     /\ commandQ' = Append(commandQ, "command")
+    /\ acceptedCount' = acceptedCount + 1
     /\ UNCHANGED <<state, writeQ, eventQ, shutdownRequested,
-                   terminalQueued, terminalDelivered, backpressureCount>>
+                   terminalQueued, terminalDelivered, backpressureCount,
+                   disposedCount, terminalDeliveryCount>>
 
 ReceiveFrame ==
     /\ state = "Open"
     /\ Len(eventQ) < MaxEvents
     /\ eventQ' = Append(eventQ, "event")
     /\ UNCHANGED <<state, commandQ, writeQ, shutdownRequested,
-                   terminalQueued, terminalDelivered, backpressureCount>>
+                   terminalQueued, terminalDelivered, backpressureCount,
+                   acceptedCount, disposedCount, terminalDeliveryCount>>
 
 ReceiveClose ==
     /\ state \in {"Open", "Closing"}
@@ -49,13 +58,23 @@ ReceiveClose ==
     /\ eventQ' = Append(eventQ, "terminal")
     /\ terminalQueued' = TRUE
     /\ UNCHANGED <<commandQ, writeQ, shutdownRequested,
-                   terminalDelivered, backpressureCount>>
+                   terminalDelivered, backpressureCount, acceptedCount,
+                   disposedCount, terminalDeliveryCount>>
 
 FlushOutbound ==
-    /\ Len(writeQ) > 0
-    /\ writeQ' = Tail(writeQ)
-    /\ UNCHANGED <<state, commandQ, eventQ, shutdownRequested,
-                   terminalQueued, terminalDelivered, backpressureCount>>
+    \/ /\ Len(commandQ) > 0
+       /\ Len(writeQ) < MaxWrites
+       /\ commandQ' = Tail(commandQ)
+       /\ writeQ' = Append(writeQ, "write")
+       /\ disposedCount' = disposedCount + 1
+       /\ UNCHANGED <<state, eventQ, shutdownRequested, terminalQueued,
+                      terminalDelivered, backpressureCount, acceptedCount,
+                      terminalDeliveryCount>>
+    \/ /\ Len(writeQ) > 0
+       /\ writeQ' = Tail(writeQ)
+       /\ UNCHANGED <<state, commandQ, eventQ, shutdownRequested,
+                      terminalQueued, terminalDelivered, backpressureCount,
+                      acceptedCount, disposedCount, terminalDeliveryCount>>
 
 BeginShutdown ==
     /\ shutdownRequested = FALSE
@@ -63,29 +82,37 @@ BeginShutdown ==
     /\ shutdownRequested' = TRUE
     /\ state' = "Closing"
     /\ UNCHANGED <<commandQ, writeQ, eventQ, terminalQueued,
-                   terminalDelivered, backpressureCount>>
+                   terminalDelivered, backpressureCount, acceptedCount,
+                   disposedCount, terminalDeliveryCount>>
 
 DeliverCallback ==
     /\ Len(eventQ) > 0
+    /\ Head(eventQ) # "terminal" \/ terminalDeliveryCount = 0
     /\ eventQ' = Tail(eventQ)
     /\ terminalDelivered' = terminalDelivered \/ (Head(eventQ) = "terminal")
+    /\ terminalDeliveryCount' =
+           IF Head(eventQ) = "terminal" THEN terminalDeliveryCount + 1
+           ELSE terminalDeliveryCount
     /\ UNCHANGED <<state, commandQ, writeQ, shutdownRequested,
-                   terminalQueued, backpressureCount>>
+                   terminalQueued, backpressureCount, acceptedCount, disposedCount>>
 
 ApplyBackpressure ==
     /\ Len(commandQ) = MaxCommands \/ Len(writeQ) = MaxWrites \/ Len(eventQ) = MaxEvents
     /\ backpressureCount' = backpressureCount + 1
     /\ UNCHANGED <<state, commandQ, writeQ, eventQ, shutdownRequested,
-                   terminalQueued, terminalDelivered>>
+                   terminalQueued, terminalDelivered, acceptedCount,
+                   disposedCount, terminalDeliveryCount>>
 
 FinishClose ==
     /\ state = "Closing"
     /\ Len(commandQ) = 0
     /\ Len(writeQ) = 0
+    /\ disposedCount = acceptedCount
     /\ (~terminalQueued \/ terminalDelivered)
     /\ state' = "Closed"
     /\ UNCHANGED <<commandQ, writeQ, eventQ, shutdownRequested,
-                   terminalQueued, terminalDelivered, backpressureCount>>
+                   terminalQueued, terminalDelivered, backpressureCount,
+                   acceptedCount, disposedCount, terminalDeliveryCount>>
 
 Next ==
     \/ CompleteHandshake
@@ -107,6 +134,9 @@ TypeOK ==
     /\ terminalQueued \in BOOLEAN
     /\ terminalDelivered \in BOOLEAN
     /\ backpressureCount \in Nat
+    /\ acceptedCount \in Nat
+    /\ disposedCount \in Nat
+    /\ terminalDeliveryCount \in Nat
 
 QueueBounds ==
     /\ Len(commandQ) <= MaxCommands
@@ -120,7 +150,17 @@ ClosedIsTerminal ==
     state = "Closed" => UNCHANGED vars
 
 TerminalDeliveredAtMostOnce ==
-    terminalDelivered => terminalQueued
+    /\ terminalDeliveryCount <= 1
+    /\ terminalDelivered = (terminalDeliveryCount = 1)
+
+AcceptedCommandsDisposedExactlyOnce ==
+    disposedCount <= acceptedCount
+
+AcceptedCommandsEventuallyDisposed ==
+    []((acceptedCount > disposedCount) => <>(disposedCount = acceptedCount))
+
+TerminalDeliveryEventually ==
+    []((terminalQueued /\ ~terminalDelivered) => <>terminalDelivered)
 
 BackpressurePreservesAcceptedWork ==
     backpressureCount' > backpressureCount =>

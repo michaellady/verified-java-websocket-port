@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	vendorprotocol "github.com/michaellady/verified-java-to-rust/foundation/protocol"
@@ -201,7 +202,7 @@ func TestUS006FixtureCatalogMatchesHostileCases(t *testing.T) {
 	ids := make([]string, 0, len(value.Cases))
 	for _, item := range value.Cases {
 		ids = append(ids, item.FixtureID)
-		if item.Mutation == "" || !item.SyntheticNonClaim || (item.FixtureID != "good-unresolved-production-plan" && item.ExpectedExit != 1) {
+		if item.Mutation == "" || !item.SyntheticNonClaim || (!strings.HasPrefix(item.FixtureID, "good-") && item.ExpectedExit != 1) {
 			t.Fatalf("invalid fixture record: %#v", item)
 		}
 	}
@@ -224,7 +225,12 @@ func mutateConcurrencyBounds(t *testing.T, root string) {
 
 func mutateBorrowedDigest(t *testing.T, root string) {
 	path := filepath.Join(root, "evidence/security-validation.json")
-	writeFile(t, path, append(readFile(t, path), ' '))
+	before := readFile(t, path)
+	after := bytes.Replace(before, []byte(`"schema_version": "1.0.0"`), []byte(`"schema_version": "1.0.1"`), 1)
+	if len(after) != len(before) || bytes.Equal(after, before) {
+		t.Fatal("same-length digest substitution fixture did not mutate exactly one retained value")
+	}
+	writeFile(t, path, after)
 }
 
 func mutateDisconnectedCallPath(t *testing.T, root string) {

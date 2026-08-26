@@ -29,6 +29,9 @@ var tlaDeclarations = []string{
 	"LifecycleMonotonic",
 	"ClosedIsTerminal",
 	"TerminalDeliveredAtMostOnce",
+	"AcceptedCommandsDisposedExactlyOnce",
+	"AcceptedCommandsEventuallyDisposed",
+	"TerminalDeliveryEventually",
 	"BackpressurePreservesAcceptedWork",
 	"Spec",
 	"TerminationUnderFairness",
@@ -76,8 +79,8 @@ func validateTLA(data []byte) error {
 		!strings.Contains(text, "MaxEvents == 2") {
 		return fmt.Errorf("state or queue constants drifted")
 	}
-	wantedVariables := "VARIABLES state, commandQ, writeQ, eventQ, shutdownRequested,\n          terminalQueued, terminalDelivered, backpressureCount"
-	wantedVars := "vars == <<state, commandQ, writeQ, eventQ, shutdownRequested,\n          terminalQueued, terminalDelivered, backpressureCount>>"
+	wantedVariables := "VARIABLES state, commandQ, writeQ, eventQ, shutdownRequested,\n          terminalQueued, terminalDelivered, backpressureCount,\n          acceptedCount, disposedCount, terminalDeliveryCount"
+	wantedVars := "vars == <<state, commandQ, writeQ, eventQ, shutdownRequested,\n          terminalQueued, terminalDelivered, backpressureCount,\n          acceptedCount, disposedCount, terminalDeliveryCount>>"
 	if !strings.Contains(text, wantedVariables) || !strings.Contains(text, wantedVars) {
 		return fmt.Errorf("variable declaration or vars tuple drifted")
 	}
@@ -108,6 +111,9 @@ func validateTLA(data []byte) error {
 		"/\\ WF_vars(CompleteHandshake \\/ BeginShutdown \\/ FinishClose)",
 		"/\\ WF_vars(FlushOutbound)",
 		"/\\ WF_vars(DeliverCallback)",
+		"[]((acceptedCount > disposedCount) => <>(disposedCount = acceptedCount))",
+		"[]((terminalQueued /\\ ~terminalDelivered) => <>terminalDelivered)",
+		"terminalDeliveryCount <= 1",
 		`shutdownRequested => <>(state = "Closed")`,
 	} {
 		if !strings.Contains(text, required) {

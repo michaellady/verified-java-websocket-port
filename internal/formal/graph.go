@@ -51,6 +51,9 @@ func validateGraph(snap *snapshot, targets *proofTargets, qualification *backend
 	proofObligations := map[string]obligation{}
 	proofProperties := map[string]string{}
 	for _, target := range targets.Targets {
+		if target.LinkageState == "RESOLVED_PRODUCTION_SYMBOL" {
+			validateResolvedLinkage(snap, &target, collector)
+		}
 		for _, item := range target.Obligations {
 			proofObligations[item.ObligationID] = item
 			proofProperties[item.ObligationID] = item.PropertyID
@@ -61,11 +64,14 @@ func validateGraph(snap *snapshot, targets *proofTargets, qualification *backend
 		concurrencyProperties = append(concurrencyProperties, property.PropertyID)
 	}
 	modelProperties := []string{
+		"model.accepted-commands-disposed-exactly-once",
+		"model.accepted-commands-eventually-disposed",
 		"model.backpressure-preserves-accepted-work",
 		"model.closed-is-terminal",
 		"model.lifecycle-monotonic",
 		"model.queue-bounds",
 		"model.terminal-delivered-at-most-once",
+		"model.terminal-delivery-eventually",
 		"model.termination-under-fairness",
 	}
 	maskObligations := []string{"obligation.mask-equation", "obligation.mask-involution"}
@@ -121,6 +127,68 @@ func validateGraph(snap *snapshot, targets *proofTargets, qualification *backend
 	validateAggregateState(qualification, collector)
 }
 
+func validateResolvedLinkage(snap *snapshot, target *target, collector *findingCollector) {
+	for index, call := range target.RequiredCallPaths {
+		path := fmt.Sprintf("$.targets.%s.required_call_paths[%d]", target.TargetID, index)
+		if call.LinkageArtifact == nil {
+			continue
+		}
+		data, err := snap.read(call.LinkageArtifact.Path, maxJSONBytes)
+		if err != nil {
+			collector.semantic("MISSING_REQUIRED_ARTIFACT", path+".linkage_artifact", err.Error())
+			continue
+		}
+		var receipt linkageReceiptDocument
+		if err := decodeStrict(data, &receipt); err != nil {
+			collector.semantic("DISCONNECTED_TARGET", path+".linkage_artifact", "linkage receipt is not a strict typed document: "+err.Error())
+			continue
+		}
+		if receipt.SchemaVersion != "1.0.0" || receipt.EntityType != "FormalLinkageReceipt" ||
+			(receipt.Method != "COMPILER_CALL_GRAPH" && receipt.Method != "INSTRUMENTED_TRACE") ||
+			receipt.EntrySymbol != call.EntrySymbol || receipt.TargetSymbol != target.RustSymbol ||
+			receipt.TargetFile != target.PlannedFile || target.SourceSHA256 == nil || receipt.TargetSourceSHA256 != *target.SourceSHA256 ||
+			receipt.Assurance != assuranceCeiling || receipt.IndependentReviewClaimed || receipt.Production {
+			collector.semantic("DISCONNECTED_TARGET", path+".linkage_artifact", "typed linkage receipt does not bind method, entry, exact target symbol/file/source, and assurance posture")
+		}
+		if !linkageReachable(receipt.EntrySymbol, receipt.TargetSymbol, receipt.Edges) {
+			collector.semantic("DISCONNECTED_TARGET", path+".linkage_artifact.edges", "typed linkage receipt has no reachable edge chain from entry to exact target")
+		}
+		verifyArtifactRef(snap, receipt.SourceTree, path+".linkage_artifact.source_tree", collector)
+	}
+}
+
+func linkageReachable(entry, target string, edges []linkageEdge) bool {
+	adjacent := map[string][]string{}
+	seenEdges := map[string]bool{}
+	for _, edge := range edges {
+		if edge.From == "" || edge.To == "" {
+			return false
+		}
+		key := edge.From + "\x00" + edge.To
+		if seenEdges[key] {
+			return false
+		}
+		seenEdges[key] = true
+		adjacent[edge.From] = append(adjacent[edge.From], edge.To)
+	}
+	queue := []string{entry}
+	visited := map[string]bool{entry: true}
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if current == target {
+			return true
+		}
+		for _, next := range adjacent[current] {
+			if !visited[next] {
+				visited[next] = true
+				queue = append(queue, next)
+			}
+		}
+	}
+	return false
+}
+
 func validateBackend(snap *snapshot, targets *proofTargets, qualification *backendQualification, plan *concurrencyPlan, backend *backend, spec backendSpec, mode, path string, collector *findingCollector) {
 	if backend.Method != spec.Method || !backend.Selected {
 		collector.semantic("MISSING_TARGET", path, "backend method or selection differs from the frozen inventory")
@@ -174,11 +242,11 @@ func validateBackend(snap *snapshot, targets *proofTargets, qualification *backe
 	case "UNAVAILABLE_BACKEND_BLOCKED":
 		validateUnavailableBackend(backend, path, collector)
 	case "EXECUTED_PASS", "EXECUTED_COUNTEREXAMPLE":
-		validateExecutedBackend(targets, qualification, backend, spec, path, collector)
+		validateExecutedBackend(snap, targets, qualification, backend, spec, path, collector)
 	default:
 		collector.semantic("UNAVAILABLE_REPRESENTED_AS_SKIP", path+".execution_state", "backend execution state must never be skip or not-applicable")
 	}
-	validateReplayIdentity(qualification, backend, mode, path, collector)
+	validateReplayIdentity(snap, qualification, backend, mode, path, collector)
 
 	for _, canary := range append(append([]canary{}, backend.KnownGoodCanaries...), backend.KnownBadCanaries...) {
 		if canary.Input.Path != spec.CanaryInputPath {
@@ -252,6 +320,9 @@ func validateCounterexample(backend *backend, canary canary, spec backendSpec, p
 	if counterexample.CounterexampleID != expectedID {
 		collector.semantic("REPLAY_MISMATCH", path+".counterexample.counterexample_id", "counterexample identity does not bind its canonical input, bounds, reason, target, and minimized steps")
 	}
+	if !counterexampleTargetAllowed(backend.Method, counterexample.TargetSymbol) {
+		collector.semantic("MISSING_TARGET", path+".counterexample.target_symbol", "canary counterexample does not name the exact backend subject")
+	}
 	_ = spec
 }
 
@@ -275,10 +346,62 @@ func validateOutcomes(backend *backend, spec backendSpec, path string, collector
 		if outcome.RawOutcome == "COUNTEREXAMPLE" {
 			if outcome.Counterexample == nil {
 				collector.semantic("KNOWN_BAD_CANARY_SURVIVED", itemPath+".counterexample", "counterexample outcome requires a retained minimized counterexample")
+			} else {
+				validateOutcomeCounterexample(backend, outcome, spec, itemPath, collector)
 			}
 		} else if outcome.Counterexample != nil {
 			collector.semantic("SEMANTIC_INCONSISTENCY", itemPath+".counterexample", "only COUNTEREXAMPLE permits a counterexample object")
 		}
+	}
+}
+
+func validateOutcomeCounterexample(backend *backend, outcome outcome, spec backendSpec, path string, collector *findingCollector) {
+	counterexample := outcome.Counterexample
+	if counterexample.Reason == "" || counterexample.Input == "" || counterexample.TargetSymbol == "" || len(counterexample.Steps) == 0 {
+		collector.semantic("COUNTEREXAMPLE_INVALID", path+".counterexample", "outcome counterexample requires canonical input, reason, exact target, and minimized steps")
+		return
+	}
+	artifactBound := false
+	for _, ref := range outcome.ArtifactRefs {
+		artifactBound = artifactBound || ref == counterexample.Artifact
+	}
+	if !artifactBound {
+		collector.semantic("COUNTEREXAMPLE_INVALID", path+".counterexample.artifact", "counterexample artifact must be one of the outcome's independently reopenable artifacts")
+	}
+	tuple := struct {
+		BackendID  string          `json:"backend_id"`
+		Obligation string          `json:"obligation_id"`
+		Input      string          `json:"input"`
+		Bounds     json.RawMessage `json:"bounds"`
+		Reason     string          `json:"reason"`
+		Target     string          `json:"target"`
+		Steps      []string        `json:"steps"`
+	}{backend.BackendID, outcome.ObligationID, counterexample.Input, backend.Bounds, counterexample.Reason, counterexample.TargetSymbol, counterexample.Steps}
+	data, err := vendorprotocol.CanonicalJSON(tuple)
+	if err != nil {
+		collector.semantic("COUNTEREXAMPLE_INVALID", path+".counterexample", err.Error())
+		return
+	}
+	expectedID := "counterexample." + strings.TrimPrefix(vendorprotocol.DigestBytes(data), "sha256:")[:16]
+	if counterexample.CounterexampleID != expectedID {
+		collector.semantic("REPLAY_MISMATCH", path+".counterexample.counterexample_id", "outcome counterexample identity does not bind backend, obligation, canonical input, bounds, target, reason, and steps")
+	}
+	if !counterexampleTargetAllowed(backend.Method, counterexample.TargetSymbol) {
+		collector.semantic("MISSING_TARGET", path+".counterexample.target_symbol", "counterexample does not name the exact backend subject")
+	}
+	_ = spec
+}
+
+func counterexampleTargetAllowed(method, target string) bool {
+	switch method {
+	case "FINITE_EXHAUSTIVE_PROTOTYPE", "KANI_BOUNDED_MODEL_CHECKING":
+		return target == "websocket_core::frame::mask::apply_mask_in_place" || target == "websocket_core::frame::decode::FrameHeaderDecoder::decode_header"
+	case "LOOM_SYSTEMATIC_SCHEDULE_EXPLORATION":
+		return target == "websocket_driver::owner::ConnectionOwner::step"
+	case "TLC_EXPLICIT_STATE_MODEL_CHECKING":
+		return target == "ConnectionModel"
+	default:
+		return false
 	}
 }
 
@@ -299,6 +422,9 @@ func validateUnavailableBackend(backend *backend, path string, collector *findin
 	}
 	if !sbxExecutionEmpty(backend.SBXExecution) {
 		collector.semantic("UNAVAILABLE_REPRESENTED_AS_SUCCESS", path+".sbx_execution", "unavailable backend must not invent an sbx execution")
+	}
+	if len(backend.ArtifactBindings) != 0 {
+		collector.semantic("UNAVAILABLE_REPRESENTED_AS_SUCCESS", path+".artifact_bindings", "unavailable backend cannot carry execution evidence bindings")
 	}
 	for _, canary := range append(append([]canary{}, backend.KnownGoodCanaries...), backend.KnownBadCanaries...) {
 		if canary.ObservedOutcome != "NOT_EXECUTED" || canary.Output != nil || canary.Counterexample != nil {
@@ -329,7 +455,7 @@ func validateUnavailableBackend(backend *backend, path string, collector *findin
 	}
 }
 
-func validateExecutedBackend(targets *proofTargets, qualification *backendQualification, backend *backend, spec backendSpec, path string, collector *findingCollector) {
+func validateExecutedBackend(snap *snapshot, targets *proofTargets, qualification *backendQualification, backend *backend, spec backendSpec, path string, collector *findingCollector) {
 	if backend.ClaimScope != spec.ExecutedScope {
 		reason := "INFLATED_CLAIM"
 		if backend.Method == "TLC_EXPLICIT_STATE_MODEL_CHECKING" && backend.ClaimScope == "FUTURE_PRODUCTION_REFINEMENT" {
@@ -337,9 +463,7 @@ func validateExecutedBackend(targets *proofTargets, qualification *backendQualif
 		}
 		collector.semantic(reason, path+".claim_scope", "backend claim exceeds or differs from its exact method ceiling")
 	}
-	if !backend.AvailabilityProbe.Executed || backend.AvailabilityProbe.Receipt == nil || backend.Tool.Version == nil || backend.Tool.BinarySHA256 == nil || backend.Tool.ExecutablePromotion == nil || sbxExecutionEmpty(backend.SBXExecution) {
-		collector.semantic("MISSING_REQUIRED_ARTIFACT", path, "executed backend requires probe, promoted tool identity, and complete sbx execution binding")
-	}
+	validateExecutedBindings(snap, qualification, backend, path, collector)
 	if backend.Method == "KANI_BOUNDED_MODEL_CHECKING" {
 		for _, target := range targets.Targets {
 			if target.LinkageState != "RESOLVED_PRODUCTION_SYMBOL" {
@@ -358,20 +482,111 @@ func validateExecutedBackend(targets *proofTargets, qualification *backendQualif
 			collector.semantic("KNOWN_BAD_CANARY_SURVIVED", path+".known_bad_canaries", "executed backend must kill every seeded bad canary with a reproducible counterexample")
 		}
 	}
+	expectedPassOutcome := map[string]string{
+		"FINITE_EXHAUSTIVE_PROTOTYPE":          "BOUNDED_CHECK_PASSED",
+		"KANI_BOUNDED_MODEL_CHECKING":          "BOUNDED_CHECK_PASSED",
+		"LOOM_SYSTEMATIC_SCHEDULE_EXPLORATION": "SYSTEMATIC_EXPLORATION_PASSED",
+		"TLC_EXPLICIT_STATE_MODEL_CHECKING":    "MODEL_CHECK_PASSED",
+	}[backend.Method]
+	counterexampleCount := 0
 	for _, outcome := range backend.Outcomes {
+		if outcome.RawOutcome == "COUNTEREXAMPLE" {
+			counterexampleCount++
+		}
 		if outcome.RawOutcome == "BACKEND_UNAVAILABLE" || outcome.RawOutcome == "UNSUPPORTED_CONSTRUCT" || outcome.RawOutcome == "DISCONNECTED" {
 			collector.semantic("UNAVAILABLE_REPRESENTED_AS_SUCCESS", path+".outcomes", "non-satisfying outcome cannot appear under executed success")
+		}
+		if backend.ExecutionState == "EXECUTED_PASS" && outcome.RawOutcome != expectedPassOutcome {
+			collector.semantic("COUNTEREXAMPLE_STATE_MISMATCH", path+".outcomes", "EXECUTED_PASS requires every obligation to retain the method-specific passing outcome")
 		}
 		if outcome.ClaimScope != backend.ClaimScope && outcome.RawOutcome != "COUNTEREXAMPLE" {
 			collector.semantic("INFLATED_CLAIM", path+".outcomes", "outcome scope differs from backend method ceiling")
 		}
 	}
+	if backend.ExecutionState == "EXECUTED_COUNTEREXAMPLE" && counterexampleCount == 0 {
+		collector.semantic("COUNTEREXAMPLE_STATE_MISMATCH", path+".outcomes", "EXECUTED_COUNTEREXAMPLE requires at least one typed counterexample outcome")
+	}
 	_ = qualification
 }
 
-func validateReplayIdentity(qualification *backendQualification, backend *backend, mode, path string, collector *findingCollector) {
+func validateExecutedBindings(snap *snapshot, qualification *backendQualification, backend *backend, path string, collector *findingCollector) {
+	execution := backend.SBXExecution
+	complete := backend.AvailabilityProbe.Executed && backend.AvailabilityProbe.Receipt != nil && backend.AvailabilityProbe.ExitCode != nil && *backend.AvailabilityProbe.ExitCode == 0 &&
+		backend.Tool.Version != nil && backend.Tool.BinarySHA256 != nil && backend.Tool.ExecutablePromotion != nil &&
+		execution.CLIVersion != nil && execution.DaemonVersion != nil && execution.TemplateReference != nil && execution.SandboxPolicyDigest != nil &&
+		execution.RequestDigest != nil && execution.ReceiptDigest != nil && execution.InputRootDigest != nil && execution.OutputRootDigest != nil &&
+		execution.CleanupState != nil && execution.ClassificationState != nil && execution.Profile != nil && execution.CapabilityProbe != nil &&
+		execution.Request != nil && execution.Receipt != nil && execution.InputManifest != nil && execution.OutputManifest != nil &&
+		execution.CleanupReceipt != nil && execution.ClassifierProjection != nil
+	if !complete {
+		collector.semantic("MISSING_REQUIRED_ARTIFACT", path, "executed backend requires a complete typed probe, profile, request, receipt, manifests, cleanup, classification, and promoted tool binding")
+		return
+	}
+	foundation := qualification.BorrowedSandboxFoundation
+	if *execution.CLIVersion != foundation.CLIVersion || *execution.DaemonVersion != foundation.DaemonVersion ||
+		*execution.TemplateReference != foundation.TemplateReference || *execution.SandboxPolicyDigest != foundation.SandboxPolicyDigest ||
+		*execution.CleanupState != "CLEAN" || *execution.ClassificationState != "PUBLIC_DERIVED" ||
+		*execution.RequestDigest != execution.Request.SHA256 || *execution.ReceiptDigest != execution.Receipt.SHA256 ||
+		*execution.InputRootDigest != execution.InputManifest.SHA256 || *execution.OutputRootDigest != execution.OutputManifest.SHA256 ||
+		*backend.AvailabilityProbe.Receipt != *execution.CapabilityProbe {
+		collector.semantic("EXECUTION_RECEIPT_INVALID", path+".sbx_execution", "executed binding values do not reconcile to the borrowed profile and typed artifact references")
+	}
+	bindings := map[string][]evidenceBinding{}
+	for index, binding := range backend.ArtifactBindings {
+		if binding.RunID == "" {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", fmt.Sprintf("%s.artifact_bindings[%d]", path, index), "evidence binding requires a run_id")
+		}
+		bindings[binding.Category] = append(bindings[binding.Category], binding)
+	}
+	for _, category := range requiredBackendArtifacts {
+		if len(bindings[category]) == 0 {
+			collector.semantic("MISSING_REQUIRED_ARTIFACT", path+".artifact_bindings", "missing typed category binding: "+category)
+		}
+	}
+	expectedRefs := map[string]artifactRef{
+		"SBX_REQUEST":           *execution.Request,
+		"SBX_RECEIPT":           *execution.Receipt,
+		"TOOL_IDENTITY":         *backend.Tool.ExecutablePromotion,
+		"INPUT_MANIFEST":        *execution.InputManifest,
+		"OUTPUT_MANIFEST":       *execution.OutputManifest,
+		"CLEANUP_RECEIPT":       *execution.CleanupReceipt,
+		"CLASSIFIER_PROJECTION": *execution.ClassifierProjection,
+	}
+	for category, ref := range expectedRefs {
+		matched := false
+		for _, binding := range bindings[category] {
+			matched = matched || binding.Artifact == ref
+		}
+		if !matched {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".artifact_bindings", category+" does not bind its typed execution artifact")
+		}
+	}
+	data, err := snap.read(execution.Receipt.Path, maxJSONBytes)
+	if err != nil {
+		collector.semantic("MISSING_REQUIRED_ARTIFACT", path+".sbx_execution.receipt", err.Error())
+		return
+	}
+	var receipt executionReceiptDocument
+	if err := decodeStrict(data, &receipt); err != nil {
+		collector.semantic("EXECUTION_RECEIPT_INVALID", path+".sbx_execution.receipt", "execution receipt is not a strict typed document: "+err.Error())
+		return
+	}
+	if receipt.SchemaVersion != "1.0.0" || receipt.EntityType != "FormalExecutionReceipt" ||
+		(receipt.FixtureKind != "SYNTHETIC_NON_CLAIM" && receipt.FixtureKind != "PUBLIC_EXECUTION_RECEIPT") ||
+		receipt.BackendID != backend.BackendID || receipt.Method != backend.Method || receipt.RunID == "" ||
+		receipt.ToolName != backend.Tool.Name || backend.Tool.Version == nil || receipt.ToolVersion != *backend.Tool.Version ||
+		backend.Tool.BinarySHA256 == nil || receipt.ToolBinarySHA256 != *backend.Tool.BinarySHA256 || !receipt.ProbeSucceeded || receipt.ProbeExitCode != 0 ||
+		receipt.CLIVersion != foundation.CLIVersion || receipt.DaemonVersion != foundation.DaemonVersion ||
+		receipt.TemplateReference != foundation.TemplateReference || receipt.SandboxPolicyDigest != foundation.SandboxPolicyDigest ||
+		receipt.CleanupState != "CLEAN" || receipt.ClassificationState != "PUBLIC_DERIVED" ||
+		!sameSet(receipt.Categories, requiredBackendArtifacts) || receipt.Assurance != assuranceCeiling || receipt.IndependentReviewClaimed || receipt.Production {
+		collector.semantic("EXECUTION_RECEIPT_INVALID", path+".sbx_execution.receipt", "typed execution receipt does not establish the exact successful tool/profile/probe/cleanup/classification tuple")
+	}
+}
+
+func validateReplayIdentity(snap *snapshot, qualification *backendQualification, backend *backend, mode, path string, collector *findingCollector) {
 	if backend.ExecutionState == "UNAVAILABLE_BACKEND_BLOCKED" {
-		if backend.Replay.ReplayID != nil || len(backend.Replay.Argv) != 0 || len(backend.Replay.Environment) != 0 || backend.Replay.Seed != nil || backend.Replay.ExpectedExitCode != nil || backend.Replay.SemanticOutputDigest != nil || backend.Replay.RepeatCount != 0 || backend.Replay.ReconciledIdentically {
+		if backend.Replay.ReplayID != nil || len(backend.Replay.Argv) != 0 || len(backend.Replay.Environment) != 0 || backend.Replay.Seed != nil || backend.Replay.ExpectedExitCode != nil || backend.Replay.SemanticOutputDigest != nil || backend.Replay.RepeatCount != 0 || backend.Replay.ReconciledIdentically || len(backend.Replay.Runs) != 0 {
 			collector.semantic("REPLAY_MISMATCH", path+".replay", "unavailable backend cannot invent a replay identity or semantic output")
 		}
 		return
@@ -390,18 +605,61 @@ func validateReplayIdentity(qualification *backendQualification, backend *backen
 	if err != nil || *backend.Replay.ReplayID != expected {
 		collector.semantic("REPLAY_MISMATCH", path+".replay.replay_id", "replay identity does not bind the canonical backend tuple")
 	}
-	semanticBound := false
-	for _, outcome := range backend.Outcomes {
-		for _, ref := range outcome.ArtifactRefs {
-			if ref.SHA256 == *backend.Replay.SemanticOutputDigest {
-				semanticBound = true
-			}
+	validateReplayRuns(snap, qualification, backend, path, collector)
+	_ = mode
+}
+
+func validateReplayRuns(snap *snapshot, qualification *backendQualification, backend *backend, path string, collector *findingCollector) {
+	if backend.Replay.RepeatCount != len(backend.Replay.Runs) || len(backend.Replay.Runs) == 0 {
+		collector.semantic("REPLAY_MISMATCH", path+".replay.runs", "repeat_count must derive from independently retained replay runs")
+		return
+	}
+	seenRunIDs := map[string]bool{}
+	seenReceipts := map[string]bool{}
+	seenOutputs := map[string]bool{}
+	for index, run := range backend.Replay.Runs {
+		runPath := fmt.Sprintf("%s.replay.runs[%d]", path, index)
+		if seenRunIDs[run.RunID] || seenReceipts[run.Receipt.Path] || seenOutputs[run.NormalizedOutput.Path] {
+			collector.semantic("REPLAY_MISMATCH", runPath, "each replay needs a unique run_id, receipt path, and normalized-output path")
+		}
+		seenRunIDs[run.RunID] = true
+		seenReceipts[run.Receipt.Path] = true
+		seenOutputs[run.NormalizedOutput.Path] = true
+		if backend.Replay.SemanticOutputDigest == nil || run.SemanticOutputDigest != *backend.Replay.SemanticOutputDigest ||
+			run.NormalizedOutput.SHA256 != run.SemanticOutputDigest || !equalStrings(run.ObligationIDs, backend.ObligationIDs) {
+			collector.semantic("REPLAY_MISMATCH", runPath, "replay run must bind the identical normalized output digest and exact obligation inventory")
+		}
+		data, err := snap.read(run.Receipt.Path, maxJSONBytes)
+		if err != nil {
+			collector.semantic("MISSING_REQUIRED_ARTIFACT", runPath+".receipt", err.Error())
+			continue
+		}
+		var receipt replayReceiptDocument
+		if err := decodeStrict(data, &receipt); err != nil {
+			collector.semantic("REPLAY_MISMATCH", runPath+".receipt", "replay receipt is not a strict typed document: "+err.Error())
+			continue
+		}
+		if receipt.SchemaVersion != "1.0.0" || receipt.EntityType != "FormalReplayReceipt" ||
+			(receipt.FixtureKind != "SYNTHETIC_NON_CLAIM" && receipt.FixtureKind != "PUBLIC_EXECUTION_RECEIPT") ||
+			receipt.BackendID != backend.BackendID || receipt.RunID != run.RunID || backend.Replay.ReplayID == nil || receipt.ReplayID != *backend.Replay.ReplayID ||
+			backend.Replay.ExpectedExitCode == nil || receipt.ExitCode != *backend.Replay.ExpectedExitCode ||
+			!equalStrings(receipt.ObligationIDs, backend.ObligationIDs) || receipt.SemanticOutputDigest != run.SemanticOutputDigest ||
+			receipt.NormalizedOutput != run.NormalizedOutput || receipt.Assurance != assuranceCeiling || receipt.IndependentReviewClaimed || receipt.Production {
+			collector.semantic("REPLAY_MISMATCH", runPath+".receipt", "typed replay receipt does not reconcile run identity, exit, obligations, normalized output, and assurance")
 		}
 	}
-	if !semanticBound {
-		collector.semantic("REPLAY_MISMATCH", path+".replay.semantic_output_digest", "semantic output digest does not reopen through a retained outcome artifact")
+	for _, outcome := range backend.Outcomes {
+		bound := false
+		for _, ref := range outcome.ArtifactRefs {
+			for _, run := range backend.Replay.Runs {
+				bound = bound || ref == run.NormalizedOutput
+			}
+		}
+		if !bound {
+			collector.semantic("REPLAY_MISMATCH", path+".outcomes", "every executed outcome must reopen through a retained normalized replay output")
+		}
 	}
-	_ = mode
+	_ = qualification
 }
 
 func replayDigest(qualification *backendQualification, backend *backend) (string, error) {
@@ -525,7 +783,7 @@ func validateAggregateState(qualification *backendQualification, collector *find
 	passes := map[string]bool{}
 	blocked := false
 	for _, backend := range qualification.Backends {
-		if backend.ExecutionState == "UNAVAILABLE_BACKEND_BLOCKED" || backend.ExecutionState == "EXECUTED_COUNTEREXAMPLE" {
+		if backend.ExecutionState == "UNAVAILABLE_BACKEND_BLOCKED" || backend.ExecutionState == "EXECUTED_COUNTEREXAMPLE" || !backendOutcomesPass(backend) {
 			blocked = true
 		} else {
 			passes[backend.ClaimScope] = true
@@ -549,8 +807,26 @@ func validateAggregateState(qualification *backendQualification, collector *find
 	}
 }
 
+func backendOutcomesPass(backend backend) bool {
+	wanted := map[string]string{
+		"FINITE_EXHAUSTIVE_PROTOTYPE":          "BOUNDED_CHECK_PASSED",
+		"KANI_BOUNDED_MODEL_CHECKING":          "BOUNDED_CHECK_PASSED",
+		"LOOM_SYSTEMATIC_SCHEDULE_EXPLORATION": "SYSTEMATIC_EXPLORATION_PASSED",
+		"TLC_EXPLICIT_STATE_MODEL_CHECKING":    "MODEL_CHECK_PASSED",
+	}[backend.Method]
+	if backend.ExecutionState != "EXECUTED_PASS" || len(backend.Outcomes) == 0 {
+		return false
+	}
+	for _, outcome := range backend.Outcomes {
+		if outcome.RawOutcome != wanted || outcome.Counterexample != nil || outcome.ClaimScope != backend.ClaimScope {
+			return false
+		}
+	}
+	return true
+}
+
 func sbxExecutionEmpty(value sbxExecution) bool {
-	return value.CLIVersion == nil && value.DaemonVersion == nil && value.TemplateReference == nil && value.SandboxPolicyDigest == nil && value.RequestDigest == nil && value.ReceiptDigest == nil && value.InputRootDigest == nil && value.OutputRootDigest == nil && value.CleanupState == nil && value.ClassificationState == nil
+	return value.CLIVersion == nil && value.DaemonVersion == nil && value.TemplateReference == nil && value.SandboxPolicyDigest == nil && value.RequestDigest == nil && value.ReceiptDigest == nil && value.InputRootDigest == nil && value.OutputRootDigest == nil && value.CleanupState == nil && value.ClassificationState == nil && value.Profile == nil && value.CapabilityProbe == nil && value.Request == nil && value.Receipt == nil && value.InputManifest == nil && value.OutputManifest == nil && value.CleanupReceipt == nil && value.ClassifierProjection == nil
 }
 
 func equalInts(left, right []int) bool {

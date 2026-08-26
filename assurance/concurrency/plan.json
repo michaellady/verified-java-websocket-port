@@ -111,8 +111,8 @@
   ],
   "properties": [
     {
-      "property_id": "concurrency.accepted-at-most-once",
-      "statement": "Every accepted command is applied at most once."
+      "property_id": "concurrency.accepted-eventual-exactly-once",
+      "statement": "Every accepted command is eventually disposed exactly once as APPLIED or as one typed terminal rejection; it is never lost or disposed twice."
     },
     {
       "property_id": "concurrency.bounded-counterexample",
@@ -162,14 +162,14 @@
     },
     {
       "defect_id": "lock-sharing",
-      "property_id": "concurrency.accepted-at-most-once",
+      "property_id": "concurrency.accepted-eventual-exactly-once",
       "mutation": "permit protocol state mutation outside the owner",
       "expected_outcome": "COUNTEREXAMPLE"
     },
     {
       "defect_id": "lost-command",
-      "property_id": "concurrency.accepted-at-most-once",
-      "mutation": "drop an accepted command before owner application",
+      "property_id": "concurrency.accepted-eventual-exactly-once",
+      "mutation": "drop an accepted command without an APPLIED or typed terminal-rejection disposition",
       "expected_outcome": "COUNTEREXAMPLE"
     },
     {

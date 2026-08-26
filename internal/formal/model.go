@@ -169,6 +169,7 @@ type backend struct {
 	UnsupportedConstructs []string          `json:"unsupported_constructs"`
 	TrustedBase           []string          `json:"trusted_base"`
 	RequiredArtifacts     []string          `json:"required_artifacts"`
+	ArtifactBindings      []evidenceBinding `json:"artifact_bindings"`
 	ExecutionState        string            `json:"execution_state"`
 	ClaimScope            string            `json:"claim_scope"`
 	Outcomes              []outcome         `json:"outcomes"`
@@ -193,16 +194,30 @@ type availabilityProbe struct {
 }
 
 type sbxExecution struct {
-	CLIVersion          *string `json:"cli_version"`
-	DaemonVersion       *string `json:"daemon_version"`
-	TemplateReference   *string `json:"template_reference"`
-	SandboxPolicyDigest *string `json:"sandbox_policy_digest"`
-	RequestDigest       *string `json:"request_digest"`
-	ReceiptDigest       *string `json:"receipt_digest"`
-	InputRootDigest     *string `json:"input_root_digest"`
-	OutputRootDigest    *string `json:"output_root_digest"`
-	CleanupState        *string `json:"cleanup_state"`
-	ClassificationState *string `json:"classification_state"`
+	CLIVersion           *string      `json:"cli_version"`
+	DaemonVersion        *string      `json:"daemon_version"`
+	TemplateReference    *string      `json:"template_reference"`
+	SandboxPolicyDigest  *string      `json:"sandbox_policy_digest"`
+	RequestDigest        *string      `json:"request_digest"`
+	ReceiptDigest        *string      `json:"receipt_digest"`
+	InputRootDigest      *string      `json:"input_root_digest"`
+	OutputRootDigest     *string      `json:"output_root_digest"`
+	CleanupState         *string      `json:"cleanup_state"`
+	ClassificationState  *string      `json:"classification_state"`
+	Profile              *artifactRef `json:"profile"`
+	CapabilityProbe      *artifactRef `json:"capability_probe"`
+	Request              *artifactRef `json:"request"`
+	Receipt              *artifactRef `json:"receipt"`
+	InputManifest        *artifactRef `json:"input_manifest"`
+	OutputManifest       *artifactRef `json:"output_manifest"`
+	CleanupReceipt       *artifactRef `json:"cleanup_receipt"`
+	ClassifierProjection *artifactRef `json:"classifier_projection"`
+}
+
+type evidenceBinding struct {
+	Category string      `json:"category"`
+	RunID    string      `json:"run_id"`
+	Artifact artifactRef `json:"artifact"`
 }
 
 type canary struct {
@@ -232,15 +247,85 @@ type outcome struct {
 }
 
 type replay struct {
-	ReplayID              *string  `json:"replay_id"`
-	Argv                  []string `json:"argv"`
-	Environment           []string `json:"environment"`
-	WorkingDirectory      string   `json:"working_directory"`
-	Seed                  *string  `json:"seed"`
-	ExpectedExitCode      *int     `json:"expected_exit_code"`
-	SemanticOutputDigest  *string  `json:"semantic_output_digest"`
-	RepeatCount           int      `json:"repeat_count"`
-	ReconciledIdentically bool     `json:"reconciled_identically"`
+	ReplayID              *string     `json:"replay_id"`
+	Argv                  []string    `json:"argv"`
+	Environment           []string    `json:"environment"`
+	WorkingDirectory      string      `json:"working_directory"`
+	Seed                  *string     `json:"seed"`
+	ExpectedExitCode      *int        `json:"expected_exit_code"`
+	SemanticOutputDigest  *string     `json:"semantic_output_digest"`
+	RepeatCount           int         `json:"repeat_count"`
+	ReconciledIdentically bool        `json:"reconciled_identically"`
+	Runs                  []replayRun `json:"runs"`
+}
+
+type replayRun struct {
+	RunID                string      `json:"run_id"`
+	Receipt              artifactRef `json:"receipt"`
+	NormalizedOutput     artifactRef `json:"normalized_output"`
+	SemanticOutputDigest string      `json:"semantic_output_digest"`
+	ObligationIDs        []string    `json:"obligation_ids"`
+}
+
+type executionReceiptDocument struct {
+	SchemaVersion            string   `json:"schema_version"`
+	EntityType               string   `json:"entity_type"`
+	FixtureKind              string   `json:"fixture_kind"`
+	BackendID                string   `json:"backend_id"`
+	Method                   string   `json:"method"`
+	RunID                    string   `json:"run_id"`
+	ToolName                 string   `json:"tool_name"`
+	ToolVersion              string   `json:"tool_version"`
+	ToolBinarySHA256         string   `json:"tool_binary_sha256"`
+	ProbeSucceeded           bool     `json:"probe_succeeded"`
+	ProbeExitCode            int      `json:"probe_exit_code"`
+	CLIVersion               string   `json:"cli_version"`
+	DaemonVersion            string   `json:"daemon_version"`
+	TemplateReference        string   `json:"template_reference"`
+	SandboxPolicyDigest      string   `json:"sandbox_policy_digest"`
+	CleanupState             string   `json:"cleanup_state"`
+	ClassificationState      string   `json:"classification_state"`
+	Categories               []string `json:"categories"`
+	Assurance                string   `json:"assurance"`
+	IndependentReviewClaimed bool     `json:"independent_review_claimed"`
+	Production               bool     `json:"production"`
+}
+
+type replayReceiptDocument struct {
+	SchemaVersion            string      `json:"schema_version"`
+	EntityType               string      `json:"entity_type"`
+	FixtureKind              string      `json:"fixture_kind"`
+	BackendID                string      `json:"backend_id"`
+	RunID                    string      `json:"run_id"`
+	ReplayID                 string      `json:"replay_id"`
+	ExitCode                 int         `json:"exit_code"`
+	ObligationIDs            []string    `json:"obligation_ids"`
+	SemanticOutputDigest     string      `json:"semantic_output_digest"`
+	NormalizedOutput         artifactRef `json:"normalized_output"`
+	Assurance                string      `json:"assurance"`
+	IndependentReviewClaimed bool        `json:"independent_review_claimed"`
+	Production               bool        `json:"production"`
+}
+
+type linkageReceiptDocument struct {
+	SchemaVersion            string        `json:"schema_version"`
+	EntityType               string        `json:"entity_type"`
+	FixtureKind              string        `json:"fixture_kind"`
+	Method                   string        `json:"method"`
+	EntrySymbol              string        `json:"entry_symbol"`
+	TargetSymbol             string        `json:"target_symbol"`
+	TargetFile               string        `json:"target_file"`
+	TargetSourceSHA256       string        `json:"target_source_sha256"`
+	SourceTree               artifactRef   `json:"source_tree"`
+	Edges                    []linkageEdge `json:"edges"`
+	Assurance                string        `json:"assurance"`
+	IndependentReviewClaimed bool          `json:"independent_review_claimed"`
+	Production               bool          `json:"production"`
+}
+
+type linkageEdge struct {
+	From string `json:"from"`
+	To   string `json:"to"`
 }
 
 type concurrencyPlan struct {

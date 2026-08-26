@@ -309,8 +309,6 @@ func validateTargetLinkage(target *target, path string, collector *findingCollec
 		for _, call := range target.RequiredCallPaths {
 			if call.State != "LINKED" || call.LinkageArtifact == nil {
 				collector.semantic("DISCONNECTED_TARGET", path+".required_call_paths", "resolved production target requires three digest-bound linked consumers")
-			} else if !strings.Contains(call.LinkageArtifact.Path, "call-graph") && !strings.Contains(call.LinkageArtifact.Path, "instrumented-trace") {
-				collector.semantic("DISCONNECTED_TARGET", path+".required_call_paths", "linked consumer requires a compiler call-graph or instrumented-trace artifact")
 			}
 		}
 	case "DISCONNECTED":
@@ -362,8 +360,11 @@ func validateConcurrencyPlan(plan *concurrencyPlan, collector *findingCollector)
 	propertyIDs := make([]string, 0, len(plan.Properties))
 	for _, property := range plan.Properties {
 		propertyIDs = append(propertyIDs, property.PropertyID)
+		if property.PropertyID == "concurrency.accepted-eventual-exactly-once" && property.Statement != "Every accepted command is eventually disposed exactly once as APPLIED or as one typed terminal rejection; it is never lost or disposed twice." {
+			collector.semantic("CONCURRENCY_BOUND_DRIFT", "$.properties", "accepted-command property must state eventual exactly-once disposition")
+		}
 	}
-	wantedProperties := []string{"concurrency.accepted-at-most-once", "concurrency.bounded-counterexample", "concurrency.close-convergence", "concurrency.fifo-owner-order", "concurrency.no-post-terminal", "concurrency.no-write-bypass", "concurrency.queue-bounds", "concurrency.receiver-drop-typed", "concurrency.terminal-exactly-once"}
+	wantedProperties := []string{"concurrency.accepted-eventual-exactly-once", "concurrency.bounded-counterexample", "concurrency.close-convergence", "concurrency.fifo-owner-order", "concurrency.no-post-terminal", "concurrency.no-write-bypass", "concurrency.queue-bounds", "concurrency.receiver-drop-typed", "concurrency.terminal-exactly-once"}
 	if !equalStrings(propertyIDs, wantedProperties) {
 		collector.semantic("MISSING_TARGET", "$.properties", "the exact sorted concurrency property inventory is required")
 	}
@@ -372,6 +373,9 @@ func validateConcurrencyPlan(plan *concurrencyPlan, collector *findingCollector)
 		defectIDs = append(defectIDs, defect.DefectID)
 		if !contains(propertyIDs, defect.PropertyID) || defect.ExpectedOutcome != "COUNTEREXAMPLE" {
 			collector.semantic("KNOWN_BAD_CANARY_SURVIVED", "$.seeded_defects", "every seeded defect must link to a property and require a counterexample")
+		}
+		if defect.DefectID == "lost-command" && defect.Mutation != "drop an accepted command without an APPLIED or typed terminal-rejection disposition" {
+			collector.semantic("KNOWN_BAD_CANARY_SURVIVED", "$.seeded_defects", "lost-command must violate eventual exactly-once disposition")
 		}
 	}
 	if !equalStrings(defectIDs, []string{"close-race", "duplicate-delivery", "lock-sharing", "lost-command", "queue-bypass", "write-reorder"}) {
@@ -447,6 +451,26 @@ func validateDeclaredArtifacts(snap *snapshot, targets *proofTargets, qualificat
 		if backend.AvailabilityProbe.Receipt != nil {
 			refs = append(refs, *backend.AvailabilityProbe.Receipt)
 		}
+		for _, binding := range backend.ArtifactBindings {
+			refs = append(refs, binding.Artifact)
+		}
+		for _, ref := range []*artifactRef{
+			backend.SBXExecution.Profile,
+			backend.SBXExecution.CapabilityProbe,
+			backend.SBXExecution.Request,
+			backend.SBXExecution.Receipt,
+			backend.SBXExecution.InputManifest,
+			backend.SBXExecution.OutputManifest,
+			backend.SBXExecution.CleanupReceipt,
+			backend.SBXExecution.ClassifierProjection,
+		} {
+			if ref != nil {
+				refs = append(refs, *ref)
+			}
+		}
+		for _, run := range backend.Replay.Runs {
+			refs = append(refs, run.Receipt, run.NormalizedOutput)
+		}
 		for _, canary := range append(append([]canary{}, backend.KnownGoodCanaries...), backend.KnownBadCanaries...) {
 			refs = append(refs, canary.Input)
 			if canary.Output != nil {
@@ -486,6 +510,21 @@ func validateDeclaredArtifacts(snap *snapshot, targets *proofTargets, qualificat
 		if actual != ref.SHA256 {
 			collector.digest("DIGEST_SUBSTITUTION", ref.Path, fmt.Sprintf("declared %s, snapshotted %s", ref.SHA256, actual))
 		}
+	}
+}
+
+func verifyArtifactRef(snap *snapshot, ref artifactRef, path string, collector *findingCollector) {
+	if _, err := canonicalPath(ref.Path); err != nil {
+		collector.semantic("NONCANONICAL_PATH", path, err.Error())
+		return
+	}
+	data, err := snap.read(ref.Path, maxJSONBytes)
+	if err != nil {
+		collector.semantic("MISSING_REQUIRED_ARTIFACT", path, err.Error())
+		return
+	}
+	if actual := vendorprotocol.DigestBytes(data); actual != ref.SHA256 {
+		collector.digest("DIGEST_SUBSTITUTION", path, fmt.Sprintf("declared %s, snapshotted %s", ref.SHA256, actual))
 	}
 }
 
