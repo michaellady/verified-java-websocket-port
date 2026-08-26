@@ -116,7 +116,14 @@ jobs:
         # flag, apply FAILS CLOSED on the instance precondition — that is
         # the intended preregistration gate, and the always() destroy
         # below still runs.
-        run: go run ./cmd/benchops apply --chdir terraform/benchmark --pr "${PR_NUMBER}" --instance-type "${{ inputs.instance_type }}" --ami-id "${{ inputs.ami_id }}" --allow-unpinned-ami "${{ inputs.allow_unpinned_ami }}"
+        # Inputs pass through env indirection, never direct ${{ }} shell
+        # interpolation: a $(...)-shaped input must reach benchops as inert
+        # argv text, not undergo substitution with AWS credentials live.
+        env:
+          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type }}
+          BENCH_AMI_ID: ${{ inputs.ami_id }}
+          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami }}
+        run: go run ./cmd/benchops apply --chdir terraform/benchmark --pr "${PR_NUMBER}" --instance-type "${BENCH_INSTANCE_TYPE}" --ami-id "${BENCH_AMI_ID}" --allow-unpinned-ami "${BENCH_ALLOW_UNPINNED_AMI}"
 
       - name: Capture stack outputs
         id: stack
@@ -185,7 +192,11 @@ jobs:
         if: always() && steps.workspace.outcome == 'success'
         # Conditional -var construction and the 3-attempt retry loop live
         # in cmd/benchops (thin invocation).
-        run: go run ./cmd/benchops destroy --chdir terraform/benchmark --pr "${PR_NUMBER}" --workspace "${BENCH_WORKSPACE}" --instance-type "${{ inputs.instance_type }}" --ami-id "${{ inputs.ami_id }}" --allow-unpinned-ami "${{ inputs.allow_unpinned_ami }}" --attempts 3
+        env:
+          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type }}
+          BENCH_AMI_ID: ${{ inputs.ami_id }}
+          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami }}
+        run: go run ./cmd/benchops destroy --chdir terraform/benchmark --pr "${PR_NUMBER}" --workspace "${BENCH_WORKSPACE}" --instance-type "${BENCH_INSTANCE_TYPE}" --ami-id "${BENCH_AMI_ID}" --allow-unpinned-ami "${BENCH_ALLOW_UNPINNED_AMI}" --attempts 3
 
       - name: Delete bench workspace (always)
         if: always() && steps.workspace.outcome == 'success'
