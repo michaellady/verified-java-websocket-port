@@ -36,7 +36,7 @@
   "independent_review_claimed": false,
   "live_gates": {
     "empty_rust_target_fails": {
-      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration",
+      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration \u2014 satisfied by owner-authorized sbx attempt us007-sbx-output-live-0124 (receipt in the protected attempt dir)",
       "requirement": "an empty or stub Rust target fails the behavior corpus",
       "result": {
         "executed": 258,
@@ -52,7 +52,7 @@
       "status": "PASS"
     },
     "execution_rerun_reconciliation": {
-      "constraint": "requires the sbx candidate executions above; the java-oracle half already executed twice on 2026-08-26 and reconciled byte-identically across all three behavior tiers (zero flakes), but the empty-Rust, planted-mutant, and sealed-network sbx executions remain outstanding, so full-calibration rerun reconciliation cannot yet be claimed",
+      "constraint": "requires both the live java-oracle executions and the sbx candidate executions to reconcile; satisfied by the recorded oracle runs (byte-identical per tier) and sbx attempt us007-sbx-output-live-0124 (21/21 candidate transcript pairs byte-identical; reconciliation by digest equality, no repeat held-out evaluation of identical bytes)",
       "requirement": "two live calibration executions reconcile exactly with zero flakes",
       "result": {
         "executed": 21,
@@ -96,7 +96,7 @@
       "status": "PASS"
     },
     "planted_java_rust_mutants_killed": {
-      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration",
+      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration \u2014 satisfied by owner-authorized sbx attempt us007-sbx-output-live-0124 (receipt in the protected attempt dir)",
       "requirement": "planted Java and Rust binary mutants are killed with nonzero inventories",
       "result": {
         "executed": 1032,
@@ -121,7 +121,7 @@
       "status": "PASS"
     },
     "sealed_network_denial": {
-      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration",
+      "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration \u2014 satisfied by owner-authorized sbx attempt us007-sbx-output-live-0124 (receipt in the protected attempt dir)",
       "requirement": "sealed-tier execution observes the default-deny network policy live",
       "result": {
         "executed": 3,
