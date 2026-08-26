@@ -494,27 +494,85 @@ func TestDeriveFailsClosedOnUnsupportedConstructs(t *testing.T) {
 }
 
 // Java validates translate-time text UTF-8 with the Hoehrmann DFA, which
-// accepts a dangling incomplete tail (the strict decoder only rejects it
-// later, after the frame is recorded). Content-invalid UTF-8 is rejected at
-// translate; truncated tails are outside the generated space and must fail
-// closed instead of being mis-modeled.
-func TestDeriveTruncatedUTF8TailIsUnsupported(t *testing.T) {
+// accepts a dangling incomplete tail; the strict REPORT decoder then rejects
+// it at process time, AFTER the frame is recorded. Content-invalid UTF-8 is
+// rejected at translate with nothing recorded. Both are modeled exactly.
+func TestDeriveTruncatedUTF8TailIsProcessStage1007(t *testing.T) {
 	mask := [4]byte{1, 1, 2, 2}
-	// "ab" + first byte of a two-byte sequence: valid DFA prefix, invalid Go UTF-8.
+	// "ab" + first byte of a two-byte sequence: valid DFA prefix, invalid
+	// for the strict decoder.
 	wire := EncodeFrame(WireFrame{Fin: true, Opcode: OpcodeText,
 		Payload: []byte{'a', 'b', 0xc3}}, &mask)
 	sc := ScenarioCore{Role: "server", InitialState: "open", Limits: defaultLimits(),
 		Steps: []Step{{Kind: "bytes", DataBase64: b64(wire)}}}
-	if _, err := DeriveExpected(sc); err == nil {
-		t.Fatal("truncated UTF-8 tail must be rejected as unsupported, not derived")
+	expected := mustDerive(t, sc)
+	if expected.Outcome != "error" || expected.Error.Code != "JAVA_INVALID_DATA" ||
+		*expected.Error.CloseCode != 1007 {
+		t.Fatalf("truncated tail = %+v", expected.Error)
 	}
-	// Content-invalid UTF-8 (DFA-rejected) stays a translate-stage 1007.
+	// Process-stage: the frame was recorded and the whole chunk consumed.
+	wantCounts(t, expected, Counts{ConsumedBytes: 9, Frames: 1, InputBytes: 9})
+
+	// Content-invalid UTF-8 (DFA-rejected) stays a translate-stage 1007
+	// with nothing recorded.
 	wire = EncodeFrame(WireFrame{Fin: true, Opcode: OpcodeText,
 		Payload: []byte{'a', 0xc0, 0x80}}, &mask)
 	sc.Steps = []Step{{Kind: "bytes", DataBase64: b64(wire)}}
-	expected := mustDerive(t, sc)
+	expected = mustDerive(t, sc)
 	if expected.Outcome != "error" || *expected.Error.CloseCode != 1007 ||
 		expected.Counts.Frames != 0 {
 		t.Fatalf("DFA-rejected UTF-8 = %+v counts=%+v", expected.Error, expected.Counts)
+	}
+}
+
+// A multi-byte character split across fragments is legal: the truncated-tail
+// start passes the DFA, and the assembled message validates strictly.
+func TestDeriveFragmentSplitMidRuneAssembles(t *testing.T) {
+	m1 := [4]byte{1, 2, 3, 4}
+	m2 := [4]byte{5, 6, 7, 8}
+	// U+00E9 is 0xc3 0xa9; split between the two bytes.
+	start := EncodeFrame(WireFrame{Fin: false, Opcode: OpcodeText,
+		Payload: []byte{'a', 0xc3}}, &m1)
+	fin := EncodeFrame(WireFrame{Fin: true, Opcode: OpcodeContinuous,
+		Payload: []byte{0xa9, 'b'}}, &m2)
+	sc := ScenarioCore{Role: "server", InitialState: "open", Limits: defaultLimits(),
+		Steps: []Step{
+			{Kind: "bytes", DataBase64: b64(start)},
+			{Kind: "bytes", DataBase64: b64(fin)},
+		}}
+	expected := mustDerive(t, sc)
+	if expected.Outcome != "ok" {
+		t.Fatalf("mid-rune split = %+v", expected.Error)
+	}
+	var text string
+	for _, event := range expected.Events {
+		if event["type"] == "text" {
+			text = event["text"].(string)
+		}
+	}
+	if text != "aéb" {
+		t.Fatalf("assembled text = %q", text)
+	}
+}
+
+// send_fragment with DFA-rejected text content is JAVA_NOT_SENDABLE
+// (TextFrame.isValid -> NotSendable -> IllegalArgumentException caught by
+// the adapter); a truncated-tail start is sendable.
+func TestDeriveSendFragmentUTF8Semantics(t *testing.T) {
+	sc := ScenarioCore{Role: "client", InitialState: "open", Limits: defaultLimits(),
+		Steps: []Step{{Kind: "action", Action: "send_fragment", Opcode: "text",
+			Fin: false, DataBase64: b64([]byte{0xc0, 0x80})}}}
+	expected := mustDerive(t, sc)
+	if expected.Outcome != "error" || expected.Error.Code != "JAVA_NOT_SENDABLE" ||
+		expected.Error.CloseCode != nil {
+		t.Fatalf("DFA-rejected fragment start = %+v", expected.Error)
+	}
+	wantCounts(t, expected, Counts{Actions: 1})
+
+	sc.Steps = []Step{{Kind: "action", Action: "send_fragment", Opcode: "text",
+		Fin: false, DataBase64: b64([]byte{'a', 0xc3})}}
+	expected = mustDerive(t, sc)
+	if expected.Outcome != "ok" || len(expected.Frames) != 1 {
+		t.Fatalf("truncated-tail fragment start must be sendable: %+v", expected)
 	}
 }

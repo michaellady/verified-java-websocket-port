@@ -314,7 +314,7 @@ func TestHeldOutStructuralFamilies(t *testing.T) {
 	heldOutOnly := []string{"close-code-1012-1014", "close-code-reserved-range",
 		"close-invalid-utf8-reason", "close-1007-empty-reason", "send-oversize-ping",
 		"send-fragment-single", "fragment-overflow-nonfin", "fragment-overflow-fin",
-		"send-close-1015"}
+		"send-close-1015", "text-truncated-tail", "fragment-mid-rune"}
 	for _, tierScenarios := range [][]Scenario{generated.Hidden, generated.Sealed} {
 		tierFamilies := families(tierScenarios)
 		for _, family := range heldOutOnly {
@@ -365,5 +365,35 @@ func TestHeldOutStructuralFamilies(t *testing.T) {
 		if sc.Expected.Outcome != "ok" {
 			t.Fatalf("%s: oversize send_ping must succeed", sc.ScenarioID)
 		}
+	}
+}
+
+// The truncated-tail and mid-rune held-out families pin the DFA-vs-strict
+// UTF-8 split read from the runtime sources.
+func TestHeldOutUTF8BoundaryFamilies(t *testing.T) {
+	generated, err := GenerateAll(testInput())
+	if err != nil {
+		t.Fatalf("GenerateAll: %v", err)
+	}
+	var tail, midRune int
+	for _, sc := range generated.Hidden {
+		switch sc.Family {
+		case "text-truncated-tail":
+			tail++
+			if sc.Expected.Outcome != "error" || *sc.Expected.Error.CloseCode != 1007 ||
+				sc.Expected.Counts.Frames != 1 {
+				t.Fatalf("%s: truncated tail must be process-stage 1007 with the frame recorded, got %+v counts=%+v",
+					sc.ScenarioID, sc.Expected.Error, sc.Expected.Counts)
+			}
+		case "fragment-mid-rune":
+			midRune++
+			if sc.Expected.Outcome != "ok" {
+				t.Fatalf("%s: mid-rune split must assemble, got %+v",
+					sc.ScenarioID, sc.Expected.Error)
+			}
+		}
+	}
+	if tail == 0 || midRune == 0 {
+		t.Fatalf("families missing: tail=%d midRune=%d", tail, midRune)
 	}
 }

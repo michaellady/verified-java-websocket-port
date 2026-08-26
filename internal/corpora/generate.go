@@ -838,5 +838,30 @@ func behaviorPlanHeldOut(valid func(ScenarioCore, []string) (ScenarioCore, []str
 				Steps: []Step{{Kind: "action", Action: "send_close",
 					Code: 1015, Reason: s.ASCII(3)}}}, closeCodeBasis())
 		}},
+		// A truncated UTF-8 tail passes the translate-time DFA and fails the
+		// strict decoder at process time, with the frame recorded (1007).
+		{"text-truncated-tail", 1, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			payload := append([]byte(s.ASCII(2+s.Intn(6))), 0xc3)
+			mask := s.Mask()
+			wire := EncodeFrame(WireFrame{Fin: true, Opcode: OpcodeText,
+				Payload: payload}, &mask)
+			return valid(ScenarioCore{Role: "server", InitialState: "open",
+				Limits: StandardLimits(),
+				Steps:  []Step{bytesStep(wire)}}, utf8Basis())
+		}},
+		// A multi-byte character split across fragments assembles cleanly:
+		// the truncated-tail start is DFA-accepted and the assembled message
+		// validates strictly.
+		{"fragment-mid-rune", 1, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			prefix := []byte(s.ASCII(1 + s.Intn(4)))
+			steps := []Step{
+				bytesStep(inboundChunk("server", s, WireFrame{Fin: false,
+					Opcode: OpcodeText, Payload: append(prefix, 0xc3)})),
+				bytesStep(inboundChunk("server", s, WireFrame{Fin: true,
+					Opcode: OpcodeContinuous, Payload: []byte{0xa9, 'z'}})),
+			}
+			return valid(ScenarioCore{Role: "server", InitialState: "open",
+				Limits: StandardLimits(), Steps: steps}, utf8Basis())
+		}},
 	}
 }

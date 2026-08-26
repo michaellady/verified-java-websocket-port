@@ -319,3 +319,35 @@ func TestHandshakeTierRequestsAndEvaluate(t *testing.T) {
 		t.Fatalf("missing handshake responses not reported: %s", stdout)
 	}
 }
+
+// A denied CLI invocation persists the hash-chained denial entry.
+func TestDeniedInvocationPersistsDenialEntry(t *testing.T) {
+	root := t.TempDir()
+	protectedRoot := t.TempDir()
+	if code, _, stderr := runCLI(t, "generate",
+		"--root", root, "--protected-root", protectedRoot); code != 0 {
+		t.Fatalf("generate failed: %s", stderr)
+	}
+	writeCustodianLedger(t, protectedRoot, func(ledger *corpora.Ledger) {
+		if err := ledger.RecordQuery("setup", "spend-the-only-query"); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if code, _, _ := runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot, "--tier", "hidden"); code == 0 {
+		t.Fatal("exhausted custodian must block")
+	}
+	raw, err := os.ReadFile(corpora.ProtectedLedgerPath(protectedRoot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger, err := corpora.LoadLedger(raw)
+	if err != nil {
+		t.Fatalf("denial-bearing ledger must verify: %v", err)
+	}
+	entries := ledger.Entries()
+	last := entries[len(entries)-1]
+	if last.Op != "query_denied" || last.Reason != "QUERY_BUDGET_EXHAUSTED" {
+		t.Fatalf("denied CLI attempt must persist a denial entry: %+v", last)
+	}
+}

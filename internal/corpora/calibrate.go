@@ -471,7 +471,7 @@ func BuildCalibration(root, protectedRoot string, g *GeneratedCorpora) (map[stri
 		},
 		"model_scoping": []any{
 			"masking-role violations are a documented Java-compatibility non-goal, not RFC coverage: the pinned 1.6.0 runtime does not enforce RFC 6455 section 5.1 masking on receive (Draft_6455.translateSingleFrame reads the mask bit only), so the corpus stays spec-conformant on masking and the deriver rejects wrong-masked inputs as out of scope instead of asserting either behavior",
-			"error-path counts are asserted from the pinned sources; frames that straddle chunk boundaries with invalid content remain out of the generated space because their partial-completion consumption depends on incompleteframe growth internals",
+			"error-path counts are asserted from the pinned sources; truncated UTF-8 tails are fully modeled (translate-time DFA accepts them, the strict decoder rejects them at process time with the frame recorded); only frames that straddle chunk boundaries with invalid content remain out of the generated space because their partial-completion consumption depends on incompleteframe growth internals",
 			"send-side control payloads above 125 octets are pinned as sendable (ControlFrame.isValid has no length check) and covered by a held-out family",
 		},
 		"status": func() string {

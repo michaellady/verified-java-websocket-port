@@ -523,6 +523,15 @@ func VerifyAll(root, protectedRoot string) ([]Finding, error) {
 		fail("LEDGER_INVALID", protectedLedgerFile, err.Error())
 	}
 
+	// The live portion of the evidence contract: recorded executions and
+	// gate results must reconcile semantically and against protected
+	// artifacts.
+	liveFindings, err := VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		return nil, err
+	}
+	findings = append(findings, liveFindings...)
+
 	return findings, nil
 }
 

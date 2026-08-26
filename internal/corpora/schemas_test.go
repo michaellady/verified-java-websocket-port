@@ -106,3 +106,35 @@ func TestManifestSchemaGuardsExecutionStates(t *testing.T) {
 		}
 	}
 }
+
+// LIVE_EXECUTED with zero executed scenarios is schema-invalid.
+func TestManifestSchemaRejectsEmptyLiveExecution(t *testing.T) {
+	root, protectedRoot, _ := writeAllToTemp(t)
+	path := filepath.Join(root, "corpora/public/manifest.json")
+	manifest, err := readManifest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest["execution_status"] = "LIVE_EXECUTED"
+	manifest["execution_evidence"] = map[string]any{
+		"transcript_sha256": DigestSHA256([]byte("t")),
+		"report_sha256":     DigestSHA256([]byte("r")),
+		"evaluator":         "corporactl evaluate",
+	}
+	if err := writeJSONFile(path, manifest); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := ValidateCorpusSchemas(schemasDir(t), root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var hit bool
+	for _, finding := range findings {
+		if strings.Contains(finding.Path, "public/manifest.json") {
+			hit = true
+		}
+	}
+	if !hit {
+		t.Fatal("LIVE_EXECUTED with executed=0 must be schema-invalid")
+	}
+}

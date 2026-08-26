@@ -10,11 +10,11 @@
       "selected": 49
     },
     "hidden": {
-      "expected": 90,
+      "expected": 92,
       "filtered": 0,
       "manifest_path": "corpora/hidden/manifest.json",
-      "manifest_sha256": "sha256:f3f4727d255fc9b38f285985f5285046d77f417015086dd79f420f06352ec3be",
-      "selected": 90
+      "manifest_sha256": "sha256:a3602d5218c79cbadb160cebba82a7b90915c7e7f9dfef326a35be8878f0eff6",
+      "selected": 92
     },
     "public": {
       "expected": 74,
@@ -24,11 +24,11 @@
       "selected": 74
     },
     "sealed": {
-      "expected": 90,
+      "expected": 92,
       "filtered": 0,
       "manifest_path": "corpora/sealed/manifest.json",
-      "manifest_sha256": "sha256:175b7f9aa6751606727a97e4caee4e1c2939f8516074e7858df26deb72d869d5",
-      "selected": 90
+      "manifest_sha256": "sha256:61b2102c13689ab9edb4f482a9e9b03dc9fe4f2f7b10a80b4c4edd3b6a355654",
+      "selected": 92
     }
   },
   "evidence_kind": "corpus-calibration",
@@ -74,14 +74,14 @@
   ],
   "model_scoping": [
     "masking-role violations are a documented Java-compatibility non-goal, not RFC coverage: the pinned 1.6.0 runtime does not enforce RFC 6455 section 5.1 masking on receive (Draft_6455.translateSingleFrame reads the mask bit only), so the corpus stays spec-conformant on masking and the deriver rejects wrong-masked inputs as out of scope instead of asserting either behavior",
-    "error-path counts are asserted from the pinned sources; frames that straddle chunk boundaries with invalid content remain out of the generated space because their partial-completion consumption depends on incompleteframe growth internals",
+    "error-path counts are asserted from the pinned sources; truncated UTF-8 tails are fully modeled (translate-time DFA accepts them, the strict decoder rejects them at process time with the frame recorded); only frames that straddle chunk boundaries with invalid content remain out of the generated space because their partial-completion consumption depends on incompleteframe growth internals",
     "send-side control payloads above 125 octets are pinned as sendable (ControlFrame.isValid has no length check) and covered by a held-out family"
   ],
   "offline_gates": {
     "generation_determinism": {
       "digests": [
-        "sha256:989655a1636c04f3d90c769f74bc131c961177808e325f2da44a700269d82890",
-        "sha256:989655a1636c04f3d90c769f74bc131c961177808e325f2da44a700269d82890"
+        "sha256:e5a7c6df4429b5dffa45e563f9bb2c87278795137c884ed633360c8cd99c9c88",
+        "sha256:e5a7c6df4429b5dffa45e563f9bb2c87278795137c884ed633360c8cd99c9c88"
       ],
       "reconciled": true,
       "runs": 2,
@@ -117,14 +117,14 @@
           "killed": true,
           "killing_scenarios": {
             "handshake": 0,
-            "hidden": 3,
+            "hidden": 4,
             "public": 2,
-            "sealed": 3
+            "sealed": 4
           },
           "kind": "behavior",
           "mutant_id": "mut-utf8-off",
           "operator": "accept invalid UTF-8 in text payloads",
-          "total_killing": 8
+          "total_killing": 10
         },
         {
           "killed": true,
@@ -314,11 +314,11 @@
       "total_mutants": 16
     },
     "stub_target_analysis": {
-      "failures": 303,
+      "failures": 307,
       "model": "inert empty-behavior stub evaluated by the real corpus evaluator; a negative control of the corpus, not a Rust execution",
       "passes": 0,
       "status": "PASS",
-      "total": 303
+      "total": 307
     }
   },
   "production": false,

@@ -2,27 +2,27 @@
   "$schema": "../../schemas/corpus-manifest-1.0.0.schema.json",
   "artifacts": [
     {
-      "bytes": 355512,
+      "bytes": 357505,
       "classification": "PROTECTED_HELD_OUT",
       "path": "us005-corpora/sealed/scenarios.jsonl",
-      "sha256": "sha256:f700611a733f20ef41fb0afcb8896c70e9f218951594f5caea12b8d64d007196",
+      "sha256": "sha256:75e7be503cb3ce88d835ae8f864bc2cb1a1139411bc349a6e9fbf571c3ab7a71",
       "stored_in_repo": false
     }
   ],
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "commitments": {
-    "committed_line_count": 90,
-    "scenario_commitment_root": "sha256:4a75fe2b80a99e3beb57e1ca2425b34d51dba36372977b8c498120efefd54d34",
+    "committed_line_count": 92,
+    "scenario_commitment_root": "sha256:6d89e0291728a363fba8b6163c3c6d1f0aa7b9517b8b147c7bc435ec02de783b",
     "scheme": "sha256(salt || canonical_line); salt = stream(secret, commitment-salt|tier|scenario_id)"
   },
   "corpus_id": "us005-behavior-sealed",
   "counts": {
     "executed": 0,
-    "expected": 90,
+    "expected": 92,
     "failed": 0,
     "filtered": 0,
     "passed": 0,
-    "selected": 90,
+    "selected": 92,
     "skipped": 0,
     "timed_out": 0
   },

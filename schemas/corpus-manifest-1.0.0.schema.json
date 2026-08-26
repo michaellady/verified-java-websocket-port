@@ -130,7 +130,12 @@
     },
     {
       "if": {"properties": {"execution_status": {"const": "LIVE_EXECUTED"}}},
-      "then": {"required": ["execution_evidence"]}
+      "then": {
+        "required": ["execution_evidence"],
+        "properties": {
+          "counts": {"properties": {"executed": {"minimum": 1}}}
+        }
+      }
     },
     {
       "if": {"properties": {"execution_status": {"const": "NOT_EXECUTED_PENDING_LIVE_CALIBRATION"}}},

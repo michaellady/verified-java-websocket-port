@@ -465,17 +465,12 @@ func (d *deriver) decodeFrame(data []byte) (decodedFrame, int, *scenarioError, e
 	}
 	// TextFrame.isValid validates standalone UTF-8 at translate time using
 	// the Hoehrmann DFA, which rejects invalid content but ACCEPTS a
-	// dangling incomplete tail (the strict decoder rejects that later, after
-	// the frame is recorded). Content-invalid text is a translate rejection;
-	// truncated tails are outside the generated space and fail closed.
-	if frame.opcode == byte(OpcodeText) && d.behavior.ValidateUTF8 {
-		if !dfaAcceptsAtTranslate(frame.payload) {
-			return fail(full, javaInvalid(1007))
-		}
-		if !utf8.Valid(frame.payload) {
-			return frame, 0, nil, unsupportedError{
-				"text payload with a truncated UTF-8 tail (translate-accepted, process-rejected)"}
-		}
+	// dangling incomplete tail; the strict REPORT decoder rejects the tail
+	// later at process time, after the frame is recorded (handled in
+	// emitMessage).
+	if frame.opcode == byte(OpcodeText) && d.behavior.ValidateUTF8 &&
+		!dfaAcceptsAtTranslate(frame.payload) {
+		return fail(full, javaInvalid(1007))
 	}
 	return frame, 0, nil, nil
 }
@@ -939,8 +934,12 @@ func (d *deriver) sendFragment(step Step, index int) error {
 	}
 	var wireOpcode Opcode
 	if d.sendFragmentOpen == 0 {
-		if declared == byte(OpcodeText) && d.behavior.ValidateUTF8 && !utf8.Valid(payload) {
-			return unsupportedError{"text fragment start with invalid UTF-8"}
+		// Draft.continuousFrame builds a TextFrame whose isValid applies the
+		// DFA: rejected content becomes NotSendable -> IllegalArgumentException,
+		// which the adapter reports as JAVA_NOT_SENDABLE; truncated tails pass.
+		if declared == byte(OpcodeText) && d.behavior.ValidateUTF8 &&
+			!dfaAcceptsAtTranslate(payload) {
+			return protocolError("JAVA_NOT_SENDABLE")
 		}
 		wireOpcode = Opcode(declared)
 		if !step.Fin {

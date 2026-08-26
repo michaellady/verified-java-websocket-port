@@ -1,0 +1,336 @@
+package corpora
+
+import (
+	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func findingCodes(findings []Finding) map[string]int {
+	out := map[string]int{}
+	for _, finding := range findings {
+		out[finding.Code]++
+	}
+	return out
+}
+
+// recordLiveExecution writes a faithful public-tier live execution: a
+// synthesized transcript and evaluation report in the protected live store,
+// and a manifest updated to LIVE_EXECUTED with reconciled digests.
+func recordLiveExecution(t *testing.T, root, protectedRoot string,
+	generated *GeneratedCorpora) (manifestPath string, transcriptPath string) {
+	t.Helper()
+	var transcript bytes.Buffer
+	for _, sc := range generated.Public {
+		response, err := synthesizeResponse(sc)
+		if err != nil {
+			t.Fatal(err)
+		}
+		transcript.Write(response)
+		transcript.WriteByte('\n')
+	}
+	report, err := EvaluateTranscript(generated.Public, transcript.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Reconciled() {
+		t.Fatalf("synthesized transcript must reconcile: %+v", report)
+	}
+	reportBytes, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	liveDir := filepath.Join(protectedRoot, ProtectedDirName, "live", "public")
+	if err := os.MkdirAll(liveDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	transcriptPath = filepath.Join(liveDir, "transcript.jsonl")
+	if err := os.WriteFile(transcriptPath, transcript.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	reportPath := filepath.Join(liveDir, "report.json")
+	if err := os.WriteFile(reportPath, reportBytes, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	manifestPath = filepath.Join(root, "corpora/public/manifest.json")
+	manifest, err := readManifest(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest["execution_status"] = "LIVE_EXECUTED"
+	manifest["execution_evidence"] = map[string]any{
+		"transcript_sha256": DigestSHA256(transcript.Bytes()),
+		"report_sha256":     DigestSHA256(reportBytes),
+		"evaluator":         "corporactl evaluate",
+	}
+	counts := manifest["counts"].(map[string]any)
+	selected := int(counts["selected"].(float64))
+	counts["executed"] = selected
+	counts["passed"] = selected
+	if err := writeJSONFile(manifestPath, manifest); err != nil {
+		t.Fatal(err)
+	}
+	return manifestPath, transcriptPath
+}
+
+// A pending corpus has no live findings; a faithfully recorded execution
+// reconciles end to end, including through VerifyAll.
+func TestVerifyLiveEvidenceCleanPaths(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	findings, err := VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatalf("VerifyLiveEvidence: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("pending state must have no live findings: %v", findings)
+	}
+
+	recordLiveExecution(t, root, protectedRoot, generated)
+	findings, err = VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("faithful live record must verify: %v", findings)
+	}
+	all, err := VerifyAll(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(all) != 0 {
+		t.Fatalf("VerifyAll must accept the recorded execution: %v", all)
+	}
+}
+
+// Zero-execution claims, inconsistent counters, dangling digests, and edited
+// artifacts are all typed blocks.
+func TestVerifyLiveEvidenceTamperCases(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	manifestPath, transcriptPath := recordLiveExecution(t, root, protectedRoot, generated)
+
+	mutate := func(change func(manifest map[string]any)) []Finding {
+		t.Helper()
+		manifest, err := readManifest(manifestPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		change(manifest)
+		if err := writeJSONFile(manifestPath, manifest); err != nil {
+			t.Fatal(err)
+		}
+		findings, err := VerifyLiveEvidence(root, protectedRoot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return findings
+	}
+	restore := func() {
+		recordLiveExecution(t, root, protectedRoot, generated)
+	}
+
+	codes := findingCodes(mutate(func(manifest map[string]any) {
+		counts := manifest["counts"].(map[string]any)
+		counts["executed"] = 0
+		counts["passed"] = 0
+	}))
+	if codes["LIVE_EXECUTION_EMPTY"] == 0 {
+		t.Fatalf("zero-execution claim must block: %v", codes)
+	}
+	restore()
+
+	codes = findingCodes(mutate(func(manifest map[string]any) {
+		counts := manifest["counts"].(map[string]any)
+		counts["passed"] = int(counts["passed"].(float64)) - 1
+	}))
+	if codes["COUNTER_INCONSISTENT"] == 0 {
+		t.Fatalf("inconsistent counters must block: %v", codes)
+	}
+	restore()
+
+	// Edited transcript: recorded digest no longer matches the artifact.
+	raw, err := os.ReadFile(transcriptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(transcriptPath, append(raw, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findingCodes(findings)["TRANSCRIPT_DIGEST_MISMATCH"] == 0 {
+		t.Fatalf("edited transcript must block: %v", findings)
+	}
+
+	// Dangling digests: the artifacts are gone entirely.
+	if err := os.RemoveAll(filepath.Join(protectedRoot, ProtectedDirName, "live")); err != nil {
+		t.Fatal(err)
+	}
+	findings, err = VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	codes = findingCodes(findings)
+	if codes["TRANSCRIPT_UNRESOLVED"] == 0 || codes["REPORT_UNRESOLVED"] == 0 {
+		t.Fatalf("dangling digests must be typed unresolved blocks: %v", findings)
+	}
+}
+
+// Calibration live gates: LIVE_CALIBRATED is only reachable with every gate
+// PASS; failed gates force a blocked status; recorded results must carry
+// internally consistent counters and resolvable transcript digests.
+func TestVerifyLiveEvidenceCalibrationGateConsistency(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	document, err := BuildCalibration(root, protectedRoot, generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteCalibration(root, document); err != nil {
+		t.Fatal(err)
+	}
+	// Pending gates with pending status: clean.
+	findings, err := VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("pending calibration must have no live findings: %v", findings)
+	}
+
+	_, transcriptPath := recordLiveExecution(t, root, protectedRoot, generated)
+	transcriptRaw, err := os.ReadFile(transcriptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transcriptDigest := DigestSHA256(transcriptRaw)
+
+	calibrationPath := filepath.Join(root, "evidence/corpus-calibration.json")
+	setGates := func(status string, gateStatus map[string]string) {
+		t.Helper()
+		raw, err := os.ReadFile(calibrationPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
+		}
+		gates := doc["live_gates"].(map[string]any)
+		for name, s := range gateStatus {
+			gate := gates[name].(map[string]any)
+			gate["status"] = s
+			if s == "PASS" || s == "FAIL" {
+				failed := 0
+				if s == "FAIL" {
+					failed = 1
+				}
+				gate["result"] = map[string]any{
+					"transcript_sha256s": []any{transcriptDigest},
+					"executed":           len(generated.Public),
+					"passed":             len(generated.Public) - failed,
+					"failed":             failed,
+				}
+			} else {
+				delete(gate, "result")
+			}
+		}
+		doc["status"] = status
+		if err := writeJSONFile(calibrationPath, doc); err != nil {
+			t.Fatal(err)
+		}
+	}
+	allGates := []string{"java_oracle_pass_rate", "empty_rust_target_fails",
+		"planted_java_rust_mutants_killed", "execution_rerun_reconciliation",
+		"sealed_network_denial"}
+	allPass := map[string]string{}
+	for _, gate := range allGates {
+		allPass[gate] = "PASS"
+	}
+
+	// Every gate PASS with LIVE_CALIBRATED: clean.
+	setGates("LIVE_CALIBRATED", allPass)
+	findings, err = VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("all-pass live calibration must verify: %v", findings)
+	}
+
+	// A FAIL gate under LIVE_CALIBRATED is inconsistent.
+	withFail := map[string]string{}
+	for gate, s := range allPass {
+		withFail[gate] = s
+	}
+	withFail["sealed_network_denial"] = "FAIL"
+	setGates("LIVE_CALIBRATED", withFail)
+	findings, err = VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findingCodes(findings)["LIVE_STATUS_INCONSISTENT"] == 0 {
+		t.Fatalf("failed gate under LIVE_CALIBRATED must block: %v", findings)
+	}
+
+	// A FAIL gate with LIVE_BLOCKED is consistent.
+	setGates("LIVE_BLOCKED", withFail)
+	findings, err = VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("failed gate under LIVE_BLOCKED must verify: %v", findings)
+	}
+
+	// All gates PASS but a pending status understates the outcome.
+	setGates("OFFLINE_CALIBRATED_PENDING_LIVE_EXECUTION", allPass)
+	findings, err = VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findingCodes(findings)["LIVE_STATUS_INCONSISTENT"] == 0 {
+		t.Fatalf("all-pass gates with pending status must block: %v", findings)
+	}
+
+	// Gate result counters must be internally consistent.
+	setGates("LIVE_CALIBRATED", allPass)
+	raw, err := os.ReadFile(calibrationPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	gate := doc["live_gates"].(map[string]any)["java_oracle_pass_rate"].(map[string]any)
+	result := gate["result"].(map[string]any)
+	result["passed"] = int(result["passed"].(float64)) - 1
+	if err := writeJSONFile(calibrationPath, doc); err != nil {
+		t.Fatal(err)
+	}
+	findings, err = VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findingCodes(findings)["GATE_COUNTER_INCONSISTENT"] == 0 {
+		t.Fatalf("inconsistent gate counters must block: %v", findings)
+	}
+
+	// A gate transcript digest that resolves to no live artifact blocks.
+	result["passed"] = int(result["executed"].(float64))
+	result["transcript_sha256s"] = []any{DigestSHA256([]byte("never-written"))}
+	if err := writeJSONFile(calibrationPath, doc); err != nil {
+		t.Fatal(err)
+	}
+	findings, err = VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findingCodes(findings)["TRANSCRIPT_UNRESOLVED"] == 0 {
+		t.Fatalf("dangling gate transcript digest must block: %v", findings)
+	}
+}

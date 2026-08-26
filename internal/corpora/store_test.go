@@ -261,29 +261,13 @@ func TestVerifyAllCanaryScanCoversWholeRepo(t *testing.T) {
 	}
 }
 
-// Recording a live execution in a manifest (execution_status=LIVE_EXECUTED,
-// execution_evidence, executed counts) must not trip the deterministic
-// reconciliation, while any drift in the deterministic core still blocks.
+// A faithfully recorded live execution (real protected artifacts, matched
+// digests, consistent counters) passes VerifyAll, while drift in the
+// deterministic core still blocks. Dangling digests are covered by the
+// live-evidence tamper tests.
 func TestVerifyAllToleratesRecordedExecutionState(t *testing.T) {
-	root, protectedRoot, _ := writeAllToTemp(t)
-	path := filepath.Join(root, "corpora/public/manifest.json")
-	manifest, err := readManifest(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifest["execution_status"] = "LIVE_EXECUTED"
-	manifest["execution_evidence"] = map[string]any{
-		"transcript_sha256": DigestSHA256([]byte("transcript")),
-		"report_sha256":     DigestSHA256([]byte("report")),
-		"evaluator":         "corporactl evaluate",
-	}
-	counts := manifest["counts"].(map[string]any)
-	selected := int(counts["selected"].(float64))
-	counts["executed"] = selected
-	counts["passed"] = selected
-	if err := writeJSONFile(path, manifest); err != nil {
-		t.Fatal(err)
-	}
+	root, protectedRoot, generated := writeAllToTemp(t)
+	manifestPath, _ := recordLiveExecution(t, root, protectedRoot, generated)
 	findings, err := VerifyAll(root, protectedRoot)
 	if err != nil {
 		t.Fatalf("VerifyAll: %v", err)
@@ -293,8 +277,13 @@ func TestVerifyAllToleratesRecordedExecutionState(t *testing.T) {
 	}
 
 	// Core drift under recorded execution state still blocks.
-	counts["selected"] = selected + 1
-	if err := writeJSONFile(path, manifest); err != nil {
+	manifest, err := readManifest(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := manifest["counts"].(map[string]any)
+	counts["selected"] = int(counts["selected"].(float64)) + 1
+	if err := writeJSONFile(manifestPath, manifest); err != nil {
 		t.Fatal(err)
 	}
 	findings, err = VerifyAll(root, protectedRoot)

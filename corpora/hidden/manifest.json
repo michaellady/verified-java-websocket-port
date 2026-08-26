@@ -2,27 +2,27 @@
   "$schema": "../../schemas/corpus-manifest-1.0.0.schema.json",
   "artifacts": [
     {
-      "bytes": 354624,
+      "bytes": 356615,
       "classification": "PROTECTED_HELD_OUT",
       "path": "us005-corpora/hidden/scenarios.jsonl",
-      "sha256": "sha256:c2f5789a5c5459555847f1b59e368a4b89d7a5e6022761e3cd8f4ca487508fa3",
+      "sha256": "sha256:637be9570e31c73b88bb4436d5363defbf34cc347f4e56df38a9c59246b7a4db",
       "stored_in_repo": false
     }
   ],
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "commitments": {
-    "committed_line_count": 90,
-    "scenario_commitment_root": "sha256:f9cba6497fa03400ef24b554aaaacca026c6773adcba9abe94405562cf96cc7a",
+    "committed_line_count": 92,
+    "scenario_commitment_root": "sha256:b0c056def3461cf299f4467350d0f574c25b1984036b743d7cf70730b0ee7cd1",
     "scheme": "sha256(salt || canonical_line); salt = stream(secret, commitment-salt|tier|scenario_id)"
   },
   "corpus_id": "us005-behavior-hidden",
   "counts": {
     "executed": 0,
-    "expected": 90,
+    "expected": 92,
     "failed": 0,
     "filtered": 0,
     "passed": 0,
-    "selected": 90,
+    "selected": 92,
     "skipped": 0,
     "timed_out": 0
   },

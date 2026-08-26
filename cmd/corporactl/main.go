@@ -218,29 +218,11 @@ func heldOutTier(tier string) bool {
 	return tier == "hidden" || tier == "sealed"
 }
 
-// spendCustodian appends one ledger operation for held-out access and
-// persists the ledger, including denial entries (the probing latch must
-// survive the denied call).
+// spendCustodian delegates to the package's atomic, denial-persisting
+// ledger operation (exclusive file lock around load-spend-persist).
 func spendCustodian(protectedRoot string,
 	operation func(*corpora.Ledger) error) error {
-	path := corpora.ProtectedLedgerPath(protectedRoot)
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("custodian ledger unavailable: %w", err)
-	}
-	ledger, err := corpora.LoadLedger(raw)
-	if err != nil {
-		return fmt.Errorf("custodian ledger invalid: %w", err)
-	}
-	operationErr := operation(ledger)
-	serialized, serializeErr := ledger.Serialize()
-	if serializeErr != nil {
-		return serializeErr
-	}
-	if writeErr := os.WriteFile(path, serialized, 0o644); writeErr != nil {
-		return writeErr
-	}
-	return operationErr
+	return corpora.SpendCustodian(protectedRoot, operation)
 }
 
 func runOracleRequests(arguments []string, stdout, stderr io.Writer) int {
