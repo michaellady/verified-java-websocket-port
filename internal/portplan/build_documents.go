@@ -330,19 +330,9 @@ func buildMigrationMap(
 				" run. No identity in this map was obtained by text or grep matching, which the" +
 				" story records as strictly weaker and unable to establish a proved claim.",
 		},
-		RustIdentityStatus: RustIdentityStatus{
-			WorkspacePresent: false,
-			PlannedResolver:  "rust-analyzer",
-			BlockerCode:      "RUST_WORKSPACE_NOT_YET_CREATED",
-			CreatedByStory:   "US-009",
-			Statement: "No Rust workspace exists in this repository yet, so rust-analyzer was" +
-				" not run and no Rust identity here is resolver-verified. Every rust_semantic_id" +
-				" is a planned identity and every row carries rust_identity_verified=false." +
-				" US-009 creates the workspace; this map must be re-derived and each Rust" +
-				" identity resolved before any row may claim verification.",
-		},
-		Rows:      rows,
-		Assurance: ownerAttested,
+		RustIdentityStatus: rustIdentityStatus(rustWorkspacePresent(workspaceProbeRoot(request))),
+		Rows:               rows,
+		Assurance:          ownerAttested,
 	}, nil
 }
 
@@ -677,4 +667,49 @@ func buildCutoverContract(request DeriveRequest) CutoverContract {
 		Obligations:         obligations,
 		Assurance:           ownerAttested,
 	}
+}
+
+// rustIdentityStatus states the live Rust-workspace fact honestly in both
+// directions. The declared flag is probed from the repository at derive time
+// (never hardcoded): US-003's lane derived before the rust/ workspace scaffold
+// merged, and the hardcoded false broke mainline once both lanes landed.
+// Either way every row stays rust_identity_verified=false until a resolver
+// actually verifies it under US-009+.
+func rustIdentityStatus(workspacePresent bool) RustIdentityStatus {
+	if workspacePresent {
+		return RustIdentityStatus{
+			WorkspacePresent: true,
+			PlannedResolver:  "rust-analyzer",
+			BlockerCode:      "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED",
+			CreatedByStory:   "US-009",
+			Statement: "A Rust cargo workspace exists (scaffold only; no behavior implemented)," +
+				" but rust-analyzer has not been run against any identity in this map. Every" +
+				" rust_semantic_id remains a planned identity and every row carries" +
+				" rust_identity_verified=false. US-009 establishes the ConnectionCore contract;" +
+				" each Rust identity must be resolver-verified before any row may claim" +
+				" verification.",
+		}
+	}
+	return RustIdentityStatus{
+		WorkspacePresent: false,
+		PlannedResolver:  "rust-analyzer",
+		BlockerCode:      "RUST_WORKSPACE_NOT_YET_CREATED",
+		CreatedByStory:   "US-009",
+		Statement: "No Rust workspace exists in this repository yet, so rust-analyzer was" +
+			" not run and no Rust identity here is resolver-verified. Every rust_semantic_id" +
+			" is a planned identity and every row carries rust_identity_verified=false." +
+			" US-009 creates the workspace; this map must be re-derived and each Rust" +
+			" identity resolved before any row may claim verification.",
+	}
+}
+
+// workspaceProbeRoot names the repository whose Rust-workspace presence the
+// migration map declares: the evidence-hosting repository (ToolchainRoot),
+// never the derive OUTPUT root — reproduction derives into a temp directory,
+// and probing that would blind the declaration to the real repository state.
+func workspaceProbeRoot(request DeriveRequest) string {
+	if request.ToolchainRoot != "" {
+		return request.ToolchainRoot
+	}
+	return request.Root
 }

@@ -106,6 +106,14 @@ func extractArchive(archive []byte, quarantine string) error {
 		if err != nil {
 			return fmt.Errorf("QUARANTINE_ARCHIVE_UNREADABLE: %w", err)
 		}
+		// GitHub codeload tarballs open with pax metadata pseudo-entries
+		// (pax_global_header, type 'g'/'x') that carry no payload path and
+		// are not part of the source tree; skip them before the tree-prefix
+		// check instead of failing the whole materialization (mainline
+		// integration regression: US-003's lane never extracted fresh).
+		if header.Typeflag == tar.TypeXGlobalHeader || header.Typeflag == tar.TypeXHeader {
+			continue
+		}
 		cleaned := filepath.Clean(header.Name)
 		if cleaned == "." || strings.HasPrefix(cleaned, "..") || filepath.IsAbs(cleaned) {
 			continue
