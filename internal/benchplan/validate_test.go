@@ -1,7 +1,9 @@
 package benchplan
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -358,6 +360,7 @@ func TestSemanticBindingMeterRejectsPlaceholderBoundIdentities(t *testing.T) {
 		{"zero memory", "memory_total_bytes", float64(0)},
 		{"placeholder clocksource", "clocksource", "not a clock"},
 		{"tool without provenance digest", "runner", "runner-v1"},
+		{"tool on wrong role platform", "runner", map[string]any{"kind": "runner", "identity": "runner 1.0.0 aarch64-apple-darwin", "platform": "aarch64-apple-darwin", "digest": syntheticDigest("runner-wrong-platform"), "provenance": "unit-test receipt fixture"}},
 		{"zero executable digest", "java_executable_digest", "sha256:" + strings.Repeat("0", 64)},
 	}
 	for _, testCase := range tests {
@@ -371,9 +374,9 @@ func TestSemanticBindingMeterRejectsPlaceholderBoundIdentities(t *testing.T) {
 				record := environment[sectionName].(map[string]any)[testCase.field].(map[string]any)
 				record["status"] = "BOUND"
 				record["value"] = testCase.value
-				record["evidence_digest"] = syntheticDigest("semantic-test|" + testCase.field)
+				attachTestReceipt(t, root, environment, sectionName+"."+testCase.field, record, nil)
 			})
-			report, err := Verify(root)
+			report, err := verify(root, true)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -381,6 +384,94 @@ func TestSemanticBindingMeterRejectsPlaceholderBoundIdentities(t *testing.T) {
 				t.Fatalf("placeholder BOUND identity passed semantic meter: failures=%v blockers=%v", report.MeterFailures, report.BlockerClasses)
 			}
 		})
+	}
+}
+
+func TestSemanticBindingReceiptRejectsHostileEvidence(t *testing.T) {
+	tests := []struct {
+		name          string
+		field         string
+		value         any
+		receiptMutate func(map[string]any)
+		recordMutate  func(*testing.T, string, map[string]any)
+		missing       bool
+	}{
+		{name: "missing", field: "instance_id", value: "i-0123456789abcdef0", missing: true},
+		{name: "wrong role", field: "instance_id", value: "i-0123456789abcdef0", receiptMutate: func(receipt map[string]any) {
+			receipt["environment"].(map[string]any)["role"] = "primary"
+		}},
+		{name: "wrong value", field: "instance_id", value: "i-0123456789abcdef0", receiptMutate: func(receipt map[string]any) {
+			receipt["field"].(map[string]any)["value"] = "i-0fedcba9876543210"
+		}},
+		{name: "wrong environment", field: "instance_id", value: "i-0123456789abcdef0", receiptMutate: func(receipt map[string]any) {
+			receipt["environment"].(map[string]any)["id"] = "primary-macos"
+		}},
+		{name: "wrong evidence type", field: "instance_id", value: "i-0123456789abcdef0", receiptMutate: func(receipt map[string]any) {
+			receipt["evidence_type"] = "TOOL_PROVENANCE"
+			receipt["source"].(map[string]any)["kind"] = "TOOL_PROVENANCE"
+		}},
+		{name: "wrong digest", field: "instance_id", value: "i-0123456789abcdef0", recordMutate: func(t *testing.T, _ string, record map[string]any) {
+			digest := syntheticDigest("wrong-receipt-digest")
+			record["evidence_digest"] = digest
+			record["evidence_receipt"].(map[string]any)["digest"] = digest
+		}},
+		{name: "path substitution", field: "instance_id", value: "i-0123456789abcdef0", recordMutate: func(t *testing.T, root string, record map[string]any) {
+			reference := record["evidence_receipt"].(map[string]any)
+			canonical := reference["path"].(string)
+			content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(canonical)))
+			if err != nil {
+				t.Fatal(err)
+			}
+			substitute := "benchmarks/evidence/receipts/confirmation/host_identity.instance_id_substitute.json"
+			if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(substitute)), content, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			reference["path"] = substitute
+		}},
+		{name: "placeholder", field: "os_identity", value: "placeholder host identity"},
+		{name: "unknown receipt property", field: "instance_id", value: "i-0123456789abcdef0", receiptMutate: func(receipt map[string]any) {
+			receipt["unexpected"] = true
+		}},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := copyBenchmarkTree(t)
+			mutateEnvironment(t, root, "confirmation.json", func(environment map[string]any) {
+				record := environment["host_identity"].(map[string]any)[testCase.field].(map[string]any)
+				record["status"] = "BOUND"
+				record["value"] = testCase.value
+				if testCase.missing {
+					record["evidence_digest"] = syntheticDigest("unattached-digest")
+				} else {
+					attachTestReceipt(t, root, environment, "host_identity."+testCase.field, record, testCase.receiptMutate)
+				}
+				if testCase.recordMutate != nil {
+					testCase.recordMutate(t, root, record)
+				}
+			})
+			report, err := verify(root, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.FullyBound() || len(report.MeterFailures) == 0 || !containsClass(report.BlockerClasses, BlockerMeterTampered) {
+				t.Fatalf("hostile receipt passed: failures=%v blockers=%v", report.MeterFailures, report.BlockerClasses)
+			}
+		})
+	}
+}
+
+func TestSemanticBindingReceiptCoversSupplementalBoundTools(t *testing.T) {
+	root := copyBenchmarkTree(t)
+	mutateEnvironment(t, root, "confirmation.json", func(environment map[string]any) {
+		terraform := environment["tool_identities"].(map[string]any)["terraform"].(map[string]any)
+		delete(terraform, "evidence_receipt")
+	})
+	report, err := Verify(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.MeterFailures) == 0 || !containsClass(report.BlockerClasses, BlockerMeterTampered) {
+		t.Fatalf("a supplemental BOUND tool without its receipt escaped the meter: failures=%v blockers=%v", report.MeterFailures, report.BlockerClasses)
 	}
 }
 
@@ -411,8 +502,8 @@ func TestFixturesConformToRawSampleSchema(t *testing.T) {
 
 // bindAllPendingFields rewrites every OWNER_DECISION_PENDING and
 // NOT_MEASURED required binding field in both environment documents to
-// a BOUND record with an obviously-synthetic test value (review fix I5
-// scenarios). It does NOT touch the document-level binding_status.
+// a BOUND record backed by a structurally authentic TEST_ONLY receipt in
+// the temporary root. It does NOT touch document-level binding_status.
 func bindAllPendingFields(t *testing.T, root string) {
 	t.Helper()
 	for _, name := range []string{"primary-macos.json", "confirmation.json"} {
@@ -436,27 +527,30 @@ func bindAllPendingFields(t *testing.T, root string) {
 				continue
 			}
 			record["status"] = "BOUND"
-			record["evidence_digest"] = syntheticDigest("field-evidence|" + bindingPath)
-			record["value"] = syntheticBoundValue(name, bindingPath)
+			record["value"] = testOnlyBoundValue(name, bindingPath)
+			attachTestReceipt(t, root, environment, bindingPath, record, nil)
 		}
 		writeJSON(t, path, environment)
 	}
 }
 
-func syntheticBoundValue(document, path string) any {
+func testOnlyBoundValue(document, path string) any {
 	if strings.HasPrefix(path, "tool_identities.") {
 		name := strings.TrimPrefix(path, "tool_identities.")
 		if name == "java_executable_digest" || name == "rust_executable_digest" {
 			return syntheticDigest(path)
 		}
-		return map[string]any{
-			"identity":   "synthetic-test-identity-" + name,
-			"digest":     syntheticDigest(path),
-			"provenance": "synthetic verifier-path fixture",
+		architecture := "aarch64-apple-darwin"
+		if document == "confirmation.json" {
+			architecture = "x86_64-unknown-linux-gnu"
 		}
-	}
-	if document == "primary-macos.json" {
-		return "synthetic-runtime-snapshot"
+		return map[string]any{
+			"kind":       name,
+			"identity":   name + " 1.0.0 " + architecture,
+			"platform":   architecture,
+			"digest":     syntheticDigest(path),
+			"provenance": "unit-test receipt fixture generated in an isolated temporary root",
+		}
 	}
 	switch path {
 	case "host_identity.instance_id":
@@ -464,16 +558,70 @@ func syntheticBoundValue(document, path string) any {
 	case "host_identity.observed_architecture":
 		return "x86_64"
 	case "host_identity.allocation_evidence":
-		return map[string]any{"method": "synthetic test probe", "observed_value": "exclusive", "observed_at_utc": "2026-08-26T00:00:00Z"}
+		return map[string]any{"method": "DescribeInstances tenancy plus job allocation record", "observed_value": "exclusive", "observed_at_utc": "2026-08-26T00:00:00Z"}
 	case "host_identity.availability_zone":
 		return "us-east-1a"
 	case "host_identity.memory_total_bytes":
 		return 8589934592
 	case "host_identity.clocksource":
 		return "tsc"
+	case "host_identity.os_identity":
+		return "Amazon Linux 2023.12.20260817"
+	case "host_identity.kernel_identity":
+		return "6.1.180-225.360.amzn2023.x86_64"
+	case "host_identity.cpu_model":
+		return "Intel Xeon Platinum 8488C"
+	case "host_identity.cpu_frequency_policy":
+		return "performance governor; turbo enabled; SMT enabled"
+	case "host_identity.numa_topology":
+		return "1 node; CPUs 0-3"
 	default:
-		return "synthetic-typed-identity"
+		return "recorded identity value"
 	}
+}
+
+func attachTestReceipt(t *testing.T, root string, environment map[string]any, bindingPath string, record map[string]any, mutate func(map[string]any)) {
+	t.Helper()
+	role := environment["role"].(string)
+	document := "benchmarks/environments/primary-macos.json"
+	if role == "confirmation" {
+		document = "benchmarks/environments/confirmation.json"
+	}
+	receipt := map[string]any{
+		"schema":        bindingReceiptSchema,
+		"evidence_type": "TEST_ONLY",
+		"environment": map[string]any{
+			"id":       environment["environment_id"],
+			"role":     role,
+			"document": document,
+		},
+		"field": map[string]any{
+			"path":  bindingPath,
+			"value": record["value"],
+		},
+		"captured_at": "2026-08-26T00:00:00Z",
+		"source": map[string]any{
+			"kind":    "TEST_FIXTURE",
+			"locator": "inert unit-test receipt generated in an isolated temporary root",
+			"digest":  syntheticDigest("receipt-source|" + role + "|" + bindingPath),
+		},
+	}
+	if mutate != nil {
+		mutate(receipt)
+	}
+	relative := fmt.Sprintf("benchmarks/evidence/receipts/%s/%s.json", role, bindingPath)
+	absolute := filepath.Join(root, filepath.FromSlash(relative))
+	if err := os.MkdirAll(filepath.Dir(absolute), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeJSON(t, absolute, receipt)
+	content, err := os.ReadFile(absolute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := fmt.Sprintf("sha256:%x", sha256.Sum256(content))
+	record["evidence_digest"] = digest
+	record["evidence_receipt"] = map[string]any{"path": relative, "digest": digest}
 }
 
 func setBindingStatuses(t *testing.T, root, environmentStatus string) {
@@ -499,7 +647,7 @@ func setBindingStatuses(t *testing.T, root, environmentStatus string) {
 func TestVerifySyntacticCompletenessWithUnboundStatusIsStillPending(t *testing.T) {
 	root := copyBenchmarkTree(t)
 	bindAllPendingFields(t, root)
-	report, err := Verify(root)
+	report, err := verify(root, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -513,7 +661,7 @@ func TestVerifySyntacticCompletenessWithUnboundStatusIsStillPending(t *testing.T
 		t.Fatal("UNBOUND binding_status must never verify as sample-ready")
 	}
 	if !report.HostBindingIsOnlyBlocker() {
-		t.Fatalf("expected HOST_BINDING_PENDING (document binding status pending), got %v", report.BlockerClasses)
+		t.Fatalf("expected HOST_BINDING_PENDING (document binding status pending), got %v; meter failures: %v", report.BlockerClasses, report.MeterFailures)
 	}
 }
 
@@ -523,7 +671,14 @@ func TestVerifyFullyBoundOwnerAttestedTreeVerifies(t *testing.T) {
 	root := copyBenchmarkTree(t)
 	bindAllPendingFields(t, root)
 	setBindingStatuses(t, root, "BOUND")
-	report, err := Verify(root)
+	productionReport, err := Verify(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if productionReport.FullyBound() || !containsClass(productionReport.BlockerClasses, BlockerMeterTampered) {
+		t.Fatalf("production verification must reject TEST_ONLY receipts, got blockers %v", productionReport.BlockerClasses)
+	}
+	report, err := verify(root, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -531,7 +686,26 @@ func TestVerifyFullyBoundOwnerAttestedTreeVerifies(t *testing.T) {
 		t.Fatalf("fully bound scenario must be schema/spec clean, got %v / %v", report.SchemaFailures, report.PlanFailures)
 	}
 	if !report.FullyBound() {
-		t.Fatalf("expected fully bound, got blockers %v", report.BlockerClasses)
+		t.Fatalf("expected fully bound, got blockers %v; meter failures: %v", report.BlockerClasses, report.MeterFailures)
+	}
+}
+
+func TestVerifyFullyBoundRejectsGenericValueAndUnattachedDigest(t *testing.T) {
+	root := copyBenchmarkTree(t)
+	bindAllPendingFields(t, root)
+	setBindingStatuses(t, root, "BOUND")
+	mutateEnvironment(t, root, "confirmation.json", func(environment map[string]any) {
+		runner := environment["tool_identities"].(map[string]any)["runner"].(map[string]any)
+		runner["value"] = "arbitrary runner string"
+		runner["evidence_digest"] = syntheticDigest("unattached-runner")
+		delete(runner, "evidence_receipt")
+	})
+	report, err := verify(root, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.FullyBound() || !containsClass(report.BlockerClasses, BlockerMeterTampered) {
+		t.Fatalf("an arbitrary value plus unattached digest must not become FullyBound: blockers=%v failures=%v", report.BlockerClasses, report.MeterFailures)
 	}
 }
 

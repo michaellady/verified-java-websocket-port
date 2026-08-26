@@ -55,12 +55,12 @@ variable "oidc_extra_sub_repos" {
   }
 }
 
-variable "oidc_trusted_workflow_refs" {
+variable "oidc_trusted_workflow_names" {
   type        = list(string)
-  description = "Exact default-branch workflow identities allowed to receive deploy credentials."
+  description = "Exact GitHub Actions workflow names allowed to receive deploy credentials."
 
   validation {
-    condition     = length(var.oidc_trusted_workflow_refs) > 0 && alltrue([for ref in var.oidc_trusted_workflow_refs : can(regex("^[^/]+/[^/]+/\\.github/workflows/[^@]+@refs/heads/main$", ref))])
-    error_message = "oidc_trusted_workflow_refs must be exact .github/workflows paths on refs/heads/main."
+    condition     = length(var.oidc_trusted_workflow_names) > 0 && alltrue([for name in var.oidc_trusted_workflow_names : length(trimspace(name)) > 0])
+    error_message = "oidc_trusted_workflow_names must contain exact nonempty GitHub Actions workflow names."
   }
 }

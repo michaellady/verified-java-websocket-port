@@ -12,7 +12,7 @@ assume_oidc_provider_exists = true
 # plumbing run failed at AssumeRoleWithWebIdentity. Only the immutable form is
 # admitted by the trust policy.
 oidc_extra_sub_repos = ["michaellady@936234/verified-java-websocket-port@1344905073"]
-oidc_trusted_workflow_refs = [
-  "michaellady/verified-java-websocket-port/.github/workflows/benchmark.yml@refs/heads/main",
-  "michaellady/verified-java-websocket-port/.github/workflows/bench-janitor.yml@refs/heads/main",
+oidc_trusted_workflow_names = [
+  "Benchmark Confirmation Host (US-008 pipeline)",
+  "Bench Workspace Janitor",
 ]

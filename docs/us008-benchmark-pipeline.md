@@ -18,8 +18,10 @@ sentinel-only run 33000379021 (`benchmark-plumbing` label, c7i.large,
 latest-AL2023 boot; `NOT_MEASURED` sentinels only — not a measurement).
 The runner remains a `NOT_MEASURED`-only stub, 26 host/tool binding
 fields remain unbound, and `benchplanctl verify` fails closed with the
-single blocker class `HOST_BINDING_PENDING` (exit 3). **Nothing here
-claims US-008 passes**, and US-008 cannot pass in this state by design:
+single blocker class `HOST_BINDING_PENDING` (exit 3). **The US-008
+preregistration story passes under the owner-attested, explicitly
+non-independent scope.** That story result is separate from sample
+readiness; nothing here is a benchmark sample or performance claim:
 
 - `benchmarks/plan/workloads.json` is a frozen, schema-enforced
   preregistration (`schemas/benchmark-plan-1.0.0.schema.json`): six exact
@@ -308,5 +310,7 @@ enforced by the pipeline):
   (run 33000379021); every host/AMI pinning probe was a read-only call.
   The plumbing run's output is sentinel-only by construction and can
   never be a measurement.
-- US-008 remains `passes: false`; neither this pipeline state nor the
-  Tier-1 binding is evidence toward passing it.
+- The US-008 preregistration story may record `passes: true` under the
+  owner-attested, explicitly non-independent scope. Neither that story
+  result nor the Tier-1 binding makes the pipeline sample-ready or supports
+  any benchmark or performance claim.

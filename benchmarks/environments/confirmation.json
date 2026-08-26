@@ -1,5 +1,6 @@
 {
   "schema": "vjwp-benchmark-environment/1.0.0",
+  "environment_id": "confirmation-linux-x86_64",
   "role": "confirmation",
   "status": "PARTIALLY BOUND, document UNBOUND - The owner's Tier-1 decision of 2026-08-26 bound four host identities (instance_type c7i.xlarge, region us-east-1, ami_id ami-02b3d83d84b07786d, ami_name al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64) plus the pipeline tool identities recorded below. Tier-2 (METAL_MEASURED) is DEFERRED_BY_OWNER: no flagship run is scheduled and no metal type is bound. Every other field remains OWNER_DECISION_PENDING or NOT_MEASURED and nothing may be filled in without an explicit owner decision plus a real probe of the provisioned host. The required_binding_fields list below is the machine-checkable completion meter for the remaining US-008 gap (HOST_BINDING_PENDING); 'benchplanctl verify' reports exactly which fields remain unbound. No benchmark sample may be collected against an unbound environment.",
   "binding_status": "UNBOUND",
@@ -15,7 +16,11 @@
     "instance_type": {
       "status": "BOUND",
       "value": "c7i.xlarge",
-      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
+      "evidence_digest": "sha256:45625db438c308e0c834a849678af6d9263a9f0798607da594a54b33bfae82ea",
+      "evidence_receipt": {
+        "path": "benchmarks/evidence/receipts/confirmation/host_identity.instance_type.json",
+        "digest": "sha256:45625db438c308e0c834a849678af6d9263a9f0798607da594a54b33bfae82ea"
+      },
       "rationale": "Tier-1 VM_MEASURED_JITTER_AVERAGED per owner decision 2026-08-26. Probed us-east-1 2026-08-26 (describe-instance-types + describe-instance-type-offerings, profile dev-sso): 4 vCPU, 8192 MiB, current generation, 3.2 GHz sustained, USD 0.1785/hr on-demand (Pricing API probe). The owner chose the 4-vCPU variant over the plumbing-proven c7i.large so the load driver and the endpoint under test do not share a physical core; same CPU family and image as green plumbing run 33000379021.",
       "notes": "Tier-2 (METAL_MEASURED) instance type is DEFERRED_BY_OWNER (2026-08-26): no flagship run is scheduled, and deferring lets a vCPU quota-increase request be sized to the eventual choice. c5n.metal remains only the unbound feasibility-study default-candidate in terraform/benchmark/variables.tf; m5zn.metal is the only probed metal candidate under the account's 64-vCPU standard on-demand quota (L-1216C47A)."
     },
@@ -34,7 +39,11 @@
     "region": {
       "status": "BOUND",
       "value": "us-east-1",
-      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
+      "evidence_digest": "sha256:9e091a43be70cd6f5e7a888142d31dd0efba845279552e5f39a64730e9d34539",
+      "evidence_receipt": {
+        "path": "benchmarks/evidence/receipts/confirmation/host_identity.region.json",
+        "digest": "sha256:9e091a43be70cd6f5e7a888142d31dd0efba845279552e5f39a64730e9d34539"
+      },
       "rationale": "Owner decision 2026-08-26. Probed region for the bound instance type and AMI (describe-instance-type-offerings + describe-images, 2026-08-26); matches the DIALED .dialed.yml region and the standing tfstate bucket."
     },
     "availability_zone": {
@@ -44,14 +53,22 @@
     "ami_id": {
       "status": "BOUND",
       "value": "ami-02b3d83d84b07786d",
-      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
+      "evidence_digest": "sha256:cbfad42d4230df50ded448e12a0dceaedfbc2997df6d4dec335ed2bfc91a29ef",
+      "evidence_receipt": {
+        "path": "benchmarks/evidence/receipts/confirmation/host_identity.ami_id.json",
+        "digest": "sha256:cbfad42d4230df50ded448e12a0dceaedfbc2997df6d4dec335ed2bfc91a29ef"
+      },
       "rationale": "Owner decision 2026-08-26. Probed 2026-08-26 via aws ec2 describe-images --owners amazon (al2023-ami-2023.*-x86_64, state=available) with profile dev-sso in account 539402214167, per the documented probe-before-wire step in terraform/benchmark/variables.tf. Newest AL2023 release set 2023.12.20260817.0, kernel-6.1 flavor - the only flavor with a real observed boot in this pipeline (green plumbing run 33000379021).",
       "notes": "DeprecationTime 2026-11-10T23:53:00Z: after that date the id disappears from unfiltered describe-images listings and launch-by-exact-id was not probed. If measured runs continue past it, re-probe and re-pin - a preregistration change that must be recorded as such."
     },
     "ami_name": {
       "status": "BOUND",
       "value": "al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64",
-      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
+      "evidence_digest": "sha256:2dd3fe645a6c4a11ec2d673e0091a4fde7a70c34ee31fb20df60894b0809bd89",
+      "evidence_receipt": {
+        "path": "benchmarks/evidence/receipts/confirmation/host_identity.ami_name.json",
+        "digest": "sha256:2dd3fe645a6c4a11ec2d673e0091a4fde7a70c34ee31fb20df60894b0809bd89"
+      },
       "rationale": "Name of the pinned ami_id, from the same describe-images probe of 2026-08-26."
     },
     "os_identity": {
@@ -129,27 +146,43 @@
     "terraform": {
       "status": "BOUND",
       "value": "1.9.8",
-      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
+      "evidence_digest": "sha256:0beb2c4e3db1b7f673aef70d19eb0badd7f8693786568a9035f0571bb2a4436b",
+      "evidence_receipt": {
+        "path": "benchmarks/evidence/receipts/confirmation/tool_identities.terraform.json",
+        "digest": "sha256:0beb2c4e3db1b7f673aef70d19eb0badd7f8693786568a9035f0571bb2a4436b"
+      },
       "rationale": "Owner decision 2026-08-26: the .github/actions/dialed-setup/action.yml setup-terraform parameter is pinned exactly.",
       "notes": "The benchmark and bootstrap roots pin hashicorp/aws exactly to 6.0.0 and commit the provider lock hashes for Linux amd64 and Darwin arm64."
     },
     "go_toolchain": {
       "status": "BOUND",
       "value": "go1.25.5 (go.mod directive 'go 1.25.5')",
-      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
+      "evidence_digest": "sha256:5195df65104775224881fb1e262d03819d6938da669314458c69c961234252cb",
+      "evidence_receipt": {
+        "path": "benchmarks/evidence/receipts/confirmation/tool_identities.go_toolchain.json",
+        "digest": "sha256:5195df65104775224881fb1e262d03819d6938da669314458c69c961234252cb"
+      },
       "rationale": "Owner decision 2026-08-26: record the go.mod directive alongside the toolchain actually resolved at binding-commit time. 'go version' in this repo at the binding commit reported go1.25.5 (darwin/arm64 driver machine).",
       "notes": "CI is pinned to Go 1.25.5 by exact setup-go input plus the exact go.mod directive. The resolved 'go version' that builds a future measurement-capable runner is still recorded per run."
     },
     "runner_build_flags": {
       "status": "BOUND",
       "value": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner",
-      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
+      "evidence_digest": "sha256:fa71f788de84068c99682b097fe4bd54a23a4ef89841df41b787357cff0981fe",
+      "evidence_receipt": {
+        "path": "benchmarks/evidence/receipts/confirmation/tool_identities.runner_build_flags.json",
+        "digest": "sha256:fa71f788de84068c99682b097fe4bd54a23a4ef89841df41b787357cff0981fe"
+      },
       "rationale": "Owner decision 2026-08-26: the exact in-workflow build literal in .github/workflows/benchmark.yml ('Build and stage benchmark runner in results bucket'), recorded verbatim including the /tmp/benchrunner output path. Review round 1 (session 01a03f9c) corrected an earlier inexact transcription that omitted the /tmp/ prefix; internal/benchplan/validate_test.go now cross-checks this literal against the workflow file."
     },
     "yq": {
       "status": "BOUND",
       "value": "4.44.3",
-      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
+      "evidence_digest": "sha256:3ea3e4373eaf3bf828ddfe652392a5d4d498bb8f278c77a4517830263d19f841",
+      "evidence_receipt": {
+        "path": "benchmarks/evidence/receipts/confirmation/tool_identities.yq.json",
+        "digest": "sha256:3ea3e4373eaf3bf828ddfe652392a5d4d498bb8f278c77a4517830263d19f841"
+      },
       "rationale": "Owner decision 2026-08-26: the exact yq version the dialed-setup composite action ENFORCES. Review round 1 (session 01a03f9c) found the action previously accepted any preinstalled yq and only downloaded 4.44.3 when absent; it now installs the pinned v4.44.3 whenever the resolving yq differs and fails closed if the pinned version does not resolve after install, so this recorded value is enforced, not assumed."
     }
   },

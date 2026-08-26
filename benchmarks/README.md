@@ -8,9 +8,11 @@ Confirmation rigor is TIERED per the owner-authorized amendment of
 2026-08-26: Tier-1 `VM_MEASURED_JITTER_AVERAGED` is the campaign default
 and its host identities are BOUND (c7i.xlarge, us-east-1, pinned AL2023
 kernel-6.1 AMI `ami-02b3d83d84b07786d`); Tier-2 `METAL_MEASURED` is the
-opt-in flagship and is `DEFERRED_BY_OWNER`. **US-008 has not run, has no
-samples, and does not pass**: 26 host/tool binding fields remain unbound
-and the single remaining blocker class is `HOST_BINDING_PENDING`
+opt-in flagship and is `DEFERRED_BY_OWNER`. **The US-008 preregistration
+story passes under the owner-attested, explicitly non-independent scope;
+no benchmark has run and no samples or performance claims exist.** Sample
+readiness remains blocked: 26 host/tool binding fields remain unbound and
+the single remaining blocker class is `HOST_BINDING_PENDING`
 (owner-gated completion of the confirmation-host and
 measurement/analyzer tool-identity binding; `benchplanctl verify` fails
 closed with exit 3). The pipeline's end-to-end plumbing was proven by

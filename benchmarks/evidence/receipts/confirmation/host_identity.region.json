@@ -1,0 +1,19 @@
+{
+  "schema": "vjwp-binding-evidence-receipt/1.0.0",
+  "evidence_type": "OWNER_ATTESTED_DECISION",
+  "environment": {
+    "id": "confirmation-linux-x86_64",
+    "role": "confirmation",
+    "document": "benchmarks/environments/confirmation.json"
+  },
+  "field": {
+    "path": "host_identity.region",
+    "value": "us-east-1"
+  },
+  "captured_at": "2026-08-26T19:46:21Z",
+  "source": {
+    "kind": "OWNER_ATTESTATION",
+    "locator": "workspace protected root us008-owner-pinning-tier1.json with timestamp-correction sidecar",
+    "digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546"
+  }
+}

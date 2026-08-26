@@ -1,5 +1,6 @@
 {
   "schema": "vjwp-benchmark-environment/1.0.0",
+  "environment_id": "primary-macos",
   "role": "primary",
   "status": "OBSERVED_UNBOUND - Host identity facts below were honestly observed on the real candidate host with the recorded commands; they match the PRD-pinned class (macOS 26.4.1, Apple M4 Pro). The environment is still UNBOUND: every measurement/analyzer tool identity is OWNER_DECISION_PENDING, run-time snapshot fields freeze only at measurement time, and no sample may be collected before the attested plan freeze.",
   "binding_status": "UNBOUND",

@@ -44,6 +44,14 @@ var EnvironmentRoleByDocument = map[string]string{
 	"benchmarks/environments/confirmation.json":  "confirmation",
 }
 
+// EnvironmentIdentityByDocument is the stable document identity carried by
+// every evidence receipt. It prevents a valid receipt for one environment
+// from being substituted into the other role or document.
+var EnvironmentIdentityByDocument = map[string]string{
+	"benchmarks/environments/primary-macos.json": "primary-macos",
+	"benchmarks/environments/confirmation.json":  "confirmation-linux-x86_64",
+}
+
 // CanonicalBindingFields is the canonical, frozen required-binding-field
 // list per environment role. The validator meters THESE fields and fails
 // with METER_TAMPERED if a document declares any other list, so a
@@ -197,6 +205,7 @@ type planDocument struct {
 
 type environmentDocument struct {
 	Schema                string                      `json:"schema"`
+	EnvironmentID         string                      `json:"environment_id"`
 	Role                  string                      `json:"role"`
 	BindingStatus         string                      `json:"binding_status"`
 	HostIdentity          map[string]environmentField `json:"host_identity"`
@@ -206,11 +215,12 @@ type environmentDocument struct {
 }
 
 type environmentField struct {
-	Status            string          `json:"status"`
-	Value             json.RawMessage `json:"value"`
-	ObservedByCommand string          `json:"observed_by_command"`
-	ObservedAt        string          `json:"observed_at"`
-	EvidenceDigest    string          `json:"evidence_digest"`
+	Status            string                    `json:"status"`
+	Value             json.RawMessage           `json:"value"`
+	ObservedByCommand string                    `json:"observed_by_command"`
+	ObservedAt        string                    `json:"observed_at"`
+	EvidenceDigest    string                    `json:"evidence_digest"`
+	EvidenceReceipt   *evidenceReceiptReference `json:"evidence_receipt"`
 }
 
 // Verify validates every benchmark document against its schema, checks
@@ -219,6 +229,10 @@ type environmentField struct {
 // the completion meter. When everything driver-completable is complete,
 // the only reported blocker class is HOST_BINDING_PENDING.
 func Verify(root string) (Report, error) {
+	return verify(root, false)
+}
+
+func verify(root string, allowTestOnlyReceipts bool) (Report, error) {
 	report := Report{SchemaFailures: map[string][]string{}}
 
 	for document, schemaName := range BenchmarkDocuments {
@@ -249,7 +263,7 @@ func Verify(root string) (Report, error) {
 		"benchmarks/environments/primary-macos.json",
 		"benchmarks/environments/confirmation.json",
 	} {
-		meter, err := environmentCompletionMeter(root, document, EnvironmentRoleByDocument[document])
+		meter, err := environmentCompletionMeter(root, document, EnvironmentRoleByDocument[document], allowTestOnlyReceipts)
 		if err != nil {
 			return report, err
 		}
@@ -449,7 +463,7 @@ type meterResult struct {
 // when the document's declared role or required_binding_fields disagree
 // with the canon (review fix round 2: a document cannot shrink its own
 // completion meter).
-func environmentCompletionMeter(root, document, expectedRole string) (meterResult, error) {
+func environmentCompletionMeter(root, document, expectedRole string, allowTestOnlyReceipts bool) (meterResult, error) {
 	var meter meterResult
 	canonical, known := CanonicalBindingFields[expectedRole]
 	if !known {
@@ -469,6 +483,10 @@ func environmentCompletionMeter(root, document, expectedRole string) (meterResul
 		meter.failures = append(meter.failures, fmt.Sprintf(
 			"%s declares role %q but the filename contract requires %q", document, environment.Role, expectedRole))
 	}
+	if expectedID := EnvironmentIdentityByDocument[document]; environment.EnvironmentID != expectedID {
+		meter.failures = append(meter.failures, fmt.Sprintf(
+			"%s declares environment_id %q but the filename contract requires %q", document, environment.EnvironmentID, expectedID))
+	}
 	if len(environment.RequiredBindingFields) != len(canonical) {
 		meter.failures = append(meter.failures, fmt.Sprintf(
 			"%s declares %d required binding fields; the canonical %s list has %d (the meter is code+schema truth, not document truth)",
@@ -487,6 +505,7 @@ func environmentCompletionMeter(root, document, expectedRole string) (meterResul
 		"run_policy":      environment.RunPolicy,
 		"tool_identities": environment.ToolIdentities,
 	}
+	validated := map[string]bool{}
 	for _, path := range canonical {
 		section, field, found := strings.Cut(path, ".")
 		records := sections[section]
@@ -507,14 +526,35 @@ func environmentCompletionMeter(root, document, expectedRole string) (meterResul
 		case "PENDING_FREEZE_AT_MEASUREMENT":
 			meter.snapshots = append(meter.snapshots, UnboundField{Document: document, Path: path, Status: record.Status})
 		case "OBSERVED", "PRD_VERBATIM", "PREREGISTERED_BY_DRIVER", "BOUND":
-			if failures := validateBindingField(expectedRole, path, record); len(failures) > 0 {
+			if failures := validateBindingField(root, document, environment.EnvironmentID, expectedRole, path, record, allowTestOnlyReceipts); len(failures) > 0 {
 				for _, failure := range failures {
 					meter.failures = append(meter.failures, fmt.Sprintf("%s: field %q %s", document, path, failure))
 				}
 			}
+			validated[path] = true
 		default:
 			meter.failures = append(meter.failures, fmt.Sprintf(
 				"%s: field %q has unknown status %q", document, path, record.Status))
+		}
+	}
+	// Every BOUND host/tool identity must carry evidence, including
+	// supplemental pipeline pins that are not sample-readiness fields.
+	for _, sectionName := range []string{"host_identity", "tool_identities"} {
+		fields := sections[sectionName]
+		names := make([]string, 0, len(fields))
+		for name := range fields {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			path := sectionName + "." + name
+			record := fields[name]
+			if record.Status != "BOUND" || validated[path] {
+				continue
+			}
+			for _, failure := range validateBindingField(root, document, environment.EnvironmentID, expectedRole, path, record, allowTestOnlyReceipts) {
+				meter.failures = append(meter.failures, fmt.Sprintf("%s: field %q %s", document, path, failure))
+			}
 		}
 	}
 	sort.Slice(meter.unbound, func(i, j int) bool { return meter.unbound[i].Path < meter.unbound[j].Path })
@@ -529,20 +569,27 @@ var (
 )
 
 type toolIdentityEvidence struct {
+	Kind       string `json:"kind"`
 	Identity   string `json:"identity"`
+	Platform   string `json:"platform"`
 	Digest     string `json:"digest"`
 	Provenance string `json:"provenance"`
 }
 
-func validateBindingField(role, path string, field environmentField) []string {
+func validateBindingField(root, document, environmentID, role, path string, field environmentField, allowTestOnlyReceipts bool) []string {
 	var failures []string
 	fail := func(format string, args ...any) { failures = append(failures, fmt.Sprintf(format, args...)) }
 	if len(field.Value) == 0 || bytes.Equal(bytes.TrimSpace(field.Value), []byte("null")) {
 		fail("has status %s without a value", field.Status)
 		return failures
 	}
-	if field.Status == "BOUND" && strings.HasPrefix(path, "host_identity.") && !validDigest(field.EvidenceDigest) {
-		fail("BOUND host identity requires a nonzero sha256 evidence_digest")
+	if field.Status == "BOUND" {
+		var receiptFailures []string
+		_, receiptFailures = validateBindingReceipt(root, document, environmentID, role, path, field, allowTestOnlyReceipts)
+		failures = append(failures, receiptFailures...)
+		if !validDigest(field.EvidenceDigest) {
+			fail("BOUND identity requires a nonzero sha256 evidence_digest")
+		}
 	}
 
 	var value any
@@ -551,6 +598,9 @@ func validateBindingField(role, path string, field environmentField) []string {
 		return failures
 	}
 	stringValue, _ := value.(string)
+	if field.Status == "BOUND" && containsPlaceholderIdentity(value) {
+		fail("contains an obvious placeholder identity")
+	}
 	positiveInteger := func() bool {
 		number, ok := value.(float64)
 		return ok && number > 0 && number == math.Trunc(number)
@@ -561,6 +611,12 @@ func validateBindingField(role, path string, field environmentField) []string {
 		if field.Status != "BOUND" {
 			return failures
 		}
+		if ownerAttestedReceiptFields[role+"|"+path] {
+			if strings.TrimSpace(stringValue) == "" {
+				fail("owner-attested pipeline identity must be a nonempty string")
+			}
+			return failures
+		}
 		if name == "java_executable_digest" || name == "rust_executable_digest" {
 			if !validDigest(stringValue) {
 				fail("must be a nonzero sha256 executable digest")
@@ -568,8 +624,15 @@ func validateBindingField(role, path string, field environmentField) []string {
 			return failures
 		}
 		var evidence toolIdentityEvidence
-		if err := json.Unmarshal(field.Value, &evidence); err != nil || strings.TrimSpace(evidence.Identity) == "" || !validDigest(evidence.Digest) || strings.TrimSpace(evidence.Provenance) == "" {
-			fail("must be an object with nonempty identity/provenance and a nonzero sha256 digest")
+		if err := json.Unmarshal(field.Value, &evidence); err != nil || evidence.Kind != name || strings.TrimSpace(evidence.Identity) == "" || !validDigest(evidence.Digest) || strings.TrimSpace(evidence.Provenance) == "" {
+			fail("must be an object whose kind matches the field, with nonempty identity/provenance and a nonzero sha256 digest")
+		}
+		expectedPlatform := "aarch64-apple-darwin"
+		if role == "confirmation" {
+			expectedPlatform = "x86_64-unknown-linux-gnu"
+		}
+		if evidence.Platform != expectedPlatform {
+			fail("tool platform %q must equal the %s environment platform %q", evidence.Platform, role, expectedPlatform)
 		}
 		return failures
 	}

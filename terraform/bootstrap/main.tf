@@ -86,7 +86,7 @@ locals {
 #
 # Trust policy requires all four identities simultaneously: immutable numeric
 # owner/repository subject, the matching GitHub environment, refs/heads/main,
-# and one exact workflow path on that ref. PR subjects and mutable owner/name
+# and one exact workflow name. PR subjects and mutable owner/name
 # subjects are deliberately absent, so PR-controlled code cannot receive this
 # role even if another workflow accidentally requests id-token:write.
 
@@ -105,10 +105,10 @@ resource "aws_iam_role" "deploy" {
         Action    = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
-            "token.actions.githubusercontent.com:aud"          = "sts.amazonaws.com"
-            "token.actions.githubusercontent.com:sub"          = [for r in local.oidc_sub_repos : "repo:${r}:environment:${each.key}"]
-            "token.actions.githubusercontent.com:ref"          = "refs/heads/main"
-            "token.actions.githubusercontent.com:workflow_ref" = var.oidc_trusted_workflow_refs
+            "token.actions.githubusercontent.com:aud"      = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub"      = [for r in local.oidc_sub_repos : "repo:${r}:environment:${each.key}"]
+            "token.actions.githubusercontent.com:ref"      = "refs/heads/main"
+            "token.actions.githubusercontent.com:workflow" = var.oidc_trusted_workflow_names
           }
         }
       }

@@ -40,8 +40,9 @@ func TestPipelinePrivilegeBoundaryAndTrustedOIDCIdentityAreStatic(t *testing.T) 
 
 	bootstrap := readRepoFile(t, "terraform/bootstrap/main.tf")
 	for _, required := range []string{
-		`"token.actions.githubusercontent.com:ref"          = "refs/heads/main"`,
-		`"token.actions.githubusercontent.com:workflow_ref" = var.oidc_trusted_workflow_refs`,
+		`"token.actions.githubusercontent.com:aud"      = "sts.amazonaws.com"`,
+		`"token.actions.githubusercontent.com:ref"      = "refs/heads/main"`,
+		`"token.actions.githubusercontent.com:workflow" = var.oidc_trusted_workflow_names`,
 		`"repo:${r}:environment:${each.key}"`,
 	} {
 		if !strings.Contains(bootstrap, required) {
@@ -50,6 +51,24 @@ func TestPipelinePrivilegeBoundaryAndTrustedOIDCIdentityAreStatic(t *testing.T) 
 	}
 	if strings.Contains(bootstrap, `"repo:${r}:pull_request"`) || strings.Contains(bootstrap, "concat([var.github_repo]") {
 		t.Fatal("bootstrap OIDC trust must not admit PR subjects or mutable owner/name identities")
+	}
+	if strings.Contains(bootstrap, "workflow_ref") || strings.Contains(bootstrap, "job_workflow_ref") {
+		t.Fatal("direct workflows must use AWS's supported workflow claim, not workflow_ref or reusable-job-only job_workflow_ref")
+	}
+	tfvars := readRepoFile(t, "terraform/bootstrap/bootstrap.auto.tfvars")
+	for _, workflow := range []struct {
+		path string
+		name string
+	}{
+		{".github/workflows/benchmark.yml", "Benchmark Confirmation Host (US-008 pipeline)"},
+		{".github/workflows/bench-janitor.yml", "Bench Workspace Janitor"},
+	} {
+		if !strings.HasPrefix(readRepoFile(t, workflow.path), "name: "+workflow.name+"\n") {
+			t.Errorf("%s name must exactly match trusted OIDC workflow claim %q", workflow.path, workflow.name)
+		}
+		if !strings.Contains(tfvars, `"`+workflow.name+`"`) {
+			t.Errorf("bootstrap trust is missing exact workflow name %q", workflow.name)
+		}
 	}
 }
 
