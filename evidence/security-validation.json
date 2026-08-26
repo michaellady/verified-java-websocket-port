@@ -6,15 +6,15 @@
   "policy_digests": {
     "security/ingestion-policy.json": "sha256:8c3f4b7a0d7e7fe803e171267a3ab25c88576b582dd5391ce16954cbdd832d60",
     "security/release-firewall.json": "sha256:74252e3448f76d47a978df882bc6b791b5fd0f5a21b26ac4c196e6c27caa044d",
-    "security/sandbox-policy.json": "sha256:12c6db734495d294ed32a32cd18af167595a99f97a0755c47c7a8e40bfb91e97"
+    "security/sandbox-policy.json": "sha256:64ef802a579cc5bd04f1cd430f1b0a1ec0829e3ee3f73a5e9f5c0c508c171854"
   },
   "schema_digests": {
     "schemas/executable-promotion-record-1.0.0.schema.json": "sha256:d2e0c86caa559a393f2f27a678940ce296c21a86829c54a7cc7d16411743d8aa",
     "schemas/security-fixture-catalog-1.0.0.schema.json": "sha256:2fcabdef691e0040cde28cc1a1d9acaef9e759a071f683b8e0dbc2996a45f92f",
     "schemas/security-ingestion-policy-1.0.0.schema.json": "sha256:ae96c17cab6c9762a000a57d5c6e5e696f7ff9288ded6c72fe2534701e1da2cb",
     "schemas/security-release-firewall-1.0.0.schema.json": "sha256:5310f3388e7b30aa67f0e86129b494ecadfa94cd0a9d910684ca01f5692df555",
-    "schemas/security-sandbox-policy-1.0.0.schema.json": "sha256:232ed1eaf3a957b0c2039261ffb96e64bd167bd69b68e54f9ccc8f40ece64e9a",
-    "schemas/security-validation-1.0.0.schema.json": "sha256:f5334c8d328958f29859d3ec0f62cd8babaca6382e905e84577370dec972e454"
+    "schemas/security-sandbox-policy-1.0.0.schema.json": "sha256:84adb8cc996b70ba8f7281fee4d7b3356a115e57544f02bc4adbe030f75e5346",
+    "schemas/security-validation-1.0.0.schema.json": "sha256:1dc62ca926532181cded99fd04aaa544dc58deea7f319489b2d0d2fb4fa69a6f"
   },
   "fixture_catalog_digest": "sha256:5da747c326b8388889979d3f69716b483149ba36901e94e16174573b3a76614c",
   "autobahn_baseline_digest": "sha256:54fac3c5166e6530ffb4e34ccd5a05d8122d2b2fae4fc4bc1708ac05779ff04d",
@@ -295,9 +295,9 @@
       "component": "SANDBOX",
       "state": "BLOCKED",
       "input_digest": "sha256:f0c49419d0d4f312c4c8f76d87a147cc79c13db187f14002245a8e43a67bd2a8",
-      "output_digest": "sha256:598cd59a5b59b05acb1d6efc9a2870dc8091919321b5b962228aee11f260ddd7",
+      "output_digest": "sha256:1ede5fa4f816c05dc1136844a28506b4dcb6a40d8a67cd29643eee2a41ccc14a",
       "expected_code": "",
-      "actual_code": "SANDBOX_ENFORCEMENT_UNAVAILABLE",
+      "actual_code": "PROTECTED_CALLER_REQUIRED",
       "expected_disposition": "",
       "actual_disposition": "BLOCK",
       "cli_exit": 1,
@@ -681,17 +681,26 @@
       "matched": true
     }
   ],
-  "mechanics_state": "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE",
+  "mechanics_state": "RLIMIT_ENVELOPE_PROVEN_LIVE_MEMORY_SCOPED_TO_OUTER_ENVELOPE_ATTEMPT_0123",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,
   "production": false,
   "signing": false,
   "publication": false,
   "sandbox_mechanics": {
-    "code": "SANDBOX_ENFORCEMENT_UNAVAILABLE",
-    "disposition": "BLOCK",
+    "code": "SANDBOX_RLIMIT_ENVELOPE_PROVEN_LIVE",
+    "disposition": "ACCEPT",
     "path": "$.platform_enforcement",
-    "message": "required namespace/profile, resource, mount, network, and cleanup enforcement is not proven; no host-process fallback was used"
+    "message": "attempt us007-sbx-output-live-0123 proved live, per-workload and kernel-enforced: RLIMIT_CPU, RLIMIT_NPROC, RLIMIT_NOFILE, supervisor wall-clock SIGKILL, supervisor output-byte kill, and the /run tmpfs workspace (RLIMIT_FSIZE + ENOSPC) bounds. The MEMORY dimension is the owner-accepted scoped guarantee (memory-scoping amendment sha256:615d838d6e5e10c16866170c875d2662f0bc00e7c8f46d0bf75e6cd8b4587645, superseding the enforcement amendment): a 512 MiB per-workload RLIMIT_AS is set before exec on the memory-allocation canary alone (its kill trigger), and every workload's RSS is bounded only by the OUTER sbx --memory whole-sandbox envelope; RLIMIT_DATA is not relied upon (brk-only, does not bound mmap) and no uniform per-workload memory cap is claimed. seccomp-zero is acceptable against the bound platform profile digest sha256:81f3e737e891b042da605b9487abd6878d6c14ae18f3e01a257fc2b2fc84981c, which is the syscall barrier for this runtime. Owner-attested, not independently reviewed."
+  },
+  "sbx_live_evidence": {
+    "attempt_id": "us007-sbx-output-live-0123",
+    "evidence_path": "evidence/sbx-validation.json",
+    "evidence_digest": "sha256:ba746b0411cfe4759ee90460106ccc33f47992a5c72c13500f9022e5ce823be2",
+    "projection_canonical_digest": "sha256:f89d23b18b1f7784d315e411ec90b38055f88026d08ffb188bd4fc8d1c961685",
+    "target_commit": "870aac28139604e217ae44469e679557994f7a0d",
+    "source_tree": "4937f8fab01300b542ca4dd23f90f6202ed3f268",
+    "enforcement_model": "PARENT_SET_POSIX_RLIMIT_ENVELOPE"
   },
   "lifecycle_integration": {
     "state": "BOUND_CANONICAL_VERIFY_REPLAY",
@@ -705,10 +714,10 @@
     ]
   },
   "runtime": {
-    "provider": "OpenAI",
-    "requested_model": "gpt-5.6-sol",
-    "requested_reasoning_effort": "xhigh",
-    "task_session_path": "/root/us007_implementation",
+    "provider": "Anthropic",
+    "requested_model": "claude-fable-5",
+    "requested_reasoning_effort": "high",
+    "task_session_path": "us007-claude-plane-evidence-closure",
     "actual_deployment_identifier": "not_exposed",
     "runtime_session_uuid": "not_exposed"
   }

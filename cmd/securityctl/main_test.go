@@ -21,7 +21,7 @@ func TestVerifyExactJSONAndNonzeroSemantics(t *testing.T) {
 	if err := json.Unmarshal(stdout.Bytes(), &good); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
-	if good["state"] != "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE" {
+	if good["state"] != "RLIMIT_ENVELOPE_PROVEN_LIVE_MEMORY_SCOPED_TO_OUTER_ENVELOPE_ATTEMPT_0123" {
 		t.Fatalf("state=%v", good["state"])
 	}
 	stdout.Reset()
@@ -52,7 +52,7 @@ func TestRootFlagIsRequired(t *testing.T) {
 }
 
 func TestOnlyExplicitSuccessStatesExitZero(t *testing.T) {
-	for _, state := range []string{"", "BLOCKED", "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE", "UNKNOWN"} {
+	for _, state := range []string{"", "BLOCKED", "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE", "RLIMIT_ENVELOPE_PROVEN_LIVE_MEMORY_SCOPED_TO_OUTER_ENVELOPE_ATTEMPT_0123", "UNKNOWN"} {
 		if verdictSucceeded(securitygate.Verdict{State: state}) {
 			t.Fatalf("state %q was accepted", state)
 		}

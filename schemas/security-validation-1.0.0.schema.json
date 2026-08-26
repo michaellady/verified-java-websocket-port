@@ -25,6 +25,7 @@
     "signing",
     "publication",
     "sandbox_mechanics",
+    "sbx_live_evidence",
     "lifecycle_integration",
     "runtime"
   ],
@@ -129,7 +130,7 @@
       }
     },
     "mechanics_state": {
-      "const": "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE"
+      "const": "RLIMIT_ENVELOPE_PROVEN_LIVE_MEMORY_SCOPED_TO_OUTER_ENVELOPE_ATTEMPT_0123"
     },
     "assurance": {
       "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
@@ -157,10 +158,10 @@
       ],
       "properties": {
         "code": {
-          "const": "SANDBOX_ENFORCEMENT_UNAVAILABLE"
+          "const": "SANDBOX_RLIMIT_ENVELOPE_PROVEN_LIVE"
         },
         "disposition": {
-          "const": "BLOCK"
+          "const": "ACCEPT"
         },
         "path": {
           "type": "string",
@@ -169,6 +170,42 @@
         "message": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "sbx_live_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attempt_id",
+        "evidence_path",
+        "evidence_digest",
+        "projection_canonical_digest",
+        "target_commit",
+        "source_tree",
+        "enforcement_model"
+      ],
+      "properties": {
+        "attempt_id": {
+          "const": "us007-sbx-output-live-0123"
+        },
+        "evidence_path": {
+          "const": "evidence/sbx-validation.json"
+        },
+        "evidence_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "projection_canonical_digest": {
+          "const": "sha256:f89d23b18b1f7784d315e411ec90b38055f88026d08ffb188bd4fc8d1c961685"
+        },
+        "target_commit": {
+          "const": "870aac28139604e217ae44469e679557994f7a0d"
+        },
+        "source_tree": {
+          "const": "4937f8fab01300b542ca4dd23f90f6202ed3f268"
+        },
+        "enforcement_model": {
+          "const": "PARENT_SET_POSIX_RLIMIT_ENVELOPE"
         }
       }
     },
@@ -214,16 +251,16 @@
       ],
       "properties": {
         "provider": {
-          "const": "OpenAI"
+          "const": "Anthropic"
         },
         "requested_model": {
-          "const": "gpt-5.6-sol"
+          "const": "claude-fable-5"
         },
         "requested_reasoning_effort": {
-          "const": "xhigh"
+          "const": "high"
         },
         "task_session_path": {
-          "const": "/root/us007_implementation"
+          "const": "us007-claude-plane-evidence-closure"
         },
         "actual_deployment_identifier": {
           "const": "not_exposed"

@@ -372,8 +372,8 @@ func TestUS007Acceptance_FixtureEvidenceRetainsObservedComponentOutputs(t *testi
 			t.Fatalf("fixture %s incomplete observation=%#v", item.ID, observation)
 		}
 		if item.ID == "good-sandbox-canaries" {
-			if observation.Code != "SANDBOX_ENFORCEMENT_UNAVAILABLE" || observation.Disposition != "BLOCK" || observation.Exit != 1 {
-				t.Fatalf("unsupported canary observation=%#v", observation)
+			if observation.Code != "PROTECTED_CALLER_REQUIRED" || observation.Disposition != "BLOCK" || observation.Exit != 1 {
+				t.Fatalf("candidate canary launch observation=%#v", observation)
 			}
 			continue
 		}

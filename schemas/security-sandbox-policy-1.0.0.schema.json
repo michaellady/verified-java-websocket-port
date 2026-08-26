@@ -160,6 +160,7 @@
           },
           "disposition": {
             "enum": [
+              "ACCEPT",
               "BLOCK",
               "QUARANTINE",
               "INVALIDATE",

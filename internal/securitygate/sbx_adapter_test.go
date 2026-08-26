@@ -3,7 +3,6 @@ package securitygate
 import (
 	"context"
 	"crypto/ed25519"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -170,9 +169,10 @@ func testSbxReceipt(t *testing.T, request SbxExecutionRequest) SbxExecutionRecei
 		TemplateReference: profile.Runtime.TemplateReference, TemplateIndexDigest: profile.Runtime.TemplateIndexDigest,
 		TemplatePlatform: profile.Runtime.TemplatePlatform, TemplateManifestDigest: profile.Runtime.TemplateManifestDigest,
 		WorkspaceMode: profile.Isolation.WorkspaceMode, CloneSourceReadOnly: true,
-		CPUCount: profile.Isolation.CPUs, MemoryBytes: profile.Isolation.MemoryBytes, DeclaredCanaryLimits: profile.SupervisorLimits,
-		NetworkPolicyDigest: profile.Isolation.NetworkPolicy.CanonicalDigest,
-		NetworkPolicyState:  "ACTIVE_DENY_ALL", InputRoot: request.InputRoot, OutputRoot: request.OutputRoot,
+		CPUCount: profile.Isolation.CPUs, MemoryBytes: profile.Isolation.MemoryBytes, CompiledSupervisorEnvelope: profile.SupervisorLimits,
+		SupervisorObservation: testSupervisorObservation(request),
+		NetworkPolicyDigest:   profile.Isolation.NetworkPolicy.CanonicalDigest,
+		NetworkPolicyState:    "ACTIVE_DENY_ALL", InputRoot: request.InputRoot, OutputRoot: request.OutputRoot,
 		PlatformControlSecretCount: 1, MCPGatewayInfrastructure: true, CloneGitBridgePortCount: 1,
 		AcceptedRootDigest: request.AcceptedRootDigest, InventoryRootDigest: request.InventoryRootDigest,
 		SourceBeforeDigest: digestOf("source-tree"), SourceAfterDigest: digestOf("source-tree"), OutputRootDigest: digestOf("output-root"),
@@ -183,6 +183,64 @@ func testSbxReceipt(t *testing.T, request SbxExecutionRequest) SbxExecutionRecei
 		Assurance: AssuranceOwnerOnly,
 	}
 }
+
+func testSupervisorObservation(request SbxExecutionRequest) SupervisorObservation {
+	descriptorDigest, _, err := sbxDescriptorContract(request.CanaryID)
+	if err != nil {
+		panic(err)
+	}
+	initial := SupervisorCgroupObservation{
+		MemoryMaxBytes: 536870912, MemorySwapMax: 0, MemoryOOMGroup: 1, PIDsMax: 56,
+		CPUUsageUsec: 1, CPUUserUsec: 1,
+	}
+	return SupervisorObservation{
+		DescriptorDigest: descriptorDigest, SupervisorDigestReopened: request.SupervisorDigest,
+		RuntimeIdentity: "linux/arm64", SBXIdentity: "docker-sbx-v0.39.0/linux/arm64",
+		SourceCommit: "0123456789abcdef0123456789abcdef01234567", SourceTree: "89abcdef0123456789abcdef0123456789abcdef",
+		CapabilityPreflight: SupervisorCapabilityPreflight{
+			CAPSysAdmin: "CapEff bit 21 observed", CgroupV2: "cgroup2 mount observed",
+			Controllers: "cpu memory pids observed", CgroupKill: "cgroup.kill reopened",
+			MountTmpfs:        "private mount namespace and tmpfs available",
+			Stage2Containment: "pid reopened in cgroup.procs before release",
+		},
+		EnforcementMechanics: SupervisorEnforcementMechanics{RLimitFSizeBytes: 134217728, CPUKillThresholdUsec: 58000000, WallKillThresholdNS: 119000000000, CgroupPIDsMax: 56},
+		CgroupInitial:        initial, CgroupFinal: initial,
+		RLimits: SupervisorRLimitObservation{
+			CPUCur: 60, CPUMax: 60, ASCur: 536870912, ASMax: 536870912,
+			NProcCur: 64, NProcMax: 64, NOFileCur: 256, NOFileMax: 256,
+			FSizeCur: 134217728, FSizeMax: 134217728,
+		},
+		Identity: SupervisorIdentityObservation{
+			UID: 65534, GID: 65534, CapEff: "0000000000000000", NoNewPrivs: 1, Seccomp: 2, OpenFDs: 3,
+			FDSemantics: "per-process RLIMIT_NOFILE; aggregate tree FD count observed but not separately hard-capped",
+		},
+		Mounts: []SupervisorMountObservation{
+			{Name: "workspace", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 67108864, BytesFree: 67108864, InodesTotal: 4096, InodesFree: 4096},
+			{Name: "cache", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 33554432, BytesFree: 33554432, InodesTotal: 2048, InodesFree: 2048},
+			{Name: "output", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 16777216, BytesFree: 16777216, InodesTotal: 1024, InodesFree: 1024},
+			{Name: "general", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 16777216, BytesFree: 16777216, InodesTotal: 1024, InodesFree: 1024},
+		},
+		RootMountInfo: "1 0 0:1 / / ro - rootfs rootfs ro", SourceMountInfo: "2 1 0:2 / /run/sandbox/source ro - ext4 source ro",
+		CompleteMountInfo: testCandidateMountInfo(), CompleteMountInfoDigest: intake.DigestBytes([]byte(testCandidateMountInfo())),
+		StdoutDigest: digestOf("stdout"), StderrDigest: digestOf("stderr"), Termination: "EXITED", ParentWaitStatus: "exit status 0", ParentExitCode: sbxIntPointer(0), WallDurationNanos: int64(time.Second),
+		Cleanup: SupervisorCleanupObservation{
+			ProcessGroupKill: "ALREADY_ABSENT_ESRCH", CgroupKill: "WRITE_SUCCEEDED", ChildWait: "REAP_SUCCEEDED",
+			CgroupEventsReopened: "populated 0\nfrozen 0", CgroupProcsReopened: "<empty>", NamespaceMounts: "PROCESS_MOUNT_NAMESPACE_REAPED",
+			FDClosure: "OWNED_FDS_CLOSED", CgroupRemoval: "REMOVE_SUCCEEDED",
+		},
+		Assurance: AssuranceOwnerOnly,
+	}
+}
+
+func testCandidateMountInfo() string {
+	return strings.Join([]string{
+		"1 0 0:1 / / ro - rootfs rootfs ro", "2 1 0:2 / /run/sandbox/source ro - ext4 source ro",
+		"3 1 0:3 / /run/us007-workspace rw - tmpfs tmpfs rw", "4 1 0:4 / /run/us007-cache rw - tmpfs tmpfs rw",
+		"5 1 0:5 / /run/us007-output rw - tmpfs tmpfs rw", "6 1 0:6 / /run/us007-general rw - tmpfs tmpfs rw",
+	}, "\n")
+}
+
+func sbxIntPointer(value int) *int { return &value }
 
 func digestOf(value string) string { return intake.DigestBytes([]byte(value)) }
 
@@ -212,50 +270,45 @@ func TestUS007ExternalSbxPublicProjectionIsExactAndBounded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if digest := intake.DigestBytes(data); digest != "sha256:930b9073555f24d4013773f3f81e7bc354442ded9795812e2888907c4853b6b7" {
-		t.Fatalf("external sbx public projection digest=%s", digest)
+	if digest := intake.DigestBytes(data); digest != "sha256:ba746b0411cfe4759ee90460106ccc33f47992a5c72c13500f9022e5ce823be2" {
+		t.Fatalf("external sbx public evidence digest=%s", digest)
 	}
-	var projection struct {
-		Story                    string `json:"story"`
-		TargetCommit             string `json:"target_commit"`
-		NetworkPolicy            string `json:"network_policy"`
-		PlatformControlSecrets   int    `json:"platform_control_secrets"`
-		CloneGitBridgePorts      int    `json:"clone_git_bridge_ports"`
-		RegisteredMCPServers     int    `json:"registered_mcp_servers"`
-		UserSecretImports        int    `json:"user_secret_imports"`
-		UserPublishedPorts       int    `json:"user_published_ports"`
-		SandboxRemoved           bool   `json:"sandbox_removed"`
-		SandboxAbsentAfterRemove bool   `json:"sandbox_absent_after_remove"`
-		AutobahnReruns           int    `json:"autobahn_reruns"`
-		Assurance                string `json:"assurance"`
-		IndependentReviewClaimed bool   `json:"independent_review_claimed"`
-		Production               bool   `json:"production"`
-		Signing                  bool   `json:"signing"`
-		Publication              bool   `json:"publication"`
-		Canaries                 []struct {
-			ID       string `json:"id"`
-			Passed   bool   `json:"passed"`
-			ExitCode int    `json:"exit_code"`
-		} `json:"canaries"`
-	}
-	if err := json.Unmarshal(data, &projection); err != nil {
+	var doc sbxLiveEvidenceDocument
+	if err := intake.DecodeStrict(data, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if projection.Story != "US-007" || projection.TargetCommit != "f1860a4bd0420c8073aec8980cfcf3d118e1ea5a" || projection.NetworkPolicy != "ACTIVE_DENY_ALL" ||
-		projection.PlatformControlSecrets != 1 || projection.CloneGitBridgePorts != 1 || projection.RegisteredMCPServers != 0 || projection.UserSecretImports != 0 || projection.UserPublishedPorts != 0 ||
-		!projection.SandboxRemoved || !projection.SandboxAbsentAfterRemove || projection.AutobahnReruns != 0 || projection.Assurance != AssuranceOwnerOnly || projection.IndependentReviewClaimed || projection.Production || projection.Signing || projection.Publication || len(projection.Canaries) != 15 {
-		t.Fatalf("external sbx projection widened or incomplete: %#v", projection)
+	if doc.Story != "US-007" || doc.AttemptID != sbxLiveAttemptID || doc.EnforcementModel != sbxLiveEnforcementModel ||
+		doc.TargetCommit != sbxLiveTargetCommit || doc.SourceTree != sbxLiveSourceTree ||
+		doc.ProjectionCanonicalDigest != sbxLiveProjectionCanonicalDigest || doc.SandboxName != sbxLiveSandboxName ||
+		doc.BenignArtifactDigest != sbxLiveBenignArtifactDigest || doc.BenignArtifactBytes != sbxLiveBenignArtifactBytes ||
+		!doc.SandboxRemoved || !doc.SandboxAbsentAfterRemove || doc.DerivedVerdict != sbxLiveDerivedVerdict ||
+		doc.AutobahnReruns != 0 || doc.Assurance != AssuranceOwnerOnly || doc.IndependentReviewClaimed ||
+		doc.Production || doc.Signing || doc.Publication || len(doc.Descriptors) != 14 {
+		t.Fatalf("external sbx live evidence widened or incomplete: %#v", doc)
 	}
-	seenPID := false
-	for _, canary := range projection.Canaries {
-		if !canary.Passed {
-			t.Fatalf("external sbx canary failed: %#v", canary)
-		}
-		if canary.ID == "PID_BOUND" {
-			seenPID = canary.ExitCode != 0
+	if finding := validateRetainedSbxLiveEvidence(data); finding != nil {
+		t.Fatalf("retained live sbx evidence rejected: %#v", finding)
+	}
+	outcomes := map[string]sbxLiveDescriptorOutcome{}
+	for _, descriptor := range doc.Descriptors {
+		outcomes[descriptor.ID] = descriptor
+	}
+	// Every resource descriptor retained its typed enforcement termination
+	// under the amended parent-set rlimit model.
+	if memory := outcomes["MEMORY_BOUND"]; memory.ExitCode == nil || *memory.ExitCode != 2 || memory.RLimitASBytes != 536870912 {
+		t.Fatalf("memory canary lost its tight RLIMIT_AS allocation failure: %#v", memory)
+	}
+	if cpu := outcomes["CPU_BOUND"]; cpu.WorkloadSignal != 9 || cpu.Signal != "killed" {
+		t.Fatalf("cpu canary lost its RLIMIT_CPU SIGKILL: %#v", cpu)
+	}
+	for _, id := range []string{"FD_BOUND", "PID_BOUND", "WORKSPACE_BOUND"} {
+		if outcome := outcomes[id]; outcome.ExitCode == nil || *outcome.ExitCode != 23 {
+			t.Fatalf("%s lost its typed nonzero termination: %#v", id, outcome)
 		}
 	}
-	if !seenPID {
-		t.Fatal("process bomb did not retain its typed nonzero termination")
+	for _, id := range []string{"OUTPUT_BOUND", "WALL_BOUND"} {
+		if outcome := outcomes[id]; outcome.ExitCode != nil || outcome.Signal != "killed" {
+			t.Fatalf("%s lost its supervisor kill: %#v", id, outcome)
+		}
 	}
 }
