@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "purpose": "US-005 planted candidate mutants: small, documented, deliberate behavioral deviations whose evaluation MUST fail (be killed) on every behavior tier. These are calibration instruments for the planted_java_rust_mutants_killed live gate, never port candidates.",
+  "purpose": "US-005 planted candidate mutants: small, documented, deliberate planted deviations whose evaluation MUST fail (be killed) on every behavior tier. The Java mutants are behavioral deviations in the oracle's protocol handling; the Rust mutants are envelope-level deviations planted in the inert stub's response envelope, because no Rust protocol behavior exists yet to mutate (see each Rust entry's deviation disclosure). These are calibration instruments for the planted_java_rust_mutants_killed live gate, never port candidates.",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,
   "baselines": {

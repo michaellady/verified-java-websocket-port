@@ -1,10 +1,19 @@
 // Command us005-mutantctl stages and builds the planted US-005 Java oracle
 // mutants. A mutant is a full-file source overlay under mutants/java/<id>/
 // applied to a COPY of the pristine java-oracle sources; the pristine tree is
-// never modified. Staging is fail-closed: an overlay must name an existing
-// pristine source and must differ from it byte-wise, and every staged file's
-// SHA-256 is recorded in staged-manifest.json so the built mutant jar is
-// traceable to its exact planted deviation (see mutants/manifest.json).
+// never modified. The pipeline is fail-closed end-to-end:
+//
+//   - stage refuses any pre-existing output path — file, directory, or
+//     symlink — so stale trees are never reused and a planted symlink can
+//     never redirect the copy outside the intended destination; an overlay
+//     must name an existing pristine source and must differ from it
+//     byte-wise, and every staged file's SHA-256 is recorded in
+//     staged-manifest.json.
+//   - build re-verifies the staged tree against staged-manifest.json before
+//     compiling (any digest mismatch, extra file, or missing entry aborts),
+//     compiles into a freshly emptied classes directory, and packages only
+//     what it just compiled, so the built mutant jar is traceable to its
+//     exact planted deviation (see mutants/manifest.json).
 //
 // Usage:
 //
@@ -82,11 +91,24 @@ func copyFile(source, destination string) error {
 }
 
 // stage assembles out/src from the pristine sources plus the overlay and
-// writes out/staged-manifest.json. It never writes into the pristine tree.
+// writes out/staged-manifest.json. It never writes into the pristine tree,
+// and it refuses any pre-existing output path (including a symlink, which
+// would let the copy escape the intended destination): the output tree must
+// be created fresh by this staging, never adopted.
 func stage(pristineDir, overlayDir, outDir string) (StageManifest, error) {
 	manifest := StageManifest{
 		SchemaVersion: "1.0.0",
 		MutantID:      filepath.Base(filepath.Clean(overlayDir)),
+	}
+	// Lstat (not Stat) so a symlink — even one pointing nowhere — is seen
+	// and refused instead of being followed.
+	if _, err := os.Lstat(outDir); err == nil {
+		return manifest, fmt.Errorf(
+			"STAGE_OUT_EXISTS: %s already exists (file, directory, or symlink); "+
+				"staging never reuses an existing output path — remove it and re-stage",
+			outDir)
+	} else if !os.IsNotExist(err) {
+		return manifest, err
 	}
 	pristineNames, err := javaSources(pristineDir)
 	if err != nil {
@@ -160,20 +182,87 @@ func stage(pristineDir, overlayDir, outDir string) (StageManifest, error) {
 	return manifest, nil
 }
 
-// build compiles a staged mutant with the java-oracle gate flags and packs
-// the jar. It mirrors java-oracle/Makefile exactly (javac --release 17
-// -encoding UTF-8 -Xlint:all -Werror) so a mutant that would not survive the
-// oracle's own build gates cannot be planted.
+// verifyStagedTree loads staged-manifest.json and checks the staged sources
+// against it byte-for-byte: every source must match its recorded digest, no
+// source may exist outside the manifest, and no manifest entry may be
+// missing. It returns the verified source names in compilation order.
+func verifyStagedTree(stagedDir string) ([]string, error) {
+	raw, err := os.ReadFile(filepath.Join(stagedDir, "staged-manifest.json"))
+	if err != nil {
+		return nil, fmt.Errorf("STAGED_MANIFEST_UNREADABLE: %w", err)
+	}
+	var manifest StageManifest
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		return nil, fmt.Errorf("STAGED_MANIFEST_INVALID: %w", err)
+	}
+	if len(manifest.Staged) == 0 {
+		return nil, fmt.Errorf(
+			"STAGED_MANIFEST_EMPTY: %s records no staged sources", stagedDir)
+	}
+	expected := map[string]string{}
+	for _, staged := range manifest.Staged {
+		expected[staged.File] = staged.SHA256
+	}
+	names, err := javaSources(filepath.Join(stagedDir, "src"))
+	if err != nil {
+		return nil, fmt.Errorf("staged sources unavailable in %s: %w", stagedDir, err)
+	}
+	present := map[string]bool{}
+	for _, name := range names {
+		expectedDigest, listed := expected[name]
+		if !listed {
+			return nil, fmt.Errorf(
+				"STAGED_EXTRA_FILE: %s exists in %s/src but is absent from "+
+					"staged-manifest.json; refusing to compile unmanifested sources",
+				name, stagedDir)
+		}
+		digest, err := digestFile(filepath.Join(stagedDir, "src", name))
+		if err != nil {
+			return nil, err
+		}
+		if digest != expectedDigest {
+			return nil, fmt.Errorf(
+				"STAGED_DIGEST_MISMATCH: %s digest %s does not match "+
+					"staged-manifest.json (%s); the staged tree was modified "+
+					"after staging — re-stage instead of building it",
+				name, digest, expectedDigest)
+		}
+		present[name] = true
+	}
+	for _, staged := range manifest.Staged {
+		if !present[staged.File] {
+			return nil, fmt.Errorf(
+				"STAGED_MISSING_FILE: %s is recorded in staged-manifest.json "+
+					"but absent from %s/src", staged.File, stagedDir)
+		}
+	}
+	return names, nil
+}
+
+// build verifies the staged tree against staged-manifest.json, then compiles
+// it with the java-oracle gate flags and packs the jar. It mirrors
+// java-oracle/Makefile exactly (javac --release 17 -encoding UTF-8
+// -Xlint:all -Werror) so a mutant that would not survive the oracle's own
+// build gates cannot be planted. Compilation always starts from an emptied
+// classes directory and packaging covers exactly that fresh compilation, so
+// stale class files or a stale jar can never ride into the mutant artifact.
 func build(stagedDir, javaWebSocketJar, javacBinary, jarBinary string, stdout, stderr io.Writer) error {
 	if _, err := os.Stat(javaWebSocketJar); err != nil {
 		return fmt.Errorf("java-websocket jar: %w", err)
 	}
-	names, err := javaSources(filepath.Join(stagedDir, "src"))
-	if err != nil || len(names) == 0 {
-		return fmt.Errorf("staged sources unavailable in %s: %w", stagedDir, err)
+	names, err := verifyStagedTree(stagedDir)
+	if err != nil {
+		return err
 	}
 	classesDir := filepath.Join(stagedDir, "classes")
+	if err := os.RemoveAll(classesDir); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(classesDir, 0o755); err != nil {
+		return err
+	}
+	jarPath := filepath.Join(stagedDir, "java-oracle-mutant.jar")
+	if err := os.RemoveAll(jarPath); err != nil {
 		return err
 	}
 	arguments := []string{"--release", "17", "-encoding", "UTF-8", "-Xlint:all",
@@ -188,7 +277,7 @@ func build(stagedDir, javaWebSocketJar, javacBinary, jarBinary string, stdout, s
 		return fmt.Errorf("javac: %w", err)
 	}
 	pack := exec.Command(jarBinary, "--create",
-		"--file", filepath.Join(stagedDir, "java-oracle-mutant.jar"),
+		"--file", jarPath,
 		"--main-class", "OracleMain", "-C", classesDir, ".")
 	pack.Stdout = stdout
 	pack.Stderr = stderr
