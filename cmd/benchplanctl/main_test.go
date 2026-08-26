@@ -23,7 +23,7 @@ func TestVerifyOnRealTreeExitsHostBindingPending(t *testing.T) {
 		"schema ok   benchmarks/environments/confirmation.json",
 		"plan-spec ok",
 		"power-model ok",
-		"host_identity.instance_type",
+		"binding completion meter: 26 field(s) unbound",
 		"host_identity.instance_id",
 		"host_identity.observed_architecture",
 		"host_identity.allocation_evidence",
@@ -33,6 +33,19 @@ func TestVerifyOnRealTreeExitsHostBindingPending(t *testing.T) {
 	} {
 		if !strings.Contains(output, required) {
 			t.Errorf("verify output missing %q\noutput: %s", required, output)
+		}
+	}
+	// The owner's Tier-1 decision of 2026-08-26 bound these four
+	// confirmation identities; they must no longer report as unbound
+	// (the only place these paths appear in verify output).
+	for _, bound := range []string{
+		"host_identity.instance_type",
+		"host_identity.region",
+		"host_identity.ami_id",
+		"host_identity.ami_name",
+	} {
+		if strings.Contains(output, bound) {
+			t.Errorf("verify output still lists owner-bound field %q as unbound\noutput: %s", bound, output)
 		}
 	}
 	if strings.Contains(output, "RESULT: all benchmark documents consistent and every binding field bound") {

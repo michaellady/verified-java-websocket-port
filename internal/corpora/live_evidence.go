@@ -148,6 +148,31 @@ func liveDigestSet(protectedRoot string) map[string]bool {
 	return digests
 }
 
+// behaviorSelectedTotal sums the selected counts of the behavior tiers
+// (public, hidden, sealed — handshake is scored by its own tier flow) from
+// the calibration document's corpora section. A missing or mistyped count
+// returns ok=false so callers surface a typed finding instead of silently
+// weakening the coverage check.
+func behaviorSelectedTotal(document map[string]any) (int, bool) {
+	corpora, _ := document["corpora"].(map[string]any)
+	if corpora == nil {
+		return 0, false
+	}
+	total := 0
+	for _, tier := range []string{"public", "hidden", "sealed"} {
+		entry, _ := corpora[tier].(map[string]any)
+		if entry == nil {
+			return 0, false
+		}
+		selected, ok := gateCounter(entry, "selected")
+		if !ok {
+			return 0, false
+		}
+		total += selected
+	}
+	return total, true
+}
+
 func verifyCalibrationLiveGates(path string, document map[string]any,
 	protectedRoot string, fail func(code, path, detail string)) {
 	gates, _ := document["live_gates"].(map[string]any)
@@ -196,6 +221,38 @@ func verifyCalibrationLiveGates(path string, document map[string]any,
 				if gateStatus == "PASS" && executed < 1 {
 					fail("GATE_ZERO_EXECUTION", path,
 						"gate "+name+" claims PASS with zero executed scenarios")
+				}
+				// Per-gate PASS semantics: counter identities alone still
+				// admit dishonest states (e.g. a 100%-pass-rate gate
+				// recording PASS with executed=258 passed=0 failed=258).
+				switch name {
+				case "java_oracle_pass_rate":
+					if gateStatus == "PASS" {
+						if failed != 0 || passed != executed {
+							fail("GATE_RESULT_SEMANTICS", path, fmt.Sprintf(
+								"gate %s claims PASS with non-perfect results "+
+									"(executed=%d passed=%d failed=%d); the 100%% "+
+									"pass-rate requirement needs failed=0 and passed=executed",
+								name, executed, passed, failed))
+						}
+						if want, ok := behaviorSelectedTotal(document); !ok {
+							fail("GATE_COUNTER_MISSING", path,
+								"behavior corpora selected counts are unreadable; "+
+									"cannot check "+name+" coverage")
+						} else if executed != want {
+							fail("GATE_RESULT_SEMANTICS", path, fmt.Sprintf(
+								"gate %s claims PASS over %d executions but the "+
+									"behavior corpora select %d scenarios",
+								name, executed, want))
+						}
+					}
+				case "empty_rust_target_fails", "planted_java_rust_mutants_killed":
+					if gateStatus == "PASS" && failed < 1 {
+						fail("GATE_RESULT_SEMANTICS", path, fmt.Sprintf(
+							"gate %s claims PASS with zero failing executions; its "+
+								"kill condition requires at least one scenario to fail "+
+								"the candidate", name))
+					}
 				}
 			}
 			transcripts, _ := result["transcript_sha256s"].([]any)

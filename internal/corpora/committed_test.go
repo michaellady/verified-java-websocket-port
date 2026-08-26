@@ -68,7 +68,9 @@ func TestCommittedPublicCorporaReDerive(t *testing.T) {
 }
 
 // Every committed repo artifact is schema-valid, held-out tiers commit only
-// manifests, and the calibration evidence keeps its fail-closed live gates.
+// manifests, and the calibration evidence keeps its live gates fail-closed:
+// a gate is either pending with no result, or records PASS/FAIL with a
+// transcript-digest-bearing result per the documented live-evidence contract.
 func TestCommittedArtifactsAreSchemaValidAndSealed(t *testing.T) {
 	root := repoRoot(t)
 	findings, err := ValidateCorpusSchemas(filepath.Join(root, "schemas"), root, "")
@@ -99,8 +101,54 @@ func TestCommittedArtifactsAreSchemaValidAndSealed(t *testing.T) {
 		t.Fatal(err)
 	}
 	for gate, entry := range document["live_gates"].(map[string]any) {
-		if entry.(map[string]any)["status"] != "BLOCKED_PENDING_LIVE_EXECUTION" {
-			t.Fatalf("committed live gate %s is not fail-closed", gate)
+		gateMap := entry.(map[string]any)
+		switch gateMap["status"] {
+		case "BLOCKED_PENDING_LIVE_EXECUTION":
+			if _, recorded := gateMap["result"]; recorded {
+				t.Fatalf("pending live gate %s must not carry a result", gate)
+			}
+		case "PASS", "FAIL":
+			result, isMap := gateMap["result"].(map[string]any)
+			if !isMap {
+				t.Fatalf("recorded live gate %s lacks a result", gate)
+			}
+			digests, isSlice := result["transcript_sha256s"].([]any)
+			if !isSlice || len(digests) == 0 {
+				t.Fatalf("recorded live gate %s lacks transcript digests", gate)
+			}
+			executed, executedOK := gateCounter(result, "executed")
+			passed, passedOK := gateCounter(result, "passed")
+			failed, failedOK := gateCounter(result, "failed")
+			if !executedOK || !passedOK || !failedOK {
+				t.Fatalf("recorded live gate %s carries unreadable counters", gate)
+			}
+			if passed+failed != executed || executed < 1 {
+				t.Fatalf("recorded live gate %s counters inconsistent "+
+					"(executed=%d passed=%d failed=%d)", gate, executed, passed, failed)
+			}
+			// Per-gate PASS semantics (round-5): identities alone admit
+			// dishonest states like PASS with passed=0 failed=executed.
+			if gateMap["status"] == "PASS" {
+				switch gate {
+				case "java_oracle_pass_rate":
+					if failed != 0 || passed != executed {
+						t.Fatalf("pass-rate gate PASS must have zero failures "+
+							"(executed=%d passed=%d failed=%d)", executed, passed, failed)
+					}
+					if want, ok := behaviorSelectedTotal(document); !ok || executed != want {
+						t.Fatalf("pass-rate gate PASS must cover every behavior "+
+							"scenario (executed=%d selected=%d ok=%v)", executed, want, ok)
+					}
+				case "empty_rust_target_fails", "planted_java_rust_mutants_killed":
+					if failed < 1 {
+						t.Fatalf("kill gate %s PASS with zero failing executions "+
+							"is vacuous", gate)
+					}
+				}
+			}
+		default:
+			t.Fatalf("committed live gate %s has unsupported status %v",
+				gate, gateMap["status"])
 		}
 	}
 	if document["assurance"] != "OWNER_ATTESTED_NOT_INDEPENDENT" ||

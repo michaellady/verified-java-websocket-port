@@ -55,16 +55,30 @@ runs:
           exit 1
         fi
 
-    - name: Install yq
+    - name: Install pinned yq
       shell: bash
       run: |
-        if command -v yq >/dev/null 2>&1; then
-          echo "yq already installed: $(yq --version)"
+        # yq v4 is a single Go binary, pinned EXACTLY: this version is a
+        # recorded tool identity of the US-008 preregistration pipeline
+        # (benchmarks/environments/confirmation.json, tool_identities.yq).
+        # A preinstalled yq of any other version is never silently
+        # accepted: the pinned build is installed over it, and this step
+        # fails if the pinned version does not resolve afterwards.
+        yq_pin="4.44.3"
+        resolved_yq_version() {
+          yq --version 2>/dev/null | awk '{print $NF}'
+        }
+        if command -v yq >/dev/null 2>&1 && [ "$(resolved_yq_version)" = "v${yq_pin}" ]; then
+          echo "yq already at the pinned version: $(yq --version)"
           exit 0
         fi
-        # yq v4 is a single Go binary. Pin for reproducibility.
-        curl -sSL -o /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64
+        curl -sSL -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/v${yq_pin}/yq_linux_amd64"
         chmod +x /usr/local/bin/yq
+        hash -r
+        if [ "$(resolved_yq_version)" != "v${yq_pin}" ]; then
+          echo "::error::yq resolves to '$(command -v yq || true)' ($(yq --version 2>/dev/null || true)) after installing pinned v${yq_pin} — refusing to run with an unpinned yq."
+          exit 1
+        fi
         yq --version
 
     - name: Derive env-specific values

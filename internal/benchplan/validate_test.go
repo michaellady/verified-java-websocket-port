@@ -11,6 +11,18 @@ import (
 
 const repoRoot = "../.."
 
+// The exact recorded pipeline tool identities of the owner's Tier-1
+// decision (2026-08-26). Review round 1 (session 01a03f9c, BLOCKING-2/3):
+// every BOUND tool value is regression-pinned by FULL equality here, and
+// cross-checked against the pipeline source files it describes, so silent
+// drift in either the document or the pipeline can never stay green.
+const (
+	pinnedTerraformVersion = "1.9.8"
+	pinnedGoToolchain      = "go1.25.5 (go.mod directive 'go 1.25')"
+	pinnedRunnerBuildFlags = "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner"
+	pinnedYqVersion        = "4.44.3"
+)
+
 func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 	report, err := Verify(repoRoot)
 	if err != nil {
@@ -32,11 +44,24 @@ func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 		t.Fatalf("expected HOST_BINDING_PENDING as the single blocker class, got %v", report.BlockerClasses)
 	}
 	// Completion meter: 7 unbound tool-identity fields on primary plus
-	// all 23 confirmation fields (15 host including instance_id /
-	// observed_architecture / allocation_evidence, 8 tools); 5
+	// 19 of the 23 confirmation fields; the owner's Tier-1 decision of
+	// 2026-08-26 bound instance_type / region / ami_id / ami_name, and
+	// everything else (including instance_id / observed_architecture /
+	// allocation_evidence and all 8 tools) stays honestly pending. 5
 	// runtime-snapshot fields on primary.
-	if len(report.UnboundFields) != 30 {
-		t.Errorf("expected exactly 30 unbound binding fields, got %d: %v", len(report.UnboundFields), report.UnboundFields)
+	if len(report.UnboundFields) != 26 {
+		t.Errorf("expected exactly 26 unbound binding fields, got %d: %v", len(report.UnboundFields), report.UnboundFields)
+	}
+	tier1Bound := map[string]bool{
+		"host_identity.instance_type": true,
+		"host_identity.region":        true,
+		"host_identity.ami_id":        true,
+		"host_identity.ami_name":      true,
+	}
+	for _, field := range report.UnboundFields {
+		if strings.Contains(field.Document, "confirmation") && tier1Bound[field.Path] {
+			t.Errorf("field %q is owner-bound (Tier-1 decision 2026-08-26) and must not report as unbound", field.Path)
+		}
 	}
 	if report.PlanAttestationState != "UNATTESTED" {
 		t.Errorf("plan attestation state %q, want UNATTESTED", report.PlanAttestationState)
@@ -59,6 +84,134 @@ func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 		if field.Status != "OWNER_DECISION_PENDING" && field.Status != "NOT_MEASURED" {
 			t.Errorf("unbound field %q has status %q, want OWNER_DECISION_PENDING or NOT_MEASURED", field.Path, field.Status)
 		}
+	}
+}
+
+// TestConfirmationDocumentRecordsOwnerTier1Binding pins the owner's
+// Tier-1 confirmation-host decision of 2026-08-26 (decision record:
+// workspace protected root us008-owner-pinning-tier1.json) exactly as
+// recorded, and guards that nothing pending was silently promoted:
+// booted-host facts stay NOT_MEASURED sentinels, open owner decisions
+// stay OWNER_DECISION_PENDING, and Tier-2 is explicitly deferred.
+func TestConfirmationDocumentRecordsOwnerTier1Binding(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repoRoot, "benchmarks", "environments", "confirmation.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var environment map[string]any
+	if err := json.Unmarshal(raw, &environment); err != nil {
+		t.Fatal(err)
+	}
+	if environment["binding_status"] != "UNBOUND" {
+		t.Errorf("binding_status %v, want UNBOUND: a partial Tier-1 binding must never claim document-level BOUND", environment["binding_status"])
+	}
+	host := environment["host_identity"].(map[string]any)
+	tools := environment["tool_identities"].(map[string]any)
+
+	record := func(section map[string]any, name string) map[string]any {
+		t.Helper()
+		value, present := section[name]
+		if !present {
+			t.Fatalf("field record %q is missing", name)
+		}
+		return value.(map[string]any)
+	}
+	expectBound := func(section map[string]any, name, want string) {
+		t.Helper()
+		field := record(section, name)
+		if field["status"] != "BOUND" {
+			t.Errorf("%s status %v, want BOUND", name, field["status"])
+		}
+		if field["value"] != want {
+			t.Errorf("%s value %v, want %q", name, field["value"], want)
+		}
+	}
+	expectPending := func(section map[string]any, name, wantStatus string) {
+		t.Helper()
+		field := record(section, name)
+		if field["status"] != wantStatus {
+			t.Errorf("%s status %v, want %s", name, field["status"], wantStatus)
+		}
+		if _, smuggled := field["value"]; smuggled {
+			t.Errorf("%s is %s and must not carry a value", name, wantStatus)
+		}
+	}
+
+	// The four owner-bound Tier-1 identities, exactly as decided.
+	expectBound(host, "instance_type", "c7i.xlarge")
+	expectBound(host, "region", "us-east-1")
+	expectBound(host, "ami_id", "ami-02b3d83d84b07786d")
+	expectBound(host, "ami_name", "al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64")
+
+	// Booted-host facts stay NOT_MEASURED until the bound host boots.
+	for _, name := range []string{"instance_id", "observed_architecture", "availability_zone", "os_identity", "kernel_identity", "cpu_model", "memory_total_bytes", "numa_topology", "clocksource"} {
+		expectPending(host, name, "NOT_MEASURED")
+	}
+	// Open owner decisions stay pending.
+	expectPending(host, "allocation_evidence", "OWNER_DECISION_PENDING")
+	expectPending(host, "cpu_frequency_policy", "OWNER_DECISION_PENDING")
+	for _, name := range []string{"java_runtime", "rust_toolchain", "load_driver", "measurement_tools", "analyzer", "runner"} {
+		expectPending(tools, name, "OWNER_DECISION_PENDING")
+	}
+	// No executables exist to digest; the sentinels stay.
+	expectPending(tools, "java_executable_digest", "NOT_MEASURED")
+	expectPending(tools, "rust_executable_digest", "NOT_MEASURED")
+
+	// Pipeline tool identities recorded by the same owner decision,
+	// pinned by FULL equality (review round 1 BLOCKING-2: a substring or
+	// non-empty check lets a drifted recorded value stay green).
+	expectBound(tools, "terraform", pinnedTerraformVersion)
+	expectBound(tools, "go_toolchain", pinnedGoToolchain)
+	expectBound(tools, "runner_build_flags", pinnedRunnerBuildFlags)
+	expectBound(tools, "yq", pinnedYqVersion)
+
+	// Tier-2 deferral and the decision-record provenance are explicit.
+	if !strings.Contains(string(raw), "DEFERRED_BY_OWNER") {
+		t.Error("the document must record Tier-2 (METAL_MEASURED) as explicitly DEFERRED_BY_OWNER")
+	}
+	provenance := environment["provenance"].(map[string]any)
+	rationale, _ := provenance["rationale"].(string)
+	if !strings.Contains(rationale, "us008-owner-pinning-tier1.json") {
+		t.Error("provenance.rationale must reference the owner decision record us008-owner-pinning-tier1.json")
+	}
+	// Review round 1 finding 1: the original decision record's decided_at
+	// was a too-late estimate; the authoritative chronology lives in the
+	// timestamp-correction sidecar, and the provenance must cite BOTH.
+	if !strings.Contains(rationale, "us008-owner-pinning-tier1-timestamp-correction.json") {
+		t.Error("provenance.rationale must reference the timestamp-correction sidecar us008-owner-pinning-tier1-timestamp-correction.json alongside the original decision record")
+	}
+}
+
+// TestBoundPipelineToolClaimsMatchPipelineSources guards each BOUND
+// pipeline-tool claim in confirmation.json against the pipeline file it
+// describes (review round 1 BLOCKING-3): the recorded runner build
+// command must appear verbatim in .github/workflows/benchmark.yml, and
+// the dialed-setup composite action must pin the recorded Terraform
+// version and ENFORCE the recorded yq version (install-exact on
+// mismatch, fail if the pinned version does not resolve) rather than
+// silently accepting whatever yq is preinstalled.
+func TestBoundPipelineToolClaimsMatchPipelineSources(t *testing.T) {
+	workflowRaw, err := os.ReadFile(filepath.Join(repoRoot, ".github", "workflows", "benchmark.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(workflowRaw), pinnedRunnerBuildFlags) {
+		t.Errorf("benchmark.yml no longer contains the recorded runner build literal %q; the confirmation.json runner_build_flags claim would be false", pinnedRunnerBuildFlags)
+	}
+
+	actionRaw, err := os.ReadFile(filepath.Join(repoRoot, ".github", "actions", "dialed-setup", "action.yml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	action := string(actionRaw)
+	if !strings.Contains(action, "default: \""+pinnedTerraformVersion+"\"") {
+		t.Errorf("dialed-setup action.yml no longer defaults terraform_version to the recorded %q", pinnedTerraformVersion)
+	}
+	if !strings.Contains(action, "yq_pin=\""+pinnedYqVersion+"\"") {
+		t.Errorf("dialed-setup action.yml no longer pins yq_pin=%q", pinnedYqVersion)
+	}
+	if !strings.Contains(action, "refusing to run with an unpinned yq") {
+		t.Error("dialed-setup action.yml must fail closed when the pinned yq version does not resolve (enforcement, not a best-effort download)")
 	}
 }
 
@@ -133,15 +286,18 @@ func TestVerifyRejectsValueSmuggledIntoPendingField(t *testing.T) {
 		t.Fatal(err)
 	}
 	host := environment["host_identity"].(map[string]any)
-	instance := host["instance_type"].(map[string]any)
-	instance["value"] = "c5n.metal"
+	// instance_type is legitimately BOUND since the owner's Tier-1
+	// decision of 2026-08-26; instance_id remains a NOT_MEASURED
+	// sentinel, so it is the smuggling target.
+	instance := host["instance_id"].(map[string]any)
+	instance["value"] = "i-0fabricated0000000"
 	writeJSON(t, path, environment)
 	report, err := Verify(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(report.SchemaFailures) == 0 {
-		t.Fatal("an OWNER_DECISION_PENDING field carrying a value must fail schema validation")
+		t.Fatal("a NOT_MEASURED field carrying a value must fail schema validation")
 	}
 }
 
@@ -331,16 +487,18 @@ func TestVerifyShrunkenMeterIsMeterTampered(t *testing.T) {
 	if report.FullyBound() {
 		t.Fatal("a tampered meter must never verify as fully bound")
 	}
-	// The canonical meter still counts all 23 confirmation fields as
-	// unbound, regardless of what the document declares.
+	// The canonical meter still counts every genuinely pending
+	// confirmation field as unbound, regardless of what the document
+	// declares: 19 of 23 remain pending after the owner's Tier-1
+	// decision bound instance_type / region / ami_id / ami_name.
 	confirmationUnbound := 0
 	for _, field := range report.UnboundFields {
 		if strings.Contains(field.Document, "confirmation") {
 			confirmationUnbound++
 		}
 	}
-	if confirmationUnbound != 23 {
-		t.Fatalf("canonical meter must still count 23 unbound confirmation fields, got %d", confirmationUnbound)
+	if confirmationUnbound != 19 {
+		t.Fatalf("canonical meter must still count 19 unbound confirmation fields, got %d", confirmationUnbound)
 	}
 }
 

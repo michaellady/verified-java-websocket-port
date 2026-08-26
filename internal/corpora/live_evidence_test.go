@@ -200,7 +200,8 @@ func TestVerifyLiveEvidenceGateExecutionRigor(t *testing.T) {
 	transcriptDigest := DigestSHA256(transcriptRaw)
 	calibrationPath := filepath.Join(root, "evidence/corpus-calibration.json")
 
-	writeGates := func(mutate func(result map[string]any)) []Finding {
+	behaviorTotal := len(generated.Public) + len(generated.Hidden) + len(generated.Sealed)
+	writeGatesNamed := func(mutate func(gates map[string]any)) []Finding {
 		t.Helper()
 		raw, err := os.ReadFile(calibrationPath)
 		if err != nil {
@@ -216,14 +217,24 @@ func TestVerifyLiveEvidenceGateExecutionRigor(t *testing.T) {
 			"sealed_network_denial"} {
 			gate := gates[name].(map[string]any)
 			gate["status"] = "PASS"
+			// Per-gate faithful shapes: the pass-rate gate covers every
+			// behavior scenario with zero failures; the candidate-kill
+			// gates PASS precisely because executions failed.
+			executed, passed, failed := len(generated.Public), len(generated.Public), 0
+			switch name {
+			case "java_oracle_pass_rate":
+				executed, passed, failed = behaviorTotal, behaviorTotal, 0
+			case "empty_rust_target_fails", "planted_java_rust_mutants_killed":
+				executed, passed, failed = len(generated.Public), 0, len(generated.Public)
+			}
 			gate["result"] = map[string]any{
 				"transcript_sha256s": []any{transcriptDigest},
-				"executed":           len(generated.Public),
-				"passed":             len(generated.Public),
-				"failed":             0,
+				"executed":           executed,
+				"passed":             passed,
+				"failed":             failed,
 			}
 		}
-		mutate(gates["java_oracle_pass_rate"].(map[string]any)["result"].(map[string]any))
+		mutate(gates)
 		doc["status"] = "LIVE_CALIBRATED"
 		if err := writeJSONFile(calibrationPath, doc); err != nil {
 			t.Fatal(err)
@@ -233,6 +244,12 @@ func TestVerifyLiveEvidenceGateExecutionRigor(t *testing.T) {
 			t.Fatal(err)
 		}
 		return findings
+	}
+	writeGates := func(mutate func(result map[string]any)) []Finding {
+		t.Helper()
+		return writeGatesNamed(func(gates map[string]any) {
+			mutate(gates["java_oracle_pass_rate"].(map[string]any)["result"].(map[string]any))
+		})
 	}
 
 	// Baseline: faithful nonzero PASS results stay clean.
@@ -272,6 +289,37 @@ func TestVerifyLiveEvidenceGateExecutionRigor(t *testing.T) {
 	}))
 	if codes["GATE_COUNTER_MISSING"] == 0 {
 		t.Fatalf("fractional gate counter must block with GATE_COUNTER_MISSING: %v", codes)
+	}
+
+	// Round-5 regression: a 100%-pass-rate gate claiming PASS while its own
+	// counters record failures must block, even though passed+failed==executed.
+	codes = findingCodes(writeGates(func(result map[string]any) {
+		result["passed"] = 0
+		result["failed"] = behaviorTotal
+	}))
+	if codes["GATE_RESULT_SEMANTICS"] == 0 {
+		t.Fatalf("PASS with recorded failures must block with GATE_RESULT_SEMANTICS: %v", codes)
+	}
+
+	// Round-5 regression: PASS covering fewer executions than the behavior
+	// corpora select is a coverage overclaim.
+	codes = findingCodes(writeGates(func(result map[string]any) {
+		result["executed"] = behaviorTotal - 1
+		result["passed"] = behaviorTotal - 1
+	}))
+	if codes["GATE_RESULT_SEMANTICS"] == 0 {
+		t.Fatalf("PASS under-covering the behavior corpora must block with GATE_RESULT_SEMANTICS: %v", codes)
+	}
+
+	// Round-5 regression: a candidate-kill gate whose PASS records zero
+	// failing executions has a vacuous kill condition.
+	codes = findingCodes(writeGatesNamed(func(gates map[string]any) {
+		result := gates["empty_rust_target_fails"].(map[string]any)["result"].(map[string]any)
+		result["passed"] = len(generated.Public)
+		result["failed"] = 0
+	}))
+	if codes["GATE_RESULT_SEMANTICS"] == 0 {
+		t.Fatalf("kill gate PASS with zero failures must block with GATE_RESULT_SEMANTICS: %v", codes)
 	}
 }
 
@@ -319,14 +367,25 @@ func TestVerifyLiveEvidenceCalibrationGateConsistency(t *testing.T) {
 			gate := gates[name].(map[string]any)
 			gate["status"] = s
 			if s == "PASS" || s == "FAIL" {
-				failed := 0
+				// Per-gate faithful PASS shapes (round-5 semantics): the
+				// pass-rate gate covers every behavior scenario with zero
+				// failures; the candidate-kill gates PASS because
+				// executions failed.
+				behaviorTotal := len(generated.Public) + len(generated.Hidden) + len(generated.Sealed)
+				executed, passed, failed := len(generated.Public), len(generated.Public), 0
+				switch name {
+				case "java_oracle_pass_rate":
+					executed, passed, failed = behaviorTotal, behaviorTotal, 0
+				case "empty_rust_target_fails", "planted_java_rust_mutants_killed":
+					executed, passed, failed = len(generated.Public), 0, len(generated.Public)
+				}
 				if s == "FAIL" {
-					failed = 1
+					executed, passed, failed = len(generated.Public), len(generated.Public)-1, 1
 				}
 				gate["result"] = map[string]any{
 					"transcript_sha256s": []any{transcriptDigest},
-					"executed":           len(generated.Public),
-					"passed":             len(generated.Public) - failed,
+					"executed":           executed,
+					"passed":             passed,
 					"failed":             failed,
 				}
 			} else {

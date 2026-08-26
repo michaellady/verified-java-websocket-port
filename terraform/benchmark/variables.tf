@@ -12,7 +12,7 @@ variable "project_name" {
 
 variable "aws_region" {
   type        = string
-  description = "From .dialed.yml. Region for the benchmark host. Default us-east-1; final region is OWNER-DECISION-PENDING in benchmarks/environments/confirmation.json."
+  description = "From .dialed.yml. Region for the benchmark host. Default us-east-1; the region is BOUND to us-east-1 (owner decision 2026-08-26) in benchmarks/environments/confirmation.json."
   default     = "us-east-1"
 }
 
@@ -45,10 +45,12 @@ variable "instance_type" {
     instance tags, and exported as an output so the environment binding
     records it; a Tier-1 number must never be represented as metal-grade.
 
-    OWNER-DECISION-PENDING: c5n.metal is the DEFAULT-CANDIDATE from the
-    feasibility study, not a bound decision. The preregistration binding in
-    benchmarks/environments/confirmation.json must record the owner's final
-    choice (type AND tier) before any measured sample may be collected.
+    TIER-1 BOUND (owner decision 2026-08-26): c7i.xlarge, recorded in
+    benchmarks/environments/confirmation.json. A measured Tier-1 run must
+    pass the bound type. TIER 2 remains DEFERRED_BY_OWNER: c5n.metal is
+    still only the DEFAULT-CANDIDATE from the feasibility study, not a
+    bound decision, and no Tier-2 sample may be collected until the owner
+    binds a metal type in the same preregistration document.
   EOT
   default     = "c5n.metal"
 
@@ -63,9 +65,12 @@ variable "ami_id" {
   description = <<-EOT
     Pinned x86_64 AMI id for the confirmation host.
 
-    OWNER-DECISION-PENDING: empty by default. Preregistration requires the
-    exact AMI (and its kernel) to be bound in
-    benchmarks/environments/confirmation.json before any measured run.
+    BOUND (owner decision 2026-08-26) in
+    benchmarks/environments/confirmation.json: ami-02b3d83d84b07786d
+    (al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64, deprecation
+    2026-11-10 — re-probe and re-pin past that date). The default stays
+    empty: the workflow passes the pinned id via -var, and an empty id
+    still fails closed for measured runs.
 
     PROBE STEP (required before pinning — see the probe-before-wire rule):
     run one real query against the target dev account and read the response:

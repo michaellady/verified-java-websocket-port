@@ -104,6 +104,45 @@ the 1 MiB line/input/buffer ceilings, 1,024-action ceiling, 4,096-frame ceiling,
 or 4 MiB output ceiling. Java-WebSocket receives `max_buffered_bytes` as its
 maximum frame/message size. A request below its declared limit fails closed.
 
+## Handshake protocol 1.0.0
+
+Lines whose `protocol` is `java-websocket-handshake-oracle` route to the
+handshake adapter. One line carries one US-005 handshake corpus case:
+
+```json
+{
+  "protocol": "java-websocket-handshake-oracle",
+  "version": "1.0.0",
+  "request_digest": "sha256:<canonical-request-digest>",
+  "case_id": "us005.hs.0000",
+  "direction": "client_request",
+  "raw_base64": "R0VUIC9jaGF0...",
+  "config": {"max_handshake_bytes": 4096, "max_header_count": 32, "max_header_line_bytes": 512},
+  "context": {"client_key": "dGhlIHNhbXBsZSBub25jZQ=="}
+}
+```
+
+`direction` is `client_request` (raw bytes go through the server-side
+`translateHandshake` / `acceptHandshakeAsServer` /
+`postProcessHandshakeResponseAsServer` path) or `server_response` (raw bytes
+go through the client-side `translateHandshake` / `acceptHandshakeAsClient`
+path against `context.client_key`). The digest scheme is identical to the
+behavior protocol; the distinct protocol id keeps behavior request digests
+untouched. `config` is digest-bound but deliberately not enforced:
+Java-WebSocket 1.6.0 itself enforces no handshake limits.
+
+The response reports the runtime observable without interpretation:
+`java_observable` is `accept` (with `sec_websocket_accept` read back out of
+the rendered 101 bytes for `client_request`), `reject` (with `reject_channel`
+`invalid_handshake` or `not_matched` and the runtime `close_code`), or
+`incomplete` (`IncompleteHandshakeException`; a real server buffers and writes
+nothing). RFC 6455 remains normative: the adapter reports Java behavior, and
+the source-derived RFC-vs-Java verdict mapping lives in
+`internal/corpora/handshake_live.go` and
+`evidence/us005-handshake-live-mapping.json`. `corporactl oracle-requests
+--tier handshake --wire` emits these request lines and `corporactl evaluate
+--tier handshake --transcript FILE --live` scores the response transcript.
+
 ## Output
 
 Success records contain normalized inbound and outbound semantic frames,
