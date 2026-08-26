@@ -3,7 +3,6 @@ package securitygate
 import (
 	"context"
 	"crypto/ed25519"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"slices"
@@ -271,50 +270,45 @@ func TestUS007ExternalSbxPublicProjectionIsExactAndBounded(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if digest := intake.DigestBytes(data); digest != "sha256:930b9073555f24d4013773f3f81e7bc354442ded9795812e2888907c4853b6b7" {
-		t.Fatalf("external sbx public projection digest=%s", digest)
+	if digest := intake.DigestBytes(data); digest != "sha256:ba746b0411cfe4759ee90460106ccc33f47992a5c72c13500f9022e5ce823be2" {
+		t.Fatalf("external sbx public evidence digest=%s", digest)
 	}
-	var projection struct {
-		Story                    string `json:"story"`
-		TargetCommit             string `json:"target_commit"`
-		NetworkPolicy            string `json:"network_policy"`
-		PlatformControlSecrets   int    `json:"platform_control_secrets"`
-		CloneGitBridgePorts      int    `json:"clone_git_bridge_ports"`
-		RegisteredMCPServers     int    `json:"registered_mcp_servers"`
-		UserSecretImports        int    `json:"user_secret_imports"`
-		UserPublishedPorts       int    `json:"user_published_ports"`
-		SandboxRemoved           bool   `json:"sandbox_removed"`
-		SandboxAbsentAfterRemove bool   `json:"sandbox_absent_after_remove"`
-		AutobahnReruns           int    `json:"autobahn_reruns"`
-		Assurance                string `json:"assurance"`
-		IndependentReviewClaimed bool   `json:"independent_review_claimed"`
-		Production               bool   `json:"production"`
-		Signing                  bool   `json:"signing"`
-		Publication              bool   `json:"publication"`
-		Canaries                 []struct {
-			ID       string `json:"id"`
-			Passed   bool   `json:"passed"`
-			ExitCode int    `json:"exit_code"`
-		} `json:"canaries"`
-	}
-	if err := json.Unmarshal(data, &projection); err != nil {
+	var doc sbxLiveEvidenceDocument
+	if err := intake.DecodeStrict(data, &doc); err != nil {
 		t.Fatal(err)
 	}
-	if projection.Story != "US-007" || projection.TargetCommit != "f1860a4bd0420c8073aec8980cfcf3d118e1ea5a" || projection.NetworkPolicy != "ACTIVE_DENY_ALL" ||
-		projection.PlatformControlSecrets != 1 || projection.CloneGitBridgePorts != 1 || projection.RegisteredMCPServers != 0 || projection.UserSecretImports != 0 || projection.UserPublishedPorts != 0 ||
-		!projection.SandboxRemoved || !projection.SandboxAbsentAfterRemove || projection.AutobahnReruns != 0 || projection.Assurance != AssuranceOwnerOnly || projection.IndependentReviewClaimed || projection.Production || projection.Signing || projection.Publication || len(projection.Canaries) != 15 {
-		t.Fatalf("external sbx projection widened or incomplete: %#v", projection)
+	if doc.Story != "US-007" || doc.AttemptID != sbxLiveAttemptID || doc.EnforcementModel != sbxLiveEnforcementModel ||
+		doc.TargetCommit != sbxLiveTargetCommit || doc.SourceTree != sbxLiveSourceTree ||
+		doc.ProjectionCanonicalDigest != sbxLiveProjectionCanonicalDigest || doc.SandboxName != sbxLiveSandboxName ||
+		doc.BenignArtifactDigest != sbxLiveBenignArtifactDigest || doc.BenignArtifactBytes != sbxLiveBenignArtifactBytes ||
+		!doc.SandboxRemoved || !doc.SandboxAbsentAfterRemove || doc.DerivedVerdict != sbxLiveDerivedVerdict ||
+		doc.AutobahnReruns != 0 || doc.Assurance != AssuranceOwnerOnly || doc.IndependentReviewClaimed ||
+		doc.Production || doc.Signing || doc.Publication || len(doc.Descriptors) != 14 {
+		t.Fatalf("external sbx live evidence widened or incomplete: %#v", doc)
 	}
-	seenPID := false
-	for _, canary := range projection.Canaries {
-		if !canary.Passed {
-			t.Fatalf("external sbx canary failed: %#v", canary)
-		}
-		if canary.ID == "PID_BOUND" {
-			seenPID = canary.ExitCode != 0
+	if finding := validateRetainedSbxLiveEvidence(data); finding != nil {
+		t.Fatalf("retained live sbx evidence rejected: %#v", finding)
+	}
+	outcomes := map[string]sbxLiveDescriptorOutcome{}
+	for _, descriptor := range doc.Descriptors {
+		outcomes[descriptor.ID] = descriptor
+	}
+	// Every resource descriptor retained its typed enforcement termination
+	// under the amended parent-set rlimit model.
+	if memory := outcomes["MEMORY_BOUND"]; memory.ExitCode == nil || *memory.ExitCode != 2 || memory.RLimitASBytes != 536870912 {
+		t.Fatalf("memory canary lost its tight RLIMIT_AS allocation failure: %#v", memory)
+	}
+	if cpu := outcomes["CPU_BOUND"]; cpu.WorkloadSignal != 9 || cpu.Signal != "killed" {
+		t.Fatalf("cpu canary lost its RLIMIT_CPU SIGKILL: %#v", cpu)
+	}
+	for _, id := range []string{"FD_BOUND", "PID_BOUND", "WORKSPACE_BOUND"} {
+		if outcome := outcomes[id]; outcome.ExitCode == nil || *outcome.ExitCode != 23 {
+			t.Fatalf("%s lost its typed nonzero termination: %#v", id, outcome)
 		}
 	}
-	if !seenPID {
-		t.Fatal("process bomb did not retain its typed nonzero termination")
+	for _, id := range []string{"OUTPUT_BOUND", "WALL_BOUND"} {
+		if outcome := outcomes[id]; outcome.ExitCode != nil || outcome.Signal != "killed" {
+			t.Fatalf("%s lost its supervisor kill: %#v", id, outcome)
+		}
 	}
 }

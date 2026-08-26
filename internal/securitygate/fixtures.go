@@ -250,9 +250,13 @@ func evaluateSandboxFixture(snapshot *policySnapshot, item fixtureCase) (*Findin
 		return nil, nil
 	}
 	if item.ID == "good-sandbox-canaries" {
+		// The live rlimit-envelope proof is external and digest-bound at
+		// evidence/sbx-validation.json; the candidate itself still holds no
+		// launcher authority, so this stays an observed blocker, never a
+		// synthetic pass.
 		_, err := RunControlledCanary(context.Background(), CanaryRequest{})
 		if err != nil {
-			return fixtureFinding(snapshot, "SANDBOX_ENFORCEMENT_UNAVAILABLE", "$.platform_enforcement"), nil
+			return fixtureFinding(snapshot, "PROTECTED_CALLER_REQUIRED", "$.protected_launcher"), nil
 		}
 		return nil, nil
 	}

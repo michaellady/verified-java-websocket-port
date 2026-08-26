@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 	"github.com/michaellady/verified-java-websocket-port/internal/lab"
 )
 
@@ -208,6 +209,12 @@ func TestUS007Acceptance_RetainedEvidenceMutationClosure(t *testing.T) {
 		{"POLICY_DIGEST_MISMATCH", func(e *validationEvidence) { e.FixtureCatalogDigest = "sha256:" + strings.Repeat("0", 64) }},
 		{"CANONICAL_EVIDENCE_MUTATION", func(e *validationEvidence) { e.RerunsPerformedByUS007 = 1 }},
 		{"SANDBOX_RECEIPT_INVALID", func(e *validationEvidence) { e.SandboxMechanics.Code = "" }},
+		{"SANDBOX_RECEIPT_INVALID", func(e *validationEvidence) { e.SandboxMechanics.Code = "SANDBOX_ENFORCEMENT_UNAVAILABLE" }},
+		{"SANDBOX_ENFORCEMENT_UNAVAILABLE", func(e *validationEvidence) {
+			e.SbxLiveEvidence.EvidenceDigest = "sha256:" + strings.Repeat("0", 64)
+		}},
+		{"SANDBOX_ENFORCEMENT_UNAVAILABLE", func(e *validationEvidence) { e.SbxLiveEvidence.AttemptID = "us007-sbx-output-live-0999" }},
+		{"SANDBOX_ENFORCEMENT_UNAVAILABLE", func(e *validationEvidence) { e.SbxLiveEvidence.TargetCommit = strings.Repeat("1", 40) }},
 		{"INVALID_SECURITY_POLICY", func(e *validationEvidence) { e.LifecycleIntegration.EvidenceNodeID = "" }},
 		{"INVALID_SECURITY_POLICY", func(e *validationEvidence) { e.FixtureResults = nil }},
 		{"INVALID_SECURITY_POLICY", func(e *validationEvidence) {
@@ -224,6 +231,62 @@ func TestUS007Acceptance_RetainedEvidenceMutationClosure(t *testing.T) {
 		}
 	}
 	snapshot.evidence = original
+}
+
+func TestUS007RetainedSbxLiveEvidenceFailsClosedOnDrift(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join(repoRoot(t), filepath.FromSlash(sbxLiveEvidencePath)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if finding := validateRetainedSbxLiveEvidence(data); finding != nil {
+		t.Fatalf("retained live sbx evidence rejected: %#v", finding)
+	}
+	var canonical sbxLiveEvidenceDocument
+	if err := intake.DecodeStrict(data, &canonical); err != nil {
+		t.Fatal(err)
+	}
+	mutations := []struct {
+		name   string
+		mutate func(*sbxLiveEvidenceDocument)
+	}{
+		{"attempt-id", func(d *sbxLiveEvidenceDocument) { d.AttemptID = "us007-sbx-output-live-0999" }},
+		{"projection-digest", func(d *sbxLiveEvidenceDocument) {
+			d.ProjectionCanonicalDigest = "sha256:" + strings.Repeat("0", 64)
+		}},
+		{"memory-rlimit-as-widened", func(d *sbxLiveEvidenceDocument) {
+			for i := range d.Descriptors {
+				if d.Descriptors[i].ID == "MEMORY_BOUND" {
+					d.Descriptors[i].RLimitASBytes = ^uint64(0)
+				}
+			}
+		}},
+		{"cpu-kill-not-observed", func(d *sbxLiveEvidenceDocument) {
+			for i := range d.Descriptors {
+				if d.Descriptors[i].ID == "CPU_BOUND" {
+					d.Descriptors[i].Termination = "EXITED"
+				}
+			}
+		}},
+		{"absence-not-proven", func(d *sbxLiveEvidenceDocument) { d.SandboxAbsentAfterRemove = false }},
+		{"independence-claim", func(d *sbxLiveEvidenceDocument) { d.IndependentReviewClaimed = true }},
+		{"verdict-drift", func(d *sbxLiveEvidenceDocument) { d.DerivedVerdict = "RESOURCE_ENVELOPE_OBSERVATIONS_PENDING" }},
+		{"descriptor-truncation", func(d *sbxLiveEvidenceDocument) { d.Descriptors = d.Descriptors[:len(d.Descriptors)-1] }},
+	}
+	for _, mutation := range mutations {
+		t.Run(mutation.name, func(t *testing.T) {
+			mutated := canonical
+			mutated.Descriptors = append([]sbxLiveDescriptorOutcome{}, canonical.Descriptors...)
+			mutation.mutate(&mutated)
+			raw, err := json.Marshal(mutated)
+			if err != nil {
+				t.Fatal(err)
+			}
+			finding := validateRetainedSbxLiveEvidence(raw)
+			if finding == nil || finding.Code != "SANDBOX_ENFORCEMENT_UNAVAILABLE" || finding.Disposition != "BLOCK" {
+				t.Fatalf("drifted live evidence accepted: %#v", finding)
+			}
+		})
+	}
 }
 
 func TestUS007Acceptance_StrictPolicyDocuments(t *testing.T) {
@@ -262,6 +325,7 @@ func copySecurityInputs(t *testing.T) string {
 	paths := append(append([]string{}, policyPaths...), schemaPaths...)
 	paths = append(paths, "security/fixtures/cases.json", "evidence/security-validation.json")
 	paths = append(paths, baselineEvidencePaths...)
+	paths = append(paths, sbxLiveEvidencePaths...)
 	for _, name := range paths {
 		data, err := os.ReadFile(filepath.Join(source, name))
 		if err != nil {

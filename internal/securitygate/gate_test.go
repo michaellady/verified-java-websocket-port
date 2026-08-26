@@ -12,10 +12,10 @@ func TestUS007Acceptance_PoliciesCatalogAndOwnerCeiling(t *testing.T) {
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
-	if verdict.State != "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE" {
+	if verdict.State != "PROVEN_LIVE_RLIMIT_ENVELOPE_ATTEMPT_0123" {
 		t.Fatalf("state = %q", verdict.State)
 	}
-	if len(verdict.Findings) != 1 || verdict.Findings[0].Code != "SANDBOX_ENFORCEMENT_UNAVAILABLE" || verdict.Findings[0].Disposition != "BLOCK" {
+	if len(verdict.Findings) != 0 {
 		t.Fatalf("findings = %#v", verdict.Findings)
 	}
 	if verdict.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" || verdict.IndependentReviewClaimed || verdict.PublicationAuthorized {
@@ -59,7 +59,7 @@ func TestUS007E2E_InertAttackMatrix(t *testing.T) {
 		"cpu-bomb":                 {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
 		"disk-bomb":                {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
 		"fd-bomb":                  {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
-		"good-sandbox-canaries":    {"SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK"},
+		"good-sandbox-canaries":    {"PROTECTED_CALLER_REQUIRED", "BLOCK"},
 		"memory-bomb":              {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
 		"output-bomb":              {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},
 		"pid-bomb":                 {"RESOURCE_TERMINATION_MISSING", "QUARANTINE"},

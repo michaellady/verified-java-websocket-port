@@ -45,7 +45,7 @@
       ,"per_sandbox_deny_resources": ["**"]
     }
   },
-  "sandbox_policy_digest": "sha256:12c6db734495d294ed32a32cd18af167595a99f97a0755c47c7a8e40bfb91e97",
+  "sandbox_policy_digest": "sha256:64ef802a579cc5bd04f1cd430f1b0a1ec0829e3ee3f73a5e9f5c0c508c171854",
   "supervisor_limits": {
     "wall_seconds": 120,
     "cpu_seconds": 60,

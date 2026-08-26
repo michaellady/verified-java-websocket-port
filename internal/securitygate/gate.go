@@ -30,9 +30,33 @@ const (
 	requiredCompany        = "open-source-projects"
 	requiredProject        = "verified-java-websocket-port"
 	requiredLaboratory     = "lab-java-websocket"
+
+	// The live rlimit-envelope enforcement proof is bound to exactly one
+	// protected-operator attempt. Every constant below is an exact pin; any
+	// drift fails closed back to SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK.
+	provenMechanicsState             = "PROVEN_LIVE_RLIMIT_ENVELOPE_ATTEMPT_0123"
+	sbxLiveEvidencePath              = "evidence/sbx-validation.json"
+	sbxLiveAttemptID                 = "us007-sbx-output-live-0123"
+	sbxLiveEnforcementModel          = "PARENT_SET_POSIX_RLIMIT_ENVELOPE"
+	sbxLiveTargetCommit              = "870aac28139604e217ae44469e679557994f7a0d"
+	sbxLiveSourceTree                = "4937f8fab01300b542ca4dd23f90f6202ed3f268"
+	sbxLiveProjectionCanonicalDigest = "sha256:f89d23b18b1f7784d315e411ec90b38055f88026d08ffb188bd4fc8d1c961685"
+	sbxLiveSandboxName               = "us007-resource-envelope-0123"
+	sbxLiveBenignArtifactDigest      = "sha256:e59737f622c172ed3a591efc336844d135f91c31a0e0977f4e6271d5cc6f32b2"
+	sbxLiveBenignArtifactBytes       = 2515568
+	sbxLiveSupervisorReceiptsDigest  = "sha256:52516ee6707ad8382dd2435d8935fea97141102f35ed75cf3abec79f1ffa0bd2"
+	sbxLiveRemovalObservationDigest  = "sha256:14c0a6bc265643a10586704aa1a3a8304d23e1ae0f62f72c7222bb3d6f2355ab"
+	sbxLiveAbsenceObservationDigest  = "sha256:732ed11b5e3e367fe62bbe3ff445f69e2b89fd85071dfecb53055aa2430571c2"
+	sbxLiveDerivedVerdict            = "RESOURCE_ENVELOPE_OBSERVATIONS_ACCEPTED"
+	sbxLiveMemoryRLimitASBytes       = uint64(536870912)
+	sbxLiveCPUKillCorroborationUsec  = int64(58000000)
+	sbxLiveWallKillThresholdNanos    = int64(119000000000)
+	sbxLiveOutputLimitBytes          = int64(8388608)
+	sbxLiveWorkspaceLimitBytes       = int64(67108864)
 )
 
 var policyPaths = []string{"security/ingestion-policy.json", "security/sandbox-policy.json", "security/release-firewall.json"}
+var sbxLiveEvidencePaths = []string{sbxLiveEvidencePath}
 var schemaPaths = []string{"schemas/security-ingestion-policy-1.0.0.schema.json", "schemas/security-sandbox-policy-1.0.0.schema.json", "schemas/security-release-firewall-1.0.0.schema.json", "schemas/security-fixture-catalog-1.0.0.schema.json", "schemas/security-validation-1.0.0.schema.json", executablePromotionSchemaPath}
 var baselineEvidencePaths = []string{"evidence/java/build.json", "evidence/java/adapter-baseline.json", "evidence/java/test-manifest.json", "evidence/java/autobahn-baseline.json", "evidence/java/behavior-delta-ledger.json"}
 
@@ -177,29 +201,39 @@ type fixtureCase struct {
 	ExpectedDisposition string `json:"expected_disposition"`
 }
 type validationEvidence struct {
-	SchemaVersion                      string               `json:"schema_version"`
-	Story                              string               `json:"story"`
-	Company                            string               `json:"company"`
-	Project                            string               `json:"project"`
-	PolicyDigests                      map[string]string    `json:"policy_digests"`
-	SchemaDigests                      map[string]string    `json:"schema_digests"`
-	FixtureCatalogDigest               string               `json:"fixture_catalog_digest"`
-	AutobahnBaselineDigest             string               `json:"autobahn_baseline_digest"`
-	OriginalReceiptDigests             []string             `json:"original_receipt_digests"`
-	RemediationReceiptDigests          []string             `json:"remediation_receipt_digests"`
-	ConsumedRemediationAttemptsPerMode int                  `json:"consumed_remediation_attempts_per_mode"`
-	FurtherRerunsAuthorized            bool                 `json:"further_reruns_authorized"`
-	RerunsPerformedByUS007             int                  `json:"reruns_performed_by_us007"`
-	FixtureResults                     []fixtureResult      `json:"fixture_results"`
-	MechanicsState                     string               `json:"mechanics_state"`
-	Assurance                          string               `json:"assurance"`
-	IndependentReviewClaimed           bool                 `json:"independent_review_claimed"`
-	Production                         bool                 `json:"production"`
-	Signing                            bool                 `json:"signing"`
-	Publication                        bool                 `json:"publication"`
-	SandboxMechanics                   Finding              `json:"sandbox_mechanics"`
-	LifecycleIntegration               lifecycleIntegration `json:"lifecycle_integration"`
-	Runtime                            runtimeMetadata      `json:"runtime"`
+	SchemaVersion                      string                 `json:"schema_version"`
+	Story                              string                 `json:"story"`
+	Company                            string                 `json:"company"`
+	Project                            string                 `json:"project"`
+	PolicyDigests                      map[string]string      `json:"policy_digests"`
+	SchemaDigests                      map[string]string      `json:"schema_digests"`
+	FixtureCatalogDigest               string                 `json:"fixture_catalog_digest"`
+	AutobahnBaselineDigest             string                 `json:"autobahn_baseline_digest"`
+	OriginalReceiptDigests             []string               `json:"original_receipt_digests"`
+	RemediationReceiptDigests          []string               `json:"remediation_receipt_digests"`
+	ConsumedRemediationAttemptsPerMode int                    `json:"consumed_remediation_attempts_per_mode"`
+	FurtherRerunsAuthorized            bool                   `json:"further_reruns_authorized"`
+	RerunsPerformedByUS007             int                    `json:"reruns_performed_by_us007"`
+	FixtureResults                     []fixtureResult        `json:"fixture_results"`
+	MechanicsState                     string                 `json:"mechanics_state"`
+	Assurance                          string                 `json:"assurance"`
+	IndependentReviewClaimed           bool                   `json:"independent_review_claimed"`
+	Production                         bool                   `json:"production"`
+	Signing                            bool                   `json:"signing"`
+	Publication                        bool                   `json:"publication"`
+	SandboxMechanics                   Finding                `json:"sandbox_mechanics"`
+	SbxLiveEvidence                    sbxLiveEvidenceBinding `json:"sbx_live_evidence"`
+	LifecycleIntegration               lifecycleIntegration   `json:"lifecycle_integration"`
+	Runtime                            runtimeMetadata        `json:"runtime"`
+}
+type sbxLiveEvidenceBinding struct {
+	AttemptID                 string `json:"attempt_id"`
+	EvidencePath              string `json:"evidence_path"`
+	EvidenceDigest            string `json:"evidence_digest"`
+	ProjectionCanonicalDigest string `json:"projection_canonical_digest"`
+	TargetCommit              string `json:"target_commit"`
+	SourceTree                string `json:"source_tree"`
+	EnforcementModel          string `json:"enforcement_model"`
 }
 type lifecycleIntegration struct {
 	State             string   `json:"state"`
@@ -286,8 +320,13 @@ func Verify(ctx context.Context, request Request) (Verdict, error) {
 		verdict = findingVerdict(verdict, "INVALID_SECURITY_POLICY", "BLOCK", "assurance", "assurance verify/replay adapters disagree")
 		return verdict, nil
 	}
-	verdict = findingVerdict(verdict, "SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.platform_enforcement", "required namespace/profile, resource, mount, network, and cleanup enforcement is not proven; no host-process fallback was used")
-	verdict.State = "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE"
+	// The retained-evidence walk above verified the exact live rlimit-envelope
+	// enforcement proof binding (attempt us007-sbx-output-live-0123) and every
+	// per-descriptor outcome. Nothing here widens authority: assurance stays
+	// owner-attested, publication stays unauthorized, and any drift in the
+	// retained proof fails closed above before this state is reachable.
+	verdict.State = provenMechanicsState
+	verdict.Findings = []Finding{}
 	return verdict, nil
 }
 
@@ -590,6 +629,7 @@ func loadPolicies(rootPath string) (*policySnapshot, error) {
 	paths := append(append([]string{}, policyPaths...), schemaPaths...)
 	paths = append(paths, "security/fixtures/cases.json", "evidence/security-validation.json")
 	paths = append(paths, baselineEvidencePaths...)
+	paths = append(paths, sbxLiveEvidencePaths...)
 	for _, p := range paths {
 		data, err := readRelative(root, p, 8<<20)
 		if err != nil {
@@ -775,8 +815,8 @@ func validatePolicies(s *policySnapshot) error {
 			if item.ExpectedDisposition != "" {
 				return errors.New("INVALID_SECURITY_POLICY/BLOCK: success fixture has disposition")
 			}
-		} else if s.registry[item.ExpectedCode] != item.ExpectedDisposition {
-			return errors.New("INVALID_SECURITY_POLICY/BLOCK: fixture finding not in registry")
+		} else if s.registry[item.ExpectedCode] != item.ExpectedDisposition || !adverseDisposition(item.ExpectedDisposition) {
+			return errors.New("INVALID_SECURITY_POLICY/BLOCK: fixture finding not in adverse registry")
 		}
 	}
 	return nil
@@ -787,7 +827,7 @@ func verifyRetainedEvidence(s *policySnapshot) []Finding {
 	add := func(code, disp, path, msg string) []Finding {
 		return []Finding{{Code: code, Disposition: disp, Path: path, Message: msg}}
 	}
-	if e.Story != "US-007" || e.Company != requiredCompany || e.Project != requiredProject || e.MechanicsState != "BLOCKED_SANDBOX_ENFORCEMENT_UNAVAILABLE" || e.Assurance != AssuranceOwnerOnly || e.IndependentReviewClaimed || e.Production || e.Signing || e.Publication {
+	if e.Story != "US-007" || e.Company != requiredCompany || e.Project != requiredProject || e.MechanicsState != provenMechanicsState || e.Assurance != AssuranceOwnerOnly || e.IndependentReviewClaimed || e.Production || e.Signing || e.Publication {
 		return add("ASSURANCE_CEILING_EXCEEDED", "REVOKE", "evidence/security-validation.json", "retained evidence exceeds owner-only mechanics")
 	}
 	for _, p := range policyPaths {
@@ -806,8 +846,15 @@ func verifyRetainedEvidence(s *policySnapshot) []Finding {
 	if e.AutobahnBaselineDigest != s.digests["evidence/java/autobahn-baseline.json"] || e.ConsumedRemediationAttemptsPerMode != s.autobahn.ConsumedRemediationAttemptsPerMode || e.FurtherRerunsAuthorized != s.autobahn.FurtherRerunsAuthorized || e.RerunsPerformedByUS007 != 0 || !equalStrings(e.OriginalReceiptDigests, s.autobahn.OriginalReceiptDigests) || !equalStrings(e.RemediationReceiptDigests, s.autobahn.RemediationReceiptDigests) {
 		return add("CANONICAL_EVIDENCE_MUTATION", "REVOKE", "evidence/java/autobahn-baseline.json", "Autobahn receipt closure changed")
 	}
-	if e.SandboxMechanics.Code != "SANDBOX_ENFORCEMENT_UNAVAILABLE" || e.SandboxMechanics.Disposition != "BLOCK" {
-		return add("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.sandbox_mechanics", "unsupported platform mechanics must fail closed")
+	if e.SandboxMechanics != provenSandboxMechanics() {
+		return add("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.sandbox_mechanics", "sandbox mechanics must be exactly the retained live rlimit-envelope proof record")
+	}
+	live := e.SbxLiveEvidence
+	if live.AttemptID != sbxLiveAttemptID || live.EvidencePath != sbxLiveEvidencePath || live.EvidenceDigest != s.digests[sbxLiveEvidencePath] || live.ProjectionCanonicalDigest != sbxLiveProjectionCanonicalDigest || live.TargetCommit != sbxLiveTargetCommit || live.SourceTree != sbxLiveSourceTree || live.EnforcementModel != sbxLiveEnforcementModel {
+		return add("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.sbx_live_evidence", "retained live sbx enforcement proof binding is absent or drifted")
+	}
+	if finding := validateRetainedSbxLiveEvidence(s.bytes[sbxLiveEvidencePath]); finding != nil {
+		return []Finding{*finding}
 	}
 	wantLifecycle := lifecycleIntegration{
 		State: "BOUND_CANONICAL_VERIFY_REPLAY", EvidenceNodeID: "evidence-security-validation",
@@ -835,8 +882,175 @@ func verifyRetainedEvidence(s *policySnapshot) []Finding {
 		return add("INVALID_SECURITY_POLICY", "BLOCK", "$.fixture_results", "controlled-canary fixture is absent")
 	}
 	index := sort.Search(len(e.FixtureResults), func(i int) bool { return e.FixtureResults[i].ID >= goodSandbox.ID })
-	if index == len(e.FixtureResults) || e.FixtureResults[index].ActualCode != "SANDBOX_ENFORCEMENT_UNAVAILABLE" || e.FixtureResults[index].Matched {
-		return add("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.fixture_results", "unsupported controlled canary must be retained as an observed blocker, not a synthetic pass")
+	if index == len(e.FixtureResults) || e.FixtureResults[index].ActualCode != "PROTECTED_CALLER_REQUIRED" || e.FixtureResults[index].Matched {
+		return add("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.fixture_results", "candidate-side controlled canary must be retained as an observed protected-caller blocker, not a synthetic pass")
+	}
+	return nil
+}
+
+// provenSandboxMechanics is the exact post-proof mechanics record. It replaces
+// the SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK finding only because the retained,
+// digest-bound live projection of attempt us007-sbx-output-live-0123 proved
+// the owner-amended parent-set POSIX rlimit envelope; assurance remains
+// owner-attested and not independent.
+func provenSandboxMechanics() Finding {
+	return Finding{
+		Code:        "SANDBOX_RLIMIT_ENVELOPE_PROVEN_LIVE",
+		Disposition: "ACCEPT",
+		Path:        "$.platform_enforcement",
+		Message:     "parent-set POSIX rlimit envelope, supervisor wall/output kills, and /run tmpfs workspace bound were proven live in sbx attempt us007-sbx-output-live-0123 under the owner-authorized rlimit-enforcement contract amendment; seccomp is observed-not-required because the microVM boundary is the syscall barrier; owner-attested, not independently reviewed",
+	}
+}
+
+type sbxLiveDescriptorOutcome struct {
+	ID                 string `json:"id"`
+	Expected           string `json:"expected"`
+	Termination        string `json:"termination"`
+	ExitCode           *int   `json:"exit_code"`
+	Signal             string `json:"signal"`
+	WorkloadSignal     int    `json:"workload_signal"`
+	WallDurationNanos  int64  `json:"wall_duration_nanos"`
+	CPUUsageUsecPeak   int64  `json:"cpu_usage_usec_peak"`
+	OutputBytesPeak    int64  `json:"output_bytes_peak"`
+	WorkspaceBytesPeak int64  `json:"workspace_bytes_peak"`
+	RLimitASBytes      uint64 `json:"rlimit_as_bytes"`
+}
+type sbxLiveRuntime struct {
+	CLIPath         string `json:"cli_path"`
+	CLIBinaryDigest string `json:"cli_binary_digest"`
+	CLIVersion      string `json:"cli_version"`
+	CLICommit       string `json:"cli_commit"`
+	DaemonVersion   string `json:"daemon_version"`
+	DaemonCommit    string `json:"daemon_commit"`
+	Template        string `json:"template"`
+}
+type sbxLiveEvidenceDocument struct {
+	SchemaVersion             string                     `json:"schema_version"`
+	Story                     string                     `json:"story"`
+	AttemptID                 string                     `json:"attempt_id"`
+	EnforcementModel          string                     `json:"enforcement_model"`
+	ContractAmendment         string                     `json:"contract_amendment"`
+	TargetCommit              string                     `json:"target_commit"`
+	SourceTree                string                     `json:"source_tree"`
+	ProjectionCanonicalDigest string                     `json:"projection_canonical_digest"`
+	SandboxName               string                     `json:"sandbox_name"`
+	Runtime                   sbxLiveRuntime             `json:"runtime"`
+	Descriptors               []sbxLiveDescriptorOutcome `json:"descriptors"`
+	BenignArtifactDigest      string                     `json:"benign_artifact_digest"`
+	BenignArtifactBytes       int64                      `json:"benign_artifact_bytes"`
+	SupervisorReceiptsDigest  string                     `json:"supervisor_receipts_digest"`
+	RemovalObservationDigest  string                     `json:"removal_observation_digest"`
+	AbsenceObservationDigest  string                     `json:"absence_observation_digest"`
+	SandboxRemoved            bool                       `json:"sandbox_removed"`
+	SandboxAbsentAfterRemove  bool                       `json:"sandbox_absent_after_remove"`
+	DerivedVerdict            string                     `json:"derived_verdict"`
+	AutobahnReruns            int                        `json:"autobahn_reruns"`
+	Assurance                 string                     `json:"assurance"`
+	IndependentReviewClaimed  bool                       `json:"independent_review_claimed"`
+	Production                bool                       `json:"production"`
+	Signing                   bool                       `json:"signing"`
+	Publication               bool                       `json:"publication"`
+}
+
+// sbxLiveExpectedOutcomes is the closed amended-model expectation table for
+// the fixed 14-descriptor live plan, in exact plan order.
+func sbxLiveExpectedOutcomes() []string {
+	return []string{
+		"EXIT_0_DENIED",                       // CACHE_WRITE_DENIED
+		"EXIT_0",                              // CLEAN_EXIT
+		"RLIMIT_CPU_SIGKILL",                  // CPU_BOUND
+		"EXIT_0_ABSENT",                       // ENV_SENTINEL_ABSENT
+		"EXIT_23_RLIMIT_NOFILE",               // FD_BOUND
+		"RLIMIT_AS_ALLOCATION_FAILURE_EXIT_2", // MEMORY_BOUND
+		"EXIT_0_DENIED",                       // NETWORK_SOCKET_DENIED
+		"OUTPUT_PARENT_KILL",                  // OUTPUT_BOUND
+		"EXIT_23_RLIMIT_NPROC",                // PID_BOUND
+		"EXIT_0_ABSENT",                       // PROTECTED_SENTINEL_DENIED
+		"EXIT_0_DENIED",                       // SOURCE_WRITE_DENIED
+		"WALL_PARENT_KILL",                    // WALL_BOUND
+		"EXIT_23_TMPFS_ENOSPC",                // WORKSPACE_BOUND
+		"EXIT_0_PINNED_ARTIFACT",              // BENIGN_OPERATION
+	}
+}
+
+// validateRetainedSbxLiveEvidence revalidates the retained public projection
+// summary of the live rlimit-envelope attempt on every load. It fails closed
+// to the original SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK finding when any
+// bound identity, descriptor outcome, cleanup observation, or ceiling drifts.
+func validateRetainedSbxLiveEvidence(data []byte) *Finding {
+	deny := func(path, message string) *Finding {
+		return &Finding{Code: "SANDBOX_ENFORCEMENT_UNAVAILABLE", Disposition: "BLOCK", Path: path, Message: message}
+	}
+	var doc sbxLiveEvidenceDocument
+	if err := intake.DecodeStrict(data, &doc); err != nil {
+		return deny(sbxLiveEvidencePath, "retained live sbx evidence does not decode strictly: "+err.Error())
+	}
+	if doc.SchemaVersion != policyVersion || doc.Story != "US-007" || doc.AttemptID != sbxLiveAttemptID || doc.EnforcementModel != sbxLiveEnforcementModel || doc.ContractAmendment == "" || doc.TargetCommit != sbxLiveTargetCommit || doc.SourceTree != sbxLiveSourceTree || doc.ProjectionCanonicalDigest != sbxLiveProjectionCanonicalDigest || doc.SandboxName != sbxLiveSandboxName {
+		return deny(sbxLiveEvidencePath, "retained live sbx evidence identity is not the exact bound attempt")
+	}
+	if doc.Runtime != (sbxLiveRuntime{
+		CLIPath:         "/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx",
+		CLIBinaryDigest: "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf",
+		CLIVersion:      "v0.39.0",
+		CLICommit:       "def8cb0523a77e757bdd6ef52b459fe374f3783e",
+		DaemonVersion:   "v0.39.0",
+		DaemonCommit:    "def8cb0523a77e757bdd6ef52b459fe374f3783e",
+		Template:        "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+	}) {
+		return deny(sbxLiveEvidencePath, "retained live sbx runtime identity drifted from the projection runtime block")
+	}
+	if doc.BenignArtifactDigest != sbxLiveBenignArtifactDigest || doc.BenignArtifactBytes != sbxLiveBenignArtifactBytes || doc.SupervisorReceiptsDigest != sbxLiveSupervisorReceiptsDigest || doc.RemovalObservationDigest != sbxLiveRemovalObservationDigest || doc.AbsenceObservationDigest != sbxLiveAbsenceObservationDigest || !doc.SandboxRemoved || !doc.SandboxAbsentAfterRemove {
+		return deny(sbxLiveEvidencePath, "retained live sbx artifact, receipt, or removal/absence observations drifted")
+	}
+	if doc.DerivedVerdict != sbxLiveDerivedVerdict || doc.AutobahnReruns != 0 || doc.Assurance != AssuranceOwnerOnly || doc.IndependentReviewClaimed || doc.Production || doc.Signing || doc.Publication {
+		return deny(sbxLiveEvidencePath, "retained live sbx verdict or assurance ceiling drifted")
+	}
+	plan := protectedFixedPlan()
+	expectations := sbxLiveExpectedOutcomes()
+	if len(doc.Descriptors) != len(plan) {
+		return deny(sbxLiveEvidencePath, "retained live sbx descriptor set is not the exact fixed plan")
+	}
+	for index, descriptor := range doc.Descriptors {
+		if descriptor.ID != plan[index] || descriptor.Expected != expectations[index] {
+			return deny(sbxLiveEvidencePath, "retained live sbx descriptor identity or expectation drifted for "+plan[index])
+		}
+		if finding := validateSbxLiveDescriptorOutcome(descriptor); finding != nil {
+			return finding
+		}
+	}
+	return nil
+}
+
+func validateSbxLiveDescriptorOutcome(descriptor sbxLiveDescriptorOutcome) *Finding {
+	deny := func(message string) *Finding {
+		return &Finding{Code: "SANDBOX_ENFORCEMENT_UNAVAILABLE", Disposition: "BLOCK", Path: sbxLiveEvidencePath, Message: message + " for " + descriptor.ID}
+	}
+	exitedWith := func(code int) bool {
+		return descriptor.ExitCode != nil && *descriptor.ExitCode == code && descriptor.Signal == "" && descriptor.WorkloadSignal == 0
+	}
+	tightAS := descriptor.RLimitASBytes == sbxLiveMemoryRLimitASBytes
+	if descriptor.Expected == "RLIMIT_AS_ALLOCATION_FAILURE_EXIT_2" != tightAS {
+		return deny("per-descriptor RLIMIT_AS profile drifted from the amended contract")
+	}
+	valid := false
+	switch descriptor.Expected {
+	case "EXIT_0", "EXIT_0_DENIED", "EXIT_0_ABSENT", "EXIT_0_PINNED_ARTIFACT":
+		valid = descriptor.Termination == "EXITED" && exitedWith(0)
+	case "RLIMIT_CPU_SIGKILL":
+		valid = descriptor.Termination == "PARENT_OBSERVED_SIGNAL_killed" && descriptor.ExitCode == nil && descriptor.Signal == "killed" && descriptor.WorkloadSignal == 9 && descriptor.CPUUsageUsecPeak >= sbxLiveCPUKillCorroborationUsec
+	case "RLIMIT_AS_ALLOCATION_FAILURE_EXIT_2":
+		valid = descriptor.Termination == "PARENT_OBSERVED_NONZERO_EXIT" && exitedWith(2)
+	case "EXIT_23_RLIMIT_NOFILE", "EXIT_23_RLIMIT_NPROC":
+		valid = descriptor.Termination == "PARENT_OBSERVED_NONZERO_EXIT" && exitedWith(23)
+	case "OUTPUT_PARENT_KILL":
+		valid = descriptor.Termination == "OUTPUT_LIMIT_EXCEEDED" && descriptor.ExitCode == nil && descriptor.Signal == "killed" && descriptor.WorkloadSignal == 0 && descriptor.OutputBytesPeak > sbxLiveOutputLimitBytes
+	case "WALL_PARENT_KILL":
+		valid = descriptor.Termination == "WALL_LIMIT_EXCEEDED" && descriptor.ExitCode == nil && descriptor.Signal == "killed" && descriptor.WorkloadSignal == 0 && descriptor.WallDurationNanos >= sbxLiveWallKillThresholdNanos
+	case "EXIT_23_TMPFS_ENOSPC":
+		valid = descriptor.Termination == "PARENT_OBSERVED_NONZERO_EXIT" && exitedWith(23) && descriptor.WorkspaceBytesPeak >= sbxLiveWorkspaceLimitBytes-(2<<20)
+	}
+	if !valid {
+		return deny("retained live descriptor outcome does not satisfy the amended enforcement expectation")
 	}
 	return nil
 }
@@ -849,6 +1063,13 @@ func boolExit(failed bool) int {
 }
 
 func validDisposition(v string) bool {
+	return v == "ACCEPT" || adverseDisposition(v)
+}
+
+// adverseDisposition is the closed failure vocabulary. ACCEPT exists solely
+// for the single registered live-proof mechanics record; fixtures may never
+// bind an ACCEPT-shaped expectation.
+func adverseDisposition(v string) bool {
 	return v == "BLOCK" || v == "QUARANTINE" || v == "INVALIDATE" || v == "REVOKE"
 }
 func equalSet(a, b []string) bool {

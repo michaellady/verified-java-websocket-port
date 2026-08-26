@@ -44,6 +44,7 @@
     {"code":"ARTIFACT_CAPTURE_INCOMPLETE","disposition":"QUARANTINE"},
     {"code":"SANDBOX_CLEANUP_INCOMPLETE","disposition":"REVOKE"},
     {"code":"SANDBOX_RECEIPT_INVALID","disposition":"QUARANTINE"},
+    {"code":"SANDBOX_RLIMIT_ENVELOPE_PROVEN_LIVE","disposition":"ACCEPT"},
     {"code":"TCB_EXECUTABLE_MISMATCH","disposition":"QUARANTINE"}
   ]
 }
