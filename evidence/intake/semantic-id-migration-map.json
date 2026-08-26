@@ -13,11 +13,11 @@
     "statement": "Every Java identity in this map is the binary name and JVM descriptor reported by javac's own symbol table after a zero-error JavacTask.analyze() run. No identity in this map was obtained by text or grep matching, which the story records as strictly weaker and unable to establish a proved claim."
   },
   "rust_identity_status": {
-    "rust_workspace_present": false,
+    "rust_workspace_present": true,
     "planned_resolver": "rust-analyzer",
-    "blocker_code": "RUST_WORKSPACE_NOT_YET_CREATED",
+    "blocker_code": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED",
     "created_by_story": "US-009",
-    "statement": "No Rust workspace exists in this repository yet, so rust-analyzer was not run and no Rust identity here is resolver-verified. Every rust_semantic_id is a planned identity and every row carries rust_identity_verified=false. US-009 creates the workspace; this map must be re-derived and each Rust identity resolved before any row may claim verification."
+    "statement": "A Rust cargo workspace exists (scaffold only; no behavior implemented), but rust-analyzer has not been run against any identity in this map. Every rust_semantic_id remains a planned identity and every row carries rust_identity_verified=false. US-009 establishes the ConnectionCore contract; each Rust identity must be resolver-verified before any row may claim verification."
   },
   "rows": [
     {

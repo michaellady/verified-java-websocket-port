@@ -76,7 +76,7 @@
       ],
       "properties": {
         "rust_workspace_present": {
-          "const": false
+          "type": "boolean"
         },
         "planned_resolver": {
           "enum": [
@@ -85,7 +85,10 @@
           ]
         },
         "blocker_code": {
-          "const": "RUST_WORKSPACE_NOT_YET_CREATED"
+          "enum": [
+            "RUST_WORKSPACE_NOT_YET_CREATED",
+            "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"
+          ]
         },
         "created_by_story": {
           "const": "US-009"
@@ -93,7 +96,29 @@
         "statement": {
           "$ref": "#/$defs/text"
         }
-      }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "rust_workspace_present": {
+              "const": false
+            },
+            "blocker_code": {
+              "const": "RUST_WORKSPACE_NOT_YET_CREATED"
+            }
+          }
+        },
+        {
+          "properties": {
+            "rust_workspace_present": {
+              "const": true
+            },
+            "blocker_code": {
+              "const": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"
+            }
+          }
+        }
+      ]
     },
     "rows": {
       "type": "array",
