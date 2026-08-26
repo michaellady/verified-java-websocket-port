@@ -1,0 +1,429 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/java-intake-manifest-1.0.0.schema.json",
+  "title": "US-003 JavaIntakeManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "manifest_id",
+    "source",
+    "jdk",
+    "build",
+    "reconciliation",
+    "promoted_inputs",
+    "surface_sections",
+    "assurance",
+    "honesty_notes"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "entity_type": {
+      "const": "JavaIntakeManifest"
+    },
+    "manifest_id": {
+      "$ref": "#/$defs/id"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "jdk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vendor",
+        "version",
+        "pinned_artifact_id",
+        "pinned_sha256",
+        "identity_source",
+        "oracle_output_sha256",
+        "oracle_tool_sha256"
+      ],
+      "properties": {
+        "vendor": {
+          "$ref": "#/$defs/text"
+        },
+        "version": {
+          "const": "17.0.19"
+        },
+        "pinned_artifact_id": {
+          "const": "openjdk-17.0.19-homebrew-bottle"
+        },
+        "pinned_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "identity_source": {
+          "$ref": "#/$defs/text"
+        },
+        "oracle_output_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "oracle_tool_sha256": {
+          "$ref": "#/$defs/sha256"
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system",
+        "version",
+        "executed_in_this_story",
+        "inherited_evidence_path",
+        "inherited_accepted_root_digest",
+        "rationale"
+      ],
+      "properties": {
+        "system": {
+          "const": "Maven"
+        },
+        "version": {
+          "$ref": "#/$defs/text"
+        },
+        "executed_in_this_story": {
+          "const": false
+        },
+        "inherited_evidence_path": {
+          "$ref": "#/$defs/path"
+        },
+        "inherited_accepted_root_digest": {
+          "$ref": "#/$defs/sha256"
+        },
+        "rationale": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "production_tree",
+        "test_tree",
+        "study_surface",
+        "declaration_totals",
+        "method",
+        "counting_semantics"
+      ],
+      "properties": {
+        "production_tree": {
+          "$ref": "#/$defs/treeCount"
+        },
+        "test_tree": {
+          "$ref": "#/$defs/treeCount"
+        },
+        "study_surface": {
+          "$ref": "#/$defs/treeCount"
+        },
+        "declaration_totals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "production_declarations",
+            "study_surface_declarations",
+            "study_surface_types",
+            "analyzed_top_level_types",
+            "compiler_error_count",
+            "package_info_files_without_declarations"
+          ],
+          "properties": {
+            "production_declarations": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "study_surface_declarations": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "study_surface_types": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "analyzed_top_level_types": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "compiler_error_count": {
+              "const": 0
+            },
+            "package_info_files_without_declarations": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "method": {
+          "$ref": "#/$defs/text"
+        },
+        "counting_semantics": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "surface_sections": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "observation_status",
+          "evidence_ref",
+          "blocker_code",
+          "items"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "title": {
+            "$ref": "#/$defs/text"
+          },
+          "observation_status": {
+            "enum": [
+              "OBSERVED",
+              "UNOBSERVABLE",
+              "NOT_APPLICABLE"
+            ]
+          },
+          "evidence_ref": {
+            "type": "string"
+          },
+          "blocker_code": {
+            "type": "string"
+          },
+          "items": {
+            "$ref": "#/$defs/strings"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "observation_status": {
+                  "const": "OBSERVED"
+                }
+              },
+              "required": [
+                "observation_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "evidence_ref": {
+                  "$ref": "#/$defs/text"
+                },
+                "blocker_code": {
+                  "const": ""
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "observation_status": {
+                  "const": "UNOBSERVABLE"
+                }
+              },
+              "required": [
+                "observation_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "blocker_code": {
+                  "$ref": "#/$defs/text"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "assurance": {
+      "$ref": "#/$defs/assurance"
+    },
+    "honesty_notes": {
+      "$ref": "#/$defs/strings"
+    },
+    "promoted_inputs": {
+      "type": "array",
+      "minItems": 1,
+      "contains": {
+        "type": "object",
+        "required": [
+          "artifact_id",
+          "sha256",
+          "qualified_by"
+        ],
+        "properties": {
+          "artifact_id": {
+            "const": "slf4j-api-2.0.13"
+          },
+          "sha256": {
+            "const": "sha256:e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9"
+          },
+          "qualified_by": {
+            "const": "US-002"
+          }
+        }
+      },
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "artifact_id",
+          "kind",
+          "sha256",
+          "immutable_url",
+          "qualified_by",
+          "qualification_reference",
+          "enforced_by",
+          "role"
+        ],
+        "properties": {
+          "artifact_id": {
+            "$ref": "#/$defs/text"
+          },
+          "kind": {
+            "$ref": "#/$defs/text"
+          },
+          "sha256": {
+            "$ref": "#/$defs/sha256"
+          },
+          "immutable_url": {
+            "$ref": "#/$defs/text"
+          },
+          "qualified_by": {
+            "$ref": "#/$defs/text"
+          },
+          "qualification_reference": {
+            "$ref": "#/$defs/text"
+          },
+          "enforced_by": {
+            "$ref": "#/$defs/text"
+          },
+          "role": {
+            "$ref": "#/$defs/text"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._$-]*(?:/[A-Za-z0-9][A-Za-z0-9._$-]*)*$"
+    },
+    "strings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/text"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance",
+        "independent_review_claimed",
+        "production",
+        "signing",
+        "publication"
+      ],
+      "properties": {
+        "assurance": {
+          "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+        },
+        "independent_review_claimed": {
+          "const": false
+        },
+        "production": {
+          "const": false
+        },
+        "signing": {
+          "const": false
+        },
+        "publication": {
+          "const": false
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "sha256",
+        "version",
+        "commit",
+        "production_source_root",
+        "test_source_root"
+      ],
+      "properties": {
+        "artifact_id": {
+          "const": "java-websocket-source-archive"
+        },
+        "sha256": {
+          "const": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4"
+        },
+        "version": {
+          "const": "1.6.0"
+        },
+        "commit": {
+          "const": "da3cf2a777aed862f2f5b5cf060cae7969958667"
+        },
+        "production_source_root": {
+          "const": "src/main/java"
+        },
+        "test_source_root": {
+          "const": "src/test/java"
+        }
+      }
+    },
+    "treeCount": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "files",
+        "physical_lines"
+      ],
+      "properties": {
+        "files": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "physical_lines": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1197 @@
+{
+  "$schema": "../../schemas/surface-inventory-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "SurfaceInventory",
+  "inventory_id": "surface-inventory.us003",
+  "source": {
+    "artifact_id": "java-websocket-source-archive",
+    "sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "version": "1.6.0",
+    "commit": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "production_source_root": "src/main/java",
+    "test_source_root": "src/test/java"
+  },
+  "selection_rule": {
+    "root_files": [
+      "org/java_websocket/WebSocket.java",
+      "org/java_websocket/WebSocketAdapter.java",
+      "org/java_websocket/WebSocketImpl.java",
+      "org/java_websocket/WebSocketListener.java"
+    ],
+    "packages": [
+      "drafts",
+      "enums",
+      "exceptions",
+      "framing",
+      "handshake",
+      "interfaces",
+      "util"
+    ],
+    "recursive": false,
+    "statement": "The study surface is exactly the four root connection files plus the drafts, enums, exceptions, framing, handshake, interfaces, and util packages, each included non-recursively. Every other production file is excluded with a named reason."
+  },
+  "selected": [
+    {
+      "path": "org/java_websocket/WebSocket.java",
+      "package": "org.java_websocket",
+      "physical_lines": 250,
+      "sha256": "sha256:5c7e42b03cc4948d11ac465b95fb6d75a474d22a5efd89a0c8793914b92daaa8",
+      "declaration_count": 27
+    },
+    {
+      "path": "org/java_websocket/WebSocketAdapter.java",
+      "package": "org.java_websocket",
+      "physical_lines": 113,
+      "sha256": "sha256:ff3c9f4ab3aebdffaebf07bf32c367dc6dcc238f5bc24ee34c49254d90f7c297",
+      "declaration_count": 9
+    },
+    {
+      "path": "org/java_websocket/WebSocketImpl.java",
+      "package": "org.java_websocket",
+      "physical_lines": 915,
+      "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+      "declaration_count": 80
+    },
+    {
+      "path": "org/java_websocket/WebSocketListener.java",
+      "package": "org.java_websocket",
+      "physical_lines": 200,
+      "sha256": "sha256:7793730debd5f4632dacdefbd9aa406196f0be92f5c626b54751af024e9de519",
+      "declaration_count": 17
+    },
+    {
+      "path": "org/java_websocket/drafts/Draft.java",
+      "package": "org.java_websocket.drafts",
+      "physical_lines": 355,
+      "sha256": "sha256:608bfe081943ea60dcd68a973ba2167392b3f3f57dda1be84ac08c0f158ec1b3",
+      "declaration_count": 33
+    },
+    {
+      "path": "org/java_websocket/drafts/Draft_6455.java",
+      "package": "org.java_websocket.drafts",
+      "physical_lines": 1213,
+      "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+      "declaration_count": 77
+    },
+    {
+      "path": "org/java_websocket/drafts/package-info.java",
+      "package": "org.java_websocket.drafts",
+      "physical_lines": 28,
+      "sha256": "sha256:32fefbffa70761da24ccff0acaac4022d4faabf71baf13c31128d0a71369a747",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/enums/CloseHandshakeType.java",
+      "package": "org.java_websocket.enums",
+      "physical_lines": 7,
+      "sha256": "sha256:ebe61c9623c64626a9a02d30b089d9d9ec7ab2618a88777d93100b22acfb2434",
+      "declaration_count": 7
+    },
+    {
+      "path": "org/java_websocket/enums/HandshakeState.java",
+      "package": "org.java_websocket.enums",
+      "physical_lines": 14,
+      "sha256": "sha256:3f6cb63f6b094d1deba5e3808d102daa6b6cf82de4e678d54b679760c405a025",
+      "declaration_count": 6
+    },
+    {
+      "path": "org/java_websocket/enums/Opcode.java",
+      "package": "org.java_websocket.enums",
+      "physical_lines": 8,
+      "sha256": "sha256:f0318cd8d90a6acfd545a96f8b751d6f1d24811823a715abbf574bfd2bb930b9",
+      "declaration_count": 10
+    },
+    {
+      "path": "org/java_websocket/enums/ReadyState.java",
+      "package": "org.java_websocket.enums",
+      "physical_lines": 7,
+      "sha256": "sha256:a2a0b4cff9a0b70b562859960495ed3d8851e7834f711bd56fb7fb4d120b3636",
+      "declaration_count": 8
+    },
+    {
+      "path": "org/java_websocket/enums/Role.java",
+      "package": "org.java_websocket.enums",
+      "physical_lines": 7,
+      "sha256": "sha256:442ebfc221f005edc8020abe64fcedd0394db683a1343a2fb5aeb7dd833db84d",
+      "declaration_count": 6
+    },
+    {
+      "path": "org/java_websocket/enums/package-info.java",
+      "package": "org.java_websocket.enums",
+      "physical_lines": 28,
+      "sha256": "sha256:958b4cfe0663f6010640eba64bdf2cd074effd5b3f689b4c9f4b351576f2936e",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/IncompleteException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 60,
+      "sha256": "sha256:4c0d4d4d92a23458b1e3d0e25c8f28a4f2a252261fa0f56062be3e33e6ed7b49",
+      "declaration_count": 5
+    },
+    {
+      "path": "org/java_websocket/exceptions/IncompleteHandshakeException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 71,
+      "sha256": "sha256:b03dbc01cc0484ae51cbb501fd83e3f57c0075ca885a03baf58d0f859cf7b002",
+      "declaration_count": 6
+    },
+    {
+      "path": "org/java_websocket/exceptions/InvalidDataException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 95,
+      "sha256": "sha256:a3f7a3cd12e3959a39a3beeba2809cb349cc9ee575dd889296e3ec6b60d74a61",
+      "declaration_count": 8
+    },
+    {
+      "path": "org/java_websocket/exceptions/InvalidEncodingException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 37,
+      "sha256": "sha256:6307059b95a42af8c5fdec0602d4dd8810471e3214a5a7ba2598f5e1c52e2eff",
+      "declaration_count": 4
+    },
+    {
+      "path": "org/java_websocket/exceptions/InvalidFrameException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 82,
+      "sha256": "sha256:357c67a0034977a6200991ecaa9895ab3b414907abe526355830446dedf47a31",
+      "declaration_count": 6
+    },
+    {
+      "path": "org/java_websocket/exceptions/InvalidHandshakeException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 83,
+      "sha256": "sha256:c4a368445c8d6eaac9e68b068d582aed32fb7c1197cb96be67d2e149f9da40dc",
+      "declaration_count": 6
+    },
+    {
+      "path": "org/java_websocket/exceptions/LimitExceededException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 96,
+      "sha256": "sha256:b619e6a6f0815b5a3bbecb09c66ec35fbabd3523b51571af8486ebba615940c1",
+      "declaration_count": 8
+    },
+    {
+      "path": "org/java_websocket/exceptions/NotSendableException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 66,
+      "sha256": "sha256:4822821a9c41c87ac7ba0087413c199bd12f24fdc2b50652a4acfadca6bc5fa8",
+      "declaration_count": 5
+    },
+    {
+      "path": "org/java_websocket/exceptions/WebsocketNotConnectedException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 37,
+      "sha256": "sha256:42b487f7c06df9f9944e589dd526fb5e1916921a1eb89ca905ba9e49d4e6f56d",
+      "declaration_count": 3
+    },
+    {
+      "path": "org/java_websocket/exceptions/WrappedIOException.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 78,
+      "sha256": "sha256:92447bbde6d581c885e8c21b387d24c6f2d7bd3a3c6e95d473b3412e0e583c17",
+      "declaration_count": 6
+    },
+    {
+      "path": "org/java_websocket/exceptions/package-info.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 29,
+      "sha256": "sha256:b9739af318874d806d99edf602a3af68bdb5d86da5b99a9a2020c6500e8b54b3",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/framing/BinaryFrame.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 41,
+      "sha256": "sha256:4dbb91d49054ee5824e4bce2fb3e282420c8440052f3e02df282d4d6c6e5d288",
+      "declaration_count": 2
+    },
+    {
+      "path": "org/java_websocket/framing/CloseFrame.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 341,
+      "sha256": "sha256:bf62f1f9acae130ec5139c964f8be1fea12e896c4e5314000e33ea15deb4c742",
+      "declaration_count": 34
+    },
+    {
+      "path": "org/java_websocket/framing/ContinuousFrame.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 41,
+      "sha256": "sha256:b54df63eb2ae13cb452b62b6ff39b9b4a2f99efa288e3936d36bb17e809dc6e6",
+      "declaration_count": 2
+    },
+    {
+      "path": "org/java_websocket/framing/ControlFrame.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 61,
+      "sha256": "sha256:d88df4f62cabe7e85aa09c4eb0e438836c8a1b973df5b898a6b34763b7c68521",
+      "declaration_count": 3
+    },
+    {
+      "path": "org/java_websocket/framing/DataFrame.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 49,
+      "sha256": "sha256:a8d784b1142fe5f7760b7a3c1fd0e6f3ee4810a713748f2ec9c8a0bfe8b3de0e",
+      "declaration_count": 3
+    },
+    {
+      "path": "org/java_websocket/framing/Framedata.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 94,
+      "sha256": "sha256:7a864d019218ac2670738e70b34e0649239425e21a4a82d52e55730f8e635621",
+      "declaration_count": 9
+    },
+    {
+      "path": "org/java_websocket/framing/FramedataImpl1.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 294,
+      "sha256": "sha256:27baeb2ac1a0988bae592d4376b97a59fb4ece1eb176936413ce0c2bfbe8c069",
+      "declaration_count": 28
+    },
+    {
+      "path": "org/java_websocket/framing/PingFrame.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 41,
+      "sha256": "sha256:a888fe442c368190cdf04e2aed61eeddcf74b4c940faa101e7ec0f27f20f52eb",
+      "declaration_count": 2
+    },
+    {
+      "path": "org/java_websocket/framing/PongFrame.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 51,
+      "sha256": "sha256:51ffbe5313fc104c66e249a227005a07f55b349a9f6233c131f8ae1261a30c0f",
+      "declaration_count": 3
+    },
+    {
+      "path": "org/java_websocket/framing/TextFrame.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 51,
+      "sha256": "sha256:74d261dc66b90fff3f6e8e351615a18a9dffd1e2aa1335242332c5b63e4c7529",
+      "declaration_count": 3
+    },
+    {
+      "path": "org/java_websocket/framing/package-info.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 29,
+      "sha256": "sha256:c413b30f62696c8413fb7ed89ba01fedb6e6af538f3e1057eb50a1d45005ef5c",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/handshake/ClientHandshake.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 39,
+      "sha256": "sha256:73412828e8392f78589dcebc41b81bb4ab14c939ea4147b20f8245714745b623",
+      "declaration_count": 2
+    },
+    {
+      "path": "org/java_websocket/handshake/ClientHandshakeBuilder.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 39,
+      "sha256": "sha256:099920d0c638057009d800682fb979de045cfbf5b6cea673aaff1e2fa004938b",
+      "declaration_count": 2
+    },
+    {
+      "path": "org/java_websocket/handshake/HandshakeBuilder.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 47,
+      "sha256": "sha256:ba8357f7a32372adeeab17313fedffb016c363ffa13820f8802e76cf6b12b0ab",
+      "declaration_count": 3
+    },
+    {
+      "path": "org/java_websocket/handshake/HandshakeImpl1Client.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 50,
+      "sha256": "sha256:1e5df40a1f431f9c40170a1e9b1d5e77db4fccda98018ed69ec027690181caed",
+      "declaration_count": 5
+    },
+    {
+      "path": "org/java_websocket/handshake/HandshakeImpl1Server.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 62,
+      "sha256": "sha256:802316d83cb9e8f16ef70610e3dd9a17a288820c21337b5607d926593c8bcb58",
+      "declaration_count": 8
+    },
+    {
+      "path": "org/java_websocket/handshake/Handshakedata.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 64,
+      "sha256": "sha256:550937aea454d7732656e54582701bdf4bd1e6c210ca9c70990e4c4403a1f459",
+      "declaration_count": 5
+    },
+    {
+      "path": "org/java_websocket/handshake/HandshakedataImpl1.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 87,
+      "sha256": "sha256:e5985a441a1d0d3d3bfdfe8824f63f1df99f712be713a14c506a041adf4caa87",
+      "declaration_count": 10
+    },
+    {
+      "path": "org/java_websocket/handshake/ServerHandshake.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 46,
+      "sha256": "sha256:d0ee0791179b5d45a0e42f27e399a3430d8d5b6dd27b9446269ee980f6aa11f0",
+      "declaration_count": 3
+    },
+    {
+      "path": "org/java_websocket/handshake/ServerHandshakeBuilder.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 46,
+      "sha256": "sha256:ea8ec2c1a2bb71877ff57e59784a5988fc9a9f8dd5f7e4bb798c083d6e4129ef",
+      "declaration_count": 3
+    },
+    {
+      "path": "org/java_websocket/handshake/package-info.java",
+      "package": "org.java_websocket.handshake",
+      "physical_lines": 31,
+      "sha256": "sha256:6a49a70a0abb0cbf37b5a2604eaaa21d9d0f712560823f34c502604b79140313",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/interfaces/ISSLChannel.java",
+      "package": "org.java_websocket.interfaces",
+      "physical_lines": 44,
+      "sha256": "sha256:e67c64dbc18d9fa8e302c13c1c749caba819beb504240d8be54c47da1fe3c13f",
+      "declaration_count": 2
+    },
+    {
+      "path": "org/java_websocket/interfaces/package-info.java",
+      "package": "org.java_websocket.interfaces",
+      "physical_lines": 29,
+      "sha256": "sha256:5651053a5f3595811c770bf849ab37f32f42ce8211e9645641c64aac1555b9df",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/util/Base64.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 1049,
+      "sha256": "sha256:a8deed09adc4b850a7a67f471d763ae95946bb2554a609a62a0d254055ae7085",
+      "declaration_count": 44
+    },
+    {
+      "path": "org/java_websocket/util/ByteBufferUtils.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 73,
+      "sha256": "sha256:c2fb2410b0eae4089dcaac6e9d2e7daf839f56807dee9fafa46b0201d40c6760",
+      "declaration_count": 4
+    },
+    {
+      "path": "org/java_websocket/util/Charsetfunctions.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 154,
+      "sha256": "sha256:9051e7760ca8f318238e20db952152283f278f61d8bbb2af97a5daa75b3d5311",
+      "declaration_count": 12
+    },
+    {
+      "path": "org/java_websocket/util/NamedThreadFactory.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 56,
+      "sha256": "sha256:a4317b2174e2629c30f91ccc8f34bab93c3e4a03b50bda20419fef1fe5d763b7",
+      "declaration_count": 8
+    },
+    {
+      "path": "org/java_websocket/util/package-info.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 28,
+      "sha256": "sha256:00ccfeb7161c2a142a5ec76050e5c3069ab1508e11b9f9191e921ffdc35fb5b4",
+      "declaration_count": 0
+    }
+  ],
+  "excluded": [
+    {
+      "path": "org/java_websocket/AbstractWebSocket.java",
+      "package": "org.java_websocket",
+      "physical_lines": 376,
+      "sha256": "sha256:5a623806b243d160f3d0809f7224b3ab9230e544e8dd1f7fa92c511fb4812c63",
+      "declaration_count": 29,
+      "reason_code": "ROOT_FILE_NOT_A_CONNECTION_CORE_SEAM",
+      "reason": "org/java_websocket/AbstractWebSocket.java is a root-package file outside the four connection-core seams named by AC2 (factories, wrapped-channel helpers, and the NIO abstract base)."
+    },
+    {
+      "path": "org/java_websocket/AbstractWrappedByteChannel.java",
+      "package": "org.java_websocket",
+      "physical_lines": 111,
+      "sha256": "sha256:d0555cea0b8173ffd0184f4ac012a2c4adf01a39e6505535683bc8e66af72f7c",
+      "declaration_count": 13,
+      "reason_code": "ROOT_FILE_NOT_A_CONNECTION_CORE_SEAM",
+      "reason": "org/java_websocket/AbstractWrappedByteChannel.java is a root-package file outside the four connection-core seams named by AC2 (factories, wrapped-channel helpers, and the NIO abstract base)."
+    },
+    {
+      "path": "org/java_websocket/SSLSocketChannel.java",
+      "package": "org.java_websocket",
+      "physical_lines": 538,
+      "sha256": "sha256:9227e94a6d376389b7e53e98d9c1caf256de1bf604cb5db83cd83af6478662fc",
+      "declaration_count": 27,
+      "reason_code": "EXCLUDED_TLS_WSS_SURFACE",
+      "reason": "org/java_websocket/SSLSocketChannel.java implements the TLS/WSS channel, which AC5 excludes from the port."
+    },
+    {
+      "path": "org/java_websocket/SSLSocketChannel2.java",
+      "package": "org.java_websocket",
+      "physical_lines": 500,
+      "sha256": "sha256:60f787beb5c5bf88114eb4a56448e291f7d2df528ef549f181447c4c17109907",
+      "declaration_count": 43,
+      "reason_code": "EXCLUDED_TLS_WSS_SURFACE",
+      "reason": "org/java_websocket/SSLSocketChannel2.java implements the TLS/WSS channel, which AC5 excludes from the port."
+    },
+    {
+      "path": "org/java_websocket/SocketChannelIOHelper.java",
+      "package": "org.java_websocket",
+      "physical_lines": 116,
+      "sha256": "sha256:1f20063e1cd2128e2804ef544ca8ee76cbfa9215d365fb8ee740249f0aeae310",
+      "declaration_count": 5,
+      "reason_code": "ROOT_FILE_NOT_A_CONNECTION_CORE_SEAM",
+      "reason": "org/java_websocket/SocketChannelIOHelper.java is a root-package file outside the four connection-core seams named by AC2 (factories, wrapped-channel helpers, and the NIO abstract base)."
+    },
+    {
+      "path": "org/java_websocket/WebSocketFactory.java",
+      "package": "org.java_websocket",
+      "physical_lines": 51,
+      "sha256": "sha256:67d5a369e771a94530723df8374252e27549029f4b92e7a7a2256961bb01c322",
+      "declaration_count": 3,
+      "reason_code": "ROOT_FILE_NOT_A_CONNECTION_CORE_SEAM",
+      "reason": "org/java_websocket/WebSocketFactory.java is a root-package file outside the four connection-core seams named by AC2 (factories, wrapped-channel helpers, and the NIO abstract base)."
+    },
+    {
+      "path": "org/java_websocket/WebSocketServerFactory.java",
+      "package": "org.java_websocket",
+      "physical_lines": 61,
+      "sha256": "sha256:a8922740317ac336ce0839a7a490a420f5ed6c89f2098afd0d646d252f7ad78b",
+      "declaration_count": 5,
+      "reason_code": "ROOT_FILE_NOT_A_CONNECTION_CORE_SEAM",
+      "reason": "org/java_websocket/WebSocketServerFactory.java is a root-package file outside the four connection-core seams named by AC2 (factories, wrapped-channel helpers, and the NIO abstract base)."
+    },
+    {
+      "path": "org/java_websocket/WrappedByteChannel.java",
+      "package": "org.java_websocket",
+      "physical_lines": 76,
+      "sha256": "sha256:e13246ade49d5851b2bbf11131923f979194c283c1f6e0fb4ec4bfa6bb2d8e4e",
+      "declaration_count": 6,
+      "reason_code": "ROOT_FILE_NOT_A_CONNECTION_CORE_SEAM",
+      "reason": "org/java_websocket/WrappedByteChannel.java is a root-package file outside the four connection-core seams named by AC2 (factories, wrapped-channel helpers, and the NIO abstract base)."
+    },
+    {
+      "path": "org/java_websocket/client/DnsResolver.java",
+      "package": "org.java_websocket.client",
+      "physical_lines": 51,
+      "sha256": "sha256:6ef25d7738dc46720f272889a815dd86f2dbccd0141aba4f1f1454897cfc4c5a",
+      "declaration_count": 2,
+      "reason_code": "EXCLUDED_JAVA_CLIENT_TOPOLOGY",
+      "reason": "org/java_websocket/client/DnsResolver.java belongs to the Java client topology, which AC5 excludes in favour of a thin Rust adapter."
+    },
+    {
+      "path": "org/java_websocket/client/WebSocketClient.java",
+      "package": "org.java_websocket.client",
+      "physical_lines": 1010,
+      "sha256": "sha256:d7ddb2a38443cb92e1470c7eed0c11da693f6e6ac01e6498ff6b65c67f6b4658",
+      "declaration_count": 94,
+      "reason_code": "EXCLUDED_JAVA_CLIENT_TOPOLOGY",
+      "reason": "org/java_websocket/client/WebSocketClient.java belongs to the Java client topology, which AC5 excludes in favour of a thin Rust adapter."
+    },
+    {
+      "path": "org/java_websocket/client/package-info.java",
+      "package": "org.java_websocket.client",
+      "physical_lines": 28,
+      "sha256": "sha256:3d4cd3be660d002ad0d642bfc9c0178f482c30c7725b80d9ce76ff4849ae46a4",
+      "declaration_count": 0,
+      "reason_code": "EXCLUDED_JAVA_CLIENT_TOPOLOGY",
+      "reason": "org/java_websocket/client/package-info.java belongs to the Java client topology, which AC5 excludes in favour of a thin Rust adapter."
+    },
+    {
+      "path": "org/java_websocket/extensions/CompressionExtension.java",
+      "package": "org.java_websocket.extensions",
+      "physical_lines": 55,
+      "sha256": "sha256:8ed7e930adc1fe96cf8a786dacd43f22e46cb9c92c0640b66b11f38ad01756da",
+      "declaration_count": 3,
+      "reason_code": "EXCLUDED_EXTENSION_FRAMEWORK_PARITY",
+      "reason": "org/java_websocket/extensions/CompressionExtension.java is extension-framework parity, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/extensions/DefaultExtension.java",
+      "package": "org.java_websocket.extensions",
+      "physical_lines": 103,
+      "sha256": "sha256:333d81a44a0733752f31aa983f527fa864dc2a3a697ee3f9a31c4a4ba331f030",
+      "declaration_count": 14,
+      "reason_code": "EXCLUDED_EXTENSION_FRAMEWORK_PARITY",
+      "reason": "org/java_websocket/extensions/DefaultExtension.java is extension-framework parity, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/extensions/ExtensionRequestData.java",
+      "package": "org.java_websocket.extensions",
+      "physical_lines": 53,
+      "sha256": "sha256:74e6f9e81a6c6f5fd59a7d1fa97b84b35665626b234012782fd4181f47cc8deb",
+      "declaration_count": 8,
+      "reason_code": "EXCLUDED_EXTENSION_FRAMEWORK_PARITY",
+      "reason": "org/java_websocket/extensions/ExtensionRequestData.java is extension-framework parity, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/extensions/IExtension.java",
+      "package": "org.java_websocket.extensions",
+      "physical_lines": 138,
+      "sha256": "sha256:b60b1e5a80b9ee69e862ef7935ce15d5aa44c1d1c4c9f7998ba18d270b59a776",
+      "declaration_count": 11,
+      "reason_code": "EXCLUDED_EXTENSION_FRAMEWORK_PARITY",
+      "reason": "org/java_websocket/extensions/IExtension.java is extension-framework parity, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/extensions/package-info.java",
+      "package": "org.java_websocket.extensions",
+      "physical_lines": 29,
+      "sha256": "sha256:94f11f7570c239a08c67a4675a5f5c5eae4b3f73fe09afeb6258cefce896fd29",
+      "declaration_count": 0,
+      "reason_code": "EXCLUDED_EXTENSION_FRAMEWORK_PARITY",
+      "reason": "org/java_websocket/extensions/package-info.java is extension-framework parity, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/extensions/permessage_deflate/PerMessageDeflateExtension.java",
+      "package": "org.java_websocket.extensions.permessage_deflate",
+      "physical_lines": 372,
+      "sha256": "sha256:6f2181526e918f00e9b11202df5aa0a45b5600ee06e38e2315af8b58d7ea913b",
+      "declaration_count": 37,
+      "reason_code": "EXCLUDED_RFC_7692_PERMESSAGE_DEFLATE",
+      "reason": "org/java_websocket/extensions/permessage_deflate/PerMessageDeflateExtension.java implements RFC 7692 permessage-deflate, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/protocols/IProtocol.java",
+      "package": "org.java_websocket.protocols",
+      "physical_lines": 72,
+      "sha256": "sha256:e907e30845620282320c3a5046e2f5b67cb848d335f0567103c108058dadf32f",
+      "declaration_count": 5,
+      "reason_code": "EXCLUDED_SUBPROTOCOL_FRAMEWORK_PARITY",
+      "reason": "org/java_websocket/protocols/IProtocol.java is subprotocol-framework parity, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/protocols/Protocol.java",
+      "package": "org.java_websocket.protocols",
+      "physical_lines": 105,
+      "sha256": "sha256:8b783ad0150b4fbcad7b20621b9a2be1a0fce9ba447092283fcccdfa0ce53735",
+      "declaration_count": 11,
+      "reason_code": "EXCLUDED_SUBPROTOCOL_FRAMEWORK_PARITY",
+      "reason": "org/java_websocket/protocols/Protocol.java is subprotocol-framework parity, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/protocols/package-info.java",
+      "package": "org.java_websocket.protocols",
+      "physical_lines": 29,
+      "sha256": "sha256:d6ef1d27b19b1b2c183b8ef89f7996d1c648addf5cbb1c9be3ad6eb205e558d7",
+      "declaration_count": 0,
+      "reason_code": "EXCLUDED_SUBPROTOCOL_FRAMEWORK_PARITY",
+      "reason": "org/java_websocket/protocols/package-info.java is subprotocol-framework parity, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/server/CustomSSLWebSocketServerFactory.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 99,
+      "sha256": "sha256:7d740d4cddfd0a88ff5b8a68e34ac10d1ed0dd922d73460f48fb4dc65d7e4790",
+      "declaration_count": 6,
+      "reason_code": "EXCLUDED_JAVA_NIO_SERVER_TOPOLOGY",
+      "reason": "org/java_websocket/server/CustomSSLWebSocketServerFactory.java belongs to Java's NIO server topology, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/server/DefaultSSLWebSocketServerFactory.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 91,
+      "sha256": "sha256:4cbb4a6420ff56554e1a849505877f3db7e265d220540b9c8af33297c9fa2a00",
+      "declaration_count": 9,
+      "reason_code": "EXCLUDED_JAVA_NIO_SERVER_TOPOLOGY",
+      "reason": "org/java_websocket/server/DefaultSSLWebSocketServerFactory.java belongs to Java's NIO server topology, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/server/DefaultWebSocketServerFactory.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 56,
+      "sha256": "sha256:3d5a431777173d1ba61b5b7de3513119e245c1a61f7d359863f98be601de79da",
+      "declaration_count": 6,
+      "reason_code": "EXCLUDED_JAVA_NIO_SERVER_TOPOLOGY",
+      "reason": "org/java_websocket/server/DefaultWebSocketServerFactory.java belongs to Java's NIO server topology, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/server/SSLParametersWebSocketServerFactory.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 80,
+      "sha256": "sha256:4dfb9f57d05096d80836345cd30df28c366afa8dfcc26d7cca9e402f3df9a39a",
+      "declaration_count": 5,
+      "reason_code": "EXCLUDED_JAVA_NIO_SERVER_TOPOLOGY",
+      "reason": "org/java_websocket/server/SSLParametersWebSocketServerFactory.java belongs to Java's NIO server topology, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/server/WebSocketServer.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 1173,
+      "sha256": "sha256:87a1c825c1de1595615230691ff28e711dd7494aa1ed7bc162128b518ebe83a9",
+      "declaration_count": 90,
+      "reason_code": "EXCLUDED_JAVA_NIO_SERVER_TOPOLOGY",
+      "reason": "org/java_websocket/server/WebSocketServer.java belongs to Java's NIO server topology, which AC5 explicitly excludes."
+    },
+    {
+      "path": "org/java_websocket/server/package-info.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 28,
+      "sha256": "sha256:2afb27dfcb7f6c6efbb4b577139b11c8fca5b28b2b0a0d730988eaa302b76987",
+      "declaration_count": 0,
+      "reason_code": "EXCLUDED_JAVA_NIO_SERVER_TOPOLOGY",
+      "reason": "org/java_websocket/server/package-info.java belongs to Java's NIO server topology, which AC5 explicitly excludes."
+    }
+  ],
+  "test_files": [
+    {
+      "path": "org/java_websocket/AllTests.java",
+      "package": "org.java_websocket",
+      "physical_lines": 49,
+      "sha256": "sha256:5a7854a98475e303baa76e6829ee617a9947c807b064c42ef8524361b7c4d1a3",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/client/AllClientTests.java",
+      "package": "org.java_websocket.client",
+      "physical_lines": 43,
+      "sha256": "sha256:610455bb458c30d768b056ee45c231bcb467ca6d9f7bf0d0f9b7f80049e86582",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/client/AttachmentTest.java",
+      "package": "org.java_websocket.client",
+      "physical_lines": 93,
+      "sha256": "sha256:13b8882fd5548f54ae755a5cf52f36884ed772421b5aaafea133e21de505fe46",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/client/ConnectBlockingTest.java",
+      "package": "org.java_websocket.client",
+      "physical_lines": 68,
+      "sha256": "sha256:1acf19cfdd39903649e0ddeb8f6a2afe699bdfa9cc417656ee33e17caa92c626",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/client/HeadersTest.java",
+      "package": "org.java_websocket.client",
+      "physical_lines": 132,
+      "sha256": "sha256:f1ae751900e0db1c1e5c80c1aef654499a1650a1d039d7ddcbd221e6a68e4709",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/client/SchemaCheckTest.java",
+      "package": "org.java_websocket.client",
+      "physical_lines": 85,
+      "sha256": "sha256:4e6a14fa70495602713399dcc7911d42ca2f8f1eaa1e8ddfb4cb0ffef6ec7a67",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/drafts/AllDraftTests.java",
+      "package": "org.java_websocket.drafts",
+      "physical_lines": 41,
+      "sha256": "sha256:4e81dacb422496ac359853b7dea0158b1c186dd7555172e9f6a1240cde60cf95",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/drafts/Draft_6455Test.java",
+      "package": "org.java_websocket.drafts",
+      "physical_lines": 578,
+      "sha256": "sha256:8362a01f635e9275a2eea488862e24025b1a35cba100976115d937ff8fc1e400",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/example/AutobahnClientTest.java",
+      "package": "org.java_websocket.example",
+      "physical_lines": 179,
+      "sha256": "sha256:fd23beb480cea07b180bd5f93baac73d6b625d7765a464d4aec4627d4b1d7fd4",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/example/AutobahnSSLServerTest.java",
+      "package": "org.java_websocket.example",
+      "physical_lines": 128,
+      "sha256": "sha256:93bbfd4bd9ce6c4e37d1e280e5651d1aad4b92a95c4361f53f61427990b4cc6b",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/example/AutobahnServerTest.java",
+      "package": "org.java_websocket.example",
+      "physical_lines": 112,
+      "sha256": "sha256:2569ea3390a96d5ede92b8ffe3b9e259a302672a779eaa4d9ec1326fee2eb4da",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/AllExceptionsTests.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 50,
+      "sha256": "sha256:434a74af4f29d820644db951d8d8711c079f75f37141718d7d26dddb1e5c3c5d",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/IncompleteExceptionTest.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 42,
+      "sha256": "sha256:a47f68b896630b26bae04b60b4906a4762db066cab3657ad2507c6a992c1c309",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/IncompleteHandshakeExceptionTest.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 45,
+      "sha256": "sha256:4082fc3661e75fb80a8a16e39785d10202e1cf3e1a6ed8926cc507b6837e11b9",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/InvalidDataExceptionTest.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 55,
+      "sha256": "sha256:da20e6057c5ddbe9afc186d59f1b8e8057920fff19828bdad707dd36b9a03d3d",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/InvalidEncodingExceptionTest.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 53,
+      "sha256": "sha256:d0fd751c711ce5d4622f729c6468221809a6a8e62cf59b9b850a7a8c875846a9",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/InvalidFrameExceptionTest.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 67,
+      "sha256": "sha256:cb62cd4fc0fea7467af782e001ad9d4ef5c7e5b09b335c9fc72960141d3fa9e1",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/InvalidHandshakeExceptionTest.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 68,
+      "sha256": "sha256:4311ad5cca56cd2fac94ccf904986a1180a529cf7d6730135967ee10d1a0d581",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/LimitExceededExceptionTest.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 57,
+      "sha256": "sha256:9fe8bf61e55d6331e83d459ed8d88432620e1358f8ff4fe911d30d5dd2489c60",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/NotSendableExceptionTest.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 50,
+      "sha256": "sha256:45c878caa184bd02fcd5f4c7d0e6c7999f688b593dd12c558bf90213b043c4b7",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/exceptions/WebsocketNotConnectedExceptionTest.java",
+      "package": "org.java_websocket.exceptions",
+      "physical_lines": 42,
+      "sha256": "sha256:f6a8620e44e098b0a4e365cd6c571115646d2150ddb39452a37d48b9d7f8d873",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/extensions/AllExtensionTests.java",
+      "package": "org.java_websocket.extensions",
+      "physical_lines": 42,
+      "sha256": "sha256:76e3bf094fb08966e4386fe8472fec3a16f892e9c1f534f4e1949910ee8daa2e",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/extensions/CompressionExtensionTest.java",
+      "package": "org.java_websocket.extensions",
+      "physical_lines": 77,
+      "sha256": "sha256:cce39dd50e2868148d56323259911d7e1243a117bd537830d0588daf05bbb920",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/extensions/DefaultExtensionTest.java",
+      "package": "org.java_websocket.extensions",
+      "physical_lines": 152,
+      "sha256": "sha256:fdfb47a3d87421430fcab447215397d2d4315f983463a19cd04896f8303ed6c1",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/extensions/PerMessageDeflateExtensionTest.java",
+      "package": "org.java_websocket.extensions",
+      "physical_lines": 308,
+      "sha256": "sha256:b6f3c4ef9b4d5cbf7660bd0998a7523b3a911db03b7c1fd547eaf6edb0663adb",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/framing/AllFramingTests.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 48,
+      "sha256": "sha256:e5203a6138ca9fb0e04feb4a1b0dcc458216700832fd4d6cecf64b60a141cc33",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/framing/BinaryFrameTest.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 72,
+      "sha256": "sha256:984518980651ecdf3faa6c494c6ab6ccd0f65cb7facb6df721a59e2f9cbc241d",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/framing/CloseFrameTest.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 247,
+      "sha256": "sha256:67a2c08e11030c40669c64efa0f386bbd3c203bdbb4fd52d1dd0b6de81f45fa7",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/framing/ContinuousFrameTest.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 72,
+      "sha256": "sha256:4230342d45d2d0b4137c1bba1de904793e36c1f5cba1b6b4daef71467be1299a",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/framing/FramedataImpl1Test.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 105,
+      "sha256": "sha256:1f2a99caf5919e43c40a856a20ce9584ecb9cd7dc087f042a3992defd70b477d",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/framing/PingFrameTest.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 103,
+      "sha256": "sha256:cf729d0549e2d19ade53ebb0bfe2b52c1a5a9e86382dcdc558a47ad94ced35c8",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/framing/PongFrameTest.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 112,
+      "sha256": "sha256:d519e7d847163e37635602a7ca701aaab1bbbedb6cc5ed0f56a2caa08173c81b",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/framing/TextFrameTest.java",
+      "package": "org.java_websocket.framing",
+      "physical_lines": 89,
+      "sha256": "sha256:abc4d5eb46465eea23023119a9160c1e6d280c197f2be2444610d92927baa314",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/AllIssueTests.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 54,
+      "sha256": "sha256:f3023e790eb91243fa7a910d325c813b99972944000c6f2df4c5d3eabeccd82d",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue1142Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 138,
+      "sha256": "sha256:59708b98d744f8c632972b8c6cec47f456497634a64949c37864be4442c99ace",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue1160Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 159,
+      "sha256": "sha256:748a00aee05a53e9cd8fa00188ef4ef2391b8f792874a469d04c897f89f6e21f",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue1203Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 95,
+      "sha256": "sha256:be99985e3a086b128fb3a73a51e56681dfd9253f34d89bfdd2613177ca76fb27",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue256Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 165,
+      "sha256": "sha256:8b9e76ec8c9e994812173dba36d05b53f0a05cac05d5f00bba083453585f34c7",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue580Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 138,
+      "sha256": "sha256:b76a303bce21aab9ccd57e58ea087d727f4c9ebec0fe5cf0eaf8e4f4c7dc75c2",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue598Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 232,
+      "sha256": "sha256:ce37e66e282a0ed187d80ae60b4c6869f6a4a9bd4f5231615e2b02d7d07d222c",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue609Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 110,
+      "sha256": "sha256:ee090d22889a9faf3e415868b821f629cd39a221704f4893d1874044b0dd9a99",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue621Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 120,
+      "sha256": "sha256:f2fb52895f064af04a578e71f967a239fb3fc622c98885504fdf8bcf811eefe7",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue661Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 126,
+      "sha256": "sha256:ce56e4b5822e0ad1446354e3ab6f20502383911183cd76034bed2374c4646c29",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue666Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 157,
+      "sha256": "sha256:0f13d2ab7f25e02abf63e98209cbccad9372ff06f0f7bd91a6c255a13655d648",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue677Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 126,
+      "sha256": "sha256:157830e5fb977336b07439642f763fd3b8c0b3fd1b54678cd4efd02f61c8e7a2",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue713Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 185,
+      "sha256": "sha256:38de9e16caf5c35b949aa4108bd5c28f85e26a565def7549600b009af298f15a",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue732Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 125,
+      "sha256": "sha256:00ac96cc5c6a5d3df1be4d629cc3afd12cde0bd26542cdae33bdada696d2c607",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue764Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 128,
+      "sha256": "sha256:68cb4359e9d59d80c5d3d9013fee60fada323d312eb6c1a35ae19796767de266",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue765Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 107,
+      "sha256": "sha256:3295118958773c84b13bb184092b79b112bfb9dd6d589dd7f8387dad92530cf6",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue811Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 93,
+      "sha256": "sha256:ebd3e9f2726fb5ee319ad673bfed6d12a5c77b2b03eed1f1e0d2de8748dda261",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue825Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 144,
+      "sha256": "sha256:ac442734b0e08c6fbb5ed86df31e9294dca74f74e8d4b6a08073d1181b33d631",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue834Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 49,
+      "sha256": "sha256:d72d94a6ebdeee1ab24ed4213a308637f8daf689c4c5db18f1f12dbf394e0918",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue847Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 193,
+      "sha256": "sha256:591f0310c72a540cd0d4c1cf10086cb75ea96c794b3f4826149e7c3c86bd4bd4",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue855Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 98,
+      "sha256": "sha256:82c703b80c20c82ecf0762d57283f650860cb023b018eea946f4cc53492e7ea9",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue879Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 176,
+      "sha256": "sha256:898c665c77c15e2811b7315221269d255ad700ed4acefc2d650210e23ebc3b94",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue890Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 175,
+      "sha256": "sha256:b96fe2c8b50b4a04ab268fa686e445dd5433ddb3777bebf3bd885605f4119c48",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue900Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 154,
+      "sha256": "sha256:f310b96b3497bac1b9d6ae62923c419b5ed2bb801c1e104bf5dc065fe7d2e951",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue941Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 122,
+      "sha256": "sha256:c2e86e5699a78c4f00c8df8cb027ef522a7403bc898257e93559781ea19b5d4a",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue962Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 144,
+      "sha256": "sha256:0b1808f3b4ea1a97f00ce9a8ac93bddec25d66fd0f40d0c8db130f7d0649c073",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/issues/Issue997Test.java",
+      "package": "org.java_websocket.issues",
+      "physical_lines": 212,
+      "sha256": "sha256:636237387c5d7bbc51e34a578df3d1f29e951c8c32ebe60338c4f57d594386dc",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/misc/AllMiscTests.java",
+      "package": "org.java_websocket.misc",
+      "physical_lines": 41,
+      "sha256": "sha256:06c0bff9bf97b10a5f9985dd508d13532ddb4b3f6f694d62b25cee605c957806",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/misc/OpeningHandshakeRejectionTest.java",
+      "package": "org.java_websocket.misc",
+      "physical_lines": 271,
+      "sha256": "sha256:517022bb126df21eeae8747cc9c5e5509943dfe25051fd44b8954ac4107205fa",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/protocols/AllProtocolTests.java",
+      "package": "org.java_websocket.protocols",
+      "physical_lines": 42,
+      "sha256": "sha256:858bdde1338fa74c1499bf4612179f233b533719b83c7f2ef2bf25499fefc700",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/protocols/ProtocolHandshakeRejectionTest.java",
+      "package": "org.java_websocket.protocols",
+      "physical_lines": 633,
+      "sha256": "sha256:11c8b332889fc661d925b3b59de775a360184237b1cabe5e4d7dcc52a25ae06d",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/protocols/ProtocolTest.java",
+      "package": "org.java_websocket.protocols",
+      "physical_lines": 113,
+      "sha256": "sha256:e3d09e3d982e9d70880a241aaf68c0c3b3b3fedd503e4bf46a37a270e5f52154",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/server/AllServerTests.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 43,
+      "sha256": "sha256:af4640c5c7110e3638ac544eb21e6a449a082e3abf452a727c909e2bf995c476",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/server/CustomSSLWebSocketServerFactoryTest.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 172,
+      "sha256": "sha256:b5bd3a6ffad8008b7360625f72840251474fda3bdde645a65ef1ad95d1aaac2d",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/server/DaemonThreadTest.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 75,
+      "sha256": "sha256:f0ce521d76b17f8791f01a3cf3d4b8eb6173b3580d9d807a70eb68bdbdcabccd",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/server/DefaultSSLWebSocketServerFactoryTest.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 142,
+      "sha256": "sha256:38388c7a8f536c6c49f97b954c6fc5b9c17aef29af2ca6c32fe8caf14d0c98de",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/server/DefaultWebSocketServerFactoryTest.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 99,
+      "sha256": "sha256:14c4e1ae09754364e3906f09e8fc5a09cfdb085dc24742d46ba1843626c39541",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/server/SSLParametersWebSocketServerFactoryTest.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 137,
+      "sha256": "sha256:7185840820c75b16730a00b5c293e213fe48e30f83541f302da26a3ba1a3a577",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/server/WebSocketServerTest.java",
+      "package": "org.java_websocket.server",
+      "physical_lines": 244,
+      "sha256": "sha256:7c060d4fd627f9c77dfb2c01b6df3d0b7e0ed6ff6a362e9735626e890021f8d8",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/util/Base64Test.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 134,
+      "sha256": "sha256:2bf9e30914e92b52f18de23706fed7becacf4712d81aa7df8bdad71d80675ecf",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/util/ByteBufferUtilsTest.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 134,
+      "sha256": "sha256:bdc8f68080f2a7f4f18ac7e6cbf9ba125a95b6db114579ce2b216c8d08b6ca08",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/util/CharsetfunctionsTest.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 79,
+      "sha256": "sha256:661cfbedadf67423570e189c3881b284b86b33321a877d1fa41cd187cb0e93fb",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/util/KeyUtils.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 56,
+      "sha256": "sha256:5851abd40b7ea4875994283d21668dbcf88f26dc66083ed0860dfbd191e9c127",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/util/SSLContextUtil.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 93,
+      "sha256": "sha256:c17d48d806b940e5883e634a66fa0d5470f7a85eea5a2ad83568bd46e219cbb3",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/util/SocketUtil.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 44,
+      "sha256": "sha256:9f31d8994287a427ef585bc310da9b39ea50da48f2d266f2ea6d5c0a47f37207",
+      "declaration_count": 0
+    },
+    {
+      "path": "org/java_websocket/util/ThreadCheck.java",
+      "package": "org.java_websocket.util",
+      "physical_lines": 97,
+      "sha256": "sha256:508c730727024007c9649c099cfcb77eeb4074576d4593692f2f9ed4d08919c7",
+      "declaration_count": 0
+    }
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "signing": false,
+    "publication": false
+  }
+}

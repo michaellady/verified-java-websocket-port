@@ -1,0 +1,165 @@
+{
+  "$schema": "../../schemas/cutover-contract-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "CutoverContract",
+  "contract_id": "cutover-contract.us003",
+  "replacement_boundary": "The replacement boundary is the in-process WebSocket connection library surface behind the RFC 6455 wire boundary, exercised through the thin TCP adapter and the pinned Autobahn conformance endpoint. Java remains the rollback target for the whole boundary.",
+  "preserved_boundary": {
+    "standard": "RFC 6455",
+    "normative_artifact_id": "rfc6455-text",
+    "normative_artifact_sha256": "sha256:765775326aee0ecca9b04bde3fd1f52932d498e33e34e428bd61b8a24da0fa3b",
+    "normalized_command_event_behavior": true,
+    "wire_octet_equivalence_required": true,
+    "statement": "The preserved boundary is the RFC 6455 octet stream plus the normalized command and event behavior of one connection. Parity is judged on wire octets and normalized events, never on Java API shape."
+  },
+  "excluded_behaviors": [
+    {
+      "code": "EXCLUDED_TLS_WSS",
+      "reason": "TLS and the wss:// scheme are out of scope. The port preserves the RFC 6455 boundary over a plain byte stream; SSLSocketChannel, SSLSocketChannel2, and the TLS capability behind ISSLChannel are not ported."
+    },
+    {
+      "code": "EXCLUDED_PROXY_SUPPORT",
+      "reason": "HTTP CONNECT proxy support is out of scope. The Java client proxy path lives in the excluded client topology and has no Rust counterpart."
+    },
+    {
+      "code": "EXCLUDED_RECONNECT",
+      "reason": "Automatic reconnect is out of scope. The Rust core models one connection lifetime; reconnection is a caller policy, not ported behavior."
+    },
+    {
+      "code": "EXCLUDED_ANDROID",
+      "reason": "Android-specific behavior and packaging are out of scope. No Android runtime is an input to this laboratory."
+    },
+    {
+      "code": "EXCLUDED_RFC_7692_PERMESSAGE_DEFLATE",
+      "reason": "RFC 7692 permessage-deflate is out of scope. The upstream extensions/permessage_deflate package is excluded from the study surface and the port negotiates no compression extension."
+    },
+    {
+      "code": "EXCLUDED_JAVA_API_PARITY",
+      "reason": "Java API parity is out of scope. The Rust port preserves observable protocol behavior, not Java's class hierarchy, method names, or exception types."
+    },
+    {
+      "code": "EXCLUDED_JAVA_NIO_TOPOLOGY",
+      "reason": "Java's NIO topology is out of scope. The selector thread, worker pool, and SocketChannel multiplexing are replaced by a thin blocking adapter with no protocol logic."
+    },
+    {
+      "code": "EXCLUDED_EXTENSION_SUBPROTOCOL_PARITY",
+      "reason": "Extension and subprotocol framework parity is out of scope. The upstream extensions and protocols packages are excluded and the port implements no negotiation framework."
+    }
+  ],
+  "unresolved_behaviors": [],
+  "readiness_ladder": [
+    "SOURCE_QUALIFIED",
+    "SEMANTICALLY_VERIFIED",
+    "OPERATIONALLY_VERIFIED",
+    "SHADOW_VERIFIED",
+    "CANARY_VERIFIED",
+    "CUTOVER_READY"
+  ],
+  "obligations": [
+    {
+      "id": "cutover.surface-handshake-client-request",
+      "surface_id": "surface.handshake.client-request",
+      "child_story_id": "US-010",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-handshake-server-response",
+      "surface_id": "surface.handshake.server-response",
+      "child_story_id": "US-011",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-framing-frame-octets",
+      "surface_id": "surface.framing.frame-octets",
+      "child_story_id": "US-012",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-framing-masking",
+      "surface_id": "surface.framing.masking",
+      "child_story_id": "US-012",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-messages-text-utf8",
+      "surface_id": "surface.messages.text-utf8",
+      "child_story_id": "US-013",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-messages-binary",
+      "surface_id": "surface.messages.binary",
+      "child_story_id": "US-013",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-fragmentation-continuation",
+      "surface_id": "surface.fragmentation.continuation",
+      "child_story_id": "US-014",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-control-ping-pong",
+      "surface_id": "surface.control.ping-pong",
+      "child_story_id": "US-015",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-close-status-code",
+      "surface_id": "surface.close.status-code",
+      "child_story_id": "US-016",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-close-terminal-state",
+      "surface_id": "surface.close.terminal-state",
+      "child_story_id": "US-016",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-concurrency-command-order",
+      "surface_id": "surface.concurrency.command-order",
+      "child_story_id": "US-017",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-errors-protocol-fault",
+      "surface_id": "surface.errors.protocol-fault",
+      "child_story_id": "US-012",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-limits-allocation",
+      "surface_id": "surface.limits.allocation",
+      "child_story_id": "US-012",
+      "status": "DECLARED",
+      "evidence_ids": []
+    },
+    {
+      "id": "cutover.surface-adapter-byte-stream",
+      "surface_id": "surface.adapter.byte-stream",
+      "child_story_id": "US-018",
+      "status": "DECLARED",
+      "evidence_ids": []
+    }
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "signing": false,
+    "publication": false
+  }
+}

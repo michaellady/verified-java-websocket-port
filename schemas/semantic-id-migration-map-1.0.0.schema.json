@@ -1,0 +1,319 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/semantic-id-migration-map-1.0.0.schema.json",
+  "title": "US-003 semantic identity MigrationMap",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "map_id",
+    "map_version",
+    "java_identity_method",
+    "rust_identity_status",
+    "rows",
+    "assurance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "entity_type": {
+      "const": "MigrationMap"
+    },
+    "map_id": {
+      "$ref": "#/$defs/id"
+    },
+    "map_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "java_identity_method": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tool",
+        "api",
+        "compiler_vendor",
+        "compiler_flags",
+        "strength",
+        "statement"
+      ],
+      "properties": {
+        "tool": {
+          "$ref": "#/$defs/text"
+        },
+        "api": {
+          "$ref": "#/$defs/text"
+        },
+        "compiler_vendor": {
+          "$ref": "#/$defs/text"
+        },
+        "compiler_flags": {
+          "$ref": "#/$defs/text"
+        },
+        "strength": {
+          "const": "semantic"
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "rust_identity_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rust_workspace_present",
+        "planned_resolver",
+        "blocker_code",
+        "created_by_story",
+        "statement"
+      ],
+      "properties": {
+        "rust_workspace_present": {
+          "const": false
+        },
+        "planned_resolver": {
+          "enum": [
+            "rust-analyzer",
+            "reviewed-glancer"
+          ]
+        },
+        "blocker_code": {
+          "const": "RUST_WORKSPACE_NOT_YET_CREATED"
+        },
+        "created_by_story": {
+          "const": "US-009"
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "java_semantic_id",
+          "java_binary_name",
+          "java_descriptor",
+          "java_signature",
+          "java_kind",
+          "java_lookup_strength",
+          "java_member_count",
+          "rust_semantic_id",
+          "rust_resolver",
+          "rust_identity_verified",
+          "applicability_conditions",
+          "known_non_equivalent_cases",
+          "source_revision",
+          "detection_query",
+          "port_slices",
+          "touched_files",
+          "specification_ids",
+          "observed_behavior_ids",
+          "oracle_ids",
+          "vector_ids",
+          "property_claim_ids",
+          "formal_claim_ids",
+          "evidence_ids",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/id"
+          },
+          "java_semantic_id": {
+            "$ref": "#/$defs/text"
+          },
+          "java_binary_name": {
+            "type": "string",
+            "pattern": "^org\\.java_websocket(\\.[A-Za-z0-9_]+)*(\\$[A-Za-z0-9_]+)*$"
+          },
+          "java_descriptor": {
+            "type": "string",
+            "pattern": "^L[A-Za-z0-9/$_]+;$"
+          },
+          "java_signature": {
+            "$ref": "#/$defs/text"
+          },
+          "java_kind": {
+            "enum": [
+              "CLASS",
+              "INTERFACE",
+              "ENUM",
+              "ANNOTATION_TYPE",
+              "RECORD"
+            ]
+          },
+          "java_lookup_strength": {
+            "const": "semantic"
+          },
+          "java_member_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "rust_semantic_id": {
+            "$ref": "#/$defs/text"
+          },
+          "rust_resolver": {
+            "enum": [
+              "rust-analyzer",
+              "reviewed-glancer"
+            ]
+          },
+          "rust_identity_verified": {
+            "const": false
+          },
+          "applicability_conditions": {
+            "$ref": "#/$defs/strings"
+          },
+          "known_non_equivalent_cases": {
+            "$ref": "#/$defs/strings"
+          },
+          "source_revision": {
+            "const": "da3cf2a777aed862f2f5b5cf060cae7969958667"
+          },
+          "detection_query": {
+            "$ref": "#/$defs/text"
+          },
+          "touched_files": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/path"
+            }
+          },
+          "specification_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "observed_behavior_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "oracle_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "vector_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "property_claim_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "formal_claim_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "evidence_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "status": {
+            "enum": [
+              "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED",
+              "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED"
+            ]
+          },
+          "port_slices": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "port_slice_id",
+                "child_story_id",
+                "touched_behavior",
+                "evidence_ids"
+              ],
+              "properties": {
+                "port_slice_id": {
+                  "$ref": "#/$defs/id"
+                },
+                "child_story_id": {
+                  "type": "string",
+                  "pattern": "^US-0(09|1[0-8])$"
+                },
+                "touched_behavior": {
+                  "$ref": "#/$defs/text"
+                },
+                "evidence_ids": {
+                  "$ref": "#/$defs/ids"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "assurance": {
+      "$ref": "#/$defs/assurance"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._$-]*(?:/[A-Za-z0-9][A-Za-z0-9._$-]*)*$"
+    },
+    "strings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/text"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance",
+        "independent_review_claimed",
+        "production",
+        "signing",
+        "publication"
+      ],
+      "properties": {
+        "assurance": {
+          "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+        },
+        "independent_review_claimed": {
+          "const": false
+        },
+        "production": {
+          "const": false
+        },
+        "signing": {
+          "const": false
+        },
+        "publication": {
+          "const": false
+        }
+      }
+    }
+  }
+}

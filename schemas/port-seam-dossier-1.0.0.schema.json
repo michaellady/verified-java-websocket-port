@@ -1,0 +1,237 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/port-seam-dossier-1.0.0.schema.json",
+  "title": "US-003 PortSeamDossier",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "dossier_id",
+    "public_boundaries",
+    "internal_boundaries",
+    "handshakes",
+    "frames",
+    "ownership",
+    "buffers",
+    "queues",
+    "threads",
+    "callbacks",
+    "wire_formats",
+    "limits",
+    "time_and_randomness",
+    "adapter_seams",
+    "seams",
+    "implementation_stories",
+    "assurance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "entity_type": {
+      "const": "PortSeamDossier"
+    },
+    "dossier_id": {
+      "$ref": "#/$defs/id"
+    },
+    "seams": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "surface_id",
+          "semantic_id",
+          "owner",
+          "category",
+          "child_story_id",
+          "touched_files",
+          "evidence_obligation_ids",
+          "status"
+        ],
+        "properties": {
+          "surface_id": {
+            "$ref": "#/$defs/id"
+          },
+          "semantic_id": {
+            "$ref": "#/$defs/id"
+          },
+          "owner": {
+            "$ref": "#/$defs/text"
+          },
+          "category": {
+            "enum": [
+              "public_boundaries",
+              "internal_boundaries",
+              "handshakes",
+              "frames",
+              "ownership",
+              "buffers",
+              "queues",
+              "threads",
+              "callbacks",
+              "wire_formats",
+              "limits",
+              "time_and_randomness",
+              "adapter_seams"
+            ]
+          },
+          "child_story_id": {
+            "type": "string",
+            "pattern": "^US-0(09|1[0-8])$"
+          },
+          "touched_files": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/path"
+            }
+          },
+          "evidence_obligation_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "status": {
+            "const": "RESOLVED"
+          }
+        }
+      }
+    },
+    "implementation_stories": {
+      "type": "array",
+      "minItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "story_id",
+          "title",
+          "seam_ids",
+          "status"
+        ],
+        "properties": {
+          "story_id": {
+            "type": "string",
+            "pattern": "^US-0(09|1[0-8])$"
+          },
+          "title": {
+            "$ref": "#/$defs/text"
+          },
+          "seam_ids": {
+            "$ref": "#/$defs/ids"
+          },
+          "status": {
+            "const": "TOUCHED_SURFACE_RESOLVED"
+          }
+        }
+      }
+    },
+    "assurance": {
+      "$ref": "#/$defs/assurance"
+    },
+    "public_boundaries": {
+      "$ref": "#/$defs/strings"
+    },
+    "internal_boundaries": {
+      "$ref": "#/$defs/strings"
+    },
+    "handshakes": {
+      "$ref": "#/$defs/strings"
+    },
+    "frames": {
+      "$ref": "#/$defs/strings"
+    },
+    "ownership": {
+      "$ref": "#/$defs/strings"
+    },
+    "buffers": {
+      "$ref": "#/$defs/strings"
+    },
+    "queues": {
+      "$ref": "#/$defs/strings"
+    },
+    "threads": {
+      "$ref": "#/$defs/strings"
+    },
+    "callbacks": {
+      "$ref": "#/$defs/strings"
+    },
+    "wire_formats": {
+      "$ref": "#/$defs/strings"
+    },
+    "limits": {
+      "$ref": "#/$defs/strings"
+    },
+    "time_and_randomness": {
+      "$ref": "#/$defs/strings"
+    },
+    "adapter_seams": {
+      "$ref": "#/$defs/strings"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._$-]*(?:/[A-Za-z0-9][A-Za-z0-9._$-]*)*$"
+    },
+    "strings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/text"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "ids": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/id"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance",
+        "independent_review_claimed",
+        "production",
+        "signing",
+        "publication"
+      ],
+      "properties": {
+        "assurance": {
+          "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+        },
+        "independent_review_claimed": {
+          "const": false
+        },
+        "production": {
+          "const": false
+        },
+        "signing": {
+          "const": false
+        },
+        "publication": {
+          "const": false
+        }
+      }
+    }
+  }
+}

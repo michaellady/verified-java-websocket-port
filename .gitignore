@@ -23,3 +23,9 @@ target
 # Rust workspace build artifacts (rust/ cargo workspace scaffold)
 /rust/target/
 rust/**/target/
+
+
+# Quarantined upstream inputs. The Java-WebSocket archive is digest-pinned in
+# evidence/intake/source-pins.json and re-acquired on demand; it is never committed.
+.quarantine/
+java-semantic-oracle/build/

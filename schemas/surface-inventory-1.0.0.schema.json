@@ -1,0 +1,243 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/surface-inventory-1.0.0.schema.json",
+  "title": "US-003 study surface inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "inventory_id",
+    "source",
+    "selection_rule",
+    "selected",
+    "excluded",
+    "test_files",
+    "assurance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "entity_type": {
+      "const": "SurfaceInventory"
+    },
+    "inventory_id": {
+      "$ref": "#/$defs/id"
+    },
+    "source": {
+      "$ref": "#/$defs/source"
+    },
+    "selection_rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root_files",
+        "packages",
+        "recursive",
+        "statement"
+      ],
+      "properties": {
+        "root_files": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/path"
+          }
+        },
+        "packages": {
+          "type": "array",
+          "minItems": 7,
+          "maxItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "drafts",
+              "enums",
+              "exceptions",
+              "framing",
+              "handshake",
+              "interfaces",
+              "util"
+            ]
+          }
+        },
+        "recursive": {
+          "const": false
+        },
+        "statement": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    },
+    "selected": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/fileRecord"
+      }
+    },
+    "excluded": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "allOf": [
+          {
+            "$ref": "#/$defs/fileRecord"
+          },
+          {
+            "required": [
+              "reason_code",
+              "reason"
+            ],
+            "properties": {
+              "reason_code": {
+                "enum": [
+                  "ROOT_FILE_NOT_A_CONNECTION_CORE_SEAM",
+                  "EXCLUDED_TLS_WSS_SURFACE",
+                  "EXCLUDED_JAVA_CLIENT_TOPOLOGY",
+                  "EXCLUDED_JAVA_NIO_SERVER_TOPOLOGY",
+                  "EXCLUDED_EXTENSION_FRAMEWORK_PARITY",
+                  "EXCLUDED_RFC_7692_PERMESSAGE_DEFLATE",
+                  "EXCLUDED_SUBPROTOCOL_FRAMEWORK_PARITY",
+                  "EXCLUDED_NESTED_SUBPACKAGE_NOT_NAMED_BY_RULE"
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "test_files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/fileRecord"
+      }
+    },
+    "assurance": {
+      "$ref": "#/$defs/assurance"
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "\\S"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._$-]*(?:/[A-Za-z0-9][A-Za-z0-9._$-]*)*$"
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance",
+        "independent_review_claimed",
+        "production",
+        "signing",
+        "publication"
+      ],
+      "properties": {
+        "assurance": {
+          "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+        },
+        "independent_review_claimed": {
+          "const": false
+        },
+        "production": {
+          "const": false
+        },
+        "signing": {
+          "const": false
+        },
+        "publication": {
+          "const": false
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact_id",
+        "sha256",
+        "version",
+        "commit",
+        "production_source_root",
+        "test_source_root"
+      ],
+      "properties": {
+        "artifact_id": {
+          "const": "java-websocket-source-archive"
+        },
+        "sha256": {
+          "const": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4"
+        },
+        "version": {
+          "const": "1.6.0"
+        },
+        "commit": {
+          "const": "da3cf2a777aed862f2f5b5cf060cae7969958667"
+        },
+        "production_source_root": {
+          "const": "src/main/java"
+        },
+        "test_source_root": {
+          "const": "src/test/java"
+        }
+      }
+    },
+    "fileRecord": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "package",
+        "physical_lines",
+        "sha256",
+        "declaration_count"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/path"
+        },
+        "package": {
+          "type": "string"
+        },
+        "physical_lines": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "declaration_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "reason_code": {
+          "$ref": "#/$defs/text"
+        },
+        "reason": {
+          "$ref": "#/$defs/text"
+        }
+      }
+    }
+  }
+}
