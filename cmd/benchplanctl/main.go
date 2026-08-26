@@ -99,6 +99,16 @@ func runVerify(arguments []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "power-model ok (named alternatives detectable at alpha 0.025, power 0.8, max log-SD 0.10, n=30)")
 	}
 
+	fmt.Fprintf(stdout, "attestation: plan %s", report.PlanAttestationState)
+	environmentDocuments := make([]string, 0, len(report.EnvironmentBindingStatus))
+	for document := range report.EnvironmentBindingStatus {
+		environmentDocuments = append(environmentDocuments, document)
+	}
+	sort.Strings(environmentDocuments)
+	for _, document := range environmentDocuments {
+		fmt.Fprintf(stdout, "; %s %s", document, report.EnvironmentBindingStatus[document])
+	}
+	fmt.Fprintln(stdout)
 	fmt.Fprintf(stdout, "binding completion meter: %d field(s) unbound, %d runtime-snapshot field(s) deferred to measurement time\n",
 		len(report.UnboundFields), len(report.RuntimeSnapshotFields))
 	for _, field := range report.UnboundFields {

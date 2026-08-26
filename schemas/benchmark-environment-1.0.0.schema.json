@@ -63,7 +63,13 @@
       "then": {
         "properties": {
           "host_identity": {
-            "required": ["instance_type", "region", "availability_zone", "ami_id", "ami_name", "os_identity", "kernel_identity", "cpu_model", "cpu_frequency_policy", "memory_total_bytes", "numa_topology", "clocksource"]
+            "required": ["instance_type", "instance_id", "observed_architecture", "allocation_evidence", "region", "availability_zone", "ami_id", "ami_name", "os_identity", "kernel_identity", "cpu_model", "cpu_frequency_policy", "memory_total_bytes", "numa_topology", "clocksource"],
+            "properties": {
+              "observed_architecture": {
+                "if": {"properties": {"status": {"enum": ["OBSERVED", "BOUND"]}}, "required": ["status"]},
+                "then": {"required": ["value"], "properties": {"value": {"const": "x86_64"}}}
+              }
+            }
           },
           "tool_identities": {
             "required": ["java_runtime", "rust_toolchain", "java_executable_digest", "rust_executable_digest", "load_driver", "measurement_tools", "analyzer", "runner"]

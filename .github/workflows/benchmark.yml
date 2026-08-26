@@ -75,6 +75,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
       - name: DIALED setup
         uses: ./.github/actions/dialed-setup
         with:
@@ -168,10 +172,15 @@ jobs:
             exit 1
           fi
 
-      - name: Stage benchmark runner in results bucket
+      - name: Build and stage benchmark runner in results bucket
         env:
           BUCKET: ${{ steps.stack.outputs.bucket }}
-        run: aws s3 cp benchmarks/runner/run-benchmark.sh "s3://${BUCKET}/runner/run-benchmark.sh"
+        run: |
+          set -euo pipefail
+          # The runner stub is a Go binary (cmd/benchrunner), cross-compiled
+          # for the Linux x86_64 confirmation host.
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner
+          aws s3 cp /tmp/benchrunner "s3://${BUCKET}/runner/benchrunner"
 
       - name: Run benchmark runner natively via SSM
         id: ssm
@@ -180,17 +189,17 @@ jobs:
           BUCKET: ${{ steps.stack.outputs.bucket }}
         run: |
           set -euo pipefail
-          # The runner is a STUB (see benchmarks/runner/run-benchmark.sh): it
-          # validates its arguments and emits the result-schema skeleton with
-          # NOT_MEASURED sentinels. It fabricates no benchmark numbers.
+          # The runner is a STUB (see cmd/benchrunner): it validates its
+          # arguments and emits the result-schema skeleton with NOT_MEASURED
+          # sentinels. It fabricates no benchmark numbers.
           params=$(jq -n --arg b "$BUCKET" --arg pr "$PR_NUMBER" --arg ws "$BENCH_WORKSPACE" '{
             executionTimeout: ["5400"],
             commands: [
               "set -euo pipefail",
               "mkdir -p /opt/vjwp-bench/results",
-              "aws s3 cp s3://\($b)/runner/run-benchmark.sh /opt/vjwp-bench/run-benchmark.sh",
-              "chmod +x /opt/vjwp-bench/run-benchmark.sh",
-              "/opt/vjwp-bench/run-benchmark.sh --mode pipeline-smoke --pr \($pr) --workspace \($ws) --out /opt/vjwp-bench/results",
+              "aws s3 cp s3://\($b)/runner/benchrunner /opt/vjwp-bench/benchrunner",
+              "chmod +x /opt/vjwp-bench/benchrunner",
+              "/opt/vjwp-bench/benchrunner --mode pipeline-smoke --pr \($pr) --workspace \($ws) --out /opt/vjwp-bench/results",
               "aws s3 sync /opt/vjwp-bench/results s3://\($b)/results/"
             ]
           }')

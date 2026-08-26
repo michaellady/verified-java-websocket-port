@@ -5,10 +5,11 @@
   "description": "Machine-enforced preregistration: frozen workloads, seed rule, sample counts, statistics constants, CI thresholds, and the forbidden-practices list. The schema forbids unknown keys everywhere, so no results field can ever be added to the plan.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "status", "source_of_truth", "assurance", "independent_review_claimed", "no_results_invariant", "shared_definitions", "comparison_boundary", "metric_endpoints", "workloads", "pairing_and_ordering", "statistics", "ci_thresholds", "run_validity", "binding"],
+  "required": ["schema", "status", "attestation_state", "source_of_truth", "assurance", "independent_review_claimed", "no_results_invariant", "shared_definitions", "comparison_boundary", "metric_endpoints", "workloads", "pairing_and_ordering", "statistics", "ci_thresholds", "run_validity", "binding"],
   "properties": {
     "schema": {"const": "vjwp-benchmark-plan/1.0.0"},
-    "status": {"type": "string", "pattern": "^PREREGISTERED_BY_DRIVER_UNATTESTED"},
+    "status": {"type": "string", "pattern": "^PREREGISTERED_(BY_DRIVER_UNATTESTED|INDEPENDENTLY_ATTESTED)"},
+    "attestation_state": {"enum": ["UNATTESTED", "INDEPENDENTLY_ATTESTED"]},
     "source_of_truth": {"type": "string", "minLength": 1},
     "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
     "independent_review_claimed": {"const": false},
@@ -16,12 +17,14 @@
     "shared_definitions": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["keystream", "pacing_model", "sample_definition", "invalid_sample_rule"],
+      "required": ["keystream", "pacing_model", "sample_definition", "invalid_sample_rule", "mask_spec_version", "masking_rule"],
       "properties": {
         "keystream": {"type": "string", "minLength": 1},
         "pacing_model": {"type": "string", "minLength": 1},
         "sample_definition": {"type": "string", "minLength": 1},
-        "invalid_sample_rule": {"type": "string", "minLength": 1}
+        "invalid_sample_rule": {"type": "string", "minLength": 1},
+        "mask_spec_version": {"const": "vjwp-us008-mask|v1"},
+        "masking_rule": {"type": "string", "pattern": "vjwp-us008-mask\\|v1"}
       }
     },
     "comparison_boundary": {
@@ -102,11 +105,30 @@
     "statistics": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["per_endpoint_analysis", "confidence_level", "degrees_of_freedom", "power_model", "decision_rule"],
+      "required": ["per_endpoint_analysis", "confidence_level", "degrees_of_freedom", "power_model", "reference_drift_procedure", "decision_rule"],
       "properties": {
         "per_endpoint_analysis": {"type": "string", "minLength": 1},
         "confidence_level": {"const": 0.95},
         "degrees_of_freedom": {"const": 29},
+        "reference_drift_procedure": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["reference_workload", "reference_implementation", "statistic", "schedule", "reference_runs_total", "subsequent_runs", "baseline", "envelope_percent", "comparison", "decision", "provenance", "rationale"],
+          "properties": {
+            "reference_workload": {"const": "wl-02-small-text-echo"},
+            "reference_implementation": {"const": "JAVA"},
+            "statistic": {"type": "string", "minLength": 1},
+            "schedule": {"type": "string", "minLength": 1},
+            "reference_runs_total": {"const": 8},
+            "subsequent_runs": {"const": 7},
+            "baseline": {"type": "string", "minLength": 1},
+            "envelope_percent": {"const": 5},
+            "comparison": {"type": "string", "pattern": "0\\.05 \\* baseline"},
+            "decision": {"type": "string", "pattern": "INCONCLUSIVE"},
+            "provenance": {"const": "PREREGISTERED_BY_DRIVER"},
+            "rationale": {"type": "string", "minLength": 1}
+          }
+        },
         "power_model": {
           "type": "object",
           "additionalProperties": false,

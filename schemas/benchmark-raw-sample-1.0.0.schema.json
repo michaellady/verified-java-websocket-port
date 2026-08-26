@@ -5,10 +5,11 @@
   "description": "The preregistered shape of one canonical raw sample set (one workload x metric endpoint). A MEASURED record must carry every required binding digest; the only other admissible provenance is the synthetic engine-validation label. No MEASURED record may exist before the attested plan freeze and full host/tool binding.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema", "provenance_label", "workload_id", "metric", "order", "warmup_pairs", "measured_pairs"],
+  "required": ["schema", "provenance_label", "environment_role", "workload_id", "metric", "order", "warmup_pairs", "measured_pairs"],
   "properties": {
     "schema": {"const": "vjwp-benchmark-raw-sample/1.0.0"},
     "provenance_label": {"enum": ["SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT", "MEASURED"]},
+    "environment_role": {"enum": ["primary", "confirmation"]},
     "workload_id": {"enum": ["wl-01-handshake-close", "wl-02-small-text-echo", "wl-03-fragmented-64kib-binary-echo", "wl-04-control-mix", "wl-05-cap-rejection", "wl-06-concurrent-pressure"]},
     "metric": {"enum": ["peak_rss", "steady_rss", "cpu_time", "startup_to_ready", "latency_p50", "latency_p95", "latency_p99", "allocated_bytes", "allocation_count", "throughput"]},
     "order": {
@@ -45,6 +46,32 @@
         "analyzer_digest": {"$ref": "#/$defs/digest"}
       }
     },
+    "run_validity_observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["background_cpu_percent_max_observed", "thermal_throttle_events", "power_state_anomalies", "identity_checks_passed", "invalid_samples", "reference_drift"],
+      "properties": {
+        "background_cpu_percent_max_observed": {"type": "number", "minimum": 0},
+        "thermal_throttle_events": {"type": "integer", "minimum": 0},
+        "power_state_anomalies": {"type": "integer", "minimum": 0},
+        "identity_checks_passed": {"type": "boolean"},
+        "invalid_samples": {"type": "integer", "minimum": 0},
+        "reference_drift": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["baseline_statistic", "subsequent_statistics"],
+          "properties": {
+            "baseline_statistic": {"type": "number", "exclusiveMinimum": 0},
+            "subsequent_statistics": {
+              "type": "array",
+              "minItems": 7,
+              "maxItems": 7,
+              "items": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        }
+      }
+    },
     "declared_summary": {
       "type": "object",
       "additionalProperties": false,
@@ -59,7 +86,7 @@
   },
   "if": {"properties": {"provenance_label": {"const": "MEASURED"}}},
   "then": {
-    "required": ["bindings"],
+    "required": ["bindings", "run_validity_observations"],
     "properties": {
       "bindings": {
         "required": ["plan_digest", "primary_environment_digest", "confirmation_environment_digest", "java_source_digest", "rust_source_digest", "java_executable_digest", "rust_executable_digest", "adapter_digest", "tool_identity_digest", "analyzer_digest"]

@@ -1,6 +1,7 @@
 {
   "schema": "vjwp-benchmark-plan/1.0.0",
   "status": "PREREGISTERED_BY_DRIVER_UNATTESTED - Every workload parameter, generator, seed rule, statistics constant, and threshold below is frozen to the maximum ownerless extent. This plan is NOT yet the attested plan-freeze commit: host and tool identities remain OWNER_DECISION_PENDING in benchmarks/environments/, no sample may be collected, and US-008 does not pass. See benchmarks/README.md for the no-fabrication rule.",
+  "attestation_state": "UNATTESTED",
   "source_of_truth": "PRD US-008 acceptance criteria (companies/enterprise-vibe-code/projects/verified-java-websocket-port-claude/prd.json)",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,
@@ -9,7 +10,9 @@
     "keystream": "keystream(tag) is the deterministic byte stream B_0 || B_1 || ... where B_j = SHA-256(ASCII(tag + '|' + decimal(j))). lowercase-hex(s) is the lowercase hexadecimal encoding of stream s taken byte-for-byte.",
     "pacing_model": "fixed-interval open-loop schedule at the stated rate; an operation issued more than 1000 ms after its schedule slot marks the sample INVALID (fail-closed, never truncated or resampled around)",
     "sample_definition": "One sample run = fresh server process start, readiness probe (repeated connect + handshake at 10 ms intervals), full workload execution, metric capture, clean shutdown. One pair = one Java sample run plus one Rust sample run executed in the derived pair order. Warmup pairs (indices 0..4) execute identically and are excluded from analysis.",
-    "invalid_sample_rule": "An INVALID sample invalidates its entire pair. Because replacement, extension, and optional stopping are forbidden, any INVALID pair makes the whole workload run INCONCLUSIVE; the workload must be rerun in full under a new preregistered run record, never patched."
+    "invalid_sample_rule": "An INVALID sample invalidates its entire pair. Because replacement, extension, and optional stopping are forbidden, any INVALID pair makes the whole workload run INCONCLUSIVE; the workload must be rerun in full under a new preregistered run record, never patched.",
+    "mask_spec_version": "vjwp-us008-mask|v1",
+    "masking_rule": "Every masked client frame in every workload derives its RFC 6455 32-bit masking key from the frozen rule: key = first 4 bytes of SHA-256(ASCII('vjwp-us008-mask|v1|' + workload_id + '|' + decimal(pair_index) + '|' + decimal(frame_index))), where pair_index is the pair (0..34, warmup and measured alike) and frame_index is the 0-based index of the client-sent masked frame within one sample run, in send order, counting every masked frame (data, continuation, ping, pong, and close; the HTTP handshake is not a frame). The Java and Rust sample runs of the same pair send byte-identical wire traffic and therefore share the same key sequence. With this rule every declared frame's full wire bytes are deterministic. Executable reference implementation: internal/benchplan.MaskingKey; the spec version is machine-verified by 'benchplanctl verify'."
   },
   "comparison_boundary": {
     "definition": "Black-box TCP comparison boundary: the Java and Rust implementations are exercised only through the identical preregistered TCP endpoint below; nothing inside either process is instrumented across the boundary. Docker sbx may isolate build/test preparation but must not host measured samples (microVM overhead would change this declared boundary).",
@@ -24,7 +27,7 @@
       "websocket_version": 13,
       "extensions": "none - permessage-deflate and every other extension disabled/not negotiated",
       "subprotocols": "none",
-      "client_frames": "masked, per RFC 6455",
+      "client_frames": "masked, per RFC 6455; masking keys derived by the frozen deterministic rule in shared_definitions.masking_rule",
       "provenance": "PREREGISTERED_BY_DRIVER",
       "rationale": "The PRD freezes the black-box TCP boundary but not the socket facts; a fixed loopback IPv4 endpoint with no TLS and no extensions removes negotiation degrees of freedom from both implementations equally."
     }
@@ -636,7 +639,21 @@
       },
       "reference_drift_envelope_percent": 5
     },
-    "decision_rule": "Only complete predeclared paired evidence can decide. Altered summaries, omissions, identity mismatches, nonfinite values, or raw-versus-summary disagreement are INCONCLUSIVE and blocking. Reference implementation: internal/benchplan.DecideEndpoint (fail-closed; validated on synthetic fixtures for the valid, underpowered, noisy, reordered, missing, extra, and post-hoc-mutated cases)."
+    "decision_rule": "Only complete predeclared paired evidence can decide. Altered summaries, omissions, identity mismatches, nonfinite values, or raw-versus-summary disagreement are INCONCLUSIVE and blocking. Reference implementation: internal/benchplan.DecideEndpoint (fail-closed; validated on synthetic fixtures for the valid, underpowered, noisy, reordered, missing, extra, and post-hoc-mutated cases).",
+    "reference_drift_procedure": {
+      "reference_workload": "wl-02-small-text-echo",
+      "reference_implementation": "JAVA",
+      "statistic": "median per-operation round-trip latency (same round-trip definition as latency_p50) of one dedicated reference sample run of the reference workload",
+      "schedule": "one baseline reference run immediately before pair 0, then one reference run after every 5 completed pairs (after pairs 4, 9, 14, 19, 24, 29, and 34): 8 reference runs total, 7 subsequent",
+      "reference_runs_total": 8,
+      "subsequent_runs": 7,
+      "baseline": "the first (pre-pair-0) reference run's statistic",
+      "envelope_percent": 5,
+      "comparison": "a subsequent statistic s violates the envelope iff |s - baseline| > 0.05 * baseline (product form, frozen so the exact 5% boundary is not misclassified by floating-point rounding)",
+      "decision": "any violation makes the entire workload run sequence INCONCLUSIVE; it is never trimmed, patched, or resampled around. Reference runs are excluded from analysis and are not samples. Recorded per run sequence in the canonical raw-pair record's run_validity_observations.reference_drift and machine-checked by internal/benchplan.CheckReferenceDrift.",
+      "provenance": "PREREGISTERED_BY_DRIVER",
+      "rationale": "The PRD freezes the 5% reference-drift envelope; the reference workload, statistic, schedule, and comparison form are the driver's preregistered operationalization so no drift decision is made post hoc."
+    }
   },
   "ci_thresholds": {
     "note": "Ratios are Rust/Java; bounds are exponentiated 95% CI bounds. 'upper' means the exponentiated upper bound must be <= value; 'lower' means the exponentiated lower bound must be >= value. Applied per workload, per metric endpoint.",
