@@ -13,21 +13,21 @@
       "expected": 92,
       "filtered": 0,
       "manifest_path": "corpora/hidden/manifest.json",
-      "manifest_sha256": "sha256:a3602d5218c79cbadb160cebba82a7b90915c7e7f9dfef326a35be8878f0eff6",
+      "manifest_sha256": "sha256:b80c51d6af90d0989e2ddbc74ddf9043eb8b2d16e3a48fa7a2cacdf37e44ea63",
       "selected": 92
     },
     "public": {
       "expected": 74,
       "filtered": 0,
       "manifest_path": "corpora/public/manifest.json",
-      "manifest_sha256": "sha256:3798bb112f3c9807d70aff22539fe10e3f7e0b25db6f1dae68b370799e14c642",
+      "manifest_sha256": "sha256:202a3e0d0c84c41cc635adc41a8d2eb3c1e62962c1e343697987ef8f0c69c54b",
       "selected": 74
     },
     "sealed": {
       "expected": 92,
       "filtered": 0,
       "manifest_path": "corpora/sealed/manifest.json",
-      "manifest_sha256": "sha256:61b2102c13689ab9edb4f482a9e9b03dc9fe4f2f7b10a80b4c4edd3b6a355654",
+      "manifest_sha256": "sha256:10da65ef33f5232631a5ace30be2e2027601f1f1c589146b314fe6de1e4ebf0f",
       "selected": 92
     }
   },
@@ -41,14 +41,25 @@
       "status": "BLOCKED_PENDING_LIVE_EXECUTION"
     },
     "execution_rerun_reconciliation": {
-      "constraint": "requires the live java-oracle and sbx candidate executions above",
+      "constraint": "requires the sbx candidate executions above; the java-oracle half already executed twice on 2026-08-26 and reconciled byte-identically across all three behavior tiers (zero flakes), but the empty-Rust, planted-mutant, and sealed-network sbx executions remain outstanding, so full-calibration rerun reconciliation cannot yet be claimed",
       "requirement": "two live calibration executions reconcile exactly with zero flakes",
       "status": "BLOCKED_PENDING_LIVE_EXECUTION"
     },
     "java_oracle_pass_rate": {
-      "constraint": "the pinned Java-WebSocket 1.6.0 runtime jar (sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f) is not materialized in this workspace; acquiring it and executing java-oracle are owner-authorized live steps",
+      "constraint": "the pinned Java-WebSocket 1.6.0 runtime jar (sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f) was materialized from the accepted US-001 promotion store, digest-verified before execution, and run via the vendored java-oracle adapter (javac/java 17.0.19) with the qualified slf4j-api-2.0.13 runtime support jar",
       "requirement": "the pinned Java oracle passes 100% of behavior scenarios",
-      "status": "BLOCKED_PENDING_LIVE_EXECUTION"
+      "result": {
+        "executed": 258,
+        "failed": 0,
+        "notes": "74 public + 92 hidden + 92 sealed behavior scenarios executed twice against the pinned oracle on 2026-08-26; both executions produced byte-identical requests, transcripts, and reports per tier; held-out invocations spent 8 custodian query units (ledger seq 1-8), zero diagnostics, probing latch untripped",
+        "passed": 258,
+        "transcript_sha256s": [
+          "sha256:2eb11ca38caf9fef9b7edb8b83f3c7f6297b3e6e3d7ccbfc2a11c84e5221bd8b",
+          "sha256:f38b23c3dfc8b58462c366ea0b23bc84388a05eb6ba7cfa2e58d6565f552783b",
+          "sha256:d6650506270bee1904230964da0c1d1b807b5fcf123b9049014ac2a74de077c3"
+        ]
+      },
+      "status": "PASS"
     },
     "planted_java_rust_mutants_killed": {
       "constraint": "candidate execution requires the accepted US-007 Docker sbx workload profile (default-deny network, no shared skills, no local MCP, no secrets, no protected-store mounts); live sbx attempts are owner-authorized per attempt and run by the orchestrating owner session, never by this offline calibration",
