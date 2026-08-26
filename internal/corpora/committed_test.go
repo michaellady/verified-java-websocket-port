@@ -116,6 +116,36 @@ func TestCommittedArtifactsAreSchemaValidAndSealed(t *testing.T) {
 			if !isSlice || len(digests) == 0 {
 				t.Fatalf("recorded live gate %s lacks transcript digests", gate)
 			}
+			executed, executedOK := gateCounter(result, "executed")
+			passed, passedOK := gateCounter(result, "passed")
+			failed, failedOK := gateCounter(result, "failed")
+			if !executedOK || !passedOK || !failedOK {
+				t.Fatalf("recorded live gate %s carries unreadable counters", gate)
+			}
+			if passed+failed != executed || executed < 1 {
+				t.Fatalf("recorded live gate %s counters inconsistent "+
+					"(executed=%d passed=%d failed=%d)", gate, executed, passed, failed)
+			}
+			// Per-gate PASS semantics (round-5): identities alone admit
+			// dishonest states like PASS with passed=0 failed=executed.
+			if gateMap["status"] == "PASS" {
+				switch gate {
+				case "java_oracle_pass_rate":
+					if failed != 0 || passed != executed {
+						t.Fatalf("pass-rate gate PASS must have zero failures "+
+							"(executed=%d passed=%d failed=%d)", executed, passed, failed)
+					}
+					if want, ok := behaviorSelectedTotal(document); !ok || executed != want {
+						t.Fatalf("pass-rate gate PASS must cover every behavior "+
+							"scenario (executed=%d selected=%d ok=%v)", executed, want, ok)
+					}
+				case "empty_rust_target_fails", "planted_java_rust_mutants_killed":
+					if failed < 1 {
+						t.Fatalf("kill gate %s PASS with zero failing executions "+
+							"is vacuous", gate)
+					}
+				}
+			}
 		default:
 			t.Fatalf("committed live gate %s has unsupported status %v",
 				gate, gateMap["status"])
