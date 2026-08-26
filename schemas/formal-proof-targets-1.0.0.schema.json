@@ -1,0 +1,538 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/formal-proof-targets-1.0.0.schema.json",
+  "title": "US-006 formal proof targets (claim-ID bijection plan)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "document_id",
+    "story_id",
+    "statement",
+    "sources",
+    "rust_identity_resolution",
+    "invocation_contract",
+    "ac1_coverage",
+    "targets",
+    "assurance"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "entity_type": {
+      "const": "FormalProofTargets"
+    },
+    "document_id": {
+      "$ref": "#/$defs/id"
+    },
+    "story_id": {
+      "$ref": "#/$defs/story_id"
+    },
+    "statement": {
+      "$ref": "#/$defs/text"
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "migration_map",
+        "quarantined_java_tree",
+        "handshake_live_mapping",
+        "behavior_delta_ledger"
+      ],
+      "properties": {
+        "migration_map": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "map_id", "map_version"],
+          "properties": {
+            "path": {"$ref": "#/$defs/relative_path"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "map_id": {"$ref": "#/$defs/id"},
+            "map_version": {
+              "type": "string",
+              "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+            }
+          }
+        },
+        "quarantined_java_tree": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "archive_sha256",
+            "tree_directory",
+            "source_revision",
+            "source_pins_path"
+          ],
+          "properties": {
+            "archive_sha256": {"$ref": "#/$defs/sha256"},
+            "tree_directory": {"$ref": "#/$defs/relative_path"},
+            "source_revision": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "source_pins_path": {"$ref": "#/$defs/relative_path"}
+          }
+        },
+        "handshake_live_mapping": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256", "map_id"],
+          "properties": {
+            "path": {"$ref": "#/$defs/relative_path"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "map_id": {"$ref": "#/$defs/id"}
+          }
+        },
+        "behavior_delta_ledger": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "records_at_freeze"],
+          "properties": {
+            "path": {"$ref": "#/$defs/relative_path"},
+            "records_at_freeze": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "rust_identity_resolution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state",
+        "planned_resolver",
+        "resolver_verified_at",
+        "discharged_by_stories",
+        "statement"
+      ],
+      "properties": {
+        "state": {
+          "enum": [
+            "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED",
+            "RESOLVER_VERIFIED"
+          ]
+        },
+        "planned_resolver": {"$ref": "#/$defs/text"},
+        "resolver_verified_at": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "format": "date-time", "minLength": 1}
+          ]
+        },
+        "discharged_by_stories": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/story_id"}
+        },
+        "statement": {"$ref": "#/$defs/text"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "state": {"const": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"}
+            }
+          },
+          "then": {
+            "properties": {"resolver_verified_at": {"type": "null"}}
+          }
+        },
+        {
+          "if": {
+            "properties": {"state": {"const": "RESOLVER_VERIFIED"}}
+          },
+          "then": {
+            "properties": {"resolver_verified_at": {"type": "string"}}
+          }
+        }
+      ]
+    },
+    "invocation_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statement", "mechanical_enforcement_pending"],
+      "properties": {
+        "statement": {"$ref": "#/$defs/text"},
+        "mechanical_enforcement_pending": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/story_id"}
+        }
+      }
+    },
+    "ac1_coverage": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family", "target_id", "symbol_ids"],
+        "properties": {
+          "family": {
+            "enum": [
+              "mask-equation-involution",
+              "canonical-length-encoding-7-16-64",
+              "checked-arithmetic",
+              "allocation-caps",
+              "control-constraints",
+              "role-masking"
+            ]
+          },
+          "target_id": {"$ref": "#/$defs/id"},
+          "symbol_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"$ref": "#/$defs/id"}
+          }
+        }
+      }
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 10,
+      "items": {"$ref": "#/$defs/target"}
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance",
+        "independent_review_claimed",
+        "production",
+        "signing",
+        "publication"
+      ],
+      "properties": {
+        "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+        "independent_review_claimed": {"const": false},
+        "production": {"const": false},
+        "signing": {"const": false},
+        "publication": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]*$",
+      "minLength": 3
+    },
+    "story_id": {
+      "type": "string",
+      "pattern": "^US-[0-9]{3}$"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "relative_path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[^/].*",
+      "not": {"pattern": "\\.\\."}
+    },
+    "formal_claim_id": {
+      "type": "string",
+      "pattern": "^formal\\.[a-z0-9-]+\\.[a-z0-9-]+$"
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_id",
+        "formal_claim_id",
+        "title",
+        "statement",
+        "property_families",
+        "property_claim_refs",
+        "java_authority",
+        "migration_bindings",
+        "production_symbols",
+        "required_invokers",
+        "behavior_fidelity"
+      ],
+      "properties": {
+        "target_id": {"$ref": "#/$defs/id"},
+        "formal_claim_id": {"$ref": "#/$defs/formal_claim_id"},
+        "title": {"$ref": "#/$defs/text"},
+        "statement": {"$ref": "#/$defs/text"},
+        "property_families": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/id"}
+        },
+        "property_claim_refs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^property\\.[a-z0-9-]+\\.[a-z0-9-]+$"
+          }
+        },
+        "java_authority": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/java_anchor"}
+        },
+        "migration_bindings": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/migration_binding"}
+        },
+        "production_symbols": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/production_symbol"}
+        },
+        "required_invokers": {
+          "type": "array",
+          "minItems": 2,
+          "items": {"$ref": "#/$defs/required_invoker"}
+        },
+        "behavior_fidelity": {"$ref": "#/$defs/behavior_fidelity"}
+      },
+      "if": {
+        "properties": {
+          "formal_claim_id": {"const": "formal.handshake.accept-derivation"}
+        }
+      },
+      "then": {
+        "properties": {
+          "behavior_fidelity": {
+            "properties": {
+              "live_evidence": {"type": "object"}
+            }
+          }
+        }
+      }
+    },
+    "java_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anchor_id",
+        "file",
+        "start_line",
+        "end_line",
+        "sha256",
+        "behavior"
+      ],
+      "properties": {
+        "anchor_id": {"$ref": "#/$defs/id"},
+        "file": {
+          "type": "string",
+          "pattern": "^src/main/java/org/java_websocket/.+\\.java$"
+        },
+        "start_line": {"type": "integer", "minimum": 1},
+        "end_line": {"type": "integer", "minimum": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "behavior": {"$ref": "#/$defs/text"}
+      }
+    },
+    "migration_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "row_id",
+        "java_semantic_id",
+        "rust_semantic_id",
+        "excluded",
+        "rust_identity_verified"
+      ],
+      "properties": {
+        "row_id": {"$ref": "#/$defs/id"},
+        "java_semantic_id": {"$ref": "#/$defs/text"},
+        "rust_semantic_id": {"$ref": "#/$defs/text"},
+        "excluded": {"type": "boolean"},
+        "rust_identity_verified": {"type": "boolean"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"excluded": {"const": false}}},
+          "then": {
+            "properties": {
+              "rust_semantic_id": {"pattern": "^ws_(core|adapter)::"}
+            }
+          }
+        },
+        {
+          "if": {"properties": {"excluded": {"const": true}}},
+          "then": {
+            "properties": {
+              "rust_semantic_id": {
+                "pattern": "^\\(no Rust counterpart: EXCLUDED_"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "production_symbol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol_id",
+        "planned_symbol",
+        "namespace_rust_semantic_id",
+        "java_authority_members",
+        "resolution"
+      ],
+      "properties": {
+        "symbol_id": {"$ref": "#/$defs/id"},
+        "planned_symbol": {
+          "type": "string",
+          "pattern": "^ws_(core|adapter)::"
+        },
+        "namespace_rust_semantic_id": {
+          "type": "string",
+          "pattern": "^ws_(core|adapter)::"
+        },
+        "java_authority_members": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/text"}
+        },
+        "resolution": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "resolved_symbol"],
+          "properties": {
+            "state": {
+              "enum": ["PLANNED_PENDING_RESOLVER", "RESOLVER_VERIFIED"]
+            },
+            "resolved_symbol": {
+              "oneOf": [
+                {"type": "null"},
+                {"type": "string", "minLength": 1}
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "state": {"const": "PLANNED_PENDING_RESOLVER"}
+                }
+              },
+              "then": {
+                "properties": {"resolved_symbol": {"type": "null"}}
+              }
+            },
+            {
+              "if": {
+                "properties": {"state": {"const": "RESOLVER_VERIFIED"}}
+              },
+              "then": {
+                "properties": {"resolved_symbol": {"type": "string"}}
+              }
+            }
+          ]
+        }
+      }
+    },
+    "required_invoker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "story_id", "state", "invoker_symbol", "contract"],
+      "properties": {
+        "role": {
+          "enum": ["conformance", "differential", "property"]
+        },
+        "story_id": {"$ref": "#/$defs/story_id"},
+        "state": {
+          "enum": ["FUTURE_REQUIRED", "BOUND"]
+        },
+        "invoker_symbol": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "minLength": 1}
+          ]
+        },
+        "contract": {"$ref": "#/$defs/text"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "FUTURE_REQUIRED"}}},
+          "then": {"properties": {"invoker_symbol": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"state": {"const": "BOUND"}}},
+          "then": {"properties": {"invoker_symbol": {"type": "string"}}}
+        }
+      ]
+    },
+    "behavior_fidelity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "divergence_policy",
+        "rfc_strictness_deltas",
+        "non_goals",
+        "live_evidence"
+      ],
+      "properties": {
+        "divergence_policy": {
+          "const": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY"
+        },
+        "rfc_strictness_deltas": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["delta_id", "ledger_record_id", "statement"],
+            "properties": {
+              "delta_id": {"$ref": "#/$defs/id"},
+              "ledger_record_id": {"$ref": "#/$defs/id"},
+              "statement": {"$ref": "#/$defs/text"}
+            }
+          }
+        },
+        "non_goals": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/text"}
+        },
+        "live_evidence": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256", "entries_cited", "statement"],
+              "properties": {
+                "path": {"$ref": "#/$defs/relative_path"},
+                "sha256": {"$ref": "#/$defs/sha256"},
+                "entries_cited": {
+                  "type": "array",
+                  "minItems": 1,
+                  "uniqueItems": true,
+                  "items": {"$ref": "#/$defs/text"}
+                },
+                "statement": {"$ref": "#/$defs/text"}
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

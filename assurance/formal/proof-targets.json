@@ -1,0 +1,1762 @@
+{
+  "$schema": "../../schemas/formal-proof-targets-1.0.0.schema.json",
+  "ac1_coverage": [
+    {
+      "family": "mask-equation-involution",
+      "symbol_ids": [
+        "sym.framing.apply-mask"
+      ],
+      "target_id": "target.formal.framing.length-bounds"
+    },
+    {
+      "family": "canonical-length-encoding-7-16-64",
+      "symbol_ids": [
+        "sym.framing.decode-frame-header",
+        "sym.framing.encode-frame"
+      ],
+      "target_id": "target.formal.framing.length-bounds"
+    },
+    {
+      "family": "checked-arithmetic",
+      "symbol_ids": [
+        "sym.framing.decode-frame-header"
+      ],
+      "target_id": "target.formal.framing.length-bounds"
+    },
+    {
+      "family": "allocation-caps",
+      "symbol_ids": [
+        "sym.allocation.check-alloc",
+        "sym.allocation.decode-guarded-allocation"
+      ],
+      "target_id": "target.formal.framing.allocation-limit"
+    },
+    {
+      "family": "control-constraints",
+      "symbol_ids": [
+        "sym.control.decode-length-gate",
+        "sym.control.process-frame"
+      ],
+      "target_id": "target.formal.control.payload-length-bound"
+    },
+    {
+      "family": "role-masking",
+      "symbol_ids": [
+        "sym.framing.encode-frame",
+        "sym.framing.apply-mask"
+      ],
+      "target_id": "target.formal.framing.length-bounds"
+    }
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  },
+  "document_id": "formal-proof-targets.us006",
+  "entity_type": "FormalProofTargets",
+  "invocation_contract": {
+    "mechanical_enforcement_pending": [
+      "US-012",
+      "US-019",
+      "US-020"
+    ],
+    "statement": "Conformance (US-019) and differential (US-020) paths must invoke the exact planned symbols named per target. The formal-preflight validator blocks any later evidence run that claims a formal-covered behavior without citing the planned symbol IDs. Mechanical proof of invocation (rust-analyzer symbol resolution inside the harness build) lands with the cited stories."
+  },
+  "rust_identity_resolution": {
+    "discharged_by_stories": [
+      "US-009",
+      "US-012"
+    ],
+    "planned_resolver": "rust-analyzer",
+    "resolver_verified_at": null,
+    "state": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED",
+    "statement": "Every planned production symbol is pinned to a migration-map rust_semantic_id, but no Rust identity is resolver-verified: the migration map records blocker RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED and every row carries rust_identity_verified=false. US-009 establishes the ConnectionCore contract and US-012 the framing slice; symbols flip to RESOLVER_VERIFIED only from a real rust-analyzer resolution, never by assertion."
+  },
+  "schema_version": "1.0.0",
+  "sources": {
+    "behavior_delta_ledger": {
+      "path": "evidence/java/behavior-delta-ledger.json",
+      "records_at_freeze": 0
+    },
+    "handshake_live_mapping": {
+      "map_id": "us005-handshake-live-mapping",
+      "path": "evidence/us005-handshake-live-mapping.json",
+      "sha256": "sha256:4cb2969b14b0d54dd178f7734705e8d8578190f2e69213219fcf8fe6d20f207a"
+    },
+    "migration_map": {
+      "map_id": "semantic-id-migration-map.us003",
+      "map_version": "1.1.0",
+      "path": "evidence/intake/semantic-id-migration-map.json",
+      "sha256": "sha256:63837479dad43b20c540daa6a99cb6ae3db1a22beedd8ba4a08fdff4de7e9517"
+    },
+    "quarantined_java_tree": {
+      "archive_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+      "source_pins_path": "evidence/intake/source-pins.json",
+      "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+      "tree_directory": "Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667"
+    }
+  },
+  "statement": "US-006 lane A production target plan: a bijection from the migration map's ten formal.* claim IDs to proof targets that bind quarantined Java source authority (file:line, digest-pinned), the migration map's planned Rust identities byte-for-byte, future production symbols in honest PLANNED_PENDING_RESOLVER state, and the conformance/differential invocation contract. Formal language never outruns shipped-code evidence: every RFC-strictness divergence requires a behavior-delta-ledger record, and the plan fixes targets only — no proof executes here.",
+  "story_id": "US-006",
+  "targets": [
+    {
+      "target_id": "target.formal.framing.length-bounds",
+      "formal_claim_id": "formal.framing.length-bounds",
+      "title": "Frame-header decode, canonical 7/16/64-bit payload lengths, masking",
+      "statement": "The shipped frame-header decoder and mask function: translateSingleFrame / translateSingleFramePayloadLength decode the 7-bit inline, 126-\u003e16-bit, and 127-\u003e64-bit big-endian payload-length forms with checked arithmetic (sign-carrying BigInteger parse, explicit \u003eInteger.MAX_VALUE / \u003emaxFrameSize / \u003c0 rejection), and the XOR mask loop is applied on encode for the client role and removed on decode. Proof obligations bind to these shipped behaviors only.",
+      "property_families": [
+        "canonical-length-encoding-7-16-64",
+        "checked-arithmetic",
+        "mask-equation-involution",
+        "role-masking"
+      ],
+      "property_claim_refs": [
+        "property.framing.mask-involution",
+        "property.framing.roundtrip"
+      ],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.length-bounds.translate-single-frame",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 528,
+          "end_line": 566,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "translateSingleFrame: FIN/RSV/opcode/mask-bit header decode; realpacketsize accumulation with translateSingleFrameCheckPacketSize (552-555); decode-side unmask XOR loop over the 4-byte key (558-563); checkAlloc-guarded payload allocation (557)."
+        },
+        {
+          "anchor_id": "anchor.length-bounds.translate-payload-length",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 612,
+          "end_line": 641,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "translateSingleFramePayloadLength: 7-bit inline lengths; 126 -\u003e 16-bit and 127 -\u003e 64-bit big-endian decode via sign-carrying BigInteger; control frames with \u003e125 octets rejected at the escape (617-620); the shipped decoder does NOT reject non-minimal 16/64-bit encodings."
+        },
+        {
+          "anchor_id": "anchor.length-bounds.check-length-limit",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 648,
+          "end_line": 663,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "translateSingleFrameCheckLengthLimit: length \u003e Integer.MAX_VALUE, length \u003e maxFrameSize, and length \u003c 0 all throw LimitExceededException — the shipped checked-arithmetic boundary."
+        },
+        {
+          "anchor_id": "anchor.length-bounds.encode-frame",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 478,
+          "end_line": 527,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "createByteBufferFromFramedata: role masking (mask = role == Role.CLIENT at 480); 4-byte random mask key emission and XOR loop (511-517); 126/127 marker bytes and length-byte emission (497-510)."
+        },
+        {
+          "anchor_id": "anchor.length-bounds.get-size-bytes",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 714,
+          "end_line": 721,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "getSizeBytes: encode-side size-class selection (\u003c=125 -\u003e 1, \u003c=65535 -\u003e 2, else 8)."
+        },
+        {
+          "anchor_id": "anchor.length-bounds.to-byte-array",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 844,
+          "end_line": 851,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "toByteArray: big-endian emission of the encoded payload length."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft",
+          "java_semantic_id": "org.java_websocket.drafts.Draft",
+          "rust_semantic_id": "ws_core::connection::Draft",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft-6455",
+          "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+          "rust_semantic_id": "ws_core::framing::Draft6455",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+          "java_semantic_id": "org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData",
+          "rust_semantic_id": "ws_core::framing::TranslatedPayloadMetaData",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-enums-opcode",
+          "java_semantic_id": "org.java_websocket.enums.Opcode",
+          "rust_semantic_id": "ws_core::framing::Opcode",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-incompleteexception",
+          "java_semantic_id": "org.java_websocket.exceptions.IncompleteException",
+          "rust_semantic_id": "ws_core::framing::IncompleteException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invaliddataexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidDataException",
+          "rust_semantic_id": "ws_core::framing::InvalidDataException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invalidframeexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidFrameException",
+          "rust_semantic_id": "ws_core::framing::InvalidFrameException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-limitexceededexception",
+          "java_semantic_id": "org.java_websocket.exceptions.LimitExceededException",
+          "rust_semantic_id": "ws_core::framing::LimitExceededException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-notsendableexception",
+          "java_semantic_id": "org.java_websocket.exceptions.NotSendableException",
+          "rust_semantic_id": "ws_core::framing::NotSendableException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-controlframe",
+          "java_semantic_id": "org.java_websocket.framing.ControlFrame",
+          "rust_semantic_id": "ws_core::framing::ControlFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-dataframe",
+          "java_semantic_id": "org.java_websocket.framing.DataFrame",
+          "rust_semantic_id": "ws_core::framing::DataFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-framedata",
+          "java_semantic_id": "org.java_websocket.framing.Framedata",
+          "rust_semantic_id": "ws_core::framing::Framedata",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-framedataimpl1",
+          "java_semantic_id": "org.java_websocket.framing.FramedataImpl1",
+          "rust_semantic_id": "ws_core::framing::FramedataImpl1",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-util-bytebufferutils",
+          "java_semantic_id": "org.java_websocket.util.ByteBufferUtils",
+          "rust_semantic_id": "ws_core::framing::ByteBufferUtils",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.framing.decode-frame-header",
+          "planned_symbol": "ws_core::framing::Draft6455::decode_frame_header",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#translateSingleFrame(ByteBuffer)",
+            "org.java_websocket.drafts.Draft_6455#translateSingleFramePayloadLength(ByteBuffer,Opcode,int,int,int)",
+            "org.java_websocket.drafts.Draft_6455#translateSingleFrameCheckLengthLimit(long)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.framing.apply-mask",
+          "planned_symbol": "ws_core::framing::Draft6455::apply_mask",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#createByteBufferFromFramedata(Framedata) masking XOR loop",
+            "org.java_websocket.drafts.Draft_6455#translateSingleFrame(ByteBuffer) unmasking XOR loop"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.framing.encode-frame",
+          "planned_symbol": "ws_core::framing::Draft6455::encode_frame",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#createByteBufferFromFramedata(Framedata)",
+            "org.java_websocket.drafts.Draft_6455#getSizeBytes(ByteBuffer)",
+            "org.java_websocket.drafts.Draft_6455#toByteArray(long,int)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [
+          "reject-noncanonical-length-encodings: the pinned decode path (Draft_6455.java:612-641) accepts non-minimal 16/64-bit length encodings on receive; no proof obligation may require rejecting them while evidence/java/behavior-delta-ledger.json carries no such delta record."
+        ],
+        "live_evidence": null
+      }
+    },
+    {
+      "target_id": "target.formal.framing.allocation-limit",
+      "formal_claim_id": "formal.framing.allocation-limit",
+      "title": "Allocation caps on the frame decode path",
+      "statement": "Every frame-path allocation is guarded by the shipped Draft.checkAlloc (negative byte counts throw InvalidDataException(PROTOCOL_ERROR)) and bounded by maxFrameSize via translateSingleFrameCheckLengthLimit. Proof obligations for allocation caps bind to these shipped guards.",
+      "property_families": [
+        "allocation-caps"
+      ],
+      "property_claim_refs": [],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.allocation-limit.check-alloc",
+          "file": "src/main/java/org/java_websocket/drafts/Draft.java",
+          "start_line": 322,
+          "end_line": 327,
+          "sha256": "sha256:608bfe081943ea60dcd68a973ba2167392b3f3f57dda1be84ac08c0f158ec1b3",
+          "behavior": "Draft.checkAlloc: bytecount \u003c 0 throws InvalidDataException(CloseFrame.PROTOCOL_ERROR); the guard wrapped around every frame-path ByteBuffer.allocate."
+        },
+        {
+          "anchor_id": "anchor.allocation-limit.payload-alloc",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 555,
+          "end_line": 563,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "translateSingleFrame: checkAlloc-guarded payload allocation (557) after packet-size revalidation (555)."
+        },
+        {
+          "anchor_id": "anchor.allocation-limit.incomplete-frame-alloc",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 743,
+          "end_line": 770,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "translateFrame incomplete-frame path: checkAlloc-guarded buffer growth for extendedframe (749) and incompleteframe (768)."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft",
+          "java_semantic_id": "org.java_websocket.drafts.Draft",
+          "rust_semantic_id": "ws_core::connection::Draft",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft-6455",
+          "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+          "rust_semantic_id": "ws_core::framing::Draft6455",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+          "java_semantic_id": "org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData",
+          "rust_semantic_id": "ws_core::framing::TranslatedPayloadMetaData",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-enums-opcode",
+          "java_semantic_id": "org.java_websocket.enums.Opcode",
+          "rust_semantic_id": "ws_core::framing::Opcode",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-incompleteexception",
+          "java_semantic_id": "org.java_websocket.exceptions.IncompleteException",
+          "rust_semantic_id": "ws_core::framing::IncompleteException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invaliddataexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidDataException",
+          "rust_semantic_id": "ws_core::framing::InvalidDataException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invalidframeexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidFrameException",
+          "rust_semantic_id": "ws_core::framing::InvalidFrameException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-limitexceededexception",
+          "java_semantic_id": "org.java_websocket.exceptions.LimitExceededException",
+          "rust_semantic_id": "ws_core::framing::LimitExceededException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-notsendableexception",
+          "java_semantic_id": "org.java_websocket.exceptions.NotSendableException",
+          "rust_semantic_id": "ws_core::framing::NotSendableException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-controlframe",
+          "java_semantic_id": "org.java_websocket.framing.ControlFrame",
+          "rust_semantic_id": "ws_core::framing::ControlFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-dataframe",
+          "java_semantic_id": "org.java_websocket.framing.DataFrame",
+          "rust_semantic_id": "ws_core::framing::DataFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-framedata",
+          "java_semantic_id": "org.java_websocket.framing.Framedata",
+          "rust_semantic_id": "ws_core::framing::Framedata",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-framedataimpl1",
+          "java_semantic_id": "org.java_websocket.framing.FramedataImpl1",
+          "rust_semantic_id": "ws_core::framing::FramedataImpl1",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-util-bytebufferutils",
+          "java_semantic_id": "org.java_websocket.util.ByteBufferUtils",
+          "rust_semantic_id": "ws_core::framing::ByteBufferUtils",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.allocation.check-alloc",
+          "planned_symbol": "ws_core::connection::Draft::check_alloc",
+          "namespace_rust_semantic_id": "ws_core::connection::Draft",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft#checkAlloc(int)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.allocation.decode-guarded-allocation",
+          "planned_symbol": "ws_core::framing::Draft6455::decode_frame_header",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#translateSingleFrame(ByteBuffer) allocation sites",
+            "org.java_websocket.drafts.Draft_6455#translateFrame(ByteBuffer) incomplete-frame allocation sites"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [],
+        "live_evidence": null
+      }
+    },
+    {
+      "target_id": "target.formal.control.payload-length-bound",
+      "formal_claim_id": "formal.control.payload-length-bound",
+      "title": "Control-frame constraints (\u003c=125 octets, opcode discrimination, dispatch)",
+      "statement": "Control frames (CLOSING/PING/PONG) with payload length above 125 octets are rejected at the 16/64-bit length escape; opcodes are discriminated by fromOpcode/toOpcode with unknown opcodes rejected; processFrame dispatches close/ping/pong in the shipped order. Proof obligations bind to these shipped constraints.",
+      "property_families": [
+        "control-constraints"
+      ],
+      "property_claim_refs": [
+        "property.control.pong-echoes-ping-payload"
+      ],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.control.length-gate",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 617,
+          "end_line": 620,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "translateSingleFramePayloadLength: PING/PONG/CLOSING reaching the \u003e125 escape throw InvalidFrameException(\"more than 125 octets\")."
+        },
+        {
+          "anchor_id": "anchor.control.process-frame-dispatch",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 893,
+          "end_line": 926,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "processFrame: CLOSING -\u003e processFrameClosing, PING -\u003e onWebsocketPing, PONG -\u003e updateLastPong + onWebsocketPong, data frames -\u003e continuation/fin handling."
+        },
+        {
+          "anchor_id": "anchor.control.opcodes",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 854,
+          "end_line": 891,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "fromOpcode/toOpcode: opcode discrimination; unknown opcode bytes throw InvalidFrameException."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft",
+          "java_semantic_id": "org.java_websocket.drafts.Draft",
+          "rust_semantic_id": "ws_core::connection::Draft",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft-6455",
+          "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+          "rust_semantic_id": "ws_core::framing::Draft6455",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-pingframe",
+          "java_semantic_id": "org.java_websocket.framing.PingFrame",
+          "rust_semantic_id": "ws_core::control::PingFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-pongframe",
+          "java_semantic_id": "org.java_websocket.framing.PongFrame",
+          "rust_semantic_id": "ws_core::control::PongFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocket",
+          "java_semantic_id": "org.java_websocket.WebSocket",
+          "rust_semantic_id": "ws_core::connection::WebSocket",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketadapter",
+          "java_semantic_id": "org.java_websocket.WebSocketAdapter",
+          "rust_semantic_id": "ws_core::connection::WebSocketAdapter",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketlistener",
+          "java_semantic_id": "org.java_websocket.WebSocketListener",
+          "rust_semantic_id": "ws_core::connection::WebSocketListener",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.control.decode-length-gate",
+          "planned_symbol": "ws_core::framing::Draft6455::decode_frame_header",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#translateSingleFramePayloadLength(ByteBuffer,Opcode,int,int,int) control \u003e125 rejection"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.control.process-frame",
+          "planned_symbol": "ws_core::framing::Draft6455::process_frame",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#processFrame(WebSocketImpl,Framedata)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [],
+        "live_evidence": null
+      }
+    },
+    {
+      "target_id": "target.formal.handshake.accept-derivation",
+      "formal_claim_id": "formal.handshake.accept-derivation",
+      "title": "Server handshake accept predicate and Sec-WebSocket-Accept derivation",
+      "statement": "The SHIPPED server accept predicate is permissive: acceptHandshakeAsServer gates only readVersion(handshake) == 13 (any Integer.parseInt spelling after trim), and postProcessHandshakeResponseAsServer rejects only a null/empty Sec-WebSocket-Key before deriving Sec-WebSocket-Accept via the RFC 6455 SHA-1 derivation over the trimmed key. Draft.basicAccept's Upgrade/Connection validation runs only on the client path. Proof obligations for accept-derivation encode this shipped predicate; RFC-stricter reject language is valid only as a ledgered behavior delta.",
+      "property_families": [
+        "handshake-accept-derivation"
+      ],
+      "property_claim_refs": [
+        "property.handshake.key-accept-roundtrip",
+        "property.handshake.server-response-total"
+      ],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.handshake.accept-as-server",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 262,
+          "end_line": 286,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "acceptHandshakeAsServer: NOT_MATCHED only when readVersion != 13; extension/protocol matching accepts with the shipped defaults (DefaultExtension and Protocol(\"\"))."
+        },
+        {
+          "anchor_id": "anchor.handshake.read-version",
+          "file": "src/main/java/org/java_websocket/drafts/Draft.java",
+          "start_line": 329,
+          "end_line": 341,
+          "sha256": "sha256:608bfe081943ea60dcd68a973ba2167392b3f3f57dda1be84ac08c0f158ec1b3",
+          "behavior": "readVersion: Integer.parseInt after trim — '+13', '0013', ' 13 ' all read as 13; unparseable values read as -1."
+        },
+        {
+          "anchor_id": "anchor.handshake.post-process-response",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 432,
+          "end_line": 441,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "postProcessHandshakeResponseAsServer: throws InvalidHandshakeException only for a missing/empty Sec-WebSocket-Key; sets Sec-WebSocket-Accept from generateFinalKey."
+        },
+        {
+          "anchor_id": "anchor.handshake.generate-final-key",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 832,
+          "end_line": 841,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "generateFinalKey: SHA-1 over trimmed key + RFC 6455 GUID, Base64-encoded — the accept derivation equals the RFC value."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft",
+          "java_semantic_id": "org.java_websocket.drafts.Draft",
+          "rust_semantic_id": "ws_core::connection::Draft",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft-6455",
+          "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+          "rust_semantic_id": "ws_core::framing::Draft6455",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-enums-handshakestate",
+          "java_semantic_id": "org.java_websocket.enums.HandshakeState",
+          "rust_semantic_id": "ws_core::handshake::client::HandshakeState",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-incompletehandshakeexception",
+          "java_semantic_id": "org.java_websocket.exceptions.IncompleteHandshakeException",
+          "rust_semantic_id": "ws_core::handshake::client::IncompleteHandshakeException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invaliddataexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidDataException",
+          "rust_semantic_id": "ws_core::framing::InvalidDataException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invalidhandshakeexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidHandshakeException",
+          "rust_semantic_id": "ws_core::handshake::client::InvalidHandshakeException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-handshake-clienthandshake",
+          "java_semantic_id": "org.java_websocket.handshake.ClientHandshake",
+          "rust_semantic_id": "ws_core::handshake::client::ClientHandshake",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-handshake-clienthandshakebuilder",
+          "java_semantic_id": "org.java_websocket.handshake.ClientHandshakeBuilder",
+          "rust_semantic_id": "ws_core::handshake::client::ClientHandshakeBuilder",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-handshake-handshakebuilder",
+          "java_semantic_id": "org.java_websocket.handshake.HandshakeBuilder",
+          "rust_semantic_id": "ws_core::handshake::client::HandshakeBuilder",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-handshake-handshakedata",
+          "java_semantic_id": "org.java_websocket.handshake.Handshakedata",
+          "rust_semantic_id": "ws_core::handshake::client::Handshakedata",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-handshake-handshakedataimpl1",
+          "java_semantic_id": "org.java_websocket.handshake.HandshakedataImpl1",
+          "rust_semantic_id": "ws_core::handshake::client::HandshakedataImpl1",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-handshake-handshakeimpl1client",
+          "java_semantic_id": "org.java_websocket.handshake.HandshakeImpl1Client",
+          "rust_semantic_id": "ws_core::handshake::client::HandshakeImpl1Client",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-handshake-handshakeimpl1server",
+          "java_semantic_id": "org.java_websocket.handshake.HandshakeImpl1Server",
+          "rust_semantic_id": "ws_core::handshake::server::HandshakeImpl1Server",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-handshake-serverhandshake",
+          "java_semantic_id": "org.java_websocket.handshake.ServerHandshake",
+          "rust_semantic_id": "ws_core::handshake::server::ServerHandshake",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-handshake-serverhandshakebuilder",
+          "java_semantic_id": "org.java_websocket.handshake.ServerHandshakeBuilder",
+          "rust_semantic_id": "ws_core::handshake::server::ServerHandshakeBuilder",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-util-base64",
+          "java_semantic_id": "org.java_websocket.util.Base64",
+          "rust_semantic_id": "ws_core::handshake::client::Base64",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-util-base64-outputstream",
+          "java_semantic_id": "org.java_websocket.util.Base64$OutputStream",
+          "rust_semantic_id": "ws_core::handshake::client::OutputStream",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketadapter",
+          "java_semantic_id": "org.java_websocket.WebSocketAdapter",
+          "rust_semantic_id": "ws_core::connection::WebSocketAdapter",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketlistener",
+          "java_semantic_id": "org.java_websocket.WebSocketListener",
+          "rust_semantic_id": "ws_core::connection::WebSocketListener",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.handshake.accept-as-server",
+          "planned_symbol": "ws_core::framing::Draft6455::accept_handshake_as_server",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#acceptHandshakeAsServer(ClientHandshake)",
+            "org.java_websocket.drafts.Draft#readVersion(Handshakedata)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.handshake.generate-accept",
+          "planned_symbol": "ws_core::framing::Draft6455::generate_accept_key",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#generateFinalKey(String)",
+            "org.java_websocket.drafts.Draft_6455#postProcessHandshakeResponseAsServer(ClientHandshake,ServerHandshakeBuilder)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [
+          "rfc-strict-server-rejects: 13 client_request families the RFC rejects are conditional or divergent Java accepts in the live-verdict mapping (missing/invalid Upgrade, Connection, Host, key length/base64, header-name token, duplicate headers, bare LF, limits); encoding RFC-strict rejection as a proof obligation without a behavior-delta-ledger record is prohibited."
+        ],
+        "live_evidence": {
+          "path": "evidence/us005-handshake-live-mapping.json",
+          "sha256": "sha256:4cb2969b14b0d54dd178f7734705e8d8578190f2e69213219fcf8fe6d20f207a",
+          "entries_cited": [
+            "client_request/accept",
+            "client_request/HS_VERSION_UNSUPPORTED",
+            "client_request/HS_MISSING_KEY",
+            "client_request/HS_MISSING_UPGRADE",
+            "client_request/HS_MISSING_CONNECTION"
+          ],
+          "statement": "The US-005 live-verdict mapping records the shipped Java-permissive server accept predicate (version == 13 plus a non-empty Sec-WebSocket-Key) with per-family verdicts read from the quarantined source at the cited lines; the accept-derivation proof target references the shipped behavior, not RFC strictness."
+        }
+      }
+    },
+    {
+      "target_id": "target.formal.close.terminal-absorbing",
+      "formal_claim_id": "formal.close.terminal-absorbing",
+      "title": "Terminal close is absorbing with exactly-once terminal delivery",
+      "statement": "closeConnection is the only terminal transition: it is monitor-guarded, delivers onWebsocketClose exactly once, resets the draft, and sets CLOSED; re-entry returns immediately. flushAndClose's latch makes close initiation idempotent and records the close code/message/remote triple delivered verbatim in the terminal event. Proof obligations bind to these shipped semantics.",
+      "property_families": [
+        "close-terminal-absorbing"
+      ],
+      "property_claim_refs": [
+        "property.close.code-validity"
+      ],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.close.close-connection",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 530,
+          "end_line": 567,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "closeConnection: immediate return when already CLOSED (531-533); exactly-once onWebsocketClose (556-558); draft reset (561-563); readyState = CLOSED (566)."
+        },
+        {
+          "anchor_id": "anchor.close.flush-and-close",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 584,
+          "end_line": 606,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "flushAndClose: flushandclosestate latch makes initiation idempotent; records closecode/closemessage/closedremotely; onWebsocketClosing delivered once."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft",
+          "java_semantic_id": "org.java_websocket.drafts.Draft",
+          "rust_semantic_id": "ws_core::connection::Draft",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft-6455",
+          "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+          "rust_semantic_id": "ws_core::framing::Draft6455",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-enums-closehandshaketype",
+          "java_semantic_id": "org.java_websocket.enums.CloseHandshakeType",
+          "rust_semantic_id": "ws_core::connection::CloseHandshakeType",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invaliddataexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidDataException",
+          "rust_semantic_id": "ws_core::framing::InvalidDataException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-websocketnotconnectedexception",
+          "java_semantic_id": "org.java_websocket.exceptions.WebsocketNotConnectedException",
+          "rust_semantic_id": "ws_core::close::WebsocketNotConnectedException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-closeframe",
+          "java_semantic_id": "org.java_websocket.framing.CloseFrame",
+          "rust_semantic_id": "ws_core::close::CloseFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocket",
+          "java_semantic_id": "org.java_websocket.WebSocket",
+          "rust_semantic_id": "ws_core::connection::WebSocket",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketlistener",
+          "java_semantic_id": "org.java_websocket.WebSocketListener",
+          "rust_semantic_id": "ws_core::connection::WebSocketListener",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.close.close-connection",
+          "planned_symbol": "ws_core::connection::WebSocketImpl::close_connection",
+          "namespace_rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "java_authority_members": [
+            "org.java_websocket.WebSocketImpl#closeConnection(int,String,boolean)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.close.flush-and-close",
+          "planned_symbol": "ws_core::connection::WebSocketImpl::flush_and_close",
+          "namespace_rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "java_authority_members": [
+            "org.java_websocket.WebSocketImpl#flushAndClose(int,String,boolean)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [],
+        "live_evidence": null
+      }
+    },
+    {
+      "target_id": "target.formal.connection.no-terminal-escape",
+      "formal_claim_id": "formal.connection.no-terminal-escape",
+      "title": "Connection state machine: no transition escapes CLOSED",
+      "statement": "The four shipped states NOT_YET_CONNECTED/OPEN/CLOSING/CLOSED transition only forward: open() sets OPEN from the handshake-complete path, close() initiates CLOSING under the monitor, eot() funnels every EOF into closeConnection, and no shipped path leaves CLOSED. The decode gate processes frames only in OPEN. Proof obligations bind to these shipped transitions.",
+      "property_families": [
+        "connection-state-machine"
+      ],
+      "property_claim_refs": [
+        "property.connection.state-machine-total"
+      ],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.connection.ready-states",
+          "file": "src/main/java/org/java_websocket/enums/ReadyState.java",
+          "start_line": 6,
+          "end_line": 8,
+          "sha256": "sha256:a2a0b4cff9a0b70b562859960495ed3d8851e7834f711bd56fb7fb4d120b3636",
+          "behavior": "ReadyState: the closed four-state vocabulary NOT_YET_CONNECTED, OPEN, CLOSING, CLOSED."
+        },
+        {
+          "anchor_id": "anchor.connection.close-initiate",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 463,
+          "end_line": 507,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "close(int,String,boolean): monitor-guarded CLOSING transition with single close-frame send; no-ops once CLOSING/CLOSED."
+        },
+        {
+          "anchor_id": "anchor.connection.open",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 757,
+          "end_line": 766,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "open: readyState = OPEN exactly once from the completed-handshake path; onWebsocketOpen delivered."
+        },
+        {
+          "anchor_id": "anchor.connection.eot",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 608,
+          "end_line": 624,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "eot: every EOF dispatch funnels into closeConnection (NEVER_CONNECTED / latched code / NORMAL / ABNORMAL_CLOSE); no path resurrects a closed connection."
+        },
+        {
+          "anchor_id": "anchor.connection.decode-gate",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 220,
+          "end_line": 244,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "decode: frames are decoded only in OPEN; NOT_YET_CONNECTED bytes go to decodeHandshake; no state regression from the decode path."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft",
+          "java_semantic_id": "org.java_websocket.drafts.Draft",
+          "rust_semantic_id": "ws_core::connection::Draft",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-enums-closehandshaketype",
+          "java_semantic_id": "org.java_websocket.enums.CloseHandshakeType",
+          "rust_semantic_id": "ws_core::connection::CloseHandshakeType",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-enums-readystate",
+          "java_semantic_id": "org.java_websocket.enums.ReadyState",
+          "rust_semantic_id": "ws_core::connection::ReadyState",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-enums-role",
+          "java_semantic_id": "org.java_websocket.enums.Role",
+          "rust_semantic_id": "ws_core::connection::Role",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocket",
+          "java_semantic_id": "org.java_websocket.WebSocket",
+          "rust_semantic_id": "ws_core::connection::WebSocket",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketadapter",
+          "java_semantic_id": "org.java_websocket.WebSocketAdapter",
+          "rust_semantic_id": "ws_core::connection::WebSocketAdapter",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketlistener",
+          "java_semantic_id": "org.java_websocket.WebSocketListener",
+          "rust_semantic_id": "ws_core::connection::WebSocketListener",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.connection.close",
+          "planned_symbol": "ws_core::connection::WebSocketImpl::close",
+          "namespace_rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "java_authority_members": [
+            "org.java_websocket.WebSocketImpl#close(int,String,boolean)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.connection.open",
+          "planned_symbol": "ws_core::connection::WebSocketImpl::open",
+          "namespace_rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "java_authority_members": [
+            "org.java_websocket.WebSocketImpl#open(Handshakedata)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.connection.eot",
+          "planned_symbol": "ws_core::connection::WebSocketImpl::eot",
+          "namespace_rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "java_authority_members": [
+            "org.java_websocket.WebSocketImpl#eot()"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [],
+        "live_evidence": null
+      }
+    },
+    {
+      "target_id": "target.formal.messages.utf8-validation-total",
+      "formal_claim_id": "formal.messages.utf8-validation-total",
+      "title": "Total UTF-8 validation of text payloads",
+      "statement": "Text payloads are validated by the shipped CharsetDecoder configured with CodingErrorAction.REPORT: every malformed or unmappable sequence throws InvalidDataException(NO_UTF8), and fragmented text is additionally checked incrementally by isValidUTF8. The Rust port must reject the identical sequence set. Proof obligations bind to these shipped validators.",
+      "property_families": [
+        "utf8-validation-total"
+      ],
+      "property_claim_refs": [
+        "property.messages.utf8-strictness"
+      ],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.utf8.string-utf8",
+          "file": "src/main/java/org/java_websocket/util/Charsetfunctions.java",
+          "start_line": 42,
+          "end_line": 85,
+          "sha256": "sha256:9051e7760ca8f318238e20db952152283f278f61d8bbb2af97a5daa75b3d5311",
+          "behavior": "stringUtf8: CharsetDecoder with CodingErrorAction.REPORT (44); CharacterCodingException maps to InvalidDataException(CloseFrame.NO_UTF8)."
+        },
+        {
+          "anchor_id": "anchor.utf8.is-valid",
+          "file": "src/main/java/org/java_websocket/util/Charsetfunctions.java",
+          "start_line": 129,
+          "end_line": 152,
+          "sha256": "sha256:9051e7760ca8f318238e20db952152283f278f61d8bbb2af97a5daa75b3d5311",
+          "behavior": "isValidUTF8: incremental DFA validity check applied to text fragments."
+        },
+        {
+          "anchor_id": "anchor.utf8.process-frame-text",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 982,
+          "end_line": 990,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "processFrameText: every complete text payload passes Charsetfunctions.stringUtf8 before onWebsocketMessage."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft",
+          "java_semantic_id": "org.java_websocket.drafts.Draft",
+          "rust_semantic_id": "ws_core::connection::Draft",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft-6455",
+          "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+          "rust_semantic_id": "ws_core::framing::Draft6455",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invaliddataexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidDataException",
+          "rust_semantic_id": "ws_core::framing::InvalidDataException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invalidencodingexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidEncodingException",
+          "rust_semantic_id": "ws_core::message::InvalidEncodingException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-binaryframe",
+          "java_semantic_id": "org.java_websocket.framing.BinaryFrame",
+          "rust_semantic_id": "ws_core::message::BinaryFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-textframe",
+          "java_semantic_id": "org.java_websocket.framing.TextFrame",
+          "rust_semantic_id": "ws_core::message::TextFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-util-charsetfunctions",
+          "java_semantic_id": "org.java_websocket.util.Charsetfunctions",
+          "rust_semantic_id": "ws_core::message::Charsetfunctions",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocket",
+          "java_semantic_id": "org.java_websocket.WebSocket",
+          "rust_semantic_id": "ws_core::connection::WebSocket",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketlistener",
+          "java_semantic_id": "org.java_websocket.WebSocketListener",
+          "rust_semantic_id": "ws_core::connection::WebSocketListener",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.utf8.string-utf8",
+          "planned_symbol": "ws_core::message::Charsetfunctions::string_utf8",
+          "namespace_rust_semantic_id": "ws_core::message::Charsetfunctions",
+          "java_authority_members": [
+            "org.java_websocket.util.Charsetfunctions#stringUtf8(ByteBuffer)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.utf8.is-valid-utf8",
+          "planned_symbol": "ws_core::message::Charsetfunctions::is_valid_utf8",
+          "namespace_rust_semantic_id": "ws_core::message::Charsetfunctions",
+          "java_authority_members": [
+            "org.java_websocket.util.Charsetfunctions#isValidUTF8(ByteBuffer,int)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [],
+        "live_evidence": null
+      }
+    },
+    {
+      "target_id": "target.formal.fragmentation.no-unbounded-growth",
+      "formal_claim_id": "formal.fragmentation.no-unbounded-growth",
+      "title": "Bounded fragmentation reassembly",
+      "statement": "Continuation reassembly appends to the buffer list only under checkBufferLimit: when the reassembled total exceeds maxFrameSize the list is cleared and LimitExceededException is thrown, so fragmented messages cannot grow without bound. Sequencing violations (unstarted or uncompleted sequences) are protocol errors. Proof obligations bind to these shipped bounds.",
+      "property_families": [
+        "fragmentation-bounded-state"
+      ],
+      "property_claim_refs": [
+        "property.fragmentation.bounded-state"
+      ],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.fragmentation.check-buffer-limit",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 1101,
+          "end_line": 1110,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "checkBufferLimit: reassembly total \u003e maxFrameSize clears the buffer list and throws LimitExceededException(maxFrameSize)."
+        },
+        {
+          "anchor_id": "anchor.fragmentation.continuous-dispatch",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 928,
+          "end_line": 954,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "processFrameContinuousAndNonFin: continuation sequencing; unstarted continuation is a PROTOCOL_ERROR; fragmented text checked incrementally for UTF-8 validity."
+        },
+        {
+          "anchor_id": "anchor.fragmentation.is-fin",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 999,
+          "end_line": 1035,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "processFrameIsFin: append + checkBufferLimit before reassembled delivery; buffer list cleared after delivery."
+        },
+        {
+          "anchor_id": "anchor.fragmentation.is-not-fin",
+          "file": "src/main/java/org/java_websocket/drafts/Draft_6455.java",
+          "start_line": 1037,
+          "end_line": 1047,
+          "sha256": "sha256:39756c4b4f2a548456ba3aebed70639093c930663ca8d6086f10965bd53aaba0",
+          "behavior": "processFrameIsNotFin: sequence start; append under the cap; uncompleted-previous-sequence is a PROTOCOL_ERROR."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft",
+          "java_semantic_id": "org.java_websocket.drafts.Draft",
+          "rust_semantic_id": "ws_core::connection::Draft",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-drafts-draft-6455",
+          "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+          "rust_semantic_id": "ws_core::framing::Draft6455",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-invaliddataexception",
+          "java_semantic_id": "org.java_websocket.exceptions.InvalidDataException",
+          "rust_semantic_id": "ws_core::framing::InvalidDataException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-exceptions-limitexceededexception",
+          "java_semantic_id": "org.java_websocket.exceptions.LimitExceededException",
+          "rust_semantic_id": "ws_core::framing::LimitExceededException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-framing-continuousframe",
+          "java_semantic_id": "org.java_websocket.framing.ContinuousFrame",
+          "rust_semantic_id": "ws_core::fragment::ContinuousFrame",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocket",
+          "java_semantic_id": "org.java_websocket.WebSocket",
+          "rust_semantic_id": "ws_core::connection::WebSocket",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.fragmentation.check-buffer-limit",
+          "planned_symbol": "ws_core::framing::Draft6455::check_buffer_limit",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#checkBufferLimit()"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.fragmentation.process-continuation",
+          "planned_symbol": "ws_core::framing::Draft6455::process_frame_continuous",
+          "namespace_rust_semantic_id": "ws_core::framing::Draft6455",
+          "java_authority_members": [
+            "org.java_websocket.drafts.Draft_6455#processFrameContinuousAndNonFin(WebSocketImpl,Framedata,Opcode)",
+            "org.java_websocket.drafts.Draft_6455#processFrameIsFin(WebSocketImpl,Framedata)",
+            "org.java_websocket.drafts.Draft_6455#processFrameIsNotFin(Framedata)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [],
+        "live_evidence": null
+      }
+    },
+    {
+      "target_id": "target.formal.adapter.no-protocol-logic",
+      "formal_claim_id": "formal.adapter.no-protocol-logic",
+      "title": "Adapters carry no protocol logic",
+      "statement": "WebSocketImpl.decode is the single protocol ingress: the shipped I/O helpers move bytes verbatim between sockets and the engine and never interpret WebSocket framing or handshakes. The Rust adapters (US-018) must preserve this byte-stream transparency; the proof target prohibits protocol logic outside ws_core. Proof obligations bind to this shipped separation.",
+      "property_families": [
+        "adapter-byte-transparency"
+      ],
+      "property_claim_refs": [
+        "property.adapter.byte-stream-transparency"
+      ],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.adapter.decode-ingress",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 220,
+          "end_line": 244,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "decode(ByteBuffer): the single protocol ingress the adapters feed; adapters never interpret WebSocket bytes."
+        },
+        {
+          "anchor_id": "anchor.adapter.io-read",
+          "file": "src/main/java/org/java_websocket/SocketChannelIOHelper.java",
+          "start_line": 39,
+          "end_line": 59,
+          "sha256": "sha256:1f20063e1cd2128e2804ef544ca8ee76cbfa9215d365fb8ee740249f0aeae310",
+          "behavior": "SocketChannelIOHelper.read/readMore: pure byte transport from the channel into the engine buffer; no protocol interpretation."
+        },
+        {
+          "anchor_id": "anchor.adapter.io-batch",
+          "file": "src/main/java/org/java_websocket/SocketChannelIOHelper.java",
+          "start_line": 82,
+          "end_line": 115,
+          "sha256": "sha256:1f20063e1cd2128e2804ef544ca8ee76cbfa9215d365fb8ee740249f0aeae310",
+          "behavior": "SocketChannelIOHelper.batch: drains engine-produced buffers to the socket verbatim; the only protocol-adjacent effect (server-role close-on-drain) is delegated back to the engine via closeConnection."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-exceptions-wrappedioexception",
+          "java_semantic_id": "org.java_websocket.exceptions.WrappedIOException",
+          "rust_semantic_id": "ws_adapter::tcp::WrappedIOException",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-interfaces-isslchannel",
+          "java_semantic_id": "org.java_websocket.interfaces.ISSLChannel",
+          "rust_semantic_id": "(no Rust counterpart: EXCLUDED_TLS_WSS)",
+          "excluded": true,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketlistener",
+          "java_semantic_id": "org.java_websocket.WebSocketListener",
+          "rust_semantic_id": "ws_core::connection::WebSocketListener",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.adapter.decode-ingress",
+          "planned_symbol": "ws_core::connection::WebSocketImpl::decode",
+          "namespace_rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "java_authority_members": [
+            "org.java_websocket.WebSocketImpl#decode(ByteBuffer)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        },
+        {
+          "symbol_id": "sym.adapter.wrapped-io-error",
+          "planned_symbol": "ws_adapter::tcp::WrappedIOException",
+          "namespace_rust_semantic_id": "ws_adapter::tcp::WrappedIOException",
+          "java_authority_members": [
+            "org.java_websocket.exceptions.WrappedIOException"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [],
+        "live_evidence": null
+      }
+    },
+    {
+      "target_id": "target.formal.concurrency.no-data-race",
+      "formal_claim_id": "formal.concurrency.no-data-race",
+      "title": "Single-owner serialization replaces the shared-mutable connection state",
+      "statement": "Java's connection state is shared-mutable — unbounded outQueue/inQueue, one volatile readyState read cross-thread without the monitor, the synchronizeWriteObject write lock, and the instance monitor across close/closeConnection/flushAndClose. The port's single-owner design serializes commands and inbound actions through one owner per connection; race-visible Java interleavings are not corpus-encodable and Java fidelity is defined over serialized observable event sequences. Proof obligations bind to the owner-serialization design, never to racy Java interleavings.",
+      "property_families": [
+        "single-owner-serialization"
+      ],
+      "property_claim_refs": [
+        "property.concurrency.single-owner-serialization"
+      ],
+      "java_authority": [
+        {
+          "anchor_id": "anchor.concurrency.shared-state",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 94,
+          "end_line": 131,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "The shared mutable state the port serializes: unbounded outQueue/inQueue (96-102) and the volatile readyState (127) read cross-thread without the monitor."
+        },
+        {
+          "anchor_id": "anchor.concurrency.write-monitor",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 745,
+          "end_line": 755,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "write(List) under synchronizeWriteObject: multi-frame enqueue of one message is atomic against other senders — wire order within a message is observable."
+        },
+        {
+          "anchor_id": "anchor.concurrency.close-monitor",
+          "file": "src/main/java/org/java_websocket/WebSocketImpl.java",
+          "start_line": 463,
+          "end_line": 507,
+          "sha256": "sha256:ac3c9a5f7187e16586c47f9c0d210b14c16cfab71680ec4e2e7f24a2c6d38155",
+          "behavior": "The instance monitor across close/closeConnection/flushAndClose is the de-facto connection lock producing exactly-once close initiation and terminal delivery."
+        }
+      ],
+      "migration_bindings": [
+        {
+          "row_id": "migration.org-java-websocket-util-namedthreadfactory",
+          "java_semantic_id": "org.java_websocket.util.NamedThreadFactory",
+          "rust_semantic_id": "(no Rust counterpart: EXCLUDED_JAVA_NIO_TOPOLOGY)",
+          "excluded": true,
+          "rust_identity_verified": false
+        },
+        {
+          "row_id": "migration.org-java-websocket-websocketimpl",
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "excluded": false,
+          "rust_identity_verified": false
+        }
+      ],
+      "production_symbols": [
+        {
+          "symbol_id": "sym.concurrency.connection-owner",
+          "planned_symbol": "ws_core::connection::WebSocketImpl",
+          "namespace_rust_semantic_id": "ws_core::connection::WebSocketImpl",
+          "java_authority_members": [
+            "org.java_websocket.WebSocketImpl (shared-mutable state consolidated into the single owner)"
+          ],
+          "resolution": {
+            "state": "PLANNED_PENDING_RESOLVER",
+            "resolved_symbol": null
+          }
+        }
+      ],
+      "required_invokers": [
+        {
+          "role": "conformance",
+          "story_id": "US-019",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-019 conformance harness must invoke this target's exact planned symbols when exercising the behaviors its formal claim covers; a conformance evidence run claiming a formal-covered behavior without citing these symbol IDs blocks."
+        },
+        {
+          "role": "differential",
+          "story_id": "US-020",
+          "state": "FUTURE_REQUIRED",
+          "invoker_symbol": null,
+          "contract": "The US-020 differential (pinned-Java-oracle vs Rust) path must drive this target's exact planned symbols; differential evidence not bound to these symbol IDs blocks."
+        }
+      ],
+      "behavior_fidelity": {
+        "divergence_policy": "NO_DIVERGENCE_WITHOUT_LEDGER_ENTRY",
+        "rfc_strictness_deltas": [],
+        "non_goals": [
+          "racy-interleaving-fidelity: race-visible Java behaviors (send-vs-close, decode-vs-reset, timer-close-vs-worker-decode, enqueue-after-key-cancel drop) are not corpus-encodable; the port serializes them deterministically and any observable outcome difference requires a behavior-delta-ledger record before a formal obligation may assert it."
+        ],
+        "live_evidence": null
+      }
+    }
+  ]
+}
