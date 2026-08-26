@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -73,7 +74,41 @@ func recordLiveExecution(t *testing.T, root, protectedRoot string,
 	if err := writeJSONFile(manifestPath, manifest); err != nil {
 		t.Fatal(err)
 	}
+	refreshCalibrationManifestPins(t, root)
 	return manifestPath, transcriptPath
+}
+
+// refreshCalibrationManifestPins mirrors the real recording contract: any
+// change to a corpus manifest must be followed by re-pinning its digest in
+// the calibration document (the binding check blocks stale pins). No-op when
+// no calibration document has been written yet.
+func refreshCalibrationManifestPins(t *testing.T, root string) {
+	t.Helper()
+	calibrationPath := filepath.Join(root, "evidence/corpus-calibration.json")
+	raw, err := os.ReadFile(calibrationPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return
+		}
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	corpora, _ := doc["corpora"].(map[string]any)
+	for _, rawEntry := range corpora {
+		entry, _ := rawEntry.(map[string]any)
+		manifestPath, _ := entry["manifest_path"].(string)
+		bytesRead, err := os.ReadFile(filepath.Join(root, manifestPath))
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry["manifest_sha256"] = DigestSHA256(bytesRead)
+	}
+	if err := writeJSONFile(calibrationPath, doc); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // A pending corpus has no live findings; a faithfully recorded execution
@@ -326,6 +361,83 @@ func TestVerifyLiveEvidenceGateExecutionRigor(t *testing.T) {
 // Calibration live gates: LIVE_CALIBRATED is only reachable with every gate
 // PASS; failed gates force a blocked status; recorded results must carry
 // internally consistent counters and resolvable transcript digests.
+// Reality-check regression: the calibration document's corpora
+// manifest_sha256 bindings must reconcile against the actual manifest files
+// — "any mismatch blocks" (AC5) has to hold end to end, not just at the
+// per-manifest schema layer.
+func TestVerifyLiveEvidenceCalibrationManifestBindings(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	document, err := BuildCalibration(root, protectedRoot, generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteCalibration(root, document); err != nil {
+		t.Fatal(err)
+	}
+
+	// Faithful bindings verify clean.
+	findings, err := VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("faithful calibration manifest bindings must verify: %v", findings)
+	}
+
+	calibrationPath := filepath.Join(root, "evidence/corpus-calibration.json")
+	mutate := func(change func(corpora map[string]any)) []Finding {
+		t.Helper()
+		raw, err := os.ReadFile(calibrationPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
+		}
+		change(doc["corpora"].(map[string]any))
+		if err := writeJSONFile(calibrationPath, doc); err != nil {
+			t.Fatal(err)
+		}
+		found, err := VerifyLiveEvidence(root, protectedRoot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// Restore the faithful document for the next case.
+		if err := os.WriteFile(calibrationPath, raw, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return found
+	}
+
+	// A stale manifest digest must block, typed.
+	codes := findingCodes(mutate(func(corpora map[string]any) {
+		entry := corpora["handshake"].(map[string]any)
+		entry["manifest_sha256"] = "sha256:" + strings.Repeat("ab", 32)
+	}))
+	if codes["CALIBRATION_MANIFEST_DIGEST_MISMATCH"] == 0 {
+		t.Fatalf("stale calibration manifest digest must block: %v", codes)
+	}
+
+	// An unreadable manifest path is its own typed finding, never silent.
+	codes = findingCodes(mutate(func(corpora map[string]any) {
+		entry := corpora["hidden"].(map[string]any)
+		entry["manifest_path"] = "corpora/hidden/does-not-exist.json"
+	}))
+	if codes["CALIBRATION_MANIFEST_UNREADABLE"] == 0 {
+		t.Fatalf("unreadable calibration manifest path must block: %v", codes)
+	}
+
+	// A missing/mistyped digest field is unreadable-typed too.
+	codes = findingCodes(mutate(func(corpora map[string]any) {
+		entry := corpora["sealed"].(map[string]any)
+		delete(entry, "manifest_sha256")
+	}))
+	if codes["CALIBRATION_MANIFEST_UNREADABLE"] == 0 {
+		t.Fatalf("missing calibration manifest digest must block: %v", codes)
+	}
+}
+
 func TestVerifyLiveEvidenceCalibrationGateConsistency(t *testing.T) {
 	root, protectedRoot, generated := writeAllToTemp(t)
 	document, err := BuildCalibration(root, protectedRoot, generated)

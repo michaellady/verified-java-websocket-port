@@ -6,7 +6,7 @@
       "expected": 49,
       "filtered": 0,
       "manifest_path": "corpora/handshake/manifest.json",
-      "manifest_sha256": "sha256:dabecb666f21019345fdc819b2235433dec8018dc6d2cc780c9cadc6156d38fd",
+      "manifest_sha256": "sha256:c7a9e57902b1416e35d93f3b75071a2b926959cefc252466257b64a0cf0cfa8a",
       "selected": 49
     },
     "hidden": {

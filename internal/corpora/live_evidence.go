@@ -51,9 +51,53 @@ func VerifyLiveEvidence(root, protectedRoot string) ([]Finding, error) {
 		if err != nil {
 			return nil, fmt.Errorf("calibration document: %w", err)
 		}
+		verifyCalibrationManifestBindings(root, calibrationPath, document, fail)
 		verifyCalibrationLiveGates(calibrationPath, document, protectedRoot, fail)
 	}
 	return findings, nil
+}
+
+// verifyCalibrationManifestBindings reconciles the calibration document's
+// corpora manifest_sha256 bindings against the actual manifest files. AC5's
+// "any mismatch blocks" must hold end to end: a stale binding, an unreadable
+// manifest, or a missing digest field is a typed finding — never silently
+// accepted.
+func verifyCalibrationManifestBindings(root, path string, document map[string]any,
+	fail func(code, path, detail string)) {
+	corpora, _ := document["corpora"].(map[string]any)
+	if corpora == nil {
+		fail("CALIBRATION_MANIFEST_UNREADABLE", path,
+			"calibration document carries no corpora section")
+		return
+	}
+	for tier, rawEntry := range corpora {
+		entry, _ := rawEntry.(map[string]any)
+		if entry == nil {
+			fail("CALIBRATION_MANIFEST_UNREADABLE", path,
+				"corpora."+tier+" is not an object")
+			continue
+		}
+		manifestPath, _ := entry["manifest_path"].(string)
+		pinned, _ := entry["manifest_sha256"].(string)
+		if manifestPath == "" || pinned == "" {
+			fail("CALIBRATION_MANIFEST_UNREADABLE", path, fmt.Sprintf(
+				"corpora.%s must record manifest_path and manifest_sha256 "+
+					"(path=%q digest=%q)", tier, manifestPath, pinned))
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(root, manifestPath))
+		if err != nil {
+			fail("CALIBRATION_MANIFEST_UNREADABLE", path, fmt.Sprintf(
+				"corpora.%s manifest %q is unreadable: %v", tier, manifestPath, err))
+			continue
+		}
+		actual := DigestSHA256(raw)
+		if actual != pinned {
+			fail("CALIBRATION_MANIFEST_DIGEST_MISMATCH", path, fmt.Sprintf(
+				"corpora.%s binds %s but %s hashes to %s",
+				tier, pinned, manifestPath, actual))
+		}
+	}
 }
 
 func intCount(container map[string]any, field string) int {
