@@ -38,6 +38,7 @@ public final class AutobahnEndpoint {
   private static final String SUPPORT_DIGEST =
       "sha256:e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9";
   private static final String AGENT = "verified-java-websocket-port-1.6.0";
+  private static final String AUTOBAHN_HOST = "172.30.242.4:9001";
   private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
   private static final Duration CASE_TIMEOUT = Duration.ofSeconds(45);
 
@@ -55,8 +56,10 @@ public final class AutobahnEndpoint {
           break;
         case "client":
           parsed.requireExactly(
-              "adapter", "adapter-digest", "runtime", "support", "url", "case-count");
-          runClient(parsed.value("url"), parsed.positiveInt("case-count"));
+              "adapter", "adapter-digest", "runtime", "support", "url", "host-header",
+              "case-count");
+          runClient(
+              parsed.value("url"), parsed.value("host-header"), parsed.positiveInt("case-count"));
           printStatus("CLIENT_COMPLETE", parsed);
           break;
         case "server":
@@ -128,17 +131,21 @@ public final class AutobahnEndpoint {
     return "sha256:" + hexadecimal;
   }
 
-  private static void runClient(String baseURL, int caseCount) throws Exception {
+  private static void runClient(String baseURL, String hostHeader, int caseCount) throws Exception {
     URI base = strictLoopbackURI(baseURL);
+    if (!AUTOBAHN_HOST.equals(hostHeader)) {
+      throw new IllegalArgumentException("client Host header differs from fixed Autobahn authority");
+    }
     if (caseCount > 10000) {
       throw new IllegalArgumentException("case-count exceeds bound");
     }
     String agent = URLEncoder.encode(AGENT, StandardCharsets.UTF_8);
     for (int caseNumber = 1; caseNumber <= caseCount; caseNumber++) {
       URI uri = base.resolve("/runCase?case=" + caseNumber + "&agent=" + agent);
-      EchoClient client = new EchoClient(uri);
+      EchoClient client = new EchoClient(uri, hostHeader);
       if (!client.connectBlocking(CONNECT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-        throw new IOException("case " + caseNumber + " did not connect");
+        throw new IOException(
+            "case " + caseNumber + " did not connect: " + client.connectionFailure());
       }
       if (!client.awaitClose(CASE_TIMEOUT)) {
         client.close();
@@ -146,9 +153,9 @@ public final class AutobahnEndpoint {
       }
       client.closeBlocking();
     }
-    EchoClient update = new EchoClient(base.resolve("/updateReports?agent=" + agent));
+    EchoClient update = new EchoClient(base.resolve("/updateReports?agent=" + agent), hostHeader);
     if (!update.connectBlocking(CONNECT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
-      throw new IOException("report update did not connect");
+      throw new IOException("report update did not connect: " + update.connectionFailure());
     }
     if (!update.awaitClose(CASE_TIMEOUT)) {
       update.close();
@@ -191,12 +198,13 @@ public final class AutobahnEndpoint {
   }
 
   private static void runSelfTest() throws Exception {
-    EchoServer server = new EchoServer(new InetSocketAddress("127.0.0.1", 0));
+    EchoServer server = new EchoServer(new InetSocketAddress("127.0.0.1", 0), AUTOBAHN_HOST);
     server.start();
     if (!server.awaitStart(CONNECT_TIMEOUT)) {
       throw new IOException("self-test server did not start: " + server.startupFailure());
     }
-    CanaryClient client = new CanaryClient(new URI("ws://127.0.0.1:" + server.getPort()));
+    CanaryClient client =
+        new CanaryClient(new URI("ws://127.0.0.1:" + server.getPort()), AUTOBAHN_HOST);
     if (!client.connectBlocking(CONNECT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
         || !client.await(CASE_TIMEOUT)) {
       client.close();
@@ -205,7 +213,7 @@ public final class AutobahnEndpoint {
     }
     client.closeBlocking();
     server.stop(5);
-    if (client.failure() != null) {
+    if (client.failure() != null || !server.hostHeaderMatched()) {
       throw new IOException("self-test failed: " + client.failure());
     }
   }
@@ -225,14 +233,18 @@ public final class AutobahnEndpoint {
 
   private static final class EchoClient extends WebSocketClient {
     private final CountDownLatch closed = new CountDownLatch(1);
+    private final AtomicReference<String> connectionFailure = new AtomicReference<>();
+    private volatile boolean opened;
 
-    EchoClient(URI uri) {
-      super(uri, new Draft_6455());
+    EchoClient(URI uri, String hostHeader) {
+      super(uri, new Draft_6455(), Map.of("Host", hostHeader));
       setConnectionLostTimeout(0);
     }
 
     @Override
-    public void onOpen(ServerHandshake handshake) {}
+    public void onOpen(ServerHandshake handshake) {
+      opened = true;
+    }
 
     @Override
     public void onMessage(String message) {
@@ -251,8 +263,20 @@ public final class AutobahnEndpoint {
 
     @Override
     public void onError(Exception exception) {
+      if (!opened) {
+        String message = exception.getMessage();
+        connectionFailure.compareAndSet(
+            null,
+            exception.getClass().getSimpleName()
+                + (message == null || message.isBlank() ? "" : ":" + message));
+      }
       // Protocol-error cases intentionally surface endpoint errors. Autobahn's
       // digest-bound report, not this thin transport, classifies the outcome.
+    }
+
+    String connectionFailure() {
+      String failure = connectionFailure.get();
+      return failure == null ? "timeout without endpoint error" : failure;
     }
 
     boolean awaitClose(Duration timeout) throws InterruptedException {
@@ -263,14 +287,26 @@ public final class AutobahnEndpoint {
   private static final class EchoServer extends WebSocketServer {
     private final CountDownLatch started = new CountDownLatch(1);
     private final AtomicReference<String> startupFailure = new AtomicReference<>();
+    private final AtomicReference<String> observedHost = new AtomicReference<>();
+    private final String expectedHost;
 
     EchoServer(InetSocketAddress address) {
+      this(address, null);
+    }
+
+    EchoServer(InetSocketAddress address, String expectedHost) {
       super(address, Collections.singletonList(new Draft_6455()));
+      this.expectedHost = expectedHost;
       setConnectionLostTimeout(0);
     }
 
     @Override
-    public void onOpen(WebSocket connection, ClientHandshake handshake) {}
+    public void onOpen(WebSocket connection, ClientHandshake handshake) {
+      observedHost.compareAndSet(null, handshake.getFieldValue("Host"));
+      if (expectedHost != null && !expectedHost.equals(observedHost.get())) {
+        connection.close();
+      }
+    }
 
     @Override
     public void onClose(WebSocket connection, int code, String reason, boolean remote) {}
@@ -308,6 +344,10 @@ public final class AutobahnEndpoint {
       String failure = startupFailure.get();
       return failure == null ? "timeout" : failure;
     }
+
+    boolean hostHeaderMatched() {
+      return expectedHost == null || expectedHost.equals(observedHost.get());
+    }
   }
 
   private static final class CanaryClient extends WebSocketClient {
@@ -317,8 +357,8 @@ public final class AutobahnEndpoint {
     private final AtomicReference<String> failure = new AtomicReference<>();
     private boolean textSeen;
 
-    CanaryClient(URI uri) {
-      super(uri, new Draft_6455());
+    CanaryClient(URI uri, String hostHeader) {
+      super(uri, new Draft_6455(), Map.of("Host", hostHeader));
       setConnectionLostTimeout(0);
     }
 

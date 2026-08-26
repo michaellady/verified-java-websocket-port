@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/tar"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -9,7 +10,10 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"sync"
 	"syscall"
 	"time"
@@ -23,9 +27,17 @@ const (
 	maximumChildOutput  = int64(16 << 20)
 	maximumChildRuntime = 180 * time.Second
 	copySignalTimeout   = 60 * time.Second
+	maximumReportFile   = int64(64 << 20)
+	maximumReportBytes  = int64(256 << 20)
+	expectedReportFiles = 4
+	reportsPath         = "/reports"
+	releaseMarkerPath   = "/tmp/autobahn-runner-release"
 )
 
-var tokenPattern = regexp.MustCompile(`^[0-9a-f]{64}$`)
+var (
+	tokenPattern      = regexp.MustCompile(`^[0-9a-f]{64}$`)
+	reportNamePattern = regexp.MustCompile(`^[a-z0-9_]+\.(?:html|json)$`)
+)
 
 type runnerContract struct {
 	role       string
@@ -34,7 +46,220 @@ type runnerContract struct {
 }
 
 func main() {
+	if len(os.Args) == 2 {
+		switch os.Args[1] {
+		case "copy-reports":
+			os.Exit(runReportCopy(os.Args[1:], os.Stdin, os.Stdout, os.Stderr))
+		case "release":
+			os.Exit(runRelease(os.Args[1:], os.Stdin, os.Stderr))
+		}
+	}
 	os.Exit(run(os.Args[1:], os.Stdin, os.Stderr))
+}
+
+func runReportCopy(arguments []string, input io.Reader, output, lifecycle io.Writer) int {
+	if len(arguments) != 1 || arguments[0] != "copy-reports" {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-arguments")
+		return 2
+	}
+	role, _, err := authenticateRunnerOperation(input)
+	if err != nil {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-authentication")
+		return 1
+	}
+	if err := writeReportArchive(reportsPath, output); err != nil {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED report-copy-files")
+		return 1
+	}
+	fmt.Fprintf(lifecycle, "RUNNER_REPORTS_COMPLETE role=%s files=%d maximum_bytes=%d\n", role, expectedReportFiles, maximumReportBytes)
+	return 0
+}
+
+func runRelease(arguments []string, input io.Reader, lifecycle io.Writer) int {
+	if len(arguments) != 1 || arguments[0] != "release" {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED release-arguments")
+		return 2
+	}
+	role, token, err := authenticateRunnerOperation(input)
+	if err != nil {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED release-authentication")
+		return 1
+	}
+	if err := writeReleaseMarker(releaseMarkerPath, token); err != nil {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED release-control")
+		return 1
+	}
+	fmt.Fprintf(lifecycle, "RUNNER_RELEASE_AUTHORIZED role=%s\n", role)
+	return 0
+}
+
+func authenticateRunnerOperation(input io.Reader) (string, string, error) {
+	role, rolePresent := os.LookupEnv("AUTOBAHN_RUNNER_ROLE")
+	token, tokenPresent := os.LookupEnv("AUTOBAHN_RUNNER_TOKEN")
+	contract, contractErr := fixedContract(role)
+	if !rolePresent || !tokenPresent || contractErr != nil || !tokenPattern.MatchString(token) {
+		return "", "", errors.New("invalid runner operation environment")
+	}
+	if err := readCopySignal(input, token); err != nil {
+		return "", "", err
+	}
+	if digest, err := digestRegular(wstestPath, 1<<20); err != nil || digest != wstestDigest {
+		return "", "", errors.New("runner operation wstest differs")
+	}
+	if digest, err := digestRegular(pypyPath, 32<<20); err != nil || digest != pypyDigest {
+		return "", "", errors.New("runner operation interpreter differs")
+	}
+	if _, err := digestRegular(contract.configPath, 1<<20); err != nil {
+		return "", "", errors.New("runner operation config differs")
+	}
+	return role, token, nil
+}
+
+func writeReleaseMarker(path, token string) error {
+	if !tokenPattern.MatchString(token) {
+		return errors.New("invalid release token")
+	}
+	if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+		return errors.New("release marker already exists or cannot be inspected")
+	}
+	data := releaseMarkerBytes(token)
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o400)
+	if err != nil {
+		return err
+	}
+	written, writeErr := file.Write(data)
+	syncErr := file.Sync()
+	closeErr := file.Close()
+	if writeErr != nil || written != len(data) || syncErr != nil || closeErr != nil {
+		return errors.New("release marker could not be durably written")
+	}
+	if err := verifyReleaseMarker(path, data); err != nil {
+		return err
+	}
+	return syncControlDirectory(filepath.Dir(path))
+}
+
+func consumeReleaseMarker(path, token string) error {
+	if !tokenPattern.MatchString(token) {
+		return errors.New("invalid release token")
+	}
+	expected := releaseMarkerBytes(token)
+	if err := verifyReleaseMarker(path, expected); err != nil {
+		return err
+	}
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	return syncControlDirectory(filepath.Dir(path))
+}
+
+func verifyReleaseMarker(path string, expected []byte) error {
+	before, err := os.Lstat(path)
+	if err != nil || !before.Mode().IsRegular() || before.Mode().Perm() != 0o400 || before.Size() != int64(len(expected)) || reportLinkCount(before) != 1 {
+		return errors.New("release marker is not one exact private regular file")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	opened, statErr := file.Stat()
+	data, readErr := io.ReadAll(io.LimitReader(file, int64(len(expected))+1))
+	after, afterErr := file.Stat()
+	closeErr := file.Close()
+	if statErr != nil || readErr != nil || afterErr != nil || closeErr != nil || !os.SameFile(before, opened) || !os.SameFile(opened, after) || reportLinkCount(opened) != 1 || reportLinkCount(after) != 1 || string(data) != string(expected) {
+		return errors.New("release marker identity or content differs")
+	}
+	return nil
+}
+
+func releaseMarkerBytes(token string) []byte {
+	digest := sha256.Sum256([]byte(token))
+	return []byte("sha256:" + hex.EncodeToString(digest[:]) + "\n")
+}
+
+func syncControlDirectory(path string) error {
+	directory, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer directory.Close()
+	return directory.Sync()
+}
+
+func writeReportArchive(directory string, output io.Writer) error {
+	root, err := os.Lstat(directory)
+	if err != nil || !root.IsDir() || root.Mode()&os.ModeSymlink != 0 {
+		return errors.New("report root is not a real directory")
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil || len(entries) != expectedReportFiles {
+		return errors.New("report root does not contain exactly four entries")
+	}
+	names := make([]string, 0, len(entries))
+	var aggregate int64
+	for _, entry := range entries {
+		name := entry.Name()
+		if filepath.Base(name) != name || !reportNamePattern.MatchString(name) {
+			return errors.New("report entry name is not fixed and safe")
+		}
+		path := filepath.Join(directory, name)
+		info, statErr := os.Lstat(path)
+		if statErr != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() < 1 || info.Size() > maximumReportFile || reportLinkCount(info) != 1 {
+			return errors.New("report entry is not one bounded regular file")
+		}
+		if aggregate > maximumReportBytes-info.Size() {
+			return errors.New("report entries exceed the aggregate bound")
+		}
+		aggregate += info.Size()
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	archive := tar.NewWriter(output)
+	for _, name := range names {
+		path := filepath.Join(directory, name)
+		before, err := os.Lstat(path)
+		if err != nil || !before.Mode().IsRegular() || before.Size() < 1 || before.Size() > maximumReportFile || reportLinkCount(before) != 1 {
+			return errors.New("report entry changed before streaming")
+		}
+		file, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		opened, statErr := file.Stat()
+		if statErr != nil || !os.SameFile(before, opened) || reportLinkCount(opened) != 1 {
+			_ = file.Close()
+			return errors.New("report entry identity changed before streaming")
+		}
+		header := &tar.Header{Name: name, Mode: 0o400, Size: before.Size(), Typeflag: tar.TypeReg, ModTime: time.Unix(0, 0), Format: tar.FormatUSTAR}
+		if err := archive.WriteHeader(header); err != nil {
+			_ = file.Close()
+			return err
+		}
+		written, copyErr := io.CopyN(archive, file, before.Size())
+		afterFD, fdErr := file.Stat()
+		afterPath, pathErr := os.Lstat(path)
+		closeErr := file.Close()
+		if copyErr != nil || written != before.Size() || fdErr != nil || pathErr != nil || closeErr != nil || !os.SameFile(before, afterFD) || !os.SameFile(afterFD, afterPath) || afterFD.Size() != before.Size() || afterFD.ModTime() != before.ModTime() || reportLinkCount(afterFD) != 1 || reportLinkCount(afterPath) != 1 {
+			return errors.New("report entry changed while streaming")
+		}
+	}
+	afterEntries, err := os.ReadDir(directory)
+	if err != nil || len(afterEntries) != len(names) {
+		return errors.New("report entry set changed while streaming")
+	}
+	for index, entry := range afterEntries {
+		if entry.Name() != names[index] {
+			return errors.New("report entry set changed while streaming")
+		}
+	}
+	return archive.Close()
+}
+
+func reportLinkCount(info os.FileInfo) uint64 {
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		return uint64(stat.Nlink)
+	}
+	return 1
 }
 
 func run(arguments []string, input io.Reader, lifecycle io.Writer) int {
@@ -63,8 +288,20 @@ func run(arguments []string, input io.Reader, lifecycle io.Writer) int {
 		return 2
 	}
 
+	if _, err := os.Lstat(releaseMarkerPath); !errors.Is(err, os.ErrNotExist) {
+		fmt.Fprintln(lifecycle, "RUNNER_DENIED release-marker")
+		return 2
+	}
+	defer os.Remove(releaseMarkerPath)
+	releaseSignal := make(chan os.Signal, 1)
+	signal.Notify(releaseSignal, syscall.SIGUSR1)
+	defer signal.Stop(releaseSignal)
 	copySignal := make(chan error, 1)
-	go func() { copySignal <- readCopySignal(input, token) }()
+	go func() {
+		<-releaseSignal
+		copySignal <- consumeReleaseMarker(releaseMarkerPath, token)
+	}()
+	_ = input
 	output := newBoundedDigestWriter(lifecycle, maximumChildOutput)
 	command := exec.Command(wstestPath, contract.arguments...)
 	command.Env = []string{

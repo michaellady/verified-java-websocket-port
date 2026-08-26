@@ -32,7 +32,7 @@ const (
 
 // AutobahnEndpointSourceDigest is updated only when the deliberately thin,
 // noninteractive adapter source is reviewed as part of this qualification.
-const AutobahnEndpointSourceDigest = "sha256:91a335d5872c3f3b1ffeb2228184e73ea2871499910235042fb408e255cbfcde"
+const AutobahnEndpointSourceDigest = "sha256:43540e7f047158238bf227a816ffab2f8faf93c96368ed004b539eb7bfec0a46"
 
 type AutobahnEndpointBuildConfig struct {
 	SourcePath       string

@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"net"
 	"os"
@@ -23,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
@@ -815,10 +817,10 @@ func runAttachedRelay(ctx context.Context, docker dockerController, container st
 		logs, _ := docker.output(context.Background(), "logs", "--tail", "20", container)
 		return nil, append([]byte(nil), lifecycle.buffer.Bytes()...), finding("AUTOBAHN_RELAY_FRAME_MALFORMED", "$.relay.attach", boundedString(decodeErr.Error()+" log_hex="+hex.EncodeToString(logs), 2048))
 	}
-	extra, extraErr := io.ReadAll(io.LimitReader(stdout, 2))
-	_ = stdin.Close()
-	waitErr := command.Wait()
 	writeErr := <-writeDone
+	_ = stdin.Close()
+	extra, extraErr := io.ReadAll(io.LimitReader(stdout, 2))
+	waitErr := command.Wait()
 	if extraErr != nil || len(extra) != 0 {
 		return nil, append([]byte(nil), lifecycle.buffer.Bytes()...), finding("AUTOBAHN_RELAY_FRAME_MALFORMED", "$.relay.attach", "bytes follow the terminal output END frame")
 	}
@@ -936,7 +938,7 @@ func encodeAttachedStream(source io.Reader, destination io.Writer) error {
 			total += int64(read)
 		}
 		if err != nil {
-			if !errors.Is(err, io.EOF) && !errors.Is(err, net.ErrClosed) {
+			if !terminalAttachedReadError(err) {
 				return finding("AUTOBAHN_RELAY_FRAME_FAILED", "$.relay.attach", "loopback input stream failed")
 			}
 			return writeAttachedFrame(destination, attachFrameEnd, nil)
@@ -944,8 +946,12 @@ func encodeAttachedStream(source io.Reader, destination io.Writer) error {
 	}
 }
 
-func runAttachedRelayTCP(ctx context.Context, docker dockerController, container string, connection *net.TCPConn) ([]byte, error) {
-	if docker.path == "" || connection == nil || !tcpConnectionIsLoopback(connection) || !regexp.MustCompile(`^vjwt-relay-[0-9a-f]{16}$`).MatchString(container) {
+func terminalAttachedReadError(err error) bool {
+	return errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.ECONNRESET)
+}
+
+func runAttachedRelayTCP(ctx context.Context, docker dockerController, container string, connection *net.TCPConn, expectedRole string) ([]byte, error) {
+	if docker.path == "" || connection == nil || !tcpConnectionIsLoopback(connection) || !regexp.MustCompile(`^vjwt-relay-[0-9a-f]{16}$`).MatchString(container) || expectedRole != "dial" && expectedRole != "listen" {
 		return nil, finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay", "streaming attach requires the exact Docker CLI, relay identity, and loopback TCP peer")
 	}
 	defer connection.Close()
@@ -967,26 +973,157 @@ func runAttachedRelayTCP(ctx context.Context, docker dockerController, container
 	if err := command.Start(); err != nil {
 		return lifecycle.buffer.Bytes(), err
 	}
+	inputCounter := newRelayTransferCounter()
+	outputCounter := newRelayTransferCounter()
+	loopbackOutput := newRelayLoopbackOutput(connection, outputCounter)
 	inputDone := make(chan error, 1)
-	go func() { inputDone <- encodeAttachedStream(connection, stdin) }()
-	decodeErr := decodeAttachedStream(stdout, connection)
+	go func() { inputDone <- encodeAttachedStream(io.TeeReader(connection, inputCounter), stdin) }()
+	decodeErr := decodeAttachedStream(stdout, loopbackOutput)
 	if decodeErr == nil {
 		_ = connection.CloseWrite()
 	}
+	var inputErr error
+	select {
+	case inputErr = <-inputDone:
+	case <-ctx.Done():
+		_ = connection.Close()
+		inputErr = <-inputDone
+	case <-time.After(30 * time.Second):
+		_ = connection.Close()
+		<-inputDone
+		inputErr = finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", "loopback input did not finish after the terminal relay output")
+	}
+	_ = stdin.Close()
 	extra, extraErr := io.ReadAll(io.LimitReader(stdout, 2))
 	waitErr := command.Wait()
-	_ = stdin.Close()
-	inputErr := <-inputDone
-	if decodeErr != nil || inputErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || !exactRelayLifecycle(lifecycle.buffer.Bytes(), relayRoleFromLifecycle(lifecycle.buffer.Bytes()), true) {
-		detail := boundedString(boundedDetail(lifecycle.buffer.Bytes(), waitErr), 2048)
-		return append([]byte(nil), lifecycle.buffer.Bytes()...), finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", detail)
+	_ = connection.Close()
+	lifecycleReceipt := append([]byte(nil), lifecycle.buffer.Bytes()...)
+	lifecycleReceipt = recoverRelayLifecycle(ctx, docker, container, expectedRole, lifecycleReceipt)
+	lifecycleReceipt = append(lifecycleReceipt, []byte(fmt.Sprintf("\nCONTROLLER_TRANSFER input_bytes=%d input_digest=%s output_bytes=%d output_digest=%s output_prefix_hex=%s output_undeliverable_bytes=%d\n", inputCounter.bytes, inputCounter.digestString(), outputCounter.bytes, outputCounter.digestString(), outputCounter.sampleHex(), loopbackOutput.undeliverableBytes))...)
+	lifecycleOK := exactRelayLifecycle(lifecycleReceipt, expectedRole, true)
+	if decodeErr != nil || inputErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || ctx.Err() != nil || !lifecycleOK {
+		terminal := fmt.Sprintf("CONTROLLER_TERMINAL decode=%q input=%q extra=%q trailing=%d wait=%q context=%q lifecycle=%t\n", relayTerminalError(decodeErr), relayTerminalError(inputErr), relayTerminalError(extraErr), len(extra), relayTerminalError(waitErr), relayTerminalError(ctx.Err()), lifecycleOK)
+		detail := boundedString(terminal+boundedDetail(lifecycleReceipt, waitErr), 2048)
+		return lifecycleReceipt, finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", detail)
 	}
-	return append([]byte(nil), lifecycle.buffer.Bytes()...), nil
+	return lifecycleReceipt, nil
+}
+
+type relayTransferCounter struct {
+	digest hash.Hash
+	bytes  int64
+	sample []byte
+}
+
+type relayLoopbackOutput struct {
+	destination        io.Writer
+	counter            *relayTransferCounter
+	destinationClosed  bool
+	undeliverableBytes int64
+}
+
+func newRelayLoopbackOutput(destination io.Writer, counter *relayTransferCounter) *relayLoopbackOutput {
+	return &relayLoopbackOutput{destination: destination, counter: counter}
+}
+
+func (output *relayLoopbackOutput) Write(data []byte) (int, error) {
+	if len(data) == 0 || output.destination == nil || output.counter == nil {
+		return 0, io.ErrShortWrite
+	}
+	if _, err := output.counter.Write(data); err != nil {
+		return 0, err
+	}
+	if output.destinationClosed {
+		output.undeliverableBytes += int64(len(data))
+		return len(data), nil
+	}
+	written, err := output.destination.Write(data)
+	if written < 0 || written > len(data) {
+		return 0, io.ErrShortWrite
+	}
+	if terminalAttachedWriteError(err) {
+		output.destinationClosed = true
+		output.undeliverableBytes += int64(len(data) - written)
+		return len(data), nil
+	}
+	if err != nil {
+		return written, err
+	}
+	if written != len(data) {
+		return written, io.ErrShortWrite
+	}
+	return written, nil
+}
+
+func terminalAttachedWriteError(err error) bool {
+	return errors.Is(err, net.ErrClosed) || errors.Is(err, syscall.EPIPE) || errors.Is(err, syscall.ECONNRESET)
+}
+
+func newRelayTransferCounter() *relayTransferCounter {
+	return &relayTransferCounter{digest: sha256.New()}
+}
+
+func (c *relayTransferCounter) Write(data []byte) (int, error) {
+	written, err := c.digest.Write(data)
+	c.bytes += int64(written)
+	if remaining := 512 - len(c.sample); remaining > 0 {
+		if remaining > len(data) {
+			remaining = len(data)
+		}
+		c.sample = append(c.sample, data[:remaining]...)
+	}
+	return written, err
+}
+
+func (c *relayTransferCounter) digestString() string {
+	return "sha256:" + hex.EncodeToString(c.digest.Sum(nil))
+}
+
+func (c *relayTransferCounter) sampleHex() string {
+	return hex.EncodeToString(c.sample)
+}
+
+func relayTerminalError(err error) string {
+	if err == nil {
+		return "ok"
+	}
+	return boundedString(err.Error(), 256)
+}
+
+func recoverRelayLifecycle(ctx context.Context, docker dockerController, container, expectedRole string, lifecycle []byte) []byte {
+	if expectedRole != "dial" && expectedRole != "listen" || exactRelayLifecycle(lifecycle, expectedRole, true) || docker.path == "" && docker.run == nil {
+		return lifecycle
+	}
+	paired := "RELAY_PAIRED role=" + expectedRole
+	complete := "RELAY_COMPLETE role=" + expectedRole
+	for attempt := 0; attempt < 50; attempt++ {
+		logs, err := docker.output(ctx, "logs", "--tail", "20", container)
+		if err == nil {
+			if denied := exactRelayDeniedLine(logs); denied != "" {
+				return append(lifecycle, []byte("\n"+denied+"\n")...)
+			}
+			if !containsExactLine(lifecycle, paired) && containsExactLine(logs, paired) {
+				lifecycle = append(lifecycle, []byte("\n"+paired+"\n")...)
+			}
+			if !containsExactLine(lifecycle, complete) && containsExactLine(logs, complete) {
+				lifecycle = append(lifecycle, []byte("\n"+complete+"\n")...)
+			}
+			if exactRelayLifecycle(lifecycle, expectedRole, true) {
+				return lifecycle
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return lifecycle
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+	return lifecycle
 }
 
 func relayRoleFromLifecycle(lifecycle []byte) string {
 	for _, role := range []string{"listen", "dial"} {
-		if bytes.Contains(lifecycle, []byte("RELAY_PAIRED role="+role)) {
+		if containsExactLine(lifecycle, "RELAY_PAIRED role="+role) {
 			return role
 		}
 	}
@@ -1000,10 +1137,30 @@ func tcpConnectionIsLoopback(connection *net.TCPConn) bool {
 }
 
 func exactRelayLifecycle(lifecycle []byte, role string, complete bool) bool {
-	if bytes.Contains(lifecycle, []byte("RELAY_DENIED")) || !bytes.Contains(lifecycle, []byte("RELAY_PAIRED role="+role)) {
+	if exactRelayDeniedLine(lifecycle) != "" || !containsExactLine(lifecycle, "RELAY_PAIRED role="+role) {
 		return false
 	}
-	return !complete || bytes.Contains(lifecycle, []byte("RELAY_COMPLETE role="+role))
+	return !complete || containsExactLine(lifecycle, "RELAY_COMPLETE role="+role)
+}
+
+func containsExactLine(value []byte, expected string) bool {
+	for _, line := range bytes.Split(value, []byte{'\n'}) {
+		if string(bytes.TrimSuffix(line, []byte{'\r'})) == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func exactRelayDeniedLine(value []byte) string {
+	denied := regexp.MustCompile(`^RELAY_DENIED [a-z-]+$`)
+	for _, line := range bytes.Split(value, []byte{'\n'}) {
+		line = bytes.TrimSuffix(line, []byte{'\r'})
+		if denied.Match(line) {
+			return string(line)
+		}
+	}
+	return ""
 }
 
 func removeAutobahnContainer(docker dockerController, name string) {
@@ -1099,6 +1256,28 @@ func countExactEnvironment(environment []string, expected string) int {
 		}
 	}
 	return count
+}
+
+func equalUnorderedStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	counts := make(map[string]int, len(left))
+	for _, value := range left {
+		counts[value]++
+	}
+	for _, value := range right {
+		counts[value]--
+		if counts[value] < 0 {
+			return false
+		}
+	}
+	for _, count := range counts {
+		if count != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func countEnvironmentPrefix(environment []string, prefix string) int {
@@ -1253,7 +1432,7 @@ func buildAutobahnExecutionPlan(endpoint AutobahnEndpointReceipt, relay Autobahn
 		RunnerSourceDigest: runner.Source.Digest, RunnerBinaryDigest: runner.Binary.Digest, WSTestDigest: runner.WSTestDigest, InterpreterDigest: runner.InterpreterDigest,
 		ReportSourceDigest: PinnedAutobahnReportSourceDigest, ImageManifestDigest: image.ManifestDigest, ImageConfigDigest: image.ConfigDigest,
 		NetworkSubnet: network.Subnet, ControlTransport: network.ControlTransport, FrameProtocol: "DATA-1-END-2-BE32-64KiB-256MiB-v1",
-		ConfigMount: "read-only-bind", ReportsTransport: "bounded-tmpfs-then-hostile-copy-validation", ReportsTmpfsBytes: 256 << 20, ExpectedReportFilesPerCase: 4,
+		ConfigMount: "read-only-bind", ReportsTransport: "authenticated-bounded-runner-tar-from-tmpfs", ReportsTmpfsBytes: 256 << 20, ExpectedReportFilesPerCase: 4,
 		FailurePolicy:           "attempt-client-once-and-server-once-preserve-blocked-receipt",
 		ClientTransportSessions: len(selection.SelectedCaseIDs) * 2, ServerTransportSessions: len(selection.SelectedCaseIDs),
 		Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", IndependentReviewClaimed: false,
@@ -1440,16 +1619,18 @@ func runJavaAutobahnClientCase(ctx context.Context, docker dockerController, net
 		"-cp", endpointClasspath(endpoint), AutobahnEndpointClass, "client",
 		"--adapter", endpoint.Adapter.Path, "--adapter-digest", endpoint.Adapter.Digest,
 		"--runtime", endpoint.RuntimeCopy.Path, "--support", endpoint.Support.Path,
-		"--url", "ws://127.0.0.1:"+strconv.Itoa(port), "--case-count", "1")
+		"--url", "ws://127.0.0.1:"+strconv.Itoa(port), "--host-header", autobahnFuzzingServerAddress+":9001", "--case-count", "1")
 	if runErr != nil || !bytes.Contains(output, []byte("CLIENT_COMPLETE runtime="+JavaWebSocketRuntimeDigest)) {
 		cancel()
 		_ = listener.Close()
+		var sessionErr error
 		select {
-		case <-sessions:
+		case sessionErr = <-sessions:
 		case <-time.After(30 * time.Second):
+			sessionErr = finding("AUTOBAHN_CLIENT_MODE_FAILED", "$.client.sessions", "relay session cleanup did not finish within its bound")
 		}
 		logs, _ := docker.output(context.Background(), "logs", "--tail", "100", fuzzingServer)
-		return finding("AUTOBAHN_CLIENT_MODE_FAILED", "$.client.endpoint", boundedString(boundedDetail(output, runErr)+" docker="+string(logs), 2048))
+		return finding("AUTOBAHN_CLIENT_MODE_FAILED", "$.client.endpoint", clientEndpointFailureDetail(output, runErr, sessionErr, logs))
 	}
 	select {
 	case sessionErr := <-sessions:
@@ -1460,6 +1641,14 @@ func runJavaAutobahnClientCase(ctx context.Context, docker dockerController, net
 		return ctx.Err()
 	}
 	return nil
+}
+
+func clientEndpointFailureDetail(endpointOutput []byte, endpointErr, sessionErr error, runnerLogs []byte) string {
+	session := "relay sessions unexpectedly returned without a failure"
+	if sessionErr != nil {
+		session = sessionErr.Error()
+	}
+	return boundedString("session="+session+" endpoint="+boundedDetail(endpointOutput, endpointErr)+" docker="+string(runnerLogs), 2048)
 }
 
 func runFixedClientRelaySessions(ctx context.Context, docker dockerController, network string, relay AutobahnRelayReceipt, listener *net.TCPListener, expected int) error {
@@ -1480,7 +1669,7 @@ func runFixedClientRelaySessions(ctx context.Context, docker dockerController, n
 			cleanup()
 			return finding("AUTOBAHN_CLIENT_MODE_FAILED", "$.client.sessions", "Java client did not use the exact loopback listener")
 		}
-		lifecycle, attachErr := runAttachedRelayTCP(ctx, docker, container, connection)
+		lifecycle, attachErr := runAttachedRelayTCP(ctx, docker, container, connection, "dial")
 		exitErr := waitContainerExit(ctx, docker, container, "0")
 		cleanup()
 		if attachErr != nil || exitErr != nil || !exactRelayLifecycle(lifecycle, "dial", true) {
@@ -1541,7 +1730,7 @@ func runAutobahnServerMode(ctx context.Context, docker dockerController, network
 				attached <- attachedModeResult{err: dialErr}
 				return
 			}
-			lifecycle, attachErr := runAttachedRelayTCP(caseContext, docker, container, connection)
+			lifecycle, attachErr := runAttachedRelayTCP(caseContext, docker, container, connection, "listen")
 			attached <- attachedModeResult{lifecycle: lifecycle, err: attachErr}
 		}()
 		output, extractionDigest, runErr := runFuzzingClient(caseContext, docker, network, configDirectory, configDigest, reportDirectory, caseID, runner)
@@ -1660,7 +1849,7 @@ func autobahnDockerRunArguments(network, configDirectory, mode, name, token stri
 		address = autobahnFuzzingClientAddress
 	}
 	return []string{
-		"run", "--detach", "--interactive", "--name", name,
+		"run", "--detach", "--name", name,
 		"--label", "org.verified-java-websocket.scope=us002-autobahn", "--label", "org.verified-java-websocket.role=" + mode,
 		"--pull=never", "--platform", "linux/amd64", "--network", network, "--ip", address,
 		"--read-only", "--cap-drop", "ALL", "--security-opt", "no-new-privileges", "--pids-limit", "128", "--memory", "1g", "--cpus", "2",
@@ -1764,7 +1953,7 @@ func validateAutobahnRunnerContainerInspect(output []byte, container autobahnRun
 		"PATH=/opt/pypy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "PYPY_VERSION=7.3.20",
 		"DEBIAN_FRONTEND=noninteractive", "NODE_PATH=/usr/local/lib/node_modules/", "AUTOBAHN_RUNNER_ROLE=" + container.role, "AUTOBAHN_RUNNER_TOKEN=" + container.token,
 	}
-	if actualName != "/"+container.name || image != AutobahnImageManifestDigest || executable != "/autobahn-runner" || len(arguments) != 0 || !openStdin || tty || user != "" || !equalStrings(entrypoint, []string{"/autobahn-runner"}) || !equalStrings(environment, expectedEnvironment) || networkMode != network || !readOnly || privileged || !equalStrings(capDrop, []string{"ALL"}) || !equalStrings(securityOptions, []string{"no-new-privileges"}) || len(portBindings) != 0 || len(ports) != 1 || pidsLimit != 128 || memory != 1<<30 || nanoCPUs != 2_000_000_000 {
+	if actualName != "/"+container.name || image != AutobahnImageManifestDigest || executable != "/autobahn-runner" || len(arguments) != 0 || openStdin || tty || user != "" || !equalStrings(entrypoint, []string{"/autobahn-runner"}) || !equalUnorderedStrings(environment, expectedEnvironment) || networkMode != network || !readOnly || privileged || !equalStrings(capDrop, []string{"ALL"}) || !equalStrings(securityOptions, []string{"no-new-privileges"}) || len(portBindings) != 0 || len(ports) != 1 || pidsLimit != 128 || memory != 1<<30 || nanoCPUs != 2_000_000_000 {
 		return finding("AUTOBAHN_RUNNER_CONTAINER_IDENTITY_MISMATCH", "$.runner.container", "runner entrypoint, image, environment, resources, privilege, or no-publication identity differs")
 	}
 	if labels["org.verified-java-websocket.scope"] != "us002-autobahn" || labels["org.verified-java-websocket.role"] != container.role {
@@ -1785,10 +1974,9 @@ func validateAutobahnRunnerContainerInspect(output []byte, container autobahnRun
 		writable     bool
 	}{
 		"/config": {kind: "bind", source: configDirectory}, "/autobahn-runner": {kind: "bind", source: binaryPath},
-		"/tmp": {kind: "tmpfs", writable: true}, "/reports": {kind: "tmpfs", writable: true},
 	}
 	if len(mounts) != len(expectedMounts) {
-		return finding("AUTOBAHN_RUNNER_CONTAINER_IDENTITY_MISMATCH", "$.runner.container.mount", "runner mount set contains an undeclared or anonymous mount")
+		return finding("AUTOBAHN_RUNNER_CONTAINER_IDENTITY_MISMATCH", "$.runner.container.mount", "runner bind mount set contains an undeclared or anonymous mount")
 	}
 	for _, mount := range mounts {
 		var kind, source, destination string
@@ -1885,7 +2073,7 @@ func runFuzzingClient(ctx context.Context, docker dockerController, network, con
 		return output, "", runErr
 	}
 	extractionDigest, copyErr := copyThenReleaseAutobahnReports(
-		func() (string, error) { return copyAutobahnReports(docker, container.name, reportDirectory, caseID) },
+		func() (string, error) { return copyAutobahnReports(docker, container, reportDirectory, caseID) },
 		func() error { return releaseAutobahnRunner(docker, container) },
 	)
 	if copyErr != nil {
@@ -1903,7 +2091,7 @@ func collectAndReleaseAutobahnContainer(docker dockerController, container autob
 		return "", flushErr
 	}
 	return copyThenReleaseAutobahnReports(
-		func() (string, error) { return copyAutobahnReports(docker, container.name, reportDirectory, caseID) },
+		func() (string, error) { return copyAutobahnReports(docker, container, reportDirectory, caseID) },
 		func() error { return releaseAutobahnRunner(docker, container) },
 	)
 }
@@ -1920,39 +2108,136 @@ func copyThenReleaseAutobahnReports(copyReports func() (string, error), release 
 }
 
 func releaseAutobahnRunner(docker dockerController, container autobahnRunnerContainer) error {
+	if docker.path == "" || !regexp.MustCompile(`^vjwt-fuzz(?:server|client)-[0-9a-f]{16}$`).MatchString(container.name) || container.role != "fuzzingserver" && container.role != "fuzzingclient" || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(container.token) {
+		return finding("AUTOBAHN_RUNNER_RELEASE_FAILED", "$.runner", "runner release requires an exact fixed container identity")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	command := exec.CommandContext(ctx, docker.path, "attach", "--sig-proxy=false", container.name)
+	command := exec.CommandContext(ctx, docker.path, autobahnRunnerReleaseArguments(container)...)
 	command.Dir = "/private/tmp"
 	command.Env = []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}
 	command.Stdin = strings.NewReader(container.token + "\n")
 	output := &boundedBuffer{limit: 64 << 10}
 	command.Stdout, command.Stderr = output, output
 	err := command.Run()
-	if err != nil || bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_DENIED")) || !bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_COPY_COMPLETE role="+container.role)) {
+	if err != nil || bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_DENIED")) || !bytes.Contains(output.buffer.Bytes(), []byte("RUNNER_RELEASE_AUTHORIZED role="+container.role)) {
 		return finding("AUTOBAHN_RUNNER_RELEASE_FAILED", "$.runner", boundedDetail(output.buffer.Bytes(), err))
 	}
-	return waitContainerExit(ctx, docker, container.name, "0")
+	killOutput, killErr := docker.output(ctx, "kill", "--signal", "USR1", container.name)
+	if killErr != nil || strings.TrimSpace(string(killOutput)) != container.name {
+		return finding("AUTOBAHN_RUNNER_RELEASE_FAILED", "$.runner", boundedDetail(killOutput, killErr))
+	}
+	if err := waitContainerExit(ctx, docker, container.name, "0"); err != nil {
+		return err
+	}
+	logs, err := docker.output(ctx, "logs", "--tail", "100", container.name)
+	if err != nil || bytes.Contains(logs, []byte("RUNNER_DENIED")) || !bytes.Contains(logs, []byte("RUNNER_COPY_COMPLETE role="+container.role)) {
+		return finding("AUTOBAHN_RUNNER_RELEASE_FAILED", "$.runner", boundedDetail(logs, err))
+	}
+	return nil
 }
 
-func copyAutobahnReports(docker dockerController, container, reportDirectory, caseID string) (string, error) {
-	if !regexp.MustCompile(`^vjwt-fuzz(?:server|client)-[0-9a-f]{16}$`).MatchString(container) {
+func autobahnRunnerReleaseArguments(container autobahnRunnerContainer) []string {
+	return []string{"exec", "--interactive", container.name, "/autobahn-runner", "release"}
+}
+
+func copyAutobahnReports(docker dockerController, container autobahnRunnerContainer, reportDirectory, caseID string) (string, error) {
+	if docker.path == "" || !regexp.MustCompile(`^vjwt-fuzz(?:server|client)-[0-9a-f]{16}$`).MatchString(container.name) || container.role != "fuzzingserver" && container.role != "fuzzingclient" || !regexp.MustCompile(`^[0-9a-f]{64}$`).MatchString(container.token) {
 		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report copy requires an exact fixed container identity")
 	}
+	if err := validateFreshAutobahnReportDirectory(reportDirectory); err != nil {
+		return "", err
+	}
+	copyContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	command := exec.CommandContext(copyContext, docker.path, "exec", "--interactive", container.name, "/autobahn-runner", "copy-reports")
+	command.Dir = "/private/tmp"
+	command.Env = []string{"HOME=/private/tmp", "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "PATH=/usr/bin:/bin:/usr/sbin:/sbin", "TZ=UTC"}
+	command.Stdin = strings.NewReader(container.token + "\n")
+	stdout, err := command.StdoutPipe()
+	if err != nil {
+		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "authenticated report stdout pipe is unavailable")
+	}
+	lifecycle := &boundedBuffer{limit: 64 << 10}
+	command.Stderr = lifecycle
+	if err := command.Start(); err != nil {
+		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", boundedDetail(lifecycle.buffer.Bytes(), err))
+	}
+	digest, extractionErr := extractAutobahnReportArchive(stdout, reportDirectory, caseID)
+	if extractionErr != nil {
+		_ = command.Process.Kill()
+	}
+	extra, extraErr := io.ReadAll(io.LimitReader(stdout, 2))
+	waitErr := command.Wait()
+	marker := []byte("RUNNER_REPORTS_COMPLETE role=" + container.role + " files=4 maximum_bytes=268435456")
+	if extractionErr != nil || extraErr != nil || len(extra) != 0 || waitErr != nil || bytes.Contains(lifecycle.buffer.Bytes(), []byte("RUNNER_DENIED")) || !bytes.Contains(lifecycle.buffer.Bytes(), marker) {
+		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", boundedString(boundedDetail(lifecycle.buffer.Bytes(), waitErr)+" extraction="+boundedDetail(nil, extractionErr), 2048))
+	}
+	return digest, nil
+}
+
+func validateFreshAutobahnReportDirectory(reportDirectory string) error {
 	clean, err := cleanAbsoluteDirectory(reportDirectory, "$.reports")
 	if err != nil || clean != reportDirectory || requireRealDirectory(reportDirectory) != nil {
-		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report destination is not an exact real directory")
+		return finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report destination is not an exact real directory")
 	}
 	info, infoErr := os.Stat(reportDirectory)
 	entries, readErr := os.ReadDir(reportDirectory)
 	if infoErr != nil || readErr != nil || info.Mode().Perm() != 0o700 || len(entries) != 0 {
-		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report destination must be fresh, empty, and mode 0700")
+		return finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", "report destination must be fresh, empty, and mode 0700")
 	}
-	copyContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	output, err := docker.output(copyContext, "cp", container+":/reports/.", reportDirectory)
-	if err != nil {
-		return "", finding("AUTOBAHN_REPORT_COPY_FAILED", "$.reports", boundedDetail(output, err))
+	return nil
+}
+
+func extractAutobahnReportArchive(input io.Reader, reportDirectory, caseID string) (string, error) {
+	if err := validateFreshAutobahnReportDirectory(reportDirectory); err != nil {
+		return "", err
+	}
+	jsonName := autobahnReportFilename(AutobahnEndpointAgent, caseID)
+	htmlName := strings.TrimSuffix(jsonName, ".json") + ".html"
+	expected := map[string]struct{}{"index.json": {}, "index.html": {}, jsonName: {}, htmlName: {}}
+	seen := make(map[string]struct{}, len(expected))
+	reader := tar.NewReader(input)
+	var aggregate int64
+	for entries := 0; ; entries++ {
+		if entries > len(expected) {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive contains too many entries")
+		}
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive is truncated or malformed")
+		}
+		name := header.Name
+		_, allowed := expected[name]
+		_, duplicate := seen[name]
+		if !allowed || duplicate || path.Base(name) != name || name == "." || name == ".." || header.Typeflag != tar.TypeReg || header.Linkname != "" || header.Format != tar.FormatUSTAR || header.Mode != 0o400 || header.Size < 1 || header.Size > 64<<20 {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive contains a hostile entry")
+		}
+		if aggregate > 256<<20-header.Size {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive exceeds its aggregate bound")
+		}
+		aggregate += header.Size
+		target := filepath.Join(reportDirectory, name)
+		file, err := os.OpenFile(target, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o400)
+		if err != nil {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", target, "authenticated report file could not be created exclusively")
+		}
+		written, copyErr := io.CopyN(file, reader, header.Size)
+		syncErr := file.Sync()
+		closeErr := file.Close()
+		if copyErr != nil || written != header.Size || syncErr != nil || closeErr != nil {
+			return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", target, "authenticated report file could not be durably materialized")
+		}
+		seen[name] = struct{}{}
+	}
+	if len(seen) != len(expected) {
+		return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report archive does not contain the exact four expected files")
+	}
+	if err := syncDir(reportDirectory); err != nil {
+		return "", finding("AUTOBAHN_REPORT_EXTRACTION_MISMATCH", "$.reports", "authenticated report directory could not be durably synchronized")
 	}
 	return validateCopiedAutobahnReports(reportDirectory, caseID)
 }

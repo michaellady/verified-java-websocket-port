@@ -7,14 +7,32 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"errors"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 )
+
+func init() {
+	if len(os.Args) == 4 && os.Args[1] == "attach" && os.Args[2] == "--sig-proxy=false" && os.Args[3] == "vjwt-relay-0123456789abcdef" {
+		_, _ = os.Stderr.WriteString("RELAY_PAIRED role=dial\n")
+		if err := writeAttachedFrame(os.Stdout, attachFrameData, []byte("x")); err != nil {
+			os.Exit(91)
+		}
+		if err := writeAttachedFrame(os.Stdout, attachFrameEnd, nil); err != nil {
+			os.Exit(92)
+		}
+		_, _ = io.Copy(io.Discard, os.Stdin)
+		_, _ = os.Stderr.WriteString("RELAY_COMPLETE role=dial\n")
+		os.Exit(0)
+	}
+}
 
 func TestReadDockerSaveTarBindsExactConfig(t *testing.T) {
 	config := []byte(`{"architecture":"amd64","os":"linux"}`)
@@ -327,12 +345,12 @@ func TestAutobahnDockerArgumentsAreClosed(t *testing.T) {
 	runner := exactRunnerTestReceipt("/private/tmp/autobahn-runner")
 	arguments := autobahnDockerRunArguments("fixed-network", "/private/tmp/config", "fuzzingclient", "vjwt-fuzzclient-0123456789abcdef", strings.Repeat("a", 64), runner)
 	joined := strings.Join(arguments, " ")
-	for _, required := range []string{"--detach", "--interactive", "--pull=never", "--network fixed-network", "--ip " + autobahnFuzzingClientAddress, "/reports:rw,noexec,nosuid,nodev,size=256m,mode=0700", "dst=/autobahn-runner,readonly", "AUTOBAHN_RUNNER_ROLE=fuzzingclient", "--entrypoint /autobahn-runner", AutobahnImageReference} {
+	for _, required := range []string{"--detach", "--pull=never", "--network fixed-network", "--ip " + autobahnFuzzingClientAddress, "/reports:rw,noexec,nosuid,nodev,size=256m,mode=0700", "dst=/autobahn-runner,readonly", "AUTOBAHN_RUNNER_ROLE=fuzzingclient", "--entrypoint /autobahn-runner", AutobahnImageReference} {
 		if !strings.Contains(joined, required) {
 			t.Fatalf("fixed argument missing: %s", required)
 		}
 	}
-	for _, forbidden := range []string{"--network host", "--privileged", "--add-host", "0.0.0.0:", "--publish", "dst=/reports"} {
+	for _, forbidden := range []string{"--interactive", "--network host", "--privileged", "--add-host", "0.0.0.0:", "--publish", "dst=/reports"} {
 		if strings.Contains(joined, forbidden) {
 			t.Fatalf("forbidden argument present: %s", forbidden)
 		}
@@ -389,6 +407,9 @@ func TestRunnerContainerInspectRejectsIdentityIsolationAndMountDrift(t *testing.
 	}
 	mutations := map[string]func(map[string]any){
 		"wrong image": func(value map[string]any) { value["Image"] = AutobahnImageConfigDigest },
+		"open primary stdin": func(value map[string]any) {
+			value["Config"].(map[string]any)["OpenStdin"] = true
+		},
 		"wildcard port": func(value map[string]any) {
 			value["HostConfig"].(map[string]any)["PortBindings"] = map[string]any{"9001/tcp": []any{map[string]any{"HostIp": "0.0.0.0", "HostPort": "1"}}}
 		},
@@ -400,8 +421,14 @@ func TestRunnerContainerInspectRejectsIdentityIsolationAndMountDrift(t *testing.
 			config["Env"] = append(config["Env"].([]string), "SECRET=value")
 		},
 		"writable binary": func(value map[string]any) { value["Mounts"].([]any)[1].(map[string]any)["RW"] = true },
+		"anonymous volume": func(value map[string]any) {
+			value["Mounts"] = append(value["Mounts"].([]any), map[string]any{"Type": "volume", "Source": "anonymous", "Destination": "/data", "RW": true})
+		},
 		"oversized reports": func(value map[string]any) {
 			value["HostConfig"].(map[string]any)["Tmpfs"].(map[string]any)["/reports"] = "rw,size=1g"
+		},
+		"missing reports tmpfs": func(value map[string]any) {
+			delete(value["HostConfig"].(map[string]any)["Tmpfs"].(map[string]any), "/reports")
 		},
 	}
 	for name, mutate := range mutations {
@@ -417,6 +444,56 @@ func TestRunnerContainerInspectRejectsIdentityIsolationAndMountDrift(t *testing.
 	}
 }
 
+func TestRunnerReleaseUsesAuthenticatedExecWithoutTokenArguments(t *testing.T) {
+	container := autobahnRunnerContainer{name: "vjwt-fuzzclient-0123456789abcdef", role: "fuzzingclient", token: strings.Repeat("a", 64)}
+	arguments := autobahnRunnerReleaseArguments(container)
+	want := []string{"exec", "--interactive", container.name, "/autobahn-runner", "release"}
+	if !equalStrings(arguments, want) {
+		t.Fatalf("release arguments=%v", arguments)
+	}
+	if strings.Contains(strings.Join(arguments, " "), container.token) || strings.Contains(strings.Join(arguments, " "), "attach") {
+		t.Fatal("release exposed its token or retained Docker attach")
+	}
+}
+
+func TestRetainedRunnerInspectAcceptsDockerResolvedEnvironmentOrder(t *testing.T) {
+	container := autobahnRunnerContainer{
+		name: "vjwt-fuzzclient-0123456789abcdef", role: "fuzzingclient", token: strings.Repeat("a", 64),
+		configDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	}
+	configPath, binaryPath, network := "/private/tmp/config", "/private/tmp/runner", "fixed-network"
+	fixture := validRunnerInspectFixture(container, network, configPath, binaryPath)
+	fixture["Config"].(map[string]any)["Env"] = []string{
+		"AUTOBAHN_RUNNER_ROLE=" + container.role, "AUTOBAHN_RUNNER_TOKEN=" + container.token,
+		"PATH=/opt/pypy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "PYPY_VERSION=7.3.20",
+		"DEBIAN_FRONTEND=noninteractive", "NODE_PATH=/usr/local/lib/node_modules/",
+	}
+	raw, err := json.Marshal([]any{fixture})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateAutobahnRunnerContainerInspect(raw, container, network, configPath, binaryPath); err != nil {
+		t.Fatalf("retained Docker-resolved runner identity rejected: %v", err)
+	}
+}
+
+func TestRetainedRunnerInspectAcceptsDockerResolvedTmpfsMountRepresentation(t *testing.T) {
+	container := autobahnRunnerContainer{
+		name: "vjwt-fuzzclient-0123456789abcdef", role: "fuzzingclient", token: strings.Repeat("a", 64),
+		configDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+	}
+	configPath, binaryPath, network := "/private/tmp/config", "/private/tmp/runner", "fixed-network"
+	fixture := validRunnerInspectFixture(container, network, configPath, binaryPath)
+	fixture["Mounts"] = fixture["Mounts"].([]any)[:2]
+	raw, err := json.Marshal([]any{fixture})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateAutobahnRunnerContainerInspect(raw, container, network, configPath, binaryPath); err != nil {
+		t.Fatalf("retained Docker-resolved tmpfs representation rejected: %v", err)
+	}
+}
+
 func validRunnerInspectFixture(container autobahnRunnerContainer, network, configPath, binaryPath string) map[string]any {
 	environment := []string{
 		"PATH=/opt/pypy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C.UTF-8", "PYPY_VERSION=7.3.20",
@@ -424,14 +501,12 @@ func validRunnerInspectFixture(container autobahnRunnerContainer, network, confi
 	}
 	return map[string]any{
 		"Name": "/" + container.name, "Image": AutobahnImageManifestDigest, "Path": "/autobahn-runner", "Args": []string{},
-		"Config":          map[string]any{"OpenStdin": true, "Tty": false, "User": "", "Entrypoint": []string{"/autobahn-runner"}, "Env": environment, "Labels": map[string]string{"org.verified-java-websocket.scope": "us002-autobahn", "org.verified-java-websocket.role": container.role}},
+		"Config":          map[string]any{"OpenStdin": false, "Tty": false, "User": "", "Entrypoint": []string{"/autobahn-runner"}, "Env": environment, "Labels": map[string]string{"org.verified-java-websocket.scope": "us002-autobahn", "org.verified-java-websocket.role": container.role}},
 		"HostConfig":      map[string]any{"NetworkMode": network, "ReadonlyRootfs": true, "Privileged": false, "CapDrop": []string{"ALL"}, "SecurityOpt": []string{"no-new-privileges"}, "PortBindings": map[string]any{}, "Tmpfs": map[string]any{"/tmp": "rw,noexec,nosuid,nodev,size=64m,mode=1777", "/reports": "rw,noexec,nosuid,nodev,size=256m,mode=0700"}, "PidsLimit": int64(128), "Memory": int64(1 << 30), "NanoCpus": int64(2_000_000_000)},
 		"NetworkSettings": map[string]any{"Ports": map[string]any{"9001/tcp": nil}, "Networks": map[string]any{network: map[string]any{"IPAddress": autobahnFuzzingClientAddress}}},
 		"Mounts": []any{
 			map[string]any{"Type": "bind", "Source": configPath, "Destination": "/config", "RW": false},
 			map[string]any{"Type": "bind", "Source": binaryPath, "Destination": "/autobahn-runner", "RW": false},
-			map[string]any{"Type": "tmpfs", "Source": "", "Destination": "/tmp", "RW": true},
-			map[string]any{"Type": "tmpfs", "Source": "", "Destination": "/reports", "RW": true},
 		},
 	}
 }
@@ -461,6 +536,169 @@ func TestLiveTmpfsReportsCopyBeforeAuthenticatedRelease(t *testing.T) {
 	}
 }
 
+func TestCancelledAttachedRelayClosesLoopbackBeforeWaitingForInput(t *testing.T) {
+	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.ParseIP("127.0.0.1")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	client, err := net.DialTCP("tcp4", nil, listener.Addr().(*net.TCPAddr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, err := listener.AcceptTCP()
+	if err != nil {
+		_ = client.Close()
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan attachedModeResult, 1)
+	go func() {
+		lifecycle, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server, "dial")
+		done <- attachedModeResult{lifecycle: lifecycle, err: attachErr}
+	}()
+	if err := client.SetReadDeadline(time.Now().Add(2 * time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	marker := make([]byte, 1)
+	if _, err := io.ReadFull(client, marker); err != nil || string(marker) != "x" {
+		t.Fatalf("fake attach did not start: marker=%q err=%v", marker, err)
+	}
+	cancel()
+	select {
+	case result := <-done:
+		if result.err == nil {
+			t.Fatal("cancelled attach unexpectedly succeeded")
+		}
+	case <-time.After(2 * time.Second):
+		_ = client.Close()
+		<-done
+		t.Fatal("cancelled attach waited on loopback input beyond its cleanup bound")
+	}
+}
+
+func TestAttachedRelayClosesDockerStdinAfterBothFramedDirectionsFinish(t *testing.T) {
+	listener, err := net.ListenTCP("tcp4", &net.TCPAddr{IP: net.ParseIP("127.0.0.1")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer listener.Close()
+	client, err := net.DialTCP("tcp4", nil, listener.Addr().(*net.TCPAddr))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server, err := listener.AcceptTCP()
+	if err != nil {
+		_ = client.Close()
+		t.Fatal(err)
+	}
+	defer client.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	done := make(chan attachedModeResult, 1)
+	go func() {
+		lifecycle, attachErr := runAttachedRelayTCP(ctx, dockerController{path: os.Args[0]}, "vjwt-relay-0123456789abcdef", server, "dial")
+		done <- attachedModeResult{lifecycle: lifecycle, err: attachErr}
+	}()
+	if _, err := client.Write([]byte("request")); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.CloseWrite(); err != nil {
+		t.Fatal(err)
+	}
+	response := make([]byte, 1)
+	if _, err := io.ReadFull(client, response); err != nil || string(response) != "x" {
+		t.Fatalf("relay response=%q err=%v", response, err)
+	}
+	select {
+	case result := <-done:
+		if result.err != nil {
+			t.Fatal(result.err)
+		}
+		for _, marker := range []string{"CONTROLLER_TRANSFER input_bytes=7", "output_bytes=1", "output_prefix_hex=78"} {
+			if !bytes.Contains(result.lifecycle, []byte(marker)) {
+				t.Fatalf("missing %q in lifecycle %q", marker, result.lifecycle)
+			}
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("relay attach kept Docker stdin open after both framed directions finished")
+	}
+}
+
+func TestAttachedInputTreatsVerifiedLoopbackResetAsTerminal(t *testing.T) {
+	var framed bytes.Buffer
+	if err := encodeAttachedStream(&attachedDataThenErrorReader{data: []byte("request"), err: syscall.ECONNRESET}, &framed); err != nil {
+		t.Fatalf("verified loopback reset rejected after bounded request bytes: %v", err)
+	}
+	decoded, err := decodeAttachedBytes(framed.Bytes())
+	if err != nil || string(decoded) != "request" {
+		t.Fatalf("terminal reset framing mismatch: %q %v", decoded, err)
+	}
+	if err := encodeAttachedStream(&attachedDataThenErrorReader{err: errors.New("unexpected read failure")}, io.Discard); err == nil {
+		t.Fatal("unknown loopback read failure accepted")
+	}
+}
+
+func TestAttachedOutputDrainsAfterVerifiedLoopbackStopsReading(t *testing.T) {
+	var framed bytes.Buffer
+	if err := writeAttachedFrame(&framed, attachFrameData, []byte("response")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAttachedFrame(&framed, attachFrameEnd, nil); err != nil {
+		t.Fatal(err)
+	}
+	counter := newRelayTransferCounter()
+	output := newRelayLoopbackOutput(&attachedFixedErrorWriter{err: syscall.EPIPE}, counter)
+	if err := decodeAttachedStream(bytes.NewReader(framed.Bytes()), output); err != nil {
+		t.Fatalf("verified loopback terminal write rejected: %v", err)
+	}
+	if output.undeliverableBytes != int64(len("response")) || counter.bytes != int64(len("response")) {
+		t.Fatalf("undeliverable=%d counted=%d", output.undeliverableBytes, counter.bytes)
+	}
+	unknown := newRelayLoopbackOutput(&attachedFixedErrorWriter{err: errors.New("unexpected write failure")}, newRelayTransferCounter())
+	if err := decodeAttachedStream(bytes.NewReader(framed.Bytes()), unknown); err == nil {
+		t.Fatal("unknown loopback write failure accepted")
+	}
+}
+
+func TestRelayCompletionCanBeRecoveredOnlyFromExactDockerLogMarker(t *testing.T) {
+	lifecycle := []byte("RELAY_PAIRED role=listen\n")
+	docker := dockerController{run: func(_ context.Context, arguments ...string) ([]byte, error) {
+		if !equalStrings(arguments, []string{"logs", "--tail", "20", "vjwt-relay-0123456789abcdef"}) {
+			t.Fatalf("unexpected Docker arguments: %v", arguments)
+		}
+		return []byte("binary-prefix\nRELAY_COMPLETE role=listen\n"), nil
+	}}
+	got := recoverRelayLifecycle(context.Background(), docker, "vjwt-relay-0123456789abcdef", "listen", lifecycle)
+	if !exactRelayLifecycle(got, "listen", true) || bytes.Contains(got, []byte("binary-prefix")) {
+		t.Fatalf("recovered lifecycle=%q", got)
+	}
+}
+
+func TestRelayPairingCanBeRecoveredOnlyFromExactDockerLogMarker(t *testing.T) {
+	lifecycle := []byte("RELAY_COMPLETE role=dial\n")
+	docker := dockerController{run: func(_ context.Context, arguments ...string) ([]byte, error) {
+		if !equalStrings(arguments, []string{"logs", "--tail", "20", "vjwt-relay-0123456789abcdef"}) {
+			t.Fatalf("unexpected Docker arguments: %v", arguments)
+		}
+		return []byte("embedded-RELAY_PAIRED role=dial-not-a-marker\nRELAY_PAIRED role=dial\nRELAY_COMPLETE role=dial\n"), nil
+	}}
+	got := recoverRelayLifecycle(context.Background(), docker, "vjwt-relay-0123456789abcdef", "dial", lifecycle)
+	if !exactRelayLifecycle(got, "dial", true) || bytes.Contains(got, []byte("embedded")) {
+		t.Fatalf("recovered lifecycle=%q", got)
+	}
+	embeddedOnly := dockerController{run: func(_ context.Context, _ ...string) ([]byte, error) {
+		return []byte("embedded-RELAY_PAIRED role=dial-not-a-marker\nRELAY_COMPLETE role=dial\n"), nil
+	}}
+	got = recoverRelayLifecycle(context.Background(), embeddedOnly, "vjwt-relay-0123456789abcdef", "dial", lifecycle)
+	if exactRelayLifecycle(got, "dial", true) {
+		t.Fatalf("embedded pairing substring accepted: %q", got)
+	}
+}
+
 func exactRunnerTestReceipt(path string) AutobahnRunnerReceipt {
 	return AutobahnRunnerReceipt{
 		Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", Qualification: "QUALIFIED_NOT_PROMOTED",
@@ -470,6 +708,28 @@ func exactRunnerTestReceipt(path string) AutobahnRunnerReceipt {
 		WSTestDigest: AutobahnWSTestDigest, InterpreterPath: AutobahnPyPyPath, InterpreterDigest: AutobahnPyPyDigest,
 		RepeatableBuild: true, LinuxAMD64StaticELF: true, SourceUnchanged: true, ToolchainUnchanged: true,
 	}
+}
+
+type attachedDataThenErrorReader struct {
+	data []byte
+	err  error
+}
+
+type attachedFixedErrorWriter struct {
+	err error
+}
+
+func (writer *attachedFixedErrorWriter) Write([]byte) (int, error) {
+	return 0, writer.err
+}
+
+func (reader *attachedDataThenErrorReader) Read(destination []byte) (int, error) {
+	if len(reader.data) == 0 {
+		return 0, reader.err
+	}
+	read := copy(destination, reader.data)
+	reader.data = reader.data[read:]
+	return read, reader.err
 }
 
 func TestCopiedAutobahnReportsRejectHostileEntries(t *testing.T) {
@@ -528,6 +788,88 @@ func TestCopiedAutobahnReportsRejectHostileEntries(t *testing.T) {
 				t.Fatal("hostile copied report entry accepted")
 			}
 		})
+	}
+}
+
+func TestAuthenticatedReportArchiveReplacesEmptyDockerTmpfsCopy(t *testing.T) {
+	const caseID = "1.1.1"
+	jsonName := autobahnReportFilename(AutobahnEndpointAgent, caseID)
+	htmlName := strings.TrimSuffix(jsonName, ".json") + ".html"
+	want := map[string][]byte{
+		"index.json": []byte("index-json"), "index.html": []byte("index-html"),
+		jsonName: []byte("case-json"), htmlName: []byte("case-html"),
+	}
+	var archive bytes.Buffer
+	writer := tar.NewWriter(&archive)
+	for _, name := range []string{"index.html", "index.json", htmlName, jsonName} {
+		data := want[name]
+		if err := writer.WriteHeader(&tar.Header{Name: name, Mode: 0o400, Size: int64(len(data)), Typeflag: tar.TypeReg, Format: tar.FormatUSTAR}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := writer.Write(data); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	digest, err := extractAutobahnReportArchive(&archive, directory, caseID)
+	if err != nil || !isDigest(digest) {
+		t.Fatalf("authenticated tmpfs archive rejected: digest=%s err=%v", digest, err)
+	}
+	if archive.Len() != 0 {
+		t.Fatalf("authenticated report archive left %d unread bytes", archive.Len())
+	}
+	for name, content := range want {
+		got, err := os.ReadFile(filepath.Join(directory, name))
+		if err != nil || !bytes.Equal(got, content) {
+			t.Fatalf("extracted %q=%q err=%v", name, got, err)
+		}
+	}
+}
+
+func TestAuthenticatedReportArchiveRejectsHostileMembers(t *testing.T) {
+	const caseID = "1.1.1"
+	for name, header := range map[string]tar.Header{
+		"path escape": {Name: "../index.json", Mode: 0o400, Size: 1, Typeflag: tar.TypeReg},
+		"link":        {Name: "index.json", Linkname: "target", Typeflag: tar.TypeSymlink},
+		"oversize":    {Name: "index.json", Mode: 0o400, Size: (64 << 20) + 1, Typeflag: tar.TypeReg},
+	} {
+		t.Run(name, func(t *testing.T) {
+			var archive bytes.Buffer
+			writer := tar.NewWriter(&archive)
+			if err := writer.WriteHeader(&header); err != nil {
+				t.Fatal(err)
+			}
+			if header.Size == 1 {
+				_, _ = writer.Write([]byte("x"))
+			}
+			_ = writer.Close()
+			directory := t.TempDir()
+			if err := os.Chmod(directory, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := extractAutobahnReportArchive(&archive, directory, caseID); err == nil {
+				t.Fatal("hostile archive member accepted")
+			}
+		})
+	}
+}
+
+func TestClientEndpointFailurePreservesRelayDiagnostic(t *testing.T) {
+	detail := clientEndpointFailureDetail(
+		[]byte("ENDPOINT_DENIED did not connect"), errors.New("exit status 2"),
+		finding("AUTOBAHN_RELAY_ATTACH_FAILED", "$.relay.attach", "RELAY_DENIED dial-timeout"),
+		[]byte("RUNNER_READY role=fuzzingserver"),
+	)
+	for _, required := range []string{"AUTOBAHN_RELAY_ATTACH_FAILED", "RELAY_DENIED dial-timeout", "ENDPOINT_DENIED did not connect", "RUNNER_READY role=fuzzingserver"} {
+		if !strings.Contains(detail, required) {
+			t.Fatalf("client failure detail discarded %q: %s", required, detail)
+		}
 	}
 }
 
