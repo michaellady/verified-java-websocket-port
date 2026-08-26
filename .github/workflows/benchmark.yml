@@ -25,13 +25,15 @@ name: Benchmark Confirmation Host (US-008 pipeline)
 # without a preregistration-pinned AMI unless allow_unpinned_ami=true is
 # passed explicitly for a plumbing test.
 #
-# PREREQUISITES (owner-gated, NOT yet done — workflow fails closed until
-# then; see docs/us008-benchmark-pipeline.md):
-#   - DIALED bootstrap apply in the EVC dev account under project vjwp-bench
-#     (OIDC trust, deploy role, permissions boundary, tfstate bucket+locks)
-#   - GitHub `dev` environment on this repo
-#   - vCPU quota for a Tier-2 metal instance in us-east-1 (Tier-2 runs
-#     only; the bound Tier-1 type c7i.xlarge fits the standing quota)
+# PREREQUISITES (see docs/us008-benchmark-pipeline.md):
+#   - DONE: DIALED bootstrap applied in the EVC dev account under project
+#     vjwp-bench (OIDC trust incl. immutable GitHub subjects, deploy role,
+#     permissions boundary, tfstate bucket+locks) — proven by the green
+#     sentinel-only plumbing run 33000379021
+#   - DONE: GitHub `dev` environment on this repo
+#   - STILL OWNER-GATED: vCPU quota for a Tier-2 metal instance in
+#     us-east-1 (Tier-2 runs only; the bound Tier-1 type c7i.xlarge fits
+#     the standing 64-vCPU quota)
 
 on:
   pull_request:
