@@ -12,17 +12,22 @@
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "corpus_id": "us005-handshake",
   "counts": {
-    "executed": 0,
+    "executed": 49,
     "expected": 49,
     "failed": 0,
     "filtered": 0,
-    "passed": 0,
+    "passed": 49,
     "selected": 49,
     "skipped": 0,
     "timed_out": 0
   },
   "evidence_kind": "corpus-manifest",
-  "execution_status": "NOT_EXECUTED_PENDING_LIVE_CALIBRATION",
+  "execution_evidence": {
+    "evaluator": "corporactl evaluate",
+    "report_sha256": "sha256:f535c1e8195b909846b93d8a44506c35e757df424d7be831ca8c5b9f9458a193",
+    "transcript_sha256": "sha256:72de49885f4b8cad67d5e25102480fb2bba2fb63b14dcfe712dd42457c61ff0b"
+  },
+  "execution_status": "LIVE_EXECUTED",
   "generator": {
     "public_seed": "us005-public-calibration-seed-v1",
     "seed_visibility": "public",
