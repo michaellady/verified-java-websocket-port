@@ -312,6 +312,78 @@ func TestCustodianSpendIsPersisted(t *testing.T) {
 	}
 }
 
+// A coordinated rotation after scenario derivation but before held-out use
+// must fail closed. Neither request emission nor transcript evaluation may
+// use epoch-1 material against the freshly rotated epoch-2 ledger.
+func TestHeldOutCommandsRejectGenerationRotatedBeforeUse(t *testing.T) {
+	for _, command := range []string{"oracle-requests", "evaluate"} {
+		t.Run(command, func(t *testing.T) {
+			root := t.TempDir()
+			protectedRoot := t.TempDir()
+			if code, _, stderr := runCLI(t, "generate",
+				"--root", root, "--protected-root", protectedRoot); code != 0 {
+				t.Fatalf("generate failed: %s", stderr)
+			}
+
+			original := useCustodianGeneration
+			useCustodianGeneration = func(root, protectedRoot string,
+				expected *corpora.GeneratedCorpora,
+				operation func(*corpora.Ledger) error) error {
+				input, err := corpora.LoadGenerationInput(root, protectedRoot)
+				if err != nil {
+					return err
+				}
+				input.Epoch++
+				rotated, err := corpora.GenerateAll(input)
+				if err != nil {
+					return err
+				}
+				rotationDone := make(chan error, 1)
+				go func() {
+					rotationDone <- corpora.WriteAll(root, protectedRoot, input, rotated)
+				}()
+				if err := <-rotationDone; err != nil {
+					return err
+				}
+				return original(root, protectedRoot, expected, operation)
+			}
+			t.Cleanup(func() { useCustodianGeneration = original })
+
+			arguments := []string{command, "--root", root,
+				"--protected-root", protectedRoot, "--tier", "hidden"}
+			if command == "evaluate" {
+				transcript := filepath.Join(t.TempDir(), "stale.jsonl")
+				if err := os.WriteFile(transcript, nil, 0o644); err != nil {
+					t.Fatal(err)
+				}
+				arguments = append(arguments, "--transcript", transcript)
+			}
+			code, stdout, stderr := runCLI(t, arguments...)
+			if code == 0 || !strings.Contains(stderr, "STALE_CORPUS_GENERATION") {
+				t.Fatalf("stale %s must fail closed: code=%d stdout=%s stderr=%s",
+					command, code, stdout, stderr)
+			}
+			if stdout != "" {
+				t.Fatalf("stale %s emitted output: %s", command, stdout)
+			}
+
+			raw, err := os.ReadFile(corpora.ProtectedLedgerPath(protectedRoot))
+			if err != nil {
+				t.Fatal(err)
+			}
+			ledger, err := corpora.LoadLedger(raw)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ledger.Epoch() != 2 || ledger.Remaining().Query !=
+				corpora.DefaultCustodianPolicy().QueryBudget {
+				t.Fatalf("stale %s spent the rotated ledger: epoch=%d remaining=%+v",
+					command, ledger.Epoch(), ledger.Remaining())
+			}
+		})
+	}
+}
+
 // The handshake corpus is executable through the CLI: requests emit the raw
 // cases without expectations, and evaluate scores a transcript fail-closed.
 func TestHandshakeTierRequestsAndEvaluate(t *testing.T) {
