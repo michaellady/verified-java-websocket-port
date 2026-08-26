@@ -1,0 +1,17 @@
+{
+  "operations": [
+    {
+      "kind": "include",
+      "path": "assurance/replay/fixtures/us006-base/mutation.json"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/0/sbx_execution/receipt",
+      "value": {
+        "path": "evidence/security-validation.json",
+        "sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  ]
+}

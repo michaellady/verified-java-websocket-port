@@ -1,0 +1,5 @@
+{
+  "kind": "concurrency-plan",
+  "note": "FIXTURE_STANDIN (US-006 lane C validator fixtures): stand-in for the lane B concurrency plan so the presence path of formal preflight can be exercised before the lanes merge. This is synthetic validator input, never a claim artifact.",
+  "actions": []
+}

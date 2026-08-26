@@ -1,0 +1,365 @@
+{
+  "schema_version": "1.0.0",
+  "story": "US-006",
+  "lane": "C",
+  "note": "Digest-frozen fixture catalog for the assurectl formal-preflight/formal-replay verbs. Every realized tree is synthetic validator input (never a claim artifact), every case runs through the REAL CLI in both modes with byte-identical verdicts and exact exit codes, all trees are pairwise distinct, and each failure family carries its own typed finding code. Lane A/B documents appear as clearly-labeled FIXTURE_STANDIN files copied from us006-standin/ so the presence path is exercised before the lanes merge.",
+  "digest_scheme": "CANONICAL_PATH_SHA256_V1: sha256 over 'relative-path\\x00sha256(file-bytes)\\n' lines in sorted relative-path order",
+  "cases": [
+    {
+      "id": "us006-good-backend-executed",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-good-backend-executed/mutation.json",
+      "realized_tree_sha256": "sha256:28e32fadb08c9ddde397b64129e9c004535767c6b0049f98adae1c60d29926fe",
+      "expected": {
+        "exit_code": 0,
+        "state": "OK",
+        "findings": [],
+        "obligations_evaluated": 7,
+        "obligations_passed": 1,
+        "production_linked_obligations_passed": 1
+      }
+    },
+    {
+      "id": "us006-doc-absent-proof-targets",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-doc-absent-proof-targets/mutation.json",
+      "realized_tree_sha256": "sha256:d7682acbc4f40df84576f2fc6aa4c77f9206486a3fb85f6879e5d6bb185fbf1a",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "FORMAL_DOCUMENT_ABSENT",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-schema-absent",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-schema-absent/mutation.json",
+      "realized_tree_sha256": "sha256:e51fa0f1494bd5d50e50a5eb2ab39e23972c1c589f6ba5f8166d0625ff903fcb",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "FORMAL_SCHEMA_ABSENT",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-invalid-json",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-invalid-json/mutation.json",
+      "realized_tree_sha256": "sha256:3123ced51caddad589306c0798d4d9a648736f197e26d5e683d7b8b0b521a293",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "FORMAL_DOCUMENT_INVALID",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 0,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-schema-violation",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-schema-violation/mutation.json",
+      "realized_tree_sha256": "sha256:9e3729e804a74471e4bcae0509d5499c877cab5e432f48b56fabf5ea4366a75f",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "FORMAL_SCHEMA_VALIDATION_FAILED",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-selected-without-execution",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-selected-without-execution/mutation.json",
+      "realized_tree_sha256": "sha256:c8b54f386719c904c217157fac1b8c1963b9feff0defd730131ca0dbac820d0a",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "BACKEND_SELECTED_WITHOUT_EXECUTION",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-placeholder-receipt",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-placeholder-receipt/mutation.json",
+      "realized_tree_sha256": "sha256:9b26e74ce5a319fbb3a68106fc38da88de8996c8a46e7dbabcca31e415e9ab9a",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "PLACEHOLDER_EXECUTION_RECEIPT",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-unavailable-as-success",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-unavailable-as-success/mutation.json",
+      "realized_tree_sha256": "sha256:a2718fbe22f89f4990ed0b8fc71195a69157b4030923032895d19e4ab33d0ac1",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "UNAVAILABLE_BACKEND_CLAIM",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-unavailable-as-skip",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-unavailable-as-skip/mutation.json",
+      "realized_tree_sha256": "sha256:9eb2e5042abff9c83ad12bed2568726f287df76332ad8669d13c8c0c57755650",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "FORMAL_SCHEMA_VALIDATION_FAILED",
+            "disposition": "BLOCK",
+            "count": 1
+          },
+          {
+            "code": "UNAVAILABLE_REPRESENTED_AS_SKIP",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-inflated-finite-claim",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-inflated-finite-claim/mutation.json",
+      "realized_tree_sha256": "sha256:bfcf711289868e086ac1f6f5758d3f6bac2135366d68b720b589a2a737c3d695",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "INFLATED_BACKEND_CLAIM",
+            "disposition": "BLOCK",
+            "count": 1
+          },
+          {
+            "code": "UNAVAILABLE_BACKEND_CLAIM",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-inflated-loom-proof",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-inflated-loom-proof/mutation.json",
+      "realized_tree_sha256": "sha256:5250b698277f3e6b2710913535c97f96180b80870e6c47a6eba79b6e199da042",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "INFLATED_BACKEND_CLAIM",
+            "disposition": "BLOCK",
+            "count": 1
+          },
+          {
+            "code": "UNAVAILABLE_BACKEND_CLAIM",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-stale-attempt-binding",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-stale-attempt-binding/mutation.json",
+      "realized_tree_sha256": "sha256:dd67ef45ecb027580e17afd6cb72b4e5fcbae5ea54e451f38bcbeca97aea21fc",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "STALE_SBX_ATTEMPT_BINDING",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-profile-digest-mismatch",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-profile-digest-mismatch/mutation.json",
+      "realized_tree_sha256": "sha256:4a373fe650d22bde369841a33685c5dd8ab509b679c8c75188442bfd1ec3f3c9",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "SBX_PROFILE_DIGEST_MISMATCH",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-missing-canary-pair",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-missing-canary-pair/mutation.json",
+      "realized_tree_sha256": "sha256:229a042aad6400cffc76c39ed1663660a6123f652397d8e122efb1cfa575d594",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "MISSING_CANARY_PAIR",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-zero-obligations",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-zero-obligations/mutation.json",
+      "realized_tree_sha256": "sha256:dc096f9bff87a183395034771184450dafb98866da693356e13972454ca0b307",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "FORMAL_SCHEMA_VALIDATION_FAILED",
+            "disposition": "BLOCK",
+            "count": 1
+          },
+          {
+            "code": "ZERO_BACKEND_OBLIGATIONS",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 4,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    },
+    {
+      "id": "us006-evidence-run-incomplete",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-evidence-run-incomplete/mutation.json",
+      "realized_tree_sha256": "sha256:b3d304c346b65b00365cf19a19a0ca80158d45695e57838e665941c45c9bb848",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "EVIDENCE_RUN_INCOMPLETE",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 1,
+        "production_linked_obligations_passed": 1
+      }
+    },
+    {
+      "id": "us006-known-bad-canary-survived",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-known-bad-canary-survived/mutation.json",
+      "realized_tree_sha256": "sha256:f8f4a6202c00074fdd5408e0c46621e4b7d397cd4c527a5e30a593b1806d5482",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "KNOWN_BAD_CANARY_SURVIVED",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 1,
+        "production_linked_obligations_passed": 1
+      }
+    },
+    {
+      "id": "us006-probe-not-executed",
+      "mutation_manifest_path": "assurance/replay/fixtures/us006-probe-not-executed/mutation.json",
+      "realized_tree_sha256": "sha256:a18e3cdc68ce4bfa50e928174eac25ecad57e9491e5e0acd1c138b4c6c8ce219",
+      "expected": {
+        "exit_code": 1,
+        "state": "BLOCKED",
+        "findings": [
+          {
+            "code": "BACKEND_PROBE_NOT_EXECUTED",
+            "disposition": "BLOCK",
+            "count": 1
+          }
+        ],
+        "obligations_evaluated": 7,
+        "obligations_passed": 0,
+        "production_linked_obligations_passed": 0
+      }
+    }
+  ]
+}

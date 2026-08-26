@@ -1,0 +1,14 @@
+{
+  "operations": [
+    {
+      "kind": "include",
+      "path": "assurance/replay/fixtures/us006-good-backend-executed/mutation.json"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/sbx_execution/evidence_run/seed",
+      "value": ""
+    }
+  ]
+}
