@@ -175,6 +175,8 @@ type backend struct {
 	Outcomes              []outcome         `json:"outcomes"`
 	Replay                replay            `json:"replay"`
 	Limitations           []string          `json:"limitations"`
+	evidenceKind          string
+	evidenceRunID         string
 }
 
 type tool struct {
@@ -267,25 +269,24 @@ type replayRun struct {
 	ObligationIDs        []string    `json:"obligation_ids"`
 }
 
-type executionReceiptDocument struct {
+type evidenceArtifactDocument struct {
 	SchemaVersion            string   `json:"schema_version"`
 	EntityType               string   `json:"entity_type"`
 	FixtureKind              string   `json:"fixture_kind"`
+	Provenance               string   `json:"provenance"`
+	Role                     string   `json:"role"`
+	State                    string   `json:"state"`
 	BackendID                string   `json:"backend_id"`
 	Method                   string   `json:"method"`
 	RunID                    string   `json:"run_id"`
 	ToolName                 string   `json:"tool_name"`
 	ToolVersion              string   `json:"tool_version"`
 	ToolBinarySHA256         string   `json:"tool_binary_sha256"`
-	ProbeSucceeded           bool     `json:"probe_succeeded"`
-	ProbeExitCode            int      `json:"probe_exit_code"`
 	CLIVersion               string   `json:"cli_version"`
 	DaemonVersion            string   `json:"daemon_version"`
 	TemplateReference        string   `json:"template_reference"`
 	SandboxPolicyDigest      string   `json:"sandbox_policy_digest"`
-	CleanupState             string   `json:"cleanup_state"`
-	ClassificationState      string   `json:"classification_state"`
-	Categories               []string `json:"categories"`
+	ObligationIDs            []string `json:"obligation_ids"`
 	Assurance                string   `json:"assurance"`
 	IndependentReviewClaimed bool     `json:"independent_review_claimed"`
 	Production               bool     `json:"production"`
@@ -295,6 +296,7 @@ type replayReceiptDocument struct {
 	SchemaVersion            string      `json:"schema_version"`
 	EntityType               string      `json:"entity_type"`
 	FixtureKind              string      `json:"fixture_kind"`
+	Provenance               string      `json:"provenance"`
 	BackendID                string      `json:"backend_id"`
 	RunID                    string      `json:"run_id"`
 	ReplayID                 string      `json:"replay_id"`
@@ -311,6 +313,7 @@ type linkageReceiptDocument struct {
 	SchemaVersion            string        `json:"schema_version"`
 	EntityType               string        `json:"entity_type"`
 	FixtureKind              string        `json:"fixture_kind"`
+	Provenance               string        `json:"provenance"`
 	Method                   string        `json:"method"`
 	EntrySymbol              string        `json:"entry_symbol"`
 	TargetSymbol             string        `json:"target_symbol"`

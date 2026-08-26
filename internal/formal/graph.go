@@ -144,17 +144,25 @@ func validateResolvedLinkage(snap *snapshot, target *target, collector *findingC
 			continue
 		}
 		if receipt.SchemaVersion != "1.0.0" || receipt.EntityType != "FormalLinkageReceipt" ||
+			!claimBearingLinkage(receipt) ||
+			call.LinkageArtifact.Attribution != "PUBLIC_LINKAGE_EVIDENCE" ||
 			(receipt.Method != "COMPILER_CALL_GRAPH" && receipt.Method != "INSTRUMENTED_TRACE") ||
 			receipt.EntrySymbol != call.EntrySymbol || receipt.TargetSymbol != target.RustSymbol ||
 			receipt.TargetFile != target.PlannedFile || target.SourceSHA256 == nil || receipt.TargetSourceSHA256 != *target.SourceSHA256 ||
 			receipt.Assurance != assuranceCeiling || receipt.IndependentReviewClaimed || receipt.Production {
-			collector.semantic("DISCONNECTED_TARGET", path+".linkage_artifact", "typed linkage receipt does not bind method, entry, exact target symbol/file/source, and assurance posture")
+			collector.semantic("DISCONNECTED_TARGET", path+".linkage_artifact", "typed linkage receipt must be non-synthetic public-derived evidence binding method, provenance, entry, exact target symbol/file/source, and assurance posture")
 		}
 		if !linkageReachable(receipt.EntrySymbol, receipt.TargetSymbol, receipt.Edges) {
 			collector.semantic("DISCONNECTED_TARGET", path+".linkage_artifact.edges", "typed linkage receipt has no reachable edge chain from entry to exact target")
 		}
 		verifyArtifactRef(snap, receipt.SourceTree, path+".linkage_artifact.source_tree", collector)
 	}
+}
+
+func claimBearingLinkage(receipt linkageReceiptDocument) bool {
+	return receipt.FixtureKind == "PUBLIC_LINKAGE_RECEIPT" &&
+		receipt.Provenance == "PUBLIC_DERIVED_SOURCE_TREE" &&
+		receipt.SourceTree.Attribution == "PUBLIC_SOURCE_TREE"
 }
 
 func linkageReachable(entry, target string, edges []linkageEdge) bool {
@@ -456,14 +464,18 @@ func validateUnavailableBackend(backend *backend, path string, collector *findin
 }
 
 func validateExecutedBackend(snap *snapshot, targets *proofTargets, qualification *backendQualification, backend *backend, spec backendSpec, path string, collector *findingCollector) {
-	if backend.ClaimScope != spec.ExecutedScope {
+	backend.evidenceKind, backend.evidenceRunID = validateExecutedBindings(snap, qualification, backend, path, collector)
+	expectedScope := spec.ExecutedScope
+	if backend.evidenceKind == "SYNTHETIC_NON_CLAIM" {
+		expectedScope = "UNAVAILABLE_BACKEND_BLOCKED"
+	}
+	if backend.ClaimScope != expectedScope {
 		reason := "INFLATED_CLAIM"
 		if backend.Method == "TLC_EXPLICIT_STATE_MODEL_CHECKING" && backend.ClaimScope == "FUTURE_PRODUCTION_REFINEMENT" {
 			reason = "REFINEMENT_MISSING"
 		}
-		collector.semantic(reason, path+".claim_scope", "backend claim exceeds or differs from its exact method ceiling")
+		collector.semantic(reason, path+".claim_scope", "backend claim exceeds or differs from its exact evidence-kind and method ceiling")
 	}
-	validateExecutedBindings(snap, qualification, backend, path, collector)
 	if backend.Method == "KANI_BOUNDED_MODEL_CHECKING" {
 		for _, target := range targets.Targets {
 			if target.LinkageState != "RESOLVED_PRODUCTION_SYMBOL" {
@@ -509,7 +521,7 @@ func validateExecutedBackend(snap *snapshot, targets *proofTargets, qualificatio
 	_ = qualification
 }
 
-func validateExecutedBindings(snap *snapshot, qualification *backendQualification, backend *backend, path string, collector *findingCollector) {
+func validateExecutedBindings(snap *snapshot, qualification *backendQualification, backend *backend, path string, collector *findingCollector) (string, string) {
 	execution := backend.SBXExecution
 	complete := backend.AvailabilityProbe.Executed && backend.AvailabilityProbe.Receipt != nil && backend.AvailabilityProbe.ExitCode != nil && *backend.AvailabilityProbe.ExitCode == 0 &&
 		backend.Tool.Version != nil && backend.Tool.BinarySHA256 != nil && backend.Tool.ExecutablePromotion != nil &&
@@ -520,7 +532,7 @@ func validateExecutedBindings(snap *snapshot, qualification *backendQualificatio
 		execution.CleanupReceipt != nil && execution.ClassifierProjection != nil
 	if !complete {
 		collector.semantic("MISSING_REQUIRED_ARTIFACT", path, "executed backend requires a complete typed probe, profile, request, receipt, manifests, cleanup, classification, and promoted tool binding")
-		return
+		return "", ""
 	}
 	foundation := qualification.BorrowedSandboxFoundation
 	if *execution.CLIVersion != foundation.CLIVersion || *execution.DaemonVersion != foundation.DaemonVersion ||
@@ -539,14 +551,13 @@ func validateExecutedBindings(snap *snapshot, qualification *backendQualificatio
 		bindings[binding.Category] = append(bindings[binding.Category], binding)
 	}
 	for _, category := range requiredBackendArtifacts {
-		if len(bindings[category]) == 0 {
+		if len(bindings[category]) != 1 {
 			collector.semantic("MISSING_REQUIRED_ARTIFACT", path+".artifact_bindings", "missing typed category binding: "+category)
 		}
 	}
 	expectedRefs := map[string]artifactRef{
 		"SBX_REQUEST":           *execution.Request,
 		"SBX_RECEIPT":           *execution.Receipt,
-		"TOOL_IDENTITY":         *backend.Tool.ExecutablePromotion,
 		"INPUT_MANIFEST":        *execution.InputManifest,
 		"OUTPUT_MANIFEST":       *execution.OutputManifest,
 		"CLEANUP_RECEIPT":       *execution.CleanupReceipt,
@@ -561,27 +572,111 @@ func validateExecutedBindings(snap *snapshot, qualification *backendQualificatio
 			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".artifact_bindings", category+" does not bind its typed execution artifact")
 		}
 	}
-	data, err := snap.read(execution.Receipt.Path, maxJSONBytes)
+	categoryRefs := map[string]artifactRef{}
+	for category, values := range bindings {
+		if len(values) == 1 {
+			categoryRefs[category] = values[0].Artifact
+		}
+	}
+	if replayRef, ok := categoryRefs["REPLAY_RECEIPT"]; ok {
+		matched := false
+		for _, run := range backend.Replay.Runs {
+			matched = matched || replayRef == run.Receipt
+		}
+		if !matched {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".artifact_bindings", "REPLAY_RECEIPT must bind one independently retained replay run")
+		}
+	}
+	receipt, ok := readEvidenceArtifact(snap, *execution.Receipt, "SBX_RECEIPT", "SUCCEEDED", qualification, backend, "", path+".sbx_execution.receipt", collector)
+	if !ok {
+		return "", ""
+	}
+	runID := receipt.RunID
+	roleRefs := map[string]artifactRef{
+		"SBX_PROFILE": *execution.Profile, "CAPABILITY_PROBE": *execution.CapabilityProbe,
+	}
+	for category, ref := range categoryRefs {
+		if category != "REPLAY_RECEIPT" {
+			roleRefs[category] = ref
+		}
+	}
+	states := map[string]string{
+		"SBX_PROFILE": "QUALIFIED", "CAPABILITY_PROBE": "SUCCEEDED", "SBX_REQUEST": "ACCEPTED",
+		"SBX_RECEIPT": "SUCCEEDED", "TOOL_IDENTITY": "QUALIFIED", "INPUT_MANIFEST": "SEALED",
+		"OUTPUT_MANIFEST": "SEALED", "OBLIGATION_INVENTORY": "SEALED", "GOOD_CANARY_RESULT": "PASS",
+		"BAD_CANARY_COUNTEREXAMPLE": "COUNTEREXAMPLE", "RAW_TOOL_RESULT": "PASS", "NORMALIZED_RESULT": "PASS",
+		"CLEANUP_RECEIPT": "CLEAN", "CLASSIFIER_PROJECTION": "PUBLIC_DERIVED",
+	}
+	seenPaths := map[string]string{}
+	seenDigests := map[string]string{}
+	for role, ref := range roleRefs {
+		if previous := seenPaths[ref.Path]; previous != "" && previous != role {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".artifact_bindings", role+" reuses "+previous+" artifact path")
+		}
+		if previous := seenDigests[ref.SHA256]; previous != "" && previous != role {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".artifact_bindings", role+" reuses "+previous+" artifact digest")
+		}
+		seenPaths[ref.Path], seenDigests[ref.SHA256] = role, role
+		document, valid := readEvidenceArtifact(snap, ref, role, states[role], qualification, backend, runID, path+".evidence."+strings.ToLower(role), collector)
+		if valid && document.FixtureKind != receipt.FixtureKind {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".evidence."+strings.ToLower(role), "all role-specific evidence must share one fixture kind")
+		}
+	}
+	for _, canary := range backend.KnownGoodCanaries {
+		if canary.Output == nil || *canary.Output != categoryRefs["GOOD_CANARY_RESULT"] {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".known_good_canaries", "good canary output must bind the typed GOOD_CANARY_RESULT role")
+		}
+	}
+	for _, canary := range backend.KnownBadCanaries {
+		if canary.Output == nil || *canary.Output != categoryRefs["BAD_CANARY_COUNTEREXAMPLE"] || canary.Counterexample == nil || canary.Counterexample.Artifact != categoryRefs["BAD_CANARY_COUNTEREXAMPLE"] {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".known_bad_canaries", "bad canary output and counterexample must bind the typed BAD_CANARY_COUNTEREXAMPLE role")
+		}
+	}
+	for _, outcome := range backend.Outcomes {
+		if len(outcome.ArtifactRefs) != 1 || outcome.ArtifactRefs[0] != categoryRefs["NORMALIZED_RESULT"] {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".outcomes", "executed outcomes must bind only the typed NORMALIZED_RESULT role")
+		}
+	}
+	for _, binding := range backend.ArtifactBindings {
+		if binding.RunID != runID {
+			collector.semantic("EXECUTION_RECEIPT_INVALID", path+".artifact_bindings", "category run_id does not match the typed execution run")
+		}
+	}
+	if receipt.FixtureKind == "SYNTHETIC_NON_CLAIM" && receipt.Provenance != "SYNTHETIC_TEST_FIXTURE" ||
+		receipt.FixtureKind == "PUBLIC_EXECUTION_RECEIPT" && receipt.Provenance != "PUBLIC_DERIVED_EXECUTION" {
+		collector.semantic("EXECUTION_RECEIPT_INVALID", path+".sbx_execution.receipt.provenance", "execution fixture kind and provenance do not reconcile")
+	}
+	return receipt.FixtureKind, runID
+}
+
+func readEvidenceArtifact(snap *snapshot, ref artifactRef, role, state string, qualification *backendQualification, backend *backend, runID, path string, collector *findingCollector) (evidenceArtifactDocument, bool) {
+	data, err := snap.read(ref.Path, maxJSONBytes)
 	if err != nil {
-		collector.semantic("MISSING_REQUIRED_ARTIFACT", path+".sbx_execution.receipt", err.Error())
-		return
+		collector.semantic("MISSING_REQUIRED_ARTIFACT", path, err.Error())
+		return evidenceArtifactDocument{}, false
 	}
-	var receipt executionReceiptDocument
-	if err := decodeStrict(data, &receipt); err != nil {
-		collector.semantic("EXECUTION_RECEIPT_INVALID", path+".sbx_execution.receipt", "execution receipt is not a strict typed document: "+err.Error())
-		return
+	var document evidenceArtifactDocument
+	if err := decodeStrict(data, &document); err != nil {
+		collector.semantic("EXECUTION_RECEIPT_INVALID", path, "evidence artifact is not a strict role-specific document: "+err.Error())
+		return evidenceArtifactDocument{}, false
 	}
-	if receipt.SchemaVersion != "1.0.0" || receipt.EntityType != "FormalExecutionReceipt" ||
-		(receipt.FixtureKind != "SYNTHETIC_NON_CLAIM" && receipt.FixtureKind != "PUBLIC_EXECUTION_RECEIPT") ||
-		receipt.BackendID != backend.BackendID || receipt.Method != backend.Method || receipt.RunID == "" ||
-		receipt.ToolName != backend.Tool.Name || backend.Tool.Version == nil || receipt.ToolVersion != *backend.Tool.Version ||
-		backend.Tool.BinarySHA256 == nil || receipt.ToolBinarySHA256 != *backend.Tool.BinarySHA256 || !receipt.ProbeSucceeded || receipt.ProbeExitCode != 0 ||
-		receipt.CLIVersion != foundation.CLIVersion || receipt.DaemonVersion != foundation.DaemonVersion ||
-		receipt.TemplateReference != foundation.TemplateReference || receipt.SandboxPolicyDigest != foundation.SandboxPolicyDigest ||
-		receipt.CleanupState != "CLEAN" || receipt.ClassificationState != "PUBLIC_DERIVED" ||
-		!sameSet(receipt.Categories, requiredBackendArtifacts) || receipt.Assurance != assuranceCeiling || receipt.IndependentReviewClaimed || receipt.Production {
-		collector.semantic("EXECUTION_RECEIPT_INVALID", path+".sbx_execution.receipt", "typed execution receipt does not establish the exact successful tool/profile/probe/cleanup/classification tuple")
+	foundation := qualification.BorrowedSandboxFoundation
+	validKind := document.FixtureKind == "SYNTHETIC_NON_CLAIM" || document.FixtureKind == "PUBLIC_EXECUTION_RECEIPT"
+	validProvenance := document.FixtureKind == "SYNTHETIC_NON_CLAIM" && document.Provenance == "SYNTHETIC_TEST_FIXTURE" ||
+		document.FixtureKind == "PUBLIC_EXECUTION_RECEIPT" && document.Provenance == "PUBLIC_DERIVED_EXECUTION"
+	validAttribution := document.FixtureKind == "SYNTHETIC_NON_CLAIM" && ref.Attribution == "US006_OWNED" ||
+		document.FixtureKind == "PUBLIC_EXECUTION_RECEIPT" && ref.Attribution == "PUBLIC_DERIVED_EXECUTION"
+	if document.SchemaVersion != "1.0.0" || document.EntityType != "FormalEvidenceArtifact" || !validKind || !validProvenance || !validAttribution ||
+		document.Role != role || document.State != state || document.BackendID != backend.BackendID || document.Method != backend.Method ||
+		document.RunID == "" || runID != "" && document.RunID != runID || backend.Tool.Version == nil || backend.Tool.BinarySHA256 == nil ||
+		document.ToolName != backend.Tool.Name || document.ToolVersion != *backend.Tool.Version || document.ToolBinarySHA256 != *backend.Tool.BinarySHA256 ||
+		document.CLIVersion != foundation.CLIVersion || document.DaemonVersion != foundation.DaemonVersion ||
+		document.TemplateReference != foundation.TemplateReference || document.SandboxPolicyDigest != foundation.SandboxPolicyDigest ||
+		!equalStrings(document.ObligationIDs, backend.ObligationIDs) || document.Assurance != assuranceCeiling || document.IndependentReviewClaimed || document.Production {
+		collector.semantic("EXECUTION_RECEIPT_INVALID", path, "role-specific evidence does not reconcile role, state, provenance, run, tool, profile, obligations, and assurance")
+		return document, false
 	}
+	return document, true
 }
 
 func validateReplayIdentity(snap *snapshot, qualification *backendQualification, backend *backend, mode, path string, collector *findingCollector) {
@@ -641,11 +736,20 @@ func validateReplayRuns(snap *snapshot, qualification *backendQualification, bac
 		}
 		if receipt.SchemaVersion != "1.0.0" || receipt.EntityType != "FormalReplayReceipt" ||
 			(receipt.FixtureKind != "SYNTHETIC_NON_CLAIM" && receipt.FixtureKind != "PUBLIC_EXECUTION_RECEIPT") ||
+			receipt.FixtureKind != backend.evidenceKind ||
+			(receipt.FixtureKind == "SYNTHETIC_NON_CLAIM" && receipt.Provenance != "SYNTHETIC_TEST_FIXTURE") ||
+			(receipt.FixtureKind == "PUBLIC_EXECUTION_RECEIPT" && receipt.Provenance != "PUBLIC_DERIVED_EXECUTION") ||
+			(receipt.FixtureKind == "SYNTHETIC_NON_CLAIM" && run.Receipt.Attribution != "US006_OWNED") ||
+			(receipt.FixtureKind == "PUBLIC_EXECUTION_RECEIPT" && run.Receipt.Attribution != "PUBLIC_DERIVED_EXECUTION") ||
 			receipt.BackendID != backend.BackendID || receipt.RunID != run.RunID || backend.Replay.ReplayID == nil || receipt.ReplayID != *backend.Replay.ReplayID ||
 			backend.Replay.ExpectedExitCode == nil || receipt.ExitCode != *backend.Replay.ExpectedExitCode ||
 			!equalStrings(receipt.ObligationIDs, backend.ObligationIDs) || receipt.SemanticOutputDigest != run.SemanticOutputDigest ||
 			receipt.NormalizedOutput != run.NormalizedOutput || receipt.Assurance != assuranceCeiling || receipt.IndependentReviewClaimed || receipt.Production {
 			collector.semantic("REPLAY_MISMATCH", runPath+".receipt", "typed replay receipt does not reconcile run identity, exit, obligations, normalized output, and assurance")
+		}
+		document, valid := readEvidenceArtifact(snap, run.NormalizedOutput, "NORMALIZED_RESULT", "PASS", qualification, backend, backend.evidenceRunID, runPath+".normalized_output", collector)
+		if valid && document.FixtureKind != backend.evidenceKind {
+			collector.semantic("REPLAY_MISMATCH", runPath+".normalized_output", "normalized replay output fixture kind differs from the executed evidence tree")
 		}
 	}
 	for _, outcome := range backend.Outcomes {
@@ -783,7 +887,7 @@ func validateAggregateState(qualification *backendQualification, collector *find
 	passes := map[string]bool{}
 	blocked := false
 	for _, backend := range qualification.Backends {
-		if backend.ExecutionState == "UNAVAILABLE_BACKEND_BLOCKED" || backend.ExecutionState == "EXECUTED_COUNTEREXAMPLE" || !backendOutcomesPass(backend) {
+		if backend.ExecutionState == "UNAVAILABLE_BACKEND_BLOCKED" || backend.ExecutionState == "EXECUTED_COUNTEREXAMPLE" || backend.evidenceKind == "SYNTHETIC_NON_CLAIM" || !backendOutcomesPass(backend) {
 			blocked = true
 		} else {
 			passes[backend.ClaimScope] = true
@@ -814,7 +918,7 @@ func backendOutcomesPass(backend backend) bool {
 		"LOOM_SYSTEMATIC_SCHEDULE_EXPLORATION": "SYSTEMATIC_EXPLORATION_PASSED",
 		"TLC_EXPLICIT_STATE_MODEL_CHECKING":    "MODEL_CHECK_PASSED",
 	}[backend.Method]
-	if backend.ExecutionState != "EXECUTED_PASS" || len(backend.Outcomes) == 0 {
+	if backend.ExecutionState != "EXECUTED_PASS" || backend.evidenceKind == "SYNTHETIC_NON_CLAIM" || len(backend.Outcomes) == 0 {
 		return false
 	}
 	for _, outcome := range backend.Outcomes {

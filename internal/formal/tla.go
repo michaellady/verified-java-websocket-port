@@ -108,13 +108,18 @@ func validateTLA(data []byte) error {
 	for _, required := range []string{
 		"/\\ Init",
 		"/\\ [][Next]_vars",
-		"/\\ WF_vars(CompleteHandshake \\/ BeginShutdown \\/ FinishClose)",
+		"/\\ WF_vars(CompleteHandshake)",
+		"/\\ WF_vars(BeginShutdown)",
 		"/\\ WF_vars(FlushOutbound)",
 		"/\\ WF_vars(DeliverCallback)",
+		"/\\ WF_vars(FinishClose)",
+		"EnqueueCommand ==\n    /\\ state = \"Open\"\n    /\\ shutdownRequested = FALSE",
+		"ReceiveClose ==\n    /\\ state \\in {\"Open\", \"Closing\"}\n    /\\ terminalQueued = FALSE",
+		"FinishClose ==\n    /\\ state = \"Closing\"\n    /\\ Len(commandQ) = 0\n    /\\ Len(writeQ) = 0\n    /\\ Len(eventQ) = 0",
 		"[]((acceptedCount > disposedCount) => <>(disposedCount = acceptedCount))",
 		"[]((terminalQueued /\\ ~terminalDelivered) => <>terminalDelivered)",
 		"terminalDeliveryCount <= 1",
-		`shutdownRequested => <>(state = "Closed")`,
+		"shutdownRequested => <>(/\\ state = \"Closed\"\n                             /\\ Len(commandQ) = 0\n                             /\\ Len(writeQ) = 0\n                             /\\ Len(eventQ) = 0)",
 	} {
 		if !strings.Contains(text, required) {
 			return fmt.Errorf("required Spec/fairness expression %q is missing", required)

@@ -561,6 +561,9 @@ func collectClaimScopes(targetsOK bool, targets *proofTargets, qualificationOK b
 	}
 	if qualificationOK {
 		for _, backend := range qualification.Backends {
+			if backend.evidenceKind == "SYNTHETIC_NON_CLAIM" {
+				continue
+			}
 			if allowed[backend.ClaimScope] {
 				set[backend.ClaimScope] = true
 			}

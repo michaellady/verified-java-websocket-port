@@ -35,7 +35,8 @@ CompleteHandshake ==
                    acceptedCount, disposedCount, terminalDeliveryCount>>
 
 EnqueueCommand ==
-    /\ state \in {"Open", "Closing"}
+    /\ state = "Open"
+    /\ shutdownRequested = FALSE
     /\ Len(commandQ) < MaxCommands
     /\ commandQ' = Append(commandQ, "command")
     /\ acceptedCount' = acceptedCount + 1
@@ -53,6 +54,7 @@ ReceiveFrame ==
 
 ReceiveClose ==
     /\ state \in {"Open", "Closing"}
+    /\ terminalQueued = FALSE
     /\ Len(eventQ) < MaxEvents
     /\ state' = "Closing"
     /\ eventQ' = Append(eventQ, "terminal")
@@ -107,6 +109,7 @@ FinishClose ==
     /\ state = "Closing"
     /\ Len(commandQ) = 0
     /\ Len(writeQ) = 0
+    /\ Len(eventQ) = 0
     /\ disposedCount = acceptedCount
     /\ (~terminalQueued \/ terminalDelivered)
     /\ state' = "Closed"
@@ -171,11 +174,16 @@ BackpressurePreservesAcceptedWork ==
 Spec ==
     /\ Init
     /\ [][Next]_vars
-    /\ WF_vars(CompleteHandshake \/ BeginShutdown \/ FinishClose)
+    /\ WF_vars(CompleteHandshake)
+    /\ WF_vars(BeginShutdown)
     /\ WF_vars(FlushOutbound)
     /\ WF_vars(DeliverCallback)
+    /\ WF_vars(FinishClose)
 
 TerminationUnderFairness ==
-    shutdownRequested => <>(state = "Closed")
+    shutdownRequested => <>(/\ state = "Closed"
+                             /\ Len(commandQ) = 0
+                             /\ Len(writeQ) = 0
+                             /\ Len(eventQ) = 0)
 
 =====================================================================================

@@ -12,7 +12,7 @@ import (
 	vendorprotocol "github.com/michaellady/verified-java-to-rust/foundation/protocol"
 )
 
-func TestUS006SyntheticExecutedMethodFixturesAreMechanicallyValid(t *testing.T) {
+func TestUS006SyntheticExecutedMethodFixturesAreMechanicallyValidAndNonClaiming(t *testing.T) {
 	for _, backendID := range []string{
 		"backend.finite-mask-prototype",
 		"backend.loom-concurrency",
@@ -21,6 +21,13 @@ func TestUS006SyntheticExecutedMethodFixturesAreMechanicallyValid(t *testing.T) 
 		t.Run(backendID, func(t *testing.T) {
 			root := copyFixtureRoot(t)
 			makeSyntheticExecutedBackend(t, root, backendID)
+			var qualification backendQualification
+			if err := decodeStrict(readFile(t, filepath.Join(root, backendQualificationPath)), &qualification); err != nil {
+				t.Fatal(err)
+			}
+			if backendPointer(t, &qualification, backendID).ClaimScope != "UNAVAILABLE_BACKEND_BLOCKED" {
+				t.Fatal("synthetic executed fixture must retain the explicit blocked scope")
+			}
 			for _, mode := range []string{ModePreflight, ModeReplay} {
 				verdict, err := Validate(context.Background(), Request{RootPath: root, Mode: mode})
 				if err != nil {
@@ -28,6 +35,10 @@ func TestUS006SyntheticExecutedMethodFixturesAreMechanicallyValid(t *testing.T) 
 				}
 				if !verdict.Valid || verdict.State != "BLOCKED" || len(verdict.Findings) != 0 {
 					t.Fatalf("%s verdict = %#v, want valid BLOCKED with other unavailable backends scoped", mode, verdict)
+				}
+				if backendID == "backend.finite-mask-prototype" && contains(verdict.ClaimScopes, "BOUNDED_TEST_EVIDENCE") ||
+					backendID == "backend.tlc-connection-model" && contains(verdict.ClaimScopes, "PROVED_MODEL") {
+					t.Fatalf("%s synthetic backend emitted a claim-bearing scope: %v", mode, verdict.ClaimScopes)
 				}
 			}
 		})
@@ -77,6 +88,27 @@ func TestUS006ExecutedReceiptAndReplayCannotBeSelfAsserted(t *testing.T) {
 				backend.KnownBadCanaries[0].Counterexample.CounterexampleID = "counterexample.0000000000000000"
 			},
 		},
+		{
+			name: "generic receipt reused as input manifest", reason: "EXECUTION_RECEIPT_INVALID",
+			mutate: func(backend *backend) {
+				backend.SBXExecution.InputManifest = backend.SBXExecution.Receipt
+				backend.SBXExecution.InputRootDigest = backend.SBXExecution.ReceiptDigest
+				for index := range backend.ArtifactBindings {
+					if backend.ArtifactBindings[index].Category == "INPUT_MANIFEST" {
+						backend.ArtifactBindings[index].Artifact = *backend.SBXExecution.Receipt
+					}
+				}
+			},
+		},
+		{
+			name: "synthetic evidence promoted to method claim", reason: "INFLATED_CLAIM",
+			mutate: func(backend *backend) {
+				backend.ClaimScope = executedScope(backend.Method)
+				for index := range backend.Outcomes {
+					backend.Outcomes[index].ClaimScope = backend.ClaimScope
+				}
+			},
+		},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -113,6 +145,49 @@ func TestUS006ResolvedLinkageRequiresExactReachableEdgeChain(t *testing.T) {
 	}
 }
 
+func TestUS006SyntheticOrUnprovenancedLinkageCannotResolveProduction(t *testing.T) {
+	receipt := linkageReceiptDocument{
+		FixtureKind: "PUBLIC_LINKAGE_RECEIPT", Provenance: "PUBLIC_DERIVED_SOURCE_TREE",
+		SourceTree: artifactRef{Attribution: "PUBLIC_SOURCE_TREE"},
+	}
+	if !claimBearingLinkage(receipt) {
+		t.Fatal("accepted public linkage provenance should be claim-bearing")
+	}
+	receipt.FixtureKind = "SYNTHETIC_NON_CLAIM"
+	if claimBearingLinkage(receipt) {
+		t.Fatal("synthetic linkage must not resolve production")
+	}
+	receipt.FixtureKind = "PUBLIC_LINKAGE_RECEIPT"
+	receipt.Provenance = ""
+	if claimBearingLinkage(receipt) {
+		t.Fatal("empty linkage provenance must not resolve production")
+	}
+}
+
+func TestUS006TLAConcurrencyShutdownShapeIsFrozen(t *testing.T) {
+	canonical := string(readFile(t, filepath.Join(repositoryRoot(t), connectionModelPath)))
+	mutations := map[string][2]string{
+		"accept while closing":       {"/\\ state = \"Open\"\n    /\\ shutdownRequested = FALSE", "/\\ state \\in {\"Open\", \"Closing\"}\n    /\\ shutdownRequested = FALSE"},
+		"duplicate terminal enqueue": {"/\\ state \\in {\"Open\", \"Closing\"}\n    /\\ terminalQueued = FALSE", "/\\ state \\in {\"Open\", \"Closing\"}"},
+		"close before event drain":   {"/\\ Len(writeQ) = 0\n    /\\ Len(eventQ) = 0", "/\\ Len(writeQ) = 0"},
+		"unfair final close":         {"/\\ WF_vars(FinishClose)", "/\\ WF_vars(ApplyBackpressure)"},
+	}
+	if err := validateTLA([]byte(canonical)); err != nil {
+		t.Fatalf("canonical TLA shape: %v", err)
+	}
+	for name, replacement := range mutations {
+		t.Run(name, func(t *testing.T) {
+			mutated := strings.Replace(canonical, replacement[0], replacement[1], 1)
+			if mutated == canonical {
+				t.Fatal("test mutation did not match canonical model")
+			}
+			if err := validateTLA([]byte(mutated)); err == nil {
+				t.Fatal("unsafe TLA transition shape was accepted")
+			}
+		})
+	}
+}
+
 func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	t.Helper()
 	qualificationPath := filepath.Join(root, backendQualificationPath)
@@ -125,8 +200,8 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	runID := "run." + short + ".primary"
 	fixtureDirectory := filepath.Join("assurance/formal/fixtures/runtime", short)
 
-	toolRef := writeFixtureArtifact(t, root, filepath.Join(fixtureDirectory, "tool.json"), map[string]any{
-		"schema_version": "1.0.0", "fixture_kind": "SYNTHETIC_NON_CLAIM", "tool": backend.Tool.Name,
+	toolRef := writeFixtureArtifact(t, root, filepath.Join(fixtureDirectory, "tool-binary.json"), map[string]any{
+		"fixture_kind": "SYNTHETIC_NON_CLAIM", "tool_binary": backend.Tool.Name,
 	})
 	toolVersion := "fixture-1.0.0"
 	toolCommit := strings.Repeat("a", 40)
@@ -134,23 +209,24 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	backend.Tool.Commit = &toolCommit
 	backend.Tool.BinarySHA256 = &toolRef.SHA256
 	backend.Tool.ExecutablePromotion = &toolRef
-
-	executionReceipt := executionReceiptDocument{
-		SchemaVersion: "1.0.0", EntityType: "FormalExecutionReceipt", FixtureKind: "SYNTHETIC_NON_CLAIM",
-		BackendID: backend.BackendID, Method: backend.Method, RunID: runID,
-		ToolName: backend.Tool.Name, ToolVersion: toolVersion, ToolBinarySHA256: toolRef.SHA256,
-		ProbeSucceeded: true, ProbeExitCode: 0,
-		CLIVersion:          qualification.BorrowedSandboxFoundation.CLIVersion,
-		DaemonVersion:       qualification.BorrowedSandboxFoundation.DaemonVersion,
-		TemplateReference:   qualification.BorrowedSandboxFoundation.TemplateReference,
-		SandboxPolicyDigest: qualification.BorrowedSandboxFoundation.SandboxPolicyDigest,
-		CleanupState:        "CLEAN", ClassificationState: "PUBLIC_DERIVED",
-		Categories: append([]string(nil), requiredBackendArtifacts...),
-		Assurance:  assuranceCeiling, IndependentReviewClaimed: false, Production: false,
+	writeRole := func(role, state, name string) artifactRef {
+		return writeFixtureEvidence(t, root, filepath.Join(fixtureDirectory, name), qualification, *backend, runID, role, state)
 	}
-	executionRef := writeFixtureArtifact(t, root, filepath.Join(fixtureDirectory, "execution-receipt.json"), executionReceipt)
+	profileRef := writeRole("SBX_PROFILE", "QUALIFIED", "profile.json")
+	capabilityRef := writeRole("CAPABILITY_PROBE", "SUCCEEDED", "capability-probe.json")
+	requestRef := writeRole("SBX_REQUEST", "ACCEPTED", "request.json")
+	receiptRef := writeRole("SBX_RECEIPT", "SUCCEEDED", "sbx-receipt.json")
+	inputRef := writeRole("INPUT_MANIFEST", "SEALED", "input-manifest.json")
+	outputRef := writeRole("OUTPUT_MANIFEST", "SEALED", "output-manifest.json")
+	cleanupRef := writeRole("CLEANUP_RECEIPT", "CLEAN", "cleanup-receipt.json")
+	classifierRef := writeRole("CLASSIFIER_PROJECTION", "PUBLIC_DERIVED", "classifier-projection.json")
+	toolIdentityRef := writeRole("TOOL_IDENTITY", "QUALIFIED", "tool-identity.json")
+	obligationRef := writeRole("OBLIGATION_INVENTORY", "SEALED", "obligation-inventory.json")
+	goodRef := writeRole("GOOD_CANARY_RESULT", "PASS", "good-canary-result.json")
+	badRef := writeRole("BAD_CANARY_COUNTEREXAMPLE", "COUNTEREXAMPLE", "bad-canary-counterexample.json")
+	rawRef := writeRole("RAW_TOOL_RESULT", "PASS", "raw-tool-result.json")
 	exitCode := 0
-	backend.AvailabilityProbe = availabilityProbe{Executed: true, Receipt: &executionRef, ExitCode: &exitCode, Observation: "CAPABILITY_PROBE_EXECUTED_PASS"}
+	backend.AvailabilityProbe = availabilityProbe{Executed: true, Receipt: &capabilityRef, ExitCode: &exitCode, Observation: "CAPABILITY_PROBE_EXECUTED_PASS"}
 	cliVersion := qualification.BorrowedSandboxFoundation.CLIVersion
 	daemonVersion := qualification.BorrowedSandboxFoundation.DaemonVersion
 	template := qualification.BorrowedSandboxFoundation.TemplateReference
@@ -159,20 +235,17 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	classified := "PUBLIC_DERIVED"
 	backend.SBXExecution = sbxExecution{
 		CLIVersion: &cliVersion, DaemonVersion: &daemonVersion, TemplateReference: &template, SandboxPolicyDigest: &policy,
-		RequestDigest: &executionRef.SHA256, ReceiptDigest: &executionRef.SHA256,
-		InputRootDigest: &executionRef.SHA256, OutputRootDigest: &executionRef.SHA256,
+		RequestDigest: &requestRef.SHA256, ReceiptDigest: &receiptRef.SHA256,
+		InputRootDigest: &inputRef.SHA256, OutputRootDigest: &outputRef.SHA256,
 		CleanupState: &clean, ClassificationState: &classified,
-		Profile: &executionRef, CapabilityProbe: &executionRef, Request: &executionRef, Receipt: &executionRef,
-		InputManifest: &executionRef, OutputManifest: &executionRef, CleanupReceipt: &executionRef, ClassifierProjection: &executionRef,
+		Profile: &profileRef, CapabilityProbe: &capabilityRef, Request: &requestRef, Receipt: &receiptRef,
+		InputManifest: &inputRef, OutputManifest: &outputRef, CleanupReceipt: &cleanupRef, ClassifierProjection: &classifierRef,
 	}
 	backend.ExecutionState = "EXECUTED_PASS"
-	backend.ClaimScope = executedScope(backend.Method)
+	backend.ClaimScope = "UNAVAILABLE_BACKEND_BLOCKED"
 	setExecutedCount(t, backend)
 
-	normalized := map[string]any{
-		"schema_version": "1.0.0", "fixture_kind": "SYNTHETIC_NON_CLAIM",
-		"backend_id": backend.BackendID, "obligation_ids": backend.ObligationIDs, "result": "PASS",
-	}
+	normalized := syntheticEvidenceDocument(qualification, *backend, runID, "NORMALIZED_RESULT", "PASS")
 	normalizedOne := writeFixtureArtifact(t, root, filepath.Join(fixtureDirectory, "normalized-run-1.json"), normalized)
 	normalizedTwo := writeFixtureArtifact(t, root, filepath.Join(fixtureDirectory, "normalized-run-2.json"), normalized)
 	if normalizedOne.SHA256 != normalizedTwo.SHA256 {
@@ -180,18 +253,18 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	}
 	for index := range backend.KnownGoodCanaries {
 		backend.KnownGoodCanaries[index].ObservedOutcome = "PASS"
-		backend.KnownGoodCanaries[index].Output = &normalizedOne
+		backend.KnownGoodCanaries[index].Output = &goodRef
 	}
 	for index := range backend.KnownBadCanaries {
 		canary := &backend.KnownBadCanaries[index]
 		canary.ObservedOutcome = "COUNTEREXAMPLE"
-		canary.Output = &normalizedOne
-		canary.Counterexample = syntheticCanaryCounterexample(t, *backend, *canary, executionRef)
+		canary.Output = &badRef
+		canary.Counterexample = syntheticCanaryCounterexample(t, *backend, *canary, badRef)
 	}
 	passOutcome := methodPassOutcome(backend.Method)
 	for index := range backend.Outcomes {
 		backend.Outcomes[index].RawOutcome = passOutcome
-		backend.Outcomes[index].ClaimScope = backend.ClaimScope
+		backend.Outcomes[index].ClaimScope = "UNAVAILABLE_BACKEND_BLOCKED"
 		backend.Outcomes[index].ArtifactRefs = []artifactRef{normalizedOne}
 		backend.Outcomes[index].Counterexample = nil
 	}
@@ -212,12 +285,12 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	}
 
 	categoryRefs := map[string]artifactRef{
-		"SBX_REQUEST": executionRef, "SBX_RECEIPT": executionRef, "TOOL_IDENTITY": toolRef,
-		"INPUT_MANIFEST": executionRef, "OUTPUT_MANIFEST": executionRef, "OBLIGATION_INVENTORY": executionRef,
-		"GOOD_CANARY_RESULT": normalizedOne, "BAD_CANARY_COUNTEREXAMPLE": executionRef,
-		"RAW_TOOL_RESULT": executionRef, "NORMALIZED_RESULT": normalizedOne,
-		"REPLAY_RECEIPT": backend.Replay.Runs[0].Receipt, "CLEANUP_RECEIPT": executionRef,
-		"CLASSIFIER_PROJECTION": executionRef,
+		"SBX_REQUEST": requestRef, "SBX_RECEIPT": receiptRef, "TOOL_IDENTITY": toolIdentityRef,
+		"INPUT_MANIFEST": inputRef, "OUTPUT_MANIFEST": outputRef, "OBLIGATION_INVENTORY": obligationRef,
+		"GOOD_CANARY_RESULT": goodRef, "BAD_CANARY_COUNTEREXAMPLE": badRef,
+		"RAW_TOOL_RESULT": rawRef, "NORMALIZED_RESULT": normalizedOne,
+		"REPLAY_RECEIPT": backend.Replay.Runs[0].Receipt, "CLEANUP_RECEIPT": cleanupRef,
+		"CLASSIFIER_PROJECTION": classifierRef,
 	}
 	backend.ArtifactBindings = make([]evidenceBinding, 0, len(requiredBackendArtifacts))
 	for _, category := range requiredBackendArtifacts {
@@ -232,7 +305,7 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 func writeReplayRun(t *testing.T, root, directory string, backend backend, runID string, normalized artifactRef, ordinal int) replayRun {
 	t.Helper()
 	receipt := replayReceiptDocument{
-		SchemaVersion: "1.0.0", EntityType: "FormalReplayReceipt", FixtureKind: "SYNTHETIC_NON_CLAIM",
+		SchemaVersion: "1.0.0", EntityType: "FormalReplayReceipt", FixtureKind: "SYNTHETIC_NON_CLAIM", Provenance: "SYNTHETIC_TEST_FIXTURE",
 		BackendID: backend.BackendID, RunID: runID, ReplayID: *backend.Replay.ReplayID,
 		ExitCode: *backend.Replay.ExpectedExitCode, ObligationIDs: append([]string(nil), backend.ObligationIDs...),
 		SemanticOutputDigest: normalized.SHA256, NormalizedOutput: normalized,
@@ -240,6 +313,22 @@ func writeReplayRun(t *testing.T, root, directory string, backend backend, runID
 	}
 	receiptRef := writeFixtureArtifact(t, root, filepath.Join(directory, "replay-receipt-"+string(rune('0'+ordinal))+".json"), receipt)
 	return replayRun{RunID: runID, Receipt: receiptRef, NormalizedOutput: normalized, SemanticOutputDigest: normalized.SHA256, ObligationIDs: append([]string(nil), backend.ObligationIDs...)}
+}
+
+func writeFixtureEvidence(t *testing.T, root, path string, qualification backendQualification, backend backend, runID, role, state string) artifactRef {
+	t.Helper()
+	return writeFixtureArtifact(t, root, path, syntheticEvidenceDocument(qualification, backend, runID, role, state))
+}
+
+func syntheticEvidenceDocument(qualification backendQualification, backend backend, runID, role, state string) evidenceArtifactDocument {
+	return evidenceArtifactDocument{
+		SchemaVersion: "1.0.0", EntityType: "FormalEvidenceArtifact", FixtureKind: "SYNTHETIC_NON_CLAIM", Provenance: "SYNTHETIC_TEST_FIXTURE",
+		Role: role, State: state, BackendID: backend.BackendID, Method: backend.Method, RunID: runID,
+		ToolName: backend.Tool.Name, ToolVersion: *backend.Tool.Version, ToolBinarySHA256: *backend.Tool.BinarySHA256,
+		CLIVersion: qualification.BorrowedSandboxFoundation.CLIVersion, DaemonVersion: qualification.BorrowedSandboxFoundation.DaemonVersion,
+		TemplateReference: qualification.BorrowedSandboxFoundation.TemplateReference, SandboxPolicyDigest: qualification.BorrowedSandboxFoundation.SandboxPolicyDigest,
+		ObligationIDs: append([]string(nil), backend.ObligationIDs...), Assurance: assuranceCeiling, IndependentReviewClaimed: false, Production: false,
+	}
 }
 
 func syntheticCanaryCounterexample(t *testing.T, backend backend, canary canary, artifact artifactRef) *counterexample {
