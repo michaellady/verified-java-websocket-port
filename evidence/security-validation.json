@@ -6,7 +6,7 @@
   "policy_digests": {
     "security/ingestion-policy.json": "sha256:8c3f4b7a0d7e7fe803e171267a3ab25c88576b582dd5391ce16954cbdd832d60",
     "security/release-firewall.json": "sha256:74252e3448f76d47a978df882bc6b791b5fd0f5a21b26ac4c196e6c27caa044d",
-    "security/sandbox-policy.json": "sha256:12c6db734495d294ed32a32cd18af167595a99f97a0755c47c7a8e40bfb91e97"
+    "security/sandbox-policy.json": "sha256:3335d46168bf478b0a0ff4ff19a9787c86ec8c77452942be843cc47c1a3a460e"
   },
   "schema_digests": {
     "schemas/executable-promotion-record-1.0.0.schema.json": "sha256:d2e0c86caa559a393f2f27a678940ce296c21a86829c54a7cc7d16411743d8aa",
@@ -691,7 +691,7 @@
     "code": "SANDBOX_ENFORCEMENT_UNAVAILABLE",
     "disposition": "BLOCK",
     "path": "$.platform_enforcement",
-    "message": "required namespace/profile, resource, mount, network, and cleanup enforcement is not proven; no host-process fallback was used"
+    "message": "the measured one-CPU/one-GiB sbx contract, descriptor-UID aggregate limits and cleanup, exact /run closure, and pinned Go 1.26 canary have passed offline only; protected live attempt 0018 and post-removal classification are not yet observed"
   },
   "lifecycle_integration": {
     "state": "BOUND_CANONICAL_VERIFY_REPLAY",

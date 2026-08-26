@@ -23,7 +23,7 @@ func TestSbxExecutionRequestBindsExactProtectedProfile(t *testing.T) {
 		t.Fatalf("root/profile binding=%#v", request)
 	}
 	wantCreate := []string{
-		"/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx", "create", "--clone", "--cpus", "2", "--memory", "2g", "--deny-network", "**",
+		"/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx", "create", "--clone", "--cpus", "1", "--memory", "1g", "--deny-network", "**",
 		"--name", "us007-clean-exit", "--template", "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
 		"shell", repoRoot(t),
 	}
@@ -38,7 +38,7 @@ func TestSbxExecutionRequestBindsExactProtectedProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if profile.SupervisorLimits != (resources{WallSeconds: 120, CPUSeconds: 60, MemoryBytes: 536870912, PIDs: 64, OpenFiles: 256, OutputBytes: 8388608, WorkspaceBytes: 67108864, CacheBytes: 67108864, DiskBytes: 134217728, Inodes: 8192}) {
+	if profile.SupervisorLimits != (resources{WallSeconds: 60, CPUSeconds: 60, MemoryBytes: 1073741824, PIDs: 64, OpenFiles: 256, OutputBytes: 8388608, WorkspaceBytes: 67108864, CacheBytes: 67108864, DiskBytes: 67108864, Inodes: 16384}) {
 		t.Fatalf("supervisor limits widened from retained sandbox policy: %#v", profile.SupervisorLimits)
 	}
 	for _, forbidden := range []string{"--env", "--env-file", "--kit", "--publish", "--static-mcp", "--privileged"} {
@@ -190,54 +190,56 @@ func testSupervisorObservation(request SbxExecutionRequest) SupervisorObservatio
 	if err != nil {
 		panic(err)
 	}
-	initial := SupervisorCgroupObservation{
-		MemoryMaxBytes: 536870912, MemorySwapMax: 0, MemoryOOMGroup: 1, PIDsMax: 56,
-		CPUUsageUsec: 1, CPUUserUsec: 1,
+	uid, writablePaths, err := supervisorDescriptorIdentity(request.CanaryID)
+	if err != nil {
+		panic(err)
 	}
+	mountInfo := testCandidateMountInfo(request.InputRoot)
+	rusage := SupervisorRusageObservation{UTimeUsec: 1, STimeUsec: 1, CPUUsageUsec: 2, MaxRSSBytes: 4096}
+	envelope := exactProtectedEnvelope()
 	return SupervisorObservation{
-		DescriptorDigest: descriptorDigest, SupervisorDigestReopened: request.SupervisorDigest,
+		SchemaVersion: "1.0.0", DescriptorID: request.CanaryID, DescriptorDigest: descriptorDigest,
+		SupervisorDigest: request.SupervisorDigest, SupervisorDigestReopened: request.SupervisorDigest,
 		RuntimeIdentity: "linux/arm64", SBXIdentity: "docker-sbx-v0.39.0/linux/arm64",
 		SourceCommit: "0123456789abcdef0123456789abcdef01234567", SourceTree: "89abcdef0123456789abcdef0123456789abcdef",
 		CapabilityPreflight: SupervisorCapabilityPreflight{
-			CAPSysAdmin: "CapEff bit 21 observed", CgroupV2: "cgroup2 mount observed",
-			Controllers: "cpu memory pids observed", CgroupKill: "cgroup.kill reopened",
-			MountTmpfs:        "private mount namespace and tmpfs available",
-			Stage2Containment: "pid reopened in cgroup.procs before release",
+			Setrlimit: "getrlimit/setrlimit round-trip succeeded", RunTmpfs: "/run tmpfs observed magic=0x1021994 size=67108864 inodes=16384",
+			NoNewPrivs: "prctl PR_GET_NO_NEW_PRIVS available", Stage2Containment: "blocked pipe protocol; process-group plus descriptor-UID containment before release",
+			OuterCPU: "runtime.NumCPU=1", InnerCgroup: "read-only cgroup-v2 memory.max=max cpu.max=max 100000",
+			UIDIsolation: "descriptor-specific UID observed empty before release and swept after wait",
 		},
-		EnforcementMechanics: SupervisorEnforcementMechanics{RLimitFSizeBytes: 134217728, CPUKillThresholdUsec: 58000000, WallKillThresholdNS: 119000000000, CgroupPIDsMax: 56},
-		CgroupInitial:        initial, CgroupFinal: initial,
+		Envelope: envelope, EnforcementMechanics: supervisorMechanicsFor(envelope), Rusage: rusage,
 		RLimits: SupervisorRLimitObservation{
-			CPUCur: 60, CPUMax: 60, ASCur: 536870912, ASMax: 536870912,
+			CPUCur: 60, CPUMax: 60, ASCur: ^uint64(0), ASMax: ^uint64(0),
 			NProcCur: 64, NProcMax: 64, NOFileCur: 256, NOFileMax: 256,
-			FSizeCur: 134217728, FSizeMax: 134217728,
+			FSizeCur: 67108864, FSizeMax: 67108864,
 		},
 		Identity: SupervisorIdentityObservation{
-			UID: 65534, GID: 65534, CapEff: "0000000000000000", NoNewPrivs: 1, Seccomp: 2, OpenFDs: 3,
-			FDSemantics: "per-process RLIMIT_NOFILE; aggregate tree FD count observed but not separately hard-capped",
+			UID: int(uid), GID: int(uid), CapEff: "0000000000000000", NoNewPrivs: 1, Seccomp: 0, OpenFDs: 3,
+			FDSemantics: "per-process RLIMIT_NOFILE plus parent-observed descriptor-UID aggregate FD kill threshold",
 		},
-		Mounts: []SupervisorMountObservation{
-			{Name: "workspace", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 67108864, BytesFree: 67108864, InodesTotal: 4096, InodesFree: 4096},
-			{Name: "cache", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 33554432, BytesFree: 33554432, InodesTotal: 2048, InodesFree: 2048},
-			{Name: "output", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 16777216, BytesFree: 16777216, InodesTotal: 1024, InodesFree: 1024},
-			{Name: "general", MountInfo: "tmpfs rw", FSType: 0x01021994, BytesTotal: 16777216, BytesFree: 16777216, InodesTotal: 1024, InodesFree: 1024},
-		},
-		RootMountInfo: "1 0 0:1 / / ro - rootfs rootfs ro", SourceMountInfo: "2 1 0:2 / /run/sandbox/source ro - ext4 source ro",
-		CompleteMountInfo: testCandidateMountInfo(), CompleteMountInfoDigest: intake.DigestBytes([]byte(testCandidateMountInfo())),
-		StdoutDigest: digestOf("stdout"), StderrDigest: digestOf("stderr"), Termination: "EXITED", ParentWaitStatus: "exit status 0", ParentExitCode: sbxIntPointer(0), WallDurationNanos: int64(time.Second),
+		RunTmpfs:          SupervisorMountObservation{Name: "run", MountInfo: "tmpfs /run rw,size=65536k", FSType: 0x01021994, BytesTotal: 67108864, BytesFree: 67108864, InodesTotal: 16384, InodesFree: 16384},
+		CompleteMountInfo: mountInfo, CompleteMountInfoDigest: intake.DigestBytes([]byte(mountInfo)),
+		Peaks:        SupervisorPeakObservation{CPUUsageUsec: rusage.CPUUsageUsec, MemoryBytes: rusage.MaxRSSBytes, PIDs: 2, OpenFiles: 8},
+		StdoutDigest: digestOf("stdout"), StderrDigest: digestOf("stderr"), Termination: "EXITED", ParentWaitStatus: "exit status 0", ParentExitCode: sbxIntPointer(0), WorkloadUID: uid, WritablePaths: writablePaths, WallDurationNanos: int64(time.Second),
 		Cleanup: SupervisorCleanupObservation{
-			ProcessGroupKill: "ALREADY_ABSENT_ESRCH", CgroupKill: "WRITE_SUCCEEDED", ChildWait: "REAP_SUCCEEDED",
-			CgroupEventsReopened: "populated 0\nfrozen 0", CgroupProcsReopened: "<empty>", NamespaceMounts: "PROCESS_MOUNT_NAMESPACE_REAPED",
-			FDClosure: "OWNED_FDS_CLOSED", CgroupRemoval: "REMOVE_SUCCEEDED",
+			ProcessGroupKill: "ALREADY_ABSENT_ESRCH", UIDKill: "SIGNAL_SWEEP_SUCCEEDED", ChildWait: "REAP_SUCCEEDED",
+			UIDProcesses: "<empty>", WorkspacePurge: "WORKSPACE_TMPFS_PURGED", FDClosure: "OWNED_FDS_CLOSED",
 		},
 		Assurance: AssuranceOwnerOnly,
 	}
 }
 
-func testCandidateMountInfo() string {
+func testCandidateMountInfo(sourceRoots ...string) string {
+	sourceRoot := "/candidate/source"
+	if len(sourceRoots) != 0 {
+		sourceRoot = sourceRoots[0]
+	}
 	return strings.Join([]string{
-		"1 0 0:1 / / ro - rootfs rootfs ro", "2 1 0:2 / /run/sandbox/source ro - ext4 source ro",
-		"3 1 0:3 / /run/us007-workspace rw - tmpfs tmpfs rw", "4 1 0:4 / /run/us007-cache rw - tmpfs tmpfs rw",
-		"5 1 0:5 / /run/us007-output rw - tmpfs tmpfs rw", "6 1 0:6 / /run/us007-general rw - tmpfs tmpfs rw",
+		"1 0 0:1 / / rw - overlay overlay rw",
+		"2 1 254:48 / " + sourceRoot + " rw,relatime - ext4 /dev/vdd rw",
+		"3 1 0:53 " + sourceRoot + " /run/sandbox/source ro,nosuid,nodev,relatime - virtiofs host rw",
+		"4 1 0:20 / /run rw,nosuid,nodev - tmpfs tmpfs rw,size=65536k",
 	}, "\n")
 }
 

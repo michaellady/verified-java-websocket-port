@@ -14,62 +14,75 @@ publication, and any additional Autobahn run are not authorized.
 The protected implementation is a standalone Go module outside the candidate
 repository and does not import candidate packages. Its Darwin/arm64 host
 operator accepts zero arguments and owns one compiled Docker sbx request. Its
-Linux/arm64 supervisor executes the exact retained 13-canary registry followed
-by one benign operation. Caller input cannot select a descriptor or provide an
+Linux/arm64 supervisor executes the exact retained 14-adversarial-descriptor
+registry followed by one benign operation. Caller input cannot select a descriptor or provide an
 argv, environment, path, resource limit, launcher, authority claim, or success
 claim. The host invokes exactly one compiled command with
 `sbx exec --privileged -u root`: the promoted supervisor itself. The exact
 argv is hashed into the owner promotion closure. No `sbx create` capability
-flag is claimed. Privilege exists only while the trusted supervisor creates
-the cgroup and private mount controls. Its stage-2 blocked inherited-FD
-protocol writes the child PID to the new
-cgroup, reopens `cgroup.procs`, observes that exact PID, and only then releases
-the child. Before any workload starts, stage-2 drops UID/GID and capabilities,
-sets and reopens `no_new_privs` and seccomp, and reports those raw observations.
+flag is claimed. Privilege is scoped to the trusted supervisor. Its stage-2
+blocked inherited-FD protocol assigns a descriptor-specific UID/GID, verifies
+that the UID has no existing processes, establishes process-group leadership,
+and only then releases the child. Before any workload starts, stage-2 drops
+UID/GID and capabilities, sets and reopens `no_new_privs`, and reports those
+raw observations. Seccomp mode is observed but not required because the pinned
+sbx container runtime reports mode 0 inside its microVM boundary.
 
-The supervisor requires a successful capability/delegation preflight before a
-workload starts. Missing `CAP_SYS_ADMIN`, cgroup v2 `cpu memory pids`
-controllers, writable per-attempt cgroups, `cgroup.kill`, private mount/tmpfs
-support, or the stage-2 membership handshake yields
-`SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK`. It configures and reopens
-`memory.max=536870912`, `memory.swap.max=0`, `memory.oom.group=1`, and
-`pids.max=56`; retains `RLIMIT_NPROC=64` as the declared per-UID process
-ceiling so the lower cgroup trigger deterministically increments
-`pids.events.max`; monitors aggregate cgroup `cpu.stat` usage against 60 seconds;
-and applies reopened stage-2 rlimits for CPU, address space, per-UID processes,
-per-process open files, file size, and core size. `RLIMIT_NOFILE=256` is exactly
-a per-process hard cap. Aggregate tree FD counts are observed, but are not
-represented as a separate aggregate hard cap.
+The supervisor requires a successful measured-capability preflight before a
+workload starts. It requires one logical CPU, an exact 64 MiB `/run` tmpfs,
+working `setrlimit` and `no_new_privs`, a read-only inner cgroup whose
+`memory.max` and `cpu.max` match the probed sbx shape, and an empty
+descriptor-specific UID. The pinned sbx v0.39.0 runtime does not provide
+`CAP_SYS_ADMIN`, writable inner cgroups, Landlock, or private mount namespaces;
+the contract does not claim them. Any drift yields
+`SANDBOX_ENFORCEMENT_UNAVAILABLE/BLOCK`.
 
-Each stage-2 process has a private mount namespace, read-only root and cloned
-source, and four fixed tmpfs roots. Their compiled allocation is 64 MiB/4096
-inodes for workspace, 32 MiB/2048 for cache, 16 MiB/1024 for output, and
-16 MiB/1024 for general temporary data: exactly 128 MiB and 8192 inodes in
-aggregate. Stdout and stderr share one supervisor-owned aggregate 8 MiB budget;
-neither stream has a private allowance, and discarded bytes remain counted. A
-monotonic deadline triggers before 120 seconds;
-CPU, output, writable-root, context, or wall breaches cause both process-group
-and cgroup-tree termination. Cleanup reopens `cgroup.events` and
-`cgroup.procs`, requires `populated 0` and an empty process list, observes the
-mount namespace reaped, closes supervisor-owned file descriptors, and removes
-the per-attempt cgroup.
+Creation is fixed at one CPU and one GiB. The parent uses outer-cgroup CPU
+readback and kills at 58 CPU seconds; a
+59-second parent deadline prevents churn from escaping the single-CPU aggregate
+ceiling. It kills the descriptor UID above 512 MiB aggregate RSS or 256 open
+descriptors. `RLIMIT_NPROC=64`, `RLIMIT_NOFILE=256`, `RLIMIT_CPU=60`,
+`RLIMIT_FSIZE=64 MiB`, and zero core size are set soft-equal-hard. `RLIMIT_AS`
+stays above one GiB because Go and JVM tools reserve large virtual address
+spaces; resident memory is bounded by the 512 MiB parent threshold and the
+distinct one-GiB outer sbx limit.
+
+The inherited `/run` tmpfs is the only writable allocation pool. Workspace,
+cache, output, and general roots share its measured 64 MiB/16384-inode ceiling;
+none has a reserved slice, and the root ceilings are therefore non-additive.
+The benign artifact stream has a separate supervisor-owned 4 MiB capture cap.
+The exact byte and inode totals are reopened from `fstatfs` and must match before
+release. The source tree, `/tmp`, `/var/tmp`, `/dev/shm`, and
+`/run/lock` are made non-writable before identity drop, and the parent scans the
+resulting writable directories, regular files, and resolved symlink targets
+against the descriptor-specific `/run` closure. `/proc`, `/sys`, and device
+nodes are explicit pseudo-filesystem exclusions; storage-like `/dev/shm` is
+scanned separately after being made non-writable.
+Stdout and stderr share one supervisor-owned aggregate 8 MiB budget; neither
+stream has a private allowance, and discarded bytes remain counted. CPU,
+memory, FD, output, shared-writable-pool, or wall breaches trigger process-group and
+descriptor-UID termination. Cleanup performs a UID-wide signal sweep, reaps
+the child, reopens `/proc` to require the UID empty, purges descriptor roots,
+and closes supervisor-owned file descriptors. A dedicated `setsid` escape
+descriptor proves the UID sweep catches a process that left the original
+session and process group.
 
 The current receipt contract removes `declared_canary_limits` in favor of the
 compiled supervisor envelope plus raw observations: capability preflight,
-cgroup configuration and monotonic counters, reopened rlimits, UID/GID,
-capabilities, `no_new_privs`, seccomp mode, FDs, mountinfo/fstatfs sizes and
-inodes, resource peaks, stream digests, parent-derived termination, monotonic
-wall duration, and cleanup readbacks. Strict decoding rejects unknown fields,
+reaped rusage, aggregate UID/cgroup peaks, reopened rlimits, descriptor UID/GID,
+capabilities, `no_new_privs`, seccomp mode, `/run` fstatfs size and inodes,
+complete mountinfo, writable-path closure, stream digests, parent-derived
+termination, monotonic wall duration, and cleanup readbacks. Strict decoding rejects unknown fields,
 including `supervisor_limits_applied`, `passed`, or other workload-authored
 booleans. Candidate `RunControlledCanary` remains unconditionally
 `PROTECTED_CALLER_REQUIRED/BLOCK`; a structurally valid receipt never gives the
 candidate launch authority.
 
-FD, output, aggregate-memory, and PID boundary workloads are compiled Go modes
+FD, output, aggregate-memory, session-escape, and PID boundary workloads are compiled Go modes
 selected only by the fixed protected plan. The benign descriptor uses the
-pinned Go tool to build the reviewed standard-library-only
-`./cmd/resource-envelope-artifact` target from the exact commit with fixed
-cache/output roots. A trusted stage-2 monitor reopens and hashes the artifact,
+pinned `/usr/bin/go` 1.26.0 tool to compile the reviewed import-free
+`security/fixtures/resource-envelope-canary.go` source from the exact commit
+directly into its descriptor output root. A trusted stage-2 monitor reopens and hashes the artifact,
 streams its bounded bytes to the protected parent, and the host operator copies
 and rehashes those captured bytes before namespace and sandbox teardown.
 
@@ -78,7 +91,7 @@ Darwin/arm64 host-operator build, and a static Linux/arm64 supervisor
 cross-build. These offline results establish the implementation seam only. The
 exact executable promotion, the sole fixed generic non-Autobahn sbx run, raw
 live observations, protected classification, and post-removal check remain the
-closeout validation; historical live-0011 evidence is unchanged.
+closeout validation; historical live-0012 evidence is unchanged.
 
 ## Retained live Docker sbx result
 

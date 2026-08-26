@@ -26,12 +26,18 @@ func TestSupervisorObservationRejectsMissingRegressionAndDigestDrift(t *testing.
 		name string
 		edit func(*SbxExecutionReceipt)
 	}{
-		{"preflight-missing", func(r *SbxExecutionReceipt) { r.SupervisorObservation.CapabilityPreflight.CgroupKill = "" }},
-		{"counter-regression", func(r *SbxExecutionReceipt) {
-			r.SupervisorObservation.CgroupFinal.CPUUsageUsec = r.SupervisorObservation.CgroupInitial.CPUUsageUsec - 1
+		{"preflight-missing", func(r *SbxExecutionReceipt) { r.SupervisorObservation.CapabilityPreflight.UIDIsolation = "" }},
+		{"preflight-cpu-overclaim", func(r *SbxExecutionReceipt) {
+			r.SupervisorObservation.CapabilityPreflight.OuterCPU = "runtime.NumCPU=8"
+		}},
+		{"preflight-cgroup-overclaim", func(r *SbxExecutionReceipt) {
+			r.SupervisorObservation.CapabilityPreflight.InnerCgroup = "read-write cgroup-v2 memory.max=536870912 cpu.max=100000 100000"
+		}},
+		{"aggregate-under-rusage", func(r *SbxExecutionReceipt) {
+			r.SupervisorObservation.Peaks.CPUUsageUsec = r.SupervisorObservation.Rusage.CPUUsageUsec - 1
 		}},
 		{"supervisor-digest-drift", func(r *SbxExecutionReceipt) { r.SupervisorObservation.SupervisorDigestReopened = digestOf("drift") }},
-		{"cleanup-procs-not-empty", func(r *SbxExecutionReceipt) { r.SupervisorObservation.Cleanup.CgroupProcsReopened = "4242" }},
+		{"cleanup-procs-not-empty", func(r *SbxExecutionReceipt) { r.SupervisorObservation.Cleanup.UIDProcesses = "4242" }},
 		{"fd-semantics-overclaim", func(r *SbxExecutionReceipt) { r.SupervisorObservation.Identity.FDSemantics = "aggregate tree hard cap" }},
 	}
 	for _, mutation := range mutations {
@@ -107,14 +113,10 @@ func TestRunControlledCanaryRemainsUnconditionallyProtected(t *testing.T) {
 	}
 }
 
-func TestPIDCgroupTriggerRemainsBelowRetainedNProcLimit(t *testing.T) {
+func TestPIDDescriptorRequiresRetainedNProcLimit(t *testing.T) {
 	request := testSbxExecutionRequest(t)
 	request.CanaryID = "PID_BOUND"
 	receipt := testSbxReceipt(t, request)
-	receipt.SupervisorObservation.EnforcementMechanics.CgroupPIDsMax = 56
-	receipt.SupervisorObservation.CgroupInitial.PIDsMax = 56
-	receipt.SupervisorObservation.CgroupFinal.PIDsMax = 56
-	receipt.SupervisorObservation.CgroupFinal.PIDsEventsMax = 1
 	receipt.SupervisorObservation.Termination = "PARENT_OBSERVED_NONZERO_EXIT"
 	receipt.SupervisorObservation.ParentExitCode = sbxIntPointer(23)
 	profile, err := loadSbxExecutionProfile(repoRoot(t))
@@ -124,19 +126,19 @@ func TestPIDCgroupTriggerRemainsBelowRetainedNProcLimit(t *testing.T) {
 	if err := validateSbxExecutionReceipt(profile, request, receipt); err != nil {
 		t.Fatal(err)
 	}
-	receipt.SupervisorObservation.CgroupInitial.PIDsMax = int64(profile.SupervisorLimits.PIDs)
+	receipt.SupervisorObservation.RLimits.NProcCur = uint64(profile.SupervisorLimits.PIDs - 1)
 	if err := validateSbxExecutionReceipt(profile, request, receipt); err == nil {
-		t.Fatal("pids.max equal to retained RLIMIT_NPROC accepted")
+		t.Fatal("drifted RLIMIT_NPROC accepted")
 	}
 }
 
 func TestMountinfoForbiddenBindRootFieldIsUnescapedAndRejected(t *testing.T) {
 	realistic := testCandidateMountInfo() + "\n8 1 0:8 /protected/owner /safe ro,relatime - ext4 /dev/disk1 ro"
-	if err := validateSBXWritableMountClosure(realistic); err == nil {
+	if err := validateSBXNoForbiddenMounts(realistic, "/candidate/source"); err == nil {
 		t.Fatal("forbidden bind root field accepted")
 	}
 	escaped := testCandidateMountInfo() + "\n8 1 0:8 /protected\\040owner /safe ro,relatime - ext4 /dev/disk1 ro"
-	if err := validateSBXWritableMountClosure(escaped); err == nil {
+	if err := validateSBXNoForbiddenMounts(escaped, "/candidate/source"); err == nil {
 		t.Fatal("escaped forbidden bind root field accepted")
 	}
 }
@@ -175,11 +177,55 @@ func TestProtectedPublicProjectionGoldenRoundTrip(t *testing.T) {
 	if err := json.Unmarshal(raw, &value); err != nil || schema.Validate(value) != nil {
 		t.Fatalf("public projection schema: unmarshal=%v schema=%v", err, schema.Validate(value))
 	}
+	projectionObject := value.(map[string]any)["projection"].(map[string]any)
+	firstObservation := projectionObject["descriptor_observations"].([]any)[0].(map[string]any)
+	preflight := firstObservation["capability_preflight"].(map[string]any)
+	preflight["candidate_claim"] = true
+	if err := schema.Validate(value); err == nil {
+		t.Fatal("public projection schema accepted an unknown nested preflight field")
+	}
+	delete(preflight, "candidate_claim")
+	preflight["outer_cpu"] = "runtime.NumCPU=8"
+	if err := schema.Validate(value); err == nil {
+		t.Fatal("public projection schema accepted false outer CPU evidence")
+	}
 	drift := envelope
 	drift.CanonicalDigest = digestOf("drift")
 	driftBytes, _ := json.Marshal(drift)
 	if _, err := DecodeProtectedPublicProjection(driftBytes); err == nil {
 		t.Fatal("aggregate public projection digest drift accepted")
+	}
+	for _, mutation := range []struct {
+		name string
+		edit func(*ProtectedPublicProjection)
+	}{
+		{"profile", func(value *ProtectedPublicProjection) { value.Request.ProfileDigest = digestOf("other-profile") }},
+		{"policy-list", func(value *ProtectedPublicProjection) { value.Request.PolicyDigest = digestOf("other-policy") }},
+		{"accepted-tree", func(value *ProtectedPublicProjection) { value.Request.AcceptedRootDigest = digestOf("other-accepted") }},
+		{"inventory-tree", func(value *ProtectedPublicProjection) {
+			value.Request.InventoryRootDigest = digestOf("other-inventory")
+		}},
+		{"runtime-supervisor", func(value *ProtectedPublicProjection) { value.Runtime.SupervisorDigest = digestOf("other-supervisor") }},
+		{"descriptor-supervisor", func(value *ProtectedPublicProjection) {
+			value.DescriptorObservations[0].SupervisorDigest = digestOf("other-supervisor")
+		}},
+	} {
+		t.Run("binding-"+mutation.name, func(t *testing.T) {
+			bad := projection
+			bad.DescriptorObservations = append([]ProtectedDescriptorObservation(nil), projection.DescriptorObservations...)
+			mutation.edit(&bad)
+			canonical, err := intake.CanonicalJSON(bad)
+			if err != nil {
+				t.Fatal(err)
+			}
+			raw, err := intake.CanonicalJSON(ProtectedPublicProjectionEnvelope{Projection: bad, CanonicalDigest: intake.DigestBytes(canonical)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := DecodeProtectedPublicProjection(raw); err == nil {
+				t.Fatal("internally re-digested projection with drifted provenance binding accepted")
+			}
+		})
 	}
 }
 
@@ -187,39 +233,41 @@ func testProtectedPublicProjection() ProtectedPublicProjection {
 	const commit = "0123456789abcdef0123456789abcdef01234567"
 	const tree = "89abcdef0123456789abcdef0123456789abcdef"
 	plan := protectedFixedPlan()
+	profileBytes, _ := json.Marshal(exactProtectedEnvelope())
+	inputRoot := "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port/protected/us007-source-clone-" + commit
+	outputRoot := "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port/protected/us007-sbx-output-live-0018"
 	observations := make([]ProtectedDescriptorObservation, 0, len(plan))
 	for _, id := range plan {
-		request := SbxExecutionRequest{CanaryID: id, SupervisorDigest: digestOf("supervisor")}
+		request := SbxExecutionRequest{CanaryID: id, SupervisorDigest: digestOf("supervisor"), InputRoot: inputRoot}
 		observation := testSupervisorObservation(request)
 		switch id {
 		case "FD_BOUND":
-			observation.Termination, observation.ParentExitCode, observation.Peaks.PerProcessOpenFDs = "PARENT_OBSERVED_NONZERO_EXIT", sbxIntPointer(23), 252
+			observation.Termination, observation.ParentExitCode, observation.Peaks.OpenFiles = "FD_LIMIT_EXCEEDED", nil, observation.EnforcementMechanics.AggregateOpenFiles+1
 		case "CPU_BOUND":
 			observation.Termination, observation.ParentExitCode = "CPU_LIMIT_EXCEEDED", nil
-			observation.CgroupFinal.CPUUsageUsec = observation.CgroupInitial.CPUUsageUsec + 58000000
+			observation.Peaks.CPUUsageUsec = observation.EnforcementMechanics.CPUCorroborationUsec
 		case "MEMORY_BOUND":
 			observation.Termination, observation.ParentExitCode = "MEMORY_LIMIT_EXCEEDED", nil
-			observation.CgroupFinal.MemoryEventsMax++
+			observation.Peaks.MemoryBytes = observation.EnforcementMechanics.MemoryKillBytes + 1
 		case "OUTPUT_BOUND":
 			observation.Termination, observation.ParentExitCode, observation.Peaks.OutputBytes = "OUTPUT_LIMIT_EXCEEDED", nil, 8388609
 		case "PID_BOUND":
 			observation.Termination, observation.ParentExitCode = "PARENT_OBSERVED_NONZERO_EXIT", sbxIntPointer(23)
-			observation.CgroupFinal.PIDsEventsMax++
 		case "WALL_BOUND":
-			observation.Termination, observation.ParentExitCode, observation.WallDurationNanos = "WALL_LIMIT_EXCEEDED", nil, 119000000000
+			observation.Termination, observation.ParentExitCode, observation.WallDurationNanos = "WALL_LIMIT_EXCEEDED", nil, observation.EnforcementMechanics.WallKillThresholdNS
 		case "WORKSPACE_BOUND":
-			observation.Termination, observation.ParentExitCode, observation.Peaks.WorkspaceBytes = "PARENT_OBSERVED_NONZERO_EXIT", sbxIntPointer(23), 67108864-(2<<20)
+			observation.Termination, observation.ParentExitCode, observation.Peaks.WorkspaceBytes = "PARENT_OBSERVED_NONZERO_EXIT", sbxIntPointer(23), int64(exactProtectedEnvelope().WorkspaceBytes)-(2<<20)
 		case "BENIGN_OPERATION":
-			observation.Artifact = SupervisorArtifactObservation{ToolPath: "/usr/local/go/bin/go", ToolVersion: "go version go1.25.5 linux/arm64", Target: "./cmd/resource-envelope-artifact", SourceCommit: commit, NamespacePath: "/run/us007-output/resource-envelope-artifact", CapturePath: "/tmp/us007-resource-envelope-artifact", CaptureChannel: "SUPERVISOR_OWNED_PIPE_REOPENED", WorkloadDigest: digestOf("artifact"), ParentDigest: digestOf("artifact"), Bytes: 8}
+			observation.Artifact = SupervisorArtifactObservation{ToolPath: "/usr/bin/go", ToolVersion: "go version go1.26.0 linux/arm64", Target: "security/fixtures/resource-envelope-canary.go", SourceCommit: commit, NamespacePath: "/run/us007-benign/output/resource-envelope-canary.o", CapturePath: "/tmp/us007-resource-envelope-artifact", CaptureChannel: "SUPERVISOR_OWNED_PIPE_REOPENED", WorkloadDigest: digestOf("artifact"), ParentDigest: digestOf("artifact"), Bytes: 8}
 		}
 		observations = append(observations, protectedObservationFromCandidate(id, commit, tree, observation))
 	}
 	return ProtectedPublicProjection{
 		SchemaVersion: "1.0.0",
-		Request:       ProtectedProjectionRequest{AttemptID: "us007-sbx-output-live-0012", TargetCommit: commit, SourceTree: tree, FixedPlanDigest: protectedFixedPlanDigest(), ProfileDigest: digestOf("profile"), PolicyDigest: digestOf("policy"), AcceptedRootDigest: digestOf("accepted"), InventoryRootDigest: digestOf("inventory"), InputRoot: "/Users/mikelady/hq/workspace/worktrees/verified-java-websocket-port/us007-resource-supervisor", OutputRoot: "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port/protected/us007-sbx-output-live-0012", PrivilegedExecArgvDigest: protectedPrivilegedExecDigest()},
-		Runtime:       ProtectedProjectionRuntime{CLIPath: "/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx", CLIBinaryDigest: "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf", CLIVersionOutputDigest: digestOf("version"), CLIVersion: "v0.39.0", CLICommit: "def8cb0523a77e757bdd6ef52b459fe374f3783e", DaemonStatusDigest: digestOf("daemon"), DaemonVersion: "v0.39.0", DaemonCommit: "def8cb0523a77e757bdd6ef52b459fe374f3783e", Template: "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec", SandboxName: "us007-resource-envelope-0012", PrivilegeLifecycle: "trusted supervisor uses privilege only for cgroup and mount setup; stage-2 drops identity and capabilities before workload"},
+		Request:       ProtectedProjectionRequest{AttemptID: "us007-sbx-output-live-0018", TargetCommit: commit, SourceTree: tree, FixedPlanDigest: protectedFixedPlanDigest(), ProfileDigest: intake.DigestBytes(profileBytes), PolicyDigest: digestOf("policy-list"), AcceptedRootDigest: intake.DigestBytes([]byte("accepted-git-tree:" + tree)), InventoryRootDigest: intake.DigestBytes([]byte("inventory-git-tree:" + tree)), InputRoot: inputRoot, OutputRoot: outputRoot, PrivilegedExecArgvDigest: protectedPrivilegedExecDigest()},
+		Runtime:       ProtectedProjectionRuntime{CLIPath: "/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx", CLIBinaryDigest: "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf", CLIVersionOutputDigest: digestOf("version"), CLIVersion: "v0.39.0", CLICommit: "def8cb0523a77e757bdd6ef52b459fe374f3783e", DaemonStatusDigest: digestOf("daemon"), DaemonVersion: "v0.39.0", DaemonCommit: "def8cb0523a77e757bdd6ef52b459fe374f3783e", Template: "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec", SandboxName: "us007-resource-envelope-0018", SupervisorDigest: digestOf("supervisor"), PrivilegeLifecycle: "sbx exec privilege is fixed to the trusted supervisor; stage-2 drops UID/GID/capabilities, sets no_new_privs/seccomp, and is reopened before workload release"},
 		StartedAt:     "2026-08-25T12:00:00Z", FinishedAt: "2026-08-25T12:00:01Z",
-		Artifact:               ProtectedProjectionArtifact{Digest: digestOf("artifact"), Bytes: 8, Path: "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port/protected/us007-sbx-output-live-0012/resource-envelope-artifact"},
+		Artifact:               ProtectedProjectionArtifact{Digest: digestOf("artifact"), Bytes: 8, Path: outputRoot + "/resource-envelope-artifact"},
 		Output:                 ProtectedProjectionOutput{SupervisorReceiptsDigest: digestOf("receipts"), InspectDigest: digestOf("inspect"), PolicyListDigest: digestOf("policy-list"), ExamplePolicyCheckDigest: digestOf("example"), ProviderPolicyCheckDigest: digestOf("provider")},
 		Cleanup:                ProtectedProjectionCleanup{RemoveDigest: digestOf("remove"), AbsenceDigest: digestOf("absence"), SandboxAbsent: true},
 		DescriptorObservations: observations, Assurance: AssuranceOwnerOnly,
@@ -227,8 +275,8 @@ func testProtectedPublicProjection() ProtectedPublicProjection {
 }
 
 func protectedObservationFromCandidate(id, commit, tree string, value SupervisorObservation) ProtectedDescriptorObservation {
-	toProtected := func(c SupervisorCgroupObservation) ProtectedCgroupReadback {
-		return ProtectedCgroupReadback{MemoryMax: c.MemoryMaxBytes, MemorySwapMax: c.MemorySwapMax, MemoryOOM: c.MemoryOOMGroup, PIDsMax: c.PIDsMax, CPU: ProtectedCPUCounters{UsageUsec: c.CPUUsageUsec, UserUsec: c.CPUUserUsec, SystemUsec: c.CPUSystemUsec}, MemoryEvents: ProtectedMemoryEvents{Max: c.MemoryEventsMax, OOM: c.MemoryEventsOOM, OOMKill: c.MemoryEventsKill}, MemoryCurrent: c.MemoryCurrent, MemoryPeak: c.MemoryPeak, PIDsCurrent: c.PIDsCurrent, PIDsEventsMax: c.PIDsEventsMax}
-	}
-	return ProtectedDescriptorObservation{SchemaVersion: "1.0.0", DescriptorID: id, DescriptorDigest: value.DescriptorDigest, SupervisorDigest: value.SupervisorDigestReopened, SupervisorDigestReopened: value.SupervisorDigestReopened, RuntimeIdentity: value.RuntimeIdentity, SBXIdentity: value.SBXIdentity, SourceCommit: commit, SourceTree: tree, Preflight: value.CapabilityPreflight, Envelope: exactProtectedEnvelope(), Mechanics: value.EnforcementMechanics, CgroupInitial: toProtected(value.CgroupInitial), CgroupFinal: toProtected(value.CgroupFinal), RLimits: value.RLimits, Identity: value.Identity, Mounts: value.Mounts, RootMountInfo: value.RootMountInfo, SourceMountInfo: value.SourceMountInfo, CompleteMountInfo: value.CompleteMountInfo, CompleteMountInfoDigest: value.CompleteMountInfoDigest, Peaks: value.Peaks, StdoutDigest: value.StdoutDigest, StderrDigest: value.StderrDigest, Termination: value.Termination, ParentWaitStatus: value.ParentWaitStatus, ExitCode: value.ParentExitCode, Signal: value.ParentSignal, WallDurationNanos: value.WallDurationNanos, Cleanup: value.Cleanup, Artifact: value.Artifact, Assurance: AssuranceOwnerOnly}
+	value.DescriptorID = id
+	value.SourceCommit = commit
+	value.SourceTree = tree
+	return value
 }

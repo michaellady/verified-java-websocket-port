@@ -19,9 +19,9 @@
   },
   "isolation": {
     "workspace_mode": "clone",
-    "cpus": 2,
-    "memory": "2g",
-    "memory_bytes": 2147483648,
+    "cpus": 1,
+    "memory": "1g",
+    "memory_bytes": 1073741824,
     "environment_import": "none",
     "secret_import": "none",
     "platform_control_secret": "mcpgateway",
@@ -45,18 +45,18 @@
       ,"per_sandbox_deny_resources": ["**"]
     }
   },
-  "sandbox_policy_digest": "sha256:12c6db734495d294ed32a32cd18af167595a99f97a0755c47c7a8e40bfb91e97",
+  "sandbox_policy_digest": "sha256:3335d46168bf478b0a0ff4ff19a9787c86ec8c77452942be843cc47c1a3a460e",
   "supervisor_limits": {
-    "wall_seconds": 120,
+    "wall_seconds": 60,
     "cpu_seconds": 60,
-    "memory_bytes": 536870912,
+    "memory_bytes": 1073741824,
     "pids": 64,
     "open_files": 256,
     "output_bytes": 8388608,
     "workspace_bytes": 67108864,
     "cache_bytes": 67108864,
-    "disk_bytes": 134217728,
-    "inodes": 8192
+    "disk_bytes": 67108864,
+    "inodes": 16384
   },
   "cleanup": {
     "remove_mode": "sbx-rm-force",

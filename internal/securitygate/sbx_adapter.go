@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"slices"
@@ -224,36 +225,32 @@ type SbxExecutionReceipt struct {
 // SupervisorCapabilityPreflight is a set of raw protected-parent observations.
 // Empty values block; candidate declarations are never substituted.
 type SupervisorCapabilityPreflight struct {
-	CAPSysAdmin       string `json:"cap_sys_admin"`
-	CgroupV2          string `json:"cgroup_v2"`
-	Controllers       string `json:"controllers"`
-	CgroupKill        string `json:"cgroup_kill"`
-	MountTmpfs        string `json:"mount_tmpfs"`
+	Setrlimit         string `json:"setrlimit"`
+	RunTmpfs          string `json:"run_tmpfs"`
+	NoNewPrivs        string `json:"no_new_privs"`
 	Stage2Containment string `json:"stage2_containment"`
-}
-
-type SupervisorCgroupObservation struct {
-	MemoryMaxBytes   int64 `json:"memory_max_bytes"`
-	MemorySwapMax    int64 `json:"memory_swap_max"`
-	MemoryOOMGroup   int64 `json:"memory_oom_group"`
-	PIDsMax          int64 `json:"pids_max"`
-	CPUUsageUsec     int64 `json:"cpu_usage_usec"`
-	CPUUserUsec      int64 `json:"cpu_user_usec"`
-	CPUSystemUsec    int64 `json:"cpu_system_usec"`
-	MemoryEventsMax  int64 `json:"memory_events_max"`
-	MemoryEventsOOM  int64 `json:"memory_events_oom"`
-	MemoryEventsKill int64 `json:"memory_events_oom_kill"`
-	MemoryCurrent    int64 `json:"memory_current"`
-	MemoryPeak       int64 `json:"memory_peak"`
-	PIDsCurrent      int64 `json:"pids_current"`
-	PIDsEventsMax    int64 `json:"pids_events_max"`
+	OuterCPU          string `json:"outer_cpu"`
+	InnerCgroup       string `json:"inner_cgroup"`
+	UIDIsolation      string `json:"uid_isolation"`
 }
 
 type SupervisorEnforcementMechanics struct {
 	RLimitFSizeBytes     int64 `json:"rlimit_fsize_bytes"`
-	CPUKillThresholdUsec int64 `json:"cpu_kill_threshold_usec"`
+	CPUCorroborationUsec int64 `json:"cpu_corroboration_usec"`
 	WallKillThresholdNS  int64 `json:"wall_kill_threshold_nanos"`
-	CgroupPIDsMax        int64 `json:"cgroup_pids_max"`
+	MemoryKillBytes      int64 `json:"aggregate_memory_kill_bytes"`
+	AggregateOpenFiles   int64 `json:"aggregate_open_files"`
+	DescriptorUIDPIDs    int64 `json:"descriptor_uid_pids"`
+	OuterCPUs            int   `json:"outer_cpus"`
+	OuterMemoryBytes     int64 `json:"outer_memory_bytes"`
+	RunTmpfsBytes        int64 `json:"run_tmpfs_bytes"`
+}
+
+type SupervisorRusageObservation struct {
+	UTimeUsec    int64 `json:"utime_usec"`
+	STimeUsec    int64 `json:"stime_usec"`
+	CPUUsageUsec int64 `json:"cpu_usage_usec"`
+	MaxRSSBytes  int64 `json:"maxrss_bytes"`
 }
 
 type SupervisorRLimitObservation struct {
@@ -292,26 +289,24 @@ type SupervisorMountObservation struct {
 }
 
 type SupervisorPeakObservation struct {
-	CPUUsageUsec      int64 `json:"cpu_usage_usec"`
-	MemoryBytes       int64 `json:"memory_bytes"`
-	PIDs              int64 `json:"pids"`
-	PerProcessOpenFDs int64 `json:"per_process_open_fds"`
-	OutputBytes       int64 `json:"output_bytes"`
-	WorkspaceBytes    int64 `json:"workspace_bytes"`
-	CacheBytes        int64 `json:"cache_bytes"`
-	DiskBytes         int64 `json:"aggregate_writable_bytes"`
-	Inodes            int64 `json:"aggregate_writable_inodes"`
+	CPUUsageUsec   int64 `json:"cpu_usage_usec"`
+	MemoryBytes    int64 `json:"memory_bytes"`
+	PIDs           int64 `json:"descriptor_uid_pids"`
+	OpenFiles      int64 `json:"descriptor_uid_open_files"`
+	OutputBytes    int64 `json:"output_bytes"`
+	WorkspaceBytes int64 `json:"workspace_bytes"`
+	CacheBytes     int64 `json:"cache_bytes"`
+	DiskBytes      int64 `json:"aggregate_writable_bytes"`
+	Inodes         int64 `json:"aggregate_writable_inodes"`
 }
 
 type SupervisorCleanupObservation struct {
-	ProcessGroupKill     string `json:"process_group_kill"`
-	CgroupKill           string `json:"cgroup_kill"`
-	ChildWait            string `json:"child_wait"`
-	CgroupEventsReopened string `json:"cgroup_events_reopened"`
-	CgroupProcsReopened  string `json:"cgroup_procs_reopened"`
-	NamespaceMounts      string `json:"namespace_mounts"`
-	FDClosure            string `json:"fd_closure"`
-	CgroupRemoval        string `json:"cgroup_removal"`
+	ProcessGroupKill string `json:"process_group_kill"`
+	UIDKill          string `json:"descriptor_uid_kill"`
+	ChildWait        string `json:"child_wait"`
+	UIDProcesses     string `json:"descriptor_uid_processes_reopened"`
+	WorkspacePurge   string `json:"workspace_tmpfs_purge"`
+	FDClosure        string `json:"fd_closure"`
 }
 
 type SupervisorArtifactObservation struct {
@@ -330,21 +325,22 @@ type SupervisorArtifactObservation struct {
 // SupervisorObservation is enforcement evidence from the protected external
 // supervisor. It intentionally has no limits-applied or passed boolean.
 type SupervisorObservation struct {
+	SchemaVersion            string                         `json:"schema_version"`
+	DescriptorID             string                         `json:"descriptor_id"`
 	DescriptorDigest         string                         `json:"descriptor_digest"`
+	SupervisorDigest         string                         `json:"supervisor_digest"`
 	SupervisorDigestReopened string                         `json:"supervisor_digest_reopened"`
 	RuntimeIdentity          string                         `json:"runtime_identity"`
 	SBXIdentity              string                         `json:"sbx_identity"`
 	SourceCommit             string                         `json:"source_commit"`
 	SourceTree               string                         `json:"source_tree"`
 	CapabilityPreflight      SupervisorCapabilityPreflight  `json:"capability_preflight"`
+	Envelope                 resources                      `json:"compiled_envelope"`
 	EnforcementMechanics     SupervisorEnforcementMechanics `json:"enforcement_mechanics"`
-	CgroupInitial            SupervisorCgroupObservation    `json:"cgroup_initial"`
-	CgroupFinal              SupervisorCgroupObservation    `json:"cgroup_final"`
+	Rusage                   SupervisorRusageObservation    `json:"rusage_reaped"`
 	RLimits                  SupervisorRLimitObservation    `json:"rlimits_reopened"`
 	Identity                 SupervisorIdentityObservation  `json:"identity_reopened"`
-	Mounts                   []SupervisorMountObservation   `json:"mounts_reopened"`
-	RootMountInfo            string                         `json:"root_mountinfo_reopened"`
-	SourceMountInfo          string                         `json:"source_mountinfo_reopened"`
+	RunTmpfs                 SupervisorMountObservation     `json:"run_tmpfs_reopened"`
 	CompleteMountInfo        string                         `json:"complete_mountinfo_reopened"`
 	CompleteMountInfoDigest  string                         `json:"complete_mountinfo_digest"`
 	Peaks                    SupervisorPeakObservation      `json:"peaks"`
@@ -354,6 +350,9 @@ type SupervisorObservation struct {
 	ParentWaitStatus         string                         `json:"parent_wait_status"`
 	ParentExitCode           *int                           `json:"exit_code"`
 	ParentSignal             string                         `json:"signal"`
+	WorkloadSignal           int                            `json:"workload_signal"`
+	WorkloadUID              uint32                         `json:"workload_uid"`
+	WritablePaths            []string                       `json:"writable_paths_reopened"`
 	WallDurationNanos        int64                          `json:"wall_duration_nanos"`
 	Cleanup                  SupervisorCleanupObservation   `json:"cleanup"`
 	Artifact                 SupervisorArtifactObservation  `json:"artifact"`
@@ -414,7 +413,7 @@ func loadSbxExecutionProfile(rootPath string) (sbxExecutionProfile, error) {
 		runtime.CLIPath != "/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx" || runtime.CLIVersion != "v0.39.0" || runtime.CLICommit != "def8cb0523a77e757bdd6ef52b459fe374f3783e" ||
 		runtime.CLIDaemonInvalid() || runtime.Agent != "shell" || runtime.TemplateReference != "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec" ||
 		runtime.TemplateIndexDigest != "sha256:c183a8ba03cdb30011c73f555c773c5712b84c6ea066f18409253dcab2cfe799" || runtime.TemplatePlatform != "linux/arm64" || runtime.TemplateManifestDigest != "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec" ||
-		isolation.WorkspaceMode != "clone" || isolation.CPUs != 2 || isolation.Memory != "2g" || isolation.MemoryBytes != 2147483648 || isolation.EnvironmentImport != "none" || isolation.SecretImport != "none" || isolation.PlatformControlSecret != "mcpgateway" || !isolation.MCPGatewayInfrastructure || !isolation.CloneGitBridgeRequired ||
+		isolation.WorkspaceMode != "clone" || isolation.CPUs != 1 || isolation.Memory != "1g" || isolation.MemoryBytes != 1073741824 || isolation.EnvironmentImport != "none" || isolation.SecretImport != "none" || isolation.PlatformControlSecret != "mcpgateway" || !isolation.MCPGatewayInfrastructure || !isolation.CloneGitBridgeRequired ||
 		isolation.HostDockerSocket || isolation.SharedSkills || isolation.LocalMCP || len(isolation.StaticMCPServers) != 0 || len(isolation.Kits) != 0 || len(isolation.PublishedPorts) != 0 ||
 		network.PolicyID != "default-deny-all" || network.RuleID != "default-deny-all" || network.ResourceType != "network" || network.Decision != "deny" || !slices.Equal(network.Resources, []string{"**"}) || !slices.Equal(network.PerSandboxDenyResources, []string{"**"}) || network.Origin != "local" || network.Status != "active" || !isSHA256Digest(network.CanonicalDigest) ||
 		profile.SandboxPolicyDigest != intake.DigestBytes(policyBytes) || profile.SupervisorLimits != retainedSandbox.Resources || profile.SupervisorLimits.MemoryBytes > isolation.MemoryBytes ||
@@ -632,77 +631,122 @@ func DecodeSbxExecutionReceipt(data []byte) (SbxExecutionReceipt, error) {
 
 func validateSupervisorObservation(profile sbxExecutionProfile, request SbxExecutionRequest, observation SupervisorObservation) error {
 	preflight := observation.CapabilityPreflight
-	for name, value := range map[string]string{
-		"cap_sys_admin": preflight.CAPSysAdmin, "cgroup_v2": preflight.CgroupV2,
-		"controllers": preflight.Controllers, "cgroup_kill": preflight.CgroupKill,
-		"mount_tmpfs": preflight.MountTmpfs, "stage2_containment": preflight.Stage2Containment,
-	} {
-		if value == "" {
-			return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.capability_preflight."+name, "required protected-parent observation is absent")
-		}
+	wantPreflight := SupervisorCapabilityPreflight{
+		Setrlimit:         "getrlimit/setrlimit round-trip succeeded",
+		RunTmpfs:          "/run tmpfs observed magic=0x1021994 size=67108864 inodes=16384",
+		NoNewPrivs:        "prctl PR_GET_NO_NEW_PRIVS available",
+		Stage2Containment: "blocked pipe protocol; process-group plus descriptor-UID containment before release",
+		OuterCPU:          "runtime.NumCPU=1",
+		InnerCgroup:       "read-only cgroup-v2 memory.max=max cpu.max=max 100000",
+		UIDIsolation:      "descriptor-specific UID observed empty before release and swept after wait",
+	}
+	if preflight != wantPreflight {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.capability_preflight", "protected-parent preflight differs from the exact measured runtime contract")
 	}
 	expectedDescriptorDigest, expectation, err := sbxDescriptorContract(request.CanaryID)
 	if err != nil {
 		return err
 	}
-	if observation.DescriptorDigest != expectedDescriptorDigest || observation.SupervisorDigestReopened != request.SupervisorDigest || !isSHA256Digest(observation.StdoutDigest) || !isSHA256Digest(observation.StderrDigest) || observation.RuntimeIdentity == "" || observation.SBXIdentity == "" || !sbxGitObjectPattern.MatchString(observation.SourceCommit) || !sbxGitObjectPattern.MatchString(observation.SourceTree) {
+	if observation.SchemaVersion != policyVersion || observation.DescriptorID != request.CanaryID || observation.DescriptorDigest != expectedDescriptorDigest || observation.SupervisorDigest != request.SupervisorDigest || observation.SupervisorDigestReopened != request.SupervisorDigest || !isSHA256Digest(observation.StdoutDigest) || !isSHA256Digest(observation.StderrDigest) || observation.RuntimeIdentity == "" || observation.SBXIdentity == "" || !sbxGitObjectPattern.MatchString(observation.SourceCommit) || !sbxGitObjectPattern.MatchString(observation.SourceTree) {
 		return sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.supervisor_observation.digests", "descriptor, executable, stream, runtime, or sbx identity is absent or drifted")
 	}
 	limits := profile.SupervisorLimits
+	if observation.Envelope != limits {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.compiled_envelope", "compiled envelope differs from the retained profile")
+	}
 	mechanics := observation.EnforcementMechanics
-	if mechanics.RLimitFSizeBytes != limits.DiskBytes || mechanics.CPUKillThresholdUsec != int64(limits.CPUSeconds)*1_000_000-2_000_000 || mechanics.WallKillThresholdNS != int64(limits.WallSeconds)*int64(time.Second)-int64(time.Second) || mechanics.CgroupPIDsMax != 56 || mechanics.CgroupPIDsMax >= int64(limits.PIDs) {
-		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.enforcement_mechanics", "FSIZE or conservative CPU/wall parent-kill mechanics drifted")
+	wantMechanics := supervisorMechanicsFor(limits)
+	if mechanics != wantMechanics {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.enforcement_mechanics", "aggregate UID, outer sbx, FSIZE, or conservative CPU/wall mechanics drifted")
 	}
-	initial, final := observation.CgroupInitial, observation.CgroupFinal
-	if initial.MemoryMaxBytes != limits.MemoryBytes || initial.MemorySwapMax != 0 || initial.MemoryOOMGroup != 1 || initial.PIDsMax != mechanics.CgroupPIDsMax || final.PIDsMax != mechanics.CgroupPIDsMax {
-		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.cgroup_initial", "reopened cgroup-v2 configuration differs from the compiled envelope")
-	}
-	if final.CPUUsageUsec < initial.CPUUsageUsec || final.CPUUserUsec < initial.CPUUserUsec || final.CPUSystemUsec < initial.CPUSystemUsec || final.MemoryEventsMax < initial.MemoryEventsMax || final.MemoryEventsOOM < initial.MemoryEventsOOM || final.MemoryEventsKill < initial.MemoryEventsKill || final.MemoryPeak < initial.MemoryPeak || final.PIDsEventsMax < initial.PIDsEventsMax {
-		return sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.supervisor_observation.cgroup_final", "reopened kernel counters regressed")
+	rusage := observation.Rusage
+	if rusage.UTimeUsec < 0 || rusage.STimeUsec < 0 || rusage.MaxRSSBytes < 0 || rusage.CPUUsageUsec != rusage.UTimeUsec+rusage.STimeUsec || observation.Peaks.CPUUsageUsec < rusage.CPUUsageUsec || observation.Peaks.MemoryBytes < rusage.MaxRSSBytes {
+		return sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.supervisor_observation.rusage_reaped", "reaped rusage is inconsistent or exceeds the aggregate peak")
 	}
 	rlimits := observation.RLimits
-	if rlimits.CPUCur != uint64(limits.CPUSeconds) || rlimits.CPUMax != uint64(limits.CPUSeconds) || rlimits.ASCur != uint64(limits.MemoryBytes) || rlimits.ASMax != uint64(limits.MemoryBytes) || rlimits.NProcCur != uint64(limits.PIDs) || rlimits.NProcMax != uint64(limits.PIDs) || rlimits.NOFileCur != uint64(limits.OpenFiles) || rlimits.NOFileMax != uint64(limits.OpenFiles) || rlimits.FSizeCur != uint64(mechanics.RLimitFSizeBytes) || rlimits.FSizeMax != uint64(mechanics.RLimitFSizeBytes) || rlimits.CoreCur != 0 || rlimits.CoreMax != 0 {
+	if rlimits.CPUCur != uint64(limits.CPUSeconds) || rlimits.CPUMax != rlimits.CPUCur || rlimits.ASCur <= uint64(limits.MemoryBytes) || rlimits.ASMax < rlimits.ASCur || rlimits.NProcCur != uint64(limits.PIDs) || rlimits.NProcMax != rlimits.NProcCur || rlimits.NOFileCur != uint64(limits.OpenFiles) || rlimits.NOFileMax != rlimits.NOFileCur || rlimits.FSizeCur != uint64(mechanics.RLimitFSizeBytes) || rlimits.FSizeMax != rlimits.FSizeCur || rlimits.CoreCur != 0 || rlimits.CoreMax != 0 {
 		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.rlimits_reopened", "stage-2 reopened rlimits differ from the protected envelope")
 	}
+	wantUID, wantPaths, identityErr := supervisorDescriptorIdentity(request.CanaryID)
+	if identityErr != nil {
+		return identityErr
+	}
 	identity := observation.Identity
-	if identity.UID == 0 || identity.GID == 0 || strings.Trim(identity.CapEff, "0") != "" || identity.NoNewPrivs != 1 || identity.Seccomp == 0 || identity.OpenFDs < 0 || identity.FDSemantics != "per-process RLIMIT_NOFILE; aggregate tree FD count observed but not separately hard-capped" {
-		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.identity_reopened", "stage-2 identity, capabilities, no-new-privileges, seccomp, or exact FD semantics are absent")
+	if observation.WorkloadUID != wantUID || identity.UID != int(wantUID) || identity.GID != int(wantUID) || strings.Trim(identity.CapEff, "0") != "" || identity.NoNewPrivs != 1 || identity.OpenFDs < 0 || identity.FDSemantics != "per-process RLIMIT_NOFILE plus parent-observed descriptor-UID aggregate FD kill threshold" {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.identity_reopened", "descriptor UID, capabilities, no-new-privileges, or exact FD semantics are absent")
 	}
-	if len(observation.Mounts) != 4 {
-		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.mounts_reopened", "exact workspace, cache, output, and general tmpfs observations are required")
+	run := observation.RunTmpfs
+	if run.Name != "run" || run.MountInfo == "" || run.FSType != 0x01021994 || run.BytesTotal != limits.DiskBytes || run.BytesFree < 0 || run.BytesFree > run.BytesTotal || run.InodesTotal != int64(limits.Inodes) || run.InodesFree < 0 || run.InodesFree > run.InodesTotal {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.run_tmpfs_reopened", "the exact 64-MiB/16384-inode /run tmpfs observation is absent")
 	}
-	if !sbxMountReadOnly(observation.RootMountInfo) || !sbxMountReadOnly(observation.SourceMountInfo) {
-		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.mountinfo", "reopened root and cloned-source mountinfo must both report read-only")
+	if !isSHA256Digest(observation.CompleteMountInfoDigest) || observation.CompleteMountInfoDigest != intake.DigestBytes([]byte(observation.CompleteMountInfo)) || validateSBXNoForbiddenMounts(observation.CompleteMountInfo, request.InputRoot) != nil {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.complete_mountinfo_reopened", "complete mountinfo digest or protected-endpoint closure is invalid")
 	}
-	if !isSHA256Digest(observation.CompleteMountInfoDigest) || observation.CompleteMountInfoDigest != intake.DigestBytes([]byte(observation.CompleteMountInfo)) || validateSBXWritableMountClosure(observation.CompleteMountInfo) != nil {
-		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.complete_mountinfo_reopened", "complete mountinfo digest or writable-mount closure is invalid")
-	}
-	seenMount := map[string]bool{}
-	var allocatedBytes, allocatedInodes int64
-	for _, mount := range observation.Mounts {
-		if !stringInSet(mount.Name, []string{"workspace", "cache", "output", "general"}) || seenMount[mount.Name] || mount.MountInfo == "" || mount.FSType == 0 || mount.BytesTotal <= 0 || mount.BytesFree < 0 || mount.BytesFree > mount.BytesTotal || mount.InodesTotal <= 0 || mount.InodesFree < 0 || mount.InodesFree > mount.InodesTotal {
-			return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.mounts_reopened", "tmpfs mountinfo or fstatfs observations are incomplete")
-		}
-		seenMount[mount.Name] = true
-		allocatedBytes += mount.BytesTotal
-		allocatedInodes += mount.InodesTotal
-	}
-	if allocatedBytes > limits.DiskBytes || allocatedInodes > int64(limits.Inodes) {
-		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.mounts_reopened", "aggregate writable tmpfs allocation exceeds the protected envelope")
+	if len(observation.WritablePaths) == 0 || validateSBXWritablePaths(observation.WritablePaths, wantPaths) != nil {
+		return sbxFinding("SANDBOX_ENFORCEMENT_UNAVAILABLE", "BLOCK", "$.supervisor_observation.writable_paths_reopened", "a writable path exists outside the descriptor-specific /run closure")
 	}
 	peaks := observation.Peaks
-	if peaks.CPUUsageUsec < 0 || peaks.MemoryBytes < 0 || peaks.PIDs < 0 || peaks.PerProcessOpenFDs < 0 || peaks.OutputBytes < 0 || peaks.WorkspaceBytes < 0 || peaks.CacheBytes < 0 || peaks.DiskBytes < 0 || peaks.Inodes < 0 || observation.Termination == "" || observation.ParentWaitStatus == "" || observation.WallDurationNanos < 0 || observation.WallDurationNanos > int64(limits.WallSeconds)*int64(time.Second) {
+	if peaks.CPUUsageUsec < 0 || peaks.MemoryBytes < 0 || peaks.PIDs < 0 || peaks.OpenFiles < 0 || peaks.OutputBytes < 0 || peaks.WorkspaceBytes < 0 || peaks.CacheBytes < 0 || peaks.DiskBytes < 0 || peaks.Inodes < 0 || observation.Termination == "" || observation.ParentWaitStatus == "" || observation.WallDurationNanos < 0 || observation.WallDurationNanos > mechanics.WallKillThresholdNS+int64(time.Second) {
 		return sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.supervisor_observation.peaks", "resource peaks, parent-derived termination, or monotonic wall observation is incomplete")
 	}
 	cleanup := observation.Cleanup
-	if cleanup.ProcessGroupKill != "SIGNAL_DELIVERED" && cleanup.ProcessGroupKill != "ALREADY_ABSENT_ESRCH" || cleanup.CgroupKill != "WRITE_SUCCEEDED" || cleanup.ChildWait != "REAP_SUCCEEDED" || !strings.Contains(cleanup.CgroupEventsReopened, "populated 0") || cleanup.CgroupProcsReopened != "<empty>" || cleanup.NamespaceMounts != "PROCESS_MOUNT_NAMESPACE_REAPED" || cleanup.FDClosure != "OWNED_FDS_CLOSED" || cleanup.CgroupRemoval != "REMOVE_SUCCEEDED" {
-		return sbxFinding("SANDBOX_CLEANUP_INCOMPLETE", "REVOKE", "$.supervisor_observation.cleanup", "process-group/cgroup kill, empty reopen, namespace/FD cleanup, and cgroup removal observations are required")
+	if cleanup.ProcessGroupKill != "SIGNAL_DELIVERED" && cleanup.ProcessGroupKill != "ALREADY_ABSENT_ESRCH" || cleanup.UIDKill != "SIGNAL_SWEEP_SUCCEEDED" || cleanup.ChildWait != "REAP_SUCCEEDED" || cleanup.UIDProcesses != "<empty>" || cleanup.WorkspacePurge != "WORKSPACE_TMPFS_PURGED" || cleanup.FDClosure != "OWNED_FDS_CLOSED" {
+		return sbxFinding("SANDBOX_CLEANUP_INCOMPLETE", "REVOKE", "$.supervisor_observation.cleanup", "process-group and descriptor-UID kill, empty reopen, purge, and FD cleanup observations are required")
 	}
 	if observation.Assurance != AssuranceOwnerOnly || observation.IndependentReviewClaimed || observation.AutobahnReruns != 0 {
 		return sbxFinding("ASSURANCE_CEILING_EXCEEDED", "REVOKE", "$.supervisor_observation.assurance", "supervisor observation exceeds the sole-owner, zero-Autobahn ceiling")
 	}
 	if err := validateSBXDescriptorOutcome(request.CanaryID, expectation, observation, limits); err != nil {
 		return err
+	}
+	return nil
+}
+
+func supervisorMechanicsFor(limits resources) SupervisorEnforcementMechanics {
+	return SupervisorEnforcementMechanics{
+		RLimitFSizeBytes: limits.DiskBytes, CPUCorroborationUsec: 58_000_000,
+		WallKillThresholdNS: 59_000_000_000, MemoryKillBytes: 512 << 20,
+		AggregateOpenFiles: int64(limits.OpenFiles), DescriptorUIDPIDs: int64(limits.PIDs),
+		OuterCPUs: 1, OuterMemoryBytes: 1 << 30, RunTmpfsBytes: 64 << 20,
+	}
+}
+
+func supervisorDescriptorIdentity(id string) (uint32, []string, error) {
+	programKeys := map[string]string{
+		"BENIGN_OPERATION": "benign", "CACHE_WRITE_DENIED": "cache", "CLEAN_EXIT": "clean",
+		"CPU_BOUND": "cpu", "ENV_SENTINEL_ABSENT": "secret", "FD_BOUND": "fd",
+		"MEMORY_BOUND": "memory", "NETWORK_SOCKET_DENIED": "network", "OUTPUT_BOUND": "output",
+		"PID_BOUND": "pid", "PROTECTED_SENTINEL_DENIED": "protected", "SESSION_ESCAPE_CLEANUP": "session",
+		"SOURCE_WRITE_DENIED": "source", "WALL_BOUND": "wall", "WORKSPACE_BOUND": "workspace",
+	}
+	key, ok := programKeys[id]
+	if !ok {
+		return 0, nil, sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.descriptor_id", "descriptor identity is not compiled")
+	}
+	for index, planned := range protectedFixedPlan() {
+		if planned == id {
+			uid := uint32(60000 + index)
+			base := "/run/us007-" + key
+			return uid, []string{base + "/workspace", base + "/cache", base + "/output", base + "/general"}, nil
+		}
+	}
+	return 0, nil, sbxFinding("SANDBOX_RECEIPT_INVALID", "QUARANTINE", "$.descriptor_id", "descriptor identity is outside the fixed plan")
+}
+
+func validateSBXWritablePaths(observed, allowed []string) error {
+	for _, value := range observed {
+		path := filepath.Clean(value)
+		permitted := false
+		for _, root := range allowed {
+			cleanRoot := filepath.Clean(root)
+			if path == cleanRoot || strings.HasPrefix(path, cleanRoot+string(filepath.Separator)) {
+				permitted = true
+				break
+			}
+		}
+		if !permitted {
+			return fmt.Errorf("writable path %q is outside descriptor closure", path)
+		}
 	}
 	return nil
 }
@@ -724,12 +768,13 @@ func sbxDescriptorContract(id string) (string, string, error) {
 		"CLEAN_EXIT":                {id, "clean", "EXIT_0"},
 		"CPU_BOUND":                 {id, "cpu", "CPU_PARENT_KILL"},
 		"ENV_SENTINEL_ABSENT":       {id, "secret", "EXIT_0_ABSENT"},
-		"FD_BOUND":                  {id, "fd", "EXIT_23_RLIMIT_NOFILE"},
-		"MEMORY_BOUND":              {id, "memory", "MEMORY_CGROUP_EVENT"},
+		"FD_BOUND":                  {id, "fd", "FD_PARENT_KILL"},
+		"MEMORY_BOUND":              {id, "memory", "MEMORY_PARENT_KILL"},
 		"NETWORK_SOCKET_DENIED":     {id, "network", "EXIT_0_DENIED"},
 		"OUTPUT_BOUND":              {id, "output", "OUTPUT_PARENT_KILL"},
-		"PID_BOUND":                 {id, "pid", "EXIT_23_PIDS_EVENT"},
+		"PID_BOUND":                 {id, "pid", "EXIT_23_RLIMIT_NPROC"},
 		"PROTECTED_SENTINEL_DENIED": {id, "protected", "EXIT_0_ABSENT"},
+		"SESSION_ESCAPE_CLEANUP":    {id, "session", "EXIT_0_UID_SWEEP"},
 		"SOURCE_WRITE_DENIED":       {id, "source", "EXIT_0_DENIED"},
 		"WALL_BOUND":                {id, "wall", "WALL_PARENT_KILL"},
 		"WORKSPACE_BOUND":           {id, "workspace", "EXIT_23_TMPFS_ENOSPC"},
@@ -744,26 +789,25 @@ func sbxDescriptorContract(id string) (string, string, error) {
 
 func validateSBXDescriptorOutcome(id, expectation string, observation SupervisorObservation, limits resources) error {
 	exit := func(code int) bool {
-		return observation.ParentExitCode != nil && *observation.ParentExitCode == code && observation.ParentSignal == ""
+		return observation.ParentExitCode != nil && *observation.ParentExitCode == code && observation.ParentSignal == "" && observation.WorkloadSignal == 0
 	}
-	deltaCPU := observation.CgroupFinal.CPUUsageUsec - observation.CgroupInitial.CPUUsageUsec
 	valid := false
 	switch expectation {
-	case "EXIT_0", "EXIT_0_DENIED", "EXIT_0_ABSENT":
+	case "EXIT_0", "EXIT_0_DENIED", "EXIT_0_ABSENT", "EXIT_0_UID_SWEEP":
 		valid = observation.Termination == "EXITED" && exit(0)
 	case "EXIT_0_PINNED_ARTIFACT":
 		artifact := observation.Artifact
-		valid = observation.Termination == "EXITED" && exit(0) && artifact.ToolPath == "/usr/local/go/bin/go" && artifact.ToolVersion == "go version go1.25.5 linux/arm64" && artifact.Target == "./cmd/resource-envelope-artifact" && artifact.SourceCommit == observation.SourceCommit && artifact.NamespacePath == "/run/us007-output/resource-envelope-artifact" && artifact.CapturePath == "/tmp/us007-resource-envelope-artifact" && artifact.CaptureChannel == "SUPERVISOR_OWNED_PIPE_REOPENED" && isSHA256Digest(artifact.WorkloadDigest) && artifact.WorkloadDigest == artifact.ParentDigest && artifact.Bytes > 0 && artifact.Bytes <= 16777216
-	case "EXIT_23_RLIMIT_NOFILE":
-		valid = observation.Termination == "PARENT_OBSERVED_NONZERO_EXIT" && exit(23) && observation.Peaks.PerProcessOpenFDs >= int64(limits.OpenFiles-4)
+		valid = observation.Termination == "EXITED" && exit(0) && artifact.ToolPath == "/usr/bin/go" && artifact.ToolVersion == "go version go1.26.0 linux/arm64" && artifact.Target == "security/fixtures/resource-envelope-canary.go" && artifact.SourceCommit == observation.SourceCommit && artifact.NamespacePath == "/run/us007-benign/output/resource-envelope-canary.o" && artifact.CapturePath == "/tmp/us007-resource-envelope-artifact" && artifact.CaptureChannel == "SUPERVISOR_OWNED_PIPE_REOPENED" && isSHA256Digest(artifact.WorkloadDigest) && artifact.WorkloadDigest == artifact.ParentDigest && artifact.Bytes > 0 && artifact.Bytes <= 4<<20
+	case "FD_PARENT_KILL":
+		valid = observation.Termination == "FD_LIMIT_EXCEEDED" && observation.Peaks.OpenFiles > observation.EnforcementMechanics.AggregateOpenFiles
 	case "CPU_PARENT_KILL":
-		valid = observation.Termination == "CPU_LIMIT_EXCEEDED" && deltaCPU >= observation.EnforcementMechanics.CPUKillThresholdUsec
-	case "MEMORY_CGROUP_EVENT":
-		valid = observation.Termination == "MEMORY_LIMIT_EXCEEDED" && (observation.CgroupFinal.MemoryEventsMax > observation.CgroupInitial.MemoryEventsMax || observation.CgroupFinal.MemoryEventsKill > observation.CgroupInitial.MemoryEventsKill)
+		valid = observation.Termination == "CPU_LIMIT_EXCEEDED" && observation.Peaks.CPUUsageUsec >= observation.EnforcementMechanics.CPUCorroborationUsec
+	case "MEMORY_PARENT_KILL":
+		valid = observation.Termination == "MEMORY_LIMIT_EXCEEDED" && observation.Peaks.MemoryBytes > observation.EnforcementMechanics.MemoryKillBytes
 	case "OUTPUT_PARENT_KILL":
 		valid = observation.Termination == "OUTPUT_LIMIT_EXCEEDED" && observation.Peaks.OutputBytes > limits.OutputBytes
-	case "EXIT_23_PIDS_EVENT":
-		valid = observation.Termination == "PARENT_OBSERVED_NONZERO_EXIT" && exit(23) && observation.CgroupFinal.PIDsEventsMax > observation.CgroupInitial.PIDsEventsMax
+	case "EXIT_23_RLIMIT_NPROC":
+		valid = observation.Termination == "PARENT_OBSERVED_NONZERO_EXIT" && exit(23)
 	case "WALL_PARENT_KILL":
 		valid = observation.Termination == "WALL_LIMIT_EXCEEDED" && observation.WallDurationNanos >= observation.EnforcementMechanics.WallKillThresholdNS
 	case "EXIT_23_TMPFS_ENOSPC":
@@ -775,8 +819,10 @@ func validateSBXDescriptorOutcome(id, expectation string, observation Supervisor
 	return nil
 }
 
-func validateSBXWritableMountClosure(data string) error {
-	want := map[string]bool{"/run/us007-workspace": false, "/run/us007-cache": false, "/run/us007-output": false, "/run/us007-general": false}
+func validateSBXNoForbiddenMounts(data, allowedSourceRoot string) error {
+	if strings.TrimSpace(data) == "" {
+		return errors.New("missing mountinfo")
+	}
 	for _, line := range strings.Split(strings.TrimSpace(data), "\n") {
 		fields := strings.Fields(line)
 		separator := slices.Index(fields, "-")
@@ -795,21 +841,19 @@ func validateSBXWritableMountClosure(data string) error {
 		if err != nil {
 			return err
 		}
+		writable := slices.Contains(strings.Split(fields[5], ","), "rw")
+		if separator+3 < len(fields) {
+			writable = writable && slices.Contains(strings.Split(fields[separator+3], ","), "rw")
+		}
+		if allowedSourceRoot != "" && target == allowedSourceRoot && root == "/" && strings.HasPrefix(source, "/dev/") {
+			continue
+		}
+		if allowedSourceRoot != "" && root == allowedSourceRoot && target == "/run/sandbox/source" && fields[separator+1] == "virtiofs" && !writable {
+			continue
+		}
 		forbidden := strings.ToLower(root + " " + target + " " + source)
 		if strings.Contains(forbidden, "/protected") || strings.Contains(forbidden, "/canonical") || strings.Contains(forbidden, "/signing") || strings.Contains(forbidden, "/production") || strings.Contains(forbidden, "/cross-company") || strings.Contains(forbidden, "docker.sock") {
 			return errors.New("forbidden mount source or target")
-		}
-		if !slices.Contains(strings.Split(fields[5], ","), "rw") {
-			continue
-		}
-		if _, ok := want[target]; !ok || want[target] || fields[separator+1] != "tmpfs" {
-			return errors.New("unexpected writable mount")
-		}
-		want[target] = true
-	}
-	for _, seen := range want {
-		if !seen {
-			return errors.New("missing writable tmpfs")
 		}
 	}
 	return nil
