@@ -26,10 +26,10 @@ import org.java_websocket.framing.PingFrame;
 import org.java_websocket.framing.PongFrame;
 import org.java_websocket.handshake.Handshakedata;
 
-/** Request validation and the narrow Java-WebSocket v1.6.0 oracle projection. */
 // PLANTED MUTANT OVERLAY us005-jm-close-code-1000 — never a pristine oracle source. Built only via
 // cmd/us005-mutantctl against a staged copy; the pristine java-oracle tree is
 // untouched. Deviation documented in mutants/manifest.json.
+/** Request validation and the narrow Java-WebSocket v1.6.0 oracle projection. */
 final class OracleEngine {
   private static final Set<String> REQUEST_FIELDS = Set.of(
       "initial_state", "limits", "protocol", "request_digest", "request_id", "role", "steps",
@@ -49,6 +49,11 @@ final class OracleEngine {
   static Map<String, Object> process(String json, String runtimeDigest) throws ProtocolException {
     Object parsed = StrictJson.parse(json);
     Map<String, Object> request = object(parsed, "request");
+    // The handshake protocol id routes to the handshake adapter; the behavior
+    // protocol below is untouched, so behavior request digests never change.
+    if (HandshakeEngine.PROTOCOL.equals(request.get("protocol"))) {
+      return HandshakeEngine.process(request, runtimeDigest);
+    }
     rejectUnknown(request, REQUEST_FIELDS, "request");
 
     String requestId = string(request, "request_id");
@@ -110,7 +115,7 @@ final class OracleEngine {
     return response;
   }
 
-  private static String canonicalRequestDigest(Map<String, Object> request)
+  static String canonicalRequestDigest(Map<String, Object> request)
       throws ProtocolException {
     try {
       Map<String, Object> unsigned = new TreeMap<>(request);
@@ -144,7 +149,7 @@ final class OracleEngine {
         boundedInt(object, "max_output_bytes", 512, HARD_OUTPUT_BYTES));
   }
 
-  private static int boundedInt(Map<String, Object> object, String field, int min, int max)
+  static int boundedInt(Map<String, Object> object, String field, int min, int max)
       throws ProtocolException {
     Object value = required(object, field);
     if (!(value instanceof BigDecimal decimal)) {
@@ -174,7 +179,7 @@ final class OracleEngine {
     throw new ProtocolException("INVALID_ENUM", field + " has unsupported value");
   }
 
-  private static void requireLiteral(Map<String, Object> object, String field, String expected)
+  static void requireLiteral(Map<String, Object> object, String field, String expected)
       throws ProtocolException {
     if (!expected.equals(string(object, field))) {
       throw new ProtocolException("UNSUPPORTED_PROTOCOL",
@@ -183,7 +188,7 @@ final class OracleEngine {
   }
 
   @SuppressWarnings("unchecked")
-  private static Map<String, Object> object(Object value, String name) throws ProtocolException {
+  static Map<String, Object> object(Object value, String name) throws ProtocolException {
     if (!(value instanceof Map<?, ?> map)) {
       throw new ProtocolException("TYPE_MISMATCH", name + " must be an object");
     }
@@ -200,7 +205,7 @@ final class OracleEngine {
     return (List<Object>) list;
   }
 
-  private static String string(Map<String, Object> object, String field)
+  static String string(Map<String, Object> object, String field)
       throws ProtocolException {
     Object value = required(object, field);
     if (!(value instanceof String string)) {
@@ -231,7 +236,7 @@ final class OracleEngine {
     }
   }
 
-  private static Object required(Map<String, Object> object, String field)
+  static Object required(Map<String, Object> object, String field)
       throws ProtocolException {
     if (!object.containsKey(field)) {
       throw new ProtocolException("MISSING_FIELD", "missing required field: " + field);
@@ -239,7 +244,7 @@ final class OracleEngine {
     return object.get(field);
   }
 
-  private static void rejectUnknown(
+  static void rejectUnknown(
       Map<String, Object> object, Set<String> allowed, String location) throws ProtocolException {
     for (String field : object.keySet()) {
       if (!allowed.contains(field)) {
@@ -249,7 +254,7 @@ final class OracleEngine {
     }
   }
 
-  private static void requireFields(
+  static void requireFields(
       Map<String, Object> object, Set<String> required, String location) throws ProtocolException {
     for (String field : required) {
       if (!object.containsKey(field)) {
@@ -673,7 +678,7 @@ final class OracleEngine {
     return value;
   }
 
-  private static byte[] base64(String encoded, String field) throws ProtocolException {
+  static byte[] base64(String encoded, String field) throws ProtocolException {
     try {
       byte[] decoded = Base64.getDecoder().decode(encoded);
       if (!Base64.getEncoder().encodeToString(decoded).equals(encoded)) {
