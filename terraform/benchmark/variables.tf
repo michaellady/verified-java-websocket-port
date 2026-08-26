@@ -53,8 +53,8 @@ variable "instance_type" {
   default     = "c5n.metal"
 
   validation {
-    condition     = can(regex("^[a-z][a-z0-9-]*\\.[a-z0-9]+$", var.instance_type))
-    error_message = "instance_type must be a well-formed EC2 instance type (family.size, e.g. c5n.metal or c7i.large)."
+    condition     = can(regex("^[a-z][a-z0-9-]*\\.[a-z0-9-]+$", var.instance_type))
+    error_message = "instance_type must be a well-formed EC2 instance type (family.size, e.g. c5n.metal, m7i.metal-24xl, or c7i.large)."
   }
 }
 

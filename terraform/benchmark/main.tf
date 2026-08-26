@@ -54,9 +54,10 @@ locals {
   ami_id = var.ami_id != "" ? var.ami_id : data.aws_ami.al2023_x86_64.id
 
   # Tiered-rigor label (owner amendment 2026-08-26). Derived, never asserted:
-  # *.metal => Tier 2; anything else => Tier 1. The workflow/runner must carry
-  # this label into the environment binding for every published number.
-  rigor_tier = can(regex("\\.metal$", var.instance_type)) ? "METAL_MEASURED" : "VM_MEASURED_JITTER_AVERAGED"
+  # a .metal or .metal-<size> type (e.g. c5n.metal, m7i.metal-24xl) => Tier 2;
+  # anything else => Tier 1. The workflow/runner must carry this label into
+  # the environment binding for every published number.
+  rigor_tier = can(regex("\\.metal(-[a-z0-9]+)?$", var.instance_type)) ? "METAL_MEASURED" : "VM_MEASURED_JITTER_AVERAGED"
 }
 
 # ─── AMI ────────────────────────────────────────────────────────────────────
