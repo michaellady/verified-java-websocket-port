@@ -1,0 +1,187 @@
+{
+  "schema": "vjwp-benchmark-raw-sample/1.0.0",
+  "provenance_label": "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+  "workload_id": "wl-02-small-text-echo",
+  "metric": "cpu_time",
+  "order": [
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "JAVA_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "JAVA_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST",
+    "RUST_FIRST",
+    "RUST_FIRST",
+    "JAVA_FIRST"
+  ],
+  "warmup_pairs": [
+    {
+      "java": 100.0,
+      "rust": 90.0
+    },
+    {
+      "java": 100.0,
+      "rust": 90.0
+    },
+    {
+      "java": 100.0,
+      "rust": 90.0
+    },
+    {
+      "java": 100.0,
+      "rust": 90.0
+    },
+    {
+      "java": 100.0,
+      "rust": 90.0
+    }
+  ],
+  "measured_pairs": [
+    {
+      "java": 100.0,
+      "rust": 116.99658664912933
+    },
+    {
+      "java": 101.0,
+      "rust": 82.94236279337369
+    },
+    {
+      "java": 102.0,
+      "rust": 119.33651838211192
+    },
+    {
+      "java": 103.0,
+      "rust": 84.58478581898504
+    },
+    {
+      "java": 104.0,
+      "rust": 121.6764501150945
+    },
+    {
+      "java": 105.0,
+      "rust": 86.2272088445964
+    },
+    {
+      "java": 106.0,
+      "rust": 124.01638184807709
+    },
+    {
+      "java": 107.0,
+      "rust": 87.86963187020777
+    },
+    {
+      "java": 108.0,
+      "rust": 126.35631358105968
+    },
+    {
+      "java": 109.0,
+      "rust": 89.51205489581912
+    },
+    {
+      "java": 110.0,
+      "rust": 128.69624531404227
+    },
+    {
+      "java": 111.0,
+      "rust": 91.15447792143048
+    },
+    {
+      "java": 112.0,
+      "rust": 131.03617704702486
+    },
+    {
+      "java": 113.0,
+      "rust": 92.79690094704185
+    },
+    {
+      "java": 114.0,
+      "rust": 133.37610878000743
+    },
+    {
+      "java": 115.0,
+      "rust": 94.43932397265321
+    },
+    {
+      "java": 116.0,
+      "rust": 135.71604051299002
+    },
+    {
+      "java": 117.0,
+      "rust": 96.08174699826456
+    },
+    {
+      "java": 118.0,
+      "rust": 138.0559722459726
+    },
+    {
+      "java": 119.0,
+      "rust": 97.72417002387593
+    },
+    {
+      "java": 120.0,
+      "rust": 140.3959039789552
+    },
+    {
+      "java": 121.0,
+      "rust": 99.36659304948729
+    },
+    {
+      "java": 122.0,
+      "rust": 142.7358357119378
+    },
+    {
+      "java": 123.0,
+      "rust": 101.00901607509864
+    },
+    {
+      "java": 124.0,
+      "rust": 145.07576744492036
+    },
+    {
+      "java": 125.0,
+      "rust": 102.65143910071001
+    },
+    {
+      "java": 126.0,
+      "rust": 147.41569917790295
+    },
+    {
+      "java": 127.0,
+      "rust": 104.29386212632137
+    },
+    {
+      "java": 128.0,
+      "rust": 149.75563091088554
+    },
+    {
+      "java": 129.0,
+      "rust": 105.93628515193272
+    }
+  ]
+}

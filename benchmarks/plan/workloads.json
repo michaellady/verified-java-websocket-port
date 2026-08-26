@@ -1,96 +1,605 @@
 {
-  "schema": "vjwp-benchmark-plan-skeleton/1",
-  "status": "SKELETON — NOT FROZEN. This file pre-shapes the US-008 preregistration; it becomes binding only at the independently attested plan-freeze commit. Every OWNER_DECISION_PENDING field must be resolved to an exact frozen value before freeze. No results fields exist in this file, by design.",
+  "schema": "vjwp-benchmark-plan/1.0.0",
+  "status": "PREREGISTERED_BY_DRIVER_UNATTESTED - Every workload parameter, generator, seed rule, statistics constant, and threshold below is frozen to the maximum ownerless extent. This plan is NOT yet the attested plan-freeze commit: host and tool identities remain OWNER_DECISION_PENDING in benchmarks/environments/, no sample may be collected, and US-008 does not pass. See benchmarks/README.md for the no-fabrication rule.",
   "source_of_truth": "PRD US-008 acceptance criteria (companies/enterprise-vibe-code/projects/verified-java-websocket-port-claude/prd.json)",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "no_results_invariant": "This plan contains no results and no results field may ever be added to it; the schema forbids unknown keys. Results live only in canonical raw-pair records (schemas/benchmark-raw-sample-1.0.0.schema.json) produced after the attested plan freeze and full host/tool binding.",
+  "shared_definitions": {
+    "keystream": "keystream(tag) is the deterministic byte stream B_0 || B_1 || ... where B_j = SHA-256(ASCII(tag + '|' + decimal(j))). lowercase-hex(s) is the lowercase hexadecimal encoding of stream s taken byte-for-byte.",
+    "pacing_model": "fixed-interval open-loop schedule at the stated rate; an operation issued more than 1000 ms after its schedule slot marks the sample INVALID (fail-closed, never truncated or resampled around)",
+    "sample_definition": "One sample run = fresh server process start, readiness probe (repeated connect + handshake at 10 ms intervals), full workload execution, metric capture, clean shutdown. One pair = one Java sample run plus one Rust sample run executed in the derived pair order. Warmup pairs (indices 0..4) execute identically and are excluded from analysis.",
+    "invalid_sample_rule": "An INVALID sample invalidates its entire pair. Because replacement, extension, and optional stopping are forbidden, any INVALID pair makes the whole workload run INCONCLUSIVE; the workload must be rerun in full under a new preregistered run record, never patched."
+  },
   "comparison_boundary": {
-    "definition": "Black-box TCP comparison boundary: Java and Rust implementations are exercised through identical preregistered TCP endpoints; nothing inside either process is instrumented across the boundary.",
-    "endpoint_definitions": "OWNER_DECISION_PENDING (exact listen address, port allocation policy, and handshake parameters frozen at plan freeze)"
+    "definition": "Black-box TCP comparison boundary: the Java and Rust implementations are exercised only through the identical preregistered TCP endpoint below; nothing inside either process is instrumented across the boundary. Docker sbx may isolate build/test preparation but must not host measured samples (microVM overhead would change this declared boundary).",
+    "provenance": "PRD_VERBATIM",
+    "endpoint": {
+      "transport": "TCP over IPv4 loopback",
+      "listen_address": "127.0.0.1",
+      "listen_port": 9101,
+      "url": "ws://127.0.0.1:9101/",
+      "request_path": "/",
+      "tls": false,
+      "websocket_version": 13,
+      "extensions": "none - permessage-deflate and every other extension disabled/not negotiated",
+      "subprotocols": "none",
+      "client_frames": "masked, per RFC 6455",
+      "provenance": "PREREGISTERED_BY_DRIVER",
+      "rationale": "The PRD freezes the black-box TCP boundary but not the socket facts; a fixed loopback IPv4 endpoint with no TLS and no extensions removes negotiation degrees of freedom from both implementations equally."
+    }
+  },
+  "metric_endpoints": {
+    "peak_rss": {
+      "definition": "Maximum resident set size of the server process observed over the sample run.",
+      "unit": "bytes"
+    },
+    "steady_rss": {
+      "definition": "Resident set size of the server process after workload completion and a fixed 2-second quiesce, before shutdown.",
+      "unit": "bytes"
+    },
+    "cpu_time": {
+      "definition": "Total CPU time (user + system) consumed by the server process over the sample run.",
+      "unit": "seconds"
+    },
+    "startup_to_ready": {
+      "definition": "Elapsed time from server process exec to first successful handshake completion on the preregistered endpoint (readiness probe: repeated connect + handshake at 10 ms intervals).",
+      "unit": "seconds"
+    },
+    "latency_p50": {
+      "definition": "50th percentile (nearest-rank, full unfiltered operation set) of per-operation round-trip time: last request byte written by the client to full expected response read.",
+      "unit": "seconds"
+    },
+    "latency_p95": {
+      "definition": "95th percentile, same definition as latency_p50.",
+      "unit": "seconds"
+    },
+    "latency_p99": {
+      "definition": "99th percentile, same definition as latency_p50.",
+      "unit": "seconds"
+    },
+    "allocated_bytes": {
+      "definition": "Cumulative bytes allocated by the server process over the sample run, read from the runtime allocator statistics interface bound at tool-identity binding.",
+      "unit": "bytes"
+    },
+    "allocation_count": {
+      "definition": "Cumulative allocation count, same source as allocated_bytes.",
+      "unit": "count"
+    },
+    "throughput": {
+      "definition": "Completed operations divided by elapsed time from first operation issue to last response read, per sample.",
+      "unit": "operations per second"
+    },
+    "tool_identity_note": "Every sampler/probe named above is a measurement tool whose exact identity and digest are OWNER_DECISION_PENDING in benchmarks/environments/; no metric may be captured before those identities bind."
   },
   "workloads": [
     {
       "id": "wl-01-handshake-close",
       "title": "Opening handshake and clean close",
-      "definition": "Establish a WebSocket connection via the opening handshake and perform a clean close, repeatedly, with fixed operation counts.",
+      "definition": "Repeated WebSocket opening handshake followed immediately by a clean client-initiated close, with fixed cycle count and pacing.",
       "fixed_parameters": {
-        "rate": "OWNER_DECISION_PENDING",
-        "concurrency": "OWNER_DECISION_PENDING",
-        "operations": "OWNER_DECISION_PENDING",
-        "duration": "OWNER_DECISION_PENDING",
-        "inputs": "OWNER_DECISION_PENDING (exact byte generator, deterministic)",
-        "outputs": "OWNER_DECISION_PENDING (exact expected bytes/close codes)"
-      }
+        "rate": {
+          "value": 50,
+          "unit": "handshake-close cycles per second",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "20-second nominal sample at 1000 cycles; low enough that loopback accept queues never saturate, so the metric isolates handshake cost, not backlog behavior.",
+          "pacing": "fixed-interval open-loop schedule at the stated rate; an operation issued more than 1000 ms after its schedule slot marks the sample INVALID (fail-closed, never truncated or resampled around)"
+        },
+        "concurrency": {
+          "value": 1,
+          "unit": "connections",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "A single serial connection isolates per-handshake cost; concurrency pressure is covered by wl-06."
+        },
+        "operations": {
+          "value": 1000,
+          "unit": "handshake-close cycles",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Large enough to dominate scheduling noise on a 20-second sample, small enough for a bounded run."
+        },
+        "nominal_duration_seconds": {
+          "value": 20,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "operations / rate."
+        },
+        "hard_timeout_seconds": {
+          "value": 120,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Fail-closed cap: a sample exceeding it is INVALID, never truncated."
+        },
+        "inputs": {
+          "definition": "Each cycle i (0..999): TCP connect to the preregistered endpoint; HTTP/1.1 GET / handshake with Host: 127.0.0.1:9101, Upgrade: websocket, Connection: Upgrade, Sec-WebSocket-Version: 13, Sec-WebSocket-Key = base64(first 16 bytes of SHA-256(ASCII('vjwp-us008|wl-01|key|' + decimal(i)))); no extensions, no subprotocol. After the 101 response, the client sends a masked close frame, status code 1000, empty reason.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "The PRD freezes the workload class; the exact deterministic key generator and cycle shape are the driver's preregistered choice."
+        },
+        "outputs": {
+          "definition": "Per cycle: an HTTP 101 response carrying the correct RFC 6455 Sec-WebSocket-Accept for the sent key; a close frame with status code 1000 from the server; orderly TCP shutdown. Any deviation marks the sample INVALID.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Exact expected bytes/close codes fixed so success is machine-checkable with no post-hoc discretion."
+        }
+      },
+      "derived_pair_order": [
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST"
+      ]
     },
     {
       "id": "wl-02-small-text-echo",
       "title": "Small text echo",
-      "definition": "Echo small text frames over an established connection with fixed message sizes and counts.",
+      "definition": "Small text frames echoed over one established connection with fixed message size, count, and pacing.",
       "fixed_parameters": {
-        "rate": "OWNER_DECISION_PENDING",
-        "concurrency": "OWNER_DECISION_PENDING",
-        "operations": "OWNER_DECISION_PENDING",
-        "duration": "OWNER_DECISION_PENDING",
-        "inputs": "OWNER_DECISION_PENDING (exact byte generator, deterministic)",
-        "outputs": "OWNER_DECISION_PENDING"
-      }
+        "rate": {
+          "value": 500,
+          "unit": "echo operations per second",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "20-second nominal sample at 10000 echoes; well below loopback saturation so per-message cost, not queuing, is measured.",
+          "pacing": "fixed-interval open-loop schedule at the stated rate; an operation issued more than 1000 ms after its schedule slot marks the sample INVALID (fail-closed, never truncated or resampled around)"
+        },
+        "concurrency": {
+          "value": 1,
+          "unit": "connections",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Single-connection serial echo isolates per-message framing cost."
+        },
+        "operations": {
+          "value": 10000,
+          "unit": "echo operations",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "10000 echoes give stable per-operation latency percentiles."
+        },
+        "nominal_duration_seconds": {
+          "value": 20,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "operations / rate."
+        },
+        "hard_timeout_seconds": {
+          "value": 120,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Fail-closed cap: a sample exceeding it is INVALID, never truncated."
+        },
+        "inputs": {
+          "definition": "One connection per sample (handshake as wl-01 with key tag 'vjwp-us008|wl-02|key|'). Echo i (0..9999): a single masked text frame (FIN=1, opcode 0x1) whose 128-byte payload is the first 128 bytes of lowercase-hex(keystream('vjwp-us008|wl-02|payload|' + decimal(i))); hex encoding keeps every payload valid UTF-8. After echo 9999 the client sends close 1000.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "The PRD freezes the workload class; the 128-byte size and deterministic generator are the driver's preregistered choice of 'small'."
+        },
+        "outputs": {
+          "definition": "Each echo returns exactly one text message whose payload bytes equal the sent payload; final close 1000. Any mismatch marks the sample INVALID.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Byte-identical echo expectation removes output discretion."
+        }
+      },
+      "derived_pair_order": [
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST"
+      ]
     },
     {
       "id": "wl-03-fragmented-64kib-binary-echo",
       "title": "Fragmented 64 KiB binary echo",
-      "definition": "Echo 64 KiB binary messages delivered as fragmented frames, with a fixed fragmentation pattern.",
+      "definition": "64 KiB binary messages sent as a fixed fragmentation pattern and echoed, with fixed message count and pacing.",
       "fixed_parameters": {
-        "rate": "OWNER_DECISION_PENDING",
-        "concurrency": "OWNER_DECISION_PENDING",
-        "operations": "OWNER_DECISION_PENDING",
-        "duration": "OWNER_DECISION_PENDING",
-        "inputs": "OWNER_DECISION_PENDING (exact byte generator + fragmentation schedule, deterministic)",
-        "outputs": "OWNER_DECISION_PENDING"
-      }
+        "rate": {
+          "value": 50,
+          "unit": "messages per second",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "20-second nominal sample at 1000 messages; the offered load (50 x 65536 bytes ~= 3.1 MiB/s) is well below loopback bandwidth so reassembly cost, not transport, dominates.",
+          "pacing": "fixed-interval open-loop schedule at the stated rate; an operation issued more than 1000 ms after its schedule slot marks the sample INVALID (fail-closed, never truncated or resampled around)"
+        },
+        "concurrency": {
+          "value": 1,
+          "unit": "connections",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Single connection isolates fragmentation/reassembly cost."
+        },
+        "operations": {
+          "value": 1000,
+          "unit": "messages",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "1000 messages bound the run while exercising 16000 fragment events."
+        },
+        "nominal_duration_seconds": {
+          "value": 20,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "operations / rate."
+        },
+        "hard_timeout_seconds": {
+          "value": 180,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Fail-closed cap sized for the larger payload volume: a sample exceeding it is INVALID."
+        },
+        "inputs": {
+          "definition": "One connection per sample (handshake as wl-01 with key tag 'vjwp-us008|wl-03|key|'). Message i (0..999): 65536 bytes = first 65536 bytes of keystream('vjwp-us008|wl-03|payload|' + decimal(i)), sent as exactly 16 masked fragments of 4096 bytes each: first frame FIN=0 opcode 0x2, then 15 continuation frames (opcode 0x0), the last with FIN=1. After message 999 the client sends close 1000.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "The 64 KiB (65536-byte) message size is PRD_VERBATIM; the 16 x 4096-byte fragmentation schedule, rate, and count are the driver's preregistered choice."
+        },
+        "outputs": {
+          "definition": "Each message is echoed as one binary message whose reassembled payload equals the 65536 sent bytes; the server's own fragmentation of its echo is unconstrained. Final close 1000. Any payload mismatch marks the sample INVALID.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Reassembled-payload equality is the black-box observable; server-side fragmentation is not part of the boundary."
+        }
+      },
+      "derived_pair_order": [
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST"
+      ]
     },
     {
       "id": "wl-04-control-mix",
       "title": "Ping/pong/close control-frame mix",
-      "definition": "A fixed interleaving of ping, pong, and close control frames with data traffic.",
+      "definition": "A fixed deterministic interleaving of text data frames with ping, pong, and close control frames.",
       "fixed_parameters": {
-        "rate": "OWNER_DECISION_PENDING",
-        "concurrency": "OWNER_DECISION_PENDING",
-        "operations": "OWNER_DECISION_PENDING",
-        "duration": "OWNER_DECISION_PENDING",
-        "inputs": "OWNER_DECISION_PENDING (exact control-frame schedule, deterministic)",
-        "outputs": "OWNER_DECISION_PENDING"
-      }
+        "rate": {
+          "value": 450,
+          "unit": "operations per second (50 nine-operation cycles per second)",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "20-second nominal sample at 9000 operations, matching wl-02's per-operation pacing regime.",
+          "pacing": "fixed-interval open-loop schedule at the stated rate; an operation issued more than 1000 ms after its schedule slot marks the sample INVALID (fail-closed, never truncated or resampled around)"
+        },
+        "concurrency": {
+          "value": 1,
+          "unit": "connections",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Single connection isolates control-frame handling cost."
+        },
+        "operations": {
+          "value": 9000,
+          "unit": "operations (1000 cycles of the frozen 9-operation sequence)",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "1000 cycles exercise 2000 pings, 1000 unsolicited pongs, and 6000 echoes deterministically."
+        },
+        "nominal_duration_seconds": {
+          "value": 20,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "operations / rate."
+        },
+        "hard_timeout_seconds": {
+          "value": 120,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Fail-closed cap: a sample exceeding it is INVALID, never truncated."
+        },
+        "inputs": {
+          "definition": "One connection per sample (handshake as wl-01 with key tag 'vjwp-us008|wl-04|key|'). Cycle c (0..999) is the frozen 9-operation sequence: operations 1-6 are 128-byte text echoes with payload = first 128 bytes of lowercase-hex(keystream('vjwp-us008|wl-04|text|' + decimal(6*c+k))) for k=0..5; operation 7 is a masked ping whose 125-byte payload is the first 125 bytes of keystream('vjwp-us008|wl-04|ping|' + decimal(c)); operation 8 is a masked ping with empty payload; operation 9 is an unsolicited masked pong whose 4-byte payload is the first 4 bytes of keystream('vjwp-us008|wl-04|pong|' + decimal(c)). After cycle 999 the client sends close 1000.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "The PRD freezes the control-mix class; the exact 9-operation schedule and generators are the driver's preregistered choice (125 bytes is the RFC 6455 control-payload maximum)."
+        },
+        "outputs": {
+          "definition": "Per cycle: six byte-identical text echoes; a pong echoing the 125-byte ping payload; a pong with empty payload for the empty ping; no response to the unsolicited pong. Final close frame with status code 1000. Any deviation marks the sample INVALID.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "RFC 6455 fixes pong semantics; freezing them as expected outputs removes discretion."
+        }
+      },
+      "derived_pair_order": [
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST"
+      ]
     },
     {
       "id": "wl-05-cap-rejection",
       "title": "Cap-before-allocation rejection",
-      "definition": "Deliver frames/messages exceeding configured caps so the implementation must reject before allocating, with fixed oversize inputs.",
+      "definition": "Frames declaring a payload larger than the configured cap must be rejected before payload allocation, with fixed oversize inputs.",
       "fixed_parameters": {
-        "rate": "OWNER_DECISION_PENDING",
-        "concurrency": "OWNER_DECISION_PENDING",
-        "operations": "OWNER_DECISION_PENDING",
-        "duration": "OWNER_DECISION_PENDING",
-        "inputs": "OWNER_DECISION_PENDING (exact oversize byte generator, deterministic)",
-        "outputs": "OWNER_DECISION_PENDING (exact expected rejection behavior/close codes)"
-      }
+        "rate": {
+          "value": 25,
+          "unit": "connections per second",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "20-second nominal sample at 500 rejection cycles; each cycle is a full connect-reject-close round trip.",
+          "pacing": "fixed-interval open-loop schedule at the stated rate; an operation issued more than 1000 ms after its schedule slot marks the sample INVALID (fail-closed, never truncated or resampled around)"
+        },
+        "concurrency": {
+          "value": 1,
+          "unit": "connections",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Serial connections isolate per-rejection cost."
+        },
+        "operations": {
+          "value": 500,
+          "unit": "oversize-rejection cycles",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "500 cycles bound the run while giving stable rejection-path statistics."
+        },
+        "nominal_duration_seconds": {
+          "value": 20,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "operations / rate."
+        },
+        "hard_timeout_seconds": {
+          "value": 180,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Fail-closed cap: a sample exceeding it is INVALID, never truncated."
+        },
+        "server_configuration": {
+          "definition": "Both implementations are configured with a maximum incoming message/frame payload cap of exactly 1048576 bytes (1 MiB), and no other limit overrides.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "A concrete identical cap is required for a byte-identical rejection boundary; 1 MiB is the driver's preregistered choice."
+        },
+        "inputs": {
+          "definition": "Connection i (0..499): handshake as wl-01 with key tag 'vjwp-us008|wl-05|key|', then one masked binary frame (FIN=1, opcode 0x2) with declared payload length 2097152 bytes (2 MiB, double the cap), payload bytes streamed from keystream('vjwp-us008|wl-05|payload|' + decimal(i)).",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Double-the-cap declared length forces the cap check to fire on the frame header, before allocation."
+        },
+        "outputs": {
+          "definition": "The server must reject on the declared length before allocating or consuming the oversized payload: a close frame with status code 1009 (message too big) followed by TCP close. Echoing the message, or reading the full 2 MiB before closing, marks the sample INVALID.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "RFC 6455 section 7.4.1 defines 1009 for messages too big to process; cap-before-allocation is the preregistered semantic under test."
+        }
+      },
+      "derived_pair_order": [
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST"
+      ]
     },
     {
       "id": "wl-06-concurrent-pressure",
       "title": "Bounded concurrent connection/command pressure",
-      "definition": "Bounded concurrent connection churn plus command traffic at fixed rates and concurrency limits.",
+      "definition": "Bounded concurrent connection churn plus echo traffic at fixed per-worker rates and fixed concurrency.",
       "fixed_parameters": {
-        "rate": "OWNER_DECISION_PENDING",
-        "concurrency": "OWNER_DECISION_PENDING",
-        "operations": "OWNER_DECISION_PENDING",
-        "duration": "OWNER_DECISION_PENDING",
-        "inputs": "OWNER_DECISION_PENDING (exact connection/command schedule, deterministic)",
-        "outputs": "OWNER_DECISION_PENDING"
-      }
+        "rate": {
+          "value": 25,
+          "unit": "echo operations per second per worker (1600 aggregate at full concurrency)",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Per-worker pacing keeps aggregate load bounded and deterministic.",
+          "pacing": "fixed-interval open-loop schedule at the stated rate; an operation issued more than 1000 ms after its schedule slot marks the sample INVALID (fail-closed, never truncated or resampled around)"
+        },
+        "concurrency": {
+          "value": 64,
+          "unit": "concurrent worker connections",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "64 workers exercise concurrent accept, read, and write paths while staying far from loopback fd limits."
+        },
+        "operations": {
+          "value": 16320,
+          "unit": "operations total: 64 workers x 5 connection cycles x (1 handshake + 50 echoes) = 320 connection cycles + 16000 echoes",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Fixed worker/cycle/echo counts bound the run deterministically."
+        },
+        "nominal_duration_seconds": {
+          "value": 15,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Five 2-second echo phases per worker plus connection churn overhead."
+        },
+        "hard_timeout_seconds": {
+          "value": 300,
+          "unit": "seconds",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Fail-closed cap sized for 64-way concurrency: a sample exceeding it is INVALID."
+        },
+        "inputs": {
+          "definition": "64 concurrent workers start together at sample begin. Worker w (0..63) performs 5 sequential connection cycles; in cycle c (0..4): handshake as wl-01 with key tag 'vjwp-us008|wl-06|key|' + decimal(w) + '|' + decimal(c), then 50 echoes k (0..49) each a single masked binary frame (FIN=1, opcode 0x2) whose 512-byte payload is the first 512 bytes of keystream('vjwp-us008|wl-06|payload|' + decimal(w) + '|' + decimal(c) + '|' + decimal(k)), then client close 1000.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "The PRD freezes the bounded-pressure class; worker count, churn schedule, payload size, and generators are the driver's preregistered choice."
+        },
+        "outputs": {
+          "definition": "All 16000 echoes return byte-identical binary payloads; all 320 connection cycles complete with server close handling for code 1000; zero refused or failed connections. Any failure marks the sample INVALID.",
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "Zero-failure expectation makes saturation observable as sample invalidity instead of silent degradation."
+        }
+      },
+      "derived_pair_order": [
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "JAVA_FIRST",
+        "JAVA_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST",
+        "RUST_FIRST"
+      ]
     }
   ],
   "pairing_and_ordering": {
     "warmup_pairs_excluded": 5,
     "measured_pairs": 30,
-    "ordering": "Deterministic SHA-256-seeded randomized Java/Rust order per workload",
-    "seed_derivation": "OWNER_DECISION_PENDING (exact seed input string — e.g. plan digest || workload id — frozen at plan freeze so the order is reproducible and unmanipulable)",
+    "total_pairs": 35,
+    "order_values": [
+      "JAVA_FIRST",
+      "RUST_FIRST"
+    ],
+    "seed_spec_version": "vjwp-us008-pair-order|v1",
+    "seed_derivation_rule": "seed_string(workload) = 'vjwp-us008-pair-order|v1|' + workload_id. For pair index i in 0..34: digest = SHA-256(ASCII(seed_string + '|' + decimal(i))); order[i] = JAVA_FIRST if digest[0] is even, RUST_FIRST if odd. Pairs 0..4 are warmup (excluded), pairs 5..34 are measured. Executable reference implementation: internal/benchplan.PairOrder; every derived_pair_order above is machine-verified against this rule by 'benchplanctl verify' and the package tests, and was independently derived with a second (Python hashlib) implementation before being frozen here.",
+    "provenance": "5 warmup + 30 measured pairs and deterministic SHA-256-seeded randomized Java/Rust order are PRD_VERBATIM; the exact seed string format and first-byte-parity rule are PREREGISTERED_BY_DRIVER (rationale: a pure hash of frozen public strings admits no discretion and cannot be re-rolled after results are known).",
     "forbidden": [
       "extension",
       "replacement",
@@ -102,44 +611,102 @@
     ]
   },
   "statistics": {
-    "per_endpoint_analysis": "All 30 paired natural-log Rust/Java ratios; arithmetic mean; sample standard deviation; two-sided 95% Student-t interval with 29 degrees of freedom; exponentiated bounds.",
+    "per_endpoint_analysis": "For every preregistered endpoint (workload x metric): all 30 paired natural-log Rust/Java ratios ln(rust/java); their arithmetic mean; the sample standard deviation (n-1 denominator); the two-sided 95% Student-t interval with 29 degrees of freedom (critical value t_0.975,29 = 2.045230 per published tables); and the exponentiated interval bounds. Reference implementation: internal/benchplan.AnalyzePairs, validated against published t-tables, an independent Simpson-rule integration of the t density, and closed-form synthetic fixtures labeled SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT.",
+    "confidence_level": 0.95,
+    "degrees_of_freedom": 29,
     "power_model": {
       "kind": "frozen one-sample log-ratio power model",
       "alpha": 0.025,
       "power_min": 0.8,
       "max_log_ratio_sd": 0.1,
-      "alternatives": "OWNER_DECISION_PENDING (the named memory/non-regression alternative effect sizes to be frozen)",
+      "underpowered_rule": "An observed sample log-ratio SD above max_log_ratio_sd makes the endpoint INCONCLUSIVE (underpowered relative to the frozen model); it is never rescued by resampling, extension, or outlier deletion.",
+      "named_alternatives": {
+        "memory": {
+          "log_ratio_expression": "ln(0.8)",
+          "log_ratio": -0.2231435513142097,
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "The memory alternative: Rust peak/steady RSS at most 80% of Java's, matching the 0.8 upper-CI threshold on the RSS endpoints. The PRD names the alternative class; the size is the driver's preregistered choice."
+        },
+        "non_regression": {
+          "log_ratio_expression": "ln(1.1)",
+          "log_ratio": 0.09531017980432493,
+          "provenance": "PREREGISTERED_BY_DRIVER",
+          "rationale": "The non-regression alternative: a 10% regression on any non-memory endpoint must be detectable. At sd=0.10, n=30, alpha=0.025, power 0.8 the minimum detectable |log effect| is approximately 0.053 < ln(1.1) = 0.0953; machine-verified by internal/benchplan.VerifyPowerModel via 'benchplanctl verify'."
+        }
+      },
       "reference_drift_envelope_percent": 5
     },
-    "run_validity": {
-      "background_cpu_percent_max": 2,
-      "thermal_power_identity": "fail-closed (any violation → run INCONCLUSIVE)"
-    },
-    "decision_rule": "Only complete predeclared paired evidence can decide; altered summaries, omissions, identity mismatches, nonfinite values, or raw-versus-summary disagreement are INCONCLUSIVE and blocking."
+    "decision_rule": "Only complete predeclared paired evidence can decide. Altered summaries, omissions, identity mismatches, nonfinite values, or raw-versus-summary disagreement are INCONCLUSIVE and blocking. Reference implementation: internal/benchplan.DecideEndpoint (fail-closed; validated on synthetic fixtures for the valid, underpowered, noisy, reordered, missing, extra, and post-hoc-mutated cases)."
   },
   "ci_thresholds": {
-    "note": "Ratios are Rust/Java; exponentiated CI bounds. 'upper<=' means the exponentiated upper 95% bound must not exceed the threshold; 'lower>=' means the exponentiated lower bound must be at least the threshold. Applied per workload.",
-    "peak_rss": { "bound": "upper", "threshold": 0.8 },
-    "steady_rss": { "bound": "upper", "threshold": 0.8 },
-    "cpu_time": { "bound": "upper", "threshold": 1.0 },
-    "startup_to_ready": { "bound": "upper", "threshold": 1.0 },
-    "latency_p50": { "bound": "upper", "threshold": 1.0 },
-    "latency_p95": { "bound": "upper", "threshold": 1.0 },
-    "latency_p99": { "bound": "upper", "threshold": 1.0 },
-    "allocated_bytes": { "bound": "upper", "threshold": 1.0 },
-    "allocation_count": { "bound": "upper", "threshold": 1.0 },
-    "throughput": { "bound": "lower", "threshold": 1.0 }
+    "note": "Ratios are Rust/Java; bounds are exponentiated 95% CI bounds. 'upper' means the exponentiated upper bound must be <= value; 'lower' means the exponentiated lower bound must be >= value. Applied per workload, per metric endpoint.",
+    "peak_rss": {
+      "bound": "upper",
+      "value": 0.8
+    },
+    "steady_rss": {
+      "bound": "upper",
+      "value": 0.8
+    },
+    "cpu_time": {
+      "bound": "upper",
+      "value": 1.0
+    },
+    "startup_to_ready": {
+      "bound": "upper",
+      "value": 1.0
+    },
+    "latency_p50": {
+      "bound": "upper",
+      "value": 1.0
+    },
+    "latency_p95": {
+      "bound": "upper",
+      "value": 1.0
+    },
+    "latency_p99": {
+      "bound": "upper",
+      "value": 1.0
+    },
+    "allocated_bytes": {
+      "bound": "upper",
+      "value": 1.0
+    },
+    "allocation_count": {
+      "bound": "upper",
+      "value": 1.0
+    },
+    "throughput": {
+      "bound": "lower",
+      "value": 1.0
+    }
+  },
+  "run_validity": {
+    "background_cpu_percent_max": 2,
+    "thermal_power_identity": "fail-closed: any thermal throttle event, power-state anomaly, or host/tool identity mismatch during a run invalidates the run (INCONCLUSIVE, never patched or resampled around)",
+    "provenance": "PRD_VERBATIM"
   },
   "binding": {
-    "note": "Canonical raw pairs must bind the plan, workload, order, environments, tools, future Java/Rust source/executable/adapter digests, and the independently rebuilt analyzer. None of these digests exist yet; none are fabricated.",
+    "note": "Canonical raw pairs must bind the plan, workload, order, environments, tools, future Java/Rust source/executable/adapter digests, and the independently rebuilt analyzer. None of these digests exists yet; none is fabricated. internal/benchplan.DecideEndpoint refuses any MEASURED sample set whose bindings are missing, malformed, or zero.",
+    "required_sample_bindings": [
+      "plan_digest",
+      "primary_environment_digest",
+      "confirmation_environment_digest",
+      "java_source_digest",
+      "rust_source_digest",
+      "java_executable_digest",
+      "rust_executable_digest",
+      "adapter_digest",
+      "tool_identity_digest",
+      "analyzer_digest"
+    ],
     "plan_digest": "NOT_MEASURED",
     "environment_bindings": [
-      "benchmarks/environments/primary-macos.json (UNBOUND)",
-      "benchmarks/environments/confirmation.json (UNBOUND)"
+      "benchmarks/environments/primary-macos.json (binding_status UNBOUND: tool identities OWNER_DECISION_PENDING)",
+      "benchmarks/environments/confirmation.json (binding_status UNBOUND: every host field OWNER_DECISION_PENDING)"
     ],
     "java_source_digest": "NOT_MEASURED",
     "rust_source_digest": "NOT_MEASURED (no Rust source is fabricated)",
-    "analyzer_digest": "NOT_MEASURED"
-  },
-  "results": "NONE — this preregistration skeleton contains no results fields and never will; results live in canonical raw-pair records produced only after plan freeze and environment binding."
+    "analyzer_digest": "NOT_MEASURED (the independently rebuilt analyzer identity binds with the tool identities)"
+  }
 }

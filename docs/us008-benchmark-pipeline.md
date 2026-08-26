@@ -1,9 +1,47 @@
 # US-008 benchmark-confirmation pipeline (enabling work)
 
-Status: SCAFFOLD. This document describes the job-scoped AWS pipeline that
-will one day host the US-008 confirmation benchmarks. **Nothing here claims
-US-008 passes.** No AWS resource has been created, no bootstrap has been
-applied, and the runner is a stub that emits `NOT_MEASURED` sentinels only.
+Status: PREREGISTRATION FROZEN TO THE OWNERLESS MAXIMUM; HOST BINDING
+OWNER-GATED. The pipeline scaffold below is unchanged (SCAFFOLD: no AWS
+resource created, no bootstrap applied, runner still a `NOT_MEASURED`-only
+stub), and the preregistration substance on top of it is now complete to
+the maximum extent possible without owner decisions. **Nothing here claims
+US-008 passes**, and US-008 cannot pass in this state by design:
+
+- `benchmarks/plan/workloads.json` is a frozen, schema-enforced
+  preregistration (`schemas/benchmark-plan-1.0.0.schema.json`): six exact
+  workloads with fixed rates/concurrency/operations/durations and
+  deterministic input/output generators, the executable SHA-256
+  seed-derivation rule with per-workload derived pair orders (5 warmup +
+  30 measured), the frozen statistics plan, per-metric CI thresholds, and
+  the schema-pinned forbidden-practices list. PRD-stated values are
+  marked `PRD_VERBATIM`; every choice the PRD left open is marked
+  `PREREGISTERED_BY_DRIVER` with its rationale.
+- `internal/benchplan` is the preregistered reference statistics engine:
+  paired natural-log ratio analysis (mean, sample SD, two-sided 95%
+  Student-t with 29 df, exponentiated bounds), the frozen power model
+  (alpha 0.025, power >= 0.8, max log-SD 0.10, named `ln(0.8)` memory and
+  `ln(1.1)` non-regression alternatives), and the fail-closed decision
+  rule. It is validated against published t-tables (t_{0.975,29} =
+  2.045230), an independent Simpson-rule integration, an
+  independently-derived (Python hashlib) pair-order golden vector, and
+  closed-form synthetic fixtures labeled
+  `SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT`. No measured datum exists
+  anywhere; the engine refuses unbound `MEASURED` sample sets.
+- `benchmarks/environments/primary-macos.json` now carries honestly
+  OBSERVED host facts (recorded commands + timestamps) matching the
+  PRD-pinned class (macOS 26.4.1, Apple M4 Pro); run-time snapshot fields
+  stay `PENDING_FREEZE_AT_MEASUREMENT` and every tool identity stays
+  `OWNER_DECISION_PENDING`.
+- `benchmarks/environments/confirmation.json` keeps every host field
+  `OWNER_DECISION_PENDING`/`NOT_MEASURED` and adds the schema-enforced
+  `required_binding_fields` completion meter.
+- `cmd/benchplanctl verify --root .` validates all benchmark documents,
+  re-derives the pair orders, checks the power model, and prints exactly
+  which fields remain unbound. Current, verified output: documents
+  consistent; **single remaining blocker class `HOST_BINDING_PENDING`**
+  (27 unbound host/tool fields; exit code 3). Exit code 0 is unreachable
+  until the owner binds the confirmation host and tool identities.
+
 The pipeline fails closed at every missing prerequisite by design.
 
 Owner authorization context: the project moved into Enterprise Vibe Code
