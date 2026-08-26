@@ -228,3 +228,80 @@ func TestHeldOutCommitmentRootRecomputes(t *testing.T) {
 		}
 	}
 }
+
+// The canary leak scan covers every repository file, not only the corpus
+// artifacts: a token planted anywhere under the root is a finding.
+func TestVerifyAllCanaryScanCoversWholeRepo(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	var anyToken string
+	for _, token := range generated.CanaryTokens {
+		anyToken = token
+		break
+	}
+	planted := filepath.Join(root, "docs", "notes.md")
+	if err := os.MkdirAll(filepath.Dir(planted), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(planted,
+		[]byte("innocuous notes containing "+anyToken+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := VerifyAll(root, protectedRoot)
+	if err != nil {
+		t.Fatalf("VerifyAll: %v", err)
+	}
+	var leak bool
+	for _, finding := range findings {
+		if finding.Code == "CANARY_LEAK" && strings.Contains(finding.Path, "notes.md") {
+			leak = true
+		}
+	}
+	if !leak {
+		t.Fatalf("planted canary outside corpora must be found, findings: %v", findings)
+	}
+}
+
+// Recording a live execution in a manifest (execution_status=LIVE_EXECUTED,
+// execution_evidence, executed counts) must not trip the deterministic
+// reconciliation, while any drift in the deterministic core still blocks.
+func TestVerifyAllToleratesRecordedExecutionState(t *testing.T) {
+	root, protectedRoot, _ := writeAllToTemp(t)
+	path := filepath.Join(root, "corpora/public/manifest.json")
+	manifest, err := readManifest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest["execution_status"] = "LIVE_EXECUTED"
+	manifest["execution_evidence"] = map[string]any{
+		"transcript_sha256": DigestSHA256([]byte("transcript")),
+		"report_sha256":     DigestSHA256([]byte("report")),
+		"evaluator":         "corporactl evaluate",
+	}
+	counts := manifest["counts"].(map[string]any)
+	selected := int(counts["selected"].(float64))
+	counts["executed"] = selected
+	counts["passed"] = selected
+	if err := writeJSONFile(path, manifest); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := VerifyAll(root, protectedRoot)
+	if err != nil {
+		t.Fatalf("VerifyAll: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("recorded execution state must verify, findings: %v", findings)
+	}
+
+	// Core drift under recorded execution state still blocks.
+	counts["selected"] = selected + 1
+	if err := writeJSONFile(path, manifest); err != nil {
+		t.Fatal(err)
+	}
+	findings, err = VerifyAll(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) == 0 {
+		t.Fatal("deterministic-core drift must still block")
+	}
+}

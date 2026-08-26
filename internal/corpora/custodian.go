@@ -10,19 +10,19 @@ import (
 // detection, rotation, and canary counts. The custodian and classifier run
 // outside any candidate sandbox; this policy is enforced by the Ledger.
 type CustodianPolicy struct {
-	QueryBudget       int `json:"query_budget"`
-	DiagnosticBudget  int `json:"diagnostic_budget"`
-	NearMissThreshold int `json:"near_miss_threshold"`
-	CanariesPerTier   int `json:"canaries_per_tier"`
+	QueryBudget      int `json:"query_budget"`
+	DiagnosticBudget int `json:"diagnostic_budget"`
+	RepeatThreshold  int `json:"repeat_threshold"`
+	CanariesPerTier  int `json:"canaries_per_tier"`
 }
 
 // DefaultCustodianPolicy is the committed US-005 custodian policy.
 func DefaultCustodianPolicy() CustodianPolicy {
 	return CustodianPolicy{
-		QueryBudget:       200,
-		DiagnosticBudget:  50,
-		NearMissThreshold: 3,
-		CanariesPerTier:   canariesPerTier,
+		QueryBudget:      200,
+		DiagnosticBudget: 50,
+		RepeatThreshold:  3,
+		CanariesPerTier:  canariesPerTier,
 	}
 }
 
@@ -40,9 +40,10 @@ func CustodianPolicyDocument(policy CustodianPolicy, epoch int) ([]byte, error) 
 			"trigger":   "budget exhaustion, probing detection, or owner decision",
 		},
 		"probing": map[string]any{
-			"near_miss_threshold": policy.NearMissThreshold,
-			"detection":           "repeated identical or near-identical query digests against held-out scenarios",
-			"action":              "latch probing flag, deny all further queries, require rotation",
+			"repeat_threshold": policy.RepeatThreshold,
+			"detection": "byte-identical query digests repeated against held-out tiers; " +
+				"detection is exact-digest equality, no similarity claim",
+			"action": "latch probing flag, deny all further queries, require rotation",
 		},
 		"canaries": map[string]any{
 			"per_tier":   policy.CanariesPerTier,
@@ -107,7 +108,7 @@ type Ledger struct {
 
 // NewLedger opens a fresh ledger with a genesis entry for the epoch.
 func NewLedger(policy CustodianPolicy, epoch int) (*Ledger, error) {
-	if policy.QueryBudget < 1 || policy.DiagnosticBudget < 1 || policy.NearMissThreshold < 2 {
+	if policy.QueryBudget < 1 || policy.DiagnosticBudget < 1 || policy.RepeatThreshold < 2 {
 		return nil, fmt.Errorf("custodian policy budgets and threshold must be positive")
 	}
 	ledger := &Ledger{policy: policy, queryCounts: map[string]int{}}
@@ -167,7 +168,9 @@ func (l *Ledger) append(entry LedgerEntry) error {
 	return nil
 }
 
-// RecordQuery spends one query against a held-out scenario.
+// RecordQuery spends one query against held-out content. Probing detection
+// is exact: the same query digest repeated RepeatThreshold times latches the
+// custodian until rotation.
 func (l *Ledger) RecordQuery(scenarioRef, queryDigest string) error {
 	last := l.last()
 	if last.ProbingDetected {
@@ -177,7 +180,7 @@ func (l *Ledger) RecordQuery(scenarioRef, queryDigest string) error {
 		return fmt.Errorf("QUERY_BUDGET_EXHAUSTED")
 	}
 	l.queryCounts[queryDigest]++
-	probing := l.queryCounts[queryDigest] >= l.policy.NearMissThreshold
+	probing := l.queryCounts[queryDigest] >= l.policy.RepeatThreshold
 	entry := LedgerEntry{
 		Op:                  "query",
 		Epoch:               last.Epoch,

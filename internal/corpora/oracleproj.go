@@ -95,7 +95,7 @@ func synthesizeResponse(sc Scenario) ([]byte, error) {
 		errorMap["close_code"] = *sc.Expected.Error.CloseCode
 	}
 	base["error"] = errorMap
-	base["counts"] = Counts{}.toMap()
+	base["counts"] = sc.Expected.Counts.toMap()
 	base["final_state"] = sc.Expected.FinalState
 	base["runtime"] = runtime
 	return CanonicalJSON(base)
@@ -182,10 +182,31 @@ func EvaluateOracleResponse(sc Scenario, responseLine []byte) (bool, string) {
 		} else if _, present := errorMap["close_code"]; present {
 			return false, "unexpected close_code on error"
 		}
-		if state, present := response["final_state"]; present &&
-			state != sc.Expected.FinalState {
+		// The oracle's failure responses carry final_state and counts;
+		// both are required and compared exactly.
+		state, present := response["final_state"]
+		if !present {
+			return false, "error response lacks final_state"
+		}
+		if state != sc.Expected.FinalState {
 			return false, fmt.Sprintf("final_state %v, expected %s",
 				state, sc.Expected.FinalState)
+		}
+		counts, present := response["counts"]
+		if !present {
+			return false, "error response lacks counts"
+		}
+		wantCounts, err := fieldCanonical(sc.Expected.Counts.toMap())
+		if err != nil {
+			return false, "expected counts not canonicalizable: " + err.Error()
+		}
+		gotCounts, err := fieldCanonical(counts)
+		if err != nil {
+			return false, "counts not canonicalizable: " + err.Error()
+		}
+		if wantCounts != gotCounts {
+			return false, fmt.Sprintf("counts diverge: got %s want %s",
+				clip(gotCounts), clip(wantCounts))
 		}
 		return true, ""
 	}

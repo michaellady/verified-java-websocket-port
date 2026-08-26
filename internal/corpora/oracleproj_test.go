@@ -170,3 +170,59 @@ func TestSynthesizedResponseShape(t *testing.T) {
 		}
 	}
 }
+
+// Error outcomes must carry and match final_state and counts; the evaluator
+// lets neither slide.
+func TestEvaluateErrorOutcomeRequiresFinalStateAndCounts(t *testing.T) {
+	generated, err := GenerateAll(testInput())
+	if err != nil {
+		t.Fatalf("GenerateAll: %v", err)
+	}
+	var errScenario Scenario
+	for _, sc := range generated.Public {
+		if sc.Expected.Outcome == "error" && sc.Expected.Counts != nil &&
+			sc.Expected.Counts.ConsumedBytes > 0 {
+			errScenario = sc
+			break
+		}
+	}
+	if errScenario.ScenarioID == "" {
+		t.Fatal("no error scenario with nonzero consumption found")
+	}
+	response, err := synthesizeResponse(errScenario)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if passed, detail := EvaluateOracleResponse(errScenario, response); !passed {
+		t.Fatalf("faithful error response must pass: %s", detail)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(response, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	delete(parsed, "counts")
+	withoutCounts, _ := json.Marshal(parsed)
+	if passed, _ := EvaluateOracleResponse(errScenario, withoutCounts); passed {
+		t.Fatal("error response without counts must fail")
+	}
+
+	if err := json.Unmarshal(response, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	counts := parsed["counts"].(map[string]any)
+	counts["consumed_bytes"] = errScenario.Expected.Counts.ConsumedBytes + 1
+	wrongCounts, _ := json.Marshal(parsed)
+	if passed, _ := EvaluateOracleResponse(errScenario, wrongCounts); passed {
+		t.Fatal("error response with drifted counts must fail")
+	}
+
+	if err := json.Unmarshal(response, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	delete(parsed, "final_state")
+	withoutState, _ := json.Marshal(parsed)
+	if passed, _ := EvaluateOracleResponse(errScenario, withoutState); passed {
+		t.Fatal("error response without final_state must fail")
+	}
+}

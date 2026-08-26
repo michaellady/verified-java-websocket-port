@@ -77,7 +77,7 @@ func TestLedgerHashChainDetectsTamper(t *testing.T) {
 // custodian until rotation.
 func TestLedgerProbingDetectionLocksUntilRotation(t *testing.T) {
 	policy := DefaultCustodianPolicy()
-	policy.NearMissThreshold = 3
+	policy.RepeatThreshold = 3
 	ledger, err := NewLedger(policy, 1)
 	if err != nil {
 		t.Fatalf("NewLedger: %v", err)

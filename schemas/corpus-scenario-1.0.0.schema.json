@@ -178,7 +178,7 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["outcome", "final_state", "error"],
+          "required": ["outcome", "final_state", "error", "counts"],
           "properties": {
             "outcome": {"const": "error"},
             "final_state": {"$ref": "#/$defs/state"},
@@ -190,7 +190,8 @@
                 "code": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
                 "close_code": {"type": "integer", "minimum": 1000, "maximum": 4999}
               }
-            }
+            },
+            "counts": {"$ref": "#/$defs/counts"}
           }
         }
       ]

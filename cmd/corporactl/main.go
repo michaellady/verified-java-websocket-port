@@ -48,8 +48,8 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  corporactl generate --root DIR --protected-root DIR [--epoch N] [--public-seed SEED]")
 	fmt.Fprintln(output, "  corporactl verify --root DIR --protected-root DIR [--schemas DIR]")
 	fmt.Fprintln(output, "  corporactl calibrate --root DIR --protected-root DIR [--schemas DIR]")
-	fmt.Fprintln(output, "  corporactl oracle-requests --root DIR --protected-root DIR --tier public|hidden|sealed [--out FILE]")
-	fmt.Fprintln(output, "  corporactl evaluate --root DIR --protected-root DIR --tier public|hidden|sealed --transcript FILE")
+	fmt.Fprintln(output, "  corporactl oracle-requests --root DIR --protected-root DIR --tier public|hidden|sealed|handshake [--out FILE]")
+	fmt.Fprintln(output, "  corporactl evaluate --root DIR --protected-root DIR --tier public|hidden|sealed|handshake --transcript FILE")
 }
 
 type commonFlags struct {
@@ -214,6 +214,35 @@ func tierScenarios(generated *corpora.GeneratedCorpora, tier string) ([]corpora.
 	return nil, false
 }
 
+func heldOutTier(tier string) bool {
+	return tier == "hidden" || tier == "sealed"
+}
+
+// spendCustodian appends one ledger operation for held-out access and
+// persists the ledger, including denial entries (the probing latch must
+// survive the denied call).
+func spendCustodian(protectedRoot string,
+	operation func(*corpora.Ledger) error) error {
+	path := corpora.ProtectedLedgerPath(protectedRoot)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("custodian ledger unavailable: %w", err)
+	}
+	ledger, err := corpora.LoadLedger(raw)
+	if err != nil {
+		return fmt.Errorf("custodian ledger invalid: %w", err)
+	}
+	operationErr := operation(ledger)
+	serialized, serializeErr := ledger.Serialize()
+	if serializeErr != nil {
+		return serializeErr
+	}
+	if writeErr := os.WriteFile(path, serialized, 0o644); writeErr != nil {
+		return writeErr
+	}
+	return operationErr
+}
+
 func runOracleRequests(arguments []string, stdout, stderr io.Writer) int {
 	flags := flag.NewFlagSet("oracle-requests", flag.ContinueOnError)
 	flags.SetOutput(stderr)
@@ -229,10 +258,45 @@ func runOracleRequests(arguments []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "oracle-requests:", err)
 		return 1
 	}
-	scenarios, known := tierScenarios(generated, *tier)
-	if !known {
-		printUsage(stderr)
-		return 2
+	var lines [][]byte
+	if *tier == "handshake" {
+		for _, c := range generated.Handshake {
+			line, err := corpora.HandshakeRequestLine(c)
+			if err != nil {
+				fmt.Fprintln(stderr, "oracle-requests:", err)
+				return 1
+			}
+			lines = append(lines, line)
+		}
+	} else {
+		scenarios, known := tierScenarios(generated, *tier)
+		if !known {
+			printUsage(stderr)
+			return 2
+		}
+		for _, sc := range scenarios {
+			line, err := corpora.OracleRequestLine(sc)
+			if err != nil {
+				fmt.Fprintln(stderr, "oracle-requests:", err)
+				return 1
+			}
+			lines = append(lines, line)
+		}
+	}
+	if heldOutTier(*tier) {
+		var digestInput []byte
+		for _, line := range lines {
+			digestInput = append(digestInput, line...)
+			digestInput = append(digestInput, '\n')
+		}
+		queryDigest := corpora.DigestSHA256(append([]byte("oracle-requests|"+*tier+"|"),
+			digestInput...))
+		if err := spendCustodian(common.protectedRoot, func(ledger *corpora.Ledger) error {
+			return ledger.RecordQuery("tier:"+*tier, queryDigest)
+		}); err != nil {
+			fmt.Fprintln(stderr, "oracle-requests: custodian denied:", err)
+			return 1
+		}
 	}
 	output := stdout
 	if *outPath != "" {
@@ -244,12 +308,7 @@ func runOracleRequests(arguments []string, stdout, stderr io.Writer) int {
 		defer file.Close()
 		output = file
 	}
-	for _, sc := range scenarios {
-		line, err := corpora.OracleRequestLine(sc)
-		if err != nil {
-			fmt.Fprintln(stderr, "oracle-requests:", err)
-			return 1
-		}
+	for _, line := range lines {
 		if _, err := fmt.Fprintf(output, "%s\n", line); err != nil {
 			fmt.Fprintln(stderr, "oracle-requests:", err)
 			return 1
@@ -274,22 +333,66 @@ func runEvaluate(arguments []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "evaluate:", err)
 		return 1
 	}
-	scenarios, known := tierScenarios(generated, *tier)
-	if !known {
-		printUsage(stderr)
-		return 2
-	}
 	transcript, err := os.ReadFile(*transcriptPath)
 	if err != nil {
 		fmt.Fprintln(stderr, "evaluate:", err)
 		return 1
 	}
-	report, err := corpora.EvaluateTranscript(scenarios, transcript)
+
+	// Held-out evaluation spends one custodian query keyed by the exact
+	// transcript digest before any expectation is consulted.
+	if heldOutTier(*tier) {
+		queryDigest := corpora.DigestSHA256(append([]byte("evaluate|"+*tier+"|"), transcript...))
+		if err := spendCustodian(common.protectedRoot, func(ledger *corpora.Ledger) error {
+			return ledger.RecordQuery("tier:"+*tier, queryDigest)
+		}); err != nil {
+			fmt.Fprintln(stderr, "evaluate: custodian denied:", err)
+			return 1
+		}
+	}
+
+	var report corpora.TranscriptReport
+	if *tier == "handshake" {
+		report, err = corpora.EvaluateHandshakeTranscript(generated.Handshake, transcript)
+	} else {
+		scenarios, known := tierScenarios(generated, *tier)
+		if !known {
+			printUsage(stderr)
+			return 2
+		}
+		report, err = corpora.EvaluateTranscript(scenarios, transcript)
+	}
 	if err != nil {
 		fmt.Fprintln(stderr, "evaluate:", err)
 		return 1
 	}
-	if rc := printJSON(stdout, stderr, report); rc != 0 {
+
+	// Per-scenario failure details on held-out tiers are diagnostics: they
+	// cost one diagnostic-budget unit and are redacted when exhausted.
+	output := map[string]any{
+		"executed":  report.Executed,
+		"passed":    report.Passed,
+		"failed":    report.Failed,
+		"missing":   report.Missing,
+		"unmatched": report.Unmatched,
+	}
+	if len(report.Failures) > 0 {
+		if heldOutTier(*tier) {
+			diagnosticDigest := corpora.DigestSHA256(
+				append([]byte("diagnostics|"+*tier+"|"), transcript...))
+			if err := spendCustodian(common.protectedRoot, func(ledger *corpora.Ledger) error {
+				return ledger.RecordDiagnostic("tier:"+*tier, diagnosticDigest)
+			}); err != nil {
+				output["diagnostics_redacted"] = true
+				output["redaction_reason"] = err.Error()
+			} else {
+				output["failures"] = report.Failures
+			}
+		} else {
+			output["failures"] = report.Failures
+		}
+	}
+	if rc := printJSON(stdout, stderr, output); rc != 0 {
 		return rc
 	}
 	if !report.Reconciled() {

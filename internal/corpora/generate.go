@@ -208,7 +208,7 @@ func generateBehaviorTier(tier, short, seed string, canaries []canarySpec) (
 	}
 	var drafts []draft
 	expected := 0
-	for _, family := range behaviorPlan() {
+	for _, family := range behaviorPlan(tier != "public") {
 		for i := 0; i < family.count; i++ {
 			expected++
 			stream := NewStream(seed, fmt.Sprintf("family|%s|%d", family.name, i))
@@ -375,12 +375,25 @@ func splitRunes(text string, parts int) []string {
 	return out
 }
 
-func behaviorPlan() []familySpec {
+// behaviorPlan returns the shared family plan; held-out tiers additionally
+// carry boundary families whose semantics were pinned by reading the
+// quarantined Java-WebSocket 1.6.0 sources (CloseFrame, Draft_6455, Draft,
+// ControlFrame) rather than reseeds of public families.
+func behaviorPlan(heldOut bool) []familySpec {
 	valid := func(core ScenarioCore, basis []string) (ScenarioCore, []string, error) {
 		return core, basis, nil
 	}
 	validCloseCodes := []int{1000, 1001, 1008, 1011, 3000, 4999}
 	invalidCloseCodes := []int{999, 1004, 1005, 1006, 1015}
+	plan := behaviorPlanShared(valid, validCloseCodes, invalidCloseCodes)
+	if heldOut {
+		plan = append(plan, behaviorPlanHeldOut(valid)...)
+	}
+	return plan
+}
+
+func behaviorPlanShared(valid func(ScenarioCore, []string) (ScenarioCore, []string, error),
+	validCloseCodes, invalidCloseCodes []int) []familySpec {
 	return []familySpec{
 		{"text-single", 4, func(s *Stream, i int) (ScenarioCore, []string, error) {
 			role := roleFor(i)
@@ -738,6 +751,92 @@ func behaviorPlan() []familySpec {
 				Limits: StandardLimits(),
 				Steps: []Step{{Kind: "action", Action: "send_close",
 					Code: 999, Reason: "bad"}}}, closeCodeBasis())
+		}},
+	}
+}
+
+// behaviorPlanHeldOut carries the structural boundary families reserved for
+// the hidden and sealed tiers.
+func behaviorPlanHeldOut(valid func(ScenarioCore, []string) (ScenarioCore, []string, error)) []familySpec {
+	closeWith := func(s *Stream, payload []byte) ScenarioCore {
+		mask := s.Mask()
+		wire := EncodeFrame(WireFrame{Fin: true, Opcode: OpcodeClose, Payload: payload}, &mask)
+		return ScenarioCore{Role: "server", InitialState: "open", Limits: StandardLimits(),
+			Steps: []Step{bytesStep(wire)}}
+	}
+	return []familySpec{
+		// CloseFrame.isValid accepts 1012-1014 (they sit at or below 1015).
+		{"close-code-1012-1014", 3, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			code := 1012 + i
+			payload := append([]byte{byte(code >> 8), byte(code)}, []byte(s.ASCII(s.Intn(8)))...)
+			return valid(closeWith(s, payload), closeCodeBasis())
+		}},
+		// CloseFrame.isValid rejects 1016-2999 with PROTOCOL_ERROR.
+		{"close-code-reserved-range", 3, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			code := []int{1016, 2000, 2999}[i]
+			payload := []byte{byte(code >> 8), byte(code)}
+			return valid(closeWith(s, payload), closeCodeBasis())
+		}},
+		// Invalid-UTF-8 reason: setPayload nulls the reason and isValid then
+		// fails with a NullPointerException (JAVA_RUNTIME_REJECTION).
+		{"close-invalid-utf8-reason", 1, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			payload := append([]byte{0x03, 0xe8}, 0xff, 0xfe)
+			return valid(closeWith(s, payload), utf8Basis())
+		}},
+		// Code 1007 with an empty reason trips isValid's first check.
+		{"close-1007-empty-reason", 1, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			return valid(closeWith(s, []byte{0x03, 0xef}), closeCodeBasis())
+		}},
+		// ControlFrame.isValid has no length check on the send side.
+		{"send-oversize-ping", 1, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			return valid(ScenarioCore{Role: roleFor(i), InitialState: "open",
+				Limits: StandardLimits(),
+				Steps: []Step{{Kind: "action", Action: "send_ping",
+					DataBase64: base64Std(s.Bytes(126 + s.Intn(75)))}}}, controlBasis())
+		}},
+		// Draft.continuousFrame: a fin=true first call emits one complete
+		// data frame and leaves no open sequence.
+		{"send-fragment-single", 1, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			return valid(ScenarioCore{Role: roleFor(i), InitialState: "open",
+				Limits: StandardLimits(),
+				Steps: []Step{{Kind: "action", Action: "send_fragment",
+					Opcode: "text", Fin: true,
+					DataBase64: base64Std([]byte(s.UTF8Text(4)))}}}, fragmentBasis())
+		}},
+		// Cumulative fragment overflow at a NON-FIN continuation trips the
+		// adapter accounting (Java only checks at starts and fins).
+		{"fragment-overflow-nonfin", 1, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			limits := StandardLimits()
+			limits.MaxBufferedBytes = 32
+			steps := []Step{
+				bytesStep(inboundChunk("server", s, WireFrame{Fin: false,
+					Opcode: OpcodeBinary, Payload: s.Bytes(20)})),
+				bytesStep(inboundChunk("server", s, WireFrame{Fin: false,
+					Opcode: OpcodeContinuous, Payload: s.Bytes(20)})),
+			}
+			return valid(ScenarioCore{Role: "server", InitialState: "open",
+				Limits: limits, Steps: steps}, limitBasis())
+		}},
+		// Cumulative fragment overflow at a FIN continuation trips Java's
+		// checkBufferLimit (1009).
+		{"fragment-overflow-fin", 1, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			limits := StandardLimits()
+			limits.MaxBufferedBytes = 32
+			steps := []Step{
+				bytesStep(inboundChunk("server", s, WireFrame{Fin: false,
+					Opcode: OpcodeBinary, Payload: s.Bytes(20)})),
+				bytesStep(inboundChunk("server", s, WireFrame{Fin: true,
+					Opcode: OpcodeContinuous, Payload: s.Bytes(20)})),
+			}
+			return valid(ScenarioCore{Role: "server", InitialState: "open",
+				Limits: limits, Steps: steps}, limitBasis())
+		}},
+		// setCode(1015) normalizes to 1005 and isValid rejects it (1002).
+		{"send-close-1015", 1, func(s *Stream, i int) (ScenarioCore, []string, error) {
+			return valid(ScenarioCore{Role: "client", InitialState: "open",
+				Limits: StandardLimits(),
+				Steps: []Step{{Kind: "action", Action: "send_close",
+					Code: 1015, Reason: s.ASCII(3)}}}, closeCodeBasis())
 		}},
 	}
 }

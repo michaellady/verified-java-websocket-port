@@ -3,7 +3,7 @@
   "$id": "corpus-calibration-1.0.0.schema.json",
   "type": "object",
   "additionalProperties": false,
-  "required": ["$schema", "schema_version", "evidence_kind", "corpora", "expectation_status", "offline_gates", "live_gates", "live_steps", "status", "assurance", "independent_review_claimed", "production", "signing", "publication"],
+  "required": ["$schema", "schema_version", "evidence_kind", "corpora", "expectation_status", "offline_gates", "live_gates", "live_steps", "model_scoping", "status", "assurance", "independent_review_claimed", "production", "signing", "publication"],
   "properties": {
     "$schema": {"const": "../schemas/corpus-calibration-1.0.0.schema.json"},
     "schema_version": {"const": "1.0.0"},
@@ -95,7 +95,8 @@
       }
     },
     "live_steps": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 8}},
-    "status": {"enum": ["OFFLINE_CALIBRATED_PENDING_LIVE_EXECUTION", "BLOCKED"]},
+    "model_scoping": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 16}},
+    "status": {"enum": ["OFFLINE_CALIBRATED_PENDING_LIVE_EXECUTION", "BLOCKED", "LIVE_CALIBRATED", "LIVE_BLOCKED"]},
     "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
     "independent_review_claimed": {"const": false},
     "production": {"const": false},
@@ -155,9 +156,32 @@
       "additionalProperties": false,
       "required": ["status", "requirement", "constraint"],
       "properties": {
-        "status": {"const": "BLOCKED_PENDING_LIVE_EXECUTION"},
+        "status": {"enum": ["BLOCKED_PENDING_LIVE_EXECUTION", "PASS", "FAIL"]},
         "requirement": {"type": "string", "minLength": 8},
-        "constraint": {"type": "string", "minLength": 16}
+        "constraint": {"type": "string", "minLength": 16},
+        "result": {"$ref": "#/$defs/liveResult"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"enum": ["PASS", "FAIL"]}}},
+          "then": {"required": ["result"]}
+        },
+        {
+          "if": {"properties": {"status": {"const": "BLOCKED_PENDING_LIVE_EXECUTION"}}},
+          "then": {"properties": {"result": false}}
+        }
+      ]
+    },
+    "liveResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcript_sha256s", "executed", "passed", "failed"],
+      "properties": {
+        "transcript_sha256s": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/digest"}},
+        "executed": {"type": "integer", "minimum": 0},
+        "passed": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0},
+        "notes": {"type": "string"}
       }
     }
   }

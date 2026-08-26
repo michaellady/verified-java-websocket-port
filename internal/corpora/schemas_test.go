@@ -64,3 +64,45 @@ func TestSchemaValidationFailsClosedOnMalformedLine(t *testing.T) {
 		t.Fatal("schema-invalid line must produce findings")
 	}
 }
+
+// While execution is pending, nonzero execution counters are schema-invalid;
+// a recorded live execution requires evidence and permits them.
+func TestManifestSchemaGuardsExecutionStates(t *testing.T) {
+	root, protectedRoot, _ := writeAllToTemp(t)
+	path := filepath.Join(root, "corpora/public/manifest.json")
+	manifest, err := readManifest(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := manifest["counts"].(map[string]any)
+	counts["executed"] = 1
+	if err := writeJSONFile(path, manifest); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := ValidateCorpusSchemas(schemasDir(t), root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) == 0 {
+		t.Fatal("pending status with nonzero executed count must be schema-invalid")
+	}
+
+	manifest["execution_status"] = "LIVE_EXECUTED"
+	manifest["execution_evidence"] = map[string]any{
+		"transcript_sha256": DigestSHA256([]byte("t")),
+		"report_sha256":     DigestSHA256([]byte("r")),
+		"evaluator":         "corporactl evaluate",
+	}
+	if err := writeJSONFile(path, manifest); err != nil {
+		t.Fatal(err)
+	}
+	findings, err = ValidateCorpusSchemas(schemasDir(t), root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, finding := range findings {
+		if strings.Contains(finding.Path, "public/manifest.json") {
+			t.Fatalf("recorded execution state must be schema-valid: %v", finding)
+		}
+	}
+}

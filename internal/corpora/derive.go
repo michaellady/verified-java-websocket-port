@@ -6,9 +6,10 @@ import (
 )
 
 // Behavior parameterizes the reference model. Defaults mirror the pinned
-// Java-WebSocket 1.6.0 semantics documented in the frozen port-seam dossier
-// and the vendored java-oracle adapter. Calibration flips single fields to
-// build reference mutants; production derivation always uses ReferenceBehavior.
+// Java-WebSocket 1.6.0 sources in the quarantined archive (Draft_6455,
+// CloseFrame, ControlFrame, TextFrame, Draft) plus the vendored java-oracle
+// adapter. Calibration flips single fields to build reference mutants;
+// production derivation always uses ReferenceBehavior.
 type Behavior struct {
 	ControlPayloadLimit        int
 	ValidateUTF8               bool
@@ -36,6 +37,12 @@ func ReferenceBehavior() Behavior {
 	}
 }
 
+// closeFrameConstructorPayload mirrors CloseFrame's constructor: setReason("")
+// then setCode(1000) store payload [0x03,0xe8] via updatePayload, and the
+// wire-parsing setPayload override never replaces it. Every parsed inbound
+// close frame therefore records and echoes exactly these two bytes.
+var closeFrameConstructorPayload = []byte{0x03, 0xe8}
+
 // scenarioError is a derived error-outcome rejection.
 type scenarioError struct {
 	code      string
@@ -53,6 +60,10 @@ func javaInvalid(closeCode int) scenarioError {
 	return scenarioError{code: "JAVA_INVALID_DATA", closeCode: &c}
 }
 
+func javaRuntimeRejection() scenarioError {
+	return scenarioError{code: "JAVA_RUNTIME_REJECTION"}
+}
+
 // unsupportedError marks constructs outside the verified expectation space.
 // The deriver fails closed instead of guessing runtime behavior.
 type unsupportedError struct{ reason string }
@@ -66,14 +77,16 @@ func DeriveExpected(core ScenarioCore) (Expected, error) {
 
 // DeriveExpectedWith derives an expectation under an explicit behavior, used
 // by calibration to measure whether the corpus kills reference mutants.
+// Both outcomes carry exact counts: the oracle's failure responses include
+// the counters, so error expectations assert them too.
 func DeriveExpectedWith(core ScenarioCore, behavior Behavior) (Expected, error) {
 	d, err := newDeriver(core, behavior)
 	if err != nil {
 		return Expected{}, err
 	}
 	runErr := d.run()
+	counts := d.counts()
 	if runErr == nil {
-		counts := d.counts()
 		return Expected{
 			Outcome:     "ok",
 			FinalState:  d.state,
@@ -89,6 +102,7 @@ func DeriveExpectedWith(core ScenarioCore, behavior Behavior) (Expected, error) 
 			Outcome:    "error",
 			FinalState: d.state,
 			Error:      &ExpectedError{Code: scErr.code, CloseCode: scErr.closeCode},
+			Counts:     &counts,
 		}, nil
 	}
 	return Expected{}, runErr
@@ -119,7 +133,6 @@ type deriver struct {
 	actionCount     int
 	messageBuffered int
 
-	fragmentOpcode   byte // adapter-side inbound fragment tracking (0 = none)
 	javaFragOpcode   byte // Draft continuation opcode (0 = none)
 	javaFragPayload  []byte
 	sendFragmentOpen byte // send-side continuous frame type (0 = none)
@@ -145,7 +158,7 @@ func newDeriver(core ScenarioCore, behavior Behavior) (*deriver, error) {
 		return nil, unsupportedError{"limits outside the oracle protocol bounds"}
 	}
 	return &deriver{
-		behavior:    core.normalizedBehavior(behavior),
+		behavior:    behavior,
 		role:        core.Role,
 		state:       core.InitialState,
 		limits:      core.Limits,
@@ -155,8 +168,6 @@ func newDeriver(core ScenarioCore, behavior Behavior) (*deriver, error) {
 		transitions: []map[string]any{},
 	}, nil
 }
-
-func (core ScenarioCore) normalizedBehavior(behavior Behavior) Behavior { return behavior }
 
 func (d *deriver) run() error {
 	for index, step := range d.steps {
@@ -221,7 +232,58 @@ func (d *deriver) closeMap(origin string, code int, reason string, remote, hands
 	}
 }
 
-// inputStep mirrors OracleEngine.Execution.input.
+// frameSpan is one wire frame's absolute extent within a combined buffer.
+type frameSpan struct {
+	start int
+	size  int
+}
+
+// scanSpans mirrors WireTracker.frameLength: extract complete frame spans by
+// length grammar only, leaving the incomplete tail.
+func scanSpans(data []byte) ([]frameSpan, int, error) {
+	var spans []frameSpan
+	at := 0
+	for {
+		if len(data)-at < 2 {
+			break
+		}
+		marker := int(data[at+1] & 0x7f)
+		header := 2
+		length := marker
+		if marker == 126 {
+			if len(data)-at < 4 {
+				break
+			}
+			header = 4
+			length = int(data[at+2])<<8 | int(data[at+3])
+		} else if marker == 127 {
+			if len(data)-at < 10 {
+				break
+			}
+			header = 10
+			length = 0
+			for i := 0; i < 8; i++ {
+				if length > (1 << 40) {
+					return nil, 0, unsupportedError{"64-bit lengths beyond the generated space"}
+				}
+				length = length<<8 | int(data[at+2+i])
+			}
+		}
+		if data[at+1]&0x80 != 0 {
+			header += 4
+		}
+		total := header + length
+		if len(data)-at < total {
+			break
+		}
+		spans = append(spans, frameSpan{start: at, size: total})
+		at += total
+	}
+	return spans, at, nil
+}
+
+// inputStep mirrors OracleEngine.Execution.input with the pinned Java
+// consumption semantics at every error site.
 func (d *deriver) inputStep(step Step, index int) error {
 	payload, err := step.payload()
 	if err != nil {
@@ -230,41 +292,76 @@ func (d *deriver) inputStep(step Step, index int) error {
 	if d.state == "closed" && len(payload) != 0 {
 		return protocolError("STATE_VIOLATION")
 	}
-	d.inputBytes += len(payload)
-	if d.inputBytes > d.limits.MaxInputBytes {
+	// addBounded semantics: the counter is only updated when within bounds.
+	if d.inputBytes+len(payload) > d.limits.MaxInputBytes {
 		return protocolError("INPUT_LIMIT_EXCEEDED")
 	}
+	d.inputBytes += len(payload)
 	if len(payload) == 0 {
 		d.event("input_chunk", index, map[string]any{"bytes": 0})
 		return nil
 	}
 
+	chunkStart := len(d.pending)
 	combined := append(append([]byte{}, d.pending...), payload...)
-	var parsed []decodedFrame
-	at := 0
-	for {
-		frame, size, complete, err := d.parseFrame(combined[at:])
-		if err != nil {
-			return err
-		}
-		if !complete {
-			break
-		}
-		frame.wire = size
-		parsed = append(parsed, frame)
-		at += size
+	spans, consumedSpanEnd, err := scanSpans(combined)
+	if err != nil {
+		return err
 	}
-	d.pending = combined[at:]
-	if len(d.pending) > d.limits.MaxBufferedBytes+14 {
+	leftover := combined[consumedSpanEnd:]
+	leftoverStart := consumedSpanEnd
+	// WireTracker.accept: pending is replaced before the overflow check, and
+	// the overflow throw happens before any translation (consumed stays 0
+	// for this chunk).
+	d.pending = append([]byte{}, leftover...)
+	if len(leftover) > d.limits.MaxBufferedBytes+14 {
 		return protocolError("BUFFER_LIMIT_EXCEEDED")
+	}
+
+	// Translate stage: sequential decode with Java's validity order and
+	// per-site consumption.
+	var decoded []decodedFrame
+	for _, span := range spans {
+		frame, errSite, decodeErr, unsupported := d.decodeFrame(
+			combined[span.start : span.start+span.size])
+		if unsupported != nil {
+			return unsupported
+		}
+		if decodeErr != nil {
+			if span.start < chunkStart {
+				return unsupportedError{
+					"translate-stage rejection inside a frame completed from buffered bytes"}
+			}
+			d.consumedBytes += span.start + errSite - chunkStart
+			return *decodeErr
+		}
+		frame.wire = span.size
+		decoded = append(decoded, frame)
+	}
+	// A fresh incomplete frame whose visible header already violates the
+	// runtime rules is rejected during this step (translateSingleFrame reads
+	// the header before noticing the frame is incomplete).
+	if len(leftover) >= 2 {
+		site, screenErr, unsupported := d.screenIncompleteHeader(leftover)
+		if unsupported != nil {
+			return unsupported
+		}
+		if screenErr != nil {
+			if leftoverStart < chunkStart {
+				return unsupportedError{
+					"header rejection inside a frame extended from buffered bytes"}
+			}
+			d.consumedBytes += leftoverStart + site - chunkStart
+			return *screenErr
+		}
 	}
 	d.consumedBytes += len(payload)
 	d.event("input_chunk", index, map[string]any{"bytes": len(payload)})
-	for _, frame := range parsed {
+	for _, frame := range decoded {
 		if len(d.frames) >= d.limits.MaxFrames {
 			return protocolError("FRAME_LIMIT_EXCEEDED")
 		}
-		d.frames = append(d.frames, d.frameRecord(frame, "inbound", index, frame.masked, frame.wire))
+		d.frames = append(d.frames, d.inboundFrameRecord(frame, index))
 		if err := d.processInbound(frame, index); err != nil {
 			return err
 		}
@@ -272,19 +369,14 @@ func (d *deriver) inputStep(step Step, index int) error {
 	return nil
 }
 
-// parseFrame decodes one wire frame, applying the Java validity checks in the
-// order the pinned runtime applies them. It returns complete=false when more
-// bytes are needed. Header-invalid incomplete frames are rejected as
-// unsupported: the runtime errors before buffering them, so generated
-// scenarios always materialize invalid frames completely.
-func (d *deriver) parseFrame(data []byte) (decodedFrame, int, bool, error) {
+// decodeFrame mirrors translateSingleFrame on one complete frame. On a
+// rejection it reports the exact byte offset the runtime consumed before
+// throwing: 2 after the base header (unknown opcode, oversized control,
+// 7-bit length limit), 4 after a 16-bit length (length limit), and the full
+// frame for post-payload checks (reserved bits, frame validity, close
+// semantics, text UTF-8).
+func (d *deriver) decodeFrame(data []byte) (decodedFrame, int, *scenarioError, error) {
 	var frame decodedFrame
-	if len(data) < 2 {
-		if len(data) > 0 {
-			return frame, 0, false, nil
-		}
-		return frame, 0, false, nil
-	}
 	b1, b2 := data[0], data[1]
 	frame.fin = b1&0x80 != 0
 	frame.rsv1 = b1&0x40 != 0
@@ -294,51 +386,49 @@ func (d *deriver) parseFrame(data []byte) (decodedFrame, int, bool, error) {
 	frame.masked = b2&0x80 != 0
 	marker := int(b2 & 0x7f)
 
-	header := 2
-	length := marker
+	fail := func(site int, err scenarioError) (decodedFrame, int, *scenarioError, error) {
+		return frame, site, &err, nil
+	}
+
+	if !validOpcode(frame.opcode) {
+		return fail(2, javaInvalid(1002))
+	}
 	isControl := frame.opcode == byte(OpcodeClose) || frame.opcode == byte(OpcodePing) ||
 		frame.opcode == byte(OpcodePong)
-	if marker == 126 {
-		if len(data) < 4 {
-			return frame, 0, false, d.requireCompleteForValidity(frame, data)
+
+	header := 2
+	length := marker
+	lengthSite := 2
+	if marker >= 126 {
+		// translateSingleFramePayloadLength rejects extended control frames
+		// before reading the extended length bytes.
+		if isControl && d.behavior.ControlPayloadLimit <= 125 {
+			return fail(2, javaInvalid(1002))
 		}
-		header = 4
-		length = int(data[2])<<8 | int(data[3])
-	} else if marker == 127 {
-		if len(data) < 10 {
-			return frame, 0, false, d.requireCompleteForValidity(frame, data)
-		}
-		header = 10
-		length = 0
-		for i := 0; i < 8; i++ {
-			if length > (1 << 40) {
-				return frame, 0, false, unsupportedError{"64-bit lengths beyond the generated space"}
+		if marker == 126 {
+			header = 4
+			length = int(data[2])<<8 | int(data[3])
+			lengthSite = 4
+		} else {
+			header = 10
+			length = 0
+			for i := 0; i < 8; i++ {
+				length = length<<8 | int(data[2+i])
 			}
-			length = length<<8 | int(data[2+i])
+			lengthSite = 10
 		}
+	}
+	if isControl && length > d.behavior.ControlPayloadLimit {
+		return fail(lengthSite, javaInvalid(1002))
+	}
+	if d.behavior.EnforceFrameSizeLimit && length > d.limits.MaxBufferedBytes {
+		return fail(lengthSite, javaInvalid(1009))
 	}
 	if frame.masked {
 		header += 4
 	}
-	total := header + length
-	if len(data) < total {
-		return frame, 0, false, d.requireCompleteForValidity(frame, data)
-	}
-
-	// Java validity order: opcode, control extended length, frame size limit,
-	// reserved bits, then frame-specific validity.
-	if !validOpcode(frame.opcode) {
-		return frame, 0, false, javaInvalid(1002)
-	}
-	if isControl && length > d.behavior.ControlPayloadLimit {
-		return frame, 0, false, javaInvalid(1002)
-	}
-	if d.behavior.EnforceFrameSizeLimit && length > d.limits.MaxBufferedBytes {
-		return frame, 0, false, javaInvalid(1009)
-	}
-
 	frame.payload = make([]byte, length)
-	copy(frame.payload, data[header:total])
+	copy(frame.payload, data[header:header+length])
 	if frame.masked {
 		maskStart := header - 4
 		for i := range frame.payload {
@@ -346,36 +436,146 @@ func (d *deriver) parseFrame(data []byte) (decodedFrame, int, bool, error) {
 		}
 	}
 
-	// Masking discipline: the generated space always masks toward servers and
-	// never toward clients; anything else is outside the verified space.
+	// Masking discipline: the pinned runtime accepts either masking toward
+	// either role; the corpus scopes itself to spec-conformant masking (a
+	// documented Java-compatibility non-goal), so anything else is outside
+	// the verified space rather than an expectation.
 	if d.role == "server" && !frame.masked {
-		return frame, 0, false, unsupportedError{"unmasked inbound bytes toward a server"}
+		return frame, 0, nil, unsupportedError{"unmasked inbound bytes toward a server"}
 	}
 	if d.role == "client" && frame.masked {
-		return frame, 0, false, unsupportedError{"masked inbound bytes toward a client"}
+		return frame, 0, nil, unsupportedError{"masked inbound bytes toward a client"}
 	}
 
+	full := len(data)
+	// DefaultExtension.isFrameValid runs after the payload is read.
 	if d.behavior.EnforceReservedBits && (frame.rsv1 || frame.rsv2 || frame.rsv3) {
-		return frame, 0, false, javaInvalid(1002)
+		return fail(full, javaInvalid(1002))
 	}
+	// frame.isValid(): ControlFrame fin check, then per-frame semantics.
 	if isControl && !frame.fin {
-		return frame, 0, false, javaInvalid(1002)
+		return fail(full, javaInvalid(1002))
 	}
 	if frame.opcode == byte(OpcodeClose) {
-		if err := d.validateCloseFramePayload(frame.payload); err != nil {
-			return frame, 0, false, err
+		if _, _, closeErr, unsupported := d.parseCloseSemantics(frame.payload); unsupported != nil {
+			return frame, 0, nil, unsupported
+		} else if closeErr != nil {
+			return fail(full, *closeErr)
 		}
 	}
-	return frame, total, true, nil
+	// TextFrame.isValid validates standalone UTF-8 at translate time using
+	// the Hoehrmann DFA, which rejects invalid content but ACCEPTS a
+	// dangling incomplete tail (the strict decoder rejects that later, after
+	// the frame is recorded). Content-invalid text is a translate rejection;
+	// truncated tails are outside the generated space and fail closed.
+	if frame.opcode == byte(OpcodeText) && d.behavior.ValidateUTF8 {
+		if !dfaAcceptsAtTranslate(frame.payload) {
+			return fail(full, javaInvalid(1007))
+		}
+		if !utf8.Valid(frame.payload) {
+			return frame, 0, nil, unsupportedError{
+				"text payload with a truncated UTF-8 tail (translate-accepted, process-rejected)"}
+		}
+	}
+	return frame, 0, nil, nil
 }
 
-// requireCompleteForValidity fails closed when an incomplete frame's header
-// already carries a violation the runtime would reject before buffering.
-func (d *deriver) requireCompleteForValidity(frame decodedFrame, data []byte) error {
-	if !validOpcode(frame.opcode) || frame.rsv1 || frame.rsv2 || frame.rsv3 {
-		return unsupportedError{"invalid header on an incomplete frame"}
+// dfaAcceptsAtTranslate mirrors Charsetfunctions.isValidUTF8: the DFA only
+// reports failure when it reaches the error state, so a payload ending in a
+// valid-but-incomplete multi-byte prefix is accepted at translate time.
+func dfaAcceptsAtTranslate(payload []byte) bool {
+	i := 0
+	for i < len(payload) {
+		r, size := utf8.DecodeRune(payload[i:])
+		if r == utf8.RuneError && size <= 1 {
+			return isIncompleteUTF8Tail(payload[i:])
+		}
+		i += size
 	}
-	return nil
+	return true
+}
+
+// isIncompleteUTF8Tail reports whether the bytes are a strict prefix of one
+// valid UTF-8 sequence (the DFA's non-error, non-accept end state).
+func isIncompleteUTF8Tail(tail []byte) bool {
+	if len(tail) == 0 {
+		return false
+	}
+	first := tail[0]
+	var need int
+	var secondLow, secondHigh byte = 0x80, 0xbf
+	switch {
+	case first >= 0xc2 && first <= 0xdf:
+		need = 2
+	case first == 0xe0:
+		need, secondLow = 3, 0xa0
+	case first >= 0xe1 && first <= 0xec:
+		need = 3
+	case first == 0xed:
+		need, secondHigh = 3, 0x9f
+	case first >= 0xee && first <= 0xef:
+		need = 3
+	case first == 0xf0:
+		need, secondLow = 4, 0x90
+	case first >= 0xf1 && first <= 0xf3:
+		need = 4
+	case first == 0xf4:
+		need, secondHigh = 4, 0x8f
+	default:
+		return false
+	}
+	if len(tail) >= need {
+		return false
+	}
+	for i := 1; i < len(tail); i++ {
+		low, high := byte(0x80), byte(0xbf)
+		if i == 1 {
+			low, high = secondLow, secondHigh
+		}
+		if tail[i] < low || tail[i] > high {
+			return false
+		}
+	}
+	return true
+}
+
+// screenIncompleteHeader mirrors the header checks the runtime performs
+// before discovering a frame is incomplete.
+func (d *deriver) screenIncompleteHeader(data []byte) (int, *scenarioError, error) {
+	b1, b2 := data[0], data[1]
+	opcode := b1 & 0x0f
+	marker := int(b2 & 0x7f)
+	if !validOpcode(opcode) {
+		err := javaInvalid(1002)
+		return 2, &err, nil
+	}
+	isControl := opcode == byte(OpcodeClose) || opcode == byte(OpcodePing) ||
+		opcode == byte(OpcodePong)
+	if isControl && marker >= 126 && d.behavior.ControlPayloadLimit <= 125 {
+		err := javaInvalid(1002)
+		return 2, &err, nil
+	}
+	length := -1
+	site := 2
+	if marker <= 125 {
+		length = marker
+	} else if marker == 126 && len(data) >= 4 {
+		length = int(data[2])<<8 | int(data[3])
+		site = 4
+	} else if marker == 127 && len(data) >= 10 {
+		return 0, nil, unsupportedError{"64-bit lengths beyond the generated space"}
+	}
+	if length >= 0 {
+		if isControl && length > d.behavior.ControlPayloadLimit {
+			err := javaInvalid(1002)
+			return site, &err, nil
+		}
+		if d.behavior.EnforceFrameSizeLimit && length > d.limits.MaxBufferedBytes {
+			err := javaInvalid(1009)
+			return site, &err, nil
+		}
+	}
+	return 0, nil, nil
 }
 
 func validOpcode(op byte) bool {
@@ -386,43 +586,56 @@ func validOpcode(op byte) bool {
 	return false
 }
 
-func (d *deriver) validateCloseFramePayload(payload []byte) error {
-	if len(payload) == 1 {
-		return javaInvalid(1002)
-	}
-	if len(payload) >= 2 {
-		code := int(payload[0])<<8 | int(payload[1])
-		if d.behavior.EnforceCloseCodeValidity && !wireCloseCodeValid(code) {
-			return javaInvalid(1002)
-		}
-		if !utf8.Valid(payload[2:]) {
-			return unsupportedError{"close reason with invalid UTF-8 is outside the verified space"}
-		}
-	}
-	return nil
-}
-
-// wireCloseCodeValid mirrors CloseFrame validity for the code set the
-// generator uses; codes with uncertain 1.6.0 handling are never generated.
-func wireCloseCodeValid(code int) bool {
+// parseCloseSemantics mirrors CloseFrame.setPayload followed by isValid:
+//   - empty payload -> code 1000, reason ""
+//   - one byte      -> code 1002, reason "" (valid)
+//   - >= two bytes  -> big-endian code + UTF-8 reason; an invalid reason
+//     becomes code 1007 with a null reason, and isValid's reason.isEmpty()
+//     then raises a NullPointerException -> JAVA_RUNTIME_REJECTION
+//
+// isValid rejections: 1007 with empty reason -> 1007; 1005 with a reason,
+// 1016-2999, {<1000, 1004, 1005, 1006, 1015, >4999} -> 1002.
+func (d *deriver) parseCloseSemantics(payload []byte) (int, string, *scenarioError, error) {
+	code := 1005
+	reason := ""
 	switch {
-	case code == 1004, code == 1005, code == 1006, code == 1015:
-		return false
-	case code < 1000, code > 4999:
-		return false
+	case len(payload) == 0:
+		code = 1000
+	case len(payload) == 1:
+		code = 1002
+	default:
+		code = int(payload[0])<<8 | int(payload[1])
+		if d.behavior.ValidateUTF8 && !utf8.Valid(payload[2:]) {
+			err := javaRuntimeRejection()
+			return 0, "", &err, nil
+		}
+		reason = string(payload[2:])
 	}
-	if code >= 1012 && code <= 2999 {
-		// Outside the generated space: 1.6.0 acceptance is not pinned here.
-		return true
+	if d.behavior.EnforceCloseCodeValidity {
+		if failCode, failed := closeIsValidRejection(code, reason); failed {
+			err := javaInvalid(failCode)
+			return 0, "", &err, nil
+		}
 	}
-	return true
+	return code, reason, nil, nil
 }
 
-func closeCodeFromPayload(payload []byte) (int, string) {
-	if len(payload) < 2 {
-		return 1005, ""
+// closeIsValidRejection mirrors CloseFrame.isValid's rejection chain and
+// returns the close code the adapter reports.
+func closeIsValidRejection(code int, reason string) (int, bool) {
+	if code == 1007 && reason == "" {
+		return 1007, true
 	}
-	return int(payload[0])<<8 | int(payload[1]), string(payload[2:])
+	if code == 1005 && reason != "" {
+		return 1002, true
+	}
+	if code > 1015 && code < 3000 {
+		return 1002, true
+	}
+	if code == 1006 || code == 1015 || code == 1005 || code > 4999 || code < 1000 || code == 1004 {
+		return 1002, true
+	}
+	return 0, false
 }
 
 func (d *deriver) processInbound(frame decodedFrame, index int) error {
@@ -434,7 +647,14 @@ func (d *deriver) processInbound(frame decodedFrame, index int) error {
 	}
 	switch Opcode(frame.opcode) {
 	case OpcodeClose:
-		code, reason := closeCodeFromPayload(frame.payload)
+		code, reason, closeErr, unsupported := d.parseCloseSemantics(frame.payload)
+		if unsupported != nil {
+			return unsupported
+		}
+		if closeErr != nil {
+			// Unreachable: decodeFrame already applied close semantics.
+			return *closeErr
+		}
 		wasClosing := d.state == "closing"
 		d.closeDetail = d.closeMap("remote", code, reason, true, true)
 		d.event("close", index, d.closeDetail)
@@ -443,8 +663,10 @@ func (d *deriver) processInbound(frame decodedFrame, index int) error {
 			return nil
 		}
 		if d.behavior.EchoCloseWhileOpen {
+			// The echoed frame object carries the constructor payload.
 			if err := d.emitOutbound(index, "echo_close", WireFrame{
-				Fin: true, Opcode: OpcodeClose, Payload: frame.payload,
+				Fin: true, Opcode: OpcodeClose,
+				Payload: closeFrameConstructorPayload,
 			}); err != nil {
 				return err
 			}
@@ -464,24 +686,20 @@ func (d *deriver) processInbound(frame decodedFrame, index int) error {
 }
 
 // processDataFrame mirrors Draft_6455.processFrame for text, binary, and
-// continuation frames, then the adapter's message-buffer accounting.
+// continuation frames, then the adapter's message-buffer accounting. The
+// pinned runtime checks the cumulative fragment total only at starts and
+// fins (checkBufferLimit); a non-fin continuation that overflows trips the
+// adapter's own accounting instead (BUFFER_LIMIT_EXCEEDED, no close code).
 func (d *deriver) processDataFrame(frame decodedFrame, index int) error {
 	op := Opcode(frame.opcode)
 	switch {
 	case op != OpcodeContinuous && !frame.fin:
-		// Fragment start.
+		// Fragment start (processFrameIsNotFin).
 		if d.behavior.EnforceContinuationStart && d.javaFragOpcode != 0 {
 			return javaInvalid(1002)
 		}
-		if op == OpcodeText && d.behavior.ValidateUTF8 && !utf8.Valid(frame.payload) {
-			// 1.6.0 validates a text fragment start standalone; the generator
-			// splits at rune boundaries so this only fires for mutants and
-			// deliberately invalid single fragments.
-			return javaInvalid(1007)
-		}
 		d.javaFragOpcode = frame.opcode
 		d.javaFragPayload = append([]byte{}, frame.payload...)
-		d.fragmentOpcode = frame.opcode
 		d.messageBuffered = len(frame.payload)
 		return nil
 	case op == OpcodeContinuous && !frame.fin:
@@ -492,14 +710,11 @@ func (d *deriver) processDataFrame(frame decodedFrame, index int) error {
 			return nil
 		}
 		d.javaFragPayload = append(d.javaFragPayload, frame.payload...)
-		if d.behavior.EnforceFrameSizeLimit &&
-			len(d.javaFragPayload) > d.limits.MaxBufferedBytes {
-			return javaInvalid(1009)
-		}
-		d.messageBuffered += len(frame.payload)
-		if d.messageBuffered > d.limits.MaxBufferedBytes {
+		// Adapter addBounded: the counter is only updated within bounds.
+		if d.messageBuffered+len(frame.payload) > d.limits.MaxBufferedBytes {
 			return protocolError("BUFFER_LIMIT_EXCEEDED")
 		}
+		d.messageBuffered += len(frame.payload)
 		return nil
 	case op == OpcodeContinuous && frame.fin:
 		if d.javaFragOpcode == 0 {
@@ -508,6 +723,12 @@ func (d *deriver) processDataFrame(frame decodedFrame, index int) error {
 			}
 			return nil
 		}
+		// processFrameIsFin: addToBufferList + checkBufferLimit before
+		// assembly and emission.
+		assembledSize := len(d.javaFragPayload) + len(frame.payload)
+		if d.behavior.EnforceFrameSizeLimit && assembledSize > d.limits.MaxBufferedBytes {
+			return javaInvalid(1009)
+		}
 		assembled := append(append([]byte{}, d.javaFragPayload...), frame.payload...)
 		messageOpcode := Opcode(d.javaFragOpcode)
 		d.javaFragOpcode = 0
@@ -515,15 +736,12 @@ func (d *deriver) processDataFrame(frame decodedFrame, index int) error {
 		if err := d.emitMessage(messageOpcode, assembled, index); err != nil {
 			return err
 		}
-		d.fragmentOpcode = 0
 		d.messageBuffered = 0
 		return nil
 	default:
 		// Unfragmented data frame.
-		if d.javaFragOpcode != 0 {
-			if d.behavior.EnforceContinuationStart {
-				return javaInvalid(1002)
-			}
+		if d.javaFragOpcode != 0 && d.behavior.EnforceContinuationStart {
+			return javaInvalid(1002)
 		}
 		return d.emitMessage(op, frame.payload, index)
 	}
@@ -541,6 +759,28 @@ func (d *deriver) emitMessage(op Opcode, payload []byte, index int) error {
 	d.event("binary", index, map[string]any{
 		"data_base64": base64Std(payload), "bytes": len(payload)})
 	return nil
+}
+
+// inboundFrameRecord mirrors OracleEngine.frame for inbound frames. Close
+// frames record the constructor payload, never the wire payload.
+func (d *deriver) inboundFrameRecord(frame decodedFrame, step int) map[string]any {
+	payload := frame.payload
+	if frame.opcode == byte(OpcodeClose) {
+		payload = closeFrameConstructorPayload
+	}
+	return map[string]any{
+		"direction":      "inbound",
+		"fin":            frame.fin,
+		"masked":         frame.masked,
+		"opcode":         Opcode(frame.opcode).Name(),
+		"payload_base64": base64Std(payload),
+		"payload_bytes":  len(payload),
+		"rsv1":           frame.rsv1,
+		"rsv2":           frame.rsv2,
+		"rsv3":           frame.rsv3,
+		"step":           step,
+		"wire_bytes":     frame.wire,
+	}
 }
 
 // emitOutbound mirrors OracleEngine.Execution.emitOutbound: frame record,
@@ -573,22 +813,6 @@ func (d *deriver) emitOutbound(index int, cause string, frame WireFrame) error {
 	return nil
 }
 
-func (d *deriver) frameRecord(frame decodedFrame, direction string, step int, masked bool, wireBytes int) map[string]any {
-	return map[string]any{
-		"direction":      direction,
-		"fin":            frame.fin,
-		"masked":         masked,
-		"opcode":         Opcode(frame.opcode).Name(),
-		"payload_base64": base64Std(frame.payload),
-		"payload_bytes":  len(frame.payload),
-		"rsv1":           frame.rsv1,
-		"rsv2":           frame.rsv2,
-		"rsv3":           frame.rsv3,
-		"step":           step,
-		"wire_bytes":     wireBytes,
-	}
-}
-
 func (d *deriver) requireOpen() error {
 	if d.behavior.EnforceOpenStateForActions && d.state != "open" {
 		return protocolError("STATE_VIOLATION")
@@ -604,6 +828,8 @@ func (d *deriver) requirePayloadLimit(size int) error {
 }
 
 func (d *deriver) actionStep(step Step, index int) error {
+	// The adapter increments the counter before the limit check, so the
+	// rejected action is included in the failure counts.
 	d.actionCount++
 	if d.actionCount > d.limits.MaxActions {
 		return protocolError("ACTION_LIMIT_EXCEEDED")
@@ -638,15 +864,15 @@ func (d *deriver) actionStep(step Step, index int) error {
 		return d.emitOutbound(index, "send_binary", WireFrame{
 			Fin: true, Opcode: OpcodeBinary, Payload: payload})
 	case "send_ping", "send_pong":
+		// sendControl performs no payload-size check: ControlFrame.isValid
+		// only checks fin and reserved bits, so oversized control payloads
+		// are sent successfully by the pinned runtime.
 		if err := d.requireOpen(); err != nil {
 			return err
 		}
 		payload, err := step.payload()
 		if err != nil {
 			return unsupportedError{err.Error()}
-		}
-		if len(payload) > 125 {
-			return unsupportedError{"send-side control payloads above 125 octets"}
 		}
 		opcode := OpcodePing
 		if step.Action == "send_pong" {
@@ -664,30 +890,35 @@ func (d *deriver) actionStep(step Step, index int) error {
 	return unsupportedError{fmt.Sprintf("action %q", step.Action)}
 }
 
+// sendClose mirrors OracleEngine.sendClose over CloseFrame.setCode (which
+// normalizes 1015 to 1005), setReason, and isValid.
 func (d *deriver) sendClose(step Step, index int) error {
 	if err := d.requireOpen(); err != nil {
 		return err
 	}
-	if step.Code == 1005 {
-		return unsupportedError{"send_close with 1005 is outside the generated space"}
+	code := step.Code
+	if code == 1015 {
+		code = 1005
 	}
-	if d.behavior.EnforceCloseCodeValidity && !wireCloseCodeValid(step.Code) {
-		return javaInvalid(1002)
+	if d.behavior.EnforceCloseCodeValidity {
+		if failCode, failed := closeIsValidRejection(code, step.Reason); failed {
+			return javaInvalid(failCode)
+		}
 	}
-	payload := append([]byte{byte(step.Code >> 8), byte(step.Code)}, []byte(step.Reason)...)
-	if len(payload) > d.behavior.ControlPayloadLimit+2 {
-		return unsupportedError{"send_close reason beyond the generated space"}
-	}
+	payload := append([]byte{byte(code >> 8), byte(code)}, []byte(step.Reason)...)
 	if err := d.emitOutbound(index, "send_close", WireFrame{
 		Fin: true, Opcode: OpcodeClose, Payload: payload}); err != nil {
 		return err
 	}
-	d.closeDetail = d.closeMap("local", step.Code, step.Reason, false, false)
+	d.closeDetail = d.closeMap("local", code, step.Reason, false, false)
 	d.event("close_initiated", index, d.closeDetail)
 	d.transition("closing", "send_close", index)
 	return nil
 }
 
+// sendFragment mirrors Draft.continuousFrame: the first call keeps the
+// declared opcode (including a fin=true single-frame message); later calls
+// emit continuation frames until a fin closes the sequence.
 func (d *deriver) sendFragment(step Step, index int) error {
 	if err := d.requireOpen(); err != nil {
 		return err
@@ -708,14 +939,13 @@ func (d *deriver) sendFragment(step Step, index int) error {
 	}
 	var wireOpcode Opcode
 	if d.sendFragmentOpen == 0 {
-		if step.Fin {
-			return unsupportedError{"single-frame send_fragment is outside the generated space"}
-		}
-		if declared == byte(OpcodeText) && !utf8.Valid(payload) {
+		if declared == byte(OpcodeText) && d.behavior.ValidateUTF8 && !utf8.Valid(payload) {
 			return unsupportedError{"text fragment start with invalid UTF-8"}
 		}
 		wireOpcode = Opcode(declared)
-		d.sendFragmentOpen = declared
+		if !step.Fin {
+			d.sendFragmentOpen = declared
+		}
 	} else {
 		if declared != d.sendFragmentOpen {
 			return unsupportedError{"fragment opcode change mid-sequence"}

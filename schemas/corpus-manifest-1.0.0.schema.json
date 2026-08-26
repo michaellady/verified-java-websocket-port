@@ -51,7 +51,17 @@
         "timed_out": {"type": "integer", "minimum": 0}
       }
     },
-    "execution_status": {"const": "NOT_EXECUTED_PENDING_LIVE_CALIBRATION"},
+    "execution_status": {"enum": ["NOT_EXECUTED_PENDING_LIVE_CALIBRATION", "LIVE_EXECUTED"]},
+    "execution_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["transcript_sha256", "report_sha256", "evaluator"],
+      "properties": {
+        "transcript_sha256": {"$ref": "#/$defs/digest"},
+        "report_sha256": {"$ref": "#/$defs/digest"},
+        "evaluator": {"const": "corporactl evaluate"}
+      }
+    },
     "artifacts": {
       "type": "array",
       "minItems": 1,
@@ -115,6 +125,27 @@
           "commitments": false,
           "custodian": false,
           "sealing": false
+        }
+      }
+    },
+    {
+      "if": {"properties": {"execution_status": {"const": "LIVE_EXECUTED"}}},
+      "then": {"required": ["execution_evidence"]}
+    },
+    {
+      "if": {"properties": {"execution_status": {"const": "NOT_EXECUTED_PENDING_LIVE_CALIBRATION"}}},
+      "then": {
+        "properties": {
+          "execution_evidence": false,
+          "counts": {
+            "properties": {
+              "executed": {"const": 0},
+              "passed": {"const": 0},
+              "failed": {"const": 0},
+              "skipped": {"const": 0},
+              "timed_out": {"const": 0}
+            }
+          }
         }
       }
     }

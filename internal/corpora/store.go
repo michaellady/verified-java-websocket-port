@@ -24,6 +24,11 @@ const (
 	manifestSchemaReference = "../../schemas/corpus-manifest-1.0.0.schema.json"
 )
 
+// ProtectedLedgerPath locates the custodian ledger under a protected root.
+func ProtectedLedgerPath(protectedRoot string) string {
+	return filepath.Join(protectedRoot, protectedLedgerFile)
+}
+
 // Finding is one fail-closed verification finding.
 type Finding struct {
 	Code   string `json:"code"`
@@ -458,7 +463,10 @@ func VerifyAll(root, protectedRoot string) ([]Finding, error) {
 			fail("MANIFEST_UNREADABLE", path, err.Error())
 			continue
 		}
-		wantCanonical, err := canonicalizeJSONValue(want)
+		// A live run may record execution state (schema-validated
+		// separately); the deterministic core must still reconcile exactly.
+		got = manifestDeterministicCore(got)
+		wantCanonical, err := canonicalizeJSONValue(manifestDeterministicCore(want))
 		if err != nil {
 			return nil, err
 		}
@@ -494,9 +502,10 @@ func VerifyAll(root, protectedRoot string) ([]Finding, error) {
 	if err != nil {
 		fail("CANARY_INVENTORY_UNREADABLE", protectedCanaryFile, err.Error())
 	} else {
-		publicArtifacts := [][]byte{publicBytes, handshakeBytes}
-		if leaks := DetectCanaryLeak(publicArtifacts, generated.CanaryTokens); len(leaks) != 0 {
-			fail("CANARY_LEAK", "corpora", fmt.Sprintf("%d canary tokens in public artifacts", len(leaks)))
+		// The leak scan covers every repository file (not just corpus
+		// artifacts), skipping only .git and the quarantine store.
+		for _, finding := range scanRepoForCanaryLeaks(root, generated.CanaryTokens) {
+			fail(finding.Code, finding.Path, finding.Detail)
 		}
 		for id, token := range generated.CanaryTokens {
 			if !bytes.Contains(canaryRaw, []byte(token)) || !bytes.Contains(canaryRaw, []byte(id)) {
@@ -515,6 +524,74 @@ func VerifyAll(root, protectedRoot string) ([]Finding, error) {
 	}
 
 	return findings, nil
+}
+
+// manifestDeterministicCore strips the live-execution recording fields from a
+// manifest so reconciliation compares the regenerable commitment: execution
+// status and evidence are removed and the execution counters reset, while
+// expected/selected/filtered, digests, commitments, custodian, and sealing
+// remain load-bearing.
+func manifestDeterministicCore(manifest map[string]any) map[string]any {
+	core := map[string]any{}
+	for key, value := range manifest {
+		if key == "execution_status" || key == "execution_evidence" {
+			continue
+		}
+		core[key] = value
+	}
+	if counts, isMap := core["counts"].(map[string]any); isMap {
+		reset := map[string]any{}
+		for key, value := range counts {
+			reset[key] = value
+		}
+		for _, key := range []string{"executed", "passed", "failed", "skipped", "timed_out"} {
+			reset[key] = 0
+		}
+		core["counts"] = reset
+	}
+	return core
+}
+
+// scanRepoForCanaryLeaks scans every regular file under the repository root
+// for secret-derived canary tokens, skipping .git and the quarantine store.
+// Any hit means held-out bytes escaped the protected boundary.
+func scanRepoForCanaryLeaks(root string, tokens map[string]string) []Finding {
+	var findings []Finding
+	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			findings = append(findings, Finding{Code: "CANARY_SCAN_UNREADABLE",
+				Path: path, Detail: err.Error()})
+			return nil
+		}
+		if entry.IsDir() {
+			switch entry.Name() {
+			case ".git", ".quarantine":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			findings = append(findings, Finding{Code: "CANARY_SCAN_UNREADABLE",
+				Path: path, Detail: readErr.Error()})
+			return nil
+		}
+		for id, token := range tokens {
+			if bytes.Contains(content, []byte(token)) {
+				relative, relErr := filepath.Rel(root, path)
+				if relErr != nil {
+					relative = path
+				}
+				findings = append(findings, Finding{Code: "CANARY_LEAK", Path: relative,
+					Detail: "repository file contains held-out canary " + id})
+			}
+		}
+		return nil
+	})
+	return findings
 }
 
 // canonicalizeJSONValue renders any JSON-decoded value canonically,

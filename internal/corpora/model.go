@@ -116,9 +116,9 @@ type ExpectedError struct {
 // Expected is a scenario's language-independent expectation. Success outcomes
 // assert the full semantic surface: events, frames, transitions, close
 // details, and consumed/buffered counts. Error outcomes assert the rejection
-// code, optional close code, and final state only, because error-path byte
-// consumption is runtime-internal and asserting it would embed runner
-// semantics into a neutral corpus.
+// code, optional close code, final state, and the exact counts too: the
+// oracle's failure responses include the counters, and their values are
+// pinned by the quarantined runtime sources.
 type Expected struct {
 	Outcome     string           `json:"outcome"`
 	FinalState  string           `json:"final_state"`
@@ -144,9 +144,9 @@ func (e Expected) toMap() map[string]any {
 		} else {
 			out["close"] = e.Close
 		}
-		if e.Counts != nil {
-			out["counts"] = e.Counts.toMap()
-		}
+	}
+	if e.Counts != nil {
+		out["counts"] = e.Counts.toMap()
 	}
 	if e.Error != nil {
 		errorMap := map[string]any{"code": e.Error.Code}

@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
 )
 
 func repoSchemas(t *testing.T) string {
@@ -143,5 +145,177 @@ func TestUsageOnUnknownCommand(t *testing.T) {
 	code, _, stderr := runCLI(t, "warp")
 	if code != 2 || !strings.Contains(stderr, "usage") {
 		t.Fatalf("unknown command: code=%d stderr=%s", code, stderr)
+	}
+}
+
+func writeCustodianLedger(t *testing.T, protectedRoot string,
+	build func(*corpora.Ledger)) {
+	t.Helper()
+	policy := corpora.CustodianPolicy{QueryBudget: 1, DiagnosticBudget: 1, RepeatThreshold: 2,
+		CanariesPerTier: 3}
+	ledger, err := corpora.NewLedger(policy, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	build(ledger)
+	serialized, err := ledger.Serialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(corpora.ProtectedLedgerPath(protectedRoot),
+		serialized, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Held-out access goes through the custodian ledger: a budget-exhausted or
+// probing-locked custodian blocks oracle-requests and evaluate for hidden
+// and sealed tiers, while the public tier stays available.
+func TestCustodianEnforcementOnLiveCommands(t *testing.T) {
+	root := t.TempDir()
+	protectedRoot := t.TempDir()
+	if code, _, stderr := runCLI(t, "generate",
+		"--root", root, "--protected-root", protectedRoot); code != 0 {
+		t.Fatalf("generate failed: %s", stderr)
+	}
+
+	// Exhausted query budget.
+	writeCustodianLedger(t, protectedRoot, func(ledger *corpora.Ledger) {
+		if err := ledger.RecordQuery("setup", "spend-the-only-query"); err != nil {
+			t.Fatal(err)
+		}
+	})
+	code, _, stderr := runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot, "--tier", "hidden")
+	if code == 0 {
+		t.Fatal("exhausted custodian must block held-out oracle-requests")
+	}
+	if !strings.Contains(stderr, "QUERY_BUDGET_EXHAUSTED") {
+		t.Fatalf("denial reason not surfaced: %s", stderr)
+	}
+	transcript := filepath.Join(t.TempDir(), "t.jsonl")
+	if err := os.WriteFile(transcript, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr = runCLI(t, "evaluate",
+		"--root", root, "--protected-root", protectedRoot,
+		"--tier", "sealed", "--transcript", transcript)
+	if code == 0 {
+		t.Fatal("exhausted custodian must block held-out evaluate")
+	}
+	if !strings.Contains(stderr, "QUERY_BUDGET_EXHAUSTED") {
+		t.Fatalf("denial reason not surfaced: %s", stderr)
+	}
+	// Public tier requires no custodian spend.
+	if code, _, stderr := runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot, "--tier", "public"); code != 0 {
+		t.Fatalf("public tier must stay available: %s", stderr)
+	}
+
+	// Probing-locked custodian.
+	writeCustodianLedger(t, protectedRoot, func(ledger *corpora.Ledger) {
+		policyLedgerLock(t, ledger)
+	})
+	code, _, stderr = runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot, "--tier", "hidden")
+	if code == 0 || !strings.Contains(stderr, "CUSTODIAN_LOCKED") {
+		t.Fatalf("locked custodian must block: code=%d %s", code, stderr)
+	}
+}
+
+func policyLedgerLock(t *testing.T, ledger *corpora.Ledger) {
+	t.Helper()
+	// RepeatThreshold 2 with QueryBudget 1 cannot latch; rebuild wider.
+	policy := corpora.CustodianPolicy{QueryBudget: 10, DiagnosticBudget: 1,
+		RepeatThreshold: 2, CanariesPerTier: 3}
+	locked, err := corpora.NewLedger(policy, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := locked.RecordQuery("probe", "same"); err != nil {
+		t.Fatal(err)
+	}
+	if err := locked.RecordQuery("probe", "same"); err == nil {
+		t.Fatal("second identical query must latch probing at threshold 2")
+	}
+	*ledger = *locked
+}
+
+// A successful held-out run spends exactly one query and persists the spend.
+func TestCustodianSpendIsPersisted(t *testing.T) {
+	root := t.TempDir()
+	protectedRoot := t.TempDir()
+	if code, _, stderr := runCLI(t, "generate",
+		"--root", root, "--protected-root", protectedRoot); code != 0 {
+		t.Fatalf("generate failed: %s", stderr)
+	}
+	before, err := os.ReadFile(corpora.ProtectedLedgerPath(protectedRoot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeLedger, err := corpora.LoadLedger(before)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code, _, stderr := runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot, "--tier", "hidden"); code != 0 {
+		t.Fatalf("held-out oracle-requests failed: %s", stderr)
+	}
+	after, err := os.ReadFile(corpora.ProtectedLedgerPath(protectedRoot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	afterLedger, err := corpora.LoadLedger(after)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if afterLedger.Remaining().Query != beforeLedger.Remaining().Query-1 {
+		t.Fatalf("query spend not persisted: before=%d after=%d",
+			beforeLedger.Remaining().Query, afterLedger.Remaining().Query)
+	}
+}
+
+// The handshake corpus is executable through the CLI: requests emit the raw
+// cases without expectations, and evaluate scores a transcript fail-closed.
+func TestHandshakeTierRequestsAndEvaluate(t *testing.T) {
+	root := t.TempDir()
+	protectedRoot := t.TempDir()
+	if code, _, stderr := runCLI(t, "generate",
+		"--root", root, "--protected-root", protectedRoot); code != 0 {
+		t.Fatalf("generate failed: %s", stderr)
+	}
+	code, stdout, stderr := runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot, "--tier", "handshake")
+	if code != 0 {
+		t.Fatalf("handshake requests exit %d: %s", code, stderr)
+	}
+	lines := strings.Split(strings.TrimRight(stdout, "\n"), "\n")
+	if len(lines) < 30 {
+		t.Fatalf("too few handshake request lines: %d", len(lines))
+	}
+	var request map[string]any
+	if err := json.Unmarshal([]byte(lines[0]), &request); err != nil {
+		t.Fatalf("handshake request not JSON: %v", err)
+	}
+	if request["raw_base64"] == nil || request["expected"] != nil {
+		t.Fatalf("handshake request malformed: %s", lines[0])
+	}
+
+	transcript := filepath.Join(t.TempDir(), "hs.jsonl")
+	if err := os.WriteFile(transcript, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, _ = runCLI(t, "evaluate",
+		"--root", root, "--protected-root", protectedRoot,
+		"--tier", "handshake", "--transcript", transcript)
+	if code == 0 {
+		t.Fatal("empty handshake transcript must not reconcile")
+	}
+	var report map[string]any
+	if err := json.Unmarshal([]byte(stdout), &report); err != nil {
+		t.Fatalf("evaluate output not JSON: %v", err)
+	}
+	if int(report["missing"].(float64)) == 0 {
+		t.Fatalf("missing handshake responses not reported: %s", stdout)
 	}
 }
