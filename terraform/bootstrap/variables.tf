@@ -23,6 +23,16 @@ variable "github_repo" {
   }
 }
 
+variable "github_repository_id" {
+  type        = string
+  description = "Immutable numeric GitHub repository_id claim required by the OIDC trust policy."
+
+  validation {
+    condition     = can(regex("^[1-9][0-9]*$", var.github_repository_id))
+    error_message = "github_repository_id must be a nonzero numeric GitHub repository ID."
+  }
+}
+
 variable "current_account_id" {
   type        = string
   description = "The 12-digit AWS account ID these resources are being created in. Caller identity is verified against this — mismatch aborts."

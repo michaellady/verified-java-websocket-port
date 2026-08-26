@@ -40,9 +40,12 @@ func TestPipelinePrivilegeBoundaryAndTrustedOIDCIdentityAreStatic(t *testing.T) 
 
 	bootstrap := readRepoFile(t, "terraform/bootstrap/main.tf")
 	for _, required := range []string{
-		`"token.actions.githubusercontent.com:aud"      = "sts.amazonaws.com"`,
-		`"token.actions.githubusercontent.com:ref"      = "refs/heads/main"`,
-		`"token.actions.githubusercontent.com:workflow" = var.oidc_trusted_workflow_names`,
+		`"token.actions.githubusercontent.com:aud"           = "sts.amazonaws.com"`,
+		`"token.actions.githubusercontent.com:repository_id" = var.github_repository_id`,
+		`"token.actions.githubusercontent.com:sub"           = [for r in local.oidc_sub_repos : "repo:${r}:environment:${each.key}"]`,
+		`"token.actions.githubusercontent.com:environment"   = each.key`,
+		`"token.actions.githubusercontent.com:ref"           = "refs/heads/main"`,
+		`"token.actions.githubusercontent.com:workflow"      = var.oidc_trusted_workflow_names`,
 		`"repo:${r}:environment:${each.key}"`,
 	} {
 		if !strings.Contains(bootstrap, required) {
@@ -56,6 +59,9 @@ func TestPipelinePrivilegeBoundaryAndTrustedOIDCIdentityAreStatic(t *testing.T) 
 		t.Fatal("direct workflows must use AWS's supported workflow claim, not workflow_ref or reusable-job-only job_workflow_ref")
 	}
 	tfvars := readRepoFile(t, "terraform/bootstrap/bootstrap.auto.tfvars")
+	if !strings.Contains(tfvars, `github_repository_id        = "1344905073"`) {
+		t.Fatal("bootstrap trust must pin the exact immutable GitHub repository_id")
+	}
 	for _, workflow := range []struct {
 		path string
 		name string
