@@ -87,6 +87,8 @@ func runDerive(arguments []string, stdout, stderr io.Writer) int {
 	oracleTool := flags.String("oracle-tool", "", "semantic identity oracle source file")
 	testManifest := flags.String("test-manifest", "evidence/java/test-manifest.json",
 		"authoritative US-002 test manifest")
+	toolchainRoot := flags.String("toolchain-root", ".",
+		"repo root holding java-semantic-oracle and the quarantine")
 	sourceSHA := flags.String("source-sha256", "", "pinned source archive digest")
 	sourceCommit := flags.String("source-commit", "", "pinned upstream commit")
 	sourceVersion := flags.String("source-version", "1.6.0", "pinned upstream version")
@@ -105,6 +107,7 @@ func runDerive(arguments []string, stdout, stderr io.Writer) int {
 		OraclePath:           *oracle,
 		OracleToolPath:       *oracleTool,
 		TestManifestPath:     *testManifest,
+		ToolchainRoot:        *toolchainRoot,
 		SourceArtifactID:     "java-websocket-source-archive",
 		SourceSHA256:         *sourceSHA,
 		SourceVersion:        *sourceVersion,

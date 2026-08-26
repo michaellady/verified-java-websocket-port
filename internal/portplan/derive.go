@@ -19,6 +19,7 @@ type DeriveRequest struct {
 	OraclePath           string
 	OracleToolPath       string
 	TestManifestPath     string
+	ToolchainRoot        string
 	SourceArtifactID     string
 	SourceSHA256         string
 	SourceVersion        string
@@ -65,6 +66,9 @@ func Derive(request DeriveRequest) error {
 		return err
 	}
 	if err := verifyOracleMatchesTree(oracle, request.ProductionSourceRoot); err != nil {
+		return err
+	}
+	if err := VerifyOracleReproduction(request.ToolchainRoot, request.OraclePath); err != nil {
 		return err
 	}
 	toolDigest, err := FileDigest(request.OracleToolPath)
@@ -116,6 +120,19 @@ func Derive(request DeriveRequest) error {
 	testFiles, err := deriveTestFiles(request.TestSourceRoot)
 	if err != nil {
 		return err
+	}
+
+	migration, err := buildMigrationMap(oracle, request, selectedSet)
+	if err != nil {
+		return err
+	}
+	dossier, err := buildSeamDossier(migration)
+	if err != nil {
+		return err
+	}
+	bindingCount := 0
+	for _, row := range migration.Rows {
+		bindingCount += len(row.PortSlices)
 	}
 
 	source := SourcePin{
@@ -253,6 +270,10 @@ func Derive(request DeriveRequest) error {
 				" root connection types, InvalidDataException, LimitExceededException," +
 				" CloseHandshakeType, HandshakeState) bind every behavioral slice with a named" +
 				" touched behavior; leaf types keep a single binding.",
+			fmt.Sprintf("Cardinality, derived not asserted: the migration map holds %d"+
+				" (type,slice) bindings across %d rows, and the dossier holds %d seams"+
+				" total - one per binding plus the single US-018 byte-channel context seam.",
+				bindingCount, len(migration.Rows), len(dossier.Seams)),
 			"The slice-binding table (which behavioral facet of which Java type belongs to" +
 				" which child story) is an explicit editorial table in" +
 				" internal/portplan/slices.go, not a compiler-derived fact. The validator's" +
@@ -265,14 +286,6 @@ func Derive(request DeriveRequest) error {
 		},
 	}
 
-	migration, err := buildMigrationMap(oracle, request, selectedSet)
-	if err != nil {
-		return err
-	}
-	dossier, err := buildSeamDossier(migration)
-	if err != nil {
-		return err
-	}
 	compatibility := buildCompatibilitySurface(request)
 	cutover := buildCutoverContract(request)
 
@@ -523,8 +536,13 @@ func surfaceSections(oracle OracleOutput, testFiles []FileRecord, runtime runtim
 			ObservationStatus: "OBSERVED",
 			EvidenceRef:       "evidence/intake/port-seam-dossier.json",
 			Items: []string{
-				"study surface: NamedThreadFactory, plus the synchronized regions and outgoing" +
-					" BlockingQueue in WebSocketImpl",
+				"study surface: NamedThreadFactory, plus the synchronized regions and BOTH" +
+					" BlockingQueues declared by WebSocketImpl: outQueue (outgoing frames," +
+					" drained by the transport writer) and inQueue (WebSocketImpl.java:102)",
+				"inQueue is produced (WebSocketServer.java:485,557) and drained" +
+					" (WebSocketServer.java:1135, WebSocketWorker) exclusively by the excluded" +
+					" NIO server topology; it is inventoried here explicitly and has no Rust" +
+					" counterpart beyond EXCLUDED_JAVA_NIO_TOPOLOGY - not a silent omission",
 				"excluded topology: WebSocketServer selector thread and WebSocketWorker pool",
 				"the Rust port replaces this with one bounded owner (US-017)",
 			},

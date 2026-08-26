@@ -41,11 +41,14 @@ var sliceAssignment = map[string][]bindingSpec{
 	"org.java_websocket.WebSocket": {
 		{"slice.connection-core", "connection command surface: readyState observation, attachment, local/remote addresses, hasBufferedData"},
 		{"slice.messages", "send(String)/send(byte[])/send(ByteBuffer)/sendFrame message command surface"},
+		{"slice.fragmentation", "sendFragmentedFrame(Opcode,ByteBuffer,boolean) continuation command surface (WebSocket.java:130)"},
 		{"slice.ping-pong", "sendPing command surface"},
 		{"slice.close-eof", "close(code,reason)/close(code)/closeConnection command surface"},
 	},
 	"org.java_websocket.WebSocketAdapter": {
 		{"slice.connection-core", "default no-op listener implementation every callback flows through"},
+		{"slice.client-handshake", "default onWebsocketHandshakeReceivedAsClient/onWebsocketHandshakeSentAsClient implementations (WebSocketAdapter.java:59,72)"},
+		{"slice.server-handshake", "default onWebsocketHandshakeReceivedAsServer returning HandshakeImpl1Server (WebSocketAdapter.java:53)"},
 		{"slice.ping-pong", "onWebsocketPing default automatic-pong reply and onWebsocketPong default"},
 	},
 	"org.java_websocket.WebSocketImpl": {
@@ -57,7 +60,7 @@ var sliceAssignment = map[string][]bindingSpec{
 		{"slice.fragmentation", "continuation delivery ordering through the frame-processing loop"},
 		{"slice.ping-pong", "sendPing emission and onWebsocketPing dispatch producing the automatic pong"},
 		{"slice.close-eof", "close/closeConnection/flushAndClose/eot terminal-state and close-code handling"},
-		{"slice.concurrency", "synchronized send/close regions plus the outQueue/inQueue BlockingQueues"},
+		{"slice.concurrency", "synchronized send/close regions plus both declared BlockingQueues: outQueue (ported as the bounded owner queue) and inQueue (declared at WebSocketImpl.java:102 but produced/drained only by the excluded NIO server topology; inventoried explicitly, not ported)"},
 		{"slice.tcp-adapter", "outQueue drain and onWriteDemand contract consumed by the byte-channel adapter"},
 	},
 	"org.java_websocket.WebSocketListener": {
@@ -67,14 +70,19 @@ var sliceAssignment = map[string][]bindingSpec{
 		{"slice.messages", "onWebsocketMessage text and binary delivery callbacks"},
 		{"slice.ping-pong", "onWebsocketPing/onWebsocketPong dispatch callbacks"},
 		{"slice.close-eof", "onWebsocketClose/onWebsocketClosing/onWebsocketCloseInitiated callbacks"},
+		{"slice.tcp-adapter", "onWriteDemand queued-write signal and the transport-facing getLocalSocketAddress/getRemoteSocketAddress accessors (WebSocketListener.java:184,191,199)"},
 	},
 
 	// --- Protocol draft strategy seam ---
 	"org.java_websocket.drafts.Draft": {
-		{"slice.connection-core", "protocol strategy seam: copyInstance, reset, role wiring, continuous-frame checks"},
+		{"slice.connection-core", "protocol strategy seam: copyInstance, reset, role wiring"},
 		{"slice.client-handshake", "createHandshake/postProcessHandshakeRequestAsClient/translateHandshake contract"},
 		{"slice.server-handshake", "acceptHandshakeAsServer/postProcessHandshakeResponseAsServer contract"},
 		{"slice.framing", "createFrames/translateFrame abstract framing contract"},
+		{"slice.fragmentation", "continuousFrame(Opcode,ByteBuffer,boolean) and the continuousFrameType state (Draft.java:68,210)"},
+		{"slice.messages", "processFrame(WebSocketImpl,Framedata) abstract dispatch of completed text/binary frames (Draft.java:207)"},
+		{"slice.ping-pong", "processFrame abstract dispatch of ping/pong control frames (Draft.java:207)"},
+		{"slice.close-eof", "processFrame close dispatch plus the getCloseHandshakeType() strategy (Draft.java:207,306)"},
 	},
 	"org.java_websocket.drafts.Draft_6455": {
 		{"slice.framing", "RFC 6455 frame encode/decode: translateSingleFrame, createByteBufferFromFramedata, masking, payload-length encodings"},
@@ -114,6 +122,8 @@ var sliceAssignment = map[string][]bindingSpec{
 		{"slice.messages", "thrown by Charsetfunctions.stringUtf8 on invalid UTF-8 text payloads"},
 		{"slice.fragmentation", "thrown on continuation-state violations during reassembly"},
 		{"slice.close-eof", "its close code terminates the connection through the closing handshake"},
+		{"slice.client-handshake", "declared rejection type of onWebsocketHandshakeReceivedAsClient/onWebsocketHandshakeSentAsClient (WebSocketListener.java:73,81)"},
+		{"slice.server-handshake", "declared rejection type of onWebsocketHandshakeReceivedAsServer (WebSocketListener.java:60)"},
 	},
 	"org.java_websocket.exceptions.InvalidFrameException": {{"slice.framing", ""}},
 	"org.java_websocket.exceptions.LimitExceededException": {

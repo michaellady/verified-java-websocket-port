@@ -122,7 +122,8 @@
       "evidence_ref": "evidence/intake/port-seam-dossier.json",
       "blocker_code": "",
       "items": [
-        "study surface: NamedThreadFactory, plus the synchronized regions and outgoing BlockingQueue in WebSocketImpl",
+        "study surface: NamedThreadFactory, plus the synchronized regions and BOTH BlockingQueues declared by WebSocketImpl: outQueue (outgoing frames, drained by the transport writer) and inQueue (WebSocketImpl.java:102)",
+        "inQueue is produced (WebSocketServer.java:485,557) and drained (WebSocketServer.java:1135, WebSocketWorker) exclusively by the excluded NIO server topology; it is inventoried here explicitly and has no Rust counterpart beyond EXCLUDED_JAVA_NIO_TOPOLOGY - not a silent omission",
         "excluded topology: WebSocketServer selector thread and WebSocketWorker pool",
         "the Rust port replaces this with one bounded owner (US-017)"
       ]
@@ -207,6 +208,7 @@
     "No Rust identity in this story is resolver-verified: no Rust workspace exists until US-009. Every Rust identity is recorded as PLANNED.",
     "AC2 says 'the four root connection files' without naming them. Two different 4-file subsets of the 12 root-package files sum to the required 1,478 lines: {WebSocket, WebSocketAdapter, WebSocketListener, WebSocketImpl} and {WrappedByteChannel, AbstractWrappedByteChannel, AbstractWebSocket, WebSocketImpl}. The arithmetic alone does not disambiguate them. This story selects the first because those four are the connection abstraction, its callback boundary, its default adapter, and its state machine, whereas the second mixes byte-channel wrappers and the NIO/keep-alive base class. A reviewer must confirm this reading.",
     "Migration rows are per-type (47 rows), not per-member (969 declarations); the review permitted that granularity provided slice-crossing types carry multi-slice bindings. Crossing types (WebSocketImpl, Draft, Draft_6455, the root connection types, InvalidDataException, LimitExceededException, CloseHandshakeType, HandshakeState) bind every behavioral slice with a named touched behavior; leaf types keep a single binding.",
+    "Cardinality, derived not asserted: the migration map holds 90 (type,slice) bindings across 47 rows, and the dossier holds 91 seams total - one per binding plus the single US-018 byte-channel context seam.",
     "The slice-binding table (which behavioral facet of which Java type belongs to which child story) is an explicit editorial table in internal/portplan/slices.go, not a compiler-derived fact. The validator's RequiredStoryCoverage check fails closed when a frozen behavioral surface loses its covering binding, but the table itself remains reviewed judgment.",
     "specification_ids, oracle_ids, vector_ids, property_claim_ids, formal_claim_ids, and evidence_ids are forward-declared obligations. The corpora and claims they name are created by US-005 and US-006 and do not resolve yet; they are declared obligations, not satisfied links."
   ]

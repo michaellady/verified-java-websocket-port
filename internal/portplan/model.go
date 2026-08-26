@@ -451,6 +451,17 @@ var RequiredStoryCoverage = []CoverageRequirement{
 	{"US-018", "org.java_websocket.interfaces.ISSLChannel", "slice.tcp-adapter", "", "capability-excluded TLS accessor context"},
 	{"US-018", "", "", "org/java_websocket/WrappedByteChannel.java", "byte-channel adapter surface"},
 	{"US-018", "", "", "org/java_websocket/AbstractWrappedByteChannel.java", "byte-channel adapter surface"},
+	// Round-2 review additions, each verified against the named Java declarations.
+	{"US-014", "org.java_websocket.drafts.Draft", "slice.fragmentation", "", "continuousFrame and continuousFrameType (Draft.java:68,210)"},
+	{"US-013", "org.java_websocket.drafts.Draft", "slice.messages", "", "processFrame text/binary dispatch strategy (Draft.java:207)"},
+	{"US-015", "org.java_websocket.drafts.Draft", "slice.ping-pong", "", "processFrame control dispatch strategy (Draft.java:207)"},
+	{"US-016", "org.java_websocket.drafts.Draft", "slice.close-eof", "", "processFrame close dispatch and getCloseHandshakeType (Draft.java:207,306)"},
+	{"US-018", "org.java_websocket.WebSocketListener", "slice.tcp-adapter", "", "onWriteDemand and the transport-facing address accessors (WebSocketListener.java:184,191,199)"},
+	{"US-014", "org.java_websocket.WebSocket", "slice.fragmentation", "", "sendFragmentedFrame command surface (WebSocket.java:130)"},
+	{"US-010", "org.java_websocket.WebSocketAdapter", "slice.client-handshake", "", "default client handshake callbacks (WebSocketAdapter.java:59,72)"},
+	{"US-011", "org.java_websocket.WebSocketAdapter", "slice.server-handshake", "", "default server handshake callback (WebSocketAdapter.java:53)"},
+	{"US-010", "org.java_websocket.exceptions.InvalidDataException", "slice.client-handshake", "", "declared handshake rejection type (WebSocketListener.java:73,81)"},
+	{"US-011", "org.java_websocket.exceptions.InvalidDataException", "slice.server-handshake", "", "declared handshake rejection type (WebSocketListener.java:60)"},
 }
 
 // Finding is one validation failure.

@@ -69,16 +69,20 @@ func TestRemainingCrossingTypesCarryMultiSliceBindings(t *testing.T) {
 	rows := rowsByName(t)
 	requireBindings(t, rows, "org.java_websocket.drafts.Draft",
 		"slice.connection-core", "slice.client-handshake", "slice.server-handshake",
-		"slice.framing")
+		"slice.framing", "slice.fragmentation", "slice.messages", "slice.ping-pong",
+		"slice.close-eof")
 	requireBindings(t, rows, "org.java_websocket.WebSocket",
-		"slice.connection-core", "slice.messages", "slice.ping-pong", "slice.close-eof")
+		"slice.connection-core", "slice.messages", "slice.fragmentation", "slice.ping-pong",
+		"slice.close-eof")
 	requireBindings(t, rows, "org.java_websocket.WebSocketAdapter",
-		"slice.connection-core", "slice.ping-pong")
+		"slice.connection-core", "slice.client-handshake", "slice.server-handshake",
+		"slice.ping-pong")
 	requireBindings(t, rows, "org.java_websocket.WebSocketListener",
 		"slice.connection-core", "slice.client-handshake", "slice.server-handshake",
-		"slice.messages", "slice.ping-pong", "slice.close-eof")
+		"slice.messages", "slice.ping-pong", "slice.close-eof", "slice.tcp-adapter")
 	requireBindings(t, rows, "org.java_websocket.exceptions.InvalidDataException",
-		"slice.framing", "slice.messages", "slice.fragmentation", "slice.close-eof")
+		"slice.framing", "slice.messages", "slice.fragmentation", "slice.close-eof",
+		"slice.client-handshake", "slice.server-handshake")
 	requireBindings(t, rows, "org.java_websocket.exceptions.LimitExceededException",
 		"slice.framing", "slice.fragmentation")
 	requireBindings(t, rows, "org.java_websocket.enums.CloseHandshakeType",
@@ -467,6 +471,7 @@ func reproductionRequest(root string) DeriveRequest {
 		OraclePath:           filepath.Join(repoRoot, EvidenceDirectory, OracleEvidenceDocument),
 		OracleToolPath:       filepath.Join(repoRoot, "java-semantic-oracle/src/main/java/SemanticIdOracle.java"),
 		TestManifestPath:     filepath.Join(repoRoot, "evidence/java/test-manifest.json"),
+		ToolchainRoot:        repoRoot,
 		SourceArtifactID:     "java-websocket-source-archive",
 		SourceSHA256:         "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
 		SourceVersion:        "1.6.0",

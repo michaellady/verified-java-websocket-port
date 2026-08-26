@@ -488,8 +488,14 @@ func buildSeamDossier(migration MigrationMap) (SeamDossier, error) {
 			"allocation limits enforced when decoding payload length",
 		},
 		Queues: []string{
-			"WebSocketImpl outgoing BlockingQueue of ByteBuffers (unbounded in Java)",
-			"the Rust port replaces it with a bounded command queue with explicit backpressure",
+			"WebSocketImpl.outQueue: outgoing BlockingQueue of ByteBuffers (unbounded in Java)," +
+				" drained by the transport writer via onWriteDemand",
+			"WebSocketImpl.inQueue (WebSocketImpl.java:102): inbound BlockingQueue declared on" +
+				" the in-scope type but produced and drained exclusively by the excluded NIO" +
+				" server topology (WebSocketServer.java:485,557,1135); inventoried explicitly," +
+				" covered by EXCLUDED_JAVA_NIO_TOPOLOGY, no Rust counterpart",
+			"the Rust port replaces outQueue with a bounded command queue with explicit" +
+				" backpressure",
 		},
 		Threads: []string{
 			"org.java_websocket.util.NamedThreadFactory: the study-surface thread seam",
