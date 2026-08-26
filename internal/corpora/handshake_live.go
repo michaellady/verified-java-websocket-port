@@ -25,8 +25,13 @@ import (
 // The mapping is derived from source, never invented: where the Java runtime
 // cannot observably distinguish HS_* verdicts (or disagrees with the RFC
 // model outright), HandshakeVerdictMapping records that granularity mismatch
-// and evidence/us005-handshake-live-mapping.json commits it. The Java-side
-// harness tests execute the same families against the real jar.
+// and evidence/us005-handshake-live-mapping.json commits it. Jar-execution
+// status: the Java-side harness tests execute five synthetic representative
+// divergence families against the real jar (missing Host, missing Upgrade,
+// non-base64 key, duplicated key, bare LF) plus synthetic reject, incomplete,
+// and client-direction probes; no committed-corpus case has been executed yet
+// (the corpus runs live later and is scored by
+// EvaluateHandshakeLiveTranscript).
 
 // Handshake oracle protocol pins. The protocol id is distinct from the
 // behavior protocol so behavior request digests are untouched.
@@ -203,9 +208,10 @@ func javaEqualsIgnoreCase(a, b string) bool {
 
 // ExpectedJavaHandshakeObservable predicts the observable the real
 // Java-WebSocket 1.6.0 runtime produces for one handshake case. It is a
-// transcription of the quarantined source, validated against the real jar by
-// the java-oracle handshake harness tests. Non-ASCII input is outside the
-// calibrated scope and fails closed.
+// transcription of the quarantined source; the java-oracle handshake harness
+// tests validate representative synthetic families against the real jar, and
+// the committed corpus is validated against the jar only when it is executed
+// live. Non-ASCII input is outside the calibrated scope and fails closed.
 func ExpectedJavaHandshakeObservable(c HandshakeCase) (JavaHandshakeObservable, error) {
 	raw, err := base64.StdEncoding.DecodeString(c.RawBase64)
 	if err != nil {
@@ -564,7 +570,7 @@ func RenderHandshakeLiveMappingDocument() ([]byte, error) {
 			"artifact":  oracleRuntimeArtifact,
 			"sha256":    "sha256:" + oracleRuntimeSHA256,
 			"revision":  "da3cf2a777aed862f2f5b5cf060cae7969958667",
-			"statement": "Every row was derived by reading the quarantined Java-WebSocket 1.6.0 source at the cited lines and is validated against the real jar by the java-oracle handshake harness tests. No row was inferred from documentation or invented.",
+			"statement": "Every row was derived by reading the quarantined Java-WebSocket 1.6.0 source at the cited lines; no row was inferred from documentation or invented. Jar-execution status: the 49-case committed census is parity-model-derived from those cited source lines; the java-oracle handshake harness has executed five synthetic representative divergence families against the real digest-verified jar (missing Host, missing Upgrade, non-base64 key, duplicated key, bare LF) plus synthetic reject, incomplete, and client-direction probes; zero committed-corpus cases have been executed against the jar so far (the committed corpus is executed live in a later step and scored fail-closed by EvaluateHandshakeLiveTranscript).",
 		},
 		"granularity_statement": "The Java runtime cannot observably distinguish most HS_* reject codes: on a real server every rejection collapses to one HTTP error response plus a PROTOCOL_ERROR (1002) close. The adapter reports the draft-API channel (invalid_handshake vs not_matched) as the finest honest granularity. Rows marked divergent identify inputs the RFC-derived Go model rejects but the Java runtime observably accepts (or splits); conditional rows name the exact source behavior that decides the outcome, resolved per case by ExpectedJavaHandshakeObservable.",
 		"protocol": map[string]any{
@@ -621,15 +627,24 @@ type HandshakeLiveReport struct {
 	Divergences []string `json:"divergences,omitempty"`
 }
 
+// handshakeLiveRuntime is the runtime identity attestation every transcript
+// line must carry: the exact artifact coordinate and jar digest the adapter
+// executed against, mirroring the behavior protocol's runtime binding.
+type handshakeLiveRuntime struct {
+	Artifact string `json:"artifact"`
+	SHA256   string `json:"sha256"`
+}
+
 type handshakeLiveResponse struct {
-	CaseID             string `json:"case_id"`
-	Protocol           string `json:"protocol"`
-	Version            string `json:"version"`
-	RequestDigest      string `json:"request_digest"`
-	JavaObservable     string `json:"java_observable"`
-	RejectChannel      string `json:"reject_channel"`
-	CloseCode          *int   `json:"close_code"`
-	SecWebSocketAccept string `json:"sec_websocket_accept"`
+	CaseID             string                `json:"case_id"`
+	Protocol           string                `json:"protocol"`
+	Version            string                `json:"version"`
+	RequestDigest      string                `json:"request_digest"`
+	Runtime            *handshakeLiveRuntime `json:"runtime"`
+	JavaObservable     string                `json:"java_observable"`
+	RejectChannel      string                `json:"reject_channel"`
+	CloseCode          *int                  `json:"close_code"`
+	SecWebSocketAccept string                `json:"sec_websocket_accept"`
 }
 
 // evaluateHandshakeLiveResponse scores one transcript line against the
@@ -654,6 +669,22 @@ func evaluateHandshakeLiveResponse(c HandshakeCase, line []byte) (bool, string) 
 	}
 	if response.RequestDigest != request["request_digest"] {
 		return false, "request_digest does not bind this case"
+	}
+	// Runtime binding, mirroring the behavior evaluate path (RunJavaOracle,
+	// internal/lab/oracle.go JAVA_ORACLE_RUNTIME_DRIFT): a response that does
+	// not attest the exact accepted runtime identity — the pinned artifact
+	// coordinate and jar digest — fails closed, whether the attestation is
+	// absent or drifted.
+	if response.Runtime == nil {
+		return false, "runtime binding absent: response does not attest the accepted runtime"
+	}
+	if response.Runtime.Artifact != oracleRuntimeArtifact {
+		return false, fmt.Sprintf("runtime artifact %q does not bind the accepted runtime %q",
+			response.Runtime.Artifact, oracleRuntimeArtifact)
+	}
+	if response.Runtime.SHA256 != "sha256:"+oracleRuntimeSHA256 {
+		return false, fmt.Sprintf("runtime sha256 %q does not bind the pinned jar digest sha256:%s",
+			response.Runtime.SHA256, oracleRuntimeSHA256)
 	}
 	expected, err := ExpectedJavaHandshakeObservable(c)
 	if err != nil {

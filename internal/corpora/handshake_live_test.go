@@ -13,8 +13,11 @@ import (
 // committed handshake family. Each row was derived by reading the quarantined
 // Java-WebSocket 1.6.0 source (Draft.translateHandshakeHttp,
 // Draft_6455.acceptHandshakeAsServer/Client, postProcessHandshakeResponseAsServer,
-// WebSocketImpl.decodeHandshake); the Java-side harness tests execute the same
-// families against the real jar.
+// WebSocketImpl.decodeHandshake). The Java-side harness tests execute five
+// synthetic representative divergence families against the real jar (missing
+// Host, missing Upgrade, non-base64 key, duplicated key, bare LF) plus
+// synthetic reject/incomplete/client-direction probes; the committed corpus
+// itself has not been executed against the jar yet.
 var familyJavaResolution = map[string]struct {
 	observable string
 	channel    string
@@ -321,9 +324,9 @@ func TestHandshakeLiveMappingEvidenceDocument(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(bytes.TrimRight(committed, "\n"), bytes.TrimRight(rendered, "\n")) {
-		t.Fatal("evidence/us005-handshake-live-mapping.json does not match " +
-			"HandshakeVerdictMapping(); regenerate the document from the table")
+	if !bytes.Equal(committed, rendered) {
+		t.Fatal("evidence/us005-handshake-live-mapping.json is not byte-identical " +
+			"to HandshakeVerdictMapping(); regenerate the document from the table")
 	}
 }
 
@@ -427,6 +430,56 @@ func TestEvaluateHandshakeLiveTranscriptFailsClosed(t *testing.T) {
 	if _, err = EvaluateHandshakeLiveTranscript(cases,
 		[]byte(`{"protocol":"x"}`+"\n")); err == nil {
 		t.Fatal("line without case_id must error")
+	}
+}
+
+// The evaluator binds the runtime attestation fail-closed, mirroring the
+// behavior evaluate path (RunJavaOracle, internal/lab/oracle.go): a transcript
+// line whose runtime binding is absent or forged — removed field, wrong jar
+// digest, wrong artifact, wrong protocol id — never passes.
+func TestEvaluateHandshakeLiveRuntimeBinding(t *testing.T) {
+	cases := generatedHandshake(t)[:1]
+	line, err := synthesizeHandshakeLiveResponse(cases[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	faithful := string(line)
+	if !strings.Contains(faithful, `"runtime":`) {
+		t.Fatalf("synthesized response must carry the runtime attestation: %s", faithful)
+	}
+
+	mutations := map[string]string{
+		"removed runtime binding": strings.Replace(faithful,
+			`"runtime":`, `"runtime_removed":`, 1),
+		"wrong jar digest": strings.Replace(faithful,
+			`"sha256":"sha256:e`, `"sha256":"sha256:0`, 1),
+		"wrong runtime artifact": strings.Replace(faithful,
+			`"artifact":"org.java-websocket:Java-WebSocket:1.6.0"`,
+			`"artifact":"org.java-websocket:Java-WebSocket:1.5.7"`, 1),
+		"wrong protocol id": strings.Replace(faithful,
+			`"protocol":"java-websocket-handshake-oracle"`,
+			`"protocol":"java-websocket-oracle"`, 1),
+	}
+	for name, mutated := range mutations {
+		if mutated == faithful {
+			t.Fatalf("%s: mutation did not apply", name)
+		}
+		report, err := EvaluateHandshakeLiveTranscript(cases, []byte(mutated+"\n"))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if report.Failed != 1 || report.Reconciled() {
+			t.Fatalf("%s must fail closed: %+v", name, report.TranscriptReport)
+		}
+	}
+
+	// The faithful attestation still passes.
+	report, err := EvaluateHandshakeLiveTranscript(cases, []byte(faithful+"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.Passed != 1 || !report.Reconciled() {
+		t.Fatalf("faithful runtime binding must pass: %+v", report.TranscriptReport)
 	}
 }
 

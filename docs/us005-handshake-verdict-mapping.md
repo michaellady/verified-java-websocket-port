@@ -6,9 +6,16 @@ behavior the real `org.java-websocket:Java-WebSocket:1.6.0` runtime observably
 produces, and exactly where the two disagree. Nothing here was inferred from
 documentation: every claim cites the quarantined source at revision
 `da3cf2a777aed862f2f5b5cf060cae7969958667` (the digest-pinned archive in
-`evidence/intake/source-pins.json`), and the divergent rows are executed
-against the real digest-verified jar by the `java-oracle` handshake harness
-tests.
+`evidence/intake/source-pins.json`).
+
+Jar-execution status, stated exactly: the 49-case committed census is
+parity-model-derived from those cited source lines. The `java-oracle`
+handshake harness has executed five synthetic representative divergence
+families against the real digest-verified jar (missing Host, missing Upgrade,
+non-base64 key, duplicated key, bare LF), plus synthetic reject, incomplete,
+and client-direction probes. Zero committed-corpus cases have been executed
+against the jar so far; the committed corpus is executed live in a later step
+and scored fail-closed by `corporactl evaluate --tier handshake --live`.
 
 The machine-checkable form of this mapping is
 `evidence/us005-handshake-live-mapping.json`. It is rendered from
@@ -78,9 +85,12 @@ mapping and compares at the granularity Java actually exposes.
 
 ## Divergences (RFC model rejects, Java observably accepts)
 
-These are real behavioral disagreements, proven against the real jar by
-`OracleMainTest.testHandshakeDivergentAccepts`, not vocabulary mismatches.
-16 of the 49 committed cases resolve through them:
+These are real behavioral disagreements, not vocabulary mismatches. Five
+representative families are proven against the real jar by
+`OracleMainTest.testHandshakeDivergentAccepts` (missing Host, missing Upgrade,
+non-base64 key, duplicated key, bare LF); the remaining rows are
+source-derived from the cited lines and await the live committed-corpus run
+for jar confirmation. 16 of the 49 committed cases resolve through them:
 
 | Go verdict | direction | Java observable | why |
 |---|---|---|---|

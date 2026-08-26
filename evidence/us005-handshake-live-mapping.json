@@ -524,6 +524,6 @@
     "artifact": "org.java-websocket:Java-WebSocket:1.6.0",
     "revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
     "sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
-    "statement": "Every row was derived by reading the quarantined Java-WebSocket 1.6.0 source at the cited lines and is validated against the real jar by the java-oracle handshake harness tests. No row was inferred from documentation or invented."
+    "statement": "Every row was derived by reading the quarantined Java-WebSocket 1.6.0 source at the cited lines; no row was inferred from documentation or invented. Jar-execution status: the 49-case committed census is parity-model-derived from those cited source lines; the java-oracle handshake harness has executed five synthetic representative divergence families against the real digest-verified jar (missing Host, missing Upgrade, non-base64 key, duplicated key, bare LF) plus synthetic reject, incomplete, and client-direction probes; zero committed-corpus cases have been executed against the jar so far (the committed corpus is executed live in a later step and scored fail-closed by EvaluateHandshakeLiveTranscript)."
   }
 }
