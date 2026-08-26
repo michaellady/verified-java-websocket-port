@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/benchmark-raw-sample-1.0.0.schema.json",
+  "title": "US-008 canonical raw-pair record",
+  "description": "The preregistered shape of one canonical raw sample set (one workload x metric endpoint). A MEASURED record must carry every required binding digest; the only other admissible provenance is the synthetic engine-validation label. No MEASURED record may exist before the attested plan freeze and full host/tool binding.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "provenance_label", "workload_id", "metric", "order", "warmup_pairs", "measured_pairs"],
+  "properties": {
+    "schema": {"const": "vjwp-benchmark-raw-sample/1.0.0"},
+    "provenance_label": {"enum": ["SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT", "MEASURED"]},
+    "workload_id": {"enum": ["wl-01-handshake-close", "wl-02-small-text-echo", "wl-03-fragmented-64kib-binary-echo", "wl-04-control-mix", "wl-05-cap-rejection", "wl-06-concurrent-pressure"]},
+    "metric": {"enum": ["peak_rss", "steady_rss", "cpu_time", "startup_to_ready", "latency_p50", "latency_p95", "latency_p99", "allocated_bytes", "allocation_count", "throughput"]},
+    "order": {
+      "type": "array",
+      "minItems": 35,
+      "maxItems": 35,
+      "items": {"enum": ["JAVA_FIRST", "RUST_FIRST"]}
+    },
+    "warmup_pairs": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {"$ref": "#/$defs/pair"}
+    },
+    "measured_pairs": {
+      "type": "array",
+      "minItems": 30,
+      "maxItems": 30,
+      "items": {"$ref": "#/$defs/pair"}
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "plan_digest": {"$ref": "#/$defs/digest"},
+        "primary_environment_digest": {"$ref": "#/$defs/digest"},
+        "confirmation_environment_digest": {"$ref": "#/$defs/digest"},
+        "java_source_digest": {"$ref": "#/$defs/digest"},
+        "rust_source_digest": {"$ref": "#/$defs/digest"},
+        "java_executable_digest": {"$ref": "#/$defs/digest"},
+        "rust_executable_digest": {"$ref": "#/$defs/digest"},
+        "adapter_digest": {"$ref": "#/$defs/digest"},
+        "tool_identity_digest": {"$ref": "#/$defs/digest"},
+        "analyzer_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "declared_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mean", "sample_sd", "ci_lower_exp", "ci_upper_exp"],
+      "properties": {
+        "mean": {"type": "number"},
+        "sample_sd": {"type": "number", "minimum": 0},
+        "ci_lower_exp": {"type": "number", "exclusiveMinimum": 0},
+        "ci_upper_exp": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  },
+  "if": {"properties": {"provenance_label": {"const": "MEASURED"}}},
+  "then": {
+    "required": ["bindings"],
+    "properties": {
+      "bindings": {
+        "required": ["plan_digest", "primary_environment_digest", "confirmation_environment_digest", "java_source_digest", "rust_source_digest", "java_executable_digest", "rust_executable_digest", "adapter_digest", "tool_identity_digest", "analyzer_digest"]
+      }
+    }
+  },
+  "$defs": {
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["java", "rust"],
+      "properties": {
+        "java": {"type": "number", "exclusiveMinimum": 0},
+        "rust": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

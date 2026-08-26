@@ -1,7 +1,7 @@
 {
-  "schema": "vjwp-benchmark-environment-skeleton/1",
+  "schema": "vjwp-benchmark-environment/1.0.0",
   "role": "primary",
-  "status": "SKELETON — UNBOUND. The PRD pins the primary environment class (macOS 26.4.1, Apple M4 Pro); every remaining field requires binding before any sample.",
+  "status": "OBSERVED_UNBOUND - Host identity facts below were honestly observed on the real candidate host with the recorded commands; they match the PRD-pinned class (macOS 26.4.1, Apple M4 Pro). The environment is still UNBOUND: every measurement/analyzer tool identity is OWNER_DECISION_PENDING, run-time snapshot fields freeze only at measurement time, and no sample may be collected before the attested plan freeze.",
   "binding_status": "UNBOUND",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,
@@ -9,23 +9,147 @@
     "class": "owner-operated Apple Silicon workstation, native execution (no VM, no container)",
     "rationale": "PRD US-008: primary measurements run natively on the pinned macOS Apple M4 Pro environment."
   },
-  "required_binding_fields": {
-    "os_version": "macOS 26.4.1 (PRD-pinned class; exact build number NOT_MEASURED)",
-    "hardware_model": "Apple M4 Pro (PRD-pinned class; exact model identifier NOT_MEASURED)",
-    "cpu_cores": "NOT_MEASURED (performance/efficiency core split)",
-    "memory_total_bytes": "NOT_MEASURED",
-    "power_profile": "OWNER_DECISION_PENDING (AC power required? low-power mode forbidden? must be frozen)",
-    "background_cpu_budget_percent_max": 2,
-    "thermal_power_identity_policy": "fail-closed: any thermal throttle event, power-state anomaly, or host/tool identity mismatch during a run invalidates the run (INCONCLUSIVE, never patched or resampled around)"
+  "host_identity": {
+    "os_product_version": {
+      "status": "OBSERVED",
+      "value": "26.4.1",
+      "observed_by_command": "sw_vers -productVersion",
+      "observed_at": "2026-08-26T16:24:05Z",
+      "prd_pin": "macOS 26.4.1",
+      "prd_pin_match": true
+    },
+    "os_build_version": {
+      "status": "OBSERVED",
+      "value": "25E253",
+      "observed_by_command": "sw_vers -buildVersion",
+      "observed_at": "2026-08-26T16:24:05Z"
+    },
+    "hardware_model_identifier": {
+      "status": "OBSERVED",
+      "value": "Mac16,7",
+      "observed_by_command": "sysctl -n hw.model",
+      "observed_at": "2026-08-26T16:24:05Z"
+    },
+    "cpu_brand": {
+      "status": "OBSERVED",
+      "value": "Apple M4 Pro",
+      "observed_by_command": "sysctl -n machdep.cpu.brand_string",
+      "observed_at": "2026-08-26T16:24:05Z",
+      "prd_pin": "Apple M4 Pro",
+      "prd_pin_match": true
+    },
+    "cpu_logical_cores": {
+      "status": "OBSERVED",
+      "value": 14,
+      "observed_by_command": "sysctl -n hw.logicalcpu",
+      "observed_at": "2026-08-26T16:24:05Z"
+    },
+    "cpu_performance_cores": {
+      "status": "OBSERVED",
+      "value": 10,
+      "observed_by_command": "sysctl -n hw.perflevel0.physicalcpu",
+      "observed_at": "2026-08-26T16:24:05Z"
+    },
+    "cpu_efficiency_cores": {
+      "status": "OBSERVED",
+      "value": 4,
+      "observed_by_command": "sysctl -n hw.perflevel1.physicalcpu",
+      "observed_at": "2026-08-26T16:24:05Z"
+    },
+    "memory_total_bytes": {
+      "status": "OBSERVED",
+      "value": 51539607552,
+      "observed_by_command": "sysctl -n hw.memsize",
+      "observed_at": "2026-08-26T16:24:05Z"
+    },
+    "power_source_state": {
+      "status": "PENDING_FREEZE_AT_MEASUREMENT",
+      "freeze_procedure": "Record 'pmset -g batt' immediately before and after every sample run; AC power is required by run_policy.power_policy and any battery-power interval invalidates the run."
+    },
+    "low_power_mode_state": {
+      "status": "PENDING_FREEZE_AT_MEASUREMENT",
+      "freeze_procedure": "Record 'pmset -g | grep lowpowermode' before every run block; Low Power Mode must be 0 and any other value invalidates the run."
+    },
+    "thermal_pressure_state": {
+      "status": "PENDING_FREEZE_AT_MEASUREMENT",
+      "freeze_procedure": "Record 'thermal levels' via the bound measurement tooling for the whole run window; any throttle event invalidates the run (fail-closed)."
+    },
+    "background_process_census": {
+      "status": "PENDING_FREEZE_AT_MEASUREMENT",
+      "freeze_procedure": "Record the process table and aggregate non-benchmark CPU immediately before each run; aggregate background CPU above 2% invalidates the run."
+    },
+    "clock_sync_state": {
+      "status": "PENDING_FREEZE_AT_MEASUREMENT",
+      "freeze_procedure": "Record 'sntp -d time.apple.com' (or the bound tool's equivalent) offset before each run block so latency samples carry a clock-state record."
+    }
+  },
+  "run_policy": {
+    "background_cpu_percent_max": {
+      "status": "PRD_VERBATIM",
+      "value": 2,
+      "unit": "percent"
+    },
+    "thermal_power_identity_policy": {
+      "status": "PRD_VERBATIM",
+      "value": "fail-closed: any thermal throttle event, power-state anomaly, or host/tool identity mismatch during a run invalidates the run (INCONCLUSIVE, never patched or resampled around)"
+    },
+    "power_policy": {
+      "status": "PREREGISTERED_BY_DRIVER",
+      "value": "AC power connected for the entire run block; Low Power Mode disabled; system sleep and display-sleep-triggered app nap disabled for the benchmark processes; no user-interactive session activity during samples.",
+      "rationale": "The PRD pins the environment class and fail-closed rules but not the power procedure; freezing it now removes a post-hoc degree of freedom."
+    }
   },
   "tool_identities": {
-    "java_runtime": "OWNER_DECISION_PENDING (exact JDK distribution, version, and archive digest)",
-    "rust_toolchain": "OWNER_DECISION_PENDING (exact rustc/cargo version and component digests)",
-    "java_executable_digest": "NOT_MEASURED",
-    "rust_executable_digest": "NOT_MEASURED (no Rust executable exists to bind; none is fabricated)",
-    "load_driver": "OWNER_DECISION_PENDING",
-    "measurement_tools": "OWNER_DECISION_PENDING",
-    "analyzer": "OWNER_DECISION_PENDING (independently rebuilt analyzer identity + digest, per PRD)"
+    "java_runtime": {
+      "status": "OWNER_DECISION_PENDING",
+      "notes": "Exact JDK distribution, version, and archive digest."
+    },
+    "rust_toolchain": {
+      "status": "OWNER_DECISION_PENDING",
+      "notes": "Exact rustc/cargo version and component digests."
+    },
+    "java_executable_digest": {
+      "status": "NOT_MEASURED",
+      "notes": "No Java benchmark executable is promoted for measurement yet."
+    },
+    "rust_executable_digest": {
+      "status": "NOT_MEASURED",
+      "notes": "No Rust executable exists to bind; none is fabricated."
+    },
+    "load_driver": {
+      "status": "OWNER_DECISION_PENDING",
+      "notes": "Workload driver identity + digest implementing the frozen generators in benchmarks/plan/workloads.json."
+    },
+    "measurement_tools": {
+      "status": "OWNER_DECISION_PENDING",
+      "notes": "RSS/CPU/latency/allocation samplers; exact identities + digests."
+    },
+    "analyzer": {
+      "status": "OWNER_DECISION_PENDING",
+      "notes": "Independently rebuilt analyzer identity + digest, per PRD. internal/benchplan is the preregistered reference implementation, not the bound analyzer."
+    }
   },
+  "required_binding_fields": [
+    "host_identity.os_product_version",
+    "host_identity.os_build_version",
+    "host_identity.hardware_model_identifier",
+    "host_identity.cpu_brand",
+    "host_identity.cpu_logical_cores",
+    "host_identity.cpu_performance_cores",
+    "host_identity.cpu_efficiency_cores",
+    "host_identity.memory_total_bytes",
+    "host_identity.power_source_state",
+    "host_identity.low_power_mode_state",
+    "host_identity.thermal_pressure_state",
+    "host_identity.background_process_census",
+    "host_identity.clock_sync_state",
+    "tool_identities.java_runtime",
+    "tool_identities.rust_toolchain",
+    "tool_identities.java_executable_digest",
+    "tool_identities.rust_executable_digest",
+    "tool_identities.load_driver",
+    "tool_identities.measurement_tools",
+    "tool_identities.analyzer"
+  ],
   "measurements": "NONE. This file contains no measurements and must never contain results; results bind to canonical raw pairs per the PRD analysis contract."
 }
