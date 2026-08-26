@@ -1432,7 +1432,7 @@
     {
       "target_id": "target.formal.fragmentation.no-unbounded-growth",
       "formal_claim_id": "formal.fragmentation.no-unbounded-growth",
-      "title": "Bounded fragmentation reassembly",
+      "title": "Fragmentation reassembly with checkpoint-only size caps (intermediate growth unbounded in shipped code)",
       "statement": "Continuation reassembly enforces its size bound at two shipped checkpoints, not per-append: the sequence-start fragment appends then checks (processFrameIsNotFin, Draft_6455.java:1044-1045) and the fin frame appends then checks before delivery (processFrameIsFin, 1006-1007); when the reassembled total exceeds maxFrameSize, checkBufferLimit clears the buffer list and throws LimitExceededException (1101-1109, clear at 1104). Intermediate CONTINUOUS non-fin fragments are appended WITHOUT a checkBufferLimit call (processFrameContinuousAndNonFin, append at 946), so the shipped buffer list can exceed maxFrameSize and keep growing while non-fin continuations keep arriving — unbounded intermediate growth is representable in the shipped code until the fin checkpoint re-imposes the bound (or getPayloadFromByteBufferList re-checks at 1170). Sequencing violations (unstarted or uncompleted sequences) are protocol errors (905-908, 934-938, 1001-1005, 1038-1042). Proof obligations bind to these shipped checkpoint semantics only.",
       "property_families": [
         "fragmentation-bounded-state"

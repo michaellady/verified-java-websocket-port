@@ -217,6 +217,15 @@ func TestTargetsRound1SweepClaimsMatchShippedSemantics(t *testing.T) {
 	if strings.Contains(fragmentation.Statement, "cannot grow without bound") {
 		t.Errorf("fragmentation statement still claims a bound the shipped code does not enforce per-append: %q", fragmentation.Statement)
 	}
+	// Round-2 finding: the TITLE must not overclaim what the statement
+	// disavows — "Bounded" without qualification contradicts the recorded
+	// unbounded intermediate growth.
+	if strings.HasPrefix(fragmentation.Title, "Bounded ") {
+		t.Errorf("fragmentation title still overclaims boundedness the shipped code does not enforce: %q", fragmentation.Title)
+	}
+	if !strings.Contains(fragmentation.Title, "unbounded") {
+		t.Errorf("fragmentation title must carry the shipped unbounded-intermediate-growth caveat: %q", fragmentation.Title)
+	}
 	if !strings.Contains(fragmentation.Statement, "946") || !strings.Contains(fragmentation.Statement, "checkBufferLimit") {
 		t.Errorf("fragmentation statement must cite the unchecked intermediate append at 946: %q", fragmentation.Statement)
 	}
