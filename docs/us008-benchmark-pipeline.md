@@ -247,18 +247,22 @@ Completed with explicit owner authorization:
    `benchmarks/environments/confirmation.json`; Tier-2 explicitly
    `DEFERRED_BY_OWNER`.
 
+Deliberate non-adoption (not a gate — a standing recommendation):
+
+- **Branch protection: RECOMMEND NOT adopting DIALED's default
+  main-branch-protection checks on this repo.** This is a SHARED repo where
+  a second authority plane (Codex) also pushes. DIALED's standard setup
+  marks its deploy/system-test jobs as required checks on `main`; here that
+  would make an expensive, label-gated metal-host workflow a merge gate for
+  both planes and let a benchmark-infra outage block unrelated Codex
+  landings (and vice versa). The benchmark workflow stays label-gated and
+  advisory by design; nothing fails closed on its absence. If any
+  protection is ever added, scope it to checks both planes already share,
+  never to `benchmark-host`.
+
 Still gated (the pipeline fails closed until each is done):
 
-1. **Branch protection — RECOMMEND NOT adopting DIALED's default
-   main-branch-protection checks on this repo.** This is a SHARED repo where
-   a second authority plane (Codex) also pushes. DIALED's standard setup
-   marks its deploy/system-test jobs as required checks on `main`; here that
-   would make an expensive, label-gated metal-host workflow a merge gate for
-   both planes and let a benchmark-infra outage block unrelated Codex
-   landings (and vice versa). The benchmark workflow should stay label-gated
-   and advisory. If any protection is added, scope it to checks both planes
-   already share, never to `benchmark-host`.
-2. **Tier-2 vCPU quota request (AWS support mutation; Tier-2 runs only).**
+1. **Tier-2 vCPU quota request (AWS support mutation; Tier-2 runs only).**
    Metal types are large (c5n.metal is 72 vCPUs) and the account's
    probed "Running On-Demand Standard instances" quota (L-1216C47A) is
    64 vCPUs — m5zn.metal (48 vCPUs) is the only probed metal candidate

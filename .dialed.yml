@@ -1,13 +1,14 @@
 # .dialed.yml — single source of truth for the US-008 benchmark-confirmation
 # pipeline's DIALED-derived deploy plumbing.
 #
-# STATUS: SCAFFOLD ONLY — DIALED bootstrap/setup has NOT been run for this
-# project. No OIDC provider, deploy role, permissions boundary, state bucket,
-# or lock table exists yet under the vjwp-bench prefix. Running
-# `dialed:setup` / bootstrap apply is an explicit OWNER-GATED step (see
-# docs/us008-benchmark-pipeline.md, "Gated next steps"). Until that step is
-# performed by the owner, every workflow in this repo that consumes this file
-# will fail closed at role assumption — by design.
+# STATUS: BOOTSTRAP APPLIED (owner-authorized, 2026-08-26). The deploy role,
+# permissions boundary, tfstate bucket, and lock table exist under the
+# vjwp-bench prefix in the EVC dev account, with OIDC trust for this repo's
+# classic AND immutable GitHub subjects (the account's existing GitHub OIDC
+# provider is reused). Applied config is committed at
+# terraform/bootstrap/bootstrap.auto.tfvars (commit 741a85d, trust fix
+# dcd7e56) and the plumbing was proven end-to-end by green sentinel-only run
+# 33000379021 (see docs/us008-benchmark-pipeline.md).
 #
 # Workflows source this file via the .github/actions/dialed-setup composite
 # action; Terraform reads a JSON copy as auto-loaded .tfvars.json.
@@ -15,7 +16,7 @@
 # ─── Project identity ───────────────────────────────────────────────────────
 
 project_name: "vjwp-bench" # resource-name prefix for ALL benchmark-pipeline AWS resources
-aws_region: "us-east-1" # OWNER-DECISION-PENDING default; see benchmarks/environments/confirmation.json
+aws_region: "us-east-1" # BOUND by the owner's Tier-1 pinning decision (benchmarks/environments/confirmation.json)
 github_repo: "michaellady/verified-java-websocket-port" # scopes the OIDC trust policy to this repo
 
 # ─── Environment model ──────────────────────────────────────────────────────
@@ -68,7 +69,10 @@ commands:
   test_smoke: ""
 
 # ─── DIALED metadata ─────────────────────────────────────────────────────────
-# setup_completed_at is deliberately ABSENT: bootstrap/setup has not been run.
+# setup_completed_at remains ABSENT: bootstrap was applied out-of-band on
+# 2026-08-26 (anchored to committed config 741a85d and proven by run
+# 33000379021) rather than via `dialed:setup`, and no captured apply
+# timestamp exists — an estimated one is not recorded on principle.
 
 dialed:
   version: "v2.0.0"
