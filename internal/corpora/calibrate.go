@@ -295,7 +295,10 @@ func LoadGenerationInput(root, protectedRoot string) (GenerationInput, error) {
 	generator, _ := publicManifest["generator"].(map[string]any)
 	publicSeed, _ := generator["public_seed"].(string)
 	heldOutGenerator, _ := hiddenManifest["generator"].(map[string]any)
-	epochValue, _ := heldOutGenerator["epoch"].(float64)
+	epoch, ok := gateCounter(heldOutGenerator, "epoch")
+	if !ok || epoch < 1 {
+		return GenerationInput{}, fmt.Errorf("hidden manifest generator epoch is missing or non-integral")
+	}
 	secretRaw, err := os.ReadFile(filepath.Join(protectedRoot, protectedSecretFile))
 	if err != nil {
 		return GenerationInput{}, err
@@ -303,7 +306,7 @@ func LoadGenerationInput(root, protectedRoot string) (GenerationInput, error) {
 	return GenerationInput{
 		PublicSeed: publicSeed,
 		Secret:     strings.TrimSpace(string(secretRaw)),
-		Epoch:      int(epochValue),
+		Epoch:      epoch,
 	}, nil
 }
 
@@ -326,6 +329,17 @@ func BuildCalibration(root, protectedRoot string, g *GeneratedCorpora) (map[stri
 	if err != nil {
 		return nil, err
 	}
+	// Calibration is the repair/rebuild operation for its own derived
+	// evidence document. A stale prior calibration must block verify, but it
+	// must not poison the freshly recomputed manifest-reconciliation gate.
+	calibrationPath := filepath.Join(root, "evidence/corpus-calibration.json")
+	filteredFindings := verifyFindings[:0]
+	for _, finding := range verifyFindings {
+		if finding.Path != calibrationPath {
+			filteredFindings = append(filteredFindings, finding)
+		}
+	}
+	verifyFindings = filteredFindings
 	rerun, err := RunGenerationReruns(input, 2)
 	if err != nil {
 		return nil, err

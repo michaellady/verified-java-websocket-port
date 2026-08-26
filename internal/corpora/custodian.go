@@ -2,7 +2,6 @@ package corpora
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -162,6 +161,9 @@ func (l *Ledger) denial(op, scenarioRef, queryDigest, reason string) error {
 func NewLedger(policy CustodianPolicy, epoch int) (*Ledger, error) {
 	if policy.QueryBudget < 1 || policy.DiagnosticBudget < 1 || policy.RepeatThreshold < 2 {
 		return nil, fmt.Errorf("custodian policy budgets and threshold must be positive")
+	}
+	if epoch < 1 {
+		return nil, fmt.Errorf("custodian epoch must be >= 1")
 	}
 	ledger := &Ledger{policy: policy, queryCounts: map[string]int{},
 		now: defaultLedgerClock, actor: defaultLedgerActor()}
@@ -334,28 +336,33 @@ func LoadLedger(data []byte) (*Ledger, error) {
 			return nil, fmt.Errorf("empty ledger line")
 		}
 		var entry LedgerEntry
-		decoder := json.NewDecoder(bytes.NewReader(line))
-		decoder.DisallowUnknownFields()
-		if err := decoder.Decode(&entry); err != nil {
+		if err := decodeStrictJSON(line, &entry); err != nil {
 			return nil, fmt.Errorf("ledger entry parse: %w", err)
 		}
 		ledger.entries = append(ledger.entries, entry)
-		if entry.QueryDigest != "" && entry.Op == "query" {
-			ledger.queryCounts[entry.QueryDigest]++
-		}
 	}
 	if len(ledger.entries) == 0 {
 		return nil, fmt.Errorf("ledger is empty")
 	}
+	ledger.policy.QueryBudget = ledger.entries[0].QueryRemaining
+	ledger.policy.DiagnosticBudget = ledger.entries[0].DiagnosticRemaining
 	if err := ledger.VerifyChain(); err != nil {
 		return nil, err
+	}
+	activeEpoch := ledger.Epoch()
+	for _, entry := range ledger.entries {
+		if entry.Epoch == activeEpoch && entry.QueryDigest != "" && entry.Op == "query" {
+			ledger.queryCounts[entry.QueryDigest]++
+		}
 	}
 	return ledger, nil
 }
 
 // VerifyChain checks the hash chain and budget monotonicity end to end.
 func (l *Ledger) VerifyChain() error {
-	if l.entries[0].Op != "genesis" || l.entries[0].Seq != 0 {
+	genesis := l.entries[0]
+	if genesis.Op != "genesis" || genesis.Seq != 0 || genesis.Epoch < 1 ||
+		genesis.PrevDigest != "sha256:"+zero64() {
 		return fmt.Errorf("LEDGER_CHAIN_BROKEN: missing genesis")
 	}
 	for i := 1; i < len(l.entries); i++ {
@@ -368,10 +375,23 @@ func (l *Ledger) VerifyChain() error {
 			return fmt.Errorf("LEDGER_CHAIN_BROKEN at seq %d", entry.Seq)
 		}
 		prev := l.entries[i-1]
-		if entry.Epoch == prev.Epoch &&
-			(entry.QueryRemaining > prev.QueryRemaining ||
-				entry.DiagnosticRemaining > prev.DiagnosticRemaining) {
+		if entry.Op == "rotation" {
+			if entry.Epoch <= prev.Epoch || entry.QueryRemaining != l.policy.QueryBudget ||
+				entry.DiagnosticRemaining != l.policy.DiagnosticBudget ||
+				entry.ProbingDetected {
+				return fmt.Errorf("LEDGER_ROTATION_INVALID at seq %d", entry.Seq)
+			}
+			continue
+		}
+		if entry.Epoch != prev.Epoch {
+			return fmt.Errorf("LEDGER_EPOCH_INVALID at seq %d", entry.Seq)
+		}
+		if entry.QueryRemaining > prev.QueryRemaining ||
+			entry.DiagnosticRemaining > prev.DiagnosticRemaining {
 			return fmt.Errorf("BUDGET_MONOTONICITY_VIOLATION at seq %d", entry.Seq)
+		}
+		if prev.ProbingDetected && !entry.ProbingDetected {
+			return fmt.Errorf("PROBING_LATCH_CLEARED at seq %d", entry.Seq)
 		}
 	}
 	return nil

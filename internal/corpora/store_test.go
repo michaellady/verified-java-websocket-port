@@ -66,6 +66,154 @@ func TestWriteAllStorageSeparation(t *testing.T) {
 	}
 }
 
+// Advancing the generation epoch rotates the existing hash-chained ledger
+// under the same custodian lock and leaves every epoch-bearing artifact in a
+// single verifiable state. Backward generation is rejected without mutation.
+func TestWriteAllRotatesLedgerAndRejectsBackwardEpoch(t *testing.T) {
+	root, protectedRoot, _ := writeAllToTemp(t)
+	if err := SpendCustodian(protectedRoot, func(ledger *Ledger) error {
+		return ledger.RecordQuery("us005.hid.0001", "same-query")
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	input2 := testInput()
+	input2.Epoch = 2
+	generated2, err := GenerateAll(input2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteAll(root, protectedRoot, input2, generated2); err != nil {
+		t.Fatalf("epoch 2 WriteAll: %v", err)
+	}
+	ledgerRaw, err := os.ReadFile(ProtectedLedgerPath(protectedRoot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger, err := LoadLedger(ledgerRaw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := ledger.Entries()
+	if ledger.Epoch() != 2 || entries[len(entries)-1].Op != "rotation" ||
+		ledger.ProbingDetected() {
+		t.Fatalf("ledger was not rotated cleanly: epoch=%d last=%+v",
+			ledger.Epoch(), entries[len(entries)-1])
+	}
+	findings, err := VerifyAll(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("rotated state must verify: %v", findings)
+	}
+
+	input1 := testInput()
+	generated1, err := GenerateAll(input1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteAll(root, protectedRoot, input1, generated1); err == nil {
+		t.Fatal("backward generation must be rejected")
+	}
+	findings, err = VerifyAll(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("rejected backward generation must preserve epoch 2: %v", findings)
+	}
+}
+
+func TestVerifyAllRejectsEpochComponentDisagreement(t *testing.T) {
+	tests := map[string]struct {
+		mutate func(t *testing.T, root, protectedRoot string)
+		code   string
+	}{
+		"ledger": {
+			mutate: func(t *testing.T, _, protectedRoot string) {
+				raw, err := os.ReadFile(ProtectedLedgerPath(protectedRoot))
+				if err != nil {
+					t.Fatal(err)
+				}
+				ledger, err := LoadLedger(raw)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := ledger.Rotate(2); err != nil {
+					t.Fatal(err)
+				}
+				rotated, err := ledger.Serialize()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(ProtectedLedgerPath(protectedRoot), rotated, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			code: "LEDGER_EPOCH_MISMATCH",
+		},
+		"policy": {
+			mutate: func(t *testing.T, _, protectedRoot string) {
+				path := filepath.Join(protectedRoot, protectedPolicyFile)
+				raw, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				mutated := strings.Replace(string(raw), `"query_budget":200`, `"query_budget":199`, 1)
+				if mutated == string(raw) {
+					t.Fatal("policy mutation did not apply")
+				}
+				if err := os.WriteFile(path, []byte(mutated), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			},
+			code: "CUSTODIAN_POLICY_MISMATCH",
+		},
+		"canary": {
+			mutate: func(t *testing.T, _, protectedRoot string) {
+				path := filepath.Join(protectedRoot, protectedCanaryFile)
+				inventory, err := readManifest(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				inventory["epoch"] = 2
+				if err := writeJSONFile(path, inventory); err != nil {
+					t.Fatal(err)
+				}
+			},
+			code: "CANARY_INVENTORY_MISMATCH",
+		},
+		"manifest": {
+			mutate: func(t *testing.T, root, _ string) {
+				path := filepath.Join(root, repoCorporaDir, "sealed/manifest.json")
+				manifest, err := readManifest(path)
+				if err != nil {
+					t.Fatal(err)
+				}
+				manifest["generator"].(map[string]any)["epoch"] = 2
+				if err := writeJSONFile(path, manifest); err != nil {
+					t.Fatal(err)
+				}
+			},
+			code: "MANIFEST_MISMATCH",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			root, protectedRoot, _ := writeAllToTemp(t)
+			tc.mutate(t, root, protectedRoot)
+			findings, err := VerifyAll(root, protectedRoot)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if findingCodes(findings)[tc.code] == 0 {
+				t.Fatalf("missing %s: %v", tc.code, findings)
+			}
+		})
+	}
+}
+
 // Manifests carry the full derived count set and correct classifications.
 func TestManifestCountsAndClassifications(t *testing.T) {
 	root, _, generated := writeAllToTemp(t)

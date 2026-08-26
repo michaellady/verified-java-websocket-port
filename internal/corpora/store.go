@@ -231,6 +231,15 @@ func writeRawFile(path string, content []byte, mode os.FileMode) error {
 // EnsureSecret loads the protected master secret, creating it with
 // crypto/rand on first use. The secret never enters the repository.
 func EnsureSecret(protectedRoot string) (string, error) {
+	if err := os.MkdirAll(filepath.Dir(ProtectedLedgerPath(protectedRoot)), 0o755); err != nil {
+		return "", err
+	}
+	unlock, err := acquireFileLock(ProtectedLedgerPath(protectedRoot) + ".lock")
+	if err != nil {
+		return "", fmt.Errorf("custodian ledger lock: %w", err)
+	}
+	defer unlock()
+
 	path := filepath.Join(protectedRoot, protectedSecretFile)
 	if raw, err := os.ReadFile(path); err == nil {
 		secret := strings.TrimSpace(string(raw))
@@ -238,6 +247,8 @@ func EnsureSecret(protectedRoot string) (string, error) {
 			return "", fmt.Errorf("protected master secret is malformed")
 		}
 		return secret, nil
+	} else if !os.IsNotExist(err) {
+		return "", err
 	}
 	buf := make([]byte, 32)
 	if _, err := rand.Read(buf); err != nil {
@@ -250,9 +261,181 @@ func EnsureSecret(protectedRoot string) (string, error) {
 	return secret, nil
 }
 
+func buildCanaryInventory(input GenerationInput, g *GeneratedCorpora) ([]byte, error) {
+	inventory := map[string]any{
+		"schema_version": "1.0.0",
+		"epoch":          input.Epoch,
+		"tiers":          map[string]any{},
+	}
+	tiersMap := inventory["tiers"].(map[string]any)
+	for _, tier := range []string{"hidden", "sealed"} {
+		ids := make([]any, 0, len(g.CanaryIDs[tier]))
+		tokens := map[string]any{}
+		for _, id := range g.CanaryIDs[tier] {
+			ids = append(ids, id)
+			tokens[id] = g.CanaryTokens[id]
+		}
+		tiersMap[tier] = map[string]any{"ids": ids, "tokens": tokens}
+	}
+	return CanonicalJSON(inventory)
+}
+
+type generatedStateFile struct {
+	path string
+	data []byte
+	mode os.FileMode
+}
+
+func renderedJSON(value any) ([]byte, error) {
+	rendered, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(rendered, '\n'), nil
+}
+
+// replaceGeneratedState stages every file before replacing any path. All
+// supported readers share the custodian lock, so they observe either the old
+// complete state or the new complete state. Ordinary rename failures roll the
+// already-applied paths back to their snapshots before the lock is released.
+func replaceGeneratedState(files []generatedStateFile) error {
+	type stagedFile struct {
+		generatedStateFile
+		temporary string
+		existed   bool
+		oldData   []byte
+		oldMode   os.FileMode
+	}
+	staged := make([]stagedFile, 0, len(files))
+	cleanup := func() {
+		for _, file := range staged {
+			if file.temporary != "" {
+				_ = os.Remove(file.temporary)
+			}
+		}
+	}
+	for _, file := range files {
+		if err := os.MkdirAll(filepath.Dir(file.path), 0o755); err != nil {
+			cleanup()
+			return err
+		}
+		entry := stagedFile{generatedStateFile: file}
+		if info, err := os.Stat(file.path); err == nil {
+			entry.existed = true
+			entry.oldMode = info.Mode().Perm()
+			entry.oldData, err = os.ReadFile(file.path)
+			if err != nil {
+				cleanup()
+				return err
+			}
+		} else if !os.IsNotExist(err) {
+			cleanup()
+			return err
+		}
+		temporary, err := os.CreateTemp(filepath.Dir(file.path), ".corporactl-state-*")
+		if err != nil {
+			cleanup()
+			return err
+		}
+		entry.temporary = temporary.Name()
+		if err := temporary.Chmod(file.mode); err != nil {
+			_ = temporary.Close()
+			staged = append(staged, entry)
+			cleanup()
+			return err
+		}
+		if _, err := temporary.Write(file.data); err != nil {
+			_ = temporary.Close()
+			staged = append(staged, entry)
+			cleanup()
+			return err
+		}
+		if err := temporary.Sync(); err != nil {
+			_ = temporary.Close()
+			staged = append(staged, entry)
+			cleanup()
+			return err
+		}
+		if err := temporary.Close(); err != nil {
+			staged = append(staged, entry)
+			cleanup()
+			return err
+		}
+		staged = append(staged, entry)
+	}
+	for index := range staged {
+		if err := os.Rename(staged[index].temporary, staged[index].path); err != nil {
+			for rollback := index - 1; rollback >= 0; rollback-- {
+				if staged[rollback].existed {
+					_ = writeRawFile(staged[rollback].path, staged[rollback].oldData,
+						staged[rollback].oldMode)
+				} else {
+					_ = os.Remove(staged[rollback].path)
+				}
+			}
+			cleanup()
+			return err
+		}
+		staged[index].temporary = ""
+	}
+	return nil
+}
+
+func storedEpoch(path string) (int, error) {
+	document, err := readManifest(path)
+	if err != nil {
+		return 0, err
+	}
+	epoch, ok := gateCounter(document, "epoch")
+	if !ok || epoch < 1 {
+		return 0, fmt.Errorf("epoch is missing or non-integral")
+	}
+	return epoch, nil
+}
+
+func storedManifestEpoch(path string) (int, error) {
+	manifest, err := readManifest(path)
+	if err != nil {
+		return 0, err
+	}
+	generator, _ := manifest["generator"].(map[string]any)
+	epoch, ok := gateCounter(generator, "epoch")
+	if !ok || epoch < 1 {
+		return 0, fmt.Errorf("generator epoch is missing or non-integral")
+	}
+	return epoch, nil
+}
+
+func verifyStoredEpochState(root, protectedRoot string, epoch int) error {
+	policy, err := CustodianPolicyDocument(DefaultCustodianPolicy(), epoch)
+	if err != nil {
+		return err
+	}
+	policyRaw, err := os.ReadFile(filepath.Join(protectedRoot, protectedPolicyFile))
+	if err != nil || !bytes.Equal(policyRaw, append(policy, '\n')) {
+		return fmt.Errorf("stored custodian policy is inconsistent with ledger epoch %d", epoch)
+	}
+	canaryEpoch, err := storedEpoch(filepath.Join(protectedRoot, protectedCanaryFile))
+	if err != nil || canaryEpoch != epoch {
+		return fmt.Errorf("stored canary epoch is inconsistent with ledger epoch %d", epoch)
+	}
+	for _, tier := range []string{"hidden", "sealed"} {
+		manifestEpoch, err := storedManifestEpoch(
+			filepath.Join(root, repoCorporaDir, tier, "manifest.json"))
+		if err != nil || manifestEpoch != epoch {
+			return fmt.Errorf("stored %s manifest epoch is inconsistent with ledger epoch %d",
+				tier, epoch)
+		}
+	}
+	return nil
+}
+
 // WriteAll writes repo manifests and public content plus protected held-out
 // content, canary inventory, custodian policy, and ledger genesis.
 func WriteAll(root, protectedRoot string, input GenerationInput, g *GeneratedCorpora) error {
+	if g == nil || g.Epoch != input.Epoch || g.PublicSeed != input.PublicSeed {
+		return fmt.Errorf("generated corpora disagree with generation input")
+	}
 	publicBytes, err := scenarioLines(g.Public)
 	if err != nil {
 		return err
@@ -273,91 +456,98 @@ func WriteAll(root, protectedRoot string, input GenerationInput, g *GeneratedCor
 	if err != nil {
 		return err
 	}
+	inventoryBytes, err := buildCanaryInventory(input, g)
+	if err != nil {
+		return err
+	}
 	manifests, err := buildManifests(input, g, publicBytes, handshakeBytes,
 		hiddenBytes, sealedBytes, DigestSHA256(policyDocument))
 	if err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Dir(ProtectedLedgerPath(protectedRoot)), 0o755); err != nil {
+		return err
+	}
+	unlock, err := acquireFileLock(ProtectedLedgerPath(protectedRoot) + ".lock")
+	if err != nil {
+		return fmt.Errorf("custodian ledger lock: %w", err)
+	}
+	defer unlock()
 
-	// Persist the secret alongside the held-out content it derives.
 	existingSecretPath := filepath.Join(protectedRoot, protectedSecretFile)
 	if raw, err := os.ReadFile(existingSecretPath); err == nil {
 		if strings.TrimSpace(string(raw)) != input.Secret {
 			return fmt.Errorf("protected master secret disagrees with generation input")
 		}
-	} else if err := writeRawFile(existingSecretPath,
-		[]byte(input.Secret+"\n"), 0o600); err != nil {
+	} else if !os.IsNotExist(err) {
 		return err
 	}
-
-	if err := writeRawFile(filepath.Join(root, repoCorporaDir, "public/scenarios.jsonl"),
-		publicBytes, 0o644); err != nil {
-		return err
-	}
-	if err := writeRawFile(filepath.Join(root, repoCorporaDir, "handshake/cases.jsonl"),
-		handshakeBytes, 0o644); err != nil {
-		return err
-	}
-	for tier, manifest := range manifests {
-		if err := writeJSONFile(filepath.Join(root, repoCorporaDir, tier, "manifest.json"),
-			manifest); err != nil {
+	ledgerPath := filepath.Join(protectedRoot, protectedLedgerFile)
+	var ledger *Ledger
+	if ledgerRaw, err := os.ReadFile(ledgerPath); err == nil {
+		ledger, err = LoadLedger(ledgerRaw)
+		if err != nil {
+			return fmt.Errorf("existing custodian ledger is invalid: %w", err)
+		}
+		if err := verifyStoredEpochState(root, protectedRoot, ledger.Epoch()); err != nil {
 			return err
 		}
-	}
-
-	if err := writeRawFile(filepath.Join(protectedRoot, protectedHiddenLines),
-		hiddenBytes, 0o644); err != nil {
-		return err
-	}
-	if err := writeRawFile(filepath.Join(protectedRoot, protectedSealedLines),
-		sealedBytes, 0o644); err != nil {
-		return err
-	}
-
-	inventory := map[string]any{
-		"schema_version": "1.0.0",
-		"epoch":          input.Epoch,
-		"tiers":          map[string]any{},
-	}
-	tiersMap := inventory["tiers"].(map[string]any)
-	for _, tier := range []string{"hidden", "sealed"} {
-		ids := make([]any, 0, len(g.CanaryIDs[tier]))
-		tokens := map[string]any{}
-		for _, id := range g.CanaryIDs[tier] {
-			ids = append(ids, id)
-			tokens[id] = g.CanaryTokens[id]
+		if ledger.policy != DefaultCustodianPolicy() {
+			return fmt.Errorf("existing ledger policy disagrees with committed custodian policy")
 		}
-		tiersMap[tier] = map[string]any{"ids": ids, "tokens": tokens}
+		if input.Epoch < ledger.Epoch() {
+			return fmt.Errorf("generation epoch %d is behind active ledger epoch %d",
+				input.Epoch, ledger.Epoch())
+		}
+		if input.Epoch > ledger.Epoch() {
+			if err := ledger.Rotate(input.Epoch); err != nil {
+				return err
+			}
+		}
+	} else if os.IsNotExist(err) {
+		for _, path := range []string{
+			filepath.Join(protectedRoot, protectedPolicyFile),
+			filepath.Join(protectedRoot, protectedCanaryFile),
+			filepath.Join(protectedRoot, protectedHiddenLines),
+			filepath.Join(protectedRoot, protectedSealedLines),
+		} {
+			if _, stateErr := os.Stat(path); stateErr == nil {
+				return fmt.Errorf("protected generation state exists without a custodian ledger")
+			} else if !os.IsNotExist(stateErr) {
+				return stateErr
+			}
+		}
+		ledger, err = NewLedger(DefaultCustodianPolicy(), input.Epoch)
+		if err != nil {
+			return err
+		}
+	} else {
+		return err
 	}
-	inventoryBytes, err := CanonicalJSON(inventory)
+	ledgerBytes, err := ledger.Serialize()
 	if err != nil {
 		return err
 	}
-	if err := writeRawFile(filepath.Join(protectedRoot, protectedCanaryFile),
-		append(inventoryBytes, '\n'), 0o644); err != nil {
-		return err
-	}
 
-	if err := writeRawFile(filepath.Join(protectedRoot, protectedPolicyFile),
-		append(policyDocument, '\n'), 0o644); err != nil {
-		return err
+	files := []generatedStateFile{
+		{existingSecretPath, []byte(input.Secret + "\n"), 0o600},
+		{filepath.Join(root, repoCorporaDir, "public/scenarios.jsonl"), publicBytes, 0o644},
+		{filepath.Join(root, repoCorporaDir, "handshake/cases.jsonl"), handshakeBytes, 0o644},
+		{filepath.Join(protectedRoot, protectedHiddenLines), hiddenBytes, 0o644},
+		{filepath.Join(protectedRoot, protectedSealedLines), sealedBytes, 0o644},
+		{filepath.Join(protectedRoot, protectedCanaryFile), append(inventoryBytes, '\n'), 0o644},
+		{filepath.Join(protectedRoot, protectedPolicyFile), append(policyDocument, '\n'), 0o644},
+		{ledgerPath, ledgerBytes, 0o644},
 	}
-
-	ledgerPath := filepath.Join(protectedRoot, protectedLedgerFile)
-	if _, err := os.Stat(ledgerPath); os.IsNotExist(err) {
-		ledger, err := NewLedger(DefaultCustodianPolicy(), input.Epoch)
+	for _, tier := range []string{"public", "handshake", "hidden", "sealed"} {
+		rendered, err := renderedJSON(manifests[tier])
 		if err != nil {
 			return err
 		}
-		serialized, err := ledger.Serialize()
-		if err != nil {
-			return err
-		}
-		if err := writeRawFile(ledgerPath, serialized, 0o644); err != nil {
-			return err
-		}
+		files = append(files, generatedStateFile{
+			filepath.Join(root, repoCorporaDir, tier, "manifest.json"), rendered, 0o644})
 	}
-	return nil
+	return replaceGeneratedState(files)
 }
 
 func readManifest(path string) (map[string]any, error) {
@@ -376,6 +566,18 @@ func readManifest(path string) (map[string]any, error) {
 // secret, then reconciles all repo and protected artifacts byte-for-byte and
 // every manifest field-for-field. Any mismatch blocks.
 func VerifyAll(root, protectedRoot string) ([]Finding, error) {
+	if err := os.MkdirAll(filepath.Dir(ProtectedLedgerPath(protectedRoot)), 0o755); err != nil {
+		return nil, err
+	}
+	unlock, err := acquireFileLock(ProtectedLedgerPath(protectedRoot) + ".lock")
+	if err != nil {
+		return nil, fmt.Errorf("custodian ledger lock: %w", err)
+	}
+	defer unlock()
+	return verifyAllLocked(root, protectedRoot)
+}
+
+func verifyAllLocked(root, protectedRoot string) ([]Finding, error) {
 	var findings []Finding
 	fail := func(code, path, detail string) {
 		findings = append(findings, Finding{Code: code, Path: path, Detail: detail})
@@ -392,7 +594,10 @@ func VerifyAll(root, protectedRoot string) ([]Finding, error) {
 	generator, _ := publicManifest["generator"].(map[string]any)
 	publicSeed, _ := generator["public_seed"].(string)
 	heldOutGenerator, _ := hiddenManifest["generator"].(map[string]any)
-	epochValue, _ := heldOutGenerator["epoch"].(float64)
+	epoch, epochOK := gateCounter(heldOutGenerator, "epoch")
+	if !epochOK || epoch < 1 {
+		return nil, fmt.Errorf("hidden manifest generator epoch is missing or non-integral")
+	}
 
 	secretRaw, err := os.ReadFile(filepath.Join(protectedRoot, protectedSecretFile))
 	if err != nil {
@@ -401,7 +606,7 @@ func VerifyAll(root, protectedRoot string) ([]Finding, error) {
 	input := GenerationInput{
 		PublicSeed: publicSeed,
 		Secret:     strings.TrimSpace(string(secretRaw)),
-		Epoch:      int(epochValue),
+		Epoch:      epoch,
 	}
 	generated, err := GenerateAll(input)
 	if err != nil {
@@ -502,6 +707,14 @@ func VerifyAll(root, protectedRoot string) ([]Finding, error) {
 	if err != nil {
 		fail("CANARY_INVENTORY_UNREADABLE", protectedCanaryFile, err.Error())
 	} else {
+		wantCanary, inventoryErr := buildCanaryInventory(input, generated)
+		if inventoryErr != nil {
+			return nil, inventoryErr
+		}
+		if !bytes.Equal(canaryRaw, append(wantCanary, '\n')) {
+			fail("CANARY_INVENTORY_MISMATCH", protectedCanaryFile,
+				"inventory does not reconcile with the active generation epoch")
+		}
 		// The leak scan covers every repository file (not just corpus
 		// artifacts), skipping only .git and the quarantine store.
 		for _, finding := range scanRepoForCanaryLeaks(root, generated.CanaryTokens) {
@@ -519,8 +732,19 @@ func VerifyAll(root, protectedRoot string) ([]Finding, error) {
 	ledgerRaw, err := os.ReadFile(filepath.Join(protectedRoot, protectedLedgerFile))
 	if err != nil {
 		fail("LEDGER_UNREADABLE", protectedLedgerFile, err.Error())
-	} else if _, err := LoadLedger(ledgerRaw); err != nil {
+	} else if ledger, err := LoadLedger(ledgerRaw); err != nil {
 		fail("LEDGER_INVALID", protectedLedgerFile, err.Error())
+	} else {
+		if ledger.Epoch() != input.Epoch {
+			fail("LEDGER_EPOCH_MISMATCH", protectedLedgerFile, fmt.Sprintf(
+				"ledger active epoch %d does not match manifest/policy/canary epoch %d",
+				ledger.Epoch(), input.Epoch))
+		}
+		policy := DefaultCustodianPolicy()
+		if ledger.policy != policy {
+			fail("LEDGER_POLICY_MISMATCH", protectedLedgerFile,
+				"ledger policy does not match the committed custodian policy")
+		}
 	}
 
 	// The live portion of the evidence contract: recorded executions and

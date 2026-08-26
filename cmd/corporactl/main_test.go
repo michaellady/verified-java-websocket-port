@@ -90,6 +90,43 @@ func TestGenerateVerifyCalibrateEndToEnd(t *testing.T) {
 	}
 }
 
+func TestVerifyCLIRejectsTamperedCalibrationManifestReference(t *testing.T) {
+	root := t.TempDir()
+	protectedRoot := t.TempDir()
+	if code, _, stderr := runCLI(t, "generate", "--root", root,
+		"--protected-root", protectedRoot); code != 0 {
+		t.Fatalf("generate: %s", stderr)
+	}
+	if code, _, stderr := runCLI(t, "calibrate", "--root", root,
+		"--protected-root", protectedRoot); code != 0 {
+		t.Fatalf("calibrate: %s", stderr)
+	}
+	path := filepath.Join(root, "evidence/corpus-calibration.json")
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(raw, &document); err != nil {
+		t.Fatal(err)
+	}
+	public := document["corpora"].(map[string]any)["public"].(map[string]any)
+	public["expected"] = int(public["expected"].(float64)) + 1
+	mutated, err := json.MarshalIndent(document, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(mutated, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, stdout, stderr := runCLI(t, "verify", "--root", root,
+		"--protected-root", protectedRoot)
+	if code == 0 || !strings.Contains(stdout, "CALIBRATION_MANIFEST_COUNT_MISMATCH") {
+		t.Fatalf("verify must reject stale calibration count: code=%d stdout=%s stderr=%s",
+			code, stdout, stderr)
+	}
+}
+
 func TestOracleRequestsEmitsJSONL(t *testing.T) {
 	root := t.TempDir()
 	protectedRoot := t.TempDir()

@@ -76,6 +76,25 @@ func recordLiveExecution(t *testing.T, root, protectedRoot string,
 	return manifestPath, transcriptPath
 }
 
+func rebindCalibrationManifestReference(t *testing.T, root, tier string) {
+	t.Helper()
+	calibrationPath := filepath.Join(root, "evidence/corpus-calibration.json")
+	document, err := readManifest(calibrationPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(root, repoCorporaDir, tier, "manifest.json")
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := document["corpora"].(map[string]any)[tier].(map[string]any)
+	entry["manifest_sha256"] = DigestSHA256(raw)
+	if err := writeJSONFile(calibrationPath, document); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // A pending corpus has no live findings; a faithfully recorded execution
 // reconciles end to end, including through VerifyAll.
 func TestVerifyLiveEvidenceCleanPaths(t *testing.T) {
@@ -180,6 +199,147 @@ func TestVerifyLiveEvidenceTamperCases(t *testing.T) {
 	}
 }
 
+// Digest-bound files are not sufficient evidence: verification replays the
+// transcript and reconciles both the retained report and manifest counters.
+func TestVerifyLiveEvidenceReplaysTranscriptAndReport(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	manifestPath, transcriptPath := recordLiveExecution(t, root, protectedRoot, generated)
+	reportPath := filepath.Join(protectedRoot, ProtectedDirName, "live/public/report.json")
+
+	transcript, err := os.ReadFile(transcriptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := bytes.Split(bytes.TrimRight(transcript, "\n"), []byte("\n"))
+	var first map[string]any
+	if err := json.Unmarshal(lines[0], &first); err != nil {
+		t.Fatal(err)
+	}
+	if first["final_state"] == "OPEN" {
+		first["final_state"] = "CLOSED"
+	} else {
+		first["final_state"] = "OPEN"
+	}
+	lines[0], err = json.Marshal(first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mutatedTranscript := append(bytes.Join(lines, []byte("\n")), '\n')
+	if err := os.WriteFile(transcriptPath, mutatedTranscript, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err := readManifest(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest["execution_evidence"].(map[string]any)["transcript_sha256"] =
+		DigestSHA256(mutatedTranscript)
+	if err := writeJSONFile(manifestPath, manifest); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findingCodes(findings)["TRANSCRIPT_SEMANTIC_MISMATCH"] == 0 {
+		t.Fatalf("digest-rebound semantic transcript drift must block: %v", findings)
+	}
+
+	// Restore the transcript, then forge a self-digested report whose counters
+	// disagree with the replay while leaving the manifest counters faithful.
+	recordLiveExecution(t, root, protectedRoot, generated)
+	reportRaw, err := os.ReadFile(reportPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var report map[string]any
+	if err := json.Unmarshal(reportRaw, &report); err != nil {
+		t.Fatal(err)
+	}
+	report["passed"] = int(report["passed"].(float64)) - 1
+	report["failed"] = 1
+	forgedReport, err := json.MarshalIndent(report, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(reportPath, forgedReport, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	manifest, err = readManifest(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest["execution_evidence"].(map[string]any)["report_sha256"] =
+		DigestSHA256(forgedReport)
+	if err := writeJSONFile(manifestPath, manifest); err != nil {
+		t.Fatal(err)
+	}
+	findings, err = VerifyLiveEvidence(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if findingCodes(findings)["REPORT_SEMANTIC_MISMATCH"] == 0 {
+		t.Fatalf("digest-rebound report drift must block: %v", findings)
+	}
+}
+
+// Calibration corpus references bind the exact manifest path, bytes, and
+// generation counts. Self-consistent-looking zero or stale references block.
+func TestVerifyCalibrationCorpusReferences(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	document, err := BuildCalibration(root, protectedRoot, generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	calibrationPath := filepath.Join(root, "evidence/corpus-calibration.json")
+
+	tests := map[string]struct {
+		mutate func(map[string]any)
+		code   string
+	}{
+		"all-zero digest": {
+			mutate: func(entry map[string]any) { entry["manifest_sha256"] = "sha256:" + zero64() },
+			code:   "CALIBRATION_MANIFEST_DIGEST_INVALID",
+		},
+		"tampered digest": {
+			mutate: func(entry map[string]any) { entry["manifest_sha256"] = DigestSHA256([]byte("tampered")) },
+			code:   "CALIBRATION_MANIFEST_DIGEST_MISMATCH",
+		},
+		"count mismatch": {
+			mutate: func(entry map[string]any) { entry["selected"] = len(generated.Public) + 1 },
+			code:   "CALIBRATION_MANIFEST_COUNT_MISMATCH",
+		},
+		"wrong path": {
+			mutate: func(entry map[string]any) { entry["manifest_path"] = "corpora/hidden/manifest.json" },
+			code:   "CALIBRATION_MANIFEST_PATH_MISMATCH",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			copyRaw, err := json.Marshal(document)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var mutated map[string]any
+			if err := json.Unmarshal(copyRaw, &mutated); err != nil {
+				t.Fatal(err)
+			}
+			entry := mutated["corpora"].(map[string]any)["public"].(map[string]any)
+			tc.mutate(entry)
+			if err := writeJSONFile(calibrationPath, mutated); err != nil {
+				t.Fatal(err)
+			}
+			findings, err := VerifyLiveEvidence(root, protectedRoot)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if findingCodes(findings)[tc.code] == 0 {
+				t.Fatalf("missing %s: %v", tc.code, findings)
+			}
+		})
+	}
+}
+
 // A PASS gate must record measured work: executed >= 1, and every recorded
 // counter must be a genuine integer. Zero-execution PASS claims and
 // missing/mistyped counters are distinct typed blocks — never silently zero.
@@ -193,6 +353,7 @@ func TestVerifyLiveEvidenceGateExecutionRigor(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, transcriptPath := recordLiveExecution(t, root, protectedRoot, generated)
+	rebindCalibrationManifestReference(t, root, "public")
 	transcriptRaw, err := os.ReadFile(transcriptPath)
 	if err != nil {
 		t.Fatal(err)
@@ -345,6 +506,7 @@ func TestVerifyLiveEvidenceCalibrationGateConsistency(t *testing.T) {
 	}
 
 	_, transcriptPath := recordLiveExecution(t, root, protectedRoot, generated)
+	rebindCalibrationManifestReference(t, root, "public")
 	transcriptRaw, err := os.ReadFile(transcriptPath)
 	if err != nil {
 		t.Fatal(err)

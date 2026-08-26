@@ -3,6 +3,7 @@ package corpora
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -224,5 +225,72 @@ func TestEvaluateErrorOutcomeRequiresFinalStateAndCounts(t *testing.T) {
 	withoutState, _ := json.Marshal(parsed)
 	if passed, _ := EvaluateOracleResponse(errScenario, withoutState); passed {
 		t.Fatal("error response without final_state must fail")
+	}
+}
+
+// Behavior-oracle responses are security evidence, so their JSON envelope,
+// runtime identity, and numeric close code are all fail-closed.
+func TestEvaluateOracleResponseRejectsUnboundOrNonStrictEvidence(t *testing.T) {
+	generated, err := GenerateAll(testInput())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scenario Scenario
+	for _, candidate := range generated.Public {
+		if candidate.Expected.Outcome == "error" && candidate.Expected.Error != nil &&
+			candidate.Expected.Error.CloseCode != nil {
+			scenario = candidate
+			break
+		}
+	}
+	if scenario.ScenarioID == "" {
+		t.Fatal("no error scenario with a close code")
+	}
+	faithful, err := synthesizeResponse(scenario)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if passed, detail := EvaluateOracleResponse(scenario, faithful); !passed {
+		t.Fatalf("faithful response must pass: %s", detail)
+	}
+
+	mutateObject := func(change func(map[string]any)) []byte {
+		t.Helper()
+		var response map[string]any
+		if err := json.Unmarshal(faithful, &response); err != nil {
+			t.Fatal(err)
+		}
+		change(response)
+		mutated, err := json.Marshal(response)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return mutated
+	}
+	tests := map[string][]byte{
+		"missing runtime": mutateObject(func(response map[string]any) {
+			delete(response, "runtime")
+		}),
+		"wrong runtime artifact": mutateObject(func(response map[string]any) {
+			response["runtime"].(map[string]any)["artifact"] = "org.java-websocket:Java-WebSocket:1.5.7"
+		}),
+		"wrong runtime digest": mutateObject(func(response map[string]any) {
+			response["runtime"].(map[string]any)["sha256"] = "sha256:" + zero64()
+		}),
+		"fractional close code": bytes.Replace(faithful,
+			[]byte(fmt.Sprintf(`"close_code":%d`, *scenario.Expected.Error.CloseCode)),
+			[]byte(fmt.Sprintf(`"close_code":%d.5`, *scenario.Expected.Error.CloseCode)), 1),
+		"unknown field": append(append([]byte{}, faithful[:len(faithful)-1]...),
+			[]byte(`,"untrusted":true}`)...),
+		"duplicate field": append(append([]byte{}, faithful[:len(faithful)-1]...),
+			[]byte(`,"protocol":"java-websocket-oracle"}`)...),
+		"trailing value": append(append([]byte{}, faithful...), []byte(` {}`)...),
+	}
+	for name, response := range tests {
+		t.Run(name, func(t *testing.T) {
+			if passed, detail := EvaluateOracleResponse(scenario, response); passed {
+				t.Fatalf("mutation must fail closed: %s", detail)
+			}
+		})
 	}
 }

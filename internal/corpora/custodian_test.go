@@ -113,6 +113,37 @@ func TestLedgerProbingDetectionLocksUntilRotation(t *testing.T) {
 	}
 }
 
+// Reload reconstructs probing counters only from the active epoch. Queries
+// from a prior epoch must not shorten the fresh epoch's repeat threshold.
+func TestLoadLedgerResetsRepeatCountersAtRotation(t *testing.T) {
+	ledger := newTestLedger(t)
+	for i := 0; i < 2; i++ {
+		if err := ledger.RecordQuery("us005.hid.0001", "same-query"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := ledger.Rotate(2); err != nil {
+		t.Fatal(err)
+	}
+	serialized, err := ledger.Serialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := LoadLedger(serialized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 2; i++ {
+		if err := restored.RecordQuery("us005.hid.0001", "same-query"); err != nil {
+			t.Fatalf("active-epoch query %d tripped stale probing state: %v", i+1, err)
+		}
+	}
+	if err := restored.RecordQuery("us005.hid.0001", "same-query"); err == nil ||
+		!strings.Contains(err.Error(), "PROBING_DETECTED") {
+		t.Fatalf("third active-epoch repeat must trigger probing, got %v", err)
+	}
+}
+
 // Canary leak detection: any public artifact containing a canary token is a
 // held-out leak finding.
 func TestDetectCanaryLeak(t *testing.T) {

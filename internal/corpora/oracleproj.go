@@ -69,7 +69,7 @@ func synthesizeResponse(sc Scenario) ([]byte, error) {
 	}
 	runtime := map[string]any{
 		"artifact": oracleRuntimeArtifact,
-		"sha256":   oracleRuntimeSHA256,
+		"sha256":   "sha256:" + oracleRuntimeSHA256,
 	}
 	if sc.Expected.Outcome == "ok" {
 		var closeValue any
@@ -137,13 +137,45 @@ func fieldCanonical(value any) (string, error) {
 	return string(canonical), nil
 }
 
+type oracleResponseRuntime struct {
+	Artifact string `json:"artifact"`
+	SHA256   string `json:"sha256"`
+}
+
+type oracleResponseError struct {
+	Code      string `json:"code"`
+	Detail    string `json:"detail"`
+	CloseCode *int   `json:"close_code,omitempty"`
+}
+
+type oracleResponseEnvelope struct {
+	Outcome       string                 `json:"outcome"`
+	Protocol      string                 `json:"protocol"`
+	RequestDigest string                 `json:"request_digest"`
+	RequestID     string                 `json:"request_id"`
+	Version       string                 `json:"version"`
+	Runtime       *oracleResponseRuntime `json:"runtime"`
+	Error         *oracleResponseError   `json:"error,omitempty"`
+	Close         json.RawMessage        `json:"close,omitempty"`
+	Counts        *Counts                `json:"counts,omitempty"`
+	Events        json.RawMessage        `json:"events,omitempty"`
+	FinalState    string                 `json:"final_state,omitempty"`
+	Frames        json.RawMessage        `json:"frames,omitempty"`
+	InitialState  string                 `json:"initial_state,omitempty"`
+	Role          string                 `json:"role,omitempty"`
+	Transitions   json.RawMessage        `json:"transitions,omitempty"`
+}
+
 // EvaluateOracleResponse compares one response line against a scenario's
 // expectation. Success outcomes compare the full semantic surface; error
 // outcomes compare the rejection code, close code, and final state.
 func EvaluateOracleResponse(sc Scenario, responseLine []byte) (bool, string) {
+	var envelope oracleResponseEnvelope
+	if err := decodeStrictJSON(responseLine, &envelope); err != nil {
+		return false, "response is not strict JSON: " + err.Error()
+	}
 	var response map[string]any
-	decoder := json.NewDecoder(bytes.NewReader(responseLine))
-	if err := decoder.Decode(&response); err != nil {
+	if err := json.Unmarshal(responseLine, &response); err != nil {
 		return false, "response is not valid JSON: " + err.Error()
 	}
 	request, err := OracleRequest(sc)
@@ -160,26 +192,42 @@ func EvaluateOracleResponse(sc Scenario, responseLine []byte) (bool, string) {
 	if response["protocol"] != oracleProtocol || response["version"] != oracleVersion {
 		return false, "protocol pin mismatch"
 	}
+	if envelope.Runtime == nil {
+		return false, "runtime binding absent: response does not attest the accepted runtime"
+	}
+	if envelope.Runtime.Artifact != oracleRuntimeArtifact {
+		return false, fmt.Sprintf("runtime artifact %q does not bind the accepted runtime %q",
+			envelope.Runtime.Artifact, oracleRuntimeArtifact)
+	}
+	if envelope.Runtime.SHA256 != "sha256:"+oracleRuntimeSHA256 {
+		return false, fmt.Sprintf("runtime sha256 %q does not bind the pinned jar digest sha256:%s",
+			envelope.Runtime.SHA256, oracleRuntimeSHA256)
+	}
 	if response["outcome"] != sc.Expected.Outcome {
 		return false, fmt.Sprintf("outcome %v, expected %s",
 			response["outcome"], sc.Expected.Outcome)
 	}
 	if sc.Expected.Outcome == "error" {
-		errorMap, _ := response["error"].(map[string]any)
-		if errorMap == nil {
+		for _, field := range []string{"close", "events", "frames", "initial_state", "role", "transitions"} {
+			if _, present := response[field]; present {
+				return false, "unexpected " + field + " on error response"
+			}
+		}
+		if envelope.Error == nil {
 			return false, "error outcome without error object"
 		}
-		if errorMap["code"] != sc.Expected.Error.Code {
+		if envelope.Error.Code != sc.Expected.Error.Code {
 			return false, fmt.Sprintf("error code %v, expected %s",
-				errorMap["code"], sc.Expected.Error.Code)
+				envelope.Error.Code, sc.Expected.Error.Code)
 		}
 		if sc.Expected.Error.CloseCode != nil {
-			closeCode, isNumber := errorMap["close_code"].(float64)
-			if !isNumber || int(closeCode) != *sc.Expected.Error.CloseCode {
+			if envelope.Error.CloseCode == nil || *envelope.Error.CloseCode < 0 ||
+				*envelope.Error.CloseCode > 65535 ||
+				*envelope.Error.CloseCode != *sc.Expected.Error.CloseCode {
 				return false, fmt.Sprintf("close_code %v, expected %d",
-					errorMap["close_code"], *sc.Expected.Error.CloseCode)
+					envelope.Error.CloseCode, *sc.Expected.Error.CloseCode)
 			}
-		} else if _, present := errorMap["close_code"]; present {
+		} else if envelope.Error.CloseCode != nil {
 			return false, "unexpected close_code on error"
 		}
 		// The oracle's failure responses carry final_state and counts;
@@ -209,6 +257,9 @@ func EvaluateOracleResponse(sc Scenario, responseLine []byte) (bool, string) {
 				clip(gotCounts), clip(wantCounts))
 		}
 		return true, ""
+	}
+	if _, present := response["error"]; present {
+		return false, "unexpected error on successful response"
 	}
 
 	expectedFields := map[string]any{
