@@ -29,6 +29,7 @@ func TestVerifyOnRealTreeExitsHostBindingPending(t *testing.T) {
 		"host_identity.allocation_evidence",
 		"tool_identities.analyzer",
 		"attestation: plan UNATTESTED",
+		"meter ok",
 	} {
 		if !strings.Contains(output, required) {
 			t.Errorf("verify output missing %q\noutput: %s", required, output)

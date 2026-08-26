@@ -18,12 +18,12 @@ type fakeRunner struct {
 	failures    map[string]int // command prefix -> remaining failures
 }
 
-func (r *fakeRunner) output(name string, arguments ...string) ([]byte, error) {
+func (r *fakeRunner) Output(name string, arguments ...string) ([]byte, error) {
 	r.invocations = append(r.invocations, name+" "+strings.Join(arguments, " "))
 	return r.listing, r.listingErr
 }
 
-func (r *fakeRunner) run(directory, name string, arguments ...string) error {
+func (r *fakeRunner) Run(directory, name string, arguments ...string) error {
 	invocation := name + " " + strings.Join(arguments, " ")
 	r.invocations = append(r.invocations, invocation)
 	for prefix, remaining := range r.failures {

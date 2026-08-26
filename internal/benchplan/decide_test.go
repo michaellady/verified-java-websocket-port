@@ -239,6 +239,42 @@ func TestDecideMeasuredBoundSideMutationIsBindingMismatch(t *testing.T) {
 	}
 }
 
+// Review fix round 2: a non-nil closure missing a field is a MISSING
+// binding (nothing valid to compare against), never a mismatch.
+func TestDecideMeasuredPartialClosureIsBindingMissingNotMismatch(t *testing.T) {
+	for _, name := range RequiredSampleBindings {
+		set, closure := measuredSet(t)
+		delete(closure, name)
+		decision := DecideEndpoint(set, closure)
+		if decision.Outcome != OutcomeBlocked {
+			t.Errorf("%s absent from closure: outcome %s (%v), want %s", name, decision.Outcome, decision.Reasons, OutcomeBlocked)
+			continue
+		}
+		if !codesContain(decision.Codes, CodeBindingMissing) {
+			t.Errorf("%s absent from closure: codes %v must contain %s", name, decision.Codes, CodeBindingMissing)
+		}
+		if codesContain(decision.Codes, CodeBindingMismatch) {
+			t.Errorf("%s absent from closure: codes %v must NOT contain %s", name, decision.Codes, CodeBindingMismatch)
+		}
+		if !reasonsContain(decision.Reasons, name) {
+			t.Errorf("%s absent from closure: reasons %v must name the missing field", name, decision.Reasons)
+		}
+	}
+	// Same for a malformed and a zero bound identity.
+	set, closure := measuredSet(t)
+	closure["analyzer_digest"] = "sha256:not-a-digest"
+	decision := DecideEndpoint(set, closure)
+	if decision.Outcome != OutcomeBlocked || !codesContain(decision.Codes, CodeBindingMissing) || codesContain(decision.Codes, CodeBindingMismatch) {
+		t.Fatalf("malformed bound identity: outcome %s codes %v, want BLOCKED with %s only", decision.Outcome, decision.Codes, CodeBindingMissing)
+	}
+	set, closure = measuredSet(t)
+	closure["plan_digest"] = "sha256:" + strings.Repeat("0", 64)
+	decision = DecideEndpoint(set, closure)
+	if decision.Outcome != OutcomeBlocked || !codesContain(decision.Codes, CodeBindingMissing) || codesContain(decision.Codes, CodeBindingMismatch) {
+		t.Fatalf("zero bound identity: outcome %s codes %v, want BLOCKED with %s only", decision.Outcome, decision.Codes, CodeBindingMissing)
+	}
+}
+
 func TestDecideMeasuredWithoutClosureIsBlocked(t *testing.T) {
 	set, _ := measuredSet(t)
 	decision := DecideEndpoint(set, nil)

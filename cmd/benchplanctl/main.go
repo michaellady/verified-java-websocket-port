@@ -99,6 +99,14 @@ func runVerify(arguments []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stdout, "power-model ok (named alternatives detectable at alpha 0.025, power 0.8, max log-SD 0.10, n=30)")
 	}
 
+	if len(report.MeterFailures) > 0 {
+		fmt.Fprintln(stdout, "meter FAIL (METER_TAMPERED — the completion meter is code+schema truth, not document truth):")
+		for _, failure := range report.MeterFailures {
+			fmt.Fprintf(stdout, "  - %s\n", failure)
+		}
+	} else {
+		fmt.Fprintln(stdout, "meter ok (declared roles and required_binding_fields match the canonical per-role lists)")
+	}
 	fmt.Fprintf(stdout, "attestation: plan %s", report.PlanAttestationState)
 	environmentDocuments := make([]string, 0, len(report.EnvironmentBindingStatus))
 	for document := range report.EnvironmentBindingStatus {

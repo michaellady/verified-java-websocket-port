@@ -71,11 +71,26 @@ top of the frozen preregistration:
   records carry `run_validity_observations` (background CPU, thermal,
   power, identity, invalid samples, drift) enforced fail-closed by the
   engine (`RUN_VALIDITY_MISSING` / `RUN_VALIDITY_VIOLATION`).
-- **Go-over-shell (I6).** The runner stub is the Go binary
-  `cmd/benchrunner` (same refusal/sentinel semantics, self-check never
-  skipped); the janitor's selection and destroy loops live in
-  `cmd/benchjanitor`, and both workflows are thin invocations
-  (actionlint-clean).
+- **Go-over-shell (I6, completed in round 2).** The runner stub is the
+  Go binary `cmd/benchrunner` (same refusal/sentinel semantics,
+  self-check never skipped). Every workflow step containing a
+  conditional, loop, or state machine is a one-line invocation of a
+  unit-tested Go helper: `cmd/benchjanitor` (orphan selection + batch
+  destroy) and `cmd/benchops` (apply/destroy var construction, destroy
+  retries, workspace delete, SSM online wait, SSM send+poll, leftover-
+  host verification), sharing the `internal/benchexec` transport seam.
+  The only remaining multi-line shell steps are strictly linear
+  transport command sequences with no conditionals or loops (workspace
+  name derivation, terraform init backend flags, output capture, build
+  + upload, s3 sync, job summary). Both workflows are actionlint-clean.
+- **Canonical binding meter (round 2 BLOCKING fix).** The
+  required-binding-field lists are code+schema truth, not document
+  truth: `internal/benchplan.CanonicalBindingFields` freezes the
+  per-role lists (primary 20, confirmation 23), the environment schema
+  consts them per role, the filename-to-role contract is enforced, and
+  `benchplanctl verify` meters the CANONICAL list and fails with
+  `METER_TAMPERED` on any divergence — a document shrinking its own
+  list can never reach a bound verdict.
 
 The pipeline fails closed at every missing prerequisite by design.
 

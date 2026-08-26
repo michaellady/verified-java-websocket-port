@@ -28,7 +28,73 @@ const (
 	// confirmation-host fields and measurement/analyzer tool identities
 	// that only the owner can bind.
 	BlockerHostBindingPending = "HOST_BINDING_PENDING"
+	// BlockerMeterTampered: an environment document's declared role or
+	// required_binding_fields disagrees with the canonical per-role
+	// list frozen in this package — the completion meter is code+schema
+	// truth, never document truth (review fix round 2).
+	BlockerMeterTampered = "METER_TAMPERED"
 )
+
+// EnvironmentRoleByDocument is the filename-to-role contract: each
+// environment document must declare exactly this role.
+var EnvironmentRoleByDocument = map[string]string{
+	"benchmarks/environments/primary-macos.json": "primary",
+	"benchmarks/environments/confirmation.json":  "confirmation",
+}
+
+// CanonicalBindingFields is the canonical, frozen required-binding-field
+// list per environment role. The validator meters THESE fields and fails
+// with METER_TAMPERED if a document declares any other list, so a
+// document cannot shrink its own completion meter.
+var CanonicalBindingFields = map[string][]string{
+	"primary": {
+		"host_identity.os_product_version",
+		"host_identity.os_build_version",
+		"host_identity.hardware_model_identifier",
+		"host_identity.cpu_brand",
+		"host_identity.cpu_logical_cores",
+		"host_identity.cpu_performance_cores",
+		"host_identity.cpu_efficiency_cores",
+		"host_identity.memory_total_bytes",
+		"host_identity.power_source_state",
+		"host_identity.low_power_mode_state",
+		"host_identity.thermal_pressure_state",
+		"host_identity.background_process_census",
+		"host_identity.clock_sync_state",
+		"tool_identities.java_runtime",
+		"tool_identities.rust_toolchain",
+		"tool_identities.java_executable_digest",
+		"tool_identities.rust_executable_digest",
+		"tool_identities.load_driver",
+		"tool_identities.measurement_tools",
+		"tool_identities.analyzer",
+	},
+	"confirmation": {
+		"host_identity.instance_type",
+		"host_identity.instance_id",
+		"host_identity.observed_architecture",
+		"host_identity.allocation_evidence",
+		"host_identity.region",
+		"host_identity.availability_zone",
+		"host_identity.ami_id",
+		"host_identity.ami_name",
+		"host_identity.os_identity",
+		"host_identity.kernel_identity",
+		"host_identity.cpu_model",
+		"host_identity.cpu_frequency_policy",
+		"host_identity.memory_total_bytes",
+		"host_identity.numa_topology",
+		"host_identity.clocksource",
+		"tool_identities.java_runtime",
+		"tool_identities.rust_toolchain",
+		"tool_identities.java_executable_digest",
+		"tool_identities.rust_executable_digest",
+		"tool_identities.load_driver",
+		"tool_identities.measurement_tools",
+		"tool_identities.analyzer",
+		"tool_identities.runner",
+	},
+}
 
 // BenchmarkDocuments maps each benchmark document (repo-relative) to its
 // schema in schemas/.
@@ -53,6 +119,10 @@ type Report struct {
 	PowerFailures         []string
 	UnboundFields         []UnboundField
 	RuntimeSnapshotFields []UnboundField
+	// MeterFailures are canonical-meter integrity violations: a wrong
+	// declared role or a required_binding_fields list that differs from
+	// the canonical per-role list (METER_TAMPERED).
+	MeterFailures []string
 	// PlanAttestationState is the plan's machine-readable attestation
 	// state (UNATTESTED until the owner's independent attestation).
 	PlanAttestationState string
@@ -162,18 +232,19 @@ func Verify(root string) (Report, error) {
 		"benchmarks/environments/primary-macos.json",
 		"benchmarks/environments/confirmation.json",
 	} {
-		unbound, snapshots, bindingStatus, err := environmentCompletionMeter(root, document)
+		meter, err := environmentCompletionMeter(root, document, EnvironmentRoleByDocument[document])
 		if err != nil {
 			return report, err
 		}
-		report.UnboundFields = append(report.UnboundFields, unbound...)
-		report.RuntimeSnapshotFields = append(report.RuntimeSnapshotFields, snapshots...)
-		report.EnvironmentBindingStatus[document] = bindingStatus
+		report.UnboundFields = append(report.UnboundFields, meter.unbound...)
+		report.RuntimeSnapshotFields = append(report.RuntimeSnapshotFields, meter.snapshots...)
+		report.MeterFailures = append(report.MeterFailures, meter.failures...)
+		report.EnvironmentBindingStatus[document] = meter.bindingStatus
 		// A document may not claim BOUND while any of its required
 		// binding fields is still pending (fail-closed consistency).
-		if bindingStatus == "BOUND" && len(unbound) > 0 {
+		if meter.bindingStatus == "BOUND" && len(meter.unbound) > 0 {
 			report.PlanFailures = append(report.PlanFailures, fmt.Sprintf(
-				"%s declares binding_status BOUND while %d required binding field(s) are still unbound", document, len(unbound)))
+				"%s declares binding_status BOUND while %d required binding field(s) are still unbound", document, len(meter.unbound)))
 		}
 	}
 
@@ -185,6 +256,9 @@ func Verify(root string) (Report, error) {
 	}
 	if len(report.PowerFailures) > 0 {
 		report.BlockerClasses = append(report.BlockerClasses, BlockerPowerModelInvalid)
+	}
+	if len(report.MeterFailures) > 0 {
+		report.BlockerClasses = append(report.BlockerClasses, BlockerMeterTampered)
 	}
 	// The owner-gated gap is host/tool binding AND its attestation:
 	// syntactically complete field values with UNBOUND/UNATTESTED
@@ -335,44 +409,86 @@ func verifyPlanAgainstSpec(root string) ([]string, string, error) {
 	return failures, plan.AttestationState, nil
 }
 
-func environmentCompletionMeter(root, document string) (unbound, snapshots []UnboundField, bindingStatus string, err error) {
+// meterResult is one environment document's completion-meter outcome.
+type meterResult struct {
+	unbound       []UnboundField
+	snapshots     []UnboundField
+	failures      []string
+	bindingStatus string
+}
+
+// environmentCompletionMeter meters the CANONICAL per-role field list —
+// never the document's own list — and reports METER_TAMPERED failures
+// when the document's declared role or required_binding_fields disagree
+// with the canon (review fix round 2: a document cannot shrink its own
+// completion meter).
+func environmentCompletionMeter(root, document, expectedRole string) (meterResult, error) {
+	var meter meterResult
+	canonical, known := CanonicalBindingFields[expectedRole]
+	if !known {
+		return meter, fmt.Errorf("%s: no canonical binding-field list for role %q", document, expectedRole)
+	}
 	content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(document)))
 	if err != nil {
-		return nil, nil, "", err
+		return meter, err
 	}
 	var environment environmentDocument
 	if err := json.Unmarshal(content, &environment); err != nil {
-		return nil, nil, "", fmt.Errorf("%s parse: %w", document, err)
+		return meter, fmt.Errorf("%s parse: %w", document, err)
 	}
+	meter.bindingStatus = environment.BindingStatus
+
+	if environment.Role != expectedRole {
+		meter.failures = append(meter.failures, fmt.Sprintf(
+			"%s declares role %q but the filename contract requires %q", document, environment.Role, expectedRole))
+	}
+	if len(environment.RequiredBindingFields) != len(canonical) {
+		meter.failures = append(meter.failures, fmt.Sprintf(
+			"%s declares %d required binding fields; the canonical %s list has %d (the meter is code+schema truth, not document truth)",
+			document, len(environment.RequiredBindingFields), expectedRole, len(canonical)))
+	} else {
+		for i, path := range environment.RequiredBindingFields {
+			if path != canonical[i] {
+				meter.failures = append(meter.failures, fmt.Sprintf(
+					"%s required_binding_fields[%d] is %q, the canonical %s list requires %q", document, i, path, expectedRole, canonical[i]))
+			}
+		}
+	}
+
 	sections := map[string]map[string]environmentField{
 		"host_identity":   environment.HostIdentity,
 		"run_policy":      environment.RunPolicy,
 		"tool_identities": environment.ToolIdentities,
 	}
-	for _, path := range environment.RequiredBindingFields {
+	for _, path := range canonical {
 		section, field, found := strings.Cut(path, ".")
 		records := sections[section]
 		if !found || records == nil {
-			return nil, nil, "", fmt.Errorf("%s: required binding field %q references an unknown section", document, path)
+			meter.failures = append(meter.failures, fmt.Sprintf(
+				"%s: canonical binding field %q references a missing section", document, path))
+			continue
 		}
 		record, present := records[field]
 		if !present {
-			return nil, nil, "", fmt.Errorf("%s: required binding field %q has no field record", document, path)
+			meter.failures = append(meter.failures, fmt.Sprintf(
+				"%s: canonical binding field %q has no field record", document, path))
+			continue
 		}
 		switch record.Status {
 		case "OWNER_DECISION_PENDING", "NOT_MEASURED":
-			unbound = append(unbound, UnboundField{Document: document, Path: path, Status: record.Status})
+			meter.unbound = append(meter.unbound, UnboundField{Document: document, Path: path, Status: record.Status})
 		case "PENDING_FREEZE_AT_MEASUREMENT":
-			snapshots = append(snapshots, UnboundField{Document: document, Path: path, Status: record.Status})
+			meter.snapshots = append(meter.snapshots, UnboundField{Document: document, Path: path, Status: record.Status})
 		case "OBSERVED", "PRD_VERBATIM", "PREREGISTERED_BY_DRIVER", "BOUND":
 			// Complete to the current honest extent.
 		default:
-			return nil, nil, "", fmt.Errorf("%s: field %q has unknown status %q", document, path, record.Status)
+			meter.failures = append(meter.failures, fmt.Sprintf(
+				"%s: field %q has unknown status %q", document, path, record.Status))
 		}
 	}
-	sort.Slice(unbound, func(i, j int) bool { return unbound[i].Path < unbound[j].Path })
-	sort.Slice(snapshots, func(i, j int) bool { return snapshots[i].Path < snapshots[j].Path })
-	return unbound, snapshots, environment.BindingStatus, nil
+	sort.Slice(meter.unbound, func(i, j int) bool { return meter.unbound[i].Path < meter.unbound[j].Path })
+	sort.Slice(meter.snapshots, func(i, j int) bool { return meter.snapshots[i].Path < meter.snapshots[j].Path })
+	return meter, nil
 }
 
 // validateAgainstSchema validates one document against a schema in

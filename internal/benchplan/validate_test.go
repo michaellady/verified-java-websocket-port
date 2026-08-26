@@ -41,6 +41,9 @@ func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 	if report.PlanAttestationState != "UNATTESTED" {
 		t.Errorf("plan attestation state %q, want UNATTESTED", report.PlanAttestationState)
 	}
+	if len(report.MeterFailures) != 0 {
+		t.Errorf("canonical tree must have zero meter failures, got %v", report.MeterFailures)
+	}
 	for document, bindingStatus := range report.EnvironmentBindingStatus {
 		if bindingStatus != "UNBOUND" {
 			t.Errorf("%s binding_status %q, want UNBOUND", document, bindingStatus)
@@ -285,6 +288,121 @@ func TestVerifyBoundStatusWithPendingFieldsIsInconsistent(t *testing.T) {
 	}
 	if !containsClass(report.BlockerClasses, BlockerPlanInconsistent) {
 		t.Fatalf("expected %s, got %v", BlockerPlanInconsistent, report.BlockerClasses)
+	}
+}
+
+func mutateEnvironment(t *testing.T, root, name string, mutate func(map[string]any)) {
+	t.Helper()
+	path := filepath.Join(root, "benchmarks", "environments", name)
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var environment map[string]any
+	if err := json.Unmarshal(content, &environment); err != nil {
+		t.Fatal(err)
+	}
+	mutate(environment)
+	writeJSON(t, path, environment)
+}
+
+// BLOCKING review fix round 2: a document that shrinks its own
+// required_binding_fields list must be caught against the canonical
+// list — the meter is code+schema truth, not document truth.
+func TestVerifyShrunkenMeterIsMeterTampered(t *testing.T) {
+	root := copyBenchmarkTree(t)
+	mutateEnvironment(t, root, "confirmation.json", func(environment map[string]any) {
+		environment["required_binding_fields"] = []any{"host_identity.instance_type"}
+		environment["binding_status"] = "BOUND"
+	})
+	report, err := Verify(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.MeterFailures) == 0 {
+		t.Fatal("a shrunken required_binding_fields list must be METER_TAMPERED")
+	}
+	if !containsClass(report.BlockerClasses, BlockerMeterTampered) {
+		t.Fatalf("expected %s, got %v", BlockerMeterTampered, report.BlockerClasses)
+	}
+	if len(report.SchemaFailures) == 0 {
+		t.Fatal("the per-role schema const must also reject the shrunken list")
+	}
+	if report.FullyBound() {
+		t.Fatal("a tampered meter must never verify as fully bound")
+	}
+	// The canonical meter still counts all 23 confirmation fields as
+	// unbound, regardless of what the document declares.
+	confirmationUnbound := 0
+	for _, field := range report.UnboundFields {
+		if strings.Contains(field.Document, "confirmation") {
+			confirmationUnbound++
+		}
+	}
+	if confirmationUnbound != 23 {
+		t.Fatalf("canonical meter must still count 23 unbound confirmation fields, got %d", confirmationUnbound)
+	}
+}
+
+func TestVerifyWrongRoleForFilenameIsMeterTampered(t *testing.T) {
+	root := copyBenchmarkTree(t)
+	mutateEnvironment(t, root, "confirmation.json", func(environment map[string]any) {
+		environment["role"] = "primary"
+	})
+	report, err := Verify(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsClass(report.BlockerClasses, BlockerMeterTampered) {
+		t.Fatalf("confirmation.json declaring role primary must be %s, got %v", BlockerMeterTampered, report.BlockerClasses)
+	}
+	found := false
+	for _, failure := range report.MeterFailures {
+		if strings.Contains(failure, "filename contract") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("meter failures must name the filename-to-role contract, got %v", report.MeterFailures)
+	}
+}
+
+func TestVerifyRemovedCanonicalFieldRecordIsMeterTampered(t *testing.T) {
+	root := copyBenchmarkTree(t)
+	mutateEnvironment(t, root, "confirmation.json", func(environment map[string]any) {
+		host := environment["host_identity"].(map[string]any)
+		delete(host, "allocation_evidence")
+	})
+	report, err := Verify(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !containsClass(report.BlockerClasses, BlockerMeterTampered) {
+		t.Fatalf("a removed canonical field record must be %s, got %v", BlockerMeterTampered, report.BlockerClasses)
+	}
+	// Note: required_binding_fields still lists it, so the document list
+	// itself matches canon; the record-existence walk catches the hole.
+	found := false
+	for _, failure := range report.MeterFailures {
+		if strings.Contains(failure, "allocation_evidence") && strings.Contains(failure, "no field record") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("meter failures must name the missing record, got %v", report.MeterFailures)
+	}
+}
+
+func TestCanonicalBindingFieldListsAreTheFrozenShapes(t *testing.T) {
+	if len(CanonicalBindingFields["primary"]) != 20 {
+		t.Errorf("canonical primary list has %d entries, want 20", len(CanonicalBindingFields["primary"]))
+	}
+	if len(CanonicalBindingFields["confirmation"]) != 23 {
+		t.Errorf("canonical confirmation list has %d entries, want 23", len(CanonicalBindingFields["confirmation"]))
+	}
+	if EnvironmentRoleByDocument["benchmarks/environments/primary-macos.json"] != "primary" ||
+		EnvironmentRoleByDocument["benchmarks/environments/confirmation.json"] != "confirmation" {
+		t.Error("filename-to-role contract must map primary-macos.json to primary and confirmation.json to confirmation")
 	}
 }
 

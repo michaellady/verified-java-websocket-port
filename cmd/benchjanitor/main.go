@@ -22,8 +22,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"regexp"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/benchexec"
 	"sort"
 	"strconv"
 	"strings"
@@ -34,37 +35,8 @@ const workspacePrefix = "bench-pr-"
 
 var stateKeyPattern = regexp.MustCompile(`^env:/(bench-pr-([0-9]+))/benchmark/terraform\.tfstate$`)
 
-// commandRunner abstracts subprocess execution so the loop logic is
-// testable without aws or terraform installed.
-type commandRunner interface {
-	// output runs a command and returns its stdout (stderr passes
-	// through to the caller's stderr).
-	output(name string, arguments ...string) ([]byte, error)
-	// run runs a command streaming stdout/stderr through.
-	run(directory, name string, arguments ...string) error
-}
-
-type execCommandRunner struct {
-	stdout io.Writer
-	stderr io.Writer
-}
-
-func (r execCommandRunner) output(name string, arguments ...string) ([]byte, error) {
-	command := exec.Command(name, arguments...)
-	command.Stderr = r.stderr
-	return command.Output()
-}
-
-func (r execCommandRunner) run(directory, name string, arguments ...string) error {
-	command := exec.Command(name, arguments...)
-	command.Dir = directory
-	command.Stdout = r.stdout
-	command.Stderr = r.stderr
-	return command.Run()
-}
-
 func main() {
-	runner := execCommandRunner{stdout: os.Stdout, stderr: os.Stderr}
+	runner := benchexec.ExecRunner{Stdout: os.Stdout, Stderr: os.Stderr}
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr, runner, time.Now, time.Sleep))
 }
 
@@ -74,7 +46,7 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  benchjanitor destroy --chdir DIR --numbers \"12 34\"")
 }
 
-func run(arguments []string, stdout, stderr io.Writer, runner commandRunner, now func() time.Time, sleep func(time.Duration)) int {
+func run(arguments []string, stdout, stderr io.Writer, runner benchexec.Runner, now func() time.Time, sleep func(time.Duration)) int {
 	if len(arguments) == 0 {
 		printUsage(stderr)
 		return 2
@@ -122,7 +94,7 @@ func selectOrphans(objects []stateObject, cutoff time.Time) (orphans []int, line
 	return orphans, lines
 }
 
-func runFind(arguments []string, stdout, stderr io.Writer, runner commandRunner, now func() time.Time) int {
+func runFind(arguments []string, stdout, stderr io.Writer, runner benchexec.Runner, now func() time.Time) int {
 	flags := flag.NewFlagSet("find", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	bucket := flags.String("bucket", "", "tfstate bucket name")
@@ -134,7 +106,7 @@ func runFind(arguments []string, stdout, stderr io.Writer, runner commandRunner,
 
 	// The listing is its own checked command: an AWS failure
 	// (AccessDenied, missing bucket, expired creds) must fail the run.
-	listing, err := runner.output("aws", "s3api", "list-objects-v2",
+	listing, err := runner.Output("aws", "s3api", "list-objects-v2",
 		"--bucket", *bucket, "--prefix", "env:/"+workspacePrefix, "--output", "json")
 	if err != nil {
 		fmt.Fprintf(stderr, "error: aws s3api list-objects-v2 failed: %v (a listing failure must never read as zero orphans)\n", err)
@@ -189,7 +161,7 @@ func parseListing(listing []byte) ([]stateObject, error) {
 	return objects, nil
 }
 
-func runDestroy(arguments []string, stdout, stderr io.Writer, runner commandRunner, sleep func(time.Duration)) int {
+func runDestroy(arguments []string, stdout, stderr io.Writer, runner benchexec.Runner, sleep func(time.Duration)) int {
 	flags := flag.NewFlagSet("destroy", flag.ContinueOnError)
 	flags.SetOutput(stderr)
 	directory := flags.String("chdir", "", "terraform benchmark root directory")
@@ -212,7 +184,7 @@ func runDestroy(arguments []string, stdout, stderr io.Writer, runner commandRunn
 	for _, number := range orphanNumbers {
 		workspace := workspacePrefix + strconv.Itoa(number)
 		fmt.Fprintf(stdout, "::group::destroy %s\n", workspace)
-		if err := runner.run(*directory, "terraform", "workspace", "select", workspace); err != nil {
+		if err := runner.Run(*directory, "terraform", "workspace", "select", workspace); err != nil {
 			fmt.Fprintf(stdout, "could not select %s\n", workspace)
 			failed = append(failed, workspace)
 			fmt.Fprintln(stdout, "::endgroup::")
@@ -224,7 +196,7 @@ func runDestroy(arguments []string, stdout, stderr io.Writer, runner commandRunn
 			// provision-time precondition so destroy can plan; the
 			// janitor never creates hosts and never produces
 			// measurements.
-			err := runner.run(*directory, "terraform", "destroy", "-auto-approve", "-input=false",
+			err := runner.Run(*directory, "terraform", "destroy", "-auto-approve", "-input=false",
 				"-var", "pr_number="+strconv.Itoa(number), "-var", "allow_unpinned_ami=true")
 			if err == nil {
 				destroyed = true
@@ -240,9 +212,9 @@ func runDestroy(arguments []string, stdout, stderr io.Writer, runner commandRunn
 		// One bad workspace must not abort the batch: guard everything
 		// after the destroy so remaining orphans still get swept and
 		// the summary + failure report still render.
-		_ = runner.run(*directory, "terraform", "workspace", "select", "default")
+		_ = runner.Run(*directory, "terraform", "workspace", "select", "default")
 		if destroyed {
-			if err := runner.run(*directory, "terraform", "workspace", "delete", workspace); err != nil {
+			if err := runner.Run(*directory, "terraform", "workspace", "delete", workspace); err != nil {
 				fmt.Fprintf(stdout, "destroyed %s but workspace delete failed — retained for inspection\n", workspace)
 				failed = append(failed, workspace)
 			} else {

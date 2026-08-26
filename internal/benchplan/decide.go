@@ -217,16 +217,23 @@ func DecideEndpoint(set SampleSet, bound BoundIdentities) Decision {
 		if bound == nil {
 			return blocked(CodeBindingMissing, "MEASURED sample set cannot be verified: no bound identity closure was provided (presence and format of sample digests verify nothing)")
 		}
+		var boundMissing []string
 		var mismatched []string
 		for _, name := range RequiredSampleBindings {
 			boundDigest, present := bound[name]
 			if !present || !digestPattern.MatchString(boundDigest) || boundDigest == zeroDigest {
-				mismatched = append(mismatched, fmt.Sprintf("%s: bound closure has no valid identity", name))
+				// An absent or invalid bound identity is a MISSING
+				// binding, not a mismatch: there is nothing valid to
+				// compare against (review fix round 2).
+				boundMissing = append(boundMissing, name)
 				continue
 			}
 			if set.Bindings[name] != boundDigest {
 				mismatched = append(mismatched, fmt.Sprintf("%s: sample %s != bound %s", name, set.Bindings[name], boundDigest))
 			}
+		}
+		if len(boundMissing) > 0 {
+			return blocked(CodeBindingMissing, "bound identity closure lacks valid identities for: %s (an incomplete closure cannot verify anything)", strings.Join(boundMissing, ", "))
 		}
 		if len(mismatched) > 0 {
 			for range mismatched {
