@@ -29,3 +29,5 @@ rust/**/target/
 # evidence/intake/source-pins.json and re-acquired on demand; it is never committed.
 .quarantine/
 java-semantic-oracle/build/
+/terraform/bootstrap/.terraform/
+/terraform/bootstrap/.terraform.lock.hcl
