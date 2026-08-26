@@ -107,6 +107,54 @@ func TestManifestSchemaGuardsExecutionStates(t *testing.T) {
 	}
 }
 
+// A recorded PASS live-gate result with zero executed scenarios is
+// schema-invalid; the same result with executed >= 1 validates.
+func TestCalibrationSchemaRejectsZeroExecutionPassGate(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	doc, err := BuildCalibration(root, protectedRoot, generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gate := doc["live_gates"].(map[string]any)["java_oracle_pass_rate"].(map[string]any)
+	gate["status"] = "PASS"
+	gate["result"] = map[string]any{
+		"transcript_sha256s": []any{DigestSHA256([]byte("t"))},
+		"executed":           1,
+		"passed":             1,
+		"failed":             0,
+	}
+	doc["status"] = "LIVE_BLOCKED"
+	if err := WriteCalibration(root, doc); err != nil {
+		t.Fatal(err)
+	}
+	calibrationFindings := func() []Finding {
+		t.Helper()
+		findings, err := ValidateCorpusSchemas(schemasDir(t), root, protectedRoot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var hits []Finding
+		for _, finding := range findings {
+			if strings.Contains(finding.Path, "corpus-calibration.json") {
+				hits = append(hits, finding)
+			}
+		}
+		return hits
+	}
+	if hits := calibrationFindings(); len(hits) != 0 {
+		t.Fatalf("nonzero PASS gate result must be schema-valid: %v", hits)
+	}
+
+	gate["result"].(map[string]any)["executed"] = 0
+	gate["result"].(map[string]any)["passed"] = 0
+	if err := WriteCalibration(root, doc); err != nil {
+		t.Fatal(err)
+	}
+	if hits := calibrationFindings(); len(hits) == 0 {
+		t.Fatal("PASS gate result with executed=0 must be schema-invalid")
+	}
+}
+
 // LIVE_EXECUTED with zero executed scenarios is schema-invalid.
 func TestManifestSchemaRejectsEmptyLiveExecution(t *testing.T) {
 	root, protectedRoot, _ := writeAllToTemp(t)

@@ -320,6 +320,54 @@ func TestHandshakeTierRequestsAndEvaluate(t *testing.T) {
 	}
 }
 
+// The CLI invocation that TRIGGERS probing detection persists the trigger's
+// own hash-chained denial entry (op query_denied, reason PROBING_DETECTED,
+// latch set) on that same denied invocation — not a success entry.
+func TestProbingTriggerCLIPersistsDenialEntry(t *testing.T) {
+	root := t.TempDir()
+	protectedRoot := t.TempDir()
+	if code, _, stderr := runCLI(t, "generate",
+		"--root", root, "--protected-root", protectedRoot); code != 0 {
+		t.Fatalf("generate failed: %s", stderr)
+	}
+	// Generation is deterministic, so repeated held-out oracle-requests
+	// invocations spend byte-identical query digests; the default policy's
+	// RepeatThreshold (3) trips on the third.
+	for i := 0; i < 2; i++ {
+		if code, _, stderr := runCLI(t, "oracle-requests",
+			"--root", root, "--protected-root", protectedRoot, "--tier", "hidden"); code != 0 {
+			t.Fatalf("invocation %d must succeed: %s", i+1, stderr)
+		}
+	}
+	code, _, stderr := runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot, "--tier", "hidden")
+	if code == 0 || !strings.Contains(stderr, "PROBING_DETECTED") {
+		t.Fatalf("third identical invocation must deny with PROBING_DETECTED: code=%d %s",
+			code, stderr)
+	}
+	raw, err := os.ReadFile(corpora.ProtectedLedgerPath(protectedRoot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger, err := corpora.LoadLedger(raw)
+	if err != nil {
+		t.Fatalf("trigger-denial ledger must chain-verify: %v", err)
+	}
+	entries := ledger.Entries()
+	last := entries[len(entries)-1]
+	if last.Op != "query_denied" || last.Reason != "PROBING_DETECTED" ||
+		!last.ProbingDetected || last.Actor == "" || last.At == "" {
+		t.Fatalf("denied trigger invocation must persist its own denial entry: %+v", last)
+	}
+	// The latch persists on disk: the next invocation denies CUSTODIAN_LOCKED.
+	code, _, stderr = runCLI(t, "oracle-requests",
+		"--root", root, "--protected-root", protectedRoot, "--tier", "hidden")
+	if code == 0 || !strings.Contains(stderr, "CUSTODIAN_LOCKED") {
+		t.Fatalf("post-trigger invocation must deny CUSTODIAN_LOCKED: code=%d %s",
+			code, stderr)
+	}
+}
+
 // A denied CLI invocation persists the hash-chained denial entry.
 func TestDeniedInvocationPersistsDenialEntry(t *testing.T) {
 	root := t.TempDir()

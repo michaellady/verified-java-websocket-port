@@ -169,6 +169,10 @@
         {
           "if": {"properties": {"status": {"const": "BLOCKED_PENDING_LIVE_EXECUTION"}}},
           "then": {"properties": {"result": false}}
+        },
+        {
+          "if": {"required": ["status"], "properties": {"status": {"const": "PASS"}}},
+          "then": {"properties": {"result": {"properties": {"executed": {"minimum": 1}}}}}
         }
       ]
     },

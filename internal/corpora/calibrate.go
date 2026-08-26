@@ -468,6 +468,8 @@ func BuildCalibration(root, protectedRoot string, g *GeneratedCorpora) (map[stri
 			"rerun the full live calibration once more and reconcile both transcripts exactly",
 			"probe sealed-network denial inside the sbx profile and attach the receipt",
 			"record completions by setting manifest execution_status=LIVE_EXECUTED with execution_evidence digests and live gate PASS/FAIL results with transcript digests; the schemas accept both pending and completed states",
+			"store each tier's live artifacts in the protected store at us005-corpora/live/<tier>/transcript.jsonl and us005-corpora/live/<tier>/report.json; manifest execution_evidence digests must match those exact files or verification blocks them as unresolved",
+			"gate result transcript digests are resolved against every file under the protected us005-corpora/live/** tree; a digest with no matching protected live artifact blocks verification as unresolved",
 		},
 		"model_scoping": []any{
 			"masking-role violations are a documented Java-compatibility non-goal, not RFC coverage: the pinned 1.6.0 runtime does not enforce RFC 6455 section 5.1 masking on receive (Draft_6455.translateSingleFrame reads the mask bit only), so the corpus stays spec-conformant on masking and the deriver rejects wrong-masked inputs as out of scope instead of asserting either behavior",

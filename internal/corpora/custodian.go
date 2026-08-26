@@ -239,24 +239,35 @@ func (l *Ledger) RecordQuery(scenarioRef, queryDigest string) error {
 		return fmt.Errorf("QUERY_BUDGET_EXHAUSTED")
 	}
 	l.queryCounts[queryDigest]++
-	probing := l.queryCounts[queryDigest] >= l.policy.RepeatThreshold
-	entry := LedgerEntry{
+	if l.queryCounts[queryDigest] >= l.policy.RepeatThreshold {
+		// The request that trips probing detection is itself denied, so its
+		// own ledger entry is a hash-chained denial record — reason, actor,
+		// time, latch set — never a success entry, and it spends no budget.
+		if err := l.append(LedgerEntry{
+			Op:                  "query_denied",
+			Epoch:               last.Epoch,
+			ScenarioRef:         scenarioRef,
+			QueryDigest:         queryDigest,
+			QueryRemaining:      last.QueryRemaining,
+			DiagnosticRemaining: last.DiagnosticRemaining,
+			ProbingDetected:     true,
+			Reason:              "PROBING_DETECTED",
+			Actor:               l.actor,
+			At:                  l.now(),
+		}); err != nil {
+			return err
+		}
+		return fmt.Errorf("PROBING_DETECTED: query digest repeated %d times",
+			l.queryCounts[queryDigest])
+	}
+	return l.append(LedgerEntry{
 		Op:                  "query",
 		Epoch:               last.Epoch,
 		ScenarioRef:         scenarioRef,
 		QueryDigest:         queryDigest,
 		QueryRemaining:      last.QueryRemaining - 1,
 		DiagnosticRemaining: last.DiagnosticRemaining,
-		ProbingDetected:     probing,
-	}
-	if err := l.append(entry); err != nil {
-		return err
-	}
-	if probing {
-		return fmt.Errorf("PROBING_DETECTED: query digest repeated %d times",
-			l.queryCounts[queryDigest])
-	}
-	return nil
+	})
 }
 
 // RecordDiagnostic spends one diagnostic disclosure.

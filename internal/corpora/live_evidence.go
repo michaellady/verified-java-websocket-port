@@ -2,6 +2,7 @@ package corpora
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 )
@@ -58,6 +59,16 @@ func VerifyLiveEvidence(root, protectedRoot string) ([]Finding, error) {
 func intCount(container map[string]any, field string) int {
 	value, _ := container[field].(float64)
 	return int(value)
+}
+
+// gateCounter reads one recorded gate-result counter strictly: a missing or
+// non-integer value reports false and is never silently read as zero.
+func gateCounter(result map[string]any, field string) (int, bool) {
+	value, ok := result[field].(float64)
+	if !ok || value != math.Trunc(value) {
+		return 0, false
+	}
+	return int(value), true
 }
 
 func verifyManifestExecution(tier, path string, manifest map[string]any,
@@ -168,13 +179,24 @@ func verifyCalibrationLiveGates(path string, document map[string]any,
 					"live gate "+name+" records "+gateStatus+" without a result")
 				continue
 			}
-			executed := intCount(result, "executed")
-			passed := intCount(result, "passed")
-			failed := intCount(result, "failed")
-			if passed+failed != executed {
-				fail("GATE_COUNTER_INCONSISTENT", path, fmt.Sprintf(
-					"gate %s: passed(%d)+failed(%d) != executed(%d)",
-					name, passed, failed, executed))
+			executed, executedOK := gateCounter(result, "executed")
+			passed, passedOK := gateCounter(result, "passed")
+			failed, failedOK := gateCounter(result, "failed")
+			if !executedOK || !passedOK || !failedOK {
+				fail("GATE_COUNTER_MISSING", path, fmt.Sprintf(
+					"gate %s result counters must be recorded integers "+
+						"(executed=%v passed=%v failed=%v)", name,
+					result["executed"], result["passed"], result["failed"]))
+			} else {
+				if passed+failed != executed {
+					fail("GATE_COUNTER_INCONSISTENT", path, fmt.Sprintf(
+						"gate %s: passed(%d)+failed(%d) != executed(%d)",
+						name, passed, failed, executed))
+				}
+				if gateStatus == "PASS" && executed < 1 {
+					fail("GATE_ZERO_EXECUTION", path,
+						"gate "+name+" claims PASS with zero executed scenarios")
+				}
 			}
 			transcripts, _ := result["transcript_sha256s"].([]any)
 			if len(transcripts) == 0 {

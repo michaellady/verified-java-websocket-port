@@ -180,6 +180,101 @@ func TestVerifyLiveEvidenceTamperCases(t *testing.T) {
 	}
 }
 
+// A PASS gate must record measured work: executed >= 1, and every recorded
+// counter must be a genuine integer. Zero-execution PASS claims and
+// missing/mistyped counters are distinct typed blocks — never silently zero.
+func TestVerifyLiveEvidenceGateExecutionRigor(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	document, err := BuildCalibration(root, protectedRoot, generated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := WriteCalibration(root, document); err != nil {
+		t.Fatal(err)
+	}
+	_, transcriptPath := recordLiveExecution(t, root, protectedRoot, generated)
+	transcriptRaw, err := os.ReadFile(transcriptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	transcriptDigest := DigestSHA256(transcriptRaw)
+	calibrationPath := filepath.Join(root, "evidence/corpus-calibration.json")
+
+	writeGates := func(mutate func(result map[string]any)) []Finding {
+		t.Helper()
+		raw, err := os.ReadFile(calibrationPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var doc map[string]any
+		if err := json.Unmarshal(raw, &doc); err != nil {
+			t.Fatal(err)
+		}
+		gates := doc["live_gates"].(map[string]any)
+		for _, name := range []string{"java_oracle_pass_rate", "empty_rust_target_fails",
+			"planted_java_rust_mutants_killed", "execution_rerun_reconciliation",
+			"sealed_network_denial"} {
+			gate := gates[name].(map[string]any)
+			gate["status"] = "PASS"
+			gate["result"] = map[string]any{
+				"transcript_sha256s": []any{transcriptDigest},
+				"executed":           len(generated.Public),
+				"passed":             len(generated.Public),
+				"failed":             0,
+			}
+		}
+		mutate(gates["java_oracle_pass_rate"].(map[string]any)["result"].(map[string]any))
+		doc["status"] = "LIVE_CALIBRATED"
+		if err := writeJSONFile(calibrationPath, doc); err != nil {
+			t.Fatal(err)
+		}
+		findings, err := VerifyLiveEvidence(root, protectedRoot)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return findings
+	}
+
+	// Baseline: faithful nonzero PASS results stay clean.
+	if findings := writeGates(func(result map[string]any) {}); len(findings) != 0 {
+		t.Fatalf("faithful nonzero PASS gates must verify: %v", findings)
+	}
+
+	// A PASS gate claiming executed=passed=failed=0 must block, typed.
+	codes := findingCodes(writeGates(func(result map[string]any) {
+		result["executed"] = 0
+		result["passed"] = 0
+		result["failed"] = 0
+	}))
+	if codes["GATE_ZERO_EXECUTION"] == 0 {
+		t.Fatalf("zero-execution PASS gate under LIVE_CALIBRATED must block: %v", codes)
+	}
+
+	// A missing counter is its own typed finding, never silently zero.
+	codes = findingCodes(writeGates(func(result map[string]any) {
+		delete(result, "executed")
+	}))
+	if codes["GATE_COUNTER_MISSING"] == 0 {
+		t.Fatalf("missing gate counter must block with GATE_COUNTER_MISSING: %v", codes)
+	}
+
+	// A mistyped counter is the same typed finding.
+	codes = findingCodes(writeGates(func(result map[string]any) {
+		result["executed"] = "12"
+	}))
+	if codes["GATE_COUNTER_MISSING"] == 0 {
+		t.Fatalf("mistyped gate counter must block with GATE_COUNTER_MISSING: %v", codes)
+	}
+
+	// A fractional counter cannot be read as an integer count either.
+	codes = findingCodes(writeGates(func(result map[string]any) {
+		result["executed"] = 11.5
+	}))
+	if codes["GATE_COUNTER_MISSING"] == 0 {
+		t.Fatalf("fractional gate counter must block with GATE_COUNTER_MISSING: %v", codes)
+	}
+}
+
 // Calibration live gates: LIVE_CALIBRATED is only reachable with every gate
 // PASS; failed gates force a blocked status; recorded results must carry
 // internally consistent counters and resolvable transcript digests.

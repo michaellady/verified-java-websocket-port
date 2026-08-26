@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func newTestLedger(t *testing.T) *Ledger {
@@ -208,6 +209,64 @@ func TestLedgerPersistsDenialEntries(t *testing.T) {
 	}
 	if restored.Remaining().Query != 0 || restored.Remaining().Diagnostic != 0 {
 		t.Fatalf("remaining = %+v", restored.Remaining())
+	}
+}
+
+// The query that TRIGGERS probing detection is itself denied, and its own
+// ledger entry must be a hash-chained denial record — reason, digest,
+// scenario ref, actor, RFC3339 time, latch set — never a success entry.
+func TestLedgerProbingTriggerRecordsDenial(t *testing.T) {
+	policy := DefaultCustodianPolicy()
+	policy.RepeatThreshold = 3
+	ledger, err := NewLedger(policy, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := ledger.RecordQuery("us005.hid.0001", "same-shape"); err != nil {
+		t.Fatal(err)
+	}
+	if err := ledger.RecordQuery("us005.hid.0001", "same-shape"); err != nil {
+		t.Fatal(err)
+	}
+	remainingBefore := ledger.Remaining()
+	err = ledger.RecordQuery("us005.hid.0001", "same-shape")
+	if err == nil || !strings.Contains(err.Error(), "PROBING_DETECTED") {
+		t.Fatalf("triggering query must be denied with PROBING_DETECTED, got %v", err)
+	}
+	entries := ledger.Entries()
+	trigger := entries[len(entries)-1]
+	if trigger.Op != "query_denied" {
+		t.Fatalf("triggering request must record a denial entry, not %q: %+v",
+			trigger.Op, trigger)
+	}
+	if trigger.Reason != "PROBING_DETECTED" || trigger.QueryDigest != "same-shape" ||
+		trigger.ScenarioRef != "us005.hid.0001" || trigger.Actor == "" ||
+		!trigger.ProbingDetected {
+		t.Fatalf("trigger denial entry incomplete: %+v", trigger)
+	}
+	if _, err := time.Parse(time.RFC3339, trigger.At); err != nil {
+		t.Fatalf("trigger denial time must be RFC3339, got %q: %v", trigger.At, err)
+	}
+	if ledger.Remaining().Query != remainingBefore.Query {
+		t.Fatalf("a denied trigger must not spend budget: %d -> %d",
+			remainingBefore.Query, ledger.Remaining().Query)
+	}
+	// Latch semantics are unchanged: subsequent requests stay denied.
+	if err := ledger.RecordQuery("us005.hid.0002", "different"); err == nil ||
+		!strings.Contains(err.Error(), "CUSTODIAN_LOCKED") {
+		t.Fatalf("post-trigger request must deny CUSTODIAN_LOCKED, got %v", err)
+	}
+	// The chain including the trigger denial round-trips and verifies.
+	serialized, err := ledger.Serialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, err := LoadLedger(serialized)
+	if err != nil {
+		t.Fatalf("trigger-denial ledger must load and chain-verify: %v", err)
+	}
+	if !restored.ProbingDetected() {
+		t.Fatal("latch must survive reload through the trigger denial entry")
 	}
 }
 

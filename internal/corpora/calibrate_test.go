@@ -178,6 +178,23 @@ func TestBuildAndWriteCalibrationDocument(t *testing.T) {
 	if len(steps) == 0 {
 		t.Fatal("calibration document must hand the parent the live steps")
 	}
+	var stepsText strings.Builder
+	for _, step := range steps {
+		text, _ := step.(string)
+		stepsText.WriteString(text)
+		stepsText.WriteByte('\n')
+	}
+	// The operator-facing steps must state the load-bearing protected
+	// live-artifact layout, not leave it to an internal code comment.
+	for _, needle := range []string{
+		"us005-corpora/live/<tier>/transcript.jsonl",
+		"us005-corpora/live/<tier>/report.json",
+		"us005-corpora/live/**",
+	} {
+		if !strings.Contains(stepsText.String(), needle) {
+			t.Fatalf("live steps must state the protected live-artifact layout (missing %q)", needle)
+		}
+	}
 
 	// The document itself must be deterministic.
 	second, err := BuildCalibration(root, protectedRoot, generated)
