@@ -1,0 +1,145 @@
+{
+  "schema": "vjwp-benchmark-plan-skeleton/1",
+  "status": "SKELETON — NOT FROZEN. This file pre-shapes the US-008 preregistration; it becomes binding only at the independently attested plan-freeze commit. Every OWNER_DECISION_PENDING field must be resolved to an exact frozen value before freeze. No results fields exist in this file, by design.",
+  "source_of_truth": "PRD US-008 acceptance criteria (companies/enterprise-vibe-code/projects/verified-java-websocket-port-claude/prd.json)",
+  "comparison_boundary": {
+    "definition": "Black-box TCP comparison boundary: Java and Rust implementations are exercised through identical preregistered TCP endpoints; nothing inside either process is instrumented across the boundary.",
+    "endpoint_definitions": "OWNER_DECISION_PENDING (exact listen address, port allocation policy, and handshake parameters frozen at plan freeze)"
+  },
+  "workloads": [
+    {
+      "id": "wl-01-handshake-close",
+      "title": "Opening handshake and clean close",
+      "definition": "Establish a WebSocket connection via the opening handshake and perform a clean close, repeatedly, with fixed operation counts.",
+      "fixed_parameters": {
+        "rate": "OWNER_DECISION_PENDING",
+        "concurrency": "OWNER_DECISION_PENDING",
+        "operations": "OWNER_DECISION_PENDING",
+        "duration": "OWNER_DECISION_PENDING",
+        "inputs": "OWNER_DECISION_PENDING (exact byte generator, deterministic)",
+        "outputs": "OWNER_DECISION_PENDING (exact expected bytes/close codes)"
+      }
+    },
+    {
+      "id": "wl-02-small-text-echo",
+      "title": "Small text echo",
+      "definition": "Echo small text frames over an established connection with fixed message sizes and counts.",
+      "fixed_parameters": {
+        "rate": "OWNER_DECISION_PENDING",
+        "concurrency": "OWNER_DECISION_PENDING",
+        "operations": "OWNER_DECISION_PENDING",
+        "duration": "OWNER_DECISION_PENDING",
+        "inputs": "OWNER_DECISION_PENDING (exact byte generator, deterministic)",
+        "outputs": "OWNER_DECISION_PENDING"
+      }
+    },
+    {
+      "id": "wl-03-fragmented-64kib-binary-echo",
+      "title": "Fragmented 64 KiB binary echo",
+      "definition": "Echo 64 KiB binary messages delivered as fragmented frames, with a fixed fragmentation pattern.",
+      "fixed_parameters": {
+        "rate": "OWNER_DECISION_PENDING",
+        "concurrency": "OWNER_DECISION_PENDING",
+        "operations": "OWNER_DECISION_PENDING",
+        "duration": "OWNER_DECISION_PENDING",
+        "inputs": "OWNER_DECISION_PENDING (exact byte generator + fragmentation schedule, deterministic)",
+        "outputs": "OWNER_DECISION_PENDING"
+      }
+    },
+    {
+      "id": "wl-04-control-mix",
+      "title": "Ping/pong/close control-frame mix",
+      "definition": "A fixed interleaving of ping, pong, and close control frames with data traffic.",
+      "fixed_parameters": {
+        "rate": "OWNER_DECISION_PENDING",
+        "concurrency": "OWNER_DECISION_PENDING",
+        "operations": "OWNER_DECISION_PENDING",
+        "duration": "OWNER_DECISION_PENDING",
+        "inputs": "OWNER_DECISION_PENDING (exact control-frame schedule, deterministic)",
+        "outputs": "OWNER_DECISION_PENDING"
+      }
+    },
+    {
+      "id": "wl-05-cap-rejection",
+      "title": "Cap-before-allocation rejection",
+      "definition": "Deliver frames/messages exceeding configured caps so the implementation must reject before allocating, with fixed oversize inputs.",
+      "fixed_parameters": {
+        "rate": "OWNER_DECISION_PENDING",
+        "concurrency": "OWNER_DECISION_PENDING",
+        "operations": "OWNER_DECISION_PENDING",
+        "duration": "OWNER_DECISION_PENDING",
+        "inputs": "OWNER_DECISION_PENDING (exact oversize byte generator, deterministic)",
+        "outputs": "OWNER_DECISION_PENDING (exact expected rejection behavior/close codes)"
+      }
+    },
+    {
+      "id": "wl-06-concurrent-pressure",
+      "title": "Bounded concurrent connection/command pressure",
+      "definition": "Bounded concurrent connection churn plus command traffic at fixed rates and concurrency limits.",
+      "fixed_parameters": {
+        "rate": "OWNER_DECISION_PENDING",
+        "concurrency": "OWNER_DECISION_PENDING",
+        "operations": "OWNER_DECISION_PENDING",
+        "duration": "OWNER_DECISION_PENDING",
+        "inputs": "OWNER_DECISION_PENDING (exact connection/command schedule, deterministic)",
+        "outputs": "OWNER_DECISION_PENDING"
+      }
+    }
+  ],
+  "pairing_and_ordering": {
+    "warmup_pairs_excluded": 5,
+    "measured_pairs": 30,
+    "ordering": "Deterministic SHA-256-seeded randomized Java/Rust order per workload",
+    "seed_derivation": "OWNER_DECISION_PENDING (exact seed input string — e.g. plan digest || workload id — frozen at plan freeze so the order is reproducible and unmanipulable)",
+    "forbidden": [
+      "extension",
+      "replacement",
+      "optional stopping",
+      "outlier deletion",
+      "missing pairs",
+      "extra pairs",
+      "aggregate-only decisions"
+    ]
+  },
+  "statistics": {
+    "per_endpoint_analysis": "All 30 paired natural-log Rust/Java ratios; arithmetic mean; sample standard deviation; two-sided 95% Student-t interval with 29 degrees of freedom; exponentiated bounds.",
+    "power_model": {
+      "kind": "frozen one-sample log-ratio power model",
+      "alpha": 0.025,
+      "power_min": 0.8,
+      "max_log_ratio_sd": 0.1,
+      "alternatives": "OWNER_DECISION_PENDING (the named memory/non-regression alternative effect sizes to be frozen)",
+      "reference_drift_envelope_percent": 5
+    },
+    "run_validity": {
+      "background_cpu_percent_max": 2,
+      "thermal_power_identity": "fail-closed (any violation → run INCONCLUSIVE)"
+    },
+    "decision_rule": "Only complete predeclared paired evidence can decide; altered summaries, omissions, identity mismatches, nonfinite values, or raw-versus-summary disagreement are INCONCLUSIVE and blocking."
+  },
+  "ci_thresholds": {
+    "note": "Ratios are Rust/Java; exponentiated CI bounds. 'upper<=' means the exponentiated upper 95% bound must not exceed the threshold; 'lower>=' means the exponentiated lower bound must be at least the threshold. Applied per workload.",
+    "peak_rss": { "bound": "upper", "threshold": 0.8 },
+    "steady_rss": { "bound": "upper", "threshold": 0.8 },
+    "cpu_time": { "bound": "upper", "threshold": 1.0 },
+    "startup_to_ready": { "bound": "upper", "threshold": 1.0 },
+    "latency_p50": { "bound": "upper", "threshold": 1.0 },
+    "latency_p95": { "bound": "upper", "threshold": 1.0 },
+    "latency_p99": { "bound": "upper", "threshold": 1.0 },
+    "allocated_bytes": { "bound": "upper", "threshold": 1.0 },
+    "allocation_count": { "bound": "upper", "threshold": 1.0 },
+    "throughput": { "bound": "lower", "threshold": 1.0 }
+  },
+  "binding": {
+    "note": "Canonical raw pairs must bind the plan, workload, order, environments, tools, future Java/Rust source/executable/adapter digests, and the independently rebuilt analyzer. None of these digests exist yet; none are fabricated.",
+    "plan_digest": "NOT_MEASURED",
+    "environment_bindings": [
+      "benchmarks/environments/primary-macos.json (UNBOUND)",
+      "benchmarks/environments/confirmation.json (UNBOUND)"
+    ],
+    "java_source_digest": "NOT_MEASURED",
+    "rust_source_digest": "NOT_MEASURED (no Rust source is fabricated)",
+    "analyzer_digest": "NOT_MEASURED"
+  },
+  "results": "NONE — this preregistration skeleton contains no results fields and never will; results live in canonical raw-pair records produced only after plan freeze and environment binding."
+}

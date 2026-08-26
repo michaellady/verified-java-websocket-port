@@ -1,0 +1,139 @@
+name: Bench Workspace Janitor
+
+# Sweep for orphaned bench-pr-* workspaces — benchmark jobs whose same-job
+# `terraform destroy` never completed (runner killed, AWS outage, destroy
+# failed all retries). benchmark.yml handles the happy path with its
+# always() teardown; this catches the leftovers, which otherwise linger as
+# a BILLING bare-metal instance plus VPC/SG/role/state.
+#
+# Modeled on DIALED's pr-janitor.yml with two deliberate differences:
+#   1. Threshold is 3 HOURS, not PR-closed: bench workspaces are job-scoped
+#      (the job's hard timeout is 2h), so ANY bench-pr-* state older than 3h
+#      is an orphan regardless of whether its PR is still open.
+#   2. Schedule is every 3 hours, because the orphan is a metal instance
+#      billing by the hour, not idle Lambdas.
+#
+# The job MUST be gated behind the `dev` GitHub Environment: the narrowed
+# dev deploy-role OIDC trust admits only `pull_request` and
+# `environment:dev` subjects, and a schedule/workflow_dispatch run would
+# otherwise present a `ref:refs/heads/...` subject the trust rejects.
+#
+# Safety: only touches workspaces named bench-pr-<N> whose state object
+# hasn't changed in 3+ hours, so it never races an in-flight benchmark job;
+# DynamoDB state locking backstops any remaining race.
+
+on:
+  schedule:
+    - cron: "41 */3 * * *" # every 3 hours
+  workflow_dispatch: {}
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: bench-janitor-dev
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    name: Sweep orphaned bench workspaces
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/dialed-setup
+        with:
+          env: dev
+
+      - name: Terraform init (benchmark)
+        working-directory: terraform/benchmark
+        run: |
+          terraform init \
+            -backend-config="bucket=dialed-${DIALED_PROJECT_NAME}-${DIALED_ACCOUNT_ID}-tfstate" \
+            -backend-config="key=benchmark/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=dialed-${DIALED_PROJECT_NAME}-${DIALED_ACCOUNT_ID}-tflocks" \
+            -backend-config="encrypt=true"
+
+      - name: Find orphaned bench workspaces
+        id: find
+        run: |
+          set -euo pipefail
+          bucket="dialed-${DIALED_PROJECT_NAME}-${DIALED_ACCOUNT_ID}-tfstate"
+          cutoff=$(date -u -d '3 hours ago' '+%Y-%m-%dT%H:%M:%S+00:00')
+          orphans=""
+          # List FIRST as its own checked command: an AWS failure
+          # (AccessDenied, missing bucket, expired creds) must fail the job —
+          # piping straight into the filter would mask it as "zero orphans"
+          # and the janitor would green-light while a metal host bills on.
+          # Only grep's no-match is tolerated after a successful listing.
+          listing=$(aws s3api list-objects-v2 --bucket "$bucket" --prefix 'env:/bench-pr-' \
+                      --query 'Contents[].[Key,LastModified]' --output text)
+          while IFS=$'\t' read -r key modified; do
+            [[ "$key" =~ ^env:/(bench-pr-([0-9]+))/benchmark/terraform\.tfstate$ ]] || continue
+            ws="${BASH_REMATCH[1]}"; n="${BASH_REMATCH[2]}"
+            if [[ "$modified" > "$cutoff" ]]; then
+              echo "keep ${ws} — state modified <3h ago (benchmark job may be in flight)"
+            else
+              echo "ORPHAN ${ws} — state untouched for 3+ hours (job-scoped lifecycle should have destroyed it)"
+              orphans="${orphans} ${n}"
+            fi
+          done < <(grep -F '/benchmark/terraform.tfstate' <<<"$listing" || true)
+          echo "orphans=${orphans}" >> "$GITHUB_OUTPUT"
+          echo "Orphans:${orphans:- none}"
+
+      - name: Copy auto-tfvars into benchmark dir
+        if: steps.find.outputs.orphans != ''
+        run: cp .dialed-cache/dialed.auto.tfvars.json terraform/benchmark/dialed.auto.tfvars.json
+
+      - name: Destroy orphaned workspaces
+        if: steps.find.outputs.orphans != ''
+        working-directory: terraform/benchmark
+        run: |
+          set -euo pipefail
+          failed=""
+          for n in ${{ steps.find.outputs.orphans }}; do
+            ws="bench-pr-${n}"
+            echo "::group::destroy ${ws}"
+            if ! terraform workspace select "$ws"; then
+              echo "could not select ${ws}"; failed="${failed} ${ws}"; echo "::endgroup::"; continue
+            fi
+            ok=false
+            for attempt in 1 2; do
+              # allow_unpinned_ami=true here only satisfies the provision-time
+              # precondition so destroy can plan; the janitor never creates
+              # hosts and never produces measurements.
+              if terraform destroy -auto-approve -input=false \
+                   -var "pr_number=${n}" -var "allow_unpinned_ami=true"; then
+                ok=true; break
+              fi
+              echo "destroy attempt ${attempt} failed for ${ws}; sleeping 60s"
+              sleep 60
+            done
+            # One bad workspace must not abort the batch: guard everything
+            # after the destroy so remaining orphans still get swept and the
+            # summary + failure report still render.
+            terraform workspace select default || true
+            if [ "$ok" = true ]; then
+              if terraform workspace delete "$ws"; then
+                echo "cleaned ${ws}"
+              else
+                echo "destroyed ${ws} but workspace delete failed — retained for inspection"
+                failed="${failed} ${ws}"
+              fi
+            else
+              failed="${failed} ${ws}"
+            fi
+            echo "::endgroup::"
+          done
+          {
+            echo "## Bench workspace janitor"
+            echo "- swept:${{ steps.find.outputs.orphans }}"
+            echo "- failed:${failed:- none}"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$failed" ]; then
+            echo "::error::janitor could not destroy:${failed} — a metal host may STILL be billing; investigate immediately (next 3h run retries)."
+            exit 1
+          fi

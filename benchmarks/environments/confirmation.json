@@ -1,0 +1,42 @@
+{
+  "schema": "vjwp-benchmark-environment-skeleton/1",
+  "role": "confirmation",
+  "status": "SKELETON — UNBOUND. Every OWNER_DECISION_PENDING field requires an explicit owner decision and every NOT_MEASURED field a real probe of the provisioned host before this environment can bind. No benchmark sample may be collected against an unbound environment.",
+  "binding_status": "UNBOUND",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "provenance": {
+    "class": "dedicated bare-metal EC2 instance, job-scoped exclusive reservation (feasibility-study shape A)",
+    "rationale": "PRD US-008: confirmation requires a provenance-distinct dedicated or exclusively reserved Linux x86_64 host. Bare metal is required because virtualization overhead is the reason Docker sbx is excluded from hosting measured samples; dedicated tenancy is still a VM.",
+    "provisioner": "terraform/benchmark via .github/workflows/benchmark.yml (DIALED-derived, job-scoped lifecycle)",
+    "aws_account": "539402214167 (Enterprise Vibe Code dev; source /Users/mikelady/dev/lore/.dialed.yml, owner-authorized by the project's move into EVC)"
+  },
+  "required_binding_fields": {
+    "instance_type": "OWNER_DECISION_PENDING (default-candidate: c5n.metal; must be a *.metal type)",
+    "region": "OWNER_DECISION_PENDING (default-candidate: us-east-1)",
+    "availability_zone": "NOT_MEASURED (recorded at provision of the bound host)",
+    "ami_id": "OWNER_DECISION_PENDING (pin only after the documented probe in terraform/benchmark/variables.tf against the real dev account)",
+    "ami_name": "OWNER_DECISION_PENDING",
+    "os_identity": "NOT_MEASURED (e.g. /etc/os-release PRETTY_NAME + VERSION_ID of the pinned AMI)",
+    "kernel_identity": "NOT_MEASURED (uname -r -v of the pinned AMI as booted on the bound instance type)",
+    "cpu_model": "NOT_MEASURED (lscpu model name, sockets, cores, threads, base/turbo policy)",
+    "cpu_frequency_policy": "OWNER_DECISION_PENDING (governor / turbo / SMT settings must be frozen and recorded)",
+    "memory_total_bytes": "NOT_MEASURED",
+    "numa_topology": "NOT_MEASURED",
+    "clocksource": "NOT_MEASURED",
+    "background_cpu_budget_percent_max": 2,
+    "thermal_power_identity_policy": "fail-closed: any thermal throttle event, power-state anomaly, or host/tool identity mismatch during a run invalidates the run (INCONCLUSIVE, never patched or resampled around)"
+  },
+  "tool_identities": {
+    "note": "Every entry must bind to an exact version AND content digest before measurement. NOT_MEASURED means not yet resolved against the bound host.",
+    "java_runtime": "OWNER_DECISION_PENDING (exact JDK distribution, version, and archive digest)",
+    "rust_toolchain": "OWNER_DECISION_PENDING (exact rustc/cargo version and component digests)",
+    "java_executable_digest": "NOT_MEASURED (no Java benchmark executable is promoted for measurement yet)",
+    "rust_executable_digest": "NOT_MEASURED (no Rust executable exists to bind; none is fabricated)",
+    "load_driver": "OWNER_DECISION_PENDING (workload driver identity + digest)",
+    "measurement_tools": "OWNER_DECISION_PENDING (RSS/CPU/latency/allocation samplers, exact identities + digests)",
+    "analyzer": "OWNER_DECISION_PENDING (independently rebuilt analyzer identity + digest, per PRD)",
+    "runner": "benchmarks/runner/run-benchmark.sh (STUB — emits NOT_MEASURED sentinels only; must be replaced by a bound, digested runner before measurement)"
+  },
+  "measurements": "NONE. This file contains no measurements and must never contain results; results bind to canonical raw pairs per the PRD analysis contract."
+}
