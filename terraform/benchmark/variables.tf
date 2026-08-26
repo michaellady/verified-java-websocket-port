@@ -29,21 +29,32 @@ variable "pr_number" {
 variable "instance_type" {
   type        = string
   description = <<-EOT
-    Bare-metal instance type for the confirmation host.
+    Instance type for the confirmation host. Confirmation rigor is TIERED
+    per the owner-authorized amendment of 2026-08-26
+    (workspace protected root: us008-contract-amendment-tiered-benchmark-rigor.json):
+
+      TIER 2 (METAL_MEASURED): a *.metal type — flagship-grade rigor,
+        single-protocol, opt-in. Bare metal removes virtualization overhead
+        (the same reason Docker sbx is excluded from hosting measured
+        samples; dedicated tenancy is still a VM).
+      TIER 1 (VM_MEASURED_JITTER_AVERAGED): an ordinary VM type — default
+        for the scale campaign, N-round jitter-averaged per the
+        preregistered stats plan.
+
+    The tier is DERIVED from the type (see local.rigor_tier), stamped on the
+    instance tags, and exported as an output so the environment binding
+    records it; a Tier-1 number must never be represented as metal-grade.
 
     OWNER-DECISION-PENDING: c5n.metal is the DEFAULT-CANDIDATE from the
     feasibility study, not a bound decision. The preregistration binding in
     benchmarks/environments/confirmation.json must record the owner's final
-    choice before any measured sample may be collected. The type MUST be a
-    *.metal type: bare metal is required because virtualization overhead is
-    the reason Docker sbx is excluded from hosting measured samples, and
-    dedicated tenancy is still a VM.
+    choice (type AND tier) before any measured sample may be collected.
   EOT
   default     = "c5n.metal"
 
   validation {
-    condition     = can(regex("\\.metal", var.instance_type))
-    error_message = "instance_type must be a bare-metal (*.metal) type; VMs (including dedicated tenancy) change the declared measurement boundary."
+    condition     = can(regex("^[a-z][a-z0-9-]*\\.[a-z0-9]+$", var.instance_type))
+    error_message = "instance_type must be a well-formed EC2 instance type (family.size, e.g. c5n.metal or c7i.large)."
   }
 }
 

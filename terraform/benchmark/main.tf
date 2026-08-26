@@ -8,10 +8,14 @@
 # `if: always()` — never PR-open→PR-close billing. bench-janitor.yml sweeps
 # any bench-pr-* workspace whose state is older than 3 hours.
 #
-# Provenance: the host is a BARE-METAL EC2 instance (var.instance_type is
-# validated to *.metal). Virtualization overhead is the reason Docker sbx is
-# excluded from hosting measured samples; dedicated tenancy is still a VM,
-# so tenancy tricks are not an acceptable substitute.
+# Provenance: confirmation rigor is TIERED (owner-authorized amendment
+# 2026-08-26, us008-contract-amendment-tiered-benchmark-rigor.json):
+# a *.metal instance_type is Tier 2 (METAL_MEASURED, flagship opt-in);
+# any other type is Tier 1 (VM_MEASURED_JITTER_AVERAGED, the scale-campaign
+# default). The tier is derived from the type, tagged on the host, and
+# exported — a Tier-1 number must never be represented as metal-grade.
+# Virtualization overhead remains the reason Docker sbx is excluded from
+# hosting measured samples.
 #
 # Isolation: this root deliberately does NOT consume the EVC shared tier
 # (no terraform_remote_state). It provisions its own tiny ephemeral VPC so
@@ -48,6 +52,11 @@ locals {
   boundary_arn = "arn:aws:iam::${local.account_id}:policy/dialed-${var.project_name}-boundary"
 
   ami_id = var.ami_id != "" ? var.ami_id : data.aws_ami.al2023_x86_64.id
+
+  # Tiered-rigor label (owner amendment 2026-08-26). Derived, never asserted:
+  # *.metal => Tier 2; anything else => Tier 1. The workflow/runner must carry
+  # this label into the environment binding for every published number.
+  rigor_tier = can(regex("\\.metal$", var.instance_type)) ? "METAL_MEASURED" : "VM_MEASURED_JITTER_AVERAGED"
 }
 
 # ─── AMI ────────────────────────────────────────────────────────────────────
@@ -239,7 +248,10 @@ resource "aws_instance" "bench" {
     encrypted   = true
   }
 
-  tags = { Name = "${local.name}-host" }
+  tags = {
+    Name      = "${local.name}-host"
+    RigorTier = local.rigor_tier
+  }
 
   lifecycle {
     precondition {
