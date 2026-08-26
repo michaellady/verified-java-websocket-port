@@ -14,64 +14,104 @@
   },
   "custodian_state_observed": {
     "ledger": "protected/us005-corpora/custodian/ledger.json (read-only observation, 2026-08-26)",
-    "budgets_remaining": { "query": 192, "diagnostic": 50 },
+    "budgets_remaining": {
+      "query": 192,
+      "diagnostic": 50
+    },
     "repeat_threshold": 3,
     "digests_at_two_of_three": [
-      { "digest_prefix": "sha256:4efbd4064bf23af58", "meaning": "oracle-requests|hidden (ledger seq 1 and 5)" },
-      { "digest_prefix": "sha256:ddeec338e8419cc95", "meaning": "evaluate|hidden|<recorded oracle transcript> (seq 2 and 6)" },
-      { "digest_prefix": "sha256:9338d5e0480a1da0a", "meaning": "oracle-requests|sealed (seq 3 and 7)" },
-      { "digest_prefix": "sha256:3f2727236966b30a3", "meaning": "evaluate|sealed|<recorded oracle transcript> (seq 4 and 8)" }
+      {
+        "digest_prefix": "sha256:4efbd4064bf23af58",
+        "meaning": "oracle-requests|hidden (ledger seq 1 and 5)"
+      },
+      {
+        "digest_prefix": "sha256:ddeec338e8419cc95",
+        "meaning": "evaluate|hidden|<recorded oracle transcript> (seq 2 and 6)"
+      },
+      {
+        "digest_prefix": "sha256:9338d5e0480a1da0a",
+        "meaning": "oracle-requests|sealed (seq 3 and 7)"
+      },
+      {
+        "digest_prefix": "sha256:3f2727236966b30a3",
+        "meaning": "evaluate|sealed|<recorded oracle transcript> (seq 4 and 8)"
+      }
     ]
   },
   "spend_semantics": {
     "verified_from_source": true,
     "public_tier": "custodian-free: cmd/corporactl/main.go:217-219 defines heldOutTier(tier) as tier==hidden||tier==sealed; oracle-requests spends only inside 'if heldOutTier(*tier)' (main.go:268-282) and evaluate likewise (main.go:326-334). Public and handshake invocations never open the ledger.",
     "oracle_requests_held_out": "spends 1 query keyed by sha256('oracle-requests|'+tier+'|'+all request lines) (main.go:274-278). The digest is deterministic for a fixed corpus+epoch, so EVERY re-emission repeats the SAME digest. Both held-out digests already sit at 2 of the 3-repeat threshold; one more emission on either tier permanently latches the custodian (internal/corpora/custodian.go:241-262).",
-    "evaluate_held_out": "spends 1 query keyed by sha256('evaluate|'+tier+'|'+transcript bytes) BEFORE any expectation is consulted (main.go:326-334). A byte-different transcript is a NEW digest with count 1 — candidate transcripts (stub, mutants) are EXPECTED to differ from the oracle's and from each other, so their first evaluations are expected to be fresh digests. That expectation is verified, never assumed: the held_out_evaluation_invariant ledger pre-check runs immediately before EVERY held-out evaluation, because a transcript that coincidentally equals recorded bytes would repeat that digest — count 2 on the second occurrence, LATCH on the third (custodian.go:227-262; counts are per-digest via queryCounts, custodian.go:241).",
+    "evaluate_held_out": "spends 1 query keyed by sha256('evaluate|'+tier+'|'+transcript bytes) BEFORE any expectation is consulted (main.go:326-334). A byte-different transcript is a NEW digest with count 1 \u2014 candidate transcripts (stub, mutants) are EXPECTED to differ from the oracle's and from each other, so their first evaluations are expected to be fresh digests. That expectation is verified, never assumed: the held_out_evaluation_invariant ledger pre-check runs immediately before EVERY held-out evaluation, because a transcript that coincidentally equals recorded bytes would repeat that digest \u2014 count 2 on the second occurrence, LATCH on the third (custodian.go:227-262; counts are per-digest via queryCounts, custodian.go:241).",
     "diagnostics_held_out": "when a held-out evaluation has failures, corporactl automatically attempts one diagnostic spend keyed by sha256('diagnostics|'+tier+'|'+transcript) to include failure details, redacting them if denied (main.go:361-376). RecordDiagnostic does NOT feed the probing counter (custodian.go:274-296 never touches queryCounts; LoadLedger counts only op=='query' entries, custodian.go:343-345). Every killed candidate on a held-out tier therefore costs 1 query + 1 diagnostic.",
     "atomicity": "SpendCustodian flock-serializes load-spend-persist and persists denial entries (internal/corpora/spend.go:12-37), so every attempt lands in the hash-chained ledger even when denied.",
-    "worst_case_budget_this_plan": "round 1: stub on 2 held-out tiers (2q) + 4 mutants x 2 held-out tiers (8q) = 10 evaluations = 10 queries, and EVERY one is expected KILLED, so each auto-spends 1 diagnostic = up to 10 diagnostics. The optional evaluate-backed rerun round repeats all 10 evaluations: up to 10 more queries AND up to 10 more diagnostics (killed rerun evaluations auto-spend diagnostics exactly like round 1). Worst case across both rounds: <=20 of 192 queries remaining and <=20 of 50 diagnostics remaining (leaving >=172 queries and >=30 diagnostics). Still safe; budget is not the risk — identical-digest repetition is."
+    "worst_case_budget_this_plan": "round 1: stub on 2 held-out tiers (2q) + 4 mutants x 2 held-out tiers (8q) = 10 evaluations = 10 queries, and EVERY one is expected KILLED, so each auto-spends 1 diagnostic = up to 10 diagnostics. The optional evaluate-backed rerun round repeats all 10 evaluations: up to 10 more queries AND up to 10 more diagnostics (killed rerun evaluations auto-spend diagnostics exactly like round 1). Worst case across both rounds: <=20 of 192 queries remaining and <=20 of 50 diagnostics remaining (leaving >=172 queries and >=30 diagnostics). Still safe; budget is not the risk \u2014 identical-digest repetition is."
   },
   "held_out_evaluation_invariant": {
-    "rule": "EVERY held-out (hidden or sealed) corporactl evaluate — no exceptions, on every branch, in every round, for every transcript — is IMMEDIATELY preceded by an exact ledger-count pre-check of that transcript's evaluate digest: compute digest = sha256('evaluate|'+tier+'|'+transcript bytes), exactly as cmd/corporactl/main.go:327 does, then count entries in the custodian ledger with op=='query' and query_digest==digest (mirroring LoadLedger's probing counter, internal/corpora/custodian.go:343-345). If the count is >= 2, ABORT: do NOT evaluate — a digest at count 2 is one occurrence from the RepeatThreshold=3 probing latch, and evaluating it would permanently latch the custodian via RecordQuery BEFORE any expectation is consulted (custodian.go:241-262). Counts 0 and 1 are safe to evaluate; a digest at count 2 is never evaluated, on any branch, for any reason. An UNSAFE_DIGEST abort halts the plan pending investigation.",
+    "rule": "EVERY held-out (hidden or sealed) corporactl evaluate \u2014 no exceptions, on every branch, in every round, for every transcript \u2014 is IMMEDIATELY preceded by an exact ledger-count pre-check of that transcript's evaluate digest: compute digest = sha256('evaluate|'+tier+'|'+transcript bytes), exactly as cmd/corporactl/main.go:327 does, then count entries in the custodian ledger with op=='query' and query_digest==digest (mirroring LoadLedger's probing counter, internal/corpora/custodian.go:343-345). If the count is >= 2, ABORT: do NOT evaluate \u2014 a digest at count 2 is one occurrence from the RepeatThreshold=3 probing latch, and evaluating it would permanently latch the custodian via RecordQuery BEFORE any expectation is consulted (custodian.go:241-262). Counts 0 and 1 are safe to evaluate; a digest at count 2 is never evaluated, on any branch, for any reason. An UNSAFE_DIGEST abort halts the plan pending investigation.",
     "precheck_command_template": [
-      "tier=<hidden|sealed>; f=<transcript file about to be evaluated>",
-      "digest=\"sha256:$({ printf 'evaluate|%s|' \"$tier\"; cat \"$f\"; } | shasum -a 256 | awk '{print $1}')\"",
-      "count=$(jq -r --arg d \"$digest\" 'select(.op==\"query\" and .query_digest==$d) | .seq' <orchestrator protected root>/us005-corpora/custodian/ledger.json | wc -l | tr -d ' ')",
-      "echo \"$f $digest ledger_count=$count\"",
-      "if [ \"$count\" -ge 2 ]; then echo 'UNSAFE_DIGEST: evaluating would latch the custodian — ABORT the plan and investigate'; false; fi"
+      "# FAIL-CLOSED pre-check template \u2014 substitute <tier> and <transcript-file>, run as one fragment:",
+      "set -euo pipefail; test -s <orchestrator protected root>/us005-corpora/custodian/ledger.json || { echo \"PRECHECK_FAILED: ledger missing or empty \u2014 ABORT\" >&2; exit 1; }; digest=\"sha256:$({ printf 'evaluate|%s|' \"<tier>\"; cat \"<transcript-file>\"; } | shasum -a 256 | awk '{print $1}')\"; count=$(jq -n --arg d \"$digest\" '[inputs | select(.op==\"query\" and .query_digest==$d)] | length' < <orchestrator protected root>/us005-corpora/custodian/ledger.json) || { echo \"PRECHECK_FAILED: ledger parse failed \u2014 ABORT, never treat as count 0\" >&2; exit 1; }; echo \"<transcript-file> $digest ledger_count=$count\"; if [ \"$count\" -ge 2 ]; then echo \"UNSAFE_DIGEST: evaluating would latch the custodian \u2014 ABORT the plan and investigate\" >&2; exit 1; fi",
+      "# Counts 0 and 1 are safe; count >= 2 aborts nonzero. A jq or ledger-read failure also aborts nonzero."
     ],
-    "verified_against_reality": "2026-08-26: this exact pipeline recomputed the recorded oracle evaluate digests from protected/us005-corpora/live/{hidden,sealed}/transcript.jsonl and reported sha256:ddeec338e8419cc9... ledger_count=2 (hidden) and sha256:3f2727236966b30a... ledger_count=2 (sealed) against the live ledger — it detects both unsafe digests today.",
-    "notes": "The ledger is JSONL (one hash-chained entry per line); jq streams it natively. Only op=='query' entries feed the probing counter — denial and diagnostic entries never do (LoadLedger, custodian.go:343-345) — so the count above equals the custodian's own count. Because the recorded oracle transcripts' evaluate digests already sit at count 2 on both held-out tiers, this pre-check subsumes any manual byte-comparison against the recorded oracle transcripts: a candidate transcript that coincidentally equals one of them is caught by the count itself. The pre-check must run against the CURRENT ledger immediately before its evaluate (each evaluation appends an entry, so a stale count is not a pre-check)."
+    "verified_against_reality": "2026-08-26: this exact pipeline recomputed the recorded oracle evaluate digests from protected/us005-corpora/live/{hidden,sealed}/transcript.jsonl and reported sha256:ddeec338e8419cc9... ledger_count=2 (hidden) and sha256:3f2727236966b30a... ledger_count=2 (sealed) against the live ledger \u2014 it detects both unsafe digests today.",
+    "notes": "The ledger is JSONL (one hash-chained entry per line); jq streams it natively. Only op=='query' entries feed the probing counter \u2014 denial and diagnostic entries never do (LoadLedger, custodian.go:343-345) \u2014 so the count above equals the custodian's own count. Because the recorded oracle transcripts' evaluate digests already sit at count 2 on both held-out tiers, this pre-check subsumes any manual byte-comparison against the recorded oracle transcripts: a candidate transcript that coincidentally equals one of them is caught by the count itself. The pre-check must run against the CURRENT ledger immediately before its evaluate (each evaluation appends an entry, so a stale count is not a pre-check).",
+    "fail_closed_rule": "The pre-check itself is FAIL-CLOSED: it runs under set -euo pipefail, verifies the ledger file exists and is non-empty, computes the count with a single jq invocation whose failure ABORTS the plan (a parse/read failure is never treated as count 0), and every UNSAFE_DIGEST path terminates the plan with a nonzero exit (exit 1) \u2014 never break, continue, or a bare echo."
   },
   "hard_prohibitions": [
     "NEVER run corporactl oracle-requests --tier hidden or --tier sealed again in epoch 1: both digests are at 2 of 3; a third identical invocation permanently latches the custodian until rotation. REUSE the recorded requests files instead.",
-    "NEVER run any held-out corporactl evaluate without the held_out_evaluation_invariant ledger pre-check immediately before it — on every branch, including reruns and divergence investigation. The recorded oracle transcripts' evaluate digests (hidden and sealed) are at 2 of 3: any transcript whose bytes coincidentally reproduce them would latch on evaluation, and the pre-check is the only check that catches that before RecordQuery spends.",
-    "NEVER evaluate a digest whose ledger count is already 2, and never evaluate the same candidate transcript bytes a third time on a held-out tier: the first evaluation takes its digest to 1, an identical rerun evaluation to 2 — stop there.",
+    "NEVER run any held-out corporactl evaluate without the held_out_evaluation_invariant ledger pre-check immediately before it \u2014 on every branch, including reruns and divergence investigation. The recorded oracle transcripts' evaluate digests (hidden and sealed) are at 2 of 3: any transcript whose bytes coincidentally reproduce them would latch on evaluation, and the pre-check is the only check that catches that before RecordQuery spends.",
+    "NEVER evaluate a digest whose ledger count is already 2, and never evaluate the same candidate transcript bytes a third time on a held-out tier: the first evaluation takes its digest to 1, an identical rerun evaluation to 2 \u2014 stop there.",
     "NEVER mount or copy the protected store, the custodian secret, or the scenarios/expectations into the sandbox: candidates receive ONLY requests.jsonl files (inputs); all evaluation happens outside the sandbox.",
     "NEVER publish sandbox outputs without a canary sweep: held-out requests embed secret-derived canary tokens; transcripts echo request material. All held-out transcripts stay in the protected store; run DetectCanaryLeak semantics over anything public."
   ],
   "inputs": {
     "requests_reuse": {
-      "public": "protected/us005-corpora/live/public/requests.jsonl (sha256 0c1503c043172d09... — verified byte-identical to a fresh custodian-free public emission in evidence/us005-candidate-public-proof.json)",
-      "hidden": "protected/us005-corpora/live/hidden/requests.jsonl (REUSE ONLY — re-emission forbidden above)",
-      "sealed": "protected/us005-corpora/live/sealed/requests.jsonl (REUSE ONLY — re-emission forbidden above)"
+      "public": "protected/us005-corpora/live/public/requests.jsonl (sha256 0c1503c043172d09... \u2014 verified byte-identical to a fresh custodian-free public emission in evidence/us005-candidate-public-proof.json)",
+      "hidden": "protected/us005-corpora/live/hidden/requests.jsonl (REUSE ONLY \u2014 re-emission forbidden above)",
+      "sealed": "protected/us005-corpora/live/sealed/requests.jsonl (REUSE ONLY \u2014 re-emission forbidden above)"
     },
     "candidates": [
-      { "id": "us005-candidate-stub", "kind": "rust stub (empty target)", "build": "step 2" },
-      { "id": "us005-mutant-rs-eager-reject", "kind": "planted rust mutant", "build": "step 2" },
-      { "id": "us005-mutant-rs-digest-unbind", "kind": "planted rust mutant", "build": "step 2" },
-      { "id": "us005-jm-close-code-1000", "kind": "planted java mutant jar", "build": "step 3" },
-      { "id": "us005-jm-utf8-accept", "kind": "planted java mutant jar", "build": "step 3" },
-      { "id": "us005-netprobe", "kind": "sealed-network denial probe", "build": "step 2" }
+      {
+        "id": "us005-candidate-stub",
+        "kind": "rust stub (empty target)",
+        "build": "step 2"
+      },
+      {
+        "id": "us005-mutant-rs-eager-reject",
+        "kind": "planted rust mutant",
+        "build": "step 2"
+      },
+      {
+        "id": "us005-mutant-rs-digest-unbind",
+        "kind": "planted rust mutant",
+        "build": "step 2"
+      },
+      {
+        "id": "us005-jm-close-code-1000",
+        "kind": "planted java mutant jar",
+        "build": "step 3"
+      },
+      {
+        "id": "us005-jm-utf8-accept",
+        "kind": "planted java mutant jar",
+        "build": "step 3"
+      },
+      {
+        "id": "us005-netprobe",
+        "kind": "sealed-network denial probe",
+        "build": "step 2"
+      }
     ]
   },
   "steps": [
     {
       "seq": 1,
       "name": "owner-authorization",
-      "commands": ["mint a fresh us005 candidate-execution attempt authorization following the us007-attempt-XXXX-owner-authorization.json pattern (owner-signed, per attempt)"],
-      "notes": "executions/US-007.json constraints record generic_sbx_live_reruns_permitted:false and fresh_generic_sbx_attempts_remaining:0 for US-007's OWN envelope-validation workload. US-005 candidate execution is a different workload under the same accepted profile, but it is still owner-authorized per attempt — the parent must decide/mint this explicitly, not inherit it from this plan.",
+      "commands": [
+        "mint a fresh us005 candidate-execution attempt authorization following the us007-attempt-XXXX-owner-authorization.json pattern (owner-signed, per attempt)"
+      ],
+      "notes": "executions/US-007.json constraints record generic_sbx_live_reruns_permitted:false and fresh_generic_sbx_attempts_remaining:0 for US-007's OWN envelope-validation workload. US-005 candidate execution is a different workload under the same accepted profile, but it is still owner-authorized per attempt \u2014 the parent must decide/mint this explicitly, not inherit it from this plan.",
       "flag": "OWNER_DECISION"
     },
     {
@@ -158,7 +198,7 @@
         "sbx exec us005-cand-<attempt> sh -c '/us005/bin/us005-netprobe > /us005/out/netprobe-1.json; status=$?; echo \"exit=$status\"; exit \"$status\"'   # run between/alongside the sealed-tier candidate runs, inside the same sandbox; the wrapper captures the probe's exit status BEFORE echoing and exits with it, so the sbx exec exit code IS the probe's",
         "sbx policy check network --sandbox us005-cand-<attempt> example.com --json   # host-side corroboration"
       ],
-      "expected": "printed exit=0, sbx exec exit code 0 (now guaranteed to be the probe's own status by the wrapper), and verdict network_denied:true with every attempt denied. The probe's host self-test (exit 1, all connected — evidence/us005-candidate-public-proof.json netprobe_selftest) proves it genuinely discriminates open networks.",
+      "expected": "printed exit=0, sbx exec exit code 0 (now guaranteed to be the probe's own status by the wrapper), and verdict network_denied:true with every attempt denied. The probe's host self-test (exit 1, all connected \u2014 evidence/us005-candidate-public-proof.json netprobe_selftest) proves it genuinely discriminates open networks.",
       "notes": "gate evidence = in-sandbox verdict JSON + host-side policy check + the create-time --deny-network '**' argv."
     },
     {
@@ -167,8 +207,8 @@
       "commands": [
         "sbx cp us005-cand-<attempt>:/us005/out/. <protected-out>/us005-cand-<attempt>/",
         "for f in <protected-out>/us005-cand-<attempt>/*-public-1.jsonl; do corporactl evaluate --root <repo> --protected-root <orchestrator protected root> --tier public --transcript \"$f\"; done   # custodian-free (heldOutTier gating, cmd/corporactl/main.go:217-219); no pre-check applies to the public tier",
-        "MANDATORY held_out_evaluation_invariant pre-check, inlined so it immediately precedes each held-out evaluate (per-iteration: the count is re-read from the live ledger right before every spend). Expected fresh digests: 1 query + 1 diagnostic each. Any UNSAFE_DIGEST abort halts the plan — no inert/mutant candidate can legitimately reproduce recorded bytes; a count >= 2 means something is wrong, never something to evaluate through:",
-        "for tier in hidden sealed; do for f in <protected-out>/us005-cand-<attempt>/*-${tier}-1.jsonl; do digest=\"sha256:$({ printf 'evaluate|%s|' \"$tier\"; cat \"$f\"; } | shasum -a 256 | awk '{print $1}')\"; count=$(jq -r --arg d \"$digest\" 'select(.op==\"query\" and .query_digest==$d) | .seq' <orchestrator protected root>/us005-corpora/custodian/ledger.json | wc -l | tr -d ' '); echo \"$f $digest ledger_count=$count\"; if [ \"$count\" -ge 2 ]; then echo 'UNSAFE_DIGEST: evaluating would latch the custodian — ABORT the plan and investigate'; break 2; fi; corporactl evaluate --root <repo> --protected-root <orchestrator protected root> --tier \"$tier\" --transcript \"$f\"; done; done"
+        "MANDATORY held_out_evaluation_invariant pre-check, inlined so it immediately precedes each held-out evaluate (per-iteration: the count is re-read from the live ledger right before every spend). Expected fresh digests: 1 query + 1 diagnostic each. Any UNSAFE_DIGEST abort halts the plan \u2014 no inert/mutant candidate can legitimately reproduce recorded bytes; a count >= 2 means something is wrong, never something to evaluate through:",
+        "set -euo pipefail; for tier in hidden sealed; do for f in <protected-out>/us005-cand-<attempt>/*-${tier}-1.jsonl; do test -s <orchestrator protected root>/us005-corpora/custodian/ledger.json || { echo \"PRECHECK_FAILED: ledger missing or empty \u2014 ABORT\" >&2; exit 1; }; digest=\"sha256:$({ printf 'evaluate|%s|' \"$tier\"; cat \"$f\"; } | shasum -a 256 | awk '{print $1}')\"; count=$(jq -n --arg d \"$digest\" '[inputs | select(.op==\"query\" and .query_digest==$d)] | length' < <orchestrator protected root>/us005-corpora/custodian/ledger.json) || { echo \"PRECHECK_FAILED: ledger parse failed \u2014 ABORT, never treat as count 0\" >&2; exit 1; }; echo \"$f $digest ledger_count=$count\"; if [ \"$count\" -ge 2 ]; then echo \"UNSAFE_DIGEST: evaluating would latch the custodian \u2014 ABORT the plan and investigate\" >&2; exit 1; fi; corporactl evaluate --root <repo> --protected-root <orchestrator protected root> --tier \"$tier\" --transcript \"$f\" || true; done; done # evaluate deliberately not exit-chained: KILLED evaluations exit 1 by design and their reports must still be read; the PRE-CHECK aborts are real exits because they occur before the || true"
       ],
       "expected": "stub: executed=74/92/92, passed=0, exit 1 per tier (empty_rust_target_fails). Mutants: exit 1 per tier with the kill signatures in mutants/manifest.json (public-tier measured: jm-close-code-1000 19 kills, jm-utf8-accept 2 kills, rs mutants 74/74). READ each report and exit code; a 0-exit or passed==executed on any candidate is a gate FAILURE to investigate, not to re-run blindly."
     },
@@ -176,14 +216,14 @@
       "seq": 10,
       "name": "execution 2 + execution_rerun_reconciliation gate",
       "commands": [
-        "repeat step 7 (and step 8) writing *-2.jsonl outputs — fresh sandbox from the same template digest is acceptable and preferred (us005-cand-<attempt+1>, new owner authorization)",
+        "repeat step 7 (and step 8) writing *-2.jsonl outputs \u2014 fresh sandbox from the same template digest is acceptable and preferred (us005-cand-<attempt+1>, new owner authorization)",
         "sbx cp us005-cand-<attempt+1>:/us005/out/. <protected-out>/us005-cand-<attempt+1>/",
         "for tier in public hidden sealed; do for c in stub rs-eager-reject rs-digest-unbind jm-close-code-1000 jm-utf8-accept; do shasum -a 256 <protected-out>/us005-cand-<attempt>/${c}-${tier}-1.jsonl <protected-out>/us005-cand-<attempt+1>/${c}-${tier}-2.jsonl; done; done   # reconciliation compares each pair's two digests; READ every line",
-        "IF byte-identical (expected: all candidates are deterministic): record digest equality as the reconciliation proof. Do NOT evaluate the second identical transcript on held-out tiers unless the recorded gate schema demands an evaluate-backed rerun. If it does, EVERY rerun evaluation is itself immediately preceded by the held_out_evaluation_invariant pre-check — identical bytes are expected to show ledger_count=1 (the round-1 spend) and the rerun evaluation takes the digest to 2 of 3; abort on any count >= 2, record the count-2 fact, and NEVER evaluate those bytes again: for tier in hidden sealed; do for f in <protected-out>/us005-cand-<attempt+1>/*-${tier}-2.jsonl; do digest=\"sha256:$({ printf 'evaluate|%s|' \"$tier\"; cat \"$f\"; } | shasum -a 256 | awk '{print $1}')\"; count=$(jq -r --arg d \"$digest\" 'select(.op==\"query\" and .query_digest==$d) | .seq' <orchestrator protected root>/us005-corpora/custodian/ledger.json | wc -l | tr -d ' '); echo \"$f $digest ledger_count=$count\"; if [ \"$count\" -ge 2 ]; then echo 'UNSAFE_DIGEST: evaluating would latch the custodian — ABORT the plan and investigate'; break 2; fi; corporactl evaluate --root <repo> --protected-root <orchestrator protected root> --tier \"$tier\" --transcript \"$f\"; done; done",
-        "IF divergent: that is a flake — the gate FAILS reconciliation. Characterizing the divergent transcript with a held-out evaluate is permitted ONLY behind the same mandatory held_out_evaluation_invariant pre-check run immediately before it — divergence does NOT imply a fresh digest: a divergent candidate transcript could coincidentally equal a recorded oracle transcript whose evaluate digest already sits at 2 of 3, and evaluating it would latch RecordQuery before any expectation is consulted. Per divergent transcript: tier=<hidden|sealed>; f=<divergent transcript>; digest=\"sha256:$({ printf 'evaluate|%s|' \"$tier\"; cat \"$f\"; } | shasum -a 256 | awk '{print $1}')\"; count=$(jq -r --arg d \"$digest\" 'select(.op==\"query\" and .query_digest==$d) | .seq' <orchestrator protected root>/us005-corpora/custodian/ledger.json | wc -l | tr -d ' '); echo \"$f $digest ledger_count=$count\"; if [ \"$count\" -ge 2 ]; then echo 'UNSAFE_DIGEST: evaluating would latch the custodian — ABORT the plan and investigate'; else corporactl evaluate --root <repo> --protected-root <orchestrator protected root> --tier \"$tier\" --transcript \"$f\"; fi — then investigate the flake. Do not average or retry-until-identical."
+        "IF byte-identical (expected: all candidates are deterministic): record digest equality as the reconciliation proof. Do NOT evaluate the second identical transcript on held-out tiers unless the recorded gate schema demands an evaluate-backed rerun. If it does, EVERY rerun evaluation is itself immediately preceded by the FAIL-CLOSED held_out_evaluation_invariant pre-check \u2014 identical bytes are expected to show ledger_count=1 (the round-1 spend) and the rerun evaluation takes the digest to 2 of 3; any count >= 2 aborts the plan nonzero, the count-2 fact is recorded, and those bytes are NEVER evaluated again: set -euo pipefail; for tier in hidden sealed; do for f in <protected-out>/us005-cand-<attempt+1>/*-${tier}-2.jsonl; do test -s <orchestrator protected root>/us005-corpora/custodian/ledger.json || { echo \"PRECHECK_FAILED: ledger missing or empty \u2014 ABORT\" >&2; exit 1; }; digest=\"sha256:$({ printf 'evaluate|%s|' \"$tier\"; cat \"$f\"; } | shasum -a 256 | awk '{print $1}')\"; count=$(jq -n --arg d \"$digest\" '[inputs | select(.op==\"query\" and .query_digest==$d)] | length' < <orchestrator protected root>/us005-corpora/custodian/ledger.json) || { echo \"PRECHECK_FAILED: ledger parse failed \u2014 ABORT, never treat as count 0\" >&2; exit 1; }; echo \"$f $digest ledger_count=$count\"; if [ \"$count\" -ge 2 ]; then echo \"UNSAFE_DIGEST: evaluating would latch the custodian \u2014 ABORT the plan and investigate\" >&2; exit 1; fi; corporactl evaluate --root <repo> --protected-root <orchestrator protected root> --tier \"$tier\" --transcript \"$f\" || true; done; done",
+        "IF divergent: that is a flake \u2014 the gate FAILS reconciliation. Characterizing the divergent transcript with a held-out evaluate is permitted ONLY behind the same FAIL-CLOSED pre-check run immediately before it \u2014 divergence does NOT imply a fresh digest: a divergent candidate transcript could coincidentally equal a recorded oracle transcript whose evaluate digest already sits at 2 of 3. Per divergent transcript (tier=<hidden|sealed>, f=<divergent transcript>): set -euo pipefail; test -s <orchestrator protected root>/us005-corpora/custodian/ledger.json || { echo \"PRECHECK_FAILED: ledger missing or empty \u2014 ABORT\" >&2; exit 1; }; digest=\"sha256:$({ printf 'evaluate|%s|' \"$tier\"; cat \"$f\"; } | shasum -a 256 | awk '{print $1}')\"; count=$(jq -n --arg d \"$digest\" '[inputs | select(.op==\"query\" and .query_digest==$d)] | length' < <orchestrator protected root>/us005-corpora/custodian/ledger.json) || { echo \"PRECHECK_FAILED: ledger parse failed \u2014 ABORT, never treat as count 0\" >&2; exit 1; }; echo \"$f $digest ledger_count=$count\"; if [ \"$count\" -ge 2 ]; then echo \"UNSAFE_DIGEST: evaluating would latch the custodian \u2014 ABORT the plan and investigate\" >&2; exit 1; fi; corporactl evaluate --root <repo> --protected-root <orchestrator protected root> --tier \"$tier\" --transcript \"$f\" || true \u2014 the pre-check exits 1 on UNSAFE_DIGEST or any ledger read/parse failure BEFORE the evaluate can run; then investigate the flake. Do not average or retry-until-identical."
       ],
       "flag": "THIRD_IDENTICAL_INVOCATION_RISK",
-      "notes": "This is the only step whose naive form (evaluate everything twice, then once more 'to be sure') reaches the latch. The digest-equality path keeps every candidate evaluate digest at count 1; the evaluate-backed path stops at 2. There is no safe third. Both evaluate branches above inline the held_out_evaluation_invariant pre-check because no branch is exempt from it — including this step's divergence path, whose transcripts are precisely the ones nobody predicted."
+      "notes": "This is the only step whose naive form (evaluate everything twice, then once more 'to be sure') reaches the latch. The digest-equality path keeps every candidate evaluate digest at count 1; the evaluate-backed path stops at 2. There is no safe third. Both evaluate branches above inline the held_out_evaluation_invariant pre-check because no branch is exempt from it \u2014 including this step's divergence path, whose transcripts are precisely the ones nobody predicted."
     },
     {
       "seq": 11,
