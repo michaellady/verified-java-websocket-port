@@ -67,8 +67,12 @@ env:
 jobs:
   benchmark-host:
     name: Provision, run, destroy (job-scoped)
-    # Only the 'benchmark' label triggers the PR path; other labels no-op.
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'benchmark'
+    # PR path: 'benchmark' runs the real (fail-closed, pinned-AMI) flow;
+    # 'benchmark-plumbing' runs the owner-ordered plumbing test — cheap VM,
+    # latest-AL2023 AMI allowed, sentinel-only output that can never be a
+    # measurement. workflow_dispatch is unavailable off the default branch,
+    # which this repo's shared main deliberately never carries.
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'benchmark' || github.event.label.name == 'benchmark-plumbing'
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 120 # hard lifetime bound for the metal host (mirrors terraform var max_run_minutes)
@@ -119,10 +123,14 @@ jobs:
         # Inputs pass through env indirection, never direct ${{ }} shell
         # interpolation: a $(...)-shaped input must reach benchops as inert
         # argv text, not undergo substitution with AWS credentials live.
+        # The 'benchmark-plumbing' label selects plumbing mode on the PR
+        # path (no dispatch inputs exist there): cheap fixed VM + unpinned
+        # AMI; the label name is GitHub-controlled enum-like data, and the
+        # instance type is a literal, so no new interpolation surface opens.
         env:
-          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type }}
+          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type || (github.event.label.name == 'benchmark-plumbing' && 'c7i.large') || '' }}
           BENCH_AMI_ID: ${{ inputs.ami_id }}
-          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami }}
+          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami || github.event.label.name == 'benchmark-plumbing' }}
         run: go run ./cmd/benchops apply --chdir terraform/benchmark --pr "${PR_NUMBER}" --instance-type "${BENCH_INSTANCE_TYPE}" --ami-id "${BENCH_AMI_ID}" --allow-unpinned-ami "${BENCH_ALLOW_UNPINNED_AMI}"
 
       - name: Capture stack outputs
@@ -193,9 +201,9 @@ jobs:
         # Conditional -var construction and the 3-attempt retry loop live
         # in cmd/benchops (thin invocation).
         env:
-          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type }}
+          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type || (github.event.label.name == 'benchmark-plumbing' && 'c7i.large') || '' }}
           BENCH_AMI_ID: ${{ inputs.ami_id }}
-          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami }}
+          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami || github.event.label.name == 'benchmark-plumbing' }}
         run: go run ./cmd/benchops destroy --chdir terraform/benchmark --pr "${PR_NUMBER}" --workspace "${BENCH_WORKSPACE}" --instance-type "${BENCH_INSTANCE_TYPE}" --ami-id "${BENCH_AMI_ID}" --allow-unpinned-ami "${BENCH_ALLOW_UNPINNED_AMI}" --attempts 3
 
       - name: Delete bench workspace (always)
