@@ -11,7 +11,7 @@
     },
     {
       "path": "corpora/public/manifest.json",
-      "sha256": "sha256:3798bb112f3c9807d70aff22539fe10e3f7e0b25db6f1dae68b370799e14c642",
+      "sha256": "sha256:202a3e0d0c84c41cc635adc41a8d2eb3c1e62962c1e343697987ef8f0c69c54b",
       "attribution": "BORROWED_CLAUDE_US005"
     },
     {
@@ -21,7 +21,7 @@
     },
     {
       "path": "evidence/corpus-calibration.json",
-      "sha256": "sha256:810a2b22fd3211d34d535d4babc9bcd2090eeea492ad64161f9e1a8c4880731d",
+      "sha256": "sha256:59845d2713fcd429de792670f687dba29542a74b9e5cfa5351159d5e7fea987a",
       "attribution": "BORROWED_CLAUDE_US005"
     },
     {

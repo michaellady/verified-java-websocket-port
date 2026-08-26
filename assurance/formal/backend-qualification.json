@@ -5,7 +5,7 @@
   "qualification_id": "formal-backend-qualification.us006.v1",
   "proof_targets": {
     "path": "assurance/formal/proof-targets.json",
-    "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6",
+    "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2",
     "attribution": "US006_OWNED"
   },
   "connection_model": {
@@ -112,7 +112,7 @@
           "canary_id": "canary.good-mask-equation",
           "input": {
             "path": "assurance/formal/proof-targets.json",
-            "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6",
+            "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2",
             "attribution": "US006_OWNED"
           },
           "expected_outcome": "PASS",
@@ -126,7 +126,7 @@
           "canary_id": "canary.bad-mask-key-index",
           "input": {
             "path": "assurance/formal/proof-targets.json",
-            "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6",
+            "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2",
             "attribution": "US006_OWNED"
           },
           "expected_outcome": "COUNTEREXAMPLE",
@@ -138,7 +138,7 @@
           "canary_id": "canary.bad-mask-non-involution",
           "input": {
             "path": "assurance/formal/proof-targets.json",
-            "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6",
+            "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2",
             "attribution": "US006_OWNED"
           },
           "expected_outcome": "COUNTEREXAMPLE",
@@ -236,7 +236,7 @@
       "known_good_canaries": [
         {
           "canary_id": "canary.good-frame-header",
-          "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"},
+          "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"},
           "expected_outcome": "PASS",
           "observed_outcome": "NOT_EXECUTED",
           "output": null,
@@ -244,7 +244,7 @@
         },
         {
           "canary_id": "canary.good-length-canonical-7",
-          "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"},
+          "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"},
           "expected_outcome": "PASS",
           "observed_outcome": "NOT_EXECUTED",
           "output": null,
@@ -252,14 +252,14 @@
         }
       ],
       "known_bad_canaries": [
-        {"canary_id": "canary.bad-allocation-before-cap", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.bad-control-fragmented", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.bad-control-oversized", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.bad-header-overflow", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.bad-length-high-bit-64", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.bad-length-noncanonical-16", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.bad-length-noncanonical-64", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
-        {"canary_id": "canary.bad-role-masking", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:5eb27925cd5ccc2d638c0c04f46837e8cc2a5cb36ec9ef3f38ecff14f14c3fd6", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
+        {"canary_id": "canary.bad-allocation-before-cap", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.bad-control-fragmented", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.bad-control-oversized", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.bad-header-overflow", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.bad-length-high-bit-64", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.bad-length-noncanonical-16", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.bad-length-noncanonical-64", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null},
+        {"canary_id": "canary.bad-role-masking", "input": {"path": "assurance/formal/proof-targets.json", "sha256": "sha256:103d4964cea6aa7e601ac4942fec86d776bbdaed7735be8fecca4e49d2d522d2", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
       ],
       "bounds": {
         "max_payload_bytes": 65536,

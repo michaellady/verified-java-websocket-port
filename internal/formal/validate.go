@@ -178,9 +178,9 @@ func validateProofTargets(targets *proofTargets, collector *findingCollector) {
 	checkSortedArtifactRefs(targets.SourceBasis, "$.source_basis", collector)
 	expectedSources := map[string]artifactRef{
 		"assurance/evidence-model.json":              {Path: "assurance/evidence-model.json", SHA256: "sha256:8202a03d9a0eddcd2d57df366f501fc99dc79177cfe7c1eaf9549e0d6e6e368f", Attribution: "BORROWED_CLAUDE_US004"},
-		"corpora/public/manifest.json":               {Path: "corpora/public/manifest.json", SHA256: "sha256:3798bb112f3c9807d70aff22539fe10e3f7e0b25db6f1dae68b370799e14c642", Attribution: "BORROWED_CLAUDE_US005"},
+		"corpora/public/manifest.json":               {Path: "corpora/public/manifest.json", SHA256: "sha256:202a3e0d0c84c41cc635adc41a8d2eb3c1e62962c1e343697987ef8f0c69c54b", Attribution: "BORROWED_CLAUDE_US005"},
 		"corpora/public/scenarios.jsonl":             {Path: "corpora/public/scenarios.jsonl", SHA256: "sha256:fe1735bc42c11f66afe2965a7449fc6cad31cca3e2048305388241c781501e5f", Attribution: "BORROWED_CLAUDE_US005"},
-		"evidence/corpus-calibration.json":           {Path: "evidence/corpus-calibration.json", SHA256: "sha256:810a2b22fd3211d34d535d4babc9bcd2090eeea492ad64161f9e1a8c4880731d", Attribution: "BORROWED_CLAUDE_US005"},
+		"evidence/corpus-calibration.json":           {Path: "evidence/corpus-calibration.json", SHA256: "sha256:59845d2713fcd429de792670f687dba29542a74b9e5cfa5351159d5e7fea987a", Attribution: "BORROWED_CLAUDE_US005"},
 		"evidence/intake/compatibility-surface.json": {Path: "evidence/intake/compatibility-surface.json", SHA256: "sha256:802de5c6d1291c8253aa07b1a051a8e20acc3a00cc72ee1d4852a7f18c216b0c", Attribution: "BORROWED_CLAUDE_US003"},
 		"evidence/intake/cutover-contract.json":      {Path: "evidence/intake/cutover-contract.json", SHA256: "sha256:ea6d6148dd67b705e74db48056dd5f17f22626fda48d148aef01f37de2d46f76", Attribution: "BORROWED_CLAUDE_US003"},
 		"evidence/intake/port-seam-dossier.json":     {Path: "evidence/intake/port-seam-dossier.json", SHA256: "sha256:77c41910c323f35116e1493bebf2388519ee659a646dd78e67cd15519ff347ee", Attribution: "BORROWED_CLAUDE_US003"},
