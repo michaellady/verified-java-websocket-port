@@ -61,10 +61,12 @@ locals {
 }
 
 # ─── AMI ────────────────────────────────────────────────────────────────────
-# OWNER-DECISION-PENDING: measured runs require a PINNED var.ami_id, probed
-# against the real dev account first (see variables.tf for the documented
-# probe command). This data source exists only for allow_unpinned_ami
-# plumbing tests; the precondition on the instance enforces the gate.
+# Measured runs require a PINNED var.ami_id, probed against the real dev
+# account first (see variables.tf for the documented probe command). The
+# pinned id is BOUND (owner decision 2026-08-26) in
+# benchmarks/environments/confirmation.json: ami-02b3d83d84b07786d. This
+# data source exists only for allow_unpinned_ami plumbing tests; the
+# precondition on the instance enforces the gate.
 
 data "aws_ami" "al2023_x86_64" {
   most_recent = true

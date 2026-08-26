@@ -1,21 +1,22 @@
 {
   "schema": "vjwp-benchmark-environment/1.0.0",
   "role": "confirmation",
-  "status": "UNBOUND - Every host field remains OWNER_DECISION_PENDING or NOT_MEASURED: the exact confirmation host does not exist yet and nothing here may be filled in without an explicit owner decision plus a real probe of the provisioned host. The required_binding_fields list below is the machine-checkable completion meter for the single remaining US-008 gap (HOST_BINDING_PENDING); 'benchplanctl verify' reports exactly which fields remain unbound. No benchmark sample may be collected against an unbound environment.",
+  "status": "PARTIALLY BOUND, document UNBOUND - The owner's Tier-1 decision of 2026-08-26 bound four host identities (instance_type c7i.xlarge, region us-east-1, ami_id ami-02b3d83d84b07786d, ami_name al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64) plus the pipeline tool identities recorded below. Tier-2 (METAL_MEASURED) is DEFERRED_BY_OWNER: no flagship run is scheduled and no metal type is bound. Every other field remains OWNER_DECISION_PENDING or NOT_MEASURED and nothing may be filled in without an explicit owner decision plus a real probe of the provisioned host. The required_binding_fields list below is the machine-checkable completion meter for the remaining US-008 gap (HOST_BINDING_PENDING); 'benchplanctl verify' reports exactly which fields remain unbound. No benchmark sample may be collected against an unbound environment.",
   "binding_status": "UNBOUND",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,
   "provenance": {
-    "class": "dedicated bare-metal EC2 instance, job-scoped exclusive reservation (feasibility-study shape A)",
-    "rationale": "PRD US-008: confirmation requires a provenance-distinct dedicated or exclusively reserved Linux x86_64 host. Bare metal is required because virtualization overhead is the reason Docker sbx is excluded from hosting measured samples; dedicated tenancy is still a VM.",
+    "class": "job-scoped exclusively reserved EC2 instance with tiered confirmation rigor (owner amendment 2026-08-26): Tier-1 VM_MEASURED_JITTER_AVERAGED (campaign default; bound c7i.xlarge) / Tier-2 METAL_MEASURED (opt-in flagship; DEFERRED_BY_OWNER)",
+    "rationale": "PRD US-008: confirmation requires a provenance-distinct dedicated or exclusively reserved Linux x86_64 host. Rigor is tiered per the owner-authorized amendment of 2026-08-26 (workspace protected root us008-contract-amendment-tiered-benchmark-rigor.json): bare metal remains the flagship tier because virtualization overhead is the reason Docker sbx is excluded from hosting measured samples, while the Tier-1 VM tier absorbs residual virtualization jitter through the preregistered N-round protocol. Tier-1 binding basis: owner decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-pinning-tier1.json AS CORRECTED BY the timestamp-correction sidecar /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-pinning-tier1-timestamp-correction.json — the original record's decided_at (~19:55Z) was a too-late estimate typed at record-writing time, and the sidecar is the authoritative chronology: the owner's explicit decision preceded, and occurred no later than, the binding commit ac17b35 (2026-08-26T19:46:21Z). Options were prepared probe-before-wire from real read-only AWS calls against the dev account with profile dev-sso, probe log in workspace drafts/us008-pinning-decision-package.md; the bound AMI reproduces the CPU family, OS release set, and kernel line observed green in plumbing run 33000379021.",
     "provisioner": "terraform/benchmark via .github/workflows/benchmark.yml (DIALED-derived, job-scoped lifecycle)",
     "aws_account": "539402214167 (Enterprise Vibe Code dev; source /Users/mikelady/dev/lore/.dialed.yml, owner-authorized by the project's move into EVC)"
   },
   "host_identity": {
     "instance_type": {
-      "status": "OWNER_DECISION_PENDING",
-      "candidate": "c5n.metal",
-      "notes": "Must be a *.metal type; terraform/benchmark/variables.tf validates this."
+      "status": "BOUND",
+      "value": "c7i.xlarge",
+      "rationale": "Tier-1 VM_MEASURED_JITTER_AVERAGED per owner decision 2026-08-26. Probed us-east-1 2026-08-26 (describe-instance-types + describe-instance-type-offerings, profile dev-sso): 4 vCPU, 8192 MiB, current generation, 3.2 GHz sustained, USD 0.1785/hr on-demand (Pricing API probe). The owner chose the 4-vCPU variant over the plumbing-proven c7i.large so the load driver and the endpoint under test do not share a physical core; same CPU family and image as green plumbing run 33000379021.",
+      "notes": "Tier-2 (METAL_MEASURED) instance type is DEFERRED_BY_OWNER (2026-08-26): no flagship run is scheduled, and deferring lets a vCPU quota-increase request be sized to the eventual choice. c5n.metal remains only the unbound feasibility-study default-candidate in terraform/benchmark/variables.tf; m5zn.metal is the only probed metal candidate under the account's 64-vCPU standard on-demand quota (L-1216C47A)."
     },
     "instance_id": {
       "status": "NOT_MEASURED",
@@ -27,30 +28,35 @@
     },
     "allocation_evidence": {
       "status": "OWNER_DECISION_PENDING",
-      "notes": "Dedicated/exclusive allocation evidence the owner must designate and bind: the tenancy/metal observation procedure and its recorded output (e.g. DescribeInstances tenancy attribute, *.metal instance type confirmation, and the job-scoped exclusive-reservation record) proving the host is dedicated or exclusively reserved for the run."
+      "notes": "Dedicated/exclusive allocation evidence the owner must designate and bind: the tenancy/allocation observation procedure and its recorded output (e.g. DescribeInstances tenancy attribute, the bound instance-type confirmation, and the job-scoped exclusive-reservation record) proving the host is dedicated or exclusively reserved for the run. Remains an open owner decision after the Tier-1 host pinning of 2026-08-26."
     },
     "region": {
-      "status": "OWNER_DECISION_PENDING",
-      "candidate": "us-east-1"
+      "status": "BOUND",
+      "value": "us-east-1",
+      "rationale": "Owner decision 2026-08-26. Probed region for the bound instance type and AMI (describe-instance-type-offerings + describe-images, 2026-08-26); matches the DIALED .dialed.yml region and the standing tfstate bucket."
     },
     "availability_zone": {
       "status": "NOT_MEASURED",
       "notes": "Recorded at provision of the bound host."
     },
     "ami_id": {
-      "status": "OWNER_DECISION_PENDING",
-      "notes": "Pin only after the documented probe in terraform/benchmark/variables.tf against the real dev account (probe-before-wire)."
+      "status": "BOUND",
+      "value": "ami-02b3d83d84b07786d",
+      "rationale": "Owner decision 2026-08-26. Probed 2026-08-26 via aws ec2 describe-images --owners amazon (al2023-ami-2023.*-x86_64, state=available) with profile dev-sso in account 539402214167, per the documented probe-before-wire step in terraform/benchmark/variables.tf. Newest AL2023 release set 2023.12.20260817.0, kernel-6.1 flavor - the only flavor with a real observed boot in this pipeline (green plumbing run 33000379021).",
+      "notes": "DeprecationTime 2026-11-10T23:53:00Z: after that date the id disappears from unfiltered describe-images listings and launch-by-exact-id was not probed. If measured runs continue past it, re-probe and re-pin - a preregistration change that must be recorded as such."
     },
     "ami_name": {
-      "status": "OWNER_DECISION_PENDING"
+      "status": "BOUND",
+      "value": "al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64",
+      "rationale": "Name of the pinned ami_id, from the same describe-images probe of 2026-08-26."
     },
     "os_identity": {
       "status": "NOT_MEASURED",
-      "notes": "/etc/os-release PRETTY_NAME + VERSION_ID of the pinned AMI as booted."
+      "notes": "/etc/os-release PRETTY_NAME + VERSION_ID of the pinned AMI as booted on the bound host. Provenance: plumbing run 33000379021 observed 'Amazon Linux 2023.12.20260817' booted from this AMI's release set on c7i.large; that observation does not transfer - the bound c7i.xlarge host records its own at first boot."
     },
     "kernel_identity": {
       "status": "NOT_MEASURED",
-      "notes": "uname -r -v of the pinned AMI as booted on the bound instance type."
+      "notes": "uname -r -v of the pinned AMI as booted on the bound instance type. Provenance: plumbing run 33000379021 observed kernel 6.1.180-225.360.amzn2023.x86_64 booted from this AMI's release set on c7i.large; the identical AMI on c7i.xlarge is expected to boot the same kernel build, but the exact uname strings on the bound type are recorded at first boot and remain NOT_MEASURED until then."
     },
     "cpu_model": {
       "status": "NOT_MEASURED",
@@ -58,7 +64,7 @@
     },
     "cpu_frequency_policy": {
       "status": "OWNER_DECISION_PENDING",
-      "notes": "Governor / turbo / SMT settings must be frozen and recorded."
+      "notes": "Governor / turbo / SMT settings must be frozen and recorded. Remains an open owner decision after the Tier-1 host pinning of 2026-08-26."
     },
     "memory_total_bytes": {
       "status": "NOT_MEASURED"
@@ -84,11 +90,13 @@
   "tool_identities": {
     "java_runtime": {
       "status": "OWNER_DECISION_PENDING",
-      "notes": "Exact JDK distribution, version, and archive digest."
+      "candidate": "OpenJDK 17.0.19, Linux x86_64 distribution (distribution vendor = owner decision; version matched to the intake pin evidence/intake/toolchain-pins.json)",
+      "notes": "Exact JDK distribution, version, and archive digest. The intake digests are aarch64-apple-darwin and do not transfer to x86_64; the exact Linux archive + digest are recorded at acquisition."
     },
     "rust_toolchain": {
       "status": "OWNER_DECISION_PENDING",
-      "notes": "Exact rustc/cargo version and component digests."
+      "candidate": "rustc/cargo 1.95.0, x86_64-unknown-linux-gnu (channel matched to rust/rust-toolchain.toml)",
+      "notes": "Exact rustc/cargo version and component digests. Dated channel manifest + component digests are recorded at acquisition for the Linux x86_64 target."
     },
     "java_executable_digest": {
       "status": "NOT_MEASURED",
@@ -113,6 +121,28 @@
     "runner": {
       "status": "OWNER_DECISION_PENDING",
       "notes": "cmd/benchrunner is a stub that emits NOT_MEASURED sentinels only; the bound, digested measurement runner replaces it at binding time."
+    },
+    "terraform": {
+      "status": "BOUND",
+      "value": "1.9.8",
+      "rationale": "Owner decision 2026-08-26: the .github/actions/dialed-setup/action.yml terraform_version default (pinned exact).",
+      "notes": "The AWS provider constraint in terraform/benchmark/versions.tf is still floating (>= 6.0.0); an exact provider pin + lockfile are flagged repo follow-ups before measured runs."
+    },
+    "go_toolchain": {
+      "status": "BOUND",
+      "value": "go1.25.5 (go.mod directive 'go 1.25')",
+      "rationale": "Owner decision 2026-08-26: record the go.mod directive alongside the toolchain actually resolved at binding-commit time. 'go version' in this repo at the binding commit reported go1.25.5 (darwin/arm64 driver machine).",
+      "notes": "CI resolves its own 1.25.x at run time via actions/setup-go with go-version-file: go.mod (floating minor). The resolved 'go version' that builds the runner for the confirmation host must be recorded per run; an exact CI pin is a flagged follow-up before measured samples."
+    },
+    "runner_build_flags": {
+      "status": "BOUND",
+      "value": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner",
+      "rationale": "Owner decision 2026-08-26: the exact in-workflow build literal in .github/workflows/benchmark.yml ('Build and stage benchmark runner in results bucket'), recorded verbatim including the /tmp/benchrunner output path. Review round 1 (session 01a03f9c) corrected an earlier inexact transcription that omitted the /tmp/ prefix; internal/benchplan/validate_test.go now cross-checks this literal against the workflow file."
+    },
+    "yq": {
+      "status": "BOUND",
+      "value": "4.44.3",
+      "rationale": "Owner decision 2026-08-26: the exact yq version the dialed-setup composite action ENFORCES. Review round 1 (session 01a03f9c) found the action previously accepted any preinstalled yq and only downloaded 4.44.3 when absent; it now installs the pinned v4.44.3 whenever the resolving yq differs and fails closed if the pinned version does not resolve after install, so this recorded value is enforced, not assumed."
     }
   },
   "required_binding_fields": [

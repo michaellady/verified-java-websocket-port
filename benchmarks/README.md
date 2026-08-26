@@ -1,13 +1,21 @@
-# benchmarks/ — US-008 preregistration (frozen to the ownerless maximum)
+# benchmarks/ — US-008 preregistration (frozen; Tier-1 host bound, full binding owner-gated)
 
 This directory holds the **preregistration** for the US-008 controlled
 Java/Rust resource benchmarks and the pipeline runner stub. The plan and
-environment documents are frozen to the maximum extent possible without
-owner decisions and are machine-validated by
+environment documents are frozen and machine-validated by
 `benchplanctl verify --root .` against `schemas/benchmark-*.schema.json`.
-**US-008 has not run, has no samples, and does not pass**: the single
-remaining blocker class is `HOST_BINDING_PENDING` (owner-gated
-confirmation-host and measurement/analyzer tool-identity binding).
+Confirmation rigor is TIERED per the owner-authorized amendment of
+2026-08-26: Tier-1 `VM_MEASURED_JITTER_AVERAGED` is the campaign default
+and its host identities are BOUND (c7i.xlarge, us-east-1, pinned AL2023
+kernel-6.1 AMI `ami-02b3d83d84b07786d`); Tier-2 `METAL_MEASURED` is the
+opt-in flagship and is `DEFERRED_BY_OWNER`. **US-008 has not run, has no
+samples, and does not pass**: 26 host/tool binding fields remain unbound
+and the single remaining blocker class is `HOST_BINDING_PENDING`
+(owner-gated completion of the confirmation-host and
+measurement/analyzer tool-identity binding; `benchplanctl verify` fails
+closed with exit 3). The pipeline's end-to-end plumbing was proven by
+the green, sentinel-only run 33000379021 — `NOT_MEASURED` sentinels
+only, not a measurement.
 
 ## The no-fabrication rule (read this first)
 
@@ -44,8 +52,15 @@ pipeline produces may contain an invented measurement. Concretely:
   `environments/confirmation.json`, and while the US-008 dependency gates in
   the PRD remain blocked.
 - Docker sbx may isolate build/test preparation but must never host a
-  measured sample (microVM overhead changes the declared boundary). The
-  confirmation host must be bare metal — dedicated tenancy is still a VM.
+  measured sample (microVM overhead changes the declared boundary).
+  Confirmation-host rigor is tiered per the owner amendment of
+  2026-08-26: Tier-2 `METAL_MEASURED` (bare metal, no virtualization
+  overhead — dedicated tenancy is still a VM) is the opt-in flagship,
+  currently `DEFERRED_BY_OWNER`; Tier-1 `VM_MEASURED_JITTER_AVERAGED`
+  (the bound c7i.xlarge campaign default) absorbs residual
+  virtualization jitter through the preregistered N-round protocol. The
+  rigor tier is derived from the instance type and recorded with every
+  binding; a Tier-1 number must never be represented as metal-grade.
 
 ## Layout
 
@@ -65,11 +80,17 @@ pipeline produces may contain an invented measurement. Concretely:
   environment with honestly OBSERVED host identity (commands + timestamps
   recorded), preregistered run policy, and OWNER_DECISION_PENDING tool
   identities (`binding_status: UNBOUND`).
-- `environments/confirmation.json` — the provenance-distinct dedicated
-  Linux x86_64 confirmation host: every host field OWNER_DECISION_PENDING
-  or NOT_MEASURED, plus the schema-enforced `required_binding_fields`
-  completion meter (`binding_status: UNBOUND` until the owner pins every
-  field).
+- `environments/confirmation.json` — the provenance-distinct exclusively
+  reserved Linux x86_64 confirmation host, with tiered rigor. The
+  owner's Tier-1 decision of 2026-08-26 BOUND `instance_type`
+  (c7i.xlarge), `region` (us-east-1), `ami_id` / `ami_name` (pinned
+  AL2023 kernel-6.1), and the pipeline tool identities (terraform,
+  go_toolchain, runner_build_flags, yq) — each regression-pinned by
+  exact string equality in `internal/benchplan/validate_test.go`.
+  Tier-2 is `DEFERRED_BY_OWNER`. The remaining 19 of its 23 required
+  binding fields stay OWNER_DECISION_PENDING or NOT_MEASURED behind the
+  schema-enforced `required_binding_fields` completion meter
+  (`binding_status: UNBOUND` until the owner pins every field).
 - The SSM-invoked runner stub is the Go binary `cmd/benchrunner` (schema
   emission only; cross-compiled for the confirmation host by
   `.github/workflows/benchmark.yml`). It refuses every mode except
