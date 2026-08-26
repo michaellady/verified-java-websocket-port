@@ -1,7 +1,9 @@
 name: Benchmark Confirmation Host (US-008 pipeline)
 
 # JOB-SCOPED lifecycle (feasibility-study "shape A"): this single job
-# provisions the bare-metal confirmation host, runs the benchmark runner
+# provisions the confirmation host (tiered rigor: Tier-1 VM, bound to
+# c7i.xlarge in benchmarks/environments/confirmation.json, or opt-in
+# Tier-2 bare metal — still deferred), runs the benchmark runner
 # natively via SSM, syncs results, and DESTROYS the host in the SAME job
 # under `if: always()` — never PR-open→PR-close billing. Orphans (runner
 # died, AWS outage) are swept by bench-janitor.yml after 3 hours.
@@ -28,7 +30,8 @@ name: Benchmark Confirmation Host (US-008 pipeline)
 #   - DIALED bootstrap apply in the EVC dev account under project vjwp-bench
 #     (OIDC trust, deploy role, permissions boundary, tfstate bucket+locks)
 #   - GitHub `dev` environment on this repo
-#   - vCPU quota for metal instance in us-east-1
+#   - vCPU quota for a Tier-2 metal instance in us-east-1 (Tier-2 runs
+#     only; the bound Tier-1 type c7i.xlarge fits the standing quota)
 
 on:
   pull_request:
@@ -40,7 +43,7 @@ on:
         required: true
         type: string
       instance_type:
-        description: "Override bare-metal instance type (default: terraform var default, c5n.metal — OWNER-DECISION-PENDING)"
+        description: "Override instance type (default: terraform var default c5n.metal, the still-unbound Tier-2 default-candidate; Tier-1 is BOUND to c7i.xlarge in benchmarks/environments/confirmation.json)"
         required: false
         type: string
       ami_id:
@@ -75,7 +78,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'benchmark' || github.event.label.name == 'benchmark-plumbing'
     runs-on: ubuntu-latest
     environment: dev
-    timeout-minutes: 120 # hard lifetime bound for the metal host (mirrors terraform var max_run_minutes)
+    timeout-minutes: 120 # hard lifetime bound for the benchmark host (mirrors terraform var max_run_minutes)
     steps:
       - uses: actions/checkout@v4
 
