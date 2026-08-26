@@ -2,10 +2,10 @@
   "$schema": "../../schemas/corpus-manifest-1.0.0.schema.json",
   "artifacts": [
     {
-      "bytes": 337824,
+      "bytes": 342167,
       "classification": "PUBLIC",
       "path": "scenarios.jsonl",
-      "sha256": "sha256:fa58266c8c2d651d141960c33ccebb380bfe581fe29feb9dbd3a989bc97bc377",
+      "sha256": "sha256:fe1735bc42c11f66afe2965a7449fc6cad31cca3e2048305388241c781501e5f",
       "stored_in_repo": true
     }
   ],

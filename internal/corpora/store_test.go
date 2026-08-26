@@ -228,3 +228,69 @@ func TestHeldOutCommitmentRootRecomputes(t *testing.T) {
 		}
 	}
 }
+
+// The canary leak scan covers every repository file, not only the corpus
+// artifacts: a token planted anywhere under the root is a finding.
+func TestVerifyAllCanaryScanCoversWholeRepo(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	var anyToken string
+	for _, token := range generated.CanaryTokens {
+		anyToken = token
+		break
+	}
+	planted := filepath.Join(root, "docs", "notes.md")
+	if err := os.MkdirAll(filepath.Dir(planted), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(planted,
+		[]byte("innocuous notes containing "+anyToken+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	findings, err := VerifyAll(root, protectedRoot)
+	if err != nil {
+		t.Fatalf("VerifyAll: %v", err)
+	}
+	var leak bool
+	for _, finding := range findings {
+		if finding.Code == "CANARY_LEAK" && strings.Contains(finding.Path, "notes.md") {
+			leak = true
+		}
+	}
+	if !leak {
+		t.Fatalf("planted canary outside corpora must be found, findings: %v", findings)
+	}
+}
+
+// A faithfully recorded live execution (real protected artifacts, matched
+// digests, consistent counters) passes VerifyAll, while drift in the
+// deterministic core still blocks. Dangling digests are covered by the
+// live-evidence tamper tests.
+func TestVerifyAllToleratesRecordedExecutionState(t *testing.T) {
+	root, protectedRoot, generated := writeAllToTemp(t)
+	manifestPath, _ := recordLiveExecution(t, root, protectedRoot, generated)
+	findings, err := VerifyAll(root, protectedRoot)
+	if err != nil {
+		t.Fatalf("VerifyAll: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Fatalf("recorded execution state must verify, findings: %v", findings)
+	}
+
+	// Core drift under recorded execution state still blocks.
+	manifest, err := readManifest(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	counts := manifest["counts"].(map[string]any)
+	counts["selected"] = int(counts["selected"].(float64)) + 1
+	if err := writeJSONFile(manifestPath, manifest); err != nil {
+		t.Fatal(err)
+	}
+	findings, err = VerifyAll(root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(findings) == 0 {
+		t.Fatal("deterministic-core drift must still block")
+	}
+}

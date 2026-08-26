@@ -10,25 +10,25 @@
       "selected": 49
     },
     "hidden": {
-      "expected": 77,
+      "expected": 92,
       "filtered": 0,
       "manifest_path": "corpora/hidden/manifest.json",
-      "manifest_sha256": "sha256:5752f1e632d749dced838e578aac9fe3997cf410470c1d6cf3c5c296c412922b",
-      "selected": 77
+      "manifest_sha256": "sha256:a3602d5218c79cbadb160cebba82a7b90915c7e7f9dfef326a35be8878f0eff6",
+      "selected": 92
     },
     "public": {
       "expected": 74,
       "filtered": 0,
       "manifest_path": "corpora/public/manifest.json",
-      "manifest_sha256": "sha256:9fc081726db40eafd10e61cf326e6f33dfafb33472b312fb3764180fbc71ffe1",
+      "manifest_sha256": "sha256:3798bb112f3c9807d70aff22539fe10e3f7e0b25db6f1dae68b370799e14c642",
       "selected": 74
     },
     "sealed": {
-      "expected": 77,
+      "expected": 92,
       "filtered": 0,
       "manifest_path": "corpora/sealed/manifest.json",
-      "manifest_sha256": "sha256:b800076dabccf13cd186fdf947404f8b34f6b4c44a6a3b0fb7383d9596fdf815",
-      "selected": 77
+      "manifest_sha256": "sha256:61b2102c13689ab9edb4f482a9e9b03dc9fe4f2f7b10a80b4c4edd3b6a355654",
+      "selected": 92
     }
   },
   "evidence_kind": "corpus-calibration",
@@ -65,16 +65,23 @@
     "materialize the pinned Java-WebSocket 1.6.0 jar per evidence/intake/source-pins.json and verify sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
     "build java-oracle (make -C java-oracle build JAVA_WEBSOCKET_JAR=... RUNTIME_SUPPORT_CP=...) and run: corporactl oracle-requests --root . --protected-root \u003croot\u003e --tier public | java -jar java-oracle/build/java-oracle.jar \u003e public-transcript.jsonl",
     "evaluate: corporactl evaluate --root . --protected-root \u003croot\u003e --tier public --transcript public-transcript.jsonl (requires 100% pass)",
-    "repeat oracle-requests/evaluate for hidden and sealed tiers inside the custodian boundary; transcripts and diagnostics stay in the protected store",
+    "repeat oracle-requests/evaluate for hidden and sealed tiers inside the custodian boundary; each held-out invocation spends the hash-chained ledger's query budget, failure diagnostics spend the diagnostic budget, and transcripts stay in the protected store",
+    "execute the handshake corpus against an executable handshake target: corporactl oracle-requests --tier handshake emits the raw cases, corporactl evaluate --tier handshake scores the verdict transcript",
     "run the empty Rust target and planted Java/Rust mutants inside the accepted US-007 sbx profile (owner authorization per attempt) and evaluate their transcripts; all must fail or be killed",
     "rerun the full live calibration once more and reconcile both transcripts exactly",
-    "probe sealed-network denial inside the sbx profile and attach the receipt"
+    "probe sealed-network denial inside the sbx profile and attach the receipt",
+    "record completions by setting manifest execution_status=LIVE_EXECUTED with execution_evidence digests and live gate PASS/FAIL results with transcript digests; the schemas accept both pending and completed states"
+  ],
+  "model_scoping": [
+    "masking-role violations are a documented Java-compatibility non-goal, not RFC coverage: the pinned 1.6.0 runtime does not enforce RFC 6455 section 5.1 masking on receive (Draft_6455.translateSingleFrame reads the mask bit only), so the corpus stays spec-conformant on masking and the deriver rejects wrong-masked inputs as out of scope instead of asserting either behavior",
+    "error-path counts are asserted from the pinned sources; truncated UTF-8 tails are fully modeled (translate-time DFA accepts them, the strict decoder rejects them at process time with the frame recorded); only frames that straddle chunk boundaries with invalid content remain out of the generated space because their partial-completion consumption depends on incompleteframe growth internals",
+    "send-side control payloads above 125 octets are pinned as sendable (ControlFrame.isValid has no length check) and covered by a held-out family"
   ],
   "offline_gates": {
     "generation_determinism": {
       "digests": [
-        "sha256:1aa0049313551628dd9d9b191cc12916e3510a39f246fd556c1ef1a6b98e9223",
-        "sha256:1aa0049313551628dd9d9b191cc12916e3510a39f246fd556c1ef1a6b98e9223"
+        "sha256:e5a7c6df4429b5dffa45e563f9bb2c87278795137c884ed633360c8cd99c9c88",
+        "sha256:e5a7c6df4429b5dffa45e563f9bb2c87278795137c884ed633360c8cd99c9c88"
       ],
       "reconciled": true,
       "runs": 2,
@@ -110,40 +117,40 @@
           "killed": true,
           "killing_scenarios": {
             "handshake": 0,
-            "hidden": 2,
+            "hidden": 4,
             "public": 2,
-            "sealed": 2
+            "sealed": 4
           },
           "kind": "behavior",
           "mutant_id": "mut-utf8-off",
           "operator": "accept invalid UTF-8 in text payloads",
-          "total_killing": 6
+          "total_killing": 10
         },
         {
           "killed": true,
           "killing_scenarios": {
             "handshake": 0,
-            "hidden": 4,
+            "hidden": 9,
             "public": 4,
-            "sealed": 4
+            "sealed": 9
           },
           "kind": "behavior",
           "mutant_id": "mut-close-code-any",
           "operator": "accept reserved close codes on the wire and on send",
-          "total_killing": 12
+          "total_killing": 22
         },
         {
           "killed": true,
           "killing_scenarios": {
             "handshake": 0,
-            "hidden": 4,
-            "public": 4,
-            "sealed": 4
+            "hidden": 8,
+            "public": 5,
+            "sealed": 8
           },
           "kind": "behavior",
           "mutant_id": "mut-echo-close-off",
           "operator": "skip echoing the close frame during the two-way close handshake",
-          "total_killing": 12
+          "total_killing": 21
         },
         {
           "killed": true,
@@ -175,14 +182,14 @@
           "killed": true,
           "killing_scenarios": {
             "handshake": 0,
-            "hidden": 1,
+            "hidden": 2,
             "public": 1,
-            "sealed": 1
+            "sealed": 2
           },
           "kind": "behavior",
           "mutant_id": "mut-frame-size-limit-off",
           "operator": "ignore the declared maximum frame size",
-          "total_killing": 3
+          "total_killing": 5
         },
         {
           "killed": true,
@@ -307,11 +314,11 @@
       "total_mutants": 16
     },
     "stub_target_analysis": {
-      "failures": 277,
+      "failures": 307,
       "model": "inert empty-behavior stub evaluated by the real corpus evaluator; a negative control of the corpus, not a Rust execution",
       "passes": 0,
       "status": "PASS",
-      "total": 277
+      "total": 307
     }
   },
   "production": false,

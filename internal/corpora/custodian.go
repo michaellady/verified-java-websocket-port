@@ -4,25 +4,27 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+	"time"
 )
 
 // CustodianPolicy governs held-out access: monotonic budgets, probing
 // detection, rotation, and canary counts. The custodian and classifier run
 // outside any candidate sandbox; this policy is enforced by the Ledger.
 type CustodianPolicy struct {
-	QueryBudget       int `json:"query_budget"`
-	DiagnosticBudget  int `json:"diagnostic_budget"`
-	NearMissThreshold int `json:"near_miss_threshold"`
-	CanariesPerTier   int `json:"canaries_per_tier"`
+	QueryBudget      int `json:"query_budget"`
+	DiagnosticBudget int `json:"diagnostic_budget"`
+	RepeatThreshold  int `json:"repeat_threshold"`
+	CanariesPerTier  int `json:"canaries_per_tier"`
 }
 
 // DefaultCustodianPolicy is the committed US-005 custodian policy.
 func DefaultCustodianPolicy() CustodianPolicy {
 	return CustodianPolicy{
-		QueryBudget:       200,
-		DiagnosticBudget:  50,
-		NearMissThreshold: 3,
-		CanariesPerTier:   canariesPerTier,
+		QueryBudget:      200,
+		DiagnosticBudget: 50,
+		RepeatThreshold:  3,
+		CanariesPerTier:  canariesPerTier,
 	}
 }
 
@@ -40,9 +42,10 @@ func CustodianPolicyDocument(policy CustodianPolicy, epoch int) ([]byte, error) 
 			"trigger":   "budget exhaustion, probing detection, or owner decision",
 		},
 		"probing": map[string]any{
-			"near_miss_threshold": policy.NearMissThreshold,
-			"detection":           "repeated identical or near-identical query digests against held-out scenarios",
-			"action":              "latch probing flag, deny all further queries, require rotation",
+			"repeat_threshold": policy.RepeatThreshold,
+			"detection": "byte-identical query digests repeated against held-out tiers; " +
+				"detection is exact-digest equality, no similarity claim",
+			"action": "latch probing flag, deny all further queries, require rotation",
 		},
 		"canaries": map[string]any{
 			"per_tier":   policy.CanariesPerTier,
@@ -58,7 +61,9 @@ func CustodianPolicyDocument(policy CustodianPolicy, epoch int) ([]byte, error) 
 	})
 }
 
-// LedgerEntry is one hash-chained custodian ledger record.
+// LedgerEntry is one hash-chained custodian ledger record. Denial entries
+// (query_denied, diagnostic_denied) additionally record the reason, actor,
+// and time so post-lockout probing stays auditable.
 type LedgerEntry struct {
 	Seq                 int    `json:"seq"`
 	PrevDigest          string `json:"prev_digest"`
@@ -69,6 +74,9 @@ type LedgerEntry struct {
 	QueryRemaining      int    `json:"query_remaining"`
 	DiagnosticRemaining int    `json:"diagnostic_remaining"`
 	ProbingDetected     bool   `json:"probing_detected"`
+	Reason              string `json:"reason,omitempty"`
+	Actor               string `json:"actor,omitempty"`
+	At                  string `json:"at,omitempty"`
 }
 
 func (e LedgerEntry) toMap() map[string]any {
@@ -87,6 +95,15 @@ func (e LedgerEntry) toMap() map[string]any {
 	if e.QueryDigest != "" {
 		out["query_digest"] = e.QueryDigest
 	}
+	if e.Reason != "" {
+		out["reason"] = e.Reason
+	}
+	if e.Actor != "" {
+		out["actor"] = e.Actor
+	}
+	if e.At != "" {
+		out["at"] = e.At
+	}
 	return out
 }
 
@@ -103,14 +120,51 @@ type Ledger struct {
 	policy      CustodianPolicy
 	entries     []LedgerEntry
 	queryCounts map[string]int
+	now         func() string
+	actor       string
+}
+
+// Entries returns a copy of the chain for inspection.
+func (l *Ledger) Entries() []LedgerEntry {
+	return append([]LedgerEntry{}, l.entries...)
+}
+
+func defaultLedgerClock() string {
+	return time.Now().UTC().Format(time.RFC3339)
+}
+
+func defaultLedgerActor() string {
+	if user := os.Getenv("USER"); user != "" {
+		return user
+	}
+	return "owner"
+}
+
+// denial appends a hash-chained denial record; budgets and the probing latch
+// are carried forward unchanged.
+func (l *Ledger) denial(op, scenarioRef, queryDigest, reason string) error {
+	last := l.last()
+	return l.append(LedgerEntry{
+		Op:                  op,
+		Epoch:               last.Epoch,
+		ScenarioRef:         scenarioRef,
+		QueryDigest:         queryDigest,
+		QueryRemaining:      last.QueryRemaining,
+		DiagnosticRemaining: last.DiagnosticRemaining,
+		ProbingDetected:     last.ProbingDetected,
+		Reason:              reason,
+		Actor:               l.actor,
+		At:                  l.now(),
+	})
 }
 
 // NewLedger opens a fresh ledger with a genesis entry for the epoch.
 func NewLedger(policy CustodianPolicy, epoch int) (*Ledger, error) {
-	if policy.QueryBudget < 1 || policy.DiagnosticBudget < 1 || policy.NearMissThreshold < 2 {
+	if policy.QueryBudget < 1 || policy.DiagnosticBudget < 1 || policy.RepeatThreshold < 2 {
 		return nil, fmt.Errorf("custodian policy budgets and threshold must be positive")
 	}
-	ledger := &Ledger{policy: policy, queryCounts: map[string]int{}}
+	ledger := &Ledger{policy: policy, queryCounts: map[string]int{},
+		now: defaultLedgerClock, actor: defaultLedgerActor()}
 	genesis := LedgerEntry{
 		Seq:                 0,
 		PrevDigest:          "sha256:" + zero64(),
@@ -167,43 +221,68 @@ func (l *Ledger) append(entry LedgerEntry) error {
 	return nil
 }
 
-// RecordQuery spends one query against a held-out scenario.
+// RecordQuery spends one query against held-out content. Probing detection
+// is exact: the same query digest repeated RepeatThreshold times latches the
+// custodian until rotation.
 func (l *Ledger) RecordQuery(scenarioRef, queryDigest string) error {
 	last := l.last()
 	if last.ProbingDetected {
+		if err := l.denial("query_denied", scenarioRef, queryDigest, "CUSTODIAN_LOCKED"); err != nil {
+			return err
+		}
 		return fmt.Errorf("CUSTODIAN_LOCKED: probing detected; rotation required")
 	}
 	if last.QueryRemaining < 1 {
+		if err := l.denial("query_denied", scenarioRef, queryDigest, "QUERY_BUDGET_EXHAUSTED"); err != nil {
+			return err
+		}
 		return fmt.Errorf("QUERY_BUDGET_EXHAUSTED")
 	}
 	l.queryCounts[queryDigest]++
-	probing := l.queryCounts[queryDigest] >= l.policy.NearMissThreshold
-	entry := LedgerEntry{
+	if l.queryCounts[queryDigest] >= l.policy.RepeatThreshold {
+		// The request that trips probing detection is itself denied, so its
+		// own ledger entry is a hash-chained denial record — reason, actor,
+		// time, latch set — never a success entry, and it spends no budget.
+		if err := l.append(LedgerEntry{
+			Op:                  "query_denied",
+			Epoch:               last.Epoch,
+			ScenarioRef:         scenarioRef,
+			QueryDigest:         queryDigest,
+			QueryRemaining:      last.QueryRemaining,
+			DiagnosticRemaining: last.DiagnosticRemaining,
+			ProbingDetected:     true,
+			Reason:              "PROBING_DETECTED",
+			Actor:               l.actor,
+			At:                  l.now(),
+		}); err != nil {
+			return err
+		}
+		return fmt.Errorf("PROBING_DETECTED: query digest repeated %d times",
+			l.queryCounts[queryDigest])
+	}
+	return l.append(LedgerEntry{
 		Op:                  "query",
 		Epoch:               last.Epoch,
 		ScenarioRef:         scenarioRef,
 		QueryDigest:         queryDigest,
 		QueryRemaining:      last.QueryRemaining - 1,
 		DiagnosticRemaining: last.DiagnosticRemaining,
-		ProbingDetected:     probing,
-	}
-	if err := l.append(entry); err != nil {
-		return err
-	}
-	if probing {
-		return fmt.Errorf("PROBING_DETECTED: query digest repeated %d times",
-			l.queryCounts[queryDigest])
-	}
-	return nil
+	})
 }
 
 // RecordDiagnostic spends one diagnostic disclosure.
 func (l *Ledger) RecordDiagnostic(scenarioRef, queryDigest string) error {
 	last := l.last()
 	if last.ProbingDetected {
+		if err := l.denial("diagnostic_denied", scenarioRef, queryDigest, "CUSTODIAN_LOCKED"); err != nil {
+			return err
+		}
 		return fmt.Errorf("CUSTODIAN_LOCKED: probing detected; rotation required")
 	}
 	if last.DiagnosticRemaining < 1 {
+		if err := l.denial("diagnostic_denied", scenarioRef, queryDigest, "DIAGNOSTIC_BUDGET_EXHAUSTED"); err != nil {
+			return err
+		}
 		return fmt.Errorf("DIAGNOSTIC_BUDGET_EXHAUSTED")
 	}
 	return l.append(LedgerEntry{
@@ -248,7 +327,8 @@ func (l *Ledger) Serialize() ([]byte, error) {
 
 // LoadLedger parses and chain-verifies a serialized ledger.
 func LoadLedger(data []byte) (*Ledger, error) {
-	ledger := &Ledger{policy: DefaultCustodianPolicy(), queryCounts: map[string]int{}}
+	ledger := &Ledger{policy: DefaultCustodianPolicy(), queryCounts: map[string]int{},
+		now: defaultLedgerClock, actor: defaultLedgerActor()}
 	for _, line := range bytes.Split(bytes.TrimRight(data, "\n"), []byte("\n")) {
 		if len(line) == 0 {
 			return nil, fmt.Errorf("empty ledger line")

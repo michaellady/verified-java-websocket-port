@@ -295,3 +295,105 @@ func TestGeneratePlanCountsReconcile(t *testing.T) {
 		t.Fatalf("handshake plan counts do not reconcile: %+v", plan)
 	}
 }
+
+// Held-out tiers carry structural boundary families pinned from the
+// quarantined runtime sources; the public tier does not.
+func TestHeldOutStructuralFamilies(t *testing.T) {
+	generated, err := GenerateAll(testInput())
+	if err != nil {
+		t.Fatalf("GenerateAll: %v", err)
+	}
+	families := func(scenarios []Scenario) map[string]int {
+		out := map[string]int{}
+		for _, sc := range scenarios {
+			out[sc.Family]++
+		}
+		return out
+	}
+	publicFamilies := families(generated.Public)
+	heldOutOnly := []string{"close-code-1012-1014", "close-code-reserved-range",
+		"close-invalid-utf8-reason", "close-1007-empty-reason", "send-oversize-ping",
+		"send-fragment-single", "fragment-overflow-nonfin", "fragment-overflow-fin",
+		"send-close-1015", "text-truncated-tail", "fragment-mid-rune"}
+	for _, tierScenarios := range [][]Scenario{generated.Hidden, generated.Sealed} {
+		tierFamilies := families(tierScenarios)
+		for _, family := range heldOutOnly {
+			if tierFamilies[family] == 0 {
+				t.Fatalf("held-out tier lacks family %s", family)
+			}
+			if publicFamilies[family] != 0 {
+				t.Fatalf("family %s leaked into the public tier", family)
+			}
+		}
+	}
+	// Spot-check pinned semantics of the new families.
+	byFamily := func(scenarios []Scenario, family string) []Scenario {
+		var out []Scenario
+		for _, sc := range scenarios {
+			if sc.Family == family {
+				out = append(out, sc)
+			}
+		}
+		return out
+	}
+	for _, sc := range byFamily(generated.Hidden, "close-code-1012-1014") {
+		if sc.Expected.Outcome != "ok" {
+			t.Fatalf("%s: 1012-1014 must be valid, got %+v", sc.ScenarioID, sc.Expected.Error)
+		}
+	}
+	for _, sc := range byFamily(generated.Hidden, "close-code-reserved-range") {
+		if sc.Expected.Outcome != "error" || *sc.Expected.Error.CloseCode != 1002 {
+			t.Fatalf("%s: 1016-2999 must fail 1002", sc.ScenarioID)
+		}
+	}
+	for _, sc := range byFamily(generated.Hidden, "close-invalid-utf8-reason") {
+		if sc.Expected.Error == nil || sc.Expected.Error.Code != "JAVA_RUNTIME_REJECTION" {
+			t.Fatalf("%s: invalid-utf8 close reason must be JAVA_RUNTIME_REJECTION", sc.ScenarioID)
+		}
+	}
+	for _, sc := range byFamily(generated.Hidden, "fragment-overflow-nonfin") {
+		if sc.Expected.Error == nil || sc.Expected.Error.Code != "BUFFER_LIMIT_EXCEEDED" {
+			t.Fatalf("%s: nonfin overflow must be BUFFER_LIMIT_EXCEEDED", sc.ScenarioID)
+		}
+	}
+	for _, sc := range byFamily(generated.Hidden, "fragment-overflow-fin") {
+		if sc.Expected.Error == nil || *sc.Expected.Error.CloseCode != 1009 {
+			t.Fatalf("%s: fin overflow must be 1009", sc.ScenarioID)
+		}
+	}
+	for _, sc := range byFamily(generated.Hidden, "send-oversize-ping") {
+		if sc.Expected.Outcome != "ok" {
+			t.Fatalf("%s: oversize send_ping must succeed", sc.ScenarioID)
+		}
+	}
+}
+
+// The truncated-tail and mid-rune held-out families pin the DFA-vs-strict
+// UTF-8 split read from the runtime sources.
+func TestHeldOutUTF8BoundaryFamilies(t *testing.T) {
+	generated, err := GenerateAll(testInput())
+	if err != nil {
+		t.Fatalf("GenerateAll: %v", err)
+	}
+	var tail, midRune int
+	for _, sc := range generated.Hidden {
+		switch sc.Family {
+		case "text-truncated-tail":
+			tail++
+			if sc.Expected.Outcome != "error" || *sc.Expected.Error.CloseCode != 1007 ||
+				sc.Expected.Counts.Frames != 1 {
+				t.Fatalf("%s: truncated tail must be process-stage 1007 with the frame recorded, got %+v counts=%+v",
+					sc.ScenarioID, sc.Expected.Error, sc.Expected.Counts)
+			}
+		case "fragment-mid-rune":
+			midRune++
+			if sc.Expected.Outcome != "ok" {
+				t.Fatalf("%s: mid-rune split must assemble, got %+v",
+					sc.ScenarioID, sc.Expected.Error)
+			}
+		}
+	}
+	if tail == 0 || midRune == 0 {
+		t.Fatalf("families missing: tail=%d midRune=%d", tail, midRune)
+	}
+}

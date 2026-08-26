@@ -215,9 +215,16 @@ func EvaluateStubTarget(g *GeneratedCorpora) StubReport {
 			}
 		}
 	}
-	// An empty target emits no handshake verdicts: every case fails.
+	// An empty target emits no handshake verdicts: the real handshake
+	// evaluator scores its empty transcript as all-missing.
+	handshakeReport, err := EvaluateHandshakeTranscript(g.Handshake, nil)
 	report.Total += len(g.Handshake)
-	report.Failures += len(g.Handshake)
+	if err != nil {
+		report.Failures += len(g.Handshake)
+		return report
+	}
+	report.Passes += handshakeReport.Passed
+	report.Failures += handshakeReport.Missing + handshakeReport.Failed + handshakeReport.Unmatched
 	return report
 }
 
@@ -455,10 +462,19 @@ func BuildCalibration(root, protectedRoot string, g *GeneratedCorpora) (map[stri
 			"materialize the pinned Java-WebSocket 1.6.0 jar per evidence/intake/source-pins.json and verify sha256:" + oracleRuntimeSHA256,
 			"build java-oracle (make -C java-oracle build JAVA_WEBSOCKET_JAR=... RUNTIME_SUPPORT_CP=...) and run: corporactl oracle-requests --root . --protected-root <root> --tier public | java -jar java-oracle/build/java-oracle.jar > public-transcript.jsonl",
 			"evaluate: corporactl evaluate --root . --protected-root <root> --tier public --transcript public-transcript.jsonl (requires 100% pass)",
-			"repeat oracle-requests/evaluate for hidden and sealed tiers inside the custodian boundary; transcripts and diagnostics stay in the protected store",
+			"repeat oracle-requests/evaluate for hidden and sealed tiers inside the custodian boundary; each held-out invocation spends the hash-chained ledger's query budget, failure diagnostics spend the diagnostic budget, and transcripts stay in the protected store",
+			"execute the handshake corpus against an executable handshake target: corporactl oracle-requests --tier handshake emits the raw cases, corporactl evaluate --tier handshake scores the verdict transcript",
 			"run the empty Rust target and planted Java/Rust mutants inside the accepted US-007 sbx profile (owner authorization per attempt) and evaluate their transcripts; all must fail or be killed",
 			"rerun the full live calibration once more and reconcile both transcripts exactly",
 			"probe sealed-network denial inside the sbx profile and attach the receipt",
+			"record completions by setting manifest execution_status=LIVE_EXECUTED with execution_evidence digests and live gate PASS/FAIL results with transcript digests; the schemas accept both pending and completed states",
+			"store each tier's live artifacts in the protected store at us005-corpora/live/<tier>/transcript.jsonl and us005-corpora/live/<tier>/report.json; manifest execution_evidence digests must match those exact files or verification blocks them as unresolved",
+			"gate result transcript digests are resolved against every file under the protected us005-corpora/live/** tree; a digest with no matching protected live artifact blocks verification as unresolved",
+		},
+		"model_scoping": []any{
+			"masking-role violations are a documented Java-compatibility non-goal, not RFC coverage: the pinned 1.6.0 runtime does not enforce RFC 6455 section 5.1 masking on receive (Draft_6455.translateSingleFrame reads the mask bit only), so the corpus stays spec-conformant on masking and the deriver rejects wrong-masked inputs as out of scope instead of asserting either behavior",
+			"error-path counts are asserted from the pinned sources; truncated UTF-8 tails are fully modeled (translate-time DFA accepts them, the strict decoder rejects them at process time with the frame recorded); only frames that straddle chunk boundaries with invalid content remain out of the generated space because their partial-completion consumption depends on incompleteframe growth internals",
+			"send-side control payloads above 125 octets are pinned as sendable (ControlFrame.isValid has no length check) and covered by a held-out family",
 		},
 		"status": func() string {
 			if offlinePass {
