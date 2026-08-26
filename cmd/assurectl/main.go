@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/assurance"
+	"github.com/michaellady/verified-java-websocket-port/internal/formal"
 )
 
 func main() {
@@ -28,6 +29,10 @@ func run(arguments []string, stdout, stderr io.Writer, now time.Time) int {
 		return runMode(arguments[1:], stdout, stderr, assurance.ModeVerify)
 	case "replay":
 		return runMode(arguments[1:], stdout, stderr, assurance.ModeReplay)
+	case "formal-preflight":
+		return runFormal(arguments[1:], stdout, stderr, formal.ModePreflight)
+	case "formal-replay":
+		return runFormal(arguments[1:], stdout, stderr, formal.ModeReplay)
 	default:
 		printUsage(stderr)
 		return 2
@@ -38,6 +43,31 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "usage:")
 	fmt.Fprintln(output, "  assurectl verify --root DIR --lifecycle assurance/lifecycle.json")
 	fmt.Fprintln(output, "  assurectl replay --root DIR --lifecycle assurance/lifecycle.json")
+	fmt.Fprintln(output, "  assurectl formal-preflight --root DIR")
+	fmt.Fprintln(output, "  assurectl formal-replay --root DIR")
+}
+
+func runFormal(arguments []string, stdout, stderr io.Writer, mode string) int {
+	flags := flag.NewFlagSet(strings.ToLower(mode), flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	rootPath := flags.String("root", ".", "project root")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
+		return 2
+	}
+	verdict, err := formal.Validate(context.Background(), formal.Request{RootPath: *rootPath, Mode: mode})
+	encoder := json.NewEncoder(stdout)
+	if err != nil {
+		_ = encoder.Encode(map[string]any{"state": "ERROR", "error": err.Error()})
+		return 1
+	}
+	if err := encoder.Encode(verdict); err != nil {
+		fmt.Fprintln(stderr, "cannot write verdict")
+		return 1
+	}
+	if !verdict.Valid {
+		return 1
+	}
+	return 0
 }
 
 func runMode(arguments []string, stdout, stderr io.Writer, mode string) int {

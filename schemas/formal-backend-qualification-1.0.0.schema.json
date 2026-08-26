@@ -1,0 +1,499 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verified-java-websocket-port.invalid/schemas/formal-backend-qualification-1.0.0.schema.json",
+  "title": "FormalBackendQualification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "qualification_id",
+    "proof_targets",
+    "connection_model",
+    "concurrency_plan",
+    "borrowed_sandbox_foundation",
+    "backends",
+    "aggregate_state",
+    "assurance",
+    "independent_review_claimed",
+    "production",
+    "signing",
+    "publication"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/formal-backend-qualification-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "entity_type": {"const": "FormalBackendQualification"},
+    "qualification_id": {"const": "formal-backend-qualification.us006.v1"},
+    "proof_targets": {"$ref": "#/$defs/artifactRef"},
+    "connection_model": {"$ref": "#/$defs/artifactRef"},
+    "concurrency_plan": {"$ref": "#/$defs/artifactRef"},
+    "borrowed_sandbox_foundation": {"$ref": "#/$defs/sandboxFoundation"},
+    "backends": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/backend"}
+    },
+    "aggregate_state": {
+      "enum": ["BLOCKED", "BOUNDED_ONLY", "SYSTEMATIC_ONLY", "MODEL_ONLY", "MIXED_NON_PRODUCTION"]
+    },
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "production": {"const": false},
+    "signing": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "attribution"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "attribution": {
+          "enum": [
+            "BORROWED_CLAUDE_US003",
+            "BORROWED_CLAUDE_US004",
+            "BORROWED_CLAUDE_US005",
+            "BORROWED_CLAUDE_US007",
+            "US006_OWNED"
+          ]
+        }
+      }
+    },
+    "stringSet": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "nonemptyStringSet": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "sandboxFoundation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "attribution",
+        "attempt_id",
+        "security_validation",
+        "live_evidence",
+        "sbx_template",
+        "sandbox_policy",
+        "projection_canonical_digest",
+        "target_commit",
+        "source_tree",
+        "cli_path",
+        "cli_version",
+        "cli_commit",
+        "cli_binary_digest",
+        "daemon_version",
+        "daemon_commit",
+        "template_reference",
+        "sandbox_policy_digest",
+        "enforcement_model",
+        "memory_scope",
+        "authorized_use",
+        "limitations"
+      ],
+      "properties": {
+        "attribution": {"const": "BORROWED_CLAUDE_US007"},
+        "attempt_id": {"const": "us007-sbx-output-live-0123"},
+        "security_validation": {"$ref": "#/$defs/artifactRef"},
+        "live_evidence": {"$ref": "#/$defs/artifactRef"},
+        "sbx_template": {"$ref": "#/$defs/artifactRef"},
+        "sandbox_policy": {"$ref": "#/$defs/artifactRef"},
+        "projection_canonical_digest": {"$ref": "#/$defs/digest"},
+        "target_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "source_tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "cli_path": {"type": "string", "minLength": 1},
+        "cli_version": {"const": "v0.39.0"},
+        "cli_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "cli_binary_digest": {"$ref": "#/$defs/digest"},
+        "daemon_version": {"const": "v0.39.0"},
+        "daemon_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "template_reference": {"type": "string", "minLength": 1},
+        "sandbox_policy_digest": {"$ref": "#/$defs/digest"},
+        "enforcement_model": {"const": "PARENT_SET_POSIX_RLIMIT_ENVELOPE"},
+        "memory_scope": {"type": "string", "minLength": 1},
+        "authorized_use": {"const": "OPERATIONAL_ISOLATION_FOUNDATION_ONLY"},
+        "limitations": {"$ref": "#/$defs/nonemptyStringSet"}
+      }
+    },
+    "tool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version",
+        "commit",
+        "binary_sha256",
+        "installation_provenance",
+        "executable_promotion"
+      ],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "version": {"type": ["string", "null"], "minLength": 1},
+        "commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"},
+        "binary_sha256": {
+          "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
+        },
+        "installation_provenance": {"type": "string", "minLength": 1},
+        "executable_promotion": {
+          "oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]
+        }
+      }
+    },
+    "availabilityProbe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["executed", "receipt", "exit_code", "observation"],
+      "properties": {
+        "executed": {"type": "boolean"},
+        "receipt": {
+          "oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]
+        },
+        "exit_code": {"type": ["integer", "null"]},
+        "observation": {"type": "string", "minLength": 1}
+      }
+    },
+    "sbxExecution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cli_version",
+        "daemon_version",
+        "template_reference",
+        "sandbox_policy_digest",
+        "request_digest",
+        "receipt_digest",
+        "input_root_digest",
+        "output_root_digest",
+        "cleanup_state",
+        "classification_state"
+      ],
+      "properties": {
+        "cli_version": {"type": ["string", "null"]},
+        "daemon_version": {"type": ["string", "null"]},
+        "template_reference": {"type": ["string", "null"]},
+        "sandbox_policy_digest": {
+          "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
+        },
+        "request_digest": {
+          "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
+        },
+        "receipt_digest": {
+          "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
+        },
+        "input_root_digest": {
+          "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
+        },
+        "output_root_digest": {
+          "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
+        },
+        "cleanup_state": {"type": ["string", "null"]},
+        "classification_state": {"type": ["string", "null"]}
+      }
+    },
+    "canary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canary_id",
+        "input",
+        "expected_outcome",
+        "observed_outcome",
+        "output",
+        "counterexample"
+      ],
+      "properties": {
+        "canary_id": {"$ref": "#/$defs/identifier"},
+        "input": {"$ref": "#/$defs/artifactRef"},
+        "expected_outcome": {"enum": ["PASS", "COUNTEREXAMPLE"]},
+        "observed_outcome": {"enum": ["PASS", "COUNTEREXAMPLE", "NOT_EXECUTED"]},
+        "output": {
+          "oneOf": [{"$ref": "#/$defs/artifactRef"}, {"type": "null"}]
+        },
+        "counterexample": {
+          "oneOf": [{"$ref": "#/$defs/counterexample"}, {"type": "null"}]
+        }
+      }
+    },
+    "counterexample": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "counterexample_id",
+        "reason",
+        "target_symbol",
+        "input",
+        "steps",
+        "artifact"
+      ],
+      "properties": {
+        "counterexample_id": {"$ref": "#/$defs/identifier"},
+        "reason": {"type": "string", "minLength": 1},
+        "target_symbol": {"type": "string", "minLength": 1},
+        "input": {"type": "string", "minLength": 1},
+        "steps": {"$ref": "#/$defs/nonemptyStringSet"},
+        "artifact": {"$ref": "#/$defs/artifactRef"}
+      }
+    },
+    "bounds": {
+      "oneOf": [
+        {"$ref": "#/$defs/finiteBounds"},
+        {"$ref": "#/$defs/kaniBounds"},
+        {"$ref": "#/$defs/loomBounds"},
+        {"$ref": "#/$defs/tlcBounds"}
+      ]
+    },
+    "finiteBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["payload_lengths", "offsets", "keys", "byte_values", "cases_evaluated"],
+      "properties": {
+        "payload_lengths": {"$ref": "#/$defs/nonnegativeIntegerSet"},
+        "offsets": {"$ref": "#/$defs/nonnegativeIntegerSet"},
+        "keys": {"$ref": "#/$defs/nonemptyStringSet"},
+        "byte_values": {"$ref": "#/$defs/nonnegativeIntegerSet"},
+        "cases_evaluated": {"type": "integer", "minimum": 0}
+      }
+    },
+    "kaniBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_payload_bytes", "max_unwind", "solver", "pointer_width", "harness_ids", "cases_evaluated"],
+      "properties": {
+        "max_payload_bytes": {"type": "integer", "minimum": 1},
+        "max_unwind": {"type": "integer", "minimum": 1},
+        "solver": {"type": "string", "minLength": 1},
+        "pointer_width": {"type": "integer", "enum": [32, 64]},
+        "harness_ids": {"$ref": "#/$defs/nonemptyStringSet"},
+        "cases_evaluated": {"type": "integer", "minimum": 0}
+      }
+    },
+    "loomBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_tasks", "max_schedules", "max_preemptions", "max_branches", "queue_capacities", "schedule_count"],
+      "properties": {
+        "max_tasks": {"type": "integer", "minimum": 1},
+        "max_schedules": {"type": "integer", "minimum": 1},
+        "max_preemptions": {"type": "integer", "minimum": 1},
+        "max_branches": {"type": "integer", "minimum": 1},
+        "queue_capacities": {"$ref": "#/$defs/nonnegativeIntegerSet"},
+        "schedule_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "tlcBounds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state_bound", "command_capacity", "write_capacity", "event_capacity", "distinct_states", "transitions", "fairness"],
+      "properties": {
+        "state_bound": {"type": "integer", "minimum": 1},
+        "command_capacity": {"type": "integer", "minimum": 1},
+        "write_capacity": {"type": "integer", "minimum": 1},
+        "event_capacity": {"type": "integer", "minimum": 1},
+        "distinct_states": {"type": "integer", "minimum": 0},
+        "transitions": {"type": "integer", "minimum": 0},
+        "fairness": {"$ref": "#/$defs/nonemptyStringSet"}
+      }
+    },
+    "nonnegativeIntegerSet": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 0}
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligation_id", "raw_outcome", "claim_scope", "artifact_refs", "counterexample"],
+      "properties": {
+        "obligation_id": {"$ref": "#/$defs/identifier"},
+        "raw_outcome": {
+          "enum": [
+            "BOUNDED_CHECK_PASSED",
+            "SYSTEMATIC_EXPLORATION_PASSED",
+            "MODEL_CHECK_PASSED",
+            "COUNTEREXAMPLE",
+            "BACKEND_UNAVAILABLE",
+            "UNSUPPORTED_CONSTRUCT",
+            "DISCONNECTED"
+          ]
+        },
+        "claim_scope": {
+          "enum": [
+            "BOUNDED_TEST_EVIDENCE",
+            "SYSTEMATIC_CONCURRENCY_TESTING",
+            "PROVED_MODEL",
+            "UNAVAILABLE_BACKEND_BLOCKED",
+            "FUTURE_PRODUCTION_REFINEMENT"
+          ]
+        },
+        "artifact_refs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/artifactRef"}
+        },
+        "counterexample": {
+          "oneOf": [{"$ref": "#/$defs/counterexample"}, {"type": "null"}]
+        }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replay_id",
+        "argv",
+        "environment",
+        "working_directory",
+        "seed",
+        "expected_exit_code",
+        "semantic_output_digest",
+        "repeat_count",
+        "reconciled_identically"
+      ],
+      "properties": {
+        "replay_id": {
+          "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
+        },
+        "argv": {"$ref": "#/$defs/stringSet"},
+        "environment": {"$ref": "#/$defs/stringSet"},
+        "working_directory": {"$ref": "#/$defs/path"},
+        "seed": {"type": ["string", "null"]},
+        "expected_exit_code": {"type": ["integer", "null"]},
+        "semantic_output_digest": {
+          "oneOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]
+        },
+        "repeat_count": {"type": "integer", "minimum": 0},
+        "reconciled_identically": {"type": "boolean"}
+      }
+    },
+    "backend": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "backend_id",
+        "selected",
+        "method",
+        "tool",
+        "availability_probe",
+        "sbx_execution",
+        "expected_property_ids",
+        "obligation_ids",
+        "obligation_count",
+        "known_good_canaries",
+        "known_bad_canaries",
+        "bounds",
+        "assumptions",
+        "provenance",
+        "unsupported_constructs",
+        "trusted_base",
+        "required_artifacts",
+        "execution_state",
+        "claim_scope",
+        "outcomes",
+        "replay",
+        "limitations"
+      ],
+      "properties": {
+        "backend_id": {"$ref": "#/$defs/identifier"},
+        "selected": {"const": true},
+        "method": {
+          "enum": [
+            "FINITE_EXHAUSTIVE_PROTOTYPE",
+            "KANI_BOUNDED_MODEL_CHECKING",
+            "LOOM_SYSTEMATIC_SCHEDULE_EXPLORATION",
+            "TLC_EXPLICIT_STATE_MODEL_CHECKING"
+          ]
+        },
+        "tool": {"$ref": "#/$defs/tool"},
+        "availability_probe": {"$ref": "#/$defs/availabilityProbe"},
+        "sbx_execution": {"$ref": "#/$defs/sbxExecution"},
+        "expected_property_ids": {"$ref": "#/$defs/nonemptyStringSet"},
+        "obligation_ids": {"$ref": "#/$defs/nonemptyStringSet"},
+        "obligation_count": {"type": "integer", "minimum": 1},
+        "known_good_canaries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/canary"}
+        },
+        "known_bad_canaries": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/canary"}
+        },
+        "bounds": {"$ref": "#/$defs/bounds"},
+        "assumptions": {"$ref": "#/$defs/nonemptyStringSet"},
+        "provenance": {"$ref": "#/$defs/nonemptyStringSet"},
+        "unsupported_constructs": {"$ref": "#/$defs/stringSet"},
+        "trusted_base": {"$ref": "#/$defs/nonemptyStringSet"},
+        "required_artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "SBX_REQUEST",
+              "SBX_RECEIPT",
+              "TOOL_IDENTITY",
+              "INPUT_MANIFEST",
+              "OUTPUT_MANIFEST",
+              "OBLIGATION_INVENTORY",
+              "GOOD_CANARY_RESULT",
+              "BAD_CANARY_COUNTEREXAMPLE",
+              "RAW_TOOL_RESULT",
+              "NORMALIZED_RESULT",
+              "REPLAY_RECEIPT",
+              "CLEANUP_RECEIPT",
+              "CLASSIFIER_PROJECTION"
+            ]
+          }
+        },
+        "execution_state": {
+          "enum": ["EXECUTED_PASS", "EXECUTED_COUNTEREXAMPLE", "UNAVAILABLE_BACKEND_BLOCKED"]
+        },
+        "claim_scope": {
+          "enum": [
+            "BOUNDED_TEST_EVIDENCE",
+            "SYSTEMATIC_CONCURRENCY_TESTING",
+            "PROVED_MODEL",
+            "UNAVAILABLE_BACKEND_BLOCKED",
+            "FUTURE_PRODUCTION_REFINEMENT"
+          ]
+        },
+        "outcomes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/outcome"}
+        },
+        "replay": {"$ref": "#/$defs/replay"},
+        "limitations": {"$ref": "#/$defs/nonemptyStringSet"}
+      }
+    }
+  }
+}

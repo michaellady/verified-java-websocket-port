@@ -1,0 +1,217 @@
+{
+  "$schema": "../../schemas/formal-proof-targets-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "FormalProofTargets",
+  "plan_id": "formal-proof-targets.us006.v1",
+  "source_basis": [
+    {
+      "path": "assurance/evidence-model.json",
+      "sha256": "sha256:8202a03d9a0eddcd2d57df366f501fc99dc79177cfe7c1eaf9549e0d6e6e368f",
+      "attribution": "BORROWED_CLAUDE_US004"
+    },
+    {
+      "path": "corpora/public/manifest.json",
+      "sha256": "sha256:3798bb112f3c9807d70aff22539fe10e3f7e0b25db6f1dae68b370799e14c642",
+      "attribution": "BORROWED_CLAUDE_US005"
+    },
+    {
+      "path": "corpora/public/scenarios.jsonl",
+      "sha256": "sha256:fe1735bc42c11f66afe2965a7449fc6cad31cca3e2048305388241c781501e5f",
+      "attribution": "BORROWED_CLAUDE_US005"
+    },
+    {
+      "path": "evidence/corpus-calibration.json",
+      "sha256": "sha256:810a2b22fd3211d34d535d4babc9bcd2090eeea492ad64161f9e1a8c4880731d",
+      "attribution": "BORROWED_CLAUDE_US005"
+    },
+    {
+      "path": "evidence/intake/compatibility-surface.json",
+      "sha256": "sha256:802de5c6d1291c8253aa07b1a051a8e20acc3a00cc72ee1d4852a7f18c216b0c",
+      "attribution": "BORROWED_CLAUDE_US003"
+    },
+    {
+      "path": "evidence/intake/cutover-contract.json",
+      "sha256": "sha256:ea6d6148dd67b705e74db48056dd5f17f22626fda48d148aef01f37de2d46f76",
+      "attribution": "BORROWED_CLAUDE_US003"
+    },
+    {
+      "path": "evidence/intake/port-seam-dossier.json",
+      "sha256": "sha256:77c41910c323f35116e1493bebf2388519ee659a646dd78e67cd15519ff347ee",
+      "attribution": "BORROWED_CLAUDE_US003"
+    }
+  ],
+  "targets": [
+    {
+      "target_id": "target.frame-header-decoder",
+      "story_id": "US-012",
+      "planned_file": "crates/websocket-core/src/frame/decode.rs",
+      "rust_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "item_kind": "ASSOCIATED_FUNCTION",
+      "linkage_state": "UNRESOLVED_FUTURE_PRODUCTION_SYMBOL",
+      "source_sha256": null,
+      "semantic_identity": null,
+      "required_call_paths": [
+        {
+          "consumer": "CONFORMANCE",
+          "entry_symbol": "websocket_conformance::runner::ConnectionCoreHarness::exercise",
+          "linkage_artifact": null,
+          "state": "FUTURE_REQUIRED"
+        },
+        {
+          "consumer": "DIFFERENTIAL",
+          "entry_symbol": "websocket_differential::runner::ConnectionCoreHarness::compare",
+          "linkage_artifact": null,
+          "state": "FUTURE_REQUIRED"
+        },
+        {
+          "consumer": "PRODUCTION",
+          "entry_symbol": "websocket_driver::owner::ConnectionOwner::step",
+          "linkage_artifact": null,
+          "state": "FUTURE_REQUIRED"
+        }
+      ],
+      "obligations": [
+        {
+          "obligation_id": "obligation.checked-header-arithmetic",
+          "property_id": "frame.checked-header-arithmetic",
+          "statement": "Header, extended-length, mask, payload, and usize arithmetic is checked before allocation.",
+          "required_backend_ids": ["backend.kani-production"],
+          "expected_canary_ids": ["canary.bad-header-overflow"],
+          "subject_target_id": "target.frame-header-decoder",
+          "minimum_obligation_count": 1,
+          "allowed_claim_scopes": ["BOUNDED_TEST_EVIDENCE", "FUTURE_PRODUCTION_REFINEMENT", "UNAVAILABLE_BACKEND_BLOCKED"],
+          "production_refinement_required": true
+        },
+        {
+          "obligation_id": "obligation.control-fin-and-length",
+          "property_id": "frame.control-fin-and-length",
+          "statement": "Control frames require FIN, a control opcode, and payload length at most 125.",
+          "required_backend_ids": ["backend.kani-production"],
+          "expected_canary_ids": ["canary.bad-control-fragmented", "canary.bad-control-oversized"],
+          "subject_target_id": "target.frame-header-decoder",
+          "minimum_obligation_count": 1,
+          "allowed_claim_scopes": ["BOUNDED_TEST_EVIDENCE", "FUTURE_PRODUCTION_REFINEMENT", "UNAVAILABLE_BACKEND_BLOCKED"],
+          "production_refinement_required": true
+        },
+        {
+          "obligation_id": "obligation.length-canonical-16",
+          "property_id": "frame.length-canonical-16",
+          "statement": "The 16-bit form accepts 126 through 65535 and rejects values below 126.",
+          "required_backend_ids": ["backend.kani-production"],
+          "expected_canary_ids": ["canary.bad-length-noncanonical-16"],
+          "subject_target_id": "target.frame-header-decoder",
+          "minimum_obligation_count": 1,
+          "allowed_claim_scopes": ["BOUNDED_TEST_EVIDENCE", "FUTURE_PRODUCTION_REFINEMENT", "UNAVAILABLE_BACKEND_BLOCKED"],
+          "production_refinement_required": true
+        },
+        {
+          "obligation_id": "obligation.length-canonical-64-high-bit-zero",
+          "property_id": "frame.length-canonical-64-high-bit-zero",
+          "statement": "The 64-bit form accepts 65536 through 2^63-1 and rejects smaller values or a set high bit.",
+          "required_backend_ids": ["backend.kani-production"],
+          "expected_canary_ids": ["canary.bad-length-high-bit-64", "canary.bad-length-noncanonical-64"],
+          "subject_target_id": "target.frame-header-decoder",
+          "minimum_obligation_count": 1,
+          "allowed_claim_scopes": ["BOUNDED_TEST_EVIDENCE", "FUTURE_PRODUCTION_REFINEMENT", "UNAVAILABLE_BACKEND_BLOCKED"],
+          "production_refinement_required": true
+        },
+        {
+          "obligation_id": "obligation.length-canonical-7",
+          "property_id": "frame.length-canonical-7",
+          "statement": "Payload lengths 0 through 125 use the seven-bit form.",
+          "required_backend_ids": ["backend.kani-production"],
+          "expected_canary_ids": ["canary.good-length-canonical-7"],
+          "subject_target_id": "target.frame-header-decoder",
+          "minimum_obligation_count": 1,
+          "allowed_claim_scopes": ["BOUNDED_TEST_EVIDENCE", "FUTURE_PRODUCTION_REFINEMENT", "UNAVAILABLE_BACKEND_BLOCKED"],
+          "production_refinement_required": true
+        },
+        {
+          "obligation_id": "obligation.preallocation-cap",
+          "property_id": "frame.preallocation-cap",
+          "statement": "Configured frame and buffer caps are enforced before payload allocation.",
+          "required_backend_ids": ["backend.kani-production"],
+          "expected_canary_ids": ["canary.bad-allocation-before-cap"],
+          "subject_target_id": "target.frame-header-decoder",
+          "minimum_obligation_count": 1,
+          "allowed_claim_scopes": ["BOUNDED_TEST_EVIDENCE", "FUTURE_PRODUCTION_REFINEMENT", "UNAVAILABLE_BACKEND_BLOCKED"],
+          "production_refinement_required": true
+        },
+        {
+          "obligation_id": "obligation.role-masking",
+          "property_id": "frame.role-masking",
+          "statement": "Servers require masked inbound frames and clients require unmasked inbound frames.",
+          "required_backend_ids": ["backend.kani-production"],
+          "expected_canary_ids": ["canary.bad-role-masking"],
+          "subject_target_id": "target.frame-header-decoder",
+          "minimum_obligation_count": 1,
+          "allowed_claim_scopes": ["BOUNDED_TEST_EVIDENCE", "FUTURE_PRODUCTION_REFINEMENT", "UNAVAILABLE_BACKEND_BLOCKED"],
+          "production_refinement_required": true
+        }
+      ],
+      "prohibited_duplicates": ["PROOF_ONLY_REIMPLEMENTATION", "ADAPTER_LOCAL_CODEC", "TEST_ONLY_COPY"],
+      "maximum_current_scope": "FUTURE_PRODUCTION_REFINEMENT"
+    },
+    {
+      "target_id": "target.frame-mask",
+      "story_id": "US-012",
+      "planned_file": "crates/websocket-core/src/frame/mask.rs",
+      "rust_symbol": "websocket_core::frame::mask::apply_mask_in_place",
+      "item_kind": "FUNCTION",
+      "linkage_state": "UNRESOLVED_FUTURE_PRODUCTION_SYMBOL",
+      "source_sha256": null,
+      "semantic_identity": null,
+      "required_call_paths": [
+        {
+          "consumer": "CONFORMANCE",
+          "entry_symbol": "websocket_conformance::runner::ConnectionCoreHarness::exercise",
+          "linkage_artifact": null,
+          "state": "FUTURE_REQUIRED"
+        },
+        {
+          "consumer": "DIFFERENTIAL",
+          "entry_symbol": "websocket_differential::runner::ConnectionCoreHarness::compare",
+          "linkage_artifact": null,
+          "state": "FUTURE_REQUIRED"
+        },
+        {
+          "consumer": "PRODUCTION",
+          "entry_symbol": "websocket_driver::owner::ConnectionOwner::step",
+          "linkage_artifact": null,
+          "state": "FUTURE_REQUIRED"
+        }
+      ],
+      "obligations": [
+        {
+          "obligation_id": "obligation.mask-equation",
+          "property_id": "mask.equation",
+          "statement": "For every tested i, out[i] equals in[i] XOR key[(offset+i) mod 4].",
+          "required_backend_ids": ["backend.finite-mask-prototype", "backend.kani-production"],
+          "expected_canary_ids": ["canary.bad-mask-key-index"],
+          "subject_target_id": "target.frame-mask",
+          "minimum_obligation_count": 1,
+          "allowed_claim_scopes": ["BOUNDED_TEST_EVIDENCE", "FUTURE_PRODUCTION_REFINEMENT", "UNAVAILABLE_BACKEND_BLOCKED"],
+          "production_refinement_required": true
+        },
+        {
+          "obligation_id": "obligation.mask-involution",
+          "property_id": "mask.involution",
+          "statement": "Two applications with the identical key and offset restore the input.",
+          "required_backend_ids": ["backend.finite-mask-prototype", "backend.kani-production"],
+          "expected_canary_ids": ["canary.bad-mask-non-involution"],
+          "subject_target_id": "target.frame-mask",
+          "minimum_obligation_count": 1,
+          "allowed_claim_scopes": ["BOUNDED_TEST_EVIDENCE", "FUTURE_PRODUCTION_REFINEMENT", "UNAVAILABLE_BACKEND_BLOCKED"],
+          "production_refinement_required": true
+        }
+      ],
+      "prohibited_duplicates": ["PROOF_ONLY_REIMPLEMENTATION", "ADAPTER_LOCAL_CODEC", "TEST_ONLY_COPY"],
+      "maximum_current_scope": "FUTURE_PRODUCTION_REFINEMENT"
+    }
+  ],
+  "required_consumers": ["CONFORMANCE", "DIFFERENTIAL", "PRODUCTION"],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false
+}

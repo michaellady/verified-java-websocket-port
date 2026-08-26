@@ -1,0 +1,443 @@
+package formal
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"sort"
+	"testing"
+
+	vendorprotocol "github.com/michaellady/verified-java-to-rust/foundation/protocol"
+)
+
+var fixtureFiles = []string{
+	proofTargetsPath,
+	backendQualificationPath,
+	connectionModelPath,
+	concurrencyPlanPath,
+	proofTargetsSchemaPath,
+	backendSchemaPath,
+	concurrencySchemaPath,
+	"assurance/evidence-model.json",
+	"corpora/public/manifest.json",
+	"corpora/public/scenarios.jsonl",
+	"evidence/corpus-calibration.json",
+	"evidence/intake/compatibility-surface.json",
+	"evidence/intake/cutover-contract.json",
+	"evidence/intake/port-seam-dossier.json",
+	"evidence/sbx-validation.json",
+	"evidence/security-validation.json",
+	"security/sandbox-policy.json",
+	"security/sbx-template.json",
+}
+
+func TestUS006CanonicalPreflightAndReplayAreDeterministic(t *testing.T) {
+	root := repositoryRoot(t)
+	before := readFile(t, filepath.Join(root, backendQualificationPath))
+	preflight, err := Validate(context.Background(), Request{RootPath: root, Mode: ModePreflight})
+	if err != nil {
+		t.Fatalf("preflight: %v", err)
+	}
+	replay, err := Validate(context.Background(), Request{RootPath: root, Mode: ModeReplay})
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+	if !preflight.Valid || preflight.State != "BLOCKED" || len(preflight.Findings) != 0 {
+		t.Fatalf("preflight = %#v, want mechanically valid BLOCKED", preflight)
+	}
+	wantedScopes := []string{"FUTURE_PRODUCTION_REFINEMENT", "SYSTEMATIC_CONCURRENCY_TESTING", "UNAVAILABLE_BACKEND_BLOCKED"}
+	if !equalStrings(preflight.ClaimScopes, wantedScopes) {
+		t.Fatalf("claim scopes = %v, want %v", preflight.ClaimScopes, wantedScopes)
+	}
+	preflightBytes, _ := json.Marshal(preflight)
+	replayBytes, _ := json.Marshal(replay)
+	if !bytes.Equal(preflightBytes, replayBytes) {
+		t.Fatalf("unchanged preflight/replay differ:\n%s\n%s", preflightBytes, replayBytes)
+	}
+	after := readFile(t, filepath.Join(root, backendQualificationPath))
+	if !bytes.Equal(before, after) {
+		t.Fatal("Validate mutated retained qualification")
+	}
+}
+
+func TestUS006HostileFixtureMatrix(t *testing.T) {
+	type hostileCase struct {
+		id          string
+		code        string
+		disposition string
+		reason      string
+		mutate      func(*testing.T, string)
+	}
+	cases := []hostileCase{
+		{"concurrency-bound-drift", "STALE_INPUT", "INVALIDATE", "CONCURRENCY_BOUND_DRIFT", mutateConcurrencyBounds},
+		{"digest-substitution", "DIGEST_MISMATCH", "QUARANTINE", "DIGEST_SUBSTITUTION", mutateBorrowedDigest},
+		{"disconnected-production-call-path", "SEMANTIC_INCONSISTENCY", "BLOCK", "DISCONNECTED_TARGET", mutateDisconnectedCallPath},
+		{"duplicate-json-member", "SEMANTIC_INCONSISTENCY", "BLOCK", "DUPLICATE_JSON_MEMBER", mutateDuplicateMember},
+		{"inflated-finite-proof", "SEMANTIC_INCONSISTENCY", "BLOCK", "INFLATED_CLAIM", mutateInflatedClaim},
+		{"known-bad-survives", "SEMANTIC_INCONSISTENCY", "BLOCK", "KNOWN_BAD_CANARY_SURVIVED", mutateKnownBadSurvives},
+		{"malformed-tla-module", "SEMANTIC_INCONSISTENCY", "BLOCK", "MALFORMED_TLA_MODULE", mutateMalformedTLA},
+		{"missing-required-artifact", "SEMANTIC_INCONSISTENCY", "BLOCK", "MISSING_REQUIRED_ARTIFACT", mutateRequiredArtifactInventory},
+		{"missing-required-file", "SEMANTIC_INCONSISTENCY", "BLOCK", "MISSING_REQUIRED_ARTIFACT", mutateMissingRequiredFile},
+		{"missing-target", "SEMANTIC_INCONSISTENCY", "BLOCK", "MISSING_TARGET", mutateMissingTarget},
+		{"noncanonical-artifact-path", "SEMANTIC_INCONSISTENCY", "BLOCK", "NONCANONICAL_PATH", mutateNoncanonicalPath},
+		{"replay-digest-mismatch", "SEMANTIC_INCONSISTENCY", "BLOCK", "REPLAY_MISMATCH", mutateReplayDigest},
+		{"unsupported-claimed-covered", "SEMANTIC_INCONSISTENCY", "BLOCK", "UNSUPPORTED_CONSTRUCT_CLAIMED", mutateUnsupportedCovered},
+		{"unavailable-as-success", "SEMANTIC_INCONSISTENCY", "BLOCK", "UNAVAILABLE_REPRESENTED_AS_SUCCESS", mutateUnavailableSuccess},
+		{"zero-obligations", "SEMANTIC_INCONSISTENCY", "BLOCK", "ZERO_OBLIGATIONS", mutateZeroObligations},
+	}
+	for _, test := range cases {
+		t.Run(test.id, func(t *testing.T) {
+			root := copyFixtureRoot(t)
+			test.mutate(t, root)
+			for _, mode := range []string{ModePreflight, ModeReplay} {
+				verdict, err := Validate(context.Background(), Request{RootPath: root, Mode: mode})
+				if err != nil {
+					t.Fatalf("%s: %v", mode, err)
+				}
+				if verdict.Valid {
+					t.Fatalf("%s unexpectedly valid: %#v", mode, verdict)
+				}
+				if !hasFinding(verdict.Findings, test.code, test.disposition, test.reason) {
+					t.Fatalf("%s findings = %#v, want %s/%s/%s", mode, verdict.Findings, test.code, test.disposition, test.reason)
+				}
+			}
+		})
+	}
+}
+
+func TestUS006StrictClosedDecoding(t *testing.T) {
+	cases := []struct {
+		name   string
+		reason string
+		mutate func(*testing.T, string)
+	}{
+		{
+			name: "unknown member", reason: "UNKNOWN_JSON_MEMBER",
+			mutate: func(t *testing.T, root string) {
+				value := loadObject(t, filepath.Join(root, backendQualificationPath))
+				value["unexpected"] = true
+				writeObject(t, filepath.Join(root, backendQualificationPath), value)
+			},
+		},
+		{
+			name: "trailing value", reason: "TRAILING_JSON_VALUE",
+			mutate: func(t *testing.T, root string) {
+				path := filepath.Join(root, backendQualificationPath)
+				data := readFile(t, path)
+				writeFile(t, path, append(data, []byte("{}\n")...))
+			},
+		},
+		{
+			name: "null document", reason: "NULL_JSON_DOCUMENT",
+			mutate: func(t *testing.T, root string) {
+				writeFile(t, filepath.Join(root, backendQualificationPath), []byte("null\n"))
+			},
+		},
+		{
+			name: "invalid UTF-8", reason: "INVALID_UTF8",
+			mutate: func(t *testing.T, root string) {
+				path := filepath.Join(root, backendQualificationPath)
+				writeFile(t, path, append(readFile(t, path), 0xff))
+			},
+		},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			root := copyFixtureRoot(t)
+			test.mutate(t, root)
+			verdict, err := Validate(context.Background(), Request{RootPath: root, Mode: ModePreflight})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !hasReason(verdict.Findings, test.reason) {
+				t.Fatalf("findings = %#v, want %s", verdict.Findings, test.reason)
+			}
+		})
+	}
+}
+
+func TestUS006RejectsNonSingleLinkSnapshot(t *testing.T) {
+	root := copyFixtureRoot(t)
+	model := filepath.Join(root, connectionModelPath)
+	if err := os.Link(model, filepath.Join(root, "connection-model-hardlink.tla")); err != nil {
+		t.Fatal(err)
+	}
+	verdict, err := Validate(context.Background(), Request{RootPath: root, Mode: ModePreflight})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasReason(verdict.Findings, "INVALID_ARTIFACT_SNAPSHOT") {
+		t.Fatalf("findings = %#v, want INVALID_ARTIFACT_SNAPSHOT", verdict.Findings)
+	}
+}
+
+func TestUS006FixtureCatalogMatchesHostileCases(t *testing.T) {
+	type fixtureCase struct {
+		FixtureID           string `json:"fixture_id"`
+		Mutation            string `json:"mutation"`
+		ExpectedCode        string `json:"expected_code"`
+		ExpectedDisposition string `json:"expected_disposition"`
+		ExpectedReason      string `json:"expected_reason"`
+		ExpectedExit        int    `json:"expected_exit"`
+		SyntheticNonClaim   bool   `json:"synthetic_non_claim"`
+	}
+	type catalog struct {
+		SchemaVersion            string        `json:"schema_version"`
+		EntityType               string        `json:"entity_type"`
+		Assurance                string        `json:"assurance"`
+		IndependentReviewClaimed bool          `json:"independent_review_claimed"`
+		Cases                    []fixtureCase `json:"cases"`
+	}
+	path := filepath.Join(repositoryRoot(t), "assurance/formal/fixtures/cases.json")
+	var value catalog
+	if err := decodeStrict(readFile(t, path), &value); err != nil {
+		t.Fatal(err)
+	}
+	if value.SchemaVersion != "1.0.0" || value.EntityType != "FormalFixtureCatalog" || value.Assurance != "SYNTHETIC_NON_CLAIM" || value.IndependentReviewClaimed {
+		t.Fatalf("fixture catalog posture drifted: %#v", value)
+	}
+	ids := make([]string, 0, len(value.Cases))
+	for _, item := range value.Cases {
+		ids = append(ids, item.FixtureID)
+		if item.Mutation == "" || !item.SyntheticNonClaim || (item.FixtureID != "good-unresolved-production-plan" && item.ExpectedExit != 1) {
+			t.Fatalf("invalid fixture record: %#v", item)
+		}
+	}
+	if !sort.StringsAreSorted(ids) {
+		t.Fatalf("fixture ids not sorted: %v", ids)
+	}
+}
+
+func mutateConcurrencyBounds(t *testing.T, root string) {
+	planPath := filepath.Join(root, concurrencyPlanPath)
+	plan := loadObject(t, planPath)
+	plan["bounds"].(map[string]any)["max_tasks"] = float64(8)
+	writeObject(t, planPath, plan)
+	qualificationPath := filepath.Join(root, backendQualificationPath)
+	qualification := loadObject(t, qualificationPath)
+	qualification["concurrency_plan"].(map[string]any)["sha256"] = digestFile(t, planPath)
+	backendByID(t, qualification, "backend.loom-concurrency")["bounds"].(map[string]any)["max_tasks"] = float64(8)
+	writeObject(t, qualificationPath, qualification)
+}
+
+func mutateBorrowedDigest(t *testing.T, root string) {
+	path := filepath.Join(root, "evidence/security-validation.json")
+	writeFile(t, path, append(readFile(t, path), ' '))
+}
+
+func mutateDisconnectedCallPath(t *testing.T, root string) {
+	path := filepath.Join(root, proofTargetsPath)
+	value := loadObject(t, path)
+	target := value["targets"].([]any)[0].(map[string]any)
+	target["required_call_paths"].([]any)[0].(map[string]any)["state"] = "DISCONNECTED"
+	writeObject(t, path, value)
+	rebindQualification(t, root, "proof_targets", path)
+}
+
+func mutateDuplicateMember(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	data := readFile(t, path)
+	data = bytes.Replace(data, []byte(`"schema_version": "1.0.0",`), []byte(`"schema_version": "1.0.0", "schema_version": "1.0.0",`), 1)
+	writeFile(t, path, data)
+}
+
+func mutateInflatedClaim(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backendByID(t, value, "backend.finite-mask-prototype")["claim_scope"] = "PROVED_MODEL"
+	writeObject(t, path, value)
+}
+
+func mutateKnownBadSurvives(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backend := backendByID(t, value, "backend.finite-mask-prototype")
+	backend["known_bad_canaries"].([]any)[0].(map[string]any)["observed_outcome"] = "PASS"
+	writeObject(t, path, value)
+}
+
+func mutateMalformedTLA(t *testing.T, root string) {
+	path := filepath.Join(root, connectionModelPath)
+	data := bytes.Replace(readFile(t, path), []byte("MODULE ConnectionModel"), []byte("MODULE WrongModel"), 1)
+	writeFile(t, path, data)
+	rebindQualification(t, root, "connection_model", path)
+}
+
+func mutateRequiredArtifactInventory(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backend := backendByID(t, value, "backend.finite-mask-prototype")
+	items := backend["required_artifacts"].([]any)
+	filtered := make([]any, 0, len(items)-1)
+	for _, item := range items {
+		if item != "TOOL_IDENTITY" {
+			filtered = append(filtered, item)
+		}
+	}
+	backend["required_artifacts"] = filtered
+	writeObject(t, path, value)
+}
+
+func mutateMissingRequiredFile(t *testing.T, root string) {
+	if err := os.Remove(filepath.Join(root, connectionModelPath)); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mutateMissingTarget(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backend := backendByID(t, value, "backend.finite-mask-prototype")
+	backend["obligation_ids"].([]any)[0] = "obligation.unknown"
+	backend["outcomes"].([]any)[0].(map[string]any)["obligation_id"] = "obligation.unknown"
+	writeObject(t, path, value)
+}
+
+func mutateReplayDigest(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backend := backendByID(t, value, "backend.finite-mask-prototype")
+	backend["replay"].(map[string]any)["semantic_output_digest"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+	writeObject(t, path, value)
+}
+
+func mutateNoncanonicalPath(t *testing.T, root string) {
+	path := filepath.Join(root, proofTargetsPath)
+	value := loadObject(t, path)
+	source := value["source_basis"].([]any)[0].(map[string]any)
+	source["path"] = "./assurance/evidence-model.json"
+	writeObject(t, path, value)
+	rebindQualification(t, root, "proof_targets", path)
+}
+
+func mutateUnsupportedCovered(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backend := backendByID(t, value, "backend.finite-mask-prototype")
+	backend["unsupported_constructs"] = []any{"construct.dynamic-dispatch"}
+	backend["outcomes"].([]any)[0].(map[string]any)["raw_outcome"] = "BOUNDED_CHECK_PASSED"
+	writeObject(t, path, value)
+}
+
+func mutateUnavailableSuccess(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backend := backendByID(t, value, "backend.finite-mask-prototype")
+	backend["claim_scope"] = "BOUNDED_TEST_EVIDENCE"
+	outcome := backend["outcomes"].([]any)[0].(map[string]any)
+	outcome["raw_outcome"] = "BOUNDED_CHECK_PASSED"
+	outcome["claim_scope"] = "BOUNDED_TEST_EVIDENCE"
+	writeObject(t, path, value)
+}
+
+func mutateZeroObligations(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backend := backendByID(t, value, "backend.finite-mask-prototype")
+	backend["obligation_ids"] = []any{}
+	backend["obligation_count"] = float64(0)
+	backend["outcomes"] = []any{}
+	writeObject(t, path, value)
+}
+
+func copyFixtureRoot(t *testing.T) string {
+	t.Helper()
+	source := repositoryRoot(t)
+	destination := t.TempDir()
+	for _, relative := range fixtureFiles {
+		target := filepath.Join(destination, relative)
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		writeFile(t, target, readFile(t, filepath.Join(source, relative)))
+	}
+	return destination
+}
+
+func rebindQualification(t *testing.T, root, field, artifactPath string) {
+	t.Helper()
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	value[field].(map[string]any)["sha256"] = digestFile(t, artifactPath)
+	writeObject(t, path, value)
+}
+
+func backendByID(t *testing.T, qualification map[string]any, id string) map[string]any {
+	t.Helper()
+	for _, raw := range qualification["backends"].([]any) {
+		backend := raw.(map[string]any)
+		if backend["backend_id"] == id {
+			return backend
+		}
+	}
+	t.Fatalf("backend %s not found", id)
+	return nil
+}
+
+func loadObject(t *testing.T, path string) map[string]any {
+	t.Helper()
+	var value map[string]any
+	if err := json.Unmarshal(readFile(t, path), &value); err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func writeObject(t *testing.T, path string, value map[string]any) {
+	t.Helper()
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, path, append(data, '\n'))
+}
+
+func digestFile(t *testing.T, path string) string {
+	t.Helper()
+	return vendorprotocol.DigestBytes(readFile(t, path))
+}
+
+func readFile(t *testing.T, path string) []byte {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data
+}
+
+func writeFile(t *testing.T, path string, data []byte) {
+	t.Helper()
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func repositoryRoot(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func hasFinding(findings []Finding, code, disposition, reason string) bool {
+	for _, finding := range findings {
+		if finding.Code == code && finding.Disposition == disposition && finding.Reason == reason {
+			return true
+		}
+	}
+	return false
+}
+
+func hasReason(findings []Finding, reason string) bool {
+	for _, finding := range findings {
+		if finding.Reason == reason {
+			return true
+		}
+	}
+	return false
+}

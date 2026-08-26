@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "FormalFixtureCatalog",
+  "assurance": "SYNTHETIC_NON_CLAIM",
+  "independent_review_claimed": false,
+  "cases": [
+    {"fixture_id": "concurrency-bound-drift", "mutation": "change the fixed max_tasks in both plan and Loom declaration", "expected_code": "STALE_INPUT", "expected_disposition": "INVALIDATE", "expected_reason": "CONCURRENCY_BOUND_DRIFT", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "digest-substitution", "mutation": "change a borrowed source byte without changing its declared digest", "expected_code": "DIGEST_MISMATCH", "expected_disposition": "QUARANTINE", "expected_reason": "DIGEST_SUBSTITUTION", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "disconnected-production-call-path", "mutation": "mark one required production target call path disconnected", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "DISCONNECTED_TARGET", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "duplicate-json-member", "mutation": "duplicate schema_version in backend qualification", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "DUPLICATE_JSON_MEMBER", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "good-unresolved-production-plan", "mutation": "none", "expected_code": "", "expected_disposition": "", "expected_reason": "", "expected_exit": 0, "synthetic_non_claim": true},
+    {"fixture_id": "inflated-finite-proof", "mutation": "claim PROVED_MODEL from the finite backend", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "INFLATED_CLAIM", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "known-bad-survives", "mutation": "report PASS for a seeded bad mask canary", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "KNOWN_BAD_CANARY_SURVIVED", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "malformed-tla-module", "mutation": "rename the exact ConnectionModel header", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "MALFORMED_TLA_MODULE", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "missing-required-artifact", "mutation": "remove TOOL_IDENTITY from required_artifacts", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "MISSING_REQUIRED_ARTIFACT", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "missing-required-file", "mutation": "remove connection-model.tla", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "MISSING_REQUIRED_ARTIFACT", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "missing-target", "mutation": "replace an obligation with an unknown identifier", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "MISSING_TARGET", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "noncanonical-artifact-path", "mutation": "prefix a source-basis path with a noncanonical dot segment", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "NONCANONICAL_PATH", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "replay-digest-mismatch", "mutation": "attach a synthetic semantic digest to an unavailable replay", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "REPLAY_MISMATCH", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "unavailable-as-success", "mutation": "report a bounded pass from an unavailable backend", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "UNAVAILABLE_REPRESENTED_AS_SUCCESS", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "unsupported-claimed-covered", "mutation": "report a pass while retaining an unsupported construct", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "UNSUPPORTED_CONSTRUCT_CLAIMED", "expected_exit": 1, "synthetic_non_claim": true},
+    {"fixture_id": "zero-obligations", "mutation": "clear a selected backend obligation and outcome inventory", "expected_code": "SEMANTIC_INCONSISTENCY", "expected_disposition": "BLOCK", "expected_reason": "ZERO_OBLIGATIONS", "expected_exit": 1, "synthetic_non_claim": true}
+  ]
+}

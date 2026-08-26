@@ -1,0 +1,211 @@
+{
+  "$schema": "../../schemas/concurrency-plan-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "ConcurrencyPlan",
+  "plan_id": "concurrency-plan.us006.v1",
+  "story_id": "US-017",
+  "implementation_state": "FUTURE_PRODUCTION_REFINEMENT",
+  "owner_symbol": {
+    "symbol": "websocket_driver::owner::ConnectionOwner::step",
+    "state": "UNRESOLVED_FUTURE_PRODUCTION_SYMBOL"
+  },
+  "actions": [
+    {
+      "action_id": "backpressure",
+      "actor": "queue boundary",
+      "preconditions": ["a command, write, or event queue is full, or the receiver has dropped"],
+      "effects": ["preserve already accepted work", "return one typed bounded outcome"],
+      "observable_outcomes": ["COMMAND_QUEUE_FULL", "EVENT_QUEUE_FULL", "RECEIVER_DROPPED", "WRITE_QUEUE_FULL"],
+      "maximum_occurrences_per_schedule": 7
+    },
+    {
+      "action_id": "callback-delivery",
+      "actor": "callback task",
+      "preconditions": ["a typed event is pending after owner processing"],
+      "effects": ["drain one typed event without invoking callbacks from the protocol core"],
+      "observable_outcomes": ["CALLBACK_DELIVERED", "TERMINAL_DELIVERED"],
+      "maximum_occurrences_per_schedule": 3
+    },
+    {
+      "action_id": "command-enqueue",
+      "actor": "producer task",
+      "preconditions": ["the connection accepts producer commands"],
+      "effects": ["enqueue at most one SendText, SendBinary, Ping, or Close command in producer FIFO order"],
+      "observable_outcomes": ["ACCEPTED", "COMMAND_QUEUE_FULL", "RECEIVER_DROPPED"],
+      "maximum_occurrences_per_schedule": 4
+    },
+    {
+      "action_id": "finish-close",
+      "actor": "owner task",
+      "preconditions": ["closing work and required terminal notification are complete"],
+      "effects": ["transition from Closing to Closed without introducing post-terminal work"],
+      "observable_outcomes": ["CLOSED"],
+      "maximum_occurrences_per_schedule": 1
+    },
+    {
+      "action_id": "inbound-close",
+      "actor": "inbound task",
+      "preconditions": ["an inbound close is available and the connection is not Closed"],
+      "effects": ["enqueue the close event distinctly from an ordinary frame"],
+      "observable_outcomes": ["CLOSE_ACCEPTED", "EVENT_QUEUE_FULL"],
+      "maximum_occurrences_per_schedule": 2
+    },
+    {
+      "action_id": "inbound-frame",
+      "actor": "inbound task",
+      "preconditions": ["an ordinary inbound frame is available and the connection is Open"],
+      "effects": ["enqueue one typed non-close event for owner processing"],
+      "observable_outcomes": ["EVENT_QUEUE_FULL", "FRAME_ACCEPTED"],
+      "maximum_occurrences_per_schedule": 2
+    },
+    {
+      "action_id": "outbound-flush",
+      "actor": "flush task",
+      "preconditions": ["outbound work is pending and the transport may be writable"],
+      "effects": ["perform a zero, partial, or complete write without reordering pending bytes"],
+      "observable_outcomes": ["COMPLETE_WRITE", "PARTIAL_WRITE", "WRITE_QUEUE_FULL", "ZERO_WRITE"],
+      "maximum_occurrences_per_schedule": 3
+    },
+    {
+      "action_id": "owner-step",
+      "actor": "owner task",
+      "preconditions": ["a command, inbound event, shutdown request, or close transition is pending"],
+      "effects": ["mutate protocol state only through the single owner and commit ordered writes and typed events"],
+      "observable_outcomes": ["COMMAND_APPLIED", "EVENT_COMMITTED", "STATE_ADVANCED", "WRITE_COMMITTED"],
+      "maximum_occurrences_per_schedule": 7
+    },
+    {
+      "action_id": "shutdown",
+      "actor": "shutdown task",
+      "preconditions": ["adapter shutdown or EOF is observed"],
+      "effects": ["request convergence toward Closing and Closed"],
+      "observable_outcomes": ["SHUTDOWN_REQUESTED"],
+      "maximum_occurrences_per_schedule": 1
+    }
+  ],
+  "bounds": {
+    "producer_tasks": 2,
+    "owner_tasks": 1,
+    "inbound_tasks": 1,
+    "flush_tasks": 1,
+    "callback_tasks": 1,
+    "shutdown_tasks": 1,
+    "max_tasks": 7,
+    "command_queue_capacity": 2,
+    "write_queue_capacity": 2,
+    "event_queue_capacity": 2,
+    "commands_per_producer": 2,
+    "inbound_actions": 2,
+    "flush_actions": 3,
+    "callback_actions": 3,
+    "shutdown_actions": 1,
+    "max_schedules": 100000,
+    "max_preemptions": 3,
+    "max_branches": 1000000
+  },
+  "fairness": [
+    "NO_PRODUCER_ADMISSION_FAIRNESS_QUEUE_FULL_RETURNS_BACKPRESSURE",
+    "WEAK_CALLBACK_PROGRESS_WHEN_EVENT_PENDING",
+    "WEAK_FLUSH_PROGRESS_WHEN_WRITABLE",
+    "WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING"
+  ],
+  "properties": [
+    {
+      "property_id": "concurrency.accepted-at-most-once",
+      "statement": "Every accepted command is applied at most once."
+    },
+    {
+      "property_id": "concurrency.bounded-counterexample",
+      "statement": "Every explored run terminates or yields a bounded minimized schedule."
+    },
+    {
+      "property_id": "concurrency.close-convergence",
+      "statement": "Close and shutdown converge under the declared fairness assumptions."
+    },
+    {
+      "property_id": "concurrency.fifo-owner-order",
+      "statement": "FIFO is preserved within each producer and committed owner order is reflected in writes and events."
+    },
+    {
+      "property_id": "concurrency.no-post-terminal",
+      "statement": "No post-terminal callback or write is introduced."
+    },
+    {
+      "property_id": "concurrency.no-write-bypass",
+      "statement": "No write bypasses pending-write backpressure."
+    },
+    {
+      "property_id": "concurrency.queue-bounds",
+      "statement": "Command, write, and event depths never exceed their capacities."
+    },
+    {
+      "property_id": "concurrency.receiver-drop-typed",
+      "statement": "Receiver drop has one typed observable outcome."
+    },
+    {
+      "property_id": "concurrency.terminal-exactly-once",
+      "statement": "Terminal delivery occurs exactly once when a terminal event is accepted."
+    }
+  ],
+  "seeded_defects": [
+    {
+      "defect_id": "close-race",
+      "property_id": "concurrency.close-convergence",
+      "mutation": "allow shutdown and inbound close to lose the terminal transition",
+      "expected_outcome": "COUNTEREXAMPLE"
+    },
+    {
+      "defect_id": "duplicate-delivery",
+      "property_id": "concurrency.terminal-exactly-once",
+      "mutation": "deliver the accepted terminal event twice",
+      "expected_outcome": "COUNTEREXAMPLE"
+    },
+    {
+      "defect_id": "lock-sharing",
+      "property_id": "concurrency.accepted-at-most-once",
+      "mutation": "permit protocol state mutation outside the owner",
+      "expected_outcome": "COUNTEREXAMPLE"
+    },
+    {
+      "defect_id": "lost-command",
+      "property_id": "concurrency.accepted-at-most-once",
+      "mutation": "drop an accepted command before owner application",
+      "expected_outcome": "COUNTEREXAMPLE"
+    },
+    {
+      "defect_id": "queue-bypass",
+      "property_id": "concurrency.no-write-bypass",
+      "mutation": "append a write after the write queue reports full",
+      "expected_outcome": "COUNTEREXAMPLE"
+    },
+    {
+      "defect_id": "write-reorder",
+      "property_id": "concurrency.fifo-owner-order",
+      "mutation": "flush a later owner-committed write before an earlier write",
+      "expected_outcome": "COUNTEREXAMPLE"
+    }
+  ],
+  "required_artifacts": [
+    "BAD_CANARY_COUNTEREXAMPLES",
+    "BRANCH_AND_PREEMPTION_MAXIMA",
+    "DETERMINISTIC_MINIMIZED_FAILURE_SCHEDULES",
+    "EXPLORED_SCHEDULE_COUNT",
+    "GOOD_CANARY_RESULT",
+    "INPUT_ROOT_DIGEST",
+    "OUTPUT_ROOT_DIGEST",
+    "PER_PROPERTY_RESULTS",
+    "PLAN_DIGEST",
+    "TOOL_DIGEST"
+  ],
+  "claim_scope": "SYSTEMATIC_CONCURRENCY_TESTING",
+  "native_thread_evidence": {
+    "state": "FUTURE_REQUIRED",
+    "claim_scope": "FUTURE_PRODUCTION_REFINEMENT",
+    "required_fields": ["flake-reconciliation", "platform", "repeat-count", "source-tree", "tool-digest"],
+    "limitations": ["Loom cannot satisfy native-thread evidence", "native stress cannot satisfy the systematic plan"]
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false
+}
