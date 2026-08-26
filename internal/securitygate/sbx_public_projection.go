@@ -4,142 +4,188 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
+	"strings"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 )
 
-// ProtectedDescriptorObservation intentionally aliases the candidate-side
-// strict receipt shape. This prevents the public classifier and protected
-// supervisor from drifting into parallel cgroup-era schemas.
-type ProtectedDescriptorObservation = SupervisorObservation
+const (
+	classifiedPublicProjectionSchema         = "1.0.0"
+	classifiedPublicProjectionClassification = "PUBLIC_DERIVED"
+	classifiedPublicProjectionProject        = "verified-java-websocket-port"
+	classifiedPublicProjectionStory          = "US-007"
+	classifiedPublicProjectionAttemptPrefix  = "us007-sbx-output-live-"
+	classifiedPublicProjectionStaleAttempt   = "0012"
 
-type ProtectedProjectionRequest struct {
-	AttemptID                string `json:"attempt_id"`
-	TargetCommit             string `json:"target_commit"`
-	SourceTree               string `json:"source_tree"`
-	FixedPlanDigest          string `json:"fixed_plan_digest"`
-	ProfileDigest            string `json:"profile_digest"`
-	PolicyDigest             string `json:"policy_digest"`
-	AcceptedRootDigest       string `json:"accepted_root_digest"`
-	InventoryRootDigest      string `json:"inventory_root_digest"`
-	InputRoot                string `json:"input_root"`
-	OutputRoot               string `json:"output_root"`
-	PrivilegedExecArgvDigest string `json:"privileged_exec_argv_digest"`
+	// These digests pin the protected classifier's compiled template and rule
+	// set without exposing either raw protected observations or host paths in
+	// the public projection contract.
+	classifiedPublicProjectionTemplateDigest = "sha256:113547b4bf0f85f83b04a948b45d8a9a962fa0a2dc38eed5180588dbdac611fc"
+	classifiedPublicProjectionRuleDigest     = "sha256:c69d5471dc6803291a59575dc513ac30e0774c2d4e7e43edaa604703b6f2f432"
+)
+
+type ClassifiedProjectionDigests struct {
+	FixedPlanDigest            string `json:"fixed_plan_digest"`
+	ProfileDigest              string `json:"profile_digest"`
+	PolicyDigest               string `json:"policy_digest"`
+	RuntimeDigest              string `json:"runtime_digest"`
+	TemplateDigest             string `json:"template_digest"`
+	SupervisorDigest           string `json:"supervisor_digest"`
+	AuthorizationClosureDigest string `json:"authorization_closure_digest"`
 }
 
-type ProtectedProjectionRuntime struct {
-	CLIPath                string `json:"cli_path"`
-	CLIBinaryDigest        string `json:"cli_binary_digest"`
-	CLIVersionOutputDigest string `json:"cli_version_output_digest"`
-	CLIVersion             string `json:"cli_version"`
-	CLICommit              string `json:"cli_commit"`
-	DaemonStatusDigest     string `json:"daemon_status_digest"`
-	DaemonVersion          string `json:"daemon_version"`
-	DaemonCommit           string `json:"daemon_commit"`
-	Template               string `json:"template"`
-	SandboxName            string `json:"sandbox_name"`
-	SupervisorDigest       string `json:"supervisor_digest"`
-	PrivilegeLifecycle     string `json:"privilege_lifecycle"`
+type ClassifiedDescriptorSummary struct {
+	DescriptorID     string `json:"descriptor_id"`
+	Accepted         bool   `json:"accepted"`
+	RawReceiptDigest string `json:"raw_receipt_digest"`
 }
 
-type ProtectedProjectionArtifact struct {
+type ClassifiedArtifact struct {
 	Digest string `json:"digest"`
 	Bytes  int64  `json:"bytes"`
-	Path   string `json:"path"`
 }
-type ProtectedProjectionOutput struct {
-	SupervisorReceiptsDigest  string `json:"supervisor_receipts_digest"`
-	InspectDigest             string `json:"inspect_digest"`
-	PolicyListDigest          string `json:"policy_list_digest"`
-	ExamplePolicyCheckDigest  string `json:"example_policy_check_digest"`
-	ProviderPolicyCheckDigest string `json:"provider_policy_check_digest"`
-}
-type ProtectedProjectionCleanup struct {
+
+type ClassifiedCleanup struct {
 	RemoveDigest  string `json:"remove_digest"`
 	AbsenceDigest string `json:"absence_digest"`
 	SandboxAbsent bool   `json:"sandbox_absent"`
 }
 
+type ClassifiedClassifier struct {
+	RuleDigest   string `json:"rule_digest"`
+	InputDigest  string `json:"input_digest"`
+	ActionDigest string `json:"action_digest"`
+	OutputDigest string `json:"output_digest"`
+}
+
+// ProtectedPublicProjection is the complete public contract emitted by the
+// protected-host classifier. It contains only classified summaries and
+// digests; raw observations remain in the protected evidence store.
 type ProtectedPublicProjection struct {
-	SchemaVersion            string                           `json:"schema_version"`
-	Request                  ProtectedProjectionRequest       `json:"request"`
-	Runtime                  ProtectedProjectionRuntime       `json:"runtime"`
-	StartedAt                string                           `json:"started_at"`
-	FinishedAt               string                           `json:"finished_at"`
-	Artifact                 ProtectedProjectionArtifact      `json:"artifact"`
-	Output                   ProtectedProjectionOutput        `json:"output"`
-	Cleanup                  ProtectedProjectionCleanup       `json:"cleanup"`
-	DescriptorObservations   []ProtectedDescriptorObservation `json:"descriptor_observations"`
-	Assurance                string                           `json:"assurance"`
-	IndependentReviewClaimed bool                             `json:"independent_review_claimed"`
-	AutobahnReruns           int                              `json:"autobahn_reruns"`
+	Schema                   string                        `json:"schema"`
+	Classification           string                        `json:"classification"`
+	Project                  string                        `json:"project"`
+	Story                    string                        `json:"story"`
+	AttemptID                string                        `json:"attempt_id"`
+	TargetCommit             string                        `json:"target_commit"`
+	TargetTree               string                        `json:"target_tree"`
+	Digests                  ClassifiedProjectionDigests   `json:"digests"`
+	ResourceEnvelope         resources                     `json:"resource_envelope"`
+	DescriptorSummaries      []ClassifiedDescriptorSummary `json:"descriptor_summaries"`
+	BenignArtifact           ClassifiedArtifact            `json:"benign_artifact"`
+	Cleanup                  ClassifiedCleanup             `json:"cleanup"`
+	Classifier               ClassifiedClassifier          `json:"classifier"`
+	Assurance                string                        `json:"assurance"`
+	IndependentReviewClaimed bool                          `json:"independent_review_claimed"`
+	AutobahnReruns           int                           `json:"autobahn_reruns"`
 }
 
-type ProtectedPublicProjectionEnvelope struct {
-	Projection      ProtectedPublicProjection `json:"projection"`
-	CanonicalDigest string                    `json:"canonical_digest"`
-}
+// DecodeProtectedPublicProjection validates bytes already classified on the
+// protected host. It cannot create a classification or replace the external
+// classifier required by Project.
+func DecodeProtectedPublicProjection(data []byte) (ProtectedPublicProjection, error) {
+	var projection ProtectedPublicProjection
+	if err := intake.DecodeStrict(data, &projection); err != nil {
+		return ProtectedPublicProjection{}, fmt.Errorf("PUBLIC_PROJECTION_INVALID/QUARANTINE: %w", err)
+	}
+	if err := validateProtectedPublicProjection(projection); err != nil {
+		return ProtectedPublicProjection{}, err
+	}
 
-func DecodeProtectedPublicProjection(data []byte) (ProtectedPublicProjectionEnvelope, error) {
-	var envelope ProtectedPublicProjectionEnvelope
-	if err := intake.DecodeStrict(data, &envelope); err != nil {
-		return ProtectedPublicProjectionEnvelope{}, fmt.Errorf("PUBLIC_PROJECTION_INVALID/QUARANTINE: %w", err)
+	claimedDigest := projection.Classifier.OutputDigest
+	projection.Classifier.OutputDigest = ""
+	canonical, err := intake.CanonicalJSON(projection)
+	if err != nil || claimedDigest != intake.DigestBytes(canonical) {
+		return ProtectedPublicProjection{}, errors.New("PUBLIC_PROJECTION_DIGEST_DRIFT/QUARANTINE")
 	}
-	canonical, err := intake.CanonicalJSON(envelope.Projection)
-	if err != nil || envelope.CanonicalDigest != intake.DigestBytes(canonical) {
-		return ProtectedPublicProjectionEnvelope{}, errors.New("PUBLIC_PROJECTION_DIGEST_DRIFT/QUARANTINE")
-	}
-	if err := validateProtectedPublicProjection(envelope.Projection); err != nil {
-		return ProtectedPublicProjectionEnvelope{}, err
-	}
-	return envelope, nil
+	projection.Classifier.OutputDigest = claimedDigest
+	return projection, nil
 }
 
 func validateProtectedPublicProjection(projection ProtectedPublicProjection) error {
-	request, runtime := projection.Request, projection.Runtime
-	expectedInputRoot := "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port/protected/us007-source-clone-" + request.TargetCommit
-	expectedOutputRoot := "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port/protected/us007-sbx-output-live-0018"
-	profileBytes, _ := json.Marshal(exactProtectedEnvelope())
-	expectedProfileDigest := intake.DigestBytes(profileBytes)
-	expectedAcceptedRoot := intake.DigestBytes([]byte("accepted-git-tree:" + request.SourceTree))
-	expectedInventoryRoot := intake.DigestBytes([]byte("inventory-git-tree:" + request.SourceTree))
-	if projection.SchemaVersion != policyVersion || request.AttemptID != "us007-sbx-output-live-0018" || !sbxGitObjectPattern.MatchString(request.TargetCommit) || !sbxGitObjectPattern.MatchString(request.SourceTree) || request.FixedPlanDigest != protectedFixedPlanDigest() || request.ProfileDigest != expectedProfileDigest || !isSHA256Digest(request.PolicyDigest) || request.PolicyDigest != projection.Output.PolicyListDigest || request.AcceptedRootDigest != expectedAcceptedRoot || request.InventoryRootDigest != expectedInventoryRoot || request.InputRoot != expectedInputRoot || request.OutputRoot != expectedOutputRoot || request.PrivilegedExecArgvDigest != protectedPrivilegedExecDigest() {
-		return errors.New("PUBLIC_PROJECTION_REQUEST_INVALID/QUARANTINE")
+	if projection.Schema != classifiedPublicProjectionSchema ||
+		projection.Classification != classifiedPublicProjectionClassification ||
+		projection.Project != classifiedPublicProjectionProject ||
+		projection.Story != classifiedPublicProjectionStory ||
+		projection.Assurance != AssuranceOwnerOnly ||
+		projection.IndependentReviewClaimed || projection.AutobahnReruns != 0 {
+		return errors.New("PUBLIC_PROJECTION_SEMANTIC_INVALID/QUARANTINE")
 	}
-	if runtime.CLIPath != "/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx" || runtime.CLIBinaryDigest != "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf" || !isSHA256Digest(runtime.CLIVersionOutputDigest) || runtime.CLIVersion != "v0.39.0" || runtime.CLICommit != "def8cb0523a77e757bdd6ef52b459fe374f3783e" || !isSHA256Digest(runtime.DaemonStatusDigest) || runtime.DaemonVersion != "v0.39.0" || runtime.DaemonCommit != runtime.CLICommit || runtime.Template != "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec" || runtime.SandboxName != "us007-resource-envelope-0018" || !isSHA256Digest(runtime.SupervisorDigest) || runtime.PrivilegeLifecycle != "sbx exec privilege is fixed to the trusted supervisor; stage-2 drops UID/GID/capabilities, sets no_new_privs/seccomp, and is reopened before workload release" {
-		return errors.New("PUBLIC_PROJECTION_RUNTIME_INVALID/QUARANTINE")
+	if !validClassifiedAttemptID(projection.AttemptID) ||
+		!sbxGitObjectPattern.MatchString(projection.TargetCommit) ||
+		!sbxGitObjectPattern.MatchString(projection.TargetTree) {
+		return errors.New("PUBLIC_PROJECTION_BINDING_INVALID/QUARANTINE")
 	}
-	started, e1 := time.Parse(time.RFC3339Nano, projection.StartedAt)
-	finished, e2 := time.Parse(time.RFC3339Nano, projection.FinishedAt)
-	if e1 != nil || e2 != nil || finished.Before(started) || !isSHA256Digest(projection.Artifact.Digest) || projection.Artifact.Bytes <= 0 || projection.Artifact.Path != expectedOutputRoot+"/resource-envelope-artifact" || !isSHA256Digest(projection.Output.SupervisorReceiptsDigest) || !isSHA256Digest(projection.Output.InspectDigest) || !isSHA256Digest(projection.Output.PolicyListDigest) || !isSHA256Digest(projection.Output.ExamplePolicyCheckDigest) || !isSHA256Digest(projection.Output.ProviderPolicyCheckDigest) || !isSHA256Digest(projection.Cleanup.RemoveDigest) || !isSHA256Digest(projection.Cleanup.AbsenceDigest) || !projection.Cleanup.SandboxAbsent || projection.Assurance != AssuranceOwnerOnly || projection.IndependentReviewClaimed || projection.AutobahnReruns != 0 {
-		return errors.New("PUBLIC_PROJECTION_OBSERVATION_INVALID/QUARANTINE")
+
+	digests := projection.Digests
+	if digests.FixedPlanDigest != protectedFixedPlanDigest() ||
+		digests.ProfileDigest != classifiedPublicProjectionProfileDigest() ||
+		digests.TemplateDigest != classifiedPublicProjectionTemplateDigest ||
+		!allClassifiedDigests(
+			digests.PolicyDigest,
+			digests.RuntimeDigest,
+			digests.SupervisorDigest,
+			digests.AuthorizationClosureDigest,
+		) {
+		return errors.New("PUBLIC_PROJECTION_PROVENANCE_INVALID/QUARANTINE")
 	}
+	if projection.ResourceEnvelope != exactProtectedEnvelope() {
+		return errors.New("PUBLIC_PROJECTION_RESOURCE_ENVELOPE_INVALID/QUARANTINE")
+	}
+
 	plan := protectedFixedPlan()
-	if len(projection.DescriptorObservations) != len(plan) {
+	if len(projection.DescriptorSummaries) != len(plan) {
 		return errors.New("PUBLIC_PROJECTION_DESCRIPTOR_COUNT_INVALID/QUARANTINE")
 	}
-	limits := exactProtectedEnvelope()
-	for index, observation := range projection.DescriptorObservations {
-		digest, expectation, err := sbxDescriptorContract(plan[index])
-		if err != nil || observation.SchemaVersion != policyVersion || observation.DescriptorID != plan[index] || observation.DescriptorDigest != digest || observation.SupervisorDigest != runtime.SupervisorDigest || observation.SupervisorDigest != observation.SupervisorDigestReopened || !isSHA256Digest(observation.SupervisorDigest) || observation.SourceCommit != request.TargetCommit || observation.SourceTree != request.SourceTree || observation.Envelope != limits || observation.Assurance != AssuranceOwnerOnly || observation.IndependentReviewClaimed || observation.AutobahnReruns != 0 {
-			return errors.New("PUBLIC_PROJECTION_DESCRIPTOR_BINDING_INVALID/QUARANTINE")
-		}
-		_ = expectation
-		candidateRequest := SbxExecutionRequest{CanaryID: observation.DescriptorID, SupervisorDigest: observation.SupervisorDigest, InputRoot: request.InputRoot}
-		if err := validateSupervisorObservation(sbxExecutionProfile{SupervisorLimits: limits}, candidateRequest, observation); err != nil {
-			return err
+	for index, summary := range projection.DescriptorSummaries {
+		if summary.DescriptorID != plan[index] || !summary.Accepted || !isSHA256Digest(summary.RawReceiptDigest) {
+			return errors.New("PUBLIC_PROJECTION_DESCRIPTOR_ORDER_INVALID/QUARANTINE")
 		}
 	}
-	benign := projection.DescriptorObservations[len(plan)-1].Artifact
-	if projection.Artifact.Digest != benign.ParentDigest || projection.Artifact.Bytes != benign.Bytes {
-		return errors.New("PUBLIC_PROJECTION_ARTIFACT_DRIFT/QUARANTINE")
+
+	if !isSHA256Digest(projection.BenignArtifact.Digest) ||
+		projection.BenignArtifact.Bytes <= 0 || projection.BenignArtifact.Bytes > 4<<20 ||
+		!allClassifiedDigests(projection.Cleanup.RemoveDigest, projection.Cleanup.AbsenceDigest) ||
+		!projection.Cleanup.SandboxAbsent ||
+		projection.Classifier.RuleDigest != classifiedPublicProjectionRuleDigest ||
+		!allClassifiedDigests(projection.Classifier.InputDigest, projection.Classifier.ActionDigest, projection.Classifier.OutputDigest) {
+		return errors.New("PUBLIC_PROJECTION_OBSERVATION_INVALID/QUARANTINE")
 	}
 	return nil
 }
 
+func validClassifiedAttemptID(value string) bool {
+	if !strings.HasPrefix(value, classifiedPublicProjectionAttemptPrefix) {
+		return false
+	}
+	suffix := strings.TrimPrefix(value, classifiedPublicProjectionAttemptPrefix)
+	if len(suffix) != 4 || suffix == classifiedPublicProjectionStaleAttempt {
+		return false
+	}
+	for _, character := range []byte(suffix) {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func allClassifiedDigests(values ...string) bool {
+	for _, value := range values {
+		if !isSHA256Digest(value) {
+			return false
+		}
+	}
+	return true
+}
+
 func exactProtectedEnvelope() resources {
 	return resources{WallSeconds: 60, CPUSeconds: 60, MemoryBytes: 1073741824, PIDs: 64, OpenFiles: 256, OutputBytes: 8388608, WorkspaceBytes: 67108864, CacheBytes: 67108864, DiskBytes: 67108864, Inodes: 16384}
+}
+
+func classifiedPublicProjectionProfileDigest() string {
+	data, _ := json.Marshal(exactProtectedEnvelope())
+	return intake.DigestBytes(data)
 }
 
 func protectedFixedPlan() []string {
@@ -154,16 +200,10 @@ func protectedFixedPlanDigest() string {
 	}
 	items := make([]descriptor, 0, len(protectedFixedPlan()))
 	for _, id := range protectedFixedPlan() {
-		digest, expectation, _ := sbxDescriptorContract(id)
-		_ = digest
+		_, expectation, _ := sbxDescriptorContract(id)
 		keys := map[string]string{"CACHE_WRITE_DENIED": "cache", "CLEAN_EXIT": "clean", "CPU_BOUND": "cpu", "ENV_SENTINEL_ABSENT": "secret", "FD_BOUND": "fd", "MEMORY_BOUND": "memory", "NETWORK_SOCKET_DENIED": "network", "OUTPUT_BOUND": "output", "PID_BOUND": "pid", "PROTECTED_SENTINEL_DENIED": "protected", "SESSION_ESCAPE_CLEANUP": "session", "SOURCE_WRITE_DENIED": "source", "WALL_BOUND": "wall", "WORKSPACE_BOUND": "workspace", "BENIGN_OPERATION": "benign"}
 		items = append(items, descriptor{id, keys[id], expectation})
 	}
 	data, _ := json.Marshal(items)
-	return intake.DigestBytes(data)
-}
-
-func protectedPrivilegedExecDigest() string {
-	data, _ := json.Marshal([]string{"/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx", "exec", "--privileged", "-u", "root", "us007-resource-envelope-0018", "/tmp/us007-resource-supervisor"})
 	return intake.DigestBytes(data)
 }

@@ -674,31 +674,29 @@ policy and require an owner action; a free-form regex suppression is forbidden.
 Binary or unknown media cannot bypass scanning: it must have an exact public
 artifact declaration and scanner profile or is unclassified.
 
-The project scanner never mounts protected corpora. A separate trusted
-protected classifier receives the already bounded staged projection through a
-one-way broker and returns a signed receipt binding projection root, protected
-fingerprint-set version, zero matches, policy digest, company/project, expiry,
-and nonce. Its fingerprint set and signing material never enter the repository,
-sandbox, or `securityctl`. Missing, stale, self-authored, cross-company, or
-nonzero-match receipts fail closed. The public evidence records only safe
-receipt identity/digests and counts.
+The project scanner never mounts protected corpora. The trusted protected-host
+classifier consumes the complete internal observation envelope only after the
+fixed canary plan has finished and cleanup has proved sandbox absence. It keeps
+that raw envelope in the protected evidence store and emits one
+`PUBLIC_DERIVED` JSON object. The public object contains only project/story and
+attempt bindings, commit/tree IDs, fixed provenance digests, the exact typed
+resource envelope, the ordered descriptor IDs with `accepted:true` and raw
+receipt digests, benign artifact size/digest, cleanup digests, and classifier
+rule/input/action/output digests. It contains no raw descriptor observations,
+mount information, runtime or sandbox identity, host paths, timestamps, actor,
+key ID, signature, nonce, company, or raw output.
 
-The eventual broker is an owner-started local process outside the candidate
-sandbox. It accepts exactly one canonical projection manifest plus its
-digest-addressed file stream on anonymous file descriptors and returns exactly
-one bounded JSON receipt on a different descriptor. It accepts no candidate
-command, path, URL, or callback and has no publication/signing role beyond its
-dedicated classifier receipt key. Before that broker can satisfy a real
-projection, a protected authority policy must pin its public key, checker
-identity, receipt schema, maximum request/response bytes, validity window,
-revocation state, and durable nonce ledger. The current
-`release-firewall.json` deliberately contains only
-`protected_checker_required:true`; no external classifier identity or key is
-provisioned, so every real projection remains
-`PROTECTED_CLASSIFIER_UNAVAILABLE/BLOCK`. No placeholder or synthetic key is
-treated as that missing authority. A future test-only checker may use a pinned
-synthetic key and public canary fingerprint set, but its receipt must be labeled
-`SYNTHETIC_NON_CLAIM` and can never satisfy a real projection.
+The owner-classifier action and its signature remain protected; only the
+canonical action digest crosses the boundary. The candidate decoder accepts
+the classifier-emitted object as a closed schema, rejects duplicate or unknown
+members, pins the plan/profile/template/rule digests and exact descriptor
+order, and recomputes the output digest with `classifier.output_digest` cleared.
+It validates externally classified bytes but has no constructor or authority
+path that can mint `PUBLIC_DERIVED`. The ordinary candidate-only `Project`
+operation therefore continues to return
+`PROTECTED_CLASSIFIER_UNAVAILABLE/BLOCK` when no protected-host output is
+provided. Placeholder, self-authored, stale-attempt, or synthetic output cannot
+satisfy that boundary.
 
 A passed firewall produces a safe projection CAS and
 `publication_authorized:false`. A separate owner publication action must bind
@@ -839,13 +837,13 @@ not run Maven, Java, Rust, Python, an archive payload, a container, or Autobahn.
 | AC1: static intake executes nothing; builds use read-only source, isolated CAS caches, no secrets, bounds, deny-default egress, and no protected/signing/production/cross-company mounts | ingestion `source_modes` has no execute action; sandbox closed operations, capability envelope, promotion-bound source/cache, deny-all authoritative network, environment and mount allowlists, resource/cleanup receipt | `static-exec-request`, good canaries, network/secret/protected probes, every resource fixture; `security-validation.intake`, `.sandbox_attempts`, and `.cleanup` |
 | AC2: enumerate and promote Maven, processor, Rust, dependency, LSP, Autobahn, archive, and container executables | closed inventory classes, static discovery reconciliation, exact promotion/use bindings, US-002 no-rerun override | every inventory fixture plus `autobahn-third-run`; `security-validation.executable_inventory` and `.autobahn_receipt_closure` |
 | AC3: transactional ingestion rejects paths, links, specials, bombs, collisions, quotas, partials, digests, and bad provenance | root-confined one-read snapshot, inherited archive adapters, canonical collision key, bounded CAS transaction and read-back | all ingestion fixtures; `security-validation.ingestion_cases` and accepted root or zero-visible-root receipt |
-| AC4: exact public projection recursively classifies and denies protected cases, expected output, diagnostics, identifiers, credentials, caches, gaps, and unclassified descendants | release manifest closure, byte scanners, protected-side receipt, staged-tree equality, atomic safe projection with no publish operation | good projection and every release leak/gap/mutation fixture; `security-validation.release_firewall` |
+| AC4: exact public projection recursively classifies and denies protected cases, expected output, diagnostics, identifiers, credentials, caches, gaps, and unclassified descendants | release manifest closure, byte scanners, protected-host minimized projection, staged-tree equality, strict output-digest verification, and atomic safe projection with no publish operation | good projection and every release leak/gap/mutation fixture; `security-validation.release_firewall` |
 | AC5: adversarial fixtures prove denial, absence, termination, cleanup, fail-closed capture, and zero leakage | fixed project-owned canaries plus inert verifier fixtures; receipts require exact negative/termination/cleanup observations | network, secret, protected root, resource, cleanup, capture, leak fixtures; full case result array in `security-validation` |
 | E2E hostile archives and links | static in-memory archive recipe and disposable in-root link metadata | exact ingest findings; no extraction/execution |
 | E2E build hooks | inert POM/Cargo/LSP/container metadata discovers unpromoted executable | exact inventory finding before sandbox creation |
 | E2E network/secret/protected probes | fixed promoted canaries and forged-receipt negatives | kernel/profile denial and supervisor receipt; no real secret/protected data |
 | E2E resource bombs | fixed bounded canary enums, cgroup/process-tree ownership | exact termination reason and complete cleanup receipt |
-| E2E public-output leaks | public synthetic canary tokens and protected classifier stub with pinned test key | exact release finding and zero projection root |
+| E2E public-output leaks | public synthetic canary tokens plus strict protected-output decoder fixtures | exact release finding and zero projection root |
 | E2E benign build and safe projection | promoted project-owned no-op canary and complete inert public tree | accepted quarantine and projection roots, but publication remains false |
 
 ## `evidence/security-validation.json`
@@ -863,8 +861,8 @@ The retained evidence schema is closed and strict. It contains:
   and actual termination, bounded observations, artifact manifest, and cleanup
   result;
 - projection source/staged/final roots, recursive entry/classification counts,
-  detector version/results, protected-classifier receipt digest/count, complete
-  provenance root, and `publication_authorized:false`;
+  detector version/results, the protected classifier rule/input/action/output
+  digests, complete provenance root, and `publication_authorized:false`;
 - every fixture ID, input digest, expected and actual code/disposition, CLI exit,
   and a `matched` boolean; omitted catalog cases are invalid evidence;
 - the exact two original and two remediation Autobahn attempt digests,
