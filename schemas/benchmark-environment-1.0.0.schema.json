@@ -54,6 +54,9 @@
         "properties": {
           "host_identity": {
             "required": ["os_product_version", "os_build_version", "hardware_model_identifier", "cpu_brand", "cpu_logical_cores", "cpu_performance_cores", "cpu_efficiency_cores", "memory_total_bytes", "power_source_state", "low_power_mode_state", "thermal_pressure_state", "background_process_census", "clock_sync_state"]
+          },
+          "required_binding_fields": {
+            "const": ["host_identity.os_product_version", "host_identity.os_build_version", "host_identity.hardware_model_identifier", "host_identity.cpu_brand", "host_identity.cpu_logical_cores", "host_identity.cpu_performance_cores", "host_identity.cpu_efficiency_cores", "host_identity.memory_total_bytes", "host_identity.power_source_state", "host_identity.low_power_mode_state", "host_identity.thermal_pressure_state", "host_identity.background_process_census", "host_identity.clock_sync_state", "tool_identities.java_runtime", "tool_identities.rust_toolchain", "tool_identities.java_executable_digest", "tool_identities.rust_executable_digest", "tool_identities.load_driver", "tool_identities.measurement_tools", "tool_identities.analyzer"]
           }
         }
       }
@@ -63,10 +66,19 @@
       "then": {
         "properties": {
           "host_identity": {
-            "required": ["instance_type", "region", "availability_zone", "ami_id", "ami_name", "os_identity", "kernel_identity", "cpu_model", "cpu_frequency_policy", "memory_total_bytes", "numa_topology", "clocksource"]
+            "required": ["instance_type", "instance_id", "observed_architecture", "allocation_evidence", "region", "availability_zone", "ami_id", "ami_name", "os_identity", "kernel_identity", "cpu_model", "cpu_frequency_policy", "memory_total_bytes", "numa_topology", "clocksource"],
+            "properties": {
+              "observed_architecture": {
+                "if": {"properties": {"status": {"enum": ["OBSERVED", "BOUND"]}}, "required": ["status"]},
+                "then": {"required": ["value"], "properties": {"value": {"const": "x86_64"}}}
+              }
+            }
           },
           "tool_identities": {
             "required": ["java_runtime", "rust_toolchain", "java_executable_digest", "rust_executable_digest", "load_driver", "measurement_tools", "analyzer", "runner"]
+          },
+          "required_binding_fields": {
+            "const": ["host_identity.instance_type", "host_identity.instance_id", "host_identity.observed_architecture", "host_identity.allocation_evidence", "host_identity.region", "host_identity.availability_zone", "host_identity.ami_id", "host_identity.ami_name", "host_identity.os_identity", "host_identity.kernel_identity", "host_identity.cpu_model", "host_identity.cpu_frequency_policy", "host_identity.memory_total_bytes", "host_identity.numa_topology", "host_identity.clocksource", "tool_identities.java_runtime", "tool_identities.rust_toolchain", "tool_identities.java_executable_digest", "tool_identities.rust_executable_digest", "tool_identities.load_driver", "tool_identities.measurement_tools", "tool_identities.analyzer", "tool_identities.runner"]
           }
         }
       }

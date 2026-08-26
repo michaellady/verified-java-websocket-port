@@ -43,6 +43,9 @@ jobs:
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
       - uses: ./.github/actions/dialed-setup
         with:
           env: dev
@@ -59,30 +62,10 @@ jobs:
 
       - name: Find orphaned bench workspaces
         id: find
-        run: |
-          set -euo pipefail
-          bucket="dialed-${DIALED_PROJECT_NAME}-${DIALED_ACCOUNT_ID}-tfstate"
-          cutoff=$(date -u -d '3 hours ago' '+%Y-%m-%dT%H:%M:%S+00:00')
-          orphans=""
-          # List FIRST as its own checked command: an AWS failure
-          # (AccessDenied, missing bucket, expired creds) must fail the job —
-          # piping straight into the filter would mask it as "zero orphans"
-          # and the janitor would green-light while a metal host bills on.
-          # Only grep's no-match is tolerated after a successful listing.
-          listing=$(aws s3api list-objects-v2 --bucket "$bucket" --prefix 'env:/bench-pr-' \
-                      --query 'Contents[].[Key,LastModified]' --output text)
-          while IFS=$'\t' read -r key modified; do
-            [[ "$key" =~ ^env:/(bench-pr-([0-9]+))/benchmark/terraform\.tfstate$ ]] || continue
-            ws="${BASH_REMATCH[1]}"; n="${BASH_REMATCH[2]}"
-            if [[ "$modified" > "$cutoff" ]]; then
-              echo "keep ${ws} — state modified <3h ago (benchmark job may be in flight)"
-            else
-              echo "ORPHAN ${ws} — state untouched for 3+ hours (job-scoped lifecycle should have destroyed it)"
-              orphans="${orphans} ${n}"
-            fi
-          done < <(grep -F '/benchmark/terraform.tfstate' <<<"$listing" || true)
-          echo "orphans=${orphans}" >> "$GITHUB_OUTPUT"
-          echo "Orphans:${orphans:- none}"
+        # Selection logic (key filter, 3-hour age threshold, fail-loud
+        # listing) lives in cmd/benchjanitor; this step is a thin
+        # invocation. The helper writes orphans=<numbers> to GITHUB_OUTPUT.
+        run: go run ./cmd/benchjanitor find --bucket "dialed-${DIALED_PROJECT_NAME}-${DIALED_ACCOUNT_ID}-tfstate" --max-age-hours 3
 
       - name: Copy auto-tfvars into benchmark dir
         if: steps.find.outputs.orphans != ''
@@ -90,50 +73,8 @@ jobs:
 
       - name: Destroy orphaned workspaces
         if: steps.find.outputs.orphans != ''
-        working-directory: terraform/benchmark
-        run: |
-          set -euo pipefail
-          failed=""
-          for n in ${{ steps.find.outputs.orphans }}; do
-            ws="bench-pr-${n}"
-            echo "::group::destroy ${ws}"
-            if ! terraform workspace select "$ws"; then
-              echo "could not select ${ws}"; failed="${failed} ${ws}"; echo "::endgroup::"; continue
-            fi
-            ok=false
-            for attempt in 1 2; do
-              # allow_unpinned_ami=true here only satisfies the provision-time
-              # precondition so destroy can plan; the janitor never creates
-              # hosts and never produces measurements.
-              if terraform destroy -auto-approve -input=false \
-                   -var "pr_number=${n}" -var "allow_unpinned_ami=true"; then
-                ok=true; break
-              fi
-              echo "destroy attempt ${attempt} failed for ${ws}; sleeping 60s"
-              sleep 60
-            done
-            # One bad workspace must not abort the batch: guard everything
-            # after the destroy so remaining orphans still get swept and the
-            # summary + failure report still render.
-            terraform workspace select default || true
-            if [ "$ok" = true ]; then
-              if terraform workspace delete "$ws"; then
-                echo "cleaned ${ws}"
-              else
-                echo "destroyed ${ws} but workspace delete failed — retained for inspection"
-                failed="${failed} ${ws}"
-              fi
-            else
-              failed="${failed} ${ws}"
-            fi
-            echo "::endgroup::"
-          done
-          {
-            echo "## Bench workspace janitor"
-            echo "- swept:${{ steps.find.outputs.orphans }}"
-            echo "- failed:${failed:- none}"
-          } >> "$GITHUB_STEP_SUMMARY"
-          if [ -n "$failed" ]; then
-            echo "::error::janitor could not destroy:${failed} — a metal host may STILL be billing; investigate immediately (next 3h run retries)."
-            exit 1
-          fi
+        # The retrying destroy loop (2 attempts, 60s backoff, one bad
+        # workspace never aborts the batch, step summary + nonzero exit on
+        # any failure) lives in cmd/benchjanitor; this step is a thin
+        # invocation.
+        run: go run ./cmd/benchjanitor destroy --chdir terraform/benchmark --numbers "${{ steps.find.outputs.orphans }}"

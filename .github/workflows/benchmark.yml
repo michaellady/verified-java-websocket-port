@@ -67,13 +67,21 @@ env:
 jobs:
   benchmark-host:
     name: Provision, run, destroy (job-scoped)
-    # Only the 'benchmark' label triggers the PR path; other labels no-op.
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'benchmark'
+    # PR path: 'benchmark' runs the real (fail-closed, pinned-AMI) flow;
+    # 'benchmark-plumbing' runs the owner-ordered plumbing test — cheap VM,
+    # latest-AL2023 AMI allowed, sentinel-only output that can never be a
+    # measurement. workflow_dispatch is unavailable off the default branch,
+    # which this repo's shared main deliberately never carries.
+    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'benchmark' || github.event.label.name == 'benchmark-plumbing'
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 120 # hard lifetime bound for the metal host (mirrors terraform var max_run_minutes)
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
 
       - name: DIALED setup
         uses: ./.github/actions/dialed-setup
@@ -107,29 +115,23 @@ jobs:
         run: cp .dialed-cache/dialed.auto.tfvars.json terraform/benchmark/dialed.auto.tfvars.json
 
       - name: Terraform apply (provision host)
-        working-directory: terraform/benchmark
+        # Conditional -var construction lives in cmd/benchops (thin
+        # invocation). With no pinned AMI and no explicit plumbing-test
+        # flag, apply FAILS CLOSED on the instance precondition — that is
+        # the intended preregistration gate, and the always() destroy
+        # below still runs.
+        # Inputs pass through env indirection, never direct ${{ }} shell
+        # interpolation: a $(...)-shaped input must reach benchops as inert
+        # argv text, not undergo substitution with AWS credentials live.
+        # The 'benchmark-plumbing' label selects plumbing mode on the PR
+        # path (no dispatch inputs exist there): cheap fixed VM + unpinned
+        # AMI; the label name is GitHub-controlled enum-like data, and the
+        # instance type is a literal, so no new interpolation surface opens.
         env:
-          INPUT_INSTANCE_TYPE: ${{ inputs.instance_type }}
-          INPUT_AMI_ID: ${{ inputs.ami_id }}
-          INPUT_ALLOW_UNPINNED: ${{ inputs.allow_unpinned_ami }}
-        run: |
-          set -euo pipefail
-          extra_args=()
-          if [ -n "${INPUT_INSTANCE_TYPE}" ]; then
-            extra_args+=(-var "instance_type=${INPUT_INSTANCE_TYPE}")
-          fi
-          if [ -n "${INPUT_AMI_ID}" ]; then
-            extra_args+=(-var "ami_id=${INPUT_AMI_ID}")
-          fi
-          if [ "${INPUT_ALLOW_UNPINNED}" = "true" ]; then
-            extra_args+=(-var "allow_unpinned_ami=true")
-          fi
-          # With no pinned AMI and no explicit plumbing-test flag, apply
-          # FAILS CLOSED on the instance precondition — that is the intended
-          # preregistration gate, and the always() destroy below still runs.
-          terraform apply -auto-approve -input=false \
-            -var "pr_number=${PR_NUMBER}" \
-            "${extra_args[@]}"
+          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type || (github.event.label.name == 'benchmark-plumbing' && 'c7i.large') || '' }}
+          BENCH_AMI_ID: ${{ inputs.ami_id }}
+          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami || github.event.label.name == 'benchmark-plumbing' }}
+        run: go run ./cmd/benchops apply --chdir terraform/benchmark --pr "${PR_NUMBER}" --instance-type "${BENCH_INSTANCE_TYPE}" --ami-id "${BENCH_AMI_ID}" --allow-unpinned-ami "${BENCH_ALLOW_UNPINNED_AMI}"
 
       - name: Capture stack outputs
         id: stack
@@ -147,99 +149,30 @@ jobs:
       - name: Wait for SSM Online
         env:
           INSTANCE_ID: ${{ steps.stack.outputs.instance_id }}
-        run: |
-          set -euo pipefail
-          # Metal hosts can take 10-20 minutes to boot; allow up to 30.
-          ping="None"
-          for _ in $(seq 1 120); do
-            ping=$(aws ssm describe-instance-information \
-              --filters "Key=InstanceIds,Values=${INSTANCE_ID}" \
-              --query 'InstanceInformationList[0].PingStatus' \
-              --output text 2>/dev/null || echo "None")
-            if [ "$ping" = "Online" ]; then
-              echo "SSM agent Online on ${INSTANCE_ID}"
-              break
-            fi
-            echo "PingStatus=${ping}; waiting..."
-            sleep 15
-          done
-          if [ "$ping" != "Online" ]; then
-            echo "::error::SSM agent never came Online on ${INSTANCE_ID} — failing (teardown still runs)."
-            exit 1
-          fi
+        # Polling state machine lives in cmd/benchops (thin invocation).
+        # Metal hosts can take 10-20 minutes to boot; allow up to 30.
+        run: go run ./cmd/benchops wait-ssm-online --instance-id "${INSTANCE_ID}" --attempts 120 --interval-seconds 15
 
-      - name: Stage benchmark runner in results bucket
+      - name: Build and stage benchmark runner in results bucket
         env:
           BUCKET: ${{ steps.stack.outputs.bucket }}
-        run: aws s3 cp benchmarks/runner/run-benchmark.sh "s3://${BUCKET}/runner/run-benchmark.sh"
+        run: |
+          set -euo pipefail
+          # The runner stub is a Go binary (cmd/benchrunner), cross-compiled
+          # for the Linux x86_64 confirmation host.
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner
+          aws s3 cp /tmp/benchrunner "s3://${BUCKET}/runner/benchrunner"
 
       - name: Run benchmark runner natively via SSM
-        id: ssm
         env:
           INSTANCE_ID: ${{ steps.stack.outputs.instance_id }}
           BUCKET: ${{ steps.stack.outputs.bucket }}
-        run: |
-          set -euo pipefail
-          # The runner is a STUB (see benchmarks/runner/run-benchmark.sh): it
-          # validates its arguments and emits the result-schema skeleton with
-          # NOT_MEASURED sentinels. It fabricates no benchmark numbers.
-          params=$(jq -n --arg b "$BUCKET" --arg pr "$PR_NUMBER" --arg ws "$BENCH_WORKSPACE" '{
-            executionTimeout: ["5400"],
-            commands: [
-              "set -euo pipefail",
-              "mkdir -p /opt/vjwp-bench/results",
-              "aws s3 cp s3://\($b)/runner/run-benchmark.sh /opt/vjwp-bench/run-benchmark.sh",
-              "chmod +x /opt/vjwp-bench/run-benchmark.sh",
-              "/opt/vjwp-bench/run-benchmark.sh --mode pipeline-smoke --pr \($pr) --workspace \($ws) --out /opt/vjwp-bench/results",
-              "aws s3 sync /opt/vjwp-bench/results s3://\($b)/results/"
-            ]
-          }')
-          cmd_id=$(aws ssm send-command \
-            --document-name "AWS-RunShellScript" \
-            --instance-ids "${INSTANCE_ID}" \
-            --comment "US-008 pipeline smoke (stub runner, NOT_MEASURED output only)" \
-            --parameters "$params" \
-            --query 'Command.CommandId' --output text)
-          echo "command_id=${cmd_id}" >> "$GITHUB_OUTPUT"
-          echo "Sent SSM command ${cmd_id}"
-
-      - name: Poll SSM command to completion
-        env:
-          INSTANCE_ID: ${{ steps.stack.outputs.instance_id }}
-          COMMAND_ID: ${{ steps.ssm.outputs.command_id }}
-        run: |
-          set -euo pipefail
-          status="Pending"
-          for _ in $(seq 1 360); do
-            status=$(aws ssm get-command-invocation \
-              --command-id "${COMMAND_ID}" --instance-id "${INSTANCE_ID}" \
-              --query 'Status' --output text 2>/dev/null || echo "Pending")
-            case "$status" in
-              Success)
-                echo "SSM command succeeded."
-                break
-                ;;
-              Failed|Cancelled|TimedOut)
-                echo "::error::SSM command ended with status ${status}"
-                aws ssm get-command-invocation \
-                  --command-id "${COMMAND_ID}" --instance-id "${INSTANCE_ID}" \
-                  --query '{stdout:StandardOutputContent,stderr:StandardErrorContent}' \
-                  --output json || true
-                exit 1
-                ;;
-              *)
-                echo "Status=${status}; waiting..."
-                sleep 10
-                ;;
-            esac
-          done
-          if [ "$status" != "Success" ]; then
-            echo "::error::SSM command did not complete before the polling limit."
-            exit 1
-          fi
-          aws ssm get-command-invocation \
-            --command-id "${COMMAND_ID}" --instance-id "${INSTANCE_ID}" \
-            --query 'StandardOutputContent' --output text
+        # SSM parameter composition, send-command, and the polling state
+        # machine live in cmd/benchops (thin invocation). The runner is a
+        # STUB (see cmd/benchrunner): it validates its arguments and emits
+        # the result-schema skeleton with NOT_MEASURED sentinels. It
+        # fabricates no benchmark numbers.
+        run: go run ./cmd/benchops run-runner --instance-id "${INSTANCE_ID}" --bucket "${BUCKET}" --pr "${PR_NUMBER}" --workspace "${BENCH_WORKSPACE}" --poll-attempts 360 --poll-interval-seconds 10
 
       - name: Sync results out of S3
         env:
@@ -265,66 +198,26 @@ jobs:
 
       - name: Terraform destroy (always)
         if: always() && steps.workspace.outcome == 'success'
-        working-directory: terraform/benchmark
+        # Conditional -var construction and the 3-attempt retry loop live
+        # in cmd/benchops (thin invocation).
         env:
-          INPUT_INSTANCE_TYPE: ${{ inputs.instance_type }}
-          INPUT_AMI_ID: ${{ inputs.ami_id }}
-          INPUT_ALLOW_UNPINNED: ${{ inputs.allow_unpinned_ami }}
-        run: |
-          set -euo pipefail
-          extra_args=()
-          if [ -n "${INPUT_INSTANCE_TYPE}" ]; then
-            extra_args+=(-var "instance_type=${INPUT_INSTANCE_TYPE}")
-          fi
-          if [ -n "${INPUT_AMI_ID}" ]; then
-            extra_args+=(-var "ami_id=${INPUT_AMI_ID}")
-          fi
-          if [ "${INPUT_ALLOW_UNPINNED}" = "true" ]; then
-            extra_args+=(-var "allow_unpinned_ami=true")
-          fi
-          ok=false
-          for attempt in 1 2 3; do
-            if terraform destroy -auto-approve -input=false \
-                 -var "pr_number=${PR_NUMBER}" \
-                 "${extra_args[@]}"; then
-              ok=true
-              break
-            fi
-            echo "destroy attempt ${attempt} failed; sleeping 60s"
-            sleep 60
-          done
-          if [ "$ok" != true ]; then
-            echo "::error::terraform destroy failed after 3 attempts — bench-janitor will sweep ${BENCH_WORKSPACE} after 3h, but investigate NOW (metal host may still be billing)."
-            exit 1
-          fi
+          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type || (github.event.label.name == 'benchmark-plumbing' && 'c7i.large') || '' }}
+          BENCH_AMI_ID: ${{ inputs.ami_id }}
+          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami || github.event.label.name == 'benchmark-plumbing' }}
+        run: go run ./cmd/benchops destroy --chdir terraform/benchmark --pr "${PR_NUMBER}" --workspace "${BENCH_WORKSPACE}" --instance-type "${BENCH_INSTANCE_TYPE}" --ami-id "${BENCH_AMI_ID}" --allow-unpinned-ami "${BENCH_ALLOW_UNPINNED_AMI}" --attempts 3
 
       - name: Delete bench workspace (always)
         if: always() && steps.workspace.outcome == 'success'
-        working-directory: terraform/benchmark
-        run: |
-          set -euo pipefail
-          terraform workspace select default
-          if terraform workspace delete "${BENCH_WORKSPACE}"; then
-            echo "Deleted workspace ${BENCH_WORKSPACE}"
-          else
-            echo "::warning::could not delete workspace ${BENCH_WORKSPACE} (non-empty state after failed destroy?) — bench-janitor sweeps it after 3h."
-          fi
+        # Select-default + delete + retain-on-failure warning live in
+        # cmd/benchops (thin invocation).
+        run: go run ./cmd/benchops delete-workspace --chdir terraform/benchmark --workspace "${BENCH_WORKSPACE}"
 
       - name: Verify no bench host is still running (always)
         if: always() && steps.workspace.outcome == 'success'
-        run: |
-          set -euo pipefail
-          # Verify the real path, not the destroy exit code: list any
-          # non-terminated instance still tagged with this bench workspace.
-          leftovers=$(aws ec2 describe-instances \
-            --filters "Name=tag:Workspace,Values=${BENCH_WORKSPACE}" \
-                      "Name=instance-state-name,Values=pending,running,stopping,stopped" \
-            --query 'Reservations[].Instances[].InstanceId' --output text)
-          if [ -n "$leftovers" ]; then
-            echo "::error::instances still not terminated for ${BENCH_WORKSPACE}: ${leftovers} — a metal host may still be billing."
-            exit 1
-          fi
-          echo "No live instances remain for ${BENCH_WORKSPACE}."
+        # Verify the real path, not the destroy exit code: the leftover-
+        # instance check lives in cmd/benchops (thin invocation) and a
+        # listing failure never reads as zero leftovers.
+        run: go run ./cmd/benchops verify-no-host --workspace "${BENCH_WORKSPACE}"
 
       - name: Job summary
         if: always()

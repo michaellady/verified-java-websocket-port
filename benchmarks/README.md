@@ -54,9 +54,13 @@ pipeline produces may contain an invented measurement. Concretely:
   fixed rates, concurrency, operations, durations, and deterministic
   input/output generators; the executable SHA-256 seed rule with each
   workload's derived pair order (5 warmup + 30 measured); the frozen
-  statistics plan and power model; the per-metric CI thresholds; and the
-  schema-pinned forbidden-practices list. No results field exists and the
-  schema (`additionalProperties: false`) forbids ever adding one.
+  masking-key rule (`vjwp-us008-mask|v1`) making every client frame's
+  wire bytes deterministic; the frozen statistics plan, power model, and
+  reference-drift procedure; the per-metric CI thresholds; and the
+  schema-pinned forbidden-practices list. The plan's machine-readable
+  `attestation_state` stays `UNATTESTED` until the owner's independent
+  attestation. No results field exists and the schema
+  (`additionalProperties: false`) forbids ever adding one.
 - `environments/primary-macos.json` — the primary macOS Apple M4 Pro
   environment with honestly OBSERVED host identity (commands + timestamps
   recorded), preregistered run policy, and OWNER_DECISION_PENDING tool
@@ -66,8 +70,11 @@ pipeline produces may contain an invented measurement. Concretely:
   or NOT_MEASURED, plus the schema-enforced `required_binding_fields`
   completion meter (`binding_status: UNBOUND` until the owner pins every
   field).
-- `runner/run-benchmark.sh` — the SSM-invoked runner stub (schema emission
-  only).
+- The SSM-invoked runner stub is the Go binary `cmd/benchrunner` (schema
+  emission only; cross-compiled for the confirmation host by
+  `.github/workflows/benchmark.yml`). It refuses every mode except
+  `pipeline-smoke` and self-checks that no metric field holds anything
+  but the `NOT_MEASURED` sentinel.
 
 Verification and reference implementation:
 

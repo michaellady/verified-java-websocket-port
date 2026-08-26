@@ -1,6 +1,7 @@
 {
   "schema": "vjwp-benchmark-raw-sample/1.0.0",
   "provenance_label": "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+  "environment_role": "primary",
   "workload_id": "wl-02-small-text-echo",
   "metric": "cpu_time",
   "order": [

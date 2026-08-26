@@ -5,8 +5,8 @@
   "workload_id": "wl-02-small-text-echo",
   "metric": "cpu_time",
   "order": [
-    "RUST_FIRST",
     "JAVA_FIRST",
+    "RUST_FIRST",
     "JAVA_FIRST",
     "JAVA_FIRST",
     "JAVA_FIRST",
@@ -184,5 +184,24 @@
       "java": 129.0,
       "rust": 120.37992707737394
     }
-  ]
+  ],
+  "run_validity_observations": {
+    "background_cpu_percent_max_observed": 1.0,
+    "thermal_throttle_events": 1,
+    "power_state_anomalies": 0,
+    "identity_checks_passed": true,
+    "invalid_samples": 0,
+    "reference_drift": {
+      "baseline_statistic": 100.0,
+      "subsequent_statistics": [
+        100.0,
+        108.0,
+        99.0,
+        100.0,
+        100.0,
+        100.0,
+        100.0
+      ]
+    }
+  }
 }

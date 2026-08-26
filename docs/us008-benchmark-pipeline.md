@@ -39,8 +39,58 @@ US-008 passes**, and US-008 cannot pass in this state by design:
   re-derives the pair orders, checks the power model, and prints exactly
   which fields remain unbound. Current, verified output: documents
   consistent; **single remaining blocker class `HOST_BINDING_PENDING`**
-  (27 unbound host/tool fields; exit code 3). Exit code 0 is unreachable
-  until the owner binds the confirmation host and tool identities.
+  (30 unbound host/tool fields; exit code 3). Exit code 0 additionally
+  requires both environments' `binding_status: BOUND` and the plan's
+  `attestation_state: INDEPENDENTLY_ATTESTED` — syntactically complete
+  field values with UNBOUND/UNATTESTED status never verify as bound.
+
+Review fixes B1-B4/I5/I6 (adversarial review, session 01a03f01) landed on
+top of the frozen preregistration:
+
+- **Masking rule frozen (B1).** Every masked client frame's 32-bit
+  masking key derives from `vjwp-us008-mask|v1` (first 4 bytes of
+  SHA-256 over workload id, pair index, frame index —
+  `shared_definitions.masking_rule`, implemented and golden-vector
+  tested as `internal/benchplan.MaskingKey`), so every declared frame's
+  full wire bytes are deterministic.
+- **Identity-verifying decision rule (B2).**
+  `internal/benchplan.DecideEndpoint` now takes the bound identity
+  closure and requires EQUALITY of all ten canonical digests, failing
+  closed with typed `BINDING_MISMATCH` per field; presence/format alone
+  verifies nothing.
+- **Exact host representable (B3).** `confirmation.json` adds
+  `instance_id`, `observed_architecture` (schema-pinned to `x86_64` when
+  observed/bound), and `allocation_evidence` (dedicated/exclusive
+  tenancy observation) to the binding meter; raw sample records must
+  declare `environment_role` (primary/confirmation) and the engine
+  rejects records that do not.
+- **Run validity operationalized (B4).** The 5% reference-drift
+  envelope is now an exact frozen procedure
+  (`statistics.reference_drift_procedure`: wl-02 reference runs, 1
+  baseline + 7 scheduled, product-form comparison) and canonical raw
+  records carry `run_validity_observations` (background CPU, thermal,
+  power, identity, invalid samples, drift) enforced fail-closed by the
+  engine (`RUN_VALIDITY_MISSING` / `RUN_VALIDITY_VIOLATION`).
+- **Go-over-shell (I6, completed in round 2).** The runner stub is the
+  Go binary `cmd/benchrunner` (same refusal/sentinel semantics,
+  self-check never skipped). Every workflow step containing a
+  conditional, loop, or state machine is a one-line invocation of a
+  unit-tested Go helper: `cmd/benchjanitor` (orphan selection + batch
+  destroy) and `cmd/benchops` (apply/destroy var construction, destroy
+  retries, workspace delete, SSM online wait, SSM send+poll, leftover-
+  host verification), sharing the `internal/benchexec` transport seam.
+  The only remaining multi-line shell steps are strictly linear
+  transport command sequences with no conditionals or loops (workspace
+  name derivation, terraform init backend flags, output capture, build
+  + upload, s3 sync, job summary). Both workflows are actionlint-clean.
+- **Canonical binding meter (round 2 BLOCKING fix).** The
+  required-binding-field lists are code+schema truth, not document
+  truth: `internal/benchplan.CanonicalBindingFields` freezes the
+  per-role lists (primary 20, confirmation 23), the environment schema
+  consts them per role, the filename-to-role contract is enforced, and
+  `benchplanctl verify` meters the CANONICAL list and fails with
+  `METER_TAMPERED` on any divergence — a document shrinking its own
+  list can never reach a bound verdict.
 
 The pipeline fails closed at every missing prerequisite by design.
 

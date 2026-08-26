@@ -17,6 +17,18 @@
       "candidate": "c5n.metal",
       "notes": "Must be a *.metal type; terraform/benchmark/variables.tf validates this."
     },
+    "instance_id": {
+      "status": "NOT_MEASURED",
+      "notes": "The EC2 instance id of the exact provisioned confirmation host, recorded at provision. Binding to an instance id makes the exact host (not just its class) representable."
+    },
+    "observed_architecture": {
+      "status": "NOT_MEASURED",
+      "notes": "uname -m of the booted bound host. Must equal x86_64 at binding (PRD: Linux x86_64); the schema rejects any other value on an OBSERVED/BOUND record."
+    },
+    "allocation_evidence": {
+      "status": "OWNER_DECISION_PENDING",
+      "notes": "Dedicated/exclusive allocation evidence the owner must designate and bind: the tenancy/metal observation procedure and its recorded output (e.g. DescribeInstances tenancy attribute, *.metal instance type confirmation, and the job-scoped exclusive-reservation record) proving the host is dedicated or exclusively reserved for the run."
+    },
     "region": {
       "status": "OWNER_DECISION_PENDING",
       "candidate": "us-east-1"
@@ -100,11 +112,14 @@
     },
     "runner": {
       "status": "OWNER_DECISION_PENDING",
-      "notes": "benchmarks/runner/run-benchmark.sh is a stub that emits NOT_MEASURED sentinels only; the bound, digested measurement runner replaces it at binding time."
+      "notes": "cmd/benchrunner is a stub that emits NOT_MEASURED sentinels only; the bound, digested measurement runner replaces it at binding time."
     }
   },
   "required_binding_fields": [
     "host_identity.instance_type",
+    "host_identity.instance_id",
+    "host_identity.observed_architecture",
+    "host_identity.allocation_evidence",
     "host_identity.region",
     "host_identity.availability_zone",
     "host_identity.ami_id",
