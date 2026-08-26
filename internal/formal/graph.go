@@ -918,7 +918,7 @@ func backendOutcomesPass(backend backend) bool {
 		"LOOM_SYSTEMATIC_SCHEDULE_EXPLORATION": "SYSTEMATIC_EXPLORATION_PASSED",
 		"TLC_EXPLICIT_STATE_MODEL_CHECKING":    "MODEL_CHECK_PASSED",
 	}[backend.Method]
-	if backend.ExecutionState != "EXECUTED_PASS" || backend.evidenceKind == "SYNTHETIC_NON_CLAIM" || len(backend.Outcomes) == 0 {
+	if backend.ExecutionState != "EXECUTED_PASS" || backend.evidenceKind != "PUBLIC_EXECUTION_RECEIPT" || len(backend.Outcomes) == 0 {
 		return false
 	}
 	for _, outcome := range backend.Outcomes {

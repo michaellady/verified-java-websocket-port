@@ -75,6 +75,8 @@
             "BORROWED_CLAUDE_US004",
             "BORROWED_CLAUDE_US005",
             "BORROWED_CLAUDE_US007",
+            "PUBLIC_LINKAGE_EVIDENCE",
+            "PUBLIC_SOURCE_TREE",
             "US006_OWNED"
           ]
         }

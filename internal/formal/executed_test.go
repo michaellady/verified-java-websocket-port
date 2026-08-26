@@ -45,6 +45,61 @@ func TestUS006SyntheticExecutedMethodFixturesAreMechanicallyValidAndNonClaiming(
 	}
 }
 
+func TestUS006PublicExecutedEvidencePassesSchemaAndSemanticsButBorrowedCannotClaim(t *testing.T) {
+	root := copyFixtureRoot(t)
+	makePublicExecutedBackend(t, root, "backend.finite-mask-prototype")
+	verdict, err := Validate(context.Background(), Request{RootPath: root, Mode: ModeReplay})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !verdict.Valid || !contains(verdict.ClaimScopes, "BOUNDED_TEST_EVIDENCE") {
+		t.Fatalf("typed public execution verdict = %#v, want valid bounded evidence", verdict)
+	}
+
+	path := filepath.Join(root, backendQualificationPath)
+	var qualification backendQualification
+	if err := decodeStrict(readFile(t, path), &qualification); err != nil {
+		t.Fatal(err)
+	}
+	backend := backendPointer(t, &qualification, "backend.finite-mask-prototype")
+	backend.SBXExecution.Receipt.Attribution = "BORROWED_CLAUDE_US007"
+	for index := range backend.ArtifactBindings {
+		if backend.ArtifactBindings[index].Category == "SBX_RECEIPT" {
+			backend.ArtifactBindings[index].Artifact.Attribution = "BORROWED_CLAUDE_US007"
+		}
+	}
+	writeTypedQualification(t, path, qualification)
+	verdict, err = Validate(context.Background(), Request{RootPath: root, Mode: ModeReplay})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if verdict.Valid || contains(verdict.ClaimScopes, "BOUNDED_TEST_EVIDENCE") || !hasReason(verdict.Findings, "EXECUTION_RECEIPT_INVALID") {
+		t.Fatalf("borrowed execution attribution claimed bounded evidence: %#v", verdict)
+	}
+}
+
+func TestUS006ProofTargetSchemaAdmitsOnlyExactPublicLinkageAttributions(t *testing.T) {
+	root := repositoryRoot(t)
+	schema, err := compileSchema(readFile(t, filepath.Join(root, proofTargetsSchemaPath)), proofTargetsSchemaPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, attribution := range []string{"PUBLIC_LINKAGE_EVIDENCE", "PUBLIC_SOURCE_TREE"} {
+		document := loadObject(t, filepath.Join(root, proofTargetsPath))
+		call := document["targets"].([]any)[0].(map[string]any)["required_call_paths"].([]any)[0].(map[string]any)
+		call["linkage_artifact"] = map[string]any{"path": "assurance/formal/fixtures/public-linkage.json", "sha256": "sha256:" + strings.Repeat("a", 64), "attribution": attribution}
+		if err := schema.Validate(document); err != nil {
+			t.Fatalf("schema rejected %s: %v", attribution, err)
+		}
+	}
+	document := loadObject(t, filepath.Join(root, proofTargetsPath))
+	call := document["targets"].([]any)[0].(map[string]any)["required_call_paths"].([]any)[0].(map[string]any)
+	call["linkage_artifact"] = map[string]any{"path": "assurance/formal/fixtures/public-linkage.json", "sha256": "sha256:" + strings.Repeat("a", 64), "attribution": "PUBLIC_UNREVIEWED"}
+	if err := schema.Validate(document); err == nil {
+		t.Fatal("schema admitted an unrecognized public linkage attribution")
+	}
+}
+
 func TestUS006ExecutedPassRejectsCounterexampleOutcomeAndAggregate(t *testing.T) {
 	root := copyFixtureRoot(t)
 	makeSyntheticExecutedBackend(t, root, "backend.finite-mask-prototype")
@@ -162,6 +217,10 @@ func TestUS006SyntheticOrUnprovenancedLinkageCannotResolveProduction(t *testing.
 	if claimBearingLinkage(receipt) {
 		t.Fatal("empty linkage provenance must not resolve production")
 	}
+	receipt.Provenance = "BORROWED_CLAUDE_US007"
+	if claimBearingLinkage(receipt) {
+		t.Fatal("borrowed operational evidence must not resolve production linkage")
+	}
 }
 
 func TestUS006TLAConcurrencyShutdownShapeIsFrozen(t *testing.T) {
@@ -189,6 +248,14 @@ func TestUS006TLAConcurrencyShutdownShapeIsFrozen(t *testing.T) {
 }
 
 func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
+	makeExecutedBackendFixture(t, root, backendID, "SYNTHETIC_NON_CLAIM", "SYNTHETIC_TEST_FIXTURE", "US006_OWNED", "UNAVAILABLE_BACKEND_BLOCKED")
+}
+
+func makePublicExecutedBackend(t *testing.T, root, backendID string) {
+	makeExecutedBackendFixture(t, root, backendID, "PUBLIC_EXECUTION_RECEIPT", "PUBLIC_DERIVED_EXECUTION", "PUBLIC_DERIVED_EXECUTION", executedScope(methodForBackend(backendID)))
+}
+
+func makeExecutedBackendFixture(t *testing.T, root, backendID, fixtureKind, provenance, attribution, claimScope string) {
 	t.Helper()
 	qualificationPath := filepath.Join(root, backendQualificationPath)
 	var qualification backendQualification
@@ -200,9 +267,9 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	runID := "run." + short + ".primary"
 	fixtureDirectory := filepath.Join("assurance/formal/fixtures/runtime", short)
 
-	toolRef := writeFixtureArtifact(t, root, filepath.Join(fixtureDirectory, "tool-binary.json"), map[string]any{
-		"fixture_kind": "SYNTHETIC_NON_CLAIM", "tool_binary": backend.Tool.Name,
-	})
+	toolRef := writeFixtureArtifactAttributed(t, root, filepath.Join(fixtureDirectory, "tool-binary.json"), map[string]any{
+		"fixture_kind": fixtureKind, "tool_binary": backend.Tool.Name,
+	}, attribution)
 	toolVersion := "fixture-1.0.0"
 	toolCommit := strings.Repeat("a", 40)
 	backend.Tool.Version = &toolVersion
@@ -210,7 +277,7 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	backend.Tool.BinarySHA256 = &toolRef.SHA256
 	backend.Tool.ExecutablePromotion = &toolRef
 	writeRole := func(role, state, name string) artifactRef {
-		return writeFixtureEvidence(t, root, filepath.Join(fixtureDirectory, name), qualification, *backend, runID, role, state)
+		return writeFixtureEvidence(t, root, filepath.Join(fixtureDirectory, name), qualification, *backend, runID, role, state, fixtureKind, provenance, attribution)
 	}
 	profileRef := writeRole("SBX_PROFILE", "QUALIFIED", "profile.json")
 	capabilityRef := writeRole("CAPABILITY_PROBE", "SUCCEEDED", "capability-probe.json")
@@ -242,12 +309,12 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 		InputManifest: &inputRef, OutputManifest: &outputRef, CleanupReceipt: &cleanupRef, ClassifierProjection: &classifierRef,
 	}
 	backend.ExecutionState = "EXECUTED_PASS"
-	backend.ClaimScope = "UNAVAILABLE_BACKEND_BLOCKED"
+	backend.ClaimScope = claimScope
 	setExecutedCount(t, backend)
 
-	normalized := syntheticEvidenceDocument(qualification, *backend, runID, "NORMALIZED_RESULT", "PASS")
-	normalizedOne := writeFixtureArtifact(t, root, filepath.Join(fixtureDirectory, "normalized-run-1.json"), normalized)
-	normalizedTwo := writeFixtureArtifact(t, root, filepath.Join(fixtureDirectory, "normalized-run-2.json"), normalized)
+	normalized := fixtureEvidenceDocument(qualification, *backend, runID, "NORMALIZED_RESULT", "PASS", fixtureKind, provenance)
+	normalizedOne := writeFixtureArtifactAttributed(t, root, filepath.Join(fixtureDirectory, "normalized-run-1.json"), normalized, attribution)
+	normalizedTwo := writeFixtureArtifactAttributed(t, root, filepath.Join(fixtureDirectory, "normalized-run-2.json"), normalized, attribution)
 	if normalizedOne.SHA256 != normalizedTwo.SHA256 {
 		t.Fatal("synthetic normalized outputs are not byte-identical")
 	}
@@ -264,13 +331,13 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	passOutcome := methodPassOutcome(backend.Method)
 	for index := range backend.Outcomes {
 		backend.Outcomes[index].RawOutcome = passOutcome
-		backend.Outcomes[index].ClaimScope = "UNAVAILABLE_BACKEND_BLOCKED"
+		backend.Outcomes[index].ClaimScope = claimScope
 		backend.Outcomes[index].ArtifactRefs = []artifactRef{normalizedOne}
 		backend.Outcomes[index].Counterexample = nil
 	}
 	seed := "synthetic-fixed-seed"
 	backend.Replay = replay{
-		Argv: []string{"fixture-only-no-execution"}, Environment: []string{"FIXTURE=SYNTHETIC_NON_CLAIM"},
+		Argv: []string{"fixture-only-no-execution"}, Environment: []string{"FIXTURE=" + fixtureKind},
 		WorkingDirectory: ".", Seed: &seed, ExpectedExitCode: &exitCode,
 		SemanticOutputDigest: &normalizedOne.SHA256, RepeatCount: 2, ReconciledIdentically: true,
 	}
@@ -280,8 +347,8 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	}
 	backend.Replay.ReplayID = &replayID
 	backend.Replay.Runs = []replayRun{
-		writeReplayRun(t, root, fixtureDirectory, *backend, "run."+short+".one", normalizedOne, 1),
-		writeReplayRun(t, root, fixtureDirectory, *backend, "run."+short+".two", normalizedTwo, 2),
+		writeReplayRun(t, root, fixtureDirectory, *backend, "run."+short+".one", normalizedOne, 1, fixtureKind, provenance, attribution),
+		writeReplayRun(t, root, fixtureDirectory, *backend, "run."+short+".two", normalizedTwo, 2, fixtureKind, provenance, attribution),
 	}
 
 	categoryRefs := map[string]artifactRef{
@@ -302,27 +369,27 @@ func makeSyntheticExecutedBackend(t *testing.T, root, backendID string) {
 	writeTypedQualification(t, qualificationPath, qualification)
 }
 
-func writeReplayRun(t *testing.T, root, directory string, backend backend, runID string, normalized artifactRef, ordinal int) replayRun {
+func writeReplayRun(t *testing.T, root, directory string, backend backend, runID string, normalized artifactRef, ordinal int, fixtureKind, provenance, attribution string) replayRun {
 	t.Helper()
 	receipt := replayReceiptDocument{
-		SchemaVersion: "1.0.0", EntityType: "FormalReplayReceipt", FixtureKind: "SYNTHETIC_NON_CLAIM", Provenance: "SYNTHETIC_TEST_FIXTURE",
+		SchemaVersion: "1.0.0", EntityType: "FormalReplayReceipt", FixtureKind: fixtureKind, Provenance: provenance,
 		BackendID: backend.BackendID, RunID: runID, ReplayID: *backend.Replay.ReplayID,
 		ExitCode: *backend.Replay.ExpectedExitCode, ObligationIDs: append([]string(nil), backend.ObligationIDs...),
 		SemanticOutputDigest: normalized.SHA256, NormalizedOutput: normalized,
 		Assurance: assuranceCeiling, IndependentReviewClaimed: false, Production: false,
 	}
-	receiptRef := writeFixtureArtifact(t, root, filepath.Join(directory, "replay-receipt-"+string(rune('0'+ordinal))+".json"), receipt)
+	receiptRef := writeFixtureArtifactAttributed(t, root, filepath.Join(directory, "replay-receipt-"+string(rune('0'+ordinal))+".json"), receipt, attribution)
 	return replayRun{RunID: runID, Receipt: receiptRef, NormalizedOutput: normalized, SemanticOutputDigest: normalized.SHA256, ObligationIDs: append([]string(nil), backend.ObligationIDs...)}
 }
 
-func writeFixtureEvidence(t *testing.T, root, path string, qualification backendQualification, backend backend, runID, role, state string) artifactRef {
+func writeFixtureEvidence(t *testing.T, root, path string, qualification backendQualification, backend backend, runID, role, state, fixtureKind, provenance, attribution string) artifactRef {
 	t.Helper()
-	return writeFixtureArtifact(t, root, path, syntheticEvidenceDocument(qualification, backend, runID, role, state))
+	return writeFixtureArtifactAttributed(t, root, path, fixtureEvidenceDocument(qualification, backend, runID, role, state, fixtureKind, provenance), attribution)
 }
 
-func syntheticEvidenceDocument(qualification backendQualification, backend backend, runID, role, state string) evidenceArtifactDocument {
+func fixtureEvidenceDocument(qualification backendQualification, backend backend, runID, role, state, fixtureKind, provenance string) evidenceArtifactDocument {
 	return evidenceArtifactDocument{
-		SchemaVersion: "1.0.0", EntityType: "FormalEvidenceArtifact", FixtureKind: "SYNTHETIC_NON_CLAIM", Provenance: "SYNTHETIC_TEST_FIXTURE",
+		SchemaVersion: "1.0.0", EntityType: "FormalEvidenceArtifact", FixtureKind: fixtureKind, Provenance: provenance,
 		Role: role, State: state, BackendID: backend.BackendID, Method: backend.Method, RunID: runID,
 		ToolName: backend.Tool.Name, ToolVersion: *backend.Tool.Version, ToolBinarySHA256: *backend.Tool.BinarySHA256,
 		CLIVersion: qualification.BorrowedSandboxFoundation.CLIVersion, DaemonVersion: qualification.BorrowedSandboxFoundation.DaemonVersion,
@@ -373,6 +440,10 @@ func digestCounterexampleTuple(t *testing.T, value any) string {
 }
 
 func writeFixtureArtifact(t *testing.T, root, relative string, value any) artifactRef {
+	return writeFixtureArtifactAttributed(t, root, relative, value, "US006_OWNED")
+}
+
+func writeFixtureArtifactAttributed(t *testing.T, root, relative string, value any, attribution string) artifactRef {
 	t.Helper()
 	data, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {
@@ -384,7 +455,7 @@ func writeFixtureArtifact(t *testing.T, root, relative string, value any) artifa
 	}
 	rendered := append(data, '\n')
 	writeFile(t, path, rendered)
-	return artifactRef{Path: relative, SHA256: vendorprotocol.DigestBytes(rendered), Attribution: "US006_OWNED"}
+	return artifactRef{Path: relative, SHA256: vendorprotocol.DigestBytes(rendered), Attribution: attribution}
 }
 
 func backendPointer(t *testing.T, qualification *backendQualification, id string) *backend {
@@ -437,6 +508,21 @@ func executedScope(method string) string {
 		return "SYSTEMATIC_CONCURRENCY_TESTING"
 	case "TLC_EXPLICIT_STATE_MODEL_CHECKING":
 		return "PROVED_MODEL"
+	default:
+		return ""
+	}
+}
+
+func methodForBackend(backendID string) string {
+	switch backendID {
+	case "backend.finite-mask-prototype":
+		return "FINITE_EXHAUSTIVE_PROTOTYPE"
+	case "backend.kani-production":
+		return "KANI_BOUNDED_MODEL_CHECKING"
+	case "backend.loom-concurrency":
+		return "LOOM_SYSTEMATIC_SCHEDULE_EXPLORATION"
+	case "backend.tlc-connection-model":
+		return "TLC_EXPLICIT_STATE_MODEL_CHECKING"
 	default:
 		return ""
 	}

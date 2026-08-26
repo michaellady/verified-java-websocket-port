@@ -74,18 +74,24 @@ func TestUS006HostileFixtureMatrix(t *testing.T) {
 	cases := []hostileCase{
 		{"concurrency-bound-drift", "STALE_INPUT", "INVALIDATE", "CONCURRENCY_BOUND_DRIFT", mutateConcurrencyBounds},
 		{"digest-substitution", "DIGEST_MISMATCH", "QUARANTINE", "DIGEST_SUBSTITUTION", mutateBorrowedDigest},
-		{"disconnected-production-call-path", "SEMANTIC_INCONSISTENCY", "BLOCK", "DISCONNECTED_TARGET", mutateDisconnectedCallPath},
+		{"disconnected-symbol", "SEMANTIC_INCONSISTENCY", "BLOCK", "DISCONNECTED_TARGET", mutateDisconnectedCallPath},
+		{"disconnected-proof-copy", "SEMANTIC_INCONSISTENCY", "BLOCK", "PROOF_ONLY_DUPLICATE", mutateDisconnectedProofCopy},
 		{"duplicate-json-member", "SEMANTIC_INCONSISTENCY", "BLOCK", "DUPLICATE_JSON_MEMBER", mutateDuplicateMember},
 		{"inflated-finite-proof", "SEMANTIC_INCONSISTENCY", "BLOCK", "INFLATED_CLAIM", mutateInflatedClaim},
+		{"inflated-loom-proof", "SEMANTIC_INCONSISTENCY", "BLOCK", "INFLATED_CLAIM", mutateInflatedLoomProof},
+		{"inflated-model-production", "SEMANTIC_INCONSISTENCY", "BLOCK", "REFINEMENT_MISSING", mutateInflatedModelProduction},
+		{"inflated-schedule-count", "SEMANTIC_INCONSISTENCY", "BLOCK", "INFLATED_COUNT", mutateInflatedScheduleCount},
 		{"known-bad-survives", "SEMANTIC_INCONSISTENCY", "BLOCK", "KNOWN_BAD_CANARY_SURVIVED", mutateKnownBadSurvives},
 		{"malformed-tla-module", "SEMANTIC_INCONSISTENCY", "BLOCK", "MALFORMED_TLA_MODULE", mutateMalformedTLA},
 		{"missing-required-artifact", "SEMANTIC_INCONSISTENCY", "BLOCK", "MISSING_REQUIRED_ARTIFACT", mutateRequiredArtifactInventory},
 		{"missing-required-file", "SEMANTIC_INCONSISTENCY", "BLOCK", "MISSING_REQUIRED_ARTIFACT", mutateMissingRequiredFile},
+		{"missing-digest", "SEMANTIC_INCONSISTENCY", "BLOCK", "MISSING_DIGEST", mutateMissingDigest},
 		{"missing-target", "SEMANTIC_INCONSISTENCY", "BLOCK", "MISSING_TARGET", mutateMissingTarget},
 		{"noncanonical-artifact-path", "SEMANTIC_INCONSISTENCY", "BLOCK", "NONCANONICAL_PATH", mutateNoncanonicalPath},
 		{"replay-digest-mismatch", "SEMANTIC_INCONSISTENCY", "BLOCK", "REPLAY_MISMATCH", mutateReplayDigest},
 		{"unsupported-claimed-covered", "SEMANTIC_INCONSISTENCY", "BLOCK", "UNSUPPORTED_CONSTRUCT_CLAIMED", mutateUnsupportedCovered},
 		{"unavailable-as-success", "SEMANTIC_INCONSISTENCY", "BLOCK", "UNAVAILABLE_REPRESENTED_AS_SUCCESS", mutateUnavailableSuccess},
+		{"unavailable-as-skip", "SEMANTIC_INCONSISTENCY", "BLOCK", "UNAVAILABLE_REPRESENTED_AS_SKIP", mutateUnavailableSkip},
 		{"zero-obligations", "SEMANTIC_INCONSISTENCY", "BLOCK", "ZERO_OBLIGATIONS", mutateZeroObligations},
 	}
 	for _, test := range cases {
@@ -176,17 +182,22 @@ func TestUS006RejectsNonSingleLinkSnapshot(t *testing.T) {
 
 func TestUS006FixtureCatalogMatchesHostileCases(t *testing.T) {
 	type fixtureCase struct {
-		FixtureID           string `json:"fixture_id"`
-		Mutation            string `json:"mutation"`
-		ExpectedCode        string `json:"expected_code"`
-		ExpectedDisposition string `json:"expected_disposition"`
-		ExpectedReason      string `json:"expected_reason"`
-		ExpectedExit        int    `json:"expected_exit"`
-		SyntheticNonClaim   bool   `json:"synthetic_non_claim"`
+		FixtureID           string   `json:"fixture_id"`
+		Mutation            string   `json:"mutation"`
+		FixtureTreeDigest   string   `json:"fixture_tree_digest"`
+		ExpectedCode        string   `json:"expected_code"`
+		ExpectedDisposition string   `json:"expected_disposition"`
+		ExpectedReason      string   `json:"expected_reason"`
+		ExpectedExit        int      `json:"expected_exit"`
+		ExpectedState       string   `json:"expected_state"`
+		ExpectedClaimScopes []string `json:"expected_claim_scopes"`
+		SyntheticNonClaim   bool     `json:"synthetic_non_claim"`
 	}
 	type catalog struct {
+		Schema                   string        `json:"$schema"`
 		SchemaVersion            string        `json:"schema_version"`
 		EntityType               string        `json:"entity_type"`
+		FixtureTreeAlgorithm     string        `json:"fixture_tree_algorithm"`
 		Assurance                string        `json:"assurance"`
 		IndependentReviewClaimed bool          `json:"independent_review_claimed"`
 		Cases                    []fixtureCase `json:"cases"`
@@ -196,19 +207,119 @@ func TestUS006FixtureCatalogMatchesHostileCases(t *testing.T) {
 	if err := decodeStrict(readFile(t, path), &value); err != nil {
 		t.Fatal(err)
 	}
-	if value.SchemaVersion != "1.0.0" || value.EntityType != "FormalFixtureCatalog" || value.Assurance != "SYNTHETIC_NON_CLAIM" || value.IndependentReviewClaimed {
+	schemaPath := filepath.Join(repositoryRoot(t), "schemas/formal-fixture-catalog-1.0.0.schema.json")
+	schema, err := compileSchema(readFile(t, schemaPath), schemaPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var untyped any
+	if err := decodeStrict(readFile(t, path), &untyped); err != nil || schema.Validate(untyped) != nil {
+		t.Fatalf("fixture catalog does not satisfy its closed schema: decode=%v schema=%v", err, schema.Validate(untyped))
+	}
+	if value.SchemaVersion != "1.0.0" || value.EntityType != "FormalFixtureCatalog" || value.FixtureTreeAlgorithm != "CANONICAL_PATH_SHA256_V1" || value.Assurance != "SYNTHETIC_NON_CLAIM" || value.IndependentReviewClaimed {
 		t.Fatalf("fixture catalog posture drifted: %#v", value)
 	}
+	mutations := fixtureContractMutations()
 	ids := make([]string, 0, len(value.Cases))
+	seenIDs := map[string]bool{}
 	for _, item := range value.Cases {
 		ids = append(ids, item.FixtureID)
-		if item.Mutation == "" || !item.SyntheticNonClaim || (!strings.HasPrefix(item.FixtureID, "good-") && item.ExpectedExit != 1) {
+		if seenIDs[item.FixtureID] {
+			t.Fatalf("duplicate fixture id %s", item.FixtureID)
+		}
+		seenIDs[item.FixtureID] = true
+		mutate, ok := mutations[item.FixtureID]
+		if item.Mutation == "" || !item.SyntheticNonClaim || !ok || (!strings.HasPrefix(item.FixtureID, "good-") && item.ExpectedExit != 1) {
 			t.Fatalf("invalid fixture record: %#v", item)
+		}
+		root := copyFixtureRoot(t)
+		mutate(t, root)
+		if actual := fixtureTreeDigest(t, root); actual != item.FixtureTreeDigest {
+			t.Errorf("%s fixture_tree_digest = %s, want %s", item.FixtureID, actual, item.FixtureTreeDigest)
+		}
+		for _, mode := range []string{ModePreflight, ModeReplay} {
+			verdict, err := Validate(context.Background(), Request{RootPath: root, Mode: mode})
+			if err != nil {
+				t.Fatalf("%s %s: %v", item.FixtureID, mode, err)
+			}
+			if verdict.State != item.ExpectedState || !equalStrings(verdict.ClaimScopes, item.ExpectedClaimScopes) || boolToExit(!verdict.Valid) != item.ExpectedExit {
+				t.Errorf("%s %s envelope = state:%s scopes:%v valid:%v", item.FixtureID, mode, verdict.State, verdict.ClaimScopes, verdict.Valid)
+			}
+			if item.ExpectedExit == 1 && !hasFinding(verdict.Findings, item.ExpectedCode, item.ExpectedDisposition, item.ExpectedReason) {
+				t.Errorf("%s %s findings = %#v", item.FixtureID, mode, verdict.Findings)
+			}
 		}
 	}
 	if !sort.StringsAreSorted(ids) {
 		t.Fatalf("fixture ids not sorted: %v", ids)
 	}
+	if len(ids) != len(mutations) {
+		t.Fatalf("catalog has %d cases, exact contract has %d", len(ids), len(mutations))
+	}
+	for id := range mutations {
+		if !seenIDs[id] {
+			t.Fatalf("fixture contract is missing %s", id)
+		}
+	}
+}
+
+func fixtureContractMutations() map[string]func(*testing.T, string) {
+	return map[string]func(*testing.T, string){
+		"disconnected-proof-copy": mutateDisconnectedProofCopy,
+		"disconnected-symbol":     mutateDisconnectedCallPath,
+		"good-finite-mask-bounded": func(t *testing.T, root string) {
+			makeSyntheticExecutedBackend(t, root, "backend.finite-mask-prototype")
+		},
+		"good-proved-model-only":           func(t *testing.T, root string) { makeSyntheticExecutedBackend(t, root, "backend.tlc-connection-model") },
+		"good-systematic-concurrency":      func(t *testing.T, root string) { makeSyntheticExecutedBackend(t, root, "backend.loom-concurrency") },
+		"good-unavailable-backend-blocked": func(*testing.T, string) {},
+		"good-unresolved-production-plan":  func(*testing.T, string) {},
+		"inflated-finite-proof":            mutateInflatedClaim,
+		"inflated-loom-proof":              mutateInflatedLoomProof,
+		"inflated-model-production":        mutateInflatedModelProduction,
+		"inflated-schedule-count":          mutateInflatedScheduleCount,
+		"known-bad-survives":               mutateKnownBadSurvives,
+		"missing-digest":                   mutateMissingDigest,
+		"missing-required-artifact":        mutateRequiredArtifactInventory,
+		"missing-target":                   mutateMissingTarget,
+		"replay-digest-mismatch":           mutateReplayDigest,
+		"unavailable-as-skip":              mutateUnavailableSkip,
+		"unavailable-as-success":           mutateUnavailableSuccess,
+		"unsupported-claimed-covered":      mutateUnsupportedCovered,
+		"zero-obligations":                 mutateZeroObligations,
+	}
+}
+
+func fixtureTreeDigest(t *testing.T, root string) string {
+	t.Helper()
+	type entry struct{ Path, SHA256 string }
+	entries := []entry{}
+	if err := filepath.WalkDir(root, func(path string, item os.DirEntry, err error) error {
+		if err != nil || item.IsDir() {
+			return err
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		entries = append(entries, entry{filepath.ToSlash(relative), vendorprotocol.DigestBytes(readFile(t, path))})
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Path < entries[j].Path })
+	data, err := vendorprotocol.CanonicalJSON(entries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return vendorprotocol.DigestBytes(data)
+}
+
+func boolToExit(failed bool) int {
+	if failed {
+		return 1
+	}
+	return 0
 }
 
 func mutateConcurrencyBounds(t *testing.T, root string) {
@@ -242,6 +353,14 @@ func mutateDisconnectedCallPath(t *testing.T, root string) {
 	rebindQualification(t, root, "proof_targets", path)
 }
 
+func mutateDisconnectedProofCopy(t *testing.T, root string) {
+	path := filepath.Join(root, proofTargetsPath)
+	value := loadObject(t, path)
+	value["targets"].([]any)[0].(map[string]any)["rust_symbol"] = "proof_only::frame_header_copy"
+	writeObject(t, path, value)
+	rebindQualification(t, root, "proof_targets", path)
+}
+
 func mutateDuplicateMember(t *testing.T, root string) {
 	path := filepath.Join(root, backendQualificationPath)
 	data := readFile(t, path)
@@ -253,6 +372,29 @@ func mutateInflatedClaim(t *testing.T, root string) {
 	path := filepath.Join(root, backendQualificationPath)
 	value := loadObject(t, path)
 	backendByID(t, value, "backend.finite-mask-prototype")["claim_scope"] = "PROVED_MODEL"
+	writeObject(t, path, value)
+}
+
+func mutateInflatedLoomProof(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backendByID(t, value, "backend.loom-concurrency")["claim_scope"] = "PROVED_MODEL"
+	writeObject(t, path, value)
+}
+
+func mutateInflatedModelProduction(t *testing.T, root string) {
+	path := filepath.Join(root, proofTargetsPath)
+	value := loadObject(t, path)
+	value["targets"].([]any)[0].(map[string]any)["obligations"].([]any)[0].(map[string]any)["production_refinement_required"] = false
+	writeObject(t, path, value)
+	rebindQualification(t, root, "proof_targets", path)
+}
+
+func mutateInflatedScheduleCount(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	bounds := backendByID(t, value, "backend.loom-concurrency")["bounds"].(map[string]any)
+	bounds["schedule_count"] = bounds["max_schedules"].(float64) + 1
 	writeObject(t, path, value)
 }
 
@@ -290,6 +432,14 @@ func mutateMissingRequiredFile(t *testing.T, root string) {
 	if err := os.Remove(filepath.Join(root, connectionModelPath)); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func mutateMissingDigest(t *testing.T, root string) {
+	path := filepath.Join(root, proofTargetsPath)
+	value := loadObject(t, path)
+	delete(value["source_basis"].([]any)[0].(map[string]any), "sha256")
+	writeObject(t, path, value)
+	rebindQualification(t, root, "proof_targets", path)
 }
 
 func mutateMissingTarget(t *testing.T, root string) {
@@ -335,6 +485,13 @@ func mutateUnavailableSuccess(t *testing.T, root string) {
 	outcome := backend["outcomes"].([]any)[0].(map[string]any)
 	outcome["raw_outcome"] = "BOUNDED_CHECK_PASSED"
 	outcome["claim_scope"] = "BOUNDED_TEST_EVIDENCE"
+	writeObject(t, path, value)
+}
+
+func mutateUnavailableSkip(t *testing.T, root string) {
+	path := filepath.Join(root, backendQualificationPath)
+	value := loadObject(t, path)
+	backendByID(t, value, "backend.finite-mask-prototype")["claim_scope"] = "SKIP"
 	writeObject(t, path, value)
 }
 

@@ -489,6 +489,10 @@ func validateDeclaredArtifacts(snap *snapshot, targets *proofTargets, qualificat
 	}
 	seen := map[string]string{}
 	for _, ref := range refs {
+		if ref.SHA256 == "" {
+			collector.semantic("MISSING_DIGEST", ref.Path, "required artifact reference has no SHA-256 digest")
+			continue
+		}
 		if _, err := canonicalPath(ref.Path); err != nil {
 			collector.semantic("NONCANONICAL_PATH", ref.Path, err.Error())
 			continue
@@ -561,7 +565,7 @@ func collectClaimScopes(targetsOK bool, targets *proofTargets, qualificationOK b
 	}
 	if qualificationOK {
 		for _, backend := range qualification.Backends {
-			if backend.evidenceKind == "SYNTHETIC_NON_CLAIM" {
+			if backend.ExecutionState != "UNAVAILABLE_BACKEND_BLOCKED" && backend.evidenceKind != "PUBLIC_EXECUTION_RECEIPT" {
 				continue
 			}
 			if allowed[backend.ClaimScope] {

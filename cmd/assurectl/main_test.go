@@ -2,10 +2,13 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -101,6 +104,203 @@ func TestFormalCommandsFailTypedWhenRequiredArtifactMissing(t *testing.T) {
 			t.Fatalf("%s verdict = %#v", mode, verdict)
 		}
 	}
+}
+
+func TestFormalCommandsExerciseFrozenHostileCatalog(t *testing.T) {
+	type fixtureCase struct {
+		FixtureID           string   `json:"fixture_id"`
+		ExpectedCode        string   `json:"expected_code"`
+		ExpectedDisposition string   `json:"expected_disposition"`
+		ExpectedReason      string   `json:"expected_reason"`
+		ExpectedExit        int      `json:"expected_exit"`
+		ExpectedState       string   `json:"expected_state"`
+		ExpectedClaimScopes []string `json:"expected_claim_scopes"`
+	}
+	var catalog struct {
+		Cases []fixtureCase `json:"cases"`
+	}
+	data, err := os.ReadFile(filepath.Join(repoRoot(t), "assurance/formal/fixtures/cases.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &catalog); err != nil {
+		t.Fatal(err)
+	}
+	binary := assurectlBinary(t)
+	for _, fixture := range catalog.Cases {
+		if fixture.ExpectedExit == 0 {
+			continue
+		}
+		t.Run(fixture.FixtureID, func(t *testing.T) {
+			root := formalFixtureRoot(t)
+			mutateCLIFormalFixture(t, root, fixture.FixtureID)
+			for _, mode := range []string{"formal-preflight", "formal-replay"} {
+				command := exec.Command(binary, mode, "--root", root)
+				output, err := command.CombinedOutput()
+				if err == nil {
+					t.Fatalf("%s unexpectedly succeeded: %s", mode, output)
+				}
+				exitError, ok := err.(*exec.ExitError)
+				if !ok || exitError.ExitCode() != fixture.ExpectedExit {
+					t.Fatalf("%s exit = %v, want %d", mode, err, fixture.ExpectedExit)
+				}
+				var verdict struct {
+					State       string                                       `json:"state"`
+					ClaimScopes []string                                     `json:"claim_scopes"`
+					Findings    []struct{ Code, Disposition, Reason string } `json:"findings"`
+				}
+				if err := json.Unmarshal(output, &verdict); err != nil {
+					t.Fatalf("%s: %v\n%s", mode, err, output)
+				}
+				found := false
+				for _, finding := range verdict.Findings {
+					found = found || finding.Code == fixture.ExpectedCode && finding.Disposition == fixture.ExpectedDisposition && finding.Reason == fixture.ExpectedReason
+				}
+				if !found || verdict.State != fixture.ExpectedState || !reflect.DeepEqual(verdict.ClaimScopes, fixture.ExpectedClaimScopes) {
+					t.Fatalf("%s verdict = %#v, contract = %#v", mode, verdict, fixture)
+				}
+			}
+		})
+	}
+}
+
+func mutateCLIFormalFixture(t *testing.T, root, id string) {
+	t.Helper()
+	proofPath := filepath.Join(root, "assurance/formal/proof-targets.json")
+	qualificationPath := filepath.Join(root, "assurance/formal/backend-qualification.json")
+	switch id {
+	case "disconnected-proof-copy":
+		proof := readJSONObject(t, proofPath)
+		proof["targets"].([]any)[0].(map[string]any)["rust_symbol"] = "proof_only::frame_header_copy"
+		writeJSONObject(t, proofPath, proof)
+		rebindCLIArtifact(t, qualificationPath, "proof_targets", proofPath)
+	case "disconnected-symbol":
+		proof := readJSONObject(t, proofPath)
+		proof["targets"].([]any)[0].(map[string]any)["required_call_paths"].([]any)[0].(map[string]any)["state"] = "DISCONNECTED"
+		writeJSONObject(t, proofPath, proof)
+		rebindCLIArtifact(t, qualificationPath, "proof_targets", proofPath)
+	case "inflated-finite-proof":
+		qualification := readJSONObject(t, qualificationPath)
+		cliBackend(t, qualification, "backend.finite-mask-prototype")["claim_scope"] = "PROVED_MODEL"
+		writeJSONObject(t, qualificationPath, qualification)
+	case "inflated-loom-proof":
+		qualification := readJSONObject(t, qualificationPath)
+		cliBackend(t, qualification, "backend.loom-concurrency")["claim_scope"] = "PROVED_MODEL"
+		writeJSONObject(t, qualificationPath, qualification)
+	case "inflated-model-production":
+		proof := readJSONObject(t, proofPath)
+		proof["targets"].([]any)[0].(map[string]any)["obligations"].([]any)[0].(map[string]any)["production_refinement_required"] = false
+		writeJSONObject(t, proofPath, proof)
+		rebindCLIArtifact(t, qualificationPath, "proof_targets", proofPath)
+	case "inflated-schedule-count":
+		qualification := readJSONObject(t, qualificationPath)
+		bounds := cliBackend(t, qualification, "backend.loom-concurrency")["bounds"].(map[string]any)
+		bounds["schedule_count"] = bounds["max_schedules"].(float64) + 1
+		writeJSONObject(t, qualificationPath, qualification)
+	case "known-bad-survives":
+		qualification := readJSONObject(t, qualificationPath)
+		cliBackend(t, qualification, "backend.finite-mask-prototype")["known_bad_canaries"].([]any)[0].(map[string]any)["observed_outcome"] = "PASS"
+		writeJSONObject(t, qualificationPath, qualification)
+	case "missing-digest":
+		proof := readJSONObject(t, proofPath)
+		delete(proof["source_basis"].([]any)[0].(map[string]any), "sha256")
+		writeJSONObject(t, proofPath, proof)
+		rebindCLIArtifact(t, qualificationPath, "proof_targets", proofPath)
+	case "missing-required-artifact":
+		qualification := readJSONObject(t, qualificationPath)
+		backend := cliBackend(t, qualification, "backend.finite-mask-prototype")
+		items := backend["required_artifacts"].([]any)
+		filtered := []any{}
+		for _, item := range items {
+			if item != "TOOL_IDENTITY" {
+				filtered = append(filtered, item)
+			}
+		}
+		backend["required_artifacts"] = filtered
+		writeJSONObject(t, qualificationPath, qualification)
+	case "missing-target":
+		qualification := readJSONObject(t, qualificationPath)
+		backend := cliBackend(t, qualification, "backend.finite-mask-prototype")
+		backend["obligation_ids"].([]any)[0] = "obligation.unknown"
+		backend["outcomes"].([]any)[0].(map[string]any)["obligation_id"] = "obligation.unknown"
+		writeJSONObject(t, qualificationPath, qualification)
+	case "replay-digest-mismatch":
+		qualification := readJSONObject(t, qualificationPath)
+		cliBackend(t, qualification, "backend.finite-mask-prototype")["replay"].(map[string]any)["semantic_output_digest"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		writeJSONObject(t, qualificationPath, qualification)
+	case "unavailable-as-skip":
+		qualification := readJSONObject(t, qualificationPath)
+		cliBackend(t, qualification, "backend.finite-mask-prototype")["claim_scope"] = "SKIP"
+		writeJSONObject(t, qualificationPath, qualification)
+	case "unavailable-as-success":
+		qualification := readJSONObject(t, qualificationPath)
+		backend := cliBackend(t, qualification, "backend.finite-mask-prototype")
+		backend["claim_scope"] = "BOUNDED_TEST_EVIDENCE"
+		outcome := backend["outcomes"].([]any)[0].(map[string]any)
+		outcome["raw_outcome"], outcome["claim_scope"] = "BOUNDED_CHECK_PASSED", "BOUNDED_TEST_EVIDENCE"
+		writeJSONObject(t, qualificationPath, qualification)
+	case "unsupported-claimed-covered":
+		qualification := readJSONObject(t, qualificationPath)
+		backend := cliBackend(t, qualification, "backend.finite-mask-prototype")
+		backend["unsupported_constructs"] = []any{"construct.dynamic-dispatch"}
+		backend["outcomes"].([]any)[0].(map[string]any)["raw_outcome"] = "BOUNDED_CHECK_PASSED"
+		writeJSONObject(t, qualificationPath, qualification)
+	case "zero-obligations":
+		qualification := readJSONObject(t, qualificationPath)
+		backend := cliBackend(t, qualification, "backend.finite-mask-prototype")
+		backend["obligation_ids"], backend["outcomes"], backend["obligation_count"] = []any{}, []any{}, float64(0)
+		writeJSONObject(t, qualificationPath, qualification)
+	default:
+		t.Fatalf("unhandled hostile fixture %s", id)
+	}
+}
+
+func readJSONObject(t *testing.T, path string) map[string]any {
+	t.Helper()
+	var value map[string]any
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &value); err != nil {
+		t.Fatal(err)
+	}
+	return value
+}
+
+func writeJSONObject(t *testing.T, path string, value map[string]any) {
+	t.Helper()
+	data, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, append(data, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func cliBackend(t *testing.T, qualification map[string]any, id string) map[string]any {
+	t.Helper()
+	for _, item := range qualification["backends"].([]any) {
+		backend := item.(map[string]any)
+		if backend["backend_id"] == id {
+			return backend
+		}
+	}
+	t.Fatalf("backend %s not found", id)
+	return nil
+}
+
+func rebindCLIArtifact(t *testing.T, qualificationPath, field, artifactPath string) {
+	t.Helper()
+	qualification := readJSONObject(t, qualificationPath)
+	data, err := os.ReadFile(artifactPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(data)
+	qualification[field].(map[string]any)["sha256"] = fmt.Sprintf("sha256:%x", digest)
+	writeJSONObject(t, qualificationPath, qualification)
 }
 
 func TestFormalCommandsRejectBackendAndReceiptFlags(t *testing.T) {
