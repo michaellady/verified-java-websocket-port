@@ -1,0 +1,6 @@
+# Pinned per evidence/intake/toolchain-pins.json (rustc-1.95.0-aarch64-apple-darwin).
+# Do not float this channel: the intake pin is digest-qualified and the project
+# quality gates assume this exact toolchain for fmt/clippy/test reproducibility.
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]

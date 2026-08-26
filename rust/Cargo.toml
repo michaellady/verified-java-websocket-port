@@ -1,0 +1,14 @@
+# Rust workspace for the verified Java -> Rust WebSocket port (enabling scaffold).
+# See docs/rust-workspace.md and rust/README.md. No user story is claimed complete
+# by this workspace; every crate here is an UNIMPLEMENTED placeholder pending
+# US-009..US-019.
+[workspace]
+resolver = "3"
+members = ["connection-core"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95.0"
+license = "Apache-2.0"
+publish = false
