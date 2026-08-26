@@ -47,5 +47,20 @@ variable "assume_oidc_provider_exists" {
 variable "oidc_extra_sub_repos" {
   type        = list(string)
   default     = []
-  description = "Extra repo identifiers to trust in the GitHub OIDC `sub` claim, in addition to github_repo. Needed when the repo's GitHub org emits IMMUTABLE subject claims (numeric ids embedded), e.g. \"my-org@313487774/my-repo@1324224531\" — read it from `gh api /repos/OWNER/REPO/actions/oidc/customization/sub` (.sub_claim_prefix, minus the leading \"repo:\"). Each entry is trusted as repo:<id>:* (non-prod) and repo:<id>:ref:refs/heads/main (prod), alongside the classic github_repo form. Defaults to [] — zero effect for repos with the standard mutable subject."
+  description = "Immutable repo identifiers trusted in the GitHub OIDC sub claim (numeric owner/repository ids embedded), e.g. my-org@313487774/my-repo@1324224531. Mutable owner/name subjects are never trusted."
+
+  validation {
+    condition     = length(var.oidc_extra_sub_repos) > 0 && alltrue([for r in var.oidc_extra_sub_repos : can(regex("^[^/@]+@[0-9]+/[^/@]+@[0-9]+$", r))])
+    error_message = "oidc_extra_sub_repos must contain at least one immutable owner@id/repository@id identity."
+  }
+}
+
+variable "oidc_trusted_workflow_refs" {
+  type        = list(string)
+  description = "Exact default-branch workflow identities allowed to receive deploy credentials."
+
+  validation {
+    condition     = length(var.oidc_trusted_workflow_refs) > 0 && alltrue([for ref in var.oidc_trusted_workflow_refs : can(regex("^[^/]+/[^/]+/\\.github/workflows/[^@]+@refs/heads/main$", ref))])
+    error_message = "oidc_trusted_workflow_refs must be exact .github/workflows paths on refs/heads/main."
+  }
 }

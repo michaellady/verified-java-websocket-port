@@ -2,11 +2,13 @@ package benchplan
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -96,6 +98,18 @@ var CanonicalBindingFields = map[string][]string{
 	},
 }
 
+const (
+	// PlanFreezeOwnerAttested is a valid, frozen preregistration. It is
+	// deliberately not an independent-attestation claim; owner attestation is
+	// the accepted US-008 assurance scope.
+	PlanFreezeOwnerAttested = "OWNER_ATTESTED_NOT_INDEPENDENT"
+	// canonicalWorkloadsProjectionDigest binds every field of all six workload
+	// definitions, not merely their IDs and pair orders. The projection is the
+	// SHA-256 of encoding/json's canonical object-key ordering for the workloads
+	// array in benchmarks/plan/workloads.json.
+	canonicalWorkloadsProjectionDigest = "sha256:8b15ef3dd3b92e1e404ae21cc2970d6b5c6608962d376c46868772f517e6991f"
+)
+
 // BenchmarkDocuments maps each benchmark document (repo-relative) to its
 // schema in schemas/.
 var BenchmarkDocuments = map[string]string{
@@ -123,9 +137,9 @@ type Report struct {
 	// declared role or a required_binding_fields list that differs from
 	// the canonical per-role list (METER_TAMPERED).
 	MeterFailures []string
-	// PlanAttestationState is the plan's machine-readable attestation
-	// state (UNATTESTED until the owner's independent attestation).
-	PlanAttestationState string
+	// PlanFreezeState is the plan's machine-readable preregistration freeze
+	// state. It is independent of sample readiness.
+	PlanFreezeState string
 	// EnvironmentBindingStatus maps each environment document to its
 	// declared binding_status (UNBOUND/BOUND).
 	EnvironmentBindingStatus map[string]string
@@ -137,7 +151,7 @@ type Report struct {
 type planDocument struct {
 	Schema            string `json:"schema"`
 	Status            string `json:"status"`
-	AttestationState  string `json:"attestation_state"`
+	FreezeState       string `json:"freeze_state"`
 	SharedDefinitions struct {
 		MaskSpecVersion string `json:"mask_spec_version"`
 	} `json:"shared_definitions"`
@@ -192,8 +206,11 @@ type environmentDocument struct {
 }
 
 type environmentField struct {
-	Status string          `json:"status"`
-	Value  json.RawMessage `json:"value"`
+	Status            string          `json:"status"`
+	Value             json.RawMessage `json:"value"`
+	ObservedByCommand string          `json:"observed_by_command"`
+	ObservedAt        string          `json:"observed_at"`
+	EvidenceDigest    string          `json:"evidence_digest"`
 }
 
 // Verify validates every benchmark document against its schema, checks
@@ -214,12 +231,12 @@ func Verify(root string) (Report, error) {
 		}
 	}
 
-	planFailures, attestationState, err := verifyPlanAgainstSpec(root)
+	planFailures, freezeState, err := verifyPlanAgainstSpec(root)
 	if err != nil {
 		return report, err
 	}
 	report.PlanFailures = planFailures
-	report.PlanAttestationState = attestationState
+	report.PlanFreezeState = freezeState
 
 	powerFailures, err := VerifyPowerModel(MaxLogRatioSD)
 	if err != nil {
@@ -260,16 +277,16 @@ func Verify(root string) (Report, error) {
 	if len(report.MeterFailures) > 0 {
 		report.BlockerClasses = append(report.BlockerClasses, BlockerMeterTampered)
 	}
-	// The owner-gated gap is host/tool binding AND its attestation:
-	// syntactically complete field values with UNBOUND/UNATTESTED
-	// status must never read as bound (review fix I5).
-	attestationPending := report.PlanAttestationState != "INDEPENDENTLY_ATTESTED"
+	// A valid owner-attested freeze completes the story-level preregistration.
+	// Sample readiness is separate and remains blocked until both environments
+	// are BOUND and every canonical field is semantically complete.
+	bindingPending := false
 	for _, bindingStatus := range report.EnvironmentBindingStatus {
 		if bindingStatus != "BOUND" {
-			attestationPending = true
+			bindingPending = true
 		}
 	}
-	if len(report.UnboundFields) > 0 || attestationPending {
+	if len(report.UnboundFields) > 0 || bindingPending {
 		report.BlockerClasses = append(report.BlockerClasses, BlockerHostBindingPending)
 	}
 	return report, nil
@@ -283,10 +300,8 @@ func (r Report) HostBindingIsOnlyBlocker() bool {
 	return len(r.BlockerClasses) == 1 && r.BlockerClasses[0] == BlockerHostBindingPending
 }
 
-// FullyBound reports whether no blocker remains at all: every binding
-// field bound, both environments' binding_status BOUND, and the plan
-// independently attested. It cannot be true before the owner binds the
-// confirmation host and tool identities and attests the plan.
+// FullyBound reports whether no blocker remains at all: the owner-attested
+// preregistration is valid and every sample-readiness binding is complete.
 func (r Report) FullyBound() bool {
 	return len(r.BlockerClasses) == 0
 }
@@ -305,17 +320,11 @@ func verifyPlanAgainstSpec(root string) ([]string, string, error) {
 		failures = append(failures, fmt.Sprintf(format, args...))
 	}
 
-	switch plan.AttestationState {
-	case "UNATTESTED":
-		if !strings.HasPrefix(plan.Status, "PREREGISTERED_BY_DRIVER_UNATTESTED") {
-			fail("attestation_state UNATTESTED but status %q does not declare it", plan.Status)
-		}
-	case "INDEPENDENTLY_ATTESTED":
-		if !strings.HasPrefix(plan.Status, "PREREGISTERED_INDEPENDENTLY_ATTESTED") {
-			fail("attestation_state INDEPENDENTLY_ATTESTED but status %q does not declare it", plan.Status)
-		}
-	default:
-		fail("attestation_state %q is not a preregistered state", plan.AttestationState)
+	if plan.FreezeState != PlanFreezeOwnerAttested {
+		fail("freeze_state %q is not the accepted owner-attested preregistration state", plan.FreezeState)
+	}
+	if !strings.HasPrefix(plan.Status, "PREREGISTERED_OWNER_ATTESTED_NOT_INDEPENDENT") {
+		fail("freeze_state %s but status %q does not declare the owner-attested, non-independent scope", PlanFreezeOwnerAttested, plan.Status)
 	}
 	if plan.SharedDefinitions.MaskSpecVersion != MaskSpecVersion {
 		fail("mask spec version %q disagrees with the frozen spec %q", plan.SharedDefinitions.MaskSpecVersion, MaskSpecVersion)
@@ -359,6 +368,24 @@ func verifyPlanAgainstSpec(root string) ([]string, string, error) {
 				}
 			}
 		}
+	}
+	var rawPlan struct {
+		Workloads json.RawMessage `json:"workloads"`
+	}
+	if err := json.Unmarshal(content, &rawPlan); err != nil {
+		return nil, "", fmt.Errorf("plan workload projection parse: %w", err)
+	}
+	var workloadProjection any
+	if err := json.Unmarshal(rawPlan.Workloads, &workloadProjection); err != nil {
+		return nil, "", fmt.Errorf("plan workload projection decode: %w", err)
+	}
+	canonicalProjection, err := json.Marshal(workloadProjection)
+	if err != nil {
+		return nil, "", fmt.Errorf("plan workload projection canonicalization: %w", err)
+	}
+	projectionDigest := fmt.Sprintf("sha256:%x", sha256.Sum256(canonicalProjection))
+	if projectionDigest != canonicalWorkloadsProjectionDigest {
+		fail("workloads canonical projection digest %s disagrees with frozen %s (parameters/generators/input/output/rates/counts/durations/concurrency/pair rules are immutable)", projectionDigest, canonicalWorkloadsProjectionDigest)
 	}
 
 	statistics := plan.Statistics
@@ -406,7 +433,7 @@ func verifyPlanAgainstSpec(root string) ([]string, string, error) {
 			}
 		}
 	}
-	return failures, plan.AttestationState, nil
+	return failures, plan.FreezeState, nil
 }
 
 // meterResult is one environment document's completion-meter outcome.
@@ -480,7 +507,11 @@ func environmentCompletionMeter(root, document, expectedRole string) (meterResul
 		case "PENDING_FREEZE_AT_MEASUREMENT":
 			meter.snapshots = append(meter.snapshots, UnboundField{Document: document, Path: path, Status: record.Status})
 		case "OBSERVED", "PRD_VERBATIM", "PREREGISTERED_BY_DRIVER", "BOUND":
-			// Complete to the current honest extent.
+			if failures := validateBindingField(expectedRole, path, record); len(failures) > 0 {
+				for _, failure := range failures {
+					meter.failures = append(meter.failures, fmt.Sprintf("%s: field %q %s", document, path, failure))
+				}
+			}
 		default:
 			meter.failures = append(meter.failures, fmt.Sprintf(
 				"%s: field %q has unknown status %q", document, path, record.Status))
@@ -489,6 +520,133 @@ func environmentCompletionMeter(root, document, expectedRole string) (meterResul
 	sort.Slice(meter.unbound, func(i, j int) bool { return meter.unbound[i].Path < meter.unbound[j].Path })
 	sort.Slice(meter.snapshots, func(i, j int) bool { return meter.snapshots[i].Path < meter.snapshots[j].Path })
 	return meter, nil
+}
+
+var (
+	instanceIDPattern       = regexp.MustCompile(`^i-[0-9a-f]{17}$`)
+	availabilityZonePattern = regexp.MustCompile(`^us-east-1[a-z]$`)
+	clocksourcePattern      = regexp.MustCompile(`^[a-z0-9_-]+$`)
+)
+
+type toolIdentityEvidence struct {
+	Identity   string `json:"identity"`
+	Digest     string `json:"digest"`
+	Provenance string `json:"provenance"`
+}
+
+func validateBindingField(role, path string, field environmentField) []string {
+	var failures []string
+	fail := func(format string, args ...any) { failures = append(failures, fmt.Sprintf(format, args...)) }
+	if len(field.Value) == 0 || bytes.Equal(bytes.TrimSpace(field.Value), []byte("null")) {
+		fail("has status %s without a value", field.Status)
+		return failures
+	}
+	if field.Status == "BOUND" && strings.HasPrefix(path, "host_identity.") && !validDigest(field.EvidenceDigest) {
+		fail("BOUND host identity requires a nonzero sha256 evidence_digest")
+	}
+
+	var value any
+	if err := json.Unmarshal(field.Value, &value); err != nil {
+		fail("has malformed value: %v", err)
+		return failures
+	}
+	stringValue, _ := value.(string)
+	positiveInteger := func() bool {
+		number, ok := value.(float64)
+		return ok && number > 0 && number == math.Trunc(number)
+	}
+
+	if strings.HasPrefix(path, "tool_identities.") {
+		name := strings.TrimPrefix(path, "tool_identities.")
+		if field.Status != "BOUND" {
+			return failures
+		}
+		if name == "java_executable_digest" || name == "rust_executable_digest" {
+			if !validDigest(stringValue) {
+				fail("must be a nonzero sha256 executable digest")
+			}
+			return failures
+		}
+		var evidence toolIdentityEvidence
+		if err := json.Unmarshal(field.Value, &evidence); err != nil || strings.TrimSpace(evidence.Identity) == "" || !validDigest(evidence.Digest) || strings.TrimSpace(evidence.Provenance) == "" {
+			fail("must be an object with nonempty identity/provenance and a nonzero sha256 digest")
+		}
+		return failures
+	}
+
+	if role == "primary" {
+		switch path {
+		case "host_identity.cpu_logical_cores", "host_identity.cpu_performance_cores", "host_identity.cpu_efficiency_cores", "host_identity.memory_total_bytes":
+			if !positiveInteger() {
+				fail("must be a positive integer")
+			}
+		default:
+			if stringValue == "" {
+				fail("must be a nonempty string")
+			}
+		}
+		if field.Status == "BOUND" && (strings.TrimSpace(field.ObservedByCommand) == "" || strings.TrimSpace(field.ObservedAt) == "") {
+			fail("BOUND primary identity requires observed_by_command and observed_at")
+		}
+		return failures
+	}
+
+	switch path {
+	case "host_identity.instance_type":
+		if stringValue != "c7i.xlarge" {
+			fail("must equal the frozen Tier-1 class c7i.xlarge")
+		}
+	case "host_identity.instance_id":
+		if !instanceIDPattern.MatchString(stringValue) {
+			fail("must be a concrete EC2 instance id")
+		}
+	case "host_identity.observed_architecture":
+		if stringValue != "x86_64" {
+			fail("must equal x86_64")
+		}
+	case "host_identity.allocation_evidence":
+		var evidence struct {
+			Method        string `json:"method"`
+			ObservedValue string `json:"observed_value"`
+			ObservedAtUTC string `json:"observed_at_utc"`
+		}
+		if err := json.Unmarshal(field.Value, &evidence); err != nil || evidence.Method == "" || evidence.ObservedValue == "" || evidence.ObservedAtUTC == "" {
+			fail("must record method, observed_value, and observed_at_utc")
+		}
+	case "host_identity.region":
+		if stringValue != "us-east-1" {
+			fail("must equal the frozen region us-east-1")
+		}
+	case "host_identity.availability_zone":
+		if !availabilityZonePattern.MatchString(stringValue) {
+			fail("must be an us-east-1 availability zone")
+		}
+	case "host_identity.ami_id":
+		if stringValue != "ami-02b3d83d84b07786d" {
+			fail("must equal the frozen AMI ami-02b3d83d84b07786d")
+		}
+	case "host_identity.ami_name":
+		if stringValue != "al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64" {
+			fail("must equal the frozen AMI name")
+		}
+	case "host_identity.memory_total_bytes":
+		if !positiveInteger() {
+			fail("must be a positive integer byte count")
+		}
+	case "host_identity.clocksource":
+		if !clocksourcePattern.MatchString(stringValue) {
+			fail("must be a concrete clocksource identifier")
+		}
+	default:
+		if stringValue == "" {
+			fail("must be a nonempty typed identity string")
+		}
+	}
+	return failures
+}
+
+func validDigest(value string) bool {
+	return digestPattern.MatchString(value) && value != zeroDigest
 }
 
 // validateAgainstSchema validates one document against a schema in
@@ -533,6 +691,11 @@ func validateAgainstSchema(root, document, schemaName string) ([]string, error) 
 // schema.
 func ValidateSampleSetDocument(root, path string) ([]string, error) {
 	return validateAgainstSchema(root, path, "benchmark-raw-sample-1.0.0.schema.json")
+}
+
+// ValidateEvidenceBundleDocument validates a future complete bundle manifest.
+func ValidateEvidenceBundleDocument(root, path string) ([]string, error) {
+	return validateAgainstSchema(root, path, "benchmark-evidence-bundle-1.0.0.schema.json")
 }
 
 func flattenSchemaError(err *jsonschema.ValidationError) []string {

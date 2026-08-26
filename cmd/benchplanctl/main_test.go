@@ -17,7 +17,8 @@ func TestVerifyOnRealTreeExitsHostBindingPending(t *testing.T) {
 	output := stdout.String()
 	for _, required := range []string{
 		"single remaining blocker class: HOST_BINDING_PENDING",
-		"US-008 preflight: BLOCKED",
+		"US-008 preregistration freeze: VALID (OWNER_ATTESTED_NOT_INDEPENDENT)",
+		"Measurement preflight: BLOCKED",
 		"schema ok   benchmarks/plan/workloads.json",
 		"schema ok   benchmarks/environments/primary-macos.json",
 		"schema ok   benchmarks/environments/confirmation.json",
@@ -28,7 +29,7 @@ func TestVerifyOnRealTreeExitsHostBindingPending(t *testing.T) {
 		"host_identity.observed_architecture",
 		"host_identity.allocation_evidence",
 		"tool_identities.analyzer",
-		"attestation: plan UNATTESTED",
+		"preregistration freeze: plan OWNER_ATTESTED_NOT_INDEPENDENT",
 		"meter ok",
 	} {
 		if !strings.Contains(output, required) {

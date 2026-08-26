@@ -64,9 +64,10 @@ claims US-008 passes**, and US-008 cannot pass in this state by design:
   (26 unbound host/tool fields — 19 on the confirmation environment plus
   7 primary tool identities — and 5 primary runtime-snapshot fields
   deferred to measurement time; exit code 3). Exit code 0 additionally
-  requires both environments' `binding_status: BOUND` and the plan's
-  `attestation_state: INDEPENDENTLY_ATTESTED` — syntactically complete
-  field values with UNBOUND/UNATTESTED status never verify as bound.
+  requires both environments' `binding_status: BOUND`; the plan's separate
+  `freeze_state: OWNER_ATTESTED_NOT_INDEPENDENT` is already valid.
+  Syntactically complete values with document-level UNBOUND status never
+  verify as sample-ready.
 
 Review fixes B1-B4/I5/I6 (adversarial review, session 01a03f01) landed on
 top of the frozen preregistration:
@@ -282,12 +283,12 @@ preconditions, `benchplanctl` exit 3, or AWS itself reject the run):
    clocksource) — plus a Tier-2 metal type if the deferred flagship run
    is ever scheduled, and the 7 primary-environment tool identities.
    `benchplanctl` fails closed (exit 3, HOST_BINDING_PENDING) until bound.
-3. **Plan freeze + independent attestation** of the preregistration itself
-   (`benchmarks/plan/workloads.json` OWNER_DECISION_PENDING fields resolved,
-   then frozen) — the PRD forbids any raw or tuning sample predating the
-   independently attested plan commit; the preflight stays BLOCKED until
-   then. Current assurance posture: `OWNER_ATTESTED_NOT_INDEPENDENT`,
-   `independent_review_claimed: false`.
+3. **Plan freeze is complete under the owner-relaxed assurance scope.**
+   `benchmarks/plan/workloads.json` records
+   `freeze_state: OWNER_ATTESTED_NOT_INDEPENDENT` and
+   `independent_review_claimed: false`. This completes preregistration but
+   does not relax sample readiness: `HOST_BINDING_PENDING` still blocks every
+   measurement-capable path.
 
 Recommended before enabling measured runs (owner step, NOT mechanically
 enforced by the pipeline):

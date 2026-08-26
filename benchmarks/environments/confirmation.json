@@ -15,6 +15,7 @@
     "instance_type": {
       "status": "BOUND",
       "value": "c7i.xlarge",
+      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
       "rationale": "Tier-1 VM_MEASURED_JITTER_AVERAGED per owner decision 2026-08-26. Probed us-east-1 2026-08-26 (describe-instance-types + describe-instance-type-offerings, profile dev-sso): 4 vCPU, 8192 MiB, current generation, 3.2 GHz sustained, USD 0.1785/hr on-demand (Pricing API probe). The owner chose the 4-vCPU variant over the plumbing-proven c7i.large so the load driver and the endpoint under test do not share a physical core; same CPU family and image as green plumbing run 33000379021.",
       "notes": "Tier-2 (METAL_MEASURED) instance type is DEFERRED_BY_OWNER (2026-08-26): no flagship run is scheduled, and deferring lets a vCPU quota-increase request be sized to the eventual choice. c5n.metal remains only the unbound feasibility-study default-candidate in terraform/benchmark/variables.tf; m5zn.metal is the only probed metal candidate under the account's 64-vCPU standard on-demand quota (L-1216C47A)."
     },
@@ -33,6 +34,7 @@
     "region": {
       "status": "BOUND",
       "value": "us-east-1",
+      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
       "rationale": "Owner decision 2026-08-26. Probed region for the bound instance type and AMI (describe-instance-type-offerings + describe-images, 2026-08-26); matches the DIALED .dialed.yml region and the standing tfstate bucket."
     },
     "availability_zone": {
@@ -42,12 +44,14 @@
     "ami_id": {
       "status": "BOUND",
       "value": "ami-02b3d83d84b07786d",
+      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
       "rationale": "Owner decision 2026-08-26. Probed 2026-08-26 via aws ec2 describe-images --owners amazon (al2023-ami-2023.*-x86_64, state=available) with profile dev-sso in account 539402214167, per the documented probe-before-wire step in terraform/benchmark/variables.tf. Newest AL2023 release set 2023.12.20260817.0, kernel-6.1 flavor - the only flavor with a real observed boot in this pipeline (green plumbing run 33000379021).",
       "notes": "DeprecationTime 2026-11-10T23:53:00Z: after that date the id disappears from unfiltered describe-images listings and launch-by-exact-id was not probed. If measured runs continue past it, re-probe and re-pin - a preregistration change that must be recorded as such."
     },
     "ami_name": {
       "status": "BOUND",
       "value": "al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64",
+      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
       "rationale": "Name of the pinned ami_id, from the same describe-images probe of 2026-08-26."
     },
     "os_identity": {
@@ -125,23 +129,27 @@
     "terraform": {
       "status": "BOUND",
       "value": "1.9.8",
-      "rationale": "Owner decision 2026-08-26: the .github/actions/dialed-setup/action.yml terraform_version default (pinned exact).",
-      "notes": "The AWS provider constraint in terraform/benchmark/versions.tf is still floating (>= 6.0.0); an exact provider pin + lockfile are flagged repo follow-ups before measured runs."
+      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
+      "rationale": "Owner decision 2026-08-26: the .github/actions/dialed-setup/action.yml setup-terraform parameter is pinned exactly.",
+      "notes": "The benchmark and bootstrap roots pin hashicorp/aws exactly to 6.0.0 and commit the provider lock hashes for Linux amd64 and Darwin arm64."
     },
     "go_toolchain": {
       "status": "BOUND",
-      "value": "go1.25.5 (go.mod directive 'go 1.25')",
+      "value": "go1.25.5 (go.mod directive 'go 1.25.5')",
+      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
       "rationale": "Owner decision 2026-08-26: record the go.mod directive alongside the toolchain actually resolved at binding-commit time. 'go version' in this repo at the binding commit reported go1.25.5 (darwin/arm64 driver machine).",
-      "notes": "CI resolves its own 1.25.x at run time via actions/setup-go with go-version-file: go.mod (floating minor). The resolved 'go version' that builds the runner for the confirmation host must be recorded per run; an exact CI pin is a flagged follow-up before measured samples."
+      "notes": "CI is pinned to Go 1.25.5 by exact setup-go input plus the exact go.mod directive. The resolved 'go version' that builds a future measurement-capable runner is still recorded per run."
     },
     "runner_build_flags": {
       "status": "BOUND",
       "value": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner",
+      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
       "rationale": "Owner decision 2026-08-26: the exact in-workflow build literal in .github/workflows/benchmark.yml ('Build and stage benchmark runner in results bucket'), recorded verbatim including the /tmp/benchrunner output path. Review round 1 (session 01a03f9c) corrected an earlier inexact transcription that omitted the /tmp/ prefix; internal/benchplan/validate_test.go now cross-checks this literal against the workflow file."
     },
     "yq": {
       "status": "BOUND",
       "value": "4.44.3",
+      "evidence_digest": "sha256:a6bf8fa1db681880e654edf1a79c5ad398edf4ad10e75198d0f0c3fa9d610546",
       "rationale": "Owner decision 2026-08-26: the exact yq version the dialed-setup composite action ENFORCES. Review round 1 (session 01a03f9c) found the action previously accepted any preinstalled yq and only downloaded 4.44.3 when absent; it now installs the pinned v4.44.3 whenever the resolving yq differs and fails closed if the pinned version does not resolve after install, so this recorded value is enforced, not assumed."
     }
   },

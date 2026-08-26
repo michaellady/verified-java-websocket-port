@@ -10,11 +10,11 @@
 # THIS account by consulting account_model + current_account_id + account_ids.
 
 terraform {
-  required_version = ">= 1.9"
+  required_version = "= 1.9.8"
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = ">= 6.0.0"
+      version = "= 6.0.0"
     }
   }
 }
@@ -68,13 +68,10 @@ resource "aws_iam_openid_connect_provider" "github" {
 locals {
   oidc_provider_arn = var.assume_oidc_provider_exists ? data.aws_iam_openid_connect_provider.github_existing[0].arn : aws_iam_openid_connect_provider.github[0].arn
 
-  # Repo identifiers trusted in the OIDC `sub` claim. Always includes the
-  # classic "owner/name" form; orgs emitting IMMUTABLE subjects (numeric ids,
-  # e.g. "org@123/repo@456") must add that form via var.oidc_extra_sub_repos,
-  # since the classic pattern never matches an immutable sub. Default is just
-  # [github_repo] — a single-element list, behaviorally identical to the prior
-  # scalar condition.
-  oidc_sub_repos = concat([var.github_repo], var.oidc_extra_sub_repos)
+  # Only immutable numeric owner/repository identities are trusted. The
+  # mutable owner/name form remains configuration metadata, never an IAM
+  # principal identity.
+  oidc_sub_repos = var.oidc_extra_sub_repos
 }
 
 # ─── Per-env deploy roles ───────────────────────────────────────────────────
@@ -87,21 +84,11 @@ locals {
 # would clobber the first's role). The composite action derives the same name
 # from project_name.
 #
-# Trust policy: allows GitHub Actions workflows in `var.github_repo` to assume
-# the role via OIDC, narrowed to the EXACT OIDC subjects DIALED's own workflow
-# jobs emit — NOT a blanket "repo:<r>:*" wildcard.
-#   - non-prod (dev, staging): PR jobs (subject "repo:<r>:pull_request") and
-#     env-declared jobs (subject "repo:<r>:environment:<env>", e.g. deploy-dev
-#     and the now-env-gated unit-and-integration / system-test-dev).
-#   - prod: ONLY env-declared jobs (subject "repo:<r>:environment:prod").
-# Dropping the wildcard AND the bare "ref:refs/heads/main" subject is the point:
-# any OTHER main-branch / comment-triggered workflow that carries
-# id-token:write — notably an @claude bot answering a PR comment — would
-# otherwise present one of those subjects and assume the deploy role. Because
-# the prod branch no longer trusts a ref, the "prod only from main" gate now
-# lives in the prod GitHub environment's deployment-branch policy (dialed:setup
-# locks it to main), which is load-bearing since main-deploy is also
-# workflow_dispatch-able from any branch. See the StringLike below.
+# Trust policy requires all four identities simultaneously: immutable numeric
+# owner/repository subject, the matching GitHub environment, refs/heads/main,
+# and one exact workflow path on that ref. PR subjects and mutable owner/name
+# subjects are deliberately absent, so PR-controlled code cannot receive this
+# role even if another workflow accidentally requests id-token:write.
 
 resource "aws_iam_role" "deploy" {
   for_each = local.envs
@@ -118,28 +105,10 @@ resource "aws_iam_role" "deploy" {
         Action    = "sts:AssumeRoleWithWebIdentity"
         Condition = {
           StringEquals = {
-            "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
-          }
-          # prod: reachable ONLY via jobs that declare `environment: prod`
-          # (deploy-prod, shared-prod, smoke-test-prod — all env-gated), whose
-          # subject is "repo:<r>:environment:prod". The bare
-          # "repo:<r>:ref:refs/heads/main" subject was REMOVED so a main-branch
-          # bot (e.g. comment-triggered @claude, which carries id-token:write)
-          # can no longer assume the prod role. main-only is enforced by the
-          # prod GitHub environment's deployment-branch policy (dialed:setup
-          # locks it to main), which matters because main-deploy is also
-          # workflow_dispatch-able from any branch.
-          # non-prod: reachable via PR jobs ("repo:<r>:pull_request") and
-          # env-declared jobs ("repo:<r>:environment:<env>"). The old
-          # "repo:<r>:*" wildcard was dropped for the same reason — it admitted
-          # the bare "ref:refs/heads/main" subject a main-branch bot presents.
-          StringLike = each.key == "prod" ? {
-            "token.actions.githubusercontent.com:sub" = [for r in local.oidc_sub_repos : "repo:${r}:environment:prod"]
-            } : {
-            "token.actions.githubusercontent.com:sub" = concat(
-              [for r in local.oidc_sub_repos : "repo:${r}:pull_request"],
-              [for r in local.oidc_sub_repos : "repo:${r}:environment:${each.key}"],
-            )
+            "token.actions.githubusercontent.com:aud"          = "sts.amazonaws.com"
+            "token.actions.githubusercontent.com:sub"          = [for r in local.oidc_sub_repos : "repo:${r}:environment:${each.key}"]
+            "token.actions.githubusercontent.com:ref"          = "refs/heads/main"
+            "token.actions.githubusercontent.com:workflow_ref" = var.oidc_trusted_workflow_refs
           }
         }
       }

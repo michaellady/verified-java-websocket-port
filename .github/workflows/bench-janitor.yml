@@ -13,10 +13,9 @@ name: Bench Workspace Janitor
 #   2. Schedule is every 3 hours, because the orphan is a metal instance
 #      billing by the hour, not idle Lambdas.
 #
-# The job MUST be gated behind the `dev` GitHub Environment: the narrowed
-# dev deploy-role OIDC trust admits only `pull_request` and
-# `environment:dev` subjects, and a schedule/workflow_dispatch run would
-# otherwise present a `ref:refs/heads/...` subject the trust rejects.
+# The job is gated behind the `dev` GitHub Environment and, for manual runs,
+# refs/heads/main. Bootstrap trust additionally pins the immutable repository
+# subject and this exact workflow identity; no PR subject is admitted.
 #
 # Safety: only touches workspaces named bench-pr-<N> whose state object
 # hasn't changed in 3+ hours, so it never races an in-flight benchmark job;
@@ -28,7 +27,6 @@ on:
   workflow_dispatch: {}
 
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
@@ -38,14 +36,19 @@ concurrency:
 jobs:
   sweep:
     name: Sweep orphaned bench workspaces
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    permissions:
+      id-token: write
+      contents: read
     runs-on: ubuntu-latest
     environment: dev
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version: "1.25.5"
+          check-latest: false
       - uses: ./.github/actions/dialed-setup
         with:
           env: dev
@@ -53,7 +56,7 @@ jobs:
       - name: Terraform init (benchmark)
         working-directory: terraform/benchmark
         run: |
-          terraform init \
+          terraform init -lockfile=readonly \
             -backend-config="bucket=dialed-${DIALED_PROJECT_NAME}-${DIALED_ACCOUNT_ID}-tfstate" \
             -backend-config="key=benchmark/terraform.tfstate" \
             -backend-config="region=${AWS_REGION}" \

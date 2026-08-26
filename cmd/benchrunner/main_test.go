@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -66,6 +68,14 @@ func TestPipelineSmokeEmitsSentinelOnlySkeleton(t *testing.T) {
 	var result smokeResult
 	if err := json.Unmarshal(content, &result); err != nil {
 		t.Fatal(err)
+	}
+	digestSidecar, err := os.ReadFile(filepath.Join(out, "pipeline-smoke-result.json.sha256"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantDigest := fmt.Sprintf("sha256:%x", sha256.Sum256(content))
+	if strings.TrimSpace(string(digestSidecar)) != wantDigest {
+		t.Fatalf("digest sidecar %q, want %q", strings.TrimSpace(string(digestSidecar)), wantDigest)
 	}
 	if result.Schema != "vjwp-bench-pipeline-smoke/1" || result.Mode != "pipeline-smoke" {
 		t.Fatalf("schema/mode %q/%q unexpected", result.Schema, result.Mode)

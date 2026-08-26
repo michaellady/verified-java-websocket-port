@@ -52,7 +52,7 @@ variable "instance_type" {
     bound decision, and no Tier-2 sample may be collected until the owner
     binds a metal type in the same preregistration document.
   EOT
-  default     = "c5n.metal"
+  default     = "c7i.xlarge"
 
   validation {
     condition     = can(regex("^[a-z][a-z0-9-]*\\.[a-z0-9-]+$", var.instance_type))
@@ -68,9 +68,9 @@ variable "ami_id" {
     BOUND (owner decision 2026-08-26) in
     benchmarks/environments/confirmation.json: ami-02b3d83d84b07786d
     (al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64, deprecation
-    2026-11-10 — re-probe and re-pin past that date). The default stays
-    empty: the workflow passes the pinned id via -var, and an empty id
-    still fails closed for measured runs.
+    2026-11-10 — re-probe and re-pin past that date). The exact default is
+    intentional: non-plumbing execution cannot silently
+    resolve or substitute another image.
 
     PROBE STEP (required before pinning — see the probe-before-wire rule):
     run one real query against the target dev account and read the response:
@@ -82,18 +82,17 @@ variable "ami_id" {
     Then pin the returned ImageId here (or via -var) AND record it plus the
     resulting kernel identity in the confirmation environment file.
   EOT
-  default     = ""
+  default     = "ami-02b3d83d84b07786d"
 }
 
 variable "allow_unpinned_ami" {
   type        = bool
   description = <<-EOT
-    Escape hatch for PIPELINE PLUMBING TESTS ONLY. When true and ami_id is
-    empty, the newest AL2023 x86_64 AMI is resolved dynamically. Any host
-    provisioned this way is NOT a valid confirmation host: its AMI/kernel
-    identity is not preregistration-bound, so nothing measured on it may be
-    used, and the runner stub emits NOT_MEASURED sentinels regardless.
-    Measured runs require allow_unpinned_ami = false and a pinned ami_id.
+    Legacy-named escape hatch for PIPELINE PLUMBING TESTS ONLY. When true,
+    the exact Tier-1 class/AMI/region precondition is relaxed; if ami_id is
+    explicitly empty, the newest AL2023 x86_64 AMI is resolved dynamically.
+    Any such host is NOT a valid confirmation host and the runner emits only
+    NOT_MEASURED sentinels. Measured runs require false plus exact frozen pins.
   EOT
   default     = false
 }

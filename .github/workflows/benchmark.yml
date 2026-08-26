@@ -8,22 +8,18 @@ name: Benchmark Confirmation Host (US-008 pipeline)
 # under `if: always()` — never PR-open→PR-close billing. Orphans (runner
 # died, AWS outage) are swept by bench-janitor.yml after 3 hours.
 #
-# COST NOTE: the default-candidate instance type is c5n.metal, whose
-# us-east-1 on-demand rate is on the order of ~$4/hour (verify current AWS
-# pricing before enabling the pipeline). Job-scoped billing bounds each run
-# to roughly 1-2 instance-hours; a PR-open→PR-close lifecycle on a 7-day PR
-# would bill ~168 hours — the ~140x cost rationale for shape A. The hard
-# `timeout-minutes` below is the belt-and-braces bound; the janitor is the
-# backstop behind that.
+# COST NOTE: the privileged path is job-scoped and defaults to the bound
+# c7i.xlarge Tier-1 class; sentinel-only plumbing uses c7i.large. The hard
+# `timeout-minutes` below is the belt-and-braces bound and the janitor is the
+# backstop.
 #
 # HONESTY CONTRACT: this workflow is ENABLING WORK for US-008, not US-008
 # itself. The runner it invokes is a STUB that validates arguments and emits
 # a result-schema skeleton whose every metric field is the NOT_MEASURED
 # sentinel. Nothing this workflow produces is a benchmark sample, a
-# performance claim, or evidence that US-008 passes. Measured runs are
-# additionally fail-closed: the Terraform root refuses to provision a host
-# without a preregistration-pinned AMI unless allow_unpinned_ami=true is
-# passed explicitly for a plumbing test.
+# performance claim, or evidence that US-008 passes. Measurement mode runs the
+# readiness gate before credentials and is refused while HOST_BINDING_PENDING;
+# non-plumbing Terraform also enforces the exact Tier-1 class/AMI/region.
 #
 # PREREQUISITES (see docs/us008-benchmark-pipeline.md):
 #   - DONE: DIALED bootstrap applied in the EVC dev account under project
@@ -36,57 +32,69 @@ name: Benchmark Confirmation Host (US-008 pipeline)
 #     the standing 64-vCPU quota)
 
 on:
-  pull_request:
-    types: [labeled]
+  pull_request: {}
   workflow_dispatch:
     inputs:
       pr_number:
         description: "PR number to run the benchmark pipeline for (names the bench-pr-<N> workspace)"
         required: true
         type: string
-      instance_type:
-        description: "Override instance type (default: terraform var default c5n.metal, the still-unbound Tier-2 default-candidate; Tier-1 is BOUND to c7i.xlarge in benchmarks/environments/confirmation.json)"
-        required: false
-        type: string
-      ami_id:
-        description: "Preregistration-pinned AMI id (required for any measured run; probe the real account first)"
-        required: false
-        type: string
-      allow_unpinned_ami:
-        description: "PLUMBING TEST ONLY: provision with latest AL2023 AMI; output can never be a measurement"
+      plumbing_sentinel_only:
+        description: "PLUMBING ONLY: provision the cheaper sentinel host; output can never be measurement evidence"
         required: false
         type: boolean
         default: false
 
 permissions:
-  id-token: write
   contents: read
 
 concurrency:
-  group: bench-pr-${{ github.event.pull_request.number || inputs.pr_number }}
+  group: bench-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: false # never cancel mid-run: teardown must always complete
 
-env:
-  PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
-
 jobs:
+  validate-pr:
+    name: Unprivileged benchmark validation
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.25.5"
+          check-latest: false
+      - name: Validate benchmark code and preregistration
+        run: go test ./internal/benchplan ./cmd/benchplanctl ./cmd/benchrunner ./cmd/benchops
+      - name: Build Rust implementation independently of measurement readiness
+        run: cargo build --locked --manifest-path rust/Cargo.toml
+
   benchmark-host:
     name: Provision, run, destroy (job-scoped)
-    # PR path: 'benchmark' runs the real (fail-closed, pinned-AMI) flow;
-    # 'benchmark-plumbing' runs the owner-ordered plumbing test — cheap VM,
-    # latest-AL2023 AMI allowed, sentinel-only output that can never be a
-    # measurement. workflow_dispatch is unavailable off the default branch,
-    # which this repo's shared main deliberately never carries.
-    if: github.event_name == 'workflow_dispatch' || github.event.label.name == 'benchmark' || github.event.label.name == 'benchmark-plumbing'
+    # Credentials are reachable only from the immutable workflow identity on
+    # the trusted default ref. Pull-request code can run validate-pr only.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    permissions:
+      id-token: write
+      contents: read
+    needs: validate-pr
     runs-on: ubuntu-latest
     environment: dev
+    env:
+      PR_NUMBER: ${{ inputs.pr_number }}
     timeout-minutes: 120 # hard lifetime bound for the benchmark host (mirrors terraform var max_run_minutes)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version-file: go.mod
+          go-version: "1.25.5"
+          check-latest: false
+
+      - name: Enforce preregistration readiness before credentials
+        env:
+          BENCH_MODE: ${{ inputs.plumbing_sentinel_only && 'plumbing' || 'measurement' }}
+        run: go run ./cmd/benchops readiness --root . --mode "${BENCH_MODE}"
 
       - name: DIALED setup
         uses: ./.github/actions/dialed-setup
@@ -104,7 +112,7 @@ jobs:
         id: init
         working-directory: terraform/benchmark
         run: |
-          terraform init \
+          terraform init -lockfile=readonly \
             -backend-config="bucket=dialed-${DIALED_PROJECT_NAME}-${DIALED_ACCOUNT_ID}-tfstate" \
             -backend-config="key=benchmark/terraform.tfstate" \
             -backend-config="region=${AWS_REGION}" \
@@ -121,21 +129,18 @@ jobs:
 
       - name: Terraform apply (provision host)
         # Conditional -var construction lives in cmd/benchops (thin
-        # invocation). With no pinned AMI and no explicit plumbing-test
-        # flag, apply FAILS CLOSED on the instance precondition — that is
-        # the intended preregistration gate, and the always() destroy
-        # below still runs.
+        # invocation). Non-plumbing mode passes the exact frozen Tier-1
+        # class/AMI and Terraform independently enforces class/AMI/region.
+        # Plumbing mode is sentinel-only and can never become evidence.
         # Inputs pass through env indirection, never direct ${{ }} shell
         # interpolation: a $(...)-shaped input must reach benchops as inert
         # argv text, not undergo substitution with AWS credentials live.
-        # The 'benchmark-plumbing' label selects plumbing mode on the PR
-        # path (no dispatch inputs exist there): cheap fixed VM + unpinned
-        # AMI; the label name is GitHub-controlled enum-like data, and the
-        # instance type is a literal, so no new interpolation surface opens.
+        # Only a trusted default-ref workflow_dispatch can select plumbing;
+        # PR-controlled code never reaches this job or its credentials.
         env:
-          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type || (github.event.label.name == 'benchmark-plumbing' && 'c7i.large') || '' }}
-          BENCH_AMI_ID: ${{ inputs.ami_id }}
-          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami || github.event.label.name == 'benchmark-plumbing' }}
+          BENCH_INSTANCE_TYPE: ${{ inputs.plumbing_sentinel_only && 'c7i.large' || 'c7i.xlarge' }}
+          BENCH_AMI_ID: "ami-02b3d83d84b07786d"
+          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.plumbing_sentinel_only }}
         run: go run ./cmd/benchops apply --chdir terraform/benchmark --pr "${PR_NUMBER}" --instance-type "${BENCH_INSTANCE_TYPE}" --ami-id "${BENCH_AMI_ID}" --allow-unpinned-ami "${BENCH_ALLOW_UNPINNED_AMI}"
 
       - name: Capture stack outputs
@@ -159,6 +164,7 @@ jobs:
         run: go run ./cmd/benchops wait-ssm-online --instance-id "${INSTANCE_ID}" --attempts 120 --interval-seconds 15
 
       - name: Build and stage benchmark runner in results bucket
+        id: runner
         env:
           BUCKET: ${{ steps.stack.outputs.bucket }}
         run: |
@@ -166,18 +172,20 @@ jobs:
           # The runner stub is a Go binary (cmd/benchrunner), cross-compiled
           # for the Linux x86_64 confirmation host.
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner
+          echo "digest=$(go run ./cmd/benchops digest --path /tmp/benchrunner)" >> "$GITHUB_OUTPUT"
           aws s3 cp /tmp/benchrunner "s3://${BUCKET}/runner/benchrunner"
 
       - name: Run benchmark runner natively via SSM
         env:
           INSTANCE_ID: ${{ steps.stack.outputs.instance_id }}
           BUCKET: ${{ steps.stack.outputs.bucket }}
+          RUNNER_DIGEST: ${{ steps.runner.outputs.digest }}
         # SSM parameter composition, send-command, and the polling state
         # machine live in cmd/benchops (thin invocation). The runner is a
         # STUB (see cmd/benchrunner): it validates its arguments and emits
         # the result-schema skeleton with NOT_MEASURED sentinels. It
         # fabricates no benchmark numbers.
-        run: go run ./cmd/benchops run-runner --instance-id "${INSTANCE_ID}" --bucket "${BUCKET}" --pr "${PR_NUMBER}" --workspace "${BENCH_WORKSPACE}" --poll-attempts 360 --poll-interval-seconds 10
+        run: go run ./cmd/benchops run-runner --instance-id "${INSTANCE_ID}" --bucket "${BUCKET}" --runner-digest "${RUNNER_DIGEST}" --pr "${PR_NUMBER}" --workspace "${BENCH_WORKSPACE}" --poll-attempts 360 --poll-interval-seconds 10
 
       - name: Sync results out of S3
         env:
@@ -186,11 +194,10 @@ jobs:
           set -euo pipefail
           mkdir -p bench-results
           aws s3 sync "s3://${BUCKET}/results/" bench-results/
-          echo "Fetched result files:"
-          find bench-results -type f
+          go run ./cmd/benchops verify-artifacts --dir bench-results
 
       - name: Upload results artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: bench-pr-${{ env.PR_NUMBER }}-results
           path: bench-results/
@@ -206,9 +213,9 @@ jobs:
         # Conditional -var construction and the 3-attempt retry loop live
         # in cmd/benchops (thin invocation).
         env:
-          BENCH_INSTANCE_TYPE: ${{ inputs.instance_type || (github.event.label.name == 'benchmark-plumbing' && 'c7i.large') || '' }}
-          BENCH_AMI_ID: ${{ inputs.ami_id }}
-          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.allow_unpinned_ami || github.event.label.name == 'benchmark-plumbing' }}
+          BENCH_INSTANCE_TYPE: ${{ inputs.plumbing_sentinel_only && 'c7i.large' || 'c7i.xlarge' }}
+          BENCH_AMI_ID: "ami-02b3d83d84b07786d"
+          BENCH_ALLOW_UNPINNED_AMI: ${{ inputs.plumbing_sentinel_only }}
         run: go run ./cmd/benchops destroy --chdir terraform/benchmark --pr "${PR_NUMBER}" --workspace "${BENCH_WORKSPACE}" --instance-type "${BENCH_INSTANCE_TYPE}" --ami-id "${BENCH_AMI_ID}" --allow-unpinned-ami "${BENCH_ALLOW_UNPINNED_AMI}" --attempts 3
 
       - name: Delete bench workspace (always)

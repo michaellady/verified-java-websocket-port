@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/benchmark-evidence-bundle-1.0.0.schema.json",
+  "title": "US-008 complete evidence bundle manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "provenance_label", "environment_role", "endpoints"],
+  "properties": {
+    "schema": {"const": "vjwp-benchmark-evidence-bundle/1.0.0"},
+    "provenance_label": {"const": "MEASURED"},
+    "environment_role": {"enum": ["primary", "confirmation"]},
+    "endpoints": {
+      "type": "array",
+      "minItems": 60,
+      "maxItems": 60,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["workload_id", "metric", "raw_record_digest"],
+        "properties": {
+          "workload_id": {"enum": ["wl-01-handshake-close", "wl-02-small-text-echo", "wl-03-fragmented-64kib-binary-echo", "wl-04-control-mix", "wl-05-cap-rejection", "wl-06-concurrent-pressure"]},
+          "metric": {"enum": ["peak_rss", "steady_rss", "cpu_time", "startup_to_ready", "latency_p50", "latency_p95", "latency_p99", "allocated_bytes", "allocation_count", "throughput"]},
+          "raw_record_digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$", "not": {"const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}}
+        }
+      }
+    }
+  }
+}

@@ -2,12 +2,17 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 )
+
+const testRunnerDigest = "sha256:1111111111111111111111111111111111111111111111111111111111111111"
 
 // scriptedOutput is one queued Output result.
 type scriptedOutput struct {
@@ -189,7 +194,7 @@ func TestRunRunnerComposesParametersSendsAndPolls(t *testing.T) {
 		{data: "self-check ok\n"}, // final stdout fetch
 	}}
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"run-runner", "--instance-id", "i-abc", "--bucket", "results-bkt", "--pr", "7", "--workspace", "bench-pr-7"},
+	code := run([]string{"run-runner", "--instance-id", "i-abc", "--bucket", "results-bkt", "--runner-digest", testRunnerDigest, "--pr", "7", "--workspace", "bench-pr-7"},
 		&stdout, &stderr, runner, noSleep)
 	if code != 0 {
 		t.Fatalf("exit %d\nstdout: %s\nstderr: %s", code, stdout.String(), stderr.String())
@@ -199,7 +204,7 @@ func TestRunRunnerComposesParametersSendsAndPolls(t *testing.T) {
 		t.Fatalf("send invocation: %s", send)
 	}
 	// The parameter document must be well-formed JSON carrying the six
-	// stub-runner commands.
+	// stub-runner commands, including mandatory digest verification before exec.
 	start := strings.Index(send, "{")
 	end := strings.LastIndex(send, "}")
 	if start < 0 || end < start {
@@ -215,12 +220,13 @@ func TestRunRunnerComposesParametersSendsAndPolls(t *testing.T) {
 	if len(parameters.ExecutionTimeout) != 1 || parameters.ExecutionTimeout[0] != "5400" {
 		t.Fatalf("executionTimeout %v", parameters.ExecutionTimeout)
 	}
-	if len(parameters.Commands) != 6 {
-		t.Fatalf("expected 6 remote commands, got %v", parameters.Commands)
+	if len(parameters.Commands) != 7 {
+		t.Fatalf("expected 7 remote commands, got %v", parameters.Commands)
 	}
 	joinedCommands := strings.Join(parameters.Commands, "\n")
 	for _, required := range []string{
 		"aws s3 cp s3://results-bkt/runner/benchrunner /opt/vjwp-bench/benchrunner",
+		"1111111111111111111111111111111111111111111111111111111111111111  /opt/vjwp-bench/benchrunner' | sha256sum --check --strict",
 		"/opt/vjwp-bench/benchrunner --mode pipeline-smoke --pr 7 --workspace bench-pr-7 --out /opt/vjwp-bench/results",
 		"aws s3 sync /opt/vjwp-bench/results s3://results-bkt/results/",
 	} {
@@ -242,7 +248,7 @@ func TestRunRunnerFailedInvocationDumpsRemoteOutput(t *testing.T) {
 		{data: `{"stdout":"","stderr":"error: mode refused"}`},
 	}}
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"run-runner", "--instance-id", "i-abc", "--bucket", "b", "--pr", "7", "--workspace", "bench-pr-7"},
+	code := run([]string{"run-runner", "--instance-id", "i-abc", "--bucket", "b", "--runner-digest", testRunnerDigest, "--pr", "7", "--workspace", "bench-pr-7"},
 		&stdout, &stderr, runner, noSleep)
 	if code != 1 {
 		t.Fatalf("a Failed invocation must exit 1, got %d", code)
@@ -260,10 +266,51 @@ func TestRunRunnerPollingLimitFails(t *testing.T) {
 		{data: "InProgress"},
 	}}
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"run-runner", "--instance-id", "i-abc", "--bucket", "b", "--pr", "7", "--workspace", "bench-pr-7", "--poll-attempts", "2", "--poll-interval-seconds", "1"},
+	code := run([]string{"run-runner", "--instance-id", "i-abc", "--bucket", "b", "--runner-digest", testRunnerDigest, "--pr", "7", "--workspace", "bench-pr-7", "--poll-attempts", "2", "--poll-interval-seconds", "1"},
 		&stdout, &stderr, runner, noSleep)
 	if code != 1 || !strings.Contains(stdout.String(), "did not complete before the polling limit") {
 		t.Fatalf("exit %d, stdout: %s", code, stdout.String())
+	}
+}
+
+func TestReadinessSeparatesOwnerFreezeFromSampleReadiness(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"readiness", "--root", "../..", "--mode", "measurement"}, &stdout, &stderr, &fakeRunner{}, noSleep); code != hostBindingPendingExit {
+		t.Fatalf("measurement readiness exit %d, want %d; stdout=%s stderr=%s", code, hostBindingPendingExit, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "HOST_BINDING_PENDING") {
+		t.Fatalf("measurement refusal must name HOST_BINDING_PENDING: %s", stderr.String())
+	}
+	stdout.Reset()
+	stderr.Reset()
+	if code := run([]string{"readiness", "--root", "../..", "--mode", "plumbing"}, &stdout, &stderr, &fakeRunner{}, noSleep); code != 0 {
+		t.Fatalf("sentinel plumbing exit %d; stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "sentinel-only plumbing") || !strings.Contains(stdout.String(), "NOT_MEASURED") {
+		t.Fatalf("plumbing allowance must remain non-evidence: %s", stdout.String())
+	}
+}
+
+func TestDigestAndArtifactSidecarVerification(t *testing.T) {
+	directory := t.TempDir()
+	result := []byte("sentinel result\n")
+	resultPath := filepath.Join(directory, "pipeline-smoke-result.json")
+	if err := os.WriteFile(resultPath, result, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	digest := fmt.Sprintf("sha256:%x", sha256.Sum256(result))
+	if err := os.WriteFile(resultPath+".sha256", []byte(digest+"\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"verify-artifacts", "--dir", directory}, &stdout, &stderr, &fakeRunner{}, noSleep); code != 0 {
+		t.Fatalf("valid artifact exit %d: %s", code, stderr.String())
+	}
+	if err := os.WriteFile(resultPath, []byte("tampered\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if code := run([]string{"verify-artifacts", "--dir", directory}, &stdout, &stderr, &fakeRunner{}, noSleep); code != 1 {
+		t.Fatalf("tampered artifact exit %d, want 1", code)
 	}
 }
 

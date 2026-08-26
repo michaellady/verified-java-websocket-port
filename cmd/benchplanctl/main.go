@@ -1,8 +1,8 @@
 // benchplanctl verifies the US-008 benchmark preregistration documents
 // and reports the machine-checkable completion meter. It never measures
-// anything: exit code 0 (fully bound) is unreachable until the owner
-// binds the confirmation host and every measurement/analyzer tool
-// identity, and even then this tool only verifies documents.
+// anything: the owner-attested preregistration freeze can be valid while
+// exit code 0 remains unreachable until the owner binds the confirmation
+// host and every measurement/analyzer tool identity.
 package main
 
 import (
@@ -107,7 +107,7 @@ func runVerify(arguments []string, stdout, stderr io.Writer) int {
 	} else {
 		fmt.Fprintln(stdout, "meter ok (declared roles and required_binding_fields match the canonical per-role lists)")
 	}
-	fmt.Fprintf(stdout, "attestation: plan %s", report.PlanAttestationState)
+	fmt.Fprintf(stdout, "preregistration freeze: plan %s", report.PlanFreezeState)
 	environmentDocuments := make([]string, 0, len(report.EnvironmentBindingStatus))
 	for document := range report.EnvironmentBindingStatus {
 		environmentDocuments = append(environmentDocuments, document)
@@ -128,11 +128,11 @@ func runVerify(arguments []string, stdout, stderr io.Writer) int {
 
 	switch {
 	case report.FullyBound():
-		fmt.Fprintln(stdout, "RESULT: all benchmark documents consistent and every binding field bound")
+		fmt.Fprintln(stdout, "RESULT: owner-attested preregistration valid and every sample-readiness binding field bound")
 		return exitFullyBound
 	case report.HostBindingIsOnlyBlocker():
 		fmt.Fprintln(stdout, "RESULT: documents consistent; single remaining blocker class: HOST_BINDING_PENDING")
-		fmt.Fprintln(stdout, "US-008 preflight: BLOCKED (owner-gated). The exact confirmation host and every measurement/analyzer tool identity must bind before any sample, tuning, or performance claim; US-008 cannot pass until then.")
+		fmt.Fprintln(stdout, "US-008 preregistration freeze: VALID (OWNER_ATTESTED_NOT_INDEPENDENT). Measurement preflight: BLOCKED. The exact confirmation host and every measurement/analyzer tool identity must bind before any sample, tuning, or performance claim.")
 		return exitHostBindingPending
 	default:
 		fmt.Fprintf(stdout, "RESULT: verification FAILED with blocker classes %v\n", report.BlockerClasses)

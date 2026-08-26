@@ -1,7 +1,7 @@
 {
   "schema": "vjwp-benchmark-plan/1.0.0",
-  "status": "PREREGISTERED_BY_DRIVER_UNATTESTED - Every workload parameter, generator, seed rule, statistics constant, and threshold below is frozen to the maximum ownerless extent. This plan is NOT yet the attested plan-freeze commit: host and tool identities remain OWNER_DECISION_PENDING in benchmarks/environments/, no sample may be collected, and US-008 does not pass. See benchmarks/README.md for the no-fabrication rule.",
-  "attestation_state": "UNATTESTED",
+  "status": "PREREGISTERED_OWNER_ATTESTED_NOT_INDEPENDENT - The owner accepts this exact preregistration freeze as story-complete under the explicitly non-independent assurance scope. Sample readiness is separate: HOST_BINDING_PENDING remains until every environment and tool identity is semantically bound, so no sample may be collected yet.",
+  "freeze_state": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "source_of_truth": "PRD US-008 acceptance criteria (companies/enterprise-vibe-code/projects/verified-java-websocket-port-claude/prd.json)",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,

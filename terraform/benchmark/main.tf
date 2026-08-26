@@ -258,8 +258,12 @@ resource "aws_instance" "bench" {
 
   lifecycle {
     precondition {
-      condition     = var.ami_id != "" || var.allow_unpinned_ami
-      error_message = "AMI is not pinned. Measured benchmark runs require a preregistration-bound ami_id (probe the real account first; see variables.tf). Set allow_unpinned_ami=true ONLY for pipeline plumbing tests whose output is never a measurement."
+      condition = var.allow_unpinned_ami || (
+        var.instance_type == "c7i.xlarge" &&
+        var.ami_id == "ami-02b3d83d84b07786d" &&
+        var.aws_region == "us-east-1"
+      )
+      error_message = "Non-plumbing execution requires the frozen Tier-1 identity exactly: c7i.xlarge, ami-02b3d83d84b07786d, us-east-1. allow_unpinned_ami=true is sentinel-only plumbing and can never produce measurement evidence."
     }
   }
 }

@@ -45,9 +45,8 @@ pipeline produces may contain an invented measurement. Concretely:
 - The runner under `runner/` is a **stub**: it validates its arguments and
   emits the result-schema skeleton with `NOT_MEASURED` in every metric
   field. It will refuse to run in any mode that implies measurement.
-- No benchmark sample may be collected before the plan is frozen and
-  independently attested (see the PRD: "No raw or tuning sample may predate
-  the independently attested plan commit"), before the confirmation host and
+- No benchmark sample may be collected before the owner-attested,
+  explicitly non-independent plan freeze, before the confirmation host and
   every measurement/analyzer tool identity are bound in
   `environments/confirmation.json`, and while the US-008 dependency gates in
   the PRD remain blocked.
@@ -73,8 +72,8 @@ pipeline produces may contain an invented measurement. Concretely:
   wire bytes deterministic; the frozen statistics plan, power model, and
   reference-drift procedure; the per-metric CI thresholds; and the
   schema-pinned forbidden-practices list. The plan's machine-readable
-  `attestation_state` stays `UNATTESTED` until the owner's independent
-  attestation. No results field exists and the schema
+  `freeze_state` is `OWNER_ATTESTED_NOT_INDEPENDENT`; this is a valid
+  story-level freeze and is separate from sample readiness. No results field exists and the schema
   (`additionalProperties: false`) forbids ever adding one.
 - `environments/primary-macos.json` — the primary macOS Apple M4 Pro
   environment with honestly OBSERVED host identity (commands + timestamps
@@ -119,5 +118,5 @@ Verification and reference implementation:
 The PRD's canonical US-008 file set (`benchmarks/plan.json`,
 `benchmarks/workloads/`, `benchmarks/analysis-contract.json`,
 `benchmarks/analyzer/`) is produced when US-008 itself is executed; the
-frozen preregistration above pre-shapes that content. Final plan freeze
-still requires the owner's independent attestation of the plan commit.
+frozen preregistration above pre-shapes that content. The owner-attested,
+non-independent freeze is complete; host/tool binding still blocks samples.

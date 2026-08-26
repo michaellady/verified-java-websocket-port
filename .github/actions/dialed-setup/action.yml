@@ -15,10 +15,6 @@ inputs:
   env:
     description: "Which env this job is operating on: dev, staging, or prod."
     required: true
-  terraform_version:
-    description: "Terraform version to install. Default matches DIALED's pinned version."
-    required: false
-    default: "1.9.8"
 
 outputs:
   account_id:
@@ -65,15 +61,13 @@ runs:
         # accepted: the pinned build is installed over it, and this step
         # fails if the pinned version does not resolve afterwards.
         yq_pin="4.44.3"
+        yq_sha256="a2c097180dd884a8d50c956ee16a9cec070f30a7947cf4ebf87d5f36213e9ed7"
         resolved_yq_version() {
           yq --version 2>/dev/null | awk '{print $NF}'
         }
-        if command -v yq >/dev/null 2>&1 && [ "$(resolved_yq_version)" = "v${yq_pin}" ]; then
-          echo "yq already at the pinned version: $(yq --version)"
-          exit 0
-        fi
-        curl -sSL -o /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/download/v${yq_pin}/yq_linux_amd64"
-        chmod +x /usr/local/bin/yq
+        curl -fsSL -o "${RUNNER_TEMP}/yq" "https://github.com/mikefarah/yq/releases/download/v${yq_pin}/yq_linux_amd64"
+        echo "${yq_sha256}  ${RUNNER_TEMP}/yq" | sha256sum --check --strict
+        install -m 0755 "${RUNNER_TEMP}/yq" /usr/local/bin/yq
         hash -r
         if [ "$(resolved_yq_version)" != "v${yq_pin}" ]; then
           echo "::error::yq resolves to '$(command -v yq || true)' ($(yq --version 2>/dev/null || true)) after installing pinned v${yq_pin} — refusing to run with an unpinned yq."
@@ -166,16 +160,16 @@ runs:
         echo "  role:      ${role_arn}"
 
     - name: Assume AWS deploy role via OIDC
-      uses: aws-actions/configure-aws-credentials@v4
+      uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
       with:
         role-to-assume: ${{ steps.derive.outputs.role_arn }}
         aws-region: ${{ env.AWS_REGION }}
         role-session-name: dialed-${{ inputs.env }}-${{ github.run_id }}
 
     - name: Install Terraform
-      uses: hashicorp/setup-terraform@v3
+      uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
       with:
-        terraform_version: ${{ inputs.terraform_version }}
+        terraform_version: "1.9.8"
         terraform_wrapper: false
 
     - name: Export .dialed.yml as tfvars.json

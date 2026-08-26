@@ -18,7 +18,7 @@ const repoRoot = "../.."
 // drift in either the document or the pipeline can never stay green.
 const (
 	pinnedTerraformVersion = "1.9.8"
-	pinnedGoToolchain      = "go1.25.5 (go.mod directive 'go 1.25')"
+	pinnedGoToolchain      = "go1.25.5 (go.mod directive 'go 1.25.5')"
 	pinnedRunnerBuildFlags = "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -o /tmp/benchrunner ./cmd/benchrunner"
 	pinnedYqVersion        = "4.44.3"
 )
@@ -63,8 +63,8 @@ func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 			t.Errorf("field %q is owner-bound (Tier-1 decision 2026-08-26) and must not report as unbound", field.Path)
 		}
 	}
-	if report.PlanAttestationState != "UNATTESTED" {
-		t.Errorf("plan attestation state %q, want UNATTESTED", report.PlanAttestationState)
+	if report.PlanFreezeState != PlanFreezeOwnerAttested {
+		t.Errorf("plan freeze state %q, want %s", report.PlanFreezeState, PlanFreezeOwnerAttested)
 	}
 	if len(report.MeterFailures) != 0 {
 		t.Errorf("canonical tree must have zero meter failures, got %v", report.MeterFailures)
@@ -204,8 +204,8 @@ func TestBoundPipelineToolClaimsMatchPipelineSources(t *testing.T) {
 		t.Fatal(err)
 	}
 	action := string(actionRaw)
-	if !strings.Contains(action, "default: \""+pinnedTerraformVersion+"\"") {
-		t.Errorf("dialed-setup action.yml no longer defaults terraform_version to the recorded %q", pinnedTerraformVersion)
+	if !strings.Contains(action, "terraform_version: \""+pinnedTerraformVersion+"\"") {
+		t.Errorf("dialed-setup action.yml no longer enforces terraform_version %q", pinnedTerraformVersion)
 	}
 	if !strings.Contains(action, "yq_pin=\""+pinnedYqVersion+"\"") {
 		t.Errorf("dialed-setup action.yml no longer pins yq_pin=%q", pinnedYqVersion)
@@ -236,6 +236,51 @@ func TestVerifyDetectsReRolledPairOrder(t *testing.T) {
 	}
 	if !containsClass(report.BlockerClasses, BlockerPlanInconsistent) {
 		t.Fatalf("expected %s, got %v", BlockerPlanInconsistent, report.BlockerClasses)
+	}
+}
+
+func TestVerifyDetectsEveryFrozenWorkloadFieldFamilyMutation(t *testing.T) {
+	tests := []struct {
+		name     string
+		workload int
+		field    string
+		mutation any
+	}{
+		{"definition", 0, "definition", "mutated generator definition"},
+		{"rate", 0, "rate", float64(999999)},
+		{"concurrency", 1, "concurrency", float64(999999)},
+		{"operations", 2, "operations", float64(999999)},
+		{"nominal duration", 3, "nominal_duration_seconds", float64(999999)},
+		{"hard timeout", 4, "hard_timeout_seconds", float64(999999)},
+		{"inputs", 5, "inputs", "mutated input generator"},
+		{"outputs", 0, "outputs", "mutated output oracle"},
+		{"server configuration", 4, "server_configuration", "mutated cap"},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := copyBenchmarkTree(t)
+			mutatePlan(t, root, func(plan map[string]any) {
+				workload := plan["workloads"].([]any)[testCase.workload].(map[string]any)
+				if testCase.field == "definition" {
+					workload["definition"] = testCase.mutation
+					return
+				}
+				parameters := workload["fixed_parameters"].(map[string]any)
+				record := parameters[testCase.field].(map[string]any)
+				if _, present := record["value"]; present {
+					record["value"] = testCase.mutation
+				} else {
+					record["definition"] = testCase.mutation
+				}
+			})
+			report, err := Verify(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !containsClass(report.BlockerClasses, BlockerPlanInconsistent) || !strings.Contains(strings.Join(report.PlanFailures, "\n"), "canonical projection digest") {
+				t.Fatalf("mutation was not caught by full workload projection: failures=%v blockers=%v", report.PlanFailures, report.BlockerClasses)
+			}
+		})
 	}
 }
 
@@ -301,6 +346,44 @@ func TestVerifyRejectsValueSmuggledIntoPendingField(t *testing.T) {
 	}
 }
 
+func TestSemanticBindingMeterRejectsPlaceholderBoundIdentities(t *testing.T) {
+	tests := []struct {
+		name  string
+		field string
+		value any
+	}{
+		{"wrong instance class", "instance_type", "c7i.large"},
+		{"placeholder instance id", "instance_id", "i-placeholder"},
+		{"wrong architecture", "observed_architecture", "arm64"},
+		{"zero memory", "memory_total_bytes", float64(0)},
+		{"placeholder clocksource", "clocksource", "not a clock"},
+		{"tool without provenance digest", "runner", "runner-v1"},
+		{"zero executable digest", "java_executable_digest", "sha256:" + strings.Repeat("0", 64)},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := copyBenchmarkTree(t)
+			mutateEnvironment(t, root, "confirmation.json", func(environment map[string]any) {
+				sectionName := "host_identity"
+				if testCase.field == "runner" || testCase.field == "java_executable_digest" {
+					sectionName = "tool_identities"
+				}
+				record := environment[sectionName].(map[string]any)[testCase.field].(map[string]any)
+				record["status"] = "BOUND"
+				record["value"] = testCase.value
+				record["evidence_digest"] = syntheticDigest("semantic-test|" + testCase.field)
+			})
+			report, err := Verify(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(report.MeterFailures) == 0 || !containsClass(report.BlockerClasses, BlockerMeterTampered) {
+				t.Fatalf("placeholder BOUND identity passed semantic meter: failures=%v blockers=%v", report.MeterFailures, report.BlockerClasses)
+			}
+		})
+	}
+}
+
 func TestFixturesConformToRawSampleSchema(t *testing.T) {
 	conforming := []string{"synthetic-valid.json", "synthetic-underpowered.json", "synthetic-reordered.json", "synthetic-run-validity-violation.json"}
 	for _, name := range conforming {
@@ -329,7 +412,7 @@ func TestFixturesConformToRawSampleSchema(t *testing.T) {
 // bindAllPendingFields rewrites every OWNER_DECISION_PENDING and
 // NOT_MEASURED required binding field in both environment documents to
 // a BOUND record with an obviously-synthetic test value (review fix I5
-// scenarios). It does NOT touch binding_status or attestation_state.
+// scenarios). It does NOT touch the document-level binding_status.
 func bindAllPendingFields(t *testing.T, root string) {
 	t.Helper()
 	for _, name := range []string{"primary-macos.json", "confirmation.json"} {
@@ -344,7 +427,8 @@ func bindAllPendingFields(t *testing.T, root string) {
 		}
 		required := environment["required_binding_fields"].([]any)
 		for _, entry := range required {
-			parts := strings.SplitN(entry.(string), ".", 2)
+			bindingPath := entry.(string)
+			parts := strings.SplitN(bindingPath, ".", 2)
 			section := environment[parts[0]].(map[string]any)
 			record := section[parts[1]].(map[string]any)
 			status := record["status"].(string)
@@ -352,17 +436,47 @@ func bindAllPendingFields(t *testing.T, root string) {
 				continue
 			}
 			record["status"] = "BOUND"
-			if parts[1] == "observed_architecture" {
-				record["value"] = "x86_64"
-			} else {
-				record["value"] = "bound-for-test-scenario-not-a-real-identity"
-			}
+			record["evidence_digest"] = syntheticDigest("field-evidence|" + bindingPath)
+			record["value"] = syntheticBoundValue(name, bindingPath)
 		}
 		writeJSON(t, path, environment)
 	}
 }
 
-func setBindingStatuses(t *testing.T, root, environmentStatus, attestationState string) {
+func syntheticBoundValue(document, path string) any {
+	if strings.HasPrefix(path, "tool_identities.") {
+		name := strings.TrimPrefix(path, "tool_identities.")
+		if name == "java_executable_digest" || name == "rust_executable_digest" {
+			return syntheticDigest(path)
+		}
+		return map[string]any{
+			"identity":   "synthetic-test-identity-" + name,
+			"digest":     syntheticDigest(path),
+			"provenance": "synthetic verifier-path fixture",
+		}
+	}
+	if document == "primary-macos.json" {
+		return "synthetic-runtime-snapshot"
+	}
+	switch path {
+	case "host_identity.instance_id":
+		return "i-0123456789abcdef0"
+	case "host_identity.observed_architecture":
+		return "x86_64"
+	case "host_identity.allocation_evidence":
+		return map[string]any{"method": "synthetic test probe", "observed_value": "exclusive", "observed_at_utc": "2026-08-26T00:00:00Z"}
+	case "host_identity.availability_zone":
+		return "us-east-1a"
+	case "host_identity.memory_total_bytes":
+		return 8589934592
+	case "host_identity.clocksource":
+		return "tsc"
+	default:
+		return "synthetic-typed-identity"
+	}
+}
+
+func setBindingStatuses(t *testing.T, root, environmentStatus string) {
 	t.Helper()
 	for _, name := range []string{"primary-macos.json", "confirmation.json"} {
 		path := filepath.Join(root, "benchmarks", "environments", name)
@@ -377,16 +491,11 @@ func setBindingStatuses(t *testing.T, root, environmentStatus, attestationState 
 		environment["binding_status"] = environmentStatus
 		writeJSON(t, path, environment)
 	}
-	mutatePlan(t, root, func(plan map[string]any) {
-		plan["attestation_state"] = attestationState
-		if attestationState == "INDEPENDENTLY_ATTESTED" {
-			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: every field bound and the plan attested (synthetic verification-path exercise, not a real attestation)"
-		}
-	})
 }
 
 // Review fix I5, negative direction: syntactic completeness with
-// UNBOUND/UNATTESTED status must NOT read as fully bound.
+// UNBOUND document status must NOT read as sample-ready even with a valid
+// owner-attested freeze.
 func TestVerifySyntacticCompletenessWithUnboundStatusIsStillPending(t *testing.T) {
 	root := copyBenchmarkTree(t)
 	bindAllPendingFields(t, root)
@@ -401,20 +510,19 @@ func TestVerifySyntacticCompletenessWithUnboundStatusIsStillPending(t *testing.T
 		t.Fatalf("every field was bound, yet %d remain: %v", len(report.UnboundFields), report.UnboundFields)
 	}
 	if report.FullyBound() {
-		t.Fatal("UNBOUND binding_status and UNATTESTED plan must never verify as fully bound")
+		t.Fatal("UNBOUND binding_status must never verify as sample-ready")
 	}
 	if !report.HostBindingIsOnlyBlocker() {
-		t.Fatalf("expected HOST_BINDING_PENDING (attestation pending), got %v", report.BlockerClasses)
+		t.Fatalf("expected HOST_BINDING_PENDING (document binding status pending), got %v", report.BlockerClasses)
 	}
 }
 
 // Review fix I5, positive direction: with every field bound, both
-// environments BOUND, and the plan attested, verification reports fully
-// bound.
-func TestVerifyFullyBoundAndAttestedTreeVerifies(t *testing.T) {
+// environments BOUND, the owner-attested plan verifies as sample-ready.
+func TestVerifyFullyBoundOwnerAttestedTreeVerifies(t *testing.T) {
 	root := copyBenchmarkTree(t)
 	bindAllPendingFields(t, root)
-	setBindingStatuses(t, root, "BOUND", "INDEPENDENTLY_ATTESTED")
+	setBindingStatuses(t, root, "BOUND")
 	report, err := Verify(root)
 	if err != nil {
 		t.Fatal(err)
@@ -431,7 +539,7 @@ func TestVerifyFullyBoundAndAttestedTreeVerifies(t *testing.T) {
 // inconsistency, never progress.
 func TestVerifyBoundStatusWithPendingFieldsIsInconsistent(t *testing.T) {
 	root := copyBenchmarkTree(t)
-	setBindingStatuses(t, root, "BOUND", "INDEPENDENTLY_ATTESTED")
+	setBindingStatuses(t, root, "BOUND")
 	report, err := Verify(root)
 	if err != nil {
 		t.Fatal(err)

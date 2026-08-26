@@ -14,7 +14,7 @@
 //
 // It performs NO benchmark, produces NO performance number, and REFUSES
 // any mode that implies measurement. Real measured runs require: frozen
-// + independently attested plan, bound environments (see
+// owner-attested preregistration freeze, bound environments (see
 // benchmarks/environments/), bound tool identities with digests, and a
 // replacement runner that is itself digest-bound in the preregistration.
 // Fabricating a number where a NOT_MEASURED sentinel belongs is a
@@ -22,6 +22,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -192,6 +193,16 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		return exitFailure
 	}
 	if err := os.WriteFile(resultPath, append(content, '\n'), 0o644); err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return exitFailure
+	}
+	writtenContent, err := os.ReadFile(resultPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "error: %v\n", err)
+		return exitFailure
+	}
+	digest := fmt.Sprintf("sha256:%x\n", sha256.Sum256(writtenContent))
+	if err := os.WriteFile(resultPath+".sha256", []byte(digest), 0o644); err != nil {
 		fmt.Fprintf(stderr, "error: %v\n", err)
 		return exitFailure
 	}
