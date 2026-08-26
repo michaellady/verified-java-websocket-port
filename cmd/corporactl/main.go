@@ -48,8 +48,10 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "  corporactl generate --root DIR --protected-root DIR [--epoch N] [--public-seed SEED]")
 	fmt.Fprintln(output, "  corporactl verify --root DIR --protected-root DIR [--schemas DIR]")
 	fmt.Fprintln(output, "  corporactl calibrate --root DIR --protected-root DIR [--schemas DIR]")
-	fmt.Fprintln(output, "  corporactl oracle-requests --root DIR --protected-root DIR --tier public|hidden|sealed|handshake [--out FILE]")
-	fmt.Fprintln(output, "  corporactl evaluate --root DIR --protected-root DIR --tier public|hidden|sealed|handshake --transcript FILE")
+	fmt.Fprintln(output, "  corporactl oracle-requests --root DIR --protected-root DIR --tier public|hidden|sealed|handshake [--out FILE] [--wire]")
+	fmt.Fprintln(output, "  corporactl evaluate --root DIR --protected-root DIR --tier public|hidden|sealed|handshake --transcript FILE [--live]")
+	fmt.Fprintln(output, "    --wire  handshake tier only: emit java-oracle handshake protocol requests")
+	fmt.Fprintln(output, "    --live  handshake tier only: score a java-runtime observable transcript")
 }
 
 type commonFlags struct {
@@ -231,7 +233,13 @@ func runOracleRequests(arguments []string, stdout, stderr io.Writer) int {
 	common := parseCommon(flags)
 	tier := flags.String("tier", "", "corpus tier")
 	outPath := flags.String("out", "", "output file (default stdout)")
+	wire := flags.Bool("wire", false,
+		"emit java-oracle handshake protocol requests (handshake tier only)")
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || !common.valid() {
+		printUsage(stderr)
+		return 2
+	}
+	if *wire && *tier != "handshake" {
 		printUsage(stderr)
 		return 2
 	}
@@ -243,7 +251,11 @@ func runOracleRequests(arguments []string, stdout, stderr io.Writer) int {
 	var lines [][]byte
 	if *tier == "handshake" {
 		for _, c := range generated.Handshake {
-			line, err := corpora.HandshakeRequestLine(c)
+			project := corpora.HandshakeRequestLine
+			if *wire {
+				project = corpora.HandshakeOracleRequestLine
+			}
+			line, err := project(c)
 			if err != nil {
 				fmt.Fprintln(stderr, "oracle-requests:", err)
 				return 1
@@ -305,8 +317,14 @@ func runEvaluate(arguments []string, stdout, stderr io.Writer) int {
 	common := parseCommon(flags)
 	tier := flags.String("tier", "", "corpus tier")
 	transcriptPath := flags.String("transcript", "", "JSONL response transcript")
+	live := flags.Bool("live", false,
+		"score a java-runtime observable transcript (handshake tier only)")
 	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 ||
 		!common.valid() || *transcriptPath == "" {
+		printUsage(stderr)
+		return 2
+	}
+	if *live && *tier != "handshake" {
 		printUsage(stderr)
 		return 2
 	}
@@ -334,8 +352,21 @@ func runEvaluate(arguments []string, stdout, stderr io.Writer) int {
 	}
 
 	var report corpora.TranscriptReport
+	var divergences []string
 	if *tier == "handshake" {
-		report, err = corpora.EvaluateHandshakeTranscript(generated.Handshake, transcript)
+		if *live {
+			// A java-runtime observable transcript is scored against the
+			// source-derived Java expectations; RFC-vs-Java divergences are
+			// documented in evidence/us005-handshake-live-mapping.json and
+			// surfaced in the output rather than silently reconciled away.
+			var liveReport corpora.HandshakeLiveReport
+			liveReport, err = corpora.EvaluateHandshakeLiveTranscript(
+				generated.Handshake, transcript)
+			report = liveReport.TranscriptReport
+			divergences = liveReport.Divergences
+		} else {
+			report, err = corpora.EvaluateHandshakeTranscript(generated.Handshake, transcript)
+		}
 	} else {
 		scenarios, known := tierScenarios(generated, *tier)
 		if !known {
@@ -357,6 +388,9 @@ func runEvaluate(arguments []string, stdout, stderr io.Writer) int {
 		"failed":    report.Failed,
 		"missing":   report.Missing,
 		"unmatched": report.Unmatched,
+	}
+	if *live {
+		output["divergences"] = divergences
 	}
 	if len(report.Failures) > 0 {
 		if heldOutTier(*tier) {

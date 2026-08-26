@@ -29,6 +29,12 @@ public final class OracleMainTest {
     testJsonlBoundaryAndStdoutIsolation();
     testCanonicalKeyOrder();
     testMavenProjectContract();
+    testHandshakeAcceptVector();
+    testHandshakeDivergentAccepts();
+    testHandshakeServerRejections();
+    testHandshakeIncomplete();
+    testHandshakeClientDirection();
+    testHandshakeProtocolStrictness();
     System.out.println("PASS " + tests + " java-oracle tests");
   }
 
@@ -264,6 +270,241 @@ public final class OracleMainTest {
         "Maven test phase must execute the pure Java harness");
     check(!pom.contains("<repositories>") && !pom.toLowerCase(java.util.Locale.ROOT).contains("junit"),
         "Maven project must not add repositories or a test framework");
+    pass();
+  }
+
+  // --- handshake mode -------------------------------------------------------
+
+  private static final String RFC_SAMPLE_KEY = "dGhlIHNhbXBsZSBub25jZQ==";
+  private static final String RFC_SAMPLE_ACCEPT = "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=";
+
+  private static String validClientRequest(String key) {
+    return "GET /chat HTTP/1.1\r\nHost: server.example.com\r\n"
+        + "Upgrade: websocket\r\nConnection: Upgrade\r\n"
+        + "Sec-WebSocket-Key: " + key + "\r\nSec-WebSocket-Version: 13\r\n\r\n";
+  }
+
+  private static String validServerResponse(String accept) {
+    return "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n"
+        + "Connection: Upgrade\r\nSec-WebSocket-Accept: " + accept + "\r\n\r\n";
+  }
+
+  private static String handshakeRequest(String caseId, String direction, String raw,
+      String clientKey) {
+    String context = clientKey == null ? "{}" : "{\"client_key\":\"" + clientKey + "\"}";
+    String unsigned = "{\"case_id\":\"" + caseId + "\",\"config\":{"
+        + "\"max_handshake_bytes\":4096,\"max_header_count\":32,"
+        + "\"max_header_line_bytes\":512},\"context\":" + context + ","
+        + "\"direction\":\"" + direction + "\","
+        + "\"protocol\":\"java-websocket-handshake-oracle\","
+        + "\"raw_base64\":\"" + java.util.Base64.getEncoder()
+            .encodeToString(raw.getBytes(StandardCharsets.US_ASCII)) + "\","
+        + "\"version\":\"1.0.0\"}";
+    return rebind(unsigned);
+  }
+
+  /** RFC 6455 section 1.3 accept derivation after Java's String.trim, computed independently. */
+  private static String acceptFor(String key) throws Exception {
+    byte[] digest = java.security.MessageDigest.getInstance("SHA-1").digest(
+        (key.trim() + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+            .getBytes(StandardCharsets.US_ASCII));
+    return java.util.Base64.getEncoder().encodeToString(digest);
+  }
+
+  private static Map<String, Object> handshake(String caseId, String direction, String raw,
+      String clientKey) throws Exception {
+    Map<String, Object> response = OracleEngine.process(
+        handshakeRequest(caseId, direction, raw, clientKey), runtimeDigest);
+    equal(caseId, response.get("case_id"), "handshake response case binding");
+    equal("java-websocket-handshake-oracle", response.get("protocol"),
+        "handshake response protocol pin");
+    equal("1.0.0", response.get("version"), "handshake response version pin");
+    equal(runtimeDigest, object(response.get("runtime")).get("sha256"),
+        "handshake response runtime binding");
+    return response;
+  }
+
+  private static void expectHandshakeReject(String caseId, String raw, String direction,
+      String clientKey, String channel) throws Exception {
+    Map<String, Object> response = handshake(caseId, direction, raw, clientKey);
+    equal("reject", response.get("java_observable"), caseId + " observable");
+    equal(channel, response.get("reject_channel"), caseId + " reject channel");
+    equal(1002L, ((Number) response.get("close_code")).longValue(),
+        caseId + " close code");
+    check(!response.containsKey("sec_websocket_accept"),
+        caseId + " reject must not carry an accept value");
+  }
+
+  /** The real runtime accepts the RFC 6455 sample handshake with the published accept value. */
+  private static void testHandshakeAcceptVector() throws Exception {
+    Map<String, Object> response = handshake("hs-accept", "client_request",
+        validClientRequest(RFC_SAMPLE_KEY), null);
+    equal("accept", response.get("java_observable"), "sample handshake observable");
+    equal(RFC_SAMPLE_ACCEPT, response.get("sec_websocket_accept"),
+        "RFC 6455 sample accept value");
+    check(!response.containsKey("reject_channel"), "accept has no reject channel");
+    check(!response.containsKey("close_code"), "accept has no close code");
+
+    // Deterministic replay: the same case is byte-identical.
+    String request = handshakeRequest("hs-replay", "client_request",
+        validClientRequest(RFC_SAMPLE_KEY), null);
+    equal(StrictJson.write(OracleEngine.process(request, runtimeDigest)),
+        StrictJson.write(OracleEngine.process(request, runtimeDigest)),
+        "handshake replay is byte-identical");
+
+    // Case-insensitive header names and token lists still accept.
+    String insensitive = "GET /chat HTTP/1.1\r\nhost: server.example.com\r\n"
+        + "upgrade: WebSocket\r\nCONNECTION: keep-alive, Upgrade\r\n"
+        + "sec-websocket-key: " + RFC_SAMPLE_KEY + "\r\nSEC-WEBSOCKET-VERSION: 13\r\n\r\n";
+    Map<String, Object> mixed = handshake("hs-insensitive", "client_request",
+        insensitive, null);
+    equal("accept", mixed.get("java_observable"), "case-insensitive observable");
+    equal(RFC_SAMPLE_ACCEPT, mixed.get("sec_websocket_accept"),
+        "case-insensitive accept value");
+    pass();
+  }
+
+  /**
+   * Source-derived divergences, proven against the real jar: the server
+   * handshake never checks Host, Upgrade, Connection, or the key encoding
+   * (acceptHandshakeAsServer checks only Sec-WebSocket-Version), duplicates
+   * join with "; ", and a bare LF folds into the following CRLF line.
+   */
+  private static void testHandshakeDivergentAccepts() throws Exception {
+    String missingHost = validClientRequest(RFC_SAMPLE_KEY)
+        .replace("Host: server.example.com\r\n", "");
+    equal("accept", handshake("hs-missing-host", "client_request", missingHost, null)
+        .get("java_observable"), "missing Host is a divergent Java accept");
+
+    String missingUpgrade = validClientRequest(RFC_SAMPLE_KEY)
+        .replace("Upgrade: websocket\r\n", "");
+    equal("accept", handshake("hs-missing-upgrade", "client_request", missingUpgrade, null)
+        .get("java_observable"), "missing Upgrade is a divergent Java accept");
+
+    String badKey = "!!definitely-not-base64!!";
+    Map<String, Object> nonBase64 = handshake("hs-bad-key", "client_request",
+        validClientRequest(badKey), null);
+    equal("accept", nonBase64.get("java_observable"),
+        "non-base64 key is a divergent Java accept");
+    equal(acceptFor(badKey), nonBase64.get("sec_websocket_accept"),
+        "the accept value hashes the malformed key string");
+
+    String duplicateKey = validClientRequest("AAAA").replace(
+        "Sec-WebSocket-Version: 13",
+        "Sec-WebSocket-Key: BBBB\r\nSec-WebSocket-Version: 13");
+    Map<String, Object> joined = handshake("hs-dup-key", "client_request",
+        duplicateKey, null);
+    equal("accept", joined.get("java_observable"),
+        "duplicated key joins and accepts");
+    equal(acceptFor("AAAA; BBBB"), joined.get("sec_websocket_accept"),
+        "the accept value hashes the '; '-joined keys");
+
+    String bareLf = validClientRequest(RFC_SAMPLE_KEY)
+        .replace("Upgrade: websocket\r\n", "Upgrade: websocket\n");
+    Map<String, Object> folded = handshake("hs-bare-lf", "client_request", bareLf, null);
+    equal("accept", folded.get("java_observable"),
+        "a bare LF folds into the next line and accepts");
+    equal(acceptFor(RFC_SAMPLE_KEY), folded.get("sec_websocket_accept"),
+        "bare-LF accept value still derives from the key");
+    pass();
+  }
+
+  private static void testHandshakeServerRejections() throws Exception {
+    expectHandshakeReject("hs-post",
+        validClientRequest(RFC_SAMPLE_KEY).replace("GET ", "POST "),
+        "client_request", null, "invalid_handshake");
+    expectHandshakeReject("hs-http10",
+        validClientRequest(RFC_SAMPLE_KEY).replace("HTTP/1.1", "HTTP/1.0"),
+        "client_request", null, "invalid_handshake");
+    expectHandshakeReject("hs-garbled-line",
+        validClientRequest(RFC_SAMPLE_KEY).replace("GET /chat HTTP/1.1", "GET/chatHTTP/1.1"),
+        "client_request", null, "invalid_handshake");
+    expectHandshakeReject("hs-no-colon",
+        validClientRequest(RFC_SAMPLE_KEY).replace("Host: server.example.com",
+            "Host server.example.com"),
+        "client_request", null, "invalid_handshake");
+    expectHandshakeReject("hs-obs-fold",
+        validClientRequest(RFC_SAMPLE_KEY).replace("Upgrade: websocket\r\n",
+            "Upgrade: websocket\r\n folded\r\n"),
+        "client_request", null, "invalid_handshake");
+    expectHandshakeReject("hs-missing-key",
+        validClientRequest(RFC_SAMPLE_KEY).replace(
+            "Sec-WebSocket-Key: " + RFC_SAMPLE_KEY + "\r\n", ""),
+        "client_request", null, "invalid_handshake");
+    expectHandshakeReject("hs-version-8",
+        validClientRequest(RFC_SAMPLE_KEY).replace("Sec-WebSocket-Version: 13",
+            "Sec-WebSocket-Version: 8"),
+        "client_request", null, "not_matched");
+    expectHandshakeReject("hs-version-words",
+        validClientRequest(RFC_SAMPLE_KEY).replace("Sec-WebSocket-Version: 13",
+            "Sec-WebSocket-Version: thirteen"),
+        "client_request", null, "not_matched");
+    expectHandshakeReject("hs-missing-version",
+        validClientRequest(RFC_SAMPLE_KEY).replace("Sec-WebSocket-Version: 13\r\n", ""),
+        "client_request", null, "not_matched");
+    expectHandshakeReject("hs-dup-version",
+        validClientRequest(RFC_SAMPLE_KEY).replace("Sec-WebSocket-Version: 13",
+            "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Version: 13"),
+        "client_request", null, "not_matched");
+    pass();
+  }
+
+  private static void testHandshakeIncomplete() throws Exception {
+    String full = validClientRequest(RFC_SAMPLE_KEY);
+    for (int cut : new int[] {0, 4, full.length() / 2, full.length() - 2}) {
+      Map<String, Object> response = handshake("hs-cut-" + cut, "client_request",
+          full.substring(0, cut), null);
+      equal("incomplete", response.get("java_observable"),
+          "cut at " + cut + " is incomplete");
+      check(!response.containsKey("reject_channel") && !response.containsKey("close_code")
+          && !response.containsKey("sec_websocket_accept"),
+          "incomplete carries no verdict payload");
+    }
+    pass();
+  }
+
+  private static void testHandshakeClientDirection() throws Exception {
+    String valid = validServerResponse(RFC_SAMPLE_ACCEPT);
+    Map<String, Object> accepted = handshake("hs-client-ok", "server_response",
+        valid, RFC_SAMPLE_KEY);
+    equal("accept", accepted.get("java_observable"), "valid response accepted");
+    check(!accepted.containsKey("sec_websocket_accept"),
+        "client-side accept exposes no accept value");
+
+    expectHandshakeReject("hs-status-200",
+        valid.replace("101 Switching Protocols", "200 OK"),
+        "server_response", RFC_SAMPLE_KEY, "invalid_handshake");
+    expectHandshakeReject("hs-accept-mismatch",
+        valid.replace(RFC_SAMPLE_ACCEPT, RFC_SAMPLE_ACCEPT.toLowerCase(java.util.Locale.ROOT)),
+        "server_response", RFC_SAMPLE_KEY, "not_matched");
+    expectHandshakeReject("hs-response-no-upgrade",
+        valid.replace("Upgrade: websocket\r\n", ""),
+        "server_response", RFC_SAMPLE_KEY, "not_matched");
+    expectHandshakeReject("hs-response-no-accept",
+        valid.replace("Sec-WebSocket-Accept: " + RFC_SAMPLE_ACCEPT + "\r\n", ""),
+        "server_response", RFC_SAMPLE_KEY, "not_matched");
+    // Without the recorded client key the challenge cannot match.
+    expectHandshakeReject("hs-no-context", valid, "server_response", null, "not_matched");
+    pass();
+  }
+
+  private static void testHandshakeProtocolStrictness() throws Exception {
+    String request = handshakeRequest("hs-strict", "client_request",
+        validClientRequest(RFC_SAMPLE_KEY), null);
+    expectCode("UNKNOWN_FIELD", () -> OracleEngine.process(
+        rebind(request.replace("\"direction\"", "\"extra\":1,\"direction\"")),
+        runtimeDigest));
+    expectCode("REQUEST_DIGEST_MISMATCH", () -> OracleEngine.process(
+        request.replace("\"direction\":\"client_request\"",
+            "\"direction\":\"server_response\""), runtimeDigest));
+    expectCode("INVALID_ENUM", () -> OracleEngine.process(
+        rebind(request.replace("\"direction\":\"client_request\"",
+            "\"direction\":\"sideways\"")), runtimeDigest));
+    expectCode("INVALID_BASE64", () -> OracleEngine.process(
+        rebind(request.replaceFirst("\"raw_base64\":\"[^\"]*\"",
+            "\"raw_base64\":\"@@@@\"")), runtimeDigest));
+    expectCode("MISSING_FIELD", () -> OracleEngine.process(
+        rebind(request.replace("\"context\":{},", "")), runtimeDigest));
     pass();
   }
 
