@@ -176,12 +176,30 @@
     "probeCommand": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["argv", "exit_code", "output"],
+      "required": ["argv", "cwd", "exit_code", "stdout", "stderr"],
       "properties": {
         "argv": { "type": "string", "minLength": 1 },
+        "cwd": { "type": "string", "minLength": 1 },
         "exit_code": { "type": "integer" },
-        "output": { "type": "string" }
-      }
+        "stdout": { "type": "string" },
+        "stderr": { "type": "string" },
+        "stdout_bytes": { "type": "integer", "minimum": 0 },
+        "stderr_bytes": { "type": "integer", "minimum": 0 },
+        "stdout_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "stderr_sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "stdout_truncated": { "type": "boolean" },
+        "stderr_truncated": { "type": "boolean" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "stdout_truncated": { "const": true } }, "required": ["stdout_truncated"] },
+          "then": { "required": ["stdout_sha256", "stdout_bytes"] }
+        },
+        {
+          "if": { "properties": { "stderr_truncated": { "const": true } }, "required": ["stderr_truncated"] },
+          "then": { "required": ["stderr_sha256", "stderr_bytes"] }
+        }
+      ]
     },
     "backend": {
       "type": "object",

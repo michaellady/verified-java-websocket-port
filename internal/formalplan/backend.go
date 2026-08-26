@@ -52,6 +52,7 @@ const (
 	ConcurrencyPlanSchemaPath        = "schemas/concurrency-plan-1.0.0.schema.json"
 
 	sbxTemplateSourcePath       = "security/sbx-template.json"
+	sandboxPolicySourcePath     = "security/sandbox-policy.json"
 	corpusCalibrationSourcePath = "evidence/corpus-calibration.json"
 )
 
@@ -219,10 +220,24 @@ type availabilityProbe struct {
 	Verdict        string         `json:"verdict"`
 }
 
+// probeCommand records one availability-probe invocation byte-honestly
+// (re-review round 1 BLOCKING-1): the exact argv and working directory, the
+// real exit code, and stdout/stderr captured verbatim as separate streams.
+// When a stream is too long to embed whole, the record keeps a verbatim head,
+// sets the truncated flag, and binds the full stream with its byte count and
+// sha256 — paraphrased or merged output is never a probe record.
 type probeCommand struct {
-	Argv     string `json:"argv"`
-	ExitCode *int   `json:"exit_code"`
-	Output   *string `json:"output"`
+	Argv            string  `json:"argv"`
+	Cwd             string  `json:"cwd"`
+	ExitCode        *int    `json:"exit_code"`
+	Stdout          *string `json:"stdout"`
+	Stderr          *string `json:"stderr"`
+	StdoutBytes     *int    `json:"stdout_bytes,omitempty"`
+	StderrBytes     *int    `json:"stderr_bytes,omitempty"`
+	StdoutSHA256    string  `json:"stdout_sha256,omitempty"`
+	StderrSHA256    string  `json:"stderr_sha256,omitempty"`
+	StdoutTruncated bool    `json:"stdout_truncated,omitempty"`
+	StderrTruncated bool    `json:"stderr_truncated,omitempty"`
 }
 
 type sbxExecution struct {
@@ -523,6 +538,18 @@ func evaluateBackendQualification(evaluation *formalEvaluation, docData []byte, 
 		basePath := fmt.Sprintf("$.backends[%d]", index)
 		executed := backend.SbxExecution.Status == "EXECUTED"
 
+		// Pass accounting (re-review round 1 BLOCKING-3): an obligation may
+		// count as passed only when its outcome is a genuine lattice pass AND
+		// the execution record satisfies the foundation EvidenceRun
+		// completeness predicate (receipt verified against real bytes,
+		// every completeness field bound) AND the backend's canary pair is
+		// healthy (known-good PASSED, known-bad DETECTED with a digested
+		// counterexample). Incomplete evidence or a FAILED/NOT_EXECUTED
+		// canary excludes the pass — the typed finding records why. Canaries
+		// left NOT_EXECUTED are legitimate only on backends that are
+		// themselves NOT_EXECUTED, which never count passes at all.
+		evidenceComplete := false
+
 		if !backend.AvailabilityProbe.Executed {
 			evaluation.add("BACKEND_PROBE_NOT_EXECUTED", vendorprotocol.Block, docPath, basePath+".availability_probe.executed",
 				backend.BackendID+": availability probe was not executed; qualification records require a real probe with recorded output")
@@ -531,10 +558,18 @@ func evaluateBackendQualification(evaluation *formalEvaluation, docData []byte, 
 				backend.BackendID+": executed probe records no commands; probes must record real argv, exit code, and output snippets")
 		} else {
 			for commandIndex, command := range backend.AvailabilityProbe.Commands {
-				if command.Argv == "" || command.ExitCode == nil || command.Output == nil {
-					evaluation.add("PROBE_OUTPUT_MISSING", vendorprotocol.Block, docPath,
-						fmt.Sprintf("%s.availability_probe.commands[%d]", basePath, commandIndex),
-						backend.BackendID+": probe command must record argv, exit_code, and output verbatim")
+				commandPath := fmt.Sprintf("%s.availability_probe.commands[%d]", basePath, commandIndex)
+				if command.Argv == "" || command.Cwd == "" || command.ExitCode == nil || command.Stdout == nil || command.Stderr == nil {
+					evaluation.add("PROBE_OUTPUT_MISSING", vendorprotocol.Block, docPath, commandPath,
+						backend.BackendID+": probe command must record argv, cwd, exit_code, and verbatim per-stream stdout/stderr")
+				}
+				if command.StdoutTruncated && (command.StdoutSHA256 == "" || command.StdoutBytes == nil) {
+					evaluation.add("PROBE_OUTPUT_MISSING", vendorprotocol.Block, docPath, commandPath+".stdout",
+						backend.BackendID+": a truncated stdout must bind the full stream with stdout_sha256 and stdout_bytes")
+				}
+				if command.StderrTruncated && (command.StderrSHA256 == "" || command.StderrBytes == nil) {
+					evaluation.add("PROBE_OUTPUT_MISSING", vendorprotocol.Block, docPath, commandPath+".stderr",
+						backend.BackendID+": a truncated stderr must bind the full stream with stderr_sha256 and stderr_bytes")
 				}
 			}
 		}
@@ -550,8 +585,10 @@ func evaluateBackendQualification(evaluation *formalEvaluation, docData []byte, 
 		}
 
 		if executed {
-			validateExecutedRecord(evaluation, docPath, basePath, backend, len(document.Backends[index].Obligations))
+			evidenceComplete = validateExecutedRecord(evaluation, docPath, basePath, backend, len(document.Backends[index].Obligations))
 		}
+		canariesHealthy := validateCanaries(evaluation, docPath, basePath, backend, vocabulary, executed)
+		countable := executed && evidenceComplete && canariesHealthy
 
 		if len(backend.Obligations) == 0 {
 			evaluation.add("ZERO_BACKEND_OBLIGATIONS", vendorprotocol.Block, docPath, basePath+".obligations",
@@ -578,33 +615,40 @@ func evaluateBackendQualification(evaluation *formalEvaluation, docData []byte, 
 			}
 
 			verdict.ObligationsEvaluated++
-			if executed && outcomeKnown && requiredKnown && outcomeRank >= requiredRank && outcomeRank >= 2 {
+			if countable && outcomeKnown && requiredKnown && outcomeRank >= requiredRank && outcomeRank >= 2 {
 				verdict.ObligationsPassed++
 				if productionLinked(evaluation.root, obligation.ProductionCodeIDs) {
 					verdict.ProductionLinkedObligationsPassed++
 				}
 			}
 		}
-
-		validateCanaries(evaluation, docPath, basePath, backend, vocabulary, executed)
 	}
 }
 
-func validateExecutedRecord(evaluation *formalEvaluation, docPath, basePath string, backend backendRecord, obligationCount int) {
+// validateExecutedRecord checks an executed backend record against the
+// foundation EvidenceRun completeness predicate and reports whether the record
+// is complete: a verified receipt (real bytes, matching digest) plus every
+// completeness field bound. Only a complete record may contribute to the pass
+// counters (re-review round 1 BLOCKING-3).
+func validateExecutedRecord(evaluation *formalEvaluation, docPath, basePath string, backend backendRecord, obligationCount int) bool {
+	complete := true
 	execution := backend.SbxExecution
 	if execution.Receipt == nil || execution.Receipt.Path == "" || execution.Receipt.SHA256 == "" {
 		evaluation.add("EVIDENCE_RUN_INCOMPLETE", vendorprotocol.Block, docPath, basePath+".sbx_execution.receipt",
 			backend.BackendID+": an executed record requires a real receipt with path and digest")
+		complete = false
 	} else {
 		receiptData, present := evaluation.readFile(execution.Receipt.Path)
 		if !present {
 			evaluation.add("EVIDENCE_RUN_INCOMPLETE", vendorprotocol.Block, docPath, basePath+".sbx_execution.receipt.path",
 				backend.BackendID+": receipt file "+execution.Receipt.Path+" does not exist in this tree")
+			complete = false
 		} else {
 			digest := sha256.Sum256(receiptData)
 			if "sha256:"+hex.EncodeToString(digest[:]) != execution.Receipt.SHA256 {
 				evaluation.add("EVIDENCE_RUN_INCOMPLETE", vendorprotocol.Block, docPath, basePath+".sbx_execution.receipt.sha256",
 					backend.BackendID+": receipt digest does not match the receipt bytes")
+				complete = false
 			}
 		}
 	}
@@ -613,17 +657,20 @@ func validateExecutedRecord(evaluation *formalEvaluation, docPath, basePath stri
 	if run == nil {
 		evaluation.add("EVIDENCE_RUN_INCOMPLETE", vendorprotocol.Block, docPath, basePath+".sbx_execution.evidence_run",
 			backend.BackendID+": an executed record requires an EvidenceRun-complete execution record (foundation completeness predicate)")
-		return
+		return false
 	}
 	missing := missingEvidenceRunFields(run)
 	if len(missing) != 0 {
 		evaluation.add("EVIDENCE_RUN_INCOMPLETE", vendorprotocol.Block, docPath, basePath+".sbx_execution.evidence_run",
 			backend.BackendID+": execution record is missing EvidenceRun completeness fields: "+strings.Join(missing, ", "))
+		complete = false
 	}
 	if run.ObligationCount != nil && *run.ObligationCount != obligationCount {
 		evaluation.add("EVIDENCE_RUN_INCOMPLETE", vendorprotocol.Block, docPath, basePath+".sbx_execution.evidence_run.obligation_count",
 			fmt.Sprintf("%s: obligation_count %d must equal the backend's declared obligations %d", backend.BackendID, *run.ObligationCount, obligationCount))
+		complete = false
 	}
+	return complete
 }
 
 func missingEvidenceRunFields(run *evidenceRun) []string {
@@ -673,32 +720,44 @@ func missingEvidenceRunFields(run *evidenceRun) []string {
 	return missing
 }
 
-func validateCanaries(evaluation *formalEvaluation, docPath, basePath string, backend backendRecord, vocabulary map[string]bool, executed bool) {
+// validateCanaries applies the canary rules and reports whether the backend's
+// canary pair is healthy enough to admit obligation passes: the pair exists,
+// the known-bad mutant is inside the vocabulary, the known-good canary PASSED,
+// and the known-bad canary was DETECTED with a digested counterexample. A
+// FAILED (SURVIVED) or NOT_EXECUTED canary on an executed backend excludes
+// every pass (re-review round 1 BLOCKING-3); unexecuted backends return false
+// trivially because they can never count passes.
+func validateCanaries(evaluation *formalEvaluation, docPath, basePath string, backend backendRecord, vocabulary map[string]bool, executed bool) bool {
 	canaries := backend.Canaries
 	if canaries.KnownGood == nil || canaries.KnownBad == nil {
 		evaluation.add("MISSING_CANARY_PAIR", vendorprotocol.Block, docPath, basePath+".canaries",
 			backend.BackendID+": every backend must declare both a known-good and a known-bad canary")
-		return
+		return false
 	}
+	healthy := true
 	if !vocabulary[canaries.KnownBad.MutantID] {
 		evaluation.add("MISSING_CANARY_PAIR", vendorprotocol.Block, docPath, basePath+".canaries.known_bad.mutant_id",
 			backend.BackendID+": known-bad canary mutant "+canaries.KnownBad.MutantID+" is outside the US-005 planted-mutant vocabulary")
+		healthy = false
 	}
 	if executed {
 		if canaries.KnownGood.Status != "PASSED" {
 			evaluation.add("CANARY_NOT_CONFIRMED", vendorprotocol.Block, docPath, basePath+".canaries.known_good.status",
 				backend.BackendID+": executed backend must confirm its known-good canary (status PASSED)")
+			healthy = false
 		}
 		if canaries.KnownBad.Status != "DETECTED" || !strings.HasPrefix(canaries.KnownBad.CounterexampleDigest, "sha256:") {
 			evaluation.add("KNOWN_BAD_CANARY_SURVIVED", vendorprotocol.Block, docPath, basePath+".canaries.known_bad",
 				backend.BackendID+": executed backend must detect its known-bad canary with a digested counterexample; a surviving seeded defect fails qualification")
+			healthy = false
 		}
-		return
+		return healthy
 	}
 	if canaries.KnownGood.Status != "NOT_EXECUTED" || canaries.KnownBad.Status != "NOT_EXECUTED" {
 		evaluation.add("CANARY_CLAIM_WITHOUT_EXECUTION", vendorprotocol.Block, docPath, basePath+".canaries",
 			backend.BackendID+": canary results are claimed without an executed sbx run; outcomes may be recorded only as far as executions actually went")
 	}
+	return false
 }
 
 func validateSandboxProfileBinding(evaluation *formalEvaluation, docPath string, profile sandboxProfile) {
@@ -730,6 +789,30 @@ func validateSandboxProfileBinding(evaluation *formalEvaluation, docPath string,
 				evaluation.add("SBX_PROFILE_DIGEST_MISMATCH", vendorprotocol.Block, docPath, "$.sandbox_profile",
 					"pinned profile digests diverge from the accepted profile source ("+sbxTemplateSourcePath+"): "+strings.Join(mismatched, ", "))
 			}
+		}
+	}
+
+	// Byte-level pin reconciliation (re-review round 1 BLOCKING-2): a pinned
+	// digest nobody re-hashes is not a pin — the same defect class as the
+	// US-005 AC5 manifest-pin gap. Of the pinned profile digest set, exactly
+	// one digest names bytes that live in this repository:
+	// sandbox_policy_digest is the sha256 over the raw bytes of
+	// security/sandbox-policy.json (verified here against the real file).
+	// The CLI-binary, template, and network-policy digests describe
+	// out-of-repo artifacts (host sbx binary, registry image, live sbx
+	// policy rule); they are bound by the pin-vs-source comparison above and
+	// by the accepted attempt's operator receipt, and cannot be re-hashed
+	// from repo bytes.
+	policyData, present := evaluation.readFile(sandboxPolicySourcePath)
+	if !present {
+		evaluation.add("PROFILE_ARTIFACT_UNREADABLE", vendorprotocol.Block, docPath, "$.sandbox_profile.sandbox_policy_digest",
+			"pinned profile artifact "+sandboxPolicySourcePath+" cannot be read; the sandbox_policy_digest pin cannot be reconciled against real bytes")
+	} else {
+		policyDigest := sha256.Sum256(policyData)
+		actual := "sha256:" + hex.EncodeToString(policyDigest[:])
+		if actual != profile.SandboxPolicyDigest {
+			evaluation.add("PROFILE_DIGEST_MISMATCH", vendorprotocol.Block, docPath, "$.sandbox_profile.sandbox_policy_digest",
+				"pinned sandbox_policy_digest "+profile.SandboxPolicyDigest+" does not match the actual bytes of "+sandboxPolicySourcePath+" ("+actual+"); a stale pin cannot bind the accepted profile")
 		}
 	}
 

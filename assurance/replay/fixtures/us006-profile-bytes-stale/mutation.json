@@ -1,0 +1,13 @@
+{
+  "operations": [
+    {
+      "kind": "include",
+      "path": "assurance/replay/fixtures/us006-base/mutation.json"
+    },
+    {
+      "kind": "raw_append",
+      "target": "security/sandbox-policy.json",
+      "value": "\n"
+    }
+  ]
+}

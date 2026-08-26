@@ -17,6 +17,11 @@
     },
     {
       "kind": "copy_file",
+      "source": "security/sandbox-policy.json",
+      "target": "security/sandbox-policy.json"
+    },
+    {
+      "kind": "copy_file",
       "source": "evidence/corpus-calibration.json",
       "target": "evidence/corpus-calibration.json"
     },

@@ -94,12 +94,12 @@
         "executed": true,
         "venue": "HOST",
         "host": "Darwin arm64 (owner workstation; probe-before-wire only — NOT the accepted sbx profile venue)",
-        "probed_at": "2026-08-26T22:41:32Z",
-        "probe_semantics": "kani ships as a cargo subcommand; availability means `kani` on PATH or `cargo kani` resolving. Host probe informs qualification planning only; in-sbx availability must be re-probed inside the accepted profile during the owner-authorized attempt.",
+        "probed_at": "2026-08-26T23:13:01Z",
+        "probe_semantics": "kani ships as a cargo subcommand; availability means `kani` on PATH or `cargo kani` resolving. Each recorded command was executed with /bin/sh -c from the recorded cwd (repository root '.'), with stdout and stderr captured verbatim as separate streams and the exit code read directly. Host probe informs qualification planning only; in-sbx availability must be re-probed inside the accepted profile during the owner-authorized attempt.",
         "commands": [
-          { "argv": "command -v kani", "exit_code": 1, "output": "" },
-          { "argv": "cargo kani --version", "exit_code": 101, "output": "error: no such command: `kani`" },
-          { "argv": "cargo --version", "exit_code": 0, "output": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)" }
+          { "argv": "command -v kani", "cwd": ".", "exit_code": 1, "stdout": "", "stderr": "" },
+          { "argv": "cargo kani --version", "cwd": ".", "exit_code": 101, "stdout": "", "stderr": "error: no such command: `kani`\n\nhelp: a command with a similar name exists: `yank`\n\nhelp: view all installed commands with `cargo --list`\nhelp: find a package to install `kani` with `cargo search cargo-kani`\n" },
+          { "argv": "cargo --version", "cwd": ".", "exit_code": 0, "stdout": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)\n", "stderr": "" }
         ],
         "verdict": "UNAVAILABLE_ON_HOST"
       },
@@ -184,7 +184,7 @@
         "Java authority semantics are the pinned Java-WebSocket 1.6.0 quarantined tree, not RFC strictness (non-minimal length encodings are accepted on receive, matching translateSingleFramePayloadLength)"
       ],
       "provenance": [
-        "host availability probe executed 2026-08-26T22:41:32Z by lane C (this session), outputs recorded verbatim above",
+        "host availability probe re-executed 2026-08-26T23:13:01Z by lane C (re-review round 1), per-stream stdout/stderr and exit codes recorded verbatim above; truncated streams are digest-bound (byte count + sha256 of the full stream)",
         "candidate backend named by the US-006 pre-stage dossier (drafts/us006-prestage-dossier.md AC2)"
       ],
       "unsupported_constructs": [
@@ -219,11 +219,11 @@
         "executed": true,
         "venue": "HOST",
         "host": "Darwin arm64 (owner workstation; probe-before-wire only — NOT the accepted sbx profile venue)",
-        "probed_at": "2026-08-26T22:41:32Z",
-        "probe_semantics": "loom is a Rust library dependency, not an executable: `command -v loom` would be a category error. Honest availability = the workspace declares and locks the loom crate. Probe: enumerate workspace packages via cargo metadata and search the lockfile for a loom package entry.",
+        "probed_at": "2026-08-26T23:13:01Z",
+        "probe_semantics": "loom is a Rust library dependency, not an executable: `command -v loom` would be a category error. Honest availability = the workspace declares and locks the loom crate. Probe: enumerate workspace packages via cargo metadata (run with /bin/sh -c from the rust/ workspace directory, recorded as cwd) and search the lockfile for a loom package entry (run from the repository root). The cargo metadata stdout is a single JSON document of 4435 bytes; the record embeds a verbatim 192-byte head, marks the stream truncated, and binds the full stream by byte count and sha256 (cargo package ids embed this host's absolute workspace path, which therefore appears in the head). Reading of the full digested stream: the packages array names exactly candidate-stub and connection-core, with no loom package; the lockfile grep counts zero 'name = \"loom\"' entries (grep -c prints 0 and exits 1 on no match). Both streams of every command were captured separately and verbatim.",
         "commands": [
-          { "argv": "cargo metadata --format-version 1 --locked (rust/ workspace; package names)", "exit_code": 0, "output": "candidate-stub,connection-core" },
-          { "argv": "grep -c '^name = \"loom\"' rust/Cargo.lock", "exit_code": 1, "output": "0" }
+          { "argv": "cargo metadata --format-version 1 --locked", "cwd": "rust", "exit_code": 0, "stdout": "{\"packages\":[{\"name\":\"candidate-stub\",\"version\":\"0.0.0\",\"id\":\"path+file:///Users/mikelady/hq/workspace/worktrees/vjwp-claude-us006-c-backend/rust/candidate-stub#0.0.0\",\"license\":\"Apache-2.0\",\"", "stdout_truncated": true, "stdout_bytes": 4435, "stdout_sha256": "sha256:d111540e2528438593ef68ed76f2f912b7be68474223a20f4fbda9f944c65c7a", "stderr": "" },
+          { "argv": "grep -c '^name = \"loom\"' rust/Cargo.lock", "cwd": ".", "exit_code": 1, "stdout": "0\n", "stderr": "" }
         ],
         "verdict": "NOT_DECLARED_IN_WORKSPACE"
       },
@@ -279,7 +279,7 @@
         "schedule exploration below the preemption bound is exhaustive only within the bound: bounded evidence, classified as systematic testing"
       ],
       "provenance": [
-        "host availability probe executed 2026-08-26T22:41:32Z by lane C (this session), outputs recorded verbatim above",
+        "host availability probe re-executed 2026-08-26T23:13:01Z by lane C (re-review round 1), per-stream stdout/stderr and exit codes recorded verbatim above; truncated streams are digest-bound (byte count + sha256 of the full stream)",
         "candidate backend named by the US-006 pre-stage dossier (drafts/us006-prestage-dossier.md AC2/AC5)"
       ],
       "unsupported_constructs": [
@@ -313,12 +313,12 @@
         "executed": true,
         "venue": "HOST",
         "host": "Darwin arm64 (owner workstation; probe-before-wire only — NOT the accepted sbx profile venue)",
-        "probed_at": "2026-08-26T22:41:32Z",
-        "probe_semantics": "TLC is a JVM application distributed as tla2tools.jar; availability means a tlc/tla2tools launcher on PATH or a pinned tla2tools.jar plus a JVM. The host JVM is present (the pinned oracle JDK); the TLC tool itself is not installed on the host. The accepted sbx template carries a JVM (openjdk 25.0.3 observed in attempt us007-sbx-output-live-0124), so an in-sbx TLC run requires only an owner-authorized, digest-pinned tla2tools.jar materialization.",
+        "probed_at": "2026-08-26T23:13:01Z",
+        "probe_semantics": "TLC is a JVM application distributed as tla2tools.jar; availability means a tlc/tla2tools launcher on PATH or a pinned tla2tools.jar plus a JVM. Each recorded command was executed with /bin/sh -c from the recorded cwd (repository root '.'), with stdout and stderr captured verbatim as separate streams. Note that `java -version` reports on STDERR by design — its stdout is empty and the three-line version banner below is the verbatim stderr stream. The host JVM is present (Homebrew openjdk 17.0.19); the TLC tool itself is not installed on the host. The accepted sbx template carries a JVM (openjdk 25.0.3 observed in attempt us007-sbx-output-live-0124), so an in-sbx TLC run requires only an owner-authorized, digest-pinned tla2tools.jar materialization.",
         "commands": [
-          { "argv": "command -v tlc", "exit_code": 1, "output": "" },
-          { "argv": "command -v tla2tools", "exit_code": 1, "output": "" },
-          { "argv": "java -version", "exit_code": 0, "output": "openjdk version \"17.0.19\" 2026-04-21" }
+          { "argv": "command -v tlc", "cwd": ".", "exit_code": 1, "stdout": "", "stderr": "" },
+          { "argv": "command -v tla2tools", "cwd": ".", "exit_code": 1, "stdout": "", "stderr": "" },
+          { "argv": "java -version", "cwd": ".", "exit_code": 0, "stdout": "", "stderr": "openjdk version \"17.0.19\" 2026-04-21\nOpenJDK Runtime Environment Homebrew (build 17.0.19+0)\nOpenJDK 64-Bit Server VM Homebrew (build 17.0.19+0, mixed mode, sharing)\n" }
         ],
         "verdict": "TOOL_UNAVAILABLE_ON_HOST_JVM_PRESENT"
       },
@@ -386,7 +386,7 @@
         "PROVED_MODEL evidence caps at CANDIDATE readiness (foundation evidence.go assurance ceilings); production claims additionally require non-empty production_code_ids and two blind independent reviewers"
       ],
       "provenance": [
-        "host availability probe executed 2026-08-26T22:41:32Z by lane C (this session), outputs recorded verbatim above",
+        "host availability probe re-executed 2026-08-26T23:13:01Z by lane C (re-review round 1), per-stream stdout/stderr and exit codes recorded verbatim above; truncated streams are digest-bound (byte count + sha256 of the full stream)",
         "candidate backend named by the US-006 pre-stage dossier (drafts/us006-prestage-dossier.md AC2/AC4)"
       ],
       "unsupported_constructs": [
@@ -420,10 +420,12 @@
         "executed": true,
         "venue": "HOST",
         "host": "Darwin arm64 (owner workstation; repository artifact search — there is no tool binary to probe)",
-        "probed_at": "2026-08-26T22:41:32Z",
-        "probe_semantics": "the prototype is a historical artifact, not an installable tool; the honest availability probe is a repository-wide retained-artifact search. The recursive search over the working tree (excluding .git, third_party, .quarantine) found zero files matching finite-mask/finite_mask/'finite mask', independently confirming the pre-stage dossier's finding (drafts/us006-prestage-dossier.md Section 5 input 6) and the recon reading of the Codex plane (same conclusion).",
+        "probed_at": "2026-08-26T23:13:01Z",
+        "probe_semantics": "the prototype is a historical artifact, not an installable tool; the honest availability probe is a repository-wide retained-artifact search. Each command was executed with /bin/sh -c from the repository root with per-stream verbatim capture. The unrestricted content search now returns exactly one hit: this qualification document itself, which names the absent prototype — a self-reference created when this record was first written, not a retained artifact. The second command repeats the content search excluding this document and finds nothing (grep exits 1 on zero matches); the third searches the whole tree (minus .git) for any file NAMED like the prototype and prints nothing. Together these establish ABSENT_NO_RETAINED_ARTIFACT: no artifact file exists, and the only textual mention is this document's own record of the absence, consistent with the pre-stage dossier's finding (drafts/us006-prestage-dossier.md Section 5 input 6) and the recon reading of the Codex plane.",
         "commands": [
-          { "argv": "grep -ri --exclude-dir=.git --exclude-dir=third_party --exclude-dir=.quarantine -l 'finite-mask\\|finite_mask\\|finite mask' .", "exit_code": 1, "output": "" }
+          { "argv": "grep -ri --exclude-dir=.git --exclude-dir=third_party --exclude-dir=.quarantine -l 'finite-mask\\|finite_mask\\|finite mask' .", "cwd": ".", "exit_code": 0, "stdout": "./assurance/formal/backend-qualification.json\n", "stderr": "" },
+          { "argv": "grep -ri --exclude-dir=.git --exclude-dir=third_party --exclude-dir=.quarantine --exclude=backend-qualification.json -l 'finite-mask\\|finite_mask\\|finite mask' .", "cwd": ".", "exit_code": 1, "stdout": "", "stderr": "" },
+          { "argv": "find . -name .git -prune -o -type f -iname '*finite*mask*' -print", "cwd": ".", "exit_code": 0, "stdout": "", "stderr": "" }
         ],
         "verdict": "ABSENT_NO_RETAINED_ARTIFACT"
       },
@@ -475,7 +477,7 @@
         "exhaustive finite-domain evidence is bounded evidence: it can never be labeled proved-model or proved-production/refinement (inflation blocks mechanically)"
       ],
       "provenance": [
-        "retained-artifact search executed 2026-08-26T22:41:32Z by lane C (this session), zero hits, exit code 1, recorded verbatim above",
+        "retained-artifact search re-executed 2026-08-26T23:13:01Z by lane C (re-review round 1), per-stream outputs recorded verbatim above: the sole content hit is this document's own self-reference, the self-reference-excluded content search has zero hits (exit 1), and the filename search prints nothing",
         "absence independently recorded by the pre-stage dossier (Section 5 input 6: searched evidence/, docs/, assurance/, internal/, cmd/, corpora/ — zero hits) and by the recon reading of the Codex plane"
       ],
       "unsupported_constructs": [
@@ -542,10 +544,11 @@
     ]
   },
   "honesty_notes": [
-    "Availability probes were executed on the HOST (Darwin arm64) at 2026-08-26T22:41:32Z with outputs and exit codes recorded verbatim; they are probe-before-wire planning evidence, not sbx executions.",
+    "Availability probes were re-executed on the HOST (Darwin arm64) at 2026-08-26T23:13:01Z (re-review round 1, replacing an earlier probe set whose recorded fields paraphrased or merged streams): every command records its exact argv, working directory, exit code, and per-stream stdout/stderr verbatim; where a stream is too long to embed whole (loom's cargo metadata, 4435 bytes) the record keeps a verbatim head and binds the full stream by byte count and sha256. They are probe-before-wire planning evidence, not sbx executions.",
     "No backend proof run, canary run, or sbx execution has occurred for US-006; every sbx_execution.status is NOT_EXECUTED, every canary status is NOT_EXECUTED, and every obligation outcome is inconclusive (pending) or unsupported (absent artifact). Nothing in this document represents a skip or an inferred success.",
     "No backend is selected: selection requires an executed availability probe AND a completed sbx execution with a real receipt inside the accepted profile (the formal-preflight validator blocks selected-without-execution mechanically).",
-    "The sandbox_profile digest set is pinned from the CURRENT accepted evidence (security/sbx-template.json, security/sandbox-policy.json) and bound to the accepted live attempt us007-sbx-output-live-0124 cited by evidence/corpus-calibration.json; the protected operator receipt was read in this session as acceptance provenance only.",
-    "The finite mask prototype named by US-006 AC3 has no retained artifact anywhere in this repository (search recorded above): its record is ABSENT_NO_RETAINED_ARTIFACT with outcome unsupported, which blocks dependent claims rather than representing bounded evidence that cannot be produced."
+    "The sandbox_profile digest set is pinned from the CURRENT accepted evidence (security/sbx-template.json, security/sandbox-policy.json) and bound to the accepted live attempt us007-sbx-output-live-0124 cited by evidence/corpus-calibration.json; the protected operator receipt was read as acceptance provenance only. The formal-preflight validator reconciles these pins two ways: every pinned field is compared against security/sbx-template.json, and the one digest that names in-repo bytes — sandbox_policy_digest, the sha256 over the raw bytes of security/sandbox-policy.json — is re-hashed from the actual file on every run (PROFILE_DIGEST_MISMATCH / PROFILE_ARTIFACT_UNREADABLE). The CLI-binary, template, and network-policy digests describe out-of-repo artifacts (host sbx binary, registry image, live sbx policy rule) and cannot be re-hashed from repo bytes; they remain bound through the pin-vs-source comparison and the accepted attempt's operator receipt.",
+    "The finite mask prototype named by US-006 AC3 has no retained artifact anywhere in this repository (search recorded above): its record is ABSENT_NO_RETAINED_ARTIFACT with outcome unsupported, which blocks dependent claims rather than representing bounded evidence that cannot be produced. The retained-artifact content search necessarily matches this document itself (it names the prototype it declares absent); that self-reference is recorded verbatim, and the artifact conclusion rests on the self-reference-excluded content search and the filename search, both empty.",
+    "Obligation pass accounting is strict: the validator counts an obligation as passed (and as production-linked passed) only when its backend's execution record satisfies the full foundation EvidenceRun completeness predicate (receipt re-hashed against real bytes included) AND both canaries in the backend's pair are healthy (known-good PASSED, known-bad DETECTED with a digested counterexample). Incomplete evidence or a surviving/unexecuted canary excludes the pass with its typed finding — a failed canary can never coexist with a counted production-linked pass."
   ]
 }

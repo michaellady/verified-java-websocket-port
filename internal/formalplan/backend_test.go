@@ -339,6 +339,7 @@ func us006UnitRoot(t *testing.T) string {
 		BackendQualificationDocumentPath,
 		BackendQualificationSchemaPath,
 		"security/sbx-template.json",
+		"security/sandbox-policy.json",
 		"evidence/corpus-calibration.json",
 		"rust/connection-core/src/connection.rs",
 	} {
@@ -415,6 +416,7 @@ func TestFormalPreflightDeepRuleFindings(t *testing.T) {
 	}{
 		{"probe-not-executed", "/backends/0/availability_probe/executed", false, "BACKEND_PROBE_NOT_EXECUTED"},
 		{"probe-output-missing", "/backends/0/availability_probe/commands", []any{}, "PROBE_OUTPUT_MISSING"},
+		{"probe-truncated-without-digest", "/backends/1/availability_probe/commands/0/stdout_sha256", "", "PROBE_OUTPUT_MISSING"},
 		{"selected-without-execution", "/backends/0/selected", true, "BACKEND_SELECTED_WITHOUT_EXECUTION"},
 		{"placeholder-receipt", "/backends/0/sbx_execution/receipt",
 			map[string]any{"path": "evidence/security-validation.json", "sha256": "sha256:" + strings.Repeat("a", 64)},
@@ -524,6 +526,12 @@ func TestFormalPreflightExecutedBackendRules(t *testing.T) {
 			t.Fatalf("passed=%d production=%d, want 1/1", verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
 		}
 	})
+	// Re-review round 1 BLOCKING-3: an obligation counts as passed ONLY when
+	// its outcome is a genuine lattice pass AND the execution record satisfies
+	// the foundation EvidenceRun completeness predicate AND every canary in the
+	// backend's pair is healthy (known-good PASSED, known-bad DETECTED with a
+	// digested counterexample). Incomplete evidence or a failed/unexecuted
+	// canary excludes the pass with the typed finding, never counts it.
 	t.Run("evidence-run-incomplete", func(t *testing.T) {
 		t.Parallel()
 		root := prepareExecuted(t)
@@ -534,6 +542,10 @@ func TestFormalPreflightExecutedBackendRules(t *testing.T) {
 		}
 		if !hasFindingCode(verdict, "EVIDENCE_RUN_INCOMPLETE") {
 			t.Fatalf("missing EVIDENCE_RUN_INCOMPLETE: %+v", verdict.Findings)
+		}
+		if verdict.ObligationsPassed != 0 || verdict.ProductionLinkedObligationsPassed != 0 {
+			t.Fatalf("incomplete EvidenceRun must not count passes: passed=%d production=%d, want 0/0",
+				verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
 		}
 	})
 	t.Run("receipt-digest-mismatch-is-incomplete", func(t *testing.T) {
@@ -547,6 +559,10 @@ func TestFormalPreflightExecutedBackendRules(t *testing.T) {
 		if !hasFindingCode(verdict, "EVIDENCE_RUN_INCOMPLETE") {
 			t.Fatalf("missing EVIDENCE_RUN_INCOMPLETE for receipt mismatch: %+v", verdict.Findings)
 		}
+		if verdict.ObligationsPassed != 0 || verdict.ProductionLinkedObligationsPassed != 0 {
+			t.Fatalf("unverifiable receipt must not count passes: passed=%d production=%d, want 0/0",
+				verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
+		}
 	})
 	t.Run("known-bad-canary-survived", func(t *testing.T) {
 		t.Parallel()
@@ -559,6 +575,26 @@ func TestFormalPreflightExecutedBackendRules(t *testing.T) {
 		if !hasFindingCode(verdict, "KNOWN_BAD_CANARY_SURVIVED") {
 			t.Fatalf("missing KNOWN_BAD_CANARY_SURVIVED: %+v", verdict.Findings)
 		}
+		if verdict.ObligationsPassed != 0 || verdict.ProductionLinkedObligationsPassed != 0 {
+			t.Fatalf("surviving known-bad canary must not count passes: passed=%d production=%d, want 0/0",
+				verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
+		}
+	})
+	t.Run("known-bad-canary-not-executed-excludes-pass", func(t *testing.T) {
+		t.Parallel()
+		root := prepareExecuted(t)
+		us006MutateDocument(t, root, "/backends/2/canaries/known_bad/status", "NOT_EXECUTED")
+		verdict, err := FormalPreflight(PreflightRequest{RootPath: root})
+		if err != nil {
+			t.Fatalf("preflight: %v", err)
+		}
+		if !hasFindingCode(verdict, "KNOWN_BAD_CANARY_SURVIVED") {
+			t.Fatalf("missing KNOWN_BAD_CANARY_SURVIVED for unexecuted canary on executed backend: %+v", verdict.Findings)
+		}
+		if verdict.ObligationsPassed != 0 || verdict.ProductionLinkedObligationsPassed != 0 {
+			t.Fatalf("unexecuted known-bad canary must not count passes: passed=%d production=%d, want 0/0",
+				verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
+		}
 	})
 	t.Run("good-canary-not-confirmed", func(t *testing.T) {
 		t.Parallel()
@@ -570,6 +606,10 @@ func TestFormalPreflightExecutedBackendRules(t *testing.T) {
 		}
 		if !hasFindingCode(verdict, "CANARY_NOT_CONFIRMED") {
 			t.Fatalf("missing CANARY_NOT_CONFIRMED: %+v", verdict.Findings)
+		}
+		if verdict.ObligationsPassed != 0 || verdict.ProductionLinkedObligationsPassed != 0 {
+			t.Fatalf("unconfirmed known-good canary must not count passes: passed=%d production=%d, want 0/0",
+				verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
 		}
 	})
 }
@@ -637,6 +677,52 @@ func TestFormalPreflightDocumentAndSourcePresence(t *testing.T) {
 		}
 		if !hasFindingCode(verdict, "FORMAL_SCHEMA_VALIDATION_FAILED") {
 			t.Fatalf("missing FORMAL_SCHEMA_VALIDATION_FAILED: %+v", verdict.Findings)
+		}
+	})
+	// Re-review round 1 BLOCKING-2: the pinned sandbox_policy_digest must be
+	// reconciled against the ACTUAL bytes of security/sandbox-policy.json.
+	// Stale-pin case: the file's bytes drift while the document pin and the
+	// sbx-template pin still agree with each other, so the string-equality
+	// comparison (SBX_PROFILE_DIGEST_MISMATCH) stays silent and only a real
+	// re-hash of the file catches the divergence.
+	t.Run("profile-bytes-stale", func(t *testing.T) {
+		t.Parallel()
+		root := us006UnitRoot(t)
+		policyPath := filepath.Join(root, "security", "sandbox-policy.json")
+		data, err := os.ReadFile(policyPath)
+		if err != nil {
+			t.Fatalf("read: %v", err)
+		}
+		us006WriteFile(t, policyPath, append(data, '\n'))
+		verdict, err := FormalPreflight(PreflightRequest{RootPath: root})
+		if err != nil {
+			t.Fatalf("preflight: %v", err)
+		}
+		if !hasFindingCode(verdict, "PROFILE_DIGEST_MISMATCH") {
+			t.Fatalf("missing PROFILE_DIGEST_MISMATCH: %+v", verdict.Findings)
+		}
+		if hasFindingCode(verdict, "SBX_PROFILE_DIGEST_MISMATCH") {
+			t.Fatalf("pin-vs-source comparison must stay silent here (both pins agree); only the byte re-hash catches drift: %+v", verdict.Findings)
+		}
+		if verdict.State != "BLOCKED" {
+			t.Fatalf("state = %s, want BLOCKED", verdict.State)
+		}
+	})
+	t.Run("profile-artifact-missing", func(t *testing.T) {
+		t.Parallel()
+		root := us006UnitRoot(t)
+		if err := os.Remove(filepath.Join(root, "security", "sandbox-policy.json")); err != nil {
+			t.Fatalf("remove: %v", err)
+		}
+		verdict, err := FormalPreflight(PreflightRequest{RootPath: root})
+		if err != nil {
+			t.Fatalf("preflight: %v", err)
+		}
+		if !hasFindingCode(verdict, "PROFILE_ARTIFACT_UNREADABLE") {
+			t.Fatalf("missing PROFILE_ARTIFACT_UNREADABLE: %+v", verdict.Findings)
+		}
+		if verdict.State != "BLOCKED" {
+			t.Fatalf("state = %s, want BLOCKED", verdict.State)
 		}
 	})
 	t.Run("sbx-profile-source-absent", func(t *testing.T) {
