@@ -52,6 +52,17 @@ const (
 // line. A command that never produced a ProcessState (it never started) has
 // no exit code to read; that absence is stated explicitly instead of
 // inventing a number.
+// exitDescription renders an exit for messages: a real code as "exited N",
+// the no-ProcessState sentinel as its honest description — the sentinel is
+// NEVER shown as an exit code (review 01a0446e: an invented "exited -998"
+// could read as a legitimate nonzero failure).
+func exitDescription(exit int) string {
+	if exit == exitNoProcessState {
+		return "never produced a process state (command did not run)"
+	}
+	return fmt.Sprintf("exited %d", exit)
+}
+
 func completedExit(state *os.ProcessState, runErr error) (int, string) {
 	if state != nil {
 		exit := state.ExitCode()
@@ -212,12 +223,12 @@ func (r *gateRunner) loadMetadata() (*cargoMetadata, error) {
 	// --no-deps is NOT used for dependency discovery; re-run with deps below.
 	_ = out
 	if exit != 0 {
-		return nil, fmt.Errorf("cargo metadata --locked --no-deps exited %d", exit)
+		return nil, fmt.Errorf("cargo metadata --locked --no-deps %s", exitDescription(exit))
 	}
 	exit, full := r.execStep("metadata", "cargo-metadata-locked-full", r.rustDir, false,
 		"cargo", "metadata", "--format-version", "1", "--locked")
 	if exit != 0 {
-		return nil, fmt.Errorf("cargo metadata --locked exited %d", exit)
+		return nil, fmt.Errorf("cargo metadata --locked %s", exitDescription(exit))
 	}
 	var meta cargoMetadata
 	if err := json.Unmarshal([]byte(full), &meta); err != nil {
@@ -656,7 +667,7 @@ func tomlSectionName(line string) (string, bool) {
 // (including metadata sections) never satisfies it.
 func parseWorkspacePackageKey(manifest, key string) (string, error) {
 	section := ""
-	for _, raw := range strings.Split(manifest, "\n") {
+	for _, raw := range tomlVisibleLines(manifest) {
 		line := strings.TrimSpace(stripTOMLLineComment(raw))
 		if name, ok := tomlSectionName(line); ok {
 			section = name
@@ -679,7 +690,7 @@ func parseWorkspacePackageKey(manifest, key string) (string, error) {
 // satisfies the check.
 func memberInheritsWorkspaceKey(manifest, key, workspaceValue string) bool {
 	section := ""
-	for _, raw := range strings.Split(manifest, "\n") {
+	for _, raw := range tomlVisibleLines(manifest) {
 		line := strings.TrimSpace(stripTOMLLineComment(raw))
 		if name, ok := tomlSectionName(line); ok {
 			section = name
@@ -836,7 +847,7 @@ func (r *gateRunner) gateMSRV(meta *cargoMetadata, metaErr error) (bool, string)
 	// available for a below-MSRV differential build?
 	exit, listing := r.execStep(g, "rustup-toolchain-list", r.rustDir, true, "rustup", "toolchain", "list")
 	if exit != 0 {
-		return false, fmt.Sprintf("rustup toolchain list exited %d", exit)
+		return false, fmt.Sprintf("rustup toolchain list %s", exitDescription(exit))
 	}
 	versioned, symbolic := parseInstalledToolchains(listing)
 	olderAvailable := false
@@ -954,7 +965,7 @@ func (r *gateRunner) gateAudit(meta *cargoMetadata, metaErr error) (bool, string
 		r.note(g, "probe=%s result=%q", tool.binary, path)
 		exit, _ := r.execStep(g, "run-"+tool.binary, r.rustDir, false, "cargo", tool.args...)
 		if exit != 0 {
-			return false, fmt.Sprintf("%s exited %d", tool.binary, exit)
+			return false, fmt.Sprintf("%s %s", tool.binary, exitDescription(exit))
 		}
 		toolsRun++
 	}
@@ -979,10 +990,10 @@ func (r *gateRunner) gateLockfile() (bool, string) {
 		return false, fmt.Sprintf("Cargo.lock missing: %v", err)
 	}
 	if exit, _ := r.execStep(g, "cargo-build-locked", r.rustDir, false, "cargo", "build", "--workspace", "--locked"); exit != 0 {
-		return false, fmt.Sprintf("cargo build --locked exited %d", exit)
+		return false, fmt.Sprintf("cargo build --locked %s", exitDescription(exit))
 	}
 	if exit, _ := r.execStep(g, "cargo-metadata-locked", r.rustDir, false, "cargo", "metadata", "--format-version", "1", "--locked"); exit != 0 {
-		return false, fmt.Sprintf("cargo metadata --locked exited %d", exit)
+		return false, fmt.Sprintf("cargo metadata --locked %s", exitDescription(exit))
 	}
 	after, err := os.ReadFile(lockPath)
 	if err != nil {
@@ -1026,6 +1037,24 @@ func evaluateCanaryPolarity(good, bad canaryResult) []string {
 	}
 	if bad.clippyExit == 0 {
 		violations = append(violations, fmt.Sprintf("bad canary %s PASSED clippy -D warnings — the lint gate cannot detect a violation", bad.name))
+	}
+	// Review 01a0446e: a command that never ran (no ProcessState) is NOT a
+	// detection — for either canary, on any step, it is its own violation.
+	for _, probe := range []struct {
+		name string
+		step string
+		exit int
+	}{
+		{good.name, "forbid scan", good.scanExit},
+		{good.name, "clippy", good.clippyExit},
+		{good.name, "tests", good.testExit},
+		{bad.name, "forbid scan", bad.scanExit},
+		{bad.name, "clippy", bad.clippyExit},
+	} {
+		if probe.exit == exitNoProcessState {
+			violations = append(violations, fmt.Sprintf(
+				"canary %s: the %s step never produced a process state — polarity cannot be judged from a command that did not run", probe.name, probe.step))
+		}
 	}
 	return violations
 }
