@@ -99,6 +99,7 @@ impl OutboundFragmentState {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FragmentPlan {
+    Rejected,
     Unfragmented(Option<DeliveryKind>),
     Control(Opcode),
     Begin(DeliveryKind),
@@ -111,6 +112,7 @@ pub(crate) enum FragmentPlan {
 impl FragmentPlan {
     pub(crate) const fn event_slots(self) -> usize {
         match self {
+            Self::Rejected => 0,
             Self::Unfragmented(Some(_))
             | Self::Continue {
                 final_frame: true, ..
@@ -224,6 +226,7 @@ impl FragmentAccumulator {
         };
 
         match plan {
+            FragmentPlan::Rejected => unreachable!("rejected plans are decoder-only"),
             FragmentPlan::Unfragmented(Some(kind)) => {
                 kind.admit(config, header.payload_length(), staged_event_count)?;
             }
@@ -273,6 +276,7 @@ impl FragmentAccumulator {
         payload_length: usize,
     ) -> Result<(), FailureKind> {
         match plan {
+            FragmentPlan::Rejected => {}
             FragmentPlan::Begin(kind) => {
                 let mut payload = Vec::new();
                 if payload_length != 0 && payload.try_reserve_exact(payload_length).is_err() {
@@ -322,6 +326,7 @@ impl FragmentAccumulator {
         payload: &[u8],
     ) -> Result<Option<MessageDelivery>, Utf8Failure> {
         match plan {
+            FragmentPlan::Rejected => {}
             FragmentPlan::Begin(_) | FragmentPlan::Continue { .. } => {
                 if matches!(
                     plan,

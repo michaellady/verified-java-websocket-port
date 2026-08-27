@@ -137,6 +137,174 @@ fn public_empty_bytes_in_closed_are_a_no_op_distinct_from_eof() {
     assert_eq!(accounting.post_state, ConnectionState::Closed);
 }
 
+#[test]
+fn public_header_rejections_report_the_authoritative_consumed_prefix() {
+    const REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    const CONTROL_NONFIN: &[u8] = b"\x09\x84\xae\xdd\xf2\xad\x29\xaa\x22\x8a";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+    let mut core = ConnectionCore::new(config.clone(), Role::Server);
+    assert_eq!(
+        core.step(CoreInput::Transport(TransportBytes::new(REQUEST)))
+            .state(),
+        ConnectionState::Open
+    );
+    let fragmented_control = core.step(CoreInput::Transport(TransportBytes::new(CONTROL_NONFIN)));
+    assert_eq!(
+        fragmented_control.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Frame(
+            websocket_core::FrameFailure::FragmentedControl {
+                opcode: websocket_core::Opcode::Ping,
+            }
+        ))
+    );
+    assert_eq!(
+        core.last_step_observation().accounting().bytes_consumed,
+        CONTROL_NONFIN.len()
+    );
+
+    let mut oversized = ConnectionCore::new(config, Role::Server);
+    assert_eq!(
+        oversized
+            .step(CoreInput::Transport(TransportBytes::new(REQUEST)))
+            .state(),
+        ConnectionState::Open
+    );
+    let rejected = oversized.step(CoreInput::Transport(TransportBytes::new(&[
+        0x89, 0xfe, 0x00, 0x7e,
+    ])));
+    assert_eq!(
+        rejected.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Frame(
+            websocket_core::FrameFailure::ControlPayloadTooLarge { length: 126 }
+        ))
+    );
+    assert_eq!(
+        oversized
+            .last_step_observation()
+            .accounting()
+            .bytes_consumed,
+        2
+    );
+}
+
+#[test]
+fn public_fragment_sequence_failures_observe_the_rejected_frame_and_retained_message() {
+    const REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    const UNEXPECTED_CONTINUATION: &[u8] = b"\x80\x83\x1c\x9b\xca\xdf\xfe\xf5\x41";
+    const FRAGMENT_START: &[u8] = b"\x01\x83\x06\x5e\x10\x39\x51\x23\x2d";
+    const DATA_DURING_FRAGMENT: &[u8] = b"\x82\x83\x7a\x82\x41\x89\x25\x26\xaa";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+
+    let mut continuation = ConnectionCore::new(config.clone(), Role::Server);
+    let _ = continuation.step(CoreInput::Transport(TransportBytes::new(REQUEST)));
+    let rejected = continuation.step(CoreInput::Transport(TransportBytes::new(
+        UNEXPECTED_CONTINUATION,
+    )));
+    assert_eq!(
+        rejected.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Fragment(
+            websocket_core::FragmentFailure::ContinuationWithoutMessage
+        ))
+    );
+    let observation = continuation.last_step_observation();
+    assert_eq!(observation.accounting().bytes_consumed, 9);
+    assert_eq!(observation.frames().len(), 1);
+
+    let mut active = ConnectionCore::new(config, Role::Server);
+    let _ = active.step(CoreInput::Transport(TransportBytes::new(REQUEST)));
+    assert_eq!(
+        active
+            .step(CoreInput::Transport(TransportBytes::new(FRAGMENT_START)))
+            .failure(),
+        None
+    );
+    assert_eq!(
+        active
+            .last_step_observation()
+            .accounting()
+            .message_buffered_bytes,
+        3
+    );
+    let rejected = active.step(CoreInput::Transport(TransportBytes::new(
+        DATA_DURING_FRAGMENT,
+    )));
+    assert_eq!(
+        rejected.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Fragment(
+            websocket_core::FragmentFailure::DataFrameWhileFragmented {
+                active: websocket_core::Opcode::Text,
+                received: websocket_core::Opcode::Binary,
+            }
+        ))
+    );
+    let observation = active.last_step_observation();
+    assert_eq!(observation.accounting().bytes_consumed, 9);
+    assert_eq!(observation.accounting().message_buffered_bytes, 3);
+    assert_eq!(observation.frames().len(), 1);
+}
+
+#[test]
+fn public_data_frame_in_closing_is_observed_then_rejected_without_transition() {
+    const REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    const DATA_IN_CLOSING: &[u8] = b"\x81\x83\xb0\xd2\x35\x2c\x9b\xf5\x6e";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+    let mut core = ConnectionCore::new(config, Role::Server);
+    let _ = core.step(CoreInput::Transport(TransportBytes::new(REQUEST)));
+    assert_eq!(
+        core.step(CoreInput::Command(LocalCommand::Close {
+            code: Some(1000),
+            reason: "".into(),
+            mask_key: None,
+        }))
+        .state(),
+        ConnectionState::Closing
+    );
+
+    let rejected = core.step(CoreInput::Transport(TransportBytes::new(DATA_IN_CLOSING)));
+    assert_eq!(
+        rejected.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::InvalidState {
+            input: websocket_core::InputKind::TransportBytes,
+            state: ConnectionState::Closing,
+        })
+    );
+    assert_eq!(rejected.state(), ConnectionState::Closing);
+    assert_eq!(rejected.outputs().len(), 0);
+    let observation = core.last_step_observation();
+    assert_eq!(
+        observation.accounting().bytes_consumed,
+        DATA_IN_CLOSING.len()
+    );
+    assert_eq!(observation.frames().len(), 1);
+    assert_eq!(observation.accounting().pre_state, ConnectionState::Closing);
+    assert_eq!(
+        observation.accounting().post_state,
+        ConnectionState::Closing
+    );
+}
+
+#[test]
+fn public_eof_in_closed_is_a_typed_state_violation() {
+    const REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+    let mut core = ConnectionCore::new(config, Role::Server);
+    let _ = core.step(CoreInput::Transport(TransportBytes::new(REQUEST)));
+    assert_eq!(
+        core.step(CoreInput::TransportEof).state(),
+        ConnectionState::Closed
+    );
+    let rejected = core.step(CoreInput::TransportEof);
+    assert_eq!(
+        rejected.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::InvalidState {
+            input: websocket_core::InputKind::TransportEof,
+            state: ConnectionState::Closed,
+        })
+    );
+    assert_eq!(rejected.state(), ConnectionState::Closed);
+    assert_eq!(rejected.outputs().len(), 0);
+}
+
 const BYTE_CEILING: u64 = 1_048_576;
 const QUEUE_CEILING: u64 = 4_096;
 

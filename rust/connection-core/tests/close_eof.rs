@@ -505,12 +505,21 @@ fn duplicate_close_windows_are_typed_and_exactly_once() {
         vec![&CoreOutput::StateChanged(ConnectionState::Closed)]
     );
 
-    for input in [CoreInput::TransportEof, CoreInput::TransportWriteFlushed] {
-        let repeated = peer_first.step(input);
-        assert_eq!(failure(&repeated), None);
-        assert_eq!(repeated.state(), ConnectionState::Closed);
-        assert_eq!(repeated.outputs().len(), 0);
-    }
+    let repeated_eof = peer_first.step(CoreInput::TransportEof);
+    assert_eq!(
+        failure(&repeated_eof),
+        Some(&FailureKind::InvalidState {
+            input: InputKind::TransportEof,
+            state: ConnectionState::Closed,
+        })
+    );
+    assert_eq!(repeated_eof.state(), ConnectionState::Closed);
+    assert_eq!(repeated_eof.outputs().len(), 0);
+
+    let repeated_flush = peer_first.step(CoreInput::TransportWriteFlushed);
+    assert_eq!(failure(&repeated_flush), None);
+    assert_eq!(repeated_flush.state(), ConnectionState::Closed);
+    assert_eq!(repeated_flush.outputs().len(), 0);
 }
 
 #[test]
@@ -541,15 +550,13 @@ fn closing_observes_ping_pong_without_reply_and_rejects_data() {
     let rejected = core.step(CoreInput::Transport(TransportBytes::new(&data)));
     assert_eq!(
         failure(&rejected),
-        Some(&FailureKind::Close(CloseFailure::DataAfterClose {
-            opcode: Opcode::Text,
-        }))
+        Some(&FailureKind::InvalidState {
+            input: InputKind::TransportBytes,
+            state: ConnectionState::Closing,
+        })
     );
-    assert_eq!(rejected.state(), ConnectionState::Closed);
-    assert_eq!(
-        rejected.outputs().collect::<Vec<_>>(),
-        vec![&CoreOutput::StateChanged(ConnectionState::Closed)]
-    );
+    assert_eq!(rejected.state(), ConnectionState::Closing);
+    assert_eq!(rejected.outputs().len(), 0);
 }
 
 #[test]
@@ -818,11 +825,13 @@ fn closing_data_opcode_precedes_message_validation_and_event_admission() {
     let rejected = invalid_utf8.step(CoreInput::Transport(TransportBytes::new(&invalid_text)));
     assert_eq!(
         failure(&rejected),
-        Some(&FailureKind::Close(CloseFailure::DataAfterClose {
-            opcode: Opcode::Text,
-        }))
+        Some(&FailureKind::InvalidState {
+            input: InputKind::TransportBytes,
+            state: ConnectionState::Closing,
+        })
     );
-    assert_eq!(rejected.outputs().len(), 1);
+    assert_eq!(rejected.state(), ConnectionState::Closing);
+    assert_eq!(rejected.outputs().len(), 0);
 
     for opcode in [Opcode::Text, Opcode::Binary, Opcode::Continuation] {
         let event_limited = config_with(|limits| limits.event_queue_entries = 1);
@@ -832,9 +841,14 @@ fn closing_data_opcode_precedes_message_validation_and_event_admission() {
         let rejected = backpressured.step(CoreInput::Transport(TransportBytes::new(&data)));
         assert_eq!(
             failure(&rejected),
-            Some(&FailureKind::Close(CloseFailure::DataAfterClose { opcode }))
+            Some(&FailureKind::InvalidState {
+                input: InputKind::TransportBytes,
+                state: ConnectionState::Closing,
+            }),
+            "closing opcode {opcode:?} must be rejected before event admission"
         );
-        assert_eq!(rejected.outputs().len(), 1);
+        assert_eq!(rejected.state(), ConnectionState::Closing);
+        assert_eq!(rejected.outputs().len(), 0);
     }
 
     let mut malformed = open_core(Role::Server, config());
@@ -851,7 +865,7 @@ fn closing_data_opcode_precedes_message_validation_and_event_admission() {
 }
 
 #[test]
-fn closed_rejects_new_protocol_inputs_but_flush_and_eof_are_noops() {
+fn closed_rejects_new_protocol_inputs_and_eof_but_flush_is_a_noop() {
     let mut core = open_core(Role::Server, config());
     let wire = encoded(Role::Client, &[]);
     core.step(CoreInput::Transport(TransportBytes::new(&wire)));
@@ -869,11 +883,21 @@ fn closed_rejects_new_protocol_inputs_but_flush_and_eof_are_noops() {
             state: ConnectionState::Closed,
         })
     );
-    for input in [CoreInput::TransportEof, CoreInput::TransportWriteFlushed] {
-        let noop = core.step(input);
-        assert_eq!(failure(&noop), None);
-        assert_eq!(noop.outputs().len(), 0);
-    }
+    let eof = core.step(CoreInput::TransportEof);
+    assert_eq!(
+        failure(&eof),
+        Some(&FailureKind::InvalidState {
+            input: InputKind::TransportEof,
+            state: ConnectionState::Closed,
+        })
+    );
+    assert_eq!(eof.state(), ConnectionState::Closed);
+    assert_eq!(eof.outputs().len(), 0);
+
+    let flush = core.step(CoreInput::TransportWriteFlushed);
+    assert_eq!(failure(&flush), None);
+    assert_eq!(flush.state(), ConnectionState::Closed);
+    assert_eq!(flush.outputs().len(), 0);
 }
 
 #[test]
@@ -985,7 +1009,10 @@ fn us016_retained_seeds_execute_through_the_connection_core() {
                 )));
                 assert!(matches!(
                     failure(&core.step(CoreInput::Transport(TransportBytes::new(&wire)))),
-                    Some(FailureKind::Close(CloseFailure::DataAfterClose { .. }))
+                    Some(FailureKind::InvalidState {
+                        input: InputKind::TransportBytes,
+                        state: ConnectionState::Closing,
+                    })
                 ));
             }
             "peer-close-twice" => {
@@ -1027,12 +1054,16 @@ fn us016_retained_seeds_execute_through_the_connection_core() {
                     fragment.as_slice(),
                 )));
                 core.step(CoreInput::Command(local_close(Role::Server, None, "")));
+                let rejected = core.step(CoreInput::Transport(TransportBytes::new(&continuation)));
                 assert_eq!(
-                    failure(&core.step(CoreInput::Transport(TransportBytes::new(&continuation,)))),
-                    Some(&FailureKind::Close(CloseFailure::DataAfterClose {
-                        opcode: Opcode::Continuation,
-                    }))
+                    failure(&rejected),
+                    Some(&FailureKind::InvalidState {
+                        input: InputKind::TransportBytes,
+                        state: ConnectionState::Closing,
+                    })
                 );
+                assert_eq!(rejected.state(), ConnectionState::Closing);
+                assert_eq!(rejected.outputs().len(), 0);
             }
             other => panic!("unrecognized executable US016 seed: {other}"),
         }

@@ -6,7 +6,7 @@ use crate::fragment::{FragmentAccumulator, FragmentPlan};
 use crate::frame::{Frame, Opcode, apply_mask_in_place};
 use crate::message::{DeliveryKind, MessageDelivery};
 use crate::utf8::Utf8Validator;
-use crate::{ConnectionConfig, FailureKind, FrameFailure, LimitKind, Role};
+use crate::{ConnectionConfig, FailureKind, FragmentFailure, FrameFailure, LimitKind, Role};
 
 const MAX_HEADER_BYTES: usize = 14;
 
@@ -89,10 +89,6 @@ impl FrameHeaderDecoder {
         Self::decode_header_inner(Some(config), role, retained_payload_bytes, prefix)
     }
 
-    fn decode_header_syntax(role: Role, prefix: &[u8]) -> Result<FrameHeaderDecode, FailureKind> {
-        Self::decode_header_inner(None, role, 0, prefix)
-    }
-
     fn decode_header_inner(
         config: Option<&ConnectionConfig>,
         role: Role,
@@ -122,6 +118,11 @@ impl FrameHeaderDecoder {
         }
 
         let length_code = second & 0x7f;
+        if opcode.is_control() && length_code > 125 {
+            return Err(FailureKind::Frame(FrameFailure::ControlPayloadTooLarge {
+                length: u64::from(length_code),
+            }));
+        }
         let extended_bytes = match length_code {
             126 => 2,
             127 => 8,
@@ -234,6 +235,7 @@ pub(crate) struct FrameDecoder {
     header_length: usize,
     active: Option<FrameHeader>,
     plan: Option<FragmentPlan>,
+    semantic_failure: Option<FailureKind>,
     payload: Vec<u8>,
     utf8: Utf8Validator,
     fragments: FragmentAccumulator,
@@ -246,6 +248,7 @@ impl FrameDecoder {
             header_length: 0,
             active: None,
             plan: None,
+            semantic_failure: None,
             payload: Vec::new(),
             utf8: Utf8Validator::new(),
             fragments: FragmentAccumulator::new(),
@@ -300,29 +303,8 @@ impl FrameDecoder {
                     }
                 };
                 let prefix = &self.header[..self.header_length];
-                let decode = if closing {
-                    match FrameHeaderDecoder::decode_header_syntax(role, prefix) {
-                        Ok(FrameHeaderDecode::Complete(header))
-                            if matches!(
-                                header.opcode(),
-                                Opcode::Text | Opcode::Binary | Opcode::Continuation
-                            ) =>
-                        {
-                            Err(FailureKind::Close(crate::CloseFailure::DataAfterClose {
-                                opcode: header.opcode(),
-                            }))
-                        }
-                        Ok(FrameHeaderDecode::Complete(_)) => FrameHeaderDecoder::decode_header(
-                            config,
-                            role,
-                            retained_payload_bytes,
-                            prefix,
-                        ),
-                        other => other,
-                    }
-                } else {
-                    FrameHeaderDecoder::decode_header(config, role, retained_payload_bytes, prefix)
-                };
+                let decode =
+                    FrameHeaderDecoder::decode_header(config, role, retained_payload_bytes, prefix);
                 match decode {
                     Ok(FrameHeaderDecode::Incomplete { minimum }) => {
                         let needed = minimum.saturating_sub(self.header_length);
@@ -340,16 +322,35 @@ impl FrameDecoder {
                     }
                     Ok(FrameHeaderDecode::Complete(header)) => {
                         let payload_length = header.payload_length();
-                        let plan = match self.fragments.plan(
-                            config,
-                            &header,
-                            staged_payload_bytes,
-                            staged_event_count,
-                        ) {
-                            Ok(plan) => plan,
-                            Err(failure) => {
-                                self.reset();
-                                return FrameDecodeBatch::failed(records, failure, offset);
+                        let (plan, semantic_failure) = if closing
+                            && matches!(
+                                header.opcode(),
+                                Opcode::Text | Opcode::Binary | Opcode::Continuation
+                            ) {
+                            (
+                                FragmentPlan::Rejected,
+                                Some(FailureKind::Close(crate::CloseFailure::DataAfterClose {
+                                    opcode: header.opcode(),
+                                })),
+                            )
+                        } else {
+                            match self.fragments.plan(
+                                config,
+                                &header,
+                                staged_payload_bytes,
+                                staged_event_count,
+                            ) {
+                                Ok(plan) => (plan, None),
+                                Err(
+                                    failure @ FailureKind::Fragment(
+                                        FragmentFailure::ContinuationWithoutMessage
+                                        | FragmentFailure::DataFrameWhileFragmented { .. },
+                                    ),
+                                ) => (FragmentPlan::Rejected, Some(failure)),
+                                Err(failure) => {
+                                    self.reset();
+                                    return FrameDecodeBatch::failed(records, failure, offset);
+                                }
                             }
                         };
                         if payload_length != 0
@@ -369,14 +370,19 @@ impl FrameDecoder {
                         self.utf8.reset();
                         self.active = Some(header);
                         self.plan = Some(plan);
+                        self.semantic_failure = semantic_failure;
                     }
                     Err(failure) => {
-                        let consumed_bytes =
-                            if matches!(failure, FailureKind::Frame(FrameFailure::ReservedBits)) {
-                                bytes.len()
-                            } else {
-                                offset
-                            };
+                        let consumed_bytes = if matches!(
+                            failure,
+                            FailureKind::Frame(
+                                FrameFailure::ReservedBits | FrameFailure::FragmentedControl { .. }
+                            )
+                        ) {
+                            bytes.len()
+                        } else {
+                            offset
+                        };
                         self.reset();
                         return FrameDecodeBatch::failed(records, failure, consumed_bytes);
                     }
@@ -400,6 +406,7 @@ impl FrameDecoder {
                 }
                 if header.fin()
                     && header.opcode() == Opcode::Text
+                    && self.semantic_failure.is_none()
                     && let Err(failure) = self.utf8.feed(&self.payload[prior_payload_offset..])
                 {
                     self.reset();
@@ -497,8 +504,12 @@ impl FrameDecoder {
                 wire_length: header
                     .header_length()
                     .saturating_add(header.payload_length()),
+                rejected: self.semantic_failure.is_some(),
             });
             self.header_length = 0;
+            if let Some(failure) = self.semantic_failure.take() {
+                return FrameDecodeBatch::failed(records, failure, offset);
+            }
         }
 
         FrameDecodeBatch {
@@ -518,6 +529,7 @@ impl FrameDecoder {
         self.header_length = 0;
         self.active = None;
         self.plan = None;
+        self.semantic_failure = None;
         self.payload = Vec::new();
         self.utf8.reset();
         self.fragments.reset();
@@ -529,6 +541,7 @@ pub(crate) struct DecodedFrame {
     pub(crate) delivery: Option<DecodedDelivery>,
     pub(crate) retained_payload_bytes: usize,
     pub(crate) wire_length: usize,
+    pub(crate) rejected: bool,
 }
 
 pub(crate) enum DecodedDelivery {

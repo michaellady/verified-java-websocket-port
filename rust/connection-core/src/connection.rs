@@ -978,6 +978,7 @@ pub struct ConnectionCore {
     close: CloseMachine,
     last_step_observation: CoreStepObservation,
     last_decoder_consumed: usize,
+    last_decoder_buffers: Option<(usize, usize)>,
     step_frames: Vec<FrameObservation>,
 }
 
@@ -1001,6 +1002,7 @@ impl ConnectionCore {
             close: CloseMachine::new(),
             last_step_observation: CoreStepObservation::initial(),
             last_decoder_consumed: 0,
+            last_decoder_buffers: None,
             step_frames: Vec::new(),
         }
     }
@@ -1018,6 +1020,7 @@ impl ConnectionCore {
         let decoder_path = offered_bytes.is_some()
             && matches!(pre_state, ConnectionState::Open | ConnectionState::Closing);
         self.last_decoder_consumed = 0;
+        self.last_decoder_buffers = None;
         self.step_frames.clear();
         let result = self.step_protocol(input);
         let bytes_consumed = offered_bytes.map_or(0, |offered| {
@@ -1034,8 +1037,14 @@ impl ConnectionCore {
                 pre_state,
                 post_state: result.state(),
                 bytes_consumed,
-                wire_buffered_bytes: self.frame_decoder.retained_wire_bytes(),
-                message_buffered_bytes: self.frame_decoder.retained_message_bytes(),
+                wire_buffered_bytes: self.last_decoder_buffers.map_or_else(
+                    || self.frame_decoder.retained_wire_bytes(),
+                    |buffers| buffers.0,
+                ),
+                message_buffered_bytes: self.last_decoder_buffers.map_or_else(
+                    || self.frame_decoder.retained_message_bytes(),
+                    |buffers| buffers.1,
+                ),
             },
             frames: core::mem::take(&mut self.step_frames),
         };
@@ -1046,7 +1055,8 @@ impl ConnectionCore {
         if self.state == ConnectionState::Closed {
             let is_no_op = match &input {
                 CoreInput::Transport(bytes) => bytes.as_slice().is_empty(),
-                CoreInput::TransportEof | CoreInput::TransportWriteFlushed => true,
+                CoreInput::TransportWriteFlushed => true,
+                CoreInput::TransportEof => false,
                 CoreInput::Command(_) => false,
             };
             if is_no_op {
@@ -1534,6 +1544,10 @@ impl ConnectionCore {
             closing,
         );
         self.last_decoder_consumed = batch.consumed_bytes;
+        self.last_decoder_buffers = Some((
+            self.frame_decoder.retained_wire_bytes(),
+            self.frame_decoder.retained_message_bytes(),
+        ));
         if self.state == ConnectionState::Closing
             || batch
                 .records
@@ -1565,6 +1579,9 @@ impl ConnectionCore {
         }
         for record in batch.records {
             self.record_inbound_frame(&record);
+            if record.rejected {
+                continue;
+            }
             let automatic =
                 should_automatically_pong(&self.config, self.role, record.frame.opcode());
             let encoded_pong = if automatic {
@@ -1625,6 +1642,7 @@ impl ConnectionCore {
         let started_open = self.state == ConnectionState::Open;
         let mut prefix_end = records.len();
         let mut close_index = None;
+        let mut invalid_closing_data_index = None;
         let mut terminal_failure = None;
 
         for (index, record) in records.iter().enumerate() {
@@ -1639,6 +1657,7 @@ impl ConnectionCore {
                     opcode @ (Opcode::Text | Opcode::Binary | Opcode::Continuation),
                 ) => {
                     prefix_end = index;
+                    invalid_closing_data_index = Some(index);
                     terminal_failure = Some(FailureKind::Close(
                         crate::close::CloseFailure::DataAfterClose { opcode },
                     ));
@@ -1828,6 +1847,23 @@ impl ConnectionCore {
             if let Err(failure) = self.append_record_outputs(&mut outputs, record, automatic) {
                 return self.close_after_prefix(outputs, failure);
             }
+        }
+
+        if let Some(index) = invalid_closing_data_index {
+            debug_assert_eq!(index, prefix_end);
+            let record = iterator.next().expect("planned rejected data record");
+            self.record_inbound_frame(&record);
+            return StepResult {
+                outputs: outputs.into_boxed_slice(),
+                failure: Some(TypedProtocolFailure {
+                    kind: FailureKind::InvalidState {
+                        input: InputKind::TransportBytes,
+                        state: ConnectionState::Closing,
+                    },
+                    state_after: ConnectionState::Closing,
+                }),
+                state: ConnectionState::Closing,
+            };
         }
 
         if close_index.is_some() {

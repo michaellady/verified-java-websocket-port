@@ -1409,7 +1409,13 @@ fn wrong_role_and_terminal_failures_are_non_mutating_or_single_transition() {
     }
     let repeated_eof = fatal.step(CoreInput::TransportEof);
     assert_eq!(repeated_eof.outputs().len(), 0);
-    assert_eq!(repeated_eof.failure(), None);
+    assert_eq!(
+        repeated_eof.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::InvalidState {
+            input: InputKind::TransportEof,
+            state: ConnectionState::Closed,
+        })
+    );
     assert_eq!(repeated_eof.state(), ConnectionState::Closed);
 }
 

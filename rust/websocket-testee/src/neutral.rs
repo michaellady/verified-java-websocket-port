@@ -6,9 +6,9 @@
 use std::io::{Read, Write};
 
 use websocket_core::{
-    ClientRequestDescriptor, CloseFailure, CloseInitiator, ConnectionConfig, ConnectionLimits,
-    ConnectionState, FailureKind, FragmentFailure, FragmentKind, FrameDirection, FrameFailure,
-    LimitKind, LocalCommand, QueueKind, Role, SemanticEvent, TransportBytes, TypedProtocolFailure,
+    ClientRequestDescriptor, CloseFailure, ConnectionConfig, ConnectionLimits, ConnectionState,
+    FailureKind, FragmentFailure, FragmentKind, FrameDirection, FrameFailure, LimitKind,
+    LocalCommand, QueueKind, Role, SemanticEvent, TransportBytes, TypedProtocolFailure,
     Utf8Failure,
 };
 use websocket_driver::{
@@ -21,6 +21,7 @@ const MAX_STEPS: usize = 64;
 const MAX_TURNS: usize = 4_096;
 const CLIENT_CLOSE: &[u8] = b"\x88\x82\x01\x02\x03\x04\x02\xea";
 const SERVER_CLOSE: &[u8] = b"\x88\x02\x03\xe8";
+const ABNORMAL_EOF_REASON: &str = "transport EOF before close handshake completed";
 
 /// Opaque fail-closed neutral-transport rejection.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -150,6 +151,7 @@ struct Session {
     owner: ConnectionOwner,
     state: ConnectionState,
     core_sequence: u64,
+    scenario_close: Option<CloseRecord>,
 }
 
 /// Runs exactly one bounded `NDRV1` request and emits exactly one `NOBS1` response.
@@ -168,58 +170,89 @@ pub fn run_neutral(mut input: impl Read, mut output: impl Write) -> Result<(), N
     let mut terminal_close = None;
 
     for (index, step) in request.steps.iter().enumerate() {
+        let mut intake_failure = None;
         if step.is_action() {
             action_count = action_count.checked_add(1).ok_or(NeutralError)?;
             if action_count > request.limits.max_actions {
-                return Err(NeutralError);
+                intake_failure = Some("ACTION_LIMIT_EXCEEDED");
             }
         }
         if let Step::Bytes(bytes) = step {
-            input_count = input_count
+            let attempted = input_count
                 .checked_add(u64::try_from(bytes.len()).map_err(|_| NeutralError)?)
                 .ok_or(NeutralError)?;
-            if input_count > request.limits.max_input {
-                return Err(NeutralError);
+            if attempted > request.limits.max_input {
+                intake_failure = Some("INPUT_LIMIT_EXCEEDED");
+            } else {
+                input_count = attempted;
             }
         }
-        let response = drive_scenario_step(
+        if let Some(class) = intake_failure {
+            responses.push(limit_step_response(
+                &session,
+                u16::try_from(index).map_err(|_| NeutralError)?,
+                step,
+                class,
+            )?);
+            break;
+        }
+        let mut response = drive_scenario_step(
             &mut session,
             u16::try_from(index).map_err(|_| NeutralError)?,
             step,
             request.initial_state,
         )?;
-        for observation in &response.observations {
+        let mut limited_observations = Vec::new();
+        let mut step_limit = None;
+        for observation in response.observations {
             match observation {
                 Observation::Frame { .. } => {
-                    frame_count = frame_count.checked_add(1).ok_or(NeutralError)?;
+                    let attempted = frame_count.checked_add(1).ok_or(NeutralError)?;
+                    if attempted > request.limits.max_frames {
+                        step_limit = Some("FRAME_LIMIT_EXCEEDED");
+                        continue;
+                    }
+                    frame_count = attempted;
                 }
                 Observation::Transport {
                     direction: 2,
-                    bytes,
+                    ref bytes,
                 } => {
-                    output_count = output_count
+                    let attempted = output_count
                         .checked_add(u64::try_from(bytes.len()).map_err(|_| NeutralError)?)
                         .ok_or(NeutralError)?;
+                    if attempted > request.limits.max_output {
+                        step_limit = Some("OUTPUT_LIMIT_EXCEEDED");
+                        continue;
+                    }
+                    output_count = attempted;
                 }
-                Observation::Close(close) => terminal_close = Some(close.clone()),
+                Observation::Close(ref close) => terminal_close = Some(close.clone()),
                 _ => {}
             }
+            limited_observations.push(observation);
         }
-        if frame_count > request.limits.max_frames || output_count > request.limits.max_output {
-            return Err(NeutralError);
+        if let Some(class) = step_limit {
+            limited_observations.retain(|observation| {
+                !matches!(
+                    observation,
+                    Observation::Event(_, _) | Observation::Error { .. }
+                )
+            });
+            limited_observations.push(Observation::Error {
+                terminal: false,
+                class,
+            });
+            response.observations = limited_observations;
+            session.state = response.accounting.post;
+            responses.push(response);
+            break;
         }
+        response.observations = limited_observations;
         session.state = response.accounting.post;
         responses.push(response);
     }
 
-    if let Some(close) = terminal_close.as_mut() {
-        close.clean = session.state == ConnectionState::Closed
-            && !responses.iter().any(|step| {
-                step.observations
-                    .iter()
-                    .any(|item| matches!(item, Observation::Error { .. }))
-            });
-    }
     let body = encode_response(
         &request,
         &bootstrap,
@@ -426,9 +459,6 @@ fn config_for(limits: Limits) -> Result<ConnectionConfig, NeutralError> {
         frame_bytes: limits.max_buffered,
         message_bytes: limits.max_buffered,
         total_buffered_bytes: limits.max_buffered,
-        event_queue_entries: limits.max_frames,
-        command_queue_entries: limits.max_actions,
-        write_queue_entries: limits.max_frames,
         ..ConnectionLimits::default()
     })
     .map_err(|_| NeutralError)
@@ -446,6 +476,7 @@ fn bootstrap(
         owner,
         state: ConnectionState::Connecting,
         core_sequence: 0,
+        scenario_close: None,
     };
     let mut transcript = Vec::new();
     match role {
@@ -538,6 +569,7 @@ fn handshake_material(config: ConnectionConfig) -> Result<(Vec<u8>, Vec<u8>), Ne
         owner: client_owner,
         state: ConnectionState::Connecting,
         core_sequence: 0,
+        scenario_close: None,
     };
     let descriptor = ClientRequestDescriptor::try_new("/chat", "server.example.com")
         .map_err(|_| NeutralError)?;
@@ -559,6 +591,7 @@ fn handshake_material(config: ConnectionConfig) -> Result<(Vec<u8>, Vec<u8>), Ne
         owner: server_owner,
         state: ConnectionState::Connecting,
         core_sequence: 0,
+        scenario_close: None,
     };
     let mut server_observations = Vec::new();
     let _ = drive_input(
@@ -589,7 +622,7 @@ fn drive_scenario_step(
     session: &mut Session,
     index: u16,
     step: &Step,
-    initial_state: InitialState,
+    _initial_state: InitialState,
 ) -> Result<StepResponse, NeutralError> {
     let pre = session.owner.state();
     let mut observations = Vec::new();
@@ -628,15 +661,36 @@ fn drive_scenario_step(
             _ => drive_command(session, command_for(step)?, &mut observations, false)?,
         }
     };
-    if initial_state == InitialState::Closing {
-        for observation in &mut observations {
-            if let Observation::Close(close) = observation
-                && close.origin == 1
-            {
-                close.origin = 3;
-            }
-        }
+
+    if let Step::Close { code, reason, .. } = step
+        && !observations
+            .iter()
+            .any(|observation| matches!(observation, Observation::Error { .. }))
+    {
+        append_close_observations(
+            CloseRecord {
+                code: *code,
+                reason: reason.to_string(),
+                clean: false,
+                origin: 1,
+            },
+            &mut observations,
+        )?;
     }
+    if matches!(step, Step::Eof) {
+        project_eof(pre, session.scenario_close.as_ref(), &mut observations)?;
+    }
+    if let Some(close) = observations
+        .iter()
+        .rev()
+        .find_map(|observation| match observation {
+            Observation::Close(close) => Some(close.clone()),
+            _ => None,
+        })
+    {
+        session.scenario_close = Some(close);
+    }
+
     Ok(StepResponse {
         index,
         input_tag: step.input_tag(),
@@ -647,6 +701,96 @@ fn drive_scenario_step(
         },
         observations,
     })
+}
+
+fn limit_step_response(
+    session: &Session,
+    index: u16,
+    step: &Step,
+    class: &'static str,
+) -> Result<StepResponse, NeutralError> {
+    let state = session.owner.state();
+    let (wire_buffered, message_buffered) =
+        session
+            .owner
+            .last_core_observation()
+            .map_or((0, 0), |observation| {
+                let accounting = observation.accounting();
+                (
+                    u64::try_from(accounting.wire_buffered_bytes).unwrap_or(u64::MAX),
+                    u64::try_from(accounting.message_buffered_bytes).unwrap_or(u64::MAX),
+                )
+            });
+    if wire_buffered == u64::MAX || message_buffered == u64::MAX {
+        return Err(NeutralError);
+    }
+    Ok(StepResponse {
+        index,
+        input_tag: step.input_tag(),
+        accounting: Accounting {
+            pre: state,
+            post: state,
+            consumed: 0,
+            wire_buffered,
+            message_buffered,
+        },
+        observations: vec![Observation::Error {
+            terminal: false,
+            class,
+        }],
+    })
+}
+
+fn project_eof(
+    pre: ConnectionState,
+    prior_close: Option<&CloseRecord>,
+    observations: &mut Vec<Observation>,
+) -> Result<(), NeutralError> {
+    let projected = observations.iter().any(|observation| {
+        matches!(
+            observation,
+            Observation::Error {
+                class: "CLOSE_UNEXPECTED_EOF_OPEN"
+                    | "CLOSE_EOF_BEFORE_PEER"
+                    | "CLOSE_EOF_BEFORE_ACK"
+                    | "CLOSE_EOF_BEFORE_FLUSH",
+                ..
+            }
+        )
+    });
+    if !projected {
+        return Ok(());
+    }
+    observations.retain(|observation| {
+        !matches!(
+            observation,
+            Observation::Error {
+                class: "CLOSE_UNEXPECTED_EOF_OPEN"
+                    | "CLOSE_EOF_BEFORE_PEER"
+                    | "CLOSE_EOF_BEFORE_ACK"
+                    | "CLOSE_EOF_BEFORE_FLUSH",
+                ..
+            }
+        )
+    });
+    let mut close = if pre == ConnectionState::Closing {
+        prior_close.cloned().unwrap_or(CloseRecord {
+            code: Some(1006),
+            reason: ABNORMAL_EOF_REASON.to_owned(),
+            clean: false,
+            origin: 5,
+        })
+    } else {
+        CloseRecord {
+            code: Some(1006),
+            reason: ABNORMAL_EOF_REASON.to_owned(),
+            clean: false,
+            origin: 5,
+        }
+    };
+    close.clean = false;
+    close.origin = 5;
+    append_close_observations(close, observations)
 }
 
 fn command_for(step: &Step) -> Result<LocalCommand, NeutralError> {
@@ -765,9 +909,7 @@ fn drive_input(
                 NeutralDriverInput::WriteProgress(bytes.len())
             }
             OwnedOutput::Event(event) => {
-                if let Some(observation) = event_observation(event) {
-                    observations.push(observation);
-                }
+                append_event_observations(event, observations)?;
                 if deferred {
                     initial
                 } else {
@@ -891,6 +1033,15 @@ fn capture_latest_core(
         });
     }
     let accounting = core.accounting();
+    if accounting.pre_state != accounting.post_state
+        && accounting.post_state == ConnectionState::Closed
+    {
+        observations.push(Observation::Transition(
+            accounting.pre_state,
+            accounting.post_state,
+        ));
+        session.state = accounting.post_state;
+    }
     Ok(Some(Accounting {
         pre: accounting.pre_state,
         post: accounting.post_state,
@@ -901,29 +1052,56 @@ fn capture_latest_core(
     }))
 }
 
-fn event_observation(event: SemanticEvent) -> Option<Observation> {
+fn append_event_observations(
+    event: SemanticEvent,
+    observations: &mut Vec<Observation>,
+) -> Result<(), NeutralError> {
     match event {
-        SemanticEvent::ClientHandshakeOpened { .. } => Some(Observation::Event(6, Vec::new())),
-        SemanticEvent::ServerHandshakeOpened { .. } => Some(Observation::Event(7, Vec::new())),
-        SemanticEvent::FrameReceived { .. } => None,
-        SemanticEvent::Text { message } => Some(payload_event(1, message.as_str().as_bytes())),
-        SemanticEvent::Binary { message } => Some(payload_event(2, message.as_slice())),
-        SemanticEvent::Ping { payload } => Some(payload_event(3, payload.as_slice())),
-        SemanticEvent::Pong { payload } => Some(payload_event(4, payload.as_slice())),
-        SemanticEvent::CloseReceived { close, initiator } => {
+        SemanticEvent::ClientHandshakeOpened { .. } => {
+            observations.push(Observation::Event(6, Vec::new()));
+        }
+        SemanticEvent::ServerHandshakeOpened { .. } => {
+            observations.push(Observation::Event(7, Vec::new()));
+        }
+        SemanticEvent::FrameReceived { .. } => {}
+        SemanticEvent::Text { message } => {
+            observations.push(payload_event(1, message.as_str().as_bytes()));
+        }
+        SemanticEvent::Binary { message } => {
+            observations.push(payload_event(2, message.as_slice()));
+        }
+        SemanticEvent::Ping { payload } => {
+            observations.push(payload_event(3, payload.as_slice()));
+        }
+        SemanticEvent::Pong { payload } => {
+            observations.push(payload_event(4, payload.as_slice()));
+        }
+        SemanticEvent::CloseReceived {
+            close,
+            initiator: _,
+        } => {
             let record = CloseRecord {
                 code: close.code(),
                 reason: close.reason().to_owned(),
-                clean: false,
-                origin: match initiator {
-                    CloseInitiator::Local => 1,
-                    CloseInitiator::Peer => 2,
-                },
+                clean: true,
+                origin: 2,
             };
-            Some(Observation::Close(record))
+            append_close_observations(record, observations)?;
         }
-        _ => None,
+        _ => {}
     }
+    Ok(())
+}
+
+fn append_close_observations(
+    close: CloseRecord,
+    observations: &mut Vec<Observation>,
+) -> Result<(), NeutralError> {
+    let mut body = Vec::new();
+    encode_close(&close, &mut body)?;
+    observations.push(Observation::Event(5, body));
+    observations.push(Observation::Close(close));
+    Ok(())
 }
 
 fn payload_event(tag: u8, payload: &[u8]) -> Observation {
