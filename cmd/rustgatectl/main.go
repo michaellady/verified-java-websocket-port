@@ -136,6 +136,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		{"audit", func() (bool, string) { return runner.gateAudit(metadata, metadataErr) }},
 		{"lockfile", runner.gateLockfile},
 		{"canaries", runner.gateCanaries},
+		{"adapter-linkage", func() (bool, string) { return runner.gateAdapterLinkage(metadata, metadataErr) }},
 	}
 
 	failures := 0
@@ -203,13 +204,20 @@ type cargoTarget struct {
 	SrcPath string   `json:"src_path"`
 }
 
+type cargoDependency struct {
+	Name string  `json:"name"`
+	Kind *string `json:"kind"`
+	Path *string `json:"path"`
+}
+
 type cargoPackage struct {
-	ID           string        `json:"id"`
-	Name         string        `json:"name"`
-	Version      string        `json:"version"`
-	Source       *string       `json:"source"`
-	ManifestPath string        `json:"manifest_path"`
-	Targets      []cargoTarget `json:"targets"`
+	ID           string            `json:"id"`
+	Name         string            `json:"name"`
+	Version      string            `json:"version"`
+	Source       *string           `json:"source"`
+	ManifestPath string            `json:"manifest_path"`
+	Targets      []cargoTarget     `json:"targets"`
+	Dependencies []cargoDependency `json:"dependencies"`
 }
 
 type cargoMetadata struct {

@@ -34,6 +34,7 @@ fn client_fixture(
         request_target: "/chat",
         host: "localhost",
         message,
+        ping: None,
         bounds,
     };
     run_client_once(&fixture).expect("client setup")
@@ -118,6 +119,138 @@ fn peer_loss_after_handshake_is_the_1006_transport_close() {
 }
 
 #[test]
+fn ping_scripted_client_completes_against_a_ponging_peer() {
+    // Cross-peer control rehearsal (US-018 AC4): the client fixture sends a
+    // scripted ping alongside its text; the peer routes Ping->SendPong at
+    // the ADAPTER layer (mirroring shipped Java's WebSocketImpl default
+    // auto-pong, which lives above the ported core — the core itself never
+    // replies on its own, Q18). The client must observe the pong semantic
+    // event and only then run the clean close.
+    use ws_core::{CommandSender, LocalCommand, SemanticEvent, SemanticEventKind};
+    use ws_testee::io_loop::EventPolicy;
+
+    struct PongingEcho;
+    impl EventPolicy for PongingEcho {
+        fn on_event(&mut self, event: &SemanticEvent, sender: &CommandSender) {
+            match &event.kind {
+                SemanticEventKind::Ping { data } => {
+                    let _ = sender.try_send(LocalCommand::SendPong { data: data.clone() });
+                }
+                SemanticEventKind::Text { text } => {
+                    let _ = sender.try_send(LocalCommand::SendText { text: text.clone() });
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = thread::spawn(move || {
+        let (mut stream, _peer) = listener.accept().expect("accept");
+        let (sender, mut driver) = ws_driver::connection_driver(
+            ConnectionConfig::default(),
+            ws_core::connection::Role::Server,
+        );
+        let mut report = ws_testee::io_loop::empty_report();
+        assert!(ws_testee::io_loop::drive_until_open(
+            &mut driver,
+            &mut stream,
+            &IoBounds::default(),
+            &mut report,
+        ));
+        let mut policy = PongingEcho;
+        ws_testee::io_loop::drive_connection(
+            &mut driver,
+            &sender,
+            &mut stream,
+            &IoBounds::default(),
+            &mut policy,
+            &mut report,
+        );
+        report
+    });
+
+    let fixture = ClientFixture {
+        address,
+        config: ConnectionConfig::default(),
+        request_target: "/chat",
+        host: "localhost",
+        message: "with-ping",
+        ping: Some(b"cp-ping".to_vec()),
+        bounds: IoBounds::default(),
+    };
+    let client = run_client_once(&fixture).expect("client setup");
+    let server = server.join().expect("server thread");
+
+    assert!(client.clean(), "client: {}", client.summary());
+    assert_eq!(client.texts, vec!["with-ping".to_owned()]);
+    assert_eq!(
+        client.pongs,
+        vec![b"cp-ping".to_vec()],
+        "pong echoes the ping payload"
+    );
+    assert!(server.clean(), "server: {}", server.summary());
+    assert_eq!(
+        server.pings,
+        vec![b"cp-ping".to_vec()],
+        "server observed the ping event"
+    );
+}
+
+#[test]
+fn failed_connect_is_a_normalized_setup_outcome() {
+    // Bind then drop a listener so the port is (momentarily) closed; the
+    // connect must fail with the normalized socket-error vocabulary, not a
+    // panic or a fabricated report.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    drop(listener);
+    let fixture = ClientFixture {
+        address,
+        config: ConnectionConfig::default(),
+        request_target: "/chat",
+        host: "localhost",
+        message: "never-sent",
+        ping: None,
+        bounds: IoBounds::default(),
+    };
+    match run_client_once(&fixture) {
+        Err(SetupOutcome::SocketFailed(kind)) => {
+            assert_eq!(kind, "ConnectionRefused", "normalized error kind");
+        }
+        other => panic!("expected SocketFailed setup outcome, got {other:?}"),
+    }
+}
+
+#[test]
+fn slow_writer_peer_completes_after_read_timeout_stalls() {
+    // AC2 slow reader/writer: the server stalls well past the client's
+    // per-attempt read timeout before accepting, so the client's read path
+    // takes many WouldBlock/TimedOut retries — the run must still complete
+    // cleanly with the same observables.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let impatient = IoBounds {
+        read_timeout: Duration::from_millis(2),
+        ..IoBounds::default()
+    };
+    let server = thread::spawn(move || {
+        thread::sleep(Duration::from_millis(150));
+        let fixture = ServerFixture {
+            config: ConnectionConfig::default(),
+            bounds: IoBounds::default(),
+        };
+        run_server_once(&listener, &fixture).expect("server setup")
+    });
+    let client = client_fixture(address, "slow-peer", impatient);
+    let server = server.join().expect("server thread");
+    assert!(client.clean(), "client: {}", client.summary());
+    assert_eq!(client.texts, vec!["slow-peer".to_owned()]);
+    assert!(server.clean(), "server: {}", server.summary());
+}
+
+#[test]
 fn non_loopback_addresses_are_refused() {
     let address: std::net::SocketAddr = "192.0.2.1:9001".parse().expect("test address");
     assert_eq!(loopback_only(&address), Err(SetupOutcome::NonLoopback));
@@ -127,9 +260,130 @@ fn non_loopback_addresses_are_refused() {
         request_target: "/chat",
         host: "localhost",
         message: "x",
+        ping: None,
         bounds: IoBounds::default(),
     };
     assert_eq!(run_client_once(&fixture), Err(SetupOutcome::NonLoopback));
+}
+
+#[test]
+fn stalled_peer_reader_trips_the_bounded_write_deadline() {
+    // REAL socket backpressure (US-018 AC2 slow reader, review round 2):
+    // the peer completes a genuine ws_core handshake and then STOPS READING
+    // FOREVER. The client floods 48 x 64 KiB binary messages (3 MiB, under
+    // the core's 4 MiB output ceiling and 64 KiB message limit); loopback
+    // kernel socket buffers (macOS ~128 KiB snd + ~128 KiB rcv defaults;
+    // std cannot shrink SO_SNDBUF/SO_RCVBUF, so the kernel default IS the
+    // documented bound) absorb well under that, the socket write actually
+    // blocks, and the bounded write deadline must fire with the typed
+    // WriteStalled outcome instead of hanging forever.
+    //
+    // Java-fidelity note: shipped Java has NO socket-layer write deadline —
+    // WebSocketClient.WebsocketWriteThread blocks in ostream.write()
+    // indefinitely (Socket soTimeout bounds reads only); its only liveness
+    // bound is the adapter-layer connectionLostTimeout keepalive. The
+    // bounded write deadline here is US-018 adapter SAFETY policy (AC2
+    // bounded write resources), a disclosed divergence, not core protocol.
+    use std::sync::mpsc;
+    use std::time::Instant;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+    let peer = thread::spawn(move || {
+        let (mut stream, _peer) = listener.accept().expect("accept");
+        let (_sender, mut driver) = ws_driver::connection_driver(
+            ConnectionConfig::default(),
+            ws_core::connection::Role::Server,
+        );
+        let mut report = ws_testee::io_loop::empty_report();
+        assert!(ws_testee::io_loop::drive_until_open(
+            &mut driver,
+            &mut stream,
+            &IoBounds::default(),
+            &mut report,
+        ));
+        // drive_until_open returns at state-open; the queued 101 response
+        // bytes may still be undrained. Flush them through the driver seam,
+        // then never touch the socket again (the never-reading peer).
+        loop {
+            use std::io::Write as _;
+            let pending: Option<Vec<u8>> = {
+                let result = driver.poll(ws_driver::DriverInput::Wake);
+                match result.output {
+                    ws_driver::DriverOutput::Write(suffix) => Some(suffix.to_vec()),
+                    ws_driver::DriverOutput::Idle => None,
+                    _ => Some(Vec::new()),
+                }
+            };
+            match pending {
+                None => break,
+                Some(bytes) if bytes.is_empty() => {}
+                Some(bytes) => {
+                    let written = stream.write(&bytes).expect("flush 101 response");
+                    let _ = driver.poll(ws_driver::DriverInput::WriteProgress { bytes: written });
+                }
+            }
+        }
+        // Hold the socket open until the asserting side releases us
+        // (bounded at 60s so a failure cannot wedge the test binary).
+        let _ = release_rx.recv_timeout(Duration::from_secs(60));
+    });
+
+    let mut stream = TcpStream::connect(address).expect("connect");
+    let (sender, mut driver) = ws_driver::connection_driver(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Client,
+    );
+    driver
+        .begin_client_handshake("/chat", "localhost")
+        .expect("handshake start");
+    let bounds = IoBounds {
+        read_timeout: Duration::from_millis(2),
+        write_timeout: Duration::from_millis(10),
+        write_stall_limit: Duration::from_millis(300),
+        max_polls: 50_000,
+        ..IoBounds::default()
+    };
+    let mut report = ws_testee::io_loop::empty_report();
+    assert!(ws_testee::io_loop::drive_until_open(
+        &mut driver,
+        &mut stream,
+        &bounds,
+        &mut report,
+    ));
+    for _ in 0..48 {
+        sender
+            .try_send(ws_core::LocalCommand::SendBinary {
+                data: vec![0x42u8; 65_536],
+            })
+            .expect("command queue admits the flood (capacity 64)");
+    }
+    let started = Instant::now();
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &bounds,
+        &mut policy,
+        &mut report,
+    );
+    let elapsed = started.elapsed();
+    let _ = release_tx.send(());
+    peer.join().expect("peer thread");
+
+    assert_eq!(
+        report.outcome,
+        LoopOutcome::WriteStalled,
+        "stalled write must trip the typed deadline outcome: {}",
+        report.summary()
+    );
+    assert!(!report.clean());
+    assert!(
+        elapsed < Duration::from_secs(15),
+        "deadline must fire within the documented bound, took {elapsed:?}"
+    );
 }
 
 #[test]
