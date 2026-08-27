@@ -24,3 +24,4 @@ pub use connection::{
     LimitRelationship, LocalCommand, ProtocolStory, QueueKind, Role, SemanticEvent, StepResult,
     TransportBytes, TransportWrite, TypedProtocolFailure, Utf8Failure,
 };
+pub use handshake::{ClientRequestDescriptor, ClientRequestDescriptorError};

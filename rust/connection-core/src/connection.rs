@@ -1,5 +1,7 @@
 use core::fmt;
 
+use crate::handshake::{ClientHandshake, ClientRequestDescriptor};
+
 /// The role this endpoint has in the WebSocket protocol.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Role {
@@ -291,6 +293,13 @@ impl<'a> TransportBytes<'a> {
 /// One caller-originated protocol command.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LocalCommand {
+    /// Starts the deterministic client opening handshake.
+    StartClientHandshake {
+        /// Validated request target and Host wire fields.
+        descriptor: ClientRequestDescriptor,
+        /// Exact caller-provided random nonce bytes.
+        nonce: [u8; 16],
+    },
     /// Requests a text message.
     SendText(Box<str>),
     /// Requests a binary message.
@@ -488,6 +497,7 @@ pub struct ConnectionCore {
     config: ConnectionConfig,
     role: Role,
     state: ConnectionState,
+    client_handshake: ClientHandshake,
 }
 
 impl ConnectionCore {
@@ -498,6 +508,7 @@ impl ConnectionCore {
             config,
             role,
             state: ConnectionState::Connecting,
+            client_handshake: ClientHandshake::new(),
         }
     }
 
@@ -507,11 +518,53 @@ impl ConnectionCore {
     /// protocol-bearing input therefore returns a typed unavailable failure,
     /// no output, and no lifecycle transition.
     pub fn step(&mut self, input: CoreInput<'_>) -> StepResult {
+        if let CoreInput::Command(LocalCommand::StartClientHandshake { descriptor, nonce }) = input
+        {
+            if self.role != Role::Client || self.client_handshake.has_started() {
+                let failure = TypedProtocolFailure {
+                    kind: FailureKind::ProtocolSliceUnavailable {
+                        owner_story: ProtocolStory::ClientOpeningHandshake,
+                    },
+                    state_after: self.state,
+                };
+                return StepResult {
+                    outputs: Box::new([]),
+                    failure: Some(failure),
+                    state: self.state,
+                };
+            }
+            return match self.client_handshake.start(
+                descriptor,
+                nonce,
+                self.config.checked.handshake_bytes,
+            ) {
+                Ok(bytes) => StepResult {
+                    outputs: Box::new([CoreOutput::TransportWrite(TransportWrite { bytes })]),
+                    failure: None,
+                    state: self.state,
+                },
+                Err(attempted) => StepResult {
+                    outputs: Box::new([]),
+                    failure: Some(TypedProtocolFailure {
+                        kind: FailureKind::LimitExceeded {
+                            limit: LimitKind::HandshakeBytes,
+                            attempted,
+                            maximum: self.config.limits.handshake_bytes,
+                        },
+                        state_after: self.state,
+                    }),
+                    state: self.state,
+                },
+            };
+        }
         let owner_story = match input {
             CoreInput::Transport(_) => match self.role {
                 Role::Client => ProtocolStory::ClientOpeningHandshake,
                 Role::Server => ProtocolStory::ServerOpeningHandshake,
             },
+            CoreInput::Command(LocalCommand::StartClientHandshake { .. }) => {
+                ProtocolStory::ClientOpeningHandshake
+            }
             CoreInput::Command(LocalCommand::SendText(_) | LocalCommand::SendBinary(_)) => {
                 ProtocolStory::Messages
             }
