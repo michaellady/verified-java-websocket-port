@@ -23,6 +23,21 @@ fn read(path: &Path) -> String {
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()))
 }
 
+/// The workspace toolchain pin must stay exactly on the intake-qualified
+/// compiler (evidence/intake/toolchain-pins.json). This guards against a
+/// silent channel float breaking the reproducibility assumption baked into
+/// the quality gates. (Moved here from src/lib.rs so the library source
+/// stays free of filesystem access — see tests/sans_io_contract.rs.)
+#[test]
+fn toolchain_pin_matches_intake_qualified_compiler() {
+    let pin = read(&manifest_dir().join("../rust-toolchain.toml"));
+    assert!(
+        pin.contains("channel = \"1.95.0\""),
+        "workspace toolchain must stay pinned to 1.95.0 per \
+         evidence/intake/toolchain-pins.json; found:\n{pin}"
+    );
+}
+
 /// The PRD quality gate requires `#![forbid(unsafe_code)]` on every
 /// first-party crate. Assert the attribute is literally present in the
 /// library source so it cannot be dropped without a test failure.

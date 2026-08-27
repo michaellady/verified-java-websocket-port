@@ -1,54 +1,80 @@
-//! # ws-core (UNIMPLEMENTED scaffold)
+//! # ws-core: the deterministic Sans-I/O WebSocket `ConnectionCore` contract
 //!
-//! Placeholder for the deterministic Sans-I/O WebSocket `ConnectionCore`
-//! described by US-009 of the verified-java-websocket-port PRD. This crate is
-//! **enabling work only**: it establishes the pinned, gated, safe-Rust
-//! workspace so US-009 can start the moment its dependencies unblock. It
-//! contains **no protocol behavior** and claims **no story acceptance**.
+//! US-009 of the verified Java-WebSocket -> Rust port: one deep,
+//! deterministic Sans-I/O interface so that networking, runtime, proof, and
+//! oracle adapters cannot duplicate protocol state. The library namespace is
+//! `ws_core` — the canonical namespace fixed by the owner crate-naming
+//! decision (us009_crate_naming = ws_core); the migration map's `ws_core::`
+//! semantic ids resolve against this crate.
 //!
-//! ## Intended shape (informative, not implemented)
+//! ## The contract (US-009 AC2-AC4)
 //!
-//! The eventual core accepts an immutable configuration, a role, transport
-//! bytes, and local commands, and returns ordered transport writes, semantic
-//! events, connection state, and typed protocol failures -- without opening
-//! sockets, reading clocks, or invoking callbacks. None of that exists yet.
-//! Every module below is an empty, documented placeholder pending
-//! US-009..US-016.
+//! [`connection::ConnectionCore`] accepts an immutable
+//! [`config::ConnectionConfig`], a [`connection::Role`], transport bytes, and
+//! [`connection::LocalCommand`]s, and returns ordered
+//! [`connection::TransportWrite`]s, [`event::SemanticEvent`]s,
+//! [`connection::ReadyState`], and [`error::TypedProtocolFailure`]s —
+//! without opening sockets, reading clocks, or invoking callbacks (enforced
+//! by construction and by the `sans_io_contract` source-scan test).
+//! Configuration carries explicit handshake / frame / message /
+//! buffered-byte / event / command-queue / write-queue limits with checked
+//! conversions and deterministic defaults. One mutable owner plus the
+//! bounded [`connection::CommandQueue`] channel are the only concurrency
+//! boundary; the core is deterministic under arbitrary byte chunking and
+//! surfaces backpressure as typed outputs rather than allocating
+//! unboundedly.
+//!
+//! ## What this story does NOT claim
+//!
+//! No handshake, framing, message, control, or close-sequence behavior:
+//! those are US-010..US-016. The skeleton refuses their inputs with the
+//! non-oracle [`error::FailureCode::Unimplemented`] code, so a corpus
+//! evaluation of this crate must fail (the protocol-stub gate of the design
+//! draft; `empty_rust_target_fails` discipline). The observable vocabulary
+//! is the java-oracle transcript vocabulary; where the skeleton does encode
+//! behavior (state gates, limits, transport EOF), it mirrors the pinned
+//! Java runtime through `internal/corpora/derive.go` exactly, with quirk-id
+//! citations at every site.
+//!
+//! ## Fidelity stance
+//!
+//! JAVA_FAITHFUL_PLUS_SAFE (owner decision us009_normativity): mirror
+//! shipped Java-WebSocket 1.6.0 observable behavior exactly — including its
+//! RFC divergences — but refuse shipped unsafety: bounded memory, checked
+//! arithmetic, exactly-once terminal delivery. Each such divergence is a
+//! documented port-side strengthening, recorded in the behavior-delta
+//! ledger once its baseline observations exist.
 //!
 //! ## Safety policy
 //!
-//! `#![forbid(unsafe_code)]` is non-negotiable for every first-party crate in
-//! this workspace (PRD quality gate). Dependency unsafe, when dependencies
-//! ever exist, is enumerated and reviewed separately; today this crate is
-//! dependency-free by design.
+//! `#![forbid(unsafe_code)]` for every first-party crate (PRD quality
+//! gate); this crate is dependency-free by design (guarded by
+//! `scaffold_smoke`), so no dependency unsafe exists to inventory.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
 pub mod close;
+pub mod config;
 pub mod connection;
 pub mod control;
+pub mod error;
+pub mod event;
+pub mod fragment;
 pub mod framing;
 pub mod handshake;
+pub mod message;
+mod queue;
 
-#[cfg(test)]
-mod tests {
-    use std::fs;
-    use std::path::Path;
+pub use close::CloseDetail;
+pub use config::{ConnectionConfig, ConnectionConfigBuilder};
+pub use connection::{
+    CommandQueue, CommandSender, ConnectionCore, ConnectionState, InitialState, Input,
+    LocalCommand, ReadyState, Role, TransportWrite,
+};
+pub use error::{FailureCode, TypedProtocolFailure};
+pub use event::{Counts, SemanticEvent, SemanticEventKind};
 
-    /// The workspace toolchain pin must stay exactly on the intake-qualified
-    /// compiler (evidence/intake/toolchain-pins.json). This guards against a
-    /// silent channel float breaking the reproducibility assumption baked
-    /// into the quality gates.
-    #[test]
-    fn toolchain_pin_matches_intake_qualified_compiler() {
-        let pin_path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../rust-toolchain.toml");
-        let pin = fs::read_to_string(&pin_path)
-            .expect("rust-toolchain.toml must exist at the workspace root");
-        assert!(
-            pin.contains("channel = \"1.95.0\""),
-            "workspace toolchain must stay pinned to 1.95.0 per \
-             evidence/intake/toolchain-pins.json; found:\n{pin}"
-        );
-    }
-}
+// NOTE: the toolchain-pin guard lives in tests/scaffold_smoke.rs (an
+// integration test) so the library source itself stays free of filesystem
+// access — the sans_io_contract scan covers everything under src/.

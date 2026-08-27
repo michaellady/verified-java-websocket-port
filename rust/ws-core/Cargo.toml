@@ -1,6 +1,6 @@
 [package]
 name = "ws-core"
-description = "UNIMPLEMENTED Sans-I/O WebSocket ConnectionCore scaffold. Enabling work only: no protocol behavior, no story acceptance claimed (pending US-009..US-016)."
+description = "Deterministic Sans-I/O WebSocket ConnectionCore contract (US-009): immutable checked config, typed events/failures, single-owner + bounded-channel boundary. Protocol behavior (handshake/framing/messages/control/close) pending US-010..US-016."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
