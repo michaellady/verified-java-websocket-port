@@ -19,10 +19,47 @@
         "expected_sha256": {"$ref": "#/$defs/digest"},
         "evidence": {"type": "array", "minItems": 1, "maxItems": 8, "items": {"$ref": "#/$defs/evidence"}}
       }
+    },
+    "legacy_delta": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "delta_id", "subject_ref", "rfc_refs", "rfc_expectation_digest", "rfc_value_digest", "java_ref", "java_observation_digest", "java_value_digest", "autobahn_refs", "autobahn_result_digest", "autobahn_value_digest", "disagreement_digest", "normative_authority", "disposition", "rationale"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "delta_id": {"type": "string", "pattern": "^delta-[0-9a-f]{64}$"},
+        "subject_ref": {"type": "string", "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"},
+        "rfc_refs": {"type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "pattern": "^rfc6455#section-[0-9]+(?:\\.[0-9]+)*$"}},
+        "rfc_expectation_digest": {"$ref": "#/$defs/digest"},
+        "rfc_value_digest": {"$ref": "#/$defs/digest"},
+        "java_ref": {"type": "string", "pattern": "^java-v1\\.6\\.0:[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+        "java_observation_digest": {"$ref": "#/$defs/digest"},
+        "java_value_digest": {"$ref": "#/$defs/digest"},
+        "autobahn_refs": {"type": "array", "minItems": 1, "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "pattern": "^autobahn-v25\\.10\\.1:([1-7]|9|10|12|13)\\.[0-9]+(?:\\.[0-9]+)*$"}},
+        "autobahn_result_digest": {"$ref": "#/$defs/digest"},
+        "autobahn_value_digest": {"$ref": "#/$defs/digest"},
+        "disagreement_digest": {"$ref": "#/$defs/digest"},
+        "normative_authority": {"const": "rfc6455"},
+        "disposition": {"enum": ["unresolved", "rfc-governs"]},
+        "rationale": {"type": "string", "minLength": 1, "maxLength": 4096}
+      }
+    },
+    "legacy_record": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema_version", "sequence", "previous_digest", "delta", "record_digest"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "sequence": {"type": "integer", "minimum": 1, "maximum": 100000},
+        "previous_digest": {"$ref": "#/$defs/digest"},
+        "delta": {"$ref": "#/$defs/legacy_delta"},
+        "record_digest": {"$ref": "#/$defs/digest"}
+      }
     }
   },
   "type": "object",
   "additionalProperties": false,
+  "dependentRequired": {
+    "migration_source_head": ["migrated_v1_records"],
+    "migrated_v1_records": ["migration_source_head"]
+  },
   "required": ["$schema", "schema_version", "evidence_kind", "accepted_root_digest", "status", "normative_authority", "head", "records", "append_implementation", "unledgered_disagreements", "production", "publication"],
   "properties": {
     "$schema": {"const": "../../schemas/behavior-delta-ledger-1.1.0.schema.json"},
@@ -69,6 +106,8 @@
     },
     "append_implementation": {"const": "hash-chained-cas"},
     "unledgered_disagreements": {"type": "integer", "minimum": 0, "maximum": 4096},
-    "production": {"const": false}, "publication": {"const": false}
+    "production": {"const": false}, "publication": {"const": false},
+    "migration_source_head": {"$ref": "#/$defs/digest"},
+    "migrated_v1_records": {"type": "array", "minItems": 1, "maxItems": 100000, "items": {"$ref": "#/$defs/legacy_record"}}
   }
 }

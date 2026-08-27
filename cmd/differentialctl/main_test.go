@@ -100,3 +100,26 @@ func TestVerifyReadsOneBoundedEvidenceFile(t *testing.T) {
 		t.Fatal("verifier not called")
 	}
 }
+
+func TestReproduceIsBoundedTransportForOnePublicWitness(t *testing.T) {
+	original := reproduceDifferential
+	defer func() { reproduceDifferential = original }()
+	root := t.TempDir()
+	evidence := filepath.Join(root, "manifest.json")
+	if err := os.WriteFile(evidence, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	reproduceDifferential = func(_ context.Context, gotRoot string, raw []byte, id string) (differential.ReproductionReceipt, error) {
+		called = true
+		if gotRoot != root || string(raw) != "{}\n" || id != "reproducer.us005.pub.0005.0123456789abcdef" {
+			return differential.ReproductionReceipt{}, errors.New("wrong reproduction binding")
+		}
+		return differential.ReproductionReceipt{Status: "PASS_FRESH_DIFFERENCE_REPRODUCED", ReproducerID: id, FreshProcesses: 4, CurrentlyReproduced: true}, nil
+	}
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"reproduce", "--repository-root", root, "--evidence", evidence, "--reproducer-id", "reproducer.us005.pub.0005.0123456789abcdef"}, &stdout, &stderr)
+	if code != 0 || !called || !bytes.Contains(stdout.Bytes(), []byte(`"fresh_processes":4`)) {
+		t.Fatalf("code=%d called=%v stdout=%s stderr=%s", code, called, stdout.String(), stderr.String())
+	}
+}

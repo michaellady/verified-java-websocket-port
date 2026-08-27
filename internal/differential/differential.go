@@ -24,6 +24,7 @@ import (
 
 	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
+	"github.com/michaellady/verified-java-websocket-port/internal/provenance"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -64,6 +65,7 @@ type Config struct {
 	ScenarioTimeout      time.Duration
 	SuiteTimeout         time.Duration
 	MinimizationBudget   Budget
+	launchInputs         map[string][]LaunchIdentity
 }
 
 // Receipt is the small transport result; the complete auditable material is
@@ -74,6 +76,15 @@ type Receipt struct {
 	ProcessReceipts int    `json:"process_receipts"`
 	DeltaCount      int    `json:"delta_count"`
 	EvidenceSHA256  string `json:"evidence_sha256"`
+}
+
+type ReproductionReceipt struct {
+	Status              string `json:"status"`
+	ReproducerID        string `json:"reproducer_id"`
+	Mode                string `json:"mode"`
+	ScenarioSHA256      string `json:"scenario_sha256"`
+	FreshProcesses      int    `json:"fresh_processes"`
+	CurrentlyReproduced bool   `json:"currently_reproduced"`
 }
 
 type DiagnosticFinding struct {
@@ -104,56 +115,195 @@ type DiagnosticReport struct {
 }
 
 type ArtifactIdentity struct {
+	Kind   string `json:"kind"`
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
 	Bytes  int64  `json:"bytes"`
 }
 
+type LaunchIdentity struct {
+	Role         string `json:"role"`
+	SourcePath   string `json:"source_path"`
+	SourceSHA256 string `json:"source_sha256"`
+	ObjectSHA256 string `json:"object_sha256"`
+	ObjectName   string `json:"object_name"`
+	Bytes        int64  `json:"bytes"`
+}
+
+type NormalizationLoss struct {
+	Pointer     string `json:"pointer"`
+	Reason      string `json:"reason"`
+	ValueSHA256 string `json:"value_sha256"`
+}
+
+type NormalizationTrace struct {
+	Runtime          string              `json:"runtime"`
+	Attempt          string              `json:"attempt"`
+	RawBase64        string              `json:"raw_base64"`
+	RawSHA256        string              `json:"raw_sha256"`
+	NormalizedSHA256 string              `json:"normalized_sha256"`
+	Losses           []NormalizationLoss `json:"losses"`
+}
+
 type ProcessReceipt struct {
-	ScenarioID       string `json:"scenario_id"`
-	Runtime          string `json:"runtime"`
-	Attempt          string `json:"attempt"`
-	PID              int    `json:"pid"`
-	ExecutableSHA256 string `json:"executable_sha256"`
-	StdinSHA256      string `json:"stdin_sha256"`
-	StdinBytes       int    `json:"stdin_bytes"`
-	StdoutSHA256     string `json:"stdout_sha256"`
-	StdoutBytes      int    `json:"stdout_bytes"`
-	StderrSHA256     string `json:"stderr_sha256"`
-	StderrBytes      int    `json:"stderr_bytes"`
-	ExitCode         int    `json:"exit_code"`
-	StartedUnixNano  int64  `json:"started_unix_nano"`
-	DurationNanos    int64  `json:"duration_nanos"`
-	NormalizedSHA256 string `json:"normalized_sha256"`
+	ScenarioID       string           `json:"scenario_id"`
+	Runtime          string           `json:"runtime"`
+	Attempt          string           `json:"attempt"`
+	PID              int              `json:"pid"`
+	ExecutableSHA256 string           `json:"executable_sha256"`
+	StdinSHA256      string           `json:"stdin_sha256"`
+	StdinBytes       int              `json:"stdin_bytes"`
+	StdoutSHA256     string           `json:"stdout_sha256"`
+	StdoutBytes      int              `json:"stdout_bytes"`
+	StderrSHA256     string           `json:"stderr_sha256"`
+	StderrBytes      int              `json:"stderr_bytes"`
+	ExitCode         int              `json:"exit_code"`
+	StartedUnixNano  int64            `json:"started_unix_nano"`
+	DurationNanos    int64            `json:"duration_nanos"`
+	NormalizedSHA256 string           `json:"normalized_sha256"`
+	LaunchedInputs   []LaunchIdentity `json:"launched_inputs"`
 }
 
 type ScenarioResult struct {
-	ScenarioID             string            `json:"scenario_id"`
-	JavaPrimary            string            `json:"java_primary_sha256"`
-	JavaReplay             string            `json:"java_replay_sha256"`
-	RustPrimary            string            `json:"rust_primary_sha256"`
-	RustReplay             string            `json:"rust_replay_sha256"`
-	NeutralExpected        string            `json:"neutral_expected_sha256"`
-	Stable                 bool              `json:"stable"`
-	CurrentMismatch        bool              `json:"current_mismatch"`
-	Classification         string            `json:"classification"`
-	JavaObservation        commonObservation `json:"java_observation"`
-	RustObservation        commonObservation `json:"rust_observation"`
-	RustStepDiagnostics    []rustStep        `json:"rust_step_diagnostics"`
-	RustBootstrapSHA256    string            `json:"rust_bootstrap_sha256"`
-	JavaNormalizationLoss  []string          `json:"java_normalization_loss"`
-	RustNormalizationNotes []string          `json:"rust_normalization_notes"`
+	ScenarioID             string               `json:"scenario_id"`
+	JavaPrimary            string               `json:"java_primary_sha256"`
+	JavaReplay             string               `json:"java_replay_sha256"`
+	RustPrimary            string               `json:"rust_primary_sha256"`
+	RustReplay             string               `json:"rust_replay_sha256"`
+	NeutralExpected        string               `json:"neutral_expected_sha256"`
+	Stable                 bool                 `json:"stable"`
+	CurrentMismatch        bool                 `json:"current_mismatch"`
+	Classification         string               `json:"classification"`
+	JavaObservation        commonObservation    `json:"java_observation"`
+	RustObservation        commonObservation    `json:"rust_observation"`
+	RustStepDiagnostics    []rustStep           `json:"rust_step_diagnostics"`
+	RustBootstrapSHA256    string               `json:"rust_bootstrap_sha256"`
+	JavaNormalizationLoss  []string             `json:"java_normalization_loss"`
+	RustNormalizationNotes []string             `json:"rust_normalization_notes"`
+	NormalizationAudits    []NormalizationTrace `json:"normalization_audits"`
 }
 
 type CoverageRow struct {
-	ID               string   `json:"id"`
-	SourcePointer    string   `json:"source_pointer"`
-	SourceSHA256     string   `json:"source_sha256"`
-	FreshUS020       bool     `json:"fresh_us020"`
-	ScenarioIDs      []string `json:"scenario_ids"`
-	FieldPointers    []string `json:"field_pointers"`
-	PredecessorPaths []string `json:"predecessor_paths"`
-	ExcludedReason   string   `json:"excluded_reason,omitempty"`
+	ID                    string             `json:"id"`
+	SourcePointer         string             `json:"source_pointer"`
+	SourceSHA256          string             `json:"source_sha256"`
+	FreshUS020            bool               `json:"fresh_us020"`
+	ScenarioIDs           []string           `json:"scenario_ids"`
+	FieldPointers         []string           `json:"field_pointers"`
+	PredecessorPaths      []string           `json:"predecessor_paths"`
+	PredecessorIdentities []ArtifactIdentity `json:"predecessor_identities"`
+	ExcludedReason        string             `json:"excluded_reason,omitempty"`
+}
+
+type mismatchSignature struct {
+	Pointer        string `json:"pointer"`
+	Classification string `json:"classification"`
+}
+
+type PublicReproducer struct {
+	ReproducerID           string                `json:"reproducer_id"`
+	LedgerDeltaID          string                `json:"ledger_delta_id"`
+	ScenarioID             string                `json:"scenario_id"`
+	Mode                   string                `json:"mode"`
+	ProofScope             string                `json:"proof_scope"`
+	CurrentlyReproduces    bool                  `json:"currently_reproduces"`
+	Signature              mismatchSignature     `json:"signature"`
+	Scenario               corpora.Scenario      `json:"scenario"`
+	OriginalScenarioSHA256 string                `json:"original_scenario_sha256"`
+	ScenarioSHA256         string                `json:"scenario_sha256"`
+	Command                []string              `json:"command"`
+	RepositoryAnchor       string                `json:"repository_anchor"`
+	RuntimeInputs          []ArtifactIdentity    `json:"runtime_inputs"`
+	CandidateAttempts      int                   `json:"candidate_attempts"`
+	Irreducible            bool                  `json:"irreducible"`
+	Processes              []ProcessReceipt      `json:"processes"`
+	Attempts               []MinimizationAttempt `json:"attempts"`
+	FindingJavaObservation string                `json:"finding_java_observation_sha256"`
+	FindingRustObservation string                `json:"finding_rust_observation_sha256"`
+	FindingRunAnchor       string                `json:"finding_run_anchor"`
+	ClosingRunAnchor       string                `json:"closing_run_anchor,omitempty"`
+	ClosingJavaObservation string                `json:"closing_java_observation_sha256,omitempty"`
+	ClosingRustObservation string                `json:"closing_rust_observation_sha256,omitempty"`
+}
+
+type MinimizationAttempt struct {
+	Scenario       corpora.Scenario     `json:"scenario"`
+	ScenarioSHA256 string               `json:"scenario_sha256"`
+	Signature      mismatchSignature    `json:"signature"`
+	Reproduced     bool                 `json:"reproduced"`
+	Processes      []ProcessReceipt     `json:"processes"`
+	EvidenceStatus string               `json:"evidence_status"`
+	Audits         []NormalizationTrace `json:"normalization_audits"`
+}
+
+type evidenceScenarioWire struct {
+	ScenarioID        string           `json:"scenario_id"`
+	Tier              string           `json:"tier"`
+	Family            string           `json:"family"`
+	SeedIndex         int              `json:"seed_index"`
+	Role              string           `json:"role"`
+	InitialState      string           `json:"initial_state"`
+	Limits            corpora.Limits   `json:"limits"`
+	Steps             []corpora.Step   `json:"steps"`
+	Expected          corpora.Expected `json:"expected"`
+	ExpectationBasis  []string         `json:"expectation_basis"`
+	ExpectationStatus string           `json:"expectation_status"`
+}
+
+func decodeEvidenceScenario(raw []byte) (corpora.Scenario, error) {
+	var wire evidenceScenarioWire
+	if err := decodeStrict(raw, &wire); err != nil {
+		return corpora.Scenario{}, err
+	}
+	return corpora.Scenario{
+		ScenarioID: wire.ScenarioID, Tier: wire.Tier, Family: wire.Family, SeedIndex: wire.SeedIndex,
+		Core:     corpora.ScenarioCore{Role: wire.Role, InitialState: wire.InitialState, Limits: wire.Limits, Steps: wire.Steps},
+		Expected: wire.Expected, ExpectationBasis: wire.ExpectationBasis, ExpectationStatus: wire.ExpectationStatus,
+	}, nil
+}
+
+// UnmarshalJSON preserves the corpus scenario's intentionally flattened wire
+// format. corpora.Scenario owns canonical marshaling but deliberately has no
+// general-purpose decoder, so evidence decoding supplies the exact closed
+// inverse here.
+func (r *PublicReproducer) UnmarshalJSON(raw []byte) error {
+	type alias PublicReproducer
+	var value alias
+	var wire struct {
+		*alias
+		Scenario json.RawMessage `json:"scenario"`
+	}
+	wire.alias = &value
+	if err := decodeStrict(raw, &wire); err != nil {
+		return err
+	}
+	scenario, err := decodeEvidenceScenario(wire.Scenario)
+	if err != nil {
+		return err
+	}
+	value.Scenario = scenario
+	*r = PublicReproducer(value)
+	return nil
+}
+
+func (a *MinimizationAttempt) UnmarshalJSON(raw []byte) error {
+	type alias MinimizationAttempt
+	var value alias
+	var wire struct {
+		*alias
+		Scenario json.RawMessage `json:"scenario"`
+	}
+	wire.alias = &value
+	if err := decodeStrict(raw, &wire); err != nil {
+		return err
+	}
+	scenario, err := decodeEvidenceScenario(wire.Scenario)
+	if err != nil {
+		return err
+	}
+	value.Scenario = scenario
+	*a = MinimizationAttempt(value)
+	return nil
 }
 
 type CoverageSummary struct {
@@ -166,9 +316,10 @@ type CoverageSummary struct {
 }
 
 type CoverageReceipt struct {
-	Summary       CoverageSummary `json:"summary"`
-	Migration     []CoverageRow   `json:"migration"`
-	Compatibility []CoverageRow   `json:"compatibility"`
+	CurrentHeadQualification ArtifactIdentity `json:"current_head_qualification"`
+	Summary                  CoverageSummary  `json:"summary"`
+	Migration                []CoverageRow    `json:"migration"`
+	Compatibility            []CoverageRow    `json:"compatibility"`
 }
 
 type ControlResult struct {
@@ -225,6 +376,7 @@ type Manifest struct {
 	Coverage                 CoverageReceipt    `json:"coverage"`
 	Controls                 ControlsReceipt    `json:"controls"`
 	Ledger                   LedgerBinding      `json:"ledger"`
+	Reproducers              []PublicReproducer `json:"reproducers"`
 	Nonclaims                []string           `json:"nonclaims"`
 }
 
@@ -284,18 +436,62 @@ type LedgerRecord struct {
 }
 
 type Ledger struct {
-	Schema                  string         `json:"$schema"`
-	SchemaVersion           string         `json:"schema_version"`
-	EvidenceKind            string         `json:"evidence_kind"`
-	AcceptedRootDigest      string         `json:"accepted_root_digest"`
-	Status                  string         `json:"status"`
-	NormativeAuthority      string         `json:"normative_authority"`
-	Head                    string         `json:"head"`
-	Records                 []LedgerRecord `json:"records"`
-	AppendImplementation    string         `json:"append_implementation"`
-	UnledgeredDisagreements int            `json:"unledgered_disagreements"`
-	Production              bool           `json:"production"`
-	Publication             bool           `json:"publication"`
+	Schema                  string               `json:"$schema"`
+	SchemaVersion           string               `json:"schema_version"`
+	EvidenceKind            string               `json:"evidence_kind"`
+	AcceptedRootDigest      string               `json:"accepted_root_digest"`
+	Status                  string               `json:"status"`
+	NormativeAuthority      string               `json:"normative_authority"`
+	Head                    string               `json:"head"`
+	Records                 []LedgerRecord       `json:"records"`
+	AppendImplementation    string               `json:"append_implementation"`
+	UnledgeredDisagreements int                  `json:"unledgered_disagreements"`
+	Production              bool                 `json:"production"`
+	Publication             bool                 `json:"publication"`
+	MigrationSourceHead     string               `json:"migration_source_head,omitempty"`
+	MigratedV1Records       []LegacyLedgerRecord `json:"migrated_v1_records,omitempty"`
+}
+
+type LegacyLedger struct {
+	Schema                  string               `json:"$schema"`
+	SchemaVersion           string               `json:"schema_version"`
+	EvidenceKind            string               `json:"evidence_kind"`
+	AcceptedRootDigest      string               `json:"accepted_root_digest"`
+	Status                  string               `json:"status"`
+	NormativeAuthority      string               `json:"normative_authority"`
+	Head                    string               `json:"head"`
+	Records                 []LegacyLedgerRecord `json:"records"`
+	AppendImplementation    string               `json:"append_implementation"`
+	UnledgeredDisagreements int                  `json:"unledgered_disagreements"`
+	Production              bool                 `json:"production"`
+	Publication             bool                 `json:"publication"`
+}
+
+type LegacyLedgerRecord struct {
+	SchemaVersion  string      `json:"schema_version"`
+	Sequence       int         `json:"sequence"`
+	PreviousDigest string      `json:"previous_digest"`
+	Delta          LegacyDelta `json:"delta"`
+	RecordDigest   string      `json:"record_digest"`
+}
+
+type LegacyDelta struct {
+	SchemaVersion         string   `json:"schema_version"`
+	DeltaID               string   `json:"delta_id"`
+	SubjectRef            string   `json:"subject_ref"`
+	RFCRefs               []string `json:"rfc_refs"`
+	RFCExpectationDigest  string   `json:"rfc_expectation_digest"`
+	RFCValueDigest        string   `json:"rfc_value_digest"`
+	JavaRef               string   `json:"java_ref"`
+	JavaObservationDigest string   `json:"java_observation_digest"`
+	JavaValueDigest       string   `json:"java_value_digest"`
+	AutobahnRefs          []string `json:"autobahn_refs"`
+	AutobahnResultDigest  string   `json:"autobahn_result_digest"`
+	AutobahnValueDigest   string   `json:"autobahn_value_digest"`
+	DisagreementDigest    string   `json:"disagreement_digest"`
+	NormativeAuthority    string   `json:"normative_authority"`
+	Disposition           string   `json:"disposition"`
+	Rationale             string   `json:"rationale"`
 }
 
 // BehaviorLedgerSummary is the small, read-only compatibility projection
@@ -454,6 +650,114 @@ type childRequest struct {
 	Input      []byte
 	Home       string
 	Timeout    time.Duration
+}
+
+type launchSource struct {
+	Role       string
+	Path       string
+	Executable bool
+}
+
+type launchObject struct {
+	Path   string
+	SHA256 string
+	Bytes  int64
+}
+
+type launchBundle struct {
+	ByRole     map[string]launchObject
+	Identities []LaunchIdentity
+}
+
+func materializeLaunchInputs(store string, sources []launchSource) (launchBundle, error) {
+	if len(sources) == 0 || len(sources) > 32 {
+		return launchBundle{}, errors.New("launch source cardinality invalid")
+	}
+	if err := os.Mkdir(store, 0o700); err != nil {
+		return launchBundle{}, err
+	}
+	bundle := launchBundle{ByRole: map[string]launchObject{}, Identities: []LaunchIdentity{}}
+	for _, source := range sources {
+		if source.Role == "" || bundle.ByRole[source.Role].Path != "" {
+			return launchBundle{}, errors.New("launch role absent or duplicate")
+		}
+		raw, err := readRegularBounded(source.Path, 512<<20)
+		if err != nil {
+			return launchBundle{}, err
+		}
+		sha := digest(raw)
+		name := strings.TrimPrefix(sha, "sha256:")
+		objectPath := filepath.Join(store, name)
+		mode := os.FileMode(0o400)
+		if source.Executable {
+			mode = 0o500
+		}
+		file, err := os.OpenFile(objectPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+		if errors.Is(err, os.ErrExist) {
+			existing, readErr := readRegularBounded(objectPath, 512<<20)
+			if readErr != nil || !bytes.Equal(existing, raw) {
+				return launchBundle{}, errors.New("content-addressed launch object collision")
+			}
+			if source.Executable {
+				if chmodErr := os.Chmod(objectPath, 0o500); chmodErr != nil {
+					return launchBundle{}, chmodErr
+				}
+			}
+		} else if err != nil {
+			return launchBundle{}, err
+		} else {
+			if _, err := file.Write(raw); err != nil {
+				file.Close()
+				return launchBundle{}, err
+			}
+			if err := file.Sync(); err != nil {
+				file.Close()
+				return launchBundle{}, err
+			}
+			if err := file.Close(); err != nil {
+				return launchBundle{}, err
+			}
+		}
+		launched, err := readRegularBounded(objectPath, 512<<20)
+		if err != nil || digest(launched) != sha {
+			return launchBundle{}, errors.New("launched object identity mismatch")
+		}
+		object := launchObject{Path: objectPath, SHA256: sha, Bytes: int64(len(raw))}
+		bundle.ByRole[source.Role] = object
+		bundle.Identities = append(bundle.Identities, LaunchIdentity{Role: source.Role, SourcePath: source.Path, SourceSHA256: sha, ObjectSHA256: sha, ObjectName: name, Bytes: int64(len(raw))})
+	}
+	return bundle, nil
+}
+
+func materializeConfiguredLaunch(cfg Config, suiteRoot string) (Config, error) {
+	sources := []launchSource{{Role: "java-executable", Path: cfg.JavaExecutable, Executable: true}, {Role: "java-adapter", Path: cfg.JavaAdapterJar}, {Role: "java-runtime", Path: cfg.JavaRuntimeJar}, {Role: "rust-testee", Path: cfg.RustTestee, Executable: true}}
+	for index, path := range cfg.JavaSupportJars {
+		sources = append(sources, launchSource{Role: fmt.Sprintf("java-support-%02d", index), Path: path})
+	}
+	bundle, err := materializeLaunchInputs(filepath.Join(suiteRoot, "launch-objects"), sources)
+	if err != nil {
+		return Config{}, err
+	}
+	launched := cfg
+	launched.JavaExecutable = bundle.ByRole["java-executable"].Path
+	launched.JavaAdapterJar = bundle.ByRole["java-adapter"].Path
+	launched.JavaRuntimeJar = bundle.ByRole["java-runtime"].Path
+	launched.RustTestee = bundle.ByRole["rust-testee"].Path
+	launched.JavaSupportJars = make([]string, len(cfg.JavaSupportJars))
+	launched.launchInputs = map[string][]LaunchIdentity{"java": {}, "rust": {}}
+	for _, identity := range bundle.Identities {
+		switch {
+		case identity.Role == "rust-testee":
+			launched.launchInputs["rust"] = append(launched.launchInputs["rust"], identity)
+		default:
+			launched.launchInputs["java"] = append(launched.launchInputs["java"], identity)
+		}
+		if strings.HasPrefix(identity.Role, "java-support-") {
+			index, _ := strconv.Atoi(strings.TrimPrefix(identity.Role, "java-support-"))
+			launched.JavaSupportJars[index] = bundle.ByRole[identity.Role].Path
+		}
+	}
+	return launched, nil
 }
 
 type childResult struct {
@@ -1636,7 +1940,9 @@ func ValidateOracleHierarchy(scenarios []corpora.Scenario, h OracleHierarchy) er
 	}
 	for index, cell := range h.Cells {
 		expected := want.Cells[index]
-		if cell.ScenarioID != expected.ScenarioID || cell.Pointer != expected.Pointer || cell.ExpectedSHA256 != expected.ExpectedSHA256 || cell.Rank != expected.Rank || cell.Authority != expected.Authority || len(cell.Evidence) == 0 {
+		left, leftErr := canonical(cell)
+		right, rightErr := canonical(expected)
+		if leftErr != nil || rightErr != nil || !bytes.Equal(left, right) {
 			return fmt.Errorf("oracle cell %d invalid", index)
 		}
 	}
@@ -1656,37 +1962,85 @@ func PreparePublicOracleHierarchy(root, path string) error {
 }
 
 func migrateLedger(raw []byte) (Ledger, error) {
-	var probe struct {
-		SchemaVersion string `json:"schema_version"`
-	}
-	if err := json.Unmarshal(raw, &probe); err != nil {
+	var dispatch map[string]json.RawMessage
+	if err := decodeStrict(raw, &dispatch); err != nil {
 		return Ledger{}, err
 	}
-	if probe.SchemaVersion == ledgerSchemaVersion {
+	var version string
+	versionRaw, ok := dispatch["schema_version"]
+	if !ok || json.Unmarshal(versionRaw, &version) != nil || version == "" {
+		return Ledger{}, errors.New("ledger schema version absent")
+	}
+	if version == ledgerSchemaVersion {
 		var ledger Ledger
 		if err := decodeStrict(raw, &ledger); err != nil {
 			return Ledger{}, err
 		}
 		return ledger, validateLedger(ledger)
 	}
-	if probe.SchemaVersion != "1.0.0" {
+	if version != "1.0.0" {
 		return Ledger{}, errors.New("unsupported ledger schema")
 	}
-	var old struct {
-		AcceptedRootDigest string            `json:"accepted_root_digest"`
-		Head               string            `json:"head"`
-		Records            []json.RawMessage `json:"records"`
-		Production         bool              `json:"production"`
-		Publication        bool              `json:"publication"`
-	}
-	if err := json.Unmarshal(raw, &old); err != nil {
+	var old LegacyLedger
+	if err := decodeStrict(raw, &old); err != nil {
 		return Ledger{}, err
 	}
-	if len(old.Records) != 0 {
-		return Ledger{}, errors.New("non-empty 1.0.0 ledger cannot be silently migrated")
+	if err := validateLegacyLedger(old); err != nil {
+		return Ledger{}, err
 	}
-	ledger := Ledger{Schema: "../../schemas/behavior-delta-ledger-1.1.0.schema.json", SchemaVersion: ledgerSchemaVersion, EvidenceKind: "behavior-delta-ledger", AcceptedRootDigest: old.AcceptedRootDigest, Status: "PASS_NO_CURRENT_DELTAS", NormativeAuthority: "field-addressed-oracle-hierarchy", Head: old.Head, Records: []LedgerRecord{}, AppendImplementation: "hash-chained-cas", Production: false, Publication: false}
+	unresolved := 0
+	for _, record := range old.Records {
+		if record.Delta.Disposition == "unresolved" {
+			unresolved++
+		}
+	}
+	status := "PASS_NO_CURRENT_DELTAS"
+	if len(old.Records) > 0 {
+		status = "PASS_WITH_CLOSED_HISTORY"
+	}
+	if unresolved > 0 {
+		status = "BLOCKED_UNRESOLVED_CURRENT_DELTAS"
+	}
+	ledger := Ledger{Schema: "../../schemas/behavior-delta-ledger-1.1.0.schema.json", SchemaVersion: ledgerSchemaVersion, EvidenceKind: "behavior-delta-ledger", AcceptedRootDigest: old.AcceptedRootDigest, Status: status, NormativeAuthority: "field-addressed-oracle-hierarchy", Head: old.Head, Records: []LedgerRecord{}, AppendImplementation: "hash-chained-cas", UnledgeredDisagreements: unresolved, Production: false, Publication: false}
+	if len(old.Records) > 0 {
+		ledger.MigrationSourceHead = old.Head
+		ledger.MigratedV1Records = append([]LegacyLedgerRecord(nil), old.Records...)
+	}
 	return ledger, validateLedger(ledger)
+}
+
+func legacyRecordDigest(record LegacyLedgerRecord) (string, error) {
+	copy := record
+	copy.RecordDigest = ""
+	raw, err := canonical(copy)
+	if err != nil {
+		return "", err
+	}
+	return digest(raw), nil
+}
+
+func validateLegacyLedger(ledger LegacyLedger) error {
+	if ledger.Schema != "../../schemas/behavior-delta-ledger-1.0.0.schema.json" || ledger.SchemaVersion != "1.0.0" || ledger.EvidenceKind != "behavior-delta-ledger" || ledger.NormativeAuthority != "rfc6455" || ledger.AppendImplementation != "hash-chained-cas" || !validLedgerDigest(ledger.AcceptedRootDigest) || !validLedgerDigest(ledger.Head) || ledger.Records == nil || ledger.UnledgeredDisagreements != 0 || ledger.Production || ledger.Publication || (ledger.Status != "READY" && ledger.Status != "BLOCKED_PENDING_BASELINE") {
+		return errors.New("legacy ledger envelope invalid")
+	}
+	previous := "sha256:" + strings.Repeat("0", 64)
+	seen := map[string]bool{}
+	for index, record := range ledger.Records {
+		delta := record.Delta
+		if record.SchemaVersion != "1.0.0" || record.Sequence != index+1 || record.PreviousDigest != previous || !validLedgerDigest(record.RecordDigest) || delta.SchemaVersion != "1.0.0" || !strings.HasPrefix(delta.DeltaID, "delta-") || len(delta.DeltaID) != len("delta-")+64 || seen[delta.DeltaID] || !strings.HasPrefix(delta.SubjectRef, "semantic:") || len(delta.RFCRefs) == 0 || len(delta.AutobahnRefs) == 0 || !validLedgerDigest(delta.RFCExpectationDigest) || !validLedgerDigest(delta.RFCValueDigest) || !validLedgerDigest(delta.JavaObservationDigest) || !validLedgerDigest(delta.JavaValueDigest) || !validLedgerDigest(delta.AutobahnResultDigest) || !validLedgerDigest(delta.AutobahnValueDigest) || !validLedgerDigest(delta.DisagreementDigest) || delta.NormativeAuthority != "rfc6455" || (delta.Disposition != "unresolved" && delta.Disposition != "rfc-governs") || delta.Rationale == "" || len(delta.Rationale) > 4096 {
+			return fmt.Errorf("legacy ledger record invalid at %d", index)
+		}
+		seen[delta.DeltaID] = true
+		want, err := legacyRecordDigest(record)
+		if err != nil || want != record.RecordDigest {
+			return fmt.Errorf("legacy ledger digest invalid at %d", index)
+		}
+		previous = record.RecordDigest
+	}
+	if ledger.Head != previous {
+		return errors.New("legacy ledger head does not match chain")
+	}
+	return nil
 }
 
 func recordDigest(record LedgerRecord) (string, error) {
@@ -1756,16 +2110,29 @@ func VerifyBehaviorDeltaLedger(raw []byte) (BehaviorLedgerSummary, error) {
 }
 
 func validateLedger(ledger Ledger) error {
-	if ledger.Schema != "../../schemas/behavior-delta-ledger-1.1.0.schema.json" || ledger.SchemaVersion != ledgerSchemaVersion || ledger.EvidenceKind != "behavior-delta-ledger" || ledger.NormativeAuthority != "field-addressed-oracle-hierarchy" || ledger.AppendImplementation != "hash-chained-cas" || !validLedgerDigest(ledger.AcceptedRootDigest) || !validLedgerDigest(ledger.Head) || ledger.Records == nil || len(ledger.Records) > 4096 || ledger.UnledgeredDisagreements != 0 || ledger.Production || ledger.Publication {
+	if ledger.Schema != "../../schemas/behavior-delta-ledger-1.1.0.schema.json" || ledger.SchemaVersion != ledgerSchemaVersion || ledger.EvidenceKind != "behavior-delta-ledger" || ledger.NormativeAuthority != "field-addressed-oracle-hierarchy" || ledger.AppendImplementation != "hash-chained-cas" || !validLedgerDigest(ledger.AcceptedRootDigest) || !validLedgerDigest(ledger.Head) || ledger.Records == nil || len(ledger.Records) > 4096 || ledger.UnledgeredDisagreements < 0 || ledger.Production || ledger.Publication {
 		return errors.New("ledger envelope invalid")
 	}
-	if len(ledger.Records) == 0 && ledger.Status != "PASS_NO_CURRENT_DELTAS" || len(ledger.Records) != 0 && ledger.Status != "PASS_WITH_CLOSED_HISTORY" {
+	if ledger.UnledgeredDisagreements > 0 {
+		if ledger.Status != "BLOCKED_UNRESOLVED_CURRENT_DELTAS" {
+			return errors.New("ledger unresolved status mismatch")
+		}
+	} else if len(ledger.Records)+len(ledger.MigratedV1Records) == 0 && ledger.Status != "PASS_NO_CURRENT_DELTAS" || ledger.UnledgeredDisagreements == 0 && len(ledger.Records)+len(ledger.MigratedV1Records) != 0 && ledger.Status != "PASS_WITH_CLOSED_HISTORY" {
 		return errors.New("ledger status does not match closed history")
 	}
 	previous := "sha256:" + strings.Repeat("0", 64)
+	if len(ledger.MigratedV1Records) > 0 {
+		legacy := LegacyLedger{Schema: "../../schemas/behavior-delta-ledger-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceKind: "behavior-delta-ledger", AcceptedRootDigest: ledger.AcceptedRootDigest, Status: "READY", NormativeAuthority: "rfc6455", Head: ledger.MigrationSourceHead, Records: ledger.MigratedV1Records, AppendImplementation: "hash-chained-cas"}
+		if err := validateLegacyLedger(legacy); err != nil {
+			return fmt.Errorf("migrated legacy history: %w", err)
+		}
+		previous = ledger.MigrationSourceHead
+	} else if ledger.MigrationSourceHead != "" {
+		return errors.New("migration source head without legacy records")
+	}
 	seen := make(map[string]struct{}, len(ledger.Records))
 	for index, record := range ledger.Records {
-		if record.Sequence != index+1 || record.PreviousDigest != previous || !validLedgerDigest(record.RecordDigest) || !strings.HasPrefix(record.DeltaID, "delta.") || len(record.DeltaID) > 256 || !validLedgerScenarioID(record.ScenarioID) || !strings.HasPrefix(record.Pointer, "/") || len(record.Pointer) > 512 || !validLedgerDigest(record.JavaObservation) || !validLedgerDigest(record.RustObservation) || !validLedgerDigest(record.ReproducerSHA256) || !validLedgerAnchor(record.FindingRunAnchor) {
+		if record.Sequence != len(ledger.MigratedV1Records)+index+1 || record.PreviousDigest != previous || !validLedgerDigest(record.RecordDigest) || !strings.HasPrefix(record.DeltaID, "delta.") || len(record.DeltaID) > 256 || !validLedgerScenarioID(record.ScenarioID) || !strings.HasPrefix(record.Pointer, "/") || len(record.Pointer) > 512 || !validLedgerDigest(record.JavaObservation) || !validLedgerDigest(record.RustObservation) || !validLedgerDigest(record.ReproducerSHA256) || !validLedgerAnchor(record.FindingRunAnchor) {
 			return fmt.Errorf("ledger chain broken at %d", index)
 		}
 		if _, duplicate := seen[record.DeltaID]; duplicate {
@@ -1807,28 +2174,32 @@ func validateLedger(ledger Ledger) error {
 	return nil
 }
 
-func appendJavaQuirk(ledger *Ledger, sc corpora.Scenario, finding AdjudicatedFinding, javaObservation, rustObservation, findingAnchor string) error {
+func appendJavaQuirk(ledger *Ledger, sc corpora.Scenario, finding AdjudicatedFinding, javaObservation, rustObservation, findingAnchor, reproducerSHA string) error {
 	if finding.Classification != "java_quirk" || finding.Pointer == "" || finding.Decision.ScenarioID != sc.ScenarioID || finding.Decision.Pointer != finding.Pointer {
 		return errors.New("invalid Java quirk finding")
 	}
-	reproducer, err := sc.CanonicalLine()
-	if err != nil {
-		return err
+	if !validLedgerDigest(reproducerSHA) {
+		return errors.New("Java quirk minimized reproducer identity invalid")
 	}
-	deltaSuffix := strings.NewReplacer("/", "-", "~", "-").Replace(strings.TrimPrefix(finding.Pointer, "/"))
+	deltaID := deltaIDFor(sc.ScenarioID, finding.Pointer)
 	record := LedgerRecord{
-		DeltaID:          "delta." + sc.ScenarioID + "." + deltaSuffix,
+		DeltaID:          deltaID,
 		ScenarioID:       sc.ScenarioID,
 		Pointer:          finding.Pointer,
 		Classification:   "java_quirk",
 		JavaObservation:  javaObservation,
 		RustObservation:  rustObservation,
-		ReproducerSHA256: digest(reproducer),
+		ReproducerSHA256: reproducerSHA,
 		Decision:         finding.Decision,
 		Resolution:       "retained_java_quirk",
 		FindingRunAnchor: findingAnchor,
 	}
 	return appendLedgerRecord(ledger, ledger.Head, record)
+}
+
+func deltaIDFor(scenarioID, pointer string) string {
+	suffix := strings.NewReplacer("/", "-", "~", "-").Replace(strings.TrimPrefix(pointer, "/"))
+	return "delta." + scenarioID + "." + suffix
 }
 
 func appendLedgerRecord(ledger *Ledger, expectedHead string, record LedgerRecord) error {
@@ -1843,18 +2214,13 @@ func appendLedgerRecord(ledger *Ledger, expectedHead string, record LedgerRecord
 	}
 	for _, existing := range ledger.Records {
 		if existing.DeltaID == record.DeltaID {
-			candidate := record
-			candidate.Sequence = existing.Sequence
-			candidate.PreviousDigest = existing.PreviousDigest
-			candidate.RecordDigest = ""
-			want, err := recordDigest(candidate)
-			if err == nil && want == existing.RecordDigest {
+			if samePersistentFinding(existing, record) {
 				return nil
 			}
 			return errors.New("delta id conflict")
 		}
 	}
-	record.Sequence = len(ledger.Records) + 1
+	record.Sequence = len(ledger.MigratedV1Records) + len(ledger.Records) + 1
 	record.PreviousDigest = ledger.Head
 	record.RecordDigest = ""
 	computed, err := recordDigest(record)
@@ -1866,6 +2232,19 @@ func appendLedgerRecord(ledger *Ledger, expectedHead string, record LedgerRecord
 	ledger.Head = computed
 	ledger.Status = "PASS_WITH_CLOSED_HISTORY"
 	return validateLedger(*ledger)
+}
+
+func samePersistentFinding(existing, candidate LedgerRecord) bool {
+	existing.Sequence, candidate.Sequence = 0, 0
+	existing.PreviousDigest, candidate.PreviousDigest = "", ""
+	existing.RecordDigest, candidate.RecordDigest = "", ""
+	// A rerun is a confirmation of the existing record, not a rewrite of the
+	// first/closing execution anchors. The semantic identities must still match.
+	existing.FindingRunAnchor, candidate.FindingRunAnchor = "", ""
+	existing.ClosingRunAnchor, candidate.ClosingRunAnchor = "", ""
+	left, leftErr := canonical(existing)
+	right, rightErr := canonical(candidate)
+	return leftErr == nil && rightErr == nil && bytes.Equal(left, right)
 }
 
 type retainedDefectEvidence struct {
@@ -1927,9 +2306,8 @@ func appendObservedRemediations(ledger *Ledger, hierarchy OracleHierarchy, sc co
 		if digest(javaRaw) != decision.ExpectedSHA256 || digest(rustRaw) != decision.ExpectedSHA256 {
 			return fmt.Errorf("observed remediation closing field is not aligned to authority: %s", defect.Pointer)
 		}
-		deltaSuffix := strings.NewReplacer("/", "-", "~", "-").Replace(strings.TrimPrefix(defect.Pointer, "/"))
 		record := LedgerRecord{
-			DeltaID: "delta." + sc.ScenarioID + "." + deltaSuffix, ScenarioID: sc.ScenarioID,
+			DeltaID: deltaIDFor(sc.ScenarioID, defect.Pointer), ScenarioID: sc.ScenarioID,
 			Pointer: defect.Pointer, Classification: "rust_defect",
 			JavaObservation: defect.JavaObservation, RustObservation: defect.RustObservation,
 			ReproducerSHA256: digest(reproducer), Decision: *decision, Resolution: "remediated",
@@ -1941,6 +2319,54 @@ func appendObservedRemediations(ledger *Ledger, hierarchy OracleHierarchy, sc co
 		}
 	}
 	return nil
+}
+
+func historicalClosedReproducers(cfg Config, hierarchy OracleHierarchy, sc corpora.Scenario, closingJavaDigest, closingRustDigest, closingAnchor string, inputs []ArtifactIdentity) ([]PublicReproducer, error) {
+	defects := retainedDefects[sc.ScenarioID]
+	if len(defects) == 0 {
+		return []PublicReproducer{}, nil
+	}
+	if len(sc.Core.Steps) > cfg.MinimizationBudget.MaxCandidates {
+		return nil, errors.New("historical irreducibility witness exceeds candidate budget")
+	}
+	line, err := sc.CanonicalLine()
+	if err != nil {
+		return nil, err
+	}
+	scenarioSHA := digest(line)
+	result := make([]PublicReproducer, 0, len(defects))
+	for _, defect := range defects {
+		signature := mismatchSignature{Pointer: defect.Pointer, Classification: "rust_defect"}
+		signatureRaw, _ := canonical(signature)
+		reproducerID := "reproducer." + sc.ScenarioID + "." + strings.TrimPrefix(digest(signatureRaw), "sha256:")[:16]
+		attempts := []MinimizationAttempt{{Scenario: sc, ScenarioSHA256: scenarioSHA, Signature: signature, Reproduced: true, Processes: []ProcessReceipt{}, EvidenceStatus: "RETAINED_HISTORICAL_FINDING_OBSERVATIONS"}}
+		for index := range sc.Core.Steps {
+			candidate := sc
+			candidate.Core.Steps = append([]corpora.Step(nil), sc.Core.Steps[:index]...)
+			candidate.Core.Steps = append(candidate.Core.Steps, sc.Core.Steps[index+1:]...)
+			candidateLine, err := candidate.CanonicalLine()
+			if err != nil {
+				return nil, err
+			}
+			attempts = append(attempts, MinimizationAttempt{Scenario: candidate, ScenarioSHA256: digest(candidateLine), Signature: mismatchSignature{}, Reproduced: false, Processes: []ProcessReceipt{}, EvidenceStatus: "NO_RETAINED_HISTORICAL_FINDING_OBSERVATION"})
+		}
+		foundDecision := false
+		for _, cell := range hierarchy.Cells {
+			if cell.ScenarioID == sc.ScenarioID && cell.Pointer == defect.Pointer {
+				foundDecision = true
+				break
+			}
+		}
+		if !foundDecision {
+			return nil, fmt.Errorf("historical reproducer decision absent %s", defect.Pointer)
+		}
+		reproducer := PublicReproducer{ReproducerID: reproducerID, LedgerDeltaID: deltaIDFor(sc.ScenarioID, defect.Pointer), ScenarioID: sc.ScenarioID, Mode: "HISTORICAL_CLOSED_IDENTITY_WITNESS", ProofScope: "RETAINED_HISTORICAL_OBSERVATION_IDENTITY", CurrentlyReproduces: false, Signature: signature, Scenario: sc, OriginalScenarioSHA256: scenarioSHA, ScenarioSHA256: scenarioSHA, Command: []string{"differentialctl", "reproduce", "--repository-root", cfg.RepositoryRoot, "--evidence", cfg.EvidencePath, "--reproducer-id", reproducerID}, RepositoryAnchor: closingAnchor, RuntimeInputs: append([]ArtifactIdentity(nil), inputs...), CandidateAttempts: len(sc.Core.Steps), Irreducible: true, Processes: []ProcessReceipt{}, Attempts: attempts, FindingJavaObservation: defect.JavaObservation, FindingRustObservation: defect.RustObservation, FindingRunAnchor: defect.FindingAnchor, ClosingRunAnchor: closingAnchor, ClosingJavaObservation: closingJavaDigest, ClosingRustObservation: closingRustDigest}
+		if closingJavaDigest == "" || closingRustDigest == "" {
+			return nil, errors.New("historical closing observations absent")
+		}
+		result = append(result, reproducer)
+	}
+	return result, nil
 }
 
 func minimizeStrings(original []string, budget Budget, predicate func([]string) (string, bool)) ([]string, int, error) {
@@ -1969,6 +2395,80 @@ func minimizeStrings(original []string, budget Budget, predicate func([]string) 
 		return best, attempts, errors.New("MINIMIZATION_INCOMPLETE")
 	}
 	return best, attempts, nil
+}
+
+func minimizeScenarioFresh(original corpora.Scenario, budget Budget, predicate func(corpora.Scenario) (mismatchSignature, []ProcessReceipt, error)) (PublicReproducer, error) {
+	if budget.MaxCandidates <= 0 || budget.MaxCandidates > 512 || budget.MaxDuration <= 0 || budget.MaxDuration > 30*time.Minute {
+		return PublicReproducer{}, errors.New("invalid minimization budget")
+	}
+	if len(original.Core.Steps) == 0 {
+		return PublicReproducer{}, errors.New("mismatch scenario has no minimizable steps")
+	}
+	deadline := time.Now().Add(budget.MaxDuration)
+	originalLine, err := original.CanonicalLine()
+	if err != nil {
+		return PublicReproducer{}, err
+	}
+	seenPIDs := map[int]bool{}
+	processes := []ProcessReceipt{}
+	history := []MinimizationAttempt{}
+	run := func(candidate corpora.Scenario) (mismatchSignature, bool, error) {
+		signature, receipts, err := predicate(candidate)
+		if err != nil {
+			return mismatchSignature{}, false, err
+		}
+		if len(receipts) < 2 {
+			return mismatchSignature{}, false, errors.New("minimization candidate did not use fresh runtime processes")
+		}
+		for _, receipt := range receipts {
+			if receipt.PID <= 0 || seenPIDs[receipt.PID] {
+				return mismatchSignature{}, false, errors.New("minimization process identity reused")
+			}
+			seenPIDs[receipt.PID] = true
+		}
+		processes = append(processes, receipts...)
+		reproduced := signature.Pointer != "" && signature.Classification != ""
+		line, err := candidate.CanonicalLine()
+		if err != nil {
+			return mismatchSignature{}, false, err
+		}
+		history = append(history, MinimizationAttempt{Scenario: candidate, ScenarioSHA256: digest(line), Signature: signature, Reproduced: reproduced, Processes: append([]ProcessReceipt(nil), receipts...), EvidenceStatus: "FRESH_RUNTIME_OBSERVATION"})
+		return signature, reproduced, nil
+	}
+	want, reproduced, err := run(original)
+	if err != nil || !reproduced {
+		if err == nil {
+			err = errors.New("original mismatch does not reproduce")
+		}
+		return PublicReproducer{}, err
+	}
+	best := original
+	attempts := 0
+	for index := 0; index < len(best.Core.Steps); {
+		if attempts >= budget.MaxCandidates || !time.Now().Before(deadline) {
+			return PublicReproducer{}, errors.New("MINIMIZATION_INCOMPLETE")
+		}
+		candidate := best
+		candidate.Core.Steps = append([]corpora.Step(nil), best.Core.Steps[:index]...)
+		candidate.Core.Steps = append(candidate.Core.Steps, best.Core.Steps[index+1:]...)
+		attempts++
+		got, ok, err := run(candidate)
+		if err != nil {
+			return PublicReproducer{}, err
+		}
+		if ok && got == want {
+			best = candidate
+			continue
+		}
+		index++
+	}
+	line, err := best.CanonicalLine()
+	if err != nil {
+		return PublicReproducer{}, err
+	}
+	sha := digest(line)
+	signatureRaw, _ := canonical(want)
+	return PublicReproducer{ReproducerID: "reproducer." + best.ScenarioID + "." + strings.TrimPrefix(digest(signatureRaw), "sha256:")[:16], ScenarioID: best.ScenarioID, Mode: "FRESH_BOUNDED_MINIMIZATION", ProofScope: "FRESH_RUNTIME_DIFFERENCE", CurrentlyReproduces: true, Signature: want, Scenario: best, OriginalScenarioSHA256: digest(originalLine), ScenarioSHA256: sha, CandidateAttempts: attempts, Irreducible: true, Processes: processes, Attempts: history, RuntimeInputs: []ArtifactIdentity{}, Command: []string{}}, nil
 }
 
 func classifyAgainstNeutral(neutral, java, rust string) string {
@@ -2011,9 +2511,14 @@ func runSeededControls() (ControlsReceipt, error) {
 		difference := DetectSemanticDifference(baseline, candidate)
 		add(control.id, control.code, difference.Code, candidate)
 	}
-	// Two distinct lossless fingerprints which collapse without an approved
-	// masking loss are the exact collision seed.
-	add("normalization-collision", "NORMALIZATION_COLLISION", "NORMALIZATION_COLLISION", map[string]string{"raw_a": "a", "raw_b": "b", "normalized": "same"})
+	// The planted collision is executed through the same replay audit as the
+	// real primary/replay path; it is not a predeclared detector result.
+	shared := digest([]byte("normalized"))
+	collisionCode, collisionErr := auditReplayNormalization(NormalizationTrace{Runtime: "java", RawSHA256: digest([]byte("raw-a")), NormalizedSHA256: shared}, NormalizationTrace{Runtime: "java", RawSHA256: digest([]byte("raw-b")), NormalizedSHA256: shared})
+	if collisionErr == nil {
+		return ControlsReceipt{}, errors.New("planted normalization collision was accepted")
+	}
+	add("normalization-collision", "NORMALIZATION_COLLISION", collisionCode, map[string]string{"raw_a": "a", "raw_b": "b", "normalized": "same"})
 	killed := 0
 	for _, result := range results {
 		if result.ExpectedCode == result.DetectedCode && result.BaselinePassed && result.LedgerUnchanged {
@@ -2052,52 +2557,117 @@ func requireStablePair(ctx context.Context, request childRequest, normalize func
 	return nil
 }
 
-func predecessorPath(story string) string {
-	switch story {
-	case "US-010":
-		return "evidence/us010-client-handshake.json"
-	case "US-011":
-		return "evidence/us011-server-handshake.json"
-	case "US-017":
-		return "evidence/us017-driver.json"
-	case "US-018":
-		return "evidence/us018-blocking-adapters.json"
-	}
-	return ""
+type reviewedCoverage struct {
+	Fresh         bool
+	ScenarioIDs   []string
+	FieldPointers []string
+	Predecessors  []string
+	Excluded      string
 }
 
-func selectScenario(scenarios []corpora.Scenario, hint string) string {
-	hint = strings.ToLower(hint)
-	keywords := []string{}
-	switch {
-	case strings.Contains(hint, "close") || strings.Contains(hint, "eof"):
-		keywords = []string{"close", "eof"}
-	case strings.Contains(hint, "ping") || strings.Contains(hint, "pong") || strings.Contains(hint, "control"):
-		keywords = []string{"ping", "pong"}
-	case strings.Contains(hint, "fragment"):
-		keywords = []string{"fragment"}
-	case strings.Contains(hint, "utf") || strings.Contains(hint, "text") || strings.Contains(hint, "binary") || strings.Contains(hint, "message"):
-		keywords = []string{"text", "binary", "utf"}
-	case strings.Contains(hint, "frame") || strings.Contains(hint, "mask") || strings.Contains(hint, "opcode") || strings.Contains(hint, "limit") || strings.Contains(hint, "error"):
-		keywords = []string{"frame", "mask", "protocol", "limit"}
-	default:
-		keywords = []string{"state", "text"}
-	}
-	for _, sc := range scenarios {
-		family := strings.ToLower(sc.Family)
-		for _, keyword := range keywords {
-			if strings.Contains(family, keyword) {
-				return sc.ScenarioID
-			}
+var commonCoverageFields = []string{"/final_state", "/counts", "/events", "/frames", "/transitions", "/close", "/error"}
+
+func freshCoverage(scenarioID string) reviewedCoverage {
+	return reviewedCoverage{Fresh: true, ScenarioIDs: []string{scenarioID}, FieldPointers: append([]string(nil), commonCoverageFields...)}
+}
+
+func predecessorCoverage(paths ...string) reviewedCoverage {
+	return reviewedCoverage{Predecessors: append([]string(nil), paths...)}
+}
+
+// reviewedCoverageMap is deliberately exhaustive and literal. Its keys are
+// the complete 47-row migration inventory plus 14-item compatibility surface;
+// no identifier, feature, or substring inference is permitted here.
+var reviewedCoverageMap = map[string]reviewedCoverage{
+	"migration.org-java-websocket-websocket":                                   freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-websocketadapter":                            freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-websocketimpl":                               freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-websocketlistener":                           freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-drafts-draft":                                freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-drafts-draft-6455":                           freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata": freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-enums-closehandshaketype":                    freshCoverage("us005.pub.0000"),
+	"migration.org-java-websocket-enums-handshakestate":                        predecessorCoverage("evidence/us010-client-handshake.json", "evidence/us011-server-handshake.json"),
+	"migration.org-java-websocket-enums-opcode":                                freshCoverage("us005.pub.0024"),
+	"migration.org-java-websocket-enums-readystate":                            freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-enums-role":                                  freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-exceptions-incompleteexception":              freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-exceptions-incompletehandshakeexception":     predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-exceptions-invaliddataexception":             freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-exceptions-invalidencodingexception":         freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-exceptions-invalidframeexception":            freshCoverage("us005.pub.0024"),
+	"migration.org-java-websocket-exceptions-invalidhandshakeexception":        predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-exceptions-limitexceededexception":           freshCoverage("us005.pub.0024"),
+	"migration.org-java-websocket-exceptions-notsendableexception":             freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-exceptions-websocketnotconnectedexception":   freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-exceptions-wrappedioexception":               predecessorCoverage("evidence/us018-blocking-adapters.json"),
+	"migration.org-java-websocket-framing-binaryframe":                         freshCoverage("us005.pub.0001"),
+	"migration.org-java-websocket-framing-closeframe":                          freshCoverage("us005.pub.0000"),
+	"migration.org-java-websocket-framing-continuousframe":                     freshCoverage("us005.pub.0024"),
+	"migration.org-java-websocket-framing-controlframe":                        freshCoverage("us005.pub.0002"),
+	"migration.org-java-websocket-framing-dataframe":                           freshCoverage("us005.pub.0024"),
+	"migration.org-java-websocket-framing-framedata":                           freshCoverage("us005.pub.0024"),
+	"migration.org-java-websocket-framing-framedataimpl1":                      freshCoverage("us005.pub.0024"),
+	"migration.org-java-websocket-framing-pingframe":                           freshCoverage("us005.pub.0002"),
+	"migration.org-java-websocket-framing-pongframe":                           freshCoverage("us005.pub.0002"),
+	"migration.org-java-websocket-framing-textframe":                           freshCoverage("us005.pub.0001"),
+	"migration.org-java-websocket-handshake-clienthandshake":                   predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-handshake-clienthandshakebuilder":            predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-handshake-handshakebuilder":                  predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-handshake-handshakeimpl1client":              predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-handshake-handshakeimpl1server":              predecessorCoverage("evidence/us011-server-handshake.json"),
+	"migration.org-java-websocket-handshake-handshakedata":                     predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-handshake-handshakedataimpl1":                predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-handshake-serverhandshake":                   predecessorCoverage("evidence/us011-server-handshake.json"),
+	"migration.org-java-websocket-handshake-serverhandshakebuilder":            predecessorCoverage("evidence/us011-server-handshake.json"),
+	"migration.org-java-websocket-interfaces-isslchannel":                      {Excluded: "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED"},
+	"migration.org-java-websocket-util-base64":                                 predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-util-base64-outputstream":                    predecessorCoverage("evidence/us010-client-handshake.json"),
+	"migration.org-java-websocket-util-bytebufferutils":                        freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-util-charsetfunctions":                       freshCoverage("us005.pub.0003"),
+	"migration.org-java-websocket-util-namedthreadfactory":                     {Excluded: "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED"},
+	"surface.handshake.client-request":                                         predecessorCoverage("evidence/us010-client-handshake.json"),
+	"surface.handshake.server-response":                                        predecessorCoverage("evidence/us011-server-handshake.json"),
+	"surface.framing.frame-octets":                                             freshCoverage("us005.pub.0024"),
+	"surface.framing.masking":                                                  freshCoverage("us005.pub.0024"),
+	"surface.messages.text-utf8":                                               freshCoverage("us005.pub.0001"),
+	"surface.messages.binary":                                                  freshCoverage("us005.pub.0001"),
+	"surface.fragmentation.continuation":                                       freshCoverage("us005.pub.0001"),
+	"surface.control.ping-pong":                                                freshCoverage("us005.pub.0002"),
+	"surface.close.status-code":                                                freshCoverage("us005.pub.0000"),
+	"surface.close.terminal-state":                                             freshCoverage("us005.pub.0000"),
+	"surface.concurrency.command-order":                                        predecessorCoverage("evidence/us017-driver.json"),
+	"surface.errors.protocol-fault":                                            freshCoverage("us005.pub.0024"),
+	"surface.limits.allocation":                                                freshCoverage("us005.pub.0024"),
+	"surface.adapter.byte-stream":                                              predecessorCoverage("evidence/us018-blocking-adapters.json"),
+}
+
+func applyReviewedCoverage(root string, base CoverageRow, mapping reviewedCoverage) (CoverageRow, error) {
+	base.FreshUS020 = mapping.Fresh
+	base.ScenarioIDs = append([]string{}, mapping.ScenarioIDs...)
+	base.FieldPointers = append([]string{}, mapping.FieldPointers...)
+	base.PredecessorPaths = append([]string{}, mapping.Predecessors...)
+	base.PredecessorIdentities = []ArtifactIdentity{}
+	base.ExcludedReason = mapping.Excluded
+	for _, relative := range base.PredecessorPaths {
+		identity, err := artifact(filepath.Join(root, relative))
+		if err != nil {
+			return CoverageRow{}, fmt.Errorf("predecessor %s: %w", relative, err)
 		}
+		identity.Kind = "predecessor-receipt"
+		base.PredecessorIdentities = append(base.PredecessorIdentities, identity)
 	}
-	if len(scenarios) > 0 {
-		return scenarios[0].ScenarioID
-	}
-	return ""
+	return base, nil
 }
 
 func buildCoverage(root string, scenarios []corpora.Scenario) (CoverageReceipt, error) {
+	if len(reviewedCoverageMap) != 61 {
+		return CoverageReceipt{}, errors.New("closed reviewed coverage map cardinality drift")
+	}
+	scenarioIDs := make(map[string]bool, len(scenarios))
+	for _, scenario := range scenarios {
+		scenarioIDs[scenario.ScenarioID] = true
+	}
 	migrationRaw, err := readRegularBounded(filepath.Join(root, "evidence/intake/semantic-id-migration-map.json"), maximumDocumentBytes)
 	if err != nil {
 		return CoverageReceipt{}, err
@@ -2124,78 +2694,60 @@ func buildCoverage(root string, scenarios []corpora.Scenario) (CoverageReceipt, 
 	if len(compat.Items) != 14 {
 		return CoverageReceipt{}, fmt.Errorf("compatibility items=%d", len(compat.Items))
 	}
-	receipt := CoverageReceipt{Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}}
+	if _, err := provenance.LoadAndValidateCurrentHeadQualification(root); err != nil {
+		return CoverageReceipt{}, fmt.Errorf("current-head qualification: %w", err)
+	}
+	qualification, err := artifact(filepath.Join(root, provenance.CurrentHeadQualificationPath))
+	if err != nil {
+		return CoverageReceipt{}, err
+	}
+	qualification.Kind = "current-head-qualification"
+	receipt := CoverageReceipt{CurrentHeadQualification: qualification, Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}}
 	for index, raw := range migration.Rows {
 		var row struct {
-			ID             string `json:"id"`
-			JavaSemanticID string `json:"java_semantic_id"`
-			Status         string `json:"status"`
-			PortSlices     []struct {
-				ChildStoryID string `json:"child_story_id"`
-			} `json:"port_slices"`
+			ID string `json:"id"`
 		}
 		if err := json.Unmarshal(raw, &row); err != nil {
 			return CoverageReceipt{}, err
 		}
-		coverage := CoverageRow{ID: row.ID, SourcePointer: fmt.Sprintf("/rows/%d", index), SourceSHA256: digest(raw), ScenarioIDs: []string{}, FieldPointers: []string{}, PredecessorPaths: []string{}}
-		if strings.Contains(row.Status, "CAPABILITY_EXCLUDED") {
-			coverage.ExcludedReason = row.Status
+		mapping, ok := reviewedCoverageMap[row.ID]
+		if !ok {
+			return CoverageReceipt{}, fmt.Errorf("unreviewed migration row %q", row.ID)
+		}
+		coverage, err := applyReviewedCoverage(root, CoverageRow{ID: row.ID, SourcePointer: fmt.Sprintf("/rows/%d", index), SourceSHA256: digest(raw), ScenarioIDs: []string{}, FieldPointers: []string{}, PredecessorPaths: []string{}, PredecessorIdentities: []ArtifactIdentity{}}, mapping)
+		if err != nil {
+			return CoverageReceipt{}, err
+		}
+		if coverage.ExcludedReason != "" {
 			receipt.Summary.CapabilityExcludedRows++
+		} else if coverage.FreshUS020 {
+			receipt.Summary.FreshRows++
+		} else if len(coverage.PredecessorPaths) > 0 {
+			receipt.Summary.PredecessorRows++
 		} else {
-			fresh := false
-			predecessors := map[string]bool{}
-			for _, slice := range row.PortSlices {
-				story := slice.ChildStoryID
-				if story >= "US-009" && story <= "US-016" && story != "US-010" && story != "US-011" {
-					fresh = true
-				}
-				if path := predecessorPath(story); path != "" {
-					predecessors[path] = true
-				}
-			}
-			if fresh {
-				coverage.FreshUS020 = true
-				coverage.ScenarioIDs = []string{selectScenario(scenarios, row.JavaSemanticID)}
-				coverage.FieldPointers = []string{"/final_state", "/counts", "/events", "/frames", "/transitions", "/close", "/error"}
-				receipt.Summary.FreshRows++
-			} else {
-				for path := range predecessors {
-					coverage.PredecessorPaths = append(coverage.PredecessorPaths, path)
-				}
-				sort.Strings(coverage.PredecessorPaths)
-				if len(coverage.PredecessorPaths) == 0 {
-					receipt.Summary.UnresolvedRows++
-				} else {
-					receipt.Summary.PredecessorRows++
-				}
+			receipt.Summary.UnresolvedRows++
+		}
+		for _, scenarioID := range coverage.ScenarioIDs {
+			if !scenarioIDs[scenarioID] {
+				return CoverageReceipt{}, fmt.Errorf("reviewed scenario absent: %s", scenarioID)
 			}
 		}
 		receipt.Migration = append(receipt.Migration, coverage)
 	}
 	for index, raw := range compat.Items {
 		var item struct {
-			SurfaceID         string   `json:"surface_id"`
-			ObservationStatus string   `json:"observation_status"`
-			BlockerCode       string   `json:"blocker_code"`
-			Evidence          []string `json:"evidence_obligation_ids"`
+			SurfaceID string `json:"surface_id"`
 		}
 		if err := json.Unmarshal(raw, &item); err != nil {
 			return CoverageReceipt{}, err
 		}
-		coverage := CoverageRow{ID: item.SurfaceID, SourcePointer: fmt.Sprintf("/items/%d", index), SourceSHA256: digest(raw), ScenarioIDs: []string{}, FieldPointers: []string{}, PredecessorPaths: []string{}}
-		switch {
-		case strings.Contains(item.SurfaceID, "handshake.client"):
-			coverage.PredecessorPaths = []string{predecessorPath("US-010")}
-		case strings.Contains(item.SurfaceID, "handshake.server"):
-			coverage.PredecessorPaths = []string{predecessorPath("US-011")}
-		case strings.Contains(item.SurfaceID, "concurrency"):
-			coverage.PredecessorPaths = []string{predecessorPath("US-017")}
-		case strings.Contains(item.SurfaceID, "adapter.byte-stream"):
-			coverage.PredecessorPaths = []string{predecessorPath("US-018")}
-		default:
-			coverage.FreshUS020 = true
-			coverage.ScenarioIDs = []string{selectScenario(scenarios, item.SurfaceID)}
-			coverage.FieldPointers = []string{"/final_state", "/counts", "/events", "/frames", "/transitions", "/close", "/error"}
+		mapping, ok := reviewedCoverageMap[item.SurfaceID]
+		if !ok {
+			return CoverageReceipt{}, fmt.Errorf("unreviewed compatibility item %q", item.SurfaceID)
+		}
+		coverage, err := applyReviewedCoverage(root, CoverageRow{ID: item.SurfaceID, SourcePointer: fmt.Sprintf("/items/%d", index), SourceSHA256: digest(raw), ScenarioIDs: []string{}, FieldPointers: []string{}, PredecessorPaths: []string{}, PredecessorIdentities: []ArtifactIdentity{}}, mapping)
+		if err != nil {
+			return CoverageReceipt{}, err
 		}
 		if coverage.FreshUS020 {
 			receipt.Summary.FreshRows++
@@ -2295,6 +2847,12 @@ func normalizeJava(sc corpora.Scenario, raw []byte) (commonObservation, []string
 	if object["request_id"] != sc.ScenarioID || object["protocol"] != "java-websocket-oracle" || object["version"] != "1.0.0" {
 		return commonObservation{}, nil, errors.New("Java response binding invalid")
 	}
+	if initial, present := object["initial_state"]; present && initial != sc.Core.InitialState {
+		return commonObservation{}, nil, errors.New("Java initial state binding invalid")
+	}
+	if role, present := object["role"]; present && role != sc.Core.Role {
+		return commonObservation{}, nil, errors.New("Java role binding invalid")
+	}
 	result := commonObservation{ScenarioID: sc.ScenarioID, Role: sc.Core.Role, InitialState: sc.Core.InitialState, Events: []commonEvent{}, Frames: []commonFrame{}, Transitions: []commonTransition{}}
 	var ok bool
 	result.Outcome, ok = object["outcome"].(string)
@@ -2309,6 +2867,9 @@ func normalizeJava(sc corpora.Scenario, raw []byte) (commonObservation, []string
 	if !ok {
 		return commonObservation{}, nil, errors.New("Java counts absent")
 	}
+	if err := requireObjectKeys(counts, "actions", "buffered_bytes", "consumed_bytes", "frames", "input_bytes", "message_buffered_bytes", "wire_buffered_bytes"); err != nil {
+		return commonObservation{}, nil, fmt.Errorf("Java counts: %w", err)
+	}
 	for name, target := range map[string]*uint64{"actions": &result.Counts.Actions, "buffered_bytes": &result.Counts.BufferedBytes, "consumed_bytes": &result.Counts.ConsumedBytes, "frames": &result.Counts.Frames, "input_bytes": &result.Counts.InputBytes, "message_buffered_bytes": &result.Counts.MessageBufferedBytes, "wire_buffered_bytes": &result.Counts.WireBufferedBytes} {
 		value, err := uintValue(counts[name])
 		if err != nil {
@@ -2318,6 +2879,9 @@ func normalizeJava(sc corpora.Scenario, raw []byte) (commonObservation, []string
 	}
 	loss := []string{"/runtime", "/protocol", "/version", "/request_digest", "/request_id"}
 	if result.Outcome == "error" {
+		if err := requireObjectKeys(object, "counts", "error", "final_state", "outcome", "protocol", "request_digest", "request_id", "runtime", "version"); err != nil {
+			return commonObservation{}, nil, fmt.Errorf("Java error envelope: %w", err)
+		}
 		errorObject, ok := object["error"].(map[string]any)
 		if !ok {
 			return commonObservation{}, nil, errors.New("Java error absent")
@@ -2327,7 +2891,17 @@ func normalizeJava(sc corpora.Scenario, raw []byte) (commonObservation, []string
 			return commonObservation{}, nil, errors.New("Java error class absent")
 		}
 		result.Error = &commonError{Class: normalizeJavaErrorClass(sc, class), Terminal: false}
-		return result, append(loss, "/error/detail"), nil
+		if err := requireObjectKeys(errorObject, "close_code", "code", "detail"); err != nil {
+			return commonObservation{}, nil, err
+		}
+		loss = append(loss, "/error/detail")
+		if _, ok := errorObject["close_code"]; ok {
+			loss = append(loss, "/error/close_code")
+		}
+		return result, loss, nil
+	}
+	if err := requireObjectKeys(object, "close", "counts", "events", "final_state", "frames", "initial_state", "outcome", "protocol", "request_digest", "request_id", "role", "runtime", "transitions", "version"); err != nil {
+		return commonObservation{}, nil, fmt.Errorf("Java success envelope: %w", err)
 	}
 	if events, ok := object["events"].([]any); ok {
 		for index, value := range events {
@@ -2337,6 +2911,15 @@ func normalizeJava(sc corpora.Scenario, raw []byte) (commonObservation, []string
 			}
 			if keep {
 				result.Events = append(result.Events, event)
+				object, _ := value.(map[string]any)
+				switch object["type"] {
+				case "text":
+					loss = append(loss, fmt.Sprintf("/events/%d/utf8_bytes(java-event-diagnostic)", index))
+				case "binary", "ping", "pong":
+					loss = append(loss, fmt.Sprintf("/events/%d/bytes(java-event-diagnostic)", index))
+				case "close", "close_initiated", "eof":
+					loss = append(loss, fmt.Sprintf("/events/%d/remote(java-close-diagnostic)", index))
+				}
 			} else {
 				loss = append(loss, fmt.Sprintf("/events/%d(adapter-only)", index))
 			}
@@ -2349,6 +2932,9 @@ func normalizeJava(sc corpora.Scenario, raw []byte) (commonObservation, []string
 				return commonObservation{}, nil, fmt.Errorf("Java frame %d: %w", index, err)
 			}
 			result.Frames = append(result.Frames, frame)
+			for _, field := range []string{"payload_bytes", "rsv1", "rsv2", "rsv3"} {
+				loss = append(loss, fmt.Sprintf("/frames/%d/%s(java-frame-diagnostic)", index, field))
+			}
 			pointer := fmt.Sprintf("/frames/%d/payload_base64", index)
 			if selected, _, selectedByRFC := explicitRFCOracleOverride(sc, pointer); selectedByRFC {
 				selectedPayload, isString := selected.(string)
@@ -2373,6 +2959,13 @@ func normalizeJava(sc corpora.Scenario, raw []byte) (commonObservation, []string
 	if err != nil {
 		return commonObservation{}, nil, err
 	}
+	if result.Close != nil {
+		closeObject, _ := object["close"].(map[string]any)
+		if err := requireObjectKeys(closeObject, "code", "handshake_complete", "origin", "reason", "remote"); err != nil {
+			return commonObservation{}, nil, err
+		}
+		loss = append(loss, "/close/remote(java-close-diagnostic)")
+	}
 	return result, loss, nil
 }
 
@@ -2392,10 +2985,25 @@ func normalizeJavaEvent(value any) (commonEvent, bool, error) {
 	event := commonEvent{Step: uint16(step), Kind: kind}
 	switch kind {
 	case "text":
-		event.Text, _ = object["text"].(string)
+		if err := requireObjectKeys(object, "text", "type", "step", "utf8_bytes"); err != nil {
+			return commonEvent{}, false, err
+		}
+		event.Text, ok = object["text"].(string)
+		if !ok {
+			return commonEvent{}, false, errors.New("text absent")
+		}
 	case "binary", "ping", "pong":
-		event.PayloadB64, _ = object["data_base64"].(string)
+		if err := requireObjectKeys(object, "bytes", "data_base64", "type", "step"); err != nil {
+			return commonEvent{}, false, err
+		}
+		event.PayloadB64, ok = object["data_base64"].(string)
+		if !ok {
+			return commonEvent{}, false, errors.New("data_base64 absent")
+		}
 	case "close", "close_initiated", "eof":
+		if err := requireObjectKeys(object, "code", "handshake_complete", "origin", "reason", "remote", "type", "step"); err != nil {
+			return commonEvent{}, false, err
+		}
 		close, err := commonCloseFromJava(object)
 		if err != nil {
 			return commonEvent{}, false, err
@@ -2403,15 +3011,131 @@ func normalizeJavaEvent(value any) (commonEvent, bool, error) {
 		event.Kind = "close"
 		event.Close = close
 	default:
+		if _, allowed := javaAdapterOnlyEvents[kind]; !allowed {
+			return commonEvent{}, false, fmt.Errorf("unmapped Java event type %q", kind)
+		}
+		if err := requireObjectKeys(object, javaAdapterOnlyEvents[kind]...); err != nil {
+			return commonEvent{}, false, err
+		}
 		return commonEvent{}, false, nil
 	}
 	return event, true, nil
+}
+
+var javaAdapterOnlyEvents = map[string][]string{
+	"input_chunk":             {"bytes", "step", "type"},
+	"send_text":               {"opcode", "step", "type"},
+	"send_binary":             {"opcode", "step", "type"},
+	"send_ping":               {"opcode", "step", "type"},
+	"send_pong":               {"opcode", "step", "type"},
+	"send_close":              {"opcode", "step", "type"},
+	"send_fragment":           {"opcode", "step", "type"},
+	"echo_close":              {"opcode", "step", "type"},
+	"open":                    {"step", "type"},
+	"runtime_close":           {"code", "reason", "remote", "step", "type"},
+	"runtime_closing":         {"code", "reason", "remote", "step", "type"},
+	"runtime_close_initiated": {"code", "reason", "step", "type"},
+	"listener_error":          {"class", "step", "type"},
+	"write_demand":            {"step", "type"},
+}
+
+func requireObjectKeys(object map[string]any, allowed ...string) error {
+	set := make(map[string]bool, len(allowed))
+	for _, key := range allowed {
+		set[key] = true
+	}
+	for key := range object {
+		if !set[key] {
+			return fmt.Errorf("unreviewed field %q", key)
+		}
+	}
+	return nil
+}
+
+func jsonPointerValue(root any, pointer string) (any, bool) {
+	if pointer == "" {
+		return root, true
+	}
+	current := root
+	for _, encoded := range strings.Split(strings.TrimPrefix(pointer, "/"), "/") {
+		part := strings.ReplaceAll(strings.ReplaceAll(encoded, "~1", "/"), "~0", "~")
+		switch value := current.(type) {
+		case map[string]any:
+			var ok bool
+			current, ok = value[part]
+			if !ok {
+				return nil, false
+			}
+		case []any:
+			index, err := strconv.Atoi(part)
+			if err != nil || index < 0 || index >= len(value) {
+				return nil, false
+			}
+			current = value[index]
+		default:
+			return nil, false
+		}
+	}
+	return current, true
+}
+
+func buildNormalizationTrace(runtimeName, attempt string, raw []byte, normalizedSHA string, loss []string) (NormalizationTrace, error) {
+	trace := NormalizationTrace{Runtime: runtimeName, Attempt: attempt, RawBase64: base64.StdEncoding.EncodeToString(raw), RawSHA256: digest(raw), NormalizedSHA256: normalizedSHA, Losses: []NormalizationLoss{}}
+	if runtimeName != "java" {
+		return trace, nil
+	}
+	var value any
+	if err := json.Unmarshal(bytes.TrimSuffix(raw, []byte("\n")), &value); err != nil {
+		return NormalizationTrace{}, err
+	}
+	seen := map[string]bool{}
+	for _, annotated := range loss {
+		pointer := annotated
+		reason := "reviewed common-surface projection"
+		if at := strings.Index(pointer, "("); at >= 0 {
+			reason = strings.TrimSuffix(pointer[at+1:], ")")
+			pointer = pointer[:at]
+		}
+		if seen[annotated] {
+			return NormalizationTrace{}, fmt.Errorf("duplicate normalization loss %s", annotated)
+		}
+		seen[annotated] = true
+		rawValue, ok := jsonPointerValue(value, pointer)
+		if !ok {
+			return NormalizationTrace{}, fmt.Errorf("normalization loss pointer absent: %s", pointer)
+		}
+		encoded, err := canonical(rawValue)
+		if err != nil {
+			return NormalizationTrace{}, err
+		}
+		trace.Losses = append(trace.Losses, NormalizationLoss{Pointer: pointer, Reason: reason, ValueSHA256: digest(encoded)})
+	}
+	return trace, nil
+}
+
+func auditReplayNormalization(primary, replay NormalizationTrace) (string, error) {
+	if primary.Runtime != replay.Runtime || primary.NormalizedSHA256 == "" || replay.NormalizedSHA256 == "" {
+		return "NORMALIZATION_AUDIT_INVALID", errors.New("normalization trace binding invalid")
+	}
+	if primary.RawSHA256 == replay.RawSHA256 {
+		if primary.NormalizedSHA256 != replay.NormalizedSHA256 {
+			return "NORMALIZATION_NONDETERMINISM", errors.New("equal raw observations normalized differently")
+		}
+		return "", nil
+	}
+	if primary.NormalizedSHA256 == replay.NormalizedSHA256 {
+		return "NORMALIZATION_COLLISION", errors.New("distinct raw observations collapsed to one normalized observation")
+	}
+	return "RAW_REPLAY_DIFFERENCE", errors.New("primary and replay raw observations differ")
 }
 
 func normalizeJavaFrame(value any) (commonFrame, error) {
 	object, ok := value.(map[string]any)
 	if !ok {
 		return commonFrame{}, errors.New("not object")
+	}
+	if err := requireObjectKeys(object, "direction", "fin", "masked", "opcode", "payload_base64", "payload_bytes", "rsv1", "rsv2", "rsv3", "step", "wire_bytes"); err != nil {
+		return commonFrame{}, err
 	}
 	step, err := uintValue(object["step"])
 	if err != nil || step > 65535 {
@@ -2426,6 +3150,16 @@ func normalizeJavaFrame(value any) (commonFrame, error) {
 	fin, _ := object["fin"].(bool)
 	masked, _ := object["masked"].(bool)
 	payload, _ := object["payload_base64"].(string)
+	decoded, decodeErr := base64.StdEncoding.DecodeString(payload)
+	payloadBytes, countErr := uintValue(object["payload_bytes"])
+	if decodeErr != nil || base64.StdEncoding.EncodeToString(decoded) != payload || countErr != nil || payloadBytes != uint64(len(decoded)) {
+		return commonFrame{}, errors.New("Java frame payload accounting invalid")
+	}
+	for _, field := range []string{"rsv1", "rsv2", "rsv3"} {
+		if _, ok := object[field].(bool); !ok {
+			return commonFrame{}, errors.New("Java frame RSV diagnostic invalid")
+		}
+	}
 	return commonFrame{Step: uint16(step), Direction: direction, Fin: fin, Opcode: opcode, Masked: masked, PayloadB64: payload, WireLength: wire}, nil
 }
 
@@ -2433,6 +3167,9 @@ func normalizeJavaTransition(value any) (commonTransition, error) {
 	object, ok := value.(map[string]any)
 	if !ok {
 		return commonTransition{}, errors.New("not object")
+	}
+	if err := requireObjectKeys(object, "cause", "from", "step", "to"); err != nil {
+		return commonTransition{}, err
 	}
 	step, err := uintValue(object["step"])
 	if err != nil || step > 65535 {
@@ -2748,6 +3485,39 @@ func artifact(path string) (ArtifactIdentity, error) {
 	return ArtifactIdentity{Path: path, SHA256: digest(raw), Bytes: int64(len(raw))}, nil
 }
 
+func collectInputIdentities(cfg Config) ([]ArtifactIdentity, error) {
+	specs := []struct{ kind, path string }{
+		{"public-corpus", cfg.PublicCorpus},
+		{"public-corpus-manifest", filepath.Join(cfg.RepositoryRoot, "corpora/public/manifest.json")},
+		{"java-executable", cfg.JavaExecutable},
+		{"java-adapter-jar", cfg.JavaAdapterJar},
+		{"java-runtime-jar", cfg.JavaRuntimeJar},
+		{"rust-testee", cfg.RustTestee},
+		{"migration-inventory", cfg.MigrationInventory},
+		{"compatibility-surface", cfg.CompatibilitySurface},
+		{"oracle-hierarchy", cfg.OracleHierarchyPath},
+	}
+	for index, path := range cfg.JavaSupportJars {
+		specs = append(specs, struct{ kind, path string }{fmt.Sprintf("java-support-jar-%02d", index), path})
+	}
+	qualification := filepath.Join(cfg.RepositoryRoot, "evidence/us020-current-head-qualification.json")
+	if _, err := os.Lstat(qualification); err == nil {
+		specs = append(specs, struct{ kind, path string }{"current-head-qualification", qualification})
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
+	inputs := make([]ArtifactIdentity, 0, len(specs))
+	for _, spec := range specs {
+		identity, err := artifact(spec.path)
+		if err != nil {
+			return nil, err
+		}
+		identity.Kind = spec.kind
+		inputs = append(inputs, identity)
+	}
+	return inputs, nil
+}
+
 func gitAnchor(root string) (string, error) {
 	cmd := exec.Command("git", "-C", root, "rev-parse", "HEAD")
 	cmd.Env = []string{"LANG=C", "LC_ALL=C"}
@@ -2767,6 +3537,7 @@ type attemptOutput struct {
 	rust        rustObservation
 	receipt     ProcessReceipt
 	loss        []string
+	trace       NormalizationTrace
 }
 
 func runAttempt(ctx context.Context, cfg Config, suiteHome string, sc corpora.Scenario, runtimeName, attempt, executableDigest string) (attemptOutput, error) {
@@ -2806,8 +3577,99 @@ func runAttempt(ctx context.Context, cfg Config, suiteHome string, sc corpora.Sc
 	if err != nil {
 		return attemptOutput{}, err
 	}
-	output.receipt = ProcessReceipt{ScenarioID: sc.ScenarioID, Runtime: runtimeName, Attempt: attempt, PID: result.PID, ExecutableSHA256: executableDigest, StdinSHA256: digest(request.Input), StdinBytes: len(request.Input), StdoutSHA256: digest(result.Stdout), StdoutBytes: len(result.Stdout), StderrSHA256: digest(result.Stderr), StderrBytes: len(result.Stderr), ExitCode: result.ExitCode, StartedUnixNano: result.Started.UnixNano(), DurationNanos: result.Duration.Nanoseconds(), NormalizedSHA256: normalizedDigest}
+	output.trace, err = buildNormalizationTrace(runtimeName, attempt, result.Stdout, normalizedDigest, output.loss)
+	if err != nil {
+		return attemptOutput{}, err
+	}
+	output.receipt = ProcessReceipt{ScenarioID: sc.ScenarioID, Runtime: runtimeName, Attempt: attempt, PID: result.PID, ExecutableSHA256: executableDigest, StdinSHA256: digest(request.Input), StdinBytes: len(request.Input), StdoutSHA256: digest(result.Stdout), StdoutBytes: len(result.Stdout), StderrSHA256: digest(result.Stderr), StderrBytes: len(result.Stderr), ExitCode: result.ExitCode, StartedUnixNano: result.Started.UnixNano(), DurationNanos: result.Duration.Nanoseconds(), NormalizedSHA256: normalizedDigest, LaunchedInputs: append([]LaunchIdentity(nil), cfg.launchInputs[runtimeName]...)}
 	return output, nil
+}
+
+func hierarchyForCandidate(all []corpora.Scenario, candidate corpora.Scenario) (OracleHierarchy, error) {
+	copyScenarios := append([]corpora.Scenario(nil), all...)
+	found := false
+	for index := range copyScenarios {
+		if copyScenarios[index].ScenarioID == candidate.ScenarioID {
+			copyScenarios[index] = candidate
+			found = true
+			break
+		}
+	}
+	if !found {
+		return OracleHierarchy{}, errors.New("minimization candidate is outside public corpus")
+	}
+	return BuildOracleHierarchy(copyScenarios)
+}
+
+func minimizeRuntimeMismatch(ctx context.Context, cfg Config, suiteRoot string, all []corpora.Scenario, original corpora.Scenario, signature mismatchSignature, anchor, javaDigest, rustDigest string, inputs []ArtifactIdentity) (PublicReproducer, error) {
+	candidateNumber := 0
+	auditsByScenario := map[string][][]NormalizationTrace{}
+	predicate := func(candidate corpora.Scenario) (mismatchSignature, []ProcessReceipt, error) {
+		candidateNumber++
+		home := filepath.Join(suiteRoot, "minimize", original.ScenarioID, fmt.Sprintf("%04d", candidateNumber))
+		if err := os.MkdirAll(home, 0o700); err != nil {
+			return mismatchSignature{}, nil, err
+		}
+		javaPrimary, err := runAttempt(ctx, cfg, home, candidate, "java", fmt.Sprintf("candidate-%04d-primary", candidateNumber), javaDigest)
+		if err != nil {
+			return mismatchSignature{}, nil, err
+		}
+		javaReplay, err := runAttempt(ctx, cfg, home, candidate, "java", fmt.Sprintf("candidate-%04d-replay", candidateNumber), javaDigest)
+		if err != nil {
+			return mismatchSignature{}, nil, err
+		}
+		rustPrimary, err := runAttempt(ctx, cfg, home, candidate, "rust", fmt.Sprintf("candidate-%04d-primary", candidateNumber), rustDigest)
+		if err != nil {
+			return mismatchSignature{}, nil, err
+		}
+		rustReplay, err := runAttempt(ctx, cfg, home, candidate, "rust", fmt.Sprintf("candidate-%04d-replay", candidateNumber), rustDigest)
+		if err != nil {
+			return mismatchSignature{}, nil, err
+		}
+		receipts := []ProcessReceipt{javaPrimary.receipt, javaReplay.receipt, rustPrimary.receipt, rustReplay.receipt}
+		line, lineErr := candidate.CanonicalLine()
+		if lineErr != nil {
+			return mismatchSignature{}, receipts, lineErr
+		}
+		sha := digest(line)
+		auditsByScenario[sha] = append(auditsByScenario[sha], []NormalizationTrace{javaPrimary.trace, javaReplay.trace, rustPrimary.trace, rustReplay.trace})
+		if _, err := auditReplayNormalization(javaPrimary.trace, javaReplay.trace); err != nil {
+			return mismatchSignature{}, receipts, err
+		}
+		if _, err := auditReplayNormalization(rustPrimary.trace, rustReplay.trace); err != nil {
+			return mismatchSignature{}, receipts, err
+		}
+		candidateHierarchy, err := hierarchyForCandidate(all, candidate)
+		if err != nil {
+			return mismatchSignature{}, receipts, err
+		}
+		_, findings, _ := adjudicateScenario(candidate, candidateHierarchy, javaPrimary.observation, rustPrimary.observation)
+		for _, finding := range findings {
+			got := mismatchSignature{Pointer: finding.Pointer, Classification: finding.Classification}
+			if got == signature {
+				return got, receipts, nil
+			}
+		}
+		return mismatchSignature{}, receipts, nil
+	}
+	reproducer, err := minimizeScenarioFresh(original, cfg.MinimizationBudget, predicate)
+	if err != nil {
+		return PublicReproducer{}, err
+	}
+	used := map[string]int{}
+	for index := range reproducer.Attempts {
+		sha := reproducer.Attempts[index].ScenarioSHA256
+		at := used[sha]
+		if at >= len(auditsByScenario[sha]) {
+			return PublicReproducer{}, errors.New("minimization audit transcript absent")
+		}
+		reproducer.Attempts[index].Audits = auditsByScenario[sha][at]
+		used[sha]++
+	}
+	reproducer.RepositoryAnchor = anchor
+	reproducer.RuntimeInputs = append([]ArtifactIdentity(nil), inputs...)
+	reproducer.Command = []string{"differentialctl", "reproduce", "--repository-root", cfg.RepositoryRoot, "--evidence", cfg.EvidencePath, "--reproducer-id", reproducer.ReproducerID}
+	return reproducer, nil
 }
 
 func firstDifference(left, right commonObservation) (string, error) {
@@ -2908,6 +3770,14 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err := validateConfig(cfg); err != nil {
 		return Receipt{}, err
 	}
+	lock, err := acquireEvidenceLock(cfg.LedgerPath)
+	if err != nil {
+		return Receipt{}, err
+	}
+	defer func() { _ = lock.Release() }()
+	if err := recoverEvidencePair(cfg.LedgerPath, cfg.EvidencePath); err != nil {
+		return Receipt{}, err
+	}
 	suiteCtx, cancel := context.WithTimeout(ctx, cfg.SuiteTimeout)
 	defer cancel()
 	suiteRoot, err := os.MkdirTemp("", "us020-differential-")
@@ -2939,6 +3809,7 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 		return Receipt{}, err
 	}
 	preHead := ledger.Head
+	ledgerInputSHA := digest(ledgerRaw)
 	coverage, err := buildCoverage(cfg.RepositoryRoot, scenarios)
 	if err != nil {
 		return Receipt{}, err
@@ -2951,25 +3822,24 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err != nil {
 		return Receipt{}, err
 	}
-	javaIdentity, err := artifact(cfg.JavaExecutable)
+	inputs, err := collectInputIdentities(cfg)
 	if err != nil {
 		return Receipt{}, err
 	}
-	rustIdentity, err := artifact(cfg.RustTestee)
+	inputByKind := map[string]ArtifactIdentity{}
+	for _, input := range inputs {
+		inputByKind[input.Kind] = input
+	}
+	javaIdentity, javaOK := inputByKind["java-executable"]
+	rustIdentity, rustOK := inputByKind["rust-testee"]
+	if !javaOK || !rustOK {
+		return Receipt{}, errors.New("runtime input identity absent")
+	}
+	launchedCfg, err := materializeConfiguredLaunch(cfg, suiteRoot)
 	if err != nil {
 		return Receipt{}, err
 	}
-	inputPaths := []string{cfg.PublicCorpus, filepath.Join(cfg.RepositoryRoot, "corpora/public/manifest.json"), cfg.JavaExecutable, cfg.JavaAdapterJar, cfg.JavaRuntimeJar, cfg.RustTestee, cfg.MigrationInventory, cfg.CompatibilitySurface, cfg.OracleHierarchyPath}
-	inputPaths = append(inputPaths, cfg.JavaSupportJars...)
-	inputs := make([]ArtifactIdentity, 0, len(inputPaths))
-	for _, path := range inputPaths {
-		identity, err := artifact(path)
-		if err != nil {
-			return Receipt{}, err
-		}
-		inputs = append(inputs, identity)
-	}
-	manifest := Manifest{Schema: "../../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: evidenceSchemaVersion, EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: StatusPass, Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: anchor, Inputs: inputs, Coverage: coverage, Controls: controls, Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote, "no hidden or sealed corpus access", "no Docker Autobahn wstest Linux or network execution", "no wire interoperability browser performance allocation concurrency TLS or NIO parity", "fresh child receipts prove invocation not an uncontaminated host", "no production publication signing or independent review claim"}}
+	manifest := Manifest{Schema: "../../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: evidenceSchemaVersion, EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: StatusPass, Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: anchor, Inputs: inputs, Coverage: coverage, Controls: controls, Reproducers: []PublicReproducer{}, Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote, "no hidden or sealed corpus access", "no Docker Autobahn wstest Linux or network execution", "no wire interoperability browser performance allocation concurrency TLS or NIO parity", "fresh child receipts prove invocation not an uncontaminated host", "no production publication signing or independent review claim"}}
 	for _, sc := range scenarios {
 		neutral, err := neutralObservation(sc)
 		if err != nil {
@@ -2983,27 +3853,30 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 		if err := os.Mkdir(home, 0o700); err != nil {
 			return Receipt{}, err
 		}
-		javaPrimary, err := runAttempt(suiteCtx, cfg, home, sc, "java", "primary", javaIdentity.SHA256)
+		javaPrimary, err := runAttempt(suiteCtx, launchedCfg, home, sc, "java", "primary", javaIdentity.SHA256)
 		if err != nil {
 			return Receipt{}, err
 		}
-		javaReplay, err := runAttempt(suiteCtx, cfg, home, sc, "java", "replay", javaIdentity.SHA256)
+		javaReplay, err := runAttempt(suiteCtx, launchedCfg, home, sc, "java", "replay", javaIdentity.SHA256)
 		if err != nil {
 			return Receipt{}, err
 		}
-		rustPrimary, err := runAttempt(suiteCtx, cfg, home, sc, "rust", "primary", rustIdentity.SHA256)
+		rustPrimary, err := runAttempt(suiteCtx, launchedCfg, home, sc, "rust", "primary", rustIdentity.SHA256)
 		if err != nil {
 			return Receipt{}, err
 		}
-		rustReplay, err := runAttempt(suiteCtx, cfg, home, sc, "rust", "replay", rustIdentity.SHA256)
+		rustReplay, err := runAttempt(suiteCtx, launchedCfg, home, sc, "rust", "replay", rustIdentity.SHA256)
 		if err != nil {
 			return Receipt{}, err
 		}
 		manifest.Processes = append(manifest.Processes, javaPrimary.receipt, javaReplay.receipt, rustPrimary.receipt, rustReplay.receipt)
-		stable := javaPrimary.receipt.NormalizedSHA256 == javaReplay.receipt.NormalizedSHA256 && rustPrimary.receipt.NormalizedSHA256 == rustReplay.receipt.NormalizedSHA256
-		if !stable {
-			return Receipt{}, fmt.Errorf("FLAKE: %s primary/replay mismatch", sc.ScenarioID)
+		if code, err := auditReplayNormalization(javaPrimary.trace, javaReplay.trace); err != nil {
+			return Receipt{}, fmt.Errorf("%s Java replay %s: %w", sc.ScenarioID, code, err)
 		}
+		if code, err := auditReplayNormalization(rustPrimary.trace, rustReplay.trace); err != nil {
+			return Receipt{}, fmt.Errorf("%s Rust replay %s: %w", sc.ScenarioID, code, err)
+		}
+		stable := true
 		classification, findings, err := adjudicateScenario(sc, hierarchy, javaPrimary.observation, rustPrimary.observation)
 		if err != nil {
 			pointer, _ := firstDifference(javaPrimary.observation, rustPrimary.observation)
@@ -3016,23 +3889,54 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 				break
 			}
 		}
-		result := ScenarioResult{ScenarioID: sc.ScenarioID, JavaPrimary: javaPrimary.receipt.NormalizedSHA256, JavaReplay: javaReplay.receipt.NormalizedSHA256, RustPrimary: rustPrimary.receipt.NormalizedSHA256, RustReplay: rustReplay.receipt.NormalizedSHA256, NeutralExpected: neutralDigest, Stable: true, CurrentMismatch: false, Classification: classification, JavaObservation: javaPrimary.observation, RustObservation: rustPrimary.observation, RustStepDiagnostics: rustPrimary.rust.Steps, RustBootstrapSHA256: digest(rustPrimary.rust.Bootstrap), JavaNormalizationLoss: javaPrimary.loss, RustNormalizationNotes: rustNotes}
+		result := ScenarioResult{ScenarioID: sc.ScenarioID, JavaPrimary: javaPrimary.receipt.NormalizedSHA256, JavaReplay: javaReplay.receipt.NormalizedSHA256, RustPrimary: rustPrimary.receipt.NormalizedSHA256, RustReplay: rustReplay.receipt.NormalizedSHA256, NeutralExpected: neutralDigest, Stable: stable, CurrentMismatch: false, Classification: classification, JavaObservation: javaPrimary.observation, RustObservation: rustPrimary.observation, RustStepDiagnostics: rustPrimary.rust.Steps, RustBootstrapSHA256: digest(rustPrimary.rust.Bootstrap), JavaNormalizationLoss: javaPrimary.loss, RustNormalizationNotes: rustNotes, NormalizationAudits: []NormalizationTrace{javaPrimary.trace, javaReplay.trace, rustPrimary.trace, rustReplay.trace}}
 		if err := validateRustDerivedCounters(sc, result); err != nil {
 			return Receipt{}, fmt.Errorf("Rust derived counter verification %s: %w", sc.ScenarioID, err)
 		}
 		manifest.Scenarios = append(manifest.Scenarios, result)
 		for _, finding := range findings {
-			if err := appendJavaQuirk(&ledger, sc, finding, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
+			signature := mismatchSignature{Pointer: finding.Pointer, Classification: finding.Classification}
+			reproducer, err := minimizeRuntimeMismatch(suiteCtx, launchedCfg, suiteRoot, scenarios, sc, signature, anchor, javaIdentity.SHA256, rustIdentity.SHA256, inputs)
+			if err != nil {
+				return Receipt{}, fmt.Errorf("minimize %s%s: %w", sc.ScenarioID, finding.Pointer, err)
+			}
+			reproducer.LedgerDeltaID = deltaIDFor(sc.ScenarioID, finding.Pointer)
+			reproducer.FindingJavaObservation = javaPrimary.receipt.NormalizedSHA256
+			reproducer.FindingRustObservation = rustPrimary.receipt.NormalizedSHA256
+			reproducer.FindingRunAnchor = anchor
+			manifest.Reproducers = append(manifest.Reproducers, reproducer)
+			if err := appendJavaQuirk(&ledger, sc, finding, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor, reproducer.OriginalScenarioSHA256); err != nil {
 				return Receipt{}, err
 			}
 		}
 		if err := appendObservedRemediations(&ledger, hierarchy, sc, javaPrimary.observation, rustPrimary.observation, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
 			return Receipt{}, err
 		}
+		historicalReproducers, err := historicalClosedReproducers(cfg, hierarchy, sc, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor, inputs)
+		if err != nil {
+			return Receipt{}, err
+		}
+		manifest.Reproducers = append(manifest.Reproducers, historicalReproducers...)
+	}
+	recordByDelta := map[string]LedgerRecord{}
+	for _, record := range ledger.Records {
+		recordByDelta[record.DeltaID] = record
+	}
+	for index := range manifest.Reproducers {
+		record, ok := recordByDelta[manifest.Reproducers[index].LedgerDeltaID]
+		if !ok {
+			return Receipt{}, fmt.Errorf("reproducer ledger record absent: %s", manifest.Reproducers[index].LedgerDeltaID)
+		}
+		manifest.Reproducers[index].FindingJavaObservation = record.JavaObservation
+		manifest.Reproducers[index].FindingRustObservation = record.RustObservation
+		manifest.Reproducers[index].FindingRunAnchor = record.FindingRunAnchor
+		manifest.Reproducers[index].ClosingRunAnchor = record.ClosingRunAnchor
+		manifest.Reproducers[index].ClosingJavaObservation = record.ClosingJavaObservation
+		manifest.Reproducers[index].ClosingRustObservation = record.ClosingRustObservation
 	}
 	manifest.Counts = CountsReceipt{Scenarios: len(scenarios), JavaPrimary: len(scenarios), JavaReplay: len(scenarios), RustPrimary: len(scenarios), RustReplay: len(scenarios), Processes: len(manifest.Processes)}
-	manifest.Ledger = LedgerBinding{PreHead: preHead, PostHead: ledger.Head, Records: len(ledger.Records)}
-	if len(ledger.Records) == 0 {
+	manifest.Ledger = LedgerBinding{PreHead: preHead, PostHead: ledger.Head, Records: len(ledger.MigratedV1Records) + len(ledger.Records)}
+	if len(ledger.MigratedV1Records)+len(ledger.Records) == 0 {
 		ledger.Status = "PASS_NO_CURRENT_DELTAS"
 	} else {
 		ledger.Status = "PASS_WITH_CLOSED_HISTORY"
@@ -3052,10 +3956,10 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err := compileAndValidateSchema(filepath.Join(cfg.RepositoryRoot, "schemas/differential-evidence-1.0.0.schema.json"), manifestDocument); err != nil {
 		return Receipt{}, fmt.Errorf("evidence schema: %w", err)
 	}
-	if err := writeJSONAtomic(cfg.LedgerPath, ledger); err != nil {
+	if err := recheckLedgerCAS(cfg.LedgerPath, ledgerInputSHA, preHead); err != nil {
 		return Receipt{}, err
 	}
-	if err := writeJSONAtomic(cfg.EvidencePath, manifest); err != nil {
+	if err := commitEvidencePair(cfg.LedgerPath, ledgerDocument, cfg.EvidencePath, manifestDocument); err != nil {
 		return Receipt{}, err
 	}
 	committed, err := readRegularBounded(cfg.EvidencePath, maximumDocumentBytes)
@@ -3065,7 +3969,91 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err := VerifyPublicDifferential(cfg.RepositoryRoot, committed); err != nil {
 		return Receipt{}, err
 	}
-	return Receipt{Status: StatusPass, ScenarioCount: len(scenarios), ProcessReceipts: len(manifest.Processes), DeltaCount: len(ledger.Records), EvidenceSHA256: digest(committed)}, nil
+	return Receipt{Status: StatusPass, ScenarioCount: len(scenarios), ProcessReceipts: len(manifest.Processes), DeltaCount: len(ledger.MigratedV1Records) + len(ledger.Records), EvidenceSHA256: digest(committed)}, nil
+}
+
+// ReproducePublicDifferential executes one public minimized witness. Fresh
+// witnesses rerun both runtimes in primary/replay child processes. Historical
+// closed witnesses verify their immutable finding/closing identities without
+// falsely claiming that the remediated Rust behavior still reproduces.
+func ReproducePublicDifferential(ctx context.Context, repositoryRoot string, receiptBytes []byte, reproducerID string) (ReproductionReceipt, error) {
+	if err := VerifyPublicDifferential(repositoryRoot, receiptBytes); err != nil {
+		return ReproductionReceipt{}, err
+	}
+	var manifest Manifest
+	if err := decodeStrict(receiptBytes, &manifest); err != nil {
+		return ReproductionReceipt{}, err
+	}
+	var reproducer *PublicReproducer
+	for index := range manifest.Reproducers {
+		if manifest.Reproducers[index].ReproducerID == reproducerID {
+			reproducer = &manifest.Reproducers[index]
+			break
+		}
+	}
+	if reproducer == nil {
+		return ReproductionReceipt{}, errors.New("public reproducer id absent")
+	}
+	if reproducer.Mode == "HISTORICAL_CLOSED_IDENTITY_WITNESS" {
+		return ReproductionReceipt{Status: "PASS_HISTORICAL_IDENTITY_CURRENT_DEFECT_CLOSED", ReproducerID: reproducerID, Mode: reproducer.Mode, ScenarioSHA256: reproducer.ScenarioSHA256, FreshProcesses: 0, CurrentlyReproduced: false}, nil
+	}
+	cfg, inputs, err := configFromManifestInputs(repositoryRoot, manifest)
+	if err != nil {
+		return ReproductionReceipt{}, err
+	}
+	suiteRoot, err := os.MkdirTemp("", "us020-reproducer-")
+	if err != nil {
+		return ReproductionReceipt{}, err
+	}
+	defer os.RemoveAll(suiteRoot)
+	launched, err := materializeConfiguredLaunch(cfg, suiteRoot)
+	if err != nil {
+		return ReproductionReceipt{}, err
+	}
+	byKind := map[string]ArtifactIdentity{}
+	for _, input := range inputs {
+		byKind[input.Kind] = input
+	}
+	attempts := []attemptOutput{}
+	for _, runtimeName := range []string{"java", "rust"} {
+		for _, attempt := range []string{"primary", "replay"} {
+			digest := byKind["rust-testee"].SHA256
+			if runtimeName == "java" {
+				digest = byKind["java-executable"].SHA256
+			}
+			output, err := runAttempt(ctx, launched, suiteRoot, reproducer.Scenario, runtimeName, attempt, digest)
+			if err != nil {
+				return ReproductionReceipt{}, err
+			}
+			attempts = append(attempts, output)
+		}
+	}
+	if _, err := auditReplayNormalization(attempts[0].trace, attempts[1].trace); err != nil {
+		return ReproductionReceipt{}, err
+	}
+	if _, err := auditReplayNormalization(attempts[2].trace, attempts[3].trace); err != nil {
+		return ReproductionReceipt{}, err
+	}
+	scenarios, _, err := loadPublicCorpus(repositoryRoot, filepath.Join(repositoryRoot, "corpora/public/scenarios.jsonl"))
+	if err != nil {
+		return ReproductionReceipt{}, err
+	}
+	hierarchy, err := hierarchyForCandidate(scenarios, reproducer.Scenario)
+	if err != nil {
+		return ReproductionReceipt{}, err
+	}
+	_, findings, _ := adjudicateScenario(reproducer.Scenario, hierarchy, attempts[0].observation, attempts[2].observation)
+	reproduced := false
+	for _, finding := range findings {
+		if (mismatchSignature{Pointer: finding.Pointer, Classification: finding.Classification}) == reproducer.Signature {
+			reproduced = true
+			break
+		}
+	}
+	if !reproduced {
+		return ReproductionReceipt{}, errors.New("fresh minimized difference did not reproduce")
+	}
+	return ReproductionReceipt{Status: "PASS_FRESH_DIFFERENCE_REPRODUCED", ReproducerID: reproducerID, Mode: reproducer.Mode, ScenarioSHA256: reproducer.ScenarioSHA256, FreshProcesses: 4, CurrentlyReproduced: true}, nil
 }
 
 // RunPublicDiagnostic executes the same bounded public primary/replay matrix
@@ -3106,16 +4094,20 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
+	launchedCfg, err := materializeConfiguredLaunch(cfg, suiteRoot)
+	if err != nil {
+		return DiagnosticReport{}, err
+	}
 	report := DiagnosticReport{Status: "DIAGNOSTIC_ONLY_NO_WRITES", ScenarioCount: len(scenarios), Findings: []DiagnosticFinding{}}
 	for _, sc := range scenarios {
 		home := filepath.Join(suiteRoot, sc.ScenarioID)
 		if err := os.Mkdir(home, 0o700); err != nil {
 			return DiagnosticReport{}, err
 		}
-		javaPrimary, javaPrimaryErr := runAttempt(suiteCtx, cfg, home, sc, "java", "primary", javaIdentity.SHA256)
-		javaReplay, javaReplayErr := runAttempt(suiteCtx, cfg, home, sc, "java", "replay", javaIdentity.SHA256)
-		rustPrimary, rustPrimaryErr := runAttempt(suiteCtx, cfg, home, sc, "rust", "primary", rustIdentity.SHA256)
-		rustReplay, rustReplayErr := runAttempt(suiteCtx, cfg, home, sc, "rust", "replay", rustIdentity.SHA256)
+		javaPrimary, javaPrimaryErr := runAttempt(suiteCtx, launchedCfg, home, sc, "java", "primary", javaIdentity.SHA256)
+		javaReplay, javaReplayErr := runAttempt(suiteCtx, launchedCfg, home, sc, "java", "replay", javaIdentity.SHA256)
+		rustPrimary, rustPrimaryErr := runAttempt(suiteCtx, launchedCfg, home, sc, "rust", "primary", rustIdentity.SHA256)
+		rustReplay, rustReplayErr := runAttempt(suiteCtx, launchedCfg, home, sc, "rust", "replay", rustIdentity.SHA256)
 		attempts := []struct {
 			name string
 			out  attemptOutput
@@ -3133,8 +4125,10 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 		if failed {
 			continue
 		}
-		if javaPrimary.receipt.NormalizedSHA256 != javaReplay.receipt.NormalizedSHA256 || rustPrimary.receipt.NormalizedSHA256 != rustReplay.receipt.NormalizedSHA256 {
-			report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: "/replay", Classification: "flake", JavaSHA256: javaPrimary.receipt.NormalizedSHA256, RustSHA256: rustPrimary.receipt.NormalizedSHA256, Detail: "primary/replay normalized digest mismatch"})
+		javaCode, javaAuditErr := auditReplayNormalization(javaPrimary.trace, javaReplay.trace)
+		rustCode, rustAuditErr := auditReplayNormalization(rustPrimary.trace, rustReplay.trace)
+		if javaAuditErr != nil || rustAuditErr != nil {
+			report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: "/replay", Classification: "flake", JavaSHA256: javaPrimary.receipt.NormalizedSHA256, RustSHA256: rustPrimary.receipt.NormalizedSHA256, Detail: "raw replay audit: java=" + javaCode + " rust=" + rustCode})
 			continue
 		}
 		report.StableScenarios++
@@ -3224,6 +4218,185 @@ func writeJSONAtomic(path string, value any) error {
 	return directory.Sync()
 }
 
+type evidenceLock struct {
+	path string
+	file *os.File
+	info os.FileInfo
+}
+
+func acquireEvidenceLock(ledgerPath string) (*evidenceLock, error) {
+	path := ledgerPath + ".us020.lock"
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("evidence writer lock: %w", err)
+	}
+	info, err := file.Stat()
+	if err != nil {
+		file.Close()
+		return nil, err
+	}
+	if _, err := fmt.Fprintf(file, "pid=%d\n", os.Getpid()); err != nil {
+		file.Close()
+		return nil, err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return nil, err
+	}
+	return &evidenceLock{path: path, file: file, info: info}, nil
+}
+
+func (lock *evidenceLock) Release() error {
+	if lock == nil || lock.file == nil {
+		return errors.New("invalid evidence lock")
+	}
+	if err := lock.file.Close(); err != nil {
+		return err
+	}
+	current, err := os.Lstat(lock.path)
+	if err != nil {
+		return err
+	}
+	if !os.SameFile(lock.info, current) {
+		return errors.New("evidence lock identity replaced")
+	}
+	lock.file = nil
+	return os.Remove(lock.path)
+}
+
+type pairJournal struct {
+	SchemaVersion  string `json:"schema_version"`
+	LedgerPath     string `json:"ledger_path"`
+	LedgerStage    string `json:"ledger_stage"`
+	LedgerSHA256   string `json:"ledger_sha256"`
+	ManifestPath   string `json:"manifest_path"`
+	ManifestStage  string `json:"manifest_stage"`
+	ManifestSHA256 string `json:"manifest_sha256"`
+}
+
+func stageDocument(destination string, raw []byte) (string, error) {
+	dir := filepath.Dir(destination)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", err
+	}
+	file, err := os.CreateTemp(dir, ".us020-pair-*.stage")
+	if err != nil {
+		return "", err
+	}
+	name := file.Name()
+	failed := true
+	defer func() {
+		if failed {
+			file.Close()
+			os.Remove(name)
+		}
+	}()
+	if err := file.Chmod(0o600); err != nil {
+		return "", err
+	}
+	if _, err := file.Write(raw); err != nil {
+		return "", err
+	}
+	if err := file.Sync(); err != nil {
+		return "", err
+	}
+	if err := file.Close(); err != nil {
+		return "", err
+	}
+	failed = false
+	return name, nil
+}
+
+func installJournalDocument(stage, destination, expected string) error {
+	if raw, err := readRegularBounded(stage, maximumDocumentBytes); err == nil {
+		if digest(raw) != expected {
+			return errors.New("journal stage digest mismatch")
+		}
+		return os.Rename(stage, destination)
+	}
+	raw, err := readRegularBounded(destination, maximumDocumentBytes)
+	if err != nil || digest(raw) != expected {
+		return errors.New("journal destination/stage unavailable")
+	}
+	return nil
+}
+
+func recoverEvidencePair(ledgerPath, manifestPath string) error {
+	journalPath := ledgerPath + ".us020-journal"
+	raw, err := readRegularBounded(journalPath, 1<<20)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var journal pairJournal
+	if err := decodeStrict(raw, &journal); err != nil {
+		return err
+	}
+	if journal.SchemaVersion != "1.0.0" || journal.LedgerPath != ledgerPath || journal.ManifestPath != manifestPath || !validLedgerDigest(journal.LedgerSHA256) || !validLedgerDigest(journal.ManifestSHA256) {
+		return errors.New("pair journal binding invalid")
+	}
+	if err := installJournalDocument(journal.LedgerStage, journal.LedgerPath, journal.LedgerSHA256); err != nil {
+		return err
+	}
+	if err := installJournalDocument(journal.ManifestStage, journal.ManifestPath, journal.ManifestSHA256); err != nil {
+		return err
+	}
+	if err := os.Remove(journalPath); err != nil {
+		return err
+	}
+	for _, dir := range []string{filepath.Dir(ledgerPath), filepath.Dir(manifestPath)} {
+		directory, err := os.Open(dir)
+		if err != nil {
+			return err
+		}
+		err = directory.Sync()
+		directory.Close()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func commitEvidencePair(ledgerPath string, ledgerRaw []byte, manifestPath string, manifestRaw []byte) error {
+	if err := recoverEvidencePair(ledgerPath, manifestPath); err != nil {
+		return fmt.Errorf("recover evidence pair: %w", err)
+	}
+	ledgerStage, err := stageDocument(ledgerPath, ledgerRaw)
+	if err != nil {
+		return err
+	}
+	manifestStage, err := stageDocument(manifestPath, manifestRaw)
+	if err != nil {
+		os.Remove(ledgerStage)
+		return err
+	}
+	journal := pairJournal{SchemaVersion: "1.0.0", LedgerPath: ledgerPath, LedgerStage: ledgerStage, LedgerSHA256: digest(ledgerRaw), ManifestPath: manifestPath, ManifestStage: manifestStage, ManifestSHA256: digest(manifestRaw)}
+	if err := writeJSONAtomic(ledgerPath+".us020-journal", journal); err != nil {
+		os.Remove(ledgerStage)
+		os.Remove(manifestStage)
+		return err
+	}
+	return recoverEvidencePair(ledgerPath, manifestPath)
+}
+
+func recheckLedgerCAS(path, expectedDocumentSHA, expectedHead string) error {
+	raw, err := readRegularBounded(path, maximumDocumentBytes)
+	if err != nil {
+		return err
+	}
+	ledger, err := migrateLedger(raw)
+	if err != nil {
+		return err
+	}
+	if digest(raw) != expectedDocumentSHA || ledger.Head != expectedHead {
+		return errors.New("stale on-disk ledger compare-and-swap")
+	}
+	return nil
+}
+
 func compileAndValidateSchema(schemaPath string, document []byte) error {
 	schemaRaw, err := readRegularBounded(schemaPath, maximumDocumentBytes)
 	if err != nil {
@@ -3237,6 +4410,20 @@ func compileAndValidateSchema(schemaPath string, document []byte) error {
 	resource := "https://verified-java-websocket-port.invalid/" + filepath.Base(schemaPath)
 	if err := compiler.AddResource(resource, schemaValue); err != nil {
 		return err
+	}
+	if filepath.Base(schemaPath) == "differential-evidence-1.0.0.schema.json" {
+		corpusSchemaPath := filepath.Join(filepath.Dir(schemaPath), "corpus-scenario-1.0.0.schema.json")
+		corpusSchemaRaw, err := readRegularBounded(corpusSchemaPath, maximumDocumentBytes)
+		if err != nil {
+			return err
+		}
+		corpusSchemaValue, err := jsonschema.UnmarshalJSON(bytes.NewReader(corpusSchemaRaw))
+		if err != nil {
+			return err
+		}
+		if err := compiler.AddResource("https://verified-java-websocket-port.invalid/corpus-scenario-1.0.0.schema.json", corpusSchemaValue); err != nil {
+			return err
+		}
 	}
 	schema, err := compiler.Compile(resource)
 	if err != nil {
@@ -3270,6 +4457,9 @@ func verifyManifestValue(root string, raw []byte) error {
 	if len(manifest.Scenarios) != expectedPublicScenarios || len(manifest.Processes) != expectedProcessReceipts {
 		return errors.New("manifest array cardinality invalid")
 	}
+	if len(manifest.Reproducers) != 103 {
+		return errors.New("manifest must retain exactly 103 public reproducers")
+	}
 	if manifest.Controls.Total != 7 || manifest.Controls.Killed != 7 || len(manifest.Controls.Results) != 7 {
 		return errors.New("control receipt invalid")
 	}
@@ -3297,6 +4487,501 @@ func verifyManifestValue(root string, raw []byte) error {
 	return nil
 }
 
+func canonicalEqual(left, right any) bool {
+	l, lerr := canonical(left)
+	r, rerr := canonical(right)
+	return lerr == nil && rerr == nil && bytes.Equal(l, r)
+}
+
+func configFromManifestInputs(root string, manifest Manifest) (Config, []ArtifactIdentity, error) {
+	inputs := append([]ArtifactIdentity(nil), manifest.Inputs...)
+	byKind := map[string]ArtifactIdentity{}
+	for _, input := range inputs {
+		if input.Kind == "" || byKind[input.Kind].Path != "" {
+			return Config{}, nil, errors.New("input kind absent or duplicate")
+		}
+		byKind[input.Kind] = input
+	}
+	repositoryPaths := map[string]string{
+		"public-corpus":          filepath.Join(root, "corpora/public/scenarios.jsonl"),
+		"public-corpus-manifest": filepath.Join(root, "corpora/public/manifest.json"),
+		"migration-inventory":    filepath.Join(root, "evidence/intake/semantic-id-migration-map.json"),
+		"compatibility-surface":  filepath.Join(root, "evidence/intake/compatibility-surface.json"),
+		"oracle-hierarchy":       filepath.Join(root, "evidence/oracle-hierarchy.json"),
+	}
+	qualification := filepath.Join(root, "evidence/us020-current-head-qualification.json")
+	if _, statErr := os.Lstat(qualification); statErr != nil {
+		return Config{}, nil, statErr
+	}
+	repositoryPaths["current-head-qualification"] = qualification
+	for kind, path := range repositoryPaths {
+		if byKind[kind].Path != path {
+			return Config{}, nil, fmt.Errorf("repository input %s path drift", kind)
+		}
+	}
+	for _, kind := range []string{"java-executable", "java-adapter-jar", "java-runtime-jar", "rust-testee"} {
+		if byKind[kind].Path == "" {
+			return Config{}, nil, fmt.Errorf("runtime input %s absent", kind)
+		}
+	}
+	support := []string{}
+	for index := 0; ; index++ {
+		kind := fmt.Sprintf("java-support-jar-%02d", index)
+		input, ok := byKind[kind]
+		if !ok {
+			break
+		}
+		support = append(support, input.Path)
+	}
+	if len(support) == 0 || len(byKind) != len(repositoryPaths)+4+len(support) {
+		return Config{}, nil, errors.New("input kind set is not exact")
+	}
+	cfg := Config{RepositoryRoot: root, PublicCorpus: repositoryPaths["public-corpus"], JavaExecutable: byKind["java-executable"].Path, JavaAdapterJar: byKind["java-adapter-jar"].Path, JavaRuntimeJar: byKind["java-runtime-jar"].Path, JavaSupportJars: support, RustTestee: byKind["rust-testee"].Path, MigrationInventory: repositoryPaths["migration-inventory"], CompatibilitySurface: repositoryPaths["compatibility-surface"], LedgerPath: filepath.Join(root, "evidence/java/behavior-delta-ledger.json"), EvidencePath: filepath.Join(root, "evidence/differential/manifest.json"), OracleHierarchyPath: repositoryPaths["oracle-hierarchy"], ScenarioTimeout: 5 * time.Second, SuiteTimeout: 15 * time.Minute, MinimizationBudget: Budget{MaxCandidates: 128, MaxDuration: 10 * time.Minute}}
+	want, err := collectInputIdentities(cfg)
+	if err != nil {
+		return Config{}, nil, err
+	}
+	if !canonicalEqual(inputs, want) {
+		return Config{}, nil, errors.New("manifest input identity drift")
+	}
+	return cfg, inputs, nil
+}
+
+func validateExecutionAnchor(root, anchor string, inputs []ArtifactIdentity) error {
+	if !validLedgerAnchor(anchor) {
+		return errors.New("repository execution anchor malformed")
+	}
+	command := exec.Command("git", "-C", root, "cat-file", "-e", anchor+"^{commit}")
+	command.Env = []string{"LANG=C", "LC_ALL=C"}
+	if err := command.Run(); err != nil {
+		return errors.New("repository execution anchor is not a commit")
+	}
+	repositoryKinds := map[string]bool{"public-corpus": true, "public-corpus-manifest": true, "migration-inventory": true, "compatibility-surface": true, "oracle-hierarchy": true}
+	for _, input := range inputs {
+		if !repositoryKinds[input.Kind] {
+			continue
+		}
+		relative, err := filepath.Rel(root, input.Path)
+		if err != nil {
+			return err
+		}
+		show := exec.Command("git", "-C", root, "show", anchor+":"+filepath.ToSlash(relative))
+		show.Env = []string{"LANG=C", "LC_ALL=C"}
+		raw, err := show.Output()
+		if err != nil || digest(raw) != input.SHA256 || int64(len(raw)) != input.Bytes {
+			return fmt.Errorf("repository input %s is not bound at execution anchor", input.Kind)
+		}
+	}
+	return nil
+}
+
+func expectedLaunchIdentities(runtimeName string, inputs []ArtifactIdentity) []LaunchIdentity {
+	result := []LaunchIdentity{}
+	for _, input := range inputs {
+		role := ""
+		switch {
+		case runtimeName == "rust" && input.Kind == "rust-testee":
+			role = "rust-testee"
+		case runtimeName == "java" && input.Kind == "java-executable":
+			role = "java-executable"
+		case runtimeName == "java" && input.Kind == "java-adapter-jar":
+			role = "java-adapter"
+		case runtimeName == "java" && input.Kind == "java-runtime-jar":
+			role = "java-runtime"
+		case runtimeName == "java" && strings.HasPrefix(input.Kind, "java-support-jar-"):
+			role = strings.Replace(input.Kind, "java-support-jar-", "java-support-", 1)
+		}
+		if role != "" {
+			result = append(result, LaunchIdentity{Role: role, SourcePath: input.Path, SourceSHA256: input.SHA256, ObjectSHA256: input.SHA256, ObjectName: strings.TrimPrefix(input.SHA256, "sha256:"), Bytes: input.Bytes})
+		}
+	}
+	return result
+}
+
+func processKey(scenarioID, runtimeName, attempt string) string {
+	return scenarioID + "|" + runtimeName + "|" + attempt
+}
+
+func verifyProcessMatrix(manifest Manifest, scenarios []corpora.Scenario, inputs []ArtifactIdentity) (map[string]ProcessReceipt, error) {
+	expectedScenario := map[string]corpora.Scenario{}
+	for _, scenario := range scenarios {
+		expectedScenario[scenario.ScenarioID] = scenario
+	}
+	inputByKind := map[string]ArtifactIdentity{}
+	for _, input := range inputs {
+		inputByKind[input.Kind] = input
+	}
+	processes := map[string]ProcessReceipt{}
+	pids := map[int]bool{}
+	for _, process := range manifest.Processes {
+		key := processKey(process.ScenarioID, process.Runtime, process.Attempt)
+		scenario, exists := expectedScenario[process.ScenarioID]
+		if !exists || processes[key].PID != 0 || pids[process.PID] || process.PID <= 0 || process.ExitCode != 0 || process.StartedUnixNano <= 0 || process.DurationNanos < 0 || process.DurationNanos > int64(5*time.Second) {
+			return nil, fmt.Errorf("invalid process receipt %s", key)
+		}
+		if (process.Runtime != "java" && process.Runtime != "rust") || (process.Attempt != "primary" && process.Attempt != "replay") {
+			return nil, fmt.Errorf("unexpected process key %s", key)
+		}
+		var stdin []byte
+		var err error
+		executable := inputByKind["rust-testee"]
+		if process.Runtime == "java" {
+			stdin, err = corpora.OracleRequestLine(scenario)
+			stdin = append(stdin, '\n')
+			executable = inputByKind["java-executable"]
+		} else {
+			stdin, err = encodeNeutralRequest(scenario)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if process.ExecutableSHA256 != executable.SHA256 || process.StdinSHA256 != digest(stdin) || process.StdinBytes != len(stdin) || !validLedgerDigest(process.StdoutSHA256) || process.StdoutBytes <= 0 || !validLedgerDigest(process.StderrSHA256) || process.StderrBytes < 0 || process.StderrBytes > maximumProcessError || !validLedgerDigest(process.NormalizedSHA256) {
+			return nil, fmt.Errorf("process identity/source link invalid %s", key)
+		}
+		if !canonicalEqual(process.LaunchedInputs, expectedLaunchIdentities(process.Runtime, inputs)) {
+			return nil, fmt.Errorf("launched input binding invalid %s", key)
+		}
+		processes[key], pids[process.PID] = process, true
+	}
+	for _, scenario := range scenarios {
+		for _, runtimeName := range []string{"java", "rust"} {
+			for _, attempt := range []string{"primary", "replay"} {
+				key := processKey(scenario.ScenarioID, runtimeName, attempt)
+				if processes[key].PID == 0 {
+					return nil, fmt.Errorf("process absent %s", key)
+				}
+			}
+		}
+	}
+	if len(processes) != expectedProcessReceipts {
+		return nil, errors.New("process set cardinality drift")
+	}
+	return processes, nil
+}
+
+func verifyTrace(sc corpora.Scenario, trace NormalizationTrace, process ProcessReceipt) (commonObservation, rustObservation, []string, error) {
+	if trace.Runtime != process.Runtime || trace.Attempt != process.Attempt {
+		return commonObservation{}, rustObservation{}, nil, errors.New("normalization trace process binding invalid")
+	}
+	raw, err := base64.StdEncoding.DecodeString(trace.RawBase64)
+	if err != nil || base64.StdEncoding.EncodeToString(raw) != trace.RawBase64 || trace.RawSHA256 != digest(raw) || trace.RawSHA256 != process.StdoutSHA256 || len(raw) != process.StdoutBytes {
+		return commonObservation{}, rustObservation{}, nil, errors.New("normalization raw identity invalid")
+	}
+	var observation commonObservation
+	var rust rustObservation
+	loss := []string{}
+	if trace.Runtime == "java" {
+		observation, loss, err = normalizeJava(sc, raw)
+	} else {
+		observation, rust, err = normalizeRust(sc, raw)
+	}
+	if err != nil {
+		return commonObservation{}, rustObservation{}, nil, err
+	}
+	normalized, err := normalizeDigest(observation)
+	if err != nil {
+		return commonObservation{}, rustObservation{}, nil, err
+	}
+	want, err := buildNormalizationTrace(trace.Runtime, trace.Attempt, raw, normalized, loss)
+	if err != nil || !canonicalEqual(trace, want) || trace.NormalizedSHA256 != process.NormalizedSHA256 {
+		return commonObservation{}, rustObservation{}, nil, errors.New("normalization trace rederivation drift")
+	}
+	return observation, rust, loss, nil
+}
+
+func verifyScenarioMatrix(manifest Manifest, scenarios []corpora.Scenario, hierarchy OracleHierarchy, processes map[string]ProcessReceipt) (map[string][]AdjudicatedFinding, error) {
+	if len(manifest.Scenarios) != len(scenarios) {
+		return nil, errors.New("scenario result cardinality drift")
+	}
+	findingsByScenario := map[string][]AdjudicatedFinding{}
+	for index, sc := range scenarios {
+		result := manifest.Scenarios[index]
+		if result.ScenarioID != sc.ScenarioID || !result.Stable || result.CurrentMismatch {
+			return nil, fmt.Errorf("scenario ordering/status drift at %d", index)
+		}
+		javaPrimaryProcess := processes[processKey(sc.ScenarioID, "java", "primary")]
+		javaReplayProcess := processes[processKey(sc.ScenarioID, "java", "replay")]
+		rustPrimaryProcess := processes[processKey(sc.ScenarioID, "rust", "primary")]
+		rustReplayProcess := processes[processKey(sc.ScenarioID, "rust", "replay")]
+		if result.JavaPrimary != javaPrimaryProcess.NormalizedSHA256 || result.JavaReplay != javaReplayProcess.NormalizedSHA256 || result.RustPrimary != rustPrimaryProcess.NormalizedSHA256 || result.RustReplay != rustReplayProcess.NormalizedSHA256 || result.JavaPrimary != result.JavaReplay || result.RustPrimary != result.RustReplay {
+			return nil, fmt.Errorf("scenario/process observation link drift %s", sc.ScenarioID)
+		}
+		javaObservation, rustObservation := result.JavaObservation, result.RustObservation
+		if len(result.NormalizationAudits) != 4 {
+			return nil, fmt.Errorf("normalization audit set invalid %s", sc.ScenarioID)
+		}
+		{
+			traces := map[string]NormalizationTrace{}
+			for _, trace := range result.NormalizationAudits {
+				key := trace.Runtime + "|" + trace.Attempt
+				if _, duplicate := traces[key]; duplicate {
+					return nil, errors.New("duplicate normalization trace")
+				}
+				traces[key] = trace
+			}
+			jp, _, javaLoss, err := verifyTrace(sc, traces["java|primary"], javaPrimaryProcess)
+			if err != nil {
+				return nil, fmt.Errorf("%s Java primary: %w", sc.ScenarioID, err)
+			}
+			jr, _, _, err := verifyTrace(sc, traces["java|replay"], javaReplayProcess)
+			if err != nil {
+				return nil, fmt.Errorf("%s Java replay: %w", sc.ScenarioID, err)
+			}
+			rp, rustRaw, _, err := verifyTrace(sc, traces["rust|primary"], rustPrimaryProcess)
+			if err != nil {
+				return nil, fmt.Errorf("%s Rust primary: %w", sc.ScenarioID, err)
+			}
+			rr, _, _, err := verifyTrace(sc, traces["rust|replay"], rustReplayProcess)
+			if err != nil {
+				return nil, fmt.Errorf("%s Rust replay: %w", sc.ScenarioID, err)
+			}
+			if code, err := auditReplayNormalization(traces["java|primary"], traces["java|replay"]); err != nil {
+				return nil, fmt.Errorf("%s Java %s: %w", sc.ScenarioID, code, err)
+			}
+			if code, err := auditReplayNormalization(traces["rust|primary"], traces["rust|replay"]); err != nil {
+				return nil, fmt.Errorf("%s Rust %s: %w", sc.ScenarioID, code, err)
+			}
+			if !canonicalEqual(jp, jr) || !canonicalEqual(rp, rr) || !canonicalEqual(jp, result.JavaObservation) || !canonicalEqual(rp, result.RustObservation) || !canonicalEqual(javaLoss, result.JavaNormalizationLoss) || !canonicalEqual(rustRaw.Steps, result.RustStepDiagnostics) || digest(rustRaw.Bootstrap) != result.RustBootstrapSHA256 {
+				return nil, fmt.Errorf("raw-to-normalized receipt drift %s", sc.ScenarioID)
+			}
+			javaObservation, rustObservation = jp, rp
+		}
+		javaDigest, err := normalizeDigest(javaObservation)
+		if err != nil {
+			return nil, err
+		}
+		rustDigest, err := normalizeDigest(rustObservation)
+		if err != nil {
+			return nil, err
+		}
+		neutral, err := neutralObservation(sc)
+		if err != nil {
+			return nil, err
+		}
+		neutralDigest, err := normalizeDigest(neutral)
+		if err != nil {
+			return nil, err
+		}
+		if javaDigest != result.JavaPrimary || rustDigest != result.RustPrimary || neutralDigest != result.NeutralExpected {
+			return nil, fmt.Errorf("scenario observation digest drift %s", sc.ScenarioID)
+		}
+		classification, findings, adjudicationErr := adjudicateScenario(sc, hierarchy, javaObservation, rustObservation)
+		if adjudicationErr != nil || classification != result.Classification {
+			return nil, fmt.Errorf("scenario adjudication drift %s: %w", sc.ScenarioID, adjudicationErr)
+		}
+		if err := validateRustDerivedCounters(sc, result); err != nil {
+			return nil, fmt.Errorf("Rust derived counters %s: %w", sc.ScenarioID, err)
+		}
+		findingsByScenario[sc.ScenarioID] = findings
+	}
+	return findingsByScenario, nil
+}
+
+func verifyCandidateProcesses(sc corpora.Scenario, attempt MinimizationAttempt, inputs []ArtifactIdentity) error {
+	if len(attempt.Processes) != 4 || len(attempt.Audits) != 4 {
+		return errors.New("fresh minimization attempt receipt set invalid")
+	}
+	processes := map[string]ProcessReceipt{}
+	for _, process := range attempt.Processes {
+		key := process.Runtime + "|" + strings.TrimSuffix(strings.TrimPrefix(process.Attempt, strings.Split(process.Attempt, "-")[0]+"-"), "")
+		_ = key
+		short := ""
+		if strings.HasSuffix(process.Attempt, "-primary") {
+			short = process.Runtime + "|primary"
+		}
+		if strings.HasSuffix(process.Attempt, "-replay") {
+			short = process.Runtime + "|replay"
+		}
+		if short == "" || processes[short].PID != 0 || process.ScenarioID != sc.ScenarioID || process.PID <= 0 {
+			return errors.New("minimization process key invalid")
+		}
+		processes[short] = process
+	}
+	inputByKind := map[string]ArtifactIdentity{}
+	for _, input := range inputs {
+		inputByKind[input.Kind] = input
+	}
+	traces := map[string]NormalizationTrace{}
+	for _, trace := range attempt.Audits {
+		traces[trace.Runtime+"|"+trace.Attempt] = trace
+	}
+	for _, runtimeName := range []string{"java", "rust"} {
+		for _, name := range []string{"primary", "replay"} {
+			process := processes[runtimeName+"|"+name]
+			var stdin []byte
+			var err error
+			executable := inputByKind["rust-testee"]
+			if runtimeName == "java" {
+				stdin, err = corpora.OracleRequestLine(sc)
+				stdin = append(stdin, '\n')
+				executable = inputByKind["java-executable"]
+			} else {
+				stdin, err = encodeNeutralRequest(sc)
+			}
+			if err != nil || process.ExecutableSHA256 != executable.SHA256 || process.StdinSHA256 != digest(stdin) || process.StdinBytes != len(stdin) || !canonicalEqual(process.LaunchedInputs, expectedLaunchIdentities(runtimeName, inputs)) {
+				return errors.New("minimization process source binding invalid")
+			}
+			trace := traces[runtimeName+"|"+process.Attempt]
+			if _, _, _, err := verifyTrace(sc, trace, process); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func verifyReproducer(reproducer PublicReproducer, original corpora.Scenario, record LedgerRecord, manifest Manifest, inputs []ArtifactIdentity) error {
+	originalLine, err := original.CanonicalLine()
+	if err != nil {
+		return err
+	}
+	line, err := reproducer.Scenario.CanonicalLine()
+	if err != nil {
+		return err
+	}
+	expectedCommand := []string{"differentialctl", "reproduce", "--repository-root", filepath.Clean(filepath.Dir(filepath.Dir(filepath.Dir(manifest.Inputs[0].Path)))), "--evidence", filepath.Join(filepath.Clean(filepath.Dir(filepath.Dir(filepath.Dir(manifest.Inputs[0].Path)))), "evidence/differential/manifest.json"), "--reproducer-id", reproducer.ReproducerID}
+	// The repository root is also directly recoverable from the fixed corpus path.
+	root := filepath.Clean(filepath.Join(filepath.Dir(manifest.Inputs[0].Path), "../.."))
+	expectedCommand[3], expectedCommand[5] = root, filepath.Join(root, "evidence/differential/manifest.json")
+	if reproducer.LedgerDeltaID != record.DeltaID || reproducer.ScenarioID != original.ScenarioID || reproducer.Signature.Pointer != record.Pointer || reproducer.Signature.Classification != record.Classification || reproducer.OriginalScenarioSHA256 != digest(originalLine) || record.ReproducerSHA256 != reproducer.OriginalScenarioSHA256 || reproducer.ScenarioSHA256 != digest(line) || !reproducer.Irreducible || reproducer.CandidateAttempts <= 0 || !canonicalEqual(reproducer.RuntimeInputs, inputs) || !canonicalEqual(reproducer.Command, expectedCommand) || reproducer.RepositoryAnchor != manifest.RepositoryAnchor || reproducer.FindingJavaObservation != record.JavaObservation || reproducer.FindingRustObservation != record.RustObservation || reproducer.FindingRunAnchor != record.FindingRunAnchor || reproducer.ClosingRunAnchor != record.ClosingRunAnchor || reproducer.ClosingJavaObservation != record.ClosingJavaObservation || reproducer.ClosingRustObservation != record.ClosingRustObservation {
+		return errors.New("reproducer/ledger binding invalid")
+	}
+	if reproducer.Mode == "FRESH_BOUNDED_MINIMIZATION" {
+		if !reproducer.CurrentlyReproduces || reproducer.ProofScope != "FRESH_RUNTIME_DIFFERENCE" || len(reproducer.Attempts) != reproducer.CandidateAttempts+1 {
+			return errors.New("fresh minimization envelope invalid")
+		}
+		seenFinal := false
+		flattened := []ProcessReceipt{}
+		for _, attempt := range reproducer.Attempts {
+			attemptLine, err := attempt.Scenario.CanonicalLine()
+			if err != nil || digest(attemptLine) != attempt.ScenarioSHA256 || attempt.EvidenceStatus != "FRESH_RUNTIME_OBSERVATION" {
+				return errors.New("fresh minimization attempt invalid")
+			}
+			if err := verifyCandidateProcesses(attempt.Scenario, attempt, inputs); err != nil {
+				return err
+			}
+			flattened = append(flattened, attempt.Processes...)
+			if attempt.ScenarioSHA256 == reproducer.ScenarioSHA256 && attempt.Reproduced && attempt.Signature == reproducer.Signature {
+				seenFinal = true
+			}
+		}
+		if !seenFinal || !canonicalEqual(flattened, reproducer.Processes) {
+			return errors.New("fresh minimization transcript link invalid")
+		}
+		for index := range reproducer.Scenario.Core.Steps {
+			candidate := reproducer.Scenario
+			candidate.Core.Steps = append([]corpora.Step(nil), reproducer.Scenario.Core.Steps[:index]...)
+			candidate.Core.Steps = append(candidate.Core.Steps, reproducer.Scenario.Core.Steps[index+1:]...)
+			candidateLine, _ := candidate.CanonicalLine()
+			candidateSHA := digest(candidateLine)
+			disproved := false
+			for _, attempt := range reproducer.Attempts {
+				if attempt.ScenarioSHA256 == candidateSHA && !attempt.Reproduced {
+					disproved = true
+					break
+				}
+			}
+			if !disproved {
+				return errors.New("minimized scenario lacks one-step irreducibility proof")
+			}
+		}
+	} else if reproducer.Mode == "HISTORICAL_CLOSED_IDENTITY_WITNESS" {
+		if reproducer.CurrentlyReproduces || reproducer.ProofScope != "RETAINED_HISTORICAL_OBSERVATION_IDENTITY" || reproducer.ScenarioSHA256 != reproducer.OriginalScenarioSHA256 || len(reproducer.Processes) != 0 || len(reproducer.Attempts) != len(original.Core.Steps)+1 || reproducer.CandidateAttempts != len(original.Core.Steps) {
+			return errors.New("historical witness envelope invalid")
+		}
+		if !reproducer.Attempts[0].Reproduced || reproducer.Attempts[0].Signature != reproducer.Signature || reproducer.Attempts[0].EvidenceStatus != "RETAINED_HISTORICAL_FINDING_OBSERVATIONS" {
+			return errors.New("historical finding witness absent")
+		}
+		for index := range original.Core.Steps {
+			candidate := original
+			candidate.Core.Steps = append([]corpora.Step(nil), original.Core.Steps[:index]...)
+			candidate.Core.Steps = append(candidate.Core.Steps, original.Core.Steps[index+1:]...)
+			candidateLine, _ := candidate.CanonicalLine()
+			attempt := reproducer.Attempts[index+1]
+			if attempt.ScenarioSHA256 != digest(candidateLine) || attempt.Reproduced || attempt.EvidenceStatus != "NO_RETAINED_HISTORICAL_FINDING_OBSERVATION" || len(attempt.Processes) != 0 || len(attempt.Audits) != 0 {
+				return errors.New("historical bounded identity witness invalid")
+			}
+		}
+	} else {
+		return errors.New("unknown reproducer proof mode")
+	}
+	return nil
+}
+
+func verifyLedgerClosure(manifest Manifest, ledger Ledger, scenarios []corpora.Scenario, hierarchy OracleHierarchy, findings map[string][]AdjudicatedFinding, inputs []ArtifactIdentity) error {
+	if ledger.Head != manifest.Ledger.PostHead || len(ledger.Records)+len(ledger.MigratedV1Records) != manifest.Ledger.Records || !validLedgerDigest(manifest.Ledger.PreHead) {
+		return errors.New("ledger binding drift")
+	}
+	scenarioByID := map[string]corpora.Scenario{}
+	resultByID := map[string]ScenarioResult{}
+	for index, sc := range scenarios {
+		scenarioByID[sc.ScenarioID] = sc
+		resultByID[sc.ScenarioID] = manifest.Scenarios[index]
+	}
+	expected := map[string]bool{}
+	for scenarioID, scenarioFindings := range findings {
+		for _, finding := range scenarioFindings {
+			expected[deltaIDFor(scenarioID, finding.Pointer)] = true
+		}
+	}
+	for scenarioID, defects := range retainedDefects {
+		for _, defect := range defects {
+			expected[deltaIDFor(scenarioID, defect.Pointer)] = true
+		}
+	}
+	if len(ledger.Records) != len(expected) {
+		return fmt.Errorf("ledger exact record set drift got=%d want=%d", len(ledger.Records), len(expected))
+	}
+	reproducerByDelta := map[string]PublicReproducer{}
+	for _, reproducer := range manifest.Reproducers {
+		if reproducerByDelta[reproducer.LedgerDeltaID].ReproducerID != "" {
+			return errors.New("duplicate reproducer delta link")
+		}
+		reproducerByDelta[reproducer.LedgerDeltaID] = reproducer
+	}
+	if len(reproducerByDelta) != len(expected) {
+		return errors.New("reproducer exact set drift")
+	}
+	for _, record := range ledger.Records {
+		if !expected[record.DeltaID] {
+			return fmt.Errorf("unreviewed ledger record %s", record.DeltaID)
+		}
+		scenario := scenarioByID[record.ScenarioID]
+		result := resultByID[record.ScenarioID]
+		var decision *OracleCell
+		for index := range hierarchy.Cells {
+			cell := &hierarchy.Cells[index]
+			if cell.ScenarioID == record.ScenarioID && cell.Pointer == record.Pointer {
+				decision = cell
+				break
+			}
+		}
+		if decision == nil || !canonicalEqual(record.Decision, *decision) {
+			return fmt.Errorf("ledger decision drift %s", record.DeltaID)
+		}
+		if record.Classification == "java_quirk" {
+			if record.JavaObservation != result.JavaPrimary || record.RustObservation != result.RustPrimary || record.Resolution != "retained_java_quirk" {
+				return fmt.Errorf("Java quirk record link drift %s", record.DeltaID)
+			}
+		} else {
+			matched := false
+			for _, defect := range retainedDefects[record.ScenarioID] {
+				if defect.Pointer == record.Pointer && defect.JavaObservation == record.JavaObservation && defect.RustObservation == record.RustObservation && defect.FindingAnchor == record.FindingRunAnchor {
+					matched = true
+					break
+				}
+			}
+			if !matched || record.ClosingJavaObservation != result.JavaPrimary || record.ClosingRustObservation != result.RustPrimary || record.ClosingRunAnchor != manifest.RepositoryAnchor {
+				return fmt.Errorf("remediated defect record link drift %s", record.DeltaID)
+			}
+		}
+		if err := verifyReproducer(reproducerByDelta[record.DeltaID], scenario, record, manifest, inputs); err != nil {
+			return fmt.Errorf("%s: %w", record.DeltaID, err)
+		}
+	}
+	return nil
+}
+
 // VerifyPublicDifferential independently validates a committed receipt.
 func VerifyPublicDifferential(repositoryRoot string, receiptBytes []byte) error {
 	if repositoryRoot == "" || !filepath.IsAbs(repositoryRoot) || filepath.Clean(repositoryRoot) != repositoryRoot {
@@ -3312,7 +4997,53 @@ func VerifyPublicDifferential(repositoryRoot string, receiptBytes []byte) error 
 		return err
 	}
 	var manifest Manifest
-	if err := json.Unmarshal(receiptBytes, &manifest); err != nil {
+	if err := decodeStrict(receiptBytes, &manifest); err != nil {
+		return err
+	}
+	_, inputs, err := configFromManifestInputs(repositoryRoot, manifest)
+	if err != nil {
+		return err
+	}
+	if err := validateExecutionAnchor(repositoryRoot, manifest.RepositoryAnchor, inputs); err != nil {
+		return err
+	}
+	scenarios, _, err := loadPublicCorpus(repositoryRoot, filepath.Join(repositoryRoot, "corpora/public/scenarios.jsonl"))
+	if err != nil {
+		return err
+	}
+	hierarchyRaw, err := readRegularBounded(filepath.Join(repositoryRoot, "evidence/oracle-hierarchy.json"), maximumDocumentBytes)
+	if err != nil {
+		return err
+	}
+	var hierarchy OracleHierarchy
+	if err := decodeStrict(hierarchyRaw, &hierarchy); err != nil {
+		return err
+	}
+	if err := ValidateOracleHierarchy(scenarios, hierarchy); err != nil {
+		return err
+	}
+	wantControls, err := runSeededControls()
+	if err != nil || !canonicalEqual(manifest.Controls, wantControls) {
+		return errors.New("control set/rederivation drift")
+	}
+	wantCoverage, err := buildCoverage(repositoryRoot, scenarios)
+	if err != nil {
+		return err
+	}
+	if !canonicalEqual(manifest.Coverage, wantCoverage) {
+		leftRaw, _ := canonical(manifest.Coverage)
+		rightRaw, _ := canonical(wantCoverage)
+		var left, right any
+		_ = json.Unmarshal(leftRaw, &left)
+		_ = json.Unmarshal(rightRaw, &right)
+		return fmt.Errorf("coverage mapping/source/identity drift at %s", firstJSONDifference(left, right, ""))
+	}
+	processes, err := verifyProcessMatrix(manifest, scenarios, inputs)
+	if err != nil {
+		return err
+	}
+	findings, err := verifyScenarioMatrix(manifest, scenarios, hierarchy, processes)
+	if err != nil {
 		return err
 	}
 	ledgerRaw, err := readRegularBounded(filepath.Join(repositoryRoot, "evidence/java/behavior-delta-ledger.json"), maximumDocumentBytes)
@@ -3323,33 +5054,22 @@ func VerifyPublicDifferential(repositoryRoot string, receiptBytes []byte) error 
 	if err != nil {
 		return err
 	}
-	if ledger.Head != manifest.Ledger.PostHead || len(ledger.Records) != manifest.Ledger.Records {
-		return errors.New("ledger binding drift")
-	}
-	hierarchyRaw, err := readRegularBounded(filepath.Join(repositoryRoot, "evidence/oracle-hierarchy.json"), maximumDocumentBytes)
-	if err != nil {
+	if err := verifyLedgerClosure(manifest, ledger, scenarios, hierarchy, findings, inputs); err != nil {
 		return err
 	}
-	var hierarchy OracleHierarchy
-	if err := decodeStrict(hierarchyRaw, &hierarchy); err != nil {
-		return err
-	}
-	scenarios, _, err := loadPublicCorpus(repositoryRoot, filepath.Join(repositoryRoot, "corpora/public/scenarios.jsonl"))
-	if err != nil {
-		return err
-	}
-	byScenario := make(map[string]ScenarioResult, len(manifest.Scenarios))
-	for _, result := range manifest.Scenarios {
-		byScenario[result.ScenarioID] = result
-	}
-	for _, scenario := range scenarios {
-		result, ok := byScenario[scenario.ScenarioID]
-		if !ok {
-			return fmt.Errorf("scenario result absent: %s", scenario.ScenarioID)
-		}
-		if err := validateRustDerivedCounters(scenario, result); err != nil {
-			return fmt.Errorf("Rust derived counter receipt invalid %s: %w", scenario.ScenarioID, err)
+	preHeadKnown := manifest.Ledger.PreHead == "sha256:"+strings.Repeat("0", 64) || manifest.Ledger.PreHead == ledger.Head
+	for _, record := range ledger.Records {
+		if record.RecordDigest == manifest.Ledger.PreHead {
+			preHeadKnown = true
+			break
 		}
 	}
-	return ValidateOracleHierarchy(scenarios, hierarchy)
+	if !preHeadKnown {
+		return errors.New("ledger pre-head is not a chain boundary")
+	}
+	wantCounts := CountsReceipt{Scenarios: len(scenarios), JavaPrimary: len(scenarios), JavaReplay: len(scenarios), RustPrimary: len(scenarios), RustReplay: len(scenarios), Processes: len(processes)}
+	if !canonicalEqual(manifest.Counts, wantCounts) {
+		return errors.New("manifest counts do not rederive")
+	}
+	return nil
 }

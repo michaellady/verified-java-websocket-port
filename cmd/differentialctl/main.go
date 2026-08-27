@@ -14,11 +14,12 @@ import (
 	"github.com/michaellady/verified-java-websocket-port/internal/differential"
 )
 
-const usage = "usage: differentialctl run --repository-root ABS --public-corpus ABS --java-executable ABS --java-adapter ABS --java-runtime ABS --java-support ABS[,ABS...] --rust-testee ABS --migration-inventory ABS --compatibility-surface ABS --ledger ABS --oracle-hierarchy ABS --evidence ABS\n       differentialctl diagnose (same flags as run; writes no ledger/evidence)\n       differentialctl verify --repository-root ABS --evidence ABS --ledger ABS --oracle-hierarchy ABS\n"
+const usage = "usage: differentialctl run --repository-root ABS --public-corpus ABS --java-executable ABS --java-adapter ABS --java-runtime ABS --java-support ABS[,ABS...] --rust-testee ABS --migration-inventory ABS --compatibility-surface ABS --ledger ABS --oracle-hierarchy ABS --evidence ABS\n       differentialctl diagnose (same flags as run; writes no ledger/evidence)\n       differentialctl verify --repository-root ABS --evidence ABS --ledger ABS --oracle-hierarchy ABS\n       differentialctl reproduce --repository-root ABS --evidence ABS --reproducer-id ID\n"
 
 var runDifferential = differential.RunPublicDifferential
 var diagnoseDifferential = differential.RunPublicDiagnostic
 var verifyDifferential = differential.VerifyPublicDifferential
+var reproduceDifferential = differential.ReproducePublicDifferential
 
 func parse(args []string, allowed []string) (map[string]string, error) {
 	if len(args)%2 != 0 {
@@ -131,6 +132,30 @@ func verifyCommand(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
+func reproduceCommand(args []string, stdout, stderr io.Writer) int {
+	if len(args) != 6 || args[0] != "--repository-root" || args[2] != "--evidence" || args[4] != "--reproducer-id" || !filepath.IsAbs(args[1]) || filepath.Clean(args[1]) != args[1] || !filepath.IsAbs(args[3]) || filepath.Clean(args[3]) != args[3] || !strings.HasPrefix(args[5], "reproducer.us005.pub.") || len(args[5]) > 128 {
+		fmt.Fprint(stderr, usage)
+		return 64
+	}
+	raw, err := os.ReadFile(args[3])
+	if err != nil || len(raw) == 0 || len(raw) > 32<<20 {
+		fmt.Fprintln(stderr, "evidence read failed")
+		return 1
+	}
+	receipt, err := reproduceDifferential(context.Background(), args[1], raw, args[5])
+	if err != nil {
+		fmt.Fprintf(stderr, "differential reproduce failed: %v\n", err)
+		return 1
+	}
+	encoder := json.NewEncoder(stdout)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(receipt); err != nil {
+		fmt.Fprintln(stderr, "encode reproduction receipt failed")
+		return 1
+	}
+	return 0
+}
+
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
@@ -143,6 +168,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return diagnoseCommand(args[1:], stdout, stderr)
 	case "verify":
 		return verifyCommand(args[1:], stdout, stderr)
+	case "reproduce":
+		return reproduceCommand(args[1:], stdout, stderr)
 	default:
 		fmt.Fprint(stderr, usage)
 		return 64

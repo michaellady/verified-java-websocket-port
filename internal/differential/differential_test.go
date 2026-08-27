@@ -17,6 +17,19 @@ import (
 	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
 )
 
+func committedManifestForTest(t *testing.T) ([]byte, Manifest) {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(repositoryRoot(t), "evidence/differential/manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest Manifest
+	if err := decodeStrict(raw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	return raw, manifest
+}
+
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
@@ -40,14 +53,7 @@ func publicScenarios(t *testing.T) []corpora.Scenario {
 
 func emptyMigratedLedgerForTest(t *testing.T) Ledger {
 	t.Helper()
-	raw, err := json.Marshal(map[string]any{
-		"schema_version":       "1.0.0",
-		"accepted_root_digest": digest([]byte("accepted-root")),
-		"head":                 "sha256:" + strings.Repeat("0", 64),
-		"records":              []any{},
-		"production":           false,
-		"publication":          false,
-	})
+	raw, err := json.Marshal(LegacyLedger{Schema: "../../schemas/behavior-delta-ledger-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceKind: "behavior-delta-ledger", AcceptedRootDigest: digest([]byte("accepted-root")), Status: "BLOCKED_PENDING_BASELINE", NormativeAuthority: "rfc6455", Head: "sha256:" + strings.Repeat("0", 64), Records: []LegacyLedgerRecord{}, AppendImplementation: "hash-chained-cas"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,9 +64,19 @@ func emptyMigratedLedgerForTest(t *testing.T) Ledger {
 	return ledger
 }
 
+func legacyDeltaForTest() LegacyDelta {
+	return LegacyDelta{
+		SchemaVersion: "1.0.0", DeltaID: "delta-" + strings.Repeat("a", 64), SubjectRef: "semantic:test:provisional-v1",
+		RFCRefs: []string{"rfc6455#section-5.2"}, RFCExpectationDigest: digest([]byte("expectation")), RFCValueDigest: digest([]byte("rfc")),
+		JavaRef: "java-v1.6.0:test", JavaObservationDigest: digest([]byte("java-observation")), JavaValueDigest: digest([]byte("java-value")),
+		AutobahnRefs: []string{"autobahn-v25.10.1:1.1"}, AutobahnResultDigest: digest([]byte("autobahn-result")), AutobahnValueDigest: digest([]byte("autobahn-value")),
+		DisagreementDigest: digest([]byte("difference")), NormativeAuthority: "rfc6455", Disposition: "rfc-governs", Rationale: "RFC controls the retained legacy disagreement.",
+	}
+}
+
 func minimalValidManifestForTest(t *testing.T) Manifest {
 	t.Helper()
-	manifest := Manifest{Schema: "../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: "PASS", Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: strings.Repeat("a", 40), Counts: CountsReceipt{Scenarios: 74, JavaPrimary: 74, JavaReplay: 74, RustPrimary: 74, RustReplay: 74, Processes: 296}, Controls: ControlsReceipt{Total: 7, Killed: 7, Results: make([]ControlResult, 7)}, Coverage: CoverageReceipt{Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}, Migration: make([]CoverageRow, 47), Compatibility: make([]CoverageRow, 14)}, Ledger: LedgerBinding{PreHead: "sha256:" + strings.Repeat("0", 64), PostHead: "sha256:" + strings.Repeat("0", 64)}, Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote}}
+	manifest := Manifest{Schema: "../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: "PASS", Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: strings.Repeat("a", 40), Counts: CountsReceipt{Scenarios: 74, JavaPrimary: 74, JavaReplay: 74, RustPrimary: 74, RustReplay: 74, Processes: 296}, Controls: ControlsReceipt{Total: 7, Killed: 7, Results: make([]ControlResult, 7)}, Coverage: CoverageReceipt{Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}, Migration: make([]CoverageRow, 47), Compatibility: make([]CoverageRow, 14)}, Ledger: LedgerBinding{PreHead: "sha256:" + strings.Repeat("0", 64), PostHead: "sha256:" + strings.Repeat("0", 64)}, Reproducers: make([]PublicReproducer, 103), Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote}}
 	for index := 0; index < 74; index++ {
 		id := fmt.Sprintf("us005.pub.%04d", index)
 		manifest.Scenarios = append(manifest.Scenarios, ScenarioResult{ScenarioID: id, Stable: true})
@@ -518,7 +534,8 @@ func TestFieldLevelAdjudicationSeparatesRFCJavaQuirkFromCounterDefect(t *testing
 		t.Fatalf("classification=%s findings=%#v", classification, findings)
 	}
 	ledger := Ledger{Schema: "../../schemas/behavior-delta-ledger-1.1.0.schema.json", SchemaVersion: ledgerSchemaVersion, EvidenceKind: "behavior-delta-ledger", AcceptedRootDigest: digest([]byte("root")), Status: "PASS_NO_CURRENT_DELTAS", NormativeAuthority: "field-addressed-oracle-hierarchy", Head: "sha256:" + strings.Repeat("0", 64), Records: []LedgerRecord{}, AppendImplementation: "hash-chained-cas"}
-	if err := appendJavaQuirk(&ledger, scenario, findings[0], digest([]byte("java")), digest([]byte("rust")), strings.Repeat("d", 40)); err != nil {
+	line, _ := scenario.CanonicalLine()
+	if err := appendJavaQuirk(&ledger, scenario, findings[0], digest([]byte("java")), digest([]byte("rust")), strings.Repeat("d", 40), digest(line)); err != nil {
 		t.Fatalf("append Java quirk: %v", err)
 	}
 	if len(ledger.Records) != 1 || ledger.Records[0].Resolution != "retained_java_quirk" || ledger.Records[0].ClosingRunAnchor != "" {
@@ -693,6 +710,12 @@ func TestVerifierRejectsPerStepJavaParityOverclaimAndCountMutation(t *testing.T)
 	if err := verifyManifestValue(repositoryRoot(t), raw); err == nil {
 		t.Fatal("process count mutation accepted")
 	}
+	manifest.Counts.Processes++
+	manifest.Reproducers = manifest.Reproducers[:102]
+	raw, _ = json.Marshal(manifest)
+	if err := verifyManifestValue(repositoryRoot(t), raw); err == nil || !strings.Contains(err.Error(), "exactly 103") {
+		t.Fatalf("non-exact reproducer set accepted: %v", err)
+	}
 }
 
 func TestFakeExecutorRejectsMalformedAndUnstableOutput(t *testing.T) {
@@ -774,5 +797,303 @@ func TestDiagnosticValueReportsExactFieldWithoutWritingEvidence(t *testing.T) {
 	want := `[{"direction":"inbound","fin":true,"masked":false,"opcode":"text","payload_base64":"YQ==","step":2,"wire_length":3}]`
 	if got != want {
 		t.Fatalf("diagnostic value = %s", got)
+	}
+}
+
+func TestVerifierRederivesEveryBoundIdentityAndLink(t *testing.T) {
+	root := repositoryRoot(t)
+	raw, baseline := committedManifestForTest(t)
+	if len(baseline.Reproducers) != 103 {
+		if err := VerifyPublicDifferential(root, raw); err == nil {
+			t.Fatal("pre-remediation receipt without 103 reproducers was accepted")
+		}
+		t.Log("pre-remediation receipt is correctly rejected until the authorized replacement run")
+		return
+	}
+	if err := VerifyPublicDifferential(root, raw); err != nil {
+		t.Fatalf("baseline: %v", err)
+	}
+	mutations := map[string]func(*Manifest){
+		"input-identity":        func(v *Manifest) { v.Inputs[0].SHA256 = digest([]byte("forged-input")) },
+		"scenario-process-link": func(v *Manifest) { v.Scenarios[0].JavaPrimary = digest([]byte("forged-normalized")) },
+		"process-source-link":   func(v *Manifest) { v.Processes[0].StdinSHA256 = digest([]byte("forged-stdin")) },
+		"observation-link":      func(v *Manifest) { v.Scenarios[0].JavaObservation.FinalState = "closed" },
+		"control-set":           func(v *Manifest) { v.Controls.Results[0].ControlID = "forged-control" },
+		"coverage-source":       func(v *Manifest) { v.Coverage.Migration[0].SourceSHA256 = digest([]byte("forged-row")) },
+		"ledger-pre-head":       func(v *Manifest) { v.Ledger.PreHead = digest([]byte("forged-head")) },
+		"execution-anchor":      func(v *Manifest) { v.RepositoryAnchor = strings.Repeat("a", 40) },
+	}
+	for name, mutate := range mutations {
+		t.Run(name, func(t *testing.T) {
+			candidate := baseline
+			candidate.Inputs = append([]ArtifactIdentity(nil), baseline.Inputs...)
+			candidate.Scenarios = append([]ScenarioResult(nil), baseline.Scenarios...)
+			candidate.Processes = append([]ProcessReceipt(nil), baseline.Processes...)
+			candidate.Controls.Results = append([]ControlResult(nil), baseline.Controls.Results...)
+			candidate.Coverage.Migration = append([]CoverageRow(nil), baseline.Coverage.Migration...)
+			mutate(&candidate)
+			encoded, err := marshalIndented(candidate)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := VerifyPublicDifferential(root, encoded); err == nil {
+				t.Fatal("forged evidence accepted")
+			}
+		})
+	}
+}
+
+func TestCoverageUsesClosedReviewedMapAndExactPredecessorIdentities(t *testing.T) {
+	root := repositoryRoot(t)
+	receipt, err := buildCoverage(root, publicScenarios(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reviewedCoverageMap) != 61 {
+		t.Fatalf("reviewed mappings=%d", len(reviewedCoverageMap))
+	}
+	for _, row := range append(append([]CoverageRow{}, receipt.Migration...), receipt.Compatibility...) {
+		mapping, ok := reviewedCoverageMap[row.ID]
+		if !ok {
+			t.Fatalf("unreviewed row %s", row.ID)
+		}
+		if mapping.Fresh != row.FreshUS020 || strings.Join(mapping.ScenarioIDs, ",") != strings.Join(row.ScenarioIDs, ",") {
+			t.Fatalf("mapping drift for %s", row.ID)
+		}
+		if !row.FreshUS020 && row.ExcludedReason == "" {
+			if len(row.PredecessorIdentities) != len(row.PredecessorPaths) || len(row.PredecessorIdentities) == 0 {
+				t.Fatalf("predecessor identity absent for %s", row.ID)
+			}
+			for index, identity := range row.PredecessorIdentities {
+				if identity.Path != filepath.Join(root, row.PredecessorPaths[index]) || !validLedgerDigest(identity.SHA256) || identity.Bytes <= 0 {
+					t.Fatalf("predecessor identity invalid for %s: %#v", row.ID, identity)
+				}
+			}
+		}
+	}
+}
+
+func TestUnknownJavaEventsFailClosedAndCollisionControlUsesAudit(t *testing.T) {
+	unknown := map[string]any{"type": "brand_new_callback", "step": float64(0)}
+	if _, _, err := normalizeJavaEvent(unknown); err == nil {
+		t.Fatal("unknown Java event was silently erased")
+	}
+	allowed := map[string]any{"type": "input_chunk", "step": float64(0), "bytes": float64(1)}
+	if _, keep, err := normalizeJavaEvent(allowed); err != nil || keep {
+		t.Fatalf("reviewed adapter-only event not allowlisted: keep=%v err=%v", keep, err)
+	}
+	code, err := auditReplayNormalization(
+		NormalizationTrace{RawSHA256: digest([]byte("raw-a")), NormalizedSHA256: digest([]byte("same"))},
+		NormalizationTrace{RawSHA256: digest([]byte("raw-b")), NormalizedSHA256: digest([]byte("same"))},
+	)
+	if err == nil || code != "NORMALIZATION_COLLISION" {
+		t.Fatalf("collision audit code=%q err=%v", code, err)
+	}
+	controls, err := runSeededControls()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, control := range controls.Results {
+		if control.ControlID == "normalization-collision" && control.DetectedCode != code {
+			t.Fatalf("planted collision bypassed audit: %#v", control)
+		}
+	}
+}
+
+func TestStrictCompleteV10MigrationRetainsRecords(t *testing.T) {
+	zero := "sha256:" + strings.Repeat("0", 64)
+	delta := legacyDeltaForTest()
+	record := LegacyLedgerRecord{SchemaVersion: "1.0.0", Sequence: 1, PreviousDigest: zero, Delta: delta}
+	want, err := legacyRecordDigest(record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.RecordDigest = want
+	old := LegacyLedger{Schema: "../../schemas/behavior-delta-ledger-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceKind: "behavior-delta-ledger", AcceptedRootDigest: digest([]byte("root")), Status: "READY", NormativeAuthority: "rfc6455", Head: want, Records: []LegacyLedgerRecord{record}, AppendImplementation: "hash-chained-cas", UnledgeredDisagreements: 0}
+	raw, _ := json.Marshal(old)
+	migrated, err := migrateLedger(raw)
+	if err != nil {
+		t.Fatalf("complete v1 migration: %v", err)
+	}
+	if len(migrated.MigratedV1Records) != 1 || migrated.MigrationSourceHead != want || migrated.Head != want {
+		t.Fatalf("migration lost history: %#v", migrated)
+	}
+	document, err := marshalIndented(migrated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := compileAndValidateSchema(filepath.Join(repositoryRoot(t), "schemas/behavior-delta-ledger-1.1.0.schema.json"), document); err != nil {
+		t.Fatalf("migrated v1.1 document schema: %v", err)
+	}
+	var object map[string]any
+	_ = json.Unmarshal(raw, &object)
+	object["unknown"] = true
+	hostile, _ := json.Marshal(object)
+	if _, err := migrateLedger(hostile); err == nil {
+		t.Fatal("unknown v1 field accepted")
+	}
+}
+
+func TestPersistentLedgerAppendIsRerunnable(t *testing.T) {
+	ledger := emptyMigratedLedgerForTest(t)
+	cell := OracleCell{ScenarioID: "us005.pub.0000", Pointer: "/error/class", Authority: "neutral", Rank: 3, ExpectedSHA256: digest([]byte("x")), Evidence: []OracleEvidence{{Kind: "neutral", ID: "us005.pub.0000", SHA256: digest([]byte("x"))}}}
+	record := LedgerRecord{DeltaID: "delta.us005.pub.0000.error", ScenarioID: "us005.pub.0000", Pointer: "/error/class", Classification: "java_quirk", JavaObservation: digest([]byte("j")), RustObservation: digest([]byte("r")), ReproducerSHA256: digest([]byte("p")), Decision: cell, Resolution: "retained_java_quirk", FindingRunAnchor: strings.Repeat("a", 40)}
+	if err := appendLedgerRecord(&ledger, ledger.Head, record); err != nil {
+		t.Fatal(err)
+	}
+	head := ledger.Head
+	record.FindingRunAnchor = strings.Repeat("b", 40)
+	if err := appendLedgerRecord(&ledger, ledger.Head, record); err != nil {
+		t.Fatalf("rerun should preserve first finding: %v", err)
+	}
+	if len(ledger.Records) != 1 || ledger.Head != head || ledger.Records[0].FindingRunAnchor != strings.Repeat("a", 40) {
+		t.Fatal("rerun changed persistent history")
+	}
+}
+
+func TestOnDiskLockAndJournaledPairRecovery(t *testing.T) {
+	dir := t.TempDir()
+	ledgerPath := filepath.Join(dir, "ledger.json")
+	manifestPath := filepath.Join(dir, "manifest.json")
+	lock, err := acquireEvidenceLock(ledgerPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := acquireEvidenceLock(ledgerPath); err == nil {
+		t.Fatal("concurrent on-disk writer accepted")
+	}
+	if err := lock.Release(); err != nil {
+		t.Fatal(err)
+	}
+	if err := commitEvidencePair(ledgerPath, []byte("ledger\n"), manifestPath, []byte("manifest\n")); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(ledgerPath); string(got) != "ledger\n" {
+		t.Fatalf("ledger=%q", got)
+	}
+	if got, _ := os.ReadFile(manifestPath); string(got) != "manifest\n" {
+		t.Fatalf("manifest=%q", got)
+	}
+	ledgerStage, err := stageDocument(ledgerPath, []byte("ledger-recovered\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestStage, err := stageDocument(manifestPath, []byte("manifest-recovered\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	journal := pairJournal{SchemaVersion: "1.0.0", LedgerPath: ledgerPath, LedgerStage: ledgerStage, LedgerSHA256: digest([]byte("ledger-recovered\n")), ManifestPath: manifestPath, ManifestStage: manifestStage, ManifestSHA256: digest([]byte("manifest-recovered\n"))}
+	if err := writeJSONAtomic(ledgerPath+".us020-journal", journal); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(ledgerStage, ledgerPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverEvidencePair(ledgerPath, manifestPath); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(ledgerPath); string(got) != "ledger-recovered\n" {
+		t.Fatalf("recovered ledger=%q", got)
+	}
+	if got, _ := os.ReadFile(manifestPath); string(got) != "manifest-recovered\n" {
+		t.Fatalf("recovered manifest=%q", got)
+	}
+}
+
+func TestOnDiskLedgerCASRejectsSameHeadDocumentReplacement(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "ledger.json")
+	ledger := emptyMigratedLedgerForTest(t)
+	raw, _ := marshalIndented(ledger)
+	if err := os.WriteFile(path, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := recheckLedgerCAS(path, digest(raw), ledger.Head); err != nil {
+		t.Fatal(err)
+	}
+	var object map[string]any
+	if err := json.Unmarshal(raw, &object); err != nil {
+		t.Fatal(err)
+	}
+	object["accepted_root_digest"] = digest([]byte("replacement"))
+	replacement, _ := json.Marshal(object)
+	if err := os.WriteFile(path, replacement, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := recheckLedgerCAS(path, digest(raw), ledger.Head); err == nil {
+		t.Fatal("same-head document replacement accepted")
+	}
+}
+
+func TestLaunchBundleUsesImmutableContentAddressedBytes(t *testing.T) {
+	dir := t.TempDir()
+	executable := filepath.Join(dir, "runtime")
+	jar := filepath.Join(dir, "adapter.jar")
+	if err := os.WriteFile(executable, []byte("runtime-v1"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(jar, []byte("jar-v1"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := materializeLaunchInputs(filepath.Join(dir, "store"), []launchSource{{Role: "runtime", Path: executable, Executable: true}, {Role: "adapter", Path: jar}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(executable, []byte("runtime-v2"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	launched, err := os.ReadFile(bundle.ByRole["runtime"].Path)
+	if err != nil || string(launched) != "runtime-v1" {
+		t.Fatalf("launched bytes=%q err=%v", launched, err)
+	}
+	if bundle.ByRole["runtime"].SHA256 != digest(launched) || !strings.Contains(bundle.ByRole["runtime"].Path, strings.TrimPrefix(digest(launched), "sha256:")) {
+		t.Fatalf("launch object not content addressed: %#v", bundle.ByRole["runtime"])
+	}
+}
+
+func TestScenarioMinimizerUsesFreshProcessesAndProvesIrreducible(t *testing.T) {
+	scenario := publicScenarios(t)[0]
+	scenario.Core.Steps = append([]corpora.Step{{Kind: "bytes", DataBase64: ""}}, scenario.Core.Steps...)
+	pids := 0
+	reproducer, err := minimizeScenarioFresh(scenario, Budget{MaxCandidates: 16, MaxDuration: time.Second}, func(candidate corpora.Scenario) (mismatchSignature, []ProcessReceipt, error) {
+		pids += 2
+		receipts := []ProcessReceipt{{PID: pids - 1}, {PID: pids}}
+		if len(candidate.Core.Steps) == 0 {
+			return mismatchSignature{}, receipts, nil
+		}
+		return mismatchSignature{Pointer: "/final_state", Classification: "java_quirk"}, receipts, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reproducer.Scenario.Core.Steps) != 1 || !reproducer.Irreducible || reproducer.CandidateAttempts == 0 || len(reproducer.Processes) < 4 {
+		t.Fatalf("minimized reproducer=%#v", reproducer)
+	}
+}
+
+func TestEvidenceScenarioRoundTripsFlattenedPublicAndZeroStepCandidates(t *testing.T) {
+	scenario := publicScenarios(t)[0]
+	for name, candidate := range map[string]corpora.Scenario{
+		"public": scenario,
+		"zero-step": func() corpora.Scenario {
+			value := scenario
+			value.Core.Steps = []corpora.Step{}
+			return value
+		}(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			reproducer := PublicReproducer{Scenario: candidate}
+			raw, err := json.Marshal(reproducer)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var decoded PublicReproducer
+			if err := decodeStrict(raw, &decoded); err != nil {
+				t.Fatalf("decode flattened scenario: %v", err)
+			}
+			if !canonicalEqual(decoded.Scenario, candidate) {
+				t.Fatalf("scenario round-trip drift")
+			}
+		})
 	}
 }

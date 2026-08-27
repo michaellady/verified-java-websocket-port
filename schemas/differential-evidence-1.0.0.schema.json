@@ -81,31 +81,171 @@
         "observations": {"type": "array", "maxItems": 4096, "items": {"$ref": "#/$defs/rust_item"}}
       }
     },
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "path", "sha256", "bytes"],
+      "properties": {
+        "kind": {"type": "string", "pattern": "^(public-corpus|public-corpus-manifest|java-executable|java-adapter-jar|java-runtime-jar|java-support-jar-[0-9]{2}|rust-testee|migration-inventory|compatibility-surface|oracle-hierarchy|current-head-qualification|predecessor-receipt)$"},
+        "path": {"type": "string", "pattern": "^/", "maxLength": 4096},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}
+      }
+    },
+    "launch_identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "source_path", "source_sha256", "object_sha256", "object_name", "bytes"],
+      "properties": {
+        "role": {"type": "string", "pattern": "^(java-executable|java-adapter|java-runtime|java-support-[0-9]{2}|rust-testee)$"},
+        "source_path": {"type": "string", "pattern": "^/", "maxLength": 4096},
+        "source_sha256": {"$ref": "#/$defs/digest"},
+        "object_sha256": {"$ref": "#/$defs/digest"},
+        "object_name": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}
+      }
+    },
+    "normalization_loss": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pointer", "reason", "value_sha256"],
+      "properties": {
+        "pointer": {"type": "string", "pattern": "^/", "maxLength": 512},
+        "reason": {"type": "string", "minLength": 1, "maxLength": 256},
+        "value_sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "normalization_trace": {
+      "type": "object", "additionalProperties": false,
+      "required": ["runtime", "attempt", "raw_base64", "raw_sha256", "normalized_sha256", "losses"],
+      "properties": {
+        "runtime": {"enum": ["java", "rust"]},
+        "attempt": {"type": "string", "pattern": "^(primary|replay|candidate-[0-9]{4}-(primary|replay))$"},
+        "raw_base64": {"type": "string", "pattern": "^[A-Za-z0-9+/]*={0,2}$", "maxLength": 5592408},
+        "raw_sha256": {"$ref": "#/$defs/digest"},
+        "normalized_sha256": {"$ref": "#/$defs/digest"},
+        "losses": {"type": "array", "maxItems": 8192, "items": {"$ref": "#/$defs/normalization_loss"}}
+      }
+    },
+    "process": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scenario_id", "runtime", "attempt", "pid", "executable_sha256", "stdin_sha256", "stdin_bytes", "stdout_sha256", "stdout_bytes", "stderr_sha256", "stderr_bytes", "exit_code", "started_unix_nano", "duration_nanos", "normalized_sha256", "launched_inputs"],
+      "properties": {
+        "scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"},
+        "runtime": {"enum": ["java", "rust"]},
+        "attempt": {"type": "string", "pattern": "^(primary|replay|candidate-[0-9]{4}-(primary|replay))$"},
+        "pid": {"type": "integer", "minimum": 1},
+        "executable_sha256": {"$ref": "#/$defs/digest"},
+        "stdin_sha256": {"$ref": "#/$defs/digest"},
+        "stdin_bytes": {"type": "integer", "minimum": 1, "maximum": 4194304},
+        "stdout_sha256": {"$ref": "#/$defs/digest"},
+        "stdout_bytes": {"type": "integer", "minimum": 1, "maximum": 4194304},
+        "stderr_sha256": {"$ref": "#/$defs/digest"},
+        "stderr_bytes": {"type": "integer", "minimum": 0, "maximum": 4096},
+        "exit_code": {"const": 0},
+        "started_unix_nano": {"type": "integer", "minimum": 1},
+        "duration_nanos": {"type": "integer", "minimum": 0, "maximum": 5000000000},
+        "normalized_sha256": {"$ref": "#/$defs/digest"},
+        "launched_inputs": {"type": "array", "minItems": 1, "maxItems": 20, "items": {"$ref": "#/$defs/launch_identity"}}
+      }
+    },
+    "signature": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pointer", "classification"],
+      "properties": {
+        "pointer": {"type": "string", "maxLength": 512},
+        "classification": {"type": "string", "maxLength": 32}
+      }
+    },
+    "zero_step_scenario": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scenario_id", "tier", "family", "seed_index", "role", "initial_state", "limits", "steps", "expected", "expectation_basis", "expectation_status"],
+      "properties": {
+        "scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"},
+        "tier": {"const": "public"},
+        "family": {"type": "string", "minLength": 1, "maxLength": 256},
+        "seed_index": {"type": "integer", "minimum": 0},
+        "role": {"enum": ["server", "client"]},
+        "initial_state": {"enum": ["open", "closing", "closed"]},
+        "limits": {"type": "object", "additionalProperties": false, "required": ["max_input_bytes", "max_buffered_bytes", "max_actions", "max_frames", "max_output_bytes"], "properties": {"max_input_bytes": {"type": "integer", "minimum": 1, "maximum": 1048576}, "max_buffered_bytes": {"type": "integer", "minimum": 1, "maximum": 1048576}, "max_actions": {"type": "integer", "minimum": 0, "maximum": 1024}, "max_frames": {"type": "integer", "minimum": 1, "maximum": 4096}, "max_output_bytes": {"type": "integer", "minimum": 512, "maximum": 4194304}}},
+        "steps": {"type": "array", "maxItems": 0},
+        "expected": {"$ref": "corpus-scenario-1.0.0.schema.json#/$defs/expected"},
+        "expectation_basis": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "expectation_status": {"const": "REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION"}
+      }
+    },
+    "attempt_scenario": {
+      "oneOf": [
+        {"$ref": "corpus-scenario-1.0.0.schema.json"},
+        {"$ref": "#/$defs/zero_step_scenario"}
+      ]
+    },
+    "minimization_attempt": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scenario", "scenario_sha256", "signature", "reproduced", "processes", "evidence_status", "normalization_audits"],
+      "properties": {
+        "scenario": {"$ref": "#/$defs/attempt_scenario"},
+        "scenario_sha256": {"$ref": "#/$defs/digest"},
+        "signature": {"$ref": "#/$defs/signature"},
+        "reproduced": {"type": "boolean"},
+        "processes": {"type": "array", "maxItems": 4, "items": {"$ref": "#/$defs/process"}},
+        "evidence_status": {"enum": ["FRESH_RUNTIME_OBSERVATION", "RETAINED_HISTORICAL_FINDING_OBSERVATIONS", "NO_RETAINED_HISTORICAL_FINDING_OBSERVATION"]},
+        "normalization_audits": {"type": "array", "maxItems": 4, "items": {"$ref": "#/$defs/normalization_trace"}}
+      }
+    },
+    "reproducer": {
+      "type": "object", "additionalProperties": false,
+      "required": ["reproducer_id", "ledger_delta_id", "scenario_id", "mode", "proof_scope", "currently_reproduces", "signature", "scenario", "original_scenario_sha256", "scenario_sha256", "command", "repository_anchor", "runtime_inputs", "candidate_attempts", "irreducible", "processes", "attempts", "finding_java_observation_sha256", "finding_rust_observation_sha256", "finding_run_anchor"],
+      "properties": {
+        "reproducer_id": {"type": "string", "pattern": "^reproducer\\.us005\\.pub\\.[0-9]{4}\\.[0-9a-f]{16}$"},
+        "ledger_delta_id": {"type": "string", "pattern": "^delta\\.us005\\.pub\\.[0-9]{4}\\.", "maxLength": 256},
+        "scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"},
+        "mode": {"enum": ["FRESH_BOUNDED_MINIMIZATION", "HISTORICAL_CLOSED_IDENTITY_WITNESS"]},
+        "proof_scope": {"enum": ["FRESH_RUNTIME_DIFFERENCE", "RETAINED_HISTORICAL_OBSERVATION_IDENTITY"]},
+        "currently_reproduces": {"type": "boolean"},
+        "signature": {"$ref": "#/$defs/signature"},
+        "scenario": {"$ref": "#/$defs/attempt_scenario"},
+        "original_scenario_sha256": {"$ref": "#/$defs/digest"},
+        "scenario_sha256": {"$ref": "#/$defs/digest"},
+        "command": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"type": "string", "minLength": 1, "maxLength": 4096}},
+        "repository_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "runtime_inputs": {"type": "array", "minItems": 10, "maxItems": 32, "items": {"$ref": "#/$defs/artifact"}},
+        "candidate_attempts": {"type": "integer", "minimum": 1, "maximum": 512},
+        "irreducible": {"const": true},
+        "processes": {"type": "array", "maxItems": 4096, "items": {"$ref": "#/$defs/process"}},
+        "attempts": {"type": "array", "minItems": 1, "maxItems": 513, "items": {"$ref": "#/$defs/minimization_attempt"}},
+        "finding_java_observation_sha256": {"$ref": "#/$defs/digest"},
+        "finding_rust_observation_sha256": {"$ref": "#/$defs/digest"},
+        "finding_run_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "closing_run_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "closing_java_observation_sha256": {"$ref": "#/$defs/digest"},
+        "closing_rust_observation_sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
     "coverage_row": {
       "type": "object", "additionalProperties": false,
-      "required": ["id", "source_pointer", "source_sha256", "fresh_us020", "scenario_ids", "field_pointers", "predecessor_paths"],
+      "required": ["id", "source_pointer", "source_sha256", "fresh_us020", "scenario_ids", "field_pointers", "predecessor_paths", "predecessor_identities"],
       "properties": {
         "id": {"type": "string", "minLength": 1, "maxLength": 256}, "source_pointer": {"type": "string", "pattern": "^/", "maxLength": 128}, "source_sha256": {"$ref": "#/$defs/digest"},
         "fresh_us020": {"type": "boolean"}, "scenario_ids": {"type": "array", "maxItems": 74, "items": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}},
         "field_pointers": {"type": "array", "maxItems": 64, "items": {"type": "string", "pattern": "^/", "maxLength": 256}},
         "predecessor_paths": {"type": "array", "maxItems": 10, "items": {"type": "string", "pattern": "^evidence/us0(10|11|17|18)-"}},
+        "predecessor_identities": {"type": "array", "maxItems": 10, "items": {"$ref": "#/$defs/artifact"}},
         "excluded_reason": {"type": "string", "minLength": 1, "maxLength": 256}
       }
     }
   },
   "type": "object", "additionalProperties": false,
-  "required": ["$schema", "schema_version", "evidence_id", "story_id", "status", "assurance", "independent_review_claimed", "production", "publication", "signing", "parity_scope", "repository_anchor", "inputs", "counts", "scenarios", "processes", "coverage", "controls", "ledger", "nonclaims"],
+  "required": ["$schema", "schema_version", "evidence_id", "story_id", "status", "assurance", "independent_review_claimed", "production", "publication", "signing", "parity_scope", "repository_anchor", "inputs", "counts", "scenarios", "processes", "coverage", "controls", "ledger", "reproducers", "nonclaims"],
   "properties": {
     "$schema": {"const": "../../schemas/differential-evidence-1.0.0.schema.json"}, "schema_version": {"const": "1.0.0"}, "evidence_id": {"const": "evidence.us-020-public-differential"}, "story_id": {"const": "US-020"}, "status": {"const": "PASS"},
     "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"}, "independent_review_claimed": {"const": false}, "production": {"const": false}, "publication": {"const": false}, "signing": {"const": false},
     "parity_scope": {"const": "RUNTIME_COMMON_AGGREGATE"}, "repository_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
-    "inputs": {"type": "array", "minItems": 9, "maxItems": 32, "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "bytes"], "properties": {"path": {"type": "string", "pattern": "^/", "maxLength": 4096}, "sha256": {"$ref": "#/$defs/digest"}, "bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}}}},
+    "inputs": {"type": "array", "minItems": 10, "maxItems": 32, "items": {"$ref": "#/$defs/artifact"}},
     "counts": {"type": "object", "additionalProperties": false, "required": ["scenarios", "java_primary", "java_replay", "rust_primary", "rust_replay", "processes", "flakes", "current_mismatches", "unresolved_differences", "normalization_collisions"], "properties": {"scenarios": {"const": 74}, "java_primary": {"const": 74}, "java_replay": {"const": 74}, "rust_primary": {"const": 74}, "rust_replay": {"const": 74}, "processes": {"const": 296}, "flakes": {"const": 0}, "current_mismatches": {"const": 0}, "unresolved_differences": {"const": 0}, "normalization_collisions": {"const": 0}}},
-    "scenarios": {"type": "array", "minItems": 74, "maxItems": 74, "items": {"type": "object", "additionalProperties": false, "required": ["scenario_id", "java_primary_sha256", "java_replay_sha256", "rust_primary_sha256", "rust_replay_sha256", "neutral_expected_sha256", "stable", "current_mismatch", "classification", "java_observation", "rust_observation", "rust_step_diagnostics", "rust_bootstrap_sha256", "java_normalization_loss", "rust_normalization_notes"], "properties": {"scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}, "java_primary_sha256": {"$ref": "#/$defs/digest"}, "java_replay_sha256": {"$ref": "#/$defs/digest"}, "rust_primary_sha256": {"$ref": "#/$defs/digest"}, "rust_replay_sha256": {"$ref": "#/$defs/digest"}, "neutral_expected_sha256": {"$ref": "#/$defs/digest"}, "stable": {"const": true}, "current_mismatch": {"const": false}, "classification": {"enum": ["agreement", "java_quirk"]}, "java_observation": {"$ref": "#/$defs/observation"}, "rust_observation": {"$ref": "#/$defs/observation"}, "rust_step_diagnostics": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/rust_step"}}, "rust_bootstrap_sha256": {"$ref": "#/$defs/digest"}, "java_normalization_loss": {"type": "array", "minItems": 5, "maxItems": 8192, "items": {"type": "string", "minLength": 1, "maxLength": 256}}, "rust_normalization_notes": {"type": "array", "maxItems": 1, "items": {"type": "string", "minLength": 1, "maxLength": 256}}}}},
-    "processes": {"type": "array", "minItems": 296, "maxItems": 296, "items": {"type": "object", "additionalProperties": false, "required": ["scenario_id", "runtime", "attempt", "pid", "executable_sha256", "stdin_sha256", "stdin_bytes", "stdout_sha256", "stdout_bytes", "stderr_sha256", "stderr_bytes", "exit_code", "started_unix_nano", "duration_nanos", "normalized_sha256"], "properties": {"scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}, "runtime": {"enum": ["java", "rust"]}, "attempt": {"enum": ["primary", "replay"]}, "pid": {"type": "integer", "minimum": 1}, "executable_sha256": {"$ref": "#/$defs/digest"}, "stdin_sha256": {"$ref": "#/$defs/digest"}, "stdin_bytes": {"type": "integer", "minimum": 1, "maximum": 4194304}, "stdout_sha256": {"$ref": "#/$defs/digest"}, "stdout_bytes": {"type": "integer", "minimum": 1, "maximum": 4194304}, "stderr_sha256": {"$ref": "#/$defs/digest"}, "stderr_bytes": {"type": "integer", "minimum": 0, "maximum": 4096}, "exit_code": {"const": 0}, "started_unix_nano": {"type": "integer", "minimum": 1}, "duration_nanos": {"type": "integer", "minimum": 0, "maximum": 5000000000}, "normalized_sha256": {"$ref": "#/$defs/digest"}}}},
-    "coverage": {"type": "object", "additionalProperties": false, "required": ["summary", "migration", "compatibility"], "properties": {"summary": {"type": "object", "additionalProperties": false, "required": ["migration_rows", "compatibility_items", "fresh_rows", "predecessor_rows", "capability_excluded_rows", "unresolved_rows"], "properties": {"migration_rows": {"const": 47}, "compatibility_items": {"const": 14}, "fresh_rows": {"type": "integer", "minimum": 1, "maximum": 61}, "predecessor_rows": {"type": "integer", "minimum": 1, "maximum": 61}, "capability_excluded_rows": {"type": "integer", "minimum": 0, "maximum": 61}, "unresolved_rows": {"const": 0}}}, "migration": {"type": "array", "minItems": 47, "maxItems": 47, "items": {"$ref": "#/$defs/coverage_row"}}, "compatibility": {"type": "array", "minItems": 14, "maxItems": 14, "items": {"$ref": "#/$defs/coverage_row"}}}},
+    "scenarios": {"type": "array", "minItems": 74, "maxItems": 74, "items": {"type": "object", "additionalProperties": false, "required": ["scenario_id", "java_primary_sha256", "java_replay_sha256", "rust_primary_sha256", "rust_replay_sha256", "neutral_expected_sha256", "stable", "current_mismatch", "classification", "java_observation", "rust_observation", "rust_step_diagnostics", "rust_bootstrap_sha256", "java_normalization_loss", "rust_normalization_notes", "normalization_audits"], "properties": {"scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}, "java_primary_sha256": {"$ref": "#/$defs/digest"}, "java_replay_sha256": {"$ref": "#/$defs/digest"}, "rust_primary_sha256": {"$ref": "#/$defs/digest"}, "rust_replay_sha256": {"$ref": "#/$defs/digest"}, "neutral_expected_sha256": {"$ref": "#/$defs/digest"}, "stable": {"const": true}, "current_mismatch": {"const": false}, "classification": {"enum": ["agreement", "java_quirk"]}, "java_observation": {"$ref": "#/$defs/observation"}, "rust_observation": {"$ref": "#/$defs/observation"}, "rust_step_diagnostics": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/rust_step"}}, "rust_bootstrap_sha256": {"$ref": "#/$defs/digest"}, "java_normalization_loss": {"type": "array", "minItems": 5, "maxItems": 8192, "items": {"type": "string", "minLength": 1, "maxLength": 256}}, "rust_normalization_notes": {"type": "array", "maxItems": 1, "items": {"type": "string", "minLength": 1, "maxLength": 256}}, "normalization_audits": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/normalization_trace"}}}}},
+    "processes": {"type": "array", "minItems": 296, "maxItems": 296, "items": {"$ref": "#/$defs/process"}},
+    "coverage": {"type": "object", "additionalProperties": false, "required": ["current_head_qualification", "summary", "migration", "compatibility"], "properties": {"current_head_qualification": {"$ref": "#/$defs/artifact"}, "summary": {"type": "object", "additionalProperties": false, "required": ["migration_rows", "compatibility_items", "fresh_rows", "predecessor_rows", "capability_excluded_rows", "unresolved_rows"], "properties": {"migration_rows": {"const": 47}, "compatibility_items": {"const": 14}, "fresh_rows": {"type": "integer", "minimum": 1, "maximum": 61}, "predecessor_rows": {"type": "integer", "minimum": 1, "maximum": 61}, "capability_excluded_rows": {"type": "integer", "minimum": 0, "maximum": 61}, "unresolved_rows": {"const": 0}}}, "migration": {"type": "array", "minItems": 47, "maxItems": 47, "items": {"$ref": "#/$defs/coverage_row"}}, "compatibility": {"type": "array", "minItems": 14, "maxItems": 14, "items": {"$ref": "#/$defs/coverage_row"}}}},
     "controls": {"type": "object", "additionalProperties": false, "required": ["total", "killed", "results"], "properties": {"total": {"const": 7}, "killed": {"const": 7}, "results": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"type": "object", "additionalProperties": false, "required": ["control_id", "seed_sha256", "expected_code", "detected_code", "baseline_passed", "ledger_unchanged"], "properties": {"control_id": {"type": "string", "minLength": 1, "maxLength": 64}, "seed_sha256": {"$ref": "#/$defs/digest"}, "expected_code": {"type": "string", "minLength": 1, "maxLength": 64}, "detected_code": {"type": "string", "minLength": 1, "maxLength": 64}, "baseline_passed": {"const": true}, "ledger_unchanged": {"const": true}}}}}},
     "ledger": {"type": "object", "additionalProperties": false, "required": ["pre_head", "post_head", "records"], "properties": {"pre_head": {"$ref": "#/$defs/digest"}, "post_head": {"$ref": "#/$defs/digest"}, "records": {"type": "integer", "minimum": 0, "maximum": 4096}}},
+    "reproducers": {"type": "array", "minItems": 103, "maxItems": 103, "items": {"$ref": "#/$defs/reproducer"}},
     "nonclaims": {"type": "array", "minItems": 6, "maxItems": 32, "allOf": [{"contains": {"const": "no per-step Java counter parity"}}, {"contains": {"const": "input_bytes derives from public source kind plus Rust pre_state and typed INVALID_STATE or INPUT_LIMIT_EXCEEDED; it is not raw NOBS1 accounting and cannot change consumed_bytes"}}], "items": {"type": "string", "minLength": 1, "maxLength": 256}}
   }
 }
