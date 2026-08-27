@@ -562,6 +562,14 @@ func verifyIndependentAttestationRecord(record *attestationRecord, fail func(str
 		fail("an attested plan must carry the digest-binding attestation_record")
 		return
 	}
+	// ENFORCEMENT LIMIT (disclosed, not fixable at the document layer): this
+	// gate is STRUCTURAL, not cryptographic. It makes INDEPENDENTLY_ATTESTED
+	// unreachable by relabeling the owner-only record, but a FABRICATED yet
+	// syntactically valid independent record would pass these checks — the
+	// attestor digest is format-checked, never recomputed against a real
+	// attestor document, and owner detection is an exact string comparison
+	// with the frozen OwnerIdentity (an alias evades it mechanically).
+	// Catching fabricated independence remains a review/audit obligation.
 	verifyAttestationRecordCommon(record, fail)
 	if record.Assurance != AssuranceIndependentlyAttested {
 		fail("attestation_record.assurance %q is not %q: an owner-only record relabeled to INDEPENDENTLY_ATTESTED can never satisfy the independent state", record.Assurance, AssuranceIndependentlyAttested)

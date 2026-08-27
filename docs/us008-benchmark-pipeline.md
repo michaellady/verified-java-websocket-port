@@ -31,7 +31,13 @@ until runs exist) and attested the plan — OWNER-ONLY
 (`attestation_state: OWNER_ATTESTED`, digest-bound to the frozen plan
 bytes; assurance `OWNER_ATTESTED_NOT_INDEPENDENT`,
 `independent_review_claimed: false`; the independent attestation remains
-honestly open). The runner remains a `NOT_MEASURED`-only stub, 24
+honestly open). The INDEPENDENTLY_ATTESTED state's guard is STRUCTURAL,
+not cryptographic: relabeling the owner record can never reach it, but a
+fabricated-yet-well-formed independent record would pass the document
+checks (the attestor digest is format-checked, not recomputed, and owner
+detection is an exact string comparison) — catching fabricated
+independence remains a review/audit obligation, stated identically in
+the validator's code comment. The runner remains a `NOT_MEASURED`-only stub, 24
 host/tool binding fields remain unbound (17 confirmation + 7 primary),
 and `benchplanctl verify` fails closed with the single blocker class
 `HOST_BINDING_PENDING` (exit 3). **Nothing here claims US-008 passes**,
