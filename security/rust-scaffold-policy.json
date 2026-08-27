@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "workspace_root": "rust",
+  "license_path": "LICENSE",
+  "license_spdx": "Apache-2.0",
+  "license_sha256": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+  "toolchain_pin_path": "evidence/intake/toolchain-pins.json",
+  "toolchain_artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
+  "toolchain_version": "1.95.0",
+  "dependency_unsafe_inventory": "security/rust-dependency-unsafe-inventory.json",
+  "offline_commands": [
+    "cargo metadata --locked --offline --format-version 1",
+    "cargo test --workspace --all-targets --all-features --locked --offline",
+    "cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings"
+  ]
+}

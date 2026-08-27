@@ -1,0 +1,10 @@
+schema_version = "1.0.0"
+story = "US-009"
+crate = "websocket-core"
+status = "EMPTY_DEPENDENCY_CLOSURE"
+direct_dependencies = []
+dev_dependencies = []
+build_dependencies = []
+target_dependencies = []
+transitive_packages = []
+unsafe_allowances = []

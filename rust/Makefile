@@ -4,18 +4,21 @@
 # The root Makefile is intentionally untouched; wiring these targets into the
 # root build is a follow-up owned by the pipeline stories.
 
-.PHONY: gates fmt-check clippy test test-release
+.PHONY: gates metadata-check fmt-check clippy test test-release
 
-gates: fmt-check clippy test test-release
+gates: metadata-check fmt-check clippy test test-release
 
-fmt-check:
+metadata-check:
+	cargo metadata --locked --offline --no-deps --format-version 1 > /dev/null
+
+fmt-check: metadata-check
 	cargo fmt --all -- --check
 
-clippy:
-	cargo clippy --workspace --all-targets --all-features -- -D warnings
+clippy: metadata-check
+	cargo clippy --workspace --all-targets --all-features --locked --offline -- -D warnings
 
-test:
-	cargo test --workspace --all-targets --all-features
+test: metadata-check
+	cargo test --workspace --all-targets --all-features --locked --offline
 
-test-release:
-	cargo test --workspace --release
+test-release: metadata-check
+	cargo test --workspace --all-targets --all-features --release --locked --offline

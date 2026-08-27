@@ -1,16 +1,16 @@
-//! Scaffold smoke tests.
+//! Workspace policy smoke tests.
 //!
-//! These tests make only infrastructure claims: the crate compiles and links,
-//! the mandatory safety/documentation attributes are literally present in the
-//! library source, and the crate is dependency-free as designed. They claim
-//! nothing about WebSocket behavior -- there is none to claim.
+//! These tests exercise the checked source and dependency policy boundaries.
+
+#![forbid(unsafe_code)]
 
 // Linking this integration test against the library is itself the
 // "crate compiles" assertion.
-use connection_core as _;
+use websocket_core as _;
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 fn manifest_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -19,6 +19,15 @@ fn manifest_dir() -> PathBuf {
 fn read(path: &Path) -> String {
     fs::read_to_string(path)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()))
+}
+
+#[test]
+fn toolchain_pin_matches_intake_qualified_compiler() {
+    let pin = read(&manifest_dir().join("../rust-toolchain.toml"));
+    assert!(
+        pin.contains("channel = \"1.95.0\""),
+        "workspace toolchain must stay pinned to 1.95.0; found:\n{pin}"
+    );
 }
 
 /// The PRD quality gate requires `#![forbid(unsafe_code)]` on every
@@ -64,4 +73,108 @@ fn crate_is_dependency_free() {
             );
         }
     }
+}
+
+#[test]
+fn workspace_and_package_both_enforce_the_unsafe_policy() {
+    let workspace = read(&manifest_dir().join("../Cargo.toml"));
+    let package = read(&manifest_dir().join("Cargo.toml"));
+    assert!(workspace.contains("[workspace.lints.rust]\nunsafe_code = \"forbid\""));
+    assert!(package.contains("[lints]\nworkspace = true"));
+}
+
+#[test]
+fn lockfile_and_empty_inventory_match_the_package_identity() {
+    let workspace = manifest_dir().join("..");
+    let lock = read(&workspace.join("Cargo.lock"));
+    let inventory = read(&workspace.join("dependency-inventory.toml"));
+    let policy = read(&workspace.join("dependency-policy.toml"));
+
+    assert!(lock.contains("name = \"websocket-core\""));
+    assert!(!lock.contains("source = "));
+    assert!(!lock.contains("checksum = "));
+    assert!(!lock.contains("dependencies = "));
+    assert!(inventory.contains("status = \"EMPTY_DEPENDENCY_CLOSURE\""));
+    assert!(inventory.contains("transitive_packages = []"));
+    assert!(inventory.contains("unsafe_allowances = []"));
+    assert!(policy.contains("policy = \"DEPENDENCY_FREE_SAFE_RUST\""));
+    assert!(policy.contains("first_party_unsafe_allowed = false"));
+    assert!(policy.contains("rust_toolchain = \"1.95.0\""));
+}
+
+#[test]
+fn production_source_has_no_ambient_or_callback_surfaces() {
+    fn collect_rs(dir: &Path, files: &mut Vec<PathBuf>) {
+        for entry in fs::read_dir(dir).unwrap() {
+            let path = entry.unwrap().path();
+            if path.is_dir() {
+                collect_rs(&path, files);
+            } else if path.extension().and_then(|value| value.to_str()) == Some("rs") {
+                files.push(path);
+            }
+        }
+    }
+
+    let mut files = Vec::new();
+    collect_rs(&manifest_dir().join("src"), &mut files);
+    let forbidden = [
+        "std::net",
+        "std::fs",
+        "std::time",
+        "std::process",
+        "std::thread",
+        "thread::spawn",
+        "TcpStream",
+        "UdpSocket",
+        "SystemTime",
+        "Instant::now",
+        "Command::new",
+        "dyn Fn",
+        "impl Fn",
+        "extern \"C\" fn",
+    ];
+    for file in files {
+        let source = read(&file);
+        let production = source.split("#[cfg(test)]").next().unwrap_or(&source);
+        for token in forbidden {
+            assert!(
+                !production.contains(token),
+                "production source {} contains forbidden surface {token}",
+                file.display()
+            );
+        }
+    }
+}
+
+#[test]
+fn future_us006_proof_paths_are_reserved_but_not_stubbed() {
+    let root = manifest_dir().join("src/frame");
+    assert!(root.join("mask.rs").is_file());
+    assert!(root.join("decode.rs").is_file());
+    let mask = read(&root.join("mask.rs"));
+    let decode = read(&root.join("decode.rs"));
+    assert!(!mask.contains("fn apply_mask_in_place"));
+    assert!(!decode.contains("struct FrameHeaderDecoder"));
+    assert!(!decode.contains("fn decode_header"));
+}
+
+#[test]
+fn package_and_repository_license_are_exactly_bound() {
+    let package = read(&manifest_dir().join("Cargo.toml"));
+    assert!(package.contains("license.workspace = true"));
+    let workspace = read(&manifest_dir().join("../Cargo.toml"));
+    assert!(workspace.contains("license = \"Apache-2.0\""));
+
+    let license = manifest_dir().join("../../LICENSE");
+    let output = Command::new("shasum")
+        .args(["-a", "256"])
+        .arg(&license)
+        .output()
+        .expect("the macOS qualification host must provide shasum");
+    assert!(output.status.success());
+    let digest = String::from_utf8(output.stdout).expect("shasum output is UTF-8");
+    assert!(
+        digest.starts_with("c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4 "),
+        "LICENSE digest must remain bound to the architecture receipt"
+    );
 }
