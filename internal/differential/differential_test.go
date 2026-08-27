@@ -250,8 +250,8 @@ func TestObservedRustDefectRemainsVisibleAfterClosingRun(t *testing.T) {
 	rust := java
 	rust.FinalState = "closed"
 	closingJava, closingRust := digest([]byte("closing-java")), digest([]byte("closing-rust"))
-	if err := appendObservedRemediation(&ledger, hierarchy, scenarios[5], java, rust, closingJava, closingRust, strings.Repeat("c", 40)); err != nil {
-		t.Fatalf("appendObservedRemediation: %v", err)
+	if err := appendObservedRemediations(&ledger, hierarchy, scenarios[5], java, rust, closingJava, closingRust, strings.Repeat("c", 40)); err != nil {
+		t.Fatalf("appendObservedRemediations: %v", err)
 	}
 	if len(ledger.Records) != 1 || ledger.Records[0].Classification != "rust_defect" || ledger.Records[0].Resolution != "remediated" || ledger.Records[0].ClosingJavaObservation != closingJava || ledger.Records[0].ClosingRustObservation != closingRust {
 		t.Fatalf("retained record=%#v", ledger.Records)
@@ -262,6 +262,16 @@ func TestObservedRustDefectRemainsVisibleAfterClosingRun(t *testing.T) {
 	}
 	if err := compileAndValidateSchema(filepath.Join(repositoryRoot(t), "schemas/behavior-delta-ledger-1.1.0.schema.json"), document); err != nil {
 		t.Fatalf("closed ledger schema: %v", err)
+	}
+	closedJava, err := neutralObservation(scenarios[15])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := appendObservedRemediations(&ledger, hierarchy, scenarios[15], closedJava, closedJava, digest([]byte("closed-java")), digest([]byte("closed-rust")), strings.Repeat("e", 40)); err != nil {
+		t.Fatalf("append closed-state remediations: %v", err)
+	}
+	if len(ledger.Records) != 3 || ledger.Records[1].Pointer != "/counts/consumed_bytes" || ledger.Records[2].Pointer != "/counts/input_bytes" {
+		t.Fatalf("retained field records=%#v", ledger.Records)
 	}
 }
 
@@ -293,8 +303,28 @@ func TestFieldLevelAdjudicationSeparatesRFCJavaQuirkFromCounterDefect(t *testing
 		t.Fatalf("Java quirk lifecycle=%#v", ledger.Records)
 	}
 	rust.Counts.ConsumedBytes = 2
-	if _, _, err := adjudicateScenario(scenario, hierarchy, java, rust); err == nil || !strings.Contains(err.Error(), "rust_defect") {
+	rust.Counts.InputBytes = 2
+	_, findings, err = adjudicateScenario(scenario, hierarchy, java, rust)
+	defectPointers := []string{}
+	for _, finding := range findings {
+		if finding.Classification == "rust_defect" {
+			defectPointers = append(defectPointers, finding.Pointer)
+		}
+	}
+	if err == nil || !strings.Contains(err.Error(), "rust_defect") || len(defectPointers) != 2 || defectPointers[0] != "/counts/consumed_bytes" || defectPointers[1] != "/counts/input_bytes" {
 		t.Fatalf("counter defect accepted: %v", err)
+	}
+}
+
+func TestRustAcceptedInputExcludesClosedStateRejection(t *testing.T) {
+	source := corpora.Step{Kind: "bytes", DataBase64: "XYcK"}
+	closed := rustStep{PreState: "closed", Consumed: 0, Observations: []rustItem{{Error: &commonError{Class: "INVALID_STATE"}}}}
+	if got, err := acceptedRustInputBytes(source, closed); err != nil || got != 0 {
+		t.Fatalf("closed rejected input = %d, %v", got, err)
+	}
+	open := rustStep{PreState: "open", Consumed: 3, Observations: []rustItem{{Error: &commonError{Class: "FRAME_RESERVED_BITS"}}}}
+	if got, err := acceptedRustInputBytes(source, open); err != nil || got != 3 {
+		t.Fatalf("open accepted input = %d, %v", got, err)
 	}
 }
 

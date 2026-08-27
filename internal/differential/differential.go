@@ -1251,6 +1251,7 @@ func adjudicateScenario(sc corpora.Scenario, hierarchy OracleHierarchy, java, ru
 		return "", nil, errors.New("observation scenario binding mismatch")
 	}
 	findings := []AdjudicatedFinding{}
+	blocking := []string{}
 	cells := 0
 	for _, cell := range hierarchy.Cells {
 		if cell.ScenarioID != sc.ScenarioID {
@@ -1287,14 +1288,19 @@ func adjudicateScenario(sc corpora.Scenario, hierarchy OracleHierarchy, java, ru
 			findings = append(findings, finding)
 		case javaDigest == cell.ExpectedSHA256 && rustDigest != cell.ExpectedSHA256:
 			finding.Classification = "rust_defect"
-			return "", append(findings, finding), fmt.Errorf("rust_defect scenario=%s pointer=%s", sc.ScenarioID, cell.Pointer)
+			findings = append(findings, finding)
+			blocking = append(blocking, "rust_defect:"+cell.Pointer)
 		default:
 			finding.Classification = "underspecified"
-			return "", append(findings, finding), fmt.Errorf("underspecified scenario=%s pointer=%s", sc.ScenarioID, cell.Pointer)
+			findings = append(findings, finding)
+			blocking = append(blocking, "underspecified:"+cell.Pointer)
 		}
 	}
 	if cells == 0 {
 		return "", nil, fmt.Errorf("oracle hierarchy has no cells for %s", sc.ScenarioID)
+	}
+	if len(blocking) != 0 {
+		return "", findings, fmt.Errorf("%s scenario=%s", strings.Join(blocking, ","), sc.ScenarioID)
 	}
 	if len(findings) != 0 {
 		return "java_quirk", findings, nil
@@ -1480,54 +1486,75 @@ func appendLedgerRecord(ledger *Ledger, expectedHead string, record LedgerRecord
 	return validateLedger(*ledger)
 }
 
-func appendObservedRemediation(ledger *Ledger, hierarchy OracleHierarchy, sc corpora.Scenario, closingJavaObservation, closingRustObservation commonObservation, closingJavaDigest, closingRustDigest, closingAnchor string) error {
-	if sc.ScenarioID != "us005.pub.0005" {
-		return errors.New("observed remediation scenario is not the retained defect")
-	}
-	var decision *OracleCell
-	for index := range hierarchy.Cells {
-		cell := &hierarchy.Cells[index]
-		if cell.ScenarioID == sc.ScenarioID && cell.Pointer == "/counts/consumed_bytes" {
-			decision = cell
-			break
-		}
-	}
-	if decision == nil {
-		return errors.New("observed remediation oracle cell absent")
-	}
-	javaValue, err := observationValue(closingJavaObservation, decision.Pointer)
-	if err != nil {
-		return err
-	}
-	rustValue, err := observationValue(closingRustObservation, decision.Pointer)
-	if err != nil {
-		return err
-	}
-	javaRaw, err := canonical(javaValue)
-	if err != nil {
-		return err
-	}
-	rustRaw, err := canonical(rustValue)
-	if err != nil {
-		return err
-	}
-	if digest(javaRaw) != decision.ExpectedSHA256 || digest(rustRaw) != decision.ExpectedSHA256 {
-		return errors.New("observed remediation closing field is not aligned to authority")
+type retainedDefectEvidence struct {
+	Pointer         string
+	JavaObservation string
+	RustObservation string
+	FindingAnchor   string
+}
+
+var retainedDefects = map[string][]retainedDefectEvidence{
+	"us005.pub.0005": {{Pointer: "/counts/consumed_bytes", JavaObservation: "sha256:13473d74240499994fec9601b20be094a7e55e25d97d20ae9cb4a9875d2b710b", RustObservation: "sha256:5e8b0f1d14d21e402d66df17de0cb3175c63b1b3ebd599b9e5072b346e68aeb1", FindingAnchor: "c44623e38b59563401c438c3321bf7f3e77e7e54"}},
+	"us005.pub.0015": {
+		{Pointer: "/counts/consumed_bytes", JavaObservation: "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59", RustObservation: "sha256:96123fc665f1bef97f86a4dc3560836422ac2ddf4c04e2a3191dc983301c2e59", FindingAnchor: "9cc9d37e8b85dbf15c8018bce91c37071d63cf7c"},
+		{Pointer: "/counts/input_bytes", JavaObservation: "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59", RustObservation: "sha256:96123fc665f1bef97f86a4dc3560836422ac2ddf4c04e2a3191dc983301c2e59", FindingAnchor: "9cc9d37e8b85dbf15c8018bce91c37071d63cf7c"},
+	},
+}
+
+func appendObservedRemediations(ledger *Ledger, hierarchy OracleHierarchy, sc corpora.Scenario, closingJavaObservation, closingRustObservation commonObservation, closingJavaDigest, closingRustDigest, closingAnchor string) error {
+	defects := retainedDefects[sc.ScenarioID]
+	if len(defects) == 0 {
+		return nil
 	}
 	reproducer, err := sc.CanonicalLine()
 	if err != nil {
 		return err
 	}
-	record := LedgerRecord{
-		DeltaID: "delta.us005.pub.0005.counts-consumed-bytes", ScenarioID: sc.ScenarioID,
-		Pointer: "/counts/consumed_bytes", Classification: "rust_defect",
-		JavaObservation:  "sha256:13473d74240499994fec9601b20be094a7e55e25d97d20ae9cb4a9875d2b710b",
-		RustObservation:  "sha256:5e8b0f1d14d21e402d66df17de0cb3175c63b1b3ebd599b9e5072b346e68aeb1",
-		ReproducerSHA256: digest(reproducer), Decision: *decision, Resolution: "remediated",
-		FindingRunAnchor: "c44623e38b59563401c438c3321bf7f3e77e7e54", ClosingRunAnchor: closingAnchor,
-		ClosingJavaObservation: closingJavaDigest, ClosingRustObservation: closingRustDigest,
+	for _, defect := range defects {
+		var decision *OracleCell
+		for index := range hierarchy.Cells {
+			cell := &hierarchy.Cells[index]
+			if cell.ScenarioID == sc.ScenarioID && cell.Pointer == defect.Pointer {
+				decision = cell
+				break
+			}
+		}
+		if decision == nil {
+			return fmt.Errorf("observed remediation oracle cell absent: %s", defect.Pointer)
+		}
+		javaValue, err := observationValue(closingJavaObservation, decision.Pointer)
+		if err != nil {
+			return err
+		}
+		rustValue, err := observationValue(closingRustObservation, decision.Pointer)
+		if err != nil {
+			return err
+		}
+		javaRaw, err := canonical(javaValue)
+		if err != nil {
+			return err
+		}
+		rustRaw, err := canonical(rustValue)
+		if err != nil {
+			return err
+		}
+		if digest(javaRaw) != decision.ExpectedSHA256 || digest(rustRaw) != decision.ExpectedSHA256 {
+			return fmt.Errorf("observed remediation closing field is not aligned to authority: %s", defect.Pointer)
+		}
+		deltaSuffix := strings.NewReplacer("/", "-", "~", "-").Replace(strings.TrimPrefix(defect.Pointer, "/"))
+		record := LedgerRecord{
+			DeltaID: "delta." + sc.ScenarioID + "." + deltaSuffix, ScenarioID: sc.ScenarioID,
+			Pointer: defect.Pointer, Classification: "rust_defect",
+			JavaObservation: defect.JavaObservation, RustObservation: defect.RustObservation,
+			ReproducerSHA256: digest(reproducer), Decision: *decision, Resolution: "remediated",
+			FindingRunAnchor: defect.FindingAnchor, ClosingRunAnchor: closingAnchor,
+			ClosingJavaObservation: closingJavaDigest, ClosingRustObservation: closingRustDigest,
+		}
+		if err := appendLedgerRecord(ledger, ledger.Head, record); err != nil {
+			return err
+		}
 	}
-	return appendLedgerRecord(ledger, ledger.Head, record)
+	return nil
 }
 
 func minimizeStrings(original []string, budget Budget, predicate func([]string) (string, bool)) ([]string, int, error) {
@@ -2019,6 +2046,31 @@ func normalizeJavaTransition(value any) (commonTransition, error) {
 	return commonTransition{Step: uint16(step), From: from, To: to}, nil
 }
 
+func acceptedRustInputBytes(source corpora.Step, step rustStep) (uint64, error) {
+	if source.Kind != "bytes" {
+		return 0, nil
+	}
+	payload, err := base64.StdEncoding.DecodeString(source.DataBase64)
+	if err != nil {
+		return 0, err
+	}
+	if step.Consumed > uint64(len(payload)) {
+		return 0, errors.New("Rust consumed more bytes than offered")
+	}
+	if step.PreState != "closed" {
+		return uint64(len(payload)), nil
+	}
+	for _, item := range step.Observations {
+		if item.Error != nil && item.Error.Class == "INVALID_STATE" {
+			if step.Consumed != 0 {
+				return 0, errors.New("closed-state rejection consumed input")
+			}
+			return 0, nil
+		}
+	}
+	return 0, errors.New("closed-state byte step lacks INVALID_STATE rejection")
+}
+
 func normalizeRust(sc corpora.Scenario, raw []byte) (commonObservation, rustObservation, error) {
 	decoded, err := decodeNeutralResponse(raw)
 	if err != nil {
@@ -2034,11 +2086,11 @@ func normalizeRust(sc corpora.Scenario, raw []byte) (commonObservation, rustObse
 	for index, step := range decoded.Steps {
 		source := sc.Core.Steps[index]
 		if source.Kind == "bytes" {
-			payload, err := base64.StdEncoding.DecodeString(source.DataBase64)
+			accepted, err := acceptedRustInputBytes(source, step)
 			if err != nil {
 				return commonObservation{}, rustObservation{}, err
 			}
-			result.Counts.InputBytes += uint64(len(payload))
+			result.Counts.InputBytes += accepted
 		} else if source.Kind == "action" {
 			result.Counts.Actions++
 		}
@@ -2508,10 +2560,8 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 				return Receipt{}, err
 			}
 		}
-		if sc.ScenarioID == "us005.pub.0005" {
-			if err := appendObservedRemediation(&ledger, hierarchy, sc, javaPrimary.observation, rustPrimary.observation, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
-				return Receipt{}, err
-			}
+		if err := appendObservedRemediations(&ledger, hierarchy, sc, javaPrimary.observation, rustPrimary.observation, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
+			return Receipt{}, err
 		}
 	}
 	manifest.Counts = CountsReceipt{Scenarios: len(scenarios), JavaPrimary: len(scenarios), JavaReplay: len(scenarios), RustPrimary: len(scenarios), RustReplay: len(scenarios), Processes: len(manifest.Processes)}
