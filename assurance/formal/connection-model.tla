@@ -62,6 +62,25 @@
 \* divergence.bounded-command-queue in behavior_delta_ledger of
 \* assurance/concurrency/plan.json.)
 \*
+\* RESTRICTION (declared, close-delivery scope): listener re-entrancy is NOT
+\* represented. The model is a single-threaded serialized abstraction with no
+\* reentrant callback edges -- no action fires from inside a callback, so no
+\* modeled transition re-enters the close path from inside onWebsocketClose.
+\* Within this restriction terminal delivery is exactly-once and the
+\* TerminalDeliveredAtMostOnce invariant holds. Shipped Java is WEAKER: the
+\* closeConnection monitor is reentrant (synchronized, WebSocketImpl.java:530)
+\* and the terminal onWebsocketClose callback (557) fires BEFORE readyState =
+\* CLOSED (566), so a listener that re-enters closeConnection from inside the
+\* callback passes the readyState guard (531-533) and receives a second
+\* terminal callback: the shipped observable semantics are AT-LEAST-ONCE
+\* terminal delivery (proof-targets target.formal.close.terminal-absorbing).
+\* The invariant is therefore scoped to this declared restriction and is NOT
+\* a claim about unrestricted Java. Exactly-once delivery in the port is a
+\* planned PORT-side strengthening, recorded as
+\* note.close.exactly-once-terminal-delivery in
+\* assurance/formal/proof-targets.json and pending its behavior-delta ledger
+\* entry (US-009); it is never asserted here as a Java parity fact.
+\*
 \* ADDITIONS (behaviors the model has that serialized Java does not): (1) the
 \* translate-stage and process-stage of truncated-tail text rejection are
 \* split into two atomic actions although Java performs both inside one
@@ -78,7 +97,10 @@
 \* hand-translated Go replica of this transition relation and exhaustively
 \* enumerates the reachable states under the shipped cfg bounds, checking
 \* every INVARIANT plus the TerminalAbsorbing action property, and executing
-\* the seeded mutations to confirm non-vacuity. It is a test of this
+\* the seeded mutations to confirm non-vacuity. The walker verifies this
+\* RESTRICTED model (no listener re-entrancy, see MODEL SCOPE above); its
+\* results inherit the same restriction and say nothing about unrestricted
+\* Java. It is a test of this
 \* artifact, not TLC: it does not parse this file (translation divergence is
 \* a residual risk), and it does not check the ClosingLeadsToClosed liveness
 \* property, which remains pending the TLC run recorded below.
@@ -99,7 +121,7 @@ VARIABLES
   outQ,                 \* abstract outbound write queue (WebSocketImpl.outQueue)
   sendCount,            \* bounded count of accepted send commands
   inboundCount,         \* bounded count of consumed inbound frames
-  terminalDeliveries,   \* onWebsocketClose deliveries observed (exactly-once obligation)
+  terminalDeliveries,   \* onWebsocketClose deliveries observed (at-most-once under the declared no-re-entrancy restriction, see MODEL SCOPE)
   closeDetail,          \* origin/code of the governing close outcome
   lastInboundClose,     \* payload class and normalized outcome of the last inbound close frame
   pendingProcessReject, \* truncated-tail text recorded at translate stage, strict reject pending
@@ -380,8 +402,10 @@ FlushWrite ==
 
 \* Receiving the peer's close while already CLOSING completes the handshake:
 \* closeConnection cancels the key, closes the channel, delivers
-\* onWebsocketClose exactly once, and reaches CLOSED. Writes still queued at
-\* key-cancel are dropped.
+\* onWebsocketClose (once in this model under its declared no-re-entrancy
+\* restriction; shipped Java is at-least-once under listener re-entry, see
+\* MODEL SCOPE), and reaches CLOSED. Writes still queued at key-cancel are
+\* dropped.
 \* JAVA: drafts/Draft_6455.java:1062-1064 processFrameClosing while CLOSING
 \*   -> closeConnection(code, reason, true)
 \* JAVA: WebSocketImpl.java:530-567 closeConnection: onWebsocketClose at 557,
@@ -431,8 +455,9 @@ CloseOnDrain ==
 \*   closeConnection(closecode, closemessage, closedremotely) at 611-612;
 \*   TWOWAY default -> closeConnection(ABNORMAL_CLOSE, true) at 622-623
 \* JAVA: SocketChannelIOHelper.java:45-48 read EOF dispatches ws.eot()
-\* JAVA: WebSocketImpl.java:530-567 terminal transition, exactly-once
-\*   onWebsocketClose at 557, CLOSED at 566
+\* JAVA: WebSocketImpl.java:530-567 terminal transition: onWebsocketClose at
+\*   557 precedes CLOSED at 566 (at-least-once under listener re-entry;
+\*   modeled once under the declared no-re-entrancy restriction)
 TransportEOF ==
   /\ state \in {"Connecting", "Open", "Closing"}
   /\ closeDetail' =
@@ -510,8 +535,17 @@ TypeInvariant ==
   /\ droppedWrites \in 0..QueueCapacity
   /\ rejectedLocalCloses \in 0..1
 
-\* The terminal event is delivered at most once (US-017 AC2's model-level
-\* obligation; Java enforces it through the L2 monitor's CLOSED check).
+\* The terminal event is delivered at most once WITHIN THE DECLARED
+\* NO-RE-ENTRANCY RESTRICTION (see MODEL SCOPE): the model has no reentrant
+\* callback edges, so at-most-once delivery holds here by that restriction.
+\* This invariant is NOT a claim about unrestricted shipped Java, which
+\* delivers AT-LEAST-ONCE under listener re-entry: onWebsocketClose fires at
+\* WebSocketImpl.java:557 BEFORE readyState = CLOSED at 566 under the
+\* reentrant monitor at 530, so Java's monitor plus CLOSED guard give
+\* single delivery only across threads and for listeners that do not
+\* re-enter the close path. Exactly-once delivery in the port is the planned
+\* strengthening note.close.exactly-once-terminal-delivery (US-017 AC2),
+\* pending its behavior-delta ledger entry.
 \* terminalDeliveries deliberately ranges over 0..2 in TypeInvariant so the
 \* double-delivery state is representable and this invariant is falsifiable.
 \* FALSIFIED BY: defect.model.double-terminal-delivery -- add "Closed" to
@@ -519,9 +553,11 @@ TypeInvariant ==
 \*   terminalDeliveries = 2.
 TerminalDeliveredAtMostOnce == terminalDeliveries <= 1
 
-\* Every closed connection delivered its terminal event exactly once
-\* (formal.connection.no-terminal-escape: no path reaches CLOSED without the
-\* exactly-once onWebsocketClose at WebSocketImpl.java:557).
+\* Every closed connection delivered its terminal event exactly once within
+\* the declared no-re-entrancy restriction (formal.connection.no-terminal-
+\* escape: no modeled path reaches CLOSED without the onWebsocketClose
+\* delivery at WebSocketImpl.java:557; shipped Java is at-least-once under
+\* listener re-entry -- see MODEL SCOPE).
 \* FALSIFIED BY: defect.model.closed-without-terminal-event -- in
 \*   CloseOnDrain replace terminalDeliveries' = terminalDeliveries + 1 with
 \*   UNCHANGED terminalDeliveries.

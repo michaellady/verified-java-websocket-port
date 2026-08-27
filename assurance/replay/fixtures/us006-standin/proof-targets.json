@@ -1,5 +1,0 @@
-{
-  "kind": "formal-proof-targets",
-  "note": "FIXTURE_STANDIN (US-006 lane C validator fixtures): stand-in for the lane A proof-targets document so the presence path of formal preflight can be exercised before the lanes merge. This is synthetic validator input, never a claim artifact.",
-  "targets": []
-}

@@ -32,23 +32,53 @@
     },
     {
       "kind": "copy_file",
-      "source": "assurance/replay/fixtures/us006-standin/proof-targets.json",
+      "source": "assurance/formal/proof-targets.json",
       "target": "assurance/formal/proof-targets.json"
     },
     {
       "kind": "copy_file",
-      "source": "assurance/replay/fixtures/us006-standin/formal-proof-targets-1.0.0.schema.json",
+      "source": "schemas/formal-proof-targets-1.0.0.schema.json",
       "target": "schemas/formal-proof-targets-1.0.0.schema.json"
     },
     {
       "kind": "copy_file",
-      "source": "assurance/replay/fixtures/us006-standin/concurrency-plan.json",
+      "source": "assurance/concurrency/plan.json",
       "target": "assurance/concurrency/plan.json"
     },
     {
       "kind": "copy_file",
-      "source": "assurance/replay/fixtures/us006-standin/concurrency-plan-1.0.0.schema.json",
+      "source": "schemas/concurrency-plan-1.0.0.schema.json",
       "target": "schemas/concurrency-plan-1.0.0.schema.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "assurance/formal/connection-model.tla",
+      "target": "assurance/formal/connection-model.tla"
+    },
+    {
+      "kind": "copy_file",
+      "source": "assurance/formal/connection-model.cfg",
+      "target": "assurance/formal/connection-model.cfg"
+    },
+    {
+      "kind": "copy_file",
+      "source": "evidence/intake/semantic-id-migration-map.json",
+      "target": "evidence/intake/semantic-id-migration-map.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "evidence/java/behavior-delta-ledger.json",
+      "target": "evidence/java/behavior-delta-ledger.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "evidence/us005-handshake-live-mapping.json",
+      "target": "evidence/us005-handshake-live-mapping.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": ".quarantine/java-websocket-source-archive.tar.gz",
+      "target": ".quarantine/java-websocket-source-archive.tar.gz"
     }
   ]
 }

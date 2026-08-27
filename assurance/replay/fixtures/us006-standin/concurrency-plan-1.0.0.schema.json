@@ -1,6 +1,0 @@
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "concurrency-plan-1.0.0.schema.json",
-  "title": "FIXTURE_STANDIN schema (US-006 lane C fixtures): lane B owns the real concurrency-plan schema; this permissive stand-in exists only inside realized fixture trees",
-  "type": "object"
-}

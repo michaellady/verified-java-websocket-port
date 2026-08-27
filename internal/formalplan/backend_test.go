@@ -21,6 +21,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/portplan"
 )
 
 const us006CatalogPath = "assurance/replay/fixtures/us006-cases.json"
@@ -796,6 +798,14 @@ func TestFormalPreflightDocumentAndSourcePresence(t *testing.T) {
 // REAL CLI in both formal-preflight and formal-replay modes with byte-identical
 // verdicts and the exact expected exit code, findings, and counters.
 func TestUS006FixtureCatalogThroughRealCLI(t *testing.T) {
+	// The base fixture copies the pinned quarantine archive into every
+	// realized tree (lane A anchor verification and lane B citation
+	// resolution read the extracted quarantined Java source); make sure the
+	// archive exists in this working tree first, exactly as the lane A
+	// validator itself would.
+	if _, err := portplan.EnsureQuarantinedSource(us006RepoRoot(t)); err != nil {
+		t.Fatalf("ensure quarantined source: %v", err)
+	}
 	catalog := us006LoadCatalog(t)
 	binary := us006BuildCLI(t)
 

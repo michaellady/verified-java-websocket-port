@@ -16,6 +16,15 @@ package formalplan
 //     the two artifacts is a residual risk; any edit to the model's actions or
 //     invariants MUST be mirrored here (the reviewer-trace and mutation tests
 //     below are designed to fail loudly on the known-dangerous divergences).
+//   - It verifies the RESTRICTED model (the model's declared MODEL SCOPE
+//     restriction: listener re-entrancy is not represented -- no reentrant
+//     callback edges). TerminalDeliveredAtMostOnce and
+//     ClosedImpliesTerminalDeliveredOnce therefore hold here only under that
+//     declared restriction; shipped Java delivers the terminal callback
+//     AT-LEAST-ONCE under listener re-entry (onWebsocketClose at
+//     WebSocketImpl.java:557 before CLOSED at 566 under the reentrant monitor
+//     at 530), and nothing this walker checks says otherwise about
+//     unrestricted Java.
 //   - It is a test of the model artifact, not TLC and not proof: no SANY
 //     grammar check, no liveness. The ClosingLeadsToClosed fairness property
 //     is NOT checked here and remains MODEL_CHECK_PENDING_TOOL.

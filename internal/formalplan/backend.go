@@ -1,11 +1,12 @@
 // Package formalplan implements the US-006 formal preflight validation.
 //
 // Lane C (this file) owns the backend-qualification document rules and the
-// preflight orchestration across the three US-006 documents. Lanes A and B add
-// their own files (targets.go, model.go, concurrency.go) with deep rules for
-// the proof-targets and concurrency-plan documents; until those land, this
-// preflight validates their documents by presence and schema only, with typed
-// findings for every absence.
+// preflight orchestration across the three US-006 documents. Lanes A and B
+// own their sibling files (targets.go, model.go, concurrency.go) with deep
+// rules for the proof-targets document, the connection model, and the
+// concurrency plan; this preflight invokes ALL of those deep validators
+// (reality round 1, BLOCKING-2a) and merges their findings into one verdict,
+// with typed findings for every absence.
 //
 // Design constraints (US-006 ACs + the build-decision document):
 //   - No parallel validation stack: findings use the incumbent
@@ -34,6 +35,8 @@ import (
 
 	vendorprotocol "github.com/michaellady/verified-java-to-rust/foundation/protocol"
 	"github.com/santhosh-tekuri/jsonschema/v6"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/portplan"
 )
 
 // isFullSha256Digest accepts only a complete "sha256:" + 64-lowercase-hex
@@ -64,6 +67,8 @@ const (
 	ProofTargetsSchemaPath           = "schemas/formal-proof-targets-1.0.0.schema.json"
 	ConcurrencyPlanDocumentPath      = "assurance/concurrency/plan.json"
 	ConcurrencyPlanSchemaPath        = "schemas/concurrency-plan-1.0.0.schema.json"
+	ConnectionModelTLAPath           = "assurance/formal/connection-model.tla"
+	ConnectionModelCfgPath           = "assurance/formal/connection-model.cfg"
 
 	sbxTemplateSourcePath       = "security/sbx-template.json"
 	sandboxPolicySourcePath     = "security/sandbox-policy.json"
@@ -418,6 +423,11 @@ func evaluateFormal(request PreflightRequest) (PreflightVerdict, error) {
 		IndependentReviewClaimed: false,
 	}
 
+	// Every US-006 document receives its lane's DEEP semantic validation, not
+	// schema-only validation (reality round 1, BLOCKING-2a): lane C's backend
+	// rules run inside this loop; lane A (VerifyProofTargets) and lane B
+	// (ValidateConcurrencyPlan + ValidateConnectionModel) run below once the
+	// presence pass completes, and their findings merge into this verdict.
 	documents := []struct {
 		docPath    string
 		schemaPath string
@@ -472,6 +482,14 @@ func evaluateFormal(request PreflightRequest) (PreflightVerdict, error) {
 		verdict.Documents = append(verdict.Documents, status)
 	}
 
+	// Lane A and lane B deep semantic validation (reality round 1,
+	// BLOCKING-2a) plus the cross-artifact close-delivery consistency check
+	// (BLOCKING-1d). Each runs only when its artifact is present; absence is
+	// already a blocking FORMAL_DOCUMENT_ABSENT finding above.
+	evaluateProofTargetsDeep(evaluation)
+	evaluateConcurrencyPlanDeep(evaluation)
+	evaluateCloseDeliveryConsistency(evaluation)
+
 	sort.SliceStable(evaluation.findings, func(left, right int) bool {
 		if evaluation.findings[left].Code != evaluation.findings[right].Code {
 			return evaluation.findings[left].Code < evaluation.findings[right].Code
@@ -491,11 +509,80 @@ func evaluateFormal(request PreflightRequest) (PreflightVerdict, error) {
 		verdict.Documents[index].Findings = evaluation.perDoc[verdict.Documents[index].Path]
 	}
 
+	// Fail-closed: ANY finding blocks, including DEGRADE_NON_ASSURANCE
+	// advisories (a citation set that could not be verified is not a pass).
 	verdict.State = "OK"
 	if len(verdict.Findings) != 0 {
 		verdict.State = "BLOCKED"
 	}
 	return verdict, nil
+}
+
+// trimRootPrefix removes the evaluation root from paths and messages so
+// verdicts are root-independent and byte-comparable across checkouts.
+func trimRootPrefix(root, text string) string {
+	cleaned := strings.TrimSuffix(filepath.ToSlash(root), "/") + "/"
+	return strings.ReplaceAll(text, cleaned, "")
+}
+
+// evaluateProofTargetsDeep runs lane A's full semantic validation
+// (claim-ID bijection against the migration map, digest-pinned quarantined
+// Java anchors, symbol namespaces, invokers, AC1 coverage, live handshake
+// evidence, strictness deltas) whenever the proof-targets document is
+// present. Every lane A finding is blocking.
+func evaluateProofTargetsDeep(evaluation *formalEvaluation) {
+	if _, present := evaluation.readFile(ProofTargetsDocumentPath); !present {
+		return
+	}
+	report := VerifyProofTargets(evaluation.root)
+	for _, finding := range report.Findings {
+		evaluation.add(finding.Code, vendorprotocol.Block, ProofTargetsDocumentPath,
+			trimRootPrefix(evaluation.root, finding.Path),
+			trimRootPrefix(evaluation.root, finding.Message))
+	}
+}
+
+// evaluateConcurrencyPlanDeep runs lane B's full semantic validation of the
+// concurrency plan AND the connection-model artifact whenever the plan
+// document is present. Blocking lane B findings block; advisory findings
+// (citation resolution without a quarantine tree) merge with the
+// DEGRADE_NON_ASSURANCE disposition and still fail the preflight closed.
+func evaluateConcurrencyPlanDeep(evaluation *formalEvaluation) {
+	if _, present := evaluation.readFile(ConcurrencyPlanDocumentPath); !present {
+		return
+	}
+	root := evaluation.root
+	absolute := func(relative string) string {
+		return filepath.Join(root, filepath.FromSlash(relative))
+	}
+	javaRoot := ""
+	if treePath, err := portplan.EnsureQuarantinedSource(root); err == nil {
+		javaRoot = filepath.Join(treePath, "src", "main", "java", "org", "java_websocket")
+	}
+	merge := func(docPath string, findings []ModelFinding) {
+		for _, finding := range findings {
+			disposition := vendorprotocol.Block
+			if finding.Severity == SeverityAdvisory {
+				disposition = vendorprotocol.DegradeNonAssurance
+			}
+			jsonPath := trimRootPrefix(root, finding.Path)
+			if jsonPath == docPath {
+				jsonPath = ""
+			}
+			evaluation.add(finding.Code, disposition, docPath, jsonPath,
+				trimRootPrefix(root, finding.Detail))
+		}
+	}
+	merge(ConnectionModelTLAPath, ValidateConnectionModel(
+		absolute(ConnectionModelTLAPath), absolute(ConnectionModelCfgPath), javaRoot))
+	merge(ConcurrencyPlanDocumentPath, ValidateConcurrencyPlan(ConcurrencyPlanInputs{
+		PlanPath:           absolute(ConcurrencyPlanDocumentPath),
+		SchemaPath:         absolute(ConcurrencyPlanSchemaPath),
+		TLAPath:            absolute(ConnectionModelTLAPath),
+		CfgPath:            absolute(ConnectionModelCfgPath),
+		LedgerPath:         absolute(targetsDeltaLedgerPath),
+		QuarantineJavaRoot: javaRoot,
+	}))
 }
 
 func validateAgainstSchema(schemaPath string, schemaData []byte, document any) error {
@@ -630,9 +717,17 @@ func evaluateBackendQualification(evaluation *formalEvaluation, docData []byte, 
 
 			verdict.ObligationsEvaluated++
 			if countable && outcomeKnown && requiredKnown && outcomeRank >= requiredRank && outcomeRank >= 2 {
-				verdict.ObligationsPassed++
+				// Reality round 1, BLOCKING-2b: a genuine lattice pass with no
+				// resolvable production link is a DISCONNECTED PROOF — it gets
+				// a typed blocking finding and is excluded from BOTH pass
+				// counters; a pass that proves nothing about production code
+				// must never be countable as progress.
 				if productionLinked(evaluation.root, obligation.ProductionCodeIDs) {
+					verdict.ObligationsPassed++
 					verdict.ProductionLinkedObligationsPassed++
+				} else {
+					evaluation.add("DISCONNECTED_PROOF", vendorprotocol.Block, docPath, obligationPath+".production_code_ids",
+						backend.BackendID+": obligation "+obligation.ID+" passes its required outcome but binds no resolvable production code; a proof disconnected from production is excluded from both pass counters")
 				}
 			}
 		}

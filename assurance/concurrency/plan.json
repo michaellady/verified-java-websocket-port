@@ -48,8 +48,8 @@
           "WebSocketImpl.java:584-606"
         ],
         "classification": "load_bearing",
-        "note": "The de-facto connection lock: exactly-once CLOSING transition and close-frame send (463-507), exactly-once terminal transition with onWebsocketClose at 557 and CLOSED at 566, flushandclosestate latch (584-606).",
-        "rust_mapping": "The owner's serialized state machine; transitions are idempotent commands and the terminal event is emitted exactly once by construction (US-017 AC2)."
+        "note": "The de-facto connection lock: exactly-once CLOSING transition and close-frame send (463-507; the flushandclosestate latch, 584-606, keeps close initiation idempotent even under callback re-entry), and the single terminal transition to CLOSED (566). Terminal delivery is NOT exactly-once: onWebsocketClose fires at 557 BEFORE CLOSED is set at 566 under the reentrant monitor (530), so a listener re-entering the close path from inside the callback receives a second terminal callback — at-least-once delivery (proof-targets target.formal.close.terminal-absorbing); the monitor gives single delivery only across threads and for non-reentrant listeners.",
+        "rust_mapping": "The owner's serialized state machine; transitions are idempotent commands and the terminal event is planned to be emitted exactly once by construction (US-017 AC2) — a port-side strengthening over shipped Java's at-least-once reentrant delivery, recorded as note.close.exactly-once-terminal-delivery in assurance/formal/proof-targets.json and pending its behavior-delta ledger entry (US-009)."
       },
       {
         "seam_id": "L3",
@@ -764,7 +764,7 @@
         "an ordered event is pending in the delivery sink"
       ],
       "effects": [
-        "events for one connection delivered serially in emission order; the terminal event exactly once"
+        "events for one connection delivered serially in emission order; the terminal event exactly once (port-side strengthening over shipped Java's at-least-once reentrant delivery — note.close.exactly-once-terminal-delivery, pending its behavior-delta ledger entry)"
       ],
       "observable_outcomes": [
         "CALLBACK_SERIALIZED_PER_CONNECTION",

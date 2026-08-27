@@ -1,0 +1,16 @@
+{
+  "operations": [
+    {
+      "kind": "include",
+      "path": "assurance/replay/fixtures/us006-good-backend-executed/mutation.json"
+    },
+    {
+      "kind": "json_set",
+      "target": "assurance/formal/backend-qualification.json",
+      "pointer": "/backends/2/obligations/0/production_code_ids",
+      "value": [
+        "rust/connection-core/src/missing.rs#connection_state_machine"
+      ]
+    }
+  ]
+}

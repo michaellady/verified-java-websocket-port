@@ -233,7 +233,7 @@
         "required_profile": "sandbox_profile (this document): attempt-us007-sbx-output-live-0124-accepted digest set"
       },
       "expected_property_inventory": [
-        { "property_id": "prop.loom.terminal-once", "description": "terminal close event is delivered exactly once across all explored schedules (Java authority: L2 monitor exactly-once closeConnection)", "formal_claim_id": "formal.concurrency.no-data-race" },
+        { "property_id": "prop.loom.terminal-once", "description": "terminal close event is delivered exactly once across all explored schedules — a PORT-side single-owner strengthening (note.close.exactly-once-terminal-delivery in assurance/formal/proof-targets.json, pending its behavior-delta ledger entry, US-009), never a Java parity fact: shipped Java is at-least-once under listener re-entry (onWebsocketClose at WebSocketImpl.java:557 before CLOSED at 566 under the reentrant monitor at 530); the L2 monitor gives cross-thread exclusion only", "formal_claim_id": "formal.concurrency.no-data-race" },
         { "property_id": "prop.loom.committed-write-order", "description": "committed writes of one command are contiguous and FIFO across schedules (Java authority: L1 synchronizeWriteObject + Q1 FIFO)", "formal_claim_id": "formal.concurrency.no-data-race" },
         { "property_id": "prop.loom.post-close-rejection", "description": "commands arriving after close-initiate receive a typed rejection in every schedule (replaces Java's V1 racy isOpen gate)", "formal_claim_id": "formal.concurrency.no-data-race" }
       ],
@@ -329,14 +329,14 @@
       },
       "expected_property_inventory": [
         { "property_id": "prop.tlc.no-terminal-escape", "description": "no transition leaves CLOSED (Java authority: WebSocketImpl.java:530-567, CLOSED at 566)", "formal_claim_id": "formal.connection.no-terminal-escape" },
-        { "property_id": "prop.tlc.terminal-absorbing", "description": "close is terminal-absorbing: exactly-once terminal delivery, second close path is a no-op (L2 monitor)", "formal_claim_id": "formal.close.terminal-absorbing" }
+        { "property_id": "prop.tlc.terminal-absorbing", "description": "close is terminal-absorbing; terminal delivery is exactly-once WITHIN the model's declared no-re-entrancy restriction (connection-model.tla MODEL SCOPE) — shipped Java is at-least-once under listener re-entry (WebSocketImpl.java:557 before 566 under the reentrant L2 monitor at 530), and port-side exactly-once is the planned strengthening note.close.exactly-once-terminal-delivery pending its behavior-delta ledger entry", "formal_claim_id": "formal.close.terminal-absorbing" }
       ],
       "obligations": [
         {
           "id": "obl.tlc.connection-safety",
           "description": "model-check the connection-state safety properties (no-terminal-escape, terminal-absorbing) over the finitely-bounded model; PROVED_MODEL ceiling — cannot establish production Rust without a reviewed composition/refinement link (DISCONNECTED_PROOF / two-reviewer rules in foundation evidence.go)",
           "formal_claim_id": "formal.connection.no-terminal-escape",
-          "java_authority": "WebSocketImpl.java:757-766 (open), 463-507 (close-initiate, CLOSING), 530-567 (terminal, CLOSED, exactly-once onWebsocketClose), 584-606 (flushAndClose latch), enums/ReadyState.java",
+          "java_authority": "WebSocketImpl.java:757-766 (open), 463-507 (close-initiate, CLOSING), 530-567 (terminal, CLOSED; onWebsocketClose at 557 precedes CLOSED at 566 — at-least-once under listener re-entry), 584-606 (flushAndClose latch), enums/ReadyState.java",
           "required_outcome": "ProofEstablished",
           "outcome": "inconclusive",
           "production_link": {
