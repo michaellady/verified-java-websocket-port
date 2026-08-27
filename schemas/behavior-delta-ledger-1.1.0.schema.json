@@ -36,7 +36,7 @@
       "type": "array", "maxItems": 4096,
       "items": {
         "type": "object", "additionalProperties": false,
-        "required": ["sequence", "delta_id", "previous_digest", "record_digest", "scenario_id", "pointer", "classification", "java_observation_sha256", "rust_observation_sha256", "reproducer_sha256", "decision", "resolution", "finding_run_anchor", "closing_run_anchor", "closing_java_observation_sha256", "closing_rust_observation_sha256"],
+        "required": ["sequence", "delta_id", "previous_digest", "record_digest", "scenario_id", "pointer", "classification", "java_observation_sha256", "rust_observation_sha256", "reproducer_sha256", "decision", "resolution", "finding_run_anchor"],
         "properties": {
           "sequence": {"type": "integer", "minimum": 1, "maximum": 4096},
           "delta_id": {"type": "string", "pattern": "^delta\\.", "maxLength": 256},
@@ -51,7 +51,20 @@
           "closing_run_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
           "closing_java_observation_sha256": {"$ref": "#/$defs/digest"},
           "closing_rust_observation_sha256": {"$ref": "#/$defs/digest"}
-        }
+        },
+        "allOf": [
+          {
+            "if": {"properties": {"classification": {"const": "java_quirk"}}, "required": ["classification"]},
+            "then": {
+              "properties": {"resolution": {"const": "retained_java_quirk"}},
+              "not": {"anyOf": [{"required": ["closing_run_anchor"]}, {"required": ["closing_java_observation_sha256"]}, {"required": ["closing_rust_observation_sha256"]}]}
+            }
+          },
+          {
+            "if": {"properties": {"classification": {"const": "rust_defect"}}, "required": ["classification"]},
+            "then": {"properties": {"resolution": {"const": "remediated"}}, "required": ["closing_run_anchor", "closing_java_observation_sha256", "closing_rust_observation_sha256"]}
+          }
+        ]
       }
     },
     "append_implementation": {"const": "hash-chained-cas"},

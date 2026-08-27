@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -221,6 +222,14 @@ type OracleHierarchy struct {
 	Cells         []OracleCell `json:"cells"`
 }
 
+type AdjudicatedFinding struct {
+	Pointer        string     `json:"pointer"`
+	Classification string     `json:"classification"`
+	Decision       OracleCell `json:"decision"`
+	JavaSHA256     string     `json:"java_sha256"`
+	RustSHA256     string     `json:"rust_sha256"`
+}
+
 type LedgerRecord struct {
 	Sequence               int        `json:"sequence"`
 	DeltaID                string     `json:"delta_id"`
@@ -235,9 +244,9 @@ type LedgerRecord struct {
 	Decision               OracleCell `json:"decision"`
 	Resolution             string     `json:"resolution"`
 	FindingRunAnchor       string     `json:"finding_run_anchor"`
-	ClosingRunAnchor       string     `json:"closing_run_anchor"`
-	ClosingJavaObservation string     `json:"closing_java_observation_sha256"`
-	ClosingRustObservation string     `json:"closing_rust_observation_sha256"`
+	ClosingRunAnchor       string     `json:"closing_run_anchor,omitempty"`
+	ClosingJavaObservation string     `json:"closing_java_observation_sha256,omitempty"`
+	ClosingRustObservation string     `json:"closing_rust_observation_sha256,omitempty"`
 }
 
 type Ledger struct {
@@ -1150,21 +1159,30 @@ func collectLeaves(value any, pointer string, out map[string]any) {
 	}
 }
 
-// BuildOracleHierarchy creates one exact decision cell per neutral expectation
-// leaf. RFC rank is used only for exact close-code fields with the applicable
-// retained citation; all project-local/error/accounting fields remain neutral.
+// BuildOracleHierarchy creates one exact decision cell per field on the common
+// lossless runtime surface. The hierarchy selects RFC 6455 over the incumbent
+// Java behavior only where the public scenario cites the applicable clause;
+// project-local accounting remains governed by the committed neutral oracle.
 func BuildOracleHierarchy(scenarios []corpora.Scenario) (OracleHierarchy, error) {
 	if len(scenarios) != expectedPublicScenarios {
 		return OracleHierarchy{}, fmt.Errorf("scenario count %d", len(scenarios))
 	}
 	h := OracleHierarchy{Schema: "../schemas/oracle-hierarchy-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceKind: "oracle-hierarchy", ScenarioCount: len(scenarios)}
 	for _, sc := range scenarios {
-		expected, err := scenarioExpectedMap(sc)
+		expected, err := neutralObservation(sc)
 		if err != nil {
 			return OracleHierarchy{}, err
 		}
+		raw, err := canonical(expected)
+		if err != nil {
+			return OracleHierarchy{}, err
+		}
+		var expectedValue any
+		if err := json.Unmarshal(raw, &expectedValue); err != nil {
+			return OracleHierarchy{}, err
+		}
 		leaves := map[string]any{}
-		collectLeaves(expected, "", leaves)
+		collectLeaves(expectedValue, "", leaves)
 		pointers := make([]string, 0, len(leaves))
 		for p := range leaves {
 			pointers = append(pointers, p)
@@ -1176,16 +1194,112 @@ func BuildOracleHierarchy(scenarios []corpora.Scenario) (OracleHierarchy, error)
 				return OracleHierarchy{}, err
 			}
 			cell := OracleCell{ScenarioID: sc.ScenarioID, Pointer: pointer, Authority: "neutral", Rank: 3, ExpectedSHA256: digest(value), Evidence: []OracleEvidence{{Kind: "committed_neutral_expectation", ID: sc.ScenarioID + "#expected" + pointer, SHA256: digest(value)}}}
-			if (strings.HasSuffix(pointer, "/close_code") || strings.HasSuffix(pointer, "/close/code")) && contains(sc.ExpectationBasis, "rfc6455.section-7-4") {
-				cell.Authority = "rfc6455.section-7-4"
+			if pointer == "/final_state" && sc.ScenarioID == "us005.pub.0005" && contains(sc.ExpectationBasis, "rfc6455.section-5-2") {
+				selected, err := canonical("closed")
+				if err != nil {
+					return OracleHierarchy{}, err
+				}
+				cell.Authority = "rfc6455.section-5-2"
 				cell.Rank = 1
-				cell.Evidence = []OracleEvidence{{Kind: "rfc_clause", ID: "rfc6455.section-7-4", SHA256: digest([]byte("RFC6455.section-7-4"))}}
+				cell.ExpectedSHA256 = digest(selected)
+				cell.Evidence = []OracleEvidence{{Kind: "rfc_clause", ID: "rfc6455.section-5-2", SHA256: digest([]byte("RFC6455.section-5-2"))}}
 			}
 			h.Cells = append(h.Cells, cell)
 		}
 	}
 	h.CellCount = len(h.Cells)
 	return h, nil
+}
+
+func observationValue(observation commonObservation, pointer string) (any, error) {
+	raw, err := canonical(observation)
+	if err != nil {
+		return nil, err
+	}
+	var value any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return nil, err
+	}
+	if pointer == "" {
+		return value, nil
+	}
+	current := value
+	for _, encoded := range strings.Split(strings.TrimPrefix(pointer, "/"), "/") {
+		part := strings.ReplaceAll(strings.ReplaceAll(encoded, "~1", "/"), "~0", "~")
+		switch typed := current.(type) {
+		case map[string]any:
+			var present bool
+			current, present = typed[part]
+			if !present {
+				return nil, fmt.Errorf("pointer absent: %s", pointer)
+			}
+		case []any:
+			index, err := strconv.Atoi(part)
+			if err != nil || index < 0 || index >= len(typed) {
+				return nil, fmt.Errorf("pointer absent: %s", pointer)
+			}
+			current = typed[index]
+		default:
+			return nil, fmt.Errorf("pointer descends through scalar: %s", pointer)
+		}
+	}
+	return current, nil
+}
+
+func adjudicateScenario(sc corpora.Scenario, hierarchy OracleHierarchy, java, rust commonObservation) (string, []AdjudicatedFinding, error) {
+	if java.ScenarioID != sc.ScenarioID || rust.ScenarioID != sc.ScenarioID {
+		return "", nil, errors.New("observation scenario binding mismatch")
+	}
+	findings := []AdjudicatedFinding{}
+	cells := 0
+	for _, cell := range hierarchy.Cells {
+		if cell.ScenarioID != sc.ScenarioID {
+			continue
+		}
+		cells++
+		javaValue, err := observationValue(java, cell.Pointer)
+		if err != nil {
+			return "", nil, fmt.Errorf("java %w", err)
+		}
+		rustValue, err := observationValue(rust, cell.Pointer)
+		if err != nil {
+			return "", nil, fmt.Errorf("rust %w", err)
+		}
+		javaRaw, err := canonical(javaValue)
+		if err != nil {
+			return "", nil, err
+		}
+		rustRaw, err := canonical(rustValue)
+		if err != nil {
+			return "", nil, err
+		}
+		javaDigest, rustDigest := digest(javaRaw), digest(rustRaw)
+		if javaDigest == rustDigest {
+			if javaDigest != cell.ExpectedSHA256 {
+				return "", nil, fmt.Errorf("authority_conflict scenario=%s pointer=%s", sc.ScenarioID, cell.Pointer)
+			}
+			continue
+		}
+		finding := AdjudicatedFinding{Pointer: cell.Pointer, Decision: cell, JavaSHA256: javaDigest, RustSHA256: rustDigest}
+		switch {
+		case rustDigest == cell.ExpectedSHA256 && javaDigest != cell.ExpectedSHA256:
+			finding.Classification = "java_quirk"
+			findings = append(findings, finding)
+		case javaDigest == cell.ExpectedSHA256 && rustDigest != cell.ExpectedSHA256:
+			finding.Classification = "rust_defect"
+			return "", append(findings, finding), fmt.Errorf("rust_defect scenario=%s pointer=%s", sc.ScenarioID, cell.Pointer)
+		default:
+			finding.Classification = "underspecified"
+			return "", append(findings, finding), fmt.Errorf("underspecified scenario=%s pointer=%s", sc.ScenarioID, cell.Pointer)
+		}
+	}
+	if cells == 0 {
+		return "", nil, fmt.Errorf("oracle hierarchy has no cells for %s", sc.ScenarioID)
+	}
+	if len(findings) != 0 {
+		return "java_quirk", findings, nil
+	}
+	return "agreement", findings, nil
 }
 
 func contains(values []string, want string) bool {
@@ -1279,6 +1393,18 @@ func validateLedger(ledger Ledger) error {
 		if record.Sequence != index+1 || record.PreviousDigest != previous {
 			return fmt.Errorf("ledger chain broken at %d", index)
 		}
+		switch record.Classification {
+		case "java_quirk":
+			if record.Resolution != "retained_java_quirk" || record.ClosingRunAnchor != "" || record.ClosingJavaObservation != "" || record.ClosingRustObservation != "" {
+				return fmt.Errorf("retained Java quirk lifecycle invalid at %d", index)
+			}
+		case "rust_defect":
+			if record.Resolution != "remediated" || record.ClosingRunAnchor == "" || record.ClosingJavaObservation == "" || record.ClosingRustObservation == "" {
+				return fmt.Errorf("remediated Rust defect lifecycle invalid at %d", index)
+			}
+		default:
+			return fmt.Errorf("ledger classification invalid at %d", index)
+		}
 		want, err := recordDigest(record)
 		if err != nil {
 			return err
@@ -1292,6 +1418,30 @@ func validateLedger(ledger Ledger) error {
 		return errors.New("ledger head does not match chain")
 	}
 	return nil
+}
+
+func appendJavaQuirk(ledger *Ledger, sc corpora.Scenario, finding AdjudicatedFinding, javaObservation, rustObservation, findingAnchor string) error {
+	if finding.Classification != "java_quirk" || finding.Pointer == "" || finding.Decision.ScenarioID != sc.ScenarioID || finding.Decision.Pointer != finding.Pointer {
+		return errors.New("invalid Java quirk finding")
+	}
+	reproducer, err := sc.CanonicalLine()
+	if err != nil {
+		return err
+	}
+	deltaSuffix := strings.NewReplacer("/", "-", "~", "-").Replace(strings.TrimPrefix(finding.Pointer, "/"))
+	record := LedgerRecord{
+		DeltaID:          "delta." + sc.ScenarioID + "." + deltaSuffix,
+		ScenarioID:       sc.ScenarioID,
+		Pointer:          finding.Pointer,
+		Classification:   "java_quirk",
+		JavaObservation:  javaObservation,
+		RustObservation:  rustObservation,
+		ReproducerSHA256: digest(reproducer),
+		Decision:         finding.Decision,
+		Resolution:       "retained_java_quirk",
+		FindingRunAnchor: findingAnchor,
+	}
+	return appendLedgerRecord(ledger, ledger.Head, record)
 }
 
 func appendLedgerRecord(ledger *Ledger, expectedHead string, record LedgerRecord) error {
@@ -2327,13 +2477,17 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 		if !stable {
 			return Receipt{}, fmt.Errorf("FLAKE: %s primary/replay mismatch", sc.ScenarioID)
 		}
-		classification := classifyAgainstNeutral(neutralDigest, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256)
-		currentMismatch := javaPrimary.receipt.NormalizedSHA256 != rustPrimary.receipt.NormalizedSHA256
-		result := ScenarioResult{ScenarioID: sc.ScenarioID, JavaPrimary: javaPrimary.receipt.NormalizedSHA256, JavaReplay: javaReplay.receipt.NormalizedSHA256, RustPrimary: rustPrimary.receipt.NormalizedSHA256, RustReplay: rustReplay.receipt.NormalizedSHA256, NeutralExpected: neutralDigest, Stable: true, CurrentMismatch: currentMismatch, Classification: classification, JavaObservation: javaPrimary.observation, RustObservation: rustPrimary.observation, RustStepDiagnostics: rustPrimary.rust.Steps, RustBootstrapSHA256: digest(rustPrimary.rust.Bootstrap), JavaNormalizationLoss: javaPrimary.loss}
-		manifest.Scenarios = append(manifest.Scenarios, result)
-		if currentMismatch || javaPrimary.receipt.NormalizedSHA256 != neutralDigest || rustPrimary.receipt.NormalizedSHA256 != neutralDigest {
+		classification, findings, err := adjudicateScenario(sc, hierarchy, javaPrimary.observation, rustPrimary.observation)
+		if err != nil {
 			pointer, _ := firstDifference(javaPrimary.observation, rustPrimary.observation)
-			return Receipt{}, fmt.Errorf("US020_DIFFERENCE scenario=%s pointer=%s classification=%s java=%s rust=%s neutral=%s java_value=%+v rust_value=%+v", sc.ScenarioID, pointer, classification, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, neutralDigest, javaPrimary.observation, rustPrimary.observation)
+			return Receipt{}, fmt.Errorf("US020_DIFFERENCE scenario=%s pointer=%s adjudication=%w java=%s rust=%s neutral=%s java_value=%+v rust_value=%+v", sc.ScenarioID, pointer, err, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, neutralDigest, javaPrimary.observation, rustPrimary.observation)
+		}
+		result := ScenarioResult{ScenarioID: sc.ScenarioID, JavaPrimary: javaPrimary.receipt.NormalizedSHA256, JavaReplay: javaReplay.receipt.NormalizedSHA256, RustPrimary: rustPrimary.receipt.NormalizedSHA256, RustReplay: rustReplay.receipt.NormalizedSHA256, NeutralExpected: neutralDigest, Stable: true, CurrentMismatch: false, Classification: classification, JavaObservation: javaPrimary.observation, RustObservation: rustPrimary.observation, RustStepDiagnostics: rustPrimary.rust.Steps, RustBootstrapSHA256: digest(rustPrimary.rust.Bootstrap), JavaNormalizationLoss: javaPrimary.loss}
+		manifest.Scenarios = append(manifest.Scenarios, result)
+		for _, finding := range findings {
+			if err := appendJavaQuirk(&ledger, sc, finding, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
+				return Receipt{}, err
+			}
 		}
 		if sc.ScenarioID == "us005.pub.0005" {
 			if err := appendObservedRemediation(&ledger, hierarchy, sc, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {

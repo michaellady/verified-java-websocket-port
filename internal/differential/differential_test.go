@@ -207,7 +207,7 @@ func TestLedgerMigrationChainAndCAS(t *testing.T) {
 		t.Fatalf("ledger schema: %v", err)
 	}
 	cell := OracleCell{ScenarioID: "us005.pub.0000", Pointer: "/error/class", Authority: "neutral", Rank: 3, ExpectedSHA256: digest([]byte("x")), Evidence: []OracleEvidence{{Kind: "neutral", ID: "us005.pub.0000", SHA256: digest([]byte("x"))}}}
-	record := LedgerRecord{DeltaID: "delta.us005.pub.0000.error", ScenarioID: "us005.pub.0000", Pointer: "/error/class", Classification: "rust_defect", JavaObservation: digest([]byte("j")), RustObservation: digest([]byte("r")), ReproducerSHA256: digest([]byte("p")), Decision: cell, Resolution: "remediated"}
+	record := LedgerRecord{DeltaID: "delta.us005.pub.0000.error", ScenarioID: "us005.pub.0000", Pointer: "/error/class", Classification: "rust_defect", JavaObservation: digest([]byte("j")), RustObservation: digest([]byte("r")), ReproducerSHA256: digest([]byte("p")), Decision: cell, Resolution: "remediated", FindingRunAnchor: strings.Repeat("a", 40), ClosingRunAnchor: strings.Repeat("b", 40), ClosingJavaObservation: digest([]byte("closing")), ClosingRustObservation: digest([]byte("closing"))}
 	head := ledger.Head
 	if err := appendLedgerRecord(&ledger, head, record); err != nil {
 		t.Fatalf("append: %v", err)
@@ -256,6 +256,39 @@ func TestObservedRustDefectRemainsVisibleAfterClosingRun(t *testing.T) {
 	}
 	if err := compileAndValidateSchema(filepath.Join(repositoryRoot(t), "schemas/behavior-delta-ledger-1.1.0.schema.json"), document); err != nil {
 		t.Fatalf("closed ledger schema: %v", err)
+	}
+}
+
+func TestFieldLevelAdjudicationSeparatesRFCJavaQuirkFromCounterDefect(t *testing.T) {
+	scenarios := publicScenarios(t)
+	scenario := scenarios[5]
+	hierarchy, err := BuildOracleHierarchy(scenarios)
+	if err != nil {
+		t.Fatal(err)
+	}
+	java, err := neutralObservation(scenario)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rust := java
+	rust.FinalState = "closed"
+	classification, findings, err := adjudicateScenario(scenario, hierarchy, java, rust)
+	if err != nil {
+		t.Fatalf("RFC-aligned Rust state rejected: %v", err)
+	}
+	if classification != "java_quirk" || len(findings) != 1 || findings[0].Pointer != "/final_state" || findings[0].Classification != "java_quirk" {
+		t.Fatalf("classification=%s findings=%#v", classification, findings)
+	}
+	ledger := Ledger{Schema: "../../schemas/behavior-delta-ledger-1.1.0.schema.json", SchemaVersion: ledgerSchemaVersion, EvidenceKind: "behavior-delta-ledger", AcceptedRootDigest: digest([]byte("root")), Status: "PASS_NO_CURRENT_DELTAS", NormativeAuthority: "field-addressed-oracle-hierarchy", Head: "sha256:" + strings.Repeat("0", 64), Records: []LedgerRecord{}, AppendImplementation: "hash-chained-cas"}
+	if err := appendJavaQuirk(&ledger, scenario, findings[0], digest([]byte("java")), digest([]byte("rust")), strings.Repeat("d", 40)); err != nil {
+		t.Fatalf("append Java quirk: %v", err)
+	}
+	if len(ledger.Records) != 1 || ledger.Records[0].Resolution != "retained_java_quirk" || ledger.Records[0].ClosingRunAnchor != "" {
+		t.Fatalf("Java quirk lifecycle=%#v", ledger.Records)
+	}
+	rust.Counts.ConsumedBytes = 2
+	if _, _, err := adjudicateScenario(scenario, hierarchy, java, rust); err == nil || !strings.Contains(err.Error(), "rust_defect") {
+		t.Fatalf("counter defect accepted: %v", err)
 	}
 }
 

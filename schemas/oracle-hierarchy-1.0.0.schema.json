@@ -18,7 +18,7 @@
         "properties": {
           "scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"},
           "pointer": {"type": "string", "minLength": 1, "maxLength": 512, "pattern": "^/"},
-          "authority": {"enum": ["rfc6455.section-7-4", "neutral"]},
+          "authority": {"enum": ["rfc6455.section-5-2", "neutral"]},
           "rank": {"enum": [1, 3]},
           "expected_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
           "evidence": {
