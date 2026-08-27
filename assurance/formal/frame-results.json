@@ -12,8 +12,8 @@
       "symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "source": {
         "path": "rust/connection-core/src/frame/decode.rs",
-        "sha256": "sha256:8f161b82286a6553bed06c358232ae4d41176237e92d39ff4c890bf9d8fda739",
-        "git_blob": "f163c00d2ce7c8ea73aeee0c3fb5b60e6a73bca1"
+        "sha256": "sha256:f8ebe901530202a0836cd734b3a761f1375034a87330ef0f133453ca90074e5b",
+        "git_blob": "cf729c57fd2aa2e2ca1a6693511f44d2ace4b2c4"
       }
     },
     {
@@ -30,8 +30,8 @@
     "test_name": "us012_formal_actual_code_obligations",
     "source": {
       "path": "rust/connection-core/tests/frame_codec.rs",
-      "sha256": "sha256:e5059dbe8555b2f8d2e243afe795c8c7676a31b36dc1d0f38ec6c3dc57870d6b",
-      "git_blob": "cf054e03aec5cef7a817a5606ea76e183ac4ea86"
+      "sha256": "sha256:7e0e1f4150d9c73666a71fa951d570eb47922f5def0bf8f1d3c79924f005bdad",
+      "git_blob": "3ad7f5a1667a1c2e463df6ac158d87eaaaac6728"
     }
   },
   "toolchain": {
@@ -96,10 +96,10 @@
       "canary_id": "canary.source.control-validation-removed",
       "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "mutation": "remove shipped decoder control FIN and length rejection",
-      "baseline_sha256": "sha256:8f161b82286a6553bed06c358232ae4d41176237e92d39ff4c890bf9d8fda739",
-      "mutated_source_sha256": "sha256:9707f7a6e36738c6a4553b5586678662060687da6a3ce6132e3f442562b1b8d5",
+      "baseline_sha256": "sha256:f8ebe901530202a0836cd734b3a761f1375034a87330ef0f133453ca90074e5b",
+      "mutated_source_sha256": "sha256:5ab74a48d7b557ea3d0a7966bd2434219f95f76bca3976956c40a73fa49c4cd8",
       "test_exit_code": 101,
-      "diagnostic_sha256": "sha256:663f267943d4971132bb5adadc27429dbb90c721325d3b82fe6497378c3c3717",
+      "diagnostic_sha256": "sha256:9ae7a64ee21813aa1fd79167ada97e1eb5186dbc9aceccf4be62f96db0548ba6",
       "obligation_ids": ["obligation.control-fin-and-length"],
       "outcome": "KILLED"
     },
@@ -107,10 +107,10 @@
       "canary_id": "canary.source.high-bit-check-removed",
       "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "mutation": "remove shipped decoder 64-bit high-bit rejection",
-      "baseline_sha256": "sha256:8f161b82286a6553bed06c358232ae4d41176237e92d39ff4c890bf9d8fda739",
-      "mutated_source_sha256": "sha256:21fa7c93d10e2031375e8da30da6876e54d8a510ce1ec9ec163c594f6001f116",
+      "baseline_sha256": "sha256:f8ebe901530202a0836cd734b3a761f1375034a87330ef0f133453ca90074e5b",
+      "mutated_source_sha256": "sha256:c228b7a1fa282da30efc26e6fd4953eb67c379b1ead4a9fd15de3337be5d5fd1",
       "test_exit_code": 101,
-      "diagnostic_sha256": "sha256:98b91d65e799b865369ff3bb2398d183d1266dc4f7ec8f339ab811a44e3a2d4b",
+      "diagnostic_sha256": "sha256:bc84fa62d69f961dfb7101986a092accde3926f0679826b2539e103e52dc7560",
       "obligation_ids": ["obligation.length-canonical-64-high-bit-zero"],
       "outcome": "KILLED"
     },
@@ -121,7 +121,7 @@
       "baseline_sha256": "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
       "mutated_source_sha256": "sha256:6c71e2ed0a69a4eaf57e523e85fdab9719c0c10c5ef296323c612f266af02c14",
       "test_exit_code": 101,
-      "diagnostic_sha256": "sha256:0f780bae0091e095d056aab526521404bacce7319c29b22418a8a000c9438449",
+      "diagnostic_sha256": "sha256:58581613ac033dad75aa71c5dc57d89315532ee2477ade444d00a4e381ed432b",
       "obligation_ids": ["obligation.mask-equation"],
       "outcome": "KILLED"
     },
@@ -132,7 +132,7 @@
       "baseline_sha256": "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
       "mutated_source_sha256": "sha256:e3cdf44c7747ffba7c97b7122030a74043feebc1907df29b96896bafac36d969",
       "test_exit_code": 101,
-      "diagnostic_sha256": "sha256:1eed2fc02c3d45786fe4b330d874ab80ae899362df00aa52b77ca6d8384ebc88",
+      "diagnostic_sha256": "sha256:1aa761989160463a734990f63f0787a0805ca88f27d6899b44b7e3668b225272",
       "obligation_ids": ["obligation.mask-equation", "obligation.mask-involution"],
       "outcome": "KILLED"
     },
@@ -140,10 +140,10 @@
       "canary_id": "canary.source.noncanonical-16-check-removed",
       "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "mutation": "remove shipped decoder noncanonical 16-bit rejection",
-      "baseline_sha256": "sha256:8f161b82286a6553bed06c358232ae4d41176237e92d39ff4c890bf9d8fda739",
-      "mutated_source_sha256": "sha256:ce6e9389ae0a5c7b262dfe43625c55fd445416b59d22edb2cf3c56dfd86733c9",
+      "baseline_sha256": "sha256:f8ebe901530202a0836cd734b3a761f1375034a87330ef0f133453ca90074e5b",
+      "mutated_source_sha256": "sha256:ab041b3177049345aab446115ca145cab60090c421731ffb48c94913c724e0da",
       "test_exit_code": 101,
-      "diagnostic_sha256": "sha256:a0b1c36a0ff2e83d1c67d6a5d37dc4593c99596a2c4e0c6645e81d0855145ac4",
+      "diagnostic_sha256": "sha256:078bd6cea570de9510e2fd33866b6e3c49b48e5d26fcc86feb100a1bd092ee02",
       "obligation_ids": ["obligation.length-canonical-16"],
       "outcome": "KILLED"
     },
@@ -151,10 +151,10 @@
       "canary_id": "canary.source.noncanonical-64-check-removed",
       "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "mutation": "remove shipped decoder noncanonical 64-bit rejection",
-      "baseline_sha256": "sha256:8f161b82286a6553bed06c358232ae4d41176237e92d39ff4c890bf9d8fda739",
-      "mutated_source_sha256": "sha256:cfc67d8eb1155839826b88efc4d3542e4915e4263f510d16e06a7d4289e87396",
+      "baseline_sha256": "sha256:f8ebe901530202a0836cd734b3a761f1375034a87330ef0f133453ca90074e5b",
+      "mutated_source_sha256": "sha256:e2217f41814a65b117e321d684097bfe42e4624c355b00eca7a7e5b5be547c63",
       "test_exit_code": 101,
-      "diagnostic_sha256": "sha256:1aaf8480ca75a83c6d065d58771e3a9141929ff7f0b1965fcfc44393c4b87e50",
+      "diagnostic_sha256": "sha256:02782c8cb3ea6892f10dd25b32656934da10a27057b57d87005da14902980314",
       "obligation_ids": ["obligation.length-canonical-64-high-bit-zero"],
       "outcome": "KILLED"
     },
@@ -162,10 +162,10 @@
       "canary_id": "canary.source.preallocation-boundary-changed",
       "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "mutation": "change shipped decoder frame cap from greater-than to greater-than-or-equal",
-      "baseline_sha256": "sha256:8f161b82286a6553bed06c358232ae4d41176237e92d39ff4c890bf9d8fda739",
-      "mutated_source_sha256": "sha256:703c00cf82fdc069c23963c62d33b36f1915cd6087dade46de2f065077abee75",
+      "baseline_sha256": "sha256:f8ebe901530202a0836cd734b3a761f1375034a87330ef0f133453ca90074e5b",
+      "mutated_source_sha256": "sha256:356a83ebeb527aa062caee2bc62e5620af54778cf0fd045bdb426a75415322d8",
       "test_exit_code": 101,
-      "diagnostic_sha256": "sha256:5f48d735dcf5436298ac826e85fc543a888d8ab6a4abc9bf584b5c374fc7705c",
+      "diagnostic_sha256": "sha256:f1b85e1d1188f90332bf851965ed53dec42dd2c38bac7e2030cdad67ad509938",
       "obligation_ids": ["obligation.preallocation-cap"],
       "outcome": "KILLED"
     },
@@ -173,10 +173,10 @@
       "canary_id": "canary.source.role-mask-check-removed",
       "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "mutation": "remove shipped decoder role mask rejection",
-      "baseline_sha256": "sha256:8f161b82286a6553bed06c358232ae4d41176237e92d39ff4c890bf9d8fda739",
-      "mutated_source_sha256": "sha256:c86f179f8ce05bccbc5e043845fc0cacfe1fd7ab3e846b8dd7b09fd400f3648d",
+      "baseline_sha256": "sha256:f8ebe901530202a0836cd734b3a761f1375034a87330ef0f133453ca90074e5b",
+      "mutated_source_sha256": "sha256:9058ea80d8599c59ae1080cfd03e3fee4f564d5621a15519736e53e48013becd",
       "test_exit_code": 101,
-      "diagnostic_sha256": "sha256:ed504937f364ca544aa5fb13fab14f5da44a66087d6a821c6c8da311fd051a8f",
+      "diagnostic_sha256": "sha256:3c755a339495477cfcb14f325dbf22088d06312fb347b8ab45f3f46343f43e7e",
       "obligation_ids": ["obligation.role-masking"],
       "outcome": "KILLED"
     }

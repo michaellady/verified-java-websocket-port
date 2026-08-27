@@ -58,14 +58,14 @@
     "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
     "implementation_files": [
       {
-        "git_blob": "fa7d22ffef99965c5f8de149fb2103ec8234fee7",
+        "git_blob": "d5df05267d453ce0924067e798a0646b39d2d7e1",
         "path": "rust/connection-core/src/lib.rs",
-        "sha256": "sha256:b054f9e530c0f208a154b1b604d0ba99ace08e4bbc4c54f4941754421cfe30e5"
+        "sha256": "sha256:565cab10e45079b26693135248cf6e44d61ccb9b16ea88483386bddd5a54c588"
       },
       {
-        "git_blob": "ba7cb2db7a2a6093e44da3c3934edbb147874d4e",
+        "git_blob": "ad3deb1d86ef5a2ecf5c6b97730a63d7ca331f5f",
         "path": "rust/connection-core/src/connection.rs",
-        "sha256": "sha256:eadd15448151e3bfdde54798e6c2cfa877868ef4a3203ae1032988f6909d5b2d"
+        "sha256": "sha256:cd505c770c67b26ef4636c1ae61cd9cbca56e6dfcc3fd6c9e0c2030dc767ec1e"
       },
       {
         "git_blob": "b5aa5fc2b07768da66858828da162ef226fc95e4",
@@ -98,14 +98,14 @@
         "sha256": "sha256:9002efba2b1b45f5f429249764e4b8d1639e937813f882bfdd7f446745a03f7b"
       },
       {
-        "git_blob": "a6a9fb3f359cc5135ee3c86c9075addf5cf4654c",
+        "git_blob": "e82b336472573e496baf1cf7d5bd19d223d3c66a",
         "path": "rust/connection-core/tests/connection_contract.rs",
-        "sha256": "sha256:b13a164b05b182af3155f9746f7a8d4d7f1ce8464929b793fc2a84da503e1250"
+        "sha256": "sha256:070c15d5fb4abc3e0a0c0208d5f56d85c7b1849ab6b71478b7fa9b20af7e251f"
       },
       {
-        "git_blob": "1e717180991f7a0b5a3fe333c0b51a3d7e7996af",
+        "git_blob": "22ecba16f1c5a1820b9e48a18dd3941178383ef9",
         "path": "internal/corpora/server_handshake.go",
-        "sha256": "sha256:13212214ba1779a96af9d2d1d25d4cb75395ed9cad12f1779a900ce83c248ba6"
+        "sha256": "sha256:fb77f43e04dd0d7d5f26f42f0781e4460479ef1ff0342dd1428a02c20af1597d"
       },
       {
         "git_blob": "d8b1701a58a81098a66c0e2de79e73639eabb78f",
@@ -169,7 +169,7 @@
     "bindings": [
       {
         "rust_semantic_id": "websocket_core::ConnectionCore",
-        "source": "rust/connection-core/src/connection.rs:796",
+        "source": "rust/connection-core/src/connection.rs:840",
         "status": "RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"
       },
       {
@@ -179,12 +179,12 @@
       },
       {
         "rust_semantic_id": "websocket_core::HandshakeFailure",
-        "source": "rust/connection-core/src/connection.rs:483",
+        "source": "rust/connection-core/src/connection.rs:527",
         "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
       },
       {
         "rust_semantic_id": "websocket_core::SemanticEvent",
-        "source": "rust/connection-core/src/connection.rs:422",
+        "source": "rust/connection-core/src/connection.rs:456",
         "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
       }
     ],
@@ -200,7 +200,7 @@
     "debug": {
       "command": "make -C rust test",
       "failed": 0,
-      "passed": 98
+      "passed": 110
     },
     "frozen_client_request_cases": 39,
     "frozen_incomplete_two_chunk_executions_per_profile": 265,
@@ -212,7 +212,7 @@
     "release": {
       "command": "make -C rust test-release",
       "failed": 0,
-      "passed": 98
+      "passed": 110
     },
     "runtime_assertions": [
       "server phase and public lifecycle remain consistent",
@@ -235,6 +235,6 @@
     },
     "rustc_artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
     "rustc_sha256": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
-    "validation_time": "2026-08-27T11:52:39Z"
+    "validation_time": "2026-08-27T12:51:43Z"
   }
 }
