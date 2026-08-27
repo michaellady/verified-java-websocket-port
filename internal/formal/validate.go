@@ -181,9 +181,9 @@ func validateProofTargets(targets *proofTargets, collector *findingCollector) {
 		"corpora/public/manifest.json":               {Path: "corpora/public/manifest.json", SHA256: "sha256:202a3e0d0c84c41cc635adc41a8d2eb3c1e62962c1e343697987ef8f0c69c54b", Attribution: "BORROWED_CLAUDE_US005"},
 		"corpora/public/scenarios.jsonl":             {Path: "corpora/public/scenarios.jsonl", SHA256: "sha256:fe1735bc42c11f66afe2965a7449fc6cad31cca3e2048305388241c781501e5f", Attribution: "BORROWED_CLAUDE_US005"},
 		"evidence/corpus-calibration.json":           {Path: "evidence/corpus-calibration.json", SHA256: "sha256:59845d2713fcd429de792670f687dba29542a74b9e5cfa5351159d5e7fea987a", Attribution: "BORROWED_CLAUDE_US005"},
-		"evidence/intake/compatibility-surface.json": {Path: "evidence/intake/compatibility-surface.json", SHA256: "sha256:b9c7107e810a80dd6a3ca0f91fb5bab2c4fd8256fd5d849bc5932f5cf4d80cb0", Attribution: "BORROWED_CLAUDE_US003"},
+		"evidence/intake/compatibility-surface.json": {Path: "evidence/intake/compatibility-surface.json", SHA256: "sha256:16d6095ba4854e11616924ce082e00f3ab83e865231f1a99d7f194908a0963bf", Attribution: "BORROWED_CLAUDE_US003"},
 		"evidence/intake/cutover-contract.json":      {Path: "evidence/intake/cutover-contract.json", SHA256: "sha256:ea6d6148dd67b705e74db48056dd5f17f22626fda48d148aef01f37de2d46f76", Attribution: "AUGMENTED_CODEX_US010"},
-		"evidence/intake/port-seam-dossier.json":     {Path: "evidence/intake/port-seam-dossier.json", SHA256: "sha256:34e260b2e6a47d6f24ee0ba0c2d17eb98098370e7e43680adb040e736d474f2e", Attribution: "BORROWED_CLAUDE_US003"},
+		"evidence/intake/port-seam-dossier.json":     {Path: "evidence/intake/port-seam-dossier.json", SHA256: "sha256:18e385b68da542c288b1a24f125ee574a92c091fb2f67c697eaa9b5ce14bfbe9", Attribution: "BORROWED_CLAUDE_US003"},
 	}
 	if len(targets.SourceBasis) != len(expectedSources) {
 		collector.semantic("BORROWED_FOUNDATION_DRIFT", "$.source_basis", "borrowed US-003/004/005 source basis is incomplete")

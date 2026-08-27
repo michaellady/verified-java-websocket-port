@@ -26,7 +26,7 @@
     },
     {
       "path": "evidence/intake/compatibility-surface.json",
-      "sha256": "sha256:b9c7107e810a80dd6a3ca0f91fb5bab2c4fd8256fd5d849bc5932f5cf4d80cb0",
+      "sha256": "sha256:16d6095ba4854e11616924ce082e00f3ab83e865231f1a99d7f194908a0963bf",
       "attribution": "BORROWED_CLAUDE_US003"
     },
     {
@@ -36,7 +36,7 @@
     },
     {
       "path": "evidence/intake/port-seam-dossier.json",
-      "sha256": "sha256:34e260b2e6a47d6f24ee0ba0c2d17eb98098370e7e43680adb040e736d474f2e",
+      "sha256": "sha256:18e385b68da542c288b1a24f125ee574a92c091fb2f67c697eaa9b5ce14bfbe9",
       "attribution": "BORROWED_CLAUDE_US003"
     }
   ],
