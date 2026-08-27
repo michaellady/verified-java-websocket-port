@@ -375,9 +375,13 @@ The US-011 projection and evidence receipt bind:
 Artifact paths are exact allowlisted repository-relative paths. The verifier
 rejects absolute paths, `..`, backslashes, root escapes, symlinks,
 non-regular/multilink files, size over 16 MiB, and before/open/after identity
-changes. It validates Git object types and reads historical source via
-`git show <commit>:<allowlisted-path>` with bounded output. US-011 reuses or
-extracts that incumbent reader; it does not create a weaker second reader.
+changes. For every path, it resolves the exact checkout `HEAD` entry, verifies
+that the object is a blob with the receipt's byte size and blob ID, and binds
+the receipt's SHA-256 to the same bytes read from the working tree through a
+bounded, repository-root-pinned, no-follow handle. This requires only `HEAD`
+and its checkout, works in a depth-1 clone, and never depends on a parent or
+historical commit. US-011 reuses or extracts that incumbent reader; it does not
+create a weaker second reader.
 
 Migration rows owned by `slice.server-handshake` reconcile Java-shaped stale
 targets to the small shipped capability set:
