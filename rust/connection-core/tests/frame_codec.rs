@@ -663,10 +663,6 @@ fn frame_events_do_not_implement_later_story_semantics() {
             ProtocolStory::Messages,
         ),
         (
-            LocalCommand::SendPing(b"later".to_vec().into_boxed_slice()),
-            ProtocolStory::ControlFrames,
-        ),
-        (
             LocalCommand::Close {
                 code: 1000,
                 reason: "later".into(),

@@ -218,7 +218,7 @@ fn utf8_scalar_crosses_every_fragment_boundary_under_one_byte_transport_feeds() 
 }
 
 #[test]
-fn controls_are_frame_only_and_do_not_disturb_active_text_or_order() {
+fn controls_are_observed_and_do_not_disturb_active_text_or_order() {
     let config = config_with(|_| {});
     let mut wire = encoded(Role::Server, &config, false, Opcode::Text, b"a");
     for (opcode, payload) in [
@@ -250,6 +250,16 @@ fn controls_are_frame_only_and_do_not_disturb_active_text_or_order() {
             b"b".as_slice(),
         ]
     );
+    assert!(matches!(
+        outputs[2],
+        CoreOutput::SemanticEvent(SemanticEvent::Ping { ref payload })
+            if payload.as_slice() == b"p"
+    ));
+    assert!(matches!(
+        outputs[4],
+        CoreOutput::SemanticEvent(SemanticEvent::Pong { ref payload })
+            if payload.as_slice() == b"q"
+    ));
     assert!(matches!(
         outputs.last(),
         Some(CoreOutput::SemanticEvent(SemanticEvent::Text { message }))

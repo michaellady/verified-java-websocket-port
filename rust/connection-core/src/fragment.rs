@@ -11,7 +11,7 @@ use crate::{ConnectionConfig, FailureKind, FragmentFailure, FrameFailure, LimitK
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FragmentPlan {
     Unfragmented(Option<DeliveryKind>),
-    Control,
+    Control(Opcode),
     Begin(DeliveryKind),
     Continue {
         kind: DeliveryKind,
@@ -26,8 +26,9 @@ impl FragmentPlan {
             | Self::Continue {
                 final_frame: true, ..
             } => 2,
+            Self::Control(Opcode::Ping | Opcode::Pong) => 2,
             Self::Unfragmented(None)
-            | Self::Control
+            | Self::Control(_)
             | Self::Begin(_)
             | Self::Continue {
                 final_frame: false, ..
@@ -113,7 +114,9 @@ impl FragmentAccumulator {
             }
             (None, Opcode::Text) => FragmentPlan::Begin(DeliveryKind::Text),
             (None, Opcode::Binary) => FragmentPlan::Begin(DeliveryKind::Binary),
-            (None, Opcode::Close | Opcode::Ping | Opcode::Pong) => FragmentPlan::Control,
+            (None, opcode @ (Opcode::Close | Opcode::Ping | Opcode::Pong)) => {
+                FragmentPlan::Control(opcode)
+            }
             (Some(active), Opcode::Text | Opcode::Binary) => {
                 return Err(FailureKind::Fragment(
                     FragmentFailure::DataFrameWhileFragmented {
@@ -126,14 +129,22 @@ impl FragmentAccumulator {
                 kind: active.kind(),
                 final_frame: header.fin(),
             },
-            (Some(_), Opcode::Close | Opcode::Ping | Opcode::Pong) => FragmentPlan::Control,
+            (Some(_), opcode @ (Opcode::Close | Opcode::Ping | Opcode::Pong)) => {
+                FragmentPlan::Control(opcode)
+            }
         };
 
         match plan {
             FragmentPlan::Unfragmented(Some(kind)) => {
                 kind.admit(config, header.payload_length(), staged_event_count)?;
             }
-            FragmentPlan::Unfragmented(None) | FragmentPlan::Control => {
+            FragmentPlan::Unfragmented(None) | FragmentPlan::Control(Opcode::Close) => {
+                admit_frame_event(config, staged_event_count)?;
+            }
+            FragmentPlan::Control(Opcode::Ping | Opcode::Pong) => {
+                admit_events(config, staged_event_count, 2)?;
+            }
+            FragmentPlan::Control(_) => {
                 admit_frame_event(config, staged_event_count)?;
             }
             FragmentPlan::Begin(_) | FragmentPlan::Continue { .. } => {
@@ -196,7 +207,7 @@ impl FragmentAccumulator {
                     return Err(FailureKind::Frame(FrameFailure::AllocationFailed));
                 }
             }
-            FragmentPlan::Unfragmented(_) | FragmentPlan::Control => {}
+            FragmentPlan::Unfragmented(_) | FragmentPlan::Control(_) => {}
         }
         Ok(())
     }
@@ -255,7 +266,7 @@ impl FragmentAccumulator {
                     return Ok(Some(MessageDelivery::from_payload(kind, Arc::new(payload))));
                 }
             }
-            FragmentPlan::Unfragmented(_) | FragmentPlan::Control => {}
+            FragmentPlan::Unfragmented(_) | FragmentPlan::Control(_) => {}
         }
         Ok(None)
     }

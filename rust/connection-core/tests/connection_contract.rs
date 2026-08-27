@@ -212,14 +212,6 @@ fn every_protocol_bearing_input_is_an_explicit_non_success() {
             ProtocolStory::Messages,
         ),
         (
-            LocalCommand::SendPing(vec![3].into_boxed_slice()),
-            ProtocolStory::ControlFrames,
-        ),
-        (
-            LocalCommand::SendPong(vec![4].into_boxed_slice()),
-            ProtocolStory::ControlFrames,
-        ),
-        (
             LocalCommand::Close {
                 code: 1000,
                 reason: "done".into(),
@@ -232,6 +224,26 @@ fn every_protocol_bearing_input_is_an_explicit_non_success() {
             &client.step(CoreInput::Command(command)),
             owner_story,
             ConnectionState::Connecting,
+        );
+    }
+    for command in [
+        LocalCommand::SendPing {
+            payload: vec![3].into_boxed_slice(),
+            mask_key: Some([1, 2, 3, 4]),
+        },
+        LocalCommand::SendPong {
+            payload: vec![4].into_boxed_slice(),
+            mask_key: Some([5, 6, 7, 8]),
+        },
+    ] {
+        let result = client.step(CoreInput::Command(command));
+        assert_eq!(result.outputs().len(), 0);
+        assert_eq!(
+            result.failure().map(|failure| &failure.kind),
+            Some(&FailureKind::InvalidState {
+                input: websocket_core::InputKind::LocalCommand,
+                state: ConnectionState::Connecting,
+            })
         );
     }
     assert_unavailable(

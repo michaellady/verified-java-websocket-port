@@ -1,6 +1,11 @@
 use core::fmt;
 
+use crate::control::{
+    AutomaticPongPolicy, ControlPayload, encode_automatic_pong, encode_local_control,
+    is_observed_control, plan_batch, should_automatically_pong,
+};
 use crate::frame::Frame;
+use crate::frame::Opcode;
 use crate::frame::decode::FrameDecoder;
 use crate::handshake::{
     ClientHandshake, ClientLimitExceeded, ClientRequestDescriptor, ClientResponse, ServerHandshake,
@@ -154,6 +159,7 @@ pub enum ConfigError {
 pub struct ConnectionConfig {
     limits: ConnectionLimits,
     checked: CheckedLimits,
+    automatic_pong_policy: AutomaticPongPolicy,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -201,6 +207,23 @@ impl ConnectionConfig {
 
     pub(crate) const fn event_queue_entries(&self) -> usize {
         self.checked.event_queue_entries
+    }
+
+    pub(crate) const fn write_queue_entries(&self) -> usize {
+        self.checked.write_queue_entries
+    }
+
+    /// Returns a copy configured with the requested automatic Pong policy.
+    #[must_use]
+    pub const fn with_automatic_pong_policy(mut self, policy: AutomaticPongPolicy) -> Self {
+        self.automatic_pong_policy = policy;
+        self
+    }
+
+    /// Returns the checked automatic Pong policy.
+    #[must_use]
+    pub const fn automatic_pong_policy(&self) -> AutomaticPongPolicy {
+        self.automatic_pong_policy
     }
 
     const fn handshake_limit(&self, limit: LimitKind) -> u64 {
@@ -340,6 +363,7 @@ impl TryFrom<ConnectionLimits> for ConnectionConfig {
                 write_queue_entries,
                 aggregate_capacity,
             },
+            automatic_pong_policy: AutomaticPongPolicy::Disabled,
         })
     }
 }
@@ -379,9 +403,19 @@ pub enum LocalCommand {
     /// Requests a binary message.
     SendBinary(Box<[u8]>),
     /// Requests a ping control frame.
-    SendPing(Box<[u8]>),
+    SendPing {
+        /// Exact control payload, limited to 125 bytes.
+        payload: Box<[u8]>,
+        /// One caller-supplied client mask key; forbidden for servers.
+        mask_key: Option<[u8; 4]>,
+    },
     /// Requests a pong control frame.
-    SendPong(Box<[u8]>),
+    SendPong {
+        /// Exact control payload, limited to 125 bytes.
+        payload: Box<[u8]>,
+        /// One caller-supplied client mask key; forbidden for servers.
+        mask_key: Option<[u8; 4]>,
+    },
     /// Requests the closing handshake.
     Close {
         /// WebSocket close code.
@@ -444,6 +478,16 @@ pub enum SemanticEvent {
     Binary {
         /// Shared immutable uninterpreted message bytes.
         message: crate::message::BinaryMessage,
+    },
+    /// One validated Ping control frame was received.
+    Ping {
+        /// Shared immutable decoded control bytes.
+        payload: ControlPayload,
+    },
+    /// One validated Pong control frame was received.
+    Pong {
+        /// Shared immutable decoded control bytes.
+        payload: ControlPayload,
     },
 }
 
@@ -895,6 +939,44 @@ impl ConnectionCore {
                 },
             };
         }
+        if let CoreInput::Command(
+            command @ (LocalCommand::SendPing { .. } | LocalCommand::SendPong { .. }),
+        ) = input
+        {
+            if self.state != ConnectionState::Open {
+                return StepResult {
+                    outputs: Box::new([]),
+                    failure: Some(TypedProtocolFailure {
+                        kind: FailureKind::InvalidState {
+                            input: InputKind::LocalCommand,
+                            state: self.state,
+                        },
+                        state_after: self.state,
+                    }),
+                    state: self.state,
+                };
+            }
+            let (opcode, payload, mask_key) = match command {
+                LocalCommand::SendPing { payload, mask_key } => (Opcode::Ping, payload, mask_key),
+                LocalCommand::SendPong { payload, mask_key } => (Opcode::Pong, payload, mask_key),
+                _ => unreachable!("command pattern was restricted to Ping/Pong"),
+            };
+            return match encode_local_control(&self.config, self.role, opcode, &payload, mask_key) {
+                Ok(bytes) => StepResult {
+                    outputs: Box::new([CoreOutput::TransportWrite(TransportWrite { bytes })]),
+                    failure: None,
+                    state: self.state,
+                },
+                Err(kind) => StepResult {
+                    outputs: Box::new([]),
+                    failure: Some(TypedProtocolFailure {
+                        kind,
+                        state_after: self.state,
+                    }),
+                    state: self.state,
+                },
+            };
+        }
         if let CoreInput::Transport(bytes) = input
             && self.role == Role::Client
             && self.client_handshake.awaiting_response()
@@ -1040,7 +1122,7 @@ impl ConnectionCore {
             CoreInput::Command(LocalCommand::SendText(_) | LocalCommand::SendBinary(_)) => {
                 ProtocolStory::Messages
             }
-            CoreInput::Command(LocalCommand::SendPing(_) | LocalCommand::SendPong(_)) => {
+            CoreInput::Command(LocalCommand::SendPing { .. } | LocalCommand::SendPong { .. }) => {
                 ProtocolStory::ControlFrames
             }
             CoreInput::Command(LocalCommand::Close { .. }) | CoreInput::TransportEof => {
@@ -1090,27 +1172,56 @@ impl ConnectionCore {
     }
 
     fn consume_frames(&mut self, bytes: &[u8]) -> StepResult {
-        let batch = self.frame_decoder.consume(&self.config, self.role, bytes);
-        let extra = usize::from(batch.failure.is_some());
-        let Some(output_capacity) = batch
-            .records
-            .iter()
-            .map(|record| 1 + usize::from(record.delivery.is_some()))
-            .try_fold(extra, usize::checked_add)
-        else {
-            return self.close_with_failure(FailureKind::Frame(FrameFailure::ArithmeticOverflow));
+        let mut batch = self.frame_decoder.consume(&self.config, self.role, bytes);
+        let plan = plan_batch(&self.config, self.role, &batch.records);
+        let terminal_failure = plan.failure.or(batch.failure.take());
+        if terminal_failure.is_some() {
+            batch.records.truncate(plan.accepted_records);
+            self.frame_decoder.reset();
+        }
+        let output_capacity = match plan
+            .output_capacity
+            .checked_add(usize::from(terminal_failure.is_some()))
+        {
+            Some(capacity) => capacity,
+            None => {
+                return self
+                    .close_with_failure(FailureKind::Frame(FrameFailure::ArithmeticOverflow));
+            }
         };
         let mut outputs = Vec::new();
         if outputs.try_reserve_exact(output_capacity).is_err() {
             return self.close_with_failure(FailureKind::Frame(FrameFailure::AllocationFailed));
         }
         for record in batch.records {
+            let automatic =
+                should_automatically_pong(&self.config, self.role, record.frame.opcode());
+            let encoded_pong = if automatic {
+                match encode_automatic_pong(&self.config, record.frame.payload()) {
+                    Ok(bytes) => Some(bytes),
+                    Err(kind) => return self.close_after_prefix(outputs, kind),
+                }
+            } else {
+                None
+            };
+            let control_payload = is_observed_control(&record.frame)
+                .then(|| ControlPayload::from_frame(&record.frame));
+            let control_opcode = record.frame.opcode();
             let delivery = record
                 .delivery
                 .map(|delivery| delivery.deliver(&record.frame));
             outputs.push(CoreOutput::SemanticEvent(SemanticEvent::FrameReceived {
                 frame: record.frame,
             }));
+            match (control_opcode, control_payload) {
+                (Opcode::Ping, Some(payload)) => {
+                    outputs.push(CoreOutput::SemanticEvent(SemanticEvent::Ping { payload }));
+                }
+                (Opcode::Pong, Some(payload)) => {
+                    outputs.push(CoreOutput::SemanticEvent(SemanticEvent::Pong { payload }));
+                }
+                _ => {}
+            }
             match delivery {
                 Some(MessageDelivery::Text(message)) => {
                     outputs.push(CoreOutput::SemanticEvent(SemanticEvent::Text { message }));
@@ -1120,22 +1231,34 @@ impl ConnectionCore {
                 }
                 None => {}
             }
+            if let Some(bytes) = encoded_pong {
+                outputs.push(CoreOutput::TransportWrite(TransportWrite { bytes }));
+            }
         }
-        if let Some(kind) = batch.failure {
-            self.state = ConnectionState::Closed;
-            outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));
-            return StepResult {
-                outputs: outputs.into_boxed_slice(),
-                failure: Some(TypedProtocolFailure {
-                    kind,
-                    state_after: self.state,
-                }),
-                state: self.state,
-            };
+        if let Some(kind) = terminal_failure {
+            return self.close_after_prefix(outputs, kind);
         }
         StepResult {
             outputs: outputs.into_boxed_slice(),
             failure: None,
+            state: self.state,
+        }
+    }
+
+    fn close_after_prefix(
+        &mut self,
+        mut outputs: Vec<CoreOutput>,
+        kind: FailureKind,
+    ) -> StepResult {
+        self.frame_decoder.reset();
+        self.state = ConnectionState::Closed;
+        outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));
+        StepResult {
+            outputs: outputs.into_boxed_slice(),
+            failure: Some(TypedProtocolFailure {
+                kind,
+                state_after: self.state,
+            }),
             state: self.state,
         }
     }

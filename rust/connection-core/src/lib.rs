@@ -3,9 +3,10 @@
 //! US-009 establishes admission, configuration, ordering, typed failure, and
 //! bounded command-channel seams. US-010 and US-011 add opening handshakes;
 //! US-012 adds canonical frame coding and masking; US-013 delivers final Text
-//! and Binary messages; US-014 adds strict inbound fragment reassembly.
-//! Control policy, protocol close behavior, sockets, runtimes, and callbacks
-//! remain owned by later stories.
+//! and Binary messages; US-014 adds strict inbound fragment reassembly; US-015
+//! adds bounded Ping/Pong observation and explicit control writes. Protocol
+//! close behavior, sockets, runtimes, and callbacks remain owned by later
+//! stories.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
@@ -31,6 +32,7 @@ pub use connection::{
     LimitKind, LimitRelationship, LocalCommand, ProtocolStory, QueueKind, Role, SemanticEvent,
     StepResult, TransportBytes, TransportWrite, TypedProtocolFailure, Utf8Failure,
 };
+pub use control::{AutomaticPongPolicy, ControlPayload};
 pub use frame::decode::{FrameHeader, FrameHeaderDecode, FrameHeaderDecoder};
 pub use frame::{EncodedFrame, Frame, FrameEncoder, Opcode, OutboundFrame, apply_mask_in_place};
 pub use handshake::{

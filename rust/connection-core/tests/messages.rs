@@ -512,7 +512,7 @@ fn message_event_and_total_limits_admit_exact_boundaries_and_reject_plus_one() {
     );
     assert_eq!(result.outputs().len(), 3);
 
-    let mixed_exact = config_with(|limits| limits.event_queue_entries = 3);
+    let mixed_exact = config_with(|limits| limits.event_queue_entries = 4);
     let mut mixed = encoded(Role::Server, &mixed_exact, true, Opcode::Ping, b"");
     mixed.extend_from_slice(&encoded(
         Role::Server,
@@ -524,16 +524,16 @@ fn message_event_and_total_limits_admit_exact_boundaries_and_reject_plus_one() {
     let result = open_core(Role::Client, mixed_exact)
         .step(CoreInput::Transport(TransportBytes::new(&mixed)));
     assert_eq!(result.failure(), None);
-    assert_eq!(result.outputs().len(), 3);
+    assert_eq!(result.outputs().len(), 4);
 
-    let mixed_over = config_with(|limits| limits.event_queue_entries = 2);
+    let mixed_over = config_with(|limits| limits.event_queue_entries = 3);
     let result =
         open_core(Role::Client, mixed_over).step(CoreInput::Transport(TransportBytes::new(&mixed)));
     assert_eq!(
         result.failure().map(|failure| &failure.kind),
         Some(&FailureKind::Backpressure(QueueKind::Event))
     );
-    assert_eq!(result.outputs().len(), 2);
+    assert_eq!(result.outputs().len(), 3);
 }
 
 #[test]

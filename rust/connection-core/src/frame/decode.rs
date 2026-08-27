@@ -415,9 +415,21 @@ impl FrameDecoder {
                 }
                 _ => None,
             };
+            let retained_payload_bytes =
+                match staged_payload_bytes.checked_add(self.fragments.retained_bytes()) {
+                    Some(value) => value,
+                    None => {
+                        self.reset();
+                        return FrameDecodeBatch::failed(
+                            records,
+                            FailureKind::Frame(FrameFailure::ArithmeticOverflow),
+                        );
+                    }
+                };
             records.push(DecodedFrame {
                 frame: Frame::new(header.fin(), header.opcode(), header.masked(), payload),
                 delivery,
+                retained_payload_bytes,
             });
             self.header_length = 0;
         }
@@ -447,6 +459,7 @@ impl FrameDecoder {
 pub(crate) struct DecodedFrame {
     pub(crate) frame: Frame,
     pub(crate) delivery: Option<DecodedDelivery>,
+    pub(crate) retained_payload_bytes: usize,
 }
 
 pub(crate) enum DecodedDelivery {

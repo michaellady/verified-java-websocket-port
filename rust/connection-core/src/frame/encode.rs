@@ -15,6 +15,10 @@ impl EncodedFrame {
     pub fn as_slice(&self) -> &[u8] {
         &self.bytes
     }
+
+    pub(crate) fn into_bytes(self) -> Box<[u8]> {
+        self.bytes
+    }
 }
 
 /// A role-bound deterministic frame encoder.
@@ -40,6 +44,46 @@ impl FrameEncoder {
         frame: OutboundFrame<'_>,
         mask_key: Option<[u8; 4]>,
     ) -> Result<EncodedFrame, FailureKind> {
+        let wire_length = self.preflight(frame, mask_key)?;
+        let opcode = frame.opcode();
+        let payload = frame.payload();
+
+        let mut bytes = Vec::new();
+        bytes
+            .try_reserve_exact(wire_length)
+            .map_err(|_| FailureKind::Frame(FrameFailure::AllocationFailed))?;
+        bytes.push((if frame.fin() { 0x80 } else { 0 }) | opcode.wire());
+        let mask_bit = if mask_key.is_some() { 0x80 } else { 0 };
+        match payload.len() {
+            length @ 0..=125 => bytes.push(mask_bit | length as u8),
+            length @ 126..=65_535 => {
+                bytes.push(mask_bit | 126);
+                bytes.extend_from_slice(&(length as u16).to_be_bytes());
+            }
+            length => {
+                bytes.push(mask_bit | 127);
+                bytes.extend_from_slice(&(length as u64).to_be_bytes());
+            }
+        }
+        if let Some(key) = mask_key {
+            bytes.extend_from_slice(&key);
+            let payload_start = bytes.len();
+            bytes.extend_from_slice(payload);
+            apply_mask_in_place(&mut bytes[payload_start..], key, 0);
+        } else {
+            bytes.extend_from_slice(payload);
+        }
+        debug_assert_eq!(bytes.len(), wire_length);
+        Ok(EncodedFrame {
+            bytes: bytes.into_boxed_slice(),
+        })
+    }
+
+    pub(crate) fn preflight(
+        &self,
+        frame: OutboundFrame<'_>,
+        mask_key: Option<[u8; 4]>,
+    ) -> Result<usize, FailureKind> {
         let opcode = frame.opcode();
         let payload = frame.payload();
         let payload_length = u64::try_from(payload.len()).map_err(|_| {
@@ -91,35 +135,6 @@ impl FrameEncoder {
                 maximum: self.config.limits().total_buffered_bytes,
             });
         }
-
-        let mut bytes = Vec::new();
-        bytes
-            .try_reserve_exact(wire_length)
-            .map_err(|_| FailureKind::Frame(FrameFailure::AllocationFailed))?;
-        bytes.push((if frame.fin() { 0x80 } else { 0 }) | opcode.wire());
-        let mask_bit = if mask_key.is_some() { 0x80 } else { 0 };
-        match payload.len() {
-            length @ 0..=125 => bytes.push(mask_bit | length as u8),
-            length @ 126..=65_535 => {
-                bytes.push(mask_bit | 126);
-                bytes.extend_from_slice(&(length as u16).to_be_bytes());
-            }
-            length => {
-                bytes.push(mask_bit | 127);
-                bytes.extend_from_slice(&(length as u64).to_be_bytes());
-            }
-        }
-        if let Some(key) = mask_key {
-            bytes.extend_from_slice(&key);
-            let payload_start = bytes.len();
-            bytes.extend_from_slice(payload);
-            apply_mask_in_place(&mut bytes[payload_start..], key, 0);
-        } else {
-            bytes.extend_from_slice(payload);
-        }
-        debug_assert_eq!(bytes.len(), wire_length);
-        Ok(EncodedFrame {
-            bytes: bytes.into_boxed_slice(),
-        })
+        Ok(wire_length)
     }
 }
