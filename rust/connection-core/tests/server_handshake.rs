@@ -17,250 +17,7 @@ const RFC_RESPONSE: &[u8] = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: webso
 
 include!("data/us011_nonce_vectors.rs");
 
-struct AcceptedCase {
-    id: &'static str,
-    request: &'static [u8],
-    target: &'static str,
-    host: &'static str,
-    accept: &'static str,
-}
-
-const FROZEN_ACCEPTED: &[AcceptedCase] = &[
-    AcceptedCase {
-        id: "us005.hs.0000",
-        request: b"GET /socket/35ae55c9 HTTP/1.1\r\nHost: host-87cb10.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: 7Qg8Jw3qQL4ERr/n83YN7w==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        target: "/socket/35ae55c9",
-        host: "host-87cb10.example",
-        accept: "FJGDqEtc/7v2gIxV23nYHrpYQtU=",
-    },
-    AcceptedCase {
-        id: "us005.hs.0001",
-        request: b"GET /socket/b65a0c5d HTTP/1.1\r\nHost: host-f94b92.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ELk6s4dWP8nDk6qRlvVz3A==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        target: "/socket/b65a0c5d",
-        host: "host-f94b92.example",
-        accept: "xxh//UeNk5UT6CLqbMYJVwJ8Jc4=",
-    },
-    AcceptedCase {
-        id: "us005.hs.0002",
-        request: b"GET /socket/de57cda0 HTTP/1.1\r\nHost: host-7bfc5e.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: 5a/f98AIO67dkJ4kgDPQ0g==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        target: "/socket/de57cda0",
-        host: "host-7bfc5e.example",
-        accept: "anmPZy77QwJDJ7Gam1zzXE72gAc=",
-    },
-    AcceptedCase {
-        id: "us005.hs.0003",
-        request: b"GET /socket/e54adc81 HTTP/1.1\r\nHost: host-f616f2.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: TAUt2mybLrjVItMi/PIXCg==\r\nSec-WebSocket-Version: 13\r\nX-Extra-Header: @5XdJ]\r\n\r\n",
-        target: "/socket/e54adc81",
-        host: "host-f616f2.example",
-        accept: "pJ19F7Oh+pYlj5U+C286qNuOEeQ=",
-    },
-    AcceptedCase {
-        id: "us005.hs.0004",
-        request: b"GET /socket/93c0d2eb HTTP/1.1\r\nhost: host-2d50b4.example\r\nupgrade: WebSocket\r\nCONNECTION: keep-alive, Upgrade\r\nsec-websocket-key: 4Qqb0izhQnRB4yw5/nY/JA==\r\nSEC-WEBSOCKET-VERSION: 13\r\n\r\n",
-        target: "/socket/93c0d2eb",
-        host: "host-2d50b4.example",
-        accept: "uuqWQd/HmgjQOusWnTAHszJRdXM=",
-    },
-    AcceptedCase {
-        id: "us005.hs.0005",
-        request: b"GET /socket/7646f8da HTTP/1.1\r\nhost: host-49e263.example\r\nupgrade: WebSocket\r\nCONNECTION: keep-alive, Upgrade\r\nsec-websocket-key: qgwmbNU3c74Mss3OSOX86w==\r\nSEC-WEBSOCKET-VERSION: 13\r\n\r\n",
-        target: "/socket/7646f8da",
-        host: "host-49e263.example",
-        accept: "0DpjBmMlKH2/656/MjJUAA8jbvA=",
-    },
-];
-
-struct RejectedCase {
-    id: &'static str,
-    request: &'static [u8],
-    expected: HandshakeFailure,
-}
-
-struct LimitRejectedCase {
-    id: &'static str,
-    request: &'static [u8],
-    limits: (u64, u64, u64),
-    expected: FailureKind,
-}
-
-const FROZEN_REJECTED: &[RejectedCase] = &[
-    RejectedCase {
-        id: "us005.hs.0009",
-        request: b"POST /socket/5b3f37e9 HTTP/1.1\r\nHost: host-0ad129.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: rdf/Vdz7u194QyUq8UqjnQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::MethodNotGet,
-    },
-    RejectedCase {
-        id: "us005.hs.0010",
-        request: b"PATCH /socket/93696543 HTTP/1.1\r\nHost: host-49479a.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: nnXLojOVE/H+2puIu7oPMg==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::MethodNotGet,
-    },
-    RejectedCase {
-        id: "us005.hs.0011",
-        request: b"GET /socket/57bc6398 HTTP/1.0\r\nHost: host-0ac690.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: A5XD2FQHBBdNKLhgcpy0Jg==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::HttpVersionNot11,
-    },
-    RejectedCase {
-        id: "us005.hs.0012",
-        request: b"GET /socket/0bc85662 HTTP/0.9\r\nHost: host-e9dd68.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: q/0btOMI93rVrwC/MD1rZg==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::HttpVersionNot11,
-    },
-    RejectedCase {
-        id: "us005.hs.0013",
-        request: b"GET /socket/bc222588 HTTP/1.1\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: XUYk1mXXA9OhuxuQUQ+wzA==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::MissingHost,
-    },
-    RejectedCase {
-        id: "us005.hs.0014",
-        request: b"GET /socket/493c1331 HTTP/1.1\r\nHost: host-cbb0f4.example\r\nConnection: Upgrade\r\nSec-WebSocket-Key: SCPi02IOLd+GSS/91L6fFg==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::MissingUpgrade,
-    },
-    RejectedCase {
-        id: "us005.hs.0015",
-        request: b"GET /socket/16b3421d HTTP/1.1\r\nHost: host-5f4c66.example\r\nUpgrade: h2c\r\nConnection: Upgrade\r\nSec-WebSocket-Key: rBW+QoYgml7QcJFiZys0MA==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::InvalidUpgrade,
-    },
-    RejectedCase {
-        id: "us005.hs.0016",
-        request: b"GET /socket/51bbaf33 HTTP/1.1\r\nHost: host-8b3eec.example\r\nUpgrade: websocket\r\nSec-WebSocket-Key: tHCAJHSgOWYS4ZfxXQOCkQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::MissingConnection,
-    },
-    RejectedCase {
-        id: "us005.hs.0017",
-        request: b"GET /socket/c4a69599 HTTP/1.1\r\nHost: host-f2b643.example\r\nUpgrade: websocket\r\nConnection: close\r\nSec-WebSocket-Key: ZD4kYPEBWd+3QlGrev6kEA==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::InvalidConnection,
-    },
-    RejectedCase {
-        id: "us005.hs.0018",
-        request: b"GET /socket/c1084034 HTTP/1.1\r\nHost: host-b33e93.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::MissingKey,
-    },
-    RejectedCase {
-        id: "us005.hs.0019",
-        request: b"GET /socket/cf05ae18 HTTP/1.1\r\nHost: host-cdfd9f.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: !!definitely-not-base64!!\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::InvalidKeyEncoding,
-    },
-    RejectedCase {
-        id: "us005.hs.0020",
-        request: b"GET /socket/7711e644 HTTP/1.1\r\nHost: host-0dd581.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAB==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::InvalidKeyEncoding,
-    },
-    RejectedCase {
-        id: "us005.hs.0021",
-        request: b"GET /socket/5a54954b HTTP/1.1\r\nHost: host-4215f6.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: SAuhh/j8UeHIPI/gvZGV\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::InvalidKeyLength { decoded: 15 },
-    },
-    RejectedCase {
-        id: "us005.hs.0022",
-        request: b"GET /socket/071471f2 HTTP/1.1\r\nHost: host-9a0170.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: +HeopVrRQFMFI1vriQI0efI=\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::InvalidKeyLength { decoded: 17 },
-    },
-    RejectedCase {
-        id: "us005.hs.0023",
-        request: b"GET /socket/6a4520a0 HTTP/1.1\r\nHost: host-81b1be.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: 4bpjwF/qdXcVYK7UOziKCw==\r\n\r\n",
-        expected: HandshakeFailure::MissingVersion,
-    },
-    RejectedCase {
-        id: "us005.hs.0024",
-        request: b"GET /socket/c5972a17 HTTP/1.1\r\nHost: host-78cd54.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: DzW2kVDFD5P3xyMek8D5lg==\r\nSec-WebSocket-Version: 8\r\n\r\n",
-        expected: HandshakeFailure::UnsupportedVersion,
-    },
-    RejectedCase {
-        id: "us005.hs.0025",
-        request: b"GET /socket/e8e5f7b0 HTTP/1.1\r\nHost: host-cc27af.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: KtBVA9xsiffKpX5BnyoidQ==\r\nSec-WebSocket-Version: 25\r\n\r\n",
-        expected: HandshakeFailure::UnsupportedVersion,
-    },
-    RejectedCase {
-        id: "us005.hs.0026",
-        request: b"GET /socket/2159306b HTTP/1.1\r\nHost: host-8de687.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: 9jVJgJuZ9DG3DXBCSFr5jQ==\r\nSec-WebSocket-Version: thirteen\r\n\r\n",
-        expected: HandshakeFailure::UnsupportedVersion,
-    },
-    RejectedCase {
-        id: "us005.hs.0027",
-        request: b"GET /socket/8818b25c HTTP/1.1\r\nHost: host-42696a.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: O5iC0fKQ8ZOGGnj6378RzA==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Key: tUtJ1SeJVEMjVnbjq+Rrww==\r\n\r\n",
-        expected: HandshakeFailure::DuplicateHeader,
-    },
-    RejectedCase {
-        id: "us005.hs.0028",
-        request: b"GET /socket/e6e838b2 HTTP/1.1\r\nHost: host-6dbc3c.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: otGd1aCMl/5OcPa6PUn94Q==\r\nSec-WebSocket-Version: 13\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::DuplicateHeader,
-    },
-    RejectedCase {
-        id: "us005.hs.0029",
-        request: b"GET /socket/b96895cb HTTP/1.1\r\nHost: host-e3ecfc.example\r\nHo st: value\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: mjpm6WeARCpV3weGy/bUMQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::InvalidHeaderName,
-    },
-    RejectedCase {
-        id: "us005.hs.0030",
-        request: b"GET /socket/bd716c09 HTTP/1.1\r\nHost: host-8e3dd5.example\r\nBad\"Name: value\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: y2KUD8utTRfionlFWtAE8w==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::InvalidHeaderName,
-    },
-    RejectedCase {
-        id: "us005.hs.0031",
-        request: b"GET/socket/2a16c8efHTTP/1.1\r\nHost: host-630f83.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: WILob3gr75EnRjqPeKzQgw==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::MalformedRequestLine,
-    },
-    RejectedCase {
-        id: "us005.hs.0032",
-        request: b"GET /socket/de62ba26 HTTP/1.1 EXTRA\r\nHost: host-0ef998.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: H33u6p8DNf7HyUKabncFUw==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::MalformedRequestLine,
-    },
-    RejectedCase {
-        id: "us005.hs.0033",
-        request: b"GET /socket/260ca67e HTTP/1.1\r\nHost: host-102897.example\r\nUpgrade: websocket\r\n folded\r\nConnection: Upgrade\r\nSec-WebSocket-Key: RAM4MWM7kAaTxQksCbFVTQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::ObsoleteLineFolding,
-    },
-    RejectedCase {
-        id: "us005.hs.0034",
-        request: b"GET /socket/698e008f HTTP/1.1\r\nHost: host-0747ec.example\r\nUpgrade: websocket\nConnection: Upgrade\r\nSec-WebSocket-Key: OcYAoJS7KZefnro/h5wtdQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        expected: HandshakeFailure::BareLineEnding,
-    },
-];
-
-const FROZEN_LIMIT_REJECTED: &[LimitRejectedCase] = &[
-    LimitRejectedCase {
-        id: "us005.hs.0046",
-        request: b"GET /socket/876dfbbb HTTP/1.1\r\nHost: host-d43e71.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: /7OJGY5kekmjxqFeaXJHNA==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        limits: (172, 32, 512),
-        expected: FailureKind::LimitExceeded {
-            limit: LimitKind::HandshakeBytes,
-            attempted: 173,
-            maximum: 172,
-        },
-    },
-    LimitRejectedCase {
-        id: "us005.hs.0047",
-        request: b"GET /socket/b37cab12 HTTP/1.1\r\nHost: host-2e56d8.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: cx0GmW1gIo11UF+Iy6laEg==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        limits: (4096, 2, 512),
-        expected: FailureKind::LimitExceeded {
-            limit: LimitKind::HandshakeHeaderCount,
-            attempted: 3,
-            maximum: 2,
-        },
-    },
-    LimitRejectedCase {
-        id: "us005.hs.0048",
-        request: b"GET /socket/cae58096 HTTP/1.1\r\nHost: host-ec7e68.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: 0zXKEJtnv0uzTt/59lt2hw==\r\nSec-WebSocket-Version: 13\r\n\r\n",
-        limits: (4096, 32, 8),
-        expected: FailureKind::LimitExceeded {
-            limit: LimitKind::HandshakeHeaderLineBytes,
-            attempted: 9,
-            maximum: 8,
-        },
-    },
-];
-
-const FROZEN_INCOMPLETE: &[(&str, &[u8])] = &[
-    ("us005.hs.0042", b""),
-    ("us005.hs.0043", b"GET "),
-    (
-        "us005.hs.0044",
-        b"GET /socket/de986365 HTTP/1.1\r\nHost: host-3492ce.example\r\nUpgrade: websocket\r\nConnecti",
-    ),
-    (
-        "us005.hs.0045",
-        b"GET /socket/bc5d2f48 HTTP/1.1\r\nHost: host-940e8d.example\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: 8EN68pA9fcRVZshqZSTqIg==\r\nSec-WebSocket-Version: 13\r\n",
-    ),
-];
+include!("data/us011_frozen_cases.rs");
 
 fn server_with_limits(handshake_bytes: u64, header_count: u64, line_bytes: u64) -> ConnectionCore {
     let limits = ConnectionLimits {
@@ -348,6 +105,213 @@ fn request_with(start_line: &[u8], headers: &[&[u8]]) -> Vec<u8> {
     request
 }
 
+fn request_replacing_header(index: usize, replacement: &[u8]) -> Vec<u8> {
+    let mut headers = VALID_REQUEST_HEADERS.to_vec();
+    headers[index] = replacement;
+    request_with(b"GET / HTTP/1.1", &headers)
+}
+
+fn request_with_added_header(addition: &[u8]) -> Vec<u8> {
+    let mut headers = VALID_REQUEST_HEADERS.to_vec();
+    headers.push(addition);
+    request_with(b"GET / HTTP/1.1", &headers)
+}
+
+struct AdditiveFailureCase {
+    id: &'static str,
+    request: Vec<u8>,
+    limits: Option<(u64, u64, u64)>,
+    expected: FailureKind,
+}
+
+fn additive_failure_cases() -> Vec<AdditiveFailureCase> {
+    let handshake_bytes = u64::try_from(RFC_REQUEST.len() - 1).unwrap();
+    let request_line_bytes = u64::try_from(b"GET /chat HTTP/1.1\r\n".len() - 1).unwrap();
+    vec![
+        AdditiveFailureCase {
+            id: "lowercase-method",
+            request: request_with(b"get / HTTP/1.1", VALID_REQUEST_HEADERS),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::MethodNotGet),
+        },
+        AdditiveFailureCase {
+            id: "extra-request-line-token",
+            request: request_with(b"GET / HTTP/1.1 EXTRA", VALID_REQUEST_HEADERS),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::MalformedRequestLine),
+        },
+        AdditiveFailureCase {
+            id: "absolute-form-target",
+            request: request_with(
+                b"GET http://example.com/chat HTTP/1.1",
+                VALID_REQUEST_HEADERS,
+            ),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidRequestTarget),
+        },
+        AdditiveFailureCase {
+            id: "asterisk-form-target",
+            request: request_with(b"GET * HTTP/1.1", VALID_REQUEST_HEADERS),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidRequestTarget),
+        },
+        AdditiveFailureCase {
+            id: "fragment-target",
+            request: request_with(b"GET /chat#fragment HTTP/1.1", VALID_REQUEST_HEADERS),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidRequestTarget),
+        },
+        AdditiveFailureCase {
+            id: "invalid-host",
+            request: request_replacing_header(0, b"Host: two words"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidHost),
+        },
+        AdditiveFailureCase {
+            id: "required-token-placement",
+            request: request_replacing_header(3, b"X-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ=="),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::MissingKey),
+        },
+        AdditiveFailureCase {
+            id: "version-plus-13",
+            request: request_replacing_header(4, b"Sec-WebSocket-Version: +13"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::UnsupportedVersion),
+        },
+        AdditiveFailureCase {
+            id: "version-leading-zero",
+            request: request_replacing_header(4, b"Sec-WebSocket-Version: 0013"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::UnsupportedVersion),
+        },
+        AdditiveFailureCase {
+            id: "base64-alphabet-boundary",
+            request: request_replacing_header(3, b"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ-_"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidKeyEncoding),
+        },
+        AdditiveFailureCase {
+            id: "base64-padding-boundary",
+            request: request_replacing_header(3, b"Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ="),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidKeyEncoding),
+        },
+        AdditiveFailureCase {
+            id: "base64-pad-bit-mutation",
+            request: request_replacing_header(3, b"Sec-WebSocket-Key: AAAAAAAAAAAAAAAAAAAAAB=="),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidKeyEncoding),
+        },
+        AdditiveFailureCase {
+            id: "request-line-control",
+            request: request_with(b"GET /bad\x01target HTTP/1.1", VALID_REQUEST_HEADERS),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidRequestTarget),
+        },
+        AdditiveFailureCase {
+            id: "request-line-del",
+            request: request_with(b"GET /bad\x7ftarget HTTP/1.1", VALID_REQUEST_HEADERS),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidRequestTarget),
+        },
+        AdditiveFailureCase {
+            id: "header-name-control",
+            request: request_with_added_header(b"Bad\x01Name: value"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidHeaderName),
+        },
+        AdditiveFailureCase {
+            id: "header-name-del",
+            request: request_with_added_header(b"Bad\x7fName: value"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidHeaderName),
+        },
+        AdditiveFailureCase {
+            id: "header-value-control",
+            request: request_with_added_header(b"X-Test: before\x01after"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidHeaderValueOctet),
+        },
+        AdditiveFailureCase {
+            id: "header-value-del",
+            request: request_with_added_header(b"X-Test: before\x7fafter"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::InvalidHeaderValueOctet),
+        },
+        AdditiveFailureCase {
+            id: "case-insensitive-duplicate",
+            request: request_with_added_header(b"hOsT: other.example"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::DuplicateHeader),
+        },
+        AdditiveFailureCase {
+            id: "content-length",
+            request: request_with_added_header(b"Content-Length: 0"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::UnexpectedContentLength),
+        },
+        AdditiveFailureCase {
+            id: "transfer-encoding",
+            request: request_with_added_header(b"Transfer-Encoding: identity"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::UnexpectedTransferEncoding),
+        },
+        AdditiveFailureCase {
+            id: "unexpected-extension",
+            request: request_with_added_header(b"Sec-WebSocket-Extensions: permessage-deflate"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::UnexpectedExtension),
+        },
+        AdditiveFailureCase {
+            id: "unexpected-subprotocol",
+            request: request_with_added_header(b"Sec-WebSocket-Protocol: chat"),
+            limits: None,
+            expected: FailureKind::Handshake(HandshakeFailure::UnexpectedSubprotocol),
+        },
+        AdditiveFailureCase {
+            id: "total-limit",
+            request: RFC_REQUEST.to_vec(),
+            limits: Some((handshake_bytes, 32, 512)),
+            expected: FailureKind::LimitExceeded {
+                limit: LimitKind::HandshakeBytes,
+                attempted: handshake_bytes + 1,
+                maximum: handshake_bytes,
+            },
+        },
+        AdditiveFailureCase {
+            id: "line-limit",
+            request: RFC_REQUEST.to_vec(),
+            limits: Some((512, 32, request_line_bytes)),
+            expected: FailureKind::LimitExceeded {
+                limit: LimitKind::HandshakeHeaderLineBytes,
+                attempted: request_line_bytes + 1,
+                maximum: request_line_bytes,
+            },
+        },
+        AdditiveFailureCase {
+            id: "count-limit",
+            request: RFC_REQUEST.to_vec(),
+            limits: Some((512, 4, 512)),
+            expected: FailureKind::LimitExceeded {
+                limit: LimitKind::HandshakeHeaderCount,
+                attempted: 5,
+                maximum: 4,
+            },
+        },
+        AdditiveFailureCase {
+            id: "response-capacity",
+            request: RFC_REQUEST.to_vec(),
+            limits: Some((512, 32, 51)),
+            expected: FailureKind::LimitExceeded {
+                limit: LimitKind::HandshakeHeaderLineBytes,
+                attempted: 52,
+                maximum: 51,
+            },
+        },
+    ]
+}
+
 fn assert_rejected(request: &[u8], expected: HandshakeFailure, context: &str) {
     let mut core = server();
     assert_fatal_handshake(&mut core, request, &expected, context);
@@ -358,9 +322,17 @@ fn assert_rejected_result(
     expected: &HandshakeFailure,
     context: &str,
 ) {
+    assert_failure_result(result, &FailureKind::Handshake(expected.clone()), context);
+}
+
+fn assert_failure_result(
+    result: &websocket_core::StepResult,
+    expected: &FailureKind,
+    context: &str,
+) {
     assert_eq!(
         result.failure().map(|failure| &failure.kind),
-        Some(&FailureKind::Handshake(expected.clone())),
+        Some(expected),
         "{context}"
     );
     assert_eq!(result.state(), ConnectionState::Closed, "{context}");
@@ -372,12 +344,25 @@ fn assert_rejected_result(
 }
 
 fn assert_rejected_at_every_split(request: &[u8], expected: HandshakeFailure, context: &str) {
+    let expected = FailureKind::Handshake(expected);
+    assert_failure_at_every_split_with(request, &expected, context, server);
+}
+
+fn assert_failure_at_every_split_with<F>(
+    request: &[u8],
+    expected: &FailureKind,
+    context: &str,
+    make_core: F,
+) -> usize
+where
+    F: Fn() -> ConnectionCore,
+{
     for split in 0..=request.len() {
-        let mut core = server();
+        let mut core = make_core();
         let first = core.step(CoreInput::Transport(TransportBytes::new(&request[..split])));
         let split_context = format!("{context} split {split}");
         if first.failure().is_some() {
-            assert_rejected_result(&first, &expected, &split_context);
+            assert_failure_result(&first, expected, &split_context);
             continue;
         }
         assert_eq!(
@@ -387,8 +372,44 @@ fn assert_rejected_at_every_split(request: &[u8], expected: HandshakeFailure, co
         );
         assert_eq!(first.outputs().len(), 0, "{split_context}");
         let second = core.step(CoreInput::Transport(TransportBytes::new(&request[split..])));
-        assert_rejected_result(&second, &expected, &split_context);
+        assert_failure_result(&second, expected, &split_context);
     }
+    request.len() + 1
+}
+
+fn assert_incomplete_at_every_split_then_eof(request: &[u8], context: &str) -> usize {
+    for split in 0..=request.len() {
+        let mut core = server();
+        let split_context = format!("{context} split {split}");
+        for (chunk_index, chunk) in [&request[..split], &request[split..]]
+            .into_iter()
+            .enumerate()
+        {
+            let partial = core.step(CoreInput::Transport(TransportBytes::new(chunk)));
+            assert_eq!(
+                partial.failure(),
+                None,
+                "{split_context} chunk {chunk_index}"
+            );
+            assert_eq!(
+                partial.state(),
+                ConnectionState::Connecting,
+                "{split_context} chunk {chunk_index}"
+            );
+            assert_eq!(
+                partial.outputs().len(),
+                0,
+                "{split_context} chunk {chunk_index}"
+            );
+        }
+        let eof = core.step(CoreInput::TransportEof);
+        assert_rejected_result(
+            &eof,
+            &HandshakeFailure::UnexpectedEof,
+            &format!("{split_context} EOF"),
+        );
+    }
+    request.len() + 1
 }
 
 fn assert_limit_result(result: &websocket_core::StepResult, expected: FailureKind, context: &str) {
@@ -541,6 +562,40 @@ fn all_39_frozen_client_request_cases_keep_exact_typed_verdicts() {
             "{id} EOF"
         );
     }
+}
+
+#[test]
+fn every_frozen_nonaccept_runs_at_every_two_chunk_split_with_exact_outcome() {
+    let mut reject_executions = 0usize;
+    for case in FROZEN_REJECTED {
+        let expected = FailureKind::Handshake(case.expected.clone());
+        reject_executions +=
+            assert_failure_at_every_split_with(case.request, &expected, case.id, server);
+    }
+
+    let mut limit_executions = 0usize;
+    for case in FROZEN_LIMIT_REJECTED {
+        let (bytes, count, line) = case.limits;
+        limit_executions +=
+            assert_failure_at_every_split_with(case.request, &case.expected, case.id, || {
+                server_with_limits(bytes, count, line)
+            });
+    }
+
+    let mut incomplete_executions = 0usize;
+    for (id, request) in FROZEN_INCOMPLETE {
+        incomplete_executions += assert_incomplete_at_every_split_then_eof(request, id);
+    }
+
+    assert_eq!(
+        reject_executions, 4_496,
+        "bind frozen reject split executions"
+    );
+    assert_eq!(limit_executions, 522, "bind frozen limit split executions");
+    assert_eq!(
+        incomplete_executions, 265,
+        "bind frozen EOF split executions"
+    );
 }
 
 #[test]
@@ -1044,6 +1099,94 @@ fn selected_rejections_are_stable_across_every_two_chunk_split() {
 }
 
 #[test]
+fn every_additive_failure_vector_runs_at_every_two_chunk_split() {
+    let cases = additive_failure_cases();
+    assert_eq!(
+        cases.len(),
+        27,
+        "24 non-EOF/suffix additive classes plus explicit control and DEL variants"
+    );
+    let mut executions = 0usize;
+    for case in &cases {
+        executions += if let Some((bytes, count, line)) = case.limits {
+            assert_failure_at_every_split_with(&case.request, &case.expected, case.id, || {
+                server_with_limits(bytes, count, line)
+            })
+        } else {
+            assert_failure_at_every_split_with(&case.request, &case.expected, case.id, server)
+        };
+    }
+    assert_eq!(executions, 4_557, "bind additive failure split executions");
+}
+
+#[test]
+fn additive_partial_eof_runs_at_every_two_chunk_split() {
+    let executions = assert_incomplete_at_every_split_then_eof(
+        b"GET / HTTP/1.1\r\nHost: server.example.com\r",
+        "partial-eof",
+    );
+    assert_eq!(executions, 42, "bind additive partial-EOF split executions");
+}
+
+#[test]
+fn valid_plus_suffix_has_exact_results_at_every_transport_boundary() {
+    let mut request = RFC_REQUEST.to_vec();
+    request.push(b'x');
+    let mut trailing_rejections = 0usize;
+    let mut frame_boundary_executions = 0usize;
+    for split in 0..=request.len() {
+        let mut core = server();
+        let first = core.step(CoreInput::Transport(TransportBytes::new(&request[..split])));
+        let context = format!("valid-plus-suffix split {split}");
+        if split < RFC_REQUEST.len() {
+            assert_eq!(first.failure(), None, "{context} first chunk");
+            assert_eq!(first.state(), ConnectionState::Connecting, "{context}");
+            assert_eq!(first.outputs().len(), 0, "{context}");
+            let second = core.step(CoreInput::Transport(TransportBytes::new(&request[split..])));
+            assert_rejected_result(
+                &second,
+                &HandshakeFailure::TrailingData { bytes: 1 },
+                &context,
+            );
+            trailing_rejections += 1;
+        } else if split == RFC_REQUEST.len() {
+            // CRLFCRLF is the protocol phase transition. At this one exact
+            // transport boundary the first call is a complete valid handshake,
+            // so the following byte is frame input; treating it as handshake
+            // smuggling would contradict both incremental streaming and the
+            // required one-call valid-handshake contract.
+            assert_opened_result(
+                &first,
+                "/chat",
+                "server.example.com",
+                "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+                &context,
+            );
+            let second = core.step(CoreInput::Transport(TransportBytes::new(b"x")));
+            assert_eq!(second.state(), ConnectionState::Open, "{context}");
+            assert_eq!(second.outputs().len(), 0, "{context}");
+            assert_eq!(
+                second.failure().map(|failure| &failure.kind),
+                Some(&FailureKind::ProtocolSliceUnavailable {
+                    owner_story: ProtocolStory::FrameCoding,
+                }),
+                "{context}"
+            );
+            frame_boundary_executions += 1;
+        } else {
+            assert_rejected_result(
+                &first,
+                &HandshakeFailure::TrailingData { bytes: 1 },
+                &context,
+            );
+            trailing_rejections += 1;
+        }
+    }
+    assert_eq!(trailing_rejections, RFC_REQUEST.len() + 1);
+    assert_eq!(frame_boundary_executions, 1);
+}
+
+#[test]
 fn bare_line_endings_and_incomplete_crlf_are_not_normalized() {
     let bare: &[&[u8]] = &[
         b"GET / HTTP/1.1\nHost: server.example.com\r\n\r\n",
@@ -1160,6 +1303,73 @@ fn request_and_response_limits_fail_at_the_exact_attempt_without_partial_write()
         "server.example.com",
         "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
         "exact request and response capacity",
+    );
+}
+
+#[test]
+fn arrival_limits_precede_line_framing_for_bytes_still_inside_the_head() {
+    let request = b"GET\n";
+    let mut core = server_with_limits(3, 32, 3);
+    let result = core.step(CoreInput::Transport(TransportBytes::new(request)));
+    assert_limit_result(
+        &result,
+        FailureKind::LimitExceeded {
+            limit: LimitKind::HandshakeBytes,
+            attempted: 4,
+            maximum: 3,
+        },
+        "total arrival limit precedes line and bare-LF framing",
+    );
+
+    let request = b"GET\n";
+    let mut core = server_with_limits(512, 32, 3);
+    let result = core.step(CoreInput::Transport(TransportBytes::new(request)));
+    assert_limit_result(
+        &result,
+        FailureKind::LimitExceeded {
+            limit: LimitKind::HandshakeHeaderLineBytes,
+            attempted: 4,
+            maximum: 3,
+        },
+        "line arrival limit precedes bare-LF framing",
+    );
+
+    let request = b"GET / HTTP/1.1\r\nX: y\r\nXY\n";
+    let mut core = server_with_limits(512, 1, 512);
+    let result = core.step(CoreInput::Transport(TransportBytes::new(request)));
+    assert_limit_result(
+        &result,
+        FailureKind::LimitExceeded {
+            limit: LimitKind::HandshakeHeaderCount,
+            attempted: 2,
+            maximum: 1,
+        },
+        "header arrival limit precedes bare-LF framing",
+    );
+}
+
+#[test]
+fn bytes_after_the_online_head_terminator_are_only_trailing_data() {
+    let long_suffix = vec![b'x'; 1_024];
+    let mut request = RFC_REQUEST.to_vec();
+    request.extend_from_slice(&long_suffix);
+    let exact_head_bytes = u64::try_from(RFC_REQUEST.len()).unwrap();
+    let mut core = server_with_limits(exact_head_bytes, 5, 52);
+    let result = core.step(CoreInput::Transport(TransportBytes::new(&request)));
+    assert_rejected_result(
+        &result,
+        &HandshakeFailure::TrailingData { bytes: 1_024 },
+        "long suffix is not fed through total or line accounting",
+    );
+
+    let mut request = RFC_REQUEST.to_vec();
+    request.extend_from_slice(b"\r\n");
+    let mut core = server_with_limits(exact_head_bytes, 5, 52);
+    let result = core.step(CoreInput::Transport(TransportBytes::new(&request)));
+    assert_rejected_result(
+        &result,
+        &HandshakeFailure::TrailingData { bytes: 2 },
+        "CRLF suffix is not fed through header accounting",
     );
 }
 

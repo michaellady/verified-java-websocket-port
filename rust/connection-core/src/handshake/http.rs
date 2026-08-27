@@ -72,7 +72,7 @@ impl HeadAccumulator {
     }
 
     pub(super) fn consume(&mut self, bytes: &[u8]) -> HeadProgress {
-        for &byte in bytes {
+        for (index, &byte) in bytes.iter().enumerate() {
             if self.buffer.len() == self.maximum_bytes {
                 return HeadProgress::LimitExceeded {
                     limit: LimitKind::HandshakeBytes,
@@ -80,11 +80,6 @@ impl HeadAccumulator {
                         .unwrap_or(u64::MAX)
                         .saturating_add(1),
                 };
-            }
-            if byte == b'\n' && self.buffer.last() != Some(&b'\r')
-                || self.buffer.last() == Some(&b'\r') && byte != b'\n'
-            {
-                return HeadProgress::Rejected(HandshakeFailure::BareLineEnding);
             }
             let attempted_line = self.current_line_bytes.saturating_add(1);
             if attempted_line > self.maximum_line_bytes {
@@ -104,12 +99,26 @@ impl HeadAccumulator {
                         .saturating_add(1),
                 };
             }
+            if byte == b'\n' && self.buffer.last() != Some(&b'\r')
+                || self.buffer.last() == Some(&b'\r') && byte != b'\n'
+            {
+                return HeadProgress::Rejected(HandshakeFailure::BareLineEnding);
+            }
             self.buffer.push(byte);
             debug_assert!(self.buffer.len() <= self.maximum_bytes);
             if completes_line {
                 if self.start_line_complete {
                     if completes_header {
                         self.header_count += 1;
+                    } else {
+                        let trailing = bytes.len() - index - 1;
+                        return if trailing == 0 {
+                            HeadProgress::Complete
+                        } else {
+                            HeadProgress::Rejected(HandshakeFailure::TrailingData {
+                                bytes: u64::try_from(trailing).unwrap_or(u64::MAX),
+                            })
+                        };
                     }
                 } else {
                     self.start_line_complete = true;
@@ -119,15 +128,7 @@ impl HeadAccumulator {
                 self.current_line_bytes = attempted_line;
             }
         }
-        let Some(end) = header_end(&self.buffer) else {
-            return HeadProgress::Incomplete;
-        };
-        if end != self.buffer.len() {
-            return HeadProgress::Rejected(HandshakeFailure::TrailingData {
-                bytes: u64::try_from(self.buffer.len() - end).unwrap_or(u64::MAX),
-            });
-        }
-        HeadProgress::Complete
+        HeadProgress::Incomplete
     }
 
     pub(super) fn bytes(&self) -> &[u8] {
@@ -141,13 +142,6 @@ impl HeadAccumulator {
         self.start_line_complete = false;
         debug_assert!(self.buffer.is_empty());
     }
-}
-
-pub(super) fn header_end(bytes: &[u8]) -> Option<usize> {
-    bytes
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .and_then(|position| position.checked_add(4))
 }
 
 fn validate_response(bytes: &[u8], expected_accept: &[u8; 28]) -> Result<(), HandshakeFailure> {
