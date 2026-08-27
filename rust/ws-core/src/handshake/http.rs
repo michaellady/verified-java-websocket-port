@@ -186,6 +186,9 @@ pub struct HeadAccumulator {
     header_count: usize,
     /// Whether the first line's CRLF has been consumed.
     start_line_complete: bool,
+    /// Whether the terminating empty line has been consumed; bytes after it
+    /// are post-head remainder, exempt from head budgets (review 01a04487).
+    head_complete: bool,
 }
 
 impl HeadAccumulator {
@@ -198,6 +201,7 @@ impl HeadAccumulator {
             current_line_bytes: 0,
             header_count: 0,
             start_line_complete: false,
+            head_complete: false,
         }
     }
 
@@ -215,6 +219,13 @@ impl HeadAccumulator {
     /// buffer retains everything accepted before the refusal.
     pub fn push(&mut self, chunk: &[u8]) -> Result<(), HandshakeLimitExceeded> {
         for &byte in chunk {
+            if self.head_complete {
+                // Post-head remainder: buffered verbatim for the caller's
+                // head_len split, never counted against head budgets, so
+                // coalesced and CRLFCRLF-split deliveries agree.
+                self.buffer.push(byte);
+                continue;
+            }
             if self.buffer.len() >= self.limits.max_handshake_bytes {
                 return Err(HandshakeLimitExceeded {
                     limit: HandshakeLimitKind::TotalBytes,
@@ -245,6 +256,10 @@ impl HeadAccumulator {
                 if self.start_line_complete {
                     if completes_header {
                         self.header_count += 1;
+                    } else {
+                        // An empty line (bare CRLF) after the start line
+                        // terminates the head (Draft.java:128-130).
+                        self.head_complete = true;
                     }
                 } else {
                     self.start_line_complete = true;
@@ -261,6 +276,43 @@ impl HeadAccumulator {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Review 01a04487: budgets are head budgets. Post-head bytes coalesced
+    // into the terminating chunk must be exempt, so coalesced and
+    // CRLFCRLF-split deliveries of identical bytes agree (re-chunking
+    // invariance; the remainder is bounded later by the Q24 wire cap).
+    #[test]
+    fn coalesced_post_head_bytes_are_exempt_from_head_budgets() {
+        let head = b"GET / HTTP/1.1\r\nSec-WebSocket-Key: k\r\nSec-WebSocket-Version: 13\r\n\r\n";
+        let limits = HandshakeLimits {
+            max_handshake_bytes: head.len(),
+            max_header_count: 8,
+            max_header_line_bytes: 64,
+        };
+        let tail = vec![0x82u8; 4096];
+
+        let mut coalesced = HeadAccumulator::new(limits);
+        let mut wire = head.to_vec();
+        wire.extend_from_slice(&tail);
+        coalesced
+            .push(&wire)
+            .expect("post-head bytes must not consume head budgets");
+        assert_eq!(coalesced.bytes(), wire.as_slice());
+
+        let mut split = HeadAccumulator::new(limits);
+        split.push(head).expect("exact head fits its budget");
+        split
+            .push(&tail)
+            .expect("post-head chunk must not consume head budgets");
+        assert_eq!(split.bytes(), wire.as_slice());
+
+        // A head that itself busts the budget still refuses, coalesced or not.
+        let mut over = HeadAccumulator::new(HandshakeLimits {
+            max_handshake_bytes: head.len() - 1,
+            ..limits
+        });
+        assert!(over.push(&wire).is_err());
+    }
 
     fn parse(bytes: &[u8]) -> JavaHeadParse {
         parse_java_head(bytes)
