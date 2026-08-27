@@ -1,7 +1,8 @@
 # US-010 client opening-handshake contract
 
-Status: implementation-ready architecture for the client opening-handshake
-slice. This design is bounded to US-010. Server request validation/response
+Status: **implemented and validated** at
+`19f706787aaf3d3395dad2c2f2b11eebe6ac399a`. This contract is bounded to
+US-010. Server request validation/response
 generation remains US-011; frame and application-data behavior remains
 unavailable until US-012 and later stories.
 
@@ -44,7 +45,8 @@ Relevant existing evidence is:
   `docs/us005-handshake-verdict-mapping.md`;
 - `evidence/us005-handshake-live-mapping.json`;
 - `evidence/intake/semantic-id-migration-map.json` (17 Java rows touch
-  US-010, but only `websocket_core::ConnectionCore` currently resolves);
+  US-010; the exact shipped symbols are source-bound while fresh resolution
+  remains unavailable without the pinned rust-analyzer binary);
 - `evidence/intake/compatibility-surface.json`, surface
   `surface.handshake.client-request` and obligation
   `cutover.surface-handshake-client-request`;
@@ -357,11 +359,13 @@ set `rust_identity_verified:true`. The map schema/receipt evolves to allow an
 additive US-010 resolution receipt while preserving the immutable US-009
 three-symbol receipt. Unrelated later-story rows remain unresolved.
 
-US-010 evidence must bind source commit/tree, pinned rustc/rust-analyzer
-digests, exact test command/results, public vector digest, all-split property
-counts, fuzz-seed inventory/results, runtime-assertion inventory, migration
-resolutions, compatibility/cutover IDs, and delta record digests. The evidence
-DAG adds a US-010 claim supported by those immutable nodes. It may claim only
+US-010 evidence binds exact checkout HEAD blob IDs and content digests, pinned
+rustc and historical rust-analyzer identities, exact test command/results,
+public vector digest, all-split property counts, fuzz-seed inventory/results,
+runtime-assertion inventory, migration resolutions, and compatibility/cutover
+IDs. Bounded root-pinned reads and depth-one/tamper regressions make that source
+binding portable without requiring an older commit object. The additive
+US-010 evidence DAG may claim only
 client request generation and response validation under owner-attested
 assurance; it cannot claim server handshake, frames, parity, conformance,
 Autobahn, release, publication, or production readiness.
@@ -407,11 +411,11 @@ reconciliation. It must not modify `.file-locks.json`.
 
 ## Completion boundary
 
-US-010 is complete only when the exact request and all response rules pass in
-debug and release, every valid vector passes at every byte split, every
-adversarial vector and fuzz seed returns its exact typed result, the full
-workspace gates remain green with zero dependencies/unsafe/build hooks, and
-all evidence/migration/cutover/delta links validate at the committed head.
+US-010 completed this boundary at `19f7067`: the exact request and all response
+rules pass in debug and release, every valid vector passes at every byte split,
+every adversarial vector and fuzz seed returns its exact typed result, the full
+workspace gates remain green with zero dependencies/unsafe/build hooks, and all
+evidence/migration/cutover/delta links validate at the committed head.
 
 Passing US-010 does not make the core a complete WebSocket implementation.
 Server handshakes, frames, messages, control frames, close, driven concurrency,

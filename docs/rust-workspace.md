@@ -1,23 +1,23 @@
 # Rust workspace: scope, gates, and story mapping
 
-Status: **enabling scaffold only.** The `rust/` workspace was created so
-US-009 ("Establish the safe Rust ConnectionCore contract") can begin the
-moment its open dependencies (US-005, US-006, US-008) unblock, per the
-owner-authorized implementation-ordering amendment (Rust implementation work
-may begin before the benchmark confirmation host binds, provided it makes no
-performance representations beyond compile/test correctness).
+Status: **US-009 core contract and US-010 client opening handshake shipped.**
+The `rust/` workspace now contains the dependency-free Sans-I/O
+`ConnectionCore` and its first protocol-bearing slice. Rust implementation may
+continue before the benchmark confirmation host binds, but no performance
+representation is authorized beyond compile/test correctness.
 
 **Explicit non-claims:**
 
-- No user story (US-009 or any other) is claimed complete, started-toward
-  acceptance, or partially accepted by this scaffold.
-- No WebSocket behavior exists: every module in `connection-core` is an
-  empty, documented placeholder marked UNIMPLEMENTED.
+- US-009 claims only the safe bounded core contract and US-010 claims only
+  client request generation plus server-upgrade response validation.
+- Server opening handshakes, frames, messages, control behavior, close,
+  adapters, and driven concurrency remain unavailable until their owning
+  stories.
 - No performance representation of any kind is made. No benchmark sample was
   collected, no tuning performed.
-- US-009's own first acceptance criterion (separately authorized repository
-  handoff, sbx-executed builds, scaffold canaries, audit/lockfile gates) is
-  **not** satisfied here; this scaffold does not substitute for it.
+- Autobahn, live Java differential execution, fresh US-010 rust-analyzer
+  resolution, publication, production, parity, and independent review are not
+  claimed.
 
 ## Toolchain pin
 
@@ -55,10 +55,10 @@ pipeline stories, not this scaffold):
 
 ## How the workspace maps to stories
 
-| Story | Workspace surface (future home; nothing implemented) |
+| Story | Workspace surface and state |
 | --- | --- |
-| US-009 | `connection-core` crate: the `ConnectionCore` contract types in `src/connection.rs` (config/role/commands/writes/events/state/failures), plus workspace gates. US-009 may rename or relocate crates (its PRD `files` list sketches a root-level `crates/websocket-core`); this scaffold does not pre-commit that decision. |
-| US-010 | `src/handshake.rs` -- client opening handshake. |
+| US-009 | **Complete.** `connection-core` owns the checked config, role, command/write/event/state/failure vocabulary, single mutating `ConnectionCore::step` seam, and workspace gates. |
+| US-010 | **Complete.** `src/handshake/client.rs`, `http.rs`, and `crypto.rs` implement the client opening handshake through `ConnectionCore::step`; later protocol slices still fail closed. |
 | US-011 | `src/handshake.rs` -- server opening handshake. |
 | US-012 | `src/framing.rs` -- canonical framing, masking, allocation limits. |
 | US-013 | `src/framing.rs` -- strict text/binary message delivery. |
@@ -69,14 +69,12 @@ pipeline stories, not this scaffold):
 | US-018 | future sibling crate(s) for thin blocking TCP adapters (not scaffolded; adapters are deliberately outside the dependency-free core). |
 | US-019 | future Autobahn conformance harness wiring against the adapters (not scaffolded). |
 
-## What this scaffold changed
+## Current shipped state
 
-- `rust/` (new): workspace `Cargo.toml` + `Cargo.lock`, `rust-toolchain.toml`,
-  `Makefile`, `README.md`, `connection-core` crate with doc-only modules and
-  smoke tests.
-- `.gitignore`: appended explicit `rust/` target-directory entries.
-- `docs/rust-workspace.md` (this file).
-
-Nothing under `evidence/`, `internal/`, `cmd/`, `schemas/`, `terraform/`,
-`.github/`, `java-oracle/`, `benchmarks/`, the root `Makefile`, or
-`.dialed.yml` was touched, and the Go module builds and tests unchanged.
+- The crate remains `rust/connection-core` with package/library identities
+  `websocket-core` / `websocket_core`.
+- The workspace is dependency-free, forbids first-party unsafe code and build
+  hooks, and is gated through the pinned Rust toolchain.
+- US-010 evidence lives in `evidence/us010-client-handshake.json` and binds
+  exact checkout blob IDs, content digests, corpus/fuzz inputs, and the
+  additive evidence DAG. The cutover obligation remains `DECLARED`.
