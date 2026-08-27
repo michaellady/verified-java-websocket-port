@@ -26,7 +26,7 @@ func rustCodeTokens(source []byte) []string {
 			continue
 		}
 		switch code[index] {
-		case '!', '(', ')', '{', '}', ';':
+		case '!', '(', ')', '{', '}', ';', '#', '[', ']', '=':
 			tokens = append(tokens, string(code[index]))
 		}
 		index++

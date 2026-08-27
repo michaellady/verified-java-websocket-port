@@ -38,8 +38,8 @@ func parseTOML(body []byte) (tomlDocument, error) {
 			continue
 		}
 		if strings.HasPrefix(line, "[[") && strings.HasSuffix(line, "]]") {
-			section = strings.TrimSpace(line[2 : len(line)-2])
-			if section == "" {
+			section, err = normalizeTOMLKey(strings.TrimSpace(line[2 : len(line)-2]))
+			if err != nil || section == "" {
 				return tomlDocument{}, fmt.Errorf("line %d: empty array table", lineNumber)
 			}
 			instances[section]++
@@ -47,8 +47,8 @@ func parseTOML(body []byte) (tomlDocument, error) {
 			continue
 		}
 		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			section = strings.TrimSpace(line[1 : len(line)-1])
-			if section == "" {
+			section, err = normalizeTOMLKey(strings.TrimSpace(line[1 : len(line)-1]))
+			if err != nil || section == "" {
 				return tomlDocument{}, fmt.Errorf("line %d: empty table", lineNumber)
 			}
 			instance = 0
@@ -58,12 +58,15 @@ func parseTOML(body []byte) (tomlDocument, error) {
 		if separator < 1 {
 			return tomlDocument{}, fmt.Errorf("line %d: unsupported TOML statement", lineNumber)
 		}
-		key := strings.TrimSpace(line[:separator])
+		key, err := normalizeTOMLKey(strings.TrimSpace(line[:separator]))
+		if err != nil {
+			return tomlDocument{}, fmt.Errorf("line %d: %w", lineNumber, err)
+		}
 		raw := strings.TrimSpace(line[separator+1:])
 		if key == "" || raw == "" {
 			return tomlDocument{}, fmt.Errorf("line %d: empty key or value", lineNumber)
 		}
-		identity := fmt.Sprintf("%s\x00%d\x00%s", section, instance, key)
+		identity := fmt.Sprintf("%d\x00%s", instance, tomlFullKey(section, key))
 		if seen[identity] {
 			return tomlDocument{}, fmt.Errorf("line %d: duplicate key %s", lineNumber, key)
 		}
@@ -74,6 +77,85 @@ func parseTOML(body []byte) (tomlDocument, error) {
 		return tomlDocument{}, err
 	}
 	return document, nil
+}
+
+// normalizeTOMLKey makes Cargo-equivalent bare, quoted, and dotted keys
+// comparable without interpreting their values.
+func normalizeTOMLKey(raw string) (string, error) {
+	var parts []string
+	for index := 0; index < len(raw); {
+		for index < len(raw) && (raw[index] == ' ' || raw[index] == '\t') {
+			index++
+		}
+		if index == len(raw) {
+			return "", fmt.Errorf("empty TOML key segment")
+		}
+
+		var part string
+		switch raw[index] {
+		case '"':
+			start := index
+			index++
+			end := -1
+			for index < len(raw) {
+				if raw[index] == '\\' {
+					if index+1 >= len(raw) {
+						return "", fmt.Errorf("unterminated quoted TOML key")
+					}
+					index += 2
+					continue
+				}
+				index++
+				if raw[index-1] == '"' {
+					end = index
+					break
+				}
+			}
+			if end < 0 {
+				return "", fmt.Errorf("unterminated quoted TOML key")
+			}
+			value, err := strconv.Unquote(raw[start:end])
+			if err != nil {
+				return "", fmt.Errorf("invalid quoted TOML key: %w", err)
+			}
+			part = value
+		case '\'':
+			relativeEnd := strings.IndexByte(raw[index+1:], '\'')
+			if relativeEnd < 0 {
+				return "", fmt.Errorf("unterminated literal TOML key")
+			}
+			end := index + 1 + relativeEnd
+			part = raw[index+1 : end]
+			index = end + 1
+		default:
+			start := index
+			for index < len(raw) && raw[index] != '.' && raw[index] != ' ' && raw[index] != '\t' {
+				char := raw[index]
+				if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+					(char >= '0' && char <= '9') || char == '_' || char == '-') {
+					return "", fmt.Errorf("invalid bare TOML key")
+				}
+				index++
+			}
+			part = raw[start:index]
+		}
+		if part == "" {
+			return "", fmt.Errorf("empty TOML key segment")
+		}
+		parts = append(parts, part)
+
+		for index < len(raw) && (raw[index] == ' ' || raw[index] == '\t') {
+			index++
+		}
+		if index == len(raw) {
+			break
+		}
+		if raw[index] != '.' {
+			return "", fmt.Errorf("invalid TOML key separator")
+		}
+		index++
+	}
+	return strings.Join(parts, "."), nil
 }
 
 func (d tomlDocument) stringValue(section, key string) (string, bool) {
@@ -126,12 +208,20 @@ func (d tomlDocument) stringArray(section, key string) ([]string, bool) {
 }
 
 func (d tomlDocument) rawValueAt(section string, instance int, key string) (string, bool) {
+	target := tomlFullKey(section, key)
 	for _, entry := range d.entries {
-		if entry.Section == section && entry.Instance == instance && entry.Key == key {
+		if entry.Instance == instance && tomlFullKey(entry.Section, entry.Key) == target {
 			return entry.Raw, true
 		}
 	}
 	return "", false
+}
+
+func tomlFullKey(section, key string) string {
+	if section == "" {
+		return key
+	}
+	return section + "." + key
 }
 
 func (d tomlDocument) hasSection(section string) bool {

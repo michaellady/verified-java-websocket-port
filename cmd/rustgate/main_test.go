@@ -63,6 +63,22 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 		{"custom package build script", "BUILD_SCRIPT_NOT_ALLOWED", func(t *testing.T, root string) {
 			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "publish.workspace = true", "publish.workspace = true\nbuild = \"codegen.rs\"")
 		}},
+		{"quoted custom package build script", "BUILD_SCRIPT_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "publish.workspace = true", "publish.workspace = true\n\"build\" = \"codegen.rs\"")
+		}},
+		{"literal quoted custom package build script", "BUILD_SCRIPT_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "publish.workspace = true", "publish.workspace = true\n'build' = \"codegen.rs\"")
+		}},
+		{"quoted package table custom build script", "BUILD_SCRIPT_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "[package]", "[\"package\"]")
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "publish.workspace = true", "publish.workspace = true\n\"build\" = \"codegen.rs\"")
+		}},
+		{"dotted custom package build script", "BUILD_SCRIPT_NOT_ALLOWED", func(t *testing.T, root string) {
+			prependFixture(t, root, "rust/connection-core/Cargo.toml", "package.build = \"codegen.rs\"\n")
+		}},
+		{"quoted dotted custom package build script", "BUILD_SCRIPT_NOT_ALLOWED", func(t *testing.T, root string) {
+			prependFixture(t, root, "rust/connection-core/Cargo.toml", "\"package\".\"build\" = \"codegen.rs\"\n")
+		}},
 		{"repository cargo config", "CARGO_CONFIG_NOT_ALLOWED", func(t *testing.T, root string) {
 			writeFixture(t, root, ".cargo/config.toml", "[build]\nrustc-wrapper = \"./wrapper\"\n")
 		}},
@@ -159,6 +175,67 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 				}
 			}
 			t.Fatalf("missing typed finding %s in %s", test.code, stdout.String())
+		})
+	}
+}
+
+func TestVerifyRejectsAmbientCompiledSourceInputs(t *testing.T) {
+	tests := []struct {
+		name   string
+		code   string
+		mutate func(*testing.T, string)
+	}{
+		{"include macro", "AMBIENT_MACRO", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\ninclude!(\"generated.rs\");\n")
+		}},
+		{"include bytes macro", "AMBIENT_MACRO", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\npub const BYTES: &[u8] = include_bytes!(\"data.bin\");\n")
+		}},
+		{"include string macro", "AMBIENT_MACRO", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\npub const TEXT: &str = include_str!(\"data.txt\");\n")
+		}},
+		{"environment macro", "AMBIENT_MACRO", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\npub const VALUE: &str = env!(\"VALUE\");\n")
+		}},
+		{"optional environment macro", "AMBIENT_MACRO", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\npub const VALUE: Option<&str> = option_env!(\"VALUE\");\n")
+		}},
+		{"manifest root outside crate", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", `path = "src/lib.rs"`, `path = "../outside.rs"`)
+			writeFixture(t, root, "rust/outside.rs", "#![forbid(unsafe_code)]\npub struct Outside;\n")
+		}},
+		{"dotted manifest root outside crate", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "[lib]\nname = \"websocket_core\"\npath = \"src/lib.rs\"\n\n", "")
+			prependFixture(t, root, "rust/connection-core/Cargo.toml", "lib.name = \"websocket_core\"\nlib.path = \"../outside.rs\"\n")
+			writeFixture(t, root, "rust/outside.rs", "#![forbid(unsafe_code)]\npub struct Outside;\n")
+		}},
+		{"custom manifest root is scanned", "AMBIENT_MACRO", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", `path = "src/lib.rs"`, `path = "generated/lib.rs"`)
+			writeFixture(t, root, "rust/connection-core/generated/lib.rs", "#![forbid(unsafe_code)]\npub const VALUE: &str = env!(\"VALUE\");\n")
+		}},
+		{"path attribute source override", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\n#[path = \"../outside.rs\"] mod outside;\n")
+			writeFixture(t, root, "rust/connection-core/outside.rs", "pub struct Outside;\n")
+		}},
+		{"conditional path attribute source override", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\n#[cfg_attr(all(), path = \"../outside.rs\")] mod outside;\n")
+			writeFixture(t, root, "rust/connection-core/outside.rs", "pub struct Outside;\n")
+		}},
+		{"automatic binary target is scanned", "AMBIENT_MACRO", func(t *testing.T, root string) {
+			writeFixture(t, root, "rust/connection-core/src/bin/ambient.rs", "#![forbid(unsafe_code)]\npub const VALUE: &str = env!(\"VALUE\");\n")
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := goodFixture(t)
+			test.mutate(t, root)
+			var stdout, stderr bytes.Buffer
+			if code := run(verificationArguments(root), &stdout, &stderr); code != exitFindings {
+				t.Fatalf("exit = %d, want %d\nstdout: %s\nstderr: %s", code, exitFindings, stdout.String(), stderr.String())
+			}
+			if !strings.Contains(stdout.String(), `"code": "`+test.code+`"`) {
+				t.Fatalf("missing typed finding %s in %s", test.code, stdout.String())
+			}
 		})
 	}
 }
@@ -320,12 +397,13 @@ workspace = true
 [build-dependencies]
 `)
 	writeFixture(t, root, "rust/connection-core/src/lib.rs", `#![forbid(unsafe_code)]
-// std::net::TcpStream FnMut todo!() are inert fixture comments.
-/* nested /* std::process::Command */ unimplemented!() */
-pub const TEXT: &str = "std::time::Instant and unimplemented!() are inert strings";
-pub const RAW: &str = r###"std::fs::File panic!()"###;
+// std::net::TcpStream FnMut todo!() include!() env!() are inert fixture comments.
+/* nested /* std::process::Command */ unimplemented!() include_bytes!() */
+pub const TEXT: &str = "std::time::Instant, unimplemented!(), include_str!(), and option_env!() are inert strings";
+pub const RAW: &str = r###"std::fs::File panic!() include!() env!()"###;
 pub const BYTE: u8 = b'x';
 pub struct ConnectionCore;
+pub fn ordinary_local_path() { let path = 1; let _ = path; }
 `)
 	writeFixture(t, root, "rust/connection-core/tests/contract.rs", `#![forbid(unsafe_code)]
 #[test]
@@ -464,6 +542,16 @@ func appendFixture(t *testing.T, root, relative, suffix string) {
 		t.Fatalf("read %s: %v", relative, err)
 	}
 	writeFixture(t, root, relative, string(body)+suffix)
+}
+
+func prependFixture(t *testing.T, root, relative, prefix string) {
+	t.Helper()
+	path := filepath.Join(root, filepath.FromSlash(relative))
+	body, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", relative, err)
+	}
+	writeFixture(t, root, relative, prefix+string(body))
 }
 
 func fixtureDigest(body []byte) string {

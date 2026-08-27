@@ -282,7 +282,9 @@ func (v *verifier) verifyWorkspaceMembers(workspaceRoot string, members []string
 }
 
 func (v *verifier) verifyNoCustomBuild(path string, document tomlDocument) {
-	if _, exists := document.rawValueAt("package", 0, "build"); exists {
+	_, tableForm := document.rawValueAt("package", 0, "build")
+	_, dottedForm := document.rawValueAt("", 0, "package.build")
+	if tableForm || dottedForm {
 		v.add("BUILD_SCRIPT_NOT_ALLOWED", path, "[package] build is forbidden; build scripts are not part of the dependency-free host path")
 	}
 }
@@ -597,52 +599,74 @@ func (v *verifier) verifyDependencyTables(path string, document tomlDocument) {
 func (v *verifier) verifySources(workspaceRoot string, crates []crate) {
 	for _, item := range crates {
 		crateRoot := filepath.ToSlash(filepath.Join(workspaceRoot, item.Member))
+		crateBase, ok := v.safePath(crateRoot)
+		if !ok {
+			continue
+		}
 		roots := sourceRoots(item.Manifest)
+		productionRoots := make(map[string]bool)
+		for _, root := range productionSourceRoots(item.Manifest) {
+			productionRoots[filepath.ToSlash(filepath.Clean(filepath.FromSlash(root)))] = true
+		}
 		for _, directory := range []string{"tests", "examples", "benches"} {
-			pattern := filepath.Join(v.root, filepath.FromSlash(crateRoot), directory, "*.rs")
+			pattern := filepath.Join(crateBase, directory, "*.rs")
 			matches, _ := filepath.Glob(pattern)
 			for _, match := range matches {
-				relative, err := filepath.Rel(filepath.Join(v.root, filepath.FromSlash(crateRoot)), match)
+				relative, err := filepath.Rel(crateBase, match)
 				if err == nil {
 					roots = append(roots, filepath.ToSlash(relative))
 				}
 			}
 		}
 		sort.Strings(roots)
+		scanned := make(map[string]bool)
 		for _, relative := range roots {
-			path := filepath.ToSlash(filepath.Join(crateRoot, relative))
+			clean := filepath.Clean(filepath.FromSlash(relative))
+			if filepath.IsAbs(filepath.FromSlash(relative)) || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+				v.add("SOURCE_PATH_NOT_ALLOWED", filepath.ToSlash(filepath.Join(crateRoot, relative)), "Cargo target source paths must remain within their crate root")
+				continue
+			}
+			path := filepath.ToSlash(filepath.Join(crateRoot, filepath.ToSlash(clean)))
 			body, ok := v.readRegular(path)
 			if ok && !bytes.Contains(body, []byte("#![forbid(unsafe_code)]")) {
 				v.add("SOURCE_UNSAFE_ATTRIBUTE_MISSING", path, "every first-party crate target root must contain the literal #![forbid(unsafe_code)] attribute")
 			}
+			if ok && productionRoots[filepath.ToSlash(clean)] {
+				v.scanProductionSource(path, body)
+				scanned[path] = true
+			}
 		}
-		sourceDir := filepath.ToSlash(filepath.Join(crateRoot, "src"))
-		base, ok := v.safePath(sourceDir)
-		if !ok {
-			continue
-		}
-		err := filepath.WalkDir(base, func(path string, entry fs.DirEntry, walkErr error) error {
+		err := filepath.WalkDir(crateBase, func(path string, entry fs.DirEntry, walkErr error) error {
 			if walkErr != nil {
 				return walkErr
 			}
 			if entry.Type()&os.ModeSymlink != 0 {
 				rel, _ := filepath.Rel(v.root, path)
-				v.add("UNSAFE_PATH", filepath.ToSlash(rel), "symlinks are not allowed in production Rust source")
+				v.add("UNSAFE_PATH", filepath.ToSlash(rel), "symlinks are not allowed in first-party Rust source")
 				return nil
+			}
+			isNonProductionTargetDir := filepath.Dir(path) == crateBase &&
+				(entry.Name() == "tests" || entry.Name() == "examples" || entry.Name() == "benches")
+			if entry.IsDir() && (entry.Name() == "target" || isNonProductionTargetDir) {
+				return filepath.SkipDir
 			}
 			if entry.IsDir() || filepath.Ext(entry.Name()) != ".rs" {
 				return nil
 			}
 			rel, _ := filepath.Rel(v.root, path)
 			relPath := filepath.ToSlash(rel)
+			if scanned[relPath] {
+				return nil
+			}
 			body, ok := v.readRegular(relPath)
 			if ok {
 				v.scanProductionSource(relPath, body)
+				scanned[relPath] = true
 			}
 			return nil
 		})
 		if err != nil {
-			v.add("SOURCE_UNREADABLE", sourceDir, err.Error())
+			v.add("SOURCE_UNREADABLE", crateRoot, err.Error())
 		}
 	}
 }
@@ -650,6 +674,12 @@ func (v *verifier) verifySources(workspaceRoot string, crates []crate) {
 func (v *verifier) scanProductionSource(path string, body []byte) {
 	tokens := rustCodeTokens(body)
 	for index, token := range tokens {
+		if (token == "include" || token == "include_bytes" || token == "include_str" || token == "env" || token == "option_env") && tokenAt(tokens, index+1) == "!" {
+			v.add("AMBIENT_MACRO", path, token+"! is forbidden in first-party Rust source")
+		}
+		if token == "path" && tokenAt(tokens, index+1) == "=" && tokenInRustAttribute(tokens, index) {
+			v.add("SOURCE_PATH_NOT_ALLOWED", path, "#[path] can compile a source input outside the root-confined scan")
+		}
 		if (token == "todo" || token == "unimplemented" || token == "panic") && tokenAt(tokens, index+1) == "!" {
 			v.add("PROTOCOL_STUB", path, token+"! is not allowed in production protocol source")
 		}
@@ -701,7 +731,27 @@ func sourceRoots(manifest tomlDocument) []string {
 	}
 	result := make([]string, 0, len(roots))
 	for root := range roots {
-		result = append(result, filepath.ToSlash(filepath.Clean(filepath.FromSlash(root))))
+		result = append(result, filepath.ToSlash(filepath.FromSlash(root)))
+	}
+	sort.Strings(result)
+	return result
+}
+
+func productionSourceRoots(manifest tomlDocument) []string {
+	roots := make(map[string]bool)
+	if path, ok := manifest.stringValue("lib", "path"); ok {
+		roots[path] = true
+	} else {
+		roots["src/lib.rs"] = true
+	}
+	for _, instance := range manifest.sectionInstances("bin") {
+		if path, ok := manifest.stringValueAt("bin", instance, "path"); ok {
+			roots[path] = true
+		}
+	}
+	result := make([]string, 0, len(roots))
+	for root := range roots {
+		result = append(result, filepath.ToSlash(filepath.FromSlash(root)))
 	}
 	sort.Strings(result)
 	return result
@@ -856,4 +906,26 @@ func tokenAt(tokens []string, index int) string {
 		return ""
 	}
 	return tokens[index]
+}
+
+func tokenInRustAttribute(tokens []string, index int) bool {
+	bracketDepth := 0
+	for cursor := index - 1; cursor >= 0; cursor-- {
+		switch tokens[cursor] {
+		case "]":
+			bracketDepth++
+		case "[":
+			if bracketDepth > 0 {
+				bracketDepth--
+				continue
+			}
+			return tokenAt(tokens, cursor-1) == "#" ||
+				(tokenAt(tokens, cursor-1) == "!" && tokenAt(tokens, cursor-2) == "#")
+		case ";", "{", "}":
+			if bracketDepth == 0 {
+				return false
+			}
+		}
+	}
+	return false
 }
