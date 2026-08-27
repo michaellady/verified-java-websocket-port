@@ -1,0 +1,74 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_id": "evidence.us-016-close",
+  "story_id": "US-016",
+  "status": "CLOSED_OWNER_RELAXED_BOUNDED",
+  "architecture_commit": "3cca20803dfe13c3f1891b264f562257ca48c290",
+  "implementation": {
+    "commit": "66cfd5ce7e39ea9caee314f6f4158d34eaeb1e5d",
+    "crate_tree": "fa7acef44f8eb4ccb685ef4577fcec8de570fccc",
+    "bindings": [
+      {"path":"rust/connection-core/src/close.rs","sha256":"sha256:c9abc90888c9b6480f7c5d05e53f07f0c583ddb3ab9b20be578672f99ce60f1f","git_blob":"313503e4d10ec8de7895e5dfd12e33718b1ca3a7"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:6895dfa8f86eda277e98c536fbf3867e387470b1a08c55cbfc901956cbfeee08","git_blob":"cc2b47cf0e90450e7bd120e5d502df819effd289"},
+      {"path":"rust/connection-core/src/fragment.rs","sha256":"sha256:af6f71b00dbcbfca96ee77de7dd6ba047c695b0a78687bf546418f21a5ec7fb7","git_blob":"74a480abc65e8fa5601840721cc29dbce6b767d8"},
+      {"path":"rust/connection-core/src/lib.rs","sha256":"sha256:5444dd209780127b5d2b320a9a359bd27eab26c66a6a408e65a176a5b1439f0d","git_blob":"ea3ea5ca17f1a6e28227cea4f796c859dd4bf9f5"},
+      {"path":"rust/connection-core/tests/close_eof.rs","sha256":"sha256:d5d453fa584742c24a3350522337e079e7247efdff9b94556f109f095c79bf6b","git_blob":"d8fbc24ea6a10014dcf3ea60c38dde81405428de"},
+      {"path":"rust/connection-core/tests/connection_contract.rs","sha256":"sha256:0a8e111b1aac14828de0021be0c5c4621c3f99cfe0efa533527fc59f22030d05","git_blob":"7f24667c5d01d143f1b3ef79adefbef76a0dea75"},
+      {"path":"rust/connection-core/tests/fragmentation.rs","sha256":"sha256:24ade67d3ca0bcc2aa635f31e5342f8f894d7dfc91eb46278475e0e17c1f2d56","git_blob":"a44aabbf2a56c1d304f838f3b5b39b733c1e0c50"},
+      {"path":"rust/connection-core/tests/frame_codec.rs","sha256":"sha256:690db590d43249d26ec06d7e1af4dd5f2627c8369b36f024be8f3154e6504020","git_blob":"83183b04e0f5ceff7f2f66fdf1a8a1b5e2abd9b0"},
+      {"path":"rust/connection-core/tests/server_handshake.rs","sha256":"sha256:c65053140ada5f8bcde346b76b5e70d8948861580b683679d690df1b6c0cbe79","git_blob":"2157e319d0c5474e273b67d7b45eae6c2896e594"}
+    ]
+  },
+  "tests": {
+    "gate_command": "make -C rust gates",
+    "metadata_fmt_clippy": "PASS",
+    "debug": {"passed":125,"failed":0},
+    "release": {"passed":125,"failed":0},
+    "close_eof_tests_per_profile": 15,
+    "fragmentation_regression_tests_per_profile": 13,
+    "frame_regression_tests_per_profile": 16,
+    "control_regression_tests_per_profile": 12,
+    "seed_count": 6,
+    "seed_tree": "3c67ef2dc0e4dc386d06d931e1ceac38eb43eb47",
+    "seed_replay": "PASS_THROUGH_CONNECTION_CORE_STEP",
+    "roles": ["client", "server"],
+    "bounded_code_model_cases": 48,
+    "transport_split_schedules": 108,
+    "strict_utf8_failure_classes": 7
+  },
+  "covered_behavior": [
+    "an empty Close payload remains code None and is never normalized to 1000",
+    "one-byte payloads, the frozen sender-role code table, and strict UTF-8 reason failures have typed precedence",
+    "local-first, peer-first, and simultaneous close flows preserve exact output order and wait for write-flush confirmation",
+    "server peer-first closes echo byte-identically while clients require an exact acknowledgement with an explicit mask key",
+    "Closing observes Ping and Pong without automatic replies and rejects Text Binary and Continuation delivery",
+    "Close abandons partial frame fragment and incremental UTF-8 state and stops coalesced semantic delivery after the first Close",
+    "Connecting Open Closing and Closed EOF and flush facts have typed one-shot lifecycle results",
+    "event write and aggregate-byte admission failures occur before an offending close group is exposed"
+  ],
+  "runtime_evidence": {
+    "kind": "BOUNDED_DETERMINISTIC_MODEL_SEED_AND_REGRESSION_TESTS",
+    "seam": "ConnectionCore::step",
+    "seeds_are_inert_test_data": true,
+    "external_runtime_executed": false
+  },
+  "owner_relaxed_delta": "Client close and acknowledgement commands carry a caller-supplied explicit mask key; the core never invents, caches, repeats, or certifies entropy.",
+  "java_observations": [
+    "Java behavior was used only as implementation research and is not a live differential claim",
+    "Rust preserves RFC empty Close as None and deliberately applies the frozen sender-role code table before state mutation"
+  ],
+  "nonclaims": [
+    "no Autobahn rerun or live Java differential execution",
+    "no external fuzz mutation formal backend or allocator-fault-injection execution",
+    "no socket shutdown wall-clock timeout reconnect callback or runtime-adapter claim",
+    "no client mask entropy quality or global key uniqueness claim",
+    "no independent review signing publication production or release claim"
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "publication": false,
+    "production": false,
+    "signing": false
+  }
+}
