@@ -1,0 +1,6 @@
+id=minimized-close-race
+property=close-convergence
+mutation=drop-terminal-after-shutdown
+event_queue_capacity=8
+schedule=shutdown
+counterexample=no-terminal-after-fair-drain

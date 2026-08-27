@@ -30,6 +30,16 @@
 //! The six `fuzz-seeds/us017/*.seed` schedule seeds are adopted byte-verbatim
 //! with attribution; `tests/driver_contract.rs` re-derives each seed's
 //! property against this driver with a deterministic schedule interpreter.
+//!
+//! `tests/schedule_exploration.rs` is the story's bounded schedule
+//! exploration: it exhaustively enumerates every interleaving of five fixed
+//! actor programs within a declared context-switch bound, asserts the
+//! driver-seam invariants on each schedule (twice, for replay determinism),
+//! and retains a deterministically minimized reproduction for every failure
+//! (`fuzz-seeds/us017/minimized/` for the demonstrated fault corpus,
+//! `fuzz-seeds/us017/regressions/` for real found-and-fixed defects).
+//! Results: `assurance/concurrency/results.json`. Systematic testing under
+//! the declared bounds — never proof.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
@@ -312,17 +322,33 @@ impl ConnectionDriver {
             }
         } else if (self.eof_latched || self.shutdown_latched) && !self.eof_applied {
             // The latched transport EOF gets the first quiescent turn. The
-            // core owns the semantics (Q20); a closed/poisoned core's
+            // core owns the semantics (Q20). A NON-FATAL refusal is the
+            // core's event-queue backpressure: the EOF stays latched and is
+            // retried on the next quiescent turn once outputs drain (the
+            // US-017 bounded schedule exploration retained the minimized
+            // counterexample `enqueue-close-b,inbound-close,shutdown` —
+            // fuzz-seeds/us017/regressions/eof-backpressure-livelock.seed —
+            // where latching `eof_applied` on a refused EOF lost the EOF
+            // forever and the connection never terminated). A fatal
             // refusal is surfaced as a Failure output, never invented
             // around.
-            self.eof_applied = true;
             if matches!(input, DriverInput::Inbound(_)) {
                 input_disposition = InputDisposition::Deferred(DeferredReason::OutputPending);
             }
-            if self.core.state() != ReadyState::Closed
-                && let Err(failure) = self.core.handle(Input::TransportEof)
-            {
-                return self.finish_poll(input_disposition, None, Some(failure));
+            if self.core.state() == ReadyState::Closed {
+                self.eof_applied = true;
+            } else {
+                match self.core.handle(Input::TransportEof) {
+                    Ok(()) => self.eof_applied = true,
+                    Err(failure) if !failure.code.is_fatal() => {
+                        // Backpressure: this poll still drains one queued
+                        // output below, so the retry makes progress.
+                    }
+                    Err(failure) => {
+                        self.eof_applied = true;
+                        return self.finish_poll(input_disposition, None, Some(failure));
+                    }
+                }
             }
         } else if !self.terminal_delivered {
             self.fill_held();

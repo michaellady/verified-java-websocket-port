@@ -444,6 +444,107 @@ fn queue_full_returns_the_command_to_the_producer() {
     );
 }
 
+/// Regression (found by the US-017 bounded schedule exploration, minimized
+/// reproduction `fuzz-seeds/us017/regressions/eof-backpressure-livelock.seed`):
+/// a transport EOF that the core refuses with non-fatal event-queue
+/// backpressure must stay latched and be retried after outputs drain —
+/// never latched as applied and lost. Before the fix the connection below
+/// stayed in `Closing` forever and no terminal was ever delivered.
+#[test]
+fn eof_refused_by_event_backpressure_is_retried_until_the_core_accepts_it() {
+    let config = ConnectionConfig::builder()
+        .event_queue_capacity(4)
+        .build()
+        .expect("valid test config");
+    let (sender, mut driver) = connection_driver_in_state(config, Role::Server, InitialState::Open);
+    // A local close queues its wire frame plus three semantic events,
+    // leaving fewer free event slots than the core's EOF precheck needs.
+    sender
+        .try_send(LocalCommand::SendClose {
+            code: 1000,
+            reason: String::new(),
+        })
+        .expect("enqueue close");
+    let applied = driver.poll(DriverInput::Wake);
+    assert!(matches!(
+        applied.command,
+        Some(CommandDisposition::Applied(LocalCommand::SendClose { .. }))
+    ));
+    let offered = {
+        let result = driver.poll(DriverInput::Wake);
+        match result.output {
+            DriverOutput::Write(suffix) => suffix.to_vec(),
+            other => panic!("close frame write expected, got {other:?}"),
+        }
+    };
+    let _ = driver.poll(DriverInput::WriteProgress {
+        bytes: offered.len(),
+    });
+    assert_eq!(driver.state(), ReadyState::Closing);
+    // EOF arrives while the event queue is still congested.
+    let _ = driver.poll(DriverInput::TransportEof);
+    // Fair drain: every poll surfaces at most one queued output, the EOF
+    // retry happens on quiescent turns, and the run must converge to the
+    // absorbing Closed state with exactly one terminal and NO surfaced
+    // failure (the backpressure refusal is the driver's to absorb).
+    let mut terminals = 0;
+    for _ in 0..32 {
+        let result = driver.poll(DriverInput::Wake);
+        match result.output {
+            DriverOutput::Terminal(_) => terminals += 1,
+            DriverOutput::Failure(failure) => {
+                panic!("no failure may surface for a retried EOF: {failure:?}")
+            }
+            _ => {}
+        }
+        if terminals == 1 {
+            break;
+        }
+    }
+    assert_eq!(terminals, 1, "the retried EOF converges to one terminal");
+    assert_eq!(driver.state(), ReadyState::Closed);
+    let close = driver.close_detail().expect("governing close detail");
+    assert_eq!(close.code, 1000, "the local close governs the EOF (Q20)");
+}
+
+/// AC2 receiver-drop stance, made explicit: the `ws_core` bounded channel
+/// has no disconnect signal BY DESIGN (batch-C receipt; producer lifecycle
+/// belongs to the embedding adapter), so after the owner half drops, a
+/// producer's `try_send` keeps its bounded typed behavior — accepted up to
+/// the fixed capacity, then `CommandRefused` with the command returned
+/// intact. Nothing blocks, grows, or panics.
+#[test]
+fn receiver_drop_keeps_try_send_bounded_and_typed() {
+    let config = ConnectionConfig::builder()
+        .command_queue_capacity(1)
+        .build()
+        .expect("valid test config");
+    let (sender, driver) = connection_driver_in_state(config, Role::Server, InitialState::Open);
+    drop(driver);
+    sender
+        .try_send(LocalCommand::SendText {
+            text: "into-the-void".to_owned(),
+        })
+        .expect("capacity admits one command even with the owner gone");
+    let refused = sender
+        .try_send(LocalCommand::SendText {
+            text: "beyond-capacity".to_owned(),
+        })
+        .expect_err("the bounded queue refuses, never grows");
+    assert_eq!(
+        refused.command,
+        LocalCommand::SendText {
+            text: "beyond-capacity".to_owned(),
+        },
+        "ownership returns to the producer intact"
+    );
+    assert_eq!(
+        refused.reason,
+        ws_core::connection::CommandRefusalReason::Full,
+        "the refusal is the explicit typed backpressure, not a hang"
+    );
+}
+
 #[test]
 fn transport_eof_reaches_the_core_q20_vocabulary() {
     let mut run = Run::new();
