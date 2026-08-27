@@ -83,6 +83,58 @@ func TestUS010ArtifactReadsFailClosedAtTheRepositoryBoundary(t *testing.T) {
 	}
 }
 
+func TestUS010ArtifactReadRejectsInPlaceSameSizeMutation(t *testing.T) {
+	root := t.TempDir()
+	path := filepath.Join(root, "artifact.json")
+	if err := os.WriteFile(path, []byte("original"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	original, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = readUS010ArtifactWithHooks(root, "artifact.json", us010ArtifactReadHooks{
+		afterOpen: func() {
+			if writeErr := os.WriteFile(path, []byte("tampered"), 0o600); writeErr != nil {
+				t.Fatal(writeErr)
+			}
+			if timeErr := os.Chtimes(path, original.ModTime(), original.ModTime()); timeErr != nil {
+				t.Fatal(timeErr)
+			}
+		},
+	})
+	if err == nil {
+		t.Fatal("same-inode same-size mutation with restored mtime was accepted")
+	}
+}
+
+func TestUS010ArtifactReadRejectsParentSymlinkSwap(t *testing.T) {
+	root := t.TempDir()
+	parent := filepath.Join(root, "parent")
+	moved := filepath.Join(root, "moved")
+	if err := os.Mkdir(parent, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(parent, "artifact.json"), []byte("original"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := readUS010ArtifactWithHooks(root, "parent/artifact.json", us010ArtifactReadHooks{
+		beforeOpen: func() {
+			if renameErr := os.Rename(parent, moved); renameErr != nil {
+				t.Fatal(renameErr)
+			}
+			if linkErr := os.Symlink("moved", parent); linkErr != nil {
+				t.Fatal(linkErr)
+			}
+		},
+	})
+	if err == nil {
+		t.Fatal("parent-directory symlink swap was accepted")
+	}
+}
+
 func TestUS010ProjectionRejectsFrozenVerdictPropertyAndSeedConfigDrift(t *testing.T) {
 	root := repoRoot(t)
 	projection, err := LoadAndVerifyClientHandshakeProjection(root)
@@ -127,7 +179,7 @@ func TestUS010ProjectionRejectsFrozenVerdictPropertyAndSeedConfigDrift(t *testin
 	}
 }
 
-func TestUS010EvidenceSourceBindingRequiresRealGitObjects(t *testing.T) {
+func TestUS010EvidenceSourceBindingRequiresExactGitBlobs(t *testing.T) {
 	raw, err := readUS010Artifact(repoRoot(t), "evidence/us010-client-handshake.json")
 	if err != nil {
 		t.Fatal(err)
@@ -136,11 +188,13 @@ func TestUS010EvidenceSourceBindingRequiresRealGitObjects(t *testing.T) {
 	if err := json.Unmarshal(raw, &evidence); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyUS010GitSourceBinding(repoRoot(t), evidence.Source.Commit, evidence.Source.Tree, evidence.Source.ImplementationFiles); err != nil {
+	if err := verifyUS010GitSourceBinding(repoRoot(t), evidence.Source.ImplementationFiles); err != nil {
 		t.Fatalf("committed source binding failed: %v", err)
 	}
-	if err := verifyUS010GitSourceBinding(repoRoot(t), "0000000000000000000000000000000000000000", evidence.Source.Tree, evidence.Source.ImplementationFiles); err == nil {
-		t.Fatal("hex-shaped nonexistent commit was accepted")
+	drift := append([]evidenceArtifact(nil), evidence.Source.ImplementationFiles...)
+	drift[0].GitBlob = "0000000000000000000000000000000000000000"
+	if err := verifyUS010GitSourceBinding(repoRoot(t), drift); err == nil {
+		t.Fatal("hex-shaped nonexistent source blob was accepted")
 	}
 }
 
@@ -158,14 +212,50 @@ func TestUS010EvidenceSourceBindingRejectsOversizedHistoricalBlob(t *testing.T) 
 	runUS010TestGit(t, root, "add", artifactPath)
 	runUS010TestGit(t, root, "commit", "--quiet", "-m", "oversized historical artifact")
 	commit := strings.TrimSpace(runUS010TestGit(t, root, "rev-parse", "HEAD"))
-	tree := strings.TrimSpace(runUS010TestGit(t, root, "rev-parse", "HEAD^{tree}"))
+	if _, err := readUS010GitBlob(root, commit+":"+artifactPath); err == nil {
+		t.Fatal("oversized historical git blob was accepted")
+	}
+}
 
-	if err := os.WriteFile(filepath.Join(root, artifactPath), []byte("bounded working copy"), 0o600); err != nil {
+func TestUS010EvidenceSourceBindingSupportsDepthOneCheckoutAndRejectsTamper(t *testing.T) {
+	base := t.TempDir()
+	source := filepath.Join(base, "source")
+	if err := os.Mkdir(source, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	artifacts := []evidenceArtifact{{Path: artifactPath, SHA256: DigestSHA256(committed)}}
-	if err := verifyUS010GitSourceBinding(root, commit, tree, artifacts); err == nil {
-		t.Fatal("oversized historical git blob was accepted")
+	runUS010TestGit(t, source, "init", "--quiet")
+	runUS010TestGit(t, source, "config", "user.email", "us010@example.invalid")
+	runUS010TestGit(t, source, "config", "user.name", "US010 Test")
+
+	const artifactPath = "artifact.bin"
+	committed := []byte("exact implementation bytes")
+	if err := os.WriteFile(filepath.Join(source, artifactPath), committed, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runUS010TestGit(t, source, "add", artifactPath)
+	runUS010TestGit(t, source, "commit", "--quiet", "-m", "source implementation")
+	commit := strings.TrimSpace(runUS010TestGit(t, source, "rev-parse", "HEAD"))
+	if err := os.WriteFile(filepath.Join(source, "receipt.json"), []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runUS010TestGit(t, source, "add", "receipt.json")
+	runUS010TestGit(t, source, "commit", "--quiet", "-m", "bind source receipt")
+	gitBlob := strings.TrimSpace(runUS010TestGit(t, source, "rev-parse", "HEAD:"+artifactPath))
+
+	checkout := filepath.Join(base, "checkout")
+	runUS010TestGit(t, base, "clone", "--quiet", "--depth", "1", "--no-local", source, checkout)
+	if err := exec.Command("git", "-C", checkout, "cat-file", "-e", commit+"^{commit}").Run(); err == nil {
+		t.Fatal("depth-one fixture unexpectedly contains the historical source commit")
+	}
+	artifacts := []evidenceArtifact{{Path: artifactPath, SHA256: DigestSHA256(committed), GitBlob: gitBlob}}
+	if err := verifyUS010GitSourceBinding(checkout, artifacts); err != nil {
+		t.Fatalf("depth-one source binding failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(checkout, artifactPath), []byte("tampered implementation!!"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyUS010GitSourceBinding(checkout, artifacts); err == nil {
+		t.Fatal("depth-one working-tree tamper was accepted")
 	}
 }
 
