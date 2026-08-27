@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verified-java-websocket-port.invalid/differential-evidence-1.0.0.schema.json",
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "state": {"enum": ["open", "closing", "closed"]},
+    "close": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["code", "reason", "clean", "origin"],
+      "properties": {
+        "code": {"type": ["integer", "null"], "minimum": 0, "maximum": 65535},
+        "reason": {"type": "string", "maxLength": 65535},
+        "clean": {"type": "boolean"},
+        "origin": {"enum": ["local", "remote", "transport", "unknown_before_scenario", "none"]}
+      }
+    },
+    "error": {
+      "type": ["object", "null"], "additionalProperties": false,
+      "required": ["class", "terminal"],
+      "properties": {"class": {"type": "string", "minLength": 1, "maxLength": 128}, "terminal": {"type": "boolean"}}
+    },
+    "event": {
+      "type": "object", "additionalProperties": false,
+      "required": ["step", "kind"],
+      "properties": {
+        "step": {"type": "integer", "minimum": 0, "maximum": 65535},
+        "kind": {"enum": ["text", "binary", "ping", "pong", "close", "client_handshake_opened", "server_handshake_opened"]},
+        "payload_base64": {"type": "string", "maxLength": 5592408},
+        "text": {"type": "string", "maxLength": 4194304},
+        "close": {"$ref": "#/$defs/close"}
+      }
+    },
+    "frame": {
+      "type": "object", "additionalProperties": false,
+      "required": ["step", "direction", "fin", "opcode", "masked", "payload_base64", "wire_length"],
+      "properties": {
+        "step": {"type": "integer", "minimum": 0, "maximum": 65535}, "direction": {"enum": ["inbound", "outbound"]}, "fin": {"type": "boolean"},
+        "opcode": {"enum": ["continuous", "text", "binary", "closing", "ping", "pong"]}, "masked": {"type": "boolean"},
+        "payload_base64": {"type": "string", "maxLength": 5592408}, "wire_length": {"type": "integer", "minimum": 0, "maximum": 4194304}
+      }
+    },
+    "transition": {
+      "type": "object", "additionalProperties": false, "required": ["step", "from", "to"],
+      "properties": {"step": {"type": "integer", "minimum": 0, "maximum": 65535}, "from": {"$ref": "#/$defs/state"}, "to": {"$ref": "#/$defs/state"}}
+    },
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["actions", "buffered_bytes", "consumed_bytes", "frames", "input_bytes", "message_buffered_bytes", "wire_buffered_bytes"],
+      "properties": {
+        "actions": {"type": "integer", "minimum": 0, "maximum": 1024}, "buffered_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304},
+        "consumed_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304}, "frames": {"type": "integer", "minimum": 0, "maximum": 4096},
+        "input_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304}, "message_buffered_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304},
+        "wire_buffered_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304}
+      }
+    },
+    "observation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scenario_id", "role", "initial_state", "outcome", "events", "frames", "transitions", "final_state", "close", "error", "counts"],
+      "properties": {
+        "scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}, "role": {"enum": ["client", "server"]}, "initial_state": {"$ref": "#/$defs/state"},
+        "outcome": {"enum": ["ok", "error"]}, "events": {"type": "array", "maxItems": 4096, "items": {"$ref": "#/$defs/event"}},
+        "frames": {"type": "array", "maxItems": 4096, "items": {"$ref": "#/$defs/frame"}}, "transitions": {"type": "array", "maxItems": 4096, "items": {"$ref": "#/$defs/transition"}},
+        "final_state": {"$ref": "#/$defs/state"}, "close": {"$ref": "#/$defs/close"}, "error": {"$ref": "#/$defs/error"}, "counts": {"$ref": "#/$defs/counts"}
+      }
+    },
+    "rust_item": {
+      "type": "object", "additionalProperties": false, "required": ["kind"],
+      "properties": {
+        "kind": {"type": "integer", "minimum": 1, "maximum": 6}, "event": {"$ref": "#/$defs/event"}, "frame": {"$ref": "#/$defs/frame"},
+        "transition": {"$ref": "#/$defs/transition"}, "close": {"$ref": "#/$defs/close"}, "error": {"$ref": "#/$defs/error"}, "transport": {"type": "string", "maxLength": 5592408}
+      }
+    },
+    "rust_step": {
+      "type": "object", "additionalProperties": false,
+      "required": ["index", "input_kind", "pre_state", "post_state", "consumed_bytes", "wire_buffered_bytes", "message_buffered_bytes", "observations"],
+      "properties": {
+        "index": {"type": "integer", "minimum": 0, "maximum": 65535}, "input_kind": {"enum": [1, 2, 16, 17, 18, 19, 20, 21]},
+        "pre_state": {"$ref": "#/$defs/state"}, "post_state": {"$ref": "#/$defs/state"}, "consumed_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304},
+        "wire_buffered_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304}, "message_buffered_bytes": {"type": "integer", "minimum": 0, "maximum": 4194304},
+        "observations": {"type": "array", "maxItems": 4096, "items": {"$ref": "#/$defs/rust_item"}}
+      }
+    },
+    "coverage_row": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "source_pointer", "source_sha256", "fresh_us020", "scenario_ids", "field_pointers", "predecessor_paths"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1, "maxLength": 256}, "source_pointer": {"type": "string", "pattern": "^/", "maxLength": 128}, "source_sha256": {"$ref": "#/$defs/digest"},
+        "fresh_us020": {"type": "boolean"}, "scenario_ids": {"type": "array", "maxItems": 74, "items": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}},
+        "field_pointers": {"type": "array", "maxItems": 64, "items": {"type": "string", "pattern": "^/", "maxLength": 256}},
+        "predecessor_paths": {"type": "array", "maxItems": 10, "items": {"type": "string", "pattern": "^evidence/us0(10|11|17|18)-"}},
+        "excluded_reason": {"type": "string", "minLength": 1, "maxLength": 256}
+      }
+    }
+  },
+  "type": "object", "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_id", "story_id", "status", "assurance", "independent_review_claimed", "production", "publication", "signing", "parity_scope", "repository_anchor", "inputs", "counts", "scenarios", "processes", "coverage", "controls", "ledger", "nonclaims"],
+  "properties": {
+    "$schema": {"const": "../../schemas/differential-evidence-1.0.0.schema.json"}, "schema_version": {"const": "1.0.0"}, "evidence_id": {"const": "evidence.us-020-public-differential"}, "story_id": {"const": "US-020"}, "status": {"const": "PASS"},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"}, "independent_review_claimed": {"const": false}, "production": {"const": false}, "publication": {"const": false}, "signing": {"const": false},
+    "parity_scope": {"const": "RUNTIME_COMMON_AGGREGATE"}, "repository_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "inputs": {"type": "array", "minItems": 9, "maxItems": 32, "items": {"type": "object", "additionalProperties": false, "required": ["path", "sha256", "bytes"], "properties": {"path": {"type": "string", "pattern": "^/", "maxLength": 4096}, "sha256": {"$ref": "#/$defs/digest"}, "bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}}}},
+    "counts": {"type": "object", "additionalProperties": false, "required": ["scenarios", "java_primary", "java_replay", "rust_primary", "rust_replay", "processes", "flakes", "current_mismatches", "unresolved_differences", "normalization_collisions"], "properties": {"scenarios": {"const": 74}, "java_primary": {"const": 74}, "java_replay": {"const": 74}, "rust_primary": {"const": 74}, "rust_replay": {"const": 74}, "processes": {"const": 296}, "flakes": {"const": 0}, "current_mismatches": {"const": 0}, "unresolved_differences": {"const": 0}, "normalization_collisions": {"const": 0}}},
+    "scenarios": {"type": "array", "minItems": 74, "maxItems": 74, "items": {"type": "object", "additionalProperties": false, "required": ["scenario_id", "java_primary_sha256", "java_replay_sha256", "rust_primary_sha256", "rust_replay_sha256", "neutral_expected_sha256", "stable", "current_mismatch", "classification", "java_observation", "rust_observation", "rust_step_diagnostics", "rust_bootstrap_sha256", "java_normalization_loss"], "properties": {"scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}, "java_primary_sha256": {"$ref": "#/$defs/digest"}, "java_replay_sha256": {"$ref": "#/$defs/digest"}, "rust_primary_sha256": {"$ref": "#/$defs/digest"}, "rust_replay_sha256": {"$ref": "#/$defs/digest"}, "neutral_expected_sha256": {"$ref": "#/$defs/digest"}, "stable": {"const": true}, "current_mismatch": {"const": false}, "classification": {"enum": ["agreement", "java_quirk"]}, "java_observation": {"$ref": "#/$defs/observation"}, "rust_observation": {"$ref": "#/$defs/observation"}, "rust_step_diagnostics": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/rust_step"}}, "rust_bootstrap_sha256": {"$ref": "#/$defs/digest"}, "java_normalization_loss": {"type": "array", "minItems": 5, "maxItems": 8192, "items": {"type": "string", "minLength": 1, "maxLength": 256}}}}},
+    "processes": {"type": "array", "minItems": 296, "maxItems": 296, "items": {"type": "object", "additionalProperties": false, "required": ["scenario_id", "runtime", "attempt", "pid", "executable_sha256", "stdin_sha256", "stdin_bytes", "stdout_sha256", "stdout_bytes", "stderr_sha256", "stderr_bytes", "exit_code", "started_unix_nano", "duration_nanos", "normalized_sha256"], "properties": {"scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}, "runtime": {"enum": ["java", "rust"]}, "attempt": {"enum": ["primary", "replay"]}, "pid": {"type": "integer", "minimum": 1}, "executable_sha256": {"$ref": "#/$defs/digest"}, "stdin_sha256": {"$ref": "#/$defs/digest"}, "stdin_bytes": {"type": "integer", "minimum": 1, "maximum": 4194304}, "stdout_sha256": {"$ref": "#/$defs/digest"}, "stdout_bytes": {"type": "integer", "minimum": 1, "maximum": 4194304}, "stderr_sha256": {"$ref": "#/$defs/digest"}, "stderr_bytes": {"type": "integer", "minimum": 0, "maximum": 4096}, "exit_code": {"const": 0}, "started_unix_nano": {"type": "integer", "minimum": 1}, "duration_nanos": {"type": "integer", "minimum": 0, "maximum": 5000000000}, "normalized_sha256": {"$ref": "#/$defs/digest"}}}},
+    "coverage": {"type": "object", "additionalProperties": false, "required": ["summary", "migration", "compatibility"], "properties": {"summary": {"type": "object", "additionalProperties": false, "required": ["migration_rows", "compatibility_items", "fresh_rows", "predecessor_rows", "capability_excluded_rows", "unresolved_rows"], "properties": {"migration_rows": {"const": 47}, "compatibility_items": {"const": 14}, "fresh_rows": {"type": "integer", "minimum": 1, "maximum": 61}, "predecessor_rows": {"type": "integer", "minimum": 1, "maximum": 61}, "capability_excluded_rows": {"type": "integer", "minimum": 0, "maximum": 61}, "unresolved_rows": {"const": 0}}}, "migration": {"type": "array", "minItems": 47, "maxItems": 47, "items": {"$ref": "#/$defs/coverage_row"}}, "compatibility": {"type": "array", "minItems": 14, "maxItems": 14, "items": {"$ref": "#/$defs/coverage_row"}}}},
+    "controls": {"type": "object", "additionalProperties": false, "required": ["total", "killed", "results"], "properties": {"total": {"const": 7}, "killed": {"const": 7}, "results": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"type": "object", "additionalProperties": false, "required": ["control_id", "seed_sha256", "expected_code", "detected_code", "baseline_passed", "ledger_unchanged"], "properties": {"control_id": {"type": "string", "minLength": 1, "maxLength": 64}, "seed_sha256": {"$ref": "#/$defs/digest"}, "expected_code": {"type": "string", "minLength": 1, "maxLength": 64}, "detected_code": {"type": "string", "minLength": 1, "maxLength": 64}, "baseline_passed": {"const": true}, "ledger_unchanged": {"const": true}}}}}},
+    "ledger": {"type": "object", "additionalProperties": false, "required": ["pre_head", "post_head", "records"], "properties": {"pre_head": {"$ref": "#/$defs/digest"}, "post_head": {"$ref": "#/$defs/digest"}, "records": {"type": "integer", "minimum": 0, "maximum": 4096}}},
+    "nonclaims": {"type": "array", "minItems": 6, "maxItems": 32, "contains": {"const": "no per-step Java counter parity"}, "items": {"type": "string", "minLength": 1, "maxLength": 256}}
+  }
+}
