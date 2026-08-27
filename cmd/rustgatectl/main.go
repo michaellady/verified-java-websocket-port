@@ -5,12 +5,18 @@
 // run. It is invoked by `make -C rust ac1-gates` (part of `make -C rust
 // gates`).
 //
-// Honesty contract: every external command's exit code is read from the
-// process state and printed verbatim as a `gate=... step=... exit=N` line;
-// a gate verdict is only PASS when every required exit was read as zero and
-// every mechanical assertion held. Checks that cannot execute on this host
-// (an audit tool not installed, no toolchain older than the MSRV) are
-// recorded as explicit `pending=` notes, never silently passed.
+// Honesty contract: every completed external command's exit code is read
+// from its process state — success and failure alike — and printed verbatim
+// as a `gate=... step=... exit=N` line; a command that never produced a
+// ProcessState is reported as `exit=none process_state=absent` with the
+// error, never as an invented number. A gate verdict is only PASS when every
+// required exit was read as zero and every mechanical assertion held. A
+// check whose execution is part of the gate's claim FAILS when it cannot
+// execute (an absent MSRV toolchain fails the msrv gate; absent audit tools
+// fail the audit gate whenever any non-path dependency exists). Only checks
+// outside the claim — the below-MSRV differential, audit-tool execution over
+// an empty dependency surface — are recorded as explicit `pending=` notes,
+// never silently passed.
 //
 // This tool claims infrastructure only. Executing these gates through the
 // accepted US-007 Docker sbx workload profile before artifact promotion is a
@@ -36,7 +42,44 @@ const (
 	canariesRelPath  = "rust/gates/canaries"
 	// exitNotRun marks a canary step that was intentionally not executed.
 	exitNotRun = -999
+	// exitNoProcessState marks a command that never produced a ProcessState
+	// (it never started); there is no real exit code to report.
+	exitNoProcessState = -998
 )
+
+// completedExit reads the exit code from the ProcessState of EVERY completed
+// command — success and failure alike — and renders it verbatim for the log
+// line. A command that never produced a ProcessState (it never started) has
+// no exit code to read; that absence is stated explicitly instead of
+// inventing a number.
+func completedExit(state *os.ProcessState, runErr error) (int, string) {
+	if state != nil {
+		exit := state.ExitCode()
+		return exit, fmt.Sprintf("exit=%d", exit)
+	}
+	errText := "none"
+	if runErr != nil {
+		errText = runErr.Error()
+	}
+	return exitNoProcessState, fmt.Sprintf("exit=none process_state=absent error=%q", errText)
+}
+
+// buildUnderMSRVOutcome decides the msrv gate's build-under-MSRV step given
+// the resolved MSRV toolchain name ("" when not installed). Building the
+// workspace under the MSRV toolchain is a hard requirement of the gate's
+// claim: when the toolchain is unavailable the gate FAILS — it is never
+// recorded as a passing pending note. Only the below-MSRV differential,
+// which needs a toolchain this workspace deliberately does not require, may
+// remain pending-recorded.
+func buildUnderMSRVOutcome(msrvToolchain, msrv string, runBuild func(toolchain string) int) (bool, string) {
+	if msrvToolchain == "" {
+		return false, fmt.Sprintf("MSRV toolchain %s is not installed via rustup: build-under-MSRV is a hard requirement and cannot execute, so the gate FAILS rather than passing pending (rustup toolchain install %s to run it)", msrv, msrv)
+	}
+	if exit := runBuild(msrvToolchain); exit != 0 {
+		return false, fmt.Sprintf("workspace does not build under MSRV toolchain %s (exit %d)", msrvToolchain, exit)
+	}
+	return true, ""
+}
 
 func main() { os.Exit(run(os.Args[1:], os.Stdout, os.Stderr)) }
 
@@ -119,20 +162,16 @@ type gateRunner struct {
 }
 
 // execStep runs one external command, reads its true exit code from the
-// process state, and prints it verbatim. Output is echoed on nonzero exits
-// (or when echoAlways is set) so failures are diagnosable from the log.
+// process state of every completed command (success and failure alike), and
+// prints it verbatim; a command that never produced a ProcessState is
+// reported as such explicitly. Output is echoed on non-success (or when
+// echoAlways is set) so failures are diagnosable from the log.
 func (r *gateRunner) execStep(gate, step, dir string, echoAlways bool, name string, args ...string) (int, string) {
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
-	exit := 0
-	if err != nil {
-		exit = -1
-		if cmd.ProcessState != nil {
-			exit = cmd.ProcessState.ExitCode()
-		}
-	}
-	fmt.Fprintf(r.stdout, "gate=%s step=%s cmd=%q exit=%d\n", gate, step, name+" "+strings.Join(args, " "), exit)
+	exit, exitField := completedExit(cmd.ProcessState, err)
+	fmt.Fprintf(r.stdout, "gate=%s step=%s cmd=%q %s\n", gate, step, name+" "+strings.Join(args, " "), exitField)
 	if (exit != 0 || echoAlways) && len(out) > 0 {
 		for _, line := range strings.Split(strings.TrimRight(string(out), "\n"), "\n") {
 			fmt.Fprintf(r.stdout, "gate=%s step=%s | %s\n", gate, step, line)
@@ -221,17 +260,193 @@ func (m *cargoMetadata) externalDependencies() []externalDependency {
 
 // --- gate 1: forbid(unsafe_code) enforcement --------------------------------
 
-// hasForbidUnsafe reports whether the source carries a literal top-level
-// `#![forbid(unsafe_code)]` inner attribute. Comment mentions do not count:
-// the line, after trimming, must start with the attribute itself.
+// hasForbidUnsafe reports whether the source carries a real
+// `#![forbid(unsafe_code)]` inner attribute at crate-root position. This is
+// a tokenizer-grade scan, not a line match: `//` line comments (including
+// `//!`/`///` doc comments), nested `/* */` block comments (per Rust
+// nesting), and string/raw-string literals are skipped rather than matched,
+// and the attribute only counts in the crate-root prelude — before the first
+// token that is not whitespace, a comment, or another inner attribute.
+// Mentions inside comments, inside string or raw-string literals, inside
+// nested modules, or anywhere after the first item therefore never count.
 func hasForbidUnsafe(source string) bool {
-	for _, raw := range strings.Split(source, "\n") {
-		line := strings.TrimSpace(raw)
-		if strings.HasPrefix(line, "#![forbid(unsafe_code)]") {
-			return true
+	i, n := 0, len(source)
+	// A shebang line (`#!` at byte 0 that does not introduce an attribute)
+	// is not part of the prelude.
+	if strings.HasPrefix(source, "#!") && !strings.HasPrefix(strings.TrimLeft(source[2:], " \t"), "[") {
+		nl := strings.IndexByte(source, '\n')
+		if nl < 0 {
+			return false
+		}
+		i = nl + 1
+	}
+	for i < n {
+		c := source[i]
+		switch {
+		case c == ' ' || c == '\t' || c == '\r' || c == '\n':
+			i++
+		case c == '/' && i+1 < n && source[i+1] == '/':
+			for i < n && source[i] != '\n' {
+				i++
+			}
+		case c == '/' && i+1 < n && source[i+1] == '*':
+			end, ok := skipBlockComment(source, i)
+			if !ok {
+				return false // unterminated block comment: nothing real follows
+			}
+			i = end
+		case c == '#':
+			// Only an inner attribute `#![...]` may continue the prelude; an
+			// outer attribute or stray `#` ends it (a crate-root inner
+			// attribute after an outer attribute is not valid Rust anyway).
+			j := skipSpace(source, i+1)
+			if j >= n || source[j] != '!' {
+				return false
+			}
+			j = skipSpace(source, j+1)
+			if j >= n || source[j] != '[' {
+				return false
+			}
+			body, end, ok := scanAttributeBody(source, j)
+			if !ok {
+				return false
+			}
+			if isForbidUnsafeAttribute(body) {
+				return true
+			}
+			i = end
+		default:
+			// First token that is neither a comment nor an inner attribute —
+			// an item (`mod`, `pub`, ...), a literal, an outer attribute.
+			// The crate-root prelude is over.
+			return false
 		}
 	}
 	return false
+}
+
+// skipSpace returns the first index at or after i that is not whitespace.
+func skipSpace(s string, i int) int {
+	for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\r' || s[i] == '\n') {
+		i++
+	}
+	return i
+}
+
+// skipBlockComment consumes a (nested, per Rust) `/* */` comment starting at
+// s[i] and returns the index just past it; ok is false when unterminated.
+func skipBlockComment(s string, i int) (int, bool) {
+	depth := 0
+	n := len(s)
+	for i < n {
+		switch {
+		case i+1 < n && s[i] == '/' && s[i+1] == '*':
+			depth++
+			i += 2
+		case i+1 < n && s[i] == '*' && s[i+1] == '/':
+			depth--
+			i += 2
+			if depth == 0 {
+				return i, true
+			}
+		default:
+			i++
+		}
+	}
+	return i, false
+}
+
+// scanAttributeBody consumes a bracketed attribute body whose `[` is at
+// s[open], honoring nested brackets, comments, and string/raw-string
+// literals so a `]` inside a literal cannot close the attribute early. It
+// returns the inner body and the index just past the closing `]`.
+func scanAttributeBody(s string, open int) (string, int, bool) {
+	depth := 0
+	i, n := open, len(s)
+	for i < n {
+		switch {
+		case s[i] == '[':
+			depth++
+			i++
+		case s[i] == ']':
+			depth--
+			i++
+			if depth == 0 {
+				return s[open+1 : i-1], i, true
+			}
+		case s[i] == '/' && i+1 < n && s[i+1] == '/':
+			for i < n && s[i] != '\n' {
+				i++
+			}
+		case s[i] == '/' && i+1 < n && s[i+1] == '*':
+			end, ok := skipBlockComment(s, i)
+			if !ok {
+				return "", 0, false
+			}
+			i = end
+		case s[i] == '"':
+			end, ok := skipStringLiteral(s, i)
+			if !ok {
+				return "", 0, false
+			}
+			i = end
+		case s[i] == 'r' && i+1 < n && (s[i+1] == '"' || s[i+1] == '#'):
+			if end, ok := skipRawStringLiteral(s, i); ok {
+				i = end
+			} else {
+				i++ // raw identifier (r#foo) or bare `r`, not a raw string
+			}
+		default:
+			i++
+		}
+	}
+	return "", 0, false
+}
+
+// skipStringLiteral consumes a basic `"..."` literal (backslash escapes
+// honored) starting at s[i] and returns the index just past it.
+func skipStringLiteral(s string, i int) (int, bool) {
+	i++ // opening quote
+	for i < len(s) {
+		switch s[i] {
+		case '\\':
+			i += 2
+		case '"':
+			return i + 1, true
+		default:
+			i++
+		}
+	}
+	return i, false
+}
+
+// skipRawStringLiteral consumes a raw string literal r"..." / r#"..."# (any
+// hash depth) starting at the `r` at s[i]; ok is false when s[i:] is not
+// actually a raw string (e.g. a raw identifier like r#foo).
+func skipRawStringLiteral(s string, i int) (int, bool) {
+	j := i + 1
+	hashes := 0
+	for j < len(s) && s[j] == '#' {
+		hashes++
+		j++
+	}
+	if j >= len(s) || s[j] != '"' {
+		return 0, false
+	}
+	j++
+	closer := `"` + strings.Repeat("#", hashes)
+	end := strings.Index(s[j:], closer)
+	if end < 0 {
+		return len(s), false
+	}
+	return j + end + len(closer), true
+}
+
+// isForbidUnsafeAttribute reports whether an inner-attribute body, with
+// token-irrelevant whitespace removed, is exactly forbid(unsafe_code).
+func isForbidUnsafeAttribute(body string) bool {
+	compact := strings.Join(strings.Fields(body), "")
+	return compact == "forbid(unsafe_code)" || compact == "forbid(unsafe_code,)"
 }
 
 // scanRootsForForbid returns one violation per crate-root file that is
@@ -288,7 +503,7 @@ func (r *gateRunner) gateForbidUnsafe(meta *cargoMetadata, metaErr error) (bool,
 type inventoryEntry struct {
 	Name        string `json:"name"`
 	Version     string `json:"version"`
-	Source      string `json:"source,omitempty"`
+	Source      string `json:"source"`
 	UnsafeUsage string `json:"unsafe_usage"`
 }
 
@@ -299,30 +514,55 @@ type dependencyInventory struct {
 	ExternalDependencies []inventoryEntry `json:"external_dependencies"`
 }
 
-// compareDependencyInventory demands a stated unsafe_usage inventory entry
-// for every external (non-path) dependency, and no stale entries.
+// compareDependencyInventory demands a reviewed inventory entry for every
+// external (non-path) dependency, and no stale entries. The reviewed
+// identity is name@version@source: `source` is REQUIRED on every entry, and
+// the same name/version arriving from a different source (the source-swap
+// bypass) fails until a renewed reviewed entry lands.
 func compareDependencyInventory(externals []externalDependency, entries []inventoryEntry) []string {
 	var violations []string
-	byName := make(map[string]inventoryEntry, len(entries))
+	type nameVersion struct{ name, version string }
+	byNameVersion := make(map[nameVersion][]inventoryEntry, len(entries))
 	for _, e := range entries {
-		byName[e.Name+"@"+e.Version] = e
-	}
-	seen := make(map[string]bool, len(externals))
-	for _, dep := range externals {
-		key := dep.Name + "@" + dep.Version
-		seen[key] = true
-		entry, ok := byName[key]
-		if !ok {
-			violations = append(violations, fmt.Sprintf("external dependency %s lacks an inventory entry with an unsafe-usage statement", key))
+		if strings.TrimSpace(e.Source) == "" {
+			violations = append(violations, fmt.Sprintf("inventory entry %s@%s lacks a source; the inventory policy requires the reviewed source to be recorded, so this entry covers nothing", e.Name, e.Version))
 			continue
 		}
-		if strings.TrimSpace(entry.UnsafeUsage) == "" {
-			violations = append(violations, fmt.Sprintf("inventory entry %s has a blank unsafe_usage statement", key))
+		key := nameVersion{e.Name, e.Version}
+		byNameVersion[key] = append(byNameVersion[key], e)
+	}
+	matched := make(map[string]bool)
+	for _, dep := range externals {
+		candidates := byNameVersion[nameVersion{dep.Name, dep.Version}]
+		if len(candidates) == 0 {
+			violations = append(violations, fmt.Sprintf("external dependency %s@%s (source %q) lacks an inventory entry with an unsafe-usage statement", dep.Name, dep.Version, dep.Source))
+			continue
+		}
+		var covering *inventoryEntry
+		for i := range candidates {
+			if candidates[i].Source == dep.Source {
+				covering = &candidates[i]
+				break
+			}
+		}
+		if covering == nil {
+			var reviewed []string
+			for _, c := range candidates {
+				reviewed = append(reviewed, c.Source)
+			}
+			violations = append(violations, fmt.Sprintf("external dependency %s@%s comes from source %q but the inventory reviewed %s — a changed source requires a renewed reviewed entry", dep.Name, dep.Version, dep.Source, strings.Join(reviewed, ", ")))
+			continue
+		}
+		matched[covering.Name+"@"+covering.Version+"@"+covering.Source] = true
+		if strings.TrimSpace(covering.UnsafeUsage) == "" {
+			violations = append(violations, fmt.Sprintf("inventory entry %s@%s (source %q) has a blank unsafe_usage statement", covering.Name, covering.Version, covering.Source))
 		}
 	}
-	for key := range byName {
-		if !seen[key] {
-			violations = append(violations, fmt.Sprintf("stale inventory entry %s matches no dependency in cargo metadata", key))
+	for _, list := range byNameVersion {
+		for _, e := range list {
+			if !matched[e.Name+"@"+e.Version+"@"+e.Source] {
+				violations = append(violations, fmt.Sprintf("stale inventory entry %s@%s (source %q) matches no dependency in cargo metadata", e.Name, e.Version, e.Source))
+			}
 		}
 	}
 	sort.Strings(violations)
@@ -370,17 +610,59 @@ func parseToolchainChannel(toml string) (string, error) {
 	return "", fmt.Errorf("no channel = \"...\" line found")
 }
 
+// stripTOMLLineComment removes a trailing `# ...` comment, honoring basic
+// ("...") and literal ('...') strings so a `#` inside a value survives.
+func stripTOMLLineComment(line string) string {
+	inBasic, inLiteral := false, false
+	for i := 0; i < len(line); i++ {
+		switch c := line[i]; {
+		case inBasic:
+			if c == '\\' {
+				i++
+			} else if c == '"' {
+				inBasic = false
+			}
+		case inLiteral:
+			if c == '\'' {
+				inLiteral = false
+			}
+		case c == '"':
+			inBasic = true
+		case c == '\'':
+			inLiteral = true
+		case c == '#':
+			return line[:i]
+		}
+	}
+	return line
+}
+
+// tomlSectionName recognizes a `[section]` / `[[section]]` header line
+// (already comment-stripped and trimmed) and returns its dotted name with
+// insignificant whitespace removed, so `[ package ]` and `[package]` agree.
+func tomlSectionName(line string) (string, bool) {
+	if !strings.HasPrefix(line, "[") || !strings.HasSuffix(line, "]") {
+		return "", false
+	}
+	inner := strings.TrimSuffix(strings.TrimPrefix(line, "["), "]")
+	inner = strings.TrimSuffix(strings.TrimPrefix(inner, "["), "]") // [[array-of-tables]]
+	inner = strings.ReplaceAll(inner, " ", "")
+	inner = strings.ReplaceAll(inner, "\t", "")
+	return inner, true
+}
+
 // parseWorkspacePackageKey reads `key = "value"` from the [workspace.package]
-// section only.
+// section only; the walk is section-aware, so the key in any other section
+// (including metadata sections) never satisfies it.
 func parseWorkspacePackageKey(manifest, key string) (string, error) {
 	section := ""
 	for _, raw := range strings.Split(manifest, "\n") {
-		line := strings.TrimSpace(raw)
-		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
-			section = line
+		line := strings.TrimSpace(stripTOMLLineComment(raw))
+		if name, ok := tomlSectionName(line); ok {
+			section = name
 			continue
 		}
-		if section != "[workspace.package]" {
+		if section != "workspace.package" {
 			continue
 		}
 		if value, ok := parseQuotedAssignment(line, key); ok {
@@ -390,12 +672,23 @@ func parseWorkspacePackageKey(manifest, key string) (string, error) {
 	return "", fmt.Errorf("no %s = \"...\" in [workspace.package]", key)
 }
 
-// memberInheritsWorkspaceKey accepts `key.workspace = true`, the inline-table
-// form, or an explicit value exactly equal to the workspace value.
+// memberInheritsWorkspaceKey accepts, under the member's [package] section
+// ONLY, `key.workspace = true`, the inline-table form, or an explicit value
+// exactly equal to the workspace value. The walk is section-aware: the same
+// key under [package.metadata.*] or any other section is a decoy and never
+// satisfies the check.
 func memberInheritsWorkspaceKey(manifest, key, workspaceValue string) bool {
+	section := ""
 	for _, raw := range strings.Split(manifest, "\n") {
-		line := strings.TrimSpace(raw)
-		compact := strings.ReplaceAll(line, " ", "")
+		line := strings.TrimSpace(stripTOMLLineComment(raw))
+		if name, ok := tomlSectionName(line); ok {
+			section = name
+			continue
+		}
+		if section != "package" {
+			continue
+		}
+		compact := strings.ReplaceAll(strings.ReplaceAll(line, " ", ""), "\t", "")
 		if compact == key+".workspace=true" || compact == key+"={workspace=true}" {
 			return true
 		}
@@ -570,16 +863,18 @@ func (r *gateRunner) gateMSRV(meta *cargoMetadata, metaErr error) (bool, string)
 	}
 
 	// The build-under-MSRV check. The MSRV equals the pinned toolchain
-	// (1.95.0), so building under the pin IS the MSRV build; run it
-	// explicitly under the version-named toolchain when installed.
-	if msrvToolchain == "" {
-		r.note(g, "pending=%q", "MSRV toolchain "+msrv+" not installed via rustup; build-under-MSRV recorded pending toolchain availability")
-		return true, fmt.Sprintf("declarations consistent (channel=rust-version=intake=%s); build-under-MSRV pending toolchain availability", msrv)
-	}
-	exit, _ = r.execStep(g, "cargo-check-under-msrv", r.rustDir, false,
-		"rustup", "run", msrvToolchain, "cargo", "check", "--workspace", "--all-targets", "--locked")
-	if exit != 0 {
-		return false, fmt.Sprintf("workspace does not build under MSRV toolchain %s (exit %d)", msrvToolchain, exit)
+	// (1.95.0), so building under the pin IS the MSRV build; it runs
+	// explicitly under the version-named toolchain. This is a hard
+	// requirement: an absent MSRV toolchain FAILS the gate (see
+	// buildUnderMSRVOutcome) — only the below-MSRV differential above may
+	// remain pending-recorded.
+	pass, failDetail := buildUnderMSRVOutcome(msrvToolchain, msrv, func(toolchain string) int {
+		exit, _ := r.execStep(g, "cargo-check-under-msrv", r.rustDir, false,
+			"rustup", "run", toolchain, "cargo", "check", "--workspace", "--all-targets", "--locked")
+		return exit
+	})
+	if !pass {
+		return false, failDetail
 	}
 	return true, fmt.Sprintf("declarations consistent (channel=rust-version=intake=%s); workspace builds under MSRV toolchain %s", msrv, msrvToolchain)
 }

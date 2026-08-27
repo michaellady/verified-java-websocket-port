@@ -54,28 +54,44 @@ pipeline stories, not this scaffold):
 The US-009 AC1 infrastructure round added `cmd/rustgatectl` (Go, the repo's
 incumbent tooling; unit polarity tests in `cmd/rustgatectl/main_test.go`),
 invoked by `make -C rust ac1-gates` and therefore by `make -C rust gates`.
-The runner prints every external command's true exit code verbatim
-(`gate=... step=... exit=N`) and exits nonzero if any gate fails:
+The runner reads every completed command's exit code from its process state
+— success and failure alike — and prints it verbatim
+(`gate=... step=... exit=N`; a command that never produced a process state
+is reported as `exit=none process_state=absent` with the error, never as an
+invented number) and exits nonzero if any gate fails:
 
 1. **forbid-unsafe** — discovers every first-party lib and bin crate root
-   via `cargo metadata` and fails unless each root literally carries a
-   top-level `#![forbid(unsafe_code)]` (comment mentions do not count).
+   via `cargo metadata` and fails unless each root carries a real
+   crate-root `#![forbid(unsafe_code)]` inner attribute. The scan is
+   tokenizer-grade: line comments, nested block comments, and
+   string/raw-string literals are skipped rather than matched, and the
+   attribute only counts before the first non-attribute, non-comment token
+   — a mention inside a comment, a literal, or a nested `mod` never
+   satisfies the gate.
 2. **dependency-inventory** — the workspace is dependency-free by design;
    the gate mechanically asserts `cargo metadata --locked` reports zero
    non-path dependencies and that the committed machine-readable inventory
    (`rust/gates/dependency-unsafe-inventory.json`, currently the stated
    empty inventory) agrees. Any future external crate fails the gate until
-   a reviewed entry with a non-blank `unsafe_usage` statement lands there;
-   stale entries also fail.
+   a reviewed entry with a non-blank `unsafe_usage` statement lands there.
+   Entries bind the reviewed identity `name@version@source`: `source` is
+   required on every entry, and the same name and version arriving from a
+   different source fails until a renewed reviewed entry lands; stale
+   entries also fail.
 3. **msrv** — asserts `rust-toolchain.toml` channel, workspace
    `rust-version`, and the intake-qualified rustc version
    (`evidence/intake/toolchain-pins.json`) are all `1.95.0`, that every
-   member inherits or matches it, and runs
+   member inherits or matches it **under its `[package]` section**
+   (section-aware TOML walk — a decoy under `[package.metadata.*]` does not
+   count), and runs
    `rustup run 1.95.0-… cargo check --workspace --all-targets --locked` —
    because the MSRV equals the pinned toolchain, that check IS the
-   build-under-MSRV. Honest limit: no installed toolchain is older than the
-   MSRV, so a below-MSRV differential build is recorded as pending
-   toolchain availability, not claimed.
+   build-under-MSRV. Building under the MSRV toolchain is a hard
+   requirement: if that toolchain is not installed the gate FAILS rather
+   than passing pending. Honest limit: no installed toolchain is older
+   than the MSRV, so only the below-MSRV differential build is recorded as
+   pending toolchain availability, not claimed. The license member check
+   uses the same section-aware walk.
 4. **license** — stated policy: root `LICENSE` (Apache-2.0) plus per-crate
    SPDX `license = "Apache-2.0"` via workspace inheritance; per-source-file
    headers are not required. The gate checks the root file's Apache-2.0

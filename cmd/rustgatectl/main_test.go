@@ -8,8 +8,11 @@
 package main
 
 import (
+	"bytes"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -28,6 +31,22 @@ func TestHasForbidUnsafeDetectsRealAttributeOnly(t *testing.T) {
 		{"absent", "pub fn f() {}\n", false},
 		{"empty", "", false},
 		{"deny-is-not-forbid", "#![deny(unsafe_code)]\n", false},
+		// Round-1 review blockers: comment/scope-aware scan. The attribute
+		// only counts at crate-root position, never inside a comment, a
+		// string/raw-string literal, or a nested module.
+		{"attribute-in-block-comment", "/*\n#![forbid(unsafe_code)]\n*/\npub fn f() {}\n", false},
+		{"attribute-in-nested-block-comment", "/* outer /* inner */\n#![forbid(unsafe_code)]\n*/\npub fn f() {}\n", false},
+		{"attribute-in-raw-string", "pub const DOC: &str = r#\"\n#![forbid(unsafe_code)]\n\"#;\n", false},
+		{"attribute-in-plain-string", "pub const DOC: &str = \"\n#![forbid(unsafe_code)]\n\";\n", false},
+		{"attribute-inside-mod", "mod inner {\n    #![forbid(unsafe_code)]\n}\npub fn f() {}\n", false},
+		{"attribute-after-item", "pub fn f() {}\n#![forbid(unsafe_code)]\n", false},
+		// Conforming placements that must keep passing.
+		{"attribute-after-doc-comments", "//! docs\n//! more docs\n#![forbid(unsafe_code)]\npub fn f() {}\n", true},
+		{"attribute-after-block-comment", "/* license\nheader */\n#![forbid(unsafe_code)]\npub fn f() {}\n", true},
+		{"attribute-after-other-inner-attribute", "#![deny(missing_docs)]\n#![forbid(unsafe_code)]\npub fn f() {}\n", true},
+		{"attribute-with-inner-spacing", "#![ forbid ( unsafe_code ) ]\npub fn f() {}\n", true},
+		{"doc-attr-string-decoy-only", "#![doc = \"#![forbid(unsafe_code)]\"]\npub fn f() {}\n", false},
+		{"doc-attr-string-decoy-then-real", "#![doc = \"#![forbid(unsafe_code)]\"]\n#![forbid(unsafe_code)]\npub fn f() {}\n", true},
 	}
 	for _, tc := range cases {
 		if got := hasForbidUnsafe(tc.source); got != tc.want {
@@ -65,24 +84,49 @@ func TestCompareDependencyInventoryPolarity(t *testing.T) {
 		t.Fatalf("zero externals + empty inventory must pass, got %v", violations)
 	}
 
-	externals := []externalDependency{{Name: "smallvec", Version: "1.13.2", Source: "registry+https://github.com/rust-lang/crates.io-index"}}
+	const registry = "registry+https://github.com/rust-lang/crates.io-index"
+	externals := []externalDependency{{Name: "smallvec", Version: "1.13.2", Source: registry}}
 	if violations := compareDependencyInventory(externals, empty); len(violations) == 0 {
 		t.Fatal("external dependency without an inventory entry must fail")
 	}
 
-	covered := []inventoryEntry{{Name: "smallvec", Version: "1.13.2", UnsafeUsage: "uses unsafe for inline storage; reviewed"}}
+	covered := []inventoryEntry{{Name: "smallvec", Version: "1.13.2", Source: registry, UnsafeUsage: "uses unsafe for inline storage; reviewed"}}
 	if violations := compareDependencyInventory(externals, covered); len(violations) != 0 {
-		t.Fatalf("covered external must pass, got %v", violations)
+		t.Fatalf("covered external (name+version+source all matching) must pass, got %v", violations)
 	}
 
-	blank := []inventoryEntry{{Name: "smallvec", Version: "1.13.2", UnsafeUsage: "   "}}
+	blank := []inventoryEntry{{Name: "smallvec", Version: "1.13.2", Source: registry, UnsafeUsage: "   "}}
 	if violations := compareDependencyInventory(externals, blank); len(violations) == 0 {
 		t.Fatal("inventory entry with a blank unsafe_usage statement must fail")
 	}
 
-	stale := []inventoryEntry{{Name: "gone-crate", Version: "0.1.0", UnsafeUsage: "stated"}}
+	stale := []inventoryEntry{{Name: "gone-crate", Version: "0.1.0", Source: registry, UnsafeUsage: "stated"}}
 	if violations := compareDependencyInventory(none, stale); len(violations) == 0 {
 		t.Fatal("stale inventory entry with no matching dependency must fail")
+	}
+}
+
+// Round-1 review blocker: the inventory must bind the reviewed SOURCE, not
+// just name@version. A dependency swapped to a different source (the
+// source-swap bypass) demands a renewed reviewed entry, and an entry that
+// omits its source cannot cover anything.
+func TestCompareDependencyInventoryRequiresSource(t *testing.T) {
+	const registry = "registry+https://github.com/rust-lang/crates.io-index"
+	externals := []externalDependency{{Name: "smallvec", Version: "1.13.2", Source: registry}}
+
+	unsourced := []inventoryEntry{{Name: "smallvec", Version: "1.13.2", UnsafeUsage: "reviewed"}}
+	if violations := compareDependencyInventory(externals, unsourced); len(violations) == 0 {
+		t.Fatal("inventory entry without a source must fail — the reviewed source is part of the reviewed identity")
+	}
+
+	swapped := []inventoryEntry{{Name: "smallvec", Version: "1.13.2", Source: "git+https://github.com/attacker/smallvec", UnsafeUsage: "reviewed"}}
+	violations := compareDependencyInventory(externals, swapped)
+	if len(violations) == 0 {
+		t.Fatal("source-swap bypass: same name@version from a different source must FAIL until a renewed reviewed entry lands")
+	}
+	joined := strings.Join(violations, "\n")
+	if !strings.Contains(joined, registry) {
+		t.Fatalf("source-swap violation must name the actual dependency source, got %v", violations)
 	}
 }
 
@@ -134,6 +178,42 @@ func TestMemberInheritsWorkspaceKeyPolarity(t *testing.T) {
 	absent := "[package]\nname = \"x\"\n"
 	if memberInheritsWorkspaceKey(absent, "rust-version", "1.95.0") {
 		t.Fatal("absent declaration must fail the check")
+	}
+}
+
+// Round-1 review blocker: the member checks must be section-aware. A key
+// under [package.metadata.*] (or any non-[package] section) is a decoy and
+// must NOT satisfy the MSRV/license member requirement.
+func TestMemberInheritsWorkspaceKeyIsSectionAware(t *testing.T) {
+	metadataValueDecoy := "[package]\nname = \"x\"\n\n[package.metadata.gate-dodge]\nrust-version = \"1.95.0\"\n"
+	if memberInheritsWorkspaceKey(metadataValueDecoy, "rust-version", "1.95.0") {
+		t.Fatal("explicit value under [package.metadata.*] must NOT satisfy the check")
+	}
+	metadataInheritDecoy := "[package]\nname = \"x\"\n\n[package.metadata.gate-dodge]\nrust-version.workspace = true\n"
+	if memberInheritsWorkspaceKey(metadataInheritDecoy, "rust-version", "1.95.0") {
+		t.Fatal("workspace-inheritance marker under [package.metadata.*] must NOT satisfy the check")
+	}
+	metadataLicenseDecoy := "[package]\nname = \"x\"\n\n[package.metadata.gate-dodge]\nlicense = \"Apache-2.0\"\n"
+	if memberInheritsWorkspaceKey(metadataLicenseDecoy, "license", "Apache-2.0") {
+		t.Fatal("license under [package.metadata.*] must NOT satisfy the check")
+	}
+	otherSectionDecoy := "[package]\nname = \"x\"\n\n[dependencies]\nrust-version = \"1.95.0\"\n"
+	if memberInheritsWorkspaceKey(otherSectionDecoy, "rust-version", "1.95.0") {
+		t.Fatal("key under [dependencies] must NOT satisfy the check")
+	}
+	keyBeforeAnySection := "rust-version = \"1.95.0\"\n[package]\nname = \"x\"\n"
+	if memberInheritsWorkspaceKey(keyBeforeAnySection, "rust-version", "1.95.0") {
+		t.Fatal("top-level key outside any [package] section must NOT satisfy the check")
+	}
+	// The real placements must keep passing, including with trailing comments
+	// and spaced section headers.
+	underPackage := "[ package ]\nname = \"x\"\nrust-version.workspace = true # inherited\n"
+	if !memberInheritsWorkspaceKey(underPackage, "rust-version", "1.95.0") {
+		t.Fatal("inheritance marker under [package] with a trailing comment must satisfy the check")
+	}
+	afterMetadata := "[package.metadata.gate-dodge]\nrust-version = \"1.80.0\"\n\n[package]\nname = \"x\"\nrust-version = \"1.95.0\"\n"
+	if !memberInheritsWorkspaceKey(afterMetadata, "rust-version", "1.95.0") {
+		t.Fatal("matching value under a [package] section that FOLLOWS a metadata section must satisfy the check")
 	}
 }
 
@@ -206,6 +286,106 @@ func TestEvaluateCanaryPolarity(t *testing.T) {
 	sneakyBadClippy.clippyExit = 0
 	if violations := evaluateCanaryPolarity(good, sneakyBadClippy); len(violations) == 0 {
 		t.Fatal("bad canary passing clippy must fail the polarity check")
+	}
+}
+
+// --- exit-code reporting shape ----------------------------------------------
+
+// Round-1 review blocker: the exit code must be READ from the process state
+// of every completed command — success and failure alike — and printed
+// verbatim; a command that never produced a ProcessState must say so
+// explicitly instead of inventing a numeric code.
+func TestExecStepExitReportingShape(t *testing.T) {
+	dir := t.TempDir()
+
+	var buf bytes.Buffer
+	r := &gateRunner{stdout: &buf}
+	exit, _ := r.execStep("shape", "success", dir, false, "sh", "-c", "exit 0")
+	if exit != 0 {
+		t.Fatalf("sh -c 'exit 0' reported exit %d", exit)
+	}
+	if !strings.Contains(buf.String(), "exit=0") {
+		t.Fatalf("success line must carry the verbatim exit code, got %q", buf.String())
+	}
+
+	buf.Reset()
+	exit, _ = r.execStep("shape", "failure", dir, false, "sh", "-c", "exit 7")
+	if exit != 7 {
+		t.Fatalf("sh -c 'exit 7' reported exit %d, want 7", exit)
+	}
+	if !strings.Contains(buf.String(), "exit=7") {
+		t.Fatalf("failure line must carry the verbatim exit code, got %q", buf.String())
+	}
+
+	buf.Reset()
+	exit, _ = r.execStep("shape", "never-started", dir, false, "/nonexistent-rustgatectl-test-binary")
+	if exit == 0 {
+		t.Fatal("a command that never started must not report success")
+	}
+	if !strings.Contains(buf.String(), "exit=none") || !strings.Contains(buf.String(), "process_state=absent") {
+		t.Fatalf("a command with no ProcessState must say so explicitly (exit=none process_state=absent), got %q", buf.String())
+	}
+}
+
+func TestCompletedExitReadsProcessState(t *testing.T) {
+	cmd := exec.Command("sh", "-c", "exit 0")
+	runErr := cmd.Run()
+	exit, field := completedExit(cmd.ProcessState, runErr)
+	if exit != 0 || field != "exit=0" {
+		t.Fatalf("success: completedExit = (%d, %q), want (0, \"exit=0\")", exit, field)
+	}
+
+	cmd = exec.Command("sh", "-c", "exit 42")
+	runErr = cmd.Run()
+	exit, field = completedExit(cmd.ProcessState, runErr)
+	if exit != 42 || field != "exit=42" {
+		t.Fatalf("failure: completedExit = (%d, %q), want (42, \"exit=42\")", exit, field)
+	}
+
+	cmd = exec.Command("/nonexistent-rustgatectl-test-binary")
+	runErr = cmd.Run()
+	exit, field = completedExit(cmd.ProcessState, runErr)
+	if exit != exitNoProcessState {
+		t.Fatalf("no ProcessState: exit = %d, want sentinel %d", exit, exitNoProcessState)
+	}
+	if !strings.Contains(field, "exit=none") || !strings.Contains(field, "process_state=absent") {
+		t.Fatalf("no ProcessState: field = %q must state the absence explicitly", field)
+	}
+}
+
+// --- MSRV build hard requirement ---------------------------------------------
+
+// Round-1 review blocker: build-under-MSRV is a hard requirement. An absent
+// MSRV toolchain FAILS the msrv gate; it is never recorded as a passing
+// pending note. Only the below-MSRV differential may remain pending.
+func TestBuildUnderMSRVOutcomeHardRequirement(t *testing.T) {
+	buildRan := false
+	pass, detail := buildUnderMSRVOutcome("", "1.95.0", func(string) int { buildRan = true; return 0 })
+	if pass {
+		t.Fatal("absent MSRV toolchain must FAIL the msrv gate, not pass pending")
+	}
+	if buildRan {
+		t.Fatal("no build may be attempted without the MSRV toolchain")
+	}
+	if !strings.Contains(detail, "hard requirement") {
+		t.Fatalf("failure detail must state the hard requirement, got %q", detail)
+	}
+
+	var usedToolchain string
+	pass, detail = buildUnderMSRVOutcome("1.95.0-aarch64-apple-darwin", "1.95.0", func(tc string) int { usedToolchain = tc; return 0 })
+	if !pass {
+		t.Fatalf("clean build under the MSRV toolchain must pass, got %q", detail)
+	}
+	if usedToolchain != "1.95.0-aarch64-apple-darwin" {
+		t.Fatalf("build must run under the MSRV toolchain, ran under %q", usedToolchain)
+	}
+
+	pass, detail = buildUnderMSRVOutcome("1.95.0-aarch64-apple-darwin", "1.95.0", func(string) int { return 101 })
+	if pass {
+		t.Fatal("failing build under the MSRV toolchain must fail the gate")
+	}
+	if !strings.Contains(detail, "101") {
+		t.Fatalf("build failure detail must carry the verbatim exit, got %q", detail)
 	}
 }
 
