@@ -75,6 +75,31 @@ type Receipt struct {
 	EvidenceSHA256  string `json:"evidence_sha256"`
 }
 
+type DiagnosticFinding struct {
+	ScenarioID     string `json:"scenario_id"`
+	Pointer        string `json:"pointer"`
+	Classification string `json:"classification"`
+	JavaSHA256     string `json:"java_sha256,omitempty"`
+	RustSHA256     string `json:"rust_sha256,omitempty"`
+	ExpectedSHA256 string `json:"expected_sha256,omitempty"`
+	Detail         string `json:"detail"`
+}
+
+// DiagnosticReport is deliberately in-memory and non-authoritative. It lets a
+// bounded remediation pass see every public blocker without weakening the
+// official facade's transactional, fail-closed evidence behavior.
+type DiagnosticReport struct {
+	Status           string              `json:"status"`
+	ScenarioCount    int                 `json:"scenario_count"`
+	ProcessReceipts  int                 `json:"process_receipts"`
+	StableScenarios  int                 `json:"stable_scenarios"`
+	AcceptedQuirks   int                 `json:"accepted_quirks"`
+	BlockingFindings int                 `json:"blocking_findings"`
+	EvidenceWrites   int                 `json:"evidence_writes"`
+	LedgerWrites     int                 `json:"ledger_writes"`
+	Findings         []DiagnosticFinding `json:"findings"`
+}
+
 type ArtifactIdentity struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
@@ -1196,15 +1221,22 @@ func BuildOracleHierarchy(scenarios []corpora.Scenario) (OracleHierarchy, error)
 				return OracleHierarchy{}, err
 			}
 			cell := OracleCell{ScenarioID: sc.ScenarioID, Pointer: pointer, Authority: "neutral", Rank: 3, ExpectedSHA256: digest(value), Evidence: []OracleEvidence{{Kind: "committed_neutral_expectation", ID: sc.ScenarioID + "#expected" + pointer, SHA256: digest(value)}}}
+			selectedRFC := ""
 			if pointer == "/final_state" && sc.ScenarioID == "us005.pub.0005" && contains(sc.ExpectationBasis, "rfc6455.section-5-2") {
+				selectedRFC = "rfc6455.section-5-2"
+			}
+			if pointer == "/final_state" && sc.Family == "close-code-invalid-wire" && contains(sc.ExpectationBasis, "rfc6455.section-7-4") {
+				selectedRFC = "rfc6455.section-7-4"
+			}
+			if selectedRFC != "" {
 				selected, err := canonical("closed")
 				if err != nil {
 					return OracleHierarchy{}, err
 				}
-				cell.Authority = "rfc6455.section-5-2"
+				cell.Authority = selectedRFC
 				cell.Rank = 1
 				cell.ExpectedSHA256 = digest(selected)
-				cell.Evidence = []OracleEvidence{{Kind: "rfc_clause", ID: "rfc6455.section-5-2", SHA256: digest([]byte("RFC6455.section-5-2"))}}
+				cell.Evidence = []OracleEvidence{{Kind: "rfc_clause", ID: selectedRFC, SHA256: digest([]byte("RFC6455." + strings.TrimPrefix(selectedRFC, "rfc6455.")))}}
 			}
 			h.Cells = append(h.Cells, cell)
 		}
@@ -2655,6 +2687,110 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 		return Receipt{}, err
 	}
 	return Receipt{Status: StatusPass, ScenarioCount: len(scenarios), ProcessReceipts: len(manifest.Processes), DeltaCount: len(ledger.Records), EvidenceSHA256: digest(committed)}, nil
+}
+
+// RunPublicDiagnostic executes the same bounded public primary/replay matrix
+// but never reads or writes the behavior ledger or evidence destination. A
+// semantic divergence is accumulated instead of ending the sweep; preflight,
+// process, codec, and replay failures remain explicit diagnostic findings.
+func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, error) {
+	if err := validateConfig(cfg); err != nil {
+		return DiagnosticReport{}, err
+	}
+	suiteCtx, cancel := context.WithTimeout(ctx, cfg.SuiteTimeout)
+	defer cancel()
+	suiteRoot, err := os.MkdirTemp("", "us020-diagnostic-")
+	if err != nil {
+		return DiagnosticReport{}, err
+	}
+	defer os.RemoveAll(suiteRoot)
+	scenarios, _, err := loadPublicCorpus(cfg.RepositoryRoot, cfg.PublicCorpus)
+	if err != nil {
+		return DiagnosticReport{}, err
+	}
+	hierarchyRaw, err := readRegularBounded(cfg.OracleHierarchyPath, maximumDocumentBytes)
+	if err != nil {
+		return DiagnosticReport{}, err
+	}
+	var hierarchy OracleHierarchy
+	if err := decodeStrict(hierarchyRaw, &hierarchy); err != nil {
+		return DiagnosticReport{}, err
+	}
+	if err := ValidateOracleHierarchy(scenarios, hierarchy); err != nil {
+		return DiagnosticReport{}, err
+	}
+	javaIdentity, err := artifact(cfg.JavaExecutable)
+	if err != nil {
+		return DiagnosticReport{}, err
+	}
+	rustIdentity, err := artifact(cfg.RustTestee)
+	if err != nil {
+		return DiagnosticReport{}, err
+	}
+	report := DiagnosticReport{Status: "DIAGNOSTIC_ONLY_NO_WRITES", ScenarioCount: len(scenarios), Findings: []DiagnosticFinding{}}
+	for _, sc := range scenarios {
+		home := filepath.Join(suiteRoot, sc.ScenarioID)
+		if err := os.Mkdir(home, 0o700); err != nil {
+			return DiagnosticReport{}, err
+		}
+		javaPrimary, javaPrimaryErr := runAttempt(suiteCtx, cfg, home, sc, "java", "primary", javaIdentity.SHA256)
+		javaReplay, javaReplayErr := runAttempt(suiteCtx, cfg, home, sc, "java", "replay", javaIdentity.SHA256)
+		rustPrimary, rustPrimaryErr := runAttempt(suiteCtx, cfg, home, sc, "rust", "primary", rustIdentity.SHA256)
+		rustReplay, rustReplayErr := runAttempt(suiteCtx, cfg, home, sc, "rust", "replay", rustIdentity.SHA256)
+		attempts := []struct {
+			name string
+			out  attemptOutput
+			err  error
+		}{{"java-primary", javaPrimary, javaPrimaryErr}, {"java-replay", javaReplay, javaReplayErr}, {"rust-primary", rustPrimary, rustPrimaryErr}, {"rust-replay", rustReplay, rustReplayErr}}
+		failed := false
+		for _, attempt := range attempts {
+			if attempt.err != nil {
+				report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: "/processes/" + attempt.name, Classification: "infrastructure_failure", Detail: attempt.err.Error()})
+				failed = true
+				continue
+			}
+			report.ProcessReceipts++
+		}
+		if failed {
+			continue
+		}
+		if javaPrimary.receipt.NormalizedSHA256 != javaReplay.receipt.NormalizedSHA256 || rustPrimary.receipt.NormalizedSHA256 != rustReplay.receipt.NormalizedSHA256 {
+			report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: "/replay", Classification: "flake", JavaSHA256: javaPrimary.receipt.NormalizedSHA256, RustSHA256: rustPrimary.receipt.NormalizedSHA256, Detail: "primary/replay normalized digest mismatch"})
+			continue
+		}
+		report.StableScenarios++
+		classification, findings, adjudicationErr := adjudicateScenario(sc, hierarchy, javaPrimary.observation, rustPrimary.observation)
+		for _, finding := range findings {
+			if finding.Classification == "java_quirk" {
+				report.AcceptedQuirks++
+				continue
+			}
+			report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: finding.Pointer, Classification: finding.Classification, JavaSHA256: finding.JavaSHA256, RustSHA256: finding.RustSHA256, ExpectedSHA256: finding.Decision.ExpectedSHA256, Detail: "field-addressed adjudication"})
+		}
+		if adjudicationErr != nil && len(findings) == 0 {
+			pointer, _ := firstDifference(javaPrimary.observation, rustPrimary.observation)
+			report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: pointer, Classification: "adjudication_failure", JavaSHA256: javaPrimary.receipt.NormalizedSHA256, RustSHA256: rustPrimary.receipt.NormalizedSHA256, Detail: adjudicationErr.Error()})
+		}
+		if adjudicationErr == nil {
+			notes := []string{}
+			for _, step := range sc.Core.Steps {
+				if step.Kind == "bytes" {
+					notes = append(notes, rustInputDerivationNote)
+					break
+				}
+			}
+			result := ScenarioResult{ScenarioID: sc.ScenarioID, RustObservation: rustPrimary.observation, RustStepDiagnostics: rustPrimary.rust.Steps, RustNormalizationNotes: notes, Classification: classification}
+			if err := validateRustDerivedCounters(sc, result); err != nil {
+				report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: "/counts", Classification: "normalization_failure", Detail: err.Error()})
+			}
+		}
+	}
+	for _, finding := range report.Findings {
+		if finding.Classification != "java_quirk" {
+			report.BlockingFindings++
+		}
+	}
+	return report, nil
 }
 
 func decodeStrict(raw []byte, destination any) error {

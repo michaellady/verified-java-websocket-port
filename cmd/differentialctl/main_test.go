@@ -54,6 +54,27 @@ func TestRunIsOnlyTransportForFacade(t *testing.T) {
 	}
 }
 
+func TestDiagnoseIsBoundedNoWriteTransport(t *testing.T) {
+	original := diagnoseDifferential
+	defer func() { diagnoseDifferential = original }()
+	called := false
+	diagnoseDifferential = func(_ context.Context, cfg differential.Config) (differential.DiagnosticReport, error) {
+		called = true
+		if cfg.RepositoryRoot != "/repo" || cfg.ScenarioTimeout <= 0 {
+			return differential.DiagnosticReport{}, errors.New("bad config")
+		}
+		return differential.DiagnosticReport{Status: "DIAGNOSTIC_ONLY_NO_WRITES", ScenarioCount: 74, ProcessReceipts: 296, BlockingFindings: 3}, nil
+	}
+	args := []string{"diagnose", "--repository-root", "/repo", "--public-corpus", "/repo/corpus", "--java-executable", "/java", "--java-adapter", "/adapter", "--java-runtime", "/runtime", "--java-support", "/support", "--rust-testee", "/rust", "--migration-inventory", "/repo/migration", "--compatibility-surface", "/repo/compat", "--ledger", "/repo/ledger", "--oracle-hierarchy", "/repo/hierarchy", "--evidence", "/repo/evidence"}
+	var stdout, stderr bytes.Buffer
+	if code := run(args, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr.String())
+	}
+	if !called || !bytes.Contains(stdout.Bytes(), []byte(`"status":"DIAGNOSTIC_ONLY_NO_WRITES"`)) {
+		t.Fatalf("called=%v stdout=%s", called, stdout.String())
+	}
+}
+
 func TestVerifyReadsOneBoundedEvidenceFile(t *testing.T) {
 	original := verifyDifferential
 	defer func() { verifyDifferential = original }()

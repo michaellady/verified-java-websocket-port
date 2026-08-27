@@ -154,6 +154,17 @@ func TestOracleHierarchyCoversEveryExpectedLeaf(t *testing.T) {
 	if err := ValidateOracleHierarchy(scenarios, hierarchy); err != nil {
 		t.Fatalf("ValidateOracleHierarchy: %v", err)
 	}
+	var invalidWireClose *OracleCell
+	for index := range hierarchy.Cells {
+		cell := &hierarchy.Cells[index]
+		if cell.ScenarioID == "us005.pub.0019" && cell.Pointer == "/final_state" {
+			invalidWireClose = cell
+			break
+		}
+	}
+	if invalidWireClose == nil || invalidWireClose.Authority != "rfc6455.section-7-4" || invalidWireClose.Rank != 1 {
+		t.Fatalf("invalid wire close authority=%#v", invalidWireClose)
+	}
 	bad := hierarchy
 	bad.Cells = append([]OracleCell(nil), hierarchy.Cells[1:]...)
 	bad.CellCount--
