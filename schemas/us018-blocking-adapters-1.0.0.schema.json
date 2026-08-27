@@ -60,10 +60,11 @@
     "tdd": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["public_seam_red", "rustgate_red", "green", "refactor"],
+      "required": ["public_seam_red", "rustgate_red", "blocking_remediation_red", "green", "refactor"],
       "properties": {
         "public_seam_red": {"$ref": "#/$defs/red"},
         "rustgate_red": {"$ref": "#/$defs/red"},
+        "blocking_remediation_red": {"$ref": "#/$defs/red"},
         "green": {"const": "PASS"},
         "refactor": {"const": "PASS_AFTER_FMT_CLIPPY_AND_SHARED_PUMP_REFACTOR"}
       }
@@ -84,7 +85,7 @@
         "debug": {"$ref": "#/$defs/test_result"},
         "release": {"$ref": "#/$defs/test_result"},
         "testee_unit_per_profile": {"const": 2},
-        "loopback_per_profile": {"const": 7},
+        "loopback_per_profile": {"const": 8},
         "process_per_profile": {"const": 3},
         "rustgate_packages": {"const": "PASS: ./cmd/rustgate ./internal/rustgate"},
         "architecture_mutants": {"type": "integer", "minimum": 9}
@@ -105,6 +106,9 @@
         "write_progress_exact",
         "eof_once",
         "shutdown_once",
+        "max_owner_turns_includes_terminal_drain",
+        "terminal_drain_turn_allowance",
+        "minimum_owner_turns",
         "partial_read_bytes",
         "max_write_chunk_bytes",
         "normalized_process_exit_classes",
@@ -122,6 +126,9 @@
         "write_progress_exact": {"const": true},
         "eof_once": {"const": true},
         "shutdown_once": {"const": true},
+        "max_owner_turns_includes_terminal_drain": {"const": true},
+        "terminal_drain_turn_allowance": {"const": 4104},
+        "minimum_owner_turns": {"const": 4105},
         "partial_read_bytes": {"const": 1},
         "max_write_chunk_bytes": {"const": 3},
         "normalized_process_exit_classes": {"const": [0, 2, 3, 4, 5]},
@@ -211,7 +218,7 @@
       "additionalProperties": false,
       "required": ["passed", "failed"],
       "properties": {
-        "passed": {"const": 155},
+        "passed": {"const": 156},
         "failed": {"const": 0}
       }
     }

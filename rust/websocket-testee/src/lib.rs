@@ -25,8 +25,16 @@ pub use server::run_server_once;
 pub const MAX_IO_DURATION: Duration = Duration::from_secs(30);
 /// Maximum owner turns admitted by one adapter run.
 pub const MAX_OWNER_TURNS: u64 = 1_000_000;
+/// Minimum owner-turn budget that preserves one work turn and terminal drain.
+pub const MIN_OWNER_TURNS: u64 = TERMINAL_DRAIN_TURN_ALLOWANCE + 1;
 /// Maximum normalized observations retained by one adapter report.
 pub const MAX_REPORT_ENTRIES: usize = 4_096;
+
+// The exact core caps its event queue at 4,096 entries. The private fixture can
+// admit at most its one client-start command, while Shutdown discards queued
+// writes synchronously. Eight further turns cover that command and the fixed
+// EOF, failure, state, and terminal transitions.
+pub(crate) const TERMINAL_DRAIN_TURN_ALLOWANCE: u64 = 4_096 + 8;
 
 /// Raw values checked together before a socket operation or allocation occurs.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -90,6 +98,15 @@ pub enum IoBoundField {
 pub enum IoBoundsError {
     /// A progress-enabling bound was zero.
     Zero(IoBoundField),
+    /// A bound could not preserve its required reserved capacity.
+    BelowMinimum {
+        /// Rejected field.
+        field: IoBoundField,
+        /// Caller-supplied scalar value.
+        attempted: u128,
+        /// Smallest accepted scalar value.
+        minimum: u128,
+    },
     /// A bound exceeded the core budget or adapter hard ceiling.
     ExceedsMaximum {
         /// Rejected field.
@@ -130,6 +147,13 @@ impl IoBounds {
         }
         if spec.max_owner_turns == 0 {
             return Err(IoBoundsError::Zero(IoBoundField::MaxOwnerTurns));
+        }
+        if spec.max_owner_turns < MIN_OWNER_TURNS {
+            return Err(IoBoundsError::BelowMinimum {
+                field: IoBoundField::MaxOwnerTurns,
+                attempted: u128::from(spec.max_owner_turns),
+                minimum: u128::from(MIN_OWNER_TURNS),
+            });
         }
         if spec.max_owner_turns > MAX_OWNER_TURNS {
             return Err(IoBoundsError::ExceedsMaximum {

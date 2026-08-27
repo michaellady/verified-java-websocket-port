@@ -168,16 +168,20 @@ allocation, or process work:
 | `accept_timeout` | nonzero and at most 30 seconds |
 | `read_timeout` | nonzero and at most 30 seconds |
 | `write_timeout` | nonzero and at most 30 seconds |
-| `max_owner_turns` | nonzero and at most 1,000,000 |
+| `max_owner_turns` | at least 4,105 and at most 1,000,000; includes one work turn plus a reserved worst-case terminal drain |
 | `max_report_entries` | nonzero and no greater than 4,096 |
 
 The pump allocates one fixed read buffer and never copies a driver write into a
 second buffer. A successfully read prefix remains in that buffer until the
 owner reports it consumed. The pump performs no next read while the same bytes
 are deferred. Report entries are admitted before append; exhausting the report
-or turn budget records one bounded failure, supplies one `Shutdown`, and
-drains without further growth. Counters use checked arithmetic; overflow has a
-typed adapter outcome and follows the same shutdown path.
+or ordinary turn slice records one bounded failure, supplies one `Shutdown`,
+and drains without further growth inside the configured total
+`max_owner_turns`. The reserved drain slice covers the exact core's checked
+4,096-entry event queue, the fixture's sole client-start command, and fixed
+terminal transitions; Shutdown discards queued writes synchronously. Counters
+use checked arithmetic; overflow has a typed adapter outcome and follows the
+same shutdown path.
 
 The listener handles one connection only. The accepted `TcpStream`, driver
 owner, command handle, fixed read buffer, and report belong to one stack. No

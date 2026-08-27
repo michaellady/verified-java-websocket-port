@@ -10,7 +10,7 @@ use websocket_driver::{
 
 use crate::{
     AdapterCounters, AdapterObservation, AdapterReport, AdapterTermination, EventKind, IoBounds,
-    SetupOutcome, SocketErrorKind,
+    SetupOutcome, SocketErrorKind, TERMINAL_DRAIN_TURN_ALLOWANCE,
 };
 
 #[derive(Clone, Copy)]
@@ -47,6 +47,7 @@ enum WriteResult {
 struct ReportBuilder {
     report: AdapterReport,
     limit: usize,
+    saturated: bool,
 }
 
 impl ReportBuilder {
@@ -62,6 +63,7 @@ impl ReportBuilder {
                 terminal_count: 0,
             },
             limit,
+            saturated: false,
         }
     }
 
@@ -72,10 +74,14 @@ impl ReportBuilder {
     }
 
     fn observe(&mut self, observation: AdapterObservation) -> bool {
+        if self.saturated {
+            return false;
+        }
         if self.report.observations.len().saturating_add(1) < self.limit {
             self.report.observations.push(observation);
             return true;
         }
+        self.saturated = true;
         self.terminate(AdapterTermination::ReportLimit);
         if self.report.observations.len() < self.limit {
             self.report
@@ -85,6 +91,10 @@ impl ReportBuilder {
                 ));
         }
         false
+    }
+
+    fn is_saturated(&self) -> bool {
+        self.saturated
     }
 
     fn counter_failed(&mut self) {
@@ -129,13 +139,41 @@ pub(crate) fn drive_connected(
     let mut eof_sent = false;
     let mut shutdown_sent = false;
     let mut shutdown_after_progress = None;
+    let mut ordinary_turns = 0_u64;
+    let mut drain_turns = 0_u64;
+    let mut draining = false;
+    let Some(ordinary_turn_limit) = spec
+        .max_owner_turns
+        .checked_sub(TERMINAL_DRAIN_TURN_ALLOWANCE)
+    else {
+        builder.counter_failed();
+        return builder.report;
+    };
 
     loop {
-        if builder.report.counters.owner_turns >= spec.max_owner_turns {
+        if !draining && ordinary_turns >= ordinary_turn_limit {
             builder.terminate(AdapterTermination::OwnerTurnLimit);
             let _ = builder.observe(AdapterObservation::AdapterFailure(
                 AdapterTermination::OwnerTurnLimit,
             ));
+            draining = true;
+            if matches!(next, NextInput::Wake) {
+                next = NextInput::Shutdown;
+            }
+        }
+        if draining {
+            if drain_turns >= TERMINAL_DRAIN_TURN_ALLOWANCE {
+                break;
+            }
+            if !increment(&mut drain_turns) {
+                builder.counter_failed();
+                break;
+            }
+        } else if !increment(&mut ordinary_turns) {
+            builder.counter_failed();
+            break;
+        }
+        if builder.report.counters.owner_turns >= spec.max_owner_turns {
             break;
         }
         if !increment(&mut builder.report.counters.owner_turns) {
@@ -150,8 +188,7 @@ pub(crate) fn drive_connected(
                 break;
             }
             if !builder.observe(AdapterObservation::TransportEof) {
-                next = NextInput::Shutdown;
-                continue;
+                draining = true;
             }
         }
         if matches!(next, NextInput::Shutdown) {
@@ -187,10 +224,12 @@ pub(crate) fn drive_connected(
                     let _ = builder.observe(AdapterObservation::AdapterFailure(
                         AdapterTermination::InvariantViolation,
                     ));
-                    if shutdown_sent {
-                        break;
-                    }
-                    next = NextInput::Shutdown;
+                    draining = true;
+                    next = if shutdown_sent {
+                        NextInput::Wake
+                    } else {
+                        NextInput::Shutdown
+                    };
                     continue;
                 }
             }
@@ -206,19 +245,26 @@ pub(crate) fn drive_connected(
             break;
         }
         if !recorded {
-            if shutdown_sent {
-                break;
-            }
-            next = NextInput::Shutdown;
-            continue;
+            draining = true;
         }
 
         if let Some(cause) = shutdown_after_progress.take() {
             builder.terminate(cause);
-            if shutdown_sent {
-                break;
-            }
-            next = NextInput::Shutdown;
+            next = if shutdown_sent {
+                NextInput::Wake
+            } else {
+                NextInput::Shutdown
+            };
+            continue;
+        }
+
+        if draining || builder.is_saturated() {
+            draining = true;
+            next = if shutdown_sent {
+                NextInput::Wake
+            } else {
+                NextInput::Shutdown
+            };
             continue;
         }
 
@@ -241,14 +287,13 @@ pub(crate) fn drive_connected(
                         {
                             builder.counter_failed();
                         }
+                        shutdown_after_progress = flush_failure.map(|failure| {
+                            write_termination(failure, &mut builder.report.counters)
+                        });
                         if !builder.observe(AdapterObservation::WriteProgress { bytes }) {
-                            NextInput::Shutdown
-                        } else {
-                            shutdown_after_progress = flush_failure.map(|failure| {
-                                write_termination(failure, &mut builder.report.counters)
-                            });
-                            NextInput::WriteProgress(bytes)
+                            draining = true;
                         }
+                        NextInput::WriteProgress(bytes)
                     }
                     WriteResult::Lost => {
                         builder.terminate(AdapterTermination::PeerServiceLost);
@@ -302,10 +347,12 @@ pub(crate) fn drive_connected(
         };
 
         if builder.report.termination == Some(AdapterTermination::CounterOverflow) {
-            if shutdown_sent {
-                break;
-            }
-            next = NextInput::Shutdown;
+            draining = true;
+            next = if shutdown_sent {
+                NextInput::Wake
+            } else {
+                NextInput::Shutdown
+            };
         }
     }
 

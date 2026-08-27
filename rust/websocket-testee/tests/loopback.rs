@@ -10,8 +10,8 @@ use websocket_core::{
 };
 use websocket_testee::{
     AdapterObservation, AdapterReport, AdapterTermination, ClientFixture, EventKind, IoBoundField,
-    IoBounds, IoBoundsError, IoBoundsSpec, ServerFixture, SetupOutcome, run_client_once,
-    run_server_once,
+    IoBounds, IoBoundsError, IoBoundsSpec, MIN_OWNER_TURNS, ServerFixture, SetupOutcome,
+    run_client_once, run_server_once,
 };
 
 const RFC_REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
@@ -293,6 +293,20 @@ fn bounds_reject_every_zero_and_plus_one_ceiling() {
             ..
         })
     ));
+    assert_eq!(
+        IoBounds::try_new(
+            &configuration,
+            IoBoundsSpec {
+                max_owner_turns: MIN_OWNER_TURNS - 1,
+                ..IoBoundsSpec::default()
+            }
+        ),
+        Err(IoBoundsError::BelowMinimum {
+            field: IoBoundField::MaxOwnerTurns,
+            attempted: u128::from(MIN_OWNER_TURNS - 1),
+            minimum: u128::from(MIN_OWNER_TURNS),
+        })
+    );
     assert!(matches!(
         IoBounds::try_new(
             &configuration,
@@ -309,7 +323,7 @@ fn bounds_reject_every_zero_and_plus_one_ceiling() {
 }
 
 #[test]
-fn report_and_owner_turn_exhaustion_are_bounded() {
+fn report_exhaustion_stops_observations_and_drains_once_to_terminal() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let peer = thread::spawn(move || {
@@ -320,10 +334,12 @@ fn report_and_owner_turn_exhaustion_are_bounded() {
         let _ = stream.read_to_end(&mut discarded);
     });
     let configuration = config();
+    let total_owner_turns = MIN_OWNER_TURNS + 4;
     let limited = IoBounds::try_new(
         &configuration,
         IoBoundsSpec {
             max_report_entries: 1,
+            max_owner_turns: total_owner_turns,
             ..IoBoundsSpec::default()
         },
     )
@@ -339,6 +355,13 @@ fn report_and_owner_turn_exhaustion_are_bounded() {
     assert_eq!(report.termination, Some(AdapterTermination::ReportLimit));
     assert_eq!(report.observations.len(), 1);
 
+    assert_eq!(report.counters.shutdown_inputs, 1);
+    assert_eq!(report.terminal_count, 1);
+    assert!(report.counters.owner_turns <= total_owner_turns);
+}
+
+#[test]
+fn owner_turn_exhaustion_uses_bounded_reserved_turns_to_reach_one_terminal() {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let address = listener.local_addr().unwrap();
     let peer = thread::spawn(move || {
@@ -348,7 +371,7 @@ fn report_and_owner_turn_exhaustion_are_bounded() {
     let limited = IoBounds::try_new(
         &configuration,
         IoBoundsSpec {
-            max_owner_turns: 1,
+            max_owner_turns: MIN_OWNER_TURNS,
             ..IoBoundsSpec::default()
         },
     )
@@ -362,5 +385,8 @@ fn report_and_owner_turn_exhaustion_are_bounded() {
     });
     peer.join().unwrap();
     assert_eq!(report.termination, Some(AdapterTermination::OwnerTurnLimit));
-    assert_eq!(report.counters.owner_turns, 1);
+    assert_eq!(report.counters.shutdown_inputs, 1);
+    assert_eq!(report.terminal_count, 1);
+    assert!(report.counters.owner_turns > 1);
+    assert!(report.counters.owner_turns <= MIN_OWNER_TURNS);
 }
