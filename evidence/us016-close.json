@@ -5,14 +5,15 @@
   "status": "CLOSED_OWNER_RELAXED_BOUNDED",
   "architecture_commit": "3cca20803dfe13c3f1891b264f562257ca48c290",
   "implementation": {
-    "commit": "66cfd5ce7e39ea9caee314f6f4158d34eaeb1e5d",
-    "crate_tree": "fa7acef44f8eb4ccb685ef4577fcec8de570fccc",
+    "commit": "cefd338a926c878e64a9c11c05cf0570c80c5d0c",
+    "crate_tree": "e178cdf8fe2ccaa73eb05d0eba453fa947fe0e28",
     "bindings": [
       {"path":"rust/connection-core/src/close.rs","sha256":"sha256:c9abc90888c9b6480f7c5d05e53f07f0c583ddb3ab9b20be578672f99ce60f1f","git_blob":"313503e4d10ec8de7895e5dfd12e33718b1ca3a7"},
-      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:6895dfa8f86eda277e98c536fbf3867e387470b1a08c55cbfc901956cbfeee08","git_blob":"cc2b47cf0e90450e7bd120e5d502df819effd289"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:14c0d707ed6052b4e0a54cf90d8edd41ce0aebc5e94be716b330003815125f23","git_blob":"130c1e1e1e51dde279fce553ea7e3b60e41c297d"},
+      {"path":"rust/connection-core/src/frame/decode.rs","sha256":"sha256:2d3b9d8cbda6ce8deea03b21e1e2beeab7ebf00195757ec3ef7dcff75e844da2","git_blob":"08ab31cb7fa28dfe8451a70d4633fb18a21567d7"},
       {"path":"rust/connection-core/src/fragment.rs","sha256":"sha256:af6f71b00dbcbfca96ee77de7dd6ba047c695b0a78687bf546418f21a5ec7fb7","git_blob":"74a480abc65e8fa5601840721cc29dbce6b767d8"},
       {"path":"rust/connection-core/src/lib.rs","sha256":"sha256:5444dd209780127b5d2b320a9a359bd27eab26c66a6a408e65a176a5b1439f0d","git_blob":"ea3ea5ca17f1a6e28227cea4f796c859dd4bf9f5"},
-      {"path":"rust/connection-core/tests/close_eof.rs","sha256":"sha256:d5d453fa584742c24a3350522337e079e7247efdff9b94556f109f095c79bf6b","git_blob":"d8fbc24ea6a10014dcf3ea60c38dde81405428de"},
+      {"path":"rust/connection-core/tests/close_eof.rs","sha256":"sha256:1dc7e95a1ffbeb58944e13d78c03780f800ae7d83b94b58073087bcb7900b9e6","git_blob":"54ac002eecfb4405439589d9c3bdfd73ac98fbef"},
       {"path":"rust/connection-core/tests/connection_contract.rs","sha256":"sha256:0a8e111b1aac14828de0021be0c5c4621c3f99cfe0efa533527fc59f22030d05","git_blob":"7f24667c5d01d143f1b3ef79adefbef76a0dea75"},
       {"path":"rust/connection-core/tests/fragmentation.rs","sha256":"sha256:24ade67d3ca0bcc2aa635f31e5342f8f894d7dfc91eb46278475e0e17c1f2d56","git_blob":"a44aabbf2a56c1d304f838f3b5b39b733c1e0c50"},
       {"path":"rust/connection-core/tests/frame_codec.rs","sha256":"sha256:690db590d43249d26ec06d7e1af4dd5f2627c8369b36f024be8f3154e6504020","git_blob":"83183b04e0f5ceff7f2f66fdf1a8a1b5e2abd9b0"},
@@ -22,9 +23,9 @@
   "tests": {
     "gate_command": "make -C rust gates",
     "metadata_fmt_clippy": "PASS",
-    "debug": {"passed":125,"failed":0},
-    "release": {"passed":125,"failed":0},
-    "close_eof_tests_per_profile": 15,
+    "debug": {"passed":127,"failed":0},
+    "release": {"passed":127,"failed":0},
+    "close_eof_tests_per_profile": 17,
     "fragmentation_regression_tests_per_profile": 13,
     "frame_regression_tests_per_profile": 16,
     "control_regression_tests_per_profile": 12,
@@ -44,8 +45,16 @@
     "Closing observes Ping and Pong without automatic replies and rejects Text Binary and Continuation delivery",
     "Close abandons partial frame fragment and incremental UTF-8 state and stops coalesced semantic delivery after the first Close",
     "Connecting Open Closing and Closed EOF and flush facts have typed one-shot lifecycle results",
-    "event write and aggregate-byte admission failures occur before an offending close group is exposed"
+    "event write and aggregate-byte admission failures occur before an offending close group is exposed",
+    "Closing aggregate-byte admission includes retained peer Close state before accepting subsequent controls",
+    "structurally valid Closing data opcodes fail as DataAfterClose before message validation or event admission while frame syntax retains precedence"
   ],
+  "review_closure": {
+    "base_implementation_commit": "66cfd5ce7e39ea9caee314f6f4158d34eaeb1e5d",
+    "remediation_commit": "cefd338a926c878e64a9c11c05cf0570c80c5d0c",
+    "blocking_findings_fixed": 2,
+    "scope": "TARGETED_BLOCKING_REMEDIATION_ONLY"
+  },
   "runtime_evidence": {
     "kind": "BOUNDED_DETERMINISTIC_MODEL_SEED_AND_REGRESSION_TESTS",
     "seam": "ConnectionCore::step",
