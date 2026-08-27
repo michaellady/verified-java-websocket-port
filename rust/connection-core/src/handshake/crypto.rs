@@ -20,6 +20,37 @@ pub(crate) fn encode_nonce(nonce: [u8; 16]) -> [u8; 24] {
     output
 }
 
+pub(crate) fn canonical_nonce_key(key: &[u8]) -> Option<[u8; 24]> {
+    if key.len() != 24 || key[22..] != *b"==" {
+        return None;
+    }
+    let mut nonce = [0u8; 16];
+    let mut input_index = 0usize;
+    let mut output_index = 0usize;
+    while input_index < 20 {
+        let first = decode_base64(key[input_index])?;
+        let second = decode_base64(key[input_index + 1])?;
+        let third = decode_base64(key[input_index + 2])?;
+        let fourth = decode_base64(key[input_index + 3])?;
+        nonce[output_index] = (first << 2) | (second >> 4);
+        nonce[output_index + 1] = (second << 4) | (third >> 2);
+        nonce[output_index + 2] = (third << 6) | fourth;
+        input_index += 4;
+        output_index += 3;
+    }
+    let first = decode_base64(key[20])?;
+    let second = decode_base64(key[21])?;
+    if second & 0x0f != 0 {
+        return None;
+    }
+    nonce[15] = (first << 2) | (second >> 4);
+    (encode_nonce(nonce).as_slice() == key).then(|| {
+        let mut canonical = [0u8; 24];
+        canonical.copy_from_slice(key);
+        canonical
+    })
+}
+
 pub(crate) fn derive_accept(key: &[u8; 24]) -> [u8; 28] {
     const GUID: &[u8; 36] = b"258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
     let mut padded = [0u8; 128];
@@ -108,6 +139,17 @@ fn encode_digest(digest: [u8; 20]) -> [u8; 28] {
     output[25] = BASE64[usize::from(((first & 0x03) << 4) | (second >> 4))];
     output[26] = BASE64[usize::from((second & 0x0f) << 2)];
     output
+}
+
+fn decode_base64(byte: u8) -> Option<u8> {
+    match byte {
+        b'A'..=b'Z' => Some(byte - b'A'),
+        b'a'..=b'z' => Some(byte - b'a' + 26),
+        b'0'..=b'9' => Some(byte - b'0' + 52),
+        b'+' => Some(62),
+        b'/' => Some(63),
+        _ => None,
+    }
 }
 
 fn encode_triplet(first: u8, second: u8, third: u8, output: &mut [u8]) {

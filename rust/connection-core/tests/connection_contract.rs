@@ -187,8 +187,7 @@ fn assert_unavailable(
 #[test]
 fn every_protocol_bearing_input_is_an_explicit_non_success() {
     let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
-    let mut client = ConnectionCore::new(config.clone(), Role::Client);
-    let mut server = ConnectionCore::new(config, Role::Server);
+    let mut client = ConnectionCore::new(config, Role::Client);
     let wire = b"GET / HTTP/1.1\r\n\r\n";
 
     let before_request = client.step(CoreInput::Transport(TransportBytes::new(wire)));
@@ -203,12 +202,6 @@ fn every_protocol_bearing_input_is_an_explicit_non_success() {
             ConnectionState::Connecting,
         ))
     );
-    assert_unavailable(
-        &server.step(CoreInput::Transport(TransportBytes::new(wire))),
-        ProtocolStory::ServerOpeningHandshake,
-        ConnectionState::Connecting,
-    );
-
     let cases = [
         (
             LocalCommand::SendText("text".into()),

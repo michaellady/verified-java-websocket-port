@@ -1,7 +1,8 @@
 use core::fmt;
 
 use crate::handshake::{
-    ClientHandshake, ClientLimitExceeded, ClientRequestDescriptor, ClientResponse,
+    ClientHandshake, ClientLimitExceeded, ClientRequestDescriptor, ClientResponse, ServerHandshake,
+    ServerRequest, ServerRequestDescriptor,
 };
 
 /// The role this endpoint has in the WebSocket protocol.
@@ -405,6 +406,11 @@ pub enum SemanticEvent {
         /// The descriptor whose request was accepted by the peer.
         descriptor: ClientRequestDescriptor,
     },
+    /// A server opening handshake completed successfully.
+    ServerHandshakeOpened {
+        /// The descriptor accepted from the peer's request.
+        descriptor: ServerRequestDescriptor,
+    },
 }
 
 /// One output in exact occurrence order.
@@ -437,7 +443,7 @@ pub enum ProtocolStory {
     CloseAndEof,
 }
 
-/// Stable client opening-handshake rejection vocabulary.
+/// Stable opening-handshake rejection vocabulary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum HandshakeFailure {
@@ -493,6 +499,33 @@ pub enum HandshakeFailure {
         /// Number of bytes after the terminal CRLF.
         bytes: u64,
     },
+    /// The HTTP request line did not match its fixed grammar.
+    MalformedRequestLine,
+    /// The request method was not the exact uppercase `GET` token.
+    MethodNotGet,
+    /// The request target was not a valid origin-form target.
+    InvalidRequestTarget,
+    /// The required Host field was absent.
+    MissingHost,
+    /// The Host field was empty or contained a forbidden byte.
+    InvalidHost,
+    /// The required Sec-WebSocket-Key field was absent.
+    MissingKey,
+    /// Sec-WebSocket-Key was not canonical standard Base64 for 16 bytes.
+    InvalidKeyEncoding,
+    /// Sec-WebSocket-Key decoded to a nonce of the wrong length.
+    InvalidKeyLength {
+        /// Number of decoded bytes.
+        decoded: u64,
+    },
+    /// The required Sec-WebSocket-Version field was absent.
+    MissingVersion,
+    /// Sec-WebSocket-Version was not the exact supported value `13`.
+    UnsupportedVersion,
+    /// A request body length was supplied where no body is accepted.
+    UnexpectedContentLength,
+    /// Transfer coding was supplied where no request body is accepted.
+    UnexpectedTransferEncoding,
 }
 
 /// Reserved frame failure vocabulary.
@@ -611,17 +644,24 @@ pub struct ConnectionCore {
     role: Role,
     state: ConnectionState,
     client_handshake: ClientHandshake,
+    server_handshake: ServerHandshake,
 }
 
 impl ConnectionCore {
     /// Creates a core in [`ConnectionState::Connecting`].
     #[must_use]
     pub const fn new(config: ConnectionConfig, role: Role) -> Self {
+        let server_handshake = ServerHandshake::new(
+            config.checked.handshake_bytes,
+            config.checked.handshake_header_line_bytes,
+            config.checked.handshake_header_count,
+        );
         Self {
             config,
             role,
             state: ConnectionState::Connecting,
             client_handshake: ClientHandshake::new(),
+            server_handshake,
         }
     }
 
@@ -741,6 +781,51 @@ impl ConnectionCore {
                 ClientResponse::NotAwaiting => {}
             }
         }
+        if let CoreInput::Transport(bytes) = input
+            && self.role == Role::Server
+            && self.server_handshake.awaiting_request()
+        {
+            match self.server_handshake.consume_request(bytes.as_slice()) {
+                ServerRequest::Incomplete => {
+                    return StepResult {
+                        outputs: Box::new([]),
+                        failure: None,
+                        state: self.state,
+                    };
+                }
+                ServerRequest::Opened {
+                    descriptor,
+                    response,
+                } => {
+                    self.state = ConnectionState::Open;
+                    debug_assert_eq!(self.state, ConnectionState::Open);
+                    return StepResult {
+                        outputs: Box::new([
+                            CoreOutput::TransportWrite(TransportWrite { bytes: response }),
+                            CoreOutput::StateChanged(ConnectionState::Open),
+                            CoreOutput::SemanticEvent(SemanticEvent::ServerHandshakeOpened {
+                                descriptor,
+                            }),
+                        ]),
+                        failure: None,
+                        state: self.state,
+                    };
+                }
+                ServerRequest::Rejected(failure) => {
+                    self.server_handshake.mark_failed();
+                    return self.close_with_failure(FailureKind::Handshake(failure));
+                }
+                ServerRequest::LimitExceeded { limit, attempted } => {
+                    self.server_handshake.mark_failed();
+                    return self.close_with_failure(FailureKind::LimitExceeded {
+                        limit,
+                        attempted,
+                        maximum: self.config.handshake_limit(limit),
+                    });
+                }
+                ServerRequest::NotAwaiting => {}
+            }
+        }
         if let CoreInput::Transport(_) = input
             && self.role == Role::Client
             && !self.client_handshake.has_started()
@@ -762,10 +847,19 @@ impl ConnectionCore {
             return self
                 .close_with_failure(FailureKind::Handshake(HandshakeFailure::UnexpectedEof));
         }
+        if let CoreInput::TransportEof = input
+            && self.role == Role::Server
+            && self.server_handshake.awaiting_request()
+        {
+            self.server_handshake.mark_failed();
+            return self
+                .close_with_failure(FailureKind::Handshake(HandshakeFailure::UnexpectedEof));
+        }
         let owner_story = match input {
             CoreInput::Transport(_) => match (self.role, self.state) {
                 (Role::Client, ConnectionState::Open) => ProtocolStory::FrameCoding,
                 (Role::Client, _) => ProtocolStory::ClientOpeningHandshake,
+                (Role::Server, ConnectionState::Open) => ProtocolStory::FrameCoding,
                 (Role::Server, _) => ProtocolStory::ServerOpeningHandshake,
             },
             CoreInput::Command(LocalCommand::StartClientHandshake { .. }) => {

@@ -93,7 +93,7 @@ impl ResponseParser {
     }
 }
 
-fn header_end(bytes: &[u8]) -> Option<usize> {
+pub(super) fn header_end(bytes: &[u8]) -> Option<usize> {
     bytes
         .windows(4)
         .position(|window| window == b"\r\n\r\n")
@@ -200,7 +200,7 @@ fn validate_status_line(line: &[u8]) -> Result<(), HandshakeFailure> {
     Ok(())
 }
 
-fn duplicate_before(
+pub(super) fn duplicate_before(
     bytes: &[u8],
     mut cursor: usize,
     stop: usize,
@@ -221,14 +221,14 @@ fn duplicate_before(
     Ok(false)
 }
 
-fn find_crlf(bytes: &[u8], start: usize) -> Option<usize> {
+pub(super) fn find_crlf(bytes: &[u8], start: usize) -> Option<usize> {
     bytes[start..]
         .windows(2)
         .position(|window| window == b"\r\n")
         .and_then(|offset| start.checked_add(offset))
 }
 
-fn has_bare_line_ending(bytes: &[u8]) -> bool {
+pub(super) fn has_bare_line_ending(bytes: &[u8]) -> bool {
     bytes.iter().enumerate().any(|(index, byte)| match byte {
         b'\r' => bytes.get(index + 1) != Some(&b'\n'),
         b'\n' => index == 0 || bytes[index - 1] != b'\r',
@@ -236,7 +236,7 @@ fn has_bare_line_ending(bytes: &[u8]) -> bool {
     })
 }
 
-fn contains_comma_token(value: &[u8], required: &[u8]) -> bool {
+pub(super) fn contains_comma_token(value: &[u8], required: &[u8]) -> bool {
     let mut found = false;
     for member in value.split(|byte| *byte == b',') {
         let token = trim_ows(member);
@@ -248,7 +248,7 @@ fn contains_comma_token(value: &[u8], required: &[u8]) -> bool {
     found
 }
 
-fn trim_ows(mut value: &[u8]) -> &[u8] {
+pub(super) fn trim_ows(mut value: &[u8]) -> &[u8] {
     while value
         .first()
         .is_some_and(|byte| *byte == b' ' || *byte == b'\t')
@@ -264,7 +264,7 @@ fn trim_ows(mut value: &[u8]) -> &[u8] {
     value
 }
 
-fn ascii_eq(left: &[u8], right: &[u8]) -> bool {
+pub(super) fn ascii_eq(left: &[u8], right: &[u8]) -> bool {
     left.len() == right.len()
         && left
             .iter()
@@ -272,7 +272,7 @@ fn ascii_eq(left: &[u8], right: &[u8]) -> bool {
             .all(|(left, right)| left.eq_ignore_ascii_case(right))
 }
 
-const fn is_token_byte(byte: u8) -> bool {
+pub(super) const fn is_token_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric()
         || matches!(
             byte,
@@ -293,6 +293,6 @@ const fn is_token_byte(byte: u8) -> bool {
         )
 }
 
-const fn is_field_value_byte(byte: u8) -> bool {
+pub(super) const fn is_field_value_byte(byte: u8) -> bool {
     byte == b'\t' || (byte >= b' ' && byte <= b'~') || byte >= 0x80
 }
