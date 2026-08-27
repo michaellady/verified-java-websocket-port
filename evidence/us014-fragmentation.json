@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_id": "evidence.us-014-fragmentation",
+  "story_id": "US-014",
+  "status": "CLOSED_OWNER_RELAXED_BOUNDED",
+  "architecture_commit": "fd2eb96206941efe20256ee54bcf2b0e59583e56",
+  "implementation": {
+    "commit": "bea89afb7e5f3cfa2f2c9e70a52f78a289dda2a3",
+    "crate_tree": "d94492cf5f3f0e4999165d24c1aa568fda478111",
+    "bindings": [
+      {"path":"rust/connection-core/src/lib.rs","sha256":"sha256:b054f9e530c0f208a154b1b604d0ba99ace08e4bbc4c54f4941754421cfe30e5","git_blob":"fa7d22ffef99965c5f8de149fb2103ec8234fee7"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:eadd15448151e3bfdde54798e6c2cfa877868ef4a3203ae1032988f6909d5b2d","git_blob":"ba7cb2db7a2a6093e44da3c3934edbb147874d4e"},
+      {"path":"rust/connection-core/src/fragment.rs","sha256":"sha256:056b8daac15058e389c14cc2b19d27e34ca011933d2f984e358f11c8d16d2070","git_blob":"8c1e09e08ab595141ba685a2f39ca92caab23aaa"},
+      {"path":"rust/connection-core/src/message.rs","sha256":"sha256:3a0da3a50c590712b160c3a523f89a8549c43e90cfd48f1c557dce698d0e589a","git_blob":"287e5ad657eddd5a047bc4e14313608b05e75aa3"},
+      {"path":"rust/connection-core/src/frame/decode.rs","sha256":"sha256:8f161b82286a6553bed06c358232ae4d41176237e92d39ff4c890bf9d8fda739","git_blob":"f163c00d2ce7c8ea73aeee0c3fb5b60e6a73bca1"},
+      {"path":"rust/connection-core/src/utf8.rs","sha256":"sha256:cb97162b6099d26e78b1817202efdcd4f92aa160810ea95db2bffa23280d2e32","git_blob":"9e36b16f019b1b3e9aa927e44551ae020ed83e08"},
+      {"path":"rust/connection-core/tests/fragmentation.rs","sha256":"sha256:dbc15abc93b0eeb525c33c50ce51009699ad5a75eaa745ef7f6cad9be52541b9","git_blob":"7225d57d0d4c778802545fa7197f703e290590eb"},
+      {"path":"rust/connection-core/tests/frame_codec.rs","sha256":"sha256:e5059dbe8555b2f8d2e243afe795c8c7676a31b36dc1d0f38ec6c3dc57870d6b","git_blob":"cf054e03aec5cef7a817a5606ea76e183ac4ea86"},
+      {"path":"rust/connection-core/tests/messages.rs","sha256":"sha256:489150405c44f82b29c188113db37335a949a408476207ed528fc3e96ff6ab45","git_blob":"6fb621a2756ab201faa303b657bb6f7e914d462e"}
+    ]
+  },
+  "tests": {
+    "gate_command": "make -C rust gates",
+    "metadata_fmt_clippy": "PASS",
+    "debug": {"passed":98,"failed":0},
+    "release": {"passed":98,"failed":0},
+    "fragmentation_tests_per_profile": 13,
+    "message_regression_tests_per_profile": 10,
+    "frame_regression_tests_per_profile": 16,
+    "replay_seed_count": 14,
+    "seed_tree": "6f52d0ce1bfa23d8965e8506fb4dc64113612d1f",
+    "roles": ["client", "server"],
+    "bounded_schedules": ["every UTF-8 scalar fragment cut", "one byte per transport step", "one through five continuations", "every single transport cut for each generated schedule"]
+  },
+  "covered_behavior": [
+    "legal fragmented Text and Binary deliver every FrameReceived then one final typed message",
+    "Ping Pong and Close remain ordered frame-only observations without disturbing active message state",
+    "orphan continuation data restart fragmented UTF-8 and active-message EOF failures are stable terminal data",
+    "MessageBytes TotalBufferedBytes and EventQueueEntries exact and plus-one admissions precede prohibited growth",
+    "partial-frame EOF wins over active-fragment EOF and all terminal paths reset retained fragmentation state",
+    "successful completion releases the accumulator and permits an immediate next message"
+  ],
+  "runtime_evidence": {
+    "kind": "BOUNDED_DETERMINISTIC_PROPERTY_AND_REGRESSION_TESTS",
+    "seam": "ConnectionCore::step",
+    "seeds_are_inert_test_data": true
+  },
+  "nonclaims": [
+    "no fuzz or mutation engine execution",
+    "no live Java differential execution",
+    "no Autobahn rerun or new conformance result",
+    "no formal backend or production proof claim",
+    "no outbound fragmentation Ping Pong event automatic response Close-wire or normal EOF claim",
+    "no independent review signing publication production or release claim"
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "publication": false,
+    "production": false,
+    "signing": false
+  }
+}
