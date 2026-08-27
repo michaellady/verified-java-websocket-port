@@ -226,6 +226,18 @@ final_state, terminal_close, raw_sha256, normalized_sha256
 normalization_loss[]:{json_pointer,rule,before_sha256,after_value}
 ```
 
+The owner-relaxed parity scope is exactly
+`RUNTIME_COMMON_AGGREGATE`. Java and Rust compare aggregate consumed,
+wire-buffered, and message-buffered counters plus the lossless ordered
+step-tagged events, frames, transitions, states, close outcome, and typed
+error. The incumbent Java adapter does not expose counter snapshots after
+each individual step. Rust per-step accounting therefore remains retained
+diagnostic evidence, not a cross-runtime parity field; no Java per-step value
+may be inferred, reconstructed, or fabricated. Evidence must carry the exact
+scope label and the nonclaim `no per-step Java counter parity`, and the static
+verifier rejects any receipt that upgrades the diagnostic trace to a Java/Rust
+per-step agreement claim.
+
 Integers are unsigned decimal values with checked range; byte values are
 canonical base64; absent, empty, zero, and null are distinct. Array order is
 semantic. Error **class** is semantic; implementation-specific prose may be
