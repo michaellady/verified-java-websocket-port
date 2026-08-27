@@ -229,6 +229,36 @@ func TestLedgerMigrationChainAndCAS(t *testing.T) {
 	}
 }
 
+func TestObservedRustDefectRemainsVisibleAfterClosingRun(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repositoryRoot(t), "evidence/java/behavior-delta-ledger.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger, err := migrateLedger(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenarios := publicScenarios(t)
+	hierarchy, err := BuildOracleHierarchy(scenarios)
+	if err != nil {
+		t.Fatal(err)
+	}
+	closing := digest([]byte("closing-aligned"))
+	if err := appendObservedRemediation(&ledger, hierarchy, scenarios[5], closing, closing, strings.Repeat("c", 40)); err != nil {
+		t.Fatalf("appendObservedRemediation: %v", err)
+	}
+	if len(ledger.Records) != 1 || ledger.Records[0].Classification != "rust_defect" || ledger.Records[0].Resolution != "remediated" || ledger.Records[0].ClosingRustObservation != closing {
+		t.Fatalf("retained record=%#v", ledger.Records)
+	}
+	document, err := marshalIndented(ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := compileAndValidateSchema(filepath.Join(repositoryRoot(t), "schemas/behavior-delta-ledger-1.1.0.schema.json"), document); err != nil {
+		t.Fatalf("closed ledger schema: %v", err)
+	}
+}
+
 func TestCoverageReconciles47MigrationAnd14CompatibilityItems(t *testing.T) {
 	root := repositoryRoot(t)
 	receipt, err := buildCoverage(root, publicScenarios(t))

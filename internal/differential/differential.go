@@ -222,18 +222,22 @@ type OracleHierarchy struct {
 }
 
 type LedgerRecord struct {
-	Sequence         int        `json:"sequence"`
-	DeltaID          string     `json:"delta_id"`
-	PreviousDigest   string     `json:"previous_digest"`
-	RecordDigest     string     `json:"record_digest"`
-	ScenarioID       string     `json:"scenario_id"`
-	Pointer          string     `json:"pointer"`
-	Classification   string     `json:"classification"`
-	JavaObservation  string     `json:"java_observation_sha256"`
-	RustObservation  string     `json:"rust_observation_sha256"`
-	ReproducerSHA256 string     `json:"reproducer_sha256"`
-	Decision         OracleCell `json:"decision"`
-	Resolution       string     `json:"resolution"`
+	Sequence               int        `json:"sequence"`
+	DeltaID                string     `json:"delta_id"`
+	PreviousDigest         string     `json:"previous_digest"`
+	RecordDigest           string     `json:"record_digest"`
+	ScenarioID             string     `json:"scenario_id"`
+	Pointer                string     `json:"pointer"`
+	Classification         string     `json:"classification"`
+	JavaObservation        string     `json:"java_observation_sha256"`
+	RustObservation        string     `json:"rust_observation_sha256"`
+	ReproducerSHA256       string     `json:"reproducer_sha256"`
+	Decision               OracleCell `json:"decision"`
+	Resolution             string     `json:"resolution"`
+	FindingRunAnchor       string     `json:"finding_run_anchor"`
+	ClosingRunAnchor       string     `json:"closing_run_anchor"`
+	ClosingJavaObservation string     `json:"closing_java_observation_sha256"`
+	ClosingRustObservation string     `json:"closing_rust_observation_sha256"`
 }
 
 type Ledger struct {
@@ -1326,6 +1330,37 @@ func appendLedgerRecord(ledger *Ledger, expectedHead string, record LedgerRecord
 	return validateLedger(*ledger)
 }
 
+func appendObservedRemediation(ledger *Ledger, hierarchy OracleHierarchy, sc corpora.Scenario, closingJava, closingRust, closingAnchor string) error {
+	if sc.ScenarioID != "us005.pub.0005" || closingJava != closingRust {
+		return errors.New("observed remediation closing run is not aligned")
+	}
+	var decision *OracleCell
+	for index := range hierarchy.Cells {
+		cell := &hierarchy.Cells[index]
+		if cell.ScenarioID == sc.ScenarioID && cell.Pointer == "/counts/consumed_bytes" {
+			decision = cell
+			break
+		}
+	}
+	if decision == nil {
+		return errors.New("observed remediation oracle cell absent")
+	}
+	reproducer, err := sc.CanonicalLine()
+	if err != nil {
+		return err
+	}
+	record := LedgerRecord{
+		DeltaID: "delta.us005.pub.0005.counts-consumed-bytes", ScenarioID: sc.ScenarioID,
+		Pointer: "/counts/consumed_bytes", Classification: "rust_defect",
+		JavaObservation:  "sha256:13473d74240499994fec9601b20be094a7e55e25d97d20ae9cb4a9875d2b710b",
+		RustObservation:  "sha256:5e8b0f1d14d21e402d66df17de0cb3175c63b1b3ebd599b9e5072b346e68aeb1",
+		ReproducerSHA256: digest(reproducer), Decision: *decision, Resolution: "remediated",
+		FindingRunAnchor: "c44623e38b59563401c438c3321bf7f3e77e7e54", ClosingRunAnchor: closingAnchor,
+		ClosingJavaObservation: closingJava, ClosingRustObservation: closingRust,
+	}
+	return appendLedgerRecord(ledger, ledger.Head, record)
+}
+
 func minimizeStrings(original []string, budget Budget, predicate func([]string) (string, bool)) ([]string, int, error) {
 	if budget.MaxCandidates <= 0 || budget.MaxCandidates > 512 || budget.MaxDuration <= 0 || budget.MaxDuration > 30*time.Minute {
 		return nil, 0, errors.New("invalid minimization budget")
@@ -2298,12 +2333,21 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 		manifest.Scenarios = append(manifest.Scenarios, result)
 		if currentMismatch || javaPrimary.receipt.NormalizedSHA256 != neutralDigest || rustPrimary.receipt.NormalizedSHA256 != neutralDigest {
 			pointer, _ := firstDifference(javaPrimary.observation, rustPrimary.observation)
-			return Receipt{}, fmt.Errorf("US020_DIFFERENCE scenario=%s pointer=%s classification=%s java=%s rust=%s neutral=%s", sc.ScenarioID, pointer, classification, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, neutralDigest)
+			return Receipt{}, fmt.Errorf("US020_DIFFERENCE scenario=%s pointer=%s classification=%s java=%s rust=%s neutral=%s java_value=%+v rust_value=%+v", sc.ScenarioID, pointer, classification, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, neutralDigest, javaPrimary.observation, rustPrimary.observation)
+		}
+		if sc.ScenarioID == "us005.pub.0005" {
+			if err := appendObservedRemediation(&ledger, hierarchy, sc, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
+				return Receipt{}, err
+			}
 		}
 	}
 	manifest.Counts = CountsReceipt{Scenarios: len(scenarios), JavaPrimary: len(scenarios), JavaReplay: len(scenarios), RustPrimary: len(scenarios), RustReplay: len(scenarios), Processes: len(manifest.Processes)}
 	manifest.Ledger = LedgerBinding{PreHead: preHead, PostHead: ledger.Head, Records: len(ledger.Records)}
-	ledger.Status = "PASS_NO_CURRENT_DELTAS"
+	if len(ledger.Records) == 0 {
+		ledger.Status = "PASS_NO_CURRENT_DELTAS"
+	} else {
+		ledger.Status = "PASS_WITH_CLOSED_HISTORY"
+	}
 	ledger.UnledgeredDisagreements = 0
 	ledgerDocument, err := marshalIndented(ledger)
 	if err != nil {
