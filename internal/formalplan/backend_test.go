@@ -507,8 +507,13 @@ func TestFormalPreflightExecutedBackendRules(t *testing.T) {
 		us006MutateDocument(t, root, "/backends/2/canaries/known_bad/status", "DETECTED")
 		us006MutateDocument(t, root, "/backends/2/canaries/known_bad/counterexample_digest", "sha256:"+strings.Repeat("d", 64))
 		us006MutateDocument(t, root, "/backends/2/obligations/0/outcome", "ProofEstablished")
+		// Integration round 2: a production link resolves only when the file
+		// exists AND contains the symbol token — write a fixture-local
+		// production file so the link genuinely resolves both halves.
+		us006WriteFile(t, filepath.Join(root, "fixtures-production", "connection_state_machine.rs"),
+			[]byte("// test production stand-in\npub fn connection_state_machine() {}\n"))
 		us006MutateDocument(t, root, "/backends/2/obligations/0/production_code_ids",
-			[]any{"rust/connection-core/src/connection.rs#connection_state_machine"})
+			[]any{"fixtures-production/connection_state_machine.rs#connection_state_machine"})
 		return root
 	}
 

@@ -998,18 +998,35 @@ func scanForSkipRepresentations(evaluation *formalEvaluation, docPath string, no
 	}
 }
 
+// productionLinked resolves each production_code_id as BOTH halves of the
+// "path#symbol" contract: the file must exist AND, when a fragment is given,
+// the file's bytes must contain the symbol token. Textual containment is a
+// documented pre-resolver approximation (rust identities remain
+// RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED); it cannot confirm the symbol's
+// kind or scope, but it does refuse a link to a file that never mentions the
+// symbol at all — the round-2 integration-review gap.
 func productionLinked(root string, productionCodeIDs []string) bool {
 	if len(productionCodeIDs) == 0 {
 		return false
 	}
 	for _, codeID := range productionCodeIDs {
-		file, _, _ := strings.Cut(codeID, "#")
+		file, symbol, hasFragment := strings.Cut(codeID, "#")
 		if file == "" {
 			return false
 		}
-		info, err := os.Stat(filepath.Join(root, filepath.FromSlash(file)))
+		path := filepath.Join(root, filepath.FromSlash(file))
+		info, err := os.Stat(path)
 		if err != nil || info.IsDir() {
 			return false
+		}
+		if hasFragment {
+			if symbol == "" {
+				return false
+			}
+			raw, readErr := os.ReadFile(path)
+			if readErr != nil || !bytes.Contains(raw, []byte(symbol)) {
+				return false
+			}
 		}
 	}
 	return true

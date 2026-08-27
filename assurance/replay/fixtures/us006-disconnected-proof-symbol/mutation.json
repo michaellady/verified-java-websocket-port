@@ -122,7 +122,7 @@
       "target": "assurance/formal/backend-qualification.json",
       "pointer": "/backends/2/obligations/0/production_code_ids",
       "value": [
-        "fixtures-production/connection_state_machine.rs#connection_state_machine"
+        "fixtures-production/connection_state_machine.rs#no_such_symbol_present"
       ]
     }
   ]

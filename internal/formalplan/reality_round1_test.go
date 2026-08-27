@@ -188,6 +188,9 @@ func TestFormalPreflightDisconnectedProof(t *testing.T) {
 	}{
 		{"empty-production-code-ids", []any{}},
 		{"unresolvable-production-file", []any{"rust/connection-core/src/missing.rs#connection_state_machine"}},
+		// Integration round 2: the file exists but never mentions the cited
+		// symbol — the link's second half must fail resolution.
+		{"symbol-absent-from-existing-file", []any{"rust/connection-core/src/connection.rs#no_such_symbol_present"}},
 	}
 	for _, item := range cases {
 		item := item
@@ -213,8 +216,10 @@ func TestFormalPreflightDisconnectedProof(t *testing.T) {
 
 	t.Run("linked-pass-still-counts", func(t *testing.T) {
 		root := prepare(t)
+		us006WriteFile(t, filepath.Join(root, "fixtures-production", "connection_state_machine.rs"),
+			[]byte("// test production stand-in\npub fn connection_state_machine() {}\n"))
 		us006MutateDocument(t, root, "/backends/2/obligations/0/production_code_ids",
-			[]any{"rust/connection-core/src/connection.rs#connection_state_machine"})
+			[]any{"fixtures-production/connection_state_machine.rs#connection_state_machine"})
 		verdict, err := FormalPreflight(PreflightRequest{RootPath: root})
 		if err != nil {
 			t.Fatalf("preflight: %v", err)
