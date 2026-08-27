@@ -1,0 +1,17 @@
+listening 127.0.0.1:9010
+session=1 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=2 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=3 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=4 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=5 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=6 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=7 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=8 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=9 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=10 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=11 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=12 outcome=ProtocolFailure(TypedProtocolFailure { code: StateViolation, close_code: None }) texts=0 binaries=0 pings=0 pongs=0 close=1000:remote terminals=0
+session=13 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1002:transport terminals=1
+session=14 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=15 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+served=15

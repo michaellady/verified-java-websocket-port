@@ -31,7 +31,7 @@ pub mod server;
 
 pub use client::{ClientFixture, run_client_once};
 pub use io_loop::{ConnectionReport, IoBounds, LoopOutcome};
-pub use server::{ServerFixture, run_server_once};
+pub use server::{ServerFixture, run_server_once, run_server_sessions};
 
 use std::net::SocketAddr;
 

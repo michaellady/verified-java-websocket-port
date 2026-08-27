@@ -41,6 +41,30 @@ impl EventPolicy for EchoPolicy {
     }
 }
 
+/// Sequentially accepts and serves `sessions` connections on ONE bound
+/// listener (E5 Autobahn fuzzingclient wiring: the fuzzer opens one fresh
+/// connection per case, strictly sequentially, so the listener must stay
+/// bound between sessions with no accept gap). Each session is a full
+/// [`run_server_once`] echo run; `on_report` observes every session's
+/// report in order (1-based index) as it completes.
+///
+/// # Errors
+///
+/// The first [`SetupOutcome`] (accept failure / non-loopback peer) ends
+/// the run early; sessions already served have been reported.
+pub fn run_server_sessions(
+    listener: &TcpListener,
+    fixture: &ServerFixture,
+    sessions: u64,
+    on_report: &mut dyn FnMut(u64, &ConnectionReport),
+) -> Result<(), SetupOutcome> {
+    for index in 1..=sessions {
+        let report = run_server_once(listener, fixture)?;
+        on_report(index, &report);
+    }
+    Ok(())
+}
+
 /// Accepts and runs ONE loopback connection to its terminal outcome.
 ///
 /// # Errors
