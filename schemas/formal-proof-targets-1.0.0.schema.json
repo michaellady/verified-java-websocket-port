@@ -71,6 +71,7 @@
         "sha256": {"$ref": "#/$defs/digest"},
         "attribution": {
           "enum": [
+            "AUGMENTED_CODEX_US010",
             "BORROWED_CLAUDE_US003",
             "BORROWED_CLAUDE_US004",
             "BORROWED_CLAUDE_US005",

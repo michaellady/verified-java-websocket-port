@@ -31,8 +31,8 @@
     },
     {
       "path": "evidence/intake/cutover-contract.json",
-      "sha256": "sha256:ea6d6148dd67b705e74db48056dd5f17f22626fda48d148aef01f37de2d46f76",
-      "attribution": "BORROWED_CLAUDE_US003"
+      "sha256": "sha256:7209cffe070651019b75f8a05f83d52d92b38a67aec95663b38235981b03bbc3",
+      "attribution": "AUGMENTED_CODEX_US010"
     },
     {
       "path": "evidence/intake/port-seam-dossier.json",
