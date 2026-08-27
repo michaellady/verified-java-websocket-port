@@ -84,6 +84,7 @@
 
 pub mod base64;
 pub mod core_adapter;
+pub mod handshake_adapter;
 pub mod json;
 pub mod observe;
 pub mod request;
@@ -99,8 +100,11 @@ use response::RuntimeIdentity;
 pub const PROTOCOL: &str = "java-websocket-oracle";
 /// Oracle protocol version pinned by the vendored java-oracle adapter.
 pub const VERSION: &str = "1.0.0";
-/// Handshake-protocol id (routed by java-oracle; NOT implemented here yet).
+/// Handshake-protocol id, wired to `ws_core::handshake` through
+/// [`handshake_adapter`] (US-010/US-011 borrow batch B).
 pub const HANDSHAKE_PROTOCOL: &str = "java-websocket-handshake-oracle";
+/// Handshake-protocol version pin.
+pub const HANDSHAKE_VERSION: &str = "1.0.0";
 /// Hard JSONL line ceiling, mirroring `OracleMain.HARD_LINE_BYTES`.
 pub const HARD_LINE_BYTES: usize = 1_048_576;
 /// Stable artifact identifier for transcripts and `--identify` output.
@@ -137,8 +141,12 @@ pub fn respond_bytes(
 }
 
 /// Builds the single response line (no trailing newline) for one request
-/// line that already passed the byte-level guards.
+/// line that already passed the byte-level guards. Handshake-protocol lines
+/// route to [`handshake_adapter`]; everything else is the behavior protocol.
 pub fn respond(line: &str, core: &mut dyn CandidateCore, runtime: &RuntimeIdentity) -> String {
+    if let Some(response) = handshake_adapter::try_respond(line, runtime) {
+        return response;
+    }
     let parsed = match request::parse_request(line) {
         Ok(parsed) => parsed,
         Err(error) => return response::envelope_error_response(&error),

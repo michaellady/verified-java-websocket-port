@@ -19,7 +19,7 @@ use std::collections::BTreeMap;
 use crate::json::{self, Value};
 use crate::observe::ConnectionState;
 use crate::sha256;
-use crate::{HANDSHAKE_PROTOCOL, PROTOCOL, VERSION};
+use crate::{PROTOCOL, VERSION};
 
 /// Hard adapter ceilings, mirroring `OracleEngine` exactly.
 pub const HARD_INPUT_BYTES: i64 = 1_048_576;
@@ -179,13 +179,8 @@ pub fn parse_request(line: &str) -> Result<OracleRequest, ProtocolError> {
             "request must be an object",
         ));
     };
-    if request.get("protocol") == Some(&Value::Str(HANDSHAKE_PROTOCOL.to_string())) {
-        return Err(ProtocolError::new(
-            "UNSUPPORTED_PROTOCOL",
-            "handshake adapter is not wired in ws-oracle-harness yet \
-             (awaits ws_core handshake entry points, US-010/US-011)",
-        ));
-    }
+    // Handshake-protocol lines never reach this parser: crate::respond
+    // routes them to crate::handshake_adapter first (US-010/US-011).
     reject_unknown(&request, &REQUEST_FIELDS, "request")?;
 
     let request_id = string(&request, "request_id")?;
@@ -550,13 +545,5 @@ mod tests {
         request.insert("request_digest".to_string(), Value::Str(digest));
         let line = Value::Obj(request).canonical();
         assert_eq!(parse_request(&line).unwrap_err().code, "LIMIT_OUT_OF_RANGE");
-    }
-
-    #[test]
-    fn handshake_protocol_lines_are_reported_unwired() {
-        let line = format!("{{\"protocol\":\"{HANDSHAKE_PROTOCOL}\",\"version\":\"1.0.0\"}}");
-        let error = parse_request(&line).unwrap_err();
-        assert_eq!(error.code, "UNSUPPORTED_PROTOCOL");
-        assert!(error.detail.contains("handshake adapter is not wired"));
     }
 }

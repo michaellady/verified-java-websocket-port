@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "mutant_id": "us005-jm-utf8-accept",
+  "overlaid": [
+    {
+      "file": "OracleEngine.java",
+      "pristine_sha256": "sha256:ea562de9da7e628bccdb410e6806cba16bab86293b2d59bac14b2bb6fb77b4c8",
+      "mutant_sha256": "sha256:497c4006e01404265cc335dc6c122a87f41e19264783ed3937f96321e3ac25f4"
+    }
+  ],
+  "staged": [
+    {
+      "file": "HandshakeEngine.java",
+      "sha256": "sha256:aabf82477d8872053b9a32ab8ba42cf2be3711d7f5e1cea671b32a0436588a24"
+    },
+    {
+      "file": "OracleEngine.java",
+      "sha256": "sha256:497c4006e01404265cc335dc6c122a87f41e19264783ed3937f96321e3ac25f4"
+    },
+    {
+      "file": "OracleMain.java",
+      "sha256": "sha256:6ac014e35db3dd5268e45c63f10c0375ba60e0fa74098a2415ab2257dfb81e2e"
+    },
+    {
+      "file": "ProtocolException.java",
+      "sha256": "sha256:f97eddcf38fd644bc1bc4b0ec703586f4b46a91cac1810867ebabd35889ef49e"
+    },
+    {
+      "file": "StrictJson.java",
+      "sha256": "sha256:a449bae8e4561724eb1b12f1ec00d6f76a2e0743550e9437d036f2d7b9785db2"
+    }
+  ]
+}

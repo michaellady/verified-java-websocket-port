@@ -47,6 +47,7 @@ use crate::event::{
     TransitionCause,
 };
 use crate::framing::{CLOSE_CONSTRUCTOR_PAYLOAD, DecodedFrame, Draft6455, Opcode, ProcessOutcome};
+use crate::handshake::{self, HandshakeDriver};
 use crate::message::Charsetfunctions;
 use crate::queue::BoundedQueue;
 
@@ -287,6 +288,10 @@ pub struct ConnectionCore {
     /// deterministic source derived from `mask_key_seed` scores
     /// identically).
     mask_counter: u64,
+    /// Opening-handshake driver for the `NotYetConnected` byte path
+    /// (US-010/US-011; state logic lives in [`crate::handshake`], this
+    /// struct only dispatches to it).
+    handshake: HandshakeDriver,
 }
 
 /// Migration-map planned identity for the single-owner connection type
@@ -336,6 +341,7 @@ impl ConnectionCore {
             writes,
             draft: Draft6455::new(),
             mask_counter: 0,
+            handshake: HandshakeDriver::Idle,
         }
     }
 
@@ -480,10 +486,15 @@ impl ConnectionCore {
     /// incomplete-header screen, then per-frame recording and processing
     /// with the frame budget checked before each record.
     fn handle_bytes(&mut self, chunk: &[u8]) -> Result<(), TypedProtocolFailure> {
-        // The handshake plane (buffering, limits, verdicts) is US-010/US-011
-        // behavior; this slice refuses it honestly.
+        // Opening-handshake byte path (US-010/US-011): the state logic lives
+        // in crate::handshake; this arm only dispatches. A surviving
+        // handshake chunk emits at most one input_chunk event; the
+        // open-state data path below does its own dynamic slot precheck.
         if self.state == ReadyState::NotYetConnected {
-            return Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented));
+            if self.events.available() < 1 {
+                return Err(Self::backpressure(QueueKind::Event));
+            }
+            return self.handle_handshake_bytes(chunk);
         }
         // Quirk Q26 / derive.go:292-294: closed + nonzero payload is a state
         // violation; an empty chunk is still recorded.
@@ -715,6 +726,156 @@ impl ConnectionCore {
             wire_bytes,
         }));
         self.emit(SemanticEventKind::OutboundCause { cause, opcode });
+        Ok(())
+    }
+
+    /// Begin the client opening handshake (US-010): render the deterministic
+    /// upgrade request (nonce derived from the configured `mask_key_seed` —
+    /// the determinism seam, quirk Q28) as a queued [`TransportWrite`] and
+    /// await the server's response on the byte path. This is a port-side
+    /// construction entry point (like [`ConnectionCore::new_in_state`]), not
+    /// a corpus command: the behavior corpora start post-handshake, so no
+    /// `LocalCommand` exists for it.
+    ///
+    /// # Errors
+    ///
+    /// - [`FailureCode::StateViolation`]: not `NotYetConnected`, not the
+    ///   client role, or the handshake already started (non-fatal here would
+    ///   lie; the misuse poisons the core exactly like other fatal codes).
+    /// - [`FailureCode::Backpressure`]: no write-queue slot for the request;
+    ///   nothing was mutated — drain and retry.
+    pub fn begin_client_handshake(
+        &mut self,
+        request_target: &str,
+        host: &str,
+    ) -> Result<(), TypedProtocolFailure> {
+        if self.poisoned
+            || self.state != ReadyState::NotYetConnected
+            || self.role != Role::Client
+            || !matches!(self.handshake, HandshakeDriver::Idle)
+        {
+            self.poisoned = true;
+            return Err(Self::state_violation());
+        }
+        let descriptor = handshake::client::ClientRequestDescriptor::try_new(request_target, host)
+            .map_err(|_| {
+                self.poisoned = true;
+                Self::state_violation()
+            })?;
+        if self.writes.available() < 1 {
+            return Err(Self::backpressure(QueueKind::Write));
+        }
+        let nonce = handshake::client::nonce_from_seed(self.config.mask_key_seed());
+        let limits = handshake::HandshakeLimits::from_config(&self.config);
+        let (machine, request) =
+            handshake::client::ClientHandshake::start(&descriptor, nonce, limits);
+        self.writes
+            .push(TransportWrite { bytes: request })
+            .expect("write-queue capacity was prechecked for this request");
+        self.handshake = HandshakeDriver::Client(machine);
+        Ok(())
+    }
+
+    /// `NotYetConnected` byte path (US-010/US-011 handshake entry hook). The
+    /// handshake decision logic lives in [`crate::handshake`]; this method
+    /// only maps outcomes onto core mutations. Handshake-phase bytes are
+    /// deliberately OUTSIDE the corpus counters (`input_bytes` /
+    /// `consumed_bytes` / `input_chunk` events are post-handshake corpus
+    /// vocabulary; no corpus scenario observes this state), and the
+    /// `NotYetConnected -> Open` change emits no transition record (the
+    /// transcript `transitions` stream is the close lifecycle only,
+    /// derive.go `transition` call sites).
+    fn handle_handshake_bytes(&mut self, chunk: &[u8]) -> Result<(), TypedProtocolFailure> {
+        // Atomicity precheck: any terminal handshake outcome writes at most
+        // one response head.
+        if self.writes.available() < 1 {
+            return Err(Self::backpressure(QueueKind::Write));
+        }
+        if matches!(self.handshake, HandshakeDriver::Idle) {
+            match self.role {
+                Role::Server => {
+                    let limits = handshake::HandshakeLimits::from_config(&self.config);
+                    self.handshake =
+                        HandshakeDriver::Server(handshake::server::ServerHandshake::new(limits));
+                }
+                Role::Client => {
+                    // Bytes before begin_client_handshake: the port never
+                    // reads a response it has not requested.
+                    self.poisoned = true;
+                    return Err(Self::state_violation());
+                }
+            }
+        }
+        match &mut self.handshake {
+            HandshakeDriver::Idle => unreachable!("driver was just installed"),
+            HandshakeDriver::Server(machine) => match machine.consume(chunk) {
+                handshake::server::ServerHandshakeOutcome::Incomplete => Ok(()),
+                handshake::server::ServerHandshakeOutcome::Accept {
+                    response,
+                    remainder,
+                    ..
+                } => {
+                    self.writes
+                        .push(TransportWrite { bytes: response })
+                        .expect("write-queue capacity was prechecked for this input");
+                    self.finish_handshake_open(remainder)
+                }
+                handshake::server::ServerHandshakeOutcome::Reject { response, .. } => {
+                    // The collapsed Java observable: HTTP error head + close
+                    // 1002 (InvalidHandshakeException carries PROTOCOL_ERROR).
+                    self.writes
+                        .push(TransportWrite { bytes: response })
+                        .expect("write-queue capacity was prechecked for this input");
+                    Err(TypedProtocolFailure::java_invalid_data(
+                        handshake::HANDSHAKE_REJECT_CLOSE_CODE,
+                    ))
+                }
+                handshake::server::ServerHandshakeOutcome::LimitExceeded(_) => {
+                    // PLUS_SAFE configured-budget refusal (port
+                    // strengthening; never a Java observable).
+                    Err(TypedProtocolFailure::protocol(
+                        FailureCode::BufferLimitExceeded,
+                    ))
+                }
+                handshake::server::ServerHandshakeOutcome::NotAwaiting => {
+                    Err(Self::state_violation())
+                }
+            },
+            HandshakeDriver::Client(machine) => match machine.consume(chunk) {
+                handshake::client::ClientHandshakeOutcome::Incomplete => Ok(()),
+                handshake::client::ClientHandshakeOutcome::Accept { remainder } => {
+                    self.finish_handshake_open(remainder)
+                }
+                handshake::client::ClientHandshakeOutcome::Reject { .. } => Err(
+                    TypedProtocolFailure::java_invalid_data(handshake::HANDSHAKE_REJECT_CLOSE_CODE),
+                ),
+                handshake::client::ClientHandshakeOutcome::LimitExceeded(_) => Err(
+                    TypedProtocolFailure::protocol(FailureCode::BufferLimitExceeded),
+                ),
+                handshake::client::ClientHandshakeOutcome::NotAwaiting => {
+                    Err(Self::state_violation())
+                }
+            },
+        }
+    }
+
+    /// Open the connection after an accepted handshake, stashing post-head
+    /// remainder bytes into the pending wire buffer under the Q24 cap
+    /// (bounded before retention, as everywhere in this core).
+    fn finish_handshake_open(&mut self, remainder: Vec<u8>) -> Result<(), TypedProtocolFailure> {
+        let cap =
+            (self.config.max_buffered_bytes() as u64).saturating_add(WIRE_PENDING_SLACK_BYTES);
+        let remainder_len = remainder.len() as u64;
+        if remainder_len > cap {
+            self.wire_buffered_reported = remainder_len;
+            self.state = ReadyState::Open;
+            return Err(TypedProtocolFailure::protocol(
+                FailureCode::BufferLimitExceeded,
+            ));
+        }
+        self.pending = remainder;
+        self.wire_buffered_reported = remainder_len;
+        self.state = ReadyState::Open;
         Ok(())
     }
 
