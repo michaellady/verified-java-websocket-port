@@ -40,7 +40,7 @@ func publicScenarios(t *testing.T) []corpora.Scenario {
 
 func minimalValidManifestForTest(t *testing.T) Manifest {
 	t.Helper()
-	manifest := Manifest{Schema: "../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: "PASS", Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: strings.Repeat("a", 40), Counts: CountsReceipt{Scenarios: 74, JavaPrimary: 74, JavaReplay: 74, RustPrimary: 74, RustReplay: 74, Processes: 296}, Controls: ControlsReceipt{Total: 7, Killed: 7, Results: make([]ControlResult, 7)}, Coverage: CoverageReceipt{Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}, Migration: make([]CoverageRow, 47), Compatibility: make([]CoverageRow, 14)}, Ledger: LedgerBinding{PreHead: "sha256:" + strings.Repeat("0", 64), PostHead: "sha256:" + strings.Repeat("0", 64)}, Nonclaims: []string{"no per-step Java counter parity"}}
+	manifest := Manifest{Schema: "../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: "PASS", Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: strings.Repeat("a", 40), Counts: CountsReceipt{Scenarios: 74, JavaPrimary: 74, JavaReplay: 74, RustPrimary: 74, RustReplay: 74, Processes: 296}, Controls: ControlsReceipt{Total: 7, Killed: 7, Results: make([]ControlResult, 7)}, Coverage: CoverageReceipt{Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}, Migration: make([]CoverageRow, 47), Compatibility: make([]CoverageRow, 14)}, Ledger: LedgerBinding{PreHead: "sha256:" + strings.Repeat("0", 64), PostHead: "sha256:" + strings.Repeat("0", 64)}, Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote}}
 	for index := 0; index < 74; index++ {
 		id := fmt.Sprintf("us005.pub.%04d", index)
 		manifest.Scenarios = append(manifest.Scenarios, ScenarioResult{ScenarioID: id, Stable: true})
@@ -325,6 +325,30 @@ func TestRustAcceptedInputExcludesClosedStateRejection(t *testing.T) {
 	open := rustStep{PreState: "open", Consumed: 3, Observations: []rustItem{{Error: &commonError{Class: "FRAME_RESERVED_BITS"}}}}
 	if got, err := acceptedRustInputBytes(source, open); err != nil || got != 3 {
 		t.Fatalf("open accepted input = %d, %v", got, err)
+	}
+}
+
+func TestVerifierRejectsInvalidClosedStepAndDerivedCounterOverclaim(t *testing.T) {
+	scenario := publicScenarios(t)[15]
+	result := ScenarioResult{
+		ScenarioID:             scenario.ScenarioID,
+		RustObservation:        commonObservation{Counts: commonCounts{InputBytes: 0, ConsumedBytes: 0}},
+		RustStepDiagnostics:    []rustStep{{InputKind: 1, PreState: "closed", Consumed: 0, Observations: []rustItem{{Error: &commonError{Class: "INVALID_STATE"}}}}},
+		RustNormalizationNotes: []string{rustInputDerivationNote},
+	}
+	if err := validateRustDerivedCounters(scenario, result); err != nil {
+		t.Fatalf("valid derived counters: %v", err)
+	}
+	result.RustStepDiagnostics[0].Consumed = 3
+	result.RustObservation.Counts.ConsumedBytes = 3
+	if err := validateRustDerivedCounters(scenario, result); err == nil {
+		t.Fatal("nonzero Closed-state consumption accepted")
+	}
+	result.RustStepDiagnostics[0].Consumed = 0
+	result.RustObservation.Counts.ConsumedBytes = 0
+	result.RustStepDiagnostics[0].Observations = nil
+	if err := validateRustDerivedCounters(scenario, result); err == nil {
+		t.Fatal("Closed byte step without typed INVALID_STATE accepted")
 	}
 }
 

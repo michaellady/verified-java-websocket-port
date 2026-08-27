@@ -36,6 +36,7 @@ const (
 	neutralProtocolMaximum        = 4 << 20
 	expectedPublicScenarios       = 74
 	expectedProcessReceipts       = expectedPublicScenarios * 2 * 2
+	rustInputDerivationNote       = "input_bytes derives from public source kind plus Rust pre_state and typed INVALID_STATE; it is not raw NOBS1 accounting and cannot change consumed_bytes"
 )
 
 // Budget bounds deterministic mismatch minimization.
@@ -99,20 +100,21 @@ type ProcessReceipt struct {
 }
 
 type ScenarioResult struct {
-	ScenarioID            string            `json:"scenario_id"`
-	JavaPrimary           string            `json:"java_primary_sha256"`
-	JavaReplay            string            `json:"java_replay_sha256"`
-	RustPrimary           string            `json:"rust_primary_sha256"`
-	RustReplay            string            `json:"rust_replay_sha256"`
-	NeutralExpected       string            `json:"neutral_expected_sha256"`
-	Stable                bool              `json:"stable"`
-	CurrentMismatch       bool              `json:"current_mismatch"`
-	Classification        string            `json:"classification"`
-	JavaObservation       commonObservation `json:"java_observation"`
-	RustObservation       commonObservation `json:"rust_observation"`
-	RustStepDiagnostics   []rustStep        `json:"rust_step_diagnostics"`
-	RustBootstrapSHA256   string            `json:"rust_bootstrap_sha256"`
-	JavaNormalizationLoss []string          `json:"java_normalization_loss"`
+	ScenarioID             string            `json:"scenario_id"`
+	JavaPrimary            string            `json:"java_primary_sha256"`
+	JavaReplay             string            `json:"java_replay_sha256"`
+	RustPrimary            string            `json:"rust_primary_sha256"`
+	RustReplay             string            `json:"rust_replay_sha256"`
+	NeutralExpected        string            `json:"neutral_expected_sha256"`
+	Stable                 bool              `json:"stable"`
+	CurrentMismatch        bool              `json:"current_mismatch"`
+	Classification         string            `json:"classification"`
+	JavaObservation        commonObservation `json:"java_observation"`
+	RustObservation        commonObservation `json:"rust_observation"`
+	RustStepDiagnostics    []rustStep        `json:"rust_step_diagnostics"`
+	RustBootstrapSHA256    string            `json:"rust_bootstrap_sha256"`
+	JavaNormalizationLoss  []string          `json:"java_normalization_loss"`
+	RustNormalizationNotes []string          `json:"rust_normalization_notes"`
 }
 
 type CoverageRow struct {
@@ -2071,6 +2073,39 @@ func acceptedRustInputBytes(source corpora.Step, step rustStep) (uint64, error) 
 	return 0, errors.New("closed-state byte step lacks INVALID_STATE rejection")
 }
 
+func validateRustDerivedCounters(sc corpora.Scenario, result ScenarioResult) error {
+	if len(result.RustStepDiagnostics) != len(sc.Core.Steps) {
+		return errors.New("Rust diagnostic step count does not bind the public scenario")
+	}
+	var inputBytes, consumedBytes uint64
+	hasByteStep := false
+	for index, step := range result.RustStepDiagnostics {
+		source := sc.Core.Steps[index]
+		if source.Kind == "bytes" {
+			hasByteStep = true
+			accepted, err := acceptedRustInputBytes(source, step)
+			if err != nil {
+				return err
+			}
+			if inputBytes > ^uint64(0)-accepted {
+				return errors.New("Rust derived input counter overflow")
+			}
+			inputBytes += accepted
+		}
+		if consumedBytes > ^uint64(0)-step.Consumed {
+			return errors.New("Rust consumed counter overflow")
+		}
+		consumedBytes += step.Consumed
+	}
+	if result.RustObservation.Counts.InputBytes != inputBytes || result.RustObservation.Counts.ConsumedBytes != consumedBytes {
+		return errors.New("Rust aggregate counters do not match bounded diagnostic derivation")
+	}
+	if hasByteStep && !contains(result.RustNormalizationNotes, rustInputDerivationNote) {
+		return errors.New("Rust input derivation audit note absent")
+	}
+	return nil
+}
+
 func normalizeRust(sc corpora.Scenario, raw []byte) (commonObservation, rustObservation, error) {
 	decoded, err := decodeNeutralResponse(raw)
 	if err != nil {
@@ -2513,7 +2548,7 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 		}
 		inputs = append(inputs, identity)
 	}
-	manifest := Manifest{Schema: "../../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: evidenceSchemaVersion, EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: StatusPass, Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: anchor, Inputs: inputs, Coverage: coverage, Controls: controls, Nonclaims: []string{"no per-step Java counter parity", "no hidden or sealed corpus access", "no Docker Autobahn wstest Linux or network execution", "no wire interoperability browser performance allocation concurrency TLS or NIO parity", "fresh child receipts prove invocation not an uncontaminated host", "no production publication signing or independent review claim"}}
+	manifest := Manifest{Schema: "../../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: evidenceSchemaVersion, EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: StatusPass, Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: anchor, Inputs: inputs, Coverage: coverage, Controls: controls, Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote, "no hidden or sealed corpus access", "no Docker Autobahn wstest Linux or network execution", "no wire interoperability browser performance allocation concurrency TLS or NIO parity", "fresh child receipts prove invocation not an uncontaminated host", "no production publication signing or independent review claim"}}
 	for _, sc := range scenarios {
 		neutral, err := neutralObservation(sc)
 		if err != nil {
@@ -2553,7 +2588,17 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 			pointer, _ := firstDifference(javaPrimary.observation, rustPrimary.observation)
 			return Receipt{}, fmt.Errorf("US020_DIFFERENCE scenario=%s pointer=%s adjudication=%w java=%s rust=%s neutral=%s java_value=%+v rust_value=%+v", sc.ScenarioID, pointer, err, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, neutralDigest, javaPrimary.observation, rustPrimary.observation)
 		}
-		result := ScenarioResult{ScenarioID: sc.ScenarioID, JavaPrimary: javaPrimary.receipt.NormalizedSHA256, JavaReplay: javaReplay.receipt.NormalizedSHA256, RustPrimary: rustPrimary.receipt.NormalizedSHA256, RustReplay: rustReplay.receipt.NormalizedSHA256, NeutralExpected: neutralDigest, Stable: true, CurrentMismatch: false, Classification: classification, JavaObservation: javaPrimary.observation, RustObservation: rustPrimary.observation, RustStepDiagnostics: rustPrimary.rust.Steps, RustBootstrapSHA256: digest(rustPrimary.rust.Bootstrap), JavaNormalizationLoss: javaPrimary.loss}
+		rustNotes := []string{}
+		for _, step := range sc.Core.Steps {
+			if step.Kind == "bytes" {
+				rustNotes = append(rustNotes, rustInputDerivationNote)
+				break
+			}
+		}
+		result := ScenarioResult{ScenarioID: sc.ScenarioID, JavaPrimary: javaPrimary.receipt.NormalizedSHA256, JavaReplay: javaReplay.receipt.NormalizedSHA256, RustPrimary: rustPrimary.receipt.NormalizedSHA256, RustReplay: rustReplay.receipt.NormalizedSHA256, NeutralExpected: neutralDigest, Stable: true, CurrentMismatch: false, Classification: classification, JavaObservation: javaPrimary.observation, RustObservation: rustPrimary.observation, RustStepDiagnostics: rustPrimary.rust.Steps, RustBootstrapSHA256: digest(rustPrimary.rust.Bootstrap), JavaNormalizationLoss: javaPrimary.loss, RustNormalizationNotes: rustNotes}
+		if err := validateRustDerivedCounters(sc, result); err != nil {
+			return Receipt{}, fmt.Errorf("Rust derived counter verification %s: %w", sc.ScenarioID, err)
+		}
 		manifest.Scenarios = append(manifest.Scenarios, result)
 		for _, finding := range findings {
 			if err := appendJavaQuirk(&ledger, sc, finding, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
@@ -2696,7 +2741,7 @@ func verifyManifestValue(root string, raw []byte) error {
 	if manifest.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" || manifest.IndependentReviewClaimed || manifest.Production || manifest.Publication || manifest.Signing {
 		return errors.New("assurance claim invalid")
 	}
-	if manifest.ParityScope != "RUNTIME_COMMON_AGGREGATE" || !contains(manifest.Nonclaims, "no per-step Java counter parity") {
+	if manifest.ParityScope != "RUNTIME_COMMON_AGGREGATE" || !contains(manifest.Nonclaims, "no per-step Java counter parity") || !contains(manifest.Nonclaims, rustInputDerivationNote) {
 		return errors.New("per-step Java parity overclaim or nonclaim absent")
 	}
 	counts := manifest.Counts
@@ -2773,6 +2818,19 @@ func VerifyPublicDifferential(repositoryRoot string, receiptBytes []byte) error 
 	scenarios, _, err := loadPublicCorpus(repositoryRoot, filepath.Join(repositoryRoot, "corpora/public/scenarios.jsonl"))
 	if err != nil {
 		return err
+	}
+	byScenario := make(map[string]ScenarioResult, len(manifest.Scenarios))
+	for _, result := range manifest.Scenarios {
+		byScenario[result.ScenarioID] = result
+	}
+	for _, scenario := range scenarios {
+		result, ok := byScenario[scenario.ScenarioID]
+		if !ok {
+			return fmt.Errorf("scenario result absent: %s", scenario.ScenarioID)
+		}
+		if err := validateRustDerivedCounters(scenario, result); err != nil {
+			return fmt.Errorf("Rust derived counter receipt invalid %s: %w", scenario.ScenarioID, err)
+		}
 	}
 	return ValidateOracleHierarchy(scenarios, hierarchy)
 }
