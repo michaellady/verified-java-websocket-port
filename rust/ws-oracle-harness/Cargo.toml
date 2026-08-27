@@ -1,0 +1,24 @@
+[package]
+name = "ws-oracle-harness"
+description = "US-009 lane B: the ws_core oracle-candidate harness. A thin JSONL protocol adapter that speaks java-websocket-oracle 1.0.0 (strict request parsing, canonical request-digest verification, response envelope, transcript projection) so the SAME corpora that score the java-oracle score the Rust core. The ws_core coupling is isolated in one adapter module; until lane A's ConnectionCore API lands, the adapter truthfully reports CORE_NOT_WIRED failures (like the candidate-stub's declared inertness, honestly labeled) rather than fabricating behavior. No story acceptance is claimed."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+# Dependency-free protocol discipline, mirroring candidate-stub and the
+# java-oracle adapter: canonical JSON, SHA-256, and base64 are hand-rolled in
+# safe Rust so no external crate enters the workspace (any external crate
+# would trigger the PRD's enumerated-dependency-unsafe review). The only
+# dependency is the in-workspace ws_core crate this harness exists to score;
+# nothing from it is referenced until the merge-time wiring commit connects
+# lane A's real ConnectionCore API inside src/core_adapter.rs.
+[dependencies]
+ws-core = { path = "../ws-core" }
+
+[dev-dependencies]
+
+[[bin]]
+name = "ws-oracle-harness"
+path = "src/main.rs"

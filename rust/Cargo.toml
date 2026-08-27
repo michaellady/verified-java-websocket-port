@@ -7,7 +7,7 @@
 # mutants), which are calibration artifacts, not port crates.
 [workspace]
 resolver = "3"
-members = ["candidate-stub", "ws-core"]
+members = ["candidate-stub", "ws-core", "ws-oracle-harness"]
 
 [workspace.package]
 version = "0.0.0"
