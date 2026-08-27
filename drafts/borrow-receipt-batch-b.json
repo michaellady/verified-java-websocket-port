@@ -3,7 +3,10 @@
   "kind": "borrow-receipt",
   "batch": "B",
   "plane": "verified-java-websocket-port-claude (Claude authority plane)",
-  "stories": ["US-010", "US-011"],
+  "stories": [
+    "US-010",
+    "US-011"
+  ],
   "strategy_record": "workspace/orchestrator/verified-java-websocket-port-claude/protected/race-strategy-borrow-and-race-2026-08-27.json",
   "owner_directive": "Borrow, but verify that it works.",
   "base_commit": "c18fdf299d471dc33a8f6cccb6771031ac9f593a",
@@ -51,7 +54,7 @@
       "source_path": "rust/connection-core/fuzz-seeds/us010 (tree ede4856360fdc51e225639c11cea6b790827859e), rust/connection-core/fuzz-seeds/us011 (tree 1c4cf4958f96a9fcfbfad57c4e7525d0919f81cd)",
       "source_blob_sha": "trees as listed",
       "adapted_path": "rust/ws-core/fuzz-seeds/us010, rust/ws-core/fuzz-seeds/us011 (byte-identical seed files)",
-      "adaptation_summary": "Seed BYTES adopted verbatim as regression armor; the EXPECTATIONS were NOT adopted — every expected outcome was re-derived from the live-verified Java model and several deliberately invert the Codex RFC assertion (content-length, transfer-encoding, noncanonical-key, wrong-key-length, invalid-header-name, forbidden-value-control, bare-lf, obs-fold-with-colon, limit seeds). Replayed by rust/ws-core/tests/handshake_seeds.rs with per-seed reasoning."
+      "adaptation_summary": "Seed BYTES adopted verbatim as regression armor; the EXPECTATIONS were NOT adopted \u2014 every expected outcome was re-derived from the live-verified Java model and several deliberately invert the Codex RFC assertion (content-length, transfer-encoding, noncanonical-key, wrong-key-length, invalid-header-name, forbidden-value-control, bare-lf, obs-fold-with-colon, limit seeds). Replayed by rust/ws-core/tests/handshake_seeds.rs with per-seed reasoning."
     },
     {
       "source_path": "rust/connection-core/tests/data/us011_nonce_vectors.rs",
@@ -91,16 +94,28 @@
       "harness_executable_sha256": "de0c92c2aa17a825df8933bf4d054aab987219fcbb43cd26c4c71005f68cebb7",
       "rerun_byte_identical": true,
       "raw_honest_runtime_run": {
-        "transcript": "drafts/us010-us011-handshake-exam/transcript-rust-raw.jsonl (sha256 9ab91e75a116a8b0ff3cdb394b6cc0d8e2bbdbd1506cd5b3de001abec2f764bd)",
+        "transcript": "drafts/us010-us011-handshake-exam/transcript-rust-raw.jsonl (sha256 e326170e9b33824eded3777a07bdcf7c0d07383f4d9871866ae9fbd7a3c71732)",
         "command": "corporactl evaluate --tier handshake --live",
-        "result": {"executed": 49, "passed": 0, "failed": 49, "missing": 0, "unmatched": 0},
+        "result": {
+          "executed": 49,
+          "passed": 0,
+          "failed": 49,
+          "missing": 0,
+          "unmatched": 0
+        },
         "exit_code": 1,
         "reading": "ALL 49 failures are the evaluator's runtime-binding pin ('runtime artifact \"ws-oracle-harness\" does not bind the accepted runtime'), verified programmatically over the failure list; zero behavioral-field failures. The --live evaluator was built to score the JAVA adapter's transcript and pins the jar identity; this harness attests its own identity and will never claim the jar's."
       },
       "runtime_neutralized_rescoring": {
         "disclosure": "MECHANICAL SCORING SHIM, NOT AN ATTESTATION: the runtime object of each line was replaced with the pinned jar identity solely so the evaluator's behavioral checks (digest binding, observable class, reject channel, close code, accept value, presence parity, fail-closed missing/unmatched) could execute; the honest transcript of record is the raw one.",
-        "transcript": "drafts/us010-us011-handshake-exam/transcript-rust-runtime-neutralized.jsonl (sha256 72de49885f4b8cad67d5e25102480fb2bba2fb63b14dcfe712dd42457c61ff0b)",
-        "result": {"executed": 49, "passed": 49, "failed": 0, "missing": 0, "unmatched": 0},
+        "transcript": "drafts/us010-us011-handshake-exam/transcript-rust-runtime-neutralized.jsonl (sha256 7d894b76b15a2120c933269c68496919618c5a54703f3e3dc43d4ae6863ec47b)",
+        "result": {
+          "executed": 49,
+          "passed": 49,
+          "failed": 0,
+          "missing": 0,
+          "unmatched": 0
+        },
         "exit_code": 0,
         "divergences": "16, byte-identical to the recorded live Java run's divergence list (protected .../handshake/report.json)"
       },
@@ -109,12 +124,12 @@
     "gates": {
       "rust": "make -C rust gates: exit 0 read from make (fmt-check, clippy -D warnings, test debug, test release; 39 'test result: ok' lines, 0 failures)",
       "go_build": "go build ./...: exit 0 read",
-      "go_test": "go test ./...: final run exit 0 read, 23 packages ok. Two earlier one-off findings, both investigated: (1) internal/portplan TestDeriveReproducesCommittedEvidence failed once during the first full parallel run (quarantine-extraction contention) and passes in isolation and in the final full run — not caused by this batch; (2) internal/formalplan TestUS006FixtureCatalogThroughRealCLI failed deterministically because the US-006 fixture snapshots rust/ws-core/src/connection.rs from the working tree — refrozen via the sanctioned US006_REGENERATE=1 flow (assurance/replay/fixtures/us006-cases.json, digests only; all CLI verdict/exit/finding expectations still pass unmodified)."
+      "go_test": "go test ./...: final run exit 0 read, 23 packages ok. Two earlier one-off findings, both investigated: (1) internal/portplan TestDeriveReproducesCommittedEvidence failed once during the first full parallel run (quarantine-extraction contention) and passes in isolation and in the final full run \u2014 not caused by this batch; (2) internal/formalplan TestUS006FixtureCatalogThroughRealCLI failed deterministically because the US-006 fixture snapshots rust/ws-core/src/connection.rs from the working tree \u2014 refrozen via the sanctioned US006_REGENERATE=1 flow (assurance/replay/fixtures/us006-cases.json, digests only; all CLI verdict/exit/finding expectations still pass unmodified)."
     }
   },
   "expected_public_flips": "zero (per drafts/borrow-integration-plan.md batch B); observed zero",
   "review": {
-    "status": "PENDING — bounded review (pinned reviewer, fail-closed) is the integrator's step 5 per the integration plan; no review is claimed by this receipt",
+    "status": "PENDING \u2014 bounded review (pinned reviewer, fail-closed) is the integrator's step 5 per the integration plan; no review is claimed by this receipt",
     "independent_review_claimed": false
   },
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
@@ -127,5 +142,12 @@
     "connection-path handshake behavior (counters excluded from corpus accounting, no transition record for NotYetConnected->Open, configured-limit enforcement) is not scored by any current corpus; its behavior-delta ledger entry is owed when such baselines exist.",
     "No fuzz-engine campaign is claimed; the seed corpus is deterministic regression replay."
   ],
-  "driver": "claude-fable-5 (borrow batch B backend-dev worker)"
+  "driver": "claude-fable-5 (borrow batch B backend-dev worker)",
+  "round_2": {
+    "recorded_at": "2026-08-27T19:16:51Z",
+    "recorded_at_provenance": "captured from date -u at write time",
+    "review_block": "session 01a04487-58ba-7451-a32c-f807db22a4fc: HeadAccumulator::push applied head budgets to the entire chunk before separating the completed head from its remainder, so coalesced head+frame bytes could refuse LimitExceeded while the identical bytes split at CRLFCRLF accepted \u2014 a re-chunking-invariance violation.",
+    "fix": "commit fae0d35: the accumulator marks head completion at the terminating empty line and buffers later bytes verbatim (budget-exempt) for the head_len split; remainder remains bounded by the Q24 wire cap in finish_handshake_open. RED-first regression test coalesced_post_head_bytes_are_exempt_from_head_budgets.",
+    "reverification": "rust gates exit 0; go test 23 pkgs 0 FAIL; public tier 7/74 unchanged; handshake exam regenerated with the fixed binary \u2014 49/49 behavioral match vs recorded live Java (runtime self-attestation sha changed with the binary, disclosed), honest-runtime evaluate exit 1 (49 runtime-pin failures), neutralized evaluate exit 0 (49/49). Exam artifacts recommitted."
+  }
 }
