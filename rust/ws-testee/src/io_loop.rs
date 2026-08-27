@@ -9,7 +9,7 @@
 
 use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ws_core::{CloseDetail, CommandSender, ReadyState, SemanticEvent, TypedProtocolFailure};
 use ws_driver::{ConnectionDriver, DriverInput, DriverOutput, InputDisposition};
@@ -25,6 +25,23 @@ pub struct IoBounds {
     /// Largest number of bytes handed to one socket write call (forces
     /// partial-write reporting when smaller than a frame).
     pub write_chunk: usize,
+    /// Socket write timeout per attempt (`SO_SNDTIMEO`): a write that
+    /// cannot place a single byte within this window returns a retryable
+    /// timeout instead of blocking the adapter inside the syscall.
+    pub write_timeout: Duration,
+    /// Absolute no-progress write deadline: once a write output makes no
+    /// byte progress for this long (a peer that stopped reading after the
+    /// kernel socket buffers filled), the run ends with the typed
+    /// [`LoopOutcome::WriteStalled`] outcome.
+    ///
+    /// Java-fidelity note: shipped Java has NO socket-layer write deadline
+    /// (`WebSocketClient.WebsocketWriteThread` blocks in `ostream.write()`
+    /// indefinitely; `Socket#setSoTimeout` bounds reads only) — its only
+    /// liveness bound is the adapter-layer `connectionLostTimeout`
+    /// keepalive above the ported core. This deadline is US-018 adapter
+    /// SAFETY policy (AC2 bounded write resources), a disclosed
+    /// divergence, never core protocol.
+    pub write_stall_limit: Duration,
     /// Hard budget of driver polls before the loop reports exhaustion.
     pub max_polls: u64,
 }
@@ -35,6 +52,8 @@ impl Default for IoBounds {
             read_buffer: 4096,
             read_timeout: Duration::from_millis(25),
             write_chunk: 4096,
+            write_timeout: Duration::from_millis(25),
+            write_stall_limit: Duration::from_secs(2),
             max_polls: 200_000,
         }
     }
@@ -50,6 +69,11 @@ pub enum LoopOutcome {
     ProtocolFailure(TypedProtocolFailure),
     /// The socket failed with the named normalized error kind.
     SocketError(String),
+    /// A write made no byte progress for the whole
+    /// [`IoBounds::write_stall_limit`] window (peer stopped reading and the
+    /// kernel socket buffers are exhausted); the adapter shut the socket
+    /// down instead of blocking forever.
+    WriteStalled,
     /// The poll budget ran out before a terminal outcome.
     BudgetExhausted,
 }
@@ -135,9 +159,11 @@ pub fn drive_connection(
 ) {
     report.outcome = LoopOutcome::BudgetExhausted;
     let _ = stream.set_read_timeout(Some(bounds.read_timeout));
+    let _ = stream.set_write_timeout(Some(bounds.write_timeout.max(Duration::from_millis(1))));
     let mut read_buffer = vec![0u8; bounds.read_buffer.max(1)];
     let mut pending_chunk: Vec<u8> = Vec::new();
     let mut eof_seen = false;
+    let mut write_stall = WriteStallClock::new(bounds.write_stall_limit);
 
     while report.polls < bounds.max_polls {
         // 1. Give the driver a turn and drain one output.
@@ -158,6 +184,7 @@ pub fn drive_connection(
                 let take = bytes.len().min(bounds.write_chunk.max(1));
                 match stream.write(&bytes[..take]) {
                     Ok(written) if written > 0 => {
+                        write_stall.progressed();
                         let _ = pump(
                             driver,
                             DriverInput::WriteProgress { bytes: written },
@@ -165,7 +192,19 @@ pub fn drive_connection(
                         );
                     }
                     Ok(_) => {}
-                    Err(error) if retryable(error.kind()) => {}
+                    Err(error) if retryable(error.kind()) => {
+                        // No byte progressed: a peer that stopped reading
+                        // (kernel buffers exhausted) must not block the
+                        // adapter forever — the bounded write deadline
+                        // converts a persistent stall into the typed
+                        // outcome (adapter safety policy; see IoBounds).
+                        if write_stall.stalled() {
+                            let _ = pump(driver, DriverInput::Shutdown, report);
+                            report.outcome = LoopOutcome::WriteStalled;
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
+                            break;
+                        }
+                    }
                     Err(error) => {
                         let _ = pump(driver, DriverInput::Shutdown, report);
                         report.outcome = LoopOutcome::SocketError(format!("{:?}", error.kind()));
@@ -217,6 +256,34 @@ fn retryable(kind: ErrorKind) -> bool {
         kind,
         ErrorKind::WouldBlock | ErrorKind::TimedOut | ErrorKind::Interrupted
     )
+}
+
+/// Tracks byte progress across write attempts: the deadline arms on the
+/// first no-progress attempt and disarms on any successful byte.
+struct WriteStallClock {
+    limit: Duration,
+    stalled_since: Option<Instant>,
+}
+
+impl WriteStallClock {
+    fn new(limit: Duration) -> WriteStallClock {
+        WriteStallClock {
+            limit,
+            stalled_since: None,
+        }
+    }
+
+    /// A write placed at least one byte: disarm the deadline.
+    fn progressed(&mut self) {
+        self.stalled_since = None;
+    }
+
+    /// A write attempt made no progress; returns whether the no-progress
+    /// window has now exceeded the limit.
+    fn stalled(&mut self) -> bool {
+        let since = *self.stalled_since.get_or_insert_with(Instant::now);
+        since.elapsed() >= self.limit
+    }
 }
 
 /// One pumped poll, with the borrowed write suffix copied out so the
@@ -275,7 +342,9 @@ pub fn drive_until_open(
     report: &mut ConnectionReport,
 ) -> bool {
     let _ = stream.set_read_timeout(Some(bounds.read_timeout));
+    let _ = stream.set_write_timeout(Some(bounds.write_timeout.max(Duration::from_millis(1))));
     let mut read_buffer = vec![0u8; bounds.read_buffer.max(1)];
+    let mut write_stall = WriteStallClock::new(bounds.write_stall_limit);
     while report.polls < bounds.max_polls {
         if driver.state() != ReadyState::NotYetConnected {
             return true;
@@ -286,6 +355,7 @@ pub fn drive_until_open(
                 let take = bytes.len().min(bounds.write_chunk.max(1));
                 match stream.write(&bytes[..take]) {
                     Ok(written) if written > 0 => {
+                        write_stall.progressed();
                         let _ = pump(
                             driver,
                             DriverInput::WriteProgress { bytes: written },
@@ -293,7 +363,16 @@ pub fn drive_until_open(
                         );
                     }
                     Ok(_) => {}
-                    Err(error) if retryable(error.kind()) => {}
+                    Err(error) if retryable(error.kind()) => {
+                        // Same bounded-write policy as the connected pump:
+                        // a handshake-phase peer that stopped reading must
+                        // not wedge the adapter inside a blocking write.
+                        if write_stall.stalled() {
+                            report.outcome = LoopOutcome::WriteStalled;
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
+                            return false;
+                        }
+                    }
                     Err(error) => {
                         report.outcome = LoopOutcome::SocketError(format!("{:?}", error.kind()));
                         return false;
@@ -349,5 +428,43 @@ pub fn empty_report() -> ConnectionReport {
         close: None,
         polls: 0,
         terminals: 0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn interrupted_and_timeout_kinds_are_retryable_hard_errors_are_not() {
+        // EINTR classification (US-018 AC2): interrupted system calls are
+        // retried, never treated as transport loss. Native signal-driven
+        // EINTR injection remains a disclosed nonclaim; this pins the
+        // classification the retry path runs on.
+        assert!(retryable(ErrorKind::Interrupted));
+        assert!(retryable(ErrorKind::WouldBlock));
+        assert!(retryable(ErrorKind::TimedOut));
+        assert!(!retryable(ErrorKind::ConnectionReset));
+        assert!(!retryable(ErrorKind::BrokenPipe));
+        assert!(!retryable(ErrorKind::UnexpectedEof));
+    }
+
+    #[test]
+    fn write_stall_clock_arms_on_no_progress_and_disarms_on_bytes() {
+        let mut clock = WriteStallClock::new(Duration::from_millis(20));
+        assert!(
+            !clock.stalled(),
+            "first no-progress attempt arms, not fires"
+        );
+        std::thread::sleep(Duration::from_millis(25));
+        assert!(clock.stalled(), "limit exceeded with no progress fires");
+        clock.progressed();
+        assert!(!clock.stalled(), "byte progress disarms the deadline");
+    }
+
+    #[test]
+    fn write_stall_clock_zero_limit_fires_immediately() {
+        let mut clock = WriteStallClock::new(Duration::ZERO);
+        assert!(clock.stalled());
     }
 }
