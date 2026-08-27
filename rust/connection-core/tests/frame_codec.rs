@@ -590,7 +590,7 @@ fn decoder_frame_total_and_event_limits_are_exact_and_preserve_prior_events() {
         Some(&CoreOutput::StateChanged(ConnectionState::Closed))
     );
 
-    let event_bounded = config_with(|limits| limits.event_queue_entries = 1);
+    let event_bounded = config_with(|limits| limits.event_queue_entries = 2);
     let first = encoded(Role::Client, &event_bounded, true, Opcode::Binary, b"a");
     let second = encoded(Role::Client, &event_bounded, true, Opcode::Binary, b"b");
     let mut combined = first;
@@ -638,10 +638,10 @@ fn eof_at_every_header_boundary_and_during_payload_is_a_frame_failure() {
 #[test]
 fn frame_events_do_not_implement_later_story_semantics() {
     let config = config_with(|_| {});
-    let wire = encoded(Role::Client, &config, true, Opcode::Text, &[0xff]);
+    let wire = encoded(Role::Client, &config, false, Opcode::Text, &[0xff]);
     let mut core = open_core(Role::Server, config);
     let result = core.step(CoreInput::Transport(TransportBytes::new(&wire)));
-    assert_eq!(result.failure(), None, "US-013 owns UTF-8 validation");
+    assert_eq!(result.failure(), None, "US-014 owns fragmented UTF-8 state");
     assert_eq!(frames(&result).len(), 1);
     assert_eq!(result.outputs().len(), 1, "only FrameReceived is emitted");
 
@@ -1087,7 +1087,7 @@ fn us012_fuzz_seed_inventory_is_inert_and_hex_canonical() {
     let event_bounded = config_with(|limits| limits.event_queue_entries = 1);
     let mut core = open_core(Role::Server, event_bounded);
     let result = core.step(CoreInput::Transport(TransportBytes::new(&event_seed)));
-    assert_eq!(frames(&result).len(), 1);
+    assert_eq!(frames(&result).len(), 0);
     assert_eq!(
         result.failure().map(|failure| &failure.kind),
         Some(&FailureKind::Backpressure(QueueKind::Event))

@@ -2,12 +2,14 @@
 //!
 //! US-009 establishes admission, configuration, ordering, typed failure, and
 //! bounded command-channel seams. US-010 and US-011 add opening handshakes;
-//! US-012 adds canonical frame coding and masking. Messages, fragmentation,
-//! control policy, protocol close behavior, sockets, runtimes, and callbacks
-//! remain unavailable and are owned by later stories.
+//! US-012 adds canonical frame coding and masking; US-013 delivers final Text
+//! and Binary messages. Fragmentation, control policy, protocol close
+//! behavior, sockets, runtimes, and callbacks remain owned by later stories.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
+
+extern crate alloc;
 
 mod channel;
 mod close;
@@ -15,6 +17,8 @@ mod connection;
 mod control;
 pub mod frame;
 mod handshake;
+mod message;
+mod utf8;
 
 pub use channel::{
     CommandReceiveError, CommandReceiver, CommandSendError, CommandSender, command_channel,
@@ -30,3 +34,4 @@ pub use frame::{EncodedFrame, Frame, FrameEncoder, Opcode, OutboundFrame, apply_
 pub use handshake::{
     ClientRequestDescriptor, ClientRequestDescriptorError, ServerRequestDescriptor,
 };
+pub use message::{BinaryMessage, TextMessage};

@@ -1,7 +1,11 @@
 //! Incremental RFC 6455 frame-header and payload decoding.
 
+use alloc::sync::Arc;
+
 use crate::frame::{Frame, Opcode, apply_mask_in_place};
-use crate::{ConnectionConfig, FailureKind, FrameFailure, LimitKind, QueueKind, Role};
+use crate::message::{DeliveryKind, admit_frame_event};
+use crate::utf8::Utf8Validator;
+use crate::{ConnectionConfig, FailureKind, FrameFailure, LimitKind, Role};
 
 const MAX_HEADER_BYTES: usize = 14;
 
@@ -214,6 +218,7 @@ pub(crate) struct FrameDecoder {
     header_length: usize,
     active: Option<FrameHeader>,
     payload: Vec<u8>,
+    utf8: Utf8Validator,
 }
 
 impl FrameDecoder {
@@ -223,6 +228,7 @@ impl FrameDecoder {
             header_length: 0,
             active: None,
             payload: Vec::new(),
+            utf8: Utf8Validator::new(),
         }
     }
 
@@ -238,7 +244,8 @@ impl FrameDecoder {
     ) -> FrameDecodeBatch {
         let mut offset = 0usize;
         let mut staged_payload_bytes = 0usize;
-        let mut frames = Vec::new();
+        let mut staged_event_count = 0usize;
+        let mut records = Vec::new();
 
         while offset < bytes.len() || self.header_length != 0 || self.ready_empty_payload() {
             if self.active.is_none() {
@@ -265,20 +272,30 @@ impl FrameDecoder {
                     }
                     Ok(FrameHeaderDecode::Complete(header)) => {
                         let payload_length = header.payload_length();
+                        let delivery = DeliveryKind::for_frame(header.fin(), header.opcode());
+                        let admitted = match delivery {
+                            Some(kind) => kind.admit(config, payload_length, staged_event_count),
+                            None => admit_frame_event(config, staged_event_count),
+                        };
+                        if let Err(failure) = admitted {
+                            self.reset();
+                            return FrameDecodeBatch::failed(records, failure);
+                        }
                         if payload_length != 0
                             && self.payload.try_reserve_exact(payload_length).is_err()
                         {
                             self.reset();
                             return FrameDecodeBatch::failed(
-                                frames,
+                                records,
                                 FailureKind::Frame(FrameFailure::AllocationFailed),
                             );
                         }
+                        self.utf8.reset();
                         self.active = Some(header);
                     }
                     Err(failure) => {
                         self.reset();
-                        return FrameDecodeBatch::failed(frames, failure);
+                        return FrameDecodeBatch::failed(records, failure);
                     }
                 }
             }
@@ -298,42 +315,54 @@ impl FrameDecoder {
                         prior_payload_offset,
                     );
                 }
+                if header.fin()
+                    && header.opcode() == Opcode::Text
+                    && let Err(failure) = self.utf8.feed(&self.payload[prior_payload_offset..])
+                {
+                    self.reset();
+                    return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure));
+                }
                 offset += copied;
             }
             if self.payload.len() != header.payload_length() {
                 break;
             }
 
-            if frames.len() >= config.event_queue_entries() {
+            let delivery = DeliveryKind::for_frame(header.fin(), header.opcode());
+            if delivery == Some(DeliveryKind::Text)
+                && let Err(failure) = self.utf8.finish()
+            {
                 self.reset();
-                return FrameDecodeBatch::failed(
-                    frames,
-                    FailureKind::Backpressure(QueueKind::Event),
-                );
+                return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure));
             }
-            if frames.try_reserve(1).is_err() {
+            if records.try_reserve(1).is_err() {
                 self.reset();
                 return FrameDecodeBatch::failed(
-                    frames,
+                    records,
                     FailureKind::Frame(FrameFailure::AllocationFailed),
                 );
             }
             let header = self.active.take().expect("complete active header");
-            let payload = core::mem::take(&mut self.payload).into_boxed_slice();
+            let payload: Arc<[u8]> = core::mem::take(&mut self.payload).into();
             staged_payload_bytes = staged_payload_bytes
                 .checked_add(payload.len())
                 .expect("header admission checked staged payload arithmetic");
-            frames.push(Frame::new(
-                header.fin(),
-                header.opcode(),
-                header.masked(),
-                payload,
-            ));
+            staged_event_count = match delivery {
+                Some(kind) => kind
+                    .admit(config, payload.len(), staged_event_count)
+                    .expect("message admission was completed before reservation"),
+                None => admit_frame_event(config, staged_event_count)
+                    .expect("frame-event admission was completed before reservation"),
+            };
+            records.push(DecodedFrame {
+                frame: Frame::new(header.fin(), header.opcode(), header.masked(), payload),
+                delivery,
+            });
             self.header_length = 0;
         }
 
         FrameDecodeBatch {
-            frames,
+            records,
             failure: None,
         }
     }
@@ -344,22 +373,28 @@ impl FrameDecoder {
             .is_some_and(|header| header.payload_length() == 0)
     }
 
-    fn reset(&mut self) {
+    pub(crate) fn reset(&mut self) {
         self.header_length = 0;
         self.active = None;
         self.payload = Vec::new();
+        self.utf8.reset();
     }
 }
 
+pub(crate) struct DecodedFrame {
+    pub(crate) frame: Frame,
+    pub(crate) delivery: Option<DeliveryKind>,
+}
+
 pub(crate) struct FrameDecodeBatch {
-    pub(crate) frames: Vec<Frame>,
+    pub(crate) records: Vec<DecodedFrame>,
     pub(crate) failure: Option<FailureKind>,
 }
 
 impl FrameDecodeBatch {
-    fn failed(frames: Vec<Frame>, failure: FailureKind) -> Self {
+    fn failed(records: Vec<DecodedFrame>, failure: FailureKind) -> Self {
         Self {
-            frames,
+            records,
             failure: Some(failure),
         }
     }

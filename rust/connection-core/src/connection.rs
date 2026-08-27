@@ -6,6 +6,7 @@ use crate::handshake::{
     ClientHandshake, ClientLimitExceeded, ClientRequestDescriptor, ClientResponse, ServerHandshake,
     ServerRequest, ServerRequestDescriptor,
 };
+use crate::message::MessageDelivery;
 
 /// The role this endpoint has in the WebSocket protocol.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -188,6 +189,10 @@ impl ConnectionConfig {
 
     pub(crate) const fn frame_bytes(&self) -> usize {
         self.checked.frame_bytes
+    }
+
+    pub(crate) const fn message_bytes(&self) -> usize {
+        self.checked.message_bytes
     }
 
     pub(crate) const fn total_buffered_bytes(&self) -> usize {
@@ -430,6 +435,16 @@ pub enum SemanticEvent {
         /// Immutable frame-level observation for later protocol stories.
         frame: Frame,
     },
+    /// One complete, strictly validated UTF-8 text message was received.
+    Text {
+        /// Shared immutable validated message bytes.
+        message: crate::message::TextMessage,
+    },
+    /// One complete binary message was received.
+    Binary {
+        /// Shared immutable uninterpreted message bytes.
+        message: crate::message::BinaryMessage,
+    },
 }
 
 /// One output in exact occurrence order.
@@ -604,10 +619,54 @@ pub enum FrameFailure {
     UnexpectedMaskKey,
 }
 
-/// Reserved UTF-8 failure vocabulary.
+/// Stable UTF-8 rejection vocabulary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum Utf8Failure {}
+pub enum Utf8Failure {
+    /// A continuation byte appeared without an active scalar.
+    UnexpectedContinuation {
+        /// Absolute message byte offset.
+        offset: u64,
+        /// Rejected octet.
+        byte: u8,
+    },
+    /// An octet cannot begin a canonical UTF-8 scalar.
+    InvalidLeadingByte {
+        /// Absolute message byte offset.
+        offset: u64,
+        /// Rejected octet.
+        byte: u8,
+    },
+    /// A scalar expected a continuation octet in a different range.
+    InvalidContinuation {
+        /// Absolute message byte offset.
+        offset: u64,
+        /// Rejected octet.
+        byte: u8,
+    },
+    /// A scalar used more bytes than its value requires.
+    OverlongEncoding {
+        /// Absolute offset where the scalar began.
+        offset: u64,
+    },
+    /// A scalar encoded a UTF-16 surrogate code point.
+    SurrogateCodePoint {
+        /// Absolute offset where the scalar began.
+        offset: u64,
+    },
+    /// A scalar exceeded Unicode's U+10FFFF ceiling.
+    CodePointOutOfRange {
+        /// Absolute offset where the scalar began.
+        offset: u64,
+    },
+    /// The final payload ended within a multibyte scalar.
+    TruncatedSequence {
+        /// Total validated payload bytes.
+        length: u64,
+        /// Number of missing continuation bytes.
+        remaining: u8,
+    },
+}
 
 /// Reserved close failure vocabulary.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -740,9 +799,8 @@ impl ConnectionCore {
 
     /// Admits one input through the only mutating core operation.
     ///
-    /// US-009 intentionally implements no protocol slice. Every admitted
-    /// protocol-bearing input therefore returns a typed unavailable failure,
-    /// no output, and no lifecycle transition.
+    /// Implemented protocol slices return ordered outputs; behavior owned by a
+    /// later story returns a typed unavailable failure without side effects.
     pub fn step(&mut self, input: CoreInput<'_>) -> StepResult {
         if self.state == ConnectionState::Closed {
             let input = match input {
@@ -989,6 +1047,7 @@ impl ConnectionCore {
     }
 
     fn close_with_failure(&mut self, kind: FailureKind) -> StepResult {
+        self.frame_decoder.reset();
         self.state = ConnectionState::Closed;
         StepResult {
             outputs: Box::new([CoreOutput::StateChanged(ConnectionState::Closed)]),
@@ -1003,19 +1062,35 @@ impl ConnectionCore {
     fn consume_frames(&mut self, bytes: &[u8]) -> StepResult {
         let batch = self.frame_decoder.consume(&self.config, self.role, bytes);
         let extra = usize::from(batch.failure.is_some());
-        let Some(output_capacity) = batch.frames.len().checked_add(extra) else {
+        let Some(output_capacity) = batch
+            .records
+            .iter()
+            .map(|record| 1 + usize::from(record.delivery.is_some()))
+            .try_fold(extra, usize::checked_add)
+        else {
             return self.close_with_failure(FailureKind::Frame(FrameFailure::ArithmeticOverflow));
         };
         let mut outputs = Vec::new();
         if outputs.try_reserve_exact(output_capacity).is_err() {
             return self.close_with_failure(FailureKind::Frame(FrameFailure::AllocationFailed));
         }
-        outputs.extend(
-            batch
-                .frames
-                .into_iter()
-                .map(|frame| CoreOutput::SemanticEvent(SemanticEvent::FrameReceived { frame })),
-        );
+        for record in batch.records {
+            let delivery = record
+                .delivery
+                .map(|delivery| delivery.deliver(&record.frame));
+            outputs.push(CoreOutput::SemanticEvent(SemanticEvent::FrameReceived {
+                frame: record.frame,
+            }));
+            match delivery {
+                Some(MessageDelivery::Text(message)) => {
+                    outputs.push(CoreOutput::SemanticEvent(SemanticEvent::Text { message }));
+                }
+                Some(MessageDelivery::Binary(message)) => {
+                    outputs.push(CoreOutput::SemanticEvent(SemanticEvent::Binary { message }));
+                }
+                None => {}
+            }
+        }
         if let Some(kind) = batch.failure {
             self.state = ConnectionState::Closed;
             outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));

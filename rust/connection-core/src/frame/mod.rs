@@ -1,8 +1,10 @@
 //! Dependency-free RFC 6455 frame coding and masking.
 //!
-//! This module exposes only frame-level observations. Message delivery,
-//! fragmentation policy, control responses, and close semantics remain owned
-//! by later protocol stories.
+//! This module exposes frame-level observations while the connection core may
+//! share final data payloads with typed messages. Fragmentation policy,
+//! control responses, and close semantics remain owned by later stories.
+
+use alloc::sync::Arc;
 
 pub mod decode;
 pub mod encode;
@@ -58,11 +60,11 @@ pub struct Frame {
     fin: bool,
     opcode: Opcode,
     masked: bool,
-    payload: Box<[u8]>,
+    payload: Arc<[u8]>,
 }
 
 impl Frame {
-    pub(crate) fn new(fin: bool, opcode: Opcode, masked: bool, payload: Box<[u8]>) -> Self {
+    pub(crate) fn new(fin: bool, opcode: Opcode, masked: bool, payload: Arc<[u8]>) -> Self {
         Self {
             fin,
             opcode,
@@ -93,6 +95,10 @@ impl Frame {
     #[must_use]
     pub fn payload(&self) -> &[u8] {
         &self.payload
+    }
+
+    pub(crate) fn payload_owner(&self) -> Arc<[u8]> {
+        Arc::clone(&self.payload)
     }
 }
 
