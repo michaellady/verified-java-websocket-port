@@ -61,7 +61,6 @@ const (
 
 	BackendQualificationDocumentPath = "assurance/formal/backend-qualification.json"
 	BackendQualificationSchemaPath   = "schemas/formal-backend-qualification-1.0.0.schema.json"
-	ProofTargetsDocumentPath         = "assurance/formal/proof-targets.json"
 	ProofTargetsSchemaPath           = "schemas/formal-proof-targets-1.0.0.schema.json"
 	ConcurrencyPlanDocumentPath      = "assurance/concurrency/plan.json"
 	ConcurrencyPlanSchemaPath        = "schemas/concurrency-plan-1.0.0.schema.json"
