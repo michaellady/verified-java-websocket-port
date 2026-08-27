@@ -36,7 +36,7 @@ const (
 	neutralProtocolMaximum        = 4 << 20
 	expectedPublicScenarios       = 74
 	expectedProcessReceipts       = expectedPublicScenarios * 2 * 2
-	rustInputDerivationNote       = "input_bytes derives from public source kind plus Rust pre_state and typed INVALID_STATE; it is not raw NOBS1 accounting and cannot change consumed_bytes"
+	rustInputDerivationNote       = "input_bytes derives from public source kind plus Rust pre_state and typed INVALID_STATE or INPUT_LIMIT_EXCEEDED; it is not raw NOBS1 accounting and cannot change consumed_bytes"
 )
 
 // Budget bounds deterministic mismatch minimization.
@@ -82,6 +82,8 @@ type DiagnosticFinding struct {
 	JavaSHA256     string `json:"java_sha256,omitempty"`
 	RustSHA256     string `json:"rust_sha256,omitempty"`
 	ExpectedSHA256 string `json:"expected_sha256,omitempty"`
+	JavaValue      string `json:"java_value,omitempty"`
+	RustValue      string `json:"rust_value,omitempty"`
 	Detail         string `json:"detail"`
 }
 
@@ -1222,6 +1224,141 @@ func expectedClosePayloadBase64(sc corpora.Scenario) (string, bool) {
 	return base64.StdEncoding.EncodeToString(payload), true
 }
 
+func expectedCloseFrameWireLength(frame map[string]any, payloadBase64 string) (uint64, bool) {
+	payload, err := base64.StdEncoding.DecodeString(payloadBase64)
+	if err != nil || base64.StdEncoding.EncodeToString(payload) != payloadBase64 || len(payload) > 125 {
+		return 0, false
+	}
+	masked, ok := frame["masked"].(bool)
+	if !ok {
+		return 0, false
+	}
+	wireLength := uint64(2 + len(payload))
+	if masked {
+		wireLength += 4
+	}
+	return wireLength, true
+}
+
+func terminalFailureTransition(sc corpora.Scenario) ([]commonTransition, bool) {
+	if sc.Core.InitialState != "open" || sc.Expected.Outcome != "error" || sc.Expected.Error == nil || sc.Expected.Error.CloseCode == nil || len(sc.Core.Steps) == 0 || sc.Core.Steps[len(sc.Core.Steps)-1].Kind != "bytes" {
+		return nil, false
+	}
+	return []commonTransition{{Step: uint16(len(sc.Core.Steps) - 1), From: "open", To: "closed"}}, true
+}
+
+func canonicalOracleValue(value any) ([]byte, error) {
+	raw, err := canonical(value)
+	if err != nil {
+		return nil, err
+	}
+	var generic any
+	if err := json.Unmarshal(raw, &generic); err != nil {
+		return nil, err
+	}
+	return canonical(generic)
+}
+
+func decodePublicInboundFrames(sc corpora.Scenario) ([]commonFrame, error) {
+	frames := []commonFrame{}
+	opcodes := map[byte]string{0: "continuous", 1: "text", 2: "binary", 8: "closing", 9: "ping", 10: "pong"}
+	for stepIndex, step := range sc.Core.Steps {
+		if step.Kind != "bytes" {
+			continue
+		}
+		raw, err := base64.StdEncoding.DecodeString(step.DataBase64)
+		if err != nil || base64.StdEncoding.EncodeToString(raw) != step.DataBase64 {
+			return nil, fmt.Errorf("%s step %d is not canonical base64", sc.ScenarioID, stepIndex)
+		}
+		for offset := 0; offset < len(raw); {
+			start := offset
+			if len(raw)-offset < 2 {
+				return nil, fmt.Errorf("%s step %d has a truncated frame header", sc.ScenarioID, stepIndex)
+			}
+			first, second := raw[offset], raw[offset+1]
+			offset += 2
+			opcode, ok := opcodes[first&0x0f]
+			if !ok {
+				return nil, fmt.Errorf("%s step %d has unsupported opcode", sc.ScenarioID, stepIndex)
+			}
+			payloadLength := uint64(second & 0x7f)
+			switch payloadLength {
+			case 126:
+				if len(raw)-offset < 2 {
+					return nil, fmt.Errorf("%s step %d has a truncated 16-bit length", sc.ScenarioID, stepIndex)
+				}
+				payloadLength = uint64(binary.BigEndian.Uint16(raw[offset : offset+2]))
+				offset += 2
+			case 127:
+				if len(raw)-offset < 8 {
+					return nil, fmt.Errorf("%s step %d has a truncated 64-bit length", sc.ScenarioID, stepIndex)
+				}
+				payloadLength = binary.BigEndian.Uint64(raw[offset : offset+8])
+				offset += 8
+			}
+			masked := second&0x80 != 0
+			var mask [4]byte
+			if masked {
+				if len(raw)-offset < len(mask) {
+					return nil, fmt.Errorf("%s step %d has a truncated mask", sc.ScenarioID, stepIndex)
+				}
+				copy(mask[:], raw[offset:offset+len(mask)])
+				offset += len(mask)
+			}
+			if payloadLength > uint64(len(raw)-offset) {
+				return nil, fmt.Errorf("%s step %d has a truncated payload", sc.ScenarioID, stepIndex)
+			}
+			end := offset + int(payloadLength)
+			payload := append([]byte(nil), raw[offset:end]...)
+			if masked {
+				for index := range payload {
+					payload[index] ^= mask[index%len(mask)]
+				}
+			}
+			offset = end
+			frames = append(frames, commonFrame{Step: uint16(stepIndex), Direction: "inbound", Fin: first&0x80 != 0, Opcode: opcode, Masked: masked, PayloadB64: base64.StdEncoding.EncodeToString(payload), WireLength: uint64(offset - start)})
+		}
+	}
+	return frames, nil
+}
+
+func selectedRejectedFrames(sc corpora.Scenario) ([]commonFrame, bool, error) {
+	switch sc.Family {
+	case "unexpected-continuation", "data-during-fragment", "fragment-restart", "state-frame-in-closing":
+		frames, err := decodePublicInboundFrames(sc)
+		return frames, true, err
+	case "frame-limit":
+		frames, err := decodePublicInboundFrames(sc)
+		if err != nil {
+			return nil, true, err
+		}
+		if sc.Core.Limits.MaxFrames < 0 || sc.Core.Limits.MaxFrames > len(frames) {
+			return nil, true, errors.New("frame-limit scenario cannot derive accepted frame prefix")
+		}
+		return frames[:sc.Core.Limits.MaxFrames], true, nil
+	case "action-limit":
+		if sc.Core.Limits.MaxActions < 0 || sc.Core.Limits.MaxActions > len(sc.Core.Steps) {
+			return nil, true, errors.New("action-limit scenario cannot derive accepted action prefix")
+		}
+		frames := make([]commonFrame, 0, sc.Core.Limits.MaxActions)
+		for index, step := range sc.Core.Steps[:sc.Core.Limits.MaxActions] {
+			if step.Kind != "action" || step.Action != "send_text" {
+				return nil, true, errors.New("action-limit frame derivation supports send_text only")
+			}
+			payload := []byte(step.Text)
+			masked := sc.Core.Role == "client"
+			wireLength := uint64(2 + len(payload))
+			if masked {
+				wireLength += 4
+			}
+			frames = append(frames, commonFrame{Step: uint16(index), Direction: "outbound", Fin: true, Opcode: "text", Masked: masked, PayloadB64: base64.StdEncoding.EncodeToString(payload), WireLength: wireLength})
+		}
+		return frames, true, nil
+	default:
+		return nil, false, nil
+	}
+}
+
 func explicitRFCOracleOverride(sc corpora.Scenario, pointer string) (any, string, bool) {
 	if sc.ScenarioID == "us005.pub.0035" {
 		switch {
@@ -1251,8 +1388,19 @@ func explicitRFCOracleOverride(sc corpora.Scenario, pointer string) (any, string
 	}
 	if payload, ok := expectedClosePayloadBase64(sc); ok {
 		for index, frame := range sc.Expected.Frames {
-			if frame["direction"] == "inbound" && frame["opcode"] == "closing" && pointer == fmt.Sprintf("/frames/%d/payload_base64", index) {
+			if frame["opcode"] != "closing" {
+				continue
+			}
+			if frame["direction"] == "inbound" && pointer == fmt.Sprintf("/frames/%d/payload_base64", index) {
 				return payload, "rfc6455.section-5-5-1", true
+			}
+			if sc.Family == "close-remote" && pointer == fmt.Sprintf("/frames/%d/payload_base64", index) {
+				return payload, "rfc6455.section-5-5-1", true
+			}
+			if sc.Family == "close-remote" && pointer == fmt.Sprintf("/frames/%d/wire_length", index) {
+				if wireLength, ok := expectedCloseFrameWireLength(frame, payload); ok {
+					return float64(wireLength), "rfc6455.section-5-5-1", true
+				}
 			}
 		}
 	}
@@ -1294,6 +1442,32 @@ func BuildOracleHierarchy(scenarios []corpora.Scenario) (OracleHierarchy, error)
 				return OracleHierarchy{}, err
 			}
 			cell := OracleCell{ScenarioID: sc.ScenarioID, Pointer: pointer, Authority: "neutral", Rank: 3, ExpectedSHA256: digest(value), Evidence: []OracleEvidence{{Kind: "committed_neutral_expectation", ID: sc.ScenarioID + "#expected" + pointer, SHA256: digest(value)}}}
+			if pointer == "/transitions" {
+				if transitions, ok := terminalFailureTransition(sc); ok {
+					selected, err := canonicalOracleValue(transitions)
+					if err != nil {
+						return OracleHierarchy{}, err
+					}
+					cell.Authority = "rfc6455.section-7-1-7"
+					cell.Rank = 1
+					cell.ExpectedSHA256 = digest(selected)
+					cell.Evidence = []OracleEvidence{{Kind: "rfc_clause", ID: cell.Authority, SHA256: digest([]byte("RFC6455.section-7-1-7"))}}
+				}
+			}
+			if pointer == "/frames" {
+				frames, selectedFrames, err := selectedRejectedFrames(sc)
+				if err != nil {
+					return OracleHierarchy{}, err
+				}
+				if selectedFrames {
+					selected, err := canonicalOracleValue(frames)
+					if err != nil {
+						return OracleHierarchy{}, err
+					}
+					cell.ExpectedSHA256 = digest(selected)
+					cell.Evidence = []OracleEvidence{{Kind: "committed_neutral_expectation", ID: sc.ScenarioID + "#decoded-rejected-frames", SHA256: digest(selected)}}
+				}
+			}
 			selectedRFC := ""
 			if pointer == "/final_state" && sc.Expected.Outcome == "error" && sc.Expected.Error != nil && sc.Expected.Error.CloseCode != nil && len(sc.Core.Steps) != 0 && sc.Core.Steps[0].Kind == "bytes" {
 				selectedRFC = "rfc6455.section-7-1-7"
@@ -2009,6 +2183,7 @@ var rustCommonErrorClasses = map[string]string{
 	"FRAGMENT_CONTINUATION_WITHOUT_MESSAGE": "PROTOCOL_REJECTION", "FRAGMENT_DATA_WHILE_ACTIVE": "PROTOCOL_REJECTION", "FRAGMENT_UNEXPECTED_EOF": "PROTOCOL_REJECTION",
 	"CLOSE_PAYLOAD_LENGTH_ONE": "PROTOCOL_REJECTION", "CLOSE_REASON_WITHOUT_CODE": "PROTOCOL_REJECTION", "CLOSE_INVALID_CODE": "PROTOCOL_REJECTION", "CLOSE_DUPLICATE_LOCAL": "PROTOCOL_REJECTION", "CLOSE_DUPLICATE_PEER": "PROTOCOL_REJECTION", "CLOSE_ACK_MISMATCH": "PROTOCOL_REJECTION", "CLOSE_DATA_AFTER_CLOSE": "PROTOCOL_REJECTION", "CLOSE_TRAILING_BYTES": "PROTOCOL_REJECTION", "CLOSE_UNEXPECTED_EOF_OPEN": "PROTOCOL_REJECTION", "CLOSE_EOF_BEFORE_PEER": "PROTOCOL_REJECTION", "CLOSE_EOF_BEFORE_ACK": "PROTOCOL_REJECTION", "CLOSE_EOF_BEFORE_FLUSH": "PROTOCOL_REJECTION",
 	"LIMIT_HANDSHAKE_BYTES": "LIMIT_EXCEEDED", "LIMIT_HANDSHAKE_HEADER_COUNT": "LIMIT_EXCEEDED", "LIMIT_HANDSHAKE_LINE_BYTES": "LIMIT_EXCEEDED", "LIMIT_FRAME_BYTES": "LIMIT_EXCEEDED", "LIMIT_MESSAGE_BYTES": "LIMIT_EXCEEDED", "LIMIT_TOTAL_BUFFERED_BYTES": "LIMIT_EXCEEDED", "LIMIT_EVENT_ENTRIES": "LIMIT_EXCEEDED", "LIMIT_COMMAND_ENTRIES": "LIMIT_EXCEEDED", "LIMIT_WRITE_ENTRIES": "LIMIT_EXCEEDED",
+	"ACTION_LIMIT_EXCEEDED": "LIMIT_EXCEEDED", "FRAME_LIMIT_EXCEEDED": "LIMIT_EXCEEDED", "INPUT_LIMIT_EXCEEDED": "LIMIT_EXCEEDED",
 	"BACKPRESSURE_EVENT": "BACKPRESSURE", "BACKPRESSURE_COMMAND": "BACKPRESSURE", "BACKPRESSURE_WRITE": "BACKPRESSURE", "INVALID_STATE": "INVALID_STATE",
 }
 
@@ -2196,6 +2371,14 @@ func acceptedRustInputBytes(source corpora.Step, step rustStep) (uint64, error) 
 			return 0, errors.New("zero-length byte step consumed input")
 		}
 		return 0, nil
+	}
+	for _, item := range step.Observations {
+		if item.Error != nil && item.Error.Class == "INPUT_LIMIT_EXCEEDED" {
+			if step.Consumed != 0 {
+				return 0, errors.New("input-limit rejection consumed input")
+			}
+			return 0, nil
+		}
 	}
 	if step.PreState != "closed" {
 		return uint64(len(payload)), nil
@@ -2558,6 +2741,18 @@ func firstDifference(left, right commonObservation) (string, error) {
 	return firstJSONDifference(leftValue, rightValue, ""), nil
 }
 
+func diagnosticValue(observation commonObservation, pointer string) (string, error) {
+	value, err := observationValue(observation, pointer)
+	if err != nil {
+		return "", err
+	}
+	raw, err := canonical(value)
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
+}
+
 func firstJSONDifference(left, right any, pointer string) string {
 	leftMap, leftOK := left.(map[string]any)
 	rightMap, rightOK := right.(map[string]any)
@@ -2861,7 +3056,13 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 				report.AcceptedQuirks++
 				continue
 			}
-			report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: finding.Pointer, Classification: finding.Classification, JavaSHA256: finding.JavaSHA256, RustSHA256: finding.RustSHA256, ExpectedSHA256: finding.Decision.ExpectedSHA256, Detail: "field-addressed adjudication"})
+			javaValue, javaValueErr := diagnosticValue(javaPrimary.observation, finding.Pointer)
+			rustValue, rustValueErr := diagnosticValue(rustPrimary.observation, finding.Pointer)
+			if javaValueErr != nil || rustValueErr != nil {
+				report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: finding.Pointer, Classification: "diagnostic_failure", Detail: "encode field values"})
+				continue
+			}
+			report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: finding.Pointer, Classification: finding.Classification, JavaSHA256: finding.JavaSHA256, RustSHA256: finding.RustSHA256, ExpectedSHA256: finding.Decision.ExpectedSHA256, JavaValue: javaValue, RustValue: rustValue, Detail: "field-addressed adjudication"})
 		}
 		if adjudicationErr != nil && len(findings) == 0 {
 			pointer, _ := firstDifference(javaPrimary.observation, rustPrimary.observation)

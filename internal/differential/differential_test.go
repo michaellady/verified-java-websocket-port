@@ -199,6 +199,84 @@ func TestOracleHierarchyCoversEveryExpectedLeaf(t *testing.T) {
 	}
 }
 
+func TestOracleHierarchySelectsLosslessFailureAndCloseSurfaces(t *testing.T) {
+	scenarios := publicScenarios(t)
+	hierarchy, err := BuildOracleHierarchy(scenarios)
+	if err != nil {
+		t.Fatalf("BuildOracleHierarchy: %v", err)
+	}
+	find := func(scenarioID, pointer string) OracleCell {
+		t.Helper()
+		for _, cell := range hierarchy.Cells {
+			if cell.ScenarioID == scenarioID && cell.Pointer == pointer {
+				return cell
+			}
+		}
+		t.Fatalf("missing cell %s%s", scenarioID, pointer)
+		return OracleCell{}
+	}
+	wantDigest := func(value any) string {
+		t.Helper()
+		raw, err := canonicalOracleValue(value)
+		if err != nil {
+			t.Fatalf("canonical: %v", err)
+		}
+		return digest(raw)
+	}
+
+	transition := find("us005.pub.0005", "/transitions")
+	wantTransition := []commonTransition{{Step: 0, From: "open", To: "closed"}}
+	if transition.Authority != "rfc6455.section-7-1-7" || transition.Rank != 1 || transition.ExpectedSHA256 != wantDigest(wantTransition) {
+		t.Fatalf("terminal transition cell = %#v", transition)
+	}
+
+	rejected := find("us005.pub.0039", "/frames")
+	wantRejected := []commonFrame{{Step: 0, Direction: "inbound", Fin: true, Opcode: "continuous", Masked: true, PayloadB64: "4m6L", WireLength: 9}}
+	if rejected.Authority != "neutral" || rejected.Rank != 3 || rejected.ExpectedSHA256 != wantDigest(wantRejected) {
+		t.Fatalf("rejected frame cell = %#v", rejected)
+	}
+
+	restart := find("us005.pub.0042", "/frames")
+	wantRestart := []commonFrame{
+		{Step: 0, Direction: "inbound", Fin: false, Opcode: "text", Masked: true, PayloadB64: "V309", WireLength: 9},
+		{Step: 1, Direction: "inbound", Fin: true, Opcode: "binary", Masked: true, PayloadB64: "X6Tr", WireLength: 9},
+	}
+	if restart.Authority != "neutral" || restart.Rank != 3 || restart.ExpectedSHA256 != wantDigest(wantRestart) {
+		t.Fatalf("fragment restart frames cell = %#v", restart)
+	}
+
+	actionLimit := find("us005.pub.0030", "/frames")
+	wantActionLimit := []commonFrame{{Step: 0, Direction: "outbound", Fin: true, Opcode: "text", Masked: true, PayloadB64: "YQ==", WireLength: 7}}
+	if actionLimit.Authority != "neutral" || actionLimit.Rank != 3 || actionLimit.ExpectedSHA256 != wantDigest(wantActionLimit) {
+		t.Fatalf("action limit frames cell = %#v", actionLimit)
+	}
+
+	frameLimit := find("us005.pub.0032", "/frames")
+	wantFrameLimit := []commonFrame{{Step: 0, Direction: "inbound", Fin: true, Opcode: "text", Masked: true, PayloadB64: "d0c=", WireLength: 8}}
+	if frameLimit.Authority != "neutral" || frameLimit.Rank != 3 || frameLimit.ExpectedSHA256 != wantDigest(wantFrameLimit) {
+		t.Fatalf("frame limit frames cell = %#v", frameLimit)
+	}
+
+	actionRejection := find("us005.pub.0000", "/transitions")
+	if actionRejection.Authority != "neutral" || actionRejection.Rank != 3 || actionRejection.ExpectedSHA256 != wantDigest([]commonTransition{}) {
+		t.Fatalf("action rejection transition cell = %#v", actionRejection)
+	}
+
+	localClosePayload := find("us005.pub.0034", "/frames/0/payload_base64")
+	if localClosePayload.Authority != "neutral" || localClosePayload.Rank != 3 || localClosePayload.ExpectedSHA256 != wantDigest("A/NLWGlkbg==") {
+		t.Fatalf("local close payload cell = %#v", localClosePayload)
+	}
+
+	closePayload := find("us005.pub.0050", "/frames/1/payload_base64")
+	if closePayload.Authority != "rfc6455.section-5-5-1" || closePayload.Rank != 1 || closePayload.ExpectedSHA256 != wantDigest("A+h4cGg6") {
+		t.Fatalf("close echo payload cell = %#v", closePayload)
+	}
+	closeWire := find("us005.pub.0050", "/frames/1/wire_length")
+	if closeWire.Authority != "rfc6455.section-5-5-1" || closeWire.Rank != 1 || closeWire.ExpectedSHA256 != wantDigest(float64(8)) {
+		t.Fatalf("close echo wire cell = %#v", closeWire)
+	}
+}
+
 func TestCommittedOracleHierarchyMatchesExactPublicCorpus(t *testing.T) {
 	root := repositoryRoot(t)
 	path := filepath.Join(root, "evidence/oracle-hierarchy.json")
@@ -335,11 +413,12 @@ func TestFieldLevelAdjudicationSeparatesRFCJavaQuirkFromCounterDefect(t *testing
 	}
 	rust := java
 	rust.FinalState = "closed"
+	rust.Transitions = []commonTransition{{Step: 0, From: "open", To: "closed"}}
 	classification, findings, err := adjudicateScenario(scenario, hierarchy, java, rust)
 	if err != nil {
 		t.Fatalf("RFC-aligned Rust state rejected: %v", err)
 	}
-	if classification != "java_quirk" || len(findings) != 1 || findings[0].Pointer != "/final_state" || findings[0].Classification != "java_quirk" {
+	if classification != "java_quirk" || len(findings) != 2 || findings[0].Pointer != "/final_state" || findings[0].Classification != "java_quirk" || findings[1].Pointer != "/transitions" || findings[1].Classification != "java_quirk" {
 		t.Fatalf("classification=%s findings=%#v", classification, findings)
 	}
 	ledger := Ledger{Schema: "../../schemas/behavior-delta-ledger-1.1.0.schema.json", SchemaVersion: ledgerSchemaVersion, EvidenceKind: "behavior-delta-ledger", AcceptedRootDigest: digest([]byte("root")), Status: "PASS_NO_CURRENT_DELTAS", NormativeAuthority: "field-addressed-oracle-hierarchy", Head: "sha256:" + strings.Repeat("0", 64), Records: []LedgerRecord{}, AppendImplementation: "hash-chained-cas"}
@@ -395,6 +474,14 @@ func TestRustAcceptedInputExcludesClosedStateRejection(t *testing.T) {
 	closedNoop := rustStep{PreState: "closed", Consumed: 0}
 	if got, err := acceptedRustInputBytes(empty, closedNoop); err != nil || got != 0 {
 		t.Fatalf("closed zero-chunk no-op = %d, %v", got, err)
+	}
+	inputLimit := rustStep{PreState: "open", Consumed: 0, Observations: []rustItem{{Error: &commonError{Class: "INPUT_LIMIT_EXCEEDED"}}}}
+	if got, err := acceptedRustInputBytes(source, inputLimit); err != nil || got != 0 {
+		t.Fatalf("input-limit rejected input = %d, %v", got, err)
+	}
+	inputLimit.Consumed = 1
+	if _, err := acceptedRustInputBytes(source, inputLimit); err == nil {
+		t.Fatal("input-limit rejection with consumed bytes accepted")
 	}
 }
 
@@ -569,7 +656,7 @@ func TestRustErrorMapIsClosedAndUnknownIsInfrastructureFailure(t *testing.T) {
 			t.Fatalf("%s => %q, %v", input, got, err)
 		}
 	}
-	for _, input := range []string{"LIMIT_FRAME_BYTES", "LIMIT_TOTAL_BUFFERED_BYTES"} {
+	for _, input := range []string{"LIMIT_FRAME_BYTES", "LIMIT_TOTAL_BUFFERED_BYTES", "ACTION_LIMIT_EXCEEDED", "FRAME_LIMIT_EXCEEDED", "INPUT_LIMIT_EXCEEDED"} {
 		got, err := normalizeRustErrorClass(input)
 		if err != nil || got != "LIMIT_EXCEEDED" {
 			t.Fatalf("%s => %q, %v", input, got, err)
@@ -579,5 +666,17 @@ func TestRustErrorMapIsClosedAndUnknownIsInfrastructureFailure(t *testing.T) {
 		if got, err := normalizeRustErrorClass(input); err == nil {
 			t.Fatalf("unmapped %s accepted as %q", input, got)
 		}
+	}
+}
+
+func TestDiagnosticValueReportsExactFieldWithoutWritingEvidence(t *testing.T) {
+	observation := commonObservation{Frames: []commonFrame{{Step: 2, Direction: "inbound", Fin: true, Opcode: "text", PayloadB64: "YQ==", WireLength: 3}}}
+	got, err := diagnosticValue(observation, "/frames")
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `[{"direction":"inbound","fin":true,"masked":false,"opcode":"text","payload_base64":"YQ==","step":2,"wire_length":3}]`
+	if got != want {
+		t.Fatalf("diagnostic value = %s", got)
 	}
 }
