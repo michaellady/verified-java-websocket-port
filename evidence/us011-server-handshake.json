@@ -38,7 +38,7 @@
     "path": "evidence/java/behavior-delta-ledger.json",
     "reason": "No live Java execution for US-011 additive strictness subjects was performed; no disagreement or unrelated Autobahn reference is fabricated.",
     "records_added": 0,
-    "sha256": "sha256:e64683c4d9b3000024c8e119b61db1b74bed70baf9f56662dc54b0d0b4f4e2b6"
+    "sha256": "sha256:e4800359d8a667524216b74947e43c169153406338398473221286bfbba9724a"
   },
   "evidence_dag_claim": "claim-us011-server-handshake",
   "evidence_dag_path": "assurance/us011-evidence-dag.json",
@@ -58,14 +58,14 @@
     "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
     "implementation_files": [
       {
-        "git_blob": "49af8ecd6e0818ff43f806721c7ac6eacb36d13d",
+        "git_blob": "ca8a1012ed753dc4347285d9aa0558c89c991c46",
         "path": "rust/connection-core/src/lib.rs",
-        "sha256": "sha256:6fe06d585e28f2188dc2cab5f493363a95cc9fd295db3087524e2894e0241358"
+        "sha256": "sha256:cbd86dfccb15a51275140d89ba4496789f1dd8bbd8a6e0496e0924ff196f54b6"
       },
       {
-        "git_blob": "897b5d84b92aa1f68ed892a3434519e4758f6aee",
+        "git_blob": "8b5a30cf7ba1ff4b22d183bbfbd628db15a9b602",
         "path": "rust/connection-core/src/connection.rs",
-        "sha256": "sha256:92f8b8f8c9ef6e45302a6379b7b5b644ef05456265013b59ddeb163966ef4290"
+        "sha256": "sha256:8c1895282e7d59663180265db9e2a50b6785400c5d12c217a12236ac229dbe8e"
       },
       {
         "git_blob": "b5aa5fc2b07768da66858828da162ef226fc95e4",
@@ -88,9 +88,9 @@
         "sha256": "sha256:cef46a90a2b12569742f8520f79c5c22e160eacaf055e057ddfacb96223dae96"
       },
       {
-        "git_blob": "f4e1c308711cae762318c1987334b3e484dd436e",
+        "git_blob": "e327b572796131cf6d29204f483b4bb71a6716b6",
         "path": "rust/connection-core/tests/server_handshake.rs",
-        "sha256": "sha256:d1d50d83373d49374ce1eaff6f9623e76b8181af2e3a2f4033d84c93e7652eb8"
+        "sha256": "sha256:a13b1974e851457f4d6080a2297b74d9518be8857e24cef8573079efa98211ff"
       },
       {
         "git_blob": "e756af5c7572e3fd6256eb836e3d896a47a2f7ad",
@@ -98,9 +98,9 @@
         "sha256": "sha256:9002efba2b1b45f5f429249764e4b8d1639e937813f882bfdd7f446745a03f7b"
       },
       {
-        "git_blob": "d478841b867d10c4141b159ffce2c40adf3ce01a",
+        "git_blob": "c0b63e9d6f6951507c5710e4ce03388f393369eb",
         "path": "rust/connection-core/tests/connection_contract.rs",
-        "sha256": "sha256:8a7b11114f18f33b3c7154255522d2cab2ca7f1912a24f6a042314594aa9ee0f"
+        "sha256": "sha256:4c47b2aa2677d5d8efc63adb33391992a89d49d2c585748b85726cf78445511b"
       },
       {
         "git_blob": "1fd8cf573f9e03c3983e6234f62bb1718d7b2fc5",
@@ -169,7 +169,7 @@
     "bindings": [
       {
         "rust_semantic_id": "websocket_core::ConnectionCore",
-        "source": "rust/connection-core/src/connection.rs:852",
+        "source": "rust/connection-core/src/connection.rs:970",
         "status": "RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"
       },
       {
@@ -179,12 +179,12 @@
       },
       {
         "rust_semantic_id": "websocket_core::HandshakeFailure",
-        "source": "rust/connection-core/src/connection.rs:544",
+        "source": "rust/connection-core/src/connection.rs:556",
         "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
       },
       {
         "rust_semantic_id": "websocket_core::SemanticEvent",
-        "source": "rust/connection-core/src/connection.rs:466",
+        "source": "rust/connection-core/src/connection.rs:478",
         "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
       }
     ],

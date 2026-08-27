@@ -67,9 +67,9 @@ func TestUS006CanonicalPreflightAndReplayAreDeterministic(t *testing.T) {
 }
 
 func TestUS012ResolvedBoundedTargetsRequirePendingConsumersAndExactReceipt(t *testing.T) {
-	digest := "sha256:5d332a60b82652e326678af78658f8af6e449b1bdb196b38d4eda8a62b6665c2"
-	sha := "sha256:2d3b9d8cbda6ce8deea03b21e1e2beeab7ebf00195757ec3ef7dcff75e844da2"
-	blob := "08ab31cb7fa28dfe8451a70d4633fb18a21567d7"
+	digest := "sha256:a14c872ac92fdd768e1ee6367a53ddd8d40459468624f155bf1067627b617744"
+	sha := "sha256:961c5cfa03953c080b8e3148bb65cb03c67c173c131c538c23b57a86fae8cc2c"
+	blob := "bcaf8ca6da7c5edf130784a14d174b754d1a8536"
 	semantic := "git-blob:" + blob + "#websocket_core::frame::decode::FrameHeaderDecoder::decode_header"
 	value := target{
 		TargetID: "target.frame-header-decoder", LinkageState: "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS",

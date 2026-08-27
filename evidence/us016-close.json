@@ -9,15 +9,15 @@
     "crate_tree": "e178cdf8fe2ccaa73eb05d0eba453fa947fe0e28",
     "bindings": [
       {"path":"rust/connection-core/src/close.rs","sha256":"sha256:c9abc90888c9b6480f7c5d05e53f07f0c583ddb3ab9b20be578672f99ce60f1f","git_blob":"313503e4d10ec8de7895e5dfd12e33718b1ca3a7"},
-      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:92f8b8f8c9ef6e45302a6379b7b5b644ef05456265013b59ddeb163966ef4290","git_blob":"897b5d84b92aa1f68ed892a3434519e4758f6aee"},
-      {"path":"rust/connection-core/src/frame/decode.rs","sha256":"sha256:2d3b9d8cbda6ce8deea03b21e1e2beeab7ebf00195757ec3ef7dcff75e844da2","git_blob":"08ab31cb7fa28dfe8451a70d4633fb18a21567d7"},
-      {"path":"rust/connection-core/src/fragment.rs","sha256":"sha256:af6f71b00dbcbfca96ee77de7dd6ba047c695b0a78687bf546418f21a5ec7fb7","git_blob":"74a480abc65e8fa5601840721cc29dbce6b767d8"},
-      {"path":"rust/connection-core/src/lib.rs","sha256":"sha256:6fe06d585e28f2188dc2cab5f493363a95cc9fd295db3087524e2894e0241358","git_blob":"49af8ecd6e0818ff43f806721c7ac6eacb36d13d"},
-      {"path":"rust/connection-core/tests/close_eof.rs","sha256":"sha256:1dc7e95a1ffbeb58944e13d78c03780f800ae7d83b94b58073087bcb7900b9e6","git_blob":"54ac002eecfb4405439589d9c3bdfd73ac98fbef"},
-      {"path":"rust/connection-core/tests/connection_contract.rs","sha256":"sha256:8a7b11114f18f33b3c7154255522d2cab2ca7f1912a24f6a042314594aa9ee0f","git_blob":"d478841b867d10c4141b159ffce2c40adf3ce01a"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:8c1895282e7d59663180265db9e2a50b6785400c5d12c217a12236ac229dbe8e","git_blob":"8b5a30cf7ba1ff4b22d183bbfbd628db15a9b602"},
+      {"path":"rust/connection-core/src/frame/decode.rs","sha256":"sha256:961c5cfa03953c080b8e3148bb65cb03c67c173c131c538c23b57a86fae8cc2c","git_blob":"bcaf8ca6da7c5edf130784a14d174b754d1a8536"},
+      {"path":"rust/connection-core/src/fragment.rs","sha256":"sha256:e19fce786b0a7dc448aceb0886cb7b00fadf4e6024ef83b2781796af20e9c360","git_blob":"e50c79fbe0e7f55528d7560f3484fb58357dbb17"},
+      {"path":"rust/connection-core/src/lib.rs","sha256":"sha256:cbd86dfccb15a51275140d89ba4496789f1dd8bbd8a6e0496e0924ff196f54b6","git_blob":"ca8a1012ed753dc4347285d9aa0558c89c991c46"},
+      {"path":"rust/connection-core/tests/close_eof.rs","sha256":"sha256:dd830270e50c5f03f07af232b988968ddc5cc9beee5d8f5e0488e409814b73a2","git_blob":"dd7177e81847dea78fba2d9809eb70eb5ae22ba5"},
+      {"path":"rust/connection-core/tests/connection_contract.rs","sha256":"sha256:4c47b2aa2677d5d8efc63adb33391992a89d49d2c585748b85726cf78445511b","git_blob":"c0b63e9d6f6951507c5710e4ce03388f393369eb"},
       {"path":"rust/connection-core/tests/fragmentation.rs","sha256":"sha256:24ade67d3ca0bcc2aa635f31e5342f8f894d7dfc91eb46278475e0e17c1f2d56","git_blob":"a44aabbf2a56c1d304f838f3b5b39b733c1e0c50"},
       {"path":"rust/connection-core/tests/frame_codec.rs","sha256":"sha256:7ad9e7b9caf82804a1764f9e7ea9e5ebc95ae56998d621c65e8dd347ebb936bb","git_blob":"d39d79b4694771316ec4dfcae767f929148760ff"},
-      {"path":"rust/connection-core/tests/server_handshake.rs","sha256":"sha256:d1d50d83373d49374ce1eaff6f9623e76b8181af2e3a2f4033d84c93e7652eb8","git_blob":"f4e1c308711cae762318c1987334b3e484dd436e"}
+      {"path":"rust/connection-core/tests/server_handshake.rs","sha256":"sha256:a13b1974e851457f4d6080a2297b74d9518be8857e24cef8573079efa98211ff","git_blob":"e327b572796131cf6d29204f483b4bb71a6716b6"}
     ]
   },
   "tests": {

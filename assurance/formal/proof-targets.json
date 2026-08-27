@@ -48,12 +48,12 @@
       "rust_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "item_kind": "ASSOCIATED_FUNCTION",
       "linkage_state": "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS",
-      "source_sha256": "sha256:2d3b9d8cbda6ce8deea03b21e1e2beeab7ebf00195757ec3ef7dcff75e844da2",
-      "source_git_blob": "08ab31cb7fa28dfe8451a70d4633fb18a21567d7",
-      "semantic_identity": "git-blob:08ab31cb7fa28dfe8451a70d4633fb18a21567d7#websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "source_sha256": "sha256:961c5cfa03953c080b8e3148bb65cb03c67c173c131c538c23b57a86fae8cc2c",
+      "source_git_blob": "bcaf8ca6da7c5edf130784a14d174b754d1a8536",
+      "semantic_identity": "git-blob:bcaf8ca6da7c5edf130784a14d174b754d1a8536#websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "bounded_evidence": {
         "path": "assurance/formal/frame-results.json",
-        "sha256": "sha256:5d332a60b82652e326678af78658f8af6e449b1bdb196b38d4eda8a62b6665c2",
+        "sha256": "sha256:a14c872ac92fdd768e1ee6367a53ddd8d40459468624f155bf1067627b617744",
         "attribution": "US012_OWNED"
       },
       "required_call_paths": [
@@ -170,7 +170,7 @@
       "semantic_identity": "git-blob:309038147fd825fee401cfe47eb09f31c7932658#websocket_core::frame::mask::apply_mask_in_place",
       "bounded_evidence": {
         "path": "assurance/formal/frame-results.json",
-        "sha256": "sha256:5d332a60b82652e326678af78658f8af6e449b1bdb196b38d4eda8a62b6665c2",
+        "sha256": "sha256:a14c872ac92fdd768e1ee6367a53ddd8d40459468624f155bf1067627b617744",
         "attribution": "US012_OWNED"
       },
       "required_call_paths": [

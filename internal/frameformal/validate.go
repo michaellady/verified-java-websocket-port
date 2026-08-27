@@ -147,7 +147,7 @@ func validateBindings(root *os.Root, value *receipt, findings *collector) {
 		ID, Symbol, Source, SHA256, GitBlob, Token string
 	}
 	expected := []exactTarget{
-		{"target.frame-header-decoder", "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "rust/connection-core/src/frame/decode.rs", "sha256:2d3b9d8cbda6ce8deea03b21e1e2beeab7ebf00195757ec3ef7dcff75e844da2", "08ab31cb7fa28dfe8451a70d4633fb18a21567d7", "pub fn decode_header"},
+		{"target.frame-header-decoder", "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "rust/connection-core/src/frame/decode.rs", "sha256:961c5cfa03953c080b8e3148bb65cb03c67c173c131c538c23b57a86fae8cc2c", "bcaf8ca6da7c5edf130784a14d174b754d1a8536", "pub fn decode_header"},
 		{"target.frame-mask", "websocket_core::frame::mask::apply_mask_in_place", "rust/connection-core/src/frame/mask.rs", "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd", "309038147fd825fee401cfe47eb09f31c7932658", "pub fn apply_mask_in_place"},
 	}
 	if len(value.Targets) != len(expected) {
