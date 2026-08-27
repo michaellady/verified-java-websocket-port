@@ -1,0 +1,25 @@
+{
+  "divergences": [
+    "us005.hs.0013: rfc HS_MISSING_HOST observed as java accept (documented divergence)",
+    "us005.hs.0014: rfc HS_MISSING_UPGRADE observed as java accept (documented divergence)",
+    "us005.hs.0015: rfc HS_UPGRADE_VALUE observed as java accept (documented divergence)",
+    "us005.hs.0016: rfc HS_MISSING_CONNECTION observed as java accept (documented divergence)",
+    "us005.hs.0017: rfc HS_CONNECTION_VALUE observed as java accept (documented divergence)",
+    "us005.hs.0019: rfc HS_KEY_NOT_BASE64 observed as java accept (documented divergence)",
+    "us005.hs.0020: rfc HS_KEY_NOT_BASE64 observed as java accept (documented divergence)",
+    "us005.hs.0021: rfc HS_KEY_LENGTH observed as java accept (documented divergence)",
+    "us005.hs.0022: rfc HS_KEY_LENGTH observed as java accept (documented divergence)",
+    "us005.hs.0027: rfc HS_DUPLICATE_HEADER observed as java accept (documented divergence)",
+    "us005.hs.0029: rfc HS_HEADER_NAME_NOT_TOKEN observed as java accept (documented divergence)",
+    "us005.hs.0030: rfc HS_HEADER_NAME_NOT_TOKEN observed as java accept (documented divergence)",
+    "us005.hs.0034: rfc HS_BARE_LF observed as java accept (documented divergence)",
+    "us005.hs.0046: rfc HS_LIMIT_TOTAL_BYTES observed as java accept (documented divergence)",
+    "us005.hs.0047: rfc HS_LIMIT_HEADER_COUNT observed as java accept (documented divergence)",
+    "us005.hs.0048: rfc HS_LIMIT_HEADER_LINE_BYTES observed as java accept (documented divergence)"
+  ],
+  "executed": 49,
+  "failed": 0,
+  "missing": 0,
+  "passed": 49,
+  "unmatched": 0
+}

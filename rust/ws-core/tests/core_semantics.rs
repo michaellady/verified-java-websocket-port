@@ -544,21 +544,23 @@ fn eof_in_closed_is_a_state_violation_after_action_accounting() {
 }
 
 // ---------------------------------------------------------------------------
-// NotYetConnected: the handshake plane is not this story's behavior
+// NotYetConnected: the handshake plane (US-010/US-011, borrow batch B)
 // ---------------------------------------------------------------------------
 
 #[test]
-fn not_yet_connected_inputs_are_honestly_unimplemented() {
-    // ConnectionCore::new starts NotYetConnected; driving the handshake plane
-    // is US-010/US-011 behavior (the behavior corpora never exercise it, and
-    // the handshake tier speaks its own protocol). The skeleton refuses with
-    // the non-oracle Unimplemented code rather than faking any transition.
+fn not_yet_connected_bytes_now_drive_the_handshake_plane() {
+    // US-009's honest Unimplemented refusal on this arm is replaced by the
+    // landed US-010/US-011 handshake entry: a server core buffers an
+    // incomplete upgrade request (no transition, no events, no corpus
+    // counter movement — handshake bytes are pre-corpus vocabulary).
     let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Server);
     assert_eq!(core.state(), ReadyState::NotYetConnected);
-    let err = core
-        .handle(Input::TransportBytes(b"G"))
-        .expect_err("handshake bytes are US-010/011 behavior");
-    assert_eq!(err.code, FailureCode::Unimplemented);
+    core.handle(Input::TransportBytes(b"G"))
+        .expect("handshake bytes buffer incrementally");
+    assert_eq!(core.state(), ReadyState::NotYetConnected);
+    assert_eq!(core.counts().input_bytes, 0);
+    assert!(core.next_event().is_none());
+    assert!(core.next_write().is_none());
 }
 
 // ---------------------------------------------------------------------------
