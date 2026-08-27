@@ -4,20 +4,21 @@
   "story_id": "US-013",
   "status": "CLOSED_OWNER_RELAXED_BOUNDED",
   "implementation": {
-    "commit": "e84ba8367dfc865238e8f1a1a9de77b1ae2ed476",
-    "crate_tree": "7bb5cdc3f0a334e3aa88b977c1c91a66aa3b4eef",
+    "commit": "017f8ed37341ffdbe316f34758dbf774b030ec1e",
+    "crate_tree": "8cdca99dba737926208c3015208900b03a20d7e4",
     "bindings": [
       {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:3f801b6241bcf3a4884e20bb5fd6b608f1a17291cdb321b08659761c4ebabd38","git_blob":"2916505eef33bd2f7b42f921c671abf938fc46e4"},
-      {"path":"rust/connection-core/src/message.rs","sha256":"sha256:92b2bb72cd3f741a7a1cc3f2302765716a5172cb4ca2ee9ac7e44b3cd8a25069","git_blob":"1e63d9541b3552ad0a5e2854c67a1974f0110aa2"},
+      {"path":"rust/connection-core/src/message.rs","sha256":"sha256:84ddf6bdaf8f5987bb376ad4610cb13013d1a7770abc14bf50171cacbe6fcbc4","git_blob":"d7f200d061176ced79884d98edeb9df3b3ac2d8a"},
       {"path":"rust/connection-core/src/utf8.rs","sha256":"sha256:cb97162b6099d26e78b1817202efdcd4f92aa160810ea95db2bffa23280d2e32","git_blob":"9e36b16f019b1b3e9aa927e44551ae020ed83e08"},
-      {"path":"rust/connection-core/src/frame/decode.rs","sha256":"sha256:2223985003400d09d84b471d35bf0445856f4aceb80b79a3e3fbc0e30bfa4962","git_blob":"84c64262cb9db8ee6edfba11401f3ec34ccda8e5"},
-      {"path":"rust/connection-core/tests/messages.rs","sha256":"sha256:9af904e789b39c6829bcaca2c7aad30f93ab9ba50ef7fa0e4bd3d736c93dfb49","git_blob":"67f5dc5551708c7d0cadfe85f0ea34b5cc2bf06b"}
+      {"path":"rust/connection-core/src/frame/mod.rs","sha256":"sha256:7b841c4f76c71e781aaccdd0b43a57493c0e45122cbd1e23af0874dd08aaaddb","git_blob":"35b4a4964fd702da31ee413f3f258003b0904a4e"},
+      {"path":"rust/connection-core/src/frame/decode.rs","sha256":"sha256:6ab77a65b4156032bb895c2e7ffea29ab6c762808096f0818a979c8f8f3092fd","git_blob":"db7e4daf3263022bca964229ecd3bc2ff945d40c"},
+      {"path":"rust/connection-core/tests/messages.rs","sha256":"sha256:3e475c95e8bd0c85765cdf867d6a2ecbcf01c929d255ba5bf1bcf7cf21989ea1","git_blob":"fabd33eeb7fcf6a75848f8fe559b3a9469132321"}
     ]
   },
   "tests": {
-    "debug": {"command":"make -C rust test","passed":84,"failed":0},
-    "release": {"command":"make -C rust test-release","passed":84,"failed":0},
-    "message_tests_per_profile": 9,
+    "debug": {"command":"make -C rust test","passed":85,"failed":0},
+    "release": {"command":"make -C rust test-release","passed":85,"failed":0},
+    "message_tests_per_profile": 10,
     "frame_regression_tests_per_profile": 16,
     "connection_contract_tests_per_profile": 9,
     "replay_seed_count": 20,
