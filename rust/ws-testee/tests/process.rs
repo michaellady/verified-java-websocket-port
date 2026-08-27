@@ -148,3 +148,51 @@ fn two_process_echo_round_trip_exits_cleanly() {
         "server: {server_summary}"
     );
 }
+
+#[test]
+fn serve_subcommand_serves_multiple_sequential_connections() {
+    // E5 Autobahn wiring: `serve <addr> <sessions>` keeps one listener
+    // bound across N sequential connections and exits 0 once all sessions
+    // reached a terminal outcome.
+    let mut server = testee()
+        .args(["serve", "127.0.0.1:0", "2"])
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn serve");
+    let stdout = server.stdout.take().expect("stdout pipe");
+    let mut lines = BufReader::new(stdout).lines();
+    let listening = lines
+        .next()
+        .expect("listening line")
+        .expect("readable stdout");
+    let address = listening
+        .strip_prefix("listening ")
+        .expect("listening prefix")
+        .to_owned();
+
+    for message in ["serve-one", "serve-two"] {
+        let client = testee()
+            .args(["client", &address, "/chat", "localhost", message])
+            .output()
+            .expect("client run");
+        assert_eq!(
+            client.status.code(),
+            Some(0),
+            "client {message}: {}",
+            String::from_utf8_lossy(&client.stdout)
+        );
+    }
+
+    let status = server.wait().expect("serve exit");
+    assert_eq!(status.code(), Some(0));
+}
+
+#[test]
+fn serve_subcommand_rejects_a_zero_session_count() {
+    let output = testee()
+        .args(["serve", "127.0.0.1:0", "0"])
+        .output()
+        .expect("spawn");
+    assert_eq!(output.status.code(), Some(2));
+}

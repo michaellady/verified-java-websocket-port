@@ -14,7 +14,9 @@ use std::net::{SocketAddr, TcpListener};
 use std::process::exit;
 
 use ws_core::ConnectionConfig;
-use ws_testee::{ClientFixture, IoBounds, ServerFixture, run_client_once, run_server_once};
+use ws_testee::{
+    ClientFixture, IoBounds, ServerFixture, run_client_once, run_server_once, run_server_sessions,
+};
 
 const EXIT_OK: i32 = 0;
 const EXIT_UNCLEAN: i32 = 1;
@@ -25,10 +27,11 @@ fn main() {
     let arguments: Vec<String> = env::args().collect();
     let code = match arguments.get(1).map(String::as_str) {
         Some("server") => server(&arguments[2..]),
+        Some("serve") => serve(&arguments[2..]),
         Some("client") => client(&arguments[2..]),
         _ => {
             eprintln!(
-                "usage: ws-testee server <loopback-addr> [write-chunk] | ws-testee client <loopback-addr> <target> <host> <message> [ping-hex|-] [write-chunk]"
+                "usage: ws-testee server <loopback-addr> [write-chunk] | ws-testee serve <loopback-addr> <sessions> | ws-testee client <loopback-addr> <target> <host> <message> [ping-hex|-] [write-chunk]"
             );
             EXIT_USAGE
         }
@@ -112,6 +115,82 @@ fn server(arguments: &[String]) -> i32 {
         }
         Err(outcome) => {
             println!("setup={outcome:?}");
+            EXIT_SETUP
+        }
+    }
+}
+
+/// Ceiling-tier `ws_core` limits for the Autobahn fixture (E5). Adapter
+/// WIRING only: the industry fuzzingclient's selected families (1-7, 10)
+/// carry up to 64 KiB messages and 51-fragment auto-fragmentation, which
+/// exceed the corpus-tier per-connection defaults (64 frames / 64 KiB
+/// input). Every value stays within the documented builder ceilings; what
+/// happens when a limit trips is untouched core behavior.
+fn autobahn_serve_config() -> ConnectionConfig {
+    ConnectionConfig::builder()
+        .max_frame_payload_bytes(1_048_576)
+        .max_message_bytes(1_048_576)
+        .max_buffered_bytes(1_048_576)
+        .max_input_bytes(1_048_576)
+        .max_frames(4096)
+        .max_actions(1024)
+        .event_queue_capacity(16_384)
+        .command_queue_capacity(4096)
+        .write_queue_capacity(4096)
+        .build()
+        .expect("ceiling-tier limits are valid by construction")
+}
+
+fn serve(arguments: &[String]) -> i32 {
+    if arguments.len() != 2 {
+        eprintln!("usage-error");
+        return EXIT_USAGE;
+    }
+    let Ok(address) = arguments[0].parse::<SocketAddr>() else {
+        eprintln!("usage-error");
+        return EXIT_USAGE;
+    };
+    let sessions = match arguments[1].parse::<u64>() {
+        Ok(count) if count > 0 => count,
+        _ => {
+            eprintln!("usage-error");
+            return EXIT_USAGE;
+        }
+    };
+    if ws_testee::loopback_only(&address).is_err() {
+        println!("setup=non-loopback-refused");
+        return EXIT_SETUP;
+    }
+    let listener = match TcpListener::bind(address) {
+        Ok(listener) => listener,
+        Err(error) => {
+            println!("setup=bind-failed kind={:?}", error.kind());
+            return EXIT_SETUP;
+        }
+    };
+    match listener.local_addr() {
+        Ok(bound) => println!("listening {bound}"),
+        Err(error) => {
+            println!("setup=local-addr-failed kind={:?}", error.kind());
+            return EXIT_SETUP;
+        }
+    }
+    let fixture = ServerFixture {
+        config: autobahn_serve_config(),
+        bounds: IoBounds::default(),
+    };
+    let mut reported = 0_u64;
+    let outcome = run_server_sessions(&listener, &fixture, sessions, &mut |index, report| {
+        reported = index;
+        println!("session={index} {}", report.summary());
+    });
+    match outcome {
+        Ok(()) => {
+            println!("served={reported}");
+            EXIT_OK
+        }
+        Err(outcome) => {
+            println!("setup={outcome:?} served={reported}");
             EXIT_SETUP
         }
     }

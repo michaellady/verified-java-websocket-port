@@ -492,3 +492,46 @@ fn budget_exhaustion_is_reported_honestly() {
     assert_eq!(report.outcome, LoopOutcome::BudgetExhausted);
     assert!(!report.clean());
 }
+
+#[test]
+fn sequential_sessions_reuse_the_listener() {
+    // E5 Autobahn wiring: the fuzzingclient opens one fresh connection per
+    // case, sequentially. run_server_sessions must serve N connections on
+    // ONE bound listener with no accept gap between sessions, echoing on
+    // every one, and report each session in order.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = thread::spawn(move || {
+        let fixture = ServerFixture {
+            config: ConnectionConfig::default(),
+            bounds: IoBounds::default(),
+        };
+        let mut reports: Vec<(u64, ConnectionReport)> = Vec::new();
+        ws_testee::run_server_sessions(&listener, &fixture, 2, &mut |index, report| {
+            reports.push((index, report.clone()));
+        })
+        .expect("sessions setup");
+        reports
+    });
+    let first = client_fixture(address, "case-one", IoBounds::default());
+    let second = client_fixture(address, "case-two", IoBounds::default());
+    let reports = server.join().expect("server thread");
+
+    assert!(first.clean(), "first client: {}", first.summary());
+    assert!(second.clean(), "second client: {}", second.summary());
+    assert_eq!(reports.len(), 2);
+    assert_eq!(reports[0].0, 1);
+    assert_eq!(reports[1].0, 2);
+    assert_eq!(reports[0].1.texts, vec!["case-one".to_owned()]);
+    assert_eq!(reports[1].1.texts, vec!["case-two".to_owned()]);
+    assert!(
+        reports[0].1.clean(),
+        "session 1: {}",
+        reports[0].1.summary()
+    );
+    assert!(
+        reports[1].1.clean(),
+        "session 2: {}",
+        reports[1].1.summary()
+    );
+}
