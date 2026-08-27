@@ -7,8 +7,14 @@
     {
       "kind": "json_set",
       "target": "assurance/formal/backend-qualification.json",
-      "pointer": "/backends/2/canaries/known_bad/status",
-      "value": "SURVIVED"
+      "pointer": "/backends/2/canaries/known_bad",
+      "value": {
+        "id": "canary.tlc.bad.jm-close-code-1000",
+        "mutant_id": "jm-close-code-1000",
+        "description": "Seeded model mutation expected to produce a TLC counterexample (fixture: recorded as SURVIVED with no counterexample digest).",
+        "expected_detection": "COUNTEREXAMPLE",
+        "status": "SURVIVED"
+      }
     }
   ]
 }

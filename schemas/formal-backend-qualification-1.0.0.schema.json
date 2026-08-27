@@ -492,7 +492,10 @@
                 "expected_detection": { "enum": ["COUNTEREXAMPLE"] },
                 "status": { "$ref": "#/$defs/canaryStatus" },
                 "counterexample_digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" }
-              }
+              },
+              "if": { "properties": { "status": { "const": "DETECTED" } } },
+              "then": { "required": ["counterexample_digest"] },
+              "else": { "not": { "required": ["counterexample_digest"] } }
             }
           }
         },

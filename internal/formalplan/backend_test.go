@@ -685,6 +685,11 @@ func TestFormalPreflightModelCheckOnlyRules(t *testing.T) {
 			"sha256:" + strings.Repeat("0", 64), "MODEL_CHECK_EXECUTION_UNVERIFIED"},
 		{"known-bad-claim-blocks", "/backends/2/canaries/known_bad/status", "DETECTED", "CANARY_CLAIM_WITHOUT_EXECUTION"},
 		{"known-good-non-passed-claim-blocks", "/backends/2/canaries/known_good/status", "DETECTED", "CANARY_CLAIM_WITHOUT_EXECUTION"},
+		// Review round: a digest on a NOT_EXECUTED known-bad canary is a
+		// smuggled claim even with the status untouched — both the schema
+		// (if/then) and the validator must block it.
+		{"digest-without-detected-blocks", "/backends/2/canaries/known_bad/counterexample_digest",
+			"sha256:" + strings.Repeat("e", 64), "CANARY_CLAIM_WITHOUT_EXECUTION"},
 		{"positive-outcome-blocks", "/backends/2/obligations/0/outcome", "model_observation", "UNAVAILABLE_BACKEND_CLAIM"},
 		{"selection-blocks", "/backends/2/selected", true, "BACKEND_SELECTED_WITHOUT_EXECUTION"},
 	}

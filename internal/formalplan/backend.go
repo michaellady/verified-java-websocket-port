@@ -957,6 +957,14 @@ func validateCanaries(evaluation *formalEvaluation, docPath, basePath string, ba
 			evaluation.add("CANARY_CLAIM_WITHOUT_EXECUTION", vendorprotocol.Block, docPath, basePath+".canaries.known_bad.status",
 				backend.BackendID+": the model-check-only execution did not run the declared known-bad canary mutation; its result may be recorded only by a full executed qualification run")
 		}
+		// Review round: a non-DETECTED canary carrying a counterexample
+		// digest is claim smuggling — the digest may exist only alongside
+		// the DETECTED status that earned it (the schema enforces the same
+		// rule; this is the belt-and-braces validator half).
+		if canaries.KnownBad.Status != "DETECTED" && canaries.KnownBad.CounterexampleDigest != "" {
+			evaluation.add("CANARY_CLAIM_WITHOUT_EXECUTION", vendorprotocol.Block, docPath, basePath+".canaries.known_bad.counterexample_digest",
+				backend.BackendID+": a counterexample digest recorded without DETECTED status is a smuggled claim")
+		}
 		return false
 	default:
 		if canaries.KnownGood.Status != "NOT_EXECUTED" || canaries.KnownBad.Status != "NOT_EXECUTED" {
