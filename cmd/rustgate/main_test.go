@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -14,7 +15,7 @@ import (
 func TestVerifyGoodFixture(t *testing.T) {
 	root := goodFixture(t)
 	var stdout, stderr bytes.Buffer
-	if code := run([]string{"verify", "--root", root}, &stdout, &stderr); code != exitOK {
+	if code := run(verificationArguments(root), &stdout, &stderr); code != exitOK {
 		t.Fatalf("exit = %d, want %d\nstdout: %s\nstderr: %s", code, exitOK, stdout.String(), stderr.String())
 	}
 	var report struct {
@@ -56,14 +57,41 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 		{"build script", "BUILD_SCRIPT_NOT_ALLOWED", func(t *testing.T, root string) {
 			writeFixture(t, root, "rust/connection-core/build.rs", "fn main() {}\n")
 		}},
+		{"repository root build script", "BUILD_SCRIPT_NOT_ALLOWED", func(t *testing.T, root string) {
+			writeFixture(t, root, "build.rs", "fn main() {}\n")
+		}},
+		{"custom package build script", "BUILD_SCRIPT_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "publish.workspace = true", "publish.workspace = true\nbuild = \"codegen.rs\"")
+		}},
+		{"repository cargo config", "CARGO_CONFIG_NOT_ALLOWED", func(t *testing.T, root string) {
+			writeFixture(t, root, ".cargo/config.toml", "[build]\nrustc-wrapper = \"./wrapper\"\n")
+		}},
 		{"proc macro", "PROC_MACRO_NOT_ALLOWED", func(t *testing.T, root string) {
 			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "path = \"src/lib.rs\"", "path = \"src/lib.rs\"\nproc-macro = true")
 		}},
 		{"forbidden io", "FORBIDDEN_CORE_SURFACE", func(t *testing.T, root string) {
 			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\npub fn bad() { let _ = std::net::TcpStream::connect(\"ignored\"); }\n")
 		}},
+		{"std alias", "FORBIDDEN_CORE_SURFACE", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\nuse std as ambient;\n")
+		}},
+		{"absolute std path", "FORBIDDEN_CORE_SURFACE", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\nuse ::std::env;\n")
+		}},
+		{"std group import", "FORBIDDEN_CORE_SURFACE", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\nuse std::{sync::mpsc};\n")
+		}},
+		{"unix socket", "FORBIDDEN_CORE_SURFACE", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\nuse std::os::unix::net::UnixStream;\n")
+		}},
+		{"ambient environment", "FORBIDDEN_CORE_SURFACE", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\nuse std::env;\n")
+		}},
 		{"callback", "CALLBACK_SURFACE", func(t *testing.T, root string) {
 			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\npub fn bad<F: FnMut()>(_callback: F) {}\n")
+		}},
+		{"function pointer", "CALLBACK_SURFACE", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\npub type Callback = fn();\n")
 		}},
 		{"stale lock", "LOCKFILE_DIGEST_MISMATCH", func(t *testing.T, root string) {
 			appendFixture(t, root, "rust/Cargo.lock", "# drift\n")
@@ -101,6 +129,12 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 		{"qualified toolchain drift", "TOOLCHAIN_PIN_MISMATCH", func(t *testing.T, root string) {
 			replaceFixture(t, root, "evidence/intake/toolchain-pins.json", `"version":"1.95.0"`, `"version":"1.94.0"`)
 		}},
+		{"expired toolchain receipt", "TOOLCHAIN_PIN_EXPIRED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "evidence/intake/toolchain-pins.json", `"expires_at":"2026-09-23T12:26:43Z"`, `"expires_at":"2026-08-25T00:00:00Z"`)
+		}},
+		{"substituted installed cargo", "TOOLCHAIN_BINARY_MISMATCH", func(t *testing.T, root string) {
+			appendFixture(t, root, "toolchain/bin/cargo", "substitution\n")
+		}},
 		{"synthetic toolchain shape", "TOOLCHAIN_PIN_INVALID", func(t *testing.T, root string) {
 			writeFixture(t, root, "evidence/intake/toolchain-pins.json", `{"artifacts":[]}`)
 		}},
@@ -110,7 +144,7 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 			root := goodFixture(t)
 			test.mutate(t, root)
 			var stdout, stderr bytes.Buffer
-			if code := run([]string{"verify", "--root", root}, &stdout, &stderr); code != exitFindings {
+			if code := run(verificationArguments(root), &stdout, &stderr); code != exitFindings {
 				t.Fatalf("exit = %d, want %d\nstdout: %s\nstderr: %s", code, exitFindings, stdout.String(), stderr.String())
 			}
 			var report struct {
@@ -126,6 +160,105 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 			}
 			t.Fatalf("missing typed finding %s in %s", test.code, stdout.String())
 		})
+	}
+}
+
+func TestVerifyAllowsOnlyTheBoundedMPSCStdImport(t *testing.T) {
+	root := goodFixture(t)
+	writeFixture(t, root, "rust/connection-core/src/channel.rs", "use std::sync::mpsc;\n")
+
+	var stdout, stderr bytes.Buffer
+	if code := run(verificationArguments(root), &stdout, &stderr); code != exitOK {
+		t.Fatalf("exit = %d, want %d\nstdout: %s\nstderr: %s", code, exitOK, stdout.String(), stderr.String())
+	}
+}
+
+func TestVerifyRejectsAncestorSymlinkEscapes(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{"policy", "security"},
+		{"toolchain receipt", "evidence"},
+		{"workspace", "rust"},
+		{"production source", "rust/connection-core/src"},
+		{"installed toolchain", "toolchain/bin"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := goodFixture(t)
+			original := filepath.Join(root, filepath.FromSlash(test.path))
+			real := original + "-real"
+			if err := os.Rename(original, real); err != nil {
+				t.Fatalf("rename ancestor: %v", err)
+			}
+			if err := os.Symlink(real, original); err != nil {
+				t.Fatalf("symlink ancestor: %v", err)
+			}
+
+			var stdout, stderr bytes.Buffer
+			if code := run(verificationArguments(root), &stdout, &stderr); code != exitFindings {
+				t.Fatalf("exit = %d, want %d\nstdout: %s\nstderr: %s", code, exitFindings, stdout.String(), stderr.String())
+			}
+			if !strings.Contains(stdout.String(), `"code": "UNSAFE_PATH"`) {
+				t.Fatalf("missing UNSAFE_PATH finding: %s", stdout.String())
+			}
+		})
+	}
+}
+
+func TestCargoCommandFailsClosedAndNeutralizesAmbientOverrides(t *testing.T) {
+	t.Run("sanitized execution", func(t *testing.T) {
+		root := goodFixture(t)
+		t.Setenv("RUSTC", "/malicious/rustc")
+		t.Setenv("RUSTC_WRAPPER", "/malicious/wrapper")
+		t.Setenv("RUSTC_WORKSPACE_WRAPPER", "/malicious/workspace-wrapper")
+		t.Setenv("RUSTFLAGS", "--malicious")
+		t.Setenv("CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER", "/malicious/runner")
+
+		arguments := cargoArguments(root, "metadata", "--offline")
+		var stdout, stderr bytes.Buffer
+		if code := run(arguments, &stdout, &stderr); code != exitOK {
+			t.Fatalf("exit = %d, want %d\nstdout: %s\nstderr: %s", code, exitOK, stdout.String(), stderr.String())
+		}
+		if strings.Contains(stdout.String(), "/malicious/") {
+			t.Fatalf("ambient executable override reached Cargo: %s", stdout.String())
+		}
+		if !strings.Contains(stdout.String(), "CARGO_EXECUTED") ||
+			!strings.Contains(stdout.String(), "RUSTC="+filepath.Join(root, "toolchain/bin/rustc")) {
+			t.Fatalf("selected pinned toolchain was not executed: %s", stdout.String())
+		}
+	})
+
+	t.Run("gate failure prevents execution", func(t *testing.T) {
+		root := goodFixture(t)
+		appendFixture(t, root, "rust/connection-core/src/lib.rs", "\nuse std::process;\n")
+
+		var stdout, stderr bytes.Buffer
+		if code := run(cargoArguments(root, "metadata", "--offline"), &stdout, &stderr); code != exitFindings {
+			t.Fatalf("exit = %d, want %d\nstdout: %s\nstderr: %s", code, exitFindings, stdout.String(), stderr.String())
+		}
+		if strings.Contains(stdout.String(), "CARGO_EXECUTED") {
+			t.Fatalf("Cargo executed after a gate finding: %s", stdout.String())
+		}
+	})
+}
+
+func TestRustMakeGatesRouteCargoThroughRepositoryRustgate(t *testing.T) {
+	command := exec.Command("make", "-n", "gates")
+	command.Dir = filepath.Join("..", "..", "rust")
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("make -n gates: %v\n%s", err, output)
+	}
+	text := string(output)
+	if count := strings.Count(text, "go run ./cmd/rustgate cargo"); count != 5 {
+		t.Fatalf("rustgate cargo launcher count = %d, want 5:\n%s", count, text)
+	}
+	for _, line := range strings.Split(text, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "cargo ") {
+			t.Fatalf("direct Cargo command bypasses rustgate: %s", line)
+		}
 	}
 }
 
@@ -145,6 +278,11 @@ func TestUsageIsTypedByExitStatus(t *testing.T) {
 func goodFixture(t *testing.T) string {
 	t.Helper()
 	root := t.TempDir()
+	canonicalRoot, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatalf("canonicalize fixture root: %v", err)
+	}
+	root = canonicalRoot
 	writeFixture(t, root, "LICENSE", "fixture Apache license\n")
 	writeFixture(t, root, "rust/Cargo.toml", `[workspace]
 resolver = "3"
@@ -205,6 +343,12 @@ name = "websocket-core"
 version = "0.0.0"
 `
 	writeFixture(t, root, "rust/Cargo.lock", lock)
+	rustc := "#!/bin/sh\nexit 0\n"
+	rustdoc := "#!/bin/sh\nexit 0\n# rustdoc\n"
+	cargo := "#!/bin/sh\nprintf 'CARGO_EXECUTED\\nRUSTC=%s\\nRUSTDOC=%s\\nRUSTC_WRAPPER=%s\\nRUSTC_WORKSPACE_WRAPPER=%s\\nRUSTFLAGS=%s\\nCARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER=%s\\n' \"$RUSTC\" \"$RUSTDOC\" \"$RUSTC_WRAPPER\" \"$RUSTC_WORKSPACE_WRAPPER\" \"$RUSTFLAGS\" \"$CARGO_TARGET_AARCH64_APPLE_DARWIN_RUNNER\"\n"
+	writeExecutableFixture(t, root, "toolchain/bin/rustc", rustc)
+	writeExecutableFixture(t, root, "toolchain/bin/rustdoc", rustdoc)
+	writeExecutableFixture(t, root, "toolchain/bin/cargo", cargo)
 	writeFixture(t, root, "evidence/intake/toolchain-pins.json", `{
   "schema_version":"1.0.0",
   "company":"fixture-company",
@@ -217,7 +361,7 @@ version = "0.0.0"
     "artifact_id":"rustc-1.95.0-aarch64-apple-darwin",
     "platform":"aarch64-apple-darwin",
     "version":"1.95.0",
-    "binary_digests":{"rustc/bin/rustc":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","rustc/bin/rustdoc":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","cargo/bin/cargo":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+	"binary_digests":{"rustc/bin/rustc":"sha256:`+fixtureDigest([]byte(rustc))+`","rustc/bin/rustdoc":"sha256:`+fixtureDigest([]byte(rustdoc))+`","cargo/bin/cargo":"sha256:`+fixtureDigest([]byte(cargo))+`"},
     "lock_graph":["fixture@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"],
     "sbom_component_id":"component-rust-fixture",
     "vulnerability_observation_id":"vuln-rust-fixture",
@@ -260,6 +404,26 @@ version = "0.0.0"
 	return root
 }
 
+func verificationArguments(root string) []string {
+	return []string{
+		"verify",
+		"--root", root,
+		"--toolchain-bin-dir", filepath.Join(root, "toolchain/bin"),
+		"--validation-time", "2026-08-26T00:00:00Z",
+	}
+}
+
+func cargoArguments(root string, arguments ...string) []string {
+	result := []string{
+		"cargo",
+		"--root", root,
+		"--toolchain-bin-dir", filepath.Join(root, "toolchain/bin"),
+		"--validation-time", "2026-08-26T00:00:00Z",
+		"--",
+	}
+	return append(result, arguments...)
+}
+
 func writeFixture(t *testing.T, root, relative, body string) {
 	t.Helper()
 	path := filepath.Join(root, filepath.FromSlash(relative))
@@ -268,6 +432,14 @@ func writeFixture(t *testing.T, root, relative, body string) {
 	}
 	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		t.Fatalf("write %s: %v", relative, err)
+	}
+}
+
+func writeExecutableFixture(t *testing.T, root, relative, body string) {
+	t.Helper()
+	writeFixture(t, root, relative, body)
+	if err := os.Chmod(filepath.Join(root, filepath.FromSlash(relative)), 0o755); err != nil {
+		t.Fatalf("chmod %s: %v", relative, err)
 	}
 }
 

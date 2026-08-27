@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 const policyPath = "security/rust-scaffold-policy.json"
@@ -130,18 +131,42 @@ type crate struct {
 
 type verifier struct {
 	root     string
+	options  Options
 	findings []Finding
+}
+
+// Options are explicit runtime inputs that cannot be inferred from receipt
+// syntax alone.
+type Options struct {
+	// ValidationTime is the caller-provided UTC clock observation used for
+	// deterministic receipt-expiry validation.
+	ValidationTime time.Time
+	// ToolchainBinDir selects the installed rustc, rustdoc, and cargo binaries
+	// whose bytes must match the intake receipt.
+	ToolchainBinDir string
 }
 
 // Verify checks the Rust scaffold rooted at repositoryRoot. It performs only
 // deterministic local reads; it never invokes Cargo, Rust, the network, or a
 // sandbox.
-func Verify(repositoryRoot string) Report {
+func Verify(repositoryRoot string, options Options) Report {
 	absRoot, err := filepath.Abs(repositoryRoot)
 	if err != nil {
 		return Report{Findings: []Finding{{Code: "ROOT_INVALID", Path: ".", Detail: err.Error()}}}
 	}
-	v := &verifier{root: filepath.Clean(absRoot)}
+	canonicalRoot, err := filepath.EvalSymlinks(filepath.Clean(absRoot))
+	if err != nil {
+		return Report{Findings: []Finding{{Code: "ROOT_INVALID", Path: ".", Detail: err.Error()}}}
+	}
+	info, err := os.Stat(canonicalRoot)
+	if err != nil || !info.IsDir() {
+		detail := "repository root must be a readable directory"
+		if err != nil {
+			detail = err.Error()
+		}
+		return Report{Findings: []Finding{{Code: "ROOT_INVALID", Path: ".", Detail: detail}}}
+	}
+	v := &verifier{root: filepath.Clean(canonicalRoot), options: options}
 	v.verify()
 	sort.Slice(v.findings, func(i, j int) bool {
 		left, right := v.findings[i], v.findings[j]
@@ -162,6 +187,7 @@ func (v *verifier) verify() {
 		return
 	}
 	v.verifyPolicy(policy)
+	v.verifyExecutionSurfaces()
 
 	workspaceManifestPath := filepath.ToSlash(filepath.Join(policy.WorkspaceRoot, "Cargo.toml"))
 	workspaceManifest, ok := v.readTOML(workspaceManifestPath)
@@ -233,6 +259,7 @@ func (v *verifier) verifyWorkspaceMembers(workspaceRoot string, members []string
 		if !ok {
 			continue
 		}
+		v.verifyNoCustomBuild(manifestPath, manifest)
 		name, nameOK := manifest.stringValue("package", "name")
 		version, versionOK := inheritedString(manifest, "package", "version", workspaceVersion)
 		rustVersion, rustOK := inheritedString(manifest, "package", "rust-version", workspaceRustVersion)
@@ -252,6 +279,54 @@ func (v *verifier) verifyWorkspaceMembers(workspaceRoot string, members []string
 		crates = append(crates, crate{Member: member, Name: name, Version: version, Manifest: manifest})
 	}
 	return crates
+}
+
+func (v *verifier) verifyNoCustomBuild(path string, document tomlDocument) {
+	if _, exists := document.rawValueAt("package", 0, "build"); exists {
+		v.add("BUILD_SCRIPT_NOT_ALLOWED", path, "[package] build is forbidden; build scripts are not part of the dependency-free host path")
+	}
+}
+
+func (v *verifier) verifyExecutionSurfaces() {
+	err := filepath.WalkDir(v.root, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if path == v.root {
+			return nil
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			if entry.Name() == "build.rs" || entry.Name() == ".cargo" {
+				relative, _ := filepath.Rel(v.root, path)
+				v.add("UNSAFE_PATH", filepath.ToSlash(relative), "Cargo execution inputs may not contain symlink components")
+			}
+			if entry.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if entry.IsDir() && (entry.Name() == ".git" || entry.Name() == "target") {
+			return filepath.SkipDir
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		relative, err := filepath.Rel(v.root, path)
+		if err != nil {
+			return err
+		}
+		relative = filepath.ToSlash(relative)
+		if entry.Name() == "build.rs" {
+			v.add("BUILD_SCRIPT_NOT_ALLOWED", relative, "build.rs is forbidden anywhere in the repository")
+		}
+		if (entry.Name() == "config" || entry.Name() == "config.toml") && filepath.Base(filepath.Dir(path)) == ".cargo" {
+			v.add("CARGO_CONFIG_NOT_ALLOWED", relative, "repository Cargo configuration and executable hooks are forbidden")
+		}
+		return nil
+	})
+	if err != nil {
+		v.add("WORKSPACE_UNREADABLE", ".", err.Error())
+	}
 }
 
 func (v *verifier) verifyWorkspaceManifestClosure(workspaceRoot string, members []string) {
@@ -331,9 +406,11 @@ func (v *verifier) verifyToolchain(policy scaffoldPolicy, workspaceRustVersion s
 		v.add("TOOLCHAIN_PIN_INVALID", policy.ToolchainPinPath, "canonical toolchain pin schema_version must equal 1.0.0")
 	}
 	matched := 0
+	var selected qualifiedExecutable
 	for _, executable := range pins.Executables {
 		if executable.ArtifactID == policy.ToolchainArtifactID && executable.Version == policy.ToolchainVersion {
 			matched++
+			selected = executable
 			if !qualifiedRustExecutable(executable) {
 				v.add("TOOLCHAIN_PIN_MISMATCH", policy.ToolchainPinPath, "qualified Rust executable record is incomplete, revoked, or has malformed binary digests")
 			}
@@ -341,7 +418,83 @@ func (v *verifier) verifyToolchain(policy scaffoldPolicy, workspaceRustVersion s
 	}
 	if matched != 1 {
 		v.add("TOOLCHAIN_PIN_MISMATCH", policy.ToolchainPinPath, "exactly one qualified executable must match the policy artifact id/version")
+		return
 	}
+	v.verifyToolchainRuntime(policy.ToolchainPinPath, pins.GeneratedAt, selected)
+}
+
+func (v *verifier) verifyToolchainRuntime(receiptPath, generatedAt string, executable qualifiedExecutable) {
+	if v.options.ValidationTime.IsZero() {
+		v.add("VALIDATION_TIME_INVALID", receiptPath, "an explicit nonzero validation timestamp is required")
+		return
+	}
+	generated, err := time.Parse(time.RFC3339, generatedAt)
+	if err != nil {
+		v.add("TOOLCHAIN_PIN_INVALID", receiptPath, "generated_at must be an RFC3339 timestamp")
+		return
+	}
+	expires, err := time.Parse(time.RFC3339, executable.ExpiresAt)
+	if err != nil {
+		v.add("TOOLCHAIN_PIN_INVALID", receiptPath, "expires_at must be an RFC3339 timestamp")
+		return
+	}
+	validationTime := v.options.ValidationTime.UTC()
+	if validationTime.Before(generated) {
+		v.add("VALIDATION_TIME_INVALID", receiptPath, "validation timestamp predates receipt generation")
+	}
+	if !validationTime.Before(expires) {
+		v.add("TOOLCHAIN_PIN_EXPIRED", receiptPath, "selected Rust toolchain receipt is expired at the validation timestamp")
+	}
+
+	if strings.TrimSpace(v.options.ToolchainBinDir) == "" {
+		v.add("TOOLCHAIN_BINARY_MISMATCH", receiptPath, "an installed toolchain bin directory is required")
+		return
+	}
+	for _, binary := range []struct {
+		name       string
+		receiptKey string
+	}{
+		{name: "rustc", receiptKey: "rustc/bin/rustc"},
+		{name: "rustdoc", receiptKey: "rustc/bin/rustdoc"},
+		{name: "cargo", receiptKey: "cargo/bin/cargo"},
+	} {
+		path := filepath.Join(v.options.ToolchainBinDir, binary.name)
+		body, ok := v.readInstalledExecutable(path, receiptPath)
+		if !ok {
+			continue
+		}
+		if digest(body) != executable.BinaryDigests[binary.receiptKey] {
+			v.add("TOOLCHAIN_BINARY_MISMATCH", receiptPath, binary.name+" bytes do not match the canonical intake receipt")
+		}
+	}
+}
+
+func (v *verifier) readInstalledExecutable(path, receiptPath string) ([]byte, bool) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		v.add("TOOLCHAIN_BINARY_MISMATCH", receiptPath, err.Error())
+		return nil, false
+	}
+	canonicalPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		v.add("TOOLCHAIN_BINARY_MISMATCH", receiptPath, err.Error())
+		return nil, false
+	}
+	if filepath.Clean(absPath) != filepath.Clean(canonicalPath) {
+		v.add("UNSAFE_PATH", receiptPath, "installed toolchain path contains a symlink component: "+path)
+		return nil, false
+	}
+	info, err := os.Lstat(canonicalPath)
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
+		v.add("TOOLCHAIN_BINARY_MISMATCH", receiptPath, "installed toolchain binary must be a regular executable: "+path)
+		return nil, false
+	}
+	body, err := os.ReadFile(canonicalPath)
+	if err != nil {
+		v.add("TOOLCHAIN_BINARY_MISMATCH", receiptPath, err.Error())
+		return nil, false
+	}
+	return body, true
 }
 
 func qualifiedRustExecutable(executable qualifiedExecutable) bool {
@@ -503,29 +656,26 @@ func (v *verifier) scanProductionSource(path string, body []byte) {
 		if token == "Fn" || token == "FnMut" || token == "FnOnce" || (token == "fn" && tokenAt(tokens, index+1) == "(") {
 			v.add("CALLBACK_SURFACE", path, "callback surface "+token+" is forbidden in the Sans-I/O core")
 		}
-		if token != "std" || tokenAt(tokens, index+1) != "::" {
+		if token != "std" {
 			continue
 		}
-		next := tokenAt(tokens, index+2)
-		if forbiddenStdModule(next) {
-			v.add("FORBIDDEN_CORE_SURFACE", path, "std::"+next+" is forbidden in the Sans-I/O core")
-		} else if next == "{" {
-			for cursor := index + 3; cursor < len(tokens) && tokens[cursor] != "}" && tokens[cursor] != ";"; cursor++ {
-				if forbiddenStdModule(tokens[cursor]) {
-					v.add("FORBIDDEN_CORE_SURFACE", path, "std::{"+tokens[cursor]+"} is forbidden in the Sans-I/O core")
-				}
-			}
+		if allowedMPSCImport(path, tokens, index) {
+			continue
 		}
+		v.add("FORBIDDEN_CORE_SURFACE", path, "explicit std access is forbidden except the exact use std::sync::mpsc; import in connection-core/src/channel.rs")
 	}
 }
 
-func forbiddenStdModule(token string) bool {
-	switch token {
-	case "fs", "io", "net", "process", "thread", "time":
-		return true
-	default:
+func allowedMPSCImport(path string, tokens []string, index int) bool {
+	if !strings.HasSuffix(filepath.ToSlash(path), "/connection-core/src/channel.rs") {
 		return false
 	}
+	return tokenAt(tokens, index-1) == "use" &&
+		tokenAt(tokens, index+1) == "::" &&
+		tokenAt(tokens, index+2) == "sync" &&
+		tokenAt(tokens, index+3) == "::" &&
+		tokenAt(tokens, index+4) == "mpsc" &&
+		tokenAt(tokens, index+5) == ";"
 }
 
 func sourceRoots(manifest tomlDocument) []string {
@@ -640,7 +790,32 @@ func (v *verifier) safePath(relative string) (string, bool) {
 		v.add("UNSAFE_PATH", filepath.ToSlash(relative), "path escapes repository root")
 		return "", false
 	}
-	return filepath.Join(v.root, clean), true
+	path := filepath.Join(v.root, clean)
+	contained, err := filepath.Rel(v.root, path)
+	if err != nil || contained == ".." || strings.HasPrefix(contained, ".."+string(filepath.Separator)) {
+		v.add("UNSAFE_PATH", filepath.ToSlash(relative), "path escapes canonical repository root")
+		return "", false
+	}
+	current := v.root
+	for _, component := range strings.Split(clean, string(filepath.Separator)) {
+		if component == "" || component == "." {
+			continue
+		}
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		if err != nil {
+			if os.IsNotExist(err) {
+				break
+			}
+			v.add("UNSAFE_PATH", filepath.ToSlash(relative), err.Error())
+			return "", false
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			v.add("UNSAFE_PATH", filepath.ToSlash(relative), "path contains symlink component "+component)
+			return "", false
+		}
+	}
+	return path, true
 }
 
 func (v *verifier) add(code, path, detail string) {
