@@ -14,7 +14,7 @@
     "bindings": [
       {"path":"cmd/rustgate/main_test.go","sha256":"sha256:03e1789da6522230d25b4cfcd1097fa3f55ee9c4a6a70939c0faee0318f16128","git_blob":"cf9d33c3bed3b337e95e5cf2863e43d5752baf83"},
       {"path":"docs/us018-blocking-adapter-contract.md","sha256":"sha256:f4330469d727611d1ca471a81eca59b3eb9a3560b87eb0b9bdca8626f642640c","git_blob":"ddc1e7ed27c5b1973994185771e69847a9eb12a7"},
-      {"path":"internal/rustgate/verify.go","sha256":"sha256:d347600fea4ba2c9f285735aa5801ab005d2d5c7e6ff4d8bde31db9c7fddad86","git_blob":"d85d791192f60da272ca633eb68933f5d32c0876"},
+      {"path":"internal/rustgate/verify.go","sha256":"sha256:8b2f85839349e4da83bc950d73c0f96e568ea71c89aa3492a322a3e46d3e4163","git_blob":"73f9d6ecbafe84a147c231b36995196e1f607bb7"},
       {"path":"rust/Cargo.lock","sha256":"sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb","git_blob":"beb9c9fe6075149151935cb48c1b147c330d3943"},
       {"path":"rust/Cargo.toml","sha256":"sha256:316f90d18e749341ac236aa50695b70e87e25e0a8a0e18ad942a479e87c99615","git_blob":"6e4371d41cf7f3c180081ac6606c5a0106c9071d"},
       {"path":"rust/connection-core/tests/scaffold_smoke.rs","sha256":"sha256:6c53024af4b097b97172c20cb9677d3e59d67468073a02c5ab360f3a4fc9e9e7","git_blob":"156a3714e508db424cd7af0cce0c220ded3207e2"},

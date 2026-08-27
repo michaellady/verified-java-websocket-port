@@ -153,9 +153,9 @@
         "sha256": "sha256:342371aca950188c8393192834217187fe5883c1f7ceba27c5e86c2b713c865d"
       },
       {
-        "git_blob": "f9c332868e0ad0a8b85a0592dc0cf83713850157",
+        "git_blob": "2f6ed85bc50a6cc4723b4dc50f52695675ba3e44",
         "path": "docs/rust-workspace.md",
-        "sha256": "sha256:98645c6e4795ee66a6187cf1bccab1e644c6ab643afe457e627201571af90707"
+        "sha256": "sha256:2bde4ba2eb7e974e3e02b9cbbc4f12ecb06fb794bd784cf1896782ac18524ce7"
       },
       {
         "git_blob": "de3c60e63c340deb7eb0852f444c4e079a0a0d25",

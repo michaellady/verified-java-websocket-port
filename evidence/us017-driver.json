@@ -18,10 +18,10 @@
       {"path":"rust/websocket-driver/tests/driver_contract.rs","sha256":"sha256:70b85ac07e190c6f623b9fec6094ef3b31c3659e203d7bf6502169ee5f382928","git_blob":"576277c9fc696aec36517d6d12b1a2d77ddcd22b"},
       {"path":"rust/websocket-driver/tests/concurrency.rs","sha256":"sha256:bdb6581667fec36b0c9c4c72e7ea02674d8456df2a308e93c2fe1db7641854a8","git_blob":"fec85e3c5a1230800ba7b6a455ee563733a19f5b"},
       {"path":"assurance/concurrency/plan.json","sha256":"sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d","git_blob":"36dd5fd450f295bf60ec9082c1745cdbd85faf3f"},
-      {"path":"rust/Cargo.lock","sha256":"sha256:b138978c2eca55cde701c3e9171ad69786779e83d6035fdd0a54917973209c83","git_blob":"92b4f300f93afffc88c3e8828c1b8649cedda374"},
-      {"path":"rust/dependency-policy.toml","sha256":"sha256:ba5000a52dcb4397af9de87e913436732ef8cdc4c67e995eada0a63ae7bd0719","git_blob":"3f50d877da0b2c1e7cfe28d562697b71039bd751"},
-      {"path":"rust/dependency-inventory.toml","sha256":"sha256:12b771650673d8d0c0f01d013264a9b4061194000571232534dd2f81ea012c65","git_blob":"f4437c024ebcc9e43fad24f805ff451e46c480dd"},
-      {"path":"internal/rustgate/verify.go","sha256":"sha256:8a5a93539d4216b2e3a417526dcf965b03681ca08670d2ce838c97da56802d44","git_blob":"8d5feb2936595926c495ecd647cccc36fe8eda38"},
+      {"path":"rust/Cargo.lock","sha256":"sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb","git_blob":"beb9c9fe6075149151935cb48c1b147c330d3943"},
+      {"path":"rust/dependency-policy.toml","sha256":"sha256:f8112034226def374b1b58f20fb508c7cadc92f2ae6a3ac11cd1137cb845da86","git_blob":"9e46a71ad87541213b8fd304a6f36f0574c0e7df"},
+      {"path":"rust/dependency-inventory.toml","sha256":"sha256:6ece886fb71b82e559c00e922ecfb6d272c0c6861b51d82cebc8a6a8827fbe1b","git_blob":"65989338fd067591621d032a16dee1e85201d488"},
+      {"path":"internal/rustgate/verify.go","sha256":"sha256:8b2f85839349e4da83bc950d73c0f96e568ea71c89aa3492a322a3e46d3e4163","git_blob":"73f9d6ecbafe84a147c231b36995196e1f607bb7"},
       {"path":"cmd/rustgate/main_test.go","sha256":"sha256:03e1789da6522230d25b4cfcd1097fa3f55ee9c4a6a70939c0faee0318f16128","git_blob":"cf9d33c3bed3b337e95e5cf2863e43d5752baf83"}
     ]
   },

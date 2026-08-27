@@ -47,7 +47,7 @@
   },
   "us018": {
     "path": "evidence/us018-blocking-adapters.json",
-    "digest": "sha256:3265fbcba46b6b7d65d69ae8bb381df24bce1ddb091098682b241838e1a3ead6",
+    "digest": "sha256:3fbbc572c11603d201a415ed844eda7489b2841d4c7185c076f32337551f12d8",
     "status": "PASS_OWNER_RELAXED_CURRENT_HOST",
     "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
     "application_echo": false,
