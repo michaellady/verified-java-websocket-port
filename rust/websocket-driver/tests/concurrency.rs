@@ -79,6 +79,7 @@ struct Trace {
     post_terminal: usize,
     write_bypass: usize,
     external_protocol_mutations: usize,
+    fault_injections: usize,
     executed_actions: usize,
 }
 
@@ -477,81 +478,211 @@ fn parse_seed(body: &str) -> Seed {
     }
 }
 
-fn execute_seed(seed: &Seed) -> Trace {
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SeedFault {
+    None,
+    ProducerProtocolMutation,
+    DropFirstDisposition,
+    PrematureWriteProgress,
+    SwapCommittedWrites,
+    DropTerminal,
+    RepeatTerminal,
+}
+
+impl SeedFault {
+    fn parse(name: &str) -> Self {
+        match name {
+            "mutate-protocol-through-producer" => Self::ProducerProtocolMutation,
+            "drop-first-accepted-command" => Self::DropFirstDisposition,
+            "apply-second-command-before-front-write-drains" => Self::PrematureWriteProgress,
+            "swap-committed-writes" => Self::SwapCommittedWrites,
+            "drop-terminal-after-shutdown" => Self::DropTerminal,
+            "repeat-terminal-on-wake" => Self::RepeatTerminal,
+            unknown => panic!("unknown seed mutation {unknown}"),
+        }
+    }
+}
+
+#[derive(Debug)]
+struct OfferedSeedWrite {
+    wire: Vec<u8>,
+    driver_remaining: usize,
+}
+
+#[derive(Debug)]
+struct FaultyBoundary {
+    fault: SeedFault,
+    fault_used: bool,
+    trace: Trace,
+    offered: Option<OfferedSeedWrite>,
+    actual_undrained: usize,
+    delayed_wire: Option<Vec<u8>>,
+}
+
+impl FaultyBoundary {
+    fn new(fault: SeedFault) -> Self {
+        Self {
+            fault,
+            fault_used: false,
+            trace: Trace::default(),
+            offered: None,
+            actual_undrained: 0,
+            delayed_wire: None,
+        }
+    }
+
+    fn activate(&mut self, fault: SeedFault) -> bool {
+        if self.fault == fault && !self.fault_used {
+            self.fault_used = true;
+            self.trace.fault_injections += 1;
+            true
+        } else {
+            false
+        }
+    }
+
+    fn poll(&mut self, owner: &mut ConnectionOwner, input: DriverInput<'_>) -> InputDisposition {
+        let result = owner.poll(input);
+        match result.command {
+            Some(CommandDisposition::Applied(_)) => {
+                if !self.activate(SeedFault::DropFirstDisposition) {
+                    self.trace.applied += 1;
+                }
+                if self.fault == SeedFault::PrematureWriteProgress
+                    && self.fault_used
+                    && self.actual_undrained > 0
+                {
+                    self.trace.write_bypass += 1;
+                }
+            }
+            Some(CommandDisposition::Rejected { .. } | CommandDisposition::TerminalRejected(_)) => {
+                if !self.activate(SeedFault::DropFirstDisposition) {
+                    self.trace.rejected += 1;
+                }
+            }
+            Some(CommandDisposition::ProducersDropped) | None => {}
+        }
+        match result.output {
+            DriverOutput::Write(bytes) => {
+                if let Some(offered) = &mut self.offered {
+                    offered.driver_remaining = bytes.len();
+                } else {
+                    self.offered = Some(OfferedSeedWrite {
+                        wire: bytes.to_vec(),
+                        driver_remaining: bytes.len(),
+                    });
+                }
+            }
+            DriverOutput::Event(_) => self.trace.events += 1,
+            DriverOutput::Terminal(_) if self.activate(SeedFault::DropTerminal) => {}
+            DriverOutput::Terminal(_) if self.activate(SeedFault::RepeatTerminal) => {
+                self.trace.terminal += 2;
+            }
+            DriverOutput::Terminal(_) => self.trace.terminal += 1,
+            DriverOutput::Idle | DriverOutput::StateChanged(_) | DriverOutput::Failure(_) => {}
+        }
+        result.input
+    }
+
+    fn enqueue(&mut self, handle: &CommandHandle, command: LocalCommand) {
+        enqueue(handle, command, &mut self.trace);
+    }
+
+    fn producer_protocol_mutation(&mut self, owner: &mut ConnectionOwner) {
+        if self.activate(SeedFault::ProducerProtocolMutation) {
+            self.trace.external_protocol_mutations += 1;
+            self.poll(
+                owner,
+                DriverInput::Inbound(TransportBytes::new(MASKED_EMPTY_PING)),
+            );
+        }
+    }
+
+    fn write_partial(&mut self, owner: &mut ConnectionOwner) {
+        let remaining = self
+            .offered
+            .as_ref()
+            .map_or(1, |offered| offered.driver_remaining);
+        let actual = remaining.saturating_sub(1).max(1).min(remaining);
+        if self.activate(SeedFault::PrematureWriteProgress) {
+            self.actual_undrained += remaining.saturating_sub(actual);
+            self.offered = None;
+            self.poll(owner, DriverInput::WriteProgress { bytes: remaining });
+            self.poll(owner, DriverInput::Wake);
+            self.poll(owner, DriverInput::Wake);
+        } else {
+            self.poll(owner, DriverInput::WriteProgress { bytes: actual });
+        }
+    }
+
+    fn write_all(&mut self, owner: &mut ConnectionOwner) {
+        let Some(offered) = self.offered.take() else {
+            self.poll(owner, DriverInput::WriteProgress { bytes: 1 });
+            return;
+        };
+        if self.fault == SeedFault::SwapCommittedWrites {
+            if let Some(first) = self.delayed_wire.take() {
+                self.trace.writes.push(offered.wire.clone());
+                self.trace.writes.push(first);
+            } else {
+                self.activate(SeedFault::SwapCommittedWrites);
+                self.delayed_wire = Some(offered.wire.clone());
+            }
+        } else {
+            self.trace.writes.push(offered.wire);
+        }
+        self.poll(
+            owner,
+            DriverInput::WriteProgress {
+                bytes: offered.driver_remaining,
+            },
+        );
+    }
+}
+
+fn execute_seed_with_fault(seed: &Seed, fault: SeedFault) -> Trace {
     let (handle, mut owner) = connection_driver(config(2), Role::Server);
-    let mut trace = Trace::default();
-    let mut offered = None;
+    let mut boundary = FaultyBoundary::new(fault);
     for action in &seed.schedule {
-        trace.executed_actions += 1;
+        boundary.trace.executed_actions += 1;
         match action {
             SeedAction::Open => open_server(&mut owner),
-            SeedAction::EnqueueA => enqueue(&handle, text("a"), &mut trace),
-            SeedAction::EnqueueB => enqueue(&handle, text("b"), &mut trace),
+            SeedAction::EnqueueA => {
+                boundary.producer_protocol_mutation(&mut owner);
+                boundary.enqueue(&handle, text("a"));
+            }
+            SeedAction::EnqueueB => boundary.enqueue(&handle, text("b")),
             SeedAction::Wake | SeedAction::Drain => {
-                observe_poll(&mut owner, DriverInput::Wake, &mut trace, &mut offered);
+                boundary.poll(&mut owner, DriverInput::Wake);
             }
-            SeedAction::WriteAll => {
-                let bytes = offered.take().unwrap_or(1);
-                observe_poll(
-                    &mut owner,
-                    DriverInput::WriteProgress { bytes },
-                    &mut trace,
-                    &mut offered,
-                );
-            }
-            SeedAction::WritePartial => {
-                let bytes = offered.map_or(1, |remaining| remaining.saturating_sub(1).max(1));
-                observe_poll(
-                    &mut owner,
-                    DriverInput::WriteProgress { bytes },
-                    &mut trace,
-                    &mut offered,
-                );
-            }
+            SeedAction::WriteAll => boundary.write_all(&mut owner),
+            SeedAction::WritePartial => boundary.write_partial(&mut owner),
             SeedAction::Shutdown => {
-                offered = None;
-                observe_poll(&mut owner, DriverInput::Shutdown, &mut trace, &mut offered);
+                boundary.offered = None;
+                boundary.actual_undrained = 0;
+                boundary.poll(&mut owner, DriverInput::Shutdown);
             }
         }
     }
     for _ in 0..32 {
-        if trace.terminal == 1 && trace.reconciled() {
+        if boundary.trace.terminal == 1 && boundary.trace.reconciled() {
             break;
         }
-        if let Some(bytes) = offered.take() {
-            observe_poll(
-                &mut owner,
-                DriverInput::WriteProgress { bytes },
-                &mut trace,
-                &mut offered,
-            );
+        if boundary.offered.is_some() {
+            boundary.write_all(&mut owner);
         } else {
-            observe_poll(&mut owner, DriverInput::Wake, &mut trace, &mut offered);
+            boundary.poll(&mut owner, DriverInput::Wake);
         }
     }
-    trace
+    boundary.trace
 }
 
-fn apply_named_mutation(seed: &Seed, trace: &mut Trace) {
-    match seed.mutation.as_str() {
-        "mutate-protocol-through-producer" => trace.external_protocol_mutations += 1,
-        "drop-first-accepted-command" => {
-            if trace.applied > 0 {
-                trace.applied -= 1;
-            } else if trace.rejected > 0 {
-                trace.rejected -= 1;
-            }
-        }
-        "apply-second-command-before-front-write-drains" => trace.write_bypass += 1,
-        "swap-committed-writes" => {
-            if trace.writes.len() >= 2 {
-                trace.writes.swap(0, 1);
-            }
-        }
-        "drop-terminal-after-shutdown" => trace.terminal = 0,
-        "repeat-terminal-on-wake" => trace.terminal += 1,
-        unknown => panic!("unknown seed mutation {unknown}"),
-    }
+fn execute_seed(seed: &Seed) -> Trace {
+    execute_seed_with_fault(seed, SeedFault::None)
+}
+
+fn execute_faulty_seed(seed: &Seed) -> Trace {
+    execute_seed_with_fault(seed, SeedFault::parse(&seed.mutation))
 }
 
 fn seed_property_holds(seed: &Seed, trace: &Trace) -> bool {
@@ -565,15 +696,23 @@ fn seed_property_holds(seed: &Seed, trace: &Trace) -> bool {
     }
 }
 
-fn expected_counterexample(seed: &Seed) -> &'static str {
-    match seed.id.as_str() {
-        "lock-sharing" => "producer-protocol-mutation-visible",
-        "lost-command" => "accepted-not-equal-disposed",
-        "queue-bypass" => "second-wire-observed-before-first-completes",
-        "write-reorder" => "wire-order-b-a",
-        "close-race" => "no-terminal-after-fair-drain",
-        "duplicate-delivery" => "terminal-count-two",
-        unknown => panic!("unknown seed {unknown}"),
+fn derive_counterexample(property: &str, trace: &Trace) -> Option<&'static str> {
+    match property {
+        "single-owner" if trace.external_protocol_mutations > 0 => {
+            Some("producer-protocol-mutation-visible")
+        }
+        "accepted-eventual-exactly-once" if !trace.reconciled() => {
+            Some("accepted-not-equal-disposed")
+        }
+        "no-write-bypass" if trace.write_bypass > 0 => {
+            Some("second-wire-observed-before-first-completes")
+        }
+        "fifo-owner-order" if trace.writes == [b"\x81\x01b".to_vec(), b"\x81\x01a".to_vec()] => {
+            Some("wire-order-b-a")
+        }
+        "close-convergence" if trace.terminal == 0 => Some("no-terminal-after-fair-drain"),
+        "terminal-exactly-once" if trace.terminal == 2 => Some("terminal-count-two"),
+        _ => None,
     }
 }
 
@@ -598,7 +737,6 @@ fn all_six_seed_schedules_execute_named_mutants_and_counterexamples_twice() {
     for file in expected {
         let seed = parse_seed(&fs::read_to_string(root.join(file)).unwrap());
         assert!(seen.insert(seed.id.clone()), "duplicate seed {}", seed.id);
-        assert_eq!(seed.counterexample, expected_counterexample(&seed));
         let first_good = execute_seed(&seed);
         let second_good = execute_seed(&seed);
         assert_eq!(first_good, second_good, "good replay drift for {}", seed.id);
@@ -609,20 +747,21 @@ fn all_six_seed_schedules_execute_named_mutants_and_counterexamples_twice() {
             seed.id
         );
 
-        let mut first_mutant = execute_seed(&seed);
-        apply_named_mutation(&seed, &mut first_mutant);
-        let mut second_mutant = execute_seed(&seed);
-        apply_named_mutation(&seed, &mut second_mutant);
+        let first_mutant = execute_faulty_seed(&seed);
+        let second_mutant = execute_faulty_seed(&seed);
         assert_eq!(
             first_mutant, second_mutant,
             "mutant replay drift for {}",
             seed.id
         );
+        assert_eq!(first_mutant.executed_actions, seed.schedule.len());
         assert_ne!(digest(&first_good), digest(&first_mutant));
-        assert!(
-            !seed_property_holds(&seed, &first_mutant),
-            "named mutant survived for {}",
-            seed.id
+        assert_eq!(first_mutant.fault_injections, 1);
+        assert_eq!(
+            derive_counterexample(&seed.property, &first_mutant),
+            Some(seed.counterexample.as_str()),
+            "faulty public-boundary run did not reproduce {}",
+            seed.id,
         );
     }
     assert_eq!(seen.len(), 6);

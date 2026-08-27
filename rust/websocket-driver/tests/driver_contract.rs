@@ -1,7 +1,8 @@
 #![forbid(unsafe_code)]
 
 use websocket_core::{
-    ConnectionConfig, ConnectionLimits, ConnectionState, LocalCommand, Role, TransportBytes,
+    CloseInitiator, ConnectionConfig, ConnectionLimits, ConnectionState, LocalCommand, Role,
+    SemanticEvent, TransportBytes,
 };
 use websocket_driver::{
     CommandDisposition, DeferredReason, DriverInput, DriverInputError, DriverOutput, EnqueueError,
@@ -23,6 +24,28 @@ fn text(payload: &str) -> LocalCommand {
         payload: payload.into(),
         mask_key: None,
     }
+}
+
+fn open_server(owner: &mut websocket_driver::ConnectionOwner) {
+    let opening = owner.poll(DriverInput::Inbound(TransportBytes::new(RFC_REQUEST)));
+    let opening_len = match opening.output {
+        DriverOutput::Write(bytes) => bytes.len(),
+        other => panic!("expected opening write, got {other:?}"),
+    };
+    assert!(matches!(
+        owner
+            .poll(DriverInput::WriteProgress { bytes: opening_len })
+            .output,
+        DriverOutput::StateChanged(ConnectionState::Open)
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Event(SemanticEvent::ServerHandshakeOpened { .. })
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Idle
+    ));
 }
 
 #[test]
@@ -194,4 +217,170 @@ fn queued_command_envelopes_share_the_total_buffer_budget() {
             maximum: 8,
         })
     );
+}
+
+#[test]
+fn public_driver_applies_binary_and_producer_ping_with_canonical_writes() {
+    let (handle, mut owner) = connection_driver(config(2), Role::Server);
+    open_server(&mut owner);
+
+    let binary = LocalCommand::SendBinary {
+        payload: vec![0, 255].into_boxed_slice(),
+        mask_key: None,
+    };
+    handle.try_enqueue(binary.clone()).unwrap();
+    let applied = owner.poll(DriverInput::Wake);
+    assert_eq!(applied.command, Some(CommandDisposition::Applied(binary)));
+    assert!(matches!(applied.output, DriverOutput::Write(bytes) if bytes == [0x82, 2, 0, 255]));
+    assert!(matches!(
+        owner.poll(DriverInput::WriteProgress { bytes: 4 }).output,
+        DriverOutput::Idle
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Idle
+    ));
+
+    let ping = LocalCommand::SendPing {
+        payload: Box::new([b'p']),
+        mask_key: None,
+    };
+    handle.try_enqueue(ping.clone()).unwrap();
+    let applied = owner.poll(DriverInput::Wake);
+    assert_eq!(applied.command, Some(CommandDisposition::Applied(ping)));
+    assert!(matches!(applied.output, DriverOutput::Write(bytes) if bytes == [0x89, 1, b'p']));
+}
+
+#[test]
+fn public_driver_orders_local_and_simultaneous_peer_close_before_one_terminal() {
+    const MASKED_EMPTY_CLOSE: &[u8] = b"\x88\x80\x01\x02\x03\x04";
+    let (handle, mut owner) = connection_driver(config(2), Role::Server);
+    open_server(&mut owner);
+    let close = LocalCommand::Close {
+        code: None,
+        reason: "".into(),
+        mask_key: None,
+    };
+    handle.try_enqueue(close.clone()).unwrap();
+    let local = owner.poll(DriverInput::Wake);
+    assert_eq!(local.command, Some(CommandDisposition::Applied(close)));
+    assert_eq!(local.state, ConnectionState::Closing);
+    assert!(matches!(local.output, DriverOutput::Write(bytes) if bytes == [0x88, 0]));
+
+    let deferred = owner.poll(DriverInput::Inbound(TransportBytes::new(
+        MASKED_EMPTY_CLOSE,
+    )));
+    assert_eq!(
+        deferred.input,
+        InputDisposition::Deferred(DeferredReason::OutputPending)
+    );
+    assert!(matches!(deferred.output, DriverOutput::Write(_)));
+    assert!(matches!(
+        owner.poll(DriverInput::WriteProgress { bytes: 2 }).output,
+        DriverOutput::StateChanged(ConnectionState::Closing)
+    ));
+    assert_eq!(
+        owner
+            .poll(DriverInput::Inbound(TransportBytes::new(
+                MASKED_EMPTY_CLOSE
+            )))
+            .input,
+        InputDisposition::Deferred(DeferredReason::FlushPending)
+    );
+    let peer = owner.poll(DriverInput::Inbound(TransportBytes::new(
+        MASKED_EMPTY_CLOSE,
+    )));
+    assert_eq!(
+        peer.input,
+        InputDisposition::Consumed {
+            bytes: MASKED_EMPTY_CLOSE.len()
+        }
+    );
+    assert!(matches!(
+        peer.output,
+        DriverOutput::Event(SemanticEvent::FrameReceived { .. })
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Event(SemanticEvent::CloseReceived {
+            initiator: CloseInitiator::Local,
+            ..
+        })
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Terminal(_)
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Idle
+    ));
+}
+
+#[test]
+fn public_driver_echoes_peer_close_then_flushes_to_terminal() {
+    const MASKED_EMPTY_CLOSE: &[u8] = b"\x88\x80\x01\x02\x03\x04";
+    let (_handle, mut owner) = connection_driver(config(2), Role::Server);
+    open_server(&mut owner);
+    assert!(matches!(
+        owner
+            .poll(DriverInput::Inbound(TransportBytes::new(
+                MASKED_EMPTY_CLOSE
+            )))
+            .output,
+        DriverOutput::Event(SemanticEvent::FrameReceived { .. })
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Event(SemanticEvent::CloseReceived {
+            initiator: CloseInitiator::Peer,
+            ..
+        })
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::StateChanged(ConnectionState::Closing)
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Write(bytes) if bytes == [0x88, 0]
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::WriteProgress { bytes: 2 }).output,
+        DriverOutput::Idle
+    ));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Terminal(_)
+    ));
+}
+
+#[test]
+fn public_driver_surfaces_transport_eof_and_both_drop_dispositions() {
+    let (_handle, mut owner) = connection_driver(config(2), Role::Server);
+    open_server(&mut owner);
+    let eof = owner.poll(DriverInput::TransportEof);
+    assert_eq!(eof.input, InputDisposition::Consumed { bytes: 0 });
+    assert_eq!(eof.state, ConnectionState::Closed);
+    assert!(matches!(eof.output, DriverOutput::Failure(_)));
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Terminal(_)
+    ));
+
+    let (receiver_probe, receiver) = connection_driver(config(1), Role::Server);
+    drop(receiver);
+    let command = text("receiver-dropped");
+    assert_eq!(
+        receiver_probe.try_enqueue(command.clone()),
+        Err(EnqueueError::ReceiverDropped(command))
+    );
+
+    let (producer, mut producer_probe) = connection_driver(config(1), Role::Server);
+    drop(producer);
+    assert_eq!(
+        producer_probe.poll(DriverInput::Wake).command,
+        Some(CommandDisposition::ProducersDropped)
+    );
+    assert_eq!(producer_probe.poll(DriverInput::Wake).command, None);
 }
