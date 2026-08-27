@@ -1,0 +1,142 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_kind": "US017_DRIVER_BOUNDED_SCHEDULE_AND_NATIVE_STRESS_RESULTS",
+  "story_id": "US-017",
+  "state": "PASS",
+  "claim_scope": "BOUNDED_SYSTEMATIC_AND_CURRENT_HOST_STRESS_TESTING",
+  "claim_scope_statement": "Bounded schedule exploration under the bounds below is systematic concurrency testing, never proof (assurance/concurrency/plan.json claim ceiling). Native-thread stress samples schedules without coverage accounting and cannot stand in for the systematic result, nor the systematic result for native-thread evidence.",
+  "recorded_at": "2026-08-27T21:42:46Z",
+  "recorded_at_provenance": "captured from `date -u` in the working session immediately after the passing exploration run whose printed counters this document transcribes",
+  "target": {
+    "symbol": "ws_driver::ConnectionDriver::poll",
+    "source": {
+      "path": "rust/ws-driver/src/lib.rs",
+      "git_blob": "c45ead6fdba007e0de70e704f1a33d92686028ab"
+    },
+    "harness": {
+      "path": "rust/ws-driver/tests/schedule_exploration.rs",
+      "git_blob": "e1c6de783fb03c096ef1588ca656551110eb33cf"
+    }
+  },
+  "preregistered_plan": {
+    "path": "assurance/concurrency/plan.json",
+    "sha256": "sha256:d73659b46492642e3eac9abdf046a91279a2c7d6433937e9c63f0b712409a02b",
+    "conformance": "the exploration stays inside the plan bounds: 2 producer tasks (<= producer_tasks_max 3), 1 owner, command/write/event queue capacities 2/2/8 (<= 8), 12 actions per schedule (<= max_actions_per_schedule 64), preemption budget 3 (= preemption_bound), 79920 schedules (<= schedule_count_max 100000), 315070 enumeration branches (<= branch_count_max 1000000); the PRODUCER_ADMISSION_FAIRNESS_ABSENT stance is honored (queue-full refusals are final for that producer step, no retry fairness assumed) and the three weak-fairness assumptions gate only the final drain"
+  },
+  "bounds": {
+    "actor_programs": 5,
+    "program_shape": "producer A [send_text, send_binary]; producer B [send_ping, send_close]; transport-read [inbound-ping, inbound-close, transport-eof]; transport-write [write-partial, write-all, write-all]; adapter-control [wake, shutdown]",
+    "actions_per_schedule": 12,
+    "context_switch_bound": 7,
+    "context_switch_bound_derivation": "(5 programs - 1) mandatory switches + preemption budget 3",
+    "preemption_budget": 3,
+    "command_queue_capacity": 2,
+    "write_queue_capacity": 2,
+    "event_queue_capacity": 8,
+    "schedule_count_max": 100000,
+    "branch_count_max": 1000000,
+    "drain_budget_polls": 256
+  },
+  "execution": {
+    "explored_schedules": 79920,
+    "exhaustive_within_bound": true,
+    "truncated": false,
+    "enumeration_branches": 315070,
+    "distinct_schedule_digests": 79920,
+    "executions": 159840,
+    "replay_determinism": "every schedule executed twice with full-trace equality asserted; enumeration itself re-run and compared",
+    "distinct_semantic_trace_digests": 14969,
+    "closed_terminal_runs": 79188,
+    "poisoned_fatal_runs": 732,
+    "terminal_deliveries": 79188,
+    "counters": {
+      "accepted_commands": 255624,
+      "queue_full_refusals": 64056,
+      "applied": 68144,
+      "typed_rejections": 34986,
+      "terminal_rejections": 152494,
+      "reconciliation": "accepted 255624 == applied 68144 + rejected 34986 + terminal_rejected 152494 in aggregate and per run",
+      "events_drained": 525041,
+      "surfaced_typed_failures": 40328,
+      "deferred_output_pending": 27708,
+      "deferred_command_turn": 33753,
+      "deferred_backpressure": 3550,
+      "typed_input_rejections": 58256,
+      "max_drain_polls_observed": 11
+    },
+    "weak_fairness": [
+      "WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING",
+      "WEAK_FLUSH_PROGRESS_WHEN_WRITABLE",
+      "WEAK_EVENT_DRAIN_WHEN_OUTPUT_PENDING"
+    ],
+    "producer_admission_fairness_claimed": false,
+    "outcome": "PASS - zero invariant violations across all 79920 schedules"
+  },
+  "invariants": [
+    {"property_id": "concurrency.single-owner", "outcome": "PASS"},
+    {"property_id": "concurrency.queue-bounds", "outcome": "PASS"},
+    {"property_id": "concurrency.accepted-eventual-exactly-once", "outcome": "PASS"},
+    {"property_id": "concurrency.fifo-owner-order", "outcome": "PASS"},
+    {"property_id": "concurrency.no-write-bypass", "outcome": "PASS"},
+    {"property_id": "concurrency.close-convergence", "outcome": "PASS"},
+    {"property_id": "concurrency.terminal-exactly-once", "outcome": "PASS"},
+    {"property_id": "concurrency.no-post-terminal", "outcome": "PASS"},
+    {"property_id": "concurrency.deterministic-replay", "outcome": "PASS"}
+  ],
+  "terminal_disposition_model": "every full schedule reaches exactly one typed terminal disposition: the absorbing Closed state with exactly one Terminal delivery (79188 runs), or the core's poisoned-fatal final state whose surfaced typed Failure output is the adapter-seam terminal per the oracle's partial-execution semantics (732 runs; ws-testee maps it to LoopOutcome::ProtocolFailure); both quiesce under the fair drain and both fully reconcile command dispositions",
+  "defects_found_and_fixed": [
+    {
+      "defect_id": "eof-backpressure-livelock",
+      "found_by": "this exploration, first execution against the batch-C driver",
+      "description": "ConnectionDriver::poll latched eof_applied=true even when the core refused the TransportEof with its NON-FATAL backpressure code (event queue congested), permanently losing the EOF: the connection stayed in Closing forever and no terminal was ever delivered",
+      "minimized_reproduction": {
+        "path": "rust/ws-driver/fuzz-seeds/us017/regressions/eof-backpressure-livelock.seed",
+        "sha256": "sha256:b8ea41e81753c9afd2b8054873bdbfa1925b7e87b1e295897706528c85041567",
+        "schedule": "enqueue-close-b,inbound-close,shutdown",
+        "shrink": "12 -> 3 actions by the deterministic 1-minimal shrinker",
+        "event_queue_capacity": 4
+      },
+      "fix": "the EOF now stays latched on a non-fatal refusal and is retried on the next quiescent turn after outputs drain; fatal refusals still surface as a Failure output and latch",
+      "regression_tests": [
+        "rust/ws-driver/tests/driver_contract.rs::eof_refused_by_event_backpressure_is_retried_until_the_core_accepts_it",
+        "rust/ws-driver/tests/schedule_exploration.rs::fixed_defect_regressions_replay_clean_on_the_shipped_driver"
+      ],
+      "red_evidence": "both regression tests were executed against the pre-fix driver (fix stashed) and their failures were read; both pass with the fix restored"
+    }
+  ],
+  "retention": {
+    "mechanism": "any failing schedule is shrunk by a deterministic greedy delta-debug loop to a 1-minimal failing schedule (every single-action removal verified non-failing) and persisted as a key=value seed artifact recording property, mutation, event-queue capacity, schedule, and counterexample",
+    "real_failure_path": "retain_and_fail writes fuzz-seeds/us017/minimized/retained-<property>.seed and fails the suite with the artifact path and minimized schedule",
+    "demonstration": "the six named boundary faults (mutation vocabulary adopted with attribution from codex-import 6a7606a fuzz-seeds/us017/*.seed) are each injected at the test-only public driver boundary; the exploration detects every one, the shrinker minimizes it, fault-localization is verified (minimized schedule passes clean, fails faulted), and the minimized artifact is pinned byte-for-byte",
+    "regeneration": "US017_RETAIN=1 is the sanctioned deliberate-refreeze path; the pinned replay otherwise compares committed bytes",
+    "minimized_artifacts": [
+      {"seed": "lock-sharing", "property": "single-owner", "found_index": 0, "shrink": "12 -> 1", "schedule": "enqueue-text-a", "sha256": "sha256:874b5d43cd66da2bba7f7a95dbfaf8f50e40817d1b2efc2d5ca9398c414a36da"},
+      {"seed": "lost-command", "property": "accepted-eventual-exactly-once", "found_index": 0, "shrink": "12 -> 2", "schedule": "enqueue-close-b,shutdown", "sha256": "sha256:6547aa07f7887125a53fc17b0e00cc51b42aa3cfd5e4d91851269f315c713adf"},
+      {"seed": "queue-bypass", "property": "no-write-bypass", "found_index": 0, "shrink": "12 -> 2", "schedule": "inbound-close,write-all", "sha256": "sha256:04ee18f67620295fb95c90826644cd6849a774bd77a9152b001b8d2a033eb38c"},
+      {"seed": "write-reorder", "property": "fifo-owner-order", "found_index": 17, "shrink": "12 -> 2", "schedule": "enqueue-ping-b,enqueue-close-b", "sha256": "sha256:2acd0d1284bbf9294ddb45fea4a3cabef14465ae59b19537713b64ed9a2179f0"},
+      {"seed": "close-race", "property": "close-convergence", "found_index": 0, "shrink": "12 -> 1", "schedule": "shutdown", "sha256": "sha256:594d4f2d3ab8b3c4601575c427b34b920af16ba287d8f725a29792b5a21d7729"},
+      {"seed": "duplicate-delivery", "property": "terminal-exactly-once", "found_index": 0, "shrink": "12 -> 1", "schedule": "shutdown", "sha256": "sha256:b84ea8593ca643c4ce13033c28ccac0e063fccad56d582f358c60949e961eaa0"}
+    ],
+    "outcome": "PASS_ALL_NAMED_FAULTS_KILLED_AND_MINIMIZED"
+  },
+  "native_stress": {
+    "platform": "Darwin arm64 (macOS 25.4.0)",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "target": "aarch64-apple-darwin",
+    "suite": "rust/ws-driver/tests/concurrency.rs (pre-existing batch-C native-thread stress, unchanged by this closure): 4 producer threads x 50 commands exactly-once with full wire reconciliation, and terminal-exactly-once under racing producers across a shutdown",
+    "executed": "debug and release profiles via make -C rust gates (exit 0 read)",
+    "outcome": "PASS_CURRENT_HOST_ONLY"
+  },
+  "limitations": [
+    "not a formal proof or exhaustive full-state-space result: exhaustive ONLY within the declared 5-program/12-action alphabet and context-switch bound 7",
+    "modeled schedules serialize all actors through the owner's poll; they establish no native-thread evidence (no real preemption timing, weak-memory visibility, or OS scheduling)",
+    "native-thread stress executed on this darwin arm64 host only: no Linux or second blocking-platform execution, so the story's two-platform runtime claim (AC4) remains open",
+    "no Loom, Miri, or TSAN execution (zero-dependency gate; the exploration harness is hand-built against the sans-io core)",
+    "the event-queue capacity used is 8, not the config floor 4: ConnectionCore::byte_input_event_bound needs 6 free slots to admit even a one-frame chunk, so floor-4 configurations can never make byte-path progress (recorded as an open config-floor observation, not changed by this closure)",
+    "no live Java executed; no Java-equivalence claim"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false
+}

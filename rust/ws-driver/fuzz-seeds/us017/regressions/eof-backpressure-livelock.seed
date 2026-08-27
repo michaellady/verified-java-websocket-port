@@ -1,0 +1,6 @@
+id=eof-backpressure-livelock
+property=close-convergence
+mutation=none
+event_queue_capacity=4
+schedule=enqueue-close-b,inbound-close,shutdown
+counterexample=no-terminal-after-fair-drain

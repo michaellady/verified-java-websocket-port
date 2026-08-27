@@ -1,0 +1,6 @@
+id=minimized-lost-command
+property=accepted-eventual-exactly-once
+mutation=drop-first-accepted-command
+event_queue_capacity=8
+schedule=enqueue-close-b,shutdown
+counterexample=accepted-not-equal-disposed

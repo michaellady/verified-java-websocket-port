@@ -1,0 +1,6 @@
+id=minimized-write-reorder
+property=fifo-owner-order
+mutation=swap-committed-writes
+event_queue_capacity=8
+schedule=enqueue-ping-b,enqueue-close-b
+counterexample=wire-order-swapped
