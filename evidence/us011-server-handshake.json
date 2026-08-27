@@ -169,7 +169,7 @@
     "bindings": [
       {
         "rust_semantic_id": "websocket_core::ConnectionCore",
-        "source": "rust/connection-core/src/connection.rs:847",
+        "source": "rust/connection-core/src/connection.rs:852",
         "status": "RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"
       },
       {
@@ -179,12 +179,12 @@
       },
       {
         "rust_semantic_id": "websocket_core::HandshakeFailure",
-        "source": "rust/connection-core/src/connection.rs:539",
+        "source": "rust/connection-core/src/connection.rs:544",
         "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
       },
       {
         "rust_semantic_id": "websocket_core::SemanticEvent",
-        "source": "rust/connection-core/src/connection.rs:461",
+        "source": "rust/connection-core/src/connection.rs:466",
         "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
       }
     ],

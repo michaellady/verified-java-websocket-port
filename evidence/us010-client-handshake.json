@@ -57,11 +57,11 @@
     "migration_map_path": "evidence/intake/semantic-id-migration-map.json",
     "migration_map_sha256": "sha256:e884fd06a785b0273a0e23b3dc6841ebcc33c2a81d1fc81fb0b1945d46421e7b",
     "bindings": [
-      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:847","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
+      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:852","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
       {"rust_semantic_id":"websocket_core::ClientRequestDescriptor","source":"rust/connection-core/src/handshake/client.rs:9","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
-      {"rust_semantic_id":"websocket_core::LocalCommand","source":"rust/connection-core/src/connection.rs:394","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
-      {"rust_semantic_id":"websocket_core::HandshakeFailure","source":"rust/connection-core/src/connection.rs:539","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
-      {"rust_semantic_id":"websocket_core::SemanticEvent","source":"rust/connection-core/src/connection.rs:461","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"}
+      {"rust_semantic_id":"websocket_core::LocalCommand","source":"rust/connection-core/src/connection.rs:389","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
+      {"rust_semantic_id":"websocket_core::HandshakeFailure","source":"rust/connection-core/src/connection.rs:544","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
+      {"rust_semantic_id":"websocket_core::SemanticEvent","source":"rust/connection-core/src/connection.rs:466","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"}
     ],
     "new_resolver_verified_identities": 0,
     "java_shaped_aliases_added": 0
