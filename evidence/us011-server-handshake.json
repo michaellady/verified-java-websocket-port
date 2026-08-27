@@ -21,14 +21,16 @@
     "surface_id": "surface.handshake.server-response"
   },
   "corpus": {
+    "evidence_schema_path": "schemas/server-handshake-evidence-1.0.0.schema.json",
+    "evidence_schema_sha256": "sha256:8a4e8e20b9987b2afb4bb24266833d1d056ab465f4aeca337de138f37620a12e",
     "frozen_source_sha256": "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605",
     "fuzz_seed_count": 17,
     "nonce_vector_count": 256,
     "projection_path": "corpora/handshake/server.json",
-    "projection_sha256": "sha256:e951c5f53fa95cf18bb8b6571c779e49b554a7ce2bcbbd1739f7ac379a17b407",
+    "projection_sha256": "sha256:a5f2b8ba7f169f699b32aa9a0d89bb7a72649ad6246b8d94a948cf80da7b80ad",
     "public_additive_vectors": 26,
     "schema_path": "schemas/server-handshake-corpus-1.0.0.schema.json",
-    "schema_sha256": "sha256:49c84057edaaf7b3c8ffa9ccaf94337186b8da3b5fe3468d0fd077a25173dfdd"
+    "schema_sha256": "sha256:7539d2b6d0a627c1581a45550a80d50e7a35b88a85b297751cd5c8c9f9023b78"
   },
   "delta_ledger": {
     "autobahn_category_0": "NO_REGISTERED_CATEGORY_0_AT_PIN",
@@ -71,9 +73,9 @@
         "sha256": "sha256:5b73a307fd0549a689f8219518a122cb85964bbdd36285cc54e18ab68dc42e62"
       },
       {
-        "git_blob": "d759801ac85611a0f4f303fc70c02523ebca0464",
+        "git_blob": "09e414e33e0e639a5b7ef396492e3fdd207dbe76",
         "path": "rust/connection-core/src/handshake/http.rs",
-        "sha256": "sha256:532ffdc3599337bce2167fc222449938b5aa7a032e2a1f2a97a0591b62480d26"
+        "sha256": "sha256:c92522c17fc22d1865b4a79cd91860ab2dc1d9cae8d24a28f4639a1a9b809597"
       },
       {
         "git_blob": "eaeaf73d4e3d54bdfd6f0a5a7255e953869ce4fa",
@@ -86,9 +88,9 @@
         "sha256": "sha256:cef46a90a2b12569742f8520f79c5c22e160eacaf055e057ddfacb96223dae96"
       },
       {
-        "git_blob": "8919f4d538e2a3a0610626b41b0046d61a0ed933",
+        "git_blob": "e0b91e7b41170b219bb7aae2e86052f7ee3cc866",
         "path": "rust/connection-core/tests/server_handshake.rs",
-        "sha256": "sha256:9b49efe58edc04599a57b1d92730724b9f1802391bc7d454fb42b69808aec08d"
+        "sha256": "sha256:7438c7ef3c2e943dcc21622d46e25a0d99b0ee3ca4f4910e63bb0d7114396f42"
       },
       {
         "git_blob": "e756af5c7572e3fd6256eb836e3d896a47a2f7ad",
@@ -101,14 +103,14 @@
         "sha256": "sha256:b13a164b05b182af3155f9746f7a8d4d7f1ce8464929b793fc2a84da503e1250"
       },
       {
-        "git_blob": "17b8f0ef5f713ec869304a6f7891f15e80e16ffe",
+        "git_blob": "3de063954013ce2112d6baa866d523304af076dd",
         "path": "internal/corpora/server_handshake.go",
-        "sha256": "sha256:e22ffce2c759539a6a11c83e7f91887df5cd2a464115b7075154dd941c28bd87"
+        "sha256": "sha256:7590b920009f28d077778efa1764340895f91f26a387650c6f583514d3c2979a"
       },
       {
-        "git_blob": "8ce3e5154fc4c5d0c9d8fe09425cae9a186482ad",
+        "git_blob": "d4a3030c18b9df58df71695fc185562a535753e5",
         "path": "internal/corpora/server_handshake_test.go",
-        "sha256": "sha256:e7dde445ae0c6efa567e5a060ddf2ff1b8288f1bb26e0c5a9ff5cd94c231d645"
+        "sha256": "sha256:4a6d44aac0c147b333927b47fc6a14852a2b9379e723d0c8e6332c041ebd6bca"
       },
       {
         "git_blob": "59a592ec5989a2f6694bcbf9301579c286da38b0",
@@ -121,14 +123,14 @@
         "sha256": "sha256:700e345cc0d80c2bc7b80acbae3c4161da61285d29a37f551127ac44b5cfbd0e"
       },
       {
-        "git_blob": "943fef092a08434b4a62d2e6cc9562a62de5b82c",
+        "git_blob": "a394d811bf764b514e76213b3d903bdd73cdfd81",
         "path": "schemas/server-handshake-corpus-1.0.0.schema.json",
-        "sha256": "sha256:49c84057edaaf7b3c8ffa9ccaf94337186b8da3b5fe3468d0fd077a25173dfdd"
+        "sha256": "sha256:7539d2b6d0a627c1581a45550a80d50e7a35b88a85b297751cd5c8c9f9023b78"
       },
       {
-        "git_blob": "ae3606d56e8f889bebd7271b82f415b152709ff9",
+        "git_blob": "9c4c91b4f7e3e0f21fb561e96eb80b28ee0c79a5",
         "path": "schemas/server-handshake-evidence-1.0.0.schema.json",
-        "sha256": "sha256:02b51647cd2e574125fd45d066cbbf8a66611082951fe03972ac4e2aaec23e99"
+        "sha256": "sha256:8a4e8e20b9987b2afb4bb24266833d1d056ab465f4aeca337de138f37620a12e"
       },
       {
         "git_blob": "b50ec1725e96737312ef4263291c5423d4ed7299",
@@ -154,6 +156,11 @@
         "git_blob": "f9c332868e0ad0a8b85a0592dc0cf83713850157",
         "path": "docs/rust-workspace.md",
         "sha256": "sha256:98645c6e4795ee66a6187cf1bccab1e644c6ab643afe457e627201571af90707"
+      },
+      {
+        "git_blob": "de3c60e63c340deb7eb0852f444c4e079a0a0d25",
+        "path": "rust/connection-core/tests/data/us011_frozen_cases.rs",
+        "sha256": "sha256:a32ea18d0ea4d6eccb6806889038d281c83c006c39fe087278e03ae71a1afcd1"
       }
     ]
   },
@@ -187,20 +194,25 @@
     "new_resolver_verified_identities": 0
   },
   "tests": {
+    "additive_failure_two_chunk_executions_per_profile": 4557,
+    "additive_partial_eof_two_chunk_executions_per_profile": 42,
     "bytewise_executions_per_profile": 6,
     "debug": {
       "command": "make -C rust test",
       "failed": 0,
-      "passed": 53
+      "passed": 59
     },
     "frozen_client_request_cases": 39,
+    "frozen_incomplete_two_chunk_executions_per_profile": 265,
+    "frozen_limit_two_chunk_executions_per_profile": 522,
+    "frozen_reject_two_chunk_executions_per_profile": 4496,
     "fuzz_seeds_replayed_per_profile": 17,
     "multi_chunk_executions_per_profile": 18,
     "nonce_vectors_per_profile": 256,
     "release": {
       "command": "make -C rust test-release",
       "failed": 0,
-      "passed": 53
+      "passed": 59
     },
     "runtime_assertions": [
       "server phase and public lifecycle remain consistent",
@@ -209,7 +221,7 @@
       "canonical response allocation equals its checked layout",
       "Open is committed before success outputs"
     ],
-    "server_handshake_tests_per_profile": 17,
+    "server_handshake_tests_per_profile": 23,
     "two_chunk_executions_per_profile": 1092
   },
   "toolchain": {
@@ -223,6 +235,6 @@
     },
     "rustc_artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
     "rustc_sha256": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
-    "validation_time": "2026-08-27T07:27:43Z"
+    "validation_time": "2026-08-27T08:07:31Z"
   }
 }
