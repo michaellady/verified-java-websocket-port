@@ -1,0 +1,2607 @@
+{
+  "$schema": "../../schemas/linkage-evidence-dag-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "entity_type": "LinkageEvidenceDAG",
+  "dag_id": "linkage-evidence-dag.e2",
+  "scope_statement": "Additive linkage layer closing dossier gap G7: story, migration-row, planned-symbol, and implemented-symbol nodes binding the US-006 proof targets and the US-009..US-018 stories to the exact shipped Rust symbols and their verifying in-repo evidence. The frozen US-004 owner-only lifecycle DAG at assurance/evidence-dag.json is a sealed exact closure (internal/assurance blocks node drift) and is deliberately untouched; this DAG lives beside it.",
+  "nonclaim": "No story acceptance is claimed by this DAG. Evidence nodes carry their honest lineage (reference-model-derived corpus expectations remain pending live-oracle confirmation; the abstract model check remains proved-model-only; the proof-target plan remains a plan). Single owner, no independent review.",
+  "nodes": [
+    {
+      "id": "US-009",
+      "kind": "story",
+      "title": "ConnectionCore contract and command surface"
+    },
+    {
+      "id": "US-010",
+      "kind": "story",
+      "title": "Client opening-handshake slice"
+    },
+    {
+      "id": "US-011",
+      "kind": "story",
+      "title": "Server opening-handshake slice"
+    },
+    {
+      "id": "US-012",
+      "kind": "story",
+      "title": "Canonical framing, masking, and allocation limits"
+    },
+    {
+      "id": "US-013",
+      "kind": "story",
+      "title": "Strict text and binary messages"
+    },
+    {
+      "id": "US-014",
+      "kind": "story",
+      "title": "Fragmented-message reassembly with bounded state"
+    },
+    {
+      "id": "US-015",
+      "kind": "story",
+      "title": "Ping and pong control behavior"
+    },
+    {
+      "id": "US-016",
+      "kind": "story",
+      "title": "Close, EOF, and terminal-state behavior"
+    },
+    {
+      "id": "US-017",
+      "kind": "story",
+      "title": "Deterministic owner loop and schedule exploration"
+    },
+    {
+      "id": "US-018",
+      "kind": "story",
+      "title": "Blocking TCP adapters and cross-peer integration"
+    },
+    {
+      "id": "evidence.linkage.corpus-baseline-batch-c",
+      "kind": "evidence",
+      "title": "Batch-C wired public corpus baseline (74/74)",
+      "sha256": "sha256:bfe2ac0cd04c40fbb9a9c9515cac2cff9e7e8a6d8c7195007a08a71e5dc097d1",
+      "lineage": "reference-model-derived expectations pending live-oracle confirmation (dossier E1/E2/G2)",
+      "path": "rust/ws-oracle-harness/baseline/borrow-batch-c-public-baseline.json"
+    },
+    {
+      "id": "evidence.linkage.corpus-transcript-batch-c",
+      "kind": "evidence",
+      "title": "Batch-C public corpus transcript (rerun byte-identical)",
+      "sha256": "sha256:b3e7324fe80a50f74e57911c56faa03e4da8d15975d1fef5cc0bb32ec411e23e",
+      "lineage": "reference-model-derived expectations pending live-oracle confirmation (dossier E1/E2/G2)",
+      "path": "rust/ws-oracle-harness/baseline/borrow-batch-c-public-transcript.jsonl"
+    },
+    {
+      "id": "evidence.linkage.handshake-cases",
+      "kind": "evidence",
+      "title": "Handshake corpus (49 cases, LIVE_EXECUTED against the pinned jar)",
+      "sha256": "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605",
+      "lineage": "US-005 live Java execution (dossier E3)",
+      "path": "corpora/handshake/cases.jsonl"
+    },
+    {
+      "id": "evidence.linkage.handshake-exam-neutralized",
+      "kind": "evidence",
+      "title": "Batch-B handshake exam: runtime-neutralized rescoring 49/49",
+      "sha256": "sha256:f535c1e8195b909846b93d8a44506c35e757df424d7be831ca8c5b9f9458a193",
+      "lineage": "disclosed mechanical shim over the recorded live transcript (dossier E4)",
+      "path": "drafts/us010-us011-handshake-exam/evaluate-runtime-neutralized.json"
+    },
+    {
+      "id": "evidence.linkage.handshake-exam-raw",
+      "kind": "evidence",
+      "title": "Batch-B handshake exam: raw honest run",
+      "sha256": "sha256:f001b29b01a2c7639ef14f7e5a8d7cbb61ffee0b2170b9aa2cb9f757bffe0990",
+      "lineage": "0/49 solely on the evaluator's jar runtime-binding pin; zero behavioral failures (dossier E4)",
+      "path": "drafts/us010-us011-handshake-exam/evaluate-raw-honest-runtime.json"
+    },
+    {
+      "id": "evidence.linkage.live-handshake-mapping",
+      "kind": "evidence",
+      "title": "US-005 live handshake divergence mapping (16 RFC-reject/Java-accept sites)",
+      "sha256": "sha256:4cb2969b14b0d54dd178f7734705e8d8578190f2e69213219fcf8fe6d20f207a",
+      "lineage": "live-recorded Java behavior; divergences documented here, not yet delta-ledgered (dossier E13/G3)",
+      "path": "evidence/us005-handshake-live-mapping.json"
+    },
+    {
+      "id": "evidence.linkage.migration-map",
+      "kind": "evidence",
+      "title": "US-003 semantic-identity migration map (frozen derived document)",
+      "sha256": "sha256:63837479dad43b20c540daa6a99cb6ae3db1a22beedd8ba4a08fdff4de7e9517",
+      "lineage": "javac-semantic Java identities; rust identities planned, resolver-verified by this linkage layer's overlay",
+      "path": "evidence/intake/semantic-id-migration-map.json"
+    },
+    {
+      "id": "evidence.linkage.model-check-tlc",
+      "kind": "evidence",
+      "title": "US-006 TLC run over the abstract lifecycle model",
+      "sha256": "sha256:19ed3a0edc27b002ed02d689b6e934954383fef8c90501fec3b628613da236e7",
+      "lineage": "PROVED_MODEL_ONLY: abstract model, not actual code (dossier E9)",
+      "path": "evidence/formal/us006-model-check-0125/tlc.out"
+    },
+    {
+      "id": "evidence.linkage.proof-targets",
+      "kind": "evidence",
+      "title": "US-006 formal proof-target plan",
+      "sha256": "sha256:bad1e0697d0f4428a4cc6572549e4528ca4f0328c15163beddd4deb31c59a205",
+      "lineage": "plan-only: targets and planned symbols; no actual-code formal run exists (dossier G8)",
+      "path": "assurance/formal/proof-targets.json"
+    },
+    {
+      "id": "evidence.linkage.public-scenarios",
+      "kind": "evidence",
+      "title": "Public behavior corpus (74 scenarios)",
+      "sha256": "sha256:fe1735bc42c11f66afe2965a7449fc6cad31cca3e2048305388241c781501e5f",
+      "lineage": "every expectation REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION (dossier E2)",
+      "path": "corpora/public/scenarios.jsonl"
+    },
+    {
+      "id": "evidence.linkage.schedule-exploration",
+      "kind": "evidence",
+      "title": "US-017 exhaustive bounded schedule exploration results (79920 schedules)",
+      "sha256": "sha256:4bbef90a048f04cd41bfcac21f4b122e82366f72a4e95026f9bbae8f485a0fd5",
+      "lineage": "deterministic ws-driver schedule exploration with full-trace replay equality",
+      "path": "assurance/concurrency/results.json"
+    },
+    {
+      "id": "evidence.linkage.us009-wired-baseline",
+      "kind": "evidence",
+      "title": "US-009 wired public corpus baseline",
+      "sha256": "sha256:33bdd998d3b6da8cdaf2d6659487962b43ec0bddbcd44d85df995891d2533366",
+      "lineage": "reference-model-derived expectations (dossier E2/G2); no live-Java behavioral differential",
+      "path": "rust/ws-oracle-harness/baseline/us009-public-wired-baseline.json"
+    },
+    {
+      "id": "evidence.linkage.us018-closure-receipt",
+      "kind": "evidence",
+      "title": "US-018 closure receipt (cross-peer exams, adapter-linkage gate, platform legs)",
+      "sha256": "sha256:6a7cea57cfb753579a40e28d7ebe53aaeb3db2e9628ab7e4e5eda4e31267ae8b",
+      "lineage": "owner-attested receipt; 6/6 Java/Rust cross-peer exams against the digest-verified pinned jar",
+      "path": "drafts/us018-closure-receipt.json"
+    },
+    {
+      "id": "migration.org-java-websocket-drafts-draft",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.drafts.Draft",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-drafts-draft-6455",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.drafts.Draft_6455",
+      "disposition": "exact"
+    },
+    {
+      "id": "migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-closehandshaketype",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.enums.CloseHandshakeType",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-handshakestate",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.enums.HandshakeState",
+      "disposition": "relocated"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-opcode",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.enums.Opcode",
+      "disposition": "exact"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-readystate",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.enums.ReadyState",
+      "disposition": "exact"
+    },
+    {
+      "id": "migration.org-java-websocket-enums-role",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.enums.Role",
+      "disposition": "exact"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-incompleteexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.IncompleteException",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-incompletehandshakeexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.IncompleteHandshakeException",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidDataException",
+      "disposition": "renamed"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-invalidencodingexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidEncodingException",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-invalidframeexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidFrameException",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-invalidhandshakeexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.InvalidHandshakeException",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-limitexceededexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.LimitExceededException",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-notsendableexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.NotSendableException",
+      "disposition": "renamed"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-websocketnotconnectedexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.WebsocketNotConnectedException",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-exceptions-wrappedioexception",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.exceptions.WrappedIOException",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-binaryframe",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.BinaryFrame",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-closeframe",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.CloseFrame",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-continuousframe",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.ContinuousFrame",
+      "disposition": "exact"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-controlframe",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.ControlFrame",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-dataframe",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.DataFrame",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-framedata",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.Framedata",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-framedataimpl1",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.FramedataImpl1",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-pingframe",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.PingFrame",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-pongframe",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.PongFrame",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-framing-textframe",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.framing.TextFrame",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-clienthandshake",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.handshake.ClientHandshake",
+      "disposition": "exact"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-clienthandshakebuilder",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.handshake.ClientHandshakeBuilder",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakebuilder",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakeBuilder",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakedata",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.handshake.Handshakedata",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakedataimpl1",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakedataImpl1",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakeimpl1client",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakeImpl1Client",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-handshakeimpl1server",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.handshake.HandshakeImpl1Server",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-serverhandshake",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.handshake.ServerHandshake",
+      "disposition": "exact"
+    },
+    {
+      "id": "migration.org-java-websocket-handshake-serverhandshakebuilder",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.handshake.ServerHandshakeBuilder",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-interfaces-isslchannel",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.interfaces.ISSLChannel",
+      "disposition": "capability_excluded"
+    },
+    {
+      "id": "migration.org-java-websocket-util-base64",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.util.Base64",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-util-base64-outputstream",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.util.Base64$OutputStream",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-util-bytebufferutils",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.util.ByteBufferUtils",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-util-charsetfunctions",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.util.Charsetfunctions",
+      "disposition": "exact"
+    },
+    {
+      "id": "migration.org-java-websocket-util-namedthreadfactory",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.util.NamedThreadFactory",
+      "disposition": "capability_excluded"
+    },
+    {
+      "id": "migration.org-java-websocket-websocket",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.WebSocket",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-websocketadapter",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.WebSocketAdapter",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "migration.org-java-websocket-websocketimpl",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.WebSocketImpl",
+      "disposition": "exact"
+    },
+    {
+      "id": "migration.org-java-websocket-websocketlistener",
+      "kind": "migration_row",
+      "java_semantic_id": "org.java_websocket.WebSocketListener",
+      "disposition": "absorbed"
+    },
+    {
+      "id": "sym.adapter.decode-ingress",
+      "kind": "planned_symbol",
+      "title": "ws_core::connection::WebSocketImpl::decode",
+      "disposition": "absorbed",
+      "lineage": "WebSocketImpl.decode's ingress loop landed inside ConnectionCore::handle (TransportBytes arm: incomplete-frame buffering over Draft6455 translate); no decode method exists."
+    },
+    {
+      "id": "sym.adapter.wrapped-io-error",
+      "kind": "planned_symbol",
+      "title": "ws_adapter::tcp::WrappedIOException",
+      "disposition": "absorbed",
+      "lineage": "The planned ws_adapter::tcp::WrappedIOException landed as the normalized LoopOutcome::SocketError adapter outcome in ws-testee (the planned adapter crate landed as ws-testee); no wrapper exception type exists."
+    },
+    {
+      "id": "sym.allocation.check-alloc",
+      "kind": "planned_symbol",
+      "title": "ws_core::connection::Draft::check_alloc",
+      "disposition": "absorbed",
+      "lineage": "No Draft trait landed (single-draft port), so Draft::check_alloc has no home; the pre-allocation guard the target names landed as the header-time declared-length gate inside Draft6455::decode_frame_header (1009 at the length site, before any payload allocation — derive.go:424-425). Distinct by design from the reassembly-time cumulative gate check_buffer_limit, which the frozen targets bind separately under fragmentation (review 01a04566 correction 1)."
+    },
+    {
+      "id": "sym.allocation.decode-guarded-allocation",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::decode_frame_header",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared."
+    },
+    {
+      "id": "sym.close.close-connection",
+      "kind": "planned_symbol",
+      "title": "ws_core::connection::WebSocketImpl::close_connection",
+      "disposition": "absorbed",
+      "lineage": "closeConnection's terminal ladder landed across the command/inbound close arms plus the US-009 close-code pure functions; no single close_connection method exists."
+    },
+    {
+      "id": "sym.close.flush-and-close",
+      "kind": "planned_symbol",
+      "title": "ws_core::connection::WebSocketImpl::flush_and_close",
+      "disposition": "absorbed",
+      "lineage": "flushAndClose split across the seam: the core emits the governed close write from its command arm and the adapter's bounded pump owns the actual flush before shutdown; no flush_and_close method exists."
+    },
+    {
+      "id": "sym.concurrency.connection-owner",
+      "kind": "planned_symbol",
+      "title": "ws_core::connection::WebSocketImpl",
+      "disposition": "exact",
+      "lineage": "The single connection owner landed as declared (WebSocketImpl alias over ConnectionCore) with ws_driver::ConnectionDriver as the deterministic owner loop that serializes every observation (US-017)."
+    },
+    {
+      "id": "sym.connection.close",
+      "kind": "planned_symbol",
+      "title": "ws_core::connection::WebSocketImpl::close",
+      "disposition": "absorbed",
+      "lineage": "WebSocketImpl.close landed as the SendClose command handled by the command arm (Q13/Q14 code routing); no close method exists on the core."
+    },
+    {
+      "id": "sym.connection.eot",
+      "kind": "planned_symbol",
+      "title": "ws_core::connection::WebSocketImpl::eot",
+      "disposition": "absorbed",
+      "lineage": "WebSocketImpl.eot landed as the TransportEof input handled by handle_eof. Disclosed limit (dossier G11): the pre-handshake NotYetConnected EOF arms remain honest Unimplemented refusals."
+    },
+    {
+      "id": "sym.connection.open",
+      "kind": "planned_symbol",
+      "title": "ws_core::connection::WebSocketImpl::open",
+      "disposition": "absorbed",
+      "lineage": "WebSocketImpl.open's state transition landed as ConnectionCore::finish_handshake_open — the single declaration that sets ReadyState::Open after an accepted handshake (both roles route through it), stashing post-head remainder bytes under the Q24 cap. The handshake initiation/parser seams do not perform the transition (review 01a04566 correction 2)."
+    },
+    {
+      "id": "sym.control.decode-length-gate",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::decode_frame_header",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared (the control extended-length marker rejects at the 2-byte header site inside decode_frame_header)."
+    },
+    {
+      "id": "sym.control.process-frame",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::process_frame",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared."
+    },
+    {
+      "id": "sym.fragmentation.check-buffer-limit",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::check_buffer_limit",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared."
+    },
+    {
+      "id": "sym.fragmentation.process-continuation",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::process_frame_continuous",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared."
+    },
+    {
+      "id": "sym.framing.apply-mask",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::apply_mask",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared."
+    },
+    {
+      "id": "sym.framing.decode-frame-header",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::decode_frame_header",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared."
+    },
+    {
+      "id": "sym.framing.encode-frame",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::encode_frame",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared."
+    },
+    {
+      "id": "sym.handshake.accept-as-server",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::accept_handshake_as_server",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared; the impl block lives in handshake/server.rs (the acceptance predicate's home), still on the Draft6455 type."
+    },
+    {
+      "id": "sym.handshake.generate-accept",
+      "kind": "planned_symbol",
+      "title": "ws_core::framing::Draft6455::generate_accept_key",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared; the impl block lives in handshake/crypto.rs, still on the Draft6455 type."
+    },
+    {
+      "id": "sym.utf8.is-valid-utf8",
+      "kind": "planned_symbol",
+      "title": "ws_core::message::Charsetfunctions::is_valid_utf8",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared."
+    },
+    {
+      "id": "sym.utf8.string-utf8",
+      "kind": "planned_symbol",
+      "title": "ws_core::message::Charsetfunctions::string_utf8",
+      "disposition": "exact",
+      "lineage": "Planned symbol landed as declared."
+    },
+    {
+      "id": "target.formal.adapter.no-protocol-logic",
+      "kind": "proof_target",
+      "title": "Adapters carry no protocol logic"
+    },
+    {
+      "id": "target.formal.close.terminal-absorbing",
+      "kind": "proof_target",
+      "title": "Terminal close is absorbing; terminal delivery is at-least-once (reentrant duplicate representable)"
+    },
+    {
+      "id": "target.formal.concurrency.no-data-race",
+      "kind": "proof_target",
+      "title": "Single-owner serialization replaces the shared-mutable connection state"
+    },
+    {
+      "id": "target.formal.connection.no-terminal-escape",
+      "kind": "proof_target",
+      "title": "Connection state machine: no transition escapes CLOSED"
+    },
+    {
+      "id": "target.formal.control.payload-length-bound",
+      "kind": "proof_target",
+      "title": "Control-frame constraints (\u003c=125 octets, opcode discrimination, dispatch)"
+    },
+    {
+      "id": "target.formal.fragmentation.no-unbounded-growth",
+      "kind": "proof_target",
+      "title": "Fragmentation reassembly with checkpoint-only size caps (intermediate growth unbounded in shipped code)"
+    },
+    {
+      "id": "target.formal.framing.allocation-limit",
+      "kind": "proof_target",
+      "title": "Allocation caps on the frame decode path"
+    },
+    {
+      "id": "target.formal.framing.length-bounds",
+      "kind": "proof_target",
+      "title": "Frame-header decode, canonical 7/16/64-bit payload lengths, masking"
+    },
+    {
+      "id": "target.formal.handshake.accept-derivation",
+      "kind": "proof_target",
+      "title": "Server handshake accept predicate and Sec-WebSocket-Accept derivation"
+    },
+    {
+      "id": "target.formal.messages.utf8-validation-total",
+      "kind": "proof_target",
+      "title": "Total UTF-8 validation of text payloads"
+    },
+    {
+      "id": "ws_core::close::CloseDetail",
+      "kind": "symbol",
+      "rust_path": "ws_core::close::CloseDetail",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/close.rs",
+      "line": 46,
+      "sha256": "sha256:73db95e68e9bc1a22e567603ebd50807ed3f2762eca9ce5101b19aab2c4a7c30"
+    },
+    {
+      "id": "ws_core::close::close_code_rejection",
+      "kind": "symbol",
+      "rust_path": "ws_core::close::close_code_rejection",
+      "decl_kind": "fn",
+      "file": "rust/ws-core/src/close.rs",
+      "line": 83,
+      "sha256": "sha256:73db95e68e9bc1a22e567603ebd50807ed3f2762eca9ce5101b19aab2c4a7c30"
+    },
+    {
+      "id": "ws_core::close::normalize_send_close_code",
+      "kind": "symbol",
+      "rust_path": "ws_core::close::normalize_send_close_code",
+      "decl_kind": "fn",
+      "file": "rust/ws-core/src/close.rs",
+      "line": 65,
+      "sha256": "sha256:73db95e68e9bc1a22e567603ebd50807ed3f2762eca9ce5101b19aab2c4a7c30"
+    },
+    {
+      "id": "ws_core::connection::CommandQueue",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::CommandQueue",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 1246,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::CommandSender",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::CommandSender",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 1204,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::ConnectionCore",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::ConnectionCore",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 272,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::ConnectionCore::finish_handshake_open",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::ConnectionCore::finish_handshake_open",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 951,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::ConnectionCore::handle",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::ConnectionCore::handle",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 376,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::ConnectionCore::handle_command",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::ConnectionCore::handle_command",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 1023,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::ConnectionCore::handle_eof",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::ConnectionCore::handle_eof",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 970,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::ConnectionCore::process_inbound",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::ConnectionCore::process_inbound",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 669,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::DataOpcode",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::DataOpcode",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 151,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::Input::TransportEof",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::Input::TransportEof",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 211,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::LocalCommand",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::LocalCommand",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 163,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::LocalCommand::SendClose",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::LocalCommand::SendClose",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 185,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::ReadyState",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::ReadyState",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 91,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::Role",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::Role",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 65,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::TransportWrite",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::TransportWrite",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 219,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::connection::WebSocketImpl",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::WebSocketImpl",
+      "decl_kind": "type_alias",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 319,
+      "sha256": "sha256:1e16ffae1d4a307b090bdc18592fdafc2b175e238673ab89f55cfc8fa65a4172"
+    },
+    {
+      "id": "ws_core::error::FailureCode::BufferLimitExceeded",
+      "kind": "symbol",
+      "rust_path": "ws_core::error::FailureCode::BufferLimitExceeded",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/error.rs",
+      "line": 63,
+      "sha256": "sha256:40af0b07f9a73132ce01bf5020315c0778c6e0f121925c6407e81ef86c21652c"
+    },
+    {
+      "id": "ws_core::error::FailureCode::InputLimitExceeded",
+      "kind": "symbol",
+      "rust_path": "ws_core::error::FailureCode::InputLimitExceeded",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/error.rs",
+      "line": 58,
+      "sha256": "sha256:40af0b07f9a73132ce01bf5020315c0778c6e0f121925c6407e81ef86c21652c"
+    },
+    {
+      "id": "ws_core::error::FailureCode::JavaInvalidData",
+      "kind": "symbol",
+      "rust_path": "ws_core::error::FailureCode::JavaInvalidData",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/error.rs",
+      "line": 42,
+      "sha256": "sha256:40af0b07f9a73132ce01bf5020315c0778c6e0f121925c6407e81ef86c21652c"
+    },
+    {
+      "id": "ws_core::error::FailureCode::JavaNotSendable",
+      "kind": "symbol",
+      "rust_path": "ws_core::error::FailureCode::JavaNotSendable",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/error.rs",
+      "line": 49,
+      "sha256": "sha256:40af0b07f9a73132ce01bf5020315c0778c6e0f121925c6407e81ef86c21652c"
+    },
+    {
+      "id": "ws_core::error::FailureCode::StateViolation",
+      "kind": "symbol",
+      "rust_path": "ws_core::error::FailureCode::StateViolation",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/error.rs",
+      "line": 54,
+      "sha256": "sha256:40af0b07f9a73132ce01bf5020315c0778c6e0f121925c6407e81ef86c21652c"
+    },
+    {
+      "id": "ws_core::error::TypedProtocolFailure",
+      "kind": "symbol",
+      "rust_path": "ws_core::error::TypedProtocolFailure",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/error.rs",
+      "line": 123,
+      "sha256": "sha256:40af0b07f9a73132ce01bf5020315c0778c6e0f121925c6407e81ef86c21652c"
+    },
+    {
+      "id": "ws_core::event::FrameRecord",
+      "kind": "symbol",
+      "rust_path": "ws_core::event::FrameRecord",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/event.rs",
+      "line": 112,
+      "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+    },
+    {
+      "id": "ws_core::event::SemanticEvent",
+      "kind": "symbol",
+      "rust_path": "ws_core::event::SemanticEvent",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/event.rs",
+      "line": 20,
+      "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+    },
+    {
+      "id": "ws_core::event::SemanticEventKind",
+      "kind": "symbol",
+      "rust_path": "ws_core::event::SemanticEventKind",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/event.rs",
+      "line": 146,
+      "sha256": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0"
+    },
+    {
+      "id": "ws_core::fragment::ContinuousFrame",
+      "kind": "symbol",
+      "rust_path": "ws_core::fragment::ContinuousFrame",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/fragment.rs",
+      "line": 30,
+      "sha256": "sha256:88057fc9361e4fd9898a2978fd3479c717d9879558f1f030cb5c81715f0f8871"
+    },
+    {
+      "id": "ws_core::framing::DecodedFrame",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::DecodedFrame",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 185,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::Draft6455",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Draft6455",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 248,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::Draft6455::accept_handshake_as_server",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Draft6455::accept_handshake_as_server",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/handshake/server.rs",
+      "line": 50,
+      "sha256": "sha256:04df86320cfd2a9ba11698672575335b42de7f601abc1c9f5c34175502b209f6"
+    },
+    {
+      "id": "ws_core::framing::Draft6455::apply_mask",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Draft6455::apply_mask",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 269,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::Draft6455::check_buffer_limit",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Draft6455::check_buffer_limit",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 749,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::Draft6455::decode_frame_header",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Draft6455::decode_frame_header",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 357,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::Draft6455::encode_frame",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Draft6455::encode_frame",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 571,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::Draft6455::generate_accept_key",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Draft6455::generate_accept_key",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/handshake/crypto.rs",
+      "line": 34,
+      "sha256": "sha256:86bd5e2a7347bba8e201e2db34131623c6fee76799f12e993ca3b9eb273ff1cd"
+    },
+    {
+      "id": "ws_core::framing::Draft6455::process_frame",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Draft6455::process_frame",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 646,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::Draft6455::process_frame_continuous",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Draft6455::process_frame_continuous",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 707,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::FrameHeader",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::FrameHeader",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 130,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::FrameReject",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::FrameReject",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 170,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::HeaderDecode",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::HeaderDecode",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 155,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::HeaderDecode::Insufficient",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::HeaderDecode::Insufficient",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 160,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::framing::Opcode",
+      "kind": "symbol",
+      "rust_path": "ws_core::framing::Opcode",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 60,
+      "sha256": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d"
+    },
+    {
+      "id": "ws_core::handshake::RejectChannel",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::RejectChannel",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/handshake.rs",
+      "line": 73,
+      "sha256": "sha256:ec8d574b44f0b3fe4ff34535a6687ee19acefe801bdd25a20cbf807391c3d922"
+    },
+    {
+      "id": "ws_core::handshake::client::ClientHandshake",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::client::ClientHandshake",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/handshake/client.rs",
+      "line": 161,
+      "sha256": "sha256:907453e2218a691741a0ff37b3e5f08084a07201bed0165f27a1d78ce93223b9"
+    },
+    {
+      "id": "ws_core::handshake::client::ClientHandshakeOutcome",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::client::ClientHandshakeOutcome",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/handshake/client.rs",
+      "line": 139,
+      "sha256": "sha256:907453e2218a691741a0ff37b3e5f08084a07201bed0165f27a1d78ce93223b9"
+    },
+    {
+      "id": "ws_core::handshake::client::ClientRequestDescriptor",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::client::ClientRequestDescriptor",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/handshake/client.rs",
+      "line": 48,
+      "sha256": "sha256:907453e2218a691741a0ff37b3e5f08084a07201bed0165f27a1d78ce93223b9"
+    },
+    {
+      "id": "ws_core::handshake::crypto::encode_base64",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::crypto::encode_base64",
+      "decl_kind": "fn",
+      "file": "rust/ws-core/src/handshake/crypto.rs",
+      "line": 70,
+      "sha256": "sha256:86bd5e2a7347bba8e201e2db34131623c6fee76799f12e993ca3b9eb273ff1cd"
+    },
+    {
+      "id": "ws_core::handshake::crypto::encode_nonce",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::crypto::encode_nonce",
+      "decl_kind": "fn",
+      "file": "rust/ws-core/src/handshake/crypto.rs",
+      "line": 49,
+      "sha256": "sha256:86bd5e2a7347bba8e201e2db34131623c6fee76799f12e993ca3b9eb273ff1cd"
+    },
+    {
+      "id": "ws_core::handshake::http::HeadAccumulator",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::http::HeadAccumulator",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/handshake/http.rs",
+      "line": 180,
+      "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+    },
+    {
+      "id": "ws_core::handshake::http::JavaHead",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::http::JavaHead",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/handshake/http.rs",
+      "line": 81,
+      "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+    },
+    {
+      "id": "ws_core::handshake::http::JavaHeadParse::Incomplete",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::http::JavaHeadParse::Incomplete",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/handshake/http.rs",
+      "line": 96,
+      "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+    },
+    {
+      "id": "ws_core::handshake::http::JavaHeaders",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::http::JavaHeaders",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/handshake/http.rs",
+      "line": 47,
+      "sha256": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e"
+    },
+    {
+      "id": "ws_core::handshake::server::HandshakeState",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::server::HandshakeState",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/handshake/server.rs",
+      "line": 34,
+      "sha256": "sha256:04df86320cfd2a9ba11698672575335b42de7f601abc1c9f5c34175502b209f6"
+    },
+    {
+      "id": "ws_core::handshake::server::ServerHandshake",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::server::ServerHandshake",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/handshake/server.rs",
+      "line": 113,
+      "sha256": "sha256:04df86320cfd2a9ba11698672575335b42de7f601abc1c9f5c34175502b209f6"
+    },
+    {
+      "id": "ws_core::handshake::server::ServerHandshakeOutcome",
+      "kind": "symbol",
+      "rust_path": "ws_core::handshake::server::ServerHandshakeOutcome",
+      "decl_kind": "enum",
+      "file": "rust/ws-core/src/handshake/server.rs",
+      "line": 72,
+      "sha256": "sha256:04df86320cfd2a9ba11698672575335b42de7f601abc1c9f5c34175502b209f6"
+    },
+    {
+      "id": "ws_core::message::Charsetfunctions",
+      "kind": "symbol",
+      "rust_path": "ws_core::message::Charsetfunctions",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/message.rs",
+      "line": 162,
+      "sha256": "sha256:4ec3aa46e95f78c569b17bf8c5cc2c19de9afbc28a3b1151c98f25f641d2535c"
+    },
+    {
+      "id": "ws_core::message::Charsetfunctions::is_valid_utf8",
+      "kind": "symbol",
+      "rust_path": "ws_core::message::Charsetfunctions::is_valid_utf8",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/message.rs",
+      "line": 171,
+      "sha256": "sha256:4ec3aa46e95f78c569b17bf8c5cc2c19de9afbc28a3b1151c98f25f641d2535c"
+    },
+    {
+      "id": "ws_core::message::Charsetfunctions::string_utf8",
+      "kind": "symbol",
+      "rust_path": "ws_core::message::Charsetfunctions::string_utf8",
+      "decl_kind": "method",
+      "file": "rust/ws-core/src/message.rs",
+      "line": 187,
+      "sha256": "sha256:4ec3aa46e95f78c569b17bf8c5cc2c19de9afbc28a3b1151c98f25f641d2535c"
+    },
+    {
+      "id": "ws_core::message::Utf8DecodeError",
+      "kind": "symbol",
+      "rust_path": "ws_core::message::Utf8DecodeError",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/message.rs",
+      "line": 155,
+      "sha256": "sha256:4ec3aa46e95f78c569b17bf8c5cc2c19de9afbc28a3b1151c98f25f641d2535c"
+    },
+    {
+      "id": "ws_core::queue::BoundedQueue",
+      "kind": "symbol",
+      "rust_path": "ws_core::queue::BoundedQueue",
+      "decl_kind": "struct",
+      "file": "rust/ws-core/src/queue.rs",
+      "line": 13,
+      "sha256": "sha256:717ff6a4bdae583fa7e49af51621fb9d0f039e0821644112cd5e1d45dc2c9bc9"
+    },
+    {
+      "id": "ws_driver::ConnectionDriver",
+      "kind": "symbol",
+      "rust_path": "ws_driver::ConnectionDriver",
+      "decl_kind": "struct",
+      "file": "rust/ws-driver/src/lib.rs",
+      "line": 200,
+      "sha256": "sha256:76c533302e4a59c4d1194f6d7d9abd9f6535f931af1fe6eff1369aa68b7dcd47"
+    },
+    {
+      "id": "ws_driver::connection_driver",
+      "kind": "symbol",
+      "rust_path": "ws_driver::connection_driver",
+      "decl_kind": "fn",
+      "file": "rust/ws-driver/src/lib.rs",
+      "line": 57,
+      "sha256": "sha256:76c533302e4a59c4d1194f6d7d9abd9f6535f931af1fe6eff1369aa68b7dcd47"
+    },
+    {
+      "id": "ws_testee::client::run_client_once",
+      "kind": "symbol",
+      "rust_path": "ws_testee::client::run_client_once",
+      "decl_kind": "fn",
+      "file": "rust/ws-testee/src/client.rs",
+      "line": 85,
+      "sha256": "sha256:c09b83b2ded83909f69e09c9fe1862428afeffa03a3056b466a74960f16a1f6a"
+    },
+    {
+      "id": "ws_testee::io_loop::IoBounds",
+      "kind": "symbol",
+      "rust_path": "ws_testee::io_loop::IoBounds",
+      "decl_kind": "struct",
+      "file": "rust/ws-testee/src/io_loop.rs",
+      "line": 20,
+      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+    },
+    {
+      "id": "ws_testee::io_loop::LoopOutcome",
+      "kind": "symbol",
+      "rust_path": "ws_testee::io_loop::LoopOutcome",
+      "decl_kind": "enum",
+      "file": "rust/ws-testee/src/io_loop.rs",
+      "line": 64,
+      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+    },
+    {
+      "id": "ws_testee::io_loop::LoopOutcome::SocketError",
+      "kind": "symbol",
+      "rust_path": "ws_testee::io_loop::LoopOutcome::SocketError",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-testee/src/io_loop.rs",
+      "line": 71,
+      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+    },
+    {
+      "id": "ws_testee::io_loop::drive_connection",
+      "kind": "symbol",
+      "rust_path": "ws_testee::io_loop::drive_connection",
+      "decl_kind": "fn",
+      "file": "rust/ws-testee/src/io_loop.rs",
+      "line": 152,
+      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+    },
+    {
+      "id": "ws_testee::server::run_server_once",
+      "kind": "symbol",
+      "rust_path": "ws_testee::server::run_server_once",
+      "decl_kind": "fn",
+      "file": "rust/ws-testee/src/server.rs",
+      "line": 50,
+      "sha256": "sha256:542b688ea2a077483731d40f5835257b5b623a0326f0ae0e7deff4f114fc54b0"
+    }
+  ],
+  "edges": [
+    {
+      "from": "US-009",
+      "to": "evidence.linkage.migration-map",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-009",
+      "to": "evidence.linkage.us009-wired-baseline",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-009",
+      "to": "migration.org-java-websocket-drafts-draft",
+      "kind": "owns"
+    },
+    {
+      "from": "US-009",
+      "to": "migration.org-java-websocket-enums-closehandshaketype",
+      "kind": "owns"
+    },
+    {
+      "from": "US-009",
+      "to": "migration.org-java-websocket-enums-readystate",
+      "kind": "owns"
+    },
+    {
+      "from": "US-009",
+      "to": "migration.org-java-websocket-enums-role",
+      "kind": "owns"
+    },
+    {
+      "from": "US-009",
+      "to": "migration.org-java-websocket-websocket",
+      "kind": "owns"
+    },
+    {
+      "from": "US-009",
+      "to": "migration.org-java-websocket-websocketadapter",
+      "kind": "owns"
+    },
+    {
+      "from": "US-009",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-009",
+      "to": "migration.org-java-websocket-websocketlistener",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "evidence.linkage.corpus-baseline-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-010",
+      "to": "evidence.linkage.handshake-cases",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-010",
+      "to": "evidence.linkage.handshake-exam-neutralized",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-010",
+      "to": "evidence.linkage.handshake-exam-raw",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-010",
+      "to": "evidence.linkage.live-handshake-mapping",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-drafts-draft",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-drafts-draft-6455",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-enums-handshakestate",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-exceptions-incompletehandshakeexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-exceptions-invalidhandshakeexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-handshake-clienthandshake",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-handshake-clienthandshakebuilder",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-handshake-handshakebuilder",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-handshake-handshakedata",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-handshake-handshakedataimpl1",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-handshake-handshakeimpl1client",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-util-base64",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-util-base64-outputstream",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-websocketadapter",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-010",
+      "to": "migration.org-java-websocket-websocketlistener",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "evidence.linkage.corpus-baseline-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-011",
+      "to": "evidence.linkage.handshake-cases",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-011",
+      "to": "evidence.linkage.handshake-exam-neutralized",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-011",
+      "to": "evidence.linkage.handshake-exam-raw",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-011",
+      "to": "evidence.linkage.live-handshake-mapping",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-drafts-draft",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-drafts-draft-6455",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-enums-handshakestate",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-handshake-handshakeimpl1server",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-handshake-serverhandshake",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-handshake-serverhandshakebuilder",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-websocketadapter",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-011",
+      "to": "migration.org-java-websocket-websocketlistener",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "evidence.linkage.corpus-baseline-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-012",
+      "to": "evidence.linkage.corpus-transcript-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-012",
+      "to": "evidence.linkage.public-scenarios",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-drafts-draft",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-drafts-draft-6455",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-enums-opcode",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-exceptions-incompleteexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-exceptions-invalidframeexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-exceptions-limitexceededexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-exceptions-notsendableexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-framing-controlframe",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-framing-dataframe",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-framing-framedata",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-framing-framedataimpl1",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-util-bytebufferutils",
+      "kind": "owns"
+    },
+    {
+      "from": "US-012",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "evidence.linkage.corpus-baseline-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-013",
+      "to": "evidence.linkage.corpus-transcript-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-013",
+      "to": "evidence.linkage.public-scenarios",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-drafts-draft",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-drafts-draft-6455",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-exceptions-invalidencodingexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-framing-binaryframe",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-framing-textframe",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-util-charsetfunctions",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-websocket",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-013",
+      "to": "migration.org-java-websocket-websocketlistener",
+      "kind": "owns"
+    },
+    {
+      "from": "US-014",
+      "to": "evidence.linkage.corpus-baseline-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-014",
+      "to": "evidence.linkage.corpus-transcript-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-014",
+      "to": "evidence.linkage.public-scenarios",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-014",
+      "to": "migration.org-java-websocket-drafts-draft",
+      "kind": "owns"
+    },
+    {
+      "from": "US-014",
+      "to": "migration.org-java-websocket-drafts-draft-6455",
+      "kind": "owns"
+    },
+    {
+      "from": "US-014",
+      "to": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-014",
+      "to": "migration.org-java-websocket-exceptions-limitexceededexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-014",
+      "to": "migration.org-java-websocket-framing-continuousframe",
+      "kind": "owns"
+    },
+    {
+      "from": "US-014",
+      "to": "migration.org-java-websocket-websocket",
+      "kind": "owns"
+    },
+    {
+      "from": "US-014",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-015",
+      "to": "evidence.linkage.corpus-baseline-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-015",
+      "to": "evidence.linkage.corpus-transcript-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-015",
+      "to": "evidence.linkage.public-scenarios",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-015",
+      "to": "migration.org-java-websocket-drafts-draft",
+      "kind": "owns"
+    },
+    {
+      "from": "US-015",
+      "to": "migration.org-java-websocket-drafts-draft-6455",
+      "kind": "owns"
+    },
+    {
+      "from": "US-015",
+      "to": "migration.org-java-websocket-framing-pingframe",
+      "kind": "owns"
+    },
+    {
+      "from": "US-015",
+      "to": "migration.org-java-websocket-framing-pongframe",
+      "kind": "owns"
+    },
+    {
+      "from": "US-015",
+      "to": "migration.org-java-websocket-websocket",
+      "kind": "owns"
+    },
+    {
+      "from": "US-015",
+      "to": "migration.org-java-websocket-websocketadapter",
+      "kind": "owns"
+    },
+    {
+      "from": "US-015",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-015",
+      "to": "migration.org-java-websocket-websocketlistener",
+      "kind": "owns"
+    },
+    {
+      "from": "US-016",
+      "to": "evidence.linkage.corpus-baseline-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-016",
+      "to": "evidence.linkage.corpus-transcript-batch-c",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-016",
+      "to": "evidence.linkage.model-check-tlc",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-016",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-016",
+      "to": "evidence.linkage.public-scenarios",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-016",
+      "to": "migration.org-java-websocket-drafts-draft",
+      "kind": "owns"
+    },
+    {
+      "from": "US-016",
+      "to": "migration.org-java-websocket-drafts-draft-6455",
+      "kind": "owns"
+    },
+    {
+      "from": "US-016",
+      "to": "migration.org-java-websocket-enums-closehandshaketype",
+      "kind": "owns"
+    },
+    {
+      "from": "US-016",
+      "to": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-016",
+      "to": "migration.org-java-websocket-exceptions-websocketnotconnectedexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-016",
+      "to": "migration.org-java-websocket-framing-closeframe",
+      "kind": "owns"
+    },
+    {
+      "from": "US-016",
+      "to": "migration.org-java-websocket-websocket",
+      "kind": "owns"
+    },
+    {
+      "from": "US-016",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-016",
+      "to": "migration.org-java-websocket-websocketlistener",
+      "kind": "owns"
+    },
+    {
+      "from": "US-017",
+      "to": "evidence.linkage.schedule-exploration",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-017",
+      "to": "migration.org-java-websocket-util-namedthreadfactory",
+      "kind": "owns"
+    },
+    {
+      "from": "US-017",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-017",
+      "to": "ws_core::connection::CommandQueue",
+      "kind": "implements"
+    },
+    {
+      "from": "US-017",
+      "to": "ws_core::connection::CommandSender",
+      "kind": "implements"
+    },
+    {
+      "from": "US-017",
+      "to": "ws_core::queue::BoundedQueue",
+      "kind": "implements"
+    },
+    {
+      "from": "US-017",
+      "to": "ws_driver::ConnectionDriver",
+      "kind": "implements"
+    },
+    {
+      "from": "US-017",
+      "to": "ws_driver::connection_driver",
+      "kind": "implements"
+    },
+    {
+      "from": "US-018",
+      "to": "evidence.linkage.us018-closure-receipt",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-018",
+      "to": "migration.org-java-websocket-exceptions-wrappedioexception",
+      "kind": "owns"
+    },
+    {
+      "from": "US-018",
+      "to": "migration.org-java-websocket-interfaces-isslchannel",
+      "kind": "owns"
+    },
+    {
+      "from": "US-018",
+      "to": "migration.org-java-websocket-websocketimpl",
+      "kind": "owns"
+    },
+    {
+      "from": "US-018",
+      "to": "migration.org-java-websocket-websocketlistener",
+      "kind": "owns"
+    },
+    {
+      "from": "US-018",
+      "to": "ws_testee::client::run_client_once",
+      "kind": "implements"
+    },
+    {
+      "from": "US-018",
+      "to": "ws_testee::io_loop::IoBounds",
+      "kind": "implements"
+    },
+    {
+      "from": "US-018",
+      "to": "ws_testee::io_loop::LoopOutcome",
+      "kind": "implements"
+    },
+    {
+      "from": "US-018",
+      "to": "ws_testee::io_loop::drive_connection",
+      "kind": "implements"
+    },
+    {
+      "from": "US-018",
+      "to": "ws_testee::server::run_server_once",
+      "kind": "implements"
+    },
+    {
+      "from": "migration.org-java-websocket-drafts-draft",
+      "to": "ws_core::framing::Draft6455",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-drafts-draft-6455",
+      "to": "ws_core::framing::Draft6455",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+      "to": "ws_core::framing::FrameHeader",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-drafts-draft-6455-translatedpayloadmetadata",
+      "to": "ws_core::framing::HeaderDecode",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-enums-closehandshaketype",
+      "to": "ws_core::connection::ConnectionCore::handle_command",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-enums-closehandshaketype",
+      "to": "ws_core::connection::ConnectionCore::process_inbound",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-enums-handshakestate",
+      "to": "ws_core::handshake::server::HandshakeState",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-enums-opcode",
+      "to": "ws_core::framing::Opcode",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-enums-readystate",
+      "to": "ws_core::connection::ReadyState",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-enums-role",
+      "to": "ws_core::connection::Role",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-incompleteexception",
+      "to": "ws_core::framing::HeaderDecode::Insufficient",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-incompletehandshakeexception",
+      "to": "ws_core::handshake::http::HeadAccumulator",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-incompletehandshakeexception",
+      "to": "ws_core::handshake::http::JavaHeadParse::Incomplete",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "to": "ws_core::error::FailureCode::JavaInvalidData",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "to": "ws_core::error::TypedProtocolFailure",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-invalidencodingexception",
+      "to": "ws_core::error::FailureCode::JavaInvalidData",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-invalidencodingexception",
+      "to": "ws_core::message::Utf8DecodeError",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-invalidframeexception",
+      "to": "ws_core::error::FailureCode::JavaInvalidData",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-invalidframeexception",
+      "to": "ws_core::framing::FrameReject",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-invalidhandshakeexception",
+      "to": "ws_core::handshake::RejectChannel",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-limitexceededexception",
+      "to": "ws_core::error::FailureCode::BufferLimitExceeded",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-limitexceededexception",
+      "to": "ws_core::error::FailureCode::InputLimitExceeded",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-limitexceededexception",
+      "to": "ws_core::framing::Draft6455::check_buffer_limit",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-notsendableexception",
+      "to": "ws_core::error::FailureCode::JavaNotSendable",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-websocketnotconnectedexception",
+      "to": "ws_core::error::FailureCode::StateViolation",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-exceptions-wrappedioexception",
+      "to": "ws_testee::io_loop::LoopOutcome::SocketError",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-binaryframe",
+      "to": "ws_core::connection::DataOpcode",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-binaryframe",
+      "to": "ws_core::event::SemanticEventKind",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-binaryframe",
+      "to": "ws_core::framing::DecodedFrame",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-closeframe",
+      "to": "ws_core::close::CloseDetail",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-closeframe",
+      "to": "ws_core::close::close_code_rejection",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-closeframe",
+      "to": "ws_core::close::normalize_send_close_code",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-continuousframe",
+      "to": "ws_core::fragment::ContinuousFrame",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-controlframe",
+      "to": "ws_core::framing::Draft6455::process_frame",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-controlframe",
+      "to": "ws_core::framing::Opcode",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-dataframe",
+      "to": "ws_core::connection::DataOpcode",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-dataframe",
+      "to": "ws_core::framing::DecodedFrame",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-framedata",
+      "to": "ws_core::framing::DecodedFrame",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-framedata",
+      "to": "ws_core::framing::FrameHeader",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-framedataimpl1",
+      "to": "ws_core::event::FrameRecord",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-framedataimpl1",
+      "to": "ws_core::framing::DecodedFrame",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-pingframe",
+      "to": "ws_core::event::SemanticEventKind",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-pingframe",
+      "to": "ws_core::framing::Opcode",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-pongframe",
+      "to": "ws_core::event::SemanticEventKind",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-pongframe",
+      "to": "ws_core::framing::Opcode",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-textframe",
+      "to": "ws_core::connection::DataOpcode",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-textframe",
+      "to": "ws_core::event::SemanticEventKind",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-framing-textframe",
+      "to": "ws_core::message::Charsetfunctions",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-clienthandshake",
+      "to": "ws_core::handshake::client::ClientHandshake",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-clienthandshakebuilder",
+      "to": "ws_core::handshake::client::ClientHandshake",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-clienthandshakebuilder",
+      "to": "ws_core::handshake::client::ClientRequestDescriptor",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-handshakebuilder",
+      "to": "ws_core::handshake::http::JavaHeaders",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-handshakedata",
+      "to": "ws_core::handshake::http::JavaHead",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-handshakedata",
+      "to": "ws_core::handshake::http::JavaHeaders",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-handshakedataimpl1",
+      "to": "ws_core::handshake::http::JavaHeaders",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-handshakeimpl1client",
+      "to": "ws_core::handshake::client::ClientHandshake",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-handshakeimpl1client",
+      "to": "ws_core::handshake::client::ClientHandshakeOutcome",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-handshakeimpl1server",
+      "to": "ws_core::handshake::server::ServerHandshake",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-handshakeimpl1server",
+      "to": "ws_core::handshake::server::ServerHandshakeOutcome",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-serverhandshake",
+      "to": "ws_core::handshake::server::ServerHandshake",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-serverhandshakebuilder",
+      "to": "ws_core::handshake::server::ServerHandshake",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-handshake-serverhandshakebuilder",
+      "to": "ws_core::handshake::server::ServerHandshakeOutcome",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-util-base64",
+      "to": "ws_core::handshake::crypto::encode_base64",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-util-base64",
+      "to": "ws_core::handshake::crypto::encode_nonce",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-util-base64-outputstream",
+      "to": "ws_core::handshake::crypto::encode_base64",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-util-bytebufferutils",
+      "to": "ws_core::connection::ConnectionCore",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-util-charsetfunctions",
+      "to": "ws_core::message::Charsetfunctions",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-websocket",
+      "to": "ws_core::connection::CommandSender",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-websocket",
+      "to": "ws_core::connection::ConnectionCore",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-websocket",
+      "to": "ws_core::connection::LocalCommand",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-websocketadapter",
+      "to": "ws_core::event::SemanticEvent",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-websocketadapter",
+      "to": "ws_core::event::SemanticEventKind",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-websocketimpl",
+      "to": "ws_core::connection::ConnectionCore",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-websocketimpl",
+      "to": "ws_core::connection::WebSocketImpl",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-websocketlistener",
+      "to": "ws_core::connection::TransportWrite",
+      "kind": "maps_to"
+    },
+    {
+      "from": "migration.org-java-websocket-websocketlistener",
+      "to": "ws_core::event::SemanticEvent",
+      "kind": "maps_to"
+    },
+    {
+      "from": "sym.adapter.decode-ingress",
+      "to": "ws_core::connection::ConnectionCore::handle",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.adapter.wrapped-io-error",
+      "to": "ws_testee::io_loop::LoopOutcome::SocketError",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.allocation.check-alloc",
+      "to": "ws_core::framing::Draft6455::decode_frame_header",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.allocation.decode-guarded-allocation",
+      "to": "ws_core::framing::Draft6455::decode_frame_header",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.close.close-connection",
+      "to": "ws_core::close::normalize_send_close_code",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.close.close-connection",
+      "to": "ws_core::connection::ConnectionCore::handle_command",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.close.close-connection",
+      "to": "ws_core::connection::ConnectionCore::process_inbound",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.close.flush-and-close",
+      "to": "ws_core::connection::ConnectionCore::handle_command",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.close.flush-and-close",
+      "to": "ws_testee::io_loop::drive_connection",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.concurrency.connection-owner",
+      "to": "ws_core::connection::WebSocketImpl",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.concurrency.connection-owner",
+      "to": "ws_driver::ConnectionDriver",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.connection.close",
+      "to": "ws_core::connection::ConnectionCore::handle_command",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.connection.close",
+      "to": "ws_core::connection::LocalCommand::SendClose",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.connection.eot",
+      "to": "ws_core::connection::ConnectionCore::handle_eof",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.connection.eot",
+      "to": "ws_core::connection::Input::TransportEof",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.connection.open",
+      "to": "ws_core::connection::ConnectionCore::finish_handshake_open",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.control.decode-length-gate",
+      "to": "ws_core::framing::Draft6455::decode_frame_header",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.control.process-frame",
+      "to": "ws_core::framing::Draft6455::process_frame",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.fragmentation.check-buffer-limit",
+      "to": "ws_core::framing::Draft6455::check_buffer_limit",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.fragmentation.process-continuation",
+      "to": "ws_core::framing::Draft6455::process_frame_continuous",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.framing.apply-mask",
+      "to": "ws_core::framing::Draft6455::apply_mask",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.framing.decode-frame-header",
+      "to": "ws_core::framing::Draft6455::decode_frame_header",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.framing.encode-frame",
+      "to": "ws_core::framing::Draft6455::encode_frame",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.handshake.accept-as-server",
+      "to": "ws_core::framing::Draft6455::accept_handshake_as_server",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.handshake.generate-accept",
+      "to": "ws_core::framing::Draft6455::generate_accept_key",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.utf8.is-valid-utf8",
+      "to": "ws_core::message::Charsetfunctions::is_valid_utf8",
+      "kind": "landed_as"
+    },
+    {
+      "from": "sym.utf8.string-utf8",
+      "to": "ws_core::message::Charsetfunctions::string_utf8",
+      "kind": "landed_as"
+    },
+    {
+      "from": "target.formal.adapter.no-protocol-logic",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.adapter.no-protocol-logic",
+      "to": "sym.adapter.decode-ingress",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.adapter.no-protocol-logic",
+      "to": "sym.adapter.wrapped-io-error",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.close.terminal-absorbing",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.close.terminal-absorbing",
+      "to": "sym.close.close-connection",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.close.terminal-absorbing",
+      "to": "sym.close.flush-and-close",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.concurrency.no-data-race",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.concurrency.no-data-race",
+      "to": "sym.concurrency.connection-owner",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.connection.no-terminal-escape",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.connection.no-terminal-escape",
+      "to": "sym.connection.close",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.connection.no-terminal-escape",
+      "to": "sym.connection.eot",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.connection.no-terminal-escape",
+      "to": "sym.connection.open",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.control.payload-length-bound",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.control.payload-length-bound",
+      "to": "sym.control.decode-length-gate",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.control.payload-length-bound",
+      "to": "sym.control.process-frame",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.fragmentation.no-unbounded-growth",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.fragmentation.no-unbounded-growth",
+      "to": "sym.fragmentation.check-buffer-limit",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.fragmentation.no-unbounded-growth",
+      "to": "sym.fragmentation.process-continuation",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.framing.allocation-limit",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.framing.allocation-limit",
+      "to": "sym.allocation.check-alloc",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.framing.allocation-limit",
+      "to": "sym.allocation.decode-guarded-allocation",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.framing.length-bounds",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.framing.length-bounds",
+      "to": "sym.framing.apply-mask",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.framing.length-bounds",
+      "to": "sym.framing.decode-frame-header",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.framing.length-bounds",
+      "to": "sym.framing.encode-frame",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.handshake.accept-derivation",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.handshake.accept-derivation",
+      "to": "sym.handshake.accept-as-server",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.handshake.accept-derivation",
+      "to": "sym.handshake.generate-accept",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.messages.utf8-validation-total",
+      "to": "evidence.linkage.proof-targets",
+      "kind": "declared_in"
+    },
+    {
+      "from": "target.formal.messages.utf8-validation-total",
+      "to": "sym.utf8.is-valid-utf8",
+      "kind": "declares"
+    },
+    {
+      "from": "target.formal.messages.utf8-validation-total",
+      "to": "sym.utf8.string-utf8",
+      "kind": "declares"
+    }
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  }
+}
