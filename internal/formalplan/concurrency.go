@@ -60,6 +60,11 @@ var cpRequiredRaceIDs = []string{
 	"race.send_vs_close",
 	"race.reset_vs_decode",
 	"race.timer_vs_worker",
+	// The tmpHandshakeBytes window (seam R4): the census called it a genuine
+	// Java race window while the races section omitted it (round-1 review,
+	// IMPORTANT finding). Requiring it here makes that omission class a
+	// blocking finding instead of a silent inconsistency.
+	"race.handshake_buffer_vs_close",
 }
 
 type cpAssurance struct {

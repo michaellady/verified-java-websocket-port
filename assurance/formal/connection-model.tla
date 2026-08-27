@@ -3,12 +3,17 @@
 \* tree at .quarantine/Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667/
 \* src/main/java/org/java_websocket/ (all \* JAVA: citations below are
 \* package-root-relative file:line references into that tree, each verified by
-\* direct read), carrying the US-005 live-calibrated close-code semantics
-\* (evidence/corpus-calibration.json, status LIVE_CALIBRATED: the
-\* jm-close-code-1000 Java behavioral mutant was killed 71 times -- 19+26+26
-\* across tiers -- against the predicted JAVA_INVALID_DATA close-code
-\* signature, live-confirming the CloseFrame normalization table modeled here,
-\* including empty-payload-close normalizing to 1000, not 1005).
+\* direct read), carrying the US-005 close-code semantics with two distinct
+\* evidence bases (evidence/corpus-calibration.json, status LIVE_CALIBRATED):
+\* (1) REJECTION-path close codes: the jm-close-code-1000 Java behavioral
+\* mutant rewrites only the InvalidDataException catch to report 1000, and its
+\* 71 kills (19+26+26 across tiers, signature "close_code 1000, expected
+\* 1002/1007/1009") live-confirm that the rejection-path codes the runtime
+\* emits are distinguishable from 1000 -- nothing more. (2) ACCEPT-path
+\* normalization, including empty-payload-close -> 1000: confirmed by direct
+\* source read of CloseFrame.setPayload (framing/CloseFrame.java:250-251);
+\* the mutant never exercises this path because an empty close is accepted
+\* and never enters the rewritten catch.
 \*
 \* STAGE AS: ConnectionModel.tla -- TLA+ module identifiers cannot contain a
 \* hyphen, so a TLC run must stage this file as ConnectionModel.tla and
@@ -36,17 +41,46 @@
 \* language only).
 \*
 \* MODEL SCOPE: the model covers the serialized observable lifecycle. Racy
-\* Java interleavings (send-vs-close, reset-vs-decode, timer-vs-worker) are
-\* deliberately NOT modeled here; they are classified as not-corpus-encodable
-\* in assurance/concurrency/plan.json and the port serializes them by
-\* construction. Two deliberate abstractions widen the model relative to Java:
-\* (1) the translate-stage and process-stage of truncated-tail text rejection
-\* are split into two atomic actions although Java performs both inside one
-\* decodeFrames call, and (2) the outbound queue is finitely bounded via
-\* QueueCapacity although Java's outQueue is unbounded -- a recorded
-\* divergence pointer, see behavior_delta_ledger in
-\* assurance/concurrency/plan.json. Both widenings only ADD behaviors or
-\* bound counters; neither hides a modeled transition.
+\* Java interleavings (send-vs-close, reset-vs-decode, timer-vs-worker,
+\* handshake-buffer-vs-close) are deliberately NOT modeled here; they are
+\* classified as not-corpus-encodable in assurance/concurrency/plan.json and
+\* the port serializes them by construction. The model's deliberate
+\* abstractions relative to Java fall into two honestly distinct kinds:
+\*
+\* RESTRICTIONS (behaviors of Java the model HIDES): the outbound queue is
+\* finitely bounded via QueueCapacity although Java's outQueue is unbounded
+\* (WebSocketImpl.java:98) -- SendData is disabled at capacity, so every Java
+\* behavior in which more writes are simultaneously queued does not exist in
+\* the model; likewise MaxSends and MaxInbound cut off longer send/receive
+\* histories. This is the standard finite-state abstraction, and its
+\* implication is stated plainly: the checked safety results hold only for
+\* behaviors within these bounds, and the model claims nothing about
+\* behaviors beyond them. Bounding an unbounded queue is NOT a
+\* safety-preserving widening. (The PORT's bounded queue is a separate,
+\* deliberate design divergence with its own recorded pointer,
+\* divergence.bounded-command-queue in behavior_delta_ledger of
+\* assurance/concurrency/plan.json.)
+\*
+\* ADDITIONS (behaviors the model has that serialized Java does not): (1) the
+\* translate-stage and process-stage of truncated-tail text rejection are
+\* split into two atomic actions although Java performs both inside one
+\* decodeFrames call (WebSocketImpl.java:390-397); other actions firing
+\* inside that window model the processing of earlier frames of the same
+\* translated batch, plus orderings serialized Java cannot produce at all
+\* (e.g. a local close between the stages). (2) CloseOnDrain is enabled from
+\* any CLOSING state although Java gates it on the flushandclosestate latch;
+\* every modeled path into CLOSING passes a flushAndClose call site, so this
+\* relaxation only adds schedules. Additions can only make the checked
+\* invariants harder to satisfy, never easier.
+\*
+\* MECHANIZED CHECK: internal/formalplan/model_walker_test.go carries a
+\* hand-translated Go replica of this transition relation and exhaustively
+\* enumerates the reachable states under the shipped cfg bounds, checking
+\* every INVARIANT plus the TerminalAbsorbing action property, and executing
+\* the seeded mutations to confirm non-vacuity. It is a test of this
+\* artifact, not TLC: it does not parse this file (translation divergence is
+\* a residual risk), and it does not check the ClosingLeadsToClosed liveness
+\* property, which remains pending the TLC run recorded below.
 ---- MODULE ConnectionModel ----
 EXTENDS Integers, Sequences
 
@@ -78,7 +112,8 @@ vars == <<state, outQ, sendCount, inboundCount, terminalDeliveries,
 \* Domains. Close codes are the normalized codes reachable in this
 \* abstraction: -1 is CloseFrame.NEVER_CONNECTED (eot before the handshake,
 \* WebSocketImpl.java:609-610), 0 is the not-set sentinel, 1000/1002/1006/1007
-\* are the live-confirmed normalization outcomes.
+\* are the normalization outcomes (rejection codes live-confirmed by the
+\* mutant kills; accept-path codes source-read, see the header).
 States == {"Connecting", "Open", "Closing", "Closed"}
 WriteKinds == {"data", "close"}
 CloseCodes == {-1, 0, 1000, 1002, 1006, 1007}
@@ -98,7 +133,8 @@ NoInboundClose == [class |-> "none", kind |-> "none", code |-> 0]
 \* InboundCloseNormalization restates the table, so a mutation to either side
 \* is caught by TLC rather than being true by construction.
 \* JAVA: framing/CloseFrame.java:246-273 setPayload: empty payload -> code
-\*   1000 (NORMAL, line 250-251; the jm-close-code-1000-confirmed path), one
+\*   1000 (NORMAL, line 250-251; confirmed by direct source read -- the
+\*   jm-close-code-1000 mutant never exercises this accept path), one
 \*   byte -> 1002 (PROTOCOL_ERROR, 252-253), >=2 bytes -> big-endian code
 \*   (254-261), invalid UTF-8 reason -> code 1007 with null reason (262-269).
 \* JAVA: framing/CloseFrame.java:226-243 isValid rejection chain: 1007 with
@@ -182,7 +218,11 @@ RecvTextTruncatedTail ==
 \* at process time with close code 1007, and the invalid-data close path
 \* emits a close frame and enters CLOSING. Java performs both stages inside
 \* one decodeFrames call; the model splits them to expose the
-\* recorded-then-rejected ordering (a sound widening, see MODEL SCOPE).
+\* recorded-then-rejected ordering (a deliberate ADDITION of interleavings,
+\* see MODEL SCOPE). This action requires state = "Open": once a close has
+\* begun, the staged rejection is discarded by the close actions below,
+\* because Java's close() no-ops when already CLOSING (WebSocketImpl.java:
+\* 463-464) -- see TruncatedTailStaging.
 \* JAVA: drafts/Draft_6455.java:982-990 processFrameText -> stringUtf8
 \* JAVA: util/Charsetfunctions.java:68-90 stringUtf8 strict decode throws 1007
 \* JAVA: WebSocketImpl.java:391-418 decodeFrames catches InvalidDataException
@@ -207,7 +247,17 @@ ProcessRejectTruncatedTail ==
 \* JAVA: WebSocketImpl.java:463-507 close(): echo close frame sent at
 \*   481-487, readyState = CLOSING at 503
 \* JAVA: framing/CloseFrame.java:246-273 setPayload normalization (empty ->
-\*   1000, live-confirmed by the jm-close-code-1000 mutant kills)
+\*   1000 per the 250-251 source read; the mutant kills confirm only the
+\*   rejection-path codes)
+\* Discard semantics: a truncated tail staged at translate time is dropped as
+\* a close outcome when a close begins. In Java the tail (a later frame of
+\* the same translated batch, WebSocketImpl.java:390-397) is still processed
+\* after this close frame put the connection into CLOSING -- processFrame has
+\* no readyState gate (drafts/Draft_6455.java:893-918) and stringUtf8 still
+\* throws 1007 -- but the resulting close(e) (WebSocketImpl.java:404-407,
+\* 631-633) is a complete no-op because close() early-returns once CLOSING
+\* (WebSocketImpl.java:463-464). Its only residue is an onWebsocketError
+\* callback, which this abstraction does not track.
 RecvCloseAccept(c) ==
   /\ state = "Open"
   /\ c \in AcceptClasses
@@ -218,8 +268,9 @@ RecvCloseAccept(c) ==
   /\ closeDetail' = [origin |-> "remote", code |-> AcceptCode(c)]
   /\ outQ' = Append(outQ, "close")
   /\ state' = "Closing"
-  /\ UNCHANGED <<sendCount, terminalDeliveries, pendingProcessReject,
-                 droppedWrites, rejectedLocalCloses>>
+  /\ pendingProcessReject' = FALSE
+  /\ UNCHANGED <<sendCount, terminalDeliveries, droppedWrites,
+                 rejectedLocalCloses>>
 
 \* Inbound close frame rejected by CloseFrame.isValid: the
 \* InvalidDataException carries 1007 (NO_UTF8 code with empty reason) or 1002
@@ -229,6 +280,8 @@ RecvCloseAccept(c) ==
 \* JAVA: drafts/Draft_6455.java:595 frame.isValid() at translate time
 \* JAVA: WebSocketImpl.java:391-418 decodeFrames catch -> close(e) at 405-408
 \* JAVA: WebSocketImpl.java:463-507 close() -> CLOSING at 503
+\* Discard semantics for a staged truncated tail: same as RecvCloseAccept
+\* (close() no-ops once CLOSING, WebSocketImpl.java:463-464).
 RecvCloseInvalidData(c) ==
   /\ state = "Open"
   /\ c \in InvalidDataClasses
@@ -239,8 +292,9 @@ RecvCloseInvalidData(c) ==
   /\ closeDetail' = [origin |-> "error", code |-> InvalidDataCode(c)]
   /\ outQ' = Append(outQ, "close")
   /\ state' = "Closing"
-  /\ UNCHANGED <<sendCount, terminalDeliveries, pendingProcessReject,
-                 droppedWrites, rejectedLocalCloses>>
+  /\ pendingProcessReject' = FALSE
+  /\ UNCHANGED <<sendCount, terminalDeliveries, droppedWrites,
+                 rejectedLocalCloses>>
 
 \* Inbound close whose >=2-byte payload carries an invalid UTF-8 reason:
 \* setPayload stores code 1007 with a NULL reason, and isValid's
@@ -253,6 +307,11 @@ RecvCloseInvalidData(c) ==
 \* JAVA: framing/CloseFrame.java:228-230 reason.isEmpty() on null -> NPE
 \* JAVA: server/WebSocketServer.java:1163-1169 doDecode catches Exception and
 \*   logs "Error while reading from remote connection"; no close is initiated
+\* Staged-tail note: this action leaves pendingProcessReject unchanged. In
+\* same-batch Java the NPE aborts translateFrame before the process loop, so
+\* a tail staged in that batch would be lost with the whole frames list; the
+\* model keeping the staged reject (and later closing 1007) is one of the
+\* declared ADDED interleavings, not a Java-reachable ordering.
 RecvCloseUtf8ReasonRuntimeRejection ==
   /\ state = "Open"
   /\ inboundCount < MaxInbound
@@ -268,15 +327,22 @@ RecvCloseUtf8ReasonRuntimeRejection ==
 \*   local closes (474-479), close frame built/validated/sent (481-487),
 \*   flushAndClose stores the code/reason/remote triple (494; 584-606), and
 \*   readyState = CLOSING at 503.
+\* Discard semantics for a staged truncated tail: serialized Java cannot run
+\* a local close between the two stages at all (both live inside one
+\* decodeFrames call, WebSocketImpl.java:390-397; the cross-thread case is
+\* race.send_vs_close territory, out of model scope), so this ordering is a
+\* model-added interleaving; its outcome mirrors Java's already-CLOSING
+\* behavior, where the tail's close(e) no-ops (WebSocketImpl.java:463-464)
+\* and the staged rejection never governs the close outcome.
 LocalCloseValid ==
   /\ state = "Open"
   /\ Len(outQ) < QueueCapacity
   /\ closeDetail' = [origin |-> "local", code |-> 1000]
   /\ outQ' = Append(outQ, "close")
   /\ state' = "Closing"
+  /\ pendingProcessReject' = FALSE
   /\ UNCHANGED <<sendCount, inboundCount, terminalDeliveries,
-                 lastInboundClose, pendingProcessReject, droppedWrites,
-                 rejectedLocalCloses>>
+                 lastInboundClose, droppedWrites, rejectedLocalCloses>>
 
 \* Local close with a code CloseFrame.isValid rejects (for example 1015,
 \* which setCode first normalizes to 1005 and isValid then rejects): the
@@ -287,14 +353,17 @@ LocalCloseValid ==
 \* JAVA: WebSocketImpl.java:488-492 catch InvalidDataException ->
 \*   flushAndClose(CloseFrame.ABNORMAL_CLOSE, "generated frame is invalid")
 \* JAVA: WebSocketImpl.java:503 readyState = CLOSING
+\* Discard semantics for a staged truncated tail: same rationale as
+\* LocalCloseValid (WebSocketImpl.java:463-464).
 LocalCloseInvalidCode ==
   /\ state = "Open"
   /\ rejectedLocalCloses < 1
   /\ rejectedLocalCloses' = rejectedLocalCloses + 1
   /\ closeDetail' = [origin |-> "error", code |-> 1006]
   /\ state' = "Closing"
+  /\ pendingProcessReject' = FALSE
   /\ UNCHANGED <<outQ, sendCount, inboundCount, terminalDeliveries,
-                 lastInboundClose, pendingProcessReject, droppedWrites>>
+                 lastInboundClose, droppedWrites>>
 
 \* JAVA: SocketChannelIOHelper.java:82-115 batch(): the selector thread
 \*   drains outQueue head-first in FIFO order (97-107); the OP_WRITE re-arm
@@ -475,13 +544,19 @@ CloseDetailPresentFromClosing ==
 ErrorCloseCodeDomain ==
   (closeDetail.origin = "error") => (closeDetail.code \in {1002, 1006, 1007})
 
-\* The live-confirmed CloseFrame normalization table (the jm-close-code-1000
-\* kill signature): this invariant restates the table independently of the
-\* receive actions, so a mis-normalization mutation on either side is caught.
+\* The CloseFrame normalization table, restated independently of the receive
+\* actions so a mis-normalization mutation on either side is caught. Evidence
+\* split (see header): the rejection-path rows (1007-empty-reason,
+\* reserved/invalid codes) are live-confirmed by the jm-close-code-1000
+\* mutant's 71 kills, whose signature proves the runtime's rejection codes
+\* are distinguishable from 1000; the accept-path rows, including
+\* empty -> 1000, rest on the direct source read of
+\* framing/CloseFrame.java:246-273, which the mutant cannot exercise (an
+\* empty close never enters the rewritten InvalidDataException catch).
 \* FALSIFIED BY: defect.model.empty-close-misnormalized -- in
 \*   RecvCloseAccept assign code 1002 for the "empty" class (the historical
-\*   B1-style empty-close mis-normalization, caught live by the
-\*   jm-close-code-1000 mutant's 71-kill signature).
+\*   B1-style empty-close mis-normalization; guarded by the
+\*   CloseFrame.java:250-251 source read, NOT by the mutant kills).
 InboundCloseNormalization ==
   /\ (lastInboundClose.class = "empty") =>
        (lastInboundClose.kind = "accept" /\ lastInboundClose.code = 1000)
@@ -504,10 +579,19 @@ QueueNeverExceedsCapacity == Len(outQ) <= QueueCapacity
 
 \* A pending process-stage rejection can only exist while OPEN and only
 \* after the truncated frame was actually recorded at translate stage -- the
-\* two stages cannot collapse into an unrecorded reject.
+\* two stages cannot collapse into an unrecorded reject. It can only exist
+\* while OPEN because every action that begins or completes a close discards
+\* it, mirroring Java: once CLOSING, the tail's process-stage
+\* InvalidDataException reaches close(e), which early-returns
+\* (WebSocketImpl.java:463-464), so a staged rejection can never govern a
+\* close outcome (review round 1, BLOCKING-1: the pre-fix model reached
+\* Closing with pendingProcessReject = TRUE via Init -> OpenHandshake ->
+\* RecvTextTruncatedTail -> LocalCloseValid).
 \* FALSIFIED BY: defect.model.truncated-tail-single-stage -- in
 \*   RecvTextTruncatedTail replace inboundCount' = inboundCount + 1 with
-\*   UNCHANGED inboundCount.
+\*   UNCHANGED inboundCount; and defect.model.truncated-tail-survives-close
+\*   -- in LocalCloseValid replace pendingProcessReject' = FALSE with
+\*   UNCHANGED pendingProcessReject (the exact reviewer trace above).
 TruncatedTailStaging ==
   pendingProcessReject => (state = "Open" /\ inboundCount >= 1)
 

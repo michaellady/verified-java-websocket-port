@@ -215,6 +215,26 @@ func TestConcurrencyPlanValidatorRejectsSemanticDefects(t *testing.T) {
 			expect: "PLAN_RACE_FAMILY_MISSING",
 		},
 		{
+			// Round-1 review, IMPORTANT finding: seam R4's census note calls
+			// tmpHandshakeBytes a genuine Java race window, so its absence
+			// from races_not_corpus_encodable must be a blocking finding.
+			name: "required handshake-buffer race missing",
+			mutate: func(t *testing.T, plan map[string]any) {
+				races := cpTestSection(t, plan, "races_not_corpus_encodable")
+				var kept []any
+				for _, entry := range races {
+					if entry.(map[string]any)["race_id"] != "race.handshake_buffer_vs_close" {
+						kept = append(kept, entry)
+					}
+				}
+				if len(kept) == len(races) {
+					t.Fatalf("race.handshake_buffer_vs_close not present; update test")
+				}
+				plan["races_not_corpus_encodable"] = kept
+			},
+			expect: "PLAN_RACE_FAMILY_MISSING",
+		},
+		{
 			name: "seeded defect targets unknown property",
 			mutate: func(t *testing.T, plan map[string]any) {
 				defect := cpTestSection(t, plan, "seeded_defects")[0].(map[string]any)

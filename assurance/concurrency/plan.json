@@ -18,7 +18,7 @@
     "us005_calibration": {
       "path": "evidence/corpus-calibration.json",
       "status": "LIVE_CALIBRATED",
-      "close_code_mutant_summary": "jm-close-code-1000 (Java behavioral mutant) executed the full 258-scenario sweep in-sandbox and was killed 71 times (19+26+26 across tiers) against the predicted JAVA_INVALID_DATA close-code signature; jm-utf8-accept was killed 10 times on the 1007 scenarios; reruns byte-identical. This live-confirms the CloseFrame normalization table the connection model encodes."
+      "close_code_mutant_summary": "jm-close-code-1000 (Java behavioral mutant) executed the full 258-scenario sweep in-sandbox and was killed 71 times (19+26+26 across tiers) against the predicted JAVA_INVALID_DATA close-code signature; jm-utf8-accept was killed 10 times on the 1007 scenarios; reruns byte-identical. Evidence scope, stated precisely: the mutant rewrites only OracleEngine's InvalidDataException catch to report 1000, so its kills live-confirm that the rejection-path close codes the runtime emits (1002/1007/1009 per scenario) are distinguishable from 1000 -- and nothing else. The kills do NOT exercise the empty-payload accept path (an empty close is accepted by setPayload and never enters the rewritten catch); the connection model's empty -> 1000 entry rests on the direct source read of CloseFrame.setPayload (framing/CloseFrame.java:250-251)."
     },
     "related_model": "assurance/formal/connection-model.tla"
   },
@@ -140,7 +140,7 @@
         "name": "WebSocketImpl.tmpHandshakeBytes",
         "citations": ["WebSocketImpl.java:147", "WebSocketImpl.java:504", "WebSocketImpl.java:248-264"],
         "classification": "load_bearing",
-        "note": "Decode-thread handshake accumulation buffer, nulled inside synchronized close (504) while decodeHandshake may be mid-use: a genuine Java race window (incidental as a race, load-bearing as buffering semantics).",
+        "note": "Decode-thread handshake accumulation buffer, nulled inside synchronized close (504) while decodeHandshake may be mid-use: a genuine Java race window (incidental as a race, load-bearing as buffering semantics; see race.handshake_buffer_vs_close).",
         "rust_mapping": "Handshake buffer owned by the owner; close command and inbound bytes are serialized, so the race is structurally absent; buffering and limit semantics ported exactly (US-005 handshake corpus)."
       },
       {
@@ -382,7 +382,7 @@
       "java_seams": ["L2", "V1", "T2"],
       "java_citations": ["drafts/Draft_6455.java:1054-1073", "framing/CloseFrame.java:246-273", "framing/CloseFrame.java:226-243", "WebSocketImpl.java:463-507", "WebSocketImpl.java:530-567"],
       "preconditions": ["state OPEN or CLOSING"],
-      "effects": ["payload normalized per the live-confirmed CloseFrame table (empty -> 1000, one byte -> 1002, isValid rejects -> 1007/1002, invalid-UTF-8 reason -> runtime rejection)", "OPEN: echo close + CLOSING; CLOSING: handshake completes, terminal delivery"],
+      "effects": ["payload normalized per the CloseFrame setPayload/isValid table read from source (empty -> 1000 per CloseFrame.java:250-251, one byte -> 1002, isValid rejects -> 1007/1002, invalid-UTF-8 reason -> runtime rejection); the rejection-path codes are additionally live-confirmed by the jm-close-code-1000 kills, the accept-path rows are not", "OPEN: echo close + CLOSING; CLOSING: handshake completes, terminal delivery"],
       "observable_outcomes": ["ECHO_CLOSE_AND_CLOSING", "HANDSHAKE_COMPLETED_CLOSED", "INVALID_DATA_CLOSE_INITIATED", "RUNTIME_REJECTION_LOGGED"],
       "max_occurrences_per_schedule": 2
     },
@@ -531,6 +531,15 @@
       "divergence_ids": []
     },
     {
+      "race_id": "race.handshake_buffer_vs_close",
+      "java_seams": ["R4", "L2", "T2"],
+      "java_citations": ["WebSocketImpl.java:147", "WebSocketImpl.java:504", "WebSocketImpl.java:248-264"],
+      "racy_java_behavior": "close() nulls tmpHandshakeBytes inside the L2 monitor (504) while the decode thread's decodeHandshake may be mid-use of the same buffer (248-264), which decodeHandshake reads and reassigns without any lock: mid-handshake close can produce an NPE on the decode thread or silently drop accumulated handshake bytes, depending on the preemption point.",
+      "why_not_corpus_encodable": "The outcome depends on where the decode thread is preempted inside decodeHandshake relative to the closing thread's null-out; no deterministic input byte/action sequence pins that interleaving, so the corpus can encode either serialized order but not the race itself.",
+      "deterministic_rust_semantics": "The handshake buffer is owned by the single owner; close commands and inbound bytes are serialized, so the race is structurally absent, while the buffering and limit semantics are ported exactly (US-005 handshake corpus).",
+      "divergence_ids": []
+    },
+    {
       "race_id": "race.enqueue_after_key_cancel",
       "java_seams": ["Q1", "T1"],
       "java_citations": ["server/WebSocketServer.java:848-857"],
@@ -575,70 +584,77 @@
   "seeded_defects": [
     {
       "defect_id": "defect.model.type-domain-escape",
-      "mutation": "In connection-model.tla Init, change closeDetail to [origin |-> \"none\", code |-> 5]; 5 is outside CloseCodes.",
+      "mutation": "In connection-model.tla Init, change closeDetail to [origin |-> \"none\", code |-> 5]; 5 is outside CloseCodes. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "TypeInvariant",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
     },
     {
       "defect_id": "defect.model.double-terminal-delivery",
-      "mutation": "Add \"Closed\" to TransportEOF's enabling state set; TLC reaches terminalDeliveries = 2.",
+      "mutation": "Add \"Closed\" to TransportEOF's enabling state set; TLC reaches terminalDeliveries = 2. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "TerminalDeliveredAtMostOnce",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
     },
     {
       "defect_id": "defect.model.closed-without-terminal-event",
-      "mutation": "In CloseOnDrain, replace terminalDeliveries' = terminalDeliveries + 1 with UNCHANGED terminalDeliveries.",
+      "mutation": "In CloseOnDrain, replace terminalDeliveries' = terminalDeliveries + 1 with UNCHANGED terminalDeliveries. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "ClosedImpliesTerminalDeliveredOnce",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
     },
     {
       "defect_id": "defect.model.closing-without-close-detail",
-      "mutation": "In LocalCloseValid, replace the closeDetail assignment with UNCHANGED closeDetail.",
+      "mutation": "In LocalCloseValid, replace the closeDetail assignment with UNCHANGED closeDetail. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "CloseDetailPresentFromClosing",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
     },
     {
       "defect_id": "defect.model.error-close-with-normal-code",
-      "mutation": "In ProcessRejectTruncatedTail, set the close code to 1000 instead of 1007.",
+      "mutation": "In ProcessRejectTruncatedTail, set the close code to 1000 instead of 1007. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "ErrorCloseCodeDomain",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
     },
     {
       "defect_id": "defect.model.empty-close-misnormalized",
-      "mutation": "In RecvCloseAccept, assign code 1002 for the \"empty\" class: the historical empty-close mis-normalization family that the jm-close-code-1000 mutant's 71-kill live signature guards against.",
+      "mutation": "In RecvCloseAccept, assign code 1002 for the \"empty\" class: the historical empty-close mis-normalization family. Guarded by the CloseFrame.java:250-251 source read, not by the jm-close-code-1000 kills, which never exercise the empty-payload accept path. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "InboundCloseNormalization",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
     },
     {
       "defect_id": "defect.model.unbounded-enqueue",
-      "mutation": "Remove SendData's Len(outQ) < QueueCapacity guard; the cfg sets MaxSends (3) above QueueCapacity (2) so the overflow is reachable.",
+      "mutation": "Remove SendData's Len(outQ) < QueueCapacity guard; the cfg sets MaxSends (3) above QueueCapacity (2) so the overflow is reachable. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "QueueNeverExceedsCapacity",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
     },
     {
       "defect_id": "defect.model.truncated-tail-single-stage",
-      "mutation": "In RecvTextTruncatedTail, replace inboundCount' = inboundCount + 1 with UNCHANGED inboundCount: the reject stage then exists without a recorded frame.",
+      "mutation": "In RecvTextTruncatedTail, replace inboundCount' = inboundCount + 1 with UNCHANGED inboundCount: the reject stage then exists without a recorded frame. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
+      "target_property": "TruncatedTailStaging",
+      "expected_result": "COUNTEREXAMPLE",
+      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+    },
+    {
+      "defect_id": "defect.model.truncated-tail-survives-close",
+      "mutation": "In LocalCloseValid, replace pendingProcessReject' = FALSE with UNCHANGED pendingProcessReject: the round-1 BLOCKING-1 defect class. Reaches Closing with a live staged rejection via Init -> OpenHandshake -> RecvTextTruncatedTail -> LocalCloseValid, exactly the reviewer's counterexample trace against the pre-fix model. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed on that trace.",
       "target_property": "TruncatedTailStaging",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
     },
     {
       "defect_id": "defect.model.reopen-after-terminal",
-      "mutation": "Add a Reopen action (state = \"Closed\" /\\ state' = \"Open\" /\\ UNCHANGED the remaining variables) to Next.",
+      "mutation": "Add a Reopen action (state = \"Closed\" /\\ state' = \"Open\" /\\ UNCHANGED the remaining variables) to Next. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "TerminalAbsorbing",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
     },
     {
       "defect_id": "defect.model.starved-closing-resolution",
-      "mutation": "Change the cfg SPECIFICATION from FairSpec to Spec (delete the fairness conjuncts); TLC finds the lasso that stutters in CLOSING forever.",
+      "mutation": "Change the cfg SPECIFICATION from FairSpec to Spec (delete the fairness conjuncts); TLC finds the lasso that stutters in CLOSING forever. Not executable by the Go bounded walker: a plain reachability walk cannot falsify a fairness/liveness property, so this defect remains pending the TLC run.",
       "target_property": "ClosingLeadsToClosed",
       "expected_result": "COUNTEREXAMPLE",
       "execution_state": "MODEL_CHECK_PENDING_TOOL"
