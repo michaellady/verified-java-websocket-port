@@ -245,6 +245,34 @@ func (report *Report) checkMigration(
 			"$.rust_identity_status.rust_workspace_present",
 			"declared Rust workspace presence disagrees with the repository")
 	}
+	expectedResolved := us009ResolvedRustIdentities
+	receipted := map[string]string{}
+	receipt := migration.RustIdentityStatus.ResolutionReceipt
+	expectedCommand := []string{"rust-analyzer", "scip", "rust", "--output", "us009-websocket-core.scip", "--exclude-vendored-libraries"}
+	receiptValid := receipt != nil && receipt.StoryID == "US-009" &&
+		receipt.ResolverArtifactID == "rust-analyzer-2026-08-17.4-aarch64-apple-darwin" &&
+		receipt.ResolverVersion == "2026-08-17.4 commit bb3bbbd9e4" &&
+		receipt.ResolverBinarySHA256 == "sha256:5142e0d6d0a48bc8ba0638125eaa68296defba7d32628362175eff967d12e145" &&
+		receipt.Mode == "OFFLINE_SCIP_INDEX" && receipt.Network == "DENY_CARGO_NET_OFFLINE" &&
+		receipt.IndexSHA256 == "sha256:233e079818fcc71ee9678774def67ef69e50e5a0cab990d645181eaddf3c250b" &&
+		receipt.UnresolvedScope == "All other migration rows remain rust_identity_verified=false and are not claimed by this receipt." &&
+		stringSlicesEqual(receipt.Command, expectedCommand) && len(receipt.Resolutions) == 3
+	if receiptValid {
+		for _, resolution := range receipt.Resolutions {
+			expected, known := expectedResolved[resolution.JavaSemanticID]
+			if !known || resolution.RustSemanticID != expected.RustSemanticID ||
+				resolution.SCIPSymbol != expected.SCIPSymbol || receipted[resolution.JavaSemanticID] != "" {
+				receiptValid = false
+				break
+			}
+			receipted[resolution.JavaSemanticID] = resolution.RustSemanticID
+		}
+	}
+	if !receiptValid || len(receipted) != len(expectedResolved) {
+		receipted = map[string]string{}
+		report.add(FindingUnverifiableRustIdentity, MigrationMapDocument,
+			"$.rust_identity_status.resolution_receipt", "US-009 verified identities require the exact pinned offline rust-analyzer SCIP receipt")
+	}
 
 	boundFacets := map[string]bool{}
 	for index, row := range migration.Rows {
@@ -277,6 +305,14 @@ func (report *Report) checkMigration(
 					path+".rust_identity_verified",
 					"no Rust workspace exists, so no Rust identity can be resolver-verified")
 			}
+			expected, allowed := expectedResolved[row.JavaSemanticID]
+			if !allowed || row.RustSemanticID != expected.RustSemanticID || row.Status != expected.Status || receipted[row.JavaSemanticID] != row.RustSemanticID {
+				report.add(FindingUnverifiableRustIdentity, MigrationMapDocument,
+					path+".rust_identity_verified", "only an exact identity named by the US-009 rust-analyzer receipt may be verified")
+			}
+		} else if row.Status != "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED" && row.Status != "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED" {
+			report.add(FindingUnverifiableRustIdentity, MigrationMapDocument,
+				path+".status", "unverified later-story identities must remain explicitly unresolved or capability-excluded")
 		}
 		bindingsSound := len(row.PortSlices) > 0
 		for bindingIndex, binding := range row.PortSlices {
@@ -559,4 +595,16 @@ func rustWorkspacePresent(root string) bool {
 		}
 	}
 	return false
+}
+
+func stringSlicesEqual(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }

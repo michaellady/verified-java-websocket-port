@@ -218,6 +218,71 @@ func TestMigrationMapDeclaresNoRustWorkspaceExists(t *testing.T) {
 	}
 }
 
+func TestMigrationMapVerifiesOnlyImplementedUS009Identities(t *testing.T) {
+	migration := loadMigration(t, repoRoot)
+	want := map[string]string{
+		"org.java_websocket.WebSocketImpl":    "websocket_core::ConnectionCore",
+		"org.java_websocket.enums.ReadyState": "websocket_core::ConnectionState",
+		"org.java_websocket.enums.Role":       "websocket_core::Role",
+	}
+	verified := 0
+	for _, row := range migration.Rows {
+		if !row.RustIdentityVerified {
+			if row.Status != "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED" &&
+				row.Status != "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED" {
+				t.Fatalf("unverified %s has dishonest status %s", row.JavaSemanticID, row.Status)
+			}
+			continue
+		}
+		verified++
+		expected, ok := want[row.JavaSemanticID]
+		if !ok {
+			t.Fatalf("later-story identity was fabricated as verified: %s -> %s", row.JavaSemanticID, row.RustSemanticID)
+		}
+		if row.RustSemanticID != expected {
+			t.Fatalf("%s maps to %s, want %s", row.JavaSemanticID, row.RustSemanticID, expected)
+		}
+		delete(want, row.JavaSemanticID)
+	}
+	if verified != 3 || len(want) != 0 {
+		t.Fatalf("verified identities = %d and missing = %v; want exactly three US-009 identities", verified, want)
+	}
+}
+
+func TestMigrationMapRejectsUnreceiptedVerifiedIdentity(t *testing.T) {
+	report := mutate(t, MigrationMapDocument, func(document map[string]any) {
+		rows := document["rows"].([]any)
+		row := rows[0].(map[string]any)
+		row["rust_identity_verified"] = true
+		row["status"] = "RESOLVER_VERIFIED_DIRECT_IDENTITY"
+	})
+	requireFinding(t, report, FindingUnverifiableRustIdentity)
+}
+
+func TestMigrationMapRejectsRustAnalyzerReceiptDrift(t *testing.T) {
+	tests := map[string]func(map[string]any){
+		"resolver binary digest": func(receipt map[string]any) {
+			receipt["resolver_binary_sha256"] = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		},
+		"resolver command": func(receipt map[string]any) {
+			receipt["command"].([]any)[0] = "unreceipted-rust-analyzer"
+		},
+		"resolved SCIP symbol": func(receipt map[string]any) {
+			resolutions := receipt["resolutions"].([]any)
+			resolutions[0].(map[string]any)["scip_symbol"] = "fabricated symbol"
+		},
+	}
+	for name, drift := range tests {
+		t.Run(name, func(t *testing.T) {
+			report := mutate(t, MigrationMapDocument, func(document map[string]any) {
+				status := document["rust_identity_status"].(map[string]any)
+				drift(status["resolution_receipt"].(map[string]any))
+			})
+			requireFinding(t, report, FindingUnverifiableRustIdentity)
+		})
+	}
+}
+
 // AC4: no implementation story has an unresolved touched surface.
 func TestSeamDossierLeavesNoImplementationStoryUnresolved(t *testing.T) {
 	report := verifyRepo(t)

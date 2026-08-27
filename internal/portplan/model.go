@@ -261,11 +261,31 @@ type JavaIdentityMethod struct {
 // RustIdentityStatus records that no Rust workspace exists yet, so no Rust identity in this
 // document is resolver-verified.
 type RustIdentityStatus struct {
-	WorkspacePresent bool   `json:"rust_workspace_present"`
-	PlannedResolver  string `json:"planned_resolver"`
-	BlockerCode      string `json:"blocker_code"`
-	CreatedByStory   string `json:"created_by_story"`
-	Statement        string `json:"statement"`
+	WorkspacePresent  bool                           `json:"rust_workspace_present"`
+	PlannedResolver   string                         `json:"planned_resolver"`
+	BlockerCode       string                         `json:"blocker_code"`
+	CreatedByStory    string                         `json:"created_by_story"`
+	Statement         string                         `json:"statement"`
+	ResolutionReceipt *RustIdentityResolutionReceipt `json:"resolution_receipt,omitempty"`
+}
+
+type RustIdentityResolutionReceipt struct {
+	StoryID              string                   `json:"story_id"`
+	ResolverArtifactID   string                   `json:"resolver_artifact_id"`
+	ResolverVersion      string                   `json:"resolver_version"`
+	ResolverBinarySHA256 string                   `json:"resolver_binary_sha256"`
+	Mode                 string                   `json:"mode"`
+	Command              []string                 `json:"command"`
+	Network              string                   `json:"network"`
+	IndexSHA256          string                   `json:"index_sha256"`
+	Resolutions          []RustIdentityResolution `json:"resolutions"`
+	UnresolvedScope      string                   `json:"unresolved_scope"`
+}
+
+type RustIdentityResolution struct {
+	JavaSemanticID string `json:"java_semantic_id"`
+	RustSemanticID string `json:"rust_semantic_id"`
+	SCIPSymbol     string `json:"scip_symbol"`
 }
 
 // SliceBinding binds one behavioral facet of a Java type to the port slice (and child story)

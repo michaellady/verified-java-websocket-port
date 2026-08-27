@@ -1,9 +1,9 @@
 {
-  "$schema": "../../schemas/semantic-id-migration-map-1.0.0.schema.json",
-  "schema_version": "1.0.0",
+  "$schema": "../../schemas/semantic-id-migration-map-1.1.0.schema.json",
+  "schema_version": "1.1.0",
   "entity_type": "MigrationMap",
   "map_id": "semantic-id-migration-map.us003",
-  "map_version": "1.1.0",
+  "map_version": "1.2.0",
   "java_identity_method": {
     "tool": "java-semantic-oracle 1.0.0",
     "api": "javax.lang.model elements from com.sun.source.util.JavacTask.analyze() (JDK Compiler Tree API)",
@@ -15,9 +15,44 @@
   "rust_identity_status": {
     "rust_workspace_present": true,
     "planned_resolver": "rust-analyzer",
-    "blocker_code": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED",
+    "blocker_code": "RUST_IDENTITIES_PARTIALLY_RESOLVER_VERIFIED",
     "created_by_story": "US-009",
-    "statement": "A Rust cargo workspace exists (scaffold only; no behavior implemented), but rust-analyzer has not been run against any identity in this map. Every rust_semantic_id remains a planned identity and every row carries rust_identity_verified=false. US-009 establishes the ConnectionCore contract; each Rust identity must be resolver-verified before any row may claim verification."
+    "statement": "The pinned rust-analyzer SCIP index resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role for US-009. Every later-story identity remains explicitly unresolved; no Java-shaped Rust alias was fabricated.",
+    "resolution_receipt": {
+      "story_id": "US-009",
+      "resolver_artifact_id": "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
+      "resolver_version": "2026-08-17.4 commit bb3bbbd9e4",
+      "resolver_binary_sha256": "sha256:5142e0d6d0a48bc8ba0638125eaa68296defba7d32628362175eff967d12e145",
+      "mode": "OFFLINE_SCIP_INDEX",
+      "command": [
+        "rust-analyzer",
+        "scip",
+        "rust",
+        "--output",
+        "us009-websocket-core.scip",
+        "--exclude-vendored-libraries"
+      ],
+      "network": "DENY_CARGO_NET_OFFLINE",
+      "index_sha256": "sha256:233e079818fcc71ee9678774def67ef69e50e5a0cab990d645181eaddf3c250b",
+      "resolutions": [
+        {
+          "java_semantic_id": "org.java_websocket.WebSocketImpl",
+          "rust_semantic_id": "websocket_core::ConnectionCore",
+          "scip_symbol": "rust-analyzer cargo websocket-core 0.0.0 connection/ConnectionCore#"
+        },
+        {
+          "java_semantic_id": "org.java_websocket.enums.ReadyState",
+          "rust_semantic_id": "websocket_core::ConnectionState",
+          "scip_symbol": "rust-analyzer cargo websocket-core 0.0.0 connection/ConnectionState#"
+        },
+        {
+          "java_semantic_id": "org.java_websocket.enums.Role",
+          "rust_semantic_id": "websocket_core::Role",
+          "scip_symbol": "rust-analyzer cargo websocket-core 0.0.0 connection/Role#"
+        }
+      ],
+      "unresolved_scope": "All other migration rows remain rust_identity_verified=false and are not claimed by this receipt."
+    }
   },
   "rows": [
     {
@@ -292,9 +327,9 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 79,
-      "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+      "rust_semantic_id": "websocket_core::ConnectionCore",
       "rust_resolver": "rust-analyzer",
-      "rust_identity_verified": false,
+      "rust_identity_verified": true,
       "applicability_conditions": [
         "applies to Sec-WebSocket-Key generation and Sec-WebSocket-Accept derivation",
         "applies to binary payload passthrough without transformation",
@@ -519,7 +554,7 @@
         "evidence.us-018-differential",
         "evidence.us-018-property"
       ],
-      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+      "status": "RESOLVER_VERIFIED_CAPABILITY_REPLACEMENT"
     },
     {
       "id": "migration.org-java-websocket-websocketlistener",
@@ -1388,9 +1423,9 @@
       "java_kind": "ENUM",
       "java_lookup_strength": "semantic",
       "java_member_count": 7,
-      "rust_semantic_id": "ws_core::connection::ReadyState",
+      "rust_semantic_id": "websocket_core::ConnectionState",
       "rust_resolver": "rust-analyzer",
-      "rust_identity_verified": false,
+      "rust_identity_verified": true,
       "applicability_conditions": [
         "applies to the single-connection state machine only",
         "applies when the transport is a plain byte stream supplied by the adapter"
@@ -1439,7 +1474,7 @@
         "evidence.us-009-differential",
         "evidence.us-009-property"
       ],
-      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+      "status": "RESOLVER_VERIFIED_CAPABILITY_REPLACEMENT"
     },
     {
       "id": "migration.org-java-websocket-enums-role",
@@ -1450,9 +1485,9 @@
       "java_kind": "ENUM",
       "java_lookup_strength": "semantic",
       "java_member_count": 5,
-      "rust_semantic_id": "ws_core::connection::Role",
+      "rust_semantic_id": "websocket_core::Role",
       "rust_resolver": "rust-analyzer",
-      "rust_identity_verified": false,
+      "rust_identity_verified": true,
       "applicability_conditions": [
         "applies to the single-connection state machine only",
         "applies when the transport is a plain byte stream supplied by the adapter"
@@ -1501,7 +1536,7 @@
         "evidence.us-009-differential",
         "evidence.us-009-property"
       ],
-      "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
+      "status": "RESOLVER_VERIFIED_DIRECT_IDENTITY"
     },
     {
       "id": "migration.org-java-websocket-exceptions-incompleteexception",

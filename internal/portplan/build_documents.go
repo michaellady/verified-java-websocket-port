@@ -272,6 +272,14 @@ func buildMigrationMap(
 		primary, _ := sliceByID(specs[0].SliceID)
 		status := "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
 		rustID := primary.RustModule + "::" + rustTypeName(binaryName)
+		rustIdentityVerified := false
+		if request.ToolchainRoot != "" {
+			if resolved, ok := us009ResolvedRustIdentities[binaryName]; ok && rustWorkspacePresent(workspaceProbeRoot(request)) {
+				rustID = resolved.RustSemanticID
+				status = resolved.Status
+				rustIdentityVerified = true
+			}
+		}
 		if code, excludedCapability := capabilityExcluded[binaryName]; excludedCapability {
 			status = "IN_SCOPE_SEMANTIC_ITEM_CAPABILITY_EXCLUDED"
 			rustID = "(no Rust counterpart: " + code + ")"
@@ -292,7 +300,7 @@ func buildMigrationMap(
 			JavaMemberCount:         memberCounts[binaryName],
 			RustSemanticID:          rustID,
 			RustResolver:            "rust-analyzer",
-			RustIdentityVerified:    false,
+			RustIdentityVerified:    rustIdentityVerified,
 			ApplicabilityConditions: sortedKeys(applicability),
 			KnownNonEquivalentCases: sortedKeys(nonEquivalence),
 			SourceRevision:          request.SourceCommit,
@@ -314,11 +322,11 @@ func buildMigrationMap(
 	sort.Slice(rows, func(i, j int) bool { return rows[i].JavaBinaryName < rows[j].JavaBinaryName })
 
 	return MigrationMap{
-		SchemaRef:     "../../schemas/semantic-id-migration-map-1.0.0.schema.json",
-		SchemaVersion: "1.0.0",
+		SchemaRef:     "../../schemas/semantic-id-migration-map-1.1.0.schema.json",
+		SchemaVersion: "1.1.0",
 		EntityType:    "MigrationMap",
 		MapID:         "semantic-id-migration-map.us003",
-		MapVersion:    "1.1.0",
+		MapVersion:    "1.2.0",
 		JavaIdentityMethod: JavaIdentityMethod{
 			Tool:           "java-semantic-oracle 1.0.0",
 			API:            oracle.IdentitySource,
@@ -678,16 +686,12 @@ func buildCutoverContract(request DeriveRequest) CutoverContract {
 func rustIdentityStatus(workspacePresent bool) RustIdentityStatus {
 	if workspacePresent {
 		return RustIdentityStatus{
-			WorkspacePresent: true,
-			PlannedResolver:  "rust-analyzer",
-			BlockerCode:      "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED",
-			CreatedByStory:   "US-009",
-			Statement: "A Rust cargo workspace exists (scaffold only; no behavior implemented)," +
-				" but rust-analyzer has not been run against any identity in this map. Every" +
-				" rust_semantic_id remains a planned identity and every row carries" +
-				" rust_identity_verified=false. US-009 establishes the ConnectionCore contract;" +
-				" each Rust identity must be resolver-verified before any row may claim" +
-				" verification.",
+			WorkspacePresent:  true,
+			PlannedResolver:   "rust-analyzer",
+			BlockerCode:       "RUST_IDENTITIES_PARTIALLY_RESOLVER_VERIFIED",
+			CreatedByStory:    "US-009",
+			Statement:         "The pinned rust-analyzer SCIP index resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role for US-009. Every later-story identity remains explicitly unresolved; no Java-shaped Rust alias was fabricated.",
+			ResolutionReceipt: us009RustResolutionReceipt(),
 		}
 	}
 	return RustIdentityStatus{
@@ -700,6 +704,37 @@ func rustIdentityStatus(workspacePresent bool) RustIdentityStatus {
 			" is a planned identity and every row carries rust_identity_verified=false." +
 			" US-009 creates the workspace; this map must be re-derived and each Rust" +
 			" identity resolved before any row may claim verification.",
+	}
+}
+
+type resolvedRustIdentity struct {
+	RustSemanticID string
+	Status         string
+	SCIPSymbol     string
+}
+
+var us009ResolvedRustIdentities = map[string]resolvedRustIdentity{
+	"org.java_websocket.WebSocketImpl":    {"websocket_core::ConnectionCore", "RESOLVER_VERIFIED_CAPABILITY_REPLACEMENT", "rust-analyzer cargo websocket-core 0.0.0 connection/ConnectionCore#"},
+	"org.java_websocket.enums.ReadyState": {"websocket_core::ConnectionState", "RESOLVER_VERIFIED_CAPABILITY_REPLACEMENT", "rust-analyzer cargo websocket-core 0.0.0 connection/ConnectionState#"},
+	"org.java_websocket.enums.Role":       {"websocket_core::Role", "RESOLVER_VERIFIED_DIRECT_IDENTITY", "rust-analyzer cargo websocket-core 0.0.0 connection/Role#"},
+}
+
+func us009RustResolutionReceipt() *RustIdentityResolutionReceipt {
+	return &RustIdentityResolutionReceipt{
+		StoryID:              "US-009",
+		ResolverArtifactID:   "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
+		ResolverVersion:      "2026-08-17.4 commit bb3bbbd9e4",
+		ResolverBinarySHA256: "sha256:5142e0d6d0a48bc8ba0638125eaa68296defba7d32628362175eff967d12e145",
+		Mode:                 "OFFLINE_SCIP_INDEX",
+		Command:              []string{"rust-analyzer", "scip", "rust", "--output", "us009-websocket-core.scip", "--exclude-vendored-libraries"},
+		Network:              "DENY_CARGO_NET_OFFLINE",
+		IndexSHA256:          "sha256:233e079818fcc71ee9678774def67ef69e50e5a0cab990d645181eaddf3c250b",
+		Resolutions: []RustIdentityResolution{
+			{"org.java_websocket.WebSocketImpl", us009ResolvedRustIdentities["org.java_websocket.WebSocketImpl"].RustSemanticID, us009ResolvedRustIdentities["org.java_websocket.WebSocketImpl"].SCIPSymbol},
+			{"org.java_websocket.enums.ReadyState", us009ResolvedRustIdentities["org.java_websocket.enums.ReadyState"].RustSemanticID, us009ResolvedRustIdentities["org.java_websocket.enums.ReadyState"].SCIPSymbol},
+			{"org.java_websocket.enums.Role", us009ResolvedRustIdentities["org.java_websocket.enums.Role"].RustSemanticID, us009ResolvedRustIdentities["org.java_websocket.enums.Role"].SCIPSymbol},
+		},
+		UnresolvedScope: "All other migration rows remain rust_identity_verified=false and are not claimed by this receipt.",
 	}
 }
 

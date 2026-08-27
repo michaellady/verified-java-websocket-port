@@ -53,10 +53,11 @@ production targets:
 
 It also preserves the separate US-017 owner target
 `websocket_driver::owner::ConnectionOwner::step`. The semantic-ID migration
-map's planned `ws_core::...` names are resolver-unverified proposals, not
-facts. US-009 must amend those rows to the actual `websocket_core` identities
-and obtain rust-analyzer resolution receipts; it must not add Java-shaped
-aliases merely to make a stale planned name resolve.
+map retains the pinned rust-analyzer SCIP receipt for the three US-009
+identities that actually exist: `websocket_core::ConnectionCore`,
+`websocket_core::ConnectionState`, and `websocket_core::Role`. Later-story
+`ws_core::...` proposals remain explicitly resolver-unverified; no Java-shaped
+alias is added merely to make a stale planned name resolve.
 
 ## Public interface
 

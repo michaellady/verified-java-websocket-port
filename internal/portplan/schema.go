@@ -14,7 +14,7 @@ import (
 var SchemaByDocument = map[string]string{
 	ManifestDocument:         "java-intake-manifest-1.0.0.schema.json",
 	SurfaceInventoryDocument: "surface-inventory-1.0.0.schema.json",
-	MigrationMapDocument:     "semantic-id-migration-map-1.0.0.schema.json",
+	MigrationMapDocument:     "semantic-id-migration-map-1.1.0.schema.json",
 	SeamDossierDocument:      "port-seam-dossier-1.0.0.schema.json",
 	CompatibilityDocument:    "compatibility-surface-1.0.0.schema.json",
 	CutoverDocument:          "cutover-contract-1.0.0.schema.json",

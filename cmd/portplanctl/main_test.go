@@ -47,8 +47,8 @@ func TestVerifyOnTheRepositoryRootSucceeds(t *testing.T) {
 		t.Fatalf("every migration row must be traceable, got %d of %d",
 			report.TraceableSemanticItems, report.MigrationRows)
 	}
-	if report.VerifiedRustIdentities != 0 {
-		t.Fatalf("no Rust identity may be resolver-verified before US-009")
+	if report.VerifiedRustIdentities != 3 {
+		t.Fatalf("verified Rust identities = %d, want the three receipted US-009 identities", report.VerifiedRustIdentities)
 	}
 }
 
