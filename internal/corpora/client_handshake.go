@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os/exec"
 	"path/filepath"
 	"strconv"
@@ -628,13 +629,48 @@ func verifyUS010GitSourceBinding(root, commit, tree string, artifacts []evidence
 		if _, err := readUS010Artifact(root, artifact.Path); err != nil {
 			return err
 		}
-		command := exec.Command("git", "-C", root, "show", commit+":"+artifact.Path)
-		committed, err := command.Output()
+		committed, err := readUS010GitBlob(root, commit+":"+artifact.Path)
 		if err != nil || DigestSHA256(committed) != artifact.SHA256 {
 			return fmt.Errorf("US-010 artifact is not bound to the source commit: %s", artifact.Path)
 		}
 	}
 	return nil
+}
+
+func readUS010GitBlob(root, object string) ([]byte, error) {
+	typeOutput, err := exec.Command("git", "-C", root, "cat-file", "-t", object).Output()
+	if err != nil || strings.TrimSpace(string(typeOutput)) != "blob" {
+		return nil, fmt.Errorf("US-010 historical artifact is not a git blob")
+	}
+	sizeOutput, err := exec.Command("git", "-C", root, "cat-file", "-s", object).Output()
+	if err != nil {
+		return nil, fmt.Errorf("inspect US-010 historical artifact size: %w", err)
+	}
+	size, err := strconv.ParseInt(strings.TrimSpace(string(sizeOutput)), 10, 64)
+	if err != nil || size < 0 || size > us010MaxArtifactBytes {
+		return nil, fmt.Errorf("US-010 historical artifact exceeds the fixed byte limit")
+	}
+
+	command := exec.Command("git", "-C", root, "cat-file", "blob", object)
+	stdout, err := command.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("open US-010 historical artifact stream: %w", err)
+	}
+	if err := command.Start(); err != nil {
+		return nil, fmt.Errorf("start US-010 historical artifact stream: %w", err)
+	}
+	raw, readErr := io.ReadAll(io.LimitReader(stdout, us010MaxArtifactBytes+1))
+	waitErr := command.Wait()
+	if readErr != nil {
+		return nil, fmt.Errorf("read US-010 historical artifact: %w", readErr)
+	}
+	if waitErr != nil {
+		return nil, fmt.Errorf("consume US-010 historical artifact: %w", waitErr)
+	}
+	if int64(len(raw)) != size || int64(len(raw)) > us010MaxArtifactBytes {
+		return nil, fmt.Errorf("US-010 historical artifact size changed during read")
+	}
+	return raw, nil
 }
 
 func runGitObjectCheck(root, object string) error {

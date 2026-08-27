@@ -1,9 +1,12 @@
 package corpora
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 )
@@ -139,4 +142,39 @@ func TestUS010EvidenceSourceBindingRequiresRealGitObjects(t *testing.T) {
 	if err := verifyUS010GitSourceBinding(repoRoot(t), "0000000000000000000000000000000000000000", evidence.Source.Tree, evidence.Source.ImplementationFiles); err == nil {
 		t.Fatal("hex-shaped nonexistent commit was accepted")
 	}
+}
+
+func TestUS010EvidenceSourceBindingRejectsOversizedHistoricalBlob(t *testing.T) {
+	root := t.TempDir()
+	runUS010TestGit(t, root, "init", "--quiet")
+	runUS010TestGit(t, root, "config", "user.email", "us010@example.invalid")
+	runUS010TestGit(t, root, "config", "user.name", "US010 Test")
+
+	const artifactPath = "artifact.bin"
+	committed := bytes.Repeat([]byte("x"), int(us010MaxArtifactBytes+1))
+	if err := os.WriteFile(filepath.Join(root, artifactPath), committed, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runUS010TestGit(t, root, "add", artifactPath)
+	runUS010TestGit(t, root, "commit", "--quiet", "-m", "oversized historical artifact")
+	commit := strings.TrimSpace(runUS010TestGit(t, root, "rev-parse", "HEAD"))
+	tree := strings.TrimSpace(runUS010TestGit(t, root, "rev-parse", "HEAD^{tree}"))
+
+	if err := os.WriteFile(filepath.Join(root, artifactPath), []byte("bounded working copy"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	artifacts := []evidenceArtifact{{Path: artifactPath, SHA256: DigestSHA256(committed)}}
+	if err := verifyUS010GitSourceBinding(root, commit, tree, artifacts); err == nil {
+		t.Fatal("oversized historical git blob was accepted")
+	}
+}
+
+func runUS010TestGit(t *testing.T, root string, args ...string) string {
+	t.Helper()
+	commandArgs := append([]string{"-C", root}, args...)
+	output, err := exec.Command("git", commandArgs...).CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v: %s", strings.Join(args, " "), err, output)
+	}
+	return string(output)
 }
