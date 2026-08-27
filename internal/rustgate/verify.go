@@ -599,6 +599,8 @@ func (v *verifier) verifyDependencyTables(path string, document tomlDocument) {
 func (v *verifier) verifySources(workspaceRoot string, crates []crate) {
 	for _, item := range crates {
 		crateRoot := filepath.ToSlash(filepath.Join(workspaceRoot, item.Member))
+		manifestPath := filepath.ToSlash(filepath.Join(crateRoot, "Cargo.toml"))
+		v.verifySourcePathSyntax(manifestPath, item.Manifest)
 		crateBase, ok := v.safePath(crateRoot)
 		if !ok {
 			continue
@@ -671,9 +673,30 @@ func (v *verifier) verifySources(workspaceRoot string, crates []crate) {
 	}
 }
 
+func (v *verifier) verifySourcePathSyntax(manifestPath string, manifest tomlDocument) {
+	check := func(section string, instance int) {
+		raw, exists := manifest.rawValueAt(section, instance, "path")
+		if !exists {
+			return
+		}
+		if _, valid := parseTOMLString(raw); !valid {
+			v.add("SOURCE_PATH_NOT_ALLOWED", manifestPath, section+".path must be a supported single-line basic or literal TOML string")
+		}
+	}
+	check("lib", 0)
+	for _, section := range []string{"bin", "test", "example", "bench"} {
+		for _, instance := range manifest.sectionInstances(section) {
+			check(section, instance)
+		}
+	}
+}
+
 func (v *verifier) scanProductionSource(path string, body []byte) {
 	tokens := rustCodeTokens(body)
 	for index, token := range tokens {
+		if token == "macro_rules" && tokenAt(tokens, index+1) == "!" {
+			v.add("DECLARATIVE_MACRO_NOT_ALLOWED", path, "first-party declarative macro definitions can indirect forbidden ambient macros")
+		}
 		if (token == "include" || token == "include_bytes" || token == "include_str" || token == "env" || token == "option_env") && tokenAt(tokens, index+1) == "!" {
 			v.add("AMBIENT_MACRO", path, token+"! is forbidden in first-party Rust source")
 		}

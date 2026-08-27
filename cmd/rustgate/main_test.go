@@ -204,10 +204,33 @@ func TestVerifyRejectsAmbientCompiledSourceInputs(t *testing.T) {
 			replaceFixture(t, root, "rust/connection-core/Cargo.toml", `path = "src/lib.rs"`, `path = "../outside.rs"`)
 			writeFixture(t, root, "rust/outside.rs", "#![forbid(unsafe_code)]\npub struct Outside;\n")
 		}},
+		{"literal manifest root outside crate", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", `path = "src/lib.rs"`, `path = '../outside.rs'`)
+			writeFixture(t, root, "rust/outside.rs", "#![forbid(unsafe_code)]\npub struct Outside;\n")
+		}},
 		{"dotted manifest root outside crate", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
 			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "[lib]\nname = \"websocket_core\"\npath = \"src/lib.rs\"\n\n", "")
 			prependFixture(t, root, "rust/connection-core/Cargo.toml", "lib.name = \"websocket_core\"\nlib.path = \"../outside.rs\"\n")
 			writeFixture(t, root, "rust/outside.rs", "#![forbid(unsafe_code)]\npub struct Outside;\n")
+		}},
+		{"dotted literal manifest root outside crate", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "[lib]\nname = \"websocket_core\"\npath = \"src/lib.rs\"\n\n", "")
+			prependFixture(t, root, "rust/connection-core/Cargo.toml", "lib.name = \"websocket_core\"\nlib.path = '../outside.rs'\n")
+			writeFixture(t, root, "rust/outside.rs", "#![forbid(unsafe_code)]\npub struct Outside;\n")
+		}},
+		{"multiline basic manifest root is rejected", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", `path = "src/lib.rs"`, `path = """src/lib.rs"""`)
+		}},
+		{"multiline literal manifest root is rejected", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", `path = "src/lib.rs"`, `path = '''src/lib.rs'''`)
+		}},
+		{"literal binary root outside crate", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/Cargo.toml", "\n[[bin]]\nname = 'outside'\npath = '../outside.rs'\n")
+			writeFixture(t, root, "rust/outside.rs", "#![forbid(unsafe_code)]\nfn main() {}\n")
+		}},
+		{"multiline binary root is rejected", "SOURCE_PATH_NOT_ALLOWED", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/Cargo.toml", "\n[[bin]]\nname = 'inside'\npath = '''generated/main.rs'''\n")
+			writeFixture(t, root, "rust/connection-core/generated/main.rs", "#![forbid(unsafe_code)]\nfn main() {}\n")
 		}},
 		{"custom manifest root is scanned", "AMBIENT_MACRO", func(t *testing.T, root string) {
 			replaceFixture(t, root, "rust/connection-core/Cargo.toml", `path = "src/lib.rs"`, `path = "generated/lib.rs"`)
@@ -224,6 +247,17 @@ func TestVerifyRejectsAmbientCompiledSourceInputs(t *testing.T) {
 		{"automatic binary target is scanned", "AMBIENT_MACRO", func(t *testing.T, root string) {
 			writeFixture(t, root, "rust/connection-core/src/bin/ambient.rs", "#![forbid(unsafe_code)]\npub const VALUE: &str = env!(\"VALUE\");\n")
 		}},
+		{"reviewer macro indirection", "DECLARATIVE_MACRO_NOT_ALLOWED", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", `
+macro_rules! indirect {
+    ($macro_name:ident) => { pub const VALUE: &str = $macro_name!("data.txt"); };
+}
+indirect!(include_str);
+`)
+		}},
+		{"benign declarative macro definition", "DECLARATIVE_MACRO_NOT_ALLOWED", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\nmacro_rules! local { () => {}; }\n")
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -235,6 +269,39 @@ func TestVerifyRejectsAmbientCompiledSourceInputs(t *testing.T) {
 			}
 			if !strings.Contains(stdout.String(), `"code": "`+test.code+`"`) {
 				t.Fatalf("missing typed finding %s in %s", test.code, stdout.String())
+			}
+		})
+	}
+}
+
+func TestVerifyAllowsRootConfinedLiteralSourcePaths(t *testing.T) {
+	tests := []struct {
+		name   string
+		mutate func(*testing.T, string)
+	}{
+		{"lib table", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", `path = "src/lib.rs"`, `path = 'generated/lib.rs'`)
+			writeFixture(t, root, "rust/connection-core/generated/lib.rs", "#![forbid(unsafe_code)]\npub struct ConnectionCore;\n")
+			removeFixture(t, root, "rust/connection-core/src/lib.rs")
+		}},
+		{"dotted lib key", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "[lib]\nname = \"websocket_core\"\npath = \"src/lib.rs\"\n\n", "")
+			prependFixture(t, root, "rust/connection-core/Cargo.toml", "lib.name = 'websocket_core'\nlib.path = 'generated/lib.rs'\n")
+			writeFixture(t, root, "rust/connection-core/generated/lib.rs", "#![forbid(unsafe_code)]\npub struct ConnectionCore;\n")
+			removeFixture(t, root, "rust/connection-core/src/lib.rs")
+		}},
+		{"binary table", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/connection-core/Cargo.toml", "\n[[bin]]\nname = 'inside'\npath = 'generated/main.rs'\n")
+			writeFixture(t, root, "rust/connection-core/generated/main.rs", "#![forbid(unsafe_code)]\nfn main() {}\n")
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := goodFixture(t)
+			test.mutate(t, root)
+			var stdout, stderr bytes.Buffer
+			if code := run(verificationArguments(root), &stdout, &stderr); code != exitOK {
+				t.Fatalf("exit = %d, want %d\nstdout: %s\nstderr: %s", code, exitOK, stdout.String(), stderr.String())
 			}
 		})
 	}
@@ -552,6 +619,13 @@ func prependFixture(t *testing.T, root, relative, prefix string) {
 		t.Fatalf("read %s: %v", relative, err)
 	}
 	writeFixture(t, root, relative, prefix+string(body))
+}
+
+func removeFixture(t *testing.T, root, relative string) {
+	t.Helper()
+	if err := os.Remove(filepath.Join(root, filepath.FromSlash(relative))); err != nil {
+		t.Fatalf("remove %s: %v", relative, err)
+	}
 }
 
 func fixtureDigest(body []byte) string {

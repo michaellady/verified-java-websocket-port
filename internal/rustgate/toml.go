@@ -164,11 +164,28 @@ func (d tomlDocument) stringValue(section, key string) (string, bool) {
 
 func (d tomlDocument) stringValueAt(section string, instance int, key string) (string, bool) {
 	raw, ok := d.rawValueAt(section, instance, key)
-	if !ok || len(raw) < 2 || raw[0] != '"' || raw[len(raw)-1] != '"' {
+	if !ok {
 		return "", false
 	}
-	value, err := strconv.Unquote(raw)
-	return value, err == nil
+	return parseTOMLString(raw)
+}
+
+func parseTOMLString(raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	if strings.HasPrefix(raw, `"""`) || strings.HasPrefix(raw, `'''`) {
+		return "", false
+	}
+	if len(raw) < 2 {
+		return "", false
+	}
+	if raw[0] == '"' && raw[len(raw)-1] == '"' {
+		value, err := strconv.Unquote(raw)
+		return value, err == nil
+	}
+	if raw[0] == '\'' && raw[len(raw)-1] == '\'' && !strings.ContainsAny(raw[1:len(raw)-1], "'\r\n") {
+		return raw[1 : len(raw)-1], true
+	}
+	return "", false
 }
 
 func (d tomlDocument) boolValue(section, key string) (bool, bool) {
