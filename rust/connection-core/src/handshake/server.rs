@@ -1,7 +1,7 @@
 use crate::handshake::crypto;
 use crate::handshake::http::{
-    ascii_eq, contains_comma_token, duplicate_before, find_crlf, has_bare_line_ending, header_end,
-    is_field_value_byte, is_token_byte, trim_ows,
+    HeadAccumulator, HeadProgress, ascii_eq, contains_comma_token, duplicate_before, find_crlf,
+    has_bare_line_ending, is_field_value_byte, is_token_byte, trim_ows,
 };
 use crate::{HandshakeFailure, LimitKind};
 
@@ -36,7 +36,7 @@ pub(crate) struct ServerHandshake {
 
 #[derive(Debug)]
 enum ServerPhase {
-    AwaitingRequest { parser: RequestParser },
+    AwaitingRequest { parser: HeadAccumulator },
     Opened,
     Failed,
 }
@@ -49,7 +49,11 @@ impl ServerHandshake {
     ) -> Self {
         Self {
             phase: ServerPhase::AwaitingRequest {
-                parser: RequestParser::new(maximum_bytes, maximum_line_bytes, maximum_header_count),
+                parser: HeadAccumulator::new(
+                    maximum_bytes,
+                    maximum_line_bytes,
+                    maximum_header_count,
+                ),
             },
             maximum_bytes,
             maximum_line_bytes,
@@ -62,6 +66,9 @@ impl ServerHandshake {
     }
 
     pub(crate) fn mark_failed(&mut self) {
+        if let ServerPhase::AwaitingRequest { parser } = &mut self.phase {
+            parser.clear();
+        }
         self.phase = ServerPhase::Failed;
     }
 
@@ -70,33 +77,35 @@ impl ServerHandshake {
             return ServerRequest::NotAwaiting;
         };
         let progress = parser.consume(request);
-        match progress {
-            RequestProgress::Incomplete => ServerRequest::Incomplete,
-            RequestProgress::LimitExceeded { limit, attempted } => {
-                ServerRequest::LimitExceeded { limit, attempted }
+        let parsed = match progress {
+            HeadProgress::Incomplete => return ServerRequest::Incomplete,
+            HeadProgress::Rejected(failure) => return ServerRequest::Rejected(failure),
+            HeadProgress::LimitExceeded { limit, attempted } => {
+                return ServerRequest::LimitExceeded { limit, attempted };
             }
-            RequestProgress::Complete(Err(failure)) => ServerRequest::Rejected(failure),
-            RequestProgress::Complete(Ok(parsed)) => {
-                let response = match canonical_response(
-                    &parsed.key,
-                    self.maximum_bytes,
-                    self.maximum_line_bytes,
-                    self.maximum_header_count,
-                ) {
-                    Ok(response) => response,
-                    Err(failure) => {
-                        return ServerRequest::LimitExceeded {
-                            limit: failure.limit,
-                            attempted: failure.attempted,
-                        };
-                    }
+            HeadProgress::Complete => match validate_request(parser.bytes()) {
+                Ok(parsed) => parsed,
+                Err(failure) => return ServerRequest::Rejected(failure),
+            },
+        };
+        let response = match canonical_response(
+            &parsed.key,
+            self.maximum_bytes,
+            self.maximum_line_bytes,
+            self.maximum_header_count,
+        ) {
+            Ok(response) => response,
+            Err(failure) => {
+                return ServerRequest::LimitExceeded {
+                    limit: failure.limit,
+                    attempted: failure.attempted,
                 };
-                self.phase = ServerPhase::Opened;
-                ServerRequest::Opened {
-                    descriptor: parsed.descriptor,
-                    response,
-                }
             }
+        };
+        self.phase = ServerPhase::Opened;
+        ServerRequest::Opened {
+            descriptor: parsed.descriptor,
+            response,
         }
     }
 }
@@ -120,103 +129,9 @@ pub(crate) struct ServerLimitExceeded {
     pub(crate) attempted: u64,
 }
 
-#[derive(Debug)]
-struct RequestParser {
-    buffer: Vec<u8>,
-    maximum_bytes: usize,
-    maximum_line_bytes: usize,
-    maximum_header_count: usize,
-    current_line_bytes: usize,
-    header_count: usize,
-    request_line_complete: bool,
-}
-
-enum RequestProgress {
-    Incomplete,
-    Complete(Result<ParsedRequest, HandshakeFailure>),
-    LimitExceeded { limit: LimitKind, attempted: u64 },
-}
-
 struct ParsedRequest {
     descriptor: ServerRequestDescriptor,
     key: [u8; 24],
-}
-
-impl RequestParser {
-    const fn new(
-        maximum_bytes: usize,
-        maximum_line_bytes: usize,
-        maximum_header_count: usize,
-    ) -> Self {
-        Self {
-            buffer: Vec::new(),
-            maximum_bytes,
-            maximum_line_bytes,
-            maximum_header_count,
-            current_line_bytes: 0,
-            header_count: 0,
-            request_line_complete: false,
-        }
-    }
-
-    fn consume(&mut self, bytes: &[u8]) -> RequestProgress {
-        for &byte in bytes {
-            if self.buffer.len() == self.maximum_bytes {
-                return RequestProgress::LimitExceeded {
-                    limit: LimitKind::HandshakeBytes,
-                    attempted: u64::try_from(self.buffer.len())
-                        .unwrap_or(u64::MAX)
-                        .saturating_add(1),
-                };
-            }
-            if byte == b'\n' && self.buffer.last() != Some(&b'\r')
-                || self.buffer.last() == Some(&b'\r') && byte != b'\n'
-            {
-                return RequestProgress::Complete(Err(HandshakeFailure::BareLineEnding));
-            }
-            let attempted_line = self.current_line_bytes.saturating_add(1);
-            if attempted_line > self.maximum_line_bytes {
-                return RequestProgress::LimitExceeded {
-                    limit: LimitKind::HandshakeHeaderLineBytes,
-                    attempted: u64::try_from(attempted_line).unwrap_or(u64::MAX),
-                };
-            }
-            let completes_line = byte == b'\n';
-            let completes_header =
-                completes_line && self.request_line_complete && attempted_line != 2;
-            if completes_header && self.header_count == self.maximum_header_count {
-                return RequestProgress::LimitExceeded {
-                    limit: LimitKind::HandshakeHeaderCount,
-                    attempted: u64::try_from(self.header_count)
-                        .unwrap_or(u64::MAX)
-                        .saturating_add(1),
-                };
-            }
-            self.buffer.push(byte);
-            debug_assert!(self.buffer.len() <= self.maximum_bytes);
-            if completes_line {
-                if self.request_line_complete {
-                    if completes_header {
-                        self.header_count += 1;
-                    }
-                } else {
-                    self.request_line_complete = true;
-                }
-                self.current_line_bytes = 0;
-            } else {
-                self.current_line_bytes = attempted_line;
-            }
-        }
-        let Some(end) = header_end(&self.buffer) else {
-            return RequestProgress::Incomplete;
-        };
-        if end != self.buffer.len() {
-            return RequestProgress::Complete(Err(HandshakeFailure::TrailingData {
-                bytes: u64::try_from(self.buffer.len() - end).unwrap_or(u64::MAX),
-            }));
-        }
-        RequestProgress::Complete(validate_request(&self.buffer))
-    }
 }
 
 fn validate_request(bytes: &[u8]) -> Result<ParsedRequest, HandshakeFailure> {
@@ -234,11 +149,12 @@ fn validate_request(bytes: &[u8]) -> Result<ParsedRequest, HandshakeFailure> {
     let mut connection = None;
     let mut key = None;
     let mut version = None;
+    let mut content_length = false;
+    let mut transfer_encoding = false;
+    let mut extension = false;
+    let mut subprotocol = false;
     while cursor < headers_end {
         let line_end = find_crlf(bytes, cursor).ok_or(HandshakeFailure::MalformedHeader)?;
-        if line_end == cursor {
-            break;
-        }
         let line = &bytes[cursor..line_end];
         if line
             .first()
@@ -276,17 +192,23 @@ fn validate_request(bytes: &[u8]) -> Result<ParsedRequest, HandshakeFailure> {
         } else if ascii_eq(name, b"sec-websocket-version") {
             version = Some(value);
         } else if ascii_eq(name, b"content-length") {
-            return Err(HandshakeFailure::UnexpectedContentLength);
+            content_length = true;
         } else if ascii_eq(name, b"transfer-encoding") {
-            return Err(HandshakeFailure::UnexpectedTransferEncoding);
+            transfer_encoding = true;
         } else if ascii_eq(name, b"sec-websocket-extensions") {
-            return Err(HandshakeFailure::UnexpectedExtension);
+            extension = true;
         } else if ascii_eq(name, b"sec-websocket-protocol") {
-            return Err(HandshakeFailure::UnexpectedSubprotocol);
+            subprotocol = true;
         }
         cursor = line_end + 2;
     }
 
+    if content_length {
+        return Err(HandshakeFailure::UnexpectedContentLength);
+    }
+    if transfer_encoding {
+        return Err(HandshakeFailure::UnexpectedTransferEncoding);
+    }
     let host = host.ok_or(HandshakeFailure::MissingHost)?;
     if host.is_empty()
         || !host
@@ -309,7 +231,18 @@ fn validate_request(bytes: &[u8]) -> Result<ParsedRequest, HandshakeFailure> {
         return Err(HandshakeFailure::UnsupportedVersion);
     }
     let key = key.ok_or(HandshakeFailure::MissingKey)?;
-    let key = crypto::canonical_nonce_key(key).ok_or(HandshakeFailure::InvalidKeyEncoding)?;
+    let key = crypto::canonical_nonce_key(key).map_err(|failure| match failure {
+        crypto::NonceKeyError::InvalidEncoding => HandshakeFailure::InvalidKeyEncoding,
+        crypto::NonceKeyError::InvalidLength { decoded } => {
+            HandshakeFailure::InvalidKeyLength { decoded }
+        }
+    })?;
+    if extension {
+        return Err(HandshakeFailure::UnexpectedExtension);
+    }
+    if subprotocol {
+        return Err(HandshakeFailure::UnexpectedSubprotocol);
+    }
 
     let request_target =
         core::str::from_utf8(request_target).map_err(|_| HandshakeFailure::InvalidRequestTarget)?;
@@ -324,16 +257,26 @@ fn validate_request(bytes: &[u8]) -> Result<ParsedRequest, HandshakeFailure> {
 }
 
 fn validate_request_line(line: &[u8]) -> Result<&[u8], HandshakeFailure> {
-    let Some(remainder) = line.strip_prefix(b"GET ") else {
-        return Err(if line.starts_with(b"GET") {
-            HandshakeFailure::MalformedRequestLine
-        } else {
-            HandshakeFailure::MethodNotGet
-        });
-    };
-    let target = remainder
-        .strip_suffix(b" HTTP/1.1")
+    let first_space = line
+        .iter()
+        .position(|byte| *byte == b' ')
         .ok_or(HandshakeFailure::MalformedRequestLine)?;
+    let second_space = line[first_space + 1..]
+        .iter()
+        .position(|byte| *byte == b' ')
+        .and_then(|offset| first_space.checked_add(offset)?.checked_add(1))
+        .ok_or(HandshakeFailure::MalformedRequestLine)?;
+    if first_space == 0
+        || second_space == first_space + 1
+        || second_space + 1 == line.len()
+        || line[second_space + 1..].contains(&b' ')
+    {
+        return Err(HandshakeFailure::MalformedRequestLine);
+    }
+    if &line[..first_space] != b"GET" {
+        return Err(HandshakeFailure::MethodNotGet);
+    }
+    let target = &line[first_space + 1..second_space];
     if target.is_empty()
         || target.first() != Some(&b'/')
         || target
@@ -342,6 +285,9 @@ fn validate_request_line(line: &[u8]) -> Result<&[u8], HandshakeFailure> {
             .any(|byte| !(0x21..=0x7e).contains(&byte) || byte == b'#')
     {
         return Err(HandshakeFailure::InvalidRequestTarget);
+    }
+    if &line[second_space + 1..] != b"HTTP/1.1" {
+        return Err(HandshakeFailure::HttpVersionNot11);
     }
     Ok(target)
 }

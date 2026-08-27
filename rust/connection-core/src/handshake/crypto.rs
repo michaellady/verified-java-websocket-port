@@ -20,35 +20,76 @@ pub(crate) fn encode_nonce(nonce: [u8; 16]) -> [u8; 24] {
     output
 }
 
-pub(crate) fn canonical_nonce_key(key: &[u8]) -> Option<[u8; 24]> {
-    if key.len() != 24 || key[22..] != *b"==" {
-        return None;
+pub(crate) enum NonceKeyError {
+    InvalidEncoding,
+    InvalidLength { decoded: u64 },
+}
+
+pub(crate) fn canonical_nonce_key(key: &[u8]) -> Result<[u8; 24], NonceKeyError> {
+    if !key.len().is_multiple_of(4) {
+        return Err(NonceKeyError::InvalidEncoding);
+    }
+    let padding = key.iter().rev().take_while(|byte| **byte == b'=').count();
+    if padding > 2 {
+        return Err(NonceKeyError::InvalidEncoding);
+    }
+    let data_end = key.len() - padding;
+    if key[..data_end].contains(&b'=')
+        || key[..data_end]
+            .iter()
+            .copied()
+            .any(|byte| decode_base64(byte).is_none())
+    {
+        return Err(NonceKeyError::InvalidEncoding);
+    }
+    if padding == 2
+        && (data_end == 0 || decode_base64(key[data_end - 1]).is_none_or(|value| value & 0x0f != 0))
+        || padding == 1
+            && (data_end == 0
+                || decode_base64(key[data_end - 1]).is_none_or(|value| value & 0x03 != 0))
+    {
+        return Err(NonceKeyError::InvalidEncoding);
+    }
+    let decoded = key
+        .len()
+        .checked_div(4)
+        .and_then(|groups| groups.checked_mul(3))
+        .and_then(|bytes| bytes.checked_sub(padding))
+        .ok_or(NonceKeyError::InvalidEncoding)?;
+    if decoded != 16 {
+        return Err(NonceKeyError::InvalidLength {
+            decoded: u64::try_from(decoded).unwrap_or(u64::MAX),
+        });
+    }
+    if key.len() != 24 || padding != 2 {
+        return Err(NonceKeyError::InvalidEncoding);
     }
     let mut nonce = [0u8; 16];
     let mut input_index = 0usize;
     let mut output_index = 0usize;
     while input_index < 20 {
-        let first = decode_base64(key[input_index])?;
-        let second = decode_base64(key[input_index + 1])?;
-        let third = decode_base64(key[input_index + 2])?;
-        let fourth = decode_base64(key[input_index + 3])?;
+        let first = decode_base64(key[input_index]).ok_or(NonceKeyError::InvalidEncoding)?;
+        let second = decode_base64(key[input_index + 1]).ok_or(NonceKeyError::InvalidEncoding)?;
+        let third = decode_base64(key[input_index + 2]).ok_or(NonceKeyError::InvalidEncoding)?;
+        let fourth = decode_base64(key[input_index + 3]).ok_or(NonceKeyError::InvalidEncoding)?;
         nonce[output_index] = (first << 2) | (second >> 4);
         nonce[output_index + 1] = (second << 4) | (third >> 2);
         nonce[output_index + 2] = (third << 6) | fourth;
         input_index += 4;
         output_index += 3;
     }
-    let first = decode_base64(key[20])?;
-    let second = decode_base64(key[21])?;
+    let first = decode_base64(key[20]).ok_or(NonceKeyError::InvalidEncoding)?;
+    let second = decode_base64(key[21]).ok_or(NonceKeyError::InvalidEncoding)?;
     if second & 0x0f != 0 {
-        return None;
+        return Err(NonceKeyError::InvalidEncoding);
     }
     nonce[15] = (first << 2) | (second >> 4);
-    (encode_nonce(nonce).as_slice() == key).then(|| {
-        let mut canonical = [0u8; 24];
-        canonical.copy_from_slice(key);
-        canonical
-    })
+    if encode_nonce(nonce).as_slice() != key {
+        return Err(NonceKeyError::InvalidEncoding);
+    }
+    let mut canonical = [0u8; 24];
+    canonical.copy_from_slice(key);
+    Ok(canonical)
 }
 
 pub(crate) fn derive_accept(key: &[u8; 24]) -> [u8; 28] {
