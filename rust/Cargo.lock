@@ -9,3 +9,10 @@ version = "0.0.0"
 [[package]]
 name = "ws-core"
 version = "0.0.0"
+
+[[package]]
+name = "ws-oracle-harness"
+version = "0.0.0"
+dependencies = [
+ "ws-core",
+]

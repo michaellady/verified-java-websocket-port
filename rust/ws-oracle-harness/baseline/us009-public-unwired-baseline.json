@@ -1,0 +1,48 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us009-lane-b-public-unwired-baseline",
+  "recorded_at": "2026-08-27",
+  "stance": "HONEST NEGATIVE BASELINE — no story acceptance claimed. The ws_core ConnectionCore API had not landed (US-009 lane A builds it in parallel), so the harness answered every scenario with a typed CORE_NOT_WIRED failure. The expected and observed result is ZERO passes, mirroring the US-005 empty_rust_target_fails discipline: this harness must be incapable of accidentally claiming protocol behavior. The pass criterion belongs to later stories after merge-time wiring.",
+  "pipeline": {
+    "requests": "corporactl oracle-requests --root <worktree> --protected-root <protected> --tier public --out requests.jsonl",
+    "candidate": "rust/target/release/ws-oracle-harness < requests.jsonl > transcript.jsonl",
+    "evaluate": "corporactl evaluate --root <worktree> --protected-root <protected> --tier public --transcript transcript.jsonl",
+    "custodian": "public tier is custodian-free (cmd/corporactl/main.go heldOutTier: hidden/sealed only); the protected custodian ledger was byte-identical before and after this run (9001 bytes), and no hidden or sealed tier was requested or evaluated"
+  },
+  "artifacts": {
+    "corporactl_built_from": "worktree claude/us009-harness at base d7f673f (cmd/corporactl and internal/corpora unmodified by lane B)",
+    "requests_jsonl_sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85",
+    "requests_lines": 74,
+    "transcript_jsonl_sha256": "6a47f952aa36dfc9bb9e57bbbf391bf873383d225c2efef1694107a20f310051",
+    "transcript_lines": 74,
+    "transcript_rerun_sha256": "6a47f952aa36dfc9bb9e57bbbf391bf873383d225c2efef1694107a20f310051",
+    "rerun_byte_identical": true,
+    "harness_executable_sha256": "sha256:0817c06db9883172155eef3d7ceb57147d7a8e6b9647dfaffc68d5e5a71484b0",
+    "harness_executable_note": "release build on this development host; carried in every response's runtime object (read via std::env::current_exe and SHA-256'd at startup). Not a promoted artifact digest — sbx-profile execution and artifact promotion belong to the pipeline stories."
+  },
+  "evaluate_report": {
+    "executed": 74,
+    "passed": 0,
+    "failed": 74,
+    "missing": 0,
+    "unmatched": 0,
+    "exit_code": 1,
+    "exit_code_read_from": "the corporactl process's own exit status, read directly after the run"
+  },
+  "failure_breakdown": {
+    "outcome error, expected ok": 48,
+    "error code CORE_NOT_WIRED, expected JAVA_INVALID_DATA": 19,
+    "error code CORE_NOT_WIRED, expected STATE_VIOLATION": 4,
+    "error code CORE_NOT_WIRED, expected ACTION_LIMIT_EXCEEDED": 1,
+    "error code CORE_NOT_WIRED, expected FRAME_LIMIT_EXCEEDED": 1,
+    "error code CORE_NOT_WIRED, expected INPUT_LIMIT_EXCEEDED": 1
+  },
+  "protocol_compatibility_proven_by_this_run": [
+    "all 74 canonical public request lines parsed and their request_digest bindings verified (SHA-256 over canonical JSON minus the digest member) — zero envelope-level rejections in the transcript",
+    "one response line per request, request_id/request_digest echoed, evaluator matched every line (missing=0, unmatched=0)",
+    "responses carry the real harness executable digest, never the stub's all-zero identity",
+    "byte-identical rerun transcript"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "driver": "claude-fable-5 (US-009 lane B backend-dev worker)"
+}
