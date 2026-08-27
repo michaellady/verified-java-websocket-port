@@ -104,6 +104,42 @@ func TestServerProjectionRejectsVerdictNonceAndAuthorityDrift(t *testing.T) {
 	}
 }
 
+func TestUS011ProjectionAndReceiptRejectNonclaimSubstitutionReorderingAndOmission(t *testing.T) {
+	mutations := map[string]func([]string) []string{
+		"substituted": func(value []string) []string {
+			value[0] = "frames are probably out of scope"
+			return value
+		},
+		"reordered": func(value []string) []string {
+			value[0], value[1] = value[1], value[0]
+			return value
+		},
+		"omitted": func(value []string) []string {
+			return value[:len(value)-1]
+		},
+	}
+	for name, mutate := range mutations {
+		t.Run("projection_"+name, func(t *testing.T) {
+			projection := ServerHandshakeProjection{Nonclaims: mutate(append([]string(nil), exactServerNonclaims...))}
+			if err := verifyServerProjectionNonclaims(projection); err == nil {
+				t.Fatalf("%s projection nonclaims were accepted", name)
+			}
+		})
+		t.Run("receipt_"+name, func(t *testing.T) {
+			evidence := serverHandshakeEvidence{Nonclaims: mutate(append([]string(nil), exactServerNonclaims...))}
+			if err := verifyServerEvidenceNonclaims(evidence); err == nil {
+				t.Fatalf("%s receipt nonclaims were accepted", name)
+			}
+		})
+	}
+	if err := verifyServerProjectionNonclaims(ServerHandshakeProjection{Nonclaims: exactServerNonclaims}); err != nil {
+		t.Fatalf("canonical projection nonclaims failed: %v", err)
+	}
+	if err := verifyServerEvidenceNonclaims(serverHandshakeEvidence{Nonclaims: exactServerNonclaims}); err != nil {
+		t.Fatalf("canonical receipt nonclaims failed: %v", err)
+	}
+}
+
 func TestUS011ReceiptPathsAreAClosedAllowlist(t *testing.T) {
 	raw, err := readUS010Artifact(repoRoot(t), us011ReceiptPath)
 	if err != nil {

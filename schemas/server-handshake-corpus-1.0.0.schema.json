@@ -24,7 +24,19 @@
     "nonce_vectors": {"type": "array", "minItems": 256, "maxItems": 256, "items": {"$ref": "#/$defs/nonceVector"}},
     "fuzz_seeds": {"type": "array", "minItems": 17, "maxItems": 17, "items": {"$ref": "#/$defs/seed"}},
     "reconciliation": {"$ref": "#/$defs/reconciliation"},
-    "nonclaims": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "nonclaims": {
+      "type": "array", "minItems": 7, "maxItems": 7,
+      "prefixItems": [
+        {"const": "no frame coding or application data"},
+        {"const": "no live Java committed-corpus execution"},
+        {"const": "no Autobahn execution or conformance"},
+        {"const": "no extension or subprotocol negotiation"},
+        {"const": "no complete WebSocket conformance or Java parity"},
+        {"const": "no independent review"},
+        {"const": "no release publication production signing or benchmark readiness"}
+      ],
+      "items": false
+    },
     "assurance": {"$ref": "#/$defs/assurance"}
   },
   "$defs": {

@@ -158,6 +158,16 @@ var exactServerAdditiveVectors = []string{
 	"valid-plus-suffix", "total-limit", "line-limit", "count-limit", "response-capacity",
 }
 
+var exactServerNonclaims = []string{
+	"no frame coding or application data",
+	"no live Java committed-corpus execution",
+	"no Autobahn execution or conformance",
+	"no extension or subprotocol negotiation",
+	"no complete WebSocket conformance or Java parity",
+	"no independent review",
+	"no release publication production signing or benchmark readiness",
+}
+
 var exactServerFuzzSeeds = map[string]fuzzSeedExpectation{
 	"rust/connection-core/fuzz-seeds/us011/bare-lf.hex":                 {"sha256:1786608589889a6cf640807d5a5fbef8cb983b20a83112d2f577287135241488", "BareLineEnding", defaultClientHandshakeConfig},
 	"rust/connection-core/fuzz-seeds/us011/obs-fold.hex":                {"sha256:1b9511afb3ccef7a3a9c1c94cd92f386efee16354bda1b04a06069e985416a77", "ObsoleteLineFolding", defaultClientHandshakeConfig},
@@ -196,6 +206,9 @@ func LoadAndVerifyServerHandshakeProjection(root string) (ServerHandshakeProject
 		return ServerHandshakeProjection{}, fmt.Errorf("unexpected server projection identity")
 	}
 	if err := verifyServerAuthority(projection.Authority); err != nil {
+		return ServerHandshakeProjection{}, err
+	}
+	if err := verifyServerProjectionNonclaims(projection); err != nil {
 		return ServerHandshakeProjection{}, err
 	}
 	if projection.FrozenSource.Artifact != "corpora/handshake/cases.jsonl" ||
@@ -242,6 +255,21 @@ func verifyServerAuthority(authority ServerHandshakeAuthority) error {
 	}) || authority.JavaObservationMode != "SOURCE_DERIVED_NO_LIVE_COMMITTED_CORPUS_EXECUTION" ||
 		authority.StrictnessRule != "Java leniency never lowers the RFC 6455 acceptance boundary" {
 		return fmt.Errorf("server projection authority is incomplete or reversed")
+	}
+	return nil
+}
+
+func verifyServerProjectionNonclaims(projection ServerHandshakeProjection) error {
+	return verifyExactServerNonclaims("projection", projection.Nonclaims)
+}
+
+func verifyServerEvidenceNonclaims(evidence serverHandshakeEvidence) error {
+	return verifyExactServerNonclaims("receipt", evidence.Nonclaims)
+}
+
+func verifyExactServerNonclaims(artifact string, actual []string) error {
+	if !stringSlicesEqual(actual, exactServerNonclaims) {
+		return fmt.Errorf("US-011 %s nonclaims differ from the exact ordered allowlist", artifact)
 	}
 	return nil
 }
@@ -889,8 +917,11 @@ func VerifyServerHandshakeEvidence(root string) error {
 		evidence.DeltaLedger.RecordsAdded != 0 ||
 		evidence.DeltaLedger.Reason != "No live Java execution for US-011 additive strictness subjects was performed; no disagreement or unrelated Autobahn reference is fabricated." ||
 		evidence.DeltaLedger.AutobahnCategory0 != "NO_REGISTERED_CATEGORY_0_AT_PIN" ||
-		evidence.DeltaLedger.AutobahnExecutions != 0 || len(evidence.Nonclaims) != 7 {
+		evidence.DeltaLedger.AutobahnExecutions != 0 {
 		return fmt.Errorf("US-011 compatibility or delta nonclaims are inconsistent")
+	}
+	if err := verifyServerEvidenceNonclaims(evidence); err != nil {
+		return err
 	}
 	if err := verifyUS011DAGCutoverAndMigration(root, evidence); err != nil {
 		return err

@@ -2141,13 +2141,13 @@
     }
   ],
   "nonclaims": [
-    "no frame or application payload behavior",
+    "no frame coding or application data",
     "no live Java committed-corpus execution",
     "no Autobahn execution or conformance",
     "no extension or subprotocol negotiation",
-    "no Java API parity",
+    "no complete WebSocket conformance or Java parity",
     "no independent review",
-    "no release publication production or benchmark readiness"
+    "no release publication production signing or benchmark readiness"
   ],
   "properties": {
     "bytewise_executions_per_profile": 6,
