@@ -85,11 +85,19 @@ func ValidateCorpusSchemas(schemasDir, root, protectedRoot string) ([]Finding, e
 	if err != nil {
 		return nil, fmt.Errorf("compile calibration schema: %w", err)
 	}
+	clientHandshakeSchema, err := compileSchema(schemasDir, "client-handshake-corpus-1.0.0.schema.json")
+	if err != nil {
+		return nil, fmt.Errorf("compile client handshake schema: %w", err)
+	}
 
 	validateJSONLLines(scenarioSchema,
 		filepath.Join(root, repoCorporaDir, "public/scenarios.jsonl"), fail)
 	validateJSONLLines(handshakeSchema,
 		filepath.Join(root, repoCorporaDir, "handshake/cases.jsonl"), fail)
+	clientHandshakePath := filepath.Join(root, repoCorporaDir, "handshake/client.json")
+	if _, err := os.Stat(clientHandshakePath); err == nil {
+		validateJSONFile(clientHandshakeSchema, clientHandshakePath, fail)
+	}
 	if protectedRoot != "" {
 		validateJSONLLines(scenarioSchema,
 			filepath.Join(protectedRoot, protectedHiddenLines), fail)

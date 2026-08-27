@@ -1,0 +1,45 @@
+{
+  "$schema": "../../schemas/client-handshake-corpus-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "corpus_id": "us010-client-handshake",
+  "frozen_source": {
+    "corpus_id": "us005-handshake",
+    "artifact": "corpora/handshake/cases.jsonl",
+    "sha256": "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605",
+    "selected_case_ids": ["us005.hs.0006", "us005.hs.0007", "us005.hs.0008", "us005.hs.0035", "us005.hs.0036", "us005.hs.0037", "us005.hs.0038", "us005.hs.0039", "us005.hs.0040", "us005.hs.0041"]
+  },
+  "frozen_cases": [
+    {"case_id":"us005.hs.0006","client_key":"hnt8mbkW8KRynbLvJHSoGQ==","nonce_hex":"867b7c99b916f0a4729db2ef2474a819","expected":"Open"},
+    {"case_id":"us005.hs.0007","client_key":"sgbdq+bVsdbsN+uWJXwdxg==","nonce_hex":"b206ddabe6d5b1d6ec37eb96257c1dc6","expected":"Open"},
+    {"case_id":"us005.hs.0008","client_key":"n80CKCPxw7daM7Z8bb0fEA==","nonce_hex":"9fcd022823f1c3b75a33b67c6dbd1f10","expected":"Open"},
+    {"case_id":"us005.hs.0035","client_key":"tN9b4sZMs4QBkFPSJH2tsw==","nonce_hex":"b4df5be2c64cb384019053d2247dadb3","expected":"StatusNotSwitchingProtocols(200)"},
+    {"case_id":"us005.hs.0036","client_key":"ou8H3AH4wbAPhp7R/7xScQ==","nonce_hex":"a2ef07dc01f8c1b00f869ed1ffbc5271","expected":"StatusNotSwitchingProtocols(404)"},
+    {"case_id":"us005.hs.0037","client_key":"0OoELRovQl5MhVjF5txu+A==","nonce_hex":"d0ea042d1a2f425e4c8558c5e6dc6ef8","expected":"StatusNotSwitchingProtocols(301)"},
+    {"case_id":"us005.hs.0038","client_key":"7grsCMkzNZW5aDGlxpVzbQ==","nonce_hex":"ee0aec08c9333595b96831a5c695736d","expected":"MissingAccept"},
+    {"case_id":"us005.hs.0039","client_key":"wS3+3SND6+ouxBj5zbdNUg==","nonce_hex":"c12dfedd2343ebea2ec418f9cdb74d52","expected":"AcceptMismatch"},
+    {"case_id":"us005.hs.0040","client_key":"FuUNdQQ+nEBV88zjcqIB6g==","nonce_hex":"16e50d75043e9c4055f3cce372a201ea","expected":"AcceptMismatch"},
+    {"case_id":"us005.hs.0041","client_key":"oytzDcXmOR6Bn+soKQa3JA==","nonce_hex":"a32b730dc5e6391e819feb282906b724","expected":"MissingUpgrade"}
+  ],
+  "additive_vectors": ["rfc6455-section-1.3-fixed-nonce", "mixed-case-required-header-names", "comma-token-upgrade-placement", "unknown-unique-header", "malformed-status", "http-version", "bare-line-ending", "obsolete-line-folding", "invalid-header-token", "duplicate-case-insensitive", "missing-required-fields", "invalid-required-tokens", "accept-bit-mutation", "unexpected-extension", "unexpected-subprotocol", "partial-eof", "trailing-data", "three-limit-families"],
+  "properties": {
+    "valid_cases_split_at_every_byte": 4,
+    "split_point_executions": 548,
+    "case_permutation_properties": ["ASCII case permutations preserve required-header meaning", "required token position in a valid comma list preserves meaning", "any accept-bit mutation rejects", "any suffix after terminal CRLF rejects"],
+    "fixed_seed": "us010-client-handshake-properties-v1"
+  },
+  "fuzz_seeds": [
+    {"path":"rust/connection-core/fuzz-seeds/us010/bare-lf.hex","sha256":"sha256:7284b34e944c6ab24909c20c9be93350a224d9aca0243aeeef02e04fa0b5a757","expected":"BareLineEnding"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/count-limit.hex","sha256":"sha256:8413f43a8f7de94de9cc3e1522c941a5fe1c99ef0cae1e2164e5f39716cb3142","expected":"HandshakeHeaderCount(6>5)"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/duplicate-casing.hex","sha256":"sha256:261296e4015a0099d2131750b0415e73ebfeb974a058aa9d956a502c2b669aca","expected":"DuplicateHeader"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/extension.hex","sha256":"sha256:b7399b8d47aba688df1b6058c8608c1ddc97602c1e2446f343e254cfd8bf0d7a","expected":"UnexpectedExtension"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/incomplete-crlf.hex","sha256":"sha256:96a0fd211bd5d6c322e4bec75e5b20ffd58618c56033d54f8d49938e91614d26","expected":"UnexpectedEof"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/invalid-token.hex","sha256":"sha256:f1cdba4f3049a64766cb60d81073e2ce5c4591d48f57dcdff9cdbd8a50477b21","expected":"InvalidHeaderName"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/line-limit.hex","sha256":"sha256:a2d42824d614e2071ab3354ec1a573b4abbacc4828fba3ca5e63064870eac799","expected":"HandshakeHeaderLineBytes(65>64)"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/obs-fold.hex","sha256":"sha256:fcb49e919ceceecbe70d0ddaed9a0228d6c6421d7df87b44ddf93810c6e400e4","expected":"ObsoleteLineFolding"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/subprotocol.hex","sha256":"sha256:a96e8d9ca40d008e20fca5504eb430b12f91f7b08571bbe99a20fc1e68d0573f","expected":"UnexpectedSubprotocol"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/total-limit.hex","sha256":"sha256:e3468fb515e57fe97987e89202bc98585323174433b3cccf433ed105319cdbec","expected":"HandshakeBytes(257>256)"},
+    {"path":"rust/connection-core/fuzz-seeds/us010/valid-plus-suffix.hex","sha256":"sha256:655cdef213936180818ba004399acc2f8f01a83b9d86799e0fd36a27e7c31eb6","expected":"TrailingData(1)"}
+  ],
+  "nonclaims": ["no server opening handshake", "no frame or application payload behavior", "no Autobahn execution", "no Java API parity", "no extension or subprotocol negotiation", "no release, publication, production, or conformance claim"],
+  "assurance": {"assurance":"OWNER_ATTESTED_NOT_INDEPENDENT","independent_review_claimed":false,"autobahn_executions":0,"production":false,"publication":false}
+}

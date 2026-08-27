@@ -133,11 +133,95 @@ fn frozen_server_response_keys_replay_with_literal_accept_values() {
         let response = format!(
             "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: {accept}\r\n\r\n"
         );
-        let result = core.step(CoreInput::Transport(TransportBytes::new(
-            response.as_bytes(),
-        )));
-        assert_eq!(result.failure(), None, "frozen accept {accept}");
-        assert_eq!(result.state(), ConnectionState::Open);
+        let response = response.into_bytes();
+        for split in 0..=response.len() {
+            let descriptor = ClientRequestDescriptor::try_new("/", "example.com").unwrap();
+            let mut split_core = client();
+            split_core.step(CoreInput::Command(LocalCommand::StartClientHandshake {
+                descriptor,
+                nonce,
+            }));
+            let first = split_core.step(CoreInput::Transport(TransportBytes::new(
+                &response[..split],
+            )));
+            let result = if split == response.len() {
+                first
+            } else {
+                assert_eq!(
+                    first.failure(),
+                    None,
+                    "frozen accept {accept} split {split}"
+                );
+                split_core.step(CoreInput::Transport(TransportBytes::new(
+                    &response[split..],
+                )))
+            };
+            assert_eq!(
+                result.failure(),
+                None,
+                "frozen accept {accept} split {split}"
+            );
+            assert_eq!(result.state(), ConnectionState::Open);
+        }
+    }
+}
+
+fn assert_frozen_corpus_failure(nonce: [u8; 16], response: &[u8], expected: HandshakeFailure) {
+    let descriptor = ClientRequestDescriptor::try_new("/", "example.com").unwrap();
+    let mut core = client();
+    core.step(CoreInput::Command(LocalCommand::StartClientHandshake {
+        descriptor,
+        nonce,
+    }));
+    let result = core.step(CoreInput::Transport(TransportBytes::new(response)));
+    assert_eq!(
+        result.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Handshake(expected))
+    );
+    assert_eq!(result.state(), ConnectionState::Closed);
+}
+
+#[test]
+fn all_seven_frozen_invalid_server_responses_keep_exact_typed_verdicts() {
+    let cases: &[([u8; 16], &[u8], HandshakeFailure)] = &[
+        (
+            [0xb4, 0xdf, 0x5b, 0xe2, 0xc6, 0x4c, 0xb3, 0x84, 0x01, 0x90, 0x53, 0xd2, 0x24, 0x7d, 0xad, 0xb3],
+            b"HTTP/1.1 200 OK\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: 3r3+jVkjgq6JLh0lJKwixsXScDs=\r\n\r\n",
+            HandshakeFailure::StatusNotSwitchingProtocols { received: 200 },
+        ),
+        (
+            [0xa2, 0xef, 0x07, 0xdc, 0x01, 0xf8, 0xc1, 0xb0, 0x0f, 0x86, 0x9e, 0xd1, 0xff, 0xbc, 0x52, 0x71],
+            b"HTTP/1.1 404 Not Found\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: PzWaxUf2i9/gOR6WNfQUZ8jQeEk=\r\n\r\n",
+            HandshakeFailure::StatusNotSwitchingProtocols { received: 404 },
+        ),
+        (
+            [0xd0, 0xea, 0x04, 0x2d, 0x1a, 0x2f, 0x42, 0x5e, 0x4c, 0x85, 0x58, 0xc5, 0xe6, 0xdc, 0x6e, 0xf8],
+            b"HTTP/1.1 301 Moved Permanently\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: O2a+9n0R9/RlUomxMhxePMm2/nU=\r\n\r\n",
+            HandshakeFailure::StatusNotSwitchingProtocols { received: 301 },
+        ),
+        (
+            [0xee, 0x0a, 0xec, 0x08, 0xc9, 0x33, 0x35, 0x95, 0xb9, 0x68, 0x31, 0xa5, 0xc6, 0x95, 0x73, 0x6d],
+            b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\n\r\n",
+            HandshakeFailure::MissingAccept,
+        ),
+        (
+            [0xc1, 0x2d, 0xfe, 0xdd, 0x23, 0x43, 0xeb, 0xea, 0x2e, 0xc4, 0x18, 0xf9, 0xcd, 0xb7, 0x4d, 0x52],
+            b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: hJpD9NTjQPxlPFJemU6DsSr3tV4=\r\n\r\n",
+            HandshakeFailure::AcceptMismatch,
+        ),
+        (
+            [0x16, 0xe5, 0x0d, 0x75, 0x04, 0x3e, 0x9c, 0x40, 0x55, 0xf3, 0xcc, 0xe3, 0x72, 0xa2, 0x01, 0xea],
+            b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: 6f40e1/ojkkkyxuxew36t2sb1si=\r\n\r\n",
+            HandshakeFailure::AcceptMismatch,
+        ),
+        (
+            [0xa3, 0x2b, 0x73, 0x0d, 0xc5, 0xe6, 0x39, 0x1e, 0x81, 0x9f, 0xeb, 0x28, 0x29, 0x06, 0xb7, 0x24],
+            b"HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: CX8VKFPwBIkvoT9ggtiYsa7+cn8=\r\n\r\n",
+            HandshakeFailure::MissingUpgrade,
+        ),
+    ];
+    for (nonce, response, expected) in cases {
+        assert_frozen_corpus_failure(*nonce, response, expected.clone());
     }
 }
 
@@ -498,4 +582,116 @@ fn canonical_request_obeys_the_receiving_cores_smaller_limits() {
     );
     assert_eq!(result.outputs().len(), 0);
     assert_eq!(result.state(), ConnectionState::Connecting);
+}
+
+fn decode_hex_seed(hex: &str) -> Vec<u8> {
+    let compact: Vec<_> = hex
+        .bytes()
+        .filter(|byte| !byte.is_ascii_whitespace())
+        .collect();
+    assert_eq!(compact.len() % 2, 0, "seed hex must contain whole bytes");
+    compact
+        .chunks_exact(2)
+        .map(|pair| {
+            let high = char::from(pair[0]).to_digit(16).expect("hex high nibble");
+            let low = char::from(pair[1]).to_digit(16).expect("hex low nibble");
+            u8::try_from(high * 16 + low).unwrap()
+        })
+        .collect()
+}
+
+#[test]
+fn every_committed_us010_fuzz_seed_replays_in_the_normal_test_harness() {
+    let ordinary = [
+        (
+            include_str!("../fuzz-seeds/us010/bare-lf.hex"),
+            HandshakeFailure::BareLineEnding,
+        ),
+        (
+            include_str!("../fuzz-seeds/us010/duplicate-casing.hex"),
+            HandshakeFailure::DuplicateHeader,
+        ),
+        (
+            include_str!("../fuzz-seeds/us010/obs-fold.hex"),
+            HandshakeFailure::ObsoleteLineFolding,
+        ),
+        (
+            include_str!("../fuzz-seeds/us010/invalid-token.hex"),
+            HandshakeFailure::InvalidHeaderName,
+        ),
+        (
+            include_str!("../fuzz-seeds/us010/extension.hex"),
+            HandshakeFailure::UnexpectedExtension,
+        ),
+        (
+            include_str!("../fuzz-seeds/us010/subprotocol.hex"),
+            HandshakeFailure::UnexpectedSubprotocol,
+        ),
+        (
+            include_str!("../fuzz-seeds/us010/valid-plus-suffix.hex"),
+            HandshakeFailure::TrailingData { bytes: 1 },
+        ),
+    ];
+    for (hex, expected) in ordinary {
+        assert_fatal_response(&decode_hex_seed(hex), expected);
+    }
+
+    let incomplete = decode_hex_seed(include_str!("../fuzz-seeds/us010/incomplete-crlf.hex"));
+    let mut partial = start_default_client();
+    assert_eq!(
+        partial
+            .step(CoreInput::Transport(TransportBytes::new(&incomplete)))
+            .failure(),
+        None
+    );
+    let eof = partial.step(CoreInput::TransportEof);
+    assert_eq!(
+        eof.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Handshake(HandshakeFailure::UnexpectedEof))
+    );
+
+    let total_bytes = decode_hex_seed(include_str!("../fuzz-seeds/us010/total-limit.hex"));
+    let mut total = client_with_limits(ConnectionLimits {
+        handshake_bytes: 256,
+        handshake_header_line_bytes: 256,
+        ..ConnectionLimits::default()
+    });
+    assert_limit_failure(
+        &total.step(CoreInput::Transport(TransportBytes::new(&total_bytes))),
+        FailureKind::LimitExceeded {
+            limit: LimitKind::HandshakeBytes,
+            attempted: 257,
+            maximum: 256,
+        },
+    );
+
+    let line_bytes = decode_hex_seed(include_str!("../fuzz-seeds/us010/line-limit.hex"));
+    let mut line = client_with_limits(ConnectionLimits {
+        handshake_bytes: 512,
+        handshake_header_line_bytes: 64,
+        ..ConnectionLimits::default()
+    });
+    assert_limit_failure(
+        &line.step(CoreInput::Transport(TransportBytes::new(&line_bytes))),
+        FailureKind::LimitExceeded {
+            limit: LimitKind::HandshakeHeaderLineBytes,
+            attempted: 65,
+            maximum: 64,
+        },
+    );
+
+    let count_bytes = decode_hex_seed(include_str!("../fuzz-seeds/us010/count-limit.hex"));
+    let mut count = client_with_limits(ConnectionLimits {
+        handshake_bytes: 512,
+        handshake_header_count: 5,
+        ..ConnectionLimits::default()
+    });
+    assert_limit_failure(
+        &count.step(CoreInput::Transport(TransportBytes::new(&count_bytes))),
+        FailureKind::LimitExceeded {
+            limit: LimitKind::HandshakeHeaderCount,
+            attempted: 6,
+            maximum: 5,
+        },
+    );
 }
