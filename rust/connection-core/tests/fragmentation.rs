@@ -218,13 +218,12 @@ fn utf8_scalar_crosses_every_fragment_boundary_under_one_byte_transport_feeds() 
 }
 
 #[test]
-fn controls_are_observed_and_do_not_disturb_active_text_or_order() {
+fn ping_pong_controls_are_observed_and_do_not_disturb_active_text_or_order() {
     let config = config_with(|_| {});
     let mut wire = encoded(Role::Server, &config, false, Opcode::Text, b"a");
     for (opcode, payload) in [
         (Opcode::Ping, b"p".as_slice()),
         (Opcode::Pong, b"q".as_slice()),
-        (Opcode::Close, b"".as_slice()),
     ] {
         wire.extend_from_slice(&encoded(Role::Server, &config, true, opcode, payload));
     }
@@ -246,7 +245,6 @@ fn controls_are_observed_and_do_not_disturb_active_text_or_order() {
             b"a".as_slice(),
             b"p".as_slice(),
             b"q".as_slice(),
-            b"".as_slice(),
             b"b".as_slice(),
         ]
     );

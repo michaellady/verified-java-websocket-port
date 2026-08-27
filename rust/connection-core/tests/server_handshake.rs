@@ -1389,14 +1389,9 @@ fn wrong_role_and_terminal_failures_are_non_mutating_or_single_transition() {
     );
     let repeated_inputs = [
         CoreInput::Transport(TransportBytes::new(b"ignored")),
-        CoreInput::TransportEof,
         CoreInput::Command(LocalCommand::SendText("ignored".into())),
     ];
-    let expected_kinds = [
-        InputKind::TransportBytes,
-        InputKind::TransportEof,
-        InputKind::LocalCommand,
-    ];
+    let expected_kinds = [InputKind::TransportBytes, InputKind::LocalCommand];
     for (input, input_kind) in repeated_inputs.into_iter().zip(expected_kinds) {
         let repeated = fatal.step(input);
         assert_eq!(repeated.outputs().len(), 0, "no repeated Closed transition");
@@ -1409,6 +1404,10 @@ fn wrong_role_and_terminal_failures_are_non_mutating_or_single_transition() {
             })
         );
     }
+    let repeated_eof = fatal.step(CoreInput::TransportEof);
+    assert_eq!(repeated_eof.outputs().len(), 0);
+    assert_eq!(repeated_eof.failure(), None);
+    assert_eq!(repeated_eof.state(), ConnectionState::Closed);
 }
 
 #[test]

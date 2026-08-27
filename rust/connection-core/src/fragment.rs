@@ -26,7 +26,7 @@ impl FragmentPlan {
             | Self::Continue {
                 final_frame: true, ..
             } => 2,
-            Self::Control(Opcode::Ping | Opcode::Pong) => 2,
+            Self::Control(Opcode::Close | Opcode::Ping | Opcode::Pong) => 2,
             Self::Unfragmented(None)
             | Self::Control(_)
             | Self::Begin(_)
@@ -138,10 +138,10 @@ impl FragmentAccumulator {
             FragmentPlan::Unfragmented(Some(kind)) => {
                 kind.admit(config, header.payload_length(), staged_event_count)?;
             }
-            FragmentPlan::Unfragmented(None) | FragmentPlan::Control(Opcode::Close) => {
+            FragmentPlan::Unfragmented(None) => {
                 admit_frame_event(config, staged_event_count)?;
             }
-            FragmentPlan::Control(Opcode::Ping | Opcode::Pong) => {
+            FragmentPlan::Control(Opcode::Close | Opcode::Ping | Opcode::Pong) => {
                 admit_events(config, staged_event_count, 2)?;
             }
             FragmentPlan::Control(_) => {

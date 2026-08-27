@@ -1,12 +1,13 @@
 use core::fmt;
 
+use crate::close::{CloseMachine, encode_peer_echo, parse_peer_close, prepare_local_close};
 use crate::control::{
     AutomaticPongPolicy, ControlPayload, encode_automatic_pong, encode_local_control,
     is_observed_control, plan_batch, should_automatically_pong,
 };
 use crate::frame::Frame;
 use crate::frame::Opcode;
-use crate::frame::decode::FrameDecoder;
+use crate::frame::decode::{DecodedFrame, FrameDecoder};
 use crate::handshake::{
     ClientHandshake, ClientLimitExceeded, ClientRequestDescriptor, ClientResponse, ServerHandshake,
     ServerRequest, ServerRequestDescriptor,
@@ -418,10 +419,12 @@ pub enum LocalCommand {
     },
     /// Requests the closing handshake.
     Close {
-        /// WebSocket close code.
-        code: u16,
+        /// Optional WebSocket close code; `None` encodes an empty payload.
+        code: Option<u16>,
         /// Human-readable close reason.
         reason: Box<str>,
+        /// One caller-supplied client mask key; forbidden for servers.
+        mask_key: Option<[u8; 4]>,
     },
 }
 
@@ -434,6 +437,8 @@ pub enum CoreInput<'a> {
     Command(LocalCommand),
     /// End-of-file observed from the transport.
     TransportEof,
+    /// Confirms that every previously emitted transport write has drained.
+    TransportWriteFlushed,
 }
 
 /// Owned bytes to write to a transport.
@@ -488,6 +493,13 @@ pub enum SemanticEvent {
     Pong {
         /// Shared immutable decoded control bytes.
         payload: ControlPayload,
+    },
+    /// One validated Close control frame was received.
+    CloseReceived {
+        /// Shared immutable code and reason observation.
+        close: crate::close::CloseFrame,
+        /// Which side initiated this core's closing sequence.
+        initiator: crate::close::CloseInitiator,
     },
 }
 
@@ -734,11 +746,6 @@ pub enum FragmentFailure {
     },
 }
 
-/// Reserved close failure vocabulary.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub enum CloseFailure {}
-
 /// Identifies a bounded queue.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum QueueKind {
@@ -778,7 +785,7 @@ pub enum FailureKind {
     /// Fragmented-message failure implemented by US-014.
     Fragment(FragmentFailure),
     /// Close failure reserved for US-016.
-    Close(CloseFailure),
+    Close(crate::close::CloseFailure),
     /// A runtime operation exceeded a configured limit.
     LimitExceeded {
         /// Limit that rejected the operation.
@@ -844,6 +851,7 @@ pub struct ConnectionCore {
     client_handshake: ClientHandshake,
     server_handshake: ServerHandshake,
     frame_decoder: FrameDecoder,
+    close: CloseMachine,
 }
 
 impl ConnectionCore {
@@ -862,6 +870,7 @@ impl ConnectionCore {
             client_handshake: ClientHandshake::new(),
             server_handshake,
             frame_decoder: FrameDecoder::new(),
+            close: CloseMachine::new(),
         }
     }
 
@@ -871,10 +880,21 @@ impl ConnectionCore {
     /// later story returns a typed unavailable failure without side effects.
     pub fn step(&mut self, input: CoreInput<'_>) -> StepResult {
         if self.state == ConnectionState::Closed {
+            if matches!(
+                input,
+                CoreInput::TransportEof | CoreInput::TransportWriteFlushed
+            ) {
+                return StepResult {
+                    outputs: Box::new([]),
+                    failure: None,
+                    state: self.state,
+                };
+            }
             let input = match input {
                 CoreInput::Transport(_) => InputKind::TransportBytes,
                 CoreInput::Command(_) => InputKind::LocalCommand,
                 CoreInput::TransportEof => InputKind::TransportEof,
+                CoreInput::TransportWriteFlushed => unreachable!("handled above"),
             };
             return StepResult {
                 outputs: Box::new([]),
@@ -887,6 +907,30 @@ impl ConnectionCore {
                 }),
                 state: self.state,
             };
+        }
+        if let CoreInput::TransportWriteFlushed = input {
+            if self.state == ConnectionState::Closing && self.close.write_pending() {
+                self.close.mark_write_flushed();
+                if self.close.is_complete() {
+                    return self.finish_clean(Vec::new());
+                }
+            }
+            return StepResult {
+                outputs: Box::new([]),
+                failure: None,
+                state: self.state,
+            };
+        }
+        if let CoreInput::Command(LocalCommand::Close {
+            code,
+            reason,
+            mask_key,
+        }) = input
+        {
+            return self.local_close(code, &reason, mask_key);
+        }
+        if self.state == ConnectionState::Closing && matches!(input, CoreInput::Command(_)) {
+            return self.invalid_state(InputKind::LocalCommand);
         }
         if let CoreInput::Command(LocalCommand::StartClientHandshake { descriptor, nonce }) = input
         {
@@ -1064,7 +1108,7 @@ impl ConnectionCore {
             }
         }
         if let CoreInput::Transport(bytes) = input
-            && self.state == ConnectionState::Open
+            && matches!(self.state, ConnectionState::Open | ConnectionState::Closing)
         {
             return self.consume_frames(bytes.as_slice());
         }
@@ -1079,6 +1123,18 @@ impl ConnectionCore {
             && let Some(failure) = self.frame_decoder.fragment_eof_failure()
         {
             return self.close_with_failure(FailureKind::Fragment(failure));
+        }
+        if let CoreInput::TransportEof = input
+            && self.state == ConnectionState::Open
+        {
+            return self.close_with_failure(FailureKind::Close(
+                crate::close::CloseFailure::UnexpectedEofOpen,
+            ));
+        }
+        if let CoreInput::TransportEof = input
+            && self.state == ConnectionState::Closing
+        {
+            return self.close_with_failure(FailureKind::Close(self.close.eof_failure()));
         }
         if let CoreInput::Transport(_) = input
             && self.role == Role::Client
@@ -1109,6 +1165,13 @@ impl ConnectionCore {
             return self
                 .close_with_failure(FailureKind::Handshake(HandshakeFailure::UnexpectedEof));
         }
+        if let CoreInput::TransportEof = input
+            && self.state == ConnectionState::Connecting
+        {
+            self.client_handshake.mark_failed();
+            return self
+                .close_with_failure(FailureKind::Handshake(HandshakeFailure::UnexpectedEof));
+        }
         let owner_story = match input {
             CoreInput::Transport(_) => match (self.role, self.state) {
                 (Role::Client, ConnectionState::Open) => ProtocolStory::FrameCoding,
@@ -1128,6 +1191,7 @@ impl ConnectionCore {
             CoreInput::Command(LocalCommand::Close { .. }) | CoreInput::TransportEof => {
                 ProtocolStory::CloseAndEof
             }
+            CoreInput::TransportWriteFlushed => ProtocolStory::CloseAndEof,
         };
         let failure = TypedProtocolFailure {
             kind: FailureKind::ProtocolSliceUnavailable { owner_story },
@@ -1160,6 +1224,7 @@ impl ConnectionCore {
 
     fn close_with_failure(&mut self, kind: FailureKind) -> StepResult {
         self.frame_decoder.reset();
+        self.close.reset();
         self.state = ConnectionState::Closed;
         StepResult {
             outputs: Box::new([CoreOutput::StateChanged(ConnectionState::Closed)]),
@@ -1173,6 +1238,15 @@ impl ConnectionCore {
 
     fn consume_frames(&mut self, bytes: &[u8]) -> StepResult {
         let mut batch = self.frame_decoder.consume(&self.config, self.role, bytes);
+        if self.state == ConnectionState::Closing
+            || batch
+                .records
+                .iter()
+                .any(|record| record.frame.opcode() == Opcode::Close)
+        {
+            let decoder_partial = self.frame_decoder.is_partial();
+            return self.consume_close_aware(batch.records, batch.failure.take(), decoder_partial);
+        }
         let plan = plan_batch(&self.config, self.role, &batch.records);
         let terminal_failure = plan.failure.or(batch.failure.take());
         if terminal_failure.is_some() {
@@ -1245,12 +1319,326 @@ impl ConnectionCore {
         }
     }
 
+    fn consume_close_aware(
+        &mut self,
+        records: Vec<DecodedFrame>,
+        decoder_failure: Option<FailureKind>,
+        decoder_partial: bool,
+    ) -> StepResult {
+        let started_open = self.state == ConnectionState::Open;
+        let mut prefix_end = records.len();
+        let mut close_index = None;
+        let mut terminal_failure = None;
+
+        for (index, record) in records.iter().enumerate() {
+            match (self.state, record.frame.opcode()) {
+                (_, Opcode::Close) => {
+                    prefix_end = index;
+                    close_index = Some(index);
+                    break;
+                }
+                (
+                    ConnectionState::Closing,
+                    opcode @ (Opcode::Text | Opcode::Binary | Opcode::Continuation),
+                ) => {
+                    prefix_end = index;
+                    terminal_failure = Some(FailureKind::Close(
+                        crate::close::CloseFailure::DataAfterClose { opcode },
+                    ));
+                    break;
+                }
+                _ => {}
+            }
+        }
+
+        let planned_prefix_outputs = if started_open {
+            let plan = plan_batch(&self.config, self.role, &records[..prefix_end]);
+            if let Some(failure) = plan.failure {
+                prefix_end = plan.accepted_records;
+                close_index = None;
+                terminal_failure = Some(failure);
+            }
+            plan.output_capacity
+        } else {
+            match records[..prefix_end]
+                .iter()
+                .try_fold(0usize, |total, record| {
+                    let group = 1usize
+                        .checked_add(usize::from(is_observed_control(&record.frame)))
+                        .and_then(|value| {
+                            value.checked_add(usize::from(record.delivery.is_some()))
+                        })?;
+                    total.checked_add(group)
+                }) {
+                Some(value) => value,
+                None => {
+                    prefix_end = 0;
+                    close_index = None;
+                    terminal_failure = Some(FailureKind::Frame(FrameFailure::ArithmeticOverflow));
+                    0
+                }
+            }
+        };
+
+        let mut parsed_close = None;
+        let mut echo_wire = None;
+        if let Some(index) = close_index {
+            if self.state == ConnectionState::Closing && self.close.has_peer() {
+                terminal_failure = Some(FailureKind::Close(
+                    crate::close::CloseFailure::DuplicatePeerClose,
+                ));
+                close_index = None;
+            } else {
+                match parse_peer_close(&records[index].frame, self.role) {
+                    Ok(close) => parsed_close = Some(close),
+                    Err(failure) => {
+                        terminal_failure = Some(failure);
+                        close_index = None;
+                    }
+                }
+            }
+        }
+
+        if let Some(index) = close_index
+            && started_open
+            && self.role == Role::Server
+        {
+            let automatic_writes = records[..prefix_end]
+                .iter()
+                .filter(|record| {
+                    should_automatically_pong(&self.config, self.role, record.frame.opcode())
+                })
+                .count();
+            let write_entries = automatic_writes.checked_add(1);
+            if write_entries.is_none_or(|count| count > self.config.write_queue_entries()) {
+                terminal_failure = Some(FailureKind::Backpressure(QueueKind::Write));
+                close_index = None;
+                parsed_close = None;
+            } else {
+                match encode_peer_echo(&self.config, records[index].frame.payload()) {
+                    Ok(wire) => {
+                        let generated_prefix = records[..prefix_end]
+                            .iter()
+                            .filter(|record| {
+                                should_automatically_pong(
+                                    &self.config,
+                                    self.role,
+                                    record.frame.opcode(),
+                                )
+                            })
+                            .try_fold(0usize, |total, record| {
+                                total.checked_add(2usize.checked_add(record.frame.payload().len())?)
+                            });
+                        let retained = generated_prefix
+                            .and_then(|bytes| bytes.checked_add(wire.len()))
+                            .and_then(|bytes| {
+                                bytes.checked_add(records[index].retained_payload_bytes)
+                            });
+                        if retained.is_none_or(|bytes| bytes > self.config.total_buffered_bytes()) {
+                            terminal_failure = Some(FailureKind::LimitExceeded {
+                                limit: LimitKind::TotalBufferedBytes,
+                                attempted: retained
+                                    .and_then(|bytes| u64::try_from(bytes).ok())
+                                    .unwrap_or(u64::MAX),
+                                maximum: self.config.limits().total_buffered_bytes,
+                            });
+                            close_index = None;
+                            parsed_close = None;
+                        } else {
+                            echo_wire = Some(wire);
+                        }
+                    }
+                    Err(failure) => {
+                        terminal_failure = Some(failure);
+                        close_index = None;
+                        parsed_close = None;
+                    }
+                }
+            }
+        }
+
+        if let Some(index) = close_index {
+            let trailing_record = records.get(index + 1);
+            if let Some(record) = trailing_record {
+                terminal_failure = Some(FailureKind::Close(match record.frame.opcode() {
+                    opcode @ (Opcode::Text | Opcode::Binary | Opcode::Continuation) => {
+                        crate::close::CloseFailure::DataAfterClose { opcode }
+                    }
+                    _ => crate::close::CloseFailure::TrailingBytesAfterClose,
+                }));
+            } else if let Some(failure) = decoder_failure.as_ref() {
+                terminal_failure = Some(match failure {
+                    FailureKind::Fragment(FragmentFailure::DataFrameWhileFragmented {
+                        received,
+                        ..
+                    }) => FailureKind::Close(crate::close::CloseFailure::DataAfterClose {
+                        opcode: *received,
+                    }),
+                    FailureKind::Fragment(FragmentFailure::ContinuationWithoutMessage) => {
+                        FailureKind::Close(crate::close::CloseFailure::DataAfterClose {
+                            opcode: Opcode::Continuation,
+                        })
+                    }
+                    _ => FailureKind::Close(crate::close::CloseFailure::TrailingBytesAfterClose),
+                });
+            } else if decoder_partial {
+                terminal_failure = Some(FailureKind::Close(
+                    crate::close::CloseFailure::TrailingBytesAfterClose,
+                ));
+            }
+        } else if terminal_failure.is_none() {
+            terminal_failure = decoder_failure.map(|failure| {
+                if self.state == ConnectionState::Closing {
+                    match failure {
+                        FailureKind::Fragment(FragmentFailure::ContinuationWithoutMessage) => {
+                            FailureKind::Close(crate::close::CloseFailure::DataAfterClose {
+                                opcode: Opcode::Continuation,
+                            })
+                        }
+                        other => other,
+                    }
+                } else {
+                    failure
+                }
+            });
+        }
+
+        let clean_terminal = close_index.is_some()
+            && !started_open
+            && !self.close.write_pending()
+            && terminal_failure.is_none();
+        let close_outputs = usize::from(close_index.is_some())
+            .checked_mul(2)
+            .and_then(|value| value.checked_add(usize::from(close_index.is_some() && started_open)))
+            .and_then(|value| value.checked_add(usize::from(echo_wire.is_some())))
+            .and_then(|value| value.checked_add(usize::from(clean_terminal)));
+        let Some(total_capacity) = close_outputs
+            .and_then(|value| planned_prefix_outputs.checked_add(value))
+            .and_then(|value| value.checked_add(usize::from(terminal_failure.is_some())))
+        else {
+            return self.close_with_failure(FailureKind::Frame(FrameFailure::ArithmeticOverflow));
+        };
+        let mut outputs = Vec::new();
+        if outputs.try_reserve_exact(total_capacity).is_err() {
+            return self.close_with_failure(FailureKind::Frame(FrameFailure::AllocationFailed));
+        }
+
+        let mut iterator = records.into_iter();
+        for _ in 0..prefix_end {
+            let record = iterator.next().expect("planned prefix record");
+            let automatic = started_open
+                && should_automatically_pong(&self.config, self.role, record.frame.opcode());
+            if let Err(failure) = self.append_record_outputs(&mut outputs, record, automatic) {
+                return self.close_after_prefix(outputs, failure);
+            }
+        }
+
+        if close_index.is_some() {
+            let record = iterator.next().expect("planned close record");
+            let close = parsed_close.expect("validated close record");
+            let initiator = if started_open {
+                crate::close::CloseInitiator::Peer
+            } else {
+                self.close
+                    .initiator()
+                    .expect("Closing always records an initiator")
+            };
+            outputs.push(CoreOutput::SemanticEvent(SemanticEvent::FrameReceived {
+                frame: record.frame,
+            }));
+            outputs.push(CoreOutput::SemanticEvent(SemanticEvent::CloseReceived {
+                close: close.clone(),
+                initiator,
+            }));
+
+            self.frame_decoder.reset();
+            if started_open {
+                self.close.begin_peer(close);
+                self.state = ConnectionState::Closing;
+                outputs.push(CoreOutput::StateChanged(ConnectionState::Closing));
+                if let Some(wire) = echo_wire {
+                    self.close.admit_peer_echo();
+                    outputs.push(CoreOutput::TransportWrite(TransportWrite { bytes: wire }));
+                }
+            } else {
+                self.close.accept_peer(close);
+            }
+
+            if let Some(failure) = terminal_failure {
+                return self.close_after_prefix(outputs, failure);
+            }
+            if self.close.is_complete() {
+                return self.finish_clean(outputs);
+            }
+            return StepResult {
+                outputs: outputs.into_boxed_slice(),
+                failure: None,
+                state: self.state,
+            };
+        }
+
+        debug_assert!(outputs.len() <= total_capacity);
+        if let Some(failure) = terminal_failure {
+            return self.close_after_prefix(outputs, failure);
+        }
+        StepResult {
+            outputs: outputs.into_boxed_slice(),
+            failure: None,
+            state: self.state,
+        }
+    }
+
+    fn append_record_outputs(
+        &self,
+        outputs: &mut Vec<CoreOutput>,
+        record: DecodedFrame,
+        automatic_pong: bool,
+    ) -> Result<(), FailureKind> {
+        let encoded_pong = if automatic_pong {
+            Some(encode_automatic_pong(&self.config, record.frame.payload())?)
+        } else {
+            None
+        };
+        let control_payload =
+            is_observed_control(&record.frame).then(|| ControlPayload::from_frame(&record.frame));
+        let opcode = record.frame.opcode();
+        let delivery = record
+            .delivery
+            .map(|delivery| delivery.deliver(&record.frame));
+        outputs.push(CoreOutput::SemanticEvent(SemanticEvent::FrameReceived {
+            frame: record.frame,
+        }));
+        match (opcode, control_payload) {
+            (Opcode::Ping, Some(payload)) => {
+                outputs.push(CoreOutput::SemanticEvent(SemanticEvent::Ping { payload }));
+            }
+            (Opcode::Pong, Some(payload)) => {
+                outputs.push(CoreOutput::SemanticEvent(SemanticEvent::Pong { payload }));
+            }
+            _ => {}
+        }
+        match delivery {
+            Some(MessageDelivery::Text(message)) => {
+                outputs.push(CoreOutput::SemanticEvent(SemanticEvent::Text { message }));
+            }
+            Some(MessageDelivery::Binary(message)) => {
+                outputs.push(CoreOutput::SemanticEvent(SemanticEvent::Binary { message }));
+            }
+            None => {}
+        }
+        if let Some(bytes) = encoded_pong {
+            outputs.push(CoreOutput::TransportWrite(TransportWrite { bytes }));
+        }
+        Ok(())
+    }
+
     fn close_after_prefix(
         &mut self,
         mut outputs: Vec<CoreOutput>,
         kind: FailureKind,
     ) -> StepResult {
         self.frame_decoder.reset();
+        self.close.reset();
         self.state = ConnectionState::Closed;
         outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));
         StepResult {
@@ -1259,6 +1647,108 @@ impl ConnectionCore {
                 kind,
                 state_after: self.state,
             }),
+            state: self.state,
+        }
+    }
+
+    fn invalid_state(&self, input: InputKind) -> StepResult {
+        StepResult {
+            outputs: Box::new([]),
+            failure: Some(TypedProtocolFailure {
+                kind: FailureKind::InvalidState {
+                    input,
+                    state: self.state,
+                },
+                state_after: self.state,
+            }),
+            state: self.state,
+        }
+    }
+
+    fn local_close(
+        &mut self,
+        code: Option<u16>,
+        reason: &str,
+        mask_key: Option<[u8; 4]>,
+    ) -> StepResult {
+        if self.state == ConnectionState::Connecting {
+            return self.invalid_state(InputKind::LocalCommand);
+        }
+        if self.state == ConnectionState::Closing {
+            if self.close.has_local() {
+                return self.nonterminal_failure(FailureKind::Close(
+                    crate::close::CloseFailure::DuplicateLocalClose,
+                ));
+            }
+            if self.role != Role::Client || !self.close.has_peer() {
+                return self.invalid_state(InputKind::LocalCommand);
+            }
+            if !self.close.acknowledgement_matches(code, reason) {
+                return self.nonterminal_failure(FailureKind::Close(
+                    crate::close::CloseFailure::AcknowledgementMismatch,
+                ));
+            }
+            return match prepare_local_close(
+                &self.config,
+                self.role,
+                code,
+                reason,
+                mask_key,
+                self.close.retained_bytes(),
+            ) {
+                Ok(prepared) => {
+                    self.close.admit_local_half(prepared.payload);
+                    StepResult {
+                        outputs: Box::new([CoreOutput::TransportWrite(TransportWrite {
+                            bytes: prepared.wire,
+                        })]),
+                        failure: None,
+                        state: self.state,
+                    }
+                }
+                Err(kind) => self.nonterminal_failure(kind),
+            };
+        }
+
+        match prepare_local_close(&self.config, self.role, code, reason, mask_key, 0) {
+            Ok(prepared) => {
+                self.close.begin_local(prepared.payload);
+                self.frame_decoder.reset();
+                self.state = ConnectionState::Closing;
+                StepResult {
+                    outputs: Box::new([
+                        CoreOutput::TransportWrite(TransportWrite {
+                            bytes: prepared.wire,
+                        }),
+                        CoreOutput::StateChanged(ConnectionState::Closing),
+                    ]),
+                    failure: None,
+                    state: self.state,
+                }
+            }
+            Err(kind) => self.nonterminal_failure(kind),
+        }
+    }
+
+    fn nonterminal_failure(&self, kind: FailureKind) -> StepResult {
+        StepResult {
+            outputs: Box::new([]),
+            failure: Some(TypedProtocolFailure {
+                kind,
+                state_after: self.state,
+            }),
+            state: self.state,
+        }
+    }
+
+    fn finish_clean(&mut self, mut outputs: Vec<CoreOutput>) -> StepResult {
+        self.frame_decoder.reset();
+        self.close.reset();
+        self.state = ConnectionState::Closed;
+        outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));
+        StepResult {
+            outputs: outputs.into_boxed_slice(),
+            failure: None,
             state: self.state,
         }
     }

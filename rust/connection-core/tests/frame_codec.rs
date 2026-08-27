@@ -657,34 +657,30 @@ fn frame_events_do_not_implement_later_story_semantics() {
     let config = config_with(|_| {});
     let mut core = open_core(Role::Server, config);
 
-    for (command, owner_story) in [
-        (
-            LocalCommand::SendText("later".into()),
-            ProtocolStory::Messages,
-        ),
-        (
-            LocalCommand::Close {
-                code: 1000,
-                reason: "later".into(),
-            },
-            ProtocolStory::CloseAndEof,
-        ),
-    ] {
-        let result = core.step(CoreInput::Command(command));
-        assert_eq!(
-            result.failure().map(|failure| &failure.kind),
-            Some(&FailureKind::ProtocolSliceUnavailable { owner_story })
-        );
-        assert_eq!(result.state(), ConnectionState::Open);
-    }
+    let result = core.step(CoreInput::Command(LocalCommand::SendText("later".into())));
+    assert_eq!(
+        result.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::ProtocolSliceUnavailable {
+            owner_story: ProtocolStory::Messages,
+        })
+    );
+    assert_eq!(result.state(), ConnectionState::Open);
+
+    let close = core.step(CoreInput::Command(LocalCommand::Close {
+        code: Some(1000),
+        reason: "later".into(),
+        mask_key: None,
+    }));
+    assert_eq!(close.failure(), None);
+    assert_eq!(close.state(), ConnectionState::Closing);
     let eof = core.step(CoreInput::TransportEof);
     assert_eq!(
         eof.failure().map(|failure| &failure.kind),
-        Some(&FailureKind::ProtocolSliceUnavailable {
-            owner_story: ProtocolStory::CloseAndEof,
-        })
+        Some(&FailureKind::Close(
+            websocket_core::CloseFailure::EofBeforePeerClose,
+        ))
     );
-    assert_eq!(eof.state(), ConnectionState::Open);
+    assert_eq!(eof.state(), ConnectionState::Closed);
 }
 
 #[test]

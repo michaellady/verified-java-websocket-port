@@ -4,9 +4,9 @@
 //! bounded command-channel seams. US-010 and US-011 add opening handshakes;
 //! US-012 adds canonical frame coding and masking; US-013 delivers final Text
 //! and Binary messages; US-014 adds strict inbound fragment reassembly; US-015
-//! adds bounded Ping/Pong observation and explicit control writes. Protocol
-//! close behavior, sockets, runtimes, and callbacks remain owned by later
-//! stories.
+//! adds bounded Ping/Pong observation and explicit control writes; US-016 adds
+//! the bounded closing handshake and typed EOF lifecycle. Sockets, runtimes,
+//! and callbacks remain owned by later stories.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
@@ -26,11 +26,12 @@ mod utf8;
 pub use channel::{
     CommandReceiveError, CommandReceiver, CommandSendError, CommandSender, command_channel,
 };
+pub use close::{CloseCodeRejection, CloseFailure, CloseFrame, CloseInitiator};
 pub use connection::{
-    CloseFailure, ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState,
-    CoreInput, CoreOutput, FailureKind, FragmentFailure, FrameFailure, HandshakeFailure, InputKind,
-    LimitKind, LimitRelationship, LocalCommand, ProtocolStory, QueueKind, Role, SemanticEvent,
-    StepResult, TransportBytes, TransportWrite, TypedProtocolFailure, Utf8Failure,
+    ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput,
+    CoreOutput, FailureKind, FragmentFailure, FrameFailure, HandshakeFailure, InputKind, LimitKind,
+    LimitRelationship, LocalCommand, ProtocolStory, QueueKind, Role, SemanticEvent, StepResult,
+    TransportBytes, TransportWrite, TypedProtocolFailure, Utf8Failure,
 };
 pub use control::{AutomaticPongPolicy, ControlPayload};
 pub use frame::decode::{FrameHeader, FrameHeaderDecode, FrameHeaderDecoder};

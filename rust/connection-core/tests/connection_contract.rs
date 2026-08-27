@@ -211,13 +211,6 @@ fn every_protocol_bearing_input_is_an_explicit_non_success() {
             LocalCommand::SendBinary(vec![1, 2].into_boxed_slice()),
             ProtocolStory::Messages,
         ),
-        (
-            LocalCommand::Close {
-                code: 1000,
-                reason: "done".into(),
-            },
-            ProtocolStory::CloseAndEof,
-        ),
     ];
     for (command, owner_story) in cases {
         assert_unavailable(
@@ -226,6 +219,19 @@ fn every_protocol_bearing_input_is_an_explicit_non_success() {
             ConnectionState::Connecting,
         );
     }
+    let close = client.step(CoreInput::Command(LocalCommand::Close {
+        code: Some(1000),
+        reason: "done".into(),
+        mask_key: Some([1, 2, 3, 4]),
+    }));
+    assert_eq!(close.outputs().len(), 0);
+    assert_eq!(
+        close.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::InvalidState {
+            input: websocket_core::InputKind::LocalCommand,
+            state: ConnectionState::Connecting,
+        })
+    );
     for command in [
         LocalCommand::SendPing {
             payload: vec![3].into_boxed_slice(),
@@ -246,12 +252,15 @@ fn every_protocol_bearing_input_is_an_explicit_non_success() {
             })
         );
     }
-    assert_unavailable(
-        &client.step(CoreInput::TransportEof),
-        ProtocolStory::CloseAndEof,
-        ConnectionState::Connecting,
+    let eof = client.step(CoreInput::TransportEof);
+    assert_eq!(
+        eof.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Handshake(
+            websocket_core::HandshakeFailure::UnexpectedEof,
+        ))
     );
-    assert_eq!(client.state(), ConnectionState::Connecting);
+    assert_eq!(eof.state(), ConnectionState::Closed);
+    assert_eq!(client.state(), ConnectionState::Closed);
 }
 
 #[test]
