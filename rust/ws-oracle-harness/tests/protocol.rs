@@ -1,8 +1,13 @@
-//! End-to-end JSONL protocol tests for the unwired harness: one response
-//! line per request, deterministic byte-identical reruns, truthful
-//! `CORE_NOT_WIRED` failure envelopes, and java-oracle line-level guards.
+//! End-to-end JSONL protocol tests for the wired harness: one response
+//! line per request, deterministic byte-identical reruns, the real
+//! `ws_core`-backed execution path (with its honest
+//! `CORE_BEHAVIOR_UNIMPLEMENTED` refusals), the retained `CORE_NOT_WIRED`
+//! shape of the historical [`UnwiredCore`], and java-oracle line-level
+//! guards.
 
-use ws_oracle_harness::core_adapter::{UNWIRED_DETAIL, active_core};
+use ws_oracle_harness::core_adapter::{
+    UNIMPLEMENTED_CODE, UNIMPLEMENTED_DETAIL, UNWIRED_DETAIL, UnwiredCore, active_core,
+};
 use ws_oracle_harness::response::RuntimeIdentity;
 use ws_oracle_harness::{identify, run_lines};
 
@@ -36,9 +41,21 @@ fn run(input: &str) -> String {
     String::from_utf8(output).expect("responses are UTF-8")
 }
 
+/// The historical UnwiredCore keeps its exact pre-merge envelope shape
+/// (`CORE_NOT_WIRED`, zero counts, `final_state == initial_state`) — it is
+/// no longer the default, but its honesty discipline is pinned here.
 #[test]
-fn unwired_harness_answers_every_request_with_core_not_wired() {
-    let transcript = run(&format!("{PUB_0000}\n"));
+fn unwired_core_answers_every_request_with_core_not_wired() {
+    let mut core = UnwiredCore;
+    let mut output = Vec::new();
+    run_lines(
+        format!("{PUB_0000}\n").as_bytes(),
+        &mut output,
+        &mut core,
+        &test_runtime(),
+    )
+    .expect("streaming");
+    let transcript = String::from_utf8(output).expect("responses are UTF-8");
     let lines: Vec<&str> = transcript.lines().collect();
     assert_eq!(lines.len(), 1);
     let expected = format!(
@@ -59,6 +76,68 @@ fn unwired_harness_answers_every_request_with_core_not_wired() {
     assert_eq!(lines[0], expected);
 }
 
+/// The WIRED default drives PUB_0000 (send_close 999 while OPEN) through
+/// the real ws_core: the gates pass, the skeleton refuses the close
+/// behavior with the honest non-oracle code, the core-counted action and
+/// retained state ride the failure envelope, byte-exact.
+#[test]
+fn wired_harness_reports_honest_unimplemented_for_skeleton_sends() {
+    let transcript = run(&format!("{PUB_0000}\n"));
+    let lines: Vec<&str> = transcript.lines().collect();
+    assert_eq!(lines.len(), 1);
+    let expected = format!(
+        concat!(
+            "{{\"counts\":{{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":0,",
+            "\"frames\":0,\"input_bytes\":0,\"message_buffered_bytes\":0,",
+            "\"wire_buffered_bytes\":0}},\"error\":{{\"code\":\"{code}\",",
+            "\"detail\":\"{detail}\"}},\"final_state\":\"open\",",
+            "\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",",
+            "\"request_digest\":\"sha256:332b88dac25b405b3d9ce3b6a82b4ec88212",
+            "96a9a492aa70a26ce867d817e0c9\",\"request_id\":\"us005.pub.0000\",",
+            "\"runtime\":{{\"artifact\":\"ws-oracle-harness\",",
+            "\"sha256\":\"sha256:22222222222222222222222222222222222222222222",
+            "22222222222222222222\"}},\"version\":\"1.0.0\"}}"
+        ),
+        code = UNIMPLEMENTED_CODE,
+        detail = UNIMPLEMENTED_DETAIL,
+    );
+    assert_eq!(lines[0], expected);
+}
+
+/// The wired core executes the behavior the skeleton DOES own: an `eof`
+/// scenario completes ok with the Q20 vocabulary (1006 transport close,
+/// eof event, open->closed transition) — the corpus now genuinely scores
+/// the Rust on this path.
+#[test]
+fn wired_harness_completes_eof_scenarios_with_real_core_behavior() {
+    let line = line_with_steps("[{\"action\":\"eof\",\"kind\":\"action\"}]");
+    let transcript = run(&format!("{line}\n"));
+    assert!(
+        transcript.contains("\"outcome\":\"ok\""),
+        "got: {transcript}"
+    );
+    assert!(
+        transcript.contains(concat!(
+            "\"close\":{\"code\":1006,\"handshake_complete\":false,",
+            "\"origin\":\"transport\",\"reason\":\"transport EOF before close ",
+            "handshake completed\",\"remote\":false}"
+        )),
+        "got: {transcript}"
+    );
+    assert!(transcript.contains("\"type\":\"eof\""), "got: {transcript}");
+    assert!(
+        transcript.contains(concat!(
+            "\"transitions\":[{\"cause\":\"eof\",\"from\":\"open\",",
+            "\"step\":0,\"to\":\"closed\"}]"
+        )),
+        "got: {transcript}"
+    );
+    assert!(
+        transcript.contains("\"final_state\":\"closed\""),
+        "got: {transcript}"
+    );
+}
+
 #[test]
 fn reruns_are_byte_identical_and_one_line_per_request() {
     let input = format!("{PUB_0000}\n{PUB_0000}\n");
@@ -68,7 +147,7 @@ fn reruns_are_byte_identical_and_one_line_per_request() {
     assert_eq!(first.lines().count(), 2, "one response line per request");
     for line in first.lines() {
         assert!(line.contains("\"request_id\":\"us005.pub.0000\""));
-        assert!(line.contains("\"code\":\"CORE_NOT_WIRED\""));
+        assert!(line.contains(&format!("\"code\":\"{UNIMPLEMENTED_CODE}\"")));
         assert!(
             !line.contains(&format!("sha256:{}", "0".repeat(64))),
             "the harness must never carry the stub's all-zero identity"
@@ -138,18 +217,25 @@ fn line_with_steps(steps_json: &str) -> String {
 
 /// Java validates step SHAPE during execution, not at envelope parse time:
 /// a malformed step never produces a `request_id: null` line-level error.
-/// With the unwired core, scenario construction fails first (mirroring
-/// Java's runtime-unavailable path, which precedes `Execution.run`'s
-/// per-step validation), so the response is the request-bound
-/// `CORE_NOT_WIRED` failure envelope.
+/// With the wired core, construction succeeds and each malformed step
+/// fails request-bound with its exact execution-time code (Java's
+/// `Execution.run` order against the real core state).
 #[test]
 fn malformed_steps_are_not_envelope_level_rejections() {
-    for steps in [
-        "[{\"data_base64\":\"!!!\",\"kind\":\"bytes\"}]",
-        "[{\"bogus\":1,\"kind\":\"bytes\"}]",
-        "[{\"kind\":\"warp\"}]",
-        "[{\"action\":\"send_text\",\"kind\":\"action\"}]",
-        "[42]",
+    for (steps, expected_code) in [
+        (
+            "[{\"data_base64\":\"!!!\",\"kind\":\"bytes\"}]",
+            "INVALID_BASE64",
+        ),
+        ("[{\"bogus\":1,\"kind\":\"bytes\"}]", "UNKNOWN_FIELD"),
+        ("[{\"kind\":\"warp\"}]", "INVALID_ENUM"),
+        // Initial state is OPEN, so requireOpen passes and the missing
+        // `text` field is reached (Java's field-read order).
+        (
+            "[{\"action\":\"send_text\",\"kind\":\"action\"}]",
+            "MISSING_FIELD",
+        ),
+        ("[42]", "TYPE_MISMATCH"),
     ] {
         let transcript = run(&format!("{}\n", line_with_steps(steps)));
         assert!(
@@ -161,8 +247,8 @@ fn malformed_steps_are_not_envelope_level_rejections() {
             "step-shape problems must not be line-level errors, got: {transcript}"
         );
         assert!(
-            transcript.contains("\"code\":\"CORE_NOT_WIRED\""),
-            "unwired construction precedes step validation, got: {transcript}"
+            transcript.contains(&format!("\"code\":\"{expected_code}\"")),
+            "expected {expected_code}, got: {transcript}"
         );
     }
 }
@@ -265,7 +351,10 @@ impl ws_oracle_harness::core_adapter::CandidateCore for TestCore {
     fn begin(
         &mut self,
         _request: &ws_oracle_harness::request::OracleRequest,
-    ) -> Result<Box<dyn ws_oracle_harness::core_adapter::ScenarioSession>, String> {
+    ) -> Result<
+        Box<dyn ws_oracle_harness::core_adapter::ScenarioSession>,
+        ws_oracle_harness::core_adapter::ScenarioFailure,
+    > {
         Ok(Box::new(TestSession {
             fail_bytes_detail: self.fail_bytes_detail.clone(),
         }))
@@ -416,7 +505,7 @@ fn identify_is_stable_and_truthful() {
     assert_eq!(
         identify(),
         concat!(
-            "{\"artifact\":\"ws-oracle-harness\",\"core\":\"unwired\",",
+            "{\"artifact\":\"ws-oracle-harness\",\"core\":\"wired\",",
             "\"protocol\":\"java-websocket-oracle\",",
             "\"purpose\":\"us009-oracle-candidate-harness\",\"version\":\"1.0.0\"}"
         )

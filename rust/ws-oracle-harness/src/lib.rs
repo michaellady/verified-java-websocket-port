@@ -11,16 +11,19 @@
 //!
 //! ## Round-honesty stance
 //!
-//! Lane A builds the real `ws_core` ConnectionCore in parallel on another
-//! branch. Until its API lands, the single coupling seam
-//! ([`core_adapter`]) holds a truthfully-labeled unwired stub: every
-//! scenario is answered with a typed `CORE_NOT_WIRED` failure envelope
-//! (zero counts, `final_state == initial_state`) — the same declared-inertness
-//! discipline as the US-005 `candidate-stub`, honestly labeled as awaiting the
-//! core rather than pretending behavior. The expected public-tier result this
-//! round is therefore 0 passes, recorded as the baseline in
-//! `baseline/us009-public-unwired-baseline.json`. No story acceptance is
-//! claimed by this crate.
+//! Both US-009 lanes are merged: the single coupling seam
+//! ([`core_adapter`]) now drives the REAL `ws_core` ConnectionCore
+//! (`WiredCore`), so the corpus genuinely scores the Rust. The core is
+//! still the deliberately skeletal US-009 contract — only EOF, state-gate,
+//! and limit behavior exist; send paths refuse with the honest non-oracle
+//! `Unimplemented` code, which the seam reports as the truthful
+//! `CORE_BEHAVIOR_UNIMPLEMENTED` envelope (never a fabricated oracle
+//! code). The public-tier result therefore stays near zero: the recorded
+//! wired baseline is 7/74 passes, every one a state/EOF/limit-only
+//! scenario the skeleton genuinely encodes (see
+//! `baseline/us009-public-wired-baseline.json`; the pre-merge
+//! `baseline/us009-public-unwired-baseline.json` is retained as history).
+//! No story acceptance beyond US-009 is claimed by this crate.
 //!
 //! ## Protocol compatibility surface
 //!
@@ -149,16 +152,11 @@ pub fn respond(line: &str, core: &mut dyn CandidateCore, runtime: &RuntimeIdenti
             counts,
             final_state,
         } => response::failure_response(&parsed, &failure, &counts, final_state, runtime),
-        ScenarioOutcome::NotWired { detail } => {
+        ScenarioOutcome::ConstructionFailed { failure } => {
             // Construction-path failure: Java's runtime-unavailable
             // responses return before (and are exempt from) the
             // output-limit replacement, which guards only
             // Execution-produced responses.
-            let failure = core_adapter::ScenarioFailure {
-                code: "CORE_NOT_WIRED".to_string(),
-                close_code: None,
-                detail,
-            };
             return response::failure_response(
                 &parsed,
                 &failure,
@@ -261,7 +259,7 @@ pub fn run_lines<R: BufRead, W: Write>(
 /// wiring status.
 pub fn identify() -> String {
     format!(
-        "{{\"artifact\":\"{ARTIFACT}\",\"core\":\"unwired\",\
+        "{{\"artifact\":\"{ARTIFACT}\",\"core\":\"wired\",\
          \"protocol\":\"{PROTOCOL}\",\"purpose\":\"us009-oracle-candidate-harness\",\
          \"version\":\"{VERSION}\"}}"
     )

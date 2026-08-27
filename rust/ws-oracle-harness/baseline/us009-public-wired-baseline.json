@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us009-wiring-public-wired-baseline",
+  "recorded_at": "2026-08-27",
+  "revision": "US-009 WIRING round: ws-oracle-harness connected to the real ws_core ConnectionCore (WiredCore replacing UnwiredCore as the default; the pre-merge unwired baseline file is retained unchanged as history).",
+  "stance": "HONEST WIRED BASELINE — the corpus now genuinely scores the Rust core, and the core is still the deliberately skeletal US-009 contract: only EOF (quirk Q20), state-gate (quirk Q26), empty-chunk recording, and input/buffer/action limit behavior exist; every send path refuses with the non-oracle Unimplemented code, surfaced as the truthful CORE_BEHAVIOR_UNIMPLEMENTED envelope. 7 of 74 public scenarios pass because they exercise exactly that encoded slice — the core was NOT tuned toward any scenario. The remaining 67 failures are the protocol-stub gate doing its job; closing them belongs to US-010..US-016. No story acceptance beyond US-009 is claimed.",
+  "pipeline": {
+    "requests": "corporactl oracle-requests --root <worktree> --protected-root <protected> --tier public --out requests.jsonl",
+    "candidate": "rust/target/release/ws-oracle-harness < requests.jsonl > transcript.jsonl",
+    "evaluate": "corporactl evaluate --root <worktree> --protected-root <protected> --tier public --transcript transcript.jsonl",
+    "custodian": "public tier is custodian-free (cmd/corporactl/main.go heldOutTier: hidden/sealed only); the protected custodian ledger was byte-identical before and after this run (9001 bytes, sha256 f4941dc801af5a41a2e3285a71d269975ea6e06774d1e1a4573fd6b6d6f400ae both times), and no hidden or sealed tier was requested or evaluated"
+  },
+  "artifacts": {
+    "worktree_commit": "3073d09bb8543738559117413f10e24535da0c86 (claude/us009-wiring, both US-009 lanes merged) plus the uncommitted wiring change this baseline accompanies",
+    "corporactl_built_from": "this worktree (cmd/corporactl and internal/corpora unmodified by the wiring round; go test -count=1 ./internal/corpora ok, exit 0 read)",
+    "requests_jsonl_sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85",
+    "requests_lines": 74,
+    "requests_identical_to_unwired_baseline": true,
+    "transcript_jsonl_sha256": "aadebe59a948b0586558cbde5d5b8061cf48b87cc663b9ea849bfe3d9ade3780",
+    "transcript_lines": 74,
+    "transcript_rerun_sha256": "aadebe59a948b0586558cbde5d5b8061cf48b87cc663b9ea849bfe3d9ade3780",
+    "rerun_byte_identical": true,
+    "harness_executable_sha256": "sha256:b9f110dd2763220211c4957041a9801712e0dc0de678f11521e1a0116d60e9fd",
+    "harness_identify": "{\"artifact\":\"ws-oracle-harness\",\"core\":\"wired\",\"protocol\":\"java-websocket-oracle\",\"purpose\":\"us009-oracle-candidate-harness\",\"version\":\"1.0.0\"}",
+    "harness_executable_note": "release build on this development host; carried in every response's runtime object (read via std::env::current_exe and SHA-256'd at startup). Not a promoted artifact digest — sbx-profile execution and artifact promotion belong to the pipeline stories."
+  },
+  "evaluate_report": {
+    "executed": 74,
+    "passed": 7,
+    "failed": 67,
+    "missing": 0,
+    "unmatched": 0,
+    "exit_code": 1,
+    "exit_code_read_from": "the corporactl process's own exit status, read directly after the run"
+  },
+  "failure_breakdown": {
+    "counts diverge (expected ok; we also answered ok)": 20,
+    "outcome ok, expected error (skeleton byte-path buffers without decoding, so frame-level protocol errors the oracle detects go unnoticed)": 19,
+    "outcome error, expected ok (send paths refuse CORE_BEHAVIOR_UNIMPLEMENTED where the oracle sends frames)": 11,
+    "events diverge (expected ok; skeleton emits input_chunk only, no message/control events)": 5,
+    "frames diverge (expected ok; skeleton decodes no frames)": 5,
+    "final_state diverge (expected ok)": 2,
+    "transitions diverge (expected ok)": 2,
+    "error code CORE_BEHAVIOR_UNIMPLEMENTED, expected JAVA_INVALID_DATA": 1,
+    "error code CORE_BEHAVIOR_UNIMPLEMENTED, expected ACTION_LIMIT_EXCEEDED": 1,
+    "error code BUFFER_LIMIT_EXCEEDED, expected JAVA_INVALID_DATA (Q24 leftover cap fires where the oracle rejects the frame first)": 1
+  },
+  "genuine_passes": [
+    {
+      "scenario": "us005.pub.0015",
+      "shape": "initial closed, one nonzero bytes chunk",
+      "why_it_passes": "quirk Q26 (derive.go:292-294): closed + nonzero payload is STATE_VIOLATION before input accounting — encoded in the US-009 skeleton"
+    },
+    {
+      "scenario": "us005.pub.0017",
+      "shape": "initial closed, one EMPTY bytes chunk",
+      "why_it_passes": "derive.go:301: an empty chunk records input_chunk {bytes: 0} and consumes nothing, even in closed — encoded in the skeleton"
+    },
+    {
+      "scenario": "us005.pub.0044",
+      "shape": "initial open, 9-byte chunk against max_input_bytes 8",
+      "why_it_passes": "addBounded (derive.go:295-299): INPUT_LIMIT_EXCEEDED with the counter never partially updated — encoded in the skeleton"
+    },
+    {
+      "scenario": "us005.pub.0045",
+      "shape": "initial open, one EMPTY bytes chunk",
+      "why_it_passes": "same empty-chunk recording as 0017, in open"
+    },
+    {
+      "scenario": "us005.pub.0062",
+      "shape": "initial open, eof action",
+      "why_it_passes": "quirk Q20 (derive.go eof): 1006 transport close with the pinned reason, eof event, open->closed transition — encoded in the skeleton"
+    },
+    {
+      "scenario": "us005.pub.0068",
+      "shape": "initial closing, send_text action",
+      "why_it_passes": "derive.go requireOpen (:811-816): send actions outside OPEN are STATE_VIOLATION with the action counted — encoded in the skeleton and mirrored by the driver order"
+    },
+    {
+      "scenario": "us005.pub.0070",
+      "shape": "initial closed, eof action",
+      "why_it_passes": "derive.go eof: transport EOF in closed refuses STATE_VIOLATION with the rejected action counted — encoded in the skeleton"
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "driver": "claude-fable-5 (US-009 wiring-round backend-dev worker)"
+}

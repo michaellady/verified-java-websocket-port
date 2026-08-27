@@ -1,6 +1,6 @@
 [package]
 name = "ws-oracle-harness"
-description = "US-009 lane B: the ws_core oracle-candidate harness. A thin JSONL protocol adapter that speaks java-websocket-oracle 1.0.0 (strict request parsing, canonical request-digest verification, response envelope, transcript projection) so the SAME corpora that score the java-oracle score the Rust core. The ws_core coupling is isolated in one adapter module; until lane A's ConnectionCore API lands, the adapter truthfully reports CORE_NOT_WIRED failures (like the candidate-stub's declared inertness, honestly labeled) rather than fabricating behavior. No story acceptance is claimed."
+description = "US-009 lane B: the ws_core oracle-candidate harness. A thin JSONL protocol adapter that speaks java-websocket-oracle 1.0.0 (strict request parsing, canonical request-digest verification, response envelope, transcript projection) so the SAME corpora that score the java-oracle score the Rust core. The ws_core coupling is isolated in one adapter module and is now WIRED to the real ConnectionCore (new_in_state seam); the skeleton core's honest Unimplemented refusals surface as the truthful non-oracle CORE_BEHAVIOR_UNIMPLEMENTED envelope rather than fabricated behavior. No story acceptance beyond US-009 is claimed."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -11,9 +11,8 @@ publish.workspace = true
 # java-oracle adapter: canonical JSON, SHA-256, and base64 are hand-rolled in
 # safe Rust so no external crate enters the workspace (any external crate
 # would trigger the PRD's enumerated-dependency-unsafe review). The only
-# dependency is the in-workspace ws_core crate this harness exists to score;
-# nothing from it is referenced until the merge-time wiring commit connects
-# lane A's real ConnectionCore API inside src/core_adapter.rs.
+# dependency is the in-workspace ws_core crate this harness scores; the
+# coupling is confined to src/core_adapter.rs (the WiredCore seam).
 [dependencies]
 ws-core = { path = "../ws-core" }
 
