@@ -1,0 +1,332 @@
+{
+  "$schema": "../schemas/us020-current-head-qualification-1.0.0.schema.json",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "autobahn": false,
+  "bindings": [
+    {
+      "path": "cmd/rustgate/main.go",
+      "sha256": "sha256:373ddc958cf83f1744a900db4edf24a4d979524a32e2ea90c1237f7a33f01121",
+      "git_blob": "196cc4ac31489da9f13631afb1f09b31a4d43cf5"
+    },
+    {
+      "path": "cmd/rustgate/main_test.go",
+      "sha256": "sha256:03e1789da6522230d25b4cfcd1097fa3f55ee9c4a6a70939c0faee0318f16128",
+      "git_blob": "cf9d33c3bed3b337e95e5cf2863e43d5752baf83"
+    },
+    {
+      "path": "docs/rust-workspace.md",
+      "sha256": "sha256:2bde4ba2eb7e974e3e02b9cbbc4f12ecb06fb794bd784cf1896782ac18524ce7",
+      "git_blob": "2f6ed85bc50a6cc4723b4dc50f52695675ba3e44"
+    },
+    {
+      "path": "internal/rustgate/rustlex.go",
+      "sha256": "sha256:bd8fd9e2dab15ffdc96babf28df9d52abaa68618fd82829cda4c8ad0012dcc34",
+      "git_blob": "9de064281f2618c8081a315d72be0986bb6037fa"
+    },
+    {
+      "path": "internal/rustgate/toml.go",
+      "sha256": "sha256:6a58a3ec47c050c26f2353cdba2030f9f2a20ac225a398ec3766476aace18906",
+      "git_blob": "cf598017b4fea94f733f9ad0c2bbaf432cdcb8f5"
+    },
+    {
+      "path": "internal/rustgate/verify.go",
+      "sha256": "sha256:8b2f85839349e4da83bc950d73c0f96e568ea71c89aa3492a322a3e46d3e4163",
+      "git_blob": "73f9d6ecbafe84a147c231b36995196e1f607bb7"
+    },
+    {
+      "path": "rust/Cargo.lock",
+      "sha256": "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb",
+      "git_blob": "beb9c9fe6075149151935cb48c1b147c330d3943"
+    },
+    {
+      "path": "rust/Cargo.toml",
+      "sha256": "sha256:316f90d18e749341ac236aa50695b70e87e25e0a8a0e18ad942a479e87c99615",
+      "git_blob": "6e4371d41cf7f3c180081ac6606c5a0106c9071d"
+    },
+    {
+      "path": "rust/connection-core/Cargo.toml",
+      "sha256": "sha256:45d3be06610593e8031e427a2c8dd707712a87daaa2b238a338521011e85460c",
+      "git_blob": "6855eee007920b01bbf89d977348e18d58f50bb6"
+    },
+    {
+      "path": "rust/connection-core/src/close.rs",
+      "sha256": "sha256:c9abc90888c9b6480f7c5d05e53f07f0c583ddb3ab9b20be578672f99ce60f1f",
+      "git_blob": "313503e4d10ec8de7895e5dfd12e33718b1ca3a7"
+    },
+    {
+      "path": "rust/connection-core/src/connection.rs",
+      "sha256": "sha256:8c1895282e7d59663180265db9e2a50b6785400c5d12c217a12236ac229dbe8e",
+      "git_blob": "8b5a30cf7ba1ff4b22d183bbfbd628db15a9b602"
+    },
+    {
+      "path": "rust/connection-core/src/control.rs",
+      "sha256": "sha256:e0d87d372bb8a04c7e37089b2e12002a746e15e411e894e7cbf1630dc6fb6c0c",
+      "git_blob": "32c0e6bfeddc7dfb16978c8984ddd69949203ff1"
+    },
+    {
+      "path": "rust/connection-core/src/fragment.rs",
+      "sha256": "sha256:e19fce786b0a7dc448aceb0886cb7b00fadf4e6024ef83b2781796af20e9c360",
+      "git_blob": "e50c79fbe0e7f55528d7560f3484fb58357dbb17"
+    },
+    {
+      "path": "rust/connection-core/src/frame/decode.rs",
+      "sha256": "sha256:961c5cfa03953c080b8e3148bb65cb03c67c173c131c538c23b57a86fae8cc2c",
+      "git_blob": "bcaf8ca6da7c5edf130784a14d174b754d1a8536"
+    },
+    {
+      "path": "rust/connection-core/src/frame/encode.rs",
+      "sha256": "sha256:42b893da55bacc33aa4980fc4a0bd06b5a3e807423cd19f3aa79d709adcacfd7",
+      "git_blob": "9b66097dcddcf37c58fc3903546674eb8ee40466"
+    },
+    {
+      "path": "rust/connection-core/src/frame/mask.rs",
+      "sha256": "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
+      "git_blob": "309038147fd825fee401cfe47eb09f31c7932658"
+    },
+    {
+      "path": "rust/connection-core/src/frame/mod.rs",
+      "sha256": "sha256:7b841c4f76c71e781aaccdd0b43a57493c0e45122cbd1e23af0874dd08aaaddb",
+      "git_blob": "35b4a4964fd702da31ee413f3f258003b0904a4e"
+    },
+    {
+      "path": "rust/connection-core/src/handshake.rs",
+      "sha256": "sha256:5b73a307fd0549a689f8219518a122cb85964bbdd36285cc54e18ab68dc42e62",
+      "git_blob": "b5aa5fc2b07768da66858828da162ef226fc95e4"
+    },
+    {
+      "path": "rust/connection-core/src/handshake/client.rs",
+      "sha256": "sha256:d6e355ffaec8c232f79ec25edcad7d36c5128140e4e1c7c9c022df5b13a89dd3",
+      "git_blob": "44712cdaa2ab0aa42f78ded80b3bfe9de3262fad"
+    },
+    {
+      "path": "rust/connection-core/src/handshake/crypto.rs",
+      "sha256": "sha256:9d48e5529c381ef82654a57a27c8691514661804c923cb24405164cd2a0ea2e6",
+      "git_blob": "eaeaf73d4e3d54bdfd6f0a5a7255e953869ce4fa"
+    },
+    {
+      "path": "rust/connection-core/src/handshake/http.rs",
+      "sha256": "sha256:c92522c17fc22d1865b4a79cd91860ab2dc1d9cae8d24a28f4639a1a9b809597",
+      "git_blob": "09e414e33e0e639a5b7ef396492e3fdd207dbe76"
+    },
+    {
+      "path": "rust/connection-core/src/handshake/server.rs",
+      "sha256": "sha256:cef46a90a2b12569742f8520f79c5c22e160eacaf055e057ddfacb96223dae96",
+      "git_blob": "0118008e90f2f3581f7944f34b17d01030ec9262"
+    },
+    {
+      "path": "rust/connection-core/src/lib.rs",
+      "sha256": "sha256:cbd86dfccb15a51275140d89ba4496789f1dd8bbd8a6e0496e0924ff196f54b6",
+      "git_blob": "ca8a1012ed753dc4347285d9aa0558c89c991c46"
+    },
+    {
+      "path": "rust/connection-core/src/message.rs",
+      "sha256": "sha256:3a0da3a50c590712b160c3a523f89a8549c43e90cfd48f1c557dce698d0e589a",
+      "git_blob": "287e5ad657eddd5a047bc4e14313608b05e75aa3"
+    },
+    {
+      "path": "rust/connection-core/src/utf8.rs",
+      "sha256": "sha256:cb97162b6099d26e78b1817202efdcd4f92aa160810ea95db2bffa23280d2e32",
+      "git_blob": "9e36b16f019b1b3e9aa927e44551ae020ed83e08"
+    },
+    {
+      "path": "rust/connection-core/tests/client_handshake.rs",
+      "sha256": "sha256:9c8a300b8e5e0d81484a111f89625c798167b74012dc2219677e5bec926ff06c",
+      "git_blob": "64bd873704b5271275ca41dbeea693d575477e7a"
+    },
+    {
+      "path": "rust/connection-core/tests/close_eof.rs",
+      "sha256": "sha256:dd830270e50c5f03f07af232b988968ddc5cc9beee5d8f5e0488e409814b73a2",
+      "git_blob": "dd7177e81847dea78fba2d9809eb70eb5ae22ba5"
+    },
+    {
+      "path": "rust/connection-core/tests/connection_contract.rs",
+      "sha256": "sha256:4c47b2aa2677d5d8efc63adb33391992a89d49d2c585748b85726cf78445511b",
+      "git_blob": "c0b63e9d6f6951507c5710e4ce03388f393369eb"
+    },
+    {
+      "path": "rust/connection-core/tests/data/us011_frozen_cases.rs",
+      "sha256": "sha256:a32ea18d0ea4d6eccb6806889038d281c83c006c39fe087278e03ae71a1afcd1",
+      "git_blob": "de3c60e63c340deb7eb0852f444c4e079a0a0d25"
+    },
+    {
+      "path": "rust/connection-core/tests/data/us011_nonce_vectors.rs",
+      "sha256": "sha256:9002efba2b1b45f5f429249764e4b8d1639e937813f882bfdd7f446745a03f7b",
+      "git_blob": "e756af5c7572e3fd6256eb836e3d896a47a2f7ad"
+    },
+    {
+      "path": "rust/connection-core/tests/fragmentation.rs",
+      "sha256": "sha256:24ade67d3ca0bcc2aa635f31e5342f8f894d7dfc91eb46278475e0e17c1f2d56",
+      "git_blob": "a44aabbf2a56c1d304f838f3b5b39b733c1e0c50"
+    },
+    {
+      "path": "rust/connection-core/tests/frame_codec.rs",
+      "sha256": "sha256:7ad9e7b9caf82804a1764f9e7ea9e5ebc95ae56998d621c65e8dd347ebb936bb",
+      "git_blob": "d39d79b4694771316ec4dfcae767f929148760ff"
+    },
+    {
+      "path": "rust/connection-core/tests/messages.rs",
+      "sha256": "sha256:63198d67defd2c3182428eea15e4b6913024b6ddf6d80c29b000695b2e4b3c28",
+      "git_blob": "a6d84c01b1986acf7a6604e1555534983bae92f2"
+    },
+    {
+      "path": "rust/connection-core/tests/outbound_commands.rs",
+      "sha256": "sha256:199241891f1b3d921bdd85903756a4e8602c4c487fea60e23f7457a38c8699d6",
+      "git_blob": "b88bde98769a264263ec905b3c54659a9af4736f"
+    },
+    {
+      "path": "rust/connection-core/tests/ping_pong.rs",
+      "sha256": "sha256:48f5dc3504547fcdb1318c0f6152e9f6f5577bba1abf33025325e5cfe1bbdc63",
+      "git_blob": "2f80c39e44e9ec9a577eccbc408b199e527c6c83"
+    },
+    {
+      "path": "rust/connection-core/tests/scaffold_smoke.rs",
+      "sha256": "sha256:6c53024af4b097b97172c20cb9677d3e59d67468073a02c5ab360f3a4fc9e9e7",
+      "git_blob": "156a3714e508db424cd7af0cce0c220ded3207e2"
+    },
+    {
+      "path": "rust/connection-core/tests/server_handshake.rs",
+      "sha256": "sha256:a13b1974e851457f4d6080a2297b74d9518be8857e24cef8573079efa98211ff",
+      "git_blob": "e327b572796131cf6d29204f483b4bb71a6716b6"
+    },
+    {
+      "path": "rust/dependency-inventory.toml",
+      "sha256": "sha256:6ece886fb71b82e559c00e922ecfb6d272c0c6861b51d82cebc8a6a8827fbe1b",
+      "git_blob": "65989338fd067591621d032a16dee1e85201d488"
+    },
+    {
+      "path": "rust/dependency-policy.toml",
+      "sha256": "sha256:f8112034226def374b1b58f20fb508c7cadc92f2ae6a3ac11cd1137cb845da86",
+      "git_blob": "9e46a71ad87541213b8fd304a6f36f0574c0e7df"
+    },
+    {
+      "path": "rust/websocket-driver/Cargo.toml",
+      "sha256": "sha256:d6e85a069a6e4c323d8300c6ec717e064d1105d020cf97b8cb41068bb163aaba",
+      "git_blob": "34a470693b2710c03adca4435a09d18df09d9b67"
+    },
+    {
+      "path": "rust/websocket-driver/src/lib.rs",
+      "sha256": "sha256:fc3c29623b2589ad5dbcf4e2523d3a43fcb61e17c1367f654b46cfe6d7631554",
+      "git_blob": "ca933e934f4e9c8452b295b4ca1f4742ed967b69"
+    },
+    {
+      "path": "rust/websocket-driver/tests/concurrency.rs",
+      "sha256": "sha256:bdb6581667fec36b0c9c4c72e7ea02674d8456df2a308e93c2fe1db7641854a8",
+      "git_blob": "fec85e3c5a1230800ba7b6a455ee563733a19f5b"
+    },
+    {
+      "path": "rust/websocket-driver/tests/driver_contract.rs",
+      "sha256": "sha256:70b85ac07e190c6f623b9fec6094ef3b31c3659e203d7bf6502169ee5f382928",
+      "git_blob": "576277c9fc696aec36517d6d12b1a2d77ddcd22b"
+    },
+    {
+      "path": "rust/websocket-testee/Cargo.toml",
+      "sha256": "sha256:8b1c1828ebf2de72b8060dd11a09f82843e0384919e32ff20a2effc3ea153230",
+      "git_blob": "90ec75316d7d4c2b1601885dc35c97498b6d28a9"
+    },
+    {
+      "path": "rust/websocket-testee/src/client.rs",
+      "sha256": "sha256:d146a0d45d28c23943fd935864aedc4f5f994e5bf8039bec8d0f39ae46c06bf0",
+      "git_blob": "2b99ce1415c3b70763e321e11881571ac10a380d"
+    },
+    {
+      "path": "rust/websocket-testee/src/io_loop.rs",
+      "sha256": "sha256:e7bbd861a6f1d8630937ffeee6e6d59265654cbe9ec2ebc856ca59e003c98207",
+      "git_blob": "60c1b43cb8c0590faf14269f4e1ee0b67f5cd69e"
+    },
+    {
+      "path": "rust/websocket-testee/src/lib.rs",
+      "sha256": "sha256:b82b6d839f53f632d05c74a263915f9fab76099ca5f870db08678ebfded9ca20",
+      "git_blob": "ec9bd1a06786abd2046a35b3860c23c306aa3782"
+    },
+    {
+      "path": "rust/websocket-testee/src/main.rs",
+      "sha256": "sha256:787901936b364a10c08d7509f986c7254ef897e15f1f7da2de3eab3eaa3207f9",
+      "git_blob": "090963b5204c23e9d8967d55f0682bdab3883412"
+    },
+    {
+      "path": "rust/websocket-testee/src/neutral.rs",
+      "sha256": "sha256:0e3cf73f9414e5b572f26720caa1c2c73c8da8eec85accafb6ac70cba7edf5a2",
+      "git_blob": "6e9c97019e368cffca34d3ba969f4d1c61a199d7"
+    },
+    {
+      "path": "rust/websocket-testee/src/server.rs",
+      "sha256": "sha256:7482e3a8700361acffedcfbfdcece5a0ea28c60e1d68249e8a3aabcb1b19abda",
+      "git_blob": "3da146aad8e8769b54c576df728be353ff22c8fd"
+    },
+    {
+      "path": "rust/websocket-testee/tests/loopback.rs",
+      "sha256": "sha256:af4797541336238e8a7e047ce1d36a8914e4a5eeb1a115b5f192b17dde08f643",
+      "git_blob": "a8513dc4e9319dc5fca2cd61de731e52f730fd9e"
+    },
+    {
+      "path": "rust/websocket-testee/tests/process.rs",
+      "sha256": "sha256:599cee074f49b34dad3c532ad36fa34781a2e5005d5a44e3d3953af9963361e2",
+      "git_blob": "d918d8240ea7f9c5a02069d7d14fd05f93e7bd8f"
+    }
+  ],
+  "claim_scope": "CURRENT_SOURCE_TEST_QUALIFICATION_ONLY",
+  "commands": [
+    {
+      "argv": ["cargo", "test", "--locked", "-p", "websocket-core"],
+      "working_directory": "rust",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "argv": ["cargo", "test", "--locked", "-p", "websocket-driver"],
+      "working_directory": "rust",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "argv": ["cargo", "test", "--locked", "-p", "websocket-testee", "--lib"],
+      "working_directory": "rust",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "argv": ["cargo", "test", "--locked", "-p", "websocket-testee", "--test", "process", "neutral_oracle"],
+      "working_directory": "rust",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "argv": ["cargo", "fmt", "--all", "--", "--check"],
+      "working_directory": "rust",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "argv": ["cargo", "clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"],
+      "working_directory": "rust",
+      "exit_code": 0,
+      "result": "PASS"
+    },
+    {
+      "argv": ["go", "test", "./cmd/rustgate", "-count=1"],
+      "working_directory": ".",
+      "exit_code": 0,
+      "result": "PASS"
+    }
+  ],
+  "docker": false,
+  "evidence_id": "evidence.us-020-current-head-qualification",
+  "head_at_execution": "89ecf1e702a426eb7cf928b944684fb4fd13a526",
+  "live_java": false,
+  "network": false,
+  "nonclaims": [
+    "historical predecessor receipts are preserved and not rewritten",
+    "no predecessor result is rerun or upgraded",
+    "no live Java Docker Autobahn Linux network production publication signing or independent review claim"
+  ],
+  "predecessor_scope": ["US-010", "US-011", "US-012", "US-013", "US-014", "US-015", "US-016", "US-017", "US-018", "US-019"],
+  "schema_version": "1.0.0",
+  "source_tree": "761d64f0dbbdae90f8ce8ecbd3c590fa1da376cf",
+  "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
+  "story_id": "US-020",
+  "toolchain": {
+    "host": "aarch64-apple-darwin",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)"
+  },
+  "validation_time": "2026-08-27T23:18:52Z"
+}
