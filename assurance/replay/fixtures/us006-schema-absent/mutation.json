@@ -1,0 +1,12 @@
+{
+  "operations": [
+    {
+      "kind": "include",
+      "path": "assurance/replay/fixtures/us006-base/mutation.json"
+    },
+    {
+      "kind": "remove_file",
+      "target": "schemas/formal-backend-qualification-1.0.0.schema.json"
+    }
+  ]
+}

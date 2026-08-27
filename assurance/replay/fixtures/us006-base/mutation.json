@@ -1,0 +1,54 @@
+{
+  "operations": [
+    {
+      "kind": "copy_file",
+      "source": "assurance/formal/backend-qualification.json",
+      "target": "assurance/formal/backend-qualification.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "schemas/formal-backend-qualification-1.0.0.schema.json",
+      "target": "schemas/formal-backend-qualification-1.0.0.schema.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "security/sbx-template.json",
+      "target": "security/sbx-template.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "security/sandbox-policy.json",
+      "target": "security/sandbox-policy.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "evidence/corpus-calibration.json",
+      "target": "evidence/corpus-calibration.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "rust/connection-core/src/connection.rs",
+      "target": "rust/connection-core/src/connection.rs"
+    },
+    {
+      "kind": "copy_file",
+      "source": "assurance/replay/fixtures/us006-standin/proof-targets.json",
+      "target": "assurance/formal/proof-targets.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "assurance/replay/fixtures/us006-standin/formal-proof-targets-1.0.0.schema.json",
+      "target": "schemas/formal-proof-targets-1.0.0.schema.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "assurance/replay/fixtures/us006-standin/concurrency-plan.json",
+      "target": "assurance/concurrency/plan.json"
+    },
+    {
+      "kind": "copy_file",
+      "source": "assurance/replay/fixtures/us006-standin/concurrency-plan-1.0.0.schema.json",
+      "target": "schemas/concurrency-plan-1.0.0.schema.json"
+    }
+  ]
+}

@@ -1,0 +1,554 @@
+{
+  "$schema": "../../schemas/formal-backend-qualification-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "kind": "formal-backend-qualification",
+  "story": "US-006",
+  "lane": "C",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "aggregate_state": "QUALIFICATION_PENDING_SBX_EXECUTION",
+  "sandbox_profile": {
+    "accepted_attempt_id": "us007-sbx-output-live-0124",
+    "receipt_reference": "protected/us007-sbx-output-live-0124/operator-receipt.json (READ-ONLY citation of the accepted live attempt's operator receipt; it is acceptance provenance for this digest set, NOT an execution receipt for any backend record in this document — no backend proof run has executed)",
+    "acceptance_citations": [
+      "evidence/corpus-calibration.json live_gates cite owner-authorized sbx attempt us007-sbx-output-live-0124 on every live gate (status LIVE_CALIBRATED)",
+      "protected/us005-attempt-0124-owner-authorization.json (owner authorization for the accepted attempt, cited by the operator receipt)",
+      "security/sbx-template.json (accepted workload profile digest set: CLI, template, network policy, sandbox policy)",
+      "security/sandbox-policy.json (deny-all network, no secrets, canary inventory, resource envelope)"
+    ],
+    "sbx_cli_version": "v0.39.0",
+    "sbx_cli_commit": "def8cb0523a77e757bdd6ef52b459fe374f3783e",
+    "sbx_cli_binary_digest": "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf",
+    "sbx_daemon_version": "v0.39.0",
+    "template_reference": "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "template_manifest_digest": "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "template_index_digest": "sha256:c183a8ba03cdb30011c73f555c773c5712b84c6ea066f18409253dcab2cfe799",
+    "network_policy_digest": "sha256:146dc8c6cebf3e5548cd4432c924e6271cbb7958b8427e2874ef1282d8eea541",
+    "sandbox_policy_digest": "sha256:64ef802a579cc5bd04f1cd430f1b0a1ec0829e3ee3f73a5e9f5c0c508c171854",
+    "profile_source_paths": [
+      "security/sbx-template.json",
+      "security/sandbox-policy.json",
+      "evidence/corpus-calibration.json"
+    ]
+  },
+  "canary_vocabulary": {
+    "source": "US-005 planted-mutant vocabulary, live-confirmed under owner-authorized sbx attempt us007-sbx-output-live-0124 (evidence/corpus-calibration.json live_gates.planted_java_rust_mutants_killed: PASS)",
+    "rust_envelope_kill_inventory": 516,
+    "mutants": [
+      {
+        "id": "rust-stub",
+        "kind": "inert Rust negative control",
+        "live_kill_evidence": "failed 258/258 scenarios per sweep (74 public + 92 hidden + 92 sealed) on every tier; rerun byte-identical",
+        "kills": 258,
+        "signature": "0 passed / 258 failed per sweep"
+      },
+      {
+        "id": "rs-eager-reject",
+        "kind": "planted Rust envelope mutant",
+        "live_kill_evidence": "258/258 failed on every tier under attempt us007-sbx-output-live-0124",
+        "kills": 258,
+        "signature": "envelope eager-reject, full-sweep failure"
+      },
+      {
+        "id": "rs-digest-unbind",
+        "kind": "planted Rust envelope mutant",
+        "live_kill_evidence": "258/258 failed on every tier under attempt us007-sbx-output-live-0124",
+        "kills": 258,
+        "signature": "digest unbinding, full-sweep failure"
+      },
+      {
+        "id": "jm-close-code-1000",
+        "kind": "planted Java library mutant (close-code normalization)",
+        "live_kill_evidence": "71 kills under attempt us007-sbx-output-live-0124 with the close_code-1000 signature",
+        "kills": 71,
+        "kill_breakdown": { "public": 19, "hidden": 26, "sealed": 26 },
+        "signature": "close_code-1000"
+      },
+      {
+        "id": "jm-utf8-accept",
+        "kind": "planted Java library mutant (strict UTF-8 validation disabled)",
+        "live_kill_evidence": "10 kills under attempt us007-sbx-output-live-0124 (outcome-ok-expected-error on 1007 scenarios)",
+        "kills": 10,
+        "kill_breakdown": { "public": 2, "hidden": 4, "sealed": 4 },
+        "signature": "outcome-ok-expected-error on 1007 scenarios"
+      }
+    ]
+  },
+  "backends": [
+    {
+      "backend_id": "backend.kani",
+      "tool": {
+        "name": "Kani Rust Verifier",
+        "kind": "BIT_LEVEL_BOUNDED_MODEL_CHECKER",
+        "identity": "cargo kani subcommand (cargo-kani)",
+        "upstream": "https://github.com/model-checking/kani",
+        "version_observed": "NOT_OBSERVED_TOOL_ABSENT_ON_HOST"
+      },
+      "method": "bounded model checking of bit-level Rust lemmas: mask equation and involution (encode-mask then decode-unmask with the same 4-byte key is identity), canonical 7/16/64-bit length encode/decode roundtrip, checked arithmetic on payload-size accumulation, allocation-cap guards",
+      "claim_scope": "BOUNDED_EVIDENCE_ONLY",
+      "assurance_label_ceiling": "bounded",
+      "max_outcome_allowed": "BoundedCheckPassed",
+      "selected": false,
+      "selection_state": "QUALIFICATION_PENDING_SBX_EXECUTION",
+      "availability_probe": {
+        "executed": true,
+        "venue": "HOST",
+        "host": "Darwin arm64 (owner workstation; probe-before-wire only — NOT the accepted sbx profile venue)",
+        "probed_at": "2026-08-26T23:13:01Z",
+        "probe_semantics": "kani ships as a cargo subcommand; availability means `kani` on PATH or `cargo kani` resolving. Each recorded command was executed with /bin/sh -c from the recorded cwd (repository root '.'), with stdout and stderr captured verbatim as separate streams and the exit code read directly. Host probe informs qualification planning only; in-sbx availability must be re-probed inside the accepted profile during the owner-authorized attempt.",
+        "commands": [
+          { "argv": "command -v kani", "cwd": ".", "exit_code": 1, "stdout": "", "stderr": "" },
+          { "argv": "cargo kani --version", "cwd": ".", "exit_code": 101, "stdout": "", "stderr": "error: no such command: `kani`\n\nhelp: a command with a similar name exists: `yank`\n\nhelp: view all installed commands with `cargo --list`\nhelp: find a package to install `kani` with `cargo search cargo-kani`\n" },
+          { "argv": "cargo --version", "cwd": ".", "exit_code": 0, "stdout": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)\n", "stderr": "" }
+        ],
+        "verdict": "UNAVAILABLE_ON_HOST"
+      },
+      "sbx_execution": {
+        "status": "NOT_EXECUTED",
+        "reason": "OWNER_AUTHORIZATION_REQUIRED: backend proof runs execute only inside the accepted US-007 Docker sbx workload profile under a per-attempt owner authorization; no US-006 backend attempt has been authorized or run. No receipt exists and none is cited.",
+        "required_profile": "sandbox_profile (this document): attempt-us007-sbx-output-live-0124-accepted digest set"
+      },
+      "expected_property_inventory": [
+        { "property_id": "prop.mask.involution", "description": "apply_mask(apply_mask(payload, key), key) == payload for all payloads up to the unwind bound and all 4-byte keys", "formal_claim_id": "formal.framing.length-bounds" },
+        { "property_id": "prop.mask.role", "description": "client-role frames are masked on encode, server-role frames are not (Draft_6455.java:480)", "formal_claim_id": "formal.framing.length-bounds" },
+        { "property_id": "prop.length.canonical-roundtrip", "description": "7/16/64-bit length encode then decode is identity for the Java-permissive size classes (<=125 -> 1 byte, <=65535 -> 2 bytes, else 8 bytes)", "formal_claim_id": "formal.framing.length-bounds" },
+        { "property_id": "prop.arith.checked", "description": "payload-size accumulation cannot wrap: negative, > maxFrameSize, and > i32::MAX totals are rejected, mirroring translateSingleFrameCheckLengthLimit", "formal_claim_id": "formal.framing.allocation-limit" },
+        { "property_id": "prop.alloc.cap", "description": "no allocation is performed for a length the checkAlloc chain rejects", "formal_claim_id": "formal.framing.allocation-limit" }
+      ],
+      "obligations": [
+        {
+          "id": "obl.kani.mask-involution",
+          "description": "prove mask involution and role masking on the shipped mask function over the bounded domain",
+          "formal_claim_id": "formal.framing.length-bounds",
+          "java_authority": "Draft_6455.java:480 (mask = role == Role.CLIENT), Draft_6455.java:511-517 (encode XOR loop), Draft_6455.java:558-563 (decode unmask loop)",
+          "required_outcome": "BoundedCheckPassed",
+          "outcome": "inconclusive",
+          "production_link": {
+            "planned_symbol": "ws_core::framing::Draft6455::apply_mask",
+            "rust_semantic_id": "ws_core::framing::Draft6455",
+            "resolver_status": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"
+          },
+          "production_code_ids": []
+        },
+        {
+          "id": "obl.kani.length-roundtrip",
+          "description": "prove canonical 7/16/64-bit length encode/decode roundtrip and checked accumulation over the bounded domain",
+          "formal_claim_id": "formal.framing.length-bounds",
+          "java_authority": "Draft_6455.java:612-640 (translateSingleFramePayloadLength), Draft_6455.java:714-721 (getSizeBytes), Draft_6455.java:844-851 (toByteArray), Draft_6455.java:648-661 (translateSingleFrameCheckLengthLimit)",
+          "required_outcome": "BoundedCheckPassed",
+          "outcome": "inconclusive",
+          "production_link": {
+            "planned_symbol": "ws_core::framing::Draft6455::decode_frame_header",
+            "rust_semantic_id": "ws_core::framing::Draft6455",
+            "resolver_status": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"
+          },
+          "production_code_ids": []
+        },
+        {
+          "id": "obl.kani.alloc-guard",
+          "description": "prove the allocation-cap guard rejects negative and over-limit sizes before any allocation",
+          "formal_claim_id": "formal.framing.allocation-limit",
+          "java_authority": "Draft.java:322-327 (checkAlloc), Draft_6455.java:557, 749, 768 (guarded allocations)",
+          "required_outcome": "BoundedCheckPassed",
+          "outcome": "inconclusive",
+          "production_link": {
+            "planned_symbol": "ws_core::framing::Draft6455::check_alloc",
+            "rust_semantic_id": "ws_core::framing::Draft6455",
+            "resolver_status": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"
+          },
+          "production_code_ids": []
+        }
+      ],
+      "canaries": {
+        "known_good": {
+          "id": "canary.kani.good.involution-holds",
+          "description": "the unmutated mask lemma set verifies within bounds on the shipped mask function",
+          "status": "NOT_EXECUTED"
+        },
+        "known_bad": {
+          "id": "canary.kani.bad.rs-eager-reject",
+          "mutant_id": "rs-eager-reject",
+          "description": "the planted rs-eager-reject envelope mutant (US-005 vocabulary, 258/258 live sweep failures) must produce a bounded counterexample: eager rejection breaks the length-roundtrip lemma on accepted-length inputs",
+          "expected_detection": "COUNTEREXAMPLE",
+          "status": "NOT_EXECUTED"
+        }
+      },
+      "bounds": {
+        "payload_bytes_unwind": 130,
+        "mask_key_bytes": 4,
+        "frame_header_bytes_max": 14,
+        "length_size_classes": "7-bit <=125, 16-bit <=65535, 64-bit <= 2^63-1"
+      },
+      "assumptions": [
+        "lemmas quantify over the bounded payload domain only; results are bounded evidence, never production proof",
+        "Java authority semantics are the pinned Java-WebSocket 1.6.0 quarantined tree, not RFC strictness (non-minimal length encodings are accepted on receive, matching translateSingleFramePayloadLength)"
+      ],
+      "provenance": [
+        "host availability probe re-executed 2026-08-26T23:13:01Z by lane C (re-review round 1), per-stream stdout/stderr and exit codes recorded verbatim above; truncated streams are digest-bound (byte count + sha256 of the full stream)",
+        "candidate backend named by the US-006 pre-stage dossier (drafts/us006-prestage-dossier.md AC2)"
+      ],
+      "unsupported_constructs": [
+        "unbounded heap allocation lemmas",
+        "floating point (not present in the frame path)",
+        "async runtime interleavings (Loom/concurrency plane, not Kani)"
+      ],
+      "trusted_base": [
+        "Kani + CBMC toolchain (once available in-sbx)",
+        "rustc pinned toolchain rust-toolchain.toml (1.95.0)",
+        "accepted US-007 sbx profile digest set (sandbox_profile)"
+      ],
+      "required_artifacts": ["EvidenceRun", "ProofObligation", "Model"],
+      "outcomes_summary": { "availability_probe": "EXECUTED", "proof_obligations": "NOT_EXECUTED" }
+    },
+    {
+      "backend_id": "backend.loom",
+      "tool": {
+        "name": "Loom",
+        "kind": "BOUNDED_SCHEDULE_EXPLORATION_LIBRARY",
+        "identity": "loom crate (library dev-dependency, NOT a CLI tool)",
+        "upstream": "https://github.com/tokio-rs/loom",
+        "version_observed": "NOT_OBSERVED_NOT_DECLARED_IN_WORKSPACE"
+      },
+      "method": "systematic bounded exploration of owner-task/producer interleavings for the US-017 single-owner command-queue design; classified as SYSTEMATIC_CONCURRENCY_TESTING, never proof (US-006 AC5)",
+      "claim_scope": "SYSTEMATIC_CONCURRENCY_TESTING",
+      "assurance_label_ceiling": "bounded",
+      "max_outcome_allowed": "trace_observation",
+      "selected": false,
+      "selection_state": "QUALIFICATION_PENDING_SBX_EXECUTION",
+      "availability_probe": {
+        "executed": true,
+        "venue": "HOST",
+        "host": "Darwin arm64 (owner workstation; probe-before-wire only — NOT the accepted sbx profile venue)",
+        "probed_at": "2026-08-26T23:13:01Z",
+        "probe_semantics": "loom is a Rust library dependency, not an executable: `command -v loom` would be a category error. Honest availability = the workspace declares and locks the loom crate. Probe: enumerate workspace packages via cargo metadata (run with /bin/sh -c from the rust/ workspace directory, recorded as cwd) and search the lockfile for a loom package entry (run from the repository root). The cargo metadata stdout is a single JSON document of 4435 bytes; the record embeds a verbatim 192-byte head, marks the stream truncated, and binds the full stream by byte count and sha256 (cargo package ids embed this host's absolute workspace path, which therefore appears in the head). Reading of the full digested stream: the packages array names exactly candidate-stub and connection-core, with no loom package; the lockfile grep counts zero 'name = \"loom\"' entries (grep -c prints 0 and exits 1 on no match). Both streams of every command were captured separately and verbatim.",
+        "commands": [
+          { "argv": "cargo metadata --format-version 1 --locked", "cwd": "rust", "exit_code": 0, "stdout": "{\"packages\":[{\"name\":\"candidate-stub\",\"version\":\"0.0.0\",\"id\":\"path+file:///Users/mikelady/hq/workspace/worktrees/vjwp-claude-us006-c-backend/rust/candidate-stub#0.0.0\",\"license\":\"Apache-2.0\",\"", "stdout_truncated": true, "stdout_bytes": 4435, "stdout_sha256": "sha256:d111540e2528438593ef68ed76f2f912b7be68474223a20f4fbda9f944c65c7a", "stderr": "" },
+          { "argv": "grep -c '^name = \"loom\"' rust/Cargo.lock", "cwd": ".", "exit_code": 1, "stdout": "0\n", "stderr": "" }
+        ],
+        "verdict": "NOT_DECLARED_IN_WORKSPACE"
+      },
+      "sbx_execution": {
+        "status": "NOT_EXECUTED",
+        "reason": "OWNER_AUTHORIZATION_REQUIRED: adding the loom dev-dependency and running schedule exploration is deferred to the owner-authorized backend attempt inside the accepted profile (network-denied sandbox requires vendored/offline dependency materialization). No receipt exists and none is cited.",
+        "required_profile": "sandbox_profile (this document): attempt-us007-sbx-output-live-0124-accepted digest set"
+      },
+      "expected_property_inventory": [
+        { "property_id": "prop.loom.terminal-once", "description": "terminal close event is delivered exactly once across all explored schedules (Java authority: L2 monitor exactly-once closeConnection)", "formal_claim_id": "formal.concurrency.no-data-race" },
+        { "property_id": "prop.loom.committed-write-order", "description": "committed writes of one command are contiguous and FIFO across schedules (Java authority: L1 synchronizeWriteObject + Q1 FIFO)", "formal_claim_id": "formal.concurrency.no-data-race" },
+        { "property_id": "prop.loom.post-close-rejection", "description": "commands arriving after close-initiate receive a typed rejection in every schedule (replaces Java's V1 racy isOpen gate)", "formal_claim_id": "formal.concurrency.no-data-race" }
+      ],
+      "obligations": [
+        {
+          "id": "obl.loom.owner-serialization",
+          "description": "systematic bounded-schedule testing of the single-owner serialization invariants (terminal-once, committed-write order, post-close typed rejection); outcome ceiling trace_observation — systematic testing, never proof",
+          "formal_claim_id": "formal.concurrency.no-data-race",
+          "java_authority": "WebSocketImpl.java:463-507/530-567/584-606 (L2 monitor), WebSocketImpl.java:749-755 (L1), WebSocketImpl.java:127 (V1 volatile readyState), WebSocketImpl.java:98,206 (Q1 unbounded outQueue)",
+          "required_outcome": "trace_observation",
+          "outcome": "inconclusive",
+          "production_link": {
+            "planned_symbol": "ws_core::connection::WebSocketImpl (owner task)",
+            "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+            "resolver_status": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"
+          },
+          "production_code_ids": []
+        }
+      ],
+      "canaries": {
+        "known_good": {
+          "id": "canary.loom.good.owner-invariants-hold",
+          "description": "the unmutated owner state machine passes all bounded schedules within the preemption bound",
+          "status": "NOT_EXECUTED"
+        },
+        "known_bad": {
+          "id": "canary.loom.bad.rust-stub",
+          "mutant_id": "rust-stub",
+          "description": "the inert rust-stub negative control (US-005 vocabulary, 0/258 live pass inventory) must fail schedule exploration: an owner that never delivers events violates the terminal-delivery obligation in every schedule",
+          "expected_detection": "COUNTEREXAMPLE",
+          "status": "NOT_EXECUTED"
+        }
+      },
+      "bounds": {
+        "producer_tasks": 3,
+        "owner_tasks": 1,
+        "command_queue_capacity": 8,
+        "preemption_bound": 3,
+        "max_schedules": 100000
+      },
+      "assumptions": [
+        "Loom explores the model of the Rust owner design, not Java thread timings; racy Java interleavings are explicitly not corpus-encodable (dossier Section 2)",
+        "schedule exploration below the preemption bound is exhaustive only within the bound: bounded evidence, classified as systematic testing"
+      ],
+      "provenance": [
+        "host availability probe re-executed 2026-08-26T23:13:01Z by lane C (re-review round 1), per-stream stdout/stderr and exit codes recorded verbatim above; truncated streams are digest-bound (byte count + sha256 of the full stream)",
+        "candidate backend named by the US-006 pre-stage dossier (drafts/us006-prestage-dossier.md AC2/AC5)"
+      ],
+      "unsupported_constructs": [
+        "native-thread stress evidence (Loom cannot satisfy it; separate plan entry, US-017)",
+        "proof claims of any kind (classification is systematic testing)"
+      ],
+      "trusted_base": [
+        "loom crate (once declared and locked in the workspace)",
+        "rustc pinned toolchain rust-toolchain.toml (1.95.0)",
+        "accepted US-007 sbx profile digest set (sandbox_profile)"
+      ],
+      "required_artifacts": ["EvidenceRun", "ProofObligation", "Model"],
+      "outcomes_summary": { "availability_probe": "EXECUTED", "proof_obligations": "NOT_EXECUTED" }
+    },
+    {
+      "backend_id": "backend.tlc",
+      "tool": {
+        "name": "TLC (TLA+ model checker)",
+        "kind": "EXPLICIT_STATE_MODEL_CHECKER",
+        "identity": "tla2tools.jar (JVM tool) / tlc launcher",
+        "upstream": "https://github.com/tlaplus/tlaplus",
+        "version_observed": "NOT_OBSERVED_TOOL_ABSENT_ON_HOST_JVM_PRESENT_17.0.19"
+      },
+      "method": "explicit-state model checking of the abstract Connecting/Open/Closing/Closed connection model (lane B's assurance/formal/connection-model.tla) with finite state constraints; establishes PROVED_MODEL evidence only — production claims require a reviewed refinement link (US-006 AC4)",
+      "claim_scope": "PROVED_MODEL_ONLY",
+      "assurance_label_ceiling": "proved-model",
+      "max_outcome_allowed": "ProofEstablished",
+      "selected": false,
+      "selection_state": "QUALIFICATION_PENDING_SBX_EXECUTION",
+      "availability_probe": {
+        "executed": true,
+        "venue": "HOST",
+        "host": "Darwin arm64 (owner workstation; probe-before-wire only — NOT the accepted sbx profile venue)",
+        "probed_at": "2026-08-26T23:13:01Z",
+        "probe_semantics": "TLC is a JVM application distributed as tla2tools.jar; availability means a tlc/tla2tools launcher on PATH or a pinned tla2tools.jar plus a JVM. Each recorded command was executed with /bin/sh -c from the recorded cwd (repository root '.'), with stdout and stderr captured verbatim as separate streams. Note that `java -version` reports on STDERR by design — its stdout is empty and the three-line version banner below is the verbatim stderr stream. The host JVM is present (Homebrew openjdk 17.0.19); the TLC tool itself is not installed on the host. The accepted sbx template carries a JVM (openjdk 25.0.3 observed in attempt us007-sbx-output-live-0124), so an in-sbx TLC run requires only an owner-authorized, digest-pinned tla2tools.jar materialization.",
+        "commands": [
+          { "argv": "command -v tlc", "cwd": ".", "exit_code": 1, "stdout": "", "stderr": "" },
+          { "argv": "command -v tla2tools", "cwd": ".", "exit_code": 1, "stdout": "", "stderr": "" },
+          { "argv": "java -version", "cwd": ".", "exit_code": 0, "stdout": "", "stderr": "openjdk version \"17.0.19\" 2026-04-21\nOpenJDK Runtime Environment Homebrew (build 17.0.19+0)\nOpenJDK 64-Bit Server VM Homebrew (build 17.0.19+0, mixed mode, sharing)\n" }
+        ],
+        "verdict": "TOOL_UNAVAILABLE_ON_HOST_JVM_PRESENT"
+      },
+      "sbx_execution": {
+        "status": "NOT_EXECUTED",
+        "reason": "OWNER_AUTHORIZATION_REQUIRED: the TLC run of the connection model (with its TLC config and state constraints) executes inside the accepted profile under a per-attempt owner authorization, with a digest-pinned tla2tools.jar delivered through the attempt's materialization list. No receipt exists and none is cited.",
+        "required_profile": "sandbox_profile (this document): attempt-us007-sbx-output-live-0124-accepted digest set"
+      },
+      "expected_property_inventory": [
+        { "property_id": "prop.tlc.no-terminal-escape", "description": "no transition leaves CLOSED (Java authority: WebSocketImpl.java:530-567, CLOSED at 566)", "formal_claim_id": "formal.connection.no-terminal-escape" },
+        { "property_id": "prop.tlc.terminal-absorbing", "description": "close is terminal-absorbing: exactly-once terminal delivery, second close path is a no-op (L2 monitor)", "formal_claim_id": "formal.close.terminal-absorbing" }
+      ],
+      "obligations": [
+        {
+          "id": "obl.tlc.connection-safety",
+          "description": "model-check the connection-state safety properties (no-terminal-escape, terminal-absorbing) over the finitely-bounded model; PROVED_MODEL ceiling — cannot establish production Rust without a reviewed composition/refinement link (DISCONNECTED_PROOF / two-reviewer rules in foundation evidence.go)",
+          "formal_claim_id": "formal.connection.no-terminal-escape",
+          "java_authority": "WebSocketImpl.java:757-766 (open), 463-507 (close-initiate, CLOSING), 530-567 (terminal, CLOSED, exactly-once onWebsocketClose), 584-606 (flushAndClose latch), enums/ReadyState.java",
+          "required_outcome": "ProofEstablished",
+          "outcome": "inconclusive",
+          "production_link": {
+            "planned_symbol": "ws_core::connection::WebSocketImpl (state machine)",
+            "rust_semantic_id": "ws_core::connection::WebSocketImpl",
+            "resolver_status": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"
+          },
+          "production_code_ids": []
+        },
+        {
+          "id": "obl.tlc.close-code-normalization",
+          "description": "the model's close edges must encode the live-confirmed close-code normalization (US-005 jm-close-code-1000 kill signature: empty close normalizes to 1000 per pinned CloseFrame semantics)",
+          "formal_claim_id": "formal.close.terminal-absorbing",
+          "java_authority": "WebSocketImpl.java:530-567 with the US-005 live-confirmed close-code behavior (attempt us007-sbx-output-live-0124, jm-close-code-1000: 71 kills, close_code-1000 signature)",
+          "required_outcome": "ProofEstablished",
+          "outcome": "inconclusive",
+          "production_link": {
+            "planned_symbol": "ws_core::close::CloseFrame",
+            "rust_semantic_id": "ws_core::close::CloseFrame",
+            "resolver_status": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"
+          },
+          "production_code_ids": []
+        }
+      ],
+      "canaries": {
+        "known_good": {
+          "id": "canary.tlc.good.model-passes",
+          "description": "the unmutated connection model satisfies both safety properties over the bounded state space with a recorded state count",
+          "status": "NOT_EXECUTED"
+        },
+        "known_bad": {
+          "id": "canary.tlc.bad.jm-close-code-1000",
+          "mutant_id": "jm-close-code-1000",
+          "description": "a model mutation mirroring the planted jm-close-code-1000 mutant (US-005 vocabulary, 71 live kills = 19 public + 26 hidden + 26 sealed) must produce a real, digested counterexample trace against the close-code-normalization property",
+          "expected_detection": "COUNTEREXAMPLE",
+          "status": "NOT_EXECUTED"
+        }
+      },
+      "bounds": {
+        "max_queue_depth": 3,
+        "max_commands": 4,
+        "max_inbound_frames": 4,
+        "state_constraint": "all monotone counters bounded by the constants above (finite reachable state space required before any TLC run is recorded)"
+      },
+      "assumptions": [
+        "the model abstracts the serialized owner design; racy Java interleavings are out of model scope by declaration",
+        "PROVED_MODEL evidence caps at CANDIDATE readiness (foundation evidence.go assurance ceilings); production claims additionally require non-empty production_code_ids and two blind independent reviewers"
+      ],
+      "provenance": [
+        "host availability probe re-executed 2026-08-26T23:13:01Z by lane C (re-review round 1), per-stream stdout/stderr and exit codes recorded verbatim above; truncated streams are digest-bound (byte count + sha256 of the full stream)",
+        "candidate backend named by the US-006 pre-stage dossier (drafts/us006-prestage-dossier.md AC2/AC4)"
+      ],
+      "unsupported_constructs": [
+        "unbounded counters (must be excluded by state constraints before any run)",
+        "production-refinement claims (require reviewed refinement links outside this backend)"
+      ],
+      "trusted_base": [
+        "tla2tools.jar (digest-pinned at materialization time in the owner-authorized attempt)",
+        "sandbox JVM (openjdk observed in the accepted template)",
+        "accepted US-007 sbx profile digest set (sandbox_profile)"
+      ],
+      "required_artifacts": ["EvidenceRun", "ProofObligation", "Model"],
+      "outcomes_summary": { "availability_probe": "EXECUTED", "proof_obligations": "NOT_EXECUTED" }
+    },
+    {
+      "backend_id": "backend.finite-mask-check",
+      "tool": {
+        "name": "Finite-domain mask check (historical prototype)",
+        "kind": "EXHAUSTIVE_FINITE_DOMAIN_CHECKER",
+        "identity": "the 'accepted finite mask prototype' named by US-006 AC3",
+        "upstream": "inherited project history (parent lineage feasibility run); no in-repo artifact",
+        "version_observed": "NOT_OBSERVED_NO_RETAINED_ARTIFACT"
+      },
+      "method": "exhaustive evaluation of the mask equation/involution over a finite domain (all byte values x all 4-byte key rotations x offsets 0..3); establishes bounded evidence ONLY (US-006 AC3)",
+      "claim_scope": "BOUNDED_EVIDENCE_ONLY",
+      "assurance_label_ceiling": "bounded",
+      "max_outcome_allowed": "BoundedCheckPassed",
+      "selected": false,
+      "selection_state": "ABSENT_NO_RETAINED_ARTIFACT",
+      "availability_probe": {
+        "executed": true,
+        "venue": "HOST",
+        "host": "Darwin arm64 (owner workstation; repository artifact search — there is no tool binary to probe)",
+        "probed_at": "2026-08-26T23:13:01Z",
+        "probe_semantics": "the prototype is a historical artifact, not an installable tool; the honest availability probe is a repository-wide retained-artifact search. Each command was executed with /bin/sh -c from the repository root with per-stream verbatim capture. The unrestricted content search now returns exactly one hit: this qualification document itself, which names the absent prototype — a self-reference created when this record was first written, not a retained artifact. The second command repeats the content search excluding this document and finds nothing (grep exits 1 on zero matches); the third searches the whole tree (minus .git) for any file NAMED like the prototype and prints nothing. Together these establish ABSENT_NO_RETAINED_ARTIFACT: no artifact file exists, and the only textual mention is this document's own record of the absence, consistent with the pre-stage dossier's finding (drafts/us006-prestage-dossier.md Section 5 input 6) and the recon reading of the Codex plane.",
+        "commands": [
+          { "argv": "grep -ri --exclude-dir=.git --exclude-dir=third_party --exclude-dir=.quarantine -l 'finite-mask\\|finite_mask\\|finite mask' .", "cwd": ".", "exit_code": 0, "stdout": "./assurance/formal/backend-qualification.json\n", "stderr": "" },
+          { "argv": "grep -ri --exclude-dir=.git --exclude-dir=third_party --exclude-dir=.quarantine --exclude=backend-qualification.json -l 'finite-mask\\|finite_mask\\|finite mask' .", "cwd": ".", "exit_code": 1, "stdout": "", "stderr": "" },
+          { "argv": "find . -name .git -prune -o -type f -iname '*finite*mask*' -print", "cwd": ".", "exit_code": 0, "stdout": "", "stderr": "" }
+        ],
+        "verdict": "ABSENT_NO_RETAINED_ARTIFACT"
+      },
+      "sbx_execution": {
+        "status": "NOT_EXECUTED",
+        "reason": "ABSENT_NO_RETAINED_ARTIFACT: no classifier-approved public prototype artifact exists in this repository, so there is nothing to execute or re-register as bounded evidence. A fresh finite-domain mask check may be authored and executed inside the accepted profile in a later owner-authorized attempt; until then this backend blocks its own claims and cannot be represented as a skip or inferred success (outcome recorded as unsupported, rank 0 in the foundation lattice). No receipt exists and none is cited.",
+        "required_profile": "sandbox_profile (this document): attempt-us007-sbx-output-live-0124-accepted digest set"
+      },
+      "expected_property_inventory": [
+        { "property_id": "prop.finite.mask-involution", "description": "mask involution holds exhaustively over the finite domain (256 byte values x 4 key bytes x offsets 0..3)", "formal_claim_id": "formal.framing.length-bounds" }
+      ],
+      "obligations": [
+        {
+          "id": "obl.finite.mask-involution",
+          "description": "exhaustive finite-domain confirmation of mask involution; bounded evidence only, and currently unsupported because the accepted prototype artifact is absent",
+          "formal_claim_id": "formal.framing.length-bounds",
+          "java_authority": "Draft_6455.java:511-517 (encode XOR loop), Draft_6455.java:558-563 (decode unmask loop)",
+          "required_outcome": "BoundedCheckPassed",
+          "outcome": "unsupported",
+          "production_link": {
+            "planned_symbol": "ws_core::framing::Draft6455::apply_mask",
+            "rust_semantic_id": "ws_core::framing::Draft6455",
+            "resolver_status": "RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED"
+          },
+          "production_code_ids": []
+        }
+      ],
+      "canaries": {
+        "known_good": {
+          "id": "canary.finite.good.involution-exhaustive",
+          "description": "a fresh finite-domain run confirms involution on every domain point",
+          "status": "NOT_EXECUTED"
+        },
+        "known_bad": {
+          "id": "canary.finite.bad.rs-digest-unbind",
+          "mutant_id": "rs-digest-unbind",
+          "description": "the planted rs-digest-unbind envelope mutant (US-005 vocabulary, 258/258 live sweep failures) must be detected: unbinding the key from the frame breaks involution at concrete domain points, yielding an enumerable counterexample",
+          "expected_detection": "COUNTEREXAMPLE",
+          "status": "NOT_EXECUTED"
+        }
+      },
+      "bounds": {
+        "byte_domain": 256,
+        "mask_key_bytes": 4,
+        "offsets": 4,
+        "domain_points": "256 * 4 key rotations * 4 offsets = exhaustive finite enumeration"
+      },
+      "assumptions": [
+        "exhaustive finite-domain evidence is bounded evidence: it can never be labeled proved-model or proved-production/refinement (inflation blocks mechanically)"
+      ],
+      "provenance": [
+        "retained-artifact search re-executed 2026-08-26T23:13:01Z by lane C (re-review round 1), per-stream outputs recorded verbatim above: the sole content hit is this document's own self-reference, the self-reference-excluded content search has zero hits (exit 1), and the filename search prints nothing",
+        "absence independently recorded by the pre-stage dossier (Section 5 input 6: searched evidence/, docs/, assurance/, internal/, cmd/, corpora/ — zero hits) and by the recon reading of the Codex plane"
+      ],
+      "unsupported_constructs": [
+        "any claim above bounded evidence",
+        "any execution claim while the artifact remains absent"
+      ],
+      "trusted_base": [
+        "a future fresh finite-domain checker authored in-repo and executed inside the accepted profile",
+        "accepted US-007 sbx profile digest set (sandbox_profile)"
+      ],
+      "required_artifacts": ["EvidenceRun", "ProofObligation", "Model"],
+      "outcomes_summary": { "availability_probe": "EXECUTED", "proof_obligations": "NOT_EXECUTED" }
+    }
+  ],
+  "foundation_binding": {
+    "entity_plan": "Each obligation above is the plan for a foundation ProofObligation entity bound to its Claim (the migration-map formal.* claim inventory) with a Model entity (lane B's connection model for TLC; bit-level lemma models for Kani/finite-mask; the concurrency plan's action model for Loom) and an EvidenceRun entity produced by the owner-authorized sbx attempt. Records enter assurance/evidence-model.json only when a real execution exists, so the foundation validator's ceilings (bounded/proved-model -> CANDIDATE, DISCONNECTED_PROOF on unlinked production claims, two-reviewer refinement rule) enforce mechanically on real evidence, never on placeholders.",
+    "outcome_lattice": {
+      "unsupported": 0,
+      "disconnected": 0,
+      "inconclusive": 1,
+      "stale": 1,
+      "model_observation": 2,
+      "trace_observation": 3,
+      "BoundedCheckPassed": 4,
+      "ProofEstablished": 5
+    },
+    "assurance_label_ceilings": {
+      "observed": "LAB",
+      "differential": "LAB",
+      "bounded": "CANDIDATE",
+      "proved-model": "CANDIDATE",
+      "proved-production/refinement": "PUBLISHED"
+    },
+    "required_artifact_types": {
+      "bounded": ["EvidenceRun", "ProofObligation", "Model"],
+      "proved-model": ["EvidenceRun", "ProofObligation", "Model"],
+      "proved-production/refinement": ["EvidenceRun", "Trace", "MutationResult", "BenchmarkRun", "ProofObligation", "Review", "Model"]
+    },
+    "evidence_run_completeness_fields": [
+      "source_revision",
+      "specification_revision",
+      "java_revision",
+      "rust_revision",
+      "java_semantic_ids",
+      "rust_semantic_ids",
+      "command",
+      "working_directory",
+      "tool_hashes",
+      "container_hashes",
+      "environment",
+      "seed",
+      "hardware",
+      "assumptions",
+      "bounds",
+      "unsupported_constructs",
+      "trusted_base",
+      "exit_count",
+      "obligation_count",
+      "raw_log_ids",
+      "artifact_ids",
+      "normalized_diff_id",
+      "counterexample_or_corpus_ids",
+      "replay_command"
+    ]
+  },
+  "honesty_notes": [
+    "Availability probes were re-executed on the HOST (Darwin arm64) at 2026-08-26T23:13:01Z (re-review round 1, replacing an earlier probe set whose recorded fields paraphrased or merged streams): every command records its exact argv, working directory, exit code, and per-stream stdout/stderr verbatim; where a stream is too long to embed whole (loom's cargo metadata, 4435 bytes) the record keeps a verbatim head and binds the full stream by byte count and sha256. They are probe-before-wire planning evidence, not sbx executions.",
+    "No backend proof run, canary run, or sbx execution has occurred for US-006; every sbx_execution.status is NOT_EXECUTED, every canary status is NOT_EXECUTED, and every obligation outcome is inconclusive (pending) or unsupported (absent artifact). Nothing in this document represents a skip or an inferred success.",
+    "No backend is selected: selection requires an executed availability probe AND a completed sbx execution with a real receipt inside the accepted profile (the formal-preflight validator blocks selected-without-execution mechanically).",
+    "The sandbox_profile digest set is pinned from the CURRENT accepted evidence (security/sbx-template.json, security/sandbox-policy.json) and bound to the accepted live attempt us007-sbx-output-live-0124 cited by evidence/corpus-calibration.json; the protected operator receipt was read as acceptance provenance only. The formal-preflight validator reconciles these pins two ways: every pinned field is compared against security/sbx-template.json, and the one digest that names in-repo bytes — sandbox_policy_digest, the sha256 over the raw bytes of security/sandbox-policy.json — is re-hashed from the actual file on every run (PROFILE_DIGEST_MISMATCH / PROFILE_ARTIFACT_UNREADABLE). The CLI-binary, template, and network-policy digests describe out-of-repo artifacts (host sbx binary, registry image, live sbx policy rule) and cannot be re-hashed from repo bytes; they remain bound through the pin-vs-source comparison and the accepted attempt's operator receipt.",
+    "The finite mask prototype named by US-006 AC3 has no retained artifact anywhere in this repository (search recorded above): its record is ABSENT_NO_RETAINED_ARTIFACT with outcome unsupported, which blocks dependent claims rather than representing bounded evidence that cannot be produced. The retained-artifact content search necessarily matches this document itself (it names the prototype it declares absent); that self-reference is recorded verbatim, and the artifact conclusion rests on the self-reference-excluded content search and the filename search, both empty.",
+    "Obligation pass accounting is strict: the validator counts an obligation as passed (and as production-linked passed) only when its backend's execution record satisfies the full foundation EvidenceRun completeness predicate (receipt re-hashed against real bytes included) AND both canaries in the backend's pair are healthy (known-good PASSED, known-bad DETECTED with a digested counterexample). Incomplete evidence or a surviving/unexecuted canary excludes the pass with its typed finding — a failed canary can never coexist with a counted production-linked pass."
+  ]
+}
