@@ -94,7 +94,11 @@ fn limit_field_table_is_pinned() {
         (F::MaxActions, 0, 64, 1024),
         (F::MaxFrames, 1, 64, 4096),
         (F::MaxOutputBytes, 512, 4_194_304, 4_194_304),
-        (F::EventQueueCapacity, 4, 64, 4096),
+        // Ceiling raised for US-012 multi-frame decoding: one byte input
+        // can complete the whole remaining frame budget, so single-drain
+        // owners need EVENT_SLOTS_PER_FRAME * (max_frames + 1) + 1 slots
+        // (8195 at the max_frames ceiling).
+        (F::EventQueueCapacity, 4, 64, 16_384),
         (F::CommandQueueCapacity, 1, 64, 4096),
         (F::WriteQueueCapacity, 1, 64, 4096),
     ];

@@ -8,19 +8,20 @@
 //! callbacks, no interior mutability, no threads — enforced by construction
 //! and by the `sans_io_contract` source-scan test.
 //!
-//! ## Scope of this story (US-009)
+//! ## Scope
 //!
-//! This is the *contract*: types, limits, ownership, determinism,
-//! backpressure, counters, and poisoning. The state machine is deliberately
-//! skeletal — the byte path buffers (bounded) without decoding frames, the
-//! send commands run their contract gates and then refuse with the honest
-//! non-oracle [`crate::error::FailureCode::Unimplemented`] code, and only the
-//! EOF transition (quirk Q20, fully pinned by the reference model) is
-//! encoded. Handshake behavior is US-010/US-011, framing US-012, messages
-//! US-013, fragmentation US-014, control US-015, and the close sequence
-//! US-016; per AC4, "handshake or frame behavior cannot be marked complete by
-//! this story", and a corpus evaluation of this skeleton must fail (the
-//! protocol-stub gate).
+//! US-009 fixed the contract: types, limits, ownership, determinism,
+//! backpressure, counters, and poisoning. The US-012/US-013/US-014 core
+//! data path is now implemented (borrowed with attribution from the Codex
+//! plane and reconciled site-by-site against the reference model — see the
+//! `framing`/`message`/`fragment` module docs): the byte path scans,
+//! translates, records, and processes frames; text/binary messages deliver
+//! through the two-stage UTF-8 gates; fragments reassemble; and
+//! `send_text`/`send_binary`/`send_fragment` emit real wire writes. The
+//! handshake plane (US-010/US-011), inbound control and close processing
+//! (US-015/US-016), and the control/close send paths still refuse with the
+//! honest non-oracle [`crate::error::FailureCode::Unimplemented`] code, so
+//! their corpus families keep failing until the owning stories land.
 //!
 //! ## Behavior authority
 //!
@@ -41,8 +42,12 @@ use std::sync::{Arc, Mutex, PoisonError};
 use crate::close::{CloseDetail, CloseOrigin};
 use crate::config::ConnectionConfig;
 use crate::error::{FailureCode, QueueKind, TypedProtocolFailure};
-use crate::event::{Counts, SemanticEvent, SemanticEventKind, TransitionCause};
-use crate::framing::{Draft6455, HeaderDecode};
+use crate::event::{
+    Counts, Direction, FrameRecord, OutboundCause, SemanticEvent, SemanticEventKind,
+    TransitionCause,
+};
+use crate::framing::{CLOSE_CONSTRUCTOR_PAYLOAD, DecodedFrame, Draft6455, Opcode, ProcessOutcome};
+use crate::message::Charsetfunctions;
 use crate::queue::BoundedQueue;
 
 /// Connection role, mirroring `org.java_websocket.enums.Role` (corpus
@@ -207,14 +212,27 @@ pub struct TransportWrite {
     pub bytes: Vec<u8>,
 }
 
-/// The largest number of event-queue slots one input can require in this
-/// skeleton (transport EOF: the `eof` detail event plus the transition
-/// record). The per-input capacity precheck uses this bound to keep input
-/// handling atomic — an input either fully processes or is refused with
-/// [`FailureCode::Backpressure`] before any mutation. The
-/// `event_queue_capacity` minimum (4) covers it with headroom; stories that
-/// raise the per-input worst case (US-012+ frame decoding) must revisit both.
+/// The largest number of event-queue slots one NON-BYTE input can require:
+/// transport EOF emits the `eof` detail event plus the transition record,
+/// and a US-012/US-013/US-014 send command emits one frame record plus one
+/// cause event. The per-input capacity precheck uses this bound to keep
+/// input handling atomic — an input either fully processes or is refused
+/// with [`FailureCode::Backpressure`] before any mutation.
+///
+/// Byte inputs use the dynamic bound
+/// [`ConnectionCore::byte_input_event_bound`] instead (re-derived for
+/// US-012 multi-frame decoding, as the US-009 docs required): one chunk can
+/// complete many frames, each contributing at most
+/// [`EVENT_SLOTS_PER_FRAME`] slots on top of the `input_chunk` record. The
+/// US-015/US-016 control/close arms raise the per-frame worst case (close
+/// echo + transition) and must re-derive both constants.
 pub const MAX_EVENT_SLOTS_PER_INPUT: usize = 2;
+
+/// Worst-case event slots one processed inbound frame can emit in the
+/// US-012..US-014 slice: its frame record plus at most one semantic event
+/// (text/binary delivery; control frames record then refuse). Revisited by
+/// US-015/US-016 (see [`MAX_EVENT_SLOTS_PER_INPUT`]).
+pub const EVENT_SLOTS_PER_FRAME: usize = 2;
 
 /// The pending wire buffer's slack over `max_buffered_bytes`: the maximum
 /// frame header size (2 base + 8 extended length + 4 mask = 14), the exact
@@ -251,7 +269,9 @@ pub struct ConnectionCore {
     /// (matching the oracle's failure counts) even though the port never
     /// retains the oversized buffer itself.
     wire_buffered_reported: u64,
-    /// Message (fragment) reassembly accounting; always 0 until US-014.
+    /// Message (fragment) reassembly accounting (corpus
+    /// `message_buffered_bytes`), updated at exactly the reference model's
+    /// sites (derive.go `messageBuffered`; US-014).
     message_buffered: u64,
     input_bytes: u64,
     consumed_bytes: u64,
@@ -260,6 +280,13 @@ pub struct ConnectionCore {
     close_detail: Option<CloseDetail>,
     events: BoundedQueue<SemanticEvent>,
     writes: BoundedQueue<TransportWrite>,
+    /// The RFC 6455 codec seam with its continuation state (US-012/US-014).
+    draft: Draft6455,
+    /// Outbound masked-frame counter feeding the deterministic mask-key
+    /// stream (quirk Q28: mask keys are never observable, so any
+    /// deterministic source derived from `mask_key_seed` scores
+    /// identically).
+    mask_counter: u64,
 }
 
 /// Migration-map planned identity for the single-owner connection type
@@ -307,6 +334,8 @@ impl ConnectionCore {
             close_detail: None,
             events,
             writes,
+            draft: Draft6455::new(),
+            mask_counter: 0,
         }
     }
 
@@ -431,16 +460,28 @@ impl ConnectionCore {
         self.state = next;
     }
 
-    /// Byte path, mirroring derive.go `inputStep` with the US-012 decode
-    /// loop stubbed to "consume nothing".
+    /// Worst-case event slots one byte input can require: the `input_chunk`
+    /// record plus [`EVENT_SLOTS_PER_FRAME`] per frame that can actually be
+    /// processed before the frame budget refuses (the budget check emits
+    /// nothing, so spans past `max_frames - frames_so_far` contribute no
+    /// slots beyond the one refused frame).
+    fn byte_input_event_bound(&self, complete_spans: usize) -> usize {
+        let frame_budget = self
+            .config
+            .max_frames()
+            .saturating_sub(self.frame_count)
+            .saturating_add(1);
+        let budget = usize::try_from(frame_budget).unwrap_or(usize::MAX);
+        1usize.saturating_add(EVENT_SLOTS_PER_FRAME.saturating_mul(complete_spans.min(budget)))
+    }
+
+    /// Byte path, mirroring derive.go `inputStep` exactly: span scan,
+    /// leftover cap (Q24), translate with per-site consumption (Q25),
+    /// incomplete-header screen, then per-frame recording and processing
+    /// with the frame budget checked before each record.
     fn handle_bytes(&mut self, chunk: &[u8]) -> Result<(), TypedProtocolFailure> {
-        // Atomicity precheck: a surviving chunk emits exactly one
-        // input_chunk event in this skeleton.
-        if self.events.available() < 1 {
-            return Err(Self::backpressure(QueueKind::Event));
-        }
         // The handshake plane (buffering, limits, verdicts) is US-010/US-011
-        // behavior; the skeleton refuses it honestly.
+        // behavior; this slice refuses it honestly.
         if self.state == ReadyState::NotYetConnected {
             return Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented));
         }
@@ -452,7 +493,8 @@ impl ConnectionCore {
         // addBounded input limit (derive.go:295-299): the counter updates
         // only when within bounds. A u64 overflow certainly exceeds every
         // permitted limit, so checked arithmetic maps it to the same
-        // failure.
+        // failure. Computed here, committed only after the backpressure
+        // precheck below (the precheck must precede all mutation).
         let chunk_len = chunk.len() as u64;
         let max_input = self.config.max_input_bytes() as u64;
         let new_input_total = match self.input_bytes.checked_add(chunk_len) {
@@ -463,8 +505,12 @@ impl ConnectionCore {
                 ));
             }
         };
-        self.input_bytes = new_input_total;
         if chunk.is_empty() {
+            // Atomicity precheck for the single input_chunk record.
+            if self.events.available() < 1 {
+                return Err(Self::backpressure(QueueKind::Event));
+            }
+            self.input_bytes = new_input_total;
             // derive.go:301: an empty chunk records input_chunk {bytes: 0}
             // and consumes nothing.
             self.emit(SemanticEventKind::InputChunk { bytes: 0 });
@@ -476,45 +522,199 @@ impl ConnectionCore {
         let mut combined = Vec::with_capacity(self.pending.len() + chunk.len());
         combined.extend_from_slice(&self.pending);
         combined.extend_from_slice(chunk);
-        // Translate seam. US-012 replaces this with the real scan/decode
-        // loop (complete frames consumed BEFORE the leftover cap check, with
-        // Q25 error-site consumption and Q21/Q17 validity ordering). The
-        // skeleton decoder always answers Insufficient, so nothing is
-        // consumed and no frame behavior can be claimed.
-        match Draft6455::decode_frame_header(
-            &combined,
-            self.config.max_frame_payload_bytes() as u64,
-        )? {
-            HeaderDecode::Insufficient => {}
-            HeaderDecode::Header(_) => {
-                // Unreachable until US-012 rewrites this path; refusing (and
-                // poisoning) is safer than silently dropping a frame.
-                return Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented));
-            }
+        // Span scan (WireTracker.frameLength): complete frames by length
+        // grammar only; pure computation, safe before the precheck.
+        let (spans, leftover_start) = Draft6455::scan_spans(&combined);
+        // Atomicity precheck: nothing has mutated yet, so a refused input
+        // can be retried identically after draining.
+        if self.events.available() < self.byte_input_event_bound(spans.len()) {
+            return Err(Self::backpressure(QueueKind::Event));
         }
-        let leftover_len = combined.len() as u64;
-        // Quirk Q24 (derive.go:313-319): the leftover cap is
-        // max_buffered_bytes + 14, the overflow ends the scenario before any
-        // translation, and consumed stays 0 for this chunk. Java (and the
-        // reference model) retain the oversized buffer before checking; the
-        // port checks before retaining — a JAVA_FAITHFUL_PLUS_SAFE
+        self.input_bytes = new_input_total;
+        let chunk_start = self.pending.len();
+        let leftover_len = (combined.len() - leftover_start) as u64;
+        // Quirk Q24 (derive.go:313-319): pending is replaced by the leftover
+        // BEFORE the overflow check, the overflow ends the scenario before
+        // any translation, and consumed stays 0 for this chunk. Java (and
+        // the reference model) retain the oversized buffer before checking;
+        // the port checks before retaining — a JAVA_FAITHFUL_PLUS_SAFE
         // strengthening with identical observables (the failure counts
         // still report the oversized leftover length, as the oracle does).
+        self.wire_buffered_reported = leftover_len;
         let cap =
             (self.config.max_buffered_bytes() as u64).saturating_add(WIRE_PENDING_SLACK_BYTES);
         if leftover_len > cap {
-            self.wire_buffered_reported = leftover_len;
             self.pending = Vec::new();
             return Err(TypedProtocolFailure::protocol(
                 FailureCode::BufferLimitExceeded,
             ));
         }
-        self.pending = combined;
-        self.wire_buffered_reported = self.pending.len() as u64;
-        // derive.go: the whole surviving chunk counts as consumed through
-        // translation, then the input_chunk event is recorded.
+        self.pending = combined[leftover_start..].to_vec();
+        // Translate stage: sequential decode with Java's validity order and
+        // per-site consumption (quirk Q25). On a rejection the consumed
+        // counter advances by the offset of the failure site relative to
+        // this chunk's start (saturating at zero for a frame completed from
+        // buffered bytes — a shape outside the reference model's verified
+        // space, derive.go:330-334).
+        let max_frame = self.config.max_frame_payload_bytes() as u64;
+        let mut decoded: Vec<DecodedFrame> = Vec::with_capacity(spans.len());
+        for span in &spans {
+            match Draft6455::translate_single_frame(
+                &combined[span.start..span.start + span.size],
+                max_frame,
+            ) {
+                Ok(mut frame) => {
+                    frame.wire_bytes = span.size;
+                    decoded.push(frame);
+                }
+                Err(reject) => {
+                    let site = (span.start + reject.consumed).saturating_sub(chunk_start) as u64;
+                    self.consumed_bytes = self.consumed_bytes.saturating_add(site);
+                    return Err(reject.failure);
+                }
+            }
+        }
+        // A fresh incomplete frame whose visible header already violates the
+        // runtime rules is rejected during this step (translateSingleFrame
+        // reads the header before noticing the frame is incomplete;
+        // derive.go screenIncompleteHeader) — before the input_chunk event
+        // and before any frame from this chunk is recorded.
+        if combined.len() - leftover_start >= 2
+            && let Err(reject) =
+                Draft6455::decode_frame_header(&combined[leftover_start..], max_frame)
+        {
+            let site = (leftover_start + reject.consumed).saturating_sub(chunk_start) as u64;
+            self.consumed_bytes = self.consumed_bytes.saturating_add(site);
+            return Err(reject.failure);
+        }
+        // derive.go:358-359: the whole surviving chunk counts as consumed
+        // through translation, then the input_chunk event is recorded.
         self.consumed_bytes = self.consumed_bytes.saturating_add(chunk_len);
         self.emit(SemanticEventKind::InputChunk { bytes: chunk_len });
+        // Per-frame recording and processing (derive.go:360-368): the frame
+        // budget is checked BEFORE each record; processing failures happen
+        // after the record and after earlier frames' effects.
+        for frame in decoded {
+            if self.frame_count >= self.config.max_frames() {
+                return Err(TypedProtocolFailure::protocol(
+                    FailureCode::FrameLimitExceeded,
+                ));
+            }
+            self.frame_count += 1;
+            // Quirk Q10: close frame records carry the constructor payload,
+            // never the wire payload (derive.go inboundFrameRecord).
+            let record_payload = if frame.opcode == Opcode::Closing {
+                CLOSE_CONSTRUCTOR_PAYLOAD.to_vec()
+            } else {
+                frame.payload.clone()
+            };
+            self.emit(SemanticEventKind::FrameObserved(FrameRecord {
+                direction: Direction::Inbound,
+                fin: frame.fin,
+                masked: frame.masked,
+                opcode: frame.opcode,
+                payload: record_payload,
+                rsv1: frame.rsv1,
+                rsv2: frame.rsv2,
+                rsv3: frame.rsv3,
+                step: self.step,
+                wire_bytes: frame.wire_bytes as u64,
+            }));
+            self.process_inbound(frame)?;
+        }
+        Ok(())
+    }
+
+    /// Process one recorded inbound frame (derive.go `processInbound`):
+    /// state gates first, then the opcode dispatch. The control and close
+    /// arms are US-015/US-016 behavior and refuse honestly.
+    fn process_inbound(&mut self, frame: DecodedFrame) -> Result<(), TypedProtocolFailure> {
+        // derive.go:637-641: closed refuses everything; closing refuses
+        // every non-close frame.
+        if self.state == ReadyState::Closed {
+            return Err(Self::state_violation());
+        }
+        if self.state == ReadyState::Closing && frame.opcode != Opcode::Closing {
+            return Err(Self::state_violation());
+        }
+        let outcome = self.draft.process_frame(
+            &frame,
+            self.config.max_buffered_bytes(),
+            self.config.max_message_bytes(),
+            &mut self.message_buffered,
+        )?;
+        match outcome {
+            ProcessOutcome::Buffered => {}
+            ProcessOutcome::Text(text) => self.emit(SemanticEventKind::Text { text }),
+            ProcessOutcome::Binary(data) => self.emit(SemanticEventKind::Binary { data }),
+        }
+        Ok(())
+    }
+
+    /// The next deterministic client mask key: SplitMix64 over
+    /// `mask_key_seed` and the outbound masked-frame counter (quirk Q28:
+    /// Java randomizes mask keys and no observation ever records them, so
+    /// any deterministic derivation scores identically; the design draft's
+    /// injected-mask-source seam).
+    fn next_mask_key(&mut self) -> [u8; 4] {
+        self.mask_counter = self.mask_counter.wrapping_add(1);
+        let mut z = self
+            .config
+            .mask_key_seed()
+            .wrapping_add(self.mask_counter.wrapping_mul(0x9E37_79B9_7F4A_7C15));
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^= z >> 31;
+        #[allow(clippy::cast_possible_truncation)]
+        let word = z as u32;
+        word.to_be_bytes()
+    }
+
+    /// Emit one outbound frame (derive.go `emitOutbound`): the frame budget
+    /// check, the real wire write (encoded, client-masked from the
+    /// deterministic seed), the outbound frame record, then the cause event
+    /// carrying the opcode name.
+    fn emit_outbound(
+        &mut self,
+        cause: OutboundCause,
+        fin: bool,
+        opcode: Opcode,
+        payload: Vec<u8>,
+    ) -> Result<(), TypedProtocolFailure> {
+        if self.frame_count >= self.config.max_frames() {
+            return Err(TypedProtocolFailure::protocol(
+                FailureCode::FrameLimitExceeded,
+            ));
+        }
+        let masked = self.role == Role::Client;
+        // Wire size mirrors Draft_6455.createBinaryFrame accounting: header
+        // + mask key (client role) + payload (frames.go outboundWireBytes).
+        let wire_bytes = (Draft6455::header_size(payload.len())
+            + payload.len()
+            + if masked { 4 } else { 0 }) as u64;
+        let mask = if masked {
+            Some(self.next_mask_key())
+        } else {
+            None
+        };
+        let bytes = Draft6455::encode_frame(fin, opcode, &payload, mask);
+        self.writes
+            .push(TransportWrite { bytes })
+            .expect("write-queue capacity was prechecked for this input");
+        self.frame_count += 1;
+        self.emit(SemanticEventKind::FrameObserved(FrameRecord {
+            direction: Direction::Outbound,
+            fin,
+            masked,
+            opcode,
+            payload,
+            rsv1: false,
+            rsv2: false,
+            rsv3: false,
+            step: self.step,
+            wire_bytes,
+        }));
+        self.emit(SemanticEventKind::OutboundCause { cause, opcode });
         Ok(())
     }
 
@@ -570,10 +770,20 @@ impl ConnectionCore {
     }
 
     /// Command path: the contract gates of derive.go `actionStep`, then the
-    /// honest skeleton refusal (outbound behavior is US-012..US-016).
+    /// per-action tails — outbound data sends (US-012/US-013) and
+    /// `send_fragment` (US-014) are implemented; control sends (US-015) and
+    /// `send_close` (US-016) still refuse honestly.
     fn handle_command(&mut self, command: &LocalCommand) -> Result<(), TypedProtocolFailure> {
         if self.state == ReadyState::NotYetConnected {
             return Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented));
+        }
+        // Atomicity precheck before any mutation: an implemented send emits
+        // one frame record + one cause event and one transport write.
+        if self.events.available() < MAX_EVENT_SLOTS_PER_INPUT {
+            return Err(Self::backpressure(QueueKind::Event));
+        }
+        if self.writes.available() < 1 {
+            return Err(Self::backpressure(QueueKind::Write));
         }
         // Action accounting before the limit check (derive.go actionStep).
         self.action_count = self.action_count.saturating_add(1);
@@ -609,14 +819,58 @@ impl ConnectionCore {
                 FailureCode::BufferLimitExceeded,
             ));
         }
-        // Everything past the gates is later-story behavior: outbound
-        // framing and masking (US-012), the send-path DFA quirk Q16
-        // (US-013), fragment sequencing (US-014), control frames (US-015),
-        // and the close sequence with quirks Q13/Q14 via
-        // crate::close::{normalize_send_close_code, close_code_rejection}
-        // (US-016). The skeleton refuses honestly so the protocol-stub gate
-        // fails the corpus.
-        Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented))
+        // Per-action tails, each mirroring its derive.go actionStep arm.
+        match command {
+            // derive.go send_text: one fin text frame. The payload is
+            // already valid UTF-8 by construction (Rust String), exactly as
+            // Java's String-typed sendText input is.
+            LocalCommand::SendText { text } => self.emit_outbound(
+                OutboundCause::SendText,
+                true,
+                Opcode::Text,
+                text.clone().into_bytes(),
+            ),
+            // derive.go send_binary: one fin binary frame.
+            LocalCommand::SendBinary { data } => self.emit_outbound(
+                OutboundCause::SendBinary,
+                true,
+                Opcode::Binary,
+                data.clone(),
+            ),
+            // derive.go sendFragment / Draft.continuousFrame (written fresh
+            // against the reference model — the borrowed chain has no
+            // outbound fragment path): the FIRST frame of a text sequence
+            // runs the translate-time DFA (Draft.continuousFrame builds a
+            // TextFrame whose isValid applies the DFA; rejected content is
+            // NotSendable -> IllegalArgumentException, reported as
+            // JAVA_NOT_SENDABLE; truncated tails pass — derive.go:938-943),
+            // AFTER the payload-limit gate above and BEFORE the sequence
+            // state advances.
+            LocalCommand::SendFragment { opcode, data, fin } => {
+                let declared = match opcode {
+                    DataOpcode::Text => Opcode::Text,
+                    DataOpcode::Binary => Opcode::Binary,
+                };
+                if !self.draft.send_sequence_open()
+                    && declared == Opcode::Text
+                    && !Charsetfunctions::is_valid_utf8(data)
+                {
+                    return Err(TypedProtocolFailure::protocol(FailureCode::JavaNotSendable));
+                }
+                let wire_opcode = self.draft.continuous_send_opcode(declared, *fin)?;
+                self.emit_outbound(OutboundCause::SendFragment, *fin, wire_opcode, data.clone())
+            }
+            // Control sends (US-015) and the close sequence with quirks
+            // Q13/Q14 via crate::close::{normalize_send_close_code,
+            // close_code_rejection} (US-016) are later-story behavior; the
+            // honest refusal keeps their corpus families failing until the
+            // owning stories land.
+            LocalCommand::SendPing { .. }
+            | LocalCommand::SendPong { .. }
+            | LocalCommand::SendClose { .. } => {
+                Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented))
+            }
+        }
     }
 }
 

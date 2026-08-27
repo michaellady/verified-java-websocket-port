@@ -313,15 +313,26 @@ fn apply_mask_known_answer_and_zero_key_identity() {
 }
 
 #[test]
-fn decode_frame_header_skeleton_claims_no_framing_behavior() {
-    // US-009 fixes the proof-target symbol name and signature
-    // (sym.framing.decode-frame-header); US-012 supplies the behavior. The
-    // skeleton must answer Insufficient for every input so it cannot
-    // accidentally claim frame decoding (protocol-stub gate).
-    for buf in [&[][..], &[0x81][..], &[0x81, 0x05, 0xAA][..]] {
+fn decode_frame_header_decodes_real_headers_and_buffers_short_prefixes() {
+    // US-012 replaced the US-009 skeleton (which always answered
+    // Insufficient — the protocol-stub gate) with the real proof-target
+    // decoder (sym.framing.decode-frame-header). A short prefix still
+    // buffers; a complete header decodes.
+    for buf in [&[][..], &[0x81][..]] {
         assert_eq!(
             Draft6455::decode_frame_header(buf, 65_536),
-            Ok(HeaderDecode::Insufficient)
+            Ok(HeaderDecode::Insufficient),
+            "prefix {buf:?} lacks the 2-byte base header"
         );
     }
+    let decoded = Draft6455::decode_frame_header(&[0x81, 0x05, 0xAA], 65_536)
+        .expect("a well-formed header decodes");
+    let HeaderDecode::Header(header) = decoded else {
+        panic!("2 header bytes are sufficient for a 7-bit length: {decoded:?}");
+    };
+    assert!(header.fin);
+    assert_eq!(header.opcode, Opcode::Text);
+    assert!(!header.masked);
+    assert_eq!(header.payload_len, 5);
+    assert_eq!(header.header_len, 2);
 }

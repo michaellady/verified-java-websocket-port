@@ -1,0 +1,75 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "borrow-batch-a-public-wired-baseline",
+  "recorded_at": "2026-08-27T18:34:00Z",
+  "recorded_at_provenance": "captured from `date -u` immediately after the evaluate run in the same shell session",
+  "supersedes": "us009-public-wired-baseline.json (kept unchanged as history; its 7/74 stance and pass-set attribution remain the pre-borrow record)",
+  "revision": "BORROW BATCH A (owner strategy: borrow with attribution, race-strategy-borrow-and-race-2026-08-27): the US-012/US-013/US-014 core data path landed in ws_core, adapted from the Codex plane (codex-import 8e5b19b frame codec, 0be0766 messages/UTF-8, dca0fdb fragmentation) with Java-fidelity corrections reconciled site-by-site against internal/corpora/derive.go. The harness changed only in construction plumbing (event-queue capacity sized from max_frames) and tests; behavior lives in ws_core and the harness stays a pure projector.",
+  "stance": "HONEST WIRED BASELINE - the corpus scores the real Rust core. 56 of 74 public scenarios pass; every one of the 18 remaining failures is a US-015/US-016 family (inbound ping/pong, control sends, close lifecycle) whose core arm still refuses with the non-oracle Unimplemented code, surfaced as the truthful CORE_BEHAVIOR_UNIMPLEMENTED-class envelope ('outcome error, expected ok' / 'error code CORE_BEHAVIOR_UNIMPLEMENTED'). No story acceptance for US-010..US-018 is claimed; batch A stories are borrowed-with-attribution, never Claude independent first-finishes.",
+  "pipeline": {
+    "requests": "corporactl oracle-requests --root <worktree> --protected-root <protected> --tier public --out requests.jsonl (exit 0 read)",
+    "candidate": "rust/target/release/ws-oracle-harness < requests.jsonl > transcript.jsonl (exit 0 read)",
+    "evaluate": "corporactl evaluate --root <worktree> --protected-root <protected> --tier public --transcript transcript.jsonl (exit 1 read - failures remain, expected mid-race)",
+    "custodian": "public tier is custodian-free; the protected custodian ledger was read-only throughout and byte-identical to the US-009 baseline record (9001 bytes, sha256 f4941dc801af5a41a2e3285a71d269975ea6e06774d1e1a4573fd6b6d6f400ae, verified after this run)"
+  },
+  "evaluate_report": {
+    "executed": 74,
+    "passed": 56,
+    "failed": 18,
+    "missing": 0,
+    "unmatched": 0,
+    "exit_code": 1,
+    "exit_code_read_from": "the corporactl process's own exit status, read directly after the run"
+  },
+  "baseline_movement": {
+    "before": "7/74 (us009-public-wired-baseline.json)",
+    "after": "56/74",
+    "flipped": 49,
+    "regressed": [],
+    "prediction_note": "the borrow-integration-plan scoped batch A at 'roughly 7 -> ~50'; the 44 predicted batch-A family scenarios all flipped, plus 5 explained early flips (below). The number reported here is the one read from corporactl, not the prediction."
+  },
+  "flipped_families_predicted": {
+    "action_note": "all 44 scenarios of the plan's predicted batch-A families flipped: bad-opcode(2) rsv-bit(3) payload-16bit(2) payload-64bit(1) split-frame(2) multi-frame-chunk(2) frame-limit(1) buffer-limit-frame(1) control-nonfin(1) control-oversize(2) text-single(4) text-empty(1) binary-single(4) binary-empty(1) invalid-utf8-text(2) send-text(2) send-binary(2) send-fragment(2) fragmented-text(3) fragmented-binary(2) unexpected-continuation(2) data-during-fragment(1) fragment-restart(1)"
+  },
+  "unexpected_passes_investigated": [
+    {
+      "scenarios": ["us005.pub.0019", "us005.pub.0033", "us005.pub.0041"],
+      "family": "close-code-invalid-wire",
+      "explanation": "translate-time close-payload validation is part of the frame codec itself (derive.go decodeFrame -> parseCloseSemantics, sites :459-465): a close frame with an invalid wire code rejects at TRANSLATE, before any close-lifecycle processing. ws_core::framing::Draft6455::parse_close_payload implements it by calling the US-009 pure fn ws_core::close::close_code_rejection (Q13) - no close.rs edits, no batch-C behavior claimed. The transcript failure detail reads 'ws_core reported JAVA_INVALID_DATA (close code 1002)': core-produced, not adapter-synthesized."
+    },
+    {
+      "scenarios": ["us005.pub.0051"],
+      "family": "state-frame-in-closing",
+      "explanation": "the closing-state gate for non-close frames is the data-path process dispatch gate (derive.go processInbound :637-641), implemented in connection.rs process_inbound. Transcript detail 'ws_core reported STATE_VIOLATION': core-produced."
+    },
+    {
+      "scenarios": ["us005.pub.0030"],
+      "family": "action-limit",
+      "explanation": "two send_text steps against max_actions 1: the first now emits a real outbound frame (frames=1 in the expectation), the second is counted then rejected by the core's own action prelude. Previously failed only because the first send refused Unimplemented. Transcript detail 'ws_core reported ACTION_LIMIT_EXCEEDED': core-produced."
+    }
+  ],
+  "remaining_failures_all_batch_c": {
+    "us015_control": ["us005.pub.0002 ping-inbound", "us005.pub.0071 ping-inbound", "us005.pub.0016 pong-inbound", "us005.pub.0049 pong-inbound", "us005.pub.0054 send-ping", "us005.pub.0038 send-pong", "us005.pub.0023 fragment-interleaved-ping", "us005.pub.0040 fragment-interleaved-ping"],
+    "us016_close": ["us005.pub.0000 send-close-invalid-code", "us005.pub.0021 closing-recv-close", "us005.pub.0022 close-local-then-eof", "us005.pub.0026 close-remote", "us005.pub.0050 close-remote", "us005.pub.0061 close-remote", "us005.pub.0034 close-local-then-remote", "us005.pub.0047 close-local-then-remote", "us005.pub.0035 close-payload-1", "us005.pub.0046 close-remote-empty"]
+  },
+  "artifacts": {
+    "requests_jsonl_sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85",
+    "requests_lines": 74,
+    "requests_identical_to_us009_baseline": true,
+    "transcript_file": "borrow-batch-a-public-transcript.jsonl (committed alongside; verified public-tier-only: all 74 request_ids match ^us005\\.pub\\.[0-9]{4}$)",
+    "transcript_jsonl_sha256": "9ab4563900a20e32157c4ab589832db39c1ba12729511cd891b55a470aeeeae4",
+    "transcript_lines": 74,
+    "transcript_rerun_sha256": "9ab4563900a20e32157c4ab589832db39c1ba12729511cd891b55a470aeeeae4",
+    "rerun_byte_identical": true,
+    "harness_binary_sha256": "77cec54b1bb168de3baa7a6a353c591b5fbc1241bc9a296013f59232639ec32e",
+    "corporactl_built_from": "this worktree (cmd/corporactl and internal/corpora unmodified by this batch; go build ./... exit 0 read)"
+  },
+  "gates": {
+    "rust": "make -C rust gates exit 0 read (fmt-check, clippy -D warnings, cargo test debug + release; 0 warnings in the log; 366 test results summed across binaries)",
+    "go": "go build ./... && go test ./... exit 0 read (23 packages ok). One deliberate env-gated refreeze: US006_REGENERATE=1 for TestUS006FixtureCatalogThroughRealCLI, whose fixture trees copy rust/ sources so their frozen digests change with any ws_core edit - the identical precedent to mainline 716bb19 ('deliberate fixture digest refreeze after ws_core merge, env-gated'); assurance/replay/fixtures/us006-cases.json digest lines updated, committed with this batch",
+    "corpora_unchanged": "internal/corpora and corpora/ untouched by this batch (git status clean for both)"
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5 (borrow batch A backend-dev worker)"
+}
