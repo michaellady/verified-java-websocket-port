@@ -1,0 +1,69 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_id": "evidence.us-013-messages",
+  "story_id": "US-013",
+  "status": "CLOSED_OWNER_RELAXED_BOUNDED",
+  "implementation": {
+    "commit": "e84ba8367dfc865238e8f1a1a9de77b1ae2ed476",
+    "crate_tree": "7bb5cdc3f0a334e3aa88b977c1c91a66aa3b4eef",
+    "bindings": [
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:3f801b6241bcf3a4884e20bb5fd6b608f1a17291cdb321b08659761c4ebabd38","git_blob":"2916505eef33bd2f7b42f921c671abf938fc46e4"},
+      {"path":"rust/connection-core/src/message.rs","sha256":"sha256:92b2bb72cd3f741a7a1cc3f2302765716a5172cb4ca2ee9ac7e44b3cd8a25069","git_blob":"1e63d9541b3552ad0a5e2854c67a1974f0110aa2"},
+      {"path":"rust/connection-core/src/utf8.rs","sha256":"sha256:cb97162b6099d26e78b1817202efdcd4f92aa160810ea95db2bffa23280d2e32","git_blob":"9e36b16f019b1b3e9aa927e44551ae020ed83e08"},
+      {"path":"rust/connection-core/src/frame/decode.rs","sha256":"sha256:2223985003400d09d84b471d35bf0445856f4aceb80b79a3e3fbc0e30bfa4962","git_blob":"84c64262cb9db8ee6edfba11401f3ec34ccda8e5"},
+      {"path":"rust/connection-core/tests/messages.rs","sha256":"sha256:9af904e789b39c6829bcaca2c7aad30f93ab9ba50ef7fa0e4bd3d736c93dfb49","git_blob":"67f5dc5551708c7d0cadfe85f0ea34b5cc2bf06b"}
+    ]
+  },
+  "tests": {
+    "debug": {"command":"make -C rust test","passed":84,"failed":0},
+    "release": {"command":"make -C rust test-release","passed":84,"failed":0},
+    "message_tests_per_profile": 9,
+    "frame_regression_tests_per_profile": 16,
+    "connection_contract_tests_per_profile": 9,
+    "replay_seed_count": 20,
+    "seed_tree": "1a7443f5a77a6d348f6fa760a3bc76f829c7c714",
+    "unicode_scalar_property_cases_minimum": 4000,
+    "roles": ["client", "server"],
+    "transport_schedules": ["every single cut", "one byte per step", "empty chunks between bytes", "multi-frame single step"]
+  },
+  "covered_behavior": [
+    "final text emits FrameReceived then Text with one shared immutable payload",
+    "final binary emits FrameReceived then Binary with every octet preserved",
+    "strict incremental UTF-8 accepts canonical one through four byte scalars after unmasking",
+    "unexpected continuation invalid leading invalid continuation overlong surrogate out-of-range and truncated sequences are typed and terminal",
+    "MessageBytes TotalBufferedBytes and EventQueueEntries exact and plus-one boundaries are checked before payload growth",
+    "earlier valid frame and message events remain ordered before a later failing text frame closes",
+    "non-final data and continuation frames remain frame-only for US-014",
+    "SendText and SendBinary remain unavailable until an owner supplies deterministic client masking"
+  ],
+  "neutral_scenarios": {
+    "basis": "RFC_6455_PLUS_STANDARD_UTF8",
+    "java_observation_mode": "SOURCE_DERIVED_OR_UNKNOWN_NO_LIVE_EXECUTION",
+    "autobahn_families": ["1.*", "6.*"],
+    "autobahn_execution": "REUSED_REQUIREMENT_REFERENCE_NO_RERUN_NO_NEW_RESULT",
+    "rust_outcomes_reconciled_to_expected": true
+  },
+  "regression_defect_classes": [
+    "UTF-8 leniency",
+    "frame/message event reversal",
+    "truncated scalar acceptance",
+    "message/event pre-allocation limit omission"
+  ],
+  "nonclaims": [
+    "no mutation engine execution or mutation-score claim",
+    "no fuzz engine campaign; seeds execute deterministically in ordinary tests",
+    "no live Java differential execution",
+    "no Autobahn rerun or new conformance result",
+    "no fragmented message reassembly or incremental fragmented-text claim",
+    "no outbound message command or ambient randomness claim",
+    "no close-frame emission for UTF-8 failure before US-016",
+    "no Kani formal production linkage independent review signing publication or production claim"
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "publication": false,
+    "production": false,
+    "signing": false
+  }
+}
