@@ -677,16 +677,21 @@ type serverHandshakeEvidence struct {
 		} `json:"rust_analyzer"`
 	} `json:"toolchain"`
 	Tests struct {
-		Debug                evidenceTestRun `json:"debug"`
-		Release              evidenceTestRun `json:"release"`
-		ServerHandshakeTests int             `json:"server_handshake_tests_per_profile"`
-		FrozenRequestCases   int             `json:"frozen_client_request_cases"`
-		TwoChunkExecutions   int             `json:"two_chunk_executions_per_profile"`
-		BytewiseExecutions   int             `json:"bytewise_executions_per_profile"`
-		MultiChunkExecutions int             `json:"multi_chunk_executions_per_profile"`
-		NonceVectors         int             `json:"nonce_vectors_per_profile"`
-		FuzzSeedsReplayed    int             `json:"fuzz_seeds_replayed_per_profile"`
-		RuntimeAssertions    []string        `json:"runtime_assertions"`
+		Debug                  evidenceTestRun `json:"debug"`
+		Release                evidenceTestRun `json:"release"`
+		ServerHandshakeTests   int             `json:"server_handshake_tests_per_profile"`
+		FrozenRequestCases     int             `json:"frozen_client_request_cases"`
+		TwoChunkExecutions     int             `json:"two_chunk_executions_per_profile"`
+		FrozenRejectSplits     int             `json:"frozen_reject_two_chunk_executions_per_profile"`
+		FrozenLimitSplits      int             `json:"frozen_limit_two_chunk_executions_per_profile"`
+		FrozenIncompleteSplits int             `json:"frozen_incomplete_two_chunk_executions_per_profile"`
+		AdditiveFailureSplits  int             `json:"additive_failure_two_chunk_executions_per_profile"`
+		AdditiveEOFSplits      int             `json:"additive_partial_eof_two_chunk_executions_per_profile"`
+		BytewiseExecutions     int             `json:"bytewise_executions_per_profile"`
+		MultiChunkExecutions   int             `json:"multi_chunk_executions_per_profile"`
+		NonceVectors           int             `json:"nonce_vectors_per_profile"`
+		FuzzSeedsReplayed      int             `json:"fuzz_seeds_replayed_per_profile"`
+		RuntimeAssertions      []string        `json:"runtime_assertions"`
 	} `json:"tests"`
 	Corpus struct {
 		ProjectionPath       string `json:"projection_path"`
@@ -837,10 +842,13 @@ func VerifyServerHandshakeEvidence(root string) error {
 		return fmt.Errorf("US-011 toolchain binding is incomplete or overstated")
 	}
 	if evidence.Tests.Debug.Command != "make -C rust test" || evidence.Tests.Release.Command != "make -C rust test-release" ||
-		evidence.Tests.Debug.Passed != 53 || evidence.Tests.Release.Passed != 53 ||
+		evidence.Tests.Debug.Passed != 59 || evidence.Tests.Release.Passed != 59 ||
 		evidence.Tests.Debug.Failed != 0 || evidence.Tests.Release.Failed != 0 ||
-		evidence.Tests.ServerHandshakeTests != 17 || evidence.Tests.FrozenRequestCases != 39 ||
+		evidence.Tests.ServerHandshakeTests != 23 || evidence.Tests.FrozenRequestCases != 39 ||
 		evidence.Tests.TwoChunkExecutions != 1092 || evidence.Tests.BytewiseExecutions != 6 ||
+		evidence.Tests.FrozenRejectSplits != 4496 || evidence.Tests.FrozenLimitSplits != 522 ||
+		evidence.Tests.FrozenIncompleteSplits != 265 || evidence.Tests.AdditiveFailureSplits != 4557 ||
+		evidence.Tests.AdditiveEOFSplits != 42 ||
 		evidence.Tests.MultiChunkExecutions != 18 || evidence.Tests.NonceVectors != 256 ||
 		evidence.Tests.FuzzSeedsReplayed != 17 || len(evidence.Tests.RuntimeAssertions) < 4 {
 		return fmt.Errorf("US-011 test counts do not match the committed harness")
