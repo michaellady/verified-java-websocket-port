@@ -8,8 +8,13 @@ Confirmation rigor is TIERED per the owner-authorized amendment of
 2026-08-26: Tier-1 `VM_MEASURED_JITTER_AVERAGED` is the campaign default
 and its host identities are BOUND (c7i.xlarge, us-east-1, pinned AL2023
 kernel-6.1 AMI `ami-02b3d83d84b07786d`); Tier-2 `METAL_MEASURED` is the
-opt-in flagship and is `DEFERRED_BY_OWNER`. **US-008 has not run, has no
-samples, and does not pass**: 26 host/tool binding fields remain unbound
+opt-in flagship and is `DEFERRED_BY_OWNER`. The owner's round-2 decision
+of 2026-08-27 additionally bound the CPU-frequency policy
+(`DOCUMENT_DEFAULTS_RECORD_OBSERVED`) and decided the
+allocation-accounting method (`BUILTIN_ACCOUNTING_PER_RUN`, recorded as
+the `measurement_tools` candidate in both environments). **US-008 has
+not run, has no samples, and does not pass**: 25 host/tool binding
+fields remain unbound
 and the single remaining blocker class is `HOST_BINDING_PENDING`
 (owner-gated completion of the confirmation-host and
 measurement/analyzer tool-identity binding; `benchplanctl verify` fails
@@ -86,11 +91,19 @@ pipeline produces may contain an invented measurement. Concretely:
   (c7i.xlarge), `region` (us-east-1), `ami_id` / `ami_name` (pinned
   AL2023 kernel-6.1), and the pipeline tool identities (terraform,
   go_toolchain, runner_build_flags, yq) — each regression-pinned by
-  exact string equality in `internal/benchplan/validate_test.go`.
-  Tier-2 is `DEFERRED_BY_OWNER`. The remaining 19 of its 23 required
+  exact string equality in `internal/benchplan/validate_test.go`. The
+  round-2 owner decision of 2026-08-27 BOUND `cpu_frequency_policy`
+  (`DOCUMENT_DEFAULTS_RECORD_OBSERVED`: document host defaults, record
+  the observed clock per run, never tune) — same exact-equality pin.
+  Tier-2 is `DEFERRED_BY_OWNER`. The remaining 18 of its 23 required
   binding fields stay OWNER_DECISION_PENDING or NOT_MEASURED behind the
   schema-enforced `required_binding_fields` completion meter
-  (`binding_status: UNBOUND` until the owner pins every field).
+  (`binding_status: UNBOUND` until the owner pins every field). NOTE:
+  `host_identity.allocation_evidence` (the dedicated/exclusive TENANCY
+  observation of review fix B3) remains pending — the 2026-08-27
+  `BUILTIN_ACCOUNTING_PER_RUN` decision resolves allocation-ACCOUNTING
+  evidence (a measurement-tool method), not host tenancy; see
+  `docs/us008-attestation-package.md`.
 - The SSM-invoked runner stub is the Go binary `cmd/benchrunner` (schema
   emission only; cross-compiled for the confirmation host by
   `.github/workflows/benchmark.yml`). It refuses every mode except

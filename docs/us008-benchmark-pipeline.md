@@ -16,7 +16,14 @@ dialed-setup action). The DIALED bootstrap tier is applied in the EVC dev
 account, and the pipeline's end-to-end plumbing was proven by the green,
 sentinel-only run 33000379021 (`benchmark-plumbing` label, c7i.large,
 latest-AL2023 boot; `NOT_MEASURED` sentinels only — not a measurement).
-The runner remains a `NOT_MEASURED`-only stub, 26 host/tool binding
+The owner's round-2 decision of 2026-08-27 (workspace protected root
+`us009-us008-owner-decisions-2026-08-27.json`) additionally bound the
+CPU-frequency policy (`DOCUMENT_DEFAULTS_RECORD_OBSERVED`) and decided
+the allocation-accounting method (`BUILTIN_ACCOUNTING_PER_RUN`, recorded
+as the `measurement_tools` candidate — the host-tenancy
+`allocation_evidence` field remains an open owner decision; see
+`docs/us008-attestation-package.md` for the name-collision record).
+The runner remains a `NOT_MEASURED`-only stub, 25 host/tool binding
 fields remain unbound, and `benchplanctl verify` fails closed with the
 single blocker class `HOST_BINDING_PENDING` (exit 3). **Nothing here
 claims US-008 passes**, and US-008 cannot pass in this state by design:
@@ -52,16 +59,18 @@ claims US-008 passes**, and US-008 cannot pass in this state by design:
   pipeline tool identities `terraform` / `go_toolchain` /
   `runner_build_flags` / `yq` are `BOUND` and regression-pinned by exact
   string equality (plus cross-checks against the workflow and action
-  files) in `internal/benchplan/validate_test.go`, Tier-2
+  files) in `internal/benchplan/validate_test.go`, the round-2 owner
+  decision of 2026-08-27 bound `cpu_frequency_policy` (same
+  exact-equality pin), Tier-2
   (`METAL_MEASURED`) is explicitly `DEFERRED_BY_OWNER`, and the remaining
-  19 of its 23 required binding fields stay honestly
+  18 of its 23 required binding fields stay honestly
   `OWNER_DECISION_PENDING`/`NOT_MEASURED` behind the schema-enforced
   `required_binding_fields` completion meter (`binding_status: UNBOUND`).
 - `cmd/benchplanctl verify --root .` validates all benchmark documents,
   re-derives the pair orders, checks the power model, and prints exactly
   which fields remain unbound. Current, verified output: documents
   consistent; **single remaining blocker class `HOST_BINDING_PENDING`**
-  (26 unbound host/tool fields — 19 on the confirmation environment plus
+  (25 unbound host/tool fields — 18 on the confirmation environment plus
   7 primary tool identities — and 5 primary runtime-snapshot fields
   deferred to measurement time; exit code 3). Exit code 0 additionally
   requires both environments' `binding_status: BOUND` and the plan's
@@ -271,9 +280,12 @@ preconditions, `benchplanctl` exit 3, or AWS itself reject the run):
    quota is raised. The bound Tier-1 c7i.xlarge (4 vCPUs) fits the
    standing quota; no request is needed for the campaign default.
 2. **Remaining owner decisions to bind in
-   `benchmarks/environments/confirmation.json`** (the 19 pending
-   confirmation fields the completion meter reports): the
-   allocation-evidence procedure, the CPU-frequency policy, every
+   `benchmarks/environments/confirmation.json`** (the 18 pending
+   confirmation fields the completion meter reports): the host-tenancy
+   allocation-evidence observation procedure (still open — the round-2
+   `BUILTIN_ACCOUNTING_PER_RUN` decision of 2026-08-27 resolved
+   allocation-ACCOUNTING evidence, a measurement-tool method, not host
+   tenancy), every
    measurement/analyzer tool identity + digest (JDK distribution, Rust
    toolchain, load driver, measurement tools, independently rebuilt
    analyzer, digested runner), the booted-host facts recorded at
@@ -281,6 +293,7 @@ preconditions, `benchplanctl` exit 3, or AWS itself reject the run):
    architecture, OS/kernel identity, CPU model, memory, NUMA topology,
    clocksource) — plus a Tier-2 metal type if the deferred flagship run
    is ever scheduled, and the 7 primary-environment tool identities.
+   The CPU-frequency policy is now BOUND (round-2 decision 2026-08-27).
    `benchplanctl` fails closed (exit 3, HOST_BINDING_PENDING) until bound.
 3. **Plan freeze + independent attestation** of the preregistration itself
    (`benchmarks/plan/workloads.json` OWNER_DECISION_PENDING fields resolved,

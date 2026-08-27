@@ -720,7 +720,7 @@
     "plan_digest": "NOT_MEASURED",
     "environment_bindings": [
       "benchmarks/environments/primary-macos.json (binding_status UNBOUND: tool identities OWNER_DECISION_PENDING)",
-      "benchmarks/environments/confirmation.json (binding_status UNBOUND: every host field OWNER_DECISION_PENDING)"
+      "benchmarks/environments/confirmation.json (binding_status UNBOUND: Tier-1 host identities, pipeline tool identities, and the CPU-frequency policy are BOUND; the remaining host/tool fields stay OWNER_DECISION_PENDING or NOT_MEASURED)"
     ],
     "java_source_digest": "NOT_MEASURED",
     "rust_source_digest": "NOT_MEASURED (no Rust source is fabricated)",

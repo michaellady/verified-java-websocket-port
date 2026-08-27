@@ -122,7 +122,8 @@
     },
     "measurement_tools": {
       "status": "OWNER_DECISION_PENDING",
-      "notes": "RSS/CPU/latency/allocation samplers; exact identities + digests."
+      "candidate": "allocation samplers decided BUILTIN_ACCOUNTING_PER_RUN (owner decision 2026-08-27): Java allocation evidence from the JVM's own accounting (GC/NMT statistics), Rust from a counting allocator, both recorded per run; exact sampler identities and digests remain pending",
+      "notes": "RSS/CPU/latency/allocation samplers; exact identities + digests remain the open owner decision. The allocation-evidence METHOD is owner-decided (decision record /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us009-us008-owner-decisions-2026-08-27.json, us008_allocation_evidence = BUILTIN_ACCOUNTING_PER_RUN); the exact accounting interfaces (the JVM GC/NMT reading procedure and the Rust counting-allocator implementation) bind with these tool identities and digests, so this field stays pending."
     },
     "analyzer": {
       "status": "OWNER_DECISION_PENDING",
