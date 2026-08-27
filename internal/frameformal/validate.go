@@ -175,7 +175,7 @@ func validateBindings(root *os.Root, value *receipt, findings *collector) {
 			findings.add("SOURCE_BINDING_INVALID", itemPath+".source", "bound source does not contain the exact shipped item token")
 		}
 	}
-	if value.Harness.TestName != "us012_formal_actual_code_obligations" || value.Harness.Source != (artifactBinding{Path: "rust/connection-core/tests/frame_codec.rs", SHA256: "sha256:690db590d43249d26ec06d7e1af4dd5f2627c8369b36f024be8f3154e6504020", GitBlob: "83183b04e0f5ceff7f2f66fdf1a8a1b5e2abd9b0"}) {
+	if value.Harness.TestName != "us012_formal_actual_code_obligations" || value.Harness.Source != (artifactBinding{Path: "rust/connection-core/tests/frame_codec.rs", SHA256: "sha256:7ad9e7b9caf82804a1764f9e7ea9e5ebc95ae56998d621c65e8dd347ebb936bb", GitBlob: "d39d79b4694771316ec4dfcae767f929148760ff"}) {
 		findings.add("HARNESS_BINDING_INVALID", "$.harness", "receipt must bind the exact actual-code Rust test harness")
 	} else if data, ok := validateArtifact(root, value.Harness.Source, "$.harness.source", "HARNESS_BINDING_INVALID", findings); ok {
 		for _, token := range []string{"fn us012_formal_actual_code_obligations", "FrameHeaderDecoder::decode_header", "apply_mask_in_place"} {
@@ -196,7 +196,7 @@ func validateBindings(root *os.Root, value *receipt, findings *collector) {
 	} else {
 		validateArtifact(root, value.Toolchain.Pins, "$.toolchain.pins", "TOOLCHAIN_BINDING_INVALID", findings)
 	}
-	if value.Toolchain.CargoLock != (artifactBinding{Path: "rust/Cargo.lock", SHA256: "sha256:f01391c486964d16bba8d7be7fddac9c4b553a0a7107435d84906fd190f84e5a", GitBlob: "7c7dc77afc4155424fa4dcc823332a90e192a3d5"}) {
+	if value.Toolchain.CargoLock != (artifactBinding{Path: "rust/Cargo.lock", SHA256: "sha256:b138978c2eca55cde701c3e9171ad69786779e83d6035fdd0a54917973209c83", GitBlob: "92b4f300f93afffc88c3e8828c1b8649cedda374"}) {
 		findings.add("TOOLCHAIN_BINDING_INVALID", "$.toolchain.cargo_lock", "Cargo.lock path is not canonical")
 	} else {
 		validateArtifact(root, value.Toolchain.CargoLock, "$.toolchain.cargo_lock", "TOOLCHAIN_BINDING_INVALID", findings)

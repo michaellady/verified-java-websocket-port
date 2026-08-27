@@ -67,7 +67,7 @@ func TestUS006CanonicalPreflightAndReplayAreDeterministic(t *testing.T) {
 }
 
 func TestUS012ResolvedBoundedTargetsRequirePendingConsumersAndExactReceipt(t *testing.T) {
-	digest := "sha256:69c6cd5b8f9b9ffafe1bc60e5962cd451cfba146391b0621229639596606c7e2"
+	digest := "sha256:e03b5aee644a2294cfcffbba8d46542947e2ed8a8697cc457f404634646f2cea"
 	sha := "sha256:2d3b9d8cbda6ce8deea03b21e1e2beeab7ebf00195757ec3ef7dcff75e844da2"
 	blob := "08ab31cb7fa28dfe8451a70d4633fb18a21567d7"
 	semantic := "git-blob:" + blob + "#websocket_core::frame::decode::FrameHeaderDecoder::decode_header"

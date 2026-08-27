@@ -40,7 +40,7 @@
   },
   "formal": {
     "result_path": "assurance/formal/frame-results.json",
-    "result_sha256": "sha256:69c6cd5b8f9b9ffafe1bc60e5962cd451cfba146391b0621229639596606c7e2",
+    "result_sha256": "sha256:e03b5aee644a2294cfcffbba8d46542947e2ed8a8697cc457f404634646f2cea",
     "declared_obligations": 8
   },
   "compatibility": {

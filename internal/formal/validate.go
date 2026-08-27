@@ -314,7 +314,7 @@ func validateTargetLinkage(target *target, path string, collector *findingCollec
 			}
 		}
 	case "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS":
-		expectedEvidence := artifactRef{Path: "assurance/formal/frame-results.json", SHA256: "sha256:69c6cd5b8f9b9ffafe1bc60e5962cd451cfba146391b0621229639596606c7e2", Attribution: "US012_OWNED"}
+		expectedEvidence := artifactRef{Path: "assurance/formal/frame-results.json", SHA256: "sha256:e03b5aee644a2294cfcffbba8d46542947e2ed8a8697cc457f404634646f2cea", Attribution: "US012_OWNED"}
 		if target.SourceSHA256 == nil || target.SourceGitBlob == nil || target.SemanticIdentity == nil || target.BoundedEvidence == nil || *target.BoundedEvidence != expectedEvidence || target.MaximumCurrentScope != "BOUNDED_TEST_EVIDENCE" {
 			collector.semantic("MISSING_DIGEST", path, "resolved bounded target requires source SHA-256, Git blob, semantic identity, and bounded-test ceiling")
 		}

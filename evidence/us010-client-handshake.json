@@ -6,7 +6,7 @@
   "source": {
     "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
     "implementation_files": [
-      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:14c0d707ed6052b4e0a54cf90d8edd41ce0aebc5e94be716b330003815125f23","git_blob":"130c1e1e1e51dde279fce553ea7e3b60e41c297d"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:92f8b8f8c9ef6e45302a6379b7b5b644ef05456265013b59ddeb163966ef4290","git_blob":"897b5d84b92aa1f68ed892a3434519e4758f6aee"},
       {"path":"rust/connection-core/src/handshake/client.rs","sha256":"sha256:d6e355ffaec8c232f79ec25edcad7d36c5128140e4e1c7c9c022df5b13a89dd3","git_blob":"44712cdaa2ab0aa42f78ded80b3bfe9de3262fad"},
       {"path":"rust/connection-core/src/handshake/http.rs","sha256":"sha256:c92522c17fc22d1865b4a79cd91860ab2dc1d9cae8d24a28f4639a1a9b809597","git_blob":"09e414e33e0e639a5b7ef396492e3fdd207dbe76"},
       {"path":"rust/connection-core/src/handshake/crypto.rs","sha256":"sha256:9d48e5529c381ef82654a57a27c8691514661804c923cb24405164cd2a0ea2e6","git_blob":"eaeaf73d4e3d54bdfd6f0a5a7255e953869ce4fa"},

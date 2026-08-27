@@ -476,7 +476,7 @@ func verifyFrameCodecEvidenceClaims(evidence frameCodecEvidence) error {
 		return fmt.Errorf("frame evidence overstates Autobahn execution")
 	}
 	if evidence.Formal.ResultPath != "assurance/formal/frame-results.json" ||
-		evidence.Formal.ResultSHA != "sha256:69c6cd5b8f9b9ffafe1bc60e5962cd451cfba146391b0621229639596606c7e2" ||
+		evidence.Formal.ResultSHA != "sha256:e03b5aee644a2294cfcffbba8d46542947e2ed8a8697cc457f404634646f2cea" ||
 		evidence.Formal.DeclaredObligations != 8 {
 		return fmt.Errorf("frame formal result binding is not exact")
 	}

@@ -51,7 +51,7 @@
     },
     "formal": {
       "type":"object","additionalProperties":false,"required":["result_path","result_sha256","declared_obligations"],
-      "properties":{"result_path":{"const":"assurance/formal/frame-results.json"},"result_sha256":{"const":"sha256:69c6cd5b8f9b9ffafe1bc60e5962cd451cfba146391b0621229639596606c7e2"},"declared_obligations":{"const":8}}
+      "properties":{"result_path":{"const":"assurance/formal/frame-results.json"},"result_sha256":{"const":"sha256:e03b5aee644a2294cfcffbba8d46542947e2ed8a8697cc457f404634646f2cea"},"declared_obligations":{"const":8}}
     },
     "compatibility": {
       "type":"object","additionalProperties":false,
