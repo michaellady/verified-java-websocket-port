@@ -7,6 +7,10 @@
 //! Standard output carries protocol records only; bounded fatal diagnostics
 //! go to standard error, mirroring `OracleMain`.
 
+// The bin target is its own crate root, so the PRD's safe-Rust gate must be
+// declared here independently of src/lib.rs.
+#![forbid(unsafe_code)]
+
 use std::io::Write;
 
 fn main() {

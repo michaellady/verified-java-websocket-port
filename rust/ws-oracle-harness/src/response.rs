@@ -164,6 +164,27 @@ pub fn failure_response(
     Value::Obj(response).canonical()
 }
 
+/// Builds Java's minimal `OUTPUT_LIMIT_EXCEEDED` replacement response:
+/// when the canonicalized (ok or failure) response exceeds the request's
+/// `max_output_bytes`, `OracleEngine.process` replaces it with
+/// `Execution.failure(error, minimal=true)` — the base envelope (outcome,
+/// protocol, request_digest, request_id, version) plus the error object
+/// only. No counts, final_state, runtime, or close_code.
+pub fn output_limit_response(request: &OracleRequest) -> String {
+    let mut response = base(request, "error");
+    let mut error = BTreeMap::new();
+    error.insert(
+        "code".to_string(),
+        Value::Str("OUTPUT_LIMIT_EXCEEDED".to_string()),
+    );
+    error.insert(
+        "detail".to_string(),
+        Value::Str("normalized response exceeds max_output_bytes".to_string()),
+    );
+    response.insert("error".to_string(), Value::Obj(error));
+    Value::Obj(response).canonical()
+}
+
 /// Builds one envelope-level error response line for a request that never
 /// reached scenario execution, mirroring `OracleMain.error` exactly —
 /// including its `request_id: null` (java-oracle reports line-level

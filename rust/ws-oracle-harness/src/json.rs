@@ -9,14 +9,31 @@
 //!
 //! The parser mirrors `StrictJson.parse` fail-closed behavior: duplicate
 //! object fields, unescaped control characters, leading zeros, invalid
-//! escapes, and trailing content are all typed rejections. One deliberate
-//! narrowing (documented in the crate honesty notes): only integer numbers
-//! are accepted, because the oracle protocol's canonical vocabulary contains
-//! nothing else; fraction/exponent forms fail closed as `INVALID_JSON`.
+//! escapes, trailing content, surrogate-pairing violations in `\uXXXX`
+//! escapes (`INVALID_UNICODE`, StrictJson's exact per-case details; Java's
+//! RAW-surrogate `INVALID_UNICODE` branch is unreachable through both
+//! adapters because strict UTF-8 decoding rejects surrogate encodings as
+//! `INVALID_UTF8` first, and a Rust `&str` cannot carry one at all), the
+//! [`MAX_DEPTH`] nesting limit
+//! (`JSON_DEPTH_LIMIT`), and the [`MAX_CONTAINER_ENTRIES`] entry limit
+//! (`JSON_CONTAINER_LIMIT`) are all typed rejections with StrictJson's exact
+//! code vocabulary. The depth limit is enforced by depth-counted recursion
+//! (checked on every `value` entry, exactly like `StrictJson.Parser.value`),
+//! so pathologically deep input rejects long before recursion depth becomes
+//! dangerous. One deliberate narrowing (documented in the crate honesty
+//! notes, `crate` docs § Narrowings): only integer numbers are accepted,
+//! because the oracle protocol's canonical vocabulary contains nothing else;
+//! fraction/exponent forms fail closed as `INVALID_JSON`.
 
 use std::collections::BTreeMap;
 
 use crate::request::ProtocolError;
+
+/// StrictJson's `MAX_DEPTH`: the deepest permitted container nesting.
+pub const MAX_DEPTH: u32 = 32;
+/// StrictJson's `MAX_CONTAINER_ENTRIES`: the most entries one object or
+/// array may hold.
+pub const MAX_CONTAINER_ENTRIES: usize = 16_384;
 
 /// One strict JSON value. Object keys iterate in byte-lexicographic order
 /// (`BTreeMap`), which is exactly the canonical key order.
@@ -115,7 +132,7 @@ pub fn parse(input: &str) -> Result<Value, ProtocolError> {
         at: 0,
     };
     parser.skip_whitespace();
-    let value = parser.value()?;
+    let value = parser.value(0)?;
     parser.skip_whitespace();
     if parser.at != parser.bytes.len() {
         return Err(invalid("trailing content"));
@@ -144,11 +161,21 @@ impl Parser<'_> {
         }
     }
 
-    fn value(&mut self) -> Result<Value, ProtocolError> {
+    /// One value at `depth` container-nesting levels, mirroring
+    /// `StrictJson.Parser.value(int depth)`: the depth guard fires on entry,
+    /// before any further recursion, so the recursion depth is bounded by
+    /// `MAX_DEPTH + 1` frames regardless of input size.
+    fn value(&mut self, depth: u32) -> Result<Value, ProtocolError> {
+        if depth > MAX_DEPTH {
+            return Err(ProtocolError::new(
+                "JSON_DEPTH_LIMIT",
+                format!("JSON nesting exceeds {MAX_DEPTH}"),
+            ));
+        }
         match self.bytes.get(self.at) {
             None => Err(invalid("expected value")),
-            Some(b'{') => self.object(),
-            Some(b'[') => self.array(),
+            Some(b'{') => self.object(depth + 1),
+            Some(b'[') => self.array(depth + 1),
             Some(b'"') => Ok(Value::Str(self.string()?)),
             Some(b't') => self.literal("true", Value::Bool(true)),
             Some(b'f') => self.literal("false", Value::Bool(false)),
@@ -167,7 +194,7 @@ impl Parser<'_> {
         }
     }
 
-    fn object(&mut self) -> Result<Value, ProtocolError> {
+    fn object(&mut self, depth: u32) -> Result<Value, ProtocolError> {
         self.at += 1; // consume '{'
         let mut members = BTreeMap::new();
         self.skip_whitespace();
@@ -193,8 +220,16 @@ impl Parser<'_> {
             }
             self.at += 1;
             self.skip_whitespace();
-            let value = self.value()?;
+            let value = self.value(depth)?;
             members.insert(key, value);
+            // StrictJson checks the entry count after the insert, so the
+            // 16385th member (not its value's own errors) trips the limit.
+            if members.len() > MAX_CONTAINER_ENTRIES {
+                return Err(ProtocolError::new(
+                    "JSON_CONTAINER_LIMIT",
+                    "object has too many fields",
+                ));
+            }
             self.skip_whitespace();
             match self.bytes.get(self.at) {
                 Some(b',') => self.at += 1,
@@ -207,7 +242,7 @@ impl Parser<'_> {
         }
     }
 
-    fn array(&mut self) -> Result<Value, ProtocolError> {
+    fn array(&mut self, depth: u32) -> Result<Value, ProtocolError> {
         self.at += 1; // consume '['
         let mut items = Vec::new();
         self.skip_whitespace();
@@ -217,7 +252,14 @@ impl Parser<'_> {
         }
         loop {
             self.skip_whitespace();
-            items.push(self.value()?);
+            items.push(self.value(depth)?);
+            // StrictJson checks the element count after the append.
+            if items.len() > MAX_CONTAINER_ENTRIES {
+                return Err(ProtocolError::new(
+                    "JSON_CONTAINER_LIMIT",
+                    "array has too many elements",
+                ));
+            }
             self.skip_whitespace();
             match self.bytes.get(self.at) {
                 Some(b',') => self.at += 1,
@@ -283,24 +325,37 @@ impl Parser<'_> {
         })
     }
 
+    /// Mirrors `StrictJson.Parser.appendUnicode`: surrogate-pairing
+    /// violations are `INVALID_UNICODE` (each with StrictJson's exact
+    /// detail), while hex-level problems inside either `\uXXXX` unit stay
+    /// `INVALID_JSON` (from [`Self::hex4`], mirroring `unicodeUnit`).
     fn unicode_escape(&mut self) -> Result<char, ProtocolError> {
         let first = self.hex4()?;
+        if (0xdc00..=0xdfff).contains(&first) {
+            return Err(ProtocolError::new(
+                "INVALID_UNICODE",
+                "unpaired low surrogate",
+            ));
+        }
         if (0xd800..=0xdbff).contains(&first) {
             // High surrogate: require a following \uXXXX low surrogate.
             if self.bytes.get(self.at) != Some(&b'\\') || self.bytes.get(self.at + 1) != Some(&b'u')
             {
-                return Err(invalid("unpaired surrogate escape"));
+                return Err(ProtocolError::new(
+                    "INVALID_UNICODE",
+                    "unpaired high surrogate",
+                ));
             }
             self.at += 2;
             let second = self.hex4()?;
             if !(0xdc00..=0xdfff).contains(&second) {
-                return Err(invalid("unpaired surrogate escape"));
+                return Err(ProtocolError::new(
+                    "INVALID_UNICODE",
+                    "invalid surrogate pair",
+                ));
             }
             let combined = 0x10000 + ((first - 0xd800) << 10) + (second - 0xdc00);
             return char::from_u32(combined).ok_or_else(|| invalid("invalid unicode escape"));
-        }
-        if (0xdc00..=0xdfff).contains(&first) {
-            return Err(invalid("unpaired surrogate escape"));
         }
         char::from_u32(first).ok_or_else(|| invalid("invalid unicode escape"))
     }
@@ -418,7 +473,84 @@ mod tests {
     fn parse_handles_escapes_and_surrogate_pairs() {
         let value = parse("\"\\u0041\\ud83d\\ude00\\/\"").expect("escapes parse");
         assert_eq!(value, Value::Str("A😀/".to_string()));
-        assert_eq!(parse("\"\\ud83d\"").unwrap_err().code, "INVALID_JSON");
         assert_eq!(parse("\"\\q\"").unwrap_err().code, "INVALID_JSON");
+    }
+
+    /// StrictJson rejects surrogate-pairing violations as `INVALID_UNICODE`
+    /// (not `INVALID_JSON`), with a distinct detail per case
+    /// (`StrictJson.appendUnicode`).
+    #[test]
+    fn unpaired_surrogate_escapes_reject_invalid_unicode() {
+        let lone_low = parse("\"\\udc00\"").unwrap_err();
+        assert_eq!(lone_low.code, "INVALID_UNICODE");
+        assert_eq!(lone_low.detail, "unpaired low surrogate");
+
+        let high_at_end = parse("\"\\ud83d\"").unwrap_err();
+        assert_eq!(high_at_end.code, "INVALID_UNICODE");
+        assert_eq!(high_at_end.detail, "unpaired high surrogate");
+
+        let high_then_char = parse("\"\\ud83dx\"").unwrap_err();
+        assert_eq!(high_then_char.code, "INVALID_UNICODE");
+        assert_eq!(high_then_char.detail, "unpaired high surrogate");
+
+        let high_then_escape = parse("\"\\ud83d\\n\"").unwrap_err();
+        assert_eq!(high_then_escape.code, "INVALID_UNICODE");
+        assert_eq!(high_then_escape.detail, "unpaired high surrogate");
+
+        let bad_pair = parse("\"\\ud83d\\u0041\"").unwrap_err();
+        assert_eq!(bad_pair.code, "INVALID_UNICODE");
+        assert_eq!(bad_pair.detail, "invalid surrogate pair");
+
+        // Hex-level problems inside the second escape stay INVALID_JSON,
+        // exactly like Java's unicodeUnit.
+        assert_eq!(parse("\"\\ud83d\\u00\"").unwrap_err().code, "INVALID_JSON");
+        assert_eq!(
+            parse("\"\\ud83d\\uzzzz\"").unwrap_err().code,
+            "INVALID_JSON"
+        );
+    }
+
+    /// StrictJson's `MAX_DEPTH = 32`: a value nested 32 containers deep
+    /// parses; the 33rd nesting level rejects with `JSON_DEPTH_LIMIT`.
+    #[test]
+    fn depth_limit_mirrors_strictjson() {
+        let ok = format!("{}0{}", "[".repeat(32), "]".repeat(32));
+        parse(&ok).expect("32 nesting levels parse");
+        let deep = format!("{}0{}", "[".repeat(33), "]".repeat(33));
+        let err = parse(&deep).unwrap_err();
+        assert_eq!(err.code, "JSON_DEPTH_LIMIT");
+        assert_eq!(err.detail, "JSON nesting exceeds 32");
+    }
+
+    /// The depth limit must fire before recursion depth becomes dangerous:
+    /// pathologically deep input rejects instead of overflowing the stack.
+    #[test]
+    fn deep_input_rejects_without_stack_overflow() {
+        let deep_arrays = "[".repeat(100_000);
+        assert_eq!(parse(&deep_arrays).unwrap_err().code, "JSON_DEPTH_LIMIT");
+        let deep_objects = "{\"k\":".repeat(100_000);
+        assert_eq!(parse(&deep_objects).unwrap_err().code, "JSON_DEPTH_LIMIT");
+    }
+
+    /// StrictJson's `MAX_CONTAINER_ENTRIES = 16_384`: the 16385th entry of
+    /// an object or array rejects with `JSON_CONTAINER_LIMIT`.
+    #[test]
+    fn container_entry_limits_mirror_strictjson() {
+        let ok_array = format!("[{}]", vec!["0"; 16_384].join(","));
+        parse(&ok_array).expect("16384 array elements parse");
+        let over_array = format!("[{}]", vec!["0"; 16_385].join(","));
+        let err = parse(&over_array).unwrap_err();
+        assert_eq!(err.code, "JSON_CONTAINER_LIMIT");
+        assert_eq!(err.detail, "array has too many elements");
+
+        let members: Vec<String> = (0..16_385).map(|i| format!("\"k{i}\":0")).collect();
+        let over_object = format!("{{{}}}", members.join(","));
+        let err = parse(&over_object).unwrap_err();
+        assert_eq!(err.code, "JSON_CONTAINER_LIMIT");
+        assert_eq!(err.detail, "object has too many fields");
+
+        let ok_members: Vec<String> = (0..16_384).map(|i| format!("\"k{i}\":0")).collect();
+        let ok_object = format!("{{{}}}", ok_members.join(","));
+        parse(&ok_object).expect("16384 object fields parse");
     }
 }

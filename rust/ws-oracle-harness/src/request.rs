@@ -1,12 +1,18 @@
-//! Strict request-line parsing and canonical request-digest verification.
+//! Strict request-ENVELOPE parsing and canonical request-digest
+//! verification.
 //!
 //! Mirrors `OracleEngine.process` (java-oracle) check-for-check and in the
-//! same order: strict JSON, unknown/duplicate field rejection at every
-//! object boundary, `request_id` charset, protocol/version pins, digest
-//! format, canonical digest recomputation (SHA-256 over the canonical JSON
-//! object minus the `request_digest` member — verified before any scenario
-//! byte reaches the core), role/state enums, limits against the hard adapter
-//! ceilings, and per-step field sets with canonical base64.
+//! same order: strict JSON, unknown/duplicate field rejection at the request
+//! and limits boundaries, `request_id` charset, protocol/version pins,
+//! digest format, canonical digest recomputation (SHA-256 over the canonical
+//! JSON object minus the `request_digest` member — verified before any
+//! scenario byte reaches the core), role/state enums, and limits against the
+//! hard adapter ceilings. `steps` is validated ONLY as being an array here,
+//! exactly like Java: individual steps are validated during execution
+//! (`OracleEngine.Execution.run`), so a malformed step mid-scenario is a
+//! request-bound partial failure, never an envelope-level `request_id: null`
+//! rejection. The execution-time step walk lives in
+//! [`crate::core_adapter::drive_scenario`].
 
 use std::collections::BTreeMap;
 
@@ -116,56 +122,9 @@ pub struct Limits {
     pub max_output_bytes: i64,
 }
 
-/// One validated scenario step, exactly the corpus action vocabulary so the
-/// core adapter maps steps to commands with zero interpretation.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Step {
-    /// `{"kind":"bytes","data_base64":…}` — transport bytes.
-    Bytes {
-        /// Decoded chunk bytes.
-        data: Vec<u8>,
-    },
-    /// `send_text` with `text`.
-    SendText {
-        /// Message text.
-        text: String,
-    },
-    /// `send_binary` with `data_base64`.
-    SendBinary {
-        /// Decoded payload.
-        data: Vec<u8>,
-    },
-    /// `send_ping` with `data_base64`.
-    SendPing {
-        /// Decoded payload.
-        data: Vec<u8>,
-    },
-    /// `send_pong` with `data_base64`.
-    SendPong {
-        /// Decoded payload.
-        data: Vec<u8>,
-    },
-    /// `send_close` with integer `code` and string `reason`.
-    SendClose {
-        /// Requested close code (unbounded here; semantics belong to the core).
-        code: i64,
-        /// Close reason.
-        reason: String,
-    },
-    /// `send_fragment` with `opcode`, `data_base64`, and `fin`.
-    SendFragment {
-        /// Declared fragment opcode.
-        opcode: DataOpcode,
-        /// Decoded payload.
-        data: Vec<u8>,
-        /// FIN flag.
-        fin: bool,
-    },
-    /// `eof` with no additional fields.
-    Eof,
-}
-
-/// One fully validated oracle request.
+/// One oracle request with a fully validated envelope. `steps` holds the
+/// RAW parsed step values: Java validates each step at execution time
+/// (`Execution.run`), and so does [`crate::core_adapter::drive_scenario`].
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OracleRequest {
     /// Scenario id, echoed on the response.
@@ -178,8 +137,8 @@ pub struct OracleRequest {
     pub initial_state: InitialState,
     /// Validated limits.
     pub limits: Limits,
-    /// Validated, decoded steps in order.
-    pub steps: Vec<Step>,
+    /// Raw step values in order, validated during execution.
+    pub steps: Vec<Value>,
 }
 
 const REQUEST_FIELDS: [&str; 8] = [
@@ -200,16 +159,18 @@ const LIMIT_FIELDS: [&str; 5] = [
     "max_output_bytes",
 ];
 
-/// Parses and fully validates one request line, verifying the canonical
-/// request digest before returning.
+/// Parses and fully validates one request ENVELOPE, verifying the canonical
+/// request digest before returning. Step contents are deliberately NOT
+/// validated here (Java defers them to execution).
 ///
 /// # Errors
 ///
 /// Returns the java-oracle's typed envelope rejection vocabulary
-/// (`INVALID_JSON`, `DUPLICATE_FIELD`, `UNKNOWN_FIELD`, `MISSING_FIELD`,
-/// `TYPE_MISMATCH`, `INVALID_REQUEST_ID`, `UNSUPPORTED_PROTOCOL`,
-/// `INVALID_REQUEST_DIGEST`, `REQUEST_DIGEST_MISMATCH`, `INVALID_ENUM`,
-/// `LIMIT_OUT_OF_RANGE`, `INVALID_BASE64`).
+/// (`INVALID_JSON`, `INVALID_UNICODE`, `JSON_DEPTH_LIMIT`,
+/// `JSON_CONTAINER_LIMIT`, `DUPLICATE_FIELD`, `UNKNOWN_FIELD`,
+/// `MISSING_FIELD`, `TYPE_MISMATCH`, `INVALID_REQUEST_ID`,
+/// `UNSUPPORTED_PROTOCOL`, `INVALID_REQUEST_DIGEST`,
+/// `REQUEST_DIGEST_MISMATCH`, `INVALID_ENUM`, `LIMIT_OUT_OF_RANGE`).
 pub fn parse_request(line: &str) -> Result<OracleRequest, ProtocolError> {
     let parsed = json::parse(line)?;
     let Value::Obj(request) = parsed else {
@@ -268,10 +229,10 @@ pub fn parse_request(line: &str) -> Result<OracleRequest, ProtocolError> {
             "steps must be an array",
         ));
     };
-    let mut steps = Vec::with_capacity(raw_steps.len());
-    for (index, raw) in raw_steps.iter().enumerate() {
-        steps.push(parse_step(raw, index)?);
-    }
+    // Java only asserts "steps is an array" at envelope time; each step's
+    // shape is validated during execution (Execution.run), so malformed
+    // steps become request-bound partial failures there.
+    let steps = raw_steps.clone();
     Ok(OracleRequest {
         request_id,
         request_digest,
@@ -308,11 +269,15 @@ fn valid_digest_form(value: &str) -> bool {
             .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
 }
 
-fn invalid_enum(field: &str) -> ProtocolError {
+/// Java `enumValue` rejection: `INVALID_ENUM` with "<field> has
+/// unsupported value".
+pub(crate) fn invalid_enum(field: &str) -> ProtocolError {
     ProtocolError::new("INVALID_ENUM", format!("{field} has unsupported value"))
 }
 
-fn reject_unknown(
+/// Java `OracleEngine.rejectUnknown`: any field outside `allowed` rejects
+/// with `UNKNOWN_FIELD` and a clipped field name.
+pub(crate) fn reject_unknown(
     object: &BTreeMap<String, Value>,
     allowed: &[&str],
     location: &str,
@@ -336,7 +301,8 @@ fn reject_unknown(
     Ok(())
 }
 
-fn required<'a>(
+/// Java `OracleEngine.required`: `MISSING_FIELD` when absent.
+pub(crate) fn required<'a>(
     object: &'a BTreeMap<String, Value>,
     field: &str,
 ) -> Result<&'a Value, ProtocolError> {
@@ -345,7 +311,11 @@ fn required<'a>(
     })
 }
 
-fn string(object: &BTreeMap<String, Value>, field: &str) -> Result<String, ProtocolError> {
+/// Java `OracleEngine.string`: required + `TYPE_MISMATCH` when not a string.
+pub(crate) fn string(
+    object: &BTreeMap<String, Value>,
+    field: &str,
+) -> Result<String, ProtocolError> {
     match required(object, field)? {
         Value::Str(value) => Ok(value.clone()),
         _ => Err(ProtocolError::new(
@@ -355,7 +325,11 @@ fn string(object: &BTreeMap<String, Value>, field: &str) -> Result<String, Proto
     }
 }
 
-fn boolean(object: &BTreeMap<String, Value>, field: &str) -> Result<bool, ProtocolError> {
+/// Java `OracleEngine.bool`: required + `TYPE_MISMATCH` when not a boolean.
+pub(crate) fn boolean(
+    object: &BTreeMap<String, Value>,
+    field: &str,
+) -> Result<bool, ProtocolError> {
     match required(object, field)? {
         Value::Bool(value) => Ok(*value),
         _ => Err(ProtocolError::new(
@@ -365,7 +339,9 @@ fn boolean(object: &BTreeMap<String, Value>, field: &str) -> Result<bool, Protoc
     }
 }
 
-fn integer(object: &BTreeMap<String, Value>, field: &str) -> Result<i64, ProtocolError> {
+/// Java `OracleEngine.integer`: required + `TYPE_MISMATCH` when not an
+/// integer (see the crate-level integer-number narrowing note).
+pub(crate) fn integer(object: &BTreeMap<String, Value>, field: &str) -> Result<i64, ProtocolError> {
     match required(object, field)? {
         Value::Int(value) => Ok(*value),
         _ => Err(ProtocolError::new(
@@ -431,103 +407,16 @@ fn parse_limits(value: &Value) -> Result<Limits, ProtocolError> {
     })
 }
 
-fn base64_field(object: &BTreeMap<String, Value>, field: &str) -> Result<Vec<u8>, ProtocolError> {
+/// Java `OracleEngine.base64`: canonical (round-tripping) base64 only,
+/// rejecting with `INVALID_BASE64`.
+pub(crate) fn base64_field(
+    object: &BTreeMap<String, Value>,
+    field: &str,
+) -> Result<Vec<u8>, ProtocolError> {
     let encoded = string(object, field)?;
     crate::base64::decode_canonical(&encoded).ok_or_else(|| {
         ProtocolError::new("INVALID_BASE64", format!("{field} is not canonical base64"))
     })
-}
-
-fn parse_step(raw: &Value, index: usize) -> Result<Step, ProtocolError> {
-    let Value::Obj(step) = raw else {
-        return Err(ProtocolError::new(
-            "TYPE_MISMATCH",
-            format!("steps[{index}] must be an object"),
-        ));
-    };
-    match string(step, "kind")?.as_str() {
-        "bytes" => {
-            reject_unknown(step, &["data_base64", "kind"], "bytes step")?;
-            Ok(Step::Bytes {
-                data: base64_field(step, "data_base64")?,
-            })
-        }
-        "action" => match string(step, "action")?.as_str() {
-            "send_text" => {
-                reject_unknown(step, &["action", "kind", "text"], "send_text action")?;
-                Ok(Step::SendText {
-                    text: string(step, "text")?,
-                })
-            }
-            "send_binary" => {
-                reject_unknown(
-                    step,
-                    &["action", "data_base64", "kind"],
-                    "send_binary action",
-                )?;
-                Ok(Step::SendBinary {
-                    data: base64_field(step, "data_base64")?,
-                })
-            }
-            "send_ping" => {
-                reject_unknown(step, &["action", "data_base64", "kind"], "send_ping action")?;
-                Ok(Step::SendPing {
-                    data: base64_field(step, "data_base64")?,
-                })
-            }
-            "send_pong" => {
-                reject_unknown(step, &["action", "data_base64", "kind"], "send_pong action")?;
-                Ok(Step::SendPong {
-                    data: base64_field(step, "data_base64")?,
-                })
-            }
-            "send_close" => {
-                reject_unknown(
-                    step,
-                    &["action", "code", "kind", "reason"],
-                    "send_close action",
-                )?;
-                Ok(Step::SendClose {
-                    code: integer(step, "code")?,
-                    reason: string(step, "reason")?,
-                })
-            }
-            "send_fragment" => {
-                reject_unknown(
-                    step,
-                    &["action", "data_base64", "fin", "kind", "opcode"],
-                    "send_fragment action",
-                )?;
-                let opcode = match string(step, "opcode")?.as_str() {
-                    "text" => DataOpcode::Text,
-                    "binary" => DataOpcode::Binary,
-                    _ => {
-                        return Err(ProtocolError::new(
-                            "INVALID_ENUM",
-                            "send_fragment opcode must be text or binary",
-                        ));
-                    }
-                };
-                Ok(Step::SendFragment {
-                    opcode,
-                    data: base64_field(step, "data_base64")?,
-                    fin: boolean(step, "fin")?,
-                })
-            }
-            "eof" => {
-                reject_unknown(step, &["action", "kind"], "eof action")?;
-                Ok(Step::Eof)
-            }
-            _ => Err(ProtocolError::new(
-                "INVALID_ENUM",
-                "action has unsupported value",
-            )),
-        },
-        _ => Err(ProtocolError::new(
-            "INVALID_ENUM",
-            "step kind has unsupported value",
-        )),
-    }
 }
 
 #[cfg(test)]
@@ -555,13 +444,32 @@ mod tests {
         assert_eq!(request.role, Role::Client);
         assert_eq!(request.initial_state, InitialState::Open);
         assert_eq!(request.limits.max_actions, 64);
+        // Steps stay RAW at envelope time (execution validates them).
+        assert_eq!(request.steps.len(), 1);
         assert_eq!(
-            request.steps,
-            vec![Step::SendClose {
-                code: 999,
-                reason: "bad".to_string()
-            }]
+            request.steps[0].canonical(),
+            "{\"action\":\"send_close\",\"code\":999,\"kind\":\"action\",\"reason\":\"bad\"}"
         );
+    }
+
+    /// Java validates step contents during execution, so envelope parsing
+    /// must ACCEPT structurally arbitrary steps entries (they fail later,
+    /// request-bound, in the execution driver).
+    #[test]
+    fn malformed_steps_still_parse_at_envelope_time() {
+        let mut request = match json::parse(PUB_0000).unwrap() {
+            Value::Obj(map) => map,
+            _ => unreachable!(),
+        };
+        request.insert(
+            "steps".to_string(),
+            Value::Arr(vec![Value::Int(42), Value::Str("junk".to_string())]),
+        );
+        let digest = canonical_request_digest(&request);
+        request.insert("request_digest".to_string(), Value::Str(digest));
+        let line = Value::Obj(request).canonical();
+        let parsed = parse_request(&line).expect("malformed steps defer to execution");
+        assert_eq!(parsed.steps.len(), 2);
     }
 
     #[test]
@@ -642,22 +550,6 @@ mod tests {
         request.insert("request_digest".to_string(), Value::Str(digest));
         let line = Value::Obj(request).canonical();
         assert_eq!(parse_request(&line).unwrap_err().code, "LIMIT_OUT_OF_RANGE");
-    }
-
-    #[test]
-    fn non_canonical_base64_fails_closed() {
-        let mut request = match json::parse(PUB_0000).unwrap() {
-            Value::Obj(map) => map,
-            _ => unreachable!(),
-        };
-        let mut step = BTreeMap::new();
-        step.insert("kind".to_string(), Value::Str("bytes".to_string()));
-        step.insert("data_base64".to_string(), Value::Str("Zg".to_string()));
-        request.insert("steps".to_string(), Value::Arr(vec![Value::Obj(step)]));
-        let digest = canonical_request_digest(&request);
-        request.insert("request_digest".to_string(), Value::Str(digest));
-        let line = Value::Obj(request).canonical();
-        assert_eq!(parse_request(&line).unwrap_err().code, "INVALID_BASE64");
     }
 
     #[test]
