@@ -1,0 +1,20 @@
+# US-009 AC1 BAD scaffold canary. A deliberately non-conforming standalone
+# crate: it OMITS #![forbid(unsafe_code)], contains a first-party `unsafe`
+# block, and carries a clippy violation. The canary gate (cmd/rustgatectl,
+# gate=canaries) runs the forbid scan and clippy against it and FAILS THE
+# BUILD IF THIS CRATE PASSES — proving the gates can still detect a broken
+# scaffold. Do not "fix" this crate; its violations are its purpose.
+# Deliberately excluded from the rust/ workspace (own empty [workspace]
+# table + exclude entry in rust/Cargo.toml) so the workspace gates never
+# score the canaries as first-party crates.
+[package]
+name = "bad-scaffold"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95.0"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+
+[workspace]
