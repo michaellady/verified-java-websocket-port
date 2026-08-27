@@ -368,6 +368,10 @@ pub fn drive_until_open(
                         // a handshake-phase peer that stopped reading must
                         // not wedge the adapter inside a blocking write.
                         if write_stall.stalled() {
+                            // Same expiry discipline as the connected pump:
+                            // the driver is told to shut down BEFORE the
+                            // socket closes (review 01a0453e).
+                            let _ = pump(driver, DriverInput::Shutdown, report);
                             report.outcome = LoopOutcome::WriteStalled;
                             let _ = stream.shutdown(std::net::Shutdown::Both);
                             return false;
