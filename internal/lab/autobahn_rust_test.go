@@ -1,16 +1,68 @@
 package lab
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 )
+
+func TestUS019ImmutableTesteeCopySurvivesHostileSourceSwap(t *testing.T) {
+	directory := t.TempDir()
+	directory, err := filepath.EvalSymlinks(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(directory, "websocket-testee")
+	validated := []byte("validated-testee-bytes")
+	if err := os.WriteFile(source, validated, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	staged, cleanup, err := stageRustAutobahnTestee(validated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	swap := filepath.Join(directory, "hostile-swap")
+	if err := os.WriteFile(swap, []byte("hostile-swapped-testee"), 0o500); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(swap, source); err != nil {
+		t.Fatal(err)
+	}
+	stagedBytes, err := readBoundedRegular(staged, rustAutobahnMaximumExecutable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(stagedBytes, validated) {
+		t.Fatalf("staged bytes changed after source swap: %q", stagedBytes)
+	}
+	stagedInfo, err := os.Lstat(staged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sourceInfo, err := os.Lstat(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if os.SameFile(stagedInfo, sourceInfo) || stagedInfo.Mode().Perm() != 0o500 {
+		t.Fatalf("staged identity/mode is unsafe: same=%v mode=%o", os.SameFile(stagedInfo, sourceInfo), stagedInfo.Mode().Perm())
+	}
+	stagedDirectoryInfo, err := os.Lstat(filepath.Dir(staged))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stagedDirectoryInfo.Mode().Perm() != 0o500 {
+		t.Fatalf("staged directory is not sealed: mode=%o", stagedDirectoryInfo.Mode().Perm())
+	}
+}
 
 func TestUS019PreparationInterfaceExists(t *testing.T) {
 	_, err := PrepareRustAutobahn(context.Background(), RustAutobahnPreparationConfig{})
@@ -73,6 +125,54 @@ func TestUS019StaticFilesRejectManifestAndPlanOverclaims(t *testing.T) {
 				t.Fatal(err)
 			}
 		})
+	}
+}
+
+func TestUS019StaticFilesRejectCoherentUnknownCaseInventory(t *testing.T) {
+	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, relative := range []string{rustAutobahnManifestRelative, rustAutobahnClientPlanRelative, rustAutobahnServerPlanRelative} {
+		copyUS019TestFile(t, filepath.Join(us019RepositoryRoot(t), relative), filepath.Join(root, relative))
+	}
+	manifestPath := filepath.Join(root, rustAutobahnManifestRelative)
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest RustAutobahnCaseManifest
+	if err := intake.DecodeStrict(manifestBytes, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest.SelectedCaseIDs[len(manifest.SelectedCaseIDs)-1] = "1.999"
+	sort.Strings(manifest.SelectedCaseIDs)
+	manifest.SelectedCaseIDsDigest = digestStringSlice(manifest.SelectedCaseIDs)
+	manifestBytes, err = canonicalDocument(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, manifestBytes, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	manifestDigest := intake.DigestBytes(manifestBytes)
+	for _, item := range []struct {
+		path, mode, role string
+	}{
+		{rustAutobahnClientPlanRelative, "fuzzing-server", "client"},
+		{rustAutobahnServerPlanRelative, "fuzzing-client", "server"},
+	} {
+		planBytes, err := canonicalDocument(buildRustAutobahnPlan(manifest, manifestDigest, item.mode, item.role))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(root, item.path), planBytes, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := VerifyRustAutobahnStaticFiles(root); findingCode(err) != "AUTOBAHN_MANIFEST_DRIFT" {
+		t.Fatalf("coherent unknown case inventory accepted: %v", err)
 	}
 }
 
@@ -193,6 +293,88 @@ func TestUS019CommittedEvidenceVerifiesAndSchemaClosesObjects(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertUS019SchemaObjectsClosed(t, document, "$", false)
+}
+
+func TestUS019ReceiptRejectsStaticBinaryReverificationOverclaim(t *testing.T) {
+	root := us019RepositoryRoot(t)
+	evidence, err := os.ReadFile(filepath.Join(root, rustAutobahnEvidenceRelative))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{"boolean claim", func(value map[string]any) {
+			value["testee"].(map[string]any)["binary_reverified_by_static_verifier"] = true
+		}},
+		{"nonclaim removed", func(value map[string]any) {
+			nonclaims := value["nonclaims"].([]any)
+			value["nonclaims"] = nonclaims[:len(nonclaims)-1]
+		}},
+		{"nonclaim inverted", func(value map[string]any) {
+			nonclaims := value["nonclaims"].([]any)
+			nonclaims[len(nonclaims)-1] = "static verifier reverified the testee binary"
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var value map[string]any
+			if err := json.Unmarshal(evidence, &value); err != nil {
+				t.Fatal(err)
+			}
+			test.mutate(value)
+			mutated, err := json.Marshal(value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := VerifyRustAutobahnPreparation(root, mutated); findingCode(err) != "AUTOBAHN_CONFORMANCE_OVERCLAIM" {
+				t.Fatalf("binary reverification overclaim finding=%v", err)
+			}
+		})
+	}
+	var legacy map[string]any
+	if err := json.Unmarshal(evidence, &legacy); err != nil {
+		t.Fatal(err)
+	}
+	legacy["testee"].(map[string]any)["digest"] = strings.Repeat("0", 71)
+	mutated, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyRustAutobahnPreparation(root, mutated); findingCode(err) != "INVALID_RUST_AUTOBAHN_EVIDENCE" {
+		t.Fatalf("legacy binary-identity field finding=%v", err)
+	}
+}
+
+func TestUS019ReceiptRejectsPreparationGateOverclaims(t *testing.T) {
+	root := us019RepositoryRoot(t)
+	evidence, err := os.ReadFile(filepath.Join(root, rustAutobahnEvidenceRelative))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, test := range []struct {
+		name   string
+		mutate func(map[string]any)
+	}{
+		{"pass", func(gates map[string]any) { gates["focused_go"] = "PASS" }},
+		{"failure", func(gates map[string]any) { gates["focused_go"] = "FAIL" }},
+		{"missing", func(gates map[string]any) { delete(gates, "focused_go") }},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var value map[string]any
+			if err := json.Unmarshal(evidence, &value); err != nil {
+				t.Fatal(err)
+			}
+			test.mutate(value["gates"].(map[string]any))
+			mutated, err := json.Marshal(value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := VerifyRustAutobahnPreparation(root, mutated); findingCode(err) != "AUTOBAHN_CONFORMANCE_OVERCLAIM" {
+				t.Fatalf("gate overclaim finding=%v", err)
+			}
+		})
+	}
 }
 
 func assertUS019SchemaObjectsClosed(t *testing.T, value any, path string, underProperties bool) {

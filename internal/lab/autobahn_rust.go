@@ -39,6 +39,9 @@ const (
 	rustAutobahnSyntheticOrigin    = "SYNTHETIC_RECONCILIATION_FIXTURE"
 	rustAutobahnSelectionPolicy    = "STATIC_SELECTED_AND_NONSELECTED_NEVER_SKIPS"
 	rustAutobahnStaticNonceDomain  = "us019-static-client-nonce-v1"
+	rustAutobahnSelectedIDsDigest  = "sha256:9cfd2be36f5b48445e6bfd7664b54cfe6f06911ac89b49660cf90ae432e96697"
+	rustAutobahnExcludedIDsDigest  = "sha256:ef3712e4397fc23e906e7581c20d1c271cf4b256b3698853a5717e9f44dd1224"
+	rustAutobahnGateNotExecuted    = "NOT_EXECUTED_BY_PREPARATION"
 )
 
 var rustAutobahnBlockers = []string{
@@ -60,6 +63,7 @@ var rustAutobahnNonclaims = []string{
 	"no production publication signing release or reproducible build",
 	"no independent review formal proof or exhaustive security",
 	"no authorization for a later suite run",
+	"testee binary digest and byte count are preparation-only observations and are not reverified by static receipt verification",
 }
 
 type RustAutobahnPreparationConfig struct {
@@ -248,15 +252,16 @@ type RustAutobahnSource struct {
 }
 
 type RustAutobahnTestee struct {
-	Digest           string `json:"digest"`
-	Bytes            int64  `json:"bytes"`
-	SourceTreeDigest string `json:"source_tree_digest"`
-	CargoLockDigest  string `json:"cargo_lock_digest"`
-	Host             string `json:"host"`
-	RustcVersion     string `json:"rustc_version"`
-	Challenge        string `json:"challenge"`
-	TranscriptDigest string `json:"transcript_digest"`
-	ArgumentContract string `json:"argument_contract"`
+	PreparationObservedBinaryDigest  string `json:"preparation_observed_binary_digest"`
+	PreparationObservedBinaryBytes   int64  `json:"preparation_observed_binary_bytes"`
+	BinaryReverifiedByStaticVerifier bool   `json:"binary_reverified_by_static_verifier"`
+	SourceTreeDigest                 string `json:"source_tree_digest"`
+	CargoLockDigest                  string `json:"cargo_lock_digest"`
+	Host                             string `json:"host"`
+	RustcVersion                     string `json:"rustc_version"`
+	Challenge                        string `json:"challenge"`
+	TranscriptDigest                 string `json:"transcript_digest"`
+	ArgumentContract                 string `json:"argument_contract"`
 }
 
 type RustAutobahnUS018 struct {
@@ -465,7 +470,7 @@ func validateRustAutobahnManifest(manifest RustAutobahnCaseManifest) error {
 	if manifest.SchemaVersion != rustAutobahnPreparationVersion || manifest.SourceArchiveDigest != PinnedAutobahnSourceArchiveDigest || manifest.RegistrySourceDigest != PinnedAutobahnRegistryDigest || manifest.ReportSourceDigest != PinnedAutobahnReportSourceDigest || manifest.ImageManifestDigest != AutobahnImageManifestDigest || manifest.ImageConfigDigest != AutobahnImageConfigDigest || manifest.SelectionPolicy != rustAutobahnSelectionPolicy {
 		return finding("AUTOBAHN_MANIFEST_DRIFT", "$.manifest", "manifest pins or policy differ")
 	}
-	if !equalStrings(manifest.SelectedFamilies, selectedAutobahnFamilies) || !equalStrings(manifest.NonselectedFamilies, excludedAutobahnFamilies) || manifest.SelectedCount != AutobahnSelectedCaseCount || manifest.NonselectedCount != AutobahnExcludedCaseCount || len(manifest.SelectedCaseIDs) != manifest.SelectedCount || len(manifest.NonselectedCaseIDs) != manifest.NonselectedCount || manifest.SelectedCaseIDsDigest != digestStringSlice(manifest.SelectedCaseIDs) || manifest.NonselectedIDsDigest != digestStringSlice(manifest.NonselectedCaseIDs) {
+	if !equalStrings(manifest.SelectedFamilies, selectedAutobahnFamilies) || !equalStrings(manifest.NonselectedFamilies, excludedAutobahnFamilies) || manifest.SelectedCount != AutobahnSelectedCaseCount || manifest.NonselectedCount != AutobahnExcludedCaseCount || len(manifest.SelectedCaseIDs) != manifest.SelectedCount || len(manifest.NonselectedCaseIDs) != manifest.NonselectedCount || manifest.SelectedCaseIDsDigest != rustAutobahnSelectedIDsDigest || manifest.NonselectedIDsDigest != rustAutobahnExcludedIDsDigest || manifest.SelectedCaseIDsDigest != digestStringSlice(manifest.SelectedCaseIDs) || manifest.NonselectedIDsDigest != digestStringSlice(manifest.NonselectedCaseIDs) {
 		return finding("AUTOBAHN_MANIFEST_DRIFT", "$.manifest", "family, count, or list digest differs")
 	}
 	if !sort.StringsAreSorted(manifest.SelectedCaseIDs) || !sort.StringsAreSorted(manifest.NonselectedCaseIDs) {
@@ -576,9 +581,18 @@ func PrepareRustAutobahn(ctx context.Context, config RustAutobahnPreparationConf
 		return RustAutobahnPreparationReceipt{}, finding("RANDOMNESS_UNAVAILABLE", "$.challenge", err.Error())
 	}
 	challenge := hex.EncodeToString(challengeRaw)
-	transcript, err := runRustAutobahnContract(ctx, config.TesteePath, challenge)
+	stagedTestee, cleanupStagedTestee, err := stageRustAutobahnTestee(testeeBytes)
 	if err != nil {
 		return RustAutobahnPreparationReceipt{}, err
+	}
+	defer cleanupStagedTestee()
+	transcript, err := runRustAutobahnContract(ctx, stagedTestee, challenge)
+	if err != nil {
+		return RustAutobahnPreparationReceipt{}, err
+	}
+	observedTesteeBytes, err := readBoundedRegular(stagedTestee, rustAutobahnMaximumExecutable)
+	if err != nil || !bytes.Equal(observedTesteeBytes, testeeBytes) {
+		return RustAutobahnPreparationReceipt{}, finding("CONCURRENT_FILE_DRIFT", "$.testee", "private testee copy changed while exercising the process contract")
 	}
 
 	sourceTreeDigest, _, err := digestTree(filepath.Join(root, rustAutobahnSourceTreeRelative), true)
@@ -622,17 +636,33 @@ func PrepareRustAutobahn(ctx context.Context, config RustAutobahnPreparationConf
 		ClientPlan:            artifact(rustAutobahnClientPlanRelative, clientBytes),
 		ServerPlan:            artifact(rustAutobahnServerPlanRelative, serverBytes),
 		Source:                RustAutobahnSource{ArchiveDigest: PinnedAutobahnSourceArchiveDigest, RegistryDigest: PinnedAutobahnRegistryDigest, ReportSourceDigest: PinnedAutobahnReportSourceDigest, ImageManifestDigest: AutobahnImageManifestDigest, ImageConfigDigest: AutobahnImageConfigDigest},
-		Testee:                RustAutobahnTestee{Digest: intake.DigestBytes(testeeBytes), Bytes: int64(len(testeeBytes)), SourceTreeDigest: sourceTreeDigest, CargoLockDigest: intake.DigestBytes(cargoLock), Host: runtime.GOOS + "/" + runtime.GOARCH, RustcVersion: us018.RustcVersion, Challenge: challenge, TranscriptDigest: intake.DigestBytes(transcript), ArgumentContract: "harness-contract <64-lowercase-hex-challenge>"},
-		US018:                 us018,
-		LiveClient:            live,
-		LiveServer:            live,
-		SyntheticClient:       clientFixture,
-		SyntheticServer:       serverFixture,
-		Controls:              controls,
-		RetainedHistory:       history,
-		Architecture:          RustAutobahnArchitecture{InertLiveLinkage: false, TesteeLinkagePresent: true, ManifestExact: true, SyntheticHistoryDistinct: true, ArchitectureCanaries: 12},
-		Gates:                 RustAutobahnGates{FocusedGo: "PASS", RustDebug: "PASS", RustRelease: "PASS", Rustfmt: "PASS", Clippy: "PASS", Rustgate: "PASS", FullGo: "PASS"},
-		Nonclaims:             append([]string(nil), rustAutobahnNonclaims...),
+		Testee: RustAutobahnTestee{
+			PreparationObservedBinaryDigest:  intake.DigestBytes(testeeBytes),
+			PreparationObservedBinaryBytes:   int64(len(testeeBytes)),
+			BinaryReverifiedByStaticVerifier: false,
+			SourceTreeDigest:                 sourceTreeDigest,
+			CargoLockDigest:                  intake.DigestBytes(cargoLock),
+			Host:                             runtime.GOOS + "/" + runtime.GOARCH,
+			RustcVersion:                     us018.RustcVersion,
+			Challenge:                        challenge,
+			TranscriptDigest:                 intake.DigestBytes(transcript),
+			ArgumentContract:                 "harness-contract <64-lowercase-hex-challenge>",
+		},
+		US018:           us018,
+		LiveClient:      live,
+		LiveServer:      live,
+		SyntheticClient: clientFixture,
+		SyntheticServer: serverFixture,
+		Controls:        controls,
+		RetainedHistory: history,
+		Architecture:    RustAutobahnArchitecture{InertLiveLinkage: false, TesteeLinkagePresent: true, ManifestExact: true, SyntheticHistoryDistinct: true, ArchitectureCanaries: 12},
+		Gates: RustAutobahnGates{
+			FocusedGo: rustAutobahnGateNotExecuted, RustDebug: rustAutobahnGateNotExecuted,
+			RustRelease: rustAutobahnGateNotExecuted, Rustfmt: rustAutobahnGateNotExecuted,
+			Clippy: rustAutobahnGateNotExecuted, Rustgate: rustAutobahnGateNotExecuted,
+			FullGo: rustAutobahnGateNotExecuted,
+		},
+		Nonclaims: append([]string(nil), rustAutobahnNonclaims...),
 	}
 	if err := validateRustAutobahnReceipt(root, receipt); err != nil {
 		return RustAutobahnPreparationReceipt{}, err
@@ -642,6 +672,40 @@ func PrepareRustAutobahn(ctx context.Context, config RustAutobahnPreparationConf
 
 func artifact(path string, data []byte) RustAutobahnArtifact {
 	return RustAutobahnArtifact{Path: path, Digest: intake.DigestBytes(data), Bytes: int64(len(data))}
+}
+
+func stageRustAutobahnTestee(validated []byte) (string, func(), error) {
+	directory, err := os.MkdirTemp("", "us019-rust-testee-")
+	if err != nil {
+		return "", func() {}, finding("RUST_TESTEE_NOT_EXERCISED", "$.testee", "cannot create private testee directory")
+	}
+	path := filepath.Join(directory, "websocket-testee")
+	cleanup := func() {
+		_ = os.Chmod(directory, 0o700)
+		_ = os.Remove(path)
+		_ = os.Remove(directory)
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o700)
+	if err != nil {
+		cleanup()
+		return "", func() {}, finding("RUST_TESTEE_NOT_EXERCISED", "$.testee", "cannot create private testee copy")
+	}
+	written, writeErr := file.Write(validated)
+	syncErr := file.Sync()
+	chmodErr := file.Chmod(0o500)
+	closeErr := file.Close()
+	directorySyncErr := syncDir(directory)
+	directoryChmodErr := os.Chmod(directory, 0o500)
+	if writeErr != nil || syncErr != nil || chmodErr != nil || closeErr != nil || written != len(validated) || directorySyncErr != nil || directoryChmodErr != nil {
+		cleanup()
+		return "", func() {}, finding("RUST_TESTEE_NOT_EXERCISED", "$.testee", "cannot seal private testee copy")
+	}
+	staged, err := readBoundedRegular(path, rustAutobahnMaximumExecutable)
+	if err != nil || !bytes.Equal(staged, validated) {
+		cleanup()
+		return "", func() {}, finding("CONCURRENT_FILE_DRIFT", "$.testee", "private testee copy differs from validated bytes")
+	}
+	return path, cleanup, nil
 }
 
 func runRustAutobahnContract(ctx context.Context, testee, challenge string) ([]byte, error) {
@@ -982,7 +1046,10 @@ func validateRustAutobahnReceipt(root string, receipt RustAutobahnPreparationRec
 	if receipt.Source != (RustAutobahnSource{ArchiveDigest: PinnedAutobahnSourceArchiveDigest, RegistryDigest: PinnedAutobahnRegistryDigest, ReportSourceDigest: PinnedAutobahnReportSourceDigest, ImageManifestDigest: AutobahnImageManifestDigest, ImageConfigDigest: AutobahnImageConfigDigest}) {
 		return finding("AUTOBAHN_MANIFEST_DRIFT", "$.source", "source pins differ")
 	}
-	if receipt.Testee.ArgumentContract != "harness-contract <64-lowercase-hex-challenge>" || len(receipt.Testee.Challenge) != 64 || strings.Trim(receipt.Testee.Challenge, "0123456789abcdef") != "" || receipt.Testee.TranscriptDigest != intake.DigestBytes([]byte(rustAutobahnContractLine(receipt.Testee.Challenge))) || !isDigest(receipt.Testee.Digest) || receipt.Testee.Bytes <= 0 || receipt.Testee.Host != runtime.GOOS+"/"+runtime.GOARCH {
+	if receipt.Testee.BinaryReverifiedByStaticVerifier {
+		return finding("AUTOBAHN_CONFORMANCE_OVERCLAIM", "$.testee.binary_reverified_by_static_verifier", "static receipt verification does not reopen or rebind the preparation testee binary")
+	}
+	if receipt.Testee.ArgumentContract != "harness-contract <64-lowercase-hex-challenge>" || len(receipt.Testee.Challenge) != 64 || strings.Trim(receipt.Testee.Challenge, "0123456789abcdef") != "" || receipt.Testee.TranscriptDigest != intake.DigestBytes([]byte(rustAutobahnContractLine(receipt.Testee.Challenge))) || !isDigest(receipt.Testee.PreparationObservedBinaryDigest) || receipt.Testee.PreparationObservedBinaryBytes <= 0 || receipt.Testee.Host != runtime.GOOS+"/"+runtime.GOARCH {
 		return finding("RUST_TESTEE_NOT_EXERCISED", "$.testee", "testee binding or transcript is invalid")
 	}
 	sourceDigest, _, err := digestTree(filepath.Join(root, rustAutobahnSourceTreeRelative), true)
@@ -1038,8 +1105,8 @@ func validateRustAutobahnReceipt(root string, receipt RustAutobahnPreparationRec
 	if receipt.Architecture != (RustAutobahnArchitecture{InertLiveLinkage: false, TesteeLinkagePresent: true, ManifestExact: true, SyntheticHistoryDistinct: true, ArchitectureCanaries: 12}) {
 		return finding("AUTOBAHN_STATIC_LIVE_LINKAGE", "$.architecture", "architecture claim differs")
 	}
-	passGates := RustAutobahnGates{FocusedGo: "PASS", RustDebug: "PASS", RustRelease: "PASS", Rustfmt: "PASS", Clippy: "PASS", Rustgate: "PASS", FullGo: "PASS"}
-	if receipt.Gates != passGates || !equalStrings(receipt.Nonclaims, rustAutobahnNonclaims) {
+	notExecutedGates := RustAutobahnGates{FocusedGo: rustAutobahnGateNotExecuted, RustDebug: rustAutobahnGateNotExecuted, RustRelease: rustAutobahnGateNotExecuted, Rustfmt: rustAutobahnGateNotExecuted, Clippy: rustAutobahnGateNotExecuted, Rustgate: rustAutobahnGateNotExecuted, FullGo: rustAutobahnGateNotExecuted}
+	if receipt.Gates != notExecutedGates || !equalStrings(receipt.Nonclaims, rustAutobahnNonclaims) {
 		return finding("AUTOBAHN_CONFORMANCE_OVERCLAIM", "$.gates", "closed gate or nonclaim inventory differs")
 	}
 	return nil

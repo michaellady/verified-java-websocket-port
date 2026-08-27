@@ -32,7 +32,7 @@
     "retained_history": {"$ref": "#/$defs/history"},
     "architecture": {"$ref": "#/$defs/architecture"},
     "gates": {"$ref": "#/$defs/gates"},
-    "nonclaims": {"type":"array","minItems":10,"maxItems":10,"uniqueItems":true,"items":{"type":"string","minLength":1}}
+    "nonclaims": {"type":"array","minItems":11,"maxItems":11,"uniqueItems":true,"items":{"type":"string","minLength":1}}
   },
   "$defs": {
     "digest": {"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
@@ -45,8 +45,8 @@
       "properties":{"archive_digest":{"$ref":"#/$defs/digest"},"registry_digest":{"$ref":"#/$defs/digest"},"report_source_digest":{"$ref":"#/$defs/digest"},"image_manifest_digest":{"$ref":"#/$defs/digest"},"image_config_digest":{"$ref":"#/$defs/digest"}}
     },
     "testee": {
-      "type":"object","additionalProperties":false,"required":["digest","bytes","source_tree_digest","cargo_lock_digest","host","rustc_version","challenge","transcript_digest","argument_contract"],
-      "properties":{"digest":{"$ref":"#/$defs/digest"},"bytes":{"type":"integer","minimum":1},"source_tree_digest":{"$ref":"#/$defs/digest"},"cargo_lock_digest":{"$ref":"#/$defs/digest"},"host":{"type":"string","pattern":"^[a-z0-9_]+/[a-z0-9_]+$"},"rustc_version":{"type":"string","minLength":1},"challenge":{"type":"string","pattern":"^[0-9a-f]{64}$"},"transcript_digest":{"$ref":"#/$defs/digest"},"argument_contract":{"const":"harness-contract <64-lowercase-hex-challenge>"}}
+      "type":"object","additionalProperties":false,"required":["preparation_observed_binary_digest","preparation_observed_binary_bytes","binary_reverified_by_static_verifier","source_tree_digest","cargo_lock_digest","host","rustc_version","challenge","transcript_digest","argument_contract"],
+      "properties":{"preparation_observed_binary_digest":{"$ref":"#/$defs/digest"},"preparation_observed_binary_bytes":{"type":"integer","minimum":1},"binary_reverified_by_static_verifier":{"const":false},"source_tree_digest":{"$ref":"#/$defs/digest"},"cargo_lock_digest":{"$ref":"#/$defs/digest"},"host":{"type":"string","pattern":"^[a-z0-9_]+/[a-z0-9_]+$"},"rustc_version":{"type":"string","minLength":1},"challenge":{"type":"string","pattern":"^[0-9a-f]{64}$"},"transcript_digest":{"$ref":"#/$defs/digest"},"argument_contract":{"const":"harness-contract <64-lowercase-hex-challenge>"}}
     },
     "us018": {
       "type":"object","additionalProperties":false,"required":["path","digest","status","rustc_version","application_echo","conformance","linux_x86_64"],
@@ -82,7 +82,7 @@
     },
     "gates": {
       "type":"object","additionalProperties":false,"required":["focused_go","rust_debug","rust_release","rustfmt","clippy","rustgate","full_go"],
-      "properties":{"focused_go":{"const":"PASS"},"rust_debug":{"const":"PASS"},"rust_release":{"const":"PASS"},"rustfmt":{"const":"PASS"},"clippy":{"const":"PASS"},"rustgate":{"const":"PASS"},"full_go":{"const":"PASS"}}
+      "properties":{"focused_go":{"const":"NOT_EXECUTED_BY_PREPARATION"},"rust_debug":{"const":"NOT_EXECUTED_BY_PREPARATION"},"rust_release":{"const":"NOT_EXECUTED_BY_PREPARATION"},"rustfmt":{"const":"NOT_EXECUTED_BY_PREPARATION"},"clippy":{"const":"NOT_EXECUTED_BY_PREPARATION"},"rustgate":{"const":"NOT_EXECUTED_BY_PREPARATION"},"full_go":{"const":"NOT_EXECUTED_BY_PREPARATION"}}
     }
   }
 }

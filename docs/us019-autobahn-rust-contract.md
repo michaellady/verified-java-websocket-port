@@ -2,7 +2,7 @@
 
 ## Claim boundary
 
-US-019 prepares the exact US-018 Rust testee for the already pinned Autobahn
+US-019 prepares an owner-supplied current-host Rust testee for the already pinned Autobahn
 harness without running either Autobahn mode. It freezes the selected and
 nonselected case inventory, binds the existing Rust `client` and `server`
 process routes into an inert harness plan, challenges a new non-networked
@@ -59,7 +59,7 @@ not called by this story.
 | Capability | Atomicity | Bitter Lesson | ZFC | Verdict |
 | --- | --- | --- | --- | --- |
 | Derive and canonically serialize the exact case manifest from the pinned source archive | Pure bounded derivation has no shared mutation; exclusive output creation is already atomic | A stronger model still needs byte-exact parsing and serialization | Digest checks, parsing, sorting, and formatting contain no acceptance judgment | Code |
-| Hash and challenge the exact Rust process contract | One child, one random challenge, bounded pipes, and one wait need deterministic ownership | A stronger model still needs subprocess and byte transport | Exact executable identity, arguments, environment, output, timeout, and exit checks are transport | Code |
+| Hash and challenge the Rust process contract | One child, one random challenge, bounded pipes, and one wait need deterministic ownership | A stronger model still needs subprocess and byte transport | Copying validated bytes into a private executable and checking arguments, environment, output, timeout, and exit are transport | Code |
 | Reconcile fixture reports and fixed controls | One invocation owns its private fixture tree; no shared update occurs | A stronger model still needs exact set/count/digest comparison | Applying a frozen mutation catalog and checking typed outcomes is deterministic | Code |
 | Bind a committed receipt to current source, manifest, plans, and retained evidence | Verification is read-only; receipt creation uses an exclusive file | A stronger model still needs provenance and schema validation | Reading, hashing, canonicalization, and equality checks are transport | Code |
 | Choose which protocol mutations represent useful controls | No concurrency requirement determines the choice | Better protocol reasoning can improve the catalog | Selecting representative defects is judgment | Prompt/design, then freeze the chosen catalog as data |
@@ -96,7 +96,7 @@ The chosen design adds a separate deep module whose interface says exactly
 what it can do. It reuses the incumbent parsers and reconciler internally, but
 has no interface to the Docker controller, runner, relay, Java endpoint, or
 live mode functions. Deleting this module would force callers to reimplement
-manifest identity, Rust process identity, fixture provenance, control
+manifest identity, Rust process-contract observation, fixture provenance, control
 discrimination, and receipt verification. It would not disturb the existing
 live controller.
 
@@ -145,10 +145,12 @@ network, relay, runner, Java, report-history override, shell command, arbitrary
 argument vector, environment map, retry count, or status override.
 
 `VerifyRustAutobahnPreparation` is read-only. It strict-decodes the receipt,
-recomputes every current file/tree digest named by the receipt, validates the
+recomputes every current repository file/tree digest that it can reopen, validates the
 manifest and plans, checks the retained baseline digest and no-rerun
 disposition, and replays the deterministic reconciliation/control summaries.
-It never reruns the process challenge and never accepts an alternate status.
+It never reruns the process challenge, never reopens a testee binary, and never
+accepts an alternate status. The testee digest and byte count are explicitly
+preparation-only observations, not statically reverified binary identity.
 
 The configuration paths must be clean absolute paths resolving beneath the
 one real repository root, except the source archive and built testee, which
@@ -156,9 +158,12 @@ may be in a private real work directory. Every input must be a bounded,
 singly-linked regular file; directory/tree digests use sorted repository-
 relative names and file bytes. Symlinks, hard-link substitution, path escape,
 mutation while hashing, unbounded reads, and duplicate normalized names fail
-closed. The built testee must be the current-host binary produced by the exact
-locked/offline workspace build used for this receipt. This is an
-owner-attested build binding, not a reproducible-build or signing claim.
+closed. Preparation accepts an owner-supplied current-host executable and
+records the bytes it observed. The static verifier rebinds the source tree,
+Cargo lock, toolchain receipt, and process transcript, but it cannot establish
+that the observed executable remains present or was produced by those sources.
+This is an owner-attested preparation observation, not binary verification,
+reproducible-build, or signing evidence.
 
 ## Immutable case manifest and inert mode plans
 
@@ -251,12 +256,16 @@ schema=1 status=READY_NO_LIVE_CONFORMANCE roles=client,server network_routes=cli
 
 The route exits `0` only for that exact contract, `2` for all argument errors,
 and has no other exit class. `PrepareRustAutobahn` generates the challenge,
-executes only the verified absolute testee path with the literal first
+copies the exact bounded bytes it read into a new owner-private `0500` file,
+executes only that private copy with the literal first
 argument `harness-contract`, supplies a fixed empty-secret environment, and
 requires exact stdout, empty stderr, exit zero, and completion within ten
-seconds. The receipt records the public challenge, testee SHA-256, transcript
-SHA-256, executable byte count, source-tree digest, Cargo lock digest, US-018
-evidence digest, host, Rust toolchain, and exact argument contract. Because
+seconds. It rereads the private copy after execution and requires the same
+validated bytes, so swapping the source path cannot change what was exercised.
+The receipt records the public challenge, preparation-observed testee SHA-256
+and byte count, transcript SHA-256, source-tree digest, Cargo lock digest,
+US-018 evidence digest, host, Rust toolchain, and exact argument contract. The
+receipt also fixes `binary_reverified_by_static_verifier = false`. Because
 the fresh challenge is process-produced, cached stdout and an empty executable
 cannot satisfy the probe. Because the output states both missing capabilities,
 the probe cannot be mistaken for conformance readiness.
@@ -358,7 +367,7 @@ controller log.
 
 Freshness is identity-based, not timestamp-based. A fixture is current only if
 it binds the newly generated process challenge and the exact current
-preparation, manifest, testee, and role digests. A historical upstream report
+manifest, plan, and role digests. A historical upstream report
 lacks the synthetic origin and challenge. A prior synthetic fixture has the
 wrong challenge. A retained Java receipt has both the wrong origin and wrong
 testee. None can satisfy either preparation or fixture reconciliation.
@@ -432,23 +441,30 @@ runner, network, report-copy, retry, authorization, or waiver flags.
 
 `evidence/us019-autobahn-rust-readiness.json` is validated by
 `schemas/us019-autobahn-rust-readiness-1.0.0.schema.json` and the Go verifier.
-It binds:
+It binds or records:
 
 - architecture, implementation, and evidence commits;
 - exact manifest, selected/nonselected lists, counts, and pins;
 - both inert plans and role mappings;
-- Rust source tree, Cargo lock, current-host binary, toolchain, challenge, and
-  exact capability transcript;
+- Rust source tree, Cargo lock, toolchain, challenge, and exact capability
+  transcript, plus preparation-only observations of the owner-supplied binary
+  digest and byte count that static verification explicitly does not rebind;
 - current US-018 evidence and its explicit application-echo/conformance/Linux
   nonclaims;
 - good synthetic reconciliation summaries and all repeated control outcomes;
 - retained baseline digest, attempt identities, and no-rerun disposition;
-- architecture-canary counts and full debug/release/Go gate results; and
+- architecture-canary counts and fixed
+  `NOT_EXECUTED_BY_PREPARATION` markers for every external QA gate; and
 - the complete explicit nonclaim set below.
 
 Alongside the top-level `READY_NO_LIVE_CONFORMANCE`, the receipt requires
 `live_conformance_status = "BLOCKED_NOT_EXECUTED"`; neither field is
 caller-controlled.
+
+Debug/release Rust suites, formatting, Clippy, rustgate, and Go QA remain
+external validation activity. Their results are not inserted into or inferred
+from a preparation receipt; a `PASS`, missing, or failure-shaped receipt gate
+value is an overclaim and fails verification.
 
 The schema is closed (`additionalProperties: false`) at every object. Its
 top-level status is a const, not an enum containing a pass state. Cross-file
@@ -521,12 +537,16 @@ US-019 does not claim:
 - reference-model mutant kills are Rust binary mutation evidence;
 - Linux x86_64, a second host, or both blocking platforms;
 - production, publication, signing, release, or reproducible builds;
-- independent review, formal proof, or exhaustive security; or
-- authorization for any later suite run.
+- independent review, formal proof, or exhaustive security;
+- authorization for any later suite run; or
+- static reverification of the preparation-observed testee binary digest or
+  byte count.
 
-The useful result is narrower: the current Rust testee, exact pinned manifest,
-inert role plans, strict report machinery, process identity, and negative
-controls are connected and fail closed. The remaining live work is explicit
+The useful result is narrower: the current Rust source and owner-supplied
+testee observation, exact pinned manifest, inert role plans, strict report
+machinery, process-contract transcript, and negative controls are connected
+and fail closed. The process claim is limited to the preparation-time
+immutable-copy challenge observation. The remaining live work is explicit
 instead of being hidden behind a synthetic pass.
 
 ## Implementation file and lock plan

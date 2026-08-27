@@ -34,14 +34,15 @@
     "image_config_digest": "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f"
   },
   "testee": {
-    "digest": "sha256:289f4e5d9678b526c7f79e9328c2f35cd6b3ff81fef55e6aba9bcf36bb67fa38",
-    "bytes": 1400192,
+    "preparation_observed_binary_digest": "sha256:289f4e5d9678b526c7f79e9328c2f35cd6b3ff81fef55e6aba9bcf36bb67fa38",
+    "preparation_observed_binary_bytes": 1400192,
+    "binary_reverified_by_static_verifier": false,
     "source_tree_digest": "sha256:ee9c54136153a002bd4f7a28298140a59841daaa75386d4595847511be7fdcf1",
     "cargo_lock_digest": "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb",
     "host": "darwin/arm64",
     "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
-    "challenge": "2d80d8c885e51897dfff1a67143633beb63b530f2f77e17f61aa91abac2f44e2",
-    "transcript_digest": "sha256:64abbe32773e1128e2f6007d90d9a83cbf4428570f9f32b7c98b6f5a8c9535d4",
+    "challenge": "58025e5ecb22cdfc8651bcb1302fce3af07048ee038b24a3e7f856ebbb709867",
+    "transcript_digest": "sha256:13040603bcb1df74ab2642003fd72ad8dd7af41c2d31bda8ef4a7883acbbbb09",
     "argument_contract": "harness-contract \u003c64-lowercase-hex-challenge\u003e"
   },
   "us018": {
@@ -92,7 +93,7 @@
     "fixture_unimplemented": 0,
     "missing": 0,
     "result_digest": "sha256:70bee3c3ff2a028b2928edd8d57d3e2800460b83eb0da26cb4bb1230513c80a5",
-    "envelope_digest": "sha256:a85be3cb32e22f3eb1cb700f9f8020fadbbe19e43a461935710775716f3ca3f8",
+    "envelope_digest": "sha256:e10a2831eaff83619e8e83def8683f705026b133d8d5bec1a3c5b179011befe8",
     "disposition": "SYNTHETIC_RECONCILED"
   },
   "synthetic_server": {
@@ -108,7 +109,7 @@
     "fixture_unimplemented": 0,
     "missing": 0,
     "result_digest": "sha256:0bdd0eaa748cd445bffb637cd00a1ad9aaecaf1bfedbd63c490efe1ecbdb2184",
-    "envelope_digest": "sha256:03d2c4ad6de28d5b42a3948167878e74b88e9840dbda0b77c9e97078634556ee",
+    "envelope_digest": "sha256:de0d38c329a424877753fbd85312e538dc3fdd87863b7376717caeeb1f074e09",
     "disposition": "SYNTHETIC_RECONCILED"
   },
   "controls": {
@@ -206,13 +207,13 @@
     "architecture_canaries": 12
   },
   "gates": {
-    "focused_go": "PASS",
-    "rust_debug": "PASS",
-    "rust_release": "PASS",
-    "rustfmt": "PASS",
-    "clippy": "PASS",
-    "rustgate": "PASS",
-    "full_go": "PASS"
+    "focused_go": "NOT_EXECUTED_BY_PREPARATION",
+    "rust_debug": "NOT_EXECUTED_BY_PREPARATION",
+    "rust_release": "NOT_EXECUTED_BY_PREPARATION",
+    "rustfmt": "NOT_EXECUTED_BY_PREPARATION",
+    "clippy": "NOT_EXECUTED_BY_PREPARATION",
+    "rustgate": "NOT_EXECUTED_BY_PREPARATION",
+    "full_go": "NOT_EXECUTED_BY_PREPARATION"
   },
   "nonclaims": [
     "no fresh Autobahn fuzzing-server or fuzzing-client execution",
@@ -224,6 +225,7 @@
     "no Linux x86_64 or second host",
     "no production publication signing release or reproducible build",
     "no independent review formal proof or exhaustive security",
-    "no authorization for a later suite run"
+    "no authorization for a later suite run",
+    "testee binary digest and byte count are preparation-only observations and are not reverified by static receipt verification"
   ]
 }

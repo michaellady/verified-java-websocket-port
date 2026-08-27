@@ -8,11 +8,14 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 	"github.com/michaellady/verified-java-websocket-port/internal/lab"
 )
+
+const rustEvidenceMaximumBytes int64 = 8 << 20
 
 func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
@@ -168,7 +171,7 @@ func verifyRust(arguments []string, stdout, stderr io.Writer) int {
 	if err := flags.Parse(arguments[1:]); err != nil || flags.NArg() != 0 || flags.NFlag() != 2 || *repositoryRoot == "" || *evidence == "" {
 		return 2
 	}
-	data, err := os.ReadFile(*evidence)
+	data, err := readRustEvidenceFile(*evidence)
 	if err != nil {
 		return writeRustFinding(stdout, err)
 	}
@@ -177,6 +180,49 @@ func verifyRust(arguments []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "%s receipt=%s\n", lab.RustAutobahnStatus, *evidence)
 	return 0
+}
+
+func readRustEvidenceFile(path string) ([]byte, error) {
+	if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) {
+		return nil, &intake.Finding{Code: "INVALID_PATH", Path: "$.evidence", Message: "evidence path must be clean, absolute, and narrower than the filesystem root"}
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil || resolved != path {
+		return nil, &intake.Finding{Code: "INVALID_PATH", Path: "$.evidence", Message: "evidence path must be real and contain no symlink component"}
+	}
+	before, err := os.Lstat(path)
+	if err != nil {
+		return nil, &intake.Finding{Code: "INVALID_RUST_AUTOBAHN_EVIDENCE", Path: "$.evidence", Message: "evidence file is unavailable"}
+	}
+	if !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() < 0 || before.Size() > rustEvidenceMaximumBytes || rustEvidenceLinkCount(before) != 1 {
+		return nil, &intake.Finding{Code: "INVALID_RUST_AUTOBAHN_EVIDENCE", Path: "$.evidence", Message: "evidence must be one bounded singly-linked regular file"}
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, &intake.Finding{Code: "INVALID_RUST_AUTOBAHN_EVIDENCE", Path: "$.evidence", Message: "evidence file cannot be opened"}
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(before, opened) || !opened.Mode().IsRegular() || rustEvidenceLinkCount(opened) != 1 {
+		return nil, &intake.Finding{Code: "INVALID_RUST_AUTOBAHN_EVIDENCE", Path: "$.evidence", Message: "evidence identity changed before reading"}
+	}
+	data, err := io.ReadAll(io.LimitReader(file, rustEvidenceMaximumBytes+1))
+	if err != nil || int64(len(data)) > rustEvidenceMaximumBytes {
+		return nil, &intake.Finding{Code: "INVALID_RUST_AUTOBAHN_EVIDENCE", Path: "$.evidence", Message: "evidence exceeds its byte bound"}
+	}
+	afterFD, fdErr := file.Stat()
+	afterPath, pathErr := os.Lstat(path)
+	if fdErr != nil || pathErr != nil || !os.SameFile(before, afterFD) || !os.SameFile(afterFD, afterPath) || afterFD.Size() != int64(len(data)) || !afterPath.Mode().IsRegular() || rustEvidenceLinkCount(afterFD) != 1 || rustEvidenceLinkCount(afterPath) != 1 {
+		return nil, &intake.Finding{Code: "INVALID_RUST_AUTOBAHN_EVIDENCE", Path: "$.evidence", Message: "evidence identity or metadata changed while reading"}
+	}
+	return data, nil
+}
+
+func rustEvidenceLinkCount(info os.FileInfo) uint64 {
+	if stat, ok := info.Sys().(*syscall.Stat_t); ok {
+		return uint64(stat.Nlink)
+	}
+	return 1
 }
 
 func validateNewOutput(path string) error {
