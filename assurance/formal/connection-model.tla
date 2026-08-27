@@ -49,7 +49,8 @@
 \*
 \* RESTRICTIONS (behaviors of Java the model HIDES): the outbound queue is
 \* finitely bounded via QueueCapacity although Java's outQueue is unbounded
-\* (WebSocketImpl.java:98) -- SendData is disabled at capacity, so every Java
+\* (declared WebSocketImpl.java:98, constructed as an unbounded
+\* LinkedBlockingQueue at :206) -- SendData is disabled at capacity, so every Java
 \* behavior in which more writes are simultaneously queued does not exist in
 \* the model; likewise MaxSends and MaxInbound cut off longer send/receive
 \* histories. This is the standard finite-state abstraction, and its
@@ -254,7 +255,7 @@ ProcessRejectTruncatedTail ==
 \* the same translated batch, WebSocketImpl.java:390-397) is still processed
 \* after this close frame put the connection into CLOSING -- processFrame has
 \* no readyState gate (drafts/Draft_6455.java:893-918) and stringUtf8 still
-\* throws 1007 -- but the resulting close(e) (WebSocketImpl.java:404-407,
+\* throws 1007 -- but the resulting close(e) (WebSocketImpl.java:408,
 \* 631-633) is a complete no-op because close() early-returns once CLOSING
 \* (WebSocketImpl.java:463-464). Its only residue is an onWebsocketError
 \* callback, which this abstraction does not track.

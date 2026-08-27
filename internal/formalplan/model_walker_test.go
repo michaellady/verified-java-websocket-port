@@ -24,6 +24,8 @@ package formalplan
 
 import (
 	"fmt"
+	"slices"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -557,21 +559,38 @@ func TestModelWalkerReviewerTraceIsDischarged(t *testing.T) {
 // absent here.
 func TestModelWalkerSeededMutationsProduceCounterexamples(t *testing.T) {
 	bounds := mwLoadBounds(t)
+	// Round-2 review finding: asserting only that the declared target appears
+	// among the violations does not establish mutation specificity — a
+	// mutation may (and two genuinely do) violate additional invariants. Each
+	// case now declares its EXACT expected violation set and the walker
+	// asserts set equality, so an undeclared extra violation (or a missing
+	// declared one) fails the test.
 	cases := []struct {
-		defect string
-		mutate mwMutations
-		target string
+		defect   string
+		mutate   mwMutations
+		target   string
+		expected []string
 	}{
-		{"defect.model.type-domain-escape", mwMutations{initCloseCodeFive: true}, "TypeInvariant"},
-		{"defect.model.double-terminal-delivery", mwMutations{eofEnabledWhenClosed: true}, "TerminalDeliveredAtMostOnce"},
-		{"defect.model.closed-without-terminal-event", mwMutations{drainNoTerminal: true}, "ClosedImpliesTerminalDeliveredOnce"},
-		{"defect.model.closing-without-close-detail", mwMutations{localCloseNoDetail: true}, "CloseDetailPresentFromClosing"},
-		{"defect.model.error-close-with-normal-code", mwMutations{processRejectCode1000: true}, "ErrorCloseCodeDomain"},
-		{"defect.model.empty-close-misnormalized", mwMutations{emptyAcceptCode1002: true}, "InboundCloseNormalization"},
-		{"defect.model.unbounded-enqueue", mwMutations{sendUnbounded: true}, "QueueNeverExceedsCapacity"},
-		{"defect.model.truncated-tail-single-stage", mwMutations{truncSingleStage: true}, "TruncatedTailStaging"},
-		{"defect.model.truncated-tail-survives-close", mwMutations{truncSurvivesClose: true}, "TruncatedTailStaging"},
-		{"defect.model.reopen-after-terminal", mwMutations{reopenAfterTerminal: true}, "TerminalAbsorbing"},
+		{"defect.model.type-domain-escape", mwMutations{initCloseCodeFive: true}, "TypeInvariant",
+			[]string{"TypeInvariant"}},
+		{"defect.model.double-terminal-delivery", mwMutations{eofEnabledWhenClosed: true}, "TerminalDeliveredAtMostOnce",
+			[]string{"ClosedImpliesTerminalDeliveredOnce", "TerminalDeliveredAtMostOnce"}},
+		{"defect.model.closed-without-terminal-event", mwMutations{drainNoTerminal: true}, "ClosedImpliesTerminalDeliveredOnce",
+			[]string{"ClosedImpliesTerminalDeliveredOnce"}},
+		{"defect.model.closing-without-close-detail", mwMutations{localCloseNoDetail: true}, "CloseDetailPresentFromClosing",
+			[]string{"CloseDetailPresentFromClosing"}},
+		{"defect.model.error-close-with-normal-code", mwMutations{processRejectCode1000: true}, "ErrorCloseCodeDomain",
+			[]string{"ErrorCloseCodeDomain"}},
+		{"defect.model.empty-close-misnormalized", mwMutations{emptyAcceptCode1002: true}, "InboundCloseNormalization",
+			[]string{"InboundCloseNormalization"}},
+		{"defect.model.unbounded-enqueue", mwMutations{sendUnbounded: true}, "QueueNeverExceedsCapacity",
+			[]string{"QueueNeverExceedsCapacity"}},
+		{"defect.model.truncated-tail-single-stage", mwMutations{truncSingleStage: true}, "TruncatedTailStaging",
+			[]string{"TruncatedTailStaging"}},
+		{"defect.model.truncated-tail-survives-close", mwMutations{truncSurvivesClose: true}, "TruncatedTailStaging",
+			[]string{"TruncatedTailStaging"}},
+		{"defect.model.reopen-after-terminal", mwMutations{reopenAfterTerminal: true}, "TerminalAbsorbing",
+			[]string{"ClosedImpliesTerminalDeliveredOnce", "TerminalAbsorbing", "TerminalDeliveredAtMostOnce"}},
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.defect, func(t *testing.T) {
@@ -579,6 +598,16 @@ func TestModelWalkerSeededMutationsProduceCounterexamples(t *testing.T) {
 			trace, found := result.violations[testCase.target]
 			if !found {
 				t.Fatalf("mutation did not violate its target %s (violations: %v)", testCase.target, result.violations)
+			}
+			actual := make([]string, 0, len(result.violations))
+			for name := range result.violations {
+				actual = append(actual, name)
+			}
+			sort.Strings(actual)
+			expected := append([]string(nil), testCase.expected...)
+			sort.Strings(expected)
+			if !slices.Equal(actual, expected) {
+				t.Fatalf("mutation violation set %v does not equal the declared set %v", actual, expected)
 			}
 			t.Logf("counterexample: %s", strings.Join(trace, " -> "))
 		})
@@ -596,8 +625,10 @@ func TestModelWalkerSurvivesCloseTraceMatchesReviewer(t *testing.T) {
 	if !found {
 		t.Fatalf("expected a TruncatedTailStaging violation")
 	}
-	joined := strings.Join(trace, " -> ")
-	if !strings.Contains(joined, "RecvTextTruncatedTail") || !strings.Contains(joined, "LocalCloseValid") {
-		t.Fatalf("witness trace %q does not go through RecvTextTruncatedTail and LocalCloseValid", joined)
+	// Round-2 review finding: containment of two action names is not the
+	// reviewer's trace. Pin the exact ordered witness.
+	want := []string{"Init", "OpenHandshake", "RecvTextTruncatedTail", "LocalCloseValid"}
+	if !slices.Equal(trace, want) {
+		t.Fatalf("witness trace %v is not the reviewer's exact trace %v", trace, want)
 	}
 }

@@ -251,6 +251,12 @@
         "defect_id": {"type": "string", "pattern": "^defect\\.model\\.[a-z0-9-]+$"},
         "mutation": {"$ref": "#/$defs/text"},
         "target_property": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+        "expected_violation_set": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+          "description": "The EXACT set of invariants/properties this mutation violates (mutation specificity): the walker asserts set equality, so an undeclared extra violation is a test failure, not a footnote. Must contain target_property."
+        },
         "expected_result": {"const": "COUNTEREXAMPLE"},
         "execution_state": {"enum": ["MODEL_CHECK_PENDING_TOOL", "EXECUTED"]}
       }

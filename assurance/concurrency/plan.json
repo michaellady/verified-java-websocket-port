@@ -30,7 +30,10 @@
         "seam_id": "L1",
         "kind": "monitor",
         "name": "WebSocketImpl.synchronizeWriteObject",
-        "citations": ["WebSocketImpl.java:168", "WebSocketImpl.java:749-755"],
+        "citations": [
+          "WebSocketImpl.java:168",
+          "WebSocketImpl.java:749-755"
+        ],
         "classification": "load_bearing",
         "note": "Makes the multi-buffer enqueue of one message's frames atomic against other senders: wire order of frames within a message and non-interleaving of messages are peer-observable.",
         "rust_mapping": "Vacuous by construction: one SendText/SendBinary command is applied atomically by the single owner, which emits all of that command's write buffers before the next command. Plan invariant: committed writes of one command are contiguous."
@@ -39,7 +42,11 @@
         "seam_id": "L2",
         "kind": "monitor",
         "name": "WebSocketImpl instance monitor (close/closeConnection/flushAndClose)",
-        "citations": ["WebSocketImpl.java:463-507", "WebSocketImpl.java:530-567", "WebSocketImpl.java:584-606"],
+        "citations": [
+          "WebSocketImpl.java:463-507",
+          "WebSocketImpl.java:530-567",
+          "WebSocketImpl.java:584-606"
+        ],
         "classification": "load_bearing",
         "note": "The de-facto connection lock: exactly-once CLOSING transition and close-frame send (463-507), exactly-once terminal transition with onWebsocketClose at 557 and CLOSED at 566, flushandclosestate latch (584-606).",
         "rust_mapping": "The owner's serialized state machine; transitions are idempotent commands and the terminal event is emitted exactly once by construction (US-017 AC2)."
@@ -48,7 +55,12 @@
         "seam_id": "L3",
         "kind": "monitor",
         "name": "Draft_6455.byteBufferList monitor",
-        "citations": ["drafts/Draft_6455.java:1079", "drafts/Draft_6455.java:1089", "drafts/Draft_6455.java:1163-1175", "drafts/Draft_6455.java:1185-1191"],
+        "citations": [
+          "drafts/Draft_6455.java:1079",
+          "drafts/Draft_6455.java:1089",
+          "drafts/Draft_6455.java:1163-1175",
+          "drafts/Draft_6455.java:1185-1191"
+        ],
         "classification": "incidental",
         "note": "Decode is single-threaded per connection (Q2/Q4 pinning), so the lock defends a cross-thread reader the shipped threading never creates. The observable reassembly semantics including the checkBufferLimit cap (drafts/Draft_6455.java:1101-1108) are sequential logic.",
         "rust_mapping": "Plain owned Vec<Bytes> inside ConnectionCore's bounded state; no lock."
@@ -57,7 +69,12 @@
         "seam_id": "L4",
         "kind": "monitor",
         "name": "AbstractWebSocket.syncConnectionLost",
-        "citations": ["AbstractWebSocket.java:103", "AbstractWebSocket.java:137-162", "AbstractWebSocket.java:170-177", "AbstractWebSocket.java:185-194"],
+        "citations": [
+          "AbstractWebSocket.java:103",
+          "AbstractWebSocket.java:137-162",
+          "AbstractWebSocket.java:170-177",
+          "AbstractWebSocket.java:185-194"
+        ],
         "classification": "adapter_owned",
         "note": "Guards keepalive timer configuration and checker-service lifecycle; heartbeat is adapter-side wall-clock behavior and ConnectionCore stays clock-free.",
         "rust_mapping": "Adapter timer task issues Ping commands and an abnormal-close command on pong timeout; its own config is guarded by the adapter."
@@ -66,7 +83,10 @@
         "seam_id": "L5",
         "kind": "monitor",
         "name": "WebSocketServer synchronized(this) stop coordination and single-start latch",
-        "citations": ["server/WebSocketServer.java:313-318", "server/WebSocketServer.java:637-648"],
+        "citations": [
+          "server/WebSocketServer.java:313-318",
+          "server/WebSocketServer.java:637-648"
+        ],
         "classification": "adapter_owned",
         "note": "Server lifecycle only.",
         "rust_mapping": "Server adapter run-once guard and join-on-shutdown."
@@ -75,7 +95,13 @@
         "seam_id": "L6",
         "kind": "monitor",
         "name": "synchronized(connections) registry and broadcast frame cache",
-        "citations": ["server/WebSocketServer.java:303-305", "server/WebSocketServer.java:333-335", "server/WebSocketServer.java:809-818", "server/WebSocketServer.java:832-834", "server/WebSocketServer.java:1052-1080"],
+        "citations": [
+          "server/WebSocketServer.java:303-305",
+          "server/WebSocketServer.java:333-335",
+          "server/WebSocketServer.java:809-818",
+          "server/WebSocketServer.java:832-834",
+          "server/WebSocketServer.java:1052-1080"
+        ],
         "classification": "adapter_owned",
         "note": "Registry of live connections with snapshot-copy-before-iterate. Broadcast's per-draft frame cache (doBroadcast/fillFrames, 1052-1104) shares one Framedata across connections in Java.",
         "rust_mapping": "Server adapter owns the registry; broadcast becomes iterate + per-connection command enqueue sharing only immutable bytes (Arc) to keep the no-shared-mutable-state premise."
@@ -84,7 +110,10 @@
         "seam_id": "L7",
         "kind": "monitor",
         "name": "SSLSocketChannel synchronized read/write",
-        "citations": ["SSLSocketChannel.java:157", "SSLSocketChannel.java:208"],
+        "citations": [
+          "SSLSocketChannel.java:157",
+          "SSLSocketChannel.java:208"
+        ],
         "classification": "out_of_port_scope",
         "note": "TLS channels are outside the Sans-I/O core and the thin TCP adapters of US-018; listed for census completeness.",
         "rust_mapping": "None (out of scope)."
@@ -93,7 +122,11 @@
         "seam_id": "L8",
         "kind": "monitor",
         "name": "SSLSocketChannel2 synchronized processHandshake/wrap/unwrap",
-        "citations": ["SSLSocketChannel2.java:151", "SSLSocketChannel2.java:201", "SSLSocketChannel2.java:211"],
+        "citations": [
+          "SSLSocketChannel2.java:151",
+          "SSLSocketChannel2.java:201",
+          "SSLSocketChannel2.java:211"
+        ],
         "classification": "out_of_port_scope",
         "note": "Out of port scope, same rationale as L7; delegated-task executor is seam T7.",
         "rust_mapping": "None (out of scope)."
@@ -102,7 +135,14 @@
         "seam_id": "V1",
         "kind": "volatile_field",
         "name": "WebSocketImpl.readyState (the only volatile in the connection core)",
-        "citations": ["WebSocketImpl.java:127", "WebSocketImpl.java:220-243", "WebSocketImpl.java:668", "WebSocketImpl.java:769-791", "client/WebSocketClient.java:543", "SocketChannelIOHelper.java:110"],
+        "citations": [
+          "WebSocketImpl.java:127",
+          "WebSocketImpl.java:220-243",
+          "WebSocketImpl.java:668",
+          "WebSocketImpl.java:769-791",
+          "client/WebSocketClient.java:543",
+          "SocketChannelIOHelper.java:110"
+        ],
         "classification": "load_bearing",
         "note": "Written inside L2 methods and open(); read without any lock by decode, the state getters, the send gate, the client read loop, and the flush path. Permits check-then-act races (see race.send_vs_close).",
         "rust_mapping": "State is owned by the single owner; commands arriving after close initiation get a typed rejection; any external ready_state() snapshot is an advisory atomic load. The Java race window is not part of the deterministic behavior corpus."
@@ -111,7 +151,13 @@
         "seam_id": "R1",
         "kind": "plain_shared_field",
         "name": "WebSocketImpl.flushandclosestate",
-        "citations": ["WebSocketImpl.java:122", "WebSocketImpl.java:592", "WebSocketImpl.java:611", "WebSocketImpl.java:779-781", "SocketChannelIOHelper.java:110-113"],
+        "citations": [
+          "WebSocketImpl.java:122",
+          "WebSocketImpl.java:592",
+          "WebSocketImpl.java:611",
+          "WebSocketImpl.java:779-781",
+          "SocketChannelIOHelper.java:110-113"
+        ],
         "classification": "load_bearing",
         "note": "Written only under L2 (592); read without the monitor by eot() and isFlushAndClose() from the selector thread. A JMM data race, benign in practice; drives server-side close-once-outQueue-drains.",
         "rust_mapping": "A plain field of the owner's state: the flush path is an owner action, so the read is naturally ordered."
@@ -120,7 +166,11 @@
         "seam_id": "R2",
         "kind": "plain_shared_field",
         "name": "WebSocketImpl.lastPong",
-        "citations": ["WebSocketImpl.java:163", "WebSocketImpl.java:842-851", "AbstractWebSocket.java:244-260"],
+        "citations": [
+          "WebSocketImpl.java:163",
+          "WebSocketImpl.java:842-851",
+          "AbstractWebSocket.java:244-260"
+        ],
         "classification": "adapter_owned",
         "note": "Unsynchronized 64-bit read/write between the decode thread (PONG processing, open()) and the connectionLostChecker thread; formally racy in Java.",
         "rust_mapping": "Adapter keeps the timestamp updated from a PongObserved event emitted by the owner."
@@ -129,7 +179,12 @@
         "seam_id": "R3",
         "kind": "plain_shared_field",
         "name": "WebSocketImpl.closecode/closemessage/closedremotely",
-        "citations": ["WebSocketImpl.java:154-156", "WebSocketImpl.java:588-590", "WebSocketImpl.java:573-578", "WebSocketImpl.java:611-612"],
+        "citations": [
+          "WebSocketImpl.java:154-156",
+          "WebSocketImpl.java:588-590",
+          "WebSocketImpl.java:573-578",
+          "WebSocketImpl.java:611-612"
+        ],
         "classification": "load_bearing",
         "note": "Written under L2 in flushAndClose; read by the no-argument closeConnection and eot(), ordered in practice by the flushandclosestate latch protocol; the triple is delivered verbatim in the terminal event.",
         "rust_mapping": "Fields of the owner's Closing state variant: impossible to read before set, by type."
@@ -138,7 +193,11 @@
         "seam_id": "R4",
         "kind": "plain_shared_field",
         "name": "WebSocketImpl.tmpHandshakeBytes",
-        "citations": ["WebSocketImpl.java:147", "WebSocketImpl.java:504", "WebSocketImpl.java:248-264"],
+        "citations": [
+          "WebSocketImpl.java:147",
+          "WebSocketImpl.java:504",
+          "WebSocketImpl.java:248-264"
+        ],
         "classification": "load_bearing",
         "note": "Decode-thread handshake accumulation buffer, nulled inside synchronized close (504) while decodeHandshake may be mid-use: a genuine Java race window (incidental as a race, load-bearing as buffering semantics; see race.handshake_buffer_vs_close).",
         "rust_mapping": "Handshake buffer owned by the owner; close command and inbound bytes are serialized, so the race is structurally absent; buffering and limit semantics ported exactly (US-005 handshake corpus)."
@@ -147,7 +206,16 @@
         "seam_id": "R5",
         "kind": "plain_shared_field",
         "name": "Draft_6455 decoder state vs draft.reset()",
-        "citations": ["drafts/Draft_6455.java:804-811", "drafts/Draft_6455.java:118", "drafts/Draft_6455.java:133", "drafts/Draft_6455.java:138", "drafts/Draft_6455.java:148", "drafts/Draft_6455.java:158", "WebSocketImpl.java:562-564", "WebSocketImpl.java:602-604"],
+        "citations": [
+          "drafts/Draft_6455.java:804-811",
+          "drafts/Draft_6455.java:118",
+          "drafts/Draft_6455.java:133",
+          "drafts/Draft_6455.java:138",
+          "drafts/Draft_6455.java:148",
+          "drafts/Draft_6455.java:158",
+          "WebSocketImpl.java:562-564",
+          "WebSocketImpl.java:602-604"
+        ],
         "classification": "load_bearing",
         "note": "incompleteframe/currentContinuousFrame/extension/protocol are decode-thread state, but reset() runs from whatever thread initiates close, racing an in-flight translateFrame/processFrame (see race.reset_vs_decode). Load-bearing in aggregate: post-close frame processing must stop and reassembly state must drop.",
         "rust_mapping": "Reset is an owner-internal effect of the close transition; inbound bytes after the close transition are handled by the state machine (decode gated on OPEN, WebSocketImpl.java:227-232)."
@@ -156,7 +224,16 @@
         "seam_id": "R6",
         "kind": "plain_shared_field",
         "name": "WebSocketClient lifecycle fields (socket/ostream/writeThread/connectReadThread/engine)",
-        "citations": ["client/WebSocketClient.java:84", "client/WebSocketClient.java:89", "client/WebSocketClient.java:101", "client/WebSocketClient.java:111", "client/WebSocketClient.java:116", "client/WebSocketClient.java:335-371", "client/WebSocketClient.java:377-384", "client/WebSocketClient.java:477-554"],
+        "citations": [
+          "client/WebSocketClient.java:84",
+          "client/WebSocketClient.java:89",
+          "client/WebSocketClient.java:101",
+          "client/WebSocketClient.java:111",
+          "client/WebSocketClient.java:116",
+          "client/WebSocketClient.java:335-371",
+          "client/WebSocketClient.java:377-384",
+          "client/WebSocketClient.java:477-554"
+        ],
         "classification": "adapter_owned",
         "note": "Mutated across connect()/run()/reset()/onWebsocketClose with interrupt+join as the sync points.",
         "rust_mapping": "Client adapter owns the socket and two tasks (reader, flusher) joined on shutdown; reconnect rebuilds them."
@@ -165,7 +242,13 @@
         "seam_id": "R7",
         "kind": "plain_shared_field",
         "name": "WebSocketImpl.key/channel/workerThread",
-        "citations": ["WebSocketImpl.java:108", "WebSocketImpl.java:113", "WebSocketImpl.java:118", "server/WebSocketServer.java:696-702", "WebSocketImpl.java:540-555"],
+        "citations": [
+          "WebSocketImpl.java:108",
+          "WebSocketImpl.java:113",
+          "WebSocketImpl.java:118",
+          "server/WebSocketServer.java:696-702",
+          "WebSocketImpl.java:540-555"
+        ],
         "classification": "adapter_owned",
         "note": "NIO plumbing set by the selector thread and read by L2 closeConnection from arbitrary closing threads.",
         "rust_mapping": "The adapters own the socket handle; ConnectionCore never sees it (Sans-I/O)."
@@ -174,7 +257,14 @@
         "seam_id": "Q1",
         "kind": "queue",
         "name": "WebSocketImpl.outQueue (unbounded LinkedBlockingQueue)",
-        "citations": ["WebSocketImpl.java:98", "WebSocketImpl.java:206", "WebSocketImpl.java:736-742", "SocketChannelIOHelper.java:82-115", "client/WebSocketClient.java:837-851", "server/WebSocketServer.java:848-857"],
+        "citations": [
+          "WebSocketImpl.java:98",
+          "WebSocketImpl.java:206",
+          "WebSocketImpl.java:736-742",
+          "SocketChannelIOHelper.java:82-115",
+          "client/WebSocketClient.java:837-851",
+          "server/WebSocketServer.java:848-857"
+        ],
         "classification": "load_bearing",
         "note": "FIFO order is wire order; write-then-onWriteDemand is the flush trigger; unboundedness means Java has NO send backpressure; the queue is cleared wholesale on CancelledKeyException, silently dropping enqueued writes at close.",
         "rust_mapping": "Bounded command/write queues with a typed QUEUE_FULL_REJECTED outcome (divergence.bounded-command-queue) and a typed DROPPED_ON_CLOSE outcome (divergence.silent-drop-on-close); committed writes preserved in order."
@@ -183,7 +273,14 @@
         "seam_id": "Q2",
         "kind": "queue",
         "name": "WebSocketImpl.inQueue",
-        "citations": ["WebSocketImpl.java:102", "WebSocketImpl.java:207", "server/WebSocketServer.java:485", "server/WebSocketServer.java:557", "server/WebSocketServer.java:1135-1136", "client/WebSocketClient.java:542-546"],
+        "citations": [
+          "WebSocketImpl.java:102",
+          "WebSocketImpl.java:207",
+          "server/WebSocketServer.java:485",
+          "server/WebSocketServer.java:557",
+          "server/WebSocketServer.java:1135-1136",
+          "client/WebSocketClient.java:542-546"
+        ],
         "classification": "load_bearing",
         "note": "Server-only in practice (selector produces, pinned worker consumes; the client decodes directly on its read thread). Load-bearing for ordering only: arrival order equals decode order; the queue mechanism itself is incidental.",
         "rust_mapping": "The owner consumes inbound bytes directly as BytesIn actions in arrival order."
@@ -192,7 +289,13 @@
         "seam_id": "Q3",
         "kind": "queue",
         "name": "WebSocketServer.buffers pool + queuesize ceiling",
-        "citations": ["server/WebSocketServer.java:119", "server/WebSocketServer.java:251", "server/WebSocketServer.java:678-684", "server/WebSocketServer.java:704-706", "server/WebSocketServer.java:708-713"],
+        "citations": [
+          "server/WebSocketServer.java:119",
+          "server/WebSocketServer.java:251",
+          "server/WebSocketServer.java:678-684",
+          "server/WebSocketServer.java:704-706",
+          "server/WebSocketServer.java:708-713"
+        ],
         "classification": "adapter_owned",
         "note": "Read-buffer pool for the NIO adapter; the selector thread blocks when the pool is empty, an implicit global inbound backpressure mechanism that is emergent Java behavior.",
         "rust_mapping": "The blocking adapter (US-018) gets explicit bounded read-buffer accounting instead; an adapter-level behavior consideration, not core."
@@ -201,7 +304,12 @@
         "seam_id": "Q4",
         "kind": "queue",
         "name": "WebSocketWorker.iqueue with per-connection worker pinning",
-        "citations": ["server/WebSocketServer.java:1111", "server/WebSocketServer.java:1114", "server/WebSocketServer.java:696-702", "server/WebSocketServer.java:1129-1154"],
+        "citations": [
+          "server/WebSocketServer.java:1111",
+          "server/WebSocketServer.java:1114",
+          "server/WebSocketServer.java:696-702",
+          "server/WebSocketServer.java:1129-1154"
+        ],
         "classification": "load_bearing",
         "note": "Pinning each connection to exactly one worker serializes per-connection decode while allowing cross-connection parallelism. Load-bearing as an invariant (per-connection frame processing serialized in arrival order; callbacks for one connection never run concurrently); incidental as a mechanism.",
         "rust_mapping": "The single owner IS the serialization; cross-connection parallelism is one owner task per connection."
@@ -210,7 +318,11 @@
         "seam_id": "Q5",
         "kind": "queue",
         "name": "WebSocketServer.iqueue (List, selector-thread-only)",
-        "citations": ["server/WebSocketServer.java:118", "server/WebSocketServer.java:248", "server/WebSocketServer.java:474-495"],
+        "citations": [
+          "server/WebSocketServer.java:118",
+          "server/WebSocketServer.java:248",
+          "server/WebSocketServer.java:474-495"
+        ],
         "classification": "incidental",
         "note": "Wrapped-channel re-read list, single-threaded and largely SSL-specific.",
         "rust_mapping": "None needed; adapter-internal."
@@ -219,7 +331,13 @@
         "seam_id": "A1",
         "kind": "atomic",
         "name": "WebSocketServer.isclosed AtomicBoolean",
-        "citations": ["server/WebSocketServer.java:114", "server/WebSocketServer.java:295-298", "server/WebSocketServer.java:416-422", "server/WebSocketServer.java:830-840", "server/WebSocketServer.java:819-821"],
+        "citations": [
+          "server/WebSocketServer.java:114",
+          "server/WebSocketServer.java:295-298",
+          "server/WebSocketServer.java:416-422",
+          "server/WebSocketServer.java:830-840",
+          "server/WebSocketServer.java:819-821"
+        ],
         "classification": "adapter_owned",
         "note": "Shutdown semantics are observable: stop is idempotent, in-flight close handshakes get a bounded window, and late connections are refused with GOING_AWAY.",
         "rust_mapping": "Server adapter shutdown gate mirroring the same observable semantics (GOING_AWAY for late handshakes)."
@@ -228,7 +346,11 @@
         "seam_id": "A2",
         "kind": "atomic",
         "name": "WebSocketServer.queuesize AtomicInteger",
-        "citations": ["server/WebSocketServer.java:121", "server/WebSocketServer.java:678-684", "server/WebSocketServer.java:708-713"],
+        "citations": [
+          "server/WebSocketServer.java:121",
+          "server/WebSocketServer.java:678-684",
+          "server/WebSocketServer.java:708-713"
+        ],
         "classification": "adapter_owned",
         "note": "Buffer-pool ceiling arithmetic; incidental beyond the adapter.",
         "rust_mapping": "Adapter-internal accounting."
@@ -237,7 +359,9 @@
         "seam_id": "A3",
         "kind": "atomic",
         "name": "NamedThreadFactory.threadNumber AtomicInteger",
-        "citations": ["util/NamedThreadFactory.java:35"],
+        "citations": [
+          "util/NamedThreadFactory.java:35"
+        ],
         "classification": "incidental",
         "note": "Thread naming only; the migration map routes the seam to US-017 as the study-surface thread seam.",
         "rust_mapping": "Thread/task naming in the adapters."
@@ -246,7 +370,12 @@
         "seam_id": "C1",
         "kind": "latch",
         "name": "WebSocketClient.connectLatch",
-        "citations": ["client/WebSocketClient.java:131", "client/WebSocketClient.java:393-412", "client/WebSocketClient.java:676", "client/WebSocketClient.java:689"],
+        "citations": [
+          "client/WebSocketClient.java:131",
+          "client/WebSocketClient.java:393-412",
+          "client/WebSocketClient.java:676",
+          "client/WebSocketClient.java:689"
+        ],
         "classification": "adapter_owned",
         "note": "Counted down on BOTH open and close so connectBlocking returns false on failed connects instead of hanging; blocking-connect semantics including the failure path are observable.",
         "rust_mapping": "Oneshot completed by the first Open-or-Terminal event."
@@ -255,7 +384,11 @@
         "seam_id": "C2",
         "kind": "latch",
         "name": "WebSocketClient.closeLatch",
-        "citations": ["client/WebSocketClient.java:136", "client/WebSocketClient.java:434-437", "client/WebSocketClient.java:690"],
+        "citations": [
+          "client/WebSocketClient.java:136",
+          "client/WebSocketClient.java:434-437",
+          "client/WebSocketClient.java:690"
+        ],
         "classification": "adapter_owned",
         "note": "Counted down on close; awaited by closeBlocking.",
         "rust_mapping": "Oneshot completed by the terminal event."
@@ -264,7 +397,16 @@
         "seam_id": "T1",
         "kind": "thread_boundary",
         "name": "Server selector thread",
-        "citations": ["server/WebSocketServer.java:268-275", "server/WebSocketServer.java:403-466", "server/WebSocketServer.java:474-495", "server/WebSocketServer.java:544-575", "server/WebSocketServer.java:583-592", "server/WebSocketServer.java:653-676", "SocketChannelIOHelper.java:44-48", "SocketChannelIOHelper.java:110-113"],
+        "citations": [
+          "server/WebSocketServer.java:268-275",
+          "server/WebSocketServer.java:403-466",
+          "server/WebSocketServer.java:474-495",
+          "server/WebSocketServer.java:544-575",
+          "server/WebSocketServer.java:583-592",
+          "server/WebSocketServer.java:653-676",
+          "SocketChannelIOHelper.java:44-48",
+          "SocketChannelIOHelper.java:110-113"
+        ],
         "classification": "adapter_owned",
         "note": "Owns socket I/O, outQueue drain, the buffer pool, eot on EOF, and server-role close-on-flush. Boundary events: onWriteDemand from any sender sets OP_WRITE and wakes the selector (server/WebSocketServer.java:848-857).",
         "rust_mapping": "Flush task; server-side close-after-drain becomes an owner-scheduled effect."
@@ -273,7 +415,11 @@
         "seam_id": "T2",
         "kind": "thread_boundary",
         "name": "WebSocketWorker pool (decode + user callbacks)",
-        "citations": ["server/WebSocketServer.java:1109-1172", "server/WebSocketServer.java:253", "server/WebSocketServer.java:1146-1152"],
+        "citations": [
+          "server/WebSocketServer.java:1109-1172",
+          "server/WebSocketServer.java:253",
+          "server/WebSocketServer.java:1146-1152"
+        ],
         "classification": "load_bearing",
         "note": "Each worker runs decode -> processFrame -> user callbacks; callback thread identity and per-connection callback serialization are observable to user code; the uncaught-throwable path closes the connection.",
         "rust_mapping": "Owner task delivers events to the delivery sink in order; callback serialization holds by construction."
@@ -282,7 +428,10 @@
         "seam_id": "T3",
         "kind": "thread_boundary",
         "name": "connectionLostChecker scheduled thread",
-        "citations": ["AbstractWebSocket.java:201-234", "AbstractWebSocket.java:244-260"],
+        "citations": [
+          "AbstractWebSocket.java:201-234",
+          "AbstractWebSocket.java:244-260"
+        ],
         "classification": "adapter_owned",
         "note": "Per-tick snapshot + sendPing or abnormal closeConnection: a third mutator of connection state concurrent with the selector/worker and user threads (see race.timer_vs_worker).",
         "rust_mapping": "Adapter timer emits Ping / abnormal-close commands through the owner queue."
@@ -291,7 +440,11 @@
         "seam_id": "T4",
         "kind": "thread_boundary",
         "name": "Client connectReadThread",
-        "citations": ["client/WebSocketClient.java:377-384", "client/WebSocketClient.java:477-554", "client/WebSocketClient.java:620-647"],
+        "citations": [
+          "client/WebSocketClient.java:377-384",
+          "client/WebSocketClient.java:477-554",
+          "client/WebSocketClient.java:620-647"
+        ],
         "classification": "adapter_owned",
         "note": "Socket setup, sendHandshake, then the read/decode loop ending in eot().",
         "rust_mapping": "Client adapter reader task."
@@ -300,7 +453,12 @@
         "seam_id": "T5",
         "kind": "thread_boundary",
         "name": "Client WebsocketWriteThread",
-        "citations": ["client/WebSocketClient.java:534-536", "client/WebSocketClient.java:812-865", "client/WebSocketClient.java:837-851", "client/WebSocketClient.java:856-864"],
+        "citations": [
+          "client/WebSocketClient.java:534-536",
+          "client/WebSocketClient.java:812-865",
+          "client/WebSocketClient.java:837-851",
+          "client/WebSocketClient.java:856-864"
+        ],
         "classification": "adapter_owned",
         "note": "outQueue.take loop with interrupt-drain, then closeSocket in finally: socket teardown is the write thread's job, triggered by interrupt.",
         "rust_mapping": "Shutdown command drains committed writes, then the adapter closes the socket."
@@ -309,7 +467,14 @@
         "seam_id": "T6",
         "kind": "thread_boundary",
         "name": "User caller threads (send*/close/broadcast/sendPing)",
-        "citations": ["WebSocketImpl.java:641", "WebSocketImpl.java:655", "WebSocketImpl.java:663", "WebSocketImpl.java:697", "WebSocketImpl.java:510-512", "server/WebSocketServer.java:985-1080"],
+        "citations": [
+          "WebSocketImpl.java:641",
+          "WebSocketImpl.java:655",
+          "WebSocketImpl.java:663",
+          "WebSocketImpl.java:697",
+          "WebSocketImpl.java:510-512",
+          "server/WebSocketServer.java:985-1080"
+        ],
         "classification": "load_bearing",
         "note": "Any thread may call the send/close surface: these are the multiple producers of US-017 AC1.",
         "rust_mapping": "N producers enqueue typed commands onto the bounded MPSC queue."
@@ -318,7 +483,10 @@
         "seam_id": "T7",
         "kind": "thread_boundary",
         "name": "SSL delegated-task executor",
-        "citations": ["SSLSocketChannel2.java:71", "SSLSocketChannel2.java:132-141"],
+        "citations": [
+          "SSLSocketChannel2.java:71",
+          "SSLSocketChannel2.java:132-141"
+        ],
         "classification": "out_of_port_scope",
         "note": "Out of port scope with L7/L8.",
         "rust_mapping": "None (out of scope)."
@@ -329,121 +497,324 @@
     {
       "action_id": "action.command_enqueue.send_text",
       "actor": "producer_task",
-      "java_seams": ["Q1", "L1", "V1", "T6"],
-      "java_citations": ["WebSocketImpl.java:641", "WebSocketImpl.java:668", "WebSocketImpl.java:736-742", "WebSocketImpl.java:749-755"],
-      "preconditions": ["connection observed open via the advisory state snapshot", "command queue below command_queue_capacity"],
-      "effects": ["SendText command committed to the bounded MPSC queue", "owner will emit that command's frames contiguously in commit order"],
-      "observable_outcomes": ["ACCEPTED", "QUEUE_FULL_REJECTED", "TYPED_REJECTION_POST_CLOSE"],
+      "java_seams": [
+        "Q1",
+        "L1",
+        "V1",
+        "T6"
+      ],
+      "java_citations": [
+        "WebSocketImpl.java:641",
+        "WebSocketImpl.java:668",
+        "WebSocketImpl.java:736-742",
+        "WebSocketImpl.java:749-755"
+      ],
+      "preconditions": [
+        "connection observed open via the advisory state snapshot",
+        "command queue below command_queue_capacity"
+      ],
+      "effects": [
+        "SendText command committed to the bounded MPSC queue",
+        "owner will emit that command's frames contiguously in commit order"
+      ],
+      "observable_outcomes": [
+        "ACCEPTED",
+        "QUEUE_FULL_REJECTED",
+        "TYPED_REJECTION_POST_CLOSE"
+      ],
       "max_occurrences_per_schedule": 8
     },
     {
       "action_id": "action.command_enqueue.send_binary",
       "actor": "producer_task",
-      "java_seams": ["Q1", "L1", "V1", "T6"],
-      "java_citations": ["WebSocketImpl.java:655", "WebSocketImpl.java:663", "WebSocketImpl.java:736-742", "WebSocketImpl.java:749-755"],
-      "preconditions": ["connection observed open via the advisory state snapshot", "command queue below command_queue_capacity"],
-      "effects": ["SendBinary command committed", "contiguous emission in commit order"],
-      "observable_outcomes": ["ACCEPTED", "QUEUE_FULL_REJECTED", "TYPED_REJECTION_POST_CLOSE"],
+      "java_seams": [
+        "Q1",
+        "L1",
+        "V1",
+        "T6"
+      ],
+      "java_citations": [
+        "WebSocketImpl.java:655",
+        "WebSocketImpl.java:663",
+        "WebSocketImpl.java:736-742",
+        "WebSocketImpl.java:749-755"
+      ],
+      "preconditions": [
+        "connection observed open via the advisory state snapshot",
+        "command queue below command_queue_capacity"
+      ],
+      "effects": [
+        "SendBinary command committed",
+        "contiguous emission in commit order"
+      ],
+      "observable_outcomes": [
+        "ACCEPTED",
+        "QUEUE_FULL_REJECTED",
+        "TYPED_REJECTION_POST_CLOSE"
+      ],
       "max_occurrences_per_schedule": 8
     },
     {
       "action_id": "action.command_enqueue.ping",
       "actor": "producer_task",
-      "java_seams": ["Q1", "V1", "T6"],
-      "java_citations": ["WebSocketImpl.java:697", "WebSocketImpl.java:736-742"],
-      "preconditions": ["connection observed open", "command queue below command_queue_capacity"],
-      "effects": ["Ping command committed; note the pinned runtime performs no control-payload-size check on send (US-005 model scoping)"],
-      "observable_outcomes": ["ACCEPTED", "QUEUE_FULL_REJECTED", "TYPED_REJECTION_POST_CLOSE"],
+      "java_seams": [
+        "Q1",
+        "V1",
+        "T6"
+      ],
+      "java_citations": [
+        "WebSocketImpl.java:697",
+        "WebSocketImpl.java:736-742"
+      ],
+      "preconditions": [
+        "connection observed open",
+        "command queue below command_queue_capacity"
+      ],
+      "effects": [
+        "Ping command committed; note the pinned runtime performs no control-payload-size check on send (US-005 model scoping)"
+      ],
+      "observable_outcomes": [
+        "ACCEPTED",
+        "QUEUE_FULL_REJECTED",
+        "TYPED_REJECTION_POST_CLOSE"
+      ],
       "max_occurrences_per_schedule": 4
     },
     {
       "action_id": "action.command_enqueue.close",
       "actor": "producer_task",
-      "java_seams": ["L2", "V1", "T6"],
-      "java_citations": ["WebSocketImpl.java:510-512", "WebSocketImpl.java:463-507", "framing/CloseFrame.java:179-184", "framing/CloseFrame.java:226-243"],
-      "preconditions": ["none: close is accepted in every state"],
-      "effects": ["owner performs the exactly-once CLOSING transition; wire-illegal codes (for example 1015 -> setCode-normalized 1005 -> isValid reject) take the abnormal-1006 fallback instead of sending a close frame (WebSocketImpl.java:488-492)"],
-      "observable_outcomes": ["ACCEPTED", "IDEMPOTENT_NOOP_ALREADY_CLOSING", "INVALID_CODE_ABNORMAL_FALLBACK"],
+      "java_seams": [
+        "L2",
+        "V1",
+        "T6"
+      ],
+      "java_citations": [
+        "WebSocketImpl.java:510-512",
+        "WebSocketImpl.java:463-507",
+        "framing/CloseFrame.java:179-184",
+        "framing/CloseFrame.java:226-243"
+      ],
+      "preconditions": [
+        "none: close is accepted in every state"
+      ],
+      "effects": [
+        "owner performs the exactly-once CLOSING transition; wire-illegal codes (for example 1015 -> setCode-normalized 1005 -> isValid reject) take the abnormal-1006 fallback instead of sending a close frame (WebSocketImpl.java:488-492)"
+      ],
+      "observable_outcomes": [
+        "ACCEPTED",
+        "IDEMPOTENT_NOOP_ALREADY_CLOSING",
+        "INVALID_CODE_ABNORMAL_FALLBACK"
+      ],
       "max_occurrences_per_schedule": 2
     },
     {
       "action_id": "action.inbound_frame",
       "actor": "owner_task",
-      "java_seams": ["Q2", "Q4", "T2", "V1"],
-      "java_citations": ["WebSocketImpl.java:220-243", "drafts/Draft_6455.java:893-918", "server/WebSocketServer.java:485", "server/WebSocketServer.java:1129-1154"],
-      "preconditions": ["state OPEN (decode gate WebSocketImpl.java:227-232)", "in-flight inbound bytes below max_inflight_inbound_bytes"],
-      "effects": ["frame applied to ConnectionCore in arrival order", "message/control events emitted in order"],
-      "observable_outcomes": ["MESSAGE_DELIVERED", "CONTROL_OBSERVED", "INVALID_DATA_CLOSE_INITIATED", "RUNTIME_REJECTION_LOGGED"],
+      "java_seams": [
+        "Q2",
+        "Q4",
+        "T2",
+        "V1"
+      ],
+      "java_citations": [
+        "WebSocketImpl.java:220-243",
+        "drafts/Draft_6455.java:893-918",
+        "server/WebSocketServer.java:485",
+        "server/WebSocketServer.java:1129-1154"
+      ],
+      "preconditions": [
+        "state OPEN (decode gate WebSocketImpl.java:227-232)",
+        "in-flight inbound bytes below max_inflight_inbound_bytes"
+      ],
+      "effects": [
+        "frame applied to ConnectionCore in arrival order",
+        "message/control events emitted in order"
+      ],
+      "observable_outcomes": [
+        "MESSAGE_DELIVERED",
+        "CONTROL_OBSERVED",
+        "INVALID_DATA_CLOSE_INITIATED",
+        "RUNTIME_REJECTION_LOGGED"
+      ],
       "max_occurrences_per_schedule": 8
     },
     {
       "action_id": "action.inbound_close",
       "actor": "owner_task",
-      "java_seams": ["L2", "V1", "T2"],
-      "java_citations": ["drafts/Draft_6455.java:1054-1073", "framing/CloseFrame.java:246-273", "framing/CloseFrame.java:226-243", "WebSocketImpl.java:463-507", "WebSocketImpl.java:530-567"],
-      "preconditions": ["state OPEN or CLOSING"],
-      "effects": ["payload normalized per the CloseFrame setPayload/isValid table read from source (empty -> 1000 per CloseFrame.java:250-251, one byte -> 1002, isValid rejects -> 1007/1002, invalid-UTF-8 reason -> runtime rejection); the rejection-path codes are additionally live-confirmed by the jm-close-code-1000 kills, the accept-path rows are not", "OPEN: echo close + CLOSING; CLOSING: handshake completes, terminal delivery"],
-      "observable_outcomes": ["ECHO_CLOSE_AND_CLOSING", "HANDSHAKE_COMPLETED_CLOSED", "INVALID_DATA_CLOSE_INITIATED", "RUNTIME_REJECTION_LOGGED"],
+      "java_seams": [
+        "L2",
+        "V1",
+        "T2"
+      ],
+      "java_citations": [
+        "drafts/Draft_6455.java:1054-1073",
+        "framing/CloseFrame.java:246-273",
+        "framing/CloseFrame.java:226-243",
+        "WebSocketImpl.java:463-507",
+        "WebSocketImpl.java:530-567"
+      ],
+      "preconditions": [
+        "state OPEN or CLOSING"
+      ],
+      "effects": [
+        "payload normalized per the CloseFrame setPayload/isValid table read from source (empty -> 1000 per CloseFrame.java:250-251, one byte -> 1002, isValid rejects -> 1007/1002, invalid-UTF-8 reason -> runtime rejection); the rejection-path codes are additionally live-confirmed by the jm-close-code-1000 kills, the accept-path rows are not",
+        "OPEN: echo close + CLOSING; CLOSING: handshake completes, terminal delivery"
+      ],
+      "observable_outcomes": [
+        "ECHO_CLOSE_AND_CLOSING",
+        "HANDSHAKE_COMPLETED_CLOSED",
+        "INVALID_DATA_CLOSE_INITIATED",
+        "RUNTIME_REJECTION_LOGGED"
+      ],
       "max_occurrences_per_schedule": 2
     },
     {
       "action_id": "action.inbound_eof",
       "actor": "transport",
-      "java_seams": ["T1", "L2", "R3"],
-      "java_citations": ["SocketChannelIOHelper.java:44-48", "WebSocketImpl.java:608-624", "WebSocketImpl.java:530-567"],
-      "preconditions": ["state not CLOSED"],
-      "effects": ["terminal transition: NEVER_CONNECTED before the handshake, stored close triple when flush-and-close latched, abnormal 1006 otherwise"],
-      "observable_outcomes": ["TERMINAL_DELIVERED_NEVER_CONNECTED", "TERMINAL_DELIVERED_STORED_CODE", "TERMINAL_DELIVERED_ABNORMAL"],
+      "java_seams": [
+        "T1",
+        "L2",
+        "R3"
+      ],
+      "java_citations": [
+        "SocketChannelIOHelper.java:44-48",
+        "WebSocketImpl.java:608-624",
+        "WebSocketImpl.java:530-567"
+      ],
+      "preconditions": [
+        "state not CLOSED"
+      ],
+      "effects": [
+        "terminal transition: NEVER_CONNECTED before the handshake, stored close triple when flush-and-close latched, abnormal 1006 otherwise"
+      ],
+      "observable_outcomes": [
+        "TERMINAL_DELIVERED_NEVER_CONNECTED",
+        "TERMINAL_DELIVERED_STORED_CODE",
+        "TERMINAL_DELIVERED_ABNORMAL"
+      ],
       "max_occurrences_per_schedule": 1
     },
     {
       "action_id": "action.outbound_flush",
       "actor": "flusher_task",
-      "java_seams": ["Q1", "T1", "R1"],
-      "java_citations": ["SocketChannelIOHelper.java:82-115", "server/WebSocketServer.java:583-592", "server/WebSocketServer.java:848-857"],
-      "preconditions": ["write queue nonempty"],
-      "effects": ["head-first FIFO drain, partial-write aware; server-role close-after-drain when the flush-and-close latch is set (SocketChannelIOHelper.java:110-113)"],
-      "observable_outcomes": ["WRITES_FLUSHED_FIFO", "PARTIAL_WRITE_RETAINED", "CLOSE_ON_DRAIN_TRIGGERED"],
+      "java_seams": [
+        "Q1",
+        "T1",
+        "R1"
+      ],
+      "java_citations": [
+        "SocketChannelIOHelper.java:82-115",
+        "server/WebSocketServer.java:583-592",
+        "server/WebSocketServer.java:848-857"
+      ],
+      "preconditions": [
+        "write queue nonempty"
+      ],
+      "effects": [
+        "head-first FIFO drain, partial-write aware; server-role close-after-drain when the flush-and-close latch is set (SocketChannelIOHelper.java:110-113)"
+      ],
+      "observable_outcomes": [
+        "WRITES_FLUSHED_FIFO",
+        "PARTIAL_WRITE_RETAINED",
+        "CLOSE_ON_DRAIN_TRIGGERED"
+      ],
       "max_occurrences_per_schedule": 16
     },
     {
       "action_id": "action.shutdown",
       "actor": "server_adapter",
-      "java_seams": ["A1", "L5", "L6", "T1"],
-      "java_citations": ["server/WebSocketServer.java:295-298", "server/WebSocketServer.java:303-318", "server/WebSocketServer.java:653-676", "server/WebSocketServer.java:830-840"],
-      "preconditions": ["none: shutdown is accepted at any time"],
-      "effects": ["idempotent stop gate; in-flight close handshakes get a bounded drain window; late connections refused with GOING_AWAY"],
-      "observable_outcomes": ["SHUTDOWN_IDEMPOTENT", "LATE_CONNECTION_GOING_AWAY", "DRAIN_WINDOW_BOUNDED"],
+      "java_seams": [
+        "A1",
+        "L5",
+        "L6",
+        "T1"
+      ],
+      "java_citations": [
+        "server/WebSocketServer.java:295-298",
+        "server/WebSocketServer.java:303-318",
+        "server/WebSocketServer.java:653-676",
+        "server/WebSocketServer.java:830-840"
+      ],
+      "preconditions": [
+        "none: shutdown is accepted at any time"
+      ],
+      "effects": [
+        "idempotent stop gate; in-flight close handshakes get a bounded drain window; late connections refused with GOING_AWAY"
+      ],
+      "observable_outcomes": [
+        "SHUTDOWN_IDEMPOTENT",
+        "LATE_CONNECTION_GOING_AWAY",
+        "DRAIN_WINDOW_BOUNDED"
+      ],
       "max_occurrences_per_schedule": 1
     },
     {
       "action_id": "action.callback_delivery",
       "actor": "owner_task",
-      "java_seams": ["T2", "Q4", "L2"],
-      "java_citations": ["server/WebSocketServer.java:1129-1154", "WebSocketImpl.java:530-567"],
-      "preconditions": ["an ordered event is pending in the delivery sink"],
-      "effects": ["events for one connection delivered serially in emission order; the terminal event exactly once"],
-      "observable_outcomes": ["CALLBACK_SERIALIZED_PER_CONNECTION", "TERMINAL_DELIVERED_EXACTLY_ONCE"],
+      "java_seams": [
+        "T2",
+        "Q4",
+        "L2"
+      ],
+      "java_citations": [
+        "server/WebSocketServer.java:1129-1154",
+        "WebSocketImpl.java:530-567"
+      ],
+      "preconditions": [
+        "an ordered event is pending in the delivery sink"
+      ],
+      "effects": [
+        "events for one connection delivered serially in emission order; the terminal event exactly once"
+      ],
+      "observable_outcomes": [
+        "CALLBACK_SERIALIZED_PER_CONNECTION",
+        "TERMINAL_DELIVERED_EXACTLY_ONCE"
+      ],
       "max_occurrences_per_schedule": 16
     },
     {
       "action_id": "action.backpressure_reject",
       "actor": "owner_task",
-      "java_seams": ["Q1"],
-      "java_citations": ["WebSocketImpl.java:98", "WebSocketImpl.java:206"],
-      "preconditions": ["command or write queue at capacity"],
-      "effects": ["admission fails with a typed outcome instead of unbounded growth: the deliberate divergence from Java's unbounded LinkedBlockingQueue (divergence.bounded-command-queue)"],
-      "observable_outcomes": ["QUEUE_FULL_REJECTED"],
+      "java_seams": [
+        "Q1"
+      ],
+      "java_citations": [
+        "WebSocketImpl.java:98",
+        "WebSocketImpl.java:206"
+      ],
+      "preconditions": [
+        "command or write queue at capacity"
+      ],
+      "effects": [
+        "admission fails with a typed outcome instead of unbounded growth: the deliberate divergence from Java's unbounded LinkedBlockingQueue (divergence.bounded-command-queue)"
+      ],
+      "observable_outcomes": [
+        "QUEUE_FULL_REJECTED"
+      ],
       "max_occurrences_per_schedule": 8
     },
     {
       "action_id": "action.timer_keepalive",
       "actor": "adapter_timer_task",
-      "java_seams": ["T3", "L4", "R2"],
-      "java_citations": ["AbstractWebSocket.java:201-234", "AbstractWebSocket.java:244-260"],
-      "preconditions": ["keepalive enabled"],
-      "effects": ["Ping command enqueued per tick; abnormal-close command on pong timeout; both flow through the owner queue instead of mutating connection state directly"],
-      "observable_outcomes": ["PING_COMMAND_ENQUEUED", "ABNORMAL_CLOSE_COMMAND_ENQUEUED"],
+      "java_seams": [
+        "T3",
+        "L4",
+        "R2"
+      ],
+      "java_citations": [
+        "AbstractWebSocket.java:201-234",
+        "AbstractWebSocket.java:244-260"
+      ],
+      "preconditions": [
+        "keepalive enabled"
+      ],
+      "effects": [
+        "Ping command enqueued per tick; abnormal-close command on pong timeout; both flow through the owner queue instead of mutating connection state directly"
+      ],
+      "observable_outcomes": [
+        "PING_COMMAND_ENQUEUED",
+        "ABNORMAL_CLOSE_COMMAND_ENQUEUED"
+      ],
       "max_occurrences_per_schedule": 2
     }
   ],
@@ -469,44 +840,74 @@
       "kind": "weak_fairness",
       "subject": "action.outbound_flush",
       "rationale": "While writes are pending the flusher eventually runs: mirrors the selector's OP_WRITE re-arm plus wakeup loop. Model counterpart: WF_vars(FlushWrite) in connection-model.tla.",
-      "java_citations": ["server/WebSocketServer.java:848-857", "server/WebSocketServer.java:583-592"]
+      "java_citations": [
+        "server/WebSocketServer.java:848-857",
+        "server/WebSocketServer.java:583-592"
+      ]
     },
     {
       "fairness_id": "OWNER_PROGRESS_WF",
       "kind": "weak_fairness",
       "subject": "owner command/inbound processing",
       "rationale": "The pinned worker always returns to its take loop, so queued per-connection work is eventually processed; the port's owner task must not park while commands or inbound actions are queued.",
-      "java_citations": ["server/WebSocketServer.java:1129-1154"]
+      "java_citations": [
+        "server/WebSocketServer.java:1129-1154"
+      ]
     },
     {
       "fairness_id": "CLOSING_RESOLUTION_WF",
       "kind": "weak_fairness",
       "subject": "closing resolution (peer close, close-on-drain, or transport EOF)",
       "rationale": "A closing connection eventually terminates. Model counterpart: WF_vars(ResolveClosing) in connection-model.tla, checked by the ClosingLeadsToClosed property.",
-      "java_citations": ["SocketChannelIOHelper.java:110-113", "WebSocketImpl.java:608-624"]
+      "java_citations": [
+        "SocketChannelIOHelper.java:110-113",
+        "WebSocketImpl.java:608-624"
+      ]
     },
     {
       "fairness_id": "PRODUCER_ADMISSION_FAIRNESS_ABSENT",
       "kind": "absent",
       "subject": "admission ordering among competing producer tasks",
       "rationale": "Deliberately absent. Java's unbounded LinkedBlockingQueue provides no admission fairness among competing senders, and the port declares none: no producer is guaranteed admission ahead of another, and systematic schedules MUST include producer-starvation orderings. Asserting fairness here would be an unfounded strengthening over both Java and the port design.",
-      "java_citations": ["WebSocketImpl.java:98", "WebSocketImpl.java:206"]
+      "java_citations": [
+        "WebSocketImpl.java:98",
+        "WebSocketImpl.java:206"
+      ]
     }
   ],
   "races_not_corpus_encodable": [
     {
       "race_id": "race.send_vs_close",
-      "java_seams": ["V1", "L2", "Q1"],
-      "java_citations": ["WebSocketImpl.java:668", "WebSocketImpl.java:127", "WebSocketImpl.java:463-507", "server/WebSocketServer.java:848-857"],
+      "java_seams": [
+        "V1",
+        "L2",
+        "Q1"
+      ],
+      "java_citations": [
+        "WebSocketImpl.java:668",
+        "WebSocketImpl.java:127",
+        "WebSocketImpl.java:463-507",
+        "server/WebSocketServer.java:848-857"
+      ],
       "racy_java_behavior": "A send can pass the isOpen gate while another thread enters CLOSING; the enqueued frame is then either flushed before the close frame's queue position or silently dropped when the key is cancelled.",
       "why_not_corpus_encodable": "The outcome depends on the JMM interleaving of an unsynchronized volatile check-then-act, not on any deterministic function of the input byte/action sequence; Java-fidelity is defined over serialized observable event sequences, not racy interleavings.",
       "deterministic_rust_semantics": "The owner serializes commands against transitions: commands committed before close-initiate are flushed in order; commands arriving after receive TYPED_REJECTION_POST_CLOSE.",
-      "divergence_ids": ["divergence.silent-drop-on-close"]
+      "divergence_ids": [
+        "divergence.silent-drop-on-close"
+      ]
     },
     {
       "race_id": "race.reset_vs_decode",
-      "java_seams": ["R5", "L2", "T2"],
-      "java_citations": ["drafts/Draft_6455.java:804-811", "WebSocketImpl.java:562-564", "WebSocketImpl.java:602-604"],
+      "java_seams": [
+        "R5",
+        "L2",
+        "T2"
+      ],
+      "java_citations": [
+        "drafts/Draft_6455.java:804-811",
+        "WebSocketImpl.java:562-564",
+        "WebSocketImpl.java:602-604"
+      ],
       "racy_java_behavior": "draft.reset() runs from whatever thread initiates close, racing an in-flight translateFrame/processFrame on the decode thread; mid-decode state clearing is indeterminate.",
       "why_not_corpus_encodable": "The observable result depends on where the decode thread is preempted inside translateFrame; no input sequence pins it.",
       "deterministic_rust_semantics": "Reset is an owner-internal effect of the close transition; close commands and inbound bytes are serialized, so the race is structurally absent and post-close input is handled by the state machine.",
@@ -514,8 +915,16 @@
     },
     {
       "race_id": "race.timer_vs_worker",
-      "java_seams": ["T3", "T2", "L2", "R2"],
-      "java_citations": ["AbstractWebSocket.java:244-260", "server/WebSocketServer.java:1129-1154"],
+      "java_seams": [
+        "T3",
+        "T2",
+        "L2",
+        "R2"
+      ],
+      "java_citations": [
+        "AbstractWebSocket.java:244-260",
+        "server/WebSocketServer.java:1129-1154"
+      ],
       "racy_java_behavior": "The connectionLostChecker thread's abnormal closeConnection runs concurrently with worker decode and user sends; whether a message callback or the abnormal terminal event wins is timing-dependent.",
       "why_not_corpus_encodable": "Wall-clock timer firing cannot be expressed as a deterministic input action against the pinned runtime.",
       "deterministic_rust_semantics": "The adapter timer emits Ping/abnormal-close commands through the owner queue; their order relative to other commands is the queue order, which schedules enumerate explicitly.",
@@ -523,8 +932,13 @@
     },
     {
       "race_id": "race.simultaneous_local_peer_close",
-      "java_seams": ["L2"],
-      "java_citations": ["WebSocketImpl.java:463-507", "WebSocketImpl.java:530-567"],
+      "java_seams": [
+        "L2"
+      ],
+      "java_citations": [
+        "WebSocketImpl.java:463-507",
+        "WebSocketImpl.java:530-567"
+      ],
       "racy_java_behavior": "A local close and a peer close race to the CLOSING transition; the L2 monitor makes the losing path a no-op.",
       "why_not_corpus_encodable": "Which side wins is an interleaving property; the corpus can encode either serialized order but not the race itself.",
       "deterministic_rust_semantics": "The owner applies whichever close arrives first in the serialized order; the second becomes IDEMPOTENT_NOOP_ALREADY_CLOSING (US-017 lists simultaneous close explicitly).",
@@ -532,8 +946,16 @@
     },
     {
       "race_id": "race.handshake_buffer_vs_close",
-      "java_seams": ["R4", "L2", "T2"],
-      "java_citations": ["WebSocketImpl.java:147", "WebSocketImpl.java:504", "WebSocketImpl.java:248-264"],
+      "java_seams": [
+        "R4",
+        "L2",
+        "T2"
+      ],
+      "java_citations": [
+        "WebSocketImpl.java:147",
+        "WebSocketImpl.java:504",
+        "WebSocketImpl.java:248-264"
+      ],
       "racy_java_behavior": "close() nulls tmpHandshakeBytes inside the L2 monitor (504) while the decode thread's decodeHandshake may be mid-use of the same buffer (248-264), which decodeHandshake reads and reassigns without any lock: mid-handshake close can produce an NPE on the decode thread or silently drop accumulated handshake bytes, depending on the preemption point.",
       "why_not_corpus_encodable": "The outcome depends on where the decode thread is preempted inside decodeHandshake relative to the closing thread's null-out; no deterministic input byte/action sequence pins that interleaving, so the corpus can encode either serialized order but not the race itself.",
       "deterministic_rust_semantics": "The handshake buffer is owned by the single owner; close commands and inbound bytes are serialized, so the race is structurally absent, while the buffering and limit semantics are ported exactly (US-005 handshake corpus).",
@@ -541,12 +963,19 @@
     },
     {
       "race_id": "race.enqueue_after_key_cancel",
-      "java_seams": ["Q1", "T1"],
-      "java_citations": ["server/WebSocketServer.java:848-857"],
+      "java_seams": [
+        "Q1",
+        "T1"
+      ],
+      "java_citations": [
+        "server/WebSocketServer.java:848-857"
+      ],
       "racy_java_behavior": "onWriteDemand hitting CancelledKeyException clears outQueue wholesale: writes enqueued around close are silently discarded.",
       "why_not_corpus_encodable": "Whether a write lands before or after key cancellation is scheduler-determined.",
       "deterministic_rust_semantics": "Committed writes are either flushed before terminal teardown or reported with a typed DROPPED_ON_CLOSE outcome; silence is not an outcome.",
-      "divergence_ids": ["divergence.silent-drop-on-close"]
+      "divergence_ids": [
+        "divergence.silent-drop-on-close"
+      ]
     }
   ],
   "behavior_delta_ledger": {
@@ -561,8 +990,14 @@
         "divergence_id": "divergence.bounded-command-queue",
         "subject_ref_planned": "semantic:org.java-websocket.websocketimpl.outqueue:provisional-v1",
         "java_ref_planned": "java-v1.6.0:org.java_websocket.WebSocketImpl:outQueue",
-        "rfc_refs_planned": ["rfc6455#section-6.1"],
-        "java_citations": ["WebSocketImpl.java:98", "WebSocketImpl.java:206", "WebSocketImpl.java:736-742"],
+        "rfc_refs_planned": [
+          "rfc6455#section-6.1"
+        ],
+        "java_citations": [
+          "WebSocketImpl.java:98",
+          "WebSocketImpl.java:206",
+          "WebSocketImpl.java:736-742"
+        ],
         "java_behavior": "outQueue is an unbounded LinkedBlockingQueue: every send is admitted and there is no send backpressure of any kind.",
         "port_behavior": "Bounded command/write queues sized by the bounds block; admission failure is the typed QUEUE_FULL_REJECTED outcome instead of unbounded memory growth.",
         "disposition_planned": "unresolved",
@@ -572,8 +1007,12 @@
         "divergence_id": "divergence.silent-drop-on-close",
         "subject_ref_planned": "semantic:org.java-websocket.server.onwritedemand.drop-on-close:provisional-v1",
         "java_ref_planned": "java-v1.6.0:org.java_websocket.server.WebSocketServer:onWriteDemand",
-        "rfc_refs_planned": ["rfc6455#section-7.1.1"],
-        "java_citations": ["server/WebSocketServer.java:848-857"],
+        "rfc_refs_planned": [
+          "rfc6455#section-7.1.1"
+        ],
+        "java_citations": [
+          "server/WebSocketServer.java:848-857"
+        ],
         "java_behavior": "CancelledKeyException in onWriteDemand clears outQueue wholesale: writes enqueued around close are silently discarded with no signal to the sender.",
         "port_behavior": "Writes not flushed before terminal teardown are reported with a typed DROPPED_ON_CLOSE outcome per write; nothing is discarded silently.",
         "disposition_planned": "unresolved",
@@ -587,70 +1026,103 @@
       "mutation": "In connection-model.tla Init, change closeDetail to [origin |-> \"none\", code |-> 5]; 5 is outside CloseCodes. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "TypeInvariant",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "TypeInvariant"
+      ]
     },
     {
       "defect_id": "defect.model.double-terminal-delivery",
-      "mutation": "Add \"Closed\" to TransportEOF's enabling state set; TLC reaches terminalDeliveries = 2. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
+      "mutation": "Add \"Closed\" to TransportEOF's enabling state set; TLC reaches terminalDeliveries = 2. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed. Violation set under the walker: TerminalDeliveredAtMostOnce AND ClosedImpliesTerminalDeliveredOnce (the double delivery necessarily breaks both).",
       "target_property": "TerminalDeliveredAtMostOnce",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "ClosedImpliesTerminalDeliveredOnce",
+        "TerminalDeliveredAtMostOnce"
+      ]
     },
     {
       "defect_id": "defect.model.closed-without-terminal-event",
       "mutation": "In CloseOnDrain, replace terminalDeliveries' = terminalDeliveries + 1 with UNCHANGED terminalDeliveries. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "ClosedImpliesTerminalDeliveredOnce",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "ClosedImpliesTerminalDeliveredOnce"
+      ]
     },
     {
       "defect_id": "defect.model.closing-without-close-detail",
       "mutation": "In LocalCloseValid, replace the closeDetail assignment with UNCHANGED closeDetail. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "CloseDetailPresentFromClosing",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "CloseDetailPresentFromClosing"
+      ]
     },
     {
       "defect_id": "defect.model.error-close-with-normal-code",
       "mutation": "In ProcessRejectTruncatedTail, set the close code to 1000 instead of 1007. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "ErrorCloseCodeDomain",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "ErrorCloseCodeDomain"
+      ]
     },
     {
       "defect_id": "defect.model.empty-close-misnormalized",
       "mutation": "In RecvCloseAccept, assign code 1002 for the \"empty\" class: the historical empty-close mis-normalization family. Guarded by the CloseFrame.java:250-251 source read, not by the jm-close-code-1000 kills, which never exercise the empty-payload accept path. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "InboundCloseNormalization",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "InboundCloseNormalization"
+      ]
     },
     {
       "defect_id": "defect.model.unbounded-enqueue",
       "mutation": "Remove SendData's Len(outQ) < QueueCapacity guard; the cfg sets MaxSends (3) above QueueCapacity (2) so the overflow is reachable. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "QueueNeverExceedsCapacity",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "QueueNeverExceedsCapacity"
+      ]
     },
     {
       "defect_id": "defect.model.truncated-tail-single-stage",
       "mutation": "In RecvTextTruncatedTail, replace inboundCount' = inboundCount + 1 with UNCHANGED inboundCount: the reject stage then exists without a recorded frame. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
       "target_property": "TruncatedTailStaging",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "TruncatedTailStaging"
+      ]
     },
     {
       "defect_id": "defect.model.truncated-tail-survives-close",
       "mutation": "In LocalCloseValid, replace pendingProcessReject' = FALSE with UNCHANGED pendingProcessReject: the round-1 BLOCKING-1 defect class. Reaches Closing with a live staged rejection via Init -> OpenHandshake -> RecvTextTruncatedTail -> LocalCloseValid, exactly the reviewer's counterexample trace against the pre-fix model. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed on that trace.",
       "target_property": "TruncatedTailStaging",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "TruncatedTailStaging"
+      ]
     },
     {
       "defect_id": "defect.model.reopen-after-terminal",
-      "mutation": "Add a Reopen action (state = \"Closed\" /\\ state' = \"Open\" /\\ UNCHANGED the remaining variables) to Next. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed.",
+      "mutation": "Add a Reopen action (state = \"Closed\" /\\ state' = \"Open\" /\\ UNCHANGED the remaining variables) to Next. Executed by the Go bounded walker (internal/formalplan/model_walker_test.go): violation observed. Violation set under the walker: TerminalAbsorbing plus, via a further EOF after the illegal reopen, TerminalDeliveredAtMostOnce and ClosedImpliesTerminalDeliveredOnce.",
       "target_property": "TerminalAbsorbing",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "MODEL_CHECK_PENDING_TOOL",
+      "expected_violation_set": [
+        "ClosedImpliesTerminalDeliveredOnce",
+        "TerminalAbsorbing",
+        "TerminalDeliveredAtMostOnce"
+      ]
     },
     {
       "defect_id": "defect.model.starved-closing-resolution",
@@ -677,12 +1149,30 @@
     "available": false,
     "state": "MODEL_CHECK_PENDING_TOOL",
     "probes": [
-      {"command": "command -v tlc", "observed": "no output, exit 1 (2026-08-26, darwin/arm64 authoring host)"},
-      {"command": "command -v tla2tools", "observed": "no output, exit 1"},
-      {"command": "brew list | grep -i -E 'tla|apalache'", "observed": "no output"},
-      {"command": "ls ~/.m2/repository | grep -i tla", "observed": "no output"},
-      {"command": "mdfind -name tla2tools", "observed": "no output"},
-      {"command": "find ~ /opt /usr/local -maxdepth 4 -iname 'tla2tools*.jar'", "observed": "no output"}
+      {
+        "command": "command -v tlc",
+        "observed": "no output, exit 1 (2026-08-26, darwin/arm64 authoring host)"
+      },
+      {
+        "command": "command -v tla2tools",
+        "observed": "no output, exit 1"
+      },
+      {
+        "command": "brew list | grep -i -E 'tla|apalache'",
+        "observed": "no output"
+      },
+      {
+        "command": "ls ~/.m2/repository | grep -i tla",
+        "observed": "no output"
+      },
+      {
+        "command": "mdfind -name tla2tools",
+        "observed": "no output"
+      },
+      {
+        "command": "find ~ /opt /usr/local -maxdepth 4 -iname 'tla2tools*.jar'",
+        "observed": "no output"
+      }
     ],
     "planned_run": {
       "staging": "cp assurance/formal/connection-model.tla ConnectionModel.tla && cp assurance/formal/connection-model.cfg ConnectionModel.cfg (TLA+ module names cannot contain hyphens)",
