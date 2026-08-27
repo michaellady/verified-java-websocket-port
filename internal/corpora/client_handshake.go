@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -475,8 +476,9 @@ func verifyUS010MigrationBindings(root string, bindings []struct {
 			return fmt.Errorf("unexpected or duplicate US-010 binding %s", binding.RustSemanticID)
 		}
 		expected[binding.RustSemanticID] = true
-		path, _, found := strings.Cut(binding.Source, ":")
-		if !found {
+		path, lineText, found := strings.Cut(binding.Source, ":")
+		lineNumber, lineErr := strconv.Atoi(lineText)
+		if !found || lineErr != nil || lineNumber < 1 {
 			return fmt.Errorf("binding lacks source line: %s", binding.RustSemanticID)
 		}
 		source, err := readUS010Artifact(root, path)
@@ -484,8 +486,9 @@ func verifyUS010MigrationBindings(root string, bindings []struct {
 			return err
 		}
 		name := strings.TrimPrefix(binding.RustSemanticID, "websocket_core::")
-		if !bytes.Contains(source, []byte(name)) {
-			return fmt.Errorf("binding symbol absent from source: %s", binding.RustSemanticID)
+		lines := bytes.Split(source, []byte("\n"))
+		if lineNumber > len(lines) || !bytes.Contains(lines[lineNumber-1], []byte(name)) {
+			return fmt.Errorf("binding symbol absent from exact source line: %s", binding.RustSemanticID)
 		}
 		if name == "ConnectionCore" && binding.Status != "RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT" {
 			return fmt.Errorf("ConnectionCore lost its historical resolver status")
