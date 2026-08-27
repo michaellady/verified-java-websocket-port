@@ -21,6 +21,7 @@ const MAX_STEPS: usize = 64;
 const MAX_TURNS: usize = 4_096;
 const CLIENT_CLOSE: &[u8] = b"\x88\x82\x01\x02\x03\x04\x02\xea";
 const SERVER_CLOSE: &[u8] = b"\x88\x02\x03\xe8";
+const CLIENT_PEER_CLOSE_MASK_KEY: [u8; 4] = [1, 2, 3, 4];
 const ABNORMAL_EOF_REASON: &str = "transport EOF before close handshake completed";
 
 /// Opaque fail-closed neutral-transport rejection.
@@ -201,6 +202,7 @@ pub fn run_neutral(mut input: impl Read, mut output: impl Write) -> Result<(), N
             u16::try_from(index).map_err(|_| NeutralError)?,
             step,
             request.initial_state,
+            request.role,
         )?;
         let mut limited_observations = Vec::new();
         let mut step_limit = None;
@@ -623,6 +625,7 @@ fn drive_scenario_step(
     index: u16,
     step: &Step,
     _initial_state: InitialState,
+    role: Role,
 ) -> Result<StepResponse, NeutralError> {
     let pre = session.owner.state();
     let mut observations = Vec::new();
@@ -661,6 +664,8 @@ fn drive_scenario_step(
             _ => drive_command(session, command_for(step)?, &mut observations, false)?,
         }
     };
+
+    acknowledge_peer_close(role, session, &mut observations)?;
 
     if let Step::Close { code, reason, .. } = step
         && !observations
@@ -701,6 +706,36 @@ fn drive_scenario_step(
         },
         observations,
     })
+}
+
+fn acknowledge_peer_close(
+    role: Role,
+    session: &mut Session,
+    observations: &mut Vec<Observation>,
+) -> Result<(), NeutralError> {
+    if role != Role::Client || session.owner.state() != ConnectionState::Closing {
+        return Ok(());
+    }
+    let Some(close) = observations
+        .iter()
+        .find_map(|observation| match observation {
+            Observation::Close(close) if close.origin == 2 => Some(close.clone()),
+            _ => None,
+        })
+    else {
+        return Ok(());
+    };
+    let _ = drive_command(
+        session,
+        LocalCommand::Close {
+            code: close.code,
+            reason: close.reason.into_boxed_str(),
+            mask_key: Some(CLIENT_PEER_CLOSE_MASK_KEY),
+        },
+        observations,
+        false,
+    )?;
+    Ok(())
 }
 
 fn limit_step_response(

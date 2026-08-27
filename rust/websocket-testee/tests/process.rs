@@ -416,6 +416,47 @@ fn neutral_oracle_projects_peer_close_event_and_terminal_transition() {
 }
 
 #[test]
+fn neutral_oracle_client_echoes_peer_close_with_a_deterministic_mask() {
+    const REASON: &[u8] = b"]=tbBn@k0+(AHwE]Ne";
+    let mut payload = 1008_u16.to_be_bytes().to_vec();
+    payload.extend_from_slice(REASON);
+    let mut wire = vec![0x88, u8::try_from(payload.len()).unwrap()];
+    wire.extend_from_slice(&payload);
+    let step = [vec![1], wire].concat();
+
+    let output = run_neutral(&neutral_request_for(1, 1, &[step]));
+    assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
+    let steps = response_steps(&output.stdout);
+    let observations = step_observations(steps[0]);
+    let frames: Vec<_> = observations
+        .iter()
+        .filter(|observation| observation[0] == 2)
+        .collect();
+    assert_eq!(frames.len(), 2, "missing automatic peer-Close echo");
+    let echo = frames[1];
+    assert_eq!(&echo[..5], &[2, 2, 1, 8, 1]);
+    assert_eq!(
+        u32::from_be_bytes(echo[5..9].try_into().unwrap()),
+        u32::try_from(payload.len()).unwrap()
+    );
+    assert_eq!(&echo[9..9 + payload.len()], payload);
+    assert_eq!(
+        u64::from_be_bytes(echo[9 + payload.len()..].try_into().unwrap()),
+        26
+    );
+    assert_eq!(step_error_class(steps[0]), None);
+    assert!(
+        observations
+            .iter()
+            .any(|item| { item.starts_with(&[1, 5, 1, 0x03, 0xf0]) && item.ends_with(&[1, 2]) })
+    );
+    assert!(observations.iter().any(|item| item == &[3, 1, 2]));
+    assert!(!observations.iter().any(|item| item == &[3, 2, 3]));
+    assert_eq!(response_field(&output.stdout, 6), &[2]);
+    assert!(response_field(&output.stdout, 7).ends_with(&[1, 2]));
+}
+
+#[test]
 fn neutral_oracle_projects_local_close_then_transport_eof() {
     let local_close = [
         vec![0x15, 1, 1, 2, 3, 4, 1],
