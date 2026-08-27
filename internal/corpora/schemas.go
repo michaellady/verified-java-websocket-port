@@ -60,6 +60,22 @@ func validateJSONFile(schema *jsonschema.Schema, path string, fail func(code, pa
 	}
 }
 
+func validateUS010JSONFile(schema *jsonschema.Schema, root, relative string, fail func(code, path, detail string)) {
+	raw, err := readUS010Artifact(root, relative)
+	if err != nil {
+		fail("SCHEMA_TARGET_UNREADABLE", relative, err.Error())
+		return
+	}
+	value, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
+	if err != nil {
+		fail("SCHEMA_TARGET_NOT_JSON", relative, err.Error())
+		return
+	}
+	if err := schema.Validate(value); err != nil {
+		fail("SCHEMA_VIOLATION", relative, err.Error())
+	}
+}
+
 // ValidateCorpusSchemas validates every committed corpus artifact — public
 // and handshake lines, all four manifests, the protected held-out lines, and
 // the calibration document — against the strict schemas.
@@ -99,12 +115,12 @@ func ValidateCorpusSchemas(schemasDir, root, protectedRoot string) ([]Finding, e
 	validateJSONLLines(handshakeSchema,
 		filepath.Join(root, repoCorporaDir, "handshake/cases.jsonl"), fail)
 	clientHandshakePath := filepath.Join(root, repoCorporaDir, "handshake/client.json")
-	if _, err := os.Stat(clientHandshakePath); err == nil {
-		validateJSONFile(clientHandshakeSchema, clientHandshakePath, fail)
+	if _, err := os.Lstat(clientHandshakePath); err == nil {
+		validateUS010JSONFile(clientHandshakeSchema, root, repoCorporaDir+"/handshake/client.json", fail)
 	}
 	clientHandshakeEvidencePath := filepath.Join(root, "evidence/us010-client-handshake.json")
-	if _, err := os.Stat(clientHandshakeEvidencePath); err == nil {
-		validateJSONFile(clientHandshakeEvidenceSchema, clientHandshakeEvidencePath, fail)
+	if _, err := os.Lstat(clientHandshakeEvidencePath); err == nil {
+		validateUS010JSONFile(clientHandshakeEvidenceSchema, root, "evidence/us010-client-handshake.json", fail)
 	}
 	if protectedRoot != "" {
 		validateJSONLLines(scenarioSchema,

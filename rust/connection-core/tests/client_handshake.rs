@@ -307,6 +307,90 @@ fn assert_fatal_response(response: &[u8], expected: HandshakeFailure) {
     );
 }
 
+fn assert_fatal_response_at_every_split(response: &[u8], expected: HandshakeFailure) {
+    for split in 0..=response.len() {
+        let mut core = start_default_client();
+        let first = core.step(CoreInput::Transport(TransportBytes::new(
+            &response[..split],
+        )));
+        let result = if split == response.len() {
+            first
+        } else {
+            assert_eq!(first.failure(), None, "split {split} first chunk");
+            assert_eq!(first.outputs().len(), 0, "split {split} first chunk");
+            core.step(CoreInput::Transport(TransportBytes::new(
+                &response[split..],
+            )))
+        };
+        assert_eq!(
+            result.failure().map(|failure| &failure.kind),
+            Some(&FailureKind::Handshake(expected.clone())),
+            "split {split}"
+        );
+        assert_eq!(result.state(), ConnectionState::Closed, "split {split}");
+        assert_eq!(
+            result.outputs().collect::<Vec<_>>(),
+            vec![&CoreOutput::StateChanged(ConnectionState::Closed)],
+            "split {split}"
+        );
+
+        let repeated = core.step(CoreInput::Transport(TransportBytes::new(b"ignored")));
+        assert_eq!(repeated.state(), ConnectionState::Closed, "split {split}");
+        assert_eq!(repeated.outputs().len(), 0, "split {split}");
+    }
+}
+
+#[test]
+fn reason_phrase_and_every_field_value_reject_forbidden_octets_at_every_split() {
+    for forbidden in [0x00, 0x01, 0x7f] {
+        let mut reason = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n".to_vec();
+        let reason_index = reason
+            .windows(b"Switching".len())
+            .position(|window| window == b"Switching")
+            .unwrap();
+        reason[reason_index] = forbidden;
+        assert_fatal_response_at_every_split(
+            &reason,
+            HandshakeFailure::InvalidReasonPhraseOctet,
+        );
+
+        let mut required = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n".to_vec();
+        let value_index = required
+            .windows(b"websocket".len())
+            .position(|window| window == b"websocket")
+            .unwrap();
+        required[value_index] = forbidden;
+        assert_fatal_response_at_every_split(
+            &required,
+            HandshakeFailure::InvalidHeaderValueOctet,
+        );
+
+        let mut ignored = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\nX-Ignored: visible\r\n\r\n".to_vec();
+        let ignored_index = ignored
+            .windows(b"visible".len())
+            .position(|window| window == b"visible")
+            .unwrap();
+        ignored[ignored_index] = forbidden;
+        assert_fatal_response_at_every_split(
+            &ignored,
+            HandshakeFailure::InvalidHeaderValueOctet,
+        );
+    }
+
+    for permitted in [b'\t', b' ', b'!', 0x80] {
+        let mut response = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\nX-Ignored: visible\r\n\r\n".to_vec();
+        let ignored_index = response
+            .windows(b"visible".len())
+            .position(|window| window == b"visible")
+            .unwrap();
+        response[ignored_index] = permitted;
+        let mut core = start_default_client();
+        let result = core.step(CoreInput::Transport(TransportBytes::new(&response)));
+        assert_eq!(result.failure(), None, "permitted octet {permitted:#04x}");
+        assert_eq!(result.state(), ConnectionState::Open);
+    }
+}
+
 #[test]
 fn adversarial_responses_have_exact_fatal_failures_and_ordering() {
     let cases: &[(&[u8], HandshakeFailure)] = &[

@@ -229,10 +229,7 @@ func buildMigrationMap(
 				behavior = "entire declared surface of " + binaryName +
 					" ports within this slice (" + slice.Title + ")"
 			}
-			bindingEvidence := []string{
-				stableID("evidence", slice.ChildStoryID+"-differential"),
-				stableID("evidence", slice.ChildStoryID+"-property"),
-			}
+			bindingEvidence := evidenceObligationIDs(slice.ChildStoryID)
 			for _, id := range bindingEvidence {
 				evidenceUnion[id] = true
 			}
@@ -608,17 +605,14 @@ func buildCompatibilitySurface(request DeriveRequest) CompatibilitySurface {
 	items := make([]CompatibilityItem, 0, len(definitions))
 	for _, definition := range definitions {
 		items = append(items, CompatibilityItem{
-			SurfaceID: definition.id,
-			Kind:      definition.kind,
-			EdgeCases: edgeCases,
-			OracleID:  "oracle.java-websocket.v1-6-0",
-			EvidenceObligationIDs: []string{
-				stableID("evidence", definition.story+"-differential"),
-				stableID("evidence", definition.story+"-property"),
-			},
-			CutoverObligationID: stableID("cutover", definition.id),
-			ObservationStatus:   "OBSERVED",
-			BlockerCode:         "",
+			SurfaceID:             definition.id,
+			Kind:                  definition.kind,
+			EdgeCases:             edgeCases,
+			OracleID:              "oracle.java-websocket.v1-6-0",
+			EvidenceObligationIDs: evidenceObligationIDs(definition.story),
+			CutoverObligationID:   stableID("cutover", definition.id),
+			ObservationStatus:     "OBSERVED",
+			BlockerCode:           "",
 		})
 	}
 	return CompatibilitySurface{
@@ -655,22 +649,12 @@ func buildCutoverContract(request DeriveRequest) CutoverContract {
 	}
 	obligations := make([]CutoverObligation, 0, len(definitions))
 	for _, definition := range definitions {
-		status := "DECLARED"
-		evidenceIDs := []string{}
-		if definition.story == "US-010" && us010ClientHandshakePresent(workspaceProbeRoot(request)) {
-			status = "SATISFIED"
-			evidenceIDs = []string{
-				"evidence.us-010-differential",
-				"evidence.us-010-property",
-				"evidence.us-010-client-handshake",
-			}
-		}
 		obligations = append(obligations, CutoverObligation{
 			ID:           stableID("cutover", definition.id),
 			SurfaceID:    definition.id,
 			ChildStoryID: definition.story,
-			Status:       status,
-			EvidenceIDs:  evidenceIDs,
+			Status:       "DECLARED",
+			EvidenceIDs:  []string{},
 		})
 	}
 	return CutoverContract{
@@ -688,6 +672,16 @@ func buildCutoverContract(request DeriveRequest) CutoverContract {
 		ReadinessLadder:     ReadinessLadder,
 		Obligations:         obligations,
 		Assurance:           ownerAttested,
+	}
+}
+
+func evidenceObligationIDs(story string) []string {
+	if story == "US-010" {
+		return []string{"evidence.us-010-client-handshake"}
+	}
+	return []string{
+		stableID("evidence", story+"-differential"),
+		stableID("evidence", story+"-property"),
 	}
 }
 

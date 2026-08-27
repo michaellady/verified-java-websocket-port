@@ -242,8 +242,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "default onWebsocketHandshakeReceivedAsClient/onWebsocketHandshakeSentAsClient implementations (WebSocketAdapter.java:59,72)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         },
         {
@@ -309,8 +308,7 @@
       "evidence_ids": [
         "evidence.us-009-differential",
         "evidence.us-009-property",
-        "evidence.us-010-differential",
-        "evidence.us-010-property",
+        "evidence.us-010-client-handshake",
         "evidence.us-011-differential",
         "evidence.us-011-property",
         "evidence.us-015-differential",
@@ -378,8 +376,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "startHandshake request emission and client-role decodeHandshake path",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         },
         {
@@ -535,8 +532,7 @@
       "evidence_ids": [
         "evidence.us-009-differential",
         "evidence.us-009-property",
-        "evidence.us-010-differential",
-        "evidence.us-010-property",
+        "evidence.us-010-client-handshake",
         "evidence.us-011-differential",
         "evidence.us-011-property",
         "evidence.us-012-differential",
@@ -608,8 +604,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "onWebsocketHandshakeReceivedAsClient/onWebsocketHandshakeSentAsClient validation callbacks",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         },
         {
@@ -720,8 +715,7 @@
       "evidence_ids": [
         "evidence.us-009-differential",
         "evidence.us-009-property",
-        "evidence.us-010-differential",
-        "evidence.us-010-property",
+        "evidence.us-010-client-handshake",
         "evidence.us-011-differential",
         "evidence.us-011-property",
         "evidence.us-013-differential",
@@ -791,8 +785,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "createHandshake/postProcessHandshakeRequestAsClient/translateHandshake contract",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         },
         {
@@ -922,8 +915,7 @@
       "evidence_ids": [
         "evidence.us-009-differential",
         "evidence.us-009-property",
-        "evidence.us-010-differential",
-        "evidence.us-010-property",
+        "evidence.us-010-client-handshake",
         "evidence.us-011-differential",
         "evidence.us-011-property",
         "evidence.us-012-differential",
@@ -991,8 +983,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "Sec-WebSocket-Key generation, postProcessHandshakeRequestAsClient, acceptHandshakeAsClient accept-derivation check",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         },
         {
@@ -1104,8 +1095,7 @@
         "formal.messages.utf8-validation-total"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property",
+        "evidence.us-010-client-handshake",
         "evidence.us-011-differential",
         "evidence.us-011-property",
         "evidence.us-012-differential",
@@ -1300,8 +1290,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "acceptHandshakeAsClient MATCHED/NOT_MATCHED decision",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         },
         {
@@ -1341,8 +1330,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property",
+        "evidence.us-010-client-handshake",
         "evidence.us-011-differential",
         "evidence.us-011-property"
       ],
@@ -1632,8 +1620,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.exceptions.IncompleteHandshakeException ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -1660,8 +1647,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -1742,8 +1728,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "declared rejection type of onWebsocketHandshakeReceivedAsClient/onWebsocketHandshakeSentAsClient (WebSocketListener.java:73,81)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         },
         {
@@ -1813,8 +1798,7 @@
         "formal.messages.utf8-validation-total"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property",
+        "evidence.us-010-client-handshake",
         "evidence.us-011-differential",
         "evidence.us-011-property",
         "evidence.us-012-differential",
@@ -1984,8 +1968,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.exceptions.InvalidHandshakeException ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -2012,8 +1995,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -2945,8 +2927,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.handshake.ClientHandshake ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -2973,8 +2954,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -3006,8 +2986,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.handshake.ClientHandshakeBuilder ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -3034,8 +3013,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -3067,8 +3045,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.handshake.HandshakeBuilder ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -3095,8 +3072,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -3128,8 +3104,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.handshake.HandshakeImpl1Client ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -3156,8 +3131,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -3248,8 +3222,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.handshake.Handshakedata ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -3276,8 +3249,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -3309,8 +3281,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.handshake.HandshakedataImpl1 ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -3337,8 +3308,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -3549,8 +3519,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.util.Base64 ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -3577,8 +3546,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -3610,8 +3578,7 @@
           "child_story_id": "US-010",
           "touched_behavior": "entire declared surface of org.java_websocket.util.Base64$OutputStream ports within this slice (Client opening-handshake slice)",
           "evidence_ids": [
-            "evidence.us-010-differential",
-            "evidence.us-010-property"
+            "evidence.us-010-client-handshake"
           ]
         }
       ],
@@ -3638,8 +3605,7 @@
         "formal.handshake.accept-derivation"
       ],
       "evidence_ids": [
-        "evidence.us-010-differential",
-        "evidence.us-010-property"
+        "evidence.us-010-client-handshake"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },

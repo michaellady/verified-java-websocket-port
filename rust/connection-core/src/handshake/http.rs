@@ -136,10 +136,14 @@ fn validate_response(bytes: &[u8], expected_accept: &[u8; 28]) -> Result<(), Han
         if !name.iter().copied().all(is_token_byte) {
             return Err(HandshakeFailure::InvalidHeaderName);
         }
+        let raw_value = &line[colon + 1..];
+        if !raw_value.iter().copied().all(is_field_value_byte) {
+            return Err(HandshakeFailure::InvalidHeaderValueOctet);
+        }
         if duplicate_before(bytes, first_header, cursor, name)? {
             return Err(HandshakeFailure::DuplicateHeader);
         }
-        let value = trim_ows(&line[colon + 1..]);
+        let value = trim_ows(raw_value);
         if ascii_eq(name, b"upgrade") {
             upgrade = Some(value);
         } else if ascii_eq(name, b"connection") {
@@ -183,6 +187,9 @@ fn validate_status_line(line: &[u8]) -> Result<(), HandshakeFailure> {
     let digits = &line[9..12];
     if !digits.iter().all(u8::is_ascii_digit) {
         return Err(HandshakeFailure::MalformedStatusLine);
+    }
+    if !line[13..].iter().copied().all(is_field_value_byte) {
+        return Err(HandshakeFailure::InvalidReasonPhraseOctet);
     }
     let status = u16::from(digits[0] - b'0') * 100
         + u16::from(digits[1] - b'0') * 10
@@ -284,4 +291,8 @@ const fn is_token_byte(byte: u8) -> bool {
                 | b'|'
                 | b'~'
         )
+}
+
+const fn is_field_value_byte(byte: u8) -> bool {
+    byte == b'\t' || (byte >= b' ' && byte <= b'~') || byte >= 0x80
 }

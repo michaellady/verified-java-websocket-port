@@ -449,6 +449,8 @@ pub enum HandshakeFailure {
     ResponseBeforeClientRequest,
     /// The HTTP status line did not match its fixed grammar.
     MalformedStatusLine,
+    /// The HTTP reason phrase contained a forbidden control or DEL octet.
+    InvalidReasonPhraseOctet,
     /// The response used an HTTP version other than HTTP/1.1.
     HttpVersionNot11,
     /// The response status was not 101.
@@ -464,6 +466,8 @@ pub enum HandshakeFailure {
     MalformedHeader,
     /// A field name contained a byte outside the HTTP token grammar.
     InvalidHeaderName,
+    /// A field value contained a forbidden control or DEL octet.
+    InvalidHeaderValueOctet,
     /// A field name appeared more than once, ignoring ASCII case.
     DuplicateHeader,
     /// The required Upgrade field was absent.
