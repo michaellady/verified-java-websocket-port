@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -1049,6 +1050,141 @@ func TestLaunchBundleUsesImmutableContentAddressedBytes(t *testing.T) {
 	if bundle.ByRole["runtime"].SHA256 != digest(launched) || !strings.Contains(bundle.ByRole["runtime"].Path, strings.TrimPrefix(digest(launched), "sha256:")) {
 		t.Fatalf("launch object not content addressed: %#v", bundle.ByRole["runtime"])
 	}
+}
+
+func fakeJavaRuntime(t *testing.T, complete bool) string {
+	t.Helper()
+	base, err := os.MkdirTemp("/private/tmp", "us020-fake-jdk-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(base) })
+	root := filepath.Join(base, "jdk")
+	for _, directory := range []string{"bin", "lib", "legal/java.base", "legal/java.test"} {
+		if err := os.MkdirAll(filepath.Join(root, directory), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	java := filepath.Join(root, "bin/java")
+	if err := os.WriteFile(java, []byte("synthetic-java-launcher"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if complete {
+		if err := os.WriteFile(filepath.Join(root, "lib/modules"), []byte("synthetic-modules"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(root, "legal/java.base/LICENSE"), []byte("license"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("../java.base/LICENSE", filepath.Join(root, "legal/java.test/LICENSE")); err != nil {
+		t.Fatal(err)
+	}
+	return java
+}
+
+func TestJavaRuntimeImageIsContentAddressedCompleteAndImmutable(t *testing.T) {
+	java := fakeJavaRuntime(t, true)
+	identity, err := javaRuntimeImageIdentity(java)
+	if err != nil {
+		t.Fatal(err)
+	}
+	materialized, err := materializeJavaRuntimeImage(filepath.Join(t.TempDir(), "images"), java, identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = removeImmutableTree(materialized.Root) })
+	if materialized.Identity != identity || !strings.Contains(materialized.Root, strings.TrimPrefix(identity.SHA256, "sha256:")) || filepath.Base(materialized.Executable) != "java" {
+		t.Fatalf("materialized=%#v identity=%#v", materialized, identity)
+	}
+	licenseInfo, err := os.Lstat(filepath.Join(materialized.Root, "legal/java.test/LICENSE"))
+	if err != nil || !licenseInfo.Mode().IsRegular() {
+		t.Fatalf("internal symlink was not normalized to immutable regular bytes: %v %#v", err, licenseInfo)
+	}
+	if err := verifyMaterializedJavaRuntimeImage(materialized.Root, identity); err != nil {
+		t.Fatalf("verify materialized image: %v", err)
+	}
+	if err := os.Chmod(filepath.Join(materialized.Root, "lib/modules"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(materialized.Root, "lib/modules"), []byte("mutated"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyMaterializedJavaRuntimeImage(materialized.Root, identity); err == nil {
+		t.Fatal("post-materialization mutation accepted")
+	}
+}
+
+func TestJavaRuntimeImageRejectsIncompleteEscapingAndNonregularTrees(t *testing.T) {
+	if _, err := javaRuntimeImageIdentity(fakeJavaRuntime(t, false)); err == nil {
+		t.Fatal("incomplete runtime image accepted")
+	}
+	escapingJava := fakeJavaRuntime(t, true)
+	escapingRoot := filepath.Dir(filepath.Dir(escapingJava))
+	if err := os.Symlink("../../../../outside", filepath.Join(escapingRoot, "escape")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := javaRuntimeImageIdentity(escapingJava); err == nil {
+		t.Fatal("escaping runtime symlink accepted")
+	}
+	nonregularJava := fakeJavaRuntime(t, true)
+	nonregularRoot := filepath.Dir(filepath.Dir(nonregularJava))
+	if err := syscall.Mkfifo(filepath.Join(nonregularRoot, "runtime.fifo"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := javaRuntimeImageIdentity(nonregularJava); err == nil {
+		t.Fatal("nonregular runtime entry accepted")
+	}
+}
+
+func TestJavaRuntimeImageRejectsSourceReplacementDuringCopy(t *testing.T) {
+	java := fakeJavaRuntime(t, true)
+	root := filepath.Dir(filepath.Dir(java))
+	identity, err := javaRuntimeImageIdentity(java)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalHook := javaRuntimeImageCopyHook
+	defer func() { javaRuntimeImageCopyHook = originalHook }()
+	mutated := false
+	javaRuntimeImageCopyHook = func(relative string) {
+		if !mutated && relative == "bin/java" {
+			mutated = true
+			_ = os.WriteFile(filepath.Join(root, "lib/modules"), []byte("replaced-during-copy"), 0o600)
+		}
+	}
+	if _, err := materializeJavaRuntimeImage(filepath.Join(t.TempDir(), "images"), java, identity); err == nil {
+		t.Fatal("source replacement during runtime snapshot accepted")
+	}
+}
+
+func TestJavaRuntimeImageLaunchesRealPinnedJDK(t *testing.T) {
+	java := os.Getenv("US020_JAVA_RUNTIME_SMOKE")
+	if java == "" {
+		t.Skip("set US020_JAVA_RUNTIME_SMOKE to the real pinned JDK bin/java")
+	}
+	identity, err := javaRuntimeImageIdentity(java)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store, err := os.MkdirTemp("/private/tmp", "us020-jdk-image-smoke-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = removeImmutableTree(store) })
+	materialized, err := materializeJavaRuntimeImage(filepath.Join(store, "images"), java, identity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, total, err := scanJavaRuntimeImage(materialized.Root, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := executeBoundedChild(context.Background(), childRequest{Executable: materialized.Executable, Args: []string{"-version"}, Home: store, Timeout: 5 * time.Second})
+	if err != nil || result.ExitCode != 0 || !bytes.Contains(result.Stderr, []byte("openjdk version")) {
+		t.Fatalf("materialized JDK launch failed: exit=%d stderr=%q err=%v", result.ExitCode, result.Stderr, err)
+	}
+	t.Logf("materialized Java runtime image: files=%d bytes=%d tree=%s", len(entries), total, identity.SHA256)
 }
 
 func TestScenarioMinimizerUsesFreshProcessesAndProvesIrreducible(t *testing.T) {

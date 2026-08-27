@@ -29,16 +29,18 @@ import (
 )
 
 const (
-	StatusPass                    = "PASS"
-	evidenceSchemaVersion         = "1.0.0"
-	ledgerSchemaVersion           = "1.1.0"
-	maximumDocumentBytes    int64 = 32 << 20
-	maximumProcessOutput          = 4 << 20
-	maximumProcessError           = 4 << 10
-	neutralProtocolMaximum        = 4 << 20
-	expectedPublicScenarios       = 74
-	expectedProcessReceipts       = expectedPublicScenarios * 2 * 2
-	rustInputDerivationNote       = "input_bytes derives from public source kind plus Rust pre_state and typed INVALID_STATE or INPUT_LIMIT_EXCEEDED; it is not raw NOBS1 accounting and cannot change consumed_bytes"
+	StatusPass                     = "PASS"
+	evidenceSchemaVersion          = "1.0.0"
+	ledgerSchemaVersion            = "1.1.0"
+	maximumDocumentBytes     int64 = 32 << 20
+	maximumProcessOutput           = 4 << 20
+	maximumProcessError            = 4 << 10
+	neutralProtocolMaximum         = 4 << 20
+	expectedPublicScenarios        = 74
+	expectedProcessReceipts        = expectedPublicScenarios * 2 * 2
+	maximumRuntimeImageBytes int64 = 1 << 30
+	maximumRuntimeImageFiles       = 20000
+	rustInputDerivationNote        = "input_bytes derives from public source kind plus Rust pre_state and typed INVALID_STATE or INPUT_LIMIT_EXCEEDED; it is not raw NOBS1 accounting and cannot change consumed_bytes"
 )
 
 // Budget bounds deterministic mismatch minimization.
@@ -669,6 +671,286 @@ type launchBundle struct {
 	Identities []LaunchIdentity
 }
 
+type runtimeImageEntry struct {
+	Path       string `json:"path"`
+	Executable bool   `json:"executable"`
+	Bytes      int64  `json:"bytes"`
+	SHA256     string `json:"sha256"`
+}
+
+type javaRuntimeMaterialization struct {
+	Root         string
+	Executable   string
+	Identity     ArtifactIdentity
+	LaunchInputs []LaunchIdentity
+}
+
+var javaRuntimeImageCopyHook func(string)
+
+func javaRuntimeRoot(javaExecutable string) (string, error) {
+	if !filepath.IsAbs(javaExecutable) || filepath.Clean(javaExecutable) != javaExecutable || filepath.Base(javaExecutable) != "java" || filepath.Base(filepath.Dir(javaExecutable)) != "bin" {
+		return "", errors.New("Java executable must be an absolute JDK bin/java path")
+	}
+	resolved, err := filepath.EvalSymlinks(javaExecutable)
+	if err != nil || resolved != javaExecutable {
+		return "", errors.New("Java executable may not resolve through a symlink")
+	}
+	root := filepath.Dir(filepath.Dir(javaExecutable))
+	resolvedRoot, err := filepath.EvalSymlinks(root)
+	if err != nil || resolvedRoot != root {
+		return "", errors.New("Java runtime root may not resolve through a symlink")
+	}
+	info, err := os.Lstat(root)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return "", errors.New("Java runtime root must be a real directory")
+	}
+	return root, nil
+}
+
+func readStableRuntimeFile(path string) ([]byte, os.FileMode, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !opened.Mode().IsRegular() || opened.Size() < 0 || opened.Size() > maximumRuntimeImageBytes {
+		return nil, 0, errors.New("Java runtime entry is not a bounded regular file")
+	}
+	raw, err := io.ReadAll(io.LimitReader(file, maximumRuntimeImageBytes+1))
+	if err != nil || int64(len(raw)) != opened.Size() {
+		return nil, 0, errors.New("Java runtime entry changed while reading")
+	}
+	current, err := os.Stat(path)
+	if err != nil || !os.SameFile(opened, current) || current.Size() != opened.Size() || current.ModTime() != opened.ModTime() || current.Mode() != opened.Mode() {
+		return nil, 0, errors.New("Java runtime entry was replaced while reading")
+	}
+	return raw, opened.Mode(), nil
+}
+
+func runtimeImageSourceFile(root, path string, entry os.DirEntry) ([]byte, os.FileMode, error) {
+	if entry.Type()&os.ModeSymlink == 0 {
+		if !entry.Type().IsRegular() {
+			return nil, 0, errors.New("Java runtime contains a nonregular entry")
+		}
+		return readStableRuntimeFile(path)
+	}
+	linkBefore, err := os.Readlink(path)
+	if err != nil || filepath.IsAbs(linkBefore) {
+		return nil, 0, errors.New("Java runtime symlink must be relative")
+	}
+	linkInfoBefore, err := os.Lstat(path)
+	if err != nil {
+		return nil, 0, err
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil || !within(root, resolved) || resolved == root {
+		return nil, 0, errors.New("Java runtime symlink escapes or does not resolve to a file")
+	}
+	raw, mode, err := readStableRuntimeFile(resolved)
+	if err != nil {
+		return nil, 0, err
+	}
+	linkAfter, linkErr := os.Readlink(path)
+	linkInfoAfter, statErr := os.Lstat(path)
+	if linkErr != nil || statErr != nil || linkBefore != linkAfter || !os.SameFile(linkInfoBefore, linkInfoAfter) {
+		return nil, 0, errors.New("Java runtime symlink changed while reading")
+	}
+	return raw, mode, nil
+}
+
+func writeImmutableRuntimeFile(path string, raw []byte, executable bool) error {
+	mode := os.FileMode(0o400)
+	if executable {
+		mode = 0o500
+	}
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, mode)
+	if err != nil {
+		return err
+	}
+	if _, err := file.Write(raw); err != nil {
+		file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		file.Close()
+		return err
+	}
+	return file.Close()
+}
+
+func removeImmutableTree(root string) error {
+	_ = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr == nil && entry.IsDir() {
+			_ = os.Chmod(path, 0o700)
+		}
+		return nil
+	})
+	return os.RemoveAll(root)
+}
+
+func scanJavaRuntimeImage(root, destination string) ([]runtimeImageEntry, int64, error) {
+	rootInfo, err := os.Lstat(root)
+	if err != nil || !rootInfo.IsDir() || rootInfo.Mode()&os.ModeSymlink != 0 {
+		return nil, 0, errors.New("Java runtime image root must be a real directory")
+	}
+	entries := []runtimeImageEntry{}
+	total := int64(0)
+	directories := []string{}
+	err = filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative, err := filepath.Rel(root, path)
+		if err != nil || relative == ".." || strings.HasPrefix(relative, ".."+string(os.PathSeparator)) {
+			return errors.New("Java runtime traversal escaped root")
+		}
+		if relative == "." {
+			return nil
+		}
+		if len(entries) >= maximumRuntimeImageFiles {
+			return errors.New("Java runtime file-count bound exceeded")
+		}
+		if entry.IsDir() {
+			if destination != "" {
+				output := filepath.Join(destination, relative)
+				if err := os.Mkdir(output, 0o700); err != nil {
+					return err
+				}
+				directories = append(directories, output)
+			}
+			return nil
+		}
+		raw, sourceMode, err := runtimeImageSourceFile(root, path, entry)
+		if err != nil {
+			return fmt.Errorf("Java runtime %s: %w", filepath.ToSlash(relative), err)
+		}
+		total += int64(len(raw))
+		if total > maximumRuntimeImageBytes {
+			return errors.New("Java runtime byte bound exceeded")
+		}
+		executable := sourceMode.Perm()&0o111 != 0
+		entries = append(entries, runtimeImageEntry{Path: filepath.ToSlash(relative), Executable: executable, Bytes: int64(len(raw)), SHA256: digest(raw)})
+		if destination != "" {
+			if javaRuntimeImageCopyHook != nil {
+				javaRuntimeImageCopyHook(filepath.ToSlash(relative))
+			}
+			if err := writeImmutableRuntimeFile(filepath.Join(destination, relative), raw, executable); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(entries) == 0 {
+		return nil, 0, errors.New("Java runtime image is empty")
+	}
+	if destination != "" {
+		for index := len(directories) - 1; index >= 0; index-- {
+			if err := os.Chmod(directories[index], 0o500); err != nil {
+				return nil, 0, err
+			}
+		}
+	}
+	return entries, total, nil
+}
+
+func runtimeImageArtifact(root string, entries []runtimeImageEntry, total int64) (ArtifactIdentity, error) {
+	raw, err := canonical(entries)
+	if err != nil {
+		return ArtifactIdentity{}, err
+	}
+	return ArtifactIdentity{Kind: "java-runtime-image", Path: root, SHA256: digest(raw), Bytes: total}, nil
+}
+
+func javaRuntimeImageIdentity(javaExecutable string) (ArtifactIdentity, error) {
+	root, err := javaRuntimeRoot(javaExecutable)
+	if err != nil {
+		return ArtifactIdentity{}, err
+	}
+	for _, required := range []string{javaExecutable, filepath.Join(root, "lib/modules")} {
+		info, err := os.Stat(required)
+		if err != nil || !info.Mode().IsRegular() {
+			return ArtifactIdentity{}, errors.New("Java runtime image is incomplete")
+		}
+	}
+	entries, total, err := scanJavaRuntimeImage(root, "")
+	if err != nil {
+		return ArtifactIdentity{}, err
+	}
+	return runtimeImageArtifact(root, entries, total)
+}
+
+func verifyMaterializedJavaRuntimeImage(root string, expected ArtifactIdentity) error {
+	for _, required := range []string{filepath.Join(root, "bin/java"), filepath.Join(root, "lib/modules")} {
+		info, err := os.Lstat(required)
+		if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("materialized Java runtime image is incomplete")
+		}
+	}
+	entries, total, err := scanJavaRuntimeImage(root, "")
+	if err != nil {
+		return err
+	}
+	actual, err := runtimeImageArtifact(expected.Path, entries, total)
+	if err != nil {
+		return err
+	}
+	if actual != expected {
+		return errors.New("materialized Java runtime tree identity mismatch")
+	}
+	return nil
+}
+
+func materializeJavaRuntimeImage(store, javaExecutable string, expected ArtifactIdentity) (javaRuntimeMaterialization, error) {
+	root, err := javaRuntimeRoot(javaExecutable)
+	if err != nil {
+		return javaRuntimeMaterialization{}, err
+	}
+	if expected.Kind != "java-runtime-image" || expected.Path != root || !validLedgerDigest(expected.SHA256) || expected.Bytes <= 0 {
+		return javaRuntimeMaterialization{}, errors.New("expected Java runtime tree identity invalid")
+	}
+	if err := os.Mkdir(store, 0o700); err != nil {
+		return javaRuntimeMaterialization{}, err
+	}
+	staging, err := os.MkdirTemp(store, ".java-runtime-staging-")
+	if err != nil {
+		return javaRuntimeMaterialization{}, err
+	}
+	defer removeImmutableTree(staging)
+	entries, total, err := scanJavaRuntimeImage(root, staging)
+	if err != nil {
+		return javaRuntimeMaterialization{}, err
+	}
+	first, err := runtimeImageArtifact(root, entries, total)
+	if err != nil || first != expected {
+		return javaRuntimeMaterialization{}, errors.New("Java runtime source identity changed before or during copy")
+	}
+	second, err := javaRuntimeImageIdentity(javaExecutable)
+	if err != nil || second != expected {
+		return javaRuntimeMaterialization{}, errors.New("Java runtime source identity changed during copy")
+	}
+	objectName := strings.TrimPrefix(expected.SHA256, "sha256:")
+	finalRoot := filepath.Join(store, objectName)
+	if err := os.Rename(staging, finalRoot); err != nil {
+		return javaRuntimeMaterialization{}, err
+	}
+	if err := verifyMaterializedJavaRuntimeImage(finalRoot, expected); err != nil {
+		return javaRuntimeMaterialization{}, err
+	}
+	javaFile, err := artifact(filepath.Join(finalRoot, "bin/java"))
+	if err != nil {
+		return javaRuntimeMaterialization{}, err
+	}
+	launches := []LaunchIdentity{
+		{Role: "java-runtime-image", SourcePath: root, SourceSHA256: expected.SHA256, ObjectSHA256: expected.SHA256, ObjectName: objectName, Bytes: expected.Bytes},
+		{Role: "java-executable", SourcePath: javaExecutable, SourceSHA256: javaFile.SHA256, ObjectSHA256: javaFile.SHA256, ObjectName: strings.TrimPrefix(javaFile.SHA256, "sha256:"), Bytes: javaFile.Bytes},
+	}
+	return javaRuntimeMaterialization{Root: finalRoot, Executable: filepath.Join(finalRoot, "bin/java"), Identity: expected, LaunchInputs: launches}, nil
+}
+
 func materializeLaunchInputs(store string, sources []launchSource) (launchBundle, error) {
 	if len(sources) == 0 || len(sources) > 32 {
 		return launchBundle{}, errors.New("launch source cardinality invalid")
@@ -729,8 +1011,16 @@ func materializeLaunchInputs(store string, sources []launchSource) (launchBundle
 	return bundle, nil
 }
 
-func materializeConfiguredLaunch(cfg Config, suiteRoot string) (Config, error) {
-	sources := []launchSource{{Role: "java-executable", Path: cfg.JavaExecutable, Executable: true}, {Role: "java-adapter", Path: cfg.JavaAdapterJar}, {Role: "java-runtime", Path: cfg.JavaRuntimeJar}, {Role: "rust-testee", Path: cfg.RustTestee, Executable: true}}
+func materializeConfiguredLaunch(cfg Config, suiteRoot string, inputs []ArtifactIdentity) (Config, error) {
+	inputByKind := map[string]ArtifactIdentity{}
+	for _, input := range inputs {
+		inputByKind[input.Kind] = input
+	}
+	javaImage, err := materializeJavaRuntimeImage(filepath.Join(suiteRoot, "java-runtime-images"), cfg.JavaExecutable, inputByKind["java-runtime-image"])
+	if err != nil {
+		return Config{}, err
+	}
+	sources := []launchSource{{Role: "java-adapter", Path: cfg.JavaAdapterJar}, {Role: "java-runtime", Path: cfg.JavaRuntimeJar}, {Role: "rust-testee", Path: cfg.RustTestee, Executable: true}}
 	for index, path := range cfg.JavaSupportJars {
 		sources = append(sources, launchSource{Role: fmt.Sprintf("java-support-%02d", index), Path: path})
 	}
@@ -739,19 +1029,13 @@ func materializeConfiguredLaunch(cfg Config, suiteRoot string) (Config, error) {
 		return Config{}, err
 	}
 	launched := cfg
-	launched.JavaExecutable = bundle.ByRole["java-executable"].Path
+	launched.JavaExecutable = javaImage.Executable
 	launched.JavaAdapterJar = bundle.ByRole["java-adapter"].Path
 	launched.JavaRuntimeJar = bundle.ByRole["java-runtime"].Path
 	launched.RustTestee = bundle.ByRole["rust-testee"].Path
 	launched.JavaSupportJars = make([]string, len(cfg.JavaSupportJars))
-	launched.launchInputs = map[string][]LaunchIdentity{"java": {}, "rust": {}}
+	launched.launchInputs = map[string][]LaunchIdentity{"java": expectedLaunchIdentities("java", inputs), "rust": expectedLaunchIdentities("rust", inputs)}
 	for _, identity := range bundle.Identities {
-		switch {
-		case identity.Role == "rust-testee":
-			launched.launchInputs["rust"] = append(launched.launchInputs["rust"], identity)
-		default:
-			launched.launchInputs["java"] = append(launched.launchInputs["java"], identity)
-		}
 		if strings.HasPrefix(identity.Role, "java-support-") {
 			index, _ := strconv.Atoi(strings.TrimPrefix(identity.Role, "java-support-"))
 			launched.JavaSupportJars[index] = bundle.ByRole[identity.Role].Path
@@ -3514,6 +3798,13 @@ func collectInputIdentities(cfg Config) ([]ArtifactIdentity, error) {
 		}
 		identity.Kind = spec.kind
 		inputs = append(inputs, identity)
+		if spec.kind == "java-executable" {
+			image, err := javaRuntimeImageIdentity(cfg.JavaExecutable)
+			if err != nil {
+				return nil, err
+			}
+			inputs = append(inputs, image)
+		}
 	}
 	return inputs, nil
 }
@@ -3784,7 +4075,7 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err != nil {
 		return Receipt{}, err
 	}
-	defer os.RemoveAll(suiteRoot)
+	defer removeImmutableTree(suiteRoot)
 	scenarios, _, err := loadPublicCorpus(cfg.RepositoryRoot, cfg.PublicCorpus)
 	if err != nil {
 		return Receipt{}, err
@@ -3835,7 +4126,7 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if !javaOK || !rustOK {
 		return Receipt{}, errors.New("runtime input identity absent")
 	}
-	launchedCfg, err := materializeConfiguredLaunch(cfg, suiteRoot)
+	launchedCfg, err := materializeConfiguredLaunch(cfg, suiteRoot, inputs)
 	if err != nil {
 		return Receipt{}, err
 	}
@@ -4005,8 +4296,8 @@ func ReproducePublicDifferential(ctx context.Context, repositoryRoot string, rec
 	if err != nil {
 		return ReproductionReceipt{}, err
 	}
-	defer os.RemoveAll(suiteRoot)
-	launched, err := materializeConfiguredLaunch(cfg, suiteRoot)
+	defer removeImmutableTree(suiteRoot)
+	launched, err := materializeConfiguredLaunch(cfg, suiteRoot, inputs)
 	if err != nil {
 		return ReproductionReceipt{}, err
 	}
@@ -4070,7 +4361,7 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
-	defer os.RemoveAll(suiteRoot)
+	defer removeImmutableTree(suiteRoot)
 	scenarios, _, err := loadPublicCorpus(cfg.RepositoryRoot, cfg.PublicCorpus)
 	if err != nil {
 		return DiagnosticReport{}, err
@@ -4094,7 +4385,11 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
-	launchedCfg, err := materializeConfiguredLaunch(cfg, suiteRoot)
+	inputs, err := collectInputIdentities(cfg)
+	if err != nil {
+		return DiagnosticReport{}, err
+	}
+	launchedCfg, err := materializeConfiguredLaunch(cfg, suiteRoot, inputs)
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
@@ -4533,7 +4828,7 @@ func configFromManifestInputs(root string, manifest Manifest) (Config, []Artifac
 		}
 		support = append(support, input.Path)
 	}
-	if len(support) == 0 || len(byKind) != len(repositoryPaths)+4+len(support) {
+	if len(support) == 0 || len(byKind) != len(repositoryPaths)+5+len(support) || byKind["java-runtime-image"].Path == "" {
 		return Config{}, nil, errors.New("input kind set is not exact")
 	}
 	cfg := Config{RepositoryRoot: root, PublicCorpus: repositoryPaths["public-corpus"], JavaExecutable: byKind["java-executable"].Path, JavaAdapterJar: byKind["java-adapter-jar"].Path, JavaRuntimeJar: byKind["java-runtime-jar"].Path, JavaSupportJars: support, RustTestee: byKind["rust-testee"].Path, MigrationInventory: repositoryPaths["migration-inventory"], CompatibilitySurface: repositoryPaths["compatibility-surface"], LedgerPath: filepath.Join(root, "evidence/java/behavior-delta-ledger.json"), EvidencePath: filepath.Join(root, "evidence/differential/manifest.json"), OracleHierarchyPath: repositoryPaths["oracle-hierarchy"], ScenarioTimeout: 5 * time.Second, SuiteTimeout: 15 * time.Minute, MinimizationBudget: Budget{MaxCandidates: 128, MaxDuration: 10 * time.Minute}}
@@ -4584,6 +4879,8 @@ func expectedLaunchIdentities(runtimeName string, inputs []ArtifactIdentity) []L
 			role = "rust-testee"
 		case runtimeName == "java" && input.Kind == "java-executable":
 			role = "java-executable"
+		case runtimeName == "java" && input.Kind == "java-runtime-image":
+			role = "java-runtime-image"
 		case runtimeName == "java" && input.Kind == "java-adapter-jar":
 			role = "java-adapter"
 		case runtimeName == "java" && input.Kind == "java-runtime-jar":
