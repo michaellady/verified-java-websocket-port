@@ -5,18 +5,18 @@
   "status": "PASS_OWNER_RELAXED_BOUNDED",
   "seam": "websocket_driver::ConnectionOwner::poll",
   "start_commit": "f524508e8650f7cc5cced43e6e1d43e1ed2f73a8",
-  "implementation_commit": "11a1c7f7bcc33623e7ff99dcff010b289a957f6d",
+  "implementation_commit": "6eb8ec7e76840fd104d4d1fc60643f9d43c4582d",
   "architecture_commit": "f524508e8650f7cc5cced43e6e1d43e1ed2f73a8",
   "source_tree": {
-    "git_listing_sha256": "sha256:128393b527d1889198bab390c88c115ead93a85e42569ddccf7135a0dd028e9e",
+    "git_listing_sha256": "sha256:afb30b0d804126d8b5b4d35f2771d05979f3019b2bc1309e35b42e734b35d2f2",
     "git_listing_scope": "git ls-tree -r IMPLEMENTATION_COMMIT over the exact bindings array paths",
     "bindings": [
       {"path":"docs/us017-driver-contract.md","sha256":"sha256:49c1bd3a32f6ac0bcd3f6b7d776928130f1bb379430b7163a43a342ecce5cfb3","git_blob":"2ca0f69e058c7cdd9dbe83be7d965fa9f7bf18c8"},
       {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:92f8b8f8c9ef6e45302a6379b7b5b644ef05456265013b59ddeb163966ef4290","git_blob":"897b5d84b92aa1f68ed892a3434519e4758f6aee"},
       {"path":"rust/connection-core/tests/outbound_commands.rs","sha256":"sha256:8756258d30511c971e56b2000f424560f94f5a3afb18f44e092b1413529eec40","git_blob":"37383ea1b4d1a259f3c2008feaa9514f9e008121"},
       {"path":"rust/websocket-driver/src/lib.rs","sha256":"sha256:d32d63dcab873fbe66c1437f2f4a1899bbb23db55b6914da08cf08902e5e132f","git_blob":"f6e64defec5dd11b2f72f19731e2197e75d4d478"},
-      {"path":"rust/websocket-driver/tests/driver_contract.rs","sha256":"sha256:0c0a6e95486f07a00c9eafa64b726f0586ace2f4d5d3b7780e0e63ac841f6d7f","git_blob":"3eec2b2acef82fd611b82aa017562c84e485dc38"},
-      {"path":"rust/websocket-driver/tests/concurrency.rs","sha256":"sha256:123be4b1bbc67eb4080a79ba3f47b8eb41b5248b511e569ddf28286efd088632","git_blob":"03954d36111a2f3ea407d5783f34ca08a6335c3b"},
+      {"path":"rust/websocket-driver/tests/driver_contract.rs","sha256":"sha256:e458be3be001491e3c96dfd7c441b703ddcca4190c26633429de4fb56b6d43d5","git_blob":"9b72f10ce42516e15b7f59c97079bad9226136c0"},
+      {"path":"rust/websocket-driver/tests/concurrency.rs","sha256":"sha256:bdb6581667fec36b0c9c4c72e7ea02674d8456df2a308e93c2fe1db7641854a8","git_blob":"fec85e3c5a1230800ba7b6a455ee563733a19f5b"},
       {"path":"assurance/concurrency/plan.json","sha256":"sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d","git_blob":"36dd5fd450f295bf60ec9082c1745cdbd85faf3f"},
       {"path":"rust/Cargo.lock","sha256":"sha256:b138978c2eca55cde701c3e9171ad69786779e83d6035fdd0a54917973209c83","git_blob":"92b4f300f93afffc88c3e8828c1b8649cedda374"},
       {"path":"rust/dependency-policy.toml","sha256":"sha256:ba5000a52dcb4397af9de87e913436732ef8cdc4c67e995eada0a63ae7bd0719","git_blob":"3f50d877da0b2c1e7cfe28d562697b71039bd751"},
@@ -35,17 +35,20 @@
       {"blocker":"actual-interleaving-exploration","exit_code":101,"diagnostic":"the prior 512 claimed schedules collapsed to one distinct synthetic schedule digest"},
       {"blocker":"full-seed-mutation-replay","exit_code":101,"diagnostic":"the prior seed canary did not execute the named mutation and the declared failure survived"}
     ],
+    "final_reality_matrix_first_run": {"exit_code":0,"diagnostic":"all four added public-driver matrix tests passed on first execution; no production behavior change was authorized or required"},
+    "mutation_truthfulness_red": {"exit_code":101,"diagnostic":"three compile errors after post-run trace editing was removed: execute_faulty_seed and derive_counterexample were absent"},
+    "mutation_fault_behavior_red": {"exit_code":101,"diagnostic":"the first premature-progress adapter did not execute the second owner turn and therefore failed to reproduce the declared queue-bypass counterexample"},
     "green": "PASS",
     "refactor": "PASS_AFTER_FMT_CLIPPY_AND_BOUNDED_TERMINAL_ORDER_REFACTOR"
   },
   "tests": {
     "gate_command": "make -C rust gates",
     "metadata_fmt_clippy": "PASS",
-    "debug": {"passed":139,"failed":0},
-    "release": {"passed":139,"failed":0},
+    "debug": {"passed":143,"failed":0},
+    "release": {"passed":143,"failed":0},
     "outbound_command_tests_per_profile": 4,
     "driver_unit_tests_per_profile": 1,
-    "driver_contract_tests_per_profile": 8,
+    "driver_contract_tests_per_profile": 12,
     "driver_concurrency_tests_per_profile": 3,
     "rustgate_focused_packages": "PASS: ./cmd/rustgate ./internal/rustgate",
     "go_rustgate_hostile_cases_added": 4
@@ -74,7 +77,12 @@
     "flush_fact_after_last_write_byte": true,
     "alternating_command_inbound_turn": true,
     "terminal_delivery_count": 1,
-    "post_terminal_output_count": 0
+    "post_terminal_output_count": 0,
+    "public_reality_matrix": {
+      "public_api_only": true,
+      "production_change_required": false,
+      "covered": ["SendText", "SendBinary", "SendPing", "local Close", "peer Close", "simultaneous Close ordering", "TransportEof", "EnqueueError::ReceiverDropped", "CommandDisposition::ProducersDropped", "Shutdown", "write progress", "Terminal"]
+    }
   },
   "concurrency_results": {
     "path": "assurance/concurrency/results.json",
@@ -87,7 +95,11 @@
     "semantic_digest": "fnv64:f8441e873c269148",
     "seed_count": 6,
     "seeds_killed": 6,
-    "seed_replays_each": 2,
+    "good_runs_each": 2,
+    "faulty_runs_each": 2,
+    "fault_injection_phase": "TEST_ONLY_PUBLIC_DRIVER_BOUNDARY_EXECUTION",
+    "completed_trace_post_editing": false,
+    "counterexamples_derived_from_faulty_execution": true,
     "native_stress_repeats": 8,
     "native_accepted": 512,
     "native_applied": 512,

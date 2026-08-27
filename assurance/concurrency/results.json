@@ -13,7 +13,7 @@
       "git_blob": "f6e64defec5dd11b2f72f19731e2197e75d4d478"
     }
   },
-  "implementation_commit": "11a1c7f7bcc33623e7ff99dcff010b289a957f6d",
+  "implementation_commit": "6eb8ec7e76840fd104d4d1fc60643f9d43c4582d",
   "preregistered_plan": {
     "path": "assurance/concurrency/plan.json",
     "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d",
@@ -55,6 +55,16 @@
     "replay_count": 2,
     "outcome": "PASS"
   },
+  "fault_execution": {
+    "adapter_scope": "TEST_ONLY_PUBLIC_DRIVER_BOUNDARY",
+    "completed_trace_post_editing": false,
+    "good_runs_per_seed": 2,
+    "faulty_runs_per_seed": 2,
+    "named_fault_injections_per_faulty_run": 1,
+    "counterexamples_derived_from_faulty_execution": true,
+    "seed_count": 6,
+    "outcome": "PASS_ALL_NAMED_FAULTS_KILLED"
+  },
   "properties": [
     {"property_id":"concurrency.accepted-eventual-exactly-once","outcome":"PASS"},
     {"property_id":"concurrency.bounded-counterexample","outcome":"PASS_WITH_DECLARED_TRUNCATION"},
@@ -78,12 +88,12 @@
     "aggregate_command_reservation_regression": {"first_retained":5,"second_attempted_aggregate":10,"maximum":8,"ownership_returned":true}
   },
   "seed_mutation_canaries": [
-    {"seed":"close-race","property":"concurrency.close-convergence","replays":2,"outcome":"KILLED"},
-    {"seed":"duplicate-delivery","property":"concurrency.terminal-exactly-once","replays":2,"outcome":"KILLED"},
-    {"seed":"lock-sharing","property":"concurrency.single-owner","replays":2,"outcome":"KILLED"},
-    {"seed":"lost-command","property":"concurrency.accepted-eventual-exactly-once","replays":2,"outcome":"KILLED"},
-    {"seed":"queue-bypass","property":"concurrency.no-write-bypass","replays":2,"outcome":"KILLED"},
-    {"seed":"write-reorder","property":"concurrency.fifo-owner-order","replays":2,"outcome":"KILLED"}
+    {"seed":"close-race","property":"concurrency.close-convergence","good_runs":2,"faulty_runs":2,"fault_phase":"PUBLIC_BOUNDARY_EXECUTION","outcome":"KILLED"},
+    {"seed":"duplicate-delivery","property":"concurrency.terminal-exactly-once","good_runs":2,"faulty_runs":2,"fault_phase":"PUBLIC_BOUNDARY_EXECUTION","outcome":"KILLED"},
+    {"seed":"lock-sharing","property":"concurrency.single-owner","good_runs":2,"faulty_runs":2,"fault_phase":"PUBLIC_BOUNDARY_EXECUTION","outcome":"KILLED"},
+    {"seed":"lost-command","property":"concurrency.accepted-eventual-exactly-once","good_runs":2,"faulty_runs":2,"fault_phase":"PUBLIC_BOUNDARY_EXECUTION","outcome":"KILLED"},
+    {"seed":"queue-bypass","property":"concurrency.no-write-bypass","good_runs":2,"faulty_runs":2,"fault_phase":"PUBLIC_BOUNDARY_EXECUTION","outcome":"KILLED"},
+    {"seed":"write-reorder","property":"concurrency.fifo-owner-order","good_runs":2,"faulty_runs":2,"fault_phase":"PUBLIC_BOUNDARY_EXECUTION","outcome":"KILLED"}
   ],
   "seed_tree": {
     "path": "rust/websocket-driver/fuzz-seeds/us017",
