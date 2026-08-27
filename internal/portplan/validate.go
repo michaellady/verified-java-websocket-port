@@ -597,6 +597,13 @@ func rustWorkspacePresent(root string) bool {
 	return false
 }
 
+// us010ClientHandshakePresent distinguishes a generic US-009 workspace from a
+// tree that has actually shipped the US-010 client-handshake capability.
+func us010ClientHandshakePresent(root string) bool {
+	_, err := os.Stat(filepath.Join(root, "rust/connection-core/src/handshake/client.rs"))
+	return err == nil
+}
+
 func stringSlicesEqual(left, right []string) bool {
 	if len(left) != len(right) {
 		return false

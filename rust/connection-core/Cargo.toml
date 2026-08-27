@@ -1,6 +1,6 @@
 [package]
 name = "websocket-core"
-description = "Safe, deterministic Sans-I/O WebSocket ConnectionCore contract; protocol slices remain unavailable pending US-010..US-016."
+description = "Safe, deterministic Sans-I/O WebSocket core with a bounded client opening handshake; later protocol slices remain unavailable."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

@@ -1,9 +1,10 @@
 //! Dependency-free, safe-Rust Sans-I/O connection contract.
 //!
 //! US-009 establishes admission, configuration, ordering, typed failure, and
-//! bounded command-channel seams only. Opening handshakes, frames, messages,
-//! fragmentation, controls, close/EOF behavior, sockets, runtimes, and
-//! callbacks remain unavailable and are owned by later stories.
+//! bounded command-channel seams. US-010 adds only the client opening
+//! handshake. Server opening handshakes, frames, messages, fragmentation,
+//! controls, protocol close behavior, sockets, runtimes, and callbacks remain
+//! unavailable and are owned by later stories.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]

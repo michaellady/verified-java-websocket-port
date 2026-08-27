@@ -3,7 +3,7 @@
   "schema_version": "1.1.0",
   "entity_type": "MigrationMap",
   "map_id": "semantic-id-migration-map.us003",
-  "map_version": "1.2.0",
+  "map_version": "1.3.0",
   "java_identity_method": {
     "tool": "java-semantic-oracle 1.0.0",
     "api": "javax.lang.model elements from com.sun.source.util.JavacTask.analyze() (JDK Compiler Tree API)",
@@ -17,7 +17,7 @@
     "planned_resolver": "rust-analyzer",
     "blocker_code": "RUST_IDENTITIES_PARTIALLY_RESOLVER_VERIFIED",
     "created_by_story": "US-009",
-    "statement": "The pinned rust-analyzer SCIP index resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role for US-009. Every later-story identity remains explicitly unresolved; no Java-shaped Rust alias was fabricated.",
+    "statement": "The immutable US-009 pinned rust-analyzer SCIP receipt resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role. US-010 reconciles its Java-shaped planned names to the small shipped public capability set, but the pinned resolver executable is no longer locally available, so every new US-010 identity remains explicitly resolver-unverified and no Java-shaped Rust alias is fabricated.",
     "resolution_receipt": {
       "story_id": "US-009",
       "resolver_artifact_id": "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
@@ -206,7 +206,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 8,
-      "rust_semantic_id": "ws_core::connection::WebSocketAdapter",
+      "rust_semantic_id": "websocket_core::LocalCommand",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -565,7 +565,7 @@
       "java_kind": "INTERFACE",
       "java_lookup_strength": "semantic",
       "java_member_count": 16,
-      "rust_semantic_id": "ws_core::connection::WebSocketListener",
+      "rust_semantic_id": "websocket_core::SemanticEvent",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -744,7 +744,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 32,
-      "rust_semantic_id": "ws_core::connection::Draft",
+      "rust_semantic_id": "websocket_core::ConnectionCore",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -948,7 +948,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 70,
-      "rust_semantic_id": "ws_core::framing::Draft6455",
+      "rust_semantic_id": "websocket_core::ConnectionCore",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -1279,7 +1279,7 @@
       "java_kind": "ENUM",
       "java_lookup_strength": "semantic",
       "java_member_count": 5,
-      "rust_semantic_id": "ws_core::handshake::client::HandshakeState",
+      "rust_semantic_id": "websocket_core::HandshakeFailure",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -1613,7 +1613,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 5,
-      "rust_semantic_id": "ws_core::handshake::client::IncompleteHandshakeException",
+      "rust_semantic_id": "websocket_core::HandshakeFailure",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -1674,7 +1674,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 7,
-      "rust_semantic_id": "ws_core::framing::InvalidDataException",
+      "rust_semantic_id": "websocket_core::HandshakeFailure",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -1965,7 +1965,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 5,
-      "rust_semantic_id": "ws_core::handshake::client::InvalidHandshakeException",
+      "rust_semantic_id": "websocket_core::HandshakeFailure",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -2926,7 +2926,7 @@
       "java_kind": "INTERFACE",
       "java_lookup_strength": "semantic",
       "java_member_count": 1,
-      "rust_semantic_id": "ws_core::handshake::client::ClientHandshake",
+      "rust_semantic_id": "websocket_core::ClientRequestDescriptor",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -2987,7 +2987,7 @@
       "java_kind": "INTERFACE",
       "java_lookup_strength": "semantic",
       "java_member_count": 1,
-      "rust_semantic_id": "ws_core::handshake::client::ClientHandshakeBuilder",
+      "rust_semantic_id": "websocket_core::ClientRequestDescriptor",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -3048,7 +3048,7 @@
       "java_kind": "INTERFACE",
       "java_lookup_strength": "semantic",
       "java_member_count": 2,
-      "rust_semantic_id": "ws_core::handshake::client::HandshakeBuilder",
+      "rust_semantic_id": "websocket_core::LocalCommand",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -3109,7 +3109,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 4,
-      "rust_semantic_id": "ws_core::handshake::client::HandshakeImpl1Client",
+      "rust_semantic_id": "websocket_core::ClientRequestDescriptor",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -3229,7 +3229,7 @@
       "java_kind": "INTERFACE",
       "java_lookup_strength": "semantic",
       "java_member_count": 4,
-      "rust_semantic_id": "ws_core::handshake::client::Handshakedata",
+      "rust_semantic_id": "websocket_core::ClientRequestDescriptor",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -3290,7 +3290,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 9,
-      "rust_semantic_id": "ws_core::handshake::client::HandshakedataImpl1",
+      "rust_semantic_id": "websocket_core::ClientRequestDescriptor",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -3530,7 +3530,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 26,
-      "rust_semantic_id": "ws_core::handshake::client::Base64",
+      "rust_semantic_id": "websocket_core::ConnectionCore",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -3591,7 +3591,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 16,
-      "rust_semantic_id": "ws_core::handshake::client::OutputStream",
+      "rust_semantic_id": "websocket_core::ConnectionCore",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [

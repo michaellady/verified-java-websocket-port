@@ -67,6 +67,7 @@ impl ResponseParser {
                 };
             }
             self.buffer.push(byte);
+            debug_assert!(self.buffer.len() <= self.maximum_bytes);
             if completes_line {
                 if self.status_complete {
                     if completes_header {

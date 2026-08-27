@@ -139,6 +139,7 @@ impl ClientHandshake {
             expected_accept,
             parser: ResponseParser::new(maximum_bytes, maximum_line_bytes, maximum_header_count),
         };
+        debug_assert!(self.awaiting_response());
         Ok(request)
     }
 

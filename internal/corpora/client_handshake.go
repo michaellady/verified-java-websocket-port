@@ -172,3 +172,250 @@ func serverResponseCases(raw []byte) (map[string]HandshakeCase, error) {
 	}
 	return cases, scanner.Err()
 }
+
+type evidenceArtifact struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+}
+
+type clientHandshakeEvidence struct {
+	EvidenceID string `json:"evidence_id"`
+	StoryID    string `json:"story_id"`
+	Source     struct {
+		Commit              string             `json:"commit"`
+		Tree                string             `json:"tree"`
+		ImplementationFiles []evidenceArtifact `json:"implementation_files"`
+	} `json:"source"`
+	Tests struct {
+		Debug struct {
+			Passed int `json:"passed"`
+			Failed int `json:"failed"`
+		} `json:"debug"`
+		Release struct {
+			Passed int `json:"passed"`
+			Failed int `json:"failed"`
+		} `json:"release"`
+		ClientHandshakeTests int `json:"client_handshake_tests_per_profile"`
+		SplitPointExecutions int `json:"split_point_executions_per_profile"`
+		FuzzSeedsReplayed    int `json:"fuzz_seeds_replayed_per_profile"`
+		FrozenResponseCases  int `json:"frozen_server_response_cases"`
+	} `json:"tests"`
+	Corpus struct {
+		ProjectionPath   string `json:"projection_path"`
+		ProjectionSHA256 string `json:"projection_sha256"`
+		FuzzSeedCount    int    `json:"fuzz_seed_count"`
+	} `json:"corpus"`
+	Symbols struct {
+		MigrationMapPath       string `json:"migration_map_path"`
+		MigrationMapSHA256     string `json:"migration_map_sha256"`
+		NewResolverVerified    int    `json:"new_resolver_verified_identities"`
+		JavaShapedAliasesAdded int    `json:"java_shaped_aliases_added"`
+		Bindings               []struct {
+			RustSemanticID string `json:"rust_semantic_id"`
+			Source         string `json:"source"`
+			Status         string `json:"status"`
+		} `json:"bindings"`
+	} `json:"symbols"`
+	Compatibility struct {
+		SurfaceID                  string `json:"surface_id"`
+		CutoverObligationID        string `json:"cutover_obligation_id"`
+		JavaMappingPath            string `json:"java_mapping_path"`
+		JavaMappingSHA256          string `json:"java_mapping_sha256"`
+		CompatibilitySurfaceSHA256 string `json:"compatibility_surface_sha256"`
+		CutoverContractSHA256      string `json:"cutover_contract_sha256"`
+	} `json:"compatibility"`
+	DeltaLedger struct {
+		Path               string `json:"path"`
+		SHA256             string `json:"sha256"`
+		RecordsAdded       int    `json:"records_added"`
+		AutobahnExecutions int    `json:"autobahn_executions"`
+	} `json:"delta_ledger"`
+	EvidenceDAGClaim  string                   `json:"evidence_dag_claim"`
+	EvidenceDAGPath   string                   `json:"evidence_dag_path"`
+	EvidenceDAGSHA256 string                   `json:"evidence_dag_sha256"`
+	Assurance         ClientHandshakeAssurance `json:"assurance"`
+}
+
+// VerifyClientHandshakeEvidence closes every file, symbol, cutover, and DAG
+// reference without treating a missing resolver or an unexecuted oracle as a pass.
+func VerifyClientHandshakeEvidence(root string) error {
+	raw, err := os.ReadFile(filepath.Join(root, "evidence/us010-client-handshake.json"))
+	if err != nil {
+		return err
+	}
+	var evidence clientHandshakeEvidence
+	if err := json.Unmarshal(raw, &evidence); err != nil {
+		return err
+	}
+	if evidence.EvidenceID != "evidence.us-010-client-handshake" || evidence.StoryID != "US-010" ||
+		len(evidence.Source.Commit) != 40 || len(evidence.Source.Tree) != 40 {
+		return fmt.Errorf("invalid US-010 evidence identity or source binding")
+	}
+	if _, err := hex.DecodeString(evidence.Source.Commit + evidence.Source.Tree); err != nil {
+		return fmt.Errorf("source commit/tree are not hexadecimal: %w", err)
+	}
+	for _, artifact := range evidence.Source.ImplementationFiles {
+		if err := verifyEvidenceArtifact(root, artifact); err != nil {
+			return err
+		}
+	}
+	if evidence.Tests.Debug.Passed != 35 || evidence.Tests.Debug.Failed != 0 ||
+		evidence.Tests.Release.Passed != 35 || evidence.Tests.Release.Failed != 0 ||
+		evidence.Tests.ClientHandshakeTests != 13 || evidence.Tests.SplitPointExecutions != 548 ||
+		evidence.Tests.FuzzSeedsReplayed != 11 || evidence.Tests.FrozenResponseCases != 10 {
+		return fmt.Errorf("US-010 test counts do not match the committed harness")
+	}
+	if err := verifyEvidenceArtifact(root, evidenceArtifact{evidence.Corpus.ProjectionPath, evidence.Corpus.ProjectionSHA256}); err != nil {
+		return err
+	}
+	if evidence.Corpus.FuzzSeedCount != 11 || evidence.Symbols.NewResolverVerified != 0 || evidence.Symbols.JavaShapedAliasesAdded != 0 {
+		return fmt.Errorf("US-010 corpus or resolver claims are inconsistent")
+	}
+	if err := verifyEvidenceArtifact(root, evidenceArtifact{evidence.Symbols.MigrationMapPath, evidence.Symbols.MigrationMapSHA256}); err != nil {
+		return err
+	}
+	if err := verifyUS010MigrationBindings(root, evidence.Symbols.Bindings); err != nil {
+		return err
+	}
+	for _, artifact := range []evidenceArtifact{
+		{evidence.Compatibility.JavaMappingPath, evidence.Compatibility.JavaMappingSHA256},
+		{"evidence/intake/compatibility-surface.json", evidence.Compatibility.CompatibilitySurfaceSHA256},
+		{"evidence/intake/cutover-contract.json", evidence.Compatibility.CutoverContractSHA256},
+		{evidence.DeltaLedger.Path, evidence.DeltaLedger.SHA256},
+	} {
+		if err := verifyEvidenceArtifact(root, artifact); err != nil {
+			return err
+		}
+	}
+	if evidence.Compatibility.SurfaceID != "surface.handshake.client-request" ||
+		evidence.Compatibility.CutoverObligationID != "cutover.surface-handshake-client-request" ||
+		evidence.DeltaLedger.RecordsAdded != 0 || evidence.DeltaLedger.AutobahnExecutions != 0 {
+		return fmt.Errorf("US-010 compatibility or delta nonclaims are inconsistent")
+	}
+	if err := verifyEvidenceArtifact(root, evidenceArtifact{evidence.EvidenceDAGPath, evidence.EvidenceDAGSHA256}); err != nil {
+		return err
+	}
+	if err := verifyUS010DAGAndCutover(root, evidence.EvidenceDAGPath, evidence.EvidenceDAGClaim); err != nil {
+		return err
+	}
+	if evidence.Assurance.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" ||
+		evidence.Assurance.IndependentReviewClaimed || evidence.Assurance.Production || evidence.Assurance.Publication {
+		return fmt.Errorf("US-010 evidence overstates assurance")
+	}
+	return nil
+}
+
+func verifyEvidenceArtifact(root string, artifact evidenceArtifact) error {
+	if artifact.Path == "" || filepath.Clean(artifact.Path) != artifact.Path || filepath.IsAbs(artifact.Path) {
+		return fmt.Errorf("invalid evidence artifact path %q", artifact.Path)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, artifact.Path))
+	if err != nil {
+		return err
+	}
+	if DigestSHA256(raw) != artifact.SHA256 {
+		return fmt.Errorf("evidence artifact digest mismatch: %s", artifact.Path)
+	}
+	return nil
+}
+
+func verifyUS010MigrationBindings(root string, bindings []struct {
+	RustSemanticID string `json:"rust_semantic_id"`
+	Source         string `json:"source"`
+	Status         string `json:"status"`
+}) error {
+	expected := map[string]bool{
+		"websocket_core::ConnectionCore":          false,
+		"websocket_core::ClientRequestDescriptor": false,
+		"websocket_core::LocalCommand":            false,
+		"websocket_core::HandshakeFailure":        false,
+		"websocket_core::SemanticEvent":           false,
+	}
+	for _, binding := range bindings {
+		if _, ok := expected[binding.RustSemanticID]; !ok || expected[binding.RustSemanticID] {
+			return fmt.Errorf("unexpected or duplicate US-010 binding %s", binding.RustSemanticID)
+		}
+		expected[binding.RustSemanticID] = true
+		path, _, found := strings.Cut(binding.Source, ":")
+		if !found {
+			return fmt.Errorf("binding lacks source line: %s", binding.RustSemanticID)
+		}
+		source, err := os.ReadFile(filepath.Join(root, path))
+		if err != nil {
+			return err
+		}
+		name := strings.TrimPrefix(binding.RustSemanticID, "websocket_core::")
+		if !bytes.Contains(source, []byte(name)) {
+			return fmt.Errorf("binding symbol absent from source: %s", binding.RustSemanticID)
+		}
+		if name == "ConnectionCore" && binding.Status != "RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT" {
+			return fmt.Errorf("ConnectionCore lost its historical resolver status")
+		}
+		if name != "ConnectionCore" && binding.Status != "SOURCE_BOUND_RESOLVER_UNAVAILABLE" {
+			return fmt.Errorf("new US-010 symbol overstates resolver status: %s", binding.RustSemanticID)
+		}
+	}
+	for id, present := range expected {
+		if !present {
+			return fmt.Errorf("missing US-010 symbol binding %s", id)
+		}
+	}
+	return nil
+}
+
+func verifyUS010DAGAndCutover(root, dagPath, claim string) error {
+	var dag struct {
+		Nodes []struct {
+			ID string `json:"id"`
+		} `json:"nodes"`
+		Edges []struct {
+			From string `json:"from"`
+			To   string `json:"to"`
+			Kind string `json:"kind"`
+		} `json:"edges"`
+	}
+	if dagPath != "assurance/us010-evidence-dag.json" {
+		return fmt.Errorf("US-010 evidence DAG path is not the additive story DAG")
+	}
+	raw, err := os.ReadFile(filepath.Join(root, dagPath))
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(raw, &dag); err != nil {
+		return err
+	}
+	nodeFound := false
+	edgeFound := false
+	for _, node := range dag.Nodes {
+		nodeFound = nodeFound || node.ID == claim
+	}
+	for _, edge := range dag.Edges {
+		edgeFound = edgeFound || edge.From == claim && edge.To == "evidence-us010-client-handshake" && edge.Kind == "supports"
+	}
+	if !nodeFound || !edgeFound {
+		return fmt.Errorf("US-010 evidence DAG claim is not closed")
+	}
+	var cutover struct {
+		Obligations []struct {
+			ID          string   `json:"id"`
+			Status      string   `json:"status"`
+			EvidenceIDs []string `json:"evidence_ids"`
+		} `json:"obligations"`
+	}
+	raw, err = os.ReadFile(filepath.Join(root, "evidence/intake/cutover-contract.json"))
+	if err != nil {
+		return err
+	}
+	if err := json.Unmarshal(raw, &cutover); err != nil {
+		return err
+	}
+	for _, obligation := range cutover.Obligations {
+		if obligation.ID == "cutover.surface-handshake-client-request" {
+			if obligation.Status != "SATISFIED" || len(obligation.EvidenceIDs) != 3 {
+				return fmt.Errorf("US-010 cutover obligation is not exactly satisfied")
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("US-010 cutover obligation is absent")
+}

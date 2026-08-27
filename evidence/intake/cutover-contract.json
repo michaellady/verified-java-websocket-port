@@ -60,8 +60,12 @@
       "id": "cutover.surface-handshake-client-request",
       "surface_id": "surface.handshake.client-request",
       "child_story_id": "US-010",
-      "status": "DECLARED",
-      "evidence_ids": []
+      "status": "SATISFIED",
+      "evidence_ids": [
+        "evidence.us-010-differential",
+        "evidence.us-010-property",
+        "evidence.us-010-client-handshake"
+      ]
     },
     {
       "id": "cutover.surface-handshake-server-response",

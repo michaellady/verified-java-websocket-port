@@ -710,6 +710,7 @@ impl ConnectionCore {
                 }
                 ClientResponse::Opened(descriptor) => {
                     self.state = ConnectionState::Open;
+                    debug_assert_eq!(self.state, ConnectionState::Open);
                     return StepResult {
                         outputs: Box::new([
                             CoreOutput::StateChanged(ConnectionState::Open),

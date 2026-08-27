@@ -11,3 +11,9 @@ func TestCommittedClientHandshakeProjectionReconciles(t *testing.T) {
 		t.Fatalf("unexpected additive/nonclaim inventory: %d/%d", len(projection.AdditiveVectors), len(projection.Nonclaims))
 	}
 }
+
+func TestCommittedClientHandshakeEvidenceClosesExactArtifacts(t *testing.T) {
+	if err := VerifyClientHandshakeEvidence(repoRoot(t)); err != nil {
+		t.Fatal(err)
+	}
+}

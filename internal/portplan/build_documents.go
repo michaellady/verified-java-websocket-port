@@ -274,6 +274,10 @@ func buildMigrationMap(
 		rustID := primary.RustModule + "::" + rustTypeName(binaryName)
 		rustIdentityVerified := false
 		if request.ToolchainRoot != "" {
+			if reconciled, ok := us010SourceBoundRustIdentities[binaryName]; ok &&
+				us010ClientHandshakePresent(workspaceProbeRoot(request)) {
+				rustID = reconciled
+			}
 			if resolved, ok := us009ResolvedRustIdentities[binaryName]; ok && rustWorkspacePresent(workspaceProbeRoot(request)) {
 				rustID = resolved.RustSemanticID
 				status = resolved.Status
@@ -326,7 +330,7 @@ func buildMigrationMap(
 		SchemaVersion: "1.1.0",
 		EntityType:    "MigrationMap",
 		MapID:         "semantic-id-migration-map.us003",
-		MapVersion:    "1.2.0",
+		MapVersion:    "1.3.0",
 		JavaIdentityMethod: JavaIdentityMethod{
 			Tool:           "java-semantic-oracle 1.0.0",
 			API:            oracle.IdentitySource,
@@ -651,12 +655,22 @@ func buildCutoverContract(request DeriveRequest) CutoverContract {
 	}
 	obligations := make([]CutoverObligation, 0, len(definitions))
 	for _, definition := range definitions {
+		status := "DECLARED"
+		evidenceIDs := []string{}
+		if definition.story == "US-010" && us010ClientHandshakePresent(workspaceProbeRoot(request)) {
+			status = "SATISFIED"
+			evidenceIDs = []string{
+				"evidence.us-010-differential",
+				"evidence.us-010-property",
+				"evidence.us-010-client-handshake",
+			}
+		}
 		obligations = append(obligations, CutoverObligation{
 			ID:           stableID("cutover", definition.id),
 			SurfaceID:    definition.id,
 			ChildStoryID: definition.story,
-			Status:       "DECLARED",
-			EvidenceIDs:  []string{},
+			Status:       status,
+			EvidenceIDs:  evidenceIDs,
 		})
 	}
 	return CutoverContract{
@@ -690,7 +704,7 @@ func rustIdentityStatus(workspacePresent bool) RustIdentityStatus {
 			PlannedResolver:   "rust-analyzer",
 			BlockerCode:       "RUST_IDENTITIES_PARTIALLY_RESOLVER_VERIFIED",
 			CreatedByStory:    "US-009",
-			Statement:         "The pinned rust-analyzer SCIP index resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role for US-009. Every later-story identity remains explicitly unresolved; no Java-shaped Rust alias was fabricated.",
+			Statement:         "The immutable US-009 pinned rust-analyzer SCIP receipt resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role. US-010 reconciles its Java-shaped planned names to the small shipped public capability set, but the pinned resolver executable is no longer locally available, so every new US-010 identity remains explicitly resolver-unverified and no Java-shaped Rust alias is fabricated.",
 			ResolutionReceipt: us009RustResolutionReceipt(),
 		}
 	}
@@ -717,6 +731,31 @@ var us009ResolvedRustIdentities = map[string]resolvedRustIdentity{
 	"org.java_websocket.WebSocketImpl":    {"websocket_core::ConnectionCore", "RESOLVER_VERIFIED_CAPABILITY_REPLACEMENT", "rust-analyzer cargo websocket-core 0.0.0 connection/ConnectionCore#"},
 	"org.java_websocket.enums.ReadyState": {"websocket_core::ConnectionState", "RESOLVER_VERIFIED_CAPABILITY_REPLACEMENT", "rust-analyzer cargo websocket-core 0.0.0 connection/ConnectionState#"},
 	"org.java_websocket.enums.Role":       {"websocket_core::Role", "RESOLVER_VERIFIED_DIRECT_IDENTITY", "rust-analyzer cargo websocket-core 0.0.0 connection/Role#"},
+}
+
+// us010SourceBoundRustIdentities reconciles pre-scaffold, Java-shaped planned
+// names to the deliberately small public capability set actually shipped by
+// US-010. These are source bindings only: unlike the three immutable US-009
+// resolutions above, none may claim resolver verification without the exact
+// pinned rust-analyzer executable.
+var us010SourceBoundRustIdentities = map[string]string{
+	"org.java_websocket.WebSocketAdapter":                        "websocket_core::LocalCommand",
+	"org.java_websocket.WebSocketImpl":                           "websocket_core::ConnectionCore",
+	"org.java_websocket.WebSocketListener":                       "websocket_core::SemanticEvent",
+	"org.java_websocket.drafts.Draft":                            "websocket_core::ConnectionCore",
+	"org.java_websocket.drafts.Draft_6455":                       "websocket_core::ConnectionCore",
+	"org.java_websocket.enums.HandshakeState":                    "websocket_core::HandshakeFailure",
+	"org.java_websocket.exceptions.IncompleteHandshakeException": "websocket_core::HandshakeFailure",
+	"org.java_websocket.exceptions.InvalidDataException":         "websocket_core::HandshakeFailure",
+	"org.java_websocket.exceptions.InvalidHandshakeException":    "websocket_core::HandshakeFailure",
+	"org.java_websocket.handshake.ClientHandshake":               "websocket_core::ClientRequestDescriptor",
+	"org.java_websocket.handshake.ClientHandshakeBuilder":        "websocket_core::ClientRequestDescriptor",
+	"org.java_websocket.handshake.HandshakeBuilder":              "websocket_core::LocalCommand",
+	"org.java_websocket.handshake.HandshakeImpl1Client":          "websocket_core::ClientRequestDescriptor",
+	"org.java_websocket.handshake.Handshakedata":                 "websocket_core::ClientRequestDescriptor",
+	"org.java_websocket.handshake.HandshakedataImpl1":            "websocket_core::ClientRequestDescriptor",
+	"org.java_websocket.util.Base64":                             "websocket_core::ConnectionCore",
+	"org.java_websocket.util.Base64$OutputStream":                "websocket_core::ConnectionCore",
 }
 
 func us009RustResolutionReceipt() *RustIdentityResolutionReceipt {
