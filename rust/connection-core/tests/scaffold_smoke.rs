@@ -147,15 +147,15 @@ fn production_source_has_no_ambient_or_callback_surfaces() {
 }
 
 #[test]
-fn future_us006_proof_paths_are_reserved_but_not_stubbed() {
+fn us006_proof_paths_host_the_exact_us012_production_symbols() {
     let root = manifest_dir().join("src/frame");
     assert!(root.join("mask.rs").is_file());
     assert!(root.join("decode.rs").is_file());
     let mask = read(&root.join("mask.rs"));
     let decode = read(&root.join("decode.rs"));
-    assert!(!mask.contains("fn apply_mask_in_place"));
-    assert!(!decode.contains("struct FrameHeaderDecoder"));
-    assert!(!decode.contains("fn decode_header"));
+    assert!(mask.contains("pub fn apply_mask_in_place"));
+    assert!(decode.contains("pub struct FrameHeaderDecoder"));
+    assert!(decode.contains("pub fn decode_header"));
 }
 
 #[test]

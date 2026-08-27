@@ -1,5 +1,7 @@
 use core::fmt;
 
+use crate::frame::Frame;
+use crate::frame::decode::FrameDecoder;
 use crate::handshake::{
     ClientHandshake, ClientLimitExceeded, ClientRequestDescriptor, ClientResponse, ServerHandshake,
     ServerRequest, ServerRequestDescriptor,
@@ -182,6 +184,18 @@ impl ConnectionConfig {
 
     pub(crate) const fn command_queue_entries(&self) -> usize {
         self.checked.command_queue_entries
+    }
+
+    pub(crate) const fn frame_bytes(&self) -> usize {
+        self.checked.frame_bytes
+    }
+
+    pub(crate) const fn total_buffered_bytes(&self) -> usize {
+        self.checked.total_buffered_bytes
+    }
+
+    pub(crate) const fn event_queue_entries(&self) -> usize {
+        self.checked.event_queue_entries
     }
 
     const fn handshake_limit(&self, limit: LimitKind) -> u64 {
@@ -411,6 +425,11 @@ pub enum SemanticEvent {
         /// The descriptor accepted from the peer's request.
         descriptor: ServerRequestDescriptor,
     },
+    /// One complete, validated frame was decoded from the transport.
+    FrameReceived {
+        /// Immutable frame-level observation for later protocol stories.
+        frame: Frame,
+    },
 }
 
 /// One output in exact occurrence order.
@@ -528,10 +547,62 @@ pub enum HandshakeFailure {
     UnexpectedTransferEncoding,
 }
 
-/// Reserved frame failure vocabulary.
+/// Stable frame-codec rejection vocabulary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum FrameFailure {}
+pub enum FrameFailure {
+    /// At least one RSV bit was set without a negotiated extension.
+    ReservedBits,
+    /// The four-bit opcode is not assigned by RFC 6455.
+    ReservedOpcode {
+        /// Rejected four-bit opcode value.
+        opcode: u8,
+    },
+    /// A control frame did not set FIN.
+    FragmentedControl {
+        /// Rejected control opcode.
+        opcode: crate::frame::Opcode,
+    },
+    /// A control payload exceeded 125 bytes.
+    ControlPayloadTooLarge {
+        /// Declared payload length.
+        length: u64,
+    },
+    /// A value below 126 used the 16-bit length form.
+    NonCanonicalLength16 {
+        /// Decoded noncanonical value.
+        length: u64,
+    },
+    /// A value below 65,536 used the 64-bit length form.
+    NonCanonicalLength64 {
+        /// Decoded noncanonical value.
+        length: u64,
+    },
+    /// The forbidden high bit of the 64-bit length was set.
+    PayloadLengthHighBitSet,
+    /// The inbound MASK bit did not match the endpoint role.
+    IncorrectMasking {
+        /// Required MASK-bit value for this endpoint role.
+        expected_masked: bool,
+        /// Received MASK-bit value.
+        actual_masked: bool,
+    },
+    /// A payload length could not be represented by the platform.
+    LengthDoesNotFitPlatform {
+        /// Unrepresentable wire value.
+        length: u64,
+    },
+    /// Checked frame-size arithmetic overflowed.
+    ArithmeticOverflow,
+    /// A bounded exact allocation request failed.
+    AllocationFailed,
+    /// EOF arrived during a partial frame header or payload.
+    UnexpectedEof,
+    /// Client-role encoding was attempted without an explicit key.
+    MissingMaskKey,
+    /// Server-role encoding was attempted with a mask key.
+    UnexpectedMaskKey,
+}
 
 /// Reserved UTF-8 failure vocabulary.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -645,6 +716,7 @@ pub struct ConnectionCore {
     state: ConnectionState,
     client_handshake: ClientHandshake,
     server_handshake: ServerHandshake,
+    frame_decoder: FrameDecoder,
 }
 
 impl ConnectionCore {
@@ -662,6 +734,7 @@ impl ConnectionCore {
             state: ConnectionState::Connecting,
             client_handshake: ClientHandshake::new(),
             server_handshake,
+            frame_decoder: FrameDecoder::new(),
         }
     }
 
@@ -826,6 +899,17 @@ impl ConnectionCore {
                 ServerRequest::NotAwaiting => {}
             }
         }
+        if let CoreInput::Transport(bytes) = input
+            && self.state == ConnectionState::Open
+        {
+            return self.consume_frames(bytes.as_slice());
+        }
+        if let CoreInput::TransportEof = input
+            && self.state == ConnectionState::Open
+            && self.frame_decoder.is_partial()
+        {
+            return self.close_with_failure(FailureKind::Frame(FrameFailure::UnexpectedEof));
+        }
         if let CoreInput::Transport(_) = input
             && self.role == Role::Client
             && !self.client_handshake.has_started()
@@ -912,6 +996,41 @@ impl ConnectionCore {
                 kind,
                 state_after: self.state,
             }),
+            state: self.state,
+        }
+    }
+
+    fn consume_frames(&mut self, bytes: &[u8]) -> StepResult {
+        let batch = self.frame_decoder.consume(&self.config, self.role, bytes);
+        let extra = usize::from(batch.failure.is_some());
+        let Some(output_capacity) = batch.frames.len().checked_add(extra) else {
+            return self.close_with_failure(FailureKind::Frame(FrameFailure::ArithmeticOverflow));
+        };
+        let mut outputs = Vec::new();
+        if outputs.try_reserve_exact(output_capacity).is_err() {
+            return self.close_with_failure(FailureKind::Frame(FrameFailure::AllocationFailed));
+        }
+        outputs.extend(
+            batch
+                .frames
+                .into_iter()
+                .map(|frame| CoreOutput::SemanticEvent(SemanticEvent::FrameReceived { frame })),
+        );
+        if let Some(kind) = batch.failure {
+            self.state = ConnectionState::Closed;
+            outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));
+            return StepResult {
+                outputs: outputs.into_boxed_slice(),
+                failure: Some(TypedProtocolFailure {
+                    kind,
+                    state_after: self.state,
+                }),
+                state: self.state,
+            };
+        }
+        StepResult {
+            outputs: outputs.into_boxed_slice(),
+            failure: None,
             state: self.state,
         }
     }

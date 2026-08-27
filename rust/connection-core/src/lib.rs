@@ -1,10 +1,10 @@
 //! Dependency-free, safe-Rust Sans-I/O connection contract.
 //!
 //! US-009 establishes admission, configuration, ordering, typed failure, and
-//! bounded command-channel seams. US-010 adds the client opening handshake,
-//! and US-011 begins the server opening handshake. Frames, messages,
-//! fragmentation, controls, protocol close behavior, sockets, runtimes, and
-//! callbacks remain unavailable and are owned by later stories.
+//! bounded command-channel seams. US-010 and US-011 add opening handshakes;
+//! US-012 adds canonical frame coding and masking. Messages, fragmentation,
+//! control policy, protocol close behavior, sockets, runtimes, and callbacks
+//! remain unavailable and are owned by later stories.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
@@ -25,6 +25,8 @@ pub use connection::{
     LimitRelationship, LocalCommand, ProtocolStory, QueueKind, Role, SemanticEvent, StepResult,
     TransportBytes, TransportWrite, TypedProtocolFailure, Utf8Failure,
 };
+pub use frame::decode::{FrameHeader, FrameHeaderDecode, FrameHeaderDecoder};
+pub use frame::{EncodedFrame, Frame, FrameEncoder, Opcode, OutboundFrame, apply_mask_in_place};
 pub use handshake::{
     ClientRequestDescriptor, ClientRequestDescriptorError, ServerRequestDescriptor,
 };

@@ -2,8 +2,8 @@
 
 use websocket_core::{
     ClientRequestDescriptor, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState,
-    CoreInput, CoreOutput, FailureKind, HandshakeFailure, InputKind, LimitKind, LocalCommand,
-    ProtocolStory, Role, SemanticEvent, TransportBytes,
+    CoreInput, CoreOutput, FailureKind, HandshakeFailure, InputKind, LimitKind, LocalCommand, Role,
+    SemanticEvent, TransportBytes,
 };
 
 fn server() -> ConnectionCore {
@@ -1165,13 +1165,7 @@ fn valid_plus_suffix_has_exact_results_at_every_transport_boundary() {
             let second = core.step(CoreInput::Transport(TransportBytes::new(b"x")));
             assert_eq!(second.state(), ConnectionState::Open, "{context}");
             assert_eq!(second.outputs().len(), 0, "{context}");
-            assert_eq!(
-                second.failure().map(|failure| &failure.kind),
-                Some(&FailureKind::ProtocolSliceUnavailable {
-                    owner_story: ProtocolStory::FrameCoding,
-                }),
-                "{context}"
-            );
+            assert_eq!(second.failure(), None, "{context}");
             frame_boundary_executions += 1;
         } else {
             assert_rejected_result(
@@ -1233,12 +1227,7 @@ fn same_step_suffix_is_smuggling_but_a_later_step_belongs_to_frames() {
     let later = core.step(CoreInput::Transport(TransportBytes::new(b"x")));
     assert_eq!(later.outputs().len(), 0);
     assert_eq!(later.state(), ConnectionState::Open);
-    assert_eq!(
-        later.failure().map(|failure| &failure.kind),
-        Some(&FailureKind::ProtocolSliceUnavailable {
-            owner_story: ProtocolStory::FrameCoding,
-        })
-    );
+    assert_eq!(later.failure(), None);
 }
 
 #[test]
