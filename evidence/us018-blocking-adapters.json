@@ -6,14 +6,14 @@
   "status": "PASS_OWNER_RELAXED_CURRENT_HOST",
   "seam": "websocket_testee::{run_client_once,run_server_once}",
   "start_commit": "6a7606ac0fc216e5c87148faf98c957ab18af324",
-  "implementation_commit": "9cd886c5d0f963ecaa7a66d20853330ff98c460b",
+  "implementation_commit": "7bc2ef38f8889c27c162b8ff73242792bc80972d",
   "architecture_commit": "b7146dd57e9b19678108d8fa29c1ce9403a8cc94",
   "source_tree": {
-    "git_listing_sha256": "sha256:ac097b54c115cfdd97e85a449538cb62add18fa80f7691bc14296fdcc1e499cc",
-    "git_listing_scope": "git ls-tree -r 9cd886c5d0f963ecaa7a66d20853330ff98c460b over the exact bindings array paths in lexical order",
+    "git_listing_sha256": "sha256:556e316aeaccf901305c9ec13b78fe506ec783e79978b05e8493b836681bcc15",
+    "git_listing_scope": "git ls-tree -r 7bc2ef38f8889c27c162b8ff73242792bc80972d over the exact bindings array paths in lexical order",
     "bindings": [
       {"path":"cmd/rustgate/main_test.go","sha256":"sha256:5fa43eb4ab81c6d04a7b06db1e47f4a7c6fbbcfe8c91815fdffb003975dede86","git_blob":"1d8a717c9168f8346653b519632cef74f50a81ec"},
-      {"path":"docs/us018-blocking-adapter-contract.md","sha256":"sha256:ccdf1685ea0e1ca67035d787576c92bd6c9f950db65e74966e5a8f833ed58d81","git_blob":"cf88ea3edcf610150a11e575b59528f8244c757d"},
+      {"path":"docs/us018-blocking-adapter-contract.md","sha256":"sha256:f4330469d727611d1ca471a81eca59b3eb9a3560b87eb0b9bdca8626f642640c","git_blob":"ddc1e7ed27c5b1973994185771e69847a9eb12a7"},
       {"path":"internal/rustgate/verify.go","sha256":"sha256:d347600fea4ba2c9f285735aa5801ab005d2d5c7e6ff4d8bde31db9c7fddad86","git_blob":"d85d791192f60da272ca633eb68933f5d32c0876"},
       {"path":"rust/Cargo.lock","sha256":"sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb","git_blob":"beb9c9fe6075149151935cb48c1b147c330d3943"},
       {"path":"rust/Cargo.toml","sha256":"sha256:316f90d18e749341ac236aa50695b70e87e25e0a8a0e18ad942a479e87c99615","git_blob":"6e4371d41cf7f3c180081ac6606c5a0106c9071d"},
@@ -22,13 +22,13 @@
       {"path":"rust/dependency-policy.toml","sha256":"sha256:f8112034226def374b1b58f20fb508c7cadc92f2ae6a3ac11cd1137cb845da86","git_blob":"9e46a71ad87541213b8fd304a6f36f0574c0e7df"},
       {"path":"rust/websocket-testee/Cargo.toml","sha256":"sha256:8b1c1828ebf2de72b8060dd11a09f82843e0384919e32ff20a2effc3ea153230","git_blob":"90ec75316d7d4c2b1601885dc35c97498b6d28a9"},
       {"path":"rust/websocket-testee/src/client.rs","sha256":"sha256:d146a0d45d28c23943fd935864aedc4f5f994e5bf8039bec8d0f39ae46c06bf0","git_blob":"2b99ce1415c3b70763e321e11881571ac10a380d"},
-      {"path":"rust/websocket-testee/src/io_loop.rs","sha256":"sha256:982b2a1d70d5e2077d2cb0d39cdc536255fb4c112a24aab0e457e1edf48216c4","git_blob":"b24461414c952268d92eb1274ab1c1bc498e36a7"},
-      {"path":"rust/websocket-testee/src/lib.rs","sha256":"sha256:8921e403176ed13ab5dc5e8aacd0c854965db2dc2b5bbf4051778fe9b28c8608","git_blob":"7da9e10972fda2813a6ce8414114ae884e44e8c1"},
+      {"path":"rust/websocket-testee/src/io_loop.rs","sha256":"sha256:e7bbd861a6f1d8630937ffeee6e6d59265654cbe9ec2ebc856ca59e003c98207","git_blob":"60c1b43cb8c0590faf14269f4e1ee0b67f5cd69e"},
+      {"path":"rust/websocket-testee/src/lib.rs","sha256":"sha256:108c77e8b3f33342d270e1a11a698234c3df98efb2fdd69453f26c030ff2358f","git_blob":"8294731894c9cf98d3e431ee7fe489648c9f6946"},
       {"path":"rust/websocket-testee/src/main.rs","sha256":"sha256:3a373c4218e4b4106e1458e047cd3fa235d5bee905a6fd92f6fea15e952e7e09","git_blob":"0e56734c09d0ecbd3634c03d64c7304e7fa8ebee"},
       {"path":"rust/websocket-testee/src/server.rs","sha256":"sha256:7482e3a8700361acffedcfbfdcece5a0ea28c60e1d68249e8a3aabcb1b19abda","git_blob":"3da146aad8e8769b54c576df728be353ff22c8fd"},
-      {"path":"rust/websocket-testee/tests/loopback.rs","sha256":"sha256:92d99d211111d231506d3295a92d39131d2f7461e04e630e9ba034b4b9c1e865","git_blob":"27a41b64b0bc532859fff31edec77e0e785ca09a"},
+      {"path":"rust/websocket-testee/tests/loopback.rs","sha256":"sha256:af4797541336238e8a7e047ce1d36a8914e4a5eeb1a115b5f192b17dde08f643","git_blob":"a8513dc4e9319dc5fca2cd61de731e52f730fd9e"},
       {"path":"rust/websocket-testee/tests/process.rs","sha256":"sha256:491db19692801ac2a6dcf30b2be236946a89cfe38cc7ac586e820b44dbd64a3e","git_blob":"49310face701dc2bba50f739c3e5ff43d67f4d6d"},
-      {"path":"schemas/us018-blocking-adapters-1.0.0.schema.json","sha256":"sha256:d7168f66cc6ba75e599e9fc4aae87b58b4887f73d129eda58fd2d19db8cf0115","git_blob":"78e3d1c1bc22b1a15aefde7c98b11bd9921631e1"},
+      {"path":"schemas/us018-blocking-adapters-1.0.0.schema.json","sha256":"sha256:b25bd94bab21da9ea23aca2d876a02883f237b395a734e474bf2fb3d9a12a091","git_blob":"791f6856beacf2cf4c874e9f13d0e2d8aaa3e2b7"},
       {"path":"security/rust-dependency-unsafe-inventory.json","sha256":"sha256:c221f41a97a03b8d32cb536a912f9bc03ebb67451c499d55a01a8ef5be248f2c","git_blob":"49d86e7d6bbfe90fcb7fe205de3850d92bad7c63"}
     ]
   },
@@ -41,14 +41,18 @@
       "exit_code": 1,
       "diagnostic": "focused hostile fixtures lacked ADAPTER_PROTOCOL_BRANCH, ADAPTER_PROTOCOL_SURFACE, and ADAPTER_LINKAGE_MISSING; only generic dependency findings existed"
     },
+    "blocking_remediation_red": {
+      "exit_code": 101,
+      "diagnostic": "focused report exhaustion reached terminal_count 0; focused owner-turn exhaustion reached shutdown_inputs 0 instead of one"
+    },
     "green": "PASS",
     "refactor": "PASS_AFTER_FMT_CLIPPY_AND_SHARED_PUMP_REFACTOR"
   },
   "tests": {
-    "debug": {"passed":155,"failed":0},
-    "release": {"passed":155,"failed":0},
+    "debug": {"passed":156,"failed":0},
+    "release": {"passed":156,"failed":0},
     "testee_unit_per_profile": 2,
-    "loopback_per_profile": 7,
+    "loopback_per_profile": 8,
     "process_per_profile": 3,
     "rustgate_packages": "PASS: ./cmd/rustgate ./internal/rustgate",
     "architecture_mutants": 9
@@ -65,6 +69,9 @@
     "write_progress_exact": true,
     "eof_once": true,
     "shutdown_once": true,
+    "max_owner_turns_includes_terminal_drain": true,
+    "terminal_drain_turn_allowance": 4104,
+    "minimum_owner_turns": 4105,
     "partial_read_bytes": 1,
     "max_write_chunk_bytes": 3,
     "normalized_process_exit_classes": [0, 2, 3, 4, 5],
