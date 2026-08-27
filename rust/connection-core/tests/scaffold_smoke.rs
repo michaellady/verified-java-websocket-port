@@ -84,7 +84,7 @@ fn workspace_and_package_both_enforce_the_unsafe_policy() {
 }
 
 #[test]
-fn lockfile_and_inventory_allow_only_the_exact_first_party_driver_edge() {
+fn lockfile_and_inventory_allow_only_the_exact_first_party_edges() {
     let workspace = manifest_dir().join("..");
     let lock = read(&workspace.join("Cargo.lock"));
     let inventory = read(&workspace.join("dependency-inventory.toml"));
@@ -92,21 +92,27 @@ fn lockfile_and_inventory_allow_only_the_exact_first_party_driver_edge() {
 
     assert!(lock.contains("name = \"websocket-core\""));
     assert!(lock.contains("name = \"websocket-driver\""));
+    assert!(lock.contains("name = \"websocket-testee\""));
     assert!(!lock.contains("source = "));
     assert!(!lock.contains("checksum = "));
     assert_eq!(
         lock.matches("dependencies = [\"websocket-core\"]").count(),
         1
     );
+    assert_eq!(
+        lock.matches("dependencies = [\"websocket-core\", \"websocket-driver\"]")
+            .count(),
+        1
+    );
     assert!(inventory.contains("status = \"FIRST_PARTY_LOCAL_PATH_ONLY\""));
     assert!(inventory.contains(
-        "direct_dependencies = [\"websocket-driver:websocket-core:path:../connection-core\"]"
+        "direct_dependencies = [\"websocket-driver:websocket-core:path:../connection-core\", \"websocket-testee:websocket-core:path:../connection-core\", \"websocket-testee:websocket-driver:path:../websocket-driver\"]"
     ));
     assert!(inventory.contains("transitive_packages = []"));
     assert!(inventory.contains("unsafe_allowances = []"));
     assert!(policy.contains("policy = \"DEPENDENCY_FREE_SAFE_RUST\""));
     assert!(policy.contains(
-        "allowed_direct_dependencies = [\"websocket-driver:websocket-core:path:../connection-core\"]"
+        "allowed_direct_dependencies = [\"websocket-driver:websocket-core:path:../connection-core\", \"websocket-testee:websocket-core:path:../connection-core\", \"websocket-testee:websocket-driver:path:../websocket-driver\"]"
     ));
     assert!(policy.contains("first_party_unsafe_allowed = false"));
     assert!(policy.contains("rust_toolchain = \"1.95.0\""));

@@ -1,5 +1,5 @@
 schema_version = "1.0.0"
-story = "US-017"
+story = "US-018"
 crate = "workspace"
 policy = "DEPENDENCY_FREE_SAFE_RUST"
 license = "Apache-2.0"
@@ -7,7 +7,7 @@ rust_toolchain = "1.95.0"
 lockfile_required = true
 offline_gates_required = true
 first_party_unsafe_allowed = false
-allowed_direct_dependencies = ["websocket-driver:websocket-core:path:../connection-core"]
+allowed_direct_dependencies = ["websocket-driver:websocket-core:path:../connection-core", "websocket-testee:websocket-core:path:../connection-core", "websocket-testee:websocket-driver:path:../websocket-driver"]
 allowed_dev_dependencies = []
 allowed_build_dependencies = []
 allowed_target_dependencies = []

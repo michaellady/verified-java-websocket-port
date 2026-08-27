@@ -1,0 +1,26 @@
+[package]
+name = "websocket-testee"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "websocket_testee"
+path = "src/lib.rs"
+
+[[bin]]
+name = "websocket-testee"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+websocket-core = { path = "../connection-core" }
+websocket-driver = { path = "../websocket-driver" }
+
+[dev-dependencies]
+
+[build-dependencies]

@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enterprisevibecode.example/schemas/us018-blocking-adapters-1.0.0.schema.json",
+  "title": "US-018 bounded blocking adapter evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "evidence_id",
+    "story_id",
+    "status",
+    "seam",
+    "start_commit",
+    "implementation_commit",
+    "architecture_commit",
+    "source_tree",
+    "tdd",
+    "tests",
+    "adapter",
+    "architecture_gate",
+    "toolchain",
+    "nonclaims",
+    "assurance"
+  ],
+  "properties": {
+    "$schema": {"const": "../schemas/us018-blocking-adapters-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_id": {"const": "evidence.us-018-blocking-adapters"},
+    "story_id": {"const": "US-018"},
+    "status": {"const": "PASS_OWNER_RELAXED_CURRENT_HOST"},
+    "seam": {"const": "websocket_testee::{run_client_once,run_server_once}"},
+    "start_commit": {"$ref": "#/$defs/commit"},
+    "implementation_commit": {"$ref": "#/$defs/commit"},
+    "architecture_commit": {"$ref": "#/$defs/commit"},
+    "source_tree": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["git_listing_sha256", "git_listing_scope", "bindings"],
+      "properties": {
+        "git_listing_sha256": {"$ref": "#/$defs/sha256"},
+        "git_listing_scope": {"type": "string", "minLength": 1},
+        "bindings": {
+          "type": "array",
+          "minItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256", "git_blob"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "sha256": {"$ref": "#/$defs/sha256"},
+              "git_blob": {"$ref": "#/$defs/git_blob"}
+            }
+          }
+        }
+      }
+    },
+    "tdd": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["public_seam_red", "rustgate_red", "green", "refactor"],
+      "properties": {
+        "public_seam_red": {"$ref": "#/$defs/red"},
+        "rustgate_red": {"$ref": "#/$defs/red"},
+        "green": {"const": "PASS"},
+        "refactor": {"const": "PASS_AFTER_FMT_CLIPPY_AND_SHARED_PUMP_REFACTOR"}
+      }
+    },
+    "tests": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "debug",
+        "release",
+        "testee_unit_per_profile",
+        "loopback_per_profile",
+        "process_per_profile",
+        "rustgate_packages",
+        "architecture_mutants"
+      ],
+      "properties": {
+        "debug": {"$ref": "#/$defs/test_result"},
+        "release": {"$ref": "#/$defs/test_result"},
+        "testee_unit_per_profile": {"const": 2},
+        "loopback_per_profile": {"const": 7},
+        "process_per_profile": {"const": 3},
+        "rustgate_packages": {"const": "PASS: ./cmd/rustgate ./internal/rustgate"},
+        "architecture_mutants": {"type": "integer", "minimum": 9}
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "transport",
+        "roles",
+        "owner_per_socket",
+        "shared_connected_pump",
+        "driver_constructor",
+        "owner_poll",
+        "read_buffer_allocations",
+        "read_buffer_retained_until_consumed",
+        "write_progress_exact",
+        "eof_once",
+        "shutdown_once",
+        "partial_read_bytes",
+        "max_write_chunk_bytes",
+        "normalized_process_exit_classes",
+        "current_host_matrices"
+      ],
+      "properties": {
+        "transport": {"const": "std::net loopback TCP"},
+        "roles": {"const": ["client", "server"]},
+        "owner_per_socket": {"const": 1},
+        "shared_connected_pump": {"const": true},
+        "driver_constructor": {"const": "websocket_driver::connection_driver"},
+        "owner_poll": {"const": "websocket_driver::ConnectionOwner::poll"},
+        "read_buffer_allocations": {"const": 1},
+        "read_buffer_retained_until_consumed": {"const": true},
+        "write_progress_exact": {"const": true},
+        "eof_once": {"const": true},
+        "shutdown_once": {"const": true},
+        "partial_read_bytes": {"const": 1},
+        "max_write_chunk_bytes": {"const": 3},
+        "normalized_process_exit_classes": {"const": [0, 2, 3, 4, 5]},
+        "current_host_matrices": {
+          "type": "array",
+          "minItems": 8,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "architecture_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact_local_edges", "forbidden_protocol_symbols", "typed_findings"],
+      "properties": {
+        "exact_local_edges": {
+          "const": [
+            "websocket-driver:websocket-core:path:../connection-core",
+            "websocket-testee:websocket-core:path:../connection-core",
+            "websocket-testee:websocket-driver:path:../websocket-driver"
+          ]
+        },
+        "forbidden_protocol_symbols": {"type": "integer", "minimum": 10},
+        "typed_findings": {
+          "const": [
+            "ADAPTER_LINKAGE_MISSING",
+            "ADAPTER_PROTOCOL_BRANCH",
+            "ADAPTER_PROTOCOL_SURFACE",
+            "ADAPTER_TRANSPORT_SURFACE",
+            "DEPENDENCY_NOT_ALLOWED"
+          ]
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rustc", "cargo", "host", "runtime_platform"],
+      "properties": {
+        "rustc": {"type": "string", "minLength": 1},
+        "cargo": {"type": "string", "minLength": 1},
+        "host": {"const": "aarch64-apple-darwin"},
+        "runtime_platform": {"type": "string", "minLength": 1}
+      }
+    },
+    "nonclaims": {
+      "type": "array",
+      "minItems": 8,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "assurance",
+        "independent_review_claimed",
+        "publication",
+        "production",
+        "signing"
+      ],
+      "properties": {
+        "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+        "independent_review_claimed": {"const": false},
+        "publication": {"const": false},
+        "production": {"const": false},
+        "signing": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "git_blob": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "red": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exit_code", "diagnostic"],
+      "properties": {
+        "exit_code": {"enum": [1, 101]},
+        "diagnostic": {"type": "string", "minLength": 1}
+      }
+    },
+    "test_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "failed"],
+      "properties": {
+        "passed": {"const": 155},
+        "failed": {"const": 0}
+      }
+    }
+  }
+}

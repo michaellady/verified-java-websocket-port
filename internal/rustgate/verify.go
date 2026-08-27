@@ -590,6 +590,11 @@ func (v *verifier) verifyDependencyTables(path string, document tomlDocument) {
 			if path == "rust/websocket-driver/Cargo.toml" && section == "dependencies" && entry.Key == "websocket-core" && entry.Raw == `{ path = "../connection-core" }` {
 				continue
 			}
+			if path == "rust/websocket-testee/Cargo.toml" && section == "dependencies" &&
+				((entry.Key == "websocket-core" && entry.Raw == `{ path = "../connection-core" }`) ||
+					(entry.Key == "websocket-driver" && entry.Raw == `{ path = "../websocket-driver" }`)) {
+				continue
+			}
 			code := "DEPENDENCY_NOT_ALLOWED"
 			if section == "build-dependencies" || strings.HasSuffix(section, ".build-dependencies") {
 				code = "BUILD_DEPENDENCY_NOT_ALLOWED"
@@ -673,7 +678,110 @@ func (v *verifier) verifySources(workspaceRoot string, crates []crate) {
 		if err != nil {
 			v.add("SOURCE_UNREADABLE", crateRoot, err.Error())
 		}
+		if item.Name == "websocket-testee" {
+			v.verifyAdapterArchitecture(crateRoot)
+		}
 	}
+}
+
+func (v *verifier) verifyAdapterArchitecture(crateRoot string) {
+	sourceRoot, ok := v.safePath(filepath.ToSlash(filepath.Join(crateRoot, "src")))
+	if !ok {
+		return
+	}
+	var combined []byte
+	err := filepath.WalkDir(sourceRoot, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".rs" {
+			return nil
+		}
+		relative, relErr := filepath.Rel(v.root, path)
+		if relErr != nil {
+			return relErr
+		}
+		relative = filepath.ToSlash(relative)
+		body, readable := v.readRegular(relative)
+		if !readable {
+			return nil
+		}
+		combined = append(combined, body...)
+		combined = append(combined, '\n')
+		tokens := rustCodeTokens(body)
+		forbiddenProtocol := map[string]bool{
+			"ConnectionCore":      true,
+			"CoreInput":           true,
+			"CoreOutput":          true,
+			"FrameEncoder":        true,
+			"FrameHeaderDecoder":  true,
+			"OutboundFrame":       true,
+			"Opcode":              true,
+			"apply_mask_in_place": true,
+			"CloseMachine":        true,
+			"ClientHandshake":     true,
+			"ServerHandshake":     true,
+		}
+		forbiddenTransport := map[string]bool{
+			"UdpSocket":    true,
+			"UnixStream":   true,
+			"UnixListener": true,
+			"Command":      true,
+			"SystemTime":   true,
+			"File":         true,
+			"OpenOptions":  true,
+		}
+		for _, token := range tokens {
+			if forbiddenProtocol[token] {
+				v.add("ADAPTER_PROTOCOL_SURFACE", relative, "adapter production source names forbidden protocol surface "+token)
+			}
+			if forbiddenTransport[token] {
+				v.add("ADAPTER_TRANSPORT_SURFACE", relative, "adapter production source names forbidden transport or process surface "+token)
+			}
+		}
+		compact := compactRustCode(body)
+		hasNibbleRead := strings.Contains(compact, "bytes[0]&0x0f") ||
+			strings.Contains(compact, "bytes[0]&15")
+		if hasNibbleRead && tokenPresent(tokens, "opcode") {
+			v.add("ADAPTER_PROTOCOL_BRANCH", relative, "adapter production source branches on a WebSocket opcode nibble")
+		}
+		if bytes.Contains(body, []byte("HTTP/1.1")) ||
+			bytes.Contains(body, []byte("Upgrade: websocket")) ||
+			bytes.Contains(body, []byte("Sec-WebSocket-")) {
+			v.add("ADAPTER_PROTOCOL_BRANCH", relative, "adapter production source contains a WebSocket opening-handshake wire literal")
+		}
+		return nil
+	})
+	if err != nil {
+		v.add("SOURCE_UNREADABLE", filepath.ToSlash(filepath.Join(crateRoot, "src")), err.Error())
+		return
+	}
+	compact := compactRustCode(combined)
+	if !strings.Contains(compact, "connection_driver(") ||
+		!strings.Contains(compact, "ConnectionOwner") ||
+		!strings.Contains(compact, "owner.poll(") {
+		v.add("ADAPTER_LINKAGE_MISSING", filepath.ToSlash(filepath.Join(crateRoot, "src")), "adapter must construct the exact connection_driver and call ConnectionOwner::poll")
+	}
+}
+
+func compactRustCode(body []byte) string {
+	code := stripRustCommentsAndLiterals(body)
+	result := make([]byte, 0, len(code))
+	for _, value := range code {
+		if value != ' ' && value != '\t' && value != '\r' && value != '\n' {
+			result = append(result, value)
+		}
+	}
+	return string(result)
+}
+
+func tokenPresent(tokens []string, expected string) bool {
+	for _, token := range tokens {
+		if strings.EqualFold(token, expected) {
+			return true
+		}
+	}
+	return false
 }
 
 func (v *verifier) verifySourcePathSyntax(manifestPath string, manifest tomlDocument) {
@@ -721,7 +829,32 @@ func (v *verifier) scanProductionSource(path string, body []byte) {
 		if allowedDriverStdImport(path, tokens, index) {
 			continue
 		}
-		v.add("FORBIDDEN_CORE_SURFACE", path, "explicit std access is restricted to the driver's exact collection, atomic, Arc, and mpsc imports")
+		if allowedTesteeStdImport(path, tokens, index) {
+			continue
+		}
+		v.add("FORBIDDEN_CORE_SURFACE", path, "explicit std access is restricted to the exact driver and blocking-testee import allowlists")
+	}
+}
+
+func allowedTesteeStdImport(path string, tokens []string, index int) bool {
+	path = filepath.ToSlash(path)
+	if !strings.Contains(path, "/websocket-testee/src/") || tokenAt(tokens, index-1) != "use" || tokenAt(tokens, index+1) != "::" {
+		return false
+	}
+	switch tokenAt(tokens, index+2) {
+	case "env":
+		return strings.HasSuffix(path, "/websocket-testee/src/main.rs") &&
+			tokenAt(tokens, index+3) == "::" && tokenAt(tokens, index+4) == "args" && tokenAt(tokens, index+5) == ";"
+	case "process":
+		return strings.HasSuffix(path, "/websocket-testee/src/main.rs") &&
+			tokenAt(tokens, index+3) == "::" && tokenAt(tokens, index+4) == "exit" && tokenAt(tokens, index+5) == ";"
+	case "thread":
+		return strings.HasSuffix(path, "/websocket-testee/src/server.rs") &&
+			tokenAt(tokens, index+3) == "::" && tokenAt(tokens, index+4) == "sleep" && tokenAt(tokens, index+5) == ";"
+	case "io", "net", "time":
+		return true
+	default:
+		return false
 	}
 }
 
