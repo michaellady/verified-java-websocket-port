@@ -37,9 +37,7 @@ impl CommandSender {
     pub fn try_send(&self, command: LocalCommand) -> Result<(), CommandSendError> {
         self.inner.try_send(command).map_err(|error| match error {
             mpsc::TrySendError::Full(command) => CommandSendError::Full(command),
-            mpsc::TrySendError::Disconnected(command) => {
-                CommandSendError::ReceiverDropped(command)
-            }
+            mpsc::TrySendError::Disconnected(command) => CommandSendError::ReceiverDropped(command),
         })
     }
 }
