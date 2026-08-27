@@ -1,6 +1,7 @@
 package corpora
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -78,6 +79,28 @@ func TestServerProjectionRejectsVerdictNonceAndAuthorityDrift(t *testing.T) {
 		duplicatedVersion.Observable != "reject" || duplicatedVersion.Divergent ||
 		duplicatedVersion.RejectChannel != "not_matched" {
 		t.Fatal("duplicate key/version Java outcomes were collapsed")
+	}
+
+	fixture, err := readUS010Artifact(root, us011FrozenRustFixturePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tamperedFixture := bytes.Replace(fixture, []byte("us005.hs.0027"), []byte("us005.hs.0028"), 1)
+	if bytes.Equal(tamperedFixture, fixture) {
+		t.Fatal("fixture tamper precondition did not modify bytes")
+	}
+	if err := verifyServerFrozenRustFixtureBytes(tamperedFixture, projection, source); err == nil {
+		t.Fatal("executable Rust frozen-fixture tampering was accepted")
+	}
+	tamperedSource := make(map[string]HandshakeCase, len(source))
+	for id, item := range source {
+		tamperedSource[id] = item
+	}
+	item := tamperedSource["us005.hs.0000"]
+	item.RawBase64 = tamperedSource["us005.hs.0001"].RawBase64
+	tamperedSource["us005.hs.0000"] = item
+	if err := verifyServerFrozenRustFixtureBytes(fixture, projection, tamperedSource); err == nil {
+		t.Fatal("frozen corpus byte drift away from the executable Rust fixture was accepted")
 	}
 }
 

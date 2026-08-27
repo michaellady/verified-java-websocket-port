@@ -213,6 +213,9 @@ func LoadAndVerifyServerHandshakeProjection(root string) (ServerHandshakeProject
 	if err := verifyFrozenServerProjection(projection, cases); err != nil {
 		return ServerHandshakeProjection{}, err
 	}
+	if err := verifyServerFrozenRustFixture(root, projection, cases); err != nil {
+		return ServerHandshakeProjection{}, err
+	}
 	if err := verifyServerPropertyClaims(projection); err != nil {
 		return ServerHandshakeProjection{}, err
 	}
@@ -293,6 +296,168 @@ func verifyFrozenServerProjection(projection ServerHandshakeProjection, source m
 		}
 	}
 	return nil
+}
+
+const us011FrozenRustFixturePath = "rust/connection-core/tests/data/us011_frozen_cases.rs"
+
+func verifyServerFrozenRustFixture(root string, projection ServerHandshakeProjection, source map[string]HandshakeCase) error {
+	raw, err := readUS010Artifact(root, us011FrozenRustFixturePath)
+	if err != nil {
+		return err
+	}
+	return verifyServerFrozenRustFixtureBytes(raw, projection, source)
+}
+
+func verifyServerFrozenRustFixtureBytes(raw []byte, projection ServerHandshakeProjection, source map[string]HandshakeCase) error {
+	expected, err := renderServerFrozenRustFixture(projection, source)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(raw, expected) {
+		return fmt.Errorf("Rust frozen server fixture differs from its deterministic Go corpus projection")
+	}
+	return nil
+}
+
+func renderServerFrozenRustFixture(projection ServerHandshakeProjection, source map[string]HandshakeCase) ([]byte, error) {
+	var accepted, rejected, limited, incomplete strings.Builder
+	for _, id := range projection.FrozenSource.SelectedCaseIDs {
+		item, ok := source[id]
+		expectation, expected := frozenServerExpectations[id]
+		if !ok || !expected {
+			return nil, fmt.Errorf("render frozen Rust fixture: missing case %s", id)
+		}
+		raw, err := base64.StdEncoding.DecodeString(item.RawBase64)
+		if err != nil {
+			return nil, fmt.Errorf("render frozen Rust fixture case %s: %w", id, err)
+		}
+		request := rustByteStringLiteral(raw)
+		switch item.Expected.Verdict {
+		case "accept":
+			target, host, err := frozenRequestTargetAndHost(raw)
+			if err != nil {
+				return nil, fmt.Errorf("render frozen Rust fixture case %s: %w", id, err)
+			}
+			fmt.Fprintf(&accepted, "    AcceptedCase {\n        id: %q,\n        request: %s,\n        target: %q,\n        host: %q,\n        accept: %q,\n    },\n", id, request, target, host, item.Expected.SecWebSocketAccept)
+		case "incomplete":
+			fmt.Fprintf(&incomplete, "    (%q, %s),\n", id, request)
+		case "reject":
+			if strings.HasPrefix(id, "us005.hs.004") {
+				limit, err := frozenLimitFailure(item, raw)
+				if err != nil {
+					return nil, fmt.Errorf("render frozen Rust fixture case %s: %w", id, err)
+				}
+				fmt.Fprintf(&limited, "    LimitRejectedCase { id: %q, request: %s, limits: (%d, %d, %d), expected: %s },\n", id, request, item.Config.MaxHandshakeBytes, item.Config.MaxHeaderCount, item.Config.MaxHeaderLineBytes, limit)
+				continue
+			}
+			expectedFailure, err := frozenRustFailure(expectation.rust)
+			if err != nil {
+				return nil, fmt.Errorf("render frozen Rust fixture case %s: %w", id, err)
+			}
+			fmt.Fprintf(&rejected, "    RejectedCase { id: %q, request: %s, expected: %s },\n", id, request, expectedFailure)
+		default:
+			return nil, fmt.Errorf("render frozen Rust fixture case %s: unsupported verdict %s", id, item.Expected.Verdict)
+		}
+	}
+
+	var output strings.Builder
+	output.WriteString("// Generated-style executable projection of the immutable US-005 client-request corpus.\n")
+	output.WriteString("// Keep these bytes, configs, IDs, and typed outcomes byte-for-byte bound by the Go verifier.\n\n")
+	output.WriteString("struct AcceptedCase {\n    id: &'static str,\n    request: &'static [u8],\n    target: &'static str,\n    host: &'static str,\n    accept: &'static str,\n}\n\n")
+	output.WriteString("struct RejectedCase {\n    id: &'static str,\n    request: &'static [u8],\n    expected: HandshakeFailure,\n}\n\n")
+	output.WriteString("struct LimitRejectedCase {\n    id: &'static str,\n    request: &'static [u8],\n    limits: (u64, u64, u64),\n    expected: FailureKind,\n}\n\n")
+	output.WriteString("const FROZEN_ACCEPTED: &[AcceptedCase] = &[\n")
+	output.WriteString(accepted.String())
+	output.WriteString("];\n\nconst FROZEN_REJECTED: &[RejectedCase] = &[\n")
+	output.WriteString(rejected.String())
+	output.WriteString("];\n\nconst FROZEN_LIMIT_REJECTED: &[LimitRejectedCase] = &[\n")
+	output.WriteString(limited.String())
+	output.WriteString("];\n\nconst FROZEN_INCOMPLETE: &[(&str, &[u8])] = &[\n")
+	output.WriteString(incomplete.String())
+	output.WriteString("];\n")
+	return []byte(output.String()), nil
+}
+
+func rustByteStringLiteral(raw []byte) string {
+	var result strings.Builder
+	result.WriteString("b\"")
+	for _, value := range raw {
+		switch value {
+		case '\\':
+			result.WriteString("\\\\")
+		case '"':
+			result.WriteString("\\\"")
+		case '\r':
+			result.WriteString("\\r")
+		case '\n':
+			result.WriteString("\\n")
+		case '\t':
+			result.WriteString("\\t")
+		default:
+			if value >= 0x20 && value <= 0x7e {
+				result.WriteByte(value)
+			} else {
+				fmt.Fprintf(&result, "\\x%02x", value)
+			}
+		}
+	}
+	result.WriteByte('"')
+	return result.String()
+}
+
+func frozenRequestTargetAndHost(raw []byte) (string, string, error) {
+	lines := bytes.Split(raw, []byte("\r\n"))
+	parts := bytes.Split(lines[0], []byte(" "))
+	if len(parts) != 3 {
+		return "", "", fmt.Errorf("accepted request line is malformed")
+	}
+	host := ""
+	for _, line := range lines[1:] {
+		name, value, found := bytes.Cut(line, []byte(":"))
+		if found && strings.EqualFold(string(name), "host") {
+			host = strings.TrimSpace(string(value))
+			break
+		}
+	}
+	if host == "" {
+		return "", "", fmt.Errorf("accepted request has no Host")
+	}
+	return string(parts[1]), host, nil
+}
+
+func frozenRustFailure(expected string) (string, error) {
+	if strings.HasPrefix(expected, "InvalidKeyLength(") && strings.HasSuffix(expected, ")") {
+		decoded := strings.TrimSuffix(strings.TrimPrefix(expected, "InvalidKeyLength("), ")")
+		if _, err := strconv.ParseUint(decoded, 10, 64); err != nil {
+			return "", err
+		}
+		return "HandshakeFailure::InvalidKeyLength { decoded: " + decoded + " }", nil
+	}
+	allowed := map[string]bool{
+		"MethodNotGet": true, "HttpVersionNot11": true, "MissingHost": true,
+		"MissingUpgrade": true, "InvalidUpgrade": true, "MissingConnection": true,
+		"InvalidConnection": true, "MissingKey": true, "InvalidKeyEncoding": true,
+		"MissingVersion": true, "UnsupportedVersion": true, "DuplicateHeader": true,
+		"InvalidHeaderName": true, "MalformedRequestLine": true,
+		"ObsoleteLineFolding": true, "BareLineEnding": true,
+	}
+	if !allowed[expected] {
+		return "", fmt.Errorf("unsupported Rust handshake failure %s", expected)
+	}
+	return "HandshakeFailure::" + expected, nil
+}
+
+func frozenLimitFailure(item HandshakeCase, raw []byte) (string, error) {
+	switch item.Expected.RejectCode {
+	case "HS_LIMIT_TOTAL_BYTES":
+		return fmt.Sprintf("FailureKind::LimitExceeded { limit: LimitKind::HandshakeBytes, attempted: %d, maximum: %d }", len(raw), item.Config.MaxHandshakeBytes), nil
+	case "HS_LIMIT_HEADER_COUNT":
+		return fmt.Sprintf("FailureKind::LimitExceeded { limit: LimitKind::HandshakeHeaderCount, attempted: %d, maximum: %d }", item.Config.MaxHeaderCount+1, item.Config.MaxHeaderCount), nil
+	case "HS_LIMIT_HEADER_LINE_BYTES":
+		return fmt.Sprintf("FailureKind::LimitExceeded { limit: LimitKind::HandshakeHeaderLineBytes, attempted: %d, maximum: %d }", item.Config.MaxHeaderLineBytes+1, item.Config.MaxHeaderLineBytes), nil
+	default:
+		return "", fmt.Errorf("unsupported frozen limit code %s", item.Expected.RejectCode)
+	}
 }
 
 func verifyServerPropertyClaims(projection ServerHandshakeProjection) error {
@@ -596,6 +761,7 @@ var us011SourceArtifactPaths = []string{
 	"rust/connection-core/src/handshake/crypto.rs",
 	"rust/connection-core/src/handshake/server.rs",
 	"rust/connection-core/tests/server_handshake.rs",
+	us011FrozenRustFixturePath,
 	"rust/connection-core/tests/data/us011_nonce_vectors.rs",
 	"rust/connection-core/tests/connection_contract.rs",
 	"internal/corpora/server_handshake.go",
