@@ -16,8 +16,7 @@ pub mod frame;
 mod handshake;
 
 pub use channel::{
-    CommandQueueCapacity, CommandReceiveError, CommandReceiver, CommandSendError, CommandSender,
-    command_channel,
+    CommandReceiveError, CommandReceiver, CommandSendError, CommandSender, command_channel,
 };
 pub use connection::{
     CloseFailure, ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState,

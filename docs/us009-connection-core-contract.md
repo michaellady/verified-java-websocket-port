@@ -172,7 +172,7 @@ shared. Exactly one owner calls `step`. The only producer concurrency seam is
 a dependency-free bounded MPSC command channel outside the core:
 
 ```rust
-pub fn command_channel(capacity: CommandQueueCapacity)
+pub fn command_channel(config: &ConnectionConfig)
     -> (CommandSender, CommandReceiver);
 impl CommandSender {
     pub fn try_send(&self, command: LocalCommand)
@@ -185,6 +185,9 @@ impl CommandReceiver {
 
 Senders may be cloned; the receiver and core remain owned together by the
 future `ConnectionOwner`. No blocking send or lock exposes protocol state.
+The channel has no independent public capacity input: its exact bound is the
+validated immutable `ConnectionConfig.command_queue_entries` value, so an
+owner cannot pair a small core configuration with a larger command queue.
 FIFO holds within each producer; cross-producer order is the receiver's
 observed order and becomes the owner's committed output order. Every accepted
 command is applied once or receives one typed terminal disposition. Queue full

@@ -1,17 +1,26 @@
 #![forbid(unsafe_code)]
 
 use websocket_core::{
-    CommandQueueCapacity, CommandReceiveError, CommandSendError, LocalCommand, command_channel,
+    CommandReceiveError, CommandSendError, ConnectionConfig, ConnectionLimits, LocalCommand,
+    command_channel,
 };
 
 fn text(value: &str) -> LocalCommand {
     LocalCommand::SendText(value.into())
 }
 
+fn config_with_command_capacity(command_queue_entries: u64) -> ConnectionConfig {
+    ConnectionConfig::try_from(ConnectionLimits {
+        command_queue_entries,
+        ..ConnectionLimits::default()
+    })
+    .unwrap()
+}
+
 #[test]
 fn exact_capacity_is_bounded_and_full_preserves_accepted_fifo_work() {
-    let capacity = CommandQueueCapacity::try_from(2).unwrap();
-    let (sender, mut receiver) = command_channel(capacity);
+    let config = config_with_command_capacity(2);
+    let (sender, mut receiver) = command_channel(&config);
 
     sender.try_send(text("first")).unwrap();
     sender.try_send(text("second")).unwrap();
@@ -26,8 +35,8 @@ fn exact_capacity_is_bounded_and_full_preserves_accepted_fifo_work() {
 
 #[test]
 fn cloned_sender_preserves_each_producers_fifo_order() {
-    let capacity = CommandQueueCapacity::try_from(4).unwrap();
-    let (sender, mut receiver) = command_channel(capacity);
+    let config = config_with_command_capacity(4);
+    let (sender, mut receiver) = command_channel(&config);
     let clone = sender.clone();
 
     sender.try_send(text("a1")).unwrap();
@@ -43,15 +52,15 @@ fn cloned_sender_preserves_each_producers_fifo_order() {
 
 #[test]
 fn dropped_endpoints_have_typed_terminal_dispositions() {
-    let capacity = CommandQueueCapacity::try_from(1).unwrap();
-    let (sender, receiver) = command_channel(capacity);
+    let config = config_with_command_capacity(1);
+    let (sender, receiver) = command_channel(&config);
     drop(receiver);
     assert_eq!(
         sender.try_send(text("returned")),
         Err(CommandSendError::ReceiverDropped(text("returned")))
     );
 
-    let (sender, mut receiver) = command_channel(capacity);
+    let (sender, mut receiver) = command_channel(&config);
     sender.try_send(text("accepted")).unwrap();
     drop(sender);
     assert_eq!(receiver.try_recv(), Ok(text("accepted")));
@@ -59,10 +68,15 @@ fn dropped_endpoints_have_typed_terminal_dispositions() {
 }
 
 #[test]
-fn command_capacity_uses_the_same_zero_and_ceiling_contract() {
-    assert!(CommandQueueCapacity::try_from(1).is_ok());
-    assert!(CommandQueueCapacity::try_from(4_096).is_ok());
-    assert!(CommandQueueCapacity::try_from(0).is_err());
-    assert!(CommandQueueCapacity::try_from(4_097).is_err());
-    assert!(CommandQueueCapacity::try_from(u64::MAX).is_err());
+fn configured_capacity_is_the_channel_bound_without_a_second_capacity_input() {
+    let config = config_with_command_capacity(1);
+    let (sender, mut receiver) = command_channel(&config);
+
+    sender.try_send(text("accepted")).unwrap();
+    assert_eq!(
+        sender.try_send(text("full")),
+        Err(CommandSendError::Full(text("full")))
+    );
+    assert_eq!(receiver.try_recv(), Ok(text("accepted")));
+    assert_eq!(receiver.try_recv(), Err(CommandReceiveError::Empty));
 }

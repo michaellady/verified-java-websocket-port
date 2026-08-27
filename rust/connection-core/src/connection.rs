@@ -158,6 +158,10 @@ impl ConnectionConfig {
     pub const fn aggregate_capacity(&self) -> usize {
         self.checked.aggregate_capacity
     }
+
+    pub(crate) const fn command_queue_entries(&self) -> usize {
+        self.checked.command_queue_entries
+    }
 }
 
 impl TryFrom<ConnectionLimits> for ConnectionConfig {
