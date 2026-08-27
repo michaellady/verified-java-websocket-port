@@ -1935,16 +1935,27 @@ func selectedRejectedFrames(sc corpora.Scenario) ([]commonFrame, bool, error) {
 		if err != nil {
 			return nil, true, err
 		}
-		if sc.Core.Limits.MaxFrames < 0 || sc.Core.Limits.MaxFrames > len(frames) {
-			return nil, true, errors.New("frame-limit scenario cannot derive accepted frame prefix")
+		if sc.Core.Limits.MaxFrames < 0 {
+			return nil, true, errors.New("frame-limit scenario has a negative frame bound")
 		}
-		return frames[:sc.Core.Limits.MaxFrames], true, nil
+		accepted := sc.Core.Limits.MaxFrames
+		if accepted > len(frames) {
+			accepted = len(frames)
+		}
+		// A minimized candidate can contain fewer complete public frames than
+		// the original limit. In that case every frame present was accepted;
+		// the prefix is derived solely from the candidate's decoded bytes.
+		return frames[:accepted], true, nil
 	case "action-limit":
-		if sc.Core.Limits.MaxActions < 0 || sc.Core.Limits.MaxActions > len(sc.Core.Steps) {
-			return nil, true, errors.New("action-limit scenario cannot derive accepted action prefix")
+		if sc.Core.Limits.MaxActions < 0 {
+			return nil, true, errors.New("action-limit scenario has a negative action bound")
 		}
-		frames := make([]commonFrame, 0, sc.Core.Limits.MaxActions)
-		for index, step := range sc.Core.Steps[:sc.Core.Limits.MaxActions] {
+		accepted := sc.Core.Limits.MaxActions
+		if accepted > len(sc.Core.Steps) {
+			accepted = len(sc.Core.Steps)
+		}
+		frames := make([]commonFrame, 0, accepted)
+		for index, step := range sc.Core.Steps[:accepted] {
 			if step.Kind != "action" || step.Action != "send_text" {
 				return nil, true, errors.New("action-limit frame derivation supports send_text only")
 			}

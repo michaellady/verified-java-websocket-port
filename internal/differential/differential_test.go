@@ -338,6 +338,52 @@ func TestOracleHierarchySelectsLosslessFailureAndCloseSurfaces(t *testing.T) {
 	}
 }
 
+func TestMinimizerCandidateHierarchyDerivesBoundedPrefixesFromPublicBytes(t *testing.T) {
+	scenarios := publicScenarios(t)
+	byFamily := map[string]corpora.Scenario{}
+	for _, scenario := range scenarios {
+		byFamily[scenario.Family] = scenario
+	}
+	frameLimit := byFamily["frame-limit"]
+	decoded, err := decodePublicInboundFrames(frameLimit)
+	if err != nil || len(decoded) != 2 {
+		t.Fatalf("public frame-limit bytes decode=%d err=%v", len(decoded), err)
+	}
+	selected, ok, err := selectedRejectedFrames(frameLimit)
+	if err != nil || !ok || len(selected) != 1 || !canonicalEqual(selected[0], decoded[0]) {
+		t.Fatalf("selected public frame prefix=%#v ok=%v err=%v", selected, ok, err)
+	}
+	for name, candidate := range map[string]corpora.Scenario{
+		"frame-limit-zero-input": func() corpora.Scenario {
+			value := frameLimit
+			value.Core.Steps = []corpora.Step{}
+			return value
+		}(),
+		"action-limit-zero-action": func() corpora.Scenario {
+			value := byFamily["action-limit"]
+			value.Core.Steps = []corpora.Step{}
+			return value
+		}(),
+		"input-limit-zero-input": func() corpora.Scenario {
+			value := byFamily["input-limit"]
+			value.Core.Steps = []corpora.Step{}
+			return value
+		}(),
+	} {
+		t.Run(name, func(t *testing.T) {
+			hierarchy, err := hierarchyForCandidate(scenarios, candidate)
+			if err != nil {
+				t.Fatalf("candidate hierarchy: %v", err)
+			}
+			for _, cell := range hierarchy.Cells {
+				if cell.ScenarioID == candidate.ScenarioID && cell.Pointer == "/frames" && cell.ExpectedSHA256 != digest([]byte("[]")) {
+					t.Fatalf("zero-step selected frame prefix digest=%s", cell.ExpectedSHA256)
+				}
+			}
+		})
+	}
+}
+
 func TestCommittedOracleHierarchyMatchesExactPublicCorpus(t *testing.T) {
 	root := repositoryRoot(t)
 	path := filepath.Join(root, "evidence/oracle-hierarchy.json")
