@@ -170,31 +170,58 @@ The public `websocket_core::command_channel`, `CommandSender`, and
 receiver private. The core no longer exports a receiver that lets callers
 separate it from the owner.
 
-The implementation is a bounded safe-Rust MPSC queue with an atomic
-close-and-drain operation. A small private `CommandReceiver` is held only by
-the owner. Queue synchronization is shared transport/accounting state, never
-shared protocol state. Producer enqueue does not wait for capacity:
+US-017 moves the incumbent `std::sync::mpsc::sync_channel` implementation; it
+does not replace it and does not leave a second command-channel implementation
+in the core. `websocket-driver` adapts the existing sender into
+`CommandHandle`, keeps the receiver private inside the owner, and removes the
+core exports because external compatibility for the US-009 staging seam is not
+frozen. The exact validated `command_queue_entries` remains the
+`sync_channel` capacity.
+
+One tiny `Arc<AdmissionGate>` shared by handles contains only
+`AtomicBool accepting` and `AtomicUsize in_flight`. It is command-transport
+accounting, never protocol state. `try_enqueue` first checks its logical byte
+limit, increments `in_flight`, installs an RAII decrement guard, rechecks
+`accepting`, and only then calls `SyncSender::try_send`. The guard decrements on
+success, full, disconnect, early shutdown, and panic unwinding. Sequentially
+consistent ordering is used for this two-field protocol; performance tuning is
+not part of this story. Producer enqueue does not wait for capacity:
 
 - `Full(command)` returns ownership when the exact entry capacity is reached;
-- `Contended(command)` returns ownership if the nonblocking queue lock is busy;
-- `ReceiverDropped(command)` returns ownership after owner drop or terminal
-  queue closure; and
+- `ShuttingDown(command)` returns ownership when the admission recheck observes
+  `accepting == false`;
+- `ReceiverDropped(command)` returns ownership when `try_send` observes that
+  the sole owner receiver was dropped; and
 - `LimitExceeded { command, attempted, maximum }` returns ownership before the
   command is retained when its logical retained bytes exceed its configured
   command class budget.
 
-Queue closure and draining occur under the same private lock as enqueue. Thus a
-producer cannot receive `Ok(())` after closure, and every command that did
-receive `Ok(())` is either applied once by the owner or returned once as a
-typed terminal rejection. Owner `Drop` marks the receiver dropped; it need not
-deliver dispositions because no owner remains, but all future enqueues observe
-`ReceiverDropped`. Dropping all handles does not close the protocol; the owner
-observes `ProducersDropped` once and may continue processing transport input.
+Shutdown or terminal transition flips `accepting` from true to false. The owner
+does not begin its final receiver drain or terminal accounting until it has
+observed `in_flight == 0`. Therefore a producer that passed the first check
+before shutdown either finishes `try_send` before the drain or observes the
+closed receiver; a producer that rechecks afterward returns `ShuttingDown`.
+Once zero is observed, no later operation can successfully send because the
+false admission recheck precedes every `try_send`. The owner drains
+`CommandReceiver::try_recv` through `Empty`/`Disconnected`, dispositioning each
+accepted command exactly once, and only then queues terminal output.
+
+Plain owner `Drop` needs no terminal accounting: dropping the receiver makes
+the incumbent sender return `ReceiverDropped`, and accepted buffered commands
+are abandoned only because no owner exists to deliver anything. Dropping all
+handles does not close the protocol; the owner observes `ProducersDropped`
+once and may continue processing transport input.
+
+The first-party implementation adds no `Mutex`, lock acquisition, poisoning
+case, condition variable, wait, or lock-ordering surface. Capacity failure is
+the incumbent nonblocking `TrySendError::Full`; disconnection is
+`TrySendError::Disconnected`. The admission gate cannot deadlock because it
+contains only atomics and the RAII counter has no user callback.
 
 FIFO is guaranteed for successful calls through one handle. Clones racing with
-one another have the single total order committed under queue admission; the
-owner preserves that order. There is no producer-admission fairness promise:
-`Full` and `Contended` are ordinary explicit backpressure.
+one another have the single total order committed by `sync_channel`; the owner
+preserves that order. There is no producer-admission fairness promise: `Full`
+is ordinary explicit backpressure.
 
 ## Poll, ordering, and write flushing
 
@@ -230,10 +257,11 @@ ordered output. The algorithm is fixed:
 Core failure is returned after all earlier outputs from that same step. A
 command disposition says `Applied` only when the core accepted the command; it
 says `Rejected(TypedProtocolFailure)` otherwise. On the first terminal core
-result, the owner closes admission, atomically drains every already accepted
-command into FIFO terminal-rejection dispositions, and places those before the
-single `Terminal`. Nothing is introduced after `Terminal`, and later polls are
-stable `Idle` with `Closed` state.
+result, the owner closes admission, waits for the atomic in-flight count to
+reach zero, drains every already accepted command into FIFO terminal-rejection
+dispositions, and places those before the single `Terminal`. Nothing is
+introduced after `Terminal`, and later polls are stable `Idle` with `Closed`
+state.
 
 Inbound buffers are borrowed and are either consumed in full by the one core
 step or consumed zero bytes. The owner never retains an adapter buffer. EOF and
@@ -269,6 +297,8 @@ second limits object. Owner construction checks all driver upper-bound
 arithmetic with `checked_add`/`checked_mul` before creating the queue:
 
 - accepted command entries are at most `command_queue_entries`;
+- the admission gate's `in_flight` high-water mark is recorded separately and
+  must return to zero before final draining begins;
 - each accepted command's logical retained bytes are measured before enqueue
   and capped by its existing handshake or total-buffer class limit;
 - the pending ledger contains outputs from only one core step and never more
@@ -314,8 +344,9 @@ Implementation is test-first through the public driver seam:
 | Area | RED observation | Required GREEN behavior |
 | --- | --- | --- |
 | Outbound data prerequisite | Text/Binary command returns unavailable | exact final masked/unmasked wire through `ConnectionCore` with explicit key rules and cap-before-commit |
-| Producer bounds | capacity-plus-one accepted | exact capacity, typed full/contended/limit/drop, ownership returned on rejection |
-| Queue closure race | enqueue reports success after terminal drain | atomic close-and-drain; every accepted command applied or terminal-rejected once |
+| Producer bounds | capacity-plus-one accepted | exact `sync_channel` capacity, typed full/shutdown/limit/drop, ownership returned on rejection |
+| Queue closure race | enqueue reports success after terminal drain | atomic admission flip plus in-flight-zero barrier; every accepted command applied or terminal-rejected once |
+| Admission guard | an error or unwind leaks the in-flight count | RAII decrement on every send path; final drain begins only at zero |
 | Ownership | core or receiver reachable from handle | only owner mutates core and owns private receiver |
 | FIFO | one-handle or committed cross-clone order changes | producer FIFO and owner-commit order preserved |
 | Arbitration | continuous inbound or commands starve the other | deterministic alternating turn with explicit deferred input |
@@ -373,8 +404,8 @@ that an adapter already uses it.
 ## Primitive Test
 
 The driver belongs in code. **Atomicity** passes because concurrent enqueue,
-queue close-and-drain, owner order, write cursors, and terminal delivery would
-corrupt state if callers implemented them independently. **Bitter Lesson**
+the shutdown admission barrier, owner order, write cursors, and terminal
+delivery would corrupt state if callers implemented them independently. **Bitter Lesson**
 passes because a smarter model would not improve deterministic FIFO,
 cap arithmetic, or byte-progress accounting. **ZFC** passes because the module
 is pure protocol transport and scheduling, not judgment. Evidence promotion
