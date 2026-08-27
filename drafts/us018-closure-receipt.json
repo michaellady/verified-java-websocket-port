@@ -1,0 +1,176 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us018-closure-receipt",
+  "story": "US-018",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "recorded_at": "2026-08-27T21:59:20Z",
+  "recorded_at_provenance": "captured from `date -u` in the working session immediately after the round-2 post-commit verification",
+  "mission": "close the batch-C US-018 nonclaims (no Linux x86_64, no Java cross-peer, no Autobahn/linkage gate) recorded in protected/borrow-receipt-batch-c.json",
+  "branch": "claude/us018-closure",
+  "base": "5fc92fe (Claude mainline HEAD, batch C merged)",
+  "commit": "b32694e4e7d8c2528bc42d0d3a1dc174ee45e6a7 (round 2; round 1 was 509d7158c187b786b057c199d5bd5d91aa0b5482)",
+  "worktree": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-us018",
+  "pushed": false,
+  "ac_map": [
+    {
+      "ac": 1,
+      "text": "adapters own only socket accept/connect, partial read/write, write flushing, bounded I/O buffers, explicit timeout/EOF commands, process lifecycle, and report/testee routing; handshake, framing, limits, and close semantics remain in ConnectionCore",
+      "status": "MET (mechanically enforced)",
+      "evidence": "existing batch-C adapter design unchanged (rust/ws-testee/src: client/server acquisition + one bounded io_loop pump driving ws_driver poll); NOW mechanically enforced by the new adapter-linkage architecture gate (AC3): production sources must drive connection_driver()/.poll() and must not name any core protocol symbol, module, bitmask branch, or wire literal"
+    },
+    {
+      "ac": 2,
+      "text": "loopback WS only, one connection owner per socket, bounded resources, clean shutdown, failed-connect, partial I/O, peer loss, slow reader/writer, and interrupted system-call behavior on macOS arm64 and Linux x86_64",
+      "status": "MET with disclosed platform caveat (no native x86_64 hardware)",
+      "evidence": "loopback-only refusal, single owner, bounded IoBounds; NEW round-1 tests: failed_connect_is_a_normalized_setup_outcome (ConnectionRefused vocabulary), slow_writer_peer_completes_after_read_timeout_stalls (peer stalls 150ms vs 2ms read timeout), ping_scripted_client_completes_against_a_ponging_peer, two_process_round_trip_with_one_byte_write_chunks; NEW round-2 (review 01a0452e blocking finding): bounded write path \u2014 IoBounds.write_timeout (SO_SNDTIMEO per attempt) + IoBounds.write_stall_limit (absolute no-progress deadline) in BOTH pumps (drive_connection and handshake-phase drive_until_open), typed LoopOutcome::WriteStalled on expiry \u2014 plus the REAL socket-backpressure test stalled_peer_reader_trips_the_bounded_write_deadline: peer completes a genuine ws_core handshake, flushes its 101, then never reads again; client floods 48 x 64KiB binary messages (3MiB, under the core's 4MiB output ceiling); loopback kernel socket buffers exhaust, write(2) actually blocks, and WriteStalled fires within the bound (0.34s darwin; suite <0.6s on both Linux legs). std cannot set SO_SNDBUF/SO_RCVBUF, so the kernel default buffer is the documented bound. Suite (9 loopback + 6 process + 3 io_loop unit) executed and read green on: (a) darwin arm64 NATIVE host, (b) Linux aarch64 (Docker VM kernel 7.0.12-linuxkit, native instruction set), (c) Linux x86_64 userspace (docker --platform linux/amd64, EMULATED via Docker Desktop binary translation on this arm64 Mac \u2014 NOT native x86_64 hardware; disclosed, never claimed native). Interrupted-syscall behavior remains classification-level (ErrorKind::Interrupted retried; pinned by unit test); native signal-driven EINTR injection stays a nonclaim, matching the Codex-plane posture",
+      "runs": [
+        {
+          "platform": "darwin arm64 native",
+          "command": "cargo test -p ws-testee (and again inside make -C rust gates, debug+release)",
+          "exit": 0
+        },
+        {
+          "platform": "linux aarch64 (Docker VM, native arch)",
+          "command": "docker run --platform linux/arm64 rust:1.95.0 cargo test --locked -p ws-testee",
+          "exit": 0,
+          "log": "protected/us018-closure/linux-legs/arm64-r2-cargo-test.log (round-1 log retained alongside)",
+          "uname": "Linux 7.0.12-linuxkit aarch64, rustc 1.95.0"
+        },
+        {
+          "platform": "linux x86_64 EMULATED (docker linux/amd64 binary translation)",
+          "command": "docker run --platform linux/amd64 rust:1.95.0 cargo test --locked -p ws-testee",
+          "exit": 0,
+          "log": "protected/us018-closure/linux-legs/amd64-r2-cargo-test.log (round-1 log retained alongside)",
+          "uname": "Linux 7.0.12-linuxkit x86_64, rustc 1.95.0"
+        }
+      ]
+    },
+    {
+      "ac": 3,
+      "text": "a linkage test proves the adapters call the exact shipped core/driver symbols and a seeded adapter-side parser or protocol branch fails the architecture gate",
+      "status": "MET",
+      "evidence": "new rustgatectl gate 'adapter-linkage' (cmd/rustgatectl/adapter_linkage.go, wired into make -C rust gates via ac1-gates): (1) exact dependency edges from cargo metadata --locked (ws-testee -> {ws-core, ws-driver} local path only; ws-driver -> {ws-core}); (2) production sources must contain the shipped seams connection_driver( and .poll( (ADAPTER_LINKAGE_MISSING otherwise); (3) typed findings ADAPTER_PROTOCOL_SURFACE (15 forbidden core symbols/modules) and ADAPTER_PROTOCOL_BRANCH (13 opcode/length bitmask + wire-literal patterns) over comment-stripped, string-preserving tokenized sources. Polarity: 10 Go unit canaries (clean shape passes; seeded opcode-bitmask branch, wire literals, protocol surface, missing linkage each fail typed) PLUS a live seeded run against the real tree: seeded src/seeded_canary.rs with 'bytes[0] & 0x0f' -> gate FAIL exit 1 READ; removed -> exit 0 READ (log: protected/us018-closure/gates/us018-seeded-canary-gate.log). Typed-finding vocabulary adopted with attribution from Codex US-018 (codex-import b7146dd/9cd886c); scan reimplemented on this plane's tokenizer",
+      "runs": [
+        {
+          "what": "live gate over real tree",
+          "command": "go run ./cmd/rustgatectl -root . -gate adapter-linkage",
+          "exit": 0
+        },
+        {
+          "what": "live seeded parser-branch polarity",
+          "exit_seeded": 1,
+          "exit_clean": 0,
+          "log": "protected/us018-closure/gates/us018-seeded-canary-gate.log"
+        }
+      ]
+    },
+    {
+      "ac": 4,
+      "text": "loopback client-to-Rust-server, Rust-client-to-loopback-server, Java/Rust cross-peer, echo, control, close, loss, and backpressure integrations reconcile semantic events and wire writes",
+      "status": "MET",
+      "evidence": "Rust<->Rust loopback integrations retained (echo, close, peer loss 1006, 1-byte partial writes, budget honesty, two-process CLI). NEW Java/Rust cross-peer: cmd/crosspeerctl compiles java-crosspeer/ fixtures against the REAL pinned Java-WebSocket 1.6.0 jar (sha256 digest-verified eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f before any execution; slf4j-api e7c2a48e... likewise) and runs 6 deterministic loopback TCP exams, every process exit read from its ProcessState: (1) java-client echo+clean-close vs rust-server [0/0, server close=1000:transport]; (2) java-client ping control [rust server pings=1 semantic event]; (3) java-client abrupt halt(43) loss [java exit 43 READ, rust close=1006:transport clean terminal]; (4) rust-client echo+close vs java-server [close=1000:remote, java acked clean]; (5) rust-client scripted ping [shipped Java WebSocketImpl auto-pong observed as the Rust Pong semantic event, pongs=1]; (6) rust-client backpressure [2048-byte text through 1-byte write chunks, echoed intact]. 6/6 PASS, runner exit 0 READ",
+      "runs": [
+        {
+          "what": "cross-peer exam suite",
+          "platform": "darwin arm64 native (host java 17.0.19)",
+          "command": "go run ./cmd/crosspeerctl -repo . -jar .quarantine/Java-WebSocket-1.6.0.jar -slf4j .quarantine/slf4j-api-2.0.13.jar -testee rust/target/release/ws-testee -workdir ... -out ...",
+          "exit": 0,
+          "receipt": "protected/us018-closure/crosspeer/crosspeer-receipt.json"
+        }
+      ]
+    },
+    {
+      "ac": 5,
+      "text": "no TLS, proxy, reconnect, Android, async-runtime, extension, compression, or general public client/server API is added",
+      "status": "MET",
+      "evidence": "nothing of the kind added; the Java fixtures are single-connection loopback exam programs (java-crosspeer/), not an API; zero new Rust dependencies (dependency-inventory gate: 0 non-path deps; ws-testee edges unchanged); #![forbid(unsafe_code)] on all 10 crate roots (forbid-unsafe gate PASS)"
+    }
+  ],
+  "e2e_note": "the story e2eTest (loopback peers that split reads/writes, stall, close, reset, and apply backpressure driving only ConnectionCore/owner behavior with bounded resources and normalized results) is exercised by the loopback suite: split WRITES via write_chunk=1 (reads use the default 4096-byte buffer and arrive in whatever chunks the kernel delivers \u2014 re-chunking determinism is a core contract property; NO 1-byte-read test exists and none is claimed \u2014 round-2 correction of the earlier '1-byte reads' overstatement), stall via the slow-writer test AND the round-2 never-reading-peer test, close/reset via clean-close and peer-loss/halt exams, and REAL socket backpressure via kernel-buffer exhaustion tripping the bounded write deadline (WriteStalled) \u2014 on all three platforms listed under AC2",
+  "back_pressure": {
+    "rust_gates": {
+      "command": "make -C rust gates",
+      "exit": 0,
+      "log": "protected/us018-closure/gates/us018-r2-gates.log (round-1 log retained)",
+      "notes": "fmt-check, clippy -D warnings, cargo test debug+release, ac1-gates 8/8 PASS including the NEW adapter-linkage gate; re-run green after the round-2 bounded-write change; post-commit ac1-gates re-read 8/8 exit 0"
+    },
+    "go_build": {
+      "command": "go build ./...",
+      "exit": 0
+    },
+    "go_test": {
+      "command": "go test -count=1 ./...",
+      "exit": 0,
+      "packages_ok": 25,
+      "log": "protected/us018-closure/gates/us018-r2-gotest.log (round-1 log retained)"
+    },
+    "wired_public_corpus": {
+      "pipeline": "corporactl oracle-requests -> ws-oracle-harness (release) -> corporactl evaluate --tier public",
+      "protected_root": "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected",
+      "evaluate_exit": 0,
+      "result": "74 executed / 74 passed / 0 failed / 0 missing / 0 unmatched (re-run after the round-2 change)",
+      "requests_sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85 (identical to the recorded baselines)",
+      "transcript_sha256": "b3e7324fe80a50f74e57911c56faa03e4da8d15975d1fef5cc0bb32ec411e23e (byte-identical to the committed batch-C transcript in BOTH rounds: the adapter work perturbed nothing)"
+    },
+    "crosspeer_rerun": {
+      "command": "crosspeerctl (round 2, after the bounded-write change)",
+      "exit": 0,
+      "result": "6/6 exams PASS, every exit read",
+      "receipt": "protected/us018-closure/crosspeer/crosspeer-receipt-r2.json"
+    },
+    "tdd": "RED-first read for every code change: adapter-linkage tests failed compile (undefined scanAdapterSources/cargoDependency/adapterFinding) before adapter_linkage.go existed; ws-testee round-1 tests failed E0560 (no field `ping`, exit 101 READ) before the fixture/CLI changes; crosspeerctl tests failed compile (exit 1 READ) before main.go existed; round-2 backpressure test failed E0560/E0599 (no write_timeout/write_stall_limit fields, no WriteStalled variant, exit 101 READ) before the io_loop change; then green with exits read"
+  },
+  "review_round_2": {
+    "review_session": "01a0452e-d4ea-75f3-91f2-e100d87747d9",
+    "finding_verbatim": "AC2, AC4, and the story E2E lack bounded slow-reader/real socket-backpressure behavior; blocking writes have no deadline, and the cited tests only throttle write chunk size rather than inducing peer-read backpressure.",
+    "also_flagged": "the receipt overstated '1-byte reads' \u2014 the tests retain the 4096-byte default read buffer and only set write_chunk=1",
+    "fix": "bounded write path landed in commit b32694e4e7d8c2528bc42d0d3a1dc174ee45e6a7: IoBounds.write_timeout (SO_SNDTIMEO per attempt, default 25ms) + IoBounds.write_stall_limit (absolute no-progress deadline, default 2s) in both pumps; typed LoopOutcome::WriteStalled on expiry (socket shut down, driver Shutdown pumped); REAL kernel-buffer-exhaustion backpressure test (RED-first, exit 101 read at the missing symbols) passing on darwin arm64 + both Linux legs; '1-byte reads' overstatement corrected in the e2e_note",
+    "java_fidelity_stance": "verified in the pinned 1.6.0 source tree before implementing: shipped Java has NO socket-layer write deadline \u2014 WebSocketClient.WebsocketWriteThread blocks in ostream.write() indefinitely (Socket#setSoTimeout bounds reads only, and the NIO server path is selector-based); the only liveness bound is the adapter-layer connectionLostTimeout keepalive (default 60s) ABOVE the ported core. No Java-faithful bounded-write behavior exists to mirror, so the write deadline is US-018 adapter SAFETY policy satisfying AC2's bounded write resources \u2014 an intentional, disclosed divergence at the adapter layer only; core protocol behavior is untouched (public corpus transcript byte-identical)",
+    "reverification": "make -C rust gates exit 0 (8/8); go test -count=1 ./... exit 0 (25 pkgs); corporactl public 74/74 evaluate exit 0, transcript byte-identical b3e7324f...; cross-peer exams re-run 6/6 PASS exit 0; both Linux legs re-run green (arm64 + emulated amd64, CARGO_TEST_EXIT=0 read in both logs); post-commit ac1-gates 8/8 exit 0 on the committed tree"
+  },
+  "pinned_artifacts": [
+    {
+      "name": "Java-WebSocket-1.6.0.jar",
+      "sha256": "eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+      "matches_intake_pin": true,
+      "verified_by": "shasum on copy into the worktree AND crosspeerctl's own pre-execution verification against internal/lab.JavaWebSocketRuntimeDigest",
+      "source_of_bytes": "digest-verified copy from the existing US-005 quarantine materialization (no new download)"
+    },
+    {
+      "name": "slf4j-api-2.0.13.jar",
+      "sha256": "e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9",
+      "matches_intake_pin": true,
+      "verified_by": "same double verification"
+    }
+  ],
+  "honesty_notes": [
+    "the Linux x86_64 leg is EMULATED: docker --platform linux/amd64 on this arm64 Mac executes x86_64 userspace through Docker Desktop binary translation over an aarch64 Linux VM kernel (uname: Linux 7.0.12-linuxkit x86_64). It is a real x86_64 instruction-set execution of the real suite, but NOT native x86_64 hardware; no native-hardware claim is made. If the owner reads AC2 as requiring native x86_64 hardware, that leg remains a gap (see gaps_for_owner)",
+    "the Linux aarch64 leg is native-arch but the wrong ISA for the AC's x86_64 wording; it is recorded as supplementary kernel-diversity evidence only",
+    "cross-peer exams executed on darwin arm64 (host) only; the AC ties the platform matrix to adapter behaviors (AC2), not to the cross-peer integrations (AC4), and no cross-platform cross-peer claim is made",
+    "native signal-driven EINTR injection is not performed; ErrorKind::Interrupted handling is code-path-classified and retried by the io loop, pinned by a unit test (same nonclaim posture as the Codex plane)",
+    "the bounded write deadline (write_timeout + write_stall_limit -> WriteStalled) is an ADAPTER-layer safety divergence from shipped Java, which blocks indefinitely on a stalled socket write and bounds liveness only via the connectionLostTimeout keepalive above the core; disclosed in review_round_2.java_fidelity_stance and in the IoBounds rustdoc",
+    "the real-backpressure test's determinism rests on default kernel socket buffering absorbing far less than the 3MiB flood (std cannot set SO_SNDBUF/SO_RCVBUF); observed firing in <1s on darwin arm64, linux aarch64, and emulated linux x86_64 \u2014 the bound is documented in the test, and a pathological kernel that absorbed everything would fail the test loudly (BudgetExhausted), never silently pass",
+    "the Rust server adapter deliberately does NOT auto-pong (core Q18: the reference model never replies on its own; shipped Java's auto-pong lives in the WebSocketImpl ADAPTER layer above the ported core). The cross-peer exams reconcile both directions honestly: Java ping -> Rust Ping semantic event (no pong sent back, and the shipped Java client does not require one); Rust ping -> shipped Java auto-pong -> Rust Pong semantic event",
+    "close-at-EOF origin is the Q20 transport vocabulary: after a completed close handshake the EOF-side summary reads close=1000:transport (governing close code carried), and abrupt loss reads close=1006:transport \u2014 asserted from the reference model before the first run, then observed matching",
+    "the adapter-linkage gate is an architecture gate (typed scans + canary polarity), not a formal proof that arbitrary Rust cannot obscure protocol logic",
+    "US-018 remains a batch-C borrow with attribution (no first-finish credit); this closure adds Claude-plane work on top and adopts the Codex rustgate typed-finding vocabulary with attribution (commit trailers name b7146dd/9cd886c)",
+    "no Autobahn execution is part of US-018's acceptance criteria (Autobahn appears only in the story description/labels; Rust Autobahn wiring is US-019 on the Codex plane) \u2014 none is claimed here; the US-002 Autobahn infrastructure remains available for that story",
+    "no hidden or sealed corpus tier was requested, evaluated, or touched; the protected store was written ONLY under the new protected/us018-closure/ artifact directory"
+  ],
+  "gaps_for_owner": [
+    "NATIVE Linux x86_64 execution: no standing x86_64 runner authorization exists on this plane; the emulated leg above is the honest maximum available locally. Owner decision requested: accept the emulated leg for AC2, or authorize an x86_64 runner (cloud or physical) for a native rerun of `cargo test --locked -p ws-testee` (and optionally the cross-peer exams with a pinned JDK)",
+    "native signal-driven EINTR injection remains unexecuted on every platform"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5 (US-018 closure worker)",
+  "review_round_3": {
+    "recorded_at": "2026-08-27T22:10:11Z",
+    "review_block": "session 01a0453e-9869-7380-8cc5-45a9c82da03e: drive_until_open shut the socket on write-stall expiry but never pumped DriverInput::Shutdown, contradicting the claimed both-pumps shutdown behavior.",
+    "fix_commit": "99d922b: the handshake-phase stall branch pumps DriverInput::Shutdown before WriteStalled + socket shutdown, mirroring the connected pump discipline.",
+    "test_scope_disclosure": "the handshake-phase stall branch cannot be genuinely induced with small handshake payloads (requests/responses are far below kernel socket buffering); it is code-mirrored from the connected-pump branch whose behavior IS induced and pinned by stalled_peer_reader_trips_the_bounded_write_deadline. Disclosed rather than fabricated.",
+    "round_3_note": "session 01a04543-a469-7280-ba35-34006a92d18d confirmed the code fix but blocked on this receipt still targeting b32694e without the round-3 section; this section is that correction.",
+    "reverification": "at 99d922b (exits read): rust gates 0; ws-testee suite green; public corpus transcript byte-identical b3e7324f."
+  },
+  "described_commit": "99d922b (rounds: 509d715 -> b32694e -> 99d922b)"
+}
