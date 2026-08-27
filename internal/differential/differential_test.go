@@ -38,6 +38,26 @@ func publicScenarios(t *testing.T) []corpora.Scenario {
 	return public
 }
 
+func emptyMigratedLedgerForTest(t *testing.T) Ledger {
+	t.Helper()
+	raw, err := json.Marshal(map[string]any{
+		"schema_version":       "1.0.0",
+		"accepted_root_digest": digest([]byte("accepted-root")),
+		"head":                 "sha256:" + strings.Repeat("0", 64),
+		"records":              []any{},
+		"production":           false,
+		"publication":          false,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger, err := migrateLedger(raw)
+	if err != nil {
+		t.Fatalf("migrate empty v1.0 ledger: %v", err)
+	}
+	return ledger
+}
+
 func minimalValidManifestForTest(t *testing.T) Manifest {
 	t.Helper()
 	manifest := Manifest{Schema: "../schemas/differential-evidence-1.0.0.schema.json", SchemaVersion: "1.0.0", EvidenceID: "evidence.us-020-public-differential", StoryID: "US-020", Status: "PASS", Assurance: "OWNER_ATTESTED_NOT_INDEPENDENT", ParityScope: "RUNTIME_COMMON_AGGREGATE", RepositoryAnchor: strings.Repeat("a", 40), Counts: CountsReceipt{Scenarios: 74, JavaPrimary: 74, JavaReplay: 74, RustPrimary: 74, RustReplay: 74, Processes: 296}, Controls: ControlsReceipt{Total: 7, Killed: 7, Results: make([]ControlResult, 7)}, Coverage: CoverageReceipt{Summary: CoverageSummary{MigrationRows: 47, CompatibilityItems: 14}, Migration: make([]CoverageRow, 47), Compatibility: make([]CoverageRow, 14)}, Ledger: LedgerBinding{PreHead: "sha256:" + strings.Repeat("0", 64), PostHead: "sha256:" + strings.Repeat("0", 64)}, Nonclaims: []string{"no per-step Java counter parity", rustInputDerivationNote}}
@@ -331,19 +351,23 @@ func TestLedgerMigrationChainAndCAS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ledger, err := migrateLedger(raw)
+	committed, err := migrateLedger(raw)
 	if err != nil {
 		t.Fatalf("migrateLedger: %v", err)
 	}
-	if ledger.SchemaVersion != "1.1.0" || len(ledger.Records) != 0 {
-		t.Fatalf("migration = %#v", ledger)
+	if committed.SchemaVersion != "1.1.0" || len(committed.Records) == 0 {
+		t.Fatalf("committed ledger = %#v", committed)
 	}
-	migrated, err := marshalIndented(ledger)
+	migrated, err := marshalIndented(committed)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := compileAndValidateSchema(filepath.Join(root, "schemas/behavior-delta-ledger-1.1.0.schema.json"), migrated); err != nil {
 		t.Fatalf("ledger schema: %v", err)
+	}
+	ledger := emptyMigratedLedgerForTest(t)
+	if ledger.SchemaVersion != "1.1.0" || len(ledger.Records) != 0 {
+		t.Fatalf("migration = %#v", ledger)
 	}
 	cell := OracleCell{ScenarioID: "us005.pub.0000", Pointer: "/error/class", Authority: "neutral", Rank: 3, ExpectedSHA256: digest([]byte("x")), Evidence: []OracleEvidence{{Kind: "neutral", ID: "us005.pub.0000", SHA256: digest([]byte("x"))}}}
 	record := LedgerRecord{DeltaID: "delta.us005.pub.0000.error", ScenarioID: "us005.pub.0000", Pointer: "/error/class", Classification: "rust_defect", JavaObservation: digest([]byte("j")), RustObservation: digest([]byte("r")), ReproducerSHA256: digest([]byte("p")), Decision: cell, Resolution: "remediated", FindingRunAnchor: strings.Repeat("a", 40), ClosingRunAnchor: strings.Repeat("b", 40), ClosingJavaObservation: digest([]byte("closing")), ClosingRustObservation: digest([]byte("closing"))}
@@ -369,14 +393,7 @@ func TestLedgerMigrationChainAndCAS(t *testing.T) {
 }
 
 func TestObservedRustDefectRemainsVisibleAfterClosingRun(t *testing.T) {
-	raw, err := os.ReadFile(filepath.Join(repositoryRoot(t), "evidence/java/behavior-delta-ledger.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	ledger, err := migrateLedger(raw)
-	if err != nil {
-		t.Fatal(err)
-	}
+	ledger := emptyMigratedLedgerForTest(t)
 	scenarios := publicScenarios(t)
 	hierarchy, err := BuildOracleHierarchy(scenarios)
 	if err != nil {

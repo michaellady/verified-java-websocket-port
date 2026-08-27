@@ -1,12 +1,2912 @@
 {
-  "$schema": "../../schemas/behavior-delta-ledger-1.0.0.schema.json",
-  "schema_version": "1.0.0",
+  "$schema": "../../schemas/behavior-delta-ledger-1.1.0.schema.json",
+  "schema_version": "1.1.0",
   "evidence_kind": "behavior-delta-ledger",
   "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
-  "status": "BLOCKED_PENDING_BASELINE",
-  "normative_authority": "rfc6455",
-  "head": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-  "records": [],
+  "status": "PASS_WITH_CLOSED_HISTORY",
+  "normative_authority": "field-addressed-oracle-hierarchy",
+  "head": "sha256:189125ce3df8f2fa64770d913f5363adaced01c1f31b0e8f715a71da4472e231",
+  "records": [
+    {
+      "sequence": 1,
+      "delta_id": "delta.us005.pub.0005.final_state",
+      "previous_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "record_digest": "sha256:f4f96d26291038702db63c251f78987f3fbbb20b84a95c7839f17f94367144d2",
+      "scenario_id": "us005.pub.0005",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:13473d74240499994fec9601b20be094a7e55e25d97d20ae9cb4a9875d2b710b",
+      "rust_observation_sha256": "sha256:cd861dab357fa9169f1768cb7383e7d3a4f080ba9d96771b6bdceac9c3024805",
+      "reproducer_sha256": "sha256:413789e130a465463c221d6ad13f5d5e977518eb4e58d9a83bcf9cbe06a692e9",
+      "decision": {
+        "scenario_id": "us005.pub.0005",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-5-2",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-2",
+            "sha256": "sha256:cd2704b33a590329d59a01e14449a220f1f112710683d09b085a333b3afb6ae8"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 2,
+      "delta_id": "delta.us005.pub.0005.transitions",
+      "previous_digest": "sha256:f4f96d26291038702db63c251f78987f3fbbb20b84a95c7839f17f94367144d2",
+      "record_digest": "sha256:4e19828d66de065f22805b0e7f9981d24d15536f77f109caab6e9de5ce6a5010",
+      "scenario_id": "us005.pub.0005",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:13473d74240499994fec9601b20be094a7e55e25d97d20ae9cb4a9875d2b710b",
+      "rust_observation_sha256": "sha256:cd861dab357fa9169f1768cb7383e7d3a4f080ba9d96771b6bdceac9c3024805",
+      "reproducer_sha256": "sha256:413789e130a465463c221d6ad13f5d5e977518eb4e58d9a83bcf9cbe06a692e9",
+      "decision": {
+        "scenario_id": "us005.pub.0005",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 3,
+      "delta_id": "delta.us005.pub.0005.counts-consumed_bytes",
+      "previous_digest": "sha256:4e19828d66de065f22805b0e7f9981d24d15536f77f109caab6e9de5ce6a5010",
+      "record_digest": "sha256:5ce7e47a0af1c3e57fbd04ca920e4da5bdb268e685b017cae327f26649efb0fc",
+      "scenario_id": "us005.pub.0005",
+      "pointer": "/counts/consumed_bytes",
+      "classification": "rust_defect",
+      "java_observation_sha256": "sha256:13473d74240499994fec9601b20be094a7e55e25d97d20ae9cb4a9875d2b710b",
+      "rust_observation_sha256": "sha256:5e8b0f1d14d21e402d66df17de0cb3175c63b1b3ebd599b9e5072b346e68aeb1",
+      "reproducer_sha256": "sha256:413789e130a465463c221d6ad13f5d5e977518eb4e58d9a83bcf9cbe06a692e9",
+      "decision": {
+        "scenario_id": "us005.pub.0005",
+        "pointer": "/counts/consumed_bytes",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:19581e27de7ced00ff1ce50b2047e7a567c76b1cbaebabe5ef03f7c3017bb5b7",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0005#expected/counts/consumed_bytes",
+            "sha256": "sha256:19581e27de7ced00ff1ce50b2047e7a567c76b1cbaebabe5ef03f7c3017bb5b7"
+          }
+        ]
+      },
+      "resolution": "remediated",
+      "finding_run_anchor": "c44623e38b59563401c438c3321bf7f3e77e7e54",
+      "closing_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96",
+      "closing_java_observation_sha256": "sha256:13473d74240499994fec9601b20be094a7e55e25d97d20ae9cb4a9875d2b710b",
+      "closing_rust_observation_sha256": "sha256:cd861dab357fa9169f1768cb7383e7d3a4f080ba9d96771b6bdceac9c3024805"
+    },
+    {
+      "sequence": 4,
+      "delta_id": "delta.us005.pub.0006.events-0-text",
+      "previous_digest": "sha256:5ce7e47a0af1c3e57fbd04ca920e4da5bdb268e685b017cae327f26649efb0fc",
+      "record_digest": "sha256:24eded4af2241073264d66315a3e878d1914af9574a1847830a02024ec067004",
+      "scenario_id": "us005.pub.0006",
+      "pointer": "/events/0/text",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:f75063e8ff6cd288aa5ab63991aaf0498984a74a829226e30a7588abbb51a18c",
+      "rust_observation_sha256": "sha256:2d3a797267d435e42988b82f0aff44922e0b12116a27659291d33678874c13fb",
+      "reproducer_sha256": "sha256:c542a3a47a170056017b27410a86e98359de1edff87c826864520a6675412ae8",
+      "decision": {
+        "scenario_id": "us005.pub.0006",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:8f6b1162e5c2699b8c4cacd707ff9a5e9344e2d68064231fed91bbe2bc876789",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0006#expected/events/0/text",
+            "sha256": "sha256:8f6b1162e5c2699b8c4cacd707ff9a5e9344e2d68064231fed91bbe2bc876789"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 5,
+      "delta_id": "delta.us005.pub.0007.events-0-text",
+      "previous_digest": "sha256:24eded4af2241073264d66315a3e878d1914af9574a1847830a02024ec067004",
+      "record_digest": "sha256:f860b7751c5f1b927e5494cd933b840ece0adc1dccf866c76e38d9add80b9e67",
+      "scenario_id": "us005.pub.0007",
+      "pointer": "/events/0/text",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:299354a368c549bf273a5775c39ac3500a9c43d27c4ce2037b8eb48784146151",
+      "rust_observation_sha256": "sha256:6d131220279571a97caa82589a954ead768284bb4c7f230e73b32db640194c7c",
+      "reproducer_sha256": "sha256:dc4e7a8cef1988c3f730734dee93a4ae04fcd898d21e24eb229e9d77ad82f1e9",
+      "decision": {
+        "scenario_id": "us005.pub.0007",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:ab49e7a7495f49290b4c7a2353f645e3f365a27379549ea581c0e86acdd05858",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0007#expected/events/0/text",
+            "sha256": "sha256:ab49e7a7495f49290b4c7a2353f645e3f365a27379549ea581c0e86acdd05858"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 6,
+      "delta_id": "delta.us005.pub.0014.events-0-text",
+      "previous_digest": "sha256:f860b7751c5f1b927e5494cd933b840ece0adc1dccf866c76e38d9add80b9e67",
+      "record_digest": "sha256:bed9abcbb5f42c17e81cd43d27006f221fe95a75784ce4b4b136c29c7a5e5ff6",
+      "scenario_id": "us005.pub.0014",
+      "pointer": "/events/0/text",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:41a728ddc17e9d903b5d81c3d0e9ce12d7c5d039cbdb8a077a9d9ea7e8097932",
+      "rust_observation_sha256": "sha256:102a35ba6e2ffedd6effbe4ad37fdb618e74826a544507aeea5325fdb4f03dcd",
+      "reproducer_sha256": "sha256:3656c6c4d25a08ef5a38390d1e6b91aa077ad7d295b451475aa3e1261617d6d1",
+      "decision": {
+        "scenario_id": "us005.pub.0014",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:193c18a48d96871d6077d6dfdaf9c2b890bfb43021a8cc9291cdec3a3e80fe5c",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0014#expected/events/0/text",
+            "sha256": "sha256:193c18a48d96871d6077d6dfdaf9c2b890bfb43021a8cc9291cdec3a3e80fe5c"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 7,
+      "delta_id": "delta.us005.pub.0015.counts-consumed_bytes",
+      "previous_digest": "sha256:bed9abcbb5f42c17e81cd43d27006f221fe95a75784ce4b4b136c29c7a5e5ff6",
+      "record_digest": "sha256:62aa174847d924d0f69dad343adf92947f2829cdf22572d825b545b445f3888b",
+      "scenario_id": "us005.pub.0015",
+      "pointer": "/counts/consumed_bytes",
+      "classification": "rust_defect",
+      "java_observation_sha256": "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59",
+      "rust_observation_sha256": "sha256:96123fc665f1bef97f86a4dc3560836422ac2ddf4c04e2a3191dc983301c2e59",
+      "reproducer_sha256": "sha256:f544380b817b265a68a347c268a5fb63d87c6b364e738396fe01b9d5079e94cf",
+      "decision": {
+        "scenario_id": "us005.pub.0015",
+        "pointer": "/counts/consumed_bytes",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0015#expected/counts/consumed_bytes",
+            "sha256": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+          }
+        ]
+      },
+      "resolution": "remediated",
+      "finding_run_anchor": "9cc9d37e8b85dbf15c8018bce91c37071d63cf7c",
+      "closing_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96",
+      "closing_java_observation_sha256": "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59",
+      "closing_rust_observation_sha256": "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59"
+    },
+    {
+      "sequence": 8,
+      "delta_id": "delta.us005.pub.0015.counts-input_bytes",
+      "previous_digest": "sha256:62aa174847d924d0f69dad343adf92947f2829cdf22572d825b545b445f3888b",
+      "record_digest": "sha256:9f8eff93ade494f532b5a6f481ab20211f39382cbba662ec19d4160997a2977f",
+      "scenario_id": "us005.pub.0015",
+      "pointer": "/counts/input_bytes",
+      "classification": "rust_defect",
+      "java_observation_sha256": "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59",
+      "rust_observation_sha256": "sha256:96123fc665f1bef97f86a4dc3560836422ac2ddf4c04e2a3191dc983301c2e59",
+      "reproducer_sha256": "sha256:f544380b817b265a68a347c268a5fb63d87c6b364e738396fe01b9d5079e94cf",
+      "decision": {
+        "scenario_id": "us005.pub.0015",
+        "pointer": "/counts/input_bytes",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0015#expected/counts/input_bytes",
+            "sha256": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9"
+          }
+        ]
+      },
+      "resolution": "remediated",
+      "finding_run_anchor": "9cc9d37e8b85dbf15c8018bce91c37071d63cf7c",
+      "closing_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96",
+      "closing_java_observation_sha256": "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59",
+      "closing_rust_observation_sha256": "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59"
+    },
+    {
+      "sequence": 9,
+      "delta_id": "delta.us005.pub.0017.error",
+      "previous_digest": "sha256:9f8eff93ade494f532b5a6f481ab20211f39382cbba662ec19d4160997a2977f",
+      "record_digest": "sha256:7ce58bbfb696fe88db900b9649f7fa3d8487b46ebe4d47209a107b37dbd5b9a3",
+      "scenario_id": "us005.pub.0017",
+      "pointer": "/error",
+      "classification": "rust_defect",
+      "java_observation_sha256": "sha256:031963dd643de70cc45b5f660ce92d68fa44491f5a1ee4bd408e7060914b06a7",
+      "rust_observation_sha256": "sha256:351b98501192ffa12a1a7d2527960b11d7ffd14e2b3a8e3e22c9c25b6dfd79aa",
+      "reproducer_sha256": "sha256:5b145a0beec3d3566dcd147deb4d52420dc36e15e3b133df3dac4a900d826262",
+      "decision": {
+        "scenario_id": "us005.pub.0017",
+        "pointer": "/error",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0017#expected/error",
+            "sha256": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+          }
+        ]
+      },
+      "resolution": "remediated",
+      "finding_run_anchor": "abc8ddfd24c2fad2eae34e3757d9e047e443cfd6",
+      "closing_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96",
+      "closing_java_observation_sha256": "sha256:031963dd643de70cc45b5f660ce92d68fa44491f5a1ee4bd408e7060914b06a7",
+      "closing_rust_observation_sha256": "sha256:031963dd643de70cc45b5f660ce92d68fa44491f5a1ee4bd408e7060914b06a7"
+    },
+    {
+      "sequence": 10,
+      "delta_id": "delta.us005.pub.0017.outcome",
+      "previous_digest": "sha256:7ce58bbfb696fe88db900b9649f7fa3d8487b46ebe4d47209a107b37dbd5b9a3",
+      "record_digest": "sha256:a961f2c3993e6a4a7e2b66046531402c124a07c46ca58c8929bcbde7d7a38d84",
+      "scenario_id": "us005.pub.0017",
+      "pointer": "/outcome",
+      "classification": "rust_defect",
+      "java_observation_sha256": "sha256:031963dd643de70cc45b5f660ce92d68fa44491f5a1ee4bd408e7060914b06a7",
+      "rust_observation_sha256": "sha256:351b98501192ffa12a1a7d2527960b11d7ffd14e2b3a8e3e22c9c25b6dfd79aa",
+      "reproducer_sha256": "sha256:5b145a0beec3d3566dcd147deb4d52420dc36e15e3b133df3dac4a900d826262",
+      "decision": {
+        "scenario_id": "us005.pub.0017",
+        "pointer": "/outcome",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:c48b5b1a9776c84602de2306d7903a7241158a5077e7a8519af75c33441b8334",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0017#expected/outcome",
+            "sha256": "sha256:c48b5b1a9776c84602de2306d7903a7241158a5077e7a8519af75c33441b8334"
+          }
+        ]
+      },
+      "resolution": "remediated",
+      "finding_run_anchor": "abc8ddfd24c2fad2eae34e3757d9e047e443cfd6",
+      "closing_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96",
+      "closing_java_observation_sha256": "sha256:031963dd643de70cc45b5f660ce92d68fa44491f5a1ee4bd408e7060914b06a7",
+      "closing_rust_observation_sha256": "sha256:031963dd643de70cc45b5f660ce92d68fa44491f5a1ee4bd408e7060914b06a7"
+    },
+    {
+      "sequence": 11,
+      "delta_id": "delta.us005.pub.0019.final_state",
+      "previous_digest": "sha256:a961f2c3993e6a4a7e2b66046531402c124a07c46ca58c8929bcbde7d7a38d84",
+      "record_digest": "sha256:ae6ca5ae3003d3fcc30b7f6c79bf42cf6de0c194b98787560c7cfcdad3b70f2c",
+      "scenario_id": "us005.pub.0019",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:07c8219c13fc328ac2b407e236a1707dd8a2645c7dec6b35260365ecc6c148c2",
+      "rust_observation_sha256": "sha256:27cdc83dcfad3f8071f604218b8e4a9dda0625a83c23374a38d213ee49afa5b0",
+      "reproducer_sha256": "sha256:6245e0f430ab8fc5f6537885ea0e6ea9fed2ecba5ee9cfbd86e270734aff1749",
+      "decision": {
+        "scenario_id": "us005.pub.0019",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 12,
+      "delta_id": "delta.us005.pub.0019.transitions",
+      "previous_digest": "sha256:ae6ca5ae3003d3fcc30b7f6c79bf42cf6de0c194b98787560c7cfcdad3b70f2c",
+      "record_digest": "sha256:caab90729a0303ab4c4e8b28151b88363204e3fd5da1750baed2a81729ec74c2",
+      "scenario_id": "us005.pub.0019",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:07c8219c13fc328ac2b407e236a1707dd8a2645c7dec6b35260365ecc6c148c2",
+      "rust_observation_sha256": "sha256:27cdc83dcfad3f8071f604218b8e4a9dda0625a83c23374a38d213ee49afa5b0",
+      "reproducer_sha256": "sha256:6245e0f430ab8fc5f6537885ea0e6ea9fed2ecba5ee9cfbd86e270734aff1749",
+      "decision": {
+        "scenario_id": "us005.pub.0019",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 13,
+      "delta_id": "delta.us005.pub.0020.final_state",
+      "previous_digest": "sha256:caab90729a0303ab4c4e8b28151b88363204e3fd5da1750baed2a81729ec74c2",
+      "record_digest": "sha256:b4e0d6709a44c56f061fb38ab86fe6d462d40b2d93c3820a091e8c2489e32490",
+      "scenario_id": "us005.pub.0020",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:18e828a088436cad002a3d87eec1d7a9c56624290273ee84879d370810aaafe5",
+      "rust_observation_sha256": "sha256:b4ff05825774efcaef01e2005dda9a5451522cdd2c7aeb7d88b5f307c2c240b1",
+      "reproducer_sha256": "sha256:cb142e143cc9131ef95214f9b6d2d29112b6b21db5db165dc5abe9a6ebf31c7e",
+      "decision": {
+        "scenario_id": "us005.pub.0020",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 14,
+      "delta_id": "delta.us005.pub.0020.transitions",
+      "previous_digest": "sha256:b4e0d6709a44c56f061fb38ab86fe6d462d40b2d93c3820a091e8c2489e32490",
+      "record_digest": "sha256:7625bd1b92e92fea42f741fa4b1387a5f03172dfee7fb6104a7a56ec996aee65",
+      "scenario_id": "us005.pub.0020",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:18e828a088436cad002a3d87eec1d7a9c56624290273ee84879d370810aaafe5",
+      "rust_observation_sha256": "sha256:b4ff05825774efcaef01e2005dda9a5451522cdd2c7aeb7d88b5f307c2c240b1",
+      "reproducer_sha256": "sha256:cb142e143cc9131ef95214f9b6d2d29112b6b21db5db165dc5abe9a6ebf31c7e",
+      "decision": {
+        "scenario_id": "us005.pub.0020",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 15,
+      "delta_id": "delta.us005.pub.0021.frames-0-payload_base64",
+      "previous_digest": "sha256:7625bd1b92e92fea42f741fa4b1387a5f03172dfee7fb6104a7a56ec996aee65",
+      "record_digest": "sha256:0cb8682f9145da88ebb05999da1979913ae589fb56666c83e1680b43e80c7d5c",
+      "scenario_id": "us005.pub.0021",
+      "pointer": "/frames/0/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:7cda64f2840f8b657429ad0bfea7417905353f5baed65dbff31eec66a2a5ca34",
+      "rust_observation_sha256": "sha256:810317b1f3d57fe1d47dfd64119bcfe3ce9cc69f8b094b131765c6016eed139a",
+      "reproducer_sha256": "sha256:7aeb6d999b19f27dc3a760676986b99888214c30538473398653d0104e3d093e",
+      "decision": {
+        "scenario_id": "us005.pub.0021",
+        "pointer": "/frames/0/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:e562785dd3a8ff9fff01d6a2e788f9f79f3c474d40bd99efdff05bca56338a7b",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 16,
+      "delta_id": "delta.us005.pub.0023.events-1-text",
+      "previous_digest": "sha256:0cb8682f9145da88ebb05999da1979913ae589fb56666c83e1680b43e80c7d5c",
+      "record_digest": "sha256:225d0df72e37f4aa350a59456fdb870d49a01667218a8aafd3f6b686d28d9c00",
+      "scenario_id": "us005.pub.0023",
+      "pointer": "/events/1/text",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:337fbecdabfe846962c6f6532743e6429cae076a2503e018dae1331346a9bf4c",
+      "rust_observation_sha256": "sha256:2fbc4d4bd537e4903435960abcce0214e4e08ecf5365a2da3a4030e3ba544ed4",
+      "reproducer_sha256": "sha256:599cc416135620067bd21ad52981dbb17df920c319b26d9454fa0d2b2bfd4d89",
+      "decision": {
+        "scenario_id": "us005.pub.0023",
+        "pointer": "/events/1/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:4e6fd8025f4acf249cd7e740dbd5c405f58c0b4c49e897891cef295f39134d95",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0023#expected/events/1/text",
+            "sha256": "sha256:4e6fd8025f4acf249cd7e740dbd5c405f58c0b4c49e897891cef295f39134d95"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 17,
+      "delta_id": "delta.us005.pub.0026.frames-0-payload_base64",
+      "previous_digest": "sha256:225d0df72e37f4aa350a59456fdb870d49a01667218a8aafd3f6b686d28d9c00",
+      "record_digest": "sha256:33bc0dad99abf0baab0469ce295dfa81800f217af7eabcfd51e6244cbbfb1307",
+      "scenario_id": "us005.pub.0026",
+      "pointer": "/frames/0/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:fd022506bb1fcad94209205532d5445c0869fac0df2890c1a25242ef9d4acf03",
+      "rust_observation_sha256": "sha256:5664d59a2768477da47355ecba5c9a16e574b358c213a0942e6c17e65848d425",
+      "reproducer_sha256": "sha256:c841d409fc54cc1db2a1ec66f64055e0c2868afe45f71415c017c08d685cf7da",
+      "decision": {
+        "scenario_id": "us005.pub.0026",
+        "pointer": "/frames/0/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:0803124e7d97c4f12020c9f70476928b67c44309683878fa399107f11f874997",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 18,
+      "delta_id": "delta.us005.pub.0026.frames-1-payload_base64",
+      "previous_digest": "sha256:33bc0dad99abf0baab0469ce295dfa81800f217af7eabcfd51e6244cbbfb1307",
+      "record_digest": "sha256:cff6157b417fe3ac19598b1290c4db2b621e3cfd976b3fc247117b6c611cdcd4",
+      "scenario_id": "us005.pub.0026",
+      "pointer": "/frames/1/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:fd022506bb1fcad94209205532d5445c0869fac0df2890c1a25242ef9d4acf03",
+      "rust_observation_sha256": "sha256:5664d59a2768477da47355ecba5c9a16e574b358c213a0942e6c17e65848d425",
+      "reproducer_sha256": "sha256:c841d409fc54cc1db2a1ec66f64055e0c2868afe45f71415c017c08d685cf7da",
+      "decision": {
+        "scenario_id": "us005.pub.0026",
+        "pointer": "/frames/1/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:0803124e7d97c4f12020c9f70476928b67c44309683878fa399107f11f874997",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 19,
+      "delta_id": "delta.us005.pub.0026.frames-1-wire_length",
+      "previous_digest": "sha256:cff6157b417fe3ac19598b1290c4db2b621e3cfd976b3fc247117b6c611cdcd4",
+      "record_digest": "sha256:30b83303291deaec4a57784b9d268c0637a76cbdeb8e8e603870e33acb7907a4",
+      "scenario_id": "us005.pub.0026",
+      "pointer": "/frames/1/wire_length",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:fd022506bb1fcad94209205532d5445c0869fac0df2890c1a25242ef9d4acf03",
+      "rust_observation_sha256": "sha256:5664d59a2768477da47355ecba5c9a16e574b358c213a0942e6c17e65848d425",
+      "reproducer_sha256": "sha256:c841d409fc54cc1db2a1ec66f64055e0c2868afe45f71415c017c08d685cf7da",
+      "decision": {
+        "scenario_id": "us005.pub.0026",
+        "pointer": "/frames/1/wire_length",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:5f9c4ab08cac7457e9111a30e4664920607ea2c115a1433d7be98e97e64244ca",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 20,
+      "delta_id": "delta.us005.pub.0027.events-0-text",
+      "previous_digest": "sha256:30b83303291deaec4a57784b9d268c0637a76cbdeb8e8e603870e33acb7907a4",
+      "record_digest": "sha256:8a3dcca93a8e236867a2c0cdfe813ec81c9ae370861633a85cdeae6c26841044",
+      "scenario_id": "us005.pub.0027",
+      "pointer": "/events/0/text",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:34a1cd7894b9017c17511486d32bc5050daf67f23900b8d20216291c1032132a",
+      "rust_observation_sha256": "sha256:1bf5b52e65e21e60dc309fffd89f1ef31f42b287e67012b929a08890c5c3b652",
+      "reproducer_sha256": "sha256:800cc1c38ad0b0f6f465126604c204580c2c6411e2564a23d98855e2fe12f43f",
+      "decision": {
+        "scenario_id": "us005.pub.0027",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:e4d65bc3a28bc2a8a65ef1b31b2d9fb20f4203a1c5902eba4ba5f28ba08df7c5",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0027#expected/events/0/text",
+            "sha256": "sha256:e4d65bc3a28bc2a8a65ef1b31b2d9fb20f4203a1c5902eba4ba5f28ba08df7c5"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 21,
+      "delta_id": "delta.us005.pub.0028.events-0-text",
+      "previous_digest": "sha256:8a3dcca93a8e236867a2c0cdfe813ec81c9ae370861633a85cdeae6c26841044",
+      "record_digest": "sha256:89bbae34d28974f14c271ce39fae4e4a017afb87afb2c3e10e3c8b423be1a69a",
+      "scenario_id": "us005.pub.0028",
+      "pointer": "/events/0/text",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:c86c554b275e7d6defb98b922dd590f949317e3d02586559eacc64cbdd5aa927",
+      "rust_observation_sha256": "sha256:dbe1501978d091ce2ded9d7d437396e672083d42396d6f0691fe64e6739976dc",
+      "reproducer_sha256": "sha256:d04b36fc8630cfa4835956da3c68c22e62a04cda73f2d818838b1a3853cd4de5",
+      "decision": {
+        "scenario_id": "us005.pub.0028",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:fe90d11f772f25adbed4ae7b95fd715db50a0a19813af0b7b17d78870cd775b6",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0028#expected/events/0/text",
+            "sha256": "sha256:fe90d11f772f25adbed4ae7b95fd715db50a0a19813af0b7b17d78870cd775b6"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 22,
+      "delta_id": "delta.us005.pub.0029.final_state",
+      "previous_digest": "sha256:89bbae34d28974f14c271ce39fae4e4a017afb87afb2c3e10e3c8b423be1a69a",
+      "record_digest": "sha256:c9ae817054199e07a3839c27257895654c78655e17ff541d088a75315b8a0f62",
+      "scenario_id": "us005.pub.0029",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:ab940dc187ac7b5dec82c579cf753ef32025ffc42b11c5d46de2cabe8964f903",
+      "rust_observation_sha256": "sha256:1532220f76bcd0e9d098fe37503d4102eaac21d91314b152bfaf724d08405003",
+      "reproducer_sha256": "sha256:154575b4e3010ec48e4bc09979172709bac3230aa61721d25118e797a73ae88b",
+      "decision": {
+        "scenario_id": "us005.pub.0029",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 23,
+      "delta_id": "delta.us005.pub.0029.transitions",
+      "previous_digest": "sha256:c9ae817054199e07a3839c27257895654c78655e17ff541d088a75315b8a0f62",
+      "record_digest": "sha256:a516a09df503d555962adcb95d22751250b1f46e67e9463693747ab8f6e03e48",
+      "scenario_id": "us005.pub.0029",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:ab940dc187ac7b5dec82c579cf753ef32025ffc42b11c5d46de2cabe8964f903",
+      "rust_observation_sha256": "sha256:1532220f76bcd0e9d098fe37503d4102eaac21d91314b152bfaf724d08405003",
+      "reproducer_sha256": "sha256:154575b4e3010ec48e4bc09979172709bac3230aa61721d25118e797a73ae88b",
+      "decision": {
+        "scenario_id": "us005.pub.0029",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 24,
+      "delta_id": "delta.us005.pub.0030.frames",
+      "previous_digest": "sha256:a516a09df503d555962adcb95d22751250b1f46e67e9463693747ab8f6e03e48",
+      "record_digest": "sha256:54a79b870f72e7510138bffff6693fe1623e091c342011fcd5d20cbec554cd8e",
+      "scenario_id": "us005.pub.0030",
+      "pointer": "/frames",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:4048e233eb6aec618ebf1f1cd7d1487c71665505b507570260a7bb3caa16820d",
+      "rust_observation_sha256": "sha256:a47bd4dcff4ab47cd96088ebcc08e79b0aa1ccb49d857c8516510438947f322c",
+      "reproducer_sha256": "sha256:5ffa04dc33dd8e6af07c8135b3fa09f4ad0912b7a5e8f192f716028e3c13db5e",
+      "decision": {
+        "scenario_id": "us005.pub.0030",
+        "pointer": "/frames",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:10f95c9fcb21c53a506ac7ace5fdd52d94eb752a4c3bbd6ee1057251b93311aa",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0030#decoded-rejected-frames",
+            "sha256": "sha256:10f95c9fcb21c53a506ac7ace5fdd52d94eb752a4c3bbd6ee1057251b93311aa"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 25,
+      "delta_id": "delta.us005.pub.0031.final_state",
+      "previous_digest": "sha256:54a79b870f72e7510138bffff6693fe1623e091c342011fcd5d20cbec554cd8e",
+      "record_digest": "sha256:1d53545d92e946679cdc2872e7140a7deb7ea90d61a294aa0b99487e2c98b70d",
+      "scenario_id": "us005.pub.0031",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:851461e72264893e0ecaabf0ec66e9bbfcfc96cb1933bc5110a11e67d4223773",
+      "rust_observation_sha256": "sha256:8f111e615a165cd81975fe2aff00f219f6ba91265ca90ba7cec6fabe5a875391",
+      "reproducer_sha256": "sha256:83ce232b8f7a370f31bd7744acaf204abac6613484a3a75b7a610619f47a0d61",
+      "decision": {
+        "scenario_id": "us005.pub.0031",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 26,
+      "delta_id": "delta.us005.pub.0031.transitions",
+      "previous_digest": "sha256:1d53545d92e946679cdc2872e7140a7deb7ea90d61a294aa0b99487e2c98b70d",
+      "record_digest": "sha256:fb9b82a0332621eb781c4159163df7f00316ca47c9338834443fd5219cbc9fdd",
+      "scenario_id": "us005.pub.0031",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:851461e72264893e0ecaabf0ec66e9bbfcfc96cb1933bc5110a11e67d4223773",
+      "rust_observation_sha256": "sha256:8f111e615a165cd81975fe2aff00f219f6ba91265ca90ba7cec6fabe5a875391",
+      "reproducer_sha256": "sha256:83ce232b8f7a370f31bd7744acaf204abac6613484a3a75b7a610619f47a0d61",
+      "decision": {
+        "scenario_id": "us005.pub.0031",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 27,
+      "delta_id": "delta.us005.pub.0032.frames",
+      "previous_digest": "sha256:fb9b82a0332621eb781c4159163df7f00316ca47c9338834443fd5219cbc9fdd",
+      "record_digest": "sha256:d5a9bdded0f2e3f9136e815bacd6147f18ed51d3b252486e2fe13a113f68d4b1",
+      "scenario_id": "us005.pub.0032",
+      "pointer": "/frames",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:fa87c9a60cc099eeb38f4c4da95b63f60cf34027561558c31ac914786e6f3548",
+      "rust_observation_sha256": "sha256:7480bcf8efef21e11ae29d2e44dcdb55e96ec5ecafdecec9eb6391807ba09e3c",
+      "reproducer_sha256": "sha256:20590dd34c951fcfe52e80980e5aefe9c30359904702fadf794b107769d1ab11",
+      "decision": {
+        "scenario_id": "us005.pub.0032",
+        "pointer": "/frames",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:60becf5043bedff38a2148efb1677cec3dd3a653f5e17444fcf1088b5047dd8c",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0032#decoded-rejected-frames",
+            "sha256": "sha256:60becf5043bedff38a2148efb1677cec3dd3a653f5e17444fcf1088b5047dd8c"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 28,
+      "delta_id": "delta.us005.pub.0033.final_state",
+      "previous_digest": "sha256:d5a9bdded0f2e3f9136e815bacd6147f18ed51d3b252486e2fe13a113f68d4b1",
+      "record_digest": "sha256:f5916ba804ecf21cc55888f862c39b0b3de8d0bb6da1346ae55a429b3c115a5f",
+      "scenario_id": "us005.pub.0033",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:ca95633d69afa290f600141cf070d526754b4978ce829e9a93a6faf65768c976",
+      "rust_observation_sha256": "sha256:059c76ece18e06f4d3f653f1e4ff9df77d9d6dbacee570085016cf838d71e6de",
+      "reproducer_sha256": "sha256:0c0b27c9e468f911853017b41bfb81a61b5c1c0049cc2a57ee3f789655fdf926",
+      "decision": {
+        "scenario_id": "us005.pub.0033",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 29,
+      "delta_id": "delta.us005.pub.0033.transitions",
+      "previous_digest": "sha256:f5916ba804ecf21cc55888f862c39b0b3de8d0bb6da1346ae55a429b3c115a5f",
+      "record_digest": "sha256:bb0d3f6f2ee04f47fc7de58a3d7b77075aa451f89badf0a16e80c5264a891dd7",
+      "scenario_id": "us005.pub.0033",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:ca95633d69afa290f600141cf070d526754b4978ce829e9a93a6faf65768c976",
+      "rust_observation_sha256": "sha256:059c76ece18e06f4d3f653f1e4ff9df77d9d6dbacee570085016cf838d71e6de",
+      "reproducer_sha256": "sha256:0c0b27c9e468f911853017b41bfb81a61b5c1c0049cc2a57ee3f789655fdf926",
+      "decision": {
+        "scenario_id": "us005.pub.0033",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 30,
+      "delta_id": "delta.us005.pub.0034.frames-1-payload_base64",
+      "previous_digest": "sha256:bb0d3f6f2ee04f47fc7de58a3d7b77075aa451f89badf0a16e80c5264a891dd7",
+      "record_digest": "sha256:120ff1322762c3dee2030d9d55d1b26412bad112f36a76427bbabaff3ec7bed1",
+      "scenario_id": "us005.pub.0034",
+      "pointer": "/frames/1/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:100f602c14f4212f35069b07d57b26c85e9244170a84a172c04e9e52b617d537",
+      "rust_observation_sha256": "sha256:e34e0bb25097fc3765eface66b5cca1b6766f2fdcefc5c3935e145f576fa3326",
+      "reproducer_sha256": "sha256:b6e79976b9e2f5f25022ebfdb537a68046d889c50e41987442bee14031f0d87e",
+      "decision": {
+        "scenario_id": "us005.pub.0034",
+        "pointer": "/frames/1/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:87fff6f3fb8667735db5a00c3ec54b607d587b5e2e3e1c19bad3b2504af4c9b0",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 31,
+      "delta_id": "delta.us005.pub.0035.close-clean",
+      "previous_digest": "sha256:120ff1322762c3dee2030d9d55d1b26412bad112f36a76427bbabaff3ec7bed1",
+      "record_digest": "sha256:699ab92302c346d8d99b1d15f754be4c91744e0ce4a2a234be17473b65323c88",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/close/clean",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/close/clean",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 32,
+      "delta_id": "delta.us005.pub.0035.close-code",
+      "previous_digest": "sha256:699ab92302c346d8d99b1d15f754be4c91744e0ce4a2a234be17473b65323c88",
+      "record_digest": "sha256:5b5e6b522f2d63ad15c52e750cfba12a30acbd6401e6a3539339c536e07e798c",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/close/code",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/close/code",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 33,
+      "delta_id": "delta.us005.pub.0035.close-origin",
+      "previous_digest": "sha256:5b5e6b522f2d63ad15c52e750cfba12a30acbd6401e6a3539339c536e07e798c",
+      "record_digest": "sha256:dedde43d505f76fca5c6cef81fff190f26e0f311ac219faff3f255b6f1be9a12",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/close/origin",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/close/origin",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 34,
+      "delta_id": "delta.us005.pub.0035.close-reason",
+      "previous_digest": "sha256:dedde43d505f76fca5c6cef81fff190f26e0f311ac219faff3f255b6f1be9a12",
+      "record_digest": "sha256:6f776e7c58be825a1587293e24ec33471ae986ce1df7a904bd3c62682a646683",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/close/reason",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/close/reason",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 35,
+      "delta_id": "delta.us005.pub.0035.counts-frames",
+      "previous_digest": "sha256:6f776e7c58be825a1587293e24ec33471ae986ce1df7a904bd3c62682a646683",
+      "record_digest": "sha256:66fdc8d9dc49743997c57e9f4bce0168804d410461db9201371b2a3af6b13fd4",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/counts/frames",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/counts/frames",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:5feceb66ffc86f38d952786c6d696c79c2dbc239dd4e91b46729d73a27fb57e9",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 36,
+      "delta_id": "delta.us005.pub.0035.error",
+      "previous_digest": "sha256:66fdc8d9dc49743997c57e9f4bce0168804d410461db9201371b2a3af6b13fd4",
+      "record_digest": "sha256:88f075fb0931f21f1abf2a9bd4280a05b5cc0c315de6ef7933ba20dbd43298e6",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/error",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/error",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:8e5fb422dd0b31f2880583f2ebeace5d407bed0ef1f0d5b87e2abcb508c44689",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 37,
+      "delta_id": "delta.us005.pub.0035.events-0-close-clean",
+      "previous_digest": "sha256:88f075fb0931f21f1abf2a9bd4280a05b5cc0c315de6ef7933ba20dbd43298e6",
+      "record_digest": "sha256:84bbb1e9ccf6afd135387e0e39454749053bc5578eb6f6eaca60e58483ed4b2d",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/events/0/close/clean",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/events/0/close/clean",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 38,
+      "delta_id": "delta.us005.pub.0035.events-0-close-code",
+      "previous_digest": "sha256:84bbb1e9ccf6afd135387e0e39454749053bc5578eb6f6eaca60e58483ed4b2d",
+      "record_digest": "sha256:1dba10ef3557955c8305da15a7d97d6449811d4c24ce926bb3d6d0b3f6f8137e",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/events/0/close/code",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/events/0/close/code",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 39,
+      "delta_id": "delta.us005.pub.0035.events-0-close-origin",
+      "previous_digest": "sha256:1dba10ef3557955c8305da15a7d97d6449811d4c24ce926bb3d6d0b3f6f8137e",
+      "record_digest": "sha256:3d37ce659d716d6a64225787a83454703c206fe7c4d3bb6896d65a115732327b",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/events/0/close/origin",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/events/0/close/origin",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 40,
+      "delta_id": "delta.us005.pub.0035.events-0-close-reason",
+      "previous_digest": "sha256:3d37ce659d716d6a64225787a83454703c206fe7c4d3bb6896d65a115732327b",
+      "record_digest": "sha256:d55d76108a9890447d7f136248c7f9c16ba13b5316fa3f158d336a8eae40bace",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/events/0/close/reason",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/events/0/close/reason",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 41,
+      "delta_id": "delta.us005.pub.0035.events-0-kind",
+      "previous_digest": "sha256:d55d76108a9890447d7f136248c7f9c16ba13b5316fa3f158d336a8eae40bace",
+      "record_digest": "sha256:05fc5f2f5fdf3d83c7bd2ac0f681790e8633ca16f639113970c26a7be42d4a3e",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/events/0/kind",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/events/0/kind",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 42,
+      "delta_id": "delta.us005.pub.0035.events-0-step",
+      "previous_digest": "sha256:05fc5f2f5fdf3d83c7bd2ac0f681790e8633ca16f639113970c26a7be42d4a3e",
+      "record_digest": "sha256:7e0ec9f2810a357b498fb5cbc581bcfd69d4408fd420a6fde284bc6b37207657",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/events/0/step",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/events/0/step",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 43,
+      "delta_id": "delta.us005.pub.0035.final_state",
+      "previous_digest": "sha256:7e0ec9f2810a357b498fb5cbc581bcfd69d4408fd420a6fde284bc6b37207657",
+      "record_digest": "sha256:28381c75306194c3f9750505c9085fe1ca5c3f6d9defa8f83689692fd2ca8003",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 44,
+      "delta_id": "delta.us005.pub.0035.frames-0-direction",
+      "previous_digest": "sha256:28381c75306194c3f9750505c9085fe1ca5c3f6d9defa8f83689692fd2ca8003",
+      "record_digest": "sha256:4f435b4ee22fb0d60c07a185f0067e4184ee35a8ebd6135a02df12c17c4bd95f",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/0/direction",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/0/direction",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 45,
+      "delta_id": "delta.us005.pub.0035.frames-0-fin",
+      "previous_digest": "sha256:4f435b4ee22fb0d60c07a185f0067e4184ee35a8ebd6135a02df12c17c4bd95f",
+      "record_digest": "sha256:2ad56b06fde88dc0193ed27e749255758fe4e70b042b25418b10aa951c0194b8",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/0/fin",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/0/fin",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 46,
+      "delta_id": "delta.us005.pub.0035.frames-0-masked",
+      "previous_digest": "sha256:2ad56b06fde88dc0193ed27e749255758fe4e70b042b25418b10aa951c0194b8",
+      "record_digest": "sha256:ea73b89952264ebc1f9becdd1e8aa092fe6e9b05e6d4f3d3b14d69b21cd4b9a6",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/0/masked",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/0/masked",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 47,
+      "delta_id": "delta.us005.pub.0035.frames-0-opcode",
+      "previous_digest": "sha256:ea73b89952264ebc1f9becdd1e8aa092fe6e9b05e6d4f3d3b14d69b21cd4b9a6",
+      "record_digest": "sha256:50c7418ec90094511be72ff0d0a042f833131acb5c3c0bd5c75feabace429cc8",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/0/opcode",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/0/opcode",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 48,
+      "delta_id": "delta.us005.pub.0035.frames-0-payload_base64",
+      "previous_digest": "sha256:50c7418ec90094511be72ff0d0a042f833131acb5c3c0bd5c75feabace429cc8",
+      "record_digest": "sha256:d1fba7e645ee8088808e6c61563d3134b6cf3ac64ec171f96a8c536c3d4c23bc",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/0/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/0/payload_base64",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 49,
+      "delta_id": "delta.us005.pub.0035.frames-0-step",
+      "previous_digest": "sha256:d1fba7e645ee8088808e6c61563d3134b6cf3ac64ec171f96a8c536c3d4c23bc",
+      "record_digest": "sha256:381b088fad3514a278bf668d55d6083a03de5c425efa87481cff2ebace844b8b",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/0/step",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/0/step",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 50,
+      "delta_id": "delta.us005.pub.0035.frames-0-wire_length",
+      "previous_digest": "sha256:381b088fad3514a278bf668d55d6083a03de5c425efa87481cff2ebace844b8b",
+      "record_digest": "sha256:dc90a9017458af070d178c22b731422d32be9eec14f0532b7efde0234dbae3ab",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/0/wire_length",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/0/wire_length",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 51,
+      "delta_id": "delta.us005.pub.0035.frames-1-direction",
+      "previous_digest": "sha256:dc90a9017458af070d178c22b731422d32be9eec14f0532b7efde0234dbae3ab",
+      "record_digest": "sha256:f77cd34cc05548207e1e4a4fb55222d7d61eb4a513aa3edf83cd369faf43a40d",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/1/direction",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/1/direction",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 52,
+      "delta_id": "delta.us005.pub.0035.frames-1-fin",
+      "previous_digest": "sha256:f77cd34cc05548207e1e4a4fb55222d7d61eb4a513aa3edf83cd369faf43a40d",
+      "record_digest": "sha256:4bb3ddd8142daf7de979f0db6275354dcb1dfc65ddb3b76cf232e17b021536e0",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/1/fin",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/1/fin",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 53,
+      "delta_id": "delta.us005.pub.0035.frames-1-masked",
+      "previous_digest": "sha256:4bb3ddd8142daf7de979f0db6275354dcb1dfc65ddb3b76cf232e17b021536e0",
+      "record_digest": "sha256:dbf5849a9eb8b1453236ad0c065098378cc8ff0cd54314c02f8a45c1bc5c5fa3",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/1/masked",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/1/masked",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 54,
+      "delta_id": "delta.us005.pub.0035.frames-1-opcode",
+      "previous_digest": "sha256:dbf5849a9eb8b1453236ad0c065098378cc8ff0cd54314c02f8a45c1bc5c5fa3",
+      "record_digest": "sha256:c4a6396f647adfcd68876df058a73beffc5875d0b5fb6009c7f27579a15526c5",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/1/opcode",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/1/opcode",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 55,
+      "delta_id": "delta.us005.pub.0035.frames-1-payload_base64",
+      "previous_digest": "sha256:c4a6396f647adfcd68876df058a73beffc5875d0b5fb6009c7f27579a15526c5",
+      "record_digest": "sha256:ed48e81858ed7f758226e6554e73a638286c4aaff09e92f318c4fe0c0e48a1b2",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/1/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/1/payload_base64",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 56,
+      "delta_id": "delta.us005.pub.0035.frames-1-step",
+      "previous_digest": "sha256:ed48e81858ed7f758226e6554e73a638286c4aaff09e92f318c4fe0c0e48a1b2",
+      "record_digest": "sha256:84a0c5333775090a41ba4fdfa33266abef624d1040a11fa2bacccbba28dfb794",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/1/step",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/1/step",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 57,
+      "delta_id": "delta.us005.pub.0035.frames-1-wire_length",
+      "previous_digest": "sha256:84a0c5333775090a41ba4fdfa33266abef624d1040a11fa2bacccbba28dfb794",
+      "record_digest": "sha256:089d95a4c8703fb3ceec8b92e6774a0a20bdaf4d77afae20bef86b07dd22390f",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/frames/1/wire_length",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/frames/1/wire_length",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:7ff58cb7a382359f90e9aa65e5a7889d2c1857ed05cbb32483ac5488af5eb1dc",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 58,
+      "delta_id": "delta.us005.pub.0035.outcome",
+      "previous_digest": "sha256:089d95a4c8703fb3ceec8b92e6774a0a20bdaf4d77afae20bef86b07dd22390f",
+      "record_digest": "sha256:9f767c32afd80dee4737f9350a98b4966744941e6efcdc13492218839717a648",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/outcome",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/outcome",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:4d01709fcd599118652e3b27bd0ca97c802f832183d01f76a034755f2bc62fa3",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 59,
+      "delta_id": "delta.us005.pub.0035.transitions-0-to",
+      "previous_digest": "sha256:9f767c32afd80dee4737f9350a98b4966744941e6efcdc13492218839717a648",
+      "record_digest": "sha256:128e90c3dadb649241894b3c2aca4c5dded65ce5884fe48c151eaffe63113154",
+      "scenario_id": "us005.pub.0035",
+      "pointer": "/transitions/0/to",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:972cedbdc2507b016e6366529fda27f963d0e4b0023a32dcc95cafd532959513",
+      "rust_observation_sha256": "sha256:654aef996641c0c8749b1ded7f0bad664c58f56306eb1609991ef079294c24de",
+      "reproducer_sha256": "sha256:6c80c79588209a59e9b3b93d84da2d3a18ff5480dc956a3c04cbc692a8f3be7c",
+      "decision": {
+        "scenario_id": "us005.pub.0035",
+        "pointer": "/transitions/0/to",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 60,
+      "delta_id": "delta.us005.pub.0036.final_state",
+      "previous_digest": "sha256:128e90c3dadb649241894b3c2aca4c5dded65ce5884fe48c151eaffe63113154",
+      "record_digest": "sha256:b7dc3fea67aab584cfd6ad5c194a4e8c29107aa6fcd3379ae4efd09f0fbf4f2e",
+      "scenario_id": "us005.pub.0036",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:1bd45ae8994ee2114d732d64033f25332a3ade4be0eee4aba7249528ae7c62df",
+      "rust_observation_sha256": "sha256:79f49e8dc198dad9e7230d9e143ddcae2524b58754b375285b3d56bd2acae5c9",
+      "reproducer_sha256": "sha256:d91dad6b195ba1c4d22c5d801efd6cc129a8375dad7adce336edf61b8e992069",
+      "decision": {
+        "scenario_id": "us005.pub.0036",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 61,
+      "delta_id": "delta.us005.pub.0036.transitions",
+      "previous_digest": "sha256:b7dc3fea67aab584cfd6ad5c194a4e8c29107aa6fcd3379ae4efd09f0fbf4f2e",
+      "record_digest": "sha256:8f521a2c9156b9f35d78ffd757d68fc18bf69319c078e7d1184a7e1315c7f4c8",
+      "scenario_id": "us005.pub.0036",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:1bd45ae8994ee2114d732d64033f25332a3ade4be0eee4aba7249528ae7c62df",
+      "rust_observation_sha256": "sha256:79f49e8dc198dad9e7230d9e143ddcae2524b58754b375285b3d56bd2acae5c9",
+      "reproducer_sha256": "sha256:d91dad6b195ba1c4d22c5d801efd6cc129a8375dad7adce336edf61b8e992069",
+      "decision": {
+        "scenario_id": "us005.pub.0036",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 62,
+      "delta_id": "delta.us005.pub.0039.final_state",
+      "previous_digest": "sha256:8f521a2c9156b9f35d78ffd757d68fc18bf69319c078e7d1184a7e1315c7f4c8",
+      "record_digest": "sha256:5317db29c02a0ad7a4dca3bd271133dfef9ff3300db2f7cb460fefdb978aacfe",
+      "scenario_id": "us005.pub.0039",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:bd8c337614c49729a90f7810d5d1f8afa579de90c7af24821e7a2ae787f4aa1a",
+      "rust_observation_sha256": "sha256:d0cba4c0647996a59eb292d0cf98b4ddf7db903699b82d0c748a3e3180537eac",
+      "reproducer_sha256": "sha256:39c817d603bb11f03bced4f6dbf5aef3f6d11f30a9cb877947d2240a678d91a6",
+      "decision": {
+        "scenario_id": "us005.pub.0039",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 63,
+      "delta_id": "delta.us005.pub.0039.frames",
+      "previous_digest": "sha256:5317db29c02a0ad7a4dca3bd271133dfef9ff3300db2f7cb460fefdb978aacfe",
+      "record_digest": "sha256:557cbf5b9ff355a0b1eb8a173bb950da02888c7820ba2e9fc14b33c3918684c7",
+      "scenario_id": "us005.pub.0039",
+      "pointer": "/frames",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:bd8c337614c49729a90f7810d5d1f8afa579de90c7af24821e7a2ae787f4aa1a",
+      "rust_observation_sha256": "sha256:d0cba4c0647996a59eb292d0cf98b4ddf7db903699b82d0c748a3e3180537eac",
+      "reproducer_sha256": "sha256:39c817d603bb11f03bced4f6dbf5aef3f6d11f30a9cb877947d2240a678d91a6",
+      "decision": {
+        "scenario_id": "us005.pub.0039",
+        "pointer": "/frames",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:7b212f9d0fb99feb1be8f570571eb72bbf55bca647c8a80c48372f812b388c21",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0039#decoded-rejected-frames",
+            "sha256": "sha256:7b212f9d0fb99feb1be8f570571eb72bbf55bca647c8a80c48372f812b388c21"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 64,
+      "delta_id": "delta.us005.pub.0039.transitions",
+      "previous_digest": "sha256:557cbf5b9ff355a0b1eb8a173bb950da02888c7820ba2e9fc14b33c3918684c7",
+      "record_digest": "sha256:a73ae30d01c1b29e15fe68c42ea1ee4fed75335373a201e6a0dbb52dc9ea68f2",
+      "scenario_id": "us005.pub.0039",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:bd8c337614c49729a90f7810d5d1f8afa579de90c7af24821e7a2ae787f4aa1a",
+      "rust_observation_sha256": "sha256:d0cba4c0647996a59eb292d0cf98b4ddf7db903699b82d0c748a3e3180537eac",
+      "reproducer_sha256": "sha256:39c817d603bb11f03bced4f6dbf5aef3f6d11f30a9cb877947d2240a678d91a6",
+      "decision": {
+        "scenario_id": "us005.pub.0039",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 65,
+      "delta_id": "delta.us005.pub.0041.final_state",
+      "previous_digest": "sha256:a73ae30d01c1b29e15fe68c42ea1ee4fed75335373a201e6a0dbb52dc9ea68f2",
+      "record_digest": "sha256:eb1349d6a0a97448337f023cceaeeae2120ebba2556718ce738775d60a112aef",
+      "scenario_id": "us005.pub.0041",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:056badcde14480a202ba6c75e4715a3bb1c63ef5fcc2c599f0538759d364bff7",
+      "rust_observation_sha256": "sha256:88de77dc6f009db7a9f47d7c04a44f146a701bada1eeacb3aaabc0dd5f22e8dd",
+      "reproducer_sha256": "sha256:11aa8c0d6ff8e88f50757c74679f0fd0e8d22b52e92a1449e9f4a93163171b11",
+      "decision": {
+        "scenario_id": "us005.pub.0041",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-4",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-4",
+            "sha256": "sha256:b9cba6ddd223ea221822085fd5e30378e86d37e9355cb95c55a413755873c3e2"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 66,
+      "delta_id": "delta.us005.pub.0041.transitions",
+      "previous_digest": "sha256:eb1349d6a0a97448337f023cceaeeae2120ebba2556718ce738775d60a112aef",
+      "record_digest": "sha256:897e9a539897198d0ce8941e4c37cc7d6870d34821141a810965dd48742b9170",
+      "scenario_id": "us005.pub.0041",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:056badcde14480a202ba6c75e4715a3bb1c63ef5fcc2c599f0538759d364bff7",
+      "rust_observation_sha256": "sha256:88de77dc6f009db7a9f47d7c04a44f146a701bada1eeacb3aaabc0dd5f22e8dd",
+      "reproducer_sha256": "sha256:11aa8c0d6ff8e88f50757c74679f0fd0e8d22b52e92a1449e9f4a93163171b11",
+      "decision": {
+        "scenario_id": "us005.pub.0041",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 67,
+      "delta_id": "delta.us005.pub.0042.final_state",
+      "previous_digest": "sha256:897e9a539897198d0ce8941e4c37cc7d6870d34821141a810965dd48742b9170",
+      "record_digest": "sha256:cd08f40cb2166bd6637556f1f177d54ef76fb3c95f214d4aec5be571c9992b8b",
+      "scenario_id": "us005.pub.0042",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:2aa246225a9415f03e734f673954a910a104accb661497594b4366a7f77a2d80",
+      "rust_observation_sha256": "sha256:ee82b44adb9af7f76dcf8dbc8a619f8f3086da45cb06f2210e0a485b9bd63029",
+      "reproducer_sha256": "sha256:05c74ce511470c811222bfd7d20eef7b4ac3bb0558cd1c4de46acd0e437eac7b",
+      "decision": {
+        "scenario_id": "us005.pub.0042",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 68,
+      "delta_id": "delta.us005.pub.0042.frames",
+      "previous_digest": "sha256:cd08f40cb2166bd6637556f1f177d54ef76fb3c95f214d4aec5be571c9992b8b",
+      "record_digest": "sha256:2887abceed1cb9f964c5bf9f42dc3b3a6bbd5a2d24618076f16cf570403d8bab",
+      "scenario_id": "us005.pub.0042",
+      "pointer": "/frames",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:2aa246225a9415f03e734f673954a910a104accb661497594b4366a7f77a2d80",
+      "rust_observation_sha256": "sha256:ee82b44adb9af7f76dcf8dbc8a619f8f3086da45cb06f2210e0a485b9bd63029",
+      "reproducer_sha256": "sha256:05c74ce511470c811222bfd7d20eef7b4ac3bb0558cd1c4de46acd0e437eac7b",
+      "decision": {
+        "scenario_id": "us005.pub.0042",
+        "pointer": "/frames",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:e4affec5c52e83d97ccd466cebb9d077500026cad8dcf2d759c67638ff3d7722",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0042#decoded-rejected-frames",
+            "sha256": "sha256:e4affec5c52e83d97ccd466cebb9d077500026cad8dcf2d759c67638ff3d7722"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 69,
+      "delta_id": "delta.us005.pub.0042.transitions",
+      "previous_digest": "sha256:2887abceed1cb9f964c5bf9f42dc3b3a6bbd5a2d24618076f16cf570403d8bab",
+      "record_digest": "sha256:d44063b6775242696a6dc8821070be7fd6aba36612a12dc0726be3fe15442c11",
+      "scenario_id": "us005.pub.0042",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:2aa246225a9415f03e734f673954a910a104accb661497594b4366a7f77a2d80",
+      "rust_observation_sha256": "sha256:ee82b44adb9af7f76dcf8dbc8a619f8f3086da45cb06f2210e0a485b9bd63029",
+      "reproducer_sha256": "sha256:05c74ce511470c811222bfd7d20eef7b4ac3bb0558cd1c4de46acd0e437eac7b",
+      "decision": {
+        "scenario_id": "us005.pub.0042",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:fc2580a775813b2cfa7c80b793847c1987dcd6d184dd2be600943eda8de7b87c",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 70,
+      "delta_id": "delta.us005.pub.0043.events-0-text",
+      "previous_digest": "sha256:d44063b6775242696a6dc8821070be7fd6aba36612a12dc0726be3fe15442c11",
+      "record_digest": "sha256:ca8706be8b278036d23cfd7682cbac05ea40a94a0e8cafaf592791d802f0d480",
+      "scenario_id": "us005.pub.0043",
+      "pointer": "/events/0/text",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:02e12a16986d6b949bf5b9b820014deeee8908f7a60dfbb9aab8fc0a5ab0dedd",
+      "rust_observation_sha256": "sha256:7a396d4c501f05a2607927c72e9a5a1a10f8b607d881fc82b97060d7585de862",
+      "reproducer_sha256": "sha256:b239ee51a25f503bcb9e4f99f732d75f89c141358d952ea9997ce7cbd89d8a7a",
+      "decision": {
+        "scenario_id": "us005.pub.0043",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:86afc2a64caf84aafbdebd7041327432d01c3cbcc2ffb983017eaf72763739ac",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0043#expected/events/0/text",
+            "sha256": "sha256:86afc2a64caf84aafbdebd7041327432d01c3cbcc2ffb983017eaf72763739ac"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 71,
+      "delta_id": "delta.us005.pub.0046.close-code",
+      "previous_digest": "sha256:ca8706be8b278036d23cfd7682cbac05ea40a94a0e8cafaf592791d802f0d480",
+      "record_digest": "sha256:600b802b0542249836c8be423643ecc0e590f080f95522a3938bff386939b407",
+      "scenario_id": "us005.pub.0046",
+      "pointer": "/close/code",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:0c7cd31bed8f47b1062338118d55533dfa98417adc176928b31d95118b4d5957",
+      "rust_observation_sha256": "sha256:02349390c6c7fc17ac73eee6bb53be49571b22f9f43e594293f0cf3c5c7283ce",
+      "reproducer_sha256": "sha256:2481b656baec770f0654a24459908fa0c294d3cb75d971aa7b3a7f32dc92f1d0",
+      "decision": {
+        "scenario_id": "us005.pub.0046",
+        "pointer": "/close/code",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 72,
+      "delta_id": "delta.us005.pub.0046.events-0-close-code",
+      "previous_digest": "sha256:600b802b0542249836c8be423643ecc0e590f080f95522a3938bff386939b407",
+      "record_digest": "sha256:092f47a07894a4da327a1e260d4e8e0f296e57dd8c3bbab1519d6aec61e0635e",
+      "scenario_id": "us005.pub.0046",
+      "pointer": "/events/0/close/code",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:0c7cd31bed8f47b1062338118d55533dfa98417adc176928b31d95118b4d5957",
+      "rust_observation_sha256": "sha256:02349390c6c7fc17ac73eee6bb53be49571b22f9f43e594293f0cf3c5c7283ce",
+      "reproducer_sha256": "sha256:2481b656baec770f0654a24459908fa0c294d3cb75d971aa7b3a7f32dc92f1d0",
+      "decision": {
+        "scenario_id": "us005.pub.0046",
+        "pointer": "/events/0/close/code",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 73,
+      "delta_id": "delta.us005.pub.0046.frames-0-payload_base64",
+      "previous_digest": "sha256:092f47a07894a4da327a1e260d4e8e0f296e57dd8c3bbab1519d6aec61e0635e",
+      "record_digest": "sha256:8fcff16fd4fac4baffe2f26b9179281fa610ea8de8f674be4b9ac8575ee0c1dc",
+      "scenario_id": "us005.pub.0046",
+      "pointer": "/frames/0/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:0c7cd31bed8f47b1062338118d55533dfa98417adc176928b31d95118b4d5957",
+      "rust_observation_sha256": "sha256:02349390c6c7fc17ac73eee6bb53be49571b22f9f43e594293f0cf3c5c7283ce",
+      "reproducer_sha256": "sha256:2481b656baec770f0654a24459908fa0c294d3cb75d971aa7b3a7f32dc92f1d0",
+      "decision": {
+        "scenario_id": "us005.pub.0046",
+        "pointer": "/frames/0/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 74,
+      "delta_id": "delta.us005.pub.0046.frames-1-payload_base64",
+      "previous_digest": "sha256:8fcff16fd4fac4baffe2f26b9179281fa610ea8de8f674be4b9ac8575ee0c1dc",
+      "record_digest": "sha256:d22ebc46fad5db7fe3185b33848c1f3703fa245c5b39a6e5a29dcf7655073b36",
+      "scenario_id": "us005.pub.0046",
+      "pointer": "/frames/1/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:0c7cd31bed8f47b1062338118d55533dfa98417adc176928b31d95118b4d5957",
+      "rust_observation_sha256": "sha256:02349390c6c7fc17ac73eee6bb53be49571b22f9f43e594293f0cf3c5c7283ce",
+      "reproducer_sha256": "sha256:2481b656baec770f0654a24459908fa0c294d3cb75d971aa7b3a7f32dc92f1d0",
+      "decision": {
+        "scenario_id": "us005.pub.0046",
+        "pointer": "/frames/1/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:12ae32cb1ec02d01eda3581b127c1fee3b0dc53572ed6baf239721a03d82e126",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 75,
+      "delta_id": "delta.us005.pub.0046.frames-1-wire_length",
+      "previous_digest": "sha256:d22ebc46fad5db7fe3185b33848c1f3703fa245c5b39a6e5a29dcf7655073b36",
+      "record_digest": "sha256:b9454cb9295ebafc6ed6422d0d8547c2a6fccb7ba888c9783627a9e7e7f61f11",
+      "scenario_id": "us005.pub.0046",
+      "pointer": "/frames/1/wire_length",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:0c7cd31bed8f47b1062338118d55533dfa98417adc176928b31d95118b4d5957",
+      "rust_observation_sha256": "sha256:02349390c6c7fc17ac73eee6bb53be49571b22f9f43e594293f0cf3c5c7283ce",
+      "reproducer_sha256": "sha256:2481b656baec770f0654a24459908fa0c294d3cb75d971aa7b3a7f32dc92f1d0",
+      "decision": {
+        "scenario_id": "us005.pub.0046",
+        "pointer": "/frames/1/wire_length",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 76,
+      "delta_id": "delta.us005.pub.0047.frames-1-payload_base64",
+      "previous_digest": "sha256:b9454cb9295ebafc6ed6422d0d8547c2a6fccb7ba888c9783627a9e7e7f61f11",
+      "record_digest": "sha256:3849282cc67b12bae342d3d08bc06c40f5301505abbe00b79abe9227e2da57f5",
+      "scenario_id": "us005.pub.0047",
+      "pointer": "/frames/1/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:ba503948b3cc2c6c47960fedcec759b49bc747fda2d09b9e13e764a8a6c63b8a",
+      "rust_observation_sha256": "sha256:39df5634eb6a7a0305cef02d4cce4954a809a31c1f13cf9039ed62d5f30bde06",
+      "reproducer_sha256": "sha256:36f5eb7472bd0b419a4a11f78c448ffef356dd3ee8d92343c7d458723156028a",
+      "decision": {
+        "scenario_id": "us005.pub.0047",
+        "pointer": "/frames/1/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:72224d559672753501e187a254fbe039c1f3ece93d92a1fb3321617bba2fc3af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 77,
+      "delta_id": "delta.us005.pub.0050.frames-0-payload_base64",
+      "previous_digest": "sha256:3849282cc67b12bae342d3d08bc06c40f5301505abbe00b79abe9227e2da57f5",
+      "record_digest": "sha256:8877f23ace2a372464534027e35f7f97fcfed2127e13474d3297897d534c6a7e",
+      "scenario_id": "us005.pub.0050",
+      "pointer": "/frames/0/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:38f102c8d0737244e58fd333aa7d1b03c3f060e95cf2da9ca6dd5321fabdb094",
+      "rust_observation_sha256": "sha256:14553da6d59120c4001268f93c873c344baf5ca5af22f57bbe97e2d62d5a9ac2",
+      "reproducer_sha256": "sha256:53d35a73cfa63ab5d8f14abc6fad807d34f4e21fe250608f39cc630da13516d4",
+      "decision": {
+        "scenario_id": "us005.pub.0050",
+        "pointer": "/frames/0/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:3b689e0664bec524d9fb0c080bca28bd22b614e494c614264a1d9f46f2d1e29c",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 78,
+      "delta_id": "delta.us005.pub.0050.frames-1-payload_base64",
+      "previous_digest": "sha256:8877f23ace2a372464534027e35f7f97fcfed2127e13474d3297897d534c6a7e",
+      "record_digest": "sha256:3fd1cc5c4306241c79a82059125b1965ab245dd52234cf5851e1a6aedfb82580",
+      "scenario_id": "us005.pub.0050",
+      "pointer": "/frames/1/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:38f102c8d0737244e58fd333aa7d1b03c3f060e95cf2da9ca6dd5321fabdb094",
+      "rust_observation_sha256": "sha256:14553da6d59120c4001268f93c873c344baf5ca5af22f57bbe97e2d62d5a9ac2",
+      "reproducer_sha256": "sha256:53d35a73cfa63ab5d8f14abc6fad807d34f4e21fe250608f39cc630da13516d4",
+      "decision": {
+        "scenario_id": "us005.pub.0050",
+        "pointer": "/frames/1/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:3b689e0664bec524d9fb0c080bca28bd22b614e494c614264a1d9f46f2d1e29c",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 79,
+      "delta_id": "delta.us005.pub.0050.frames-1-wire_length",
+      "previous_digest": "sha256:3fd1cc5c4306241c79a82059125b1965ab245dd52234cf5851e1a6aedfb82580",
+      "record_digest": "sha256:453c3709bf6dc846fb01fc69fc5cf7be89a0a819535336cea186b11dc642b732",
+      "scenario_id": "us005.pub.0050",
+      "pointer": "/frames/1/wire_length",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:38f102c8d0737244e58fd333aa7d1b03c3f060e95cf2da9ca6dd5321fabdb094",
+      "rust_observation_sha256": "sha256:14553da6d59120c4001268f93c873c344baf5ca5af22f57bbe97e2d62d5a9ac2",
+      "reproducer_sha256": "sha256:53d35a73cfa63ab5d8f14abc6fad807d34f4e21fe250608f39cc630da13516d4",
+      "decision": {
+        "scenario_id": "us005.pub.0050",
+        "pointer": "/frames/1/wire_length",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:2c624232cdd221771294dfbb310aca000a0df6ac8b66b696d90ef06fdefb64a3",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 80,
+      "delta_id": "delta.us005.pub.0051.frames",
+      "previous_digest": "sha256:453c3709bf6dc846fb01fc69fc5cf7be89a0a819535336cea186b11dc642b732",
+      "record_digest": "sha256:084880d36636e95fce43b7a2b139d27d6163726468c86871a267174695c81652",
+      "scenario_id": "us005.pub.0051",
+      "pointer": "/frames",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:ba5bf126923bd0377a2e2ac2b80a3df4695e37288b954b9ce524e20c41484b80",
+      "rust_observation_sha256": "sha256:c49313cbc05e47c363726f1c7100999415196931539d49c5d50b6f0ec5eeec9c",
+      "reproducer_sha256": "sha256:cca2534a304a2de78b95396a6d31e735420bfdfb6943c64185be9c2598420035",
+      "decision": {
+        "scenario_id": "us005.pub.0051",
+        "pointer": "/frames",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:6fe52847b7f04867fa43c66cb943c28376fb9a4b7e02c2cbdfa0bd1fe442698c",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0051#decoded-rejected-frames",
+            "sha256": "sha256:6fe52847b7f04867fa43c66cb943c28376fb9a4b7e02c2cbdfa0bd1fe442698c"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 81,
+      "delta_id": "delta.us005.pub.0052.final_state",
+      "previous_digest": "sha256:084880d36636e95fce43b7a2b139d27d6163726468c86871a267174695c81652",
+      "record_digest": "sha256:be8ea81ac4a8f64e0a1e2474264b35b0ccb24eb3560c52e2668dc04f0f1348b8",
+      "scenario_id": "us005.pub.0052",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:7c48ee6e5e0e4072da6de755fe9d73bfd4fd463a0916024d59f6b555e7bc9f44",
+      "rust_observation_sha256": "sha256:99bdea3774a300434db937509afa9f22b222dc33bdc0f2eee14723bbeeb5229c",
+      "reproducer_sha256": "sha256:db20aadd1d5ca0ddcf27d861961fb6b84d7b4f50d4d588aa57d72962d683a874",
+      "decision": {
+        "scenario_id": "us005.pub.0052",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 82,
+      "delta_id": "delta.us005.pub.0052.frames",
+      "previous_digest": "sha256:be8ea81ac4a8f64e0a1e2474264b35b0ccb24eb3560c52e2668dc04f0f1348b8",
+      "record_digest": "sha256:489b246e25e3639912606acff8794849ac895d91fbaf4a90b2296d5e584fabc4",
+      "scenario_id": "us005.pub.0052",
+      "pointer": "/frames",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:7c48ee6e5e0e4072da6de755fe9d73bfd4fd463a0916024d59f6b555e7bc9f44",
+      "rust_observation_sha256": "sha256:99bdea3774a300434db937509afa9f22b222dc33bdc0f2eee14723bbeeb5229c",
+      "reproducer_sha256": "sha256:db20aadd1d5ca0ddcf27d861961fb6b84d7b4f50d4d588aa57d72962d683a874",
+      "decision": {
+        "scenario_id": "us005.pub.0052",
+        "pointer": "/frames",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:8ed038983911888ca17fb3788a78bb673c14699804d9b05500d061c98c89d476",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0052#decoded-rejected-frames",
+            "sha256": "sha256:8ed038983911888ca17fb3788a78bb673c14699804d9b05500d061c98c89d476"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 83,
+      "delta_id": "delta.us005.pub.0052.transitions",
+      "previous_digest": "sha256:489b246e25e3639912606acff8794849ac895d91fbaf4a90b2296d5e584fabc4",
+      "record_digest": "sha256:cd7ea58b869d9b4f5f639b3042031c33f904db2ffd214cb63caa483a133a7326",
+      "scenario_id": "us005.pub.0052",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:7c48ee6e5e0e4072da6de755fe9d73bfd4fd463a0916024d59f6b555e7bc9f44",
+      "rust_observation_sha256": "sha256:99bdea3774a300434db937509afa9f22b222dc33bdc0f2eee14723bbeeb5229c",
+      "reproducer_sha256": "sha256:db20aadd1d5ca0ddcf27d861961fb6b84d7b4f50d4d588aa57d72962d683a874",
+      "decision": {
+        "scenario_id": "us005.pub.0052",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:fc2580a775813b2cfa7c80b793847c1987dcd6d184dd2be600943eda8de7b87c",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 84,
+      "delta_id": "delta.us005.pub.0053.events-0-text",
+      "previous_digest": "sha256:cd7ea58b869d9b4f5f639b3042031c33f904db2ffd214cb63caa483a133a7326",
+      "record_digest": "sha256:5fe934c36d2faa89d5db04aecf0ba530fac0a572c93ddd401e6c0a5b1eefa988",
+      "scenario_id": "us005.pub.0053",
+      "pointer": "/events/0/text",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:cdb07f74a69c6f5e18fd12fd2b8b56b49477a5c5e0bee2bb184690b515ca8971",
+      "rust_observation_sha256": "sha256:dfd19af2413131b122c08095c9417a3316f980ef563094fb5cba45059f989af6",
+      "reproducer_sha256": "sha256:cfa23256c0da6da5187df75907cdc02dd5415830682610de9afceb79e1fa0e76",
+      "decision": {
+        "scenario_id": "us005.pub.0053",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:993147f316e8af4494bf1a36cb8b14e16e795ae91a948f4300c4047b771c0dba",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0053#expected/events/0/text",
+            "sha256": "sha256:993147f316e8af4494bf1a36cb8b14e16e795ae91a948f4300c4047b771c0dba"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 85,
+      "delta_id": "delta.us005.pub.0055.events-0-text",
+      "previous_digest": "sha256:5fe934c36d2faa89d5db04aecf0ba530fac0a572c93ddd401e6c0a5b1eefa988",
+      "record_digest": "sha256:09d33188d465bb62c364cc2cc7f2860e92a58a998f86c1ff624e4802ce39dc30",
+      "scenario_id": "us005.pub.0055",
+      "pointer": "/events/0/text",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:46a6c8acbc4a30e7db3bf1fc22556a04d0234d30a307ff164afddcd7c0b8c350",
+      "rust_observation_sha256": "sha256:ff3d0f05c1e3b71954aee2ea1f2340d783082f47492e1a4ceec7782f8bfe6ebc",
+      "reproducer_sha256": "sha256:0c0ba51ccc33d09724707282b2f6c5098f037cfbaccd813fdcd8fa6f24899806",
+      "decision": {
+        "scenario_id": "us005.pub.0055",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:4ee6b7fece281f33b4499318b7229d1e3306d9dfaee0a750226e5caa95391357",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0055#expected/events/0/text",
+            "sha256": "sha256:4ee6b7fece281f33b4499318b7229d1e3306d9dfaee0a750226e5caa95391357"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 86,
+      "delta_id": "delta.us005.pub.0056.final_state",
+      "previous_digest": "sha256:09d33188d465bb62c364cc2cc7f2860e92a58a998f86c1ff624e4802ce39dc30",
+      "record_digest": "sha256:5658036fa5a613b62b32de3bc39efabaefe684a773d9396d89de2318b2fd2850",
+      "scenario_id": "us005.pub.0056",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:4ce87de5a0ace3f7df7a03b6efe59e2def1114fa08a7ecd571ae31bbf09052c5",
+      "rust_observation_sha256": "sha256:5678116c234af8bb34b58d141992d4e48254ae68e353e0d4e1917cd6631852ff",
+      "reproducer_sha256": "sha256:473c6d87d0000543b965c50addaa29a89697c13ecc8677dd5bc8cec052026ba4",
+      "decision": {
+        "scenario_id": "us005.pub.0056",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 87,
+      "delta_id": "delta.us005.pub.0056.transitions",
+      "previous_digest": "sha256:5658036fa5a613b62b32de3bc39efabaefe684a773d9396d89de2318b2fd2850",
+      "record_digest": "sha256:e99da88c76b5e1983a4ef3867ab3abefba88e44bf20673db8eda9990c3d7b26a",
+      "scenario_id": "us005.pub.0056",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:4ce87de5a0ace3f7df7a03b6efe59e2def1114fa08a7ecd571ae31bbf09052c5",
+      "rust_observation_sha256": "sha256:5678116c234af8bb34b58d141992d4e48254ae68e353e0d4e1917cd6631852ff",
+      "reproducer_sha256": "sha256:473c6d87d0000543b965c50addaa29a89697c13ecc8677dd5bc8cec052026ba4",
+      "decision": {
+        "scenario_id": "us005.pub.0056",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 88,
+      "delta_id": "delta.us005.pub.0057.final_state",
+      "previous_digest": "sha256:e99da88c76b5e1983a4ef3867ab3abefba88e44bf20673db8eda9990c3d7b26a",
+      "record_digest": "sha256:e6aaf7dd28a6c03426014c9c7fedb1fe12b4c83b31caf8d6716344d392228215",
+      "scenario_id": "us005.pub.0057",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:85067badfb7598633cb4d69c7e358db4698b1f0ed5fba7c80797b37ec5d1995f",
+      "rust_observation_sha256": "sha256:d55cc166411f8e7205b3dc9881230fc3fbf1c6f269cb833f3fd361b5454fbebf",
+      "reproducer_sha256": "sha256:e1acd8d8e36e68aa0d088ddab266d6bf0cd827ec3490504d426d42ba7899890b",
+      "decision": {
+        "scenario_id": "us005.pub.0057",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 89,
+      "delta_id": "delta.us005.pub.0057.transitions",
+      "previous_digest": "sha256:e6aaf7dd28a6c03426014c9c7fedb1fe12b4c83b31caf8d6716344d392228215",
+      "record_digest": "sha256:e61d3611808c040f6bc7629e2be0bfd2232ccffbe8504a06ec441e72cde36c99",
+      "scenario_id": "us005.pub.0057",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:85067badfb7598633cb4d69c7e358db4698b1f0ed5fba7c80797b37ec5d1995f",
+      "rust_observation_sha256": "sha256:d55cc166411f8e7205b3dc9881230fc3fbf1c6f269cb833f3fd361b5454fbebf",
+      "reproducer_sha256": "sha256:e1acd8d8e36e68aa0d088ddab266d6bf0cd827ec3490504d426d42ba7899890b",
+      "decision": {
+        "scenario_id": "us005.pub.0057",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 90,
+      "delta_id": "delta.us005.pub.0058.final_state",
+      "previous_digest": "sha256:e61d3611808c040f6bc7629e2be0bfd2232ccffbe8504a06ec441e72cde36c99",
+      "record_digest": "sha256:95cb6accd46b89d0eb71a0cce40507c81f456250eb2176027bdcafd0de31793d",
+      "scenario_id": "us005.pub.0058",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:193d52a2b6f870df4a4508f2aa1a42249bb463a89c135276c2eeb8469aff0a30",
+      "rust_observation_sha256": "sha256:ab98a66ad6420a27c758d5dde206159b3102f38fe99fa9b46da3d9bc4cae2fa9",
+      "reproducer_sha256": "sha256:a9acccfe67f9dfc6cc0211d994166e40bad8073c7971147a140f0101e0f683cb",
+      "decision": {
+        "scenario_id": "us005.pub.0058",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 91,
+      "delta_id": "delta.us005.pub.0058.transitions",
+      "previous_digest": "sha256:95cb6accd46b89d0eb71a0cce40507c81f456250eb2176027bdcafd0de31793d",
+      "record_digest": "sha256:1d238ce677c64331647e99edbddeaaf3189f236e4bfc04dfdfb9449bfe3d7876",
+      "scenario_id": "us005.pub.0058",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:193d52a2b6f870df4a4508f2aa1a42249bb463a89c135276c2eeb8469aff0a30",
+      "rust_observation_sha256": "sha256:ab98a66ad6420a27c758d5dde206159b3102f38fe99fa9b46da3d9bc4cae2fa9",
+      "reproducer_sha256": "sha256:a9acccfe67f9dfc6cc0211d994166e40bad8073c7971147a140f0101e0f683cb",
+      "decision": {
+        "scenario_id": "us005.pub.0058",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 92,
+      "delta_id": "delta.us005.pub.0059.final_state",
+      "previous_digest": "sha256:1d238ce677c64331647e99edbddeaaf3189f236e4bfc04dfdfb9449bfe3d7876",
+      "record_digest": "sha256:03b00a5cfb640dc0de5fea95ffadc8a1c69252fbcf37238ec3d69b50fca06a55",
+      "scenario_id": "us005.pub.0059",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:6adc101c818486df75177380e2ab380e7466757a30f84661fe9846aa7b1fe19f",
+      "rust_observation_sha256": "sha256:8fe9afd4eb603dff34e310835b175cb0f0d3f41f324872c581f09a033258ebb1",
+      "reproducer_sha256": "sha256:7c1a49a2f6f9f9f0b0b8d9c2dafa3c933c26796555081c5c4246cfb966cd102f",
+      "decision": {
+        "scenario_id": "us005.pub.0059",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 93,
+      "delta_id": "delta.us005.pub.0059.transitions",
+      "previous_digest": "sha256:03b00a5cfb640dc0de5fea95ffadc8a1c69252fbcf37238ec3d69b50fca06a55",
+      "record_digest": "sha256:d5206056f81a9bf779c7986c0ca4ab73855020f71177b53120cbf5bfa92bb22c",
+      "scenario_id": "us005.pub.0059",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:6adc101c818486df75177380e2ab380e7466757a30f84661fe9846aa7b1fe19f",
+      "rust_observation_sha256": "sha256:8fe9afd4eb603dff34e310835b175cb0f0d3f41f324872c581f09a033258ebb1",
+      "reproducer_sha256": "sha256:7c1a49a2f6f9f9f0b0b8d9c2dafa3c933c26796555081c5c4246cfb966cd102f",
+      "decision": {
+        "scenario_id": "us005.pub.0059",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 94,
+      "delta_id": "delta.us005.pub.0061.frames-0-payload_base64",
+      "previous_digest": "sha256:d5206056f81a9bf779c7986c0ca4ab73855020f71177b53120cbf5bfa92bb22c",
+      "record_digest": "sha256:8b8898a464a373a110de4d686df267d54947576c7149cdc2293c66b6d28a263e",
+      "scenario_id": "us005.pub.0061",
+      "pointer": "/frames/0/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:b613a277378379ff18835d2ab007b9a30856cba65c347d82b090f5066ecbe423",
+      "rust_observation_sha256": "sha256:fadd0e333f0fe5d3bb6a337612901474c6d22b793494c66bb4c51ce0a05cc883",
+      "reproducer_sha256": "sha256:43975e9e441784a3fe3265fdc4bd6b2446668d7fe054185abab55c566ed35baf",
+      "decision": {
+        "scenario_id": "us005.pub.0061",
+        "pointer": "/frames/0/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:852853f960b253586097e925002d0d5202086876e9800c2795f2e5b5dbb7a446",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 95,
+      "delta_id": "delta.us005.pub.0061.frames-1-payload_base64",
+      "previous_digest": "sha256:8b8898a464a373a110de4d686df267d54947576c7149cdc2293c66b6d28a263e",
+      "record_digest": "sha256:7f6fa3a214eeec9b9a4a473e1b60b5c4a7d1ac211446e0f802584ad3734ace33",
+      "scenario_id": "us005.pub.0061",
+      "pointer": "/frames/1/payload_base64",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:b613a277378379ff18835d2ab007b9a30856cba65c347d82b090f5066ecbe423",
+      "rust_observation_sha256": "sha256:fadd0e333f0fe5d3bb6a337612901474c6d22b793494c66bb4c51ce0a05cc883",
+      "reproducer_sha256": "sha256:43975e9e441784a3fe3265fdc4bd6b2446668d7fe054185abab55c566ed35baf",
+      "decision": {
+        "scenario_id": "us005.pub.0061",
+        "pointer": "/frames/1/payload_base64",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:852853f960b253586097e925002d0d5202086876e9800c2795f2e5b5dbb7a446",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 96,
+      "delta_id": "delta.us005.pub.0061.frames-1-wire_length",
+      "previous_digest": "sha256:7f6fa3a214eeec9b9a4a473e1b60b5c4a7d1ac211446e0f802584ad3734ace33",
+      "record_digest": "sha256:d13ce1a63a4485a6998fee1f6af936e608d8fac3a84416e781b686fefea3c8e4",
+      "scenario_id": "us005.pub.0061",
+      "pointer": "/frames/1/wire_length",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:b613a277378379ff18835d2ab007b9a30856cba65c347d82b090f5066ecbe423",
+      "rust_observation_sha256": "sha256:fadd0e333f0fe5d3bb6a337612901474c6d22b793494c66bb4c51ce0a05cc883",
+      "reproducer_sha256": "sha256:43975e9e441784a3fe3265fdc4bd6b2446668d7fe054185abab55c566ed35baf",
+      "decision": {
+        "scenario_id": "us005.pub.0061",
+        "pointer": "/frames/1/wire_length",
+        "authority": "rfc6455.section-5-5-1",
+        "rank": 1,
+        "expected_sha256": "sha256:785f3ec7eb32f30b90cd0fcf3657d388b5ff4297f2f9716ff66e9b69c05ddd09",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-5-5-1",
+            "sha256": "sha256:3a8a42fd025a41881a24e1bf167a2c3a0f7504c5580bbc00bb069bd1bf549f3b"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 97,
+      "delta_id": "delta.us005.pub.0065.final_state",
+      "previous_digest": "sha256:d13ce1a63a4485a6998fee1f6af936e608d8fac3a84416e781b686fefea3c8e4",
+      "record_digest": "sha256:2f38eca4212a4723a12cd735658b1b9c978217fc59278bc4a16d3e73d7706496",
+      "scenario_id": "us005.pub.0065",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:4f5104f1ffebc02384970cc3610f8d61e1ad30c82f678a0064b15c126d6786cb",
+      "rust_observation_sha256": "sha256:6575d99b8e7c2e7c7cb9dcbfd8f304b7ec87182e58983e3fba95b5bccf6cb0a1",
+      "reproducer_sha256": "sha256:ba903962273f6f7bd6fb735eff85c714fad7e09b56d62b0b7cfda66cb9864bad",
+      "decision": {
+        "scenario_id": "us005.pub.0065",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 98,
+      "delta_id": "delta.us005.pub.0065.transitions",
+      "previous_digest": "sha256:2f38eca4212a4723a12cd735658b1b9c978217fc59278bc4a16d3e73d7706496",
+      "record_digest": "sha256:3d4ae68f8f48d7387d4d17263f897047b1036d1a5dfaf710829448537378acd5",
+      "scenario_id": "us005.pub.0065",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:4f5104f1ffebc02384970cc3610f8d61e1ad30c82f678a0064b15c126d6786cb",
+      "rust_observation_sha256": "sha256:6575d99b8e7c2e7c7cb9dcbfd8f304b7ec87182e58983e3fba95b5bccf6cb0a1",
+      "reproducer_sha256": "sha256:ba903962273f6f7bd6fb735eff85c714fad7e09b56d62b0b7cfda66cb9864bad",
+      "decision": {
+        "scenario_id": "us005.pub.0065",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 99,
+      "delta_id": "delta.us005.pub.0066.final_state",
+      "previous_digest": "sha256:3d4ae68f8f48d7387d4d17263f897047b1036d1a5dfaf710829448537378acd5",
+      "record_digest": "sha256:8ef76e6759d78a5b6ef406dc8af64ed7ea35d6122bc8c95841450a56d2fc45b6",
+      "scenario_id": "us005.pub.0066",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:a809577f601695ff58d2e5e0770dfe3a6001c1bc24838d837ae12d446dfbf488",
+      "rust_observation_sha256": "sha256:1b83fdad3d160f83ce94dcdca404733a04f9b3d4eec9c5015fa4aba5b3398f8b",
+      "reproducer_sha256": "sha256:4faf6d0b4b76eda27f332111bbe6a9f60460bfae2230e3b182fb498c4f4f0b2f",
+      "decision": {
+        "scenario_id": "us005.pub.0066",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 100,
+      "delta_id": "delta.us005.pub.0066.frames",
+      "previous_digest": "sha256:8ef76e6759d78a5b6ef406dc8af64ed7ea35d6122bc8c95841450a56d2fc45b6",
+      "record_digest": "sha256:dfbd1dfc704ddca8a2b1dd6d27a5f0e8718ab7ec08d9528c31cbc6ced85436af",
+      "scenario_id": "us005.pub.0066",
+      "pointer": "/frames",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:a809577f601695ff58d2e5e0770dfe3a6001c1bc24838d837ae12d446dfbf488",
+      "rust_observation_sha256": "sha256:1b83fdad3d160f83ce94dcdca404733a04f9b3d4eec9c5015fa4aba5b3398f8b",
+      "reproducer_sha256": "sha256:4faf6d0b4b76eda27f332111bbe6a9f60460bfae2230e3b182fb498c4f4f0b2f",
+      "decision": {
+        "scenario_id": "us005.pub.0066",
+        "pointer": "/frames",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:a62ce0b20608e3579099bd7ab60031609bc9d8fb3d183708019a0b7de6d04d91",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0066#decoded-rejected-frames",
+            "sha256": "sha256:a62ce0b20608e3579099bd7ab60031609bc9d8fb3d183708019a0b7de6d04d91"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 101,
+      "delta_id": "delta.us005.pub.0066.transitions",
+      "previous_digest": "sha256:dfbd1dfc704ddca8a2b1dd6d27a5f0e8718ab7ec08d9528c31cbc6ced85436af",
+      "record_digest": "sha256:80e4f975b94da3ff8535421d882be866257f4014184934785d086c9d386a0520",
+      "scenario_id": "us005.pub.0066",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:a809577f601695ff58d2e5e0770dfe3a6001c1bc24838d837ae12d446dfbf488",
+      "rust_observation_sha256": "sha256:1b83fdad3d160f83ce94dcdca404733a04f9b3d4eec9c5015fa4aba5b3398f8b",
+      "reproducer_sha256": "sha256:4faf6d0b4b76eda27f332111bbe6a9f60460bfae2230e3b182fb498c4f4f0b2f",
+      "decision": {
+        "scenario_id": "us005.pub.0066",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 102,
+      "delta_id": "delta.us005.pub.0067.final_state",
+      "previous_digest": "sha256:80e4f975b94da3ff8535421d882be866257f4014184934785d086c9d386a0520",
+      "record_digest": "sha256:7e11491a4023ed852a420cadd1a7bcf1da4ce3afad70311eed737e306d152fdb",
+      "scenario_id": "us005.pub.0067",
+      "pointer": "/final_state",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:3904943a3a1ba36aa7a2fb492426d4d75ca84647c848de1cb2ffc457349a2dfa",
+      "rust_observation_sha256": "sha256:391228d761da2c49c57c1f441bd86d50f691d52612e707d0782903385c5dc714",
+      "reproducer_sha256": "sha256:b9656ab1c077f75ee48bf4e699a88eb831ca8a023bd226170c698d495cc5e8c8",
+      "decision": {
+        "scenario_id": "us005.pub.0067",
+        "pointer": "/final_state",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 103,
+      "delta_id": "delta.us005.pub.0067.transitions",
+      "previous_digest": "sha256:7e11491a4023ed852a420cadd1a7bcf1da4ce3afad70311eed737e306d152fdb",
+      "record_digest": "sha256:189125ce3df8f2fa64770d913f5363adaced01c1f31b0e8f715a71da4472e231",
+      "scenario_id": "us005.pub.0067",
+      "pointer": "/transitions",
+      "classification": "java_quirk",
+      "java_observation_sha256": "sha256:3904943a3a1ba36aa7a2fb492426d4d75ca84647c848de1cb2ffc457349a2dfa",
+      "rust_observation_sha256": "sha256:391228d761da2c49c57c1f441bd86d50f691d52612e707d0782903385c5dc714",
+      "reproducer_sha256": "sha256:b9656ab1c077f75ee48bf4e699a88eb831ca8a023bd226170c698d495cc5e8c8",
+      "decision": {
+        "scenario_id": "us005.pub.0067",
+        "pointer": "/transitions",
+        "authority": "rfc6455.section-7-1-7",
+        "rank": 1,
+        "expected_sha256": "sha256:4c28335da659ad5747a31fe7517b9f40a0d7d052ff200255a07b9511a83135af",
+        "evidence": [
+          {
+            "kind": "rfc_clause",
+            "id": "rfc6455.section-7-1-7",
+            "sha256": "sha256:8e8a2dbaec546cbd6b2aacee5be292d4da5491b0c39b7e218cc8882f38a6607a"
+          }
+        ]
+      },
+      "resolution": "retained_java_quirk",
+      "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    }
+  ],
   "append_implementation": "hash-chained-cas",
   "unledgered_disagreements": 0,
   "production": false,
