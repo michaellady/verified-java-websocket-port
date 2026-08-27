@@ -627,6 +627,18 @@ impl ConnectionCore {
 pub struct CommandRefused {
     /// The command that was not enqueued.
     pub command: LocalCommand,
+    /// Why the channel refused it.
+    pub reason: CommandRefusalReason,
+}
+
+/// Why [`CommandSender::try_send`] handed a command back.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommandRefusalReason {
+    /// The bounded queue is at capacity; retry after the owner drains.
+    Full,
+    /// Another producer momentarily holds the queue; retry immediately.
+    /// Surfaced instead of waiting so `try_send` NEVER blocks (US-009 AC4).
+    Contended,
 }
 
 #[derive(Debug)]
@@ -662,9 +674,25 @@ impl CommandSender {
     /// [`CommandRefused`] carries the rejected command; the producer decides
     /// whether to retry after the owner drains.
     pub fn try_send(&self, command: LocalCommand) -> Result<(), CommandRefused> {
-        let mut queue = self.channel.lock();
+        // Review round 1 (session 01a04407): a blocking Mutex::lock here could
+        // stall behind another producer, violating the try-send-only contract.
+        // try_lock refuses with Contended instead of ever waiting; a poisoned
+        // lock is recovered for the same reason as CommandChannel::lock.
+        let mut queue = match self.channel.queue.try_lock() {
+            Ok(guard) => guard,
+            Err(std::sync::TryLockError::Poisoned(poisoned)) => poisoned.into_inner(),
+            Err(std::sync::TryLockError::WouldBlock) => {
+                return Err(CommandRefused {
+                    command,
+                    reason: CommandRefusalReason::Contended,
+                });
+            }
+        };
         if queue.len() >= self.channel.capacity {
-            return Err(CommandRefused { command });
+            return Err(CommandRefused {
+                command,
+                reason: CommandRefusalReason::Full,
+            });
         }
         queue.push_back(command);
         Ok(())
@@ -719,5 +747,35 @@ impl CommandQueue {
     #[must_use]
     pub fn capacity(&self) -> usize {
         self.channel.capacity
+    }
+}
+
+#[cfg(test)]
+mod command_channel_tests {
+    use super::*;
+    use crate::config::ConnectionConfig;
+
+    fn any_command() -> LocalCommand {
+        LocalCommand::SendPing { data: Vec::new() }
+    }
+
+    /// Review round 1 (session 01a04407): try_send must NEVER block. With the
+    /// queue mutex deliberately held by this thread (standing in for another
+    /// producer mid-push), try_send must return immediately with a Contended
+    /// refusal instead of waiting for the guard.
+    #[test]
+    fn try_send_refuses_with_contended_instead_of_blocking_on_a_held_lock() {
+        let config = ConnectionConfig::default();
+        let (_queue, sender) = CommandQueue::new(&config);
+        let guard = sender.channel.queue.lock().expect("test holds the lock");
+        let refused = sender
+            .try_send(any_command())
+            .expect_err("held lock must refuse, not block");
+        assert_eq!(refused.reason, CommandRefusalReason::Contended);
+        drop(guard);
+        assert!(
+            sender.try_send(any_command()).is_ok(),
+            "after the lock is released the same send succeeds"
+        );
     }
 }

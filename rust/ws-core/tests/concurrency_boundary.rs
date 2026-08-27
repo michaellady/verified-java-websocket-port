@@ -48,6 +48,10 @@ fn capacity_is_honored_and_refusal_returns_the_command() {
     // The refused command comes back to the producer intact: explicit
     // backpressure, no silent drop, no unbounded growth.
     assert_eq!(tag_of(&refused.command), "c");
+    assert_eq!(
+        refused.reason,
+        ws_core::connection::CommandRefusalReason::Full
+    );
     assert_eq!(queue.len(), 2);
     // Draining frees capacity for the retry.
     assert_eq!(tag_of(&queue.pop().expect("queued")), "a");
