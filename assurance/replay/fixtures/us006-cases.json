@@ -8,7 +8,7 @@
     {
       "id": "us006-good-backend-executed",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-good-backend-executed/mutation.json",
-      "realized_tree_sha256": "sha256:6d0255903fc503bb93067cdea3b6fe022ab8d9a081f70aa075751d7a1c13b680",
+      "realized_tree_sha256": "sha256:46828887d245a349a42365aa6e3ce9ca1601275a569dc9131f08ec1579c7822c",
       "expected": {
         "exit_code": 0,
         "state": "OK",
@@ -21,7 +21,7 @@
     {
       "id": "us006-disconnected-proof",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-disconnected-proof/mutation.json",
-      "realized_tree_sha256": "sha256:3eca3a5257761d43568451ac9e8f3199e6fab4a17d4af88c29231f26b1225dc9",
+      "realized_tree_sha256": "sha256:6b4f6c6a5fba49aa1e4b4cecea5ec4647a77775ef405c2d2916c9d945cb53663",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -40,7 +40,7 @@
     {
       "id": "us006-doc-absent-proof-targets",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-doc-absent-proof-targets/mutation.json",
-      "realized_tree_sha256": "sha256:b948c0bf3358ad26438d55679f873cfa71dca2aee6e6a839ad95ece1f1aeb84f",
+      "realized_tree_sha256": "sha256:9c6a77a8aa32a4effe601ceb4f748ed7aad6e304096e2efcf504c41b33d99993",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -59,7 +59,7 @@
     {
       "id": "us006-schema-absent",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-schema-absent/mutation.json",
-      "realized_tree_sha256": "sha256:1bb38ced4d1a33bfb3031a3527bc88d3e1bcf225f68a8e302836b5d6483b66e1",
+      "realized_tree_sha256": "sha256:0309646113a2020134f485bf26b1f3659e4d203cb01af50df9462701be7033fb",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -78,7 +78,7 @@
     {
       "id": "us006-invalid-json",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-invalid-json/mutation.json",
-      "realized_tree_sha256": "sha256:9084a8cede1d2525923d117c6b8a179ac31d4897875cb886f4b2ad2e0ffd8d6a",
+      "realized_tree_sha256": "sha256:995663058e91ab4cdd2f2fa02789f41540567a95fe09b2a90ea99054183ff0ba",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -97,7 +97,7 @@
     {
       "id": "us006-schema-violation",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-schema-violation/mutation.json",
-      "realized_tree_sha256": "sha256:6fbdf88f4d10a2addaf08f59cecc217a06d6affd4a7684624a4db0e75991c512",
+      "realized_tree_sha256": "sha256:6e864cc019f6cc989c64ea67558db4a0cc62f29514d227bb530c621590febfc9",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -116,7 +116,7 @@
     {
       "id": "us006-selected-without-execution",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-selected-without-execution/mutation.json",
-      "realized_tree_sha256": "sha256:34236d1884b62c5cf5a4efa3f200546f5ea829ca124a424343a72fc1b33fa8c2",
+      "realized_tree_sha256": "sha256:dcd42c8afbfee4f686479ae5b9b01926081e5fca4a3a5a98206d7f93e794540b",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -135,7 +135,7 @@
     {
       "id": "us006-placeholder-receipt",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-placeholder-receipt/mutation.json",
-      "realized_tree_sha256": "sha256:6f75cf50916a529af92a11f4d76e35c5f37816cc526edfcf8925a2a480872eba",
+      "realized_tree_sha256": "sha256:c0956fcee138118f7412c23e870130b6b0c93b8feaa3eb01f56ec8f61e8406eb",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -154,7 +154,7 @@
     {
       "id": "us006-unavailable-as-success",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-unavailable-as-success/mutation.json",
-      "realized_tree_sha256": "sha256:1b7581366e43eea65ae961c467ac5282c3e6dedb977dbd73504523df4878ebda",
+      "realized_tree_sha256": "sha256:6f48242e59e06bc89a780ba7ae33b548d641eb73d73bd4919155d764f9e44d17",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -173,7 +173,7 @@
     {
       "id": "us006-unavailable-as-skip",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-unavailable-as-skip/mutation.json",
-      "realized_tree_sha256": "sha256:62d919c1e3a5dc5349327ac73b37437a3bce3ea92c5ced8ccd768b48b1b25d1a",
+      "realized_tree_sha256": "sha256:61b251e708e42a518bbcbf8451dc73f929f5143c991feed5491aa07c3eca6291",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -197,7 +197,7 @@
     {
       "id": "us006-inflated-finite-claim",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-inflated-finite-claim/mutation.json",
-      "realized_tree_sha256": "sha256:fd583891019ad0b3b7668c801e2e55af4db1a9eb3a52af6705e3e522b771bfd8",
+      "realized_tree_sha256": "sha256:a4c4506a94674b7feee7b8be7ba132e186083f790aa2eaffeeecbb07c6b4a851",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -221,7 +221,7 @@
     {
       "id": "us006-inflated-loom-proof",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-inflated-loom-proof/mutation.json",
-      "realized_tree_sha256": "sha256:9fff7dbf68472ea48f0a5bec659767033d1b4920c22795838b95a7e9347be9bb",
+      "realized_tree_sha256": "sha256:c2701bc5bee2bd47c2acd1ccc02c61e734c467ef1d554174c8f740eadeea45d0",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -245,7 +245,7 @@
     {
       "id": "us006-stale-attempt-binding",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-stale-attempt-binding/mutation.json",
-      "realized_tree_sha256": "sha256:b28eda14be24e2423aa9f3031512cc0b8dce3f268c5a5f4b63c3dca93134100d",
+      "realized_tree_sha256": "sha256:14e817e9c0a6a19e20b353ee5c368b3adb1e37e87ae2b9a42d9f4911e3f20e9a",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -264,7 +264,7 @@
     {
       "id": "us006-profile-digest-mismatch",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-profile-digest-mismatch/mutation.json",
-      "realized_tree_sha256": "sha256:ac2d29405fc809d683a6cac2846ba03f28fa6e80068abc388ee422bf377692b9",
+      "realized_tree_sha256": "sha256:e33690c9642230087e66b86a6849366b7fe54069ae45499eec5d0bbd36ab5a3f",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -283,7 +283,7 @@
     {
       "id": "us006-missing-canary-pair",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-missing-canary-pair/mutation.json",
-      "realized_tree_sha256": "sha256:470ca474133d34d23a75fdf7385993743f53792c8bd4dd46ec6d66872c2bd30d",
+      "realized_tree_sha256": "sha256:d789039d2ce0e600135d92e1d93099fad94f197d9b8b06104e44ddffcc516088",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -302,7 +302,7 @@
     {
       "id": "us006-zero-obligations",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-zero-obligations/mutation.json",
-      "realized_tree_sha256": "sha256:4a7bcd54d5dcc3ea808b13d99a5be6a1b7919dd44cb90c42b5164d767750cf98",
+      "realized_tree_sha256": "sha256:7faa7f8a34ca854f5e0606c389844c800a3080387a1ce1fa410a076932b2fbbd",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -326,7 +326,7 @@
     {
       "id": "us006-evidence-run-incomplete",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-evidence-run-incomplete/mutation.json",
-      "realized_tree_sha256": "sha256:fd5ea38f517113801b83d2964916250c7bb99e20ae8ed6d1d853b87d76c153e7",
+      "realized_tree_sha256": "sha256:525b89644ab9f7873f21bc4152c5e10031425d377058a3fed957aade9c297ca5",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -345,7 +345,7 @@
     {
       "id": "us006-known-bad-canary-survived",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-known-bad-canary-survived/mutation.json",
-      "realized_tree_sha256": "sha256:a0be00c0e99e965b3043d87013546e808b128e53b730205a84bf50c53f43c556",
+      "realized_tree_sha256": "sha256:e11163fd419fcec080078aca4bfef83e7b34ff2bfebcf6da89ffccf5dd711596",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -364,7 +364,7 @@
     {
       "id": "us006-profile-bytes-stale",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-profile-bytes-stale/mutation.json",
-      "realized_tree_sha256": "sha256:77d7675e487e61f6c9f8124897319ee516b2549a348ce90ac76bcb519d478ca3",
+      "realized_tree_sha256": "sha256:012867342aa75da88e9304e5470fff1b19fd747a7effc5477fc092ea74f31774",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -383,7 +383,7 @@
     {
       "id": "us006-profile-artifact-missing",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-profile-artifact-missing/mutation.json",
-      "realized_tree_sha256": "sha256:c1786fc08cc91e928ce19a1f699cfc5a1a8b80784f90f412703386d50445ebaa",
+      "realized_tree_sha256": "sha256:016c4dffb6fe9e6b5a97a083c8a44bf3dd85cd2a5583ba54268cdbe5a4589880",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -402,7 +402,7 @@
     {
       "id": "us006-probe-not-executed",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-probe-not-executed/mutation.json",
-      "realized_tree_sha256": "sha256:0e32930a5cc94c0332c75ba4c577f939f434d6bdc80d91aa2b8222fd318ee786",
+      "realized_tree_sha256": "sha256:e8486dc00ba6543547df23aab31ec10fd71c87056a1cdd83be5bc1403a8711df",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",
@@ -421,7 +421,7 @@
     {
       "id": "us006-disconnected-proof-symbol",
       "mutation_manifest_path": "assurance/replay/fixtures/us006-disconnected-proof-symbol/mutation.json",
-      "realized_tree_sha256": "sha256:c939e85728b961bfd1558c18d61af5d21978dce3dd519364e1d6d8bb1ce7127c",
+      "realized_tree_sha256": "sha256:bd58d852d485b995d614d687505735e9bfc289240541609cda26d9f518209d9f",
       "expected": {
         "exit_code": 1,
         "state": "BLOCKED",

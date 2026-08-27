@@ -1,4 +1,4 @@
-//! # connection-core (UNIMPLEMENTED scaffold)
+//! # ws-core (UNIMPLEMENTED scaffold)
 //!
 //! Placeholder for the deterministic Sans-I/O WebSocket `ConnectionCore`
 //! described by US-009 of the verified-java-websocket-port PRD. This crate is

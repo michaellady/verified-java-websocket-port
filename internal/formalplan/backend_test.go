@@ -343,7 +343,7 @@ func us006UnitRoot(t *testing.T) string {
 		"security/sbx-template.json",
 		"security/sandbox-policy.json",
 		"evidence/corpus-calibration.json",
-		"rust/connection-core/src/connection.rs",
+		"rust/ws-core/src/connection.rs",
 	} {
 		us006WriteFile(t, filepath.Join(root, filepath.FromSlash(relative)), us006ReadRepoFile(t, relative))
 	}

@@ -13,10 +13,12 @@ Full context: [`../docs/rust-workspace.md`](../docs/rust-workspace.md).
 
 - `rust-toolchain.toml` -- pins the intake-qualified toolchain, `1.95.0`
   (see `evidence/intake/toolchain-pins.json`).
-- `connection-core/` -- UNIMPLEMENTED placeholder for the Sans-I/O
-  `ConnectionCore` (US-009). Doc-only modules for handshake, framing,
-  control, close, and the connection state machine; zero dependencies;
-  `#![forbid(unsafe_code)]` and `#![deny(missing_docs)]`.
+- `ws-core/` -- UNIMPLEMENTED placeholder for the Sans-I/O
+  `ConnectionCore` (US-009); library namespace `ws_core`, the canonical
+  namespace fixed by the owner crate-naming decision (the migration map's
+  `ws_core::` semantic ids are authoritative). Doc-only modules for
+  handshake, framing, control, close, and the connection state machine;
+  zero dependencies; `#![forbid(unsafe_code)]` and `#![deny(missing_docs)]`.
 - `Makefile` -- the PRD quality-gate commands, verbatim.
 
 ## Gates

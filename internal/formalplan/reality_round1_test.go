@@ -187,10 +187,10 @@ func TestFormalPreflightDisconnectedProof(t *testing.T) {
 		value any
 	}{
 		{"empty-production-code-ids", []any{}},
-		{"unresolvable-production-file", []any{"rust/connection-core/src/missing.rs#connection_state_machine"}},
+		{"unresolvable-production-file", []any{"rust/ws-core/src/missing.rs#connection_state_machine"}},
 		// Integration round 2: the file exists but never mentions the cited
 		// symbol — the link's second half must fail resolution.
-		{"symbol-absent-from-existing-file", []any{"rust/connection-core/src/connection.rs#no_such_symbol_present"}},
+		{"symbol-absent-from-existing-file", []any{"rust/ws-core/src/connection.rs#no_such_symbol_present"}},
 	}
 	for _, item := range cases {
 		item := item

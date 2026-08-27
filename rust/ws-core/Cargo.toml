@@ -1,11 +1,19 @@
 [package]
-name = "connection-core"
+name = "ws-core"
 description = "UNIMPLEMENTED Sans-I/O WebSocket ConnectionCore scaffold. Enabling work only: no protocol behavior, no story acceptance claimed (pending US-009..US-016)."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
+
+# The library namespace is `ws_core` -- the canonical namespace fixed by the
+# owner crate-naming decision (us009_crate_naming = ws_core): the migration
+# map's `ws_core::` semantic ids are authoritative, and `use ws_core::...`
+# must resolve against this crate. Explicit rather than derived so the
+# namespace cannot drift with a package rename.
+[lib]
+name = "ws_core"
 
 # Design stance (see docs/rust-workspace.md): the Sans-I/O core is
 # dependency-free. Bytes in, typed values out, no sockets, no clocks, no
