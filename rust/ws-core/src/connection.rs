@@ -1014,17 +1014,31 @@ impl ConnectionCore {
             self.transition(ReadyState::Closed, TransitionCause::Eof);
             return Ok(());
         }
-        // derive.go actionStep: the counter increments before the limit
-        // check, so a rejected action is included in the failure counts.
-        self.action_count = self.action_count.saturating_add(1);
-        if self.action_count > self.config.max_actions() {
-            return Err(TypedProtocolFailure::protocol(
-                FailureCode::ActionLimitExceeded,
-            ));
-        }
-        // derive.go eof: closed refuses.
-        if self.state == ReadyState::Closed {
-            return Err(Self::state_violation());
+        if self.handshake_completed {
+            // derive.go actionStep: the counter increments before the limit
+            // check, so a rejected action is included in the failure counts.
+            self.action_count = self.action_count.saturating_add(1);
+            if self.action_count > self.config.max_actions() {
+                return Err(TypedProtocolFailure::protocol(
+                    FailureCode::ActionLimitExceeded,
+                ));
+            }
+            // derive.go eof: closed refuses.
+            if self.state == ReadyState::Closed {
+                return Err(Self::state_violation());
+            }
+        } else {
+            // WebSocketImpl.eot() is transport-driven and never passes
+            // through the action counters; the corpus `eof` action
+            // vocabulary is post-handshake only (review 01a04556-87df).
+            // On a never-connected CLOSED connection, closeConnection
+            // dedupes (:531-533): nothing further happens in Java. The
+            // port surfaces that absorption as its uniform typed
+            // closed-state refusal (no counter, no events) — the pinned
+            // no-duplicate-terminal discipline.
+            if self.state == ReadyState::Closed {
+                return Err(Self::state_violation());
+            }
         }
         // Q20 vocabulary: open (or closing without a governing close) uses
         // 1006 with the pinned reason; closing with a governing close echoes

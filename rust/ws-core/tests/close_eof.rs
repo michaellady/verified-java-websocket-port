@@ -833,3 +833,49 @@ fn send_fragment_before_open_validates_the_first_text_fragment_first() {
         assert_eq!(err.code, FailureCode::StateViolation);
     }
 }
+
+#[test]
+fn eof_after_pre_open_close_ignores_action_budget() {
+    // Review 01a04556-87df: WebSocketImpl.eot() is transport-driven and
+    // never passes through the action counters. With a valid
+    // max_actions=0 config, EOF after the pre-open close() ladder must
+    // still execute the flushandclosestate close (:611-612), not fail
+    // ACTION_LIMIT_EXCEEDED.
+    let config = ConnectionConfig::builder()
+        .max_actions(0)
+        .build()
+        .expect("max_actions=0 is a valid boundary config");
+    let mut core = ConnectionCore::new(config, Role::Server);
+    // Pre-open close is outside the counters (already pinned above) even
+    // with a zero budget.
+    core.handle(Input::Command(LocalCommand::SendClose {
+        code: 1000,
+        reason: "bye".to_owned(),
+    }))
+    .expect("pre-open close is not an action");
+    assert_eq!(core.state(), ReadyState::Closing);
+    core.handle(Input::TransportEof)
+        .expect("transport EOF is not an action");
+    assert_eq!(core.state(), ReadyState::Closed);
+    assert_eq!(core.counts().actions, 0, "eot() outside the counters");
+    let expected = CloseDetail {
+        code: NEVER_CONNECTED_CLOSE_CODE,
+        reason: "bye".to_owned(),
+        origin: CloseOrigin::Transport,
+        remote: false,
+        handshake_complete: false,
+    };
+    assert_eq!(core.close_detail(), Some(&expected));
+
+    // A second EOF on the never-connected CLOSED connection is Java's
+    // closeConnection dedupe (:531-533): nothing further happens. The port
+    // surfaces the absorption as its typed closed-state refusal, still
+    // outside the counters and without any duplicate terminal event.
+    drain_events(&mut core);
+    let err = core
+        .handle(Input::TransportEof)
+        .expect_err("closed never-connected refuses further EOF");
+    assert_eq!(err.code, FailureCode::StateViolation);
+    assert_eq!(core.counts().actions, 0, "still outside the counters");
+    assert!(drain_events(&mut core).is_empty(), "no duplicate events");
+}
