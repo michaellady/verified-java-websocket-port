@@ -1,35 +1,84 @@
-use crate::HandshakeFailure;
+use crate::{HandshakeFailure, LimitKind};
 
 #[derive(Debug)]
 pub(crate) struct ResponseParser {
     buffer: Vec<u8>,
     maximum_bytes: usize,
+    maximum_line_bytes: usize,
+    maximum_header_count: usize,
+    current_line_bytes: usize,
+    header_count: usize,
+    status_complete: bool,
 }
 
 pub(crate) enum ParseProgress {
     Incomplete,
     Complete(Result<(), HandshakeFailure>),
-    TotalLimitExceeded { attempted: u64 },
+    LimitExceeded { limit: LimitKind, attempted: u64 },
 }
 
 impl ResponseParser {
-    pub(crate) fn new(maximum_bytes: usize) -> Self {
+    pub(crate) fn new(
+        maximum_bytes: usize,
+        maximum_line_bytes: usize,
+        maximum_header_count: usize,
+    ) -> Self {
         Self {
             buffer: Vec::new(),
             maximum_bytes,
+            maximum_line_bytes,
+            maximum_header_count,
+            current_line_bytes: 0,
+            header_count: 0,
+            status_complete: false,
         }
     }
 
     pub(crate) fn consume(&mut self, bytes: &[u8], expected_accept: &[u8; 28]) -> ParseProgress {
         for &byte in bytes {
             if self.buffer.len() == self.maximum_bytes {
-                return ParseProgress::TotalLimitExceeded {
+                return ParseProgress::LimitExceeded {
+                    limit: LimitKind::HandshakeBytes,
                     attempted: u64::try_from(self.buffer.len())
                         .unwrap_or(u64::MAX)
                         .saturating_add(1),
                 };
             }
+            if byte == b'\n' && self.buffer.last() != Some(&b'\r')
+                || self.buffer.last() == Some(&b'\r') && byte != b'\n'
+            {
+                return ParseProgress::Complete(Err(HandshakeFailure::BareLineEnding));
+            }
+            let attempted_line = self.current_line_bytes.saturating_add(1);
+            if attempted_line > self.maximum_line_bytes {
+                return ParseProgress::LimitExceeded {
+                    limit: LimitKind::HandshakeHeaderLineBytes,
+                    attempted: u64::try_from(attempted_line).unwrap_or(u64::MAX),
+                };
+            }
+            let completes_line = byte == b'\n';
+            let completes_header = completes_line && self.status_complete && attempted_line != 2;
+            if completes_header && self.header_count == self.maximum_header_count {
+                return ParseProgress::LimitExceeded {
+                    limit: LimitKind::HandshakeHeaderCount,
+                    attempted: u64::try_from(self.header_count)
+                        .unwrap_or(u64::MAX)
+                        .saturating_add(1),
+                };
+            }
             self.buffer.push(byte);
+            if completes_line {
+                if self.status_complete {
+                    if completes_header {
+                        self.header_count += 1;
+                    }
+                } else {
+                    self.status_complete = true;
+                }
+                self.current_line_bytes = 0;
+            } else {
+                self.current_line_bytes = attempted_line;
+            }
         }
         let Some(end) = header_end(&self.buffer) else {
             return ParseProgress::Incomplete;

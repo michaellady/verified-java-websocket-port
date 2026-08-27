@@ -4,5 +4,5 @@ mod client;
 mod crypto;
 mod http;
 
-pub(crate) use client::{ClientHandshake, ClientResponse};
+pub(crate) use client::{ClientHandshake, ClientLimitExceeded, ClientResponse};
 pub use client::{ClientRequestDescriptor, ClientRequestDescriptorError};

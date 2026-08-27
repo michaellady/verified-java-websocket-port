@@ -1,6 +1,8 @@
 use core::fmt;
 
-use crate::handshake::{ClientHandshake, ClientRequestDescriptor, ClientResponse};
+use crate::handshake::{
+    ClientHandshake, ClientLimitExceeded, ClientRequestDescriptor, ClientResponse,
+};
 
 /// The role this endpoint has in the WebSocket protocol.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -29,6 +31,10 @@ pub enum ConnectionState {
 pub enum LimitKind {
     /// Maximum bytes retained for an opening handshake.
     HandshakeBytes,
+    /// Maximum header fields in an opening handshake.
+    HandshakeHeaderCount,
+    /// Maximum bytes in one opening-handshake line, including CRLF.
+    HandshakeHeaderLineBytes,
     /// Maximum bytes retained for one frame.
     FrameBytes,
     /// Maximum bytes retained for one message.
@@ -47,6 +53,8 @@ impl fmt::Display for LimitKind {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
             Self::HandshakeBytes => "handshake bytes",
+            Self::HandshakeHeaderCount => "handshake header count",
+            Self::HandshakeHeaderLineBytes => "handshake header-line bytes",
             Self::FrameBytes => "frame bytes",
             Self::MessageBytes => "message bytes",
             Self::TotalBufferedBytes => "total buffered bytes",
@@ -65,6 +73,10 @@ impl fmt::Display for LimitKind {
 pub struct ConnectionLimits {
     /// Maximum opening-handshake bytes.
     pub handshake_bytes: u64,
+    /// Maximum opening-handshake header fields.
+    pub handshake_header_count: u64,
+    /// Maximum bytes in one opening-handshake line, including CRLF.
+    pub handshake_header_line_bytes: u64,
     /// Maximum bytes in one frame.
     pub frame_bytes: u64,
     /// Maximum bytes in one reassembled message.
@@ -83,6 +95,8 @@ impl Default for ConnectionLimits {
     fn default() -> Self {
         Self {
             handshake_bytes: 4_096,
+            handshake_header_count: 32,
+            handshake_header_line_bytes: 512,
             frame_bytes: 1_048_576,
             message_bytes: 1_048_576,
             total_buffered_bytes: 1_048_576,
@@ -96,6 +110,8 @@ impl Default for ConnectionLimits {
 /// A relationship between limits that cannot be satisfied.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LimitRelationship {
+    /// A header line could not fit in the complete handshake budget.
+    HandshakeHeaderLineWithinHandshakeBytes,
     /// A frame could not fit in the total byte budget.
     FrameWithinTotalBufferedBytes,
     /// A message could not fit in the total byte budget.
@@ -139,6 +155,8 @@ pub struct ConnectionConfig {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct CheckedLimits {
     handshake_bytes: usize,
+    handshake_header_count: usize,
+    handshake_header_line_bytes: usize,
     frame_bytes: usize,
     message_bytes: usize,
     total_buffered_bytes: usize,
@@ -164,6 +182,15 @@ impl ConnectionConfig {
     pub(crate) const fn command_queue_entries(&self) -> usize {
         self.checked.command_queue_entries
     }
+
+    const fn handshake_limit(&self, limit: LimitKind) -> u64 {
+        match limit {
+            LimitKind::HandshakeBytes => self.limits.handshake_bytes,
+            LimitKind::HandshakeHeaderCount => self.limits.handshake_header_count,
+            LimitKind::HandshakeHeaderLineBytes => self.limits.handshake_header_line_bytes,
+            _ => 0,
+        }
+    }
 }
 
 impl TryFrom<ConnectionLimits> for ConnectionConfig {
@@ -175,6 +202,16 @@ impl TryFrom<ConnectionLimits> for ConnectionConfig {
 
         let raw = [
             (LimitKind::HandshakeBytes, limits.handshake_bytes, ONE_MIB),
+            (
+                LimitKind::HandshakeHeaderCount,
+                limits.handshake_header_count,
+                QUEUE_MAX,
+            ),
+            (
+                LimitKind::HandshakeHeaderLineBytes,
+                limits.handshake_header_line_bytes,
+                ONE_MIB,
+            ),
             (LimitKind::FrameBytes, limits.frame_bytes, ONE_MIB),
             (LimitKind::MessageBytes, limits.message_bytes, ONE_MIB),
             (
@@ -212,6 +249,11 @@ impl TryFrom<ConnectionLimits> for ConnectionConfig {
             }
         }
 
+        if limits.handshake_header_line_bytes > limits.handshake_bytes {
+            return Err(ConfigError::InvalidRelationship(
+                LimitRelationship::HandshakeHeaderLineWithinHandshakeBytes,
+            ));
+        }
         if limits.frame_bytes > limits.total_buffered_bytes {
             return Err(ConfigError::InvalidRelationship(
                 LimitRelationship::FrameWithinTotalBufferedBytes,
@@ -230,6 +272,14 @@ impl TryFrom<ConnectionLimits> for ConnectionConfig {
             })
         };
         let handshake_bytes = convert(LimitKind::HandshakeBytes, limits.handshake_bytes)?;
+        let handshake_header_count = convert(
+            LimitKind::HandshakeHeaderCount,
+            limits.handshake_header_count,
+        )?;
+        let handshake_header_line_bytes = convert(
+            LimitKind::HandshakeHeaderLineBytes,
+            limits.handshake_header_line_bytes,
+        )?;
         let frame_bytes = convert(LimitKind::FrameBytes, limits.frame_bytes)?;
         let message_bytes = convert(LimitKind::MessageBytes, limits.message_bytes)?;
         let total_buffered_bytes =
@@ -243,6 +293,8 @@ impl TryFrom<ConnectionLimits> for ConnectionConfig {
 
         let aggregate_capacity = [
             handshake_bytes,
+            handshake_header_count,
+            handshake_header_line_bytes,
             frame_bytes,
             message_bytes,
             total_buffered_bytes,
@@ -258,6 +310,8 @@ impl TryFrom<ConnectionLimits> for ConnectionConfig {
             limits,
             checked: CheckedLimits {
                 handshake_bytes,
+                handshake_header_count,
+                handshake_header_line_bytes,
                 frame_bytes,
                 message_bytes,
                 total_buffered_bytes,
@@ -573,13 +627,29 @@ impl ConnectionCore {
     /// protocol-bearing input therefore returns a typed unavailable failure,
     /// no output, and no lifecycle transition.
     pub fn step(&mut self, input: CoreInput<'_>) -> StepResult {
+        if self.state == ConnectionState::Closed {
+            let input = match input {
+                CoreInput::Transport(_) => InputKind::TransportBytes,
+                CoreInput::Command(_) => InputKind::LocalCommand,
+                CoreInput::TransportEof => InputKind::TransportEof,
+            };
+            return StepResult {
+                outputs: Box::new([]),
+                failure: Some(TypedProtocolFailure {
+                    kind: FailureKind::InvalidState {
+                        input,
+                        state: self.state,
+                    },
+                    state_after: self.state,
+                }),
+                state: self.state,
+            };
+        }
         if let CoreInput::Command(LocalCommand::StartClientHandshake { descriptor, nonce }) = input
         {
-            if self.role != Role::Client || self.client_handshake.has_started() {
+            if self.role != Role::Client {
                 let failure = TypedProtocolFailure {
-                    kind: FailureKind::ProtocolSliceUnavailable {
-                        owner_story: ProtocolStory::ClientOpeningHandshake,
-                    },
+                    kind: FailureKind::Handshake(HandshakeFailure::WrongRole),
                     state_after: self.state,
                 };
                 return StepResult {
@@ -588,23 +658,37 @@ impl ConnectionCore {
                     state: self.state,
                 };
             }
+            if self.client_handshake.has_started() {
+                return StepResult {
+                    outputs: Box::new([]),
+                    failure: Some(TypedProtocolFailure {
+                        kind: FailureKind::Handshake(
+                            HandshakeFailure::ClientHandshakeAlreadyStarted,
+                        ),
+                        state_after: self.state,
+                    }),
+                    state: self.state,
+                };
+            }
             return match self.client_handshake.start(
                 descriptor,
                 nonce,
                 self.config.checked.handshake_bytes,
+                self.config.checked.handshake_header_line_bytes,
+                self.config.checked.handshake_header_count,
             ) {
                 Ok(bytes) => StepResult {
                     outputs: Box::new([CoreOutput::TransportWrite(TransportWrite { bytes })]),
                     failure: None,
                     state: self.state,
                 },
-                Err(attempted) => StepResult {
+                Err(ClientLimitExceeded { limit, attempted }) => StepResult {
                     outputs: Box::new([]),
                     failure: Some(TypedProtocolFailure {
                         kind: FailureKind::LimitExceeded {
-                            limit: LimitKind::HandshakeBytes,
+                            limit,
                             attempted,
-                            maximum: self.config.limits.handshake_bytes,
+                            maximum: self.config.handshake_limit(limit),
                         },
                         state_after: self.state,
                     }),
@@ -614,7 +698,7 @@ impl ConnectionCore {
         }
         if let CoreInput::Transport(bytes) = input
             && self.role == Role::Client
-            && self.client_handshake.has_started()
+            && self.client_handshake.awaiting_response()
         {
             match self.client_handshake.consume_response(bytes.as_slice()) {
                 ClientResponse::Incomplete => {
@@ -638,22 +722,46 @@ impl ConnectionCore {
                     };
                 }
                 ClientResponse::Rejected(failure) => {
+                    self.client_handshake.mark_failed();
                     return self.close_with_failure(FailureKind::Handshake(failure));
                 }
-                ClientResponse::TotalLimitExceeded { attempted } => {
+                ClientResponse::LimitExceeded { limit, attempted } => {
+                    self.client_handshake.mark_failed();
                     return self.close_with_failure(FailureKind::LimitExceeded {
-                        limit: LimitKind::HandshakeBytes,
+                        limit,
                         attempted,
-                        maximum: self.config.limits.handshake_bytes,
+                        maximum: self.config.handshake_limit(limit),
                     });
                 }
                 ClientResponse::NotAwaiting => {}
             }
         }
+        if let CoreInput::Transport(_) = input
+            && self.role == Role::Client
+            && !self.client_handshake.has_started()
+        {
+            return StepResult {
+                outputs: Box::new([]),
+                failure: Some(TypedProtocolFailure {
+                    kind: FailureKind::Handshake(HandshakeFailure::ResponseBeforeClientRequest),
+                    state_after: self.state,
+                }),
+                state: self.state,
+            };
+        }
+        if let CoreInput::TransportEof = input
+            && self.role == Role::Client
+            && self.client_handshake.awaiting_response()
+        {
+            self.client_handshake.mark_failed();
+            return self
+                .close_with_failure(FailureKind::Handshake(HandshakeFailure::UnexpectedEof));
+        }
         let owner_story = match input {
-            CoreInput::Transport(_) => match self.role {
-                Role::Client => ProtocolStory::ClientOpeningHandshake,
-                Role::Server => ProtocolStory::ServerOpeningHandshake,
+            CoreInput::Transport(_) => match (self.role, self.state) {
+                (Role::Client, ConnectionState::Open) => ProtocolStory::FrameCoding,
+                (Role::Client, _) => ProtocolStory::ClientOpeningHandshake,
+                (Role::Server, _) => ProtocolStory::ServerOpeningHandshake,
             },
             CoreInput::Command(LocalCommand::StartClientHandshake { .. }) => {
                 ProtocolStory::ClientOpeningHandshake

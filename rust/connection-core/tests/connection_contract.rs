@@ -19,7 +19,19 @@ const QUEUE_CEILING: u64 = 4_096;
 
 fn set_limit(limits: &mut ConnectionLimits, kind: LimitKind, value: u64) {
     match kind {
-        LimitKind::HandshakeBytes => limits.handshake_bytes = value,
+        LimitKind::HandshakeBytes => {
+            limits.handshake_bytes = value;
+            if value > 0 {
+                limits.handshake_header_line_bytes = limits.handshake_header_line_bytes.min(value);
+            }
+        }
+        LimitKind::HandshakeHeaderCount => limits.handshake_header_count = value,
+        LimitKind::HandshakeHeaderLineBytes => {
+            limits.handshake_header_line_bytes = value;
+            if value <= BYTE_CEILING && value > limits.handshake_bytes {
+                limits.handshake_bytes = value;
+            }
+        }
         LimitKind::FrameBytes => limits.frame_bytes = value,
         LimitKind::MessageBytes => limits.message_bytes = value,
         LimitKind::TotalBufferedBytes => {
@@ -38,19 +50,23 @@ fn set_limit(limits: &mut ConnectionLimits, kind: LimitKind, value: u64) {
 fn ceiling(kind: LimitKind) -> u64 {
     match kind {
         LimitKind::HandshakeBytes
+        | LimitKind::HandshakeHeaderLineBytes
         | LimitKind::FrameBytes
         | LimitKind::MessageBytes
         | LimitKind::TotalBufferedBytes => BYTE_CEILING,
-        LimitKind::EventQueueEntries
+        LimitKind::HandshakeHeaderCount
+        | LimitKind::EventQueueEntries
         | LimitKind::CommandQueueEntries
         | LimitKind::WriteQueueEntries => QUEUE_CEILING,
     }
 }
 
 #[test]
-fn all_seven_limits_enforce_zero_boundary_and_overflow_inputs() {
+fn all_nine_limits_enforce_zero_boundary_and_overflow_inputs() {
     let kinds = [
         LimitKind::HandshakeBytes,
+        LimitKind::HandshakeHeaderCount,
+        LimitKind::HandshakeHeaderLineBytes,
         LimitKind::FrameBytes,
         LimitKind::MessageBytes,
         LimitKind::TotalBufferedBytes,
@@ -130,18 +146,20 @@ fn frame_and_message_must_fit_the_total_buffer_budget() {
 #[test]
 fn accepted_config_preserves_exact_values_and_checked_aggregate() {
     let limits = ConnectionLimits {
-        handshake_bytes: 1,
-        frame_bytes: 2,
-        message_bytes: 3,
-        total_buffered_bytes: 4,
-        event_queue_entries: 5,
-        command_queue_entries: 6,
-        write_queue_entries: 7,
+        handshake_bytes: 3,
+        handshake_header_count: 2,
+        handshake_header_line_bytes: 1,
+        frame_bytes: 4,
+        message_bytes: 5,
+        total_buffered_bytes: 6,
+        event_queue_entries: 7,
+        command_queue_entries: 8,
+        write_queue_entries: 9,
     };
     let config = ConnectionConfig::try_from(limits).expect("valid worked example");
 
     assert_eq!(config.limits(), &limits);
-    assert_eq!(config.aggregate_capacity(), 28);
+    assert_eq!(config.aggregate_capacity(), 45);
 }
 
 fn assert_unavailable(
@@ -173,10 +191,17 @@ fn every_protocol_bearing_input_is_an_explicit_non_success() {
     let mut server = ConnectionCore::new(config, Role::Server);
     let wire = b"GET / HTTP/1.1\r\n\r\n";
 
-    assert_unavailable(
-        &client.step(CoreInput::Transport(TransportBytes::new(wire))),
-        ProtocolStory::ClientOpeningHandshake,
-        ConnectionState::Connecting,
+    let before_request = client.step(CoreInput::Transport(TransportBytes::new(wire)));
+    assert_eq!(before_request.outputs().len(), 0);
+    assert_eq!(before_request.state(), ConnectionState::Connecting);
+    assert_eq!(
+        before_request
+            .failure()
+            .map(|failure| (&failure.kind, failure.state_after)),
+        Some((
+            &FailureKind::Handshake(websocket_core::HandshakeFailure::ResponseBeforeClientRequest),
+            ConnectionState::Connecting,
+        ))
     );
     assert_unavailable(
         &server.step(CoreInput::Transport(TransportBytes::new(wire))),

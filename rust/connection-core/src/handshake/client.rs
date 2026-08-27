@@ -1,6 +1,6 @@
-use crate::HandshakeFailure;
 use crate::handshake::crypto;
 use crate::handshake::http::{ParseProgress, ResponseParser};
+use crate::{HandshakeFailure, LimitKind};
 
 const DESCRIPTOR_FIELD_MAX: usize = 1_048_576;
 
@@ -86,6 +86,7 @@ enum ClientPhase {
         parser: ResponseParser,
     },
     Opened,
+    Failed,
 }
 
 impl ClientHandshake {
@@ -99,24 +100,58 @@ impl ClientHandshake {
         &mut self,
         descriptor: ClientRequestDescriptor,
         nonce: [u8; 16],
-        maximum: usize,
-    ) -> Result<Box<[u8]>, u64> {
+        maximum_bytes: usize,
+        maximum_line_bytes: usize,
+        maximum_header_count: usize,
+    ) -> Result<Box<[u8]>, ClientLimitExceeded> {
         let key = crypto::encode_nonce(nonce);
         let expected_accept = crypto::derive_accept(&key);
-        let request = canonical_request(&descriptor, &key).ok_or(u64::MAX)?;
-        if request.len() > maximum {
-            return Err(u64::try_from(request.len()).unwrap_or(u64::MAX));
+        let (line_lengths, total) =
+            canonical_request_lengths(&descriptor).ok_or(ClientLimitExceeded {
+                limit: LimitKind::HandshakeBytes,
+                attempted: u64::MAX,
+            })?;
+        if total > maximum_bytes {
+            return Err(ClientLimitExceeded {
+                limit: LimitKind::HandshakeBytes,
+                attempted: u64::try_from(total).unwrap_or(u64::MAX),
+            });
         }
+        if let Some(attempted) = line_lengths
+            .into_iter()
+            .find(|length| *length > maximum_line_bytes)
+        {
+            return Err(ClientLimitExceeded {
+                limit: LimitKind::HandshakeHeaderLineBytes,
+                attempted: u64::try_from(attempted).unwrap_or(u64::MAX),
+            });
+        }
+        const REQUEST_HEADER_COUNT: usize = 5;
+        if REQUEST_HEADER_COUNT > maximum_header_count {
+            return Err(ClientLimitExceeded {
+                limit: LimitKind::HandshakeHeaderCount,
+                attempted: u64::try_from(REQUEST_HEADER_COUNT).unwrap_or(u64::MAX),
+            });
+        }
+        let request = canonical_request(&descriptor, &key, total);
         self.phase = ClientPhase::AwaitingResponse {
             descriptor,
             expected_accept,
-            parser: ResponseParser::new(maximum),
+            parser: ResponseParser::new(maximum_bytes, maximum_line_bytes, maximum_header_count),
         };
         Ok(request)
     }
 
     pub(crate) fn has_started(&self) -> bool {
         !matches!(self.phase, ClientPhase::AwaitingStart)
+    }
+
+    pub(crate) fn awaiting_response(&self) -> bool {
+        matches!(self.phase, ClientPhase::AwaitingResponse { .. })
+    }
+
+    pub(crate) fn mark_failed(&mut self) {
+        self.phase = ClientPhase::Failed;
     }
 
     pub(crate) fn consume_response(&mut self, response: &[u8]) -> ClientResponse {
@@ -130,8 +165,8 @@ impl ClientHandshake {
         };
         match parser.consume(response, expected_accept) {
             ParseProgress::Incomplete => ClientResponse::Incomplete,
-            ParseProgress::TotalLimitExceeded { attempted } => {
-                ClientResponse::TotalLimitExceeded { attempted }
+            ParseProgress::LimitExceeded { limit, attempted } => {
+                ClientResponse::LimitExceeded { limit, attempted }
             }
             ParseProgress::Complete(Err(failure)) => ClientResponse::Rejected(failure),
             ParseProgress::Complete(Ok(())) => {
@@ -148,24 +183,43 @@ pub(crate) enum ClientResponse {
     Incomplete,
     Opened(ClientRequestDescriptor),
     Rejected(HandshakeFailure),
-    TotalLimitExceeded { attempted: u64 },
+    LimitExceeded { limit: LimitKind, attempted: u64 },
 }
 
-fn canonical_request(descriptor: &ClientRequestDescriptor, key: &[u8; 24]) -> Option<Box<[u8]>> {
+pub(crate) struct ClientLimitExceeded {
+    pub(crate) limit: LimitKind,
+    pub(crate) attempted: u64,
+}
+
+fn canonical_request_lengths(descriptor: &ClientRequestDescriptor) -> Option<([usize; 6], usize)> {
+    let lines = [
+        4usize
+            .checked_add(descriptor.request_target.len())?
+            .checked_add(11)?,
+        6usize.checked_add(descriptor.host.len())?.checked_add(2)?,
+        b"Upgrade: websocket\r\n".len(),
+        b"Connection: Upgrade\r\n".len(),
+        b"Sec-WebSocket-Key: "
+            .len()
+            .checked_add(24)?
+            .checked_add(2)?,
+        b"Sec-WebSocket-Version: 13\r\n".len(),
+    ];
+    let total = lines.into_iter().try_fold(2usize, usize::checked_add)?;
+    Some((lines, total))
+}
+
+fn canonical_request(
+    descriptor: &ClientRequestDescriptor,
+    key: &[u8; 24],
+    length: usize,
+) -> Box<[u8]> {
     const GET: &[u8] = b"GET ";
     const HTTP_HOST: &[u8] = b" HTTP/1.1\r\nHost: ";
     const FIXED_AFTER_HOST: &[u8] =
         b"\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: ";
     const VERSION: &[u8] = b"\r\nSec-WebSocket-Version: 13\r\n\r\n";
 
-    let length = GET
-        .len()
-        .checked_add(descriptor.request_target.len())?
-        .checked_add(HTTP_HOST.len())?
-        .checked_add(descriptor.host.len())?
-        .checked_add(FIXED_AFTER_HOST.len())?
-        .checked_add(key.len())?
-        .checked_add(VERSION.len())?;
     let mut request = Vec::with_capacity(length);
     request.extend_from_slice(GET);
     request.extend_from_slice(descriptor.request_target.as_bytes());
@@ -175,5 +229,5 @@ fn canonical_request(descriptor: &ClientRequestDescriptor, key: &[u8; 24]) -> Op
     request.extend_from_slice(key);
     request.extend_from_slice(VERSION);
     debug_assert_eq!(request.len(), length);
-    Some(request.into_boxed_slice())
+    request.into_boxed_slice()
 }
