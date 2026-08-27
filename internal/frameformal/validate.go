@@ -147,7 +147,7 @@ func validateBindings(root *os.Root, value *receipt, findings *collector) {
 		ID, Symbol, Source, SHA256, GitBlob, Token string
 	}
 	expected := []exactTarget{
-		{"target.frame-header-decoder", "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "rust/connection-core/src/frame/decode.rs", "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817", "53b61c69fa10be3247bf0b8d4045dd11ab81271e", "pub fn decode_header"},
+		{"target.frame-header-decoder", "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "rust/connection-core/src/frame/decode.rs", "sha256:6ab77a65b4156032bb895c2e7ffea29ab6c762808096f0818a979c8f8f3092fd", "db7e4daf3263022bca964229ecd3bc2ff945d40c", "pub fn decode_header"},
 		{"target.frame-mask", "websocket_core::frame::mask::apply_mask_in_place", "rust/connection-core/src/frame/mask.rs", "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd", "309038147fd825fee401cfe47eb09f31c7932658", "pub fn apply_mask_in_place"},
 	}
 	if len(value.Targets) != len(expected) {
@@ -175,7 +175,7 @@ func validateBindings(root *os.Root, value *receipt, findings *collector) {
 			findings.add("SOURCE_BINDING_INVALID", itemPath+".source", "bound source does not contain the exact shipped item token")
 		}
 	}
-	if value.Harness.TestName != "us012_formal_actual_code_obligations" || value.Harness.Source != (artifactBinding{Path: "rust/connection-core/tests/frame_codec.rs", SHA256: "sha256:5e51306b24ea482e563c63739869d6faadfee60fc4ce60a4b82fb12a6d494485", GitBlob: "ddc672ef9382155ff813d102cdb0a310d94e2758"}) {
+	if value.Harness.TestName != "us012_formal_actual_code_obligations" || value.Harness.Source != (artifactBinding{Path: "rust/connection-core/tests/frame_codec.rs", SHA256: "sha256:168fbbfc70192ab4350f3c42e1c1a12cedd7db5042c3d44cce827f640695937b", GitBlob: "12dfb016204f17eae61103cb31d05d1ceaf7c32c"}) {
 		findings.add("HARNESS_BINDING_INVALID", "$.harness", "receipt must bind the exact actual-code Rust test harness")
 	} else if data, ok := validateArtifact(root, value.Harness.Source, "$.harness.source", "HARNESS_BINDING_INVALID", findings); ok {
 		for _, token := range []string{"fn us012_formal_actual_code_obligations", "FrameHeaderDecoder::decode_header", "apply_mask_in_place"} {
@@ -326,14 +326,14 @@ type canaryContract struct {
 
 func exactCanaries() map[string]canaryContract {
 	return map[string]canaryContract{
-		"canary.source.preallocation-boundary-changed": {"change shipped decoder frame cap from greater-than to greater-than-or-equal", []string{"obligation.preallocation-cap"}, "sha256:d29442afc1df0670f8e30111ff319405a95a731c7779c3b41af662874aeb0bd6", "sha256:ca838c232e9c58b670d5f5ddbfe14a227ee4be48d7111f4bbf089838590acb4c"},
-		"canary.source.control-validation-removed":     {"remove shipped decoder control FIN and length rejection", []string{"obligation.control-fin-and-length"}, "sha256:21f56da0b8059cf693bb712895728055fb83facfb7db988b47534c9a0a8c2603", "sha256:cf31f6579eaee59543245457e402c5cc56e9f2b815cc0c54ac86d5105a9ada52"},
-		"canary.source.high-bit-check-removed":         {"remove shipped decoder 64-bit high-bit rejection", []string{"obligation.length-canonical-64-high-bit-zero"}, "sha256:991a5440607345cc052ae9d31f1db876c628fb03e7498be46e5fcd3e9ab7e89e", "sha256:e66ef0ffa3884faa114da8af627bccbe7793de7314c70fe3c3f3df32d003fa8c"},
-		"canary.source.mask-index-offset-removed":      {"ignore payload offset in shipped mask index", []string{"obligation.mask-equation"}, "sha256:6c71e2ed0a69a4eaf57e523e85fdab9719c0c10c5ef296323c612f266af02c14", "sha256:ebf86bcfcc23b1734db2812f78e0765126c1eae823282f85a303495d042df43c"},
-		"canary.source.mask-xor-replaced":              {"replace XOR with wrapping addition in shipped mask", []string{"obligation.mask-equation", "obligation.mask-involution"}, "sha256:e3cdf44c7747ffba7c97b7122030a74043feebc1907df29b96896bafac36d969", "sha256:58c7aab6ca83ce86b3b64e9384034ad0162516113e8a745a0d412f65248b0701"},
-		"canary.source.noncanonical-16-check-removed":  {"remove shipped decoder noncanonical 16-bit rejection", []string{"obligation.length-canonical-16"}, "sha256:b3cea1e32308cc962a874f96b191c4db697a69648c46e28115e66d5d8c675f21", "sha256:4348839becdbdb4a229e724d0d58ab6b1edb439617b205abfa4417e3eb6fa137"},
-		"canary.source.noncanonical-64-check-removed":  {"remove shipped decoder noncanonical 64-bit rejection", []string{"obligation.length-canonical-64-high-bit-zero"}, "sha256:2ed63c94895bf5bbd879b852568c01ccc473db75ae682f8a5b0012cd805a2d38", "sha256:0d00342b05b267202e0b049b8e4e84427931d9ba4800b7e1c9a3a3afd55303da"},
-		"canary.source.role-mask-check-removed":        {"remove shipped decoder role mask rejection", []string{"obligation.role-masking"}, "sha256:048d9165be39f363ca8395af9baa6394bfb5039de1754d189286428a16d39996", "sha256:f5f2c65299c007eeee403ad7b3762f8bda61af08c5b5b28a1f35db8b8a3bba39"},
+		"canary.source.preallocation-boundary-changed": {"change shipped decoder frame cap from greater-than to greater-than-or-equal", []string{"obligation.preallocation-cap"}, "sha256:ece36460269fc7f7c7e1519bd141804443cf60f82f10a28fee720a10a51dd29c", "sha256:2ad46a5b206b5dd9efd1d4727f64fba313369ceeec1f87f9b8bed1f8da92d0e8"},
+		"canary.source.control-validation-removed":     {"remove shipped decoder control FIN and length rejection", []string{"obligation.control-fin-and-length"}, "sha256:2f60f66b2f5f0f97a809f055d909adb172fbe79020f46e6bdf8561a2c9722b14", "sha256:a55543dac83ccde35183fbfdc008bae812cab4d596be8e35685194f7f60a7a07"},
+		"canary.source.high-bit-check-removed":         {"remove shipped decoder 64-bit high-bit rejection", []string{"obligation.length-canonical-64-high-bit-zero"}, "sha256:e3f519b24b6b03a70f7cf2c816f6aa4ef8db87638ce115195bf27e1d2b7b65fc", "sha256:1c864a71443dc3e938fb172bd84c94497ee29baa28578dbe7642ecfe22b00a47"},
+		"canary.source.mask-index-offset-removed":      {"ignore payload offset in shipped mask index", []string{"obligation.mask-equation"}, "sha256:6c71e2ed0a69a4eaf57e523e85fdab9719c0c10c5ef296323c612f266af02c14", "sha256:36a1defaa0b398621391cc45affd71937b830b97901348497a93b3826c1bf151"},
+		"canary.source.mask-xor-replaced":              {"replace XOR with wrapping addition in shipped mask", []string{"obligation.mask-equation", "obligation.mask-involution"}, "sha256:e3cdf44c7747ffba7c97b7122030a74043feebc1907df29b96896bafac36d969", "sha256:6075acaa53fe0d4af840d878b6205ea4e00409dcd461ef8ab1c6669cb0b63016"},
+		"canary.source.noncanonical-16-check-removed":  {"remove shipped decoder noncanonical 16-bit rejection", []string{"obligation.length-canonical-16"}, "sha256:f6bed9ad2736cd786db70f5c5dd27742911737de4da853dcfa509418e9f64d66", "sha256:41b41542e3d86d94a0f387c1c7b8d5cb66837180a2b13cc730df7fff7ae0cee9"},
+		"canary.source.noncanonical-64-check-removed":  {"remove shipped decoder noncanonical 64-bit rejection", []string{"obligation.length-canonical-64-high-bit-zero"}, "sha256:1d0c2edaa08a187b009c3dd9a621b9f57829577fa5425abac17db1c0e4530c87", "sha256:507c6f5311bb346d0c7e704e67f4d5cfc2105ce2e2df9c9b2915688bc04b01df"},
+		"canary.source.role-mask-check-removed":        {"remove shipped decoder role mask rejection", []string{"obligation.role-masking"}, "sha256:9bf9a32ae76f95f04f0b7e9daa13f47a0675494b99a47069bd32d1588b62778e", "sha256:32d0e9d2f90ae720535abb57358613e77ddfab8739c5604cdb462a170a10dcd9"},
 	}
 }
 

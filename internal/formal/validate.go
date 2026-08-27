@@ -200,8 +200,8 @@ func validateProofTargets(targets *proofTargets, collector *findingCollector) {
 			"rust/connection-core/src/frame/decode.rs",
 			"websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
 			"ASSOCIATED_FUNCTION",
-			"sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
-			"53b61c69fa10be3247bf0b8d4045dd11ab81271e",
+			"sha256:6ab77a65b4156032bb895c2e7ffea29ab6c762808096f0818a979c8f8f3092fd",
+			"db7e4daf3263022bca964229ecd3bc2ff945d40c",
 		},
 		"target.frame-mask": {
 			"rust/connection-core/src/frame/mask.rs",
@@ -314,7 +314,7 @@ func validateTargetLinkage(target *target, path string, collector *findingCollec
 			}
 		}
 	case "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS":
-		expectedEvidence := artifactRef{Path: "assurance/formal/frame-results.json", SHA256: "sha256:523c4715d77bab41fd260f42a0a901974103cdaf1daac0b96c5125c1e327d8a4", Attribution: "US012_OWNED"}
+		expectedEvidence := artifactRef{Path: "assurance/formal/frame-results.json", SHA256: "sha256:fc6c03c9c16a4d0e80c14ab8c6d50e76cec3663ad42d5be6165f79e8dea43f0a", Attribution: "US012_OWNED"}
 		if target.SourceSHA256 == nil || target.SourceGitBlob == nil || target.SemanticIdentity == nil || target.BoundedEvidence == nil || *target.BoundedEvidence != expectedEvidence || target.MaximumCurrentScope != "BOUNDED_TEST_EVIDENCE" {
 			collector.semantic("MISSING_DIGEST", path, "resolved bounded target requires source SHA-256, Git blob, semantic identity, and bounded-test ceiling")
 		}
