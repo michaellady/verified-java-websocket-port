@@ -5,16 +5,16 @@
   "status": "PASS_OWNER_RELAXED_BOUNDED",
   "seam": "websocket_driver::ConnectionOwner::poll",
   "start_commit": "f524508e8650f7cc5cced43e6e1d43e1ed2f73a8",
-  "implementation_commit": "6eb8ec7e76840fd104d4d1fc60643f9d43c4582d",
+  "implementation_commit": "64db38e913fad10a2f3710fe35216953c62610fe",
   "architecture_commit": "f524508e8650f7cc5cced43e6e1d43e1ed2f73a8",
   "source_tree": {
-    "git_listing_sha256": "sha256:afb30b0d804126d8b5b4d35f2771d05979f3019b2bc1309e35b42e734b35d2f2",
+    "git_listing_sha256": "sha256:e286007811e3b1e4c482ff812c696219d588c8bfe7d6cde4b7907af537b6f360",
     "git_listing_scope": "git ls-tree -r IMPLEMENTATION_COMMIT over the exact bindings array paths",
     "bindings": [
       {"path":"docs/us017-driver-contract.md","sha256":"sha256:49c1bd3a32f6ac0bcd3f6b7d776928130f1bb379430b7163a43a342ecce5cfb3","git_blob":"2ca0f69e058c7cdd9dbe83be7d965fa9f7bf18c8"},
       {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:92f8b8f8c9ef6e45302a6379b7b5b644ef05456265013b59ddeb163966ef4290","git_blob":"897b5d84b92aa1f68ed892a3434519e4758f6aee"},
       {"path":"rust/connection-core/tests/outbound_commands.rs","sha256":"sha256:8756258d30511c971e56b2000f424560f94f5a3afb18f44e092b1413529eec40","git_blob":"37383ea1b4d1a259f3c2008feaa9514f9e008121"},
-      {"path":"rust/websocket-driver/src/lib.rs","sha256":"sha256:d32d63dcab873fbe66c1437f2f4a1899bbb23db55b6914da08cf08902e5e132f","git_blob":"f6e64defec5dd11b2f72f19731e2197e75d4d478"},
+      {"path":"rust/websocket-driver/src/lib.rs","sha256":"sha256:3b6fc05a9feb62682500c87a91b68a060a6d7df5cc215399106a65113b894a50","git_blob":"43acb6c34c7c2834a8abb80e71e30b9d23bb26c9"},
       {"path":"rust/websocket-driver/tests/driver_contract.rs","sha256":"sha256:e458be3be001491e3c96dfd7c441b703ddcca4190c26633429de4fb56b6d43d5","git_blob":"9b72f10ce42516e15b7f59c97079bad9226136c0"},
       {"path":"rust/websocket-driver/tests/concurrency.rs","sha256":"sha256:bdb6581667fec36b0c9c4c72e7ea02674d8456df2a308e93c2fe1db7641854a8","git_blob":"fec85e3c5a1230800ba7b6a455ee563733a19f5b"},
       {"path":"assurance/concurrency/plan.json","sha256":"sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d","git_blob":"36dd5fd450f295bf60ec9082c1745cdbd85faf3f"},
@@ -38,6 +38,7 @@
     "final_reality_matrix_first_run": {"exit_code":0,"diagnostic":"all four added public-driver matrix tests passed on first execution; no production behavior change was authorized or required"},
     "mutation_truthfulness_red": {"exit_code":101,"diagnostic":"three compile errors after post-run trace editing was removed: execute_faulty_seed and derive_counterexample were absent"},
     "mutation_fault_behavior_red": {"exit_code":101,"diagnostic":"the first premature-progress adapter did not execute the second owner turn and therefore failed to reproduce the declared queue-bypass counterexample"},
+    "retained_byte_race_red": {"exit_code":101,"diagnostic":"one of eight focused stress executions panicked because the post-fetch_update debug assertion reloaded a moving retained_bytes aggregate; the owner then timed out"},
     "green": "PASS",
     "refactor": "PASS_AFTER_FMT_CLIPPY_AND_BOUNDED_TERMINAL_ORDER_REFACTOR"
   },
@@ -72,6 +73,8 @@
     "terminal_waits_for_admission_close_in_flight_zero_and_receiver_drain": true,
     "shutdown_aborts_undrainable_transport_writes": true,
     "aggregate_command_logical_byte_reservation": true,
+    "atomic_aggregate_reservation_unchanged": true,
+    "post_reservation_moving_aggregate_observation": false,
     "producer_send_blocks": false,
     "partial_write_cursor": true,
     "flush_fact_after_last_write_byte": true,
@@ -104,7 +107,15 @@
     "native_accepted": 512,
     "native_applied": 512,
     "native_rejected": 0,
-    "native_flakes": 0
+    "native_flakes": 0,
+    "retained_byte_race_regression": {
+      "focused_executions": 9,
+      "native_repeats": 72,
+      "accepted": 4608,
+      "applied": 4608,
+      "rejected": 0,
+      "flakes": 0
+    }
   },
   "toolchain": {
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",

@@ -9,11 +9,11 @@
     "symbol": "websocket_driver::ConnectionOwner::poll",
     "source": {
       "path": "rust/websocket-driver/src/lib.rs",
-      "sha256": "sha256:d32d63dcab873fbe66c1437f2f4a1899bbb23db55b6914da08cf08902e5e132f",
-      "git_blob": "f6e64defec5dd11b2f72f19731e2197e75d4d478"
+      "sha256": "sha256:3b6fc05a9feb62682500c87a91b68a060a6d7df5cc215399106a65113b894a50",
+      "git_blob": "43acb6c34c7c2834a8abb80e71e30b9d23bb26c9"
     }
   },
-  "implementation_commit": "6eb8ec7e76840fd104d4d1fc60643f9d43c4582d",
+  "implementation_commit": "64db38e913fad10a2f3710fe35216953c62610fe",
   "preregistered_plan": {
     "path": "assurance/concurrency/plan.json",
     "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d",
@@ -112,7 +112,20 @@
     "applied": 512,
     "rejected": 0,
     "flakes": 0,
-    "outcome": "PASS_CURRENT_HOST_ONLY"
+    "outcome": "PASS_CURRENT_HOST_ONLY",
+    "retained_byte_race_regression": {
+      "red_focused_executions": 8,
+      "red_failures": 1,
+      "red_exit_code": 101,
+      "red_failure": "post-reservation debug assertion compared a moving aggregate after another producer changed retained_bytes",
+      "post_fix_focused_executions": 9,
+      "repeats_per_execution": 8,
+      "post_fix_total_repeats": 72,
+      "post_fix_accepted": 4608,
+      "post_fix_applied": 4608,
+      "post_fix_rejected": 0,
+      "post_fix_flakes": 0
+    }
   },
   "limitations": [
     "not a formal proof or exhaustive state-space result",
