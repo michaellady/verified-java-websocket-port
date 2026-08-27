@@ -101,6 +101,9 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 		{"qualified toolchain drift", "TOOLCHAIN_PIN_MISMATCH", func(t *testing.T, root string) {
 			replaceFixture(t, root, "evidence/intake/toolchain-pins.json", `"version":"1.95.0"`, `"version":"1.94.0"`)
 		}},
+		{"synthetic toolchain shape", "TOOLCHAIN_PIN_INVALID", func(t *testing.T, root string) {
+			writeFixture(t, root, "evidence/intake/toolchain-pins.json", `{"artifacts":[]}`)
+		}},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -202,7 +205,31 @@ name = "websocket-core"
 version = "0.0.0"
 `
 	writeFixture(t, root, "rust/Cargo.lock", lock)
-	writeFixture(t, root, "evidence/intake/toolchain-pins.json", `{"artifacts":[{"artifact_id":"rustc-1.95.0-aarch64-apple-darwin","version":"1.95.0"}]}`)
+	writeFixture(t, root, "evidence/intake/toolchain-pins.json", `{
+  "schema_version":"1.0.0",
+  "company":"fixture-company",
+  "project":"fixture-project",
+  "laboratory_id":"fixture-lab",
+  "generated_at":"2026-08-24T12:26:43Z",
+  "execution_state":"STATIC_INTAKE_ONLY",
+  "qualification_sandbox":{"required_role":"port-implementer","requested_access":[],"forbidden_access":[],"disposable":true,"secrets":"none","publication":false},
+  "executables":[{
+    "artifact_id":"rustc-1.95.0-aarch64-apple-darwin",
+    "platform":"aarch64-apple-darwin",
+    "version":"1.95.0",
+    "binary_digests":{"rustc/bin/rustc":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","rustc/bin/rustdoc":"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","cargo/bin/cargo":"sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"},
+    "lock_graph":["fixture@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"],
+    "sbom_component_id":"component-rust-fixture",
+    "vulnerability_observation_id":"vuln-rust-fixture",
+    "license":"Apache-2.0 OR MIT",
+    "provenance":"fixture static qualification",
+    "mirror_or_replay":"fixture replay",
+    "expires_at":"2026-09-23T12:26:43Z",
+    "rotation":"requalify",
+    "revocation":"ACTIVE_AT_SNAPSHOT"
+  }],
+  "container":{"reference":"fixture","platform":"linux/amd64","manifest_digest":"sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","config_digest":"sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff","compressed_layer_bytes":1,"floating_tag_satisfies_gate":false,"executed":false}
+}`)
 	licenseDigest := fixtureDigest([]byte("fixture Apache license\n"))
 	lockDigest := fixtureDigest([]byte(lock))
 	writeFixture(t, root, "security/rust-scaffold-policy.json", `{

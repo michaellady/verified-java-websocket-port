@@ -73,10 +73,52 @@ type inventoryPath struct {
 }
 
 type toolchainPins struct {
-	Artifacts []struct {
-		ArtifactID string `json:"artifact_id"`
-		Version    string `json:"version"`
-	} `json:"artifacts"`
+	SchemaVersion        string                `json:"schema_version"`
+	Company              string                `json:"company"`
+	Project              string                `json:"project"`
+	LaboratoryID         string                `json:"laboratory_id"`
+	GeneratedAt          string                `json:"generated_at"`
+	ExecutionState       string                `json:"execution_state"`
+	QualificationSandbox qualificationSandbox  `json:"qualification_sandbox"`
+	Executables          []qualifiedExecutable `json:"executables"`
+	Container            qualifiedContainer    `json:"container"`
+}
+
+type qualificationSandbox struct {
+	RequiredRole    string   `json:"required_role"`
+	RequestedAccess []string `json:"requested_access"`
+	ForbiddenAccess []string `json:"forbidden_access"`
+	Disposable      bool     `json:"disposable"`
+	Secrets         string   `json:"secrets"`
+	Publication     bool     `json:"publication"`
+}
+
+type qualifiedExecutable struct {
+	ArtifactID                 string            `json:"artifact_id"`
+	Platform                   string            `json:"platform"`
+	Version                    string            `json:"version"`
+	BinaryDigests              map[string]string `json:"binary_digests"`
+	LockGraph                  []string          `json:"lock_graph"`
+	SBOMComponentID            string            `json:"sbom_component_id"`
+	VulnerabilityObservationID string            `json:"vulnerability_observation_id"`
+	License                    string            `json:"license"`
+	Provenance                 string            `json:"provenance"`
+	MirrorOrReplay             string            `json:"mirror_or_replay"`
+	ExpiresAt                  string            `json:"expires_at"`
+	Rotation                   string            `json:"rotation"`
+	Revocation                 string            `json:"revocation"`
+	AssuranceMode              string            `json:"assurance_mode,omitempty"`
+	QualificationStatus        string            `json:"qualification_status,omitempty"`
+}
+
+type qualifiedContainer struct {
+	Reference                string `json:"reference"`
+	Platform                 string `json:"platform"`
+	ManifestDigest           string `json:"manifest_digest"`
+	ConfigDigest             string `json:"config_digest"`
+	CompressedLayerBytes     int64  `json:"compressed_layer_bytes"`
+	FloatingTagSatisfiesGate bool   `json:"floating_tag_satisfies_gate"`
+	Executed                 bool   `json:"executed"`
 }
 
 type crate struct {
@@ -285,15 +327,49 @@ func (v *verifier) verifyToolchain(policy scaffoldPolicy, workspaceRustVersion s
 	if !v.readJSON(policy.ToolchainPinPath, &pins, "TOOLCHAIN_PIN_INVALID") {
 		return
 	}
-	matched := false
-	for _, artifact := range pins.Artifacts {
-		if artifact.ArtifactID == policy.ToolchainArtifactID && artifact.Version == policy.ToolchainVersion {
-			matched = true
+	if pins.SchemaVersion != "1.0.0" {
+		v.add("TOOLCHAIN_PIN_INVALID", policy.ToolchainPinPath, "canonical toolchain pin schema_version must equal 1.0.0")
+	}
+	matched := 0
+	for _, executable := range pins.Executables {
+		if executable.ArtifactID == policy.ToolchainArtifactID && executable.Version == policy.ToolchainVersion {
+			matched++
+			if !qualifiedRustExecutable(executable) {
+				v.add("TOOLCHAIN_PIN_MISMATCH", policy.ToolchainPinPath, "qualified Rust executable record is incomplete, revoked, or has malformed binary digests")
+			}
 		}
 	}
-	if !matched {
-		v.add("TOOLCHAIN_PIN_MISMATCH", policy.ToolchainPinPath, "qualified artifact id/version does not match scaffold policy")
+	if matched != 1 {
+		v.add("TOOLCHAIN_PIN_MISMATCH", policy.ToolchainPinPath, "exactly one qualified executable must match the policy artifact id/version")
 	}
+}
+
+func qualifiedRustExecutable(executable qualifiedExecutable) bool {
+	if executable.Platform != "aarch64-apple-darwin" || executable.Revocation != "ACTIVE_AT_SNAPSHOT" ||
+		len(executable.LockGraph) == 0 || executable.SBOMComponentID == "" ||
+		executable.VulnerabilityObservationID == "" || executable.License == "" ||
+		executable.Provenance == "" || executable.MirrorOrReplay == "" ||
+		executable.ExpiresAt == "" || executable.Rotation == "" {
+		return false
+	}
+	required := []string{"rustc/bin/rustc", "rustc/bin/rustdoc", "cargo/bin/cargo"}
+	if len(executable.BinaryDigests) != len(required) {
+		return false
+	}
+	for _, path := range required {
+		if !validSHA256(executable.BinaryDigests[path]) {
+			return false
+		}
+	}
+	return true
+}
+
+func validSHA256(value string) bool {
+	if len(value) != len("sha256:")+64 || !strings.HasPrefix(value, "sha256:") {
+		return false
+	}
+	_, err := hex.DecodeString(strings.TrimPrefix(value, "sha256:"))
+	return err == nil
 }
 
 func (v *verifier) verifyDependencies(policy scaffoldPolicy, workspaceManifestPath string, crates []crate) {
