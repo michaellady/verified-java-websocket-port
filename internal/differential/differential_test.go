@@ -337,6 +337,24 @@ func TestFieldLevelAdjudicationSeparatesRFCJavaQuirkFromCounterDefect(t *testing
 	}
 }
 
+func TestFieldAdjudicationClassifiesMissingStructuralValues(t *testing.T) {
+	scenarios := publicScenarios(t)
+	hierarchy, err := BuildOracleHierarchy(scenarios)
+	if err != nil {
+		t.Fatal(err)
+	}
+	java, err := neutralObservation(scenarios[21])
+	if err != nil {
+		t.Fatal(err)
+	}
+	rust := java
+	rust.Events = []commonEvent{}
+	_, findings, err := adjudicateScenario(scenarios[21], hierarchy, java, rust)
+	if err == nil || !strings.Contains(err.Error(), "rust_defect") || len(findings) == 0 {
+		t.Fatalf("missing structural values not classified: findings=%#v err=%v", findings, err)
+	}
+}
+
 func TestRustAcceptedInputExcludesClosedStateRejection(t *testing.T) {
 	source := corpora.Step{Kind: "bytes", DataBase64: "XYcK"}
 	closed := rustStep{PreState: "closed", Consumed: 0, Observations: []rustItem{{Error: &commonError{Class: "INVALID_STATE"}}}}

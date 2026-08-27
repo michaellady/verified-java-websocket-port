@@ -257,6 +257,10 @@ type AdjudicatedFinding struct {
 	RustSHA256     string     `json:"rust_sha256"`
 }
 
+type absentObservationValue struct {
+	Absent bool `json:"__us020_absent__"`
+}
+
 type LedgerRecord struct {
 	Sequence               int        `json:"sequence"`
 	DeltaID                string     `json:"delta_id"`
@@ -1222,6 +1226,9 @@ func BuildOracleHierarchy(scenarios []corpora.Scenario) (OracleHierarchy, error)
 			}
 			cell := OracleCell{ScenarioID: sc.ScenarioID, Pointer: pointer, Authority: "neutral", Rank: 3, ExpectedSHA256: digest(value), Evidence: []OracleEvidence{{Kind: "committed_neutral_expectation", ID: sc.ScenarioID + "#expected" + pointer, SHA256: digest(value)}}}
 			selectedRFC := ""
+			if pointer == "/final_state" && sc.Expected.Outcome == "error" && sc.Expected.Error != nil && sc.Expected.Error.CloseCode != nil && len(sc.Core.Steps) != 0 && sc.Core.Steps[0].Kind == "bytes" {
+				selectedRFC = "rfc6455.section-7-1-7"
+			}
 			if pointer == "/final_state" && sc.ScenarioID == "us005.pub.0005" && contains(sc.ExpectationBasis, "rfc6455.section-5-2") {
 				selectedRFC = "rfc6455.section-5-2"
 			}
@@ -1265,16 +1272,16 @@ func observationValue(observation commonObservation, pointer string) (any, error
 			var present bool
 			current, present = typed[part]
 			if !present {
-				return nil, fmt.Errorf("pointer absent: %s", pointer)
+				return absentObservationValue{Absent: true}, nil
 			}
 		case []any:
 			index, err := strconv.Atoi(part)
 			if err != nil || index < 0 || index >= len(typed) {
-				return nil, fmt.Errorf("pointer absent: %s", pointer)
+				return absentObservationValue{Absent: true}, nil
 			}
 			current = typed[index]
 		default:
-			return nil, fmt.Errorf("pointer descends through scalar: %s", pointer)
+			return absentObservationValue{Absent: true}, nil
 		}
 	}
 	return current, nil
