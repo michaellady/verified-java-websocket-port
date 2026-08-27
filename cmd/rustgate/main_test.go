@@ -240,6 +240,43 @@ func TestVerifyRejectsAdapterProtocolAndLinkageMutants(t *testing.T) {
 	}
 }
 
+func TestVerifyRejectsAutobahnHarnessContractMutants(t *testing.T) {
+	tests := []struct {
+		name   string
+		code   string
+		mutate func(*testing.T, string)
+	}{
+		{"missing route", "AUTOBAHN_TESTEE_LINKAGE_MISSING", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/websocket-testee/src/main.rs", `Some("harness-contract")`, `Some("contract")`)
+		}},
+		{"conformance overclaim", "AUTOBAHN_TESTEE_LINKAGE_MISSING", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/websocket-testee/src/main.rs", "conformance=false", "conformance=true")
+		}},
+		{"network in inert route", "AUTOBAHN_STATIC_LIVE_LINKAGE", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/websocket-testee/src/main.rs", "fn harness_contract(arguments: &[String])", "fn harness_contract(arguments: &[String]) /* TcpStream::connect( */")
+		}},
+		{"environment in inert route", "AUTOBAHN_STATIC_LIVE_LINKAGE", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/websocket-testee/src/main.rs", "fn harness_contract(arguments: &[String])", "fn harness_contract(arguments: &[String]) /* std::env */")
+		}},
+		{"suite process in inert route", "AUTOBAHN_STATIC_LIVE_LINKAGE", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/websocket-testee/src/main.rs", "fn harness_contract(arguments: &[String])", "fn harness_contract(arguments: &[String]) /* wstest */")
+		}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := goodFixture(t)
+			test.mutate(t, root)
+			var stdout, stderr bytes.Buffer
+			if code := run(verificationArguments(root), &stdout, &stderr); code != exitFindings {
+				t.Fatalf("exit = %d, stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+			}
+			if !strings.Contains(stdout.String(), `"code": "`+test.code+`"`) {
+				t.Fatalf("missing %s in %s", test.code, stdout.String())
+			}
+		})
+	}
+}
+
 func TestVerifyRejectsAmbientCompiledSourceInputs(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -584,7 +621,15 @@ pub fn drive(config: ConnectionConfig) {
     let _ = owner.poll(DriverInput::Wake);
 }
 `)
-	writeFixture(t, root, "rust/websocket-testee/src/main.rs", "#![forbid(unsafe_code)]\nfn main() {}\n")
+	writeFixture(t, root, "rust/websocket-testee/src/main.rs", `#![forbid(unsafe_code)]
+fn main() {
+    match "" { "" => { let _ = Some("harness-contract"); let _ = Some("client"); let _ = Some("server"); }, _ => {} }
+}
+fn harness_contract(arguments: &[String]) {
+    let _ = arguments;
+    let _ = "READY_NO_LIVE_CONFORMANCE roles=client,server network_routes=client,server application_echo=false multi_case=false conformance=false";
+}
+`)
 	writeFixture(t, root, "rust/connection-core/src/lib.rs", `#![forbid(unsafe_code)]
 // std::net::TcpStream FnMut todo!() include!() env!() are inert fixture comments.
 /* nested /* std::process::Command */ unimplemented!() include_bytes!() */

@@ -1,0 +1,229 @@
+{
+  "$schema": "../schemas/us019-autobahn-rust-readiness-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_id": "evidence.us-019-autobahn-rust-readiness",
+  "story_id": "US-019",
+  "status": "READY_NO_LIVE_CONFORMANCE",
+  "live_conformance_status": "BLOCKED_NOT_EXECUTED",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "strict_pass_claimed": false,
+  "production": false,
+  "publication": false,
+  "signing": false,
+  "manifest": {
+    "path": "autobahn/case-manifest.json",
+    "digest": "sha256:5d2cb7cdcb007f83993f51bf607c514efa3cbb59103f4c567dd7a0db07a95247",
+    "bytes": 5539
+  },
+  "client_plan": {
+    "path": "autobahn/fuzzingclient.json",
+    "digest": "sha256:78e0cdea3a10b54a314cb66a55f3d93526851c1f4daa4837d3cd7c3d55f62585",
+    "bytes": 67428
+  },
+  "server_plan": {
+    "path": "autobahn/fuzzingserver.json",
+    "digest": "sha256:9ea4072df8923c6df371915a065ebb49b836126acd9eefa89b33f23cfab18166",
+    "bytes": 21743
+  },
+  "source": {
+    "archive_digest": "sha256:c17e0e22b9ca0f6ebd415bb14dc60e7fd7ea57b50fbc4ba12892dd454b98e66b",
+    "registry_digest": "sha256:12ce097739b14751daefa1fd1ee4125ca1b95584759100563c00cf796eac7cb4",
+    "report_source_digest": "sha256:3bbb21786744023f1c215763a0aa66ab5db543e1826a1ae22b52d7f2876d8d1a",
+    "image_manifest_digest": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+    "image_config_digest": "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f"
+  },
+  "testee": {
+    "digest": "sha256:289f4e5d9678b526c7f79e9328c2f35cd6b3ff81fef55e6aba9bcf36bb67fa38",
+    "bytes": 1400192,
+    "source_tree_digest": "sha256:ee9c54136153a002bd4f7a28298140a59841daaa75386d4595847511be7fdcf1",
+    "cargo_lock_digest": "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb",
+    "host": "darwin/arm64",
+    "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "challenge": "2d80d8c885e51897dfff1a67143633beb63b530f2f77e17f61aa91abac2f44e2",
+    "transcript_digest": "sha256:64abbe32773e1128e2f6007d90d9a83cbf4428570f9f32b7c98b6f5a8c9535d4",
+    "argument_contract": "harness-contract \u003c64-lowercase-hex-challenge\u003e"
+  },
+  "us018": {
+    "path": "evidence/us018-blocking-adapters.json",
+    "digest": "sha256:f553126f13fd735e5b5ebcc30cc3bf275b8f1c0a090d5a32ef0ad4fa2ed2fc63",
+    "status": "PASS_OWNER_RELAXED_CURRENT_HOST",
+    "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "application_echo": false,
+    "conformance": false,
+    "linux_x86_64": false
+  },
+  "live_client": {
+    "expected": 247,
+    "selected": 247,
+    "executed": 0,
+    "passed": 0,
+    "failed": 0,
+    "non_strict": 0,
+    "informational": 0,
+    "skipped": 0,
+    "filtered": 0,
+    "timed_out": 0,
+    "missing": 247
+  },
+  "live_server": {
+    "expected": 247,
+    "selected": 247,
+    "executed": 0,
+    "passed": 0,
+    "failed": 0,
+    "non_strict": 0,
+    "informational": 0,
+    "skipped": 0,
+    "filtered": 0,
+    "timed_out": 0,
+    "missing": 247
+  },
+  "synthetic_client": {
+    "mode": "client",
+    "origin": "SYNTHETIC_RECONCILIATION_FIXTURE",
+    "live_execution": false,
+    "suite_invoked": false,
+    "fixture_observed": 247,
+    "fixture_ok": 247,
+    "fixture_failed": 0,
+    "fixture_non_strict": 0,
+    "fixture_informational": 0,
+    "fixture_unimplemented": 0,
+    "missing": 0,
+    "result_digest": "sha256:70bee3c3ff2a028b2928edd8d57d3e2800460b83eb0da26cb4bb1230513c80a5",
+    "envelope_digest": "sha256:a85be3cb32e22f3eb1cb700f9f8020fadbbe19e43a461935710775716f3ca3f8",
+    "disposition": "SYNTHETIC_RECONCILED"
+  },
+  "synthetic_server": {
+    "mode": "server",
+    "origin": "SYNTHETIC_RECONCILIATION_FIXTURE",
+    "live_execution": false,
+    "suite_invoked": false,
+    "fixture_observed": 247,
+    "fixture_ok": 247,
+    "fixture_failed": 0,
+    "fixture_non_strict": 0,
+    "fixture_informational": 0,
+    "fixture_unimplemented": 0,
+    "missing": 0,
+    "result_digest": "sha256:0bdd0eaa748cd445bffb637cd00a1ad9aaecaf1bfedbd63c490efe1ecbdb2184",
+    "envelope_digest": "sha256:03d2c4ad6de28d5b42a3948167878e74b88e9840dbda0b77c9e97078634556ee",
+    "disposition": "SYNTHETIC_RECONCILED"
+  },
+  "controls": {
+    "repetitions": 2,
+    "outcome_digest": "sha256:3558dbf83696836bdfb11c1adccc4a3f641de17007128056d825774c86e4cf13",
+    "empty_stub": {
+      "control_id": "empty-stub",
+      "outcome": "RUST_TESTEE_NOT_EXERCISED"
+    },
+    "fixture_mutants": [
+      {
+        "control_id": "omitted-selected",
+        "outcome": "AUTOBAHN_RESULT_MISMATCH"
+      },
+      {
+        "control_id": "duplicate-selected",
+        "outcome": "DUPLICATE_ENTRY"
+      },
+      {
+        "control_id": "nonselected-injected",
+        "outcome": "AUTOBAHN_RESULT_MISMATCH"
+      },
+      {
+        "control_id": "nonterminal",
+        "outcome": "NONTERMINAL_AUTOBAHN_STATUS"
+      },
+      {
+        "control_id": "altered-result",
+        "outcome": "AUTOBAHN_RESULT_BINDING_MISMATCH"
+      },
+      {
+        "control_id": "altered-observation",
+        "outcome": "AUTOBAHN_RESULT_BINDING_MISMATCH"
+      },
+      {
+        "control_id": "wrong-role-binding",
+        "outcome": "AUTOBAHN_RESULT_BINDING_MISMATCH"
+      },
+      {
+        "control_id": "missing-case",
+        "outcome": "AUTOBAHN_RESULT_MISMATCH"
+      }
+    ],
+    "lineage_mutants": [
+      {
+        "control_id": "stale-challenge",
+        "outcome": "AUTOBAHN_FIXTURE_LINEAGE_MISMATCH"
+      },
+      {
+        "control_id": "stale-plan",
+        "outcome": "AUTOBAHN_FIXTURE_LINEAGE_MISMATCH"
+      },
+      {
+        "control_id": "stale-manifest",
+        "outcome": "AUTOBAHN_FIXTURE_LINEAGE_MISMATCH"
+      },
+      {
+        "control_id": "wrong-origin",
+        "outcome": "AUTOBAHN_FIXTURE_LINEAGE_MISMATCH"
+      }
+    ],
+    "history_firewall": {
+      "control_id": "retained-history-substitution",
+      "outcome": "AUTOBAHN_HISTORY_SUBSTITUTION"
+    },
+    "reference_model_mutants": {
+      "total": 16,
+      "killed": 16,
+      "surviving": 0,
+      "identity_surviving": 1
+    }
+  },
+  "retained_history": {
+    "path": "evidence/java/autobahn-baseline.json",
+    "digest": "sha256:54fac3c5166e6530ffb4e34ccd5a05d8122d2b2fae4fc4bc1708ac05779ff04d",
+    "status": "BLOCKED",
+    "disposition": "NO_FURTHER_RERUNS_AUTHORIZED",
+    "further_reruns_authorized": false,
+    "client_attempts": 2,
+    "server_attempts": 2,
+    "client_executed": false,
+    "server_executed": false,
+    "client_result_count": 0,
+    "server_result_count": 0,
+    "attempt_receipt_digests": [
+      "sha256:ca942585442eb4be74a62533fa2b44a985970612ce6f69d5c13df8ede83c6cff",
+      "sha256:ebb5157aa8ba6c7998dfce303acfbd5c4af166a8d377441e0709b481c26e44b2"
+    ]
+  },
+  "architecture": {
+    "inert_live_linkage": false,
+    "testee_linkage_present": true,
+    "manifest_exact": true,
+    "synthetic_history_distinct": true,
+    "architecture_canaries": 12
+  },
+  "gates": {
+    "focused_go": "PASS",
+    "rust_debug": "PASS",
+    "rust_release": "PASS",
+    "rustfmt": "PASS",
+    "clippy": "PASS",
+    "rustgate": "PASS",
+    "full_go": "PASS"
+  },
+  "nonclaims": [
+    "no fresh Autobahn fuzzing-server or fuzzing-client execution",
+    "no Rust Autobahn case executed passed failed timed out skipped or strict-passed",
+    "no application echo or multi-case lifecycle",
+    "no historical Java or sibling result applies to Rust",
+    "no empty or planted Rust binary Autobahn execution",
+    "reference-model mutants are not Rust binary mutation evidence",
+    "no Linux x86_64 or second host",
+    "no production publication signing release or reproducible build",
+    "no independent review formal proof or exhaustive security",
+    "no authorization for a later suite run"
+  ]
+}

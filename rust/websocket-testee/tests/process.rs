@@ -13,6 +13,37 @@ fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_websocket-testee")
 }
 
+#[test]
+fn harness_contract_is_non_networked_and_challenge_bound() {
+    let challenge = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    let output = Command::new(binary())
+        .args(["harness-contract", challenge])
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(0));
+    assert!(output.stderr.is_empty());
+    assert_eq!(
+        String::from_utf8(output.stdout).unwrap(),
+        format!(
+            "schema=1 status=READY_NO_LIVE_CONFORMANCE roles=client,server network_routes=client,server application_echo=false multi_case=false conformance=false challenge={challenge}\n"
+        )
+    );
+
+    for invalid in [
+        "",
+        "ABCDEF",
+        "00",
+        "g123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    ] {
+        let rejected = Command::new(binary())
+            .args(["harness-contract", invalid])
+            .output()
+            .unwrap();
+        assert_eq!(rejected.status.code(), Some(2));
+        assert!(rejected.stdout.is_empty());
+    }
+}
+
 fn bounds() -> [&'static str; 8] {
     ["16", "7", "500", "500", "500", "500", "10000", "1024"]
 }

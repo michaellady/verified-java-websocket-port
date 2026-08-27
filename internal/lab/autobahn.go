@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
@@ -42,6 +43,99 @@ var pinnedAutobahnGeneratorMembers = map[string]struct {
 	"Case9_8_X":  {pinnedAutobahnCaseDirectory + "/case9_7_X.py", "sha256:196923c9c2e6116089a3b9b2375eb82c1d8ad0431e98d1570da96d65545c85e6"},
 	"Case12_X_X": {pinnedAutobahnCaseDirectory + "/case12_x_x.py", "sha256:c4a07603978c99fd4eb4d3990feed74266bfd40ffa5f65c8990fca6120564a04"},
 	"Case13_X_X": {pinnedAutobahnCaseDirectory + "/case12_x_x.py", "sha256:c4a07603978c99fd4eb4d3990feed74266bfd40ffa5f65c8990fca6120564a04"},
+}
+
+// VerifyRustAutobahnArchitectureFiles keeps the inert US-019 preparation seam
+// disconnected from the incumbent live controller. It is deliberately a
+// narrow source/linkage canary over the exact reviewed files, not a claim that
+// arbitrary obfuscation is impossible.
+func VerifyRustAutobahnArchitectureFiles(repositoryRoot string) error {
+	root, err := realRepositoryRoot(repositoryRoot)
+	if err != nil {
+		return err
+	}
+	read := func(relative string) ([]byte, error) {
+		return readBoundedRegular(filepath.Join(root, filepath.FromSlash(relative)), 4<<20)
+	}
+	inert, err := read("internal/lab/autobahn_rust.go")
+	if err != nil {
+		return err
+	}
+	for _, fragment := range []string{
+		"Run" + "AutobahnQualification",
+		"new" + "DockerController",
+		"run" + "AutobahnClientMode",
+		"run" + "AutobahnServerMode",
+		"wst" + "est",
+		"docker " + "run",
+		"exec.Command(" + "\"sh\"",
+		"exec.Command(" + "\"bash\"",
+	} {
+		if bytes.Contains(inert, []byte(fragment)) {
+			return finding("AUTOBAHN_STATIC_LIVE_LINKAGE", "internal/lab/autobahn_rust.go", "inert preparation names a live controller, suite runner, Docker, or shell surface")
+		}
+	}
+	cli, err := read("cmd/autobahnctl/main.go")
+	if err != nil {
+		return err
+	}
+	prepareBody := goFunctionBody(cli, "func prepareRust(")
+	if len(prepareBody) == 0 {
+		return finding("AUTOBAHN_TESTEE_LINKAGE_MISSING", "cmd/autobahnctl/main.go", "prepare-rust CLI route is missing")
+	}
+	for _, fragment := range []string{"Run" + "AutobahnQualification", "Docker", "wst" + "est", "relay", "runner", "jdk", "4*time.Hour"} {
+		if bytes.Contains(prepareBody, []byte(fragment)) {
+			return finding("AUTOBAHN_STATIC_LIVE_LINKAGE", "cmd/autobahnctl/main.go", "prepare-rust body names a live-only surface")
+		}
+	}
+	mainSource, err := read("rust/websocket-testee/src/main.rs")
+	if err != nil {
+		return err
+	}
+	for _, required := range []string{`Some("harness-contract")`, RustAutobahnStatus, "roles=client,server", "network_routes=client,server", "application_echo=false", "multi_case=false", "conformance=false", `Some("client")`, `Some("server")`} {
+		if !bytes.Contains(mainSource, []byte(required)) {
+			return finding("AUTOBAHN_TESTEE_LINKAGE_MISSING", "rust/websocket-testee/src/main.rs", "Rust process router lacks exact inert/client/server linkage")
+		}
+	}
+	contractBody := rustFunctionBody(mainSource, "fn harness_contract(")
+	if len(contractBody) == 0 {
+		return finding("AUTOBAHN_TESTEE_LINKAGE_MISSING", "rust/websocket-testee/src/main.rs", "harness-contract function is missing")
+	}
+	for _, forbidden := range []string{"Tcp", "connect(", "bind(", "client(", "server(", "run_client_once", "run_server_once", "std::env", "Command", "conformance=true", "application_echo=true", "multi_case=true"} {
+		if bytes.Contains(contractBody, []byte(forbidden)) {
+			return finding("AUTOBAHN_STATIC_LIVE_LINKAGE", "rust/websocket-testee/src/main.rs", "harness-contract route contains network, environment, process, or conformance authority")
+		}
+	}
+	if err := VerifyRustAutobahnStaticFiles(root); err != nil {
+		return err
+	}
+	return nil
+}
+
+func goFunctionBody(source []byte, marker string) []byte {
+	start := bytes.Index(source, []byte(marker))
+	if start < 0 {
+		return nil
+	}
+	rest := source[start+len(marker):]
+	end := bytes.Index(rest, []byte("\nfunc "))
+	if end < 0 {
+		return rest
+	}
+	return rest[:end]
+}
+
+func rustFunctionBody(source []byte, marker string) []byte {
+	start := bytes.Index(source, []byte(marker))
+	if start < 0 {
+		return nil
+	}
+	rest := source[start+len(marker):]
+	end := bytes.Index(rest, []byte("\nfn "))
+	if end < 0 {
+		return rest
+	}
+	return rest[:end]
 }
 
 func AutobahnFamilies() (selected, excluded []string) {

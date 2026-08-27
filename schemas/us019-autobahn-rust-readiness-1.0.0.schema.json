@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/us019-autobahn-rust-readiness-1.0.0.schema.json",
+  "title": "US-019 inert Rust Autobahn readiness receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema","schema_version","evidence_id","story_id","status","live_conformance_status","assurance","independent_review_claimed","strict_pass_claimed","production","publication","signing","manifest","client_plan","server_plan","source","testee","us018","live_client","live_server","synthetic_client","synthetic_server","controls","retained_history","architecture","gates","nonclaims"],
+  "properties": {
+    "$schema": {"const": "../schemas/us019-autobahn-rust-readiness-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_id": {"const": "evidence.us-019-autobahn-rust-readiness"},
+    "story_id": {"const": "US-019"},
+    "status": {"const": "READY_NO_LIVE_CONFORMANCE"},
+    "live_conformance_status": {"const": "BLOCKED_NOT_EXECUTED"},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "strict_pass_claimed": {"const": false},
+    "production": {"const": false},
+    "publication": {"const": false},
+    "signing": {"const": false},
+    "manifest": {"$ref": "#/$defs/artifact"},
+    "client_plan": {"$ref": "#/$defs/artifact"},
+    "server_plan": {"$ref": "#/$defs/artifact"},
+    "source": {"$ref": "#/$defs/source"},
+    "testee": {"$ref": "#/$defs/testee"},
+    "us018": {"$ref": "#/$defs/us018"},
+    "live_client": {"$ref": "#/$defs/liveCounts"},
+    "live_server": {"$ref": "#/$defs/liveCounts"},
+    "synthetic_client": {"$ref": "#/$defs/fixture"},
+    "synthetic_server": {"$ref": "#/$defs/fixture"},
+    "controls": {"$ref": "#/$defs/controls"},
+    "retained_history": {"$ref": "#/$defs/history"},
+    "architecture": {"$ref": "#/$defs/architecture"},
+    "gates": {"$ref": "#/$defs/gates"},
+    "nonclaims": {"type":"array","minItems":10,"maxItems":10,"uniqueItems":true,"items":{"type":"string","minLength":1}}
+  },
+  "$defs": {
+    "digest": {"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "artifact": {
+      "type":"object","additionalProperties":false,"required":["path","digest","bytes"],
+      "properties":{"path":{"type":"string","minLength":1},"digest":{"$ref":"#/$defs/digest"},"bytes":{"type":"integer","minimum":1}}
+    },
+    "source": {
+      "type":"object","additionalProperties":false,"required":["archive_digest","registry_digest","report_source_digest","image_manifest_digest","image_config_digest"],
+      "properties":{"archive_digest":{"$ref":"#/$defs/digest"},"registry_digest":{"$ref":"#/$defs/digest"},"report_source_digest":{"$ref":"#/$defs/digest"},"image_manifest_digest":{"$ref":"#/$defs/digest"},"image_config_digest":{"$ref":"#/$defs/digest"}}
+    },
+    "testee": {
+      "type":"object","additionalProperties":false,"required":["digest","bytes","source_tree_digest","cargo_lock_digest","host","rustc_version","challenge","transcript_digest","argument_contract"],
+      "properties":{"digest":{"$ref":"#/$defs/digest"},"bytes":{"type":"integer","minimum":1},"source_tree_digest":{"$ref":"#/$defs/digest"},"cargo_lock_digest":{"$ref":"#/$defs/digest"},"host":{"type":"string","pattern":"^[a-z0-9_]+/[a-z0-9_]+$"},"rustc_version":{"type":"string","minLength":1},"challenge":{"type":"string","pattern":"^[0-9a-f]{64}$"},"transcript_digest":{"$ref":"#/$defs/digest"},"argument_contract":{"const":"harness-contract <64-lowercase-hex-challenge>"}}
+    },
+    "us018": {
+      "type":"object","additionalProperties":false,"required":["path","digest","status","rustc_version","application_echo","conformance","linux_x86_64"],
+      "properties":{"path":{"const":"evidence/us018-blocking-adapters.json"},"digest":{"$ref":"#/$defs/digest"},"status":{"const":"PASS_OWNER_RELAXED_CURRENT_HOST"},"rustc_version":{"type":"string","minLength":1},"application_echo":{"const":false},"conformance":{"const":false},"linux_x86_64":{"const":false}}
+    },
+    "liveCounts": {
+      "type":"object","additionalProperties":false,"required":["expected","selected","executed","passed","failed","non_strict","informational","skipped","filtered","timed_out","missing"],
+      "properties":{"expected":{"const":247},"selected":{"const":247},"executed":{"const":0},"passed":{"const":0},"failed":{"const":0},"non_strict":{"const":0},"informational":{"const":0},"skipped":{"const":0},"filtered":{"const":0},"timed_out":{"const":0},"missing":{"const":247}}
+    },
+    "fixture": {
+      "type":"object","additionalProperties":false,"required":["mode","origin","live_execution","suite_invoked","fixture_observed","fixture_ok","fixture_failed","fixture_non_strict","fixture_informational","fixture_unimplemented","missing","result_digest","envelope_digest","disposition"],
+      "properties":{"mode":{"enum":["client","server"]},"origin":{"const":"SYNTHETIC_RECONCILIATION_FIXTURE"},"live_execution":{"const":false},"suite_invoked":{"const":false},"fixture_observed":{"const":247},"fixture_ok":{"const":247},"fixture_failed":{"const":0},"fixture_non_strict":{"const":0},"fixture_informational":{"const":0},"fixture_unimplemented":{"const":0},"missing":{"const":0},"result_digest":{"$ref":"#/$defs/digest"},"envelope_digest":{"$ref":"#/$defs/digest"},"disposition":{"const":"SYNTHETIC_RECONCILED"}}
+    },
+    "outcome": {
+      "type":"object","additionalProperties":false,"required":["control_id","outcome"],
+      "properties":{"control_id":{"type":"string","minLength":1},"outcome":{"type":"string","minLength":1}}
+    },
+    "referenceMutants": {
+      "type":"object","additionalProperties":false,"required":["total","killed","surviving","identity_surviving"],
+      "properties":{"total":{"type":"integer","minimum":12},"killed":{"type":"integer","minimum":12},"surviving":{"const":0},"identity_surviving":{"const":1}}
+    },
+    "controls": {
+      "type":"object","additionalProperties":false,"required":["repetitions","outcome_digest","empty_stub","fixture_mutants","lineage_mutants","history_firewall","reference_model_mutants"],
+      "properties":{"repetitions":{"const":2},"outcome_digest":{"$ref":"#/$defs/digest"},"empty_stub":{"$ref":"#/$defs/outcome"},"fixture_mutants":{"type":"array","minItems":8,"maxItems":8,"items":{"$ref":"#/$defs/outcome"}},"lineage_mutants":{"type":"array","minItems":4,"maxItems":4,"items":{"$ref":"#/$defs/outcome"}},"history_firewall":{"$ref":"#/$defs/outcome"},"reference_model_mutants":{"$ref":"#/$defs/referenceMutants"}}
+    },
+    "history": {
+      "type":"object","additionalProperties":false,"required":["path","digest","status","disposition","further_reruns_authorized","client_attempts","server_attempts","client_executed","server_executed","client_result_count","server_result_count","attempt_receipt_digests"],
+      "properties":{"path":{"const":"evidence/java/autobahn-baseline.json"},"digest":{"$ref":"#/$defs/digest"},"status":{"const":"BLOCKED"},"disposition":{"const":"NO_FURTHER_RERUNS_AUTHORIZED"},"further_reruns_authorized":{"const":false},"client_attempts":{"const":2},"server_attempts":{"const":2},"client_executed":{"const":false},"server_executed":{"const":false},"client_result_count":{"const":0},"server_result_count":{"const":0},"attempt_receipt_digests":{"type":"array","minItems":2,"items":{"$ref":"#/$defs/digest"},"uniqueItems":true}}
+    },
+    "architecture": {
+      "type":"object","additionalProperties":false,"required":["inert_live_linkage","testee_linkage_present","manifest_exact","synthetic_history_distinct","architecture_canaries"],
+      "properties":{"inert_live_linkage":{"const":false},"testee_linkage_present":{"const":true},"manifest_exact":{"const":true},"synthetic_history_distinct":{"const":true},"architecture_canaries":{"const":12}}
+    },
+    "gates": {
+      "type":"object","additionalProperties":false,"required":["focused_go","rust_debug","rust_release","rustfmt","clippy","rustgate","full_go"],
+      "properties":{"focused_go":{"const":"PASS"},"rust_debug":{"const":"PASS"},"rust_release":{"const":"PASS"},"rustfmt":{"const":"PASS"},"clippy":{"const":"PASS"},"rustgate":{"const":"PASS"},"full_go":{"const":"PASS"}}
+    }
+  }
+}

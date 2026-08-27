@@ -762,6 +762,56 @@ func (v *verifier) verifyAdapterArchitecture(crateRoot string) {
 		!strings.Contains(compact, "owner.poll(") {
 		v.add("ADAPTER_LINKAGE_MISSING", filepath.ToSlash(filepath.Join(crateRoot, "src")), "adapter must construct the exact connection_driver and call ConnectionOwner::poll")
 	}
+	v.verifyAutobahnHarnessContract(crateRoot)
+}
+
+func (v *verifier) verifyAutobahnHarnessContract(crateRoot string) {
+	mainPath := filepath.ToSlash(filepath.Join(crateRoot, "src/main.rs"))
+	body, ok := v.readRegular(mainPath)
+	if !ok {
+		return
+	}
+	required := []string{
+		`Some("harness-contract")`,
+		"READY_NO_LIVE_CONFORMANCE",
+		"roles=client,server",
+		"network_routes=client,server",
+		"application_echo=false",
+		"multi_case=false",
+		"conformance=false",
+		`Some("client")`,
+		`Some("server")`,
+	}
+	for _, fragment := range required {
+		if !bytes.Contains(body, []byte(fragment)) {
+			v.add("AUTOBAHN_TESTEE_LINKAGE_MISSING", mainPath, "process router lacks the exact inert/client/server contract")
+			break
+		}
+	}
+	contract := rustNamedFunctionBody(body, "fn harness_contract(")
+	if len(contract) == 0 {
+		v.add("AUTOBAHN_TESTEE_LINKAGE_MISSING", mainPath, "harness-contract function is missing")
+		return
+	}
+	for _, fragment := range []string{"Tcp", "connect(", "bind(", "client(", "server(", "run_client_once", "run_server_once", "std::env", "Command", "wstest", "Docker", "conformance=true", "application_echo=true", "multi_case=true"} {
+		if bytes.Contains(contract, []byte(fragment)) {
+			v.add("AUTOBAHN_STATIC_LIVE_LINKAGE", mainPath, "harness-contract contains network, environment, process, suite, or conformance authority")
+			return
+		}
+	}
+}
+
+func rustNamedFunctionBody(source []byte, marker string) []byte {
+	start := bytes.Index(source, []byte(marker))
+	if start < 0 {
+		return nil
+	}
+	rest := source[start+len(marker):]
+	end := bytes.Index(rest, []byte("\nfn "))
+	if end < 0 {
+		return rest
+	}
+	return rest[:end]
 }
 
 func compactRustCode(body []byte) string {

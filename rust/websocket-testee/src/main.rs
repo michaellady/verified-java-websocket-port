@@ -16,6 +16,18 @@ const USAGE_EXIT: i32 = 2;
 
 fn main() {
     let arguments: Vec<String> = args().collect();
+    if arguments.get(1).map(String::as_str) == Some("harness-contract") {
+        match harness_contract(&arguments[2..]) {
+            Ok(line) => {
+                println!("{line}");
+                exit(0);
+            }
+            Err(code) => {
+                eprintln!("usage-error");
+                exit(code);
+            }
+        }
+    }
     let result = match arguments.get(1).map(String::as_str) {
         Some("client") => client(&arguments[2..]),
         Some("server") => server(&arguments[2..]),
@@ -31,6 +43,23 @@ fn main() {
             exit(code);
         }
     }
+}
+
+fn harness_contract(arguments: &[String]) -> Result<String, i32> {
+    if arguments.len() != 1 || arguments[0].len() != 64 {
+        return Err(USAGE_EXIT);
+    }
+    let challenge = &arguments[0];
+    if !challenge
+        .as_bytes()
+        .iter()
+        .all(|value| value.is_ascii_digit() || (b'a'..=b'f').contains(value))
+    {
+        return Err(USAGE_EXIT);
+    }
+    Ok(format!(
+        "schema=1 status=READY_NO_LIVE_CONFORMANCE roles=client,server network_routes=client,server application_echo=false multi_case=false conformance=false challenge={challenge}"
+    ))
 }
 
 fn client(arguments: &[String]) -> Result<AdapterReport, i32> {
