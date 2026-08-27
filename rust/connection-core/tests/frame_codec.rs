@@ -4,7 +4,7 @@ use websocket_core::{
     ClientRequestDescriptor, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState,
     CoreInput, CoreOutput, FailureKind, Frame, FrameEncoder, FrameFailure, FrameHeaderDecode,
     FrameHeaderDecoder, LimitKind, LocalCommand, Opcode, OutboundFrame, ProtocolStory, QueueKind,
-    Role, SemanticEvent, TransportBytes, apply_mask_in_place,
+    Role, SemanticEvent, TransportBytes, Utf8Failure, apply_mask_in_place,
 };
 
 const RFC_REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
@@ -641,9 +641,21 @@ fn frame_events_do_not_implement_later_story_semantics() {
     let wire = encoded(Role::Client, &config, false, Opcode::Text, &[0xff]);
     let mut core = open_core(Role::Server, config);
     let result = core.step(CoreInput::Transport(TransportBytes::new(&wire)));
-    assert_eq!(result.failure(), None, "US-014 owns fragmented UTF-8 state");
-    assert_eq!(frames(&result).len(), 1);
-    assert_eq!(result.outputs().len(), 1, "only FrameReceived is emitted");
+    assert_eq!(
+        result.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Utf8(Utf8Failure::InvalidLeadingByte {
+            offset: 0,
+            byte: 0xff,
+        }))
+    );
+    assert_eq!(frames(&result).len(), 0, "the offending frame is hidden");
+    assert_eq!(
+        result.outputs().collect::<Vec<_>>(),
+        vec![&CoreOutput::StateChanged(ConnectionState::Closed)]
+    );
+
+    let config = config_with(|_| {});
+    let mut core = open_core(Role::Server, config);
 
     for (command, owner_story) in [
         (

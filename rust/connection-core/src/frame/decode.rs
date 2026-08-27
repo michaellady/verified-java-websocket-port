@@ -2,8 +2,9 @@
 
 use alloc::sync::Arc;
 
+use crate::fragment::{FragmentAccumulator, FragmentPlan};
 use crate::frame::{Frame, Opcode, apply_mask_in_place};
-use crate::message::{DeliveryKind, admit_frame_event};
+use crate::message::{DeliveryKind, MessageDelivery};
 use crate::utf8::Utf8Validator;
 use crate::{ConnectionConfig, FailureKind, FrameFailure, LimitKind, Role};
 
@@ -217,8 +218,10 @@ pub(crate) struct FrameDecoder {
     header: [u8; MAX_HEADER_BYTES],
     header_length: usize,
     active: Option<FrameHeader>,
+    plan: Option<FragmentPlan>,
     payload: Vec<u8>,
     utf8: Utf8Validator,
+    fragments: FragmentAccumulator,
 }
 
 impl FrameDecoder {
@@ -227,13 +230,19 @@ impl FrameDecoder {
             header: [0; MAX_HEADER_BYTES],
             header_length: 0,
             active: None,
+            plan: None,
             payload: Vec::new(),
             utf8: Utf8Validator::new(),
+            fragments: FragmentAccumulator::new(),
         }
     }
 
     pub(crate) const fn is_partial(&self) -> bool {
         self.header_length != 0 || self.active.is_some()
+    }
+
+    pub(crate) fn fragment_eof_failure(&self) -> Option<crate::FragmentFailure> {
+        self.fragments.unexpected_eof()
     }
 
     pub(crate) fn consume(
@@ -249,10 +258,24 @@ impl FrameDecoder {
 
         while offset < bytes.len() || self.header_length != 0 || self.ready_empty_payload() {
             if self.active.is_none() {
+                let retained_payload_bytes = match self
+                    .fragments
+                    .retained_bytes()
+                    .checked_add(staged_payload_bytes)
+                {
+                    Some(value) => value,
+                    None => {
+                        self.reset();
+                        return FrameDecodeBatch::failed(
+                            records,
+                            FailureKind::Frame(FrameFailure::ArithmeticOverflow),
+                        );
+                    }
+                };
                 let decode = FrameHeaderDecoder::decode_header(
                     config,
                     role,
-                    staged_payload_bytes,
+                    retained_payload_bytes,
                     &self.header[..self.header_length],
                 );
                 match decode {
@@ -272,15 +295,18 @@ impl FrameDecoder {
                     }
                     Ok(FrameHeaderDecode::Complete(header)) => {
                         let payload_length = header.payload_length();
-                        let delivery = DeliveryKind::for_frame(header.fin(), header.opcode());
-                        let admitted = match delivery {
-                            Some(kind) => kind.admit(config, payload_length, staged_event_count),
-                            None => admit_frame_event(config, staged_event_count),
+                        let plan = match self.fragments.plan(
+                            config,
+                            &header,
+                            staged_payload_bytes,
+                            staged_event_count,
+                        ) {
+                            Ok(plan) => plan,
+                            Err(failure) => {
+                                self.reset();
+                                return FrameDecodeBatch::failed(records, failure);
+                            }
                         };
-                        if let Err(failure) = admitted {
-                            self.reset();
-                            return FrameDecodeBatch::failed(records, failure);
-                        }
                         if payload_length != 0
                             && self.payload.try_reserve_exact(payload_length).is_err()
                         {
@@ -290,8 +316,13 @@ impl FrameDecoder {
                                 FailureKind::Frame(FrameFailure::AllocationFailed),
                             );
                         }
+                        if let Err(failure) = self.fragments.prepare(plan, payload_length) {
+                            self.reset();
+                            return FrameDecodeBatch::failed(records, failure);
+                        }
                         self.utf8.reset();
                         self.active = Some(header);
+                        self.plan = Some(plan);
                     }
                     Err(failure) => {
                         self.reset();
@@ -322,14 +353,22 @@ impl FrameDecoder {
                     self.reset();
                     return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure));
                 }
+                let plan = self.plan.expect("an active header has a fragment plan");
+                if let Err(failure) = self
+                    .fragments
+                    .feed(plan, &self.payload[prior_payload_offset..])
+                {
+                    self.reset();
+                    return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure));
+                }
                 offset += copied;
             }
             if self.payload.len() != header.payload_length() {
                 break;
             }
 
-            let delivery = DeliveryKind::for_frame(header.fin(), header.opcode());
-            if delivery == Some(DeliveryKind::Text)
+            let plan = self.plan.expect("a complete header has a fragment plan");
+            if plan == FragmentPlan::Unfragmented(Some(DeliveryKind::Text))
                 && let Err(failure) = self.utf8.finish()
             {
                 self.reset();
@@ -342,7 +381,15 @@ impl FrameDecoder {
                     FailureKind::Frame(FrameFailure::AllocationFailed),
                 );
             }
+            let fragment_delivery = match self.fragments.commit(plan, &self.payload) {
+                Ok(delivery) => delivery,
+                Err(failure) => {
+                    self.reset();
+                    return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure));
+                }
+            };
             let header = self.active.take().expect("complete active header");
+            self.plan = None;
             let payload = core::mem::take(&mut self.payload);
             let payload_backing = payload.as_ptr();
             let payload = Arc::new(payload);
@@ -351,15 +398,22 @@ impl FrameDecoder {
                 payload.as_ptr(),
                 "moving the reserved Vec into Arc must preserve its byte backing"
             );
+            let additional_message_bytes = fragment_delivery
+                .as_ref()
+                .map_or(0, MessageDelivery::payload_len);
             staged_payload_bytes = staged_payload_bytes
                 .checked_add(payload.len())
+                .and_then(|value| value.checked_add(additional_message_bytes))
                 .expect("header admission checked staged payload arithmetic");
-            staged_event_count = match delivery {
-                Some(kind) => kind
-                    .admit(config, payload.len(), staged_event_count)
-                    .expect("message admission was completed before reservation"),
-                None => admit_frame_event(config, staged_event_count)
-                    .expect("frame-event admission was completed before reservation"),
+            staged_event_count = staged_event_count
+                .checked_add(plan.event_slots())
+                .expect("header admission checked event arithmetic");
+            let delivery = match (plan, fragment_delivery) {
+                (_, Some(delivery)) => Some(DecodedDelivery::Message(delivery)),
+                (FragmentPlan::Unfragmented(Some(kind)), None) => {
+                    Some(DecodedDelivery::Frame(kind))
+                }
+                _ => None,
             };
             records.push(DecodedFrame {
                 frame: Frame::new(header.fin(), header.opcode(), header.masked(), payload),
@@ -383,14 +437,30 @@ impl FrameDecoder {
     pub(crate) fn reset(&mut self) {
         self.header_length = 0;
         self.active = None;
+        self.plan = None;
         self.payload = Vec::new();
         self.utf8.reset();
+        self.fragments.reset();
     }
 }
 
 pub(crate) struct DecodedFrame {
     pub(crate) frame: Frame,
-    pub(crate) delivery: Option<DeliveryKind>,
+    pub(crate) delivery: Option<DecodedDelivery>,
+}
+
+pub(crate) enum DecodedDelivery {
+    Frame(DeliveryKind),
+    Message(MessageDelivery),
+}
+
+impl DecodedDelivery {
+    pub(crate) fn deliver(self, frame: &Frame) -> MessageDelivery {
+        match self {
+            Self::Frame(kind) => kind.deliver(frame),
+            Self::Message(delivery) => delivery,
+        }
+    }
 }
 
 pub(crate) struct FrameDecodeBatch {

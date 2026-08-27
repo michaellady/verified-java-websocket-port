@@ -3,8 +3,9 @@
 //! US-009 establishes admission, configuration, ordering, typed failure, and
 //! bounded command-channel seams. US-010 and US-011 add opening handshakes;
 //! US-012 adds canonical frame coding and masking; US-013 delivers final Text
-//! and Binary messages. Fragmentation, control policy, protocol close
-//! behavior, sockets, runtimes, and callbacks remain owned by later stories.
+//! and Binary messages; US-014 adds strict inbound fragment reassembly.
+//! Control policy, protocol close behavior, sockets, runtimes, and callbacks
+//! remain owned by later stories.
 
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
@@ -15,6 +16,7 @@ mod channel;
 mod close;
 mod connection;
 mod control;
+mod fragment;
 pub mod frame;
 mod handshake;
 mod message;
@@ -25,9 +27,9 @@ pub use channel::{
 };
 pub use connection::{
     CloseFailure, ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState,
-    CoreInput, CoreOutput, FailureKind, FrameFailure, HandshakeFailure, InputKind, LimitKind,
-    LimitRelationship, LocalCommand, ProtocolStory, QueueKind, Role, SemanticEvent, StepResult,
-    TransportBytes, TransportWrite, TypedProtocolFailure, Utf8Failure,
+    CoreInput, CoreOutput, FailureKind, FragmentFailure, FrameFailure, HandshakeFailure, InputKind,
+    LimitKind, LimitRelationship, LocalCommand, ProtocolStory, QueueKind, Role, SemanticEvent,
+    StepResult, TransportBytes, TransportWrite, TypedProtocolFailure, Utf8Failure,
 };
 pub use frame::decode::{FrameHeader, FrameHeaderDecode, FrameHeaderDecoder};
 pub use frame::{EncodedFrame, Frame, FrameEncoder, Opcode, OutboundFrame, apply_mask_in_place};

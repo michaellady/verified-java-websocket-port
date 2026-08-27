@@ -537,12 +537,11 @@ fn message_event_and_total_limits_admit_exact_boundaries_and_reject_plus_one() {
 }
 
 #[test]
-fn fragment_inputs_remain_frame_only_and_outbound_message_commands_remain_unavailable() {
+fn nonfinal_data_starts_remain_frame_only_and_outbound_message_commands_remain_unavailable() {
     let config = config_with(|_| {});
     let fragments = [
         (false, Opcode::Text, &[0xf0, 0x90][..]),
         (false, Opcode::Binary, b"binary".as_slice()),
-        (true, Opcode::Continuation, &[0x80, 0x80][..]),
     ];
     for (fin, opcode, payload) in fragments {
         let wire = encoded(Role::Server, &config, fin, opcode, payload);

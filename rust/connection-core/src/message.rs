@@ -2,7 +2,7 @@
 
 use alloc::sync::Arc;
 
-use crate::frame::{Frame, Opcode};
+use crate::frame::Frame;
 use crate::{ConnectionConfig, FailureKind, LimitKind, QueueKind};
 
 /// An immutable, already-validated UTF-8 message.
@@ -29,6 +29,10 @@ impl TextMessage {
             payload: frame.payload_owner(),
         }
     }
+
+    fn from_payload(payload: Arc<Vec<u8>>) -> Self {
+        Self { payload }
+    }
 }
 
 /// An immutable binary message.
@@ -49,6 +53,10 @@ impl BinaryMessage {
             payload: frame.payload_owner(),
         }
     }
+
+    fn from_payload(payload: Arc<Vec<u8>>) -> Self {
+        Self { payload }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -58,17 +66,6 @@ pub(crate) enum DeliveryKind {
 }
 
 impl DeliveryKind {
-    pub(crate) const fn for_frame(fin: bool, opcode: Opcode) -> Option<Self> {
-        if !fin {
-            return None;
-        }
-        match opcode {
-            Opcode::Text => Some(Self::Text),
-            Opcode::Binary => Some(Self::Binary),
-            Opcode::Continuation | Opcode::Close | Opcode::Ping | Opcode::Pong => None,
-        }
-    }
-
     pub(crate) fn admit(
         self,
         config: &ConnectionConfig,
@@ -98,6 +95,22 @@ pub(crate) enum MessageDelivery {
     Binary(BinaryMessage),
 }
 
+impl MessageDelivery {
+    pub(crate) fn from_payload(kind: DeliveryKind, payload: Arc<Vec<u8>>) -> Self {
+        match kind {
+            DeliveryKind::Text => Self::Text(TextMessage::from_payload(payload)),
+            DeliveryKind::Binary => Self::Binary(BinaryMessage::from_payload(payload)),
+        }
+    }
+
+    pub(crate) fn payload_len(&self) -> usize {
+        match self {
+            Self::Text(message) => message.payload.len(),
+            Self::Binary(message) => message.payload.len(),
+        }
+    }
+}
+
 pub(crate) fn admit_frame_event(
     config: &ConnectionConfig,
     staged_event_count: usize,
@@ -105,7 +118,7 @@ pub(crate) fn admit_frame_event(
     admit_events(config, staged_event_count, 1)
 }
 
-fn admit_events(
+pub(crate) fn admit_events(
     config: &ConnectionConfig,
     staged_event_count: usize,
     required: usize,

@@ -668,6 +668,28 @@ pub enum Utf8Failure {
     },
 }
 
+/// Stable fragmented-message sequence and EOF rejection vocabulary.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum FragmentFailure {
+    /// A continuation arrived without an active Text or Binary message.
+    ContinuationWithoutMessage,
+    /// A new data frame arrived before the active fragmented message finished.
+    DataFrameWhileFragmented {
+        /// The opcode that began the active fragmented message.
+        active: crate::frame::Opcode,
+        /// The Text or Binary opcode received while it was active.
+        received: crate::frame::Opcode,
+    },
+    /// EOF arrived between frames before a fragmented message completed.
+    UnexpectedEof {
+        /// The opcode that began the active fragmented message.
+        active: crate::frame::Opcode,
+        /// Number of message bytes retained before EOF.
+        accumulated: u64,
+    },
+}
+
 /// Reserved close failure vocabulary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -709,6 +731,8 @@ pub enum FailureKind {
     Frame(FrameFailure),
     /// UTF-8 failure reserved for US-013.
     Utf8(Utf8Failure),
+    /// Fragmented-message failure implemented by US-014.
+    Fragment(FragmentFailure),
     /// Close failure reserved for US-016.
     Close(CloseFailure),
     /// A runtime operation exceeded a configured limit.
@@ -967,6 +991,12 @@ impl ConnectionCore {
             && self.frame_decoder.is_partial()
         {
             return self.close_with_failure(FailureKind::Frame(FrameFailure::UnexpectedEof));
+        }
+        if let CoreInput::TransportEof = input
+            && self.state == ConnectionState::Open
+            && let Some(failure) = self.frame_decoder.fragment_eof_failure()
+        {
+            return self.close_with_failure(FailureKind::Fragment(failure));
         }
         if let CoreInput::Transport(_) = input
             && self.role == Role::Client
