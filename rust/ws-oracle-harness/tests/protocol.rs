@@ -5,9 +5,7 @@
 //! shape of the historical [`UnwiredCore`], and java-oracle line-level
 //! guards.
 
-use ws_oracle_harness::core_adapter::{
-    UNIMPLEMENTED_CODE, UNIMPLEMENTED_DETAIL, UNWIRED_DETAIL, UnwiredCore, active_core,
-};
+use ws_oracle_harness::core_adapter::{UNWIRED_DETAIL, UnwiredCore, active_core};
 use ws_oracle_harness::response::RuntimeIdentity;
 use ws_oracle_harness::{identify, run_lines};
 
@@ -77,29 +75,28 @@ fn unwired_core_answers_every_request_with_core_not_wired() {
 }
 
 /// The WIRED default drives PUB_0000 (send_close 999 while OPEN) through
-/// the real ws_core: the gates pass, the skeleton refuses the close
-/// behavior with the honest non-oracle code, the core-counted action and
-/// retained state ride the failure envelope, byte-exact.
+/// the real ws_core: the gates pass and the US-016 close path (batch C)
+/// rejects the invalid code through the Q13 chain — the oracle-coded
+/// JAVA_INVALID_DATA envelope with close code 1002, the core-counted
+/// action, no frame, and the retained open state, byte-exact.
 #[test]
-fn wired_harness_reports_honest_unimplemented_for_skeleton_sends() {
+fn wired_harness_reports_java_invalid_data_for_rejected_send_close() {
     let transcript = run(&format!("{PUB_0000}\n"));
     let lines: Vec<&str> = transcript.lines().collect();
     assert_eq!(lines.len(), 1);
-    let expected = format!(
-        concat!(
-            "{{\"counts\":{{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":0,",
-            "\"frames\":0,\"input_bytes\":0,\"message_buffered_bytes\":0,",
-            "\"wire_buffered_bytes\":0}},\"error\":{{\"code\":\"{code}\",",
-            "\"detail\":\"{detail}\"}},\"final_state\":\"open\",",
-            "\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",",
-            "\"request_digest\":\"sha256:332b88dac25b405b3d9ce3b6a82b4ec88212",
-            "96a9a492aa70a26ce867d817e0c9\",\"request_id\":\"us005.pub.0000\",",
-            "\"runtime\":{{\"artifact\":\"ws-oracle-harness\",",
-            "\"sha256\":\"sha256:22222222222222222222222222222222222222222222",
-            "22222222222222222222\"}},\"version\":\"1.0.0\"}}"
-        ),
-        code = UNIMPLEMENTED_CODE,
-        detail = UNIMPLEMENTED_DETAIL,
+    let expected = concat!(
+        "{\"counts\":{\"actions\":1,\"buffered_bytes\":0,\"consumed_bytes\":0,",
+        "\"frames\":0,\"input_bytes\":0,\"message_buffered_bytes\":0,",
+        "\"wire_buffered_bytes\":0},\"error\":{\"close_code\":1002,",
+        "\"code\":\"JAVA_INVALID_DATA\",",
+        "\"detail\":\"ws_core reported JAVA_INVALID_DATA (close code 1002)\"},",
+        "\"final_state\":\"open\",",
+        "\"outcome\":\"error\",\"protocol\":\"java-websocket-oracle\",",
+        "\"request_digest\":\"sha256:332b88dac25b405b3d9ce3b6a82b4ec88212",
+        "96a9a492aa70a26ce867d817e0c9\",\"request_id\":\"us005.pub.0000\",",
+        "\"runtime\":{\"artifact\":\"ws-oracle-harness\",",
+        "\"sha256\":\"sha256:22222222222222222222222222222222222222222222",
+        "22222222222222222222\"},\"version\":\"1.0.0\"}"
     );
     assert_eq!(lines[0], expected);
 }
@@ -147,7 +144,10 @@ fn reruns_are_byte_identical_and_one_line_per_request() {
     assert_eq!(first.lines().count(), 2, "one response line per request");
     for line in first.lines() {
         assert!(line.contains("\"request_id\":\"us005.pub.0000\""));
-        assert!(line.contains(&format!("\"code\":\"{UNIMPLEMENTED_CODE}\"")));
+        assert!(
+            line.contains("\"code\":\"JAVA_INVALID_DATA\""),
+            "batch C: the send_close 999 rejection is core-produced Java behavior"
+        );
         assert!(
             !line.contains(&format!("sha256:{}", "0".repeat(64))),
             "the harness must never carry the stub's all-zero identity"

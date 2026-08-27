@@ -155,8 +155,9 @@ impl LimitField {
             // Raised from 4096 for US-012 multi-frame decoding: one byte
             // input can complete up to the whole remaining frame budget, so
             // an owner sizing the event queue for single-drain operation
-            // needs room for EVENT_SLOTS_PER_FRAME * (max_frames + 1) + 1
-            // slots (8195 at the max_frames ceiling).
+            // needs room for EVENT_SLOTS_PER_FRAME * (max_frames + 1) +
+            // CLOSE_ECHO_EVENT_SLOTS + 1 slots (12294 at the max_frames
+            // ceiling under the batch-C US-015/US-016 bound re-derivation).
             LimitField::EventQueueCapacity => 16_384,
             LimitField::CommandQueueCapacity | LimitField::WriteQueueCapacity => 4096,
         }

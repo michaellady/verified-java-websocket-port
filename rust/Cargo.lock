@@ -11,8 +11,23 @@ name = "ws-core"
 version = "0.0.0"
 
 [[package]]
+name = "ws-driver"
+version = "0.0.0"
+dependencies = [
+ "ws-core",
+]
+
+[[package]]
 name = "ws-oracle-harness"
 version = "0.0.0"
 dependencies = [
  "ws-core",
+]
+
+[[package]]
+name = "ws-testee"
+version = "0.0.0"
+dependencies = [
+ "ws-core",
+ "ws-driver",
 ]

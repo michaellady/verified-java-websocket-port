@@ -631,16 +631,18 @@ impl Draft6455 {
     /// non-fin continuations (never updated past the bound), and reset to
     /// zero only after a successful fin delivery.
     ///
-    /// Control arms (close/ping/pong) are US-015/US-016 behavior and refuse
-    /// with the honest non-oracle [`FailureCode::Unimplemented`] code until
-    /// those stories land (the frame record already exists, exactly as it
-    /// does in the reference model before processing).
+    /// Control frames (close/ping/pong) never reach this seam: the
+    /// connection dispatches them first (US-015/US-016 — the close
+    /// lifecycle and ping/pong delivery own state, so they live beside the
+    /// state gates in `ConnectionCore::process_inbound`). The control arm
+    /// here is a defensive refusal for direct misuse of the seam, not a
+    /// behavior claim.
     ///
     /// # Errors
     ///
     /// The typed process-stage failure (1002 fragment-sequence violations,
     /// 1009 fin-assembly overflow, adapter `BUFFER_LIMIT_EXCEEDED`, strict
-    /// 1007 text validation, or the honest control refusal).
+    /// 1007 text validation, or the defensive control refusal).
     pub fn process_frame(
         &mut self,
         frame: &DecodedFrame,
@@ -649,7 +651,8 @@ impl Draft6455 {
         message_buffered: &mut u64,
     ) -> Result<ProcessOutcome, TypedProtocolFailure> {
         if frame.opcode.is_control() {
-            // US-015 (ping/pong) and US-016 (close) own these arms.
+            // Unreachable via ConnectionCore (its process_inbound dispatches
+            // control frames before this seam); defensive refusal only.
             return Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented));
         }
         if frame.opcode == Opcode::Continuous {

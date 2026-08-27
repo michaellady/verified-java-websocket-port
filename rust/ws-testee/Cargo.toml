@@ -1,0 +1,20 @@
+[package]
+name = "ws-testee"
+description = "Thin blocking loopback TCP client/server adapters around ws-core + ws-driver (US-018). Verification fixture, not a production networking API."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "ws_testee"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ws-testee"
+path = "src/main.rs"
+
+[dependencies]
+ws-core = { path = "../ws-core" }
+ws-driver = { path = "../ws-driver" }

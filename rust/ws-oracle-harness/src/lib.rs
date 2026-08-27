@@ -12,18 +12,17 @@
 //! ## Round-honesty stance
 //!
 //! Both US-009 lanes are merged: the single coupling seam
-//! ([`core_adapter`]) now drives the REAL `ws_core` ConnectionCore
-//! (`WiredCore`), so the corpus genuinely scores the Rust. The core is
-//! still the deliberately skeletal US-009 contract — only EOF, state-gate,
-//! and limit behavior exist; send paths refuse with the honest non-oracle
-//! `Unimplemented` code, which the seam reports as the truthful
-//! `CORE_BEHAVIOR_UNIMPLEMENTED` envelope (never a fabricated oracle
-//! code). The public-tier result therefore stays near zero: the recorded
-//! wired baseline is 7/74 passes, every one a state/EOF/limit-only
-//! scenario the skeleton genuinely encodes (see
-//! `baseline/us009-public-wired-baseline.json`; the pre-merge
-//! `baseline/us009-public-unwired-baseline.json` is retained as history).
-//! No story acceptance beyond US-009 is claimed by this crate.
+//! ([`core_adapter`]) drives the REAL `ws_core` ConnectionCore
+//! (`WiredCore`), so the corpus genuinely scores the Rust. The
+//! US-012..US-016 protocol slices are landed (borrow batches A and C —
+//! frame codec, messages, fragmentation, controls, close lifecycle), so
+//! every public-tier scenario is now core-produced behavior; any arm the
+//! core still refuses (the pre-handshake command/EOF lifecycle) surfaces
+//! as the truthful `CORE_BEHAVIOR_UNIMPLEMENTED` envelope, never a
+//! fabricated oracle code. Recorded wired baselines under `baseline/`
+//! (us009 7/74, borrow-batch-a 56/74, borrow-batch-c) are retained as
+//! history. No story acceptance is claimed by this crate: the borrow
+//! batches carry attribution, not first-finish credit.
 //!
 //! ## Protocol compatibility surface
 //!

@@ -12,16 +12,24 @@
 //!
 //! US-009 fixed the contract: types, limits, ownership, determinism,
 //! backpressure, counters, and poisoning. The US-012/US-013/US-014 core
-//! data path is now implemented (borrowed with attribution from the Codex
+//! data path is implemented (borrowed with attribution from the Codex
 //! plane and reconciled site-by-site against the reference model — see the
 //! `framing`/`message`/`fragment` module docs): the byte path scans,
 //! translates, records, and processes frames; text/binary messages deliver
 //! through the two-stage UTF-8 gates; fragments reassemble; and
 //! `send_text`/`send_binary`/`send_fragment` emit real wire writes. The
-//! handshake plane (US-010/US-011), inbound control and close processing
-//! (US-015/US-016), and the control/close send paths still refuse with the
-//! honest non-oracle [`crate::error::FailureCode::Unimplemented`] code, so
-//! their corpus families keep failing until the owning stories land.
+//! handshake plane (US-010/US-011, borrow batch B) drives
+//! `NotYetConnected` to open. Batch C (US-015/US-016) landed the control
+//! and close lifecycles: inbound ping/pong deliver as events (Q18: no
+//! automatic pong exists in the core), `send_ping`/`send_pong` emit real
+//! control frames with NO payload-size cap (Q17), and the close lifecycle
+//! — echo-while-open with the constructor payload (Q19/Q10), local
+//! `send_close` through the US-009 pure close functions (Q13/Q14), and the
+//! closing/closed completion — mirrors derive.go `processInbound` /
+//! `sendClose` exactly. The only remaining honest
+//! [`crate::error::FailureCode::Unimplemented`] refusals are the
+//! `NotYetConnected` command/EOF arms (pre-handshake lifecycle, outside
+//! the corpus vocabulary).
 //!
 //! ## Behavior authority
 //!
@@ -39,7 +47,7 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use crate::close::{CloseDetail, CloseOrigin};
+use crate::close::{CloseDetail, CloseOrigin, close_code_rejection, normalize_send_close_code};
 use crate::config::ConnectionConfig;
 use crate::error::{FailureCode, QueueKind, TypedProtocolFailure};
 use crate::event::{
@@ -213,27 +221,36 @@ pub struct TransportWrite {
     pub bytes: Vec<u8>,
 }
 
-/// The largest number of event-queue slots one NON-BYTE input can require:
-/// transport EOF emits the `eof` detail event plus the transition record,
-/// and a US-012/US-013/US-014 send command emits one frame record plus one
-/// cause event. The per-input capacity precheck uses this bound to keep
-/// input handling atomic — an input either fully processes or is refused
-/// with [`FailureCode::Backpressure`] before any mutation.
+/// The largest number of event-queue slots one NON-BYTE input can require
+/// (re-derived for the batch-C US-015/US-016 arms, as the US-009 docs
+/// required): the worst case is `send_close` — one frame record, one
+/// `send_close` cause event, the `close_initiated` detail event, and the
+/// `open -> closing` transition record. Transport EOF needs 2 (the `eof`
+/// detail plus the transition); every other send needs 2 (frame record +
+/// cause). The per-input capacity precheck uses this bound to keep input
+/// handling atomic — an input either fully processes or is refused with
+/// [`FailureCode::Backpressure`] before any mutation.
 ///
 /// Byte inputs use the dynamic bound
-/// [`ConnectionCore::byte_input_event_bound`] instead (re-derived for
-/// US-012 multi-frame decoding, as the US-009 docs required): one chunk can
+/// [`ConnectionCore::byte_input_event_bound`] instead: one chunk can
 /// complete many frames, each contributing at most
-/// [`EVENT_SLOTS_PER_FRAME`] slots on top of the `input_chunk` record. The
-/// US-015/US-016 control/close arms raise the per-frame worst case (close
-/// echo + transition) and must re-derive both constants.
-pub const MAX_EVENT_SLOTS_PER_INPUT: usize = 2;
+/// [`EVENT_SLOTS_PER_FRAME`] slots on top of the `input_chunk` record,
+/// plus [`CLOSE_ECHO_EVENT_SLOTS`] once per input.
+pub const MAX_EVENT_SLOTS_PER_INPUT: usize = 4;
 
-/// Worst-case event slots one processed inbound frame can emit in the
-/// US-012..US-014 slice: its frame record plus at most one semantic event
-/// (text/binary delivery; control frames record then refuse). Revisited by
-/// US-015/US-016 (see [`MAX_EVENT_SLOTS_PER_INPUT`]).
-pub const EVENT_SLOTS_PER_FRAME: usize = 2;
+/// Worst-case event slots one processed inbound frame can emit, excluding
+/// the once-per-input close echo (re-derived for the US-015/US-016 arms):
+/// its frame record plus at most a close detail event and the terminal
+/// transition record (a close frame in the closing state). Ping/pong and
+/// data frames need at most the record plus one semantic event.
+pub const EVENT_SLOTS_PER_FRAME: usize = 3;
+
+/// Extra event slots the ONE possible close echo per byte input requires:
+/// the echoed frame record plus its `echo_close` cause event. At most one
+/// echo can occur per input — the first close while open transitions to
+/// closing, a close in closing terminates, and no path re-enters open
+/// within the same input (derive.go processInbound close arm).
+pub const CLOSE_ECHO_EVENT_SLOTS: usize = 2;
 
 /// The pending wire buffer's slack over `max_buffered_bytes`: the maximum
 /// frame header size (2 base + 8 extended length + 4 mask = 14), the exact
@@ -470,7 +487,8 @@ impl ConnectionCore {
     /// record plus [`EVENT_SLOTS_PER_FRAME`] per frame that can actually be
     /// processed before the frame budget refuses (the budget check emits
     /// nothing, so spans past `max_frames - frames_so_far` contribute no
-    /// slots beyond the one refused frame).
+    /// slots beyond the one refused frame), plus the once-per-input close
+    /// echo ([`CLOSE_ECHO_EVENT_SLOTS`]).
     fn byte_input_event_bound(&self, complete_spans: usize) -> usize {
         let frame_budget = self
             .config
@@ -478,7 +496,9 @@ impl ConnectionCore {
             .saturating_sub(self.frame_count)
             .saturating_add(1);
         let budget = usize::try_from(frame_budget).unwrap_or(usize::MAX);
-        1usize.saturating_add(EVENT_SLOTS_PER_FRAME.saturating_mul(complete_spans.min(budget)))
+        1usize
+            .saturating_add(EVENT_SLOTS_PER_FRAME.saturating_mul(complete_spans.min(budget)))
+            .saturating_add(CLOSE_ECHO_EVENT_SLOTS)
     }
 
     /// Byte path, mirroring derive.go `inputStep` exactly: span scan,
@@ -540,6 +560,12 @@ impl ConnectionCore {
         // can be retried identically after draining.
         if self.events.available() < self.byte_input_event_bound(spans.len()) {
             return Err(Self::backpressure(QueueKind::Event));
+        }
+        // Write precheck for the ONE possible close echo this input can emit
+        // (US-016; see CLOSE_ECHO_EVENT_SLOTS for why at most one): a close
+        // frame processed while open queues an echo write.
+        if !spans.is_empty() && self.writes.available() < 1 {
+            return Err(Self::backpressure(QueueKind::Write));
         }
         self.input_bytes = new_input_total;
         let chunk_start = self.pending.len();
@@ -637,8 +663,9 @@ impl ConnectionCore {
     }
 
     /// Process one recorded inbound frame (derive.go `processInbound`):
-    /// state gates first, then the opcode dispatch. The control and close
-    /// arms are US-015/US-016 behavior and refuse honestly.
+    /// state gates first, then the opcode dispatch — the close lifecycle
+    /// (US-016), ping/pong delivery (US-015), and the data path
+    /// (US-013/US-014).
     fn process_inbound(&mut self, frame: DecodedFrame) -> Result<(), TypedProtocolFailure> {
         // derive.go:637-641: closed refuses everything; closing refuses
         // every non-close frame.
@@ -647,6 +674,27 @@ impl ConnectionCore {
         }
         if self.state == ReadyState::Closing && frame.opcode != Opcode::Closing {
             return Err(Self::state_violation());
+        }
+        match frame.opcode {
+            Opcode::Closing => return self.process_close_frame(&frame),
+            // derive.go:671-678: ping and pong ONLY record their events —
+            // no automatic pong exists in the reference model's observable
+            // space (quirk Q18; the Codex AutomaticPongPolicy machinery is
+            // deliberately not adopted), and neither arm touches the
+            // fragment accumulator (interleave is transparent).
+            Opcode::Ping => {
+                self.emit(SemanticEventKind::Ping {
+                    data: frame.payload,
+                });
+                return Ok(());
+            }
+            Opcode::Pong => {
+                self.emit(SemanticEventKind::Pong {
+                    data: frame.payload,
+                });
+                return Ok(());
+            }
+            _ => {}
         }
         let outcome = self.draft.process_frame(
             &frame,
@@ -659,6 +707,44 @@ impl ConnectionCore {
             ProcessOutcome::Text(text) => self.emit(SemanticEventKind::Text { text }),
             ProcessOutcome::Binary(data) => self.emit(SemanticEventKind::Binary { data }),
         }
+        Ok(())
+    }
+
+    /// The inbound close arm (US-016), mirroring derive.go `processInbound`
+    /// OpcodeClose exactly: parse the payload with the shipped CloseFrame
+    /// semantics (Q11/Q12/Q13 — already applied at translate time, so a
+    /// failure here is defensive), record the governing remote close, emit
+    /// the `close` event, then either complete the handshake (closing ->
+    /// closed) or echo while open (Q19) with the constructor payload (Q10)
+    /// and transition to closing.
+    fn process_close_frame(&mut self, frame: &DecodedFrame) -> Result<(), TypedProtocolFailure> {
+        let (code, reason) = Draft6455::parse_close_payload(&frame.payload)?;
+        let was_closing = self.state == ReadyState::Closing;
+        let detail = CloseDetail {
+            code,
+            reason,
+            origin: CloseOrigin::Remote,
+            remote: true,
+            handshake_complete: true,
+        };
+        self.close_detail = Some(detail.clone());
+        self.emit(SemanticEventKind::Close(detail));
+        if was_closing {
+            self.transition(ReadyState::Closed, TransitionCause::ReceiveClose);
+            return Ok(());
+        }
+        // Q19 echo-while-open: the echoed frame OBJECT carries the
+        // constructor payload [0x03, 0xe8] (Q10), never the wire payload —
+        // the Codex exact code/reason acknowledgement echo is NOT Java. The
+        // frame budget is checked inside emit_outbound, AFTER the close
+        // event, exactly as derive.go orders it.
+        self.emit_outbound(
+            OutboundCause::EchoClose,
+            true,
+            Opcode::Closing,
+            CLOSE_CONSTRUCTOR_PAYLOAD.to_vec(),
+        )?;
+        self.transition(ReadyState::Closing, TransitionCause::ReceiveClose);
         Ok(())
     }
 
@@ -931,15 +1017,17 @@ impl ConnectionCore {
     }
 
     /// Command path: the contract gates of derive.go `actionStep`, then the
-    /// per-action tails — outbound data sends (US-012/US-013) and
-    /// `send_fragment` (US-014) are implemented; control sends (US-015) and
-    /// `send_close` (US-016) still refuse honestly.
+    /// per-action tails — outbound data sends (US-012/US-013),
+    /// `send_fragment` (US-014), control sends (US-015), and `send_close`
+    /// (US-016).
     fn handle_command(&mut self, command: &LocalCommand) -> Result<(), TypedProtocolFailure> {
         if self.state == ReadyState::NotYetConnected {
             return Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented));
         }
-        // Atomicity precheck before any mutation: an implemented send emits
-        // one frame record + one cause event and one transport write.
+        // Atomicity precheck before any mutation: the worst-case command is
+        // send_close (frame record + cause + close_initiated + transition —
+        // MAX_EVENT_SLOTS_PER_INPUT) and every send emits at most one
+        // transport write.
         if self.events.available() < MAX_EVENT_SLOTS_PER_INPUT {
             return Err(Self::backpressure(QueueKind::Event));
         }
@@ -1021,17 +1109,53 @@ impl ConnectionCore {
                 let wire_opcode = self.draft.continuous_send_opcode(declared, *fin)?;
                 self.emit_outbound(OutboundCause::SendFragment, *fin, wire_opcode, data.clone())
             }
-            // Control sends (US-015) and the close sequence with quirks
-            // Q13/Q14 via crate::close::{normalize_send_close_code,
-            // close_code_rejection} (US-016) are later-story behavior; the
-            // honest refusal keeps their corpus families failing until the
-            // owning stories land.
-            LocalCommand::SendPing { .. }
-            | LocalCommand::SendPong { .. }
-            | LocalCommand::SendClose { .. } => {
-                Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented))
+            // derive.go send_ping/send_pong (US-015): sendControl performs
+            // NO payload-size check (Q17 — ControlFrame.isValid checks only
+            // fin and reserved bits, so oversized control payloads send
+            // successfully; the Codex encoder's >125 preflight rejection is
+            // deliberately not adopted). One fin control frame.
+            LocalCommand::SendPing { data } => {
+                self.emit_outbound(OutboundCause::SendPing, true, Opcode::Ping, data.clone())
             }
+            LocalCommand::SendPong { data } => {
+                self.emit_outbound(OutboundCause::SendPong, true, Opcode::Pong, data.clone())
+            }
+            // The local close sequence (US-016).
+            LocalCommand::SendClose { code, reason } => self.send_close(*code, reason),
         }
+    }
+
+    /// The local close tail (US-016), mirroring derive.go `sendClose`
+    /// exactly: quirk Q14 normalization then the quirk Q13 validity chain —
+    /// BOTH through the existing US-009 pure functions
+    /// [`normalize_send_close_code`] and [`close_code_rejection`] (this
+    /// method wires the lifecycle around them; it does not reimplement
+    /// them) — then the big-endian code + reason frame, the
+    /// `close_initiated` detail, and the `open -> closing` transition.
+    fn send_close(&mut self, code: u16, reason: &str) -> Result<(), TypedProtocolFailure> {
+        // Q14: CloseFrame.setCode maps 1015 -> 1005 BEFORE validation.
+        let code = normalize_send_close_code(code);
+        // Q13: the CloseFrame.isValid rejection chain; the reported close
+        // code is the failure's, and NO frame is emitted (derive.go
+        // sendClose rejects before emitOutbound).
+        if let Some(reported) = close_code_rejection(code, reason) {
+            return Err(TypedProtocolFailure::java_invalid_data(reported));
+        }
+        let mut payload = Vec::with_capacity(2 + reason.len());
+        payload.extend_from_slice(&code.to_be_bytes());
+        payload.extend_from_slice(reason.as_bytes());
+        self.emit_outbound(OutboundCause::SendClose, true, Opcode::Closing, payload)?;
+        let detail = CloseDetail {
+            code,
+            reason: reason.to_owned(),
+            origin: CloseOrigin::Local,
+            remote: false,
+            handshake_complete: false,
+        };
+        self.close_detail = Some(detail.clone());
+        self.emit(SemanticEventKind::CloseInitiated(detail));
+        self.transition(ReadyState::Closing, TransitionCause::SendClose);
+        Ok(())
     }
 }
 

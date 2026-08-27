@@ -392,14 +392,14 @@ fn action_limit_counts_the_rejected_action() {
         .build()
         .expect("valid test config");
     let mut core = ConnectionCore::new_in_state(config, Role::Server, InitialState::Open);
-    // First action: passes the action limit, then hits the honest
-    // Unimplemented refusal (outbound framing is US-012+); that poisons the
-    // core, so rebuild for the pure limit observation.
-    let first = core.handle(Input::Command(LocalCommand::SendPing { data: vec![] }));
-    assert_eq!(
-        first.expect_err("skeleton refuses outbound framing").code,
-        FailureCode::Unimplemented
-    );
+    core.handle(Input::Command(LocalCommand::SendPing { data: vec![] }))
+        .expect("the first action is within the limit (send_ping is real behavior since batch C)");
+    let err = core
+        .handle(Input::Command(LocalCommand::SendPing { data: vec![] }))
+        .expect_err("max_actions 1 must reject the second action");
+    assert_eq!(err.code, FailureCode::ActionLimitExceeded);
+    assert_eq!(core.counts().actions, 2, "rejected action is counted");
+
     let config = ConnectionConfig::builder()
         .max_actions(0)
         .build()
@@ -417,8 +417,9 @@ fn send_payload_limit_asymmetry_matches_java_control_frames() {
     // Quirk Q17 via derive.go actionStep: send_text/send_binary/send_fragment
     // check the payload against max_buffered_bytes (BUFFER_LIMIT_EXCEEDED);
     // send_ping/send_pong perform NO payload-size check (ControlFrame.isValid
-    // checks only fin and reserved bits), so an oversized ping reaches the
-    // skeleton's Unimplemented refusal instead of a limit failure.
+    // checks only fin and reserved bits), so the same oversized payload that
+    // rejects as a data send SENDS SUCCESSFULLY as a ping (batch C landed
+    // the real control send path).
     let config = || {
         ConnectionConfig::builder()
             .max_buffered_bytes(4)
@@ -426,7 +427,7 @@ fn send_payload_limit_asymmetry_matches_java_control_frames() {
             .expect("valid test config")
     };
     let oversized = vec![0u8; 8];
-    let cases: [(LocalCommand, FailureCode); 4] = [
+    let cases: [(LocalCommand, FailureCode); 3] = [
         (
             LocalCommand::SendText {
                 text: "12345678".to_owned(),
@@ -447,20 +448,20 @@ fn send_payload_limit_asymmetry_matches_java_control_frames() {
             },
             FailureCode::BufferLimitExceeded,
         ),
-        (
-            LocalCommand::SendPing {
-                data: oversized.clone(),
-            },
-            FailureCode::Unimplemented,
-        ),
     ];
     for (command, expected) in cases {
         let mut core = ConnectionCore::new_in_state(config(), Role::Server, InitialState::Open);
         let err = core
             .handle(Input::Command(command.clone()))
-            .expect_err("skeleton must refuse every send");
+            .expect_err("data sends must gate on the payload limit");
         assert_eq!(err.code, expected, "command {command:?}");
     }
+    let mut core = ConnectionCore::new_in_state(config(), Role::Server, InitialState::Open);
+    core.handle(Input::Command(LocalCommand::SendPing {
+        data: oversized.clone(),
+    }))
+    .expect("Q17: the oversized control payload sends successfully");
+    assert_eq!(core.counts().frames, 1);
 }
 
 #[test]
@@ -609,29 +610,23 @@ fn not_yet_connected_bytes_now_drive_the_handshake_plane() {
 #[test]
 fn later_story_behavior_still_refuses_honestly() {
     // The US-009 protocol-stub gate ("skeleton never produces protocol
-    // events") retired when US-012/US-013/US-014 landed the data path; the
-    // surviving honesty property is that behavior still owned by later
-    // stories — inbound control frames (US-015) and control sends — keeps
-    // refusing with the non-oracle Unimplemented code instead of faking
-    // Java, so those corpus families keep failing until their stories land.
-    let mut core = open_core();
-    let obs = run(
-        &mut core,
-        &[
-            // A complete masked ping frame: US-012 records it, but its
-            // processing arm is US-015's.
-            Step::Bytes(vec![0x89, 0x82, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02]),
-        ],
-    );
-    let err = obs.results[0]
-        .as_ref()
-        .expect_err("inbound ping processing is US-015 behavior");
-    assert_eq!(err.code, FailureCode::Unimplemented);
-    assert_eq!(obs.counts.frames, 1, "the frame record precedes processing");
-    let mut core = open_core();
+    // events") retired as batches A-C landed US-010..US-016; the surviving
+    // honesty property is that the arms no landed story owns — commands and
+    // EOF in the pre-handshake NotYetConnected state (the handshake close
+    // ladder, WebSocketImpl.eot NOT_YET_CONNECTED) — keep refusing with the
+    // non-oracle Unimplemented code instead of faking Java. No corpus
+    // scenario reaches these arms (the behavior corpora begin
+    // post-handshake).
+    let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Server);
     let err = core
         .handle(Input::Command(LocalCommand::SendPing { data: vec![] }))
-        .expect_err("send_ping is US-015 behavior");
+        .expect_err("pre-handshake commands are unowned behavior");
+    assert_eq!(err.code, FailureCode::Unimplemented);
+
+    let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Server);
+    let err = core
+        .handle(Input::TransportEof)
+        .expect_err("pre-handshake EOF is unowned behavior");
     assert_eq!(err.code, FailureCode::Unimplemented);
 }
 

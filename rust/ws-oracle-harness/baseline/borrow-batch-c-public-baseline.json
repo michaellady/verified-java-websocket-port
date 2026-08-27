@@ -1,0 +1,81 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "borrow-batch-c-public-wired-baseline",
+  "recorded_at": "2026-08-27T19:52:59Z",
+  "recorded_at_provenance": "captured from `date -u` immediately after the evaluate run and the determinism rerun in the same shell session",
+  "supersedes": "borrow-batch-a-public-baseline.json (kept unchanged as history; its 56/74 stance and the us009 7/74 record before it remain the pre-batch-C records)",
+  "revision": "BORROW BATCH C (owner strategy: borrow with attribution, race-strategy-borrow-and-race-2026-08-27): the US-015/US-016 control and close lifecycles landed in ws_core, adapted from the Codex plane (codex-import 8f18f91 controls, f53f479 close) with Java-fidelity corrections reconciled site-by-site against internal/corpora/derive.go. The Codex behavioral machinery was largely NOT adopted (their control/close model is RFC-strict where shipped Java is not); their 16 us015 hex seeds and 6 us016 scenario names were adopted byte-verbatim with re-derived expectations. The close lifecycle CALLS the existing US-009 owner-decision-backed pure close functions (ws_core::close::{normalize_send_close_code, close_code_rejection}); it does not replace them. The harness changed only in tests and stale-doc comments; behavior lives in ws_core and the harness stays a pure projector.",
+  "stance": "HONEST WIRED BASELINE - the corpus scores the real Rust core. All 74 public scenarios pass. No story acceptance for US-010..US-018 is claimed; batch C stories are borrowed-with-attribution, never Claude independent first-finishes, and 74/74 against the public tier is a corpus result, not a proof of Java equivalence (expectations remain REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION plus the US-005 calibration lineage).",
+  "pipeline": {
+    "requests": "corporactl oracle-requests --root <worktree> --protected-root <protected> --tier public --out requests.jsonl (exit 0 read)",
+    "candidate": "rust/target/release/ws-oracle-harness < requests.jsonl > transcript.jsonl (exit 0 read)",
+    "evaluate": "corporactl evaluate --root <worktree> --protected-root <protected> --tier public --transcript transcript.jsonl (exit 0 read - zero failures)",
+    "custodian": "public tier is custodian-free; the protected custodian ledger was read-only throughout and byte-identical to the US-009 baseline record (9001 bytes, sha256 f4941dc801af5a41a2e3285a71d269975ea6e06774d1e1a4573fd6b6d6f400ae, verified before and after this run)"
+  },
+  "evaluate_report": {
+    "executed": 74,
+    "passed": 74,
+    "failed": 0,
+    "missing": 0,
+    "unmatched": 0,
+    "exit_code": 0,
+    "exit_code_read_from": "the corporactl process's own exit status, read directly after the run"
+  },
+  "baseline_movement": {
+    "before": "56/74 (borrow-batch-a-public-baseline.json)",
+    "after": "74/74",
+    "flipped": 18,
+    "regressed": [],
+    "regression_check": "the batch-A 56-pass set is a subset of the 74-pass set by construction (failed=0); the pre-batch run in this worktree reproduced the exact 18-failure set recorded by batch A before any edit"
+  },
+  "flipped_scenarios": {
+    "us015_control": [
+      "us005.pub.0002 ping-inbound",
+      "us005.pub.0071 ping-inbound",
+      "us005.pub.0016 pong-inbound",
+      "us005.pub.0049 pong-inbound",
+      "us005.pub.0054 send-ping",
+      "us005.pub.0038 send-pong",
+      "us005.pub.0023 fragment-interleaved-ping",
+      "us005.pub.0040 fragment-interleaved-ping"
+    ],
+    "us016_close": [
+      "us005.pub.0000 send-close-invalid-code",
+      "us005.pub.0021 closing-recv-close",
+      "us005.pub.0022 close-local-then-eof",
+      "us005.pub.0026 close-remote",
+      "us005.pub.0050 close-remote",
+      "us005.pub.0061 close-remote",
+      "us005.pub.0034 close-local-then-remote",
+      "us005.pub.0047 close-local-then-remote",
+      "us005.pub.0035 close-payload-1",
+      "us005.pub.0046 close-remote-empty"
+    ]
+  },
+  "handshake_exam_regression_check": {
+    "requests": "protected/us005-corpora/live/handshake/requests.jsonl (read-only; sha256 e00d968f0ae623dd75a09842ad435642c0dca53ee5e9f9ef654ce26c1f814c49, identical to the batch-B record)",
+    "method": "full per-line JSON comparison of the batch-C harness transcript against the recorded protected transcript-rerun.jsonl with ONLY the runtime identity object excluded (stricter than the batch-B field-subset differential)",
+    "result": "49/49 lines identical (runtime excluded); rerun byte-identical (sha256 cc690bcc1e7c7ba39472da84d6f398c5d15f8a27df690c3b881b18023c801ca6 both runs)",
+    "verdict": "NO HANDSHAKE REGRESSION"
+  },
+  "artifacts": {
+    "requests_jsonl_sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85",
+    "requests_lines": 74,
+    "requests_identical_to_us009_and_batch_a_baselines": true,
+    "transcript_file": "borrow-batch-c-public-transcript.jsonl (committed alongside; verified public-tier-only: all 74 request_ids match ^us005\\.pub\\.[0-9]{4}$)",
+    "transcript_jsonl_sha256": "b3e7324fe80a50f74e57911c56faa03e4da8d15975d1fef5cc0bb32ec411e23e",
+    "transcript_lines": 74,
+    "transcript_rerun_sha256": "b3e7324fe80a50f74e57911c56faa03e4da8d15975d1fef5cc0bb32ec411e23e",
+    "rerun_byte_identical": true,
+    "harness_binary_sha256": "50643ef5d6c02f77877136f6d0b732d67268ce4fbeaf2cc373b78bc9c41aafff",
+    "corporactl_built_from": "this worktree (cmd/corporactl and internal/corpora unmodified by this batch; go build ./... exit 0 read)"
+  },
+  "gates": {
+    "rust": "recorded in the batch-C borrow receipt (make -C rust gates run after this baseline was frozen; exit read there)",
+    "go": "recorded in the batch-C borrow receipt (go build ./... && go test -count=1 ./... run after this baseline was frozen; exit read there)",
+    "corpora_unchanged": "internal/corpora and corpora/ untouched by this batch (git status clean for both)"
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5 (borrow batch C backend-dev worker)"
+}
