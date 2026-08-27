@@ -1,12 +1,12 @@
 #![forbid(unsafe_code)]
 
 use websocket_core::{
-    CloseInitiator, ConnectionConfig, ConnectionLimits, ConnectionState, LocalCommand, Role,
-    SemanticEvent, TransportBytes,
+    CloseInitiator, ConnectionConfig, ConnectionLimits, ConnectionState, FailureKind, InputKind,
+    LocalCommand, Role, SemanticEvent, TransportBytes,
 };
 use websocket_driver::{
-    CommandDisposition, DeferredReason, DriverInput, DriverInputError, DriverOutput, EnqueueError,
-    InputDisposition, connection_driver,
+    ClosedObservationInput, CommandDisposition, DeferredReason, DriverInput, DriverInputError,
+    DriverOutput, EnqueueError, InputDisposition, connection_driver,
 };
 
 const RFC_REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
@@ -400,4 +400,37 @@ fn public_driver_surfaces_transport_eof_and_both_drop_dispositions() {
         Some(CommandDisposition::ProducersDropped)
     );
     assert_eq!(producer_probe.poll(DriverInput::Wake).command, None);
+}
+
+#[test]
+fn closed_observation_rejects_bytes_without_counting_them_as_consumed() {
+    const US005_PUBLIC_0015: &[u8] = b"\x5d\x87\x0a";
+    let (_handle, mut owner) = connection_driver(config(2), Role::Server);
+    open_server(&mut owner);
+    assert_eq!(
+        owner.poll(DriverInput::TransportEof).state,
+        ConnectionState::Closed
+    );
+    assert!(matches!(
+        owner.poll(DriverInput::Wake).output,
+        DriverOutput::Terminal(_)
+    ));
+
+    let rejected = owner
+        .observe_closed(ClosedObservationInput::Inbound(TransportBytes::new(
+            US005_PUBLIC_0015,
+        )))
+        .expect("owner must retain read-only observation access to the closed core");
+    assert_eq!(
+        rejected.failure.map(|failure| failure.kind),
+        Some(FailureKind::InvalidState {
+            input: InputKind::TransportBytes,
+            state: ConnectionState::Closed,
+        })
+    );
+    assert_eq!(rejected.state, ConnectionState::Closed);
+    let accounting = owner.last_core_observation().unwrap().accounting();
+    assert_eq!(accounting.bytes_consumed, 0);
+    assert_eq!(accounting.pre_state, ConnectionState::Closed);
+    assert_eq!(accounting.post_state, ConnectionState::Closed);
 }

@@ -1021,7 +1021,9 @@ impl ConnectionCore {
         self.step_frames.clear();
         let result = self.step_protocol(input);
         let bytes_consumed = offered_bytes.map_or(0, |offered| {
-            if decoder_path {
+            if pre_state == ConnectionState::Closed {
+                0
+            } else if decoder_path {
                 self.last_decoder_consumed
             } else {
                 offered
