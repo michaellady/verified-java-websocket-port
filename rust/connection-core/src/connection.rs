@@ -1044,10 +1044,12 @@ impl ConnectionCore {
 
     fn step_protocol(&mut self, input: CoreInput<'_>) -> StepResult {
         if self.state == ConnectionState::Closed {
-            if matches!(
-                input,
-                CoreInput::TransportEof | CoreInput::TransportWriteFlushed
-            ) {
+            let is_no_op = match &input {
+                CoreInput::Transport(bytes) => bytes.as_slice().is_empty(),
+                CoreInput::TransportEof | CoreInput::TransportWriteFlushed => true,
+                CoreInput::Command(_) => false,
+            };
+            if is_no_op {
                 return StepResult {
                     outputs: Box::new([]),
                     failure: None,

@@ -110,6 +110,33 @@ fn public_closed_state_rejection_does_not_consume_unaccepted_bytes() {
     assert_eq!(accounting.post_state, ConnectionState::Closed);
 }
 
+#[test]
+fn public_empty_bytes_in_closed_are_a_no_op_distinct_from_eof() {
+    const REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+    let mut core = ConnectionCore::new(config, Role::Server);
+    assert_eq!(
+        core.step(CoreInput::Transport(TransportBytes::new(REQUEST)))
+            .state(),
+        ConnectionState::Open
+    );
+    assert_eq!(
+        core.step(CoreInput::TransportEof).state(),
+        ConnectionState::Closed
+    );
+
+    let empty_bytes = core.step(CoreInput::Transport(TransportBytes::new(&[])));
+    assert_eq!(empty_bytes.failure(), None);
+    assert_eq!(empty_bytes.state(), ConnectionState::Closed);
+    assert_eq!(empty_bytes.outputs().len(), 0);
+    let accounting = core.last_step_observation().accounting();
+    assert_eq!(accounting.bytes_consumed, 0);
+    assert_eq!(accounting.wire_buffered_bytes, 0);
+    assert_eq!(accounting.message_buffered_bytes, 0);
+    assert_eq!(accounting.pre_state, ConnectionState::Closed);
+    assert_eq!(accounting.post_state, ConnectionState::Closed);
+}
+
 const BYTE_CEILING: u64 = 1_048_576;
 const QUEUE_CEILING: u64 = 4_096;
 

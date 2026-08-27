@@ -207,6 +207,26 @@ fn neutral_oracle_does_not_consume_bytes_rejected_in_closed() {
 }
 
 #[test]
+fn neutral_oracle_treats_empty_bytes_in_closed_as_a_no_op() {
+    let output = run_neutral(&neutral_request_for(2, 3, &[vec![1]]));
+    assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
+    assert!(output.stderr.is_empty());
+
+    let steps = response_field(&output.stdout, 5);
+    assert_eq!(&steps[..2], &1_u16.to_be_bytes());
+    let record_length = u32::from_be_bytes(steps[2..6].try_into().unwrap()) as usize;
+    assert_eq!(record_length, steps.len() - 6);
+    let record = &steps[6..];
+    assert_eq!(&record[..5], &[0, 0, 1, 3, 3]);
+    assert_eq!(u64::from_be_bytes(record[5..13].try_into().unwrap()), 0);
+    assert_eq!(u64::from_be_bytes(record[13..21].try_into().unwrap()), 0);
+    assert_eq!(u64::from_be_bytes(record[21..29].try_into().unwrap()), 0);
+    assert_eq!(&record[29..31], &0_u16.to_be_bytes());
+    assert_eq!(record.len(), 31);
+    assert_eq!(response_field(&output.stdout, 6), &[3]);
+}
+
+#[test]
 fn harness_contract_is_non_networked_and_challenge_bound() {
     let challenge = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     let output = Command::new(binary())

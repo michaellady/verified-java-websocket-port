@@ -403,7 +403,7 @@ fn public_driver_surfaces_transport_eof_and_both_drop_dispositions() {
 }
 
 #[test]
-fn closed_observation_rejects_bytes_without_counting_them_as_consumed() {
+fn closed_observation_distinguishes_empty_from_nonempty_bytes() {
     const US005_PUBLIC_0015: &[u8] = b"\x5d\x87\x0a";
     let (_handle, mut owner) = connection_driver(config(2), Role::Server);
     open_server(&mut owner);
@@ -415,6 +415,20 @@ fn closed_observation_rejects_bytes_without_counting_them_as_consumed() {
         owner.poll(DriverInput::Wake).output,
         DriverOutput::Terminal(_)
     ));
+
+    let empty = owner
+        .observe_closed(ClosedObservationInput::Inbound(TransportBytes::new(&[])))
+        .expect("empty bytes remain observable against the closed core");
+    assert_eq!(empty.failure, None);
+    assert_eq!(empty.state, ConnectionState::Closed);
+    assert_eq!(
+        owner
+            .last_core_observation()
+            .unwrap()
+            .accounting()
+            .bytes_consumed,
+        0
+    );
 
     let rejected = owner
         .observe_closed(ClosedObservationInput::Inbound(TransportBytes::new(
