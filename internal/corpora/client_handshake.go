@@ -411,8 +411,8 @@ func VerifyClientHandshakeEvidence(root string) error {
 	}
 	if evidence.Tests.Debug.Command != "make -C rust test" ||
 		evidence.Tests.Release.Command != "make -C rust test-release" ||
-		evidence.Tests.Debug.Passed != 36 || evidence.Tests.Debug.Failed != 0 ||
-		evidence.Tests.Release.Passed != 36 || evidence.Tests.Release.Failed != 0 ||
+		evidence.Tests.Debug.Passed != 59 || evidence.Tests.Debug.Failed != 0 ||
+		evidence.Tests.Release.Passed != 59 || evidence.Tests.Release.Failed != 0 ||
 		evidence.Tests.ClientHandshakeTests != 14 || evidence.Tests.SplitPointExecutions != 548 ||
 		evidence.Tests.FuzzSeedsReplayed != 11 || evidence.Tests.FrozenResponseCases != 10 {
 		return fmt.Errorf("US-010 test counts do not match the committed harness")
