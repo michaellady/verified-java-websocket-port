@@ -1,6 +1,7 @@
 package corpora
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -56,6 +57,123 @@ func TestServerProjectionRejectsVerdictNonceAndAuthorityDrift(t *testing.T) {
 	authority.Authority.StrictnessRule = "Java observations override RFC strictness"
 	if err := verifyServerAuthority(authority.Authority); err == nil {
 		t.Fatal("reversed authority was accepted")
+	}
+
+	javaDrift := projection
+	javaDrift.FrozenCases = append([]ServerHandshakeCase(nil), projection.FrozenCases...)
+	javaDrift.FrozenCases[0].Java.Observable = "reject"
+	if err := verifyServerJavaMapping(root, source, javaDrift.FrozenCases); err == nil {
+		t.Fatal("per-case Java observable drift was accepted")
+	}
+	var duplicatedKey, duplicatedVersion ServerHandshakeJavaObservation
+	for _, item := range projection.FrozenCases {
+		switch item.CaseID {
+		case "us005.hs.0027":
+			duplicatedKey = item.Java
+		case "us005.hs.0028":
+			duplicatedVersion = item.Java
+		}
+	}
+	if duplicatedKey.Observable != "accept" || !duplicatedKey.Divergent ||
+		duplicatedVersion.Observable != "reject" || duplicatedVersion.Divergent ||
+		duplicatedVersion.RejectChannel != "not_matched" {
+		t.Fatal("duplicate key/version Java outcomes were collapsed")
+	}
+}
+
+func TestUS011ReceiptPathsAreAClosedAllowlist(t *testing.T) {
+	raw, err := readUS010Artifact(repoRoot(t), us011ReceiptPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var evidence serverHandshakeEvidence
+	if err := json.Unmarshal(raw, &evidence); err != nil {
+		t.Fatal(err)
+	}
+	// The receipt is updated after the implementation commit. Assigning this
+	// field keeps the pre-receipt implementation commit independently testable.
+	evidence.Corpus.EvidenceSchemaPath = us011EvidenceSchemaPath
+	if err := verifyUS011AncillaryPaths(evidence); err != nil {
+		t.Fatalf("committed ancillary allowlist failed: %v", err)
+	}
+	mutations := []func(*serverHandshakeEvidence){
+		func(value *serverHandshakeEvidence) { value.Corpus.ProjectionPath = us011JavaMappingPath },
+		func(value *serverHandshakeEvidence) { value.Corpus.SchemaPath = us011EvidenceSchemaPath },
+		func(value *serverHandshakeEvidence) { value.Corpus.EvidenceSchemaPath = us011CorpusSchemaPath },
+		func(value *serverHandshakeEvidence) { value.Symbols.MigrationMapPath = us011CompatibilityPath },
+		func(value *serverHandshakeEvidence) { value.Compatibility.JavaMappingPath = us011ProjectionPath },
+		func(value *serverHandshakeEvidence) { value.DeltaLedger.Path = us011EvidenceDAGPath },
+		func(value *serverHandshakeEvidence) { value.EvidenceDAGPath = us011DeltaLedgerPath },
+	}
+	for index, mutate := range mutations {
+		drift := evidence
+		mutate(&drift)
+		if err := verifyUS011AncillaryPaths(drift); err == nil {
+			t.Fatalf("receipt path substitution %d was accepted", index)
+		}
+	}
+}
+
+func TestUS011CheckoutHeadBindingRejectsDirtyReceiptAndAncillaryArtifacts(t *testing.T) {
+	root := t.TempDir()
+	runUS010TestGit(t, root, "init", "--quiet")
+	runUS010TestGit(t, root, "config", "user.email", "us011@example.invalid")
+	runUS010TestGit(t, root, "config", "user.name", "US011 Test")
+	if err := os.MkdirAll(filepath.Join(root, "evidence"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	receiptPath := filepath.Join(root, "evidence", "receipt.json")
+	ancillaryPath := filepath.Join(root, "evidence", "ancillary.json")
+	receipt := []byte("{\"receipt\":true}\n")
+	ancillary := []byte("{\"ancillary\":true}\n")
+	if err := os.WriteFile(receiptPath, receipt, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(ancillaryPath, ancillary, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runUS010TestGit(t, root, "add", "evidence/receipt.json", "evidence/ancillary.json")
+	runUS010TestGit(t, root, "commit", "--quiet", "-m", "exact evidence")
+
+	if err := verifyUS011CheckoutHeadArtifact(root, "evidence/receipt.json", ""); err != nil {
+		t.Fatalf("clean receipt failed: %v", err)
+	}
+	if err := verifyUS011CheckoutHeadArtifact(root, "evidence/ancillary.json", DigestSHA256(ancillary)); err != nil {
+		t.Fatalf("clean ancillary failed: %v", err)
+	}
+	if err := os.WriteFile(receiptPath, []byte("{\"receipt\":false}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyUS011CheckoutHeadArtifact(root, "evidence/receipt.json", ""); err == nil {
+		t.Fatal("dirty receipt was accepted")
+	}
+	if err := os.WriteFile(receiptPath, receipt, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(ancillaryPath, []byte("{\"ancillary\":false}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyUS011CheckoutHeadArtifact(root, "evidence/ancillary.json", DigestSHA256(ancillary)); err == nil {
+		t.Fatal("dirty ancillary artifact was accepted")
+	}
+	if err := os.WriteFile(ancillaryPath, ancillary, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyUS011CheckoutHeadArtifact(root, "evidence/ancillary.json", DigestSHA256([]byte("stale"))); err == nil {
+		t.Fatal("stale ancillary digest was accepted")
+	}
+	if err := verifyUS011CheckoutHeadArtifact(root, "evidence/missing.json", ""); err == nil {
+		t.Fatal("missing ancillary artifact was accepted")
+	}
+	outside := filepath.Join(t.TempDir(), "outside.json")
+	if err := os.WriteFile(outside, ancillary, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(root, "evidence", "symlink.json")); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyUS011CheckoutHeadArtifact(root, "evidence/symlink.json", DigestSHA256(ancillary)); err == nil {
+		t.Fatal("symlinked ancillary artifact was accepted")
 	}
 }
 

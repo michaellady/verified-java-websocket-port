@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -41,10 +42,22 @@ type ServerHandshakeAuthority struct {
 // ServerHandshakeCase is one exact RFC verdict projected into a typed Rust
 // outcome. The raw fixture remains single-sourced in cases.jsonl.
 type ServerHandshakeCase struct {
-	CaseID       string `json:"case_id"`
-	RFCVerdict   string `json:"rfc_verdict"`
-	RFCReject    string `json:"rfc_reject_code,omitempty"`
-	RustExpected string `json:"rust_expected"`
+	CaseID       string                         `json:"case_id"`
+	RFCVerdict   string                         `json:"rfc_verdict"`
+	RFCReject    string                         `json:"rfc_reject_code,omitempty"`
+	RustExpected string                         `json:"rust_expected"`
+	Java         ServerHandshakeJavaObservation `json:"java_source_observation"`
+}
+
+// ServerHandshakeJavaObservation makes the source-derived Java comparison a
+// per-case claim. It is intentionally not a live-execution or parity claim.
+type ServerHandshakeJavaObservation struct {
+	MappingKey    string   `json:"mapping_key"`
+	Observable    string   `json:"observable"`
+	Divergent     bool     `json:"divergent"`
+	RejectChannel string   `json:"reject_channel,omitempty"`
+	Condition     string   `json:"condition,omitempty"`
+	Basis         []string `json:"basis"`
 }
 
 // ServerHandshakeProperties records only executions required by the story.
@@ -76,51 +89,54 @@ type ServerHandshakeReconciliation struct {
 }
 
 type serverFrozenExpectation struct {
-	verdict string
-	reject  string
-	rust    string
+	verdict           string
+	reject            string
+	rust              string
+	javaObservable    string
+	javaDivergent     bool
+	javaRejectChannel string
 }
 
 var frozenServerExpectations = map[string]serverFrozenExpectation{
-	"us005.hs.0000": {"accept", "", "Open"},
-	"us005.hs.0001": {"accept", "", "Open"},
-	"us005.hs.0002": {"accept", "", "Open"},
-	"us005.hs.0003": {"accept", "", "Open"},
-	"us005.hs.0004": {"accept", "", "Open"},
-	"us005.hs.0005": {"accept", "", "Open"},
-	"us005.hs.0009": {"reject", "HS_METHOD_NOT_GET", "MethodNotGet"},
-	"us005.hs.0010": {"reject", "HS_METHOD_NOT_GET", "MethodNotGet"},
-	"us005.hs.0011": {"reject", "HS_HTTP_VERSION", "HttpVersionNot11"},
-	"us005.hs.0012": {"reject", "HS_HTTP_VERSION", "HttpVersionNot11"},
-	"us005.hs.0013": {"reject", "HS_MISSING_HOST", "MissingHost"},
-	"us005.hs.0014": {"reject", "HS_MISSING_UPGRADE", "MissingUpgrade"},
-	"us005.hs.0015": {"reject", "HS_UPGRADE_VALUE", "InvalidUpgrade"},
-	"us005.hs.0016": {"reject", "HS_MISSING_CONNECTION", "MissingConnection"},
-	"us005.hs.0017": {"reject", "HS_CONNECTION_VALUE", "InvalidConnection"},
-	"us005.hs.0018": {"reject", "HS_MISSING_KEY", "MissingKey"},
-	"us005.hs.0019": {"reject", "HS_KEY_NOT_BASE64", "InvalidKeyEncoding"},
-	"us005.hs.0020": {"reject", "HS_KEY_NOT_BASE64", "InvalidKeyEncoding"},
-	"us005.hs.0021": {"reject", "HS_KEY_LENGTH", "InvalidKeyLength(15)"},
-	"us005.hs.0022": {"reject", "HS_KEY_LENGTH", "InvalidKeyLength(17)"},
-	"us005.hs.0023": {"reject", "HS_MISSING_VERSION", "MissingVersion"},
-	"us005.hs.0024": {"reject", "HS_VERSION_UNSUPPORTED", "UnsupportedVersion"},
-	"us005.hs.0025": {"reject", "HS_VERSION_UNSUPPORTED", "UnsupportedVersion"},
-	"us005.hs.0026": {"reject", "HS_VERSION_UNSUPPORTED", "UnsupportedVersion"},
-	"us005.hs.0027": {"reject", "HS_DUPLICATE_HEADER", "DuplicateHeader"},
-	"us005.hs.0028": {"reject", "HS_DUPLICATE_HEADER", "DuplicateHeader"},
-	"us005.hs.0029": {"reject", "HS_HEADER_NAME_NOT_TOKEN", "InvalidHeaderName"},
-	"us005.hs.0030": {"reject", "HS_HEADER_NAME_NOT_TOKEN", "InvalidHeaderName"},
-	"us005.hs.0031": {"reject", "HS_MALFORMED_REQUEST_LINE", "MalformedRequestLine"},
-	"us005.hs.0032": {"reject", "HS_MALFORMED_REQUEST_LINE", "MalformedRequestLine"},
-	"us005.hs.0033": {"reject", "HS_OBS_FOLD", "ObsoleteLineFolding"},
-	"us005.hs.0034": {"reject", "HS_BARE_LF", "BareLineEnding"},
-	"us005.hs.0042": {"incomplete", "", "IncompleteThenUnexpectedEof"},
-	"us005.hs.0043": {"incomplete", "", "IncompleteThenUnexpectedEof"},
-	"us005.hs.0044": {"incomplete", "", "IncompleteThenUnexpectedEof"},
-	"us005.hs.0045": {"incomplete", "", "IncompleteThenUnexpectedEof"},
-	"us005.hs.0046": {"reject", "HS_LIMIT_TOTAL_BYTES", "HandshakeBytes(173>172)"},
-	"us005.hs.0047": {"reject", "HS_LIMIT_HEADER_COUNT", "HandshakeHeaderCount(3>2)"},
-	"us005.hs.0048": {"reject", "HS_LIMIT_HEADER_LINE_BYTES", "HandshakeHeaderLineBytes(9>8)"},
+	"us005.hs.0000": {"accept", "", "Open", "accept", false, ""},
+	"us005.hs.0001": {"accept", "", "Open", "accept", false, ""},
+	"us005.hs.0002": {"accept", "", "Open", "accept", false, ""},
+	"us005.hs.0003": {"accept", "", "Open", "accept", false, ""},
+	"us005.hs.0004": {"accept", "", "Open", "accept", false, ""},
+	"us005.hs.0005": {"accept", "", "Open", "accept", false, ""},
+	"us005.hs.0009": {"reject", "HS_METHOD_NOT_GET", "MethodNotGet", "reject", false, "invalid_handshake"},
+	"us005.hs.0010": {"reject", "HS_METHOD_NOT_GET", "MethodNotGet", "reject", false, "invalid_handshake"},
+	"us005.hs.0011": {"reject", "HS_HTTP_VERSION", "HttpVersionNot11", "reject", false, "invalid_handshake"},
+	"us005.hs.0012": {"reject", "HS_HTTP_VERSION", "HttpVersionNot11", "reject", false, "invalid_handshake"},
+	"us005.hs.0013": {"reject", "HS_MISSING_HOST", "MissingHost", "accept", true, ""},
+	"us005.hs.0014": {"reject", "HS_MISSING_UPGRADE", "MissingUpgrade", "accept", true, ""},
+	"us005.hs.0015": {"reject", "HS_UPGRADE_VALUE", "InvalidUpgrade", "accept", true, ""},
+	"us005.hs.0016": {"reject", "HS_MISSING_CONNECTION", "MissingConnection", "accept", true, ""},
+	"us005.hs.0017": {"reject", "HS_CONNECTION_VALUE", "InvalidConnection", "accept", true, ""},
+	"us005.hs.0018": {"reject", "HS_MISSING_KEY", "MissingKey", "reject", false, "invalid_handshake"},
+	"us005.hs.0019": {"reject", "HS_KEY_NOT_BASE64", "InvalidKeyEncoding", "accept", true, ""},
+	"us005.hs.0020": {"reject", "HS_KEY_NOT_BASE64", "InvalidKeyEncoding", "accept", true, ""},
+	"us005.hs.0021": {"reject", "HS_KEY_LENGTH", "InvalidKeyLength(15)", "accept", true, ""},
+	"us005.hs.0022": {"reject", "HS_KEY_LENGTH", "InvalidKeyLength(17)", "accept", true, ""},
+	"us005.hs.0023": {"reject", "HS_MISSING_VERSION", "MissingVersion", "reject", false, "not_matched"},
+	"us005.hs.0024": {"reject", "HS_VERSION_UNSUPPORTED", "UnsupportedVersion", "reject", false, "not_matched"},
+	"us005.hs.0025": {"reject", "HS_VERSION_UNSUPPORTED", "UnsupportedVersion", "reject", false, "not_matched"},
+	"us005.hs.0026": {"reject", "HS_VERSION_UNSUPPORTED", "UnsupportedVersion", "reject", false, "not_matched"},
+	"us005.hs.0027": {"reject", "HS_DUPLICATE_HEADER", "DuplicateHeader", "accept", true, ""},
+	"us005.hs.0028": {"reject", "HS_DUPLICATE_HEADER", "DuplicateHeader", "reject", false, "not_matched"},
+	"us005.hs.0029": {"reject", "HS_HEADER_NAME_NOT_TOKEN", "InvalidHeaderName", "accept", true, ""},
+	"us005.hs.0030": {"reject", "HS_HEADER_NAME_NOT_TOKEN", "InvalidHeaderName", "accept", true, ""},
+	"us005.hs.0031": {"reject", "HS_MALFORMED_REQUEST_LINE", "MalformedRequestLine", "reject", false, "invalid_handshake"},
+	"us005.hs.0032": {"reject", "HS_MALFORMED_REQUEST_LINE", "MalformedRequestLine", "reject", false, "invalid_handshake"},
+	"us005.hs.0033": {"reject", "HS_OBS_FOLD", "ObsoleteLineFolding", "reject", false, "invalid_handshake"},
+	"us005.hs.0034": {"reject", "HS_BARE_LF", "BareLineEnding", "accept", true, ""},
+	"us005.hs.0042": {"incomplete", "", "IncompleteThenUnexpectedEof", "incomplete", false, ""},
+	"us005.hs.0043": {"incomplete", "", "IncompleteThenUnexpectedEof", "incomplete", false, ""},
+	"us005.hs.0044": {"incomplete", "", "IncompleteThenUnexpectedEof", "incomplete", false, ""},
+	"us005.hs.0045": {"incomplete", "", "IncompleteThenUnexpectedEof", "incomplete", false, ""},
+	"us005.hs.0046": {"reject", "HS_LIMIT_TOTAL_BYTES", "HandshakeBytes(173>172)", "accept", true, ""},
+	"us005.hs.0047": {"reject", "HS_LIMIT_HEADER_COUNT", "HandshakeHeaderCount(3>2)", "accept", true, ""},
+	"us005.hs.0048": {"reject", "HS_LIMIT_HEADER_LINE_BYTES", "HandshakeHeaderLineBytes(9>8)", "accept", true, ""},
 }
 
 var exactServerProperties = []string{
@@ -206,7 +222,7 @@ func LoadAndVerifyServerHandshakeProjection(root string) (ServerHandshakeProject
 	if err := verifyServerFuzzProjection(root, projection.FuzzSeeds); err != nil {
 		return ServerHandshakeProjection{}, err
 	}
-	if err := verifyServerJavaMapping(root, cases); err != nil {
+	if err := verifyServerJavaMapping(root, cases, projection.FrozenCases); err != nil {
 		return ServerHandshakeProjection{}, err
 	}
 	if projection.Assurance.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" ||
@@ -376,35 +392,99 @@ func verifyServerFuzzProjection(root string, seeds []ClientHandshakeFuzzSeed) er
 	return nil
 }
 
-func verifyServerJavaMapping(root string, source map[string]HandshakeCase) error {
+type serverJavaMappingEntry struct {
+	Direction      string   `json:"direction"`
+	Key            string   `json:"key"`
+	RFCVerdict     string   `json:"rfc_verdict"`
+	JavaObservable string   `json:"java_observable"`
+	RejectChannel  string   `json:"reject_channel"`
+	Divergent      bool     `json:"divergent"`
+	Condition      string   `json:"condition"`
+	Basis          []string `json:"basis"`
+	Note           string   `json:"note"`
+}
+
+func verifyServerJavaMapping(root string, source map[string]HandshakeCase, projected []ServerHandshakeCase) error {
 	raw, err := readUS010Artifact(root, "evidence/us005-handshake-live-mapping.json")
 	if err != nil {
 		return err
 	}
 	var mapping struct {
-		Entries []struct {
-			Direction  string `json:"direction"`
-			Key        string `json:"key"`
-			RFCVerdict string `json:"rfc_verdict"`
-		} `json:"entries"`
+		Entries []serverJavaMappingEntry `json:"entries"`
 	}
 	if err := json.Unmarshal(raw, &mapping); err != nil {
 		return err
 	}
-	available := make(map[string]string)
+	available := make(map[string]serverJavaMappingEntry)
 	for _, entry := range mapping.Entries {
 		if entry.Direction == "client_request" {
-			available[entry.Key] = entry.RFCVerdict
+			if _, duplicate := available[entry.Key]; duplicate {
+				return fmt.Errorf("duplicate source-derived Java mapping key %s", entry.Key)
+			}
+			available[entry.Key] = entry
 		}
 	}
-	for id, item := range source {
-		key := item.Expected.RejectCode
+	if len(projected) != len(source) {
+		return fmt.Errorf("source-derived Java projection inventory is incomplete")
+	}
+	for _, item := range projected {
+		sourceCase, ok := source[item.CaseID]
+		if !ok {
+			return fmt.Errorf("case %s is absent from the frozen source", item.CaseID)
+		}
+		expected := frozenServerExpectations[item.CaseID]
+		key := sourceCase.Expected.RejectCode
 		if key == "" {
-			key = item.Expected.Verdict
+			key = sourceCase.Expected.Verdict
 		}
-		if available[key] != item.Expected.Verdict {
-			return fmt.Errorf("case %s is not covered by the source-derived Java mapping", id)
+		entry, ok := available[key]
+		if !ok || entry.RFCVerdict != sourceCase.Expected.Verdict || len(entry.Basis) == 0 {
+			return fmt.Errorf("case %s is not covered by an exact source-derived Java mapping", item.CaseID)
 		}
+		java := item.Java
+		if java.MappingKey != key || java.Observable != expected.javaObservable ||
+			java.Divergent != expected.javaDivergent || java.RejectChannel != expected.javaRejectChannel ||
+			java.Condition != entry.Condition || !stringSlicesEqual(java.Basis, entry.Basis) {
+			return fmt.Errorf("case %s has drifted from its exact source-derived Java observation", item.CaseID)
+		}
+		if entry.JavaObservable != "conditional" {
+			if java.Observable != entry.JavaObservable || java.Divergent != entry.Divergent ||
+				java.RejectChannel != entry.RejectChannel || java.Condition != "" {
+				return fmt.Errorf("case %s contradicts the source-derived Java mapping", item.CaseID)
+			}
+		} else if entry.Condition == "" || !entry.Divergent {
+			return fmt.Errorf("conditional Java mapping %s lacks its divergence condition", key)
+		}
+		if err := verifyDuplicateJavaResolution(item.CaseID, sourceCase, entry, java); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func verifyDuplicateJavaResolution(caseID string, source HandshakeCase, entry serverJavaMappingEntry, java ServerHandshakeJavaObservation) error {
+	if caseID != "us005.hs.0027" && caseID != "us005.hs.0028" {
+		return nil
+	}
+	raw, err := base64.StdEncoding.DecodeString(source.RawBase64)
+	if err != nil {
+		return fmt.Errorf("decode duplicate-header case %s: %w", caseID, err)
+	}
+	lower := bytes.ToLower(raw)
+	keyHeaders := bytes.Count(lower, []byte("sec-websocket-key:"))
+	versionHeaders := bytes.Count(lower, []byte("sec-websocket-version:"))
+	if entry.Key != "HS_DUPLICATE_HEADER" ||
+		!strings.Contains(entry.Note, "seed 0 (key) is a divergent Java accept") ||
+		!strings.Contains(entry.Note, "seed 1 (version) rejects NOT_MATCHED") {
+		return fmt.Errorf("duplicate-header Java mapping no longer supports its two exact outcomes")
+	}
+	if caseID == "us005.hs.0027" && (keyHeaders != 2 || versionHeaders != 1 ||
+		java.Observable != "accept" || !java.Divergent || java.RejectChannel != "") {
+		return fmt.Errorf("duplicated-key case lost its divergent Java accept")
+	}
+	if caseID == "us005.hs.0028" && (keyHeaders != 1 || versionHeaders != 2 ||
+		java.Observable != "reject" || java.Divergent || java.RejectChannel != "not_matched") {
+		return fmt.Errorf("duplicated-version case lost its Java NOT_MATCHED rejection")
 	}
 	return nil
 }
@@ -444,14 +524,16 @@ type serverHandshakeEvidence struct {
 		RuntimeAssertions    []string        `json:"runtime_assertions"`
 	} `json:"tests"`
 	Corpus struct {
-		ProjectionPath     string `json:"projection_path"`
-		ProjectionSHA256   string `json:"projection_sha256"`
-		SchemaPath         string `json:"schema_path"`
-		SchemaSHA256       string `json:"schema_sha256"`
-		FrozenSourceSHA256 string `json:"frozen_source_sha256"`
-		AdditiveVectors    int    `json:"public_additive_vectors"`
-		FuzzSeedCount      int    `json:"fuzz_seed_count"`
-		NonceVectorCount   int    `json:"nonce_vector_count"`
+		ProjectionPath       string `json:"projection_path"`
+		ProjectionSHA256     string `json:"projection_sha256"`
+		SchemaPath           string `json:"schema_path"`
+		SchemaSHA256         string `json:"schema_sha256"`
+		EvidenceSchemaPath   string `json:"evidence_schema_path"`
+		EvidenceSchemaSHA256 string `json:"evidence_schema_sha256"`
+		FrozenSourceSHA256   string `json:"frozen_source_sha256"`
+		AdditiveVectors      int    `json:"public_additive_vectors"`
+		FuzzSeedCount        int    `json:"fuzz_seed_count"`
+		NonceVectorCount     int    `json:"nonce_vector_count"`
 	} `json:"corpus"`
 	Symbols struct {
 		MigrationMapPath       string                `json:"migration_map_path"`
@@ -529,11 +611,28 @@ var us011SourceArtifactPaths = []string{
 	"docs/rust-workspace.md",
 }
 
+const (
+	us011ReceiptPath         = "evidence/us011-server-handshake.json"
+	us011ProjectionPath      = "corpora/handshake/server.json"
+	us011CorpusSchemaPath    = "schemas/server-handshake-corpus-1.0.0.schema.json"
+	us011EvidenceSchemaPath  = "schemas/server-handshake-evidence-1.0.0.schema.json"
+	us011MigrationMapPath    = "evidence/intake/semantic-id-migration-map.json"
+	us011CompatibilityPath   = "evidence/intake/compatibility-surface.json"
+	us011PortSeamDossierPath = "evidence/intake/port-seam-dossier.json"
+	us011CutoverContractPath = "evidence/intake/cutover-contract.json"
+	us011JavaMappingPath     = "evidence/us005-handshake-live-mapping.json"
+	us011DeltaLedgerPath     = "evidence/java/behavior-delta-ledger.json"
+	us011EvidenceDAGPath     = "assurance/us011-evidence-dag.json"
+)
+
 // VerifyServerHandshakeEvidence closes the story against checkout HEAD. It
 // deliberately reuses the hardened US-010 reader instead of adding another
 // filesystem/provenance implementation.
 func VerifyServerHandshakeEvidence(root string) error {
-	raw, err := readUS010Artifact(root, "evidence/us011-server-handshake.json")
+	if err := verifyUS011CheckoutHeadArtifact(root, us011ReceiptPath, ""); err != nil {
+		return err
+	}
+	raw, err := readUS010Artifact(root, us011ReceiptPath)
 	if err != nil {
 		return err
 	}
@@ -546,6 +645,9 @@ func VerifyServerHandshakeEvidence(root string) error {
 	if evidence.EvidenceID != "evidence.us-011-server-handshake" || evidence.StoryID != "US-011" ||
 		evidence.Source.BindingMode != "CHECKOUT_HEAD_EXACT_BLOBS" {
 		return fmt.Errorf("invalid US-011 evidence identity or source binding")
+	}
+	if err := verifyUS011AncillaryPaths(evidence); err != nil {
+		return err
 	}
 	if err := verifyUS011SourceInventory(evidence.Source.ImplementationFiles); err != nil {
 		return err
@@ -582,17 +684,18 @@ func VerifyServerHandshakeEvidence(root string) error {
 		return err
 	}
 	for _, artifact := range []evidenceArtifact{
-		{Path: evidence.Corpus.ProjectionPath, SHA256: evidence.Corpus.ProjectionSHA256},
-		{Path: evidence.Corpus.SchemaPath, SHA256: evidence.Corpus.SchemaSHA256},
-		{Path: evidence.Symbols.MigrationMapPath, SHA256: evidence.Symbols.MigrationMapSHA256},
-		{Path: evidence.Compatibility.JavaMappingPath, SHA256: evidence.Compatibility.JavaMappingSHA256},
-		{Path: "evidence/intake/compatibility-surface.json", SHA256: evidence.Compatibility.CompatibilitySurfaceSHA256},
-		{Path: "evidence/intake/port-seam-dossier.json", SHA256: evidence.Compatibility.PortSeamDossierSHA256},
-		{Path: "evidence/intake/cutover-contract.json", SHA256: evidence.Compatibility.CutoverContractSHA256},
-		{Path: evidence.DeltaLedger.Path, SHA256: evidence.DeltaLedger.SHA256},
-		{Path: evidence.EvidenceDAGPath, SHA256: evidence.EvidenceDAGSHA256},
+		{Path: us011ProjectionPath, SHA256: evidence.Corpus.ProjectionSHA256},
+		{Path: us011CorpusSchemaPath, SHA256: evidence.Corpus.SchemaSHA256},
+		{Path: us011EvidenceSchemaPath, SHA256: evidence.Corpus.EvidenceSchemaSHA256},
+		{Path: us011MigrationMapPath, SHA256: evidence.Symbols.MigrationMapSHA256},
+		{Path: us011JavaMappingPath, SHA256: evidence.Compatibility.JavaMappingSHA256},
+		{Path: us011CompatibilityPath, SHA256: evidence.Compatibility.CompatibilitySurfaceSHA256},
+		{Path: us011PortSeamDossierPath, SHA256: evidence.Compatibility.PortSeamDossierSHA256},
+		{Path: us011CutoverContractPath, SHA256: evidence.Compatibility.CutoverContractSHA256},
+		{Path: us011DeltaLedgerPath, SHA256: evidence.DeltaLedger.SHA256},
+		{Path: us011EvidenceDAGPath, SHA256: evidence.EvidenceDAGSHA256},
 	} {
-		if err := verifyEvidenceArtifact(root, artifact); err != nil {
+		if err := verifyUS011CheckoutHeadArtifact(root, artifact.Path, artifact.SHA256); err != nil {
 			return err
 		}
 	}
@@ -622,6 +725,42 @@ func VerifyServerHandshakeEvidence(root string) error {
 		evidence.Assurance.IndependentReviewClaimed || evidence.Assurance.Production || evidence.Assurance.Publication ||
 		evidence.Assurance.Signing {
 		return fmt.Errorf("US-011 evidence overstates assurance")
+	}
+	return nil
+}
+
+func verifyUS011AncillaryPaths(evidence serverHandshakeEvidence) error {
+	if evidence.Corpus.ProjectionPath != us011ProjectionPath ||
+		evidence.Corpus.SchemaPath != us011CorpusSchemaPath ||
+		evidence.Corpus.EvidenceSchemaPath != us011EvidenceSchemaPath ||
+		evidence.Symbols.MigrationMapPath != us011MigrationMapPath ||
+		evidence.Compatibility.JavaMappingPath != us011JavaMappingPath ||
+		evidence.DeltaLedger.Path != us011DeltaLedgerPath ||
+		evidence.EvidenceDAGPath != us011EvidenceDAGPath {
+		return fmt.Errorf("US-011 receipt substituted a non-allowlisted support artifact path")
+	}
+	return nil
+}
+
+func verifyUS011CheckoutHeadArtifact(root, path, digest string) error {
+	working, err := readUS010Artifact(root, path)
+	if err != nil {
+		return err
+	}
+	if digest != "" && DigestSHA256(working) != digest {
+		return fmt.Errorf("US-011 working artifact digest mismatch: %s", path)
+	}
+	output, err := exec.Command("git", "-C", root, "rev-parse", "HEAD:"+path).Output()
+	object := strings.TrimSpace(string(output))
+	if err != nil || len(object) != 40 {
+		return fmt.Errorf("US-011 artifact is absent from checkout HEAD: %s", path)
+	}
+	if _, err := hex.DecodeString(object); err != nil {
+		return fmt.Errorf("US-011 checkout HEAD artifact is not a blob ID: %s", path)
+	}
+	committed, err := readUS010GitBlob(root, object)
+	if err != nil || !bytes.Equal(working, committed) || (digest != "" && DigestSHA256(committed) != digest) {
+		return fmt.Errorf("US-011 artifact is dirty or stale against checkout HEAD: %s", path)
 	}
 	return nil
 }

@@ -12,7 +12,7 @@
     "source": {"$ref": "#/$defs/object"},
     "toolchain": {"$ref": "#/$defs/object"},
     "tests": {"$ref": "#/$defs/object"},
-    "corpus": {"$ref": "#/$defs/object"},
+    "corpus": {"$ref": "#/$defs/corpus"},
     "symbols": {"$ref": "#/$defs/object"},
     "compatibility": {"$ref": "#/$defs/object"},
     "delta_ledger": {"$ref": "#/$defs/object"},
@@ -34,6 +34,22 @@
   },
   "$defs": {
     "object": {"type": "object", "minProperties": 1},
-    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "corpus": {
+      "type": "object", "additionalProperties": false,
+      "required": ["projection_path", "projection_sha256", "schema_path", "schema_sha256", "evidence_schema_path", "evidence_schema_sha256", "frozen_source_sha256", "public_additive_vectors", "fuzz_seed_count", "nonce_vector_count"],
+      "properties": {
+        "projection_path": {"const": "corpora/handshake/server.json"},
+        "projection_sha256": {"$ref": "#/$defs/digest"},
+        "schema_path": {"const": "schemas/server-handshake-corpus-1.0.0.schema.json"},
+        "schema_sha256": {"$ref": "#/$defs/digest"},
+        "evidence_schema_path": {"const": "schemas/server-handshake-evidence-1.0.0.schema.json"},
+        "evidence_schema_sha256": {"$ref": "#/$defs/digest"},
+        "frozen_source_sha256": {"$ref": "#/$defs/digest"},
+        "public_additive_vectors": {"const": 26},
+        "fuzz_seed_count": {"const": 17},
+        "nonce_vector_count": {"const": 256}
+      }
+    }
   }
 }

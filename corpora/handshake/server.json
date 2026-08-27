@@ -48,224 +48,593 @@
   "frozen_cases": [
     {
       "case_id": "us005.hs.0000",
+      "java_source_observation": {
+        "mapping_key": "accept",
+        "observable": "accept",
+        "divergent": false,
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)",
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_verdict": "accept",
       "rust_expected": "Open"
     },
     {
       "case_id": "us005.hs.0001",
+      "java_source_observation": {
+        "mapping_key": "accept",
+        "observable": "accept",
+        "divergent": false,
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)",
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_verdict": "accept",
       "rust_expected": "Open"
     },
     {
       "case_id": "us005.hs.0002",
+      "java_source_observation": {
+        "mapping_key": "accept",
+        "observable": "accept",
+        "divergent": false,
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)",
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_verdict": "accept",
       "rust_expected": "Open"
     },
     {
       "case_id": "us005.hs.0003",
+      "java_source_observation": {
+        "mapping_key": "accept",
+        "observable": "accept",
+        "divergent": false,
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)",
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_verdict": "accept",
       "rust_expected": "Open"
     },
     {
       "case_id": "us005.hs.0004",
+      "java_source_observation": {
+        "mapping_key": "accept",
+        "observable": "accept",
+        "divergent": false,
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)",
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_verdict": "accept",
       "rust_expected": "Open"
     },
     {
       "case_id": "us005.hs.0005",
+      "java_source_observation": {
+        "mapping_key": "accept",
+        "observable": "accept",
+        "divergent": false,
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)",
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_verdict": "accept",
       "rust_expected": "Open"
     },
     {
       "case_id": "us005.hs.0009",
+      "java_source_observation": {
+        "mapping_key": "HS_METHOD_NOT_GET",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "invalid_handshake",
+        "basis": [
+          "Draft.java:141-155 (translateHandshakeHttpServer)"
+        ]
+      },
       "rfc_reject_code": "HS_METHOD_NOT_GET",
       "rfc_verdict": "reject",
       "rust_expected": "MethodNotGet"
     },
     {
       "case_id": "us005.hs.0010",
+      "java_source_observation": {
+        "mapping_key": "HS_METHOD_NOT_GET",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "invalid_handshake",
+        "basis": [
+          "Draft.java:141-155 (translateHandshakeHttpServer)"
+        ]
+      },
       "rfc_reject_code": "HS_METHOD_NOT_GET",
       "rfc_verdict": "reject",
       "rust_expected": "MethodNotGet"
     },
     {
       "case_id": "us005.hs.0011",
+      "java_source_observation": {
+        "mapping_key": "HS_HTTP_VERSION",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "invalid_handshake",
+        "basis": [
+          "Draft.java:141-155 (translateHandshakeHttpServer)"
+        ]
+      },
       "rfc_reject_code": "HS_HTTP_VERSION",
       "rfc_verdict": "reject",
       "rust_expected": "HttpVersionNot11"
     },
     {
       "case_id": "us005.hs.0012",
+      "java_source_observation": {
+        "mapping_key": "HS_HTTP_VERSION",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "invalid_handshake",
+        "basis": [
+          "Draft.java:141-155 (translateHandshakeHttpServer)"
+        ]
+      },
       "rfc_reject_code": "HS_HTTP_VERSION",
       "rfc_verdict": "reject",
       "rust_expected": "HttpVersionNot11"
     },
     {
       "case_id": "us005.hs.0013",
+      "java_source_observation": {
+        "mapping_key": "HS_MISSING_HOST",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+        ]
+      },
       "rfc_reject_code": "HS_MISSING_HOST",
       "rfc_verdict": "reject",
       "rust_expected": "MissingHost"
     },
     {
       "case_id": "us005.hs.0014",
+      "java_source_observation": {
+        "mapping_key": "HS_MISSING_UPGRADE",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+        ]
+      },
       "rfc_reject_code": "HS_MISSING_UPGRADE",
       "rfc_verdict": "reject",
       "rust_expected": "MissingUpgrade"
     },
     {
       "case_id": "us005.hs.0015",
+      "java_source_observation": {
+        "mapping_key": "HS_UPGRADE_VALUE",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+        ]
+      },
       "rfc_reject_code": "HS_UPGRADE_VALUE",
       "rfc_verdict": "reject",
       "rust_expected": "InvalidUpgrade"
     },
     {
       "case_id": "us005.hs.0016",
+      "java_source_observation": {
+        "mapping_key": "HS_MISSING_CONNECTION",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+        ]
+      },
       "rfc_reject_code": "HS_MISSING_CONNECTION",
       "rfc_verdict": "reject",
       "rust_expected": "MissingConnection"
     },
     {
       "case_id": "us005.hs.0017",
+      "java_source_observation": {
+        "mapping_key": "HS_CONNECTION_VALUE",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "the Java server handshake never evaluates this rule (acceptHandshakeAsServer checks only Sec-WebSocket-Version; postProcessHandshakeResponseAsServer requires only a non-empty key); the observable is decided by the remaining Java checks",
+        "basis": [
+          "Draft_6455.java:262-286 (acceptHandshakeAsServer)",
+          "WebSocketImpl.java:269-315 (decodeHandshake server loop)"
+        ]
+      },
       "rfc_reject_code": "HS_CONNECTION_VALUE",
       "rfc_verdict": "reject",
       "rust_expected": "InvalidConnection"
     },
     {
       "case_id": "us005.hs.0018",
+      "java_source_observation": {
+        "mapping_key": "HS_MISSING_KEY",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "invalid_handshake",
+        "basis": [
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_reject_code": "HS_MISSING_KEY",
       "rfc_verdict": "reject",
       "rust_expected": "MissingKey"
     },
     {
       "case_id": "us005.hs.0019",
+      "java_source_observation": {
+        "mapping_key": "HS_KEY_NOT_BASE64",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "generateFinalKey (Draft_6455.java:832-841) hashes any non-empty string; the key encoding is never validated",
+        "basis": [
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_reject_code": "HS_KEY_NOT_BASE64",
       "rfc_verdict": "reject",
       "rust_expected": "InvalidKeyEncoding"
     },
     {
       "case_id": "us005.hs.0020",
+      "java_source_observation": {
+        "mapping_key": "HS_KEY_NOT_BASE64",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "generateFinalKey (Draft_6455.java:832-841) hashes any non-empty string; the key encoding is never validated",
+        "basis": [
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_reject_code": "HS_KEY_NOT_BASE64",
       "rfc_verdict": "reject",
       "rust_expected": "InvalidKeyEncoding"
     },
     {
       "case_id": "us005.hs.0021",
+      "java_source_observation": {
+        "mapping_key": "HS_KEY_LENGTH",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "the decoded key length is never validated; generateFinalKey hashes the raw header string",
+        "basis": [
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_reject_code": "HS_KEY_LENGTH",
       "rfc_verdict": "reject",
       "rust_expected": "InvalidKeyLength(15)"
     },
     {
       "case_id": "us005.hs.0022",
+      "java_source_observation": {
+        "mapping_key": "HS_KEY_LENGTH",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "the decoded key length is never validated; generateFinalKey hashes the raw header string",
+        "basis": [
+          "Draft_6455.java:432-441 (postProcessHandshakeResponseAsServer)"
+        ]
+      },
       "rfc_reject_code": "HS_KEY_LENGTH",
       "rfc_verdict": "reject",
       "rust_expected": "InvalidKeyLength(17)"
     },
     {
       "case_id": "us005.hs.0023",
+      "java_source_observation": {
+        "mapping_key": "HS_MISSING_VERSION",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "not_matched",
+        "basis": [
+          "Draft.java:329-341 (readVersion returns -1)",
+          "Draft_6455.java:262-268 (NOT_MATCHED when != 13)"
+        ]
+      },
       "rfc_reject_code": "HS_MISSING_VERSION",
       "rfc_verdict": "reject",
       "rust_expected": "MissingVersion"
     },
     {
       "case_id": "us005.hs.0024",
+      "java_source_observation": {
+        "mapping_key": "HS_VERSION_UNSUPPORTED",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "not_matched",
+        "basis": [
+          "Draft.java:329-341 (readVersion)",
+          "Draft_6455.java:262-268 (NOT_MATCHED when != 13)"
+        ]
+      },
       "rfc_reject_code": "HS_VERSION_UNSUPPORTED",
       "rfc_verdict": "reject",
       "rust_expected": "UnsupportedVersion"
     },
     {
       "case_id": "us005.hs.0025",
+      "java_source_observation": {
+        "mapping_key": "HS_VERSION_UNSUPPORTED",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "not_matched",
+        "basis": [
+          "Draft.java:329-341 (readVersion)",
+          "Draft_6455.java:262-268 (NOT_MATCHED when != 13)"
+        ]
+      },
       "rfc_reject_code": "HS_VERSION_UNSUPPORTED",
       "rfc_verdict": "reject",
       "rust_expected": "UnsupportedVersion"
     },
     {
       "case_id": "us005.hs.0026",
+      "java_source_observation": {
+        "mapping_key": "HS_VERSION_UNSUPPORTED",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "not_matched",
+        "basis": [
+          "Draft.java:329-341 (readVersion)",
+          "Draft_6455.java:262-268 (NOT_MATCHED when != 13)"
+        ]
+      },
       "rfc_reject_code": "HS_VERSION_UNSUPPORTED",
       "rfc_verdict": "reject",
       "rust_expected": "UnsupportedVersion"
     },
     {
       "case_id": "us005.hs.0027",
+      "java_source_observation": {
+        "mapping_key": "HS_DUPLICATE_HEADER",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "duplicates join with '; ' (Draft.java:119-125): a duplicated Sec-WebSocket-Version becomes unparseable and rejects NOT_MATCHED, while a duplicated Sec-WebSocket-Key is accepted with the accept value computed over the joined string",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+        ]
+      },
       "rfc_reject_code": "HS_DUPLICATE_HEADER",
       "rfc_verdict": "reject",
       "rust_expected": "DuplicateHeader"
     },
     {
       "case_id": "us005.hs.0028",
+      "java_source_observation": {
+        "mapping_key": "HS_DUPLICATE_HEADER",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "not_matched",
+        "condition": "duplicates join with '; ' (Draft.java:119-125): a duplicated Sec-WebSocket-Version becomes unparseable and rejects NOT_MATCHED, while a duplicated Sec-WebSocket-Key is accepted with the accept value computed over the joined string",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+        ]
+      },
       "rfc_reject_code": "HS_DUPLICATE_HEADER",
       "rfc_verdict": "reject",
       "rust_expected": "DuplicateHeader"
     },
     {
       "case_id": "us005.hs.0029",
+      "java_source_observation": {
+        "mapping_key": "HS_HEADER_NAME_NOT_TOKEN",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "Java performs no header-name token validation (Draft.java:115-125 stores any name); the observable is decided by the remaining Java checks",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+        ]
+      },
       "rfc_reject_code": "HS_HEADER_NAME_NOT_TOKEN",
       "rfc_verdict": "reject",
       "rust_expected": "InvalidHeaderName"
     },
     {
       "case_id": "us005.hs.0030",
+      "java_source_observation": {
+        "mapping_key": "HS_HEADER_NAME_NOT_TOKEN",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "Java performs no header-name token validation (Draft.java:115-125 stores any name); the observable is decided by the remaining Java checks",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+        ]
+      },
       "rfc_reject_code": "HS_HEADER_NAME_NOT_TOKEN",
       "rfc_verdict": "reject",
       "rust_expected": "InvalidHeaderName"
     },
     {
       "case_id": "us005.hs.0031",
+      "java_source_observation": {
+        "mapping_key": "HS_MALFORMED_REQUEST_LINE",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "invalid_handshake",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)",
+          "Draft.java:141-155 (translateHandshakeHttpServer)"
+        ]
+      },
       "rfc_reject_code": "HS_MALFORMED_REQUEST_LINE",
       "rfc_verdict": "reject",
       "rust_expected": "MalformedRequestLine"
     },
     {
       "case_id": "us005.hs.0032",
+      "java_source_observation": {
+        "mapping_key": "HS_MALFORMED_REQUEST_LINE",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "invalid_handshake",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)",
+          "Draft.java:141-155 (translateHandshakeHttpServer)"
+        ]
+      },
       "rfc_reject_code": "HS_MALFORMED_REQUEST_LINE",
       "rfc_verdict": "reject",
       "rust_expected": "MalformedRequestLine"
     },
     {
       "case_id": "us005.hs.0033",
+      "java_source_observation": {
+        "mapping_key": "HS_OBS_FOLD",
+        "observable": "reject",
+        "divergent": false,
+        "reject_channel": "invalid_handshake",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+        ]
+      },
       "rfc_reject_code": "HS_OBS_FOLD",
       "rfc_verdict": "reject",
       "rust_expected": "ObsoleteLineFolding"
     },
     {
       "case_id": "us005.hs.0034",
+      "java_source_observation": {
+        "mapping_key": "HS_BARE_LF",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "Draft.readLine terminates only on CRLF (Draft.java:78), so a bare-LF line folds into the following CRLF-terminated line as one header; the observable is decided by the surviving fields",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+        ]
+      },
       "rfc_reject_code": "HS_BARE_LF",
       "rfc_verdict": "reject",
       "rust_expected": "BareLineEnding"
     },
     {
       "case_id": "us005.hs.0042",
+      "java_source_observation": {
+        "mapping_key": "incomplete",
+        "observable": "incomplete",
+        "divergent": false,
+        "basis": [
+          "Draft.java:100-102, 128-130 (IncompleteHandshakeException)",
+          "WebSocketImpl.java:370-387 (buffered, nothing written)"
+        ]
+      },
       "rfc_verdict": "incomplete",
       "rust_expected": "IncompleteThenUnexpectedEof"
     },
     {
       "case_id": "us005.hs.0043",
+      "java_source_observation": {
+        "mapping_key": "incomplete",
+        "observable": "incomplete",
+        "divergent": false,
+        "basis": [
+          "Draft.java:100-102, 128-130 (IncompleteHandshakeException)",
+          "WebSocketImpl.java:370-387 (buffered, nothing written)"
+        ]
+      },
       "rfc_verdict": "incomplete",
       "rust_expected": "IncompleteThenUnexpectedEof"
     },
     {
       "case_id": "us005.hs.0044",
+      "java_source_observation": {
+        "mapping_key": "incomplete",
+        "observable": "incomplete",
+        "divergent": false,
+        "basis": [
+          "Draft.java:100-102, 128-130 (IncompleteHandshakeException)",
+          "WebSocketImpl.java:370-387 (buffered, nothing written)"
+        ]
+      },
       "rfc_verdict": "incomplete",
       "rust_expected": "IncompleteThenUnexpectedEof"
     },
     {
       "case_id": "us005.hs.0045",
+      "java_source_observation": {
+        "mapping_key": "incomplete",
+        "observable": "incomplete",
+        "divergent": false,
+        "basis": [
+          "Draft.java:100-102, 128-130 (IncompleteHandshakeException)",
+          "WebSocketImpl.java:370-387 (buffered, nothing written)"
+        ]
+      },
       "rfc_verdict": "incomplete",
       "rust_expected": "IncompleteThenUnexpectedEof"
     },
     {
       "case_id": "us005.hs.0046",
+      "java_source_observation": {
+        "mapping_key": "HS_LIMIT_TOTAL_BYTES",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "Java-WebSocket 1.6.0 has no handshake byte, header-count, or header-line limits (translateHandshakeHttp reads unboundedly; WebSocketImpl.java:370-387 grows tmpHandshakeBytes); the observable is decided by the remaining Java checks over the same bytes",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+        ]
+      },
       "rfc_reject_code": "HS_LIMIT_TOTAL_BYTES",
       "rfc_verdict": "reject",
       "rust_expected": "HandshakeBytes(173\u003e172)"
     },
     {
       "case_id": "us005.hs.0047",
+      "java_source_observation": {
+        "mapping_key": "HS_LIMIT_HEADER_COUNT",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "Java-WebSocket 1.6.0 has no handshake byte, header-count, or header-line limits (translateHandshakeHttp reads unboundedly; WebSocketImpl.java:370-387 grows tmpHandshakeBytes); the observable is decided by the remaining Java checks over the same bytes",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+        ]
+      },
       "rfc_reject_code": "HS_LIMIT_HEADER_COUNT",
       "rfc_verdict": "reject",
       "rust_expected": "HandshakeHeaderCount(3\u003e2)"
     },
     {
       "case_id": "us005.hs.0048",
+      "java_source_observation": {
+        "mapping_key": "HS_LIMIT_HEADER_LINE_BYTES",
+        "observable": "accept",
+        "divergent": true,
+        "condition": "Java-WebSocket 1.6.0 has no handshake byte, header-count, or header-line limits (translateHandshakeHttp reads unboundedly; WebSocketImpl.java:370-387 grows tmpHandshakeBytes); the observable is decided by the remaining Java checks over the same bytes",
+        "basis": [
+          "Draft.java:70-132 (readLine, translateHandshakeHttp)"
+        ]
+      },
       "rfc_reject_code": "HS_LIMIT_HEADER_LINE_BYTES",
       "rfc_verdict": "reject",
       "rust_expected": "HandshakeHeaderLineBytes(9\u003e8)"

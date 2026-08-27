@@ -41,12 +41,25 @@
     },
     "case": {
       "type": "object", "additionalProperties": false,
-      "required": ["case_id", "rfc_verdict", "rust_expected"],
+      "required": ["case_id", "rfc_verdict", "rust_expected", "java_source_observation"],
       "properties": {
         "case_id": {"type": "string", "pattern": "^us005\\.hs\\.[0-9]{4}$"},
         "rfc_verdict": {"enum": ["accept", "reject", "incomplete"]},
         "rfc_reject_code": {"type": "string", "minLength": 1},
-        "rust_expected": {"type": "string", "minLength": 1}
+        "rust_expected": {"type": "string", "minLength": 1},
+        "java_source_observation": {"$ref": "#/$defs/javaSourceObservation"}
+      }
+    },
+    "javaSourceObservation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["mapping_key", "observable", "divergent", "basis"],
+      "properties": {
+        "mapping_key": {"enum": ["accept", "incomplete", "HS_LIMIT_TOTAL_BYTES", "HS_LIMIT_HEADER_COUNT", "HS_LIMIT_HEADER_LINE_BYTES", "HS_BARE_LF", "HS_OBS_FOLD", "HS_HEADER_NAME_NOT_TOKEN", "HS_DUPLICATE_HEADER", "HS_MALFORMED_REQUEST_LINE", "HS_METHOD_NOT_GET", "HS_HTTP_VERSION", "HS_MISSING_HOST", "HS_MISSING_UPGRADE", "HS_UPGRADE_VALUE", "HS_MISSING_CONNECTION", "HS_CONNECTION_VALUE", "HS_MISSING_KEY", "HS_KEY_NOT_BASE64", "HS_KEY_LENGTH", "HS_MISSING_VERSION", "HS_VERSION_UNSUPPORTED"]},
+        "observable": {"enum": ["accept", "reject", "incomplete"]},
+        "divergent": {"type": "boolean"},
+        "reject_channel": {"enum": ["invalid_handshake", "not_matched"]},
+        "condition": {"type": "string", "minLength": 1},
+        "basis": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
       }
     },
     "properties": {
