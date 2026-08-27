@@ -80,8 +80,9 @@ enum ClientPhase {
     AwaitingStart,
     AwaitingResponse {
         descriptor: ClientRequestDescriptor,
-        key: [u8; 24],
+        expected_accept: [u8; 28],
     },
+    Opened,
 }
 
 impl ClientHandshake {
@@ -98,23 +99,39 @@ impl ClientHandshake {
         maximum: usize,
     ) -> Result<Box<[u8]>, u64> {
         let key = crypto::encode_nonce(nonce);
+        let expected_accept = crypto::derive_accept(&key);
         let request = canonical_request(&descriptor, &key).ok_or(u64::MAX)?;
         if request.len() > maximum {
             return Err(u64::try_from(request.len()).unwrap_or(u64::MAX));
         }
-        self.phase = ClientPhase::AwaitingResponse { descriptor, key };
+        self.phase = ClientPhase::AwaitingResponse {
+            descriptor,
+            expected_accept,
+        };
         Ok(request)
     }
 
     pub(crate) fn has_started(&self) -> bool {
-        matches!(self.phase, ClientPhase::AwaitingResponse { .. })
+        !matches!(self.phase, ClientPhase::AwaitingStart)
     }
 
-    pub(crate) fn retained_identity(&self) -> Option<(&ClientRequestDescriptor, &[u8; 24])> {
-        match &self.phase {
-            ClientPhase::AwaitingStart => None,
-            ClientPhase::AwaitingResponse { descriptor, key } => Some((descriptor, key)),
+    pub(crate) fn accept_canonical_response(
+        &mut self,
+        response: &[u8],
+    ) -> Option<ClientRequestDescriptor> {
+        let ClientPhase::AwaitingResponse {
+            descriptor,
+            expected_accept,
+        } = &self.phase
+        else {
+            return None;
+        };
+        if !crate::handshake::http::is_canonical_response(response, expected_accept) {
+            return None;
         }
+        let descriptor = descriptor.clone();
+        self.phase = ClientPhase::Opened;
+        Some(descriptor)
     }
 }
 

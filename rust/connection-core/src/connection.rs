@@ -342,10 +342,16 @@ impl TransportWrite {
     }
 }
 
-/// Typed semantic events reserved for later protocol stories.
+/// Typed semantic events emitted by completed protocol slices.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum SemanticEvent {}
+pub enum SemanticEvent {
+    /// A client opening handshake completed successfully.
+    ClientHandshakeOpened {
+        /// The descriptor whose request was accepted by the peer.
+        descriptor: ClientRequestDescriptor,
+    },
+}
 
 /// One output in exact occurrence order.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -555,6 +561,23 @@ impl ConnectionCore {
                     }),
                     state: self.state,
                 },
+            };
+        }
+        if let CoreInput::Transport(bytes) = input
+            && self.role == Role::Client
+            && self.client_handshake.has_started()
+            && let Some(descriptor) = self
+                .client_handshake
+                .accept_canonical_response(bytes.as_slice())
+        {
+            self.state = ConnectionState::Open;
+            return StepResult {
+                outputs: Box::new([
+                    CoreOutput::StateChanged(ConnectionState::Open),
+                    CoreOutput::SemanticEvent(SemanticEvent::ClientHandshakeOpened { descriptor }),
+                ]),
+                failure: None,
+                state: self.state,
             };
         }
         let owner_story = match input {
