@@ -1,12 +1,13 @@
 # Rust workspace for the verified Java -> Rust WebSocket port (enabling scaffold).
 # See docs/rust-workspace.md and rust/README.md. No user story is claimed complete
-# by this workspace. connection-core is an UNIMPLEMENTED placeholder pending
-# US-009..US-019; candidate-stub holds the US-005 candidate-execution
-# instruments (inert stub negative control + planted Rust mutants), which are
-# calibration artifacts, not port crates.
+# by this workspace. ws-core (library namespace `ws_core`, per the owner
+# crate-naming decision us009_crate_naming = ws_core) is an UNIMPLEMENTED
+# placeholder pending US-009..US-019; candidate-stub holds the US-005
+# candidate-execution instruments (inert stub negative control + planted Rust
+# mutants), which are calibration artifacts, not port crates.
 [workspace]
 resolver = "3"
-members = ["candidate-stub", "connection-core"]
+members = ["candidate-stub", "ws-core"]
 
 [workspace.package]
 version = "0.0.0"

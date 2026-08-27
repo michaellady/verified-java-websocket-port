@@ -11,7 +11,7 @@ performance representations beyond compile/test correctness).
 
 - No user story (US-009 or any other) is claimed complete, started-toward
   acceptance, or partially accepted by this scaffold.
-- No WebSocket behavior exists: every module in `connection-core` is an
+- No WebSocket behavior exists: every module in `ws-core` is an
   empty, documented placeholder marked UNIMPLEMENTED.
 - No performance representation of any kind is made. No benchmark sample was
   collected, no tuning performed.
@@ -23,7 +23,7 @@ performance representations beyond compile/test correctness).
 
 `rust/rust-toolchain.toml` pins channel `1.95.0`, matching the
 digest-qualified intake pin in `evidence/intake/toolchain-pins.json`
-(`rustc-1.95.0-aarch64-apple-darwin`). A unit test inside `connection-core`
+(`rustc-1.95.0-aarch64-apple-darwin`). A unit test inside `ws-core`
 fails if the pin drifts from `1.95.0`. Edition 2024, `rust-version = 1.95.0`.
 
 ## Quality gates
@@ -43,7 +43,7 @@ pipeline stories, not this scaffold):
 
 - Every first-party crate carries `#![forbid(unsafe_code)]` (PRD gate) and
   `#![deny(missing_docs)]` so the eventual public contract arrives
-  documented. A smoke test (`connection-core/tests/scaffold_smoke.rs`) parses
+  documented. A smoke test (`ws-core/tests/scaffold_smoke.rs`) parses
   the library source and fails if either attribute is removed.
 - **Design stance: the Sans-I/O core is dependency-free.** It transforms
   bytes and commands into typed values without sockets, clocks, or
@@ -57,7 +57,7 @@ pipeline stories, not this scaffold):
 
 | Story | Workspace surface (future home; nothing implemented) |
 | --- | --- |
-| US-009 | `connection-core` crate: the `ConnectionCore` contract types in `src/connection.rs` (config/role/commands/writes/events/state/failures), plus workspace gates. US-009 may rename or relocate crates (its PRD `files` list sketches a root-level `crates/websocket-core`); this scaffold does not pre-commit that decision. |
+| US-009 | `ws-core` crate (library namespace `ws_core`): the `ConnectionCore` contract types in `src/connection.rs` (config/role/commands/writes/events/state/failures), plus workspace gates. Crate naming is decided: the owner decision of 2026-08-27 (us009_crate_naming = ws_core) fixed the migration map's `ws_core::` namespace as canonical, and the crate is named to match; the PRD `files` list's sketched root-level `crates/websocket-core` is superseded by that decision. |
 | US-010 | `src/handshake.rs` -- client opening handshake. |
 | US-011 | `src/handshake.rs` -- server opening handshake. |
 | US-012 | `src/framing.rs` -- canonical framing, masking, allocation limits. |
@@ -72,8 +72,9 @@ pipeline stories, not this scaffold):
 ## What this scaffold changed
 
 - `rust/` (new): workspace `Cargo.toml` + `Cargo.lock`, `rust-toolchain.toml`,
-  `Makefile`, `README.md`, `connection-core` crate with doc-only modules and
-  smoke tests.
+  `Makefile`, `README.md`, `ws-core` crate (scaffolded as `connection-core`,
+  renamed to `ws-core` once the owner crate-naming decision landed) with
+  doc-only modules and smoke tests.
 - `.gitignore`: appended explicit `rust/` target-directory entries.
 - `docs/rust-workspace.md` (this file).
 

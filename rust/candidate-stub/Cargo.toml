@@ -7,7 +7,7 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
-# Verification-instrument stance: like connection-core, this crate is
+# Verification-instrument stance: like ws-core, this crate is
 # dependency-free by design. The protocol envelope it needs (extracting
 # request_id / request_digest / role / initial_state from canonical JSONL
 # request lines and emitting fixed inert or planted-deviant responses) is

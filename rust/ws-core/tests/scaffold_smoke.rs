@@ -6,8 +6,10 @@
 //! nothing about WebSocket behavior -- there is none to claim.
 
 // Linking this integration test against the library is itself the
-// "crate compiles" assertion.
-use connection_core as _;
+// "crate compiles" assertion. The library namespace is `ws_core` per the
+// owner crate-naming decision (us009_crate_naming = ws_core): the migration
+// map's `ws_core::` namespace is canonical.
+use ws_core as _;
 
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -59,7 +61,7 @@ fn crate_is_dependency_free() {
         }
         if in_dependency_table && !line.is_empty() && !line.starts_with('#') {
             panic!(
-                "connection-core must stay dependency-free \
+                "ws-core must stay dependency-free \
                  (see docs/rust-workspace.md); found dependency line: {line}"
             );
         }

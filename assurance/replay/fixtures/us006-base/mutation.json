@@ -27,8 +27,8 @@
     },
     {
       "kind": "copy_file",
-      "source": "rust/connection-core/src/connection.rs",
-      "target": "rust/connection-core/src/connection.rs"
+      "source": "rust/ws-core/src/connection.rs",
+      "target": "rust/ws-core/src/connection.rs"
     },
     {
       "kind": "copy_file",
