@@ -5,8 +5,915 @@
   "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
   "status": "BLOCKED_PENDING_BASELINE",
   "normative_authority": "rfc6455",
-  "head": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
-  "records": [],
+  "head": "sha256:b7a8492493d2752b8826a5d85d817f1dc90c7d6fa644ffdeb9b4886b3e99516e",
+  "records": [
+    {
+      "schema_version": "1.0.0",
+      "sequence": 1,
+      "previous_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-6ed944b562803a5e8a19580c802db1ecca630899db034360c34489ed68838cb3",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.missing-host.hs0013:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.1",
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:7cd1b93eca7de38d0c970101778b0836530f79dd05513170e0cc4ddd9101b311",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+        "java_observation_digest": "sha256:6222bafe19c8780dcc1c08a8d6bcd4cb9b9cd33a370fa3f289e15d7a643b195c",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:6ed944b562803a5e8a19580c802db1ecca630899db034360c34489ed68838cb3",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (missing-host, live case us005.hs.0013): the RFC requires a Host header; the live pinned Java server accepted the request with no Host header (never examined). Pinned by rust/ws-core/tests/handshake_server.rs::missing_host_upgrade_connection_and_their_values_are_never_examined. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:cfaefe4c2a4e77c5ca6b7501aa32666f0962ec9d388849d40b666ca58afaa737"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 2,
+      "previous_digest": "sha256:cfaefe4c2a4e77c5ca6b7501aa32666f0962ec9d388849d40b666ca58afaa737",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-31dc3f9c8e9fb90c93fe95f00ba5011d2501d39a0791632e13a7b93de980fa71",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.missing-upgrade.hs0014:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.1",
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:ff50f149f25ef9d9ad5dd0da8f25f6fcb31f3a2371a1ff0d5359dfc720aec253",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+        "java_observation_digest": "sha256:84e012530df94958d8910a6f8e6261626c13b7b437d5a37af3aeb2a59bee27fa",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:31dc3f9c8e9fb90c93fe95f00ba5011d2501d39a0791632e13a7b93de980fa71",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (missing-upgrade, live case us005.hs.0014): the RFC requires an Upgrade: websocket header; the live pinned Java server accepted the request with no Upgrade header (never examined). Pinned by rust/ws-core/tests/handshake_server.rs::missing_host_upgrade_connection_and_their_values_are_never_examined. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:3b42c50f538ba85b73bf36f9fbb1a890534244c133368c43d1521f4df9c01f8f"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 3,
+      "previous_digest": "sha256:3b42c50f538ba85b73bf36f9fbb1a890534244c133368c43d1521f4df9c01f8f",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-0d73f10c4be99f51afcee112ca46bbce78084cc9f22d853faa360761bed613cf",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.upgrade-value.hs0015:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:ca53dc510b30aa01f975935be261b0687d2088b2eee5f8f3365b0ba7c4837567",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+        "java_observation_digest": "sha256:7540f69e4bfafd34ca4dfc4a87ad541a45285e0c997ece6bf8116878ae32944f",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:0d73f10c4be99f51afcee112ca46bbce78084cc9f22d853faa360761bed613cf",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (upgrade-value, live case us005.hs.0015): the RFC requires Upgrade to equal 'websocket'; the live pinned Java server accepted a request whose Upgrade value is wrong (the value is never examined). Same never-examined predicate as us005.hs.0013. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:2169265106903e7e6fa7202990ed455535b594908a266b7c8c38998323625c0e"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 4,
+      "previous_digest": "sha256:2169265106903e7e6fa7202990ed455535b594908a266b7c8c38998323625c0e",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-2edec196a374043929b98572c49578779e57a99aeff7ec5a5b10896771189f73",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.missing-connection.hs0016:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.1",
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:7c3c5bc325c6767aed0605537101395ef714ad05ffaba761dd31b6435e71b59b",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+        "java_observation_digest": "sha256:cfbddc1eaf95f8a680d837cce913c11bac117c716ebb18db613041088163a02f",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:2edec196a374043929b98572c49578779e57a99aeff7ec5a5b10896771189f73",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (missing-connection, live case us005.hs.0016): the RFC requires a Connection: Upgrade header; the live pinned Java server accepted the request with no Connection header (never examined). Pinned by rust/ws-core/tests/handshake_server.rs::missing_host_upgrade_connection_and_their_values_are_never_examined. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:238e3db97b13eb5238fc5b2848d008c3202718ccb8ac5fce5e326bad5d21a634"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 5,
+      "previous_digest": "sha256:238e3db97b13eb5238fc5b2848d008c3202718ccb8ac5fce5e326bad5d21a634",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-53eeeb8b1255fc55fbe3d86d6af835d3be430eba2a6cb275f28569e3b1f297db",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.connection-value.hs0017:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:24667a7f125cea225ca82816c962a048a23b1653556463034ceeee9732175f1f",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:acceptHandshakeAsServer",
+        "java_observation_digest": "sha256:f60de7c849e7610b2644a62d9cc91d9048432abf96791266eb9f6adc799e009d",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:53eeeb8b1255fc55fbe3d86d6af835d3be430eba2a6cb275f28569e3b1f297db",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (connection-value, live case us005.hs.0017): the RFC requires the Connection value to include 'Upgrade'; the live pinned Java server accepted a request whose Connection value is wrong (the value is never examined). Same never-examined predicate as us005.hs.0013. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:5dbe9d527cfe60a9a16d9506ba21c2b48880f122ac4b6e7a26c7a9dec1b46fd5"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 6,
+      "previous_digest": "sha256:5dbe9d527cfe60a9a16d9506ba21c2b48880f122ac4b6e7a26c7a9dec1b46fd5",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-193973cb2c13ab144f5fcf0c051c7c2027927474eafdd636f0b89bd990262df8",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.key-not-base64.hs0019:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:9a006d6a19a28bb2169862f00aa921da1b4f275bcb96b1edc611a6ab332c7d65",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:generateFinalKey",
+        "java_observation_digest": "sha256:5004739ddc152aa44c78ce7d666916889b63c23fd5a784ccbc6dbbb8f8a3e660",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:193973cb2c13ab144f5fcf0c051c7c2027927474eafdd636f0b89bd990262df8",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (key-not-base64, live case us005.hs.0019): the RFC requires a base64 16-byte key; the live pinned Java server accepted a non-base64 key and derived the accept from the raw string. Pinned by rust/ws-core/tests/handshake_server.rs::non_base64_and_wrong_length_keys_are_hashed_as_is; seed rust/ws-core/fuzz-seeds/us011/noncanonical-key.hex. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:0b9afdcd7613342e146a231ca531056bb3ce2af72861a7cf3124d5112f4b4b29"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 7,
+      "previous_digest": "sha256:0b9afdcd7613342e146a231ca531056bb3ce2af72861a7cf3124d5112f4b4b29",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-12b6cbb32e7200a090dcd68a7cbf88186d802f6cae24e464fd3cdf3700222da1",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.key-not-base64.hs0020:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:9a006d6a19a28bb2169862f00aa921da1b4f275bcb96b1edc611a6ab332c7d65",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:generateFinalKey",
+        "java_observation_digest": "sha256:cb7727b1691e3b46e3ee9791caf62ab102747acb7e05a0186da38553eeb83b2b",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:12b6cbb32e7200a090dcd68a7cbf88186d802f6cae24e464fd3cdf3700222da1",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (key-not-base64, live case us005.hs.0020): second live-recorded key-not-base64 input shape; same never-validated predicate and ws_core site as us005.hs.0019. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:37a909b24dd7b3a25753eb5eeaefa523fb58ff1492d56ac98f4753a97ca56b90"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 8,
+      "previous_digest": "sha256:37a909b24dd7b3a25753eb5eeaefa523fb58ff1492d56ac98f4753a97ca56b90",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-e52f9639e84d81f49472201e30087b4876632056ad80bce97f3aa1a249fcec2a",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.key-wrong-length.hs0021:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:eae18935daebdf6770a519e3ade4c1f13685b408f3165901399fbf670a213d49",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:generateFinalKey",
+        "java_observation_digest": "sha256:2c2e5040930ff2e27ec86e2b7e98596f7cc63c27066933f318fbabafcdc56125",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:e52f9639e84d81f49472201e30087b4876632056ad80bce97f3aa1a249fcec2a",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (key-wrong-length, live case us005.hs.0021): the RFC requires a decoded 16-byte key; the live pinned Java server accepted a wrong-length key. Pinned by rust/ws-core/tests/handshake_server.rs::non_base64_and_wrong_length_keys_are_hashed_as_is; seed rust/ws-core/fuzz-seeds/us011/wrong-key-length.hex. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:9496f582dfc4bac5e267971b2f8f5dd10f30776742cff9a5420eed2eb29eaf6b"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 9,
+      "previous_digest": "sha256:9496f582dfc4bac5e267971b2f8f5dd10f30776742cff9a5420eed2eb29eaf6b",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-a2ea2c29e78a185fe12c2b7b4d090f18e9a973d0b967a2a2324c45a4b72bb29f",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.key-wrong-length.hs0022:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:eae18935daebdf6770a519e3ade4c1f13685b408f3165901399fbf670a213d49",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:generateFinalKey",
+        "java_observation_digest": "sha256:264f9c0f780c74f6532456d0c3a6b869a793a3c3a550d3d01663f0704e7f46c1",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:a2ea2c29e78a185fe12c2b7b4d090f18e9a973d0b967a2a2324c45a4b72bb29f",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (key-wrong-length, live case us005.hs.0022): second live-recorded key-wrong-length input shape; same never-validated predicate and ws_core site as us005.hs.0021. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:c590c0e58c25eee2c2f3230bb4fa848b41ae48ac20bcf5d2c7b39b19972be445"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 10,
+      "previous_digest": "sha256:c590c0e58c25eee2c2f3230bb4fa848b41ae48ac20bcf5d2c7b39b19972be445",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-066b2149e7ab852842a4767486bb7deaae619bc1e6f0d20edbd06aa4d336a261",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.duplicate-header.hs0027:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:9b04b94a784bfa1cef9dab55b16dc68f5227ed3b4a5ba633624bfa907d338bba",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+        "java_observation_digest": "sha256:e4799163b360c63a36f6c97f7caa597eabf64008e081c6ce5ccb62650b6032a2",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:066b2149e7ab852842a4767486bb7deaae619bc1e6f0d20edbd06aa4d336a261",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (duplicate-header, live case us005.hs.0027): the RFC-derived model rejects the duplicated Sec-WebSocket-Key; the live pinned Java server joined the values and accepted (mapping note: the duplicated-Version sibling instead rejects NOT_MATCHED). Pinned by rust/ws-core/tests/handshake_server.rs::duplicated_key_joins_and_hashes_the_joined_string and ::duplicated_version_joins_to_an_unparseable_value_and_rejects_not_matched. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:5a0bcec788615e24bed6e843c35d90bedecc3a2837d311a67f26ad8c3385f6b2"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 11,
+      "previous_digest": "sha256:5a0bcec788615e24bed6e843c35d90bedecc3a2837d311a67f26ad8c3385f6b2",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-f013c55d6819d78e613d6470ba67a7173ce2faff13707c55c17e0b227419bd4d",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.header-name-not-token.hs0029:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:3db4a4d0bc9559d33ce60258c6c41ada5855505739a16ed3903893ff30da2a32",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+        "java_observation_digest": "sha256:ee857b423ce8fc752052eba90d8ba19a88e904254e27745967bb0b1018335999",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:f013c55d6819d78e613d6470ba67a7173ce2faff13707c55c17e0b227419bd4d",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (header-name-not-token, live case us005.hs.0029): the RFC-derived model rejects a non-token header name; the live pinned Java server accepted it. Pinned by rust/ws-core/tests/handshake_server.rs::header_names_are_never_token_validated; seed rust/ws-core/fuzz-seeds/us011/invalid-header-name.hex. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:f97b606433a3a12f25343ebd9cc6ad2f1d03d2f25dd297d82751fd99217b0c50"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 12,
+      "previous_digest": "sha256:f97b606433a3a12f25343ebd9cc6ad2f1d03d2f25dd297d82751fd99217b0c50",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-497d2b4f680560402ad5632b06dada7cf6f093b48a807df1bc97456f27b34ddf",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.header-name-not-token.hs0030:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:3db4a4d0bc9559d33ce60258c6c41ada5855505739a16ed3903893ff30da2a32",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+        "java_observation_digest": "sha256:3ee944a0379b9e1afff1ed4bbb44a4d6724369969ceb1e82b8a005476ee582b8",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:497d2b4f680560402ad5632b06dada7cf6f093b48a807df1bc97456f27b34ddf",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (header-name-not-token, live case us005.hs.0030): second live-recorded non-token header-name input shape; same never-validated predicate and ws_core site as us005.hs.0029. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:b7d87d53899b49e125523212623cb41046a25816fd0c8047204a57a98c47971d"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 13,
+      "previous_digest": "sha256:b7d87d53899b49e125523212623cb41046a25816fd0c8047204a57a98c47971d",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-5084efaf08126e24d74a1bdea7da8b88eca6ef69fce631aef388c61ea3a86db2",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.bare-lf.hs0034:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-4.2.1"
+        ],
+        "rfc_expectation_digest": "sha256:2ac365fbb467063e46ad88897db1e18cdc29adbfe636c76f1432b81f3f6803e6",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:readLine",
+        "java_observation_digest": "sha256:2e4045145d1197aaa4cec313bb421fadacff847949d7ac83b6af2c3819496c0f",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:5084efaf08126e24d74a1bdea7da8b88eca6ef69fce631aef388c61ea3a86db2",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (bare-lf, live case us005.hs.0034): the RFC-derived model rejects the bare-LF line; the live pinned Java server folded it and accepted. Pinned by rust/ws-core/tests/handshake_server.rs::bare_lf_folds_into_the_next_line_and_still_accepts; seed rust/ws-core/fuzz-seeds/us011/bare-lf.hex. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:0ee1c2f0d6ee163aab4ea465522c9d51774779b30601f6467163e7cffb64afec"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 14,
+      "previous_digest": "sha256:0ee1c2f0d6ee163aab4ea465522c9d51774779b30601f6467163e7cffb64afec",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-0b3b46bc555629de7e873b3210c312d74baebd4314170b0997d4c2fd3537d99e",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-total-bytes.hs0046:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-10.4"
+        ],
+        "rfc_expectation_digest": "sha256:2fe4bf14d1dba349654d71d5bb4f4ac65e402dd2e50ebb5113f1ec9e867fb435",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+        "java_observation_digest": "sha256:64a749cab9b66847c6e48c55eda8ed1ab4ef9b034ecd9da75a433e119ce00d8b",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:0b3b46bc555629de7e873b3210c312d74baebd4314170b0997d4c2fd3537d99e",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (limit-total-bytes, live case us005.hs.0046): the RFC-derived model rejects the over-budget handshake; the live pinned Java server (which has no limits) accepted it. ws_core retains CONFIGURED handshake budgets as a hard safety ceiling (JAVA_FAITHFUL_PLUS_SAFE: Java's unbounded growth is NOT emulated) while the live-exam input fits the configured budget and accepts exactly as live Java did; seed rust/ws-core/fuzz-seeds/us011/total-limit.hex. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:b5d30e8942c21e9ba007ed103dee68514e7101e80d95fabe29a0ebe16baf04c6"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 15,
+      "previous_digest": "sha256:b5d30e8942c21e9ba007ed103dee68514e7101e80d95fabe29a0ebe16baf04c6",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-ffc8fa535cdeb82aaedb59919ef6b02f67b19815662737ee837c93eacacbe991",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-count.hs0047:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-10.4"
+        ],
+        "rfc_expectation_digest": "sha256:528a5e552fb56cf587c3d5249ef1253ae10e685811295c1eaff71dc30f734a37",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+        "java_observation_digest": "sha256:95b153db1d77ffeb178173942380c189d43a92ad67decceb05843f2237d29479",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:ffc8fa535cdeb82aaedb59919ef6b02f67b19815662737ee837c93eacacbe991",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (limit-header-count, live case us005.hs.0047): the RFC-derived model rejects the over-count handshake; the live pinned Java server (no limits) accepted it. ws_core retains the configured header-count budget as the safety ceiling (JAVA_FAITHFUL_PLUS_SAFE); the live-exam input fits the budget and accepts exactly as live Java did; seed rust/ws-core/fuzz-seeds/us011/count-limit.hex. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:7658b730c65ff5cb1734b29416a97748461cf4bf5c384a4317b9387fc0903738"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 16,
+      "previous_digest": "sha256:7658b730c65ff5cb1734b29416a97748461cf4bf5c384a4317b9387fc0903738",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-ccbff7cfa1813dadd889b86f540da4328a921a0c93972b172177b323f5f5354f",
+        "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-10.4"
+        ],
+        "rfc_expectation_digest": "sha256:00d2d936dc26793d74940b3d869568863be4901e0612884e06c280f1e77086a0",
+        "rfc_value_digest": "sha256:72ff978f34b41bbc67e5d5deea6d3126ee48fea756679ba6ff642b6fbf26a22a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
+        "java_observation_digest": "sha256:efce1b570d12cf03ae1219af9ede879bd1d3871bf4496f9dab44dfc1e379df2d",
+        "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:ccbff7cfa1813dadd889b86f540da4328a921a0c93972b172177b323f5f5354f",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (limit-header-line, live case us005.hs.0048): the RFC-derived model rejects the over-length header line; the live pinned Java server (no limits) accepted it. ws_core retains the configured line budget as the safety ceiling (JAVA_FAITHFUL_PLUS_SAFE); the live-exam input fits the budget and accepts exactly as live Java did; seed rust/ws-core/fuzz-seeds/us011/line-limit.hex. WS_CORE SITE: rust/ws-core/src/handshake/server.rs + rust/ws-core/src/handshake/http.rs implement the shipped Java accept predicate (HTTP-version-13 plus non-empty Sec-WebSocket-Key only; quirks Q1-Q8 per the module doc). SAFETY: acceptance is bounded by the configured handshake budgets (HeadAccumulator allocates budget-before-buffer; rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit) under forbid(unsafe_code); no unchecked allocation or panic path is introduced by emulating the accept. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:98ac702a91c28396bc57b85968248624cc6b06ea300b47d98770b0653ac42909"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 17,
+      "previous_digest": "sha256:98ac702a91c28396bc57b85968248624cc6b06ea300b47d98770b0653ac42909",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-b80af180e23bafbe4a2b0377066c0367ee79ab7378a8e3837d00089b53854941",
+        "subject_ref": "semantic:org.java-websocket.draft6455.framing.noncanonical-extended-length:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.2"
+        ],
+        "rfc_expectation_digest": "sha256:540d79f9680552f8a83281a4048339567bfbcc4d5854db76d943a9726ed845e1",
+        "rfc_value_digest": "sha256:0717301e35cc07503ac61c86cdfbaf7d2409e63d439c5176a857d8b6306432e0",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFrame",
+        "java_observation_digest": "sha256:db74d4af128a345dc651cf4742e181a3d8fc2f46e85b8e1cf33b128b48d6c494",
+        "java_value_digest": "sha256:496a516b2f9025b9aafeaf0052b9b283949766eb076f25192e5536c18286554a",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:b80af180e23bafbe4a2b0377066c0367ee79ab7378a8e3837d00089b53854941",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (noncanonical extended length, 16-bit and 64-bit forms): the RFC requires rejecting non-minimal length encodings with 1002; the pinned Java runtime performs no minimality check and accepts both forms. FIDELITY EVIDENCE: derive.go:399-420 (US-005-calibrated reference model); batch-A receipt strip record; seeds rust/ws-core/fuzz-seeds/us012/noncanonical-16.hex and rust/ws-core/fuzz-seeds/us012/noncanonical-64.hex replayed by rust/ws-core/tests/frame_codec.rs::noncanonical_extended_lengths_are_accepted_like_shipped_java. WS_CORE SITE: rust/ws-core/src/framing.rs extended-length decode. SAFETY: the decoded length still passes the control-payload gate and the configured frame-size gate (1009) before any allocation, so a non-minimal encoding cannot bypass the allocation ceilings; forbid(unsafe_code). OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:823e7d0b647115cd1f58c8658a594f4ef4e449f723b465994afa2da48fc990ab"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 18,
+      "previous_digest": "sha256:823e7d0b647115cd1f58c8658a594f4ef4e449f723b465994afa2da48fc990ab",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-d3c9c70db9d4a44420ed9abb23f6f2677ec6dd245c3a42eb9b811822eca7092e",
+        "subject_ref": "semantic:org.java-websocket.draft6455.framing.mask-by-role-acceptance:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.1",
+          "rfc6455#section-5.2"
+        ],
+        "rfc_expectation_digest": "sha256:9ae3bb2b43e883929a066bbe64d09fe4bd03ab11901aaa61f2203eeb2bfd7148",
+        "rfc_value_digest": "sha256:48c01361cd98d83b805f6924dd93b0be4b5f83d6a53398c66fca0172e33c3cae",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFrame",
+        "java_observation_digest": "sha256:e8a5c4178ee43b663bc098e935d079174bb96543312cdc35a2df3c1518faffad",
+        "java_value_digest": "sha256:c3262f9d4b8c9bb57fa2b6937a39dc2eb2bb5b88a448dbf781e567ead114a488",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:1.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:d3c9c70db9d4a44420ed9abb23f6f2677ec6dd245c3a42eb9b811822eca7092e",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (mask-by-role): the RFC requires rejecting role-inappropriate masking with 1002; the pinned Java runtime accepts either masking toward either role. FIDELITY EVIDENCE: derive.go:439-447 (source citation in the batch-A receipt; the shape is corpus-invisible because the corpus scopes itself to spec-conformant masking, so this record rests on the quarantined-source read plus the US-005 calibration of derive.go). Pinned by rust/ws-core/tests/frame_codec.rs::mask_direction_mismatches_are_accepted_toward_either_role and rust/ws-core/tests/ping_pong.rs::mask_role_mismatch_seeds_are_accepted_not_rejected; seeds rust/ws-core/fuzz-seeds/us012/wrong-mask-client.hex, rust/ws-core/fuzz-seeds/us012/wrong-mask-server.hex, rust/ws-core/fuzz-seeds/us015/wrong-mask-client.hex, rust/ws-core/fuzz-seeds/us015/wrong-mask-server.hex. WS_CORE SITE: rust/ws-core/src/framing.rs mask handling (unmask-if-masked, no role gate). SAFETY: unmasking is a pure XOR over an already-bounded payload; accepting either mask state adds no allocation or panic surface; outbound masking still follows the RFC role rule (client sends masked, server sends unmasked), so the port never EMITS role-inappropriate frames. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:dcb6c61a8bea21c0bc098a8584d2f257a7d2297d8308afdbcd957b3dc3082cd5"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 19,
+      "previous_digest": "sha256:dcb6c61a8bea21c0bc098a8584d2f257a7d2297d8308afdbcd957b3dc3082cd5",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-119646e52a54bcf4ba9711da2a3f563fbd6a12059f52aad84a523a5d490a2e7c",
+        "subject_ref": "semantic:org.java-websocket.draft6455.framing.length-64bit-high-bit:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.2"
+        ],
+        "rfc_expectation_digest": "sha256:6c5c5b9d4366f91de05eb3ece01db964b7aee52f6a14725a9440c0a71d0b98b1",
+        "rfc_value_digest": "sha256:2ef38dbcd2bba83078a649b78c29a7d1d3e334bb3523f992b1baba02d624adec",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFramePayloadLength",
+        "java_observation_digest": "sha256:99cc7116ff3faea7be243231b53713e86effdc6c0e9015adfda6fb8b7a3bfefe",
+        "java_value_digest": "sha256:56a798a267751a54cac86ecfbfcdae25e756d526e9f9cfe9dcfd3d9d8510681a",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:9.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:119646e52a54bcf4ba9711da2a3f563fbd6a12059f52aad84a523a5d490a2e7c",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (64-bit high-bit length): the RFC requires a 1002 failure; pinned Java's behavior is UNOBSERVED (negative-long parse, untested downstream; outside the reference model's generated space per derive.go:265-268), and ws_core deliberately does NOT emulate the untested negative-length path: it parses the length unsigned and the huge value fails the ordinary configured frame-size gate with 1009 at length site 10. This is the one deliberately divergence-shaped port choice recorded in the batch-A honesty notes, now ledgered under the owner mandate. FIDELITY EVIDENCE: batch-A receipt honesty note; seed rust/ws-core/fuzz-seeds/us012/high-bit-64.hex replayed by rust/ws-core/tests/frame_codec.rs::high_bit_64_length_is_an_ordinary_oversized_length_at_site_10. WS_CORE SITE: rust/ws-core/src/framing.rs 64-bit length decode. SAFETY: the unsigned parse plus the checked frame-size gate (1009) means no allocation is ever attempted for the declared length; this is a safety ceiling the owner decision explicitly retains (bounded allocation remains binding). OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:e16361f878058aa79413760b3137a1caf2535caec7525a7fc5af5a63b60cfc22"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 20,
+      "previous_digest": "sha256:e16361f878058aa79413760b3137a1caf2535caec7525a7fc5af5a63b60cfc22",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-b375f7126b944afad6a75453a1871d18bb48b74ad0cf04fd94a80eb649f01809",
+        "subject_ref": "semantic:org.java-websocket.draft6455.framing.post-payload-rejection-site:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.2",
+          "rfc6455#section-5.5"
+        ],
+        "rfc_expectation_digest": "sha256:8f9b23d60d0b9211c44ae4bd4d107dad3a5378eba6e4fdca28729a27cb694fdb",
+        "rfc_value_digest": "sha256:2c7058dac8bc751a75f4ca7ec30858931d19b9dbf8b51a5dc8799ec998f25475",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFrame",
+        "java_observation_digest": "sha256:eb8beccade7b46fdc06da117d3b62fe899f3ea83cc5d3620096422e66cac7545",
+        "java_value_digest": "sha256:d5a6172d8816a4c8a5af361be79ca3b187e56a5f583110a4349d580ffb27d163",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:3.1",
+          "autobahn-v25.10.1:5.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:b375f7126b944afad6a75453a1871d18bb48b74ad0cf04fd94a80eb649f01809",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (rejection SITE, not verdict): both the RFC expectation and pinned Java reject RSV-bit and non-final control frames with 1002, but Java's observable rejection site is after the full frame is consumed, not at the header. FIDELITY EVIDENCE: corpus families rsv-bit (us005.pub.0005, us005.pub.0029, us005.pub.0058) and control-nonfin (us005.pub.0020). Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/tests/frame_codec.rs::reserved_bits_reject_1002_only_after_the_full_frame and ::non_fin_control_frame_rejects_1002_after_the_full_frame (control path: rust/ws-core/tests/ping_pong.rs::non_fin_control_rejects_1002_after_the_full_frame); seeds rust/ws-core/fuzz-seeds/us012/rsv1.hex, rsv2.hex, rsv3.hex, fragmented-control.hex. WS_CORE SITE: rust/ws-core/src/framing.rs post-payload checks. SAFETY: the payload consumed before rejection is still bounded by the control-payload and configured frame-size gates, so the deferred site cannot force unbounded buffering; forbid(unsafe_code). OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:3972d3e310cc7308692ce8236bd7d5c0df9d08737d04698d534dccb10c3eeed1"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 21,
+      "previous_digest": "sha256:3972d3e310cc7308692ce8236bd7d5c0df9d08737d04698d534dccb10c3eeed1",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-ecf707c2483b2d5926928fd287c15706ee3c14f6af85c7d012a3173accd81ceb",
+        "subject_ref": "semantic:org.java-websocket.draft6455.framing.control-extended-length-marker-site:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.5"
+        ],
+        "rfc_expectation_digest": "sha256:ea82ceccd73c02e9577845df1d3577ccaff880a70c53bb4a62ac949e4e36d519",
+        "rfc_value_digest": "sha256:d82b00b276fbb12dce85855e3ea736a490652519d43dd01e2b81b2a18d391a5a",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateSingleFramePayloadLength",
+        "java_observation_digest": "sha256:1bf80a55a342efbb8bcf60ede86b4eab0361daec68318b1ba160f0e98f2a2f86",
+        "java_value_digest": "sha256:a72dc4e43edb654c1d395849759a08aad50c030c21d1b2dc6810ace6ab472b94",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:2.5"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:ecf707c2483b2d5926928fd287c15706ee3c14f6af85c7d012a3173accd81ceb",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (detection-site granularity): verdicts agree (1002), but pinned Java rejects the control extended-length MARKER at header byte 2 without reading the declared length, so its consumed-byte observable differs from an RFC-minimal parser that reads the length first. FIDELITY EVIDENCE: derive.go:402-407; corpus family control-oversize (us005.pub.0057, us005.pub.0059). Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/tests/frame_codec.rs::extended_length_control_marker_rejects_1002_before_reading_the_length and rust/ws-core/tests/ping_pong.rs::extended_length_control_marker_rejects_at_the_base_header; seed rust/ws-core/fuzz-seeds/us012/oversized-control.hex. WS_CORE SITE: rust/ws-core/src/framing.rs control length-marker gate. SAFETY: rejecting at the marker byte consumes LESS input than the RFC-shaped alternative; no allocation occurs for the declared length. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:0d8231f40ee0933acad7462ed60f048fdaa6e1dc0df0d5a0afe3f08a79bedbc9"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 22,
+      "previous_digest": "sha256:0d8231f40ee0933acad7462ed60f048fdaa6e1dc0df0d5a0afe3f08a79bedbc9",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-4e6bffb12b05856babb99a3df92f459e207b6d7f38e8c28fa374ad29eb06398c",
+        "subject_ref": "semantic:org.java-websocket.draft6455.framing.consumed-bytes-error-sites:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.2"
+        ],
+        "rfc_expectation_digest": "sha256:4aef7cf71ae76f92d09e143a596093eef887311afda7695b6a6b56abb724508f",
+        "rfc_value_digest": "sha256:37c7b1916cc12b1b1da0c95aa54ad735216c124d014e7867eaf1a1d18d02f9e1",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:translateFrame",
+        "java_observation_digest": "sha256:e2b166c156ea7fc88920ef938fa6f37d3e9e93ecd88773512a0d327b7a15d443",
+        "java_value_digest": "sha256:f1d82d0c3dc8d7176d45a180a594be7833c09384a4f38217b544a575e63986d0",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:4.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:4e6bffb12b05856babb99a3df92f459e207b6d7f38e8c28fa374ad29eb06398c",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (error-site observables): the reject verdicts match the RFC, but the pinned runtime's consumed-byte offsets and its discard-the-chunk translate semantics are Java-specific observables an RFC-minimal parser would not produce. FIDELITY EVIDENCE: derive.go quirk-Q25 sites (batch-A receipt correction record); corpus families bad-opcode (us005.pub.0036, us005.pub.0065) and multi-frame-chunk (us005.pub.0043, us005.pub.0053). Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/tests/frame_codec.rs (Q25 site tests, e.g. ::prior_valid_frame_is_discarded_when_a_later_frame_fails_translate). WS_CORE SITE: rust/ws-core/src/framing.rs per-site consumed accounting; rust/ws-core/src/event.rs consumed_bytes observable. SAFETY: error-site accounting is observational only; every path still terminates with a typed failure and bounded state. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:572f741bba9fa12d046cbbd2d7f2edd4289a7a7ef809da8c5287b0a7aff7ae87"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 23,
+      "previous_digest": "sha256:572f741bba9fa12d046cbbd2d7f2edd4289a7a7ef809da8c5287b0a7aff7ae87",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-cf346fa356a2d1389ce2b76679c979f1b78b061dc5b9cdef6ec5f3419c182088",
+        "subject_ref": "semantic:org.java-websocket.charsetfunctions.two-stage-utf8-timing:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-8.1"
+        ],
+        "rfc_expectation_digest": "sha256:584e5fc7a51c1bc8cf89e5304a38a1f9dbf05ba406f3d4c3fe0b154b8d741db0",
+        "rfc_value_digest": "sha256:286b7cb861f5c468b7f3ef6004ee7077b12fae9fa350f4eed248321f33e90681",
+        "java_ref": "java-v1.6.0:org.java_websocket.util.Charsetfunctions:isValidUTF8",
+        "java_observation_digest": "sha256:2c0613df4d1b5d230cecb8a8b92342d4caa0f2ef3f118afaeba4e40dd4b012fe",
+        "java_value_digest": "sha256:4ad002929899856cbb864e3100fbe36c2b0efa486381d6030e0d2d902ad09612",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:6.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:cf346fa356a2d1389ce2b76679c979f1b78b061dc5b9cdef6ec5f3419c182088",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (validation timing): both reject invalid UTF-8 with 1007, but pinned Java's two-stage gate first records the frame (translate DFA accepts dangling incomplete tails) and only the process-time strict gate rejects, producing a frame-record observable an RFC-strict single-pass validator would not emit. FIDELITY EVIDENCE: corpus family invalid-utf8-text (us005.pub.0056, us005.pub.0067). Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/tests/messages.rs::truncated_tails_record_the_frame_then_reject_1007_at_process_time and ::the_two_gates_diverge_exactly_on_dangling_incomplete_tails (independent cross-check ::both_gates_agree_with_the_standard_library_on_complete_inputs); seeds rust/ws-core/fuzz-seeds/us013/truncated-two.hex, truncated-three.hex, truncated-four.hex. WS_CORE SITE: rust/ws-core/src/message.rs (both gates, module doc cites the formal targets). SAFETY: both gates are total functions over bounded buffers; the deferred rejection cannot deliver invalid text to the application (the strict gate always runs before delivery). OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:9751f959140a43d945568870bea0500eb00c1166d64acb932daecaec03d06808"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 24,
+      "previous_digest": "sha256:9751f959140a43d945568870bea0500eb00c1166d64acb932daecaec03d06808",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-cc022411648aecebadcfe735d38c7e242220ce98a1873c028e94cd49927aee70",
+        "subject_ref": "semantic:org.java-websocket.draft6455.buffer-limit-check-sites:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-10.4"
+        ],
+        "rfc_expectation_digest": "sha256:53e6281c428a89e4172b9a9af02a6125558cea8666fff003090b5e15d0326e50",
+        "rfc_value_digest": "sha256:91996229f5ba6d75a5dfd6b86e880151ce9e078229dd895f69c501f1286fe766",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:checkBufferLimit",
+        "java_observation_digest": "sha256:c5d192a810de8240a65bf42f7b83608667dde35aa986a6c102595432676da0f7",
+        "java_value_digest": "sha256:a62fd827af29081d5a2786b889e820d8b52e224e9a138b4df2073cc476a3e7c7",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:9.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:cc022411648aecebadcfe735d38c7e242220ce98a1873c028e94cd49927aee70",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (limit check sites and overflow vocabulary): the RFC-shaped expectation checks every fragment; pinned Java checks only at starts and fins and splits the overflow observable (1009 vs BUFFER_LIMIT_EXCEEDED-no-close-code) by fragment position. FIDELITY EVIDENCE: derive.go processDataFrame (checkBufferLimit-at-starts-and-fins comment); corpus family buffer-limit-frame (us005.pub.0031). Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/tests/fragmentation.rs::plus_one_retention_rejects_1009_at_the_fin_with_accounting_retained, ::non_fin_continuation_overflow_is_the_adapter_add_bounded_failure and ::exact_retention_at_the_cap_delivers; seeds rust/ws-core/fuzz-seeds/us014/exact-retention.hex, plus-one-retention.hex. WS_CORE SITE: rust/ws-core/src/framing.rs (Q23 sites) and rust/ws-core/src/fragment.rs. SAFETY: the configured caps still bound every buffer before growth (add-bounded accounting); the divergence is WHERE the check fires and WHICH typed failure reports it, never whether a cap exists. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:7aecab8ef4c364b8d4068405625513f8a4577c14d898bd1f4acd95b21fe917a1"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 25,
+      "previous_digest": "sha256:7aecab8ef4c364b8d4068405625513f8a4577c14d898bd1f4acd95b21fe917a1",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-5abebb2c95dd8c36770b608f05d6969e7b44acb1bb15b9583578477b8cf59949",
+        "subject_ref": "semantic:org.java-websocket.draft6455.no-automatic-pong:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.5.2",
+          "rfc6455#section-5.5.3"
+        ],
+        "rfc_expectation_digest": "sha256:46b842d8a6035c7e4c42bc99357555a6d8dc36e4045dd7587ba8cbcd30fb1137",
+        "rfc_value_digest": "sha256:c0e9535b4e8901a10b5fe2402f6c3efca573dd946819bfc80913d7975cd16ca8",
+        "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft_6455:processFrame",
+        "java_observation_digest": "sha256:3f9c839e14ac8b4d402310569b71a117b8ca03a174d0cf6f8081c9beb7db38a2",
+        "java_value_digest": "sha256:622f16aedc40657b9caac1266ec95a842c560f49c511f43b5bcc99659816aec3",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:2.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:5abebb2c95dd8c36770b608f05d6969e7b44acb1bb15b9583578477b8cf59949",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (automatic pong): the RFC requires a pong response to every ping; the pinned runtime's oracle-observable core never auto-pongs — ping is delivered as an event and any pong policy lives ABOVE the core (rust/ws-core/src/control.rs module doc). FIDELITY EVIDENCE: derive.go:671-674; corpus family ping-inbound (us005.pub.0002, us005.pub.0071) live-executed with no pong write. Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/tests/ping_pong.rs::empty_ping_and_pong_deliver_events_and_never_reply and ::repeated_pings_deliver_and_write_nothing; seed rust/ws-core/fuzz-seeds/us015/no-unwanted-reply.hex. WS_CORE SITE: rust/ws-core/src/connection.rs process_inbound ping arm; rust/ws-core/src/control.rs (behavior-map documentation). SAFETY: not writing is strictly safer than writing (no reply amplification surface); an embedding layer that owes RFC pong semantics can implement them above the core from the delivered ping event without any core change. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:71260e23843b24fea7859e31e5a50dfd70f96b34ae6e9a01b238d92ab062fe02"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 26,
+      "previous_digest": "sha256:71260e23843b24fea7859e31e5a50dfd70f96b34ae6e9a01b238d92ab062fe02",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-c926e243eac766289c68ad61e8f5ccf711190736d7e44cc029ae46f0023857b6",
+        "subject_ref": "semantic:org.java-websocket.websocketimpl.send-control-no-payload-cap:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.5"
+        ],
+        "rfc_expectation_digest": "sha256:9cb723bbbe9012effbfb6176f1d534370315c3041fbf496b8273b6c951ee067e",
+        "rfc_value_digest": "sha256:e82d9923d4b79ee9ad325c431e3c5d5c140211534b9dad5a3f4ad7298eeb43c8",
+        "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:sendFrame",
+        "java_observation_digest": "sha256:f6af34015aac94d022bc717f4b1980e73dda072fae0026f0eae3f6489ac38f10",
+        "java_value_digest": "sha256:35377553a0666aef9706da6d771b5a424f563f6df71b42d7daeed80cb58f1836",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:2.5"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:c926e243eac766289c68ad61e8f5ccf711190736d7e44cc029ae46f0023857b6",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (send-path control cap): the RFC caps control payloads at 125 bytes; the pinned runtime sends oversized control payloads without any check. NOTE the deliberate asymmetry: INBOUND over-125 control frames are still rejected 1002 at the marker/length site (see the control-extended-length-marker record), pinned by rust/ws-core/src/connection.rs (Quirk Q17 asymmetry comment, line ~1051). FIDELITY EVIDENCE: batch-C receipt strip record; quirk Q17 quarantined-source read (Execution.sendControl / WebSocketImpl.sendFrame); pinned by rust/ws-core/tests/ping_pong.rs::oversized_control_payloads_send_successfully_quirk_q17 and rust/ws-core/tests/core_semantics.rs::send_payload_limit_asymmetry_matches_java_control_frames. WS_CORE SITE: rust/ws-core/src/connection.rs send_ping/send_pong arms; rust/ws-core/src/control.rs. SAFETY: the outbound payload is still bounded by the configured send/write budgets and queue backpressure (typed refusal, never unbounded growth); emitting a legal-length-encoded frame with a large control payload is interoperability-lenient, not memory-unsafe. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:0bdbecda0b1964965409e13713173da505d73acc33daa51e1aee4c3378a40b0e"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 27,
+      "previous_digest": "sha256:0bdbecda0b1964965409e13713173da505d73acc33daa51e1aee4c3378a40b0e",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-d509ac380f51587105ed2fb3b24687994246e5d94a10325e907659219c8a5035",
+        "subject_ref": "semantic:org.java-websocket.closeframe.one-byte-close-payload:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.5.1"
+        ],
+        "rfc_expectation_digest": "sha256:7aec7635f6281c9c08ca1775df1b56241ba7d8663ff9971e59942315207b25a6",
+        "rfc_value_digest": "sha256:c1cc7a159a71f09438abfc20288ad29285a13dcfd0600b2313c686845f63b315",
+        "java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:setPayload",
+        "java_observation_digest": "sha256:82bec1c33e523bf072a60940f08426a2149907282b51ea895ce7aa2d7bc808d4",
+        "java_value_digest": "sha256:f2a201b9df90005f9acc808d8d466e7e054b3889b8ecfb1ae44a4d62a5a20e0b",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:7.3.2"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:d509ac380f51587105ed2fb3b24687994246e5d94a10325e907659219c8a5035",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (one-byte close payload): the RFC treats a 1-byte close payload as malformed; the pinned runtime converts it into a VALID close with code 1002 and completes the close handshake. FIDELITY EVIDENCE: corpus family close-payload-1 (us005.pub.0035). Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/tests/close_eof.rs::one_byte_close_payload_is_a_valid_1002_close. WS_CORE SITE: rust/ws-core/src/framing.rs close-payload parse (Q11) feeding rust/ws-core/src/close.rs vocabulary. SAFETY: the outcome is a deterministic well-typed close; no allocation or state hazard is introduced by treating the malformed byte as a coded close. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:54f4efe90b3c87de690fa3e02da8aa97cd030c358a337b9381992b00107f68e7"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 28,
+      "previous_digest": "sha256:54f4efe90b3c87de690fa3e02da8aa97cd030c358a337b9381992b00107f68e7",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-954132f2fb7819743b45017417b2aa5f780cd1102f1cd51896616fb9f6d04bf4",
+        "subject_ref": "semantic:org.java-websocket.closeframe.constructor-payload-echo:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.5.1"
+        ],
+        "rfc_expectation_digest": "sha256:8772803631ec3e11321f04081cb87026b6a0ebc3f7e9c5fde71fb9d48ac7b4db",
+        "rfc_value_digest": "sha256:64bfaa2f4f5932900b807be38a9d4282e0c47ace93af922850697f7392e50fa2",
+        "java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:constructor",
+        "java_observation_digest": "sha256:8e89cf877e0c5f82ea424538a27f0ebac3bcf0a5fd252c529d0451f589304d52",
+        "java_value_digest": "sha256:7686c6090850199f815a5386d50c476caba61c00278ae33ef6bcc81360dca6c1",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:7.1.2"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:954132f2fb7819743b45017417b2aa5f780cd1102f1cd51896616fb9f6d04bf4",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (close echo payload): the RFC-shaped echo reflects the received status code; the pinned runtime echoes the constructor payload [0x03,0xe8] while open (Q19 echo-while-open with Q10 constructor payload) and records the inbound close with the same constructor payload. The GOVERNING close detail (code/reason reported at termination) still comes from the received frame via the close translate path — only the echoed/recorded frame object diverges. FIDELITY EVIDENCE: corpus families close-remote (us005.pub.0026, us005.pub.0050, us005.pub.0061) and close-remote-empty (us005.pub.0046). Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/tests/close_eof.rs::inbound_close_while_open_echoes_the_constructor_payload and ::inbound_close_while_closing_terminates_without_echo. WS_CORE SITE: rust/ws-core/src/connection.rs close echo arm; rust/ws-core/src/event.rs (Q10 frame-record doc); rust/ws-core/src/framing.rs close constructor payload (Q10). SAFETY: the echo is a fixed 4-byte frame; no attacker-controlled bytes are reflected, which is strictly more conservative than echoing peer data. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:8e3993a0f8e48f5f95c46a800328ccae0b862848b9dca5b9cb6504f229037d57"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 29,
+      "previous_digest": "sha256:8e3993a0f8e48f5f95c46a800328ccae0b862848b9dca5b9cb6504f229037d57",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-e6f5b06cb674e666de6a371db233a8d9d8bd3aebdc3a34c0dc23a7c05f96e255",
+        "subject_ref": "semantic:org.java-websocket.websocketimpl.eof-ordinary-close:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-7.1.4",
+          "rfc6455#section-7.1.5"
+        ],
+        "rfc_expectation_digest": "sha256:6e9ce4b6d1f47ec7852e9813a7535ea9034ac1c9156783678cc6aeea86cb5a59",
+        "rfc_value_digest": "sha256:2969ab89e53b8b133aa8f6567049fe1aaadd70dd97779572717736652fc7605c",
+        "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:eot",
+        "java_observation_digest": "sha256:359d1bc2bcd282ddf7a2e1fb222db2d64aa30ab266c9abab5af5d744479dc416",
+        "java_value_digest": "sha256:ba09b986e824f83a5b4df55614c1a79c69017617d0b2fe6fbac64f0adf8e77fa",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:7.1.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:e6f5b06cb674e666de6a371db233a8d9d8bd3aebdc3a34c0dc23a7c05f96e255",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (EOF classification): the RFC-strict design distinguishes EOF failure classes; the pinned runtime collapses every EOF into the ordinary close vocabulary with the governing close's detail. FIDELITY EVIDENCE: corpus families eof-abnormal (us005.pub.0062), close-local-then-eof (us005.pub.0022), state-eof-in-closed (us005.pub.0070). Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/tests/close_eof.rs::local_close_then_eof_reports_the_governing_close_over_transport and ::remote_close_then_eof_keeps_handshake_complete plus rust/ws-core/tests/core_semantics.rs EOF tests. WS_CORE SITE: rust/ws-core/src/connection.rs eof arm (Q20); rust/ws-core/src/close.rs CloseOrigin::Transport. SAFETY: every EOF path still terminates the connection deterministically with a typed close detail and no duplicate terminal events (pinned by a_third_close_after_terminal_is_a_state_violation); no resource is leaked by the coarser vocabulary. Residual honest gap: EOF BEFORE the handshake completes remains an Unimplemented refusal (dossier G11), not covered by this record. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:c7c0d69f3c00ad3472d61346b9ac49afd8fd86a34a763d193584db7f08c33718"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 30,
+      "previous_digest": "sha256:c7c0d69f3c00ad3472d61346b9ac49afd8fd86a34a763d193584db7f08c33718",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-4b0ac3601774119a9d7f5fb6c7c9fb6eef3ee153cd17f3eb69a9be36969f4804",
+        "subject_ref": "semantic:org.java-websocket.closeframe.isvalid-rejection-chain:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-7.4.1",
+          "rfc6455#section-7.4.2"
+        ],
+        "rfc_expectation_digest": "sha256:e2499a96eb3978a76926c7a42fa859c92bed6db8c161a5b499ac23da03f2f742",
+        "rfc_value_digest": "sha256:5f2809a4a2571613ae8f4e9ca82a9cbca88ed7de934da4d54236ef11ac744ca2",
+        "java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:isValid",
+        "java_observation_digest": "sha256:25b92770ed1e21facc22df4ff5b8dd536ed8a5934840809ff0281839a2a4c764",
+        "java_value_digest": "sha256:d51e8a0246ffd5038a22dcce948f57a3d686b021161ecf990c8a0773dfa4135c",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:7.9.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:4b0ac3601774119a9d7f5fb6c7c9fb6eef3ee153cd17f3eb69a9be36969f4804",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (close-code table semantics): the RFC's registry classes and Java's isValid chain disagree in both membership granularity and the REPORTED code (Java reports the 1007-empty-reason rejection as 1007, everything else as 1002, and bans the entire 1016-2999 band). FIDELITY EVIDENCE: derive.go closeIsValidRejection:618-635; corpus families close-code-invalid-wire (us005.pub.0019, us005.pub.0033, us005.pub.0041) and send-close-invalid-code (us005.pub.0000, code 999 -\u003e JAVA_INVALID_DATA close 1002). Corpus expectations for this site are LIVE-ORACLE-CONFIRMED (74/74 public run against the real pinned jar; 0 behavioral Rust-vs-live-Java divergences; us-live-oracle-confirmation-receipt.json). Pinned by rust/ws-core/src/close.rs::close_code_rejection (US-009 pure fn, called by the US-016 close paths per the US-009 owner decision) and tests rust/ws-core/tests/close_eof.rs::send_close_invalid_code_rejects_without_a_frame, ::inbound_close_code_1005_rejects_at_translate, ::send_close_1007_with_empty_reason_reports_1007. WS_CORE SITE: rust/ws-core/src/close.rs (close_code_rejection); rust/ws-core/src/connection.rs close paths. SAFETY: the chain is a pure total function over (u16, str); every rejection is a typed deterministic outcome; no code path transmits a Java-illegal code. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:e7ece61aa0534d51a4a9126829aa3b4fa6262a1cc59116ad202134ab5f2f7525"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 31,
+      "previous_digest": "sha256:e7ece61aa0534d51a4a9126829aa3b4fa6262a1cc59116ad202134ab5f2f7525",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-03e9d066f84aeb9b9ca0d3e634fc20dd84f1e611a46d27b499ea17ebd1a9c090",
+        "subject_ref": "semantic:org.java-websocket.closeframe.setcode-1015-normalization:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-7.4.1"
+        ],
+        "rfc_expectation_digest": "sha256:c99dc838a3155dce4a84249c575f23c08065fbc4e5e8b2aae4ede947113fe48e",
+        "rfc_value_digest": "sha256:6554c1714ad7e1729a91deab6c4a2a14fe62a7d52765d756d5c0ebcdb5efe3ec",
+        "java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:setCode",
+        "java_observation_digest": "sha256:c889ef3e8ae4285f79537ba3f6da16c3f6073afeb60e4dfc8d7c6178cfb19320",
+        "java_value_digest": "sha256:af1d279d1646dc891ddb64a10461cbf7d0da822145e87f075925ca54c98a61d5",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:7.9.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:03e9d066f84aeb9b9ca0d3e634fc20dd84f1e611a46d27b499ea17ebd1a9c090",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (1015 send normalization): the RFC-shaped refusal names the 1015 reserved-code violation; the pinned runtime silently rewrites 1015 to 1005 before validation and the observable rejection is the 1005-case outcome. FIDELITY EVIDENCE: derive.go sendClose:888-897 (setCode normalization mirrored); quarantined-source citation framing/CloseFrame.java:179-184 (batch receipts and close.rs module doc). Pinned by rust/ws-core/src/close.rs::normalize_send_close_code (US-009 pure fn) and tests rust/ws-core/tests/close_eof.rs::send_close_1015_normalizes_to_1005_then_rejects_1002 and rust/ws-core/tests/core_semantics.rs::send_close_1015_silently_normalizes_to_1005. WS_CORE SITE: rust/ws-core/src/close.rs; rust/ws-core/src/connection.rs send_close arm. SAFETY: the normalization is a pure code rewrite on the LOCAL send path only; no reserved code reaches the wire (the isValid chain still rejects 1005/1015), so the RFC's on-the-wire prohibition is never violated. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:2e93701af578f1fda2bce1449dd73a4f1afa8d374797784dcd2902d029354968"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 32,
+      "previous_digest": "sha256:2e93701af578f1fda2bce1449dd73a4f1afa8d374797784dcd2902d029354968",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-bfeedfec04c8e1ca64975dfe00d91280fc036df814d8829717fa384e803d4322",
+        "subject_ref": "semantic:org.java-websocket.closeframe.invalid-utf8-reason-runtime-rejection:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.5.1",
+          "rfc6455#section-8.1"
+        ],
+        "rfc_expectation_digest": "sha256:21af7c918a63520823db646d86b1204c12a311d942206fdd89a2fb0b17e46d87",
+        "rfc_value_digest": "sha256:f60e86181dc398d251818cf3283e384c242bb8bf37a2c74657d83573b0857e02",
+        "java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:isValid",
+        "java_observation_digest": "sha256:de25a9139f923ec3d7976d38e120c1f77f3432c4a44b7fc14a8d74607a11cbed",
+        "java_value_digest": "sha256:ef53ed543e477f07063ffada570d1a2da2f362500603874c43f25c3c74ddf669",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:7.5.1"
+        ],
+        "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+        "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+        "disagreement_digest": "sha256:bfeedfec04c8e1ca64975dfe00d91280fc036df814d8829717fa384e803d4322",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (invalid-UTF-8 close reason vocabulary): the RFC fails with 1007; the pinned runtime surfaces a NullPointerException-class rejection with NO close code (Q12). Added beyond the three task source lists under the completeness cross-check: every behavioral quirk with an RFC counterpart is ledgered. FIDELITY EVIDENCE: quirk Q12 (rust/ws-core/src/framing.rs:536-552 strict reason decode; rust/ws-core/src/error.rs JavaRuntimeRejection doc; derive.go javaRuntimeRejection vocabulary). Pinned by rust/ws-core/tests/close_eof.rs::invalid_utf8_close_reason_is_the_java_runtime_rejection (frame consumed, no close code, no frame record). WS_CORE SITE: rust/ws-core/src/framing.rs close-reason decode (Q12); rust/ws-core/src/error.rs. SAFETY: the rejection is a typed terminal failure over a bounded (\u003c=125-byte) control payload; the invalid reason is never delivered to the application. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
+      },
+      "record_digest": "sha256:b7a8492493d2752b8826a5d85d817f1dc90c7d6fa644ffdeb9b4886b3e99516e"
+    }
+  ],
   "append_implementation": "hash-chained-cas",
   "unledgered_disagreements": 0,
   "production": false,
