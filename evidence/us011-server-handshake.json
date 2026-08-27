@@ -58,14 +58,14 @@
     "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
     "implementation_files": [
       {
-        "git_blob": "dbd8db166a8db3dbcc9a624e30bbb12fae3492e2",
+        "git_blob": "fa7d22ffef99965c5f8de149fb2103ec8234fee7",
         "path": "rust/connection-core/src/lib.rs",
-        "sha256": "sha256:f006b39631c954998422a6c0aa7e833151648c362a5a0c42f5bf2e2d6db71cd5"
+        "sha256": "sha256:b054f9e530c0f208a154b1b604d0ba99ace08e4bbc4c54f4941754421cfe30e5"
       },
       {
-        "git_blob": "2916505eef33bd2f7b42f921c671abf938fc46e4",
+        "git_blob": "ba7cb2db7a2a6093e44da3c3934edbb147874d4e",
         "path": "rust/connection-core/src/connection.rs",
-        "sha256": "sha256:3f801b6241bcf3a4884e20bb5fd6b608f1a17291cdb321b08659761c4ebabd38"
+        "sha256": "sha256:eadd15448151e3bfdde54798e6c2cfa877868ef4a3203ae1032988f6909d5b2d"
       },
       {
         "git_blob": "b5aa5fc2b07768da66858828da162ef226fc95e4",
@@ -103,9 +103,9 @@
         "sha256": "sha256:b13a164b05b182af3155f9746f7a8d4d7f1ce8464929b793fc2a84da503e1250"
       },
       {
-        "git_blob": "35e835c4dc13d2ac79785c19635fab155dba7560",
+        "git_blob": "1e717180991f7a0b5a3fe333c0b51a3d7e7996af",
         "path": "internal/corpora/server_handshake.go",
-        "sha256": "sha256:750e74bf47cc27395e6ebf087035ac97dff34d93103466878e652c321ed821b4"
+        "sha256": "sha256:13212214ba1779a96af9d2d1d25d4cb75395ed9cad12f1779a900ce83c248ba6"
       },
       {
         "git_blob": "d8b1701a58a81098a66c0e2de79e73639eabb78f",
@@ -169,7 +169,7 @@
     "bindings": [
       {
         "rust_semantic_id": "websocket_core::ConnectionCore",
-        "source": "rust/connection-core/src/connection.rs:772",
+        "source": "rust/connection-core/src/connection.rs:796",
         "status": "RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"
       },
       {
@@ -200,7 +200,7 @@
     "debug": {
       "command": "make -C rust test",
       "failed": 0,
-      "passed": 85
+      "passed": 98
     },
     "frozen_client_request_cases": 39,
     "frozen_incomplete_two_chunk_executions_per_profile": 265,
@@ -212,7 +212,7 @@
     "release": {
       "command": "make -C rust test-release",
       "failed": 0,
-      "passed": 85
+      "passed": 98
     },
     "runtime_assertions": [
       "server phase and public lifecycle remain consistent",
@@ -235,6 +235,6 @@
     },
     "rustc_artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
     "rustc_sha256": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
-    "validation_time": "2026-08-27T10:52:34Z"
+    "validation_time": "2026-08-27T11:52:39Z"
   }
 }

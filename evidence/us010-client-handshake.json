@@ -6,12 +6,12 @@
   "source": {
     "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
     "implementation_files": [
-      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:3f801b6241bcf3a4884e20bb5fd6b608f1a17291cdb321b08659761c4ebabd38","git_blob":"2916505eef33bd2f7b42f921c671abf938fc46e4"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:eadd15448151e3bfdde54798e6c2cfa877868ef4a3203ae1032988f6909d5b2d","git_blob":"ba7cb2db7a2a6093e44da3c3934edbb147874d4e"},
       {"path":"rust/connection-core/src/handshake/client.rs","sha256":"sha256:d6e355ffaec8c232f79ec25edcad7d36c5128140e4e1c7c9c022df5b13a89dd3","git_blob":"44712cdaa2ab0aa42f78ded80b3bfe9de3262fad"},
       {"path":"rust/connection-core/src/handshake/http.rs","sha256":"sha256:c92522c17fc22d1865b4a79cd91860ab2dc1d9cae8d24a28f4639a1a9b809597","git_blob":"09e414e33e0e639a5b7ef396492e3fdd207dbe76"},
       {"path":"rust/connection-core/src/handshake/crypto.rs","sha256":"sha256:9d48e5529c381ef82654a57a27c8691514661804c923cb24405164cd2a0ea2e6","git_blob":"eaeaf73d4e3d54bdfd6f0a5a7255e953869ce4fa"},
       {"path":"rust/connection-core/tests/client_handshake.rs","sha256":"sha256:9c8a300b8e5e0d81484a111f89625c798167b74012dc2219677e5bec926ff06c","git_blob":"64bd873704b5271275ca41dbeea693d575477e7a"},
-      {"path":"internal/corpora/client_handshake.go","sha256":"sha256:18122479ea32f5cb6a79f832f93415a327e19def29fae3568cd715f4d2c24fcb","git_blob":"5b4f406e7c0dfa2ea893f642cbef53fb7464e488"},
+      {"path":"internal/corpora/client_handshake.go","sha256":"sha256:44a44d13e179b5921c97c26cd316696015204260ab3c5dfd9fcd7ddc2d6cfa12","git_blob":"cfbdd316f6794c66365c746183f55d24de6086cc"},
       {"path":"internal/corpora/us010_artifact.go","sha256":"sha256:ec4e897493a2f556f4f80f77a9cabeae9bd055e0edbe56dc50e831e0c109a456","git_blob":"59a592ec5989a2f6694bcbf9301579c286da38b0"},
       {"path":"internal/corpora/client_handshake_test.go","sha256":"sha256:ebdecb8f808f337b55507ecf3b7ddb76003d998e3b53ce2005706982e3ce731a","git_blob":"31c22b5befd97fa6f299eb77663c2a2645a5b8a3"},
       {"path":"internal/corpora/schemas.go","sha256":"sha256:813582c79b2dae92b0b714fdf924f7c7872224e9836f8ff833a7e966ceed9041","git_blob":"2a9452696539481af0ed05b1816c44dc0c5de488"},
@@ -23,7 +23,7 @@
     "rustc_artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
     "rustc_sha256": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
     "cargo_sha256": "sha256:c512bff73c86143b557463f021d0c3d5b0490d97d65040ba59ea2b3427784758",
-    "validation_time": "2026-08-27T10:52:34Z",
+    "validation_time": "2026-08-27T11:52:39Z",
     "rust_analyzer": {
       "historical_us009_receipt_preserved": true,
       "pinned_artifact_id": "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
@@ -35,8 +35,8 @@
     }
   },
   "tests": {
-    "debug": {"command":"make -C rust test","passed":85,"failed":0},
-    "release": {"command":"make -C rust test-release","passed":85,"failed":0},
+    "debug": {"command":"make -C rust test","passed":98,"failed":0},
+    "release": {"command":"make -C rust test-release","passed":98,"failed":0},
     "client_handshake_tests_per_profile": 14,
     "frozen_server_response_cases": 10,
     "valid_cases_split_at_every_byte": 4,
@@ -57,7 +57,7 @@
     "migration_map_path": "evidence/intake/semantic-id-migration-map.json",
     "migration_map_sha256": "sha256:e884fd06a785b0273a0e23b3dc6841ebcc33c2a81d1fc81fb0b1945d46421e7b",
     "bindings": [
-      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:772","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
+      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:796","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
       {"rust_semantic_id":"websocket_core::ClientRequestDescriptor","source":"rust/connection-core/src/handshake/client.rs:9","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
       {"rust_semantic_id":"websocket_core::LocalCommand","source":"rust/connection-core/src/connection.rs:369","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
       {"rust_semantic_id":"websocket_core::HandshakeFailure","source":"rust/connection-core/src/connection.rs:483","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},

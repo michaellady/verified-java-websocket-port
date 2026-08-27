@@ -870,7 +870,7 @@ func VerifyServerHandshakeEvidence(root string) error {
 		return fmt.Errorf("US-011 toolchain binding is incomplete or overstated")
 	}
 	if evidence.Tests.Debug.Command != "make -C rust test" || evidence.Tests.Release.Command != "make -C rust test-release" ||
-		evidence.Tests.Debug.Passed != 85 || evidence.Tests.Release.Passed != 85 ||
+		evidence.Tests.Debug.Passed != 98 || evidence.Tests.Release.Passed != 98 ||
 		evidence.Tests.Debug.Failed != 0 || evidence.Tests.Release.Failed != 0 ||
 		evidence.Tests.ServerHandshakeTests != 23 || evidence.Tests.FrozenRequestCases != 39 ||
 		evidence.Tests.TwoChunkExecutions != 1092 || evidence.Tests.BytewiseExecutions != 6 ||
