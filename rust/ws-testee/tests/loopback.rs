@@ -214,17 +214,15 @@ fn ping_scripted_client_completes_against_a_ponging_peer() {
     use ws_core::{CommandSender, LocalCommand, SemanticEvent, SemanticEventKind};
     use ws_testee::io_loop::EventPolicy;
 
+    // The driver's Java-faithful default (AutoResponsePolicy::PongInboundPing,
+    // e4) supplies the pong exactly like shipped Java's listener default; a
+    // policy that ALSO ponged manually would double-pong, just as a Java app
+    // overriding onWebsocketPing while calling the default would.
     struct PongingEcho;
     impl EventPolicy for PongingEcho {
         fn on_event(&mut self, event: &SemanticEvent, sender: &CommandSender) {
-            match &event.kind {
-                SemanticEventKind::Ping { data } => {
-                    let _ = sender.try_send(LocalCommand::SendPong { data: data.clone() });
-                }
-                SemanticEventKind::Text { text } => {
-                    let _ = sender.try_send(LocalCommand::SendText { text: text.clone() });
-                }
-                _ => {}
+            if let SemanticEventKind::Text { text } = &event.kind {
+                let _ = sender.try_send(LocalCommand::SendText { text: text.clone() });
             }
         }
     }
