@@ -17,10 +17,12 @@ const (
 )
 
 type snapshot struct {
-	root    *os.Root
-	files   map[string][]byte
-	errors  map[string]error
-	readSet map[string]bool
+	root             *os.Root
+	rootPath         string
+	historicalCommit string
+	files            map[string][]byte
+	errors           map[string]error
+	readSet          map[string]bool
 }
 
 type fileIdentity struct {
@@ -35,10 +37,11 @@ func newSnapshot(rootPath string) (*snapshot, error) {
 		return nil, err
 	}
 	value := &snapshot{
-		root:    root,
-		files:   make(map[string][]byte),
-		errors:  make(map[string]error),
-		readSet: make(map[string]bool),
+		root:     root,
+		rootPath: rootPath,
+		files:    make(map[string][]byte),
+		errors:   make(map[string]error),
+		readSet:  make(map[string]bool),
 	}
 	for _, item := range []struct {
 		path  string

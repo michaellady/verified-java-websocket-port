@@ -6,7 +6,7 @@
   "source": {
     "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
     "implementation_files": [
-      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:8c1895282e7d59663180265db9e2a50b6785400c5d12c217a12236ac229dbe8e","git_blob":"8b5a30cf7ba1ff4b22d183bbfbd628db15a9b602"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:92f8b8f8c9ef6e45302a6379b7b5b644ef05456265013b59ddeb163966ef4290","git_blob":"897b5d84b92aa1f68ed892a3434519e4758f6aee"},
       {"path":"rust/connection-core/src/handshake/client.rs","sha256":"sha256:d6e355ffaec8c232f79ec25edcad7d36c5128140e4e1c7c9c022df5b13a89dd3","git_blob":"44712cdaa2ab0aa42f78ded80b3bfe9de3262fad"},
       {"path":"rust/connection-core/src/handshake/http.rs","sha256":"sha256:c92522c17fc22d1865b4a79cd91860ab2dc1d9cae8d24a28f4639a1a9b809597","git_blob":"09e414e33e0e639a5b7ef396492e3fdd207dbe76"},
       {"path":"rust/connection-core/src/handshake/crypto.rs","sha256":"sha256:9d48e5529c381ef82654a57a27c8691514661804c923cb24405164cd2a0ea2e6","git_blob":"eaeaf73d4e3d54bdfd6f0a5a7255e953869ce4fa"},
@@ -57,11 +57,11 @@
     "migration_map_path": "evidence/intake/semantic-id-migration-map.json",
     "migration_map_sha256": "sha256:e884fd06a785b0273a0e23b3dc6841ebcc33c2a81d1fc81fb0b1945d46421e7b",
     "bindings": [
-      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:970","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
+      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:852","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
       {"rust_semantic_id":"websocket_core::ClientRequestDescriptor","source":"rust/connection-core/src/handshake/client.rs:9","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
-      {"rust_semantic_id":"websocket_core::LocalCommand","source":"rust/connection-core/src/connection.rs:390","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
-      {"rust_semantic_id":"websocket_core::HandshakeFailure","source":"rust/connection-core/src/connection.rs:556","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
-      {"rust_semantic_id":"websocket_core::SemanticEvent","source":"rust/connection-core/src/connection.rs:478","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"}
+      {"rust_semantic_id":"websocket_core::LocalCommand","source":"rust/connection-core/src/connection.rs:389","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
+      {"rust_semantic_id":"websocket_core::HandshakeFailure","source":"rust/connection-core/src/connection.rs:544","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
+      {"rust_semantic_id":"websocket_core::SemanticEvent","source":"rust/connection-core/src/connection.rs:466","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"}
     ],
     "new_resolver_verified_identities": 0,
     "java_shaped_aliases_added": 0
@@ -78,7 +78,7 @@
   },
   "delta_ledger": {
     "path": "evidence/java/behavior-delta-ledger.json",
-    "sha256": "sha256:e4800359d8a667524216b74947e43c169153406338398473221286bfbba9724a",
+    "sha256": "sha256:e64683c4d9b3000024c8e119b61db1b74bed70baf9f56662dc54b0d0b4f4e2b6",
     "records_added": 0,
     "reason": "No live Java execution for the US-010 additive strictness subjects was performed; no disagreement or unrelated Autobahn reference is fabricated.",
     "autobahn_category_0": "NO_REGISTERED_CATEGORY_0_AT_PIN",

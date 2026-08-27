@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/provenance"
 )
 
 // ServerHandshakeProjection binds US-011 to the immutable client-request
@@ -824,13 +826,10 @@ const (
 	us011EvidenceDAGPath     = "assurance/us011-evidence-dag.json"
 )
 
-// VerifyServerHandshakeEvidence closes the story against checkout HEAD. It
-// deliberately reuses the hardened US-010 reader instead of adding another
-// filesystem/provenance implementation.
+// VerifyServerHandshakeEvidence closes the historical story at the immutable
+// commit that introduced its exact receipt and separately requires current
+// source qualification.
 func VerifyServerHandshakeEvidence(root string) error {
-	if err := verifyUS011CheckoutHeadArtifact(root, us011ReceiptPath, ""); err != nil {
-		return err
-	}
 	raw, err := readUS010Artifact(root, us011ReceiptPath)
 	if err != nil {
 		return err
@@ -845,17 +844,24 @@ func VerifyServerHandshakeEvidence(root string) error {
 		evidence.Source.BindingMode != "CHECKOUT_HEAD_EXACT_BLOBS" {
 		return fmt.Errorf("invalid US-011 evidence identity or source binding")
 	}
+	if _, err := provenance.LoadAndValidateCurrentHeadQualification(root); err != nil {
+		return fmt.Errorf("US-011 current source qualification is invalid: %w", err)
+	}
+	historicalCommit, err := provenance.ResolveHistoricalArtifactCommit(root, us011ReceiptPath, raw)
+	if err != nil {
+		return fmt.Errorf("resolve US-011 historical receipt: %w", err)
+	}
 	if err := verifyUS011AncillaryPaths(evidence); err != nil {
 		return err
 	}
 	if err := verifyUS011SourceInventory(evidence.Source.ImplementationFiles); err != nil {
 		return err
 	}
-	if err := verifyUS010GitSourceBinding(root, evidence.Source.ImplementationFiles); err != nil {
+	if err := verifyUS010GitSourceBindingAtCommit(root, historicalCommit, evidence.Source.ImplementationFiles); err != nil {
 		return err
 	}
 	for _, artifact := range evidence.Source.ImplementationFiles {
-		if err := verifyEvidenceArtifact(root, artifact); err != nil {
+		if err := verifyHistoricalEvidenceArtifact(root, historicalCommit, artifact); err != nil {
 			return err
 		}
 	}
@@ -897,7 +903,7 @@ func VerifyServerHandshakeEvidence(root string) error {
 		{Path: us011DeltaLedgerPath, SHA256: evidence.DeltaLedger.SHA256},
 		{Path: us011EvidenceDAGPath, SHA256: evidence.EvidenceDAGSHA256},
 	} {
-		if err := verifyUS011CheckoutHeadArtifact(root, artifact.Path, artifact.SHA256); err != nil {
+		if err := verifyHistoricalEvidenceArtifact(root, historicalCommit, artifact); err != nil {
 			return err
 		}
 	}
@@ -907,7 +913,7 @@ func VerifyServerHandshakeEvidence(root string) error {
 		evidence.Symbols.JavaShapedAliasesAdded != 0 {
 		return fmt.Errorf("US-011 corpus or resolver claims are inconsistent")
 	}
-	if err := verifyUS011MigrationBindings(root, evidence.Symbols.Bindings); err != nil {
+	if err := verifyUS011MigrationBindings(root, historicalCommit, evidence.Symbols.Bindings); err != nil {
 		return err
 	}
 	if evidence.Compatibility.SurfaceID != "surface.handshake.server-response" ||
@@ -923,7 +929,7 @@ func VerifyServerHandshakeEvidence(root string) error {
 	if err := verifyServerEvidenceNonclaims(evidence); err != nil {
 		return err
 	}
-	if err := verifyUS011DAGCutoverAndMigration(root, evidence); err != nil {
+	if err := verifyUS011DAGCutoverAndMigration(root, historicalCommit, evidence); err != nil {
 		return err
 	}
 	if evidence.Assurance.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" ||
@@ -988,7 +994,7 @@ func verifyUS011SourceInventory(artifacts []evidenceArtifact) error {
 	return nil
 }
 
-func verifyUS011MigrationBindings(root string, bindings []serverSymbolBinding) error {
+func verifyUS011MigrationBindings(root, commit string, bindings []serverSymbolBinding) error {
 	expected := map[string]bool{
 		"websocket_core::ConnectionCore": false, "websocket_core::ServerRequestDescriptor": false,
 		"websocket_core::HandshakeFailure": false, "websocket_core::SemanticEvent": false,
@@ -1000,7 +1006,7 @@ func verifyUS011MigrationBindings(root string, bindings []serverSymbolBinding) e
 		expected[binding.RustSemanticID] = true
 		path, lineText, found := strings.Cut(binding.Source, ":")
 		line, parseErr := strconv.Atoi(lineText)
-		raw, readErr := readUS010Artifact(root, path)
+		raw, readErr := provenance.ReadHistoricalArtifact(root, commit, path)
 		name := strings.TrimPrefix(binding.RustSemanticID, "websocket_core::")
 		lines := bytes.Split(raw, []byte("\n"))
 		if !found || parseErr != nil || readErr != nil || line < 1 || line > len(lines) ||
@@ -1023,7 +1029,7 @@ func verifyUS011MigrationBindings(root string, bindings []serverSymbolBinding) e
 	return nil
 }
 
-func verifyUS011DAGCutoverAndMigration(root string, evidence serverHandshakeEvidence) error {
+func verifyUS011DAGCutoverAndMigration(root, commit string, evidence serverHandshakeEvidence) error {
 	if evidence.EvidenceDAGClaim != "claim-us011-server-handshake" ||
 		evidence.EvidenceDAGPath != "assurance/us011-evidence-dag.json" {
 		return fmt.Errorf("US-011 additive evidence DAG identity is wrong")
@@ -1032,7 +1038,7 @@ func verifyUS011DAGCutoverAndMigration(root string, evidence serverHandshakeEvid
 		Root  string                            `json:"root_node_id"`
 		Edges []struct{ From, To, Kind string } `json:"edges"`
 	}
-	raw, err := readUS010Artifact(root, evidence.EvidenceDAGPath)
+	raw, err := provenance.ReadHistoricalArtifact(root, commit, evidence.EvidenceDAGPath)
 	if err != nil || json.Unmarshal(raw, &dag) != nil || dag.Root != evidence.EvidenceDAGClaim {
 		return fmt.Errorf("US-011 evidence DAG claim is not closed")
 	}
@@ -1049,7 +1055,7 @@ func verifyUS011DAGCutoverAndMigration(root string, evidence serverHandshakeEvid
 			EvidenceIDs []string `json:"evidence_ids"`
 		} `json:"obligations"`
 	}
-	raw, err = readUS010Artifact(root, "evidence/intake/cutover-contract.json")
+	raw, err = provenance.ReadHistoricalArtifact(root, commit, "evidence/intake/cutover-contract.json")
 	if err != nil || json.Unmarshal(raw, &cutover) != nil {
 		return fmt.Errorf("read US-011 cutover contract")
 	}
@@ -1065,10 +1071,10 @@ func verifyUS011DAGCutoverAndMigration(root string, evidence serverHandshakeEvid
 	if !found {
 		return fmt.Errorf("US-011 cutover obligation is absent")
 	}
-	return verifyUS011MigrationRows(root)
+	return verifyUS011MigrationRows(root, commit)
 }
 
-func verifyUS011MigrationRows(root string) error {
+func verifyUS011MigrationRows(root, commit string) error {
 	var migration struct {
 		Rows []struct {
 			RustSemanticID string `json:"rust_semantic_id"`
@@ -1078,7 +1084,7 @@ func verifyUS011MigrationRows(root string) error {
 			} `json:"port_slices"`
 		} `json:"rows"`
 	}
-	raw, err := readUS010Artifact(root, "evidence/intake/semantic-id-migration-map.json")
+	raw, err := provenance.ReadHistoricalArtifact(root, commit, "evidence/intake/semantic-id-migration-map.json")
 	if err != nil || json.Unmarshal(raw, &migration) != nil {
 		return fmt.Errorf("read US-011 migration rows")
 	}

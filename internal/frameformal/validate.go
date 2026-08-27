@@ -19,6 +19,7 @@ import (
 	"unicode/utf8"
 
 	vendorprotocol "github.com/michaellady/verified-java-to-rust/foundation/protocol"
+	"github.com/michaellady/verified-java-websocket-port/internal/provenance"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -82,6 +83,13 @@ func Validate(ctx context.Context, request Request) (Verdict, error) {
 	if bytes.Contains(receiptData, []byte("PENDING_")) {
 		findings.add("PENDING_BINDING", ReceiptPath, "receipt contains an unfinished digest, count, or execution binding")
 	}
+	historicalCommit := ""
+	if commit, resolveErr := provenance.ResolveHistoricalArtifactCommit(rootPath, ReceiptPath, receiptData); resolveErr == nil {
+		historicalCommit = commit
+		if _, qualificationErr := provenance.LoadAndValidateCurrentHeadQualification(rootPath); qualificationErr != nil {
+			findings.add("CURRENT_QUALIFICATION_INVALID", provenance.CurrentHeadQualificationPath, qualificationErr.Error())
+		}
+	}
 
 	var value receipt
 	if err := decodeStrict(receiptData, &value); err != nil {
@@ -92,7 +100,7 @@ func Validate(ctx context.Context, request Request) (Verdict, error) {
 		validateSchema(schemaData, receiptData, findings)
 	}
 	validatePosture(&value, findings)
-	validateBindings(root, &value, findings)
+	validateBindings(root, rootPath, historicalCommit, &value, findings)
 	validateBounds(value.Bounds, findings)
 	validateObligations(value.Obligations, findings)
 	validateCanaries(value.Targets, value.SourceMutationCanaries, findings)
@@ -142,12 +150,12 @@ func validatePosture(value *receipt, findings *collector) {
 	}
 }
 
-func validateBindings(root *os.Root, value *receipt, findings *collector) {
+func validateBindings(root *os.Root, repositoryRoot, historicalCommit string, value *receipt, findings *collector) {
 	type exactTarget struct {
 		ID, Symbol, Source, SHA256, GitBlob, Token string
 	}
 	expected := []exactTarget{
-		{"target.frame-header-decoder", "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "rust/connection-core/src/frame/decode.rs", "sha256:961c5cfa03953c080b8e3148bb65cb03c67c173c131c538c23b57a86fae8cc2c", "bcaf8ca6da7c5edf130784a14d174b754d1a8536", "pub fn decode_header"},
+		{"target.frame-header-decoder", "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "rust/connection-core/src/frame/decode.rs", "sha256:2d3b9d8cbda6ce8deea03b21e1e2beeab7ebf00195757ec3ef7dcff75e844da2", "08ab31cb7fa28dfe8451a70d4633fb18a21567d7", "pub fn decode_header"},
 		{"target.frame-mask", "websocket_core::frame::mask::apply_mask_in_place", "rust/connection-core/src/frame/mask.rs", "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd", "309038147fd825fee401cfe47eb09f31c7932658", "pub fn apply_mask_in_place"},
 	}
 	if len(value.Targets) != len(expected) {
@@ -170,14 +178,14 @@ func validateBindings(root *os.Root, value *receipt, findings *collector) {
 			findings.add("SOURCE_BINDING_INVALID", itemPath, "target must bind the exact symbol and physical Rust source path")
 			continue
 		}
-		data, ok := validateArtifact(root, target.Source, itemPath+".source", "SOURCE_BINDING_INVALID", findings)
+		data, ok := validateArtifact(root, repositoryRoot, historicalCommit, target.Source, itemPath+".source", "SOURCE_BINDING_INVALID", findings)
 		if ok && !bytes.Contains(data, []byte(wanted.Token)) {
 			findings.add("SOURCE_BINDING_INVALID", itemPath+".source", "bound source does not contain the exact shipped item token")
 		}
 	}
 	if value.Harness.TestName != "us012_formal_actual_code_obligations" || value.Harness.Source != (artifactBinding{Path: "rust/connection-core/tests/frame_codec.rs", SHA256: "sha256:7ad9e7b9caf82804a1764f9e7ea9e5ebc95ae56998d621c65e8dd347ebb936bb", GitBlob: "d39d79b4694771316ec4dfcae767f929148760ff"}) {
 		findings.add("HARNESS_BINDING_INVALID", "$.harness", "receipt must bind the exact actual-code Rust test harness")
-	} else if data, ok := validateArtifact(root, value.Harness.Source, "$.harness.source", "HARNESS_BINDING_INVALID", findings); ok {
+	} else if data, ok := validateArtifact(root, repositoryRoot, historicalCommit, value.Harness.Source, "$.harness.source", "HARNESS_BINDING_INVALID", findings); ok {
 		for _, token := range []string{"fn us012_formal_actual_code_obligations", "FrameHeaderDecoder::decode_header", "apply_mask_in_place"} {
 			if !bytes.Contains(data, []byte(token)) {
 				findings.add("HARNESS_BINDING_INVALID", "$.harness.source", "harness is missing required actual-code token: "+token)
@@ -194,12 +202,12 @@ func validateBindings(root *os.Root, value *receipt, findings *collector) {
 	if value.Toolchain.Pins != (artifactBinding{Path: "evidence/intake/toolchain-pins.json", SHA256: "sha256:0f5b3b8418d33d3ede7331199e572b5879719d36d4b5193fac926eb99118c717", GitBlob: "a6ce6a9574053e736b8fde87ff0b68ce168f435c"}) {
 		findings.add("TOOLCHAIN_BINDING_INVALID", "$.toolchain.pins", "toolchain pins path is not canonical")
 	} else {
-		validateArtifact(root, value.Toolchain.Pins, "$.toolchain.pins", "TOOLCHAIN_BINDING_INVALID", findings)
+		validateArtifact(root, repositoryRoot, historicalCommit, value.Toolchain.Pins, "$.toolchain.pins", "TOOLCHAIN_BINDING_INVALID", findings)
 	}
 	if value.Toolchain.CargoLock != (artifactBinding{Path: "rust/Cargo.lock", SHA256: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", GitBlob: "beb9c9fe6075149151935cb48c1b147c330d3943"}) {
 		findings.add("TOOLCHAIN_BINDING_INVALID", "$.toolchain.cargo_lock", "Cargo.lock path is not canonical")
 	} else {
-		validateArtifact(root, value.Toolchain.CargoLock, "$.toolchain.cargo_lock", "TOOLCHAIN_BINDING_INVALID", findings)
+		validateArtifact(root, repositoryRoot, historicalCommit, value.Toolchain.CargoLock, "$.toolchain.cargo_lock", "TOOLCHAIN_BINDING_INVALID", findings)
 	}
 }
 
@@ -364,10 +372,25 @@ func rangeValues(first, last uint64) []uint64 {
 	return values
 }
 
-func validateArtifact(root *os.Root, binding artifactBinding, findingPath, reason string, findings *collector) ([]byte, bool) {
+func validateArtifact(root *os.Root, repositoryRoot, historicalCommit string, binding artifactBinding, findingPath, reason string, findings *collector) ([]byte, bool) {
 	if _, err := canonicalPath(binding.Path); err != nil || !validDigest(binding.SHA256) || !validGitBlob(binding.GitBlob) {
 		findings.add(reason, findingPath, "artifact requires a canonical path, SHA-256 digest, and Git blob identity")
 		return nil, false
+	}
+	if historicalCommit != "" {
+		err := provenance.ValidateHistoricalBindings(repositoryRoot, historicalCommit, []provenance.HistoricalBinding{{
+			Path: binding.Path, SHA256: binding.SHA256, GitBlob: binding.GitBlob,
+		}})
+		if err != nil {
+			findings.add(reason, findingPath, err.Error())
+			return nil, false
+		}
+		data, err := provenance.ReadHistoricalArtifact(repositoryRoot, historicalCommit, binding.Path)
+		if err != nil {
+			findings.add(reason, findingPath, err.Error())
+			return nil, false
+		}
+		return data, true
 	}
 	data, err := readRegular(root, binding.Path, maxEvidenceBytes)
 	if err != nil {

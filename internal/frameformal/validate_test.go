@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/provenance"
 )
 
 func TestUS012ValidBoundedActualCodeReceipt(t *testing.T) {
@@ -121,6 +123,14 @@ func validFixture(t *testing.T) (string, receipt) {
 	t.Helper()
 	root := t.TempDir()
 	repository := repositoryRoot(t)
+	receiptData, err := os.ReadFile(filepath.Join(repository, ReceiptPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	historicalCommit, err := provenance.ResolveHistoricalArtifactCommit(repository, ReceiptPath, receiptData)
+	if err != nil {
+		t.Fatal(err)
+	}
 	files := []string{
 		"rust/connection-core/src/frame/decode.rs",
 		"rust/connection-core/src/frame/mask.rs",
@@ -129,7 +139,7 @@ func validFixture(t *testing.T) (string, receipt) {
 		"rust/Cargo.lock",
 	}
 	for _, name := range files {
-		content, err := os.ReadFile(filepath.Join(repository, name))
+		content, err := provenance.ReadHistoricalArtifact(repository, historicalCommit, name)
 		if err != nil {
 			t.Fatal(err)
 		}

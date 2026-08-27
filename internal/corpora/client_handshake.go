@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/provenance"
 )
 
 // ClientHandshakeProjection binds the US-010 Rust tests to frozen and
@@ -384,17 +386,24 @@ func VerifyClientHandshakeEvidence(root string) error {
 	if evidence.EvidenceID != "evidence.us-010-client-handshake" || evidence.StoryID != "US-010" {
 		return fmt.Errorf("invalid US-010 evidence identity or source binding")
 	}
+	if _, err := provenance.LoadAndValidateCurrentHeadQualification(root); err != nil {
+		return fmt.Errorf("US-010 current source qualification is invalid: %w", err)
+	}
+	historicalCommit, err := provenance.ResolveHistoricalArtifactCommit(root, "evidence/us010-client-handshake.json", raw)
+	if err != nil {
+		return fmt.Errorf("resolve US-010 historical receipt: %w", err)
+	}
 	if evidence.Source.BindingMode != "CHECKOUT_HEAD_EXACT_BLOBS" {
 		return fmt.Errorf("US-010 source binding mode is not self-contained")
 	}
-	if err := verifyUS010GitSourceBinding(root, evidence.Source.ImplementationFiles); err != nil {
+	if err := verifyUS010GitSourceBindingAtCommit(root, historicalCommit, evidence.Source.ImplementationFiles); err != nil {
 		return err
 	}
 	if err := verifyUS010SourceArtifactInventory(evidence.Source.ImplementationFiles); err != nil {
 		return err
 	}
 	for _, artifact := range evidence.Source.ImplementationFiles {
-		if err := verifyEvidenceArtifact(root, artifact); err != nil {
+		if err := verifyHistoricalEvidenceArtifact(root, historicalCommit, artifact); err != nil {
 			return err
 		}
 	}
@@ -417,10 +426,10 @@ func VerifyClientHandshakeEvidence(root string) error {
 		evidence.Tests.FuzzSeedsReplayed != 11 || evidence.Tests.FrozenResponseCases != 10 {
 		return fmt.Errorf("US-010 test counts do not match the committed harness")
 	}
-	if err := verifyEvidenceArtifact(root, evidenceArtifact{Path: evidence.Corpus.ProjectionPath, SHA256: evidence.Corpus.ProjectionSHA256}); err != nil {
+	if err := verifyHistoricalEvidenceArtifact(root, historicalCommit, evidenceArtifact{Path: evidence.Corpus.ProjectionPath, SHA256: evidence.Corpus.ProjectionSHA256}); err != nil {
 		return err
 	}
-	if err := verifyEvidenceArtifact(root, evidenceArtifact{Path: evidence.Corpus.SchemaPath, SHA256: evidence.Corpus.SchemaSHA256}); err != nil {
+	if err := verifyHistoricalEvidenceArtifact(root, historicalCommit, evidenceArtifact{Path: evidence.Corpus.SchemaPath, SHA256: evidence.Corpus.SchemaSHA256}); err != nil {
 		return err
 	}
 	if evidence.Corpus.FrozenSourceSHA256 != "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605" ||
@@ -428,10 +437,10 @@ func VerifyClientHandshakeEvidence(root string) error {
 		evidence.Symbols.NewResolverVerified != 0 || evidence.Symbols.JavaShapedAliasesAdded != 0 {
 		return fmt.Errorf("US-010 corpus or resolver claims are inconsistent")
 	}
-	if err := verifyEvidenceArtifact(root, evidenceArtifact{Path: evidence.Symbols.MigrationMapPath, SHA256: evidence.Symbols.MigrationMapSHA256}); err != nil {
+	if err := verifyHistoricalEvidenceArtifact(root, historicalCommit, evidenceArtifact{Path: evidence.Symbols.MigrationMapPath, SHA256: evidence.Symbols.MigrationMapSHA256}); err != nil {
 		return err
 	}
-	if err := verifyUS010MigrationBindings(root, evidence.Symbols.Bindings); err != nil {
+	if err := verifyUS010MigrationBindings(root, historicalCommit, evidence.Symbols.Bindings); err != nil {
 		return err
 	}
 	for _, artifact := range []evidenceArtifact{
@@ -440,7 +449,7 @@ func VerifyClientHandshakeEvidence(root string) error {
 		{Path: "evidence/intake/cutover-contract.json", SHA256: evidence.Compatibility.CutoverContractSHA256},
 		{Path: evidence.DeltaLedger.Path, SHA256: evidence.DeltaLedger.SHA256},
 	} {
-		if err := verifyEvidenceArtifact(root, artifact); err != nil {
+		if err := verifyHistoricalEvidenceArtifact(root, historicalCommit, artifact); err != nil {
 			return err
 		}
 	}
@@ -451,10 +460,10 @@ func VerifyClientHandshakeEvidence(root string) error {
 		evidence.DeltaLedger.RecordsAdded != 0 || evidence.DeltaLedger.AutobahnExecutions != 0 {
 		return fmt.Errorf("US-010 compatibility or delta nonclaims are inconsistent")
 	}
-	if err := verifyEvidenceArtifact(root, evidenceArtifact{Path: evidence.EvidenceDAGPath, SHA256: evidence.EvidenceDAGSHA256}); err != nil {
+	if err := verifyHistoricalEvidenceArtifact(root, historicalCommit, evidenceArtifact{Path: evidence.EvidenceDAGPath, SHA256: evidence.EvidenceDAGSHA256}); err != nil {
 		return err
 	}
-	if err := verifyUS010DAGAndCutover(root, evidence.EvidenceDAGPath, evidence.EvidenceDAGClaim); err != nil {
+	if err := verifyUS010DAGAndCutover(root, historicalCommit, evidence.EvidenceDAGPath, evidence.EvidenceDAGClaim); err != nil {
 		return err
 	}
 	if evidence.Assurance.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" ||
@@ -507,7 +516,23 @@ func verifyEvidenceArtifact(root string, artifact evidenceArtifact) error {
 	return nil
 }
 
-func verifyUS010MigrationBindings(root string, bindings []struct {
+func verifyHistoricalEvidenceArtifact(root, commit string, artifact evidenceArtifact) error {
+	if artifact.GitBlob != "" {
+		return provenance.ValidateHistoricalBindings(root, commit, []provenance.HistoricalBinding{{
+			Path: artifact.Path, SHA256: artifact.SHA256, GitBlob: artifact.GitBlob,
+		}})
+	}
+	raw, err := provenance.ReadHistoricalArtifact(root, commit, artifact.Path)
+	if err != nil {
+		return err
+	}
+	if DigestSHA256(raw) != artifact.SHA256 {
+		return fmt.Errorf("historical evidence artifact digest mismatch: %s", artifact.Path)
+	}
+	return nil
+}
+
+func verifyUS010MigrationBindings(root, commit string, bindings []struct {
 	RustSemanticID string `json:"rust_semantic_id"`
 	Source         string `json:"source"`
 	Status         string `json:"status"`
@@ -529,7 +554,7 @@ func verifyUS010MigrationBindings(root string, bindings []struct {
 		if !found || lineErr != nil || lineNumber < 1 {
 			return fmt.Errorf("binding lacks source line: %s", binding.RustSemanticID)
 		}
-		source, err := readUS010Artifact(root, path)
+		source, err := provenance.ReadHistoricalArtifact(root, commit, path)
 		if err != nil {
 			return err
 		}
@@ -553,7 +578,7 @@ func verifyUS010MigrationBindings(root string, bindings []struct {
 	return nil
 }
 
-func verifyUS010DAGAndCutover(root, dagPath, claim string) error {
+func verifyUS010DAGAndCutover(root, commit, dagPath, claim string) error {
 	var dag struct {
 		Nodes []struct {
 			ID string `json:"id"`
@@ -567,7 +592,7 @@ func verifyUS010DAGAndCutover(root, dagPath, claim string) error {
 	if dagPath != "assurance/us010-evidence-dag.json" {
 		return fmt.Errorf("US-010 evidence DAG path is not the additive story DAG")
 	}
-	raw, err := readUS010Artifact(root, dagPath)
+	raw, err := provenance.ReadHistoricalArtifact(root, commit, dagPath)
 	if err != nil {
 		return err
 	}
@@ -592,7 +617,7 @@ func verifyUS010DAGAndCutover(root, dagPath, claim string) error {
 			EvidenceIDs []string `json:"evidence_ids"`
 		} `json:"obligations"`
 	}
-	raw, err = readUS010Artifact(root, "evidence/intake/cutover-contract.json")
+	raw, err = provenance.ReadHistoricalArtifact(root, commit, "evidence/intake/cutover-contract.json")
 	if err != nil {
 		return err
 	}
@@ -610,7 +635,8 @@ func verifyUS010DAGAndCutover(root, dagPath, claim string) error {
 	return fmt.Errorf("US-010 cutover obligation is absent")
 }
 
-func verifyUS010GitSourceBinding(root string, artifacts []evidenceArtifact) error {
+func verifyUS010GitSourceBindingAtCommit(root, commit string, artifacts []evidenceArtifact) error {
+	bindings := make([]provenance.HistoricalBinding, len(artifacts))
 	for _, artifact := range artifacts {
 		if len(artifact.GitBlob) != 40 {
 			return fmt.Errorf("US-010 source blob is not a full object ID: %s", artifact.Path)
@@ -618,24 +644,11 @@ func verifyUS010GitSourceBinding(root string, artifacts []evidenceArtifact) erro
 		if _, err := hex.DecodeString(artifact.GitBlob); err != nil {
 			return fmt.Errorf("US-010 source blob is not hexadecimal: %s", artifact.Path)
 		}
-		current, err := readUS010Artifact(root, artifact.Path)
-		if err != nil {
-			return err
-		}
-		if DigestSHA256(current) != artifact.SHA256 {
-			return fmt.Errorf("US-010 working artifact digest mismatch: %s", artifact.Path)
-		}
-		command := exec.Command("git", "-C", root, "rev-parse", "HEAD:"+artifact.Path)
-		actualBlob, err := command.Output()
-		if err != nil || strings.TrimSpace(string(actualBlob)) != artifact.GitBlob {
-			return fmt.Errorf("US-010 artifact is not bound to checkout HEAD: %s", artifact.Path)
-		}
-		committed, err := readUS010GitBlob(root, artifact.GitBlob)
-		if err != nil || DigestSHA256(committed) != artifact.SHA256 {
-			return fmt.Errorf("US-010 source blob digest mismatch: %s", artifact.Path)
-		}
 	}
-	return nil
+	for index, artifact := range artifacts {
+		bindings[index] = provenance.HistoricalBinding{Path: artifact.Path, SHA256: artifact.SHA256, GitBlob: artifact.GitBlob}
+	}
+	return provenance.ValidateHistoricalBindings(root, commit, bindings)
 }
 
 func readUS010GitBlob(root, object string) ([]byte, error) {

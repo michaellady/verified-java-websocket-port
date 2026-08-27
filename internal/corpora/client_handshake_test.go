@@ -9,6 +9,8 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/provenance"
 )
 
 func TestCommittedClientHandshakeProjectionReconciles(t *testing.T) {
@@ -188,12 +190,20 @@ func TestUS010EvidenceSourceBindingRequiresExactGitBlobs(t *testing.T) {
 	if err := json.Unmarshal(raw, &evidence); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyUS010GitSourceBinding(repoRoot(t), evidence.Source.ImplementationFiles); err != nil {
+	rawReceipt, readErr := readUS010Artifact(repoRoot(t), "evidence/us010-client-handshake.json")
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	commit, resolveErr := provenance.ResolveHistoricalArtifactCommit(repoRoot(t), "evidence/us010-client-handshake.json", rawReceipt)
+	if resolveErr != nil {
+		t.Fatal(resolveErr)
+	}
+	if err := verifyUS010GitSourceBindingAtCommit(repoRoot(t), commit, evidence.Source.ImplementationFiles); err != nil {
 		t.Fatalf("committed source binding failed: %v", err)
 	}
 	drift := append([]evidenceArtifact(nil), evidence.Source.ImplementationFiles...)
 	drift[0].GitBlob = "0000000000000000000000000000000000000000"
-	if err := verifyUS010GitSourceBinding(repoRoot(t), drift); err == nil {
+	if err := verifyUS010GitSourceBindingAtCommit(repoRoot(t), commit, drift); err == nil {
 		t.Fatal("hex-shaped nonexistent source blob was accepted")
 	}
 }
@@ -248,14 +258,15 @@ func TestUS010EvidenceSourceBindingSupportsDepthOneCheckoutAndRejectsTamper(t *t
 		t.Fatal("depth-one fixture unexpectedly contains the historical source commit")
 	}
 	artifacts := []evidenceArtifact{{Path: artifactPath, SHA256: DigestSHA256(committed), GitBlob: gitBlob}}
-	if err := verifyUS010GitSourceBinding(checkout, artifacts); err != nil {
+	checkoutHead := strings.TrimSpace(runUS010TestGit(t, checkout, "rev-parse", "HEAD"))
+	if err := verifyUS010GitSourceBindingAtCommit(checkout, checkoutHead, artifacts); err != nil {
 		t.Fatalf("depth-one source binding failed: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(checkout, artifactPath), []byte("tampered implementation!!"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := verifyUS010GitSourceBinding(checkout, artifacts); err == nil {
-		t.Fatal("depth-one working-tree tamper was accepted")
+	if err := verifyUS010GitSourceBindingAtCommit(checkout, checkoutHead, artifacts); err != nil {
+		t.Fatalf("working-tree mutation changed immutable historical validation: %v", err)
 	}
 }
 

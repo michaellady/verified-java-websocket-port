@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -277,22 +278,24 @@ func TestUS011CheckoutBindingRejectsStaleAndMissingHeadEntries(t *testing.T) {
 	}
 	runUS010TestGit(t, root, "add", "artifact.txt")
 	runUS010TestGit(t, root, "commit", "--quiet", "-m", "first")
+	firstCommit := strings.TrimSpace(runUS010TestGit(t, root, "rev-parse", "HEAD"))
 	firstBlob := runUS010TestGit(t, root, "rev-parse", "HEAD:artifact.txt")
 	firstBlob = firstBlob[:len(firstBlob)-1]
 	stale := []evidenceArtifact{{Path: "artifact.txt", SHA256: DigestSHA256(first), GitBlob: firstBlob}}
-	if err := verifyUS010GitSourceBinding(root, stale); err != nil {
-		t.Fatalf("fresh checkout binding failed: %v", err)
+	if err := verifyUS010GitSourceBindingAtCommit(root, firstCommit, stale); err != nil {
+		t.Fatalf("exact historical binding failed: %v", err)
 	}
 	if err := os.WriteFile(path, []byte("second committed bytes"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runUS010TestGit(t, root, "add", "artifact.txt")
 	runUS010TestGit(t, root, "commit", "--quiet", "-m", "second")
-	if err := verifyUS010GitSourceBinding(root, stale); err == nil {
-		t.Fatal("stale checkout blob receipt was accepted")
+	secondCommit := strings.TrimSpace(runUS010TestGit(t, root, "rev-parse", "HEAD"))
+	if err := verifyUS010GitSourceBindingAtCommit(root, secondCommit, stale); err == nil {
+		t.Fatal("forged later-commit historical blob receipt was accepted")
 	}
 	missing := []evidenceArtifact{{Path: "missing.txt", SHA256: DigestSHA256(nil), GitBlob: firstBlob}}
-	if err := verifyUS010GitSourceBinding(root, missing); err == nil {
+	if err := verifyUS010GitSourceBindingAtCommit(root, firstCommit, missing); err == nil {
 		t.Fatal("missing checkout entry was accepted")
 	}
 }

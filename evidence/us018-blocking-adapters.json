@@ -12,9 +12,9 @@
     "git_listing_sha256": "sha256:556e316aeaccf901305c9ec13b78fe506ec783e79978b05e8493b836681bcc15",
     "git_listing_scope": "git ls-tree -r 7bc2ef38f8889c27c162b8ff73242792bc80972d over the exact bindings array paths in lexical order",
     "bindings": [
-      {"path":"cmd/rustgate/main_test.go","sha256":"sha256:03e1789da6522230d25b4cfcd1097fa3f55ee9c4a6a70939c0faee0318f16128","git_blob":"cf9d33c3bed3b337e95e5cf2863e43d5752baf83"},
+      {"path":"cmd/rustgate/main_test.go","sha256":"sha256:5fa43eb4ab81c6d04a7b06db1e47f4a7c6fbbcfe8c91815fdffb003975dede86","git_blob":"1d8a717c9168f8346653b519632cef74f50a81ec"},
       {"path":"docs/us018-blocking-adapter-contract.md","sha256":"sha256:f4330469d727611d1ca471a81eca59b3eb9a3560b87eb0b9bdca8626f642640c","git_blob":"ddc1e7ed27c5b1973994185771e69847a9eb12a7"},
-      {"path":"internal/rustgate/verify.go","sha256":"sha256:8b2f85839349e4da83bc950d73c0f96e568ea71c89aa3492a322a3e46d3e4163","git_blob":"73f9d6ecbafe84a147c231b36995196e1f607bb7"},
+      {"path":"internal/rustgate/verify.go","sha256":"sha256:d347600fea4ba2c9f285735aa5801ab005d2d5c7e6ff4d8bde31db9c7fddad86","git_blob":"d85d791192f60da272ca633eb68933f5d32c0876"},
       {"path":"rust/Cargo.lock","sha256":"sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb","git_blob":"beb9c9fe6075149151935cb48c1b147c330d3943"},
       {"path":"rust/Cargo.toml","sha256":"sha256:316f90d18e749341ac236aa50695b70e87e25e0a8a0e18ad942a479e87c99615","git_blob":"6e4371d41cf7f3c180081ac6606c5a0106c9071d"},
       {"path":"rust/connection-core/tests/scaffold_smoke.rs","sha256":"sha256:6c53024af4b097b97172c20cb9677d3e59d67468073a02c5ab360f3a4fc9e9e7","git_blob":"156a3714e508db424cd7af0cce0c220ded3207e2"},
@@ -23,11 +23,11 @@
       {"path":"rust/websocket-testee/Cargo.toml","sha256":"sha256:8b1c1828ebf2de72b8060dd11a09f82843e0384919e32ff20a2effc3ea153230","git_blob":"90ec75316d7d4c2b1601885dc35c97498b6d28a9"},
       {"path":"rust/websocket-testee/src/client.rs","sha256":"sha256:d146a0d45d28c23943fd935864aedc4f5f994e5bf8039bec8d0f39ae46c06bf0","git_blob":"2b99ce1415c3b70763e321e11881571ac10a380d"},
       {"path":"rust/websocket-testee/src/io_loop.rs","sha256":"sha256:e7bbd861a6f1d8630937ffeee6e6d59265654cbe9ec2ebc856ca59e003c98207","git_blob":"60c1b43cb8c0590faf14269f4e1ee0b67f5cd69e"},
-      {"path":"rust/websocket-testee/src/lib.rs","sha256":"sha256:b82b6d839f53f632d05c74a263915f9fab76099ca5f870db08678ebfded9ca20","git_blob":"ec9bd1a06786abd2046a35b3860c23c306aa3782"},
-      {"path":"rust/websocket-testee/src/main.rs","sha256":"sha256:787901936b364a10c08d7509f986c7254ef897e15f1f7da2de3eab3eaa3207f9","git_blob":"090963b5204c23e9d8967d55f0682bdab3883412"},
+      {"path":"rust/websocket-testee/src/lib.rs","sha256":"sha256:108c77e8b3f33342d270e1a11a698234c3df98efb2fdd69453f26c030ff2358f","git_blob":"8294731894c9cf98d3e431ee7fe489648c9f6946"},
+      {"path":"rust/websocket-testee/src/main.rs","sha256":"sha256:3a373c4218e4b4106e1458e047cd3fa235d5bee905a6fd92f6fea15e952e7e09","git_blob":"0e56734c09d0ecbd3634c03d64c7304e7fa8ebee"},
       {"path":"rust/websocket-testee/src/server.rs","sha256":"sha256:7482e3a8700361acffedcfbfdcece5a0ea28c60e1d68249e8a3aabcb1b19abda","git_blob":"3da146aad8e8769b54c576df728be353ff22c8fd"},
       {"path":"rust/websocket-testee/tests/loopback.rs","sha256":"sha256:af4797541336238e8a7e047ce1d36a8914e4a5eeb1a115b5f192b17dde08f643","git_blob":"a8513dc4e9319dc5fca2cd61de731e52f730fd9e"},
-      {"path":"rust/websocket-testee/tests/process.rs","sha256":"sha256:599cee074f49b34dad3c532ad36fa34781a2e5005d5a44e3d3953af9963361e2","git_blob":"d918d8240ea7f9c5a02069d7d14fd05f93e7bd8f"},
+      {"path":"rust/websocket-testee/tests/process.rs","sha256":"sha256:491db19692801ac2a6dcf30b2be236946a89cfe38cc7ac586e820b44dbd64a3e","git_blob":"49310face701dc2bba50f739c3e5ff43d67f4d6d"},
       {"path":"schemas/us018-blocking-adapters-1.0.0.schema.json","sha256":"sha256:b25bd94bab21da9ea23aca2d876a02883f237b395a734e474bf2fb3d9a12a091","git_blob":"791f6856beacf2cf4c874e9f13d0e2d8aaa3e2b7"},
       {"path":"security/rust-dependency-unsafe-inventory.json","sha256":"sha256:c221f41a97a03b8d32cb536a912f9bc03ebb67451c499d55a01a8ef5be248f2c","git_blob":"49d86e7d6bbfe90fcb7fe205de3850d92bad7c63"}
     ]

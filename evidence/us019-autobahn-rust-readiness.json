@@ -37,7 +37,7 @@
     "preparation_observed_binary_digest": "sha256:289f4e5d9678b526c7f79e9328c2f35cd6b3ff81fef55e6aba9bcf36bb67fa38",
     "preparation_observed_binary_bytes": 1400192,
     "binary_reverified_by_static_verifier": false,
-    "source_tree_digest": "sha256:170adacc3beb85d5d5ac9843501c04c1a0619459e05ea973acf7d467c16f0f0e",
+    "source_tree_digest": "sha256:ee9c54136153a002bd4f7a28298140a59841daaa75386d4595847511be7fdcf1",
     "cargo_lock_digest": "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb",
     "host": "darwin/arm64",
     "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
@@ -47,7 +47,7 @@
   },
   "us018": {
     "path": "evidence/us018-blocking-adapters.json",
-    "digest": "sha256:3fbbc572c11603d201a415ed844eda7489b2841d4c7185c076f32337551f12d8",
+    "digest": "sha256:f553126f13fd735e5b5ebcc30cc3bf275b8f1c0a090d5a32ef0ad4fa2ed2fc63",
     "status": "PASS_OWNER_RELAXED_CURRENT_HOST",
     "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
     "application_echo": false,

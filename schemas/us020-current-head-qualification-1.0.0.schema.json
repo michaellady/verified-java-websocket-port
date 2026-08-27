@@ -1,0 +1,156 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://enterprisevibecode.example/schemas/us020-current-head-qualification-1.0.0.schema.json",
+  "title": "US-020 current-head-at-execution qualification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "evidence_id",
+    "story_id",
+    "status",
+    "assurance",
+    "head_at_execution",
+    "source_tree",
+    "validation_time",
+    "toolchain",
+    "bindings",
+    "commands",
+    "predecessor_scope",
+    "claim_scope",
+    "network",
+    "live_java",
+    "docker",
+    "autobahn",
+    "nonclaims"
+  ],
+  "properties": {
+    "$schema": {"const": "../schemas/us020-current-head-qualification-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_id": {"const": "evidence.us-020-current-head-qualification"},
+    "story_id": {"const": "US-020"},
+    "status": {"const": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK"},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "head_at_execution": {"$ref": "#/$defs/git_object"},
+    "source_tree": {"$ref": "#/$defs/git_object"},
+    "validation_time": {"type": "string", "format": "date-time"},
+    "toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rustc", "host"],
+      "properties": {
+        "rustc": {"type": "string", "minLength": 1},
+        "host": {"const": "aarch64-apple-darwin"}
+      }
+    },
+    "bindings": {
+      "type": "array",
+      "minItems": 52,
+      "maxItems": 52,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/binding"}
+    },
+    "commands": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 7,
+      "prefixItems": [
+        {"$ref": "#/$defs/core_test"},
+        {"$ref": "#/$defs/driver_test"},
+        {"$ref": "#/$defs/testee_lib_test"},
+        {"$ref": "#/$defs/neutral_test"},
+        {"$ref": "#/$defs/fmt_check"},
+        {"$ref": "#/$defs/clippy_check"},
+        {"$ref": "#/$defs/rustgate_test"}
+      ],
+      "items": false
+    },
+    "predecessor_scope": {
+      "const": ["US-010", "US-011", "US-012", "US-013", "US-014", "US-015", "US-016", "US-017", "US-018", "US-019"]
+    },
+    "claim_scope": {"const": "CURRENT_SOURCE_TEST_QUALIFICATION_ONLY"},
+    "network": {"const": false},
+    "live_java": {"const": false},
+    "docker": {"const": false},
+    "autobahn": {"const": false},
+    "nonclaims": {
+      "const": [
+        "historical predecessor receipts are preserved and not rewritten",
+        "no predecessor result is rerun or upgraded",
+        "no live Java Docker Autobahn Linux network production publication signing or independent review claim"
+      ]
+    }
+  },
+  "$defs": {
+    "git_object": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "git_blob"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?:rust/|cmd/rustgate/|internal/rustgate/|docs/rust-workspace\\.md$)[A-Za-z0-9._/-]*$",
+          "not": {"pattern": "(?:^|/)\\.\\.(?:/|$)|//"}
+        },
+        "sha256": {"$ref": "#/$defs/digest"},
+        "git_blob": {"$ref": "#/$defs/git_object"}
+      }
+    },
+    "command_base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["argv", "working_directory", "exit_code", "result"],
+      "properties": {
+        "argv": {"type": "array", "items": {"type": "string"}},
+        "working_directory": {"enum": [".", "rust"]},
+        "exit_code": {"const": 0},
+        "result": {"const": "PASS"}
+      }
+    },
+    "core_test": {
+      "allOf": [
+        {"$ref": "#/$defs/command_base"},
+        {"properties": {"argv": {"const": ["cargo", "test", "--locked", "-p", "websocket-core"]}, "working_directory": {"const": "rust"}}}
+      ]
+    },
+    "driver_test": {
+      "allOf": [
+        {"$ref": "#/$defs/command_base"},
+        {"properties": {"argv": {"const": ["cargo", "test", "--locked", "-p", "websocket-driver"]}, "working_directory": {"const": "rust"}}}
+      ]
+    },
+    "testee_lib_test": {
+      "allOf": [
+        {"$ref": "#/$defs/command_base"},
+        {"properties": {"argv": {"const": ["cargo", "test", "--locked", "-p", "websocket-testee", "--lib"]}, "working_directory": {"const": "rust"}}}
+      ]
+    },
+    "neutral_test": {
+      "allOf": [
+        {"$ref": "#/$defs/command_base"},
+        {"properties": {"argv": {"const": ["cargo", "test", "--locked", "-p", "websocket-testee", "--test", "process", "neutral_oracle"]}, "working_directory": {"const": "rust"}}}
+      ]
+    },
+    "fmt_check": {
+      "allOf": [
+        {"$ref": "#/$defs/command_base"},
+        {"properties": {"argv": {"const": ["cargo", "fmt", "--all", "--", "--check"]}, "working_directory": {"const": "rust"}}}
+      ]
+    },
+    "clippy_check": {
+      "allOf": [
+        {"$ref": "#/$defs/command_base"},
+        {"properties": {"argv": {"const": ["cargo", "clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"]}, "working_directory": {"const": "rust"}}}
+      ]
+    },
+    "rustgate_test": {
+      "allOf": [
+        {"$ref": "#/$defs/command_base"},
+        {"properties": {"argv": {"const": ["go", "test", "./cmd/rustgate", "-count=1"]}, "working_directory": {"const": "."}}}
+      ]
+    }
+  }
+}
