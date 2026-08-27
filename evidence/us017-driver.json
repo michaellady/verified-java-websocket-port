@@ -1,0 +1,102 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_id": "evidence.us-017-driver",
+  "story_id": "US-017",
+  "status": "PASS_OWNER_RELAXED_BOUNDED",
+  "seam": "websocket_driver::ConnectionOwner::poll",
+  "start_commit": "f524508e8650f7cc5cced43e6e1d43e1ed2f73a8",
+  "implementation_commit": "b55c32b99c519e9ebbe56b61de4dc8e02157f91f",
+  "architecture_commit": "f524508e8650f7cc5cced43e6e1d43e1ed2f73a8",
+  "source_tree": {
+    "git_listing_sha256": "sha256:91772e0ee41ebce5a2ba1f72ff211bfe77affc143d501327464c000d233f9bef",
+    "bindings": [
+      {"path":"docs/us017-driver-contract.md","sha256":"sha256:49c1bd3a32f6ac0bcd3f6b7d776928130f1bb379430b7163a43a342ecce5cfb3","git_blob":"2ca0f69e058c7cdd9dbe83be7d965fa9f7bf18c8"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:92f8b8f8c9ef6e45302a6379b7b5b644ef05456265013b59ddeb163966ef4290","git_blob":"897b5d84b92aa1f68ed892a3434519e4758f6aee"},
+      {"path":"rust/connection-core/tests/outbound_commands.rs","sha256":"sha256:8756258d30511c971e56b2000f424560f94f5a3afb18f44e092b1413529eec40","git_blob":"37383ea1b4d1a259f3c2008feaa9514f9e008121"},
+      {"path":"rust/websocket-driver/src/lib.rs","sha256":"sha256:d30612104581a7fa039f5095876a280421ccb373750c532d5ec40188232d4015","git_blob":"c8bf5783a1486630e5dc6f9b113d0fd3105f321c"},
+      {"path":"rust/websocket-driver/tests/driver_contract.rs","sha256":"sha256:792bb8f314feec5a920b8a8c3020618bf70cb348bde1519301e87ce7ada0dd7e","git_blob":"272da1efe5f39f65712d572d8515dd42886d5875"},
+      {"path":"rust/websocket-driver/tests/concurrency.rs","sha256":"sha256:09e61bfaadd963e7a0b1bb226a86f1b7567d82af53ca16c05375054487c15dca","git_blob":"0426ca66b272c5fcb36aeefdc141625f69b81a10"},
+      {"path":"assurance/concurrency/plan.json","sha256":"sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d","git_blob":"36dd5fd450f295bf60ec9082c1745cdbd85faf3f"},
+      {"path":"rust/Cargo.lock","sha256":"sha256:b138978c2eca55cde701c3e9171ad69786779e83d6035fdd0a54917973209c83","git_blob":"92b4f300f93afffc88c3e8828c1b8649cedda374"},
+      {"path":"rust/dependency-policy.toml","sha256":"sha256:ba5000a52dcb4397af9de87e913436732ef8cdc4c67e995eada0a63ae7bd0719","git_blob":"3f50d877da0b2c1e7cfe28d562697b71039bd751"},
+      {"path":"rust/dependency-inventory.toml","sha256":"sha256:12b771650673d8d0c0f01d013264a9b4061194000571232534dd2f81ea012c65","git_blob":"f4437c024ebcc9e43fad24f805ff451e46c480dd"},
+      {"path":"internal/rustgate/verify.go","sha256":"sha256:8a5a93539d4216b2e3a417526dcf965b03681ca08670d2ce838c97da56802d44","git_blob":"8d5feb2936595926c495ecd647cccc36fe8eda38"},
+      {"path":"cmd/rustgate/main_test.go","sha256":"sha256:7cb73218f260cb4db4777ca885b36da0bcc83bc801bc36509bc0585783dc3eb7","git_blob":"210d8144e3d667ecef340ac8ffb3b93545d8e78e"}
+    ]
+  },
+  "tdd": {
+    "outbound_red": {"exit_code":101,"diagnostic":"10 compile errors: SendText and SendBinary had no payload or mask_key fields"},
+    "driver_red": {"exit_code":101,"diagnostic":"public test unresolved connection_driver and six driver contract types"},
+    "green": "PASS",
+    "refactor": "PASS_AFTER_FMT_CLIPPY_AND_BOUNDED_TERMINAL_ORDER_REFACTOR"
+  },
+  "tests": {
+    "gate_command": "make -C rust gates",
+    "metadata_fmt_clippy": "PASS",
+    "debug": {"passed":136,"failed":0},
+    "release": {"passed":136,"failed":0},
+    "outbound_command_tests_per_profile": 4,
+    "driver_contract_tests_per_profile": 6,
+    "driver_concurrency_tests_per_profile": 3,
+    "rustgate_focused_packages": "PASS: ./cmd/rustgate ./internal/rustgate",
+    "go_rustgate_hostile_cases_added": 4
+  },
+  "outbound_core": {
+    "commands": ["SendText { payload, mask_key }", "SendBinary { payload, mask_key }"],
+    "encoder": "websocket_core::FrameEncoder",
+    "driver_encodes_frames": false,
+    "client_requires_explicit_mask_key": true,
+    "server_forbids_mask_key": true,
+    "open_only": true,
+    "rejections_nonterminal": true,
+    "empty_and_125_byte_boundaries_executed": true
+  },
+  "driver": {
+    "queue_implementation_count": 1,
+    "queue_primitive": "std::sync::mpsc::sync_channel",
+    "receiver_public": false,
+    "mutable_core_shared": false,
+    "admission_gate_fields": ["AtomicBool accepting", "AtomicUsize in_flight"],
+    "producer_send_blocks": false,
+    "partial_write_cursor": true,
+    "flush_fact_after_last_write_byte": true,
+    "alternating_command_inbound_turn": true,
+    "terminal_delivery_count": 1,
+    "post_terminal_output_count": 0
+  },
+  "concurrency_results": {
+    "path": "assurance/concurrency/results.json",
+    "state": "PASS",
+    "explored_schedules": 512,
+    "branches": 4096,
+    "truncated": true,
+    "semantic_digest": "fnv64:813774c032030734",
+    "seed_count": 6,
+    "seeds_killed": 6,
+    "seed_replays_each": 2,
+    "native_stress_repeats": 8,
+    "native_accepted": 512,
+    "native_applied": 512,
+    "native_rejected": 0,
+    "native_flakes": 0
+  },
+  "toolchain": {
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "host": "aarch64-apple-darwin",
+    "runtime_platform": "Darwin 25.4.0 arm64"
+  },
+  "nonclaims": [
+    "no Linux or second blocking-platform execution",
+    "no Loom Miri TSAN sanitizer or race-detector execution",
+    "no formal proof or exhaustive concurrency exploration",
+    "no socket adapter Autobahn live-Java differential or adapter conformance execution",
+    "no allocator heap-profile callback production publication signing or release claim"
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "publication": false,
+    "production": false,
+    "signing": false
+  }
+}

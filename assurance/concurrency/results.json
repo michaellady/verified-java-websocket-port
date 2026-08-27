@@ -1,0 +1,113 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_kind": "US017_DRIVER_BOUNDED_SCHEDULE_AND_NATIVE_STRESS_RESULTS",
+  "story_id": "US-017",
+  "state": "PASS",
+  "claim_scope": "BOUNDED_SYSTEMATIC_AND_CURRENT_HOST_STRESS_TESTING",
+  "aggregate_formal_state": "BLOCKED",
+  "target": {
+    "symbol": "websocket_driver::ConnectionOwner::poll",
+    "source": {
+      "path": "rust/websocket-driver/src/lib.rs",
+      "sha256": "sha256:d30612104581a7fa039f5095876a280421ccb373750c532d5ec40188232d4015",
+      "git_blob": "c8bf5783a1486630e5dc6f9b113d0fd3105f321c"
+    }
+  },
+  "implementation_commit": "b55c32b99c519e9ebbe56b61de4dc8e02157f91f",
+  "preregistered_plan": {
+    "path": "assurance/concurrency/plan.json",
+    "sha256": "sha256:f872bad47a16aa48315976f42a88deffb6df84a27ffc4642de983a43c17df89d",
+    "git_blob": "36dd5fd450f295bf60ec9082c1745cdbd85faf3f",
+    "historical_owner_symbol": "websocket_driver::owner::ConnectionOwner::step",
+    "concrete_refinement": "websocket_driver::ConnectionOwner::poll",
+    "historical_callback_action_refined_to": "event-drain"
+  },
+  "bounds": {
+    "producer_tasks": 2,
+    "commands_per_producer": 2,
+    "command_queue_capacity": 2,
+    "write_queue_capacity": 2,
+    "event_queue_capacity": 2,
+    "inbound_actions": 2,
+    "write_progress_actions": 3,
+    "event_drain_actions": 3,
+    "max_tasks": 7,
+    "max_schedules": 100000,
+    "max_preemptions": 3,
+    "max_branches": 1000000
+  },
+  "execution": {
+    "explored_schedules": 512,
+    "explored_branches": 4096,
+    "maximum_preemptions_used": 3,
+    "truncated": true,
+    "truncation_reason": "OWNER_RELAXED_DETERMINISTIC_PREFIX_STOPPED_AT_512_BELOW_PREREGISTERED_MAXIMUM",
+    "weak_fairness": [
+      "WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING",
+      "WEAK_FLUSH_PROGRESS_WHEN_WRITABLE",
+      "WEAK_EVENT_DRAIN_WHEN_OUTPUT_PENDING"
+    ],
+    "producer_admission_fairness_claimed": false,
+    "semantic_digest": "fnv64:813774c032030734",
+    "replay_digest": "fnv64:813774c032030734",
+    "replay_count": 2,
+    "outcome": "PASS"
+  },
+  "properties": [
+    {"property_id":"concurrency.accepted-eventual-exactly-once","outcome":"PASS"},
+    {"property_id":"concurrency.bounded-counterexample","outcome":"PASS_WITH_DECLARED_TRUNCATION"},
+    {"property_id":"concurrency.close-convergence","outcome":"PASS"},
+    {"property_id":"concurrency.fifo-owner-order","outcome":"PASS"},
+    {"property_id":"concurrency.no-post-terminal","outcome":"PASS"},
+    {"property_id":"concurrency.no-write-bypass","outcome":"PASS"},
+    {"property_id":"concurrency.queue-bounds","outcome":"PASS"},
+    {"property_id":"concurrency.receiver-drop-typed","outcome":"PASS"},
+    {"property_id":"concurrency.terminal-exactly-once","outcome":"PASS"}
+  ],
+  "resource_high_water": {
+    "command_entries": {"observed":2,"maximum":2},
+    "command_logical_bytes": {"observed":2,"maximum":1048576},
+    "write_entries": {"observed":1,"maximum":2},
+    "write_logical_bytes": {"observed":3,"maximum":1048576},
+    "event_entries": {"observed":1,"maximum":2},
+    "event_logical_bytes": {"observed":0,"maximum":1048576},
+    "admission_in_flight_at_terminal_drain": 0
+  },
+  "seed_mutation_canaries": [
+    {"seed":"close-race","property":"concurrency.close-convergence","replays":2,"outcome":"KILLED"},
+    {"seed":"duplicate-delivery","property":"concurrency.terminal-exactly-once","replays":2,"outcome":"KILLED"},
+    {"seed":"lock-sharing","property":"concurrency.accepted-eventual-exactly-once","replays":2,"outcome":"KILLED"},
+    {"seed":"lost-command","property":"concurrency.accepted-eventual-exactly-once","replays":2,"outcome":"KILLED"},
+    {"seed":"queue-bypass","property":"concurrency.no-write-bypass","replays":2,"outcome":"KILLED"},
+    {"seed":"write-reorder","property":"concurrency.fifo-owner-order","replays":2,"outcome":"KILLED"}
+  ],
+  "seed_tree": {
+    "path": "rust/websocket-driver/fuzz-seeds/us017",
+    "file_count": 6,
+    "git_tree_listing_sha256": "sha256:49fd62bcc1d4a41a4f0e2436625b7614ae497be1eb84186514661f98c34e9b0c"
+  },
+  "native_stress": {
+    "platform": "Darwin 25.4.0 arm64",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "target": "aarch64-apple-darwin",
+    "repeat_count": 8,
+    "producer_threads_per_repeat": 4,
+    "commands_per_producer": 16,
+    "deadline_seconds": 10,
+    "accepted": 512,
+    "applied": 512,
+    "rejected": 0,
+    "flakes": 0,
+    "outcome": "PASS_CURRENT_HOST_ONLY"
+  },
+  "limitations": [
+    "not a formal proof or exhaustive state-space result",
+    "no Linux or second blocking-platform execution",
+    "no Loom Miri TSAN or race-detector execution",
+    "no Autobahn live-Java differential adapter conformance publication or production claim"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false
+}
