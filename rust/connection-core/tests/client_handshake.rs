@@ -140,3 +140,45 @@ fn frozen_server_response_keys_replay_with_literal_accept_values() {
         assert_eq!(result.state(), ConnectionState::Open);
     }
 }
+
+#[test]
+fn valid_response_is_equivalent_at_every_single_split_point() {
+    let response = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: keep-alive, Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\nX-Trace: fixed\r\n\r\n";
+
+    for split in 0..=response.len() {
+        let descriptor = ClientRequestDescriptor::try_new("/chat", "server.example.com").unwrap();
+        let mut core = client();
+        core.step(CoreInput::Command(LocalCommand::StartClientHandshake {
+            descriptor: descriptor.clone(),
+            nonce: *b"the sample nonce",
+        }));
+
+        let first = core.step(CoreInput::Transport(TransportBytes::new(
+            &response[..split],
+        )));
+        if split < response.len() {
+            assert_eq!(first.failure(), None, "split {split} first chunk");
+            assert_eq!(first.state(), ConnectionState::Connecting, "split {split}");
+            assert_eq!(first.outputs().len(), 0, "split {split} first chunk");
+        }
+        let final_result = if split == response.len() {
+            first
+        } else {
+            core.step(CoreInput::Transport(TransportBytes::new(
+                &response[split..],
+            )))
+        };
+        assert_eq!(final_result.failure(), None, "split {split} final chunk");
+        assert_eq!(final_result.state(), ConnectionState::Open, "split {split}");
+        assert_eq!(
+            final_result.outputs().collect::<Vec<_>>(),
+            vec![
+                &CoreOutput::StateChanged(ConnectionState::Open),
+                &CoreOutput::SemanticEvent(SemanticEvent::ClientHandshakeOpened {
+                    descriptor: descriptor.clone(),
+                }),
+            ],
+            "split {split} ordered outputs"
+        );
+    }
+}

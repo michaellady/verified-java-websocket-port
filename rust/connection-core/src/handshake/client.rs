@@ -1,4 +1,6 @@
+use crate::HandshakeFailure;
 use crate::handshake::crypto;
+use crate::handshake::http::{ParseProgress, ResponseParser};
 
 const DESCRIPTOR_FIELD_MAX: usize = 1_048_576;
 
@@ -81,6 +83,7 @@ enum ClientPhase {
     AwaitingResponse {
         descriptor: ClientRequestDescriptor,
         expected_accept: [u8; 28],
+        parser: ResponseParser,
     },
     Opened,
 }
@@ -107,6 +110,7 @@ impl ClientHandshake {
         self.phase = ClientPhase::AwaitingResponse {
             descriptor,
             expected_accept,
+            parser: ResponseParser::new(maximum),
         };
         Ok(request)
     }
@@ -115,24 +119,36 @@ impl ClientHandshake {
         !matches!(self.phase, ClientPhase::AwaitingStart)
     }
 
-    pub(crate) fn accept_canonical_response(
-        &mut self,
-        response: &[u8],
-    ) -> Option<ClientRequestDescriptor> {
+    pub(crate) fn consume_response(&mut self, response: &[u8]) -> ClientResponse {
         let ClientPhase::AwaitingResponse {
             descriptor,
             expected_accept,
-        } = &self.phase
+            parser,
+        } = &mut self.phase
         else {
-            return None;
+            return ClientResponse::NotAwaiting;
         };
-        if !crate::handshake::http::is_canonical_response(response, expected_accept) {
-            return None;
+        match parser.consume(response, expected_accept) {
+            ParseProgress::Incomplete => ClientResponse::Incomplete,
+            ParseProgress::TotalLimitExceeded { attempted } => {
+                ClientResponse::TotalLimitExceeded { attempted }
+            }
+            ParseProgress::Complete(Err(failure)) => ClientResponse::Rejected(failure),
+            ParseProgress::Complete(Ok(())) => {
+                let descriptor = descriptor.clone();
+                self.phase = ClientPhase::Opened;
+                ClientResponse::Opened(descriptor)
+            }
         }
-        let descriptor = descriptor.clone();
-        self.phase = ClientPhase::Opened;
-        Some(descriptor)
     }
+}
+
+pub(crate) enum ClientResponse {
+    NotAwaiting,
+    Incomplete,
+    Opened(ClientRequestDescriptor),
+    Rejected(HandshakeFailure),
+    TotalLimitExceeded { attempted: u64 },
 }
 
 fn canonical_request(descriptor: &ClientRequestDescriptor, key: &[u8; 24]) -> Option<Box<[u8]>> {

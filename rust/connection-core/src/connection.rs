@@ -1,6 +1,6 @@
 use core::fmt;
 
-use crate::handshake::{ClientHandshake, ClientRequestDescriptor};
+use crate::handshake::{ClientHandshake, ClientRequestDescriptor, ClientResponse};
 
 /// The role this endpoint has in the WebSocket protocol.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -383,10 +383,59 @@ pub enum ProtocolStory {
     CloseAndEof,
 }
 
-/// Reserved opening-handshake failure vocabulary.
+/// Stable client opening-handshake rejection vocabulary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
-pub enum HandshakeFailure {}
+pub enum HandshakeFailure {
+    /// This endpoint's role cannot perform a client handshake.
+    WrongRole,
+    /// A client handshake was already started.
+    ClientHandshakeAlreadyStarted,
+    /// Response bytes arrived before the request was emitted.
+    ResponseBeforeClientRequest,
+    /// The HTTP status line did not match its fixed grammar.
+    MalformedStatusLine,
+    /// The response used an HTTP version other than HTTP/1.1.
+    HttpVersionNot11,
+    /// The response status was not 101.
+    StatusNotSwitchingProtocols {
+        /// The parsed three-digit status.
+        received: u16,
+    },
+    /// A CR or LF was not part of an exact CRLF pair.
+    BareLineEnding,
+    /// A header used obsolete line folding.
+    ObsoleteLineFolding,
+    /// A header line had no valid name/value separator.
+    MalformedHeader,
+    /// A field name contained a byte outside the HTTP token grammar.
+    InvalidHeaderName,
+    /// A field name appeared more than once, ignoring ASCII case.
+    DuplicateHeader,
+    /// The required Upgrade field was absent.
+    MissingUpgrade,
+    /// Upgrade did not contain the `websocket` token.
+    InvalidUpgrade,
+    /// The required Connection field was absent.
+    MissingConnection,
+    /// Connection did not contain the `upgrade` token.
+    InvalidConnection,
+    /// The required Sec-WebSocket-Accept field was absent.
+    MissingAccept,
+    /// Sec-WebSocket-Accept did not match the request nonce derivation.
+    AcceptMismatch,
+    /// An extension was returned even though none was offered.
+    UnexpectedExtension,
+    /// A subprotocol was returned even though none was offered.
+    UnexpectedSubprotocol,
+    /// EOF arrived before a complete response.
+    UnexpectedEof,
+    /// Bytes followed the completed HTTP response in the same input.
+    TrailingData {
+        /// Number of bytes after the terminal CRLF.
+        bytes: u64,
+    },
+}
 
 /// Reserved frame failure vocabulary.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -566,19 +615,40 @@ impl ConnectionCore {
         if let CoreInput::Transport(bytes) = input
             && self.role == Role::Client
             && self.client_handshake.has_started()
-            && let Some(descriptor) = self
-                .client_handshake
-                .accept_canonical_response(bytes.as_slice())
         {
-            self.state = ConnectionState::Open;
-            return StepResult {
-                outputs: Box::new([
-                    CoreOutput::StateChanged(ConnectionState::Open),
-                    CoreOutput::SemanticEvent(SemanticEvent::ClientHandshakeOpened { descriptor }),
-                ]),
-                failure: None,
-                state: self.state,
-            };
+            match self.client_handshake.consume_response(bytes.as_slice()) {
+                ClientResponse::Incomplete => {
+                    return StepResult {
+                        outputs: Box::new([]),
+                        failure: None,
+                        state: self.state,
+                    };
+                }
+                ClientResponse::Opened(descriptor) => {
+                    self.state = ConnectionState::Open;
+                    return StepResult {
+                        outputs: Box::new([
+                            CoreOutput::StateChanged(ConnectionState::Open),
+                            CoreOutput::SemanticEvent(SemanticEvent::ClientHandshakeOpened {
+                                descriptor,
+                            }),
+                        ]),
+                        failure: None,
+                        state: self.state,
+                    };
+                }
+                ClientResponse::Rejected(failure) => {
+                    return self.close_with_failure(FailureKind::Handshake(failure));
+                }
+                ClientResponse::TotalLimitExceeded { attempted } => {
+                    return self.close_with_failure(FailureKind::LimitExceeded {
+                        limit: LimitKind::HandshakeBytes,
+                        attempted,
+                        maximum: self.config.limits.handshake_bytes,
+                    });
+                }
+                ClientResponse::NotAwaiting => {}
+            }
         }
         let owner_story = match input {
             CoreInput::Transport(_) => match self.role {
@@ -625,5 +695,17 @@ impl ConnectionCore {
     #[must_use]
     pub const fn config(&self) -> &ConnectionConfig {
         &self.config
+    }
+
+    fn close_with_failure(&mut self, kind: FailureKind) -> StepResult {
+        self.state = ConnectionState::Closed;
+        StepResult {
+            outputs: Box::new([CoreOutput::StateChanged(ConnectionState::Closed)]),
+            failure: Some(TypedProtocolFailure {
+                kind,
+                state_after: self.state,
+            }),
+            state: self.state,
+        }
     }
 }
