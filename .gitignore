@@ -31,3 +31,4 @@ rust/**/target/
 java-semantic-oracle/build/
 /terraform/bootstrap/.terraform/
 /terraform/bootstrap/.terraform.lock.hcl
+/rustgatectl
