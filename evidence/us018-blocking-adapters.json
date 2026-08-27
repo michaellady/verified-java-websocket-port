@@ -1,0 +1,126 @@
+{
+  "$schema": "../schemas/us018-blocking-adapters-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_id": "evidence.us-018-blocking-adapters",
+  "story_id": "US-018",
+  "status": "PASS_OWNER_RELAXED_CURRENT_HOST",
+  "seam": "websocket_testee::{run_client_once,run_server_once}",
+  "start_commit": "6a7606ac0fc216e5c87148faf98c957ab18af324",
+  "implementation_commit": "9cd886c5d0f963ecaa7a66d20853330ff98c460b",
+  "architecture_commit": "b7146dd57e9b19678108d8fa29c1ce9403a8cc94",
+  "source_tree": {
+    "git_listing_sha256": "sha256:ac097b54c115cfdd97e85a449538cb62add18fa80f7691bc14296fdcc1e499cc",
+    "git_listing_scope": "git ls-tree -r 9cd886c5d0f963ecaa7a66d20853330ff98c460b over the exact bindings array paths in lexical order",
+    "bindings": [
+      {"path":"cmd/rustgate/main_test.go","sha256":"sha256:5fa43eb4ab81c6d04a7b06db1e47f4a7c6fbbcfe8c91815fdffb003975dede86","git_blob":"1d8a717c9168f8346653b519632cef74f50a81ec"},
+      {"path":"docs/us018-blocking-adapter-contract.md","sha256":"sha256:ccdf1685ea0e1ca67035d787576c92bd6c9f950db65e74966e5a8f833ed58d81","git_blob":"cf88ea3edcf610150a11e575b59528f8244c757d"},
+      {"path":"internal/rustgate/verify.go","sha256":"sha256:d347600fea4ba2c9f285735aa5801ab005d2d5c7e6ff4d8bde31db9c7fddad86","git_blob":"d85d791192f60da272ca633eb68933f5d32c0876"},
+      {"path":"rust/Cargo.lock","sha256":"sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb","git_blob":"beb9c9fe6075149151935cb48c1b147c330d3943"},
+      {"path":"rust/Cargo.toml","sha256":"sha256:316f90d18e749341ac236aa50695b70e87e25e0a8a0e18ad942a479e87c99615","git_blob":"6e4371d41cf7f3c180081ac6606c5a0106c9071d"},
+      {"path":"rust/connection-core/tests/scaffold_smoke.rs","sha256":"sha256:6c53024af4b097b97172c20cb9677d3e59d67468073a02c5ab360f3a4fc9e9e7","git_blob":"156a3714e508db424cd7af0cce0c220ded3207e2"},
+      {"path":"rust/dependency-inventory.toml","sha256":"sha256:6ece886fb71b82e559c00e922ecfb6d272c0c6861b51d82cebc8a6a8827fbe1b","git_blob":"65989338fd067591621d032a16dee1e85201d488"},
+      {"path":"rust/dependency-policy.toml","sha256":"sha256:f8112034226def374b1b58f20fb508c7cadc92f2ae6a3ac11cd1137cb845da86","git_blob":"9e46a71ad87541213b8fd304a6f36f0574c0e7df"},
+      {"path":"rust/websocket-testee/Cargo.toml","sha256":"sha256:8b1c1828ebf2de72b8060dd11a09f82843e0384919e32ff20a2effc3ea153230","git_blob":"90ec75316d7d4c2b1601885dc35c97498b6d28a9"},
+      {"path":"rust/websocket-testee/src/client.rs","sha256":"sha256:d146a0d45d28c23943fd935864aedc4f5f994e5bf8039bec8d0f39ae46c06bf0","git_blob":"2b99ce1415c3b70763e321e11881571ac10a380d"},
+      {"path":"rust/websocket-testee/src/io_loop.rs","sha256":"sha256:982b2a1d70d5e2077d2cb0d39cdc536255fb4c112a24aab0e457e1edf48216c4","git_blob":"b24461414c952268d92eb1274ab1c1bc498e36a7"},
+      {"path":"rust/websocket-testee/src/lib.rs","sha256":"sha256:8921e403176ed13ab5dc5e8aacd0c854965db2dc2b5bbf4051778fe9b28c8608","git_blob":"7da9e10972fda2813a6ce8414114ae884e44e8c1"},
+      {"path":"rust/websocket-testee/src/main.rs","sha256":"sha256:3a373c4218e4b4106e1458e047cd3fa235d5bee905a6fd92f6fea15e952e7e09","git_blob":"0e56734c09d0ecbd3634c03d64c7304e7fa8ebee"},
+      {"path":"rust/websocket-testee/src/server.rs","sha256":"sha256:7482e3a8700361acffedcfbfdcece5a0ea28c60e1d68249e8a3aabcb1b19abda","git_blob":"3da146aad8e8769b54c576df728be353ff22c8fd"},
+      {"path":"rust/websocket-testee/tests/loopback.rs","sha256":"sha256:92d99d211111d231506d3295a92d39131d2f7461e04e630e9ba034b4b9c1e865","git_blob":"27a41b64b0bc532859fff31edec77e0e785ca09a"},
+      {"path":"rust/websocket-testee/tests/process.rs","sha256":"sha256:491db19692801ac2a6dcf30b2be236946a89cfe38cc7ac586e820b44dbd64a3e","git_blob":"49310face701dc2bba50f739c3e5ff43d67f4d6d"},
+      {"path":"schemas/us018-blocking-adapters-1.0.0.schema.json","sha256":"sha256:d7168f66cc6ba75e599e9fc4aae87b58b4887f73d129eda58fd2d19db8cf0115","git_blob":"78e3d1c1bc22b1a15aefde7c98b11bd9921631e1"},
+      {"path":"security/rust-dependency-unsafe-inventory.json","sha256":"sha256:c221f41a97a03b8d32cb536a912f9bc03ebb67451c499d55a01a8ef5be248f2c","git_blob":"49d86e7d6bbfe90fcb7fe205de3850d92bad7c63"}
+    ]
+  },
+  "tdd": {
+    "public_seam_red": {
+      "exit_code": 101,
+      "diagnostic": "E0432 unresolved imports for AdapterReport, ClientFixture, ServerFixture, IoBounds, run_client_once, and run_server_once"
+    },
+    "rustgate_red": {
+      "exit_code": 1,
+      "diagnostic": "focused hostile fixtures lacked ADAPTER_PROTOCOL_BRANCH, ADAPTER_PROTOCOL_SURFACE, and ADAPTER_LINKAGE_MISSING; only generic dependency findings existed"
+    },
+    "green": "PASS",
+    "refactor": "PASS_AFTER_FMT_CLIPPY_AND_SHARED_PUMP_REFACTOR"
+  },
+  "tests": {
+    "debug": {"passed":155,"failed":0},
+    "release": {"passed":155,"failed":0},
+    "testee_unit_per_profile": 2,
+    "loopback_per_profile": 7,
+    "process_per_profile": 3,
+    "rustgate_packages": "PASS: ./cmd/rustgate ./internal/rustgate",
+    "architecture_mutants": 9
+  },
+  "adapter": {
+    "transport": "std::net loopback TCP",
+    "roles": ["client", "server"],
+    "owner_per_socket": 1,
+    "shared_connected_pump": true,
+    "driver_constructor": "websocket_driver::connection_driver",
+    "owner_poll": "websocket_driver::ConnectionOwner::poll",
+    "read_buffer_allocations": 1,
+    "read_buffer_retained_until_consumed": true,
+    "write_progress_exact": true,
+    "eof_once": true,
+    "shutdown_once": true,
+    "partial_read_bytes": 1,
+    "max_write_chunk_bytes": 3,
+    "normalized_process_exit_classes": [0, 2, 3, 4, 5],
+    "current_host_matrices": [
+      "server request delivered through one-byte reads",
+      "server response advanced through three-byte write prefixes",
+      "client request advanced through three-byte write prefixes",
+      "client response delivered through bounded chunks",
+      "failed client connect",
+      "server accept deadline",
+      "stalled peer read deadline",
+      "peer transport EOF",
+      "report-entry exhaustion",
+      "owner-turn exhaustion",
+      "client process router",
+      "server process router"
+    ]
+  },
+  "architecture_gate": {
+    "exact_local_edges": [
+      "websocket-driver:websocket-core:path:../connection-core",
+      "websocket-testee:websocket-core:path:../connection-core",
+      "websocket-testee:websocket-driver:path:../websocket-driver"
+    ],
+    "forbidden_protocol_symbols": 11,
+    "typed_findings": [
+      "ADAPTER_LINKAGE_MISSING",
+      "ADAPTER_PROTOCOL_BRANCH",
+      "ADAPTER_PROTOCOL_SURFACE",
+      "ADAPTER_TRANSPORT_SURFACE",
+      "DEPENDENCY_NOT_ALLOWED"
+    ]
+  },
+  "toolchain": {
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "host": "aarch64-apple-darwin",
+    "runtime_platform": "Darwin 25.4.0 arm64"
+  },
+  "nonclaims": [
+    "no Linux x86_64 or second-platform execution",
+    "no live Java cross-peer execution",
+    "no Autobahn execution or conformance claim",
+    "no TLS proxy reconnect async runtime extension or compression support",
+    "no general production client or server API",
+    "no native signal-driven EINTR injection",
+    "no application echo or conformance-runner routing",
+    "no exhaustive transport-failure proof",
+    "no production publication signing or release claim",
+    "no independent review claim"
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "publication": false,
+    "production": false,
+    "signing": false
+  }
+}
