@@ -587,6 +587,9 @@ func (v *verifier) verifyDependencyTables(path string, document tomlDocument) {
 	for _, entry := range document.entries {
 		section := entry.Section
 		if section == "dependencies" || section == "dev-dependencies" || section == "build-dependencies" || strings.HasSuffix(section, ".dependencies") || strings.HasSuffix(section, ".dev-dependencies") || strings.HasSuffix(section, ".build-dependencies") {
+			if path == "rust/websocket-driver/Cargo.toml" && section == "dependencies" && entry.Key == "websocket-core" && entry.Raw == `{ path = "../connection-core" }` {
+				continue
+			}
 			code := "DEPENDENCY_NOT_ALLOWED"
 			if section == "build-dependencies" || strings.HasSuffix(section, ".build-dependencies") {
 				code = "BUILD_DEPENDENCY_NOT_ALLOWED"
@@ -715,7 +718,10 @@ func (v *verifier) scanProductionSource(path string, body []byte) {
 		if allowedMPSCImport(path, tokens, index) {
 			continue
 		}
-		v.add("FORBIDDEN_CORE_SURFACE", path, "explicit std access is forbidden except the exact use std::sync::mpsc; import in connection-core/src/channel.rs")
+		if allowedDriverStdImport(path, tokens, index) {
+			continue
+		}
+		v.add("FORBIDDEN_CORE_SURFACE", path, "explicit std access is restricted to the driver's exact collection, atomic, Arc, and mpsc imports")
 	}
 }
 
@@ -729,6 +735,19 @@ func allowedMPSCImport(path string, tokens []string, index int) bool {
 		tokenAt(tokens, index+3) == "::" &&
 		tokenAt(tokens, index+4) == "mpsc" &&
 		tokenAt(tokens, index+5) == ";"
+}
+
+func allowedDriverStdImport(path string, tokens []string, index int) bool {
+	if !strings.HasSuffix(filepath.ToSlash(path), "/websocket-driver/src/lib.rs") || tokenAt(tokens, index-1) != "use" || tokenAt(tokens, index+1) != "::" {
+		return false
+	}
+	if tokenAt(tokens, index+2) == "collections" && tokenAt(tokens, index+3) == "::" && tokenAt(tokens, index+4) == "VecDeque" && tokenAt(tokens, index+5) == ";" {
+		return true
+	}
+	if tokenAt(tokens, index+2) != "sync" || tokenAt(tokens, index+3) != "::" {
+		return false
+	}
+	return tokenAt(tokens, index+4) == "atomic" || tokenAt(tokens, index+4) == "{"
 }
 
 func sourceRoots(manifest tomlDocument) []string {

@@ -1,0 +1,561 @@
+//! Pull-driven single-owner scheduling for [`websocket_core::ConnectionCore`].
+//!
+//! Producers share only a bounded nonblocking command handle. One owner keeps
+//! the mutable protocol core, ordered outputs, partial-write cursor, and
+//! terminal state private. Transports remain outside this crate.
+
+#![forbid(unsafe_code)]
+#![deny(missing_docs)]
+
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::{Arc, mpsc};
+
+use websocket_core::{
+    ConnectionConfig, ConnectionCore, ConnectionState, CoreInput, CoreOutput, LocalCommand, Role,
+    SemanticEvent, TransportBytes, TransportWrite, TypedProtocolFailure,
+};
+
+/// Builds one bounded producer handle and its sole pull-driven owner.
+#[must_use]
+pub fn connection_driver(config: ConnectionConfig, role: Role) -> (CommandHandle, ConnectionOwner) {
+    let limits = *config.limits();
+    let capacity = usize::try_from(limits.command_queue_entries)
+        .expect("ConnectionConfig already proved command capacity fits usize");
+    let _aggregate_entries = limits
+        .command_queue_entries
+        .checked_add(limits.write_queue_entries)
+        .and_then(|value| value.checked_add(limits.event_queue_entries))
+        .and_then(|value| usize::try_from(value).ok())
+        .expect("ConnectionConfig bounds make driver entry arithmetic representable");
+    let (sender, receiver) = mpsc::sync_channel(capacity);
+    let gate = Arc::new(AdmissionGate {
+        accepting: AtomicBool::new(true),
+        in_flight: AtomicUsize::new(0),
+    });
+    let handle = CommandHandle {
+        sender,
+        gate: Arc::clone(&gate),
+        limits,
+    };
+    let owner = ConnectionOwner {
+        core: ConnectionCore::new(config, role),
+        receiver,
+        gate,
+        held_command: None,
+        ledger: VecDeque::new(),
+        offered_write: None,
+        write_cursor: 0,
+        batch_writes_remaining: 0,
+        flush_due: false,
+        command_turn: true,
+        eof_latched: false,
+        shutdown_latched: false,
+        eof_applied: false,
+        terminal_pending: false,
+        terminal_delivered: false,
+        terminal_outcome: TerminalOutcome::Closed,
+        dispositions: VecDeque::new(),
+        producers_dropped_reported: false,
+    };
+    (handle, owner)
+}
+
+#[derive(Debug)]
+struct AdmissionGate {
+    accepting: AtomicBool,
+    in_flight: AtomicUsize,
+}
+
+struct InFlightGuard<'a> {
+    gate: &'a AdmissionGate,
+}
+
+impl Drop for InFlightGuard<'_> {
+    fn drop(&mut self) {
+        let previous = self.gate.in_flight.fetch_sub(1, Ordering::SeqCst);
+        debug_assert!(previous > 0, "in-flight admission counter underflow");
+    }
+}
+
+/// Cloneable nonblocking producer for the owner's exact bounded command queue.
+#[derive(Clone, Debug)]
+pub struct CommandHandle {
+    sender: mpsc::SyncSender<LocalCommand>,
+    gate: Arc<AdmissionGate>,
+    limits: websocket_core::ConnectionLimits,
+}
+
+impl CommandHandle {
+    /// Attempts to retain one command without waiting for queue capacity.
+    pub fn try_enqueue(&self, command: LocalCommand) -> Result<(), EnqueueError> {
+        let (attempted, maximum) = command_charge(&command, &self.limits);
+        if attempted > maximum {
+            return Err(EnqueueError::LimitExceeded {
+                command,
+                attempted,
+                maximum,
+            });
+        }
+        if !self.gate.accepting.load(Ordering::SeqCst) {
+            return Err(EnqueueError::ShuttingDown(command));
+        }
+        if self
+            .gate
+            .in_flight
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
+                value.checked_add(1)
+            })
+            .is_err()
+        {
+            self.gate.accepting.store(false, Ordering::SeqCst);
+            return Err(EnqueueError::ShuttingDown(command));
+        }
+        let _guard = InFlightGuard { gate: &self.gate };
+        if !self.gate.accepting.load(Ordering::SeqCst) {
+            return Err(EnqueueError::ShuttingDown(command));
+        }
+        self.sender.try_send(command).map_err(|error| match error {
+            mpsc::TrySendError::Full(command) => EnqueueError::Full(command),
+            mpsc::TrySendError::Disconnected(command) => EnqueueError::ReceiverDropped(command),
+        })
+    }
+}
+
+fn command_charge(command: &LocalCommand, limits: &websocket_core::ConnectionLimits) -> (u64, u64) {
+    let length = match command {
+        LocalCommand::StartClientHandshake { descriptor, .. } => descriptor
+            .request_target()
+            .len()
+            .saturating_add(descriptor.host().len())
+            .saturating_add(16),
+        LocalCommand::SendText { payload, .. } => payload.len(),
+        LocalCommand::SendBinary { payload, .. }
+        | LocalCommand::SendPing { payload, .. }
+        | LocalCommand::SendPong { payload, .. } => payload.len(),
+        LocalCommand::Close { reason, code, .. } => {
+            reason.len().saturating_add(usize::from(code.is_some()) * 2)
+        }
+    };
+    let maximum = match command {
+        LocalCommand::StartClientHandshake { .. } => limits.handshake_bytes,
+        _ => limits.total_buffered_bytes,
+    };
+    (u64::try_from(length).unwrap_or(u64::MAX), maximum)
+}
+
+/// A rejected enqueue that always returns ownership of the command.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EnqueueError {
+    /// The exact configured entry capacity is already retained.
+    Full(LocalCommand),
+    /// Producer admission closed before the queue operation committed.
+    ShuttingDown(LocalCommand),
+    /// The sole owner receiver no longer exists.
+    ReceiverDropped(LocalCommand),
+    /// The command's logical retained bytes exceed its configured class cap.
+    LimitExceeded {
+        /// Command whose ownership was not retained.
+        command: LocalCommand,
+        /// Logical bytes the command would retain.
+        attempted: u64,
+        /// Configured logical-byte maximum.
+        maximum: u64,
+    },
+}
+
+/// One transport fact admitted to [`ConnectionOwner::poll`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DriverInput<'a> {
+    /// Gives queued owner work an execution turn.
+    Wake,
+    /// Supplies one borrowed buffer; the driver never retains it.
+    Inbound(TransportBytes<'a>),
+    /// Acknowledges an exact prefix of the currently offered write suffix.
+    WriteProgress {
+        /// Number of bytes accepted by the transport.
+        bytes: usize,
+    },
+    /// Reports that the read side reached EOF.
+    TransportEof,
+    /// Reports that the adapter can provide no more transport service.
+    Shutdown,
+}
+
+/// Why borrowed inbound bytes were not consumed by this poll.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DeferredReason {
+    /// An earlier ordered output still requires delivery.
+    OutputPending,
+    /// Alternation assigned this quiescent transition to a queued command.
+    CommandTurn,
+    /// A complete write must first be reported to the protocol core.
+    FlushPending,
+}
+
+/// Why a driver input was rejected without mutation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DriverInputError {
+    /// Write progress exceeded the exact offered suffix or no suffix existed.
+    InvalidWriteProgress {
+        /// Reported progress.
+        attempted: usize,
+        /// Currently offered suffix length.
+        remaining: usize,
+    },
+}
+
+/// Exact consumption result for the supplied driver input.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum InputDisposition {
+    /// The input fact was consumed; inbound reports its complete byte count.
+    Consumed {
+        /// Borrowed inbound bytes consumed, otherwise zero.
+        bytes: usize,
+    },
+    /// The adapter must retry the identical borrowed inbound bytes.
+    Deferred(DeferredReason),
+    /// The input was invalid and changed no driver state.
+    Rejected(DriverInputError),
+}
+
+/// Exactly-once owner disposition of an accepted producer command.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CommandDisposition {
+    /// The core accepted and applied this command.
+    Applied(LocalCommand),
+    /// The core rejected this command with a typed nonterminal or terminal failure.
+    Rejected {
+        /// Accepted command being disposed.
+        command: LocalCommand,
+        /// Exact core failure.
+        failure: TypedProtocolFailure,
+    },
+    /// Terminal convergence rejected an already accepted queued command.
+    TerminalRejected(LocalCommand),
+    /// Every producer handle was dropped after queued work drained.
+    ProducersDropped,
+}
+
+/// One normalized connection terminal result.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TerminalOutcome {
+    /// The core reached its one terminal `Closed` state.
+    Closed,
+}
+
+/// The next exact ordered driver output.
+#[derive(Debug, Eq, PartialEq)]
+pub enum DriverOutput<'owner> {
+    /// No output is currently pending.
+    Idle,
+    /// Exact undrained suffix of the front transport write.
+    Write(&'owner [u8]),
+    /// One owned semantic event, delivered outside the core call.
+    Event(SemanticEvent),
+    /// One nonterminal lifecycle transition.
+    StateChanged(ConnectionState),
+    /// One typed core failure after earlier outputs from the same step.
+    Failure(TypedProtocolFailure),
+    /// The single normalized terminal delivery.
+    Terminal(TerminalOutcome),
+}
+
+/// Result of one bounded owner transition.
+#[derive(Debug, Eq, PartialEq)]
+pub struct PollResult<'owner> {
+    /// Disposition of the supplied driver input.
+    pub input: InputDisposition,
+    /// At most one command disposition.
+    pub command: Option<CommandDisposition>,
+    /// Next ordered output or `Idle`.
+    pub output: DriverOutput<'owner>,
+    /// Current protocol lifecycle state.
+    pub state: ConnectionState,
+}
+
+#[derive(Debug)]
+enum PendingOutput {
+    Write(TransportWrite),
+    Event(SemanticEvent),
+    StateChanged(ConnectionState),
+    Failure(TypedProtocolFailure),
+}
+
+/// Sole mutable owner of protocol, ordering, write progress, and terminal state.
+#[derive(Debug)]
+pub struct ConnectionOwner {
+    core: ConnectionCore,
+    receiver: mpsc::Receiver<LocalCommand>,
+    gate: Arc<AdmissionGate>,
+    held_command: Option<LocalCommand>,
+    ledger: VecDeque<PendingOutput>,
+    offered_write: Option<TransportWrite>,
+    write_cursor: usize,
+    batch_writes_remaining: usize,
+    flush_due: bool,
+    command_turn: bool,
+    eof_latched: bool,
+    shutdown_latched: bool,
+    eof_applied: bool,
+    terminal_pending: bool,
+    terminal_delivered: bool,
+    terminal_outcome: TerminalOutcome,
+    dispositions: VecDeque<CommandDisposition>,
+    producers_dropped_reported: bool,
+}
+
+impl ConnectionOwner {
+    /// Performs at most one owner transition and returns the next ordered output.
+    pub fn poll<'owner>(&'owner mut self, input: DriverInput<'_>) -> PollResult<'owner> {
+        let mut input_disposition = consumed(&input);
+        match input {
+            DriverInput::Shutdown => {
+                self.shutdown_latched = true;
+                self.gate.accepting.store(false, Ordering::SeqCst);
+            }
+            DriverInput::TransportEof => {
+                self.eof_latched = true;
+                self.gate.accepting.store(false, Ordering::SeqCst);
+            }
+            _ => {}
+        }
+
+        if let DriverInput::WriteProgress { bytes } = input {
+            let remaining = self.write_remaining();
+            if remaining == 0 || bytes > remaining {
+                input_disposition =
+                    InputDisposition::Rejected(DriverInputError::InvalidWriteProgress {
+                        attempted: bytes,
+                        remaining,
+                    });
+            } else if bytes > 0 {
+                self.write_cursor += bytes;
+                if self.write_cursor == self.offered_write_length() {
+                    self.offered_write = None;
+                    self.write_cursor = 0;
+                    self.batch_writes_remaining = self
+                        .batch_writes_remaining
+                        .checked_sub(1)
+                        .expect("a promoted write belongs to the current batch");
+                    if self.batch_writes_remaining == 0 {
+                        self.flush_due = true;
+                    }
+                }
+            }
+            let command = self.next_disposition();
+            let state = self.core.state();
+            let output = self.next_output();
+            return PollResult {
+                input: input_disposition,
+                command,
+                output,
+                state,
+            };
+        }
+
+        if self.has_pending_output() {
+            if matches!(input, DriverInput::Inbound(_)) {
+                input_disposition = InputDisposition::Deferred(DeferredReason::OutputPending);
+            }
+            let command = self.next_disposition();
+            let state = self.core.state();
+            let output = self.next_output();
+            return PollResult {
+                input: input_disposition,
+                command,
+                output,
+                state,
+            };
+        }
+
+        let mut command_disposition = None;
+        if self.flush_due {
+            self.flush_due = false;
+            if matches!(input, DriverInput::Inbound(_)) {
+                input_disposition = InputDisposition::Deferred(DeferredReason::FlushPending);
+            }
+            let result = self.core.step(CoreInput::TransportWriteFlushed);
+            self.commit(result);
+        } else if (self.shutdown_latched || self.eof_latched) && !self.eof_applied {
+            self.eof_applied = true;
+            let result = self.core.step(CoreInput::TransportEof);
+            self.commit(result);
+        } else if !self.terminal_pending && !self.terminal_delivered {
+            self.fill_held_command();
+            match input {
+                DriverInput::Inbound(_) if self.held_command.is_some() && self.command_turn => {
+                    input_disposition = InputDisposition::Deferred(DeferredReason::CommandTurn);
+                    let command = self.held_command.take().expect("checked held command");
+                    command_disposition = Some(self.apply_command(command));
+                    self.command_turn = false;
+                }
+                DriverInput::Inbound(bytes) => {
+                    let result = self.core.step(CoreInput::Transport(bytes));
+                    self.commit(result);
+                    self.command_turn = true;
+                }
+                DriverInput::Wake if self.held_command.is_some() => {
+                    let command = self.held_command.take().expect("checked held command");
+                    command_disposition = Some(self.apply_command(command));
+                    self.command_turn = false;
+                }
+                _ => {}
+            }
+        }
+
+        self.prepare_terminal();
+        let command = command_disposition.or_else(|| self.next_disposition());
+        let state = self.core.state();
+        let output = if command.is_some() && self.terminal_pending && !self.has_pending_output() {
+            DriverOutput::Idle
+        } else {
+            self.next_output()
+        };
+        PollResult {
+            input: input_disposition,
+            command,
+            output,
+            state,
+        }
+    }
+
+    fn apply_command(&mut self, command: LocalCommand) -> CommandDisposition {
+        let result = self.core.step(CoreInput::Command(command.clone()));
+        let failure = result.failure().cloned();
+        self.commit(result);
+        match failure {
+            Some(failure) => CommandDisposition::Rejected { command, failure },
+            None => CommandDisposition::Applied(command),
+        }
+    }
+
+    fn commit(&mut self, result: websocket_core::StepResult) {
+        let state = result.state();
+        let failure = result.failure().cloned();
+        let outputs: Vec<_> = result.outputs().cloned().collect();
+        let writes = outputs
+            .iter()
+            .filter(|output| matches!(output, CoreOutput::TransportWrite(_)))
+            .count();
+        self.batch_writes_remaining = self
+            .batch_writes_remaining
+            .checked_add(writes)
+            .expect("bounded write entry accounting");
+        for output in outputs {
+            match output {
+                CoreOutput::TransportWrite(write) => {
+                    self.ledger.push_back(PendingOutput::Write(write));
+                }
+                CoreOutput::SemanticEvent(event) => {
+                    self.ledger.push_back(PendingOutput::Event(event));
+                }
+                CoreOutput::StateChanged(ConnectionState::Closed) => {
+                    self.begin_terminal();
+                }
+                CoreOutput::StateChanged(state) => {
+                    self.ledger.push_back(PendingOutput::StateChanged(state));
+                }
+            }
+        }
+        if let Some(failure) = failure {
+            self.ledger.push_back(PendingOutput::Failure(failure));
+        }
+        if state == ConnectionState::Closed {
+            self.begin_terminal();
+        }
+    }
+
+    fn begin_terminal(&mut self) {
+        self.gate.accepting.store(false, Ordering::SeqCst);
+        self.terminal_pending = true;
+    }
+
+    fn fill_held_command(&mut self) {
+        if self.held_command.is_some() {
+            return;
+        }
+        match self.receiver.try_recv() {
+            Ok(command) => self.held_command = Some(command),
+            Err(mpsc::TryRecvError::Empty) => {}
+            Err(mpsc::TryRecvError::Disconnected) => {
+                if !self.producers_dropped_reported {
+                    self.dispositions
+                        .push_back(CommandDisposition::ProducersDropped);
+                    self.producers_dropped_reported = true;
+                }
+            }
+        }
+    }
+
+    fn prepare_terminal(&mut self) {
+        if !self.terminal_pending
+            || self.has_pending_output()
+            || self.gate.in_flight.load(Ordering::SeqCst) != 0
+        {
+            return;
+        }
+        if let Some(command) = self.held_command.take() {
+            self.dispositions
+                .push_back(CommandDisposition::TerminalRejected(command));
+        }
+        while let Ok(command) = self.receiver.try_recv() {
+            self.dispositions
+                .push_back(CommandDisposition::TerminalRejected(command));
+        }
+    }
+
+    fn next_disposition(&mut self) -> Option<CommandDisposition> {
+        self.dispositions.pop_front()
+    }
+
+    fn offered_write_length(&self) -> usize {
+        self.offered_write
+            .as_ref()
+            .map_or(0, |write| write.as_slice().len())
+    }
+
+    fn write_remaining(&self) -> usize {
+        self.offered_write_length()
+            .saturating_sub(self.write_cursor)
+    }
+
+    fn has_pending_output(&self) -> bool {
+        self.offered_write.is_some() || !self.ledger.is_empty()
+    }
+
+    fn next_output(&mut self) -> DriverOutput<'_> {
+        if self.offered_write.is_none()
+            && matches!(self.ledger.front(), Some(PendingOutput::Write(_)))
+        {
+            let Some(PendingOutput::Write(write)) = self.ledger.pop_front() else {
+                unreachable!("front was checked as a write")
+            };
+            self.offered_write = Some(write);
+        }
+        if let Some(write) = self.offered_write.as_ref() {
+            return DriverOutput::Write(&write.as_slice()[self.write_cursor..]);
+        }
+        match self.ledger.pop_front() {
+            Some(PendingOutput::Event(event)) => DriverOutput::Event(event),
+            Some(PendingOutput::StateChanged(state)) => DriverOutput::StateChanged(state),
+            Some(PendingOutput::Failure(failure)) => DriverOutput::Failure(failure),
+            Some(PendingOutput::Write(_)) => unreachable!("write was promoted before pop"),
+            None if self.terminal_pending && self.dispositions.is_empty() => {
+                self.terminal_pending = false;
+                self.terminal_delivered = true;
+                DriverOutput::Terminal(self.terminal_outcome.clone())
+            }
+            None => DriverOutput::Idle,
+        }
+    }
+}
+
+fn consumed(input: &DriverInput<'_>) -> InputDisposition {
+    InputDisposition::Consumed {
+        bytes: match input {
+            DriverInput::Inbound(bytes) => bytes.as_slice().len(),
+            _ => 0,
+        },
+    }
+}

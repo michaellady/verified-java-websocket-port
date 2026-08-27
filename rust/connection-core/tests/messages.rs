@@ -3,8 +3,8 @@
 use websocket_core::{
     BinaryMessage, ClientRequestDescriptor, ConnectionConfig, ConnectionCore, ConnectionLimits,
     ConnectionState, CoreInput, CoreOutput, FailureKind, FrameEncoder, LimitKind, LocalCommand,
-    Opcode, OutboundFrame, ProtocolStory, QueueKind, Role, SemanticEvent, TextMessage,
-    TransportBytes, Utf8Failure,
+    Opcode, OutboundFrame, QueueKind, Role, SemanticEvent, TextMessage, TransportBytes,
+    Utf8Failure,
 };
 
 const RFC_REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
@@ -537,7 +537,7 @@ fn message_event_and_total_limits_admit_exact_boundaries_and_reject_plus_one() {
 }
 
 #[test]
-fn nonfinal_data_starts_remain_frame_only_and_outbound_message_commands_remain_unavailable() {
+fn nonfinal_data_starts_remain_frame_only_and_outbound_message_commands_emit_final_frames() {
     let config = config_with(|_| {});
     let fragments = [
         (false, Opcode::Text, &[0xf0, 0x90][..]),
@@ -558,18 +558,19 @@ fn nonfinal_data_starts_remain_frame_only_and_outbound_message_commands_remain_u
 
     let mut core = open_core(Role::Client, config);
     for command in [
-        LocalCommand::SendText("still unavailable".into()),
-        LocalCommand::SendBinary(vec![1, 2, 3].into_boxed_slice()),
+        LocalCommand::SendText {
+            payload: "now available".into(),
+            mask_key: Some(RFC_KEY),
+        },
+        LocalCommand::SendBinary {
+            payload: vec![1, 2, 3].into_boxed_slice(),
+            mask_key: Some(RFC_KEY),
+        },
     ] {
         let result = core.step(CoreInput::Command(command));
-        assert_eq!(result.outputs().len(), 0);
+        assert_eq!(result.outputs().len(), 1);
         assert_eq!(result.state(), ConnectionState::Open);
-        assert_eq!(
-            result.failure().map(|failure| &failure.kind),
-            Some(&FailureKind::ProtocolSliceUnavailable {
-                owner_story: ProtocolStory::Messages,
-            })
-        );
+        assert_eq!(result.failure(), None);
     }
 }
 

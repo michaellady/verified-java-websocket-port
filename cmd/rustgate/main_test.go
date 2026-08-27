@@ -51,6 +51,15 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 		{"dependency", "DEPENDENCY_NOT_ALLOWED", func(t *testing.T, root string) {
 			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "[dependencies]\n", "[dependencies]\nserde = \"1.0.0\"\n")
 		}},
+		{"driver registry dependency", "DEPENDENCY_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/websocket-driver/Cargo.toml", `websocket-core = { path = "../connection-core" }`, `websocket-core = "0.0.0"`)
+		}},
+		{"driver wrong local path", "DEPENDENCY_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/websocket-driver/Cargo.toml", `websocket-core = { path = "../connection-core" }`, `websocket-core = { path = "../other" }`)
+		}},
+		{"driver extra dependency", "DEPENDENCY_NOT_ALLOWED", func(t *testing.T, root string) {
+			replaceFixture(t, root, "rust/websocket-driver/Cargo.toml", `websocket-core = { path = "../connection-core" }`, "websocket-core = { path = \"../connection-core\" }\nserde = \"1\"")
+		}},
 		{"build dependency", "BUILD_DEPENDENCY_NOT_ALLOWED", func(t *testing.T, root string) {
 			replaceFixture(t, root, "rust/connection-core/Cargo.toml", "[build-dependencies]\n", "[build-dependencies]\ncc = \"1.0.0\"\n")
 		}},
@@ -87,6 +96,9 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 		}},
 		{"forbidden io", "FORBIDDEN_CORE_SURFACE", func(t *testing.T, root string) {
 			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\npub fn bad() { let _ = std::net::TcpStream::connect(\"ignored\"); }\n")
+		}},
+		{"driver forbidden socket", "FORBIDDEN_CORE_SURFACE", func(t *testing.T, root string) {
+			appendFixture(t, root, "rust/websocket-driver/src/lib.rs", "\nuse std::net::TcpStream;\n")
 		}},
 		{"std alias", "FORBIDDEN_CORE_SURFACE", func(t *testing.T, root string) {
 			appendFixture(t, root, "rust/connection-core/src/lib.rs", "\nuse std as ambient;\n")
@@ -134,7 +146,7 @@ func TestVerifyRejectsHostileScaffolds(t *testing.T) {
 			appendFixture(t, root, "rust/Cargo.toml", "not valid toml\n")
 		}},
 		{"invalid workspace member", "WORKSPACE_MEMBER_INVALID", func(t *testing.T, root string) {
-			replaceFixture(t, root, "rust/Cargo.toml", `members = ["connection-core"]`, `members = ["../escape"]`)
+			replaceFixture(t, root, "rust/Cargo.toml", `members = ["connection-core", "websocket-driver"]`, `members = ["../escape"]`)
 		}},
 		{"lock package drift", "LOCKFILE_PACKAGE_MISMATCH", func(t *testing.T, root string) {
 			appendFixture(t, root, "rust/Cargo.lock", "\n[[package]]\nname = \"external\"\nversion = \"1.0.0\"\n")
@@ -430,7 +442,7 @@ func goodFixture(t *testing.T) string {
 	writeFixture(t, root, "LICENSE", "fixture Apache license\n")
 	writeFixture(t, root, "rust/Cargo.toml", `[workspace]
 resolver = "3"
-members = ["connection-core"]
+members = ["connection-core", "websocket-driver"]
 
 [workspace.package]
 version = "0.0.0"
@@ -463,6 +475,31 @@ workspace = true
 
 [build-dependencies]
 `)
+	writeFixture(t, root, "rust/websocket-driver/Cargo.toml", `[package]
+name = "websocket-driver"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "websocket_driver"
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+websocket-core = { path = "../connection-core" }
+
+[dev-dependencies]
+
+[build-dependencies]
+`)
+	writeFixture(t, root, "rust/websocket-driver/src/lib.rs", `#![forbid(unsafe_code)]
+pub struct ConnectionOwner;
+`)
 	writeFixture(t, root, "rust/connection-core/src/lib.rs", `#![forbid(unsafe_code)]
 // std::net::TcpStream FnMut todo!() include!() env!() are inert fixture comments.
 /* nested /* std::process::Command */ unimplemented!() include_bytes!() */
@@ -486,6 +523,11 @@ version = 4
 [[package]]
 name = "websocket-core"
 version = "0.0.0"
+
+[[package]]
+name = "websocket-driver"
+version = "0.0.0"
+dependencies = ["websocket-core"]
 `
 	writeFixture(t, root, "rust/Cargo.lock", lock)
 	rustc := "#!/bin/sh\nexit 0\n"

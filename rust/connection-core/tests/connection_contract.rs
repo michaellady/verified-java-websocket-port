@@ -2,7 +2,7 @@
 
 use websocket_core::{
     ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput,
-    FailureKind, LimitKind, LimitRelationship, LocalCommand, ProtocolStory, Role, TransportBytes,
+    FailureKind, LimitKind, LimitRelationship, LocalCommand, Role, TransportBytes,
 };
 
 #[test]
@@ -162,28 +162,6 @@ fn accepted_config_preserves_exact_values_and_checked_aggregate() {
     assert_eq!(config.aggregate_capacity(), 45);
 }
 
-fn assert_unavailable(
-    result: &websocket_core::StepResult,
-    owner_story: ProtocolStory,
-    expected_state: ConnectionState,
-) {
-    assert_eq!(
-        result.outputs().len(),
-        0,
-        "stub must emit no success output"
-    );
-    assert_eq!(result.state(), expected_state);
-    assert_eq!(
-        result
-            .failure()
-            .map(|failure| (&failure.kind, failure.state_after)),
-        Some((
-            &FailureKind::ProtocolSliceUnavailable { owner_story },
-            expected_state
-        ))
-    );
-}
-
 #[test]
 fn every_protocol_bearing_input_is_an_explicit_non_success() {
     let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
@@ -203,20 +181,25 @@ fn every_protocol_bearing_input_is_an_explicit_non_success() {
         ))
     );
     let cases = [
-        (
-            LocalCommand::SendText("text".into()),
-            ProtocolStory::Messages,
-        ),
-        (
-            LocalCommand::SendBinary(vec![1, 2].into_boxed_slice()),
-            ProtocolStory::Messages,
-        ),
+        LocalCommand::SendText {
+            payload: "text".into(),
+            mask_key: None,
+        },
+        LocalCommand::SendBinary {
+            payload: vec![1, 2].into_boxed_slice(),
+            mask_key: None,
+        },
     ];
-    for (command, owner_story) in cases {
-        assert_unavailable(
-            &client.step(CoreInput::Command(command)),
-            owner_story,
-            ConnectionState::Connecting,
+    for command in cases {
+        let result = client.step(CoreInput::Command(command));
+        assert_eq!(result.outputs().len(), 0);
+        assert_eq!(result.state(), ConnectionState::Connecting);
+        assert_eq!(
+            result.failure().map(|failure| &failure.kind),
+            Some(&FailureKind::InvalidState {
+                input: websocket_core::InputKind::LocalCommand,
+                state: ConnectionState::Connecting,
+            })
         );
     }
     let close = client.step(CoreInput::Command(LocalCommand::Close {
@@ -272,12 +255,18 @@ fn equal_cores_return_identical_results_for_identical_ordered_inputs() {
 
     let left_results = [
         left.step(CoreInput::Transport(TransportBytes::new(bytes))),
-        left.step(CoreInput::Command(LocalCommand::SendText("same".into()))),
+        left.step(CoreInput::Command(LocalCommand::SendText {
+            payload: "same".into(),
+            mask_key: None,
+        })),
         left.step(CoreInput::TransportEof),
     ];
     let right_results = [
         right.step(CoreInput::Transport(TransportBytes::new(bytes))),
-        right.step(CoreInput::Command(LocalCommand::SendText("same".into()))),
+        right.step(CoreInput::Command(LocalCommand::SendText {
+            payload: "same".into(),
+            mask_key: None,
+        })),
         right.step(CoreInput::TransportEof),
     ];
 

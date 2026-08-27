@@ -84,20 +84,30 @@ fn workspace_and_package_both_enforce_the_unsafe_policy() {
 }
 
 #[test]
-fn lockfile_and_empty_inventory_match_the_package_identity() {
+fn lockfile_and_inventory_allow_only_the_exact_first_party_driver_edge() {
     let workspace = manifest_dir().join("..");
     let lock = read(&workspace.join("Cargo.lock"));
     let inventory = read(&workspace.join("dependency-inventory.toml"));
     let policy = read(&workspace.join("dependency-policy.toml"));
 
     assert!(lock.contains("name = \"websocket-core\""));
+    assert!(lock.contains("name = \"websocket-driver\""));
     assert!(!lock.contains("source = "));
     assert!(!lock.contains("checksum = "));
-    assert!(!lock.contains("dependencies = "));
-    assert!(inventory.contains("status = \"EMPTY_DEPENDENCY_CLOSURE\""));
+    assert_eq!(
+        lock.matches("dependencies = [\"websocket-core\"]").count(),
+        1
+    );
+    assert!(inventory.contains("status = \"FIRST_PARTY_LOCAL_PATH_ONLY\""));
+    assert!(inventory.contains(
+        "direct_dependencies = [\"websocket-driver:websocket-core:path:../connection-core\"]"
+    ));
     assert!(inventory.contains("transitive_packages = []"));
     assert!(inventory.contains("unsafe_allowances = []"));
     assert!(policy.contains("policy = \"DEPENDENCY_FREE_SAFE_RUST\""));
+    assert!(policy.contains(
+        "allowed_direct_dependencies = [\"websocket-driver:websocket-core:path:../connection-core\"]"
+    ));
     assert!(policy.contains("first_party_unsafe_allowed = false"));
     assert!(policy.contains("rust_toolchain = \"1.95.0\""));
 }

@@ -4,7 +4,7 @@
 # US-009..US-019.
 [workspace]
 resolver = "3"
-members = ["connection-core"]
+members = ["connection-core", "websocket-driver"]
 
 [workspace.package]
 version = "0.0.0"

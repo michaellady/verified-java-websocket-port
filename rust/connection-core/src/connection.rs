@@ -5,9 +5,8 @@ use crate::control::{
     AutomaticPongPolicy, ControlPayload, encode_automatic_pong, encode_local_control,
     is_observed_control, plan_batch, should_automatically_pong,
 };
-use crate::frame::Frame;
-use crate::frame::Opcode;
 use crate::frame::decode::{DecodedFrame, FrameDecoder};
+use crate::frame::{Frame, FrameEncoder, Opcode, OutboundFrame};
 use crate::handshake::{
     ClientHandshake, ClientLimitExceeded, ClientRequestDescriptor, ClientResponse, ServerHandshake,
     ServerRequest, ServerRequestDescriptor,
@@ -188,10 +187,6 @@ impl ConnectionConfig {
     #[must_use]
     pub const fn aggregate_capacity(&self) -> usize {
         self.checked.aggregate_capacity
-    }
-
-    pub(crate) const fn command_queue_entries(&self) -> usize {
-        self.checked.command_queue_entries
     }
 
     pub(crate) const fn frame_bytes(&self) -> usize {
@@ -399,10 +394,20 @@ pub enum LocalCommand {
         /// Exact caller-provided random nonce bytes.
         nonce: [u8; 16],
     },
-    /// Requests a text message.
-    SendText(Box<str>),
-    /// Requests a binary message.
-    SendBinary(Box<[u8]>),
+    /// Requests one final text message frame.
+    SendText {
+        /// Strictly valid UTF-8 text payload.
+        payload: Box<str>,
+        /// One caller-supplied client mask key; forbidden for servers.
+        mask_key: Option<[u8; 4]>,
+    },
+    /// Requests one final binary message frame.
+    SendBinary {
+        /// Immutable uninterpreted binary payload.
+        payload: Box<[u8]>,
+        /// One caller-supplied client mask key; forbidden for servers.
+        mask_key: Option<[u8; 4]>,
+    },
     /// Requests a ping control frame.
     SendPing {
         /// Exact control payload, limited to 125 bytes.
@@ -1021,6 +1026,43 @@ impl ConnectionCore {
                 },
             };
         }
+        if let CoreInput::Command(
+            command @ (LocalCommand::SendText { .. } | LocalCommand::SendBinary { .. }),
+        ) = input
+        {
+            if self.state != ConnectionState::Open {
+                return self.invalid_state(InputKind::LocalCommand);
+            }
+            let (opcode, payload, mask_key) = match &command {
+                LocalCommand::SendText { payload, mask_key } => {
+                    (Opcode::Text, payload.as_bytes(), *mask_key)
+                }
+                LocalCommand::SendBinary { payload, mask_key } => {
+                    (Opcode::Binary, payload.as_ref(), *mask_key)
+                }
+                _ => unreachable!("command pattern was restricted to Text/Binary"),
+            };
+            let attempted = u64::try_from(payload.len()).unwrap_or(u64::MAX);
+            if payload.len() > self.config.message_bytes() {
+                return self.nonterminal_failure(FailureKind::LimitExceeded {
+                    limit: LimitKind::MessageBytes,
+                    attempted,
+                    maximum: self.config.limits.message_bytes,
+                });
+            }
+            return match FrameEncoder::new(self.config.clone(), self.role)
+                .encode(OutboundFrame::new(true, opcode, payload), mask_key)
+            {
+                Ok(encoded) => StepResult {
+                    outputs: Box::new([CoreOutput::TransportWrite(TransportWrite {
+                        bytes: encoded.into_bytes(),
+                    })]),
+                    failure: None,
+                    state: self.state,
+                },
+                Err(kind) => self.nonterminal_failure(kind),
+            };
+        }
         if let CoreInput::Transport(bytes) = input
             && self.role == Role::Client
             && self.client_handshake.awaiting_response()
@@ -1182,7 +1224,7 @@ impl ConnectionCore {
             CoreInput::Command(LocalCommand::StartClientHandshake { .. }) => {
                 ProtocolStory::ClientOpeningHandshake
             }
-            CoreInput::Command(LocalCommand::SendText(_) | LocalCommand::SendBinary(_)) => {
+            CoreInput::Command(LocalCommand::SendText { .. } | LocalCommand::SendBinary { .. }) => {
                 ProtocolStory::Messages
             }
             CoreInput::Command(LocalCommand::SendPing { .. } | LocalCommand::SendPong { .. }) => {

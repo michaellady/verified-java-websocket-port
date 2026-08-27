@@ -1,0 +1,5 @@
+id=close-race
+property=close-convergence
+mutation=drop-terminal-after-shutdown
+schedule=open,enqueue-a,wake,write-all,shutdown,drain,drain
+counterexample=no-terminal-after-fair-drain

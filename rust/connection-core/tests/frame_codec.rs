@@ -3,8 +3,8 @@
 use websocket_core::{
     ClientRequestDescriptor, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState,
     CoreInput, CoreOutput, FailureKind, Frame, FrameEncoder, FrameFailure, FrameHeaderDecode,
-    FrameHeaderDecoder, LimitKind, LocalCommand, Opcode, OutboundFrame, ProtocolStory, QueueKind,
-    Role, SemanticEvent, TransportBytes, Utf8Failure, apply_mask_in_place,
+    FrameHeaderDecoder, LimitKind, LocalCommand, Opcode, OutboundFrame, QueueKind, Role,
+    SemanticEvent, TransportBytes, Utf8Failure, apply_mask_in_place,
 };
 
 const RFC_REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
@@ -657,13 +657,12 @@ fn frame_events_do_not_implement_later_story_semantics() {
     let config = config_with(|_| {});
     let mut core = open_core(Role::Server, config);
 
-    let result = core.step(CoreInput::Command(LocalCommand::SendText("later".into())));
-    assert_eq!(
-        result.failure().map(|failure| &failure.kind),
-        Some(&FailureKind::ProtocolSliceUnavailable {
-            owner_story: ProtocolStory::Messages,
-        })
-    );
+    let result = core.step(CoreInput::Command(LocalCommand::SendText {
+        payload: "later".into(),
+        mask_key: None,
+    }));
+    assert_eq!(result.failure(), None);
+    assert_eq!(result.outputs().len(), 1);
     assert_eq!(result.state(), ConnectionState::Open);
 
     let close = core.step(CoreInput::Command(LocalCommand::Close {

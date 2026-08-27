@@ -1389,7 +1389,10 @@ fn wrong_role_and_terminal_failures_are_non_mutating_or_single_transition() {
     );
     let repeated_inputs = [
         CoreInput::Transport(TransportBytes::new(b"ignored")),
-        CoreInput::Command(LocalCommand::SendText("ignored".into())),
+        CoreInput::Command(LocalCommand::SendText {
+            payload: "ignored".into(),
+            mask_key: None,
+        }),
     ];
     let expected_kinds = [InputKind::TransportBytes, InputKind::LocalCommand];
     for (input, input_kind) in repeated_inputs.into_iter().zip(expected_kinds) {

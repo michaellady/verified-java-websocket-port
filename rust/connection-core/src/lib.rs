@@ -13,7 +13,6 @@
 
 extern crate alloc;
 
-mod channel;
 mod close;
 mod connection;
 mod control;
@@ -23,9 +22,6 @@ mod handshake;
 mod message;
 mod utf8;
 
-pub use channel::{
-    CommandReceiveError, CommandReceiver, CommandSendError, CommandSender, command_channel,
-};
 pub use close::{CloseCodeRejection, CloseFailure, CloseFrame, CloseInitiator};
 pub use connection::{
     ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput,

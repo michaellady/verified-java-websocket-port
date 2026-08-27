@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "cargo_lock_path": "rust/Cargo.lock",
-  "cargo_lock_sha256": "sha256:f01391c486964d16bba8d7be7fddac9c4b553a0a7107435d84906fd190f84e5a",
+  "cargo_lock_sha256": "sha256:b138978c2eca55cde701c3e9171ad69786779e83d6035fdd0a54917973209c83",
   "external_packages": [],
   "build_scripts": [],
   "proc_macro_crates": [],

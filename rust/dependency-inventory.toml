@@ -1,8 +1,8 @@
 schema_version = "1.0.0"
-story = "US-009"
-crate = "websocket-core"
-status = "EMPTY_DEPENDENCY_CLOSURE"
-direct_dependencies = []
+story = "US-017"
+crate = "workspace"
+status = "FIRST_PARTY_LOCAL_PATH_ONLY"
+direct_dependencies = ["websocket-driver:websocket-core:path:../connection-core"]
 dev_dependencies = []
 build_dependencies = []
 target_dependencies = []

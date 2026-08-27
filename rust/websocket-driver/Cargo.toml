@@ -1,0 +1,21 @@
+[package]
+name = "websocket-driver"
+description = "Pull-driven single-owner adapter seam for websocket-core."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+name = "websocket_driver"
+
+[lints]
+workspace = true
+
+[dependencies]
+websocket-core = { path = "../connection-core" }
+
+[dev-dependencies]
+
+[build-dependencies]
