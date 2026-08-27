@@ -121,6 +121,18 @@ func TestNeutralResponseRejectsTrailingAndOutOfOrderTLVs(t *testing.T) {
 	}
 }
 
+func TestCloseCodecAcceptsOnlyClosedTransportOriginExtension(t *testing.T) {
+	body := []byte{0, 0, 0, 0, 0, 0, 5}
+	close, err := decodeCloseBody(body)
+	if err != nil || close.Origin != "transport" {
+		t.Fatalf("transport origin=%#v err=%v", close, err)
+	}
+	body[len(body)-1] = 6
+	if _, err := decodeCloseBody(body); err == nil {
+		t.Fatal("unknown extended close origin accepted")
+	}
+}
+
 func TestCappedProcessOutputFailsAtBound(t *testing.T) {
 	buffer := &cappedBuffer{maximum: 3}
 	if n, err := buffer.Write([]byte("four")); err == nil || n != 3 {
@@ -164,6 +176,20 @@ func TestOracleHierarchyCoversEveryExpectedLeaf(t *testing.T) {
 	}
 	if invalidWireClose == nil || invalidWireClose.Authority != "rfc6455.section-7-4" || invalidWireClose.Rank != 1 {
 		t.Fatalf("invalid wire close authority=%#v", invalidWireClose)
+	}
+	wantOverrides := map[string]string{
+		"us005.pub.0021|/frames/0/payload_base64": "rfc6455.section-5-5-1",
+		"us005.pub.0035|/outcome":                 "rfc6455.section-7-4",
+		"us005.pub.0046|/close/code":              "rfc6455.section-5-5-1",
+	}
+	for _, cell := range hierarchy.Cells {
+		key := cell.ScenarioID + "|" + cell.Pointer
+		if authority, ok := wantOverrides[key]; ok && cell.Authority == authority && cell.Rank == 1 {
+			delete(wantOverrides, key)
+		}
+	}
+	if len(wantOverrides) != 0 {
+		t.Fatalf("RFC close overrides absent: %v", wantOverrides)
 	}
 	bad := hierarchy
 	bad.Cells = append([]OracleCell(nil), hierarchy.Cells[1:]...)
@@ -343,13 +369,13 @@ func TestFieldAdjudicationClassifiesMissingStructuralValues(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	java, err := neutralObservation(scenarios[21])
+	java, err := neutralObservation(scenarios[22])
 	if err != nil {
 		t.Fatal(err)
 	}
 	rust := java
 	rust.Events = []commonEvent{}
-	_, findings, err := adjudicateScenario(scenarios[21], hierarchy, java, rust)
+	_, findings, err := adjudicateScenario(scenarios[22], hierarchy, java, rust)
 	if err == nil || !strings.Contains(err.Error(), "rust_defect") || len(findings) == 0 {
 		t.Fatalf("missing structural values not classified: findings=%#v err=%v", findings, err)
 	}
@@ -369,6 +395,17 @@ func TestRustAcceptedInputExcludesClosedStateRejection(t *testing.T) {
 	closedNoop := rustStep{PreState: "closed", Consumed: 0}
 	if got, err := acceptedRustInputBytes(empty, closedNoop); err != nil || got != 0 {
 		t.Fatalf("closed zero-chunk no-op = %d, %v", got, err)
+	}
+}
+
+func TestCommonErrorNormalizationKeepsTypedBufferLimit(t *testing.T) {
+	scenario := publicScenarios(t)[31]
+	observation, err := neutralObservation(scenario)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if observation.Error == nil || observation.Error.Class != "LIMIT_EXCEEDED" {
+		t.Fatalf("buffer limit class=%#v", observation.Error)
 	}
 }
 
