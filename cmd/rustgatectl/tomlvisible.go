@@ -20,13 +20,19 @@ func tomlVisibleLines(manifest string) []string {
 		i := 0
 		for i < len(line) {
 			if state != "" {
-				end := strings.Index(line[i:], state)
-				if end < 0 {
-					i = len(line)
-					break
+				if state == basicDelim && line[i] == '\\' {
+					// Basic multiline strings honor escapes: a backslash
+					// escapes the next character, so \""" does NOT close
+					// the string (review 01a04475).
+					i += 2
+					continue
 				}
-				i += end + len(state)
-				state = ""
+				if strings.HasPrefix(line[i:], state) {
+					i += len(state)
+					state = ""
+					continue
+				}
+				i++
 				continue
 			}
 			if strings.HasPrefix(line[i:], basicDelim) {

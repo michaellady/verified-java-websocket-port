@@ -1024,13 +1024,13 @@ type canaryResult struct {
 func evaluateCanaryPolarity(good, bad canaryResult) []string {
 	var violations []string
 	if good.scanExit != 0 {
-		violations = append(violations, fmt.Sprintf("good canary %s failed the forbid scan (exit %d)", good.name, good.scanExit))
+		violations = append(violations, fmt.Sprintf("good canary %s failed the forbid scan (%s)", good.name, exitDescription(good.scanExit)))
 	}
 	if good.clippyExit != 0 {
-		violations = append(violations, fmt.Sprintf("good canary %s failed clippy (exit %d)", good.name, good.clippyExit))
+		violations = append(violations, fmt.Sprintf("good canary %s failed clippy (%s)", good.name, exitDescription(good.clippyExit)))
 	}
 	if good.testExit != 0 {
-		violations = append(violations, fmt.Sprintf("good canary %s failed its tests (exit %d)", good.name, good.testExit))
+		violations = append(violations, fmt.Sprintf("good canary %s failed its tests (%s)", good.name, exitDescription(good.testExit)))
 	}
 	if bad.scanExit == 0 {
 		violations = append(violations, fmt.Sprintf("bad canary %s PASSED the forbid scan — the scan cannot detect a missing attribute", bad.name))

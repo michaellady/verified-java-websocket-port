@@ -1,6 +1,9 @@
 package main
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 // Review 01a0446e RED cases: text inside a multiline TOML string must never
 // satisfy a key check, in either [package] or [workspace.package].
@@ -49,5 +52,32 @@ func TestNoProcessStateNeverCountsAsDetection(t *testing.T) {
 	violations := evaluateCanaryPolarity(good, bad)
 	if len(violations) == 0 {
 		t.Fatal("no-ProcessState canary steps must be violations, not detections")
+	}
+}
+
+// Review 01a04475: an escaped \""" inside a basic multiline string must NOT
+// close it, and good-canary no-state steps must render honestly and violate.
+func TestEscapedQuotesAndGoodCanarySentinel(t *testing.T) {
+	decoy := "[package]\n" +
+		"description = \"\"\"body \\\"\"\" still inside\n" +
+		"rust-version.workspace = true\n" +
+		"\"\"\"\n"
+	if memberInheritsWorkspaceKey(decoy, "rust-version", "1.95.0") {
+		t.Fatal("escaped quotes closed the multiline string and exposed the decoy key")
+	}
+	good := canaryResult{name: "good", scanExit: exitNoProcessState, clippyExit: 0, testExit: 0}
+	bad := canaryResult{name: "bad", scanExit: 1, clippyExit: 101}
+	violations := evaluateCanaryPolarity(good, bad)
+	found := false
+	for _, v := range violations {
+		if strings.Contains(v, "-998") {
+			t.Fatalf("sentinel leaked numerically into %q", v)
+		}
+		if strings.Contains(v, "never produced a process state") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("good-canary no-ProcessState step must be a violation with the honest phrase")
 	}
 }
