@@ -65,9 +65,11 @@ or copied protocol state.
 ## Public values and output order
 
 The existing `Frame` getters remain source-compatible. Its private payload
-owner changes from `Box<[u8]>` to a standard-library `Arc<[u8]>`, so the frame
-observation and message observation share one immutable payload allocation.
-The Arc is never exposed as synchronization policy; callers receive only
+owner changes from `Box<[u8]>` to a standard-library `Arc<Vec<u8>>`. The
+decoder moves its already-reserved `Vec<u8>` directly into that owner, so no
+second payload-sized allocation or byte copy occurs; the frame and message
+observations then share that one immutable byte backing. The Arc and Vec are
+never exposed as synchronization or mutation policy; callers receive only
 borrowed views from deep value types.
 
 ```rust
@@ -93,7 +95,7 @@ pub enum SemanticEvent {
 `TextMessage` has no public unchecked constructor. Its `as_str` invariant is
 established by the private validator before construction. `BinaryMessage`
 preserves every octet, including NUL and non-UTF-8 bytes. Both message values
-clone only the Arc owner; neither copies the payload.
+clone only the `Arc<Vec<u8>>` owner; neither reallocates or copies the payload.
 
 For every valid final data frame the exact normalized order is:
 
@@ -122,17 +124,22 @@ reservation in this order:
 4. one fallible exact payload reservation;
 5. incremental payload copy/unmask/validation.
 
+At completion the reserved `Vec<u8>` is moved into `Arc<Vec<u8>>`; only the Arc
+control block is added, while the fallibly reserved payload backing and its
+bytes stay in place.
+
 The decoder pre-admits two event entries because successful final data always
 emits both `FrameReceived` and Text/Binary. A cap of one therefore rejects a
 final data header before payload growth. Earlier staged events remain ordered
 before the terminal state change. Non-final data, Continuation, and control
 frames reserve one frame-event slot and retain US-012 behavior.
 
-The shared Arc payload is counted once. `MessageBytes` bounds one unfragmented
-message; `FrameBytes` still bounds its frame; `TotalBufferedBytes` includes the
-one shared payload and every earlier payload staged in the current result.
-Every length addition and conversion is checked. Zero-length messages are
-valid. Exact limits succeed; boundary plus one fails before payload allocation.
+The shared Vec payload backing is counted once. `MessageBytes` bounds one
+unfragmented message; `FrameBytes` still bounds its frame;
+`TotalBufferedBytes` includes the one shared payload and every earlier payload
+staged in the current result. Every length addition and conversion is checked.
+Zero-length messages are valid. Exact limits succeed; boundary plus one fails
+before payload allocation.
 
 `ConnectionConfig` gains only a crate-private checked `message_bytes()` getter.
 No adapter-local cap or new configuration value is introduced.
@@ -231,7 +238,8 @@ a public parser that callers cannot use.
   every byte of each multibyte code point;
 - one-byte feeding, empty chunks between every byte, and several final data
   frames in one input;
-- exact event order and Arc payload identity/no duplicate byte allocation.
+- exact event order, shared Arc pointer identity, and retained Vec backing with
+  no duplicate byte allocation.
 
 ### Strict rejection
 
@@ -295,8 +303,9 @@ replay seed interface, not fuzz evidence.
 - `rust/connection-core/src/utf8.rs`: private fixed-state strict validator.
 - `rust/connection-core/src/message.rs`: private admission/delivery logic plus
   public deep TextMessage/BinaryMessage values.
-- `rust/connection-core/src/frame/mod.rs`: Arc-backed private payload owner;
-  existing Frame getters unchanged.
+- `rust/connection-core/src/frame/mod.rs`: private `Arc<Vec<u8>>` payload owner
+  retaining the decoder's reserved Vec backing; existing Frame getters
+  unchanged.
 - `rust/connection-core/src/frame/decode.rs`: header-time message/event
   admission and per-unmasked-range validator feeding.
 - `rust/connection-core/src/connection.rs`: message limit getter, populated

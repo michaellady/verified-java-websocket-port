@@ -343,7 +343,14 @@ impl FrameDecoder {
                 );
             }
             let header = self.active.take().expect("complete active header");
-            let payload: Arc<[u8]> = core::mem::take(&mut self.payload).into();
+            let payload = core::mem::take(&mut self.payload);
+            let payload_backing = payload.as_ptr();
+            let payload = Arc::new(payload);
+            debug_assert_eq!(
+                payload_backing,
+                payload.as_ptr(),
+                "moving the reserved Vec into Arc must preserve its byte backing"
+            );
             staged_payload_bytes = staged_payload_bytes
                 .checked_add(payload.len())
                 .expect("header admission checked staged payload arithmetic");

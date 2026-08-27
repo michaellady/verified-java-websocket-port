@@ -60,11 +60,11 @@ pub struct Frame {
     fin: bool,
     opcode: Opcode,
     masked: bool,
-    payload: Arc<[u8]>,
+    payload: Arc<Vec<u8>>,
 }
 
 impl Frame {
-    pub(crate) fn new(fin: bool, opcode: Opcode, masked: bool, payload: Arc<[u8]>) -> Self {
+    pub(crate) fn new(fin: bool, opcode: Opcode, masked: bool, payload: Arc<Vec<u8>>) -> Self {
         Self {
             fin,
             opcode,
@@ -97,7 +97,7 @@ impl Frame {
         &self.payload
     }
 
-    pub(crate) fn payload_owner(&self) -> Arc<[u8]> {
+    pub(crate) fn payload_owner(&self) -> Arc<Vec<u8>> {
         Arc::clone(&self.payload)
     }
 }

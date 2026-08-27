@@ -155,6 +155,25 @@ fn final_binary_preserves_every_octet_and_shares_the_frame_payload() {
     ));
 }
 
+#[test]
+fn payload_owner_keeps_the_reserved_vec_backing_and_shares_one_pointer() {
+    let decoder_source = include_str!("../src/frame/decode.rs");
+    let frame_source = include_str!("../src/frame/mod.rs");
+
+    assert!(
+        frame_source.contains("payload: Arc<Vec<u8>>"),
+        "the shared owner must retain the decoder's reserved Vec backing"
+    );
+    assert!(
+        decoder_source.contains("let payload = Arc::new(payload);"),
+        "completion must move the reserved Vec directly into the shared owner"
+    );
+    assert!(
+        !decoder_source.contains("Arc<[u8]>"),
+        "slice conversion would allocate and copy the payload a second time"
+    );
+}
+
 fn assert_text_pair(result: &websocket_core::StepResult, expected: &str) {
     assert_eq!(result.failure(), None);
     let outputs: Vec<_> = result.outputs().collect();

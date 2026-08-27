@@ -8,7 +8,7 @@ use crate::{ConnectionConfig, FailureKind, LimitKind, QueueKind};
 /// An immutable, already-validated UTF-8 message.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TextMessage {
-    payload: Arc<[u8]>,
+    payload: Arc<Vec<u8>>,
 }
 
 impl TextMessage {
@@ -34,7 +34,7 @@ impl TextMessage {
 /// An immutable binary message.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BinaryMessage {
-    payload: Arc<[u8]>,
+    payload: Arc<Vec<u8>>,
 }
 
 impl BinaryMessage {
