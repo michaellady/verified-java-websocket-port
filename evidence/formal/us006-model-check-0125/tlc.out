@@ -1,0 +1,37 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+TLC2 Version 2026.08.21.155922 (rev: 9787e65)
+Running breadth-first search Model-Checking with fp 4 and seed -4927752732911292301 with 1 worker on 2 cores with 455MB heap and 64MB offheap memory [pid: 255] (Linux 7.0.12 aarch64, Ubuntu 25.0.3 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/agent/tlc/ConnectionModel.tla
+Parsing file /tmp/tlc-12428003264374283115/Integers.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-12428003264374283115/Sequences.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-12428003264374283115/_TLCTrace.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-12428003264374283115/Naturals.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-12428003264374283115/TLC.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-12428003264374283115/TLCExt.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-12428003264374283115/FiniteSets.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module ConnectionModel
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module ConnectionModel
+Starting... (2026-08-27 03:38:07)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-08-27 03:38:07.
+Progress(14) at 2026-08-27 03:38:07: 2,498 states generated, 1,077 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 1077 total distinct states at (2026-08-27 03:38:07)
+Finished checking temporal properties in 00s at 2026-08-27 03:38:07
+Model checking completed. No error has been found.
+  Estimates of the probability that TLC did not check all reachable states
+  because two distinct states had the same fingerprint:
+  calculated (optimistic):  val = 8.3E-14
+2498 states generated, 1077 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 14.
+The average outdegree of the complete state graph is 1 (minimum is 0, the maximum 13 and the 95th percentile is 3).
+Finished in 00s at (2026-08-27 03:38:07)

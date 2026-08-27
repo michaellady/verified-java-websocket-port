@@ -160,14 +160,87 @@
             "distinct_states": {"type": "integer", "minimum": 1},
             "result": {"$ref": "#/$defs/text"}
           }
+        },
+        "executed_run": {"$ref": "#/$defs/executedRun"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"state": {"const": "EXECUTED"}}, "required": ["state"]},
+          "then": {"required": ["run_summary", "executed_run"]}
+        },
+        {
+          "if": {"properties": {"state": {"const": "MODEL_CHECK_PENDING_TOOL"}}, "required": ["state"]},
+          "then": {"not": {"anyOf": [{"required": ["run_summary"]}, {"required": ["executed_run"]}]}}
         }
-      }
+      ]
     },
     "production": {"const": false},
     "publication": {"const": false}
   },
   "$defs": {
     "text": {"type": "string", "minLength": 1, "maxLength": 8192},
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "executedReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": {"$ref": "#/$defs/text"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1}
+      }
+    },
+    "checkOutcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exit_code", "observed"],
+      "properties": {
+        "exit_code": {"type": "integer", "minimum": 0, "maximum": 255},
+        "observed": {"$ref": "#/$defs/text"}
+      }
+    },
+    "executedDefect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["defect_id", "cfg_mutation", "exit_code", "observed", "receipt_path"],
+      "properties": {
+        "defect_id": {"type": "string", "pattern": "^defect\\.model\\.[a-z0-9-]+$"},
+        "cfg_mutation": {"$ref": "#/$defs/text"},
+        "exit_code": {"type": "integer", "minimum": 0, "maximum": 255},
+        "observed": {"$ref": "#/$defs/text"},
+        "receipt_path": {"$ref": "#/$defs/text"}
+      }
+    },
+    "executedRun": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_id", "authorization", "sandbox", "tool", "jvm", "receipt_origin", "receipts", "sany", "tlc", "executed_defects"],
+      "properties": {
+        "attempt_id": {"$ref": "#/$defs/text"},
+        "authorization": {"$ref": "#/$defs/text"},
+        "sandbox": {"$ref": "#/$defs/text"},
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact", "pinned_release", "source_url", "sha256", "bytes", "sany_banner", "tlc_banner"],
+          "properties": {
+            "artifact": {"$ref": "#/$defs/text"},
+            "pinned_release": {"$ref": "#/$defs/text"},
+            "source_url": {"$ref": "#/$defs/text"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "bytes": {"type": "integer", "minimum": 1},
+            "sany_banner": {"$ref": "#/$defs/text"},
+            "tlc_banner": {"$ref": "#/$defs/text"}
+          }
+        },
+        "jvm": {"$ref": "#/$defs/text"},
+        "receipt_origin": {"$ref": "#/$defs/text"},
+        "receipts": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/executedReceipt"}},
+        "sany": {"$ref": "#/$defs/checkOutcome"},
+        "tlc": {"$ref": "#/$defs/checkOutcome"},
+        "executed_defects": {"type": "array", "minItems": 1, "maxItems": 16, "items": {"$ref": "#/$defs/executedDefect"}}
+      }
+    },
     "bound": {"type": "integer", "minimum": 1, "maximum": 1000000000},
     "citation": {"type": "string", "pattern": "^[A-Za-z0-9_][A-Za-z0-9_/]*\\.java:[0-9]+(-[0-9]+)?$"},
     "citations": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"$ref": "#/$defs/citation"}},

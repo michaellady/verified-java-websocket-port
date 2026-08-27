@@ -260,16 +260,41 @@ type probeCommand struct {
 }
 
 type sbxExecution struct {
-	Status          string            `json:"status"`
-	Reason          string            `json:"reason"`
-	RequiredProfile string            `json:"required_profile"`
-	Receipt         *executionReceipt `json:"receipt"`
-	EvidenceRun     *evidenceRun      `json:"evidence_run"`
+	Status              string               `json:"status"`
+	Reason              string               `json:"reason"`
+	RequiredProfile     string               `json:"required_profile"`
+	Receipt             *executionReceipt    `json:"receipt"`
+	EvidenceRun         *evidenceRun         `json:"evidence_run"`
+	ModelCheckExecution *modelCheckExecution `json:"model_check_execution"`
 }
 
 type executionReceipt struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
+}
+
+// modelCheckExecution records a real in-sbx execution of the MODEL CHECK
+// itself (US-006 attempt us007-sbx-output-live-0125: SANY + TLC on the
+// connection model plus the seeded liveness defect) on a backend whose full
+// qualification bundle has NOT executed. It pairs exclusively with sbx status
+// EXECUTED_MODEL_CHECK_ONLY: receipts are re-hashed against real tree bytes,
+// while selection, positive obligation outcomes, known-bad canary claims, and
+// pass counting all remain gated on a full EXECUTED record.
+type modelCheckExecution struct {
+	AttemptID     string             `json:"attempt_id"`
+	Authorization string             `json:"authorization"`
+	PlanRecord    string             `json:"plan_record"`
+	ToolIdentity  string             `json:"tool_identity"`
+	ToolSHA256    string             `json:"tool_sha256"`
+	JVM           string             `json:"jvm"`
+	Receipts      []executionReceipt `json:"receipts"`
+	Verdicts      modelCheckVerdicts `json:"verdicts"`
+}
+
+type modelCheckVerdicts struct {
+	SANY                 string `json:"sany"`
+	TLC                  string `json:"tlc"`
+	SeededLivenessDefect string `json:"seeded_liveness_defect"`
 }
 
 type evidenceRun struct {
@@ -581,6 +606,7 @@ func evaluateConcurrencyPlanDeep(evaluation *formalEvaluation) {
 		TLAPath:            absolute(ConnectionModelTLAPath),
 		CfgPath:            absolute(ConnectionModelCfgPath),
 		LedgerPath:         absolute(targetsDeltaLedgerPath),
+		ReceiptRoot:        root,
 		QuarantineJavaRoot: javaRoot,
 	}))
 }
@@ -638,6 +664,7 @@ func evaluateBackendQualification(evaluation *formalEvaluation, docData []byte, 
 	for index, backend := range document.Backends {
 		basePath := fmt.Sprintf("$.backends[%d]", index)
 		executed := backend.SbxExecution.Status == "EXECUTED"
+		modelCheckOnly := backend.SbxExecution.Status == "EXECUTED_MODEL_CHECK_ONLY"
 
 		// Pass accounting (re-review round 1 BLOCKING-3): an obligation may
 		// count as passed only when its outcome is a genuine lattice pass AND
@@ -682,13 +709,19 @@ func evaluateBackendQualification(evaluation *formalEvaluation, docData []byte, 
 
 		if !executed && backend.SbxExecution.Receipt != nil {
 			evaluation.add("PLACEHOLDER_EXECUTION_RECEIPT", vendorprotocol.Block, docPath, basePath+".sbx_execution.receipt",
-				backend.BackendID+": a receipt on a NOT_EXECUTED record is a claims-shaped placeholder; receipts exist only for real executions")
+				backend.BackendID+": a receipt on a NOT_EXECUTED record is a claims-shaped placeholder; receipts exist only for real executions (a model-check-only execution carries its receipts inside model_check_execution)")
 		}
 
 		if executed {
 			evidenceComplete = validateExecutedRecord(evaluation, docPath, basePath, backend, len(document.Backends[index].Obligations))
 		}
-		canariesHealthy := validateCanaries(evaluation, docPath, basePath, backend, vocabulary, executed)
+		if modelCheckOnly {
+			validateModelCheckOnlyRecord(evaluation, docPath, basePath, backend)
+		} else if backend.SbxExecution.ModelCheckExecution != nil {
+			evaluation.add("MODEL_CHECK_EXECUTION_UNVERIFIED", vendorprotocol.Block, docPath, basePath+".sbx_execution.model_check_execution",
+				backend.BackendID+": a model_check_execution record pairs exclusively with status EXECUTED_MODEL_CHECK_ONLY")
+		}
+		canariesHealthy := validateCanaries(evaluation, docPath, basePath, backend, vocabulary, backend.SbxExecution.Status)
 		countable := executed && evidenceComplete && canariesHealthy
 
 		if len(backend.Obligations) == 0 {
@@ -829,14 +862,67 @@ func missingEvidenceRunFields(run *evidenceRun) []string {
 	return missing
 }
 
+// validateModelCheckOnlyRecord checks an EXECUTED_MODEL_CHECK_ONLY record:
+// a real model-check execution must bind its attempt, authorization, plan
+// record, tool digest, JVM, per-check verdicts, and a receipt set whose every
+// digest re-hashes against the actual bytes in this tree. One typed code
+// covers the family: an unverifiable model-check execution record blocks.
+func validateModelCheckOnlyRecord(evaluation *formalEvaluation, docPath, basePath string, backend backendRecord) {
+	recordPath := basePath + ".sbx_execution.model_check_execution"
+	record := backend.SbxExecution.ModelCheckExecution
+	if record == nil {
+		evaluation.add("MODEL_CHECK_EXECUTION_UNVERIFIED", vendorprotocol.Block, docPath, recordPath,
+			backend.BackendID+": status EXECUTED_MODEL_CHECK_ONLY requires the model_check_execution record (attempt id, tool digest, digest-verified receipts)")
+		return
+	}
+	if record.AttemptID == "" || record.Authorization == "" || record.PlanRecord == "" ||
+		record.ToolIdentity == "" || record.JVM == "" ||
+		record.Verdicts.SANY == "" || record.Verdicts.TLC == "" || record.Verdicts.SeededLivenessDefect == "" {
+		evaluation.add("MODEL_CHECK_EXECUTION_UNVERIFIED", vendorprotocol.Block, docPath, recordPath,
+			backend.BackendID+": the model-check execution record must bind attempt id, authorization, plan record, tool identity, JVM, and per-check verdicts")
+	}
+	if !isFullSha256Digest(record.ToolSHA256) {
+		evaluation.add("MODEL_CHECK_EXECUTION_UNVERIFIED", vendorprotocol.Block, docPath, recordPath+".tool_sha256",
+			backend.BackendID+": the model-check execution record must pin the tool with a full sha256 digest recorded at fetch")
+	}
+	if len(record.Receipts) == 0 {
+		evaluation.add("MODEL_CHECK_EXECUTION_UNVERIFIED", vendorprotocol.Block, docPath, recordPath+".receipts",
+			backend.BackendID+": a model-check execution without receipts is a claims-shaped placeholder")
+		return
+	}
+	for index, receipt := range record.Receipts {
+		receiptPath := fmt.Sprintf("%s.receipts[%d]", recordPath, index)
+		if receipt.Path == "" || !isFullSha256Digest(receipt.SHA256) {
+			evaluation.add("MODEL_CHECK_EXECUTION_UNVERIFIED", vendorprotocol.Block, docPath, receiptPath,
+				backend.BackendID+": every model-check receipt must name an in-tree path and a full sha256 digest")
+			continue
+		}
+		raw, present := evaluation.readFile(receipt.Path)
+		if !present {
+			evaluation.add("MODEL_CHECK_EXECUTION_UNVERIFIED", vendorprotocol.Block, docPath, receiptPath+".path",
+				backend.BackendID+": model-check receipt "+receipt.Path+" does not exist in this tree")
+			continue
+		}
+		digest := sha256.Sum256(raw)
+		if "sha256:"+hex.EncodeToString(digest[:]) != receipt.SHA256 {
+			evaluation.add("MODEL_CHECK_EXECUTION_UNVERIFIED", vendorprotocol.Block, docPath, receiptPath+".sha256",
+				backend.BackendID+": model-check receipt digest does not match the receipt bytes of "+receipt.Path)
+		}
+	}
+}
+
 // validateCanaries applies the canary rules and reports whether the backend's
 // canary pair is healthy enough to admit obligation passes: the pair exists,
 // the known-bad mutant is inside the vocabulary, the known-good canary PASSED,
 // and the known-bad canary was DETECTED with a digested counterexample. A
 // FAILED (SURVIVED) or NOT_EXECUTED canary on an executed backend excludes
 // every pass (re-review round 1 BLOCKING-3); unexecuted backends return false
-// trivially because they can never count passes.
-func validateCanaries(evaluation *formalEvaluation, docPath, basePath string, backend backendRecord, vocabulary map[string]bool, executed bool) bool {
+// trivially because they can never count passes. A model-check-only execution
+// (EXECUTED_MODEL_CHECK_ONLY) may record its known-good canary as PASSED —
+// the clean model-check run IS the known-good check, receipts re-hashed by
+// validateModelCheckOnlyRecord — but its known-bad canary stays NOT_EXECUTED
+// and no pass is ever countable.
+func validateCanaries(evaluation *formalEvaluation, docPath, basePath string, backend backendRecord, vocabulary map[string]bool, status string) bool {
 	canaries := backend.Canaries
 	if canaries.KnownGood == nil || canaries.KnownBad == nil {
 		evaluation.add("MISSING_CANARY_PAIR", vendorprotocol.Block, docPath, basePath+".canaries",
@@ -849,7 +935,8 @@ func validateCanaries(evaluation *formalEvaluation, docPath, basePath string, ba
 			backend.BackendID+": known-bad canary mutant "+canaries.KnownBad.MutantID+" is outside the US-005 planted-mutant vocabulary")
 		healthy = false
 	}
-	if executed {
+	switch status {
+	case "EXECUTED":
 		if canaries.KnownGood.Status != "PASSED" {
 			evaluation.add("CANARY_NOT_CONFIRMED", vendorprotocol.Block, docPath, basePath+".canaries.known_good.status",
 				backend.BackendID+": executed backend must confirm its known-good canary (status PASSED)")
@@ -861,12 +948,23 @@ func validateCanaries(evaluation *formalEvaluation, docPath, basePath string, ba
 			healthy = false
 		}
 		return healthy
+	case "EXECUTED_MODEL_CHECK_ONLY":
+		if canaries.KnownGood.Status != "NOT_EXECUTED" && canaries.KnownGood.Status != "PASSED" {
+			evaluation.add("CANARY_CLAIM_WITHOUT_EXECUTION", vendorprotocol.Block, docPath, basePath+".canaries.known_good.status",
+				backend.BackendID+": a model-check-only execution may record its known-good canary only as NOT_EXECUTED or PASSED (the clean model-check run is the known-good check itself)")
+		}
+		if canaries.KnownBad.Status != "NOT_EXECUTED" {
+			evaluation.add("CANARY_CLAIM_WITHOUT_EXECUTION", vendorprotocol.Block, docPath, basePath+".canaries.known_bad.status",
+				backend.BackendID+": the model-check-only execution did not run the declared known-bad canary mutation; its result may be recorded only by a full executed qualification run")
+		}
+		return false
+	default:
+		if canaries.KnownGood.Status != "NOT_EXECUTED" || canaries.KnownBad.Status != "NOT_EXECUTED" {
+			evaluation.add("CANARY_CLAIM_WITHOUT_EXECUTION", vendorprotocol.Block, docPath, basePath+".canaries",
+				backend.BackendID+": canary results are claimed without an executed sbx run; outcomes may be recorded only as far as executions actually went")
+		}
+		return false
 	}
-	if canaries.KnownGood.Status != "NOT_EXECUTED" || canaries.KnownBad.Status != "NOT_EXECUTED" {
-		evaluation.add("CANARY_CLAIM_WITHOUT_EXECUTION", vendorprotocol.Block, docPath, basePath+".canaries",
-			backend.BackendID+": canary results are claimed without an executed sbx run; outcomes may be recorded only as far as executions actually went")
-	}
-	return false
 }
 
 func validateSandboxProfileBinding(evaluation *formalEvaluation, docPath string, profile sandboxProfile) {

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -24,6 +25,7 @@ func cpTestInputs(t *testing.T) ConcurrencyPlanInputs {
 		TLAPath:            mpTestTLAPath,
 		CfgPath:            mpTestCfgPath,
 		LedgerPath:         cpTestLedgerPath,
+		ReceiptRoot:        "../..",
 		QuarantineJavaRoot: mpTestJavaRootIfPresent(t),
 	}
 }
@@ -263,8 +265,61 @@ func TestConcurrencyPlanValidatorRejectsSemanticDefects(t *testing.T) {
 			mutate: func(t *testing.T, plan map[string]any) {
 				check := cpTestObject(t, plan, "model_check")
 				check["state"] = "EXECUTED"
+				check["available"] = false
 			},
 			expect: "PLAN_MODEL_CHECK_INCONSISTENT",
+		},
+		{
+			// The executed record is only as honest as its receipts: every
+			// recorded receipt digest must re-hash against the actual bytes
+			// in the tree, and a drifted receipt blocks.
+			name: "executed model check receipt digest drifts",
+			mutate: func(t *testing.T, plan map[string]any) {
+				check := cpTestObject(t, plan, "model_check")
+				run, ok := check["executed_run"].(map[string]any)
+				if !ok {
+					t.Fatalf("model_check.executed_run not present; update test")
+				}
+				receipts := run["receipts"].([]any)
+				receipts[0].(map[string]any)["sha256"] = "sha256:" + strings.Repeat("0", 64)
+			},
+			expect: "PLAN_MODEL_CHECK_RECEIPT_MISMATCH",
+		},
+		{
+			// Paired states: a defect may claim EXECUTED only when the
+			// executed run itself names that defect (no defect rides along on
+			// another defect's execution).
+			name: "executed defect unbound from the executed run",
+			mutate: func(t *testing.T, plan map[string]any) {
+				defects := cpTestSection(t, plan, "seeded_defects")
+				mutated := false
+				for _, entry := range defects {
+					defect := entry.(map[string]any)
+					if defect["defect_id"] == "defect.model.type-domain-escape" {
+						defect["execution_state"] = "EXECUTED"
+						mutated = true
+					}
+				}
+				if !mutated {
+					t.Fatalf("defect.model.type-domain-escape not present; update test")
+				}
+			},
+			expect: "PLAN_DEFECT_EXECUTION_UNBOUND",
+		},
+		{
+			// The reverse pairing: an executed-run defect entry naming a
+			// defect whose table state is still pending blocks.
+			name: "executed run names defect not marked executed",
+			mutate: func(t *testing.T, plan map[string]any) {
+				check := cpTestObject(t, plan, "model_check")
+				run, ok := check["executed_run"].(map[string]any)
+				if !ok {
+					t.Fatalf("model_check.executed_run not present; update test")
+				}
+				executed := run["executed_defects"].([]any)
+				executed[0].(map[string]any)["defect_id"] = "defect.model.type-domain-escape"
+			},
+			expect: "PLAN_DEFECT_EXECUTION_UNBOUND",
 		},
 		{
 			name: "claim scope inflated to proof",
@@ -321,5 +376,22 @@ func TestConcurrencyPlanValidatorRejectsMissingFiles(t *testing.T) {
 	findings := ValidateConcurrencyPlan(inputs)
 	if !mpTestHasFinding(findings, "PLAN_FILE_UNREADABLE") {
 		t.Fatalf("expected PLAN_FILE_UNREADABLE, got %+v", findings)
+	}
+}
+
+// Without a receipt root the executed run's receipt digests cannot be
+// re-hashed; the validator must say so out loud (advisory, still fail-closed
+// in the preflight) instead of passing silently.
+func TestConcurrencyPlanReceiptsUnverifiedWithoutRoot(t *testing.T) {
+	inputs := cpTestInputs(t)
+	inputs.ReceiptRoot = ""
+	findings := ValidateConcurrencyPlan(inputs)
+	if !mpTestHasFinding(findings, "PLAN_MODEL_CHECK_RECEIPT_UNVERIFIED") {
+		t.Fatalf("expected advisory PLAN_MODEL_CHECK_RECEIPT_UNVERIFIED without a receipt root, got %+v", findings)
+	}
+	for _, finding := range findings {
+		if finding.Code == "PLAN_MODEL_CHECK_RECEIPT_UNVERIFIED" && finding.Severity != SeverityAdvisory {
+			t.Fatalf("receipt-root absence must be advisory, got %+v", finding)
+		}
 	}
 }

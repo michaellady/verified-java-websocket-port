@@ -22,17 +22,46 @@
 \*   cp connection-model.cfg ConnectionModel.cfg
 \*   java -cp tla2tools.jar tlc2.TLC -config ConnectionModel.cfg ConnectionModel
 \*
-\* MODEL_CHECK: MODEL_CHECK_PENDING_TOOL -- TLC is not installed on the
-\* authoring host. Probes actually run on 2026-08-26 (darwin/arm64):
+\* MODEL_CHECK: EXECUTED -- SANY and TLC ran on this model on 2026-08-27
+\* inside the accepted US-007 sbx workload profile (unprivileged, network
+\* denied) under owner-authorized attempt us007-sbx-output-live-0125
+\* (authorization: protected/us006-attempt-0125-owner-authorization.json).
+\* Tool: tla2tools.jar, tlaplus v1.8.0 'The Clarke release', sha256
+\* eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a recorded
+\* at fetch (4487757 bytes); in-sbx JVM openjdk 25.0.3. Executed results,
+\* receipts mirrored byte-identically from the protected attempt store into
+\* evidence/formal/us006-model-check-0125/ and digest-bound in
+\* assurance/concurrency/plan.json model_check.executed_run:
+\*   SANY (grammar + level check): exit 0, semantic processing and linting of
+\*   ConnectionModel clean (receipt sany.out).
+\*   TLC, shipped cfg: exit 0, "Model checking completed. No error has been
+\*   found." -- 2,498 states generated, 1,077 distinct states, 0 on queue,
+\*   complete-graph depth 14; temporal properties checked over the complete
+\*   state space, so the ClosingLeadsToClosed liveness property (beyond the
+\*   Go walker's scope) is INCLUDED in the clean verdict (receipt tlc.out).
+\*   Liveness non-vacuity: defect.model.starved-closing-resolution executed
+\*   (cfg SPECIFICATION FairSpec -> Spec; mutant cfg retained as
+\*   MutantLiveness.cfg): exit 13, "Error: Temporal property
+\*   ClosingLeadsToClosed was violated", stuttering counterexample -- the
+\*   declared expected COUNTEREXAMPLE, so the checked liveness property is
+\*   falsifiable, not vacuous (receipt tlc-mutant-liveness.out).
+\* RESIDUAL GAPS stated plainly: (1) the ten walker-expressible seeded
+\* defects have executed under the Go walker only; their TLC executions stay
+\* MODEL_CHECK_PENDING_TOOL in assurance/concurrency/plan.json. (2) The
+\* walker's translation-divergence residual is BOUNDED, not closed: the real
+\* tool agrees with the walker's clean verdict on the same cfg bounds and its
+\* 1,077 distinct states equal the walker's 1,077 reachable states, but a
+\* divergence could still hide on paths only the walker's mutations execute.
+\* (3) The proved-model ceiling is unchanged: this run establishes nothing
+\* about production Rust without a reviewed composition/refinement link.
+\* Host-availability history (the tool remains uninstalled on the authoring
+\* host; probes actually run on 2026-08-26, darwin/arm64, host JVM 17.0.19):
 \*   command -v tlc                                        -> no output, exit 1
 \*   command -v tla2tools                                  -> no output, exit 1
 \*   brew list | grep -i -E 'tla|apalache'                 -> no output
 \*   ls ~/.m2/repository | grep -i tla                     -> no output
 \*   mdfind -name tla2tools                                -> no output
 \*   find ~ /opt /usr/local -maxdepth 4 -iname 'tla2tools*.jar' -> no output
-\* Java 17.0.19 (Homebrew OpenJDK) is present, so the staged TLC command above
-\* is executable as soon as tla2tools.jar is provisioned inside the accepted
-\* US-007 sbx profile. No model-check result is claimed here.
 \*
 \* CLAIM CEILING: proved-model only (PRD US-006 AC4). This model abstracts the
 \* shipped Java connection lifecycle; it establishes nothing about production
@@ -100,10 +129,15 @@
 \* the seeded mutations to confirm non-vacuity. The walker verifies this
 \* RESTRICTED model (no listener re-entrancy, see MODEL SCOPE above); its
 \* results inherit the same restriction and say nothing about unrestricted
-\* Java. It is a test of this
-\* artifact, not TLC: it does not parse this file (translation divergence is
-\* a residual risk), and it does not check the ClosingLeadsToClosed liveness
-\* property, which remains pending the TLC run recorded below.
+\* Java. It is a test of this artifact, not TLC: it does not parse this file,
+\* so translation divergence is a residual risk -- now BOUNDED by the
+\* executed TLC run (MODEL_CHECK above): the real tool parsed this exact
+\* file, reached the same 1,077 distinct states the walker reaches, and
+\* agreed with its clean verdict on every checked invariant. The walker still
+\* does not check the ClosingLeadsToClosed liveness property; that check is
+\* TLC's alone (executed clean under FairSpec, and falsified with a
+\* stuttering counterexample when the fairness conjuncts are deleted --
+\* defect.model.starved-closing-resolution).
 ---- MODULE ConnectionModel ----
 EXTENDS Integers, Sequences
 

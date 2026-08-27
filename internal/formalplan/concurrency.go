@@ -8,9 +8,12 @@ package formalplan
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
@@ -20,13 +23,17 @@ import (
 // ConcurrencyPlanInputs names every artifact the plan validator reads.
 // QuarantineJavaRoot points at the quarantined org/java_websocket package
 // root; when empty or absent, citation resolution degrades to an advisory
-// finding instead of a silent pass.
+// finding instead of a silent pass. ReceiptRoot is the tree root against
+// which the executed model-check run's receipt paths resolve and re-hash;
+// when empty, receipt verification degrades to an advisory finding the same
+// way.
 type ConcurrencyPlanInputs struct {
 	PlanPath           string
 	SchemaPath         string
 	TLAPath            string
 	CfgPath            string
 	LedgerPath         string
+	ReceiptRoot        string
 	QuarantineJavaRoot string
 }
 
@@ -210,13 +217,68 @@ type cpRunSummary struct {
 	Result          string `json:"result"`
 }
 
+// cpExecutedTool is the executed run's tool identity: the pinned release, the
+// digest recorded at fetch, and the version banners the tool itself printed.
+type cpExecutedTool struct {
+	Artifact      string `json:"artifact"`
+	PinnedRelease string `json:"pinned_release"`
+	SourceURL     string `json:"source_url"`
+	SHA256        string `json:"sha256"`
+	Bytes         int    `json:"bytes"`
+	SANYBanner    string `json:"sany_banner"`
+	TLCBanner     string `json:"tlc_banner"`
+}
+
+// cpReceipt names one verbatim output receipt of the executed run by in-tree
+// path, digest, and byte count; the digest is re-hashed against the actual
+// bytes whenever a receipt root is available.
+type cpReceipt struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
+	Bytes  int    `json:"bytes"`
+}
+
+// cpCheckOutcome records one executed check's real exit code and observed
+// result, quoting the receipt it came from.
+type cpCheckOutcome struct {
+	ExitCode *int   `json:"exit_code"`
+	Observed string `json:"observed"`
+}
+
+// cpExecutedDefect binds one seeded defect actually executed under the real
+// tool to its mutation, exit code, observation, and receipt.
+type cpExecutedDefect struct {
+	DefectID    string `json:"defect_id"`
+	CfgMutation string `json:"cfg_mutation"`
+	ExitCode    *int   `json:"exit_code"`
+	Observed    string `json:"observed"`
+	ReceiptPath string `json:"receipt_path"`
+}
+
+// cpExecutedRun is the executed model-check record: the owner-authorized sbx
+// attempt, the digest-pinned tool and JVM identities, the receipt set, and the
+// per-check outcomes. It exists only when the model check actually ran.
+type cpExecutedRun struct {
+	AttemptID       string             `json:"attempt_id"`
+	Authorization   string             `json:"authorization"`
+	Sandbox         string             `json:"sandbox"`
+	Tool            cpExecutedTool     `json:"tool"`
+	JVM             string             `json:"jvm"`
+	ReceiptOrigin   string             `json:"receipt_origin"`
+	Receipts        []cpReceipt        `json:"receipts"`
+	SANY            cpCheckOutcome     `json:"sany"`
+	TLC             cpCheckOutcome     `json:"tlc"`
+	ExecutedDefects []cpExecutedDefect `json:"executed_defects"`
+}
+
 type cpModelCheck struct {
-	Tool       string        `json:"tool"`
-	Available  bool          `json:"available"`
-	State      string        `json:"state"`
-	Probes     []cpProbe     `json:"probes"`
-	PlannedRun cpPlannedRun  `json:"planned_run"`
-	RunSummary *cpRunSummary `json:"run_summary,omitempty"`
+	Tool        string         `json:"tool"`
+	Available   bool           `json:"available"`
+	State       string         `json:"state"`
+	Probes      []cpProbe      `json:"probes"`
+	PlannedRun  cpPlannedRun   `json:"planned_run"`
+	RunSummary  *cpRunSummary  `json:"run_summary,omitempty"`
+	ExecutedRun *cpExecutedRun `json:"executed_run,omitempty"`
 }
 
 type cpPlan struct {
@@ -277,7 +339,7 @@ func ValidateConcurrencyPlan(inputs ConcurrencyPlanInputs) []ModelFinding {
 	findings = append(findings, cpValidateRaces(plan)...)
 	findings = append(findings, cpValidateLedgerBinding(plan.BehaviorDeltaLedger, inputs.LedgerPath)...)
 	findings = append(findings, cpValidateSeededDefects(plan, inputs.CfgPath)...)
-	findings = append(findings, cpValidateModelCheck(plan.ModelCheck)...)
+	findings = append(findings, cpValidateModelCheck(plan.ModelCheck, inputs.ReceiptRoot)...)
 	findings = append(findings, cpValidateCitations(plan, inputs.QuarantineJavaRoot)...)
 	return findings
 }
@@ -500,8 +562,19 @@ func cpValidateSeededDefects(plan cpPlan, cfgPath string) []ModelFinding {
 	for _, name := range append(append([]string{}, cfg.Invariants...), cfg.Properties...) {
 		declared[name] = true
 	}
+	// Paired-state binding between the defect table and the executed run:
+	// a defect claims EXECUTED only when the executed run names it, and the
+	// executed run names only defects the table marks EXECUTED.
+	executedByRun := map[string]bool{}
+	if plan.ModelCheck.ExecutedRun != nil {
+		for _, executed := range plan.ModelCheck.ExecutedRun.ExecutedDefects {
+			executedByRun[executed.DefectID] = true
+		}
+	}
+	executedInTable := map[string]bool{}
 	covered := map[string]bool{}
 	for _, defect := range plan.SeededDefects {
+		executedInTable[defect.DefectID] = defect.ExecutionState == "EXECUTED"
 		if !declared[defect.TargetProperty] {
 			findings = append(findings, mpFinding("PLAN_SEEDED_DEFECT_UNBOUND", defect.DefectID,
 				"seeded defect targets "+defect.TargetProperty+" which the TLC configuration does not check"))
@@ -511,6 +584,21 @@ func cpValidateSeededDefects(plan cpPlan, cfgPath string) []ModelFinding {
 		if !plan.ModelCheck.Available && defect.ExecutionState != "MODEL_CHECK_PENDING_TOOL" {
 			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", defect.DefectID,
 				"seeded defect claims an execution state beyond the unavailable model checker"))
+		}
+		if defect.ExecutionState == "EXECUTED" && (plan.ModelCheck.State != "EXECUTED" || !executedByRun[defect.DefectID]) {
+			findings = append(findings, mpFinding("PLAN_DEFECT_EXECUTION_UNBOUND", defect.DefectID,
+				"seeded defect claims EXECUTED but the executed model-check run does not record its execution"))
+		}
+	}
+	var runNames []string
+	for name := range executedByRun {
+		runNames = append(runNames, name)
+	}
+	sort.Strings(runNames)
+	for _, name := range runNames {
+		if !executedInTable[name] {
+			findings = append(findings, mpFinding("PLAN_DEFECT_EXECUTION_UNBOUND", name,
+				"the executed model-check run names a defect the seeded-defect table does not mark EXECUTED"))
 		}
 	}
 	var uncovered []string
@@ -527,7 +615,7 @@ func cpValidateSeededDefects(plan cpPlan, cfgPath string) []ModelFinding {
 	return findings
 }
 
-func cpValidateModelCheck(check cpModelCheck) []ModelFinding {
+func cpValidateModelCheck(check cpModelCheck, receiptRoot string) []ModelFinding {
 	var findings []ModelFinding
 	switch check.State {
 	case "MODEL_CHECK_PENDING_TOOL":
@@ -539,6 +627,10 @@ func cpValidateModelCheck(check cpModelCheck) []ModelFinding {
 			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.probes",
 				"a pending-tool record must carry the availability probes actually run"))
 		}
+		if check.ExecutedRun != nil {
+			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.executed_run",
+				"a pending-tool record must not carry an executed run"))
+		}
 	case "EXECUTED":
 		if !check.Available {
 			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.state",
@@ -548,9 +640,79 @@ func cpValidateModelCheck(check cpModelCheck) []ModelFinding {
 			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.run_summary",
 				"an executed record must carry the real run summary (states generated, result)"))
 		}
+		findings = append(findings, cpValidateExecutedRun(check.ExecutedRun, receiptRoot)...)
 	default:
 		findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.state",
 			"unknown model-check state "+check.State))
+	}
+	return findings
+}
+
+// cpValidateExecutedRun validates the executed model-check record: attempt and
+// tool identities are bound, every receipt names a full digest, and each
+// receipt digest is re-hashed against the actual bytes under receiptRoot. A
+// missing receipt root is an advisory finding, never a silent pass.
+func cpValidateExecutedRun(run *cpExecutedRun, receiptRoot string) []ModelFinding {
+	var findings []ModelFinding
+	if run == nil {
+		return append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.executed_run",
+			"an executed record must carry the executed run (attempt id, tool identity, digest-bound receipts)"))
+	}
+	if run.AttemptID == "" || run.Authorization == "" || run.Sandbox == "" || run.JVM == "" {
+		findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.executed_run",
+			"the executed run must bind the attempt id, owner authorization, sandbox description, and JVM identity"))
+	}
+	if !isFullSha256Digest(run.Tool.SHA256) || run.Tool.Artifact == "" || run.Tool.PinnedRelease == "" {
+		findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.executed_run.tool",
+			"the executed run must bind the tool artifact, pinned release, and full sha256 digest recorded at fetch"))
+	}
+	if run.SANY.ExitCode == nil || strings.TrimSpace(run.SANY.Observed) == "" ||
+		run.TLC.ExitCode == nil || strings.TrimSpace(run.TLC.Observed) == "" {
+		findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.executed_run",
+			"the executed run must record the real SANY and TLC exit codes and observed results"))
+	}
+	receiptPaths := map[string]bool{}
+	if len(run.Receipts) == 0 {
+		findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", "model_check.executed_run.receipts",
+			"an executed run without receipts is a claims-shaped placeholder"))
+	}
+	for index, receipt := range run.Receipts {
+		location := fmt.Sprintf("model_check.executed_run.receipts[%d]", index)
+		if receipt.Path == "" || !isFullSha256Digest(receipt.SHA256) {
+			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_RECEIPT_MISMATCH", location,
+				"every receipt must name an in-tree path and a full sha256 digest"))
+			continue
+		}
+		receiptPaths[receipt.Path] = true
+		if receiptRoot == "" {
+			continue
+		}
+		raw, err := os.ReadFile(filepath.Join(receiptRoot, filepath.FromSlash(receipt.Path)))
+		if err != nil {
+			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_RECEIPT_MISMATCH", location,
+				"receipt file "+receipt.Path+" does not exist in this tree: "+err.Error()))
+			continue
+		}
+		digest := sha256.Sum256(raw)
+		if "sha256:"+hex.EncodeToString(digest[:]) != receipt.SHA256 || len(raw) != receipt.Bytes {
+			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_RECEIPT_MISMATCH", location,
+				"recorded digest/byte count does not match the actual bytes of "+receipt.Path))
+		}
+	}
+	if receiptRoot == "" {
+		findings = append(findings, mpAdvisory("PLAN_MODEL_CHECK_RECEIPT_UNVERIFIED", "model_check.executed_run.receipts",
+			"no receipt root supplied; executed-run receipt digests were format-checked only"))
+	}
+	for index, defect := range run.ExecutedDefects {
+		location := fmt.Sprintf("model_check.executed_run.executed_defects[%d]", index)
+		if defect.DefectID == "" || defect.CfgMutation == "" || defect.ExitCode == nil || strings.TrimSpace(defect.Observed) == "" {
+			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", location,
+				"every executed defect must bind its defect id, cfg mutation, real exit code, and observed result"))
+		}
+		if defect.ReceiptPath != "" && !receiptPaths[defect.ReceiptPath] {
+			findings = append(findings, mpFinding("PLAN_MODEL_CHECK_INCONSISTENT", location,
+				"executed defect cites receipt "+defect.ReceiptPath+" which the run's receipt set does not carry"))
+		}
 	}
 	return findings
 }

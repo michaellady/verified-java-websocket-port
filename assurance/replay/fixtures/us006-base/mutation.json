@@ -27,6 +27,26 @@
     },
     {
       "kind": "copy_file",
+      "source": "evidence/formal/us006-model-check-0125/sany.out",
+      "target": "evidence/formal/us006-model-check-0125/sany.out"
+    },
+    {
+      "kind": "copy_file",
+      "source": "evidence/formal/us006-model-check-0125/tlc.out",
+      "target": "evidence/formal/us006-model-check-0125/tlc.out"
+    },
+    {
+      "kind": "copy_file",
+      "source": "evidence/formal/us006-model-check-0125/tlc-mutant-liveness.out",
+      "target": "evidence/formal/us006-model-check-0125/tlc-mutant-liveness.out"
+    },
+    {
+      "kind": "copy_file",
+      "source": "evidence/formal/us006-model-check-0125/MutantLiveness.cfg",
+      "target": "evidence/formal/us006-model-check-0125/MutantLiveness.cfg"
+    },
+    {
+      "kind": "copy_file",
       "source": "rust/ws-core/src/connection.rs",
       "target": "rust/ws-core/src/connection.rs"
     },

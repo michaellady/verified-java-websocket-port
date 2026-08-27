@@ -1126,10 +1126,10 @@
     },
     {
       "defect_id": "defect.model.starved-closing-resolution",
-      "mutation": "Change the cfg SPECIFICATION from FairSpec to Spec (delete the fairness conjuncts); TLC finds the lasso that stutters in CLOSING forever. Not executable by the Go bounded walker: a plain reachability walk cannot falsify a fairness/liveness property, so this defect remains pending the TLC run.",
+      "mutation": "Change the cfg SPECIFICATION from FairSpec to Spec (delete the fairness conjuncts); TLC finds the lasso that stutters in CLOSING forever. Not executable by the Go bounded walker (a plain reachability walk cannot falsify a fairness/liveness property). EXECUTED under real TLC in sbx attempt us007-sbx-output-live-0125 (mutant cfg retained verbatim as MutantLiveness.cfg, exactly this mutation): exit 13, 'Error: Temporal property ClosingLeadsToClosed was violated', with the stuttering counterexample that parks in Closing after FlushWrite -- the expected COUNTEREXAMPLE, confirmed. Receipt: evidence/formal/us006-model-check-0125/tlc-mutant-liveness.out (digest-bound in model_check.executed_run).",
       "target_property": "ClosingLeadsToClosed",
       "expected_result": "COUNTEREXAMPLE",
-      "execution_state": "MODEL_CHECK_PENDING_TOOL"
+      "execution_state": "EXECUTED"
     }
   ],
   "native_thread_evidence": {
@@ -1145,9 +1145,9 @@
     }
   },
   "model_check": {
-    "tool": "tlc (tla2tools)",
-    "available": false,
-    "state": "MODEL_CHECK_PENDING_TOOL",
+    "tool": "tlc (tla2tools.jar, tlaplus v1.8.0 'The Clarke release', digest-pinned; materialized in-sandbox for owner-authorized attempt us007-sbx-output-live-0125 -- still not installed on the authoring host, whose probes below are retained as the host-availability record)",
+    "available": true,
+    "state": "EXECUTED",
     "probes": [
       {
         "command": "command -v tlc",
@@ -1177,7 +1177,67 @@
     "planned_run": {
       "staging": "cp assurance/formal/connection-model.tla ConnectionModel.tla && cp assurance/formal/connection-model.cfg ConnectionModel.cfg (TLA+ module names cannot contain hyphens)",
       "command": "java -cp tla2tools.jar tlc2.TLC -config ConnectionModel.cfg ConnectionModel",
-      "environment": "Accepted US-007 sbx workload profile (its pinned OpenJDK runs tla2tools); the run must record the sbx CLI/daemon, template, policy, tool, input, and output digests per the receipt contract, plus TLC's own states-generated/distinct-states/result summary, and replay byte-identically."
+      "environment": "Accepted US-007 sbx workload profile (its pinned OpenJDK runs tla2tools); the run must record the sbx CLI/daemon, template, policy, tool, input, and output digests per the receipt contract, plus TLC's own states-generated/distinct-states/result summary, and replay byte-identically. Executed as planned under attempt us007-sbx-output-live-0125; the executed_run record below carries the identities and receipts."
+    },
+    "run_summary": {
+      "states_generated": 2498,
+      "distinct_states": 1077,
+      "result": "Model checking completed. No error has been found. (0 states left on queue; depth of the complete state graph 14; temporal properties checked over the complete state space, so the ClosingLeadsToClosed liveness property -- beyond the Go walker's scope -- is included. The 1,077 distinct states equal the Go walker's 1,077 reachable states under the same cfg bounds, bounding the walker's translation-divergence residual on the clean path.)"
+    },
+    "executed_run": {
+      "attempt_id": "us007-sbx-output-live-0125",
+      "authorization": "protected/us006-attempt-0125-owner-authorization.json (owner-authorized single sbx attempt, owner decision us006_tlc_in_sbx AUTHORIZED at 2026-08-27T03:21:08Z recorded in protected/us009-us008-owner-decisions-2026-08-27.json; the tool was fetched host-side with its digest recorded AT FETCH per probe-before-wire and entered the sandbox only via digest-verified copy)",
+      "sandbox": "Accepted US-007 Docker sbx workload profile: unprivileged, non-root, --deny-network '**', clone-mode source, template digest per the 0124-accepted profile (sandbox_profile of assurance/formal/backend-qualification.json); outputs extracted digest-verified; sandbox destroyed after extraction",
+      "tool": {
+        "artifact": "tla2tools.jar (TLA+ tools: SANY + TLC)",
+        "pinned_release": "tlaplus v1.8.0 'The Clarke release'",
+        "source_url": "https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar",
+        "sha256": "sha256:eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a",
+        "bytes": 4487757,
+        "sany_banner": "SANY2 Version 2.2 created 08 July 2020",
+        "tlc_banner": "TLC2 Version 2026.08.21.155922 (rev: 9787e65)"
+      },
+      "jvm": "openjdk 25.0.3 (the sandbox template's JVM, recorded honestly against the availability probe's host JVM 17.0.19 which was never used for this run; TLC's own host line: 'Linux 7.0.12 aarch64, Ubuntu 25.0.3 64bit')",
+      "receipt_origin": "Verbatim sbx output receipts written by the orchestrating owner session to the protected attempt store (workspace/orchestrator/verified-java-websocket-port-claude/protected/us007-sbx-output-live-0125/) and mirrored byte-identically into evidence/formal/us006-model-check-0125/; the digests below are re-hashed against the in-tree bytes on every validator run",
+      "receipts": [
+        {
+          "path": "evidence/formal/us006-model-check-0125/sany.out",
+          "sha256": "sha256:398f976e83aca78093d2ec1df97cd3dcb6470fdafbfec7d2cc136e2f25d8f7fe",
+          "bytes": 929
+        },
+        {
+          "path": "evidence/formal/us006-model-check-0125/tlc.out",
+          "sha256": "sha256:19ed3a0edc27b002ed02d689b6e934954383fef8c90501fec3b628613da236e7",
+          "bytes": 2922
+        },
+        {
+          "path": "evidence/formal/us006-model-check-0125/tlc-mutant-liveness.out",
+          "sha256": "sha256:e6823357cfc0893af61f19bbeff4bbfd815e716ac2b2df057139928c73eab944",
+          "bytes": 5224
+        },
+        {
+          "path": "evidence/formal/us006-model-check-0125/MutantLiveness.cfg",
+          "sha256": "sha256:2490b132ac355130ee1f6dd510ace115bc718b20fa477c4cd8ea00e95806fef5",
+          "bytes": 868
+        }
+      ],
+      "sany": {
+        "exit_code": 0,
+        "observed": "Grammar and level check EXECUTED: semantic processing and linting of module ConnectionModel completed with no errors (model staged as ConnectionModel.tla per the STAGE AS note; receipt sany.out)"
+      },
+      "tlc": {
+        "exit_code": 0,
+        "observed": "Full run with the shipped cfg: 'Model checking completed. No error has been found.' -- 2,498 states generated, 1,077 distinct states, 0 states left on queue, complete-state-graph depth 14; temporal properties checked over the complete state space, so ClosingLeadsToClosed (liveness) is included (receipt tlc.out)"
+      },
+      "executed_defects": [
+        {
+          "defect_id": "defect.model.starved-closing-resolution",
+          "cfg_mutation": "cfg SPECIFICATION FairSpec -> Spec (exactly the declared mutation: delete the fairness conjuncts; the mutant cfg is retained verbatim as MutantLiveness.cfg)",
+          "exit_code": 13,
+          "observed": "'Error: Temporal property ClosingLeadsToClosed was violated.' -- stuttering counterexample: Init -> OpenHandshake -> RecvCloseUtf8ReasonRuntimeRejection -> RecvCloseAccept(valid_code_reason) -> FlushWrite leaves state=Closing, then stutters forever; the declared expected COUNTEREXAMPLE, establishing the checked liveness property is falsifiable (non-vacuous)",
+          "receipt_path": "evidence/formal/us006-model-check-0125/tlc-mutant-liveness.out"
+        }
+      ]
     }
   },
   "production": false,

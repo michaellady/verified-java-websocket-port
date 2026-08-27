@@ -301,7 +301,7 @@
         "kind": "EXPLICIT_STATE_MODEL_CHECKER",
         "identity": "tla2tools.jar (JVM tool) / tlc launcher",
         "upstream": "https://github.com/tlaplus/tlaplus",
-        "version_observed": "NOT_OBSERVED_TOOL_ABSENT_ON_HOST_JVM_PRESENT_17.0.19"
+        "version_observed": "SANY2 Version 2.2 / TLC2 Version 2026.08.21.155922 (rev: 9787e65), the banners printed in-sbx by the digest-pinned tla2tools.jar of release v1.8.0 'The Clarke release' (sha256 eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a recorded at fetch) under owner-authorized attempt us007-sbx-output-live-0125; the tool remains absent on the authoring host, whose availability probe below stands unchanged (host JVM 17.0.19, never used for the run)"
       },
       "method": "explicit-state model checking of the abstract Connecting/Open/Closing/Closed connection model (lane B's assurance/formal/connection-model.tla) with finite state constraints; establishes PROVED_MODEL evidence only — production claims require a reviewed refinement link (US-006 AC4)",
       "claim_scope": "PROVED_MODEL_ONLY",
@@ -323,9 +323,40 @@
         "verdict": "TOOL_UNAVAILABLE_ON_HOST_JVM_PRESENT"
       },
       "sbx_execution": {
-        "status": "NOT_EXECUTED",
-        "reason": "OWNER_AUTHORIZATION_REQUIRED: the TLC run of the connection model (with its TLC config and state constraints) executes inside the accepted profile under a per-attempt owner authorization, with a digest-pinned tla2tools.jar delivered through the attempt's materialization list. No receipt exists and none is cited.",
-        "required_profile": "sandbox_profile (this document): attempt-us007-sbx-output-live-0124-accepted digest set"
+        "status": "EXECUTED_MODEL_CHECK_ONLY",
+        "reason": "The MODEL CHECK itself executed inside the accepted profile under per-attempt owner authorization us007-sbx-output-live-0125 (SANY grammar/level check, the full TLC run with the shipped cfg including the ClosingLeadsToClosed liveness property, and the seeded liveness defect's counterexample), with verbatim digest-verified receipts recorded below. This is deliberately NOT a full EXECUTED qualification record: the declared known-bad canary mutation (the jm-close-code-1000-mirroring model mutation) did not run, no obligation outcome moves above inconclusive, and selection stays blocked until a full qualification run executes.",
+        "required_profile": "sandbox_profile (this document): attempt-us007-sbx-output-live-0124-accepted digest set",
+        "model_check_execution": {
+          "attempt_id": "us007-sbx-output-live-0125",
+          "authorization": "protected/us006-attempt-0125-owner-authorization.json (owner decision us006_tlc_in_sbx AUTHORIZED 2026-08-27T03:21:08Z; single attempt; tool fetched host-side with sha256 recorded at fetch, digest-verified copy into the network-denied sandbox; sandbox unprivileged, --deny-network '**', template digest per this document's sandbox_profile; sandbox destroyed after digest-verified extraction)",
+          "plan_record": "assurance/concurrency/plan.json#model_check.executed_run (full executed record: tool identity and banners, JVM, per-check exit codes, receipt digests re-hashed by the lane B validator)",
+          "tool_identity": "tla2tools.jar, tlaplus v1.8.0 'The Clarke release' (4487757 bytes at fetch); in-sbx banners SANY2 Version 2.2 / TLC2 Version 2026.08.21.155922 (rev: 9787e65)",
+          "tool_sha256": "sha256:eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a",
+          "jvm": "openjdk 25.0.3 (sandbox template JVM, recorded honestly: the availability probe's host JVM 17.0.19 was never used for this run)",
+          "receipts": [
+            {
+              "path": "evidence/formal/us006-model-check-0125/sany.out",
+              "sha256": "sha256:398f976e83aca78093d2ec1df97cd3dcb6470fdafbfec7d2cc136e2f25d8f7fe"
+            },
+            {
+              "path": "evidence/formal/us006-model-check-0125/tlc.out",
+              "sha256": "sha256:19ed3a0edc27b002ed02d689b6e934954383fef8c90501fec3b628613da236e7"
+            },
+            {
+              "path": "evidence/formal/us006-model-check-0125/tlc-mutant-liveness.out",
+              "sha256": "sha256:e6823357cfc0893af61f19bbeff4bbfd815e716ac2b2df057139928c73eab944"
+            },
+            {
+              "path": "evidence/formal/us006-model-check-0125/MutantLiveness.cfg",
+              "sha256": "sha256:2490b132ac355130ee1f6dd510ace115bc718b20fa477c4cd8ea00e95806fef5"
+            }
+          ],
+          "verdicts": {
+            "sany": "exit 0: semantic processing and linting of module ConnectionModel clean (receipt sany.out)",
+            "tlc": "exit 0: 'Model checking completed. No error has been found.' -- 2,498 states generated, 1,077 distinct states, 0 on queue, depth 14; temporal properties checked over the complete state space (receipt tlc.out)",
+            "seeded_liveness_defect": "defect.model.starved-closing-resolution (cfg SPECIFICATION FairSpec -> Spec, mutant cfg retained as MutantLiveness.cfg): exit 13, 'Error: Temporal property ClosingLeadsToClosed was violated', stuttering counterexample -- expected COUNTEREXAMPLE confirmed (receipt tlc-mutant-liveness.out)"
+          }
+        }
       },
       "expected_property_inventory": [
         { "property_id": "prop.tlc.no-terminal-escape", "description": "no transition leaves CLOSED (Java authority: WebSocketImpl.java:530-567, CLOSED at 566)", "formal_claim_id": "formal.connection.no-terminal-escape" },
@@ -364,8 +395,8 @@
       "canaries": {
         "known_good": {
           "id": "canary.tlc.good.model-passes",
-          "description": "the unmutated connection model satisfies both safety properties over the bounded state space with a recorded state count",
-          "status": "NOT_EXECUTED"
+          "description": "the unmutated connection model satisfies both safety properties over the bounded state space with a recorded state count -- EXECUTED as the model-check run of attempt us007-sbx-output-live-0125: TLC exit 0, 2,498 states generated / 1,077 distinct, no error found, temporal properties included (receipt evidence/formal/us006-model-check-0125/tlc.out, digest-bound in sbx_execution.model_check_execution)",
+          "status": "PASSED"
         },
         "known_bad": {
           "id": "canary.tlc.bad.jm-close-code-1000",
@@ -387,7 +418,8 @@
       ],
       "provenance": [
         "host availability probe re-executed 2026-08-26T23:13:01Z by lane C (re-review round 1), per-stream stdout/stderr and exit codes recorded verbatim above; truncated streams are digest-bound (byte count + sha256 of the full stream)",
-        "candidate backend named by the US-006 pre-stage dossier (drafts/us006-prestage-dossier.md AC2/AC4)"
+        "candidate backend named by the US-006 pre-stage dossier (drafts/us006-prestage-dossier.md AC2/AC4)",
+        "model-check execution recorded 2026-08-27 from owner-authorized sbx attempt us007-sbx-output-live-0125: verbatim receipts extracted digest-verified from the destroyed sandbox, mirrored byte-identically from the protected attempt store into evidence/formal/us006-model-check-0125/, and re-hashed by the formal-preflight validator on every run"
       ],
       "unsupported_constructs": [
         "unbounded counters (must be excluded by state constraints before any run)",
@@ -545,8 +577,8 @@
   },
   "honesty_notes": [
     "Availability probes were re-executed on the HOST (Darwin arm64) at 2026-08-26T23:13:01Z (re-review round 1, replacing an earlier probe set whose recorded fields paraphrased or merged streams): every command records its exact argv, working directory, exit code, and per-stream stdout/stderr verbatim; where a stream is too long to embed whole (loom's cargo metadata, 4435 bytes) the record keeps a verbatim head and binds the full stream by byte count and sha256. They are probe-before-wire planning evidence, not sbx executions.",
-    "No backend proof run, canary run, or sbx execution has occurred for US-006; every sbx_execution.status is NOT_EXECUTED, every canary status is NOT_EXECUTED, and every obligation outcome is inconclusive (pending) or unsupported (absent artifact). Nothing in this document represents a skip or an inferred success.",
-    "No backend is selected: selection requires an executed availability probe AND a completed sbx execution with a real receipt inside the accepted profile (the formal-preflight validator blocks selected-without-execution mechanically).",
+    "Exactly ONE sbx execution has occurred for US-006: attempt us007-sbx-output-live-0125 executed the MODEL CHECK itself on the TLC backend (SANY clean; full TLC run clean over 1,077 distinct states including the liveness property; the seeded liveness defect's expected counterexample confirmed at exit 13), recorded as status EXECUTED_MODEL_CHECK_ONLY with digest-verified receipts. Everything else stands exactly as before: the Kani, Loom, and finite-mask backends remain NOT_EXECUTED; the TLC backend's known-bad canary mutation did NOT run and stays NOT_EXECUTED; every obligation outcome remains inconclusive (pending) or unsupported (absent artifact). Nothing in this document represents a skip or an inferred success.",
+    "No backend is selected: selection requires an executed availability probe AND a COMPLETED sbx qualification execution (status EXECUTED with a full EvidenceRun and a healthy canary pair) inside the accepted profile; the model-check-only execution deliberately does not qualify (the formal-preflight validator blocks selected-without-execution mechanically, and blocks any positive obligation outcome, known-bad canary claim, or pass count on an EXECUTED_MODEL_CHECK_ONLY record).",
     "The sandbox_profile digest set is pinned from the CURRENT accepted evidence (security/sbx-template.json, security/sandbox-policy.json) and bound to the accepted live attempt us007-sbx-output-live-0124 cited by evidence/corpus-calibration.json; the protected operator receipt was read as acceptance provenance only. The formal-preflight validator reconciles these pins two ways: every pinned field is compared against security/sbx-template.json, and the one digest that names in-repo bytes — sandbox_policy_digest, the sha256 over the raw bytes of security/sandbox-policy.json — is re-hashed from the actual file on every run (PROFILE_DIGEST_MISMATCH / PROFILE_ARTIFACT_UNREADABLE). The CLI-binary, template, and network-policy digests describe out-of-repo artifacts (host sbx binary, registry image, live sbx policy rule) and cannot be re-hashed from repo bytes; they remain bound through the pin-vs-source comparison and the accepted attempt's operator receipt.",
     "The finite mask prototype named by US-006 AC3 has no retained artifact anywhere in this repository (search recorded above): its record is ABSENT_NO_RETAINED_ARTIFACT with outcome unsupported, which blocks dependent claims rather than representing bounded evidence that cannot be produced. The retained-artifact content search necessarily matches this document itself (it names the prototype it declares absent); that self-reference is recorded verbatim, and the artifact conclusion rests on the self-reference-excluded content search and the filename search, both empty.",
     "Obligation pass accounting is strict: the validator counts an obligation as passed (and as production-linked passed) only when its backend's execution record satisfies the full foundation EvidenceRun completeness predicate (receipt re-hashed against real bytes included) AND both canaries in the backend's pair are healthy (known-good PASSED, known-bad DETECTED with a digested counterexample). Incomplete evidence or a surviving/unexecuted canary excludes the pass with its typed finding — a failed canary can never coexist with a counted production-linked pass."

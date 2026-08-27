@@ -1,0 +1,100 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+TLC2 Version 2026.08.21.155922 (rev: 9787e65)
+Running breadth-first search Model-Checking with fp 39 and seed 500628915714217877 with 1 worker on 2 cores with 455MB heap and 64MB offheap memory [pid: 34] (Linux 7.0.12 aarch64, Ubuntu 25.0.3 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/agent/tlc/ConnectionModel.tla
+Parsing file /tmp/tlc-8689164465923735056/Integers.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-8689164465923735056/Sequences.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-8689164465923735056/_TLCTrace.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-8689164465923735056/Naturals.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-8689164465923735056/TLC.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-8689164465923735056/TLCExt.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-8689164465923735056/FiniteSets.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module ConnectionModel
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module ConnectionModel
+Starting... (2026-08-27 03:38:43)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-08-27 03:38:43.
+Progress(14) at 2026-08-27 03:38:43: 2,498 states generated, 1,077 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 1077 total distinct states at (2026-08-27 03:38:43)
+Error: Temporal property ClosingLeadsToClosed was violated.
+
+Error: The following behavior constitutes a counter-example:
+
+State 1: <Initial predicate>
+/\ rejectedLocalCloses = 0
+/\ inboundCount = 0
+/\ closeDetail = [origin |-> "none", code |-> 0]
+/\ outQ = <<>>
+/\ lastInboundClose = [code |-> 0, class |-> "none", kind |-> "none"]
+/\ pendingProcessReject = FALSE
+/\ state = "Connecting"
+/\ terminalDeliveries = 0
+/\ sendCount = 0
+/\ droppedWrites = 0
+
+State 2: <OpenHandshake line 191, col 3 to line 195, col 53 of module ConnectionModel>
+/\ rejectedLocalCloses = 0
+/\ inboundCount = 0
+/\ closeDetail = [origin |-> "none", code |-> 0]
+/\ outQ = <<>>
+/\ lastInboundClose = [code |-> 0, class |-> "none", kind |-> "none"]
+/\ pendingProcessReject = FALSE
+/\ state = "Open"
+/\ terminalDeliveries = 0
+/\ sendCount = 0
+/\ droppedWrites = 0
+
+State 3: <RecvCloseUtf8ReasonRuntimeRejection line 339, col 3 to line 345, col 75 of module ConnectionModel>
+/\ rejectedLocalCloses = 0
+/\ inboundCount = 1
+/\ closeDetail = [origin |-> "none", code |-> 0]
+/\ outQ = <<>>
+/\ lastInboundClose = [code |-> 0, class |-> "invalid_utf8_reason", kind |-> "runtime_rejection"]
+/\ pendingProcessReject = FALSE
+/\ state = "Open"
+/\ terminalDeliveries = 0
+/\ sendCount = 0
+/\ droppedWrites = 0
+
+State 4: <RecvCloseAccept("valid_code_reason") line 285, col 3 to line 296, col 38 of module ConnectionModel>
+/\ rejectedLocalCloses = 0
+/\ inboundCount = 2
+/\ closeDetail = [origin |-> "remote", code |-> 1000]
+/\ outQ = <<"close">>
+/\ lastInboundClose = [code |-> 1000, class |-> "valid_code_reason", kind |-> "accept"]
+/\ pendingProcessReject = FALSE
+/\ state = "Closing"
+/\ terminalDeliveries = 0
+/\ sendCount = 0
+/\ droppedWrites = 0
+
+State 5: <FlushWrite line 396, col 3 to line 401, col 53 of module ConnectionModel>
+/\ rejectedLocalCloses = 0
+/\ inboundCount = 2
+/\ closeDetail = [origin |-> "remote", code |-> 1000]
+/\ outQ = <<>>
+/\ lastInboundClose = [code |-> 1000, class |-> "valid_code_reason", kind |-> "accept"]
+/\ pendingProcessReject = FALSE
+/\ state = "Closing"
+/\ terminalDeliveries = 0
+/\ sendCount = 0
+/\ droppedWrites = 0
+
+State 6: Stuttering
+Warning: The stuttering counterexample above may be caused by the absence of a fairness constraint in the behavior specification Spec defined at line 503, col 1 to line 503, col 29 of module ConnectionModel. To rule out such counterexamples, conjoin a suitable fairness constraint to Spec (compare Chapter 8, page 87ff of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html).
+(Use the -nowarning option to disable this warning.)
+Finished checking temporal properties in 00s at 2026-08-27 03:38:43
+2498 states generated, 1077 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 14.
+Finished in 00s at (2026-08-27 03:38:43)
+Trace exploration spec path: ./ConnectionModel_TTrace_1787801923.tla

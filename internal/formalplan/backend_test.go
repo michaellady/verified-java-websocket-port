@@ -344,6 +344,10 @@ func us006UnitRoot(t *testing.T) string {
 		"security/sandbox-policy.json",
 		"evidence/corpus-calibration.json",
 		"rust/ws-core/src/connection.rs",
+		"evidence/formal/us006-model-check-0125/sany.out",
+		"evidence/formal/us006-model-check-0125/tlc.out",
+		"evidence/formal/us006-model-check-0125/tlc-mutant-liveness.out",
+		"evidence/formal/us006-model-check-0125/MutantLiveness.cfg",
 	} {
 		us006WriteFile(t, filepath.Join(root, filepath.FromSlash(relative)), us006ReadRepoFile(t, relative))
 	}
@@ -641,6 +645,88 @@ func TestFormalPreflightExecutedBackendRules(t *testing.T) {
 		if verdict.ObligationsPassed != 0 || verdict.ProductionLinkedObligationsPassed != 0 {
 			t.Fatalf("unconfirmed known-good canary must not count passes: passed=%d production=%d, want 0/0",
 				verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
+		}
+	})
+}
+
+// US-006 model-check execution (attempt us007-sbx-output-live-0125): the TLC
+// backend's EXECUTED_MODEL_CHECK_ONLY record is a real execution of the model
+// check with digest-verified receipts — and NOTHING more. It must never admit
+// selection, positive obligation outcomes, known-bad canary claims, or pass
+// counting; those remain gated on a full EXECUTED qualification run.
+func TestFormalPreflightModelCheckOnlyRules(t *testing.T) {
+	t.Parallel()
+
+	t.Run("real-record-is-clean-and-passes-nothing", func(t *testing.T) {
+		t.Parallel()
+		root := us006UnitRoot(t)
+		verdict, err := FormalPreflight(PreflightRequest{RootPath: root})
+		if err != nil {
+			t.Fatalf("preflight: %v", err)
+		}
+		for _, finding := range verdict.Findings {
+			if finding.Code != "FORMAL_DOCUMENT_ABSENT" {
+				t.Fatalf("unexpected finding on the model-check-only record: %+v", finding)
+			}
+		}
+		if verdict.ObligationsPassed != 0 || verdict.ProductionLinkedObligationsPassed != 0 {
+			t.Fatalf("model-check-only execution must not count passes: passed=%d production=%d, want 0/0",
+				verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
+		}
+	})
+
+	cases := []struct {
+		name    string
+		pointer string
+		value   any
+		code    string
+	}{
+		{"receipt-digest-drift-blocks", "/backends/2/sbx_execution/model_check_execution/receipts/0/sha256",
+			"sha256:" + strings.Repeat("0", 64), "MODEL_CHECK_EXECUTION_UNVERIFIED"},
+		{"known-bad-claim-blocks", "/backends/2/canaries/known_bad/status", "DETECTED", "CANARY_CLAIM_WITHOUT_EXECUTION"},
+		{"known-good-non-passed-claim-blocks", "/backends/2/canaries/known_good/status", "DETECTED", "CANARY_CLAIM_WITHOUT_EXECUTION"},
+		{"positive-outcome-blocks", "/backends/2/obligations/0/outcome", "model_observation", "UNAVAILABLE_BACKEND_CLAIM"},
+		{"selection-blocks", "/backends/2/selected", true, "BACKEND_SELECTED_WITHOUT_EXECUTION"},
+	}
+	for _, item := range cases {
+		item := item
+		t.Run(item.name, func(t *testing.T) {
+			t.Parallel()
+			root := us006UnitRoot(t)
+			us006MutateDocument(t, root, item.pointer, item.value)
+			verdict, err := FormalPreflight(PreflightRequest{RootPath: root})
+			if err != nil {
+				t.Fatalf("preflight: %v", err)
+			}
+			if !hasFindingCode(verdict, item.code) {
+				t.Fatalf("missing finding %s in %+v", item.code, verdict.Findings)
+			}
+			if verdict.State != "BLOCKED" {
+				t.Fatalf("state = %s, want BLOCKED", verdict.State)
+			}
+			if verdict.ObligationsPassed != 0 || verdict.ProductionLinkedObligationsPassed != 0 {
+				t.Fatalf("model-check-only mutations must not count passes: passed=%d production=%d",
+					verdict.ObligationsPassed, verdict.ProductionLinkedObligationsPassed)
+			}
+		})
+	}
+
+	t.Run("record-without-execution-detail-blocks", func(t *testing.T) {
+		t.Parallel()
+		root := us006UnitRoot(t)
+		us006MutateDocument(t, root, "/backends/2/sbx_execution", map[string]any{
+			"status": "EXECUTED_MODEL_CHECK_ONLY",
+			"reason": "unit fixture: status without its paired model_check_execution record",
+		})
+		verdict, err := FormalPreflight(PreflightRequest{RootPath: root})
+		if err != nil {
+			t.Fatalf("preflight: %v", err)
+		}
+		if !hasFindingCode(verdict, "FORMAL_SCHEMA_VALIDATION_FAILED") && !hasFindingCode(verdict, "MODEL_CHECK_EXECUTION_UNVERIFIED") {
+			t.Fatalf("status without model_check_execution must block typed, got %+v", verdict.Findings)
+		}
+		if verdict.State != "BLOCKED" {
+			t.Fatalf("state = %s, want BLOCKED", verdict.State)
 		}
 	})
 }
