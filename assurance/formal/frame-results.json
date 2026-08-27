@@ -30,8 +30,8 @@
     "test_name": "us012_formal_actual_code_obligations",
     "source": {
       "path": "rust/connection-core/tests/frame_codec.rs",
-      "sha256": "sha256:b5c78e1e00abad3c929799a84e9a7db1420d8f03be912269f14cee888e42e5d6",
-      "git_blob": "3d700450b8bcd4e58ff97e6c75591cc1b696353d"
+      "sha256": "sha256:5e51306b24ea482e563c63739869d6faadfee60fc4ce60a4b82fb12a6d494485",
+      "git_blob": "ddc672ef9382155ff813d102cdb0a310d94e2758"
     }
   },
   "toolchain": {
@@ -82,7 +82,6 @@
     }
   },
   "obligations": [
-    {"obligation_id": "obligation.checked-header-arithmetic", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
     {"obligation_id": "obligation.control-fin-and-length", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
     {"obligation_id": "obligation.length-canonical-16", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
     {"obligation_id": "obligation.length-canonical-64-high-bit-zero", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
@@ -186,26 +185,26 @@
     {
       "output_id": "output.normalized.1",
       "kind": "NORMALIZED",
-      "content": "US012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n",
-      "sha256": "sha256:e721676c2f8afb2123f26393630729b8195574d2516fb407c32e0386e4688e52"
+      "content": "US012_ACTUAL_CODE_COUNTS control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n",
+      "sha256": "sha256:d8a6d202811e82640a6ebfba397deb520cde92a49cc66d3367175315a3be6b8b"
     },
     {
       "output_id": "output.normalized.2",
       "kind": "NORMALIZED",
-      "content": "US012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n",
-      "sha256": "sha256:e721676c2f8afb2123f26393630729b8195574d2516fb407c32e0386e4688e52"
+      "content": "US012_ACTUAL_CODE_COUNTS control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n",
+      "sha256": "sha256:d8a6d202811e82640a6ebfba397deb520cde92a49cc66d3367175315a3be6b8b"
     },
     {
       "output_id": "output.raw.1",
       "kind": "RAW",
-      "content": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s\n     Running tests/frame_codec.rs (target/debug/deps/frame_codec-6c9e2cfbe594221a)\n\nrunning 1 test\nUS012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\ntest us012_formal_actual_code_obligations ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n",
-      "sha256": "sha256:efd2a19b971cfa99bc41acc1872356d4fb96df8733fc14cb061de2d82cb60e2a"
+      "content": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s\n     Running tests/frame_codec.rs (target/debug/deps/frame_codec-6c9e2cfbe594221a)\n\nrunning 1 test\nUS012_ACTUAL_CODE_COUNTS control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\ntest us012_formal_actual_code_obligations ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n",
+      "sha256": "sha256:959731b97a94c7fca584908444b1b3115efe86dd15428f986fb78c5d9fe17e47"
     },
     {
       "output_id": "output.raw.2",
       "kind": "RAW",
-      "content": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s\n     Running tests/frame_codec.rs (target/debug/deps/frame_codec-6c9e2cfbe594221a)\n\nrunning 1 test\nUS012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\ntest us012_formal_actual_code_obligations ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n",
-      "sha256": "sha256:8ffecfd676d07debfcc8e6329b13237875fc3423df80e48cf9fa9a53d0e5471c"
+      "content": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s\n     Running tests/frame_codec.rs (target/debug/deps/frame_codec-6c9e2cfbe594221a)\n\nrunning 1 test\nUS012_ACTUAL_CODE_COUNTS control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\ntest us012_formal_actual_code_obligations ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n",
+      "sha256": "sha256:959731b97a94c7fca584908444b1b3115efe86dd15428f986fb78c5d9fe17e47"
     }
   ],
   "replay": {
@@ -214,7 +213,7 @@
     "working_directory": "rust",
     "repeat_count": 2,
     "reconciled_identically": true,
-    "semantic_output_digest": "sha256:e721676c2f8afb2123f26393630729b8195574d2516fb407c32e0386e4688e52",
+    "semantic_output_digest": "sha256:d8a6d202811e82640a6ebfba397deb520cde92a49cc66d3367175315a3be6b8b",
     "runs": [
       {
         "run_id": "replay.1",
@@ -222,7 +221,6 @@
         "raw_output_id": "output.raw.1",
         "normalized_output_id": "output.normalized.1",
         "obligation_counts": [
-          {"obligation_id": "obligation.checked-header-arithmetic", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
           {"obligation_id": "obligation.control-fin-and-length", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
           {"obligation_id": "obligation.length-canonical-16", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
           {"obligation_id": "obligation.length-canonical-64-high-bit-zero", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
@@ -239,7 +237,6 @@
         "raw_output_id": "output.raw.2",
         "normalized_output_id": "output.normalized.2",
         "obligation_counts": [
-          {"obligation_id": "obligation.checked-header-arithmetic", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
           {"obligation_id": "obligation.control-fin-and-length", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
           {"obligation_id": "obligation.length-canonical-16", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
           {"obligation_id": "obligation.length-canonical-64-high-bit-zero", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},

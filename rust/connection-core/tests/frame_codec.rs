@@ -683,7 +683,6 @@ fn frame_events_do_not_implement_later_story_semantics() {
 fn us012_formal_actual_code_obligations() {
     #[derive(Default)]
     struct Counts {
-        checked_header_arithmetic: u64,
         control_fin_and_length: u64,
         length_canonical_16: u64,
         length_canonical_64_high_bit_zero: u64,
@@ -739,7 +738,6 @@ fn us012_formal_actual_code_obligations() {
             FrameHeaderDecoder::decode_header(&config, Role::Client, 0, &prefix).unwrap_err(),
             FailureKind::Frame(expected)
         );
-        counts.checked_header_arithmetic += 1;
     }
     for (fin, opcode, length, accepted) in [
         (true, 0x8, 0, true),
@@ -819,7 +817,6 @@ fn us012_formal_actual_code_obligations() {
     }
 
     let stable = [
-        counts.checked_header_arithmetic,
         counts.control_fin_and_length,
         counts.length_canonical_16,
         counts.length_canonical_64_high_bit_zero,
@@ -829,18 +826,10 @@ fn us012_formal_actual_code_obligations() {
         counts.mask_equation,
         counts.mask_involution,
     ];
-    assert_eq!(stable, [3, 6, 6, 3, 126, 2, 4, 1_632, 204]);
+    assert_eq!(stable, [6, 6, 3, 126, 2, 4, 1_632, 204]);
     println!(
-        "US012_ACTUAL_CODE_COUNTS checked_header_arithmetic={} control_fin_and_length={} length_canonical_16={} length_canonical_64_high_bit_zero={} length_canonical_7={} preallocation_cap={} role_masking={} mask_equation={} mask_involution={}",
-        stable[0],
-        stable[1],
-        stable[2],
-        stable[3],
-        stable[4],
-        stable[5],
-        stable[6],
-        stable[7],
-        stable[8]
+        "US012_ACTUAL_CODE_COUNTS control_fin_and_length={} length_canonical_16={} length_canonical_64_high_bit_zero={} length_canonical_7={} preallocation_cap={} role_masking={} mask_equation={} mask_involution={}",
+        stable[0], stable[1], stable[2], stable[3], stable[4], stable[5], stable[6], stable[7]
     );
 }
 

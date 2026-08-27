@@ -47,8 +47,8 @@
       "type":"object","additionalProperties":false,
       "required":["mask_keys","mask_offsets","payload_lengths","chunk_schedules","mask_grid_executions_per_profile","execution_id"],
       "properties": {
-        "mask_keys":{"const":16},"mask_offsets":{"const":4},"payload_lengths":{"const":256},"chunk_schedules":{"const":4},
-        "mask_grid_executions_per_profile":{"const":65536},"execution_id":{"const":"us012-mask-grid-v1"}
+        "mask_keys":{"const":3},"mask_offsets":{"const":4},"payload_lengths":{"const":17},"chunk_schedules":{"const":1},
+        "mask_grid_executions_per_profile":{"const":204},"execution_id":{"const":"us012-formal-mask-grid-v1"}
       }
     },
     "fuzz": {

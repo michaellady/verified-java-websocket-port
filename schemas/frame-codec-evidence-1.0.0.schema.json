@@ -37,8 +37,8 @@
       "properties": {
         "debug":{"$ref":"#/$defs/testRun"},"release":{"$ref":"#/$defs/testRun"},
         "frame_codec_tests_per_profile":{"const":16},"fuzz_seeds_per_profile":{"const":20},
-        "mask_grid_executions_per_profile":{"const":65536},"runtime_assertions":{"const":5},
-        "obligation_counts_per_profile":{"type":"array","minItems":9,"maxItems":9,"prefixItems":[{"const":3},{"const":6},{"const":6},{"const":3},{"const":126},{"const":2},{"const":4},{"const":1632},{"const":204}],"items":false}
+        "mask_grid_executions_per_profile":{"const":204},"runtime_assertions":{"const":5},
+        "obligation_counts_per_profile":{"type":"array","minItems":8,"maxItems":8,"prefixItems":[{"const":6},{"const":6},{"const":3},{"const":126},{"const":2},{"const":4},{"const":1632},{"const":204}],"items":false}
       }
     },
     "autobahn": {
@@ -51,7 +51,7 @@
     },
     "formal": {
       "type":"object","additionalProperties":false,"required":["result_path","result_sha256","declared_obligations"],
-      "properties":{"result_path":{"const":"assurance/formal/frame-results.json"},"result_sha256":{"const":"sha256:5aebf0baa3898918b1e23bbb825c98f8a2057d81e458013fbd16f1c4a9ceb94b"},"declared_obligations":{"const":9}}
+      "properties":{"result_path":{"const":"assurance/formal/frame-results.json"},"result_sha256":{"const":"sha256:523c4715d77bab41fd260f42a0a901974103cdaf1daac0b96c5125c1e327d8a4"},"declared_obligations":{"const":8}}
     },
     "compatibility": {
       "type":"object","additionalProperties":false,

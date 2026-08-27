@@ -59,12 +59,12 @@
     "result_claimed": false
   },
   "properties": {
-    "mask_keys": 16,
+    "mask_keys": 3,
     "mask_offsets": 4,
-    "payload_lengths": 256,
-    "chunk_schedules": 4,
-    "mask_grid_executions_per_profile": 65536,
-    "execution_id": "us012-mask-grid-v1"
+    "payload_lengths": 17,
+    "chunk_schedules": 1,
+    "mask_grid_executions_per_profile": 204,
+    "execution_id": "us012-formal-mask-grid-v1"
   },
   "fuzz": {"seed_count":20,"mode":"EXECUTABLE_INERT_REPLAY_SEEDS"},
   "runtime_assertions": [

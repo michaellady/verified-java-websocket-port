@@ -31,7 +31,7 @@ var exactReplayArgv = []string{
 
 var exactReplayEnvironment = []string{"CARGO_NET_OFFLINE=true", "LANG=C", "LC_ALL=C"}
 
-var exactNormalizedOutput = "US012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n"
+var exactNormalizedOutput = "US012_ACTUAL_CODE_COUNTS control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n"
 
 type collector struct {
 	findings []Finding
@@ -175,7 +175,7 @@ func validateBindings(root *os.Root, value *receipt, findings *collector) {
 			findings.add("SOURCE_BINDING_INVALID", itemPath+".source", "bound source does not contain the exact shipped item token")
 		}
 	}
-	if value.Harness.TestName != "us012_formal_actual_code_obligations" || value.Harness.Source != (artifactBinding{Path: "rust/connection-core/tests/frame_codec.rs", SHA256: "sha256:b5c78e1e00abad3c929799a84e9a7db1420d8f03be912269f14cee888e42e5d6", GitBlob: "3d700450b8bcd4e58ff97e6c75591cc1b696353d"}) {
+	if value.Harness.TestName != "us012_formal_actual_code_obligations" || value.Harness.Source != (artifactBinding{Path: "rust/connection-core/tests/frame_codec.rs", SHA256: "sha256:5e51306b24ea482e563c63739869d6faadfee60fc4ce60a4b82fb12a6d494485", GitBlob: "ddc672ef9382155ff813d102cdb0a310d94e2758"}) {
 		findings.add("HARNESS_BINDING_INVALID", "$.harness", "receipt must bind the exact actual-code Rust test harness")
 	} else if data, ok := validateArtifact(root, value.Harness.Source, "$.harness.source", "HARNESS_BINDING_INVALID", findings); ok {
 		for _, token := range []string{"fn us012_formal_actual_code_obligations", "FrameHeaderDecoder::decode_header", "apply_mask_in_place"} {
@@ -224,7 +224,7 @@ func validateBounds(actual finiteBounds, findings *collector) {
 func validateObligations(actual []obligationResult, findings *collector) {
 	expected := exactObligations()
 	if len(actual) != len(expected) {
-		findings.add("ZERO_OBLIGATIONS", "$.obligations", "the exact nine nonzero obligation results are required")
+		findings.add("ZERO_OBLIGATIONS", "$.obligations", "the exact eight nonzero obligation results are required")
 	}
 	seen := map[string]bool{}
 	for index, item := range actual {
@@ -341,7 +341,6 @@ func exactObligations() map[string]obligationResult {
 	decode := "websocket_core::frame::decode::FrameHeaderDecoder::decode_header"
 	mask := "websocket_core::frame::mask::apply_mask_in_place"
 	return map[string]obligationResult{
-		"obligation.checked-header-arithmetic":         {"obligation.checked-header-arithmetic", decode, 3, "PASS"},
 		"obligation.control-fin-and-length":            {"obligation.control-fin-and-length", decode, 6, "PASS"},
 		"obligation.length-canonical-16":               {"obligation.length-canonical-16", decode, 6, "PASS"},
 		"obligation.length-canonical-64-high-bit-zero": {"obligation.length-canonical-64-high-bit-zero", decode, 3, "PASS"},

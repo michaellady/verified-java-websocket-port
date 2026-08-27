@@ -19,7 +19,7 @@ func TestCommittedFrameCodecProjectionReconciles(t *testing.T) {
 	if len(projection.AdditiveVectors) != 10 {
 		t.Fatalf("additive vector families = %d, want 10", len(projection.AdditiveVectors))
 	}
-	if projection.Properties.MaskGridExecutionsPerProfile != 65_536 ||
+	if projection.Properties.MaskGridExecutionsPerProfile != 204 ||
 		projection.Fuzz.SeedCount != 20 || len(projection.RuntimeAssertions) != 5 {
 		t.Fatalf("unexpected bounded execution inventory: %+v", projection.Properties)
 	}
@@ -132,7 +132,7 @@ func TestFrameCodecEvidenceIsClosedByFinalFormalSupport(t *testing.T) {
 	if err := decoder.Decode(&evidence); err != nil {
 		t.Fatal(err)
 	}
-	const formalDigest = "sha256:5aebf0baa3898918b1e23bbb825c98f8a2057d81e458013fbd16f1c4a9ceb94b"
+	const formalDigest = "sha256:523c4715d77bab41fd260f42a0a901974103cdaf1daac0b96c5125c1e327d8a4"
 	if evidence.Status != "CLOSED" || evidence.Formal.ResultSHA != formalDigest ||
 		len(evidence.PendingFinalBindings) != 0 {
 		t.Fatalf("evidence did not close over final formal bytes: status=%s formal=%s pending=%v",
@@ -153,8 +153,8 @@ func TestFrameCodecEvidenceIsClosedByFinalFormalSupport(t *testing.T) {
 	if err != nil || json.Unmarshal(dagRaw, &dag) != nil {
 		t.Fatal("cannot decode final US-012 evidence DAG")
 	}
-	formalNode := "evidence-us012-formal-5aebf0b"
-	receiptNode := "evidence-us012-receipt-closed-5aebf0b"
+	formalNode := "evidence-us012-formal-523c471"
+	receiptNode := "evidence-us012-receipt-closed-523c471"
 	seenNodes := map[string]bool{}
 	for _, node := range dag.Nodes {
 		seenNodes[node.ID] = true

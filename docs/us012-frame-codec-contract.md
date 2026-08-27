@@ -98,12 +98,16 @@ queueing.
 `assurance/formal/frame-results.json` records a deterministic finite harness
 that calls the two exact production symbols. The closed receipt binds target
 paths, SHA-256 values, Git blob IDs, toolchain/Cargo/harness identities, the
-exact nine US-006 frame obligations, nonzero per-obligation counts, explicit
+eight bounded US-006 frame-obligation results, nonzero per-obligation counts, explicit
 bounds and assumptions, good and bad canaries, raw/normalized artifacts, and
 two byte-identical semantic replays.
 
+The checked-header-arithmetic obligation remains a future, backend-unavailable
+proof target. The ordinary finite tests retain noncanonical-length and high-bit
+rejection coverage but do not count those cases as arithmetic proof.
+
 Source-mutation canaries operate only in disposable copies and must kill:
-wrong mask index, XOR replacement, unchecked arithmetic, removed fragmented
+wrong mask index, XOR replacement, removed fragmented
 or oversized control checks, removed noncanonical 16-/64-bit checks, removed
 64-bit high-bit check, allocation-before-cap, and inverted/removed role masking.
 Each retained kill names the changed-source digest, exact obligation, minimized

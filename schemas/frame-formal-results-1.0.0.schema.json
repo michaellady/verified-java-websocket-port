@@ -27,7 +27,7 @@
     "toolchain": {"$ref": "#/$defs/toolchain"},
     "bounds": {"$ref": "#/$defs/bounds"},
     "obligations": {
-      "type": "array", "minItems": 9, "maxItems": 9,
+      "type": "array", "minItems": 8, "maxItems": 8,
       "items": {"$ref": "#/$defs/obligation"}
     },
     "source_mutation_canaries": {
@@ -199,7 +199,7 @@
         "exit_code": {"const": 0},
         "raw_output_id": {"type": "string", "pattern": "^output\\.raw\\.[12]$"},
         "normalized_output_id": {"type": "string", "pattern": "^output\\.normalized\\.[12]$"},
-        "obligation_counts": {"type": "array", "minItems": 9, "maxItems": 9, "items": {"$ref": "#/$defs/obligation"}}
+        "obligation_counts": {"type": "array", "minItems": 8, "maxItems": 8, "items": {"$ref": "#/$defs/obligation"}}
       }
     },
     "replay": {

@@ -189,7 +189,7 @@ func expectedBounds() finiteBounds {
 func expectedObligations() []obligationResult {
 	decode := "websocket_core::frame::decode::FrameHeaderDecoder::decode_header"
 	mask := "websocket_core::frame::mask::apply_mask_in_place"
-	return []obligationResult{{"obligation.checked-header-arithmetic", decode, 3, "PASS"}, {"obligation.control-fin-and-length", decode, 6, "PASS"}, {"obligation.length-canonical-16", decode, 6, "PASS"}, {"obligation.length-canonical-64-high-bit-zero", decode, 3, "PASS"}, {"obligation.length-canonical-7", decode, 126, "PASS"}, {"obligation.mask-equation", mask, 1632, "PASS"}, {"obligation.mask-involution", mask, 204, "PASS"}, {"obligation.preallocation-cap", decode, 2, "PASS"}, {"obligation.role-masking", decode, 4, "PASS"}}
+	return []obligationResult{{"obligation.control-fin-and-length", decode, 6, "PASS"}, {"obligation.length-canonical-16", decode, 6, "PASS"}, {"obligation.length-canonical-64-high-bit-zero", decode, 3, "PASS"}, {"obligation.length-canonical-7", decode, 126, "PASS"}, {"obligation.mask-equation", mask, 1632, "PASS"}, {"obligation.mask-involution", mask, 204, "PASS"}, {"obligation.preallocation-cap", decode, 2, "PASS"}, {"obligation.role-masking", decode, 4, "PASS"}}
 }
 
 func expectedCanaries(targets []targetBinding) []mutationCanary {
@@ -238,7 +238,7 @@ func rangeUint64(first, last uint64) []uint64 {
 	return values
 }
 func expectedNormalizedOutput([]obligationResult) string {
-	return "US012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n"
+	return "US012_ACTUAL_CODE_COUNTS control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n"
 }
 func writeReceipt(t *testing.T, root string, value receipt) {
 	t.Helper()
