@@ -23,6 +23,28 @@ const (
 	pinnedYqVersion        = "4.44.3"
 )
 
+// Round-2 owner decisions (2026-08-27, decision record
+// us009-us008-owner-decisions-2026-08-27.json in the workspace protected
+// root), regression-pinned by FULL equality per the round-1 standing rule.
+//
+// us008_cpu_frequency_policy = DOCUMENT_DEFAULTS_RECORD_OBSERVED binds the
+// confirmation host's cpu_frequency_policy field exactly as decided.
+//
+// us008_allocation_evidence = BUILTIN_ACCOUNTING_PER_RUN decides the
+// allocation-ACCOUNTING evidence method (JVM GC/NMT statistics; Rust
+// counting allocator; recorded per run) — that is a measurement-tool
+// method, recorded as the measurement_tools candidate in BOTH
+// environments. It does NOT designate the host-tenancy observation
+// procedure that confirmation.json's host_identity.allocation_evidence
+// field requires (review fix B3: dedicated/exclusive tenancy
+// observation), so that field must stay OWNER_DECISION_PENDING: binding
+// it with the accounting decision would be a false binding under a name
+// collision.
+const (
+	pinnedCPUFrequencyPolicy = "DOCUMENT_DEFAULTS_RECORD_OBSERVED: no frequency tuning and no tuning claims — no governor, turbo, or SMT setting is mutated on the bound host; the booted host's default scaling facts (cpufreq driver and governor presence or absence, turbo/boost visibility, SMT state) are recorded at provision alongside the other booted-host facts, and the observed CPU clock is recorded per measured run"
+	pinnedAllocationAccountingCandidate = "allocation samplers decided BUILTIN_ACCOUNTING_PER_RUN (owner decision 2026-08-27): Java allocation evidence from the JVM's own accounting (GC/NMT statistics), Rust from a counting allocator, both recorded per run; exact sampler identities and digests remain pending"
+)
+
 func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 	report, err := Verify(repoRoot)
 	if err != nil {
@@ -44,23 +66,25 @@ func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 		t.Fatalf("expected HOST_BINDING_PENDING as the single blocker class, got %v", report.BlockerClasses)
 	}
 	// Completion meter: 7 unbound tool-identity fields on primary plus
-	// 19 of the 23 confirmation fields; the owner's Tier-1 decision of
-	// 2026-08-26 bound instance_type / region / ami_id / ami_name, and
+	// 18 of the 23 confirmation fields; the owner's Tier-1 decision of
+	// 2026-08-26 bound instance_type / region / ami_id / ami_name, the
+	// round-2 decision of 2026-08-27 bound cpu_frequency_policy, and
 	// everything else (including instance_id / observed_architecture /
 	// allocation_evidence and all 8 tools) stays honestly pending. 5
 	// runtime-snapshot fields on primary.
-	if len(report.UnboundFields) != 26 {
-		t.Errorf("expected exactly 26 unbound binding fields, got %d: %v", len(report.UnboundFields), report.UnboundFields)
+	if len(report.UnboundFields) != 25 {
+		t.Errorf("expected exactly 25 unbound binding fields, got %d: %v", len(report.UnboundFields), report.UnboundFields)
 	}
-	tier1Bound := map[string]bool{
-		"host_identity.instance_type": true,
-		"host_identity.region":        true,
-		"host_identity.ami_id":        true,
-		"host_identity.ami_name":      true,
+	ownerBound := map[string]bool{
+		"host_identity.instance_type":        true,
+		"host_identity.region":               true,
+		"host_identity.ami_id":               true,
+		"host_identity.ami_name":             true,
+		"host_identity.cpu_frequency_policy": true,
 	}
 	for _, field := range report.UnboundFields {
-		if strings.Contains(field.Document, "confirmation") && tier1Bound[field.Path] {
-			t.Errorf("field %q is owner-bound (Tier-1 decision 2026-08-26) and must not report as unbound", field.Path)
+		if strings.Contains(field.Document, "confirmation") && ownerBound[field.Path] {
+			t.Errorf("field %q is owner-bound (Tier-1 decision 2026-08-26 / round-2 decision 2026-08-27) and must not report as unbound", field.Path)
 		}
 	}
 	if report.PlanAttestationState != "UNATTESTED" {
@@ -142,14 +166,20 @@ func TestConfirmationDocumentRecordsOwnerTier1Binding(t *testing.T) {
 	expectBound(host, "region", "us-east-1")
 	expectBound(host, "ami_id", "ami-02b3d83d84b07786d")
 	expectBound(host, "ami_name", "al2023-ami-2023.12.20260817.0-kernel-6.1-x86_64")
+	// The round-2 owner decision of 2026-08-27 binds the CPU-frequency
+	// POLICY (document defaults, record observed; never tune), pinned by
+	// full equality like every other bound value.
+	expectBound(host, "cpu_frequency_policy", pinnedCPUFrequencyPolicy)
 
 	// Booted-host facts stay NOT_MEASURED until the bound host boots.
 	for _, name := range []string{"instance_id", "observed_architecture", "availability_zone", "os_identity", "kernel_identity", "cpu_model", "memory_total_bytes", "numa_topology", "clocksource"} {
 		expectPending(host, name, "NOT_MEASURED")
 	}
-	// Open owner decisions stay pending.
+	// Open owner decisions stay pending — allocation_evidence remains the
+	// dedicated/exclusive TENANCY observation procedure (review fix B3);
+	// the 2026-08-27 BUILTIN_ACCOUNTING_PER_RUN decision resolved the
+	// allocation-ACCOUNTING method (see measurement_tools), not this.
 	expectPending(host, "allocation_evidence", "OWNER_DECISION_PENDING")
-	expectPending(host, "cpu_frequency_policy", "OWNER_DECISION_PENDING")
 	for _, name := range []string{"java_runtime", "rust_toolchain", "load_driver", "measurement_tools", "analyzer", "runner"} {
 		expectPending(tools, name, "OWNER_DECISION_PENDING")
 	}
@@ -179,6 +209,98 @@ func TestConfirmationDocumentRecordsOwnerTier1Binding(t *testing.T) {
 	// timestamp-correction sidecar, and the provenance must cite BOTH.
 	if !strings.Contains(rationale, "us008-owner-pinning-tier1-timestamp-correction.json") {
 		t.Error("provenance.rationale must reference the timestamp-correction sidecar us008-owner-pinning-tier1-timestamp-correction.json alongside the original decision record")
+	}
+	// Round 2 (2026-08-27): the provenance must also cite the round-2
+	// owner decision record that bound cpu_frequency_policy and decided
+	// the allocation-accounting method.
+	if !strings.Contains(rationale, "us009-us008-owner-decisions-2026-08-27.json") {
+		t.Error("provenance.rationale must reference the round-2 owner decision record us009-us008-owner-decisions-2026-08-27.json")
+	}
+}
+
+// TestRound2OwnerDecisionsRecordedHonestly pins the round-2 owner
+// decisions of 2026-08-27 exactly where they genuinely land, and guards
+// against the name-collision false binding:
+//
+//   - us008_cpu_frequency_policy binds host_identity.cpu_frequency_policy
+//     (verified by full equality in the Tier-1 test above and cited to
+//     the decision record here);
+//   - us008_allocation_evidence (BUILTIN_ACCOUNTING_PER_RUN — JVM GC/NMT
+//     statistics; Rust counting allocator; recorded per run) is an
+//     allocation-ACCOUNTING method: it is recorded as the
+//     measurement_tools candidate in BOTH environments (still
+//     OWNER_DECISION_PENDING — exact sampler identities and digests are
+//     undecided), and host_identity.allocation_evidence — the
+//     dedicated/exclusive TENANCY observation procedure of review fix
+//     B3 — must remain OWNER_DECISION_PENDING with the collision
+//     documented in its notes.
+func TestRound2OwnerDecisionsRecordedHonestly(t *testing.T) {
+	loadEnvironment := func(name string) map[string]any {
+		t.Helper()
+		raw, err := os.ReadFile(filepath.Join(repoRoot, "benchmarks", "environments", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var environment map[string]any
+		if err := json.Unmarshal(raw, &environment); err != nil {
+			t.Fatal(err)
+		}
+		return environment
+	}
+
+	confirmation := loadEnvironment("confirmation.json")
+	host := confirmation["host_identity"].(map[string]any)
+
+	frequency := host["cpu_frequency_policy"].(map[string]any)
+	if frequency["status"] != "BOUND" {
+		t.Errorf("cpu_frequency_policy status %v, want BOUND", frequency["status"])
+	}
+	if frequency["value"] != pinnedCPUFrequencyPolicy {
+		t.Errorf("cpu_frequency_policy value %v, want the pinned policy string", frequency["value"])
+	}
+	frequencyRationale, _ := frequency["rationale"].(string)
+	if !strings.Contains(frequencyRationale, "us009-us008-owner-decisions-2026-08-27.json") {
+		t.Error("cpu_frequency_policy rationale must cite the round-2 owner decision record us009-us008-owner-decisions-2026-08-27.json")
+	}
+	if !strings.Contains(frequencyRationale, "DOCUMENT_DEFAULTS_RECORD_OBSERVED") {
+		t.Error("cpu_frequency_policy rationale must name the owner's choice DOCUMENT_DEFAULTS_RECORD_OBSERVED")
+	}
+
+	allocation := host["allocation_evidence"].(map[string]any)
+	if allocation["status"] != "OWNER_DECISION_PENDING" {
+		t.Errorf("allocation_evidence status %v, want OWNER_DECISION_PENDING (the tenancy observation procedure is NOT decided by BUILTIN_ACCOUNTING_PER_RUN)", allocation["status"])
+	}
+	if _, smuggled := allocation["value"]; smuggled {
+		t.Error("allocation_evidence must not carry a value while pending")
+	}
+	allocationNotes, _ := allocation["notes"].(string)
+	if !strings.Contains(allocationNotes, "us009-us008-owner-decisions-2026-08-27.json") {
+		t.Error("allocation_evidence notes must record that the round-2 decision record was considered and does not bind this field")
+	}
+	if !strings.Contains(allocationNotes, "tenancy") {
+		t.Error("allocation_evidence notes must keep the dedicated/exclusive tenancy scope explicit")
+	}
+
+	// The decided allocation-accounting method is recorded as the
+	// measurement_tools candidate in BOTH environments, by full equality,
+	// while the field itself stays honestly pending.
+	for _, name := range []string{"confirmation.json", "primary-macos.json"} {
+		environment := loadEnvironment(name)
+		tools := environment["tool_identities"].(map[string]any)
+		measurement := tools["measurement_tools"].(map[string]any)
+		if measurement["status"] != "OWNER_DECISION_PENDING" {
+			t.Errorf("%s measurement_tools status %v, want OWNER_DECISION_PENDING (identities and digests are undecided)", name, measurement["status"])
+		}
+		if _, smuggled := measurement["value"]; smuggled {
+			t.Errorf("%s measurement_tools must not carry a value while pending", name)
+		}
+		if measurement["candidate"] != pinnedAllocationAccountingCandidate {
+			t.Errorf("%s measurement_tools candidate %v, want the pinned BUILTIN_ACCOUNTING_PER_RUN candidate", name, measurement["candidate"])
+		}
+		measurementNotes, _ := measurement["notes"].(string)
+		if !strings.Contains(measurementNotes, "us009-us008-owner-decisions-2026-08-27.json") {
+			t.Errorf("%s measurement_tools notes must cite the round-2 owner decision record", name)
+		}
 	}
 }
 
@@ -489,16 +611,17 @@ func TestVerifyShrunkenMeterIsMeterTampered(t *testing.T) {
 	}
 	// The canonical meter still counts every genuinely pending
 	// confirmation field as unbound, regardless of what the document
-	// declares: 19 of 23 remain pending after the owner's Tier-1
-	// decision bound instance_type / region / ami_id / ami_name.
+	// declares: 18 of 23 remain pending after the owner's Tier-1
+	// decision bound instance_type / region / ami_id / ami_name and the
+	// round-2 decision of 2026-08-27 bound cpu_frequency_policy.
 	confirmationUnbound := 0
 	for _, field := range report.UnboundFields {
 		if strings.Contains(field.Document, "confirmation") {
 			confirmationUnbound++
 		}
 	}
-	if confirmationUnbound != 19 {
-		t.Fatalf("canonical meter must still count 19 unbound confirmation fields, got %d", confirmationUnbound)
+	if confirmationUnbound != 18 {
+		t.Fatalf("canonical meter must still count 18 unbound confirmation fields, got %d", confirmationUnbound)
 	}
 }
 
