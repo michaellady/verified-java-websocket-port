@@ -328,9 +328,13 @@ type clientHandshakeEvidence struct {
 		FrozenResponseCases  int `json:"frozen_server_response_cases"`
 	} `json:"tests"`
 	Corpus struct {
-		ProjectionPath   string `json:"projection_path"`
-		ProjectionSHA256 string `json:"projection_sha256"`
-		FuzzSeedCount    int    `json:"fuzz_seed_count"`
+		ProjectionPath        string `json:"projection_path"`
+		ProjectionSHA256      string `json:"projection_sha256"`
+		SchemaPath            string `json:"schema_path"`
+		SchemaSHA256          string `json:"schema_sha256"`
+		FrozenSourceSHA256    string `json:"frozen_source_sha256"`
+		PublicAdditiveVectors int    `json:"public_additive_vectors"`
+		FuzzSeedCount         int    `json:"fuzz_seed_count"`
 	} `json:"corpus"`
 	Symbols struct {
 		MigrationMapPath       string `json:"migration_map_path"`
@@ -382,6 +386,9 @@ func VerifyClientHandshakeEvidence(root string) error {
 	if err := verifyUS010GitSourceBinding(root, evidence.Source.Commit, evidence.Source.Tree, evidence.Source.ImplementationFiles); err != nil {
 		return err
 	}
+	if err := verifyUS010SourceArtifactInventory(evidence.Source.ImplementationFiles); err != nil {
+		return err
+	}
 	for _, artifact := range evidence.Source.ImplementationFiles {
 		if err := verifyEvidenceArtifact(root, artifact); err != nil {
 			return err
@@ -409,7 +416,12 @@ func VerifyClientHandshakeEvidence(root string) error {
 	if err := verifyEvidenceArtifact(root, evidenceArtifact{evidence.Corpus.ProjectionPath, evidence.Corpus.ProjectionSHA256}); err != nil {
 		return err
 	}
-	if evidence.Corpus.FuzzSeedCount != 11 || evidence.Symbols.NewResolverVerified != 0 || evidence.Symbols.JavaShapedAliasesAdded != 0 {
+	if err := verifyEvidenceArtifact(root, evidenceArtifact{evidence.Corpus.SchemaPath, evidence.Corpus.SchemaSHA256}); err != nil {
+		return err
+	}
+	if evidence.Corpus.FrozenSourceSHA256 != "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605" ||
+		evidence.Corpus.PublicAdditiveVectors != 18 || evidence.Corpus.FuzzSeedCount != 11 ||
+		evidence.Symbols.NewResolverVerified != 0 || evidence.Symbols.JavaShapedAliasesAdded != 0 {
 		return fmt.Errorf("US-010 corpus or resolver claims are inconsistent")
 	}
 	if err := verifyEvidenceArtifact(root, evidenceArtifact{evidence.Symbols.MigrationMapPath, evidence.Symbols.MigrationMapSHA256}); err != nil {
@@ -444,6 +456,38 @@ func VerifyClientHandshakeEvidence(root string) error {
 	if evidence.Assurance.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" ||
 		evidence.Assurance.IndependentReviewClaimed || evidence.Assurance.Production || evidence.Assurance.Publication {
 		return fmt.Errorf("US-010 evidence overstates assurance")
+	}
+	return nil
+}
+
+var us010SourceArtifactPaths = []string{
+	"rust/connection-core/src/connection.rs",
+	"rust/connection-core/src/handshake/client.rs",
+	"rust/connection-core/src/handshake/http.rs",
+	"rust/connection-core/src/handshake/crypto.rs",
+	"rust/connection-core/tests/client_handshake.rs",
+	"internal/corpora/client_handshake.go",
+	"internal/corpora/us010_artifact.go",
+	"internal/corpora/client_handshake_test.go",
+	"internal/corpora/schemas.go",
+	"internal/portplan/build_documents.go",
+	"internal/portplan/us010_remediation_test.go",
+}
+
+func verifyUS010SourceArtifactInventory(artifacts []evidenceArtifact) error {
+	if len(artifacts) != len(us010SourceArtifactPaths) {
+		return fmt.Errorf("US-010 source artifact inventory is incomplete")
+	}
+	expected := make(map[string]bool, len(us010SourceArtifactPaths))
+	for _, path := range us010SourceArtifactPaths {
+		expected[path] = false
+	}
+	for _, artifact := range artifacts {
+		seen, allowed := expected[artifact.Path]
+		if !allowed || seen {
+			return fmt.Errorf("unexpected or duplicate US-010 source artifact: %s", artifact.Path)
+		}
+		expected[artifact.Path] = true
 	}
 	return nil
 }
