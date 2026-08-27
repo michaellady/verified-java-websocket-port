@@ -32,6 +32,7 @@ pub fn connection_driver(config: ConnectionConfig, role: Role) -> (CommandHandle
     let gate = Arc::new(AdmissionGate {
         accepting: AtomicBool::new(true),
         in_flight: AtomicUsize::new(0),
+        retained_bytes: AtomicUsize::new(0),
     });
     let handle = CommandHandle {
         sender,
@@ -53,6 +54,7 @@ pub fn connection_driver(config: ConnectionConfig, role: Role) -> (CommandHandle
         shutdown_latched: false,
         eof_applied: false,
         terminal_pending: false,
+        terminal_ready: false,
         terminal_delivered: false,
         terminal_outcome: TerminalOutcome::Closed,
         dispositions: VecDeque::new(),
@@ -65,6 +67,7 @@ pub fn connection_driver(config: ConnectionConfig, role: Role) -> (CommandHandle
 struct AdmissionGate {
     accepting: AtomicBool,
     in_flight: AtomicUsize,
+    retained_bytes: AtomicUsize,
 }
 
 struct InFlightGuard<'a> {
@@ -81,7 +84,7 @@ impl Drop for InFlightGuard<'_> {
 /// Cloneable nonblocking producer for the owner's exact bounded command queue.
 #[derive(Clone, Debug)]
 pub struct CommandHandle {
-    sender: mpsc::SyncSender<LocalCommand>,
+    sender: mpsc::SyncSender<CommandEnvelope>,
     gate: Arc<AdmissionGate>,
     limits: websocket_core::ConnectionLimits,
 }
@@ -89,12 +92,12 @@ pub struct CommandHandle {
 impl CommandHandle {
     /// Attempts to retain one command without waiting for queue capacity.
     pub fn try_enqueue(&self, command: LocalCommand) -> Result<(), EnqueueError> {
-        let (attempted, maximum) = command_charge(&command, &self.limits);
-        if attempted > maximum {
+        let (attempted, class_maximum) = command_charge(&command, &self.limits);
+        if attempted > class_maximum {
             return Err(EnqueueError::LimitExceeded {
                 command,
                 attempted,
-                maximum,
+                maximum: class_maximum,
             });
         }
         if !self.gate.accepting.load(Ordering::SeqCst) {
@@ -115,11 +118,86 @@ impl CommandHandle {
         if !self.gate.accepting.load(Ordering::SeqCst) {
             return Err(EnqueueError::ShuttingDown(command));
         }
-        self.sender.try_send(command).map_err(|error| match error {
-            mpsc::TrySendError::Full(command) => EnqueueError::Full(command),
-            mpsc::TrySendError::Disconnected(command) => EnqueueError::ReceiverDropped(command),
-        })
+        let logical_bytes = usize::try_from(attempted)
+            .expect("validated command charge fits the configured platform budget");
+        let aggregate_maximum = usize::try_from(self.limits.total_buffered_bytes)
+            .expect("ConnectionConfig proved the aggregate budget fits usize");
+        let previous = match self.gate.retained_bytes.fetch_update(
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+            |current| {
+                current
+                    .checked_add(logical_bytes)
+                    .filter(|next| *next <= aggregate_maximum)
+            },
+        ) {
+            Ok(previous) => previous,
+            Err(current) => {
+                return Err(EnqueueError::LimitExceeded {
+                    command,
+                    attempted: u64::try_from(current.saturating_add(logical_bytes))
+                        .unwrap_or(u64::MAX),
+                    maximum: self.limits.total_buffered_bytes,
+                });
+            }
+        };
+        debug_assert_eq!(
+            self.gate.retained_bytes.load(Ordering::SeqCst),
+            previous + logical_bytes
+        );
+        let retained = RetainedBytes {
+            gate: Arc::clone(&self.gate),
+            logical_bytes,
+        };
+        let envelope = CommandEnvelope {
+            command: Some(command),
+            _retained: retained,
+        };
+        match self.sender.try_send(envelope) {
+            Ok(()) => Ok(()),
+            Err(mpsc::TrySendError::Full(mut envelope)) => {
+                Err(EnqueueError::Full(envelope.take_command()))
+            }
+            Err(mpsc::TrySendError::Disconnected(mut envelope)) => {
+                Err(EnqueueError::ReceiverDropped(envelope.take_command()))
+            }
+        }
     }
+}
+
+#[derive(Debug)]
+struct CommandEnvelope {
+    command: Option<LocalCommand>,
+    _retained: RetainedBytes,
+}
+
+impl CommandEnvelope {
+    fn take_command(&mut self) -> LocalCommand {
+        self.command
+            .take()
+            .expect("command envelope owns one command")
+    }
+}
+
+#[derive(Debug)]
+struct RetainedBytes {
+    gate: Arc<AdmissionGate>,
+    logical_bytes: usize,
+}
+
+impl Drop for RetainedBytes {
+    fn drop(&mut self) {
+        release_retained(&self.gate, self.logical_bytes);
+    }
+}
+
+fn release_retained(gate: &AdmissionGate, logical_bytes: usize) {
+    let result = gate
+        .retained_bytes
+        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
+            current.checked_sub(logical_bytes)
+        });
+    debug_assert!(result.is_ok(), "retained command byte counter underflow");
 }
 
 fn command_charge(command: &LocalCommand, limits: &websocket_core::ConnectionLimits) -> (u64, u64) {
@@ -286,9 +364,9 @@ enum PendingOutput {
 #[derive(Debug)]
 pub struct ConnectionOwner {
     core: ConnectionCore,
-    receiver: mpsc::Receiver<LocalCommand>,
+    receiver: mpsc::Receiver<CommandEnvelope>,
     gate: Arc<AdmissionGate>,
-    held_command: Option<LocalCommand>,
+    held_command: Option<CommandEnvelope>,
     ledger: VecDeque<PendingOutput>,
     offered_write: Option<TransportWrite>,
     write_cursor: usize,
@@ -299,6 +377,7 @@ pub struct ConnectionOwner {
     shutdown_latched: bool,
     eof_applied: bool,
     terminal_pending: bool,
+    terminal_ready: bool,
     terminal_delivered: bool,
     terminal_outcome: TerminalOutcome,
     dispositions: VecDeque<CommandDisposition>,
@@ -313,6 +392,7 @@ impl ConnectionOwner {
             DriverInput::Shutdown => {
                 self.shutdown_latched = true;
                 self.gate.accepting.store(false, Ordering::SeqCst);
+                self.abort_undrainable_writes();
             }
             DriverInput::TransportEof => {
                 self.eof_latched = true;
@@ -386,8 +466,8 @@ impl ConnectionOwner {
             match input {
                 DriverInput::Inbound(_) if self.held_command.is_some() && self.command_turn => {
                     input_disposition = InputDisposition::Deferred(DeferredReason::CommandTurn);
-                    let command = self.held_command.take().expect("checked held command");
-                    command_disposition = Some(self.apply_command(command));
+                    let envelope = self.held_command.take().expect("checked held command");
+                    command_disposition = Some(self.apply_command(envelope));
                     self.command_turn = false;
                 }
                 DriverInput::Inbound(bytes) => {
@@ -396,8 +476,8 @@ impl ConnectionOwner {
                     self.command_turn = true;
                 }
                 DriverInput::Wake if self.held_command.is_some() => {
-                    let command = self.held_command.take().expect("checked held command");
-                    command_disposition = Some(self.apply_command(command));
+                    let envelope = self.held_command.take().expect("checked held command");
+                    command_disposition = Some(self.apply_command(envelope));
                     self.command_turn = false;
                 }
                 _ => {}
@@ -420,10 +500,12 @@ impl ConnectionOwner {
         }
     }
 
-    fn apply_command(&mut self, command: LocalCommand) -> CommandDisposition {
+    fn apply_command(&mut self, mut envelope: CommandEnvelope) -> CommandDisposition {
+        let command = envelope.take_command();
         let result = self.core.step(CoreInput::Command(command.clone()));
         let failure = result.failure().cloned();
         self.commit(result);
+        drop(envelope);
         match failure {
             Some(failure) => CommandDisposition::Rejected { command, failure },
             None => CommandDisposition::Applied(command),
@@ -469,6 +551,7 @@ impl ConnectionOwner {
     fn begin_terminal(&mut self) {
         self.gate.accepting.store(false, Ordering::SeqCst);
         self.terminal_pending = true;
+        self.terminal_ready = false;
     }
 
     fn fill_held_command(&mut self) {
@@ -495,14 +578,17 @@ impl ConnectionOwner {
         {
             return;
         }
-        if let Some(command) = self.held_command.take() {
+        if let Some(mut envelope) = self.held_command.take() {
+            let command = envelope.take_command();
             self.dispositions
                 .push_back(CommandDisposition::TerminalRejected(command));
         }
-        while let Ok(command) = self.receiver.try_recv() {
+        while let Ok(mut envelope) = self.receiver.try_recv() {
+            let command = envelope.take_command();
             self.dispositions
                 .push_back(CommandDisposition::TerminalRejected(command));
         }
+        self.terminal_ready = true;
     }
 
     fn next_disposition(&mut self) -> Option<CommandDisposition> {
@@ -541,13 +627,23 @@ impl ConnectionOwner {
             Some(PendingOutput::StateChanged(state)) => DriverOutput::StateChanged(state),
             Some(PendingOutput::Failure(failure)) => DriverOutput::Failure(failure),
             Some(PendingOutput::Write(_)) => unreachable!("write was promoted before pop"),
-            None if self.terminal_pending && self.dispositions.is_empty() => {
+            None if self.terminal_ready && self.dispositions.is_empty() => {
                 self.terminal_pending = false;
+                self.terminal_ready = false;
                 self.terminal_delivered = true;
                 DriverOutput::Terminal(self.terminal_outcome.clone())
             }
             None => DriverOutput::Idle,
         }
+    }
+
+    fn abort_undrainable_writes(&mut self) {
+        self.offered_write = None;
+        self.write_cursor = 0;
+        self.batch_writes_remaining = 0;
+        self.flush_due = false;
+        self.ledger
+            .retain(|output| !matches!(output, PendingOutput::Write(_)));
     }
 }
 
@@ -557,5 +653,31 @@ fn consumed(input: &DriverInput<'_>) -> InputDisposition {
             DriverInput::Inbound(bytes) => bytes.as_slice().len(),
             _ => 0,
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use websocket_core::{ConnectionLimits, Role};
+
+    #[test]
+    fn terminal_waits_for_an_in_flight_admission_to_finish() {
+        let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+        let (handle, mut owner) = connection_driver(config, Role::Server);
+        assert!(matches!(
+            owner.poll(DriverInput::Shutdown).output,
+            DriverOutput::Failure(_)
+        ));
+        handle.gate.in_flight.store(1, Ordering::SeqCst);
+        assert!(matches!(
+            owner.poll(DriverInput::Wake).output,
+            DriverOutput::Idle
+        ));
+        handle.gate.in_flight.store(0, Ordering::SeqCst);
+        assert!(matches!(
+            owner.poll(DriverInput::Wake).output,
+            DriverOutput::Terminal(_)
+        ));
     }
 }

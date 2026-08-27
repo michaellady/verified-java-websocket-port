@@ -151,3 +151,47 @@ fn invalid_write_progress_is_rejected_without_advancing_the_suffix() {
         other => panic!("write suffix changed after rejection: {other:?}"),
     }
 }
+
+#[test]
+fn shutdown_aborts_an_undrainable_write_and_converges_without_progress() {
+    let (_handle, mut owner) = connection_driver(config(2), Role::Server);
+    assert!(matches!(
+        owner
+            .poll(DriverInput::Inbound(TransportBytes::new(RFC_REQUEST)))
+            .output,
+        DriverOutput::Write(_)
+    ));
+    let mut terminal = 0;
+    for input in
+        std::iter::once(DriverInput::Shutdown).chain(std::iter::repeat_n(DriverInput::Wake, 8))
+    {
+        match owner.poll(input).output {
+            DriverOutput::Write(_) => panic!("shutdown retained an undrainable write"),
+            DriverOutput::Terminal(_) => terminal += 1,
+            _ => {}
+        }
+    }
+    assert_eq!(terminal, 1);
+}
+
+#[test]
+fn queued_command_envelopes_share_the_total_buffer_budget() {
+    let limits = ConnectionLimits {
+        frame_bytes: 8,
+        message_bytes: 8,
+        total_buffered_bytes: 8,
+        command_queue_entries: 2,
+        ..ConnectionLimits::default()
+    };
+    let (handle, _owner) =
+        connection_driver(ConnectionConfig::try_from(limits).unwrap(), Role::Server);
+    handle.try_enqueue(text("12345")).unwrap();
+    assert_eq!(
+        handle.try_enqueue(text("67890")),
+        Err(EnqueueError::LimitExceeded {
+            command: text("67890"),
+            attempted: 10,
+            maximum: 8,
+        })
+    );
+}
