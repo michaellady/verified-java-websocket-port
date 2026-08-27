@@ -61,21 +61,27 @@ claims US-008 passes**, and US-008 cannot pass in this state by design:
   string equality (plus cross-checks against the workflow and action
   files) in `internal/benchplan/validate_test.go`, the round-2 owner
   decision of 2026-08-27 bound `cpu_frequency_policy` (same
-  exact-equality pin), Tier-2
+  exact-equality pin), the round-3 owner decision of 2026-08-27 bound
+  `allocation_evidence` to the `STANDARD_CLOUD_CHECKS` tenancy
+  observation procedure (same exact-equality pin; per-run observations
+  stay pending), Tier-2
   (`METAL_MEASURED`) is explicitly `DEFERRED_BY_OWNER`, and the remaining
-  18 of its 23 required binding fields stay honestly
+  17 of its 23 required binding fields stay honestly
   `OWNER_DECISION_PENDING`/`NOT_MEASURED` behind the schema-enforced
   `required_binding_fields` completion meter (`binding_status: UNBOUND`).
 - `cmd/benchplanctl verify --root .` validates all benchmark documents,
   re-derives the pair orders, checks the power model, and prints exactly
   which fields remain unbound. Current, verified output: documents
   consistent; **single remaining blocker class `HOST_BINDING_PENDING`**
-  (25 unbound host/tool fields — 18 on the confirmation environment plus
+  (24 unbound host/tool fields — 17 on the confirmation environment plus
   7 primary tool identities — and 5 primary runtime-snapshot fields
-  deferred to measurement time; exit code 3). Exit code 0 additionally
+  deferred to measurement time; exit code 3). The plan's
+  `attestation_state` is `OWNER_ATTESTED` (owner-only, digest-bound;
+  2026-08-27). Exit code 0 additionally
   requires both environments' `binding_status: BOUND` and the plan's
-  `attestation_state: INDEPENDENTLY_ATTESTED` — syntactically complete
-  field values with UNBOUND/UNATTESTED status never verify as bound.
+  `attestation_state: INDEPENDENTLY_ATTESTED` — an owner-only
+  attestation never satisfies that gate, and syntactically complete
+  field values with UNBOUND/unattested status never verify as bound.
 
 Review fixes B1-B4/I5/I6 (adversarial review, session 01a03f01) landed on
 top of the frozen preregistration:

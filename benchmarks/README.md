@@ -12,8 +12,14 @@ opt-in flagship and is `DEFERRED_BY_OWNER`. The owner's round-2 decision
 of 2026-08-27 additionally bound the CPU-frequency policy
 (`DOCUMENT_DEFAULTS_RECORD_OBSERVED`) and decided the
 allocation-accounting method (`BUILTIN_ACCOUNTING_PER_RUN`, recorded as
-the `measurement_tools` candidate in both environments). **US-008 has
-not run, has no samples, and does not pass**: 25 host/tool binding
+the `measurement_tools` candidate in both environments). The owner's
+round-3 decision of 2026-08-27 (record
+`us008-owner-attestation-2026-08-27.json`) bound the host-tenancy
+observation procedure (`STANDARD_CLOUD_CHECKS`) and FROZE the plan by
+an owner-only attestation (`attestation_state: OWNER_ATTESTED`,
+digest-bound to the plan bytes at mainline 51257ac; NOT independent —
+none exists or is claimed). **US-008 has not run, has no samples, and
+does not pass**: 24 host/tool binding
 fields remain unbound
 and the single remaining blocker class is `HOST_BINDING_PENDING`
 (owner-gated completion of the confirmation-host and
@@ -78,8 +84,11 @@ pipeline produces may contain an invented measurement. Concretely:
   wire bytes deterministic; the frozen statistics plan, power model, and
   reference-drift procedure; the per-metric CI thresholds; and the
   schema-pinned forbidden-practices list. The plan's machine-readable
-  `attestation_state` stays `UNATTESTED` until the owner's independent
-  attestation. No results field exists and the schema
+  `attestation_state` is `OWNER_ATTESTED` (owner-only attestation of
+  2026-08-27, digest-bound in `attestation_record` to the exact frozen
+  plan bytes at 51257ac); it reaches `INDEPENDENTLY_ATTESTED` only with
+  a genuine independent attestation, which does not exist and is not
+  claimed. No results field exists and the schema
   (`additionalProperties: false`) forbids ever adding one.
 - `environments/primary-macos.json` — the primary macOS Apple M4 Pro
   environment with honestly OBSERVED host identity (commands + timestamps
@@ -95,15 +104,18 @@ pipeline produces may contain an invented measurement. Concretely:
   round-2 owner decision of 2026-08-27 BOUND `cpu_frequency_policy`
   (`DOCUMENT_DEFAULTS_RECORD_OBSERVED`: document host defaults, record
   the observed clock per run, never tune) — same exact-equality pin.
-  Tier-2 is `DEFERRED_BY_OWNER`. The remaining 18 of its 23 required
+  The round-3 owner decision of 2026-08-27 BOUND
+  `host_identity.allocation_evidence` (the dedicated/exclusive TENANCY
+  observation of review fix B3) to `STANDARD_CLOUD_CHECKS` — per-run
+  DescribeInstances tenancy query, exact instance-type confirmation,
+  job-scoped exclusive-reservation record; procedure bound, per-run
+  observations pending — resolving the name collision with the round-2
+  allocation-ACCOUNTING decision (see
+  `docs/us008-attestation-package.md`); same exact-equality pin.
+  Tier-2 is `DEFERRED_BY_OWNER`. The remaining 17 of its 23 required
   binding fields stay OWNER_DECISION_PENDING or NOT_MEASURED behind the
   schema-enforced `required_binding_fields` completion meter
-  (`binding_status: UNBOUND` until the owner pins every field). NOTE:
-  `host_identity.allocation_evidence` (the dedicated/exclusive TENANCY
-  observation of review fix B3) remains pending — the 2026-08-27
-  `BUILTIN_ACCOUNTING_PER_RUN` decision resolves allocation-ACCOUNTING
-  evidence (a measurement-tool method), not host tenancy; see
-  `docs/us008-attestation-package.md`.
+  (`binding_status: UNBOUND` until the owner pins every field).
 - The SSM-invoked runner stub is the Go binary `cmd/benchrunner` (schema
   emission only; cross-compiled for the confirmation host by
   `.github/workflows/benchmark.yml`). It refuses every mode except
@@ -132,5 +144,6 @@ Verification and reference implementation:
 The PRD's canonical US-008 file set (`benchmarks/plan.json`,
 `benchmarks/workloads/`, `benchmarks/analysis-contract.json`,
 `benchmarks/analyzer/`) is produced when US-008 itself is executed; the
-frozen preregistration above pre-shapes that content. Final plan freeze
-still requires the owner's independent attestation of the plan commit.
+frozen preregistration above pre-shapes that content. The plan freeze
+itself is DONE (owner-attested 2026-08-27, digest-bound); the
+independent attestation of the plan commit remains open and unclaimed.

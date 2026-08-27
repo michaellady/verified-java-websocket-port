@@ -1,7 +1,17 @@
 {
   "schema": "vjwp-benchmark-plan/1.0.0",
-  "status": "PREREGISTERED_BY_DRIVER_UNATTESTED - Every workload parameter, generator, seed rule, statistics constant, and threshold below is frozen to the maximum ownerless extent. This plan is NOT yet the attested plan-freeze commit: host and tool identities remain OWNER_DECISION_PENDING in benchmarks/environments/, no sample may be collected, and US-008 does not pass. See benchmarks/README.md for the no-fabrication rule.",
-  "attestation_state": "UNATTESTED",
+  "status": "PREREGISTERED_OWNER_ATTESTED - Every workload parameter, generator, seed rule, statistics constant, and threshold below is FROZEN by the owner's attestation of 2026-08-27 (us008_plan_attestation = ATTESTED_BY_OWNER, decision record us008-owner-attestation-2026-08-27.json in the workspace protected root; digest-bound in attestation_record to the exact plan bytes at mainline 51257ac): no measurement may be tuned, extended, replaced, optionally stopped, or outlier-deleted after the fact. The attestation is OWNER-ONLY (OWNER_ATTESTED_NOT_INDEPENDENT, independent_review_claimed false): no independent attestor exists and none is claimed, so attestation_state is OWNER_ATTESTED, not INDEPENDENTLY_ATTESTED, and the exit-0 full-binding gate remains unsatisfied. Host and tool identities not yet bound remain OWNER_DECISION_PENDING or NOT_MEASURED in benchmarks/environments/, no sample may be collected, and US-008 does not pass. See benchmarks/README.md for the no-fabrication rule.",
+  "attestation_state": "OWNER_ATTESTED",
+  "attestation_record": {
+    "plan_content_sha256": "5fb3fea8b5f1213b7ae5039ce7574c23bf720f543b0bd8c568abe596eef86993",
+    "frozen_plan_git_commit": "51257acfd7e645f671b346e6b103819497a34f4c",
+    "frozen_plan_path": "benchmarks/plan/workloads.json",
+    "digest_scope": "SHA-256 over the exact bytes of benchmarks/plan/workloads.json as committed at mainline 51257ac (git show 51257ac:benchmarks/plan/workloads.json) - the plan content the owner attested, verified byte-identical to the pre-attestation working tree when this record was written. This attestation recording itself (status, attestation_state, attestation_record) postdates the attestation and is deliberately outside the digested bytes; every other byte of this document is unchanged from the frozen content.",
+    "decision_record": "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-attestation-2026-08-27.json",
+    "attested_at": "2026-08-27T03:52:36Z",
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false
+  },
   "source_of_truth": "PRD US-008 acceptance criteria (companies/enterprise-vibe-code/projects/verified-java-websocket-port-claude/prd.json)",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,

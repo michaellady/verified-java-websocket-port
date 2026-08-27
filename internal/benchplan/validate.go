@@ -132,12 +132,27 @@ type Report struct {
 	BlockerClasses           []string
 }
 
+// attestationRecord is the digest-binding record an attested plan must
+// carry: it binds the attestation to the exact frozen plan bytes plus
+// the owner decision record and the honest assurance labels.
+type attestationRecord struct {
+	PlanContentSHA256        string `json:"plan_content_sha256"`
+	FrozenPlanGitCommit      string `json:"frozen_plan_git_commit"`
+	FrozenPlanPath           string `json:"frozen_plan_path"`
+	DigestScope              string `json:"digest_scope"`
+	DecisionRecord           string `json:"decision_record"`
+	AttestedAt               string `json:"attested_at"`
+	Assurance                string `json:"assurance"`
+	IndependentReviewClaimed bool   `json:"independent_review_claimed"`
+}
+
 // planDocument is the subset of the plan the validator cross-checks
 // against the frozen executable spec.
 type planDocument struct {
-	Schema            string `json:"schema"`
-	Status            string `json:"status"`
-	AttestationState  string `json:"attestation_state"`
+	Schema            string             `json:"schema"`
+	Status            string             `json:"status"`
+	AttestationState  string             `json:"attestation_state"`
+	AttestationRecord *attestationRecord `json:"attestation_record"`
 	SharedDefinitions struct {
 		MaskSpecVersion string `json:"mask_spec_version"`
 	} `json:"shared_definitions"`
@@ -262,7 +277,11 @@ func Verify(root string) (Report, error) {
 	}
 	// The owner-gated gap is host/tool binding AND its attestation:
 	// syntactically complete field values with UNBOUND/UNATTESTED
-	// status must never read as bound (review fix I5).
+	// status must never read as bound (review fix I5). OWNER_ATTESTED
+	// (the owner-only attestation of 2026-08-27) still counts as
+	// attestation pending here — the exit-0 gate requires an
+	// INDEPENDENT attestation and is never loosened by an owner-only
+	// one.
 	attestationPending := report.PlanAttestationState != "INDEPENDENTLY_ATTESTED"
 	for _, bindingStatus := range report.EnvironmentBindingStatus {
 		if bindingStatus != "BOUND" {
@@ -305,15 +324,31 @@ func verifyPlanAgainstSpec(root string) ([]string, string, error) {
 		failures = append(failures, fmt.Sprintf(format, args...))
 	}
 
+	// Paired attestation states (never loosened): UNATTESTED forbids the
+	// digest-binding record, every attested state requires it, and only
+	// INDEPENDENTLY_ATTESTED can ever satisfy the exit-0 gate.
+	// OWNER_ATTESTED is the honest owner-only intermediate: the owner
+	// froze and attested the plan under the
+	// OWNER_ATTESTED_NOT_INDEPENDENT labeling, and no independent
+	// attestation exists or is claimed.
 	switch plan.AttestationState {
 	case "UNATTESTED":
 		if !strings.HasPrefix(plan.Status, "PREREGISTERED_BY_DRIVER_UNATTESTED") {
 			fail("attestation_state UNATTESTED but status %q does not declare it", plan.Status)
 		}
+		if plan.AttestationRecord != nil {
+			fail("attestation_state UNATTESTED must not carry an attestation_record")
+		}
+	case "OWNER_ATTESTED":
+		if !strings.HasPrefix(plan.Status, "PREREGISTERED_OWNER_ATTESTED") {
+			fail("attestation_state OWNER_ATTESTED but status %q does not declare it", plan.Status)
+		}
+		verifyAttestationRecord(plan.AttestationRecord, fail)
 	case "INDEPENDENTLY_ATTESTED":
 		if !strings.HasPrefix(plan.Status, "PREREGISTERED_INDEPENDENTLY_ATTESTED") {
 			fail("attestation_state INDEPENDENTLY_ATTESTED but status %q does not declare it", plan.Status)
 		}
+		verifyAttestationRecord(plan.AttestationRecord, fail)
 	default:
 		fail("attestation_state %q is not a preregistered state", plan.AttestationState)
 	}
@@ -407,6 +442,59 @@ func verifyPlanAgainstSpec(root string) ([]string, string, error) {
 		}
 	}
 	return failures, plan.AttestationState, nil
+}
+
+// verifyAttestationRecord cross-checks the digest-binding record an
+// attested plan must carry (mirroring the schema, defense in depth):
+// a lowercase 64-hex SHA-256 of the exact frozen plan bytes, the frozen
+// commit and path, the owner decision record, the captured attestation
+// timestamp, and the honest assurance labels. The validator cannot
+// recompute the digest (the frozen bytes are the plan content at the
+// attested commit, which this record itself postdates); the recorded
+// digest is regression-pinned by full equality in the package tests.
+func verifyAttestationRecord(record *attestationRecord, fail func(string, ...any)) {
+	if record == nil {
+		fail("an attested plan must carry the digest-binding attestation_record")
+		return
+	}
+	if !isLowercaseHex(record.PlanContentSHA256, 64) {
+		fail("attestation_record.plan_content_sha256 %q is not a lowercase 64-hex SHA-256", record.PlanContentSHA256)
+	}
+	if len(record.FrozenPlanGitCommit) < 7 || !isLowercaseHex(record.FrozenPlanGitCommit, len(record.FrozenPlanGitCommit)) {
+		fail("attestation_record.frozen_plan_git_commit %q is not a git commit hash", record.FrozenPlanGitCommit)
+	}
+	if record.FrozenPlanPath != "benchmarks/plan/workloads.json" {
+		fail("attestation_record.frozen_plan_path %q must be the plan document itself", record.FrozenPlanPath)
+	}
+	if record.DigestScope == "" {
+		fail("attestation_record.digest_scope must state exactly which bytes were digested")
+	}
+	if record.DecisionRecord == "" {
+		fail("attestation_record.decision_record must reference the owner decision record")
+	}
+	if record.AttestedAt == "" {
+		fail("attestation_record.attested_at must carry the decision record's captured timestamp")
+	}
+	if record.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" {
+		fail("attestation_record.assurance %q disagrees with the document-wide OWNER_ATTESTED_NOT_INDEPENDENT labeling (a genuinely independent attestation is a recorded preregistration change to schema and spec, never a label edit)", record.Assurance)
+	}
+	if record.IndependentReviewClaimed {
+		fail("attestation_record.independent_review_claimed must stay false: no independent review exists or is claimed")
+	}
+}
+
+// isLowercaseHex reports whether s is exactly length lowercase-hex
+// characters.
+func isLowercaseHex(s string, length int) bool {
+	if len(s) != length {
+		return false
+	}
+	for _, c := range s {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // meterResult is one environment document's completion-meter outcome.
