@@ -122,16 +122,15 @@ impl CommandHandle {
             .expect("validated command charge fits the configured platform budget");
         let aggregate_maximum = usize::try_from(self.limits.total_buffered_bytes)
             .expect("ConnectionConfig proved the aggregate budget fits usize");
-        let previous = match self.gate.retained_bytes.fetch_update(
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-            |current| {
+        match self
+            .gate
+            .retained_bytes
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |current| {
                 current
                     .checked_add(logical_bytes)
                     .filter(|next| *next <= aggregate_maximum)
-            },
-        ) {
-            Ok(previous) => previous,
+            }) {
+            Ok(_) => {}
             Err(current) => {
                 return Err(EnqueueError::LimitExceeded {
                     command,
@@ -140,11 +139,7 @@ impl CommandHandle {
                     maximum: self.limits.total_buffered_bytes,
                 });
             }
-        };
-        debug_assert_eq!(
-            self.gate.retained_bytes.load(Ordering::SeqCst),
-            previous + logical_bytes
-        );
+        }
         let retained = RetainedBytes {
             gate: Arc::clone(&self.gate),
             logical_bytes,
