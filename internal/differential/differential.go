@@ -826,7 +826,7 @@ func decodeNeutralResponse(raw []byte) (rustObservation, error) {
 
 func decodeRustStep(data []byte) (rustStep, error) {
 	r := binaryReader{bytes.NewReader(data)}
-	step := rustStep{}
+	step := rustStep{Observations: []rustItem{}}
 	var err error
 	step.Index, err = r.u16()
 	if err != nil {

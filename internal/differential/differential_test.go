@@ -121,6 +121,30 @@ func TestNeutralResponseRejectsTrailingAndOutOfOrderTLVs(t *testing.T) {
 	}
 }
 
+func TestNeutralStepCanonicalizesZeroObservationsAsArray(t *testing.T) {
+	record := &bytes.Buffer{}
+	_ = binary.Write(record, binary.BigEndian, uint16(0))
+	record.Write([]byte{1, 3, 3})
+	for range 3 {
+		_ = binary.Write(record, binary.BigEndian, uint64(0))
+	}
+	_ = binary.Write(record, binary.BigEndian, uint16(0))
+	step, err := decodeRustStep(record.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if step.Observations == nil {
+		t.Fatal("zero observations decoded as nil")
+	}
+	raw, err := json.Marshal(step)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(raw, []byte(`"observations":[]`)) {
+		t.Fatalf("step JSON = %s", raw)
+	}
+}
+
 func TestCloseCodecAcceptsOnlyClosedTransportOriginExtension(t *testing.T) {
 	body := []byte{0, 0, 0, 0, 0, 0, 5}
 	close, err := decodeCloseBody(body)
