@@ -1501,6 +1501,10 @@ var retainedDefects = map[string][]retainedDefectEvidence{
 		{Pointer: "/counts/consumed_bytes", JavaObservation: "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59", RustObservation: "sha256:96123fc665f1bef97f86a4dc3560836422ac2ddf4c04e2a3191dc983301c2e59", FindingAnchor: "9cc9d37e8b85dbf15c8018bce91c37071d63cf7c"},
 		{Pointer: "/counts/input_bytes", JavaObservation: "sha256:ce72d49f34a5193ed3b956da3722a6f6748fa063ec45126b9614f11c4cb2fa59", RustObservation: "sha256:96123fc665f1bef97f86a4dc3560836422ac2ddf4c04e2a3191dc983301c2e59", FindingAnchor: "9cc9d37e8b85dbf15c8018bce91c37071d63cf7c"},
 	},
+	"us005.pub.0017": {
+		{Pointer: "/error", JavaObservation: "sha256:031963dd643de70cc45b5f660ce92d68fa44491f5a1ee4bd408e7060914b06a7", RustObservation: "sha256:351b98501192ffa12a1a7d2527960b11d7ffd14e2b3a8e3e22c9c25b6dfd79aa", FindingAnchor: "abc8ddfd24c2fad2eae34e3757d9e047e443cfd6"},
+		{Pointer: "/outcome", JavaObservation: "sha256:031963dd643de70cc45b5f660ce92d68fa44491f5a1ee4bd408e7060914b06a7", RustObservation: "sha256:351b98501192ffa12a1a7d2527960b11d7ffd14e2b3a8e3e22c9c25b6dfd79aa", FindingAnchor: "abc8ddfd24c2fad2eae34e3757d9e047e443cfd6"},
+	},
 }
 
 func appendObservedRemediations(ledger *Ledger, hierarchy OracleHierarchy, sc corpora.Scenario, closingJavaObservation, closingRustObservation commonObservation, closingJavaDigest, closingRustDigest, closingAnchor string) error {
@@ -2058,6 +2062,12 @@ func acceptedRustInputBytes(source corpora.Step, step rustStep) (uint64, error) 
 	}
 	if step.Consumed > uint64(len(payload)) {
 		return 0, errors.New("Rust consumed more bytes than offered")
+	}
+	if len(payload) == 0 {
+		if step.Consumed != 0 {
+			return 0, errors.New("zero-length byte step consumed input")
+		}
+		return 0, nil
 	}
 	if step.PreState != "closed" {
 		return uint64(len(payload)), nil

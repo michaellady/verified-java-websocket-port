@@ -273,6 +273,16 @@ func TestObservedRustDefectRemainsVisibleAfterClosingRun(t *testing.T) {
 	if len(ledger.Records) != 3 || ledger.Records[1].Pointer != "/counts/consumed_bytes" || ledger.Records[2].Pointer != "/counts/input_bytes" {
 		t.Fatalf("retained field records=%#v", ledger.Records)
 	}
+	closedNoop, err := neutralObservation(scenarios[17])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := appendObservedRemediations(&ledger, hierarchy, scenarios[17], closedNoop, closedNoop, digest([]byte("noop-java")), digest([]byte("noop-rust")), strings.Repeat("f", 40)); err != nil {
+		t.Fatalf("append zero-chunk remediations: %v", err)
+	}
+	if len(ledger.Records) != 5 || ledger.Records[3].Pointer != "/error" || ledger.Records[4].Pointer != "/outcome" {
+		t.Fatalf("retained zero-chunk records=%#v", ledger.Records)
+	}
 }
 
 func TestFieldLevelAdjudicationSeparatesRFCJavaQuirkFromCounterDefect(t *testing.T) {
@@ -325,6 +335,11 @@ func TestRustAcceptedInputExcludesClosedStateRejection(t *testing.T) {
 	open := rustStep{PreState: "open", Consumed: 3, Observations: []rustItem{{Error: &commonError{Class: "FRAME_RESERVED_BITS"}}}}
 	if got, err := acceptedRustInputBytes(source, open); err != nil || got != 3 {
 		t.Fatalf("open accepted input = %d, %v", got, err)
+	}
+	empty := corpora.Step{Kind: "bytes", DataBase64: ""}
+	closedNoop := rustStep{PreState: "closed", Consumed: 0}
+	if got, err := acceptedRustInputBytes(empty, closedNoop); err != nil || got != 0 {
+		t.Fatalf("closed zero-chunk no-op = %d, %v", got, err)
 	}
 }
 
