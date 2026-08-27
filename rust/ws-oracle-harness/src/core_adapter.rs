@@ -619,9 +619,15 @@ impl CandidateCore for WiredCore {
 /// - the handshake caps keep their deterministic defaults (the behavior
 ///   corpora begin post-handshake and never exercise them; enforcement is
 ///   US-010/US-011);
-/// - the queue capacities keep their port-side defaults (this session
-///   drains both queues after every input, and the default capacity 64
-///   covers the skeleton's 2-slot per-input bound with headroom);
+/// - the event-queue capacity is sized from `max_frames` so one byte input
+///   can never exceed it: US-012 decoding can complete the whole remaining
+///   frame budget in one chunk, and the core's per-input admission bound is
+///   `EVENT_SLOTS_PER_FRAME * (max_frames + 1) + 1` slots (plus headroom).
+///   This is construction-time plumbing, not protocol behavior: the session
+///   still drains after every input, and an undersized queue would surface
+///   as the honest non-oracle [`BACKPRESSURE_CODE`], never as Java
+///   behavior. The command/write capacities keep their port-side defaults
+///   (at most one write per input this round);
 /// - `mask_key_seed` keeps its deterministic default (quirk Q28: mask keys
 ///   are never observable, so any deterministic source scores identically).
 fn scenario_config(
@@ -631,6 +637,9 @@ fn scenario_config(
     // ceilings, all non-negative; a negative value cannot reach here, and 0
     // would fail the builder's own minimum check (fail closed).
     let unsigned = |value: i64| u64::try_from(value).unwrap_or(0);
+    let event_capacity = (ws_core::connection::EVENT_SLOTS_PER_FRAME as u64)
+        .saturating_mul(unsigned(limits.max_frames).saturating_add(1))
+        .saturating_add(8);
     ws_core::ConnectionConfig::builder()
         .max_frame_payload_bytes(unsigned(limits.max_buffered_bytes))
         .max_message_bytes(unsigned(limits.max_buffered_bytes))
@@ -639,6 +648,7 @@ fn scenario_config(
         .max_actions(unsigned(limits.max_actions))
         .max_frames(unsigned(limits.max_frames))
         .max_output_bytes(unsigned(limits.max_output_bytes))
+        .event_queue_capacity(event_capacity)
         .build()
 }
 
@@ -1586,8 +1596,13 @@ mod tests {
         assert_eq!(config.max_handshake_bytes(), 4096);
         assert_eq!(config.max_header_count(), 32);
         assert_eq!(config.max_header_line_bytes(), 512);
-        // Queue capacities: port-side defaults, drained after every input.
-        assert_eq!(config.event_queue_capacity(), 64);
+        // Event queue: sized from max_frames for US-012 multi-frame inputs
+        // (EVENT_SLOTS_PER_FRAME * (64 + 1) + 8); command/write queues keep
+        // their port-side defaults.
+        assert_eq!(
+            config.event_queue_capacity(),
+            ws_core::connection::EVENT_SLOTS_PER_FRAME * 65 + 8
+        );
         assert_eq!(config.command_queue_capacity(), 64);
         assert_eq!(config.write_queue_capacity(), 64);
         assert_eq!(config.mask_key_seed(), 0);
@@ -1668,9 +1683,13 @@ mod tests {
     /// semantics (whole surviving chunks consumed; leftover buffered).
     #[test]
     fn wired_bytes_project_input_chunks_and_real_counts() {
+        // Two chunks of one still-incomplete frame header (0x02 0x7e 0x00
+        // 0x10 declares a 16-byte binary payload that never arrives), so the
+        // bytes buffer without decoding — US-012 decodes complete frames,
+        // and this test pins the buffering counts only.
         let request = request_with_steps(concat!(
-            "[{\"data_base64\":\"AQI=\",\"kind\":\"bytes\"},",
-            "{\"data_base64\":\"AQI=\",\"kind\":\"bytes\"}]"
+            "[{\"data_base64\":\"An4=\",\"kind\":\"bytes\"},",
+            "{\"data_base64\":\"ABA=\",\"kind\":\"bytes\"}]"
         ));
         let ScenarioOutcome::Completed(observations) = wired_outcome(&request) else {
             panic!("bytes scenario must complete");
@@ -1772,14 +1791,16 @@ mod tests {
         assert_eq!(final_state, ConnectionState::Closed, "the eof had executed");
     }
 
-    /// The skeleton core's honest `Unimplemented` refusal (send paths)
+    /// The core's honest `Unimplemented` refusal (control sends are US-015)
     /// surfaces as the non-oracle `CORE_BEHAVIOR_UNIMPLEMENTED` envelope —
     /// never a fabricated oracle code — with the action counted by the core
-    /// itself and the state retained.
+    /// itself and the state retained. (send_text is real behavior since the
+    /// US-012/US-013 borrow batch; see the golden test below.)
     #[test]
     fn wired_unimplemented_send_maps_to_honest_non_oracle_code() {
-        let request =
-            request_with_steps("[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"hi\"}]");
+        let request = request_with_steps(
+            "[{\"action\":\"send_ping\",\"data_base64\":\"\",\"kind\":\"action\"}]",
+        );
         let ScenarioOutcome::Failed {
             failure,
             counts,
@@ -1793,6 +1814,78 @@ mod tests {
         assert_eq!(failure.detail, UNIMPLEMENTED_DETAIL);
         assert_eq!(counts.actions, 1, "the core counted the refused send");
         assert_eq!(final_state, ConnectionState::Open);
+    }
+
+    /// GOLDEN (US-012/US-013 borrow batch): a send_text in OPEN completes
+    /// through the REAL core — outbound frame record, `send_text` cause
+    /// event, and the frame count — all core-produced and projected 1:1.
+    #[test]
+    fn wired_send_text_completes_with_outbound_frame_and_cause_event() {
+        let request =
+            request_with_steps("[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"hi\"}]");
+        let ScenarioOutcome::Completed(observations) = wired_outcome(&request) else {
+            panic!("send_text in open must complete now");
+        };
+        assert_eq!(
+            observations.events,
+            vec![crate::observe::SemanticEvent {
+                step: 0,
+                kind: crate::observe::SemanticEventKind::OutboundCause {
+                    cause: crate::observe::OutboundCause::SendText,
+                    opcode: crate::observe::Opcode::Text,
+                },
+            }]
+        );
+        assert_eq!(observations.frames.len(), 1);
+        let frame = &observations.frames[0];
+        assert_eq!(frame.direction, crate::observe::Direction::Outbound);
+        assert!(frame.fin);
+        assert!(frame.masked, "PUB_0000's role is client: outbound masks");
+        assert_eq!(frame.opcode, crate::observe::Opcode::Text);
+        assert_eq!(frame.payload, b"hi".to_vec());
+        assert_eq!(frame.wire_bytes, 8, "header 2 + mask 4 + payload 2");
+        assert_eq!(observations.counts.counts.frames, 1);
+        assert_eq!(observations.counts.counts.actions, 1);
+        assert_eq!(observations.counts.final_state, ConnectionState::Open);
+    }
+
+    /// GOLDEN (US-012/US-013 borrow batch): a masked text frame decodes
+    /// through the real core into the frame record and the text event with
+    /// derive.go's counts.
+    #[test]
+    fn wired_inbound_text_frame_decodes_and_delivers() {
+        // 0x81 0x82 mask(0) "hi" — masked text toward the server role.
+        let request = wired_request(
+            &[("role", "\"server\"")],
+            "[{\"data_base64\":\"gYIAAAAAaGk=\",\"kind\":\"bytes\"}]",
+        );
+        let ScenarioOutcome::Completed(observations) = wired_outcome(&request) else {
+            panic!("a well-formed text frame must complete");
+        };
+        assert_eq!(
+            observations.events,
+            vec![
+                crate::observe::SemanticEvent {
+                    step: 0,
+                    kind: crate::observe::SemanticEventKind::InputChunk { bytes: 8 },
+                },
+                crate::observe::SemanticEvent {
+                    step: 0,
+                    kind: crate::observe::SemanticEventKind::Text {
+                        text: "hi".to_string(),
+                    },
+                },
+            ]
+        );
+        assert_eq!(observations.frames.len(), 1);
+        let frame = &observations.frames[0];
+        assert_eq!(frame.direction, crate::observe::Direction::Inbound);
+        assert!(frame.masked);
+        assert_eq!(frame.payload, b"hi".to_vec());
+        assert_eq!(frame.wire_bytes, 8);
+        assert_eq!(observations.counts.counts.frames, 1);
+        assert_eq!(observations.counts.counts.consumed_bytes, 8);
+        assert_eq!(observations.counts.counts.wire_buffered_bytes, 0);
     }
 
     /// PUB_0000's own shape (send_close 999 while OPEN): the gates pass and

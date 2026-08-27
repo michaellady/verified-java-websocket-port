@@ -132,7 +132,19 @@ fn kinds_without_input_chunks(events: &[SemanticEvent]) -> Vec<SemanticEventKind
     events
         .iter()
         .filter(|e| !matches!(e.kind, SemanticEventKind::InputChunk { .. }))
-        .map(|e| e.kind.clone())
+        .map(|e| match &e.kind {
+            // Frame records carry the chunking-relative step tag inside the
+            // kind; normalize it so the invariance property quantifies over
+            // the frame's protocol content only (the corpus comparison
+            // always uses the scenario's exact chunking, so step tags are
+            // out of scope here by design).
+            SemanticEventKind::FrameObserved(frame) => {
+                let mut frame = frame.clone();
+                frame.step = 0;
+                SemanticEventKind::FrameObserved(frame)
+            }
+            kind => kind.clone(),
+        })
         .collect()
 }
 
@@ -140,7 +152,8 @@ fn kinds_without_input_chunks(events: &[SemanticEvent]) -> Vec<SemanticEventKind
 fn rechunking_an_in_limits_stream_yields_identical_observables_modulo_input_chunk() {
     // Same logical byte stream, three chunkings: whole, 1-byte, and uneven.
     // Everything observable except the chunking record itself must be
-    // identical: the sequence of non-input_chunk event kinds, writes,
+    // identical: the sequence of non-input_chunk event kinds (frame records
+    // normalized over their chunking-relative step tag), writes,
     // transitions, final state, close detail, and counts (consumed_bytes
     // advances by whole surviving chunks, derive.go:359 region, so totals
     // agree across chunkings). The input_chunk events and the step TAGS are
@@ -148,8 +161,15 @@ fn rechunking_an_in_limits_stream_yields_identical_observables_modulo_input_chun
     // which is exactly why the corpus comparison always uses the scenario's
     // exact chunking (design draft AC4 note); the invariance property
     // quantifies over the rest of the observable stream.
-    let stream: Vec<u8> = (0..40u8).collect();
-    let chunkings: [Vec<usize>; 3] = [vec![40], vec![1; 40], vec![3, 17, 1, 19]];
+    //
+    // The stream is a well-formed wire sequence (US-012 decodes for real
+    // now): one masked text frame "hi" then one masked binary frame,
+    // toward a server.
+    let stream: Vec<u8> = vec![
+        0x81, 0x82, 0x00, 0x00, 0x00, 0x00, b'h', b'i', // text "hi"
+        0x82, 0x83, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02, 0x03, // binary
+    ];
+    let chunkings: [Vec<usize>; 3] = [vec![17], vec![1; 17], vec![3, 7, 1, 6]];
     let mut observations = Vec::new();
     for lens in &chunkings {
         let mut steps = chunked(&stream, lens);
@@ -157,6 +177,14 @@ fn rechunking_an_in_limits_stream_yields_identical_observables_modulo_input_chun
         let mut core = open_core();
         observations.push(run(&mut core, &steps));
     }
+    // The stream genuinely decodes: two frames, a text and a binary event.
+    assert_eq!(observations[0].counts.frames, 2);
+    assert!(
+        observations[0]
+            .events
+            .iter()
+            .any(|e| matches!(&e.kind, SemanticEventKind::Text { text } if text == "hi"))
+    );
     let reference = &observations[0];
     for obs in &observations[1..] {
         assert_eq!(
@@ -183,7 +211,11 @@ fn rechunking_a_buffer_overflowing_stream_yields_the_same_failure_code() {
         .max_input_bytes(1024)
         .build()
         .expect("valid test config");
-    let stream = vec![0u8; 100]; // 100 > 64 + 14
+    // One INCOMPLETE masked binary frame declaring a 16 KiB payload (within
+    // the default frame cap, so the header screen passes): the leftover
+    // grows past 64 + 14 under every chunking without ever completing.
+    let mut stream = vec![0x82, 0xFE, 0x40, 0x00];
+    stream.extend(std::iter::repeat_n(0u8, 96)); // 100 > 64 + 14
     for lens in [vec![100], vec![1; 100], vec![50, 50], vec![79, 21]] {
         let mut core =
             ConnectionCore::new_in_state(config.clone(), Role::Server, InitialState::Open);
@@ -278,8 +310,12 @@ fn wire_buffer_overflow_reports_oversized_pending_and_zero_consumed() {
         .build()
         .expect("valid test config");
     let mut core = ConnectionCore::new_in_state(config, Role::Server, InitialState::Open);
+    // An incomplete masked binary frame declaring 256 payload bytes: no
+    // complete span exists, so all 30 bytes are leftover.
+    let mut stream = vec![0x82, 0xFE, 0x01, 0x00];
+    stream.extend(std::iter::repeat_n(0u8, 26));
     let err = core
-        .handle(Input::TransportBytes(&[0u8; 30]))
+        .handle(Input::TransportBytes(&stream))
         .expect_err("30 > 8 + 14 must overflow the wire buffer");
     assert_eq!(err.code, FailureCode::BufferLimitExceeded);
     let counts = core.counts();
@@ -304,7 +340,10 @@ fn wire_buffer_accepts_exactly_the_java_slack() {
         .build()
         .expect("valid test config");
     let mut core = ConnectionCore::new_in_state(config, Role::Server, InitialState::Open);
-    assert!(core.handle(Input::TransportBytes(&[0u8; 22])).is_ok());
+    // 22 leftover bytes of one incomplete frame: exactly 8 + 14.
+    let mut stream = vec![0x82, 0xFE, 0x01, 0x00];
+    stream.extend(std::iter::repeat_n(0u8, 18));
+    assert!(core.handle(Input::TransportBytes(&stream)).is_ok());
     assert_eq!(core.counts().wire_buffered_bytes, 22);
 }
 
@@ -566,28 +605,57 @@ fn not_yet_connected_inputs_are_honestly_unimplemented() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn skeleton_never_produces_transport_writes_or_protocol_events() {
-    // AC4: "Handshake or frame behavior cannot be marked complete by this
-    // story." The skeleton decodes no frames and emits no wire bytes, so a
-    // corpus run against it must fail (empty_rust_target_fails discipline).
+fn later_story_behavior_still_refuses_honestly() {
+    // The US-009 protocol-stub gate ("skeleton never produces protocol
+    // events") retired when US-012/US-013/US-014 landed the data path; the
+    // surviving honesty property is that behavior still owned by later
+    // stories — inbound control frames (US-015) and control sends — keeps
+    // refusing with the non-oracle Unimplemented code instead of faking
+    // Java, so those corpus families keep failing until their stories land.
     let mut core = open_core();
     let obs = run(
         &mut core,
         &[
-            // A complete, well-formed masked text frame on the wire; a real
-            // implementation would decode and deliver it. The skeleton must
-            // only buffer it.
-            Step::Bytes(vec![0x81, 0x82, 0x00, 0x00, 0x00, 0x00, b'h', b'i']),
+            // A complete masked ping frame: US-012 records it, but its
+            // processing arm is US-015's.
+            Step::Bytes(vec![0x89, 0x82, 0x00, 0x00, 0x00, 0x00, 0x01, 0x02]),
         ],
     );
-    assert!(obs.writes.is_empty(), "no TransportWrite in the skeleton");
+    let err = obs.results[0]
+        .as_ref()
+        .expect_err("inbound ping processing is US-015 behavior");
+    assert_eq!(err.code, FailureCode::Unimplemented);
+    assert_eq!(obs.counts.frames, 1, "the frame record precedes processing");
+    let mut core = open_core();
+    let err = core
+        .handle(Input::Command(LocalCommand::SendPing { data: vec![] }))
+        .expect_err("send_ping is US-015 behavior");
+    assert_eq!(err.code, FailureCode::Unimplemented);
+}
+
+#[test]
+fn data_path_decodes_frames_and_emits_real_writes() {
+    // US-012/US-013 e2e: a masked text frame decodes into a frame record
+    // plus a text event, and an outbound send produces a real wire write.
+    let mut core = open_core();
+    let obs = run(
+        &mut core,
+        &[
+            Step::Bytes(vec![0x81, 0x82, 0x00, 0x00, 0x00, 0x00, b'h', b'i']),
+            Step::Command(LocalCommand::SendText {
+                text: "ok".to_owned(),
+            }),
+        ],
+    );
+    assert!(obs.results.iter().all(Result::is_ok));
     assert!(
         obs.events
             .iter()
-            .all(|e| matches!(e.kind, SemanticEventKind::InputChunk { .. })),
-        "no text/binary/frame events may exist before US-012/US-013"
+            .any(|e| matches!(&e.kind, SemanticEventKind::Text { text } if text == "hi"))
     );
-    assert_eq!(obs.counts.frames, 0);
+    assert_eq!(obs.counts.frames, 2, "one inbound + one outbound frame");
+    // The server role writes an unmasked fin text frame verbatim.
+    assert_eq!(obs.writes, vec![vec![0x81, 0x02, b'o', b'k']]);
     assert_eq!(obs.state, ReadyState::Open);
 }
 

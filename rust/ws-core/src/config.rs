@@ -152,9 +152,13 @@ impl LimitField {
             LimitField::MaxActions => 1024,
             LimitField::MaxFrames => 4096,
             LimitField::MaxOutputBytes => 4_194_304,
-            LimitField::EventQueueCapacity
-            | LimitField::CommandQueueCapacity
-            | LimitField::WriteQueueCapacity => 4096,
+            // Raised from 4096 for US-012 multi-frame decoding: one byte
+            // input can complete up to the whole remaining frame budget, so
+            // an owner sizing the event queue for single-drain operation
+            // needs room for EVENT_SLOTS_PER_FRAME * (max_frames + 1) + 1
+            // slots (8195 at the max_frames ceiling).
+            LimitField::EventQueueCapacity => 16_384,
+            LimitField::CommandQueueCapacity | LimitField::WriteQueueCapacity => 4096,
         }
     }
 }
