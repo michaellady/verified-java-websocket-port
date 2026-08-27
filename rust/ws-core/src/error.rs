@@ -77,12 +77,12 @@ pub enum FailureCode {
     /// consumes the refused input or a step index.
     Backpressure(QueueKind),
     /// Honest refusal of behavior no landed story owns. After the
-    /// US-010..US-016 slices landed, the surviving refusal sites are the
-    /// `NotYetConnected` command/EOF arms (pre-handshake lifecycle, outside
-    /// the corpus vocabulary) and the defensive control arm of
-    /// `Draft6455::process_frame` (unreachable via `ConnectionCore`). No
-    /// oracle wire code exists, so a refusal can never impersonate Java —
-    /// the `empty_rust_target_fails` discipline.
+    /// US-010..US-016 slices landed (including the US-016 AC3
+    /// `NotYetConnected` command/EOF arms), the ONE surviving refusal site
+    /// is the defensive control arm of `Draft6455::process_frame`
+    /// (unreachable via `ConnectionCore`). No oracle wire code exists, so a
+    /// refusal can never impersonate Java — the `empty_rust_target_fails`
+    /// discipline.
     Unimplemented,
 }
 

@@ -28,9 +28,11 @@
 //!   the lifecycle here CALLS those functions, it does not reimplement them.
 
 use ws_core::CloseDetail;
-use ws_core::close::CloseOrigin;
+use ws_core::close::{CloseOrigin, NEVER_CONNECTED_CLOSE_CODE};
 use ws_core::config::ConnectionConfig;
-use ws_core::connection::{ConnectionCore, InitialState, Input, LocalCommand, ReadyState, Role};
+use ws_core::connection::{
+    ConnectionCore, DataOpcode, InitialState, Input, LocalCommand, ReadyState, Role,
+};
 use ws_core::error::FailureCode;
 use ws_core::event::{OutboundCause, SemanticEventKind, TransitionCause};
 use ws_core::framing::{CLOSE_CONSTRUCTOR_PAYLOAD, Opcode};
@@ -51,7 +53,7 @@ fn drain_writes(core: &mut ConnectionCore) -> Vec<Vec<u8>> {
         .collect()
 }
 
-fn remote_close(code: u16, reason: &str, handshake_complete: bool) -> CloseDetail {
+fn remote_close(code: i32, reason: &str, handshake_complete: bool) -> CloseDetail {
     CloseDetail {
         code,
         reason: reason.to_owned(),
@@ -560,4 +562,320 @@ fn echo_close_hits_the_frame_budget_after_the_close_event() {
         "the close event precedes the budget failure (derive.go order)"
     );
     assert_eq!(core.counts().frames, 1, "inbound recorded; echo refused");
+}
+
+// ---------------------------------------------------------------------------
+// EOF and commands BEFORE the opening handshake (US-016 AC3 "EOF before
+// open"). No corpus scenario reaches NotYetConnected (the behavior corpora
+// begin post-handshake), so the authority here is the shipped Java source
+// directly: WebSocketImpl.eot()/close()/flushAndClose()/closeConnection()
+// while readyState == NOT_YET_CONNECTED. Like the handshake byte path,
+// these pre-handshake arms stay OUTSIDE the corpus counters (actions /
+// input_bytes / consumed_bytes are post-handshake corpus vocabulary).
+// ---------------------------------------------------------------------------
+
+#[test]
+fn eof_before_open_is_javas_never_connected_close() {
+    // WebSocketImpl.eot():608-610: NOT_YET_CONNECTED ->
+    // closeConnection(CloseFrame.NEVER_CONNECTED, true); the two-arg
+    // overload (:569-571) passes reason "", and NEVER_CONNECTED is the
+    // shipped -1 (framing/CloseFrame.java:140). closeConnection then
+    // reports onWebsocketClose(-1, "", true) once and lands in CLOSED
+    // (:557, :566).
+    let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Server);
+    core.handle(Input::TransportEof)
+        .expect("EOF before open is Java's ordinary never-connected close");
+    assert_eq!(core.state(), ReadyState::Closed);
+    assert_eq!(
+        core.close_detail(),
+        Some(&CloseDetail {
+            code: NEVER_CONNECTED_CLOSE_CODE,
+            reason: String::new(),
+            origin: CloseOrigin::Transport,
+            remote: true,
+            handshake_complete: false,
+        }),
+        "closeConnection(NEVER_CONNECTED, \"\", remote=true), WebSocketImpl.java:610"
+    );
+    assert!(drain_writes(&mut core).is_empty(), "no wire output");
+    let events = drain_events(&mut core);
+    assert_eq!(
+        events.len(),
+        2,
+        "the eof detail and the terminal transition"
+    );
+    assert!(matches!(&events[0], SemanticEventKind::Eof(detail)
+        if detail.code == NEVER_CONNECTED_CLOSE_CODE));
+    assert!(matches!(
+        &events[1],
+        SemanticEventKind::Transition {
+            from: ReadyState::NotYetConnected,
+            to: ReadyState::Closed,
+            cause: TransitionCause::Eof,
+        }
+    ));
+    // Pre-handshake lifecycle stays outside the corpus counters, exactly
+    // like the handshake byte path.
+    assert_eq!(core.counts().actions, 0);
+    assert_eq!(core.counts().input_bytes, 0);
+}
+
+#[test]
+fn eof_before_open_never_duplicates_the_terminal_callback() {
+    // AC3 "without duplicate terminal callbacks/events":
+    // closeConnection:531-533 dedupes on CLOSED — the port's absorbing
+    // Closed state refuses the second EOF (the pinned post-handshake
+    // closed-state gate) and emits nothing further.
+    let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Client);
+    core.handle(Input::TransportEof).expect("first EOF closes");
+    drain_events(&mut core);
+    let err = core
+        .handle(Input::TransportEof)
+        .expect_err("closed refuses further EOF");
+    assert_eq!(err.code, FailureCode::StateViolation);
+    assert!(
+        drain_events(&mut core).is_empty(),
+        "no duplicate Eof event or transition"
+    );
+}
+
+#[test]
+fn eof_mid_client_handshake_is_still_never_connected() {
+    // readyState stays NOT_YET_CONNECTED until open() runs, so an EOF while
+    // the upgrade request is in flight takes the same eot() arm
+    // (WebSocketImpl.java:608-610). The already-queued request write stays
+    // drainable — closeConnection closes the channel; it never unqueues.
+    let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Client);
+    core.begin_client_handshake("/chat", "localhost")
+        .expect("handshake request queued");
+    core.handle(Input::TransportEof).expect("EOF mid-handshake");
+    assert_eq!(core.state(), ReadyState::Closed);
+    let detail = core.close_detail().expect("governing close");
+    assert_eq!(detail.code, NEVER_CONNECTED_CLOSE_CODE);
+    assert!(
+        detail.remote,
+        "Java passes remote=true, WebSocketImpl.java:610"
+    );
+    assert_eq!(
+        drain_writes(&mut core).len(),
+        1,
+        "the upgrade request write is still drainable"
+    );
+}
+
+#[test]
+fn send_close_before_open_flushes_never_connected_without_a_wire_frame() {
+    // WebSocketImpl.close(code, message, remote):463-506 outside
+    // OPEN/CLOSING/CLOSED: the else-ladder flushAndClose(NEVER_CONNECTED,
+    // message, false) (:501), then readyState = CLOSING (:503). No
+    // CloseFrame is built (that lives in the OPEN branch only, :481-486),
+    // so no wire frame, no setCode normalization (Q14), no isValid chain
+    // (Q13).
+    let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Server);
+    core.handle(Input::Command(LocalCommand::SendClose {
+        code: 1000,
+        reason: "bye".to_owned(),
+    }))
+    .expect("close before open flushes silently");
+    assert_eq!(core.state(), ReadyState::Closing);
+    assert!(
+        drain_writes(&mut core).is_empty(),
+        "no close frame on the wire"
+    );
+    let expected = CloseDetail {
+        code: NEVER_CONNECTED_CLOSE_CODE,
+        reason: "bye".to_owned(),
+        origin: CloseOrigin::Local,
+        remote: false,
+        handshake_complete: false,
+    };
+    assert_eq!(core.close_detail(), Some(&expected));
+    let events = drain_events(&mut core);
+    assert_eq!(events.len(), 2);
+    assert!(
+        matches!(&events[0], SemanticEventKind::CloseInitiated(detail)
+        if *detail == expected)
+    );
+    assert!(matches!(
+        &events[1],
+        SemanticEventKind::Transition {
+            from: ReadyState::NotYetConnected,
+            to: ReadyState::Closing,
+            cause: TransitionCause::SendClose,
+        }
+    ));
+    assert_eq!(
+        core.counts().actions,
+        0,
+        "pre-handshake, outside the counters"
+    );
+
+    // eot() then takes the flushandclosestate arm (:611-612):
+    // closeConnection(closecode, closemessage, closedremotely) with the
+    // RECORDED closedremotely=false — NOT the post-handshake Q20
+    // remote=(state==closing) projection, which is pinned by derive.go for
+    // handshake-completed connections only.
+    core.handle(Input::TransportEof)
+        .expect("eof after flushAndClose");
+    assert_eq!(core.state(), ReadyState::Closed);
+    assert_eq!(
+        core.close_detail(),
+        Some(&CloseDetail {
+            code: NEVER_CONNECTED_CLOSE_CODE,
+            reason: "bye".to_owned(),
+            origin: CloseOrigin::Transport,
+            remote: false,
+            handshake_complete: false,
+        }),
+        "closeConnection(closecode, closemessage, false), WebSocketImpl.java:612"
+    );
+}
+
+#[test]
+fn send_close_before_open_keeps_a_protocol_error_code() {
+    // The one code the never-connected ladder preserves:
+    // close():498-500 — PROTOCOL_ERROR (1002) flushes with its own code.
+    let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Client);
+    core.handle(Input::Command(LocalCommand::SendClose {
+        code: 1002,
+        reason: "nope".to_owned(),
+    }))
+    .expect("protocol-error close before open");
+    let detail = core.close_detail().expect("governing close");
+    assert_eq!(detail.code, 1002);
+    assert_eq!(detail.reason, "nope");
+    assert!(!detail.remote);
+    assert!(drain_writes(&mut core).is_empty());
+}
+
+#[test]
+fn send_close_before_open_skips_the_open_branch_validity_chain() {
+    // Codes that the OPEN branch would reject (Q13) or normalize (Q14)
+    // pass straight through the never-connected ladder to -1: setCode and
+    // isValid are only reached from the OPEN branch (:481-486).
+    for code in [999u16, 1005, 1015, 2999] {
+        let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Server);
+        core.handle(Input::Command(LocalCommand::SendClose {
+            code,
+            reason: String::new(),
+        }))
+        .unwrap_or_else(|err| panic!("code {code} must flush silently: {err}"));
+        assert_eq!(
+            core.close_detail().expect("governing close").code,
+            NEVER_CONNECTED_CLOSE_CODE,
+            "code {code} records NEVER_CONNECTED"
+        );
+        assert_eq!(core.state(), ReadyState::Closing);
+    }
+}
+
+#[test]
+fn data_and_control_sends_before_open_are_the_not_connected_rejection() {
+    // Every send routes through send(Collection):667-670 — !isOpen() ->
+    // WebsocketNotConnectedException. The oracle vocabulary projects that
+    // exception as STATE_VIOLATION (the same projection the post-handshake
+    // requireOpen gate uses, Q26); the port's fatal-poison discipline
+    // applies uniformly (partial-execution semantics).
+    let commands = [
+        LocalCommand::SendText {
+            text: "x".to_owned(),
+        },
+        LocalCommand::SendBinary { data: vec![0x01] },
+        LocalCommand::SendPing { data: vec![] },
+        LocalCommand::SendPong { data: vec![] },
+    ];
+    for command in commands {
+        let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Server);
+        let err = core
+            .handle(Input::Command(command.clone()))
+            .expect_err("sends before open must refuse");
+        assert_eq!(err.code, FailureCode::StateViolation, "{command:?}");
+        assert!(drain_writes(&mut core).is_empty());
+        assert_eq!(core.counts().actions, 0, "outside the corpus counters");
+        // Fatal: the core is poisoned into its final state.
+        let err = core
+            .handle(Input::Command(LocalCommand::SendPing { data: vec![] }))
+            .expect_err("poisoned core refuses everything");
+        assert_eq!(err.code, FailureCode::StateViolation);
+    }
+}
+
+#[test]
+fn send_fragment_before_open_validates_the_first_text_fragment_first() {
+    // sendFragmentedFrame:683-685 evaluates draft.continuousFrame(...) as
+    // the ARGUMENT of send(...), so Draft.continuousFrame's isValid
+    // (Draft.java:210-239) throws IllegalArgumentException for an invalid
+    // first text fragment BEFORE send()'s isOpen check can throw. The
+    // oracle projects that as JAVA_NOT_SENDABLE (derive.go:938-943).
+    let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Client);
+    let err = core
+        .handle(Input::Command(LocalCommand::SendFragment {
+            opcode: DataOpcode::Text,
+            data: vec![0xFF],
+            fin: false,
+        }))
+        .expect_err("invalid first text fragment rejects at continuousFrame");
+    assert_eq!(err.code, FailureCode::JavaNotSendable);
+
+    // A valid fragment survives continuousFrame and hits the isOpen throw.
+    for (opcode, data) in [
+        (DataOpcode::Text, b"ok".to_vec()),
+        (DataOpcode::Binary, vec![0xFF]),
+    ] {
+        let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Client);
+        let err = core
+            .handle(Input::Command(LocalCommand::SendFragment {
+                opcode,
+                data,
+                fin: true,
+            }))
+            .expect_err("valid fragment still fails the isOpen gate");
+        assert_eq!(err.code, FailureCode::StateViolation);
+    }
+}
+
+#[test]
+fn eof_after_pre_open_close_ignores_action_budget() {
+    // Review 01a04556-87df: WebSocketImpl.eot() is transport-driven and
+    // never passes through the action counters. With a valid
+    // max_actions=0 config, EOF after the pre-open close() ladder must
+    // still execute the flushandclosestate close (:611-612), not fail
+    // ACTION_LIMIT_EXCEEDED.
+    let config = ConnectionConfig::builder()
+        .max_actions(0)
+        .build()
+        .expect("max_actions=0 is a valid boundary config");
+    let mut core = ConnectionCore::new(config, Role::Server);
+    // Pre-open close is outside the counters (already pinned above) even
+    // with a zero budget.
+    core.handle(Input::Command(LocalCommand::SendClose {
+        code: 1000,
+        reason: "bye".to_owned(),
+    }))
+    .expect("pre-open close is not an action");
+    assert_eq!(core.state(), ReadyState::Closing);
+    core.handle(Input::TransportEof)
+        .expect("transport EOF is not an action");
+    assert_eq!(core.state(), ReadyState::Closed);
+    assert_eq!(core.counts().actions, 0, "eot() outside the counters");
+    let expected = CloseDetail {
+        code: NEVER_CONNECTED_CLOSE_CODE,
+        reason: "bye".to_owned(),
+        origin: CloseOrigin::Transport,
+        remote: false,
+        handshake_complete: false,
+    };
+    assert_eq!(core.close_detail(), Some(&expected));
+
+    // A second EOF on the never-connected CLOSED connection is Java's
+    // closeConnection dedupe (:531-533): nothing further happens. The port
+    // surfaces the absorption as its typed closed-state refusal, still
+    // outside the counters and without any duplicate terminal event.
+    drain_events(&mut core);
+    let err = core
+        .handle(Input::TransportEof)
+        .expect_err("closed never-connected refuses further EOF");
+    assert_eq!(err.code, FailureCode::StateViolation);
+    assert_eq!(core.counts().actions, 0, "still outside the counters");
+    assert!(drain_events(&mut core).is_empty(), "no duplicate events");
 }

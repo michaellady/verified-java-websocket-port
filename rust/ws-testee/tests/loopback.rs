@@ -86,6 +86,91 @@ fn one_byte_write_chunks_still_complete_the_round_trip() {
     assert_eq!(server.texts, vec!["split".to_owned()]);
 }
 
+/// US-015 AC1 cross-peer assertion (the rust->rust mirror of the US-018
+/// cross-peer exam's Java direction): a LIVE ping from a real TCP client
+/// peer is answered by the server testee's driver-level automatic pong with
+/// a byte-identical payload — the shipped-Java default
+/// (`WebSocketAdapter.onWebsocketPing` -> `PongFrame(PingFrame)` payload
+/// copy), which the sans-io core itself never does (Q18).
+#[test]
+fn server_driver_auto_pongs_a_live_client_ping() {
+    struct PingScript {
+        payload: Vec<u8>,
+        close_sent: bool,
+    }
+    impl ws_testee::io_loop::EventPolicy for PingScript {
+        fn on_event(&mut self, event: &ws_core::SemanticEvent, sender: &ws_core::CommandSender) {
+            if self.close_sent {
+                return;
+            }
+            if let ws_core::SemanticEventKind::Pong { data } = &event.kind
+                && *data == self.payload
+            {
+                self.close_sent = true;
+                let _ = sender.try_send(ws_core::connection::LocalCommand::SendClose {
+                    code: 1000,
+                    reason: "ponged".to_owned(),
+                });
+            }
+        }
+    }
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = server_thread(listener, IoBounds::default());
+
+    let mut stream = TcpStream::connect(address).expect("connect");
+    let (sender, mut driver) = ws_driver::connection_driver(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Client,
+    );
+    driver
+        .begin_client_handshake("/chat", "localhost")
+        .expect("handshake start");
+    let mut report = ws_testee::io_loop::empty_report();
+    assert!(ws_testee::io_loop::drive_until_open(
+        &mut driver,
+        &mut stream,
+        &IoBounds::default(),
+        &mut report,
+    ));
+    let payload = vec![0xAB, 0xCD, 0xEF];
+    sender
+        .try_send(ws_core::connection::LocalCommand::SendPing {
+            data: payload.clone(),
+        })
+        .expect("enqueue ping");
+    let mut policy = PingScript {
+        payload: payload.clone(),
+        close_sent: false,
+    };
+    ws_testee::io_loop::drive_connection(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &IoBounds::default(),
+        &mut policy,
+        &mut report,
+    );
+    // The client is terminal; drop its socket so the server observes the
+    // post-close EOF (the same lifetime the client fixture gives it).
+    drop(stream);
+    let server = server.join().expect("server thread");
+
+    assert!(report.clean(), "client: {}", report.summary());
+    assert_eq!(
+        report.pongs,
+        vec![payload.clone()],
+        "the live pong carries the ping's payload byte-identically"
+    );
+    assert!(server.clean(), "server: {}", server.summary());
+    assert_eq!(
+        server.pings,
+        vec![payload],
+        "the server's Ping semantic event delivered alongside the reply (AC1)"
+    );
+}
+
 #[test]
 fn peer_loss_after_handshake_is_the_1006_transport_close() {
     let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");

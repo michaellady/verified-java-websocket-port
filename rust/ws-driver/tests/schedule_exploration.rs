@@ -33,8 +33,8 @@ use std::path::PathBuf;
 use ws_core::config::ConnectionConfig;
 use ws_core::{CommandSender, InitialState, LocalCommand, ReadyState, Role};
 use ws_driver::{
-    CommandDisposition, ConnectionDriver, DeferredReason, DriverInput, DriverOutput,
-    InputDisposition, connection_driver_in_state,
+    AutoResponsePolicy, CommandDisposition, ConnectionDriver, DeferredReason, DriverInput,
+    DriverOutput, InputDisposition, connection_driver_in_state_with_policy,
 };
 
 // ---------------------------------------------------------------------------
@@ -523,10 +523,20 @@ fn exploration_config(event_queue_capacity: u64) -> ConnectionConfig {
 
 impl Run {
     fn new(fault: Fault, event_queue_capacity: u64) -> Run {
-        let (sender, driver) = connection_driver_in_state(
+        // The exploration runs under the EXPLICIT
+        // `AutoResponsePolicy::Disabled` configuration (US-015 AC1's
+        // configurable policy): its invariants, boundary model, and
+        // byte-pinned retained corpus (`fuzz-seeds/us017/minimized/`,
+        // `fuzz-seeds/us017/regressions/`) are the US-017 driver-seam
+        // properties, which are orthogonal to the automatic reply; the
+        // default `PongInboundPing` behavior is pinned by the dedicated
+        // deterministic suite in `tests/auto_response.rs` and the live
+        // cross-peer loopback assertion in ws-testee.
+        let (sender, driver) = connection_driver_in_state_with_policy(
             exploration_config(event_queue_capacity),
             Role::Server,
             InitialState::Open,
+            AutoResponsePolicy::Disabled,
         );
         Run {
             driver,
