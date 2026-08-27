@@ -325,6 +325,11 @@ enum Violation {
     DuplicateTerminal,
     /// Outputs or dispositions kept moving after terminal quiescence.
     PostTerminalActivity,
+    /// One run observed BOTH a surfaced fatal `Failure` output and a
+    /// `Terminal` delivery: the two terminal dispositions must be
+    /// exclusive, exactly as the real adapter (which stops at the first
+    /// surfaced `Failure`) would experience them.
+    TerminalAfterFailure,
     /// Two executions of the same schedule diverged.
     Nondeterminism,
 }
@@ -340,6 +345,7 @@ impl Violation {
             Violation::Convergence => "close-convergence",
             Violation::DuplicateTerminal => "terminal-exactly-once",
             Violation::PostTerminalActivity => "no-post-terminal",
+            Violation::TerminalAfterFailure => "failure-halt-exclusivity",
             Violation::Nondeterminism => "deterministic-replay",
         }
     }
@@ -354,6 +360,7 @@ impl Violation {
             Violation::Convergence => "no-terminal-after-fair-drain",
             Violation::DuplicateTerminal => "terminal-count-two",
             Violation::PostTerminalActivity => "movement-after-terminal",
+            Violation::TerminalAfterFailure => "terminal-and-failure-both-observed",
             Violation::Nondeterminism => "replay-trace-divergence",
         }
     }
@@ -403,10 +410,36 @@ fn expected_frame(tag: Tag) -> &'static [u8] {
     }
 }
 
+/// The full owned output of one poll, retained verbatim in the trace:
+/// semantic-event contents, typed failure values, and byte-exact write
+/// suffixes all participate in replay equality and the trace digest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum TraceOutput {
+    Idle,
+    Write(Vec<u8>),
+    Event(ws_core::SemanticEvent),
+    Failure(ws_core::TypedProtocolFailure),
+    Terminal,
+}
+
+/// One poll observation, complete: the input (kind + byte length), its full
+/// typed disposition (including rejection details), the full command
+/// disposition (command payloads and typed rejection failures included),
+/// the full owned output, and the resulting lifecycle state.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TraceRecord {
+    input_kind: u8,
+    input_len: usize,
+    input_disposition: InputDisposition,
+    command: Option<CommandDisposition>,
+    output: TraceOutput,
+    state: ReadyState,
+}
+
 /// Deterministic, comparable outcome of one schedule execution.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 struct Outcome {
-    trace: Vec<u64>,
+    trace: Vec<TraceRecord>,
     completed_writes: Vec<Vec<u8>>,
     accepted: u32,
     refused_full: u32,
@@ -422,14 +455,19 @@ struct Outcome {
     rejected_inputs: u32,
     drain_polls: u32,
     closed: bool,
+    /// The run stopped at its first surfaced fatal `Failure` output (the
+    /// adapter-seam terminal disposition of a poisoned run).
+    halted: bool,
     violations: Vec<Violation>,
 }
 
 impl Outcome {
+    /// Digest over the FULL structured trace (every field of every record,
+    /// via the deterministic Debug rendering) plus the committed wire log.
     fn digest(&self) -> u64 {
         let mut bytes: Vec<u8> = Vec::new();
-        for value in &self.trace {
-            bytes.extend_from_slice(&value.to_le_bytes());
+        for record in &self.trace {
+            bytes.extend_from_slice(format!("{record:?}\n").as_bytes());
         }
         for write in &self.completed_writes {
             bytes.extend_from_slice(write);
@@ -463,6 +501,12 @@ struct Run {
     disposed_tags: Vec<Tag>,
     shutdown_seen: bool,
     eof_seen: bool,
+    /// Set when a `DriverOutput::Failure` surfaces: the modeled adapter
+    /// stops driving the run at that instant, exactly like the real
+    /// ws-testee io_loop (`StepOutput::Failure` ends the loop as
+    /// `LoopOutcome::ProtocolFailure`). No further schedule actions,
+    /// drain polls, or quiescence polls are issued.
+    halted: bool,
     fault: Fault,
     fault_used: bool,
     swap_hold: Option<Vec<u8>>,
@@ -495,6 +539,7 @@ impl Run {
             disposed_tags: Vec::new(),
             shutdown_seen: false,
             eof_seen: false,
+            halted: false,
             fault,
             fault_used: false,
             swap_hold: None,
@@ -510,35 +555,29 @@ impl Run {
         }
     }
 
-    /// One observed poll: dispositions, outputs, and the trace record.
+    /// One observed poll: dispositions, outputs, the FULL trace record, and
+    /// the adapter-faithful halt at the first surfaced `Failure`.
     fn poll(&mut self, input: DriverInput<'_>) -> InputDisposition {
-        let (input_code, input_len) = match input {
+        let (input_kind, input_len) = match input {
             DriverInput::Wake => (0u8, 0usize),
             DriverInput::Inbound(bytes) => (1, bytes.len()),
             DriverInput::WriteProgress { bytes } => (2, bytes),
             DriverInput::TransportEof => (3, 0),
             DriverInput::Shutdown => (4, 0),
         };
-        enum OwnedOutput {
-            Idle,
-            Write(Vec<u8>),
-            Event,
-            Failure,
-            Terminal,
-        }
         let (input_disposition, command, output, state) = {
             let result = self.driver.poll(input);
             let output = match result.output {
-                DriverOutput::Idle => OwnedOutput::Idle,
-                DriverOutput::Write(suffix) => OwnedOutput::Write(suffix.to_vec()),
-                DriverOutput::Event(_) => OwnedOutput::Event,
-                DriverOutput::Failure(_) => OwnedOutput::Failure,
-                DriverOutput::Terminal(_) => OwnedOutput::Terminal,
+                DriverOutput::Idle => TraceOutput::Idle,
+                DriverOutput::Write(suffix) => TraceOutput::Write(suffix.to_vec()),
+                DriverOutput::Event(event) => TraceOutput::Event(event),
+                DriverOutput::Failure(failure) => TraceOutput::Failure(failure),
+                DriverOutput::Terminal(_) => TraceOutput::Terminal,
             };
             (result.input, result.command, output, result.state)
         };
-        let disposition_code = match &command {
-            None => 0u8,
+        match &command {
+            None => {}
             Some(CommandDisposition::Applied(command)) => {
                 let tag = tag_of(command);
                 if !self.arm(Fault::DropFirstDisposition) {
@@ -546,7 +585,6 @@ impl Run {
                     self.disposed_tags.push(tag);
                     self.expected_frames.push_back(expected_frame(tag).to_vec());
                 }
-                1
             }
             Some(CommandDisposition::Rejected { command, .. }) => {
                 let tag = tag_of(command);
@@ -554,7 +592,6 @@ impl Run {
                     self.outcome.rejected += 1;
                     self.disposed_tags.push(tag);
                 }
-                2
             }
             Some(CommandDisposition::TerminalRejected(command)) => {
                 let tag = tag_of(command);
@@ -562,34 +599,36 @@ impl Run {
                     self.outcome.terminal_rejected += 1;
                     self.disposed_tags.push(tag);
                 }
-                3
             }
-        };
-        let output_code = match output {
-            OwnedOutput::Idle => 0u8,
-            OwnedOutput::Write(suffix) => {
+        }
+        match &output {
+            TraceOutput::Idle => {}
+            TraceOutput::Write(suffix) => {
                 if let Some(offer) = &self.offer {
-                    // The driver re-offers exactly the undrained suffix.
-                    if suffix.len() != offer.frame.len() - offer.accepted {
+                    // The driver re-offers BYTE-EXACTLY the undrained
+                    // suffix of the committed frame.
+                    if suffix.as_slice() != &offer.frame[offer.accepted..] {
                         self.outcome.record(Violation::WriteBypass);
                     }
                 } else {
                     self.offer = Some(Offer {
-                        frame: suffix,
+                        frame: suffix.clone(),
                         accepted: 0,
                     });
                 }
-                1
             }
-            OwnedOutput::Event => {
+            TraceOutput::Event(_) => {
                 self.outcome.events += 1;
-                2
             }
-            OwnedOutput::Failure => {
+            TraceOutput::Failure(_) => {
                 self.outcome.failures += 1;
-                3
+                // Adapter-faithful stop: the real io_loop ends the
+                // connection at the first surfaced Failure, so this run
+                // stops driving here; Terminal-after-Failure is impossible
+                // by construction and asserted in finish().
+                self.halted = true;
             }
-            OwnedOutput::Terminal => {
+            TraceOutput::Terminal => {
                 if self.arm(Fault::DropTerminal) {
                     // Swallowed: the adapter loses the one delivery.
                 } else if self.arm(Fault::RepeatTerminal) {
@@ -600,43 +639,35 @@ impl Run {
                 if self.outcome.terminals > 1 {
                     self.outcome.record(Violation::DuplicateTerminal);
                 }
-                4
             }
-        };
-        let (disp2, defer_code) = match input_disposition {
-            InputDisposition::Consumed { .. } => (0u8, 0u8),
+        }
+        match input_disposition {
+            InputDisposition::Consumed { .. } => {}
             InputDisposition::Deferred(DeferredReason::OutputPending) => {
                 self.outcome.deferred_output_pending += 1;
-                (1, 1)
             }
             InputDisposition::Deferred(DeferredReason::CommandTurn) => {
                 self.outcome.deferred_command_turn += 1;
-                (1, 2)
             }
             InputDisposition::Deferred(DeferredReason::Backpressure) => {
                 self.outcome.deferred_backpressure += 1;
-                (1, 3)
             }
             InputDisposition::Rejected(_) => {
                 self.outcome.rejected_inputs += 1;
-                (2, 0)
             }
-        };
-        let state_code = match state {
-            ReadyState::NotYetConnected => 0u8,
-            ReadyState::Open => 2,
-            ReadyState::Closing => 3,
-            ReadyState::Closed => 4,
-        };
-        self.outcome.trace.push(
-            u64::from(input_code)
-                | (u64::from(disposition_code) << 8)
-                | (u64::from(output_code) << 16)
-                | (u64::from(disp2) << 24)
-                | (u64::from(defer_code) << 32)
-                | (u64::from(state_code) << 40)
-                | ((input_len as u64) << 48),
-        );
+        }
+        // The trace keeps the RAW observation (pre-fault-filtering): full
+        // input disposition (rejection details included), full command
+        // disposition (payloads and typed failures included), full owned
+        // output, and the lifecycle state.
+        self.outcome.trace.push(TraceRecord {
+            input_kind,
+            input_len,
+            input_disposition,
+            command,
+            output,
+            state,
+        });
         input_disposition
     }
 
@@ -751,6 +782,11 @@ impl Run {
     }
 
     fn exec(&mut self, action: Action) {
+        if self.halted {
+            // The adapter stopped at a surfaced Failure: the schedule
+            // stops driving this run.
+            return;
+        }
         match action {
             Action::EnqueueTextA => self.enqueue(Tag::TextA),
             Action::EnqueueBinaryA => self.enqueue(Tag::BinaryA),
@@ -817,8 +853,19 @@ impl Run {
 
     /// Weak-fairness drain: flush progress while writable, owner progress
     /// while work is pending, event drain while output is pending.
+    /// Whether the last trace record moved anything (a disposition or a
+    /// non-idle output).
+    fn last_record_moved(&self) -> bool {
+        self.outcome.trace.last().is_some_and(|record| {
+            record.command.is_some() || !matches!(record.output, TraceOutput::Idle)
+        })
+    }
+
     fn fair_drain(&mut self) {
         for _ in 0..DRAIN_BUDGET {
+            if self.halted {
+                return;
+            }
             self.outcome.drain_polls += 1;
             if self.driver.state() == ReadyState::Closed {
                 self.pending_inbound.clear();
@@ -834,14 +881,11 @@ impl Run {
             } else if !self.pending_inbound.is_empty() {
                 self.offer_inbound();
             } else {
-                let result_moved = {
-                    let trace_before = self.outcome.trace.len();
-                    let _ = self.poll(DriverInput::Wake);
-                    let last = self.outcome.trace[trace_before];
-                    // disposition or non-idle output means movement.
-                    ((last >> 8) & 0xFF) != 0 || ((last >> 16) & 0xFF) != 0
-                };
-                if !result_moved && self.offer.is_none() && self.pending_inbound.is_empty() {
+                let _ = self.poll(DriverInput::Wake);
+                if !self.last_record_moved()
+                    && self.offer.is_none()
+                    && self.pending_inbound.is_empty()
+                {
                     break;
                 }
             }
@@ -860,6 +904,7 @@ impl Run {
         self.fair_drain();
         let closed = self.driver.state() == ReadyState::Closed;
         self.outcome.closed = closed;
+        self.outcome.halted = self.halted;
         // Disposition sanity that holds in EVERY end state: each command
         // instance disposed at most once, and only if accepted.
         let mut accepted_sorted = self.accepted_tags.clone();
@@ -879,40 +924,44 @@ impl Run {
         if !subset {
             self.outcome.record(Violation::LostOrDuplicatedCommand);
         }
-        // A poisoned core (any fatal code) retains its final state by
-        // design — the oracle's partial-execution semantics. At the driver
-        // seam that run terminates through the surfaced typed `Failure`
-        // output (the US-018 io_loop maps it to
-        // `LoopOutcome::ProtocolFailure`), never a driver `Terminal`.
-        let poisoned_fatal = self.outcome.failures > 0 && !closed;
-        if (self.eof_seen || self.shutdown_seen) && !closed && !poisoned_fatal {
-            // A run whose transport ended and whose core stayed healthy
-            // must converge to Closed under the weak-fairness drain.
+        if self.halted {
+            // The run stopped at its first surfaced fatal `Failure`,
+            // exactly as the real adapter does: that Failure IS the
+            // adapter-seam terminal (oracle partial-execution semantics —
+            // a poisoned core retains its final state). The two terminal
+            // dispositions are exclusive: no driver `Terminal` may have
+            // been observed in the same run.
+            if self.outcome.terminals > 0 {
+                self.outcome.record(Violation::TerminalAfterFailure);
+            }
+            // Commands still queued at the halt belong to the embedding
+            // adapter's teardown; only the at-most-once subset invariant
+            // above applies. No further polls are issued.
+            return self.outcome;
+        }
+        // Non-halted run: no Failure ever surfaced (a Failure halts by
+        // construction), so a transport that ended must converge to the
+        // clean terminal under the weak-fairness drain.
+        if (self.eof_seen || self.shutdown_seen) && !closed {
             self.outcome.record(Violation::Convergence);
         }
-        if closed && self.outcome.terminals == 0 {
-            self.outcome.record(Violation::Convergence);
-        }
-        if closed || poisoned_fatal {
-            // Terminal disposition reached (clean terminal or poisoned
-            // fatal): EVERY accepted command must have been disposed
-            // exactly once (applied, typed rejection, or terminal
-            // rejection) — nothing lost, nothing duplicated.
+        if closed {
+            if self.outcome.terminals == 0 {
+                self.outcome.record(Violation::Convergence);
+            }
+            // Clean terminal reached: EVERY accepted command must have
+            // been disposed exactly once (applied, typed rejection, or
+            // terminal rejection) — nothing lost, nothing duplicated.
             if accepted_sorted != disposed_sorted {
                 self.outcome.record(Violation::LostOrDuplicatedCommand);
             }
-            // Quiescence: nothing keeps moving after the terminal
-            // disposition.
+            // Quiescence: nothing keeps moving after the terminal.
             for _ in 0..2 {
-                let trace_before = self.outcome.trace.len();
                 let _ = self.poll(DriverInput::Wake);
-                let last = self.outcome.trace[trace_before];
-                if ((last >> 8) & 0xFF) != 0 || ((last >> 16) & 0xFF) != 0 {
+                if self.last_record_moved() {
                     self.outcome.record(Violation::PostTerminalActivity);
                 }
             }
-        }
-        if closed {
             // A converged run holds no committed-but-undrained frame unless
             // shutdown aborted the transport.
             if !self.shutdown_seen && (!self.expected_frames.is_empty() || self.offer.is_some()) {
@@ -1071,26 +1120,26 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     let mut totals = Outcome::default();
     let mut max_drain = 0u32;
     let mut closed_terminal_runs = 0usize;
-    let mut poisoned_fatal_runs = 0usize;
+    let mut failure_halted_runs = 0usize;
     for schedule in &exploration.schedules {
         let outcome = execute_deterministic(schedule, Fault::None);
         if let Some(violation) = outcome.violations.first().copied() {
             retain_and_fail(schedule, violation, &outcome);
         }
-        // Every full schedule reaches exactly one of the two typed terminal
-        // dispositions: the absorbing Closed state with one Terminal, or a
-        // poisoned-fatal final state whose surfaced Failure output is the
-        // adapter-seam terminal (oracle partial-execution semantics).
-        if outcome.closed {
+        // Every full schedule reaches EXACTLY ONE of the two typed
+        // terminal dispositions, mirroring the real adapter: the clean
+        // Terminal from the absorbing Closed state, or the halt at the
+        // first surfaced fatal Failure (the poisoned core's final state
+        // per the oracle's partial-execution semantics). Never both.
+        if outcome.halted {
+            assert_eq!(outcome.failures, 1, "the halt is the first failure");
+            assert_eq!(outcome.terminals, 0, "no terminal after a failure halt");
+            failure_halted_runs += 1;
+        } else {
+            assert!(outcome.closed, "a non-halted full schedule converges");
+            assert_eq!(outcome.failures, 0, "any surfaced failure halts");
             assert_eq!(outcome.terminals, 1, "terminal delivered exactly once");
             closed_terminal_runs += 1;
-        } else {
-            assert!(
-                outcome.failures > 0,
-                "a non-closed run must have surfaced its typed fatal failure"
-            );
-            assert_eq!(outcome.terminals, 0, "no terminal without Closed");
-            poisoned_fatal_runs += 1;
         }
         distinct_outcomes.insert(outcome.digest());
         totals.accepted += outcome.accepted;
@@ -1122,18 +1171,22 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.terminals as usize, closed_terminal_runs,
         "exactly one terminal per Closed run and none elsewhere"
     );
-    assert_eq!(closed_terminal_runs + poisoned_fatal_runs, schedule_count);
+    assert_eq!(
+        totals.failures as usize, failure_halted_runs,
+        "exactly one surfaced failure per halted run and none elsewhere"
+    );
+    assert_eq!(closed_terminal_runs + failure_halted_runs, schedule_count);
     assert!(closed_terminal_runs > 0, "clean convergence explored");
     assert!(
-        poisoned_fatal_runs > 0,
-        "the poisoned-fatal disposition was explored"
+        failure_halted_runs > 0,
+        "the failure-halt disposition was explored"
     );
 
     println!(
         "US017_EXPLORATION programs={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
          preemption_budget={PREEMPTION_BUDGET} schedules={schedule_count} branches={} truncated=false \
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
-         poisoned_fatal_runs={poisoned_fatal_runs} accepted={} refused_full={} applied={} rejected={} \
+         failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
          terminal_rejected={} events={} failures={} deferred_output_pending={} deferred_command_turn={} \
          deferred_backpressure={} rejected_inputs={} max_drain_polls={max_drain}",
         PROGRAMS.iter().map(|program| program.len()).sum::<usize>(),
