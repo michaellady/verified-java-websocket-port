@@ -86,6 +86,19 @@ impl FrameHeaderDecoder {
         retained_payload_bytes: usize,
         prefix: &[u8],
     ) -> Result<FrameHeaderDecode, FailureKind> {
+        Self::decode_header_inner(Some(config), role, retained_payload_bytes, prefix)
+    }
+
+    fn decode_header_syntax(role: Role, prefix: &[u8]) -> Result<FrameHeaderDecode, FailureKind> {
+        Self::decode_header_inner(None, role, 0, prefix)
+    }
+
+    fn decode_header_inner(
+        config: Option<&ConnectionConfig>,
+        role: Role,
+        retained_payload_bytes: usize,
+        prefix: &[u8],
+    ) -> Result<FrameHeaderDecode, FailureKind> {
         if prefix.len() < 2 {
             return Ok(FrameHeaderDecode::Incomplete { minimum: 2 });
         }
@@ -174,22 +187,24 @@ impl FrameHeaderDecoder {
             .checked_add(payload_length)
             .ok_or(FailureKind::Frame(FrameFailure::ArithmeticOverflow))?;
 
-        if payload_length > config.frame_bytes() {
-            return Err(FailureKind::LimitExceeded {
-                limit: LimitKind::FrameBytes,
-                attempted: payload_length_u64,
-                maximum: config.limits().frame_bytes,
-            });
-        }
-        let retained_total = retained_payload_bytes
-            .checked_add(payload_length)
-            .ok_or(FailureKind::Frame(FrameFailure::ArithmeticOverflow))?;
-        if retained_total > config.total_buffered_bytes() {
-            return Err(FailureKind::LimitExceeded {
-                limit: LimitKind::TotalBufferedBytes,
-                attempted: u64::try_from(retained_total).unwrap_or(u64::MAX),
-                maximum: config.limits().total_buffered_bytes,
-            });
+        if let Some(config) = config {
+            if payload_length > config.frame_bytes() {
+                return Err(FailureKind::LimitExceeded {
+                    limit: LimitKind::FrameBytes,
+                    attempted: payload_length_u64,
+                    maximum: config.limits().frame_bytes,
+                });
+            }
+            let retained_total = retained_payload_bytes
+                .checked_add(payload_length)
+                .ok_or(FailureKind::Frame(FrameFailure::ArithmeticOverflow))?;
+            if retained_total > config.total_buffered_bytes() {
+                return Err(FailureKind::LimitExceeded {
+                    limit: LimitKind::TotalBufferedBytes,
+                    attempted: u64::try_from(retained_total).unwrap_or(u64::MAX),
+                    maximum: config.limits().total_buffered_bytes,
+                });
+            }
         }
 
         if prefix.len() < header_length {
@@ -250,6 +265,8 @@ impl FrameDecoder {
         config: &ConnectionConfig,
         role: Role,
         bytes: &[u8],
+        retained_protocol_bytes: usize,
+        closing: bool,
     ) -> FrameDecodeBatch {
         let mut offset = 0usize;
         let mut staged_payload_bytes = 0usize;
@@ -262,6 +279,7 @@ impl FrameDecoder {
                     .fragments
                     .retained_bytes()
                     .checked_add(staged_payload_bytes)
+                    .and_then(|value| value.checked_add(retained_protocol_bytes))
                 {
                     Some(value) => value,
                     None => {
@@ -272,12 +290,30 @@ impl FrameDecoder {
                         );
                     }
                 };
-                let decode = FrameHeaderDecoder::decode_header(
-                    config,
-                    role,
-                    retained_payload_bytes,
-                    &self.header[..self.header_length],
-                );
+                let prefix = &self.header[..self.header_length];
+                let decode = if closing {
+                    match FrameHeaderDecoder::decode_header_syntax(role, prefix) {
+                        Ok(FrameHeaderDecode::Complete(header))
+                            if matches!(
+                                header.opcode(),
+                                Opcode::Text | Opcode::Binary | Opcode::Continuation
+                            ) =>
+                        {
+                            Err(FailureKind::Close(crate::CloseFailure::DataAfterClose {
+                                opcode: header.opcode(),
+                            }))
+                        }
+                        Ok(FrameHeaderDecode::Complete(_)) => FrameHeaderDecoder::decode_header(
+                            config,
+                            role,
+                            retained_payload_bytes,
+                            prefix,
+                        ),
+                        other => other,
+                    }
+                } else {
+                    FrameHeaderDecoder::decode_header(config, role, retained_payload_bytes, prefix)
+                };
                 match decode {
                     Ok(FrameHeaderDecode::Incomplete { minimum }) => {
                         let needed = minimum.saturating_sub(self.header_length);
@@ -415,17 +451,19 @@ impl FrameDecoder {
                 }
                 _ => None,
             };
-            let retained_payload_bytes =
-                match staged_payload_bytes.checked_add(self.fragments.retained_bytes()) {
-                    Some(value) => value,
-                    None => {
-                        self.reset();
-                        return FrameDecodeBatch::failed(
-                            records,
-                            FailureKind::Frame(FrameFailure::ArithmeticOverflow),
-                        );
-                    }
-                };
+            let retained_payload_bytes = match staged_payload_bytes
+                .checked_add(self.fragments.retained_bytes())
+                .and_then(|value| value.checked_add(retained_protocol_bytes))
+            {
+                Some(value) => value,
+                None => {
+                    self.reset();
+                    return FrameDecodeBatch::failed(
+                        records,
+                        FailureKind::Frame(FrameFailure::ArithmeticOverflow),
+                    );
+                }
+            };
             records.push(DecodedFrame {
                 frame: Frame::new(header.fin(), header.opcode(), header.masked(), payload),
                 delivery,

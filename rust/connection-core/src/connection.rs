@@ -1237,7 +1237,19 @@ impl ConnectionCore {
     }
 
     fn consume_frames(&mut self, bytes: &[u8]) -> StepResult {
-        let mut batch = self.frame_decoder.consume(&self.config, self.role, bytes);
+        let closing = self.state == ConnectionState::Closing;
+        let retained_close_bytes = if closing {
+            self.close.retained_bytes()
+        } else {
+            0
+        };
+        let mut batch = self.frame_decoder.consume(
+            &self.config,
+            self.role,
+            bytes,
+            retained_close_bytes,
+            closing,
+        );
         if self.state == ConnectionState::Closing
             || batch
                 .records

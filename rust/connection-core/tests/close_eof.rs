@@ -780,6 +780,77 @@ fn close_admission_enforces_event_write_and_total_bounds() {
 }
 
 #[test]
+fn closing_decoder_counts_the_retained_peer_close_in_total_budget() {
+    let limited = config_with(|limits| {
+        limits.frame_bytes = 125;
+        limits.message_bytes = 125;
+        limits.total_buffered_bytes = 125;
+    });
+    let close_payload = close_payload(Some(1000), &[b'r'; 123]);
+    let peer_close = encoded_with(Role::Server, &config(), Opcode::Close, &close_payload);
+    let mut core = open_core(Role::Client, limited);
+    let admitted = core.step(CoreInput::Transport(TransportBytes::new(&peer_close)));
+    assert_eq!(failure(&admitted), None);
+    assert_eq!(admitted.state(), ConnectionState::Closing);
+
+    let peer_ping = encoded_with(Role::Server, &config(), Opcode::Ping, &[b'p'; 125]);
+    let rejected = core.step(CoreInput::Transport(TransportBytes::new(&peer_ping)));
+    assert_eq!(
+        failure(&rejected),
+        Some(&FailureKind::LimitExceeded {
+            limit: LimitKind::TotalBufferedBytes,
+            attempted: 250,
+            maximum: 125,
+        })
+    );
+    assert_eq!(rejected.state(), ConnectionState::Closed);
+    assert_eq!(
+        rejected.outputs().collect::<Vec<_>>(),
+        vec![&CoreOutput::StateChanged(ConnectionState::Closed)]
+    );
+}
+
+#[test]
+fn closing_data_opcode_precedes_message_validation_and_event_admission() {
+    let mut invalid_utf8 = open_core(Role::Server, config());
+    invalid_utf8.step(CoreInput::Command(local_close(Role::Server, None, "")));
+    let invalid_text = encoded_with(Role::Client, &config(), Opcode::Text, &[0xff]);
+    let rejected = invalid_utf8.step(CoreInput::Transport(TransportBytes::new(&invalid_text)));
+    assert_eq!(
+        failure(&rejected),
+        Some(&FailureKind::Close(CloseFailure::DataAfterClose {
+            opcode: Opcode::Text,
+        }))
+    );
+    assert_eq!(rejected.outputs().len(), 1);
+
+    for opcode in [Opcode::Text, Opcode::Binary, Opcode::Continuation] {
+        let event_limited = config_with(|limits| limits.event_queue_entries = 1);
+        let mut backpressured = open_core(Role::Server, event_limited);
+        backpressured.step(CoreInput::Command(local_close(Role::Server, None, "")));
+        let data = encoded_with(Role::Client, &config(), opcode, &[]);
+        let rejected = backpressured.step(CoreInput::Transport(TransportBytes::new(&data)));
+        assert_eq!(
+            failure(&rejected),
+            Some(&FailureKind::Close(CloseFailure::DataAfterClose { opcode }))
+        );
+        assert_eq!(rejected.outputs().len(), 1);
+    }
+
+    let mut malformed = open_core(Role::Server, config());
+    malformed.step(CoreInput::Command(local_close(Role::Server, None, "")));
+    let reserved_bit_text = [0xc1, 0x80, 1, 2, 3, 4];
+    let syntax = malformed.step(CoreInput::Transport(TransportBytes::new(
+        &reserved_bit_text,
+    )));
+    assert_eq!(
+        failure(&syntax),
+        Some(&FailureKind::Frame(FrameFailure::ReservedBits)),
+        "frame syntax still precedes closing data legality"
+    );
+}
+
+#[test]
 fn closed_rejects_new_protocol_inputs_but_flush_and_eof_are_noops() {
     let mut core = open_core(Role::Server, config());
     let wire = encoded(Role::Client, &[]);
