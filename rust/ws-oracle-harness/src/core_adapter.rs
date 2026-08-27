@@ -11,10 +11,17 @@
 //!    validates each step DURING execution, not at envelope parse time, so a
 //!    malformed step mid-scenario is a request-bound partial failure that
 //!    retains counts-so-far, the current state, and the runtime identity.
-//!    The driver replicates Java's validation order check-for-check (see
-//!    `run_step`); every count/state/protocol effect is a [`ScenarioSession`]
-//!    hook so the ordering is pinned here once and the core supplies only
-//!    behavior.
+//!    The driver owns step SHAPE only: it reads every field in Java's exact
+//!    order (`parse_action`) and ALWAYS delivers a constructible command to
+//!    the session, so the core runs Java's interleaved gates itself (the
+//!    action prelude, requireOpen, the payload limit — connection.rs
+//!    `handle_command` re-runs exactly that sequence at command receipt).
+//!    Only a step that can never become a core input (malformed or
+//!    unrepresentable) is failed driver-side, with the [`ScenarioSession`]
+//!    driver-gate hooks re-establishing Java's gate order around the parse
+//!    failure. (Re-review round 1, session 01a04427: pre-delivery gates on
+//!    the deliverable path would let the adapter synthesize protocol
+//!    behavior the core owns.)
 //! 2. [`CandidateCore`] — the constructor seam. `begin` mirrors
 //!    `new Execution(...)`: construction failure (Java's
 //!    `NoClassDefFoundError` path) precedes ALL step validation.
@@ -119,14 +126,22 @@ pub trait ScenarioSession {
     /// processing.
     fn bytes(&mut self, data: &[u8], step: u32) -> Result<(), ScenarioFailure>;
 
-    /// `Execution.action` prelude: `actionCount++` and the `max_actions`
-    /// check fire BEFORE the `action` field is even read.
+    /// Driver-gate mirror of Java's `Execution.action` prelude
+    /// (`actionCount++` and the `max_actions` check, which fire BEFORE the
+    /// `action` field is even read). Called ONLY for an action step that
+    /// can never become a core input (a driver-level parse or
+    /// representability failure): a deliverable command reaches the core's
+    /// own identical prelude instead, so this hook never runs on the
+    /// delivered path (re-review round 1).
     fn begin_action(&mut self, step: u32) -> Result<(), ScenarioFailure>;
 
-    /// `Execution.requireOpen`: fires after the action's unknown-field
-    /// rejection and BEFORE its payload fields are read (Java reads `text`,
-    /// `data_base64`, `code`/`reason`, `opcode`/`fin` only after this
-    /// check).
+    /// Driver-gate mirror of Java's `Execution.requireOpen`, which fires
+    /// after the action's unknown-field rejection and BEFORE its payload
+    /// fields are read (Java reads `text`, `data_base64`, `code`/`reason`,
+    /// `opcode`/`fin` only after this check). Called ONLY for a step that
+    /// can never become a core input and whose failed read sits past
+    /// requireOpen; a deliverable command reaches the core's own identical
+    /// state gate instead (re-review round 1).
     fn require_open(&mut self, action: &str) -> Result<(), ScenarioFailure>;
 
     /// `Execution.sendText` tail: createFrames + emitOutbound.
@@ -233,94 +248,244 @@ fn run_step(
             let data = base64_field(members, "data_base64")?;
             session.bytes(&data, step)
         }
-        "action" => {
-            // Execution.action: actionCount++ and the max_actions check
-            // precede even the `action` field read.
-            session.begin_action(step)?;
-            match string(members, "action")?.as_str() {
-                "send_text" => {
-                    // sendText: rejectUnknown -> requireOpen -> text ->
-                    // requirePayloadLimit -> frames.
-                    reject_unknown(members, &["action", "kind", "text"], "send_text action")?;
-                    session.require_open("send_text")?;
-                    let text = string(members, "text")?;
-                    require_payload_limit(text.len(), limits)?;
-                    session.send_text(&text, step)
+        "action" => match parse_action(members, limits) {
+            // Every field Java reads parsed in Java's exact order: the
+            // step is a real core input, and the session (the core) alone
+            // runs Java's interleaved gates — `Execution.action`'s
+            // actionCount++/max_actions prelude, requireOpen, and the
+            // payload limit all re-run identically inside
+            // connection.rs `handle_command` at command receipt. The
+            // driver adds NO pre-delivery protocol check (re-review
+            // round 1, session 01a04427).
+            Ok(command) => deliver(session, command, step),
+            // The step can never become a core input (a field is missing,
+            // mistyped, or unrepresentable), so no core gate will ever see
+            // it. Java still ran its gates BEFORE reaching the failed
+            // read; the driver-gate hooks re-establish exactly that order
+            // around the parse failure — input-shaping, not protocol
+            // behavior (both hooks are pure reads of the core's live
+            // counts and state).
+            Err(refusal) => {
+                session.begin_action(step)?;
+                if let Some(action) = refusal.requires_open {
+                    session.require_open(action)?;
                 }
-                "send_binary" => {
-                    // sendBinary: rejectUnknown -> requireOpen -> base64 ->
-                    // requirePayloadLimit -> frames.
-                    reject_unknown(
-                        members,
-                        &["action", "data_base64", "kind"],
-                        "send_binary action",
-                    )?;
-                    session.require_open("send_binary")?;
-                    let data = base64_field(members, "data_base64")?;
-                    require_payload_limit(data.len(), limits)?;
-                    session.send_binary(&data, step)
-                }
-                "send_ping" => {
-                    // sendControl: rejectUnknown -> requireOpen -> base64 ->
-                    // frame validity (session); no payload-limit check.
-                    reject_unknown(
-                        members,
-                        &["action", "data_base64", "kind"],
-                        "send_ping action",
-                    )?;
-                    session.require_open("send_ping")?;
-                    let data = base64_field(members, "data_base64")?;
-                    session.send_ping(&data, step)
-                }
-                "send_pong" => {
-                    reject_unknown(
-                        members,
-                        &["action", "data_base64", "kind"],
-                        "send_pong action",
-                    )?;
-                    session.require_open("send_pong")?;
-                    let data = base64_field(members, "data_base64")?;
-                    session.send_pong(&data, step)
-                }
-                "send_close" => {
-                    // sendClose: rejectUnknown -> requireOpen -> code ->
-                    // reason -> frame effects.
-                    reject_unknown(
-                        members,
-                        &["action", "code", "kind", "reason"],
-                        "send_close action",
-                    )?;
-                    session.require_open("send_close")?;
-                    let code = integer(members, "code")?;
-                    let reason = string(members, "reason")?;
-                    session.send_close(code, &reason, step)
-                }
-                "send_fragment" => {
-                    // sendFragment: rejectUnknown -> requireOpen -> opcode
-                    // (full Opcode vocabulary first, then the text/binary
-                    // restriction — two distinct INVALID_ENUM details) ->
-                    // base64 -> requirePayloadLimit -> fin -> frames.
-                    reject_unknown(
-                        members,
-                        &["action", "data_base64", "fin", "kind", "opcode"],
-                        "send_fragment action",
-                    )?;
-                    session.require_open("send_fragment")?;
-                    let opcode = fragment_opcode(members)?;
-                    let data = base64_field(members, "data_base64")?;
-                    require_payload_limit(data.len(), limits)?;
-                    let fin = boolean(members, "fin")?;
-                    session.send_fragment(opcode, &data, fin, step)
-                }
-                "eof" => {
-                    // eof: rejectUnknown -> state effects (session).
-                    reject_unknown(members, &["action", "kind"], "eof action")?;
-                    session.eof(step)
-                }
-                _ => Err(ProtocolError::new("INVALID_ENUM", "action has unsupported value").into()),
+                Err(refusal.failure)
             }
-        }
+        },
         _ => Err(ProtocolError::new("INVALID_ENUM", "step kind has unsupported value").into()),
+    }
+}
+
+/// One fully parsed action step: every field Java reads, read in Java's
+/// exact order with NO gates interleaved. The existence of this value
+/// means the step is deliverable — the session receives it as a real core
+/// input and the core runs Java's gate order itself.
+enum ParsedAction {
+    /// `send_text {text}`.
+    SendText {
+        /// The text to send.
+        text: String,
+    },
+    /// `send_binary {data_base64}`.
+    SendBinary {
+        /// The decoded payload.
+        data: Vec<u8>,
+    },
+    /// `send_ping {data_base64}`.
+    SendPing {
+        /// The decoded payload.
+        data: Vec<u8>,
+    },
+    /// `send_pong {data_base64}`.
+    SendPong {
+        /// The decoded payload.
+        data: Vec<u8>,
+    },
+    /// `send_close {code, reason}`.
+    SendClose {
+        /// The requested close code (representability against the core's
+        /// vocabulary is the session's concern, not the driver's).
+        code: i64,
+        /// The close reason.
+        reason: String,
+    },
+    /// `send_fragment {opcode, data_base64, fin}`.
+    SendFragment {
+        /// The declared data opcode.
+        opcode: DataOpcode,
+        /// The decoded payload.
+        data: Vec<u8>,
+        /// Whether this fragment ends the message.
+        fin: bool,
+    },
+    /// `eof` (maps to transport EOF; participates in action accounting
+    /// inside the core).
+    Eof,
+}
+
+/// Why an action step can never become a core input. `requires_open`
+/// records where the failed read sits relative to Java's `requireOpen`:
+/// `Some(action)` when the failure is at or past a payload-field read
+/// (which Java performs only after requireOpen), `None` when it precedes
+/// the per-action state gate (the `action` field read, an unknown action
+/// value, or rejectUnknown).
+struct ActionRefusal {
+    /// The parse failure Java would report once its gates have passed.
+    failure: ScenarioFailure,
+    /// The requireOpen position marker (see the type docs).
+    requires_open: Option<&'static str>,
+}
+
+/// Refusal constructor for failures that precede Java's `requireOpen`.
+fn before_open(error: ProtocolError) -> ActionRefusal {
+    ActionRefusal {
+        failure: error.into(),
+        requires_open: None,
+    }
+}
+
+/// Refusal constructor for failures at or past Java's payload-field reads
+/// (requireOpen precedes them, so the driver must re-establish it).
+fn after_open(action: &'static str) -> impl Fn(ProtocolError) -> ActionRefusal {
+    move |error| ActionRefusal {
+        failure: error.into(),
+        requires_open: Some(action),
+    }
+}
+
+/// Parses one action step by reading exactly the fields Java reads, in
+/// Java's exact order (`Execution.action` + the per-action handlers),
+/// WITHOUT running any gate: gates belong to the core for deliverable
+/// commands and to the driver-gate hooks for refusals (see `run_step`).
+fn parse_action(
+    members: &std::collections::BTreeMap<String, Value>,
+    limits: &Limits,
+) -> Result<ParsedAction, ActionRefusal> {
+    // Execution.action: string(step, "action") — after the prelude, which
+    // for a deliverable command is the core's own.
+    match string(members, "action").map_err(before_open)?.as_str() {
+        "send_text" => {
+            // sendText: rejectUnknown -> [requireOpen] -> text ->
+            // [requirePayloadLimit] -> frames.
+            reject_unknown(members, &["action", "kind", "text"], "send_text action")
+                .map_err(before_open)?;
+            let text = string(members, "text").map_err(after_open("send_text"))?;
+            Ok(ParsedAction::SendText { text })
+        }
+        "send_binary" => {
+            // sendBinary: rejectUnknown -> [requireOpen] -> base64 ->
+            // [requirePayloadLimit] -> frames.
+            reject_unknown(
+                members,
+                &["action", "data_base64", "kind"],
+                "send_binary action",
+            )
+            .map_err(before_open)?;
+            let data = base64_field(members, "data_base64").map_err(after_open("send_binary"))?;
+            Ok(ParsedAction::SendBinary { data })
+        }
+        "send_ping" => {
+            // sendControl: rejectUnknown -> [requireOpen] -> base64 ->
+            // frame validity; no payload-limit check (Java applies none to
+            // control frames).
+            reject_unknown(
+                members,
+                &["action", "data_base64", "kind"],
+                "send_ping action",
+            )
+            .map_err(before_open)?;
+            let data = base64_field(members, "data_base64").map_err(after_open("send_ping"))?;
+            Ok(ParsedAction::SendPing { data })
+        }
+        "send_pong" => {
+            reject_unknown(
+                members,
+                &["action", "data_base64", "kind"],
+                "send_pong action",
+            )
+            .map_err(before_open)?;
+            let data = base64_field(members, "data_base64").map_err(after_open("send_pong"))?;
+            Ok(ParsedAction::SendPong { data })
+        }
+        "send_close" => {
+            // sendClose: rejectUnknown -> [requireOpen] -> code -> reason
+            // -> frame effects.
+            reject_unknown(
+                members,
+                &["action", "code", "kind", "reason"],
+                "send_close action",
+            )
+            .map_err(before_open)?;
+            let code = integer(members, "code").map_err(after_open("send_close"))?;
+            let reason = string(members, "reason").map_err(after_open("send_close"))?;
+            Ok(ParsedAction::SendClose { code, reason })
+        }
+        "send_fragment" => {
+            // sendFragment: rejectUnknown -> [requireOpen] -> opcode (full
+            // Opcode vocabulary first, then the text/binary restriction —
+            // two distinct INVALID_ENUM details) -> base64 ->
+            // [requirePayloadLimit] -> fin -> frames.
+            reject_unknown(
+                members,
+                &["action", "data_base64", "fin", "kind", "opcode"],
+                "send_fragment action",
+            )
+            .map_err(before_open)?;
+            let opcode = fragment_opcode(members).map_err(after_open("send_fragment"))?;
+            let data = base64_field(members, "data_base64").map_err(after_open("send_fragment"))?;
+            // Java's `Execution.requirePayloadLimit` sits BETWEEN the data
+            // and fin reads. A deliverable command meets the identical
+            // limit at the identical post-requireOpen position inside the
+            // core, so the driver defers it; only when `fin` cannot be
+            // read does the limit become a DRIVER failure, keeping Java's
+            // read order observable (BUFFER_LIMIT_EXCEEDED wins over the
+            // fin error).
+            let fin = match boolean(members, "fin") {
+                Ok(fin) => fin,
+                Err(fin_error) => {
+                    let failure = if data.len() as i64 > limits.max_buffered_bytes {
+                        ProtocolError::new(
+                            "BUFFER_LIMIT_EXCEEDED",
+                            "action payload exceeds max_buffered_bytes",
+                        )
+                    } else {
+                        fin_error
+                    };
+                    return Err(after_open("send_fragment")(failure));
+                }
+            };
+            Ok(ParsedAction::SendFragment { opcode, data, fin })
+        }
+        "eof" => {
+            // eof: rejectUnknown -> state effects (core).
+            reject_unknown(members, &["action", "kind"], "eof action").map_err(before_open)?;
+            Ok(ParsedAction::Eof)
+        }
+        _ => Err(before_open(ProtocolError::new(
+            "INVALID_ENUM",
+            "action has unsupported value",
+        ))),
+    }
+}
+
+/// Hands one deliverable command to the session. From here every gate is
+/// the core's own (see [`parse_action`]).
+fn deliver(
+    session: &mut dyn ScenarioSession,
+    command: ParsedAction,
+    step: u32,
+) -> Result<(), ScenarioFailure> {
+    match command {
+        ParsedAction::SendText { text } => session.send_text(&text, step),
+        ParsedAction::SendBinary { data } => session.send_binary(&data, step),
+        ParsedAction::SendPing { data } => session.send_ping(&data, step),
+        ParsedAction::SendPong { data } => session.send_pong(&data, step),
+        ParsedAction::SendClose { code, reason } => session.send_close(code, &reason, step),
+        ParsedAction::SendFragment { opcode, data, fin } => {
+            session.send_fragment(opcode, &data, fin, step)
+        }
+        ParsedAction::Eof => session.eof(step),
     }
 }
 
@@ -341,20 +506,6 @@ fn fragment_opcode(
         )),
         _ => Err(invalid_enum("opcode")),
     }
-}
-
-/// Java `Execution.requirePayloadLimit`: data-frame action payloads are
-/// bounded by `max_buffered_bytes`. Sits in the driver because Java places
-/// it BETWEEN field reads (before `fin` in `sendFragment`), so the order is
-/// part of the validation contract, and the limit comes from the request.
-fn require_payload_limit(size: usize, limits: &Limits) -> Result<(), ProtocolError> {
-    if size as i64 > limits.max_buffered_bytes {
-        return Err(ProtocolError::new(
-            "BUFFER_LIMIT_EXCEEDED",
-            "action payload exceeds max_buffered_bytes",
-        ));
-    }
-    Ok(())
 }
 
 /// Truthful placeholder implementation from the pre-merge round: session
@@ -499,15 +650,17 @@ fn scenario_config(
 struct WiredSession {
     core: ws_core::ConnectionCore,
     /// Seam bookkeeping, NOT protocol state: Java increments `actionCount`
-    /// inside `Execution.action` BEFORE the action's fields are read, while
-    /// the core counts an action when its command (or EOF) input arrives.
-    /// Between the driver's `begin_action` hook and the moment the input
-    /// reaches the core, this flag records that Java's count is one ahead of
-    /// the core's. It matters only for the terminal failure envelope of an
-    /// action that never reaches the core (a malformed field, a non-open
-    /// state, an exhausted action budget — all fatal, so the one-step gap
-    /// can never accumulate); [`WiredSession::snapshot`] adds the pending
-    /// action exactly as Java's partial-execution counts do.
+    /// inside `Execution.action` BEFORE the action's fields are read, so an
+    /// action step whose command can NEVER reach the core (a malformed or
+    /// unrepresentable step — the only path on which the driver-gate
+    /// mirrors run, re-review round 1) is still counted in Java's failure
+    /// envelope even though the core never saw an input. This flag records
+    /// exactly that one counted-but-undeliverable action;
+    /// [`WiredSession::snapshot`] adds it to the core's own counts as
+    /// Java's partial-execution counts do. Every failure on this path is
+    /// fatal, so the one-step gap can never accumulate. A DELIVERED
+    /// command is counted by the core itself at receipt and never touches
+    /// this flag.
     pending_action: bool,
     /// The scenario's declared initial state, kept as the projection
     /// fallback for [`ws_core::connection::ReadyState::NotYetConnected`]
@@ -537,8 +690,10 @@ impl WiredSession {
         result.map_err(|failure| map_core_failure(&failure))
     }
 
-    /// Routes one action command to the core (clearing the pending-action
-    /// seam gap: from here the core's own accounting is authoritative).
+    /// Routes one action command to the core. The core's own accounting is
+    /// authoritative from here; clearing the pending flag is defensive
+    /// symmetry for callers outside `drive_scenario` (the driver never
+    /// sets it on the delivered path).
     fn command(&mut self, command: ws_core::LocalCommand) -> Result<(), ScenarioFailure> {
         self.pending_action = false;
         self.submit(ws_core::Input::Command(command))
@@ -616,15 +771,15 @@ impl ScenarioSession for WiredSession {
         self.submit(ws_core::Input::TransportBytes(data))
     }
 
-    /// Java's `Execution.action` prelude fires before the `action` field is
-    /// even read, so the session must answer it before any command can
-    /// exist. The comparison below is a pre-check MIRROR of the core's own
-    /// gate, computed from the core's live count and config (never from
-    /// adapter-held state): when it passes, the eventual command/EOF input
-    /// re-runs the identical arithmetic inside the core and passes
-    /// identically; when it fails, the scenario ends here exactly as Java's
-    /// does, with [`WiredSession::pending_action`] carrying the counted-
-    /// but-rejected action into the failure counts.
+    /// Java's `Execution.action` prelude (actionCount++/max_actions) for a
+    /// step the core will NEVER see — `drive_scenario` calls this only on
+    /// the driver-failure path of a malformed or unrepresentable step
+    /// (re-review round 1: a deliverable command reaches the core's own
+    /// identical prelude at command receipt instead). The comparison is a
+    /// pure read of the core's live count and config, never adapter-held
+    /// state, and [`WiredSession::pending_action`] carries the
+    /// counted-but-undeliverable action into the failure counts exactly as
+    /// Java's partial-execution counts do.
     fn begin_action(&mut self, _step: u32) -> Result<(), ScenarioFailure> {
         self.pending_action = true;
         let next = self.core.counts().actions.saturating_add(1);
@@ -636,12 +791,14 @@ impl ScenarioSession for WiredSession {
         Ok(())
     }
 
-    /// Java's `Execution.requireOpen` fires before the action's payload
-    /// fields are read. A pure read of the core's live state (quirk Q26 /
-    /// derive.go requireOpen): when it passes, the eventual command hits
-    /// the core's identical gate and passes identically (no state change
-    /// can occur between this check and the command — only field reads
-    /// happen in between).
+    /// Java's `Execution.requireOpen` for a step the core will NEVER see:
+    /// a pure read of the core's live state (quirk Q26 / derive.go
+    /// requireOpen). A deliverable command is state-gated by the core
+    /// itself (connection.rs `handle_command`); this mirror exists solely
+    /// so a step whose payload field cannot be read (or represented) in a
+    /// non-open state reports STATE_VIOLATION in Java's
+    /// requireOpen-before-field-read order — input-shaping, not protocol
+    /// behavior (re-review round 1).
     fn require_open(&mut self, _action: &str) -> Result<(), ScenarioFailure> {
         if self.core.state() != ws_core::ReadyState::Open {
             return Err(map_core_failure(&ws_core::TypedProtocolFailure::protocol(
@@ -675,15 +832,19 @@ impl ScenarioSession for WiredSession {
         })
     }
 
-    fn send_close(&mut self, code: i64, reason: &str, _step: u32) -> Result<(), ScenarioFailure> {
+    fn send_close(&mut self, code: i64, reason: &str, step: u32) -> Result<(), ScenarioFailure> {
         // The core's command vocabulary carries close codes as u16 (US-016
         // wires the Q13/Q14 close-code model). A corpus code outside u16
-        // cannot be represented in the command; this round the core refuses
-        // EVERY send_close as Unimplemented before reading the code, so the
-        // honest answer is the same non-oracle refusal (the pending-action
-        // flag keeps the action counted, exactly as Java counts it).
-        // US-016 must revisit this seam alongside the close stories.
+        // cannot be represented as a core input, so the step joins the
+        // driver-failure path: the seam re-establishes Java's gate order
+        // itself (the action prelude, then requireOpen — Java reads `code`
+        // only after both) and then answers the same honest non-oracle
+        // refusal the core gives every representable send_close this
+        // round. US-016 must revisit this seam alongside the close
+        // stories.
         let Ok(code) = u16::try_from(code) else {
+            self.begin_action(step)?;
+            self.require_open("send_close")?;
             return Err(ScenarioFailure {
                 code: UNIMPLEMENTED_CODE.to_string(),
                 close_code: None,
@@ -916,7 +1077,12 @@ mod tests {
     );
 
     /// A scripted session that records the exact hook order the driver
-    /// calls, so Java's validation order is pinned by tests.
+    /// calls, so the driver's contract is pinned by tests: deliverable
+    /// commands arrive as send/eof hooks (which count actions at receipt,
+    /// mirroring the core's own accounting), while the driver-gate hooks
+    /// (`begin_action`, `require_open`) fire only for steps that can never
+    /// be delivered. Deliberately permissive: sends succeed in any state,
+    /// so a recorded send hook proves the driver did not pre-gate.
     #[derive(Default)]
     struct ScriptedSession {
         calls: std::rc::Rc<std::cell::RefCell<Vec<String>>>,
@@ -930,6 +1096,20 @@ mod tests {
         fn log(&self, call: impl Into<String>) {
             self.calls.borrow_mut().push(call.into());
         }
+
+        /// The core-side action accounting every delivered command (and
+        /// EOF) runs at receipt: count first, then the limit check.
+        fn count_action(&mut self) -> Result<(), ScenarioFailure> {
+            self.actions += 1;
+            if self.actions > self.max_actions {
+                return Err(ScenarioFailure {
+                    code: "ACTION_LIMIT_EXCEEDED".to_string(),
+                    close_code: None,
+                    detail: "action count exceeds max_actions".to_string(),
+                });
+            }
+            Ok(())
+        }
     }
 
     impl ScenarioSession for ScriptedSession {
@@ -940,15 +1120,7 @@ mod tests {
         }
         fn begin_action(&mut self, _step: u32) -> Result<(), ScenarioFailure> {
             self.log("begin_action");
-            self.actions += 1;
-            if self.actions > self.max_actions {
-                return Err(ScenarioFailure {
-                    code: "ACTION_LIMIT_EXCEEDED".to_string(),
-                    close_code: None,
-                    detail: "action count exceeds max_actions".to_string(),
-                });
-            }
-            Ok(())
+            self.count_action()
         }
         fn require_open(&mut self, action: &str) -> Result<(), ScenarioFailure> {
             self.log(format!("require_open({action})"));
@@ -964,19 +1136,19 @@ mod tests {
         }
         fn send_text(&mut self, _text: &str, _step: u32) -> Result<(), ScenarioFailure> {
             self.log("send_text");
-            Ok(())
+            self.count_action()
         }
         fn send_binary(&mut self, _data: &[u8], _step: u32) -> Result<(), ScenarioFailure> {
             self.log("send_binary");
-            Ok(())
+            self.count_action()
         }
         fn send_ping(&mut self, _data: &[u8], _step: u32) -> Result<(), ScenarioFailure> {
             self.log("send_ping");
-            Ok(())
+            self.count_action()
         }
         fn send_pong(&mut self, _data: &[u8], _step: u32) -> Result<(), ScenarioFailure> {
             self.log("send_pong");
-            Ok(())
+            self.count_action()
         }
         fn send_close(
             &mut self,
@@ -985,7 +1157,7 @@ mod tests {
             _step: u32,
         ) -> Result<(), ScenarioFailure> {
             self.log("send_close");
-            Ok(())
+            self.count_action()
         }
         fn send_fragment(
             &mut self,
@@ -995,11 +1167,11 @@ mod tests {
             _step: u32,
         ) -> Result<(), ScenarioFailure> {
             self.log("send_fragment");
-            Ok(())
+            self.count_action()
         }
         fn eof(&mut self, _step: u32) -> Result<(), ScenarioFailure> {
             self.log("eof");
-            Ok(())
+            self.count_action()
         }
         fn snapshot(&self) -> CountsWithState {
             CountsWithState {
@@ -1204,8 +1376,10 @@ mod tests {
         assert!(calls.borrow().is_empty(), "no session hook was reached");
     }
 
-    /// The full hook order for a healthy mixed scenario matches Java's
-    /// execution sequence.
+    /// The full hook order for a healthy mixed scenario: every deliverable
+    /// step goes straight to its delivery hook — NO driver gate fires on
+    /// the delivered path (Java's interleaved gates are the core's own
+    /// there; re-review round 1).
     #[test]
     fn driver_hook_order_matches_java_execution() {
         let request = request_with_steps(concat!(
@@ -1221,16 +1395,150 @@ mod tests {
             *calls.borrow(),
             vec![
                 "bytes(2)".to_string(),
-                "begin_action".to_string(),
-                "require_open(send_text)".to_string(),
                 "send_text".to_string(),
-                "begin_action".to_string(),
                 "eof".to_string(),
             ]
         );
     }
 
+    /// The driver-gate hook order for an UNDELIVERABLE step re-establishes
+    /// Java's sequence: the `Execution.action` prelude, then requireOpen
+    /// (the failed read sits past it), then the parse failure — and no
+    /// delivery hook ever fires.
+    #[test]
+    fn driver_gate_hooks_fire_only_for_undeliverable_steps() {
+        let request = request_with_steps("[{\"action\":\"send_text\",\"kind\":\"action\"}]");
+        let mut core = scripted(true, 64);
+        let calls = core.calls.clone();
+        let (code, counts) = failure_code(drive_scenario(&request, &mut core));
+        assert_eq!(code, "MISSING_FIELD");
+        assert_eq!(counts.actions, 1, "the prelude counted the action");
+        assert_eq!(
+            *calls.borrow(),
+            vec![
+                "begin_action".to_string(),
+                "require_open(send_text)".to_string(),
+            ]
+        );
+    }
+
+    /// Re-review round 1: a constructible command is ALWAYS delivered —
+    /// even in a non-open state the driver adds no pre-delivery gate; the
+    /// state refusal is the session's (i.e. the core's) own behavior. The
+    /// deliberately permissive scripted double accepts the delivered
+    /// command, proving no driver gate intervened.
+    #[test]
+    fn driver_delivers_constructible_commands_without_pre_gating() {
+        let request =
+            request_with_steps("[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"hi\"}]");
+        let mut core = scripted(false, 64);
+        let calls = core.calls.clone();
+        let outcome = drive_scenario(&request, &mut core);
+        assert!(
+            matches!(outcome, ScenarioOutcome::Completed(_)),
+            "the permissive scripted session accepted the delivered \
+             command, got {outcome:?}"
+        );
+        assert_eq!(*calls.borrow(), vec!["send_text".to_string()]);
+    }
+
     // -- WiredCore: the real ws_core ConnectionCore behind the seam --------
+
+    /// A delegating wrapper around the real [`WiredSession`] that records
+    /// which driver hooks fire, so tests can prove WHERE a failure
+    /// originated: a hook trace of `["send_text"]` means the command was
+    /// delivered and every gate that fired was the core's own; a trace
+    /// containing `begin_action`/`require_open` means the driver supplied
+    /// gate shaping.
+    struct RecordingSession {
+        inner: Box<dyn ScenarioSession>,
+        calls: std::rc::Rc<std::cell::RefCell<Vec<String>>>,
+    }
+
+    impl RecordingSession {
+        fn log(&self, call: impl Into<String>) {
+            self.calls.borrow_mut().push(call.into());
+        }
+    }
+
+    impl ScenarioSession for RecordingSession {
+        fn bytes(&mut self, data: &[u8], step: u32) -> Result<(), ScenarioFailure> {
+            self.log(format!("bytes({})", data.len()));
+            self.inner.bytes(data, step)
+        }
+        fn begin_action(&mut self, step: u32) -> Result<(), ScenarioFailure> {
+            self.log("begin_action");
+            self.inner.begin_action(step)
+        }
+        fn require_open(&mut self, action: &str) -> Result<(), ScenarioFailure> {
+            self.log(format!("require_open({action})"));
+            self.inner.require_open(action)
+        }
+        fn send_text(&mut self, text: &str, step: u32) -> Result<(), ScenarioFailure> {
+            self.log("send_text");
+            self.inner.send_text(text, step)
+        }
+        fn send_binary(&mut self, data: &[u8], step: u32) -> Result<(), ScenarioFailure> {
+            self.log("send_binary");
+            self.inner.send_binary(data, step)
+        }
+        fn send_ping(&mut self, data: &[u8], step: u32) -> Result<(), ScenarioFailure> {
+            self.log("send_ping");
+            self.inner.send_ping(data, step)
+        }
+        fn send_pong(&mut self, data: &[u8], step: u32) -> Result<(), ScenarioFailure> {
+            self.log("send_pong");
+            self.inner.send_pong(data, step)
+        }
+        fn send_close(
+            &mut self,
+            code: i64,
+            reason: &str,
+            step: u32,
+        ) -> Result<(), ScenarioFailure> {
+            self.log("send_close");
+            self.inner.send_close(code, reason, step)
+        }
+        fn send_fragment(
+            &mut self,
+            opcode: DataOpcode,
+            data: &[u8],
+            fin: bool,
+            step: u32,
+        ) -> Result<(), ScenarioFailure> {
+            self.log("send_fragment");
+            self.inner.send_fragment(opcode, data, fin, step)
+        }
+        fn eof(&mut self, step: u32) -> Result<(), ScenarioFailure> {
+            self.log("eof");
+            self.inner.eof(step)
+        }
+        fn snapshot(&self) -> CountsWithState {
+            self.inner.snapshot()
+        }
+        fn finish(self: Box<Self>) -> Observations {
+            self.inner.finish()
+        }
+    }
+
+    /// [`WiredCore`] with every session hook recorded (see
+    /// [`RecordingSession`]).
+    struct RecordingWiredCore {
+        calls: std::rc::Rc<std::cell::RefCell<Vec<String>>>,
+    }
+
+    impl CandidateCore for RecordingWiredCore {
+        fn begin(
+            &mut self,
+            request: &OracleRequest,
+        ) -> Result<Box<dyn ScenarioSession>, ScenarioFailure> {
+            let inner = WiredCore.begin(request)?;
+            Ok(Box::new(RecordingSession {
+                inner,
+                calls: self.calls.clone(),
+            }))
+        }
+    }
 
     /// Rebuilds `PUB_0000` with envelope patches (e.g. `initial_state`,
     /// `limits`) plus a raw `steps` array, re-signing the digest.
@@ -1684,5 +1992,218 @@ mod tests {
                 expected.wire()
             );
         }
+    }
+
+    // -- Re-review round 1 (session 01a04427): core-produced gating --------
+
+    fn recorded_outcome(
+        request: &OracleRequest,
+    ) -> (
+        ScenarioOutcome,
+        std::rc::Rc<std::cell::RefCell<Vec<String>>>,
+    ) {
+        let calls = std::rc::Rc::<std::cell::RefCell<Vec<String>>>::default();
+        let mut core = RecordingWiredCore {
+            calls: calls.clone(),
+        };
+        (drive_scenario(request, &mut core), calls)
+    }
+
+    /// `us005.pub.0068`'s exact shape (a constructible `send_text` while
+    /// CLOSING), driven through the full driver against the real core: the
+    /// command must REACH the core (the hook trace is exactly
+    /// `["send_text"]` — no driver gate fires) and the STATE_VIOLATION plus
+    /// the action count are the core's own (connection.rs `handle_command`:
+    /// action prelude, then the Q26 state gate). Re-review round 1: this
+    /// pass must be core-produced, never adapter-synthesized.
+    #[test]
+    fn wired_send_in_closing_is_core_produced_not_adapter_synthesized() {
+        let request = wired_request(
+            &[("initial_state", "\"closing\"")],
+            "[{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"#_{\"}]",
+        );
+        let (outcome, calls) = recorded_outcome(&request);
+        let ScenarioOutcome::Failed {
+            failure,
+            counts,
+            final_state,
+        } = outcome
+        else {
+            panic!("expected Failed, got {outcome:?}");
+        };
+        assert_eq!(failure.code, "STATE_VIOLATION");
+        assert_eq!(failure.close_code, None);
+        assert_eq!(
+            counts.actions, 1,
+            "the CORE counted the action at command receipt"
+        );
+        assert_eq!(final_state, ConnectionState::Closing);
+        assert_eq!(
+            *calls.borrow(),
+            vec!["send_text".to_string()],
+            "no driver gate fired: the command was delivered and the \
+             refusal is the core's own"
+        );
+    }
+
+    /// The same provenance for a constructible `send_close` (code within
+    /// u16) while CLOSING: delivered, and state-gated by the core itself.
+    #[test]
+    fn wired_send_close_in_closing_is_core_gated() {
+        let request = wired_request(
+            &[("initial_state", "\"closing\"")],
+            concat!(
+                "[{\"action\":\"send_close\",\"code\":999,",
+                "\"kind\":\"action\",\"reason\":\"bad\"}]"
+            ),
+        );
+        let (outcome, calls) = recorded_outcome(&request);
+        let ScenarioOutcome::Failed {
+            failure,
+            counts,
+            final_state,
+        } = outcome
+        else {
+            panic!("expected Failed, got {outcome:?}");
+        };
+        assert_eq!(failure.code, "STATE_VIOLATION");
+        assert_eq!(counts.actions, 1, "core-counted at command receipt");
+        assert_eq!(final_state, ConnectionState::Closing);
+        assert_eq!(*calls.borrow(), vec!["send_close".to_string()]);
+    }
+
+    /// An oversized but fully constructible `send_text` is delivered too:
+    /// the core's own post-requireOpen payload gate (connection.rs
+    /// `handle_command`) produces BUFFER_LIMIT_EXCEEDED with the
+    /// core-counted action — the driver no longer pre-checks the payload
+    /// limit for deliverable commands.
+    #[test]
+    fn wired_oversized_constructible_send_is_gated_by_the_core_payload_gate() {
+        let request = wired_request(
+            &[],
+            &format!(
+                "[{{\"action\":\"send_text\",\"kind\":\"action\",\"text\":\"{}\"}}]",
+                "a".repeat(65_537)
+            ),
+        );
+        let (outcome, calls) = recorded_outcome(&request);
+        let ScenarioOutcome::Failed {
+            failure,
+            counts,
+            final_state,
+        } = outcome
+        else {
+            panic!("expected Failed, got {outcome:?}");
+        };
+        assert_eq!(failure.code, "BUFFER_LIMIT_EXCEEDED");
+        assert_eq!(counts.actions, 1, "core-counted at command receipt");
+        assert_eq!(final_state, ConnectionState::Open);
+        assert_eq!(*calls.borrow(), vec!["send_text".to_string()]);
+    }
+
+    /// Regression (driver-level shaping, malformed step in a non-open
+    /// state): a `send_text` with NO `text` field while CLOSING can never
+    /// become a core input, so the driver re-establishes Java's
+    /// requireOpen-before-field-read order (OracleEngine.sendText:433-436:
+    /// rejectUnknown -> requireOpen -> text) — STATE_VIOLATION with the
+    /// prelude-counted action retained.
+    #[test]
+    fn wired_malformed_send_in_closing_keeps_java_require_open_order() {
+        let request = wired_request(
+            &[("initial_state", "\"closing\"")],
+            "[{\"action\":\"send_text\",\"kind\":\"action\"}]",
+        );
+        let ScenarioOutcome::Failed {
+            failure,
+            counts,
+            final_state,
+        } = wired_outcome(&request)
+        else {
+            panic!("expected Failed");
+        };
+        assert_eq!(failure.code, "STATE_VIOLATION");
+        assert_eq!(counts.actions, 1, "Java's prelude counted the action");
+        assert_eq!(final_state, ConnectionState::Closing);
+    }
+
+    /// Regression: rejectUnknown precedes requireOpen
+    /// (OracleEngine.sendText:433-434), so an unknown field on a send in
+    /// CLOSING reports UNKNOWN_FIELD, never STATE_VIOLATION.
+    #[test]
+    fn wired_unknown_field_wins_over_state_gate_in_non_open_state() {
+        let request = wired_request(
+            &[("initial_state", "\"closing\"")],
+            concat!(
+                "[{\"action\":\"send_text\",\"bogus\":1,",
+                "\"kind\":\"action\",\"text\":\"hi\"}]"
+            ),
+        );
+        let ScenarioOutcome::Failed {
+            failure, counts, ..
+        } = wired_outcome(&request)
+        else {
+            panic!("expected Failed");
+        };
+        assert_eq!(failure.code, "UNKNOWN_FIELD");
+        assert_eq!(counts.actions, 1, "Java's prelude counted the action");
+    }
+
+    /// Regression: a `send_close` code outside u16 (unrepresentable in the
+    /// core's command vocabulary) in CLOSING — Java reads `code` only
+    /// after requireOpen, so STATE_VIOLATION wins over the seam's honest
+    /// unimplemented refusal.
+    #[test]
+    fn wired_send_close_code_outside_u16_in_closing_reports_state_violation() {
+        let request = wired_request(
+            &[("initial_state", "\"closing\"")],
+            concat!(
+                "[{\"action\":\"send_close\",\"code\":70000,",
+                "\"kind\":\"action\",\"reason\":\"x\"}]"
+            ),
+        );
+        let ScenarioOutcome::Failed {
+            failure,
+            counts,
+            final_state,
+        } = wired_outcome(&request)
+        else {
+            panic!("expected Failed");
+        };
+        assert_eq!(failure.code, "STATE_VIOLATION");
+        assert_eq!(counts.actions, 1, "Java's prelude counted the action");
+        assert_eq!(final_state, ConnectionState::Closing);
+    }
+
+    /// Regression: `send_fragment` with an oversized payload and an
+    /// unreadable `fin` cannot reach the core; Java's payload limit sits
+    /// before the fin read and requireOpen before both, so the driver
+    /// reports BUFFER_LIMIT_EXCEEDED in OPEN and STATE_VIOLATION in
+    /// CLOSING.
+    #[test]
+    fn wired_fragment_payload_limit_and_state_shaping_for_unreadable_fin() {
+        let steps = format!(
+            "[{{\"action\":\"send_fragment\",\"data_base64\":\"{}\",\
+             \"kind\":\"action\",\"opcode\":\"text\"}}]",
+            crate::base64::encode(&vec![0u8; 65_537])
+        );
+        let open = wired_request(&[], &steps);
+        let ScenarioOutcome::Failed {
+            failure, counts, ..
+        } = wired_outcome(&open)
+        else {
+            panic!("expected Failed");
+        };
+        assert_eq!(failure.code, "BUFFER_LIMIT_EXCEEDED");
+        assert_eq!(counts.actions, 1, "Java's prelude counted the action");
+
+        let closing = wired_request(&[("initial_state", "\"closing\"")], &steps);
+        let ScenarioOutcome::Failed {
+            failure, counts, ..
+        } = wired_outcome(&closing)
+        else {
+            panic!("expected Failed");
+        };
+        assert_eq!(failure.code, "STATE_VIOLATION");
+        assert_eq!(counts.actions, 1, "Java's prelude counted the action");
     }
 }
