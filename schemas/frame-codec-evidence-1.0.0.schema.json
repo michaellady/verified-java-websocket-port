@@ -51,7 +51,7 @@
     },
     "formal": {
       "type":"object","additionalProperties":false,"required":["result_path","result_sha256","declared_obligations"],
-      "properties":{"result_path":{"const":"assurance/formal/frame-results.json"},"result_sha256":{"const":"sha256:523c4715d77bab41fd260f42a0a901974103cdaf1daac0b96c5125c1e327d8a4"},"declared_obligations":{"const":8}}
+      "properties":{"result_path":{"const":"assurance/formal/frame-results.json"},"result_sha256":{"const":"sha256:fc6c03c9c16a4d0e80c14ab8c6d50e76cec3663ad42d5be6165f79e8dea43f0a"},"declared_obligations":{"const":8}}
     },
     "compatibility": {
       "type":"object","additionalProperties":false,
@@ -76,7 +76,7 @@
     "digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
     "testRun": {
       "type":"object","additionalProperties":false,"required":["command","passed","failed"],
-      "properties":{"command":{"enum":["make -C rust test","make -C rust test-release"]},"passed":{"const":75},"failed":{"const":0}}
+      "properties":{"command":{"enum":["make -C rust test","make -C rust test-release"]},"passed":{"const":85},"failed":{"const":0}}
     },
     "artifactBinding": {
       "type":"object","additionalProperties":false,"required":["path","sha256"],
