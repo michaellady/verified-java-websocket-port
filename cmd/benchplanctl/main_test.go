@@ -23,12 +23,11 @@ func TestVerifyOnRealTreeExitsHostBindingPending(t *testing.T) {
 		"schema ok   benchmarks/environments/confirmation.json",
 		"plan-spec ok",
 		"power-model ok",
-		"binding completion meter: 25 field(s) unbound",
+		"binding completion meter: 24 field(s) unbound",
 		"host_identity.instance_id",
 		"host_identity.observed_architecture",
-		"host_identity.allocation_evidence",
 		"tool_identities.analyzer",
-		"attestation: plan UNATTESTED",
+		"attestation: plan OWNER_ATTESTED",
 		"meter ok",
 	} {
 		if !strings.Contains(output, required) {
@@ -36,18 +35,18 @@ func TestVerifyOnRealTreeExitsHostBindingPending(t *testing.T) {
 		}
 	}
 	// The owner's Tier-1 decision of 2026-08-26 bound four confirmation
-	// identities, and the round-2 decision of 2026-08-27 bound the
-	// CPU-frequency policy; none may still report as unbound (the only
-	// place these paths appear in verify output). allocation_evidence is
-	// asserted PRESENT above: the round-2 BUILTIN_ACCOUNTING_PER_RUN
-	// decision is allocation-accounting method truth, not the tenancy
-	// observation this field requires, so it stays unbound.
+	// identities, the round-2 decision of 2026-08-27 bound the
+	// CPU-frequency policy, and the round-3 decision of 2026-08-27 bound
+	// allocation_evidence (the STANDARD_CLOUD_CHECKS tenancy procedure —
+	// resolving the round-2 name collision); none may still report as
+	// unbound (the only place these paths appear in verify output).
 	for _, bound := range []string{
 		"host_identity.instance_type",
 		"host_identity.region",
 		"host_identity.ami_id",
 		"host_identity.ami_name",
 		"host_identity.cpu_frequency_policy",
+		"host_identity.allocation_evidence",
 	} {
 		if strings.Contains(output, bound) {
 			t.Errorf("verify output still lists owner-bound field %q as unbound\noutput: %s", bound, output)

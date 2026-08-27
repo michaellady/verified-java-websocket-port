@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -33,6 +34,23 @@ const (
 	// list frozen in this package — the completion meter is code+schema
 	// truth, never document truth (review fix round 2).
 	BlockerMeterTampered = "METER_TAMPERED"
+)
+
+// OwnerIdentity is the frozen owner identity exactly as recorded in
+// every owner decision record in the workspace protected root
+// ("owner": "mikelady", e.g. us008-owner-attestation-2026-08-27.json).
+// An independent attestation's attestor can never be this identity:
+// a self-attestation is owner-only by definition (re-review round 1,
+// session 01a04165).
+const OwnerIdentity = "mikelady"
+
+// Attestation assurance labels. The owner-only label is the honest
+// posture of every real document today; the independent label exists
+// only as the paired-state requirement for a future genuine
+// independent attestation.
+const (
+	AssuranceOwnerNotIndependent   = "OWNER_ATTESTED_NOT_INDEPENDENT"
+	AssuranceIndependentlyAttested = "INDEPENDENTLY_ATTESTED"
 )
 
 // EnvironmentRoleByDocument is the filename-to-role contract: each
@@ -132,13 +150,40 @@ type Report struct {
 	BlockerClasses           []string
 }
 
+// attestationRecord is the digest-binding record an attested plan must
+// carry: it binds the attestation to the exact frozen plan bytes plus
+// the owner decision record and the honest assurance labels. The three
+// independent_* fields exist ONLY in the INDEPENDENTLY_ATTESTED record
+// variant (re-review round 1, session 01a04165): they are the
+// independent-specific evidence an owner-only record structurally
+// cannot provide, so a relabeled owner record can never satisfy the
+// independent state.
+type attestationRecord struct {
+	PlanContentSHA256        string `json:"plan_content_sha256"`
+	FrozenPlanGitCommit      string `json:"frozen_plan_git_commit"`
+	FrozenPlanPath           string `json:"frozen_plan_path"`
+	DigestScope              string `json:"digest_scope"`
+	DecisionRecord           string `json:"decision_record"`
+	AttestedAt               string `json:"attested_at"`
+	Assurance                string `json:"assurance"`
+	IndependentReviewClaimed bool   `json:"independent_review_claimed"`
+	// Independent-variant evidence (empty in every owner-only record;
+	// the schema's ownerAttestationRecord forbids them outright).
+	IndependentAttestorIdentity        string `json:"independent_attestor_identity"`
+	IndependentAttestationRecordSHA256 string `json:"independent_attestation_record_sha256"`
+	IndependentAttestedAt              string `json:"independent_attested_at"`
+}
+
 // planDocument is the subset of the plan the validator cross-checks
 // against the frozen executable spec.
 type planDocument struct {
-	Schema            string `json:"schema"`
-	Status            string `json:"status"`
-	AttestationState  string `json:"attestation_state"`
-	SharedDefinitions struct {
+	Schema                   string             `json:"schema"`
+	Status                   string             `json:"status"`
+	AttestationState         string             `json:"attestation_state"`
+	AttestationRecord        *attestationRecord `json:"attestation_record"`
+	Assurance                string             `json:"assurance"`
+	IndependentReviewClaimed bool               `json:"independent_review_claimed"`
+	SharedDefinitions        struct {
 		MaskSpecVersion string `json:"mask_spec_version"`
 	} `json:"shared_definitions"`
 	Workloads []struct {
@@ -262,7 +307,11 @@ func Verify(root string) (Report, error) {
 	}
 	// The owner-gated gap is host/tool binding AND its attestation:
 	// syntactically complete field values with UNBOUND/UNATTESTED
-	// status must never read as bound (review fix I5).
+	// status must never read as bound (review fix I5). OWNER_ATTESTED
+	// (the owner-only attestation of 2026-08-27) still counts as
+	// attestation pending here — the exit-0 gate requires an
+	// INDEPENDENT attestation and is never loosened by an owner-only
+	// one.
 	attestationPending := report.PlanAttestationState != "INDEPENDENTLY_ATTESTED"
 	for _, bindingStatus := range report.EnvironmentBindingStatus {
 		if bindingStatus != "BOUND" {
@@ -305,15 +354,44 @@ func verifyPlanAgainstSpec(root string) ([]string, string, error) {
 		failures = append(failures, fmt.Sprintf(format, args...))
 	}
 
+	// Paired attestation states (never loosened): UNATTESTED forbids the
+	// digest-binding record, every attested state requires it, and only
+	// INDEPENDENTLY_ATTESTED can ever satisfy the exit-0 gate.
+	// OWNER_ATTESTED is the honest owner-only intermediate: the owner
+	// froze and attested the plan under the
+	// OWNER_ATTESTED_NOT_INDEPENDENT labeling, and no independent
+	// attestation exists or is claimed. INDEPENDENTLY_ATTESTED demands
+	// independent-specific evidence (a distinct attestor identity,
+	// record-level independent_review_claimed true, the attestor record
+	// digest and date) that an owner-only record structurally cannot
+	// provide — a state/status relabel alone must always fail (re-review
+	// round 1, session 01a04165).
 	switch plan.AttestationState {
 	case "UNATTESTED":
 		if !strings.HasPrefix(plan.Status, "PREREGISTERED_BY_DRIVER_UNATTESTED") {
 			fail("attestation_state UNATTESTED but status %q does not declare it", plan.Status)
 		}
+		if plan.AttestationRecord != nil {
+			fail("attestation_state UNATTESTED must not carry an attestation_record")
+		}
+		verifyOwnerAssuranceLabels(plan, fail)
+	case "OWNER_ATTESTED":
+		if !strings.HasPrefix(plan.Status, "PREREGISTERED_OWNER_ATTESTED") {
+			fail("attestation_state OWNER_ATTESTED but status %q does not declare it", plan.Status)
+		}
+		verifyOwnerAssuranceLabels(plan, fail)
+		verifyOwnerAttestationRecord(plan.AttestationRecord, fail)
 	case "INDEPENDENTLY_ATTESTED":
 		if !strings.HasPrefix(plan.Status, "PREREGISTERED_INDEPENDENTLY_ATTESTED") {
 			fail("attestation_state INDEPENDENTLY_ATTESTED but status %q does not declare it", plan.Status)
 		}
+		if plan.Assurance != AssuranceIndependentlyAttested {
+			fail("attestation_state INDEPENDENTLY_ATTESTED but document assurance %q is not %q", plan.Assurance, AssuranceIndependentlyAttested)
+		}
+		if !plan.IndependentReviewClaimed {
+			fail("attestation_state INDEPENDENTLY_ATTESTED but the document does not claim an independent review (independent_review_claimed false)")
+		}
+		verifyIndependentAttestationRecord(plan.AttestationRecord, fail)
 	default:
 		fail("attestation_state %q is not a preregistered state", plan.AttestationState)
 	}
@@ -407,6 +485,124 @@ func verifyPlanAgainstSpec(root string) ([]string, string, error) {
 		}
 	}
 	return failures, plan.AttestationState, nil
+}
+
+// verifyOwnerAssuranceLabels checks the document-level assurance
+// pairing for the owner-only states (UNATTESTED and OWNER_ATTESTED):
+// the honest owner-only labels, with no independent review claimed.
+func verifyOwnerAssuranceLabels(plan planDocument, fail func(string, ...any)) {
+	if plan.Assurance != AssuranceOwnerNotIndependent {
+		fail("attestation_state %s but document assurance %q is not %q", plan.AttestationState, plan.Assurance, AssuranceOwnerNotIndependent)
+	}
+	if plan.IndependentReviewClaimed {
+		fail("attestation_state %s must not claim an independent review (independent_review_claimed must be false)", plan.AttestationState)
+	}
+}
+
+// verifyAttestationRecordCommon cross-checks the digest-binding core
+// every attested record must carry (mirroring the schema, defense in
+// depth): a lowercase 64-hex SHA-256 of the exact frozen plan bytes,
+// the frozen commit and path, the decision record, and the captured
+// attestation timestamp. The validator cannot recompute the digest (the
+// frozen bytes are the plan content at the attested commit, which this
+// record itself postdates); the recorded digest is regression-pinned by
+// full equality in the package tests.
+func verifyAttestationRecordCommon(record *attestationRecord, fail func(string, ...any)) {
+	if !isLowercaseHex(record.PlanContentSHA256, 64) {
+		fail("attestation_record.plan_content_sha256 %q is not a lowercase 64-hex SHA-256", record.PlanContentSHA256)
+	}
+	if len(record.FrozenPlanGitCommit) < 7 || !isLowercaseHex(record.FrozenPlanGitCommit, len(record.FrozenPlanGitCommit)) {
+		fail("attestation_record.frozen_plan_git_commit %q is not a git commit hash", record.FrozenPlanGitCommit)
+	}
+	if record.FrozenPlanPath != "benchmarks/plan/workloads.json" {
+		fail("attestation_record.frozen_plan_path %q must be the plan document itself", record.FrozenPlanPath)
+	}
+	if record.DigestScope == "" {
+		fail("attestation_record.digest_scope must state exactly which bytes were digested")
+	}
+	if record.DecisionRecord == "" {
+		fail("attestation_record.decision_record must reference the owner decision record")
+	}
+	if record.AttestedAt == "" {
+		fail("attestation_record.attested_at must carry the decision record's captured timestamp")
+	}
+}
+
+// verifyOwnerAttestationRecord cross-checks the OWNER_ATTESTED record
+// variant: the digest-binding core plus the honest owner-only labels,
+// and structurally NO independent-variant evidence — an owner record
+// carrying independent fields is a mislabeled record, never progress.
+func verifyOwnerAttestationRecord(record *attestationRecord, fail func(string, ...any)) {
+	if record == nil {
+		fail("an attested plan must carry the digest-binding attestation_record")
+		return
+	}
+	verifyAttestationRecordCommon(record, fail)
+	if record.Assurance != AssuranceOwnerNotIndependent {
+		fail("attestation_record.assurance %q disagrees with the OWNER_ATTESTED_NOT_INDEPENDENT labeling (a genuinely independent attestation is a recorded preregistration change carrying independent evidence, never a label edit)", record.Assurance)
+	}
+	if record.IndependentReviewClaimed {
+		fail("attestation_record.independent_review_claimed must stay false in an owner-only record: no independent review exists or is claimed")
+	}
+	if record.IndependentAttestorIdentity != "" || record.IndependentAttestationRecordSHA256 != "" || record.IndependentAttestedAt != "" {
+		fail("an OWNER_ATTESTED record must not carry independent-variant evidence fields (independent_attestor_identity / independent_attestation_record_sha256 / independent_attested_at)")
+	}
+}
+
+// verifyIndependentAttestationRecord cross-checks the
+// INDEPENDENTLY_ATTESTED record variant (re-review round 1, session
+// 01a04165): the digest-binding core plus independent-specific evidence
+// an owner-only record structurally cannot provide — a non-empty
+// attestor identity that is NOT the owner, record-level
+// independent_review_claimed true with the state-consistent assurance
+// label, and the attestor record digest and date. A relabeled owner
+// record fails every one of these with a typed finding.
+func verifyIndependentAttestationRecord(record *attestationRecord, fail func(string, ...any)) {
+	if record == nil {
+		fail("an attested plan must carry the digest-binding attestation_record")
+		return
+	}
+	// ENFORCEMENT LIMIT (disclosed, not fixable at the document layer): this
+	// gate is STRUCTURAL, not cryptographic. It makes INDEPENDENTLY_ATTESTED
+	// unreachable by relabeling the owner-only record, but a FABRICATED yet
+	// syntactically valid independent record would pass these checks — the
+	// attestor digest is format-checked, never recomputed against a real
+	// attestor document, and owner detection is an exact string comparison
+	// with the frozen OwnerIdentity (an alias evades it mechanically).
+	// Catching fabricated independence remains a review/audit obligation.
+	verifyAttestationRecordCommon(record, fail)
+	if record.Assurance != AssuranceIndependentlyAttested {
+		fail("attestation_record.assurance %q is not %q: an owner-only record relabeled to INDEPENDENTLY_ATTESTED can never satisfy the independent state", record.Assurance, AssuranceIndependentlyAttested)
+	}
+	if !record.IndependentReviewClaimed {
+		fail("attestation_record.independent_review_claimed must be true at the record level for INDEPENDENTLY_ATTESTED: an owner-only record (which claims none) can never satisfy the independent state")
+	}
+	attestor := strings.TrimSpace(record.IndependentAttestorIdentity)
+	if attestor == "" {
+		fail("attestation_record.independent_attestor_identity is missing: INDEPENDENTLY_ATTESTED requires independent evidence an owner-only record cannot provide")
+	} else if strings.EqualFold(attestor, OwnerIdentity) {
+		fail("attestation_record.independent_attestor_identity %q equals the owner identity %q: a self-attestation is owner-only by definition and can never be the independent attestation", record.IndependentAttestorIdentity, OwnerIdentity)
+	}
+	if !isLowercaseHex(record.IndependentAttestationRecordSHA256, 64) {
+		fail("attestation_record.independent_attestation_record_sha256 %q is not a lowercase 64-hex SHA-256 of the independent attestor's record", record.IndependentAttestationRecordSHA256)
+	}
+	if _, err := time.Parse("2006-01-02T15:04:05Z", record.IndependentAttestedAt); err != nil {
+		fail("attestation_record.independent_attested_at %q is not a UTC timestamp of the independent attestation", record.IndependentAttestedAt)
+	}
+}
+
+// isLowercaseHex reports whether s is exactly length lowercase-hex
+// characters.
+func isLowercaseHex(s string, length int) bool {
+	if len(s) != length {
+		return false
+	}
+	for _, c := range s {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 // meterResult is one environment document's completion-meter outcome.

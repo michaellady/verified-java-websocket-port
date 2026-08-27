@@ -37,12 +37,38 @@ const (
 // environments. It does NOT designate the host-tenancy observation
 // procedure that confirmation.json's host_identity.allocation_evidence
 // field requires (review fix B3: dedicated/exclusive tenancy
-// observation), so that field must stay OWNER_DECISION_PENDING: binding
-// it with the accounting decision would be a false binding under a name
-// collision.
+// observation): binding it with the accounting decision would have been
+// a false binding under a name collision. The tenancy field stayed
+// OWNER_DECISION_PENDING until the round-3 record below designated its
+// own procedure.
 const (
-	pinnedCPUFrequencyPolicy = "DOCUMENT_DEFAULTS_RECORD_OBSERVED: no frequency tuning and no tuning claims — no governor, turbo, or SMT setting is mutated on the bound host; the booted host's default scaling facts (cpufreq driver and governor presence or absence, turbo/boost visibility, SMT state) are recorded at provision alongside the other booted-host facts, and the observed CPU clock is recorded per measured run"
+	pinnedCPUFrequencyPolicy            = "DOCUMENT_DEFAULTS_RECORD_OBSERVED: no frequency tuning and no tuning claims — no governor, turbo, or SMT setting is mutated on the bound host; the booted host's default scaling facts (cpufreq driver and governor presence or absence, turbo/boost visibility, SMT state) are recorded at provision alongside the other booted-host facts, and the observed CPU clock is recorded per measured run"
 	pinnedAllocationAccountingCandidate = "allocation samplers decided BUILTIN_ACCOUNTING_PER_RUN (owner decision 2026-08-27): Java allocation evidence from the JVM's own accounting (GC/NMT statistics), Rust from a counting allocator, both recorded per run; exact sampler identities and digests remain pending"
+)
+
+// Round-3 owner acts (2026-08-27, decision record
+// us008-owner-attestation-2026-08-27.json in the workspace protected
+// root, decided_at 2026-08-27T03:52:36Z captured from date -u),
+// regression-pinned by FULL equality per the round-1 standing rule.
+//
+// us008_tenancy_allocation_evidence_procedure = STANDARD_CLOUD_CHECKS
+// binds host_identity.allocation_evidence — the dedicated/exclusive
+// TENANCY observation procedure of review fix B3 — resolving the
+// round-2 name collision. It binds the PROCEDURE only: the per-run
+// tenancy observations exist only when a measured run exists.
+//
+// us008_plan_attestation = ATTESTED_BY_OWNER freezes the plan as of its
+// content at mainline 51257ac and is digest-bound to those exact bytes.
+// The attestation is owner-only (OWNER_ATTESTED_NOT_INDEPENDENT,
+// independent_review_claimed false): attestation_state becomes
+// OWNER_ATTESTED, never INDEPENDENTLY_ATTESTED, and the exit-0
+// full-binding gate stays unsatisfied.
+const (
+	pinnedTenancyProcedure      = "STANDARD_CLOUD_CHECKS: per-run DescribeInstances tenancy-attribute query + exact instance-type confirmation + a job-scoped exclusive-reservation record covering the run's duration"
+	pinnedPlanContentSHA256     = "5fb3fea8b5f1213b7ae5039ce7574c23bf720f543b0bd8c568abe596eef86993"
+	pinnedFrozenPlanCommit      = "51257acfd7e645f671b346e6b103819497a34f4c"
+	pinnedAttestationRecordPath = "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected/us008-owner-attestation-2026-08-27.json"
+	pinnedAttestedAt            = "2026-08-27T03:52:36Z"
 )
 
 func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
@@ -66,14 +92,15 @@ func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 		t.Fatalf("expected HOST_BINDING_PENDING as the single blocker class, got %v", report.BlockerClasses)
 	}
 	// Completion meter: 7 unbound tool-identity fields on primary plus
-	// 18 of the 23 confirmation fields; the owner's Tier-1 decision of
+	// 17 of the 23 confirmation fields; the owner's Tier-1 decision of
 	// 2026-08-26 bound instance_type / region / ami_id / ami_name, the
-	// round-2 decision of 2026-08-27 bound cpu_frequency_policy, and
-	// everything else (including instance_id / observed_architecture /
-	// allocation_evidence and all 8 tools) stays honestly pending. 5
+	// round-2 decision of 2026-08-27 bound cpu_frequency_policy, the
+	// round-3 decision of 2026-08-27 bound allocation_evidence (the
+	// tenancy procedure), and everything else (including instance_id /
+	// observed_architecture and all 8 tools) stays honestly pending. 5
 	// runtime-snapshot fields on primary.
-	if len(report.UnboundFields) != 25 {
-		t.Errorf("expected exactly 25 unbound binding fields, got %d: %v", len(report.UnboundFields), report.UnboundFields)
+	if len(report.UnboundFields) != 24 {
+		t.Errorf("expected exactly 24 unbound binding fields, got %d: %v", len(report.UnboundFields), report.UnboundFields)
 	}
 	ownerBound := map[string]bool{
 		"host_identity.instance_type":        true,
@@ -81,14 +108,18 @@ func TestVerifyRealTreeReportsOnlyHostBindingPending(t *testing.T) {
 		"host_identity.ami_id":               true,
 		"host_identity.ami_name":             true,
 		"host_identity.cpu_frequency_policy": true,
+		"host_identity.allocation_evidence":  true,
 	}
 	for _, field := range report.UnboundFields {
 		if strings.Contains(field.Document, "confirmation") && ownerBound[field.Path] {
-			t.Errorf("field %q is owner-bound (Tier-1 decision 2026-08-26 / round-2 decision 2026-08-27) and must not report as unbound", field.Path)
+			t.Errorf("field %q is owner-bound (Tier-1 decision 2026-08-26 / round-2 and round-3 decisions 2026-08-27) and must not report as unbound", field.Path)
 		}
 	}
-	if report.PlanAttestationState != "UNATTESTED" {
-		t.Errorf("plan attestation state %q, want UNATTESTED", report.PlanAttestationState)
+	// The owner's round-3 attestation is OWNER-ONLY: the state must be
+	// OWNER_ATTESTED, never promoted to INDEPENDENTLY_ATTESTED (no
+	// independent attestor exists and none is claimed).
+	if report.PlanAttestationState != "OWNER_ATTESTED" {
+		t.Errorf("plan attestation state %q, want OWNER_ATTESTED", report.PlanAttestationState)
 	}
 	if len(report.MeterFailures) != 0 {
 		t.Errorf("canonical tree must have zero meter failures, got %v", report.MeterFailures)
@@ -170,16 +201,15 @@ func TestConfirmationDocumentRecordsOwnerTier1Binding(t *testing.T) {
 	// POLICY (document defaults, record observed; never tune), pinned by
 	// full equality like every other bound value.
 	expectBound(host, "cpu_frequency_policy", pinnedCPUFrequencyPolicy)
+	// The round-3 owner decision of 2026-08-27 binds the dedicated/
+	// exclusive TENANCY observation PROCEDURE (review fix B3), pinned by
+	// full equality; the per-run observations stay honestly pending.
+	expectBound(host, "allocation_evidence", pinnedTenancyProcedure)
 
 	// Booted-host facts stay NOT_MEASURED until the bound host boots.
 	for _, name := range []string{"instance_id", "observed_architecture", "availability_zone", "os_identity", "kernel_identity", "cpu_model", "memory_total_bytes", "numa_topology", "clocksource"} {
 		expectPending(host, name, "NOT_MEASURED")
 	}
-	// Open owner decisions stay pending — allocation_evidence remains the
-	// dedicated/exclusive TENANCY observation procedure (review fix B3);
-	// the 2026-08-27 BUILTIN_ACCOUNTING_PER_RUN decision resolved the
-	// allocation-ACCOUNTING method (see measurement_tools), not this.
-	expectPending(host, "allocation_evidence", "OWNER_DECISION_PENDING")
 	for _, name := range []string{"java_runtime", "rust_toolchain", "load_driver", "measurement_tools", "analyzer", "runner"} {
 		expectPending(tools, name, "OWNER_DECISION_PENDING")
 	}
@@ -216,6 +246,12 @@ func TestConfirmationDocumentRecordsOwnerTier1Binding(t *testing.T) {
 	if !strings.Contains(rationale, "us009-us008-owner-decisions-2026-08-27.json") {
 		t.Error("provenance.rationale must reference the round-2 owner decision record us009-us008-owner-decisions-2026-08-27.json")
 	}
+	// Round 3 (2026-08-27): the provenance must also cite the round-3
+	// owner decision record that bound the tenancy observation procedure
+	// and attested the plan.
+	if !strings.Contains(rationale, "us008-owner-attestation-2026-08-27.json") {
+		t.Error("provenance.rationale must reference the round-3 owner decision record us008-owner-attestation-2026-08-27.json")
+	}
 }
 
 // TestRound2OwnerDecisionsRecordedHonestly pins the round-2 owner
@@ -232,8 +268,12 @@ func TestConfirmationDocumentRecordsOwnerTier1Binding(t *testing.T) {
 //     OWNER_DECISION_PENDING — exact sampler identities and digests are
 //     undecided), and host_identity.allocation_evidence — the
 //     dedicated/exclusive TENANCY observation procedure of review fix
-//     B3 — must remain OWNER_DECISION_PENDING with the collision
-//     documented in its notes.
+//     B3 — was NEVER bound by it. That field is now BOUND, but only by
+//     the round-3 record's own tenancy designation
+//     (us008_tenancy_allocation_evidence_procedure =
+//     STANDARD_CLOUD_CHECKS): its bound value must be the tenancy
+//     procedure, never the accounting method, and its notes must keep
+//     the collision's resolution on the record.
 func TestRound2OwnerDecisionsRecordedHonestly(t *testing.T) {
 	loadEnvironment := func(name string) map[string]any {
 		t.Helper()
@@ -267,18 +307,34 @@ func TestRound2OwnerDecisionsRecordedHonestly(t *testing.T) {
 	}
 
 	allocation := host["allocation_evidence"].(map[string]any)
-	if allocation["status"] != "OWNER_DECISION_PENDING" {
-		t.Errorf("allocation_evidence status %v, want OWNER_DECISION_PENDING (the tenancy observation procedure is NOT decided by BUILTIN_ACCOUNTING_PER_RUN)", allocation["status"])
+	if allocation["status"] != "BOUND" {
+		t.Errorf("allocation_evidence status %v, want BOUND (round-3 owner decision us008_tenancy_allocation_evidence_procedure)", allocation["status"])
 	}
-	if _, smuggled := allocation["value"]; smuggled {
-		t.Error("allocation_evidence must not carry a value while pending")
+	// The false-binding guard survives the binding: the bound value must
+	// be the round-3 TENANCY procedure, never the round-2 accounting
+	// method that shared the name.
+	if allocation["value"] != pinnedTenancyProcedure {
+		t.Errorf("allocation_evidence value %v, want the pinned STANDARD_CLOUD_CHECKS tenancy procedure", allocation["value"])
+	}
+	if value, _ := allocation["value"].(string); strings.Contains(value, "BUILTIN_ACCOUNTING_PER_RUN") || strings.Contains(value, "GC/NMT") {
+		t.Error("allocation_evidence must never be bound with the allocation-ACCOUNTING method (name-collision false binding)")
+	}
+	allocationRationale, _ := allocation["rationale"].(string)
+	if !strings.Contains(allocationRationale, "us008-owner-attestation-2026-08-27.json") {
+		t.Error("allocation_evidence rationale must cite the round-3 owner decision record us008-owner-attestation-2026-08-27.json")
+	}
+	if !strings.Contains(allocationRationale, "STANDARD_CLOUD_CHECKS") {
+		t.Error("allocation_evidence rationale must name the owner's choice STANDARD_CLOUD_CHECKS")
 	}
 	allocationNotes, _ := allocation["notes"].(string)
 	if !strings.Contains(allocationNotes, "us009-us008-owner-decisions-2026-08-27.json") {
-		t.Error("allocation_evidence notes must record that the round-2 decision record was considered and does not bind this field")
+		t.Error("allocation_evidence notes must record that the round-2 decision record never bound this field (collision resolution)")
 	}
 	if !strings.Contains(allocationNotes, "tenancy") {
 		t.Error("allocation_evidence notes must keep the dedicated/exclusive tenancy scope explicit")
+	}
+	if !strings.Contains(allocationNotes, "none exists yet") && !strings.Contains(allocationNotes, "recorded per run") {
+		t.Error("allocation_evidence notes must keep the per-run observations honestly pending (the binding covers the procedure only)")
 	}
 
 	// The decided allocation-accounting method is recorded as the
@@ -301,6 +357,142 @@ func TestRound2OwnerDecisionsRecordedHonestly(t *testing.T) {
 		if !strings.Contains(measurementNotes, "us009-us008-owner-decisions-2026-08-27.json") {
 			t.Errorf("%s measurement_tools notes must cite the round-2 owner decision record", name)
 		}
+	}
+}
+
+// TestRound3PlanAttestationRecordedHonestly pins the owner's round-3
+// plan attestation (us008_plan_attestation = ATTESTED_BY_OWNER, record
+// us008-owner-attestation-2026-08-27.json) exactly as recorded: the
+// plan's attestation_state is OWNER_ATTESTED — never promoted to
+// INDEPENDENTLY_ATTESTED, because the attestation is owner-only — and
+// the in-repo attestation_record digest-binds the attestation to the
+// exact frozen plan bytes at mainline 51257ac, by full equality on
+// every recorded field.
+func TestRound3PlanAttestationRecordedHonestly(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repoRoot, "benchmarks", "plan", "workloads.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var plan map[string]any
+	if err := json.Unmarshal(raw, &plan); err != nil {
+		t.Fatal(err)
+	}
+	if plan["attestation_state"] != "OWNER_ATTESTED" {
+		t.Fatalf("attestation_state %v, want OWNER_ATTESTED (owner-only attestation; INDEPENDENTLY_ATTESTED is neither true nor claimed)", plan["attestation_state"])
+	}
+	status, _ := plan["status"].(string)
+	if !strings.HasPrefix(status, "PREREGISTERED_OWNER_ATTESTED") {
+		t.Errorf("status %q must declare the paired PREREGISTERED_OWNER_ATTESTED state", status)
+	}
+	record, present := plan["attestation_record"].(map[string]any)
+	if !present {
+		t.Fatal("an attested plan must carry the digest-binding attestation_record")
+	}
+	expectations := map[string]any{
+		"plan_content_sha256":        pinnedPlanContentSHA256,
+		"frozen_plan_git_commit":     pinnedFrozenPlanCommit,
+		"frozen_plan_path":           "benchmarks/plan/workloads.json",
+		"decision_record":            pinnedAttestationRecordPath,
+		"attested_at":                pinnedAttestedAt,
+		"assurance":                  "OWNER_ATTESTED_NOT_INDEPENDENT",
+		"independent_review_claimed": false,
+	}
+	for field, want := range expectations {
+		if record[field] != want {
+			t.Errorf("attestation_record.%s = %v, want %v", field, record[field], want)
+		}
+	}
+	scope, _ := record["digest_scope"].(string)
+	if !strings.Contains(scope, pinnedFrozenPlanCommit[:7]) {
+		t.Errorf("digest_scope must name the frozen commit %s, got %q", pinnedFrozenPlanCommit[:7], scope)
+	}
+}
+
+// TestPlanAttestationPairedStates exercises the paired-state discipline
+// of the attestation extension on a copied tree: an attested state
+// without its digest-binding record, a record smuggled under
+// UNATTESTED, an unpaired status string, a malformed digest, and a
+// promoted assurance label must each fail BOTH the schema and the spec
+// cross-check — and OWNER_ATTESTED must never satisfy the exit-0
+// full-binding gate (never loosening: only INDEPENDENTLY_ATTESTED can).
+func TestPlanAttestationPairedStates(t *testing.T) {
+	scenarios := []struct {
+		name   string
+		mutate func(plan map[string]any)
+	}{
+		{"attested state without attestation_record", func(plan map[string]any) {
+			delete(plan, "attestation_record")
+		}},
+		{"attestation_record smuggled under UNATTESTED", func(plan map[string]any) {
+			plan["attestation_state"] = "UNATTESTED"
+			plan["status"] = "PREREGISTERED_BY_DRIVER_UNATTESTED - test scenario: state reverted with the record left behind"
+		}},
+		{"status not paired with OWNER_ATTESTED", func(plan map[string]any) {
+			plan["status"] = "PREREGISTERED_BY_DRIVER_UNATTESTED - test scenario: unpaired status"
+		}},
+		{"malformed plan digest", func(plan map[string]any) {
+			record := plan["attestation_record"].(map[string]any)
+			record["plan_content_sha256"] = "not-a-digest"
+		}},
+		{"promoted assurance label", func(plan map[string]any) {
+			record := plan["attestation_record"].(map[string]any)
+			record["assurance"] = "INDEPENDENTLY_REVIEWED"
+		}},
+		// Re-review round 1 (session 01a04165, BLOCKING): relabeling the
+		// owner-only record to INDEPENDENTLY_ATTESTED — a state/status
+		// string edit with no independent evidence — must fail BOTH the
+		// schema (the independent record variant requires evidence an
+		// owner-only record structurally cannot provide) and the spec
+		// cross-check (typed finding).
+		{"owner record relabeled to INDEPENDENTLY_ATTESTED", func(plan map[string]any) {
+			plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: relabel-only promotion of the owner record"
+		}},
+		{"relabel plus promoted top-level labels, still no independent evidence", func(plan map[string]any) {
+			plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: relabel with promoted document labels"
+			plan["assurance"] = "INDEPENDENTLY_ATTESTED"
+			plan["independent_review_claimed"] = true
+		}},
+	}
+	for _, scenario := range scenarios {
+		t.Run(scenario.name, func(t *testing.T) {
+			root := copyBenchmarkTree(t)
+			mutatePlan(t, root, scenario.mutate)
+			report, err := Verify(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(report.SchemaFailures["benchmarks/plan/workloads.json"]) == 0 {
+				t.Error("the schema must reject the unpaired attestation state")
+			}
+			if len(report.PlanFailures) == 0 {
+				t.Error("the spec cross-check must reject the unpaired attestation state")
+			}
+		})
+	}
+}
+
+// OWNER_ATTESTED is honest progress, not the finish line: even with
+// every field bound and both environments BOUND, an owner-only
+// attestation must never verify as fully bound (the exit-0 gate keeps
+// requiring INDEPENDENTLY_ATTESTED — never loosened).
+func TestVerifyOwnerAttestedIsNotFullyBound(t *testing.T) {
+	root := copyBenchmarkTree(t)
+	bindAllPendingFields(t, root)
+	setEnvironmentBindingStatuses(t, root, "BOUND")
+	report, err := Verify(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.SchemaFailures) > 0 || len(report.PlanFailures) > 0 {
+		t.Fatalf("owner-attested scenario must stay schema/spec clean, got %v / %v", report.SchemaFailures, report.PlanFailures)
+	}
+	if report.FullyBound() {
+		t.Fatal("an owner-only attestation must never verify as fully bound")
+	}
+	if !report.HostBindingIsOnlyBlocker() {
+		t.Fatalf("expected HOST_BINDING_PENDING (independent attestation still pending), got %v", report.BlockerClasses)
 	}
 }
 
@@ -484,7 +676,7 @@ func bindAllPendingFields(t *testing.T, root string) {
 	}
 }
 
-func setBindingStatuses(t *testing.T, root, environmentStatus, attestationState string) {
+func setEnvironmentBindingStatuses(t *testing.T, root, environmentStatus string) {
 	t.Helper()
 	for _, name := range []string{"primary-macos.json", "confirmation.json"} {
 		path := filepath.Join(root, "benchmarks", "environments", name)
@@ -499,11 +691,33 @@ func setBindingStatuses(t *testing.T, root, environmentStatus, attestationState 
 		environment["binding_status"] = environmentStatus
 		writeJSON(t, path, environment)
 	}
+}
+
+// syntheticIndependentAttestor is the clearly-labeled SYNTHETIC attestor
+// identity used only to exercise the verification path. It is not a real
+// attestation, no independent review happened, and the real document
+// never carries it (the real plan stays OWNER_ATTESTED).
+const syntheticIndependentAttestor = "synthetic-independent-attestor (SYNTHETIC_TEST_FIXTURE_NOT_A_REAL_ATTESTATION)"
+
+// attestIndependentlyForTest installs a well-formed but SYNTHETIC
+// independent attestation on a copied tree: the state/status/label
+// pairing plus the independent-specific evidence the schema and the
+// validator require (attestor identity distinct from the owner,
+// record-level independent_review_claimed true, attestor record digest
+// and date). Test-only shape exercise — not a real attestation.
+func attestIndependentlyForTest(t *testing.T, root string) {
+	t.Helper()
 	mutatePlan(t, root, func(plan map[string]any) {
-		plan["attestation_state"] = attestationState
-		if attestationState == "INDEPENDENTLY_ATTESTED" {
-			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: every field bound and the plan attested (synthetic verification-path exercise, not a real attestation)"
-		}
+		plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+		plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: synthetic independent attestation (verification-path exercise only, not a real attestation)"
+		plan["assurance"] = "INDEPENDENTLY_ATTESTED"
+		plan["independent_review_claimed"] = true
+		record := plan["attestation_record"].(map[string]any)
+		record["assurance"] = "INDEPENDENTLY_ATTESTED"
+		record["independent_review_claimed"] = true
+		record["independent_attestor_identity"] = syntheticIndependentAttestor
+		record["independent_attestation_record_sha256"] = strings.Repeat("ab", 32)
+		record["independent_attested_at"] = "2026-08-27T00:00:00Z"
 	})
 }
 
@@ -530,13 +744,17 @@ func TestVerifySyntacticCompletenessWithUnboundStatusIsStillPending(t *testing.T
 	}
 }
 
-// Review fix I5, positive direction: with every field bound, both
-// environments BOUND, and the plan attested, verification reports fully
-// bound.
+// Review fix I5, positive direction (re-review round 1: independent
+// evidence required): with every field bound, both environments BOUND,
+// and a well-formed SYNTHETIC independent attestation record installed
+// (clearly labeled synthetic; not a real attestation), verification
+// reports fully bound — proving the independent record SHAPE is
+// satisfiable while a relabeled owner record never is.
 func TestVerifyFullyBoundAndAttestedTreeVerifies(t *testing.T) {
 	root := copyBenchmarkTree(t)
 	bindAllPendingFields(t, root)
-	setBindingStatuses(t, root, "BOUND", "INDEPENDENTLY_ATTESTED")
+	setEnvironmentBindingStatuses(t, root, "BOUND")
+	attestIndependentlyForTest(t, root)
 	report, err := Verify(root)
 	if err != nil {
 		t.Fatal(err)
@@ -547,13 +765,93 @@ func TestVerifyFullyBoundAndAttestedTreeVerifies(t *testing.T) {
 	if !report.FullyBound() {
 		t.Fatalf("expected fully bound, got blockers %v", report.BlockerClasses)
 	}
+	if report.PlanAttestationState != "INDEPENDENTLY_ATTESTED" {
+		t.Errorf("plan attestation state %q, want INDEPENDENTLY_ATTESTED", report.PlanAttestationState)
+	}
+}
+
+// Re-review round 1 (session 01a04165, BLOCKING): FullyBound with the
+// owner-only record merely RELABELED to INDEPENDENTLY_ATTESTED must
+// never be reachable — not by a state/status edit alone, and not even
+// with the top-level document labels promoted too. The independent
+// state demands independent-specific evidence the owner-only record
+// structurally cannot provide.
+func TestVerifyRelabeledOwnerRecordNeverFullyBound(t *testing.T) {
+	relabels := []struct {
+		name   string
+		mutate func(plan map[string]any)
+	}{
+		{"state and status strings only", func(plan map[string]any) {
+			plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: relabel-only promotion"
+		}},
+		{"state, status, and top-level labels", func(plan map[string]any) {
+			plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: relabel with promoted labels"
+			plan["assurance"] = "INDEPENDENTLY_ATTESTED"
+			plan["independent_review_claimed"] = true
+		}},
+	}
+	for _, relabel := range relabels {
+		t.Run(relabel.name, func(t *testing.T) {
+			root := copyBenchmarkTree(t)
+			bindAllPendingFields(t, root)
+			setEnvironmentBindingStatuses(t, root, "BOUND")
+			mutatePlan(t, root, relabel.mutate)
+			report, err := Verify(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.FullyBound() {
+				t.Fatal("a relabeled owner-only record must NEVER verify as fully bound (exit 0 unreachable by a string edit)")
+			}
+			if len(report.SchemaFailures["benchmarks/plan/workloads.json"]) == 0 {
+				t.Error("the schema must reject an INDEPENDENTLY_ATTESTED state carried by an owner-only record")
+			}
+			if len(report.PlanFailures) == 0 {
+				t.Error("the spec cross-check must reject an INDEPENDENTLY_ATTESTED state carried by an owner-only record with a typed finding")
+			}
+		})
+	}
+}
+
+// The independent attestor can never be the owner: a synthetic record
+// that is otherwise well-formed but names the owner identity as the
+// independent attestor must fail the validator (self-attestation is
+// owner-only by definition), and the tree must not verify fully bound.
+func TestVerifyIndependentSelfAttestationRejected(t *testing.T) {
+	root := copyBenchmarkTree(t)
+	bindAllPendingFields(t, root)
+	setEnvironmentBindingStatuses(t, root, "BOUND")
+	attestIndependentlyForTest(t, root)
+	mutatePlan(t, root, func(plan map[string]any) {
+		record := plan["attestation_record"].(map[string]any)
+		record["independent_attestor_identity"] = OwnerIdentity
+	})
+	report, err := Verify(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.FullyBound() {
+		t.Fatal("an owner self-attestation labeled independent must never verify as fully bound")
+	}
+	found := false
+	for _, failure := range report.PlanFailures {
+		if strings.Contains(failure, "owner identity") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("plan failures must name the owner-identity conflict, got %v", report.PlanFailures)
+	}
 }
 
 // A document claiming BOUND while its fields are still pending is an
 // inconsistency, never progress.
 func TestVerifyBoundStatusWithPendingFieldsIsInconsistent(t *testing.T) {
 	root := copyBenchmarkTree(t)
-	setBindingStatuses(t, root, "BOUND", "INDEPENDENTLY_ATTESTED")
+	setEnvironmentBindingStatuses(t, root, "BOUND")
+	attestIndependentlyForTest(t, root)
 	report, err := Verify(root)
 	if err != nil {
 		t.Fatal(err)
@@ -611,17 +909,18 @@ func TestVerifyShrunkenMeterIsMeterTampered(t *testing.T) {
 	}
 	// The canonical meter still counts every genuinely pending
 	// confirmation field as unbound, regardless of what the document
-	// declares: 18 of 23 remain pending after the owner's Tier-1
-	// decision bound instance_type / region / ami_id / ami_name and the
-	// round-2 decision of 2026-08-27 bound cpu_frequency_policy.
+	// declares: 17 of 23 remain pending after the owner's Tier-1
+	// decision bound instance_type / region / ami_id / ami_name, the
+	// round-2 decision of 2026-08-27 bound cpu_frequency_policy, and the
+	// round-3 decision of 2026-08-27 bound allocation_evidence.
 	confirmationUnbound := 0
 	for _, field := range report.UnboundFields {
 		if strings.Contains(field.Document, "confirmation") {
 			confirmationUnbound++
 		}
 	}
-	if confirmationUnbound != 18 {
-		t.Fatalf("canonical meter must still count 18 unbound confirmation fields, got %d", confirmationUnbound)
+	if confirmationUnbound != 17 {
+		t.Fatalf("canonical meter must still count 17 unbound confirmation fields, got %d", confirmationUnbound)
 	}
 }
 
