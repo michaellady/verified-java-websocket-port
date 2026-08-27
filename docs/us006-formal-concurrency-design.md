@@ -48,9 +48,9 @@ The plan consumes the following attributed inherited inputs:
 
 | Input | Design-base digest | Permitted use |
 | --- | --- | --- |
-| `evidence/intake/port-seam-dossier.json` | `sha256:77c41910c323f35116e1493bebf2388519ee659a646dd78e67cd15519ff347ee` | US-012 and US-017 seam and evidence-obligation inventory |
-| `evidence/intake/compatibility-surface.json` | `sha256:802de5c6d1291c8253aa07b1a051a8e20acc3a00cc72ee1d4852a7f18c216b0c` | `surface.framing.masking` and `surface.concurrency.command-order` |
-| `evidence/intake/cutover-contract.json` | `sha256:7209cffe070651019b75f8a05f83d52d92b38a67aec95663b38235981b03bbc3` | US-010 client-handshake cutover is satisfied; US-012/US-017 formal targets remain declared and unsatisfied |
+| `evidence/intake/port-seam-dossier.json` | `sha256:34e260b2e6a47d6f24ee0ba0c2d17eb98098370e7e43680adb040e736d474f2e` | US-012 and US-017 seam and evidence-obligation inventory |
+| `evidence/intake/compatibility-surface.json` | `sha256:b9c7107e810a80dd6a3ca0f91fb5bab2c4fd8256fd5d849bc5932f5cf4d80cb0` | `surface.framing.masking` and `surface.concurrency.command-order` |
+| `evidence/intake/cutover-contract.json` | `sha256:ea6d6148dd67b705e74db48056dd5f17f22626fda48d148aef01f37de2d46f76` | US-010 client-handshake cutover remains declared without promoted evidence; US-012/US-017 formal targets remain declared and unsatisfied |
 | `evidence/corpus-calibration.json` | `sha256:810a2b22fd3211d34d535d4babc9bcd2090eeea492ad64161f9e1a8c4880731d` | borrowed corpus contract and its explicit pending-live ceiling |
 | `corpora/public/manifest.json` | `sha256:3798bb112f3c9807d70aff22539fe10e3f7e0b25db6f1dae68b370799e14c642` | public scenario count and artifact binding only |
 | `corpora/public/scenarios.jsonl` | `sha256:fe1735bc42c11f66afe2965a7449fc6cad31cca3e2048305388241c781501e5f` | future conformance/differential input; not executed here |

@@ -4,22 +4,28 @@
   "evidence_id": "evidence.us-010-client-handshake",
   "story_id": "US-010",
   "source": {
-    "commit": "943af234e9a0c2c4604c3c1444f509327f1945b7",
-    "tree": "42037d121b1381abd7d96cc85d2fb5be81397f03",
+    "commit": "abbd4d29dd03b389dfb0c3cb813ef6cbc7453e6e",
+    "tree": "4244cdd288e2b6c546f13e02ad4005467752559f",
     "branch": "codex/race-catchup",
     "implementation_files": [
-      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:4301e36775ee74eccd063436c8fae54a06076dda5fa7146c1246169a215c38b2"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:e287f568132bef9b58a522beada48e5f873418ca5c818b68e953b569ae92cebe"},
       {"path":"rust/connection-core/src/handshake/client.rs","sha256":"sha256:d6e355ffaec8c232f79ec25edcad7d36c5128140e4e1c7c9c022df5b13a89dd3"},
-      {"path":"rust/connection-core/src/handshake/http.rs","sha256":"sha256:830fdf6070ab574635f083833d009ab080d778fc152458ff2dd1d5ac804b3750"},
+      {"path":"rust/connection-core/src/handshake/http.rs","sha256":"sha256:38a5414fb7c8d6c0c872648c217d46da2bda347167cc2ab78bcdb6ca703df02b"},
       {"path":"rust/connection-core/src/handshake/crypto.rs","sha256":"sha256:78f6216c5d929799e1d4149a2ef9b783e38ebf7f5d66679525002761882544af"},
-      {"path":"rust/connection-core/tests/client_handshake.rs","sha256":"sha256:815e24e95af2ce7726dda0b4f87d21b31c20c12decf53c5a00e3db0d0c10de40"}
+      {"path":"rust/connection-core/tests/client_handshake.rs","sha256":"sha256:9c8a300b8e5e0d81484a111f89625c798167b74012dc2219677e5bec926ff06c"},
+      {"path":"internal/corpora/client_handshake.go","sha256":"sha256:057f95869a81dcf5e21d5e205f00b6f1148fa43b34390bc38199f8da27c527b9"},
+      {"path":"internal/corpora/us010_artifact.go","sha256":"sha256:bac4256b33e69e967b4bf89b9a38cb30f6ef2abeafa801de05402957f25faf02"},
+      {"path":"internal/corpora/client_handshake_test.go","sha256":"sha256:2f0ac46bb3f93638e4acff54afae9b9544d473f2b0c0fdaef31bf3ac497e8e44"},
+      {"path":"internal/corpora/schemas.go","sha256":"sha256:4b55c9e7f229eae026db6bebda97a78df3326f6d1d9299707eae98cbaa22fecc"},
+      {"path":"internal/portplan/build_documents.go","sha256":"sha256:6c95709f7239b71623e6c6944b3bdc49966f2d60cc8090e9bf94a5757e2437ad"},
+      {"path":"internal/portplan/us010_remediation_test.go","sha256":"sha256:0c2084ea6a7268549c301bebe2823130785cd2b0444c94d1e0c44f08ae23d4e3"}
     ]
   },
   "toolchain": {
     "rustc_artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
     "rustc_sha256": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
     "cargo_sha256": "sha256:c512bff73c86143b557463f021d0c3d5b0490d97d65040ba59ea2b3427784758",
-    "validation_time": "2026-08-27T03:20:00Z",
+    "validation_time": "2026-08-27T04:52:30Z",
     "rust_analyzer": {
       "historical_us009_receipt_preserved": true,
       "pinned_artifact_id": "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
@@ -31,9 +37,9 @@
     }
   },
   "tests": {
-    "debug": {"command":"rustgate cargo -- test --workspace --all-targets --all-features --locked --offline","passed":35,"failed":0},
-    "release": {"command":"rustgate cargo -- test --workspace --all-targets --all-features --release --locked --offline","passed":35,"failed":0},
-    "client_handshake_tests_per_profile": 13,
+    "debug": {"command":"make -C rust test","passed":36,"failed":0},
+    "release": {"command":"make -C rust test-release","passed":36,"failed":0},
+    "client_handshake_tests_per_profile": 14,
     "frozen_server_response_cases": 10,
     "valid_cases_split_at_every_byte": 4,
     "split_point_executions_per_profile": 548,
@@ -42,18 +48,18 @@
   },
   "corpus": {
     "projection_path": "corpora/handshake/client.json",
-    "projection_sha256": "sha256:c3a25ab84e09791e69416a2a8a79f0d294f355428a4225c4f4156b810e472e3b",
+    "projection_sha256": "sha256:8d898579ed466a0182c2d59ab7e4bb21b696567472c9de0d9e4f9d3af17ae4a0",
     "schema_path": "schemas/client-handshake-corpus-1.0.0.schema.json",
-    "schema_sha256": "sha256:7fcb261bd304da400f4018f8e30e5ea948408b6df71c47687f1bf691f2011139",
+    "schema_sha256": "sha256:3ecb481829ac9b3d367883ee59b241fb13c1289b281a1864f7726faa19c44d86",
     "frozen_source_sha256": "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605",
     "public_additive_vectors": 18,
     "fuzz_seed_count": 11
   },
   "symbols": {
     "migration_map_path": "evidence/intake/semantic-id-migration-map.json",
-    "migration_map_sha256": "sha256:b23debd19213adffe1900535ed08d1ba5d1275baa3cbf23ddf4241e942e242aa",
+    "migration_map_sha256": "sha256:13a35194a02a4986d69e01c7286e008daca6f80cc5b8bed6884db61358bb7db6",
     "bindings": [
-      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:605","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
+      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:609","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
       {"rust_semantic_id":"websocket_core::ClientRequestDescriptor","source":"rust/connection-core/src/handshake/client.rs:9","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
       {"rust_semantic_id":"websocket_core::LocalCommand","source":"rust/connection-core/src/connection.rs:349","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
       {"rust_semantic_id":"websocket_core::HandshakeFailure","source":"rust/connection-core/src/connection.rs:443","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
@@ -65,12 +71,12 @@
   "compatibility": {
     "surface_id": "surface.handshake.client-request",
     "cutover_obligation_id": "cutover.surface-handshake-client-request",
-    "evidence_ids": ["evidence.us-010-differential", "evidence.us-010-property", "evidence.us-010-client-handshake"],
+    "evidence_ids": ["evidence.us-010-client-handshake"],
     "java_observation_mode": "SOURCE_DERIVED_NO_LIVE_COMMITTED_CORPUS_EXECUTION",
     "java_mapping_path": "evidence/us005-handshake-live-mapping.json",
     "java_mapping_sha256": "sha256:4cb2969b14b0d54dd178f7734705e8d8578190f2e69213219fcf8fe6d20f207a",
-    "compatibility_surface_sha256": "sha256:802de5c6d1291c8253aa07b1a051a8e20acc3a00cc72ee1d4852a7f18c216b0c",
-    "cutover_contract_sha256": "sha256:7209cffe070651019b75f8a05f83d52d92b38a67aec95663b38235981b03bbc3"
+    "compatibility_surface_sha256": "sha256:b9c7107e810a80dd6a3ca0f91fb5bab2c4fd8256fd5d849bc5932f5cf4d80cb0",
+    "cutover_contract_sha256": "sha256:ea6d6148dd67b705e74db48056dd5f17f22626fda48d148aef01f37de2d46f76"
   },
   "delta_ledger": {
     "path": "evidence/java/behavior-delta-ledger.json",
@@ -82,7 +88,7 @@
   },
   "evidence_dag_claim": "claim-us010-client-handshake",
   "evidence_dag_path": "assurance/us010-evidence-dag.json",
-  "evidence_dag_sha256": "sha256:9d55a6e100d8e51016d6746617c69310273aef3746b79aa5d7a590acb4f425d9",
+  "evidence_dag_sha256": "sha256:7ef0b6f78d9bee73a85b06e0caf35059a4c0575e7ffd9ab8839dc6b5641269d7",
   "nonclaims": ["server opening handshake", "frame coding or application data", "live Java committed-corpus execution", "Autobahn execution or conformance", "extension or subprotocol negotiation", "independent review", "release, publication, production, parity, or benchmark readiness"],
   "assurance": {"assurance":"OWNER_ATTESTED_NOT_INDEPENDENT","independent_review_claimed":false,"production":false,"publication":false,"signing":false}
 }
