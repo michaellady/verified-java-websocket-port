@@ -2,7 +2,7 @@
 
 use websocket_core::{
     ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput,
-    FailureKind, LimitKind, LimitRelationship, LocalCommand, Role, TransportBytes,
+    CoreOutput, FailureKind, LimitKind, LimitRelationship, LocalCommand, Role, TransportBytes,
 };
 
 #[test]
@@ -42,6 +42,38 @@ fn step_accounting_reports_exact_partial_consumption_and_retention() {
     assert_eq!(accounting.pre_state, ConnectionState::Open);
     assert_eq!(accounting.post_state, ConnectionState::Closed);
     assert_eq!(rejected.state(), ConnectionState::Closed);
+}
+
+#[test]
+fn public_rsv_rejection_consumes_the_offered_chunk_then_closes() {
+    const REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    const US005_PUBLIC_0005: &[u8] = b"\xa1\x83\x74\xb3\xd8\xd2\x08\xe9\x85";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+    let mut core = ConnectionCore::new(config, Role::Server);
+    assert_eq!(
+        core.step(CoreInput::Transport(TransportBytes::new(REQUEST)))
+            .state(),
+        ConnectionState::Open
+    );
+
+    let rejected = core.step(CoreInput::Transport(TransportBytes::new(US005_PUBLIC_0005)));
+    assert_eq!(
+        rejected.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Frame(
+            websocket_core::FrameFailure::ReservedBits
+        ))
+    );
+    assert_eq!(rejected.state(), ConnectionState::Closed);
+    assert_eq!(
+        rejected.outputs().collect::<Vec<_>>(),
+        vec![&CoreOutput::StateChanged(ConnectionState::Closed)]
+    );
+    let accounting = core.last_step_observation().accounting();
+    assert_eq!(accounting.bytes_consumed, US005_PUBLIC_0005.len());
+    assert_eq!(accounting.wire_buffered_bytes, 0);
+    assert_eq!(accounting.message_buffered_bytes, 0);
+    assert_eq!(accounting.pre_state, ConnectionState::Open);
+    assert_eq!(accounting.post_state, ConnectionState::Closed);
 }
 
 const BYTE_CEILING: u64 = 1_048_576;

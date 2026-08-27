@@ -371,8 +371,14 @@ impl FrameDecoder {
                         self.plan = Some(plan);
                     }
                     Err(failure) => {
+                        let consumed_bytes =
+                            if matches!(failure, FailureKind::Frame(FrameFailure::ReservedBits)) {
+                                bytes.len()
+                            } else {
+                                offset
+                            };
                         self.reset();
-                        return FrameDecodeBatch::failed(records, failure, offset);
+                        return FrameDecodeBatch::failed(records, failure, consumed_bytes);
                     }
                 }
             }

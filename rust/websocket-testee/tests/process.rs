@@ -57,6 +57,23 @@ fn run_neutral(input: &[u8]) -> std::process::Output {
     child.wait_with_output().unwrap()
 }
 
+fn response_field(response: &[u8], wanted_tag: u8) -> &[u8] {
+    let declared = u32::from_be_bytes(response[..4].try_into().unwrap()) as usize;
+    assert_eq!(declared, response.len() - 4);
+    assert_eq!(&response[4..9], b"NOBS1");
+    let mut remaining = &response[9..];
+    while !remaining.is_empty() {
+        let tag = remaining[0];
+        let length = u32::from_be_bytes(remaining[1..5].try_into().unwrap()) as usize;
+        let value = &remaining[5..5 + length];
+        if tag == wanted_tag {
+            return value;
+        }
+        remaining = &remaining[5 + length..];
+    }
+    panic!("missing response tag {wanted_tag}");
+}
+
 #[test]
 fn neutral_oracle_is_one_record_and_bootstraps_the_real_server_owner() {
     let output = run_neutral(&neutral_request());
@@ -112,6 +129,45 @@ fn neutral_oracle_drives_outbound_fragments_through_the_owner() {
             .windows(5)
             .any(|window| window == "éjé".as_bytes())
     );
+}
+
+#[test]
+fn neutral_oracle_reports_full_offered_chunk_for_public_rsv_rejection() {
+    const US005_PUBLIC_0005: &[u8] = b"\xa1\x83\x74\xb3\xd8\xd2\x08\xe9\x85";
+    let step = [vec![1], US005_PUBLIC_0005.to_vec()].concat();
+    let output = run_neutral(&neutral_request_for(2, 1, &[step]));
+    assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
+    assert!(output.stderr.is_empty());
+
+    let steps = response_field(&output.stdout, 5);
+    assert_eq!(&steps[..2], &1_u16.to_be_bytes());
+    let record_length = u32::from_be_bytes(steps[2..6].try_into().unwrap()) as usize;
+    assert_eq!(record_length, steps.len() - 6);
+    let record = &steps[6..];
+    assert_eq!(&record[..5], &[0, 0, 1, 1, 3]);
+    assert_eq!(
+        u64::from_be_bytes(record[5..13].try_into().unwrap()),
+        US005_PUBLIC_0005.len() as u64
+    );
+    assert_eq!(u64::from_be_bytes(record[13..21].try_into().unwrap()), 0);
+    assert_eq!(u64::from_be_bytes(record[21..29].try_into().unwrap()), 0);
+
+    let observation_count = u16::from_be_bytes(record[29..31].try_into().unwrap());
+    let mut remaining = &record[31..];
+    let mut error_class = None;
+    for _ in 0..observation_count {
+        let length = u32::from_be_bytes(remaining[..4].try_into().unwrap()) as usize;
+        let observation = &remaining[4..4 + length];
+        if observation[0] == 5 {
+            assert_eq!(observation[1], 1, "RSV rejection must remain terminal");
+            let class_length = u16::from_be_bytes(observation[2..4].try_into().unwrap()) as usize;
+            error_class = Some(&observation[4..4 + class_length]);
+        }
+        remaining = &remaining[4 + length..];
+    }
+    assert!(remaining.is_empty());
+    assert_eq!(error_class, Some(b"FRAME_RESERVED_BITS".as_slice()));
+    assert_eq!(response_field(&output.stdout, 6), &[3]);
 }
 
 #[test]
