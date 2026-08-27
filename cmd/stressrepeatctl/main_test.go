@@ -1,10 +1,47 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
+
+// TestHelperProcess is the Go stand-in for shell fixtures (AGENTS.md rule 1,
+// review 01a04556-b191): the test binary re-execs itself and this "test"
+// plays the child process role selected by STRESSREPEAT_HELPER.
+func TestHelperProcess(t *testing.T) {
+	mode := os.Getenv("STRESSREPEAT_HELPER")
+	if mode == "" {
+		return
+	}
+	defer os.Exit(0)
+	switch mode {
+	case "pass":
+		fmt.Println("stress-ok")
+	case "silent-pass":
+	case "flake":
+		ctr := os.Getenv("STRESSREPEAT_COUNTER")
+		n := 0
+		if body, err := os.ReadFile(ctr); err == nil {
+			n, _ = strconv.Atoi(string(body))
+		}
+		n++
+		if err := os.WriteFile(ctr, []byte(strconv.Itoa(n)), 0o644); err != nil {
+			os.Exit(3)
+		}
+		if n == 2 {
+			os.Exit(7)
+		}
+		fmt.Printf("pass-%d\n", n)
+	}
+}
+
+func helperArgv(t *testing.T, mode string) []string {
+	t.Setenv("STRESSREPEAT_HELPER", mode)
+	return []string{os.Args[0], "-test.run=TestHelperProcess"}
+}
 
 // All runs pass: every exit code is read as 0, every per-run log exists,
 // and the summary tallies passes == runs with no failures.
@@ -14,7 +51,7 @@ func TestAllRunsPassTallyAndLogs(t *testing.T) {
 		Runs:   3,
 		Label:  "unit-pass",
 		LogDir: dir,
-		Argv:   []string{"/bin/sh", "-c", "echo stress-ok"},
+		Argv:   helperArgv(t, "pass"),
 	})
 	if err != nil {
 		t.Fatalf("runRepeats: %v", err)
@@ -49,12 +86,12 @@ func TestAllRunsPassTallyAndLogs(t *testing.T) {
 func TestMidSequenceFailureIsRecordedAndAllRunsComplete(t *testing.T) {
 	dir := t.TempDir()
 	ctr := filepath.Join(dir, "ctr")
-	script := `n=$(cat "$0" 2>/dev/null || echo 0); n=$((n+1)); printf %s "$n" > "$0"; if [ "$n" -eq 2 ]; then exit 7; fi; echo pass-$n`
+	t.Setenv("STRESSREPEAT_COUNTER", ctr)
 	sum, err := runRepeats(config{
 		Runs:   3,
 		Label:  "unit-flake",
 		LogDir: dir,
-		Argv:   []string{"/bin/sh", "-c", script, ctr},
+		Argv:   helperArgv(t, "flake"),
 	})
 	if err != nil {
 		t.Fatalf("runRepeats: %v", err)
@@ -88,7 +125,7 @@ func TestSummaryArtifactWritten(t *testing.T) {
 		Runs:   1,
 		Label:  "unit-artifact",
 		LogDir: dir,
-		Argv:   []string{"/bin/sh", "-c", "true"},
+		Argv:   helperArgv(t, "silent-pass"),
 	})
 	if err != nil {
 		t.Fatalf("runRepeats: %v", err)
