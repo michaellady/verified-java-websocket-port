@@ -4,21 +4,19 @@
   "evidence_id": "evidence.us-010-client-handshake",
   "story_id": "US-010",
   "source": {
-    "commit": "abbd4d29dd03b389dfb0c3cb813ef6cbc7453e6e",
-    "tree": "4244cdd288e2b6c546f13e02ad4005467752559f",
-    "branch": "codex/race-catchup",
+    "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
     "implementation_files": [
-      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:e287f568132bef9b58a522beada48e5f873418ca5c818b68e953b569ae92cebe"},
-      {"path":"rust/connection-core/src/handshake/client.rs","sha256":"sha256:d6e355ffaec8c232f79ec25edcad7d36c5128140e4e1c7c9c022df5b13a89dd3"},
-      {"path":"rust/connection-core/src/handshake/http.rs","sha256":"sha256:38a5414fb7c8d6c0c872648c217d46da2bda347167cc2ab78bcdb6ca703df02b"},
-      {"path":"rust/connection-core/src/handshake/crypto.rs","sha256":"sha256:78f6216c5d929799e1d4149a2ef9b783e38ebf7f5d66679525002761882544af"},
-      {"path":"rust/connection-core/tests/client_handshake.rs","sha256":"sha256:9c8a300b8e5e0d81484a111f89625c798167b74012dc2219677e5bec926ff06c"},
-      {"path":"internal/corpora/client_handshake.go","sha256":"sha256:057f95869a81dcf5e21d5e205f00b6f1148fa43b34390bc38199f8da27c527b9"},
-      {"path":"internal/corpora/us010_artifact.go","sha256":"sha256:bac4256b33e69e967b4bf89b9a38cb30f6ef2abeafa801de05402957f25faf02"},
-      {"path":"internal/corpora/client_handshake_test.go","sha256":"sha256:2f0ac46bb3f93638e4acff54afae9b9544d473f2b0c0fdaef31bf3ac497e8e44"},
-      {"path":"internal/corpora/schemas.go","sha256":"sha256:4b55c9e7f229eae026db6bebda97a78df3326f6d1d9299707eae98cbaa22fecc"},
-      {"path":"internal/portplan/build_documents.go","sha256":"sha256:6c95709f7239b71623e6c6944b3bdc49966f2d60cc8090e9bf94a5757e2437ad"},
-      {"path":"internal/portplan/us010_remediation_test.go","sha256":"sha256:0c2084ea6a7268549c301bebe2823130785cd2b0444c94d1e0c44f08ae23d4e3"}
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:e287f568132bef9b58a522beada48e5f873418ca5c818b68e953b569ae92cebe","git_blob":"5be54be7978003257676dd63cabe573d79b68611"},
+      {"path":"rust/connection-core/src/handshake/client.rs","sha256":"sha256:d6e355ffaec8c232f79ec25edcad7d36c5128140e4e1c7c9c022df5b13a89dd3","git_blob":"44712cdaa2ab0aa42f78ded80b3bfe9de3262fad"},
+      {"path":"rust/connection-core/src/handshake/http.rs","sha256":"sha256:38a5414fb7c8d6c0c872648c217d46da2bda347167cc2ab78bcdb6ca703df02b","git_blob":"7c22c17f068d297eaf132910e1bc9a9fe64d5d7f"},
+      {"path":"rust/connection-core/src/handshake/crypto.rs","sha256":"sha256:78f6216c5d929799e1d4149a2ef9b783e38ebf7f5d66679525002761882544af","git_blob":"255b000ed6f26ce75474a05dce7493255e8be9f3"},
+      {"path":"rust/connection-core/tests/client_handshake.rs","sha256":"sha256:9c8a300b8e5e0d81484a111f89625c798167b74012dc2219677e5bec926ff06c","git_blob":"64bd873704b5271275ca41dbeea693d575477e7a"},
+      {"path":"internal/corpora/client_handshake.go","sha256":"sha256:bd45816846548088572b0ad7cc3009529df02e059d2dcdb10ad8b7af859a78d0","git_blob":"b9d71a7e5b0134472e5b42a50895d63db7e66827"},
+      {"path":"internal/corpora/us010_artifact.go","sha256":"sha256:ec4e897493a2f556f4f80f77a9cabeae9bd055e0edbe56dc50e831e0c109a456","git_blob":"59a592ec5989a2f6694bcbf9301579c286da38b0"},
+      {"path":"internal/corpora/client_handshake_test.go","sha256":"sha256:ebdecb8f808f337b55507ecf3b7ddb76003d998e3b53ce2005706982e3ce731a","git_blob":"31c22b5befd97fa6f299eb77663c2a2645a5b8a3"},
+      {"path":"internal/corpora/schemas.go","sha256":"sha256:4b55c9e7f229eae026db6bebda97a78df3326f6d1d9299707eae98cbaa22fecc","git_blob":"8b35eb59c8c5d49f609a79b7e3e28f1e2f0832d2"},
+      {"path":"internal/portplan/build_documents.go","sha256":"sha256:6c95709f7239b71623e6c6944b3bdc49966f2d60cc8090e9bf94a5757e2437ad","git_blob":"81b31570838f9c2a195e1140d5b9670dcd9ca486"},
+      {"path":"internal/portplan/us010_remediation_test.go","sha256":"sha256:0c2084ea6a7268549c301bebe2823130785cd2b0444c94d1e0c44f08ae23d4e3","git_blob":"4ac9df6a20ba4a41cc76ebfaae784176e9fbfdec"}
     ]
   },
   "toolchain": {
