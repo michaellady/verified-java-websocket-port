@@ -1,7 +1,8 @@
 # US-008 benchmark-confirmation pipeline (enabling work)
 
-Status: PREREGISTRATION FROZEN; TIER-1 HOST IDENTITIES BOUND; FULL HOST
-BINDING STILL OWNER-GATED. Confirmation rigor is TIERED per the
+Status: PREREGISTRATION FROZEN AND OWNER-ATTESTED (2026-08-27,
+owner-only — the independent attestation stays honestly open); TIER-1
+HOST IDENTITIES BOUND; FULL HOST BINDING STILL OWNER-GATED. Confirmation rigor is TIERED per the
 owner-authorized amendment of 2026-08-26 (workspace protected root
 `us008-contract-amendment-tiered-benchmark-rigor.json`): Tier-1
 `VM_MEASURED_JITTER_AVERAGED` is the campaign default, Tier-2
@@ -20,13 +21,21 @@ The owner's round-2 decision of 2026-08-27 (workspace protected root
 `us009-us008-owner-decisions-2026-08-27.json`) additionally bound the
 CPU-frequency policy (`DOCUMENT_DEFAULTS_RECORD_OBSERVED`) and decided
 the allocation-accounting method (`BUILTIN_ACCOUNTING_PER_RUN`, recorded
-as the `measurement_tools` candidate — the host-tenancy
-`allocation_evidence` field remains an open owner decision; see
-`docs/us008-attestation-package.md` for the name-collision record).
-The runner remains a `NOT_MEASURED`-only stub, 25 host/tool binding
-fields remain unbound, and `benchplanctl verify` fails closed with the
-single blocker class `HOST_BINDING_PENDING` (exit 3). **Nothing here
-claims US-008 passes**, and US-008 cannot pass in this state by design:
+as the `measurement_tools` candidate; see
+`docs/us008-attestation-package.md` for the name-collision record). The
+owner's round-3 record of 2026-08-27 (workspace protected root
+`us008-owner-attestation-2026-08-27.json`) bound the host-tenancy
+`allocation_evidence` field to the `STANDARD_CLOUD_CHECKS` observation
+procedure (resolving the name collision; per-run observations pending
+until runs exist) and attested the plan — OWNER-ONLY
+(`attestation_state: OWNER_ATTESTED`, digest-bound to the frozen plan
+bytes; assurance `OWNER_ATTESTED_NOT_INDEPENDENT`,
+`independent_review_claimed: false`; the independent attestation remains
+honestly open). The runner remains a `NOT_MEASURED`-only stub, 24
+host/tool binding fields remain unbound (17 confirmation + 7 primary),
+and `benchplanctl verify` fails closed with the single blocker class
+`HOST_BINDING_PENDING` (exit 3). **Nothing here claims US-008 passes**,
+and US-008 cannot pass in this state by design:
 
 - `benchmarks/plan/workloads.json` is a frozen, schema-enforced
   preregistration (`schemas/benchmark-plan-1.0.0.schema.json`): six exact
@@ -261,6 +270,14 @@ Completed with explicit owner authorization:
    c7i.xlarge`, `region us-east-1`, and the AMI pin recorded in
    `benchmarks/environments/confirmation.json`; Tier-2 explicitly
    `DEFERRED_BY_OWNER`.
+4. **Round-2 and round-3 owner decisions — DONE (2026-08-27).**
+   CPU-frequency policy bound (`DOCUMENT_DEFAULTS_RECORD_OBSERVED`),
+   allocation-accounting method decided (`BUILTIN_ACCOUNTING_PER_RUN`,
+   recorded as the `measurement_tools` candidate), the host-tenancy
+   `allocation_evidence` procedure bound (`STANDARD_CLOUD_CHECKS`), and
+   the plan owner-attested (digest-bound `attestation_record`;
+   owner-only — the independent attestation stays open, gated item 3
+   below).
 
 Deliberate non-adoption (not a gate — a standing recommendation):
 
@@ -286,12 +303,8 @@ preconditions, `benchplanctl` exit 3, or AWS itself reject the run):
    quota is raised. The bound Tier-1 c7i.xlarge (4 vCPUs) fits the
    standing quota; no request is needed for the campaign default.
 2. **Remaining owner decisions to bind in
-   `benchmarks/environments/confirmation.json`** (the 18 pending
-   confirmation fields the completion meter reports): the host-tenancy
-   allocation-evidence observation procedure (still open — the round-2
-   `BUILTIN_ACCOUNTING_PER_RUN` decision of 2026-08-27 resolved
-   allocation-ACCOUNTING evidence, a measurement-tool method, not host
-   tenancy), every
+   `benchmarks/environments/confirmation.json`** (the 17 pending
+   confirmation fields the completion meter reports): every
    measurement/analyzer tool identity + digest (JDK distribution, Rust
    toolchain, load driver, measurement tools, independently rebuilt
    analyzer, digested runner), the booted-host facts recorded at
@@ -299,14 +312,27 @@ preconditions, `benchplanctl` exit 3, or AWS itself reject the run):
    architecture, OS/kernel identity, CPU model, memory, NUMA topology,
    clocksource) — plus a Tier-2 metal type if the deferred flagship run
    is ever scheduled, and the 7 primary-environment tool identities.
-   The CPU-frequency policy is now BOUND (round-2 decision 2026-08-27).
+   The CPU-frequency policy is BOUND (round-2 decision 2026-08-27), and
+   the host-tenancy allocation-evidence observation procedure is BOUND
+   to `STANDARD_CLOUD_CHECKS` (round-3 decision 2026-08-27 — the
+   round-2 `BUILTIN_ACCOUNTING_PER_RUN` decision resolved only
+   allocation-ACCOUNTING evidence, a measurement-tool method; per-run
+   tenancy observations stay pending until runs exist).
    `benchplanctl` fails closed (exit 3, HOST_BINDING_PENDING) until bound.
-3. **Plan freeze + independent attestation** of the preregistration itself
-   (`benchmarks/plan/workloads.json` OWNER_DECISION_PENDING fields resolved,
-   then frozen) — the PRD forbids any raw or tuning sample predating the
-   independently attested plan commit; the preflight stays BLOCKED until
-   then. Current assurance posture: `OWNER_ATTESTED_NOT_INDEPENDENT`,
-   `independent_review_claimed: false`.
+3. **Independent attestation** of the preregistration itself. The plan
+   freeze is DONE: the owner attested the plan on 2026-08-27
+   (`attestation_state: OWNER_ATTESTED`, digest-bound in
+   `attestation_record` to the exact frozen plan bytes at mainline
+   51257ac). HONEST RESIDUE: the attestation is owner-only
+   (`OWNER_ATTESTED_NOT_INDEPENDENT`, `independent_review_claimed:
+   false`) — the PRD forbids any raw or tuning sample predating the
+   INDEPENDENTLY attested plan commit, no independent attestor exists or
+   is claimed, and the schema + validator now require
+   independent-specific evidence (a distinct attestor identity, a
+   record-level independent-review claim, the attestor record digest and
+   date) that an owner-only record structurally cannot provide; the
+   preflight stays BLOCKED until a genuine independent attestation
+   exists.
 
 Recommended before enabling measured runs (owner step, NOT mechanically
 enforced by the pipeline):

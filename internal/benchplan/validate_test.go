@@ -42,7 +42,7 @@ const (
 // OWNER_DECISION_PENDING until the round-3 record below designated its
 // own procedure.
 const (
-	pinnedCPUFrequencyPolicy = "DOCUMENT_DEFAULTS_RECORD_OBSERVED: no frequency tuning and no tuning claims — no governor, turbo, or SMT setting is mutated on the bound host; the booted host's default scaling facts (cpufreq driver and governor presence or absence, turbo/boost visibility, SMT state) are recorded at provision alongside the other booted-host facts, and the observed CPU clock is recorded per measured run"
+	pinnedCPUFrequencyPolicy            = "DOCUMENT_DEFAULTS_RECORD_OBSERVED: no frequency tuning and no tuning claims — no governor, turbo, or SMT setting is mutated on the bound host; the booted host's default scaling facts (cpufreq driver and governor presence or absence, turbo/boost visibility, SMT state) are recorded at provision alongside the other booted-host facts, and the observed CPU clock is recorded per measured run"
 	pinnedAllocationAccountingCandidate = "allocation samplers decided BUILTIN_ACCOUNTING_PER_RUN (owner decision 2026-08-27): Java allocation evidence from the JVM's own accounting (GC/NMT statistics), Rust from a counting allocator, both recorded per run; exact sampler identities and digests remain pending"
 )
 
@@ -438,6 +438,22 @@ func TestPlanAttestationPairedStates(t *testing.T) {
 			record := plan["attestation_record"].(map[string]any)
 			record["assurance"] = "INDEPENDENTLY_REVIEWED"
 		}},
+		// Re-review round 1 (session 01a04165, BLOCKING): relabeling the
+		// owner-only record to INDEPENDENTLY_ATTESTED — a state/status
+		// string edit with no independent evidence — must fail BOTH the
+		// schema (the independent record variant requires evidence an
+		// owner-only record structurally cannot provide) and the spec
+		// cross-check (typed finding).
+		{"owner record relabeled to INDEPENDENTLY_ATTESTED", func(plan map[string]any) {
+			plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: relabel-only promotion of the owner record"
+		}},
+		{"relabel plus promoted top-level labels, still no independent evidence", func(plan map[string]any) {
+			plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: relabel with promoted document labels"
+			plan["assurance"] = "INDEPENDENTLY_ATTESTED"
+			plan["independent_review_claimed"] = true
+		}},
 	}
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
@@ -464,7 +480,7 @@ func TestPlanAttestationPairedStates(t *testing.T) {
 func TestVerifyOwnerAttestedIsNotFullyBound(t *testing.T) {
 	root := copyBenchmarkTree(t)
 	bindAllPendingFields(t, root)
-	setBindingStatuses(t, root, "BOUND", "OWNER_ATTESTED")
+	setEnvironmentBindingStatuses(t, root, "BOUND")
 	report, err := Verify(root)
 	if err != nil {
 		t.Fatal(err)
@@ -660,7 +676,7 @@ func bindAllPendingFields(t *testing.T, root string) {
 	}
 }
 
-func setBindingStatuses(t *testing.T, root, environmentStatus, attestationState string) {
+func setEnvironmentBindingStatuses(t *testing.T, root, environmentStatus string) {
 	t.Helper()
 	for _, name := range []string{"primary-macos.json", "confirmation.json"} {
 		path := filepath.Join(root, "benchmarks", "environments", name)
@@ -675,11 +691,33 @@ func setBindingStatuses(t *testing.T, root, environmentStatus, attestationState 
 		environment["binding_status"] = environmentStatus
 		writeJSON(t, path, environment)
 	}
+}
+
+// syntheticIndependentAttestor is the clearly-labeled SYNTHETIC attestor
+// identity used only to exercise the verification path. It is not a real
+// attestation, no independent review happened, and the real document
+// never carries it (the real plan stays OWNER_ATTESTED).
+const syntheticIndependentAttestor = "synthetic-independent-attestor (SYNTHETIC_TEST_FIXTURE_NOT_A_REAL_ATTESTATION)"
+
+// attestIndependentlyForTest installs a well-formed but SYNTHETIC
+// independent attestation on a copied tree: the state/status/label
+// pairing plus the independent-specific evidence the schema and the
+// validator require (attestor identity distinct from the owner,
+// record-level independent_review_claimed true, attestor record digest
+// and date). Test-only shape exercise — not a real attestation.
+func attestIndependentlyForTest(t *testing.T, root string) {
+	t.Helper()
 	mutatePlan(t, root, func(plan map[string]any) {
-		plan["attestation_state"] = attestationState
-		if attestationState == "INDEPENDENTLY_ATTESTED" {
-			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: every field bound and the plan attested (synthetic verification-path exercise, not a real attestation)"
-		}
+		plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+		plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: synthetic independent attestation (verification-path exercise only, not a real attestation)"
+		plan["assurance"] = "INDEPENDENTLY_ATTESTED"
+		plan["independent_review_claimed"] = true
+		record := plan["attestation_record"].(map[string]any)
+		record["assurance"] = "INDEPENDENTLY_ATTESTED"
+		record["independent_review_claimed"] = true
+		record["independent_attestor_identity"] = syntheticIndependentAttestor
+		record["independent_attestation_record_sha256"] = strings.Repeat("ab", 32)
+		record["independent_attested_at"] = "2026-08-27T00:00:00Z"
 	})
 }
 
@@ -706,13 +744,17 @@ func TestVerifySyntacticCompletenessWithUnboundStatusIsStillPending(t *testing.T
 	}
 }
 
-// Review fix I5, positive direction: with every field bound, both
-// environments BOUND, and the plan attested, verification reports fully
-// bound.
+// Review fix I5, positive direction (re-review round 1: independent
+// evidence required): with every field bound, both environments BOUND,
+// and a well-formed SYNTHETIC independent attestation record installed
+// (clearly labeled synthetic; not a real attestation), verification
+// reports fully bound — proving the independent record SHAPE is
+// satisfiable while a relabeled owner record never is.
 func TestVerifyFullyBoundAndAttestedTreeVerifies(t *testing.T) {
 	root := copyBenchmarkTree(t)
 	bindAllPendingFields(t, root)
-	setBindingStatuses(t, root, "BOUND", "INDEPENDENTLY_ATTESTED")
+	setEnvironmentBindingStatuses(t, root, "BOUND")
+	attestIndependentlyForTest(t, root)
 	report, err := Verify(root)
 	if err != nil {
 		t.Fatal(err)
@@ -723,13 +765,93 @@ func TestVerifyFullyBoundAndAttestedTreeVerifies(t *testing.T) {
 	if !report.FullyBound() {
 		t.Fatalf("expected fully bound, got blockers %v", report.BlockerClasses)
 	}
+	if report.PlanAttestationState != "INDEPENDENTLY_ATTESTED" {
+		t.Errorf("plan attestation state %q, want INDEPENDENTLY_ATTESTED", report.PlanAttestationState)
+	}
+}
+
+// Re-review round 1 (session 01a04165, BLOCKING): FullyBound with the
+// owner-only record merely RELABELED to INDEPENDENTLY_ATTESTED must
+// never be reachable — not by a state/status edit alone, and not even
+// with the top-level document labels promoted too. The independent
+// state demands independent-specific evidence the owner-only record
+// structurally cannot provide.
+func TestVerifyRelabeledOwnerRecordNeverFullyBound(t *testing.T) {
+	relabels := []struct {
+		name   string
+		mutate func(plan map[string]any)
+	}{
+		{"state and status strings only", func(plan map[string]any) {
+			plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: relabel-only promotion"
+		}},
+		{"state, status, and top-level labels", func(plan map[string]any) {
+			plan["attestation_state"] = "INDEPENDENTLY_ATTESTED"
+			plan["status"] = "PREREGISTERED_INDEPENDENTLY_ATTESTED - test scenario: relabel with promoted labels"
+			plan["assurance"] = "INDEPENDENTLY_ATTESTED"
+			plan["independent_review_claimed"] = true
+		}},
+	}
+	for _, relabel := range relabels {
+		t.Run(relabel.name, func(t *testing.T) {
+			root := copyBenchmarkTree(t)
+			bindAllPendingFields(t, root)
+			setEnvironmentBindingStatuses(t, root, "BOUND")
+			mutatePlan(t, root, relabel.mutate)
+			report, err := Verify(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if report.FullyBound() {
+				t.Fatal("a relabeled owner-only record must NEVER verify as fully bound (exit 0 unreachable by a string edit)")
+			}
+			if len(report.SchemaFailures["benchmarks/plan/workloads.json"]) == 0 {
+				t.Error("the schema must reject an INDEPENDENTLY_ATTESTED state carried by an owner-only record")
+			}
+			if len(report.PlanFailures) == 0 {
+				t.Error("the spec cross-check must reject an INDEPENDENTLY_ATTESTED state carried by an owner-only record with a typed finding")
+			}
+		})
+	}
+}
+
+// The independent attestor can never be the owner: a synthetic record
+// that is otherwise well-formed but names the owner identity as the
+// independent attestor must fail the validator (self-attestation is
+// owner-only by definition), and the tree must not verify fully bound.
+func TestVerifyIndependentSelfAttestationRejected(t *testing.T) {
+	root := copyBenchmarkTree(t)
+	bindAllPendingFields(t, root)
+	setEnvironmentBindingStatuses(t, root, "BOUND")
+	attestIndependentlyForTest(t, root)
+	mutatePlan(t, root, func(plan map[string]any) {
+		record := plan["attestation_record"].(map[string]any)
+		record["independent_attestor_identity"] = OwnerIdentity
+	})
+	report, err := Verify(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if report.FullyBound() {
+		t.Fatal("an owner self-attestation labeled independent must never verify as fully bound")
+	}
+	found := false
+	for _, failure := range report.PlanFailures {
+		if strings.Contains(failure, "owner identity") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("plan failures must name the owner-identity conflict, got %v", report.PlanFailures)
+	}
 }
 
 // A document claiming BOUND while its fields are still pending is an
 // inconsistency, never progress.
 func TestVerifyBoundStatusWithPendingFieldsIsInconsistent(t *testing.T) {
 	root := copyBenchmarkTree(t)
-	setBindingStatuses(t, root, "BOUND", "INDEPENDENTLY_ATTESTED")
+	setEnvironmentBindingStatuses(t, root, "BOUND")
+	attestIndependentlyForTest(t, root)
 	report, err := Verify(root)
 	if err != nil {
 		t.Fatal(err)
