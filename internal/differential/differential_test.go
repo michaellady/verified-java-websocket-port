@@ -243,11 +243,17 @@ func TestObservedRustDefectRemainsVisibleAfterClosingRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	closing := digest([]byte("closing-aligned"))
-	if err := appendObservedRemediation(&ledger, hierarchy, scenarios[5], closing, closing, strings.Repeat("c", 40)); err != nil {
+	java, err := neutralObservation(scenarios[5])
+	if err != nil {
+		t.Fatal(err)
+	}
+	rust := java
+	rust.FinalState = "closed"
+	closingJava, closingRust := digest([]byte("closing-java")), digest([]byte("closing-rust"))
+	if err := appendObservedRemediation(&ledger, hierarchy, scenarios[5], java, rust, closingJava, closingRust, strings.Repeat("c", 40)); err != nil {
 		t.Fatalf("appendObservedRemediation: %v", err)
 	}
-	if len(ledger.Records) != 1 || ledger.Records[0].Classification != "rust_defect" || ledger.Records[0].Resolution != "remediated" || ledger.Records[0].ClosingRustObservation != closing {
+	if len(ledger.Records) != 1 || ledger.Records[0].Classification != "rust_defect" || ledger.Records[0].Resolution != "remediated" || ledger.Records[0].ClosingJavaObservation != closingJava || ledger.Records[0].ClosingRustObservation != closingRust {
 		t.Fatalf("retained record=%#v", ledger.Records)
 	}
 	document, err := marshalIndented(ledger)

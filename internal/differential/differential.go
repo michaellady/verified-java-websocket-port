@@ -1480,9 +1480,9 @@ func appendLedgerRecord(ledger *Ledger, expectedHead string, record LedgerRecord
 	return validateLedger(*ledger)
 }
 
-func appendObservedRemediation(ledger *Ledger, hierarchy OracleHierarchy, sc corpora.Scenario, closingJava, closingRust, closingAnchor string) error {
-	if sc.ScenarioID != "us005.pub.0005" || closingJava != closingRust {
-		return errors.New("observed remediation closing run is not aligned")
+func appendObservedRemediation(ledger *Ledger, hierarchy OracleHierarchy, sc corpora.Scenario, closingJavaObservation, closingRustObservation commonObservation, closingJavaDigest, closingRustDigest, closingAnchor string) error {
+	if sc.ScenarioID != "us005.pub.0005" {
+		return errors.New("observed remediation scenario is not the retained defect")
 	}
 	var decision *OracleCell
 	for index := range hierarchy.Cells {
@@ -1495,6 +1495,25 @@ func appendObservedRemediation(ledger *Ledger, hierarchy OracleHierarchy, sc cor
 	if decision == nil {
 		return errors.New("observed remediation oracle cell absent")
 	}
+	javaValue, err := observationValue(closingJavaObservation, decision.Pointer)
+	if err != nil {
+		return err
+	}
+	rustValue, err := observationValue(closingRustObservation, decision.Pointer)
+	if err != nil {
+		return err
+	}
+	javaRaw, err := canonical(javaValue)
+	if err != nil {
+		return err
+	}
+	rustRaw, err := canonical(rustValue)
+	if err != nil {
+		return err
+	}
+	if digest(javaRaw) != decision.ExpectedSHA256 || digest(rustRaw) != decision.ExpectedSHA256 {
+		return errors.New("observed remediation closing field is not aligned to authority")
+	}
 	reproducer, err := sc.CanonicalLine()
 	if err != nil {
 		return err
@@ -1506,7 +1525,7 @@ func appendObservedRemediation(ledger *Ledger, hierarchy OracleHierarchy, sc cor
 		RustObservation:  "sha256:5e8b0f1d14d21e402d66df17de0cb3175c63b1b3ebd599b9e5072b346e68aeb1",
 		ReproducerSHA256: digest(reproducer), Decision: *decision, Resolution: "remediated",
 		FindingRunAnchor: "c44623e38b59563401c438c3321bf7f3e77e7e54", ClosingRunAnchor: closingAnchor,
-		ClosingJavaObservation: closingJava, ClosingRustObservation: closingRust,
+		ClosingJavaObservation: closingJavaDigest, ClosingRustObservation: closingRustDigest,
 	}
 	return appendLedgerRecord(ledger, ledger.Head, record)
 }
@@ -2490,7 +2509,7 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 			}
 		}
 		if sc.ScenarioID == "us005.pub.0005" {
-			if err := appendObservedRemediation(&ledger, hierarchy, sc, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
+			if err := appendObservedRemediation(&ledger, hierarchy, sc, javaPrimary.observation, rustPrimary.observation, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
 				return Receipt{}, err
 			}
 		}
