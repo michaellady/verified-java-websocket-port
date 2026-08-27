@@ -1266,8 +1266,8 @@
       "rust_path": "ws_testee::server::run_server_once",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/server.rs",
-      "line": 50,
-      "sha256": "sha256:542b688ea2a077483731d40f5835257b5b623a0326f0ae0e7deff4f114fc54b0"
+      "line": 74,
+      "sha256": "sha256:aa3a84572bd5148671414c3bfac223bec966d9d508a8d2d09e9f59b0c9de4d4d"
     }
   ],
   "edges": [
