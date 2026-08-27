@@ -30,6 +30,7 @@ var symbolCatalog = map[string]symbolSpec{
 	"ws_core::connection::ConnectionCore::handle_command":         {DeclKind: "method", File: "rust/ws-core/src/connection.rs"},
 	"ws_core::connection::ConnectionCore::handle_eof":             {DeclKind: "method", File: "rust/ws-core/src/connection.rs"},
 	"ws_core::connection::ConnectionCore::process_inbound":        {DeclKind: "method", File: "rust/ws-core/src/connection.rs"},
+	"ws_core::connection::ConnectionCore::finish_handshake_open":  {DeclKind: "method", File: "rust/ws-core/src/connection.rs"},
 	"ws_core::connection::ConnectionCore::begin_client_handshake": {DeclKind: "method", File: "rust/ws-core/src/connection.rs"},
 
 	// ws_core::event
@@ -528,10 +529,9 @@ var proofTargetSymbolBindings = map[string]plannedSymbolBinding{
 	"sym.allocation.check-alloc": {
 		Disposition: dispositionAbsorbed,
 		Symbols: []string{
-			"ws_core::framing::Draft6455::check_buffer_limit",
-			"ws_core::connection::ConnectionCore::handle",
+			"ws_core::framing::Draft6455::decode_frame_header",
 		},
-		Rationale: "No Draft trait landed (single-draft port), so Draft::check_alloc has no home; the allocation gate lives in Draft6455::check_buffer_limit (start/fin cumulative checks, quirk Q23) and the wire-buffer accounting inside ConnectionCore::handle (Q24 slack).",
+		Rationale: "No Draft trait landed (single-draft port), so Draft::check_alloc has no home; the pre-allocation guard the target names landed as the header-time declared-length gate inside Draft6455::decode_frame_header (1009 at the length site, before any payload allocation — derive.go:424-425). Distinct by design from the reassembly-time cumulative gate check_buffer_limit, which the frozen targets bind separately under fragmentation (review 01a04566 correction 1).",
 	},
 	"sym.allocation.decode-guarded-allocation": {
 		Disposition: dispositionExact,
@@ -586,10 +586,9 @@ var proofTargetSymbolBindings = map[string]plannedSymbolBinding{
 	"sym.connection.open": {
 		Disposition: dispositionAbsorbed,
 		Symbols: []string{
-			"ws_core::connection::ConnectionCore::begin_client_handshake",
-			"ws_core::handshake::server::ServerHandshake",
+			"ws_core::connection::ConnectionCore::finish_handshake_open",
 		},
-		Rationale: "The open transition landed at handshake completion: the client leg via begin_client_handshake's accept path, the server leg via ServerHandshake's 101 emission; no open method exists.",
+		Rationale: "WebSocketImpl.open's state transition landed as ConnectionCore::finish_handshake_open — the single declaration that sets ReadyState::Open after an accepted handshake (both roles route through it), stashing post-head remainder bytes under the Q24 cap. The handshake initiation/parser seams do not perform the transition (review 01a04566 correction 2).",
 	},
 	"sym.connection.eot": {
 		Disposition: dispositionAbsorbed,

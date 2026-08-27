@@ -288,8 +288,9 @@ func TestResolverRefusesASymbolThatDoesNotExist(t *testing.T) {
 func derivationInputPaths(t *testing.T, root string) []string {
 	t.Helper()
 	paths := map[string]bool{
-		migrationMapPath: true,
-		proofTargetsPath: true,
+		migrationMapPath:  true,
+		proofTargetsPath:  true,
+		"rust/Cargo.toml": true,
 	}
 	for _, spec := range symbolCatalog {
 		paths[spec.File] = true
@@ -297,7 +298,11 @@ func derivationInputPaths(t *testing.T, root string) []string {
 	for _, spec := range evidenceCatalog {
 		paths[spec.Path] = true
 	}
-	for _, dir := range rustSourceDirs {
+	sourceDirs, err := workspaceSourceDirs(root)
+	if err != nil {
+		t.Fatalf("workspace source dirs: %v", err)
+	}
+	for _, dir := range sourceDirs {
 		err := filepath.WalkDir(filepath.Join(root, filepath.FromSlash(dir)), func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err

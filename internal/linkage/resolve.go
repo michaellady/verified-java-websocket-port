@@ -22,11 +22,33 @@ const (
 	proofTargetsPath = "assurance/formal/proof-targets.json"
 )
 
-// rustSourceDirs are the workspace source roots the excluded-name probe scans.
-var rustSourceDirs = []string{
-	"rust/ws-core/src",
-	"rust/ws-driver/src",
-	"rust/ws-testee/src",
+// workspaceMembersPattern extracts the workspace member list from
+// rust/Cargo.toml so the exclusion scan's scope tracks the real workspace.
+var workspaceMembersPattern = regexp.MustCompile(`(?m)^members\s*=\s*\[([^\]]*)\]`)
+
+// workspaceSourceDirs returns the src tree of every workspace member listed
+// in rust/Cargo.toml (review 01a04566 correction 3: the capability-exclusion
+// claim is workspace-wide, so the scan must cover candidate-stub and
+// ws-oracle-harness too, not only the three port crates).
+func workspaceSourceDirs(root string) ([]string, error) {
+	content, err := os.ReadFile(filepath.Join(root, "rust", "Cargo.toml"))
+	if err != nil {
+		return nil, err
+	}
+	match := workspaceMembersPattern.FindSubmatch(content)
+	if match == nil {
+		return nil, fmt.Errorf("rust/Cargo.toml has no workspace members list")
+	}
+	names := regexp.MustCompile(`"([^"]+)"`).FindAllSubmatch(match[1], -1)
+	if len(names) == 0 {
+		return nil, fmt.Errorf("rust/Cargo.toml workspace members list is empty")
+	}
+	directories := make([]string, 0, len(names))
+	for _, name := range names {
+		directories = append(directories, "rust/"+string(name[1])+"/src")
+	}
+	sort.Strings(directories)
+	return directories, nil
 }
 
 var ownerAttested = Assurance{
@@ -122,11 +144,16 @@ func resolveSymbol(root, rustPath string) (ResolvedSymbol, error) {
 }
 
 // confirmExclusions asserts that none of the capability-excluded Java names
-// landed as a Rust declaration anywhere in the workspace sources.
+// landed as a Rust declaration anywhere in the workspace sources (every
+// member listed in rust/Cargo.toml).
 func confirmExclusions(root string) error {
+	sourceDirs, err := workspaceSourceDirs(root)
+	if err != nil {
+		return err
+	}
 	for _, probe := range excludedNameProbes {
 		pattern := regexp.MustCompile(`(?m)^\s*(?:pub(?:\([a-z ]+\))?\s+)?(?:struct|enum|trait|type|fn)\s+` + probe + `\b`)
-		for _, dir := range rustSourceDirs {
+		for _, dir := range sourceDirs {
 			absolute := filepath.Join(root, filepath.FromSlash(dir))
 			err := filepath.WalkDir(absolute, func(path string, entry os.DirEntry, walkErr error) error {
 				if walkErr != nil {
