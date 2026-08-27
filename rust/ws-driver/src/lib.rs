@@ -7,6 +7,13 @@
 //! Transports stay outside this crate (the US-018 adapters own sockets); the
 //! driver is deterministic and clock-free like the core it wraps.
 //!
+//! The driver also owns the US-015 AC1 configurable automatic
+//! ping-response policy ([`AutoResponsePolicy`]): the sans-io core is
+//! Q18-faithful and never auto-pongs, while shipped Java-WebSocket 1.6.0
+//! replies at the WebSocketImpl/listener layer above the Draft — the
+//! layer this crate ports — so the automatic pong is injected here,
+//! through the ordinary command seam, when the Ping event is delivered.
+//!
 //! ## Borrow attribution (owner strategy: borrow with attribution)
 //!
 //! Adapted from the Codex-plane US-017 `websocket-driver` (codex-import
@@ -48,33 +55,90 @@ use std::collections::VecDeque;
 
 use ws_core::{
     CommandQueue, CommandSender, ConnectionConfig, ConnectionCore, InitialState, Input,
-    LocalCommand, ReadyState, Role, SemanticEvent, TransportWrite, TypedProtocolFailure,
+    LocalCommand, ReadyState, Role, SemanticEvent, SemanticEventKind, TransportWrite,
+    TypedProtocolFailure,
 };
 
+/// The configurable automatic control-frame response policy (US-015 AC1).
+///
+/// The sans-io core is Q18-faithful and never auto-pongs (pinned by the
+/// public corpus and the live-oracle confirmation). Shipped Java-WebSocket
+/// 1.6.0 replies one layer ABOVE the Draft: `Draft_6455.processFrame`
+/// dispatches an inbound PING to the listener
+/// (drafts/Draft_6455.java:898-899) and the DEFAULT listener
+/// `WebSocketAdapter.onWebsocketPing` sends
+/// `new PongFrame((PingFrame) f)` back (WebSocketAdapter.java:84-86),
+/// whose constructor copies the ping's payload byte-for-byte
+/// (framing/PongFrame.java:47-50) — proven live in the US-018 cross-peer
+/// exam (protected/us018-closure/crosspeer/). The driver is the
+/// WebSocketImpl pump's port-side home, so the reply lives here,
+/// injected through the ordinary command seam
+/// ([`ws_core::LocalCommand::SendPong`]) when the Ping semantic event is
+/// delivered. The reply's state gate is Java's own `send(Collection)`
+/// isOpen throw (WebSocketImpl.java:667-670): once the connection has left
+/// Open, the reply produces no wire write — the driver drops it exactly as
+/// Java's `sendFrame` would refuse it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AutoResponsePolicy {
+    /// The shipped-Java default listener behavior: answer every delivered
+    /// inbound Ping with a pong carrying the ping's payload
+    /// byte-identically.
+    #[default]
+    PongInboundPing,
+    /// No automatic response (a custom `onWebsocketPing` override in Java
+    /// vocabulary): the embedding layer owns replies.
+    Disabled,
+}
+
 /// Builds the bounded producer handle and its sole pull-driven owner for a
-/// fresh (`NotYetConnected`) connection.
+/// fresh (`NotYetConnected`) connection, under the default
+/// [`AutoResponsePolicy::PongInboundPing`] (the shipped-Java listener
+/// default).
 #[must_use]
 pub fn connection_driver(
     config: ConnectionConfig,
     role: Role,
 ) -> (CommandSender, ConnectionDriver) {
+    connection_driver_with_policy(config, role, AutoResponsePolicy::default())
+}
+
+/// [`connection_driver`] with an explicit automatic-response policy.
+#[must_use]
+pub fn connection_driver_with_policy(
+    config: ConnectionConfig,
+    role: Role,
+    policy: AutoResponsePolicy,
+) -> (CommandSender, ConnectionDriver) {
     let (queue, sender) = CommandQueue::new(&config);
     let core = ConnectionCore::new(config, role);
-    (sender, ConnectionDriver::new(core, queue))
+    (sender, ConnectionDriver::new(core, queue, policy))
 }
 
 /// Builds the driver for a post-handshake connection in a given corpus
 /// state (test and fixture seam, mirroring
-/// [`ws_core::ConnectionCore::new_in_state`]).
+/// [`ws_core::ConnectionCore::new_in_state`]), under the default
+/// [`AutoResponsePolicy::PongInboundPing`].
 #[must_use]
 pub fn connection_driver_in_state(
     config: ConnectionConfig,
     role: Role,
     state: InitialState,
 ) -> (CommandSender, ConnectionDriver) {
+    connection_driver_in_state_with_policy(config, role, state, AutoResponsePolicy::default())
+}
+
+/// [`connection_driver_in_state`] with an explicit automatic-response
+/// policy.
+#[must_use]
+pub fn connection_driver_in_state_with_policy(
+    config: ConnectionConfig,
+    role: Role,
+    state: InitialState,
+    policy: AutoResponsePolicy,
+) -> (CommandSender, ConnectionDriver) {
     let (queue, sender) = CommandQueue::new(&config);
     let core = ConnectionCore::new_in_state(config, role, state);
-    (sender, ConnectionDriver::new(core, queue))
+    (sender, ConnectionDriver::new(core, queue, policy))
 }
 
 /// One transport fact admitted to [`ConnectionDriver::poll`].
@@ -215,10 +279,28 @@ pub struct ConnectionDriver {
     terminal_delivered: bool,
     /// Queued command dispositions not yet surfaced (terminal rejections).
     dispositions: VecDeque<CommandDisposition>,
+    /// The configured automatic response policy (US-015 AC1).
+    policy: AutoResponsePolicy,
+    /// Automatic pong payloads whose injection the core refused with
+    /// non-fatal backpressure; retried with priority over new owner work so
+    /// the reply's wire position stays ahead of later sends (Java queues
+    /// the pong during ping processing). In every explored schedule the
+    /// byte-path admission bound leaves enough slack for immediate
+    /// injection, so this queue is defensive — the eof-backpressure-livelock
+    /// lesson says latching-and-losing is the one unacceptable outcome.
+    pending_auto_pongs: VecDeque<Vec<u8>>,
+    /// A fatal failure the core reported for an INJECTED automatic pong
+    /// (no producer command exists to attach it to); surfaced as the next
+    /// [`DriverOutput::Failure`].
+    injected_failure: Option<TypedProtocolFailure>,
 }
 
 impl ConnectionDriver {
-    fn new(core: ConnectionCore, commands: CommandQueue) -> ConnectionDriver {
+    fn new(
+        core: ConnectionCore,
+        commands: CommandQueue,
+        policy: AutoResponsePolicy,
+    ) -> ConnectionDriver {
         ConnectionDriver {
             core,
             commands,
@@ -231,6 +313,9 @@ impl ConnectionDriver {
             eof_applied: false,
             terminal_delivered: false,
             dispositions: VecDeque::new(),
+            policy,
+            pending_auto_pongs: VecDeque::new(),
+            injected_failure: None,
         }
     }
 
@@ -277,10 +362,12 @@ impl ConnectionDriver {
                 self.shutdown_latched = true;
                 // Undeliverable wire output is aborted; the protocol EOF
                 // below still applies (borrowed design: abort-undrainable-
-                // writes on shutdown).
+                // writes on shutdown). Undelivered automatic replies are
+                // just as undeliverable.
                 self.offered_write = None;
                 self.write_cursor = 0;
                 self.drop_pending_writes();
+                self.pending_auto_pongs.clear();
             }
             DriverInput::TransportEof => {
                 self.eof_latched = true;
@@ -335,7 +422,15 @@ impl ConnectionDriver {
             if matches!(input, DriverInput::Inbound(_)) {
                 input_disposition = InputDisposition::Deferred(DeferredReason::OutputPending);
             }
-            if self.core.state() == ReadyState::Closed {
+            // A backpressured automatic reply flushes before the EOF so its
+            // wire position matches Java's (the pong entered the outQueue
+            // during ping processing, before eot()); while one is still
+            // pending the EOF stays latched and retries.
+            self.flush_pending_auto_pongs();
+            if !self.pending_auto_pongs.is_empty() {
+                // The reply is still refused: this poll drains one queued
+                // output below, so the retry makes progress.
+            } else if self.core.state() == ReadyState::Closed {
                 self.eof_applied = true;
             } else {
                 match self.core.handle(Input::TransportEof) {
@@ -351,32 +446,42 @@ impl ConnectionDriver {
                 }
             }
         } else if !self.terminal_delivered {
-            self.fill_held();
-            match input {
-                DriverInput::Inbound(_) if self.held.is_some() && self.command_turn => {
-                    input_disposition = InputDisposition::Deferred(DeferredReason::CommandTurn);
-                    command_disposition = self.apply_held_command();
+            // A backpressured automatic reply holds priority over new owner
+            // work (see the EOF arm above for why); until it lands, new
+            // inbound facts and held commands wait like committed output.
+            self.flush_pending_auto_pongs();
+            if !self.pending_auto_pongs.is_empty() {
+                if matches!(input, DriverInput::Inbound(_)) {
+                    input_disposition = InputDisposition::Deferred(DeferredReason::OutputPending);
                 }
-                DriverInput::Inbound(bytes) => {
-                    self.command_turn = true;
-                    match self.core.handle(Input::TransportBytes(bytes)) {
-                        Ok(()) => {}
-                        Err(failure) if !failure.code.is_fatal() => {
-                            // Non-fatal backpressure: nothing was consumed;
-                            // the adapter drains (by polling) and retries
-                            // the identical bytes.
-                            input_disposition =
-                                InputDisposition::Deferred(DeferredReason::Backpressure);
-                        }
-                        Err(failure) => {
-                            return self.finish_poll(input_disposition, None, Some(failure));
+            } else {
+                self.fill_held();
+                match input {
+                    DriverInput::Inbound(_) if self.held.is_some() && self.command_turn => {
+                        input_disposition = InputDisposition::Deferred(DeferredReason::CommandTurn);
+                        command_disposition = self.apply_held_command();
+                    }
+                    DriverInput::Inbound(bytes) => {
+                        self.command_turn = true;
+                        match self.core.handle(Input::TransportBytes(bytes)) {
+                            Ok(()) => {}
+                            Err(failure) if !failure.code.is_fatal() => {
+                                // Non-fatal backpressure: nothing was
+                                // consumed; the adapter drains (by polling)
+                                // and retries the identical bytes.
+                                input_disposition =
+                                    InputDisposition::Deferred(DeferredReason::Backpressure);
+                            }
+                            Err(failure) => {
+                                return self.finish_poll(input_disposition, None, Some(failure));
+                            }
                         }
                     }
+                    DriverInput::Wake if self.held.is_some() => {
+                        command_disposition = self.apply_held_command();
+                    }
+                    _ => {}
                 }
-                DriverInput::Wake if self.held.is_some() => {
-                    command_disposition = self.apply_held_command();
-                }
-                _ => {}
             }
         }
 
@@ -459,6 +564,36 @@ impl ConnectionDriver {
         self.offered_write.is_some()
     }
 
+    /// Retry parked automatic pongs in order; stops on the first non-fatal
+    /// refusal (retried on a later turn) and drops them all once the
+    /// connection has left Open (Java's reply is unsendable there — see
+    /// [`inject_auto_pong`]).
+    fn flush_pending_auto_pongs(&mut self) {
+        if self.pending_auto_pongs.is_empty() {
+            return;
+        }
+        if self.core.state() != ReadyState::Open {
+            self.pending_auto_pongs.clear();
+            return;
+        }
+        while let Some(data) = self.pending_auto_pongs.pop_front() {
+            match self.core.handle(Input::Command(LocalCommand::SendPong {
+                data: data.clone(),
+            })) {
+                Ok(()) => {}
+                Err(failure) if !failure.code.is_fatal() => {
+                    self.pending_auto_pongs.push_front(data);
+                    break;
+                }
+                Err(failure) => {
+                    self.injected_failure = Some(failure);
+                    self.pending_auto_pongs.clear();
+                    break;
+                }
+            }
+        }
+    }
+
     fn next_output(&mut self) -> DriverOutput<'_> {
         // Writes drain before events so committed wire order can never be
         // reordered past a later step's output (FIFO owner order).
@@ -469,7 +604,30 @@ impl ConnectionDriver {
         if let Some(write) = self.offered_write.as_ref() {
             return DriverOutput::Write(&write.bytes[self.write_cursor..]);
         }
+        // A fatal failure from an injected automatic pong surfaces before
+        // further event drain (there is no producer command to carry it).
+        if let Some(failure) = self.injected_failure.take() {
+            return DriverOutput::Failure(failure);
+        }
         if let Some(event) = self.core.next_event() {
+            // US-015 AC1: the automatic reply is injected exactly when the
+            // Ping semantic event is DELIVERED — the port-side image of
+            // Draft_6455.processFrame dispatching the ping to the listener
+            // whose default answers with PongFrame(pingFrame)
+            // (drafts/Draft_6455.java:898-899; WebSocketAdapter.java:84-86).
+            // The reply's write is queued behind nothing (no write was
+            // pending here), so it is the next wire output after this
+            // event.
+            if self.policy == AutoResponsePolicy::PongInboundPing
+                && let SemanticEventKind::Ping { data } = &event.kind
+            {
+                inject_auto_pong(
+                    &mut self.core,
+                    &mut self.pending_auto_pongs,
+                    &mut self.injected_failure,
+                    data.clone(),
+                );
+            }
             return DriverOutput::Event(event);
         }
         if self.core.state() == ReadyState::Closed
@@ -480,6 +638,36 @@ impl ConnectionDriver {
             return DriverOutput::Terminal(TerminalOutcome);
         }
         DriverOutput::Idle
+    }
+}
+
+/// Feed one automatic pong through the ordinary command seam (a free
+/// function over disjoint driver fields so the injection can run while a
+/// drained event is being returned). The state gate is Java's
+/// `send(Collection)` isOpen throw (WebSocketImpl.java:667-670): a
+/// connection that has left Open gets no reply and no failure — Java's own
+/// reply would throw there with nothing on the wire. A non-fatal refusal
+/// parks the payload for the prioritized retry; a fatal one surfaces as
+/// the next [`DriverOutput::Failure`].
+fn inject_auto_pong(
+    core: &mut ConnectionCore,
+    pending: &mut VecDeque<Vec<u8>>,
+    injected: &mut Option<TypedProtocolFailure>,
+    data: Vec<u8>,
+) {
+    if core.state() != ReadyState::Open {
+        return;
+    }
+    match core.handle(Input::Command(LocalCommand::SendPong {
+        data: data.clone(),
+    })) {
+        Ok(()) => {}
+        Err(failure) if !failure.code.is_fatal() => {
+            pending.push_back(data);
+        }
+        Err(failure) => {
+            *injected = Some(failure);
+        }
     }
 }
 

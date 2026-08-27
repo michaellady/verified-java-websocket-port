@@ -40,12 +40,25 @@ impl CloseOrigin {
     }
 }
 
+/// Java's `CloseFrame.NEVER_CONNECTED` (framing/CloseFrame.java:140): the
+/// close code the shipped runtime reports when the transport ends before
+/// the opening handshake ever completed (`WebSocketImpl.eot()`:608-610 and
+/// the `close()` never-connected ladder :501). Negative on purpose — it is
+/// a callback-vocabulary code, never a wire close code, which is why
+/// [`CloseDetail::code`] is signed like Java's `int` rather than a wire
+/// `u16`. No corpus scenario observes it (the behavior corpora begin
+/// post-handshake).
+pub const NEVER_CONNECTED_CLOSE_CODE: i32 = -1;
+
 /// The corpus `close` object: `{code, reason, origin, remote,
 /// handshake_complete}`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CloseDetail {
-    /// The governing close code.
-    pub code: u16,
+    /// The governing close code. Signed, mirroring Java's `int` close-code
+    /// vocabulary: every corpus-observable code is a wire `u16`, but the
+    /// pre-handshake lifecycle reports the shipped
+    /// [`NEVER_CONNECTED_CLOSE_CODE`] (-1).
+    pub code: i32,
     /// The governing close reason.
     pub reason: String,
     /// Who caused the close.

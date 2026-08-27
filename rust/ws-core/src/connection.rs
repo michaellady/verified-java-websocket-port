@@ -26,10 +26,14 @@
 //! — echo-while-open with the constructor payload (Q19/Q10), local
 //! `send_close` through the US-009 pure close functions (Q13/Q14), and the
 //! closing/closed completion — mirrors derive.go `processInbound` /
-//! `sendClose` exactly. The only remaining honest
-//! [`crate::error::FailureCode::Unimplemented`] refusals are the
-//! `NotYetConnected` command/EOF arms (pre-handshake lifecycle, outside
-//! the corpus vocabulary).
+//! `sendClose` exactly. The US-016 AC3 closure retired the last honest
+//! [`crate::error::FailureCode::Unimplemented`] refusals here: the
+//! `NotYetConnected` command/EOF arms now mirror the shipped Java
+//! pre-handshake lifecycle directly (`WebSocketImpl.eot()`'s
+//! never-connected close, `close()`'s never-connected flush ladder, and
+//! `send(Collection)`'s `WebsocketNotConnectedException`), staying — like
+//! the handshake byte path — OUTSIDE the corpus counters and vocabulary
+//! (no corpus scenario begins pre-handshake).
 //!
 //! ## Behavior authority
 //!
@@ -47,7 +51,10 @@
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use crate::close::{CloseDetail, CloseOrigin, close_code_rejection, normalize_send_close_code};
+use crate::close::{
+    CloseDetail, CloseOrigin, NEVER_CONNECTED_CLOSE_CODE, close_code_rejection,
+    normalize_send_close_code,
+};
 use crate::config::ConnectionConfig;
 use crate::error::{FailureCode, QueueKind, TypedProtocolFailure};
 use crate::event::{
@@ -273,6 +280,14 @@ pub struct ConnectionCore {
     config: ConnectionConfig,
     role: Role,
     state: ReadyState,
+    /// Whether the opening handshake ever completed (Java: `readyState`
+    /// left NOT_YET_CONNECTED through `open()`). Distinguishes the
+    /// pre-handshake close lifecycle — `eot()`'s `flushandclosestate` arm
+    /// reporting the RECORDED `closedremotely` — from the corpus-pinned
+    /// post-handshake Q20 vocabulary, because a `send_close` before open
+    /// leaves `Closing` with an otherwise identical governing detail.
+    /// `new_in_state` (the corpus entry) begins with it true.
+    handshake_completed: bool,
     /// Set by the first fatal failure; afterwards every input is refused
     /// with a StateViolation-class failure (partial-execution semantics:
     /// "errors retain counts and final state").
@@ -344,6 +359,7 @@ impl ConnectionCore {
             config,
             role,
             state,
+            handshake_completed: state != ReadyState::NotYetConnected,
             poisoned: false,
             step: 0,
             pending: Vec::new(),
@@ -721,7 +737,7 @@ impl ConnectionCore {
         let (code, reason) = Draft6455::parse_close_payload(&frame.payload)?;
         let was_closing = self.state == ReadyState::Closing;
         let detail = CloseDetail {
-            code,
+            code: i32::from(code),
             reason,
             origin: CloseOrigin::Remote,
             remote: true,
@@ -955,6 +971,7 @@ impl ConnectionCore {
         if remainder_len > cap {
             self.wire_buffered_reported = remainder_len;
             self.state = ReadyState::Open;
+            self.handshake_completed = true;
             return Err(TypedProtocolFailure::protocol(
                 FailureCode::BufferLimitExceeded,
             ));
@@ -962,21 +979,40 @@ impl ConnectionCore {
         self.pending = remainder;
         self.wire_buffered_reported = remainder_len;
         self.state = ReadyState::Open;
+        self.handshake_completed = true;
         Ok(())
     }
 
     /// Transport EOF, mirroring derive.go `eof` (quirk Q20) inside the
-    /// action accounting of derive.go `actionStep`.
+    /// action accounting of derive.go `actionStep` — and, before the
+    /// handshake ever completed, `WebSocketImpl.eot()` directly (US-016
+    /// AC3 "EOF before open"; no corpus scenario reaches that arm).
     fn handle_eof(&mut self) -> Result<(), TypedProtocolFailure> {
         // Atomicity precheck: the eof detail event plus the transition.
         if self.events.available() < MAX_EVENT_SLOTS_PER_INPUT {
             return Err(Self::backpressure(QueueKind::Event));
         }
         if self.state == ReadyState::NotYetConnected {
-            // Java's eot() NOT_YET_CONNECTED ladder (WebSocketImpl.java:
-            // 608-610, close code -1 NEVER_CONNECTED) belongs to the
-            // handshake/close stories; never observable in the corpus.
-            return Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented));
+            // WebSocketImpl.eot():608-610: NOT_YET_CONNECTED ->
+            // closeConnection(CloseFrame.NEVER_CONNECTED, true) — the
+            // two-arg overload (:569-571) supplies reason "", NEVER_CONNECTED
+            // is the shipped -1 (framing/CloseFrame.java:140), and
+            // closeConnection reports onWebsocketClose(-1, "", true) exactly
+            // once before landing in the absorbing CLOSED state (:557,
+            // :566). Like the handshake byte path, this pre-handshake arm
+            // stays OUTSIDE the corpus action counters (the corpus `eof`
+            // action vocabulary is post-handshake).
+            let detail = CloseDetail {
+                code: NEVER_CONNECTED_CLOSE_CODE,
+                reason: String::new(),
+                origin: CloseOrigin::Transport,
+                remote: true,
+                handshake_complete: false,
+            };
+            self.close_detail = Some(detail.clone());
+            self.emit(SemanticEventKind::Eof(detail));
+            self.transition(ReadyState::Closed, TransitionCause::Eof);
+            return Ok(());
         }
         // derive.go actionStep: the counter increments before the limit
         // check, so a rejected action is included in the failure counts.
@@ -1003,11 +1039,27 @@ impl ConnectionCore {
             .close_detail
             .as_ref()
             .is_some_and(|detail| detail.handshake_complete);
+        // Q20 (derive.go eof, corpus-pinned): `remote` records whether the
+        // state was closing. That projection is calibrated for connections
+        // whose handshake completed; a `Closing` reached from the
+        // pre-handshake `close()` ladder instead follows
+        // WebSocketImpl.eot()'s `flushandclosestate` arm (:611-612) —
+        // closeConnection(closecode, closemessage, closedremotely) with the
+        // RECORDED closedremotely, which the never-connected ladder set to
+        // false (:501). The gate is inert for every corpus path
+        // (`new_in_state` begins handshake-completed).
+        let remote = if self.handshake_completed {
+            self.state == ReadyState::Closing
+        } else {
+            self.close_detail
+                .as_ref()
+                .is_some_and(|detail| detail.remote)
+        };
         let detail = CloseDetail {
             code,
             reason,
             origin: CloseOrigin::Transport,
-            remote: self.state == ReadyState::Closing,
+            remote,
             handshake_complete,
         };
         self.close_detail = Some(detail.clone());
@@ -1021,18 +1073,20 @@ impl ConnectionCore {
     /// `send_fragment` (US-014), control sends (US-015), and `send_close`
     /// (US-016).
     fn handle_command(&mut self, command: &LocalCommand) -> Result<(), TypedProtocolFailure> {
-        if self.state == ReadyState::NotYetConnected {
-            return Err(TypedProtocolFailure::protocol(FailureCode::Unimplemented));
-        }
         // Atomicity precheck before any mutation: the worst-case command is
         // send_close (frame record + cause + close_initiated + transition —
         // MAX_EVENT_SLOTS_PER_INPUT) and every send emits at most one
-        // transport write.
+        // transport write. The pre-open arm needs at most two event slots
+        // and no write; sharing the one conservative precheck keeps every
+        // refusal retryable.
         if self.events.available() < MAX_EVENT_SLOTS_PER_INPUT {
             return Err(Self::backpressure(QueueKind::Event));
         }
         if self.writes.available() < 1 {
             return Err(Self::backpressure(QueueKind::Write));
+        }
+        if self.state == ReadyState::NotYetConnected {
+            return self.handle_pre_open_command(command);
         }
         // Action accounting before the limit check (derive.go actionStep).
         self.action_count = self.action_count.saturating_add(1);
@@ -1146,7 +1200,7 @@ impl ConnectionCore {
         payload.extend_from_slice(reason.as_bytes());
         self.emit_outbound(OutboundCause::SendClose, true, Opcode::Closing, payload)?;
         let detail = CloseDetail {
-            code,
+            code: i32::from(code),
             reason: reason.to_owned(),
             origin: CloseOrigin::Local,
             remote: false,
@@ -1156,6 +1210,70 @@ impl ConnectionCore {
         self.emit(SemanticEventKind::CloseInitiated(detail));
         self.transition(ReadyState::Closing, TransitionCause::SendClose);
         Ok(())
+    }
+
+    /// Commands in the pre-handshake `NotYetConnected` state (US-016 AC3;
+    /// no corpus scenario reaches this arm, so the shipped Java source is
+    /// the direct authority). Like the handshake byte path, the arm stays
+    /// OUTSIDE the corpus action counters.
+    ///
+    /// - Every send routes through `WebSocketImpl.send(Collection)`:667-670,
+    ///   whose `!isOpen()` gate throws `WebsocketNotConnectedException`; the
+    ///   oracle vocabulary projects that exception as `STATE_VIOLATION`
+    ///   (the same projection the post-handshake requireOpen gate uses,
+    ///   Q26), and the port's fatal-poison discipline applies uniformly.
+    /// - `sendFragmentedFrame`:683-685 evaluates `draft.continuousFrame`
+    ///   as the ARGUMENT of `send(...)`, so an invalid first text fragment
+    ///   throws `IllegalArgumentException` from `isValid`
+    ///   (Draft.java:210-239) BEFORE the isOpen gate — projected
+    ///   `JAVA_NOT_SENDABLE`, exactly like the post-handshake first-fragment
+    ///   DFA (derive.go:938-943).
+    /// - `close(code, reason)`:463-506 outside OPEN/CLOSING/CLOSED runs the
+    ///   never-connected flush ladder: PROTOCOL_ERROR (1002) keeps its code
+    ///   (:498-500), everything else records `NEVER_CONNECTED` (:501; the
+    ///   FLASHPOLICY -3 arm is inexpressible in the u16 command
+    ///   vocabulary), reason preserved, `closedremotely=false`, then
+    ///   `readyState = CLOSING` (:503). No CloseFrame is built — the Q13
+    ///   validity chain and the Q14 setCode normalization live in the OPEN
+    ///   branch only (:481-486) — so no wire frame is emitted.
+    fn handle_pre_open_command(
+        &mut self,
+        command: &LocalCommand,
+    ) -> Result<(), TypedProtocolFailure> {
+        match command {
+            LocalCommand::SendFragment {
+                opcode,
+                data,
+                fin: _,
+            } => {
+                if *opcode == DataOpcode::Text && !Charsetfunctions::is_valid_utf8(data) {
+                    return Err(TypedProtocolFailure::protocol(FailureCode::JavaNotSendable));
+                }
+                Err(Self::state_violation())
+            }
+            LocalCommand::SendText { .. }
+            | LocalCommand::SendBinary { .. }
+            | LocalCommand::SendPing { .. }
+            | LocalCommand::SendPong { .. } => Err(Self::state_violation()),
+            LocalCommand::SendClose { code, reason } => {
+                let code = if *code == 1002 {
+                    1002
+                } else {
+                    NEVER_CONNECTED_CLOSE_CODE
+                };
+                let detail = CloseDetail {
+                    code,
+                    reason: reason.clone(),
+                    origin: CloseOrigin::Local,
+                    remote: false,
+                    handshake_complete: false,
+                };
+                self.close_detail = Some(detail.clone());
+                self.emit(SemanticEventKind::CloseInitiated(detail));
+                self.transition(ReadyState::Closing, TransitionCause::SendClose);
+                Ok(())
+            }
+        }
     }
 }
 

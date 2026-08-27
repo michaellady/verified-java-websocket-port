@@ -608,26 +608,31 @@ fn not_yet_connected_bytes_now_drive_the_handshake_plane() {
 // ---------------------------------------------------------------------------
 
 #[test]
-fn later_story_behavior_still_refuses_honestly() {
+fn pre_handshake_arms_are_now_owned_java_behavior() {
     // The US-009 protocol-stub gate ("skeleton never produces protocol
-    // events") retired as batches A-C landed US-010..US-016; the surviving
-    // honesty property is that the arms no landed story owns — commands and
-    // EOF in the pre-handshake NotYetConnected state (the handshake close
-    // ladder, WebSocketImpl.eot NOT_YET_CONNECTED) — keep refusing with the
-    // non-oracle Unimplemented code instead of faking Java. No corpus
-    // scenario reaches these arms (the behavior corpora begin
-    // post-handshake).
+    // events") retired as batches A-C landed US-010..US-016, and the last
+    // honest Unimplemented refusals — commands and EOF in the pre-handshake
+    // NotYetConnected state — retired with the US-016 AC3 closure: they now
+    // mirror the shipped Java sites directly (WebSocketImpl.eot():608-610
+    // never-connected close; send(Collection):667-670
+    // WebsocketNotConnectedException, projected STATE_VIOLATION). The full
+    // behavior pins live in close_eof.rs; this test keeps the honesty
+    // property visible where the old refusal pin lived. No corpus scenario
+    // reaches these arms (the behavior corpora begin post-handshake).
     let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Server);
     let err = core
         .handle(Input::Command(LocalCommand::SendPing { data: vec![] }))
-        .expect_err("pre-handshake commands are unowned behavior");
-    assert_eq!(err.code, FailureCode::Unimplemented);
+        .expect_err("pre-open sends fail Java's isOpen gate");
+    assert_eq!(err.code, FailureCode::StateViolation);
 
     let mut core = ConnectionCore::new(ConnectionConfig::default(), Role::Server);
-    let err = core
-        .handle(Input::TransportEof)
-        .expect_err("pre-handshake EOF is unowned behavior");
-    assert_eq!(err.code, FailureCode::Unimplemented);
+    core.handle(Input::TransportEof)
+        .expect("pre-open EOF is Java's never-connected close");
+    assert_eq!(core.state(), ReadyState::Closed);
+    assert_eq!(
+        core.close_detail().expect("governing close").code,
+        ws_core::close::NEVER_CONNECTED_CLOSE_CODE
+    );
 }
 
 #[test]
