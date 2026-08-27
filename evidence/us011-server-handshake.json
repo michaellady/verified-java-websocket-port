@@ -58,14 +58,14 @@
     "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
     "implementation_files": [
       {
-        "git_blob": "d5df05267d453ce0924067e798a0646b39d2d7e1",
+        "git_blob": "ea3ea5ca17f1a6e28227cea4f796c859dd4bf9f5",
         "path": "rust/connection-core/src/lib.rs",
-        "sha256": "sha256:565cab10e45079b26693135248cf6e44d61ccb9b16ea88483386bddd5a54c588"
+        "sha256": "sha256:5444dd209780127b5d2b320a9a359bd27eab26c66a6a408e65a176a5b1439f0d"
       },
       {
-        "git_blob": "ad3deb1d86ef5a2ecf5c6b97730a63d7ca331f5f",
+        "git_blob": "130c1e1e1e51dde279fce553ea7e3b60e41c297d",
         "path": "rust/connection-core/src/connection.rs",
-        "sha256": "sha256:cd505c770c67b26ef4636c1ae61cd9cbca56e6dfcc3fd6c9e0c2030dc767ec1e"
+        "sha256": "sha256:14c0d707ed6052b4e0a54cf90d8edd41ce0aebc5e94be716b330003815125f23"
       },
       {
         "git_blob": "b5aa5fc2b07768da66858828da162ef226fc95e4",
@@ -88,9 +88,9 @@
         "sha256": "sha256:cef46a90a2b12569742f8520f79c5c22e160eacaf055e057ddfacb96223dae96"
       },
       {
-        "git_blob": "47e3e22acfb2a027e295a85952f2e269c2033bb4",
+        "git_blob": "2157e319d0c5474e273b67d7b45eae6c2896e594",
         "path": "rust/connection-core/tests/server_handshake.rs",
-        "sha256": "sha256:8cb4ffe67cc64cddc626fe588cfdd59773d3e97e212c9170abb461722a5bef1c"
+        "sha256": "sha256:c65053140ada5f8bcde346b76b5e70d8948861580b683679d690df1b6c0cbe79"
       },
       {
         "git_blob": "e756af5c7572e3fd6256eb836e3d896a47a2f7ad",
@@ -98,14 +98,14 @@
         "sha256": "sha256:9002efba2b1b45f5f429249764e4b8d1639e937813f882bfdd7f446745a03f7b"
       },
       {
-        "git_blob": "e82b336472573e496baf1cf7d5bd19d223d3c66a",
+        "git_blob": "7f24667c5d01d143f1b3ef79adefbef76a0dea75",
         "path": "rust/connection-core/tests/connection_contract.rs",
-        "sha256": "sha256:070c15d5fb4abc3e0a0c0208d5f56d85c7b1849ab6b71478b7fa9b20af7e251f"
+        "sha256": "sha256:0a8e111b1aac14828de0021be0c5c4621c3f99cfe0efa533527fc59f22030d05"
       },
       {
-        "git_blob": "22ecba16f1c5a1820b9e48a18dd3941178383ef9",
+        "git_blob": "1fd8cf573f9e03c3983e6234f62bb1718d7b2fc5",
         "path": "internal/corpora/server_handshake.go",
-        "sha256": "sha256:fb77f43e04dd0d7d5f26f42f0781e4460479ef1ff0342dd1428a02c20af1597d"
+        "sha256": "sha256:2541d754b1dd1f6e43e3f092104bdc9c0601345694a31ca93f4e3ba04cf3b235"
       },
       {
         "git_blob": "d8b1701a58a81098a66c0e2de79e73639eabb78f",
@@ -169,7 +169,7 @@
     "bindings": [
       {
         "rust_semantic_id": "websocket_core::ConnectionCore",
-        "source": "rust/connection-core/src/connection.rs:840",
+        "source": "rust/connection-core/src/connection.rs:847",
         "status": "RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"
       },
       {
@@ -179,12 +179,12 @@
       },
       {
         "rust_semantic_id": "websocket_core::HandshakeFailure",
-        "source": "rust/connection-core/src/connection.rs:527",
+        "source": "rust/connection-core/src/connection.rs:539",
         "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
       },
       {
         "rust_semantic_id": "websocket_core::SemanticEvent",
-        "source": "rust/connection-core/src/connection.rs:456",
+        "source": "rust/connection-core/src/connection.rs:461",
         "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
       }
     ],
@@ -200,7 +200,7 @@
     "debug": {
       "command": "make -C rust test",
       "failed": 0,
-      "passed": 110
+      "passed": 127
     },
     "frozen_client_request_cases": 39,
     "frozen_incomplete_two_chunk_executions_per_profile": 265,
@@ -212,7 +212,7 @@
     "release": {
       "command": "make -C rust test-release",
       "failed": 0,
-      "passed": 110
+      "passed": 127
     },
     "runtime_assertions": [
       "server phase and public lifecycle remain consistent",
@@ -235,6 +235,6 @@
     },
     "rustc_artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
     "rustc_sha256": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
-    "validation_time": "2026-08-27T12:51:43Z"
+    "validation_time": "2026-08-27T14:07:58Z"
   }
 }

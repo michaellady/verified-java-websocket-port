@@ -132,7 +132,7 @@ func TestFrameCodecEvidenceIsClosedByFinalFormalSupport(t *testing.T) {
 	if err := decoder.Decode(&evidence); err != nil {
 		t.Fatal(err)
 	}
-	const formalDigest = "sha256:69b61b0960a36bbce31e3b463ab8931c83fa236e9a9c61f5c87195edfbcfb910"
+	const formalDigest = "sha256:69c6cd5b8f9b9ffafe1bc60e5962cd451cfba146391b0621229639596606c7e2"
 	if evidence.Status != "CLOSED" || evidence.Formal.ResultSHA != formalDigest ||
 		len(evidence.PendingFinalBindings) != 0 {
 		t.Fatalf("evidence did not close over final formal bytes: status=%s formal=%s pending=%v",
@@ -153,8 +153,8 @@ func TestFrameCodecEvidenceIsClosedByFinalFormalSupport(t *testing.T) {
 	if err != nil || json.Unmarshal(dagRaw, &dag) != nil {
 		t.Fatal("cannot decode final US-012 evidence DAG")
 	}
-	formalNode := "evidence-us012-formal-69b61b0"
-	receiptNode := "evidence-us012-receipt-closed-69b61b0"
+	formalNode := "evidence-us012-formal-69c6cd5"
+	receiptNode := "evidence-us012-receipt-closed-69c6cd5"
 	seenNodes := map[string]bool{}
 	for _, node := range dag.Nodes {
 		seenNodes[node.ID] = true

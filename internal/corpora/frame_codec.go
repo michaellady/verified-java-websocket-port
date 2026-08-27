@@ -464,8 +464,8 @@ func verifyFrameCodecEvidenceClaims(evidence frameCodecEvidence) error {
 		evidence.RustBinding.Path != "rust/connection-core" {
 		return fmt.Errorf("frame evidence Rust binding drifted")
 	}
-	if evidence.Tests.Debug.Command != "make -C rust test" || evidence.Tests.Debug.Passed != 110 || evidence.Tests.Debug.Failed != 0 ||
-		evidence.Tests.Release.Command != "make -C rust test-release" || evidence.Tests.Release.Passed != 110 || evidence.Tests.Release.Failed != 0 ||
+	if evidence.Tests.Debug.Command != "make -C rust test" || evidence.Tests.Debug.Passed != 127 || evidence.Tests.Debug.Failed != 0 ||
+		evidence.Tests.Release.Command != "make -C rust test-release" || evidence.Tests.Release.Passed != 127 || evidence.Tests.Release.Failed != 0 ||
 		evidence.Tests.FrameCodecTests != 16 || evidence.Tests.FuzzSeeds != 20 || evidence.Tests.MaskGrid != 204 ||
 		evidence.Tests.Runtime != 5 || !intSlicesEqual(evidence.Tests.Obligation, []int{6, 6, 3, 126, 2, 4, 1632, 204}) {
 		return fmt.Errorf("frame evidence test inventory drifted")
@@ -476,7 +476,7 @@ func verifyFrameCodecEvidenceClaims(evidence frameCodecEvidence) error {
 		return fmt.Errorf("frame evidence overstates Autobahn execution")
 	}
 	if evidence.Formal.ResultPath != "assurance/formal/frame-results.json" ||
-		evidence.Formal.ResultSHA != "sha256:69b61b0960a36bbce31e3b463ab8931c83fa236e9a9c61f5c87195edfbcfb910" ||
+		evidence.Formal.ResultSHA != "sha256:69c6cd5b8f9b9ffafe1bc60e5962cd451cfba146391b0621229639596606c7e2" ||
 		evidence.Formal.DeclaredObligations != 8 {
 		return fmt.Errorf("frame formal result binding is not exact")
 	}
@@ -493,7 +493,7 @@ func verifyFrameCodecEvidenceClaims(evidence frameCodecEvidence) error {
 		return fmt.Errorf("frame compatibility inventory drifted")
 	}
 	if evidence.EvidenceDAG.Path != "assurance/us012-evidence-dag.json" ||
-		evidence.EvidenceDAG.SHA256 != "sha256:03432f917e1cb244ae11c62f59501fcdbd35e95162887b8577d2298faeda1f9c" ||
+		evidence.EvidenceDAG.SHA256 != "sha256:4c19bdbc585ea411f1d2994bcebf0506a18091503b2e9dc7d3623577ef0467a6" ||
 		evidence.EvidenceDAG.RootClaim != "claim-us012-frame-codec" ||
 		len(evidence.PendingFinalBindings) != 0 ||
 		!stringSlicesEqual(evidence.PredecessorRefresh, []string{
@@ -546,8 +546,8 @@ func verifyFrameEvidenceDAG(root string, evidence frameCodecEvidence) error {
 			return fmt.Errorf("frame evidence DAG retains a pending edge")
 		}
 		rust = rust || edge.From == dag.Root && edge.To == "evidence-us012-rust-f1b6883" && edge.Kind == "supports"
-		formal = formal || edge.From == dag.Root && edge.To == "evidence-us012-formal-69b61b0" && edge.Kind == "supports"
-		receipt = receipt || edge.From == dag.Root && edge.To == "evidence-us012-receipt-closed-69b61b0" && edge.Kind == "supports"
+		formal = formal || edge.From == dag.Root && edge.To == "evidence-us012-formal-69c6cd5" && edge.Kind == "supports"
+		receipt = receipt || edge.From == dag.Root && edge.To == "evidence-us012-receipt-closed-69c6cd5" && edge.Kind == "supports"
 	}
 	if !rust || !formal || !receipt {
 		return fmt.Errorf("frame evidence DAG finalized support is incomplete")

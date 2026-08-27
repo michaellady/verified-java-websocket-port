@@ -6,12 +6,12 @@
   "source": {
     "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
     "implementation_files": [
-      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:cd505c770c67b26ef4636c1ae61cd9cbca56e6dfcc3fd6c9e0c2030dc767ec1e","git_blob":"ad3deb1d86ef5a2ecf5c6b97730a63d7ca331f5f"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:14c0d707ed6052b4e0a54cf90d8edd41ce0aebc5e94be716b330003815125f23","git_blob":"130c1e1e1e51dde279fce553ea7e3b60e41c297d"},
       {"path":"rust/connection-core/src/handshake/client.rs","sha256":"sha256:d6e355ffaec8c232f79ec25edcad7d36c5128140e4e1c7c9c022df5b13a89dd3","git_blob":"44712cdaa2ab0aa42f78ded80b3bfe9de3262fad"},
       {"path":"rust/connection-core/src/handshake/http.rs","sha256":"sha256:c92522c17fc22d1865b4a79cd91860ab2dc1d9cae8d24a28f4639a1a9b809597","git_blob":"09e414e33e0e639a5b7ef396492e3fdd207dbe76"},
       {"path":"rust/connection-core/src/handshake/crypto.rs","sha256":"sha256:9d48e5529c381ef82654a57a27c8691514661804c923cb24405164cd2a0ea2e6","git_blob":"eaeaf73d4e3d54bdfd6f0a5a7255e953869ce4fa"},
       {"path":"rust/connection-core/tests/client_handshake.rs","sha256":"sha256:9c8a300b8e5e0d81484a111f89625c798167b74012dc2219677e5bec926ff06c","git_blob":"64bd873704b5271275ca41dbeea693d575477e7a"},
-      {"path":"internal/corpora/client_handshake.go","sha256":"sha256:133f97564b095a61630242ae082b3226687fbcd1701df96edddec5a965074e61","git_blob":"2d58780f96dddc10332efbe242b5d9d890bfaf73"},
+      {"path":"internal/corpora/client_handshake.go","sha256":"sha256:7dc87a760be44a80be5bd5c2056466a30440d02a55dca2750c05345fabd02a4e","git_blob":"eed61f007f422c83fb05f3bf1f91589227b18389"},
       {"path":"internal/corpora/us010_artifact.go","sha256":"sha256:ec4e897493a2f556f4f80f77a9cabeae9bd055e0edbe56dc50e831e0c109a456","git_blob":"59a592ec5989a2f6694bcbf9301579c286da38b0"},
       {"path":"internal/corpora/client_handshake_test.go","sha256":"sha256:ebdecb8f808f337b55507ecf3b7ddb76003d998e3b53ce2005706982e3ce731a","git_blob":"31c22b5befd97fa6f299eb77663c2a2645a5b8a3"},
       {"path":"internal/corpora/schemas.go","sha256":"sha256:813582c79b2dae92b0b714fdf924f7c7872224e9836f8ff833a7e966ceed9041","git_blob":"2a9452696539481af0ed05b1816c44dc0c5de488"},
@@ -23,7 +23,7 @@
     "rustc_artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
     "rustc_sha256": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
     "cargo_sha256": "sha256:c512bff73c86143b557463f021d0c3d5b0490d97d65040ba59ea2b3427784758",
-    "validation_time": "2026-08-27T12:51:43Z",
+    "validation_time": "2026-08-27T14:07:58Z",
     "rust_analyzer": {
       "historical_us009_receipt_preserved": true,
       "pinned_artifact_id": "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
@@ -35,8 +35,8 @@
     }
   },
   "tests": {
-    "debug": {"command":"make -C rust test","passed":110,"failed":0},
-    "release": {"command":"make -C rust test-release","passed":110,"failed":0},
+    "debug": {"command":"make -C rust test","passed":127,"failed":0},
+    "release": {"command":"make -C rust test-release","passed":127,"failed":0},
     "client_handshake_tests_per_profile": 14,
     "frozen_server_response_cases": 10,
     "valid_cases_split_at_every_byte": 4,
@@ -57,11 +57,11 @@
     "migration_map_path": "evidence/intake/semantic-id-migration-map.json",
     "migration_map_sha256": "sha256:e884fd06a785b0273a0e23b3dc6841ebcc33c2a81d1fc81fb0b1945d46421e7b",
     "bindings": [
-      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:840","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
+      {"rust_semantic_id":"websocket_core::ConnectionCore","source":"rust/connection-core/src/connection.rs:847","status":"RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"},
       {"rust_semantic_id":"websocket_core::ClientRequestDescriptor","source":"rust/connection-core/src/handshake/client.rs:9","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
-      {"rust_semantic_id":"websocket_core::LocalCommand","source":"rust/connection-core/src/connection.rs:393","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
-      {"rust_semantic_id":"websocket_core::HandshakeFailure","source":"rust/connection-core/src/connection.rs:527","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
-      {"rust_semantic_id":"websocket_core::SemanticEvent","source":"rust/connection-core/src/connection.rs:456","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"}
+      {"rust_semantic_id":"websocket_core::LocalCommand","source":"rust/connection-core/src/connection.rs:394","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
+      {"rust_semantic_id":"websocket_core::HandshakeFailure","source":"rust/connection-core/src/connection.rs:539","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"},
+      {"rust_semantic_id":"websocket_core::SemanticEvent","source":"rust/connection-core/src/connection.rs:461","status":"SOURCE_BOUND_RESOLVER_UNAVAILABLE"}
     ],
     "new_resolver_verified_identities": 0,
     "java_shaped_aliases_added": 0

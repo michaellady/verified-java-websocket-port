@@ -23,8 +23,8 @@
     "path": "rust/connection-core"
   },
   "tests": {
-    "debug": {"command":"make -C rust test","passed":110,"failed":0},
-    "release": {"command":"make -C rust test-release","passed":110,"failed":0},
+    "debug": {"command":"make -C rust test","passed":127,"failed":0},
+    "release": {"command":"make -C rust test-release","passed":127,"failed":0},
     "frame_codec_tests_per_profile": 16,
     "fuzz_seeds_per_profile": 20,
     "mask_grid_executions_per_profile": 204,
@@ -40,7 +40,7 @@
   },
   "formal": {
     "result_path": "assurance/formal/frame-results.json",
-    "result_sha256": "sha256:69b61b0960a36bbce31e3b463ab8931c83fa236e9a9c61f5c87195edfbcfb910",
+    "result_sha256": "sha256:69c6cd5b8f9b9ffafe1bc60e5962cd451cfba146391b0621229639596606c7e2",
     "declared_obligations": 8
   },
   "compatibility": {
@@ -66,7 +66,7 @@
   },
   "evidence_dag": {
     "path": "assurance/us012-evidence-dag.json",
-    "sha256": "sha256:03432f917e1cb244ae11c62f59501fcdbd35e95162887b8577d2298faeda1f9c",
+    "sha256": "sha256:4c19bdbc585ea411f1d2994bcebf0506a18091503b2e9dc7d3623577ef0467a6",
     "root_claim": "claim-us012-frame-codec"
   },
   "pending_final_bindings": [],

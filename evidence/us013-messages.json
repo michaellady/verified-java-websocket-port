@@ -4,20 +4,20 @@
   "story_id": "US-013",
   "status": "CLOSED_OWNER_RELAXED_BOUNDED",
   "implementation": {
-    "commit": "a65ae036d905726a152da12d5b23bf36558a0ea0",
-    "crate_tree": "45f5e590fa8b74ef4e38936d1fb9fec36127efea",
+    "commit": "56c93a314de50e6c3ad1ed0638aa4c5bca9893f9",
+    "crate_tree": "e178cdf8fe2ccaa73eb05d0eba453fa947fe0e28",
     "bindings": [
-      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:cd505c770c67b26ef4636c1ae61cd9cbca56e6dfcc3fd6c9e0c2030dc767ec1e","git_blob":"ad3deb1d86ef5a2ecf5c6b97730a63d7ca331f5f"},
+      {"path":"rust/connection-core/src/connection.rs","sha256":"sha256:14c0d707ed6052b4e0a54cf90d8edd41ce0aebc5e94be716b330003815125f23","git_blob":"130c1e1e1e51dde279fce553ea7e3b60e41c297d"},
       {"path":"rust/connection-core/src/message.rs","sha256":"sha256:3a0da3a50c590712b160c3a523f89a8549c43e90cfd48f1c557dce698d0e589a","git_blob":"287e5ad657eddd5a047bc4e14313608b05e75aa3"},
       {"path":"rust/connection-core/src/utf8.rs","sha256":"sha256:cb97162b6099d26e78b1817202efdcd4f92aa160810ea95db2bffa23280d2e32","git_blob":"9e36b16f019b1b3e9aa927e44551ae020ed83e08"},
       {"path":"rust/connection-core/src/frame/mod.rs","sha256":"sha256:7b841c4f76c71e781aaccdd0b43a57493c0e45122cbd1e23af0874dd08aaaddb","git_blob":"35b4a4964fd702da31ee413f3f258003b0904a4e"},
-      {"path":"rust/connection-core/src/frame/decode.rs","sha256":"sha256:f8ebe901530202a0836cd734b3a761f1375034a87330ef0f133453ca90074e5b","git_blob":"cf729c57fd2aa2e2ca1a6693511f44d2ace4b2c4"},
+      {"path":"rust/connection-core/src/frame/decode.rs","sha256":"sha256:2d3b9d8cbda6ce8deea03b21e1e2beeab7ebf00195757ec3ef7dcff75e844da2","git_blob":"08ab31cb7fa28dfe8451a70d4633fb18a21567d7"},
       {"path":"rust/connection-core/tests/messages.rs","sha256":"sha256:1333c213fa629784c06dabb4acde183e0af04c0a00a1adf09ed22b8771057738","git_blob":"6dad166b34e01eb8e4ee879ff78eb8ea978e5090"}
     ]
   },
   "tests": {
-    "debug": {"command":"make -C rust test","passed":110,"failed":0},
-    "release": {"command":"make -C rust test-release","passed":110,"failed":0},
+    "debug": {"command":"make -C rust test","passed":127,"failed":0},
+    "release": {"command":"make -C rust test-release","passed":127,"failed":0},
     "message_tests_per_profile": 10,
     "frame_regression_tests_per_profile": 16,
     "connection_contract_tests_per_profile": 9,
