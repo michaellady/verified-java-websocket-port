@@ -132,7 +132,7 @@ func TestFrameCodecEvidenceIsClosedByFinalFormalSupport(t *testing.T) {
 	if err := decoder.Decode(&evidence); err != nil {
 		t.Fatal(err)
 	}
-	const formalDigest = "sha256:e03b5aee644a2294cfcffbba8d46542947e2ed8a8697cc457f404634646f2cea"
+	const formalDigest = "sha256:5d332a60b82652e326678af78658f8af6e449b1bdb196b38d4eda8a62b6665c2"
 	if evidence.Status != "CLOSED" || evidence.Formal.ResultSHA != formalDigest ||
 		len(evidence.PendingFinalBindings) != 0 {
 		t.Fatalf("evidence did not close over final formal bytes: status=%s formal=%s pending=%v",

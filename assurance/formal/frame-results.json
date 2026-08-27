@@ -47,8 +47,8 @@
     },
     "cargo_lock": {
       "path": "rust/Cargo.lock",
-      "sha256": "sha256:b138978c2eca55cde701c3e9171ad69786779e83d6035fdd0a54917973209c83",
-      "git_blob": "92b4f300f93afffc88c3e8828c1b8649cedda374"
+      "sha256": "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb",
+      "git_blob": "beb9c9fe6075149151935cb48c1b147c330d3943"
     }
   },
   "bounds": {

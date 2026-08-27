@@ -53,7 +53,7 @@
       "semantic_identity": "git-blob:08ab31cb7fa28dfe8451a70d4633fb18a21567d7#websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "bounded_evidence": {
         "path": "assurance/formal/frame-results.json",
-        "sha256": "sha256:e03b5aee644a2294cfcffbba8d46542947e2ed8a8697cc457f404634646f2cea",
+        "sha256": "sha256:5d332a60b82652e326678af78658f8af6e449b1bdb196b38d4eda8a62b6665c2",
         "attribution": "US012_OWNED"
       },
       "required_call_paths": [
@@ -170,7 +170,7 @@
       "semantic_identity": "git-blob:309038147fd825fee401cfe47eb09f31c7932658#websocket_core::frame::mask::apply_mask_in_place",
       "bounded_evidence": {
         "path": "assurance/formal/frame-results.json",
-        "sha256": "sha256:e03b5aee644a2294cfcffbba8d46542947e2ed8a8697cc457f404634646f2cea",
+        "sha256": "sha256:5d332a60b82652e326678af78658f8af6e449b1bdb196b38d4eda8a62b6665c2",
         "attribution": "US012_OWNED"
       },
       "required_call_paths": [

@@ -196,7 +196,7 @@ func validateBindings(root *os.Root, value *receipt, findings *collector) {
 	} else {
 		validateArtifact(root, value.Toolchain.Pins, "$.toolchain.pins", "TOOLCHAIN_BINDING_INVALID", findings)
 	}
-	if value.Toolchain.CargoLock != (artifactBinding{Path: "rust/Cargo.lock", SHA256: "sha256:b138978c2eca55cde701c3e9171ad69786779e83d6035fdd0a54917973209c83", GitBlob: "92b4f300f93afffc88c3e8828c1b8649cedda374"}) {
+	if value.Toolchain.CargoLock != (artifactBinding{Path: "rust/Cargo.lock", SHA256: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", GitBlob: "beb9c9fe6075149151935cb48c1b147c330d3943"}) {
 		findings.add("TOOLCHAIN_BINDING_INVALID", "$.toolchain.cargo_lock", "Cargo.lock path is not canonical")
 	} else {
 		validateArtifact(root, value.Toolchain.CargoLock, "$.toolchain.cargo_lock", "TOOLCHAIN_BINDING_INVALID", findings)
