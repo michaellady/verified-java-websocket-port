@@ -145,8 +145,8 @@ accepted US-007 Docker sbx workload profile before artifact promotion) is
 | US-014 | `src/framing.rs` -- bounded fragmentation reassembly. |
 | US-015 | `src/control.rs` -- ping/pong control behavior. |
 | US-016 | `src/close.rs` -- close, EOF, terminal states. |
-| US-017 | `src/connection.rs` -- single-owner bounded command boundary. |
-| US-018 | future sibling crate(s) for thin blocking TCP adapters (not scaffolded; adapters are deliberately outside the dependency-free core). |
+| US-017 | `src/connection.rs` -- single-owner bounded command boundary -- plus the `ws-driver` crate (borrow batch C): the pull-driven single-owner driver over the ws_core `CommandQueue`/`CommandSender` boundary. |
+| US-018 | `ws-testee` crate (borrow batch C): thin blocking loopback TCP client/server adapters + `ws-testee` binary, deliberately outside the dependency-free core. |
 | US-019 | future Autobahn conformance harness wiring against the adapters (not scaffolded). |
 
 ## What this scaffold changed

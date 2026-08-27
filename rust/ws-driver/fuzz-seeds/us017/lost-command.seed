@@ -1,0 +1,5 @@
+id=lost-command
+property=accepted-eventual-exactly-once
+mutation=drop-first-accepted-command
+schedule=open,enqueue-a,enqueue-b,wake,write-all,wake,write-all,shutdown,drain
+counterexample=accepted-not-equal-disposed

@@ -543,12 +543,13 @@ impl CandidateCore for UnwiredCore {
 // ScenarioSession seam.
 // ---------------------------------------------------------------------------
 
-/// The honest non-oracle failure code for behavior the `ws_core` skeleton
+/// The honest non-oracle failure code for behavior the `ws_core` core
 /// deliberately refuses ([`ws_core::error::FailureCode::Unimplemented`],
 /// which carries NO oracle wire code by design). Shaped exactly like
 /// [`NOT_WIRED_CODE`] was: an adapter-vocabulary code the evaluator can
-/// never mistake for Java behavior, so the protocol-stub gate keeps failing
-/// until the owning stories (US-010..US-016) land.
+/// never mistake for Java behavior. With US-010..US-016 landed, the only
+/// surviving refusal arms are the pre-handshake (`NotYetConnected`)
+/// command/EOF lifecycle, which no corpus scenario reaches.
 pub const UNIMPLEMENTED_CODE: &str = "CORE_BEHAVIOR_UNIMPLEMENTED";
 
 /// The stable detail carried with [`UNIMPLEMENTED_CODE`] envelopes, kept
@@ -622,7 +623,9 @@ impl CandidateCore for WiredCore {
 /// - the event-queue capacity is sized from `max_frames` so one byte input
 ///   can never exceed it: US-012 decoding can complete the whole remaining
 ///   frame budget in one chunk, and the core's per-input admission bound is
-///   `EVENT_SLOTS_PER_FRAME * (max_frames + 1) + 1` slots (plus headroom).
+///   `EVENT_SLOTS_PER_FRAME * (max_frames + 1) + CLOSE_ECHO_EVENT_SLOTS +
+///   1` slots (the batch-C close-echo re-derivation; the formula's `+ 8`
+///   headroom covers the echo slots and more).
 ///   This is construction-time plumbing, not protocol behavior: the session
 ///   still drains after every input, and an undersized queue would surface
 ///   as the honest non-oracle [`BACKPRESSURE_CODE`], never as Java
@@ -843,15 +846,14 @@ impl ScenarioSession for WiredSession {
     }
 
     fn send_close(&mut self, code: i64, reason: &str, step: u32) -> Result<(), ScenarioFailure> {
-        // The core's command vocabulary carries close codes as u16 (US-016
-        // wires the Q13/Q14 close-code model). A corpus code outside u16
-        // cannot be represented as a core input, so the step joins the
-        // driver-failure path: the seam re-establishes Java's gate order
-        // itself (the action prelude, then requireOpen — Java reads `code`
-        // only after both) and then answers the same honest non-oracle
-        // refusal the core gives every representable send_close this
-        // round. US-016 must revisit this seam alongside the close
-        // stories.
+        // The core's command vocabulary carries close codes as u16 (the
+        // Q13/Q14 close-code model, wired in batch C). The corpus scenario
+        // schema bounds send_close codes to 0..=65535, so an out-of-u16
+        // code is schema-invalid and can never occur in any tier; if one
+        // arrives anyway, the seam re-establishes Java's gate order (the
+        // action prelude, then requireOpen — Java reads `code` only after
+        // both) and answers the honest non-oracle refusal rather than
+        // guessing Java's out-of-schema behavior.
         let Ok(code) = u16::try_from(code) else {
             self.begin_action(step)?;
             self.require_open("send_close")?;
@@ -1791,29 +1793,36 @@ mod tests {
         assert_eq!(final_state, ConnectionState::Closed, "the eof had executed");
     }
 
-    /// The core's honest `Unimplemented` refusal (control sends are US-015)
-    /// surfaces as the non-oracle `CORE_BEHAVIOR_UNIMPLEMENTED` envelope —
-    /// never a fabricated oracle code — with the action counted by the core
-    /// itself and the state retained. (send_text is real behavior since the
-    /// US-012/US-013 borrow batch; see the golden test below.)
+    /// GOLDEN (US-015 borrow batch C): a send_ping in OPEN completes
+    /// through the REAL core — outbound ping frame record, `send_ping`
+    /// cause event, and the frame count — all core-produced and projected
+    /// 1:1. (The pre-batch-C honest Unimplemented refusal retired with the
+    /// landed control sends; the honest-envelope mapping itself is pinned
+    /// by `wired_failure_mapping_is_faithful_and_honest`.)
     #[test]
-    fn wired_unimplemented_send_maps_to_honest_non_oracle_code() {
+    fn wired_send_ping_completes_with_outbound_frame_and_cause_event() {
         let request = request_with_steps(
-            "[{\"action\":\"send_ping\",\"data_base64\":\"\",\"kind\":\"action\"}]",
+            "[{\"action\":\"send_ping\",\"data_base64\":\"aGI=\",\"kind\":\"action\"}]",
         );
-        let ScenarioOutcome::Failed {
-            failure,
-            counts,
-            final_state,
-        } = wired_outcome(&request)
-        else {
-            panic!("expected Failed");
+        let ScenarioOutcome::Completed(observations) = wired_outcome(&request) else {
+            panic!("send_ping in open must complete now");
         };
-        assert_eq!(failure.code, UNIMPLEMENTED_CODE);
-        assert_eq!(failure.close_code, None);
-        assert_eq!(failure.detail, UNIMPLEMENTED_DETAIL);
-        assert_eq!(counts.actions, 1, "the core counted the refused send");
-        assert_eq!(final_state, ConnectionState::Open);
+        assert_eq!(observations.events.len(), 1);
+        assert_eq!(
+            observations.events[0].kind,
+            crate::observe::SemanticEventKind::OutboundCause {
+                cause: crate::observe::OutboundCause::SendPing,
+                opcode: crate::observe::Opcode::Ping,
+            }
+        );
+        assert_eq!(observations.frames.len(), 1);
+        let frame = &observations.frames[0];
+        assert_eq!(frame.direction, crate::observe::Direction::Outbound);
+        assert_eq!(frame.opcode, crate::observe::Opcode::Ping);
+        assert_eq!(frame.payload, b"hb".to_vec());
+        assert_eq!(observations.counts.counts.actions, 1);
+        assert_eq!(observations.counts.counts.frames, 1);
+        assert_eq!(observations.counts.final_state, ConnectionState::Open);
     }
 
     /// GOLDEN (US-012/US-013 borrow batch): a send_text in OPEN completes
@@ -1888,26 +1897,32 @@ mod tests {
         assert_eq!(observations.counts.counts.wire_buffered_bytes, 0);
     }
 
-    /// PUB_0000's own shape (send_close 999 while OPEN): the gates pass and
-    /// the skeleton refuses the close behavior honestly (close semantics
-    /// are US-016).
+    /// PUB_0000's own shape (send_close 999 while OPEN): the real core's
+    /// US-016 close path applies the Q13 validity chain — the oracle-coded
+    /// JAVA_INVALID_DATA with reported close code 1002, no frame emitted,
+    /// the action counted, the state retained open.
     #[test]
-    fn wired_send_close_is_honestly_unimplemented_this_round() {
+    fn wired_send_close_invalid_code_reports_java_invalid_data() {
         let request = parse_request(PUB_0000).unwrap();
         let ScenarioOutcome::Failed {
-            failure, counts, ..
+            failure,
+            counts,
+            final_state,
         } = wired_outcome(&request)
         else {
             panic!("expected Failed");
         };
-        assert_eq!(failure.code, UNIMPLEMENTED_CODE);
+        assert_eq!(failure.code, "JAVA_INVALID_DATA");
+        assert_eq!(failure.close_code, Some(1002));
         assert_eq!(counts.actions, 1);
+        assert_eq!(counts.frames, 0);
+        assert_eq!(final_state, ConnectionState::Open);
     }
 
     /// A send_close code outside the u16 command vocabulary cannot reach
-    /// the core; the seam answers the SAME honest unimplemented refusal the
-    /// core gives every send_close this round (revisited by US-016), with
-    /// the action still counted via the pending seam accounting.
+    /// the core (and is schema-invalid: the corpus bounds codes to
+    /// 0..=65535); the seam answers the honest non-oracle refusal with the
+    /// action still counted via the pending seam accounting.
     #[test]
     fn wired_send_close_code_outside_u16_is_honestly_refused_and_counted() {
         let request = request_with_steps(concat!(

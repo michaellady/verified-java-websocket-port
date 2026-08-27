@@ -172,18 +172,25 @@ fn data_frame_during_an_open_fragment_rejects_1002() {
 }
 
 #[test]
-fn control_interleave_is_honestly_unimplemented_until_us015() {
-    // The seed interleaves a ping inside an open fragment sequence. The
-    // fragment plane is US-014's, but the ping PROCESSING arm is US-015's:
-    // the port records the ping frame and then refuses with the non-oracle
-    // Unimplemented code instead of faking Java. Batch C replaces this
-    // expectation with the full interleave delivery.
+fn control_interleave_delivers_the_ping_and_the_assembled_message() {
+    // The seed interleaves a ping inside an open fragment sequence. Batch A
+    // pinned an honest Unimplemented refusal on the ping arm; batch C
+    // (US-015) replaces it with the full interleave delivery the reference
+    // model derives: the ping event fires mid-sequence WITHOUT touching the
+    // continuation accumulator (derive.go processInbound ping arm), and the
+    // fin still assembles the surrounding text message.
     let obs = replay_seed("us014/control-interleave.hex");
-    let err = obs.result.as_ref().expect_err("ping processing is US-015");
-    assert_eq!(err.code, FailureCode::Unimplemented);
-    assert_eq!(err.close_code, None);
-    assert_eq!(obs.counts.frames, 2, "start + ping recorded before the arm");
-    assert_eq!(obs.counts.message_buffered_bytes, 1);
+    assert!(obs.result.is_ok(), "full interleave is real behavior now");
+    assert_eq!(messages(&obs), vec![text("ab")]);
+    assert!(
+        obs.events
+            .iter()
+            .any(|e| matches!(&e.kind, SemanticEventKind::Ping { data } if data == b"p")),
+        "the interleaved ping delivers its payload"
+    );
+    assert_eq!(obs.counts.frames, 3, "start + ping + fin all recorded");
+    assert_eq!(obs.counts.message_buffered_bytes, 0, "reset after delivery");
+    assert_eq!(obs.counts.consumed_bytes, 9);
 }
 
 // ---------------------------------------------------------------------------

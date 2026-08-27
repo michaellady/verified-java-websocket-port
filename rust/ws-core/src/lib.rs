@@ -24,17 +24,18 @@
 //! surfaces backpressure as typed outputs rather than allocating
 //! unboundedly.
 //!
-//! ## What this story does NOT claim
+//! ## Behavior status
 //!
-//! No handshake, framing, message, control, or close-sequence behavior:
-//! those are US-010..US-016. The skeleton refuses their inputs with the
-//! non-oracle [`error::FailureCode::Unimplemented`] code, so a corpus
-//! evaluation of this crate must fail (the protocol-stub gate of the design
-//! draft; `empty_rust_target_fails` discipline). The observable vocabulary
-//! is the java-oracle transcript vocabulary; where the skeleton does encode
-//! behavior (state gates, limits, transport EOF), it mirrors the pinned
-//! Java runtime through `internal/corpora/derive.go` exactly, with quirk-id
-//! citations at every site.
+//! The US-010..US-016 protocol slices are landed (borrow batches A-C,
+//! adapted with attribution from the Codex plane and reconciled
+//! site-by-site against the reference model): opening handshakes, the
+//! frame codec, messages, fragmentation, ping/pong controls, and the close
+//! lifecycle. The observable vocabulary is the java-oracle transcript
+//! vocabulary; every behavioral site mirrors the pinned Java runtime
+//! through `internal/corpora/derive.go` exactly, with quirk-id citations.
+//! The only remaining honest [`error::FailureCode::Unimplemented`]
+//! refusals are the pre-handshake (`NotYetConnected`) command/EOF arms,
+//! which no corpus scenario reaches.
 //!
 //! ## Fidelity stance
 //!

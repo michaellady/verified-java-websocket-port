@@ -7,7 +7,7 @@
 # mutants), which are calibration artifacts, not port crates.
 [workspace]
 resolver = "3"
-members = ["candidate-stub", "ws-core", "ws-oracle-harness"]
+members = ["candidate-stub", "ws-core", "ws-driver", "ws-oracle-harness", "ws-testee"]
 # The US-009 AC1 scaffold canaries are standalone fixture crates scored by
 # the canary gate (cmd/rustgatectl), never workspace members: the good one
 # must pass the gate suite, the bad one must fail it, and neither may be

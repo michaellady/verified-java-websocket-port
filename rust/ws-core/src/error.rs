@@ -76,12 +76,13 @@ pub enum FailureCode {
     /// owner drains eagerly, so no transcript records it), and it never
     /// consumes the refused input or a step index.
     Backpressure(QueueKind),
-    /// US-009-skeleton refusal: the input's protocol behavior belongs to a
-    /// later story (US-010/US-011 handshake, US-012..US-016 framing, message,
-    /// control, and close behavior). No oracle wire code exists, so any
-    /// corpus evaluation of this skeleton fails — the protocol-stub gate the
-    /// design draft demands (`empty_rust_target_fails` discipline). Removed
-    /// as the owning stories land.
+    /// Honest refusal of behavior no landed story owns. After the
+    /// US-010..US-016 slices landed, the surviving refusal sites are the
+    /// `NotYetConnected` command/EOF arms (pre-handshake lifecycle, outside
+    /// the corpus vocabulary) and the defensive control arm of
+    /// `Draft6455::process_frame` (unreachable via `ConnectionCore`). No
+    /// oracle wire code exists, so a refusal can never impersonate Java —
+    /// the `empty_rust_target_fails` discipline.
     Unimplemented,
 }
 

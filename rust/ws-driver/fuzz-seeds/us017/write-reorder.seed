@@ -1,0 +1,5 @@
+id=write-reorder
+property=fifo-owner-order
+mutation=swap-committed-writes
+schedule=open,enqueue-a,enqueue-b,wake,write-all,wake,wake,write-all,shutdown,drain
+counterexample=wire-order-b-a
