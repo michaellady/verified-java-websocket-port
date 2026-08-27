@@ -349,10 +349,7 @@ fn reason_phrase_and_every_field_value_reject_forbidden_octets_at_every_split() 
             .position(|window| window == b"Switching")
             .unwrap();
         reason[reason_index] = forbidden;
-        assert_fatal_response_at_every_split(
-            &reason,
-            HandshakeFailure::InvalidReasonPhraseOctet,
-        );
+        assert_fatal_response_at_every_split(&reason, HandshakeFailure::InvalidReasonPhraseOctet);
 
         let mut required = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n".to_vec();
         let value_index = required
@@ -360,10 +357,7 @@ fn reason_phrase_and_every_field_value_reject_forbidden_octets_at_every_split() 
             .position(|window| window == b"websocket")
             .unwrap();
         required[value_index] = forbidden;
-        assert_fatal_response_at_every_split(
-            &required,
-            HandshakeFailure::InvalidHeaderValueOctet,
-        );
+        assert_fatal_response_at_every_split(&required, HandshakeFailure::InvalidHeaderValueOctet);
 
         let mut ignored = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\nX-Ignored: visible\r\n\r\n".to_vec();
         let ignored_index = ignored
@@ -371,10 +365,7 @@ fn reason_phrase_and_every_field_value_reject_forbidden_octets_at_every_split() 
             .position(|window| window == b"visible")
             .unwrap();
         ignored[ignored_index] = forbidden;
-        assert_fatal_response_at_every_split(
-            &ignored,
-            HandshakeFailure::InvalidHeaderValueOctet,
-        );
+        assert_fatal_response_at_every_split(&ignored, HandshakeFailure::InvalidHeaderValueOctet);
     }
 
     for permitted in [b'\t', b' ', b'!', 0x80] {
