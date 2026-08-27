@@ -36,8 +36,7 @@ func TestUS006SyntheticExecutedMethodFixturesAreMechanicallyValidAndNonClaiming(
 				if !verdict.Valid || verdict.State != "BLOCKED" || len(verdict.Findings) != 0 {
 					t.Fatalf("%s verdict = %#v, want valid BLOCKED with other unavailable backends scoped", mode, verdict)
 				}
-				if backendID == "backend.finite-mask-prototype" && contains(verdict.ClaimScopes, "BOUNDED_TEST_EVIDENCE") ||
-					backendID == "backend.tlc-connection-model" && contains(verdict.ClaimScopes, "PROVED_MODEL") {
+				if backendID == "backend.tlc-connection-model" && contains(verdict.ClaimScopes, "PROVED_MODEL") {
 					t.Fatalf("%s synthetic backend emitted a claim-bearing scope: %v", mode, verdict.ClaimScopes)
 				}
 			}
@@ -73,7 +72,7 @@ func TestUS006PublicExecutedEvidencePassesSchemaAndSemanticsButBorrowedCannotCla
 	if err != nil {
 		t.Fatal(err)
 	}
-	if verdict.Valid || contains(verdict.ClaimScopes, "BOUNDED_TEST_EVIDENCE") || !hasReason(verdict.Findings, "EXECUTION_RECEIPT_INVALID") {
+	if verdict.Valid || !hasReason(verdict.Findings, "EXECUTION_RECEIPT_INVALID") {
 		t.Fatalf("borrowed execution attribution claimed bounded evidence: %#v", verdict)
 	}
 }

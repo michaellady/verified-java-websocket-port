@@ -69,8 +69,7 @@
       ],
       "oracle_id": "oracle.java-websocket.v1-6-0",
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "cutover_obligation_id": "cutover.surface-framing-frame-octets",
       "observation_status": "OBSERVED",
@@ -91,8 +90,7 @@
       ],
       "oracle_id": "oracle.java-websocket.v1-6-0",
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "cutover_obligation_id": "cutover.surface-framing-masking",
       "observation_status": "OBSERVED",
@@ -267,8 +265,7 @@
       ],
       "oracle_id": "oracle.java-websocket.v1-6-0",
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "cutover_obligation_id": "cutover.surface-errors-protocol-fault",
       "observation_status": "OBSERVED",
@@ -289,8 +286,7 @@
       ],
       "oracle_id": "oracle.java-websocket.v1-6-0",
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "cutover_obligation_id": "cutover.surface-limits-allocation",
       "observation_status": "OBSERVED",

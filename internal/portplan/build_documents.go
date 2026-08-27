@@ -279,6 +279,10 @@ func buildMigrationMap(
 				us011ServerHandshakePresent(workspaceProbeRoot(request)) {
 				rustID = reconciled
 			}
+			if reconciled, ok := us012SourceBoundRustIdentities[binaryName]; ok &&
+				us012FrameCodecPresent(workspaceProbeRoot(request)) {
+				rustID = reconciled
+			}
 			if resolved, ok := us009ResolvedRustIdentities[binaryName]; ok && rustWorkspacePresent(workspaceProbeRoot(request)) {
 				rustID = resolved.RustSemanticID
 				status = resolved.Status
@@ -686,6 +690,9 @@ func evidenceObligationIDs(story string) []string {
 	if story == "US-011" {
 		return []string{"evidence.us-011-server-handshake"}
 	}
+	if story == "US-012" {
+		return []string{"evidence.us-012-frame-codec"}
+	}
 	return []string{
 		stableID("evidence", story+"-differential"),
 		stableID("evidence", story+"-property"),
@@ -705,7 +712,7 @@ func rustIdentityStatus(workspacePresent bool) RustIdentityStatus {
 			PlannedResolver:   "rust-analyzer",
 			BlockerCode:       "RUST_IDENTITIES_PARTIALLY_RESOLVER_VERIFIED",
 			CreatedByStory:    "US-009",
-			Statement:         "The immutable US-009 pinned rust-analyzer SCIP receipt resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role. US-010 and US-011 reconcile Java-shaped planned names to the small shipped public capability set, but the pinned resolver executable is no longer locally available, so every new handshake identity remains explicitly resolver-unverified and no Java-shaped Rust alias is fabricated.",
+			Statement:         "The immutable US-009 pinned rust-analyzer SCIP receipt resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role. US-010, US-011, and US-012 reconcile Java-shaped planned names to the small shipped public capability set, but the pinned resolver executable is no longer locally available, so every new handshake and frame identity remains explicitly resolver-unverified and no Java-shaped Rust alias is fabricated.",
 			ResolutionReceipt: us009RustResolutionReceipt(),
 		}
 	}
@@ -774,6 +781,26 @@ var us011SourceBoundRustIdentities = map[string]string{
 	"org.java_websocket.handshake.HandshakeImpl1Server":   "websocket_core::ServerRequestDescriptor",
 	"org.java_websocket.handshake.ServerHandshake":        "websocket_core::ServerRequestDescriptor",
 	"org.java_websocket.handshake.ServerHandshakeBuilder": "websocket_core::ServerRequestDescriptor",
+}
+
+// us012SourceBoundRustIdentities replaces stale Java-shaped frame planning
+// names only for types owned wholly by the framing slice. Shared connection,
+// draft, and exception types retain their earlier capability identities: a
+// later slice may not rewrite the whole migration row through one facet.
+// These bindings name shipped public Rust symbols but remain resolver-
+// unverified because the immutable US-009 resolver is unavailable.
+var us012SourceBoundRustIdentities = map[string]string{
+	"org.java_websocket.drafts.Draft_6455$TranslatedPayloadMetaData": "websocket_core::frame::decode::FrameHeader",
+	"org.java_websocket.enums.Opcode":                                "websocket_core::frame::Opcode",
+	"org.java_websocket.exceptions.IncompleteException":              "websocket_core::frame::decode::FrameHeaderDecode",
+	"org.java_websocket.exceptions.InvalidFrameException":            "websocket_core::FrameFailure",
+	"org.java_websocket.exceptions.LimitExceededException":           "websocket_core::FailureKind",
+	"org.java_websocket.exceptions.NotSendableException":             "websocket_core::FrameFailure",
+	"org.java_websocket.framing.ControlFrame":                        "websocket_core::frame::Frame",
+	"org.java_websocket.framing.DataFrame":                           "websocket_core::frame::Frame",
+	"org.java_websocket.framing.Framedata":                           "websocket_core::frame::Frame",
+	"org.java_websocket.framing.FramedataImpl1":                      "websocket_core::frame::Frame",
+	"org.java_websocket.util.ByteBufferUtils":                        "websocket_core::frame::Frame",
 }
 
 func us009RustResolutionReceipt() *RustIdentityResolutionReceipt {

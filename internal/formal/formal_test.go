@@ -30,6 +30,9 @@ var fixtureFiles = []string{
 	"evidence/intake/port-seam-dossier.json",
 	"evidence/sbx-validation.json",
 	"evidence/security-validation.json",
+	"assurance/formal/frame-results.json",
+	"rust/connection-core/src/frame/decode.rs",
+	"rust/connection-core/src/frame/mask.rs",
 	"security/sandbox-policy.json",
 	"security/sbx-template.json",
 }
@@ -48,7 +51,7 @@ func TestUS006CanonicalPreflightAndReplayAreDeterministic(t *testing.T) {
 	if !preflight.Valid || preflight.State != "BLOCKED" || len(preflight.Findings) != 0 {
 		t.Fatalf("preflight = %#v, want mechanically valid BLOCKED", preflight)
 	}
-	wantedScopes := []string{"FUTURE_PRODUCTION_REFINEMENT", "SYSTEMATIC_CONCURRENCY_TESTING", "UNAVAILABLE_BACKEND_BLOCKED"}
+	wantedScopes := []string{"BOUNDED_TEST_EVIDENCE", "SYSTEMATIC_CONCURRENCY_TESTING", "UNAVAILABLE_BACKEND_BLOCKED"}
 	if !equalStrings(preflight.ClaimScopes, wantedScopes) {
 		t.Fatalf("claim scopes = %v, want %v", preflight.ClaimScopes, wantedScopes)
 	}
@@ -60,6 +63,42 @@ func TestUS006CanonicalPreflightAndReplayAreDeterministic(t *testing.T) {
 	after := readFile(t, filepath.Join(root, backendQualificationPath))
 	if !bytes.Equal(before, after) {
 		t.Fatal("Validate mutated retained qualification")
+	}
+}
+
+func TestUS012ResolvedBoundedTargetsRequirePendingConsumersAndExactReceipt(t *testing.T) {
+	digest := "sha256:5aebf0baa3898918b1e23bbb825c98f8a2057d81e458013fbd16f1c4a9ceb94b"
+	sha := "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817"
+	blob := "53b61c69fa10be3247bf0b8d4045dd11ab81271e"
+	semantic := "git-blob:" + blob + "#websocket_core::frame::decode::FrameHeaderDecoder::decode_header"
+	value := target{
+		TargetID: "target.frame-header-decoder", LinkageState: "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS",
+		SourceSHA256: &sha, SourceGitBlob: &blob, SemanticIdentity: &semantic,
+		BoundedEvidence:     &artifactRef{Path: "assurance/formal/frame-results.json", SHA256: digest, Attribution: "US012_OWNED"},
+		MaximumCurrentScope: "BOUNDED_TEST_EVIDENCE",
+		RequiredCallPaths: []callPath{
+			{Consumer: "CONFORMANCE", State: "PENDING_CONSUMER"},
+			{Consumer: "DIFFERENTIAL", State: "PENDING_CONSUMER"},
+			{Consumer: "PRODUCTION", State: "PENDING_CONSUMER"},
+		},
+	}
+	collector := &findingCollector{}
+	validateTargetLinkage(&value, "$.target", collector)
+	if findings := collector.normalized(); len(findings) != 0 {
+		t.Fatalf("resolved bounded target findings = %#v", findings)
+	}
+	value.RequiredCallPaths[0].State = "LINKED"
+	collector = &findingCollector{}
+	validateTargetLinkage(&value, "$.target", collector)
+	if !hasReason(collector.normalized(), "DISCONNECTED_TARGET") {
+		t.Fatalf("linked consumer without receipt was accepted: %#v", collector.normalized())
+	}
+	value.RequiredCallPaths[0].State = "PENDING_CONSUMER"
+	value.BoundedEvidence.SHA256 = "sha256:" + strings.Repeat("0", 64)
+	collector = &findingCollector{}
+	validateTargetLinkage(&value, "$.target", collector)
+	if !hasReason(collector.normalized(), "MISSING_DIGEST") {
+		t.Fatalf("substituted bounded receipt was accepted: %#v", collector.normalized())
 	}
 }
 

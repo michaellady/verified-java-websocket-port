@@ -117,6 +117,14 @@ func ValidateCorpusSchemas(schemasDir, root, protectedRoot string) ([]Finding, e
 	if err != nil {
 		return nil, fmt.Errorf("compile server handshake evidence schema: %w", err)
 	}
+	frameCodecSchema, err := compileSchema(schemasDir, "frame-codec-corpus-1.0.0.schema.json")
+	if err != nil {
+		return nil, fmt.Errorf("compile frame codec schema: %w", err)
+	}
+	frameCodecEvidenceSchema, err := compileSchema(schemasDir, "frame-codec-evidence-1.0.0.schema.json")
+	if err != nil {
+		return nil, fmt.Errorf("compile frame codec evidence schema: %w", err)
+	}
 
 	validateJSONLLines(scenarioSchema,
 		filepath.Join(root, repoCorporaDir, "public/scenarios.jsonl"), fail)
@@ -137,6 +145,14 @@ func ValidateCorpusSchemas(schemasDir, root, protectedRoot string) ([]Finding, e
 	serverHandshakeEvidencePath := filepath.Join(root, "evidence/us011-server-handshake.json")
 	if _, err := os.Lstat(serverHandshakeEvidencePath); err == nil {
 		validateUS010JSONFile(serverHandshakeEvidenceSchema, root, "evidence/us011-server-handshake.json", fail)
+	}
+	frameCodecPath := filepath.Join(root, frameCodecProjectionPath)
+	if _, err := os.Lstat(frameCodecPath); err == nil {
+		validateUS010JSONFile(frameCodecSchema, root, frameCodecProjectionPath, fail)
+	}
+	frameCodecEvidenceArtifactPath := filepath.Join(root, frameCodecEvidencePath)
+	if _, err := os.Lstat(frameCodecEvidenceArtifactPath); err == nil {
+		validateUS010JSONFile(frameCodecEvidenceSchema, root, frameCodecEvidencePath, fail)
 	}
 	if protectedRoot != "" {
 		validateJSONLLines(scenarioSchema,

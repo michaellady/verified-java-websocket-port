@@ -1,0 +1,98 @@
+{
+  "$schema": "../../schemas/frame-codec-corpus-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "corpus_id": "us012-frame-codec",
+  "authority": {
+    "priority": [
+      "RFC 6455",
+      "frozen US-005 public reference corpus",
+      "Java-WebSocket v1.6.0 source"
+    ],
+    "public_expectation_mode": "REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION",
+    "java_observation_mode": "SOURCE_DERIVED_NO_LIVE_EXECUTION",
+    "strictness_rule": "Java leniency never lowers the RFC 6455 acceptance boundary"
+  },
+  "frozen_source": {
+    "manifest_path": "corpora/public/manifest.json",
+    "manifest_sha256": "sha256:202a3e0d0c84c41cc635adc41a8d2eb3c1e62962c1e343697987ef8f0c69c54b",
+    "artifact_path": "corpora/public/scenarios.jsonl",
+    "artifact_sha256": "sha256:fe1735bc42c11f66afe2965a7449fc6cad31cca3e2048305388241c781501e5f"
+  },
+  "frozen_cases": [
+    {"case_id":"frame.us005.pub.0001","source_scenario_id":"us005.pub.0001","family":"fragmented-binary","role":"server","wire_source":"steps[].data_base64","expected":"Frames(Binary(nonfinal,1),Continuation(final,12))","rfc_basis":["rfc6455.section-5-2"]},
+    {"case_id":"frame.us005.pub.0002","source_scenario_id":"us005.pub.0002","family":"ping-inbound","role":"client","wire_source":"steps[].data_base64","expected":"Frame(Ping,58,unmasked)","rfc_basis":["rfc6455.section-5-5-2"]},
+    {"case_id":"frame.us005.pub.0003","source_scenario_id":"us005.pub.0003","family":"text-single","role":"client","wire_source":"steps[].data_base64","expected":"Frame(Text,6,unmasked)","rfc_basis":["rfc6455.section-5-2"]},
+    {"case_id":"frame.us005.pub.0004","source_scenario_id":"us005.pub.0004","family":"payload-64bit","role":"server","wire_source":"steps[].data_base64","expected":"Frame(Binary,65536,masked)","rfc_basis":["rfc6455.section-5-2"]},
+    {"case_id":"frame.us005.pub.0005","source_scenario_id":"us005.pub.0005","family":"rsv-bit","role":"server","wire_source":"steps[].data_base64","expected":"FrameFailure::ReservedBits","rfc_basis":["rfc6455.section-5-2"]},
+    {"case_id":"frame.us005.pub.0011","source_scenario_id":"us005.pub.0011","family":"payload-16bit","role":"server","wire_source":"steps[].data_base64","expected":"Frame(Binary,126,masked)","rfc_basis":["rfc6455.section-5-2"]},
+    {"case_id":"frame.us005.pub.0016","source_scenario_id":"us005.pub.0016","family":"pong-inbound","role":"server","wire_source":"steps[].data_base64","expected":"Frame(Pong,30,masked)","rfc_basis":["rfc6455.section-5-5-3"]},
+    {"case_id":"frame.us005.pub.0020","source_scenario_id":"us005.pub.0020","family":"control-nonfin","role":"server","wire_source":"steps[].data_base64","expected":"FrameFailure::FragmentedControl","rfc_basis":["rfc6455.section-5-5"]},
+    {"case_id":"frame.us005.pub.0026","source_scenario_id":"us005.pub.0026","family":"close-remote","role":"client","wire_source":"steps[].data_base64","expected":"Frame(Close,2,unmasked)","rfc_basis":["rfc6455.section-5-5-1"]},
+    {"case_id":"frame.us005.pub.0029","source_scenario_id":"us005.pub.0029","family":"rsv-bit","role":"server","wire_source":"steps[].data_base64","expected":"FrameFailure::ReservedBits","rfc_basis":["rfc6455.section-5-2"]},
+    {"case_id":"frame.us005.pub.0031","source_scenario_id":"us005.pub.0031","family":"buffer-limit-frame","role":"server","wire_source":"steps[].data_base64","expected":"LimitExceeded::FrameBytes(80>64)","rfc_basis":["rfc6455.section-10-4"]},
+    {"case_id":"frame.us005.pub.0036","source_scenario_id":"us005.pub.0036","family":"bad-opcode","role":"server","wire_source":"steps[].data_base64","expected":"FrameFailure::ReservedOpcode(4)","rfc_basis":["rfc6455.section-5-2"]},
+    {"case_id":"frame.us005.pub.0043","source_scenario_id":"us005.pub.0043","family":"multi-frame-chunk","role":"server","wire_source":"steps[].data_base64","expected":"Frames(Text(final,6),Binary(final,10))","rfc_basis":["rfc6455.section-5-2"]},
+    {"case_id":"frame.us005.pub.0057","source_scenario_id":"us005.pub.0057","family":"control-oversize","role":"server","wire_source":"steps[].data_base64","expected":"FrameFailure::ControlPayloadTooLarge(165)","rfc_basis":["rfc6455.section-5-5"]},
+    {"case_id":"frame.us005.pub.0058","source_scenario_id":"us005.pub.0058","family":"rsv-bit","role":"server","wire_source":"steps[].data_base64","expected":"FrameFailure::ReservedBits","rfc_basis":["rfc6455.section-5-2"]},
+    {"case_id":"frame.us005.pub.0059","source_scenario_id":"us005.pub.0059","family":"control-oversize","role":"server","wire_source":"steps[].data_base64","expected":"FrameFailure::ControlPayloadTooLarge(126)","rfc_basis":["rfc6455.section-5-5"]},
+    {"case_id":"frame.us005.pub.0065","source_scenario_id":"us005.pub.0065","family":"bad-opcode","role":"server","wire_source":"steps[].data_base64","expected":"FrameFailure::ReservedOpcode(3)","rfc_basis":["rfc6455.section-5-2"]}
+  ],
+  "additive_vectors": [
+    {"id":"add.length.canonical","kind":"canonical-length-classes","role":"both","values":[0,1,124,125,126,127,65534,65535,65536],"expected":"canonical encode/decode roundtrip","java_source_observation":{"observable":"accept","divergent":false,"condition":"canonical complete frame","basis":["Draft_6455.java:478-525","Draft_6455.java:528-575"]},"autobahn_family_tags":["1.*","3.*"]},
+    {"id":"add.opcode.reserved","kind":"reserved-opcodes","role":"both","values":[5,6,7,11,12,13,14,15],"expected":"FrameFailure::ReservedOpcode","java_source_observation":{"observable":"reject","divergent":false,"condition":"complete base header","basis":["Draft_6455.java:871-888"]},"autobahn_family_tags":["1.*"]},
+    {"id":"add.role.server-unmasked","kind":"invalid-role-mask","role":"server","raw_base64":"gQA=","values":[],"expected":"FrameFailure::IncorrectMasking{expected_masked:true,actual_masked:false}","java_source_observation":{"observable":"accept","divergent":true,"condition":"complete unmasked frame","basis":["Draft_6455.java:542-566"]},"autobahn_family_tags":["1.*"]},
+    {"id":"add.role.client-masked","kind":"invalid-role-mask","role":"client","raw_base64":"gYAAAAAA","values":[],"expected":"FrameFailure::IncorrectMasking{expected_masked:false,actual_masked:true}","java_source_observation":{"observable":"accept","divergent":true,"condition":"complete masked frame","basis":["Draft_6455.java:542-562"]},"autobahn_family_tags":["1.*"]},
+    {"id":"add.length.noncanonical16","kind":"noncanonical-length","role":"client","raw_base64":"gn4AfQ==","values":[125],"expected":"FrameFailure::NonCanonicalLength16(125)","java_source_observation":{"observable":"accept","divergent":true,"condition":"125 payload bytes follow the header","basis":["Draft_6455.java:621-627"]},"autobahn_family_tags":["1.*"]},
+    {"id":"add.length.noncanonical64","kind":"noncanonical-length","role":"client","raw_base64":"gn8AAAAAAAD//w==","values":[65535],"expected":"FrameFailure::NonCanonicalLength64(65535)","java_source_observation":{"observable":"accept","divergent":true,"condition":"65535 payload bytes follow the header within cap","basis":["Draft_6455.java:628-639"]},"autobahn_family_tags":["1.*"]},
+    {"id":"add.length.high-bit","kind":"invalid-64-bit-high-bit","role":"client","raw_base64":"gn+AAAAAAAAAAA==","values":[9223372036854775808],"expected":"FrameFailure::PayloadLengthHighBitSet","java_source_observation":{"observable":"reject","divergent":false,"condition":"complete extended header","basis":["Draft_6455.java:631-658"]},"autobahn_family_tags":["1.*"]},
+    {"id":"add.control.boundary","kind":"control-length-boundary","role":"client","raw_base64":"iX0=","values":[125,126],"expected":"125 accepted; 126 FrameFailure::ControlPayloadTooLarge","java_source_observation":{"observable":"reject-over-125","divergent":false,"condition":"complete control frame","basis":["Draft_6455.java:617-620"]},"autobahn_family_tags":["4.*"]},
+    {"id":"add.limits.boundaries","kind":"allocation-and-event-caps","role":"both","values":[64,65,1,2],"expected":"frame/total exact accepted; +1 rejected before allocation; second event preserves first","java_source_observation":{"observable":"bounded-by-maxFrameSize","divergent":false,"condition":"declared payload available","basis":["Draft_6455.java:648-658"]},"autobahn_family_tags":["10.*"]},
+    {"id":"add.eof.boundaries","kind":"incomplete-header-and-payload","role":"server","raw_base64":"gv8AAAAAAAEAAAECAwQ=","values":[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14],"expected":"header cuts 0..13 and first-payload cut 14 produce FrameFailure::UnexpectedEof","java_source_observation":{"observable":"incomplete","divergent":false,"condition":"prefix ends before declared frame","basis":["Draft_6455.java:724-777"]},"autobahn_family_tags":["1.*","10.*"]}
+  ],
+  "autobahn": {
+    "baseline_path": "evidence/java/autobahn-baseline.json",
+    "baseline_sha256": "sha256:54fac3c5166e6530ffb4e34ccd5a05d8122d2b2fae4fc4bc1708ac05779ff04d",
+    "selected_family_declarations": ["1.*", "3.*", "4.*", "10.*"],
+    "link_mode": "REQUIREMENT_FAMILY_TAG_ONLY",
+    "executed_cases": 0,
+    "result_count": 0,
+    "result_claimed": false
+  },
+  "properties": {
+    "mask_keys": 16,
+    "mask_offsets": 4,
+    "payload_lengths": 256,
+    "chunk_schedules": 4,
+    "mask_grid_executions_per_profile": 65536,
+    "execution_id": "us012-mask-grid-v1"
+  },
+  "fuzz": {"seed_count":20,"mode":"EXECUTABLE_INERT_REPLAY_SEEDS"},
+  "runtime_assertions": [
+    "retained frame header bytes never exceed fourteen",
+    "payload reservation occurs only after the complete header and cap admission",
+    "frame and total retained bytes remain within checked configuration",
+    "emitted frame events remain within the checked event-entry limit",
+    "a failing frame closes once and emits no event for that frame"
+  ],
+  "nonclaims": [
+    "no live Java committed-corpus execution",
+    "no Autobahn execution result or conformance claim",
+    "no Java parity; source-derived quirks are classified",
+    "no text or binary message delivery or UTF-8 validation",
+    "no fragmentation sequence validation or reassembly",
+    "no automatic ping pong or control callback policy",
+    "no close-payload interpretation close handshake or between-frame EOF semantics",
+    "no extensions compression or reserved-bit negotiation",
+    "no ambient randomness or cryptographic-randomness claim",
+    "no Kani CBMC or unbounded production proof",
+    "no independent review",
+    "no release publication production signing or benchmark readiness"
+  ],
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  }
+}

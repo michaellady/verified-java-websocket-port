@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verified-java-websocket-port.invalid/schemas/frame-formal-results-1.0.0.schema.json",
+  "title": "US012FrameActualCodeBoundedResults",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schema_version", "evidence_kind", "story_id", "state",
+    "claim_scope", "aggregate_formal_state", "targets", "harness", "toolchain",
+    "bounds", "obligations", "source_mutation_canaries", "outputs", "replay",
+    "limitations", "assurance", "independent_review_claimed", "production",
+    "signing", "publication"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/frame-formal-results-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_kind": {"const": "US012_FRAME_ACTUAL_CODE_BOUNDED_RESULTS"},
+    "story_id": {"const": "US-012"},
+    "state": {"const": "PASS"},
+    "claim_scope": {"const": "BOUNDED_TEST_EVIDENCE"},
+    "aggregate_formal_state": {"const": "BLOCKED"},
+    "targets": {
+      "type": "array", "minItems": 2, "maxItems": 2,
+      "items": {"$ref": "#/$defs/target"}
+    },
+    "harness": {"$ref": "#/$defs/harness"},
+    "toolchain": {"$ref": "#/$defs/toolchain"},
+    "bounds": {"$ref": "#/$defs/bounds"},
+    "obligations": {
+      "type": "array", "minItems": 9, "maxItems": 9,
+      "items": {"$ref": "#/$defs/obligation"}
+    },
+    "source_mutation_canaries": {
+      "type": "array", "minItems": 8, "maxItems": 8,
+      "items": {"$ref": "#/$defs/canary"}
+    },
+    "outputs": {
+      "type": "array", "minItems": 4, "maxItems": 4,
+      "items": {"$ref": "#/$defs/output"}
+    },
+    "replay": {"$ref": "#/$defs/replay"},
+    "limitations": {
+      "type": "array",
+      "prefixItems": [
+        {"const": "Finite test evidence is not exhaustive proof."},
+        {"const": "Kani and CBMC were not executed."},
+        {"const": "Production, differential, and conformance consumers remain unlinked."},
+        {"const": "The disposable mutation runner was ephemeral and is not a shipped qualification tool."}
+      ],
+      "items": false
+    },
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "production": {"const": false},
+    "signing": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {
+    "path": {
+      "type": "string", "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+    },
+    "sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "gitBlob": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "git_blob"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "git_blob": {"$ref": "#/$defs/gitBlob"}
+      }
+    },
+    "target": {
+      "type": "object", "additionalProperties": false,
+      "required": ["target_id", "symbol", "source"],
+      "properties": {
+        "target_id": {"enum": ["target.frame-header-decoder", "target.frame-mask"]},
+        "symbol": {"enum": [
+          "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+          "websocket_core::frame::mask::apply_mask_in_place"
+        ]},
+        "source": {"$ref": "#/$defs/artifact"}
+      }
+    },
+    "harness": {
+      "type": "object", "additionalProperties": false,
+      "required": ["test_name", "source"],
+      "properties": {
+        "test_name": {"const": "us012_formal_actual_code_obligations"},
+        "source": {"$ref": "#/$defs/artifact"}
+      }
+    },
+    "toolchain": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "rustc_version", "cargo_version", "target_triple", "rustc_sha256",
+        "cargo_sha256", "pins", "cargo_lock"
+      ],
+      "properties": {
+        "rustc_version": {"const": "rustc 1.95.0 (59807616e 2026-04-14)"},
+        "cargo_version": {"const": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)"},
+        "target_triple": {"const": "aarch64-apple-darwin"},
+        "rustc_sha256": {"const": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c"},
+        "cargo_sha256": {"const": "sha256:c512bff73c86143b557463f021d0c3d5b0490d97d65040ba59ea2b3427784758"},
+        "pins": {"$ref": "#/$defs/artifact"},
+        "cargo_lock": {"$ref": "#/$defs/artifact"}
+      }
+    },
+    "headerBounds": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "canonical_7", "canonical_16", "canonical_64", "noncanonical_16",
+        "noncanonical_64", "high_bit_64", "control_cases", "role_mask_cases",
+        "preallocation_cases"
+      ],
+      "properties": {
+        "canonical_7": {"type": "array", "minItems": 126, "maxItems": 126, "items": {"type": "integer", "minimum": 0, "maximum": 125}},
+        "canonical_16": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"type": "integer", "minimum": 126, "maximum": 65535}},
+        "canonical_64": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "integer", "minimum": 65536}},
+        "noncanonical_16": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "integer", "maximum": 125}},
+        "noncanonical_64": {"type": "array", "minItems": 1, "maxItems": 1, "items": {"type": "integer", "maximum": 65535}},
+        "high_bit_64": {"type": "array", "prefixItems": [{"const": "8000000000000000"}], "items": false},
+        "control_cases": {"const": 6},
+        "role_mask_cases": {"const": 4},
+        "preallocation_cases": {"const": 2}
+      }
+    },
+    "maskBounds": {
+      "type": "object", "additionalProperties": false,
+      "required": ["keys", "offsets", "minimum_length", "maximum_length", "involution_cases", "byte_equation_cases"],
+      "properties": {
+        "keys": {"type": "array", "prefixItems": [{"const": "00000000"}, {"const": "37fa213d"}, {"const": "ff55aa11"}], "items": false},
+        "offsets": {"type": "array", "prefixItems": [{"const": 0}, {"const": 1}, {"const": 2}, {"const": 3}], "items": false},
+        "minimum_length": {"const": 0},
+        "maximum_length": {"const": 16},
+        "involution_cases": {"const": 204},
+        "byte_equation_cases": {"const": 1632}
+      }
+    },
+    "bounds": {
+      "type": "object", "additionalProperties": false,
+      "required": ["header", "mask"],
+      "properties": {
+        "header": {"$ref": "#/$defs/headerBounds"},
+        "mask": {"$ref": "#/$defs/maskBounds"}
+      }
+    },
+    "obligation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["obligation_id", "target_symbol", "case_count", "outcome"],
+      "properties": {
+        "obligation_id": {"type": "string", "pattern": "^obligation\\.[a-z0-9-]+$"},
+        "target_symbol": {"enum": [
+          "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+          "websocket_core::frame::mask::apply_mask_in_place"
+        ]},
+        "case_count": {"type": "integer", "minimum": 1},
+        "outcome": {"const": "PASS"}
+      }
+    },
+    "canary": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "canary_id", "target_symbol", "mutation", "baseline_sha256",
+        "mutated_source_sha256", "test_exit_code", "diagnostic_sha256",
+        "obligation_ids", "outcome"
+      ],
+      "properties": {
+        "canary_id": {"type": "string", "pattern": "^canary\\.source\\.[a-z0-9-]+$"},
+        "target_symbol": {"enum": [
+          "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+          "websocket_core::frame::mask::apply_mask_in_place"
+        ]},
+        "mutation": {"type": "string", "minLength": 1},
+        "baseline_sha256": {"$ref": "#/$defs/sha256"},
+        "mutated_source_sha256": {"$ref": "#/$defs/sha256"},
+        "test_exit_code": {"type": "integer", "minimum": 1, "maximum": 255},
+        "diagnostic_sha256": {"$ref": "#/$defs/sha256"},
+        "obligation_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^obligation\\.[a-z0-9-]+$"}},
+        "outcome": {"const": "KILLED"}
+      }
+    },
+    "output": {
+      "type": "object", "additionalProperties": false,
+      "required": ["output_id", "kind", "content", "sha256"],
+      "properties": {
+        "output_id": {"type": "string", "pattern": "^output\\.(?:normalized|raw)\\.[12]$"},
+        "kind": {"enum": ["RAW", "NORMALIZED"]},
+        "content": {"type": "string", "minLength": 1, "maxLength": 65536},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "run": {
+      "type": "object", "additionalProperties": false,
+      "required": ["run_id", "exit_code", "raw_output_id", "normalized_output_id", "obligation_counts"],
+      "properties": {
+        "run_id": {"enum": ["replay.1", "replay.2"]},
+        "exit_code": {"const": 0},
+        "raw_output_id": {"type": "string", "pattern": "^output\\.raw\\.[12]$"},
+        "normalized_output_id": {"type": "string", "pattern": "^output\\.normalized\\.[12]$"},
+        "obligation_counts": {"type": "array", "minItems": 9, "maxItems": 9, "items": {"$ref": "#/$defs/obligation"}}
+      }
+    },
+    "replay": {
+      "type": "object", "additionalProperties": false,
+      "required": ["argv", "environment", "working_directory", "repeat_count", "reconciled_identically", "semantic_output_digest", "runs"],
+      "properties": {
+        "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "environment": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "working_directory": {"const": "rust"},
+        "repeat_count": {"const": 2},
+        "reconciled_identically": {"const": true},
+        "semantic_output_digest": {"$ref": "#/$defs/sha256"},
+        "runs": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/run"}}
+      }
+    }
+  }
+}

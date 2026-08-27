@@ -17,7 +17,7 @@
     "planned_resolver": "rust-analyzer",
     "blocker_code": "RUST_IDENTITIES_PARTIALLY_RESOLVER_VERIFIED",
     "created_by_story": "US-009",
-    "statement": "The immutable US-009 pinned rust-analyzer SCIP receipt resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role. US-010 and US-011 reconcile Java-shaped planned names to the small shipped public capability set, but the pinned resolver executable is no longer locally available, so every new handshake identity remains explicitly resolver-unverified and no Java-shaped Rust alias is fabricated.",
+    "statement": "The immutable US-009 pinned rust-analyzer SCIP receipt resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role. US-010, US-011, and US-012 reconcile Java-shaped planned names to the small shipped public capability set, but the pinned resolver executable is no longer locally available, so every new handshake and frame identity remains explicitly resolver-unverified and no Java-shaped Rust alias is fabricated.",
     "resolution_receipt": {
       "story_id": "US-009",
       "resolver_artifact_id": "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
@@ -390,8 +390,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "decode() incomplete-frame buffering and the decodeFrames loop over Draft.translateFrame",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         },
         {
@@ -531,8 +530,7 @@
         "evidence.us-009-property",
         "evidence.us-010-client-handshake",
         "evidence.us-011-server-handshake",
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "evidence.us-013-differential",
         "evidence.us-013-property",
         "evidence.us-014-differential",
@@ -795,8 +793,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "createFrames/translateFrame abstract framing contract",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         },
         {
@@ -910,8 +907,7 @@
         "evidence.us-009-property",
         "evidence.us-010-client-handshake",
         "evidence.us-011-server-handshake",
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "evidence.us-013-differential",
         "evidence.us-013-property",
         "evidence.us-014-differential",
@@ -966,8 +962,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "RFC 6455 frame encode/decode: translateSingleFrame, createByteBufferFromFramedata, masking, payload-length encodings",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         },
         {
@@ -1088,8 +1083,7 @@
       "evidence_ids": [
         "evidence.us-010-client-handshake",
         "evidence.us-011-server-handshake",
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "evidence.us-013-differential",
         "evidence.us-013-property",
         "evidence.us-014-differential",
@@ -1110,7 +1104,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 5,
-      "rust_semantic_id": "ws_core::framing::TranslatedPayloadMetaData",
+      "rust_semantic_id": "websocket_core::frame::decode::FrameHeader",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -1129,8 +1123,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "payload-length metadata for a translated frame",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -1162,8 +1155,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -1333,7 +1325,7 @@
       "java_kind": "ENUM",
       "java_lookup_strength": "semantic",
       "java_member_count": 9,
-      "rust_semantic_id": "ws_core::framing::Opcode",
+      "rust_semantic_id": "websocket_core::frame::Opcode",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -1352,8 +1344,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "entire declared surface of org.java_websocket.enums.Opcode ports within this slice (Canonical framing, masking, allocation limits)",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -1385,8 +1376,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -1523,7 +1513,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 4,
-      "rust_semantic_id": "ws_core::framing::IncompleteException",
+      "rust_semantic_id": "websocket_core::frame::decode::FrameHeaderDecode",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -1542,8 +1532,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "entire declared surface of org.java_websocket.exceptions.IncompleteException ports within this slice (Canonical framing, masking, allocation limits)",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -1575,8 +1564,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -1680,8 +1668,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "checked base carrying the close code for protocol violations found during frame decode",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         },
         {
@@ -1787,8 +1774,7 @@
       "evidence_ids": [
         "evidence.us-010-client-handshake",
         "evidence.us-011-server-handshake",
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "evidence.us-013-differential",
         "evidence.us-013-property",
         "evidence.us-014-differential",
@@ -1869,7 +1855,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 5,
-      "rust_semantic_id": "ws_core::framing::InvalidFrameException",
+      "rust_semantic_id": "websocket_core::FrameFailure",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -1888,8 +1874,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "entire declared surface of org.java_websocket.exceptions.InvalidFrameException ports within this slice (Canonical framing, masking, allocation limits)",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -1921,8 +1906,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -1994,7 +1978,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 7,
-      "rust_semantic_id": "ws_core::framing::LimitExceededException",
+      "rust_semantic_id": "websocket_core::FailureKind",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -2015,8 +1999,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "raised when a decoded payload length exceeds the allocation limit",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         },
         {
@@ -2062,8 +2045,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "evidence.us-014-differential",
         "evidence.us-014-property"
       ],
@@ -2078,7 +2060,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 4,
-      "rust_semantic_id": "ws_core::framing::NotSendableException",
+      "rust_semantic_id": "websocket_core::FrameFailure",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -2097,8 +2079,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "raised only from Draft_6455.createFrames when a frame cannot be constructed from the requested payload",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -2130,8 +2111,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -2446,7 +2426,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 2,
-      "rust_semantic_id": "ws_core::framing::ControlFrame",
+      "rust_semantic_id": "websocket_core::frame::Frame",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -2465,8 +2445,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "entire declared surface of org.java_websocket.framing.ControlFrame ports within this slice (Canonical framing, masking, allocation limits)",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -2498,8 +2477,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -2512,7 +2490,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 2,
-      "rust_semantic_id": "ws_core::framing::DataFrame",
+      "rust_semantic_id": "websocket_core::frame::Frame",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -2531,8 +2509,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "entire declared surface of org.java_websocket.framing.DataFrame ports within this slice (Canonical framing, masking, allocation limits)",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -2564,8 +2541,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -2578,7 +2554,7 @@
       "java_kind": "INTERFACE",
       "java_lookup_strength": "semantic",
       "java_member_count": 8,
-      "rust_semantic_id": "ws_core::framing::Framedata",
+      "rust_semantic_id": "websocket_core::frame::Frame",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -2597,8 +2573,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "entire declared surface of org.java_websocket.framing.Framedata ports within this slice (Canonical framing, masking, allocation limits)",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -2630,8 +2605,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -2644,7 +2618,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 27,
-      "rust_semantic_id": "ws_core::framing::FramedataImpl1",
+      "rust_semantic_id": "websocket_core::frame::Frame",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -2663,8 +2637,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "entire declared surface of org.java_websocket.framing.FramedataImpl1 ports within this slice (Canonical framing, masking, allocation limits)",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -2696,8 +2669,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },
@@ -3598,7 +3570,7 @@
       "java_kind": "CLASS",
       "java_lookup_strength": "semantic",
       "java_member_count": 3,
-      "rust_semantic_id": "ws_core::framing::ByteBufferUtils",
+      "rust_semantic_id": "websocket_core::frame::Frame",
       "rust_resolver": "rust-analyzer",
       "rust_identity_verified": false,
       "applicability_conditions": [
@@ -3617,8 +3589,7 @@
           "child_story_id": "US-012",
           "touched_behavior": "entire declared surface of org.java_websocket.util.ByteBufferUtils ports within this slice (Canonical framing, masking, allocation limits)",
           "evidence_ids": [
-            "evidence.us-012-differential",
-            "evidence.us-012-property"
+            "evidence.us-012-frame-codec"
           ]
         }
       ],
@@ -3650,8 +3621,7 @@
         "formal.framing.length-bounds"
       ],
       "evidence_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property"
+        "evidence.us-012-frame-codec"
       ],
       "status": "PLANNED_RUST_IDENTITY_NOT_RESOLVER_VERIFIED"
     },

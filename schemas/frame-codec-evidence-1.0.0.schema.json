@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/frame-codec-evidence-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema","schema_version","evidence_id","story_id","status","corpus","rust_binding","tests","autobahn","formal","compatibility","evidence_dag","pending_final_bindings","predecessor_refresh","nonclaims","assurance"],
+  "properties": {
+    "$schema":{"const":"../schemas/frame-codec-evidence-1.0.0.schema.json"},
+    "schema_version":{"const":"1.0.0"},
+    "evidence_id":{"const":"evidence.us-012-frame-codec"},
+    "story_id":{"const":"US-012"},
+    "status":{"const":"CLOSED"},
+    "corpus": {
+      "type":"object","additionalProperties":false,
+      "required":["projection_path","projection_sha256","schema_path","schema_sha256","evidence_schema_path","frozen_cases","accepted_frames","frozen_rejects","additive_vector_families","fuzz_seed_count"],
+      "properties": {
+        "projection_path":{"const":"corpora/frame/codec.json"},"projection_sha256":{"$ref":"#/$defs/digest"},
+        "schema_path":{"const":"schemas/frame-codec-corpus-1.0.0.schema.json"},"schema_sha256":{"$ref":"#/$defs/digest"},
+        "evidence_schema_path":{"const":"schemas/frame-codec-evidence-1.0.0.schema.json"},
+        "frozen_cases":{"const":17},"accepted_frames":{"const":10},"frozen_rejects":{"const":9},
+        "additive_vector_families":{"const":10},"fuzz_seed_count":{"const":20}
+      }
+    },
+    "rust_binding": {
+      "type":"object","additionalProperties":false,
+      "required":["commit","crate_tree","crate_tree_listing_sha256","path"],
+      "properties": {
+        "commit":{"const":"f1b6883e2df536d9dd50476c56e1d45564c81662"},
+        "crate_tree":{"const":"1a5e188ce055b526cd0ea6ce341eb371f0295af2"},
+        "crate_tree_listing_sha256":{"const":"sha256:cc6cdddd744c137e463539e295a78a31329eff899cf5fc578be3c8a09bdaf0f3"},
+        "path":{"const":"rust/connection-core"}
+      }
+    },
+    "tests": {
+      "type":"object","additionalProperties":false,
+      "required":["debug","release","frame_codec_tests_per_profile","fuzz_seeds_per_profile","mask_grid_executions_per_profile","runtime_assertions","obligation_counts_per_profile"],
+      "properties": {
+        "debug":{"$ref":"#/$defs/testRun"},"release":{"$ref":"#/$defs/testRun"},
+        "frame_codec_tests_per_profile":{"const":16},"fuzz_seeds_per_profile":{"const":20},
+        "mask_grid_executions_per_profile":{"const":65536},"runtime_assertions":{"const":5},
+        "obligation_counts_per_profile":{"type":"array","minItems":9,"maxItems":9,"prefixItems":[{"const":3},{"const":6},{"const":6},{"const":3},{"const":126},{"const":2},{"const":4},{"const":1632},{"const":204}],"items":false}
+      }
+    },
+    "autobahn": {
+      "type":"object","additionalProperties":false,"required":["baseline_path","families","executed_cases","result_count","result_claimed"],
+      "properties": {
+        "baseline_path":{"const":"evidence/java/autobahn-baseline.json"},
+        "families":{"type":"array","minItems":4,"maxItems":4,"prefixItems":[{"const":"1.*"},{"const":"3.*"},{"const":"4.*"},{"const":"10.*"}],"items":false},
+        "executed_cases":{"const":0},"result_count":{"const":0},"result_claimed":{"const":false}
+      }
+    },
+    "formal": {
+      "type":"object","additionalProperties":false,"required":["result_path","result_sha256","declared_obligations"],
+      "properties":{"result_path":{"const":"assurance/formal/frame-results.json"},"result_sha256":{"const":"sha256:5aebf0baa3898918b1e23bbb825c98f8a2057d81e458013fbd16f1c4a9ceb94b"},"declared_obligations":{"const":9}}
+    },
+    "compatibility": {
+      "type":"object","additionalProperties":false,
+      "required":["surface_ids","cutover_obligation_ids","dossier_seams","shared_artifact_digests"],
+      "properties": {
+        "surface_ids":{"type":"array","minItems":4,"maxItems":4,"uniqueItems":true,"items":{"type":"string"}},
+        "cutover_obligation_ids":{"type":"array","minItems":4,"maxItems":4,"uniqueItems":true,"items":{"type":"string"}},
+        "dossier_seams":{"const":15},
+        "shared_artifact_digests":{"type":"array","minItems":4,"maxItems":4,"items":{"$ref":"#/$defs/artifactBinding"}}
+      }
+    },
+    "evidence_dag": {
+      "type":"object","additionalProperties":false,"required":["path","sha256","root_claim"],
+      "properties":{"path":{"const":"assurance/us012-evidence-dag.json"},"sha256":{"$ref":"#/$defs/digest"},"root_claim":{"const":"claim-us012-frame-codec"}}
+    },
+    "pending_final_bindings":{"type":"array","maxItems":0},
+    "predecessor_refresh":{"type":"array","minItems":3,"maxItems":3,"uniqueItems":true,"items":{"type":"string"}},
+    "nonclaims":{"type":"array","minItems":12,"maxItems":12,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+    "assurance":{"$ref":"#/$defs/assurance"}
+  },
+  "$defs": {
+    "digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "testRun": {
+      "type":"object","additionalProperties":false,"required":["command","passed","failed"],
+      "properties":{"command":{"enum":["make -C rust test","make -C rust test-release"]},"passed":{"const":75},"failed":{"const":0}}
+    },
+    "artifactBinding": {
+      "type":"object","additionalProperties":false,"required":["path","sha256"],
+      "properties":{"path":{"type":"string","minLength":1},"sha256":{"$ref":"#/$defs/digest"}}
+    },
+    "assurance": {
+      "type":"object","additionalProperties":false,
+      "required":["assurance","independent_review_claimed","production","publication","signing"],
+      "properties":{"assurance":{"const":"OWNER_ATTESTED_NOT_INDEPENDENT"},"independent_review_claimed":{"const":false},"production":{"const":false},"publication":{"const":false},"signing":{"const":false}}
+    }
+  }
+}

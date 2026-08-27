@@ -1,8 +1,8 @@
 {
-  "$schema": "../../schemas/formal-proof-targets-1.0.0.schema.json",
-  "schema_version": "1.0.0",
+  "$schema": "../../schemas/formal-proof-targets-1.1.0.schema.json",
+  "schema_version": "1.1.0",
   "entity_type": "FormalProofTargets",
-  "plan_id": "formal-proof-targets.us006.v1",
+  "plan_id": "formal-proof-targets.us012.v2",
   "source_basis": [
     {
       "path": "assurance/evidence-model.json",
@@ -26,7 +26,7 @@
     },
     {
       "path": "evidence/intake/compatibility-surface.json",
-      "sha256": "sha256:16d6095ba4854e11616924ce082e00f3ab83e865231f1a99d7f194908a0963bf",
+      "sha256": "sha256:0117560795fbfbe92e1c11a999bcec937c4ab27950ba6e5a1d0f0c73a286602c",
       "attribution": "BORROWED_CLAUDE_US003"
     },
     {
@@ -36,7 +36,7 @@
     },
     {
       "path": "evidence/intake/port-seam-dossier.json",
-      "sha256": "sha256:18e385b68da542c288b1a24f125ee574a92c091fb2f67c697eaa9b5ce14bfbe9",
+      "sha256": "sha256:5e117e4300bb5c68a1ce255e1e4af6c8bd93af132cd6c2144a881fad95d1d854",
       "attribution": "BORROWED_CLAUDE_US003"
     }
   ],
@@ -44,30 +44,36 @@
     {
       "target_id": "target.frame-header-decoder",
       "story_id": "US-012",
-      "planned_file": "crates/websocket-core/src/frame/decode.rs",
+      "planned_file": "rust/connection-core/src/frame/decode.rs",
       "rust_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
       "item_kind": "ASSOCIATED_FUNCTION",
-      "linkage_state": "UNRESOLVED_FUTURE_PRODUCTION_SYMBOL",
-      "source_sha256": null,
-      "semantic_identity": null,
+      "linkage_state": "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS",
+      "source_sha256": "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
+      "source_git_blob": "53b61c69fa10be3247bf0b8d4045dd11ab81271e",
+      "semantic_identity": "git-blob:53b61c69fa10be3247bf0b8d4045dd11ab81271e#websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "bounded_evidence": {
+        "path": "assurance/formal/frame-results.json",
+        "sha256": "sha256:5aebf0baa3898918b1e23bbb825c98f8a2057d81e458013fbd16f1c4a9ceb94b",
+        "attribution": "US012_OWNED"
+      },
       "required_call_paths": [
         {
           "consumer": "CONFORMANCE",
           "entry_symbol": "websocket_conformance::runner::ConnectionCoreHarness::exercise",
           "linkage_artifact": null,
-          "state": "FUTURE_REQUIRED"
+          "state": "PENDING_CONSUMER"
         },
         {
           "consumer": "DIFFERENTIAL",
           "entry_symbol": "websocket_differential::runner::ConnectionCoreHarness::compare",
           "linkage_artifact": null,
-          "state": "FUTURE_REQUIRED"
+          "state": "PENDING_CONSUMER"
         },
         {
           "consumer": "PRODUCTION",
           "entry_symbol": "websocket_driver::owner::ConnectionOwner::step",
           "linkage_artifact": null,
-          "state": "FUTURE_REQUIRED"
+          "state": "PENDING_CONSUMER"
         }
       ],
       "obligations": [
@@ -150,35 +156,41 @@
         }
       ],
       "prohibited_duplicates": ["PROOF_ONLY_REIMPLEMENTATION", "ADAPTER_LOCAL_CODEC", "TEST_ONLY_COPY"],
-      "maximum_current_scope": "FUTURE_PRODUCTION_REFINEMENT"
+      "maximum_current_scope": "BOUNDED_TEST_EVIDENCE"
     },
     {
       "target_id": "target.frame-mask",
       "story_id": "US-012",
-      "planned_file": "crates/websocket-core/src/frame/mask.rs",
+      "planned_file": "rust/connection-core/src/frame/mask.rs",
       "rust_symbol": "websocket_core::frame::mask::apply_mask_in_place",
       "item_kind": "FUNCTION",
-      "linkage_state": "UNRESOLVED_FUTURE_PRODUCTION_SYMBOL",
-      "source_sha256": null,
-      "semantic_identity": null,
+      "linkage_state": "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS",
+      "source_sha256": "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
+      "source_git_blob": "309038147fd825fee401cfe47eb09f31c7932658",
+      "semantic_identity": "git-blob:309038147fd825fee401cfe47eb09f31c7932658#websocket_core::frame::mask::apply_mask_in_place",
+      "bounded_evidence": {
+        "path": "assurance/formal/frame-results.json",
+        "sha256": "sha256:5aebf0baa3898918b1e23bbb825c98f8a2057d81e458013fbd16f1c4a9ceb94b",
+        "attribution": "US012_OWNED"
+      },
       "required_call_paths": [
         {
           "consumer": "CONFORMANCE",
           "entry_symbol": "websocket_conformance::runner::ConnectionCoreHarness::exercise",
           "linkage_artifact": null,
-          "state": "FUTURE_REQUIRED"
+          "state": "PENDING_CONSUMER"
         },
         {
           "consumer": "DIFFERENTIAL",
           "entry_symbol": "websocket_differential::runner::ConnectionCoreHarness::compare",
           "linkage_artifact": null,
-          "state": "FUTURE_REQUIRED"
+          "state": "PENDING_CONSUMER"
         },
         {
           "consumer": "PRODUCTION",
           "entry_symbol": "websocket_driver::owner::ConnectionOwner::step",
           "linkage_artifact": null,
-          "state": "FUTURE_REQUIRED"
+          "state": "PENDING_CONSUMER"
         }
       ],
       "obligations": [
@@ -206,7 +218,7 @@
         }
       ],
       "prohibited_duplicates": ["PROOF_ONLY_REIMPLEMENTATION", "ADAPTER_LOCAL_CODEC", "TEST_ONLY_COPY"],
-      "maximum_current_scope": "FUTURE_PRODUCTION_REFINEMENT"
+      "maximum_current_scope": "BOUNDED_TEST_EVIDENCE"
     }
   ],
   "required_consumers": ["CONFORMANCE", "DIFFERENTIAL", "PRODUCTION"],

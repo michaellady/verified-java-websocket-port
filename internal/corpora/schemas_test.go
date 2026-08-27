@@ -186,3 +186,57 @@ func TestManifestSchemaRejectsEmptyLiveExecution(t *testing.T) {
 		t.Fatal("LIVE_EXECUTED with executed=0 must be schema-invalid")
 	}
 }
+
+func TestCommittedFrameCodecArtifactsValidateAgainstSchemas(t *testing.T) {
+	root := repoRoot(t)
+	for _, item := range []struct {
+		schema string
+		path   string
+	}{
+		{"frame-codec-corpus-1.0.0.schema.json", frameCodecProjectionPath},
+		{"frame-codec-evidence-1.0.0.schema.json", frameCodecEvidencePath},
+	} {
+		schema, err := compileSchema(schemasDir(t), item.schema)
+		if err != nil {
+			t.Fatalf("compile %s: %v", item.schema, err)
+		}
+		var findings []Finding
+		validateUS010JSONFile(schema, root, item.path, func(code, path, detail string) {
+			findings = append(findings, Finding{Code: code, Path: path, Detail: detail})
+		})
+		if len(findings) != 0 {
+			t.Fatalf("%s failed schema validation: %v", item.path, findings)
+		}
+	}
+}
+
+func TestSchemaRegistryIncludesFrameCodecArtifacts(t *testing.T) {
+	root, protectedRoot, _ := writeAllToTemp(t)
+	committed := repoRoot(t)
+	for _, relative := range []string{frameCodecProjectionPath, frameCodecEvidencePath} {
+		raw, err := os.ReadFile(filepath.Join(committed, relative))
+		if err != nil {
+			t.Fatal(err)
+		}
+		path := filepath.Join(root, relative)
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if relative == frameCodecProjectionPath {
+			raw = []byte(strings.Replace(string(raw), `"corpus_id": "us012-frame-codec"`, `"corpus_id": "wrong"`, 1))
+		}
+		if err := os.WriteFile(path, raw, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	findings, err := ValidateCorpusSchemas(schemasDir(t), root, protectedRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, finding := range findings {
+		if strings.Contains(finding.Path, frameCodecProjectionPath) {
+			return
+		}
+	}
+	t.Fatal("registered schema validation did not reject the malformed frame projection")
+}

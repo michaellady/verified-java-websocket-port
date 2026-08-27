@@ -173,8 +173,7 @@
         "org/java_websocket/drafts/Draft_6455.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.close.code-validity",
         "property.control.pong-echoes-ping-payload",
         "property.fragmentation.bounded-state",
@@ -264,8 +263,7 @@
         "org/java_websocket/drafts/Draft_6455.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -376,8 +374,7 @@
         "org/java_websocket/drafts/Draft.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.close.code-validity",
         "property.connection.state-machine-total",
         "property.control.pong-echoes-ping-payload",
@@ -537,8 +534,7 @@
         "org/java_websocket/enums/Opcode.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -586,8 +582,7 @@
         "org/java_websocket/exceptions/IncompleteException.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -683,8 +678,7 @@
         "org/java_websocket/exceptions/InvalidDataException.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.close.code-validity",
         "property.fragmentation.bounded-state",
         "property.framing.mask-involution",
@@ -764,8 +758,7 @@
         "org/java_websocket/exceptions/InvalidFrameException.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -814,8 +807,7 @@
         "org/java_websocket/exceptions/LimitExceededException.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.fragmentation.bounded-state",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
@@ -832,8 +824,7 @@
         "org/java_websocket/exceptions/NotSendableException.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -929,8 +920,7 @@
         "org/java_websocket/framing/ControlFrame.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -946,8 +936,7 @@
         "org/java_websocket/framing/DataFrame.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -963,8 +952,7 @@
         "org/java_websocket/framing/Framedata.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -980,8 +968,7 @@
         "org/java_websocket/framing/FramedataImpl1.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -1226,8 +1213,7 @@
         "org/java_websocket/util/ByteBufferUtils.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.framing.mask-involution",
         "property.framing.roundtrip"
       ],
@@ -1578,8 +1564,7 @@
         "org/java_websocket/WebSocketImpl.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-012-differential",
-        "evidence.us-012-property",
+        "evidence.us-012-frame-codec",
         "property.adapter.byte-stream-transparency",
         "property.close.code-validity",
         "property.concurrency.single-owner-serialization",

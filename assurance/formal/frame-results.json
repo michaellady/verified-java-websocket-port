@@ -1,0 +1,266 @@
+{
+  "$schema": "../../schemas/frame-formal-results-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "US012_FRAME_ACTUAL_CODE_BOUNDED_RESULTS",
+  "story_id": "US-012",
+  "state": "PASS",
+  "claim_scope": "BOUNDED_TEST_EVIDENCE",
+  "aggregate_formal_state": "BLOCKED",
+  "targets": [
+    {
+      "target_id": "target.frame-header-decoder",
+      "symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "source": {
+        "path": "rust/connection-core/src/frame/decode.rs",
+        "sha256": "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
+        "git_blob": "53b61c69fa10be3247bf0b8d4045dd11ab81271e"
+      }
+    },
+    {
+      "target_id": "target.frame-mask",
+      "symbol": "websocket_core::frame::mask::apply_mask_in_place",
+      "source": {
+        "path": "rust/connection-core/src/frame/mask.rs",
+        "sha256": "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
+        "git_blob": "309038147fd825fee401cfe47eb09f31c7932658"
+      }
+    }
+  ],
+  "harness": {
+    "test_name": "us012_formal_actual_code_obligations",
+    "source": {
+      "path": "rust/connection-core/tests/frame_codec.rs",
+      "sha256": "sha256:b5c78e1e00abad3c929799a84e9a7db1420d8f03be912269f14cee888e42e5d6",
+      "git_blob": "3d700450b8bcd4e58ff97e6c75591cc1b696353d"
+    }
+  },
+  "toolchain": {
+    "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "cargo_version": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "target_triple": "aarch64-apple-darwin",
+    "rustc_sha256": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
+    "cargo_sha256": "sha256:c512bff73c86143b557463f021d0c3d5b0490d97d65040ba59ea2b3427784758",
+    "pins": {
+      "path": "evidence/intake/toolchain-pins.json",
+      "sha256": "sha256:0f5b3b8418d33d3ede7331199e572b5879719d36d4b5193fac926eb99118c717",
+      "git_blob": "a6ce6a9574053e736b8fde87ff0b68ce168f435c"
+    },
+    "cargo_lock": {
+      "path": "rust/Cargo.lock",
+      "sha256": "sha256:f01391c486964d16bba8d7be7fddac9c4b553a0a7107435d84906fd190f84e5a",
+      "git_blob": "7c7dc77afc4155424fa4dcc823332a90e192a3d5"
+    }
+  },
+  "bounds": {
+    "header": {
+      "canonical_7": [
+        0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+        16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+        32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47,
+        48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63,
+        64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79,
+        80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95,
+        96, 97, 98, 99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
+        112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125
+      ],
+      "canonical_16": [126, 127, 255, 256, 65534, 65535],
+      "canonical_64": [65536, 65537, 1048576],
+      "noncanonical_16": [125],
+      "noncanonical_64": [65535],
+      "high_bit_64": ["8000000000000000"],
+      "control_cases": 6,
+      "role_mask_cases": 4,
+      "preallocation_cases": 2
+    },
+    "mask": {
+      "keys": ["00000000", "37fa213d", "ff55aa11"],
+      "offsets": [0, 1, 2, 3],
+      "minimum_length": 0,
+      "maximum_length": 16,
+      "involution_cases": 204,
+      "byte_equation_cases": 1632
+    }
+  },
+  "obligations": [
+    {"obligation_id": "obligation.checked-header-arithmetic", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
+    {"obligation_id": "obligation.control-fin-and-length", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
+    {"obligation_id": "obligation.length-canonical-16", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
+    {"obligation_id": "obligation.length-canonical-64-high-bit-zero", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
+    {"obligation_id": "obligation.length-canonical-7", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 126, "outcome": "PASS"},
+    {"obligation_id": "obligation.mask-equation", "target_symbol": "websocket_core::frame::mask::apply_mask_in_place", "case_count": 1632, "outcome": "PASS"},
+    {"obligation_id": "obligation.mask-involution", "target_symbol": "websocket_core::frame::mask::apply_mask_in_place", "case_count": 204, "outcome": "PASS"},
+    {"obligation_id": "obligation.preallocation-cap", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 2, "outcome": "PASS"},
+    {"obligation_id": "obligation.role-masking", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 4, "outcome": "PASS"}
+  ],
+  "source_mutation_canaries": [
+    {
+      "canary_id": "canary.source.control-validation-removed",
+      "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "mutation": "remove shipped decoder control FIN and length rejection",
+      "baseline_sha256": "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
+      "mutated_source_sha256": "sha256:21f56da0b8059cf693bb712895728055fb83facfb7db988b47534c9a0a8c2603",
+      "test_exit_code": 101,
+      "diagnostic_sha256": "sha256:cf31f6579eaee59543245457e402c5cc56e9f2b815cc0c54ac86d5105a9ada52",
+      "obligation_ids": ["obligation.control-fin-and-length"],
+      "outcome": "KILLED"
+    },
+    {
+      "canary_id": "canary.source.high-bit-check-removed",
+      "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "mutation": "remove shipped decoder 64-bit high-bit rejection",
+      "baseline_sha256": "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
+      "mutated_source_sha256": "sha256:991a5440607345cc052ae9d31f1db876c628fb03e7498be46e5fcd3e9ab7e89e",
+      "test_exit_code": 101,
+      "diagnostic_sha256": "sha256:e66ef0ffa3884faa114da8af627bccbe7793de7314c70fe3c3f3df32d003fa8c",
+      "obligation_ids": ["obligation.length-canonical-64-high-bit-zero"],
+      "outcome": "KILLED"
+    },
+    {
+      "canary_id": "canary.source.mask-index-offset-removed",
+      "target_symbol": "websocket_core::frame::mask::apply_mask_in_place",
+      "mutation": "ignore payload offset in shipped mask index",
+      "baseline_sha256": "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
+      "mutated_source_sha256": "sha256:6c71e2ed0a69a4eaf57e523e85fdab9719c0c10c5ef296323c612f266af02c14",
+      "test_exit_code": 101,
+      "diagnostic_sha256": "sha256:ebf86bcfcc23b1734db2812f78e0765126c1eae823282f85a303495d042df43c",
+      "obligation_ids": ["obligation.mask-equation"],
+      "outcome": "KILLED"
+    },
+    {
+      "canary_id": "canary.source.mask-xor-replaced",
+      "target_symbol": "websocket_core::frame::mask::apply_mask_in_place",
+      "mutation": "replace XOR with wrapping addition in shipped mask",
+      "baseline_sha256": "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
+      "mutated_source_sha256": "sha256:e3cdf44c7747ffba7c97b7122030a74043feebc1907df29b96896bafac36d969",
+      "test_exit_code": 101,
+      "diagnostic_sha256": "sha256:58c7aab6ca83ce86b3b64e9384034ad0162516113e8a745a0d412f65248b0701",
+      "obligation_ids": ["obligation.mask-equation", "obligation.mask-involution"],
+      "outcome": "KILLED"
+    },
+    {
+      "canary_id": "canary.source.noncanonical-16-check-removed",
+      "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "mutation": "remove shipped decoder noncanonical 16-bit rejection",
+      "baseline_sha256": "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
+      "mutated_source_sha256": "sha256:b3cea1e32308cc962a874f96b191c4db697a69648c46e28115e66d5d8c675f21",
+      "test_exit_code": 101,
+      "diagnostic_sha256": "sha256:4348839becdbdb4a229e724d0d58ab6b1edb439617b205abfa4417e3eb6fa137",
+      "obligation_ids": ["obligation.length-canonical-16"],
+      "outcome": "KILLED"
+    },
+    {
+      "canary_id": "canary.source.noncanonical-64-check-removed",
+      "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "mutation": "remove shipped decoder noncanonical 64-bit rejection",
+      "baseline_sha256": "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
+      "mutated_source_sha256": "sha256:2ed63c94895bf5bbd879b852568c01ccc473db75ae682f8a5b0012cd805a2d38",
+      "test_exit_code": 101,
+      "diagnostic_sha256": "sha256:0d00342b05b267202e0b049b8e4e84427931d9ba4800b7e1c9a3a3afd55303da",
+      "obligation_ids": ["obligation.length-canonical-64-high-bit-zero"],
+      "outcome": "KILLED"
+    },
+    {
+      "canary_id": "canary.source.preallocation-boundary-changed",
+      "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "mutation": "change shipped decoder frame cap from greater-than to greater-than-or-equal",
+      "baseline_sha256": "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
+      "mutated_source_sha256": "sha256:d29442afc1df0670f8e30111ff319405a95a731c7779c3b41af662874aeb0bd6",
+      "test_exit_code": 101,
+      "diagnostic_sha256": "sha256:ca838c232e9c58b670d5f5ddbfe14a227ee4be48d7111f4bbf089838590acb4c",
+      "obligation_ids": ["obligation.preallocation-cap"],
+      "outcome": "KILLED"
+    },
+    {
+      "canary_id": "canary.source.role-mask-check-removed",
+      "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+      "mutation": "remove shipped decoder role mask rejection",
+      "baseline_sha256": "sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
+      "mutated_source_sha256": "sha256:048d9165be39f363ca8395af9baa6394bfb5039de1754d189286428a16d39996",
+      "test_exit_code": 101,
+      "diagnostic_sha256": "sha256:f5f2c65299c007eeee403ad7b3762f8bda61af08c5b5b28a1f35db8b8a3bba39",
+      "obligation_ids": ["obligation.role-masking"],
+      "outcome": "KILLED"
+    }
+  ],
+  "outputs": [
+    {
+      "output_id": "output.normalized.1",
+      "kind": "NORMALIZED",
+      "content": "US012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n",
+      "sha256": "sha256:e721676c2f8afb2123f26393630729b8195574d2516fb407c32e0386e4688e52"
+    },
+    {
+      "output_id": "output.normalized.2",
+      "kind": "NORMALIZED",
+      "content": "US012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\n",
+      "sha256": "sha256:e721676c2f8afb2123f26393630729b8195574d2516fb407c32e0386e4688e52"
+    },
+    {
+      "output_id": "output.raw.1",
+      "kind": "RAW",
+      "content": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.02s\n     Running tests/frame_codec.rs (target/debug/deps/frame_codec-6c9e2cfbe594221a)\n\nrunning 1 test\nUS012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\ntest us012_formal_actual_code_obligations ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n",
+      "sha256": "sha256:efd2a19b971cfa99bc41acc1872356d4fb96df8733fc14cb061de2d82cb60e2a"
+    },
+    {
+      "output_id": "output.raw.2",
+      "kind": "RAW",
+      "content": "    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.00s\n     Running tests/frame_codec.rs (target/debug/deps/frame_codec-6c9e2cfbe594221a)\n\nrunning 1 test\nUS012_ACTUAL_CODE_COUNTS checked_header_arithmetic=3 control_fin_and_length=6 length_canonical_16=6 length_canonical_64_high_bit_zero=3 length_canonical_7=126 preallocation_cap=2 role_masking=4 mask_equation=1632 mask_involution=204\ntest us012_formal_actual_code_obligations ... ok\n\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 15 filtered out; finished in 0.00s\n",
+      "sha256": "sha256:8ffecfd676d07debfcc8e6329b13237875fc3423df80e48cf9fa9a53d0e5471c"
+    }
+  ],
+  "replay": {
+    "argv": ["cargo", "test", "-p", "websocket-core", "--test", "frame_codec", "us012_formal_actual_code_obligations", "--", "--exact", "--nocapture"],
+    "environment": ["CARGO_NET_OFFLINE=true", "LANG=C", "LC_ALL=C"],
+    "working_directory": "rust",
+    "repeat_count": 2,
+    "reconciled_identically": true,
+    "semantic_output_digest": "sha256:e721676c2f8afb2123f26393630729b8195574d2516fb407c32e0386e4688e52",
+    "runs": [
+      {
+        "run_id": "replay.1",
+        "exit_code": 0,
+        "raw_output_id": "output.raw.1",
+        "normalized_output_id": "output.normalized.1",
+        "obligation_counts": [
+          {"obligation_id": "obligation.checked-header-arithmetic", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
+          {"obligation_id": "obligation.control-fin-and-length", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
+          {"obligation_id": "obligation.length-canonical-16", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
+          {"obligation_id": "obligation.length-canonical-64-high-bit-zero", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
+          {"obligation_id": "obligation.length-canonical-7", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 126, "outcome": "PASS"},
+          {"obligation_id": "obligation.mask-equation", "target_symbol": "websocket_core::frame::mask::apply_mask_in_place", "case_count": 1632, "outcome": "PASS"},
+          {"obligation_id": "obligation.mask-involution", "target_symbol": "websocket_core::frame::mask::apply_mask_in_place", "case_count": 204, "outcome": "PASS"},
+          {"obligation_id": "obligation.preallocation-cap", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 2, "outcome": "PASS"},
+          {"obligation_id": "obligation.role-masking", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 4, "outcome": "PASS"}
+        ]
+      },
+      {
+        "run_id": "replay.2",
+        "exit_code": 0,
+        "raw_output_id": "output.raw.2",
+        "normalized_output_id": "output.normalized.2",
+        "obligation_counts": [
+          {"obligation_id": "obligation.checked-header-arithmetic", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
+          {"obligation_id": "obligation.control-fin-and-length", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
+          {"obligation_id": "obligation.length-canonical-16", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 6, "outcome": "PASS"},
+          {"obligation_id": "obligation.length-canonical-64-high-bit-zero", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 3, "outcome": "PASS"},
+          {"obligation_id": "obligation.length-canonical-7", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 126, "outcome": "PASS"},
+          {"obligation_id": "obligation.mask-equation", "target_symbol": "websocket_core::frame::mask::apply_mask_in_place", "case_count": 1632, "outcome": "PASS"},
+          {"obligation_id": "obligation.mask-involution", "target_symbol": "websocket_core::frame::mask::apply_mask_in_place", "case_count": 204, "outcome": "PASS"},
+          {"obligation_id": "obligation.preallocation-cap", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 2, "outcome": "PASS"},
+          {"obligation_id": "obligation.role-masking", "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", "case_count": 4, "outcome": "PASS"}
+        ]
+      }
+    ]
+  },
+  "limitations": [
+    "Finite test evidence is not exhaustive proof.",
+    "Kani and CBMC were not executed.",
+    "Production, differential, and conformance consumers remain unlinked.",
+    "The disposable mutation runner was ephemeral and is not a shipped qualification tool."
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false
+}

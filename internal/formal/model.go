@@ -16,7 +16,7 @@ const (
 	connectionModelPath      = "assurance/formal/connection-model.tla"
 	concurrencyPlanPath      = "assurance/concurrency/plan.json"
 
-	proofTargetsSchemaPath = "schemas/formal-proof-targets-1.0.0.schema.json"
+	proofTargetsSchemaPath = "schemas/formal-proof-targets-1.1.0.schema.json"
 	backendSchemaPath      = "schemas/formal-backend-qualification-1.0.0.schema.json"
 	concurrencySchemaPath  = "schemas/concurrency-plan-1.0.0.schema.json"
 
@@ -83,7 +83,9 @@ type target struct {
 	ItemKind             string       `json:"item_kind"`
 	LinkageState         string       `json:"linkage_state"`
 	SourceSHA256         *string      `json:"source_sha256"`
+	SourceGitBlob        *string      `json:"source_git_blob"`
 	SemanticIdentity     *string      `json:"semantic_identity"`
+	BoundedEvidence      *artifactRef `json:"bounded_evidence"`
 	RequiredCallPaths    []callPath   `json:"required_call_paths"`
 	Obligations          []obligation `json:"obligations"`
 	ProhibitedDuplicates []string     `json:"prohibited_duplicates"`

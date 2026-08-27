@@ -611,6 +611,13 @@ func us011ServerHandshakePresent(root string) bool {
 	return err == nil
 }
 
+// us012FrameCodecPresent distinguishes a handshake-only workspace from a
+// checkout that has shipped the public frame-codec module.
+func us012FrameCodecPresent(root string) bool {
+	_, err := os.Stat(filepath.Join(root, "rust/connection-core/src/frame/mod.rs"))
+	return err == nil
+}
+
 func stringSlicesEqual(left, right []string) bool {
 	if len(left) != len(right) {
 		return false

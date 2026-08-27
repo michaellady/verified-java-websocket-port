@@ -181,9 +181,9 @@ func validateProofTargets(targets *proofTargets, collector *findingCollector) {
 		"corpora/public/manifest.json":               {Path: "corpora/public/manifest.json", SHA256: "sha256:202a3e0d0c84c41cc635adc41a8d2eb3c1e62962c1e343697987ef8f0c69c54b", Attribution: "BORROWED_CLAUDE_US005"},
 		"corpora/public/scenarios.jsonl":             {Path: "corpora/public/scenarios.jsonl", SHA256: "sha256:fe1735bc42c11f66afe2965a7449fc6cad31cca3e2048305388241c781501e5f", Attribution: "BORROWED_CLAUDE_US005"},
 		"evidence/corpus-calibration.json":           {Path: "evidence/corpus-calibration.json", SHA256: "sha256:59845d2713fcd429de792670f687dba29542a74b9e5cfa5351159d5e7fea987a", Attribution: "BORROWED_CLAUDE_US005"},
-		"evidence/intake/compatibility-surface.json": {Path: "evidence/intake/compatibility-surface.json", SHA256: "sha256:16d6095ba4854e11616924ce082e00f3ab83e865231f1a99d7f194908a0963bf", Attribution: "BORROWED_CLAUDE_US003"},
+		"evidence/intake/compatibility-surface.json": {Path: "evidence/intake/compatibility-surface.json", SHA256: "sha256:0117560795fbfbe92e1c11a999bcec937c4ab27950ba6e5a1d0f0c73a286602c", Attribution: "BORROWED_CLAUDE_US003"},
 		"evidence/intake/cutover-contract.json":      {Path: "evidence/intake/cutover-contract.json", SHA256: "sha256:ea6d6148dd67b705e74db48056dd5f17f22626fda48d148aef01f37de2d46f76", Attribution: "AUGMENTED_CODEX_US010"},
-		"evidence/intake/port-seam-dossier.json":     {Path: "evidence/intake/port-seam-dossier.json", SHA256: "sha256:18e385b68da542c288b1a24f125ee574a92c091fb2f67c697eaa9b5ce14bfbe9", Attribution: "BORROWED_CLAUDE_US003"},
+		"evidence/intake/port-seam-dossier.json":     {Path: "evidence/intake/port-seam-dossier.json", SHA256: "sha256:5e117e4300bb5c68a1ce255e1e4af6c8bd93af132cd6c2144a881fad95d1d854", Attribution: "BORROWED_CLAUDE_US003"},
 	}
 	if len(targets.SourceBasis) != len(expectedSources) {
 		collector.semantic("BORROWED_FOUNDATION_DRIFT", "$.source_basis", "borrowed US-003/004/005 source basis is incomplete")
@@ -194,17 +194,21 @@ func validateProofTargets(targets *proofTargets, collector *findingCollector) {
 		}
 	}
 	expectedTargets := map[string]struct {
-		file, symbol, kind string
+		file, symbol, kind, sha256, gitBlob string
 	}{
 		"target.frame-header-decoder": {
-			"crates/websocket-core/src/frame/decode.rs",
+			"rust/connection-core/src/frame/decode.rs",
 			"websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
 			"ASSOCIATED_FUNCTION",
+			"sha256:61f2727cf5b1411e16ccaa6c67331b63887a58832cdf14f5315cb8baf8f0b817",
+			"53b61c69fa10be3247bf0b8d4045dd11ab81271e",
 		},
 		"target.frame-mask": {
-			"crates/websocket-core/src/frame/mask.rs",
+			"rust/connection-core/src/frame/mask.rs",
 			"websocket_core::frame::mask::apply_mask_in_place",
 			"FUNCTION",
+			"sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
+			"309038147fd825fee401cfe47eb09f31c7932658",
 		},
 	}
 	if len(targets.Targets) != len(expectedTargets) {
@@ -236,6 +240,13 @@ func validateProofTargets(targets *proofTargets, collector *findingCollector) {
 				reason = "PROOF_ONLY_DUPLICATE"
 			}
 			collector.semantic(reason, path+".rust_symbol", "result must attach to the exact frozen production symbol")
+		}
+		if target.SourceSHA256 == nil || *target.SourceSHA256 != expected.sha256 || target.SourceGitBlob == nil || *target.SourceGitBlob != expected.gitBlob {
+			collector.semantic("MISSING_DIGEST", path, "resolved bounded target must bind the exact shipped SHA-256 and Git blob")
+		}
+		expectedSemanticIdentity := "git-blob:" + expected.gitBlob + "#" + expected.symbol
+		if target.SemanticIdentity == nil || *target.SemanticIdentity != expectedSemanticIdentity {
+			collector.semantic("DISCONNECTED_TARGET", path+".semantic_identity", "semantic identity must bind the exact shipped Git blob and Rust symbol")
 		}
 		if len(target.Obligations) == 0 {
 			collector.semantic("ZERO_OBLIGATIONS", path+".obligations", "a proof target must carry nonzero obligations")
@@ -294,7 +305,7 @@ func validateTargetLinkage(target *target, path string, collector *findingCollec
 	}
 	switch target.LinkageState {
 	case "UNRESOLVED_FUTURE_PRODUCTION_SYMBOL":
-		if target.SourceSHA256 != nil || target.SemanticIdentity != nil || target.MaximumCurrentScope != "FUTURE_PRODUCTION_REFINEMENT" {
+		if target.SourceSHA256 != nil || target.SourceGitBlob != nil || target.SemanticIdentity != nil || target.BoundedEvidence != nil || target.MaximumCurrentScope != "FUTURE_PRODUCTION_REFINEMENT" {
 			collector.semantic("INFLATED_CLAIM", path, "an unresolved target permits only a null source identity and future refinement scope")
 		}
 		for _, call := range target.RequiredCallPaths {
@@ -302,8 +313,18 @@ func validateTargetLinkage(target *target, path string, collector *findingCollec
 				collector.semantic("DISCONNECTED_TARGET", path+".required_call_paths", "unresolved target consumers must remain explicit future requirements")
 			}
 		}
+	case "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS":
+		expectedEvidence := artifactRef{Path: "assurance/formal/frame-results.json", SHA256: "sha256:5aebf0baa3898918b1e23bbb825c98f8a2057d81e458013fbd16f1c4a9ceb94b", Attribution: "US012_OWNED"}
+		if target.SourceSHA256 == nil || target.SourceGitBlob == nil || target.SemanticIdentity == nil || target.BoundedEvidence == nil || *target.BoundedEvidence != expectedEvidence || target.MaximumCurrentScope != "BOUNDED_TEST_EVIDENCE" {
+			collector.semantic("MISSING_DIGEST", path, "resolved bounded target requires source SHA-256, Git blob, semantic identity, and bounded-test ceiling")
+		}
+		for _, call := range target.RequiredCallPaths {
+			if call.State != "PENDING_CONSUMER" || call.LinkageArtifact != nil {
+				collector.semantic("DISCONNECTED_TARGET", path+".required_call_paths", "resolved bounded target must keep all three unlinked consumers explicit")
+			}
+		}
 	case "RESOLVED_PRODUCTION_SYMBOL":
-		if target.SourceSHA256 == nil || target.SemanticIdentity == nil {
+		if target.SourceSHA256 == nil || target.SourceGitBlob == nil || target.SemanticIdentity == nil {
 			collector.semantic("MISSING_DIGEST", path, "resolved production target requires source digest and semantic identity")
 		}
 		for _, call := range target.RequiredCallPaths {
@@ -440,8 +461,11 @@ func validateDeclaredArtifacts(snap *snapshot, targets *proofTargets, qualificat
 				refs = append(refs, *call.LinkageArtifact)
 			}
 		}
-		if target.LinkageState == "RESOLVED_PRODUCTION_SYMBOL" && target.SourceSHA256 != nil {
+		if (target.LinkageState == "RESOLVED_PRODUCTION_SYMBOL" || target.LinkageState == "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS") && target.SourceSHA256 != nil {
 			refs = append(refs, artifactRef{Path: target.PlannedFile, SHA256: *target.SourceSHA256, Attribution: "US006_OWNED"})
+		}
+		if target.BoundedEvidence != nil {
+			refs = append(refs, *target.BoundedEvidence)
 		}
 	}
 	for _, backend := range qualification.Backends {

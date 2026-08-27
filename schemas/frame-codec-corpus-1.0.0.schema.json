@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/frame-codec-corpus-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema","schema_version","corpus_id","authority","frozen_source","frozen_cases","additive_vectors","autobahn","properties","fuzz","runtime_assertions","nonclaims","assurance"],
+  "properties": {
+    "$schema": {"const":"../../schemas/frame-codec-corpus-1.0.0.schema.json"},
+    "schema_version": {"const":"1.0.0"},
+    "corpus_id": {"const":"us012-frame-codec"},
+    "authority": {
+      "type":"object","additionalProperties":false,
+      "required":["priority","public_expectation_mode","java_observation_mode","strictness_rule"],
+      "properties": {
+        "priority":{"type":"array","minItems":3,"maxItems":3,"items":{"type":"string","minLength":1}},
+        "public_expectation_mode":{"const":"REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION"},
+        "java_observation_mode":{"const":"SOURCE_DERIVED_NO_LIVE_EXECUTION"},
+        "strictness_rule":{"const":"Java leniency never lowers the RFC 6455 acceptance boundary"}
+      }
+    },
+    "frozen_source": {
+      "type":"object","additionalProperties":false,
+      "required":["manifest_path","manifest_sha256","artifact_path","artifact_sha256"],
+      "properties": {
+        "manifest_path":{"const":"corpora/public/manifest.json"},
+        "manifest_sha256":{"$ref":"#/$defs/digest"},
+        "artifact_path":{"const":"corpora/public/scenarios.jsonl"},
+        "artifact_sha256":{"$ref":"#/$defs/digest"}
+      }
+    },
+    "frozen_cases":{"type":"array","minItems":17,"maxItems":17,"uniqueItems":true,"items":{"$ref":"#/$defs/frozenCase"}},
+    "additive_vectors":{"type":"array","minItems":10,"maxItems":10,"uniqueItems":true,"items":{"$ref":"#/$defs/additiveVector"}},
+    "autobahn": {
+      "type":"object","additionalProperties":false,
+      "required":["baseline_path","baseline_sha256","selected_family_declarations","link_mode","executed_cases","result_count","result_claimed"],
+      "properties": {
+        "baseline_path":{"const":"evidence/java/autobahn-baseline.json"},
+        "baseline_sha256":{"$ref":"#/$defs/digest"},
+        "selected_family_declarations":{"type":"array","minItems":4,"maxItems":4,"prefixItems":[{"const":"1.*"},{"const":"3.*"},{"const":"4.*"},{"const":"10.*"}],"items":false},
+        "link_mode":{"const":"REQUIREMENT_FAMILY_TAG_ONLY"},
+        "executed_cases":{"const":0},
+        "result_count":{"const":0},
+        "result_claimed":{"const":false}
+      }
+    },
+    "properties": {
+      "type":"object","additionalProperties":false,
+      "required":["mask_keys","mask_offsets","payload_lengths","chunk_schedules","mask_grid_executions_per_profile","execution_id"],
+      "properties": {
+        "mask_keys":{"const":16},"mask_offsets":{"const":4},"payload_lengths":{"const":256},"chunk_schedules":{"const":4},
+        "mask_grid_executions_per_profile":{"const":65536},"execution_id":{"const":"us012-mask-grid-v1"}
+      }
+    },
+    "fuzz": {
+      "type":"object","additionalProperties":false,"required":["seed_count","mode"],
+      "properties":{"seed_count":{"const":20},"mode":{"const":"EXECUTABLE_INERT_REPLAY_SEEDS"}}
+    },
+    "runtime_assertions":{"type":"array","minItems":5,"maxItems":5,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+    "nonclaims":{"type":"array","minItems":12,"maxItems":12,"uniqueItems":true,"items":{"type":"string","minLength":1}},
+    "assurance":{"$ref":"#/$defs/assurance"}
+  },
+  "$defs": {
+    "digest":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},
+    "frozenCase": {
+      "type":"object","additionalProperties":false,
+      "required":["case_id","source_scenario_id","family","role","wire_source","expected","rfc_basis"],
+      "properties": {
+        "case_id":{"type":"string","pattern":"^frame\\.us005\\.pub\\.[0-9]{4}$"},
+        "source_scenario_id":{"type":"string","pattern":"^us005\\.pub\\.[0-9]{4}$"},
+        "family":{"type":"string","minLength":1},"role":{"enum":["client","server"]},
+        "wire_source":{"const":"steps[].data_base64"},"expected":{"type":"string","minLength":1},
+        "rfc_basis":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^rfc6455\\."}}
+      }
+    },
+    "additiveVector": {
+      "type":"object","additionalProperties":false,
+      "required":["id","kind","role","values","expected","java_source_observation","autobahn_family_tags"],
+      "properties": {
+        "id":{"type":"string","pattern":"^add\\."},"kind":{"type":"string","minLength":1},"role":{"enum":["client","server","both"]},
+        "raw_base64":{"type":"string","minLength":1},
+        "values":{"type":"array","uniqueItems":true,"items":{"type":"integer","minimum":0}},
+        "expected":{"type":"string","minLength":1},
+        "java_source_observation":{"$ref":"#/$defs/javaObservation"},
+        "autobahn_family_tags":{"type":"array","minItems":1,"uniqueItems":true,"items":{"enum":["1.*","3.*","4.*","10.*"]}}
+      }
+    },
+    "javaObservation": {
+      "type":"object","additionalProperties":false,
+      "required":["observable","divergent","condition","basis"],
+      "properties": {
+        "observable":{"type":"string","minLength":1},"divergent":{"type":"boolean"},"condition":{"type":"string","minLength":1},
+        "basis":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^Draft_6455\\.java:[0-9]+-[0-9]+$"}}
+      }
+    },
+    "assurance": {
+      "type":"object","additionalProperties":false,
+      "required":["assurance","independent_review_claimed","production","publication","signing"],
+      "properties": {
+        "assurance":{"const":"OWNER_ATTESTED_NOT_INDEPENDENT"},"independent_review_claimed":{"const":false},
+        "production":{"const":false},"publication":{"const":false},"signing":{"const":false}
+      }
+    }
+  }
+}

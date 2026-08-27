@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verified-java-websocket-port.invalid/schemas/formal-proof-targets-1.1.0.schema.json",
+  "title": "FormalProofTargets",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "entity_type",
+    "plan_id",
+    "source_basis",
+    "targets",
+    "required_consumers",
+    "assurance",
+    "independent_review_claimed",
+    "production",
+    "publication"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/formal-proof-targets-1.1.0.schema.json"},
+    "schema_version": {"const": "1.1.0"},
+    "entity_type": {"const": "FormalProofTargets"},
+    "plan_id": {"const": "formal-proof-targets.us012.v2"},
+    "source_basis": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/artifactRef"}
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"$ref": "#/$defs/target"}
+    },
+    "required_consumers": {
+      "type": "array",
+      "prefixItems": [
+        {"const": "CONFORMANCE"},
+        {"const": "DIFFERENTIAL"},
+        {"const": "PRODUCTION"}
+      ],
+      "items": false
+    },
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "production": {"const": false},
+    "publication": {"const": false}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$"
+    },
+    "path": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "attribution"],
+      "properties": {
+        "path": {"$ref": "#/$defs/path"},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "attribution": {
+          "enum": [
+            "AUGMENTED_CODEX_US010",
+            "BORROWED_CLAUDE_US003",
+            "BORROWED_CLAUDE_US004",
+            "BORROWED_CLAUDE_US005",
+            "BORROWED_CLAUDE_US007",
+            "PUBLIC_LINKAGE_EVIDENCE",
+            "PUBLIC_SOURCE_TREE",
+            "US012_OWNED",
+            "US006_OWNED"
+          ]
+        }
+      }
+    },
+    "callPath": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["consumer", "entry_symbol", "linkage_artifact", "state"],
+      "properties": {
+        "consumer": {"enum": ["CONFORMANCE", "DIFFERENTIAL", "PRODUCTION"]},
+        "entry_symbol": {"type": "string", "minLength": 1},
+        "linkage_artifact": {
+          "oneOf": [
+            {"$ref": "#/$defs/artifactRef"},
+            {"type": "null"}
+          ]
+        },
+        "state": {"enum": ["FUTURE_REQUIRED", "PENDING_CONSUMER", "LINKED", "DISCONNECTED"]}
+      }
+    },
+    "obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "obligation_id",
+        "property_id",
+        "statement",
+        "required_backend_ids",
+        "expected_canary_ids",
+        "subject_target_id",
+        "minimum_obligation_count",
+        "allowed_claim_scopes",
+        "production_refinement_required"
+      ],
+      "properties": {
+        "obligation_id": {"$ref": "#/$defs/identifier"},
+        "property_id": {"$ref": "#/$defs/identifier"},
+        "statement": {"type": "string", "minLength": 1},
+        "required_backend_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "expected_canary_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/identifier"}
+        },
+        "subject_target_id": {"$ref": "#/$defs/identifier"},
+        "minimum_obligation_count": {"type": "integer", "minimum": 1},
+        "allowed_claim_scopes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "BOUNDED_TEST_EVIDENCE",
+              "UNAVAILABLE_BACKEND_BLOCKED",
+              "FUTURE_PRODUCTION_REFINEMENT"
+            ]
+          }
+        },
+        "production_refinement_required": {"const": true}
+      }
+    },
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "target_id",
+        "story_id",
+        "planned_file",
+        "rust_symbol",
+        "item_kind",
+        "linkage_state",
+        "source_sha256",
+        "source_git_blob",
+        "semantic_identity",
+        "bounded_evidence",
+        "required_call_paths",
+        "obligations",
+        "prohibited_duplicates",
+        "maximum_current_scope"
+      ],
+      "properties": {
+        "target_id": {"enum": ["target.frame-header-decoder", "target.frame-mask"]},
+        "story_id": {"const": "US-012"},
+        "planned_file": {"$ref": "#/$defs/path"},
+        "rust_symbol": {"type": "string", "minLength": 1},
+        "item_kind": {"enum": ["FUNCTION", "ASSOCIATED_FUNCTION"]},
+        "linkage_state": {
+          "enum": [
+            "UNRESOLVED_FUTURE_PRODUCTION_SYMBOL",
+            "RESOLVED_ACTUAL_SYMBOL_BOUNDED_PENDING_CONSUMERS",
+            "RESOLVED_PRODUCTION_SYMBOL",
+            "DISCONNECTED"
+          ]
+        },
+        "source_sha256": {
+          "oneOf": [
+            {"$ref": "#/$defs/digest"},
+            {"type": "null"}
+          ]
+        },
+        "source_git_blob": {
+          "oneOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "null"}
+          ]
+        },
+        "semantic_identity": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "bounded_evidence": {
+          "oneOf": [
+            {"$ref": "#/$defs/artifactRef"},
+            {"type": "null"}
+          ]
+        },
+        "required_call_paths": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": {"$ref": "#/$defs/callPath"}
+        },
+        "obligations": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/obligation"}
+        },
+        "prohibited_duplicates": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "PROOF_ONLY_REIMPLEMENTATION"},
+            {"const": "ADAPTER_LOCAL_CODEC"},
+            {"const": "TEST_ONLY_COPY"}
+          ],
+          "items": false
+        },
+        "maximum_current_scope": {
+          "enum": [
+            "BOUNDED_TEST_EVIDENCE",
+            "FUTURE_PRODUCTION_REFINEMENT"
+          ]
+        }
+      }
+    }
+  }
+}

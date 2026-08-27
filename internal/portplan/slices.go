@@ -14,7 +14,7 @@ var PortSlices = []PortSlice{
 	{"slice.connection-core", "US-009", "Safe Rust ConnectionCore contract", "ws_core::connection"},
 	{"slice.client-handshake", "US-010", "Client opening-handshake slice", "ws_core::handshake::client"},
 	{"slice.server-handshake", "US-011", "Server opening-handshake slice", "websocket_core::ConnectionCore"},
-	{"slice.framing", "US-012", "Canonical framing, masking, allocation limits", "ws_core::framing"},
+	{"slice.framing", "US-012", "Canonical framing, masking, allocation limits", "websocket_core::frame"},
 	{"slice.messages", "US-013", "Strict text and binary messages", "ws_core::message"},
 	{"slice.fragmentation", "US-014", "Fragment reassembly with bounded state", "ws_core::fragment"},
 	{"slice.ping-pong", "US-015", "Ping and pong control behavior", "ws_core::control"},
