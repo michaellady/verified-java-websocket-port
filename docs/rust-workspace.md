@@ -1,24 +1,24 @@
 # Rust workspace: scope, gates, and story mapping
 
-Status: **US-009 core contract plus US-010 client and US-011 server opening handshakes shipped.**
-The `rust/` workspace now contains the dependency-free Sans-I/O
-`ConnectionCore` and both opening-handshake directions. Rust implementation may
-continue before the benchmark confirmation host binds, but no performance
-representation is authorized beyond compile/test correctness.
+Status: **US-009 through US-018 are shipped; US-019 provides inert conformance
+readiness; US-020 adds the bounded neutral differential process seam.** The
+`rust/` workspace contains the dependency-free Sans-I/O `ConnectionCore`, the
+single-owner driver, and the thin blocking and one-record neutral adapters.
+No performance representation is authorized beyond compile/test correctness.
 
 **Explicit non-claims:**
 
-- US-009 claims only the safe bounded core contract; US-010 claims client
-  request generation and response validation; US-011 claims server request
-  validation, canonical 101 generation, and the normalized Open event.
-- Frames, messages, control behavior, close,
-  adapters, and driven concurrency remain unavailable until their owning
-  stories.
+- US-020 extends protocol behavior only with outbound fragmented sends. Exact
+  consumption/buffer accounting and frame traces are read-only observations
+  at the existing decoder/encoder seams.
+- `websocket-testee neutral-oracle --protocol NDRV1` is a strict, bounded,
+  dependency-free process codec over `ConnectionOwner`; it is not another
+  WebSocket parser or state machine.
 - No performance representation of any kind is made. No benchmark sample was
   collected, no tuning performed.
-- Autobahn, live Java differential execution, fresh handshake rust-analyzer
-  resolution, publication, production, parity, and independent review are not
-  claimed.
+- No fresh Autobahn run, Linux run, publication, production, parity, or
+  independent-review claim is made by this workspace. The process seam alone
+  is not a passing Java-versus-Rust differential receipt.
 
 ## Toolchain pin
 
@@ -61,21 +61,23 @@ pipeline stories, not this scaffold):
 | US-009 | **Complete.** `connection-core` owns the checked config, role, command/write/event/state/failure vocabulary, single mutating `ConnectionCore::step` seam, and workspace gates. |
 | US-010 | **Complete.** `src/handshake/client.rs`, `http.rs`, and `crypto.rs` implement the client opening handshake through `ConnectionCore::step`; later protocol slices still fail closed. |
 | US-011 | **Complete.** `src/handshake/server.rs` strictly validates bounded incremental requests and emits only the canonical 101 plus the parser-produced descriptor event. |
-| US-012 | `src/framing.rs` -- canonical framing, masking, allocation limits. |
-| US-013 | `src/framing.rs` -- strict text/binary message delivery. |
-| US-014 | `src/framing.rs` -- bounded fragmentation reassembly. |
-| US-015 | `src/control.rs` -- ping/pong control behavior. |
-| US-016 | `src/close.rs` -- close, EOF, terminal states. |
-| US-017 | `src/connection.rs` -- single-owner bounded command boundary. |
-| US-018 | future sibling crate(s) for thin blocking TCP adapters (not scaffolded; adapters are deliberately outside the dependency-free core). |
-| US-019 | future Autobahn conformance harness wiring against the adapters (not scaffolded). |
+| US-012 | **Complete.** Canonical frame coding, masking, and allocation limits. |
+| US-013 | **Complete.** Strict text/binary message delivery and outbound final frames. |
+| US-014 | **Complete.** Bounded inbound fragmentation reassembly. |
+| US-015 | **Complete.** Bounded ping/pong observation and explicit control writes. |
+| US-016 | **Complete.** Close, EOF, and terminal-state behavior. |
+| US-017 | **Complete.** `websocket-driver` owns the bounded producer queue and sole mutable `ConnectionOwner`. |
+| US-018 | **Complete on the current host.** `websocket-testee` provides thin bounded blocking loopback client/server adapters. |
+| US-019 | **Inert readiness only.** `harness-contract` records `READY_NO_LIVE_CONFORMANCE`; it does not execute Autobahn. |
+| US-020 | **Rust process seam implemented.** `SendFragment`, exact read-only step accounting/frame traces, real Open/Closing/Closed bootstraps, and strict one-record `NDRV1`/`NOBS1` transport. A separate differential run and receipt determine story completion. |
 
 ## Current shipped state
 
-- The crate remains `rust/connection-core` with package/library identities
-  `websocket-core` / `websocket_core`.
-- The workspace is dependency-free, forbids first-party unsafe code and build
-  hooks, and is gated through the pinned Rust toolchain.
+- The workspace has three first-party packages: `websocket-core`,
+  `websocket-driver`, and `websocket-testee`. The only dependency edges are
+  local workspace edges; there are no external crates.
+- All three packages forbid first-party unsafe code and build hooks and are
+  gated through the pinned Rust toolchain.
 - US-010 and US-011 evidence lives in the two story receipts under `evidence/`.
   They bind exact checkout blob IDs, content digests, frozen corpus rows,
   deterministic nonce/accept literals, fuzz inputs, and additive story DAGs.

@@ -2,6 +2,7 @@
 
 use std::env::args;
 use std::io::ErrorKind;
+use std::io::{stdin, stdout};
 use std::net::{SocketAddr, TcpListener};
 use std::process::exit;
 use std::time::Duration;
@@ -16,6 +17,22 @@ const USAGE_EXIT: i32 = 2;
 
 fn main() {
     let arguments: Vec<String> = args().collect();
+    if arguments.get(1).map(String::as_str) == Some("neutral-oracle") {
+        if arguments.get(2).map(String::as_str) != Some("--protocol")
+            || arguments.get(3).map(String::as_str) != Some("NDRV1")
+            || arguments.len() != 4
+        {
+            eprintln!("neutral-protocol-error");
+            exit(USAGE_EXIT);
+        }
+        match websocket_testee::neutral::run_neutral(stdin().lock(), stdout().lock()) {
+            Ok(()) => exit(0),
+            Err(_) => {
+                eprintln!("neutral-protocol-error");
+                exit(USAGE_EXIT);
+            }
+        }
+    }
     if arguments.get(1).map(String::as_str) == Some("harness-contract") {
         match harness_contract(&arguments[2..]) {
             Ok(line) => {

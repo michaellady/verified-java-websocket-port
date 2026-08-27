@@ -14,6 +14,36 @@ fn defaults_create_an_immutable_connecting_core() {
     assert_eq!(core.state(), ConnectionState::Connecting);
 }
 
+#[test]
+fn step_accounting_reports_exact_partial_consumption_and_retention() {
+    const REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+    let mut core = ConnectionCore::new(config, Role::Server);
+    assert_eq!(
+        core.step(CoreInput::Transport(TransportBytes::new(REQUEST)))
+            .state(),
+        ConnectionState::Open
+    );
+
+    let partial = core.step(CoreInput::Transport(TransportBytes::new(&[0x83])));
+    let accounting = core.last_step_observation().accounting();
+    assert_eq!(accounting.bytes_consumed, 1);
+    assert_eq!(accounting.wire_buffered_bytes, 1);
+    assert_eq!(accounting.message_buffered_bytes, 0);
+    assert_eq!(accounting.pre_state, ConnectionState::Open);
+    assert_eq!(accounting.post_state, ConnectionState::Open);
+    assert_eq!(partial.state(), ConnectionState::Open);
+
+    let rejected = core.step(CoreInput::Transport(TransportBytes::new(&[0x00])));
+    let accounting = core.last_step_observation().accounting();
+    assert_eq!(accounting.bytes_consumed, 1);
+    assert_eq!(accounting.wire_buffered_bytes, 0);
+    assert_eq!(accounting.message_buffered_bytes, 0);
+    assert_eq!(accounting.pre_state, ConnectionState::Open);
+    assert_eq!(accounting.post_state, ConnectionState::Closed);
+    assert_eq!(rejected.state(), ConnectionState::Closed);
+}
+
 const BYTE_CEILING: u64 = 1_048_576;
 const QUEUE_CEILING: u64 = 4_096;
 

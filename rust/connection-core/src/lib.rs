@@ -25,11 +25,13 @@ mod utf8;
 pub use close::{CloseCodeRejection, CloseFailure, CloseFrame, CloseInitiator};
 pub use connection::{
     ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput,
-    CoreOutput, FailureKind, FragmentFailure, FrameFailure, HandshakeFailure, InputKind, LimitKind,
-    LimitRelationship, LocalCommand, ProtocolStory, QueueKind, Role, SemanticEvent, StepResult,
-    TransportBytes, TransportWrite, TypedProtocolFailure, Utf8Failure,
+    CoreOutput, CoreStepObservation, FailureKind, FragmentFailure, FrameDirection, FrameFailure,
+    FrameObservation, HandshakeFailure, InputKind, LimitKind, LimitRelationship, LocalCommand,
+    ProtocolStory, QueueKind, Role, SemanticEvent, StepAccounting, StepResult, TransportBytes,
+    TransportWrite, TypedProtocolFailure, Utf8Failure,
 };
 pub use control::{AutomaticPongPolicy, ControlPayload};
+pub use fragment::FragmentKind;
 pub use frame::decode::{FrameHeader, FrameHeaderDecode, FrameHeaderDecoder};
 pub use frame::{EncodedFrame, Frame, FrameEncoder, Opcode, OutboundFrame, apply_mask_in_place};
 pub use handshake::{

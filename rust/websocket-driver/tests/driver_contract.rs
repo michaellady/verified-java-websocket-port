@@ -112,6 +112,23 @@ fn queued_command_is_applied_once_and_driver_never_encodes_it() {
 }
 
 #[test]
+fn owner_exposes_read_only_core_step_accounting() {
+    let (_handle, mut owner) = connection_driver(config(2), Role::Server);
+    open_server(&mut owner);
+    let result = owner.poll(DriverInput::Inbound(TransportBytes::new(&[0x81])));
+    assert_eq!(result.input, InputDisposition::Consumed { bytes: 1 });
+    let accounting = owner
+        .last_core_observation()
+        .expect("inbound reached the core")
+        .accounting();
+    assert_eq!(accounting.bytes_consumed, 1);
+    assert_eq!(accounting.wire_buffered_bytes, 1);
+    assert_eq!(accounting.message_buffered_bytes, 0);
+    assert_eq!(accounting.pre_state, ConnectionState::Open);
+    assert_eq!(accounting.post_state, ConnectionState::Open);
+}
+
+#[test]
 fn shutdown_closes_admission_and_terminal_is_delivered_exactly_once() {
     let (handle, mut owner) = connection_driver(config(2), Role::Server);
     let first = owner.poll(DriverInput::Shutdown);

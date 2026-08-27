@@ -3,6 +3,7 @@
 use std::io::{Read, Write};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::process::Command;
+use std::process::Stdio;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -11,6 +12,106 @@ const RFC_RESPONSE: &[u8] = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: webso
 
 fn binary() -> &'static str {
     env!("CARGO_BIN_EXE_websocket-testee")
+}
+
+fn tlv(tag: u8, value: &[u8], output: &mut Vec<u8>) {
+    output.push(tag);
+    output.extend_from_slice(&u32::try_from(value.len()).unwrap().to_be_bytes());
+    output.extend_from_slice(value);
+}
+
+fn neutral_request() -> Vec<u8> {
+    neutral_request_for(2, 1, &[])
+}
+
+fn neutral_request_for(role: u8, initial_state: u8, steps: &[Vec<u8>]) -> Vec<u8> {
+    let mut body = b"NDRV1".to_vec();
+    tlv(1, b"us020.process.open-server", &mut body);
+    tlv(2, &[role], &mut body);
+    tlv(3, &[initial_state], &mut body);
+    let mut limits = Vec::new();
+    for value in [64_u64, 65_536, 64, 65_536, 4_194_304] {
+        limits.extend_from_slice(&value.to_be_bytes());
+    }
+    tlv(4, &limits, &mut body);
+    let mut encoded_steps = u16::try_from(steps.len()).unwrap().to_be_bytes().to_vec();
+    for step in steps {
+        encoded_steps.extend_from_slice(&u32::try_from(step.len()).unwrap().to_be_bytes());
+        encoded_steps.extend_from_slice(step);
+    }
+    tlv(5, &encoded_steps, &mut body);
+    let mut record = u32::try_from(body.len()).unwrap().to_be_bytes().to_vec();
+    record.extend_from_slice(&body);
+    record
+}
+
+fn run_neutral(input: &[u8]) -> std::process::Output {
+    let mut child = Command::new(binary())
+        .args(["neutral-oracle", "--protocol", "NDRV1"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
+    child.stdin.take().unwrap().write_all(input).unwrap();
+    child.wait_with_output().unwrap()
+}
+
+#[test]
+fn neutral_oracle_is_one_record_and_bootstraps_the_real_server_owner() {
+    let output = run_neutral(&neutral_request());
+    assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
+    assert!(output.stderr.is_empty());
+    assert!(output.stdout.len() >= 9);
+    let declared = u32::from_be_bytes(output.stdout[..4].try_into().unwrap()) as usize;
+    assert_eq!(declared, output.stdout.len() - 4);
+    assert_eq!(&output.stdout[4..9], b"NOBS1");
+}
+
+#[test]
+fn neutral_oracle_rejects_truncated_and_trailing_records() {
+    let request = neutral_request();
+    for hostile in [
+        &request[..request.len() - 1],
+        &[request.as_slice(), b"x"].concat(),
+    ] {
+        let output = run_neutral(hostile);
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert_eq!(output.stderr, b"neutral-protocol-error\n");
+    }
+}
+
+#[test]
+fn neutral_oracle_bootstraps_both_roles_through_open_closing_and_closed() {
+    for role in [1, 2] {
+        for state in [1, 2, 3] {
+            let output = run_neutral(&neutral_request_for(role, state, &[]));
+            assert_eq!(
+                output.status.code(),
+                Some(0),
+                "role={role} state={state} stderr={:?}",
+                output.stderr
+            );
+            assert_eq!(&output.stdout[4..9], b"NOBS1");
+        }
+    }
+}
+
+#[test]
+fn neutral_oracle_drives_outbound_fragments_through_the_owner() {
+    let first = [vec![0x12, 1, 0, 0], b"snng".to_vec()].concat();
+    let second = [vec![0x12, 1, 1, 0], "éjé".as_bytes().to_vec()].concat();
+    let output = run_neutral(&neutral_request_for(2, 1, &[first, second]));
+    assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
+    assert_eq!(&output.stdout[4..9], b"NOBS1");
+    assert!(output.stdout.windows(4).any(|window| window == b"snng"));
+    assert!(
+        output
+            .stdout
+            .windows(5)
+            .any(|window| window == "éjé".as_bytes())
+    );
 }
 
 #[test]

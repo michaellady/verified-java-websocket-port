@@ -2,7 +2,7 @@
 
 use websocket_core::{
     ClientRequestDescriptor, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState,
-    CoreInput, CoreOutput, FailureKind, FrameFailure, LimitKind, LocalCommand, Role,
+    CoreInput, CoreOutput, FailureKind, FragmentKind, FrameFailure, LimitKind, LocalCommand, Role,
     TransportBytes,
 };
 
@@ -13,6 +13,52 @@ fn config_with(mut change: impl FnMut(&mut ConnectionLimits)) -> ConnectionConfi
     let mut limits = ConnectionLimits::default();
     change(&mut limits);
     ConnectionConfig::try_from(limits).expect("test limits")
+}
+
+#[test]
+fn outbound_fragments_use_one_data_opcode_then_continuations() {
+    let config = config_with(|_| {});
+    let mut server = open_server(config);
+    let first = server.step(CoreInput::Command(LocalCommand::SendFragment {
+        kind: FragmentKind::Text,
+        final_fragment: false,
+        payload: b"snng".to_vec().into_boxed_slice(),
+        mask_key: None,
+    }));
+    assert_eq!(first.failure(), None);
+    assert_eq!(wire(&first), b"\x01\x04snng");
+
+    let final_fragment = server.step(CoreInput::Command(LocalCommand::SendFragment {
+        kind: FragmentKind::Text,
+        final_fragment: true,
+        payload: "éjé".as_bytes().to_vec().into_boxed_slice(),
+        mask_key: None,
+    }));
+    assert_eq!(final_fragment.failure(), None);
+    assert_eq!(wire(&final_fragment), b"\x80\x05\xc3\xa9j\xc3\xa9");
+}
+
+#[test]
+fn client_fragment_mask_keys_are_explicit_and_repeatable() {
+    let config = config_with(|_| {});
+    let mut client = open_client(config);
+    let first = client.step(CoreInput::Command(LocalCommand::SendFragment {
+        kind: FragmentKind::Binary,
+        final_fragment: false,
+        payload: b"K8B\xa4T".to_vec().into_boxed_slice(),
+        mask_key: Some([1, 2, 3, 4]),
+    }));
+    assert_eq!(first.failure(), None);
+    assert_eq!(wire(&first), b"\x02\x85\x01\x02\x03\x04J:A\xa0U");
+
+    let final_fragment = client.step(CoreInput::Command(LocalCommand::SendFragment {
+        kind: FragmentKind::Binary,
+        final_fragment: true,
+        payload: b"\xc2/\xbaE".to_vec().into_boxed_slice(),
+        mask_key: Some([5, 6, 7, 8]),
+    }));
+    assert_eq!(final_fragment.failure(), None);
+    assert_eq!(wire(&final_fragment), b"\x80\x84\x05\x06\x07\x08\xc7)\xbdM");
 }
 
 fn open_server(config: ConnectionConfig) -> ConnectionCore {

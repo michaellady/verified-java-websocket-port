@@ -8,6 +8,95 @@ use crate::message::{DeliveryKind, MessageDelivery, admit_events, admit_frame_ev
 use crate::utf8::Utf8Validator;
 use crate::{ConnectionConfig, FailureKind, FragmentFailure, FrameFailure, LimitKind, Utf8Failure};
 
+/// Data-message kind supplied for one outbound fragment sequence.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FragmentKind {
+    /// The complete sequence is a UTF-8 text message.
+    Text,
+    /// The complete sequence is an uninterpreted binary message.
+    Binary,
+}
+
+impl FragmentKind {
+    pub(crate) const fn opcode(self) -> Opcode {
+        match self {
+            Self::Text => Opcode::Text,
+            Self::Binary => Opcode::Binary,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) struct OutboundFragmentPlan {
+    pub(crate) opcode: Opcode,
+    next: Option<(FragmentKind, usize)>,
+}
+
+/// Sequence-only outbound fragment state. Payload bytes are never retained.
+#[derive(Debug)]
+pub(crate) struct OutboundFragmentState {
+    active: Option<(FragmentKind, usize)>,
+}
+
+impl OutboundFragmentState {
+    pub(crate) const fn new() -> Self {
+        Self { active: None }
+    }
+
+    pub(crate) const fn active_opcode(&self) -> Option<Opcode> {
+        match self.active {
+            Some((kind, _)) => Some(kind.opcode()),
+            None => None,
+        }
+    }
+
+    pub(crate) fn plan(
+        &self,
+        config: &ConnectionConfig,
+        kind: FragmentKind,
+        final_fragment: bool,
+        payload_length: usize,
+    ) -> Result<OutboundFragmentPlan, FailureKind> {
+        let attempted = self
+            .active
+            .map_or(Some(payload_length), |(_, accumulated)| {
+                accumulated.checked_add(payload_length)
+            })
+            .ok_or(FailureKind::Frame(FrameFailure::ArithmeticOverflow))?;
+        if attempted > config.message_bytes() {
+            return Err(FailureKind::LimitExceeded {
+                limit: LimitKind::MessageBytes,
+                attempted: u64::try_from(attempted).unwrap_or(u64::MAX),
+                maximum: config.limits().message_bytes,
+            });
+        }
+        let opcode = match self.active {
+            None => kind.opcode(),
+            Some((active, _)) if active == kind => Opcode::Continuation,
+            Some((active, _)) => {
+                return Err(FailureKind::Fragment(
+                    FragmentFailure::DataFrameWhileFragmented {
+                        active: active.opcode(),
+                        received: kind.opcode(),
+                    },
+                ));
+            }
+        };
+        Ok(OutboundFragmentPlan {
+            opcode,
+            next: (!final_fragment).then_some((kind, attempted)),
+        })
+    }
+
+    pub(crate) fn commit(&mut self, plan: OutboundFragmentPlan) {
+        self.active = plan.next;
+    }
+
+    pub(crate) fn reset(&mut self) {
+        self.active = None;
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum FragmentPlan {
     Unfragmented(Option<DeliveryKind>),

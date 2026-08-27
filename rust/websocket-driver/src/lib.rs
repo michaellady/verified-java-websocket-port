@@ -12,8 +12,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, mpsc};
 
 use websocket_core::{
-    ConnectionConfig, ConnectionCore, ConnectionState, CoreInput, CoreOutput, LocalCommand, Role,
-    SemanticEvent, TransportBytes, TransportWrite, TypedProtocolFailure,
+    ConnectionConfig, ConnectionCore, ConnectionState, CoreInput, CoreOutput, CoreStepObservation,
+    LocalCommand, Role, SemanticEvent, TransportBytes, TransportWrite, TypedProtocolFailure,
 };
 
 /// Builds one bounded producer handle and its sole pull-driven owner.
@@ -59,6 +59,8 @@ pub fn connection_driver(config: ConnectionConfig, role: Role) -> (CommandHandle
         terminal_outcome: TerminalOutcome::Closed,
         dispositions: VecDeque::new(),
         producers_dropped_reported: false,
+        last_core_observation: None,
+        core_step_sequence: 0,
     };
     (handle, owner)
 }
@@ -204,6 +206,7 @@ fn command_charge(command: &LocalCommand, limits: &websocket_core::ConnectionLim
             .saturating_add(16),
         LocalCommand::SendText { payload, .. } => payload.len(),
         LocalCommand::SendBinary { payload, .. }
+        | LocalCommand::SendFragment { payload, .. }
         | LocalCommand::SendPing { payload, .. }
         | LocalCommand::SendPong { payload, .. } => payload.len(),
         LocalCommand::Close { reason, code, .. } => {
@@ -347,6 +350,24 @@ pub struct PollResult<'owner> {
     pub state: ConnectionState,
 }
 
+/// Input accepted only for a diagnostic observation after terminal delivery.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ClosedObservationInput<'a> {
+    /// Borrowed bytes presented to the already-closed core.
+    Inbound(TransportBytes<'a>),
+    /// Transport EOF presented to the already-closed core.
+    TransportEof,
+}
+
+/// Result of observing the incumbent core's terminal-state behavior.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ClosedObservationResult {
+    /// Typed failure, if the core rejects the terminal-state input.
+    pub failure: Option<TypedProtocolFailure>,
+    /// Lifecycle state after the observation.
+    pub state: ConnectionState,
+}
+
 #[derive(Debug)]
 enum PendingOutput {
     Write(TransportWrite),
@@ -377,9 +398,54 @@ pub struct ConnectionOwner {
     terminal_outcome: TerminalOutcome,
     dispositions: VecDeque<CommandDisposition>,
     producers_dropped_reported: bool,
+    last_core_observation: Option<CoreStepObservation>,
+    core_step_sequence: u64,
 }
 
 impl ConnectionOwner {
+    /// Returns the incumbent core's current public lifecycle state.
+    #[must_use]
+    pub const fn state(&self) -> ConnectionState {
+        self.core.state()
+    }
+
+    /// Returns the read-only observation from the most recent core step.
+    #[must_use]
+    pub const fn last_core_observation(&self) -> Option<&CoreStepObservation> {
+        self.last_core_observation.as_ref()
+    }
+
+    /// Returns the monotonic sequence and observation of the latest core step.
+    #[must_use]
+    pub const fn last_core_step(&self) -> Option<(u64, &CoreStepObservation)> {
+        match self.last_core_observation.as_ref() {
+            Some(observation) => Some((self.core_step_sequence, observation)),
+            None => None,
+        }
+    }
+
+    /// Observes one input against an already-closed core without reopening
+    /// producer admission or producing another terminal delivery.
+    pub fn observe_closed(
+        &mut self,
+        input: ClosedObservationInput<'_>,
+    ) -> Option<ClosedObservationResult> {
+        if self.core.state() != ConnectionState::Closed {
+            return None;
+        }
+        let input = match input {
+            ClosedObservationInput::Inbound(bytes) => CoreInput::Transport(bytes),
+            ClosedObservationInput::TransportEof => CoreInput::TransportEof,
+        };
+        let result = self.core.step(input);
+        self.core_step_sequence = self.core_step_sequence.checked_add(1)?;
+        self.last_core_observation = Some(self.core.last_step_observation().clone());
+        Some(ClosedObservationResult {
+            failure: result.failure().cloned(),
+            state: result.state(),
+        })
+    }
+
     /// Performs at most one owner transition and returns the next ordered output.
     pub fn poll<'owner>(&'owner mut self, input: DriverInput<'_>) -> PollResult<'owner> {
         let mut input_disposition = consumed(&input);
@@ -508,6 +574,11 @@ impl ConnectionOwner {
     }
 
     fn commit(&mut self, result: websocket_core::StepResult) {
+        self.core_step_sequence = self
+            .core_step_sequence
+            .checked_add(1)
+            .expect("bounded owner step sequence");
+        self.last_core_observation = Some(self.core.last_step_observation().clone());
         let state = result.state();
         let failure = result.failure().cloned();
         let outputs: Vec<_> = result.outputs().cloned().collect();

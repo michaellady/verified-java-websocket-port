@@ -277,6 +277,31 @@ func TestVerifyRejectsAutobahnHarnessContractMutants(t *testing.T) {
 	}
 }
 
+func TestVerifyRejectsNeutralOracleSecondEngineMutants(t *testing.T) {
+	tests := []struct {
+		name string
+		code string
+		body string
+	}{
+		{"opcode branch", "ADAPTER_PROTOCOL_BRANCH", "pub fn bad(bytes: &[u8]) { let opcode = bytes[0] & 0x0f; if opcode == 1 {} }\n"},
+		{"direct core", "ADAPTER_PROTOCOL_SURFACE", "pub struct Bad(websocket_core::ConnectionCore);\n"},
+		{"child process", "ADAPTER_TRANSPORT_SURFACE", "use std::process::Command;\n"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			root := goodFixture(t)
+			writeFixture(t, root, "rust/websocket-testee/src/neutral.rs", "#![forbid(unsafe_code)]\n"+test.body)
+			var stdout, stderr bytes.Buffer
+			if code := run(verificationArguments(root), &stdout, &stderr); code != exitFindings {
+				t.Fatalf("exit = %d, stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+			}
+			if !strings.Contains(stdout.String(), `"code": "`+test.code+`"`) {
+				t.Fatalf("missing %s in %s", test.code, stdout.String())
+			}
+		})
+	}
+}
+
 func TestVerifyRejectsAmbientCompiledSourceInputs(t *testing.T) {
 	tests := []struct {
 		name   string

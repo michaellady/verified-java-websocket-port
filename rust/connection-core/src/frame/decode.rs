@@ -260,6 +260,14 @@ impl FrameDecoder {
         self.fragments.unexpected_eof()
     }
 
+    pub(crate) fn retained_wire_bytes(&self) -> usize {
+        self.header_length.saturating_add(self.payload.len())
+    }
+
+    pub(crate) fn retained_message_bytes(&self) -> usize {
+        self.fragments.retained_bytes()
+    }
+
     pub(crate) fn consume(
         &mut self,
         config: &ConnectionConfig,
@@ -287,6 +295,7 @@ impl FrameDecoder {
                         return FrameDecodeBatch::failed(
                             records,
                             FailureKind::Frame(FrameFailure::ArithmeticOverflow),
+                            offset,
                         );
                     }
                 };
@@ -340,7 +349,7 @@ impl FrameDecoder {
                             Ok(plan) => plan,
                             Err(failure) => {
                                 self.reset();
-                                return FrameDecodeBatch::failed(records, failure);
+                                return FrameDecodeBatch::failed(records, failure, offset);
                             }
                         };
                         if payload_length != 0
@@ -350,11 +359,12 @@ impl FrameDecoder {
                             return FrameDecodeBatch::failed(
                                 records,
                                 FailureKind::Frame(FrameFailure::AllocationFailed),
+                                offset,
                             );
                         }
                         if let Err(failure) = self.fragments.prepare(plan, payload_length) {
                             self.reset();
-                            return FrameDecodeBatch::failed(records, failure);
+                            return FrameDecodeBatch::failed(records, failure, offset);
                         }
                         self.utf8.reset();
                         self.active = Some(header);
@@ -362,7 +372,7 @@ impl FrameDecoder {
                     }
                     Err(failure) => {
                         self.reset();
-                        return FrameDecodeBatch::failed(records, failure);
+                        return FrameDecodeBatch::failed(records, failure, offset);
                     }
                 }
             }
@@ -387,7 +397,11 @@ impl FrameDecoder {
                     && let Err(failure) = self.utf8.feed(&self.payload[prior_payload_offset..])
                 {
                     self.reset();
-                    return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure));
+                    return FrameDecodeBatch::failed(
+                        records,
+                        FailureKind::Utf8(failure),
+                        offset.saturating_add(copied),
+                    );
                 }
                 let plan = self.plan.expect("an active header has a fragment plan");
                 if let Err(failure) = self
@@ -395,7 +409,11 @@ impl FrameDecoder {
                     .feed(plan, &self.payload[prior_payload_offset..])
                 {
                     self.reset();
-                    return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure));
+                    return FrameDecodeBatch::failed(
+                        records,
+                        FailureKind::Utf8(failure),
+                        offset.saturating_add(copied),
+                    );
                 }
                 offset += copied;
             }
@@ -408,20 +426,21 @@ impl FrameDecoder {
                 && let Err(failure) = self.utf8.finish()
             {
                 self.reset();
-                return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure));
+                return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure), offset);
             }
             if records.try_reserve(1).is_err() {
                 self.reset();
                 return FrameDecodeBatch::failed(
                     records,
                     FailureKind::Frame(FrameFailure::AllocationFailed),
+                    offset,
                 );
             }
             let fragment_delivery = match self.fragments.commit(plan, &self.payload) {
                 Ok(delivery) => delivery,
                 Err(failure) => {
                     self.reset();
-                    return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure));
+                    return FrameDecodeBatch::failed(records, FailureKind::Utf8(failure), offset);
                 }
             };
             let header = self.active.take().expect("complete active header");
@@ -461,6 +480,7 @@ impl FrameDecoder {
                     return FrameDecodeBatch::failed(
                         records,
                         FailureKind::Frame(FrameFailure::ArithmeticOverflow),
+                        offset,
                     );
                 }
             };
@@ -468,6 +488,9 @@ impl FrameDecoder {
                 frame: Frame::new(header.fin(), header.opcode(), header.masked(), payload),
                 delivery,
                 retained_payload_bytes,
+                wire_length: header
+                    .header_length()
+                    .saturating_add(header.payload_length()),
             });
             self.header_length = 0;
         }
@@ -475,6 +498,7 @@ impl FrameDecoder {
         FrameDecodeBatch {
             records,
             failure: None,
+            consumed_bytes: offset,
         }
     }
 
@@ -498,6 +522,7 @@ pub(crate) struct DecodedFrame {
     pub(crate) frame: Frame,
     pub(crate) delivery: Option<DecodedDelivery>,
     pub(crate) retained_payload_bytes: usize,
+    pub(crate) wire_length: usize,
 }
 
 pub(crate) enum DecodedDelivery {
@@ -517,13 +542,15 @@ impl DecodedDelivery {
 pub(crate) struct FrameDecodeBatch {
     pub(crate) records: Vec<DecodedFrame>,
     pub(crate) failure: Option<FailureKind>,
+    pub(crate) consumed_bytes: usize,
 }
 
 impl FrameDecodeBatch {
-    fn failed(records: Vec<DecodedFrame>, failure: FailureKind) -> Self {
+    fn failed(records: Vec<DecodedFrame>, failure: FailureKind, consumed_bytes: usize) -> Self {
         Self {
             records,
             failure: Some(failure),
+            consumed_bytes,
         }
     }
 }

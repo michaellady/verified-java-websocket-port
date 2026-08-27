@@ -5,6 +5,7 @@ use crate::control::{
     AutomaticPongPolicy, ControlPayload, encode_automatic_pong, encode_local_control,
     is_observed_control, plan_batch, should_automatically_pong,
 };
+use crate::fragment::{FragmentKind, OutboundFragmentState};
 use crate::frame::decode::{DecodedFrame, FrameDecoder};
 use crate::frame::{Frame, FrameEncoder, Opcode, OutboundFrame};
 use crate::handshake::{
@@ -404,6 +405,17 @@ pub enum LocalCommand {
     /// Requests one final binary message frame.
     SendBinary {
         /// Immutable uninterpreted binary payload.
+        payload: Box<[u8]>,
+        /// One caller-supplied client mask key; forbidden for servers.
+        mask_key: Option<[u8; 4]>,
+    },
+    /// Requests one frame in an outbound fragmented data-message sequence.
+    SendFragment {
+        /// Text or binary kind for the complete fragmented message.
+        kind: FragmentKind,
+        /// Whether this frame terminates the fragmented message.
+        final_fragment: bool,
+        /// Exact payload bytes for this fragment.
         payload: Box<[u8]>,
         /// One caller-supplied client mask key; forbidden for servers.
         mask_key: Option<[u8; 4]>,
@@ -828,6 +840,112 @@ pub struct StepResult {
     state: ConnectionState,
 }
 
+/// Read-only accounting captured at the sole core step seam.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StepAccounting {
+    /// Lifecycle state before the step.
+    pub pre_state: ConnectionState,
+    /// Lifecycle state after the step.
+    pub post_state: ConnectionState,
+    /// Exact bytes consumed from this step's borrowed transport input.
+    pub bytes_consumed: usize,
+    /// Bytes retained by the incremental frame decoder after the step.
+    pub wire_buffered_bytes: usize,
+    /// Bytes retained for an incomplete fragmented message after the step.
+    pub message_buffered_bytes: usize,
+}
+
+/// Immutable observation of the most recently completed core step.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CoreStepObservation {
+    accounting: StepAccounting,
+    frames: Vec<FrameObservation>,
+}
+
+impl CoreStepObservation {
+    const fn initial() -> Self {
+        Self {
+            accounting: StepAccounting {
+                pre_state: ConnectionState::Connecting,
+                post_state: ConnectionState::Connecting,
+                bytes_consumed: 0,
+                wire_buffered_bytes: 0,
+                message_buffered_bytes: 0,
+            },
+            frames: Vec::new(),
+        }
+    }
+
+    /// Returns the exact counters and lifecycle states for the step.
+    #[must_use]
+    pub const fn accounting(&self) -> &StepAccounting {
+        &self.accounting
+    }
+
+    /// Iterates exact inbound and outbound frame observations in occurrence order.
+    pub fn frames(&self) -> impl ExactSizeIterator<Item = &FrameObservation> {
+        self.frames.iter()
+    }
+}
+
+/// Direction of one frame observed at an incumbent decoder or encoder seam.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum FrameDirection {
+    /// A validated frame decoded from transport input.
+    Inbound,
+    /// A frame encoded for transport output.
+    Outbound,
+}
+
+/// Read-only frame description captured without reparsing transport bytes.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct FrameObservation {
+    direction: FrameDirection,
+    fin: bool,
+    opcode: Opcode,
+    masked: bool,
+    payload: Box<[u8]>,
+    wire_length: usize,
+}
+
+impl FrameObservation {
+    /// Returns the direction at the core seam.
+    #[must_use]
+    pub const fn direction(&self) -> FrameDirection {
+        self.direction
+    }
+
+    /// Returns the exact FIN bit.
+    #[must_use]
+    pub const fn fin(&self) -> bool {
+        self.fin
+    }
+
+    /// Returns the exact validated opcode.
+    #[must_use]
+    pub const fn opcode(&self) -> Opcode {
+        self.opcode
+    }
+
+    /// Returns whether the wire frame carries a mask.
+    #[must_use]
+    pub const fn masked(&self) -> bool {
+        self.masked
+    }
+
+    /// Returns the unmasked payload.
+    #[must_use]
+    pub const fn payload(&self) -> &[u8] {
+        &self.payload
+    }
+
+    /// Returns the exact encoded wire length.
+    #[must_use]
+    pub const fn wire_length(&self) -> usize {
+        self.wire_length
+    }
+}
+
 impl StepResult {
     /// Iterates outputs in exact occurrence order.
     pub fn outputs(&self) -> impl ExactSizeIterator<Item = &CoreOutput> {
@@ -856,7 +974,11 @@ pub struct ConnectionCore {
     client_handshake: ClientHandshake,
     server_handshake: ServerHandshake,
     frame_decoder: FrameDecoder,
+    outbound_fragments: OutboundFragmentState,
     close: CloseMachine,
+    last_step_observation: CoreStepObservation,
+    last_decoder_consumed: usize,
+    step_frames: Vec<FrameObservation>,
 }
 
 impl ConnectionCore {
@@ -875,7 +997,11 @@ impl ConnectionCore {
             client_handshake: ClientHandshake::new(),
             server_handshake,
             frame_decoder: FrameDecoder::new(),
+            outbound_fragments: OutboundFragmentState::new(),
             close: CloseMachine::new(),
+            last_step_observation: CoreStepObservation::initial(),
+            last_decoder_consumed: 0,
+            step_frames: Vec::new(),
         }
     }
 
@@ -884,6 +1010,37 @@ impl ConnectionCore {
     /// Implemented protocol slices return ordered outputs; behavior owned by a
     /// later story returns a typed unavailable failure without side effects.
     pub fn step(&mut self, input: CoreInput<'_>) -> StepResult {
+        let pre_state = self.state;
+        let offered_bytes = match &input {
+            CoreInput::Transport(bytes) => Some(bytes.as_slice().len()),
+            _ => None,
+        };
+        let decoder_path = offered_bytes.is_some()
+            && matches!(pre_state, ConnectionState::Open | ConnectionState::Closing);
+        self.last_decoder_consumed = 0;
+        self.step_frames.clear();
+        let result = self.step_protocol(input);
+        let bytes_consumed = offered_bytes.map_or(0, |offered| {
+            if decoder_path {
+                self.last_decoder_consumed
+            } else {
+                offered
+            }
+        });
+        self.last_step_observation = CoreStepObservation {
+            accounting: StepAccounting {
+                pre_state,
+                post_state: result.state(),
+                bytes_consumed,
+                wire_buffered_bytes: self.frame_decoder.retained_wire_bytes(),
+                message_buffered_bytes: self.frame_decoder.retained_message_bytes(),
+            },
+            frames: core::mem::take(&mut self.step_frames),
+        };
+        result
+    }
+
+    fn step_protocol(&mut self, input: CoreInput<'_>) -> StepResult {
         if self.state == ConnectionState::Closed {
             if matches!(
                 input,
@@ -1012,7 +1169,16 @@ impl ConnectionCore {
             };
             return match encode_local_control(&self.config, self.role, opcode, &payload, mask_key) {
                 Ok(bytes) => StepResult {
-                    outputs: Box::new([CoreOutput::TransportWrite(TransportWrite { bytes })]),
+                    outputs: {
+                        self.record_outbound_frame(
+                            true,
+                            opcode,
+                            &payload,
+                            mask_key.is_some(),
+                            bytes.len(),
+                        );
+                        Box::new([CoreOutput::TransportWrite(TransportWrite { bytes })])
+                    },
                     failure: None,
                     state: self.state,
                 },
@@ -1042,6 +1208,14 @@ impl ConnectionCore {
                 }
                 _ => unreachable!("command pattern was restricted to Text/Binary"),
             };
+            if let Some(active) = self.outbound_fragments.active_opcode() {
+                return self.nonterminal_failure(FailureKind::Fragment(
+                    FragmentFailure::DataFrameWhileFragmented {
+                        active,
+                        received: opcode,
+                    },
+                ));
+            }
             let attempted = u64::try_from(payload.len()).unwrap_or(u64::MAX);
             if payload.len() > self.config.message_bytes() {
                 return self.nonterminal_failure(FailureKind::LimitExceeded {
@@ -1054,12 +1228,66 @@ impl ConnectionCore {
                 .encode(OutboundFrame::new(true, opcode, payload), mask_key)
             {
                 Ok(encoded) => StepResult {
-                    outputs: Box::new([CoreOutput::TransportWrite(TransportWrite {
-                        bytes: encoded.into_bytes(),
-                    })]),
+                    outputs: {
+                        let wire_length = encoded.as_slice().len();
+                        self.record_outbound_frame(
+                            true,
+                            opcode,
+                            payload,
+                            mask_key.is_some(),
+                            wire_length,
+                        );
+                        Box::new([CoreOutput::TransportWrite(TransportWrite {
+                            bytes: encoded.into_bytes(),
+                        })])
+                    },
                     failure: None,
                     state: self.state,
                 },
+                Err(kind) => self.nonterminal_failure(kind),
+            };
+        }
+        if let CoreInput::Command(LocalCommand::SendFragment {
+            kind,
+            final_fragment,
+            payload,
+            mask_key,
+        }) = input
+        {
+            if self.state != ConnectionState::Open {
+                return self.invalid_state(InputKind::LocalCommand);
+            }
+            let plan = match self.outbound_fragments.plan(
+                &self.config,
+                kind,
+                final_fragment,
+                payload.len(),
+            ) {
+                Ok(plan) => plan,
+                Err(kind) => return self.nonterminal_failure(kind),
+            };
+            return match FrameEncoder::new(self.config.clone(), self.role).encode(
+                OutboundFrame::new(final_fragment, plan.opcode, &payload),
+                mask_key,
+            ) {
+                Ok(encoded) => {
+                    let wire_length = encoded.as_slice().len();
+                    self.record_outbound_frame(
+                        final_fragment,
+                        plan.opcode,
+                        &payload,
+                        mask_key.is_some(),
+                        wire_length,
+                    );
+                    self.outbound_fragments.commit(plan);
+                    StepResult {
+                        outputs: Box::new([CoreOutput::TransportWrite(TransportWrite {
+                            bytes: encoded.into_bytes(),
+                        })]),
+                        failure: None,
+                        state: self.state,
+                    }
+                }
                 Err(kind) => self.nonterminal_failure(kind),
             };
         }
@@ -1224,9 +1452,11 @@ impl ConnectionCore {
             CoreInput::Command(LocalCommand::StartClientHandshake { .. }) => {
                 ProtocolStory::ClientOpeningHandshake
             }
-            CoreInput::Command(LocalCommand::SendText { .. } | LocalCommand::SendBinary { .. }) => {
-                ProtocolStory::Messages
-            }
+            CoreInput::Command(
+                LocalCommand::SendText { .. }
+                | LocalCommand::SendBinary { .. }
+                | LocalCommand::SendFragment { .. },
+            ) => ProtocolStory::Messages,
             CoreInput::Command(LocalCommand::SendPing { .. } | LocalCommand::SendPong { .. }) => {
                 ProtocolStory::ControlFrames
             }
@@ -1264,8 +1494,15 @@ impl ConnectionCore {
         &self.config
     }
 
+    /// Returns the immutable observation captured by the most recent step.
+    #[must_use]
+    pub const fn last_step_observation(&self) -> &CoreStepObservation {
+        &self.last_step_observation
+    }
+
     fn close_with_failure(&mut self, kind: FailureKind) -> StepResult {
         self.frame_decoder.reset();
+        self.outbound_fragments.reset();
         self.close.reset();
         self.state = ConnectionState::Closed;
         StepResult {
@@ -1292,6 +1529,7 @@ impl ConnectionCore {
             retained_close_bytes,
             closing,
         );
+        self.last_decoder_consumed = batch.consumed_bytes;
         if self.state == ConnectionState::Closing
             || batch
                 .records
@@ -1322,6 +1560,7 @@ impl ConnectionCore {
             return self.close_with_failure(FailureKind::Frame(FrameFailure::AllocationFailed));
         }
         for record in batch.records {
+            self.record_inbound_frame(&record);
             let automatic =
                 should_automatically_pong(&self.config, self.role, record.frame.opcode());
             let encoded_pong = if automatic {
@@ -1589,6 +1828,8 @@ impl ConnectionCore {
 
         if close_index.is_some() {
             let record = iterator.next().expect("planned close record");
+            self.record_inbound_frame(&record);
+            let close_payload = record.frame.payload().to_vec();
             let close = parsed_close.expect("validated close record");
             let initiator = if started_open {
                 crate::close::CloseInitiator::Peer
@@ -1606,11 +1847,19 @@ impl ConnectionCore {
             }));
 
             self.frame_decoder.reset();
+            self.outbound_fragments.reset();
             if started_open {
                 self.close.begin_peer(close);
                 self.state = ConnectionState::Closing;
                 outputs.push(CoreOutput::StateChanged(ConnectionState::Closing));
                 if let Some(wire) = echo_wire {
+                    self.record_outbound_frame(
+                        true,
+                        Opcode::Close,
+                        &close_payload,
+                        false,
+                        wire.len(),
+                    );
                     self.close.admit_peer_echo();
                     outputs.push(CoreOutput::TransportWrite(TransportWrite { bytes: wire }));
                 }
@@ -1643,11 +1892,12 @@ impl ConnectionCore {
     }
 
     fn append_record_outputs(
-        &self,
+        &mut self,
         outputs: &mut Vec<CoreOutput>,
         record: DecodedFrame,
         automatic_pong: bool,
     ) -> Result<(), FailureKind> {
+        self.record_inbound_frame(&record);
         let encoded_pong = if automatic_pong {
             Some(encode_automatic_pong(&self.config, record.frame.payload())?)
         } else {
@@ -1692,6 +1942,7 @@ impl ConnectionCore {
         kind: FailureKind,
     ) -> StepResult {
         self.frame_decoder.reset();
+        self.outbound_fragments.reset();
         self.close.reset();
         self.state = ConnectionState::Closed;
         outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));
@@ -1703,6 +1954,35 @@ impl ConnectionCore {
             }),
             state: self.state,
         }
+    }
+
+    fn record_inbound_frame(&mut self, record: &DecodedFrame) {
+        self.step_frames.push(FrameObservation {
+            direction: FrameDirection::Inbound,
+            fin: record.frame.fin(),
+            opcode: record.frame.opcode(),
+            masked: record.frame.masked(),
+            payload: record.frame.payload().to_vec().into_boxed_slice(),
+            wire_length: record.wire_length,
+        });
+    }
+
+    fn record_outbound_frame(
+        &mut self,
+        fin: bool,
+        opcode: Opcode,
+        payload: &[u8],
+        masked: bool,
+        wire_length: usize,
+    ) {
+        self.step_frames.push(FrameObservation {
+            direction: FrameDirection::Outbound,
+            fin,
+            opcode,
+            masked,
+            payload: payload.to_vec().into_boxed_slice(),
+            wire_length,
+        });
     }
 
     fn invalid_state(&self, input: InputKind) -> StepResult {
@@ -1751,6 +2031,13 @@ impl ConnectionCore {
                 self.close.retained_bytes(),
             ) {
                 Ok(prepared) => {
+                    self.record_outbound_frame(
+                        true,
+                        Opcode::Close,
+                        &prepared.payload,
+                        mask_key.is_some(),
+                        prepared.wire.len(),
+                    );
                     self.close.admit_local_half(prepared.payload);
                     StepResult {
                         outputs: Box::new([CoreOutput::TransportWrite(TransportWrite {
@@ -1766,8 +2053,16 @@ impl ConnectionCore {
 
         match prepare_local_close(&self.config, self.role, code, reason, mask_key, 0) {
             Ok(prepared) => {
+                self.record_outbound_frame(
+                    true,
+                    Opcode::Close,
+                    &prepared.payload,
+                    mask_key.is_some(),
+                    prepared.wire.len(),
+                );
                 self.close.begin_local(prepared.payload);
                 self.frame_decoder.reset();
+                self.outbound_fragments.reset();
                 self.state = ConnectionState::Closing;
                 StepResult {
                     outputs: Box::new([
@@ -1797,6 +2092,7 @@ impl ConnectionCore {
 
     fn finish_clean(&mut self, mut outputs: Vec<CoreOutput>) -> StepResult {
         self.frame_decoder.reset();
+        self.outbound_fragments.reset();
         self.close.reset();
         self.state = ConnectionState::Closed;
         outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));

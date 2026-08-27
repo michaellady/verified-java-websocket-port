@@ -6,6 +6,9 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+/// Strict one-record differential process transport.
+pub mod neutral;
+
 mod client;
 mod io_loop;
 mod server;
