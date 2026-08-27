@@ -392,6 +392,61 @@ func TestLedgerMigrationChainAndCAS(t *testing.T) {
 	}
 }
 
+func TestVerifyBehaviorDeltaLedgerIsStrictAndClosed(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repositoryRoot(t), "evidence/java/behavior-delta-ledger.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary, err := VerifyBehaviorDeltaLedger(raw)
+	if err != nil {
+		t.Fatalf("committed ledger: %v", err)
+	}
+	if summary.SchemaVersion != "1.1.0" || summary.Status != "PASS_WITH_CLOSED_HISTORY" || summary.RecordCount != 103 || !summary.CurrentDeltasResolved || summary.Production || summary.Publication {
+		t.Fatalf("summary=%#v", summary)
+	}
+
+	mutate := func(t *testing.T, change func(map[string]any)) []byte {
+		t.Helper()
+		var candidate map[string]any
+		if err := json.Unmarshal(raw, &candidate); err != nil {
+			t.Fatal(err)
+		}
+		change(candidate)
+		encoded, err := json.Marshal(candidate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return encoded
+	}
+	for name, candidate := range map[string][]byte{
+		"unsupported-version": mutate(t, func(v map[string]any) { v["schema_version"] = "9.9.9" }),
+		"unknown-top":         mutate(t, func(v map[string]any) { v["unknown"] = true }),
+		"unknown-record": mutate(t, func(v map[string]any) {
+			v["records"].([]any)[0].(map[string]any)["unknown"] = true
+		}),
+		"broken-previous": mutate(t, func(v map[string]any) {
+			v["records"].([]any)[1].(map[string]any)["previous_digest"] = digest([]byte("wrong"))
+		}),
+		"broken-head": mutate(t, func(v map[string]any) { v["head"] = digest([]byte("wrong")) }),
+		"broken-hash": mutate(t, func(v map[string]any) {
+			v["records"].([]any)[0].(map[string]any)["record_digest"] = digest([]byte("wrong"))
+		}),
+		"unresolved":  mutate(t, func(v map[string]any) { v["status"] = "BLOCKED_UNRESOLVED_CURRENT_DELTAS" }),
+		"production":  mutate(t, func(v map[string]any) { v["production"] = true }),
+		"publication": mutate(t, func(v map[string]any) { v["publication"] = true }),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if summary, err := VerifyBehaviorDeltaLedger(candidate); err == nil {
+				t.Fatalf("hostile ledger accepted: %#v", summary)
+			}
+		})
+	}
+	duplicate := bytes.Replace(raw, []byte(`"schema_version": "1.1.0",`), []byte(`"schema_version": "1.1.0", "schema_version": "1.1.0",`), 1)
+	if summary, err := VerifyBehaviorDeltaLedger(duplicate); err == nil {
+		t.Fatalf("duplicate schema version accepted: %#v", summary)
+	}
+}
+
 func TestObservedRustDefectRemainsVisibleAfterClosingRun(t *testing.T) {
 	ledger := emptyMigratedLedgerForTest(t)
 	scenarios := publicScenarios(t)

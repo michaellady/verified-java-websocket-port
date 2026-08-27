@@ -1,10 +1,12 @@
 package lab
 
 import (
+	"encoding/json"
 	"fmt"
 	"sort"
 	"time"
 
+	"github.com/michaellady/verified-java-websocket-port/internal/differential"
 	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 )
 
@@ -15,6 +17,7 @@ const (
 	JavaDefaultPolicySchema   = "../../schemas/java-default-policy-behavior-1.0.0.schema.json"
 	AutobahnEvidenceSchema    = "../../schemas/autobahn-baseline-1.0.0.schema.json"
 	BehaviorLedgerSchema      = "../../schemas/behavior-delta-ledger-1.0.0.schema.json"
+	behaviorLedgerV11Schema   = "../../schemas/behavior-delta-ledger-1.1.0.schema.json"
 )
 
 const (
@@ -363,6 +366,19 @@ type ledgerEvidence struct {
 	UnledgeredDisagreements int                    `json:"unledgered_disagreements"`
 }
 
+// verifiedLedgerEvidence is the narrow compatibility boundary between the
+// baseline verifier and the two closed ledger formats. The legacy value is
+// retained only for v1.0 Autobahn reconciliation; v1.1 records remain owned by
+// differential and are exposed here only as a verified read-only summary.
+type verifiedLedgerEvidence struct {
+	envelope              evidenceEnvelope
+	schemaVersion         string
+	status                string
+	head                  string
+	currentDeltasResolved bool
+	legacy                *ledgerEvidence
+}
+
 // VerifyBaselineEvidence is the single fail-closed readiness decision. Every
 // document is strictly decoded, rooted to the same accepted tree, and checked
 // both independently and against the other baseline claims.
@@ -374,14 +390,13 @@ func VerifyBaselineEvidence(expectedRoot string, documents BaselineEvidenceDocum
 	var adapter adapterEvidence
 	var tests testEvidence
 	var autobahn autobahnEvidence
-	var ledger ledgerEvidence
 	for _, document := range []struct {
 		name string
 		raw  []byte
 		out  any
 	}{
 		{"build", documents.Build, &build}, {"adapter", documents.Adapter, &adapter}, {"tests", documents.Tests, &tests},
-		{"autobahn", documents.Autobahn, &autobahn}, {"ledger", documents.Ledger, &ledger},
+		{"autobahn", documents.Autobahn, &autobahn},
 	} {
 		if len(document.raw) == 0 || len(document.raw) > maxManifestBytes {
 			return EvidenceReadiness{}, finding("INVALID_BASELINE_EVIDENCE", "$."+document.name, "each evidence document must be present and bounded")
@@ -390,9 +405,16 @@ func VerifyBaselineEvidence(expectedRoot string, documents BaselineEvidenceDocum
 			return EvidenceReadiness{}, err
 		}
 	}
+	if len(documents.Ledger) == 0 || len(documents.Ledger) > maxManifestBytes {
+		return EvidenceReadiness{}, finding("INVALID_BASELINE_EVIDENCE", "$.ledger", "each evidence document must be present and bounded")
+	}
+	ledger, err := decodeLedgerEvidence(documents.Ledger)
+	if err != nil {
+		return EvidenceReadiness{}, err
+	}
 	for name, envelope := range map[string]evidenceEnvelope{
 		"build": build.evidenceEnvelope, "adapter": adapter.evidenceEnvelope, "tests": tests.evidenceEnvelope,
-		"autobahn": autobahn.evidenceEnvelope, "ledger": ledger.evidenceEnvelope,
+		"autobahn": autobahn.evidenceEnvelope, "ledger": ledger.envelope,
 	} {
 		if envelope.AcceptedRootDigest != expectedRoot {
 			return EvidenceReadiness{}, finding("BASELINE_ROOT_MISMATCH", "$."+name+".accepted_root_digest", "every evidence document must bind the exact accepted root")
@@ -413,17 +435,18 @@ func VerifyBaselineEvidence(expectedRoot string, documents BaselineEvidenceDocum
 	if err := validateAutobahnEvidence(autobahn); err != nil {
 		return EvidenceReadiness{}, err
 	}
-	if err := validateLedgerEvidence(ledger); err != nil {
+	if err := validateVerifiedLedgerEvidence(ledger); err != nil {
 		return EvidenceReadiness{}, err
 	}
 	if err := validateAggregateDisagreementLedger(autobahn, ledger); err != nil {
 		return EvidenceReadiness{}, err
 	}
 	baselinesReady := build.Status == "PASS" && adapter.Status == "PASS" && tests.Status == "PASS" && autobahn.Status == "PASS"
-	if ledger.Status == "READY" && !baselinesReady {
+	ledgerReady := ledger.schemaVersion == "1.0.0" && ledger.status == "READY" || ledger.schemaVersion == "1.1.0" && ledger.currentDeltasResolved
+	if ledger.schemaVersion == "1.0.0" && ledger.status == "READY" && !baselinesReady {
 		return EvidenceReadiness{}, finding("CONTRADICTORY_EVIDENCE_STATUS", "$.ledger.status", "ledger cannot be READY while a prerequisite baseline is blocked")
 	}
-	if baselinesReady && ledger.Status != "READY" {
+	if baselinesReady && !ledgerReady {
 		return EvidenceReadiness{}, finding("CONTRADICTORY_EVIDENCE_STATUS", "$.ledger.status", "successful prerequisites require a READY ledger")
 	}
 	if baselinesReady {
@@ -451,12 +474,83 @@ func VerifyBaselineEvidence(expectedRoot string, documents BaselineEvidenceDocum
 	return EvidenceReadiness{SchemaVersion: "1.0.0", Status: "BLOCKED", Blockers: blockers}, nil
 }
 
-func validateAggregateDisagreementLedger(autobahn autobahnEvidence, ledger ledgerEvidence) error {
+func decodeLedgerEvidence(raw []byte) (verifiedLedgerEvidence, error) {
+	var probe map[string]json.RawMessage
+	if err := intake.DecodeStrict(raw, &probe); err != nil {
+		return verifiedLedgerEvidence{}, err
+	}
+	versionRaw, exists := probe["schema_version"]
+	if !exists {
+		return verifiedLedgerEvidence{}, finding("INVALID_BEHAVIOR_LEDGER", "$.ledger.schema_version", "ledger schema version is required")
+	}
+	var version string
+	if err := json.Unmarshal(versionRaw, &version); err != nil || version == "" {
+		return verifiedLedgerEvidence{}, finding("INVALID_BEHAVIOR_LEDGER", "$.ledger.schema_version", "ledger schema version must be a non-empty string")
+	}
+	switch version {
+	case "1.0.0":
+		var legacy ledgerEvidence
+		if err := intake.DecodeStrict(raw, &legacy); err != nil {
+			return verifiedLedgerEvidence{}, err
+		}
+		return verifiedLedgerEvidence{
+			envelope:      legacy.evidenceEnvelope,
+			schemaVersion: version,
+			status:        legacy.Status,
+			head:          legacy.Head,
+			legacy:        &legacy,
+		}, nil
+	case "1.1.0":
+		summary, err := differential.VerifyBehaviorDeltaLedger(raw)
+		if err != nil {
+			return verifiedLedgerEvidence{}, finding("INVALID_BEHAVIOR_LEDGER", "$.ledger", err.Error())
+		}
+		return verifiedLedgerEvidence{
+			envelope: evidenceEnvelope{
+				Schema:             behaviorLedgerV11Schema,
+				SchemaVersion:      summary.SchemaVersion,
+				EvidenceKind:       "behavior-delta-ledger",
+				AcceptedRootDigest: summary.AcceptedRootDigest,
+				Production:         summary.Production,
+				Publication:        summary.Publication,
+			},
+			schemaVersion:         summary.SchemaVersion,
+			status:                summary.Status,
+			head:                  summary.Head,
+			currentDeltasResolved: summary.CurrentDeltasResolved,
+		}, nil
+	default:
+		return verifiedLedgerEvidence{}, finding("INVALID_BEHAVIOR_LEDGER", "$.ledger.schema_version", "unsupported behavior ledger schema version")
+	}
+}
+
+func validateVerifiedLedgerEvidence(value verifiedLedgerEvidence) error {
+	switch value.schemaVersion {
+	case "1.0.0":
+		if value.legacy == nil {
+			return finding("INVALID_BEHAVIOR_LEDGER", "$.ledger", "legacy ledger payload is absent")
+		}
+		return validateLedgerEvidence(*value.legacy)
+	case "1.1.0":
+		if value.legacy != nil || value.envelope.Schema != behaviorLedgerV11Schema || value.envelope.SchemaVersion != "1.1.0" || value.envelope.EvidenceKind != "behavior-delta-ledger" || !isDigest(value.envelope.AcceptedRootDigest) || !isDigest(value.head) || !value.currentDeltasResolved || value.envelope.Production || value.envelope.Publication {
+			return finding("INVALID_BEHAVIOR_LEDGER", "$.ledger", "v1.1 ledger must be a verified closed, non-production history")
+		}
+		return nil
+	default:
+		return finding("INVALID_BEHAVIOR_LEDGER", "$.ledger.schema_version", "unsupported behavior ledger schema version")
+	}
+}
+
+func validateAggregateDisagreementLedger(autobahn autobahnEvidence, ledger verifiedLedgerEvidence) error {
 	if autobahn.Status != "PASS" {
 		return nil
 	}
-	ledgered := make(map[string]struct{}, len(ledger.Records))
-	for _, record := range ledger.Records {
+	var records []BehaviorLedgerRecord
+	if ledger.legacy != nil {
+		records = ledger.legacy.Records
+	}
+	ledgered := make(map[string]struct{}, len(records))
+	for _, record := range records {
 		ledgered[record.Delta.AutobahnResultDigest] = struct{}{}
 	}
 	for mode, results := range map[string][]AutobahnResult{"client": autobahn.Client.Results, "server": autobahn.Server.Results} {

@@ -48,11 +48,10 @@ func readyEvidenceDocuments(t *testing.T) BaselineEvidenceDocuments {
 	var adapter adapterEvidence
 	var tests testEvidence
 	var autobahn autobahnEvidence
-	var ledger ledgerEvidence
 	for _, item := range []struct {
 		raw []byte
 		out any
-	}{{documents.Build, &build}, {documents.Adapter, &adapter}, {documents.Tests, &tests}, {documents.Autobahn, &autobahn}, {documents.Ledger, &ledger}} {
+	}{{documents.Build, &build}, {documents.Adapter, &adapter}, {documents.Tests, &tests}, {documents.Autobahn, &autobahn}} {
 		if err := intake.DecodeStrict(item.raw, item.out); err != nil {
 			t.Fatal(err)
 		}
@@ -81,13 +80,32 @@ func readyEvidenceDocuments(t *testing.T) BaselineEvidenceDocuments {
 	}
 	autobahn.Client = readyAutobahnEvidenceRun(t, "client", caseIDs)
 	autobahn.Server = readyAutobahnEvidenceRun(t, "server", caseIDs)
-	ledger.Status = "READY"
+	ledger := legacyLedgerEvidenceForTest("READY")
 	documents.Build = canonicalEvidence(t, build)
 	documents.Adapter = canonicalEvidence(t, adapter)
 	documents.Tests = canonicalEvidence(t, tests)
 	documents.Autobahn = canonicalEvidence(t, autobahn)
 	documents.Ledger = canonicalEvidence(t, ledger)
 	return documents
+}
+
+func legacyLedgerEvidenceForTest(status string) ledgerEvidence {
+	return ledgerEvidence{
+		evidenceEnvelope: evidenceEnvelope{
+			Schema:             BehaviorLedgerSchema,
+			SchemaVersion:      "1.0.0",
+			EvidenceKind:       "behavior-delta-ledger",
+			AcceptedRootDigest: evidenceTestRoot,
+			Production:         false,
+			Publication:        false,
+		},
+		Status:                  status,
+		NormativeAuthority:      "rfc6455",
+		Head:                    GenesisLedgerHead,
+		Records:                 []BehaviorLedgerRecord{},
+		AppendImplementation:    "hash-chained-cas",
+		UnledgeredDisagreements: 0,
+	}
 }
 
 func readyAutobahnEvidenceRun(t *testing.T, mode string, ids []string) autobahnEvidenceRun {
@@ -339,9 +357,7 @@ func TestVerifyBaselineEvidenceRejectsContradictoryAndHostileClaims(t *testing.T
 		},
 		"premature ledger ready": func(t *testing.T, documents *BaselineEvidenceDocuments) {
 			blocked := blockedEvidenceDocuments(t)
-			var value ledgerEvidence
-			mustDecodeEvidence(t, blocked.Ledger, &value)
-			value.Status = "READY"
+			value := legacyLedgerEvidenceForTest("READY")
 			documents.Build, documents.Adapter, documents.Tests, documents.Autobahn = blocked.Build, blocked.Adapter, blocked.Tests, blocked.Autobahn
 			documents.Ledger = canonicalEvidence(t, value)
 		},
@@ -354,6 +370,91 @@ func TestVerifyBaselineEvidenceRejectsContradictoryAndHostileClaims(t *testing.T
 			}
 		})
 	}
+}
+
+func TestVerifyBaselineEvidenceStrictlyDispatchesLedgerVersions(t *testing.T) {
+	t.Run("committed v1.1 closed history", func(t *testing.T) {
+		readiness, err := VerifyBaselineEvidence(evidenceTestRoot, blockedEvidenceDocuments(t))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if readiness.Status != "BLOCKED" {
+			t.Fatalf("readiness = %+v, want BLOCKED", readiness)
+		}
+	})
+
+	t.Run("legacy v1.0 byte shape", func(t *testing.T) {
+		documents := blockedEvidenceDocuments(t)
+		documents.Ledger = canonicalEvidence(t, legacyLedgerEvidenceForTest("BLOCKED_PENDING_BASELINE"))
+		readiness, err := VerifyBaselineEvidence(evidenceTestRoot, documents)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if readiness.Status != "BLOCKED" {
+			t.Fatalf("readiness = %+v, want BLOCKED", readiness)
+		}
+	})
+
+	t.Run("v1.1 resolves differential deltas without claiming Autobahn coverage", func(t *testing.T) {
+		documents := readyEvidenceDocuments(t)
+		documents.Ledger = evidenceDocument(t, "behavior-delta-ledger.json")
+		readiness, err := VerifyBaselineEvidence(evidenceTestRoot, documents)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if readiness.Status != "READY" {
+			t.Fatalf("readiness = %+v, want READY", readiness)
+		}
+
+		var autobahn autobahnEvidence
+		mustDecodeEvidence(t, documents.Autobahn, &autobahn)
+		autobahn.Client.Results[0].Status = "FAILED"
+		binding, err := AutobahnResultBindingDigest("client", autobahn.Client.Results[0])
+		if err != nil {
+			t.Fatal(err)
+		}
+		autobahn.Client.Results[0].BindingDigest = binding
+		documents.Autobahn = canonicalEvidence(t, autobahn)
+		if _, err := VerifyBaselineEvidence(evidenceTestRoot, documents); err == nil || !strings.Contains(err.Error(), "UNLEDGERED_BEHAVIOR_DISAGREEMENT") {
+			t.Fatalf("v1.1 differential records were treated as Autobahn coverage: %v", err)
+		}
+	})
+
+	for name, mutate := range map[string]func(*testing.T, []byte) []byte{
+		"unsupported version": func(t *testing.T, raw []byte) []byte {
+			return mutateLedgerDocument(t, raw, func(value map[string]any) { value["schema_version"] = "9.9.9" })
+		},
+		"wrong accepted root": func(t *testing.T, raw []byte) []byte {
+			return mutateLedgerDocument(t, raw, func(value map[string]any) {
+				value["accepted_root_digest"] = intake.DigestBytes([]byte("wrong ledger root"))
+			})
+		},
+		"unknown top-level field": func(t *testing.T, raw []byte) []byte {
+			return mutateLedgerDocument(t, raw, func(value map[string]any) { value["unknown"] = true })
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			documents := blockedEvidenceDocuments(t)
+			documents.Ledger = mutate(t, documents.Ledger)
+			if _, err := VerifyBaselineEvidence(evidenceTestRoot, documents); err == nil {
+				t.Fatal("hostile ledger accepted")
+			}
+		})
+	}
+}
+
+func mutateLedgerDocument(t *testing.T, raw []byte, mutate func(map[string]any)) []byte {
+	t.Helper()
+	var value map[string]any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		t.Fatal(err)
+	}
+	mutate(value)
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return encoded
 }
 
 func TestVerifyBaselineEvidenceStrictlyRejectsUnknownFields(t *testing.T) {

@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
+	"github.com/michaellady/verified-java-websocket-port/internal/intake"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
@@ -295,6 +296,20 @@ type Ledger struct {
 	UnledgeredDisagreements int            `json:"unledgered_disagreements"`
 	Production              bool           `json:"production"`
 	Publication             bool           `json:"publication"`
+}
+
+// BehaviorLedgerSummary is the small, read-only compatibility projection
+// exposed to consumers of the US-020 ledger. It deliberately does not expose
+// append operations or let another package reinterpret individual records.
+type BehaviorLedgerSummary struct {
+	SchemaVersion         string
+	AcceptedRootDigest    string
+	Status                string
+	Head                  string
+	RecordCount           int
+	CurrentDeltasResolved bool
+	Production            bool
+	Publication           bool
 }
 
 // SemanticObservation is the detector-facing subset used by synthetic
@@ -1684,14 +1699,86 @@ func recordDigest(record LedgerRecord) (string, error) {
 	return digest(raw), nil
 }
 
+func validLedgerDigest(value string) bool {
+	if len(value) != len("sha256:")+64 || !strings.HasPrefix(value, "sha256:") {
+		return false
+	}
+	decoded, err := hex.DecodeString(strings.TrimPrefix(value, "sha256:"))
+	return err == nil && len(decoded) == sha256.Size
+}
+
+func validLedgerAnchor(value string) bool {
+	if len(value) < 40 || len(value) > 64 {
+		return false
+	}
+	decoded, err := hex.DecodeString(value)
+	return err == nil && len(decoded)*2 == len(value)
+}
+
+func validLedgerScenarioID(value string) bool {
+	const prefix = "us005.pub."
+	if len(value) != len(prefix)+4 || !strings.HasPrefix(value, prefix) {
+		return false
+	}
+	for _, digit := range value[len(prefix):] {
+		if digit < '0' || digit > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+// VerifyBehaviorDeltaLedger strictly decodes and verifies the closed US-020
+// v1.1 format, including every record digest and genesis-to-head link. It is a
+// read-only facade so legacy evidence consumers can support the new format
+// without duplicating its hash algorithm or gaining append authority.
+func VerifyBehaviorDeltaLedger(raw []byte) (BehaviorLedgerSummary, error) {
+	if len(raw) == 0 || int64(len(raw)) > maximumDocumentBytes {
+		return BehaviorLedgerSummary{}, errors.New("behavior ledger input is absent or oversized")
+	}
+	var ledger Ledger
+	if err := decodeStrict(raw, &ledger); err != nil {
+		return BehaviorLedgerSummary{}, err
+	}
+	if err := validateLedger(ledger); err != nil {
+		return BehaviorLedgerSummary{}, err
+	}
+	return BehaviorLedgerSummary{
+		SchemaVersion:         ledger.SchemaVersion,
+		AcceptedRootDigest:    ledger.AcceptedRootDigest,
+		Status:                ledger.Status,
+		Head:                  ledger.Head,
+		RecordCount:           len(ledger.Records),
+		CurrentDeltasResolved: ledger.UnledgeredDisagreements == 0 && (ledger.Status == "PASS_NO_CURRENT_DELTAS" || ledger.Status == "PASS_WITH_CLOSED_HISTORY"),
+		Production:            ledger.Production,
+		Publication:           ledger.Publication,
+	}, nil
+}
+
 func validateLedger(ledger Ledger) error {
-	if ledger.SchemaVersion != ledgerSchemaVersion || ledger.EvidenceKind != "behavior-delta-ledger" || ledger.AppendImplementation != "hash-chained-cas" || ledger.Production || ledger.Publication {
+	if ledger.Schema != "../../schemas/behavior-delta-ledger-1.1.0.schema.json" || ledger.SchemaVersion != ledgerSchemaVersion || ledger.EvidenceKind != "behavior-delta-ledger" || ledger.NormativeAuthority != "field-addressed-oracle-hierarchy" || ledger.AppendImplementation != "hash-chained-cas" || !validLedgerDigest(ledger.AcceptedRootDigest) || !validLedgerDigest(ledger.Head) || ledger.Records == nil || len(ledger.Records) > 4096 || ledger.UnledgeredDisagreements != 0 || ledger.Production || ledger.Publication {
 		return errors.New("ledger envelope invalid")
 	}
+	if len(ledger.Records) == 0 && ledger.Status != "PASS_NO_CURRENT_DELTAS" || len(ledger.Records) != 0 && ledger.Status != "PASS_WITH_CLOSED_HISTORY" {
+		return errors.New("ledger status does not match closed history")
+	}
 	previous := "sha256:" + strings.Repeat("0", 64)
+	seen := make(map[string]struct{}, len(ledger.Records))
 	for index, record := range ledger.Records {
-		if record.Sequence != index+1 || record.PreviousDigest != previous {
+		if record.Sequence != index+1 || record.PreviousDigest != previous || !validLedgerDigest(record.RecordDigest) || !strings.HasPrefix(record.DeltaID, "delta.") || len(record.DeltaID) > 256 || !validLedgerScenarioID(record.ScenarioID) || !strings.HasPrefix(record.Pointer, "/") || len(record.Pointer) > 512 || !validLedgerDigest(record.JavaObservation) || !validLedgerDigest(record.RustObservation) || !validLedgerDigest(record.ReproducerSHA256) || !validLedgerAnchor(record.FindingRunAnchor) {
 			return fmt.Errorf("ledger chain broken at %d", index)
+		}
+		if _, duplicate := seen[record.DeltaID]; duplicate {
+			return fmt.Errorf("duplicate ledger delta at %d", index)
+		}
+		seen[record.DeltaID] = struct{}{}
+		if record.Decision.ScenarioID != record.ScenarioID || record.Decision.Pointer != record.Pointer || record.Decision.Authority == "" || len(record.Decision.Authority) > 128 || record.Decision.Rank < 1 || record.Decision.Rank > 5 || !validLedgerDigest(record.Decision.ExpectedSHA256) || len(record.Decision.Evidence) == 0 || len(record.Decision.Evidence) > 8 {
+			return fmt.Errorf("ledger decision invalid at %d", index)
+		}
+		for _, evidence := range record.Decision.Evidence {
+			if evidence.Kind == "" || len(evidence.Kind) > 64 || evidence.ID == "" || len(evidence.ID) > 768 || !validLedgerDigest(evidence.SHA256) {
+				return fmt.Errorf("ledger decision evidence invalid at %d", index)
+			}
 		}
 		switch record.Classification {
 		case "java_quirk":
@@ -1699,7 +1786,7 @@ func validateLedger(ledger Ledger) error {
 				return fmt.Errorf("retained Java quirk lifecycle invalid at %d", index)
 			}
 		case "rust_defect":
-			if record.Resolution != "remediated" || record.ClosingRunAnchor == "" || record.ClosingJavaObservation == "" || record.ClosingRustObservation == "" {
+			if record.Resolution != "remediated" || !validLedgerAnchor(record.ClosingRunAnchor) || !validLedgerDigest(record.ClosingJavaObservation) || !validLedgerDigest(record.ClosingRustObservation) {
 				return fmt.Errorf("remediated Rust defect lifecycle invalid at %d", index)
 			}
 		default:
@@ -1777,6 +1864,7 @@ func appendLedgerRecord(ledger *Ledger, expectedHead string, record LedgerRecord
 	record.RecordDigest = computed
 	ledger.Records = append(ledger.Records, record)
 	ledger.Head = computed
+	ledger.Status = "PASS_WITH_CLOSED_HISTORY"
 	return validateLedger(*ledger)
 }
 
@@ -3091,19 +3179,7 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 }
 
 func decodeStrict(raw []byte, destination any) error {
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(destination); err != nil {
-		return err
-	}
-	var trailing any
-	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
-		if err == nil {
-			return errors.New("trailing JSON value")
-		}
-		return err
-	}
-	return nil
+	return intake.DecodeStrict(raw, destination)
 }
 
 func writeJSONAtomic(path string, value any) error {
