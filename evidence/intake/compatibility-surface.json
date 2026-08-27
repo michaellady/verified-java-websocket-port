@@ -48,8 +48,7 @@
       ],
       "oracle_id": "oracle.java-websocket.v1-6-0",
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property"
+        "evidence.us-011-server-handshake"
       ],
       "cutover_obligation_id": "cutover.surface-handshake-server-response",
       "observation_status": "OBSERVED",

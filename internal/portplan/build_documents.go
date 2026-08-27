@@ -275,6 +275,10 @@ func buildMigrationMap(
 				us010ClientHandshakePresent(workspaceProbeRoot(request)) {
 				rustID = reconciled
 			}
+			if reconciled, ok := us011SourceBoundRustIdentities[binaryName]; ok &&
+				us011ServerHandshakePresent(workspaceProbeRoot(request)) {
+				rustID = reconciled
+			}
 			if resolved, ok := us009ResolvedRustIdentities[binaryName]; ok && rustWorkspacePresent(workspaceProbeRoot(request)) {
 				rustID = resolved.RustSemanticID
 				status = resolved.Status
@@ -679,6 +683,9 @@ func evidenceObligationIDs(story string) []string {
 	if story == "US-010" {
 		return []string{"evidence.us-010-client-handshake"}
 	}
+	if story == "US-011" {
+		return []string{"evidence.us-011-server-handshake"}
+	}
 	return []string{
 		stableID("evidence", story+"-differential"),
 		stableID("evidence", story+"-property"),
@@ -698,7 +705,7 @@ func rustIdentityStatus(workspacePresent bool) RustIdentityStatus {
 			PlannedResolver:   "rust-analyzer",
 			BlockerCode:       "RUST_IDENTITIES_PARTIALLY_RESOLVER_VERIFIED",
 			CreatedByStory:    "US-009",
-			Statement:         "The immutable US-009 pinned rust-analyzer SCIP receipt resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role. US-010 reconciles its Java-shaped planned names to the small shipped public capability set, but the pinned resolver executable is no longer locally available, so every new US-010 identity remains explicitly resolver-unverified and no Java-shaped Rust alias is fabricated.",
+			Statement:         "The immutable US-009 pinned rust-analyzer SCIP receipt resolves exactly websocket_core::ConnectionCore, websocket_core::ConnectionState, and websocket_core::Role. US-010 and US-011 reconcile Java-shaped planned names to the small shipped public capability set, but the pinned resolver executable is no longer locally available, so every new handshake identity remains explicitly resolver-unverified and no Java-shaped Rust alias is fabricated.",
 			ResolutionReceipt: us009RustResolutionReceipt(),
 		}
 	}
@@ -750,6 +757,23 @@ var us010SourceBoundRustIdentities = map[string]string{
 	"org.java_websocket.handshake.HandshakedataImpl1":            "websocket_core::ClientRequestDescriptor",
 	"org.java_websocket.util.Base64":                             "websocket_core::ConnectionCore",
 	"org.java_websocket.util.Base64$OutputStream":                "websocket_core::ConnectionCore",
+}
+
+// us011SourceBoundRustIdentities replaces stale Java-shaped server-handshake
+// planning names with the small capability set actually shipped by US-011.
+// ConnectionCore retains only its immutable US-009 resolver qualification;
+// the descriptor, failure, and event identities remain source-bound.
+var us011SourceBoundRustIdentities = map[string]string{
+	"org.java_websocket.WebSocketAdapter":                 "websocket_core::ServerRequestDescriptor",
+	"org.java_websocket.WebSocketImpl":                    "websocket_core::ConnectionCore",
+	"org.java_websocket.WebSocketListener":                "websocket_core::SemanticEvent",
+	"org.java_websocket.drafts.Draft":                     "websocket_core::ConnectionCore",
+	"org.java_websocket.drafts.Draft_6455":                "websocket_core::ConnectionCore",
+	"org.java_websocket.enums.HandshakeState":             "websocket_core::HandshakeFailure",
+	"org.java_websocket.exceptions.InvalidDataException":  "websocket_core::HandshakeFailure",
+	"org.java_websocket.handshake.HandshakeImpl1Server":   "websocket_core::ServerRequestDescriptor",
+	"org.java_websocket.handshake.ServerHandshake":        "websocket_core::ServerRequestDescriptor",
+	"org.java_websocket.handshake.ServerHandshakeBuilder": "websocket_core::ServerRequestDescriptor",
 }
 
 func us009RustResolutionReceipt() *RustIdentityResolutionReceipt {

@@ -1,0 +1,228 @@
+{
+  "$schema": "../schemas/server-handshake-evidence-1.0.0.schema.json",
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  },
+  "compatibility": {
+    "compatibility_surface_sha256": "sha256:16d6095ba4854e11616924ce082e00f3ab83e865231f1a99d7f194908a0963bf",
+    "cutover_contract_sha256": "sha256:ea6d6148dd67b705e74db48056dd5f17f22626fda48d148aef01f37de2d46f76",
+    "cutover_obligation_id": "cutover.surface-handshake-server-response",
+    "evidence_ids": [
+      "evidence.us-011-server-handshake"
+    ],
+    "java_mapping_path": "evidence/us005-handshake-live-mapping.json",
+    "java_mapping_sha256": "sha256:4cb2969b14b0d54dd178f7734705e8d8578190f2e69213219fcf8fe6d20f207a",
+    "java_observation_mode": "SOURCE_DERIVED_NO_LIVE_COMMITTED_CORPUS_EXECUTION",
+    "port_seam_dossier_sha256": "sha256:18e385b68da542c288b1a24f125ee574a92c091fb2f67c697eaa9b5ce14bfbe9",
+    "surface_id": "surface.handshake.server-response"
+  },
+  "corpus": {
+    "frozen_source_sha256": "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605",
+    "fuzz_seed_count": 17,
+    "nonce_vector_count": 256,
+    "projection_path": "corpora/handshake/server.json",
+    "projection_sha256": "sha256:e951c5f53fa95cf18bb8b6571c779e49b554a7ce2bcbbd1739f7ac379a17b407",
+    "public_additive_vectors": 26,
+    "schema_path": "schemas/server-handshake-corpus-1.0.0.schema.json",
+    "schema_sha256": "sha256:49c84057edaaf7b3c8ffa9ccaf94337186b8da3b5fe3468d0fd077a25173dfdd"
+  },
+  "delta_ledger": {
+    "autobahn_category_0": "NO_REGISTERED_CATEGORY_0_AT_PIN",
+    "autobahn_executions": 0,
+    "path": "evidence/java/behavior-delta-ledger.json",
+    "reason": "No live Java execution for US-011 additive strictness subjects was performed; no disagreement or unrelated Autobahn reference is fabricated.",
+    "records_added": 0,
+    "sha256": "sha256:e64683c4d9b3000024c8e119b61db1b74bed70baf9f56662dc54b0d0b4f4e2b6"
+  },
+  "evidence_dag_claim": "claim-us011-server-handshake",
+  "evidence_dag_path": "assurance/us011-evidence-dag.json",
+  "evidence_dag_sha256": "sha256:0554a80154457974868bf1b4a00bd61a769bf7474d550baf0d3ed2f40d5f330d",
+  "evidence_id": "evidence.us-011-server-handshake",
+  "nonclaims": [
+    "frame coding or application data",
+    "live Java committed-corpus execution",
+    "Autobahn execution or conformance",
+    "extension or subprotocol negotiation",
+    "complete WebSocket conformance or Java parity",
+    "independent review",
+    "release publication production or benchmark readiness"
+  ],
+  "schema_version": "1.0.0",
+  "source": {
+    "binding_mode": "CHECKOUT_HEAD_EXACT_BLOBS",
+    "implementation_files": [
+      {
+        "git_blob": "f8ac72a8b009b85b00e524dee6f1a67189df076f",
+        "path": "rust/connection-core/src/lib.rs",
+        "sha256": "sha256:9189b6348c82b4f4444d60d6a7ee681a6f7826da9f0e0f09186e2c673cc0f242"
+      },
+      {
+        "git_blob": "ee21533a5b7f1a8bfc2d3e6a948a35578aa4317a",
+        "path": "rust/connection-core/src/connection.rs",
+        "sha256": "sha256:49acf3a76454f078c21f9c6fd3635ebffb05f0f2cfba0aa79e15ad3001b578d4"
+      },
+      {
+        "git_blob": "b5aa5fc2b07768da66858828da162ef226fc95e4",
+        "path": "rust/connection-core/src/handshake.rs",
+        "sha256": "sha256:5b73a307fd0549a689f8219518a122cb85964bbdd36285cc54e18ab68dc42e62"
+      },
+      {
+        "git_blob": "d759801ac85611a0f4f303fc70c02523ebca0464",
+        "path": "rust/connection-core/src/handshake/http.rs",
+        "sha256": "sha256:532ffdc3599337bce2167fc222449938b5aa7a032e2a1f2a97a0591b62480d26"
+      },
+      {
+        "git_blob": "eaeaf73d4e3d54bdfd6f0a5a7255e953869ce4fa",
+        "path": "rust/connection-core/src/handshake/crypto.rs",
+        "sha256": "sha256:9d48e5529c381ef82654a57a27c8691514661804c923cb24405164cd2a0ea2e6"
+      },
+      {
+        "git_blob": "0118008e90f2f3581f7944f34b17d01030ec9262",
+        "path": "rust/connection-core/src/handshake/server.rs",
+        "sha256": "sha256:cef46a90a2b12569742f8520f79c5c22e160eacaf055e057ddfacb96223dae96"
+      },
+      {
+        "git_blob": "8919f4d538e2a3a0610626b41b0046d61a0ed933",
+        "path": "rust/connection-core/tests/server_handshake.rs",
+        "sha256": "sha256:9b49efe58edc04599a57b1d92730724b9f1802391bc7d454fb42b69808aec08d"
+      },
+      {
+        "git_blob": "e756af5c7572e3fd6256eb836e3d896a47a2f7ad",
+        "path": "rust/connection-core/tests/data/us011_nonce_vectors.rs",
+        "sha256": "sha256:9002efba2b1b45f5f429249764e4b8d1639e937813f882bfdd7f446745a03f7b"
+      },
+      {
+        "git_blob": "a6a9fb3f359cc5135ee3c86c9075addf5cf4654c",
+        "path": "rust/connection-core/tests/connection_contract.rs",
+        "sha256": "sha256:b13a164b05b182af3155f9746f7a8d4d7f1ce8464929b793fc2a84da503e1250"
+      },
+      {
+        "git_blob": "17b8f0ef5f713ec869304a6f7891f15e80e16ffe",
+        "path": "internal/corpora/server_handshake.go",
+        "sha256": "sha256:e22ffce2c759539a6a11c83e7f91887df5cd2a464115b7075154dd941c28bd87"
+      },
+      {
+        "git_blob": "8ce3e5154fc4c5d0c9d8fe09425cae9a186482ad",
+        "path": "internal/corpora/server_handshake_test.go",
+        "sha256": "sha256:e7dde445ae0c6efa567e5a060ddf2ff1b8288f1bb26e0c5a9ff5cd94c231d645"
+      },
+      {
+        "git_blob": "59a592ec5989a2f6694bcbf9301579c286da38b0",
+        "path": "internal/corpora/us010_artifact.go",
+        "sha256": "sha256:ec4e897493a2f556f4f80f77a9cabeae9bd055e0edbe56dc50e831e0c109a456"
+      },
+      {
+        "git_blob": "79a49e2600b45a2fa66c718d0a7451fdbd855499",
+        "path": "internal/corpora/schemas.go",
+        "sha256": "sha256:700e345cc0d80c2bc7b80acbae3c4161da61285d29a37f551127ac44b5cfbd0e"
+      },
+      {
+        "git_blob": "943fef092a08434b4a62d2e6cc9562a62de5b82c",
+        "path": "schemas/server-handshake-corpus-1.0.0.schema.json",
+        "sha256": "sha256:49c84057edaaf7b3c8ffa9ccaf94337186b8da3b5fe3468d0fd077a25173dfdd"
+      },
+      {
+        "git_blob": "ae3606d56e8f889bebd7271b82f415b152709ff9",
+        "path": "schemas/server-handshake-evidence-1.0.0.schema.json",
+        "sha256": "sha256:02b51647cd2e574125fd45d066cbbf8a66611082951fe03972ac4e2aaec23e99"
+      },
+      {
+        "git_blob": "b50ec1725e96737312ef4263291c5423d4ed7299",
+        "path": "internal/portplan/slices.go",
+        "sha256": "sha256:5e6570a300cb884e87d2c6afd2bfeb53b95bfd221a1dff489659c5c35ba43538"
+      },
+      {
+        "git_blob": "6e93d1f897f0b269fa3140a8253108ce31e48f57",
+        "path": "internal/portplan/build_documents.go",
+        "sha256": "sha256:2c5266682567d4b5b15e3888501dac7072c612d9b05c38c5405583ad8850b488"
+      },
+      {
+        "git_blob": "385939c1d5ed345efb9471bb64522d7f435793d9",
+        "path": "internal/portplan/validate.go",
+        "sha256": "sha256:d59cbd4e5be3fdee775a5c744003481f4db888120226d6b0a984ca4bf13cfd9d"
+      },
+      {
+        "git_blob": "47cd1860f4199d1b6793c77c5cd194165bb72403",
+        "path": "internal/portplan/us011_server_handshake_test.go",
+        "sha256": "sha256:342371aca950188c8393192834217187fe5883c1f7ceba27c5e86c2b713c865d"
+      },
+      {
+        "git_blob": "f9c332868e0ad0a8b85a0592dc0cf83713850157",
+        "path": "docs/rust-workspace.md",
+        "sha256": "sha256:98645c6e4795ee66a6187cf1bccab1e644c6ab643afe457e627201571af90707"
+      }
+    ]
+  },
+  "story_id": "US-011",
+  "symbols": {
+    "bindings": [
+      {
+        "rust_semantic_id": "websocket_core::ConnectionCore",
+        "source": "rust/connection-core/src/connection.rs:642",
+        "status": "RESOLVER_VERIFIED_BY_IMMUTABLE_US009_RECEIPT"
+      },
+      {
+        "rust_semantic_id": "websocket_core::ServerRequestDescriptor",
+        "source": "rust/connection-core/src/handshake/server.rs:10",
+        "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
+      },
+      {
+        "rust_semantic_id": "websocket_core::HandshakeFailure",
+        "source": "rust/connection-core/src/connection.rs:449",
+        "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
+      },
+      {
+        "rust_semantic_id": "websocket_core::SemanticEvent",
+        "source": "rust/connection-core/src/connection.rs:403",
+        "status": "SOURCE_BOUND_RESOLVER_UNAVAILABLE"
+      }
+    ],
+    "java_shaped_aliases_added": 0,
+    "migration_map_path": "evidence/intake/semantic-id-migration-map.json",
+    "migration_map_sha256": "sha256:6ad0466947fd4221dff7afe952017b00e988aedd87bb7c1168e0bf4066799d6d",
+    "new_resolver_verified_identities": 0
+  },
+  "tests": {
+    "bytewise_executions_per_profile": 6,
+    "debug": {
+      "command": "make -C rust test",
+      "failed": 0,
+      "passed": 53
+    },
+    "frozen_client_request_cases": 39,
+    "fuzz_seeds_replayed_per_profile": 17,
+    "multi_chunk_executions_per_profile": 18,
+    "nonce_vectors_per_profile": 256,
+    "release": {
+      "command": "make -C rust test-release",
+      "failed": 0,
+      "passed": 53
+    },
+    "runtime_assertions": [
+      "server phase and public lifecycle remain consistent",
+      "retained request bytes never exceed the checked cap",
+      "failure paths emit neither 101 nor semantic event",
+      "canonical response allocation equals its checked layout",
+      "Open is committed before success outputs"
+    ],
+    "server_handshake_tests_per_profile": 17,
+    "two_chunk_executions_per_profile": 1092
+  },
+  "toolchain": {
+    "cargo_sha256": "sha256:c512bff73c86143b557463f021d0c3d5b0490d97d65040ba59ea2b3427784758",
+    "rust_analyzer": {
+      "fresh_us011_resolution": "NOT_PERFORMED_EXACT_PIN_NOT_LOCALLY_AVAILABLE",
+      "historical_us009_receipt_preserved": true,
+      "pinned_artifact_id": "rust-analyzer-2026-08-17.4-aarch64-apple-darwin",
+      "pinned_sha256": "sha256:5142e0d6d0a48bc8ba0638125eaa68296defba7d32628362175eff967d12e145",
+      "proxy_is_not_accepted_as_resolver": true
+    },
+    "rustc_artifact_id": "rustc-1.95.0-aarch64-apple-darwin",
+    "rustc_sha256": "sha256:b829b733131d4e1673eeebd1f34d06ae1e9ff4977b051313cf42e2a9e79ecf1c",
+    "validation_time": "2026-08-27T07:27:43Z"
+  }
+}

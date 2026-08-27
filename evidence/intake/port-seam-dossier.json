@@ -242,8 +242,7 @@
         "org/java_websocket/drafts/Draft_6455.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.close.code-validity",
         "property.control.pong-echoes-ping-payload",
         "property.fragmentation.bounded-state",
@@ -449,8 +448,7 @@
         "org/java_websocket/drafts/Draft.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.close.code-validity",
         "property.connection.state-machine-total",
         "property.control.pong-echoes-ping-payload",
@@ -523,8 +521,7 @@
         "org/java_websocket/enums/HandshakeState.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.handshake.key-accept-roundtrip",
         "property.handshake.server-response-total"
       ],
@@ -730,8 +727,7 @@
         "org/java_websocket/exceptions/InvalidDataException.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.close.code-validity",
         "property.fragmentation.bounded-state",
         "property.framing.mask-involution",
@@ -1139,8 +1135,7 @@
         "org/java_websocket/handshake/HandshakeImpl1Server.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.handshake.server-response-total"
       ],
       "status": "RESOLVED"
@@ -1155,8 +1150,7 @@
         "org/java_websocket/handshake/ServerHandshake.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.handshake.server-response-total"
       ],
       "status": "RESOLVED"
@@ -1171,8 +1165,7 @@
         "org/java_websocket/handshake/ServerHandshakeBuilder.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.handshake.server-response-total"
       ],
       "status": "RESOLVED"
@@ -1438,8 +1431,7 @@
         "org/java_websocket/WebSocketAdapter.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.connection.state-machine-total",
         "property.control.pong-echoes-ping-payload",
         "property.handshake.key-accept-roundtrip",
@@ -1664,8 +1656,7 @@
         "org/java_websocket/WebSocketImpl.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.adapter.byte-stream-transparency",
         "property.close.code-validity",
         "property.concurrency.single-owner-serialization",
@@ -1825,8 +1816,7 @@
         "org/java_websocket/WebSocketListener.java"
       ],
       "evidence_obligation_ids": [
-        "evidence.us-011-differential",
-        "evidence.us-011-property",
+        "evidence.us-011-server-handshake",
         "property.adapter.byte-stream-transparency",
         "property.close.code-validity",
         "property.connection.state-machine-total",

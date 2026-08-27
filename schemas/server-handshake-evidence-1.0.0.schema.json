@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/server-handshake-evidence-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_id", "story_id", "source", "toolchain", "tests", "corpus", "symbols", "compatibility", "delta_ledger", "evidence_dag_claim", "evidence_dag_path", "evidence_dag_sha256", "nonclaims", "assurance"],
+  "properties": {
+    "$schema": {"const": "../schemas/server-handshake-evidence-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_id": {"const": "evidence.us-011-server-handshake"},
+    "story_id": {"const": "US-011"},
+    "source": {"$ref": "#/$defs/object"},
+    "toolchain": {"$ref": "#/$defs/object"},
+    "tests": {"$ref": "#/$defs/object"},
+    "corpus": {"$ref": "#/$defs/object"},
+    "symbols": {"$ref": "#/$defs/object"},
+    "compatibility": {"$ref": "#/$defs/object"},
+    "delta_ledger": {"$ref": "#/$defs/object"},
+    "evidence_dag_claim": {"const": "claim-us011-server-handshake"},
+    "evidence_dag_path": {"const": "assurance/us011-evidence-dag.json"},
+    "evidence_dag_sha256": {"$ref": "#/$defs/digest"},
+    "nonclaims": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "assurance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assurance", "independent_review_claimed", "production", "publication", "signing"],
+      "properties": {
+        "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+        "independent_review_claimed": {"const": false},
+        "production": {"const": false},
+        "publication": {"const": false},
+        "signing": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "object": {"type": "object", "minProperties": 1},
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+  }
+}

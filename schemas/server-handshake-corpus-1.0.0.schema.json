@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/server-handshake-corpus-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "corpus_id", "authority", "frozen_source", "frozen_cases", "additive_vectors", "properties", "nonce_vectors", "fuzz_seeds", "reconciliation", "nonclaims", "assurance"],
+  "properties": {
+    "$schema": {"const": "../../schemas/server-handshake-corpus-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "corpus_id": {"const": "us011-server-handshake"},
+    "authority": {
+      "type": "object", "additionalProperties": false,
+      "required": ["priority", "java_observation_mode", "strictness_rule"],
+      "properties": {
+        "priority": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"type": "string", "minLength": 1}},
+        "java_observation_mode": {"const": "SOURCE_DERIVED_NO_LIVE_COMMITTED_CORPUS_EXECUTION"},
+        "strictness_rule": {"const": "Java leniency never lowers the RFC 6455 acceptance boundary"}
+      }
+    },
+    "frozen_source": {"$ref": "#/$defs/frozenSource"},
+    "frozen_cases": {"type": "array", "minItems": 39, "maxItems": 39, "items": {"$ref": "#/$defs/case"}},
+    "additive_vectors": {"type": "array", "minItems": 20, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "properties": {"$ref": "#/$defs/properties"},
+    "nonce_vectors": {"type": "array", "minItems": 256, "maxItems": 256, "items": {"$ref": "#/$defs/nonceVector"}},
+    "fuzz_seeds": {"type": "array", "minItems": 17, "maxItems": 17, "items": {"$ref": "#/$defs/seed"}},
+    "reconciliation": {"$ref": "#/$defs/reconciliation"},
+    "nonclaims": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "assurance": {"$ref": "#/$defs/assurance"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "frozenSource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["corpus_id", "artifact", "sha256", "selected_case_ids"],
+      "properties": {
+        "corpus_id": {"const": "us005-handshake"},
+        "artifact": {"const": "corpora/handshake/cases.jsonl"},
+        "sha256": {"const": "sha256:64d6dea5d63c6eb7d4698dccbe485f0ce249b511109df657848c511f0177e605"},
+        "selected_case_ids": {"type": "array", "minItems": 39, "maxItems": 39, "uniqueItems": true, "items": {"type": "string", "pattern": "^us005\\.hs\\.[0-9]{4}$"}}
+      }
+    },
+    "case": {
+      "type": "object", "additionalProperties": false,
+      "required": ["case_id", "rfc_verdict", "rust_expected"],
+      "properties": {
+        "case_id": {"type": "string", "pattern": "^us005\\.hs\\.[0-9]{4}$"},
+        "rfc_verdict": {"enum": ["accept", "reject", "incomplete"]},
+        "rfc_reject_code": {"type": "string", "minLength": 1},
+        "rust_expected": {"type": "string", "minLength": 1}
+      }
+    },
+    "properties": {
+      "type": "object", "additionalProperties": false,
+      "required": ["valid_cases", "two_chunk_executions_per_profile", "bytewise_executions_per_profile", "multi_chunk_executions_per_profile", "nonce_vectors", "deterministic_properties", "execution_id"],
+      "properties": {
+        "valid_cases": {"const": 6},
+        "two_chunk_executions_per_profile": {"const": 1092},
+        "bytewise_executions_per_profile": {"const": 6},
+        "multi_chunk_executions_per_profile": {"const": 18},
+        "nonce_vectors": {"const": 256},
+        "deterministic_properties": {"type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "execution_id": {"const": "us011-server-handshake-deterministic-v1"}
+      }
+    },
+    "nonceVector": {
+      "type": "object", "additionalProperties": false,
+      "required": ["nonce_hex", "key", "accept"],
+      "properties": {
+        "nonce_hex": {"type": "string", "pattern": "^[0-9a-f]{32}$"},
+        "key": {"type": "string", "minLength": 24, "maxLength": 24},
+        "accept": {"type": "string", "minLength": 28, "maxLength": 28}
+      }
+    },
+    "seed": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "expected", "config"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^rust/connection-core/fuzz-seeds/us011/[a-z-]+\\.hex$"},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "expected": {"type": "string", "minLength": 1},
+        "config": {
+          "type": "object", "additionalProperties": false,
+          "required": ["max_handshake_bytes", "max_header_count", "max_header_line_bytes"],
+          "properties": {
+            "max_handshake_bytes": {"type": "integer", "minimum": 1},
+            "max_header_count": {"type": "integer", "minimum": 1},
+            "max_header_line_bytes": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
+    "reconciliation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["migration_slice", "property_ids", "fuzz_harness", "runtime_assertions", "delta_ledger", "evidence_receipt"],
+      "properties": {
+        "migration_slice": {"const": "slice.server-handshake"},
+        "property_ids": {"type": "array", "minItems": 2, "maxItems": 2, "uniqueItems": true, "items": {"type": "string"}},
+        "fuzz_harness": {"const": "rust/connection-core/tests/server_handshake.rs"},
+        "runtime_assertions": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "delta_ledger": {"const": "evidence/java/behavior-delta-ledger.json"},
+        "evidence_receipt": {"const": "evidence/us011-server-handshake.json"}
+      }
+    },
+    "assurance": {
+      "type": "object", "additionalProperties": false,
+      "required": ["assurance", "independent_review_claimed", "autobahn_executions", "production", "publication"],
+      "properties": {
+        "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+        "independent_review_claimed": {"const": false},
+        "autobahn_executions": {"const": 0},
+        "production": {"const": false},
+        "publication": {"const": false}
+      }
+    }
+  }
+}

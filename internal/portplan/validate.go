@@ -604,6 +604,13 @@ func us010ClientHandshakePresent(root string) bool {
 	return err == nil
 }
 
+// us011ServerHandshakePresent distinguishes a client-only workspace from a
+// checkout that has the parser-produced server request descriptor.
+func us011ServerHandshakePresent(root string) bool {
+	_, err := os.Stat(filepath.Join(root, "rust/connection-core/src/handshake/server.rs"))
+	return err == nil
+}
+
 func stringSlicesEqual(left, right []string) bool {
 	if len(left) != len(right) {
 		return false

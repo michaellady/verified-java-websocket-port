@@ -1,21 +1,22 @@
 # Rust workspace: scope, gates, and story mapping
 
-Status: **US-009 core contract and US-010 client opening handshake shipped.**
+Status: **US-009 core contract plus US-010 client and US-011 server opening handshakes shipped.**
 The `rust/` workspace now contains the dependency-free Sans-I/O
-`ConnectionCore` and its first protocol-bearing slice. Rust implementation may
+`ConnectionCore` and both opening-handshake directions. Rust implementation may
 continue before the benchmark confirmation host binds, but no performance
 representation is authorized beyond compile/test correctness.
 
 **Explicit non-claims:**
 
-- US-009 claims only the safe bounded core contract and US-010 claims only
-  client request generation plus server-upgrade response validation.
-- Server opening handshakes, frames, messages, control behavior, close,
+- US-009 claims only the safe bounded core contract; US-010 claims client
+  request generation and response validation; US-011 claims server request
+  validation, canonical 101 generation, and the normalized Open event.
+- Frames, messages, control behavior, close,
   adapters, and driven concurrency remain unavailable until their owning
   stories.
 - No performance representation of any kind is made. No benchmark sample was
   collected, no tuning performed.
-- Autobahn, live Java differential execution, fresh US-010 rust-analyzer
+- Autobahn, live Java differential execution, fresh handshake rust-analyzer
   resolution, publication, production, parity, and independent review are not
   claimed.
 
@@ -59,7 +60,7 @@ pipeline stories, not this scaffold):
 | --- | --- |
 | US-009 | **Complete.** `connection-core` owns the checked config, role, command/write/event/state/failure vocabulary, single mutating `ConnectionCore::step` seam, and workspace gates. |
 | US-010 | **Complete.** `src/handshake/client.rs`, `http.rs`, and `crypto.rs` implement the client opening handshake through `ConnectionCore::step`; later protocol slices still fail closed. |
-| US-011 | `src/handshake.rs` -- server opening handshake. |
+| US-011 | **Complete.** `src/handshake/server.rs` strictly validates bounded incremental requests and emits only the canonical 101 plus the parser-produced descriptor event. |
 | US-012 | `src/framing.rs` -- canonical framing, masking, allocation limits. |
 | US-013 | `src/framing.rs` -- strict text/binary message delivery. |
 | US-014 | `src/framing.rs` -- bounded fragmentation reassembly. |
@@ -75,6 +76,7 @@ pipeline stories, not this scaffold):
   `websocket-core` / `websocket_core`.
 - The workspace is dependency-free, forbids first-party unsafe code and build
   hooks, and is gated through the pinned Rust toolchain.
-- US-010 evidence lives in `evidence/us010-client-handshake.json` and binds
-  exact checkout blob IDs, content digests, corpus/fuzz inputs, and the
-  additive evidence DAG. The cutover obligation remains `DECLARED`.
+- US-010 and US-011 evidence lives in the two story receipts under `evidence/`.
+  They bind exact checkout blob IDs, content digests, frozen corpus rows,
+  deterministic nonce/accept literals, fuzz inputs, and additive story DAGs.
+  Both cutover obligations remain `DECLARED`.
