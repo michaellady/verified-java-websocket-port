@@ -21,9 +21,13 @@ Catalog: `us023-formal-obligations`
 | `surface.control.ping-pong` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.errors.protocol-fault` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.fragmentation.continuation` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+| `surface.framing.frame-octets` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+| `surface.framing.masking` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.handshake.client-request` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.handshake.server-response` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+| `surface.limits.allocation` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.messages.binary` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.messages.text-utf8` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+| `surface.websocket-open` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 
-Required: 20; satisfied: 0; blocked: 20. No percentage or weighted score is used.
+Required: 24; satisfied: 0; blocked: 24. No percentage or weighted score is used.

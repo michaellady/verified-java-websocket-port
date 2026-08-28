@@ -2,8 +2,8 @@
 
 Snapshot: **FROZEN**  
 Parity: **BLOCKED**  
-Candidate root: `sha256:84740e62f7f2905dab355672511e34daa83aa5381e1f6fb5e71156cc1d39c7ab`  
-Evaluation root: `sha256:c2e7e2f7a9714409e837f0dbe0ac0e9003cfd953a2fe7368675434fd11d382af`
+Candidate root: `sha256:8fdcb31bd98997814a26d0c734d7d3c93856f19997450646d8bf099562878bc0`  
+Evaluation root: `sha256:a24eca4485b71c8bd5eb4846e78ee14503db8544878682af61d2a3c46113440d`
 
 ## Original gates
 
@@ -91,10 +91,14 @@ Evaluation root: `sha256:c2e7e2f7a9714409e837f0dbe0ac0e9003cfd953a2fe7368675434f
 | `surface.control.ping-pong` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.errors.protocol-fault` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.fragmentation.continuation` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+| `surface.framing.frame-octets` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+| `surface.framing.masking` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.handshake.client-request` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.handshake.server-response` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+| `surface.limits.allocation` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.messages.binary` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 | `surface.messages.text-utf8` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
+| `surface.websocket-open` | BLOCKED | BLOCKED | BLOCKED | BLOCKED | BLOCKED |
 
 ## Typed blockers
 
