@@ -298,7 +298,7 @@ func extractSubject(root, commit string) (string, func(), error) {
 			}
 			continue
 		}
-		if header.Typeflag != tar.TypeReg {
+		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
 			cleanup()
 			return "", nil, errors.New("nonregular archive member")
 		}
