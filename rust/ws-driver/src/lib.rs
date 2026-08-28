@@ -390,8 +390,20 @@ pub struct ConnectionDriver {
     /// any later `TransportEof`/`Shutdown` input, because each notification
     /// is a scored event the core answers in its own right (owner decision
     /// us017-repeated-eof-owner-decision-2026-08-28).
-    eof_latched: bool,
-    shutdown_latched: bool,
+    /// COUNT of admitted transport-EOF notifications awaiting application to
+    /// the core — one per `TransportEof`/`Shutdown` input, decremented as
+    /// each is consumed.
+    ///
+    /// This was a PAIR OF BOOLEANS, which silently coalesced: two
+    /// notifications admitted before the arm could run (while a write is
+    /// offered, say) set the same flag and produced ONE core action after the
+    /// drain. Each notification is a scored event the core answers in its own
+    /// right (owner decision us017-repeated-eof-owner-decision-2026-08-28), so
+    /// the pending set must COUNT, not latch. Found by review
+    /// 01a04866-df4b-7521-8abe-d8bad09edf38 after an earlier probe that only
+    /// exercised immediately-applied notifications reported the property
+    /// satisfied.
+    pending_eofs: u32,
     terminal_delivered: bool,
     /// The configured automatic response policy (US-015 AC1).
     policy: AutoResponsePolicy,
@@ -429,8 +441,7 @@ impl ConnectionDriver {
             offered_write: None,
             write_cursor: 0,
             command_turn: true,
-            eof_latched: false,
-            shutdown_latched: false,
+            pending_eofs: 0,
             terminal_delivered: false,
             policy,
             pending_auto_pongs: VecDeque::new(),
@@ -480,7 +491,7 @@ impl ConnectionDriver {
         let mut input_disposition = consumed(&input);
         match input {
             DriverInput::Shutdown => {
-                self.shutdown_latched = true;
+                self.admit_eof();
                 // Undeliverable wire output is aborted; the protocol EOF
                 // below still applies (borrowed design: abort-undrainable-
                 // writes on shutdown). Undelivered automatic replies are
@@ -493,7 +504,7 @@ impl ConnectionDriver {
                 self.close_echo_armed = false;
             }
             DriverInput::TransportEof => {
-                self.eof_latched = true;
+                self.admit_eof();
             }
             DriverInput::WriteProgress { bytes } => {
                 let remaining = self.write_remaining();
@@ -532,7 +543,7 @@ impl ConnectionDriver {
             if matches!(input, DriverInput::Inbound(_)) {
                 input_disposition = InputDisposition::Deferred(DeferredReason::OutputPending);
             }
-        } else if self.eof_latched || self.shutdown_latched {
+        } else if self.pending_eofs > 0 {
             // A PENDING transport EOF gets the first quiescent turn. The
             // core owns the semantics (Q20). A NON-FATAL refusal is the
             // core's event-queue backpressure: the EOF stays pending and is
@@ -594,13 +605,15 @@ impl ConnectionDriver {
                 // own right. The non-fatal arm deliberately leaves them set,
                 // which is what preserves the eof-backpressure-livelock fix.
                 match self.core.handle(Input::TransportEof) {
-                    Ok(()) => self.clear_pending_eof(),
+                    Ok(()) => self.consume_one_pending_eof(),
                     Err(failure) if !failure.code.is_fatal() => {
-                        // Backpressure: this poll still drains one queued
-                        // output below, so the retry makes progress.
+                        // Backpressure: nothing was consumed, so the pending
+                        // COUNT is untouched and this notification is retried
+                        // on the next quiescent turn. That is what preserves
+                        // the eof-backpressure-livelock fix.
                     }
                     Err(failure) => {
-                        self.clear_pending_eof();
+                        self.consume_one_pending_eof();
                         return self.finish_poll(input_disposition, None, Some(failure));
                     }
                 }
@@ -704,11 +717,18 @@ impl ConnectionDriver {
         }
     }
 
-    /// Marks the pending transport-EOF notification consumed. A later
-    /// `TransportEof`/`Shutdown` input re-arms it and is scored separately.
-    fn clear_pending_eof(&mut self) {
-        self.eof_latched = false;
-        self.shutdown_latched = false;
+    /// Admits one transport-EOF notification. Each admitted notification is
+    /// scored separately by the core, so they accumulate rather than
+    /// collapsing into a single flag.
+    fn admit_eof(&mut self) {
+        self.pending_eofs = self.pending_eofs.saturating_add(1);
+    }
+
+    /// Marks exactly ONE pending transport-EOF notification consumed by the
+    /// core. Any others admitted alongside it stay pending and get their own
+    /// core call on a later quiescent turn.
+    fn consume_one_pending_eof(&mut self) {
+        self.pending_eofs = self.pending_eofs.saturating_sub(1);
     }
 
     fn drop_pending_writes(&mut self) {

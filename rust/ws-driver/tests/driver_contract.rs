@@ -722,3 +722,64 @@ fn shutdown_after_applied_eof_reaches_the_core() {
     assert_eq!(surfaced.code.wire_code(), Some("STATE_VIOLATION"));
     assert_eq!(run.driver.counts().actions, 2);
 }
+
+/// Each ADMITTED transport-EOF notification gets its own core call, even
+/// when it is admitted in a state where the EOF arm cannot run yet.
+///
+/// This is the window the fourth sibling audit missed and review
+/// 01a04866-df4b-7521-8abe-d8bad09edf38 found: while a write is OFFERED the
+/// EOF arm is skipped, so two notifications used to collapse into the same
+/// boolean and produce ONE core action after the drain. The earlier
+/// four-consecutive-EOF probe only ever exercised notifications that were
+/// applied immediately, so it established the per-notification property for
+/// the easy path and assumed it for this one.
+#[test]
+fn every_admitted_eof_notification_gets_its_own_core_call() {
+    let mut run = Run::new();
+    run.enqueue("a");
+    let _ = run.poll(DriverInput::Wake); // apply the command -> queues a write
+    let offered = run.poll(DriverInput::Wake);
+    assert!(
+        offered.is_some(),
+        "fixture precondition: a write must be OFFERED so the EOF arm cannot run"
+    );
+    let actions_before = run.driver.counts().actions;
+    assert_eq!(actions_before, 1, "only the send command has been counted");
+
+    // TWO notifications admitted while the arm is unreachable.
+    let first = run.driver.poll(DriverInput::TransportEof);
+    assert!(matches!(first.input, InputDisposition::Consumed { .. }));
+    let second = run.driver.poll(DriverInput::TransportEof);
+    assert!(matches!(second.input, InputDisposition::Consumed { .. }));
+
+    run.exec_verb("drain");
+    assert_eq!(
+        run.driver.counts().actions,
+        3,
+        "REGRESSION: multiple EOF notifications admitted before the arm could run were \
+         collapsed into one core call (1 command + 2 EOF actions expected)"
+    );
+}
+
+/// The same property for `Shutdown`, which latches the same protocol EOF.
+#[test]
+fn shutdown_and_eof_admitted_together_each_reach_the_core() {
+    let mut run = Run::new();
+    run.enqueue("a");
+    let _ = run.poll(DriverInput::Wake);
+    let offered = run.poll(DriverInput::Wake);
+    assert!(
+        offered.is_some(),
+        "fixture precondition: a write is offered"
+    );
+
+    let _ = run.driver.poll(DriverInput::TransportEof);
+    let _ = run.driver.poll(DriverInput::Shutdown);
+    run.exec_verb("drain");
+    assert_eq!(
+        run.driver.counts().actions,
+        3,
+        "REGRESSION: an EOF and a Shutdown admitted in the same window collapsed into one \
+         core call"
+    );
+}

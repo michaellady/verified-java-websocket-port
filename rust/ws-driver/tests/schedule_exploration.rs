@@ -345,7 +345,7 @@ impl Violation {
             Violation::Convergence => "close-convergence",
             Violation::DuplicateTerminal => "terminal-exactly-once",
             Violation::PostTerminalActivity => "no-post-terminal",
-            Violation::TerminalAfterFailure => "failure-halt-exclusivity",
+            Violation::TerminalAfterFailure => "failure-halt-stops-driving",
             Violation::Nondeterminism => "deterministic-replay",
         }
     }
@@ -360,7 +360,7 @@ impl Violation {
             Violation::Convergence => "no-terminal-after-fair-drain",
             Violation::DuplicateTerminal => "terminal-count-two",
             Violation::PostTerminalActivity => "movement-after-terminal",
-            Violation::TerminalAfterFailure => "terminal-and-failure-both-observed",
+            Violation::TerminalAfterFailure => "output-recorded-after-surfaced-failure",
             Violation::Nondeterminism => "replay-trace-divergence",
         }
     }
@@ -935,22 +935,31 @@ impl Run {
             // us017-post-terminal-owner-decision-2026-08-28
             // (`post-terminal-inbound`) makes a converged connection REFUSE
             // work that is still pushed at it, so a clean `Terminal` may
-            // legitimately PRECEDE a later refusal. What must never happen is
-            // a `Terminal` AFTER a surfaced failure: the adapter stops driving
-            // there, so a terminal past that point would be a second
-            // end-of-connection signal. This exploration caught the
-            // co-occurrence form of the check the moment the ruling landed;
-            // the check is narrowed to the property its own name states
-            // (`TerminalAfterFailure`), not weakened.
+            // legitimately PRECEDE a later refusal.
+            //
+            // NAMING/STRENGTH CORRECTION (review
+            // 01a04866-df4b-7521-8abe-d8bad09edf38): this property was called
+            // `failure-halt-exclusivity` and looked only for a `Terminal`
+            // recorded after the first `Failure`. Because `exec` and
+            // `fair_drain` STOP DRIVING at the first surfaced failure, no
+            // record of ANY kind can follow it, so that condition was
+            // mechanically unreachable — a name promising more than the test
+            // delivered, which is the same failure class this story has spent
+            // four rounds digging out. The property is renamed
+            // `failure-halt-stops-driving` and now asserts what the halt model
+            // actually claims and what IS checkable: after the first surfaced
+            // failure the interpreter records no command disposition and no
+            // non-Idle output at all. A `Terminal` after a `Failure` is one
+            // instance of that, no longer the whole of it.
             let first_failure = self
                 .outcome
                 .trace
                 .iter()
                 .position(|record| matches!(record.output, TraceOutput::Failure(_)));
             if let Some(index) = first_failure
-                && self.outcome.trace[index + 1..]
-                    .iter()
-                    .any(|record| matches!(record.output, TraceOutput::Terminal))
+                && self.outcome.trace[index + 1..].iter().any(|record| {
+                    record.command.is_some() || !matches!(record.output, TraceOutput::Idle)
+                })
             {
                 self.outcome.record(Violation::TerminalAfterFailure);
             }

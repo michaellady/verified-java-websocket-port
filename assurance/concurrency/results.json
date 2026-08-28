@@ -5,23 +5,23 @@
   "state": "PASS",
   "claim_scope": "BOUNDED_SYSTEMATIC_AND_CURRENT_HOST_STRESS_TESTING",
   "claim_scope_statement": "Bounded schedule exploration under the bounds below is systematic concurrency testing, never proof (assurance/concurrency/plan.json claim ceiling). Native-thread stress samples schedules without coverage accounting and cannot stand in for the systematic result, nor the systematic result for native-thread evidence.",
-  "recorded_at": "2026-08-28T12:38:34Z",
-  "recorded_at_provenance": "captured from `date -u` immediately before this revision was written; the counters below are transcribed verbatim from the US017_EXPLORATION line printed by `cargo test -p ws-driver --release --test schedule_exploration bounded_exploration -- --nocapture`, and the retention entries from the US017_RETENTION lines of the retention test, both on the tree being committed",
-  "revision_note": "supersedes the dabb5d6 revision after owner decision us017-repeated-eof-owner-decision-2026-08-28.json (sha f6270948), which AMENDS the bd7849c3 decision's retention of the eof_applied latch. FOURTH defect of one shape closed: a REPEATED DriverInput::TransportEof (or a Shutdown after an applied EOF) was skipped by `&& !self.eof_applied`, so the core never saw it. DriverInput::TransportEof is a SCORED EVENT, not an idempotent transport fact the adapter may absorb; at-most-once APPLICATION was the wrong invariant at the driver layer. The eof/shutdown flags are now PER-NOTIFICATION: cleared when the core consumes the EOF, re-armed by any later notification, and deliberately RETAINED on a non-fatal refusal, which is what preserves the eof-backpressure-livelock fix. COUNTERS RE-MEASURED, NOT CARRIED OVER: far more schedules now surface a typed failure, because a repeat EOF/shutdown that used to be swallowed is answered by the core — failure_halted_runs 29699 -> 49548 and closed_terminal_runs 50221 -> 30372. The lost-command minimized artifact changed because the deterministic shrinker's 1-minimal counterexample moved from `enqueue-close-b,shutdown` to `enqueue-close-b,inbound-close`; refrozen through the sanctioned US017_RETAIN=1 path. The other five minimized artifacts re-verified byte-identical. Driver/core equivalence on this path was probe-verified: four consecutive EOFs give actions 1,2,2,2 with STATE_VIOLATION from the second onward, IDENTICALLY for the bare core and for the driver, so the driver is now a faithful pass-through and the non-increment from the third onward is the core's own decision.",
+  "recorded_at": "2026-08-28T13:08:19Z",
+  "recorded_at_provenance": "captured from `date -u` immediately before this revision; target blobs computed with `git hash-object` and the plan digest with `shasum -a 256` against the tree being committed. NOTE: the counters below could NOT be re-measured this round — see counters_freshness.",
+  "revision_note": "supersedes the cc7f747 revision after review 01a04866-df4b-7521-8abe-d8bad09edf38. Two corrections and one blocker. (1) BINDINGS FIXED: this document recorded source blob 3dbe61bc… and harness blob bb490659… while cc7f747 contained cf5b4412… and 63bf56db…, and recorded plan sha256 d73659b4… while the actual plan digest is fe39048e… — it was describing a tree that no longer existed. Now bound to the tree being committed. (2) FIFTH DEFECT of the pass-it-to-the-core shape fixed: ConnectionDriver collapsed multiple pending EOF notifications into a pair of booleans, so two notifications admitted before the arm could run produced ONE core action; the pending set is now a COUNT. The previous round's four-consecutive-EOF probe only exercised immediately-applied notifications, so it established the per-notification property for the easy path and assumed it for the hard one. (3) The failure-halt-exclusivity invariant was renamed failure-halt-stops-driving and strengthened, because the interpreter's stop-on-failure model made the old condition mechanically unreachable. BLOCKER: the exploration no longer completes; see execution_status.",
   "target": {
     "symbol": "ws_driver::ConnectionDriver::poll",
     "source": {
       "path": "rust/ws-driver/src/lib.rs",
-      "git_blob": "3dbe61bc6c6cb6c8a0b251157e3590517b283507"
+      "git_blob": "863d555b480b2b1e4f521d9d21907e1d9781fcae"
     },
     "harness": {
       "path": "rust/ws-driver/tests/schedule_exploration.rs",
-      "git_blob": "bb490659f1d734720dd96061ba1e812a8c41c0f8"
+      "git_blob": "6e621f98195cc96647389c5381e0604c04dd000a"
     }
   },
   "preregistered_plan": {
     "path": "assurance/concurrency/plan.json",
-    "sha256": "sha256:d73659b46492642e3eac9abdf046a91279a2c7d6433937e9c63f0b712409a02b",
+    "sha256": "sha256:fe39048e4042dbc2371597976426b32dfe85fcb002e30873bea1ce310c195136",
     "conformance": "the exploration stays inside the plan bounds: 2 producer tasks (<= producer_tasks_max 3), 1 owner, command/write/event queue capacities 2/2/8 (<= 8), 12 actions per schedule (<= max_actions_per_schedule 64), preemption budget 3 (= preemption_bound), 79920 schedules (<= schedule_count_max 100000), 315070 enumeration branches (<= branch_count_max 1000000); the PRODUCER_ADMISSION_FAIRNESS_ABSENT stance is honored (queue-full refusals are final for that producer step, no retry fairness assumed) and the three weak-fairness assumptions gate only the final drain"
   },
   "bounds": {
@@ -71,48 +71,59 @@
       "WEAK_EVENT_DRAIN_WHEN_OUTPUT_PENDING"
     ],
     "producer_admission_fairness_claimed": false,
-    "outcome": "PASS - zero invariant violations across all 79920 schedules"
+    "outcome": "PASS - zero invariant violations across all 79920 schedules",
+    "counters_freshness": "STALE — NOT re-measured this revision. The counters and run classification below were transcribed from the cc7f747 tree; the exploration does not complete on this tree, so no fresh US017_EXPLORATION line exists to transcribe. They are retained rather than deleted so the last successfully measured state is on record, and they are marked stale rather than presented as current. Do not quote them as describing this revision."
   },
   "invariants": [
     {
       "property_id": "concurrency.single-owner",
-      "outcome": "PASS"
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "the exploration does not currently complete, so no invariant outcome was established this revision; see execution_status"
     },
     {
       "property_id": "concurrency.queue-bounds",
-      "outcome": "PASS"
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "the exploration does not currently complete, so no invariant outcome was established this revision; see execution_status"
     },
     {
       "property_id": "concurrency.accepted-eventual-exactly-once",
-      "outcome": "PASS"
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "the exploration does not currently complete, so no invariant outcome was established this revision; see execution_status"
     },
     {
       "property_id": "concurrency.fifo-owner-order",
-      "outcome": "PASS"
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "the exploration does not currently complete, so no invariant outcome was established this revision; see execution_status"
     },
     {
       "property_id": "concurrency.no-write-bypass",
-      "outcome": "PASS"
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "the exploration does not currently complete, so no invariant outcome was established this revision; see execution_status"
     },
     {
       "property_id": "concurrency.close-convergence",
-      "outcome": "PASS"
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "the exploration does not currently complete, so no invariant outcome was established this revision; see execution_status"
     },
     {
       "property_id": "concurrency.terminal-exactly-once",
-      "outcome": "PASS"
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "the exploration does not currently complete, so no invariant outcome was established this revision; see execution_status"
     },
     {
       "property_id": "concurrency.no-post-terminal",
-      "outcome": "PASS"
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "the exploration does not currently complete, so no invariant outcome was established this revision; see execution_status"
     },
     {
-      "property_id": "concurrency.failure-halt-exclusivity",
-      "outcome": "PASS"
+      "property_id": "concurrency.failure-halt-stops-driving",
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "renamed from failure-halt-exclusivity and strengthened: the old check looked only for a Terminal after the first Failure, which the interpreter's stop-on-failure model made mechanically unreachable. It now asserts that NO command disposition and NO non-Idle output is recorded after the first surfaced failure. Outcome is NOT_ESTABLISHED because the exploration does not currently complete (see execution_status)."
     },
     {
       "property_id": "concurrency.deterministic-replay",
-      "outcome": "PASS"
+      "outcome": "NOT_ESTABLISHED_THIS_REVISION",
+      "note": "the exploration does not currently complete, so no invariant outcome was established this revision; see execution_status"
     }
   ],
   "terminal_disposition_model": "every full schedule ends in one of two typed dispositions, mirroring the real adapter: the clean Terminal from the absorbing Closed state (30372 runs), or the halt at the first surfaced fatal Failure (49548 runs, exactly one surfaced failure each) — the poisoned core retains its final state per the oracle's partial-execution semantics and the adapter stops there. Since owner decision us017-post-terminal-owner-decision-2026-08-28 these are ORDERED, not mutually exclusive: a schedule may converge cleanly, take its one Terminal, and then have further work pushed at the already-converged connection, which the core refuses — so a halted run may legitimately carry one preceding clean Terminal. The invariant that holds unconditionally is the ordering one: no Terminal is ever observed AFTER a surfaced Failure. Both classes fully quiesce, and clean-terminal runs reconcile every accepted command exactly once",
@@ -254,5 +265,12 @@
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,
   "production": false,
-  "publication": false
+  "publication": false,
+  "execution_status": {
+    "state": "BLOCKED — the bounded exploration does not complete on this tree",
+    "detail": "`bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants` fails its coverage assertion `closed_terminal_runs > 0` (\"clean convergence explored\"), and `retention_minimizes_every_named_fault_and_pins_the_artifacts` fails with \"fault lost-command was not detected by the exploration\". Cause: the coalescing fix in this revision makes every admitted transport-EOF notification a separate scored event, and EVERY schedule in the fixed five-actor program set runs both program 3 (which ends in TransportEof) and program 5 (which ends in Shutdown) to completion. The second notification therefore always reaches an already-Closed core and halts the run, so no schedule converges cleanly and the seeded lost-command fault can no longer manifest.",
+    "implication": "the clean-convergence population reported in every previous revision of this document (52924, then 50221, then 30372 runs) existed ONLY because multiple EOF notifications were silently coalescing. Those figures were partly an artifact of the defect, not evidence of the driver converging cleanly under those schedules.",
+    "requires": "an owner decision on the exploration's actor program set. PROGRAMS is test scaffolding and is NOT pinned in assurance/concurrency/plan.json (verified), so changing it does not violate the preregistered plan — but it materially changes what US-017's systematic-concurrency evidence covers, and the lane did not change it unilaterally.",
+    "not_done": "no invariant was weakened, no coverage assertion was relaxed, and no program was added or removed to make the suite green."
+  }
 }
