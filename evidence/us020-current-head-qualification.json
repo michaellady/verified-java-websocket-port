@@ -5,9 +5,9 @@
   "story_id": "US-020",
   "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
-  "head_at_execution": "745541de845b2e3e92f1b8a74aefb996af02cac5",
-  "source_tree": "fb51b276a8541e26347361ca52b7ac0d28b09e26",
-  "validation_time": "2026-08-28T15:41:51Z",
+  "head_at_execution": "850b0f82d6a557d0fe7bb00ebaac57db8033460d",
+  "source_tree": "13d890bc0deda227e55044a4f0d3b42f98b576be",
+  "validation_time": "2026-08-28T21:15:53Z",
   "toolchain": {
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "host": "aarch64-apple-darwin"
@@ -90,33 +90,33 @@
     },
     {
       "path": "rust/connection-core/src/close.rs",
-      "sha256": "sha256:c9abc90888c9b6480f7c5d05e53f07f0c583ddb3ab9b20be578672f99ce60f1f",
-      "git_blob": "313503e4d10ec8de7895e5dfd12e33718b1ca3a7"
+      "sha256": "sha256:43299f521202d19a549b6bd0dd8d82c3a051018cf61d607aed224e7132e0633c",
+      "git_blob": "84d9f2da03f84730d1dcaec0f3cb5a9a47e411a7"
     },
     {
       "path": "rust/connection-core/src/connection.rs",
-      "sha256": "sha256:8c1895282e7d59663180265db9e2a50b6785400c5d12c217a12236ac229dbe8e",
-      "git_blob": "8b5a30cf7ba1ff4b22d183bbfbd628db15a9b602"
+      "sha256": "sha256:b29d2508eb422c5ddc644adb69e279f4d7fbbe3c6823026056636453f4a8df27",
+      "git_blob": "3cf7f08f6ee101236c543c84c66c75a68a6519e1"
     },
     {
       "path": "rust/connection-core/src/control.rs",
-      "sha256": "sha256:e0d87d372bb8a04c7e37089b2e12002a746e15e411e894e7cbf1630dc6fb6c0c",
-      "git_blob": "32c0e6bfeddc7dfb16978c8984ddd69949203ff1"
+      "sha256": "sha256:1b20d2a0dd247007e0d58fb40854ed77b6df654355b7c612b22622b033610d72",
+      "git_blob": "5ce1cd5318cd551ac46f0c4a5e914a08a424d7bc"
     },
     {
       "path": "rust/connection-core/src/fragment.rs",
-      "sha256": "sha256:e19fce786b0a7dc448aceb0886cb7b00fadf4e6024ef83b2781796af20e9c360",
-      "git_blob": "e50c79fbe0e7f55528d7560f3484fb58357dbb17"
+      "sha256": "sha256:a59e451469bf8cd4a35b594e917c4850a07e3c3fb41e3d5a6fe1d47b7bad110d",
+      "git_blob": "e4ebf6eff031c99da37ecf4b1f13d5cbe9016f48"
     },
     {
       "path": "rust/connection-core/src/frame/decode.rs",
-      "sha256": "sha256:961c5cfa03953c080b8e3148bb65cb03c67c173c131c538c23b57a86fae8cc2c",
-      "git_blob": "bcaf8ca6da7c5edf130784a14d174b754d1a8536"
+      "sha256": "sha256:40f9bff8bf11a275a289a6c2e3b0625b934da617348159a393a019d600a70c24",
+      "git_blob": "35362ccd948b13b9c048a76be7d9336fdeef071b"
     },
     {
       "path": "rust/connection-core/src/frame/encode.rs",
-      "sha256": "sha256:42b893da55bacc33aa4980fc4a0bd06b5a3e807423cd19f3aa79d709adcacfd7",
-      "git_blob": "9b66097dcddcf37c58fc3903546674eb8ee40466"
+      "sha256": "sha256:9cbf67c8578f514e3e7dfc4ac4a13b1c67b4d8768718bccd3e28c1e604982c72",
+      "git_blob": "c8fa86e1f7ae4b384372e2c90a39ee75cc143aa1"
     },
     {
       "path": "rust/connection-core/src/frame/mask.rs",
@@ -135,23 +135,23 @@
     },
     {
       "path": "rust/connection-core/src/handshake/client.rs",
-      "sha256": "sha256:d6e355ffaec8c232f79ec25edcad7d36c5128140e4e1c7c9c022df5b13a89dd3",
-      "git_blob": "44712cdaa2ab0aa42f78ded80b3bfe9de3262fad"
+      "sha256": "sha256:add82bf8a7ca4ac61cdbafcddccb9e4aeb46a394e96afee10f53d753ab8e256b",
+      "git_blob": "6ad94559b3711647e412c61d8d7718f051079289"
     },
     {
       "path": "rust/connection-core/src/handshake/crypto.rs",
-      "sha256": "sha256:9d48e5529c381ef82654a57a27c8691514661804c923cb24405164cd2a0ea2e6",
-      "git_blob": "eaeaf73d4e3d54bdfd6f0a5a7255e953869ce4fa"
+      "sha256": "sha256:233be6d88276b54d8f796b4404d10c14544e55ad802079ab6382f92bb9bac9e9",
+      "git_blob": "df47c762c07a843e8e6783c5f8fb06dafffd4fb8"
     },
     {
       "path": "rust/connection-core/src/handshake/http.rs",
-      "sha256": "sha256:c92522c17fc22d1865b4a79cd91860ab2dc1d9cae8d24a28f4639a1a9b809597",
-      "git_blob": "09e414e33e0e639a5b7ef396492e3fdd207dbe76"
+      "sha256": "sha256:8a3543bdfe8d8b8ec0be768f9d2fae66adbd645913b27f79093e1556503286e5",
+      "git_blob": "662472adbef96dd2d86de536505e65d4fcf633ab"
     },
     {
       "path": "rust/connection-core/src/handshake/server.rs",
-      "sha256": "sha256:cef46a90a2b12569742f8520f79c5c22e160eacaf055e057ddfacb96223dae96",
-      "git_blob": "0118008e90f2f3581f7944f34b17d01030ec9262"
+      "sha256": "sha256:18f12ae6faf7b18c0b55ce83f08ca28799dc2fd56437c47fc100168cbdd0a0f8",
+      "git_blob": "a786aed41a5e04a0a32c920f681c5be9579442d4"
     },
     {
       "path": "rust/connection-core/src/lib.rs",
@@ -169,19 +169,24 @@
       "git_blob": "9e36b16f019b1b3e9aa927e44551ae020ed83e08"
     },
     {
+      "path": "rust/connection-core/tests/adversarial_properties.rs",
+      "sha256": "sha256:a6715585583a55fedcd38568d6341ebe4006c3902609be012880f4f4a3736cd7",
+      "git_blob": "f63d624247d6eea8e304a5f8b2df5234973ad6fb"
+    },
+    {
       "path": "rust/connection-core/tests/client_handshake.rs",
-      "sha256": "sha256:9c8a300b8e5e0d81484a111f89625c798167b74012dc2219677e5bec926ff06c",
-      "git_blob": "64bd873704b5271275ca41dbeea693d575477e7a"
+      "sha256": "sha256:e816242da70b5a57174a73603af8bb9c09082c1294fab0d06f0c87ebd82b9c42",
+      "git_blob": "a8d9cd6f4537962f8d6057b4660db91b3ab4c232"
     },
     {
       "path": "rust/connection-core/tests/close_eof.rs",
-      "sha256": "sha256:dd830270e50c5f03f07af232b988968ddc5cc9beee5d8f5e0488e409814b73a2",
-      "git_blob": "dd7177e81847dea78fba2d9809eb70eb5ae22ba5"
+      "sha256": "sha256:824d3f0f70c40d18f68348a31cdaf4d63a24d3a3a7a298661d4da0966dab8775",
+      "git_blob": "81941b21a5ea12710eb79d7316301b94f22f537c"
     },
     {
       "path": "rust/connection-core/tests/connection_contract.rs",
-      "sha256": "sha256:4c47b2aa2677d5d8efc63adb33391992a89d49d2c585748b85726cf78445511b",
-      "git_blob": "c0b63e9d6f6951507c5710e4ce03388f393369eb"
+      "sha256": "sha256:67ee5bb8d254a2d7b37914de303a0c05ba0953b12757562cf213acdc3be83a6c",
+      "git_blob": "6324650e54c6bf35cd1953c9c26dcaa4984d13d0"
     },
     {
       "path": "rust/connection-core/tests/data/us011_frozen_cases.rs",
@@ -200,18 +205,18 @@
     },
     {
       "path": "rust/connection-core/tests/frame_codec.rs",
-      "sha256": "sha256:7ad9e7b9caf82804a1764f9e7ea9e5ebc95ae56998d621c65e8dd347ebb936bb",
-      "git_blob": "d39d79b4694771316ec4dfcae767f929148760ff"
+      "sha256": "sha256:2122fccc866d2b851d413792636c3a921c240dffe4263ebb92acbbf6c3b2c868",
+      "git_blob": "1c7c21fcb4d5165a3315dbc288469147591c1b56"
     },
     {
       "path": "rust/connection-core/tests/messages.rs",
-      "sha256": "sha256:63198d67defd2c3182428eea15e4b6913024b6ddf6d80c29b000695b2e4b3c28",
-      "git_blob": "a6d84c01b1986acf7a6604e1555534983bae92f2"
+      "sha256": "sha256:0ba4c2a8a6b89f692fd7e3a23f343f3e8bffe661b4866e594bd5167ce7ab6bcd",
+      "git_blob": "53341263f391e3dd5fa3f70d47579d192fad370c"
     },
     {
       "path": "rust/connection-core/tests/outbound_commands.rs",
-      "sha256": "sha256:199241891f1b3d921bdd85903756a4e8602c4c487fea60e23f7457a38c8699d6",
-      "git_blob": "b88bde98769a264263ec905b3c54659a9af4736f"
+      "sha256": "sha256:3f8b3295a2ef9ad4b28d22bbec4ad510427b80e8c55489b5ed366c6b0a4dadfb",
+      "git_blob": "e9be3a827e877cc0a930903a1536f09d8ea77f1d"
     },
     {
       "path": "rust/connection-core/tests/ping_pong.rs",
