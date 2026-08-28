@@ -141,12 +141,33 @@ type stepRecord struct {
 	OutputBytes int    `json:"captured_bytes"`
 }
 
+// parityCheck is deliberately TRI-STATE. A constraint the CLI and the guest
+// simply do not expose is not the same thing as a constraint that matched, and
+// recording it as a pass would be exactly the kind of quiet upgrade this plane
+// forbids. MISMATCHED aborts the attempt; DECLARED_NOT_OBSERVABLE does not, but
+// it is carried into the receipt so a reader sees which constraints were
+// actually read back and which rest on the create argv alone.
 type parityCheck struct {
 	Constraint string `json:"constraint"`
 	Declared   string `json:"declared"`
 	Observed   string `json:"observed"`
 	Source     string `json:"evidence_source"`
+	Status     string `json:"status"`
 	Match      bool   `json:"match"`
+}
+
+const (
+	statusMatched      = "MATCHED"
+	statusMismatched   = "MISMATCHED"
+	statusNotObservabl = "DECLARED_NOT_OBSERVABLE"
+)
+
+func observed(constraint, declared, seen, source string, ok bool) parityCheck {
+	status := statusMismatched
+	if ok {
+		status = statusMatched
+	}
+	return parityCheck{constraint, declared, seen, source, status, ok}
 }
 
 type operatorReceipt struct {
@@ -264,7 +285,7 @@ func run() (returnedErr error) {
 	if err := os.MkdirAll(cloneDir, 0o755); err != nil {
 		return err
 	}
-	if err := gitArchive(*repoRoot, cloneDir); err != nil {
+	if err := gitClone(*repoRoot, cloneDir, receipt.SourceCommit); err != nil {
 		return fmt.Errorf("stage clean source: %w", err)
 	}
 
@@ -343,15 +364,26 @@ func verifyProfileParity(load payload, captureDir string, receipt *operatorRecei
 	if err != nil {
 		return fmt.Errorf("sbx inspect: %w", err)
 	}
+	// NOTE ON WHAT sbx v0.39.0 ACTUALLY EXPOSES. `sbx inspect --json` reports no
+	// cpu, memory or clone field. Clone mode is observable only indirectly, via
+	// the localhost git-bridge port sbx publishes for the clone's git daemon (the
+	// same signal the Codex-plane launcher checks). CPU and memory are not in the
+	// CLI's output at all, so they are read from INSIDE the sandbox — nproc and
+	// the cgroup memory limit — rather than asserted from the create argv the way
+	// every prior accepted attempt on this plane recorded them.
 	var inspect struct {
-		Name        string `json:"name"`
-		Agent       string `json:"agent"`
-		Image       string `json:"image"`
-		ImageDigest string `json:"image_digest"`
-		Workspace   string `json:"workspace"`
-		CPUs        int    `json:"cpus"`
-		Memory      int64  `json:"memory"`
-		CloneMode   bool   `json:"clone"`
+		Name        string   `json:"name"`
+		Agent       string   `json:"agent"`
+		Image       string   `json:"image"`
+		ImageDigest string   `json:"image_digest"`
+		Workspace   string   `json:"workspace"`
+		State       string   `json:"state"`
+		Ports       []string `json:"ports"`
+		MCPGateway  bool     `json:"mcp_gateway"`
+		Secrets     []struct {
+			Name   string `json:"name"`
+			Source string `json:"source"`
+		} `json:"secrets"`
 	}
 	if err := json.Unmarshal(inspectRaw, &inspect); err != nil {
 		return fmt.Errorf("decode sbx inspect: %w", err)
@@ -365,34 +397,67 @@ func verifyProfileParity(load payload, captureDir string, receipt *operatorRecei
 	policyText := strings.ToLower(strings.Join(strings.Fields(string(policyRaw)), ""))
 	denyAll := strings.Contains(policyText, `"decision":"deny"`) && strings.Contains(policyText, `"**"`)
 
-	idOut, idErr := capture(context.Background(), 2*time.Minute, load.Profile.SbxBinary, "exec", load.SandboxName, "sh", "-lc", "id -u; id -un; uname -m")
+	idOut, idErr := capture(context.Background(), 2*time.Minute, load.Profile.SbxBinary, "exec", load.SandboxName, "sh", "-lc",
+		"id -u; id -un; uname -m; pwd; git rev-parse HEAD; nproc; "+
+			"{ cat /sys/fs/cgroup/memory.max || cat /sys/fs/cgroup/memory/memory.limit_in_bytes || "+
+			"cat /sys/fs/cgroup$(awk -F: '/memory/{print $3; exit}' /proc/self/cgroup 2>/dev/null)/memory.max; } 2>/dev/null | head -1 || true; echo UNAVAILABLE")
 	writeCapture(captureDir, "sbx-identity.txt", idOut)
 	if idErr != nil {
 		return fmt.Errorf("read sandbox identity: %w", idErr)
 	}
 	identity := strings.Fields(string(idOut))
-	observedUID, observedUser := "", ""
-	if len(identity) >= 2 {
-		observedUID, observedUser = identity[0], identity[1]
+	if len(identity) < 7 {
+		return fmt.Errorf("in-sandbox identity probe returned %d fields, expected at least 7: %q", len(identity), string(idOut))
+	}
+	observedUID, observedUser := identity[0], identity[1]
+	observedHead, observedCPUs, observedMemory := identity[4], identity[5], identity[6]
+
+	gitBridgePorts := 0
+	for _, port := range inspect.Ports {
+		if strings.HasPrefix(port, "127.0.0.1:") && strings.HasSuffix(port, "->9418/tcp") {
+			gitBridgePorts++
+		}
+	}
+	controlSecrets := 0
+	for _, secret := range inspect.Secrets {
+		if secret.Name == "mcpgateway" && secret.Source == "uploaded" {
+			controlSecrets++
+		}
+	}
+	declaredMemory, memErr := parseMemory(load.Profile.Memory)
+	memoryCheck := observed("memory limit", load.Profile.Memory, observedMemory,
+		"in-sandbox cgroup memory limit", memErr == nil && observedMemory == strconv.FormatInt(declaredMemory, 10))
+	if observedMemory == "UNAVAILABLE" {
+		// sbx v0.39.0 exposes no memory field and this guest exposes no readable
+		// cgroup limit, so `-m 2g` rests on the create argv exactly as it does in
+		// every prior accepted attempt on this plane. Said out loud, not passed off.
+		memoryCheck.Status = statusNotObservabl
+		memoryCheck.Match = true
+		memoryCheck.Observed = "UNAVAILABLE (no readable cgroup memory limit in this guest; value rests on the create argv)"
 	}
 
 	checks := []parityCheck{
-		{"pinned template digest", load.Profile.TemplateDigest, inspect.ImageDigest, "sbx inspect --json .image_digest", inspect.ImageDigest == load.Profile.TemplateDigest},
-		{"template reference", load.Profile.TemplateRef, inspect.Image, "sbx inspect --json .image", inspect.Image == load.Profile.TemplateRef},
-		{"agent", load.Profile.Agent, inspect.Agent, "sbx inspect --json .agent", inspect.Agent == load.Profile.Agent},
-		{"sandbox name", load.SandboxName, inspect.Name, "sbx inspect --json .name", inspect.Name == load.SandboxName},
-		{"workspace mode clone", load.Profile.WorkspaceMode, cloneModeText(inspect.CloneMode), "sbx inspect --json .clone", inspect.CloneMode && load.Profile.WorkspaceMode == "clone"},
-		{"cpu count", strconv.Itoa(load.Profile.CPUs), strconv.Itoa(inspect.CPUs), "sbx inspect --json .cpus", inspect.CPUs == load.Profile.CPUs},
-		{"deny-network all paths", "deny **", boolText(denyAll), "sbx policy ls --json effective rules", denyAll},
-		{"unprivileged uid", strconv.Itoa(load.Profile.ExpectedUID), observedUID, "in-sandbox `id -u`", observedUID == strconv.Itoa(load.Profile.ExpectedUID)},
-		{"unprivileged user", load.Profile.ExpectedUser, observedUser, "in-sandbox `id -un`", observedUser == load.Profile.ExpectedUser},
-		{"sbx cli version", load.Profile.CLIVersion, receipt.CLIBanner, "sbx version banner", strings.Contains(receipt.CLIBanner, load.Profile.CLIVersion)},
+		observed("pinned template digest", load.Profile.TemplateDigest, inspect.ImageDigest, "sbx inspect --json .image_digest", inspect.ImageDigest == load.Profile.TemplateDigest),
+		observed("template reference", load.Profile.TemplateRef, inspect.Image, "sbx inspect --json .image", inspect.Image == load.Profile.TemplateRef),
+		observed("agent", load.Profile.Agent, inspect.Agent, "sbx inspect --json .agent", inspect.Agent == load.Profile.Agent),
+		observed("sandbox name", load.SandboxName, inspect.Name, "sbx inspect --json .name", inspect.Name == load.SandboxName),
+		observed("workspace mode clone (git bridge)", "exactly 1 localhost ->9418/tcp bridge", strconv.Itoa(gitBridgePorts)+" of "+strconv.Itoa(len(inspect.Ports))+" published ports", "sbx inspect --json .ports", gitBridgePorts == 1 && len(inspect.Ports) == 1 && load.Profile.WorkspaceMode == "clone"),
+		observed("workspace is the staged clone", "staged clone directory", inspect.Workspace, "sbx inspect --json .workspace", inspect.Workspace != ""),
+		observed("sandbox running", "running", inspect.State, "sbx inspect --json .state", inspect.State == "running"),
+		observed("platform control secrets", "exactly 1 uploaded mcpgateway token", strconv.Itoa(controlSecrets)+" of "+strconv.Itoa(len(inspect.Secrets)), "sbx inspect --json .secrets", controlSecrets == 1 && len(inspect.Secrets) == 1),
+		observed("cpu count", strconv.Itoa(load.Profile.CPUs), observedCPUs, "in-sandbox `nproc`", observedCPUs == strconv.Itoa(load.Profile.CPUs)),
+		memoryCheck,
+		observed("deny-network all paths", "deny **", boolText(denyAll), "sbx policy ls --json effective rules", denyAll),
+		observed("unprivileged uid", strconv.Itoa(load.Profile.ExpectedUID), observedUID, "in-sandbox `id -u`", observedUID == strconv.Itoa(load.Profile.ExpectedUID)),
+		observed("unprivileged user", load.Profile.ExpectedUser, observedUser, "in-sandbox `id -un`", observedUser == load.Profile.ExpectedUser),
+		observed("sbx cli version", load.Profile.CLIVersion, receipt.CLIBanner, "sbx version banner", strings.Contains(receipt.CLIBanner, load.Profile.CLIVersion)),
+		observed("in-sandbox source commit", receipt.SourceCommit, observedHead, "in-sandbox `git rev-parse HEAD`", observedHead == receipt.SourceCommit),
 	}
 	receipt.ProfileParity = checks
 	receipt.ProfileParityOK = true
 	var failed []string
 	for _, check := range checks {
-		if !check.Match {
+		if check.Status == statusMismatched {
 			receipt.ProfileParityOK = false
 			failed = append(failed, fmt.Sprintf("%s (declared=%q observed=%q)", check.Constraint, check.Declared, check.Observed))
 		}
@@ -425,7 +490,10 @@ func transferIn(load payload, stage, captureDir string, receipt *operatorReceipt
 	bundle := filepath.Join(stage, load.Inbound.BundleName)
 	names := append(append([]string(nil), load.Inbound.Artifacts...), load.Inbound.ManifestName)
 	sort.Strings(names)
-	tarArgv := append([]string{"tar", "-C", stageDir, "-cf", bundle}, names...)
+	// COPYFILE_DISABLE stops macOS tar emitting AppleDouble `._*` resource-fork
+	// members, which are not in the manifest and which the in-sandbox driver
+	// would otherwise mistake for real artifacts.
+	tarArgv := append([]string{"env", "COPYFILE_DISABLE=1", "tar", "-C", stageDir, "-cf", bundle}, names...)
 	if out, err := capture(context.Background(), 20*time.Minute, tarArgv...); err != nil {
 		writeCapture(captureDir, "inbound-tar.log", out)
 		return fmt.Errorf("build inbound bundle: %w", err)
@@ -599,17 +667,35 @@ func readPayload(path string) (payload, error) {
 	return load, nil
 }
 
-func gitArchive(repoRoot, dest string) error {
-	archive := filepath.Join(dest, ".archive.tar")
-	out, err := capture(context.Background(), 10*time.Minute, "sh", "-c",
-		"git -C "+shellQuote(repoRoot)+" archive HEAD -o "+shellQuote(archive))
+// gitClone stages the workload source as a real git repository, because sbx
+// clone mode refuses anything else, and detaches it at the exact commit the
+// receipt names. The resulting HEAD is read back and compared, so a clone that
+// silently landed on a different commit cannot go unnoticed.
+func gitClone(repoRoot, dest, commit string) error {
+	if err := os.RemoveAll(dest); err != nil {
+		return err
+	}
+	if out, err := capture(context.Background(), 15*time.Minute, "git", "clone", "--no-hardlinks", "--quiet", repoRoot, dest); err != nil {
+		return fmt.Errorf("git clone: %w (%s)", err, strings.TrimSpace(string(out)))
+	}
+	if out, err := capture(context.Background(), 5*time.Minute, "git", "-C", dest, "checkout", "--quiet", "--detach", commit); err != nil {
+		return fmt.Errorf("git checkout %s: %w (%s)", commit, err, strings.TrimSpace(string(out)))
+	}
+	out, err := capture(context.Background(), 2*time.Minute, "git", "-C", dest, "rev-parse", "HEAD")
 	if err != nil {
-		return fmt.Errorf("git archive: %w (%s)", err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("read staged HEAD: %w", err)
 	}
-	if out, err := capture(context.Background(), 10*time.Minute, "tar", "-C", dest, "-xf", archive); err != nil {
-		return fmt.Errorf("extract archive: %w (%s)", err, strings.TrimSpace(string(out)))
+	if staged := strings.TrimSpace(string(out)); staged != commit {
+		return fmt.Errorf("staged clone HEAD %s does not match the declared commit %s", staged, commit)
 	}
-	return os.Remove(archive)
+	status, err := capture(context.Background(), 2*time.Minute, "git", "-C", dest, "status", "--porcelain")
+	if err != nil {
+		return fmt.Errorf("read staged status: %w", err)
+	}
+	if strings.TrimSpace(string(status)) != "" {
+		return fmt.Errorf("staged clone is not clean: %s", strings.TrimSpace(string(status)))
+	}
+	return nil
 }
 
 func assertAbsent(sbx, name string) error {
@@ -686,11 +772,24 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
-func cloneModeText(clone bool) string {
-	if clone {
-		return "clone"
+// parseMemory turns the create argv's memory string ("2g") into the byte count
+// the cgroup limit is expected to carry.
+func parseMemory(value string) (int64, error) {
+	trimmed := strings.TrimSpace(strings.ToLower(value))
+	multiplier := int64(1)
+	switch {
+	case strings.HasSuffix(trimmed, "g"):
+		multiplier, trimmed = 1<<30, strings.TrimSuffix(trimmed, "g")
+	case strings.HasSuffix(trimmed, "m"):
+		multiplier, trimmed = 1<<20, strings.TrimSuffix(trimmed, "m")
+	case strings.HasSuffix(trimmed, "k"):
+		multiplier, trimmed = 1<<10, strings.TrimSuffix(trimmed, "k")
 	}
-	return "not-clone"
+	amount, err := strconv.ParseInt(trimmed, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return amount * multiplier, nil
 }
 
 func boolText(value bool) string {

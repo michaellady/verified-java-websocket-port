@@ -311,7 +311,8 @@ func materialize(inboundDir, home string, say func(string, ...any)) ([]materiali
 	}
 	debs := 0
 	for _, entry := range entries {
-		if !strings.HasSuffix(entry.Name(), ".deb") {
+		// `._*` are macOS AppleDouble resource forks, never real packages.
+		if !strings.HasSuffix(entry.Name(), ".deb") || strings.HasPrefix(entry.Name(), "._") {
 			continue
 		}
 		if output, code := runCommand([]string{"dpkg-deb", "-x", filepath.Join(inboundDir, entry.Name()), prefix}, os.Environ(), ""); code != 0 {
