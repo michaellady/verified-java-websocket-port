@@ -58,6 +58,11 @@ type Mutation struct {
 	Note string `json:"note"`
 }
 
+// expectedPublicCases is the size of the wired public behavior corpus; the
+// pristine baseline must score exactly this many passes before any mutant
+// runs.
+const expectedPublicCases = 74
+
 // Verdicts.
 const (
 	VerdictKilledByTests  = "KILLED_BY_TESTS"
@@ -79,13 +84,17 @@ type Result struct {
 	// first), and KillDetail is the verbatim first assertion/panic message
 	// raised inside a test file — the read evidence that the kill came from
 	// a named oracle rather than an incidental nonzero exit.
-	FailedTests    []string `json:"failed_tests,omitempty"`
-	KillDetail     string   `json:"kill_detail,omitempty"`
-	TestExit       int      `json:"test_exit"`
-	CorpusExit     *int     `json:"corpus_exit,omitempty"`
-	CorpusPassed   *int     `json:"corpus_passed,omitempty"`
-	CorpusFailed   *int     `json:"corpus_failed,omitempty"`
-	RuntimeSeconds float64  `json:"runtime_seconds"`
+	FailedTests []string `json:"failed_tests,omitempty"`
+	KillDetail  string   `json:"kill_detail,omitempty"`
+	TestExit    int      `json:"test_exit"`
+	// HarnessExit is the ws-oracle-harness process exit read from its real
+	// ProcessState (review round 2 finding 1); CorpusExit is corporactl
+	// evaluate's. A nonzero HarnessExit can never score green.
+	HarnessExit    *int    `json:"harness_exit,omitempty"`
+	CorpusExit     *int    `json:"corpus_exit,omitempty"`
+	CorpusPassed   *int    `json:"corpus_passed,omitempty"`
+	CorpusFailed   *int    `json:"corpus_failed,omitempty"`
+	RuntimeSeconds float64 `json:"runtime_seconds"`
 	// EquivalentAnalysis carries the documented equivalence argument for
 	// EQUIVALENT_DOCUMENTED verdicts.
 	EquivalentAnalysis string `json:"equivalent_analysis,omitempty"`
@@ -293,18 +302,35 @@ func allFailedTests(output string) []string {
 	return names
 }
 
-// assertionPattern captures the first panic raised inside a TEST file (the
-// oracle that fired) together with its message line.
-var assertionPattern = regexp.MustCompile(`panicked at ([^\n]*tests/[^\n]*):\n([^\n]*)`)
+// assertionPattern captures EVERY panic location and its message line,
+// wherever it was raised. Review round 2 finding 2: this pattern used to
+// require `tests/` in the path, so kills delivered by in-crate #[cfg(test)]
+// modules under src/ (for example
+// fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention)
+// silently produced an empty kill_detail — four rows of the round-1
+// manifest had that hole.
+var assertionPattern = regexp.MustCompile(`panicked at ([^\n]*\.rs:\d+:\d+):\n([^\n]*)`)
 
-// killDetail returns "<test-file:line>: <message>" for the first oracle
-// assertion in the output, or "" when no test-side assertion is present
-// (for example a mutant that only trips a library-side panic).
+// killDetail returns "<file:line:col>: <message>" for the assertion that
+// killed the mutant.
+//
+// Preference: an integration-test frame (a `tests/` path) wins when one
+// exists, because for those suites the library panic is only the raw cause
+// and the test-side oracle frame carries the attributed message (case label,
+// seed, oracle name). Otherwise the FIRST panic of any kind is reported —
+// which is exactly the assertion for an in-crate unit test, whose file lives
+// under src/ and is indistinguishable from library code by path alone.
 func killDetail(output string) string {
-	if m := assertionPattern.FindStringSubmatch(output); m != nil {
-		return strings.TrimSpace(m[1]) + ": " + strings.TrimSpace(m[2])
+	matches := assertionPattern.FindAllStringSubmatch(output, -1)
+	if len(matches) == 0 {
+		return ""
 	}
-	return ""
+	for _, m := range matches {
+		if strings.Contains(m[1], "tests/") {
+			return strings.TrimSpace(m[1]) + ": " + strings.TrimSpace(m[2])
+		}
+	}
+	return strings.TrimSpace(matches[0][1]) + ": " + strings.TrimSpace(matches[0][2])
 }
 
 type corpusReport struct {
@@ -312,6 +338,73 @@ type corpusReport struct {
 	Passed   int      `json:"passed"`
 	Failed   int      `json:"failed"`
 	Failures []string `json:"failures"`
+}
+
+// corpusJudgment is everything judge 2 READ from the real processes: the
+// harness build exit, the harness process exit (from its ProcessState, never
+// inferred from output text), the corporactl evaluate exit, and the parsed
+// report. Review round 2 finding 1: the harness exit used to be discarded at
+// the call site, which let a complete transcript from a nonzero harness run
+// score green. It is now a first-class part of the verdict and of the
+// manifest.
+type corpusJudgment struct {
+	HarnessBuildExit int          `json:"harness_build_exit"`
+	HarnessExit      int          `json:"harness_exit"`
+	EvaluateExit     int          `json:"evaluate_exit"`
+	Report           corpusReport `json:"-"`
+}
+
+// corpusVerdict decides judge 2's outcome from the read exit codes alone. A
+// nonzero harness exit is NEVER green: either the mutant crashed the harness
+// (a real corpus kill) or the run is untrustworthy (also not a pass), and
+// the two are indistinguishable from the outside, so the conservative
+// reading is the only honest one.
+func corpusVerdict(judgment corpusJudgment) (bool, string) {
+	if judgment.HarnessExit != 0 {
+		return true, fmt.Sprintf("harness exit %d (transcript not trustworthy)", judgment.HarnessExit)
+	}
+	if judgment.EvaluateExit != 0 {
+		if len(judgment.Report.Failures) > 0 {
+			return true, failureScenario(judgment.Report.Failures[0])
+		}
+		return true, "corpus evaluate nonzero exit"
+	}
+	return false, ""
+}
+
+// baselineCorpusOK gates the campaign on the PRISTINE scratch: every read
+// exit must be zero and every one of the expected cases must pass, or no
+// mutant runs at all.
+func baselineCorpusOK(judgment corpusJudgment, expectedCases int) error {
+	if judgment.HarnessBuildExit != 0 {
+		return fmt.Errorf("pristine harness build exit=%d", judgment.HarnessBuildExit)
+	}
+	if judgment.HarnessExit != 0 {
+		return fmt.Errorf("pristine harness process exit=%d", judgment.HarnessExit)
+	}
+	if judgment.EvaluateExit != 0 {
+		return fmt.Errorf("pristine corpus evaluate exit=%d", judgment.EvaluateExit)
+	}
+	if judgment.Report.Passed != expectedCases || judgment.Report.Failed != 0 {
+		return fmt.Errorf("pristine corpus scored %d/%d passed with %d failed (want %d/%d, 0 failed)",
+			judgment.Report.Passed, judgment.Report.Executed, judgment.Report.Failed,
+			expectedCases, expectedCases)
+	}
+	return nil
+}
+
+// validateKillDetails enforces the manifest invariant the receipt promises:
+// every KILLED_BY_TESTS row carries the verbatim assertion that killed it
+// (review round 2 finding 2). Returns one problem string per offending row.
+func validateKillDetails(results []Result) []string {
+	var problems []string
+	for _, r := range results {
+		if r.Verdict == VerdictKilledByTests && strings.TrimSpace(r.KillDetail) == "" {
+			problems = append(problems, fmt.Sprintf(
+				"%s: KILLED_BY_TESTS (killed_by=%s) with no kill_detail", r.ID, r.KilledBy))
+		}
+	}
+	return problems
 }
 
 // failureScenario extracts the scenario id prefix of one corpus failure
@@ -443,14 +536,20 @@ func runCampaign(arguments []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	fmt.Fprintln(stdout, "mutctl: baseline judge 2 (74-case public corpus, pristine scratch)...")
-	baselineCorpusExit, baselineReport, err := corpusJudge(scratchRust, absRoot, *protectedRoot, corporactl, requests, filepath.Join(absWork, "baseline-transcript.jsonl"))
-	if err != nil || baselineCorpusExit != 0 || baselineReport.Passed != 74 || baselineReport.Failed != 0 {
-		fmt.Fprintf(stderr, "run: pristine corpus judge exit=%d passed=%d failed=%d err=%v\n",
-			baselineCorpusExit, baselineReport.Passed, baselineReport.Failed, err)
+	baselineJudgment, err := corpusJudge(scratchRust, absRoot, *protectedRoot, corporactl, requests, filepath.Join(absWork, "baseline-transcript.jsonl"))
+	if err != nil {
+		fmt.Fprintf(stderr, "run: pristine corpus judge: %v (build_exit=%d harness_exit=%d evaluate_exit=%d)\n",
+			err, baselineJudgment.HarnessBuildExit, baselineJudgment.HarnessExit, baselineJudgment.EvaluateExit)
 		return 1
 	}
-	fmt.Fprintf(stdout, "mutctl: baseline green — tests exit 0, corpus %d/%d exit 0\n",
-		baselineReport.Passed, baselineReport.Executed)
+	if err := baselineCorpusOK(baselineJudgment, expectedPublicCases); err != nil {
+		fmt.Fprintln(stderr, "run: pristine corpus judge rejected the baseline:", err)
+		return 1
+	}
+	baselineReport := baselineJudgment.Report
+	fmt.Fprintf(stdout, "mutctl: baseline green — tests exit 0, harness exit %d, corpus %d/%d evaluate exit %d\n",
+		baselineJudgment.HarnessExit, baselineReport.Passed, baselineReport.Executed,
+		baselineJudgment.EvaluateExit)
 
 	var results []Result
 	for index, m := range mutations {
@@ -487,23 +586,27 @@ func runCampaign(arguments []string, stdout, stderr io.Writer) int {
 		runCorpus := result.Verdict == "" || confirm[m.ID]
 		if runCorpus {
 			transcript := filepath.Join(absWork, fmt.Sprintf("transcript-%s.jsonl", m.ID))
-			corpusExit, report, err := corpusJudge(scratchRust, absRoot, *protectedRoot, corporactl, requests, transcript)
-			if err != nil {
+			judgment, err := corpusJudge(scratchRust, absRoot, *protectedRoot, corporactl, requests, transcript)
+			// A judge error whose harness exited nonzero is a CORPUS KILL,
+			// not a campaign abort: the mutant broke the harness, which is
+			// exactly what judge 2 exists to detect. Any other error is a
+			// real campaign failure and still aborts.
+			if err != nil && judgment.HarnessExit == 0 {
 				restore(scratchRust, m, pristine, stderr)
 				fmt.Fprintf(stderr, "run: %s corpus judge: %v\n", m.ID, err)
 				return 1
 			}
-			result.CorpusExit = &corpusExit
-			result.CorpusPassed = &report.Passed
-			result.CorpusFailed = &report.Failed
+			harnessExit := judgment.HarnessExit
+			evaluateExit := judgment.EvaluateExit
+			result.HarnessExit = &harnessExit
+			result.CorpusExit = &evaluateExit
+			result.CorpusPassed = &judgment.Report.Passed
+			result.CorpusFailed = &judgment.Report.Failed
+			corpusKilled, corpusKilledBy := corpusVerdict(judgment)
 			if result.Verdict == "" {
-				if corpusExit != 0 {
+				if corpusKilled {
 					result.Verdict = VerdictKilledByCorpus
-					if len(report.Failures) > 0 {
-						result.KilledBy = failureScenario(report.Failures[0])
-					} else {
-						result.KilledBy = "corpus evaluate nonzero exit"
-					}
+					result.KilledBy = corpusKilledBy
 				} else {
 					result.Verdict = VerdictSurvivor
 				}
@@ -542,23 +645,34 @@ func runCampaign(arguments []string, stdout, stderr io.Writer) int {
 	for _, r := range results {
 		tallies[r.Verdict]++
 	}
+	// Manifest invariant (review round 2 finding 2): a KILLED_BY_TESTS row
+	// without its verbatim killing assertion is a manifest with a hole in
+	// it, not evidence. Fail the run rather than write one.
+	killDetailProblems := validateKillDetails(results)
+	for _, problem := range killDetailProblems {
+		fmt.Fprintln(stderr, "run: manifest invariant violated:", problem)
+	}
 	manifest := map[string]any{
-		"schema_version": "1.0.0",
+		"schema_version": "1.1.0",
 		"campaign":       "e1-ws-core-mutation-campaign",
 		"generated_at":   time.Now().UTC().Format(time.RFC3339),
 		"judges": []string{
 			"cargo test -p ws-core (scratch workspace)",
 			"corporactl oracle-requests | ws-oracle-harness (scratch build) | corporactl evaluate --tier public",
 		},
+		"judge_2_exit_discipline": "harness_build_exit, harness_exit and corpus_exit are each read from the real ProcessState; a nonzero harness_exit can never score green (corpusVerdict)",
 		"baseline": map[string]any{
-			"test_exit":       baselineTestExit,
-			"corpus_exit":     baselineCorpusExit,
-			"corpus_executed": baselineReport.Executed,
-			"corpus_passed":   baselineReport.Passed,
-			"corpus_failed":   baselineReport.Failed,
+			"test_exit":          baselineTestExit,
+			"harness_build_exit": baselineJudgment.HarnessBuildExit,
+			"harness_exit":       baselineJudgment.HarnessExit,
+			"corpus_exit":        baselineJudgment.EvaluateExit,
+			"corpus_executed":    baselineReport.Executed,
+			"corpus_passed":      baselineReport.Passed,
+			"corpus_failed":      baselineReport.Failed,
 		},
-		"tallies": tallies,
-		"mutants": results,
+		"tallies":              tallies,
+		"kill_detail_complete": len(killDetailProblems) == 0,
+		"mutants":              results,
 	}
 	rendered, err := json.MarshalIndent(manifest, "", "  ")
 	if err != nil {
@@ -575,7 +689,11 @@ func runCampaign(arguments []string, stdout, stderr io.Writer) int {
 	} else {
 		fmt.Fprintf(stdout, "%s", rendered)
 	}
-	fmt.Fprintf(stdout, "mutctl: tallies %v\n", tallies)
+	fmt.Fprintf(stdout, "mutctl: tallies %v kill_detail_complete=%v\n",
+		tallies, len(killDetailProblems) == 0)
+	if len(killDetailProblems) > 0 {
+		return 4 // the manifest is incomplete: fix the extractor, re-run
+	}
 	if undocumentedSurvivors > 0 || tallies[VerdictBuildFailed] > 0 {
 		return 3 // undocumented survivors / non-viable mutants demand follow-up
 	}
@@ -598,31 +716,51 @@ func restore(scratchRust string, m Mutation, pristine []byte, stderr io.Writer) 
 }
 
 // corpusJudge builds the harness in the scratch workspace, replays the
-// public requests through it, and scores the transcript with corporactl,
-// returning the evaluate exit code and parsed report.
-func corpusJudge(scratchRust, root, protectedRoot, corporactl string, requests []byte, transcriptPath string) (int, corpusReport, error) {
-	if exit, out, err := command(scratchRust, nil, "cargo", "build", "-p", "ws-oracle-harness"); err != nil || exit != 0 {
-		return exit, corpusReport{}, fmt.Errorf("harness build exit=%d err=%v: %s", exit, err, tail(out, 1200))
+// public requests through it, and scores the transcript with corporactl.
+// Every one of the three external commands' exit codes is read from its real
+// ProcessState (via `command`) and returned in the judgment — none is
+// inferred from output text and none is discarded.
+func corpusJudge(scratchRust, root, protectedRoot, corporactl string, requests []byte, transcriptPath string) (corpusJudgment, error) {
+	judgment := corpusJudgment{}
+	buildExit, buildOut, err := command(scratchRust, nil, "cargo", "build", "-p", "ws-oracle-harness")
+	judgment.HarnessBuildExit = buildExit
+	if err != nil || buildExit != 0 {
+		return judgment, fmt.Errorf("harness build exit=%d err=%v: %s", buildExit, err, tail(buildOut, 1200))
 	}
 	harness := filepath.Join(scratchRust, "target", "debug", "ws-oracle-harness")
-	_, transcript, err := command(scratchRust, requests, harness)
+	// Review round 2 finding 1: this exit code was previously discarded.
+	harnessExit, transcript, err := command(scratchRust, requests, harness)
+	judgment.HarnessExit = harnessExit
 	if err != nil {
-		return -1, corpusReport{}, fmt.Errorf("harness run: %w", err)
+		judgment.HarnessExit = -1
+		return judgment, fmt.Errorf("harness run: %w", err)
 	}
+	// The transcript is retained even when the harness exited nonzero: it is
+	// evidence about the failure, not a pass certificate. corpusVerdict
+	// refuses to score it green regardless of what it contains.
 	if err := os.WriteFile(transcriptPath, []byte(transcript), 0o644); err != nil {
-		return -1, corpusReport{}, err
+		return judgment, err
 	}
-	exit, out, err := command(root, nil, corporactl, "evaluate",
+	evaluateExit, out, err := command(root, nil, corporactl, "evaluate",
 		"--root", root, "--protected-root", protectedRoot,
 		"--tier", "public", "--transcript", transcriptPath)
+	judgment.EvaluateExit = evaluateExit
 	if err != nil {
-		return exit, corpusReport{}, err
+		return judgment, err
 	}
 	report, ok := parseCorpusReport(out)
 	if !ok {
-		return exit, corpusReport{}, fmt.Errorf("unparseable evaluate output: %s", tail(out, 800))
+		// A harness that exited nonzero routinely produces output evaluate
+		// cannot score; report that as the harness failure it is rather than
+		// as an unparseable-output mystery.
+		if harnessExit != 0 {
+			return judgment, fmt.Errorf("harness exit=%d and evaluate output unparseable: %s",
+				harnessExit, tail(out, 800))
+		}
+		return judgment, fmt.Errorf("unparseable evaluate output: %s", tail(out, 800))
 	}
-	return exit, report, nil
+	judgment.Report = report
+	return judgment, nil
 }
 
 func tail(s string, n int) string {

@@ -440,7 +440,7 @@ func CuratedMutations() []Mutation {
 				"                .map_err(|_| TypedProtocolFailure::java_invalid_data(1007))?;",
 			Replace: "let text = Charsetfunctions::string_utf8(payload.clone())\n" +
 				"                .unwrap_or_else(|_| String::from_utf8_lossy(&payload).into_owned());",
-			Note:    "the fin-time strict UTF-8 boundary gate degrades to lossy decoding",
+			Note: "the fin-time strict UTF-8 boundary gate degrades to lossy decoding",
 		},
 		{
 			// US-014 AC5 "double-delivery".
