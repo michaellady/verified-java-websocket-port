@@ -157,14 +157,19 @@ const clientHandshakeSafety = " SAFETY: the client response path is bounded by t
 // server-side helper, the Java value is NOT "accept": the mapping records
 // these rows as `conditional`, because the check simply does not exist in the
 // Java client path and the outcome is decided by the checks that do run.
-func clientHandshakeDefinition(key, family, subject, javaRef, rfcExpectation, javaObservation, seed, rationale string, rfcRefs []string) Definition {
+// clientHandshakeDefinition builds one client-direction record for a case
+// where the RFC-derived model and shipped Java genuinely disagree about
+// whether the response is a well-formed HTTP message. Unlike the server-side
+// helper, the Java value is NOT "accept": the mapping records these rows as
+// `conditional`, because the check simply does not exist in the Java client
+// path and the outcome is decided by the checks that do run.
+func clientHandshakeDefinition(key, family, subject, javaRef, rfcExpectation, rfcValue, javaObservation, seed, rationale string, rfcRefs []string) Definition {
 	return Definition{
 		Subject:        subject,
 		RFCRefs:        rfcRefs,
 		RFCExpectation: rfcExpectation,
-		RFCValue: "reject: refuse the server's opening handshake for this reason and fail the WebSocket " +
-			"connection (the connection never reaches Open)",
-		JavaRef: javaRef,
+		RFCValue:       rfcValue,
+		JavaRef:        javaRef,
 		JavaObservation: javaObservation + " " +
 			replaceKey(clientMappingEvidence, key) + " (family " + family + ").",
 		JavaValue: "conditional: the check does not exist in the Java client path, so the observable is decided " +
@@ -197,13 +202,72 @@ func replaceKey(template, key string) string {
 	return out
 }
 
+// clientLimitDefinition builds one client-direction record for a HANDSHAKE
+// BUDGET. These are a different KIND of record from the ones above and the
+// distinction is the substance of review round 2 (session
+// 01a0464f-6222-7d11-8527-b1ebebb23aa2): RFC 6455 mandates NO handshake
+// size, header-count or header-line limit anywhere, so there is no RFC
+// requirement for Java to fall short of. The port is STRICTER than shipped
+// Java here, which makes these safe-strengthening records in the shape of
+// sequence 44, not leniency-emulation records.
+//
+// The earlier drafts of these records cited RFC 6455 section 10.4 as
+// "expecting implementations to enforce implementation-specific limits on
+// handshake inputs". That was wrong twice over and is corrected here: 10.4
+// reads "Implementations of WebSocket clients and servers may implement limits
+// on the sizes of frames and messages they are willing to accept", which is
+// (a) permissive, not an expectation, and (b) scoped to FRAMES AND MESSAGES,
+// not to the opening handshake.
+func clientLimitDefinition(key, family, subject, javaObservation, seed, rationale string) Definition {
+	return Definition{
+		Subject: subject,
+		RFCRefs: []string{"rfc6455#section-4.1", "rfc6455#section-4.2.2"},
+		RFCExpectation: "RFC 6455 imposes NO limit on the opening handshake's total size, header count, or " +
+			"header-line length, in either direction. Section 4.1 and section 4.2.2 govern the client's generation " +
+			"and validation of the opening handshake and prescribe required fields and their values, never a size " +
+			"bound. The one clause that speaks about limits, section 10.4 (Implementation-Specific Limits), reads " +
+			"\"Implementations of WebSocket clients and servers may implement limits on the sizes of frames and " +
+			"messages they are willing to accept\" — permissive rather than mandatory, and scoped to FRAMES AND " +
+			"MESSAGES, not to the handshake. The wider HTTP layer likewise leaves any field-section bound to the " +
+			"implementation. There is therefore no RFC requirement here for shipped Java to fall short of.",
+		RFCValue: "no-requirement: the RFC prescribes no handshake head-size, header-count or header-line bound, so " +
+			"both an unbounded parser and a budgeted one conform",
+		JavaRef: "org.java_websocket.drafts.Draft:translateHandshakeHttp",
+		JavaObservation: javaObservation + " " +
+			replaceKey(clientMappingEvidence, key) + " (family " + family + ").",
+		JavaValue: "unbounded: shipped Java applies no handshake byte, header-count or header-line limit on either " +
+			"direction, so the head grows with whatever the peer sends",
+		AutobahnRefs: []string{"autobahn-v25.10.1:1.1.1"},
+		Rationale: "SAFE STRENGTHENING, NOT A LENIENCY DIVERGENCE (client handshake, " + family +
+			"; mapping-row direction=server_response key=" + key + "): " + rationale +
+			" DIRECTION OF THE DIFFERENCE: the port is STRICTER than shipped Java, so this record has the shape of " +
+			"the pre-open refusal record rather than of the handshake-leniency records — it discloses a bound the " +
+			"port ADDS, not an RFC rule shipped Java ignores. WHAT THE MAPPING'S rfc_verdict MEANS HERE, stated " +
+			"because it is easy to misread: evidence/us005-handshake-live-mapping.json records rfc_verdict=reject for " +
+			"this key, but that is the verdict of the corpus's RFC-DERIVED GO MODEL, which enforces the configured " +
+			"budgets; it is NOT an RFC mandate, and no RFC clause requires rejecting an over-budget handshake. " +
+			"WS_CORE SITE: rust/ws-core/src/handshake/client.rs ClientHandshake::consume routes every transport chunk " +
+			"through HeadAccumulator::push (rust/ws-core/src/handshake/http.rs), which checks the total-byte, " +
+			"header-line and header-count budgets BEFORE buffering each byte and returns " +
+			"ClientHandshakeOutcome::LimitExceeded naming the first refused budget. Pinned by " +
+			"rust/ws-core/tests/handshake_seeds.rs::us010_client_seeds_replay_with_java_model_expectations, seed " +
+			"rust/ws-core/fuzz-seeds/us010/" + seed + ".hex, which runs at HandshakeLimits::hard_ceilings where the " +
+			"parser reproduces Java's no-limit behaviour within the pinned ceilings. HONEST GAP, recorded rather " +
+			"than glossed: the CLIENT path has no configured-budget refusal test of its own; the only committed " +
+			"budget-refusal pin is the server's " +
+			"(rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit), and the client " +
+			"shares the same HeadAccumulator by construction, not by test. SAFETY: the bound is the point — it is " +
+			"retained deliberately under the owner amendment's rule that checked config limits are not relaxed, and " +
+			"it converts Java's unbounded head growth into a typed refusal under forbid(unsafe_code)." + ownerDecision,
+	}
+}
+
 // clientHandshakeDefinitions are the six divergent `server_response` rows —
 // the whole client-handshake direction that G3c found unledgered.
 func clientHandshakeDefinitions() []Definition {
 	readLineRef := "org.java_websocket.drafts.Draft:readLine"
 	translateHTTP := "org.java_websocket.drafts.Draft:translateHandshakeHttp"
 	section41 := []string{"rfc6455#section-4.1", "rfc6455#section-4.2.2"}
-	section104 := []string{"rfc6455#section-10.4"}
 
 	noLimits := "Java-WebSocket 1.6.0 has no handshake byte, header-count or header-line limit on EITHER " +
 		"direction: translateHandshakeHttp reads unboundedly (Draft.java:70-132) and the client read loop grows " +
@@ -211,75 +275,67 @@ func clientHandshakeDefinitions() []Definition {
 		"size, or to capacity+16 when it is zero, and never refuses)."
 
 	return []Definition{
-		clientHandshakeDefinition("HS_LIMIT_TOTAL_BYTES", "limit-total-bytes",
-			"org.java-websocket.draft6455.client-handshake.limit-total-bytes", translateHTTP,
-			"RFC 6455 section 10.4 expects implementations to enforce implementation-specific limits on handshake "+
-				"inputs before committing resources; the RFC-derived model rejects an over-budget server response "+
-				"(HS_LIMIT_TOTAL_BYTES).",
-			noLimits+" The over-budget response is therefore parsed in full and its acceptance is decided by "+
+		clientLimitDefinition("HS_LIMIT_TOTAL_BYTES", "limit-total-bytes",
+			"org.java-websocket.draft6455.client-handshake.limit-total-bytes",
+			noLimits+" An over-budget response is therefore parsed in full and its acceptance is decided by "+
 				"basicAccept and the accept-value comparison alone.",
 			"total-limit",
-			"the RFC-derived model rejects the over-budget server response; the pinned Java client has no total-byte "+
-				"limit and lets the remaining checks decide. ws_core does NOT emulate the unbounded growth: it retains "+
-				"the CONFIGURED total-byte budget as a hard safety ceiling (JAVA_FAITHFUL_PLUS_SAFE — the owner "+
-				"amendment expressly does not relax checked config limits), and within that ceiling the parser "+
-				"reproduces Java's no-limit behavior. The seed replay runs at HandshakeLimits::hard_ceilings, where the "+
-				"seed is an incomplete head rather than a limit refusal, exactly as Java records it. HONEST GAP, "+
-				"recorded rather than glossed: the CLIENT path has no configured-budget refusal test of its own; the "+
-				"only committed budget-refusal pin is the server's "+
-				"(rust/ws-core/tests/handshake_server.rs::configured_budgets_refuse_with_the_named_limit), and the "+
-				"client shares the same HeadAccumulator by construction, not by test.",
-			section104),
-		clientHandshakeDefinition("HS_LIMIT_HEADER_COUNT", "limit-header-count",
-			"org.java-websocket.draft6455.client-handshake.limit-header-count", translateHTTP,
-			"RFC 6455 section 10.4 expects implementations to enforce implementation-specific limits on handshake "+
-				"inputs; the RFC-derived model rejects an over-count server response (HS_LIMIT_HEADER_COUNT).",
+			"the port retains a CONFIGURED total-byte budget for the handshake head; shipped Java has none and will "+
+				"grow the head for as long as the peer keeps sending.",
+		),
+		clientLimitDefinition("HS_LIMIT_HEADER_COUNT", "limit-header-count",
+			"org.java-websocket.draft6455.client-handshake.limit-header-count",
 			noLimits+" The header loop in translateHandshakeHttp (Draft.java:113-127) has no count bound, so extra "+
-				"response headers are simply stored and ignored.",
+				"response headers are simply stored and ignored. The recorded client seed carries three extra "+
+				"headers and is ACCEPTED at the pinned hard ceilings, exactly as shipped Java accepts it.",
 			"count-limit",
-			"the RFC-derived model rejects the over-count server response; the pinned Java client accepts it, because "+
-				"unknown extra headers are stored and never consulted. This is the sharpest of the three limit rows: "+
-				"the recorded client seed replay ACCEPTS (`extra headers are ignored and Java has no count limit`), so "+
-				"the divergence is an accept-vs-reject disagreement, not merely a difference in which check fires "+
-				"first. ws_core retains the CONFIGURED header-count budget as the safety ceiling "+
-				"(JAVA_FAITHFUL_PLUS_SAFE) and reproduces the accept within it.",
-			section104),
-		clientHandshakeDefinition("HS_LIMIT_HEADER_LINE_BYTES", "limit-header-line",
-			"org.java-websocket.draft6455.client-handshake.limit-header-line", readLineRef,
-			"RFC 6455 section 10.4 expects implementations to enforce implementation-specific limits on handshake "+
-				"inputs; the RFC-derived model rejects an over-length response header line "+
-				"(HS_LIMIT_HEADER_LINE_BYTES).",
-			noLimits+" readLine accumulates into a buffer sized from the remaining input and returns only on the CRLF "+
-				"pair (Draft.java:70-87), with no per-line ceiling.",
+			"the port retains a CONFIGURED header-count budget; shipped Java has none, and unknown extra headers are "+
+				"stored and never consulted.",
+		),
+		clientLimitDefinition("HS_LIMIT_HEADER_LINE_BYTES", "limit-header-line",
+			"org.java-websocket.draft6455.client-handshake.limit-header-line",
+			noLimits+" readLine accumulates into a buffer sized from the remaining input and returns only on the "+
+				"CRLF pair (Draft.java:70-87), with no per-line ceiling.",
 			"line-limit",
-			"the RFC-derived model rejects the over-length header line; the pinned Java client has no line limit and "+
-				"lets the remaining checks decide. ws_core retains the CONFIGURED per-line budget as the safety "+
-				"ceiling (JAVA_FAITHFUL_PLUS_SAFE); at hard ceilings the seed is an incomplete head, exactly as Java "+
-				"records it.",
-			section104),
+			"the port retains a CONFIGURED per-line budget; shipped Java has none and will accumulate a single "+
+				"header line without bound.",
+		),
 		clientHandshakeDefinition("HS_BARE_LF", "bare-lf",
 			"org.java-websocket.draft6455.client-handshake.bare-lf", readLineRef,
-			"RFC 6455 section 4.1 requires the client to validate the server's opening handshake, and section 4.2.2 "+
-				"requires that handshake to be a valid HTTP/1.1 response; RFC 9112 section 2.2 terminates lines with "+
-				"CRLF and forbids a bare LF as a line terminator, so a bare-LF response is malformed and must be "+
-				"refused.",
+			"RFC 9112 section 2.2 makes bare-LF handling a RECIPIENT CHOICE, not a rejection requirement: "+
+				"\"Although the line terminator for the start-line and fields is the sequence CRLF, a recipient MAY "+
+				"recognize a single LF as a line terminator and ignore any preceding CR.\" A recipient that exercises "+
+				"that MAY parses this LF-only response as a complete, well-formed 101 with an Upgrade field; a "+
+				"recipient that declines to exercise it never completes a line at all. RFC 6455 section 4.1 and "+
+				"section 4.2.2 require the client to validate the server's handshake as a valid HTTP response but add "+
+				"no bare-LF rule of their own.",
+			"recipient-choice: RFC 9112 section 2.2 permits but does not require recognizing a bare LF as a line "+
+				"terminator, so accepting the response and never completing it are both conformant",
 			"Draft.readLine returns a line ONLY on the CR-LF pair (Draft.java:78, `prev == '\\r' && cur == '\\n'`), so "+
-				"a bare LF is an ordinary payload byte and its line folds into the following CRLF-terminated line as "+
-				"one header. Java never refuses for the bare LF itself. The mapping records the client-side "+
-				"consequence explicitly: unlike the server side, basicAccept still checks Upgrade and Connection "+
-				"(Draft.java:188-191), so a folded response usually rejects NOT_MATCHED — for the WRONG reason, "+
-				"through the wrong channel, and only when the fold happens to damage one of those two fields.",
+				"shipped Java declines RFC 9112 section 2.2's MAY. It does not refuse the message either: the LF is "+
+				"an ordinary content byte, no line ever terminates, and translateHandshakeHttp raises "+
+				"IncompleteHandshakeException, so the recorded observable for the LF-only seed is INCOMPLETE — the "+
+				"client waits for bytes that will never arrive. Where a bare LF appears mid-message rather than "+
+				"throughout, the same rule folds it into the following CRLF-terminated line, putting an LF octet "+
+				"inside a field value, which RFC 9110 section 5.5 does not admit (\"Field values containing CR, LF, "+
+				"or NUL characters are invalid and dangerous\").",
 			"bare-lf",
-			"the RFC-derived model rejects the bare-LF response as malformed; the pinned Java client folds it and "+
-				"judges the folded result. The divergence survives even where the folded outcome is also a rejection, "+
-				"because the RFC reject and the Java reject have different causes and different channels, and a fold "+
-				"that leaves Upgrade, Connection and Sec-WebSocket-Accept intact is accepted outright.",
+			"the corpus's RFC-derived model rejects the bare-LF response (HS_BARE_LF); shipped Java neither rejects "+
+				"nor accepts it but stalls as an incomplete head, and the port reproduces that stall. THE NORMATIVE "+
+				"POSITION IS NARROWER THAN AN EARLIER DRAFT OF THIS RECORD CLAIMED, and the correction is the point: "+
+				"that draft said RFC 9112 section 2.2 \"forbids a bare LF as a line terminator, so a bare-LF response "+
+				"is malformed and must be refused\". It does not — it expressly PERMITS recognizing one. Declining "+
+				"the MAY, as Java does, is conformant. What is recorded here is therefore a MODEL-versus-JAVA "+
+				"divergence at a point the RFC leaves to the recipient, plus the genuine field-value violation the "+
+				"mid-message fold produces.",
 			section41),
 		clientHandshakeDefinition("HS_HEADER_NAME_NOT_TOKEN", "header-name-not-token",
 			"org.java-websocket.draft6455.client-handshake.header-name-not-token", translateHTTP,
-			"RFC 6455 section 4.1/4.2.2 requires the server's handshake to be a valid HTTP response; RFC 9112 "+
-				"section 5 requires header field names to be HTTP tokens, so a non-token field name makes the message "+
-				"invalid and the client must refuse it.",
+			"RFC 6455 section 4.1/4.2.2 requires the server's handshake to be a valid HTTP response; RFC 9110 "+
+				"section 5.1 defines `field-name = token`, so a field name containing a space is not a field name at "+
+				"all and the message is malformed.",
+			"reject: refuse the server's opening handshake for this reason and fail the WebSocket connection (the "+
+				"connection never reaches Open)",
 			"Java performs no header-name token validation on either direction: translateHandshakeHttp splits each "+
 				"line on the FIRST colon and stores whatever precedes it as the field name, unvalidated "+
 				"(Draft.java:113-127); the only parse-level header rejection in the whole path is a line with no colon "+
@@ -287,123 +343,111 @@ func clientHandshakeDefinitions() []Definition {
 				"look up, and the observable is decided by basicAccept and the accept comparison.",
 			"invalid-token",
 			"the RFC-derived model rejects the non-token header name; the pinned Java client stores it unvalidated. "+
-				"The recorded client seed makes the mechanism visible: `Up grade` is stored as a field named `Up grade`, "+
-				"so the lookup for `Upgrade` finds nothing and basicAccept rejects NOT_MATCHED — again the right "+
-				"outcome for the wrong reason, and a non-token name on any header the client does not consult is "+
-				"accepted outright.",
+				"The recorded client seed makes the mechanism visible: `Up grade` is stored as a field named "+
+				"`Up grade`, so the lookup for `Upgrade` finds nothing and basicAccept rejects NOT_MATCHED — the "+
+				"right outcome for the wrong reason, and a non-token name on any header the client does not consult "+
+				"is accepted outright.",
 			section41),
 		clientHandshakeDefinition("HS_DUPLICATE_HEADER", "duplicate-header",
 			"org.java-websocket.draft6455.client-handshake.duplicate-header", translateHTTP,
 			"RFC 6455 section 4.1/4.2.2 requires the client to validate the server's handshake as a valid HTTP "+
-				"response; RFC 9110 section 5.3 forbids consuming a duplicated singleton field such as "+
-				"Sec-WebSocket-Accept as one combined value, so a duplicated field must be refused.",
+				"response. RFC 9110 section 5.3 says a sender \"MUST NOT generate multiple field lines with the same "+
+				"name in a message ... unless that field's definition allows multiple field line values to be "+
+				"recombined as a comma-separated list\", and where a recipient does combine them it does so "+
+				"\"separated by a comma (\\\",\\\") and optional whitespace\". Sec-WebSocket-Accept and Upgrade are "+
+				"not list-valued, so a response duplicating either violates the sender rule, and the comma is the "+
+				"only combination separator the RFC specifies.",
+			"malformed-message-or-comma-combine: the duplicated non-list field breaks RFC 9110 section 5.3's sender "+
+				"rule, and a recipient that chooses to combine duplicates must use a comma",
 			"translateHandshakeHttp joins a repeated field into one value with the literal separator \"; \" "+
 				"(Draft.java:119-125, `getFieldValue(pair[0]) + \"; \" + pair[1]`), on the client direction exactly as "+
-				"on the server direction. The mapping records the client-side consequence: a duplicated "+
-				"Sec-WebSocket-Accept joins to a string that cannot equal the single derived key, so it rejects "+
-				"NOT_MATCHED, while a duplicated Upgrade joins to `websocket; websocket`, which fails basicAccept's "+
-				"equalsIgnoreCase.",
+				"on the server direction — a separator RFC 9110 section 5.3 does not specify. The mapping records the "+
+				"client-side consequence: a duplicated Sec-WebSocket-Accept joins to a string that cannot equal the "+
+				"single derived key, so it rejects NOT_MATCHED, while a duplicated Upgrade joins to "+
+				"`websocket; websocket`, which fails basicAccept's equalsIgnoreCase.",
 			"duplicate-casing",
-			"the RFC-derived model rejects the duplicated field; the pinned Java client joins and judges the joined "+
-				"value. The rejection is a side effect of the join producing an unmatchable string, not a duplicate "+
-				"check — so a field duplicated where the join is harmless (Connection, which is only tested with "+
-				"`contains(\"upgrade\")`) is accepted outright.",
+			"the RFC-derived model rejects the duplicated field; the pinned Java client combines it with a "+
+				"non-specified separator and judges the joined value. The rejection is a side effect of the join "+
+				"producing an unmatchable string, not a duplicate check — so a field duplicated where the join is "+
+				"harmless (Connection, which is only tested with `contains(\"upgrade\")`) is accepted outright. AN "+
+				"EARLIER DRAFT OF THIS RECORD OVERSTATED THE RFC: it said section 5.3 \"forbids consuming a "+
+				"duplicated singleton field as one combined value, so a duplicated field must be refused\". Section "+
+				"5.3 does not forbid combining — it permits it and fixes the separator — and it places the MUST NOT "+
+				"on the SENDER, not a must-refuse on the recipient.",
 			section41),
 	}
 }
 
-// messageFramingHeaderDefinitions ledger the two smuggling-shaped seeds
-// individually (G3d). They are the same lenient-parse class as the existing
-// server-handshake records, but the class they belong to is specifically HTTP
-// message framing, which has its own safety consequence, so they are recorded
-// on their own terms rather than folded into the class records.
+// messageFramingHeaderDefinitions ledger the Transfer-Encoding smuggling seed
+// (G3d).
+//
+// THE CONTENT-LENGTH RECORD THAT USED TO LIVE HERE WAS WITHDRAWN in review
+// round 2 (session 01a0464f-6222-7d11-8527-b1ebebb23aa2), and the withdrawal
+// is deliberate rather than a rewording. Its seed is
+// `GET / HTTP/1.1\r\nContent-Length: 0\r\n\r\n`, and RFC 9112 section 6.3
+// makes `Content-Length: 0` a perfectly valid declaration of a zero-length
+// body. There is no body to consume and nothing to reject: the RFC, shipped
+// Java and the port all agree that this request carries no content. The record
+// therefore documented a divergence that does not exist, and a record asserting
+// a false divergence is worse than a missing one — especially once its
+// preimage is hashed into the chain as evidence. It is gone rather than
+// re-scoped into something defensible.
+//
+// The Transfer-Encoding record survives because its divergence is real, but its
+// normative basis was wrong and is corrected below.
 func messageFramingHeaderDefinitions() []Definition {
-	translateHTTP := "org.java_websocket.drafts.Draft:translateHandshakeHttp"
-	section421 := []string{"rfc6455#section-4.2.1"}
-
-	neverExamined := "Java-WebSocket 1.6.0 never examines HTTP message-framing headers on the handshake path. " +
-		"translateHandshakeHttp (Draft.java:70-132) splits every line on the first colon and stores the pair into an " +
-		"opaque HandshakeBuilder field map; nothing downstream reads it. This is verifiable by absence over the whole " +
-		"pinned tree, and the absence was checked rather than assumed: the ONLY occurrence of the string " +
-		"\"Content-Length\" anywhere in src/main/java is in the OUTBOUND error-response builder " +
-		"(WebSocketImpl.java:458, which writes a Content-Length on the HTTP error page it sends), and the string " +
-		"\"Transfer-Encoding\" does not occur anywhere in the tree at all. No request body is ever read: " +
-		"acceptHandshakeAsServer checks only Sec-WebSocket-Version == 13 (Draft_6455.java:262-286) and " +
-		"postProcessHandshakeResponseAsServer requires only a non-empty Sec-WebSocket-Key (Draft_6455.java:432-441), " +
-		"and every byte after the terminating CRLFCRLF is handed to the frame decoder as remainder."
-
-	safety := " SAFETY: ws_core is a WebSocket protocol core, never an HTTP intermediary — it does not forward the " +
-		"request, does not read a body, and hands the post-head bytes to the frame layer as an explicit remainder " +
-		"(rust/ws-core/src/handshake/server.rs), so no body-versus-frame confusion exists INSIDE the core, and the " +
-		"handshake head itself stays inside the configured budgets under forbid(unsafe_code). The residual risk is " +
-		"recorded rather than dismissed: a deployment that fronts this core with an HTTP intermediary which DOES " +
-		"honour these framing fields could desynchronize the two parsers, which is the classic request-smuggling " +
-		"shape. That is a deployment-topology concern above the core, and it is named here so the divergence is not " +
-		"mistaken for a benign parse quirk."
-
 	return []Definition{
 		{
-			Subject: "org.java-websocket.draft6455.server-handshake.content-length-ignored",
-			RFCRefs: section421,
-			RFCExpectation: "RFC 6455 section 4.2.1 requires the server to read the client's opening handshake as an " +
-				"HTTP/1.1 request and to return an HTTP error response when the request is invalid. RFC 9112 section 6 " +
-				"makes Content-Length a message-framing field a recipient MUST use to determine body length, and " +
-				"requires a recipient that cannot determine the framing to reject the message. A handshake request " +
-				"carrying Content-Length declares a body the WebSocket upgrade has no place for, so an RFC-conformant " +
-				"server must act on that framing rather than ignore it.",
-			RFCValue: "reject-or-consume: honour the declared message framing (refuse the upgrade, or consume the " +
-				"declared body before the frame stream begins)",
-			JavaRef: translateHTTP,
-			JavaObservation: neverExamined + " RECORDED INPUT: the borrowed smuggling-shaped seed " +
-				"rust/ws-core/fuzz-seeds/us011/content-length.hex, byte-verbatim " +
-				"\"GET / HTTP/1.1\\r\\nContent-Length: 0\\r\\n\\r\\n\". Its recorded outcome in the committed replay is " +
-				"NOT_MATCHED — and the cause is recorded precisely, because it matters: the rejection comes from the " +
-				"ABSENT Sec-WebSocket-Version, not from the Content-Length line, which is parsed into the field map " +
-				"and never consulted. The seeds `extension`, `subprotocol` and `valid-plus-suffix` in the same replay " +
-				"show that an otherwise-complete request with unconsulted extra headers accepts.",
-			JavaValue: "ignore: the message-framing field is parsed into the field map and never read; it can " +
-				"neither cause nor prevent acceptance",
-			AutobahnRefs: []string{"autobahn-v25.10.1:1.1.1"},
-			Rationale: "DIVERGENCE (server handshake, Content-Length ignored): the RFC requires the handshake to be " +
-				"processed as a valid HTTP request whose declared message framing is honoured; shipped Java parses the " +
-				"field into an opaque map and never reads it. This is the same lenient-parse class as the existing " +
-				"never-examined server-handshake records, ledgered individually here because HTTP message framing " +
-				"carries a distinct safety consequence that the class records do not name. WS_CORE SITE: " +
-				"rust/ws-core/src/handshake/server.rs over rust/ws-core/src/handshake/http.rs (parse_java_head) " +
-				"emulates the ignore exactly; pinned byte-for-byte by " +
-				"rust/ws-core/tests/handshake_seeds.rs::us011_server_seeds_replay_with_java_model_expectations, whose " +
-				"recorded reason for this seed is \"Java ignores Content-Length entirely; the missing version rejects " +
-				"NOT_MATCHED\"." + safety + ownerDecision,
-		},
-		{
 			Subject: "org.java-websocket.draft6455.server-handshake.transfer-encoding-ignored",
-			RFCRefs: section421,
+			RFCRefs: []string{"rfc6455#section-4.2.1"},
 			RFCExpectation: "RFC 6455 section 4.2.1 requires the server to read the client's opening handshake as an " +
-				"HTTP/1.1 request and to refuse an invalid one. RFC 9112 section 6.1 makes Transfer-Encoding a " +
-				"message-framing field: a server that receives a Transfer-Encoding it cannot process MUST respond 501, " +
-				"and a request whose framing is ambiguous MUST be rejected. Ignoring the field is not an option the " +
-				"RFC offers.",
-			RFCValue: "reject-or-consume: honour the declared transfer coding (refuse the upgrade, or decode the " +
-				"declared body before the frame stream begins)",
-			JavaRef: translateHTTP,
-			JavaObservation: neverExamined + " RECORDED INPUT: the borrowed smuggling-shaped seed " +
+				"HTTP request and to refuse an invalid one. RFC 9112 section 6.3 then governs this exact message: " +
+				"\"If a Transfer-Encoding header field is present in a request and the chunked transfer coding is not " +
+				"the final encoding, the message body length cannot be determined reliably; the server MUST respond " +
+				"with the 400 (Bad Request) status code and then close the connection.\" This request carries " +
+				"`Transfer-Encoding: identity`, in which chunked is not the final encoding — it is absent entirely — " +
+				"so the MUST 400 rule applies and the message length is unresolvable. Ignoring the field is not an " +
+				"option the RFC offers.",
+			RFCValue: "reject: respond 400 (Bad Request) and close, because the message body length cannot be " +
+				"determined reliably",
+			JavaRef: "org.java_websocket.drafts.Draft:translateHandshakeHttp",
+			JavaObservation: "Java-WebSocket 1.6.0 never examines HTTP message-framing headers on the handshake path. " +
+				"translateHandshakeHttp (Draft.java:70-132) splits every line on the first colon and stores the pair " +
+				"into an opaque HandshakeBuilder field map; nothing downstream reads it. The absence was checked over " +
+				"the whole pinned tree rather than assumed: the string \"Transfer-Encoding\" does not occur anywhere " +
+				"in src/main/java, in either direction, so no code path exists that could act on it, and no transfer " +
+				"decoding of any kind exists on the handshake path. No request body is ever read: " +
+				"acceptHandshakeAsServer checks only Sec-WebSocket-Version == 13 (Draft_6455.java:262-286) and " +
+				"postProcessHandshakeResponseAsServer requires only a non-empty Sec-WebSocket-Key " +
+				"(Draft_6455.java:432-441), and every byte after the terminating CRLFCRLF is handed to the frame " +
+				"decoder as remainder. RECORDED INPUT: the borrowed smuggling-shaped seed " +
 				"rust/ws-core/fuzz-seeds/us011/transfer-encoding.hex, byte-verbatim " +
 				"\"GET / HTTP/1.1\\r\\nTransfer-Encoding: identity\\r\\n\\r\\n\". Its recorded outcome is NOT_MATCHED, " +
-				"caused by the ABSENT Sec-WebSocket-Version and not by the Transfer-Encoding line. The absence " +
-				"evidence is stronger here than for Content-Length: the string \"Transfer-Encoding\" occurs NOWHERE in " +
-				"the pinned src/main/java tree, in either direction, so there is no code path that could act on it.",
-			JavaValue: "ignore: the transfer-coding field is parsed into the field map and never read; no chunked or " +
-				"other transfer decoding exists anywhere on the handshake path",
+				"caused by the ABSENT Sec-WebSocket-Version and not by the Transfer-Encoding line.",
+			JavaValue: "ignore: the transfer-coding field is parsed into the field map and never read; the 400 the " +
+				"RFC requires is never sent and the request proceeds to the WebSocket checks",
 			AutobahnRefs: []string{"autobahn-v25.10.1:1.1.1"},
-			Rationale: "DIVERGENCE (server handshake, Transfer-Encoding ignored): the RFC requires an unprocessable " +
-				"transfer coding to be refused; shipped Java has no transfer-coding handling at all and the field is " +
-				"inert. Ledgered individually alongside the Content-Length record for the same reason: the " +
-				"lenient-parse class records do not name the message-framing safety consequence. WS_CORE SITE: " +
+			Rationale: "DIVERGENCE (server handshake, Transfer-Encoding ignored): RFC 9112 section 6.3 requires a 400 " +
+				"and a close when a request's Transfer-Encoding does not end in chunked; shipped Java has no " +
+				"transfer-coding handling at all and the field is inert. WS_CORE SITE: " +
 				"rust/ws-core/src/handshake/server.rs over rust/ws-core/src/handshake/http.rs (parse_java_head) " +
 				"emulates the ignore exactly; pinned by " +
 				"rust/ws-core/tests/handshake_seeds.rs::us011_server_seeds_replay_with_java_model_expectations, whose " +
 				"recorded reason for this seed is \"Transfer-Encoding is ignored; the missing version rejects " +
-				"NOT_MATCHED\"." + safety + ownerDecision,
+				"NOT_MATCHED\". NORMATIVE CORRECTION, recorded because the superseded preimage is part of this " +
+				"chain's history: an earlier draft of this record cited RFC 9112 section 6.1 and wrote that a server " +
+				"receiving an unrecognized transfer coding \"MUST respond with 501\". Section 6.1 says SHOULD, not " +
+				"MUST. The governing rule for this message is section 6.3's MUST 400, which is what the record now " +
+				"cites. The reviewer who caught it described the seed as a non-final-chunked request; that is the " +
+				"right rule but the seed's coding is `identity`, with chunked absent altogether, which lands in the " +
+				"same clause. SAFETY: ws_core is a WebSocket protocol core, never an HTTP intermediary — it does not " +
+				"forward the request, does not read a body, and hands the post-head bytes to the frame layer as an " +
+				"explicit remainder (rust/ws-core/src/handshake/server.rs), so no body-versus-frame confusion exists " +
+				"INSIDE the core, and the handshake head stays inside the configured budgets under " +
+				"forbid(unsafe_code). The residual risk is recorded rather than dismissed: a deployment that fronts " +
+				"this core with an HTTP intermediary which DOES honour this framing field could desynchronize the two " +
+				"parsers, which is the classic request-smuggling shape. That is a deployment-topology concern above " +
+				"the core, named here so the divergence is not mistaken for a benign parse quirk." + ownerDecision,
 		},
 	}
 }
