@@ -173,6 +173,7 @@
         "sandbox",
         "sany",
         "tlc",
+        "driver_log",
         "receipts",
         "window",
         "runtime_observed"
@@ -200,6 +201,11 @@
         },
         "tlc": {
           "$ref": "#/$defs/step"
+        },
+        "driver_log": {
+          "description": "The driver binary's own stdout receipt. It carries one RESULT line per checker invocation with the real exit status, and one per seeded defect with the outcome and the violated check, so every recorded exit code is bound to committed bytes rather than asserted.",
+          "type": "string",
+          "minLength": 1
         },
         "receipts": {
           "type": "array",
@@ -454,7 +460,8 @@
       "required": [
         "argv",
         "exit_code",
-        "observed"
+        "observed",
+        "receipt_path"
       ],
       "properties": {
         "argv": {
@@ -465,6 +472,11 @@
           "type": "integer"
         },
         "observed": {
+          "type": "string",
+          "minLength": 1
+        },
+        "receipt_path": {
+          "description": "The verbatim checker-output receipt this step's claims are bound to. The validator PARSES this file and compares its contents with the recorded exit, banners, and counts; a digest match alone is not acceptance.",
           "type": "string",
           "minLength": 1
         }

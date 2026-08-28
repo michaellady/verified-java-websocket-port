@@ -74,8 +74,25 @@
 \*     Modeled by the "invalid_utf8_reason" inbound class producing a
 \*     runtime_rejection whose reported code is 0 (absent).
 \*
-\* TWO REAL FINDINGS RECORDED, NOT SUPPRESSED.
-\*   FINDING 1 (Q14 normalization is observationally inert on the send
+\* FOUR REAL FINDINGS RECORDED, NOT SUPPRESSED.
+\*   FINDING A (this model's own RejectedSendDoesNotTransition was VACUOUS,
+\*   found by adversarial review in round 2). The first revision of that
+\*   invariant asserted only "poisoned and no send frame", which its own
+\*   declared mutation (adding state' = "Closing" to SendCloseRejected)
+\*   leaves true -- so the invariant did not constrain the transition its
+\*   name claims, and its falsification note was unsupported. This is the
+\*   SECOND instance of the same defect class in this lane, after the frame
+\*   model's MaskRoundTrip survivor, and it was found by a reviewer rather
+\*   than by the checker because the mutation had never been executed. The
+\*   invariant now carries state, close-detail, and outbound conjuncts, and
+\*   EVERY invariant and property in this module has since had a seeded
+\*   mutation executed against it.
+\*   FINDING B (PoisonNeverFabricatesTermination was SUBSUMED and is
+\*   removed). See the note beside the invariant list: it was implied by
+\*   TerminalEnteredAtMostOnce together with ClosedIffOneTerminalEntry, so
+\*   no mutation could ever kill it first. Removed rather than kept as an
+\*   uncheckable line in the count.
+\*   FINDING C (Q14 normalization is observationally inert on the send
 \*   path). The port's normalize_send_close_code rewrites 1015 to 1005 but,
 \*   unlike Java's CloseFrame.setCode (framing/CloseFrame.java:179-187),
 \*   does NOT also clear the reason (:184). The difference is inert: 1005
@@ -87,7 +104,8 @@
 \*   reason kinds, so the inertness is a checked fact rather than an
 \*   argument. Nothing is "fixed": the port's observable behavior matches
 \*   the fidelity authority.
-\*   FINDING 2 (the send-path rejection does not transition, by design).
+\*   FINDING D (the send-path rejection does not transition, by design --
+\*   AND THE OWNER HAS SINCE RULED ON IT).
 \*   Shipped Java's close(code, message, remote) catches the
 \*   InvalidDataException raised by closeFrame.isValid and then calls
 \*   flushAndClose(ABNORMAL_CLOSE, ...) followed by readyState = CLOSING
@@ -98,8 +116,22 @@
 \*   (internal/corpora/derive.go). That reference model is the binding
 \*   fidelity authority under the US-016 owner amendment, so the model
 \*   follows the port; the Java-side difference is stated here rather than
-\*   hidden, and it lives in the adapter layer's scope (US-018), not the
-\*   kernel's.
+\*   hidden. OWNER RULING, recorded at
+\*   protected/us012-us016-owner-decisions-2026-08-28-formal.json (sha256
+\*   d7a54e2c5aac48cc9ef1b3afa19d14593555e1fce7cb49fed69484ba24bfc352,
+\*   verified at read), decision id rejected-close-transition-divergence:
+\*   MATCH JAVA'S BEHAVIOR -- the PORT is to change so a rejected local
+\*   close enters CLOSING, with the full downstream chain re-verified and a
+\*   behavior-delta-ledger record either way. THAT PORT CHANGE HAS NOT
+\*   HAPPENED YET. This model deliberately still describes the SHIPPED
+\*   port, because a model that described an intended future behavior would
+\*   be a fabrication; RejectedSendDoesNotTransition is therefore a
+\*   TRUE-TODAY, EXPIRING invariant. When the port change lands, this
+\*   invariant must be INVERTED (a rejected send enters CLOSING and records
+\*   the abnormal-close detail) and this model re-run. Its own seeded
+\*   defect, defect.close.rejected-send-transitions, already encodes
+\*   exactly the post-change behavior, so the mutant that TLC kills today
+\*   is the shape the model must assert tomorrow.
 \*
 \* MODEL SCOPE. The model covers the US-016 obligations that are lifecycle
 \* facts: the local close path with its normalization and validity chain,
@@ -621,22 +653,43 @@ NeverConnectedOnlyPreHandshake ==
   /\ (closeDetail.code = -1) => (~handshakeDone /\ ~closeDetail.hsComplete)
   /\ lastOutbound.code # -1
 
-\* A rejected local close emits no frame and does not move the lifecycle:
-\* the failure is reported to the caller and the connection poisons in
-\* place (FINDING 2 in the header -- deliberately unlike Java's close(),
-\* and bound to the reference model by the US-016 owner amendment).
-\* FALSIFIED BY: defect.close.rejected-send-transitions -- add
-\*   state' = "Closing" to SendCloseRejected.
+\* A rejected local close LEAVES THE LIFECYCLE WHERE IT WAS: the state is
+\* still Open, no governing close outcome was recorded, no frame was
+\* emitted, and the connection is poisoned in place (FINDING 3 in the
+\* header -- deliberately unlike Java's close(), and bound to the reference
+\* model by the US-016 owner amendment).
+\*
+\* REVIEW ROUND 2 CORRECTION. The first revision of this invariant asserted
+\* only "poisoned and no send frame" and therefore did NOT constrain the
+\* transition at all: its own declared mutation (adding state' = "Closing"
+\* to SendCloseRejected) left the predicate true, so both the invariant's
+\* name and its falsification note were unsupported. That is the same
+\* defect class as the frame model's MaskRoundTrip survivor. The state and
+\* close-detail conjuncts below are what make the name honest, and the
+\* mutation now models the real Java behavior it is contrasted with.
+\* FALSIFIED BY: defect.close.rejected-send-transitions -- make
+\*   SendCloseRejected follow shipped Java's close() instead: set
+\*   state' = "Closing" and record the abnormal-close detail
+\*   (WebSocketImpl.java:488-503). The state conjunct then fails.
 RejectedSendDoesNotTransition ==
   (lastSend.outcome = "rejected")
-    => (poisoned /\ lastOutbound.kind # "send_close")
+    => /\ state = "Open"
+       /\ closeDetail.origin = "none"
+       /\ lastOutbound.kind = "none"
+       /\ poisoned
 
-\* The fatal-poison flag and the terminal state are independent absorbing
-\* facts, and poisoning never fabricates a terminal entry.
-\* FALSIFIED BY: defect.close.poison-implies-closed -- add
-\*   terminalEntries' = terminalEntries + 1 to RecvCloseRejectedOpen.
-PoisonNeverFabricatesTermination ==
-  (poisoned /\ state # "Closed") => (terminalEntries = 0)
+\* REMOVED IN REVIEW ROUND 2, recorded rather than silently dropped:
+\* PoisonNeverFabricatesTermination, which stated
+\*   (poisoned /\ state # "Closed") => (terminalEntries = 0).
+\* It is LOGICALLY SUBSUMED by the conjunction of TerminalEnteredAtMostOnce
+\* and ClosedIffOneTerminalEntry, and therefore cannot be independently
+\* falsified: any state with a nonzero terminal count outside CLOSED
+\* violates ClosedIffOneTerminalEntry when the count is 1 and
+\* TerminalEnteredAtMostOnce when it is 2 or more, so no mutation can reach
+\* a state that violates the subsumed predicate FIRST. Keeping it in the
+\* cfg would have inflated the checked-invariant count with a predicate
+\* that no seeded defect can ever kill. It is deleted, and the claim it
+\* made is still fully carried by the two invariants that subsume it.
 
 \* --------------------- checked temporal properties ------------------------
 \* These are action and liveness properties and are declared honestly as

@@ -182,6 +182,178 @@ func TestModelResultsDeepRuleFindings(t *testing.T) {
 	}
 }
 
+// --- receipt CONTENT binding (review round 2, BLOCKING-1) -------------------
+//
+// Hashing a receipt proves only that the bytes did not change since someone
+// wrote down their digest. It does not prove the bytes SAY what the results
+// document claims. These cases fabricate content while keeping every digest
+// internally consistent — exactly the attack the digest-only contract let
+// through — and require the validator to reject each one.
+
+// mrRewriteReceipt replaces a receipt's bytes AND re-points the results
+// document at the new digest and length, so the digest rules pass cleanly and
+// only content binding can catch the fabrication.
+func mrRewriteReceipt(t *testing.T, root string, binding ModelResultsBinding,
+	receiptPath string, transform func(string) string) {
+	t.Helper()
+	full := filepath.Join(root, filepath.FromSlash(receiptPath))
+	original, err := os.ReadFile(full)
+	if err != nil {
+		t.Fatalf("read receipt %s: %v", receiptPath, err)
+	}
+	rewritten := []byte(transform(string(original)))
+	if string(rewritten) == string(original) {
+		t.Fatalf("transform for %s changed nothing; the case would not test anything", receiptPath)
+	}
+	if err := os.WriteFile(full, rewritten, 0o644); err != nil {
+		t.Fatalf("write receipt %s: %v", receiptPath, err)
+	}
+	sum := sha256.Sum256(rewritten)
+	digest := "sha256:" + hex.EncodeToString(sum[:])
+
+	resultsPath := filepath.Join(root, filepath.FromSlash(binding.ResultsPath))
+	var document map[string]any
+	mrReadJSON(t, resultsPath, &document)
+	execution, _ := document["execution"].(map[string]any)
+	receipts, _ := execution["receipts"].([]any)
+	found := false
+	for _, entry := range receipts {
+		receipt, _ := entry.(map[string]any)
+		if receipt["path"] == receiptPath {
+			receipt["sha256"] = digest
+			receipt["bytes"] = float64(len(rewritten))
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("receipt %s is not listed in %s", receiptPath, binding.ResultsPath)
+	}
+	mrWriteJSON(t, resultsPath, document)
+}
+
+func TestModelResultsReceiptContentIsBound(t *testing.T) {
+	binding := ModelResultsBindings()[0]
+	var results modelResultsDocument
+	mrReadJSON(t, filepath.Join(us006RepoRoot(t), filepath.FromSlash(binding.ResultsPath)), &results)
+
+	cases := []struct {
+		name        string
+		receiptPath string
+		transform   func(string) string
+		code        string
+	}{
+		{
+			name:        "state counts that disagree with the TLC receipt block",
+			receiptPath: results.Execution.TLC.ReceiptPath,
+			transform: func(text string) string {
+				return strings.ReplaceAll(text, "states generated", "states generated ")
+			},
+			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+		},
+		{
+			name:        "a checker banner the receipt never printed blocks",
+			receiptPath: results.Execution.TLC.ReceiptPath,
+			transform: func(text string) string {
+				return strings.ReplaceAll(text, "TLC2 Version", "TLC2 Fabricated")
+			},
+			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+		},
+		{
+			name:        "a SANY receipt that never processed this module blocks",
+			receiptPath: results.Execution.SANY.ReceiptPath,
+			transform: func(text string) string {
+				return strings.ReplaceAll(text, "Semantic processing of module", "Skipped module")
+			},
+			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+		},
+		{
+			name:        "a TLC receipt reporting a violation under an empty violations list blocks",
+			receiptPath: results.Execution.TLC.ReceiptPath,
+			transform: func(text string) string {
+				return strings.ReplaceAll(text,
+					"Model checking completed. No error has been found.",
+					"Error: Invariant TypeInvariant is violated.")
+			},
+			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+		},
+		{
+			name:        "an exit code absent from the driver log blocks",
+			receiptPath: results.Execution.DriverLog,
+			transform: func(text string) string {
+				return strings.ReplaceAll(text, "RESULT step=tlc.FrameModel exit=0",
+					"RESULT step=tlc.FrameModel exit=7")
+			},
+			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+		},
+		{
+			name:        "a seeded-defect outcome the driver log contradicts blocks",
+			receiptPath: results.Execution.DriverLog,
+			transform: func(text string) string {
+				return strings.ReplaceAll(text, "outcome=Killed", "outcome=Survived")
+			},
+			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if testCase.receiptPath == "" {
+				t.Fatalf("case has no receipt path; the results document must name one")
+			}
+			root := mrStageTree(t, binding)
+			mrRewriteReceipt(t, root, binding, testCase.receiptPath, testCase.transform)
+			findings := ValidateModelResults(root, binding)
+			if !mrHasCode(findings, testCase.code) {
+				t.Fatalf("expected %s, got %+v", testCase.code, findings)
+			}
+		})
+	}
+}
+
+// A seeded defect whose own mutant receipt does not name the check it claims
+// to have killed must block.
+func TestModelResultsMutantReceiptNamesItsCheck(t *testing.T) {
+	binding := ModelResultsBindings()[1]
+	var results modelResultsDocument
+	mrReadJSON(t, filepath.Join(us006RepoRoot(t), filepath.FromSlash(binding.ResultsPath)), &results)
+	if len(results.SeededDefects) == 0 {
+		t.Fatal("fixture needs at least one seeded defect")
+	}
+	defect := results.SeededDefects[0]
+	root := mrStageTree(t, binding)
+	mrRewriteReceipt(t, root, binding, defect.ReceiptPath, func(text string) string {
+		return strings.ReplaceAll(text, defect.ViolatedCheck, "SomeOtherCheck")
+	})
+	findings := ValidateModelResults(root, binding)
+	if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
+		t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+	}
+}
+
+// Every checked invariant and property must have an EXECUTED seeded defect.
+// Round 2 established that an unexecuted falsification note is an assertion,
+// not evidence: two of them were vacuous.
+func TestEveryCheckHasAnExecutedSeededDefect(t *testing.T) {
+	root := us006RepoRoot(t)
+	for _, binding := range ModelResultsBindings() {
+		t.Run(binding.Module, func(t *testing.T) {
+			var results modelResultsDocument
+			mrReadJSON(t, filepath.Join(root, filepath.FromSlash(binding.ResultsPath)), &results)
+			covered := map[string]bool{}
+			for _, defect := range results.SeededDefects {
+				covered[defect.ViolatedCheck] = true
+			}
+			for _, entry := range append(append([]modelResultsCheck{}, results.Invariants...),
+				results.Properties...) {
+				if !covered[entry.Name] {
+					t.Errorf("%s has no executed seeded defect; its non-vacuity is asserted, not shown",
+						entry.Name)
+				}
+			}
+		})
+	}
+}
+
 // Dropping a checked invariant from the results document must block: the
 // results must account for EVERY check the shipped cfg runs, so a quietly
 // removed obligation cannot pass as a clean run.

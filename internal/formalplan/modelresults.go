@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -156,15 +157,17 @@ type modelResultsExecution struct {
 	Sandbox         string                `json:"sandbox"`
 	SANY            modelResultsStep      `json:"sany"`
 	TLC             modelResultsStep      `json:"tlc"`
+	DriverLog       string                `json:"driver_log"`
 	Receipts        []modelResultsReceipt `json:"receipts"`
 	Window          string                `json:"window"`
 	RuntimeObserved string                `json:"runtime_observed"`
 }
 
 type modelResultsStep struct {
-	Argv     string `json:"argv"`
-	ExitCode int    `json:"exit_code"`
-	Observed string `json:"observed"`
+	Argv        string `json:"argv"`
+	ExitCode    int    `json:"exit_code"`
+	Observed    string `json:"observed"`
+	ReceiptPath string `json:"receipt_path"`
 }
 
 type modelResultsReceipt struct {
@@ -470,6 +473,15 @@ func ValidateModelResults(root string, binding ModelResultsBinding) []ModelFindi
 				space.DistinctStates)))
 	}
 
+	// --- receipt CONTENT binding --------------------------------------------
+	// Digests prove only that bytes did not change since someone recorded
+	// their hash; they say nothing about what the bytes SAY. Review round 2
+	// (BLOCKING-1) found that digest-only acceptance lets a digest-valid but
+	// fabricated receipt through. Everything the document claims about the
+	// run is therefore re-read out of the checker's own output here, and a
+	// disagreement blocks.
+	findings = append(findings, modelResultsBindReceipts(root, binding, document)...)
+
 	// --- seeded defects: the non-vacuity evidence ---------------------------
 	// A check that no mutation can falsify establishes nothing, so every
 	// recorded mutation must have been RUN (its receipt digest-bound above),
@@ -541,6 +553,200 @@ func ValidateModelResults(root string, binding ModelResultsBinding) []ModelFindi
 		}
 	}
 
+	return modelResultsSorted(findings)
+}
+
+// TLC's own summary lines. These are the only authority for the state
+// counts and the search depth; the results document is checked against them,
+// never the other way round.
+var (
+	mrStateSummary = regexp.MustCompile(
+		`([0-9]+) states generated, ([0-9]+) distinct states found, ([0-9]+) states left on queue\.`)
+	mrDepthLine = regexp.MustCompile(
+		`The depth of the complete state graph search is ([0-9]+)\.`)
+	mrInvariantViolated = regexp.MustCompile(`Error: Invariant ([A-Za-z][A-Za-z0-9_]*) is violated`)
+	mrPropertyViolated  = regexp.MustCompile(`Error: Temporal property ([A-Za-z][A-Za-z0-9_]*) was violated`)
+	mrDriverResult      = regexp.MustCompile(`(?m)^RESULT step=([^\s]+) (.*)$`)
+
+	mrCleanVerdict = "Model checking completed. No error has been found."
+)
+
+// modelResultsBindReceipts re-reads every claim in the results document out
+// of the receipts it cites. A results document may only say what its
+// receipts say.
+func modelResultsBindReceipts(root string, binding ModelResultsBinding,
+	document modelResultsDocument) []ModelFinding {
+	var findings []ModelFinding
+	mismatch := func(detail string) {
+		findings = append(findings,
+			mpFinding("MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH", binding.ResultsPath, detail))
+	}
+	read := func(relative, label string) (string, bool) {
+		if relative == "" {
+			mismatch(label + " names no receipt; its claims are unbound")
+			return "", false
+		}
+		body, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
+		if err != nil {
+			mismatch(label + " receipt " + relative + " is not readable: " + err.Error())
+			return "", false
+		}
+		return string(body), true
+	}
+	listed := map[string]bool{}
+	for _, receipt := range document.Execution.Receipts {
+		listed[receipt.Path] = true
+	}
+	requireListed := func(relative, label string) {
+		if relative != "" && !listed[relative] {
+			mismatch(label + " receipt " + relative + " is not digest-bound in execution.receipts")
+		}
+	}
+	requireListed(document.Execution.SANY.ReceiptPath, "sany")
+	requireListed(document.Execution.TLC.ReceiptPath, "tlc")
+	requireListed(document.Execution.DriverLog, "driver_log")
+
+	// SANY: the recorded banner and the module it actually processed.
+	if text, ok := read(document.Execution.SANY.ReceiptPath, "sany"); ok {
+		if !strings.Contains(text, document.Backend.Tool.SANYBanner) {
+			mismatch("the sany receipt does not contain the recorded banner " +
+				strconv.Quote(document.Backend.Tool.SANYBanner))
+		}
+		if !strings.Contains(text, "Semantic processing of module "+binding.Module) {
+			mismatch("the sany receipt does not show semantic processing of module " + binding.Module)
+		}
+	}
+
+	// TLC: the recorded banner, the state counts, the depth, and whether the
+	// checker actually reported a clean verdict.
+	if text, ok := read(document.Execution.TLC.ReceiptPath, "tlc"); ok {
+		if !strings.Contains(text, document.Backend.Tool.TLCBanner) {
+			mismatch("the tlc receipt does not contain the recorded banner " +
+				strconv.Quote(document.Backend.Tool.TLCBanner))
+		}
+		summary := mrStateSummary.FindStringSubmatch(text)
+		if summary == nil {
+			mismatch("the tlc receipt carries no state-count summary line; the recorded counts are unbound")
+		} else {
+			for _, pair := range []struct {
+				label    string
+				recorded int
+				observed string
+			}{
+				{"states_generated", document.StateSpace.StatesGenerated, summary[1]},
+				{"distinct_states", document.StateSpace.DistinctStates, summary[2]},
+				{"states_left_on_queue", document.StateSpace.StatesLeftOnQueue, summary[3]},
+			} {
+				value, err := strconv.Atoi(pair.observed)
+				if err != nil || value != pair.recorded {
+					mismatch(fmt.Sprintf("%s: record says %d, the tlc receipt says %s",
+						pair.label, pair.recorded, pair.observed))
+				}
+			}
+		}
+		if depth := mrDepthLine.FindStringSubmatch(text); depth == nil {
+			mismatch("the tlc receipt carries no search-depth line; the recorded depth is unbound")
+		} else if value, err := strconv.Atoi(depth[1]); err != nil || value != document.StateSpace.Depth {
+			mismatch(fmt.Sprintf("depth: record says %d, the tlc receipt says %s",
+				document.StateSpace.Depth, depth[1]))
+		}
+		clean := strings.Contains(text, mrCleanVerdict)
+		if clean && len(document.Violations) != 0 {
+			mismatch("the tlc receipt reports a clean verdict but the record lists violations")
+		}
+		if !clean && len(document.Violations) == 0 {
+			reported := "no clean verdict"
+			if match := mrInvariantViolated.FindStringSubmatch(text); match != nil {
+				reported = "invariant " + match[1] + " violated"
+			} else if match := mrPropertyViolated.FindStringSubmatch(text); match != nil {
+				reported = "property " + match[1] + " violated"
+			}
+			mismatch("the record lists no violation but the tlc receipt shows " + reported)
+		}
+	}
+
+	// Each seeded defect's own mutant receipt must name the check it claims.
+	for _, defect := range document.SeededDefects {
+		text, ok := read(defect.ReceiptPath, "seeded defect "+defect.DefectID)
+		if !ok {
+			continue
+		}
+		named := ""
+		if match := mrInvariantViolated.FindStringSubmatch(text); match != nil {
+			named = match[1]
+		} else if match := mrPropertyViolated.FindStringSubmatch(text); match != nil {
+			named = match[1]
+		}
+		switch defect.Outcome {
+		case "Killed":
+			if named == "" {
+				mismatch("seeded defect " + defect.DefectID +
+					" is recorded Killed but its receipt names no violated check")
+			} else if named != defect.ViolatedCheck {
+				mismatch("seeded defect " + defect.DefectID + ": record says it killed " +
+					defect.ViolatedCheck + ", its receipt says " + named)
+			}
+		case "Survived":
+			if named != "" {
+				mismatch("seeded defect " + defect.DefectID +
+					" is recorded Survived but its receipt names violated check " + named)
+			}
+			if !strings.Contains(text, mrCleanVerdict) {
+				mismatch("seeded defect " + defect.DefectID +
+					" is recorded Survived but its receipt shows no clean verdict")
+			}
+		}
+	}
+
+	// The driver's own stdout is what binds the EXIT CODES: TLC prints no
+	// exit status, so without this the recorded exits would be pure
+	// assertion.
+	text, ok := read(document.Execution.DriverLog, "driver_log")
+	if !ok {
+		return modelResultsSorted(findings)
+	}
+	driver := map[string]string{}
+	for _, match := range mrDriverResult.FindAllStringSubmatch(text, -1) {
+		driver[match[1]] = match[2]
+	}
+	field := func(fields, key string) string {
+		for _, token := range strings.Fields(fields) {
+			if strings.HasPrefix(token, key+"=") {
+				return strings.TrimPrefix(token, key+"=")
+			}
+		}
+		return ""
+	}
+	requireExit := func(step string, recorded int, label string) string {
+		fields, present := driver[step]
+		if !present {
+			mismatch("the driver log has no RESULT line for " + step +
+				"; the recorded " + label + " exit is unbound")
+			return ""
+		}
+		if got := field(fields, "exit"); got != strconv.Itoa(recorded) {
+			mismatch(fmt.Sprintf("%s: record says exit %d, the driver log says exit %s",
+				label, recorded, got))
+		}
+		return fields
+	}
+	requireExit("sany."+binding.Module, document.Execution.SANY.ExitCode, "sany")
+	requireExit("tlc."+binding.Module, document.Execution.TLC.ExitCode, "tlc")
+	for _, defect := range document.SeededDefects {
+		fields := requireExit("mutant."+defect.DefectID, defect.ExitCode,
+			"seeded defect "+defect.DefectID)
+		if fields == "" {
+			continue
+		}
+		if got := field(fields, "outcome"); got != defect.Outcome {
+			mismatch("seeded defect " + defect.DefectID + ": record says outcome " +
+				defect.Outcome + ", the driver log says " + got)
+		}
+		if got := field(fields, "check"); defect.Outcome == "Killed" && got != defect.ViolatedCheck {
+			mismatch("seeded defect " + defect.DefectID + ": record says it killed " +
+				defect.ViolatedCheck + ", the driver log says " + got)
+		}
+	}
 	return modelResultsSorted(findings)
 }
 

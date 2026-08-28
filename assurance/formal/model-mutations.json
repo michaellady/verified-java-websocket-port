@@ -1,0 +1,400 @@
+{
+  "$schema": "../../schemas/formal-model-mutations-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "kind": "formal-model-mutations",
+  "statement": "The seeded-defect set for the US-012 frame model and the US-016 close model. There is EXACTLY ONE mutation per checked invariant and per checked property in each model's shipped cfg -- non-vacuity is established for the whole check set, not a sample. Each mutation is exact-string edit DATA applied by cmd/tlcdriver; the driver enforces the declared occurrence count and fails loudly on any mismatch, so a mutation cannot silently no-op. A mutation that the checker does NOT kill is a finding about the checks, never a footnote.",
+  "models": [
+    {
+      "module": "FrameModel",
+      "tla_path": "assurance/formal/frame-model.tla",
+      "cfg_path": "assurance/formal/frame-model.cfg"
+    },
+    {
+      "module": "CloseModel",
+      "tla_path": "assurance/formal/close-model.tla",
+      "cfg_path": "assurance/formal/close-model.cfg"
+    }
+  ],
+  "mutations": [
+    {
+      "defect_id": "defect.frame.type-domain-escape",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "TypeInvariant",
+      "rationale": "Init carries a close code outside FrameCloseCodes, so the declared finite domain is escaped in the initial state.",
+      "edits": [
+        {
+          "find": "  /\\ frame = NoWireFrame\n  /\\ verdict = NoVerdict\n",
+          "replace": "  /\\ frame = NoWireFrame\n  /\\ verdict = [status |-> \"none\", code |-> 1007, consumed |-> 0]\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.track-leak",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "TracksAreDisjoint",
+      "rationale": "MaskSelect loses its track guard, so a decode-track state can enter a mask phase and the two declared tracks mix.",
+      "edits": [
+        {
+          "find": "  /\\ track = \"mask\"\n  /\\ phase = \"idle\"\n  /\\ wirePayload' = p\n",
+          "replace": "  /\\ phase = \"idle\"\n  /\\ wirePayload' = p\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.action-adds-undeclared-rejection",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "VerdictMatchesDeclaredTable",
+      "rationale": "The accept action emits a rejection the declared table does not contain -- the shape an added RFC-strict rejection (non-minimal length, role masking, 64-bit high bit) would take.",
+      "edits": [
+        {
+          "find": "  /\\ PostPayloadRejection(frame) = Accepted\n  /\\ verdict' = Accepted\n",
+          "replace": "  /\\ PostPayloadRejection(frame) = Accepted\n  /\\ verdict' = Reject(1002, 2)\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.allocate-before-gate",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "AllocationRespectsHeaderGate",
+      "rationale": "The payload is reserved in StartFrame, before the header-time length gate has run, so an over-cap frame reserves beyond the configured cap.",
+      "edits": [
+        {
+          "find": "  /\\ allocated' = 0\n  /\\ phase' = \"header\"\n",
+          "replace": "  /\\ allocated' = LengthOctets(f.length)\n  /\\ phase' = \"header\"\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.late-length-gate",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "OverCapRejectedAtLengthSite",
+      "rationale": "The over-cap rejection moves from the length site to the full frame, which would mean the payload was read before the cap was enforced.",
+      "edits": [
+        {
+          "find": "  ELSE IF LengthOctets(f.length) > FramePayloadCap\n  THEN Reject(1009, LengthSite(f))\n",
+          "replace": "  ELSE IF LengthOctets(f.length) > FramePayloadCap\n  THEN Reject(1009, FrameOctets(f))\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.unknown-opcode-late-site",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "UnknownOpcodeRejectedAtBaseHeader",
+      "rationale": "The unknown-opcode rejection reports the length site instead of the two base header bytes, breaking the pinned runtime's observable consumed offset.",
+      "edits": [
+        {
+          "find": "  IF f.opcode = \"unknown\"\n  THEN Reject(1002, 2)\n",
+          "replace": "  IF f.opcode = \"unknown\"\n  THEN Reject(1002, LengthSite(f))\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.control-extended-marker-late-site",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "ControlOverLimitRejectedAtBaseHeader",
+      "rationale": "The control extended-marker rejection reports the length site instead of header byte 2, i.e. the extended length bytes would have been read before rejecting.",
+      "edits": [
+        {
+          "find": "  ELSE IF IsControl(f) /\\ f.marker # \"inline\"\n  THEN Reject(1002, 2)\n",
+          "replace": "  ELSE IF IsControl(f) /\\ f.marker # \"inline\"\n  THEN Reject(1002, LengthSite(f))\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.control-fin-not-checked",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "AcceptedControlFramesAreBounded",
+      "rationale": "The control-frame FIN check is deleted, so a fragmented control frame is accepted.",
+      "edits": [
+        {
+          "find": "  ELSE IF IsControl(f) /\\ ~f.fin\n  THEN Reject(1002, FrameOctets(f))\n  ELSE Accepted\n",
+          "replace": "  ELSE Accepted\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.consumed-overrun",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "ConsumedSiteIsDeclared",
+      "rationale": "The reserved-bit rejection claims to have consumed one octet more than the frame contains.",
+      "edits": [
+        {
+          "find": "  IF f.rsv\n  THEN Reject(1002, FrameOctets(f))\n",
+          "replace": "  IF f.rsv\n  THEN Reject(1002, FrameOctets(f) + 1)\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.mask-index-misalignment",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "MaskRoundTrip",
+      "rationale": "The mask key index is shifted by one while the independent reference equation is left intact. This is the mutation that SURVIVED the round-trip-only invariant in attempt 0127 and forced the model fix.",
+      "edits": [
+        {
+          "find": "MaskApply(payload, key) ==\n  [i \\in DOMAIN payload |-> Xor2(payload[i], key[1 + ((i - 1) % 4)])]\n",
+          "replace": "MaskApply(payload, key) ==\n  [i \\in DOMAIN payload |-> Xor2(payload[i], key[1 + (i % 4)])]\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.budget-reset",
+      "module": "FrameModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "FrameBudgetMonotone",
+      "rationale": "A reset action returns the retired-frame counter to zero, so decoding progress is no longer monotone.",
+      "edits": [
+        {
+          "find": "Next ==\n  \\/ \\E f \\in WireFrames : StartFrame(f)\n",
+          "replace": "MutantReset ==\n  /\\ track = \"decode\"\n  /\\ phase = \"idle\"\n  /\\ framesDone > 0\n  /\\ framesDone' = 0\n  /\\ UNCHANGED <<track, phase, frame, verdict, allocated, wirePayload,\n                 semanticPayload, maskKey>>\n\nNext ==\n  \\/ MutantReset\n  \\/ \\E f \\in WireFrames : StartFrame(f)\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.frame.starved-resolution",
+      "module": "FrameModel",
+      "target": "cfg",
+      "expected_outcome": "Killed",
+      "expected_check": "FramesAlwaysResolve",
+      "rationale": "The fairness conjunct is deleted, so a frame can stutter in the pipeline forever without reaching a verdict.",
+      "edits": [
+        {
+          "find": "SPECIFICATION FairSpec\n",
+          "replace": "SPECIFICATION Spec\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.type-domain-escape",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "TypeInvariant",
+      "rationale": "The empty close detail carries a code outside CloseCodeDomain, escaping the declared finite domain in the initial state.",
+      "edits": [
+        {
+          "find": "  [origin |-> \"none\", code |-> 0, reason |-> \"none\",\n",
+          "replace": "  [origin |-> \"none\", code |-> 9999, reason |-> \"none\",\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.double-terminal-entry",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "TerminalEnteredAtMostOnce",
+      "rationale": "Transport EOF becomes enabled in the terminal state, so the absorbing state is entered a second time.",
+      "edits": [
+        {
+          "find": "  /\\ state \\in {\"Open\", \"Closing\"}\n",
+          "replace": "  /\\ state \\in {\"Open\", \"Closing\", \"Closed\"}\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.terminal-entry-unaccounted",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "ClosedIffOneTerminalEntry",
+      "rationale": "Completing the close handshake reaches the terminal state without the terminal accounting.",
+      "edits": [
+        {
+          "find": "  /\\ state' = \"Closed\"\n  /\\ terminalEntries' = terminalEntries + 1\n  /\\ UNCHANGED <<handshakeDone, poisoned, lastOutbound, lastSend, refusals>>\n",
+          "replace": "  /\\ state' = \"Closed\"\n  /\\ UNCHANGED <<terminalEntries, handshakeDone, poisoned, lastOutbound,\n                 lastSend, refusals>>\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.closing-without-detail",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "CloseDetailPresentFromClosing",
+      "rationale": "A local close enters CLOSING without recording the governing close outcome the terminal delivery later reports.",
+      "edits": [
+        {
+          "find": "  /\\ closeDetail' = [origin |-> \"local\", code |-> NormalizeSendCode(c),\n                     reason |-> r, remote |-> FALSE, hsComplete |-> FALSE]\n  /\\ state' = \"Closing\"\n  /\\ UNCHANGED <<handshakeDone, poisoned, terminalEntries, lastInbound,\n                 refusals>>\n",
+          "replace": "  /\\ state' = \"Closing\"\n  /\\ UNCHANGED <<closeDetail, handshakeDone, poisoned, terminalEntries,\n                 lastInbound, refusals>>\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.one-byte-rejected",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "InboundCloseNormalization",
+      "rationale": "A one-octet close payload normalizes to a code the validity chain rejects, turning the shipped ACCEPT row (behavior-delta sequence 27) into a rejection.",
+      "edits": [
+        {
+          "find": "    [] class = \"one_byte\" -> 1002\n",
+          "replace": "    [] class = \"one_byte\" -> 1005\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.echo-mirrors-received-code",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "EchoCarriesConstructorPayload",
+      "rationale": "The echoed close frame mirrors the received code instead of carrying the constructor payload -- the RFC-shaped acknowledgement echo the pinned runtime does NOT perform (behavior-delta sequence 28).",
+      "edits": [
+        {
+          "find": "  /\\ lastOutbound' = [kind |-> \"echo_close\", payload |-> \"constructor\",\n                      code |-> 1000]\n",
+          "replace": "  /\\ lastOutbound' = [kind |-> \"echo_close\", payload |-> \"code_reason\",\n                      code |-> InboundOutcome(class).code]\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.validity-chain-bypassed",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "ForbiddenCodesNeverReachTheWire",
+      "rationale": "The local close path stops running the validity chain before emitting, so a forbidden code reaches the wire.",
+      "edits": [
+        {
+          "find": "  /\\ CloseCodeRejection(NormalizeSendCode(c), r) = 0\n  /\\ lastSend' = [requested |-> c, normalized |-> NormalizeSendCode(c),\n                  reason |-> r, outcome |-> \"accepted\", reported |-> 0]\n",
+          "replace": "  /\\ lastSend' = [requested |-> c, normalized |-> NormalizeSendCode(c),\n                  reason |-> r, outcome |-> \"accepted\", reported |-> 0]\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.tls-error-sendable",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "TlsErrorSendAlwaysRejectedAs1002",
+      "rationale": "Both halves of the TLS_ERROR handling are removed -- the 1015 normalization AND the 1015 arm of the validity chain -- so 1015 becomes sendable. Removing either alone is inert, which is exactly the recorded inert-normalization finding.",
+      "edits": [
+        {
+          "find": "NormalizeSendCode(c) == IF c = 1015 THEN 1005 ELSE c\n",
+          "replace": "NormalizeSendCode(c) == c\n",
+          "count": 1
+        },
+        {
+          "find": "  ELSE IF c = 1006 \\/ c = 1015 \\/ c = 1005 \\/ c = 1004 \\/ c > 4999 \\/ c < 1000\n",
+          "replace": "  ELSE IF c = 1006 \\/ c = 1005 \\/ c = 1004 \\/ c > 4999 \\/ c < 1000\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.never-connected-post-handshake",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "NeverConnectedOnlyPreHandshake",
+      "rationale": "The abnormal-close EOF arm reports the NEVER_CONNECTED callback code after the handshake completed.",
+      "edits": [
+        {
+          "find": "       ELSE [origin |-> \"transport\", code |-> 1006, reason |-> \"text\",\n",
+          "replace": "       ELSE [origin |-> \"transport\", code |-> -1, reason |-> \"text\",\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.rejected-send-transitions",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "RejectedSendDoesNotTransition",
+      "rationale": "The rejected local close follows SHIPPED JAVA instead of the port: it enters CLOSING and records the abnormal-close detail (WebSocketImpl.java:488-503). This mutation is exactly the behavior the owner has since ruled the port must adopt, so the mutant TLC kills today is the shape this model must assert once that port change lands.",
+      "edits": [
+        {
+          "find": "  /\\ poisoned' = TRUE\n  /\\ UNCHANGED <<state, handshakeDone, closeDetail, terminalEntries,\n                 lastInbound, lastOutbound, refusals>>\n",
+          "replace": "  /\\ poisoned' = TRUE\n  /\\ state' = \"Closing\"\n  /\\ closeDetail' = [origin |-> \"local\", code |-> 1006, reason |-> r,\n                     remote |-> FALSE, hsComplete |-> FALSE]\n  /\\ UNCHANGED <<handshakeDone, terminalEntries,\n                 lastInbound, lastOutbound, refusals>>\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.reopen-after-terminal",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "TerminalAbsorbing",
+      "rationale": "A reopen action leaves the absorbing terminal state. The terminal counter is reset with it so the mutation isolates the absorbing property instead of tripping the counting invariants.",
+      "edits": [
+        {
+          "find": "Next ==\n  \\/ OpenHandshake\n",
+          "replace": "MutantReopen ==\n  /\\ state = \"Closed\"\n  /\\ ~poisoned\n  /\\ state' = \"Open\"\n  /\\ terminalEntries' = 0\n  /\\ UNCHANGED <<handshakeDone, poisoned, closeDetail, lastInbound,\n                 lastOutbound, lastSend, refusals>>\n\nNext ==\n  \\/ MutantReopen\n  \\/ OpenHandshake\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.poison-recoverable",
+      "module": "CloseModel",
+      "target": "tla",
+      "expected_outcome": "Killed",
+      "expected_check": "PoisonAbsorbing",
+      "rationale": "Transport EOF becomes enabled on a POISONED closing connection, so the lifecycle moves after a fatal typed failure was reported. Scoped to the closing state so the mutation isolates the absorbing property.",
+      "edits": [
+        {
+          "find": "  /\\ ~poisoned\n  /\\ state \\in {\"Open\", \"Closing\"}\n",
+          "replace": "  /\\ (~poisoned \\/ state = \"Closing\")\n  /\\ state \\in {\"Open\", \"Closing\"}\n",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "defect_id": "defect.close.starved-closing-resolution",
+      "module": "CloseModel",
+      "target": "cfg",
+      "expected_outcome": "Killed",
+      "expected_check": "ClosingResolves",
+      "rationale": "The fairness conjunct is deleted, so a closing connection can stutter forever without terminating or poisoning.",
+      "edits": [
+        {
+          "find": "SPECIFICATION FairSpec\n",
+          "replace": "SPECIFICATION Spec\n",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}
