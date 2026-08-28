@@ -997,6 +997,233 @@ func TestConcurrencyResultsRefusesNamedArtifactsThatDoNotExist(t *testing.T) {
 	}
 }
 
+// TestConcurrencyResultsRefusesAResolvableButWrongReference is review
+// 01a0487b round 3 BLOCKING 1, encoded exactly as the reviewer stated it.
+//
+// The round-2 fix required the named suite and every named regression test to
+// RESOLVE in the tree. Resolving is not identifying, and the two checks it
+// used — path existence and strings.Contains — accept any existing path and
+// any string the file happens to contain. Each case below was measured passing
+// against the committed binding BEFORE this check existed: the mutation was
+// applied to the real tree, the evidence DAG refrozen through its own
+// sanctioned LINKAGE_REGENERATE=1 flow, and both validators run.
+//
+//	native_stress.suite -> "go.mod"                                  Go 0, Rust 0
+//	regression_tests[0] -> driver_contract.rs::test                  Go 0, Rust 0
+//	regression_tests[1] -> schedule_exploration.rs::test             Go 0, Rust 0
+//
+// `test` is a substring of every test file ever written. That is the whole
+// finding: the round-2 check asked whether the reference resolved, never
+// whether it named the thing it claimed to name.
+func TestConcurrencyResultsRefusesAResolvableButWrongReference(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			// The reviewer's own example. go.mod exists, so the round-2
+			// existence check was satisfied by it.
+			name: "the stress suite is replaced by an unrelated file that also exists",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestSection(t, document, "native_stress")["suite"] = "go.mod"
+			},
+		},
+		{
+			// The path is right and the description is wrong: the suite's own
+			// PRODUCERS/COMMANDS_PER_PRODUCER constants say otherwise.
+			name: "the stress suite is the right file described with the wrong numbers",
+			mutate: func(t *testing.T, document map[string]any) {
+				stress := crTestSection(t, document, "native_stress")
+				stress["suite"] = strings.Replace(stress["suite"].(string),
+					"4 producer threads x 50 commands", "8 producer threads x 50 commands", 1)
+			},
+		},
+		{
+			name: "a regression reference keeps its file and names a word the file contains",
+			mutate: func(t *testing.T, document map[string]any) {
+				defect := crTestArray(t, document, "defects_found_and_fixed")[0].(map[string]any)
+				defect["regression_tests"] = []any{
+					"rust/ws-driver/tests/driver_contract.rs::test",
+					"rust/ws-driver/tests/schedule_exploration.rs::fixed_defect_regressions_replay_clean_on_the_shipped_driver",
+				}
+			},
+		},
+		{
+			name: "the other regression reference does the same",
+			mutate: func(t *testing.T, document map[string]any) {
+				defect := crTestArray(t, document, "defects_found_and_fixed")[0].(map[string]any)
+				defect["regression_tests"] = []any{
+					"rust/ws-driver/tests/driver_contract.rs::eof_refused_by_event_backpressure_is_retried_until_the_core_accepts_it",
+					"rust/ws-driver/tests/schedule_exploration.rs::test",
+				}
+			},
+		},
+		{
+			// A real function in the file that is not a test: declaration,
+			// not occurrence, is the bar.
+			name: "a regression reference names a real function that is not a test",
+			mutate: func(t *testing.T, document map[string]any) {
+				defect := crTestArray(t, document, "defects_found_and_fixed")[0].(map[string]any)
+				defect["regression_tests"] = []any{
+					"rust/ws-driver/tests/concurrency.rs::stress_config",
+					"rust/ws-driver/tests/schedule_exploration.rs::fixed_defect_regressions_replay_clean_on_the_shipped_driver",
+				}
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_NAMED_ARTIFACT_MISSING")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesTheReviewersFiveDeletions is review 01a0487b
+// round 3 BLOCKING 2, encoded as the reviewer stated it.
+//
+// Each field below was DELETED from the real tree's document, the evidence DAG
+// refrozen through LINKAGE_REGENERATE=1, and both validators run:
+// `go test ./... -count=1` exit 0 and `cargo test -p ws-driver --release
+// --test schedule_exploration` exit 0, five times out of five. Absence decodes
+// to the zero value, and for every one of these the zero value is `false` —
+// the value that agrees with the preregistered plan, with the cited run and
+// with every other check in the validator.
+//
+// The whole class is asserted by
+// TestConcurrencyResultsEveryModeledKeyIsRequired, which walks all 197
+// removable positions. These five are kept separately because they are the
+// ones the reviewer measured, and a class assertion that quietly stopped
+// covering the named instance would be the same mistake again.
+func TestConcurrencyResultsRefusesTheReviewersFiveDeletions(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		section []string
+		key     string
+	}{
+		{name: "truncated", section: []string{"execution"}, key: "truncated"},
+		{name: "producer_admission_fairness_claimed", section: []string{"execution"}, key: "producer_admission_fairness_claimed"},
+		{name: "independent_review_claimed", key: "independent_review_claimed"},
+		{name: "production", key: "production"},
+		{name: "publication", key: "publication"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			target := document
+			if len(testCase.section) > 0 {
+				target = crTestSection(t, document, testCase.section...)
+			}
+			if _, present := target[testCase.key]; !present {
+				t.Fatalf("%s is not in the committed document, so this deletion test proves nothing", testCase.key)
+			}
+			delete(target, testCase.key)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_MODELED_FIELD_OMITTED")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesADroppedDefectOrDisclosure covers the rest of
+// the omission class the reviewer's five were a sample of. Measured before
+// this round: a whole defect record, either regression reference, and five of
+// the six limitations could each be removed with no finding at all.
+func TestConcurrencyResultsRefusesADroppedDefectOrDisclosure(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+		code   string
+	}{
+		{
+			name: "a whole defect record is dropped from the roll",
+			mutate: func(t *testing.T, document map[string]any) {
+				document["defects_found_and_fixed"] = crTestArray(t, document, "defects_found_and_fixed")[:1]
+			},
+			code: "RESULTS_DEFECT_ROLL_INCOMPLETE",
+		},
+		{
+			name: "the harness defect loses the note its kind requires",
+			mutate: func(t *testing.T, document map[string]any) {
+				defect := crTestArray(t, document, "defects_found_and_fixed")[1].(map[string]any)
+				delete(defect, "note")
+			},
+			code: "RESULTS_DEFECT_ROLL_INCOMPLETE",
+		},
+		{
+			name: "one of the two regression references is dropped",
+			mutate: func(t *testing.T, document map[string]any) {
+				defect := crTestArray(t, document, "defects_found_and_fixed")[0].(map[string]any)
+				defect["regression_tests"] = []any{
+					"rust/ws-driver/tests/schedule_exploration.rs::fixed_defect_regressions_replay_clean_on_the_shipped_driver"}
+			},
+			code: "RESULTS_DEFECT_ROLL_INCOMPLETE",
+		},
+		{
+			name: "the no-race-detector disclosure is deleted",
+			mutate: func(t *testing.T, document map[string]any) {
+				limitations := crTestArray(t, document, "limitations")
+				kept := []any{}
+				for _, limitation := range limitations {
+					if !strings.Contains(limitation.(string), "TSAN") {
+						kept = append(kept, limitation)
+					}
+				}
+				document["limitations"] = kept
+			},
+			code: "RESULTS_CLAIM_CEILING_INFLATED",
+		},
+		{
+			name: "the no-live-Java disclosure is softened away",
+			mutate: func(t *testing.T, document map[string]any) {
+				limitations := crTestArray(t, document, "limitations")
+				limitations[len(limitations)-1] = "some Java context was considered"
+				document["limitations"] = limitations
+			},
+			code: "RESULTS_CLAIM_CEILING_INFLATED",
+		},
+		{
+			name: "the claim-scope statement is truncated past its non-substitution clause",
+			mutate: func(t *testing.T, document map[string]any) {
+				statement := document["claim_scope_statement"].(string)
+				document["claim_scope_statement"] = statement[:len(statement)/2]
+			},
+			code: "RESULTS_CLAIM_CEILING_INFLATED",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, testCase.code)
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesATimestampFromTheFuture. Measured: shifting
+// either instant to 2030 passed both validators, because the only check was
+// that it parsed.
+func TestConcurrencyResultsRefusesATimestampFromTheFuture(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		section []string
+		key     string
+	}{
+		{name: "recorded_at", key: "recorded_at"},
+		{name: "executed_at", section: []string{"execution", "executed_run"}, key: "executed_at"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			target := document
+			if len(testCase.section) > 0 {
+				target = crTestSection(t, document, testCase.section...)
+			}
+			target[testCase.key] = "2030-08-27T22:04:57Z"
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_TIMESTAMP_MALFORMED")
+		})
+	}
+}
+
 // TestConcurrencyResultsRefusesNarrativeThatContradictsItsOwnNumbers. Prose
 // that enumerates a structure the record also counts is checkable, and was
 // not being checked.

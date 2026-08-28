@@ -64,10 +64,45 @@
 //     so a new one must not be addable in silence. Adding a field here means
 //     deciding what makes it load-bearing.
 //
-//     What remains free is prose with no number, verdict, identity or scope
-//     claim in it, plus the six retention found_index ordinals, which the
-//     retention run prints but this document does not record. 35 of 162 leaves
-//     after the fix, named in the lane receipt rather than implied.
+//  6. AND THE OMISSION OF A MODELED ONE. Review 01a0487b round 3. Strict
+//     decoding guards one direction: a field nothing models cannot be ADDED.
+//     Deleting a modeled one was still free, because an absent key decodes to
+//     the zero value — and for every claim-ceiling boolean here the zero value
+//     is `false`, exactly the value that agrees with the plan, the cited run
+//     and every other check. Measured: deleting any of `truncated`,
+//     `producer_admission_fairness_claimed`, `independent_review_claimed`,
+//     `production` or `publication` passed both validators at exit 0, and the
+//     full walk found 22 removable positions in all. crValidateRequiredKeys
+//     reflects over the same struct model the decoder uses, so the two guards
+//     are exact complements: every modeled key must be present, and every
+//     present key must be modeled.
+//
+// HOW MUCH OF THE DOCUMENT IS ACTUALLY BOUND, MEASURED RATHER THAN CLAIMED.
+// internal/formalplan/concurrencyresults_leaves_test.go corrupts every one of
+// the 162 leaves in turn and runs the validator. It is committed and runs in
+// `go test ./...` precisely because this lane's own inertness figure has been
+// wrong twice and both wrong versions reached the project owner.
+//
+// The strategy matters as much as the number, so both are stated. Round 2
+// substituted ONE sentinel per leaf; round 3 found that measures whether a
+// leaf is looked at, not whether it is pinned — `native_stress.suite` accepted
+// the unrelated real path `go.mod`, and either regression reference accepted
+// `<same file>::test`. The battery now tries several plausible wrong values
+// shaped like the value they replace, and a leaf counts as CHECKED only if
+// every one is refused. Readings, same instrument, same document at each
+// commit:
+//
+//	                                 one sentinel     full battery
+//	64abf3c, before round 2          102 inert        104 inert
+//	a46db0b, after round 2            35 inert         46 inert
+//	this commit                        -               17 inert
+//
+// 102 is the correct pre-fix figure; the "108" that reached the owner is a
+// transcription with no measurement behind it, and no tree state in this
+// lane's history produces it. What remains inert is prose about how a defect
+// was found and fixed, two attested host tokens, and the six retention
+// found_index ordinals — enumerated leaf by leaf in crInertLeaves, not
+// summarized.
 //
 // WHERE THE OTHER HALF LIVES, AND HOW THEY ARE MADE TO COMPOSE. This validator
 // proves the counters match the cited line; it cannot prove the line came from
@@ -92,6 +127,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -124,6 +160,10 @@ const (
 	crCanonicalPlanPath        = "assurance/concurrency/plan.json"
 	crCanonicalTargetSymbol    = "ws_driver::ConnectionDriver::poll"
 	crCanonicalReproductionDir = "rust/ws-driver/fuzz-seeds/us017/regressions"
+
+	// The native-thread stress suite. Review 01a0487b round 3 BLOCKING 1: this
+	// anchor was checked for existence only, so `go.mod` satisfied it.
+	crCanonicalNativeStressSuite = "rust/ws-driver/tests/concurrency.rs"
 )
 
 // crStdoutLineKey is the bare key token whose single string value binds this
@@ -334,6 +374,10 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 		return append(findings, *decodeFinding)
 	}
 
+	// Strict decoding is only half a schema. It refuses a key nothing models;
+	// this refuses a modeled key that is not there. See crValidateRequiredKeys.
+	findings = append(findings, crValidateRequiredKeys(raw, inputs.ResultsPath)...)
+
 	findings = append(findings, crValidateProvenance(results, inputs)...)
 	findings = append(findings, crValidateExecutedRun(results, rawLine, rawLineErr, inputs.ResultsPath)...)
 	findings = append(findings, crValidateAccounting(results, inputs.ResultsPath)...)
@@ -341,15 +385,128 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 	findings = append(findings, crValidateClaimCeiling(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateNarrative(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateNamedArtifacts(results, inputs)...)
+	findings = append(findings, crValidateDefectShape(crRawDefects(raw), results, inputs.ResultsPath)...)
 	return findings
+}
+
+// crDefectShapeKeys are the crDefect keys whose presence depends on what kind
+// of defect the record is describing, so a flat "every key is required" rule
+// would be wrong for them. They are NOT unchecked: crValidateDefectShape
+// requires each of them exactly where the defect's own kind demands it, which
+// is a stronger rule than presence, not a weaker one.
+var crDefectShapeKeys = map[string]struct{}{
+	"minimized_reproduction": {},
+	"regression_tests":       {},
+	"red_evidence":           {},
+	"note":                   {},
+}
+
+// crValidateRequiredKeys refuses a document that OMITS a modeled key.
+//
+// WHY THIS EXISTS, AND WHY DisallowUnknownFields WAS NOT ENOUGH. Review
+// 01a0487b round 3 BLOCKING 2, and it is the sharpest finding this document
+// has taken. Strict decoding guards exactly one direction: a field no
+// validator models cannot be ADDED in silence. It says nothing about DELETING
+// a modeled one, because an absent key decodes to the type's zero value — and
+// for every claim-ceiling boolean in this record the zero value is `false`,
+// which is precisely the value that agrees with the preregistered plan, with
+// the cited run, and with every other check in this file.
+//
+// A forger therefore never has to write a false value. Measured against the
+// committed binding before this check existed, each deletion applied to the
+// real tree with the evidence DAG refrozen through its own sanctioned
+// LINKAGE_REGENERATE=1 flow and BOTH validators run: removing `truncated`,
+// `producer_admission_fairness_claimed`, `independent_review_claimed`,
+// `production` or `publication` gave `go test ./... -count=1` exit 0 and
+// `cargo test -p ws-driver --release --test schedule_exploration` exit 0 every
+// time. Those five were the reviewer's sample; the full enumeration found 22
+// removable positions in all.
+//
+// WHY A REFLECTED PRE-PASS RATHER THAN POINTER FIELDS OR A PRESENCE MAP. All
+// three make presence distinguishable from a zero value. Pointer fields and a
+// hand-kept presence map both need per-field maintenance, so a field added
+// later gets the add-guard from DisallowUnknownFields automatically and the
+// delete-guard only if somebody remembers — which is the exact asymmetry that
+// produced this finding. Reflecting over the same struct model the decoder
+// already uses makes the two guards exact complements of one another and
+// derived from ONE declaration: every modeled key must be present, and every
+// present key must be modeled.
+func crValidateRequiredKeys(raw []byte, path string) []ModelFinding {
+	var document any
+	if err := json.Unmarshal(raw, &document); err != nil {
+		// The strict decode reports this; nothing to add.
+		return nil
+	}
+	var findings []ModelFinding
+	crWalkRequiredKeys(document, reflect.TypeOf(crResults{}), "", func(at, key string) {
+		where := key
+		if at != "" {
+			where = at + "." + key
+		}
+		findings = append(findings, mpFinding("RESULTS_MODELED_FIELD_OMITTED", path, fmt.Sprintf(
+			"%s is modeled by internal/formalplan/concurrencyresults.go but absent from the document. An "+
+				"absent key decodes to the zero value, and for this record the zero value is the value that "+
+				"agrees with the plan and the cited run, so an omission is a claim nobody wrote.", where)))
+	})
+	return findings
+}
+
+func crWalkRequiredKeys(node any, typ reflect.Type, at string, report func(at, key string)) {
+	for typ != nil && typ.Kind() == reflect.Pointer {
+		typ = typ.Elem()
+	}
+	if typ == nil {
+		return
+	}
+	switch typ.Kind() {
+	case reflect.Struct:
+		object, ok := node.(map[string]any)
+		if !ok {
+			// A null or wrong-typed value is the strict decoder's finding.
+			return
+		}
+		for index := 0; index < typ.NumField(); index++ {
+			field := typ.Field(index)
+			key := strings.Split(field.Tag.Get("json"), ",")[0]
+			if key == "" || key == "-" {
+				continue
+			}
+			if typ == reflect.TypeOf(crDefect{}) {
+				if _, shaped := crDefectShapeKeys[key]; shaped {
+					continue
+				}
+			}
+			value, present := object[key]
+			if !present {
+				report(at, key)
+				continue
+			}
+			next := key
+			if at != "" {
+				next = at + "." + key
+			}
+			crWalkRequiredKeys(value, field.Type, next, report)
+		}
+	case reflect.Slice:
+		elements, ok := node.([]any)
+		if !ok {
+			return
+		}
+		for index, element := range elements {
+			crWalkRequiredKeys(element, typ.Elem(), fmt.Sprintf("%s[%d]", at, index), report)
+		}
+	}
 }
 
 // crDecodeStrictly decodes the record with DisallowUnknownFields.
 //
 // WHY STRICT. Review 01a0487b round 2 BLOCKING. Permissive json.Unmarshal
-// silently ignores every field the struct does not model, and 108 of this
+// silently ignores every field the struct does not model, and 102 of this
 // document's 162 leaves were exactly that: inert decoration an acceptance
-// reader trusts and no validator could contradict. The reviewer's measured
+// reader trusts and no validator could contradict. (This comment said 108 for
+// one round. 102 is what the enumeration printed at 64abf3c, then and again
+// now; review 01a0487b round 3 BLOCKING 3 caught the stale figure.) The
+// reviewer's measured
 // example was execution.producer_admission_fairness_claimed — flipped from
 // false to true, both validators still exited 0 — but the entire invariants
 // array, the whole native_stress block, every limitation and every claim-scope
@@ -1369,12 +1526,26 @@ func crValidateClaimCeiling(results crResults, path string) []ModelFinding {
 		inflated(fmt.Sprintf("independent_review_claimed is true but assurance is %q", results.Assurance))
 	}
 
-	// The claim ceiling must name the document that sets it. A claim-scope
-	// statement that cites no plan is a ceiling nobody can check.
-	if !strings.Contains(results.ClaimScopeStatement, crCanonicalPlanPath) {
-		inflated(fmt.Sprintf(
-			"claim_scope_statement does not cite %s, so the ceiling it describes is not anchored to the "+
-				"preregistered plan", crCanonicalPlanPath))
+	// The claim ceiling must MAKE the assertions it exists to make. Citing the
+	// plan was the whole check before review 01a0487b round 3, and a statement
+	// truncated at its halfway point still cited it.
+	for _, assertion := range crRequiredClaimScopeAssertions() {
+		if !crAssertionSatisfied([]string{results.ClaimScopeStatement}, assertion) {
+			inflated(fmt.Sprintf(
+				"claim_scope_statement does not assert %q (looked for %v): %s",
+				assertion.id, assertion.phrases, assertion.why))
+		}
+	}
+
+	// Every disclosure this evidence class carries must be present. A
+	// limitation that can be deleted, softened or swapped for an unrelated
+	// sentence is not a ceiling.
+	for _, assertion := range crRequiredLimitations(results) {
+		if !crAssertionSatisfied(results.Limitations, assertion) {
+			inflated(fmt.Sprintf(
+				"no limitation discloses %q (looked for %v): %s",
+				assertion.id, assertion.phrases, assertion.why))
+		}
 	}
 
 	if results.NativeStress.Outcome != crRequiredNativeStressOutcome {
@@ -1382,6 +1553,22 @@ func crValidateClaimCeiling(results crResults, path string) []ModelFinding {
 			"native_stress.outcome is %q but the stress suite ran on one host only and must say so (%q)",
 			results.NativeStress.Outcome, crRequiredNativeStressOutcome))
 	}
+	// The two host facts this record carries cannot be re-derived from the
+	// tree — no run happens here — so they are held to their SHAPE, which is
+	// what makes them host facts rather than free text. Measured: the rustc
+	// line accepted the string "MUTATED", and the platform accepted itself
+	// truncated to "Darwin arm64 ", silently dropping the OS release.
+	if !crRustcVersionPattern.MatchString(results.NativeStress.Rustc) {
+		inflated(fmt.Sprintf(
+			"native_stress.rustc is %q, which is not a rustc version line: this is an attested host fact and "+
+				"must at least be the shape of one", results.NativeStress.Rustc))
+	}
+	if !crPlatformReleasePattern.MatchString(results.NativeStress.Platform) {
+		inflated(fmt.Sprintf(
+			"native_stress.platform is %q and names no OS release: the single-host scope this record discloses "+
+				"is a claim about a specific host, not an architecture", results.NativeStress.Platform))
+	}
+
 	// The platform, the target triple and the limitation that discloses the
 	// single-host scope all describe the SAME host. Any one of them could be
 	// rewritten alone before this.
@@ -1438,6 +1625,36 @@ var crShrinkPattern = regexp.MustCompile(`([0-9]+)\s*->\s*([0-9]+)`)
 // record also states numerically — consistent with that number. The
 // program-shape sentence, the shrink records and the minimized schedules all
 // enumerate things the bounds and the invariant table already count.
+// crValidateInstant holds a recorded timestamp to being a real instant that
+// has already happened. Measured before this: shifting either timestamp to
+// 2030 passed both validators, because the only check was RFC3339 parsing —
+// a record cannot have been produced by a run in the future.
+func crValidateInstant(field, value, path string) []ModelFinding {
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil || !strings.HasSuffix(value, "Z") {
+		return []ModelFinding{mpFinding("RESULTS_TIMESTAMP_MALFORMED", path, fmt.Sprintf(
+			"%s %q is not a UTC RFC3339 instant", field, value))}
+	}
+	if parsed.After(time.Now().UTC()) {
+		return []ModelFinding{mpFinding("RESULTS_TIMESTAMP_MALFORMED", path, fmt.Sprintf(
+			"%s %q is in the future: nothing was measured then", field, value))}
+	}
+	return nil
+}
+
+// crProducerPrograms counts the producer actors bounds.program_shape
+// enumerates, so the conformance sentence's "N producer tasks" is re-derived
+// from the shape rather than trusted.
+func crProducerPrograms(shape string) int {
+	producers := 0
+	for _, segment := range strings.Split(shape, ";") {
+		if strings.HasPrefix(strings.ToLower(strings.TrimSpace(segment)), "producer") {
+			producers++
+		}
+	}
+	return producers
+}
+
 func crValidateNarrative(results crResults, path string) []ModelFinding {
 	var findings []ModelFinding
 	contradiction := func(detail string) {
@@ -1489,14 +1706,42 @@ func crValidateNarrative(results crResults, path string) []ModelFinding {
 				empty(described.field)
 			}
 		}
-		if _, err := time.Parse(time.RFC3339, run.ExecutedAt); err != nil || !strings.HasSuffix(run.ExecutedAt, "Z") {
-			findings = append(findings, mpFinding("RESULTS_TIMESTAMP_MALFORMED", path, fmt.Sprintf(
-				"execution.executed_run.executed_at %q is not a UTC RFC3339 instant", run.ExecutedAt)))
+		findings = append(findings, crValidateInstant("execution.executed_run.executed_at", run.ExecutedAt, path)...)
+	}
+	findings = append(findings, crValidateInstant("recorded_at", results.RecordedAt, path)...)
+
+	// Every descriptive field that CAN be held to an assertion is. See
+	// crNarrativeAssertions for why non-empty was not a check.
+	for _, described := range crNarrativeAssertions(results) {
+		if strings.TrimSpace(described.text) == "" {
+			continue // already reported empty above
+		}
+		for _, assertion := range described.assertions {
+			if !crAssertionSatisfied([]string{described.text}, assertion) {
+				findings = append(findings, mpFinding("RESULTS_DESCRIPTION_CONTRADICTED", path, fmt.Sprintf(
+					"%s does not assert %q (looked for %v): %s",
+					described.field, assertion.id, assertion.phrases, assertion.why)))
+			}
 		}
 	}
-	if _, err := time.Parse(time.RFC3339, results.RecordedAt); err != nil || !strings.HasSuffix(results.RecordedAt, "Z") {
-		findings = append(findings, mpFinding("RESULTS_TIMESTAMP_MALFORMED", path, fmt.Sprintf(
-			"recorded_at %q is not a UTC RFC3339 instant", results.RecordedAt)))
+
+	// The conformance sentence compares the run against the plan in numbers
+	// small enough that crValidateQuotedCounters' four-digit threshold does
+	// not reach them. Measured: incrementing "2 producer tasks" to 3 passed.
+	// Each clause below is reconstructed from the bounds it quotes.
+	producers := crProducerPrograms(results.Bounds.ProgramShape)
+	for _, required := range []string{
+		fmt.Sprintf("%d producer tasks", producers),
+		fmt.Sprintf("command/write/event queue capacities %d/%d/%d",
+			results.Bounds.CommandQueue, results.Bounds.WriteQueue, results.Bounds.EventQueue),
+		fmt.Sprintf("%d actions per schedule", results.Bounds.ActionsPerSchedule),
+		fmt.Sprintf("preemption budget %d", results.Bounds.PreemptionBudget),
+	} {
+		if !strings.Contains(results.PreregisteredPlan.Conformance, required) {
+			contradiction(fmt.Sprintf(
+				"preregistered_plan.conformance must state %q, which is what this record's own bounds say; "+
+					"the conformance sentence and the bounds disagree", required))
+		}
 	}
 	if len(results.Limitations) == 0 {
 		empty("limitations")
@@ -1644,14 +1889,692 @@ func crProgramShapeShape(shape string) (programs, actions int) {
 	return programs, actions
 }
 
+// crCanonicalDefects is the defect roll this record must account for, and the
+// SHAPE each entry must carry.
+//
+// WHY A ROLL RATHER THAN "the array must be non-empty". Deleting a whole
+// defect object was an omission hole: measured before this check, removing
+// either `defects_found_and_fixed[0]` or `[1]` produced no finding at all, so
+// a record could quietly stop mentioning a defect the exploration found. A
+// non-empty check cannot see that, and neither can a per-field presence rule.
+//
+// WHY A SHAPE RATHER THAN "every key is required". The two defects genuinely
+// differ: one is a driver defect with a pinned minimized reproduction, the
+// other is a harness defect where the interpreter, not the port, was wrong.
+// A flat presence rule would force the harness defect to carry a reproduction
+// it does not have. Declaring the shape per defect is stricter than presence
+// in both directions — each key must be there where the defect's kind demands
+// it and must NOT be there where its kind forbids it — so `note` cannot be
+// dropped from the harness defect and `red_evidence` cannot be dropped from
+// the driver one.
+var crCanonicalDefects = []struct {
+	id      string
+	present []string
+	absent  []string
+	why     string
+}{
+	{
+		id:      "eof-backpressure-livelock",
+		present: []string{"minimized_reproduction", "regression_tests", "red_evidence"},
+		absent:  []string{"note"},
+		why: "a driver defect the exploration found: it has a pinned minimized reproduction, so the record must " +
+			"name the tests that replay it and the RED reading that proved they fail without the fix",
+	},
+	{
+		id:      "harness-terminal-after-failure (closure-review finding 1, harness-side)",
+		present: []string{"note"},
+		absent:  []string{"minimized_reproduction", "regression_tests", "red_evidence"},
+		why: "a harness defect: the interpreter was wrong, not the driver, so there is no driver-side " +
+			"reproduction or regression to name and the note is where the record has to say so",
+	},
+}
+
+// crValidateDefectShape holds the defect roll to the canonical set and each
+// entry to its declared shape, and requires a replayable defect's regression
+// coverage to be BOTH kinds it claims: a replay of the pinned seed in the
+// exploration harness, and a direct test outside it.
+//
+// The two-kinds rule is what makes deleting ONE regression reference visible.
+// A count is not available to derive — but the kinds are, because a defect
+// with a pinned minimized reproduction is by definition replayable, and a
+// replay proves only that the recorded schedule still passes. The driver-level
+// test is what proves the behaviour, and the record claims both.
+func crValidateDefectShape(rawDefects []map[string]any, results crResults, path string) []ModelFinding {
+	var findings []ModelFinding
+	shape := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_DEFECT_ROLL_INCOMPLETE", path, detail))
+	}
+
+	recorded := make([]string, 0, len(results.DefectsFoundFixed))
+	for _, defect := range results.DefectsFoundFixed {
+		recorded = append(recorded, defect.DefectID)
+	}
+	canonical := make([]string, 0, len(crCanonicalDefects))
+	for _, defect := range crCanonicalDefects {
+		canonical = append(canonical, defect.id)
+	}
+	if len(recorded) != len(canonical) {
+		shape(fmt.Sprintf(
+			"defects_found_and_fixed records %d defects %v but this record accounts for exactly %d %v; a "+
+				"defect the exploration found may not be dropped from the roll",
+			len(recorded), recorded, len(canonical), canonical))
+		return findings
+	}
+	for index, want := range canonical {
+		if recorded[index] != want {
+			shape(fmt.Sprintf(
+				"defects_found_and_fixed[%d].defect_id is %q but this record's defect roll names %q at that "+
+					"position", index, recorded[index], want))
+		}
+	}
+	if len(findings) != 0 {
+		return findings
+	}
+
+	for index, declared := range crCanonicalDefects {
+		if index >= len(rawDefects) {
+			break
+		}
+		object := rawDefects[index]
+		for _, key := range declared.present {
+			if _, ok := object[key]; !ok {
+				shape(fmt.Sprintf(
+					"defects_found_and_fixed[%d] (%s) omits %q, which its kind requires: %s",
+					index, declared.id, key, declared.why))
+			}
+		}
+		for _, key := range declared.absent {
+			if _, ok := object[key]; ok {
+				shape(fmt.Sprintf(
+					"defects_found_and_fixed[%d] (%s) carries %q, which its kind excludes: %s",
+					index, declared.id, key, declared.why))
+			}
+		}
+	}
+
+	for index, defect := range results.DefectsFoundFixed {
+		if defect.Reproduction == nil {
+			continue
+		}
+		replayed, direct := false, false
+		for _, reference := range defect.RegressionTests {
+			file, _, _ := strings.Cut(reference, "::")
+			if file == crCanonicalHarnessPath {
+				replayed = true
+				continue
+			}
+			direct = true
+		}
+		if !replayed {
+			shape(fmt.Sprintf(
+				"defects_found_and_fixed[%d] (%s) pins a minimized reproduction but names no regression test "+
+					"in %s, so nothing replays the retained schedule", index, defect.DefectID, crCanonicalHarnessPath))
+		}
+		if !direct {
+			shape(fmt.Sprintf(
+				"defects_found_and_fixed[%d] (%s) names no regression test outside %s: a replay proves the "+
+					"recorded schedule still passes, not that the behaviour is fixed",
+				index, defect.DefectID, crCanonicalHarnessPath))
+		}
+		// RED evidence is a claim ceiling, not narrative: it asserts the
+		// named tests were watched to FAIL without the fix. Measured, it
+		// accepted the string "MUTATED".
+		for _, assertion := range []crRequiredAssertion{
+			{id: "executed-against-the-pre-fix-driver", phrases: []string{"pre-fix"},
+				why: "a regression test that was never run without the fix proves only that it passes"},
+			{id: "and-the-failures-were-read", phrases: []string{"failures were read"},
+				why: "the RED half must have been observed, not assumed"},
+		} {
+			if !crAssertionSatisfied([]string{defect.RedEvidence}, assertion) {
+				shape(fmt.Sprintf(
+					"defects_found_and_fixed[%d] (%s) red_evidence does not assert %q (looked for %v): %s",
+					index, defect.DefectID, assertion.id, assertion.phrases, assertion.why))
+			}
+		}
+		if !strings.Contains(defect.Reproduction.Shrink, "1-minimal shrinker") {
+			shape(fmt.Sprintf(
+				"defects_found_and_fixed[%d] (%s) records the shrink as %q without naming the 1-minimal "+
+					"shrinker that produced it; retention.mechanism claims 1-minimality and this is where the "+
+					"defect's own reproduction has to agree",
+				index, defect.DefectID, defect.Reproduction.Shrink))
+		}
+	}
+	return findings
+}
+
+// crRawDefects pulls the defect objects out of the raw document so
+// crValidateDefectShape can tell an absent key from a zero value. Everything
+// else in this file reads the decoded struct; presence is the one question a
+// decoded struct cannot answer.
+func crRawDefects(raw []byte) []map[string]any {
+	var document struct {
+		Defects []map[string]any `json:"defects_found_and_fixed"`
+	}
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return nil
+	}
+	return document.Defects
+}
+
+// crRequiredAssertion is a disclosure this record is not allowed to soften.
+// All phrases must occur (case-insensitively) in ONE of the candidate strings.
+type crRequiredAssertion struct {
+	id      string
+	phrases []string
+	why     string
+}
+
+func crAssertionSatisfied(candidates []string, assertion crRequiredAssertion) bool {
+	for _, candidate := range candidates {
+		lowered := strings.ToLower(candidate)
+		all := true
+		for _, phrase := range assertion.phrases {
+			if !strings.Contains(lowered, strings.ToLower(phrase)) {
+				all = false
+				break
+			}
+		}
+		if all {
+			return true
+		}
+	}
+	return false
+}
+
+// crRequiredLimitations is the ceiling this evidence class carries.
+//
+// WHY THE DISCLOSURES ARE PINNED. Every limitation was free text: measured,
+// any one of the six could be replaced with an unrelated sentence, truncated
+// mid-claim, or DELETED OUTRIGHT with no finding from either validator. A
+// disclosure that can be deleted is not a ceiling; it is a courtesy. Each
+// entry below is a scope this record's own contents make mandatory — the
+// exhaustiveness is bounded, the schedules are serialized, the stress ran on
+// one host, no dynamic race detector was used, the event queue runs above the
+// config floor, and no Java was executed — so the record must state it and may
+// not stop stating it.
+//
+// The event-queue disclosure quotes a number, and that number is re-derived
+// from bounds.event_queue_capacity rather than trusted, so the disclosure
+// cannot drift away from the bound it discloses.
+func crRequiredLimitations(results crResults) []crRequiredAssertion {
+	return []crRequiredAssertion{
+		{
+			id: "bounded-not-proof",
+			phrases: []string{
+				"not a formal proof", "exhaustive only within",
+				// Re-derived: the alphabet and the switch bound the
+				// exhaustiveness is bounded BY are recorded numerically above.
+				fmt.Sprintf("%d-program/%d-action", results.Bounds.ActorPrograms, results.Bounds.ActionsPerSchedule),
+				fmt.Sprintf("context-switch bound %d", results.Bounds.ContextSwitchBound),
+			},
+			why: "the plan's claim ceiling is systematic testing, never proof, and this record is exhaustive only inside the alphabet and switch bound it states numerically",
+		},
+		{
+			id:      "modeled-schedules-are-not-native-threads",
+			phrases: []string{"serialize all actors", "no native-thread evidence"},
+			why:     "the interpreter drives every actor through the owner's poll, so the modeled result establishes nothing about real preemption or weak memory",
+		},
+		{
+			id:      "single-host-stress",
+			phrases: []string{"host only", "no linux or second", "remains open"},
+			why:     "native_stress records one platform, so the story's two-platform runtime claim stays open and the record must say it stays open",
+		},
+		{
+			id:      "no-dynamic-race-detector",
+			phrases: []string{"no loom, miri, or tsan", "hand-built"},
+			why:     "the exploration is a hand-built harness under a zero-dependency gate; a reader would otherwise assume a race detector ran",
+		},
+		{
+			id: fmt.Sprintf("event-queue-capacity-%d-above-config-floor", results.Bounds.EventQueue),
+			phrases: []string{
+				fmt.Sprintf("event-queue capacity used is %d", results.Bounds.EventQueue),
+				"config floor", "not changed by this closure",
+			},
+			why: "the exploration runs the event queue above the configuration floor, which is a deviation from the shipped default that this closure observed and did not fix; the capacity is re-derived from bounds.event_queue_capacity",
+		},
+		{
+			id:      "no-live-java",
+			phrases: []string{"no live java executed", "no java-equivalence claim"},
+			why:     "this record is Rust-side only and an acceptance reader must not infer a Java equivalence claim from it",
+		},
+	}
+}
+
+// crNumberWord spells the small cardinalities this record writes in words
+// ("the six named boundary faults"), so a sentence that counts something the
+// document also counts numerically can be reconciled against it.
+func crNumberWord(value int) string {
+	words := []string{"zero", "one", "two", "three", "four", "five", "six",
+		"seven", "eight", "nine", "ten", "eleven", "twelve"}
+	if value < 0 || value >= len(words) {
+		return strconv.Itoa(value)
+	}
+	return words[value]
+}
+
+// crNarrativeAssertions is what each descriptive field must actually SAY.
+//
+// WHY. Review 01a0487b round 3 re-measured this document with a battery of
+// plausible wrong values instead of one sentinel, and found the narrative
+// fields were held to "non-empty" alone: every one of them accepted the string
+// "MUTATED", and several accepted a half-truncated version of themselves that
+// dropped the clause carrying the claim. Non-empty is not a check; it only
+// catches a field somebody blanked.
+//
+// Not every sentence can be re-derived from a run, and pretending otherwise
+// would be the same over-claim in the other direction. What a sentence CAN be
+// held to is the assertion it exists to make, and — wherever it counts
+// something the document also counts — that number, re-derived. Sentences with
+// neither are left free and named in the residual list rather than dressed up.
+func crNarrativeAssertions(results crResults) []struct {
+	field      string
+	text       string
+	assertions []crRequiredAssertion
+} {
+	bounds := results.Bounds
+	retained := len(results.Retention.MinimizedArtifacts)
+	seedDir := strings.TrimPrefix(crMinimizedSeedDir, "rust/ws-driver/")
+	table := []struct {
+		field      string
+		text       string
+		assertions []crRequiredAssertion
+	}{
+		{
+			field: "adapter_model",
+			text:  results.AdapterModel,
+			assertions: []crRequiredAssertion{
+				{id: "failure-halts-the-run", phrases: []string{"DriverOutput::Failure", "halts"},
+					why: "the interpreter's fidelity to the real adapter rests on stopping at the first surfaced failure"},
+				{id: "terminal-after-failure-impossible", phrases: []string{"Terminal-after-Failure is impossible"},
+					why: "the two terminal dispositions are exclusive by construction, which is what makes the exclusivity counters mean anything"},
+			},
+		},
+		{
+			field: "bounds.context_switch_bound_derivation",
+			text:  bounds.ContextSwitchBoundDerivation,
+			assertions: []crRequiredAssertion{
+				{
+					id: "derives-the-bound-from-the-bounds",
+					phrases: []string{fmt.Sprintf("(%d programs - 1) mandatory switches + preemption budget %d",
+						bounds.ActorPrograms, bounds.PreemptionBudget)},
+					why: "the derivation is arithmetic over two bounds this record already states, so it is re-derived rather than read",
+				},
+			},
+		},
+		{
+			field: "execution.replay_determinism",
+			text:  results.Execution.ReplayDeterminism,
+			assertions: []crRequiredAssertion{
+				{id: "every-schedule-executed-twice", phrases: []string{"executed twice"},
+					why: "replay determinism is the claim that each schedule was run again and compared"},
+				{id: "full-structured-trace", phrases: []string{"structured-trace equality"},
+					why: "review 01a04533 established that comparing anything less than the full trace let divergence through"},
+				{id: "and-the-wire-log", phrases: []string{"wire log"},
+					why: "the digests cover the committed wire log too, and a truncated sentence drops exactly that clause"},
+			},
+		},
+		{
+			field: "retention.mechanism",
+			text:  results.Retention.Mechanism,
+			assertions: []crRequiredAssertion{
+				{id: "deterministic-1-minimal-shrink", phrases: []string{"1-minimal"},
+					why: "the shrink records elsewhere in this document are only meaningful if the loop is 1-minimal"},
+				{id: "persisted-as-a-seed-artifact", phrases: []string{"counterexample"},
+					why: "the mechanism sentence must reach the artifact it persists, which is what retention means"},
+			},
+		},
+		{
+			field: "retention.real_failure_path",
+			text:  results.Retention.RealFailurePath,
+			assertions: []crRequiredAssertion{
+				{id: "names-the-pinned-seed-directory", phrases: []string{seedDir},
+					why: "the failure path writes into the directory this validator reconciles the retained set against"},
+				{id: "and-fails-the-suite", phrases: []string{"fails the suite", "minimized schedule"},
+					why: "retention is only a real failure path if the suite goes red and says which schedule; a half-sentence keeps the directory and drops that"},
+			},
+		},
+		{
+			field: "retention.demonstration",
+			text:  results.Retention.Demonstration,
+			assertions: []crRequiredAssertion{
+				{
+					id:      fmt.Sprintf("counts-the-%d-retained-faults", retained),
+					phrases: []string{fmt.Sprintf("%s named boundary faults", crNumberWord(retained))},
+					why:     "the demonstration counts the faults it demonstrates, and retention.minimized_artifacts counts the same thing",
+				},
+				{id: "fault-localization-verified", phrases: []string{"fault-localization is verified"},
+					why: "detecting a fault is not localizing it; the sentence claims both and a truncation drops the second",
+				},
+				{id: "and-the-artifact-is-pinned", phrases: []string{"pinned byte-for-byte"},
+					why: "the demonstration ends in a pinned artifact; without that clause the sentence claims a demonstration that left nothing behind",
+				},
+			},
+		},
+		{
+			field: "retention.regeneration",
+			text:  results.Retention.Regeneration,
+			assertions: []crRequiredAssertion{
+				{id: "names-the-sanctioned-refreeze-switch", phrases: []string{crRetentionRegenerateEnv + "=1"},
+					why: "the sanctioned deliberate-refreeze path is an env switch the harness actually reads, cross-checked against the harness source"},
+				{id: "otherwise-the-pin-is-compared", phrases: []string{"compares committed bytes"},
+					why: "the switch only means something because the default path compares the committed bytes; dropping that clause turns a pin into a rewrite",
+				},
+			},
+		},
+		{
+			field: "retention.pinned_artifacts_unchanged_by_review_round",
+			text:  results.Retention.PinnedUnchanged,
+			assertions: []crRequiredAssertion{
+				{
+					id:      fmt.Sprintf("covers-all-%d-artifacts", retained),
+					phrases: []string{fmt.Sprintf("%s minimized artifacts", crNumberWord(retained)), "byte-identical",
+						"no regeneration was needed"},
+					why: "the claim is that every pinned artifact survived the round unchanged, so it must cover the number of artifacts this record pins AND say that nothing was refrozen",
+				},
+			},
+		},
+		{
+			field: "terminal_disposition_model",
+			text:  results.TerminalModel,
+			assertions: []crRequiredAssertion{
+				{id: "exactly-one-typed-terminal", phrases: []string{"exactly one typed terminal disposition"},
+					why: "this is the model the exclusivity counters are counting"},
+				{id: "and-both-classes-reconcile", phrases: []string{"reconcile every accepted command exactly once"},
+					why: "the sentence's last clause is the at-most-once claim; a half-truncated sentence keeps both counters and drops it",
+				},
+			},
+		},
+		{
+			field: "recorded_at_provenance",
+			text:  results.RecordedAtProvenance,
+			assertions: []crRequiredAssertion{
+				{id: "names-how-the-timestamp-was-taken", phrases: []string{"date -u"},
+					why: "a recorded timestamp with no stated source is a typed timestamp"},
+				{id: "and-when-it-was-taken", phrases: []string{"in the working session"},
+					why: "the provenance is the moment as well as the command; a truncation keeps `date -u` and drops the occasion",
+				},
+			},
+		},
+		{
+			field: "native_stress.executed",
+			text:  results.NativeStress.Executed,
+			assertions: []crRequiredAssertion{
+				{id: "names-the-gate-that-ran-it", phrases: []string{crNativeStressGateCommand},
+					why: "the stress result is only as good as the gate that ran it, and that gate is cross-checked against rust/Makefile",
+				},
+				{id: "both-profiles", phrases: []string{"debug and release"},
+					why: "the record claims both profiles ran, and the gate's own prerequisites are checked for both",
+				},
+				{id: "and-the-exit-was-read", phrases: []string{"exit 0 read"},
+					why: "this project's rule is that an exit is read from the process, never inferred; the sentence is where the stress result says it was",
+				},
+			},
+		},
+	}
+
+	for _, run := range []*crExecutedRun{results.Execution.ExecutedRun} {
+		if run == nil {
+			continue
+		}
+		table = append(table,
+			struct {
+				field      string
+				text       string
+				assertions []crRequiredAssertion
+			}{
+				field: "execution.executed_run.exit_provenance",
+				text:  run.ExitProvenance,
+				assertions: []crRequiredAssertion{
+					{id: "exit-read-from-the-process", phrases: []string{"read from the", "process"},
+						why: "an exit code inferred from output text is the failure mode this project's own rules name"},
+					{id: "not-inferred", phrases: []string{"not inferred"},
+						why: "the sentence must refuse the inference explicitly, not merely omit it"},
+				},
+			},
+			struct {
+				field      string
+				text       string
+				assertions []crRequiredAssertion
+			}{
+				field: "execution.executed_run.executed_against",
+				text:  run.ExecutedAgainst,
+				assertions: []crRequiredAssertion{
+					{id: "names-both-provenance-anchors",
+						phrases: []string{"target.source.git_blob", "target.harness.git_blob"},
+						why:     "the run was executed against a tree, and the only two anchors that identify it are these"},
+				},
+			},
+			struct {
+				field      string
+				text       string
+				assertions []crRequiredAssertion
+			}{
+				field: "execution.executed_run.binding",
+				text:  run.Binding,
+				assertions: []crRequiredAssertion{
+					{id: "names-the-rust-half", phrases: []string{crCanonicalHarnessPath, "byte-for-byte"},
+						why: "the binding sentence describes a two-validator composition and must name the half that compares the line"},
+					{id: "names-the-go-half", phrases: []string{"internal/formalplan/concurrencyresults.go"},
+						why: "and the half that re-derives the counters from it"},
+				},
+			},
+		)
+	}
+	return table
+}
+
+// crRetentionRegenerateEnv is the sanctioned deliberate-refreeze switch the
+// retention harness reads. Named here so retention.regeneration is checked
+// against the harness rather than against itself.
+const crRetentionRegenerateEnv = "US017_RETAIN"
+
+// crNativeStressGateCommand is the gate the native stress runs under. Its
+// existence, and the debug/release prerequisites the record claims, are
+// checked against rust/Makefile.
+const (
+	crNativeStressGateCommand = "make -C rust gates"
+	crNativeStressGateTarget  = "gates"
+	crRustMakefilePath        = "rust/Makefile"
+)
+
+// crNativeStressGateProfiles are the prerequisites the gate must carry for
+// "debug and release profiles" to be a true statement about it.
+var crNativeStressGateProfiles = []string{"test", "test-release"}
+
+// crMakeTargetPrerequisites returns the prerequisite set of a make target, or
+// nil when the target is not declared.
+func crMakeTargetPrerequisites(makefile, target string) map[string]struct{} {
+	for _, line := range strings.Split(makefile, "\n") {
+		name, rest, found := strings.Cut(line, ":")
+		if !found || strings.TrimSpace(name) != target || strings.HasPrefix(line, "\t") {
+			continue
+		}
+		prerequisites := map[string]struct{}{}
+		for _, field := range strings.Fields(rest) {
+			prerequisites[field] = struct{}{}
+		}
+		return prerequisites
+	}
+	return nil
+}
+
+// crRequiredClaimScopeAssertions keeps claim_scope_statement from being
+// softened. Measured: truncating the statement at its halfway point kept the
+// plan citation and passed, dropping the clause that says the two halves of
+// the claim cannot substitute for one another.
+func crRequiredClaimScopeAssertions() []crRequiredAssertion {
+	return []crRequiredAssertion{
+		{
+			id:      "cites-the-plan",
+			phrases: []string{crCanonicalPlanPath},
+			why:     "the ceiling this statement describes is set by the preregistered plan and must be traceable to it",
+		},
+		{
+			id:      "testing-never-proof",
+			phrases: []string{"never proof"},
+			why:     "bounded exploration is systematic testing; the statement is where the record refuses the stronger word",
+		},
+		{
+			id:      "the-two-halves-do-not-substitute",
+			phrases: []string{"cannot stand in for"},
+			why:     "this record carries a systematic result AND a native-thread stress result, and neither is evidence for the other",
+		},
+	}
+}
+
+// crStressProducerConst and crStressCommandsConst are the two constants the
+// native-thread stress suite declares and the record's description quotes.
+// Naming them here is what turns "4 producer threads x 50 commands" from a
+// sentence into a value re-derived from the suite it describes.
+const (
+	crStressProducerConst = "PRODUCERS"
+	crStressCommandsConst = "COMMANDS_PER_PRODUCER"
+)
+
+// The shapes the two attested host facts must have. Neither can be re-derived
+// from the tree; holding them to a shape is what keeps them from decaying into
+// free text.
+var (
+	crRustcVersionPattern    = regexp.MustCompile(`^rustc \d+\.\d+\.\d+`)
+	crPlatformReleasePattern = regexp.MustCompile(`\([^()]*\d+\.\d+[^()]*\)`)
+)
+
+// crRustConstPattern reads `const NAME: <type> = <int>;` out of Rust source.
+var crRustConstPattern = regexp.MustCompile(`(?m)^\s*(?:pub\s+)?const\s+([A-Z][A-Z0-9_]*)\s*:\s*[A-Za-z0-9_]+\s*=\s*([0-9_]+)\s*;`)
+
+// crValidateStressSuiteIdentity holds native_stress.suite to being the suite
+// it claims to be rather than a path that resolves. Three independent
+// conditions, each of which `go.mod` fails:
+//
+//  1. IDENTITY. The path must be the canonical native-thread stress suite.
+//     A digest or an existence check proves bytes at a path; only a declared
+//     canonical identity proves the path is the one that matters. This is the
+//     same fix review 01a0487b BLOCKING 3 applied to the source and harness
+//     anchors, applied to the anchor that was left out.
+//  2. THE CLAIM. "native-thread stress" means the suite spawns native
+//     threads. A suite that does not is not evidence of what this block says
+//     it is evidence of.
+//  3. THE NUMBERS. The record describes the suite as "N producer threads x M
+//     commands". N and M are declared as constants IN that suite, so they are
+//     re-derived from it exactly like every counter is re-derived from the
+//     cited run — and the description stops being free text.
+func crValidateStressSuiteIdentity(results crResults, read func(string) ([]byte, bool), missing func(string)) []ModelFinding {
+	suite := results.NativeStress.Suite
+	fields := strings.Fields(suite)
+	if len(fields) == 0 {
+		// crValidateNarrative reports the empty field.
+		return nil
+	}
+	named := strings.TrimSuffix(fields[0], ":")
+	if named != crCanonicalNativeStressSuite {
+		missing(fmt.Sprintf(
+			"native_stress.suite opens with %q but the native-thread stress suite this record describes is %q. "+
+				"An existing path is not the right path: %q resolved here until review 01a0487b round 3",
+			named, crCanonicalNativeStressSuite, "go.mod"))
+		return nil
+	}
+	content, ok := read(named)
+	if !ok {
+		missing(fmt.Sprintf("native_stress.suite names %q, which is not in the tree", named))
+		return nil
+	}
+	source := string(content)
+	if !strings.Contains(source, "thread::spawn") {
+		missing(fmt.Sprintf(
+			"%s spawns no native threads, so it cannot be the native-thread stress this block records",
+			named))
+	}
+	constants := map[string]int{}
+	for _, match := range crRustConstPattern.FindAllStringSubmatch(source, -1) {
+		if value, err := strconv.Atoi(strings.ReplaceAll(match[2], "_", "")); err == nil {
+			constants[match[1]] = value
+		}
+	}
+	producers, haveProducers := constants[crStressProducerConst]
+	commands, haveCommands := constants[crStressCommandsConst]
+	if !haveProducers || !haveCommands {
+		missing(fmt.Sprintf(
+			"%s declares no %s/%s constants, so the record's \"N producer threads x M commands\" description "+
+				"cannot be re-derived from the suite it describes",
+			named, crStressProducerConst, crStressCommandsConst))
+		return nil
+	}
+	required := fmt.Sprintf("%d producer threads x %d commands", producers, commands)
+	if !strings.Contains(suite, required) {
+		missing(fmt.Sprintf(
+			"native_stress.suite must describe the suite as %q, which is what %s declares (%s=%d, %s=%d); "+
+				"the description and the suite disagree",
+			required, named, crStressProducerConst, producers, crStressCommandsConst, commands))
+	}
+	return nil
+}
+
+// crDeclaresTest reports whether source DECLARES a test named name.
+//
+// The distinction this draws is the whole of review 01a0487b round 3 BLOCKING
+// 1: `strings.Contains(source, "test")` is true of every test file ever
+// written, so it accepts `<file>::test` as a regression reference. A
+// declaration is an attributed `#[test] fn name(` in Rust or a
+// `func Test…(` in Go, and neither exists for a name nobody wrote.
+func crDeclaresTest(file, source, name string) bool {
+	if name == "" {
+		return false
+	}
+	if strings.HasSuffix(file, ".go") {
+		pattern := regexp.MustCompile(`(?m)^func\s+` + regexp.QuoteMeta(name) + `\s*\(`)
+		return strings.HasPrefix(name, "Test") && pattern.MatchString(source)
+	}
+	// Rust: the fn must be declared AND carry a test attribute. The attribute
+	// may be separated from the fn by doc comments, other attributes or blank
+	// lines, so the preceding lines are scanned back to the previous item.
+	pattern := regexp.MustCompile(`(?m)^\s*(?:pub\s+)?(?:async\s+)?fn\s+` + regexp.QuoteMeta(name) + `\s*(?:<[^>]*>)?\s*\(`)
+	location := pattern.FindStringIndex(source)
+	if location == nil {
+		return false
+	}
+	lines := strings.Split(source[:location[0]], "\n")
+	for index := len(lines) - 1; index >= 0 && index > len(lines)-12; index-- {
+		trimmed := strings.TrimSpace(lines[index])
+		if trimmed == "" || strings.HasPrefix(trimmed, "//") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "#[") {
+			if strings.Contains(trimmed, "test") {
+				return true
+			}
+			continue
+		}
+		break
+	}
+	return false
+}
+
 // crValidateNamedArtifacts resolves the files this record names in prose but
 // never pinned by digest: the native stress suite, and the regression tests
 // each fixed defect claims now cover it.
 //
-// A record can claim a regression test exists; before this it did not have to
-// be true. The named test file must exist in the tree AND carry the named test
-// function, which is the difference between "a path that resolves" and "the
-// test that was claimed".
+// RESOLVING IS NOT IDENTIFYING. Review 01a0487b round 3 BLOCKING 1 found this
+// function committing the plane's signature defect inside the fix meant to
+// close it. The round-2 version required the named suite and every named test
+// to RESOLVE in the tree — the suite path had to exist, and the test name had
+// to appear somewhere in the file's bytes under strings.Contains. Neither is
+// identity. Measured against the committed binding before this rewrite, each
+// substitution applied to the real tree with the evidence DAG refrozen and
+// both validators run:
+//
+//   - native_stress.suite replaced by the unrelated path `go.mod` — Go exit 0,
+//     Rust exit 0. Any existing path satisfies existence.
+//   - either regression reference rewritten to `<same file>::test` — Go exit 0,
+//     Rust exit 0. The bare word "test" occurs in every test file, so
+//     strings.Contains accepts a test that was never written.
+//
+// So both references are now held to what they claim to BE. The suite must be
+// the canonical native-thread stress suite, must actually spawn native
+// threads, and the record's own description of it ("N producer threads x M
+// commands") must be re-derived from that file's own constants. Each
+// regression reference must name a real test DECLARATION — an attributed
+// `#[test] fn <name>` in Rust or a `func Test<name>` in Go — not a string that
+// happens to occur in the file.
 func crValidateNamedArtifacts(results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
 	var findings []ModelFinding
 	if inputs.Root == "" {
@@ -1666,14 +2589,37 @@ func crValidateNamedArtifacts(results crResults, inputs ConcurrencyResultsInputs
 		return content, err == nil
 	}
 
-	// native_stress.suite opens with the repository-relative path of the
-	// suite it describes.
-	if fields := strings.Fields(results.NativeStress.Suite); len(fields) > 0 {
-		suite := strings.TrimSuffix(fields[0], ":")
-		if _, ok := read(suite); !ok {
+	findings = append(findings, crValidateStressSuiteIdentity(results, read, missing)...)
+
+	// retention.regeneration names a deliberate-refreeze switch. A switch the
+	// harness does not read is a procedure nobody can follow.
+	if harness, ok := read(crCanonicalHarnessPath); !ok {
+		missing(fmt.Sprintf("the exploration harness %s is not in the tree", crCanonicalHarnessPath))
+	} else if !strings.Contains(string(harness), crRetentionRegenerateEnv) {
+		missing(fmt.Sprintf(
+			"retention.regeneration names %s as the sanctioned refreeze path but %s never reads it",
+			crRetentionRegenerateEnv, crCanonicalHarnessPath))
+	}
+
+	// native_stress.executed names the gate that ran the suite, and claims
+	// both profiles. The gate must exist and must actually carry both.
+	if makefile, ok := read(crRustMakefilePath); !ok {
+		missing(fmt.Sprintf("%s is not in the tree, so native_stress.executed names a gate that cannot be resolved", crRustMakefilePath))
+	} else {
+		prerequisites := crMakeTargetPrerequisites(string(makefile), crNativeStressGateTarget)
+		if prerequisites == nil {
 			missing(fmt.Sprintf(
-				"native_stress.suite names %q, which is not in the tree: the stress result describes a suite "+
-					"that does not exist here", suite))
+				"native_stress.executed cites %q but %s declares no %q target",
+				crNativeStressGateCommand, crRustMakefilePath, crNativeStressGateTarget))
+		} else {
+			for _, profile := range crNativeStressGateProfiles {
+				if _, carried := prerequisites[profile]; !carried {
+					missing(fmt.Sprintf(
+						"native_stress.executed claims debug and release profiles via %q, but the %q target in %s "+
+							"does not depend on %q", crNativeStressGateCommand, crNativeStressGateTarget,
+						crRustMakefilePath, profile))
+				}
+			}
 		}
 	}
 
@@ -1693,10 +2639,12 @@ func crValidateNamedArtifacts(results crResults, inputs ConcurrencyResultsInputs
 					defect.DefectID, file))
 				continue
 			}
-			if !strings.Contains(string(content), name) {
+			if !crDeclaresTest(file, string(content), name) {
 				missing(fmt.Sprintf(
-					"defect %s claims regression coverage by %s in %s, but that file carries no such test; "+
-						"a claimed regression test that does not exist is the fix asserting its own coverage",
+					"defect %s claims regression coverage by %s in %s, but that file declares no such test. "+
+						"The name must be a test DECLARATION, not a string the file happens to contain: "+
+						"`<file>::test` resolved here until review 01a0487b round 3, and a claimed regression "+
+						"test that does not exist is the fix asserting its own coverage",
 					defect.DefectID, name, file))
 			}
 		}
