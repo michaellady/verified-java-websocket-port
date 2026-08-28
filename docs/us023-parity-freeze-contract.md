@@ -1,7 +1,11 @@
 # US-023 immutable parity-freeze contract
 
-Status: architecture contract only. This document does not implement a freeze,
-execute a gate, attach a review, or claim parity completion.
+Status: owner-relaxed snapshot mechanics shipped at `9f5bdde`. The committed
+candidate root is `sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e`
+and the post-reality evaluation root is
+`sha256:4f608c8f658dd287efef362bdfe027cf66116f95e1192810bce2fb3e1d83ce21`.
+Real verification and replay return byte-identical `FROZEN/BLOCKED` verdicts;
+this is not parity completion or READY.
 
 US-023 freezes an honest, immutable description of the candidate. The snapshot
 may be structurally valid while its parity verdict remains `BLOCKED`. That is
@@ -134,6 +138,7 @@ assurance/candidate-manifest.json
 assurance/candidate-claims.json
 assurance/formal/obligation-catalog.json
 assurance/reviews/codex.json
+assurance/reviews/codex-targeted-closure.json
 assurance/reviews/human.json
 assurance/reviews/qa.json
 assurance/reviews/reality.json
@@ -409,12 +414,14 @@ complete candidate root and be comments-only. Findings are closed records with
 stable IDs and severity `BLOCKING`, `IMPORTANT`, or `NIT`.
 
 If the full review has blocking correctness/security findings, only those
-findings may be remediated. The fix produces a successor target and candidate
-root. The same Codex artifact then carries one `TARGETED_CLOSURE` record which
-names exactly the original blocking IDs and the successor root. It may not add
-new review scope. Targeted regression and parent gates bind the successor.
-There is no second full review. Important findings and nits remain visible and
-unimplemented unless separately authorized.
+findings may be remediated. The fix produces a successor candidate root. The
+immutable full receipt remains in `assurance/reviews/codex.json`; a separate
+`assurance/reviews/codex-targeted-closure.json` receipt names exactly the
+predecessor root, successor root, and original blocking IDs. It may not add new
+review scope and counts as a closure only when its status is `EXECUTED`.
+Targeted regression and parent gates bind the successor. There is no second
+full review. Important findings and nits remain visible and unimplemented
+unless separately authorized.
 
 Review receipts are outside candidate content and point inward; this prevents
 the candidate/review hash cycle. `evidence/parity-replay.json` binds their
@@ -510,10 +517,13 @@ Required hostile cases include:
 | protected artifact edge, path traversal, symlink, FIFO, hard link, or secret-bearing decoded value | reject before access with protected/path finding |
 | performance, cutover, `CUTOVER_READY`, signing, publication, production, or stronger assurance claim | invalid overclaim |
 
-The protected-edge test uses an unreadable decoy behind the manifest path and
-an instrumented opener. Success requires zero open/stat/enumeration calls for
-the decoy. A test which merely receives permission denied after following the
-edge is insufficient.
+The shipped protected-edge fixture places a FIFO decoy behind a forbidden path.
+Closed graph-order/denominator validation rejects that shape before any decoy
+access, while separate symlink, FIFO, hard-link, traversal, and decoded-secret
+fixtures exercise the root-confined reader. The narrower
+`PROTECTED_EDGE_FORBIDDEN` branch and an instrumented opener are not directly
+reached by the fixed public graph shape; that limitation remains an important
+review observation rather than a stronger coverage claim.
 
 The positive E2E freezes and replays the exact valid report twice. In the
 owner-relaxed repository that report is expected to be
