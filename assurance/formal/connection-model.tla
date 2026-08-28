@@ -5,6 +5,8 @@ States == {"Connecting", "Open", "Closing", "Closed"}
 MaxCommands == 2
 MaxWrites == 2
 MaxEvents == 2
+MaxAccepted == 3
+MaxBackpressure == 2
 
 VARIABLES state, commandQ, writeQ, eventQ, shutdownRequested,
           terminalQueued, terminalDelivered, backpressureCount,
@@ -38,6 +40,7 @@ EnqueueCommand ==
     /\ state = "Open"
     /\ shutdownRequested = FALSE
     /\ Len(commandQ) < MaxCommands
+    /\ acceptedCount < MaxAccepted
     /\ commandQ' = Append(commandQ, "command")
     /\ acceptedCount' = acceptedCount + 1
     /\ UNCHANGED <<state, writeQ, eventQ, shutdownRequested,
@@ -91,7 +94,7 @@ DeliverCallback ==
     /\ Len(eventQ) > 0
     /\ Head(eventQ) # "terminal" \/ terminalDeliveryCount = 0
     /\ eventQ' = Tail(eventQ)
-    /\ terminalDelivered' = terminalDelivered \/ (Head(eventQ) = "terminal")
+    /\ terminalDelivered' = (terminalDelivered \/ (Head(eventQ) = "terminal"))
     /\ terminalDeliveryCount' =
            IF Head(eventQ) = "terminal" THEN terminalDeliveryCount + 1
            ELSE terminalDeliveryCount
@@ -100,6 +103,7 @@ DeliverCallback ==
 
 ApplyBackpressure ==
     /\ Len(commandQ) = MaxCommands \/ Len(writeQ) = MaxWrites \/ Len(eventQ) = MaxEvents
+    /\ backpressureCount < MaxBackpressure
     /\ backpressureCount' = backpressureCount + 1
     /\ UNCHANGED <<state, commandQ, writeQ, eventQ, shutdownRequested,
                    terminalQueued, terminalDelivered, acceptedCount,
@@ -137,8 +141,11 @@ TypeOK ==
     /\ terminalQueued \in BOOLEAN
     /\ terminalDelivered \in BOOLEAN
     /\ backpressureCount \in Nat
+    /\ backpressureCount <= MaxBackpressure
     /\ acceptedCount \in Nat
+    /\ acceptedCount <= MaxAccepted
     /\ disposedCount \in Nat
+    /\ disposedCount <= MaxAccepted
     /\ terminalDeliveryCount \in Nat
 
 QueueBounds ==
@@ -147,10 +154,13 @@ QueueBounds ==
     /\ Len(eventQ) <= MaxEvents
 
 LifecycleMonotonic ==
-    state = "Closed" => state' = "Closed"
+    [][/\ (state = "Connecting" => state' \in {"Connecting", "Open", "Closing"})
+        /\ (state = "Open" => state' \in {"Open", "Closing"})
+        /\ (state = "Closing" => state' \in {"Closing", "Closed"})
+        /\ (state = "Closed" => state' = "Closed")]_vars
 
 ClosedIsTerminal ==
-    state = "Closed" => UNCHANGED vars
+    [][(state = "Closed" => UNCHANGED vars)]_vars
 
 TerminalDeliveredAtMostOnce ==
     /\ terminalDeliveryCount <= 1
@@ -166,10 +176,10 @@ TerminalDeliveryEventually ==
     []((terminalQueued /\ ~terminalDelivered) => <>terminalDelivered)
 
 BackpressurePreservesAcceptedWork ==
-    backpressureCount' > backpressureCount =>
+    [][(backpressureCount' > backpressureCount) =>
         /\ commandQ' = commandQ
         /\ writeQ' = writeQ
-        /\ eventQ' = eventQ
+        /\ eventQ' = eventQ]_vars
 
 Spec ==
     /\ Init
@@ -181,9 +191,9 @@ Spec ==
     /\ WF_vars(FinishClose)
 
 TerminationUnderFairness ==
-    shutdownRequested => <>(/\ state = "Closed"
-                             /\ Len(commandQ) = 0
-                             /\ Len(writeQ) = 0
-                             /\ Len(eventQ) = 0)
+    [](shutdownRequested => <>(/\ state = "Closed"
+                                /\ Len(commandQ) = 0
+                                /\ Len(writeQ) = 0
+                                /\ Len(eventQ) = 0))
 
 =====================================================================================

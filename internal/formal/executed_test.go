@@ -225,10 +225,15 @@ func TestUS006SyntheticOrUnprovenancedLinkageCannotResolveProduction(t *testing.
 func TestUS006TLAConcurrencyShutdownShapeIsFrozen(t *testing.T) {
 	canonical := string(readFile(t, filepath.Join(repositoryRoot(t), connectionModelPath)))
 	mutations := map[string][2]string{
-		"accept while closing":       {"/\\ state = \"Open\"\n    /\\ shutdownRequested = FALSE", "/\\ state \\in {\"Open\", \"Closing\"}\n    /\\ shutdownRequested = FALSE"},
-		"duplicate terminal enqueue": {"/\\ state \\in {\"Open\", \"Closing\"}\n    /\\ terminalQueued = FALSE", "/\\ state \\in {\"Open\", \"Closing\"}"},
-		"close before event drain":   {"/\\ Len(writeQ) = 0\n    /\\ Len(eventQ) = 0", "/\\ Len(writeQ) = 0"},
-		"unfair final close":         {"/\\ WF_vars(FinishClose)", "/\\ WF_vars(ApplyBackpressure)"},
+		"accept while closing":         {"/\\ state = \"Open\"\n    /\\ shutdownRequested = FALSE", "/\\ state \\in {\"Open\", \"Closing\"}\n    /\\ shutdownRequested = FALSE"},
+		"duplicate terminal enqueue":   {"/\\ state \\in {\"Open\", \"Closing\"}\n    /\\ terminalQueued = FALSE", "/\\ state \\in {\"Open\", \"Closing\"}"},
+		"close before event drain":     {"/\\ Len(writeQ) = 0\n    /\\ Len(eventQ) = 0", "/\\ Len(writeQ) = 0"},
+		"unfair final close":           {"/\\ WF_vars(FinishClose)", "/\\ WF_vars(ApplyBackpressure)"},
+		"unbounded admission":          {"/\\ acceptedCount < MaxAccepted", "/\\ acceptedCount \\in Nat"},
+		"unbounded backpressure":       {"/\\ backpressureCount < MaxBackpressure", "/\\ backpressureCount \\in Nat"},
+		"ambiguous boolean assignment": {"terminalDelivered' = (terminalDelivered \\/ (Head(eventQ) = \"terminal\"))", "terminalDelivered' = terminalDelivered \\/ (Head(eventQ) = \"terminal\")"},
+		"vacuous shutdown liveness":    {"[](shutdownRequested => <>(/\\ state = \"Closed\"", "shutdownRequested => <>(/\\ state = \"Closed\""},
+		"unchecked lifecycle action":   {"LifecycleMonotonic ==\n    [][/\\ (state = \"Connecting\"", "LifecycleMonotonic ==\n    /\\ (state = \"Connecting\""},
 	}
 	if err := validateTLA([]byte(canonical)); err != nil {
 		t.Fatalf("canonical TLA shape: %v", err)

@@ -10,7 +10,7 @@
   },
   "connection_model": {
     "path": "assurance/formal/connection-model.tla",
-    "sha256": "sha256:32e4e0584d8b14eedad8c5f27f9fbf856f707140e169cc102acb486a892af6ba",
+    "sha256": "sha256:bc1df368e273e73cc1da9013da7d84b36aa7ee0faef03eda9ef4e33c4efa8d84",
     "attribution": "US006_OWNED"
   },
   "concurrency_plan": {
@@ -346,10 +346,10 @@
       "obligation_ids": ["model.accepted-commands-disposed-exactly-once", "model.accepted-commands-eventually-disposed", "model.backpressure-preserves-accepted-work", "model.closed-is-terminal", "model.lifecycle-monotonic", "model.queue-bounds", "model.terminal-delivered-at-most-once", "model.terminal-delivery-eventually", "model.termination-under-fairness"],
       "obligation_count": 9,
       "known_good_canaries": [
-        {"canary_id": "canary.good-connection-model", "input": {"path": "assurance/formal/connection-model.tla", "sha256": "sha256:32e4e0584d8b14eedad8c5f27f9fbf856f707140e169cc102acb486a892af6ba", "attribution": "US006_OWNED"}, "expected_outcome": "PASS", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
+        {"canary_id": "canary.good-connection-model", "input": {"path": "assurance/formal/connection-model.tla", "sha256": "sha256:bc1df368e273e73cc1da9013da7d84b36aa7ee0faef03eda9ef4e33c4efa8d84", "attribution": "US006_OWNED"}, "expected_outcome": "PASS", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
       ],
       "known_bad_canaries": [
-        {"canary_id": "canary.bad-terminal-duplicate", "input": {"path": "assurance/formal/connection-model.tla", "sha256": "sha256:32e4e0584d8b14eedad8c5f27f9fbf856f707140e169cc102acb486a892af6ba", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
+        {"canary_id": "canary.bad-terminal-duplicate", "input": {"path": "assurance/formal/connection-model.tla", "sha256": "sha256:bc1df368e273e73cc1da9013da7d84b36aa7ee0faef03eda9ef4e33c4efa8d84", "attribution": "US006_OWNED"}, "expected_outcome": "COUNTEREXAMPLE", "observed_outcome": "NOT_EXECUTED", "output": null, "counterexample": null}
       ],
       "bounds": {"state_bound": 4, "command_capacity": 2, "write_capacity": 2, "event_capacity": 2, "distinct_states": 0, "transitions": 0, "fairness": ["WEAK_CALLBACK_PROGRESS_WHEN_EVENT_PENDING", "WEAK_FLUSH_PROGRESS_WHEN_WRITABLE", "WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING"]},
       "assumptions": ["Producer admission has no fairness assumption.", "The model contains lifecycle, bounded queues, terminal delivery, and backpressure only."],

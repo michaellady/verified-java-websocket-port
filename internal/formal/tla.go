@@ -12,6 +12,8 @@ var tlaDeclarations = []string{
 	"MaxCommands",
 	"MaxWrites",
 	"MaxEvents",
+	"MaxAccepted",
+	"MaxBackpressure",
 	"vars",
 	"Init",
 	"CompleteHandshake",
@@ -76,7 +78,9 @@ func validateTLA(data []byte) error {
 	if !strings.Contains(text, `States == {"Connecting", "Open", "Closing", "Closed"}`) ||
 		!strings.Contains(text, "MaxCommands == 2") ||
 		!strings.Contains(text, "MaxWrites == 2") ||
-		!strings.Contains(text, "MaxEvents == 2") {
+		!strings.Contains(text, "MaxEvents == 2") ||
+		!strings.Contains(text, "MaxAccepted == 3") ||
+		!strings.Contains(text, "MaxBackpressure == 2") {
 		return fmt.Errorf("state or queue constants drifted")
 	}
 	wantedVariables := "VARIABLES state, commandQ, writeQ, eventQ, shutdownRequested,\n          terminalQueued, terminalDelivered, backpressureCount,\n          acceptedCount, disposedCount, terminalDeliveryCount"
@@ -114,12 +118,21 @@ func validateTLA(data []byte) error {
 		"/\\ WF_vars(DeliverCallback)",
 		"/\\ WF_vars(FinishClose)",
 		"EnqueueCommand ==\n    /\\ state = \"Open\"\n    /\\ shutdownRequested = FALSE",
+		"/\\ acceptedCount < MaxAccepted",
 		"ReceiveClose ==\n    /\\ state \\in {\"Open\", \"Closing\"}\n    /\\ terminalQueued = FALSE",
 		"FinishClose ==\n    /\\ state = \"Closing\"\n    /\\ Len(commandQ) = 0\n    /\\ Len(writeQ) = 0\n    /\\ Len(eventQ) = 0",
+		"terminalDelivered' = (terminalDelivered \\/ (Head(eventQ) = \"terminal\"))",
+		"/\\ backpressureCount < MaxBackpressure",
+		"/\\ backpressureCount <= MaxBackpressure",
+		"/\\ acceptedCount <= MaxAccepted",
+		"/\\ disposedCount <= MaxAccepted",
+		"LifecycleMonotonic ==\n    [][/\\ (state = \"Connecting\" => state' \\in {\"Connecting\", \"Open\", \"Closing\"})",
+		"ClosedIsTerminal ==\n    [][(state = \"Closed\" => UNCHANGED vars)]_vars",
+		"BackpressurePreservesAcceptedWork ==\n    [][(backpressureCount' > backpressureCount) =>",
 		"[]((acceptedCount > disposedCount) => <>(disposedCount = acceptedCount))",
 		"[]((terminalQueued /\\ ~terminalDelivered) => <>terminalDelivered)",
+		"[](shutdownRequested => <>(/\\ state = \"Closed\"",
 		"terminalDeliveryCount <= 1",
-		"shutdownRequested => <>(/\\ state = \"Closed\"\n                             /\\ Len(commandQ) = 0\n                             /\\ Len(writeQ) = 0\n                             /\\ Len(eventQ) = 0)",
 	} {
 		if !strings.Contains(text, required) {
 			return fmt.Errorf("required Spec/fairness expression %q is missing", required)

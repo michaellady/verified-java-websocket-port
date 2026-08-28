@@ -1,0 +1,199 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "formal-model-mutations",
+  "tool_sha256": "sha256:eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a",
+  "models": [
+    {
+      "module": "ConnectionModel",
+      "tla_path": "assurance/formal/connection-model.tla",
+      "cfg_path": "assurance/formal/connection-model.cfg"
+    }
+  ],
+  "mutations": [
+    {
+      "id": "type-domain-escape",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 12,
+      "expected_kind": "violated",
+      "expected_check": "TypeOK",
+      "rationale": "The initial backpressure counter starts above its declared finite domain.",
+      "edits": [
+        {
+          "find": "    /\\ backpressureCount = 0\n    /\\ acceptedCount = 0",
+          "replace": "    /\\ backpressureCount = MaxBackpressure + 1\n    /\\ acceptedCount = 0",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "command-queue-over-cap",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 12,
+      "expected_kind": "violated",
+      "expected_check": "QueueBounds",
+      "rationale": "The initial command queue contains three elements despite a capacity of two.",
+      "edits": [
+        {
+          "find": "    /\\ commandQ = <<>>",
+          "replace": "    /\\ commandQ = <<\"command\", \"command\", \"command\">>",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "terminal-duplicate",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 12,
+      "expected_kind": "violated",
+      "expected_check": "TerminalDeliveredAtMostOnce",
+      "rationale": "Repeated close receipt and an unguarded callback permit terminal delivery twice.",
+      "edits": [
+        {
+          "find": "    /\\ terminalQueued = FALSE\n    /\\ Len(eventQ) < MaxEvents",
+          "replace": "    /\\ Len(eventQ) < MaxEvents",
+          "count": 1
+        },
+        {
+          "find": "    /\\ Head(eventQ) # \"terminal\" \\/ terminalDeliveryCount = 0",
+          "replace": "    /\\ TRUE",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "disposed-before-accepted",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 12,
+      "expected_kind": "violated",
+      "expected_check": "AcceptedCommandsDisposedExactlyOnce",
+      "rationale": "The initial state reports one disposal despite accepting no command.",
+      "edits": [
+        {
+          "find": "    /\\ acceptedCount = 0\n    /\\ disposedCount = 0",
+          "replace": "    /\\ acceptedCount = 0\n    /\\ disposedCount = 1",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "lifecycle-skip",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 13,
+      "expected_kind": "violated",
+      "expected_check": "LifecycleMonotonic",
+      "rationale": "Handshake completion skips directly from Connecting to Closed.",
+      "edits": [
+        {
+          "find": "    /\\ state' = \"Open\"",
+          "replace": "    /\\ state' = \"Closed\"",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "closed-reopens",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 13,
+      "expected_kind": "violated",
+      "expected_check": "ClosedIsTerminal",
+      "rationale": "A mutant action reopens Closed while the monotonicity check is narrowed to isolate terminal absorption.",
+      "edits": [
+        {
+          "find": "        /\\ (state = \"Closed\" => state' = \"Closed\")]_vars",
+          "replace": "        /\\ (state = \"Closed\" => state' \\in {\"Closed\", \"Open\"})]_vars",
+          "count": 1
+        },
+        {
+          "find": "Next ==\n    \\/ CompleteHandshake",
+          "replace": "Reopen ==\n    /\\ state = \"Closed\"\n    /\\ state' = \"Open\"\n    /\\ UNCHANGED <<commandQ, writeQ, eventQ, shutdownRequested,\n                   terminalQueued, terminalDelivered, backpressureCount,\n                   acceptedCount, disposedCount, terminalDeliveryCount>>\n\nNext ==\n    \\/ Reopen\n    \\/ CompleteHandshake",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "backpressure-drops-command",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 13,
+      "expected_kind": "violated",
+      "expected_check": "BackpressurePreservesAcceptedWork",
+      "rationale": "Applying backpressure drops one accepted command without disposing it.",
+      "edits": [
+        {
+          "find": "    /\\ Len(commandQ) = MaxCommands \\/ Len(writeQ) = MaxWrites \\/ Len(eventQ) = MaxEvents",
+          "replace": "    /\\ Len(commandQ) = MaxCommands",
+          "count": 1
+        },
+        {
+          "find": "    /\\ backpressureCount' = backpressureCount + 1\n    /\\ UNCHANGED <<state, commandQ, writeQ, eventQ, shutdownRequested,",
+          "replace": "    /\\ backpressureCount' = backpressureCount + 1\n    /\\ commandQ' = Tail(commandQ)\n    /\\ UNCHANGED <<state, writeQ, eventQ, shutdownRequested,",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "accepted-work-starved",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 13,
+      "expected_kind": "violated",
+      "expected_check": "AcceptedCommandsEventuallyDisposed",
+      "rationale": "Removing outbound-flush fairness permits accepted work to stutter forever.",
+      "edits": [
+        {
+          "find": "    /\\ WF_vars(FlushOutbound)",
+          "replace": "    /\\ TRUE",
+          "count": 1
+        },
+        {
+          "find": "TerminationUnderFairness ==\n    [](shutdownRequested =>",
+          "replace": "TerminationUnderFairness ==\n    [](FALSE =>",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "terminal-delivery-starved",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 13,
+      "expected_kind": "violated",
+      "expected_check": "TerminalDeliveryEventually",
+      "rationale": "Removing callback fairness permits a queued terminal event to stutter forever.",
+      "edits": [
+        {
+          "find": "    /\\ WF_vars(DeliverCallback)",
+          "replace": "    /\\ TRUE",
+          "count": 1
+        },
+        {
+          "find": "TerminationUnderFairness ==\n    [](shutdownRequested =>",
+          "replace": "TerminationUnderFairness ==\n    [](FALSE =>",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "finish-close-unfair",
+      "module": "ConnectionModel",
+      "target": "tla",
+      "expected_exit": 13,
+      "expected_kind": "violated",
+      "expected_check": "TerminationUnderFairness",
+      "rationale": "Removing final-close fairness permits shutdown to remain drained but nonterminal forever.",
+      "edits": [
+        {
+          "find": "    /\\ WF_vars(FinishClose)",
+          "replace": "    /\\ TRUE",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

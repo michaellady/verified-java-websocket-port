@@ -386,6 +386,8 @@ States == {"Connecting", "Open", "Closing", "Closed"}
 MaxCommands == 2
 MaxWrites == 2
 MaxEvents == 2
+MaxAccepted == 3
+MaxBackpressure == 2
 VARIABLES state, commandQ, writeQ, eventQ, shutdownRequested,
           terminalQueued, terminalDelivered, backpressureCount
 vars == <<...all variables in the order above...>>
@@ -414,11 +416,22 @@ TerminationUnderFairness
 stuttering closure of `Next`, weak fairness for owner progress, outbound flush,
 and callback delivery when their enabling conditions remain true. Producer
 admission has no fairness assumption: a full queue may return explicit
-backpressure. `TerminationUnderFairness` is conditional on a requested
+backpressure. `MaxAccepted` and `MaxBackpressure` bound otherwise cyclic
+counters so TLC explores a genuinely finite graph rather than an ever-growing
+counter dimension. `TerminationUnderFairness` is conditional on a requested
 shutdown and the declared progress fairness. The model represents only the
 abstract `Connecting -> Open -> Closing -> Closed` lifecycle, bounded queues,
 and terminal delivery. It contains no codec, mask, length, allocation, or
 production Rust algorithm, so it cannot become a proof-only duplicate.
+`LifecycleMonotonic`, `ClosedIsTerminal`, and
+`BackpressurePreservesAcceptedWork` are temporal transition properties in the
+TLC configuration, rather than merely named formulas. Shutdown liveness is
+wrapped in `[]`, so it is checked from every reachable state where shutdown has
+been requested instead of passing vacuously from the initial state.
+The TLC configuration disables generic deadlock reporting because `Closed` is
+the intended terminal state with no enabled `Next` action; terminal reachability
+and absorption remain explicit checked properties rather than being mislabeled
+as a deadlock failure.
 
 TLC output, if later executed, is recorded by the backend qualification. A
 structurally valid module or a TLC pass does not change production linkage.
