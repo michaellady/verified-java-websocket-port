@@ -68,7 +68,6 @@ func TestCommittedLedgerMatchesTheRecordedDivergenceDefinitions(t *testing.T) {
 		committed.EvidenceKind != "behavior-delta-ledger" ||
 		committed.NormativeAuthority != "rfc6455" ||
 		committed.AppendImplementation != "hash-chained-cas" ||
-		committed.UnledgeredDisagreements != 0 ||
 		committed.Production || committed.Publication {
 		t.Fatalf("committed envelope drifted: %+v", committed)
 	}
@@ -93,6 +92,21 @@ func TestCommittedLedgerMatchesTheRecordedDivergenceDefinitions(t *testing.T) {
 	}
 	if committed.Head != head {
 		t.Fatalf("committed head %s != regenerated head %s", committed.Head, head)
+	}
+	// unledgered_disagreements is COMPUTED from the committed observation set
+	// (see observations.go); the envelope check therefore compares it against
+	// the recomputation rather than against the literal 0 it used to be.
+	observations, err := ReadObservations(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read observations: %v", err)
+	}
+	unledgered, err := UnledgeredSubjects(records, observations.Observed)
+	if err != nil {
+		t.Fatalf("compute unledgered: %v", err)
+	}
+	if committed.UnledgeredDisagreements != len(unledgered) {
+		t.Fatalf("committed unledgered_disagreements %d != computed %d (%v)",
+			committed.UnledgeredDisagreements, len(unledgered), unledgered)
 	}
 }
 
@@ -120,10 +134,6 @@ func TestCommittedLedgerChainVerifies(t *testing.T) {
 	if committed.Head != previous {
 		t.Fatalf("committed head %s != verified chain head %s", committed.Head, previous)
 	}
-}
-
-func definitionText(definition Definition) string {
-	return definition.JavaObservation + "\n" + definition.Rationale
 }
 
 func TestLedgerRecordsResolveTheirCitedEvidence(t *testing.T) {

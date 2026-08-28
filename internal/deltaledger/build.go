@@ -35,7 +35,11 @@ type LedgerFile struct {
 // validated behavior delta, deriving the disagreement digest and delta
 // identity through the canonical internal/lab implementation.
 func BuildDeltas() ([]lab.BehaviorDelta, error) {
-	definitions := Definitions()
+	return buildDeltasFrom(Definitions())
+}
+
+// buildDeltasFrom materializes an explicit definition list.
+func buildDeltasFrom(definitions []Definition) ([]lab.BehaviorDelta, error) {
 	deltas := make([]lab.BehaviorDelta, 0, len(definitions))
 	for index, definition := range definitions {
 		rfcRefs := append([]string(nil), definition.RFCRefs...)
@@ -136,15 +140,35 @@ func BuildLedger() ([]lab.BehaviorLedgerRecord, string, error) {
 // be PASS — see internal/lab.VerifyBaselineEvidence — and that baseline is
 // BLOCKED with no further reruns authorized, so populating records does not
 // flip the status).
-func BuildLedgerFile(existing LedgerFile) (LedgerFile, error) {
+//
+// unledgered_disagreements is COMPUTED, not assigned. It counts the
+// observations in the committed evidence/java/observed-disagreements.json
+// whose disagreement digest has no record in the chain. It was previously the
+// literal 0 with a schema that admitted nothing else — a gate that could not
+// fail, and did not, through the whole period when gap G3c and the
+// reserved-bit ready-state proposition were genuinely unledgered. See
+// observations.go for the full account.
+//
+// The zero REQUIREMENT deliberately does not live here: this function reports
+// the count honestly whatever it is, and internal/lab.VerifyBaselineEvidence
+// refuses readiness when it is nonzero.
+func BuildLedgerFile(root string, existing LedgerFile) (LedgerFile, error) {
 	records, head, err := BuildLedger()
+	if err != nil {
+		return LedgerFile{}, err
+	}
+	observations, err := ReadObservations(root)
+	if err != nil {
+		return LedgerFile{}, err
+	}
+	unledgered, err := UnledgeredSubjects(records, observations.Observed)
 	if err != nil {
 		return LedgerFile{}, err
 	}
 	built := existing
 	built.Head = head
 	built.Records = records
-	built.UnledgeredDisagreements = 0
+	built.UnledgeredDisagreements = len(unledgered)
 	return built, nil
 }
 

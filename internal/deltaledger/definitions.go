@@ -156,6 +156,9 @@ func Definitions() []Definition {
 	// they correct (protected/ledger-frozen-prefix-owner-decision-2026-08-28.json,
 	// sha256 bb3cd0da7f4aed01...: SUPERSEDE, DO NOT REWRITE).
 	definitions = append(definitions, prefixCorrectionDefinitions()...)
+	// Appended after those so the prefix they correct, and the corrections
+	// themselves, are both undisturbed by the protocol-rejection class record.
+	definitions = append(definitions, protocolRejectionStateDefinitions()...)
 	return definitions
 }
 

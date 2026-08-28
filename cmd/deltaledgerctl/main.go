@@ -25,10 +25,18 @@ import (
 func main() {
 	root := flag.String("root", "", "repository root")
 	check := flag.Bool("check", false, "verify the committed ledger instead of writing it")
+	regenerateObservations := flag.Bool("regenerate-observations", false,
+		"deliberately refreeze evidence/java/observed-disagreements.json from the recorded definitions")
 	flag.Parse()
 	if *root == "" {
 		fmt.Fprintln(os.Stderr, "deltaledgerctl: --root is required")
 		os.Exit(2)
+	}
+	if *regenerateObservations {
+		if err := regenerateObservationSet(*root); err != nil {
+			fmt.Fprintf(os.Stderr, "deltaledgerctl: %v\n", err)
+			os.Exit(1)
+		}
 	}
 	if err := run(*root, *check); err != nil {
 		fmt.Fprintf(os.Stderr, "deltaledgerctl: %v\n", err)
@@ -36,12 +44,38 @@ func main() {
 	}
 }
 
+// regenerateObservationSet refreezes the committed observed-disagreement set
+// from the recorded definitions. It is behind an explicit flag on purpose: the
+// gate's whole value is that the committed observations OUTLIVE a record's
+// removal, so silently regenerating them would restore the fake-gate behavior
+// this artifact exists to prevent.
+func regenerateObservationSet(root string) error {
+	existing, err := deltaledger.ReadObservations(root)
+	if err != nil {
+		return err
+	}
+	built, err := deltaledger.BuildObservationSet(existing)
+	if err != nil {
+		return err
+	}
+	encoded, err := deltaledger.EncodeObservations(built)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(root, filepath.FromSlash(deltaledger.ObservationsRelativePath))
+	if err := os.WriteFile(path, encoded, 0o644); err != nil {
+		return err
+	}
+	fmt.Printf("wrote %s: %d observations\n", deltaledger.ObservationsRelativePath, len(built.Observed))
+	return nil
+}
+
 func run(root string, check bool) error {
 	committed, err := deltaledger.ReadCommittedLedger(root)
 	if err != nil {
 		return err
 	}
-	built, err := deltaledger.BuildLedgerFile(committed)
+	built, err := deltaledger.BuildLedgerFile(root, committed)
 	if err != nil {
 		return err
 	}
