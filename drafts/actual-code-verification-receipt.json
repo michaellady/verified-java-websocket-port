@@ -20,7 +20,7 @@
   },
   "verdict": {
     "feasible": true,
-    "summary": "Kani 0.67.0 verifies the ACTUAL shipped ws_core source. 16 harnesses over the real functions all verified; 14 of 15 planted defects were detected, 1 was PROVEN EQUIVALENT, and 1 pair demonstrates a blind spot in a property this project already carries. The zero-dependency gate is untouched: rust/ still reports 0 non-path dependencies and ac1-gates is 8/8.",
+    "summary": "Kani 0.67.0 verifies the ACTUAL shipped ws_core source. 16 harnesses all verified, of which 15 are over the real shipped functions and 1 is ORACLE VALIDATION, not actual-code verification: real_reference_decoder_agrees_with_core_str_len_le_3 (real.rs:104) ties the independent reference decoder in spec to core::str::from_utf8 and calls no ws_core function at all. It earns the reference decoder the right to be used as an oracle by the 15, which is why it is here, but counting it among harnesses 'over the real functions' overstated the actual-code figure by one. The harness's own doc comment always said ORACLE VALIDATION; this summary is what was wrong. 14 of 15 planted defects were detected, 1 was PROVEN EQUIVALENT, and 1 pair demonstrates a blind spot in a property this project already carries. The zero-dependency gate is untouched: rust/ still reports 0 non-path dependencies and ac1-gates is 8/8.",
     "claim_ceiling": "BOUNDED verification. Every property below states its bound. The u16 close-code harnesses are exhaustive over their entire input domain; every other harness proves its property only up to the stated bound and NOT universally."
   },
   "gate_reading_verified_at_source": {

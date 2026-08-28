@@ -56,13 +56,6 @@ func main() {
 	rawDir := flag.String("raw-dir", "", "directory to write each harness's full combined output to (<dir>/<harness>.log)")
 	flag.Parse()
 
-	if *rawDir != "" {
-		if err := os.MkdirAll(*rawDir, 0o755); err != nil {
-			fmt.Fprintf(os.Stderr, "kanirun: -raw-dir: %v\n", err)
-			os.Exit(3)
-		}
-	}
-
 	if *list == "" {
 		fmt.Fprintln(os.Stderr, "kanirun: -harnesses is required")
 		os.Exit(2)
@@ -82,6 +75,31 @@ func main() {
 		specs = append(specs, [2]string{parts[0], parts[1]})
 	}
 	sort.Slice(specs, func(i, j int) bool { return specs[i][0] < specs[j][0] })
+
+	// logFileName is many-to-one: "mod::proof" and "mod__proof" both sanitize
+	// to "mod__proof". Without this check the second harness would overwrite
+	// the first one's log while the first one's JSON record kept naming that
+	// path with its own now-replaced digest -- evidence silently swapped under
+	// a record that still looks intact, which is the exact failure shape
+	// -raw-dir exists to prevent. Refuse the ambiguity instead of resolving it
+	// with a hash suffix: a collision here is a mistake in -harnesses worth
+	// surfacing, and an unreadable filename is a poor trade for hiding it.
+	// Checked only under -raw-dir, so runs without it are unaffected.
+	if *rawDir != "" {
+		byFile := make(map[string]string, len(specs))
+		for _, spec := range specs {
+			f := logFileName(spec[0])
+			if prev, dup := byFile[f]; dup {
+				fmt.Fprintf(os.Stderr, "kanirun: -raw-dir: harnesses %q and %q both map to %q\n", prev, spec[0], f)
+				os.Exit(2)
+			}
+			byFile[f] = spec[0]
+		}
+		if err := os.MkdirAll(*rawDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "kanirun: -raw-dir: %v\n", err)
+			os.Exit(3)
+		}
+	}
 
 	results := make([]result, 0, len(specs))
 	for _, spec := range specs {
