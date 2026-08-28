@@ -1,8 +1,19 @@
 # US-022 normalized mutation and protected-evaluation contract
 
-Status: architecture only. This document does not claim a PIT,
-`cargo-mutants`, hidden/sealed candidate, signature, publication, or
-independent-review result.
+Status: implemented and verified at the owner-relaxed assurance ceiling. This
+document does not claim a PIT, `cargo-mutants`, hidden/sealed candidate,
+signature, publication, or independent-review result.
+
+The shipped campaign contains four Java and four Rust planted controls. Every
+control compiled and was killed twice by its fixed selected test, for 16 total
+mutant observations, an eligible denominator of eight, zero missed mutants,
+and a score of 10,000 basis points. The unchanged Java baseline passed 18 tests
+per run across two pre-campaign and two post-campaign runs; the unchanged Rust
+baseline passed 137 tests per run across the same four-run structure. The
+committed `mutationctl verify` path, QA replay, and reality replay all pass.
+PIT, `cargo-mutants`, current protected Rust/control execution, signing,
+publication, production certification, and independent review remain explicit
+nonclaims.
 
 US-022 uses an owner-relaxed gate. It still requires executable mutation
 controls, a complete denominator, unchanged production and test surfaces, and
