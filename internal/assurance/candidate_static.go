@@ -17,8 +17,8 @@ const (
 	formalReportPath      = "reports/formal-coverage.md"
 	parityReportPath      = "docs/us023-parity-coverage.md"
 	rootNodeID            = "root.us023-candidate"
-	canonicalTargetCommit = "869b77ce1dd06c112e99df8129a66759b4739109"
-	canonicalTargetTree   = "226d992bc3f652f4a1770c4b589e310b9ff476c2"
+	canonicalTargetCommit = "1ff89fa30cb0ab6ff339afd3ce486a36e9f7f325"
+	canonicalTargetTree   = "dfb1950301e9680b1c47f0bd9debc0fc026d0e4f"
 )
 
 var candidateSchemaPaths = []string{
