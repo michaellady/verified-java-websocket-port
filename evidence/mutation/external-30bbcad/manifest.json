@@ -36,11 +36,11 @@
   },
   "resolved_viable_score": "767/881 (87.06%)",
   "raw_receipts": [
-    {"path": "outcomes-a.json", "sha256": "64f3fd800cb7e49af715d510591e6afaa1b7fb638d5b2a3ac64c02dd917ae9ad"},
-    {"path": "outcomes-b.json", "sha256": "ae2c05d4ddc83d1782f8d6f63458ffb89c82d711954e731efa899e4eb3660a92"},
-    {"path": "outcomes-c.json", "sha256": "43add03c6d018d86f9d8243035ae5e38d88efcbe4345ce3a5a852eec87edf628"},
-    {"path": "outcomes-d.json", "sha256": "30a8cf36d468c44359af94350c18a6c727e0cc0fd697c746fd0224526130d645"},
-    {"path": "outcomes-timeout-replay.json", "sha256": "525cb85bcc98a3832e456ee9f7e874ca424ff764dd40e3149b889540fac988be"}
+    {"path": "outcomes-a.json.gz", "sha256": "63a5cb9e76969367ce913aec21883d00f40cc57daaf17ebd49ac27b2047b7d94", "content_sha256": "64f3fd800cb7e49af715d510591e6afaa1b7fb638d5b2a3ac64c02dd917ae9ad"},
+    {"path": "outcomes-b.json.gz", "sha256": "e4d2c172ee5ad27faaae0588da675568f41f95dfd2d02f1824d8c19d9d94e392", "content_sha256": "ae2c05d4ddc83d1782f8d6f63458ffb89c82d711954e731efa899e4eb3660a92"},
+    {"path": "outcomes-c.json.gz", "sha256": "3993b9f5a521769834e92f099e014030e513c80b0c49094a8b0e1673ff272fea", "content_sha256": "43add03c6d018d86f9d8243035ae5e38d88efcbe4345ce3a5a852eec87edf628"},
+    {"path": "outcomes-d.json.gz", "sha256": "8ba2d5754dc673f4b30144d558c17457ff6bacbe166518f83bf80a5800584795", "content_sha256": "30a8cf36d468c44359af94350c18a6c727e0cc0fd697c746fd0224526130d645"},
+    {"path": "outcomes-timeout-replay.json.gz", "sha256": "92479376dc4336eceb3a523036491322ef44997fc91192b9cd38b4cb0594e92d", "content_sha256": "525cb85bcc98a3832e456ee9f7e874ca424ff764dd40e3149b889540fac988be"}
   ],
   "nonclaims": [
     "The two failed pre-campaign baselines were harness-construction errors and are not product results.",

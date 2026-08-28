@@ -38,10 +38,10 @@
     "closure_subject": "ac15da85bffbbd5efae2969b6be35edd5833fa85"
   },
   "raw_receipts": [
-    {"path": "outcomes-shard-0.json", "sha256": "548427bc3a38b23293612509c6849b7dc3567bbf4c4b1ca9caf60b9f9fcc6315"},
-    {"path": "outcomes-shard-1.json", "sha256": "86f9b6beb2a62e7430885f2f1663f190c1efedd449ed46827bc0e4180f71197e"},
-    {"path": "outcomes-shard-2.json", "sha256": "ea0dd0b4b6fd80ad2970f0e93c0ccff973c878c518134f57e1b3f27fb32ba1f4"},
-    {"path": "outcomes-shard-3.json", "sha256": "4cf970d241d06680166ae6ff6fc414876117b249a2d7f7755172bd2f5cf985b6"}
+    {"path": "outcomes-shard-0.json.gz", "sha256": "2c380e39385dd7273e564aaa504b7f5e4b1da6bd991364dd169fd44fa0f4c855", "content_sha256": "548427bc3a38b23293612509c6849b7dc3567bbf4c4b1ca9caf60b9f9fcc6315"},
+    {"path": "outcomes-shard-1.json.gz", "sha256": "bca06d39df106e76d3b4ae41c0a079eb7fac923b8883467236f02ab510605fc0", "content_sha256": "86f9b6beb2a62e7430885f2f1663f190c1efedd449ed46827bc0e4180f71197e"},
+    {"path": "outcomes-shard-2.json.gz", "sha256": "c6f3ccd05d38e2aba2335c0e82c5a1e4cae4b406da121b8302e5e562217acbc1", "content_sha256": "ea0dd0b4b6fd80ad2970f0e93c0ccff973c878c518134f57e1b3f27fb32ba1f4"},
+    {"path": "outcomes-shard-3.json.gz", "sha256": "fbd5eb0c32385fe919893e7ebc300e2758e4f3821d6f55833034ea6746759d6b", "content_sha256": "4cf970d241d06680166ae6ff6fc414876117b249a2d7f7755172bd2f5cf985b6"}
   ],
   "nonclaims": [
     "The raw score is not rewritten after adjudication.",

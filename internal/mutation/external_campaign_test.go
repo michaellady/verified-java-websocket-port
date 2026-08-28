@@ -2,7 +2,9 @@ package mutation
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,8 +36,9 @@ type externalScenario struct {
 }
 
 type externalReceiptDigest struct {
-	Path   string `json:"path"`
-	SHA256 string `json:"sha256"`
+	Path          string `json:"path"`
+	SHA256        string `json:"sha256"`
+	ContentSHA256 string `json:"content_sha256"`
 }
 
 type externalManifestReceipts struct {
@@ -55,10 +58,7 @@ type externalAdjudication struct {
 
 func loadExternalReport(t *testing.T, root, relative string) (externalOutcomeReport, map[string]string) {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(root, relative))
-	if err != nil {
-		t.Fatal(err)
-	}
+	raw := readExternalReceipt(t, filepath.Join(root, relative))
 	var report externalOutcomeReport
 	if err := json.Unmarshal(raw, &report); err != nil {
 		t.Fatalf("decode %s: %v", relative, err)
@@ -95,6 +95,29 @@ func loadExternalReport(t *testing.T, root, relative string) (externalOutcomeRep
 	return report, mutants
 }
 
+func readExternalReceipt(t *testing.T, path string) []byte {
+	t.Helper()
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(path, ".gz") {
+		return raw
+	}
+	reader, err := gzip.NewReader(bytes.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return contents
+}
+
 func verifyExternalManifestDigests(t *testing.T, root, directory string) {
 	t.Helper()
 	raw, err := os.ReadFile(filepath.Join(root, directory, "manifest.json"))
@@ -113,7 +136,7 @@ func verifyExternalManifestDigests(t *testing.T, root, directory string) {
 		t.Fatalf("%s manifest has no raw receipts", directory)
 	}
 	for _, receipt := range receipts {
-		if filepath.Base(receipt.Path) != receipt.Path || receipt.SHA256 == "" {
+		if filepath.Base(receipt.Path) != receipt.Path || receipt.SHA256 == "" || receipt.ContentSHA256 == "" {
 			t.Fatalf("%s unsafe or incomplete receipt: %+v", directory, receipt)
 		}
 		contents, err := os.ReadFile(filepath.Join(root, directory, receipt.Path))
@@ -126,6 +149,13 @@ func verifyExternalManifestDigests(t *testing.T, root, directory string) {
 		}
 		if got := digest(contents); got != want {
 			t.Fatalf("%s/%s digest=%s want=%s", directory, receipt.Path, got, want)
+		}
+		contentWant := receipt.ContentSHA256
+		if !strings.HasPrefix(contentWant, "sha256:") {
+			contentWant = "sha256:" + contentWant
+		}
+		if got := digest(readExternalReceipt(t, filepath.Join(root, directory, receipt.Path))); got != contentWant {
+			t.Fatalf("%s/%s content digest=%s want=%s", directory, receipt.Path, got, contentWant)
 		}
 	}
 }
@@ -151,7 +181,7 @@ func TestExternalCargoMutantsCampaignsReconcile(t *testing.T) {
 	var discovery externalOutcomeReport
 	discoveryMutants := map[string]string{}
 	for _, name := range []string{"a", "b", "c", "d"} {
-		report, mutants := loadExternalReport(t, root, "evidence/mutation/external-30bbcad/outcomes-"+name+".json")
+		report, mutants := loadExternalReport(t, root, "evidence/mutation/external-30bbcad/outcomes-"+name+".json.gz")
 		addExternalCounts(&discovery, report)
 		for mutant, status := range mutants {
 			if _, exists := discoveryMutants[mutant]; exists {
@@ -164,7 +194,7 @@ func TestExternalCargoMutantsCampaignsReconcile(t *testing.T) {
 	if discovery.Caught != wantDiscovery.Caught || discovery.Missed != wantDiscovery.Missed || discovery.Timeout != wantDiscovery.Timeout || discovery.TotalMutants != wantDiscovery.TotalMutants || discovery.Unviable != wantDiscovery.Unviable {
 		t.Fatalf("discovery counts=%+v want=%+v", discovery, wantDiscovery)
 	}
-	replay, replayMutants := loadExternalReport(t, root, "evidence/mutation/external-30bbcad/outcomes-timeout-replay.json")
+	replay, replayMutants := loadExternalReport(t, root, "evidence/mutation/external-30bbcad/outcomes-timeout-replay.json.gz")
 	if replay.TotalMutants != 45 || replay.Caught != 11 || replay.Missed != 33 || replay.Timeout != 1 || replay.Unviable != 0 {
 		t.Fatalf("timeout replay counts drifted: %+v", replay)
 	}
@@ -185,7 +215,7 @@ func TestExternalCargoMutantsCampaignsReconcile(t *testing.T) {
 	var full externalOutcomeReport
 	fullMutants := map[string]string{}
 	for _, shard := range []string{"0", "1", "2", "3"} {
-		report, mutants := loadExternalReport(t, root, "evidence/mutation/external-38428a5/outcomes-shard-"+shard+".json")
+		report, mutants := loadExternalReport(t, root, "evidence/mutation/external-38428a5/outcomes-shard-"+shard+".json.gz")
 		addExternalCounts(&full, report)
 		for mutant, status := range mutants {
 			if _, exists := fullMutants[mutant]; exists {
@@ -236,7 +266,7 @@ func TestExternalCargoMutantsCampaignsReconcile(t *testing.T) {
 		t.Fatalf("adjudication coverage=%d dispositions=%v", len(adjudicated), dispositions)
 	}
 
-	targeted, targetedMutants := loadExternalReport(t, root, "evidence/mutation/external-ac15da8/outcomes-targeted.json")
+	targeted, targetedMutants := loadExternalReport(t, root, "evidence/mutation/external-ac15da8/outcomes-targeted.json.gz")
 	if targeted.TotalMutants != 9 || targeted.Caught != 9 || targeted.Missed != 0 || targeted.Timeout != 0 || targeted.Unviable != 0 {
 		t.Fatalf("targeted closure counts drifted: %+v", targeted)
 	}

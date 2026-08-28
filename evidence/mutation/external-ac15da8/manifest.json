@@ -24,7 +24,8 @@
     "full_campaign_rerun": false
   },
   "raw_receipt": {
-    "path": "outcomes-targeted.json",
-    "sha256": "7df5c3f2100566c1171e06319b8a48fa18b395394fa9e35912c27e889d16d041"
+    "path": "outcomes-targeted.json.gz",
+    "sha256": "8e66d04a82cbdf8099ffe833d97abb73adc2d13710106be258795e53e6fe8b9a",
+    "content_sha256": "7df5c3f2100566c1171e06319b8a48fa18b395394fa9e35912c27e889d16d041"
   }
 }
