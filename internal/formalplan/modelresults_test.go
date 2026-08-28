@@ -408,6 +408,158 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 	}
 }
 
+// --- violation NAME binding (review round 4, BLOCKING 1) --------------------
+//
+// A non-clean receipt was accepted whenever the record listed any violation
+// at all: the names TLC reported were never compared with the names the
+// record claims. Same shape as the five defects before it — something was
+// checked to EXIST, never to be the RIGHT something.
+//
+// mrMakeViolatingFixture builds a coherent non-clean fixture: the TLC receipt
+// reports exactly receiptNames as violated, the record claims exactly
+// recordNames, and the surrounding consistency rules (exit codes in the
+// document and in the driver log, the invariant outcomes backing each
+// violation entry) are all satisfied, so only the name comparison can fire.
+func mrMakeViolatingFixture(t *testing.T, binding ModelResultsBinding,
+	receiptNames, recordNames []string) string {
+	t.Helper()
+	root := mrStageTree(t, binding)
+	var results modelResultsDocument
+	mrReadJSON(t, filepath.Join(us006RepoRoot(t), filepath.FromSlash(binding.ResultsPath)), &results)
+
+	// The receipt: drop the clean verdict, report the requested violations.
+	mrRewriteReceipt(t, root, binding, results.Execution.TLC.ReceiptPath, func(text string) string {
+		var lines []string
+		for _, name := range receiptNames {
+			lines = append(lines, "Error: Invariant "+name+" is violated.")
+		}
+		replacement := strings.Join(lines, "\n")
+		if replacement == "" {
+			replacement = "Error: TLC stopped without a clean verdict."
+		}
+		return strings.Replace(text, mrCleanVerdict, replacement, 1)
+	})
+	// The driver log: the checker exited non-zero on a violation.
+	mrRewriteReceipt(t, root, binding, results.Execution.DriverLog, func(text string) string {
+		return strings.Replace(text,
+			"RESULT step=tlc."+binding.Module+" exit=0 verdict=clean check=NONE",
+			"RESULT step=tlc."+binding.Module+" exit=12 verdict=violated check="+recordNames[0], 1)
+	})
+
+	resultsPath := filepath.Join(root, filepath.FromSlash(binding.ResultsPath))
+	var document map[string]any
+	mrReadJSON(t, resultsPath, &document)
+	execution, _ := document["execution"].(map[string]any)
+	tlc, _ := execution["tlc"].(map[string]any)
+	tlc["exit_code"] = float64(12)
+	var violations []any
+	claimed := map[string]bool{}
+	for _, name := range recordNames {
+		claimed[name] = true
+		violations = append(violations, map[string]any{
+			"check":          name,
+			"kind":           "invariant",
+			"counterexample": "fabricated fixture counterexample",
+			"receipt_path":   results.Execution.TLC.ReceiptPath,
+		})
+	}
+	document["violations"] = violations
+	// Every violation entry needs a matching Violated outcome, so the
+	// document-internal rules stay satisfied.
+	invariants, _ := document["invariants"].([]any)
+	for _, entry := range invariants {
+		item, _ := entry.(map[string]any)
+		if name, _ := item["name"].(string); claimed[name] {
+			item["outcome"] = "Violated"
+		}
+	}
+	mrWriteJSON(t, resultsPath, document)
+	return root
+}
+
+func TestModelResultsBindsViolationNames(t *testing.T) {
+	binding := ModelResultsBindings()[0]
+	cases := []struct {
+		name         string
+		receiptNames []string
+		recordNames  []string
+	}{
+		{
+			name:         "a receipt naming a DIFFERENT check than the record blocks",
+			receiptNames: []string{"ConsumedSiteIsDeclared"},
+			recordNames:  []string{"MaskRoundTrip"},
+		},
+		{
+			name:         "a receipt naming an EXTRA check the record omits blocks",
+			receiptNames: []string{"MaskRoundTrip", "ConsumedSiteIsDeclared"},
+			recordNames:  []string{"MaskRoundTrip"},
+		},
+		{
+			name:         "a record claiming a violation the receipt never names blocks",
+			receiptNames: nil,
+			recordNames:  []string{"MaskRoundTrip"},
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := mrMakeViolatingFixture(t, binding, testCase.receiptNames, testCase.recordNames)
+			findings := ValidateModelResults(root, binding)
+			if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
+				t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+			}
+		})
+	}
+
+	// The control: names that agree on both sides must NOT trip the name
+	// comparison. Without this, a rule that rejects everything would pass the
+	// three cases above and prove nothing.
+	t.Run("matching names do not trip the name comparison", func(t *testing.T) {
+		root := mrMakeViolatingFixture(t, binding,
+			[]string{"MaskRoundTrip"}, []string{"MaskRoundTrip"})
+		for _, finding := range ValidateModelResults(root, binding) {
+			if finding.Code == "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH" &&
+				strings.Contains(finding.Detail, "violated check") {
+				t.Fatalf("agreeing names must not be reported as a mismatch: %s", finding.Detail)
+			}
+		}
+	})
+}
+
+// The seventh-shape sweep: a receipt is checked to EXIST and to be
+// well-formed, but is it the RIGHT model's receipt? Citing another model's
+// TLC output must block.
+func TestModelResultsBindsReceiptToItsOwnModule(t *testing.T) {
+	frame := ModelResultsBindings()[0]
+	root := mrStageTree(t, frame)
+	var results modelResultsDocument
+	mrReadJSON(t, filepath.Join(root, filepath.FromSlash(frame.ResultsPath)), &results)
+	mrRewriteReceipt(t, root, frame, results.Execution.TLC.ReceiptPath, func(text string) string {
+		return strings.ReplaceAll(text, "module FrameModel", "module CloseModel")
+	})
+	findings := ValidateModelResults(root, frame)
+	if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
+		t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+	}
+}
+
+// Same shape again, one artifact over: the driver log carries DIGEST lines
+// for the models it actually staged. A log from a different run must not be
+// accepted just because its RESULT lines happen to line up.
+func TestModelResultsBindsDriverLogToTheStagedModel(t *testing.T) {
+	binding := ModelResultsBindings()[0]
+	root := mrStageTree(t, binding)
+	var results modelResultsDocument
+	mrReadJSON(t, filepath.Join(root, filepath.FromSlash(binding.ResultsPath)), &results)
+	mrRewriteReceipt(t, root, binding, results.Execution.DriverLog, func(text string) string {
+		return strings.Replace(text, results.Model.TLASHA256,
+			"sha256:"+strings.Repeat("c", 64), 1)
+	})
+	findings := ValidateModelResults(root, binding)
+	if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
+		t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+	}
+}
+
 // A seeded defect whose own mutant receipt does not name the check it claims
 // to have killed must block.
 func TestModelResultsMutantReceiptNamesItsCheck(t *testing.T) {

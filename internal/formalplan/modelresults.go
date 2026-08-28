@@ -533,6 +533,31 @@ func ValidateModelResults(root string, binding ModelResultsBinding) []ModelFindi
 		}
 	}
 
+	// Coverage, not mere existence: every check the shipped cfg runs must have
+	// a seeded defect that KILLED it. Round 2 established that an unexecuted
+	// falsification note is an assertion rather than evidence -- two of them
+	// turned out to be wrong -- so partial coverage may not be presented as a
+	// substantiated record. This was previously asserted only by a test; a
+	// results document could satisfy the validator with a single mutation.
+	killedChecks := map[string]bool{}
+	for _, defect := range document.SeededDefects {
+		if defect.Outcome == "Killed" {
+			killedChecks[defect.ViolatedCheck] = true
+		}
+	}
+	var uncovered []string
+	for _, entry := range append(append([]modelResultsCheck{}, document.Invariants...),
+		document.Properties...) {
+		if !killedChecks[entry.Name] {
+			uncovered = append(uncovered, entry.Name)
+		}
+	}
+	sort.Strings(uncovered)
+	for _, name := range uncovered {
+		findings = append(findings, finding("MODEL_RESULTS_DEFECT_COVERAGE_INCOMPLETE",
+			name+" has no seeded defect that killed it; its non-vacuity is asserted, not shown"))
+	}
+
 	// --- honest disclosure --------------------------------------------------
 	if document.Execution.SbxStatus == "EXECUTED_ON_HOST_SBX_PENDING" {
 		disclosed := false
@@ -591,6 +616,19 @@ func mrViolatedChecks(text string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// mrSameStrings reports whether two sorted name lists are element-wise equal.
+func mrSameStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 // mrLastSubmatch returns the LAST match of pattern in text. TLC's authority
@@ -709,12 +747,34 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 		if clean && len(document.Violations) != 0 {
 			mismatch("the tlc receipt reports a clean verdict but the record lists violations")
 		}
-		if !clean && len(document.Violations) == 0 {
-			reported := "no clean verdict"
-			if len(named) != 0 {
-				reported = strings.Join(named, ", ") + " violated"
+		if !clean {
+			// The NAMES are compared, not merely the existence of a
+			// violation. The round-3 binder skipped this entirely whenever
+			// the record listed any violation at all (review round 4,
+			// BLOCKING 1) -- so a receipt naming a different, extra, or
+			// missing check passed unnoticed.
+			recorded := make([]string, 0, len(document.Violations))
+			for _, violation := range document.Violations {
+				recorded = append(recorded, violation.Check)
 			}
-			mismatch("the record lists no violation but the tlc receipt shows " + reported)
+			sort.Strings(recorded)
+			if len(document.Violations) == 0 {
+				reported := "no clean verdict"
+				if len(named) != 0 {
+					reported = strings.Join(named, ", ") + " violated"
+				}
+				mismatch("the record lists no violation but the tlc receipt shows " + reported)
+			} else if !mrSameStrings(named, recorded) {
+				mismatch("violated checks disagree: the record claims [" +
+					strings.Join(recorded, ", ") + "], the tlc receipt names [" +
+					strings.Join(named, ", ") + "]")
+			}
+		}
+		// Same shape, one field over: the receipt was checked to be a
+		// well-formed TLC log, never to be THIS model's TLC log.
+		if !strings.Contains(text, "Semantic processing of module "+binding.Module) {
+			mismatch("the tlc receipt does not show semantic processing of module " +
+				binding.Module + "; it is not this model's run")
 		}
 	}
 
@@ -726,6 +786,10 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 		}
 		named := mrViolatedChecks(text)
 		mutantClean := strings.Contains(text, mrCleanVerdict)
+		if !strings.Contains(text, "Semantic processing of module "+binding.Module) {
+			mismatch("seeded defect " + defect.DefectID +
+				": its receipt is not a run of module " + binding.Module)
+		}
 		// Contradiction check first, and unconditionally: a mutant receipt
 		// that both completes cleanly and reports a violation is fabricated
 		// whatever the record claims.
@@ -800,6 +864,23 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 				label, recorded, got))
 		}
 		return fields
+	}
+	// The driver log carries DIGEST lines for the tool it used and the model
+	// bytes it staged. Without binding those, a log from a DIFFERENT run whose
+	// RESULT lines happen to line up would be accepted: the log was checked to
+	// exist, never to be this run's log.
+	for _, want := range []struct {
+		line  string
+		label string
+	}{
+		{"DIGEST kind=tool name=tla2tools.jar sha256=" + document.Backend.Tool.SHA256, "checker archive"},
+		{"DIGEST kind=staged name=" + binding.Module + ".tla sha256=" + document.Model.TLASHA256, "staged model"},
+		{"DIGEST kind=staged name=" + binding.Module + ".cfg sha256=" + document.Model.CfgSHA256, "staged cfg"},
+	} {
+		if !strings.Contains(text, want.line) {
+			mismatch("the driver log carries no " + want.label +
+				" digest matching this record; expected line " + strconv.Quote(want.line))
+		}
 	}
 	requireExit("sany."+binding.Module, document.Execution.SANY.ExitCode, "sany")
 	requireExit("tlc."+binding.Module, document.Execution.TLC.ExitCode, "tlc")
