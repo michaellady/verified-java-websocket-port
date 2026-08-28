@@ -1,0 +1,51 @@
+{
+  "schema_version": "1.0.0",
+  "campaign_id": "cargo-mutants-full-38428a5",
+  "subject": {
+    "commit": "38428a502259f73a688eff2266c925ccf6bb5ea5",
+    "tree": "d189394e8fe6b5ff5c49862ebb2ddb3e4db65c20"
+  },
+  "tool": {
+    "name": "cargo-mutants",
+    "version": "27.1.0",
+    "binary_sha256": "f4d182ffec4ad1f209dd23afa544790663b4cb096e7f8cc5f0c37d9dc2862b55"
+  },
+  "locked_cargo_wrapper": {
+    "source_sha256": "82bbda62b2a71864300d97150727c5c141d6699e40c6bd6f2f08db6a2c35b18e",
+    "binary_sha256": "e5732c3212df2b25c94362fc3bb46c4d9bbe5fe8aaa51caf0177dcc4bf86d83b"
+  },
+  "execution": {
+    "shards": 4,
+    "sharding": "slice",
+    "in_place_exact_clones": true,
+    "baseline_per_shard": true,
+    "test_timeout_seconds": 180,
+    "build_timeout_seconds": 120,
+    "restored_commit_tree_and_clean_status": true
+  },
+  "raw_counts": {
+    "total": 938,
+    "caught": 786,
+    "missed": 32,
+    "unviable": 120,
+    "timeout": 0
+  },
+  "raw_viable_score": "786/818 (96.09%)",
+  "adjudication": {
+    "path": "adjudication.json",
+    "live_missed": 8,
+    "equivalent_or_nonbehavioral": 24,
+    "closure_subject": "ac15da85bffbbd5efae2969b6be35edd5833fa85"
+  },
+  "raw_receipts": [
+    {"path": "outcomes-shard-0.json", "sha256": "548427bc3a38b23293612509c6849b7dc3567bbf4c4b1ca9caf60b9f9fcc6315"},
+    {"path": "outcomes-shard-1.json", "sha256": "86f9b6beb2a62e7430885f2f1663f190c1efedd449ed46827bc0e4180f71197e"},
+    {"path": "outcomes-shard-2.json", "sha256": "ea0dd0b4b6fd80ad2970f0e93c0ccff973c878c518134f57e1b3f27fb32ba1f4"},
+    {"path": "outcomes-shard-3.json", "sha256": "4cf970d241d06680166ae6ff6fc414876117b249a2d7f7755172bd2f5cf985b6"}
+  ],
+  "nonclaims": [
+    "The raw score is not rewritten after adjudication.",
+    "The targeted closure is a separate test-only commit and is not a second full campaign.",
+    "Unviable mutants are excluded from the viable score."
+  ]
+}

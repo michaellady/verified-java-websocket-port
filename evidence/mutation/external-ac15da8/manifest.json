@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0.0",
+  "campaign_id": "cargo-mutants-targeted-closure-ac15da8",
+  "subject": {
+    "commit": "ac15da85bffbbd5efae2969b6be35edd5833fa85",
+    "tree": "3b94807c8194b9d1de4f4d131aea225c023e6da6",
+    "production_logic_unchanged_from": "38428a502259f73a688eff2266c925ccf6bb5ea5"
+  },
+  "tool": {
+    "name": "cargo-mutants",
+    "version": "27.1.0",
+    "binary_sha256": "f4d182ffec4ad1f209dd23afa544790663b4cb096e7f8cc5f0c37d9dc2862b55"
+  },
+  "counts": {
+    "selected": 9,
+    "caught": 9,
+    "missed": 0,
+    "unviable": 0,
+    "timeout": 0
+  },
+  "closure": {
+    "full_campaign_live_misses_closed": 8,
+    "related_boundary_mutants_also_caught": 1,
+    "full_campaign_rerun": false
+  },
+  "raw_receipt": {
+    "path": "outcomes-targeted.json",
+    "sha256": "7df5c3f2100566c1171e06319b8a48fa18b395394fa9e35912c27e889d16d041"
+  }
+}

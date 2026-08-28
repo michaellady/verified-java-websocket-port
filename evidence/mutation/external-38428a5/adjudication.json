@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "subject_commit": "38428a502259f73a688eff2266c925ccf6bb5ea5",
+  "closure_commit": "ac15da85bffbbd5efae2969b6be35edd5833fa85",
+  "items": [
+    {"mutant":"connection-core/src/connection.rs:1717:55: replace > with >= in ConnectionCore::consume_close_aware","disposition":"LIVE_CLOSED_TARGETED","reason":"Exact write-queue capacity for the automatic server close echo was not pinned."},
+    {"mutant":"connection-core/src/connection.rs:1741:62: replace > with == in ConnectionCore::consume_close_aware","disposition":"LIVE_CLOSED_TARGETED","reason":"One-short total-buffer capacity for the automatic server close echo was not pinned."},
+    {"mutant":"connection-core/src/connection.rs:1741:62: replace > with >= in ConnectionCore::consume_close_aware","disposition":"LIVE_CLOSED_TARGETED","reason":"Exact total-buffer capacity for the automatic server close echo was not pinned."},
+    {"mutant":"connection-core/src/connection.rs:933:9: replace FrameObservation::masked -> bool with false","disposition":"LIVE_CLOSED_TARGETED","reason":"The public outbound observer covered only an unmasked server frame, not a masked client frame."},
+    {"mutant":"connection-core/src/handshake/http.rs:218:43: replace || with && in validate_status_line","disposition":"LIVE_CLOSED_TARGETED","reason":"Independent status-line separator corruption could be accepted."},
+    {"mutant":"connection-core/src/handshake/http.rs:236:39: replace * with / in validate_status_line","disposition":"LIVE_CLOSED_TARGETED","reason":"The mutation could accept 111, 121, and other 1x1 statuses as 101."},
+    {"mutant":"connection-core/src/handshake/http.rs:236:9: replace + with - in validate_status_line","disposition":"LIVE_CLOSED_TARGETED","reason":"The exact received status diagnostic was not pinned when the tens digit was nonzero."},
+    {"mutant":"connection-core/src/utf8.rs:124:24: replace match guard (self.next_max.saturating_add(1)..=0xbf).contains(&byte) with true in Utf8Validator::continue_scalar","disposition":"LIVE_CLOSED_TARGETED","reason":"F4 followed by a non-continuation above BF could be relabeled as a Unicode-range error."},
+
+    {"mutant":"connection-core/src/handshake/crypto.rs:128:32: replace ^ with | in sha1_compress","disposition":"EQUIVALENT_ALGEBRAIC","reason":"The SHA-1 choice operands (b & c) and (!b & d) are bit-disjoint."},
+    {"mutant":"connection-core/src/handshake/crypto.rs:130:33: replace ^ with | in sha1_compress","disposition":"EQUIVALENT_ALGEBRAIC","reason":"Pairwise majority products are all zero, exactly one one, or all three one; the substituted expression has the same truth table."},
+    {"mutant":"connection-core/src/handshake/crypto.rs:130:43: replace ^ with | in sha1_compress","disposition":"EQUIVALENT_ALGEBRAIC","reason":"Pairwise majority products are all zero, exactly one one, or all three one; the substituted expression has the same truth table."},
+    {"mutant":"connection-core/src/frame/decode.rs:287:22: replace < with <= in FrameDecoder::consume","disposition":"EQUIVALENT_CONTROL_FLOW","reason":"The extra zero-input iteration reaches copied == 0 and breaks without state mutation."},
+    {"mutant":"connection-core/src/handshake/http.rs:151:35: replace - with + in validate_response","disposition":"EQUIVALENT_CONTROL_FLOW","reason":"The parser enters the terminal blank line and immediately breaks instead of stopping before it."},
+    {"mutant":"connection-core/src/handshake/http.rs:157:18: replace < with <= in validate_response","disposition":"EQUIVALENT_CONTROL_FLOW","reason":"The parser enters the terminal blank line and immediately breaks instead of stopping before it."},
+
+    {"mutant":"connection-core/src/connection.rs:1775:21: delete match arm FailureKind::Fragment(FragmentFailure::DataFrameWhileFragmented{received, ..}) in ConnectionCore::consume_close_aware","disposition":"UNREACHABLE_BRANCH","reason":"The decoder emits a rejected trailing data record, which is handled before decoder_failure matching."},
+    {"mutant":"connection-core/src/connection.rs:1781:21: delete match arm FailureKind::Fragment(FragmentFailure::ContinuationWithoutMessage) in ConnectionCore::consume_close_aware","disposition":"UNREACHABLE_BRANCH","reason":"The decoder emits a rejected trailing data record, which is handled before decoder_failure matching."},
+    {"mutant":"connection-core/src/connection.rs:1795:31: replace == with != in ConnectionCore::consume_close_aware","disposition":"UNREACHABLE_BRANCH","reason":"Close-aware dispatch and the decoder's closing flag prevent this Fragment failure/state combination."},
+    {"mutant":"connection-core/src/message.rs:118:5: replace admit_frame_event -> Result<usize, FailureKind> with Ok(0)","disposition":"UNREACHABLE_BRANCH","reason":"The planner never constructs the enum variants that call this helper."},
+    {"mutant":"connection-core/src/message.rs:118:5: replace admit_frame_event -> Result<usize, FailureKind> with Ok(1)","disposition":"UNREACHABLE_BRANCH","reason":"The planner never constructs the enum variants that call this helper."},
+
+    {"mutant":"connection-core/src/connection.rs:1088:55: replace && with || in ConnectionCore::step_protocol","disposition":"INVARIANT_EQUIVALENT","reason":"The extra branch only idempotently clears an already-false write-pending flag in reachable states."},
+    {"mutant":"connection-core/src/connection.rs:2045:42: replace || with && in ConnectionCore::local_close","disposition":"INVARIANT_EQUIVALENT","reason":"Every reachable Closing state without a local half is the peer-first client case, where both predicates are false."},
+    {"mutant":"connection-core/src/close.rs:314:5: replace validate_mask_key -> Result<(), FailureKind> with Ok(())","disposition":"REDUNDANT_GUARD_EQUIVALENT","reason":"FrameEncoder preflight independently enforces the same role/mask rule."},
+    {"mutant":"connection-core/src/close.rs:315:9: delete match arm (Role::Client, None) in validate_mask_key","disposition":"REDUNDANT_GUARD_EQUIVALENT","reason":"FrameEncoder preflight independently rejects the missing client mask."},
+    {"mutant":"connection-core/src/close.rs:316:9: delete match arm (Role::Server, Some(_)) in validate_mask_key","disposition":"REDUNDANT_GUARD_EQUIVALENT","reason":"FrameEncoder preflight independently rejects an unexpected server mask."},
+
+    {"mutant":"connection-core/src/close.rs:259:23: replace != with == in prepare_local_close","disposition":"ALLOCATION_SHAPE_ONLY","reason":"Normal allocation succeeds through Vec growth; only allocator-fault handling distinguishes the explicit preflight reserve."},
+    {"mutant":"connection-core/src/connection.rs:1811:13: replace && with || in ConnectionCore::consume_close_aware","disposition":"ALLOCATION_SHAPE_ONLY","reason":"The clean-terminal value contributes only to Vec reserve capacity."},
+    {"mutant":"connection-core/src/connection.rs:1811:16: delete ! in ConnectionCore::consume_close_aware","disposition":"ALLOCATION_SHAPE_ONLY","reason":"The clean-terminal value contributes only to Vec reserve capacity."},
+    {"mutant":"connection-core/src/connection.rs:1812:13: replace && with || in ConnectionCore::consume_close_aware","disposition":"ALLOCATION_SHAPE_ONLY","reason":"The clean-terminal value contributes only to Vec reserve capacity."},
+    {"mutant":"connection-core/src/connection.rs:1812:16: delete ! in ConnectionCore::consume_close_aware","disposition":"ALLOCATION_SHAPE_ONLY","reason":"The clean-terminal value contributes only to Vec reserve capacity."},
+    {"mutant":"connection-core/src/connection.rs:1813:13: replace && with || in ConnectionCore::consume_close_aware","disposition":"ALLOCATION_SHAPE_ONLY","reason":"The clean-terminal value contributes only to Vec reserve capacity."},
+    {"mutant":"connection-core/src/connection.rs:1816:83: replace && with || in ConnectionCore::consume_close_aware","disposition":"ALLOCATION_SHAPE_ONLY","reason":"The changed term contributes only to Vec reserve capacity."},
+    {"mutant":"connection-core/src/control.rs:155:5: replace is_observed_control -> bool with true","disposition":"ALLOCATION_SHAPE_ONLY","reason":"Opcode matching suppresses extra events; only unused wrapper construction and output preallocation change."}
+  ]
+}

@@ -1,0 +1,629 @@
+{
+  "outcomes": [
+    {
+      "scenario": "Baseline",
+      "summary": "Success",
+      "log_path": "log/baseline.log",
+      "diff_path": null,
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.67468825,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 3.2574785,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "connection-core/src/connection.rs:933:9: replace FrameObservation::masked -> bool with false",
+          "package": "websocket-core",
+          "file": "connection-core/src/connection.rs",
+          "function": {
+            "function_name": "FrameObservation::masked",
+            "return_type": "-> bool",
+            "span": {
+              "start": {
+                "line": 930,
+                "column": 5
+              },
+              "end": {
+                "line": 934,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 933,
+              "column": 9
+            },
+            "end": {
+              "line": 933,
+              "column": 20
+            }
+          },
+          "replacement": "false",
+          "genre": "FnValue"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/connection-core__src__connection.rs_line_933_col_9.log",
+      "diff_path": "diff/connection-core__src__connection.rs_line_933_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 0.967323208,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.568559417,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "connection-core/src/connection.rs:1717:55: replace > with >= in ConnectionCore::consume_close_aware",
+          "package": "websocket-core",
+          "file": "connection-core/src/connection.rs",
+          "function": {
+            "function_name": "ConnectionCore::consume_close_aware",
+            "return_type": "-> StepResult",
+            "span": {
+              "start": {
+                "line": 1624,
+                "column": 5
+              },
+              "end": {
+                "line": 1920,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 1717,
+              "column": 55
+            },
+            "end": {
+              "line": 1717,
+              "column": 56
+            }
+          },
+          "replacement": ">=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/connection-core__src__connection.rs_line_1717_col_55.log",
+      "diff_path": "diff/connection-core__src__connection.rs_line_1717_col_55.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.023548584,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.415497834,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "connection-core/src/connection.rs:1741:62: replace > with == in ConnectionCore::consume_close_aware",
+          "package": "websocket-core",
+          "file": "connection-core/src/connection.rs",
+          "function": {
+            "function_name": "ConnectionCore::consume_close_aware",
+            "return_type": "-> StepResult",
+            "span": {
+              "start": {
+                "line": 1624,
+                "column": 5
+              },
+              "end": {
+                "line": 1920,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 1741,
+              "column": 62
+            },
+            "end": {
+              "line": 1741,
+              "column": 63
+            }
+          },
+          "replacement": "==",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/connection-core__src__connection.rs_line_1741_col_62.log",
+      "diff_path": "diff/connection-core__src__connection.rs_line_1741_col_62.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.140844,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.414528958,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "connection-core/src/connection.rs:1741:62: replace > with >= in ConnectionCore::consume_close_aware",
+          "package": "websocket-core",
+          "file": "connection-core/src/connection.rs",
+          "function": {
+            "function_name": "ConnectionCore::consume_close_aware",
+            "return_type": "-> StepResult",
+            "span": {
+              "start": {
+                "line": 1624,
+                "column": 5
+              },
+              "end": {
+                "line": 1920,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 1741,
+              "column": 62
+            },
+            "end": {
+              "line": 1741,
+              "column": 63
+            }
+          },
+          "replacement": ">=",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/connection-core__src__connection.rs_line_1741_col_62_001.log",
+      "diff_path": "diff/connection-core__src__connection.rs_line_1741_col_62_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.022675042,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 1.4205720419999999,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "connection-core/src/utf8.rs:124:24: replace match guard (self.next_max.saturating_add(1)..=0xbf).contains(&byte) with true in Utf8Validator::continue_scalar",
+          "package": "websocket-core",
+          "file": "connection-core/src/utf8.rs",
+          "function": {
+            "function_name": "Utf8Validator::continue_scalar",
+            "return_type": "-> Result<(), Utf8Failure>",
+            "span": {
+              "start": {
+                "line": 108,
+                "column": 5
+              },
+              "end": {
+                "line": 141,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 124,
+              "column": 24
+            },
+            "end": {
+              "line": 124,
+              "column": 80
+            }
+          },
+          "replacement": "true",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/connection-core__src__utf8.rs_line_124_col_24.log",
+      "diff_path": "diff/connection-core__src__utf8.rs_line_124_col_24.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.082168459,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.308664,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "connection-core/src/utf8.rs:124:24: replace match guard (self.next_max.saturating_add(1)..=0xbf).contains(&byte) with false in Utf8Validator::continue_scalar",
+          "package": "websocket-core",
+          "file": "connection-core/src/utf8.rs",
+          "function": {
+            "function_name": "Utf8Validator::continue_scalar",
+            "return_type": "-> Result<(), Utf8Failure>",
+            "span": {
+              "start": {
+                "line": 108,
+                "column": 5
+              },
+              "end": {
+                "line": 141,
+                "column": 6
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 124,
+              "column": 24
+            },
+            "end": {
+              "line": 124,
+              "column": 80
+            }
+          },
+          "replacement": "false",
+          "genre": "MatchArmGuard"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/connection-core__src__utf8.rs_line_124_col_24_001.log",
+      "diff_path": "diff/connection-core__src__utf8.rs_line_124_col_24_001.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.069100459,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 2.377811584,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "connection-core/src/handshake/http.rs:218:43: replace || with && in validate_status_line",
+          "package": "websocket-core",
+          "file": "connection-core/src/handshake/http.rs",
+          "function": {
+            "function_name": "validate_status_line",
+            "return_type": "-> Result<(), HandshakeFailure>",
+            "span": {
+              "start": {
+                "line": 217,
+                "column": 1
+              },
+              "end": {
+                "line": 242,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 218,
+              "column": 43
+            },
+            "end": {
+              "line": 218,
+              "column": 45
+            }
+          },
+          "replacement": "&&",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/connection-core__src__handshake__http.rs_line_218_col_43.log",
+      "diff_path": "diff/connection-core__src__handshake__http.rs_line_218_col_43.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.0232745,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.269331917,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "connection-core/src/handshake/http.rs:236:9: replace + with - in validate_status_line",
+          "package": "websocket-core",
+          "file": "connection-core/src/handshake/http.rs",
+          "function": {
+            "function_name": "validate_status_line",
+            "return_type": "-> Result<(), HandshakeFailure>",
+            "span": {
+              "start": {
+                "line": 217,
+                "column": 1
+              },
+              "end": {
+                "line": 242,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 236,
+              "column": 9
+            },
+            "end": {
+              "line": 236,
+              "column": 10
+            }
+          },
+          "replacement": "-",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/connection-core__src__handshake__http.rs_line_236_col_9.log",
+      "diff_path": "diff/connection-core__src__handshake__http.rs_line_236_col_9.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.067598958,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.260165292,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "scenario": {
+        "Mutant": {
+          "name": "connection-core/src/handshake/http.rs:236:39: replace * with / in validate_status_line",
+          "package": "websocket-core",
+          "file": "connection-core/src/handshake/http.rs",
+          "function": {
+            "function_name": "validate_status_line",
+            "return_type": "-> Result<(), HandshakeFailure>",
+            "span": {
+              "start": {
+                "line": 217,
+                "column": 1
+              },
+              "end": {
+                "line": 242,
+                "column": 2
+              }
+            }
+          },
+          "span": {
+            "start": {
+              "line": 236,
+              "column": 39
+            },
+            "end": {
+              "line": 236,
+              "column": 40
+            }
+          },
+          "replacement": "/",
+          "genre": "BinaryOperator"
+        }
+      },
+      "summary": "CaughtMutant",
+      "log_path": "log/connection-core__src__handshake__http.rs_line_236_col_39.log",
+      "diff_path": "diff/connection-core__src__handshake__http.rs_line_236_col_39.diff",
+      "phase_results": [
+        {
+          "phase": "Build",
+          "duration": 1.131064667,
+          "process_status": "Success",
+          "argv": [
+            "cargo",
+            "test",
+            "--no-run",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        },
+        {
+          "phase": "Test",
+          "duration": 0.261602333,
+          "process_status": {
+            "Failure": 101
+          },
+          "argv": [
+            "cargo",
+            "test",
+            "--verbose",
+            "--package=websocket-core@0.0.0"
+          ]
+        }
+      ]
+    }
+  ],
+  "total_mutants": 9,
+  "missed": 0,
+  "caught": 9,
+  "timeout": 0,
+  "unviable": 0,
+  "success": 0,
+  "start_time": "2026-08-28T20:52:04.378015Z",
+  "end_time": "2026-08-28T20:52:30.158673Z",
+  "cargo_mutants_version": "27.1.0"
+}
