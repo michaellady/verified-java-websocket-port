@@ -10,7 +10,10 @@
   },
   "branch": "claude/e1-adversarial",
   "base": "eb35bc2b4289e30e87d7e00f1640664fba745df8",
-  "commit": "PENDING",
+  "commit_original": "76f6c37850a2184e08b249ff5f91cb3efb8579c0",
+  "commit_round_1_fixes": "a7533fd882f693748a5acc38abe6331869fd743d",
+  "commit_round_2_receipt": "d9e0a91034c62466c19cb975e0779fbe983249a5",
+  "commit_self_reference_note": "This receipt is committed IN-REPO, so it cannot contain the sha of the commit carrying its own final revision - a file cannot hash itself. commit_round_2_receipt is the commit that first introduced it at drafts/e1-adversarial-receipt.json (read with `git rev-parse`); the small metadata commit that filled in this very field sits directly on top of it. Read the current one with `git log -1 --format=%H -- drafts/e1-adversarial-receipt.json`. Every sha in this file was read from git, never reconstructed from a short hash - see fabricated_sha_disclosure.",
   "committed_paths": [
     "cmd/mutctl/{main.go,main_test.go,mutations.go}",
     "rust/ws-core/tests/adversarial_fuzz.rs",
@@ -465,7 +468,7 @@
       "review_session": "01a045c9-0024-7a31-87d6-c7e63376605a",
       "ordinal": 2,
       "verdict": "BLOCK",
-      "addressed_in_commit": "PENDING",
+      "addressed_in_commit": "d9e0a91034c62466c19cb975e0779fbe983249a5",
       "recorded_at": "2026-08-28T00:41:40Z",
       "what_passed": "The reviewer explicitly confirmed the round-1 code fixes: the harness-exit decision seam, the panic-frame preference in killDetail, the kill_detail invariant and its coverage, and that mutants/e1-ws-core-manifest.json is a genuine whole-campaign rerun (75 unique rows, every runtime changed, unchanged verdicts, 12 recorded zero harness exits, corrected m016 evidence). No code defect was found in round 2; both findings are evidence-packaging defects.",
       "findings": [
@@ -508,9 +511,7 @@
     "what_the_fifth_referred_to": "Nothing that exists. Grepping every artifact I produced finds no fifth Go test name and no literal 'five' claim: the a7533fd commit message names three test functions, this receipt's round-1 review section names four, and the code adds four. The miscount lives in my prose narration of the work, not in the committed artifacts. The most likely arithmetic is my two RED-first RUST tests from the original round (close_ack_emits_the_close_event_before_the_terminal_transition and fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention) being counted alongside the Go ones, but I will not present a reconstruction as fact: what is certain is that four Go test functions were added and any statement of five was wrong.",
     "not_padded": "A fifth test was deliberately NOT written. There is a real remaining coverage gap in baselineCorpusOK - its harness_build_exit != 0, evaluate_exit != 0 and short-pass-count arms are exercised only by the live campaign, not by a unit test - but writing it now to make a wrong number right would be the exact rounding-up the review warned against. It is recorded here as a known gap instead."
   },
-  "commit_round_1_fixes": "a7533fd882f693748a5acc38abe6331869fd743d",
-  "commit_original": "76f6c37850a2184e08b249ff5f91cb3efb8579c0",
-  "commit_lineage_note": "76f6c37 (original lane work) -> a7533fd (review 01a045b0 fixes) -> this commit (review 01a045c9 fixes). No commit was ever rewritten or amended.",
+  "commit_lineage_note": "76f6c37 (original lane work) -> a7533fd (review 01a045b0 fixes) -> d9e0a91 (review 01a045c9 fixes: this receipt committed in-repo) -> one metadata commit filling in commit_round_2_receipt. No commit was ever rewritten or amended.",
   "survivors_fixed": {
     "count_this_receipt": 0,
     "count_original_round": 2,
