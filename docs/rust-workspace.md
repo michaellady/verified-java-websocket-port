@@ -4,7 +4,11 @@ Status: **US-009 through US-018 are shipped; US-019 provides inert conformance
 readiness; US-020 adds the bounded neutral differential process seam; US-024
 ships the owner-relaxed private output-lifecycle refinement; US-025 ships only
 the owner-relaxed resource-decision mechanics outside the Rust crates; US-026
-ships only deterministic fixture-rehearsal mechanics outside the Rust crates.**
+ships only deterministic fixture-rehearsal mechanics outside the Rust crates;
+US-027 ships only owner-relaxed public-projection mechanics outside the Rust
+crates. All 27 PRD stories are execution-complete under mixed inherited,
+borrowed, independent, and owner-relaxed scopes, but the original strong
+success criteria are not satisfied.**
 The `rust/` workspace contains the dependency-free Sans-I/O `ConnectionCore`,
 the single-owner driver, and the thin blocking and one-record neutral adapters.
 US-024 centralizes the driver's pending-output and partial-write state in a
@@ -12,8 +16,10 @@ private `OutputLedger` without changing public declarations or the core
 contract. US-025 retains absent raw ledgers, unbound hosts, and
 `INCONCLUSIVE_BLOCKED` measurement acceptance. US-026 retains
 `CUTOVER_BLOCKED`, no live traffic/effects, and no production-shaped rehearsal.
-No performance or cutover-readiness representation is authorized beyond the
-recorded mechanics.
+US-027 retains `INDEPENDENT_ACCEPTANCE_BLOCKED`, declares its checkout
+`NOT_VERIFIED`, and makes no independent-acceptance or external-publication
+claim. No performance, cutover-readiness, or strong project-acceptance
+representation is authorized beyond the recorded mechanics.
 
 **Explicit non-claims:**
 
@@ -82,6 +88,58 @@ pipeline stories, not this scaffold):
 | US-024 | **Owner-relaxed refinement mechanics complete.** `ConnectionOwner` delegates its private ordered-output, partial-write, flush, and undrainable-write lifecycle to `output::OutputLedger`. The 74-scenario before/after replay is equal; the original parity, protected, formal, independent, performance, and release blockers remain. |
 | US-025 | **Owner-relaxed resource-decision mechanics complete outside the Rust crates.** The exact 12-workload/120-endpoint matrix is sample-free and `INCONCLUSIVE_BLOCKED`; no host binding, raw ledger, measurement, performance, or independent-recompute claim exists. |
 | US-026 | **Owner-relaxed cutover-rehearsal mechanics complete outside the Rust crates.** Fixed fixtures exercise shadow/canary/fallback/reconciliation/rollback/soak state transitions, while all 12 live/production blockers remain and `CUTOVER_READY` is unreachable. |
+| US-027 | **Owner-relaxed public-projection mechanics complete outside the Rust crates.** The declared checkout remains `NOT_VERIFIED`; 26/26 child mechanics entries and 24/24 blocked formal obligations project locally while `INDEPENDENT_ACCEPTANCE_BLOCKED` remains authoritative. |
+
+## US-027 final projection
+
+The final evaluator/tooling commit is
+`1b3da7976848e949cc10fd23aa6f56031a494529`, with tree
+`325f2e20bf59513bc2564fc37d1233495347fc25`. It truthfully records
+`PASS_OWNER_RELAXED_PUBLIC_PROJECTION_MECHANICS` under
+`OWNER_ATTESTED_NOT_INDEPENDENT`, with `independent_review_claimed:false` and
+`INDEPENDENT_ACCEPTANCE_BLOCKED`. The declared, but not verified, subject is
+commit `98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc` and tree
+`36ee700401268621aae58639185dcdc11e4c00c6`.
+
+The evaluator binds projection contract root
+`sha256:08c14048d92b1066ad5f459d3e41e69d6e7a7cb81e8524c9c1cf06382c59f195`,
+input root `sha256:93d41275b7600583d71bf4985cd4be7301122496419d1cde4fc09aa1850f475b`,
+candidate root `sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e`,
+and public projection root
+`sha256:e77e3ea6e5169806144d8bc46354a0f2939e764c6a92bf97999109a58296f8b0`.
+The digest-bound contract remains byte-for-byte unchanged after shipment.
+
+The seven write-once outputs are:
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `assurance/independent-replay.json` | 9,769 | `sha256:d2e63736c9672003460491dd58db97775f4b27e3597489b2406cfa221db265a3` |
+| `assurance/receipts/human.json` | 990 | `sha256:1af7fbf487b4720af9598de0d80c32129c67778860e42c903229efc72bd0e871` |
+| `assurance/receipts/codex.json` | 1,020 | `sha256:803ee0637bf01c36d9e06811001b82bb0b81b12c16c4f9dd812d00ec5e4408be` |
+| `assurance/receipts/reality.json` | 1,024 | `sha256:a3e1029458fdb842bd1419dc4b3305bfb26fa3be742bfa01f60e20323f323dc7` |
+| `public/formal-coverage.md` | 1,401 | `sha256:798366d035d33a940568f41b65a59c7bf5c13123cc3a2ca956400addbdf8779a` |
+| `public/README.md` | 393 | `sha256:6ae5fed31aa0d8519ab871a024ec6e8a4b0fffdcfbea07c4fedf5e81f9a90bab` |
+| `public/snapshot.json` | 1,699 | `sha256:384a9387c227da870bb15b286cf88613fa5c3095ca97f0db795c59f7ca032e5b` |
+
+Two pre-review blockers were closed: runtime and public output were downgraded
+from an unverified subject-pinned claim to explicit declared-checkout
+nonverification, and the projection contract became an exact held input. The
+sole full comments-only review found zero blockers, retained two important
+findings, and retained no nits. The remaining important findings are that the
+mutation matrix is representative rather than exhaustive and that lock/temp
+pathname cleanup is not inode-owned, without a demonstrated cooperative
+acceptance bypass. Focused QA passed eight tests; the broader unrelated failures
+were the historical workspace qualification binding and sandbox-denied Autobahn
+relay socket tests. Clean-clone reality validation passed at the exact final
+head/tree.
+
+All 14 strong blockers and seven exact nonclaims in
+`docs/us027-independent-projection-contract.md` remain authoritative. In
+particular, the result does not verify that the supplied checkout equals the
+declared subject, provide a provenance-distinct custodian or human/protected
+replay, strongly accept every child gate or formal obligation, accept measured
+performance or live cutover, publish or sign externally, deploy to production,
+or authorize Java removal.
 
 ## Current shipped state
 
