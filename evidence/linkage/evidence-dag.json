@@ -672,8 +672,8 @@
       "rust_path": "ws_core::connection::CommandQueue",
       "decl_kind": "struct",
       "file": "rust/ws-core/src/connection.rs",
-      "line": 1395,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "line": 1436,
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::CommandSender",
@@ -681,8 +681,8 @@
       "rust_path": "ws_core::connection::CommandSender",
       "decl_kind": "struct",
       "file": "rust/ws-core/src/connection.rs",
-      "line": 1353,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "line": 1394,
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::ConnectionCore",
@@ -691,7 +691,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-core/src/connection.rs",
       "line": 279,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::ConnectionCore::finish_handshake_open",
@@ -699,8 +699,8 @@
       "rust_path": "ws_core::connection::ConnectionCore::finish_handshake_open",
       "decl_kind": "method",
       "file": "rust/ws-core/src/connection.rs",
-      "line": 967,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "line": 1008,
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::ConnectionCore::handle",
@@ -709,7 +709,7 @@
       "decl_kind": "method",
       "file": "rust/ws-core/src/connection.rs",
       "line": 392,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::ConnectionCore::handle_command",
@@ -717,8 +717,8 @@
       "rust_path": "ws_core::connection::ConnectionCore::handle_command",
       "decl_kind": "method",
       "file": "rust/ws-core/src/connection.rs",
-      "line": 1089,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "line": 1130,
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::ConnectionCore::handle_eof",
@@ -726,8 +726,8 @@
       "rust_path": "ws_core::connection::ConnectionCore::handle_eof",
       "decl_kind": "method",
       "file": "rust/ws-core/src/connection.rs",
-      "line": 990,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "line": 1031,
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::ConnectionCore::process_inbound",
@@ -735,8 +735,8 @@
       "rust_path": "ws_core::connection::ConnectionCore::process_inbound",
       "decl_kind": "method",
       "file": "rust/ws-core/src/connection.rs",
-      "line": 685,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "line": 726,
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::DataOpcode",
@@ -745,7 +745,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-core/src/connection.rs",
       "line": 158,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::Input::TransportEof",
@@ -754,7 +754,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-core/src/connection.rs",
       "line": 218,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::LocalCommand",
@@ -763,7 +763,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-core/src/connection.rs",
       "line": 170,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::LocalCommand::SendClose",
@@ -772,7 +772,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-core/src/connection.rs",
       "line": 192,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::ReadyState",
@@ -781,7 +781,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-core/src/connection.rs",
       "line": 98,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::Role",
@@ -790,7 +790,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-core/src/connection.rs",
       "line": 72,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::TransportWrite",
@@ -799,7 +799,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-core/src/connection.rs",
       "line": 226,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::connection::WebSocketImpl",
@@ -808,7 +808,7 @@
       "decl_kind": "type_alias",
       "file": "rust/ws-core/src/connection.rs",
       "line": 334,
-      "sha256": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda"
+      "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
     },
     {
       "id": "ws_core::error::FailureCode::BufferLimitExceeded",
@@ -1203,8 +1203,8 @@
       "rust_path": "ws_driver::ConnectionDriver",
       "decl_kind": "struct",
       "file": "rust/ws-driver/src/lib.rs",
-      "line": 450,
-      "sha256": "sha256:ec3cdc0456a3a1615331bde7edf870ea06d863bbd88b6223fe311549b8f71309"
+      "line": 502,
+      "sha256": "sha256:f9b3b461ab5b4a81668d219d79bf6964bf60cf3f31cfb0148792a30a6f1c04ae"
     },
     {
       "id": "ws_driver::connection_driver",
@@ -1212,8 +1212,8 @@
       "rust_path": "ws_driver::connection_driver",
       "decl_kind": "fn",
       "file": "rust/ws-driver/src/lib.rs",
-      "line": 221,
-      "sha256": "sha256:ec3cdc0456a3a1615331bde7edf870ea06d863bbd88b6223fe311549b8f71309"
+      "line": 232,
+      "sha256": "sha256:f9b3b461ab5b4a81668d219d79bf6964bf60cf3f31cfb0148792a30a6f1c04ae"
     },
     {
       "id": "ws_testee::client::run_client_once",
@@ -1231,7 +1231,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 20,
-      "sha256": "sha256:8644529700f021659272f32011e921d05f6bec70306c63ebcc644a21b34867aa"
+      "sha256": "sha256:2b40206d468fc6169fdbdc9f80a6ae7359c31de44ae675c16940ca5a0aa01f90"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome",
@@ -1240,7 +1240,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 64,
-      "sha256": "sha256:8644529700f021659272f32011e921d05f6bec70306c63ebcc644a21b34867aa"
+      "sha256": "sha256:2b40206d468fc6169fdbdc9f80a6ae7359c31de44ae675c16940ca5a0aa01f90"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome::SocketError",
@@ -1249,7 +1249,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 71,
-      "sha256": "sha256:8644529700f021659272f32011e921d05f6bec70306c63ebcc644a21b34867aa"
+      "sha256": "sha256:2b40206d468fc6169fdbdc9f80a6ae7359c31de44ae675c16940ca5a0aa01f90"
     },
     {
       "id": "ws_testee::io_loop::drive_connection",
@@ -1258,7 +1258,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 159,
-      "sha256": "sha256:8644529700f021659272f32011e921d05f6bec70306c63ebcc644a21b34867aa"
+      "sha256": "sha256:2b40206d468fc6169fdbdc9f80a6ae7359c31de44ae675c16940ca5a0aa01f90"
     },
     {
       "id": "ws_testee::server::run_server_once",

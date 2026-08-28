@@ -884,7 +884,11 @@ impl WiredSession {
             ws_driver::DriverOutput::Idle => StepOutput::Idle,
             ws_driver::DriverOutput::Write(bytes) => StepOutput::Write(bytes.len()),
             ws_driver::DriverOutput::Event(event) => StepOutput::Event(event),
-            ws_driver::DriverOutput::Failure(failure) => StepOutput::Failure(failure),
+            // The oracle layer records the failure itself; `origin` is the
+            // C6 adapter-reaction gate and has no transcript projection
+            // (`OracleEngine`'s failure response carries error code and
+            // close code, never an arrival path).
+            ws_driver::DriverOutput::Failure { failure, .. } => StepOutput::Failure(failure),
             ws_driver::DriverOutput::Terminal(_) => StepOutput::Terminal,
         };
         (result.input, result.command, output)
@@ -2166,12 +2170,21 @@ mod tests {
             ws_driver::InputDisposition::Consumed { bytes: 0 },
             "the owner consumes the EOF fact"
         );
-        let ws_driver::DriverOutput::Failure(surfaced) = result.output else {
+        let ws_driver::DriverOutput::Failure {
+            failure: surfaced,
+            origin,
+        } = result.output
+        else {
             panic!(
                 "REGRESSION: the owner absorbed the EOF instead of surfacing the core's \
                  STATE_VIOLATION (the eof-after-closed defect is back)"
             );
         };
+        assert_eq!(
+            origin,
+            ws_driver::FailureOrigin::TransportEof,
+            "the arrival path travels with the failure"
+        );
         assert_eq!(
             surfaced.code.wire_code(),
             Some("STATE_VIOLATION"),

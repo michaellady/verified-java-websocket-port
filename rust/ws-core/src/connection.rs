@@ -461,6 +461,47 @@ impl ConnectionCore {
         self.close_detail.as_ref()
     }
 
+    /// Reserve the NEXT key in this connection's outbound masking sequence
+    /// for a frame an owning layer will compose itself, and advance the
+    /// sequence past it. `None` for the server role, which never masks
+    /// (`emit_outbound`'s `role == Client` gate).
+    ///
+    /// # Why this exists
+    ///
+    /// Shipped Java masks every client frame with a fresh key from the
+    /// connection's own random source, INCLUDING the close frame
+    /// `WebSocketImpl.close` composes rather than asking the Draft for
+    /// (WebSocketImpl.java:482-486). Quirk Q28 replaces "fresh random" with
+    /// "next value of this connection's deterministic sequence"
+    /// ([`ConnectionCore::next_mask_key`]). A layer above the core that
+    /// composes such a frame must therefore draw from THIS sequence; a
+    /// parallel derivation over the same seed is not a second source, it is
+    /// the same source read at an attacker-chosen index, and it collides
+    /// exactly when the two indices agree.
+    ///
+    /// # This ADVANCES the counter, and that is the contract
+    ///
+    /// Reserving without advancing would hand out the same key the core's
+    /// own next frame would use, which is the defect this method exists to
+    /// prevent. The reservation is why
+    /// `mask_key_derivation_advances_per_outbound_frame`'s
+    /// distinct-successive-keys property extends across the layer boundary.
+    ///
+    /// # Deliberately NOT gated on `poisoned`
+    ///
+    /// The caller is a layer reacting to the very failure that poisoned this
+    /// core, so a poison gate would make the method useless exactly when it
+    /// is needed. Nothing protocol-observable happens here: no frame, no
+    /// event, no transition, no counter the corpus reads — only the
+    /// port-side masking sequence, which quirk Q28 makes
+    /// transcript-invisible, moves.
+    pub fn reserve_mask_key(&mut self) -> Option<[u8; 4]> {
+        if self.role != Role::Client {
+            return None;
+        }
+        Some(self.next_mask_key())
+    }
+
     // -- internal ---------------------------------------------------------
 
     fn backpressure(kind: QueueKind) -> TypedProtocolFailure {

@@ -54,6 +54,17 @@
 //! [`ConnectionDriver::finish_poll`] for the defect that made those two
 //! paths distinguishable and the owner decision that closed it.
 //!
+//! **…but the ARRIVAL PATH itself is never erased.** Surfacing uniformly is
+//! about the HALT: every fatal must stop an adapter. It is not a claim that
+//! every fatal deserves the same wire REACTION, and conflating the two is a
+//! landed defect: C5 made the two paths indistinguishable, C6 then answered
+//! every failure as though it were an inbound decode violation, and a
+//! locally rejected `send_close {code: 999}` — which the pinned Java oracle
+//! records as leaving the connection `open` with nothing on the wire — put a
+//! 1002 close frame on the socket. [`DriverOutput::Failure`] therefore
+//! carries a [`FailureOrigin`] beside the failure, and the C6 reaction is
+//! gated on [`FailureOrigin::InboundDecode`].
+//!
 //! **The driver takes NO action in RESPONSE to a fatal — and the owner has
 //! ruled that this must change.** Measured on a real protocol violation
 //! (RSV1 on TEXT; reserved opcode `0x3`): the stack composes no close
@@ -413,6 +424,39 @@ pub enum CommandDisposition {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TerminalOutcome;
 
+/// WHERE a surfaced fatal arrived from.
+///
+/// Every fatal surfaces as [`DriverOutput::Failure`] whatever its origin —
+/// that is the C5 halt property and it is not weakened here. This enum is
+/// the orthogonal fact C5 accidentally erased: the failure's ARRIVAL PATH,
+/// which decides what (if anything) shipped Java puts on the wire in answer.
+/// Java reacts to a decode-path `InvalidDataException` with a close frame
+/// (`decodeFrames` -> `close(e)`, WebSocketImpl.java:405-408, :631-633) and
+/// to nothing else, so a reaction gated on anything coarser than this is a
+/// reaction Java does not have.
+///
+/// Exhaustive over the four sites in [`ConnectionDriver::poll`] and
+/// [`ConnectionDriver::next_output`] that can produce a fatal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FailureOrigin {
+    /// The core rejected INBOUND TRANSPORT BYTES — the port-side image of
+    /// `decodeFrames`, and the ONLY origin shipped Java answers with a close
+    /// frame.
+    InboundDecode,
+    /// The core rejected a transport-EOF notification
+    /// (`DriverInput::TransportEof` / `DriverInput::Shutdown`). Java's `eot`
+    /// path composes no frame — the peer is already gone.
+    TransportEof,
+    /// The core rejected a producer [`LocalCommand`] (owner decision
+    /// `c5-fatal-command-rejection-surfaces-failure`). Nothing was decoded;
+    /// the local caller asked for something the core refused, and the pinned
+    /// oracle records no wire output for it.
+    LocalCommand,
+    /// The core rejected a DRIVER-INJECTED automatic reply (the US-015 AC1
+    /// pong). No producer command and no inbound decode owns it.
+    AutomaticReply,
+}
+
 /// The next ordered driver output.
 #[derive(Debug, PartialEq, Eq)]
 pub enum DriverOutput<'owner> {
@@ -424,8 +468,16 @@ pub enum DriverOutput<'owner> {
     /// One owned semantic event (frame records, transitions, and detail
     /// events all travel this stream, as in the core).
     Event(SemanticEvent),
-    /// One typed failure the core reported for an owner-applied input.
-    Failure(TypedProtocolFailure),
+    /// One typed failure the core reported for an owner-applied input,
+    /// together with the path it arrived on.
+    Failure {
+        /// The exact typed core failure.
+        failure: TypedProtocolFailure,
+        /// Where it arrived from. Never inferred from the failure's own
+        /// contents: the same [`TypedProtocolFailure`] value is reachable
+        /// from more than one origin.
+        origin: FailureOrigin,
+    },
     /// The exactly-once terminal delivery.
     Terminal(TerminalOutcome),
 }
@@ -561,27 +613,46 @@ impl ConnectionDriver {
     /// The close frame shipped `WebSocketImpl` would put on the wire in
     /// answer to `failure`, or `None` when Java would send nothing.
     ///
-    /// Reads the role, lifecycle state and mask-key seed from the core, so
-    /// an adapter cannot get any of the three out of step with the
-    /// connection it is actually driving. See
-    /// [`compose_violation_close`] for the Java citations, the carve-outs
-    /// and why this composition lives in this crate rather than in the
-    /// adapter that writes the bytes.
+    /// `origin` is the arrival path the SAME poll reported alongside the
+    /// failure ([`DriverOutput::Failure`]); it is a required argument
+    /// precisely so a caller cannot compose a reaction without saying what
+    /// it is reacting to. See [`violation_close_code`] for the carve-outs
+    /// and the Java citations, and [`violation_close_frame`] for why the
+    /// composition lives in this crate rather than in the adapter that
+    /// writes the bytes.
     ///
-    /// PURE AND INERT: this only composes bytes. It changes no driver or
-    /// core state, and no path inside [`ConnectionDriver::poll`] calls it,
-    /// which is what keeps the differential corpus unable to observe it.
-    #[must_use]
+    /// Reads the lifecycle state from the core and RESERVES the mask key
+    /// from the core's own masking sequence, so neither can drift from the
+    /// connection actually being driven.
+    ///
+    /// # This is no longer inert, and that is the fix
+    ///
+    /// It used to be documented as pure. It is not any more: on the
+    /// client role it advances the core's masking sequence
+    /// ([`ws_core::ConnectionCore::reserve_mask_key`]) so the composed frame
+    /// occupies a slot of its own instead of re-deriving a key the core may
+    /// already have used. The previous derivation mixed `mask_key_seed` with
+    /// the CLOSE CODE through the same SplitMix64 finalizer the core mixes
+    /// with its frame counter, so the two agreed exactly whenever counter ==
+    /// close code — a 1002 reaction after the 1002nd outbound frame reused
+    /// that frame's key, against the distinct-successive-key contract
+    /// (`mask_key_derivation_advances_per_outbound_frame`).
+    ///
+    /// What still holds: no path inside [`ConnectionDriver::poll`] calls
+    /// this, so the differential corpus — which drives `poll` and never this
+    /// method — cannot observe it. The reservation moves only the
+    /// transcript-invisible masking sequence (quirk Q28); no frame, event,
+    /// transition or corpus counter changes.
     pub fn compose_violation_close(
-        &self,
+        &mut self,
         failure: &TypedProtocolFailure,
+        origin: FailureOrigin,
     ) -> Option<(u16, Vec<u8>)> {
-        compose_violation_close(
-            failure,
-            self.core.role(),
-            self.core.state(),
-            self.core.config().mask_key_seed(),
-        )
+        let code = violation_close_code(failure, origin, self.core.state())?;
+        // Reserved AFTER every carve-out: a decision to send nothing must
+        // not consume a key.
+        let mask = self.core.reserve_mask_key();
+        Some((code, violation_close_frame(code, mask)))
     }
 
     /// Performs at most one owner transition and returns the next ordered
@@ -720,7 +791,11 @@ impl ConnectionDriver {
                     }
                     Err(failure) => {
                         self.consume_one_pending_eof();
-                        return self.finish_poll(input_disposition, None, Some(failure));
+                        return self.finish_poll(
+                            input_disposition,
+                            None,
+                            Some((failure, FailureOrigin::TransportEof)),
+                        );
                     }
                 }
             }
@@ -767,7 +842,13 @@ impl ConnectionDriver {
                                     InputDisposition::Deferred(DeferredReason::Backpressure);
                             }
                             Err(failure) => {
-                                return self.finish_poll(input_disposition, None, Some(failure));
+                                // The decode path — the one origin shipped
+                                // Java answers with a close frame.
+                                return self.finish_poll(
+                                    input_disposition,
+                                    None,
+                                    Some((failure, FailureOrigin::InboundDecode)),
+                                );
                             }
                         }
                     }
@@ -807,11 +888,24 @@ impl ConnectionDriver {
     /// commands needs the disposition, and one that halts on fatals needs
     /// the output. Suppressing either would trade this defect for its mirror
     /// image.
+    ///
+    /// # What this method must NOT erase
+    ///
+    /// Lifting the failure here makes the two paths indistinguishable FOR
+    /// HALTING, which is all the owner decision asked for. It went one step
+    /// too far: the arrival path vanished with it, and the C6 reaction
+    /// downstream — which shipped Java performs for a decode-path
+    /// `InvalidDataException` and for nothing else — began firing on locally
+    /// rejected commands too, putting a 1002 close frame on the wire for a
+    /// `send_close {code: 999}` the pinned oracle records as leaving the
+    /// connection `open` and silent. So the origin travels WITH the failure
+    /// ([`FailureOrigin`]), and the C5 lift below states its own:
+    /// [`FailureOrigin::LocalCommand`], never the inbound decode path.
     fn finish_poll<'owner>(
         &'owner mut self,
         input: InputDisposition,
         command: Option<CommandDisposition>,
-        failure: Option<TypedProtocolFailure>,
+        failure: Option<(TypedProtocolFailure, FailureOrigin)>,
     ) -> PollResult<'owner> {
         let state = self.core.state();
         // `apply_held_command` only builds a `Rejected` for a fatal (a
@@ -820,7 +914,7 @@ impl ConnectionDriver {
         // method's name makes even if that invariant ever changes.
         let failure = failure.or_else(|| match &command {
             Some(CommandDisposition::Rejected { failure, .. }) if failure.code.is_fatal() => {
-                Some(failure.clone())
+                Some((failure.clone(), FailureOrigin::LocalCommand))
             }
             _ => None,
         });
@@ -828,7 +922,7 @@ impl ConnectionDriver {
             // Committed output is NOT lost by yielding the failure first —
             // it is deferred exactly as the inbound-fatal path already
             // defers it, and drains on the following polls.
-            Some(failure) => DriverOutput::Failure(failure),
+            Some((failure, origin)) => DriverOutput::Failure { failure, origin },
             None => self.next_output(),
         };
         PollResult {
@@ -989,7 +1083,10 @@ impl ConnectionDriver {
         // A fatal failure from an injected automatic pong surfaces before
         // further event drain (there is no producer command to carry it).
         if let Some(failure) = self.injected_failure.take() {
-            return DriverOutput::Failure(failure);
+            return DriverOutput::Failure {
+                failure,
+                origin: FailureOrigin::AutomaticReply,
+            };
         }
         if let Some(event) = self.core.next_event() {
             // US-015 AC1: the automatic reply is injected exactly when the
@@ -1067,11 +1164,10 @@ fn inject_auto_pong(
 /// puts nothing on the wire.
 pub const ABNORMAL_CLOSE_CODE: u16 = 1006;
 
-/// Compose the close frame shipped `WebSocketImpl` puts on the wire in
-/// answer to a decode-path protocol violation, or `None` when Java would
-/// send nothing (owner decision
-/// `us017-c6-layer-split-owner-decision-2026-08-28.json`, sha256
-/// d41b5307…, resolving C6 from
+/// The close code shipped `WebSocketImpl` puts on the wire in answer to a
+/// decode-path protocol violation, or `None` when Java would send nothing
+/// (owner decision `us017-c6-layer-split-owner-decision-2026-08-28.json`,
+/// sha256 d41b5307…, resolving C6 from
 /// `us017-post-failure-owner-decisions-2026-08-28.json`, sha256 612546e8…).
 ///
 /// `decodeFrames`' InvalidDataException arm (WebSocketImpl.java:405-408)
@@ -1079,6 +1175,51 @@ pub const ABNORMAL_CLOSE_CODE: u16 = 1006;
 /// which builds a `CloseFrame` carrying the rejection's OWN close code and
 /// sends it (:481-487), flushes it (:494, :594-595) and moves `OPEN ->
 /// CLOSING` (:503).
+///
+/// # The carve-outs, in evaluation order
+///
+/// 1. **`origin` is not [`FailureOrigin::InboundDecode`].** `decodeFrames`
+///    is the ONLY site that reaches `close(e)`. A fatal that arrived as a
+///    rejected command, a transport EOF, or a refused automatic reply never
+///    passed through a decoder, so Java composes nothing. This carve-out is
+///    FIRST because it is the one a caller cannot recover from the failure
+///    value: `TypedProtocolFailure::java_invalid_data(1002)` is produced
+///    both by an inbound RSV1 violation and by a locally rejected
+///    `send_close {code: 999}`, and only the first may answer.
+/// 2. **Not `Open`.** `close(int,String,boolean)`'s :464 guard makes the
+///    whole method a no-op outside OPEN.
+/// 3. **No close code.** No close code means no `InvalidDataException`, so
+///    `decodeFrames` never reached `close(e)`: STATE_VIOLATION and the limit
+///    codes land here.
+/// 4. **1006.** `WebSocketImpl.close` answers `ABNORMAL_CLOSE` by reaching
+///    CLOSING with nothing on the wire (:466-471).
+#[must_use]
+pub fn violation_close_code(
+    failure: &TypedProtocolFailure,
+    origin: FailureOrigin,
+    state: ReadyState,
+) -> Option<u16> {
+    if origin != FailureOrigin::InboundDecode {
+        return None;
+    }
+    if state != ReadyState::Open {
+        return None;
+    }
+    let code = failure.close_code?;
+    if code == ABNORMAL_CLOSE_CODE {
+        return None;
+    }
+    Some(code)
+}
+
+/// Encode the close frame for [`violation_close_code`]'s verdict: shipped
+/// `WebSocketImpl.close` builds its own `CloseFrame` (:482-486) rather than
+/// asking the Draft for one, so this composes the two big-endian code bytes
+/// directly.
+///
+/// `mask` comes from the connection's OWN masking sequence — see
+/// [`ConnectionDriver::compose_violation_close`], which reserves it. `None`
+/// is the server role, which must not mask.
 ///
 /// # Why this lives in `ws_driver` and not in the adapter that calls it
 ///
@@ -1093,11 +1234,11 @@ pub const ABNORMAL_CLOSE_CODE: u16 = 1006;
 ///
 /// # Why this cannot move the differential corpus
 ///
-/// Nothing inside [`ConnectionDriver::poll`] calls it. It is a pure,
-/// inert composer that only an embedding adapter invokes, so the
-/// oracle harness — which drives this crate but never this function —
-/// produces byte-identical transcripts with and without it. That was
-/// measured, not assumed.
+/// Nothing inside [`ConnectionDriver::poll`] calls it or
+/// [`violation_close_code`]. Only an embedding adapter invokes them, so the
+/// oracle harness — which drives this crate but never this path — produces
+/// byte-identical transcripts with and without them. That was measured, not
+/// assumed.
 ///
 /// # Departures from Java, stated rather than buried
 ///
@@ -1106,56 +1247,10 @@ pub const ABNORMAL_CLOSE_CODE: u16 = 1006;
 /// and inventing a diagnostic string would put a fabricated Java message on
 /// the wire.
 #[must_use]
-pub fn compose_violation_close(
-    failure: &TypedProtocolFailure,
-    role: Role,
-    state: ReadyState,
-    mask_key_seed: u64,
-) -> Option<(u16, Vec<u8>)> {
-    // `close(int,String,boolean)`'s :464 guard makes the whole method a
-    // no-op unless the connection is still OPEN. Callers that hold a
-    // [`ConnectionDriver`] should prefer
-    // [`ConnectionDriver::compose_violation_close`], which supplies all
-    // three of `role`, `state` and `mask_key_seed` from the core itself so
-    // they cannot drift from it.
-    if state != ReadyState::Open {
-        return None;
-    }
-    // No close code means no `InvalidDataException`, so `decodeFrames` never
-    // reached `close(e)`: STATE_VIOLATION and the limit codes land here,
-    // including the fatal command rejection C5 now surfaces.
-    let code = failure.close_code?;
-    if code == ABNORMAL_CLOSE_CODE {
-        return None;
-    }
+pub fn violation_close_frame(code: u16, mask: Option<[u8; 4]>) -> Vec<u8> {
     let mut payload = Vec::with_capacity(2);
     payload.extend_from_slice(&code.to_be_bytes());
-    // Quirk Q28: mask keys are never observable in any recorded artifact,
-    // and the core derives its own from a configured seed rather than from
-    // entropy. The core's stream is unreachable here — it is poisoned by the
-    // failure that triggered this — so the seed is mixed with the close code
-    // to give this last frame a key from the same deterministic family.
-    let mask = match role {
-        Role::Client => Some(violation_mask_key(mask_key_seed, code)),
-        Role::Server => None,
-    };
-    Some((
-        code,
-        Draft6455::encode_frame(true, Opcode::Closing, &payload, mask),
-    ))
-}
-
-/// SplitMix64 finalizer over the configured seed and the close code — the
-/// same mixer shape the core uses for its own outbound mask stream (quirk
-/// Q28; see [`compose_violation_close`]).
-fn violation_mask_key(seed: u64, code: u16) -> [u8; 4] {
-    let mut z = seed.wrapping_add(u64::from(code).wrapping_mul(0x9E37_79B9_7F4A_7C15));
-    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-    z ^= z >> 31;
-    #[allow(clippy::cast_possible_truncation)]
-    let word = z as u32;
-    word.to_be_bytes()
+    Draft6455::encode_frame(true, Opcode::Closing, &payload, mask)
 }
 
 /// Recompose the core's Q19 close echo into the frame shipped Java's

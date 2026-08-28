@@ -679,7 +679,7 @@ impl Run {
                 DriverOutput::Idle => TraceOutput::Idle,
                 DriverOutput::Write(suffix) => TraceOutput::Write(suffix.to_vec()),
                 DriverOutput::Event(event) => TraceOutput::Event(event),
-                DriverOutput::Failure(failure) => TraceOutput::Failure(failure),
+                DriverOutput::Failure { failure, .. } => TraceOutput::Failure(failure),
                 DriverOutput::Terminal(_) => TraceOutput::Terminal,
             };
             (result.input, result.command, output, result.state)

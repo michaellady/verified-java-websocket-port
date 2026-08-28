@@ -17,7 +17,7 @@ use ws_core::config::ConnectionConfig;
 use ws_core::{FailureCode, InitialState, LocalCommand, ReadyState, Role, SemanticEvent};
 use ws_driver::{
     CommandDisposition, ConnectionDriver, DeferredReason, DriverInput, DriverInputError,
-    DriverOutput, InputDisposition, connection_driver_in_state,
+    DriverOutput, FailureOrigin, InputDisposition, connection_driver_in_state,
 };
 
 fn seed_lines(name: &str) -> BTreeMap<String, String> {
@@ -84,7 +84,7 @@ impl Run {
                 self.terminals += 1;
                 None
             }
-            DriverOutput::Failure(_) | DriverOutput::Idle => None,
+            DriverOutput::Failure { .. } | DriverOutput::Idle => None,
         }
     }
 
@@ -499,12 +499,21 @@ fn commands_queued_at_terminal_are_refused_by_the_core() {
         Some("STATE_VIOLATION"),
         "the refusal is the core's typed failure, not a driver-invented one"
     );
-    let DriverOutput::Failure(surfaced) = result.output else {
+    let DriverOutput::Failure {
+        failure: surfaced,
+        origin,
+    } = result.output
+    else {
         panic!(
             "a post-terminal command refused with a FATAL STATE_VIOLATION must surface a \
              DriverOutput::Failure, not stay silent"
         );
     };
+    assert_eq!(
+        origin,
+        FailureOrigin::LocalCommand,
+        "a refused COMMAND is not an inbound decode violation"
+    );
     assert_eq!(
         surfaced.code, failure.code,
         "the surfaced failure is the same verdict the disposition carries"
@@ -585,7 +594,7 @@ fn eof_refused_by_event_backpressure_is_retried_until_the_core_accepts_it() {
         let result = driver.poll(DriverInput::Wake);
         match result.output {
             DriverOutput::Terminal(_) => terminals += 1,
-            DriverOutput::Failure(failure) => {
+            DriverOutput::Failure { failure, .. } => {
                 panic!("no failure may surface for a retried EOF: {failure:?}")
             }
             _ => {}
@@ -698,12 +707,21 @@ fn post_terminal_inbound_reaches_the_core() {
     // deliver on a socket that has not yet been torn down.
     let frame = [0x82u8, 0x81, 0x00, 0x00, 0x00, 0x00, 0xA8];
     let result = run.driver.poll(DriverInput::Inbound(&frame));
-    let DriverOutput::Failure(surfaced) = result.output else {
+    let DriverOutput::Failure {
+        failure: surfaced,
+        origin,
+    } = result.output
+    else {
         panic!(
             "REGRESSION: post-terminal inbound bytes did not reach the core — the owner \
              reported them consumed and surfaced no refusal (false success defeats detection)"
         );
     };
+    assert_eq!(
+        origin,
+        FailureOrigin::InboundDecode,
+        "these were inbound bytes"
+    );
     assert_eq!(
         surfaced.code.wire_code(),
         Some("STATE_VIOLATION"),
@@ -766,12 +784,21 @@ fn repeated_transport_eof_reaches_the_core() {
     );
 
     let result = run.driver.poll(DriverInput::TransportEof);
-    let DriverOutput::Failure(surfaced) = result.output else {
+    let DriverOutput::Failure {
+        failure: surfaced,
+        origin,
+    } = result.output
+    else {
         panic!(
             "REGRESSION: the owner absorbed a repeated transport EOF instead of handing it \
              to the core (the eof latch skipped the core call)"
         );
     };
+    assert_eq!(
+        origin,
+        FailureOrigin::TransportEof,
+        "an EOF refusal is not an inbound decode violation"
+    );
     assert_eq!(
         surfaced.code.wire_code(),
         Some("STATE_VIOLATION"),
@@ -794,9 +821,14 @@ fn shutdown_after_applied_eof_reaches_the_core() {
     assert_eq!(run.driver.counts().actions, 1);
 
     let result = run.driver.poll(DriverInput::Shutdown);
-    let DriverOutput::Failure(surfaced) = result.output else {
+    let DriverOutput::Failure {
+        failure: surfaced,
+        origin,
+    } = result.output
+    else {
         panic!("REGRESSION: shutdown-after-applied-EOF was absorbed instead of reaching the core");
     };
+    assert_eq!(origin, FailureOrigin::TransportEof);
     assert_eq!(surfaced.code.wire_code(), Some("STATE_VIOLATION"));
     assert_eq!(run.driver.counts().actions, 2);
 }
@@ -878,7 +910,11 @@ fn a_fatal_command_rejection_surfaces_a_failure_output() {
     assert_eq!(failure.code, FailureCode::JavaInvalidData);
     assert_eq!(failure.close_code, Some(1002));
 
-    let DriverOutput::Failure(surfaced) = result.output else {
+    let DriverOutput::Failure {
+        failure: surfaced,
+        origin,
+    } = result.output
+    else {
         panic!(
             "REGRESSION: a fatal arriving as CommandDisposition::Rejected produced no \
              DriverOutput::Failure, so neither halt model halts on it and the poisoned core \
@@ -890,6 +926,18 @@ fn a_fatal_command_rejection_surfaces_a_failure_output() {
         "the surfaced failure must be the SAME verdict the rejection carries"
     );
     assert_eq!(surfaced.close_code, failure.close_code);
+    // THE OTHER HALF OF THIS FIX. Surfacing uniformly is about the HALT.
+    // The arrival path must NOT be erased with it: this failure is
+    // byte-identical to the one an inbound RSV1 violation produces
+    // (JAVA_INVALID_DATA, close code 1002), and the C6 wire reaction is
+    // gated on telling them apart. When this assertion was absent, a
+    // locally rejected send_close put a 1002 close frame on a real socket.
+    assert_eq!(
+        origin,
+        FailureOrigin::LocalCommand,
+        "REGRESSION: a locally rejected command reported the INBOUND DECODE origin, which \
+         is what makes C6 answer it with a 1002 close frame Java never sends"
+    );
 }
 
 /// The companion half: the fatal really did poison the core, so the
@@ -911,10 +959,15 @@ fn a_fatal_command_rejection_poisons_the_core() {
     let result = run
         .driver
         .poll(DriverInput::Inbound(&[0x88, 0x80, 0x00, 0x00, 0x00, 0x00]));
-    let DriverOutput::Failure(refusal) = result.output else {
+    let DriverOutput::Failure {
+        failure: refusal,
+        origin,
+    } = result.output
+    else {
         panic!("the core must refuse further work after a fatal command rejection");
     };
     assert_eq!(refusal.code, FailureCode::StateViolation);
+    assert_eq!(origin, FailureOrigin::InboundDecode);
 }
 
 /// The same property for `Shutdown`, which latches the same protocol EOF.

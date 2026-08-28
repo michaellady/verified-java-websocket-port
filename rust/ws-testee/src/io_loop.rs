@@ -12,7 +12,7 @@ use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
 use ws_core::{CloseDetail, CommandSender, ReadyState, SemanticEvent, TypedProtocolFailure};
-use ws_driver::{ConnectionDriver, DriverInput, DriverOutput, InputDisposition};
+use ws_driver::{ConnectionDriver, DriverInput, DriverOutput, FailureOrigin, InputDisposition};
 
 /// Bounded I/O parameters (US-018 AC1: bounded I/O buffers and explicit
 /// timeouts; deterministic defaults for the fixtures).
@@ -225,7 +225,7 @@ pub fn drive_connection(
                 policy.on_event(&event, sender);
                 continue;
             }
-            StepOutput::Failure(failure) => {
+            StepOutput::Failure(failure, origin) => {
                 // ADAPTER POLICY, NOT PORT SEMANTICS — written down because
                 // three rounds of the ws-driver exploration suite mistook
                 // this halt for a driver guarantee and named an invariant
@@ -284,6 +284,17 @@ pub fn drive_connection(
                 // the frame is built here, exactly as `WebSocketImpl.close`
                 // builds its own rather than asking the Draft for one.
                 //
+                // THE REACTION IS GATED ON THE FAILURE'S ARRIVAL PATH, and
+                // the gate is not optional bookkeeping. `decodeFrames` is
+                // the only Java site that reaches `close(e)`, so only a
+                // failure that arrived as INBOUND BYTES may answer. Passing
+                // `origin` through is what stops a LOCALLY rejected command
+                // — `send_close {code: 999}`, whose typed failure is the
+                // byte-identical `JAVA_INVALID_DATA(1002)` an inbound RSV1
+                // violation produces — from emitting a close frame the
+                // pinned Java oracle never emits (its own recorded run of
+                // `us005.pub.0000` reports `final_state: "open"`).
+                //
                 // Reason is empty: Java sends `e.getMessage()`, and
                 // `TypedProtocolFailure` carries a code and a close code but
                 // no message. Inventing a diagnostic string would put a
@@ -298,7 +309,7 @@ pub fn drive_connection(
                 // response omits `events`, `frames`, `transitions` and
                 // `close` (`OracleEngine.java:591-606`). What changed is
                 // only what goes on the wire on the way out.
-                send_violation_close(driver, &failure, stream, bounds, report);
+                send_violation_close(driver, &failure, origin, stream, bounds, report);
                 report.outcome = LoopOutcome::ProtocolFailure(failure);
                 let _ = stream.shutdown(std::net::Shutdown::Both);
                 break;
@@ -377,7 +388,10 @@ enum StepOutput {
     Idle,
     Write(Vec<u8>),
     Event(SemanticEvent),
-    Failure(TypedProtocolFailure),
+    /// The typed failure AND the path it arrived on. The origin is carried
+    /// rather than dropped because the shipped-Java reaction below applies
+    /// to exactly one of them; see [`send_violation_close`].
+    Failure(TypedProtocolFailure, FailureOrigin),
     Terminal,
 }
 
@@ -390,6 +404,10 @@ enum StepOutput {
 /// (WebSocketImpl.java:482-486) rather than asking the Draft for one.
 ///
 /// Sends nothing when:
+/// - the failure did NOT arrive as inbound bytes (`origin` other than
+///   [`FailureOrigin::InboundDecode`]): `decodeFrames` is Java's only route
+///   to `close(e)`, so a rejected command, a transport EOF or a refused
+///   automatic reply has no reaction to mirror, or
 /// - the failure carries no close code (`STATE_VIOLATION` and the limit
 ///   codes; Java has no `InvalidDataException` on those paths, so
 ///   `decodeFrames` never reaches `close(e)`), or
@@ -398,6 +416,11 @@ enum StepOutput {
 /// - the connection has already left `Open`, which `close`'s :464 guard
 ///   turns into a no-op.
 ///
+/// The driver is borrowed MUTABLY because composing a client-role frame
+/// reserves a key from the connection's own masking sequence rather than
+/// re-deriving one beside it (see
+/// `ws_driver::ConnectionDriver::compose_violation_close`).
+///
 /// Bounded exactly like the main write path: the same chunking, the same
 /// retryable-error classification, and the same
 /// [`IoBounds::write_stall_limit`] deadline, so a peer that has stopped
@@ -405,13 +428,14 @@ enum StepOutput {
 /// deadline (`flushAndClose` just demands the flush); the bound is the same
 /// disclosed US-018 adapter safety policy the main path already carries.
 fn send_violation_close(
-    driver: &ConnectionDriver,
+    driver: &mut ConnectionDriver,
     failure: &TypedProtocolFailure,
+    origin: FailureOrigin,
     stream: &mut TcpStream,
     bounds: &IoBounds,
     report: &mut ConnectionReport,
 ) {
-    let Some((code, frame)) = driver.compose_violation_close(failure) else {
+    let Some((code, frame)) = driver.compose_violation_close(failure, origin) else {
         return;
     };
 
@@ -451,7 +475,7 @@ fn pump(
         DriverOutput::Idle => StepOutput::Idle,
         DriverOutput::Write(suffix) => StepOutput::Write(suffix.to_vec()),
         DriverOutput::Event(event) => StepOutput::Event(event),
-        DriverOutput::Failure(failure) => StepOutput::Failure(failure),
+        DriverOutput::Failure { failure, origin } => StepOutput::Failure(failure, origin),
         DriverOutput::Terminal(_) => StepOutput::Terminal,
     };
     PumpStep {
@@ -523,7 +547,10 @@ pub fn drive_until_open(
                 }
                 continue;
             }
-            StepOutput::Failure(failure) => {
+            StepOutput::Failure(failure, _) => {
+                // No C6 reaction on the handshake path: `close`'s :464 guard
+                // is `readyState == OPEN`, which this loop by definition has
+                // not reached.
                 report.outcome = LoopOutcome::ProtocolFailure(failure);
                 return false;
             }
