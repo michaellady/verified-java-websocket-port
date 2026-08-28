@@ -1,0 +1,83 @@
+{
+  "$schema": "../schemas/cutover-evidence-1.0.0.schema.json",
+  "schema": "vjwp-cutover-evidence/1.0.0",
+  "story_id": "US-026",
+  "subject": {
+    "commit": "84935acb5665ed50bd5eb718e918ed19adfcc646",
+    "tree": "838fd4f551312447af3be1958916a1c5c2b5c885"
+  },
+  "artifacts": [
+    {
+      "path": "cutover/contract.json",
+      "sha256": "sha256:326ff523cb62f93e6ed48077f62a3a902f3230dd8d8f6c12b3e3ac01e00ce27b",
+      "bytes": 10388
+    },
+    {
+      "path": "cutover/shadow.json",
+      "sha256": "sha256:37e7969b9837041ed92a54742a1dff7ecfe61244644c20128fb6180c223d2c34",
+      "bytes": 23551
+    },
+    {
+      "path": "cutover/canary.json",
+      "sha256": "sha256:b92da8d95712307186ee8eca8a4da4b200e6bee11d888d8c050fc39b712bfd11",
+      "bytes": 30214
+    },
+    {
+      "path": "cutover/rollback.json",
+      "sha256": "sha256:9cd2094138cbe8d7d351efe4e7ca35f65d99eb6a700b1160cc167b765d563265",
+      "bytes": 10303
+    },
+    {
+      "path": "cutover/soak.json",
+      "sha256": "sha256:454b9e86881efac8f13ab73b758440eb800b4d768c69c33f5633e174d1401697",
+      "bytes": 15002
+    }
+  ],
+  "summary": {
+    "mechanics_status": "PASS_OWNER_RELAXED_REHEARSAL_MECHANICS",
+    "cutover_acceptance": "CUTOVER_BLOCKED",
+    "shadow_comparisons": 32,
+    "rust_selections": 2,
+    "failed_attempts": 1,
+    "rollback_actions": 3,
+    "soak_ticks": 32,
+    "reconciled_effects": 15,
+    "duplicate_effects_suppressed": 1
+  },
+  "mechanics_status": "PASS_OWNER_RELAXED_REHEARSAL_MECHANICS",
+  "cutover_acceptance": "CUTOVER_BLOCKED",
+  "cutover_ready_reached": false,
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false,
+  "blockers": [
+    "PRODUCTION_SHAPED_ENVIRONMENT_NOT_BOUND",
+    "LIVE_SHADOW_NOT_EXECUTED",
+    "LIVE_CANARY_NOT_EXECUTED",
+    "REAL_SIDE_EFFECT_ISOLATION_NOT_EXECUTED",
+    "US025_MEASURED_CAPACITY_NOT_ACCEPTED",
+    "REAL_RESOURCE_MONITORING_NOT_EXECUTED",
+    "WALL_CLOCK_SOAK_NOT_EXECUTED",
+    "REAL_JAVA_FALLBACK_BINARY_NOT_REBUILT_OR_DRILLED",
+    "REAL_ROLLBACK_BOUND_NOT_MEASURED",
+    "INDEPENDENT_ATTESTATION_NOT_EXECUTED",
+    "PRODUCTION_DEPLOYMENT_NOT_AUTHORIZED",
+    "JAVA_REMOVAL_NOT_AUTHORIZED"
+  ],
+  "nonclaims": [
+    "no production-shaped rehearsal",
+    "no live traffic or effects",
+    "no measured capacity or resources",
+    "no elapsed soak or rollback bound",
+    "no executable Java fallback drill",
+    "no CUTOVER_READY or deployment readiness",
+    "no production mutation, publication, signing, or Java removal"
+  ],
+  "provenance": {
+    "review": "NOT_EXECUTED",
+    "qa": "NOT_EXECUTED",
+    "reality": "NOT_EXECUTED"
+  }
+}

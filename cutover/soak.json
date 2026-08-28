@@ -1,0 +1,481 @@
+{
+  "$schema": "../schemas/cutover-phase-receipt-1.0.0.schema.json",
+  "schema": "vjwp-cutover-phase-receipt/1.0.0",
+  "story_id": "US-026",
+  "phase": "soak",
+  "contract_sha256": "sha256:326ff523cb62f93e6ed48077f62a3a902f3230dd8d8f6c12b3e3ac01e00ce27b",
+  "fixture_sha256": "sha256:e21e66c0760e693c247fc6c5fbf1592e5a81ac675775b4220ef0b24b2a942938",
+  "predecessor_path": "cutover/rollback.json",
+  "predecessor_sha256": "sha256:9cd2094138cbe8d7d351efe4e7ca35f65d99eb6a700b1160cc167b765d563265",
+  "subject": {
+    "commit": "84935acb5665ed50bd5eb718e918ed19adfcc646",
+    "tree": "838fd4f551312447af3be1958916a1c5c2b5c885"
+  },
+  "runs": [
+    {
+      "run_id": "nominal",
+      "outcome": "REHEARSAL_MECHANICS_COMPLETE",
+      "states": [
+        "SOURCE_QUALIFIED",
+        "SNAPSHOT_BOUND",
+        "FIXTURE_READY",
+        "SHADOW_VERIFIED_FIXTURE",
+        "CANARY_VERIFIED_FIXTURE",
+        "SOAK_VERIFIED_FIXTURE",
+        "REHEARSAL_MECHANICS_COMPLETE",
+        "CUTOVER_BLOCKED"
+      ],
+      "request_ids": [
+        "request-00",
+        "request-01",
+        "request-02",
+        "request-03",
+        "request-04",
+        "request-05",
+        "request-06",
+        "request-07",
+        "request-08",
+        "request-09",
+        "request-10",
+        "request-11",
+        "request-12",
+        "request-13",
+        "request-14",
+        "request-15"
+      ],
+      "selected_request_ids": [
+        "request-02",
+        "request-08"
+      ],
+      "rust_attempted_request_ids": [
+        "request-02",
+        "request-08"
+      ],
+      "comparisons": [],
+      "isolated_effect_count": 0,
+      "failed_attempts": [],
+      "committed_fixture_effects": [
+        {
+          "idempotency_key": "us026-idempotency-00",
+          "effect_sha256": "sha256:8153851dcf5901bf21d9dda567fcd7d35044165b97295ad06fc4a2ec09f5c34e",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-01",
+          "effect_sha256": "sha256:2bbd81a5771eec9e7104438d52165decd0caafef58222717695c93f7101b36a2",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-02",
+          "effect_sha256": "sha256:227de33de199cfd9d5106da1e84cf605a0d9ec0bd6020b84317e73ad0a448771",
+          "route": "rust"
+        },
+        {
+          "idempotency_key": "us026-idempotency-03",
+          "effect_sha256": "sha256:3ec881cb2113b5a67966c0874b57c01c364be63d4683c2b6f7b2d7f73d3d9c8d",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-04",
+          "effect_sha256": "sha256:d112f6bbdf965d665dd93e185bcdb817bc28ab2d1f6b2c34c6bd7d959b83f33b",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-05",
+          "effect_sha256": "sha256:0f0b3c51cf2cc62fc93e9df5ac4116cc7207ec592edb1cc8a423451ac526874c",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-06",
+          "effect_sha256": "sha256:553ad5f22ba2c8a86020af59d2c43979c7b7fe8452766034181114bc1c164cd2",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-07",
+          "effect_sha256": "sha256:fe58a9aa17041fbff924959b9b2a49af295ab2972e9842081edc4f0637051183",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-08",
+          "effect_sha256": "sha256:bcda34f7edbb936737511e049d55bd3e57c9d02eab2e4e0bffdfa9e1494b7b7e",
+          "route": "rust"
+        },
+        {
+          "idempotency_key": "us026-idempotency-09",
+          "effect_sha256": "sha256:c3e3b14872aa6b4762225758e234f6ba9f65097ab2c266a3f4553e2036fc316b",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-10",
+          "effect_sha256": "sha256:9e31aee5356def983c7de4c860e4eb44a2b34cdde8152a85436a9bb29adfdf8e",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-11",
+          "effect_sha256": "sha256:4b7c25ffd4399e0975c9bdd420356566b64b31dc4e4bbecd0a284db0d3ac4ef1",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-12",
+          "effect_sha256": "sha256:b71f09be20a520eb6533d4b429f3f17dcbb5589e6e1480fbd33ecfdb124779b8",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-13",
+          "effect_sha256": "sha256:65b1fcbd0cb442083ea1af739372d2f41dadd267e15f6fb70e03655567868058",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-14",
+          "effect_sha256": "sha256:18b32ac0433df6a67c12ed12df9226161603d915216c01c0cece3e7487b89f6a",
+          "route": "java"
+        }
+      ],
+      "expected_effect_count": 15,
+      "missing_effect_count": 0,
+      "extra_effect_count": 0,
+      "duplicate_effects_suppressed": 1,
+      "rollback_actions": [],
+      "ticks": [
+        {
+          "tick": 0,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 1,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 2,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 3,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 4,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 5,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 6,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 7,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 8,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 9,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 10,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 11,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 12,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 13,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 14,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 15,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 16,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 17,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 18,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 19,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 20,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 21,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 22,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 23,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 24,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 25,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 26,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 27,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 28,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 29,
+          "queue_fixture_units": 2,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        },
+        {
+          "tick": 30,
+          "queue_fixture_units": 0,
+          "error_fixture_count": 0,
+          "backpressure_units": 0
+        },
+        {
+          "tick": 31,
+          "queue_fixture_units": 1,
+          "error_fixture_count": 0,
+          "backpressure_units": 1
+        }
+      ],
+      "soak_result": "SIMULATED_32_TICKS_COMPLETE"
+    },
+    {
+      "run_id": "seeded-mismatch",
+      "outcome": "FALLBACK_RECONCILED",
+      "states": [
+        "SOURCE_QUALIFIED",
+        "SNAPSHOT_BOUND",
+        "FIXTURE_READY",
+        "SHADOW_VERIFIED_FIXTURE",
+        "CANARY_ABORTED_FIXTURE",
+        "JAVA_FALLBACK_SELECTED_FIXTURE",
+        "FALLBACK_RECONCILED_FIXTURE",
+        "CUTOVER_BLOCKED"
+      ],
+      "request_ids": [
+        "request-00",
+        "request-01",
+        "request-02",
+        "request-03",
+        "request-04",
+        "request-05",
+        "request-06",
+        "request-07",
+        "request-08",
+        "request-09",
+        "request-10",
+        "request-11",
+        "request-12",
+        "request-13",
+        "request-14",
+        "request-15"
+      ],
+      "selected_request_ids": [
+        "request-02",
+        "request-08"
+      ],
+      "rust_attempted_request_ids": [
+        "request-02"
+      ],
+      "comparisons": [],
+      "isolated_effect_count": 0,
+      "failed_attempts": [
+        {
+          "request_id": "request-02",
+          "route": "rust",
+          "reason": "SEMANTIC_MISMATCH",
+          "expected_semantic_sha256": "sha256:2d55db4e6752d9fd5291948a415cf2367f73d9a4de699c606bad54e46cb6a83c",
+          "observed_semantic_sha256": "sha256:a62be09dc2230ed8cd793ca798455cbda552678726b7ff76ade224c24651e7d4",
+          "preserved": true,
+          "real_effect_committed": false,
+          "fixture_effect_committed": false
+        }
+      ],
+      "committed_fixture_effects": [
+        {
+          "idempotency_key": "us026-idempotency-00",
+          "effect_sha256": "sha256:8153851dcf5901bf21d9dda567fcd7d35044165b97295ad06fc4a2ec09f5c34e",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-01",
+          "effect_sha256": "sha256:2bbd81a5771eec9e7104438d52165decd0caafef58222717695c93f7101b36a2",
+          "route": "java"
+        },
+        {
+          "idempotency_key": "us026-idempotency-02",
+          "effect_sha256": "sha256:227de33de199cfd9d5106da1e84cf605a0d9ec0bd6020b84317e73ad0a448771",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-03",
+          "effect_sha256": "sha256:3ec881cb2113b5a67966c0874b57c01c364be63d4683c2b6f7b2d7f73d3d9c8d",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-04",
+          "effect_sha256": "sha256:d112f6bbdf965d665dd93e185bcdb817bc28ab2d1f6b2c34c6bd7d959b83f33b",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-05",
+          "effect_sha256": "sha256:0f0b3c51cf2cc62fc93e9df5ac4116cc7207ec592edb1cc8a423451ac526874c",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-06",
+          "effect_sha256": "sha256:553ad5f22ba2c8a86020af59d2c43979c7b7fe8452766034181114bc1c164cd2",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-07",
+          "effect_sha256": "sha256:fe58a9aa17041fbff924959b9b2a49af295ab2972e9842081edc4f0637051183",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-08",
+          "effect_sha256": "sha256:bcda34f7edbb936737511e049d55bd3e57c9d02eab2e4e0bffdfa9e1494b7b7e",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-09",
+          "effect_sha256": "sha256:c3e3b14872aa6b4762225758e234f6ba9f65097ab2c266a3f4553e2036fc316b",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-10",
+          "effect_sha256": "sha256:9e31aee5356def983c7de4c860e4eb44a2b34cdde8152a85436a9bb29adfdf8e",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-11",
+          "effect_sha256": "sha256:4b7c25ffd4399e0975c9bdd420356566b64b31dc4e4bbecd0a284db0d3ac4ef1",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-12",
+          "effect_sha256": "sha256:b71f09be20a520eb6533d4b429f3f17dcbb5589e6e1480fbd33ecfdb124779b8",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-13",
+          "effect_sha256": "sha256:65b1fcbd0cb442083ea1af739372d2f41dadd267e15f6fb70e03655567868058",
+          "route": "java-fallback"
+        },
+        {
+          "idempotency_key": "us026-idempotency-14",
+          "effect_sha256": "sha256:18b32ac0433df6a67c12ed12df9226161603d915216c01c0cece3e7487b89f6a",
+          "route": "java-fallback"
+        }
+      ],
+      "expected_effect_count": 15,
+      "missing_effect_count": 0,
+      "extra_effect_count": 0,
+      "duplicate_effects_suppressed": 1,
+      "rollback_actions": [],
+      "ticks": [],
+      "soak_result": "NOT_ENTERED_ABORTED_CANARY"
+    }
+  ],
+  "mechanics_status": "PASS_OWNER_RELAXED_REHEARSAL_MECHANICS",
+  "cutover_acceptance": "CUTOVER_BLOCKED",
+  "resource_evidence_kind": "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+  "live_traffic_executed": false,
+  "live_side_effects_executed": false,
+  "cutover_ready_reached": false,
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false
+}

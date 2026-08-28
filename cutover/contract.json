@@ -1,0 +1,236 @@
+{
+  "$schema": "../schemas/cutover-rehearsal-contract-1.0.0.schema.json",
+  "schema": "vjwp-cutover-rehearsal-contract/1.0.0",
+  "story_id": "US-026",
+  "contract_id": "us026.fixture-only.disposable-rehearsal",
+  "subject": {
+    "commit": "84935acb5665ed50bd5eb718e918ed19adfcc646",
+    "tree": "838fd4f551312447af3be1958916a1c5c2b5c885"
+  },
+  "authoritative_inputs": [
+    {
+      "path": "evidence/intake/cutover-contract.json",
+      "sha256": "sha256:ea6d6148dd67b705e74db48056dd5f17f22626fda48d148aef01f37de2d46f76",
+      "bytes": 6127
+    },
+    {
+      "path": "assurance/candidate-manifest.json",
+      "sha256": "sha256:ab24fb6cbc3b811ef1d08c46c3c1b4925b03595836f5ccd65f0858fea66c9925",
+      "bytes": 227339
+    },
+    {
+      "path": "evidence/refinement-replay.json",
+      "sha256": "sha256:3482e63dd0b5e31a244bdc82d5cd491ebeb3c22e5b345b434d709d1d27463853",
+      "bytes": 74487
+    },
+    {
+      "path": "evidence/performance.json",
+      "sha256": "sha256:645b18936d8939fdbf21c9877f29f7627c7a40aae7f3ab05bfd6129a0c10cd22",
+      "bytes": 2675
+    },
+    {
+      "path": "java-oracle/pom.xml",
+      "sha256": "sha256:607a3de79e47d3a68564ca5c64da649b90a6febe3bf9f8dcdfe98a2c2e12b5b3",
+      "bytes": 4335
+    }
+  ],
+  "rejected_authorities": [
+    "assurance/developer-tools/cutover-contract.json"
+  ],
+  "fixture_sha256": "sha256:e21e66c0760e693c247fc6c5fbf1592e5a81ac675775b4220ef0b24b2a942938",
+  "fixture": {
+    "label": "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+    "requests": [
+      {
+        "request_id": "request-00",
+        "idempotency_key": "us026-idempotency-00",
+        "input_sha256": "sha256:acdf8d43e4ba3e5fe5903028c6bdd0b9e41e643ce8aa6a70a2341ad529c2f093",
+        "semantic_sha256": "sha256:6413d8fd702a507c2a97208f9d9027042f002133a127dec1f05d7b4d31b4072c",
+        "effect_sha256": "sha256:8153851dcf5901bf21d9dda567fcd7d35044165b97295ad06fc4a2ec09f5c34e",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-01",
+        "idempotency_key": "us026-idempotency-01",
+        "input_sha256": "sha256:766c33a63ae950e5eb1adcd667fd241344ae181a07dda5789890603967106cb9",
+        "semantic_sha256": "sha256:8b22d23034951e36198e6a925f9e2aa05d81c3991c6a528f5d0574dbb5dba906",
+        "effect_sha256": "sha256:2bbd81a5771eec9e7104438d52165decd0caafef58222717695c93f7101b36a2",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-02",
+        "idempotency_key": "us026-idempotency-02",
+        "input_sha256": "sha256:2f84b5fdece4356f3d216bbd2011d41620e7a7fbf60c90f1a0fd845d6794dd81",
+        "semantic_sha256": "sha256:2d55db4e6752d9fd5291948a415cf2367f73d9a4de699c606bad54e46cb6a83c",
+        "effect_sha256": "sha256:227de33de199cfd9d5106da1e84cf605a0d9ec0bd6020b84317e73ad0a448771",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-03",
+        "idempotency_key": "us026-idempotency-03",
+        "input_sha256": "sha256:726c2fa47aae66f11206efba5d3fd1a652e529da08d8f38411286d0408f92333",
+        "semantic_sha256": "sha256:105338f7c7486be1d0f40c9625c7a394d963622a1a751b94d01208cfd18886ae",
+        "effect_sha256": "sha256:3ec881cb2113b5a67966c0874b57c01c364be63d4683c2b6f7b2d7f73d3d9c8d",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-04",
+        "idempotency_key": "us026-idempotency-04",
+        "input_sha256": "sha256:ea4586ccda205a4b0a5ecd0972c0a39d50478a8984a9ebf9f73d247627b747c5",
+        "semantic_sha256": "sha256:f5cb73df98a2ba3e6f6d0a23f7d5195a834f8b1dfbdd6ed3ebdbfeff08fd85f1",
+        "effect_sha256": "sha256:d112f6bbdf965d665dd93e185bcdb817bc28ab2d1f6b2c34c6bd7d959b83f33b",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-05",
+        "idempotency_key": "us026-idempotency-05",
+        "input_sha256": "sha256:4e7b81cd370b480bc23fe04a2a18c9b0f9ac5b19ff689b0cadbb8218ca5c72df",
+        "semantic_sha256": "sha256:3be736cf72f332fb9ef405b760d47fbe8b85ae66cf38dfe2c0b7b61473e49f3f",
+        "effect_sha256": "sha256:0f0b3c51cf2cc62fc93e9df5ac4116cc7207ec592edb1cc8a423451ac526874c",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-06",
+        "idempotency_key": "us026-idempotency-06",
+        "input_sha256": "sha256:397f90583702dbc50e050135fa21846fe53f191bd1a819c507f441963bb3f98f",
+        "semantic_sha256": "sha256:769bea0d2e68b3aaed0bc44d561c22e11e49037da6614e945bef56cf7a18793a",
+        "effect_sha256": "sha256:553ad5f22ba2c8a86020af59d2c43979c7b7fe8452766034181114bc1c164cd2",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-07",
+        "idempotency_key": "us026-idempotency-07",
+        "input_sha256": "sha256:3fc55e0491f7347ca921bb91e0e00b555a12dcdb0dd488ecd7e814f5017d563f",
+        "semantic_sha256": "sha256:3b9d24c8b54fa5b1017bc345e5d6ff55798fbb374b5452d8a2ca98cbb5c6f55c",
+        "effect_sha256": "sha256:fe58a9aa17041fbff924959b9b2a49af295ab2972e9842081edc4f0637051183",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-08",
+        "idempotency_key": "us026-idempotency-08",
+        "input_sha256": "sha256:aeafa4d7f950fea62011ebf17adcfa7f0dac74915451e913231b1caa0c69ab1d",
+        "semantic_sha256": "sha256:a1fc25f7a71c2b8ce364cb3a68e73f839003d72baa94ce8a82285d833d7b5e66",
+        "effect_sha256": "sha256:bcda34f7edbb936737511e049d55bd3e57c9d02eab2e4e0bffdfa9e1494b7b7e",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-09",
+        "idempotency_key": "us026-idempotency-09",
+        "input_sha256": "sha256:ec67c9488fdfccb26ab6ff15c61243e87b3c55b9f43d8206e6209d180cecf99e",
+        "semantic_sha256": "sha256:2b5638c9c833f3f600b93f57ec92394653cd6b2a4c55c4214ab107a1b641f4ba",
+        "effect_sha256": "sha256:c3e3b14872aa6b4762225758e234f6ba9f65097ab2c266a3f4553e2036fc316b",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-10",
+        "idempotency_key": "us026-idempotency-10",
+        "input_sha256": "sha256:80cfd22e7bf654a7cf73325aeb6f4f1f6f835c018910b1985a6dc5a483176072",
+        "semantic_sha256": "sha256:23b1b939422bc3e9bbd10d909a6d3eec9c2229785746a2fedd24c74c37ab789b",
+        "effect_sha256": "sha256:9e31aee5356def983c7de4c860e4eb44a2b34cdde8152a85436a9bb29adfdf8e",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-11",
+        "idempotency_key": "us026-idempotency-11",
+        "input_sha256": "sha256:3e7128f29b8171f8687689c08c41374e097541ef1e753af5e29c39ea8a5f1530",
+        "semantic_sha256": "sha256:9a8259fb5fadb194310f2009e8bcff635b98526c0fffcd9c8cda95f529e0c835",
+        "effect_sha256": "sha256:4b7c25ffd4399e0975c9bdd420356566b64b31dc4e4bbecd0a284db0d3ac4ef1",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-12",
+        "idempotency_key": "us026-idempotency-12",
+        "input_sha256": "sha256:8cfd6bdc180411eb4890ec33cb16312aec4ec830cf2a14f7c8c887d6ee0f86bd",
+        "semantic_sha256": "sha256:847f26575ac9c2a6cf588a6c6fe6074c3d89ee57a0139825ff7e1bce96e0fb3f",
+        "effect_sha256": "sha256:b71f09be20a520eb6533d4b429f3f17dcbb5589e6e1480fbd33ecfdb124779b8",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-13",
+        "idempotency_key": "us026-idempotency-13",
+        "input_sha256": "sha256:ee8a05e3b6a2f9b8619a176fa416be66bfdaec14eb338aaa4dee346ad319a634",
+        "semantic_sha256": "sha256:d6283898868caea5804029e233b901aa59f8f75537d4606e8b57f58c84616beb",
+        "effect_sha256": "sha256:65b1fcbd0cb442083ea1af739372d2f41dadd267e15f6fb70e03655567868058",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-14",
+        "idempotency_key": "us026-idempotency-14",
+        "input_sha256": "sha256:37fa0a819f9f13dc1dc4cc8291aa9e8848e76badb610a517451bdcfb315e0997",
+        "semantic_sha256": "sha256:e325a927eda7884d1e44beb269aba9250d5dbacbb8e99c51dbb22be18dd4d969",
+        "effect_sha256": "sha256:18b32ac0433df6a67c12ed12df9226161603d915216c01c0cece3e7487b89f6a",
+        "retry_of": ""
+      },
+      {
+        "request_id": "request-15",
+        "idempotency_key": "us026-idempotency-07",
+        "input_sha256": "sha256:8c3066204c3bd1723c00f449bd3e01848c2e3b1159457a29c631ecb5a4241562",
+        "semantic_sha256": "sha256:3b9d24c8b54fa5b1017bc345e5d6ff55798fbb374b5452d8a2ca98cbb5c6f55c",
+        "effect_sha256": "sha256:fe58a9aa17041fbff924959b9b2a49af295ab2972e9842081edc4f0637051183",
+        "retry_of": "request-07"
+      }
+    ],
+    "route_projection": "two-lowest-sha256-idempotency-keys-among-first-attempts",
+    "rust_selection_count": 2,
+    "rust_selected_request_ids": [
+      "request-02",
+      "request-08"
+    ],
+    "nominal_trace": [
+      "SOURCE_QUALIFIED",
+      "SNAPSHOT_BOUND",
+      "FIXTURE_READY",
+      "SHADOW_VERIFIED_FIXTURE",
+      "CANARY_VERIFIED_FIXTURE",
+      "SOAK_VERIFIED_FIXTURE",
+      "REHEARSAL_MECHANICS_COMPLETE",
+      "CUTOVER_BLOCKED"
+    ],
+    "mismatch_trace": [
+      "SOURCE_QUALIFIED",
+      "SNAPSHOT_BOUND",
+      "FIXTURE_READY",
+      "SHADOW_VERIFIED_FIXTURE",
+      "CANARY_ABORTED_FIXTURE",
+      "JAVA_FALLBACK_SELECTED_FIXTURE",
+      "FALLBACK_RECONCILED_FIXTURE",
+      "CUTOVER_BLOCKED"
+    ],
+    "rollback_actions": [
+      "abort",
+      "select-java",
+      "reconcile"
+    ],
+    "soak_ticks": 32
+  },
+  "java_fallback": {
+    "route_target": "java-oracle",
+    "source_identity_sha256": "sha256:ab24fb6cbc3b811ef1d08c46c3c1b4925b03595836f5ccd65f0858fea66c9925",
+    "build_input_path": "java-oracle/pom.xml",
+    "build_input_sha256": "sha256:607a3de79e47d3a68564ca5c64da649b90a6febe3bf9f8dcdfe98a2c2e12b5b3",
+    "executable_presence_fact": "SOURCE_AND_BUILD_INPUT_RETAINED_EXECUTABLE_NOT_DRILLED",
+    "java_fallback_executable_drilled": false
+  },
+  "canonical_readiness_ladder": [
+    "SOURCE_QUALIFIED",
+    "SEMANTICALLY_VERIFIED",
+    "OPERATIONALLY_VERIFIED",
+    "SHADOW_VERIFIED",
+    "CANARY_VERIFIED",
+    "CUTOVER_READY"
+  ],
+  "mechanics_status_ceiling": "PASS_OWNER_RELAXED_REHEARSAL_MECHANICS",
+  "cutover_acceptance_ceiling": "CUTOVER_BLOCKED",
+  "production_shaped_environment": "NOT_BOUND",
+  "live_traffic_executed": false,
+  "live_side_effects_executed": false,
+  "resource_evidence_kind": "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+  "cutover_ready_reachable": false,
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "provenance": {
+    "review": "NOT_EXECUTED",
+    "qa": "NOT_EXECUTED",
+    "reality": "NOT_EXECUTED"
+  }
+}
