@@ -206,14 +206,14 @@ pub fn drive_connection(
                         // converts a persistent stall into the typed
                         // outcome (adapter safety policy; see IoBounds).
                         if write_stall.stalled() {
-                            let _ = pump(driver, DriverInput::Shutdown, report);
+                            end_transport_service(driver, report);
                             report.outcome = LoopOutcome::WriteStalled;
                             let _ = stream.shutdown(std::net::Shutdown::Both);
                             break;
                         }
                     }
                     Err(error) => {
-                        let _ = pump(driver, DriverInput::Shutdown, report);
+                        end_transport_service(driver, report);
                         report.outcome = LoopOutcome::SocketError(format!("{:?}", error.kind()));
                         break;
                     }
@@ -254,13 +254,40 @@ pub fn drive_connection(
             Ok(n) => pending_chunk = read_buffer[..n].to_vec(),
             Err(error) if retryable(error.kind()) => {}
             Err(error) => {
-                let _ = pump(driver, DriverInput::Shutdown, report);
+                end_transport_service(driver, report);
                 report.outcome = LoopOutcome::SocketError(format!("{:?}", error.kind()));
                 break;
             }
         }
     }
+    // The `while` condition itself is an exit that ends transport service:
+    // the budget ran out and the caller is about to drop the driver
+    // (pre-landing review finding 2). Every OTHER exit above already pumped
+    // `Shutdown`, except the protocol-failure arm — the disclosed stance
+    // that a run halted at its first `Failure` never drives the driver
+    // again.
+    if report.polls >= bounds.max_polls && report.outcome == LoopOutcome::BudgetExhausted {
+        end_transport_service(driver, report);
+    }
     report.close = driver.close_detail().cloned();
+}
+
+/// Tell the driver its transport service has ended, so every committed wire
+/// write it can no longer deliver comes back as the typed
+/// [`ws_driver::DriverOutput::WritesDropped`] disposition instead of being
+/// abandoned when the caller drops the driver (US-017 AC2; pre-landing
+/// review finding 2).
+///
+/// Every adapter exit that ends transport service calls this — socket
+/// errors, EOF during the handshake, rejected input, and both loops' poll
+/// budgets — not just the write-stall expiry that already did. The single
+/// disclosed exception is the protocol-failure arm: a run that surfaced a
+/// fatal `Failure` stops at that instant by contract and never polls again.
+///
+/// The report is delivered strictly before any terminal or failure, so ONE
+/// pump is enough to collect it; the accounting happens inside [`pump`].
+fn end_transport_service(driver: &mut ConnectionDriver, report: &mut ConnectionReport) {
+    let _ = pump(driver, DriverInput::Shutdown, report);
 }
 
 fn retryable(kind: ErrorKind) -> bool {
@@ -390,13 +417,19 @@ pub fn drive_until_open(
                             // Same expiry discipline as the connected pump:
                             // the driver is told to shut down BEFORE the
                             // socket closes (review 01a0453e).
-                            let _ = pump(driver, DriverInput::Shutdown, report);
+                            end_transport_service(driver, report);
                             report.outcome = LoopOutcome::WriteStalled;
                             let _ = stream.shutdown(std::net::Shutdown::Both);
                             return false;
                         }
                     }
                     Err(error) => {
+                        // Pre-landing review finding 2: a hard handshake
+                        // write error ends transport service exactly like
+                        // the connected loop's does, so the committed
+                        // handshake frame is reported, not abandoned when
+                        // the caller drops the driver.
+                        end_transport_service(driver, report);
                         report.outcome = LoopOutcome::SocketError(format!("{:?}", error.kind()));
                         return false;
                     }
@@ -415,6 +448,10 @@ pub fn drive_until_open(
         match stream.read(&mut read_buffer) {
             Ok(0) => {
                 let _ = pump(driver, DriverInput::TransportEof, report);
+                // The peer is gone mid-handshake: service is over, so the
+                // committed handshake frame is reported rather than dropped
+                // with the driver (pre-landing review finding 2).
+                end_transport_service(driver, report);
                 return false;
             }
             Ok(n) => {
@@ -425,20 +462,28 @@ pub fn drive_until_open(
                         InputDisposition::Consumed { .. } => break,
                         InputDisposition::Deferred(_) => {
                             if report.polls >= bounds.max_polls {
+                                end_transport_service(driver, report);
                                 return false;
                             }
                         }
-                        InputDisposition::Rejected(_) => return false,
+                        InputDisposition::Rejected(_) => {
+                            end_transport_service(driver, report);
+                            return false;
+                        }
                     }
                 }
             }
             Err(error) if retryable(error.kind()) => {}
             Err(error) => {
+                end_transport_service(driver, report);
                 report.outcome = LoopOutcome::SocketError(format!("{:?}", error.kind()));
                 return false;
             }
         }
     }
+    // Poll budget exhausted before the connection opened: the caller returns
+    // and drops the driver, so service ends here too.
+    end_transport_service(driver, report);
     false
 }
 

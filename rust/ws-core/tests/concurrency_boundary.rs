@@ -200,39 +200,98 @@ fn dropping_the_owner_half_makes_every_later_send_a_typed_receiver_drop_refusal(
 /// producer racing the drop from another thread either wins the push before
 /// the owner goes away or observes the typed refusal. It never blocks and
 /// never reports accepted after the drop has been published.
+///
+/// VACUITY NOTE (pre-landing review finding 3, session 01a04960). The prior
+/// version of this test ended at `accepted <= 8` and `receiver_dropped <= 1`,
+/// which the reviewer showed to be vacuous — and the deletion was executed
+/// to confirm it: with the whole `ReceiverDropped` arm removed from
+/// `CommandSender::try_send`, the producer filled the queue, saw only
+/// `Full`, returned `(8, 0)`, and this test still reported `ok` (the
+/// deterministic `dropping_the_owner_half_...` test above was the only
+/// failure in the file). The race is now REQUIRED to produce a typed
+/// post-drop observation: `dropped_published` is set only after
+/// `drop(queue)` has returned, so the send that follows it has no
+/// interleaving left in which the owner might still be alive — a `Full` or
+/// an `Ok` there is a real failure, and `receiver_dropped` is pinned to
+/// exactly one rather than at most one.
 #[test]
 fn a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accept() {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
     for _ in 0..64 {
         let config = config_with_capacity(8);
         let (queue, sender) = CommandQueue::new(&config);
+        // Published by this thread only AFTER `drop(queue)` has returned,
+        // so a send that observes it is unambiguously post-drop.
+        let dropped_published = Arc::new(AtomicBool::new(false));
+        let observer = Arc::clone(&dropped_published);
         let producer = thread::spawn(move || {
             let mut accepted = 0usize;
             let mut receiver_dropped = 0usize;
-            for index in 0..64 {
-                match sender.try_send(tagged(&format!("r{index}"))) {
+            let mut refusals_before_the_drop = 0usize;
+            loop {
+                // The racing window: this send may land before, during, or
+                // after the owner goes away.
+                match sender.try_send(tagged("race")) {
                     Ok(()) => accepted += 1,
                     Err(refused) => {
+                        assert_eq!(
+                            tag_of(&refused.command),
+                            "race",
+                            "every refusal hands the command back intact"
+                        );
                         if refused.reason
                             == ws_core::connection::CommandRefusalReason::ReceiverDropped
                         {
                             receiver_dropped += 1;
-                            // Terminal: every later send refuses the same way.
-                            assert!(
-                                sender.try_send(tagged("post")).is_err(),
-                                "the receiver-drop refusal is terminal"
+                            // Terminal: every later send refuses the same
+                            // way, and never with a different reason.
+                            let again = sender
+                                .try_send(tagged("post"))
+                                .expect_err("the receiver-drop refusal is terminal");
+                            assert_eq!(
+                                again.reason,
+                                ws_core::connection::CommandRefusalReason::ReceiverDropped,
+                                "the terminal reason does not decay back to Full"
                             );
                             break;
                         }
+                        refusals_before_the_drop += 1;
                     }
                 }
+                if observer.load(Ordering::Acquire) {
+                    // The owner is DEFINITELY gone and the queue lock is
+                    // definitely free, so the next send has exactly one
+                    // admissible answer.
+                    let refused = sender
+                        .try_send(tagged("race"))
+                        .expect_err("no send is accepted once the sole owner has been dropped");
+                    assert_eq!(
+                        refused.reason,
+                        ws_core::connection::CommandRefusalReason::ReceiverDropped,
+                        "a post-drop send refuses with the TYPED receiver-drop reason, \
+                         not capacity backpressure"
+                    );
+                    receiver_dropped += 1;
+                    break;
+                }
+                assert!(
+                    refusals_before_the_drop < 4096,
+                    "the producer must never spin unboundedly before the drop lands"
+                );
             }
             (accepted, receiver_dropped)
         });
         drop(queue);
+        dropped_published.store(true, Ordering::Release);
         let (accepted, receiver_dropped) = producer.join().expect("producer thread");
         // Whatever the interleaving, acceptance never happens after the
         // drop is observed, and the channel is bounded either way.
         assert!(accepted <= 8, "bounded capacity held: {accepted}");
-        assert!(receiver_dropped <= 1);
+        assert_eq!(
+            receiver_dropped, 1,
+            "the race MUST end in exactly one typed receiver-drop observation"
+        );
     }
 }

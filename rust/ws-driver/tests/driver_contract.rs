@@ -831,6 +831,167 @@ fn shutdown_with_nothing_committed_reports_no_dropped_writes() {
 }
 
 // ---------------------------------------------------------------------------
+// Pre-landing review finding 1 (session 01a04960): "Post-shutdown automatic
+// responses can commit new writes and emit multiple drop reports,
+// contradicting the asserted one-report/one-frame structure."
+//
+// Both halves were reproduced by execution before either was fixed. They are
+// DIFFERENT claims and get different treatment:
+//
+//   * multiple REPORTS was a driver defect and is fixed (the automatic reply
+//     is suppressed once shutdown has latched);
+//   * multiple FRAMES in one report is correct accounting that the evidence
+//     wrongly called structurally impossible, so it is pinned as supported
+//     behaviour here and the artifact's claim was corrected.
+//
+// The bounded schedule exploration runs under `AutoResponsePolicy::Disabled`
+// and therefore cannot reach either path; these two tests are where the
+// DEFAULT `PongInboundPing` policy meets shutdown.
+// ---------------------------------------------------------------------------
+
+/// A masked (client-to-server) control frame with an all-zero mask key, so
+/// the masked payload bytes equal the semantic payload.
+fn masked_control(opcode: u8, payload: &[u8]) -> Vec<u8> {
+    let mut frame = vec![
+        0x80 | opcode,
+        0x80 | u8::try_from(payload.len()).expect("short test payload"),
+        0,
+        0,
+        0,
+        0,
+    ];
+    frame.extend_from_slice(payload);
+    frame
+}
+
+/// RED READ (pre-fix, `event_queue_capacity(6)`, default policy):
+/// `SHUTDOWN => writes-dropped:frames=1,bytes=3` then
+/// `post1 => Event(Ping{data:[0]})` then
+/// `post2 => writes-dropped:frames=1,bytes=3` — TWO reports in one run,
+/// because the congested event queue refuses the latched EOF with non-fatal
+/// backpressure, so the Ping is delivered while the core is still `Open` and
+/// the automatic pong commits a frame the ended transport can never carry.
+#[test]
+fn a_ping_delivered_after_shutdown_injects_no_pong_and_emits_no_second_report() {
+    // Capacity 6 is the exact congestion that keeps the latched EOF refused
+    // (`handle_eof` needs `MAX_EVENT_SLOTS_PER_INPUT` = 4 free slots) across
+    // the poll that delivers the Ping.
+    let config = ConnectionConfig::builder()
+        .event_queue_capacity(6)
+        .build()
+        .expect("valid test config");
+    let (sender, mut driver) = connection_driver_in_state(config, Role::Server, InitialState::Open);
+    let fed = driver.poll(DriverInput::Inbound(&masked_control(0x09, &[0])));
+    assert!(
+        matches!(fed.input, InputDisposition::Consumed { .. }),
+        "the ping chunk is consumed: {:?}",
+        fed.input
+    );
+    // A producer command commits the one frame the shutdown legitimately
+    // abandons, so the run has a real first report to be a SECOND one after.
+    sender
+        .try_send(LocalCommand::SendText {
+            text: "x".to_owned(),
+        })
+        .expect("enqueue");
+    let applied = driver.poll(DriverInput::Wake);
+    let DriverOutput::Write(suffix) = applied.output else {
+        panic!("the text command commits a wire write");
+    };
+    assert_eq!(suffix.len(), 3, "server text frame [0x81,0x01,'x']");
+
+    let labels = drain_outputs(&mut driver, DriverInput::Shutdown);
+    let reports: Vec<&String> = labels
+        .iter()
+        .filter(|label| label.starts_with("writes-dropped"))
+        .collect();
+    assert_eq!(
+        reports.len(),
+        1,
+        "the dropped-write disposition is ONE report per run, not a stream: {labels:?}"
+    );
+    assert_eq!(
+        reports[0].as_str(),
+        "writes-dropped:frames=1,bytes=3,partial_front=false",
+        "only the frame committed BEFORE the shutdown is reported: {labels:?}"
+    );
+    assert!(
+        !labels.iter().any(|label| label.starts_with("write:")),
+        "a shut-down transport is never offered a write: {labels:?}"
+    );
+    assert!(
+        labels.iter().any(|label| label == "terminal"),
+        "the run still converges: {labels:?}"
+    );
+}
+
+/// The plural arm of `abort_pending_writes` is a REACHED path under the
+/// default automatic-response policy, not the unexercised guarantee the
+/// evidence used to claim.
+///
+/// An automatic pong is injected while a semantic event is being RETURNED,
+/// which is the one commit that does not pass through the offered-write
+/// gate. It therefore sits in the core's write queue rather than the offered
+/// slot, and the next poll applies a producer command on top of it — two
+/// committed frames pending at one shutdown instant.
+#[test]
+fn a_shutdown_report_accounts_for_every_committed_frame_not_just_the_offered_one() {
+    let (sender, mut driver) = connection_driver_in_state(
+        ConnectionConfig::default(),
+        Role::Server,
+        InitialState::Open,
+    );
+    let fed = driver.poll(DriverInput::Inbound(&masked_control(0x09, &[1, 2, 3])));
+    assert!(matches!(fed.input, InputDisposition::Consumed { .. }));
+    // Drain up to and including the Ping delivery: that is the poll that
+    // injects the automatic pong into the core's write queue.
+    let mut delivered = false;
+    for _ in 0..8 {
+        if let DriverOutput::Event(event) = driver.poll(DriverInput::Wake).output
+            && matches!(event.kind, ws_core::SemanticEventKind::Ping { .. })
+        {
+            delivered = true;
+            break;
+        }
+    }
+    assert!(delivered, "the Ping semantic event is delivered");
+    sender
+        .try_send(LocalCommand::SendText {
+            text: "hello".to_owned(),
+        })
+        .expect("enqueue");
+    // This poll applies the command (no write is OFFERED yet, so nothing
+    // holds the owner's turn) and only then offers the pong.
+    let applied = driver.poll(DriverInput::Wake);
+    assert!(matches!(
+        applied.command,
+        Some(CommandDisposition::Applied(_))
+    ));
+    let DriverOutput::Write(suffix) = applied.output else {
+        panic!("the automatic pong is offered first (FIFO owner order)");
+    };
+    assert_eq!(suffix.len(), 5, "server pong [0x8A,0x03,1,2,3]");
+
+    let labels = drain_outputs(&mut driver, DriverInput::Shutdown);
+    let reports: Vec<&String> = labels
+        .iter()
+        .filter(|label| label.starts_with("writes-dropped"))
+        .collect();
+    assert_eq!(reports.len(), 1, "still exactly one report: {labels:?}");
+    assert_eq!(
+        reports[0].as_str(),
+        // 5 pong bytes (offered, untouched) + 7 text bytes still in the
+        // core's write queue.
+        "writes-dropped:frames=2,bytes=12,partial_front=false",
+        "the report accounts for BOTH committed frames: {labels:?}"
+    );
+    assert!(
+        !labels.iter().any(|label| label.starts_with("write:")),
+        "a shut-down transport is never offered a write: {labels:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // US-017 story review ROUND 2 (session 01a0464f) BLOCKING-1: "A pending
 // `WritesDropped` disposition is suppressed by a fatal `Failure`, after
 // which the adapter halts, leaving a reachable committed write silently

@@ -593,6 +593,19 @@ impl Run {
         // default `PongInboundPing` behavior is pinned by the dedicated
         // deterministic suite in `tests/auto_response.rs` and the live
         // cross-peer loopback assertion in ws-testee.
+        //
+        // DISCLOSED CONSEQUENCE (pre-landing review finding 1, session
+        // 01a04960): this sweep therefore cannot reach ANY interaction
+        // between the automatic reply and shutdown, and the reviewer found
+        // two that were reachable under the default policy — a post-shutdown
+        // Ping delivery committing a pong (a real defect, now fixed by the
+        // `!shutdown_latched` gate in `ConnectionDriver::next_output`), and a
+        // report legitimately carrying TWO committed frames. Both are pinned
+        // by `driver_contract.rs::a_ping_delivered_after_shutdown_injects_no_pong_and_emits_no_second_report`
+        // and `..::a_shutdown_report_accounts_for_every_committed_frame_not_just_the_offered_one`,
+        // which is where the default policy meets shutdown. Do not read the
+        // one-report/one-frame counters below as properties of the default
+        // policy; they are properties of THIS sweep's configuration.
         let (sender, driver) = connection_driver_in_state_with_policy(
             exploration_config(event_queue_capacity, max_actions),
             Role::Server,
@@ -1104,7 +1117,11 @@ impl Run {
             self.outcome.record(Violation::UnreportedWriteDrop);
         }
         // The report is a single disposition, not a stream: nothing is
-        // reported when nothing was owed, and one report otherwise.
+        // reported when nothing was owed, and one report otherwise. The
+        // report may carry MORE THAN ONE frame — the plural arm is reachable
+        // under the default automatic-response policy and pinned in
+        // `driver_contract.rs` — so only the report COUNT is bounded here,
+        // never the frame count (pre-landing review finding 1).
         if self.outcome.write_drop_reports > 1
             || (self.owed_frames == 0 && self.outcome.write_drop_reports != 0)
         {
@@ -1116,9 +1133,18 @@ impl Run {
     /// state THIS schedule reached, then probe the producer seam. Once the
     /// owner is gone a send can never be applied, so it must refuse with
     /// the typed receiver-drop reason and hand the command back — never
-    /// report accepted. Running this on every explored schedule is what
-    /// makes the receiver-drop disposition exercised across interleavings
-    /// rather than in one fixture state.
+    /// report accepted.
+    ///
+    /// WHAT THIS IS AND IS NOT (pre-landing review finding 3, session
+    /// 01a04960). It is a deterministic post-run EPILOGUE, executed once per
+    /// schedule, so it exercises the typed refusal from every END STATE the
+    /// 79,920 schedules reach — that is why the counter equals the schedule
+    /// count exactly. It is NOT receiver-drop RACE exploration: the drop and
+    /// the send are sequenced on one thread here, and no interleaving of the
+    /// two is explored. The racing evidence is the native-thread test
+    /// `ws-core/tests/concurrency_boundary.rs::a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accept`,
+    /// which requires a typed post-drop observation rather than merely
+    /// tolerating one.
     fn probe_receiver_drop(self) -> Outcome {
         let Run {
             driver,
@@ -1703,6 +1729,16 @@ fn retention_minimizes_every_named_fault_and_pins_the_artifacts() {
 /// the core refused the EOF with non-fatal event-queue backpressure, so
 /// the EOF was lost, the close never converged, and no terminal was ever
 /// delivered.
+///
+/// SCOPE (pre-landing review finding 5, session 01a04960): these are PINS,
+/// not polarity controls. `mutation=none` is asserted below precisely
+/// because a real defect must stay fixed against the SHIPPED driver — which
+/// means a pin can only ever show that the current driver is clean, never
+/// that a pre-fix one was not. The executable polarity evidence lives in the
+/// seeds that declare a real, parsed, executed mutation:
+/// `minimized/silent-write-drop.seed` for round 1 and
+/// `controls/fatal-halt-write-drop-accounting.seed` for round 2 (see
+/// `round_two_fatal_halt_accounting_control_replays_both_polarities`).
 #[test]
 fn fixed_defect_regressions_replay_clean_on_the_shipped_driver() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fuzz-seeds/us017/regressions");
@@ -1770,6 +1806,99 @@ fn fixed_defect_regressions_replay_clean_on_the_shipped_driver() {
             assert_eq!(outcome.terminals, 1, "{name}: terminal delivered once");
         }
     }
+}
+
+/// The ROUND-2 polarity control, committed and rerunnable (pre-landing
+/// review finding 5, session 01a04960).
+///
+/// `regressions/fatal-halt-suppressed-write-drop.seed` is a real-defect PIN:
+/// `mutation=none`, so it only replays the fixed driver and can never
+/// demonstrate the pre-fix polarity. The reviewer's objection was that the
+/// round-2 evidence was therefore prose. This control closes that: it
+/// executes a REAL test-only mutation (`drop-writes-dropped-report`) on the
+/// FATAL-HALT route, which is precisely where the round-2 defect hid,
+/// because exempting halted runs from the owed-vs-reported equality was the
+/// hiding place. Both polarities are read from one committed artifact:
+///
+/// * faulted — the adapter swallows the typed report, the run still halts at
+///   its fatal `Failure`, and `UnreportedWriteDrop` fires. If the halted-run
+///   accounting check in `finish()` were removed (or re-exempted), this
+///   assertion fails and the control goes red.
+/// * clean — the same schedule and budget on the shipped driver surfaces
+///   exactly one report, BEFORE the halting failure, with zero violations.
+#[test]
+fn round_two_fatal_halt_accounting_control_replays_both_polarities() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("fuzz-seeds/us017/controls/fatal-halt-write-drop-accounting.seed");
+    let body = fs::read_to_string(&path).unwrap_or_else(|err| {
+        panic!(
+            "round-2 polarity control missing at {} ({err})",
+            path.display()
+        )
+    });
+    let mut fields = std::collections::BTreeMap::new();
+    for line in body.lines().filter(|line| !line.trim().is_empty()) {
+        let (key, value) = line.split_once('=').expect("key=value seed line");
+        fields.insert(key.trim().to_owned(), value.trim().to_owned());
+    }
+    let fault = Fault::parse(&fields["mutation"]);
+    assert_ne!(
+        fault,
+        Fault::None,
+        "a POLARITY control declares a mutation that is actually executed"
+    );
+    let capacity: u64 = fields["event_queue_capacity"]
+        .parse()
+        .expect("numeric capacity");
+    let max_actions: u64 = fields["max_actions"]
+        .parse()
+        .expect("numeric action budget");
+    assert!(
+        max_actions < MAX_ACTIONS_UNREACHED,
+        "the control's budget must be tight enough to terminate FATALLY"
+    );
+    let schedule = fields["schedule"]
+        .split(',')
+        .map(|verb| Action::parse(verb.trim()))
+        .collect::<Vec<_>>();
+    let target = Violation::UnreportedWriteDrop;
+    assert_eq!(fields["property"], target.property());
+    assert_eq!(fields["counterexample"], target.counterexample());
+
+    // Faulted polarity: the report is swallowed on the fatal route and the
+    // boundary's independent owed count catches it.
+    let faulted = execute_with_limits(&schedule, fault, capacity, max_actions);
+    let faulted_replay = execute_with_limits(&schedule, fault, capacity, max_actions);
+    assert_eq!(faulted, faulted_replay, "deterministic faulted replay");
+    assert!(
+        faulted.halted,
+        "the control must reach the FATAL-HALT route, not the clean terminal: {faulted:?}"
+    );
+    assert!(
+        faulted.violations.contains(&target),
+        "suppressing the report on a halted run must be caught: {faulted:?}"
+    );
+
+    // Clean polarity: the shipped driver surfaces the report strictly before
+    // the halting failure.
+    let clean = execute_with_limits(&schedule, Fault::None, capacity, max_actions);
+    let clean_replay = execute_with_limits(&schedule, Fault::None, capacity, max_actions);
+    assert_eq!(clean, clean_replay, "deterministic clean replay");
+    assert!(
+        clean.violations.is_empty(),
+        "the shipped driver passes the control clean: {clean:?}"
+    );
+    assert!(clean.halted, "same fatal route without the fault");
+    assert_eq!(clean.failures, 1, "exactly one surfaced failure");
+    assert_eq!(clean.terminals, 0, "no terminal after a halt");
+    assert_eq!(
+        clean.write_drop_reports, 1,
+        "the abandoned committed write is reported before the halting failure"
+    );
+    assert!(
+        clean.dropped_frames > 0 && clean.dropped_bytes > 0,
+        "{clean:?}"
+    );
 }
 
 /// The committed minimized artifacts replay as regressions on their own:

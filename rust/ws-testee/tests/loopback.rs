@@ -496,6 +496,221 @@ fn budget_exhaustion_is_reported_honestly() {
     assert!(!report.clean());
 }
 
+// ---------------------------------------------------------------------------
+// Pre-landing review findings 2 and 4 (session 01a04960): every adapter exit
+// that ends transport service must pump `DriverInput::Shutdown` before the
+// caller drops the driver, and the `ConnectionReport`'s dropped-write
+// accounting must have a FAILING WITNESS. Before these tests, deleting both
+// `dropped_write_frames`/`dropped_write_bytes` increments in `io_loop::pump`
+// left `make -C rust gates` at exit 0 (75 `test result: ok`, ac1-gates 8/8):
+// nothing in the tree read either field.
+// ---------------------------------------------------------------------------
+
+/// A real connected loopback TCP pair. The peer end is returned so the
+/// caller keeps it alive (dropping it would close the connection).
+fn socket_pair() -> (TcpStream, TcpStream) {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let near = TcpStream::connect(address).expect("connect");
+    let (far, _peer) = listener.accept().expect("accept");
+    (near, far)
+}
+
+/// Drive the open driver until its next committed frame is OFFERED, and
+/// return those wire bytes.
+fn offered_frame(driver: &mut ws_driver::ConnectionDriver) -> Vec<u8> {
+    for _ in 0..64 {
+        match driver.poll(ws_driver::DriverInput::Wake).output {
+            ws_driver::DriverOutput::Write(suffix) => return suffix.to_vec(),
+            ws_driver::DriverOutput::Idle => panic!("no committed write was offered"),
+            _ => {}
+        }
+    }
+    panic!("no committed write was offered within the drain bound");
+}
+
+#[test]
+fn an_exhausted_poll_budget_shuts_down_and_reports_the_abandoned_committed_writes() {
+    // Finding 2's budget exit, with finding 4's failing witness on top: the
+    // connected loop's `while report.polls < bounds.max_polls` condition is
+    // itself an exit that ends transport service, and what it abandons must
+    // come back in the returned `ConnectionReport`.
+    use std::io::Write as _;
+
+    for partial in [false, true] {
+        let (mut stream, _peer) = socket_pair();
+        let (sender, mut driver) = ws_driver::connection_driver_in_state(
+            ConnectionConfig::default(),
+            ws_core::connection::Role::Server,
+            ws_core::connection::InitialState::Open,
+        );
+        sender
+            .try_send(ws_core::LocalCommand::SendText {
+                text: "abandoned".to_owned(),
+            })
+            .expect("enqueue");
+        let frame = offered_frame(&mut driver);
+        assert_eq!(
+            frame.len(),
+            11,
+            "server text frame [0x81,0x09,\"abandoned\"]"
+        );
+        let mut on_the_wire = 0usize;
+        if partial {
+            // One byte GENUINELY reaches the wire, so only the suffix is
+            // lost — the partial-front polarity.
+            on_the_wire = stream.write(&frame[..1]).expect("one byte to a live peer");
+            assert_eq!(on_the_wire, 1);
+            let _ = driver.poll(ws_driver::DriverInput::WriteProgress { bytes: on_the_wire });
+        }
+
+        // A budget already spent (by the handshake phase, as the fixtures
+        // seed it) means the connected loop exits without a single poll.
+        let mut report = ws_testee::io_loop::empty_report();
+        let bounds = IoBounds {
+            max_polls: 0,
+            ..IoBounds::default()
+        };
+        let mut policy = ws_testee::io_loop::ObserveOnly;
+        ws_testee::io_loop::drive_connection(
+            &mut driver,
+            &sender,
+            &mut stream,
+            &bounds,
+            &mut policy,
+            &mut report,
+        );
+
+        assert_eq!(report.outcome, LoopOutcome::BudgetExhausted);
+        assert_eq!(
+            report.dropped_write_frames, 1,
+            "the abandoned committed frame is reported (partial={partial})"
+        );
+        assert_eq!(
+            report.dropped_write_bytes,
+            (frame.len() - on_the_wire) as u64,
+            "only the UNDELIVERED suffix is lost (partial={partial})"
+        );
+    }
+}
+
+#[test]
+fn a_shutdown_report_carrying_two_frames_is_accounted_whole_by_the_adapter() {
+    // The plural arm of the driver's `abort_pending_writes` reaches the
+    // adapter's accounting too: an automatic pong is committed while a
+    // semantic event is being returned (so it never occupies the offered
+    // slot), and the next poll applies a producer command behind it.
+    use std::io::Write as _;
+
+    let (mut stream, _peer) = socket_pair();
+    let (sender, mut driver) = ws_driver::connection_driver_in_state(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Server,
+        ws_core::connection::InitialState::Open,
+    );
+    // Masked (client-to-server) ping with an all-zero mask key.
+    let ping = [0x89u8, 0x83, 0, 0, 0, 0, 1, 2, 3];
+    assert!(matches!(
+        driver.poll(ws_driver::DriverInput::Inbound(&ping)).input,
+        ws_driver::InputDisposition::Consumed { .. }
+    ));
+    let mut delivered = false;
+    for _ in 0..8 {
+        if let ws_driver::DriverOutput::Event(event) =
+            driver.poll(ws_driver::DriverInput::Wake).output
+            && matches!(event.kind, ws_core::SemanticEventKind::Ping { .. })
+        {
+            delivered = true;
+            break;
+        }
+    }
+    assert!(delivered, "the Ping semantic event is delivered");
+    sender
+        .try_send(ws_core::LocalCommand::SendText {
+            text: "behind-the-pong".to_owned(),
+        })
+        .expect("enqueue");
+    let pong = offered_frame(&mut driver);
+    assert_eq!(pong, [0x8A, 0x03, 1, 2, 3], "the automatic pong is offered");
+    let on_the_wire = stream.write(&pong[..2]).expect("two bytes to a live peer");
+    assert_eq!(on_the_wire, 2);
+    let _ = driver.poll(ws_driver::DriverInput::WriteProgress { bytes: on_the_wire });
+
+    let mut report = ws_testee::io_loop::empty_report();
+    let bounds = IoBounds {
+        max_polls: 0,
+        ..IoBounds::default()
+    };
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &bounds,
+        &mut policy,
+        &mut report,
+    );
+
+    assert_eq!(report.outcome, LoopOutcome::BudgetExhausted);
+    assert_eq!(
+        report.dropped_write_frames, 2,
+        "the partially written pong AND the whole text frame behind it"
+    );
+    assert_eq!(
+        report.dropped_write_bytes,
+        // 5-byte pong less the 2 bytes on the wire, plus the 17-byte text
+        // frame [0x81,0x0F,"behind-the-pong"].
+        (5 - 2) + 17,
+        "exactly the undelivered bytes across both frames"
+    );
+}
+
+#[test]
+fn a_hard_handshake_write_error_shuts_down_and_reports_the_committed_request() {
+    // Finding 2's named path: `drive_until_open` used to `return false` on a
+    // hard write error WITHOUT pumping `Shutdown`, and `run_client_once`
+    // then dropped the driver — losing the committed handshake frame with no
+    // `WritesDropped` of any kind. Shutting the LOCAL write half makes the
+    // very first socket write fail with `BrokenPipe` deterministically, with
+    // zero bytes on the wire.
+    let (mut stream, _peer) = socket_pair();
+    stream
+        .shutdown(std::net::Shutdown::Write)
+        .expect("close the local write half");
+    let (_sender, mut driver) = ws_driver::connection_driver(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Client,
+    );
+    driver
+        .begin_client_handshake("/chat", "localhost")
+        .expect("handshake start commits the request frame");
+    let mut report = ws_testee::io_loop::empty_report();
+    let bounds = IoBounds {
+        read_timeout: Duration::from_millis(5),
+        max_polls: 64,
+        ..IoBounds::default()
+    };
+    let opened =
+        ws_testee::io_loop::drive_until_open(&mut driver, &mut stream, &bounds, &mut report);
+    assert!(
+        !opened,
+        "the handshake cannot complete on a dead write half"
+    );
+    assert!(
+        matches!(report.outcome, LoopOutcome::SocketError(_)),
+        "hard write error, not a retryable stall: {}",
+        report.summary()
+    );
+    assert_eq!(
+        report.dropped_write_frames, 1,
+        "the committed handshake request is reported, not abandoned"
+    );
+    assert!(
+        report.dropped_write_bytes > 0,
+        "no byte of the request reached the wire, so the whole frame is lost"
+    );
+}
+
 #[test]
 fn sequential_sessions_reuse_the_listener() {
     // E5 Autobahn wiring: the fuzzingclient opens one fresh connection per

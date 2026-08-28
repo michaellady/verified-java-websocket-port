@@ -711,11 +711,22 @@ impl ConnectionDriver {
     /// (US-017 AC2: adapter shutdown is typed and does not leak).
     ///
     /// Called at the shutdown instant and again from [`Self::next_output`]
-    /// on every later poll, so a write the core commits after shutdown is
-    /// aborted and reported too rather than being offered to a dead
-    /// transport. On the shipped core no such write exists — the only
-    /// post-shutdown input is the latched EOF, which emits events only —
-    /// which is why the report is observed exactly once.
+    /// on every later poll, so a write the core commits after shutdown would
+    /// be aborted and reported too rather than being offered to a dead
+    /// transport. The later sweeps are a safety net, not a live path: the
+    /// only post-shutdown input is the latched EOF, which emits events only,
+    /// and automatic replies — the one step that could commit a write while
+    /// draining an event — are suppressed after shutdown (see
+    /// [`Self::next_output`]). That is what makes the report exactly once
+    /// per run rather than a stream, and the pre-landing review's
+    /// second-report path is pinned closed by
+    /// `driver_contract.rs::a_ping_delivered_after_shutdown_injects_no_pong_and_emits_no_second_report`.
+    ///
+    /// The report can still carry MORE THAN ONE frame: an automatic pong is
+    /// injected into the core's write queue while an event is being
+    /// returned, so it does not occupy the offered slot, and a producer
+    /// command applied on the next poll commits a second frame behind it
+    /// (pinned by `..::a_shutdown_report_accounts_for_every_committed_frame`).
     fn abort_pending_writes(&mut self) {
         let mut frames = 0usize;
         let mut bytes = 0usize;
@@ -863,7 +874,21 @@ impl ConnectionDriver {
             // The reply's write is queued behind nothing (no write was
             // pending here), so it is the next wire output after this
             // event.
+            //
+            // NOT after shutdown (US-017 AC2; pre-landing review finding 1).
+            // Draining an event is the one step that can commit a wire write
+            // WITHOUT passing the offered-write gate, and the latched EOF is
+            // refused with non-fatal backpressure whenever the event queue is
+            // congested — so a Ping delivered on a post-shutdown poll finds
+            // the core still `Open`, injects a pong, and commits a frame the
+            // ended transport can never carry. That frame then comes back as
+            // a SECOND `WritesDropped` report. This is the same stance the
+            // shutdown arm already takes for parked replies
+            // (`pending_auto_pongs.clear()`): a connection whose transport
+            // service has ended sends no automatic reply, exactly as Java's
+            // `sendFrame` would put nothing on a torn-down socket.
             if self.policy == AutoResponsePolicy::PongInboundPing
+                && !self.shutdown_latched
                 && let SemanticEventKind::Ping { data } = &event.kind
             {
                 inject_auto_pong(
