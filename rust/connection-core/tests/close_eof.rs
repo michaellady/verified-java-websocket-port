@@ -1,11 +1,11 @@
 #![forbid(unsafe_code)]
 
 use websocket_core::{
-    AutomaticPongPolicy, ClientRequestDescriptor, CloseCodeRejection, CloseFailure, CloseInitiator,
-    ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput, CoreOutput,
-    FailureKind, FragmentFailure, FrameEncoder, FrameFailure, HandshakeFailure, InputKind,
-    LimitKind, LocalCommand, Opcode, OutboundFrame, QueueKind, Role, SemanticEvent, TransportBytes,
-    Utf8Failure,
+    AutomaticPongPolicy, BehaviorProfile, ClientRequestDescriptor, CloseCodeRejection,
+    CloseFailure, CloseInitiator, ConnectionConfig, ConnectionCore, ConnectionLimits,
+    ConnectionState, CoreInput, CoreOutput, FailureKind, FragmentFailure, FrameEncoder,
+    FrameFailure, HandshakeFailure, InputKind, LimitKind, LocalCommand, Opcode, OutboundFrame,
+    QueueKind, Role, SemanticEvent, TransportBytes, Utf8Failure,
 };
 
 const RFC_REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
@@ -493,6 +493,35 @@ fn inbound_close_grammar_code_role_and_utf8_failures_are_terminal() {
         Some(CoreOutput::SemanticEvent(SemanticEvent::CloseReceived { close, .. }))
             if close.code() == Some(1010) && close.reason() == "ok"
     ));
+}
+
+#[test]
+fn java_websocket_profile_preserves_the_one_byte_close_constructor_quirk() {
+    let java_compatible = config().with_behavior_profile(BehaviorProfile::JavaWebSocketV1_6_0);
+    let wire = encoded_with(Role::Client, &java_compatible, Opcode::Close, &[0]);
+    let mut core = open_core(Role::Server, java_compatible);
+
+    let result = core.step(CoreInput::Transport(TransportBytes::new(&wire)));
+
+    assert_eq!(failure(&result), None);
+    assert_eq!(result.state(), ConnectionState::Closing);
+    assert!(matches!(
+        result.outputs().collect::<Vec<_>>().as_slice(),
+        [
+            CoreOutput::SemanticEvent(SemanticEvent::FrameReceived { frame }),
+            CoreOutput::SemanticEvent(SemanticEvent::CloseReceived { close, initiator: CloseInitiator::Peer }),
+            CoreOutput::StateChanged(ConnectionState::Closing),
+            CoreOutput::TransportWrite(write),
+        ] if frame.payload() == [0x03, 0xe8]
+            && close.code() == Some(1002)
+            && close.reason().is_empty()
+            && write.as_slice() == [0x88, 0x02, 0x03, 0xe8]
+    ));
+    let frames: Vec<_> = core.last_step_observation().frames().collect();
+    assert_eq!(frames.len(), 2);
+    assert_eq!(frames[0].payload(), [0x03, 0xe8]);
+    assert_eq!(frames[0].wire_length(), wire.len());
+    assert_eq!(frames[1].payload(), [0x03, 0xe8]);
 }
 
 #[test]

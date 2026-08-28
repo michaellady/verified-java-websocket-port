@@ -6,7 +6,15 @@ use alloc::vec::Vec;
 
 use crate::frame::{Frame, FrameEncoder, Opcode, OutboundFrame};
 use crate::utf8::Utf8Validator;
-use crate::{ConnectionConfig, FailureKind, FrameFailure, LimitKind, Role, Utf8Failure};
+use crate::{
+    BehaviorProfile, ConnectionConfig, FailureKind, FrameFailure, LimitKind, Role, Utf8Failure,
+};
+
+/// Payload exposed by a newly constructed Java-WebSocket close-frame object
+/// before its wire payload has been parsed (Java-WebSocket 1.6.0 quirk Q10).
+/// Adapted from Claude's independently developed `ws-core` at `dc07516`, then
+/// reverified through this core and the live 74-scenario differential path.
+pub(crate) const JAVA_CLOSE_CONSTRUCTOR_PAYLOAD: &[u8; 2] = &[0x03, 0xe8];
 
 /// Which endpoint admitted the first close in this core's ordered input stream.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -275,20 +283,27 @@ pub(crate) fn prepare_local_close(
 pub(crate) fn parse_peer_close(
     frame: &Frame,
     endpoint_role: Role,
+    behavior_profile: BehaviorProfile,
 ) -> Result<CloseFrame, FailureKind> {
     debug_assert_eq!(frame.opcode(), Opcode::Close);
     let payload = frame.payload();
-    if payload.len() == 1 {
+    if payload.len() == 1 && behavior_profile == BehaviorProfile::Rfc6455Strict {
         return Err(FailureKind::Close(CloseFailure::PayloadLengthOne));
     }
-    let code = if payload.len() >= 2 {
+    let code = if payload.len() == 1 {
+        Some(1002)
+    } else if payload.len() >= 2 {
         let code = u16::from_be_bytes([payload[0], payload[1]]);
         validate_code(code, peer_role(endpoint_role)).map_err(FailureKind::Close)?;
         Some(code)
     } else {
         None
     };
-    let reason_start = if code.is_some() { 2 } else { 0 };
+    let reason_start = match payload.len() {
+        1 => 1,
+        _ if code.is_some() => 2,
+        _ => 0,
+    };
     let mut validator = Utf8Validator::new();
     validator
         .feed(&payload[reason_start..])

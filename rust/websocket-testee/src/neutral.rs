@@ -6,9 +6,9 @@
 use std::io::{Read, Write};
 
 use websocket_core::{
-    ClientRequestDescriptor, CloseFailure, ConnectionConfig, ConnectionLimits, ConnectionState,
-    FailureKind, FragmentFailure, FragmentKind, FrameDirection, FrameFailure, LimitKind,
-    LocalCommand, QueueKind, Role, SemanticEvent, TransportBytes, TypedProtocolFailure,
+    BehaviorProfile, ClientRequestDescriptor, CloseFailure, ConnectionConfig, ConnectionLimits,
+    ConnectionState, FailureKind, FragmentFailure, FragmentKind, FrameDirection, FrameFailure,
+    LimitKind, LocalCommand, QueueKind, Role, SemanticEvent, TransportBytes, TypedProtocolFailure,
     Utf8Failure,
 };
 use websocket_driver::{
@@ -463,6 +463,7 @@ fn config_for(limits: Limits) -> Result<ConnectionConfig, NeutralError> {
         total_buffered_bytes: limits.max_buffered,
         ..ConnectionLimits::default()
     })
+    .map(|config| config.with_behavior_profile(BehaviorProfile::JavaWebSocketV1_6_0))
     .map_err(|_| NeutralError)
 }
 

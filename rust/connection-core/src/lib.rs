@@ -24,11 +24,11 @@ mod utf8;
 
 pub use close::{CloseCodeRejection, CloseFailure, CloseFrame, CloseInitiator};
 pub use connection::{
-    ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput,
-    CoreOutput, CoreStepObservation, FailureKind, FragmentFailure, FrameDirection, FrameFailure,
-    FrameObservation, HandshakeFailure, InputKind, LimitKind, LimitRelationship, LocalCommand,
-    ProtocolStory, QueueKind, Role, SemanticEvent, StepAccounting, StepResult, TransportBytes,
-    TransportWrite, TypedProtocolFailure, Utf8Failure,
+    BehaviorProfile, ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits,
+    ConnectionState, CoreInput, CoreOutput, CoreStepObservation, FailureKind, FragmentFailure,
+    FrameDirection, FrameFailure, FrameObservation, HandshakeFailure, InputKind, LimitKind,
+    LimitRelationship, LocalCommand, ProtocolStory, QueueKind, Role, SemanticEvent, StepAccounting,
+    StepResult, TransportBytes, TransportWrite, TypedProtocolFailure, Utf8Failure,
 };
 pub use control::{AutomaticPongPolicy, ControlPayload};
 pub use fragment::FragmentKind;

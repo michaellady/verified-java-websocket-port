@@ -185,7 +185,7 @@ fn neutral_oracle_drives_outbound_fragments_through_the_owner() {
 }
 
 #[test]
-fn neutral_oracle_reports_full_offered_chunk_for_public_rsv_rejection() {
+fn neutral_oracle_reports_java_state_and_full_chunk_for_public_rsv_rejection() {
     const US005_PUBLIC_0005: &[u8] = b"\xa1\x83\x74\xb3\xd8\xd2\x08\xe9\x85";
     let step = [vec![1], US005_PUBLIC_0005.to_vec()].concat();
     let output = run_neutral(&neutral_request_for(2, 1, &[step]));
@@ -197,7 +197,7 @@ fn neutral_oracle_reports_full_offered_chunk_for_public_rsv_rejection() {
     let record_length = u32::from_be_bytes(steps[2..6].try_into().unwrap()) as usize;
     assert_eq!(record_length, steps.len() - 6);
     let record = &steps[6..];
-    assert_eq!(&record[..5], &[0, 0, 1, 1, 3]);
+    assert_eq!(&record[..5], &[0, 0, 1, 1, 1]);
     assert_eq!(
         u64::from_be_bytes(record[5..13].try_into().unwrap()),
         US005_PUBLIC_0005.len() as u64
@@ -212,7 +212,7 @@ fn neutral_oracle_reports_full_offered_chunk_for_public_rsv_rejection() {
         let length = u32::from_be_bytes(remaining[..4].try_into().unwrap()) as usize;
         let observation = &remaining[4..4 + length];
         if observation[0] == 5 {
-            assert_eq!(observation[1], 1, "RSV rejection must remain terminal");
+            assert_eq!(observation[1], 0, "Java records the still-open state");
             let class_length = u16::from_be_bytes(observation[2..4].try_into().unwrap()) as usize;
             error_class = Some(&observation[4..4 + class_length]);
         }
@@ -220,7 +220,7 @@ fn neutral_oracle_reports_full_offered_chunk_for_public_rsv_rejection() {
     }
     assert!(remaining.is_empty());
     assert_eq!(error_class, Some(b"FRAME_RESERVED_BITS".as_slice()));
-    assert_eq!(response_field(&output.stdout, 6), &[3]);
+    assert_eq!(response_field(&output.stdout, 6), &[1]);
 }
 
 #[test]
@@ -413,6 +413,40 @@ fn neutral_oracle_projects_peer_close_event_and_terminal_transition() {
     assert!(closing_observations.iter().any(|item| item == &[3, 2, 3]));
     assert_eq!(response_field(&closing_output.stdout, 6), &[3]);
     assert!(response_field(&closing_output.stdout, 7).ends_with(&[1, 2]));
+}
+
+#[test]
+fn neutral_oracle_projects_java_one_byte_close_constructor_semantics() {
+    const ONE_BYTE_PEER_CLOSE: &[u8] = b"\x88\x81\xb7\xbe\x28\x83\xb4";
+    let step = [vec![1], ONE_BYTE_PEER_CLOSE.to_vec()].concat();
+    let output = run_neutral(&neutral_request_for(2, 1, &[step]));
+
+    assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
+    let steps = response_steps(&output.stdout);
+    let observations = step_observations(steps[0]);
+    let frames: Vec<_> = observations
+        .iter()
+        .filter(|observation| observation[0] == 2)
+        .collect();
+    assert_eq!(frames.len(), 2);
+    assert_eq!(&frames[0][..11], &[2, 1, 1, 8, 1, 0, 0, 0, 2, 3, 232]);
+    assert_eq!(
+        u64::from_be_bytes(frames[0][11..].try_into().unwrap()),
+        ONE_BYTE_PEER_CLOSE.len() as u64
+    );
+    assert_eq!(&frames[1][..11], &[2, 2, 1, 8, 0, 0, 0, 0, 2, 3, 232]);
+    assert_eq!(u64::from_be_bytes(frames[1][11..].try_into().unwrap()), 4);
+    assert!(
+        observations
+            .iter()
+            .any(|item| { item == &[4, 1, 0x03, 0xea, 0, 0, 0, 0, 1, 2] })
+    );
+    assert!(observations.iter().any(|item| item == &[3, 1, 2]));
+    assert_eq!(response_field(&output.stdout, 6), &[2]);
+    assert_eq!(
+        response_field(&output.stdout, 7),
+        &[1, 1, 0x03, 0xea, 0, 0, 0, 0, 1, 2]
+    );
 }
 
 #[test]

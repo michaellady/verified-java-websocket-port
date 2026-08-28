@@ -1,6 +1,10 @@
+use alloc::sync::Arc;
 use core::fmt;
 
-use crate::close::{CloseMachine, encode_peer_echo, parse_peer_close, prepare_local_close};
+use crate::close::{
+    CloseMachine, JAVA_CLOSE_CONSTRUCTOR_PAYLOAD, encode_peer_echo, parse_peer_close,
+    prepare_local_close,
+};
 use crate::control::{
     AutomaticPongPolicy, ControlPayload, encode_automatic_pong, encode_local_control,
     is_observed_control, plan_batch, should_automatically_pong,
@@ -161,6 +165,21 @@ pub struct ConnectionConfig {
     limits: ConnectionLimits,
     checked: CheckedLimits,
     automatic_pong_policy: AutomaticPongPolicy,
+    behavior_profile: BehaviorProfile,
+}
+
+/// Protocol behavior authority selected for one connection.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub enum BehaviorProfile {
+    /// Enforce the crate's bounded RFC 6455 profile and reject implementation quirks.
+    #[default]
+    Rfc6455Strict,
+    /// Select explicitly implemented Java-WebSocket 1.6.0 compatibility behavior.
+    ///
+    /// The variant is an authority selector, not by itself a claim that every
+    /// Java quirk has been implemented; each compatibility site requires its
+    /// own Java differential and strict-profile regression coverage.
+    JavaWebSocketV1_6_0,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -221,6 +240,19 @@ impl ConnectionConfig {
     #[must_use]
     pub const fn automatic_pong_policy(&self) -> AutomaticPongPolicy {
         self.automatic_pong_policy
+    }
+
+    /// Returns a copy configured for the selected protocol behavior authority.
+    #[must_use]
+    pub const fn with_behavior_profile(mut self, profile: BehaviorProfile) -> Self {
+        self.behavior_profile = profile;
+        self
+    }
+
+    /// Returns the selected protocol behavior authority.
+    #[must_use]
+    pub const fn behavior_profile(&self) -> BehaviorProfile {
+        self.behavior_profile
     }
 
     const fn handshake_limit(&self, limit: LimitKind) -> u64 {
@@ -361,6 +393,7 @@ impl TryFrom<ConnectionLimits> for ConnectionConfig {
                 aggregate_capacity,
             },
             automatic_pong_policy: AutomaticPongPolicy::Disabled,
+            behavior_profile: BehaviorProfile::Rfc6455Strict,
         })
     }
 }
@@ -976,6 +1009,7 @@ pub struct ConnectionCore {
     frame_decoder: FrameDecoder,
     outbound_fragments: OutboundFragmentState,
     close: CloseMachine,
+    poisoned: bool,
     last_step_observation: CoreStepObservation,
     last_decoder_consumed: usize,
     last_decoder_buffers: Option<(usize, usize)>,
@@ -1000,6 +1034,7 @@ impl ConnectionCore {
             frame_decoder: FrameDecoder::new(),
             outbound_fragments: OutboundFragmentState::new(),
             close: CloseMachine::new(),
+            poisoned: false,
             last_step_observation: CoreStepObservation::initial(),
             last_decoder_consumed: 0,
             last_decoder_buffers: None,
@@ -1052,6 +1087,21 @@ impl ConnectionCore {
     }
 
     fn step_protocol(&mut self, input: CoreInput<'_>) -> StepResult {
+        if self.poisoned {
+            let input = match input {
+                CoreInput::Transport(_) => InputKind::TransportBytes,
+                CoreInput::Command(_) => InputKind::LocalCommand,
+                CoreInput::TransportEof => InputKind::TransportEof,
+                CoreInput::TransportWriteFlushed => {
+                    return StepResult {
+                        outputs: Box::new([]),
+                        failure: None,
+                        state: self.state,
+                    };
+                }
+            };
+            return self.invalid_state(input);
+        }
         if self.state == ConnectionState::Closed {
             let is_no_op = match &input {
                 CoreInput::Transport(bytes) => bytes.as_slice().is_empty(),
@@ -1693,7 +1743,11 @@ impl ConnectionCore {
                 ));
                 close_index = None;
             } else {
-                match parse_peer_close(&records[index].frame, self.role) {
+                match parse_peer_close(
+                    &records[index].frame,
+                    self.role,
+                    self.config.behavior_profile(),
+                ) {
                     Ok(close) => parsed_close = Some(close),
                     Err(failure) => {
                         terminal_failure = Some(failure);
@@ -1719,7 +1773,13 @@ impl ConnectionCore {
                 close_index = None;
                 parsed_close = None;
             } else {
-                match encode_peer_echo(&self.config, records[index].frame.payload()) {
+                let echo_payload =
+                    if self.config.behavior_profile() == BehaviorProfile::JavaWebSocketV1_6_0 {
+                        JAVA_CLOSE_CONSTRUCTOR_PAYLOAD
+                    } else {
+                        records[index].frame.payload()
+                    };
+                match encode_peer_echo(&self.config, echo_payload) {
                     Ok(wire) => {
                         let generated_prefix = records[..prefix_end]
                             .iter()
@@ -1855,7 +1915,15 @@ impl ConnectionCore {
         }
 
         if close_index.is_some() {
-            let record = iterator.next().expect("planned close record");
+            let mut record = iterator.next().expect("planned close record");
+            if self.config.behavior_profile() == BehaviorProfile::JavaWebSocketV1_6_0 {
+                record.frame = Frame::new(
+                    record.frame.fin(),
+                    record.frame.opcode(),
+                    record.frame.masked(),
+                    Arc::new(JAVA_CLOSE_CONSTRUCTOR_PAYLOAD.to_vec()),
+                );
+            }
             self.record_inbound_frame(&record);
             let close_payload = record.frame.payload().to_vec();
             let close = parsed_close.expect("validated close record");
@@ -1972,8 +2040,12 @@ impl ConnectionCore {
         self.frame_decoder.reset();
         self.outbound_fragments.reset();
         self.close.reset();
-        self.state = ConnectionState::Closed;
-        outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));
+        if self.config.behavior_profile() == BehaviorProfile::JavaWebSocketV1_6_0 {
+            self.poisoned = true;
+        } else {
+            self.state = ConnectionState::Closed;
+            outputs.push(CoreOutput::StateChanged(ConnectionState::Closed));
+        }
         StepResult {
             outputs: outputs.into_boxed_slice(),
             failure: Some(TypedProtocolFailure {

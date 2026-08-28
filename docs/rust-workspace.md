@@ -29,6 +29,12 @@ representation is authorized beyond the recorded mechanics.
 - `websocket-testee neutral-oracle --protocol NDRV1` is a strict, bounded,
   dependency-free process codec over `ConnectionOwner`; it is not another
   WebSocket parser or state machine.
+- `BehaviorProfile::Rfc6455Strict` remains the default. The neutral
+  differential adapter explicitly selects `JavaWebSocketV1_6_0`; that profile
+  currently covers the live-verified failed-frame state/poisoning behavior and
+  close-frame constructor/one-byte-payload quirks. Its name is not a blanket
+  parity claim: additional Java divergences remain ledgered until implemented
+  and replayed.
 - No performance representation of any kind is made. No benchmark sample was
   collected, no tuning performed.
 - No fresh Autobahn run, Linux run, publication, production, parity, or

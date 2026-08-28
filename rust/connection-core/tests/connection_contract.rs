@@ -1,18 +1,35 @@
 #![forbid(unsafe_code)]
 
 use websocket_core::{
-    ClientRequestDescriptor, ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits,
-    ConnectionState, CoreInput, CoreOutput, FailureKind, FrameDirection, LimitKind,
-    LimitRelationship, LocalCommand, Role, TransportBytes,
+    BehaviorProfile, ClientRequestDescriptor, ConfigError, ConnectionConfig, ConnectionCore,
+    ConnectionLimits, ConnectionState, CoreInput, CoreOutput, FailureKind, FrameDirection,
+    LimitKind, LimitRelationship, LocalCommand, Role, TransportBytes,
 };
 
 #[test]
 fn defaults_create_an_immutable_connecting_core() {
     let limits = ConnectionLimits::default();
     let config = ConnectionConfig::try_from(limits).expect("documented defaults are valid");
+    assert_eq!(config.behavior_profile(), BehaviorProfile::Rfc6455Strict);
     let core = ConnectionCore::new(config, Role::Client);
 
     assert_eq!(core.state(), ConnectionState::Connecting);
+}
+
+#[test]
+fn behavior_profile_selection_is_explicit_and_preserves_checked_limits() {
+    let strict = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+    let compatible = strict
+        .clone()
+        .with_behavior_profile(BehaviorProfile::JavaWebSocketV1_6_0);
+
+    assert_eq!(strict.behavior_profile(), BehaviorProfile::Rfc6455Strict);
+    assert_eq!(
+        compatible.behavior_profile(),
+        BehaviorProfile::JavaWebSocketV1_6_0
+    );
+    assert_eq!(strict.limits(), compatible.limits());
+    assert_eq!(strict.aggregate_capacity(), compatible.aggregate_capacity());
 }
 
 #[test]
@@ -159,6 +176,45 @@ fn public_rsv_rejection_consumes_the_offered_chunk_then_closes() {
     assert_eq!(accounting.message_buffered_bytes, 0);
     assert_eq!(accounting.pre_state, ConnectionState::Open);
     assert_eq!(accounting.post_state, ConnectionState::Closed);
+}
+
+#[test]
+fn java_websocket_profile_preserves_state_but_poison_rejects_after_rsv_failure() {
+    const REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    const US005_PUBLIC_0005: &[u8] = b"\xa1\x83\x74\xb3\xd8\xd2\x08\xe9\x85";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default())
+        .unwrap()
+        .with_behavior_profile(BehaviorProfile::JavaWebSocketV1_6_0);
+    let mut core = ConnectionCore::new(config, Role::Server);
+    assert_eq!(
+        core.step(CoreInput::Transport(TransportBytes::new(REQUEST)))
+            .state(),
+        ConnectionState::Open
+    );
+
+    let rejected = core.step(CoreInput::Transport(TransportBytes::new(US005_PUBLIC_0005)));
+    assert_eq!(
+        rejected.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Frame(
+            websocket_core::FrameFailure::ReservedBits
+        ))
+    );
+    assert_eq!(rejected.state(), ConnectionState::Open);
+    assert_eq!(rejected.outputs().len(), 0);
+    let accounting = core.last_step_observation().accounting();
+    assert_eq!(accounting.bytes_consumed, US005_PUBLIC_0005.len());
+    assert_eq!(accounting.pre_state, ConnectionState::Open);
+    assert_eq!(accounting.post_state, ConnectionState::Open);
+
+    let after_failure = core.step(CoreInput::TransportEof);
+    assert_eq!(
+        after_failure.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::InvalidState {
+            input: websocket_core::InputKind::TransportEof,
+            state: ConnectionState::Open,
+        })
+    );
+    assert_eq!(after_failure.state(), ConnectionState::Open);
 }
 
 #[test]
