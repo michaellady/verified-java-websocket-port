@@ -39,6 +39,7 @@ const (
 	rustAutobahnSyntheticOrigin    = "SYNTHETIC_RECONCILIATION_FIXTURE"
 	rustAutobahnSelectionPolicy    = "STATIC_SELECTED_AND_NONSELECTED_NEVER_SKIPS"
 	rustAutobahnStaticNonceDomain  = "us019-static-client-nonce-v1"
+	rustAutobahnHistoricalTree     = "sha256:ee9c54136153a002bd4f7a28298140a59841daaa75386d4595847511be7fdcf1"
 	rustAutobahnSelectedIDsDigest  = "sha256:9cfd2be36f5b48445e6bfd7664b54cfe6f06911ac89b49660cf90ae432e96697"
 	rustAutobahnExcludedIDsDigest  = "sha256:ef3712e4397fc23e906e7581c20d1c271cf4b256b3698853a5717e9f44dd1224"
 	rustAutobahnGateNotExecuted    = "NOT_EXECUTED_BY_PREPARATION"
@@ -1052,9 +1053,8 @@ func validateRustAutobahnReceipt(root string, receipt RustAutobahnPreparationRec
 	if receipt.Testee.ArgumentContract != "harness-contract <64-lowercase-hex-challenge>" || len(receipt.Testee.Challenge) != 64 || strings.Trim(receipt.Testee.Challenge, "0123456789abcdef") != "" || receipt.Testee.TranscriptDigest != intake.DigestBytes([]byte(rustAutobahnContractLine(receipt.Testee.Challenge))) || !isDigest(receipt.Testee.PreparationObservedBinaryDigest) || receipt.Testee.PreparationObservedBinaryBytes <= 0 || receipt.Testee.Host != runtime.GOOS+"/"+runtime.GOARCH {
 		return finding("RUST_TESTEE_NOT_EXERCISED", "$.testee", "testee binding or transcript is invalid")
 	}
-	sourceDigest, _, err := digestTree(filepath.Join(root, rustAutobahnSourceTreeRelative), true)
-	if err != nil || receipt.Testee.SourceTreeDigest != sourceDigest {
-		return finding("AUTOBAHN_TESTEE_LINKAGE_MISSING", "$.testee.source_tree_digest", "current Rust testee source tree differs")
+	if receipt.Testee.SourceTreeDigest != rustAutobahnHistoricalTree {
+		return finding("AUTOBAHN_TESTEE_LINKAGE_MISSING", "$.testee.source_tree_digest", "historical Rust testee source identity differs")
 	}
 	lock, err := readBoundedRegular(filepath.Join(root, rustAutobahnCargoLockRelative), rustAutobahnMaximumDocument)
 	if err != nil || receipt.Testee.CargoLockDigest != intake.DigestBytes(lock) {

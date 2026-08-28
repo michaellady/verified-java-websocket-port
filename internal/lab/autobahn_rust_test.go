@@ -295,6 +295,26 @@ func TestUS019CommittedEvidenceVerifiesAndSchemaClosesObjects(t *testing.T) {
 	assertUS019SchemaObjectsClosed(t, document, "$", false)
 }
 
+func TestUS019ReceiptRejectsHistoricalSourceIdentitySubstitution(t *testing.T) {
+	root := us019RepositoryRoot(t)
+	evidence, err := os.ReadFile(filepath.Join(root, rustAutobahnEvidenceRelative))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value map[string]any
+	if err := json.Unmarshal(evidence, &value); err != nil {
+		t.Fatal(err)
+	}
+	value["testee"].(map[string]any)["source_tree_digest"] = "sha256:" + strings.Repeat("0", 64)
+	mutated, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyRustAutobahnPreparation(root, mutated); findingCode(err) != "AUTOBAHN_TESTEE_LINKAGE_MISSING" {
+		t.Fatalf("historical source substitution finding=%v", err)
+	}
+}
+
 func TestUS019ReceiptRejectsStaticBinaryReverificationOverclaim(t *testing.T) {
 	root := us019RepositoryRoot(t)
 	evidence, err := os.ReadFile(filepath.Join(root, rustAutobahnEvidenceRelative))
