@@ -164,6 +164,20 @@ func TestFormalCommandsExerciseFrozenHostileCatalog(t *testing.T) {
 	}
 }
 
+func TestCandidateCommandsRejectAliasesRepeatsAndRelativeRoots(t *testing.T) {
+	for _, arguments := range [][]string{
+		{"candidate-verify", "--root=."},
+		{"candidate-verify", "--root", ".", "--root", "."},
+		{"candidate-replay", "--root", "."},
+		{"candidate-replay", "--root", "/tmp", "trailing"},
+	} {
+		var stdout, stderr bytes.Buffer
+		if code := run(arguments, &stdout, &stderr, time.Time{}); code == 0 {
+			t.Fatalf("invalid candidate arguments passed: %v", arguments)
+		}
+	}
+}
+
 func mutateCLIFormalFixture(t *testing.T, root, id string) {
 	t.Helper()
 	proofPath := filepath.Join(root, "assurance/formal/proof-targets.json")
