@@ -1203,8 +1203,8 @@
       "rust_path": "ws_driver::ConnectionDriver",
       "decl_kind": "struct",
       "file": "rust/ws-driver/src/lib.rs",
-      "line": 394,
-      "sha256": "sha256:ff614f49ec8006f78062e8e127fa184f503a0935fac0aa9f834901fe164912f8"
+      "line": 450,
+      "sha256": "sha256:ae001b66cfecadcaa3b467afaac088e2716bb950733e119aed8f8508e0133d14"
     },
     {
       "id": "ws_driver::connection_driver",
@@ -1212,8 +1212,8 @@
       "rust_path": "ws_driver::connection_driver",
       "decl_kind": "fn",
       "file": "rust/ws-driver/src/lib.rs",
-      "line": 165,
-      "sha256": "sha256:ff614f49ec8006f78062e8e127fa184f503a0935fac0aa9f834901fe164912f8"
+      "line": 221,
+      "sha256": "sha256:ae001b66cfecadcaa3b467afaac088e2716bb950733e119aed8f8508e0133d14"
     },
     {
       "id": "ws_testee::client::run_client_once",
@@ -1231,7 +1231,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 20,
-      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+      "sha256": "sha256:2eb44b8e06656abb5bc7d07ca9f3f045e3af7176b75ca5b41ab35b993986f387"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome",
@@ -1240,7 +1240,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 64,
-      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+      "sha256": "sha256:2eb44b8e06656abb5bc7d07ca9f3f045e3af7176b75ca5b41ab35b993986f387"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome::SocketError",
@@ -1249,7 +1249,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 71,
-      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+      "sha256": "sha256:2eb44b8e06656abb5bc7d07ca9f3f045e3af7176b75ca5b41ab35b993986f387"
     },
     {
       "id": "ws_testee::io_loop::drive_connection",
@@ -1258,7 +1258,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 152,
-      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+      "sha256": "sha256:2eb44b8e06656abb5bc7d07ca9f3f045e3af7176b75ca5b41ab35b993986f387"
     },
     {
       "id": "ws_testee::server::run_server_once",
