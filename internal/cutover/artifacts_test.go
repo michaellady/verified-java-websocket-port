@@ -136,6 +136,72 @@ func TestCaptureIsIdempotentAndByteIdentical(t *testing.T) {
 	}
 }
 
+func TestCaptureRejectsPartialBundleWithoutRepair(t *testing.T) {
+	root := fixtureRoot(t)
+	if _, err := Capture(root); err != nil {
+		t.Fatal(err)
+	}
+	contractPath := filepath.Join(root, "cutover", "contract.json")
+	contractBefore, err := os.ReadFile(contractPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	absent := []string{
+		"cutover/shadow.json", "cutover/canary.json", "cutover/rollback.json",
+		"cutover/soak.json", "evidence/cutover.json",
+	}
+	for _, path := range absent {
+		if err := os.Remove(filepath.Join(root, filepath.FromSlash(path))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := Capture(root); failureCode(err) != FailureArtifactDrift {
+		t.Fatalf("partial bundle error = %v", err)
+	}
+	contractAfter, err := os.ReadFile(contractPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(contractAfter, contractBefore) {
+		t.Fatal("partial capture changed the retained artifact")
+	}
+	for _, path := range absent {
+		if _, err := os.Lstat(filepath.Join(root, filepath.FromSlash(path))); !os.IsNotExist(err) {
+			t.Fatalf("partial capture created %s: %v", path, err)
+		}
+	}
+}
+
+func TestNoReplacePublicationPreservesDestinationThatAppeared(t *testing.T) {
+	root := fixtureRoot(t)
+	repository, err := openRepository(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer repository.close()
+	if err := repository.ensureDirectory("cutover"); err != nil {
+		t.Fatal(err)
+	}
+	artifact := namedArtifact{path: "cutover/contract.json", bytes: []byte("derived artifact\n")}
+	appeared := []byte("concurrent destination\n")
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(artifact.path)), appeared, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.publishNoReplace(artifact); failureCode(err) != FailureArtifactDrift {
+		t.Fatalf("appeared destination error = %v", err)
+	}
+	retained, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(artifact.path)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(retained, appeared) {
+		t.Fatalf("appeared destination was overwritten: %q", retained)
+	}
+	if _, err := os.Lstat(filepath.Join(root, filepath.FromSlash(tempName(artifact.path)))); !os.IsNotExist(err) {
+		t.Fatalf("temporary artifact was not cleaned up: %v", err)
+	}
+}
+
 func TestCanonicalFixtureHasExactClosedTracesAndAbort(t *testing.T) {
 	root := fixtureRoot(t)
 	if _, err := Capture(root); err != nil {

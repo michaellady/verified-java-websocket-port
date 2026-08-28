@@ -247,6 +247,57 @@ func tempName(path string) string {
 	return filepath.ToSlash(filepath.Join(directory, "."+base+".us026.tmp"))
 }
 
+func (repository *secureRepository) publishNoReplace(artifact namedArtifact) (resultErr error) {
+	temporary := tempName(artifact.path)
+	parent := filepath.ToSlash(filepath.Dir(artifact.path))
+	file, err := repository.root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		return fail(FailureCaptureLocked, "retained temporary artifact %s: %v", temporary, err)
+	}
+	temporaryOwned := true
+	defer func() {
+		if !temporaryOwned {
+			return
+		}
+		removeErr := repository.root.Remove(temporary)
+		if removeErr != nil && !errors.Is(removeErr, os.ErrNotExist) && resultErr == nil {
+			resultErr = removeErr
+		}
+		if syncErr := repository.syncDirectory(parent); resultErr == nil && syncErr != nil {
+			resultErr = syncErr
+		}
+	}()
+
+	written, writeErr := file.Write(artifact.bytes)
+	if writeErr == nil && written != len(artifact.bytes) {
+		writeErr = io.ErrShortWrite
+	}
+	if writeErr == nil {
+		writeErr = file.Sync()
+	}
+	closeErr := file.Close()
+	if writeErr != nil {
+		return writeErr
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if err := repository.root.Link(temporary, artifact.path); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fail(FailureArtifactDrift, "%s appeared during no-replace publication", artifact.path)
+		}
+		return err
+	}
+	if err := repository.syncDirectory(parent); err != nil {
+		return err
+	}
+	if err := repository.root.Remove(temporary); err != nil {
+		return err
+	}
+	temporaryOwned = false
+	return repository.syncDirectory(parent)
+}
+
 func (repository *secureRepository) writeBundle(set artifactSet) (resultErr error) {
 	if err := repository.ensureDirectory("cutover"); err != nil {
 		return err
@@ -282,9 +333,11 @@ func (repository *secureRepository) writeBundle(set artifactSet) (resultErr erro
 		}
 	}()
 
+	existing := 0
 	for _, artifact := range set.artifacts {
 		info, statErr := repository.root.Lstat(artifact.path)
 		if statErr == nil {
+			existing++
 			if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 				return fail(FailureInputSymlinkOrNonregular, "%s is not a regular artifact", artifact.path)
 			}
@@ -300,31 +353,16 @@ func (repository *secureRepository) writeBundle(set artifactSet) (resultErr erro
 		if !errors.Is(statErr, os.ErrNotExist) {
 			return statErr
 		}
-		temporary := tempName(artifact.path)
-		file, err := repository.root.OpenFile(temporary, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
-		if err != nil {
-			return fail(FailureCaptureLocked, "retained temporary artifact %s: %v", temporary, err)
-		}
-		written, writeErr := file.Write(artifact.bytes)
-		if writeErr == nil && written != len(artifact.bytes) {
-			writeErr = io.ErrShortWrite
-		}
-		if writeErr == nil {
-			writeErr = file.Sync()
-		}
-		closeErr := file.Close()
-		if writeErr != nil {
-			return writeErr
-		}
-		if closeErr != nil {
-			return closeErr
-		}
-		if err := repository.root.Rename(temporary, artifact.path); err != nil {
-			return err
-		}
-		parent := filepath.ToSlash(filepath.Dir(artifact.path))
-		if err := repository.syncDirectory(parent); err != nil {
-			return err
+	}
+	if existing != 0 && existing != len(set.artifacts) {
+		return fail(FailureArtifactDrift, "partial artifact bundle contains %d of %d destinations", existing, len(set.artifacts))
+	}
+
+	if existing == 0 {
+		for _, artifact := range set.artifacts {
+			if err := repository.publishNoReplace(artifact); err != nil {
+				return err
+			}
 		}
 	}
 	for _, artifact := range set.artifacts {
