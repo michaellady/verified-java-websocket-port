@@ -356,7 +356,7 @@ pub(crate) fn drive_connected(
         }
     }
 
-    let _ = stream.shutdown(Shutdown::Both);
+    let _ = stream.shutdown(Shutdown::Write);
     builder.report
 }
 
