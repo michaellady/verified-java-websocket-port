@@ -6,9 +6,11 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"unicode"
+	"unicode/utf8"
 )
 
 const repoRoot = "../.."
@@ -863,10 +865,23 @@ func unicodeSpaceCodePoints() []rune {
 // The canonical schema and the Go contract must agree on what counts as
 // an attributed source. They previously disagreed: the schema's
 // minLength:1 accepted "   " while ObservedCPUClock.validate rejects any
-// string that strings.TrimSpace empties. This test pins the two seams
-// together across EVERY code point in unicode.IsSpace -- enumerated, never
-// sampled -- so a future schema or Go edit cannot reopen the gap in either
-// direction, and no member can be silently left unexercised.
+// string that strings.TrimSpace empties. This test drives BOTH REAL SEAMS
+// -- the compiled canonical schema through ValidateSampleSetDocument, and
+// EnforceRunValidity -- over every code point in unicode.IsSpace,
+// enumerated rather than sampled, in both directions.
+//
+// SCOPE, stated precisely because review round 3 found the previous
+// wording of this comment ("cannot reopen the gap in either direction",
+// "every input") false as written. What this test covers exhaustively is
+// the REJECTION side: every unicode.IsSpace code point, alone and in
+// whitespace-only composites. Its ACCEPTANCE side is a finite sample --
+// each IsSpace code point wrapped around "x", plus five realistic sources
+// -- and every one of those accepted vectors is printable ASCII. PROBE:
+// narrowing the schema pattern to [!-~], which rejects the Go-valid
+// source "Ω" (U+03A9), left this test AND the whole suite at exit 0
+// (28 ok, 0 FAIL). The every-rune guarantee is therefore not carried
+// here; it is carried by TestSchemaClockSourcePatternEqualsGoOnEveryRune
+// below, which closes exactly that half and does fail on that mutation.
 func TestSchemaAndGoAgreeOnClockSourceAttribution(t *testing.T) {
 	spaces := unicodeSpaceCodePoints()
 
@@ -970,6 +985,164 @@ func TestSchemaAndGoAgreeOnClockSourceAttribution(t *testing.T) {
 			assertBothAccept(t, source)
 		})
 	}
+}
+
+// clockSourcePatternFromSchema extracts the clock-source pattern from the
+// canonical schema by JSON path. EXTRACTED, never transcribed: a
+// transcribed copy could drift from the schema it claims to characterise,
+// which is precisely the class of silent disagreement this file exists to
+// prevent.
+func clockSourcePatternFromSchema(t *testing.T) string {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(repoRoot, "schemas", "benchmark-raw-sample-1.0.0.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var schema map[string]any
+	if err := json.Unmarshal(content, &schema); err != nil {
+		t.Fatal(err)
+	}
+	node := any(schema)
+	path := []string{
+		"properties", "run_validity_observations",
+		"properties", "observed_cpu_clock",
+		"properties", "source",
+		"pattern",
+	}
+	for i, key := range path {
+		object, ok := node.(map[string]any)
+		if !ok {
+			t.Fatalf("schema path %v: element %d (%q) is not an object", path, i, key)
+		}
+		node, ok = object[key]
+		if !ok {
+			t.Fatalf("schema path %v: key %q is absent -- the clock-source pattern moved or was deleted", path, key)
+		}
+	}
+	pattern, ok := node.(string)
+	if !ok {
+		t.Fatalf("clock-source pattern is %T, want string", node)
+	}
+	return pattern
+}
+
+// TestSchemaClockSourcePatternEqualsGoOnEveryRune closes the half that
+// TestSchemaAndGoAgreeOnClockSourceAttribution samples. That test's
+// accepted vectors are all printable ASCII, so a pattern narrowed to
+// [!-~] passed it while rejecting the Go-valid source "Ω" (U+03A9) --
+// executed and read at exit 0 before this test was written. Here the two
+// accepted SETS are compared exhaustively, in both directions: for every
+// rune, schema-rejects must equal Go-rejects.
+//
+// TWO PROXIES ARE USED, AND BOTH ARE THEMSELVES TESTED FIRST. Running the
+// full document validator over 1.1M runes is impractical, so the schema
+// side is the extracted pattern compiled with regexp.Compile -- the same
+// engine the validator uses (santhosh-tekuri/jsonschema/v6 compiles
+// patterns with the standard regexp package unless UseRegexpEngine is
+// called, and ValidateSampleSetDocument does not call it) -- and the Go
+// side is strings.TrimSpace, the operation ObservedCPUClock.validate
+// performs. Step 1 below pins each proxy against its real seam on a
+// witness set; the sweep only runs if that holds, because a sweep over
+// unfaithful proxies would describe nothing.
+//
+// PER-RUNE EXHAUSTION IS EQUIVALENT TO EVERY-INPUT AGREEMENT here, and
+// only because of the shape of the two rules. The pattern is a single
+// unanchored character class, so the schema accepts a string iff at least
+// one of its runes is in the class; strings.TrimSpace empties a string iff
+// every one of its runes satisfies unicode.IsSpace, so Go accepts iff at
+// least one rune is not a space. Both sides are therefore "some rune
+// qualifies" over a per-rune predicate, and agreement on every rune lifts
+// to agreement on every string. minLength:1 and the empty string, the one
+// input with no runes, are covered by the differential test above.
+func TestSchemaClockSourcePatternEqualsGoOnEveryRune(t *testing.T) {
+	pattern := clockSourcePatternFromSchema(t)
+	matcher, err := regexp.Compile(pattern)
+	if err != nil {
+		t.Fatalf("clock-source pattern %q does not compile with the validator's regexp engine: %v", pattern, err)
+	}
+	t.Logf("extracted clock-source pattern: %q", pattern)
+
+	// STEP 1 -- proxy fidelity. The witness set is every unicode.IsSpace
+	// code point plus runes chosen to exercise the disputed regions: C0
+	// controls (not trimmed by Go), non-ASCII letters and symbols, format
+	// characters that look space-like but are not unicode.IsSpace, and the
+	// top of the code space.
+	witnesses := append(unicodeSpaceCodePoints(),
+		0x0000, 0x0008, '!', 'a', '~',
+		0x00A1, 0x00AD, 0x03A9, 0x180E, 0x200B,
+		0x20AC, 0x2060, 0x65E5, 0x1F600, 0x10FFFF,
+	)
+	for _, r := range witnesses {
+		source := string(r)
+		document, _, clock := measuredSchemaDocument(t)
+		clock["source"] = source
+		schemaAccepts := len(validateRawSampleDocument(t, document)) == 0
+
+		observations := cleanObservations()
+		observations.ObservedCPUClock = &ObservedCPUClock{Source: source, SamplesMHz: []float64{3200}}
+		_, goErr := EnforceRunValidity(observations)
+		goAccepts := goErr == nil
+
+		if patternAccepts := matcher.MatchString(source); patternAccepts != schemaAccepts {
+			t.Errorf("U+%04X: extracted-pattern proxy accepts=%t but the compiled canonical schema accepts=%t -- the proxy does not stand in for the real validator",
+				r, patternAccepts, schemaAccepts)
+		}
+		if trimAccepts := strings.TrimSpace(source) != ""; trimAccepts != goAccepts {
+			t.Errorf("U+%04X: strings.TrimSpace proxy accepts=%t but EnforceRunValidity accepts=%t -- the proxy does not stand in for the real Go seam",
+				r, trimAccepts, goAccepts)
+		}
+	}
+	if t.Failed() {
+		t.Fatal("proxy fidelity failed: the exhaustive sweep is not run, because its result would not describe the real seams")
+	}
+	t.Logf("proxy fidelity confirmed against both real seams on %d witness runes", len(witnesses))
+
+	// STEP 2 -- the sweep. Surrogates are skipped: they are not valid
+	// runes, cannot survive JSON decoding, and string(r) would silently
+	// turn each into U+FFFD, so including them would compare U+FFFD to
+	// itself 2,048 times rather than adding coverage.
+	const everyValidRune = 1114112 - 2048
+	var disagreements []rune
+	compared := 0
+	for r := rune(0); r <= unicode.MaxRune; r++ {
+		if !utf8.ValidRune(r) {
+			continue
+		}
+		compared++
+		source := string(r)
+		if matcher.MatchString(source) != (strings.TrimSpace(source) != "") {
+			disagreements = append(disagreements, r)
+		}
+	}
+	if compared != everyValidRune {
+		t.Fatalf("swept %d runes, want exactly %d: the sweep is not exhaustive and its result means nothing", compared, everyValidRune)
+	}
+	t.Logf("compared the schema pattern against unicode.IsSpace on all %d valid runes", compared)
+
+	if len(disagreements) == 0 {
+		return
+	}
+	disagreed := make(map[rune]bool, len(disagreements))
+	for _, r := range disagreements {
+		disagreed[r] = true
+	}
+	shown := disagreements
+	if len(shown) > 10 {
+		shown = shown[:10]
+	}
+	var detail []string
+	for _, r := range shown {
+		detail = append(detail, fmt.Sprintf("U+%04X(schema accepts=%t, go accepts=%t)",
+			r, matcher.MatchString(string(r)), strings.TrimSpace(string(r)) != ""))
+	}
+	var namedWitnesses []string
+	for _, r := range []rune{0x03A9, 0x20AC, 0x65E5, 0x1F600} {
+		if disagreed[r] {
+			namedWitnesses = append(namedWitnesses, fmt.Sprintf("U+%04X %q", r, r))
+		}
+	}
+	t.Fatalf("schema pattern %q and Go's unicode.IsSpace contract disagree on %d of %d runes; first %d: %s; non-ASCII witnesses among them: %v",
+		pattern, len(disagreements), compared, len(shown), strings.Join(detail, ", "), namedWitnesses)
 }
 
 func mustAbs(t *testing.T, path string) string {

@@ -145,25 +145,50 @@ value is never the accounting method).
    `cpu_model`'s notes gesture at them ("base/turbo policy"), and
    `cpu_frequency_policy` is `BOUND` — it binds the POLICY and asserts
    no fact about the booted host, so it is not a sentinel either.
-   OUTSTANDING EXTENSION, and it is the METER rather than the schema:
-   `benchmark-environment-1.0.0.schema.json` does NOT block these
-   fields. `host_identity` declares no named properties and its
-   `additionalProperties` is `{"$ref": "#/$defs/fieldRecord"}`, so a
-   well-formed field record is already admitted under any name —
-   probed by adding `scaling_driver`, `smt_state` and
-   `turbo_visibility` to `host_identity` and validating against the
-   canonical schema, which returned 0 failures. What actually gates
-   representation is the completion meter:
+   OUTSTANDING EXTENSION. Whether it needs a schema change is
+   CONDITIONAL on what is being added, and both halves of the condition
+   were probed against the canonical schema:
+   - **Adding an OPTIONAL field record needs NO schema change.**
+     `host_identity` declares no named properties and its
+     `additionalProperties` is `{"$ref": "#/$defs/fieldRecord"}`, so a
+     well-formed record is already admitted under any name. PROBE:
+     adding `scaling_driver`, `smt_state` and `turbo_visibility` to
+     `host_identity` and validating against
+     `benchmark-environment-1.0.0.schema.json` returned 0 failures
+     (control, unmodified document: also 0).
+   - **Making one MANDATORY — enrolling it on the completion meter —
+     DOES need a schema change.** `required_binding_fields` is pinned
+     by an EXACT 23-item `const` in the confirmation branch of
+     `benchmark-environment-1.0.0.schema.json` (line 81 at this
+     commit), so a document may not list a 24th. PROBE: the same document with those three
+     paths appended to `required_binding_fields` failed validation with
+     `at '/required_binding_fields': 'const' failed`. Extending that
+     `const` to 26 entries made the same document validate with 0
+     failures, so the `const` is exactly the schema blocker.
+   Mandatory enrolment therefore moves three artifacts in lockstep: the
+   `required_binding_fields` `const` in the schema,
    `CanonicalBindingFields["confirmation"]` in
-   `internal/benchplan/validate.go` (23 entries) and the mirrored
-   `required_binding_fields` in `confirmation.json` list none of them,
-   and the meter fails if the two disagree, so nothing records,
-   requires, or checks these facts today. Extending that list is the
-   recorded preregistration change, and it is still outstanding.
-   **Correction:** the round-1 note in `confirmation.json` said
+   `internal/benchplan/validate.go` (23 entries today), and the
+   `required_binding_fields` list in `confirmation.json`. The meter is
+   code+schema truth and fails when they disagree — PROBE: the
+   26-entry document metered as "declares 26 required binding fields;
+   the canonical confirmation list has 23". A fourth edit is needed only
+   if the RECORD'S PRESENCE is to be schema-enforced rather than only
+   meter-enforced: with the `const` extended but the three records
+   absent, the schema returned 0 failures and only the meter objected;
+   adding the names to the confirmation branch's `host_identity.required`
+   list produced `missing properties 'scaling_driver', 'smt_state',
+   'turbo_visibility'`. None of this is done: nothing records, requires,
+   or checks these facts today, and the extension is still outstanding.
+   **Correction of record, round 3.** Both earlier framings of this
+   sentence were wrong in opposite directions and are superseded by the
+   conditional above. The round-1 note in `confirmation.json` said
    representing these facts "requires adding fields to
-   `benchmark-environment-1.0.0.schema.json`." That was itself
-   inaccurate, for the reason just probed; the schema needs no change.
+   `benchmark-environment-1.0.0.schema.json`" — false for optional
+   records. The round-2 revision said the extension "is the METER rather
+   than the schema" and that "the schema needs no change" — false for
+   mandatory metering, which is the case actually contemplated here,
+   because of the 23-item `const`.
 7. **Primary runtime-snapshot fields** (`PENDING_FREEZE_AT_MEASUREMENT`,
    frozen per-run by their recorded procedures, not before):
    `power_source_state`, `low_power_mode_state`,
@@ -214,8 +239,34 @@ value is never the accounting method).
   it vacuous. Re-running the same narrowing mutation against the fixed
   test now FAILS on exactly the ten previously-omitted code points
   (U+2000–U+2002, U+2004–U+200A) plus the all-code-points composite,
-  reporting `schema rejected=false go rejected=true`. The claim and the
-  coverage now match.
+  reporting `schema rejected=false go rejected=true`.
+  **Third correction (round 3):** "the claim and the coverage now match"
+  was still an overstatement, in the half the round-2 fix did not touch.
+  Enumeration made the REJECTED side exhaustive; the ACCEPTED side stayed
+  a sample, and every accepted vector in it is printable ASCII. PROBE:
+  narrowing the schema pattern to `[!-~]` — which rejects the Go-valid
+  source `"Ω"` (U+03A9) — left that test AND the whole suite at exit 0
+  (28 ok, 0 FAIL). The gap is now closed by comparing the two ACCEPTED
+  SETS exhaustively rather than by adding vectors:
+  `TestSchemaClockSourcePatternEqualsGoOnEveryRune` extracts the pattern
+  from the canonical schema by JSON path, compiles it with the validator's
+  own regexp engine, and requires schema-accepts to equal Go-accepts for
+  all 1,112,064 valid runes (every code point except the 2,048
+  surrogates, which cannot survive JSON decoding). Two proxies make that
+  sweep affordable — the extracted pattern for the schema, and
+  `strings.TrimSpace` for the Go seam — so the test first pins each proxy
+  against its REAL seam (`ValidateSampleSetDocument` and
+  `EnforceRunValidity`) on 40 witness runes and refuses to run the sweep
+  if either proxy disagrees. Per-rune exhaustion is equivalent to
+  every-input agreement here because both rules are "some rune qualifies"
+  over a per-rune predicate: the pattern is a single unanchored character
+  class, and `TrimSpace` empties a string only if every rune is a space.
+  MUTATION: with `[!-~]` applied, the new test FAILS, reporting
+  disagreement on 1,111,945 of 1,112,064 runes with the non-ASCII
+  witnesses `U+03A9 'Ω'`, `U+20AC '€'`, `U+65E5 '日'`, `U+1F600 '😀'`
+  named in the failure; the older differential test still passes, which is
+  exactly why the two are separate. The claim in that older test's comment
+  is now scoped to what it actually covers.
 
   It is **RECORD-ONLY**, exactly as the owner bound the policy: no
   threshold is applied to clock values.
@@ -278,6 +329,18 @@ value is never the accounting method).
   kind exists yet and the measurement runner is still an unbound stub.
   The runner that POPULATES the slot still binds with the measurement
   runner identity.
+- **Wire the raw-sample schema into the ingestion path before any
+  measured run is accepted.** The canonical raw-sample schema is not
+  runtime defense today: every `ValidateSampleSetDocument` caller lives
+  in `internal/benchplan/validate_test.go`, and `DecideEndpoint` and
+  `EnforceRunValidity` likewise have no non-test production callers, so
+  `additionalProperties: false` and the clock-source pattern currently
+  constrain fixtures and tests rather than incoming data. The round-3
+  independent reviewer was asked to rule on whether this blocks and ruled
+  that it does NOT block a preregistration-only change, because no
+  production measurement path exists yet — but that it MUST block any
+  future runner or ingestion acceptance. Recorded here so that gate is
+  not lost when the runner is built.
 - **Exact AWS provider pin + lockfile** for `terraform/benchmark`
   (currently floating `>= 6.0.0`), already flagged in
   `confirmation.json` terraform notes.
