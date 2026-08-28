@@ -148,6 +148,9 @@ func Definitions() []Definition {
 	// rejected-close-transition record must not disturb the committed
 	// 34-record prefix.
 	definitions = append(definitions, closeTransitionDefinitions()...)
+	// Appended last for the same reason again: the G3c/G3d/G3e gap-closure
+	// records must not disturb the committed 35-record prefix.
+	definitions = append(definitions, gapClosureDefinitions()...)
 	return definitions
 }
 
