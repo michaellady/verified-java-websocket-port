@@ -17,11 +17,26 @@ import (
 // on the other stream means a test that reads it back has also proven stderr is
 // captured. The helper writes stderr before stdout, so the expected combined
 // output is simply the concatenation in that order.
+//
+// failing_harness exists so that first_failure_description is NON-EMPTY in at
+// least one fixture. Without it that field is absent everywhere, and pinning it
+// would be satisfied by two absent keys -- deleting reFailed entirely would
+// then leave every classification assertion green.
 const (
 	oomStderr  = "CBMC appears to have run out of memory.\n"
 	oomStdout  = "Checking harness oom_harness...\n** 0 of 0 failed\n\nVERIFICATION:- FAILED\n"
 	goodStderr = "kani: verification time 0.4s\n"
 	goodStdout = "Checking harness good_harness...\n** 0 of 12 failed\n\nVERIFICATION:- SUCCESSFUL\n"
+	failStderr = "kani: verification time 1.1s\n"
+	failStdout = "Checking harness failing_harness...\n" +
+		"Failed Checks: assertion failed: mask key must differ from the preceding frame\n" +
+		"** 1 of 7 failed\n\nVERIFICATION:- FAILED\n"
+
+	failDescription = "assertion failed: mask key must differ from the preceding frame"
+
+	// The spec every classification test uses, and the sorted order kanirun
+	// emits it in: failing_harness < good_harness < oom_harness.
+	standardSpec = "good_harness=SUCCESSFUL,oom_harness=FAILED,failing_harness=FAILED"
 )
 
 func wantCombined(harness string) string {
@@ -30,6 +45,8 @@ func wantCombined(harness string) string {
 		return oomStderr + oomStdout
 	case "good_harness":
 		return goodStderr + goodStdout
+	case "failing_harness":
+		return failStderr + failStdout
 	}
 	return ""
 }
@@ -60,12 +77,18 @@ func TestHelperProcess(t *testing.T) {
 		os.Stderr.WriteString(goodStderr)
 		os.Stdout.WriteString(goodStdout)
 		os.Exit(0)
+	case "failing_harness":
+		os.Stderr.WriteString(failStderr)
+		os.Stdout.WriteString(failStdout)
+		os.Exit(1)
 	}
 	os.Exit(9)
 }
 
 // fakeCargo builds a directory containing a `cargo` executable that re-execs
-// this test binary into TestHelperProcess.
+// this test binary into TestHelperProcess. When KANIRUN_SENTINEL names a path,
+// the shim appends to it on every invocation, so a test can prove that cargo
+// was never reached.
 func fakeCargo(t *testing.T) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -83,6 +106,13 @@ import (
 )
 
 func main() {
+	if s := os.Getenv("KANIRUN_SENTINEL"); s != "" {
+		f, err := os.OpenFile(s, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
+		if err == nil {
+			f.WriteString("ran\n")
+			f.Close()
+		}
+	}
 	c := exec.Command(` + fmt.Sprintf("%q", self) + `, append([]string{"-test.run=TestHelperProcess"}, os.Args[1:]...)...)
 	c.Env = append(os.Environ(), "KANIRUN_FAKE=1")
 	c.Stdout, c.Stderr = os.Stdout, os.Stderr
@@ -115,8 +145,10 @@ func buildKanirun(t *testing.T) string {
 }
 
 // runRaw runs the runner with an arbitrary harness spec and returns its stdout
-// and real exit code without requiring the output to parse.
-func runRaw(t *testing.T, harnesses, rawDir string) (string, int) {
+// and real exit code without requiring the output to parse. extraEnv entries
+// are appended verbatim and reach the fake cargo, which inherits the runner's
+// environment.
+func runRaw(t *testing.T, harnesses, rawDir string, extraEnv ...string) (string, int) {
 	t.Helper()
 	args := []string{"-harnesses", harnesses}
 	if rawDir != "" {
@@ -124,6 +156,7 @@ func runRaw(t *testing.T, harnesses, rawDir string) (string, int) {
 	}
 	cmd := exec.Command(buildKanirun(t), args...)
 	cmd.Env = append(os.Environ(), "PATH="+fakeCargo(t)+string(os.PathListSeparator)+os.Getenv("PATH"))
+	cmd.Env = append(cmd.Env, extraEnv...)
 	out, err := cmd.Output()
 	code := 0
 	if err != nil {
@@ -136,16 +169,16 @@ func runRaw(t *testing.T, harnesses, rawDir string) (string, int) {
 	return string(out), code
 }
 
-// runKanirun runs the standard two-harness spec and parses the records.
+// runKanirun runs the standard three-harness spec and parses the records.
 func runKanirun(t *testing.T, rawDir string) []map[string]any {
 	t.Helper()
-	out, _ := runRaw(t, "good_harness=SUCCESSFUL,oom_harness=FAILED", rawDir)
+	out, _ := runRaw(t, standardSpec, rawDir)
 	var recs []map[string]any
 	if e := json.Unmarshal([]byte(out), &recs); e != nil {
 		t.Fatalf("parse kanirun output: %v\n%s", e, out)
 	}
-	if len(recs) != 2 {
-		t.Fatalf("want 2 records, got %d: %s", len(recs), out)
+	if len(recs) != 3 {
+		t.Fatalf("want 3 records, got %d: %s", len(recs), out)
 	}
 	return recs
 }
@@ -186,7 +219,7 @@ func TestRawDirCapturesTheCompleteCombinedOutput(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "logs")
 	recs := byHarness(t, runKanirun(t, dir))
 
-	for _, name := range []string{"oom_harness", "good_harness"} {
+	for _, name := range []string{"oom_harness", "good_harness", "failing_harness"} {
 		rec := recs[name]
 		if rec == nil {
 			t.Fatalf("%s record missing", name)
@@ -224,15 +257,20 @@ func TestRawDirCapturesTheCompleteCombinedOutput(t *testing.T) {
 // Classification must not shift when raw capture is on. Comparing the two modes
 // field by field is necessary but NOT sufficient: an equal-in-both-modes shift
 // would slip through, and absent keys would compare equal as two nils. So this
-// also pins every classification field to its absolute expected value.
+// also pins every classification field to its absolute expected value, and
+// treats presence itself as part of the expectation -- a field expected to be
+// present must be present, and one expected absent (omitempty) must be absent.
 func TestRawDirDoesNotChangeClassification(t *testing.T) {
 	without := byHarness(t, runKanirun(t, ""))
 	with := byHarness(t, runKanirun(t, filepath.Join(t.TempDir(), "logs")))
 
 	fields := []string{"harness", "expectation", "exit_code", "verification",
-		"failed_checks", "total_checks", "outcome", "matches_expectation"}
+		"failed_checks", "total_checks", "outcome", "matches_expectation",
+		"first_failure_description"}
 
 	// Absolute expectations, so a shift applied equally in both modes fails.
+	// A field missing from a harness's map is asserted ABSENT, which is how
+	// first_failure_description must behave where no Failed Checks line exists.
 	want := map[string]map[string]any{
 		"good_harness": {
 			"harness": "good_harness", "expectation": "SUCCESSFUL", "exit_code": float64(0),
@@ -244,6 +282,12 @@ func TestRawDirDoesNotChangeClassification(t *testing.T) {
 			"verification": "FAILED", "failed_checks": float64(0), "total_checks": float64(0),
 			"outcome": "FAILED", "matches_expectation": true,
 		},
+		"failing_harness": {
+			"harness": "failing_harness", "expectation": "FAILED", "exit_code": float64(1),
+			"verification": "FAILED", "failed_checks": float64(1), "total_checks": float64(7),
+			"outcome": "FAILED", "matches_expectation": true,
+			"first_failure_description": failDescription,
+		},
 	}
 
 	for name, wantRec := range want {
@@ -254,6 +298,13 @@ func TestRawDirDoesNotChangeClassification(t *testing.T) {
 		for _, f := range fields {
 			av, aok := a[f]
 			bv, bok := b[f]
+			wv, expected := wantRec[f]
+			if !expected {
+				if aok || bok {
+					t.Errorf("%s field %q should be omitted here but is present (without=%v with=%v)", name, f, aok, bok)
+				}
+				continue
+			}
 			if !aok || !bok {
 				t.Errorf("%s field %q absent (without=%v with=%v); an absent key must not read as a match", name, f, aok, bok)
 				continue
@@ -261,8 +312,8 @@ func TestRawDirDoesNotChangeClassification(t *testing.T) {
 			if av != bv {
 				t.Errorf("%s field %q: without=%v with=%v", name, f, av, bv)
 			}
-			if av != wantRec[f] {
-				t.Errorf("%s field %q = %v, want %v", name, f, av, wantRec[f])
+			if av != wv {
+				t.Errorf("%s field %q = %v, want %v", name, f, av, wv)
 			}
 		}
 	}
@@ -278,7 +329,7 @@ func TestRawDirWriteFailureIsFatal(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "oom_harness.log"), 0o755); err != nil {
 		t.Fatalf("seed blocking directory: %v", err)
 	}
-	out, code := runRaw(t, "good_harness=SUCCESSFUL,oom_harness=FAILED", dir)
+	out, code := runRaw(t, standardSpec, dir)
 	if code != 3 {
 		t.Errorf("exit code = %d, want 3 (a failed raw-log write must be fatal)", code)
 	}
@@ -291,16 +342,35 @@ func TestRawDirWriteFailureIsFatal(t *testing.T) {
 // The runner must refuse that up front rather than let the second run overwrite
 // the first one's evidence while its record keeps the stale digest.
 func TestCollidingHarnessNamesAreRefused(t *testing.T) {
-	out, code := runRaw(t, "mod::proof=SUCCESSFUL,mod__proof=SUCCESSFUL", filepath.Join(t.TempDir(), "logs"))
+	const colliding = "mod::proof=SUCCESSFUL,mod__proof=SUCCESSFUL"
+
+	// The refusal must happen BEFORE any harness is executed: rejecting after
+	// running cargo would also yield exit 2 and empty stdout, so exit code
+	// alone cannot tell the two orderings apart. The fake cargo appends to the
+	// sentinel on every invocation, so an empty sentinel proves it never ran.
+	sentinel := filepath.Join(t.TempDir(), "cargo-invocations")
+	out, code := runRaw(t, colliding, filepath.Join(t.TempDir(), "logs"), "KANIRUN_SENTINEL="+sentinel)
 	if code != 2 {
 		t.Errorf("exit code = %d, want 2 for harness names that collide on one log file", code)
 	}
 	if strings.Contains(out, "\"harness\"") {
 		t.Errorf("results were emitted for a colliding spec:\n%s", out)
 	}
-	// The same spec without -raw-dir writes no logs, so it must still run.
-	if _, code := runRaw(t, "good_harness=SUCCESSFUL", ""); code != 0 {
-		t.Errorf("exit code = %d, want 0; the collision check must not affect runs without -raw-dir", code)
+	if b, err := os.ReadFile(sentinel); err == nil && len(b) > 0 {
+		t.Errorf("cargo ran %d time(s) before the collision was refused; the check must precede execution", strings.Count(string(b), "ran"))
+	}
+
+	// The SAME colliding spec without -raw-dir writes no logs, so nothing can
+	// be overwritten and the run must proceed. Substituting a non-colliding
+	// spec here would make this assertion pass even if the check became
+	// unconditional, which is exactly what it exists to rule out.
+	sentinel2 := filepath.Join(t.TempDir(), "cargo-invocations-2")
+	_, code = runRaw(t, colliding, "", "KANIRUN_SENTINEL="+sentinel2)
+	if code == 2 {
+		t.Errorf("exit code = 2 without -raw-dir; the collision check must be conditional on raw capture")
+	}
+	if b, err := os.ReadFile(sentinel2); err != nil || len(b) == 0 {
+		t.Errorf("cargo never ran without -raw-dir; the colliding spec should have executed normally")
 	}
 }
 

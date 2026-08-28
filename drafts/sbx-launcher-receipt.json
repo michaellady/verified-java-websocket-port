@@ -25,7 +25,7 @@
   "brief_prefix_b4f6891d_matched": true,
   "note": "The decision was already granted and explicitly requires sandbox execution under a fresh attempt id. This attempt supplies the condition the host-only Kani lane disclosed it had not met. No new owner grant is claimed."
  },
- "headline": "33 of 35 harness outcomes reproduced in-sandbox. The negative control reproduced COMPLETELY (19/19 identical, 14 planted defects detected). Two of the sixteen real harnesses did NOT reproduce, both because CBMC ran out of memory under the accepted profile's 2 GiB allowance, not because any property was violated. That difference is the finding and is reported, not reconciled.",
+ "headline": "33 of 35 harness outcomes reproduced in-sandbox. The negative control reproduced COMPLETELY (19/19 identical, 14 planted defects detected). Two of the sixteen harnesses did NOT reproduce, both because CBMC ran out of memory under the accepted profile's 2 GiB allowance, not because any property was violated. That difference is the finding and is reported, not reconciled.",
  "launcher": {
   "design": {
    "host_component": "cmd/sbxlaunch \u2014 parameterised by -repo-root, -protected-root, -payload and -stage. Attempt id, sandbox name, profile constraints, inbound artifacts, steps and outbound capture all arrive as data in a payload manifest (assurance/sbx/us012-kani-0129-payload.json).",
@@ -312,7 +312,7 @@
    "identical_outcome": 14,
    "identical_total_check_counts_among_those": 14,
    "diverged": 2,
-   "verdict": "Fourteen of the sixteen verification harnesses over the shipped ws_core functions reproduced EXACTLY, down to identical total check counts. Two did not complete."
+   "verdict": "Fourteen of the sixteen verification harnesses reproduced EXACTLY, down to identical total check counts. Two did not complete. Of the sixteen, fifteen are over the shipped ws_core functions and one (real_reference_decoder_agrees_with_core_str_len_le_3) is ORACLE VALIDATION that calls no ws_core function; describing all sixteen as being over the shipped functions overstated the actual-code count by one."
   },
   "divergences": [
    {
@@ -700,7 +700,7 @@
   ]
  },
  "the_finding": {
-  "statement": "Two of the sixteen real harnesses that verify SUCCESSFUL on the host report VERIFICATION:- FAILED inside the accepted sandbox profile. THIS IS REPORTED, NOT RECONCILED. The attempt was not re-run with a larger memory allowance to obtain 35/35; doing so would change the accepted profile to get a preferred answer, and the profile is not this lane's to change.",
+  "statement": "Two of the sixteen harnesses that verify SUCCESSFUL on the host report VERIFICATION:- FAILED inside the accepted sandbox profile. THIS IS REPORTED, NOT RECONCILED. The attempt was not re-run with a larger memory allowance to obtain 35/35; doing so would change the accepted profile to get a preferred answer, and the profile is not this lane's to change.",
   "affected": [
    "real_close_code_rejection_reason_insensitive_len_le_3",
    "real_reference_decoder_agrees_with_core_str_len_le_3"
