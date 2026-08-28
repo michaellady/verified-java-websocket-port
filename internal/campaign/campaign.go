@@ -38,6 +38,7 @@ var schemaDigests = map[string]string{
 
 var exactTargets = map[string][]string{
 	"property": {
+		"adversarial-properties",
 		"allocation-before-admission",
 		"canonical-length-roundtrip",
 		"chunk-boundary-invariance",
@@ -67,6 +68,9 @@ type targetContract struct {
 }
 
 var targetContracts = map[string]targetContract{
+	"property/adversarial-properties": {
+		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "adversarial_properties"}, sourcePaths: []string{"rust/connection-core/tests/adversarial_properties.rs"}, cases: 168579, testsPassed: 6,
+	},
 	"property/allocation-before-admission": {
 		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "frame_codec", "encoder_role_control_and_limit_rejections_precede_allocation", "--", "--exact"}, sourcePaths: []string{"rust/connection-core/tests/frame_codec.rs"}, cases: 7, testsPassed: 1,
 	},
@@ -92,25 +96,25 @@ var targetContracts = map[string]targetContract{
 		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "messages", "sampled_unicode_scalar_property_matches_the_standard_string_invariant", "--", "--exact"}, sourcePaths: []string{"rust/connection-core/tests/messages.rs"}, cases: 8862, testsPassed: 1,
 	},
 	"fuzz/client-handshake": {
-		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "client_handshake"}, sourcePaths: []string{"rust/connection-core/tests/client_handshake.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us010"}, cases: 11, testsPassed: 14,
+		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "client_handshake"}, sourcePaths: []string{"rust/connection-core/tests/client_handshake.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us010"}, cases: 11, testsPassed: 15,
 	},
 	"fuzz/server-handshake": {
 		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "server_handshake"}, sourcePaths: []string{"rust/connection-core/tests/server_handshake.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us011"}, cases: 17, testsPassed: 23,
 	},
 	"fuzz/frame-decode": {
-		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "frame_codec"}, sourcePaths: []string{"rust/connection-core/tests/frame_codec.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us012"}, cases: 20, testsPassed: 16,
+		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "frame_codec"}, sourcePaths: []string{"rust/connection-core/tests/frame_codec.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us012"}, cases: 20, testsPassed: 17,
 	},
 	"fuzz/message-utf8": {
-		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "messages"}, sourcePaths: []string{"rust/connection-core/tests/messages.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us013"}, cases: 20, testsPassed: 10,
+		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "messages"}, sourcePaths: []string{"rust/connection-core/tests/messages.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us013"}, cases: 20, testsPassed: 13,
 	},
 	"fuzz/fragment-control": {
 		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "fragmentation", "--test", "ping_pong"}, sourcePaths: []string{"rust/connection-core/tests/fragmentation.rs", "rust/connection-core/tests/ping_pong.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us014", "rust/connection-core/fuzz-seeds/us015"}, cases: 30, testsPassed: 25,
 	},
 	"fuzz/close-eof": {
-		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "close_eof"}, sourcePaths: []string{"rust/connection-core/tests/close_eof.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us016"}, cases: 6, testsPassed: 17,
+		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "close_eof"}, sourcePaths: []string{"rust/connection-core/tests/close_eof.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us016"}, cases: 6, testsPassed: 20,
 	},
 	"fuzz/owner-command-byte-schedule": {
-		command: []string{"cargo", "test", "--locked", "-p", "websocket-driver"}, sourcePaths: []string{"rust/websocket-driver/tests/concurrency.rs", "rust/websocket-driver/tests/driver_contract.rs"}, seedRoots: []string{"rust/websocket-driver/fuzz-seeds/us017"}, cases: 6, testsPassed: 18,
+		command: []string{"cargo", "test", "--locked", "-p", "websocket-driver"}, sourcePaths: []string{"rust/websocket-driver/tests/concurrency.rs", "rust/websocket-driver/tests/driver_contract.rs", "rust/websocket-driver/tests/refinement_contract.rs"}, seedRoots: []string{"rust/websocket-driver/fuzz-seeds/us017"}, cases: 6, testsPassed: 22,
 	},
 }
 

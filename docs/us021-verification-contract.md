@@ -29,7 +29,15 @@ Property evidence covers these exact invariants:
 5. strict UTF-8 across transport and fragment boundaries;
 6. fragment/control ordering;
 7. close and terminal delivery at most once;
-8. deterministic owner-schedule replay.
+8. deterministic owner-schedule replay;
+9. deterministic adversarial agreement across arbitrary byte soup, standard
+   UTF-8, mask equations, canonical length boundaries, the complete close-code
+   table for both sender roles, and valid multi-frame rechunking.
+
+The ninth target adapts the useful campaign shape from the Claude comparison
+plane while executing independent assertions against this branch's public
+RFC-strict, explicit-entropy core. Its 168,579 deterministic cases are counted
+separately from the original eight targets and replayed twice.
 
 Fuzz evidence covers these exact public seams:
 
