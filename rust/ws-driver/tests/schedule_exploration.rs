@@ -142,8 +142,25 @@ impl Action {
     }
 }
 
-/// The five fixed actor programs whose interleavings are explored.
-const PROGRAMS: [&[Action]; PROGRAM_COUNT] = [
+/// One scenario's five fixed actor programs.
+type ProgramSet = [&'static [Action]; PROGRAM_COUNT];
+
+/// Scenario A — ABNORMAL TEARDOWN. The adapter stops serving the transport
+/// (`Shutdown`) AND the read side independently reaches EOF, so the
+/// connection is terminated TWICE. This models a real but exceptional
+/// shape: the embedding application tearing down, or the write side
+/// failing, while the peer is also closing.
+///
+/// This was the ONLY scenario explored until owner decision
+/// `us017-exploration-program-set-owner-decision-2026-08-28.json`
+/// (sha 86793909). Because every schedule ran both terminations, and
+/// because the driver silently COALESCED multiple pending EOF
+/// notifications until 8a7e3a4, its "clean convergence" runs were an
+/// artifact of that defect rather than evidence of clean convergence. With
+/// the coalescing fixed, every schedule in this scenario correctly halts on
+/// the second scored termination — which is right, and is why a second
+/// scenario is required to cover the normal lifecycle at all.
+const SCENARIO_ABNORMAL_TEARDOWN: ProgramSet = [
     // Producer A: bounded data commands.
     &[Action::EnqueueTextA, Action::EnqueueBinaryA],
     // Producer B: bounded control + local-close commands.
@@ -160,6 +177,43 @@ const PROGRAMS: [&[Action]; PROGRAM_COUNT] = [
     &[Action::Wake, Action::Shutdown],
 ];
 
+/// Scenario B — CLEAN FINISH. The connection is terminated exactly ONCE.
+///
+/// REAL-ADAPTER JUSTIFICATION (owner requirement 1: this must be a shape a
+/// real adapter produces, not a shape reverse-engineered to make a gate
+/// green). This is the ordinary WebSocket close lifecycle: the application
+/// sends a message and initiates close, the peer's close frame arrives, the
+/// committed frames flush, and the read side reaches EOF exactly once. A
+/// healthy adapter never calls `Shutdown` on this path — `Shutdown` means
+/// "the adapter can provide no further transport service" and belongs to
+/// abnormal teardown (scenario A). The `ws-testee` io_loop drives exactly
+/// this shape: it reads until EOF and lets the connection converge, calling
+/// shutdown only when it is itself being torn down.
+///
+/// The point is not that this scenario is easier. It is that the previous
+/// program set modelled ONLY the abnormal double-termination path, so the
+/// normal lifecycle every real deployment spends its life in was never
+/// actually explored — its apparent coverage came from two terminations
+/// being silently merged into one.
+const SCENARIO_CLEAN_FINISH: ProgramSet = [
+    // Producer A: one bounded data command.
+    &[Action::EnqueueTextA],
+    // Producer B: the local close that opens the closing handshake.
+    &[Action::EnqueueCloseB],
+    // Transport read: the peer's close, then the read side ending ONCE.
+    &[Action::InboundClose, Action::TransportEof],
+    // Transport write: flush the committed frames to completion.
+    &[Action::WriteAll, Action::WriteAll],
+    // Adapter control: owner turns only; no shutdown on a healthy close.
+    &[Action::Wake],
+];
+
+/// Every scenario explored, each an independent bounded enumeration.
+const SCENARIOS: [(&str, ProgramSet); 2] = [
+    ("abnormal-teardown", SCENARIO_ABNORMAL_TEARDOWN),
+    ("clean-finish", SCENARIO_CLEAN_FINISH),
+];
+
 // ---------------------------------------------------------------------------
 // Exhaustive bounded enumeration
 // ---------------------------------------------------------------------------
@@ -171,6 +225,7 @@ struct Exploration {
 
 fn enumerate_schedules() -> Exploration {
     fn visit(
+        programs: &ProgramSet,
         schedules: &mut Vec<Vec<Action>>,
         branches: &mut usize,
         positions: &mut [usize; PROGRAM_COUNT],
@@ -181,13 +236,13 @@ fn enumerate_schedules() -> Exploration {
         if positions
             .iter()
             .enumerate()
-            .all(|(actor, position)| *position == PROGRAMS[actor].len())
+            .all(|(actor, position)| *position == programs[actor].len())
         {
             schedules.push(schedule.clone());
             return;
         }
         for actor in 0..PROGRAM_COUNT {
-            if positions[actor] == PROGRAMS[actor].len() {
+            if positions[actor] == programs[actor].len() {
                 continue;
             }
             let next_switches =
@@ -200,7 +255,7 @@ fn enumerate_schedules() -> Exploration {
             // cannot finish within the bound is never entered (branches
             // count real prefix nodes only).
             let unfinished_others = (0..PROGRAM_COUNT)
-                .filter(|other| *other != actor && positions[*other] < PROGRAMS[*other].len())
+                .filter(|other| *other != actor && positions[*other] < programs[*other].len())
                 .count();
             if next_switches + unfinished_others > CONTEXT_SWITCH_BOUND {
                 continue;
@@ -210,10 +265,11 @@ fn enumerate_schedules() -> Exploration {
                 *branches <= BRANCH_COUNT_MAX,
                 "enumeration exceeded the declared branch bound"
             );
-            let action = PROGRAMS[actor][positions[actor]];
+            let action = programs[actor][positions[actor]];
             positions[actor] += 1;
             schedule.push(action);
             visit(
+                programs,
                 schedules,
                 branches,
                 positions,
@@ -228,14 +284,19 @@ fn enumerate_schedules() -> Exploration {
 
     let mut schedules = Vec::new();
     let mut branches = 0usize;
-    visit(
-        &mut schedules,
-        &mut branches,
-        &mut [0; PROGRAM_COUNT],
-        &mut Vec::new(),
-        None,
-        0,
-    );
+    // Each scenario is its own bounded enumeration; the explored space is
+    // their union.
+    for (_name, programs) in &SCENARIOS {
+        visit(
+            programs,
+            &mut schedules,
+            &mut branches,
+            &mut [0; PROGRAM_COUNT],
+            &mut Vec::new(),
+            None,
+            0,
+        );
+    }
     Exploration {
         schedules,
         branches,
@@ -1226,13 +1287,17 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     );
 
     println!(
-        "US017_EXPLORATION programs={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
+        "US017_EXPLORATION scenarios={} programs_per_scenario={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
          preemption_budget={PREEMPTION_BUDGET} schedules={schedule_count} branches={} truncated=false \
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
          failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
          events={} failures={} deferred_output_pending={} deferred_command_turn={} \
          deferred_backpressure={} rejected_inputs={} max_drain_polls={max_drain}",
-        PROGRAMS.iter().map(|program| program.len()).sum::<usize>(),
+        SCENARIOS.len(),
+        SCENARIOS
+            .iter()
+            .map(|(_, programs)| programs.iter().map(|program| program.len()).sum::<usize>())
+            .sum::<usize>(),
         exploration.branches,
         schedule_count * 2,
         distinct_outcomes.len(),
