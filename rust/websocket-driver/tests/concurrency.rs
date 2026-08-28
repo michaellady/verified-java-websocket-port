@@ -16,6 +16,7 @@ use websocket_driver::{
 
 const RFC_REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
 const MASKED_EMPTY_PING: &[u8] = b"\x89\x80\x01\x02\x03\x04";
+const MASKED_CLOSE_1000: &[u8] = b"\x88\x82\x01\x02\x03\x04\x02\xea";
 const EXECUTION_LIMIT: usize = 512;
 const MAX_SCHEDULES: usize = 100_000;
 const MAX_PREEMPTIONS: usize = 3;
@@ -137,6 +138,8 @@ enum Action {
     ProducerB2,
     OwnerWake,
     InboundPing,
+    InboundClose,
+    TransportEof,
     WriteZero,
     WritePartial,
     WriteAll,
@@ -159,12 +162,114 @@ const PROGRAMS: [&[Action]; 7] = [
     &[Action::Shutdown],
 ];
 
+// Borrowed and adapted from Claude's exhaustive five-lane scheduler at
+// dc07516. The original seven-lane campaign above remains as the exact
+// preregistered 512-schedule prefix. This second campaign combines the
+// owner, callback-drain, and shutdown actions into one adapter-control lane
+// so every interleaving inside three additional context switches fits under
+// the same 100,000-schedule and 1,000,000-branch ceilings.
+const EXHAUSTIVE_PROGRAMS: [&[Action]; 5] = [
+    &[Action::ProducerA1, Action::ProducerA2],
+    &[Action::ProducerB1, Action::ProducerB2],
+    &[
+        Action::InboundPing,
+        Action::InboundClose,
+        Action::TransportEof,
+    ],
+    &[Action::WriteZero, Action::WritePartial, Action::WriteAll],
+    &[Action::OwnerWake, Action::Shutdown],
+];
+
+const EXHAUSTIVE_CONTEXT_SWITCH_BOUND: usize = (EXHAUSTIVE_PROGRAMS.len() - 1) + MAX_PREEMPTIONS;
+
 #[derive(Debug)]
 struct Exploration {
     schedules: Vec<Vec<Action>>,
     branches: usize,
     maximum_preemptions: usize,
     truncated: bool,
+}
+
+#[derive(Debug)]
+struct ExhaustiveExploration {
+    schedules: Vec<Vec<Action>>,
+    branches: usize,
+    maximum_context_switches: usize,
+    truncated: bool,
+}
+
+fn explore_exhaustive_five_lane_interleavings() -> ExhaustiveExploration {
+    fn visit(
+        exploration: &mut ExhaustiveExploration,
+        positions: &mut [usize],
+        schedule: &mut Vec<Action>,
+        last_actor: Option<usize>,
+        context_switches: usize,
+    ) {
+        if exploration.schedules.len() == MAX_SCHEDULES || exploration.branches == MAX_BRANCHES {
+            exploration.truncated = true;
+            return;
+        }
+        if positions
+            .iter()
+            .enumerate()
+            .all(|(actor, position)| *position == EXHAUSTIVE_PROGRAMS[actor].len())
+        {
+            exploration.maximum_context_switches =
+                exploration.maximum_context_switches.max(context_switches);
+            exploration.schedules.push(schedule.clone());
+            return;
+        }
+        for actor in 0..EXHAUSTIVE_PROGRAMS.len() {
+            if positions[actor] == EXHAUSTIVE_PROGRAMS[actor].len() {
+                continue;
+            }
+            let next_switches = context_switches
+                + usize::from(last_actor.is_some_and(|previous| previous != actor));
+            if next_switches > EXHAUSTIVE_CONTEXT_SWITCH_BOUND {
+                continue;
+            }
+            // Completing every other unfinished lane requires entering it at
+            // least once. Prune prefixes that cannot finish inside the bound.
+            let unfinished_others = (0..EXHAUSTIVE_PROGRAMS.len())
+                .filter(|other| {
+                    *other != actor && positions[*other] < EXHAUSTIVE_PROGRAMS[*other].len()
+                })
+                .count();
+            if next_switches + unfinished_others > EXHAUSTIVE_CONTEXT_SWITCH_BOUND {
+                continue;
+            }
+            exploration.branches += 1;
+            if exploration.branches == MAX_BRANCHES {
+                exploration.truncated = true;
+                return;
+            }
+            let action = EXHAUSTIVE_PROGRAMS[actor][positions[actor]];
+            positions[actor] += 1;
+            schedule.push(action);
+            visit(exploration, positions, schedule, Some(actor), next_switches);
+            schedule.pop();
+            positions[actor] -= 1;
+            if exploration.truncated {
+                return;
+            }
+        }
+    }
+
+    let mut exploration = ExhaustiveExploration {
+        schedules: Vec::new(),
+        branches: 0,
+        maximum_context_switches: 0,
+        truncated: false,
+    };
+    visit(
+        &mut exploration,
+        &mut vec![0; EXHAUSTIVE_PROGRAMS.len()],
+        &mut Vec::new(),
+        None,
+        0,
+    );
+    exploration
 }
 
 fn explore_actor_interleavings() -> Exploration {
@@ -273,6 +378,28 @@ fn execute_action_schedule(schedule: &[Action]) -> Trace {
                 if matches!(disposition, InputDisposition::Consumed { .. }) {
                     pending_inbound.pop_front();
                 }
+            }
+            Action::InboundClose => {
+                pending_inbound.push_back(MASKED_CLOSE_1000);
+                let disposition = observe_poll(
+                    &mut owner,
+                    DriverInput::Inbound(TransportBytes::new(
+                        pending_inbound.front().expect("just queued inbound close"),
+                    )),
+                    &mut trace,
+                    &mut offered,
+                );
+                if matches!(disposition, InputDisposition::Consumed { .. }) {
+                    pending_inbound.pop_front();
+                }
+            }
+            Action::TransportEof => {
+                observe_poll(
+                    &mut owner,
+                    DriverInput::TransportEof,
+                    &mut trace,
+                    &mut offered,
+                );
             }
             Action::WriteZero => {
                 observe_poll(
@@ -419,6 +546,59 @@ fn bounded_actor_interleavings_execute_and_replay_with_honest_metrics() {
         distinct_semantic_digests.len(),
         exploration.branches,
         exploration.maximum_preemptions,
+        exploration.truncated
+    );
+}
+
+#[test]
+fn five_lane_bound_is_exhaustive_and_every_schedule_replays() {
+    let exploration = explore_exhaustive_five_lane_interleavings();
+    assert!(
+        !exploration.truncated,
+        "five-lane campaign hit a declared ceiling: schedules={} branches={}",
+        exploration.schedules.len(),
+        exploration.branches
+    );
+    assert!(exploration.schedules.len() > EXECUTION_LIMIT);
+    assert!(exploration.schedules.len() <= MAX_SCHEDULES);
+    assert!(exploration.branches <= MAX_BRANCHES);
+    assert!(exploration.maximum_context_switches <= EXHAUSTIVE_CONTEXT_SWITCH_BOUND);
+    assert_eq!(exploration.schedules.len(), 79_920);
+    assert_eq!(exploration.branches, 315_070);
+    assert_eq!(exploration.maximum_context_switches, 7);
+    assert_eq!(
+        exploration
+            .schedules
+            .iter()
+            .map(|schedule| schedule_digest(schedule))
+            .collect::<BTreeSet<_>>()
+            .len(),
+        exploration.schedules.len()
+    );
+
+    let mut semantic_digest = 0u64;
+    let mut distinct_semantic_digests = BTreeSet::new();
+    for (index, schedule) in exploration.schedules.iter().enumerate() {
+        let first = execute_action_schedule(schedule);
+        let replay = execute_action_schedule(schedule);
+        assert_eq!(first, replay, "schedule {index} replay drift");
+        assert_eq!(first.executed_actions, schedule.len());
+        assert!(first.reconciled(), "schedule {index} command loss");
+        assert_eq!(first.terminal, 1, "schedule {index} terminal count");
+        assert_eq!(first.post_terminal, 0, "schedule {index} post terminal");
+        let trace_digest = digest(&first);
+        distinct_semantic_digests.insert(trace_digest);
+        semantic_digest ^= trace_digest.rotate_left((index % 63) as u32);
+    }
+    assert_eq!(distinct_semantic_digests.len(), 35);
+    assert_eq!(semantic_digest, 0x4a21_acfd_2e03_f588);
+    println!(
+        "executed={} distinct_schedules={} distinct_semantics={} branches={} context_switches={} truncated={} digest=fnv64:{semantic_digest:016x}",
+        exploration.schedules.len(),
+        exploration.schedules.len(),
+        distinct_semantic_digests.len(),
+        exploration.branches,
+        exploration.maximum_context_switches,
         exploration.truncated
     );
 }
