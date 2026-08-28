@@ -5,9 +5,9 @@
   "story_id": "US-020",
   "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
-  "head_at_execution": "850b0f82d6a557d0fe7bb00ebaac57db8033460d",
-  "source_tree": "13d890bc0deda227e55044a4f0d3b42f98b576be",
-  "validation_time": "2026-08-28T21:15:53Z",
+  "head_at_execution": "a103b8b1435fe0ca9309410c63e90e59858c92d6",
+  "source_tree": "33a54f32d8a20b9bf99aa7a557238d14aa8aa4fc",
+  "validation_time": "2026-08-28T23:34:30Z",
   "toolchain": {
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "host": "aarch64-apple-darwin"
@@ -90,13 +90,13 @@
     },
     {
       "path": "rust/connection-core/src/close.rs",
-      "sha256": "sha256:43299f521202d19a549b6bd0dd8d82c3a051018cf61d607aed224e7132e0633c",
-      "git_blob": "84d9f2da03f84730d1dcaec0f3cb5a9a47e411a7"
+      "sha256": "sha256:79d83310949bd33eeff9a21b050ce2e920dac7ac64217472a593b5231cd47919",
+      "git_blob": "84a31cc5027fcd9ef18e2b37cb3d87605152ba89"
     },
     {
       "path": "rust/connection-core/src/connection.rs",
-      "sha256": "sha256:b29d2508eb422c5ddc644adb69e279f4d7fbbe3c6823026056636453f4a8df27",
-      "git_blob": "3cf7f08f6ee101236c543c84c66c75a68a6519e1"
+      "sha256": "sha256:59fcdb4cad6aa0fc501f26f73c737ac41e7a2f23c4011a69b64895801b0d7e52",
+      "git_blob": "dce84afabbf321bd71a8e8e902a5b25e29cdae0f"
     },
     {
       "path": "rust/connection-core/src/control.rs",
@@ -155,8 +155,8 @@
     },
     {
       "path": "rust/connection-core/src/lib.rs",
-      "sha256": "sha256:cbd86dfccb15a51275140d89ba4496789f1dd8bbd8a6e0496e0924ff196f54b6",
-      "git_blob": "ca8a1012ed753dc4347285d9aa0558c89c991c46"
+      "sha256": "sha256:88e98e02f9c5c8374c6f2f6b872484beabf79f3c896d1bf72982b73498a1b25c",
+      "git_blob": "05aa41f773c5b35ccbb4fc9e4670384bad43e596"
     },
     {
       "path": "rust/connection-core/src/message.rs",
@@ -180,13 +180,13 @@
     },
     {
       "path": "rust/connection-core/tests/close_eof.rs",
-      "sha256": "sha256:824d3f0f70c40d18f68348a31cdaf4d63a24d3a3a7a298661d4da0966dab8775",
-      "git_blob": "81941b21a5ea12710eb79d7316301b94f22f537c"
+      "sha256": "sha256:752e7bca7bc848f0e51844807c22aa22984f296b6e195fae7ed05ec3657eab78",
+      "git_blob": "ce174326d65e63240f26da676e1d470fe2e01f45"
     },
     {
       "path": "rust/connection-core/tests/connection_contract.rs",
-      "sha256": "sha256:67ee5bb8d254a2d7b37914de303a0c05ba0953b12757562cf213acdc3be83a6c",
-      "git_blob": "6324650e54c6bf35cd1953c9c26dcaa4984d13d0"
+      "sha256": "sha256:7d4f5ded1db00ca88c4840ff82ad5e09477502088c91a7a071633b6114fc6488",
+      "git_blob": "40fffd2b490824d9967c7895c66af8e284096a10"
     },
     {
       "path": "rust/connection-core/tests/data/us011_frozen_cases.rs",
@@ -265,8 +265,8 @@
     },
     {
       "path": "rust/websocket-driver/tests/concurrency.rs",
-      "sha256": "sha256:bdb6581667fec36b0c9c4c72e7ea02674d8456df2a308e93c2fe1db7641854a8",
-      "git_blob": "fec85e3c5a1230800ba7b6a455ee563733a19f5b"
+      "sha256": "sha256:b353a27ee2f6a3c5a10bf81f3c05a3488cc0245051635b089d8e9bbf0d802f48",
+      "git_blob": "36c346d32d263cf10ffa1b661b0e17138b2a9390"
     },
     {
       "path": "rust/websocket-driver/tests/driver_contract.rs",
@@ -305,8 +305,8 @@
     },
     {
       "path": "rust/websocket-testee/src/neutral.rs",
-      "sha256": "sha256:0e3cf73f9414e5b572f26720caa1c2c73c8da8eec85accafb6ac70cba7edf5a2",
-      "git_blob": "6e9c97019e368cffca34d3ba969f4d1c61a199d7"
+      "sha256": "sha256:f55040b3e032afd6d8710df31e5a7a88119b7d2d466ba9f793944eabac66c7e7",
+      "git_blob": "473071a5a178fcf4121aa9022b8fd31b071ffc2e"
     },
     {
       "path": "rust/websocket-testee/src/server.rs",
@@ -320,8 +320,8 @@
     },
     {
       "path": "rust/websocket-testee/tests/process.rs",
-      "sha256": "sha256:8c0d1911e9e00c945d4af386ef9e2f27190a342e158bff891d6a6e1f3b83a843",
-      "git_blob": "1148a112918d6349ecdf4eb9070cd67b5b34af0a"
+      "sha256": "sha256:6cd4447cb9b5c87619116b7ee10219ee6e17b3f45c05e1015173d9d6648cfa7f",
+      "git_blob": "e68ac5455e6cceafbf4b3b9939d371a29a89fa9c"
     }
   ],
   "commands": [
