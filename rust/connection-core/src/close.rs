@@ -6,7 +6,7 @@ use alloc::vec::Vec;
 
 use crate::frame::{Frame, FrameEncoder, Opcode, OutboundFrame};
 use crate::utf8::Utf8Validator;
-use crate::{ConnectionConfig, FailureKind, FrameFailure, LimitKind, QueueKind, Role, Utf8Failure};
+use crate::{ConnectionConfig, FailureKind, FrameFailure, LimitKind, Role, Utf8Failure};
 
 /// Which endpoint admitted the first close in this core's ordered input stream.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -110,7 +110,7 @@ pub(crate) struct CloseMachine {
 #[derive(Debug)]
 enum LocalClose {
     Owned(Box<[u8]>),
-    PeerEcho(Arc<Vec<u8>>),
+    PeerEcho,
 }
 
 impl CloseMachine {
@@ -143,7 +143,7 @@ impl CloseMachine {
         let peer = self.peer.as_ref().map_or(0, |peer| peer.owner.len());
         let local = match self.local_payload.as_ref() {
             Some(LocalClose::Owned(payload)) => payload.len(),
-            Some(LocalClose::PeerEcho(_)) | None => 0,
+            Some(LocalClose::PeerEcho) | None => 0,
         };
         peer.saturating_add(local)
     }
@@ -178,13 +178,8 @@ impl CloseMachine {
 
     pub(crate) fn admit_peer_echo(&mut self) {
         debug_assert!(self.local_payload.is_none());
-        let owner = self
-            .peer
-            .as_ref()
-            .expect("peer echo requires an admitted peer close")
-            .owner
-            .clone();
-        self.local_payload = Some(LocalClose::PeerEcho(owner));
+        debug_assert!(self.peer.is_some());
+        self.local_payload = Some(LocalClose::PeerEcho);
         self.write_pending = true;
     }
 
@@ -199,11 +194,7 @@ impl CloseMachine {
     }
 
     pub(crate) fn is_complete(&self) -> bool {
-        self.local_payload
-            .as_ref()
-            .is_some_and(|local| local.payload_len() <= 125)
-            && self.peer.is_some()
-            && !self.write_pending
+        self.local_payload.is_some() && self.peer.is_some() && !self.write_pending
     }
 
     pub(crate) fn eof_failure(&self) -> CloseFailure {
@@ -216,15 +207,6 @@ impl CloseMachine {
             (false, true, _) => CloseFailure::EofBeforeAcknowledgement,
             (true, true, _) => CloseFailure::EofBeforeCloseWriteFlushed,
             (false, false, _) => CloseFailure::UnexpectedEofOpen,
-        }
-    }
-}
-
-impl LocalClose {
-    fn payload_len(&self) -> usize {
-        match self {
-            Self::Owned(payload) => payload.len(),
-            Self::PeerEcho(payload) => payload.len(),
         }
     }
 }
@@ -256,10 +238,6 @@ pub(crate) fn prepare_local_close(
             length: u64::try_from(payload_length).unwrap_or(u64::MAX),
         }));
     }
-    if config.write_queue_entries() < 1 {
-        return Err(FailureKind::Backpressure(QueueKind::Write));
-    }
-
     validate_mask_key(role, mask_key)?;
     let encoder = FrameEncoder::new(config.clone(), role);
     let placeholder = [0_u8; 125];
@@ -327,9 +305,6 @@ pub(crate) fn encode_peer_echo(
     config: &ConnectionConfig,
     payload: &[u8],
 ) -> Result<Box<[u8]>, FailureKind> {
-    if config.write_queue_entries() < 1 {
-        return Err(FailureKind::Backpressure(QueueKind::Write));
-    }
     FrameEncoder::new(config.clone(), Role::Server)
         .encode(OutboundFrame::new(true, Opcode::Close, payload), None)
         .map(|encoded| encoded.into_bytes())
@@ -373,5 +348,26 @@ const fn peer_role(endpoint_role: Role) -> Role {
     match endpoint_role {
         Role::Client => Role::Server,
         Role::Server => Role::Client,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CloseInitiator, CloseMachine};
+
+    #[test]
+    fn reset_releases_every_retained_close_field() {
+        let mut machine = CloseMachine::new();
+        machine.begin_local(vec![0x03, 0xe8, b'x'].into_boxed_slice());
+        assert_eq!(machine.initiator(), Some(CloseInitiator::Local));
+        assert_eq!(machine.retained_bytes(), 3);
+        assert!(machine.write_pending());
+
+        machine.reset();
+        assert_eq!(machine.initiator(), None);
+        assert_eq!(machine.retained_bytes(), 0);
+        assert!(!machine.has_local());
+        assert!(!machine.has_peer());
+        assert!(!machine.write_pending());
     }
 }

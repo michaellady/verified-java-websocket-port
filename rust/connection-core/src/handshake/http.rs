@@ -145,9 +145,6 @@ impl HeadAccumulator {
 }
 
 fn validate_response(bytes: &[u8], expected_accept: &[u8; 28]) -> Result<(), HandshakeFailure> {
-    if has_bare_line_ending(bytes) {
-        return Err(HandshakeFailure::BareLineEnding);
-    }
     let status_end = find_crlf(bytes, 0).ok_or(HandshakeFailure::MalformedStatusLine)?;
     validate_status_line(&bytes[..status_end])?;
 
@@ -272,14 +269,6 @@ pub(super) fn find_crlf(bytes: &[u8], start: usize) -> Option<usize> {
         .and_then(|offset| start.checked_add(offset))
 }
 
-pub(super) fn has_bare_line_ending(bytes: &[u8]) -> bool {
-    bytes.iter().enumerate().any(|(index, byte)| match byte {
-        b'\r' => bytes.get(index + 1) != Some(&b'\n'),
-        b'\n' => index == 0 || bytes[index - 1] != b'\r',
-        _ => false,
-    })
-}
-
 pub(super) fn contains_comma_token(value: &[u8], required: &[u8]) -> bool {
     let mut found = false;
     for member in value.split(|byte| *byte == b',') {
@@ -292,20 +281,16 @@ pub(super) fn contains_comma_token(value: &[u8], required: &[u8]) -> bool {
     found
 }
 
-pub(super) fn trim_ows(mut value: &[u8]) -> &[u8] {
-    while value
-        .first()
-        .is_some_and(|byte| *byte == b' ' || *byte == b'\t')
-    {
-        value = &value[1..];
-    }
-    while value
-        .last()
-        .is_some_and(|byte| *byte == b' ' || *byte == b'\t')
-    {
-        value = &value[..value.len() - 1];
-    }
-    value
+pub(super) fn trim_ows(value: &[u8]) -> &[u8] {
+    let start = value
+        .iter()
+        .position(|byte| !matches!(byte, b' ' | b'\t'))
+        .unwrap_or(value.len());
+    let end = value
+        .iter()
+        .rposition(|byte| !matches!(byte, b' ' | b'\t'))
+        .map_or(start, |index| index + 1);
+    &value[start..end]
 }
 
 pub(super) fn ascii_eq(left: &[u8], right: &[u8]) -> bool {
@@ -339,4 +324,51 @@ pub(super) const fn is_token_byte(byte: u8) -> bool {
 
 pub(super) const fn is_field_value_byte(byte: u8) -> bool {
     byte == b'\t' || (byte >= b' ' && byte <= b'~') || byte >= 0x80
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{HeadAccumulator, HeadProgress, trim_ows, validate_status_line};
+    use crate::HandshakeFailure;
+
+    #[test]
+    fn trim_ows_preserves_only_the_interior_octets() {
+        assert_eq!(trim_ows(b""), b"");
+        assert_eq!(trim_ows(b" \t  "), b"");
+        assert_eq!(trim_ows(b"\t value with spaces \t"), b"value with spaces");
+        assert_eq!(trim_ows(b"value"), b"value");
+    }
+
+    #[test]
+    fn status_line_arithmetic_and_minimum_shape_are_exact() {
+        assert_eq!(validate_status_line(b"HTTP/1.1 101 "), Ok(()));
+        assert_eq!(
+            validate_status_line(b"HTTP/1.1 201 nope"),
+            Err(HandshakeFailure::StatusNotSwitchingProtocols { received: 201 })
+        );
+        assert_eq!(
+            validate_status_line(b"HTTP/1.1 10x nope"),
+            Err(HandshakeFailure::MalformedStatusLine)
+        );
+        assert_eq!(
+            validate_status_line(b"HTTP/1.1 101"),
+            Err(HandshakeFailure::MalformedStatusLine)
+        );
+    }
+
+    #[test]
+    fn clearing_a_partial_head_resets_all_parser_counters() {
+        let mut head = HeadAccumulator::new(64, 32, 2);
+        assert!(matches!(
+            head.consume(b"HTTP/1.1 101 Switching\r\nX-Test: "),
+            HeadProgress::Incomplete
+        ));
+        assert!(!head.bytes().is_empty());
+        head.clear();
+        assert!(head.bytes().is_empty());
+        assert!(matches!(
+            head.consume(b"HTTP/1.1 101 Ok\r\n\r\n"),
+            HeadProgress::Complete
+        ));
+    }
 }

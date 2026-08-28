@@ -1307,7 +1307,8 @@ impl ConnectionCore {
         }
         if let CoreInput::Transport(bytes) = input
             && self.role == Role::Client
-            && self.client_handshake.awaiting_response()
+            && self.state == ConnectionState::Connecting
+            && self.client_handshake.has_started()
         {
             match self.client_handshake.consume_response(bytes.as_slice()) {
                 ClientResponse::Incomplete => {
@@ -1348,7 +1349,7 @@ impl ConnectionCore {
         }
         if let CoreInput::Transport(bytes) = input
             && self.role == Role::Server
-            && self.server_handshake.awaiting_request()
+            && self.state == ConnectionState::Connecting
         {
             match self.server_handshake.consume_request(bytes.as_slice()) {
                 ServerRequest::Incomplete => {
@@ -1434,25 +1435,12 @@ impl ConnectionCore {
             };
         }
         if let CoreInput::TransportEof = input
-            && self.role == Role::Client
-            && self.client_handshake.awaiting_response()
-        {
-            self.client_handshake.mark_failed();
-            return self
-                .close_with_failure(FailureKind::Handshake(HandshakeFailure::UnexpectedEof));
-        }
-        if let CoreInput::TransportEof = input
-            && self.role == Role::Server
-            && self.server_handshake.awaiting_request()
-        {
-            self.server_handshake.mark_failed();
-            return self
-                .close_with_failure(FailureKind::Handshake(HandshakeFailure::UnexpectedEof));
-        }
-        if let CoreInput::TransportEof = input
             && self.state == ConnectionState::Connecting
         {
-            self.client_handshake.mark_failed();
+            match self.role {
+                Role::Client => self.client_handshake.mark_failed(),
+                Role::Server => self.server_handshake.mark_failed(),
+            }
             return self
                 .close_with_failure(FailureKind::Handshake(HandshakeFailure::UnexpectedEof));
         }

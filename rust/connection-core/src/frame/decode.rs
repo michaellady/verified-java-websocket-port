@@ -284,7 +284,7 @@ impl FrameDecoder {
         let mut staged_event_count = 0usize;
         let mut records = Vec::new();
 
-        while offset < bytes.len() || self.header_length != 0 || self.ready_empty_payload() {
+        while offset < bytes.len() || self.header_length != 0 {
             if self.active.is_none() {
                 let retained_payload_bytes = match self
                     .fragments
@@ -353,9 +353,7 @@ impl FrameDecoder {
                                 }
                             }
                         };
-                        if payload_length != 0
-                            && self.payload.try_reserve_exact(payload_length).is_err()
-                        {
+                        if self.payload.try_reserve_exact(payload_length).is_err() {
                             self.reset();
                             return FrameDecodeBatch::failed(
                                 records,
@@ -517,12 +515,6 @@ impl FrameDecoder {
             failure: None,
             consumed_bytes: offset,
         }
-    }
-
-    fn ready_empty_payload(&self) -> bool {
-        self.active
-            .as_ref()
-            .is_some_and(|header| header.payload_length() == 0)
     }
 
     pub(crate) fn reset(&mut self) {

@@ -52,16 +52,16 @@ impl FrameEncoder {
         bytes
             .try_reserve_exact(wire_length)
             .map_err(|_| FailureKind::Frame(FrameFailure::AllocationFailed))?;
-        bytes.push((if frame.fin() { 0x80 } else { 0 }) | opcode.wire());
+        bytes.push((if frame.fin() { 0x80 } else { 0 }) + opcode.wire());
         let mask_bit = if mask_key.is_some() { 0x80 } else { 0 };
         match payload.len() {
-            length @ 0..=125 => bytes.push(mask_bit | length as u8),
+            length @ 0..=125 => bytes.push(mask_bit + length as u8),
             length @ 126..=65_535 => {
-                bytes.push(mask_bit | 126);
+                bytes.push(mask_bit + 126);
                 bytes.extend_from_slice(&(length as u16).to_be_bytes());
             }
             length => {
-                bytes.push(mask_bit | 127);
+                bytes.push(mask_bit + 127);
                 bytes.extend_from_slice(&(length as u64).to_be_bytes());
             }
         }

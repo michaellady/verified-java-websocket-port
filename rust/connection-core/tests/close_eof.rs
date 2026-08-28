@@ -133,6 +133,53 @@ fn local_first_close_waits_for_peer_and_write_flush() {
 }
 
 #[test]
+fn local_close_exact_payload_total_budget_and_role_masks_are_independent() {
+    let exact = config_with(|limits| {
+        limits.frame_bytes = 252;
+        limits.message_bytes = 252;
+        limits.total_buffered_bytes = 252;
+    });
+    let mut server = open_core(Role::Server, exact);
+    let reason = "x".repeat(123);
+    let admitted = server.step(CoreInput::Command(LocalCommand::Close {
+        code: Some(1000),
+        reason: reason.clone().into_boxed_str(),
+        mask_key: None,
+    }));
+    assert_eq!(admitted.failure(), None);
+    let CoreOutput::TransportWrite(write) = admitted.outputs().next().unwrap() else {
+        panic!("exact close must produce one wire frame");
+    };
+    assert_eq!(write.as_slice().len(), 127);
+    assert_eq!(&write.as_slice()[..4], &[0x88, 125, 0x03, 0xe8]);
+    assert_eq!(&write.as_slice()[4..], reason.as_bytes());
+
+    let mut client = open_core(Role::Client, config());
+    let missing = client.step(CoreInput::Command(LocalCommand::Close {
+        code: Some(1000),
+        reason: "".into(),
+        mask_key: None,
+    }));
+    assert_eq!(
+        failure(&missing),
+        Some(&FailureKind::Frame(FrameFailure::MissingMaskKey))
+    );
+    assert_eq!(missing.state(), ConnectionState::Open);
+
+    let mut server = open_core(Role::Server, config());
+    let unexpected = server.step(CoreInput::Command(LocalCommand::Close {
+        code: Some(1000),
+        reason: "".into(),
+        mask_key: Some([1, 2, 3, 4]),
+    }));
+    assert_eq!(
+        failure(&unexpected),
+        Some(&FailureKind::Frame(FrameFailure::UnexpectedMaskKey))
+    );
+    assert_eq!(unexpected.state(), ConnectionState::Open);
+}
+
+#[test]
 fn peer_first_server_echoes_exact_close_then_closes_on_flush() {
     let mut payload = 1000_u16.to_be_bytes().to_vec();
     payload.extend_from_slice(b"bye");
@@ -685,6 +732,54 @@ fn close_abandons_fragments_and_stops_a_coalesced_batch() {
             .filter(|output| matches!(output, CoreOutput::StateChanged(ConnectionState::Closed)))
             .count(),
         1
+    );
+}
+
+#[test]
+fn close_maps_decoder_fragment_failures_to_data_after_close() {
+    let frame_config = config();
+    let close = encoded_with(
+        Role::Client,
+        &frame_config,
+        Opcode::Close,
+        &close_payload(Some(1000), b"done"),
+    );
+
+    let continuation = encoded_with(Role::Client, &frame_config, Opcode::Continuation, b"orphan");
+    let mut orphan_wire = close.clone();
+    orphan_wire.extend_from_slice(&continuation);
+    let orphan = open_core(Role::Server, config())
+        .step(CoreInput::Transport(TransportBytes::new(&orphan_wire)));
+    assert_eq!(
+        failure(&orphan),
+        Some(&FailureKind::Close(CloseFailure::DataAfterClose {
+            opcode: Opcode::Continuation,
+        }))
+    );
+
+    let first_fragment = FrameEncoder::new(frame_config.clone(), Role::Client)
+        .encode(
+            OutboundFrame::new(false, Opcode::Text, b"active"),
+            Some([1, 2, 3, 4]),
+        )
+        .unwrap();
+    let replacement_data =
+        encoded_with(Role::Client, &frame_config, Opcode::Binary, b"replacement");
+    let mut fragmented = open_core(Role::Server, config());
+    assert_eq!(
+        failure(&fragmented.step(CoreInput::Transport(TransportBytes::new(
+            first_fragment.as_slice(),
+        )))),
+        None
+    );
+    let mut fragmented_wire = close;
+    fragmented_wire.extend_from_slice(&replacement_data);
+    let replacement = fragmented.step(CoreInput::Transport(TransportBytes::new(&fragmented_wire)));
+    assert_eq!(
+        failure(&replacement),
+        Some(&FailureKind::Close(CloseFailure::DataAfterClose {
+            opcode: Opcode::Binary,
+        }))
     );
 }
 

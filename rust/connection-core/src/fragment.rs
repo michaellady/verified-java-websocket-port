@@ -279,7 +279,7 @@ impl FragmentAccumulator {
             FragmentPlan::Rejected => {}
             FragmentPlan::Begin(kind) => {
                 let mut payload = Vec::new();
-                if payload_length != 0 && payload.try_reserve_exact(payload_length).is_err() {
+                if payload.try_reserve_exact(payload_length).is_err() {
                     return Err(FailureKind::Frame(FrameFailure::AllocationFailed));
                 }
                 self.active = Some(match kind {
@@ -296,7 +296,7 @@ impl FragmentAccumulator {
                     .as_mut()
                     .expect("a planned continuation has an active message")
                     .payload_mut();
-                if payload_length != 0 && payload.try_reserve_exact(payload_length).is_err() {
+                if payload.try_reserve_exact(payload_length).is_err() {
                     return Err(FailureKind::Frame(FrameFailure::AllocationFailed));
                 }
             }
@@ -376,5 +376,40 @@ impl FragmentAccumulator {
 
     pub(crate) fn reset(&mut self) {
         self.active = None;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{
+        DeliveryKind, FragmentAccumulator, FragmentKind, FragmentPlan, OutboundFragmentState,
+    };
+    use crate::{ConnectionConfig, ConnectionLimits, Opcode};
+
+    #[test]
+    fn outbound_reset_clears_kind_and_accumulated_length() {
+        let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+        let mut state = OutboundFragmentState::new();
+        let plan = state.plan(&config, FragmentKind::Text, false, 7).unwrap();
+        state.commit(plan);
+        assert_eq!(state.active_opcode(), Some(Opcode::Text));
+        state.reset();
+        assert_eq!(state.active_opcode(), None);
+        let fresh = state.plan(&config, FragmentKind::Binary, false, 5).unwrap();
+        assert_eq!(fresh.opcode, Opcode::Binary);
+    }
+
+    #[test]
+    fn inbound_reset_releases_payload_and_utf8_state() {
+        let mut fragments = FragmentAccumulator::new();
+        let plan = FragmentPlan::Begin(DeliveryKind::Text);
+        fragments.prepare(plan, 3).unwrap();
+        fragments.feed(plan, b"abc").unwrap();
+        fragments.commit(plan, b"abc").unwrap();
+        assert_eq!(fragments.retained_bytes(), 3);
+        assert!(fragments.unexpected_eof().is_some());
+        fragments.reset();
+        assert_eq!(fragments.retained_bytes(), 0);
+        assert_eq!(fragments.unexpected_eof(), None);
     }
 }

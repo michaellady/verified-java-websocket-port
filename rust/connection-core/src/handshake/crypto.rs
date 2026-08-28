@@ -42,14 +42,6 @@ pub(crate) fn canonical_nonce_key(key: &[u8]) -> Result<[u8; 24], NonceKeyError>
     {
         return Err(NonceKeyError::InvalidEncoding);
     }
-    if padding == 2
-        && (data_end == 0 || decode_base64(key[data_end - 1]).is_none_or(|value| value & 0x0f != 0))
-        || padding == 1
-            && (data_end == 0
-                || decode_base64(key[data_end - 1]).is_none_or(|value| value & 0x03 != 0))
-    {
-        return Err(NonceKeyError::InvalidEncoding);
-    }
     let decoded = key
         .len()
         .checked_div(4)
@@ -61,9 +53,6 @@ pub(crate) fn canonical_nonce_key(key: &[u8]) -> Result<[u8; 24], NonceKeyError>
             decoded: u64::try_from(decoded).unwrap_or(u64::MAX),
         });
     }
-    if key.len() != 24 || padding != 2 {
-        return Err(NonceKeyError::InvalidEncoding);
-    }
     let mut nonce = [0u8; 16];
     let mut input_index = 0usize;
     let mut output_index = 0usize;
@@ -72,9 +61,9 @@ pub(crate) fn canonical_nonce_key(key: &[u8]) -> Result<[u8; 24], NonceKeyError>
         let second = decode_base64(key[input_index + 1]).ok_or(NonceKeyError::InvalidEncoding)?;
         let third = decode_base64(key[input_index + 2]).ok_or(NonceKeyError::InvalidEncoding)?;
         let fourth = decode_base64(key[input_index + 3]).ok_or(NonceKeyError::InvalidEncoding)?;
-        nonce[output_index] = (first << 2) | (second >> 4);
-        nonce[output_index + 1] = (second << 4) | (third >> 2);
-        nonce[output_index + 2] = (third << 6) | fourth;
+        nonce[output_index] = (first << 2) + (second >> 4);
+        nonce[output_index + 1] = (second << 4) + (third >> 2);
+        nonce[output_index + 2] = (third << 6) + fourth;
         input_index += 4;
         output_index += 3;
     }
@@ -83,7 +72,7 @@ pub(crate) fn canonical_nonce_key(key: &[u8]) -> Result<[u8; 24], NonceKeyError>
     if second & 0x0f != 0 {
         return Err(NonceKeyError::InvalidEncoding);
     }
-    nonce[15] = (first << 2) | (second >> 4);
+    nonce[15] = (first << 2) + (second >> 4);
     if encode_nonce(nonce).as_slice() != key {
         return Err(NonceKeyError::InvalidEncoding);
     }
@@ -136,9 +125,9 @@ fn sha1_compress(state: &mut [u32; 5], block: &[u8]) {
     let mut e = state[4];
     for (index, word) in words.into_iter().enumerate() {
         let (function, constant) = match index {
-            0..=19 => ((b & c) | ((!b) & d), 0x5a82_7999),
+            0..=19 => ((b & c) ^ ((!b) & d), 0x5a82_7999),
             20..=39 => (b ^ c ^ d, 0x6ed9_eba1),
-            40..=59 => ((b & c) | (b & d) | (c & d), 0x8f1b_bcdc),
+            40..=59 => ((b & c) ^ (b & d) ^ (c & d), 0x8f1b_bcdc),
             _ => (b ^ c ^ d, 0xca62_c1d6),
         };
         let temporary = a
@@ -177,7 +166,7 @@ fn encode_digest(digest: [u8; 20]) -> [u8; 28] {
     let first = digest[18];
     let second = digest[19];
     output[24] = BASE64[usize::from(first >> 2)];
-    output[25] = BASE64[usize::from(((first & 0x03) << 4) | (second >> 4))];
+    output[25] = BASE64[usize::from(((first & 0x03) << 4) + (second >> 4))];
     output[26] = BASE64[usize::from((second & 0x0f) << 2)];
     output
 }
@@ -195,7 +184,7 @@ fn decode_base64(byte: u8) -> Option<u8> {
 
 fn encode_triplet(first: u8, second: u8, third: u8, output: &mut [u8]) {
     output[0] = BASE64[usize::from(first >> 2)];
-    output[1] = BASE64[usize::from(((first & 0x03) << 4) | (second >> 4))];
-    output[2] = BASE64[usize::from(((second & 0x0f) << 2) | (third >> 6))];
+    output[1] = BASE64[usize::from(((first & 0x03) << 4) + (second >> 4))];
+    output[2] = BASE64[usize::from(((second & 0x0f) << 2) + (third >> 6))];
     output[3] = BASE64[usize::from(third & 0x3f)];
 }

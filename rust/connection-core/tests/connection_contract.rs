@@ -2,7 +2,8 @@
 
 use websocket_core::{
     ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput,
-    CoreOutput, FailureKind, LimitKind, LimitRelationship, LocalCommand, Role, TransportBytes,
+    CoreOutput, FailureKind, FrameDirection, LimitKind, LimitRelationship, LocalCommand, Role,
+    TransportBytes,
 };
 
 #[test]
@@ -24,6 +25,10 @@ fn step_accounting_reports_exact_partial_consumption_and_retention() {
             .state(),
         ConnectionState::Open
     );
+    let handshake = core.last_step_observation().accounting();
+    assert_eq!(handshake.bytes_consumed, REQUEST.len());
+    assert_eq!(handshake.pre_state, ConnectionState::Connecting);
+    assert_eq!(handshake.post_state, ConnectionState::Open);
 
     let partial = core.step(CoreInput::Transport(TransportBytes::new(&[0x83])));
     let accounting = core.last_step_observation().accounting();
@@ -42,6 +47,64 @@ fn step_accounting_reports_exact_partial_consumption_and_retention() {
     assert_eq!(accounting.pre_state, ConnectionState::Open);
     assert_eq!(accounting.post_state, ConnectionState::Closed);
     assert_eq!(rejected.state(), ConnectionState::Closed);
+}
+
+#[test]
+fn public_limit_names_are_stable_transport_diagnostics() {
+    let cases = [
+        (LimitKind::HandshakeBytes, "handshake bytes"),
+        (LimitKind::HandshakeHeaderCount, "handshake header count"),
+        (
+            LimitKind::HandshakeHeaderLineBytes,
+            "handshake header-line bytes",
+        ),
+        (LimitKind::FrameBytes, "frame bytes"),
+        (LimitKind::MessageBytes, "message bytes"),
+        (LimitKind::TotalBufferedBytes, "total buffered bytes"),
+        (LimitKind::EventQueueEntries, "event queue entries"),
+        (LimitKind::CommandQueueEntries, "command queue entries"),
+        (LimitKind::WriteQueueEntries, "write queue entries"),
+    ];
+    for (kind, expected) in cases {
+        assert_eq!(kind.to_string(), expected);
+    }
+}
+
+#[test]
+fn outbound_frame_observations_pin_every_public_field() {
+    const REQUEST: &[u8] = b"GET /chat HTTP/1.1\r\nHost: server.example.com\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+    let mut core = ConnectionCore::new(config, Role::Server);
+    let _ = core.step(CoreInput::Transport(TransportBytes::new(REQUEST)));
+
+    let _ = core.step(CoreInput::Command(LocalCommand::SendFragment {
+        kind: websocket_core::FragmentKind::Binary,
+        final_fragment: false,
+        payload: vec![0x11, 0x22].into_boxed_slice(),
+        mask_key: None,
+    }));
+    let observation = core.last_step_observation();
+    let frames = observation.frames().collect::<Vec<_>>();
+    assert_eq!(frames.len(), 1);
+    assert_eq!(frames[0].direction(), FrameDirection::Outbound);
+    assert!(!frames[0].fin());
+    assert_eq!(frames[0].opcode(), websocket_core::Opcode::Binary);
+    assert!(!frames[0].masked());
+    assert_eq!(frames[0].payload(), [0x11, 0x22]);
+    assert_eq!(frames[0].wire_length(), 4);
+
+    let _ = core.step(CoreInput::Command(LocalCommand::SendFragment {
+        kind: websocket_core::FragmentKind::Binary,
+        final_fragment: true,
+        payload: vec![0x33].into_boxed_slice(),
+        mask_key: None,
+    }));
+    let frames = core.last_step_observation().frames().collect::<Vec<_>>();
+    assert_eq!(frames.len(), 1);
+    assert!(frames[0].fin());
+    assert_eq!(frames[0].opcode(), websocket_core::Opcode::Continuation);
+    assert_eq!(frames[0].payload(), [0x33]);
+    assert_eq!(frames[0].wire_length(), 3);
 }
 
 #[test]

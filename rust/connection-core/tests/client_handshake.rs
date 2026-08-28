@@ -61,6 +61,25 @@ fn descriptor_rejects_ambiguous_or_injectable_wire_fields() {
 }
 
 #[test]
+fn descriptor_hard_ceilings_admit_exactly_one_mebibyte() {
+    const MAXIMUM: usize = 1_048_576;
+    let exact_target = format!("/{}", "a".repeat(MAXIMUM - 1));
+    let exact_host = "h".repeat(MAXIMUM);
+    assert!(ClientRequestDescriptor::try_new(&exact_target, &exact_host).is_ok());
+
+    let oversized_target = format!("/{}", "a".repeat(MAXIMUM));
+    assert_eq!(
+        ClientRequestDescriptor::try_new(&oversized_target, "example.com"),
+        Err(ClientRequestDescriptorError::RequestTargetTooLong)
+    );
+    let oversized_host = "h".repeat(MAXIMUM + 1);
+    assert_eq!(
+        ClientRequestDescriptor::try_new("/", &oversized_host),
+        Err(ClientRequestDescriptorError::HostTooLong)
+    );
+}
+
+#[test]
 fn rfc_accept_literal_opens_the_client_after_the_fixed_nonce_request() {
     let descriptor = ClientRequestDescriptor::try_new("/chat", "server.example.com").unwrap();
     let mut core = client();

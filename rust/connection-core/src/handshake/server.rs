@@ -1,7 +1,7 @@
 use crate::handshake::crypto;
 use crate::handshake::http::{
     HeadAccumulator, HeadProgress, ascii_eq, contains_comma_token, duplicate_before, find_crlf,
-    has_bare_line_ending, is_field_value_byte, is_token_byte, trim_ows,
+    is_field_value_byte, is_token_byte, trim_ows,
 };
 use crate::{HandshakeFailure, LimitKind};
 
@@ -59,10 +59,6 @@ impl ServerHandshake {
             maximum_line_bytes,
             maximum_header_count,
         }
-    }
-
-    pub(crate) fn awaiting_request(&self) -> bool {
-        matches!(self.phase, ServerPhase::AwaitingRequest { .. })
     }
 
     pub(crate) fn mark_failed(&mut self) {
@@ -124,6 +120,7 @@ pub(crate) enum ServerRequest {
     },
 }
 
+#[derive(Debug)]
 pub(crate) struct ServerLimitExceeded {
     pub(crate) limit: LimitKind,
     pub(crate) attempted: u64,
@@ -135,9 +132,6 @@ struct ParsedRequest {
 }
 
 fn validate_request(bytes: &[u8]) -> Result<ParsedRequest, HandshakeFailure> {
-    if has_bare_line_ending(bytes) {
-        return Err(HandshakeFailure::BareLineEnding);
-    }
     let request_line_end = find_crlf(bytes, 0).ok_or(HandshakeFailure::MalformedRequestLine)?;
     let request_target = validate_request_line(&bytes[..request_line_end])?;
 
@@ -352,4 +346,62 @@ fn canonical_response(
     response.extend_from_slice(END);
     debug_assert_eq!(response.len(), total);
     Ok(response.into_boxed_slice())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ServerHandshake, ServerRequest, canonical_response, validate_request_line};
+    use crate::{HandshakeFailure, LimitKind};
+
+    #[test]
+    fn request_line_empty_components_are_independently_malformed() {
+        for line in [b" GET / HTTP/1.1".as_slice(), b"GET  HTTP/1.1", b"GET / "] {
+            assert_eq!(
+                validate_request_line(line),
+                Err(HandshakeFailure::MalformedRequestLine),
+                "line={line:?}"
+            );
+        }
+        assert_eq!(
+            validate_request_line(b"GET / HTTP/1.1"),
+            Ok(b"/".as_slice())
+        );
+    }
+
+    #[test]
+    fn canonical_response_admits_each_exact_limit_and_rejects_one_less() {
+        let key = *b"dGhlIHNhbXBsZSBub25jZQ==";
+        let response = canonical_response(&key, usize::MAX, usize::MAX, usize::MAX).unwrap();
+        let total = response.len();
+        let longest_line = response
+            .split_inclusive(|byte| *byte == b'\n')
+            .map(<[u8]>::len)
+            .max()
+            .unwrap();
+
+        assert!(canonical_response(&key, total, longest_line, 3).is_ok());
+        let total_failure = canonical_response(&key, total - 1, longest_line, 3).unwrap_err();
+        assert_eq!(total_failure.limit, LimitKind::HandshakeBytes);
+        assert_eq!(total_failure.attempted, u64::try_from(total).unwrap());
+        let line_failure = canonical_response(&key, total, longest_line - 1, 3).unwrap_err();
+        assert_eq!(line_failure.limit, LimitKind::HandshakeHeaderLineBytes);
+        assert_eq!(line_failure.attempted, u64::try_from(longest_line).unwrap());
+        let count_failure = canonical_response(&key, total, longest_line, 2).unwrap_err();
+        assert_eq!(count_failure.limit, LimitKind::HandshakeHeaderCount);
+        assert_eq!(count_failure.attempted, 3);
+    }
+
+    #[test]
+    fn marking_failed_clears_and_disables_the_partial_request_parser() {
+        let mut handshake = ServerHandshake::new(4096, 512, 32);
+        assert!(matches!(
+            handshake.consume_request(b"GET / HTTP/1.1\r\nHost: example.com"),
+            ServerRequest::Incomplete
+        ));
+        handshake.mark_failed();
+        assert!(matches!(
+            handshake.consume_request(b"ignored"),
+            ServerRequest::NotAwaiting
+        ));
+    }
 }

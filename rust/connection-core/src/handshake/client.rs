@@ -139,16 +139,12 @@ impl ClientHandshake {
             expected_accept,
             parser: ResponseParser::new(maximum_bytes, maximum_line_bytes, maximum_header_count),
         };
-        debug_assert!(self.awaiting_response());
+        debug_assert!(matches!(self.phase, ClientPhase::AwaitingResponse { .. }));
         Ok(request)
     }
 
     pub(crate) fn has_started(&self) -> bool {
         !matches!(self.phase, ClientPhase::AwaitingStart)
-    }
-
-    pub(crate) fn awaiting_response(&self) -> bool {
-        matches!(self.phase, ClientPhase::AwaitingResponse { .. })
     }
 
     pub(crate) fn mark_failed(&mut self) {
@@ -187,6 +183,7 @@ pub(crate) enum ClientResponse {
     LimitExceeded { limit: LimitKind, attempted: u64 },
 }
 
+#[derive(Debug)]
 pub(crate) struct ClientLimitExceeded {
     pub(crate) limit: LimitKind,
     pub(crate) attempted: u64,
@@ -231,4 +228,69 @@ fn canonical_request(
     request.extend_from_slice(VERSION);
     debug_assert_eq!(request.len(), length);
     request.into_boxed_slice()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ClientHandshake, ClientRequestDescriptor, ClientResponse};
+    use crate::LimitKind;
+
+    #[test]
+    fn canonical_request_admits_each_exact_limit_and_rejects_one_less() {
+        let descriptor = ClientRequestDescriptor::try_new("/chat", "server.example.com").unwrap();
+        let nonce = *b"the sample nonce";
+        let mut unconstrained = ClientHandshake::new();
+        let request = unconstrained
+            .start(
+                descriptor.clone(),
+                nonce,
+                usize::MAX,
+                usize::MAX,
+                usize::MAX,
+            )
+            .unwrap();
+        let total = request.len();
+        let longest_line = request
+            .split_inclusive(|byte| *byte == b'\n')
+            .map(<[u8]>::len)
+            .max()
+            .unwrap();
+
+        assert!(
+            ClientHandshake::new()
+                .start(descriptor.clone(), nonce, total, longest_line, 5)
+                .is_ok()
+        );
+        let total_failure = ClientHandshake::new()
+            .start(descriptor.clone(), nonce, total - 1, longest_line, 5)
+            .unwrap_err();
+        assert_eq!(total_failure.limit, LimitKind::HandshakeBytes);
+        assert_eq!(total_failure.attempted, u64::try_from(total).unwrap());
+        let line_failure = ClientHandshake::new()
+            .start(descriptor.clone(), nonce, total, longest_line - 1, 5)
+            .unwrap_err();
+        assert_eq!(line_failure.limit, LimitKind::HandshakeHeaderLineBytes);
+        assert_eq!(line_failure.attempted, u64::try_from(longest_line).unwrap());
+        let count_failure = ClientHandshake::new()
+            .start(descriptor, nonce, total, longest_line, 4)
+            .unwrap_err();
+        assert_eq!(count_failure.limit, LimitKind::HandshakeHeaderCount);
+        assert_eq!(count_failure.attempted, 5);
+    }
+
+    #[test]
+    fn marking_failed_releases_the_partial_response_parser() {
+        let descriptor = ClientRequestDescriptor::try_new("/", "example.com").unwrap();
+        let mut handshake = ClientHandshake::new();
+        handshake.start(descriptor, [0; 16], 4096, 512, 32).unwrap();
+        assert!(matches!(
+            handshake.consume_response(b"HTTP/1.1 101 Switching"),
+            ClientResponse::Incomplete
+        ));
+        handshake.mark_failed();
+        assert!(matches!(
+            handshake.consume_response(b"ignored"),
+            ClientResponse::NotAwaiting
+        ));
+    }
 }

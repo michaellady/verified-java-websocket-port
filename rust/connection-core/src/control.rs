@@ -181,9 +181,6 @@ pub(crate) fn encode_local_control(
     payload: &[u8],
     mask_key: Option<[u8; 4]>,
 ) -> Result<Box<[u8]>, FailureKind> {
-    if config.write_queue_entries() < 1 {
-        return Err(FailureKind::Backpressure(QueueKind::Write));
-    }
     let encoder = FrameEncoder::new(config.clone(), role);
     let frame = OutboundFrame::new(true, opcode, payload);
     encoder.preflight(frame, mask_key)?;

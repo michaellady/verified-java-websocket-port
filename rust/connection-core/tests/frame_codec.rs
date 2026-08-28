@@ -73,6 +73,32 @@ fn assert_frame(frame: &Frame, fin: bool, opcode: Opcode, masked: bool, payload:
     assert_eq!(frame.payload(), payload);
 }
 
+#[test]
+fn decoded_header_lengths_include_every_wire_header_octet() {
+    let config = config_with(|_| {});
+    let FrameHeaderDecode::Complete(short) =
+        FrameHeaderDecoder::decode_header(&config, Role::Client, 0, &[0x81, 0x00]).unwrap()
+    else {
+        panic!("two-byte empty header must be complete");
+    };
+    assert_eq!(short.header_length(), 2);
+    assert_eq!(short.payload_length(), 0);
+    assert!(!short.masked());
+
+    let FrameHeaderDecode::Complete(masked) = FrameHeaderDecoder::decode_header(
+        &config,
+        Role::Server,
+        0,
+        &[0x82, 0xfe, 0x00, 0x7e, 1, 2, 3, 4],
+    )
+    .unwrap() else {
+        panic!("masked 16-bit header must be complete");
+    };
+    assert_eq!(masked.header_length(), 8);
+    assert_eq!(masked.payload_length(), 126);
+    assert_eq!(masked.mask_key(), Some([1, 2, 3, 4]));
+}
+
 fn header_bytes(fin: bool, opcode: u8, masked: bool, payload_length: u64) -> Vec<u8> {
     let mut bytes = vec![if fin { 0x80 | opcode } else { opcode }];
     let mask = if masked { 0x80 } else { 0 };

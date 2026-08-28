@@ -61,6 +61,66 @@ fn client_fragment_mask_keys_are_explicit_and_repeatable() {
     assert_eq!(wire(&final_fragment), b"\x80\x84\x05\x06\x07\x08\xc7)\xbdM");
 }
 
+#[test]
+fn outbound_fragment_state_kind_and_exact_message_limit_are_enforced() {
+    let config = config_with(|limits| limits.message_bytes = 3);
+    let mut core = open_server(config);
+    let first = core.step(CoreInput::Command(LocalCommand::SendFragment {
+        kind: FragmentKind::Text,
+        final_fragment: false,
+        payload: vec![b'a'].into_boxed_slice(),
+        mask_key: None,
+    }));
+    assert_eq!(first.failure(), None);
+    assert_eq!(wire(&first), b"\x01\x01a");
+
+    let complete_data = core.step(CoreInput::Command(LocalCommand::SendBinary {
+        payload: vec![b'b'].into_boxed_slice(),
+        mask_key: None,
+    }));
+    assert_eq!(
+        complete_data.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Fragment(
+            websocket_core::FragmentFailure::DataFrameWhileFragmented {
+                active: websocket_core::Opcode::Text,
+                received: websocket_core::Opcode::Binary,
+            }
+        ))
+    );
+
+    let wrong_kind = core.step(CoreInput::Command(LocalCommand::SendFragment {
+        kind: FragmentKind::Binary,
+        final_fragment: false,
+        payload: Box::new([]),
+        mask_key: None,
+    }));
+    assert_eq!(
+        wrong_kind.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Fragment(
+            websocket_core::FragmentFailure::DataFrameWhileFragmented {
+                active: websocket_core::Opcode::Text,
+                received: websocket_core::Opcode::Binary,
+            }
+        ))
+    );
+
+    let exact = core.step(CoreInput::Command(LocalCommand::SendFragment {
+        kind: FragmentKind::Text,
+        final_fragment: true,
+        payload: vec![b'b', b'c'].into_boxed_slice(),
+        mask_key: None,
+    }));
+    assert_eq!(exact.failure(), None);
+    assert_eq!(wire(&exact), b"\x80\x02bc");
+
+    let independent = core.step(CoreInput::Command(LocalCommand::SendText {
+        payload: "xyz".into(),
+        mask_key: None,
+    }));
+    assert_eq!(independent.failure(), None);
+    assert_eq!(wire(&independent), b"\x81\x03xyz");
+}
+
 fn open_server(config: ConnectionConfig) -> ConnectionCore {
     let mut core = ConnectionCore::new(config, Role::Server);
     assert_eq!(

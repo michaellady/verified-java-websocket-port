@@ -98,6 +98,61 @@ fn decode_hex_seed(hex: &str) -> Vec<u8> {
 }
 
 #[test]
+fn utf8_above_unicode_max_has_its_exact_failure_class() {
+    let config = config_with(|_| {});
+    let mut core = open_core(Role::Server, config.clone());
+    let wire = encoded(
+        Role::Client,
+        &config,
+        true,
+        Opcode::Text,
+        &[0xf4, 0x90, 0x80, 0x80],
+    );
+    let result = core.step(CoreInput::Transport(TransportBytes::new(&wire)));
+    assert_eq!(
+        result.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Utf8(Utf8Failure::CodePointOutOfRange {
+            offset: 0,
+        }))
+    );
+}
+
+#[test]
+fn completed_fragment_delivery_counts_against_later_frames_in_one_batch() {
+    let config = config_with(|limits| {
+        limits.frame_bytes = 5;
+        limits.message_bytes = 3;
+        limits.total_buffered_bytes = 5;
+    });
+    let wire_config = config_with(|_| {});
+    let mut core = open_core(Role::Server, config.clone());
+    let start = encoded(Role::Client, &wire_config, false, Opcode::Text, b"ab");
+    assert_eq!(
+        core.step(CoreInput::Transport(TransportBytes::new(&start)))
+            .failure(),
+        None
+    );
+
+    let final_fragment = encoded(Role::Client, &wire_config, true, Opcode::Continuation, b"c");
+    let later = encoded(Role::Client, &wire_config, true, Opcode::Binary, &[1, 2]);
+    let mut coalesced = final_fragment;
+    coalesced.extend_from_slice(&later);
+    let result = core.step(CoreInput::Transport(TransportBytes::new(&coalesced)));
+    assert_eq!(
+        result.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::LimitExceeded {
+            limit: LimitKind::TotalBufferedBytes,
+            attempted: 6,
+            maximum: 5,
+        })
+    );
+    assert!(result.outputs().any(|output| matches!(
+        output,
+        CoreOutput::SemanticEvent(SemanticEvent::Text { message }) if message.as_str() == "abc"
+    )));
+}
+
+#[test]
 fn final_text_emits_frame_then_text_with_one_shared_payload() {
     let config = config_with(|_| {});
     let wire = encoded(
