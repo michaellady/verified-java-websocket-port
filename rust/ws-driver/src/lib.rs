@@ -22,6 +22,62 @@
 //! (WebSocketImpl.java:482-486). Autobahn 7.3.2 is the case that separates
 //! them.
 //!
+//! ## Post-failure
+//!
+//! This contract did not exist anywhere in `contracts/`, `docs/` or `rust/`
+//! before it was written here, which is why three separate rounds of the
+//! exploration suite asserted around it. What the driver guarantees after a
+//! fatal:
+//!
+//! **New work is refused.** The first fatal poisons
+//! [`ws_core::ConnectionCore`], so every later input comes back as
+//! `STATE_VIOLATION` (`ws_core::ConnectionCore::handle`).
+//!
+//! **Work committed BEFORE the failure still drains, in committed order.**
+//! Poisoning gates INPUTS, not output drain: [`ConnectionDriver::poll`]
+//! suppresses `next_output()` only on the single poll that carries the
+//! failure, so queued writes and events drain on the polls after it and a
+//! `Terminal` already earned (the core reached `Closed`) is still delivered
+//! exactly once. **No quiescence is promised.** This half MATCHES shipped
+//! Java, which flushes explicitly: `flushAndClose` calls `onWriteDemand`
+//! with the comment "ensures that all outgoing frames are flushed before
+//! closing the connection" (WebSocketImpl.java:594-595), and on the server
+//! `SocketChannelIOHelper.batch` completes the shutdown only once
+//! `outQueue` empties (SocketChannelIOHelper.java:110-113). Halting instead
+//! would DROP committed output, contradicting the
+//! `accepted-eventual-exactly-once` and `fifo-owner-order` properties the
+//! same suite checks. Adapters that need a hard stop implement it
+//! themselves — see `ws-testee`'s `io_loop`.
+//!
+//! **A fatal surfaces as [`DriverOutput::Failure`] however it arrived** —
+//! as inbound bytes or as a rejected command. See
+//! [`ConnectionDriver::finish_poll`] for the defect that made those two
+//! paths distinguishable and the owner decision that closed it.
+//!
+//! **The driver takes NO action in RESPONSE to a fatal — and the owner has
+//! ruled that this must change.** Measured on a real protocol violation
+//! (RSV1 on TEXT; reserved opcode `0x3`): the stack composes no close
+//! frame, performs no state transition, stays in `Open` and therefore never
+//! converges or delivers a `Terminal`; the close code travels as failure
+//! metadata, exactly the java-oracle `error.close_code` shape
+//! (`OracleEngine.java:591-606`). Shipped `WebSocketImpl` on the identical
+//! input does the opposite: it sends a 1002 close frame
+//! (WebSocketImpl.java:405-408, :481-487) and moves `OPEN -> CLOSING`
+//! (:503), later `-> CLOSED` (:566).
+//!
+//! Owner decision `us017-post-failure-owner-decisions-2026-08-28.json`
+//! (`c6-match-java-fully`) rules that the stack must follow shipped
+//! `WebSocketImpl` here. That change is IMPLEMENTED AND MEASURED but NOT
+//! LANDED, because it trips the decision's own hard-stop condition: placing
+//! the reaction in `ws_core` moves 18 of the 74 public corpus cases off
+//! live Java on `final_state` (`open` -> `closing`) and `counts.frames`
+//! (+1), taking scored-field disagreement with the live oracle from ZERO to
+//! 18. The decision requires that shift be surfaced for an explicit
+//! layer-split ruling rather than re-baselined. Until that ruling lands
+//! this paragraph describes the behaviour, NOT an endorsement of it: the
+//! full measurement is in
+//! `workspace/orchestrator/verified-java-websocket-port-claude/drafts/post-failure-receipt.json`.
+//!
 //! ## Borrow attribution (owner strategy: borrow with attribution)
 //!
 //! Adapted from the Codex-plane US-017 `websocket-driver` (codex-import
@@ -700,6 +756,31 @@ impl ConnectionDriver {
         self.finish_poll(input_disposition, command_disposition, None)
     }
 
+    /// The single funnel every `poll` return passes through, and therefore
+    /// the ONE place a fatal's arrival path can be made invisible.
+    ///
+    /// Owner decision `us017-post-failure-owner-decisions-2026-08-28.json`,
+    /// decision `c5-fatal-command-rejection-surfaces-failure`: a fatal
+    /// arriving as a rejected COMMAND used to be handed back only as
+    /// [`CommandDisposition::Rejected`], with `failure = None` reaching here,
+    /// so `next_output()` ran and no [`DriverOutput::Failure`] was ever
+    /// produced. [`ws_core::ConnectionCore::handle`] had nonetheless set
+    /// `poisoned` on that same failure, so the core was dead while the
+    /// output stream looked healthy. Both halt models in the tree key on
+    /// `DriverOutput::Failure` — `ws-testee`'s `io_loop` and the exploration
+    /// interpreter — so neither halted, and the poisoned connection could go
+    /// on to deliver a clean `Terminal`.
+    ///
+    /// Lifting the failure out of the disposition HERE, rather than at
+    /// either `apply_held_command` call site, is what makes the two arrival
+    /// paths indistinguishable by construction: every future caller inherits
+    /// it without having to remember to.
+    ///
+    /// The disposition is still returned alongside the failure. They are two
+    /// views of one event, not two events: an adapter that reconciles
+    /// commands needs the disposition, and one that halts on fatals needs
+    /// the output. Suppressing either would trade this defect for its mirror
+    /// image.
     fn finish_poll<'owner>(
         &'owner mut self,
         input: InputDisposition,
@@ -707,7 +788,20 @@ impl ConnectionDriver {
         failure: Option<TypedProtocolFailure>,
     ) -> PollResult<'owner> {
         let state = self.core.state();
+        // `apply_held_command` only builds a `Rejected` for a fatal (a
+        // non-fatal refusal re-holds the command and returns `None`), so the
+        // `is_fatal` guard is belt-and-braces: it keeps the promise this
+        // method's name makes even if that invariant ever changes.
+        let failure = failure.or_else(|| match &command {
+            Some(CommandDisposition::Rejected { failure, .. }) if failure.code.is_fatal() => {
+                Some(failure.clone())
+            }
+            _ => None,
+        });
         let output = match failure {
+            // Committed output is NOT lost by yielding the failure first —
+            // it is deferred exactly as the inbound-fatal path already
+            // defers it, and drains on the following polls.
             Some(failure) => DriverOutput::Failure(failure),
             None => self.next_output(),
         };

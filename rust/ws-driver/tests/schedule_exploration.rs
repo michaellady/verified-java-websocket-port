@@ -397,6 +397,37 @@ enum Violation {
     /// failure — and the driver is never asked whether it would have.
     /// See the reachability note in `finish` for what is and is not
     /// verified, and for the measurement behind that distinction.
+    ///
+    /// THE PROPERTY NAME WAS THE THIRD THING THAT OVERPROMISED, and it is
+    /// now fixed: `property()` reads
+    /// `interpreter-halts-at-first-surfaced-failure`, not
+    /// `failure-halt-stops-driving`. The old name named a DRIVER guarantee
+    /// while the check is a property of this interpreter, which is the
+    /// same conflation the two predicate rounds documented in `finish`
+    /// made — expressed in the one place a reader looks first (owner
+    /// decision `us017-post-failure-owner-decisions-2026-08-28.json`,
+    /// sequencing note; investigation finding C4).
+    ///
+    /// C5 CAVEAT — WHAT "FAILURE" MEANS HERE, AND WHY IT NOW MEANS MORE
+    /// THAN IT DID. The halt keys on `DriverOutput::Failure`, which is NOT
+    /// the same predicate as "a fatal happened". A fatal reaches the owner
+    /// by two routes, and the COMMAND route used to surface only a
+    /// `CommandDisposition::Rejected` with no `Failure` output at all
+    /// (`ws_driver::ConnectionDriver::finish_poll` was called with
+    /// `failure = None`), while `ws_core::ConnectionCore::handle` poisoned
+    /// the core all the same. Neither halt model halted on it and the
+    /// poisoned connection could still deliver a clean `Terminal`. That
+    /// asymmetry was ruled a defect
+    /// (`c5-fatal-command-rejection-surfaces-failure`) and fixed at the
+    /// source in `finish_poll`, so a fatal now surfaces a `Failure`
+    /// whichever way it arrived. Two consequences for this suite, stated
+    /// rather than left to be rediscovered: schedules whose fatal arrives
+    /// as a command rejection now HALT where they previously ran on, which
+    /// moves runs from the `closed_terminal_runs` column into
+    /// `failure_halted_runs` while their sum is unchanged; and the
+    /// `failure`-vs-`fatal` gap the accounting note at the bottom of
+    /// `finish` warns about is narrowed by the fix but is NOT claimed
+    /// closed — only measurement, not this comment, can say that.
     TerminalAfterFailure,
     /// Two executions of the same schedule diverged.
     Nondeterminism,
@@ -413,7 +444,7 @@ impl Violation {
             Violation::Convergence => "close-convergence",
             Violation::DuplicateTerminal => "terminal-exactly-once",
             Violation::PostTerminalActivity => "no-post-terminal",
-            Violation::TerminalAfterFailure => "failure-halt-stops-driving",
+            Violation::TerminalAfterFailure => "interpreter-halts-at-first-surfaced-failure",
             Violation::Nondeterminism => "deterministic-replay",
         }
     }
@@ -1044,10 +1075,28 @@ impl Run {
             // a surfaced failure here, so whether IT would stay quiet is
             // untested by this suite. Probing past the halt shows it does
             // not — it goes on to deliver the pending EOF transition and a
-            // `Terminal`. Whether that is a defect depends on the intended
-            // post-failure contract, which the driver does not document and
-            // which this lane did not invent a verdict for; it is reported
-            // for an owner ruling instead.
+            // `Terminal`.
+            //
+            // THE OWNER RULING THAT NOTE ASKED FOR HAS ARRIVED, and it
+            // resolved into two different answers, so read them separately
+            // rather than as one verdict
+            // (`us017-post-failure-owner-decisions-2026-08-28.json`):
+            //
+            //   * The continuation itself is NOT a defect. It is ordered
+            //     delivery of work committed BEFORE the failure — the EOF
+            //     transition and `Terminal` seen past the halt were earned
+            //     by inputs the core had already accepted. On a PURE
+            //     protocol violation (RSV1 on TEXT, reserved opcode 0x3)
+            //     the driver composes nothing at all and stays in `Open`,
+            //     which is the measurement that separates "finishes a
+            //     shutdown it had already begun" from "shuts down because
+            //     of the failure". The contract is now written down in
+            //     `ws_driver`'s module docs instead of being inferred here.
+            //   * What WAS a defect is C5, folded into
+            //     `Violation::TerminalAfterFailure`'s doc comment above: a
+            //     fatal arriving as a command rejection surfaced no
+            //     `Failure` output, so this halt model never saw it. Fixed
+            //     in `finish_poll`; the halt now covers both arrival paths.
             let first_failure = self
                 .outcome
                 .trace
@@ -1397,7 +1446,8 @@ fn first_failing_schedule(
         .map(|(index, schedule)| (index, schedule.clone()))
 }
 
-/// PAIRED POSITIVE CONTROL for the `failure-halt-stops-driving` check.
+/// PAIRED POSITIVE CONTROL for the
+/// `interpreter-halts-at-first-surfaced-failure` check.
 ///
 /// The check in `finish` records `TerminalAfterFailure` when the first
 /// surfaced `Failure` is not the final trace record. Two earlier versions of
@@ -1487,7 +1537,8 @@ fn failure_halt_check_distinguishes_a_halt_from_a_missing_one() {
             .violations
             .contains(&Violation::TerminalAfterFailure),
         "the check MUST fire once a record follows the surfaced failure — if it \
-         does not, `failure-halt-stops-driving` is vacuous again: {unhalted_outcome:?}"
+         does not, `interpreter-halts-at-first-surfaced-failure` is vacuous again: \
+         {unhalted_outcome:?}"
     );
 }
 

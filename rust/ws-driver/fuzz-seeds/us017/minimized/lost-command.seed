@@ -2,5 +2,5 @@ id=minimized-lost-command
 property=accepted-eventual-exactly-once
 mutation=drop-first-accepted-command
 event_queue_capacity=8
-schedule=enqueue-close-b,transport-eof
+schedule=enqueue-close-b,write-all,transport-eof
 counterexample=accepted-not-equal-disposed

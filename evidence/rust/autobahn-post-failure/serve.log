@@ -1,0 +1,249 @@
+listening 127.0.0.1:9010
+session=1 outcome=BudgetExhausted texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=2 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=3 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=4 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=5 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=6 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=7 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=8 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=9 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=10 outcome=Terminal texts=0 binaries=1 pings=0 pongs=0 close=1000:transport terminals=1
+session=11 outcome=Terminal texts=0 binaries=1 pings=0 pongs=0 close=1000:transport terminals=1
+session=12 outcome=Terminal texts=0 binaries=1 pings=0 pongs=0 close=1000:transport terminals=1
+session=13 outcome=Terminal texts=0 binaries=1 pings=0 pongs=0 close=1000:transport terminals=1
+session=14 outcome=Terminal texts=0 binaries=1 pings=0 pongs=0 close=1000:transport terminals=1
+session=15 outcome=Terminal texts=0 binaries=1 pings=0 pongs=0 close=1000:transport terminals=1
+session=16 outcome=Terminal texts=0 binaries=1 pings=0 pongs=0 close=1000:transport terminals=1
+session=17 outcome=Terminal texts=0 binaries=1 pings=0 pongs=0 close=1000:transport terminals=1
+session=18 outcome=Terminal texts=0 binaries=0 pings=1 pongs=0 close=1000:transport terminals=1
+session=19 outcome=Terminal texts=0 binaries=0 pings=1 pongs=0 close=1000:transport terminals=1
+session=20 outcome=Terminal texts=0 binaries=0 pings=1 pongs=0 close=1000:transport terminals=1
+session=21 outcome=Terminal texts=0 binaries=0 pings=1 pongs=0 close=1000:transport terminals=1
+session=22 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=23 outcome=Terminal texts=0 binaries=0 pings=1 pongs=0 close=1000:transport terminals=1
+session=24 outcome=Terminal texts=0 binaries=0 pings=0 pongs=1 close=1000:transport terminals=1
+session=25 outcome=Terminal texts=0 binaries=0 pings=0 pongs=1 close=1000:transport terminals=1
+session=26 outcome=Terminal texts=0 binaries=0 pings=1 pongs=1 close=1000:transport terminals=1
+session=27 outcome=Terminal texts=0 binaries=0 pings=10 pongs=0 close=1000:transport terminals=1
+session=28 outcome=Terminal texts=0 binaries=0 pings=10 pongs=0 close=1000:transport terminals=1
+session=29 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=30 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=31 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=32 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=1 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=33 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=34 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=35 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=36 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=37 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=38 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=39 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=40 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=1 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=41 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=42 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=43 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=44 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=45 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=1 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=46 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=47 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=48 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=49 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=50 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=51 outcome=Terminal texts=1 binaries=0 pings=1 pongs=0 close=1000:transport terminals=1
+session=52 outcome=Terminal texts=1 binaries=0 pings=1 pongs=0 close=1000:transport terminals=1
+session=53 outcome=Terminal texts=1 binaries=0 pings=1 pongs=0 close=1000:transport terminals=1
+session=54 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=55 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=56 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=57 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=58 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=59 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=60 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=61 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=62 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=63 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=64 outcome=Terminal texts=1 binaries=0 pings=2 pongs=0 close=1000:transport terminals=1
+session=65 outcome=Terminal texts=1 binaries=0 pings=2 pongs=0 close=1000:transport terminals=1
+session=66 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=67 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=68 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=69 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=70 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=71 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=72 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=73 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=74 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=75 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=76 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=77 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=78 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=79 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=80 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=81 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=82 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=83 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=84 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=85 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=86 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=87 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=88 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=89 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=90 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=91 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=92 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=93 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=94 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=95 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=96 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=97 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=98 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=99 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=100 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=101 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=102 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=103 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=104 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=105 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=106 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=107 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=108 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=109 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=110 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=111 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=112 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=113 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=114 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=115 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=116 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=117 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=118 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=119 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=120 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=121 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=122 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=123 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=124 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=125 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=126 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=127 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=128 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=129 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=130 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=131 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=132 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=133 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=134 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=135 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=136 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=137 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=138 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=139 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=140 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=141 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=142 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=143 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=144 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=145 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=146 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=147 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=148 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=149 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=150 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=151 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=152 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=153 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=154 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=155 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=156 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=157 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=158 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=159 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=160 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=161 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=162 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=163 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=164 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=165 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=166 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=167 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=168 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=169 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=170 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=171 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=172 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=173 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=174 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=175 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=176 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=177 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=178 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=179 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=180 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=181 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=182 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=183 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=184 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=185 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=186 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=187 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=188 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=189 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=190 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=191 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=192 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=193 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=194 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=195 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=196 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=197 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=198 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=199 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=200 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=201 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=202 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=203 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=204 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=205 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=206 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=207 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=208 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=209 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=210 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=211 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=212 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1000:remote terminals=1
+session=213 outcome=ProtocolFailure(TypedProtocolFailure { code: StateViolation, close_code: None }) texts=0 binaries=0 pings=0 pongs=0 close=1000:remote terminals=0
+session=214 outcome=ProtocolFailure(TypedProtocolFailure { code: StateViolation, close_code: None }) texts=0 binaries=0 pings=0 pongs=0 close=1000:remote terminals=0
+session=215 outcome=ProtocolFailure(TypedProtocolFailure { code: StateViolation, close_code: None }) texts=0 binaries=0 pings=0 pongs=0 close=1000:remote terminals=0
+session=216 outcome=ProtocolFailure(TypedProtocolFailure { code: StateViolation, close_code: None }) texts=0 binaries=0 pings=0 pongs=0 close=1000:remote terminals=0
+session=217 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=218 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1002:transport terminals=1
+session=219 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=220 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=221 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=222 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=223 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaRuntimeRejection, close_code: None }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=224 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1
+session=225 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1001:transport terminals=1
+session=226 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1002:transport terminals=1
+session=227 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1003:transport terminals=1
+session=228 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1007) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=229 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1008:transport terminals=1
+session=230 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1009:transport terminals=1
+session=231 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1010:transport terminals=1
+session=232 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=1011:transport terminals=1
+session=233 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=3000:transport terminals=1
+session=234 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=3999:transport terminals=1
+session=235 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=4000:transport terminals=1
+session=236 outcome=Terminal texts=0 binaries=0 pings=0 pongs=0 close=4999:transport terminals=1
+session=237 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=238 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=239 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=240 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=241 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=242 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=243 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=244 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=245 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=246 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=247 outcome=ProtocolFailure(TypedProtocolFailure { code: JavaInvalidData, close_code: Some(1002) }) texts=0 binaries=0 pings=0 pongs=0 close=none terminals=0
+session=248 outcome=Terminal texts=1 binaries=0 pings=0 pongs=0 close=1000:transport terminals=1

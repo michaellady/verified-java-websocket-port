@@ -457,6 +457,18 @@ fn rejected_command_surfaces_its_typed_failure() {
 /// behaviour being corrected. The scenario it covers is preserved exactly;
 /// only the expectation moved, from a driver-invented verdict to the core's
 /// typed `STATE_VIOLATION`.
+///
+/// SECOND OWNER RULING, SAME PATTERN, ALSO DISCLOSED. The final assertion
+/// used to read `matches!(result.output, DriverOutput::Idle)`. Owner
+/// decision `us017-post-failure-owner-decisions-2026-08-28.json`
+/// (`c5-fatal-command-rejection-surfaces-failure`) ruled exactly that
+/// `Idle` defective: `STATE_VIOLATION` is fatal, it poisons the core, and a
+/// fatal must surface as a `DriverOutput::Failure` however it arrived. The
+/// old assertion encoded the ruled-defective behaviour, so leaving it would
+/// have pinned the defect rather than the contract. The scenario is again
+/// untouched and the expectation is STRICTLY STRONGER than the one it
+/// replaces: it now demands the surfaced failure carry the SAME verdict as
+/// the disposition, which `Idle` asserted nothing about.
 #[test]
 fn commands_queued_at_terminal_are_refused_by_the_core() {
     let mut run = Run::new();
@@ -487,7 +499,16 @@ fn commands_queued_at_terminal_are_refused_by_the_core() {
         Some("STATE_VIOLATION"),
         "the refusal is the core's typed failure, not a driver-invented one"
     );
-    assert!(matches!(result.output, DriverOutput::Idle));
+    let DriverOutput::Failure(surfaced) = result.output else {
+        panic!(
+            "a post-terminal command refused with a FATAL STATE_VIOLATION must surface a \
+             DriverOutput::Failure, not stay silent"
+        );
+    };
+    assert_eq!(
+        surfaced.code, failure.code,
+        "the surfaced failure is the same verdict the disposition carries"
+    );
 }
 
 #[test]
@@ -816,6 +837,84 @@ fn every_admitted_eof_notification_gets_its_own_core_call() {
         "REGRESSION: multiple EOF notifications admitted before the arm could run were \
          collapsed into one core call (1 command + 2 EOF actions expected)"
     );
+}
+
+/// A fatal must surface as a `Failure` output no matter which way it
+/// arrived (owner decision
+/// `us017-post-failure-owner-decisions-2026-08-28.json`, decision
+/// `c5-fatal-command-rejection-surfaces-failure`).
+///
+/// THE DEFECT THIS PINS. A fatal reaches the owner by two routes. The
+/// inbound-bytes route returns `finish_poll(.., Some(failure))`, which
+/// yields `DriverOutput::Failure`. The COMMAND route returned
+/// `Some(CommandDisposition::Rejected { .. })` and then called
+/// `finish_poll` with `failure = None`, so `next_output()` ran normally and
+/// no `Failure` was ever produced — while `ConnectionCore::handle` had
+/// already set `poisoned` on exactly the same failure. Both halt models key
+/// on `DriverOutput::Failure` (`ws-testee`'s `io_loop` and the exploration
+/// interpreter), so neither halted, and a driver whose core was already
+/// poisoned could still go on to deliver a clean `Terminal`.
+///
+/// `send_close` with code 999 is the fixture because it is a
+/// `JAVA_INVALID_DATA` rejection with a real close code, so the test also
+/// pins that the surfaced failure carries the SAME code and close code the
+/// disposition carries — a `Failure` with a different verdict from the
+/// rejection would be a new defect wearing this fix's clothes.
+#[test]
+fn a_fatal_command_rejection_surfaces_a_failure_output() {
+    let mut run = Run::new();
+    run.sender
+        .try_send(LocalCommand::SendClose {
+            code: 999,
+            reason: "bad".to_owned(),
+        })
+        .expect("bounded enqueue within capacity");
+
+    let result = run.driver.poll(DriverInput::Wake);
+
+    let Some(CommandDisposition::Rejected { failure, .. }) = result.command.clone() else {
+        panic!("fixture precondition: send_close 999 must be a fatal command rejection");
+    };
+    assert_eq!(failure.code, FailureCode::JavaInvalidData);
+    assert_eq!(failure.close_code, Some(1002));
+
+    let DriverOutput::Failure(surfaced) = result.output else {
+        panic!(
+            "REGRESSION: a fatal arriving as CommandDisposition::Rejected produced no \
+             DriverOutput::Failure, so neither halt model halts on it and the poisoned core \
+             can still deliver a clean Terminal"
+        );
+    };
+    assert_eq!(
+        surfaced.code, failure.code,
+        "the surfaced failure must be the SAME verdict the rejection carries"
+    );
+    assert_eq!(surfaced.close_code, failure.close_code);
+}
+
+/// The companion half: the fatal really did poison the core, so the
+/// `Failure` above is reporting a poisoning that already happened rather
+/// than inventing a verdict of the driver's own.
+#[test]
+fn a_fatal_command_rejection_poisons_the_core() {
+    let mut run = Run::new();
+    run.sender
+        .try_send(LocalCommand::SendClose {
+            code: 999,
+            reason: "bad".to_owned(),
+        })
+        .expect("bounded enqueue within capacity");
+    let _ = run.driver.poll(DriverInput::Wake);
+
+    // A masked, well-formed inbound close frame — legal work on a healthy
+    // server core, refused by a poisoned one.
+    let result = run
+        .driver
+        .poll(DriverInput::Inbound(&[0x88, 0x80, 0x00, 0x00, 0x00, 0x00]));
+    let DriverOutput::Failure(refusal) = result.output else {
+        panic!("the core must refuse further work after a fatal command rejection");
+    };
+    assert_eq!(refusal.code, FailureCode::StateViolation);
 }
 
 /// The same property for `Shutdown`, which latches the same protocol EOF.

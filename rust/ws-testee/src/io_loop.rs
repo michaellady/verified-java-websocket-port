@@ -219,6 +219,44 @@ pub fn drive_connection(
                 continue;
             }
             StepOutput::Failure(failure) => {
+                // ADAPTER POLICY, NOT PORT SEMANTICS — written down because
+                // three rounds of the ws-driver exploration suite mistook
+                // this halt for a driver guarantee and named an invariant
+                // after it.
+                //
+                // Stopping at the first surfaced `Failure`, discarding the
+                // undrained backlog and tearing the socket down BOTH ways is
+                // this adapter's choice. It matches the differential
+                // counterpart `OracleEngine`, whose step loop has no
+                // try/catch and aborts at the first failure
+                // (`OracleEngine.java:311-322`) and whose failure response
+                // deliberately omits `events`, `frames`, `transitions` and
+                // `close` (`OracleEngine.java:591-606`, against `573-585`
+                // for the success shape). The driver beneath makes NO such
+                // promise — see the "Post-failure" section of `ws_driver`'s
+                // module docs: it keeps draining work committed before the
+                // failure, which is the half that matches shipped Java.
+                //
+                // KNOWN DIVERGENCE FROM SHIPPED JAVA AT THIS SEAM, pending
+                // an owner ruling. Autobahn drives `ws-testee` in the
+                // full-stack peer role — the role `WebSocketImpl` plays —
+                // and there shipped Java answers a protocol violation with a
+                // 1002 close frame before closing (WebSocketImpl.java:405-408,
+                // :481-487, :503), flushing it first (:594-595). We send
+                // nothing: all 17 Autobahn section-3/4 pure-violation cases
+                // record zero close frames back and `remoteCloseCode: null`,
+                // with `wasNotCleanReason` reading that the peer dropped TCP
+                // without a closing handshake. Autobahn grades all 17
+                // `behaviorClose: OK`, so nothing fails today. Owner decision
+                // `us017-post-failure-owner-decisions-2026-08-28.json`
+                // (`c6-match-java-fully`) rules this must change; the change
+                // is measured but not landed, because the placement that
+                // fixes it in `ws_core` moves 18 public corpus cases off the
+                // live oracle and the decision's hard-stop condition requires
+                // that be surfaced first. A placement confined to THIS file
+                // cannot move a corpus byte — `ws-oracle-harness` depends
+                // only on `ws-core` and `ws-driver` and never on `ws-testee`
+                // — which is the layer split the owner has yet to rule on.
                 report.outcome = LoopOutcome::ProtocolFailure(failure);
                 let _ = stream.shutdown(std::net::Shutdown::Both);
                 break;
