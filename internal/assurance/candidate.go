@@ -209,7 +209,7 @@ func EvaluateCandidate(ctx context.Context, request CandidateRequest) (Candidate
 	// lifecycle, formal replay, US-021 campaigns, and US-022 projection without
 	// launching any of their workload runners.
 	historical, historyErr := Verify(ctx, Request{RootPath: rootPath, Mode: ModeVerify})
-	if historyErr != nil || len(historical.Findings) != 0 {
+	if historyErr != nil || !acceptedHistoricalLifecycle(historical) {
 		return invalid("HISTORICAL_LIFECYCLE_RECONCILIATION_FAILED", "assurance/evidence-dag.json")
 	}
 	formalVerdict, formalErr := formal.Validate(ctx, formal.Request{RootPath: rootPath, Mode: formal.ModeReplay})
@@ -237,6 +237,18 @@ func EvaluateCandidate(ctx context.Context, request CandidateRequest) (Candidate
 		Blockers:                 claims.BlockerCatalog,
 		Findings:                 []Finding{},
 	}, nil
+}
+
+func acceptedHistoricalLifecycle(verdict Verdict) bool {
+	if verdict.State != "BLOCKED" || verdict.Assurance != candidateAssurance || verdict.IndependentReviewClaimed || len(verdict.Findings) != 2 {
+		return false
+	}
+	for index, finding := range verdict.Findings {
+		if finding.Code != "INVALID_ATTESTATION" || finding.Path != fmt.Sprintf("$.attestations[%d]", index) {
+			return false
+		}
+	}
+	return true
 }
 
 func decodeCandidateJSON(raw []byte, destination any) error {

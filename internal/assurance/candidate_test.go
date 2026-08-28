@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	vendorprotocol "github.com/michaellady/verified-java-to-rust/foundation/protocol"
 )
 
 func TestUS023StrictCandidateJSONRejectsDuplicateUnknownAndTrailing(t *testing.T) {
@@ -128,5 +130,19 @@ func TestUS023AggregateAndCandidateRootsBindEveryNodeAndEdge(t *testing.T) {
 	after := calculateCandidateRoot(target, graph)
 	if before == after || aggregateDigest(nodes) == digestCandidate(nil) {
 		t.Fatal("root derivation omitted graph content")
+	}
+}
+
+func TestUS023HistoricalOwnerAttestationsRemainTypedAndNonIndependent(t *testing.T) {
+	verdict := Verdict{State: "BLOCKED", Assurance: candidateAssurance, Findings: []vendorprotocol.Finding{
+		{Code: "INVALID_ATTESTATION", Path: "$.attestations[0]"},
+		{Code: "INVALID_ATTESTATION", Path: "$.attestations[1]"},
+	}}
+	if !acceptedHistoricalLifecycle(verdict) {
+		t.Fatal("exact incumbent owner-relaxed lifecycle was rejected")
+	}
+	verdict.IndependentReviewClaimed = true
+	if acceptedHistoricalLifecycle(verdict) {
+		t.Fatal("independence overclaim passed")
 	}
 }
