@@ -51,11 +51,13 @@
 //! [`crate::observe`]. No protocol decision is taken here — behaviour lives
 //! in `ws_core` and `ws_driver`.
 //!
-//! One MEASURED DIVERGENCE this routing surfaces is documented on
-//! `<WiredSession as ScenarioSession>::eof` and pinned by
-//! `surfaced_divergence_driver_absorbs_eof_after_closed_where_core_refuses`:
-//! the owner absorbs a transport EOF the core would refuse once the core is
-//! already `Closed`. It is reported to the owner, never synthesized around.
+//! This routing SURFACED a driver defect — the owner absorbed a transport
+//! EOF the core refuses once the core is already `Closed`, silently losing
+//! an event shipped Java reports. It was reported rather than synthesized
+//! around, ruled a defect by the owner
+//! (`us017-ac5-eof-after-closed-driver-defect`), and fixed in `ws_driver`.
+//! `driver_surfaces_the_cores_eof_after_closed_refusal` is the regression
+//! guard; see `<WiredSession as ScenarioSession>::eof`.
 //!
 //! Failure mapping is faithful and honest:
 //!
@@ -1207,18 +1209,24 @@ impl ScenarioSession for WiredSession {
     /// TransportEof path (derive.go actionStep), so the pending gap closes
     /// exactly as for commands.
     ///
-    /// DIVERGENCE, MEASURED AND NOT PAPERED OVER: the owner absorbs a
-    /// latched EOF WITHOUT handing it to the core when the core has already
-    /// converged on `Closed` (ws-driver/src/lib.rs, the
+    /// DEFECT SURFACED HERE, THEN FIXED IN THE DRIVER: routing the corpus
+    /// through the owner originally changed one public-corpus observable,
+    /// because `ws_driver` absorbed a latched EOF WITHOUT handing it to the
+    /// core when the core had already converged on `Closed` — an
     /// `else if self.core.state() == ReadyState::Closed { self.eof_applied
-    /// = true; }` arm). `ws_core::ConnectionCore` itself answers that same
-    /// input with `STATE_VIOLATION` after incrementing the action counter
-    /// (connection.rs `handle_eof`), which is what the java-oracle reports
-    /// ("eof repeated in CLOSED state"). Routing the corpus through the
-    /// driver therefore changes one public-corpus observable. That is a
-    /// finding surfaced to the owner, not something this adapter is
-    /// permitted to synthesize around: the harness admits the honest input
-    /// and reports whatever the owner produces.
+    /// = true; }` arm that set the latch and skipped the core call.
+    /// `ws_core::ConnectionCore` answers that same input with
+    /// `STATE_VIOLATION` after incrementing the action counter
+    /// (connection.rs `handle_eof`), which is what live Java reports ("eof
+    /// repeated in CLOSED state", `us005.pub.0070`). The owner ruled the
+    /// absorption a driver defect
+    /// (`us017-ac5-eof-after-closed-driver-defect`) and the driver now
+    /// hands the EOF through on every path; the latch still guarantees the
+    /// core sees it at most once.
+    ///
+    /// The adapter's discipline is unchanged and is why the defect was
+    /// findable: it admits the honest input and reports whatever the owner
+    /// produces, never synthesizing the Java code the core did not emit.
     fn eof(&mut self, _step: u32) -> Result<(), ScenarioFailure> {
         self.pending_action = false;
         self.run(ws_driver::DriverInput::TransportEof)?;
@@ -2110,27 +2118,30 @@ mod tests {
         assert_eq!(final_state, ConnectionState::Closed);
     }
 
-    /// SURFACED DIVERGENCE (US-017 AC5 harness routing, owner decision
-    /// `us017-ac5-harness-through-driver`) — NOT an accepted expectation.
+    /// REGRESSION GUARD for the eof-after-closed driver defect (owner
+    /// ruling `us017-ac5-eof-after-closed-driver-defect`).
     ///
-    /// `wired_eof_in_closed_counts_the_rejected_action` above FAILS once
-    /// the corpus harness is routed through the shared driver, and this
-    /// test isolates why at the two layers rather than leaving it as a
-    /// mystery. `ws_core::ConnectionCore` answers a transport EOF in the
-    /// absorbing `Closed` state by counting the action and refusing with
-    /// `STATE_VIOLATION` (connection.rs `handle_eof`) — the observable the
-    /// java-oracle reports as "eof repeated in CLOSED state"
-    /// (`us005.pub.0070`). `ws_driver::ConnectionDriver` ABSORBS the same
-    /// latched EOF without ever handing it to the core once the core is
-    /// `Closed`, so the refusal never happens and the action is never
-    /// counted.
+    /// HISTORY, so the assertions below are not mistaken for arbitrary
+    /// pinning: routing the corpus harness through the shared driver
+    /// (US-017 AC5) surfaced that `ws_driver::ConnectionDriver` ABSORBED a
+    /// latched transport EOF — setting its `eof_applied` latch without ever
+    /// calling the core — once the core had converged on `Closed`. The core
+    /// itself answers that input by counting the action and refusing with
+    /// `STATE_VIOLATION` (connection.rs `handle_eof`, "derive.go eof:
+    /// closed refuses"), which is what live Java-WebSocket 1.6.0 reports
+    /// for `us005.pub.0070` ("eof repeated in CLOSED state"). This test
+    /// first stood as the two-layer characterisation of that divergence and
+    /// FAILED at the driver; the owner ruled the absorption a driver defect
+    /// under this plane's JAVA_FAITHFUL_PLUS_SAFE normativity, the driver
+    /// was fixed to hand the EOF through on every path, and the same
+    /// fixture now guards the fix.
     ///
-    /// This test asserts the measured behaviour of BOTH layers so the
-    /// divergence is reproducible in one command. It deliberately makes no
-    /// claim about which layer is right; the transcript is
-    /// live-oracle-confirmed evidence and the ruling is the owner's.
+    /// It still asserts BOTH layers, because the defect was precisely a
+    /// disagreement between them: the core must refuse, and the owner must
+    /// SURFACE that refusal rather than swallow it. The latch is verified
+    /// to survive — the EOF reaches the core at most once.
     #[test]
-    fn surfaced_divergence_driver_absorbs_eof_after_closed_where_core_refuses() {
+    fn driver_surfaces_the_cores_eof_after_closed_refusal() {
         let config = ws_core::ConnectionConfig::builder()
             .build()
             .expect("default config builds");
@@ -2155,7 +2166,8 @@ mod tests {
             "the core counts the rejected action before refusing (derive.go actionStep)"
         );
 
-        // Layer 2: the same core, owned by the shared driver.
+        // Layer 2: the same core, owned by the shared driver. The owner
+        // must hand the EOF through and surface the core's refusal.
         let (_sender, mut driver) = ws_driver::connection_driver_in_state_with_policies(
             config,
             ws_core::Role::Client,
@@ -2169,15 +2181,30 @@ mod tests {
             ws_driver::InputDisposition::Consumed { bytes: 0 },
             "the owner consumes the EOF fact"
         );
-        assert!(
-            !matches!(result.output, ws_driver::DriverOutput::Failure(_)),
-            "SURFACED DIVERGENCE: the owner absorbed the EOF instead of surfacing the \
-             core's STATE_VIOLATION"
+        let ws_driver::DriverOutput::Failure(surfaced) = result.output else {
+            panic!(
+                "REGRESSION: the owner absorbed the EOF instead of surfacing the core's \
+                 STATE_VIOLATION (the eof-after-closed defect is back)"
+            );
+        };
+        assert_eq!(
+            surfaced.code.wire_code(),
+            Some("STATE_VIOLATION"),
+            "the owner surfaces the core's own typed refusal verbatim"
         );
         assert_eq!(
             driver.counts().actions,
-            0,
-            "SURFACED DIVERGENCE: the core never saw the EOF, so the action is not counted"
+            1,
+            "the core saw the EOF and counted the rejected action"
+        );
+
+        // The latch was never the defect: the EOF reaches the core at most
+        // once, so a second quiescent turn must not count a second action.
+        let _ = driver.poll(ws_driver::DriverInput::Wake);
+        assert_eq!(
+            driver.counts().actions,
+            1,
+            "the eof_applied latch still prevents a second application of the same EOF"
         );
     }
 

@@ -535,9 +535,27 @@ impl ConnectionDriver {
             if !self.pending_auto_pongs.is_empty() {
                 // The reply is still refused: this poll drains one queued
                 // output below, so the retry makes progress.
-            } else if self.core.state() == ReadyState::Closed {
-                self.eof_applied = true;
             } else {
+                // DEFECT FIX (owner ruling us017-ac5-eof-after-closed-driver-
+                // defect): the latched EOF is handed to the core on EVERY
+                // path, including the one where the core has already
+                // converged on `Closed`. This arm used to short-circuit —
+                // `else if self.core.state() == ReadyState::Closed {
+                // self.eof_applied = true; }` — which set the latch WITHOUT
+                // ever calling the core, so `ConnectionCore::handle_eof`'s
+                // `derive.go eof: closed refuses` arm never ran and the
+                // connection silently swallowed an event shipped Java
+                // reports. Live Java-WebSocket 1.6.0 answers a transport EOF
+                // in CLOSED with STATE_VIOLATION ("eof repeated in CLOSED
+                // state") after counting the action, which the corpus pins
+                // as `us005.pub.0070`; this plane is JAVA_FAITHFUL_PLUS_SAFE,
+                // so absorbing it was a real behavioural change and not an
+                // adapter convenience. Surfaced by routing the corpus
+                // differential harness through this driver (US-017 AC5).
+                //
+                // The LATCH itself was never the defect and is unchanged:
+                // `eof_applied` still guarantees the core sees the EOF at
+                // most once, on whichever of the Ok/fatal arms below fires.
                 match self.core.handle(Input::TransportEof) {
                     Ok(()) => self.eof_applied = true,
                     Err(failure) if !failure.code.is_fatal() => {

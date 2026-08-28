@@ -1204,7 +1204,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-driver/src/lib.rs",
       "line": 358,
-      "sha256": "sha256:3964bf028b000933dee678fb656b80d91c9deb8d6707e2c6257dfc5400eb7979"
+      "sha256": "sha256:17c4536a9fb041ab4d1fae0e7dbee6a4a116c68da92507b4670446f3575c4b78"
     },
     {
       "id": "ws_driver::connection_driver",
@@ -1213,7 +1213,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-driver/src/lib.rs",
       "line": 155,
-      "sha256": "sha256:3964bf028b000933dee678fb656b80d91c9deb8d6707e2c6257dfc5400eb7979"
+      "sha256": "sha256:17c4536a9fb041ab4d1fae0e7dbee6a4a116c68da92507b4670446f3575c4b78"
     },
     {
       "id": "ws_testee::client::run_client_once",
