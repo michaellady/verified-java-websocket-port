@@ -1,0 +1,1492 @@
+{
+  "baseline": {
+    "corpus_executed": 74,
+    "corpus_exit": 0,
+    "corpus_failed": 0,
+    "corpus_passed": 74,
+    "test_exit": 0
+  },
+  "campaign": "e1-ws-core-mutation-campaign",
+  "generated_at": "2026-08-27T23:57:44Z",
+  "judges": [
+    "cargo test -p ws-core (scratch workspace)",
+    "corporactl oracle-requests | ws-oracle-harness (scratch build) | corporactl evaluate --tier public"
+  ],
+  "mutants": [
+    {
+      "id": "m012-mask-xor-drop",
+      "operator": "mask-xor-drop",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "*byte ^= key[index % 4];",
+      "occurrence": 0,
+      "replace": "*byte ^= key[index % 4] \u0026 0x00;",
+      "note": "unmask/mask becomes the identity (payloads stay masked)",
+      "line": 271,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "masking_equation_involution_and_chunked_equivalence",
+      "failed_tests": [
+        "masking_equation_involution_and_chunked_equivalence"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:357:9: assertion `left == right` failed: case 0: XOR equation",
+      "test_exit": 101,
+      "corpus_exit": 1,
+      "corpus_passed": 53,
+      "corpus_failed": 21,
+      "runtime_seconds": 2.9957902499999998
+    },
+    {
+      "id": "m012-mask-modulus-swap",
+      "operator": "mask-key-cycle-swap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "*byte ^= key[index % 4];",
+      "occurrence": 0,
+      "replace": "*byte ^= key[index % 2];",
+      "note": "four-byte repeating key degrades to two bytes",
+      "line": 271,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "masking_equation_involution_and_chunked_equivalence",
+      "failed_tests": [
+        "masking_equation_involution_and_chunked_equivalence"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:357:9: assertion `left == right` failed: case 0: XOR equation",
+      "test_exit": 101,
+      "runtime_seconds": 2.350527709
+    },
+    {
+      "id": "m012-control-ext-marker-flip",
+      "operator": "comparison-flip",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if opcode.is_control() \u0026\u0026 marker \u003e= 126 {",
+      "occurrence": 0,
+      "replace": "if opcode.is_control() \u0026\u0026 marker \u003e 126 {",
+      "note": "control frame with the 126 escape stops rejecting early",
+      "line": 381,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "extended_length_control_marker_rejects_1002_before_reading_the_length",
+      "failed_tests": [
+        "extended_length_control_marker_rejects_1002_before_reading_the_length",
+        "incomplete_header_screen_fires_after_complete_frames_but_blocks_the_chunk"
+      ],
+      "kill_detail": "ws-core/tests/frame_codec.rs:158:5: assertion `left == right` failed",
+      "test_exit": 101,
+      "runtime_seconds": 3.72365175
+    },
+    {
+      "id": "m012-control-limit-off-by-one",
+      "operator": "off-by-one-125",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if opcode.is_control() \u0026\u0026 payload_len \u003e CONTROL_PAYLOAD_LIMIT {",
+      "occurrence": 0,
+      "replace": "if opcode.is_control() \u0026\u0026 payload_len \u003e= CONTROL_PAYLOAD_LIMIT {",
+      "note": "control payload of exactly 125 starts rejecting",
+      "line": 407,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "control_payload_exactly_125_delivers",
+      "failed_tests": [
+        "control_payload_exactly_125_delivers"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1175:5: assertion `left == right` failed: 125-byte ping is legal",
+      "test_exit": 101,
+      "runtime_seconds": 7.397395292
+    },
+    {
+      "id": "m012-frame-cap-off-by-one",
+      "operator": "off-by-one-cap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if payload_len \u003e max_frame_payload_bytes {",
+      "occurrence": 0,
+      "replace": "if payload_len \u003e= max_frame_payload_bytes {",
+      "note": "frame exactly at the configured cap starts rejecting 1009",
+      "line": 415,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "canonical_extended_lengths_buffer_as_incomplete_frames",
+      "failed_tests": [
+        "canonical_extended_lengths_buffer_as_incomplete_frames"
+      ],
+      "kill_detail": "ws-core/tests/frame_codec.rs:217:9: us012/canonical-64.hex",
+      "test_exit": 101,
+      "runtime_seconds": 6.229334209
+    },
+    {
+      "id": "m012-header-need-2-off-by-one",
+      "operator": "off-by-one-site-2",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if buf.len() \u003c 2 {",
+      "occurrence": 0,
+      "replace": "if buf.len() \u003c 3 {",
+      "note": "two-byte headers never decode (site-2 buffering broken)",
+      "line": 361,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+      "failed_tests": [
+        "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+        "family_rechunk_invariance_multi_frame",
+        "family_config_boundaries",
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_command_interleave_no_panic_deterministic",
+        "family_byte_soup_no_panic_bounded_deterministic",
+        "family_seed_corpus_anchors",
+        "family_rechunk_invariance_single_frame"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: fragment exact-boundary: panic caught by the fuzz oracle: internal error: entered unreachable code: translate_single_frame requires one complete frame span",
+      "test_exit": 101,
+      "runtime_seconds": 1.709700083
+    },
+    {
+      "id": "m012-extended16-need-off-by-one",
+      "operator": "off-by-one-site-4",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if buf.len() \u003c 4 {",
+      "occurrence": 0,
+      "replace": "if buf.len() \u003c 3 {",
+      "note": "16-bit length reads one byte early at site 4",
+      "line": 388,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "family_rechunk_invariance_single_frame",
+      "failed_tests": [
+        "family_rechunk_invariance_single_frame",
+        "family_rechunk_invariance_multi_frame",
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_seed_corpus_anchors"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: rechunk single case 4 strategy 1: panic caught by the fuzz oracle: index out of bounds: the len is 3 but the index is 3",
+      "test_exit": 101,
+      "runtime_seconds": 1.798207041
+    },
+    {
+      "id": "m012-extended64-need-off-by-one",
+      "operator": "off-by-one-site-10",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if buf.len() \u003c 10 {",
+      "occurrence": 0,
+      "replace": "if buf.len() \u003c 9 {",
+      "note": "64-bit length reads short at site 10",
+      "line": 397,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "family_rechunk_invariance_single_frame",
+      "failed_tests": [
+        "family_rechunk_invariance_single_frame",
+        "family_rechunk_invariance_multi_frame",
+        "family_seed_corpus_anchors",
+        "family_frame_soup_no_panic_bounded_deterministic"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: rechunk single case 18 strategy 1: panic caught by the fuzz oracle: range end index 10 out of range for slice of length 9",
+      "test_exit": 101,
+      "runtime_seconds": 1.789743917
+    },
+    {
+      "id": "m012-span-header16-arith",
+      "operator": "span-arithmetic",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "header = 4;",
+      "occurrence": 0,
+      "replace": "header = 3;",
+      "note": "span scan miscounts the 16-bit escape header",
+      "line": 301,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "family_frame_soup_no_panic_bounded_deterministic",
+      "failed_tests": [
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+        "family_rechunk_invariance_single_frame",
+        "family_config_boundaries",
+        "family_rechunk_invariance_multi_frame",
+        "family_command_interleave_no_panic_deterministic"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: frame_soup case 2: panic caught by the fuzz oracle: range end index 131 out of range for slice of length 130",
+      "test_exit": 101,
+      "runtime_seconds": 1.787378041
+    },
+    {
+      "id": "m012-length16-endian-swap",
+      "operator": "length-byte-swap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "u64::from(u16::from_be_bytes([buf[2], buf[3]])),",
+      "occurrence": 0,
+      "replace": "u64::from(u16::from_be_bytes([buf[3], buf[2]])),",
+      "note": "16-bit extended length decodes little-endian",
+      "line": 392,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+      "failed_tests": [
+        "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_rechunk_invariance_single_frame",
+        "family_config_boundaries",
+        "family_rechunk_invariance_multi_frame",
+        "family_command_interleave_no_panic_deterministic"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: fragment exact-boundary: panic caught by the fuzz oracle: range end index 51204 out of range for slice of length 204",
+      "test_exit": 101,
+      "runtime_seconds": 1.774618916
+    },
+    {
+      "id": "m012-rsv-check-weaken",
+      "operator": "condition-weaken",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if header.rsv1 || header.rsv2 || header.rsv3 {",
+      "occurrence": 0,
+      "replace": "if header.rsv1 \u0026\u0026 header.rsv2 \u0026\u0026 header.rsv3 {",
+      "note": "single reserved bits stop rejecting 1002",
+      "line": 489,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "reserved_bits_reject_1002_only_after_the_full_frame",
+      "failed_tests": [
+        "reserved_bits_reject_1002_only_after_the_full_frame"
+      ],
+      "kill_detail": "ws-core/tests/frame_codec.rs:66:10: seed must reject under the reference semantics: ()",
+      "test_exit": 101,
+      "runtime_seconds": 4.708013208
+    },
+    {
+      "id": "m012-control-fin-flip",
+      "operator": "polarity-flip",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if header.opcode.is_control() \u0026\u0026 !header.fin {",
+      "occurrence": 0,
+      "replace": "if header.opcode.is_control() \u0026\u0026 header.fin {",
+      "note": "fin controls reject, fragmented controls pass",
+      "line": 496,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_ack_emits_the_close_event_before_the_terminal_transition",
+      "failed_tests": [
+        "close_ack_emits_the_close_event_before_the_terminal_transition",
+        "control_payload_exactly_125_delivers"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1134:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got []",
+      "test_exit": 101,
+      "runtime_seconds": 2.364686833
+    },
+    {
+      "id": "m016-close-constructor-payload",
+      "operator": "constant-swap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "pub const CLOSE_CONSTRUCTOR_PAYLOAD: [u8; 2] = [0x03, 0xe8];",
+      "occurrence": 0,
+      "replace": "pub const CLOSE_CONSTRUCTOR_PAYLOAD: [u8; 2] = [0x03, 0xe9];",
+      "note": "Q10 constructor payload drifts by one",
+      "line": 234,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "server_echo_is_unmasked",
+      "failed_tests": [
+        "server_echo_is_unmasked"
+      ],
+      "kill_detail": "ws-core/tests/close_eof.rs:158:5: assertion `left == right` failed: unmasked echo",
+      "test_exit": 101,
+      "runtime_seconds": 2.975212208
+    },
+    {
+      "id": "m013-translate-dfa-drop",
+      "operator": "gate-drop",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if header.opcode == Opcode::Text \u0026\u0026 !Charsetfunctions::is_valid_utf8(\u0026payload) {",
+      "occurrence": 0,
+      "replace": "if false \u0026\u0026 header.opcode == Opcode::Text \u0026\u0026 !Charsetfunctions::is_valid_utf8(\u0026payload) {",
+      "note": "translate-time 1007 UTF-8 gate silently disabled",
+      "line": 509,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "definitely_invalid_text_rejects_at_translate_with_no_frame_record",
+      "failed_tests": [
+        "definitely_invalid_text_rejects_at_translate_with_no_frame_record",
+        "prior_valid_frame_is_discarded_when_a_later_frame_fails_translate"
+      ],
+      "kill_detail": "ws-core/tests/messages.rs:92:9: assertion `left == right` failed: us013/invalid-continuation.hex: translate-stage rejection",
+      "test_exit": 101,
+      "runtime_seconds": 6.154471
+    },
+    {
+      "id": "m012-encode-125-boundary",
+      "operator": "off-by-one-125",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if length \u003c= 125 {",
+      "occurrence": 0,
+      "replace": "if length \u003c 125 {",
+      "note": "length 125 encodes with the noncanonical 16-bit escape",
+      "line": 589,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "length_encoding_round_trip_at_the_pinned_sites",
+      "failed_tests": [
+        "length_encoding_round_trip_at_the_pinned_sites"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:423:13: assertion `left == right` failed: case 2: marker for 125",
+      "test_exit": 101,
+      "runtime_seconds": 2.845286875
+    },
+    {
+      "id": "m012-encode-16-boundary",
+      "operator": "off-by-one-127",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "} else if length \u003c= 0xffff {",
+      "occurrence": 0,
+      "replace": "} else if length \u003c 0xffff {",
+      "note": "length 65535 encodes with the 64-bit escape",
+      "line": 593,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "length_encoding_round_trip_at_the_pinned_sites",
+      "failed_tests": [
+        "length_encoding_round_trip_at_the_pinned_sites"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:423:13: assertion `left == right` failed: case 5: marker for 65535",
+      "test_exit": 101,
+      "runtime_seconds": 2.870821041
+    },
+    {
+      "id": "m014-start-during-open-swap",
+      "operator": "fragment-transition-swap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if self.continuous.active_opcode().is_some() {",
+      "occurrence": 1,
+      "replace": "if self.continuous.active_opcode().is_none() {",
+      "note": "fragment start during an open sequence stops rejecting",
+      "line": 669,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+      "failed_tests": [
+        "fragment_accumulation_to_exactly_max_buffered_is_accepted"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1223:5: assertion `left == right` failed: start buffers",
+      "test_exit": 101,
+      "runtime_seconds": 2.540130667
+    },
+    {
+      "id": "m014-data-during-frag-swap",
+      "operator": "fragment-transition-swap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if self.continuous.active_opcode().is_some() {",
+      "occurrence": 2,
+      "replace": "if self.continuous.active_opcode().is_none() {",
+      "note": "unfragmented data during a sequence stops rejecting",
+      "line": 683,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "data_path_decodes_frames_and_emits_real_writes",
+      "failed_tests": [
+        "data_path_decodes_frames_and_emits_real_writes",
+        "rechunking_an_in_limits_stream_yields_identical_observables_modulo_input_chunk"
+      ],
+      "kill_detail": "ws-core/tests/core_semantics.rs:652:5: assertion failed: obs.results.iter().all(Result::is_ok)",
+      "test_exit": 101,
+      "runtime_seconds": 4.416588584
+    },
+    {
+      "id": "m014-orphan-continuation-swap",
+      "operator": "fragment-transition-swap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if self.continuous.active_opcode().is_none() {",
+      "occurrence": 0,
+      "replace": "if self.continuous.active_opcode().is_some() {",
+      "note": "orphan continuations accepted; real continuations reject",
+      "line": 714,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+      "failed_tests": [
+        "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+        "family_rechunk_invariance_single_frame",
+        "family_command_interleave_no_panic_deterministic",
+        "family_config_boundaries",
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_rechunk_invariance_multi_frame",
+        "family_seed_corpus_anchors",
+        "family_byte_soup_no_panic_bounded_deterministic"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1224:5: assertion `left == right` failed: growth to exactly max_buffered_bytes (256) is accepted",
+      "test_exit": 101,
+      "runtime_seconds": 1.943895125
+    },
+    {
+      "id": "m014-continuation-cap-off-by-one",
+      "operator": "off-by-one-cap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if next \u003e max_buffered_bytes as u64 {",
+      "occurrence": 0,
+      "replace": "if next \u003e= max_buffered_bytes as u64 {",
+      "note": "exact-boundary continuation append starts rejecting",
+      "line": 720,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+      "failed_tests": [
+        "fragment_accumulation_to_exactly_max_buffered_is_accepted"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1224:5: assertion `left == right` failed: growth to exactly max_buffered_bytes (256) is accepted",
+      "test_exit": 101,
+      "runtime_seconds": 2.666657208
+    },
+    {
+      "id": "m014-assembled-cap-off-by-one",
+      "operator": "off-by-one-cap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if size \u003e max_message_bytes {",
+      "occurrence": 0,
+      "replace": "if size \u003e= max_message_bytes {",
+      "note": "exact-limit assembled message starts rejecting 1009",
+      "line": 753,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "exact_retention_at_the_cap_delivers",
+      "failed_tests": [
+        "exact_retention_at_the_cap_delivers"
+      ],
+      "kill_detail": "ws-core/tests/fragmentation.rs:216:5: assertion failed: obs.result.is_ok()",
+      "test_exit": 101,
+      "runtime_seconds": 5.051217209
+    },
+    {
+      "id": "m014-buffered-reset-drop",
+      "operator": "counter-reset-drop",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "*message_buffered = 0;",
+      "occurrence": 0,
+      "replace": "*message_buffered = 1;",
+      "note": "fragment accounting never returns to zero after delivery",
+      "line": 738,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "delivery_resets_state_for_the_next_message",
+      "failed_tests": [
+        "delivery_resets_state_for_the_next_message",
+        "exact_retention_at_the_cap_delivers",
+        "control_interleave_delivers_the_ping_and_the_assembled_message",
+        "legal_text_and_binary_sequences_reassemble"
+      ],
+      "kill_detail": "ws-core/tests/fragmentation.rs:118:9: assertion `left == right` failed: us014/reset-next-message.hex",
+      "test_exit": 101,
+      "runtime_seconds": 6.508294292
+    },
+    {
+      "id": "m014-orphan-close-code-swap",
+      "operator": "close-code-swap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "// derive.go: EnforceContinuationStart -\u003e 1002.\n            return Err(TypedProtocolFailure::java_invalid_data(1002));",
+      "occurrence": 0,
+      "replace": "// derive.go: EnforceContinuationStart -\u003e 1002.\n            return Err(TypedProtocolFailure::java_invalid_data(1007));",
+      "note": "orphan continuation reports 1007 instead of 1002",
+      "line": 715,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "prior_delivery_survives_a_later_orphan_in_the_same_chunk",
+      "failed_tests": [
+        "prior_delivery_survives_a_later_orphan_in_the_same_chunk",
+        "orphan_continuation_rejects_1002_after_its_frame_record"
+      ],
+      "kill_detail": "ws-core/tests/fragmentation.rs:156:5: assertion `left == right` failed",
+      "test_exit": 101,
+      "runtime_seconds": 5.770572334
+    },
+    {
+      "id": "m013-utf8-e0-window",
+      "operator": "dfa-window-swap",
+      "file": "rust/ws-core/src/message.rs",
+      "match": "next_min: 0xa0,",
+      "occurrence": 0,
+      "replace": "next_min: 0x80,",
+      "note": "E0 overlong window admits 80..9F (overlongs accepted)",
+      "line": 97,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "utf8_curated_malformed_corpus",
+      "failed_tests": [
+        "utf8_curated_malformed_corpus",
+        "utf8_differential_random_byte_soup",
+        "utf8_differential_encoded_strings_corruptions_and_truncations"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [e0, 80, 80]",
+      "test_exit": 101,
+      "corpus_exit": 0,
+      "corpus_passed": 74,
+      "corpus_failed": 0,
+      "runtime_seconds": 4.454855916
+    },
+    {
+      "id": "m013-utf8-ed-window",
+      "operator": "dfa-window-swap",
+      "file": "rust/ws-core/src/message.rs",
+      "match": "next_max: 0x9f,",
+      "occurrence": 0,
+      "replace": "next_max: 0xbf,",
+      "note": "ED window admits A0..BF (surrogates accepted)",
+      "line": 108,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "utf8_curated_malformed_corpus",
+      "failed_tests": [
+        "utf8_curated_malformed_corpus",
+        "utf8_differential_encoded_strings_corruptions_and_truncations",
+        "utf8_differential_random_byte_soup"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [ed, a0, 80]",
+      "test_exit": 101,
+      "runtime_seconds": 3.531493958
+    },
+    {
+      "id": "m013-utf8-f0-window",
+      "operator": "dfa-window-swap",
+      "file": "rust/ws-core/src/message.rs",
+      "match": "next_min: 0x90,",
+      "occurrence": 0,
+      "replace": "next_min: 0x80,",
+      "note": "F0 window admits 80..8F (overlong four-byte accepted)",
+      "line": 112,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "utf8_curated_malformed_corpus",
+      "failed_tests": [
+        "utf8_curated_malformed_corpus",
+        "utf8_differential_encoded_strings_corruptions_and_truncations"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [f0, 80, 80, 80]",
+      "test_exit": 101,
+      "runtime_seconds": 3.507036666
+    },
+    {
+      "id": "m013-utf8-f4-window",
+      "operator": "dfa-window-swap",
+      "file": "rust/ws-core/src/message.rs",
+      "match": "next_max: 0x8f,",
+      "occurrence": 0,
+      "replace": "next_max: 0xbf,",
+      "note": "F4 window admits 90..BF (beyond U+10FFFF accepted)",
+      "line": 123,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "utf8_curated_malformed_corpus",
+      "failed_tests": [
+        "utf8_curated_malformed_corpus",
+        "utf8_differential_encoded_strings_corruptions_and_truncations",
+        "utf8_differential_random_byte_soup"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [f4, 90, 80, 80]",
+      "test_exit": 101,
+      "runtime_seconds": 3.476031333
+    },
+    {
+      "id": "m013-utf8-orphan-lead-accept",
+      "operator": "dfa-error-drop",
+      "file": "rust/ws-core/src/message.rs",
+      "match": "self.errored = true;\n                return;",
+      "occurrence": 1,
+      "replace": "return;",
+      "note": "orphan continuations / overlong leads silently accepted",
+      "line": 87,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "utf8_curated_malformed_corpus",
+      "failed_tests": [
+        "utf8_curated_malformed_corpus",
+        "utf8_differential_random_byte_soup",
+        "utf8_differential_encoded_strings_corruptions_and_truncations"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [c0, af]",
+      "test_exit": 101,
+      "runtime_seconds": 3.433445125
+    },
+    {
+      "id": "m013-utf8-f5-accept",
+      "operator": "dfa-error-drop",
+      "file": "rust/ws-core/src/message.rs",
+      "match": "self.errored = true;\n                return;",
+      "occurrence": 2,
+      "replace": "return;",
+      "note": "F5..FF leads silently accepted",
+      "line": 126,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "utf8_curated_malformed_corpus",
+      "failed_tests": [
+        "utf8_curated_malformed_corpus",
+        "utf8_differential_random_byte_soup",
+        "utf8_differential_encoded_strings_corruptions_and_truncations"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [ff]",
+      "test_exit": 101,
+      "runtime_seconds": 3.341861917
+    },
+    {
+      "id": "m013-utf8-2byte-length-swap",
+      "operator": "dfa-transition-swap",
+      "file": "rust/ws-core/src/message.rs",
+      "match": "0xc2..=0xdf =\u003e Pending {\n                remaining: 1,",
+      "occurrence": 0,
+      "replace": "0xc2..=0xdf =\u003e Pending {\n                remaining: 2,",
+      "note": "two-byte sequences demand a third continuation byte",
+      "line": 90,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "utf8_curated_malformed_corpus",
+      "failed_tests": [
+        "utf8_curated_malformed_corpus",
+        "utf8_differential_encoded_strings_corruptions_and_truncations",
+        "utf8_differential_random_byte_soup"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [61, c3, a9, e2, 82]",
+      "test_exit": 101,
+      "runtime_seconds": 3.358264708
+    },
+    {
+      "id": "m016-normalize-target-swap",
+      "operator": "close-table-swap",
+      "file": "rust/ws-core/src/close.rs",
+      "match": "if code == 1015 { 1005 } else { code }",
+      "occurrence": 0,
+      "replace": "if code == 1015 { 1006 } else { code }",
+      "note": "Q14 normalization lands on 1006 instead of 1005",
+      "line": 79,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_code_tables_exhaustive_against_the_java_model",
+      "failed_tests": [
+        "close_code_tables_exhaustive_against_the_java_model"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:528:13: assertion `left == right` failed: 1015 must normalize to 1005",
+      "test_exit": 101,
+      "runtime_seconds": 3.406514833
+    },
+    {
+      "id": "m016-normalize-trigger-swap",
+      "operator": "close-table-swap",
+      "file": "rust/ws-core/src/close.rs",
+      "match": "if code == 1015 { 1005 } else { code }",
+      "occurrence": 0,
+      "replace": "if code == 1014 { 1005 } else { code }",
+      "note": "Q14 normalization triggers on 1014 instead of 1015",
+      "line": 79,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_code_tables_exhaustive_against_the_java_model",
+      "failed_tests": [
+        "close_code_tables_exhaustive_against_the_java_model",
+        "equivalent_mutant_witnesses_close_chain_redundancy"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:530:13: assertion `left == right` failed: only 1015 normalizes",
+      "test_exit": 101,
+      "runtime_seconds": 3.5567564579999997
+    },
+    {
+      "id": "m016-1007-entry-swap",
+      "operator": "close-table-swap",
+      "file": "rust/ws-core/src/close.rs",
+      "match": "if code == 1007 \u0026\u0026 reason.is_empty() {\n        return Some(1007);\n    }",
+      "occurrence": 0,
+      "replace": "if code == 1007 \u0026\u0026 reason.is_empty() {\n        return Some(1002);\n    }",
+      "note": "empty-reason 1007 rejection reports 1002",
+      "line": 97,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "equivalent_mutant_witnesses_close_chain_redundancy",
+      "failed_tests": [
+        "equivalent_mutant_witnesses_close_chain_redundancy",
+        "close_payload_parse_round_trips",
+        "close_code_tables_exhaustive_against_the_java_model"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:664:13: assertion `left == right` failed: m016-1005-reason-flip is output-identical at code 1007 reason \"\"",
+      "test_exit": 101,
+      "runtime_seconds": 3.553134583
+    },
+    {
+      "id": "m016-1005-reason-flip",
+      "operator": "polarity-flip",
+      "file": "rust/ws-core/src/close.rs",
+      "match": "if code == 1005 \u0026\u0026 !reason.is_empty() {",
+      "occurrence": 0,
+      "replace": "if code == 1005 \u0026\u0026 reason.is_empty() {",
+      "note": "1005 rejection fires on the empty reason instead",
+      "line": 100,
+      "verdict": "EQUIVALENT_DOCUMENTED",
+      "test_exit": 0,
+      "corpus_exit": 0,
+      "corpus_passed": 74,
+      "corpus_failed": 0,
+      "runtime_seconds": 9.904061167,
+      "equivalent_analysis": "PROVEN output-identical by the exhaustive witness equivalent_mutant_witnesses_close_chain_redundancy (adversarial_properties.rs): flipping rule 2's reason predicate reroutes 1005-with-any-reason through rule 4's `code == 1005` arm, which reports the identical Some(1002) — the chain is redundant at 1005 for every reason, verified over all 65536 codes x {empty, non-empty} reasons."
+    },
+    {
+      "id": "m016-range-lower-off-by-one",
+      "operator": "off-by-one-close-range",
+      "file": "rust/ws-core/src/close.rs",
+      "match": "if code \u003e 1015 \u0026\u0026 code \u003c 3000 {",
+      "occurrence": 0,
+      "replace": "if code \u003e= 1015 \u0026\u0026 code \u003c 3000 {",
+      "note": "1015 joins the 1016..2999 rejection band",
+      "line": 103,
+      "verdict": "EQUIVALENT_DOCUMENTED",
+      "test_exit": 0,
+      "corpus_exit": 0,
+      "corpus_passed": 74,
+      "corpus_failed": 0,
+      "runtime_seconds": 9.9174215,
+      "equivalent_analysis": "PROVEN output-identical by the exhaustive witness equivalent_mutant_witnesses_close_chain_redundancy: admitting 1015 into the 1016..2999 band moves 1015's rejection from rule 4 (`code == 1015`) to rule 3, but both report Some(1002); every other code is untouched. Verified over all 65536 codes x 2 reasons."
+    },
+    {
+      "id": "m016-range-upper-off-by-one",
+      "operator": "off-by-one-close-range",
+      "file": "rust/ws-core/src/close.rs",
+      "match": "if code \u003e 1015 \u0026\u0026 code \u003c 3000 {",
+      "occurrence": 0,
+      "replace": "if code \u003e 1015 \u0026\u0026 code \u003c= 3000 {",
+      "note": "3000 joins the reserved rejection band",
+      "line": 103,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_payload_parse_round_trips",
+      "failed_tests": [
+        "close_payload_parse_round_trips",
+        "close_code_tables_exhaustive_against_the_java_model",
+        "equivalent_mutant_witnesses_close_chain_redundancy"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:570:21: assertion `left == right` failed: code 3000",
+      "test_exit": 101,
+      "runtime_seconds": 3.8440074170000003
+    },
+    {
+      "id": "m016-1006-entry-swap",
+      "operator": "close-table-swap",
+      "file": "rust/ws-core/src/close.rs",
+      "match": "if code == 1006",
+      "occurrence": 0,
+      "replace": "if code == 1008",
+      "note": "1006 becomes wire-legal; 1008 rejects",
+      "line": 109,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_payload_parse_round_trips",
+      "failed_tests": [
+        "close_payload_parse_round_trips",
+        "equivalent_mutant_witnesses_close_chain_redundancy",
+        "close_code_tables_exhaustive_against_the_java_model"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:566:38: model rejects: (1006, \"\")",
+      "test_exit": 101,
+      "runtime_seconds": 3.829532625
+    },
+    {
+      "id": "m016-range-4999-off-by-one",
+      "operator": "off-by-one-close-range",
+      "file": "rust/ws-core/src/close.rs",
+      "match": "|| !(1000..=4999).contains(\u0026code)",
+      "occurrence": 0,
+      "replace": "|| !(1000..=5000).contains(\u0026code)",
+      "note": "5000 becomes wire-legal",
+      "line": 113,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_code_tables_exhaustive_against_the_java_model",
+      "failed_tests": [
+        "close_code_tables_exhaustive_against_the_java_model",
+        "equivalent_mutant_witnesses_close_chain_redundancy",
+        "close_payload_parse_round_trips"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:534:13: assertion `left == right` failed: rejection chain at code 5000, reason \"\"",
+      "test_exit": 101,
+      "runtime_seconds": 4.385940375
+    },
+    {
+      "id": "m016-parse-empty-default-swap",
+      "operator": "close-table-swap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "0 =\u003e (1000u16, String::new()),",
+      "occurrence": 0,
+      "replace": "0 =\u003e (1002u16, String::new()),",
+      "note": "empty close payload parses as 1002 instead of 1000",
+      "line": 545,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_payload_parse_round_trips",
+      "failed_tests": [
+        "close_payload_parse_round_trips"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:550:5: assertion `left == right` failed",
+      "test_exit": 101,
+      "runtime_seconds": 3.76146025
+    },
+    {
+      "id": "m016-parse-onebyte-default-swap",
+      "operator": "close-table-swap",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "1 =\u003e (1002u16, String::new()),",
+      "occurrence": 0,
+      "replace": "1 =\u003e (1000u16, String::new()),",
+      "note": "one-byte close payload parses as 1000 instead of 1002",
+      "line": 546,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_payload_parse_round_trips",
+      "failed_tests": [
+        "close_payload_parse_round_trips"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:556:5: assertion `left == right` failed",
+      "test_exit": 101,
+      "runtime_seconds": 3.9819505
+    },
+    {
+      "id": "m012-inbound-frame-counter-drop",
+      "operator": "counter-increment-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.frame_count += 1;",
+      "occurrence": 1,
+      "replace": "self.frame_count += 0;",
+      "note": "inbound frames stop counting toward counts.frames",
+      "line": 656,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "echo_close_hits_the_frame_budget_after_the_close_event",
+      "failed_tests": [
+        "echo_close_hits_the_frame_budget_after_the_close_event",
+        "a_third_close_after_terminal_is_a_state_violation",
+        "continuation_after_local_close_is_stale",
+        "inbound_close_while_closing_terminates_without_echo",
+        "inbound_close_while_open_echoes_the_constructor_payload",
+        "local_close_then_remote_close_terminates",
+        "peer_close_twice_in_one_chunk_reaches_closed"
+      ],
+      "kill_detail": "ws-core/tests/close_eof.rs:555:10: no budget for the echo frame: ()",
+      "test_exit": 101,
+      "runtime_seconds": 4.384007292
+    },
+    {
+      "id": "m015-outbound-frame-counter-drop",
+      "operator": "counter-increment-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.frame_count += 1;",
+      "occurrence": 2,
+      "replace": "self.frame_count += 0;",
+      "note": "outbound frames stop counting toward counts.frames",
+      "line": 817,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "a_third_close_after_terminal_is_a_state_violation",
+      "failed_tests": [
+        "a_third_close_after_terminal_is_a_state_violation",
+        "continuation_after_local_close_is_stale",
+        "local_close_emits_frame_detail_and_transition",
+        "inbound_close_while_open_echoes_the_constructor_payload",
+        "local_close_then_remote_close_terminates",
+        "peer_close_twice_in_one_chunk_reaches_closed"
+      ],
+      "kill_detail": "ws-core/tests/close_eof.rs:221:5: assertion `left == right` failed: the third close records, then gates",
+      "test_exit": 101,
+      "runtime_seconds": 4.533156125
+    },
+    {
+      "id": "m016-eof-action-counter-drop",
+      "operator": "counter-increment-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.action_count = self.action_count.saturating_add(1);",
+      "occurrence": 1,
+      "replace": "self.action_count = self.action_count.saturating_add(0);",
+      "note": "EOF stops counting as an action",
+      "line": 1020,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "local_close_then_eof_reports_the_governing_close_over_transport",
+      "failed_tests": [
+        "local_close_then_eof_reports_the_governing_close_over_transport"
+      ],
+      "kill_detail": "ws-core/tests/close_eof.rs:339:5: assertion `left == right` failed: eof participates in the accounting",
+      "test_exit": 101,
+      "runtime_seconds": 4.475695833
+    },
+    {
+      "id": "m015-command-action-counter-drop",
+      "operator": "counter-increment-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.action_count = self.action_count.saturating_add(1);",
+      "occurrence": 2,
+      "replace": "self.action_count = self.action_count.saturating_add(0);",
+      "note": "commands stop counting as actions",
+      "line": 1106,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "local_close_then_eof_reports_the_governing_close_over_transport",
+      "failed_tests": [
+        "local_close_then_eof_reports_the_governing_close_over_transport",
+        "local_close_emits_frame_detail_and_transition",
+        "send_close_invalid_code_rejects_without_a_frame",
+        "send_close_requires_the_open_state",
+        "send_text_after_local_close_is_a_state_violation"
+      ],
+      "kill_detail": "ws-core/tests/close_eof.rs:339:5: assertion `left == right` failed: eof participates in the accounting",
+      "test_exit": 101,
+      "runtime_seconds": 4.543004209
+    },
+    {
+      "id": "m012-consumed-chunk-drop",
+      "operator": "counter-increment-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.consumed_bytes = self.consumed_bytes.saturating_add(chunk_len);",
+      "occurrence": 0,
+      "replace": "self.consumed_bytes = self.consumed_bytes.saturating_add(0);",
+      "note": "surviving chunks stop counting as consumed",
+      "line": 645,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "surviving_chunks_emit_input_chunk_and_advance_counts",
+      "failed_tests": [
+        "surviving_chunks_emit_input_chunk_and_advance_counts"
+      ],
+      "kill_detail": "ws-core/tests/core_semantics.rs:262:5: assertion `left == right` failed",
+      "test_exit": 101,
+      "runtime_seconds": 6.776552875
+    },
+    {
+      "id": "m016-closed-gate-flip",
+      "operator": "state-gate-flip",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "if self.state == ReadyState::Closed \u0026\u0026 !chunk.is_empty() {",
+      "occurrence": 0,
+      "replace": "if self.state == ReadyState::Closed \u0026\u0026 chunk.is_empty() {",
+      "note": "closed state accepts data bytes, rejects empty chunks",
+      "line": 537,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "nonzero_bytes_into_closed_are_a_state_violation_but_empty_bytes_pass",
+      "failed_tests": [
+        "nonzero_bytes_into_closed_are_a_state_violation_but_empty_bytes_pass"
+      ],
+      "kill_detail": "ws-core/tests/core_semantics.rs:363:5: assertion failed: core.handle(Input::TransportBytes(\u0026[])).is_ok()",
+      "test_exit": 101,
+      "runtime_seconds": 6.846494792
+    },
+    {
+      "id": "m016-closing-gate-swap",
+      "operator": "state-gate-flip",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "if self.state == ReadyState::Closing \u0026\u0026 frame.opcode != Opcode::Closing {",
+      "occurrence": 0,
+      "replace": "if self.state == ReadyState::Closing \u0026\u0026 frame.opcode == Opcode::Closing {",
+      "note": "closing state accepts data frames, rejects the close ack",
+      "line": 691,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_ack_emits_the_close_event_before_the_terminal_transition",
+      "failed_tests": [
+        "close_ack_emits_the_close_event_before_the_terminal_transition"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1134:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got []",
+      "test_exit": 101,
+      "runtime_seconds": 3.819773958
+    },
+    {
+      "id": "m016-echo-branch-flip",
+      "operator": "close-transition-swap",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "if was_closing {\n            self.transition(ReadyState::Closed, TransitionCause::ReceiveClose);\n            return Ok(());\n        }",
+      "occurrence": 0,
+      "replace": "if !was_closing {\n            self.transition(ReadyState::Closed, TransitionCause::ReceiveClose);\n            return Ok(());\n        }",
+      "note": "close-while-open terminates without echo; ack echoes",
+      "line": 748,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_ack_emits_the_close_event_before_the_terminal_transition",
+      "failed_tests": [
+        "close_ack_emits_the_close_event_before_the_terminal_transition",
+        "family_rechunk_invariance_multi_frame"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1134:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got [Close(CloseDetail { code: 1000, reason: \"\", origin: Remote, remote: true, handshake_complete: true })]",
+      "test_exit": 101,
+      "runtime_seconds": 3.622312708
+    },
+    {
+      "id": "m016-echo-payload-swap",
+      "operator": "close-echo-swap",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "CLOSE_CONSTRUCTOR_PAYLOAD.to_vec(),",
+      "occurrence": 0,
+      "replace": "frame.payload.clone(),",
+      "note": "echo carries the wire payload (the stripped RFC echo), not Q10",
+      "line": 761,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "inbound_close_while_open_echoes_the_constructor_payload",
+      "failed_tests": [
+        "inbound_close_while_open_echoes_the_constructor_payload"
+      ],
+      "kill_detail": "ws-core/tests/close_eof.rs:89:5: assertion `left == right` failed: masked 2-byte payload",
+      "test_exit": 101,
+      "corpus_exit": 1,
+      "corpus_passed": 69,
+      "corpus_failed": 5,
+      "runtime_seconds": 5.586270292
+    },
+    {
+      "id": "m016-eof-code-swap",
+      "operator": "close-code-swap",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "_ =\u003e (1006, EOF_DEFAULT_REASON.to_owned()),",
+      "occurrence": 0,
+      "replace": "_ =\u003e (1000, EOF_DEFAULT_REASON.to_owned()),",
+      "note": "abnormal EOF reports 1000 instead of 1006",
+      "line": 1050,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "eof_while_open_closes_1006_transport_with_the_pinned_reason",
+      "failed_tests": [
+        "eof_while_open_closes_1006_transport_with_the_pinned_reason",
+        "eof_while_closing_without_prior_close_keeps_defaults_but_marks_remote"
+      ],
+      "kill_detail": "ws-core/tests/core_semantics.rs:507:5: assertion `left == right` failed",
+      "test_exit": 101,
+      "runtime_seconds": 6.717735541
+    },
+    {
+      "id": "m016-eof-remote-flip",
+      "operator": "polarity-flip",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "let remote = if self.handshake_completed {\n            self.state == ReadyState::Closing",
+      "occurrence": 0,
+      "replace": "let remote = if self.handshake_completed {\n            self.state != ReadyState::Closing",
+      "note": "the EOF remote flag inverts",
+      "line": 1065,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "remote_close_then_eof_keeps_handshake_complete",
+      "failed_tests": [
+        "remote_close_then_eof_keeps_handshake_complete",
+        "local_close_then_eof_reports_the_governing_close_over_transport"
+      ],
+      "kill_detail": "ws-core/tests/close_eof.rs:356:5: assertion failed: detail.remote",
+      "test_exit": 101,
+      "runtime_seconds": 5.060502375
+    },
+    {
+      "id": "m016-send-close-normalize-skip",
+      "operator": "gate-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "let code = normalize_send_close_code(code);",
+      "occurrence": 0,
+      "replace": "let code = code;",
+      "note": "Q14 normalization skipped on the send path",
+      "line": 1205,
+      "verdict": "EQUIVALENT_DOCUMENTED",
+      "test_exit": 0,
+      "corpus_exit": 0,
+      "corpus_passed": 74,
+      "corpus_failed": 0,
+      "runtime_seconds": 12.855810417,
+      "equivalent_analysis": "PROVEN output-identical by the exhaustive witness equivalent_mutant_witnesses_close_chain_redundancy: close_code_rejection(normalize(c), r) == close_code_rejection(c, r) for ALL c (normalize changes only 1015 -\u003e 1005, and the chain rejects both with the same 1002 for every reason), so no send_close observable can change; the Q14 normalization call is Java-faithful site wiring whose pure function is separately pinned (m016-normalize-target-swap and m016-normalize-trigger-swap both die)."
+    },
+    {
+      "id": "m015-open-gate-flip",
+      "operator": "state-gate-flip",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "if self.state != ReadyState::Open {",
+      "occurrence": 0,
+      "replace": "if self.state == ReadyState::Open {",
+      "note": "sends require NOT-open (everything inverts)",
+      "line": 1114,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "send_payload_at_exactly_max_buffered_sends",
+      "failed_tests": [
+        "send_payload_at_exactly_max_buffered_sends",
+        "mask_key_derivation_advances_per_outbound_frame",
+        "family_command_interleave_no_panic_deterministic"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1273:5: assertion `left == right` failed: 64-byte send at the cap succeeds",
+      "test_exit": 101,
+      "runtime_seconds": 3.636713292
+    },
+    {
+      "id": "m013-send-payload-gate-off-by-one",
+      "operator": "off-by-one-cap",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "\u0026\u0026 len \u003e self.config.max_buffered_bytes()",
+      "occurrence": 0,
+      "replace": "\u0026\u0026 len \u003e= self.config.max_buffered_bytes()",
+      "note": "exact-boundary send payload starts rejecting",
+      "line": 1133,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "send_payload_at_exactly_max_buffered_sends",
+      "failed_tests": [
+        "send_payload_at_exactly_max_buffered_sends"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1273:5: assertion `left == right` failed: 64-byte send at the cap succeeds",
+      "test_exit": 101,
+      "runtime_seconds": 3.706150875
+    },
+    {
+      "id": "m015-send-fragment-dfa-drop",
+      "operator": "gate-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "if !self.draft.send_sequence_open()",
+      "occurrence": 0,
+      "replace": "if false \u0026\u0026 !self.draft.send_sequence_open()",
+      "note": "first-fragment text DFA gate disabled",
+      "line": 1171,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "first_text_fragment_runs_the_send_dfa_and_truncated_tails_pass",
+      "failed_tests": [
+        "first_text_fragment_runs_the_send_dfa_and_truncated_tails_pass"
+      ],
+      "kill_detail": "ws-core/tests/fragmentation.rs:360:10: 0x80 alone is definitely invalid: ()",
+      "test_exit": 101,
+      "runtime_seconds": 7.707875625
+    },
+    {
+      "id": "mprobe-mask-counter-stall",
+      "operator": "counter-increment-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.mask_counter = self.mask_counter.wrapping_add(1);",
+      "occurrence": 0,
+      "replace": "self.mask_counter = self.mask_counter.wrapping_add(0);",
+      "note": "equivalence probe: deterministic mask keys repeat (Q28: never observable)",
+      "line": 773,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "mask_key_derivation_advances_per_outbound_frame",
+      "failed_tests": [
+        "mask_key_derivation_advances_per_outbound_frame"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1090:9: assertion `left != right` failed: successive masked frames 0/1 must advance the key derivation counter",
+      "test_exit": 101,
+      "runtime_seconds": 3.820522
+    },
+    {
+      "id": "mprobe-step-counter-fatal-drop",
+      "operator": "counter-increment-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.step = self.step.saturating_add(1);",
+      "occurrence": 1,
+      "replace": "self.step = self.step.saturating_add(0);",
+      "note": "equivalence probe: step counter stalls on the poisoning input only",
+      "line": 405,
+      "verdict": "EQUIVALENT_DOCUMENTED",
+      "test_exit": 0,
+      "corpus_exit": 0,
+      "corpus_passed": 74,
+      "corpus_failed": 0,
+      "runtime_seconds": 13.266070459,
+      "equivalent_analysis": "The fatal-arm step increment mutates state that can never flow to an observable: `step` exists only to tag events at emission time, the input that poisons the core emits its events BEFORE the failure returns (tagged with the pre-increment step), and after poisoning every subsequent input returns StateViolation and emits no event or write (pinned by the adversarial_fuzz poisoned-permanence oracle). counts() does not expose step. No test, corpus case, or transcript field can distinguish the mutant; equivalence holds for the whole observable vocabulary, not just the judges."
+    },
+    {
+      "id": "mpol-panic-span-mask-header",
+      "operator": "polarity-probe-panic",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "if data[at + 1] \u0026 0x80 != 0 {\n                header += 4;\n            }",
+      "occurrence": 0,
+      "replace": "if data[at + 1] \u0026 0x80 != 0 {\n                header += 3;\n            }",
+      "note": "masked spans come out one byte short so translate slices past the span end: proves the no-panic oracle (drive_checked/catch_unwind) actually fires",
+      "line": 314,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "family_command_interleave_no_panic_deterministic",
+      "failed_tests": [
+        "family_command_interleave_no_panic_deterministic",
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_config_boundaries",
+        "family_rechunk_invariance_single_frame",
+        "family_rechunk_invariance_multi_frame",
+        "family_byte_soup_no_panic_bounded_deterministic",
+        "family_seed_corpus_anchors"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: command_interleave case 2: panic caught by the fuzz oracle: range end index 130 out of range for slice of length 129",
+      "test_exit": 101,
+      "runtime_seconds": 3.334423125
+    },
+    {
+      "id": "mpol-nondeterminism-global-mask",
+      "operator": "polarity-probe-determinism",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.mask_counter = self.mask_counter.wrapping_add(1);",
+      "occurrence": 0,
+      "replace": "{\n            static E1_POLARITY_GLOBAL: std::sync::atomic::AtomicU64 =\n                std::sync::atomic::AtomicU64::new(0);\n            self.mask_counter = E1_POLARITY_GLOBAL\n                .fetch_add(1, std::sync::atomic::Ordering::SeqCst)\n                .wrapping_add(1);\n        }",
+      "note": "mask-key derivation becomes process-global, so replaying the same seed diverges: proves the determinism and rechunk-invariance oracles actually fire",
+      "line": 773,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "mask_key_derivation_advances_per_outbound_frame",
+      "failed_tests": [
+        "mask_key_derivation_advances_per_outbound_frame",
+        "family_command_interleave_no_panic_deterministic",
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_rechunk_invariance_single_frame",
+        "family_rechunk_invariance_multi_frame"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1097:5: assertion `left == right` failed: the key sequence is seed-deterministic",
+      "test_exit": 101,
+      "runtime_seconds": 3.389552792
+    },
+    {
+      "id": "mpol-unbounded-input-accounting",
+      "operator": "polarity-probe-bounded-alloc",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "Some(total) if total \u003c= max_input =\u003e total,",
+      "occurrence": 0,
+      "replace": "Some(total) if total \u003c= max_input || true =\u003e total,",
+      "note": "the max_input_bytes gate is removed so input accounting grows unbounded: proves the bounded-allocation oracle actually fires",
+      "line": 548,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "family_config_boundaries",
+      "failed_tests": [
+        "family_config_boundaries"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:202:9: input_bytes exceeded max_input_bytes",
+      "test_exit": 101,
+      "runtime_seconds": 4.104891083
+    },
+    {
+      "id": "m013-close-event-order-swap",
+      "operator": "event-order-swap",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.close_detail = Some(detail.clone());\n        self.emit(SemanticEventKind::Close(detail));\n        if was_closing {\n            self.transition(ReadyState::Closed, TransitionCause::ReceiveClose);\n            return Ok(());\n        }",
+      "occurrence": 0,
+      "replace": "self.close_detail = Some(detail.clone());\n        if was_closing {\n            self.transition(ReadyState::Closed, TransitionCause::ReceiveClose);\n            self.emit(SemanticEventKind::Close(detail));\n            return Ok(());\n        }\n        self.emit(SemanticEventKind::Close(detail));",
+      "note": "the close event is emitted AFTER the transition instead of before",
+      "line": 746,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_ack_emits_the_close_event_before_the_terminal_transition",
+      "failed_tests": [
+        "close_ack_emits_the_close_event_before_the_terminal_transition",
+        "family_command_interleave_no_panic_deterministic",
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_rechunk_invariance_multi_frame"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:220:21: transition (ReceiveClose) emitted before its close notification",
+      "test_exit": 101,
+      "corpus_exit": 0,
+      "corpus_passed": 74,
+      "corpus_failed": 0,
+      "runtime_seconds": 4.44391425
+    },
+    {
+      "id": "m013-payload-truncation",
+      "operator": "payload-truncation",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "payload.extend_from_slice(\u0026data[header.header_len..header.header_len + payload_len]);",
+      "occurrence": 0,
+      "replace": "payload.extend_from_slice(\u0026data[header.header_len..header.header_len + payload_len.saturating_sub(1)]);",
+      "note": "every decoded payload loses its last byte",
+      "line": 483,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "control_payload_exactly_125_delivers",
+      "failed_tests": [
+        "control_payload_exactly_125_delivers",
+        "fragment_accumulation_to_exactly_max_buffered_is_accepted"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1176:5: the 125-byte ping payload must deliver byte-exactly",
+      "test_exit": 101,
+      "runtime_seconds": 3.9510879169999997
+    },
+    {
+      "id": "m014-control-interleave-resets-accounting",
+      "operator": "control-interleave-corruption",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "Opcode::Ping =\u003e {\n                self.emit(SemanticEventKind::Ping {",
+      "occurrence": 0,
+      "replace": "Opcode::Ping =\u003e {\n                self.message_buffered = 0;\n                self.emit(SemanticEventKind::Ping {",
+      "note": "a ping interleaved into a fragment sequence resets the buffered accounting",
+      "line": 701,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "ping_interleaves_without_touching_fragment_state_and_fin_still_gates",
+      "failed_tests": [
+        "ping_interleaves_without_touching_fragment_state_and_fin_still_gates"
+      ],
+      "kill_detail": "ws-core/tests/ping_pong.rs:264:5: assertion `left == right` failed: fragment accounting untouched by the ping, retained past the fin failure",
+      "test_exit": 101,
+      "runtime_seconds": 11.455651917
+    },
+    {
+      "id": "m014-utf8-boundary-lossy",
+      "operator": "utf8-boundary-leniency",
+      "file": "rust/ws-core/src/framing.rs",
+      "match": "let text = Charsetfunctions::string_utf8(payload)\n                .map_err(|_| TypedProtocolFailure::java_invalid_data(1007))?;",
+      "occurrence": 0,
+      "replace": "let text = Charsetfunctions::string_utf8(payload.clone())\n                .unwrap_or_else(|_| String::from_utf8_lossy(\u0026payload).into_owned());",
+      "note": "the fin-time strict UTF-8 boundary gate degrades to lossy decoding",
+      "line": 767,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "truncated_final_utf8_rejects_1007_at_the_fin_and_keeps_the_accounting",
+      "failed_tests": [
+        "truncated_final_utf8_rejects_1007_at_the_fin_and_keeps_the_accounting"
+      ],
+      "kill_detail": "ws-core/tests/fragmentation.rs:281:10: assembled text is truncated: ()",
+      "test_exit": 101,
+      "runtime_seconds": 8.29259575
+    },
+    {
+      "id": "m014-double-delivery-text",
+      "operator": "double-delivery",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "ProcessOutcome::Text(text) =\u003e self.emit(SemanticEventKind::Text { text }),",
+      "occurrence": 0,
+      "replace": "ProcessOutcome::Text(text) =\u003e {\n                self.emit(SemanticEventKind::Text { text: text.clone() });\n                self.emit(SemanticEventKind::Text { text });\n            }",
+      "note": "every delivered text message is emitted twice",
+      "line": 723,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "cross_frame_utf8_scalar_split_reassembles",
+      "failed_tests": [
+        "cross_frame_utf8_scalar_split_reassembles",
+        "delivery_resets_state_for_the_next_message",
+        "empty_fragments_assemble_an_empty_message",
+        "legal_text_and_binary_sequences_reassemble",
+        "control_interleave_delivers_the_ping_and_the_assembled_message"
+      ],
+      "kill_detail": "ws-core/tests/fragmentation.rs:129:5: assertion `left == right` failed",
+      "test_exit": 101,
+      "corpus_exit": 1,
+      "corpus_passed": 62,
+      "corpus_failed": 12,
+      "runtime_seconds": 9.271475375
+    },
+    {
+      "id": "m015-send-ping-wrong-opcode",
+      "operator": "wrong-opcode",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.emit_outbound(OutboundCause::SendPing, true, Opcode::Ping, data.clone())",
+      "occurrence": 0,
+      "replace": "self.emit_outbound(OutboundCause::SendPing, true, Opcode::Pong, data.clone())",
+      "note": "send_ping puts a pong on the wire",
+      "line": 1186,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "oversized_control_payloads_send_successfully_quirk_q17",
+      "failed_tests": [
+        "oversized_control_payloads_send_successfully_quirk_q17",
+        "client_control_sends_are_masked",
+        "send_ping_and_send_pong_emit_real_frames_with_cause_events"
+      ],
+      "kill_detail": "ws-core/tests/ping_pong.rs:381:5: assertion `left == right` failed",
+      "test_exit": 101,
+      "runtime_seconds": 12.11076875
+    },
+    {
+      "id": "m015-unwanted-auto-pong",
+      "operator": "unwanted-reply",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "Opcode::Ping =\u003e {\n                self.emit(SemanticEventKind::Ping {",
+      "occurrence": 1,
+      "replace": "Opcode::Ping =\u003e {\n                self.emit_outbound(\n                    OutboundCause::SendPong,\n                    true,\n                    Opcode::Pong,\n                    frame.payload.clone(),\n                )?;\n                self.emit(SemanticEventKind::Ping {",
+      "note": "the core grows an unwanted automatic pong reply",
+      "line": 701,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "control_interleave_delivers_the_ping_and_the_assembled_message",
+      "failed_tests": [
+        "control_interleave_delivers_the_ping_and_the_assembled_message"
+      ],
+      "kill_detail": "ws-core/tests/fragmentation.rs:191:5: assertion `left == right` failed: start + ping + fin all recorded",
+      "test_exit": 101,
+      "corpus_exit": 1,
+      "corpus_passed": 70,
+      "corpus_failed": 4,
+      "runtime_seconds": 9.734580375
+    },
+    {
+      "id": "m015-ping-payload-loss",
+      "operator": "payload-loss",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.emit(SemanticEventKind::Ping {\n                    data: frame.payload,\n                });",
+      "occurrence": 0,
+      "replace": "self.emit(SemanticEventKind::Ping {\n                    data: Vec::new(),\n                });",
+      "note": "the inbound ping payload is dropped from its event",
+      "line": 702,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "control_payload_exactly_125_delivers",
+      "failed_tests": [
+        "control_payload_exactly_125_delivers"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1176:5: the 125-byte ping payload must deliver byte-exactly",
+      "test_exit": 101,
+      "runtime_seconds": 4.171467208
+    },
+    {
+      "id": "m016-missing-close-ack",
+      "operator": "missing-ack",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.emit_outbound(\n            OutboundCause::EchoClose,\n            true,\n            Opcode::Closing,\n            CLOSE_CONSTRUCTOR_PAYLOAD.to_vec(),\n        )?;",
+      "occurrence": 0,
+      "replace": "",
+      "note": "close-while-open transitions to closing without echoing the ack",
+      "line": 757,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "a_third_close_after_terminal_is_a_state_violation",
+      "failed_tests": [
+        "a_third_close_after_terminal_is_a_state_violation",
+        "inbound_close_while_open_echoes_the_constructor_payload",
+        "echo_close_hits_the_frame_budget_after_the_close_event",
+        "peer_close_twice_in_one_chunk_reaches_closed",
+        "server_echo_is_unmasked"
+      ],
+      "kill_detail": "ws-core/tests/close_eof.rs:221:5: assertion `left == right` failed: the third close records, then gates",
+      "test_exit": 101,
+      "corpus_exit": 1,
+      "corpus_passed": 69,
+      "corpus_failed": 5,
+      "runtime_seconds": 6.335009708
+    },
+    {
+      "id": "m016-premature-closed",
+      "operator": "premature-terminal",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.transition(ReadyState::Closing, TransitionCause::ReceiveClose);\n        Ok(())",
+      "occurrence": 0,
+      "replace": "self.transition(ReadyState::Closed, TransitionCause::ReceiveClose);\n        Ok(())",
+      "note": "the echo path lands in Closed instead of Closing (premature terminal)",
+      "line": 763,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "family_rechunk_invariance_multi_frame",
+      "failed_tests": [
+        "family_rechunk_invariance_multi_frame"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:762:13: assertion `left == right` failed: rechunk case 686: whole vs byte-at-a-time (fatal-free stream)",
+      "test_exit": 101,
+      "runtime_seconds": 4.204400583
+    },
+    {
+      "id": "m016-duplicate-close-notification",
+      "operator": "duplicate-notification",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "self.emit(SemanticEventKind::Close(detail));",
+      "occurrence": 0,
+      "replace": "self.emit(SemanticEventKind::Close(detail.clone()));\n        self.emit(SemanticEventKind::Close(detail));",
+      "note": "the remote close notification is emitted twice",
+      "line": 747,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "close_ack_emits_the_close_event_before_the_terminal_transition",
+      "failed_tests": [
+        "close_ack_emits_the_close_event_before_the_terminal_transition"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1134:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got [Close(CloseDetail { code: 1000, reason: \"\", origin: Remote, remote: true, handshake_complete: true }), Close(CloseDetail { code: 1000, reason: \"\", origin: Remote, remote: true, handshake_complete: true }), Transition { from: Closing, to: Closed, cause: ReceiveClose }]",
+      "test_exit": 101,
+      "runtime_seconds": 4.221484083
+    },
+    {
+      "id": "m016-stale-fragment-retained",
+      "operator": "stale-fragment",
+      "file": "rust/ws-core/src/fragment.rs",
+      "match": "let mut assembled = std::mem::take(\u0026mut self.payload);",
+      "occurrence": 0,
+      "replace": "let mut assembled = self.payload.clone();",
+      "note": "the accumulator keeps its bytes after delivery (stale fragment leaks into the next message)",
+      "line": 70,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention",
+      "failed_tests": [
+        "fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention"
+      ],
+      "test_exit": 101,
+      "corpus_exit": 0,
+      "corpus_passed": 74,
+      "corpus_failed": 0,
+      "runtime_seconds": 4.064271958
+    },
+    {
+      "id": "m014-start-payload-drop",
+      "operator": "payload-loss",
+      "file": "rust/ws-core/src/fragment.rs",
+      "match": "self.opcode = Some(opcode);\n        self.payload = payload;",
+      "occurrence": 0,
+      "replace": "self.opcode = Some(opcode);\n        self.payload = payload;\n        self.payload.clear();",
+      "note": "the fragment-start payload is lost",
+      "line": 52,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention",
+      "failed_tests": [
+        "fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention"
+      ],
+      "test_exit": 101,
+      "runtime_seconds": 3.135427875
+    },
+    {
+      "id": "m014-append-drop",
+      "operator": "payload-loss",
+      "file": "rust/ws-core/src/fragment.rs",
+      "match": "self.payload.extend_from_slice(bytes);",
+      "occurrence": 0,
+      "replace": "let _ = bytes;",
+      "note": "continuation payloads are lost",
+      "line": 59,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention",
+      "failed_tests": [
+        "fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention"
+      ],
+      "test_exit": 101,
+      "runtime_seconds": 3.224890584
+    },
+    {
+      "id": "m014-finish-tail-drop",
+      "operator": "payload-loss",
+      "file": "rust/ws-core/src/fragment.rs",
+      "match": "assembled.extend_from_slice(tail);",
+      "occurrence": 0,
+      "replace": "let _ = tail;",
+      "note": "the fin fragment's payload is lost",
+      "line": 71,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention",
+      "failed_tests": [
+        "fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention"
+      ],
+      "test_exit": 101,
+      "runtime_seconds": 3.301191583
+    }
+  ],
+  "schema_version": "1.0.0",
+  "tallies": {
+    "EQUIVALENT_DOCUMENTED": 4,
+    "KILLED_BY_TESTS": 71
+  }
+}
