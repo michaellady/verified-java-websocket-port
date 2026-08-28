@@ -63,7 +63,21 @@ func TestDiagnoseIsBoundedNoWriteTransport(t *testing.T) {
 		if cfg.RepositoryRoot != "/repo" || cfg.ScenarioTimeout <= 0 {
 			return differential.DiagnosticReport{}, errors.New("bad config")
 		}
-		return differential.DiagnosticReport{Status: "DIAGNOSTIC_ONLY_NO_WRITES", ScenarioCount: 74, ProcessReceipts: 296, BlockingFindings: 3}, nil
+		return differential.DiagnosticReport{
+			Status:           "DIAGNOSTIC_ONLY_NO_WRITES",
+			ScenarioCount:    74,
+			ProcessReceipts:  296,
+			AcceptedQuirks:   1,
+			BlockingFindings: 3,
+			AcceptedFindings: []differential.DiagnosticFinding{{
+				ScenarioID:     "us005.pub.0005",
+				Pointer:        "/final_state",
+				Classification: "java_quirk",
+				JavaValue:      `"open"`,
+				RustValue:      `"closed"`,
+				Detail:         "field-addressed accepted quirk",
+			}},
+		}, nil
 	}
 	args := []string{"diagnose", "--repository-root", "/repo", "--public-corpus", "/repo/corpus", "--java-executable", "/java", "--java-adapter", "/adapter", "--java-runtime", "/runtime", "--java-support", "/support", "--rust-testee", "/rust", "--migration-inventory", "/repo/migration", "--compatibility-surface", "/repo/compat", "--ledger", "/repo/ledger", "--oracle-hierarchy", "/repo/hierarchy", "--evidence", "/repo/evidence"}
 	var stdout, stderr bytes.Buffer
@@ -72,6 +86,9 @@ func TestDiagnoseIsBoundedNoWriteTransport(t *testing.T) {
 	}
 	if !called || !bytes.Contains(stdout.Bytes(), []byte(`"status":"DIAGNOSTIC_ONLY_NO_WRITES"`)) {
 		t.Fatalf("called=%v stdout=%s", called, stdout.String())
+	}
+	if !bytes.Contains(stdout.Bytes(), []byte(`"accepted_findings":[{"scenario_id":"us005.pub.0005"`)) {
+		t.Fatalf("accepted findings were not transported: %s", stdout.String())
 	}
 }
 

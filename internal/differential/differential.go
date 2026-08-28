@@ -196,6 +196,7 @@ type DiagnosticReport struct {
 	EvidenceWrites   int                 `json:"evidence_writes"`
 	LedgerWrites     int                 `json:"ledger_writes"`
 	Findings         []DiagnosticFinding `json:"findings"`
+	AcceptedFindings []DiagnosticFinding `json:"accepted_findings"`
 }
 
 type ArtifactIdentity struct {
@@ -4549,7 +4550,12 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
-	report := DiagnosticReport{Status: "DIAGNOSTIC_ONLY_NO_WRITES", ScenarioCount: len(scenarios), Findings: []DiagnosticFinding{}}
+	report := DiagnosticReport{
+		Status:           "DIAGNOSTIC_ONLY_NO_WRITES",
+		ScenarioCount:    len(scenarios),
+		Findings:         []DiagnosticFinding{},
+		AcceptedFindings: []DiagnosticFinding{},
+	}
 	for _, sc := range scenarios {
 		home := filepath.Join(suiteRoot, sc.ScenarioID)
 		if err := os.Mkdir(home, 0o700); err != nil {
@@ -4587,6 +4593,23 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 		for _, finding := range findings {
 			if finding.Classification == "java_quirk" {
 				report.AcceptedQuirks++
+				javaValue, javaValueErr := diagnosticValue(javaPrimary.observation, finding.Pointer)
+				rustValue, rustValueErr := diagnosticValue(rustPrimary.observation, finding.Pointer)
+				if javaValueErr != nil || rustValueErr != nil {
+					report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: finding.Pointer, Classification: "diagnostic_failure", Detail: "encode accepted field values"})
+					continue
+				}
+				report.AcceptedFindings = append(report.AcceptedFindings, DiagnosticFinding{
+					ScenarioID:     sc.ScenarioID,
+					Pointer:        finding.Pointer,
+					Classification: finding.Classification,
+					JavaSHA256:     finding.JavaSHA256,
+					RustSHA256:     finding.RustSHA256,
+					ExpectedSHA256: finding.Decision.ExpectedSHA256,
+					JavaValue:      javaValue,
+					RustValue:      rustValue,
+					Detail:         "field-addressed accepted quirk",
+				})
 				continue
 			}
 			javaValue, javaValueErr := diagnosticValue(javaPrimary.observation, finding.Pointer)
