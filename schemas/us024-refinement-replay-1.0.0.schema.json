@@ -40,7 +40,7 @@
     "subject": {
       "type": "object", "additionalProperties": false,
       "required": ["commit", "tree", "rust_tree_sha256", "cargo_lock_sha256", "binary_sha256", "binary_bytes", "binary_canonicalization"],
-      "properties": {"commit": {"$ref": "#/$defs/git"}, "tree": {"$ref": "#/$defs/git"}, "rust_tree_sha256": {"$ref": "#/$defs/digest"}, "cargo_lock_sha256": {"$ref": "#/$defs/digest"}, "binary_sha256": {"$ref": "#/$defs/digest"}, "binary_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}, "binary_canonicalization": {"const": "MACHO_LC_UUID_SHA256_V1_ADHOC"}}
+      "properties": {"commit": {"$ref": "#/$defs/git"}, "tree": {"$ref": "#/$defs/git"}, "rust_tree_sha256": {"$ref": "#/$defs/digest"}, "cargo_lock_sha256": {"$ref": "#/$defs/digest"}, "binary_sha256": {"$ref": "#/$defs/digest"}, "binary_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}, "binary_canonicalization": {"const": "MACHO_LC_UUID_SHA256_V2_CODESIG_ZERO_STRIPPED_ADHOC"}}
     },
     "us023": {
       "type": "object", "additionalProperties": false,

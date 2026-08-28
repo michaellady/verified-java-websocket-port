@@ -24,8 +24,8 @@ func fixture() Evidence {
 	}
 	evidence := Evidence{
 		Schema: SchemaPath, SchemaVersion: "1.0.0", StoryID: "US-024", Status: "IMPLEMENTATION_REPLAY_PASS_PENDING_REVIEW_QA_REALITY", Assurance: assurance,
-		Before:        Subject{Commit: beforeCommit, Tree: beforeTree, RustTree: fakeDigest(3), CargoLock: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", Binary: fakeDigest(4), BinarySize: 1, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1_ADHOC"},
-		After:         Subject{Commit: strings.Repeat("a", 40), Tree: strings.Repeat("b", 40), RustTree: fakeDigest(5), CargoLock: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", Binary: fakeDigest(6), BinarySize: 1, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1_ADHOC"},
+		Before:        Subject{Commit: beforeCommit, Tree: beforeTree, RustTree: fakeDigest(3), CargoLock: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", Binary: fakeDigest(4), BinarySize: 1, BinaryCanonicalization: binaryCanonicalization},
+		After:         Subject{Commit: strings.Repeat("a", 40), Tree: strings.Repeat("b", 40), RustTree: fakeDigest(5), CargoLock: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", Binary: fakeDigest(6), BinarySize: 1, BinaryCanonicalization: binaryCanonicalization},
 		US023:         ImmutableUS023{TargetCommit: "1ff89fa30cb0ab6ff339afd3ce486a36e9f7f325", TargetTree: "dfb1950301e9680b1c47f0bd9debc0fc026d0e4f", CandidateRoot: candidateRoot, EvaluationRoot: evaluationRoot, SnapshotState: "FROZEN", ParityState: "BLOCKED", RequiredGates: 44, BlockedGates: 44, ProtectedFiles: []Artifact{artifact("assurance/candidate-manifest.json", "sha256:ab24fb6cbc3b811ef1d08c46c3c1b4925b03595836f5ccd65f0858fea66c9925"), artifact("evidence/parity-replay.json", "sha256:f2ca5d490429609977fc4782da3890e29629a9353fd5bfdc9bc6390a89c5f182"), artifact("evidence/java/behavior-delta-ledger.json", "sha256:e4800359d8a667524216b74947e43c169153406338398473221286bfbba9724a")}},
 		Membership:    Membership{Production: []Artifact{artifact("rust/websocket-driver/src/lib.rs", fakeDigest(7)), artifact("rust/websocket-driver/src/output.rs", fakeDigest(8))}, Tests: []Artifact{artifact("rust/websocket-driver/tests/refinement_contract.rs", fakeDigest(9)), artifact("rust/websocket-testee/tests/process.rs", fakeDigest(10))}, Tools: []Artifact{}},
 		PublicReplay:  PublicReplay{Kind: "FRESH_BEFORE_AFTER_PUBLIC_REPLAY", Counts: ReplayCounts{Expected: 74, Selected: 74, Executed: 74, Compared: 74, Equal: 74}, Rows: rows, ReverseAllEqual: true},
@@ -147,6 +147,9 @@ func TestCargoEnvironmentIsClosedAndContained(t *testing.T) {
 	if values["PATH"] != "/toolchain/bin:/usr/bin:/bin" || values["RUSTC"] != "/toolchain/bin/rustc" || values["RUSTDOC"] != "/toolchain/bin/rustdoc" || len(values) != 14 {
 		t.Fatalf("closed tool environment drift: %#v", values)
 	}
+	if !strings.Contains(values["RUSTFLAGS"], "-C strip=debuginfo") {
+		t.Fatalf("debug paths remain in replay binaries: %q", values["RUSTFLAGS"])
+	}
 }
 
 func TestDerivedInventoryCoversEveryChangedTestBearingSource(t *testing.T) {
@@ -206,21 +209,28 @@ func TestCaptureRejectsDirtyOrNonGitSubjectIdentity(t *testing.T) {
 }
 
 func TestMachOUUIDCanonicalizationIgnoresLinkerRandomness(t *testing.T) {
-	makeBinary := func(marker byte) []byte {
-		raw := make([]byte, 56)
+	makeBinary := func(uuidMarker, signatureMarker byte) []byte {
+		raw := make([]byte, 128)
 		binary.LittleEndian.PutUint32(raw[:4], 0xfeedfacf)
-		binary.LittleEndian.PutUint32(raw[16:20], 1)
-		binary.LittleEndian.PutUint32(raw[20:24], 24)
+		binary.LittleEndian.PutUint32(raw[16:20], 2)
+		binary.LittleEndian.PutUint32(raw[20:24], 40)
 		binary.LittleEndian.PutUint32(raw[32:36], 0x1b)
 		binary.LittleEndian.PutUint32(raw[36:40], 24)
 		for index := 40; index < 56; index++ {
-			raw[index] = marker
+			raw[index] = uuidMarker
+		}
+		binary.LittleEndian.PutUint32(raw[56:60], 0x1d)
+		binary.LittleEndian.PutUint32(raw[60:64], 16)
+		binary.LittleEndian.PutUint32(raw[64:68], 96)
+		binary.LittleEndian.PutUint32(raw[68:72], 32)
+		for index := 96; index < 128; index++ {
+			raw[index] = signatureMarker
 		}
 		return raw
 	}
 	paths := []string{filepath.Join(t.TempDir(), "left"), filepath.Join(t.TempDir(), "right")}
 	for index, path := range paths {
-		if err := os.WriteFile(path, makeBinary(byte(index+1)), 0o700); err != nil {
+		if err := os.WriteFile(path, makeBinary(byte(index+1), byte(index+11)), 0o700); err != nil {
 			t.Fatal(err)
 		}
 		if err := canonicalizeMachOUUID(path); err != nil {
@@ -235,8 +245,40 @@ func TestMachOUUIDCanonicalizationIgnoresLinkerRandomness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(left, right) {
-		t.Fatal("canonicalized binaries retain random linker UUID bytes")
+	if !bytes.Equal(left[40:56], right[40:56]) {
+		t.Fatal("canonical UUID retains original UUID or signature bytes")
+	}
+	if bytes.Equal(left[96:128], right[96:128]) {
+		t.Fatal("test fixture did not retain distinct signature blobs")
+	}
+
+	malformed := []struct {
+		name   string
+		mutate func([]byte)
+	}{
+		{"short signature command", func(raw []byte) { binary.LittleEndian.PutUint32(raw[60:64], 8) }},
+		{"out of bounds signature", func(raw []byte) { binary.LittleEndian.PutUint32(raw[64:68], 120) }},
+		{"multiple signatures", func(raw []byte) {
+			binary.LittleEndian.PutUint32(raw[16:20], 3)
+			binary.LittleEndian.PutUint32(raw[20:24], 56)
+			binary.LittleEndian.PutUint32(raw[72:76], 0x1d)
+			binary.LittleEndian.PutUint32(raw[76:80], 16)
+			binary.LittleEndian.PutUint32(raw[80:84], 112)
+			binary.LittleEndian.PutUint32(raw[84:88], 16)
+		}},
+	}
+	for _, test := range malformed {
+		t.Run(test.name, func(t *testing.T) {
+			raw := makeBinary(1, 2)
+			test.mutate(raw)
+			path := filepath.Join(t.TempDir(), "malformed")
+			if err := os.WriteFile(path, raw, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := canonicalizeMachOUUID(path); err == nil {
+				t.Fatal("malformed code-signature command accepted")
+			}
+		})
 	}
 }
 

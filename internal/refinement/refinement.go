@@ -34,15 +34,16 @@ import (
 )
 
 const (
-	SchemaPath      = "schemas/us024-refinement-replay-1.0.0.schema.json"
-	EvidencePath    = "evidence/refinement-replay.json"
-	beforeCommit    = "7ea615dfee70ae71af59e83559110c6c4671c405"
-	beforeTree      = "9353bf8cd67ad401eec2036c661441a6c9bf95b0"
-	candidateRoot   = "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e"
-	evaluationRoot  = "sha256:4f608c8f658dd287efef362bdfe027cf66116f95e1192810bce2fb3e1d83ce21"
-	assurance       = "OWNER_ATTESTED_NOT_INDEPENDENT"
-	maximumEvidence = 16 << 20
-	pinnedCargo     = "/Users/mikelady/.rustup/toolchains/1.95.0-aarch64-apple-darwin/bin/cargo"
+	SchemaPath             = "schemas/us024-refinement-replay-1.0.0.schema.json"
+	EvidencePath           = "evidence/refinement-replay.json"
+	beforeCommit           = "7ea615dfee70ae71af59e83559110c6c4671c405"
+	beforeTree             = "9353bf8cd67ad401eec2036c661441a6c9bf95b0"
+	candidateRoot          = "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e"
+	evaluationRoot         = "sha256:4f608c8f658dd287efef362bdfe027cf66116f95e1192810bce2fb3e1d83ce21"
+	assurance              = "OWNER_ATTESTED_NOT_INDEPENDENT"
+	maximumEvidence        = 16 << 20
+	pinnedCargo            = "/Users/mikelady/.rustup/toolchains/1.95.0-aarch64-apple-darwin/bin/cargo"
+	binaryCanonicalization = "MACHO_LC_UUID_SHA256_V2_CODESIG_ZERO_STRIPPED_ADHOC"
 )
 
 var (
@@ -395,6 +396,7 @@ func canonicalizeMachOUUID(path string) error {
 		return errors.New("Mach-O load-command envelope invalid")
 	}
 	offset, uuidOffset := 32, -1
+	signatureOffset, signatureSize := -1, -1
 	for range commands {
 		if offset+8 > 32+commandBytes {
 			return errors.New("Mach-O load command truncated")
@@ -409,18 +411,28 @@ func canonicalizeMachOUUID(path string) error {
 				return errors.New("Mach-O LC_UUID denominator invalid")
 			}
 			uuidOffset = offset + 8
+		} else if kind == 0x1d {
+			if signatureOffset >= 0 || size != 16 {
+				return errors.New("Mach-O LC_CODE_SIGNATURE denominator invalid")
+			}
+			signatureOffset = int(binary.LittleEndian.Uint32(raw[offset+8 : offset+12]))
+			signatureSize = int(binary.LittleEndian.Uint32(raw[offset+12 : offset+16]))
 		}
 		offset += size
 	}
-	if uuidOffset < 0 {
-		return errors.New("Mach-O LC_UUID absent")
+	commandEnd := 32 + commandBytes
+	if offset != commandEnd {
+		return errors.New("Mach-O load-command envelope has trailing bytes")
 	}
-	for index := 0; index < 16; index++ {
-		raw[uuidOffset+index] = 0
+	if uuidOffset < 0 || signatureOffset < commandEnd || signatureSize <= 0 || signatureOffset > len(raw) || signatureSize > len(raw)-signatureOffset {
+		return errors.New("Mach-O UUID or code-signature data absent or out of bounds")
 	}
+	preimage := append([]byte(nil), raw...)
+	clear(preimage[uuidOffset : uuidOffset+16])
+	clear(preimage[signatureOffset : signatureOffset+signatureSize])
 	hash := sha256.New()
-	hash.Write([]byte("us024-macho-lc-uuid-v1\x00"))
-	hash.Write(raw)
+	hash.Write([]byte("us024-macho-lc-uuid-v2-codesig-zero-stripped-adhoc\x00"))
+	hash.Write(preimage)
 	uuid := hash.Sum(nil)[:16]
 	uuid[6] = (uuid[6] & 0x0f) | 0x50
 	uuid[8] = (uuid[8] & 0x3f) | 0x80
@@ -449,7 +461,7 @@ func cargoEnvironment(root, cargo string) ([]string, error) {
 			return nil, err
 		}
 	}
-	flags := "--remap-path-prefix=" + root + "=/us024/source -C codegen-units=1"
+	flags := "--remap-path-prefix=" + root + "=/us024/source -C codegen-units=1 -C strip=debuginfo"
 	toolchain := filepath.Dir(cargo)
 	return []string{
 		"LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "CARGO_INCREMENTAL=0", "SOURCE_DATE_EPOCH=0",
@@ -940,8 +952,8 @@ func Capture(ctx context.Context, cfg CaptureConfig) (Evidence, error) {
 	if err != nil || !bytes.Equal(beforeLock, afterLock) {
 		return Evidence{}, errors.New("Cargo.lock drift")
 	}
-	beforeSubject := Subject{Commit: cfg.BeforeCommit, Tree: beforeResolved, RustTree: beforeRust, CargoLock: digest(beforeLock), Binary: beforeBinary.SHA256, BinarySize: beforeBinary.Bytes, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1_ADHOC"}
-	afterSubject := Subject{Commit: cfg.AfterCommit, Tree: afterTree, RustTree: afterRust, CargoLock: digest(afterLock), Binary: afterBinary.SHA256, BinarySize: afterBinary.Bytes, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1_ADHOC"}
+	beforeSubject := Subject{Commit: cfg.BeforeCommit, Tree: beforeResolved, RustTree: beforeRust, CargoLock: digest(beforeLock), Binary: beforeBinary.SHA256, BinarySize: beforeBinary.Bytes, BinaryCanonicalization: binaryCanonicalization}
+	afterSubject := Subject{Commit: cfg.AfterCommit, Tree: afterTree, RustTree: afterRust, CargoLock: digest(afterLock), Binary: afterBinary.SHA256, BinarySize: afterBinary.Bytes, BinaryCanonicalization: binaryCanonicalization}
 
 	beforeRows, err := differential.ReplayRustPublic(ctx, differential.RustReplayConfig{RepositoryRoot: beforeRoot, Executable: filepath.Join(beforeRoot, beforeBinary.Path), ScenarioTimeout: 5 * time.Second, SuiteTimeout: 15 * time.Minute})
 	if err != nil {
@@ -1022,7 +1034,7 @@ func validateStatic(e Evidence) error {
 		return errors.New("subject identity drift")
 	}
 	for _, subject := range []Subject{e.Before, e.After} {
-		if !digestPattern.MatchString(subject.RustTree) || !digestPattern.MatchString(subject.CargoLock) || !digestPattern.MatchString(subject.Binary) || subject.BinarySize <= 0 || subject.BinaryCanonicalization != "MACHO_LC_UUID_SHA256_V1_ADHOC" {
+		if !digestPattern.MatchString(subject.RustTree) || !digestPattern.MatchString(subject.CargoLock) || !digestPattern.MatchString(subject.Binary) || subject.BinarySize <= 0 || subject.BinaryCanonicalization != binaryCanonicalization {
 			return errors.New("subject artifact identity drift")
 		}
 	}
