@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/behavior-delta-ledger-1.1.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "evidence_kind",
+    "accepted_root_digest",
+    "status",
+    "normative_authority",
+    "head",
+    "records",
+    "append_implementation",
+    "supersessions",
+    "unledgered_disagreements",
+    "production",
+    "publication"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/behavior-delta-ledger-1.1.0.schema.json"
+    },
+    "schema_version": {
+      "const": "1.1.0"
+    },
+    "evidence_kind": {
+      "const": "behavior-delta-ledger"
+    },
+    "accepted_root_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "status": {
+      "enum": [
+        "READY",
+        "BLOCKED_PENDING_BASELINE"
+      ]
+    },
+    "normative_authority": {
+      "const": "rfc6455"
+    },
+    "head": {
+      "$ref": "#/$defs/digest"
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    },
+    "append_implementation": {
+      "const": "hash-chained-cas"
+    },
+    "supersessions": {
+      "type": "array",
+      "maxItems": 100000,
+      "description": "The supersession links the record chain's own hashed rationales carry, declared as data. internal/lab re-derives them from the records and refuses a document that declares anything else, so this array is a convenience for consumers and never an authority of its own.",
+      "items": {
+        "$ref": "#/$defs/supersession_link"
+      }
+    },
+    "unledgered_disagreements": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000,
+      "description": "COMPUTED count of observed disagreements (evidence/java/observed-disagreements.json) that have no ledger record. Was previously const 0, which made it a gate that could not fail; the zero REQUIREMENT now lives in the readiness gate (internal/lab VerifyBaselineEvidence), which refuses readiness on any nonzero value."
+    },
+    "production": {
+      "const": false
+    },
+    "publication": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "sequence",
+        "previous_digest",
+        "delta",
+        "record_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "previous_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "delta": {
+          "$ref": "#/$defs/delta"
+        },
+        "record_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "delta_id",
+        "subject_ref",
+        "rfc_refs",
+        "rfc_expectation_digest",
+        "rfc_value_digest",
+        "java_ref",
+        "java_observation_digest",
+        "java_value_digest",
+        "autobahn_refs",
+        "autobahn_result_digest",
+        "autobahn_value_digest",
+        "disagreement_digest",
+        "normative_authority",
+        "disposition",
+        "rationale"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "delta_id": {
+          "type": "string",
+          "pattern": "^delta-[0-9a-f]{64}$"
+        },
+        "subject_ref": {
+          "type": "string",
+          "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"
+        },
+        "rfc_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^rfc6455#section-[0-9]+(?:\\.[0-9]+)*$"
+          }
+        },
+        "rfc_expectation_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "rfc_value_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "java_ref": {
+          "type": "string",
+          "pattern": "^java-v1\\.6\\.0:[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+        },
+        "java_observation_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "java_value_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "autobahn_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^autobahn-v25\\.10\\.1:([1-7]|9|10|12|13)\\.[0-9]+(?:\\.[0-9]+)*$"
+          }
+        },
+        "autobahn_result_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "autobahn_value_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "disagreement_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "normative_authority": {
+          "const": "rfc6455"
+        },
+        "disposition": {
+          "enum": [
+            "unresolved",
+            "rfc-governs"
+          ]
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        }
+      }
+    },
+    "supersession_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "superseded_sequence",
+        "superseded_delta_id",
+        "superseded_subject_ref",
+        "superseding_sequence",
+        "superseding_delta_id",
+        "superseding_subject_ref"
+      ],
+      "properties": {
+        "superseded_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "superseded_delta_id": {
+          "type": "string",
+          "pattern": "^delta-[0-9a-f]{64}$"
+        },
+        "superseded_subject_ref": {
+          "type": "string",
+          "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"
+        },
+        "superseding_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "superseding_delta_id": {
+          "type": "string",
+          "pattern": "^delta-[0-9a-f]{64}$"
+        },
+        "superseding_subject_ref": {
+          "type": "string",
+          "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"
+        }
+      }
+    }
+  },
+  "description": "Behavior-delta ledger DOCUMENT, version 1.1.0. The bump is at the document level and only there. 1.1.0 adds the first-class `supersessions` array so the readiness gate in internal/lab can see which records the chain records as withdrawn: before it, supersession existed only as a token inside each correcting record's hashed rationale plus a sidecar, and internal/lab.VerifyBaselineEvidence -- the one consumer that decides release readiness -- validated every record identically, so a withdrawn record stayed authoritative to it. The PER-RECORD schema_version stays 1.0.0 on purpose: it is inside every record's digest preimage, so bumping it would change every record digest and rewrite the hash chain from sequence 1, breaking the frozen prefix (sequence 35 at sha256:3fcd461cfea72e049628a0031bfbb90addecea2f2bb6997e62280cad1962656d) that the same owner ruling protects. Authority: protected/governance-mirroring-and-record-schema-owner-decision-2026-08-28.json, sha256 e6837006a722b71f6b7137b82be31f4a9e8d802f0ef4c0614dbd4016f27c361f, decided 2026-08-28T20:05:00Z."
+}

@@ -39,5 +39,21 @@ ac1-gates:
 # internal/deltaledger as production code and `--check` runs them, so the gate
 # and the test suite exercise one implementation. It exits nonzero on any
 # integrity failure, which fails this target and `gates` with it.
+#
+# ROUND 2 moved two more rules in, for the same reason: the JSON-schema
+# validation of the evidence documents and the observation envelope and
+# uniqueness checks were still test-only, so an unknown census field or a
+# drifted observation `$schema` passed this target at exit 0.
+#
+# THE GOVERNANCE BINDING IS REQUIRED, NOT OPTIONAL. `--check` now verifies the
+# committed digest mirror at evidence/governance/owner-decision-digests.json
+# against the workspace orchestrator's protected store, under the owner ruling
+# governance-mirroring-and-record-schema-owner-decision-2026-08-28.json (MIRROR
+# DIGESTS ONLY). Deleting or editing a governance record fails this target.
+# An UNREACHABLE store is also a failure rather than a skip — skipping when
+# VJWP_PROTECTED_STORE was unset is exactly how deleting a load-bearing owner
+# decision used to leave this branch green. The store is discovered above the
+# checkout when the variable is unset; set VJWP_PROTECTED_STORE to point at it
+# explicitly from a checkout that does not sit under the workspace.
 ledger-gates:
 	cd .. && go run ./cmd/deltaledgerctl --root . --check

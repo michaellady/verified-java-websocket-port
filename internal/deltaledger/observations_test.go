@@ -42,13 +42,37 @@ import (
 // touching the worktree.
 var degradedRootArtifacts = []string{
 	LedgerRelativePath,
+	LedgerSchemaRelativePath,
 	ObservationsRelativePath,
+	ObservationsSchemaRelativePath,
 	SupersessionsRelativePath,
+	SupersessionsSchemaRelativePath,
 	LiveMappingRelativePath,
 	CensusRelativePath,
 	CensusSchemaRelativePath,
 	HandshakeCorpusRelativePath,
 	PublicCorpusRelativePath,
+	OwnerDecisionManifestRelativePath,
+	OwnerDecisionManifestSchemaRelativePath,
+}
+
+// withProtectedStore points VJWP_PROTECTED_STORE at the real governance store
+// for the duration of a test.
+//
+// A degraded root is a temporary directory, so the store discovery that works
+// from the worktree cannot work from it. Configuring the variable is the
+// SUPPORTED way to point the gate at the store, and it is used here rather than
+// skipping: round-2 finding 5 is precisely that an unreachable store used to
+// mean a silent pass, and a test suite that quietly skips the governance gate
+// when it cannot find the store would reintroduce that at the test layer. If
+// the store cannot be resolved from the worktree, this FAILS.
+func withProtectedStore(t *testing.T) {
+	t.Helper()
+	resolution, err := ResolveProtectedStore(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("the governance store is required by the integrity gate and could not be resolved: %v", err)
+	}
+	t.Setenv(ProtectedStoreEnv, resolution.Path)
 }
 
 // degradedRoot materializes a temporary repository root holding a copy of every
@@ -58,6 +82,7 @@ var degradedRootArtifacts = []string{
 // copy of it.
 func degradedRoot(t *testing.T, degrade func(root string)) string {
 	t.Helper()
+	withProtectedStore(t)
 	root := t.TempDir()
 	for _, relative := range degradedRootArtifacts {
 		source := filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(relative))
@@ -82,26 +107,26 @@ func degradedRoot(t *testing.T, degrade func(root string)) string {
 // TestCommittedObservationSetIsWellFormed fails closed on an empty, truncated
 // or provenance-less observation set, so the gate can never become vacuous by
 // the file quietly degrading.
+//
+// The rules themselves moved into ReadObservations under round-2 finding 4 —
+// they used to live only here, and `ledger-gates` runs no Go tests — so this
+// test now exercises the production reader rather than restating what it should
+// have checked. TestTheGateRefusesADriftedObservationEnvelope and
+// TestTheGateRefusesADuplicatedObservation are the discrimination halves.
 func TestCommittedObservationSetIsWellFormed(t *testing.T) {
 	set, err := ReadObservations(ledgerTestRepoRoot)
 	if err != nil {
 		t.Fatalf("read observations: %v", err)
 	}
-	if set.EvidenceKind != "observed-disagreement-set" || set.SchemaVersion != "1.0.0" {
+	if set.EvidenceKind != ObservationsEvidenceKind || set.SchemaVersion != "1.0.0" {
 		t.Fatalf("observation envelope drifted: kind=%q version=%q", set.EvidenceKind, set.SchemaVersion)
 	}
-	if set.Schema != "../../schemas/observed-disagreements-1.0.0.schema.json" {
+	if set.Schema != ObservationsSchemaPointer {
 		t.Fatalf("observation schema pointer drifted: %q", set.Schema)
 	}
-	seen := map[string]bool{}
-	for index, observation := range set.Observed {
-		if seen[observation.SubjectRef] {
-			t.Errorf("observation %d duplicates subject %s", index, observation.SubjectRef)
-		}
-		seen[observation.SubjectRef] = true
-		if _, err := observation.Digest(); err != nil {
-			t.Errorf("observation %d (%s) does not digest: %v", index, observation.SubjectRef, err)
-		}
+	if len(set.Observed) == 0 || len(set.Provenance) != len(set.Observed) {
+		t.Fatalf("observation set is %d observations and %d provenance entries",
+			len(set.Observed), len(set.Provenance))
 	}
 }
 
@@ -118,7 +143,7 @@ func TestCommittedObservationSetIsWellFormed(t *testing.T) {
 // `protected/us005-corpora/live/handshake/transcript.json`, manufactured by a
 // regex truncating a `.jsonl` path.
 func TestObservationProvenanceResolvesOnDisk(t *testing.T) {
-	if err := VerifyObservationProvenance(ledgerTestRepoRoot); err != nil {
+	if err := VerifyObservationProvenance(ledgerTestRepoRoot, Definitions()); err != nil {
 		t.Fatalf("observation provenance: %v", err)
 	}
 	root := degradedRoot(t, func(root string) {
@@ -142,12 +167,176 @@ func TestObservationProvenanceResolvesOnDisk(t *testing.T) {
 			t.Fatalf("write observations: %v", err)
 		}
 	})
-	err := VerifyObservationProvenance(root)
+	err := VerifyObservationProvenance(root, Definitions())
 	if err == nil {
 		t.Fatal("provenance verification accepted a citation of a file that does not exist")
 	}
 	if !strings.Contains(err.Error(), "a-file-that-does-not-exist.json") {
 		t.Fatalf("refused, but not on the unresolvable citation; got: %v", err)
+	}
+}
+
+// TestProvenanceMustEqualTheEvidenceDerivedProvenance is the discrimination
+// proof for round-2 finding 3.
+//
+// THE ATTACK, reproduced against the previous rule and READ PASSING before the
+// fix: rewrite one entry's `source_kind` to an invented label and its `evidence`
+// to ["evidence/java/build.json"] — a file that exists, cited by nothing.
+// The old check required only a non-empty source kind and paths that resolve, so
+// `deltaledgerctl --check` returned exit 0. The fail-closed classifier ran only
+// under `--regenerate-observations`, never under `--check`.
+//
+// Each leg below is a different member of the same class, because the finding is
+// "an unrelated but resolvable value is accepted", not one specific string.
+func TestProvenanceMustEqualTheEvidenceDerivedProvenance(t *testing.T) {
+	for _, attack := range []struct {
+		name      string
+		degrade   func(entry map[string]any)
+		mustMatch string
+	}{
+		{
+			name: "an invented source kind",
+			degrade: func(entry map[string]any) {
+				entry["source_kind"] = "totally-unrelated-source-kind-nobody-classified"
+			},
+			mustMatch: "but the classifier derives",
+		},
+		{
+			name: "an unrelated but existing evidence path",
+			degrade: func(entry map[string]any) {
+				entry["evidence"] = []any{"evidence/java/build.json"}
+			},
+			mustMatch: "an unrelated-but-existing path is a substitution",
+		},
+		{
+			name: "a truncated evidence list",
+			degrade: func(entry map[string]any) {
+				citations, _ := entry["evidence"].([]any)
+				if len(citations) > 1 {
+					entry["evidence"] = citations[:1]
+				}
+			},
+			mustMatch: "an unrelated-but-existing path is a substitution",
+		},
+		{
+			name: "an extra plausible citation nobody's record makes",
+			degrade: func(entry map[string]any) {
+				citations, _ := entry["evidence"].([]any)
+				entry["evidence"] = append(append([]any{}, citations...), "evidence/java/build.json")
+			},
+			mustMatch: "an unrelated-but-existing path is a substitution",
+		},
+	} {
+		t.Run(attack.name, func(t *testing.T) {
+			root := degradedRoot(t, func(root string) {
+				path := filepath.Join(root, filepath.FromSlash(ObservationsRelativePath))
+				raw, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("read observations: %v", err)
+				}
+				var document map[string]any
+				if err := json.Unmarshal(raw, &document); err != nil {
+					t.Fatalf("decode observations: %v", err)
+				}
+				provenance, _ := document["provenance"].([]any)
+				if len(provenance) == 0 {
+					t.Fatal("no provenance entries to degrade")
+				}
+				entry, _ := provenance[0].(map[string]any)
+				attack.degrade(entry)
+				encoded, _ := json.MarshalIndent(document, "", "  ")
+				if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+					t.Fatalf("write observations: %v", err)
+				}
+			})
+			err := VerifyObservationProvenance(root, Definitions())
+			if err == nil {
+				t.Fatal("provenance verification accepted a substituted provenance. The gate must compare the " +
+					"COMMITTED provenance with the EVIDENCE-DERIVED expected provenance, not merely check that the " +
+					"committed strings are non-empty and resolve")
+			}
+			if !strings.Contains(err.Error(), attack.mustMatch) {
+				t.Fatalf("refused, but not on the substitution; got: %v", err)
+			}
+		})
+	}
+}
+
+// TestTheGateRefusesADriftedObservationEnvelope is the discrimination proof for
+// round-2 finding 4's observation half.
+//
+// The envelope and uniqueness rules lived only in this test file, and
+// `ledger-gates` runs no Go tests. Reproduced before the rules moved into
+// ReadObservations: rewriting `$schema` to a file that does not exist and
+// `evidence_kind` to "not-an-observed-disagreement-set" left both
+// `deltaledgerctl --check` and `make -C rust ledger-gates` at exit 0. The rules
+// now run wherever the observation set is read, which is inside the gate.
+func TestTheGateRefusesADriftedObservationEnvelope(t *testing.T) {
+	for _, attack := range []struct {
+		field, value, mustMatch string
+	}{
+		{"$schema", "../../schemas/a-schema-that-does-not-exist-9.9.9.schema.json", "$schema pointer drifted"},
+		{"evidence_kind", "not-an-observed-disagreement-set", "evidence_kind drifted"},
+	} {
+		t.Run(attack.field, func(t *testing.T) {
+			root := degradedRoot(t, func(root string) {
+				path := filepath.Join(root, filepath.FromSlash(ObservationsRelativePath))
+				raw, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("read observations: %v", err)
+				}
+				var document map[string]any
+				if err := json.Unmarshal(raw, &document); err != nil {
+					t.Fatalf("decode observations: %v", err)
+				}
+				document[attack.field] = attack.value
+				encoded, _ := json.MarshalIndent(document, "", "  ")
+				if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+					t.Fatalf("write observations: %v", err)
+				}
+			})
+			err := VerifyIntegrity(root)
+			if err == nil {
+				t.Fatal("the integrity gate accepted a drifted observation envelope")
+			}
+			if !strings.Contains(err.Error(), attack.mustMatch) {
+				t.Fatalf("the gate refused, but not on the drifted envelope; got: %v", err)
+			}
+		})
+	}
+}
+
+// TestTheGateRefusesADuplicatedObservation pins the uniqueness rule in the same
+// place. A duplicated subject either double-counts or masks an unledgered one.
+func TestTheGateRefusesADuplicatedObservation(t *testing.T) {
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(ObservationsRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read observations: %v", err)
+		}
+		var document map[string]any
+		if err := json.Unmarshal(raw, &document); err != nil {
+			t.Fatalf("decode observations: %v", err)
+		}
+		observed, _ := document["observed"].([]any)
+		provenance, _ := document["provenance"].([]any)
+		if len(observed) == 0 || len(provenance) == 0 {
+			t.Fatal("no observations to duplicate")
+		}
+		document["observed"] = append(append([]any{}, observed...), observed[0])
+		document["provenance"] = append(append([]any{}, provenance...), provenance[0])
+		encoded, _ := json.MarshalIndent(document, "", "  ")
+		if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+			t.Fatalf("write observations: %v", err)
+		}
+	})
+	err := VerifyIntegrity(root)
+	if err == nil {
+		t.Fatal("the integrity gate accepted a duplicated observation")
+	}
+	if !strings.Contains(err.Error(), "duplicates subject") {
+		t.Fatalf("the gate refused, but not on the duplicate; got: %v", err)
 	}
 }
 

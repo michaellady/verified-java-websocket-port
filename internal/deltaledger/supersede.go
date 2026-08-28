@@ -31,28 +31,37 @@ package deltaledger
 //     that wants authoritative-only records reads that file; it no longer has
 //     to grep rationales.
 //
-// WHAT THIS DOES NOT FIX, disclosed rather than glossed: internal/lab's
-// readiness gate consumes the frozen record vocabulary and still sees six
-// `unresolved` records. Teaching the readiness gate to exclude superseded
-// records would require a 1.1.0 record schema and an owner ruling on the
-// vocabulary, which is out of scope for a correction branch and is escalated
-// rather than decided here.
+// WHAT ROUND 2 ADDED. The paragraph that used to sit here disclosed that
+// internal/lab's readiness gate could not see any of this — and review round 2
+// correctly refused to accept the disclosure in place of the fix, because that
+// gate is the one consumer whose opinion decides release readiness. The owner
+// then ruled BUMP THE RECORD SCHEMA TO 1.1.0 AND TEACH THE READINESS GATE.
+//
+// The canonical parser now lives in internal/lab (supersession.go), because the
+// record vocabulary is lab's; this file emits the token and renders the sidecar,
+// and lab derives the links from the hashed rationales for itself. The LEDGER
+// DOCUMENT is at schema 1.1.0 with a first-class `supersessions` array, while
+// every RECORD stays at record schema_version 1.0.0 so the frozen prefix's
+// digests — sequence 35 at 3fcd461c… — are untouched.
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/lab"
 )
 
-// SupersessionsRelativePath is the committed machine-readable supersession map.
-const SupersessionsRelativePath = "evidence/java/ledger-supersessions.json"
+// SupersessionsRelativePath is the committed machine-readable supersession map,
+// and SupersessionsSchemaRelativePath is its contract.
+const (
+	SupersessionsRelativePath       = "evidence/java/ledger-supersessions.json"
+	SupersessionsSchemaRelativePath = "schemas/ledger-supersessions-1.0.0.schema.json"
+	SupersessionsSchemaPointer      = "../../schemas/ledger-supersessions-1.0.0.schema.json"
+)
 
 // Supersession is one record's structured claim to correct an earlier record.
 type Supersession struct {
@@ -80,9 +89,10 @@ func (s Supersession) supersedesToken() string {
 		" subject=semantic:" + s.Subject + ":provisional-v1 reason=" + s.Reason + ";"
 }
 
-// supersedesPattern parses the canonical link back out of a rationale.
-var supersedesPattern = regexp.MustCompile(
-	`SUPERSEDES ledger-sequence=([0-9]+) delta=(delta-[0-9a-f]{64}) subject=(semantic:[a-z0-9][a-z0-9._-]*:provisional-v[0-9]+)`)
+// supersedesPattern parses the canonical link back out of a rationale. It is
+// internal/lab's pattern, not a second copy: the readiness gate and the censuses
+// must agree about what a supersession IS, and two regexes cannot be trusted to.
+var supersedesPattern = lab.SupersedesPattern
 
 // supersededSubjects is the set of Definition.Subject values that some later
 // definition supersedes. A superseded record is still in the chain, still
@@ -110,15 +120,11 @@ func supersedesPrefix(definition Definition) string {
 	return strings.Join(parts, " ") + " "
 }
 
-// SupersessionLink is one parsed link, as read back off the committed chain.
-type SupersessionLink struct {
-	SupersededSequence  uint64 `json:"superseded_sequence"`
-	SupersededDeltaID   string `json:"superseded_delta_id"`
-	SupersededSubject   string `json:"superseded_subject_ref"`
-	SupersedingSequence uint64 `json:"superseding_sequence"`
-	SupersedingDeltaID  string `json:"superseding_delta_id"`
-	SupersedingSubject  string `json:"superseding_subject_ref"`
-}
+// SupersessionLink is one parsed link, as read back off the committed chain. It
+// is an alias for internal/lab's type so the sidecar, the ledger document's
+// 1.1.0 `supersessions` array and the readiness gate all speak about the same
+// thing.
+type SupersessionLink = lab.SupersessionLink
 
 // SupersessionsDocument is the committed sidecar.
 type SupersessionsDocument struct {
@@ -135,10 +141,13 @@ type SupersessionsDocument struct {
 const SupersessionsStatement = "Machine-readable supersession map for evidence/java/behavior-delta-ledger.json. " +
 	"A superseded record remains byte-identical in the hash chain with its digest intact, under the owner ruling " +
 	"SUPERSEDE-DO-NOT-REWRITE; this file states which records are no longer the authoritative statement of their " +
-	"subject, so a consumer does not have to discover it by reading later rationale prose. The frozen 1.0.0 record " +
-	"vocabulary has no authoritative-state field, so both the superseded and the superseding record still carry " +
-	"disposition 'unresolved'; internal/lab.VerifyBaselineEvidence does not yet consume this map, which is disclosed " +
-	"rather than implied."
+	"subject, so a consumer does not have to discover it by reading later rationale prose. The PER-RECORD schema stays " +
+	"1.0.0, whose vocabulary has no authoritative-state field, so both the superseded and the superseding record still " +
+	"carry disposition 'unresolved' — bumping the record schema would change every record digest and rewrite the frozen " +
+	"prefix. The LEDGER DOCUMENT is at 1.1.0 and carries the same links in a first-class `supersessions` array, and " +
+	"internal/lab.VerifyBaselineEvidence now consumes them: it re-derives the links from the records' own hashed " +
+	"rationales, refuses a document whose declared array disagrees, and builds its Autobahn coverage map from " +
+	"AUTHORITATIVE records only, so a withdrawn record covers nothing."
 
 // SupersessionsAuthority names the owner ruling.
 const SupersessionsAuthority = "protected/ledger-frozen-prefix-owner-decision-2026-08-28.json " +
@@ -149,81 +158,27 @@ const SupersessionsAuthority = "protected/ledger-frozen-prefix-owner-decision-20
 // ReadSupersessionLinks parses every supersession link out of the record chain.
 // It reads the RECORDS, not the definitions, so it reports what the committed
 // hashed evidence actually says.
+//
+// The implementation is internal/lab's, because the readiness gate needs the
+// same answer and a second implementation is a second opinion waiting to
+// diverge. This wrapper is kept so callers in this package read naturally.
 func ReadSupersessionLinks(records []lab.BehaviorLedgerRecord) ([]SupersessionLink, error) {
-	bySequence := map[uint64]lab.BehaviorLedgerRecord{}
-	byDelta := map[string]lab.BehaviorLedgerRecord{}
-	for _, record := range records {
-		bySequence[record.Sequence] = record
-		byDelta[record.Delta.DeltaID] = record
-	}
-	var links []SupersessionLink
-	supersededBy := map[uint64]uint64{}
-	for _, record := range records {
-		for _, match := range supersedesPattern.FindAllStringSubmatch(record.Delta.Rationale, -1) {
-			sequence, err := strconv.ParseUint(match[1], 10, 64)
-			if err != nil {
-				return nil, fmt.Errorf("record %d: unparsable superseded sequence %q", record.Sequence, match[1])
-			}
-			target, exists := bySequence[sequence]
-			if !exists {
-				return nil, fmt.Errorf("record %d supersedes sequence %d, which is not in the chain",
-					record.Sequence, sequence)
-			}
-			if target.Delta.DeltaID != match[2] {
-				return nil, fmt.Errorf("record %d supersedes sequence %d naming delta %s, but sequence %d is %s",
-					record.Sequence, sequence, match[2], sequence, target.Delta.DeltaID)
-			}
-			if target.Delta.SubjectRef != match[3] {
-				return nil, fmt.Errorf("record %d supersedes sequence %d naming subject %s, but sequence %d is %s",
-					record.Sequence, sequence, match[3], sequence, target.Delta.SubjectRef)
-			}
-			if sequence >= record.Sequence {
-				return nil, fmt.Errorf("record %d supersedes sequence %d, which is not earlier in the chain",
-					record.Sequence, sequence)
-			}
-			if previous, already := supersededBy[sequence]; already {
-				return nil, fmt.Errorf("sequence %d is superseded by both record %d and record %d; a record may be "+
-					"superseded at most once, otherwise authoritative state is ambiguous", sequence, previous, record.Sequence)
-			}
-			supersededBy[sequence] = record.Sequence
-			links = append(links, SupersessionLink{
-				SupersededSequence:  sequence,
-				SupersededDeltaID:   target.Delta.DeltaID,
-				SupersededSubject:   target.Delta.SubjectRef,
-				SupersedingSequence: record.Sequence,
-				SupersedingDeltaID:  record.Delta.DeltaID,
-				SupersedingSubject:  record.Delta.SubjectRef,
-			})
-		}
-	}
-	for superseded, superseding := range supersededBy {
-		if _, chained := supersededBy[superseding]; chained && superseding == superseded {
-			return nil, fmt.Errorf("sequence %d supersedes itself", superseded)
-		}
-	}
-	sort.Slice(links, func(i, j int) bool { return links[i].SupersededSequence < links[j].SupersededSequence })
-	return links, nil
+	return lab.ReadSupersessionLinks(records)
 }
 
 // AuthoritativeSequences returns the sequences that are still the authoritative
 // statement of their subject: everything the chain does not record as
 // superseded.
 func AuthoritativeSequences(records []lab.BehaviorLedgerRecord) ([]uint64, error) {
-	links, err := ReadSupersessionLinks(records)
+	authoritative, err := lab.AuthoritativeRecords(records)
 	if err != nil {
 		return nil, err
 	}
-	superseded := map[uint64]bool{}
-	for _, link := range links {
-		superseded[link.SupersededSequence] = true
+	sequences := make([]uint64, 0, len(authoritative))
+	for _, record := range authoritative {
+		sequences = append(sequences, record.Sequence)
 	}
-	var authoritative []uint64
-	for _, record := range records {
-		if !superseded[record.Sequence] {
-			authoritative = append(authoritative, record.Sequence)
-		}
-	}
-	return authoritative, nil
+	return sequences, nil
 }
 
 // BuildSupersessionsDocument renders the committed sidecar from the chain.
@@ -236,7 +191,7 @@ func BuildSupersessionsDocument(records []lab.BehaviorLedgerRecord) (Supersessio
 		links = []SupersessionLink{}
 	}
 	return SupersessionsDocument{
-		Schema:        "../../schemas/ledger-supersessions-1.0.0.schema.json",
+		Schema:        SupersessionsSchemaPointer,
 		SchemaVersion: "1.0.0",
 		EvidenceKind:  "ledger-supersessions",
 		Statement:     SupersessionsStatement,

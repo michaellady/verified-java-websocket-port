@@ -1,0 +1,77 @@
+{
+  "$schema": "../../schemas/owner-decision-digests-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "owner-decision-digest-manifest",
+  "statement": "Digest mirror of the owner decisions that govern this project. The records themselves live in the workspace orchestrator's immutable protected store and are deliberately NOT committed: this repository is public and those records carry internal deliberation, cost figures and infrastructure identifiers. Committing their sha256 gets tamper-detection without the disclosure, under the owner ruling governance-mirroring-and-record-schema-owner-decision-2026-08-28.json. Every entry is DERIVED — from the digests the ledger records' own hashed rationales already assert, plus the decisions this repository's gate design rests on — and internal/deltaledger.VerifyGovernance requires the committed file to equal that derivation AND requires the protected store to be reachable and every mirrored digest to recompute. An unreachable store is a refusal, not a skip.",
+  "store": "workspace orchestrator protected store for the verified-java-websocket-port-claude plane; set VJWP_PROTECTED_STORE to point at it explicitly, or leave it unset and let ResolveProtectedStore discover workspace/orchestrator/verified-java-websocket-port-claude/protected above the checkout",
+  "decisions": [
+    {
+      "name": "governance-mirroring-and-record-schema-owner-decision-2026-08-28.json",
+      "sha256": "e6837006a722b71f6b7137b82be31f4a9e8d802f0ef4c0614dbd4016f27c361f",
+      "cited_by_sequences": [],
+      "basis": "no divergence record cites it; it is the ruling this repository's gate design itself rests on, mirrored so that deleting the authority for the mirror fails the gate too"
+    },
+    {
+      "name": "ledger-frozen-prefix-owner-decision-2026-08-28.json",
+      "sha256": "bb3cd0da7f4aed014290dab3dc35b2ec87f41d3d7e7a8c7449816159e9d837c7",
+      "cited_by_sequences": [
+        45,
+        46,
+        47
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    },
+    {
+      "name": "us010-016-ac-amendment-owner-decision-2026-08-27.json",
+      "sha256": "26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974",
+      "cited_by_sequences": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21,
+        22,
+        23,
+        24,
+        25,
+        26,
+        27,
+        28,
+        29,
+        30,
+        31,
+        32,
+        36,
+        37,
+        38,
+        39,
+        40,
+        41,
+        42,
+        43,
+        44,
+        45,
+        46,
+        47,
+        48
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    }
+  ]
+}

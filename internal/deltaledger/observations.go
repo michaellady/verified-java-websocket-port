@@ -81,7 +81,25 @@ type ObservationSet struct {
 	Provenance    []ObservationProvenance    `json:"provenance"`
 }
 
-// ReadObservations decodes the committed observed-disagreement set.
+// ObservationsSchemaRelativePath is the observation set's schema, and
+// ObservationsSchemaPointer is the `$schema` value the document must carry
+// (relative to the document, which lives two directories down).
+const (
+	ObservationsSchemaRelativePath = "schemas/observed-disagreements-1.0.0.schema.json"
+	ObservationsSchemaPointer      = "../../schemas/observed-disagreements-1.0.0.schema.json"
+	ObservationsEvidenceKind       = "observed-disagreement-set"
+)
+
+// ReadObservations decodes and ENVELOPE-CHECKS the committed
+// observed-disagreement set.
+//
+// ROUND-2 FINDING 4 moved the envelope and uniqueness rules HERE from
+// observations_test.go. `ledger-gates` runs no Go tests, so while those rules
+// lived only in a test binary a drifted `$schema` or `evidence_kind`, or a
+// duplicated subject, passed production `--check` unnoticed. Reproduced before
+// the move: rewriting `$schema` to a file that does not exist and
+// `evidence_kind` to "not-an-observed-disagreement-set" left both
+// `deltaledgerctl --check` and `make -C rust ledger-gates` at exit 0.
 func ReadObservations(root string) (ObservationSet, error) {
 	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ObservationsRelativePath)))
 	if err != nil {
@@ -94,12 +112,39 @@ func ReadObservations(root string) (ObservationSet, error) {
 	if set.SchemaVersion != "1.0.0" {
 		return ObservationSet{}, fmt.Errorf("%s: observations schema must be 1.0.0", ObservationsRelativePath)
 	}
+	if set.EvidenceKind != ObservationsEvidenceKind {
+		return ObservationSet{}, fmt.Errorf("%s: evidence_kind drifted to %q, expected %q",
+			ObservationsRelativePath, set.EvidenceKind, ObservationsEvidenceKind)
+	}
+	if set.Schema != ObservationsSchemaPointer {
+		return ObservationSet{}, fmt.Errorf("%s: $schema pointer drifted to %q, expected %q",
+			ObservationsRelativePath, set.Schema, ObservationsSchemaPointer)
+	}
+	if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(ObservationsSchemaRelativePath))); err != nil {
+		return ObservationSet{}, fmt.Errorf("%s names schema %s, which does not exist: %w",
+			ObservationsRelativePath, ObservationsSchemaRelativePath, err)
+	}
 	if len(set.Observed) == 0 {
 		return ObservationSet{}, fmt.Errorf("%s: the observed set is empty; the gate would be vacuous", ObservationsRelativePath)
 	}
 	if len(set.Provenance) != len(set.Observed) {
 		return ObservationSet{}, fmt.Errorf("%s: %d observations but %d provenance entries; every observation must say where it came from",
 			ObservationsRelativePath, len(set.Observed), len(set.Provenance))
+	}
+	seen := map[string]bool{}
+	for index, observation := range set.Observed {
+		if observation.SubjectRef == "" {
+			return ObservationSet{}, fmt.Errorf("%s: observation %d has no subject_ref", ObservationsRelativePath, index)
+		}
+		if seen[observation.SubjectRef] {
+			return ObservationSet{}, fmt.Errorf("%s: observation %d duplicates subject %s; a duplicated observation "+
+				"double-counts or masks an unledgered one", ObservationsRelativePath, index, observation.SubjectRef)
+		}
+		seen[observation.SubjectRef] = true
+		if _, err := observation.Digest(); err != nil {
+			return ObservationSet{}, fmt.Errorf("%s: observation %d (%s) does not digest: %w",
+				ObservationsRelativePath, index, observation.SubjectRef, err)
+		}
 	}
 	return set, nil
 }
@@ -301,15 +346,45 @@ func observationSourceKind(subject string) string {
 	}
 }
 
-// VerifyObservationProvenance requires every observation to name evidence, and
-// every in-repository citation to resolve on disk. The previous check required
-// only a non-empty list and a non-empty source-kind string, and passed against
-// a committed set in which 44 of the citations named files that do not exist.
-func VerifyObservationProvenance(root string) error {
+// ExpectedObservationProvenance derives, from the DEFINITIONS' own hashed
+// digest preimages, the provenance each observation must carry. It is the same
+// derivation the regeneration path uses, exposed so the GATE can compare the
+// committed document against it instead of merely checking that the committed
+// strings are non-empty.
+func ExpectedObservationProvenance(definitions []Definition) map[string]ObservationProvenance {
+	expected := make(map[string]ObservationProvenance, len(definitions))
+	for _, definition := range definitions {
+		subjectRef := "semantic:" + definition.Subject + ":provisional-v1"
+		expected[subjectRef] = observationProvenanceFor(subjectRef, definition)
+	}
+	return expected
+}
+
+// VerifyObservationProvenance requires every observation's provenance to EQUAL
+// the provenance derived from the evidence that observation's record cites, and
+// every in-repository citation to resolve on disk.
+//
+// ROUND-1 (BLOCKING 7) made the citations resolve. ROUND-2 found that resolving
+// was not the same as being RIGHT: the check still accepted any non-empty
+// source_kind and any unrelated path that happens to exist, and the fail-closed
+// classifier ran only under `--regenerate-observations`, never under `--check`.
+// Reproduced before this fix by rewriting one entry's source_kind to
+// "totally-unrelated-source-kind-nobody-classified" and its evidence to
+// ["evidence/java/build.json"] — a real file, cited by nothing — and reading
+// `deltaledgerctl --check` exit 0.
+//
+// The comparison is now exact and in both directions, so a substituted,
+// truncated, extended or reordered provenance fails. Where an observation has
+// NO definition, the provenance is not compared: that is the state the digest
+// arm of unledgered_disagreements exists to report (the record was deleted
+// while its committed observation outlived it), and reporting it twice, once as
+// the wrong kind of failure, would obscure it.
+func VerifyObservationProvenance(root string, definitions []Definition) error {
 	set, err := ReadObservations(root)
 	if err != nil {
 		return err
 	}
+	expected := ExpectedObservationProvenance(definitions)
 	var problems []string
 	for index, provenance := range set.Provenance {
 		if index >= len(set.Observed) {
@@ -326,7 +401,25 @@ func VerifyObservationProvenance(root string) error {
 		}
 		if len(provenance.Evidence) == 0 {
 			problems = append(problems, fmt.Sprintf("provenance %d (%s) names no evidence", index, provenance.SubjectRef))
-			continue
+		}
+		if want, known := expected[provenance.SubjectRef]; known {
+			if want.SourceKind == "" {
+				problems = append(problems, fmt.Sprintf(
+					"provenance %d (%s): observationSourceKind does not recognise this subject's domain, so no source "+
+						"kind can be required of it. Classify the domain deliberately in observations.go rather than "+
+						"letting the committed document assert an unfalsifiable label", index, provenance.SubjectRef))
+			} else if provenance.SourceKind != want.SourceKind {
+				problems = append(problems, fmt.Sprintf(
+					"provenance %d (%s) declares source kind %q, but the classifier derives %q from the subject's own "+
+						"domain. The committed provenance must EQUAL the evidence-derived provenance, not merely be "+
+						"non-empty", index, provenance.SubjectRef, provenance.SourceKind, want.SourceKind))
+			}
+			if !equalStrings(provenance.Evidence, want.Evidence) {
+				problems = append(problems, fmt.Sprintf(
+					"provenance %d (%s) cites %v, but the citations in that record's own hashed digest preimages are "+
+						"%v. Provenance is DERIVED evidence, so an unrelated-but-existing path is a substitution, not "+
+						"a weaker claim", index, provenance.SubjectRef, provenance.Evidence, want.Evidence))
+			}
 		}
 		for _, citation := range provenance.Evidence {
 			mustResolve, resolved := ProvenanceIsResolvable(root, citation)
@@ -341,9 +434,25 @@ func VerifyObservationProvenance(root string) error {
 		return fmt.Errorf("observation provenance (%d problem(s)):\n  %s\n"+
 			"NOTE ON SCOPE, stated rather than implied: `protected/...` citations name the workspace orchestrator's "+
 			"immutable store, which is outside this repository by design, so a typo in one of those paths is not "+
-			"caught by this check.", len(problems), strings.Join(problems, "\n  "))
+			"caught by the on-disk half of this check — though the derived-equality half does catch it, because a "+
+			"typo cannot appear in the record's own preimages and in the derivation at once.",
+			len(problems), strings.Join(problems, "\n  "))
 	}
 	return nil
+}
+
+// equalStrings reports exact slice equality, order included. Provenance is
+// derived and sorted, so order is part of the claim.
+func equalStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 // EncodeObservations renders the observation set exactly as it is committed.

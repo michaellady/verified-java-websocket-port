@@ -52,12 +52,14 @@ package deltaledger
 // covering record able to exist at all.
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -142,19 +144,29 @@ type HandshakeCase struct {
 	} `json:"expected"`
 }
 
+// ScenarioStep is one step of a public-corpus scenario. `kind` is "bytes" (the
+// harness feeds these bytes to the decoder as INBOUND wire data) or "action"
+// (the harness makes a LOCAL API call). Which of the two the recorded run
+// stopped on is what distinguishes an inbound decode rejection from a locally
+// caused error, so the field is load-bearing rather than descriptive.
+type ScenarioStep struct {
+	Kind       string `json:"kind"`
+	Action     string `json:"action"`
+	DataBase64 string `json:"data_base64"`
+}
+
 // PublicScenario is one public-corpus scenario, decoded to exactly the fields
-// the class predicate and the census binding need.
+// the class predicate and the census binding need, plus the raw `expected`
+// object so a census row's JSON pointer can be resolved against it.
 type PublicScenario struct {
-	ScenarioID string `json:"scenario_id"`
-	Family     string `json:"family"`
-	Steps      []struct {
-		Kind   string `json:"kind"`
-		Action string `json:"action"`
-	} `json:"steps"`
-	Expected struct {
+	ScenarioID string         `json:"scenario_id"`
+	Family     string         `json:"family"`
+	Steps      []ScenarioStep `json:"steps"`
+	Expected   struct {
 		Outcome    string `json:"outcome"`
 		FinalState string `json:"final_state"`
 		Counts     struct {
+			Actions       int `json:"actions"`
 			InputBytes    int `json:"input_bytes"`
 			ConsumedBytes int `json:"consumed_bytes"`
 		} `json:"counts"`
@@ -163,6 +175,11 @@ type PublicScenario struct {
 			CloseCode int    `json:"close_code"`
 		} `json:"error"`
 	} `json:"expected"`
+	// ExpectedRaw is the scenario's `expected` object exactly as committed. It
+	// is populated by ReadPublicScenarios and exists so a census row's
+	// `pointer` is resolved against the recorded evidence rather than against
+	// the handful of fields this struct happens to name.
+	ExpectedRaw json.RawMessage `json:"-"`
 }
 
 // CensusEntry is one row of the public-corpus RFC-divergence census.
@@ -315,12 +332,92 @@ func ReadPublicScenarios(root string) ([]PublicScenario, error) {
 		if err := json.Unmarshal([]byte(line), &scenario); err != nil {
 			return nil, fmt.Errorf("decode a line of %s: %w", PublicCorpusRelativePath, err)
 		}
+		var raw struct {
+			Expected json.RawMessage `json:"expected"`
+		}
+		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+			return nil, fmt.Errorf("decode the expected object of a line of %s: %w", PublicCorpusRelativePath, err)
+		}
+		scenario.ExpectedRaw = raw.Expected
 		scenarios = append(scenarios, scenario)
 	}
 	if len(scenarios) == 0 {
 		return nil, fmt.Errorf("%s yielded no scenarios", PublicCorpusRelativePath)
 	}
 	return scenarios, nil
+}
+
+// FailingStep derives WHICH STEP the recorded run stopped on, from the
+// committed counts alone. It is the discriminator the class predicate needs and
+// it is derived from the evidence rather than declared beside it.
+//
+// THE DERIVATION. The harness executes a scenario's steps in order. A `bytes`
+// step contributes its decoded length to expected.counts.input_bytes; an
+// `action` step contributes one to expected.counts.actions. An error STOPS the
+// run at the step that raised it, and that step has already been counted — the
+// committed corpus shows both halves of this: us005.pub.0000 is a single
+// erroring `send_close` action and records actions=1, and us005.pub.0005 is a
+// single erroring 9-byte `bytes` step and records input_bytes=9.
+//
+// So the executed prefix is the unique prefix of the step list whose byte total
+// and action count equal the recorded totals, and the failing step is that
+// prefix's LAST step. Uniqueness is REQUIRED rather than assumed: if two
+// prefixes match, or none does, the evidence does not determine which step
+// failed and this function returns an error instead of guessing. A guess here
+// would silently decide class membership, which is the whole thing the
+// predicate is supposed to be able to get right.
+//
+// It returns index -1 with no error in two cases. First, when the scenario did
+// not fail at all: `outcome` is not `error`, so there is no failing step to
+// find, and a zero-length `bytes` step in such a scenario (us005.pub.0017 and
+// us005.pub.0045 are the committed instances) is genuinely indistinguishable
+// from a step that did not run — which does not matter, because nothing failed.
+// Second, when the run DID fail but the executed prefix is EMPTY, which is the
+// recorded shape of the harness envelope refusals that reject an input before
+// feeding it (us005.pub.0015 and us005.pub.0044 both carry a `bytes` step with
+// input_bytes 0). No step was reached, so no step can be the cause.
+func FailingStep(scenario PublicScenario) (int, ScenarioStep, error) {
+	if scenario.Expected.Outcome != "error" {
+		return -1, ScenarioStep{}, nil
+	}
+	wantBytes := scenario.Expected.Counts.InputBytes
+	wantActions := scenario.Expected.Counts.Actions
+	var matches []int
+	if wantBytes == 0 && wantActions == 0 {
+		matches = append(matches, 0)
+	}
+	bytesSoFar, actionsSoFar := 0, 0
+	for index, step := range scenario.Steps {
+		switch step.Kind {
+		case "bytes":
+			decoded, err := base64.StdEncoding.DecodeString(step.DataBase64)
+			if err != nil {
+				return 0, ScenarioStep{}, fmt.Errorf("%s step %d: data_base64 does not decode, so the failing step "+
+					"cannot be derived: %w", scenario.ScenarioID, index, err)
+			}
+			bytesSoFar += len(decoded)
+		case "action":
+			actionsSoFar++
+		default:
+			return 0, ScenarioStep{}, fmt.Errorf("%s step %d: unknown step kind %q. The failing-step derivation "+
+				"refuses to classify a scenario whose step vocabulary it does not know, because a silent default "+
+				"would decide protocol-rejection-class membership by accident", scenario.ScenarioID, index, step.Kind)
+		}
+		if bytesSoFar == wantBytes && actionsSoFar == wantActions {
+			matches = append(matches, index+1)
+		}
+	}
+	if len(matches) != 1 {
+		return 0, ScenarioStep{}, fmt.Errorf("%s: the recorded counts (input_bytes=%d, actions=%d) match %d step "+
+			"prefixes of %d, so the committed evidence does not determine which step failed. Membership in the %s "+
+			"class turns on that step, so this is refused rather than guessed",
+			scenario.ScenarioID, wantBytes, wantActions, len(matches), len(scenario.Steps), ProtocolRejectionClass)
+	}
+	executed := matches[0]
+	if executed == 0 {
+		return -1, ScenarioStep{}, nil
+	}
+	return executed - 1, scenario.Steps[executed-1], nil
 }
 
 // InProtocolRejectionClass is the class predicate, selecting by the stated
@@ -335,40 +432,100 @@ func ReadPublicScenarios(root string) ([]PublicScenario, error) {
 //
 //	outcome == error
 //	AND error.code == JAVA_INVALID_DATA   (the decoder's typed rejection: the CAUSE)
-//	AND counts.input_bytes > 0            (the rejection came from bytes on the wire)
 //	AND final_state == open               (the observable the class is about)
+//	AND the FAILING STEP is a `bytes` step (the rejection was raised while
+//	                                        decoding inbound wire data)
 //
-// WHAT CHANGED AND WHY (review BLOCKING 4). The previous predicate selected on
-// `error.close_code in {1002,1007,1009}` — a result shape, not a cause. It
-// therefore enrolled us005.pub.0000, which is a LOCALLY INITIATED
-// `send_close(999)` action with input_bytes 0 and consumed_bytes 0: no inbound
-// byte was ever decoded. RFC 6455 section 7.1.7 requires closing only where
-// some other algorithm or provision requires _Fail the WebSocket Connection_,
-// and an application making an invalid local API call is not such a provision,
-// so the census's claim that the RFC-strict state there is `closed` was wrong.
-// That scenario is separately and correctly ledgered at sequence 35
-// (websocketimpl.rejected-local-close-readystate), which records that the RFC
-// behaviour REMAINS OPEN because no Close frame was ever sent.
+// WHAT CHANGED IN ROUND 1 (review 01a0495e BLOCKING 4). The original predicate
+// selected on `error.close_code in {1002,1007,1009}` — a result shape, not a
+// cause. It enrolled us005.pub.0000, a LOCALLY INITIATED `send_close(999)` with
+// input_bytes 0: no inbound byte was ever decoded. RFC 6455 section 7.1.7
+// requires closing only where some other algorithm or provision requires _Fail
+// the WebSocket Connection_, and an application making an invalid local API
+// call is not such a provision, so the census's claim that the RFC-strict state
+// there is `closed` was wrong. That scenario is separately and correctly
+// ledgered at sequence 35 (websocketimpl.rejected-local-close-readystate).
 //
-// The close-code set is not the boundary and is no longer used as a filter. It
-// survives as a derived CONSISTENCY ASSERTION (VerifyProtocolRejectionClass):
-// every member of the class must in fact carry 1002, 1007 or 1009, so a future
-// member arriving with some other code fails loudly and forces a decision
-// instead of being silently excluded by a filter nobody re-derived.
+// WHAT CHANGED IN ROUND 2, and why the first fix was not enough. The round-1
+// predicate replaced the close-code shape with `counts.input_bytes > 0`, which
+// is an AGGREGATE over the whole scenario rather than a fact about the step
+// that failed. Review round 2 named the hole exactly: a VALID inbound frame
+// followed by a local `send_close(999)` records input_bytes > 0 and
+// JAVA_INVALID_DATA and final_state open, so it satisfied every conjunct while
+// its error is locally caused — the identical mistake us005.pub.0000 was, one
+// level less obvious. Reproduced before this fix by appending exactly that
+// scenario to the corpus, enrolling it, and reading `deltaledgerctl --check`
+// exit 0 with the class record claiming it.
 //
-// The three error/open scenarios this predicate excludes for cause —
-// us005.pub.0030 (ACTION_LIMIT_EXCEEDED), 0032 (FRAME_LIMIT_EXCEEDED) and 0044
+// Membership now turns on FailingStep: the step the run actually stopped on
+// must be a `bytes` step. An aggregate cannot say which step failed; the step
+// list and the counts together can, and they are both committed evidence.
+//
+// The close-code set is not the boundary and is not a filter. It survives as a
+// derived CONSISTENCY ASSERTION (VerifyProtocolRejectionClass): every member
+// must in fact carry 1002, 1007 or 1009, so a future member arriving with
+// another code fails loudly instead of being silently excluded.
+//
+// The three error/open scenarios excluded for cause — us005.pub.0030
+// (ACTION_LIMIT_EXCEEDED), 0032 (FRAME_LIMIT_EXCEEDED) and 0044
 // (INPUT_LIMIT_EXCEEDED) — are harness envelope-limit refusals, not decoder
 // rejections; their error.code is not JAVA_INVALID_DATA.
-func InProtocolRejectionClass(scenario PublicScenario) bool {
+func InProtocolRejectionClass(scenario PublicScenario) (bool, error) {
 	expected := scenario.Expected
 	if expected.Outcome != "error" || expected.FinalState != "open" {
-		return false
+		return false, nil
 	}
 	if expected.Error == nil || expected.Error.Code != "JAVA_INVALID_DATA" {
-		return false
+		return false, nil
 	}
-	return expected.Counts.InputBytes > 0
+	if expected.Counts.InputBytes <= 0 {
+		return false, nil
+	}
+	index, step, err := FailingStep(scenario)
+	if err != nil {
+		return false, err
+	}
+	if index < 0 {
+		return false, nil
+	}
+	return step.Kind == "bytes", nil
+}
+
+// LocallyCausedRejections returns the scenarios that satisfy every CAUSE
+// conjunct of the class EXCEPT the failing-step one: the decoder's typed
+// rejection code, inbound bytes somewhere in the scenario, and a final state of
+// open, but with the run stopping on a LOCAL action rather than on inbound
+// bytes.
+//
+// They are surfaced rather than silently dropped. A scenario in this shape is a
+// real proposition about a locally caused rejection that leaves the endpoint
+// open — the sequence-35 proposition — and the point of round 2's finding is
+// that the gate must be able to tell the two apart out loud, not merely stop
+// enrolling one of them.
+func LocallyCausedRejections(scenarios []PublicScenario) ([]string, error) {
+	var locally []string
+	for _, scenario := range scenarios {
+		expected := scenario.Expected
+		if expected.Outcome != "error" || expected.FinalState != "open" {
+			continue
+		}
+		if expected.Error == nil || expected.Error.Code != "JAVA_INVALID_DATA" {
+			continue
+		}
+		if expected.Counts.InputBytes <= 0 {
+			continue
+		}
+		index, step, err := FailingStep(scenario)
+		if err != nil {
+			return nil, err
+		}
+		if index >= 0 && step.Kind != "bytes" {
+			locally = append(locally, fmt.Sprintf("%s (stopped on step %d, kind %q, action %q)",
+				scenario.ScenarioID, index, step.Kind, step.Action))
+		}
+	}
+	sort.Strings(locally)
+	return locally, nil
 }
 
 // protocolRejectionCloseCodes is the derived consistency assertion described
@@ -444,7 +601,11 @@ func EvidenceDemands(root string) ([]EvidenceDemand, error) {
 		return nil, err
 	}
 	for _, scenario := range scenarios {
-		if !InProtocolRejectionClass(scenario) {
+		member, err := InProtocolRejectionClass(scenario)
+		if err != nil {
+			return nil, err
+		}
+		if !member {
 			continue
 		}
 		demands = append(demands, EvidenceDemand{
@@ -600,7 +761,11 @@ func VerifyProtocolRejectionClass(root string) error {
 	}
 	derived := map[string]PublicScenario{}
 	for _, scenario := range scenarios {
-		if InProtocolRejectionClass(scenario) {
+		member, err := InProtocolRejectionClass(scenario)
+		if err != nil {
+			return err
+		}
+		if member {
 			derived[scenario.ScenarioID] = scenario
 		}
 	}
@@ -642,6 +807,23 @@ func VerifyProtocolRejectionClass(root string) error {
 				id, ProtocolRejectionClass, code))
 		}
 	}
+	// A scenario that carries every CAUSE marker of the class but stopped on a
+	// LOCAL action is not a member — and is not silently dropped either. It is a
+	// different proposition (a locally caused rejection that leaves the endpoint
+	// open, which sequence 35 ledgers) and it has to be decided deliberately,
+	// exactly as a member arriving with an unrecorded close code does.
+	locally, err := LocallyCausedRejections(scenarios)
+	if err != nil {
+		return err
+	}
+	for _, one := range locally {
+		problems = append(problems, fmt.Sprintf(
+			"%s carries the %s cause markers (error.code JAVA_INVALID_DATA, final_state open, inbound bytes somewhere "+
+				"in the scenario) but the run STOPPED ON A LOCAL ACTION, so its error is locally caused and it is NOT a "+
+				"member of the class. It is the sequence-35 proposition, not this one. Ledger it deliberately or remove "+
+				"it; it is reported rather than filtered away, because an aggregate input_bytes>0 test used to enrol "+
+				"exactly this shape", one, ProtocolRejectionClass))
+	}
 	sort.Strings(problems)
 	if len(problems) != 0 {
 		return fmt.Errorf("protocol-rejection class completeness (%d problem(s)):\n  %s",
@@ -650,8 +832,104 @@ func VerifyProtocolRejectionClass(root string) error {
 	return nil
 }
 
+// censusClasses and censusPortFollows are the closed vocabularies a census row
+// may use. They are closed on purpose: a field checked only for non-emptiness
+// accepts an unrelated but plausible value, which is the shape of three of this
+// review's six findings.
+var (
+	censusClasses     = map[string]bool{ProtocolRejectionClass: true}
+	censusPortFollows = map[string]bool{"java-adapter-path": true}
+)
+
+func sortedKeys(values map[string]bool) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// ClassObservablePointer is the pointer the protocol-rejection class is ABOUT.
+// The class proposition is a statement about the RESULTING READY STATE, so a
+// row that enrols in the class and points somewhere else is not making the
+// class's claim at all.
+const ClassObservablePointer = "/final_state"
+
+// ResolveExpectedPointer resolves an RFC 6901 JSON pointer against a scenario's
+// committed `expected` object and renders the value the way the census writes
+// it. An unresolvable pointer is an error, never an empty string: the census
+// asserts a proposition AT a pointer, and a proposition about a location that
+// does not exist is not a weaker claim, it is an unverifiable one.
+func ResolveExpectedPointer(scenario PublicScenario, pointer string) (string, error) {
+	if len(scenario.ExpectedRaw) == 0 {
+		return "", fmt.Errorf("%s carries no recorded `expected` object", scenario.ScenarioID)
+	}
+	if pointer == "" {
+		return "", fmt.Errorf("%s: the census row names no pointer, so it asserts its observable of nothing",
+			scenario.ScenarioID)
+	}
+	if !strings.HasPrefix(pointer, "/") {
+		return "", fmt.Errorf("%s: %q is not an RFC 6901 JSON pointer into the recorded expectation",
+			scenario.ScenarioID, pointer)
+	}
+	var value any
+	if err := json.Unmarshal(scenario.ExpectedRaw, &value); err != nil {
+		return "", fmt.Errorf("%s: decode the recorded expectation: %w", scenario.ScenarioID, err)
+	}
+	for _, token := range strings.Split(strings.TrimPrefix(pointer, "/"), "/") {
+		token = strings.ReplaceAll(strings.ReplaceAll(token, "~1", "/"), "~0", "~")
+		switch container := value.(type) {
+		case map[string]any:
+			next, exists := container[token]
+			if !exists {
+				return "", fmt.Errorf("%s: pointer %q does not resolve against the recorded expectation (no member %q)",
+					scenario.ScenarioID, pointer, token)
+			}
+			value = next
+		case []any:
+			index, err := strconv.Atoi(token)
+			if err != nil || index < 0 || index >= len(container) {
+				return "", fmt.Errorf("%s: pointer %q does not resolve against the recorded expectation "+
+					"(bad array index %q)", scenario.ScenarioID, pointer, token)
+			}
+			value = container[index]
+		default:
+			return "", fmt.Errorf("%s: pointer %q descends into a scalar at %q",
+				scenario.ScenarioID, pointer, token)
+		}
+	}
+	switch rendered := value.(type) {
+	case string:
+		return rendered, nil
+	case bool:
+		return strconv.FormatBool(rendered), nil
+	case float64:
+		if rendered == float64(int64(rendered)) {
+			return strconv.FormatInt(int64(rendered), 10), nil
+		}
+		return strconv.FormatFloat(rendered, 'g', -1, 64), nil
+	case nil:
+		return "null", nil
+	default:
+		return "", fmt.Errorf("%s: pointer %q resolves to a composite value, which a census row's "+
+			"recorded_observable cannot state", scenario.ScenarioID, pointer)
+	}
+}
+
 // VerifyCensusRowsMatchEvidence binds every census row to the corpus facts it
 // claims, so the census cannot drift into a story of its own.
+//
+// ROUND-2 FINDING, reproduced before it was fixed: the observable comparison
+// was guarded by `entry.Pointer == "/final_state"` and NOTHING required that
+// pointer, so rewriting a row's pointer to any other syntactically valid string
+// skipped the comparison entirely while enrollment and ledger coverage still
+// passed by scenario id. Reading `/counts/wire_buffered_bytes` with a
+// recorded_observable of free prose left `deltaledgerctl --check` at exit 0.
+// Every row's pointer must now RESOLVE against the recorded expectation and its
+// recorded_observable must equal the value found there, and a row enrolled in
+// the protocol-rejection class must additionally point at the observable that
+// class is about.
 func VerifyCensusRowsMatchEvidence(root string) error {
 	document, err := ReadCensus(root)
 	if err != nil {
@@ -672,9 +950,21 @@ func VerifyCensusRowsMatchEvidence(root string) error {
 			problems = append(problems, fmt.Sprintf("census cites %s, which is not in the public corpus", entry.ScenarioID))
 			continue
 		}
-		if entry.Pointer == "/final_state" && scenario.Expected.FinalState != entry.RecordedObservable {
+		if entry.Class == ProtocolRejectionClass && entry.Pointer != ClassObservablePointer {
+			problems = append(problems, fmt.Sprintf(
+				"%s: the row enrols in the %s class but points at %q. That class is a proposition about the RESULTING "+
+					"READY STATE, so a member row must assert it at %s; pointing elsewhere makes a different claim "+
+					"under the class's name",
+				entry.ScenarioID, ProtocolRejectionClass, entry.Pointer, ClassObservablePointer))
+		}
+		recorded, err := ResolveExpectedPointer(scenario, entry.Pointer)
+		if err != nil {
+			problems = append(problems, fmt.Sprintf("%s: %v. A census row asserts recorded_observable %q AT a pointer; "+
+				"the pointer must resolve against the committed expectation or the assertion binds nothing",
+				entry.ScenarioID, err, entry.RecordedObservable))
+		} else if recorded != entry.RecordedObservable {
 			problems = append(problems, fmt.Sprintf("%s%s: census records %q but the corpus expectation is %q",
-				entry.ScenarioID, entry.Pointer, entry.RecordedObservable, scenario.Expected.FinalState))
+				entry.ScenarioID, entry.Pointer, entry.RecordedObservable, recorded))
 		}
 		if entry.Family != scenario.Family {
 			problems = append(problems, fmt.Sprintf("%s: census family %q != corpus family %q",
@@ -691,6 +981,27 @@ func VerifyCensusRowsMatchEvidence(root string) error {
 		}
 		if len(entry.RFCClauses) == 0 || len(entry.Evidence) == 0 {
 			problems = append(problems, fmt.Sprintf("%s: row names no RFC clause or no evidence", entry.ScenarioID))
+		}
+		// The same class of defect the pointer had, applied to the row's other
+		// resolvable fields: a value that is merely non-empty, or merely
+		// syntactically fine, is not a checked claim. `class` and `port_follows`
+		// come from closed vocabularies, and an in-repository evidence citation
+		// has to be a file a reader can open — the same rule the observation
+		// provenance already lives under.
+		if !censusClasses[entry.Class] {
+			problems = append(problems, fmt.Sprintf("%s: class %q is outside the recorded vocabulary %v. A new class "+
+				"needs its own derivation and its own gate, not a new string in this field",
+				entry.ScenarioID, entry.Class, sortedKeys(censusClasses)))
+		}
+		if !censusPortFollows[entry.PortFollows] {
+			problems = append(problems, fmt.Sprintf("%s: port_follows %q is outside the recorded vocabulary %v",
+				entry.ScenarioID, entry.PortFollows, sortedKeys(censusPortFollows)))
+		}
+		for _, citation := range entry.Evidence {
+			if mustResolve, resolved := ProvenanceIsResolvable(root, citation); mustResolve && !resolved {
+				problems = append(problems, fmt.Sprintf("%s: row cites evidence %s, which does not exist",
+					entry.ScenarioID, citation))
+			}
 		}
 	}
 	sort.Strings(problems)

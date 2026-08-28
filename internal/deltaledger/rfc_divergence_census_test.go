@@ -78,17 +78,18 @@ func TestTheClassPredicateSelectsByCauseAndNotByCloseCode(t *testing.T) {
 		t.Fatalf("us005.pub.0000 now reports %d input bytes; it was the zero-inbound local-action case",
 			local.Expected.Counts.InputBytes)
 	}
-	if InProtocolRejectionClass(local) {
-		t.Fatal("the class predicate still enrolls us005.pub.0000, a locally initiated send_close(999) with no " +
-			"inbound decode; it is selecting by result shape rather than by cause")
+	if member, err := InProtocolRejectionClass(local); err != nil || member {
+		t.Fatalf("the class predicate still enrolls us005.pub.0000, a locally initiated send_close(999) with no "+
+			"inbound decode; it is selecting by result shape rather than by cause (member=%v err=%v)", member, err)
 	}
 
 	inbound, exists := byID["us005.pub.0005"]
 	if !exists {
 		t.Fatal("us005.pub.0005 is missing from the public corpus")
 	}
-	if !InProtocolRejectionClass(inbound) {
-		t.Fatal("the class predicate no longer enrolls us005.pub.0005, the founding member of the class")
+	if member, err := InProtocolRejectionClass(inbound); err != nil || !member {
+		t.Fatalf("the class predicate no longer enrolls us005.pub.0005, the founding member of the class "+
+			"(member=%v err=%v)", member, err)
 	}
 
 	// Non-vacuity in the other direction: a member's close code is an asserted
@@ -100,9 +101,186 @@ func TestTheClassPredicateSelectsByCauseAndNotByCloseCode(t *testing.T) {
 		Code      string `json:"code"`
 		CloseCode int    `json:"close_code"`
 	}{Code: "JAVA_INVALID_DATA", CloseCode: 1008}
-	if !InProtocolRejectionClass(odd) {
-		t.Fatal("a decoder rejection carrying close code 1008 is excluded from the class; the close-code set is " +
-			"acting as a membership filter again, which is exactly the defect")
+	if member, err := InProtocolRejectionClass(odd); err != nil || !member {
+		t.Fatalf("a decoder rejection carrying close code 1008 is excluded from the class; the close-code set is "+
+			"acting as a membership filter again, which is exactly the defect (member=%v err=%v)", member, err)
+	}
+}
+
+// TestTheClassPredicateDiscriminatesAMixedStepScenario IS THE ROUND-2
+// DISCRIMINATOR, and it is the leg the round-1 test set did not have.
+//
+// Round one replaced the close-code shape with `counts.input_bytes > 0`. Review
+// round 2 found that this is an AGGREGATE over the whole scenario rather than a
+// fact about the step that failed, so a VALID inbound frame followed by a local
+// `send_close(999)` satisfied every conjunct while its error is locally caused.
+// The round-1 test only ever covered the zero-input local case (us005.pub.0000),
+// which the aggregate happens to exclude for the wrong reason.
+//
+// REPRODUCED BEFORE THE FIX, by execution, not by reading: exactly this scenario
+// was appended to corpora/public/scenarios.jsonl as us005.pub.0074, enrolled in
+// the census, and named by the class record; `deltaledgerctl --check` then
+// returned exit 0 with all nineteen rows green, certifying a locally caused
+// close as an inbound protocol-decode rejection.
+//
+// Both directions are asserted. Removing the failing-step binding from
+// InProtocolRejectionClass makes the first half fail; weakening it into
+// "no action steps anywhere" makes the second half fail.
+func TestTheClassPredicateDiscriminatesAMixedStepScenario(t *testing.T) {
+	scenarios, err := ReadPublicScenarios(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read public corpus: %v", err)
+	}
+	byID := map[string]PublicScenario{}
+	for _, scenario := range scenarios {
+		byID[scenario.ScenarioID] = scenario
+	}
+	inbound, exists := byID["us005.pub.0005"]
+	if !exists {
+		t.Fatal("us005.pub.0005 is missing from the public corpus")
+	}
+
+	// A valid inbound frame, THEN a local send_close(999) that is what fails.
+	// Aggregate input_bytes is nine, so the round-1 predicate enrolled it.
+	mixed := inbound
+	mixed.ScenarioID = "us005.pub.9001"
+	mixed.Steps = append(append([]ScenarioStep(nil), inbound.Steps...),
+		ScenarioStep{Kind: "action", Action: "send_close"})
+	mixed.Expected.Counts.Actions = 1
+	if mixed.Expected.Counts.InputBytes <= 0 {
+		t.Fatal("the mixed scenario must carry inbound bytes, or it does not reproduce the finding")
+	}
+	member, err := InProtocolRejectionClass(mixed)
+	if err != nil {
+		t.Fatalf("classify the mixed-step scenario: %v", err)
+	}
+	if member {
+		t.Fatal("the class predicate enrolls a scenario whose run STOPPED ON A LOCAL ACTION after a valid inbound " +
+			"frame. counts.input_bytes is an aggregate over the whole scenario and cannot say which step failed; " +
+			"membership must bind to the failing step")
+	}
+	index, step, err := FailingStep(mixed)
+	if err != nil {
+		t.Fatalf("derive the failing step: %v", err)
+	}
+	if index != 1 || step.Kind != "action" {
+		t.Fatalf("the failing step derived as index %d kind %q, expected index 1 kind \"action\"", index, step.Kind)
+	}
+
+	// The other direction, so the fix is a DISCRIMINATOR and not a blanket
+	// refusal of every scenario that contains an action: a local action that
+	// SUCCEEDS before the inbound bytes that fail is still a class member.
+	actionFirst := inbound
+	actionFirst.ScenarioID = "us005.pub.9002"
+	actionFirst.Steps = append([]ScenarioStep{{Kind: "action", Action: "send_text"}}, inbound.Steps...)
+	actionFirst.Expected.Counts.Actions = 1
+	member, err = InProtocolRejectionClass(actionFirst)
+	if err != nil {
+		t.Fatalf("classify the action-then-bytes scenario: %v", err)
+	}
+	if !member {
+		t.Fatal("a scenario whose run stopped on INBOUND BYTES after a successful local action is excluded; the " +
+			"predicate is refusing action steps rather than binding to the failing step")
+	}
+
+	// And the whole gate reports the excluded shape rather than filtering it
+	// away silently, which is the round-1 lesson applied to the round-2 fix.
+	locally, err := LocallyCausedRejections([]PublicScenario{mixed})
+	if err != nil {
+		t.Fatalf("report locally caused rejections: %v", err)
+	}
+	if len(locally) != 1 || !strings.Contains(locally[0], "us005.pub.9001") {
+		t.Fatalf("the locally caused rejection is not reported: %v", locally)
+	}
+}
+
+// TestTheFailingStepDerivationIsUniqueOverTheCommittedCorpus pins that the
+// derivation the class predicate depends on actually resolves for every
+// committed scenario. If a future corpus change makes a scenario ambiguous, the
+// gate refuses it — and this test says so first, with the scenario named.
+func TestTheFailingStepDerivationIsUniqueOverTheCommittedCorpus(t *testing.T) {
+	scenarios, err := ReadPublicScenarios(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read public corpus: %v", err)
+	}
+	for _, scenario := range scenarios {
+		if _, _, err := FailingStep(scenario); err != nil {
+			t.Errorf("%s: %v", scenario.ScenarioID, err)
+		}
+	}
+}
+
+// TestTheCensusRequiresTheExactProposition is the discrimination proof for
+// round-2 finding 2.
+//
+// THE ATTACK, reproduced against the previous rule and READ PASSING before the
+// fix: the observable comparison was guarded by `entry.Pointer == "/final_state"`
+// and nothing required that pointer, so rewriting one row's pointer to
+// `/counts/wire_buffered_bytes` and its recorded_observable to a sentence that
+// matches nothing skipped the comparison entirely. `deltaledgerctl --check`
+// returned exit 0, with enrollment and ledger coverage still passing by
+// scenario id.
+func TestTheCensusRequiresTheExactProposition(t *testing.T) {
+	for _, attack := range []struct {
+		name      string
+		pointer   string
+		value     string
+		mustMatch string
+	}{
+		{
+			name:      "an unrelated but syntactically valid pointer",
+			pointer:   "/counts/wire_buffered_bytes",
+			value:     "this value is asserted of nothing the gate can resolve",
+			mustMatch: "enrols in the protocol-rejection-readystate class but points at",
+		},
+		{
+			name:      "a pointer that does not resolve at all",
+			pointer:   "/a/pointer/that/is/not/there",
+			value:     "open",
+			mustMatch: "does not resolve against the recorded expectation",
+		},
+		{
+			name:      "the right pointer with the wrong value",
+			pointer:   "/final_state",
+			value:     "closed",
+			mustMatch: "census records \"closed\" but the corpus expectation is \"open\"",
+		},
+	} {
+		t.Run(attack.name, func(t *testing.T) {
+			root := degradedRoot(t, func(root string) {
+				path := filepath.Join(root, filepath.FromSlash(CensusRelativePath))
+				raw, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("read census: %v", err)
+				}
+				var document map[string]any
+				if err := json.Unmarshal(raw, &document); err != nil {
+					t.Fatalf("decode census: %v", err)
+				}
+				entries, _ := document["entries"].([]any)
+				if len(entries) == 0 {
+					t.Fatal("census has no entries to attack")
+				}
+				row, _ := entries[0].(map[string]any)
+				row["pointer"] = attack.pointer
+				row["recorded_observable"] = attack.value
+				encoded, err := json.MarshalIndent(document, "", "  ")
+				if err != nil {
+					t.Fatalf("encode census: %v", err)
+				}
+				if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+					t.Fatalf("write census: %v", err)
+				}
+			})
+			err := VerifyCensusRowsMatchEvidence(root)
+			if err == nil {
+				t.Fatal("the census accepted a row whose proposition it never checked; requiring the exact " +
+					"pointer AND value is the whole point")
+			}
+			if !strings.Contains(err.Error(), attack.mustMatch) {
+				t.Fatalf("refused, but not on the substituted proposition; got: %v", err)
+			}
+		})
 	}
 }
 

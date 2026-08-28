@@ -96,6 +96,19 @@ func run(root string, check bool) error {
 	}
 	supersessionsPath := filepath.Join(root, filepath.FromSlash(deltaledger.SupersessionsRelativePath))
 
+	// The governance digest mirror is DERIVED from the same record chain and
+	// written on the same path, so it cannot become a hand-maintained story
+	// beside the digests the records already assert.
+	manifest, err := deltaledger.BuildOwnerDecisionManifest(built.Records)
+	if err != nil {
+		return err
+	}
+	encodedManifest, err := deltaledger.EncodeOwnerDecisionManifest(manifest)
+	if err != nil {
+		return err
+	}
+	manifestPath := filepath.Join(root, filepath.FromSlash(deltaledger.OwnerDecisionManifestRelativePath))
+
 	if check {
 		existing, err := os.ReadFile(path)
 		if err != nil {
@@ -113,6 +126,14 @@ func run(root string, check bool) error {
 			return fmt.Errorf("%s does not equal the supersession map carried by the record chain (%d link(s))",
 				deltaledger.SupersessionsRelativePath, len(supersessions.Links))
 		}
+		existingManifest, err := os.ReadFile(manifestPath)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(existingManifest, encodedManifest) {
+			return fmt.Errorf("%s does not equal the governance digest mirror derived from the record chain "+
+				"(%d decision(s))", deltaledger.OwnerDecisionManifestRelativePath, len(manifest.Decisions))
+		}
 		// THE INTEGRITY GATE. Until this call existed, every census and
 		// observation rule this repository had lived only in `_test.go` files
 		// that no release or readiness path ran (review 01a0495e, BLOCKING 3),
@@ -121,24 +142,20 @@ func run(root string, check bool) error {
 		if err := deltaledger.VerifyIntegrity(root); err != nil {
 			return fmt.Errorf("ledger integrity:\n%w", err)
 		}
-		checkedDecisions, err := deltaledger.VerifyCitedOwnerDecisions()
+		verifiedDecisions, err := deltaledger.VerifyGovernance(root, built.Records)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("ok: %s equals the regeneration (%d records, head %s)\n",
-			deltaledger.LedgerRelativePath, len(built.Records), built.Head)
-		fmt.Printf("ok: %s equals the chain's supersession map (%d link(s))\n",
+		fmt.Printf("ok: %s equals the regeneration (%d records, head %s, document schema %s)\n",
+			deltaledger.LedgerRelativePath, len(built.Records), built.Head, deltaledger.LedgerSchemaVersion)
+		fmt.Printf("ok: %s equals the chain's supersession map (%d link(s), also declared in the ledger document)\n",
 			deltaledger.SupersessionsRelativePath, len(supersessions.Links))
-		fmt.Printf("ok: ledger integrity verified (frozen prefix through sequence %d, observation provenance, "+
-			"handshake mapping census, protocol-rejection class, census evidence and ledger binding, supersessions, "+
-			"unledgered_disagreements recomputed = %d)\n",
+		fmt.Printf("ok: ledger integrity verified (frozen prefix through sequence %d, evidence document schemas, "+
+			"observation provenance, handshake mapping census, protocol-rejection class, census evidence and ledger "+
+			"binding, supersessions, unledgered_disagreements recomputed = %d)\n",
 			deltaledger.FrozenPrefixSequence, built.UnledgeredDisagreements)
-		if checkedDecisions == 0 {
-			fmt.Printf("note: cited owner-decision digests were NOT recomputed; set %s to the workspace "+
-				"orchestrator protected store to recompute them\n", deltaledger.ProtectedStoreEnv)
-		} else {
-			fmt.Printf("ok: %d cited owner-decision digest(s) recomputed and matched\n", checkedDecisions)
-		}
+		fmt.Printf("ok: %s equals the derivation and %d governance record digest(s) recomputed from the protected "+
+			"store and matched\n", deltaledger.OwnerDecisionManifestRelativePath, verifiedDecisions)
 		return nil
 	}
 	if err := os.WriteFile(path, encoded, 0o644); err != nil {
@@ -147,8 +164,16 @@ func run(root string, check bool) error {
 	if err := os.WriteFile(supersessionsPath, encodedSupersessions, 0o644); err != nil {
 		return err
 	}
+	if err := os.MkdirAll(filepath.Dir(manifestPath), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(manifestPath, encodedManifest, 0o644); err != nil {
+		return err
+	}
 	fmt.Printf("wrote %s: %d records, head %s\n", deltaledger.LedgerRelativePath, len(built.Records), built.Head)
 	fmt.Printf("wrote %s: %d link(s)\n", deltaledger.SupersessionsRelativePath, len(supersessions.Links))
+	fmt.Printf("wrote %s: %d governance record digest(s)\n",
+		deltaledger.OwnerDecisionManifestRelativePath, len(manifest.Decisions))
 	fmt.Printf("unledgered_disagreements = %d\n", built.UnledgeredDisagreements)
 	return nil
 }

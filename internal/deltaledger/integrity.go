@@ -19,12 +19,8 @@ package deltaledger
 // strong in the test binary and absent from the gate.
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/lab"
@@ -51,19 +47,12 @@ const (
 	FrozenPrefixHead     = "sha256:3fcd461cfea72e049628a0031bfbb90addecea2f2bb6997e62280cad1962656d"
 )
 
-// ProtectedStoreEnv names the environment variable that points at the workspace
-// orchestrator's immutable protected store. When it is set, VerifyIntegrity
-// RECOMPUTES the sha256 of every owner decision the ledger cites, instead of
-// merely quoting it.
-const ProtectedStoreEnv = "VJWP_PROTECTED_STORE"
-
-// citedOwnerDecisions are the protected-store artifacts whose digests the
-// ledger's hashed preimages assert. When the protected store is reachable, each
-// is recomputed and must match.
-var citedOwnerDecisions = map[string]string{
-	"ledger-frozen-prefix-owner-decision-2026-08-28.json":   "bb3cd0da7f4aed014290dab3dc35b2ec87f41d3d7e7a8c7449816159e9d837c7",
-	"us010-016-ac-amendment-owner-decision-2026-08-27.json": "26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974",
-}
+// The protected-store binding lives in governance.go. It used to live here as
+// an opt-in recomputation that returned success whenever VJWP_PROTECTED_STORE
+// was unset; round-2 finding 5 reproduced what that permitted — deleting the
+// load-bearing owner decision left `make -C rust ledger-gates` at exit 0 — and
+// the owner ruled MIRROR DIGESTS ONLY, with an unreachable store refused rather
+// than skipped.
 
 // VerifyFrozenPrefix enforces the owner requirement above.
 func VerifyFrozenPrefix(records []lab.BehaviorLedgerRecord) error {
@@ -88,45 +77,6 @@ func VerifyFrozenPrefix(records []lab.BehaviorLedgerRecord) error {
 	return nil
 }
 
-// VerifyCitedOwnerDecisions recomputes the sha256 of each cited owner decision
-// when the protected store is reachable.
-//
-// DISCLOSED RESIDUE: when the store is not reachable — which is the normal case
-// in a fresh worktree, since the protected store is deliberately outside this
-// repository — the digests are quoted and not recomputed, and deleting the
-// external file fails no check on this branch. Closing that gap requires an
-// owner ruling on whether governance artifacts may be mirrored into the
-// repository; it is escalated rather than decided here.
-func VerifyCitedOwnerDecisions() (checked int, err error) {
-	store := strings.TrimSpace(os.Getenv(ProtectedStoreEnv))
-	if store == "" {
-		return 0, nil
-	}
-	var problems []string
-	for name, want := range citedOwnerDecisions {
-		path := filepath.Join(store, name)
-		raw, readErr := os.ReadFile(path)
-		if readErr != nil {
-			problems = append(problems, fmt.Sprintf("%s: cited by the ledger but not readable in %s=%s: %v",
-				name, ProtectedStoreEnv, store, readErr))
-			continue
-		}
-		sum := sha256.Sum256(raw)
-		got := hex.EncodeToString(sum[:])
-		if got != want {
-			problems = append(problems, fmt.Sprintf("%s: the ledger's hashed preimages assert sha256 %s, the file is %s",
-				name, want, got))
-			continue
-		}
-		checked++
-	}
-	if len(problems) != 0 {
-		return checked, fmt.Errorf("cited owner decisions (%d problem(s)):\n  %s",
-			len(problems), strings.Join(problems, "\n  "))
-	}
-	return checked, nil
-}
-
 // VerifyIntegrity runs every ledger integrity rule against the committed
 // artifacts at root. It returns a joined error so one run reports every
 // problem rather than only the first.
@@ -145,7 +95,8 @@ func VerifyIntegrity(root string) error {
 	}
 
 	add("frozen-prefix", VerifyFrozenPrefix(committed.Records))
-	add("observation-provenance", VerifyObservationProvenance(root))
+	add("evidence-document-schemas", VerifyEvidenceDocumentSchemas(root))
+	add("observation-provenance", VerifyObservationProvenance(root, definitions))
 	add("handshake-mapping-census", VerifyHandshakeMappingCensus(root, definitions))
 	add("protocol-rejection-class", VerifyProtocolRejectionClass(root))
 	add("census-evidence-binding", VerifyCensusRowsMatchEvidence(root))
@@ -175,8 +126,8 @@ func VerifyIntegrity(root string) error {
 		}
 	}
 
-	if _, err := VerifyCitedOwnerDecisions(); err != nil {
-		add("owner-decisions", err)
+	if _, err := VerifyGovernance(root, committed.Records); err != nil {
+		add("governance", err)
 	}
 
 	if len(failures) != 0 {

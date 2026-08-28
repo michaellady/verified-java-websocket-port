@@ -11,24 +11,44 @@ import (
 	"github.com/michaellady/verified-java-websocket-port/internal/lab"
 )
 
-// LedgerRelativePath is the repository-relative committed ledger artifact.
-const LedgerRelativePath = "evidence/java/behavior-delta-ledger.json"
+// LedgerRelativePath is the repository-relative committed ledger artifact, and
+// LedgerSchemaRelativePath is its contract.
+//
+// THE 1.1.0 BUMP, and exactly where it lands. The owner ruled BUMP THE RECORD
+// SCHEMA TO 1.1.0 AND TEACH THE READINESS GATE ABOUT SUPERSESSION, with the
+// binding constraint that the bump must not disturb the frozen prefix. A
+// record's digest preimage is {schema_version, sequence, previous_digest,
+// delta}, so bumping the PER-RECORD version would change every record digest
+// and rewrite the chain from sequence 1. The bump is therefore at the LEDGER
+// DOCUMENT level: the document gains a first-class `supersessions` array,
+// records stay at record schema_version 1.0.0, and VerifyFrozenPrefix still
+// finds sequence 35 at 3fcd461c….
+const (
+	LedgerRelativePath       = "evidence/java/behavior-delta-ledger.json"
+	LedgerSchemaRelativePath = "schemas/behavior-delta-ledger-1.1.0.schema.json"
+	LedgerSchemaPointer      = "../../schemas/behavior-delta-ledger-1.1.0.schema.json"
+	LedgerSchemaVersion      = "1.1.0"
+)
 
 // LedgerFile mirrors the committed evidence document field-for-field (and in
 // field order), so regenerating it is deterministic.
 type LedgerFile struct {
-	Schema                  string                     `json:"$schema"`
-	SchemaVersion           string                     `json:"schema_version"`
-	EvidenceKind            string                     `json:"evidence_kind"`
-	AcceptedRootDigest      string                     `json:"accepted_root_digest"`
-	Status                  string                     `json:"status"`
-	NormativeAuthority      string                     `json:"normative_authority"`
-	Head                    string                     `json:"head"`
-	Records                 []lab.BehaviorLedgerRecord `json:"records"`
-	AppendImplementation    string                     `json:"append_implementation"`
-	UnledgeredDisagreements int                        `json:"unledgered_disagreements"`
-	Production              bool                       `json:"production"`
-	Publication             bool                       `json:"publication"`
+	Schema               string                     `json:"$schema"`
+	SchemaVersion        string                     `json:"schema_version"`
+	EvidenceKind         string                     `json:"evidence_kind"`
+	AcceptedRootDigest   string                     `json:"accepted_root_digest"`
+	Status               string                     `json:"status"`
+	NormativeAuthority   string                     `json:"normative_authority"`
+	Head                 string                     `json:"head"`
+	Records              []lab.BehaviorLedgerRecord `json:"records"`
+	AppendImplementation string                     `json:"append_implementation"`
+	// Supersessions is the 1.1.0 addition: the links the record chain's own
+	// hashed rationales carry, declared as data. internal/lab re-derives them
+	// and refuses a document that declares anything else.
+	Supersessions           []SupersessionLink `json:"supersessions"`
+	UnledgeredDisagreements int                `json:"unledgered_disagreements"`
+	Production              bool               `json:"production"`
+	Publication             bool               `json:"publication"`
 }
 
 // BuildDeltas materializes every recorded divergence definition into a
@@ -184,9 +204,22 @@ func BuildLedgerFileFrom(root string, existing LedgerFile, definitions []Definit
 	if err != nil {
 		return LedgerFile{}, err
 	}
+	links, err := ReadSupersessionLinks(records)
+	if err != nil {
+		return LedgerFile{}, err
+	}
+	if links == nil {
+		links = []SupersessionLink{}
+	}
 	built := existing
+	// The 1.1.0 envelope is asserted here rather than inherited from the
+	// committed file, so a hand-edited document cannot keep the gate reading it
+	// as the older contract.
+	built.Schema = LedgerSchemaPointer
+	built.SchemaVersion = LedgerSchemaVersion
 	built.Head = head
 	built.Records = records
+	built.Supersessions = links
 	built.UnledgeredDisagreements = len(unledgeredSubjects) + len(unledgeredDemands)
 	return built, nil
 }

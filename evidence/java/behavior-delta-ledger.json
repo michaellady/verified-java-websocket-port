@@ -1,6 +1,6 @@
 {
-  "$schema": "../../schemas/behavior-delta-ledger-1.0.0.schema.json",
-  "schema_version": "1.0.0",
+  "$schema": "../../schemas/behavior-delta-ledger-1.1.0.schema.json",
+  "schema_version": "1.1.0",
   "evidence_kind": "behavior-delta-ledger",
   "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
   "status": "BLOCKED_PENDING_BASELINE",
@@ -1384,6 +1384,32 @@
     }
   ],
   "append_implementation": "hash-chained-cas",
+  "supersessions": [
+    {
+      "superseded_sequence": 14,
+      "superseded_delta_id": "delta-0b3b46bc555629de7e873b3210c312d74baebd4314170b0997d4c2fd3537d99e",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-total-bytes.hs0046:provisional-v1",
+      "superseding_sequence": 45,
+      "superseding_delta_id": "delta-79c18cfe541d54e0c858e0da17e67f122da8b08b8a068d850b9770dbd6293a82",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-total-bytes.hs0046.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 15,
+      "superseded_delta_id": "delta-ffc8fa535cdeb82aaedb59919ef6b02f67b19815662737ee837c93eacacbe991",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-count.hs0047:provisional-v1",
+      "superseding_sequence": 46,
+      "superseding_delta_id": "delta-b7de70c681542c0ff650b7de1a7704826f79ed81058d7deb44aae0e5dc790e96",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-count.hs0047.corrected:provisional-v1"
+    },
+    {
+      "superseded_sequence": 16,
+      "superseded_delta_id": "delta-ccbff7cfa1813dadd889b86f540da4328a921a0c93972b172177b323f5f5354f",
+      "superseded_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048:provisional-v1",
+      "superseding_sequence": 47,
+      "superseding_delta_id": "delta-7270836da2cecf6acc2a8e0d2a4fd8f15873f8f8d588494c2789358d369c5f0d",
+      "superseding_subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.limit-header-line.hs0048.corrected:provisional-v1"
+    }
+  ],
   "unledgered_disagreements": 0,
   "production": false,
   "publication": false

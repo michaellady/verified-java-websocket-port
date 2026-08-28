@@ -63,8 +63,12 @@ func TestCommittedLedgerMatchesTheRecordedDivergenceDefinitions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read committed ledger: %v", err)
 	}
-	if committed.Schema != "../../schemas/behavior-delta-ledger-1.0.0.schema.json" ||
-		committed.SchemaVersion != "1.0.0" ||
+	// The DOCUMENT is at 1.1.0 (it carries the supersessions array the readiness
+	// gate consumes); every RECORD stays at record schema_version 1.0.0, which
+	// is what keeps the frozen prefix byte-identical. TestTheFrozenPrefixIsPinned
+	// and VerifyFrozenPrefix hold the second half.
+	if committed.Schema != LedgerSchemaPointer ||
+		committed.SchemaVersion != LedgerSchemaVersion ||
 		committed.EvidenceKind != "behavior-delta-ledger" ||
 		committed.NormativeAuthority != "rfc6455" ||
 		committed.AppendImplementation != "hash-chained-cas" ||
