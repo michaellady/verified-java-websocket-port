@@ -366,6 +366,71 @@ impl Violation {
     }
 }
 
+/// The invariant property ids this exploration checks, in the order the
+/// acceptance record (`assurance/concurrency/results.json` `invariants`)
+/// lists them.
+///
+/// WHY THIS EXISTS. Review 01a0487b round 2 BLOCKING: the whole `invariants`
+/// array was unmodeled by both validators, so its ten `PASS` outcomes were
+/// decoration a reader trusted and nothing could contradict. Measured before
+/// this: the array could be rewritten wholesale and both halves still exited
+/// 0. The exploration now PRINTS the array it actually checked, so the
+/// document's copy is re-derived from the run like every counter.
+///
+/// `violation_index` looks a variant up in THIS array and panics if it is
+/// absent, and `Outcome::record` calls it on every recorded violation — so a
+/// new `Violation` variant that can actually fire cannot stay undeclared.
+const CHECKED_INVARIANTS: [Violation; 10] = [
+    Violation::SingleOwner,
+    Violation::QueueBound,
+    Violation::LostOrDuplicatedCommand,
+    Violation::WriteReorder,
+    Violation::WriteBypass,
+    Violation::Convergence,
+    Violation::DuplicateTerminal,
+    Violation::PostTerminalActivity,
+    Violation::TerminalAfterFailure,
+    Violation::Nondeterminism,
+];
+
+/// The namespace the acceptance record prefixes every property id with.
+const INVARIANT_NAMESPACE: &str = "concurrency.";
+
+/// The three weak-fairness assumptions `fair_drain` implements, in the order
+/// the acceptance record lists them. They gate ONLY the final drain; no
+/// fairness is assumed during the schedule itself.
+const WEAK_FAIRNESS: [&str; 3] = [
+    "WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING",
+    "WEAK_FLUSH_PROGRESS_WHEN_WRITABLE",
+    "WEAK_EVENT_DRAIN_WHEN_OUTPUT_PENDING",
+];
+
+/// The producer-admission fairness stance this exploration takes, matching
+/// the preregistered plan's `PRODUCER_ADMISSION_FAIRNESS_ABSENT` entry.
+///
+/// "absent" is a structural property of the enumeration, not a label:
+/// `enumerate_schedules` advances `positions[actor]` on every visit, so a
+/// producer step is CONSUMED whether or not the command was admitted. A
+/// queue-full refusal is therefore final for that step and no producer is
+/// ever guaranteed admission ahead of another.
+/// `producer_admission_is_absent_by_construction` asserts it against a real
+/// schedule rather than trusting this string.
+const PRODUCER_ADMISSION_FAIRNESS: &str = "absent";
+
+/// Position of `violation` in [`CHECKED_INVARIANTS`].
+fn violation_index(violation: Violation) -> usize {
+    CHECKED_INVARIANTS
+        .iter()
+        .position(|candidate| *candidate == violation)
+        .unwrap_or_else(|| {
+            panic!(
+                "{violation:?} is a checked invariant violation but is not declared in \
+                 CHECKED_INVARIANTS, so the exploration would print an invariant list that \
+                 omits it and the acceptance record would claim coverage it does not have"
+            )
+        })
+}
+
 /// Identity of each producer command (payloads are distinct on purpose).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Tag {
@@ -477,6 +542,10 @@ impl Outcome {
     }
 
     fn record(&mut self, violation: Violation) {
+        // Panics if the variant is not declared in CHECKED_INVARIANTS, so a
+        // violation the exploration can actually observe cannot be missing
+        // from the invariant list it prints.
+        let _ = violation_index(violation);
         if !self.violations.contains(&violation) {
             self.violations.push(violation);
         }
@@ -1131,8 +1200,15 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     let mut max_drain = 0u32;
     let mut closed_terminal_runs = 0usize;
     let mut failure_halted_runs = 0usize;
+    // Every invariant violation any schedule observed. The outcome the
+    // printed invariant list carries is DERIVED from this set rather than
+    // written as a literal PASS; `retain_and_fail` below means a non-empty
+    // set never reaches the print, which is exactly what makes reaching the
+    // print evidence that the set is empty.
+    let mut observed_violations: BTreeSet<Violation> = BTreeSet::new();
     for schedule in &exploration.schedules {
         let outcome = execute_deterministic(schedule, Fault::None);
+        observed_violations.extend(outcome.violations.iter().copied());
         if let Some(violation) = outcome.violations.first().copied() {
             retain_and_fail(schedule, violation, &outcome);
         }
@@ -1192,6 +1268,30 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         "the failure-halt disposition was explored"
     );
 
+    // The invariant list and the fairness stance the record carries, derived
+    // from what this run actually checked. Review 01a0487b round 2 BLOCKING:
+    // both were unmodeled decoration until they were printed here.
+    for (index, violation) in CHECKED_INVARIANTS.iter().enumerate() {
+        assert_eq!(
+            violation_index(*violation),
+            index,
+            "CHECKED_INVARIANTS must list each violation exactly once"
+        );
+    }
+    let invariants = CHECKED_INVARIANTS
+        .iter()
+        .map(|violation| {
+            let outcome = if observed_violations.contains(violation) {
+                "FAIL"
+            } else {
+                "PASS"
+            };
+            format!("{INVARIANT_NAMESPACE}{}:{outcome}", violation.property())
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let weak_fairness = WEAK_FAIRNESS.join(",");
+
     let measured = format!(
         "US017_EXPLORATION programs={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
          preemption_budget={PREEMPTION_BUDGET} command_queue_capacity={COMMAND_QUEUE_CAPACITY} \
@@ -1200,7 +1300,9 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
          failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
          terminal_rejected={} events={} failures={} deferred_output_pending={} deferred_command_turn={} \
-         deferred_backpressure={} rejected_inputs={} max_drain_polls={max_drain}",
+         deferred_backpressure={} rejected_inputs={} max_drain_polls={max_drain} \
+         invariants={invariants} weak_fairness={weak_fairness} \
+         producer_admission_fairness={PRODUCER_ADMISSION_FAIRNESS}",
         PROGRAMS.iter().map(|program| program.len()).sum::<usize>(),
         exploration.branches,
         schedule_count * 2,
@@ -1219,6 +1321,74 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     );
     println!("{measured}");
     assert_committed_results_cite_this_run(&measured);
+}
+
+/// The `producer_admission_fairness=absent` token the exploration prints is a
+/// MEASURED property of the enumeration, not a label someone typed.
+///
+/// WHY THIS EXISTS. Review 01a0487b round 2 BLOCKING, the reviewer's own
+/// example: `execution.producer_admission_fairness_claimed` could be flipped
+/// from `false` to `true` and both validators still exited 0, because neither
+/// modeled the field. It is now re-derived from this run — which only means
+/// something if the run's own stance is checked rather than asserted.
+///
+/// Absence of admission fairness is exactly this: a producer step is CONSUMED
+/// whether or not the command was admitted, so a queue-full refusal is final
+/// for that step. If the interpreter retried refused sends (the fairness this
+/// document declines to claim), the producers would dispose MORE steps than
+/// their programs contain.
+#[test]
+fn producer_admission_is_absent_by_construction() {
+    // All four producer steps run back to back, before any owner poll can
+    // drain the command queue, so the bounded channel (capacity 2) must
+    // refuse some of them.
+    let schedule = [
+        Action::EnqueueTextA,
+        Action::EnqueueBinaryA,
+        Action::EnqueuePingB,
+        Action::EnqueueCloseB,
+        Action::InboundPing,
+        Action::InboundClose,
+        Action::TransportEof,
+        Action::WritePartial,
+        Action::WriteAll,
+        Action::WriteAll,
+        Action::Wake,
+        Action::Shutdown,
+    ];
+    let producer_steps = schedule
+        .iter()
+        .filter(|action| {
+            matches!(
+                action,
+                Action::EnqueueTextA
+                    | Action::EnqueueBinaryA
+                    | Action::EnqueuePingB
+                    | Action::EnqueueCloseB
+            )
+        })
+        .count() as u32;
+
+    let outcome = execute_deterministic(&schedule, Fault::None);
+    assert!(
+        outcome.refused_full > 0,
+        "this schedule must actually reach a queue-full refusal or it proves nothing about \
+         what happens to a refused producer step"
+    );
+    assert_eq!(
+        outcome.accepted + outcome.refused_full,
+        producer_steps,
+        "each producer step is admitted or refused EXACTLY ONCE ({} accepted + {} refused vs \
+         {producer_steps} steps). A larger total would mean a refused send was re-offered, \
+         which is the admission fairness assurance/concurrency/plan.json declares absent \
+         (PRODUCER_ADMISSION_FAIRNESS_ABSENT) and the results record must not claim.",
+        outcome.accepted,
+        outcome.refused_full,
+    );
+    assert_eq!(
+        PRODUCER_ADMISSION_FAIRNESS, "absent",
+        "the printed stance must be the one this test just measured"
+    );
 }
 
 // ---------------------------------------------------------------------------

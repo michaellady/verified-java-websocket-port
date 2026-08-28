@@ -40,6 +40,35 @@
 //     01a0487b this accepted any recorded number in any sentence, so the
 //     schedule total could stand in for the terminal total.
 //
+//  5. EVERY OTHER FIELD, AND THE DOCUMENT'S SHAPE ITSELF. Review 01a0487b
+//     round 2. Classes 1-4 bound the fields they touched and left their
+//     neighbours inert: measured, 102 of this document's 162 JSON leaves
+//     produced NO finding when replaced with a different value, because
+//     permissive json.Unmarshal silently ignores what the structs do not
+//     model. The reviewer's example was
+//     execution.producer_admission_fairness_claimed — false to true, DAG
+//     re-frozen, both validators exit 0 — but the whole invariants array, the
+//     native-stress block, the limitations and the claim-scope fields sat in
+//     the same position. So: the invariant table, the weak-fairness
+//     assumptions and the producer-admission stance are re-derived from the
+//     cited run like the counters; claim ceilings are pinned or cross-checked
+//     against the preregistered plan; the named stress suite and every claimed
+//     regression test must resolve in the tree; retained counterexamples are
+//     compared against the pinned seed CONTENTS, not only their digests; and
+//     the shrink records, minimized schedules and program-shape sentence are
+//     reconciled against the bounds they describe.
+//
+//     The document is also decoded with DisallowUnknownFields. That is the
+//     durable half: modelling the fields that exist today fixes today's
+//     document, but a field nothing models is a field nothing can contradict,
+//     so a new one must not be addable in silence. Adding a field here means
+//     deciding what makes it load-bearing.
+//
+//     What remains free is prose with no number, verdict, identity or scope
+//     claim in it, plus the six retention found_index ordinals, which the
+//     retention run prints but this document does not record. 35 of 162 leaves
+//     after the fix, named in the lane receipt rather than implied.
+//
 // WHERE THE OTHER HALF LIVES, AND HOW THEY ARE MADE TO COMPOSE. This validator
 // proves the counters match the cited line; it cannot prove the line came from
 // a real run. That is proven at the run: rust/ws-driver/tests/
@@ -55,6 +84,7 @@
 package formalplan
 
 import (
+	"bytes"
 	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/hex"
@@ -62,9 +92,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // ConcurrencyResultsDocumentPath is the repository-relative home of the
@@ -125,16 +157,18 @@ type crPreregisteredPlan struct {
 }
 
 type crBounds struct {
-	ActorPrograms      int `json:"actor_programs"`
-	ActionsPerSchedule int `json:"actions_per_schedule"`
-	ContextSwitchBound int `json:"context_switch_bound"`
-	PreemptionBudget   int `json:"preemption_budget"`
-	CommandQueue       int `json:"command_queue_capacity"`
-	WriteQueue         int `json:"write_queue_capacity"`
-	EventQueue         int `json:"event_queue_capacity"`
-	ScheduleCountMax   int `json:"schedule_count_max"`
-	BranchCountMax     int `json:"branch_count_max"`
-	DrainBudgetPolls   int `json:"drain_budget_polls"`
+	ActorPrograms                int    `json:"actor_programs"`
+	ProgramShape                 string `json:"program_shape"`
+	ActionsPerSchedule           int    `json:"actions_per_schedule"`
+	ContextSwitchBound           int    `json:"context_switch_bound"`
+	ContextSwitchBoundDerivation string `json:"context_switch_bound_derivation"`
+	PreemptionBudget             int    `json:"preemption_budget"`
+	CommandQueue                 int    `json:"command_queue_capacity"`
+	WriteQueue                   int    `json:"write_queue_capacity"`
+	EventQueue                   int    `json:"event_queue_capacity"`
+	ScheduleCountMax             int    `json:"schedule_count_max"`
+	BranchCountMax               int    `json:"branch_count_max"`
+	DrainBudgetPolls             int    `json:"drain_budget_polls"`
 }
 
 type crCounters struct {
@@ -160,9 +194,13 @@ type crCounters struct {
 // real run emits; crValidateExecutedRun below proves every counter field in
 // this document is what that line says.
 type crExecutedRun struct {
-	Command    string `json:"command"`
-	Exit       *int   `json:"exit"`
-	StdoutLine string `json:"stdout_line"`
+	Command         string `json:"command"`
+	Exit            *int   `json:"exit"`
+	ExitProvenance  string `json:"exit_provenance"`
+	ExecutedAt      string `json:"executed_at"`
+	ExecutedAgainst string `json:"executed_against"`
+	StdoutLine      string `json:"stdout_line"`
+	Binding         string `json:"binding"`
 }
 
 type crExecution struct {
@@ -172,47 +210,98 @@ type crExecution struct {
 	EnumerationBranches     int            `json:"enumeration_branches"`
 	DistinctScheduleDigests int            `json:"distinct_schedule_digests"`
 	Executions              int            `json:"executions"`
+	ReplayDeterminism       string         `json:"replay_determinism"`
 	DistinctTraceDigests    int            `json:"distinct_semantic_trace_digests"`
 	ClosedTerminalRuns      int            `json:"closed_terminal_runs"`
 	FailureHaltedRuns       int            `json:"failure_halted_runs"`
 	TerminalExclusivity     string         `json:"terminal_disposition_exclusivity"`
 	Counters                crCounters     `json:"counters"`
+	WeakFairness            []string       `json:"weak_fairness"`
+	ProducerAdmissionClaim  bool           `json:"producer_admission_fairness_claimed"`
 	ExecutedRun             *crExecutedRun `json:"executed_run"`
 	Outcome                 string         `json:"outcome"`
 }
 
+// crInvariant is one entry of the document's `invariants` array. Review
+// 01a0487b round 2 BLOCKING: the whole array was unmodeled, so its ten PASS
+// outcomes were decoration. It is now re-derived from the cited run.
+type crInvariant struct {
+	PropertyID string `json:"property_id"`
+	Outcome    string `json:"outcome"`
+}
+
 type crMinimizedArtifact struct {
-	Seed     string `json:"seed"`
-	Property string `json:"property"`
-	SHA256   string `json:"sha256"`
+	Seed       string `json:"seed"`
+	Property   string `json:"property"`
+	FoundIndex int    `json:"found_index"`
+	Shrink     string `json:"shrink"`
+	Schedule   string `json:"schedule"`
+	SHA256     string `json:"sha256"`
 }
 
 type crRetention struct {
+	Mechanism          string                `json:"mechanism"`
+	RealFailurePath    string                `json:"real_failure_path"`
+	Demonstration      string                `json:"demonstration"`
+	Regeneration       string                `json:"regeneration"`
 	MinimizedArtifacts []crMinimizedArtifact `json:"minimized_artifacts"`
+	PinnedUnchanged    string                `json:"pinned_artifacts_unchanged_by_review_round"`
+	Outcome            string                `json:"outcome"`
 }
 
 type crReproduction struct {
-	Path   string `json:"path"`
-	SHA256 string `json:"sha256"`
+	Path               string `json:"path"`
+	SHA256             string `json:"sha256"`
+	Schedule           string `json:"schedule"`
+	Shrink             string `json:"shrink"`
+	EventQueueCapacity int    `json:"event_queue_capacity"`
 }
 
 type crDefect struct {
-	DefectID     string          `json:"defect_id"`
-	Reproduction *crReproduction `json:"minimized_reproduction"`
+	DefectID        string          `json:"defect_id"`
+	FoundBy         string          `json:"found_by"`
+	Description     string          `json:"description"`
+	Reproduction    *crReproduction `json:"minimized_reproduction"`
+	Fix             string          `json:"fix"`
+	RegressionTests []string        `json:"regression_tests"`
+	RedEvidence     string          `json:"red_evidence"`
+	Note            string          `json:"note"`
+}
+
+type crNativeStress struct {
+	Platform string `json:"platform"`
+	Rustc    string `json:"rustc"`
+	Target   string `json:"target"`
+	Suite    string `json:"suite"`
+	Executed string `json:"executed"`
+	Outcome  string `json:"outcome"`
 }
 
 type crResults struct {
-	SchemaVersion     string              `json:"schema_version"`
-	EvidenceKind      string              `json:"evidence_kind"`
-	StoryID           string              `json:"story_id"`
-	State             string              `json:"state"`
-	Target            crTarget            `json:"target"`
-	PreregisteredPlan crPreregisteredPlan `json:"preregistered_plan"`
-	Bounds            crBounds            `json:"bounds"`
-	Execution         crExecution         `json:"execution"`
-	TerminalModel     string              `json:"terminal_disposition_model"`
-	Retention         crRetention         `json:"retention"`
-	DefectsFoundFixed []crDefect          `json:"defects_found_and_fixed"`
+	SchemaVersion        string              `json:"schema_version"`
+	EvidenceKind         string              `json:"evidence_kind"`
+	StoryID              string              `json:"story_id"`
+	State                string              `json:"state"`
+	ClaimScope           string              `json:"claim_scope"`
+	ClaimScopeStatement  string              `json:"claim_scope_statement"`
+	RecordedAt           string              `json:"recorded_at"`
+	RecordedAtProvenance string              `json:"recorded_at_provenance"`
+	RevisionNote         string              `json:"revision_note"`
+	Target               crTarget            `json:"target"`
+	PreregisteredPlan    crPreregisteredPlan `json:"preregistered_plan"`
+	Bounds               crBounds            `json:"bounds"`
+	AdapterModel         string              `json:"adapter_model"`
+	Execution            crExecution         `json:"execution"`
+	Invariants           []crInvariant       `json:"invariants"`
+	TerminalModel        string              `json:"terminal_disposition_model"`
+	DefectsFoundFixed    []crDefect          `json:"defects_found_and_fixed"`
+	Retention            crRetention         `json:"retention"`
+	NativeStress         crNativeStress      `json:"native_stress"`
+	Limitations          []string            `json:"limitations"`
+	Assurance            string              `json:"assurance"`
+	IndependentReview    bool                `json:"independent_review_claimed"`
+	Production           bool                `json:"production"`
+	Publication          bool                `json:"publication"`
 }
 
 // ValidateConcurrencyResults reports every way the committed exploration
@@ -229,16 +318,71 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 	if len(raw) > mpMaxArtifactBytes {
 		return append(findings, mpFinding("RESULTS_FILE_UNREADABLE", inputs.ResultsPath, "results exceed the bounded size"))
 	}
-	var results crResults
-	if err := json.Unmarshal(raw, &results); err != nil {
-		return append(findings, mpFinding("RESULTS_FILE_UNREADABLE", inputs.ResultsPath, err.Error()))
+	// The composition check reads RAW BYTES and runs before the structural
+	// decode, so a decode failure can never mask it. Both refusals are real
+	// and each catches what the other cannot: strict decoding refuses a field
+	// no validator models, and this refuses a document whose two readers
+	// would land on different values.
+	rawLine, rawLineErr := crRawStdoutLine(raw)
+	if rawLineErr != nil {
+		findings = append(findings, mpFinding("RESULTS_RUN_LINE_AMBIGUOUS", inputs.ResultsPath, fmt.Sprintf(
+			"the run line cannot be read unambiguously from the raw bytes, so the Rust half of this binding may read a different value: %v", rawLineErr)))
+	}
+
+	results, decodeFinding := crDecodeStrictly(raw, inputs.ResultsPath)
+	if decodeFinding != nil {
+		return append(findings, *decodeFinding)
 	}
 
 	findings = append(findings, crValidateProvenance(results, inputs)...)
-	findings = append(findings, crValidateExecutedRun(results, raw, inputs.ResultsPath)...)
+	findings = append(findings, crValidateExecutedRun(results, rawLine, rawLineErr, inputs.ResultsPath)...)
 	findings = append(findings, crValidateAccounting(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateQuotedCounters(results, inputs.ResultsPath)...)
+	findings = append(findings, crValidateClaimCeiling(results, inputs.ResultsPath)...)
+	findings = append(findings, crValidateNarrative(results, inputs.ResultsPath)...)
+	findings = append(findings, crValidateNamedArtifacts(results, inputs)...)
 	return findings
+}
+
+// crDecodeStrictly decodes the record with DisallowUnknownFields.
+//
+// WHY STRICT. Review 01a0487b round 2 BLOCKING. Permissive json.Unmarshal
+// silently ignores every field the struct does not model, and 108 of this
+// document's 162 leaves were exactly that: inert decoration an acceptance
+// reader trusts and no validator could contradict. The reviewer's measured
+// example was execution.producer_admission_fairness_claimed — flipped from
+// false to true, both validators still exited 0 — but the entire invariants
+// array, the whole native_stress block, every limitation and every claim-scope
+// field were in the same position.
+//
+// Modelling the fields that exist today fixes today's document. Strict
+// decoding is what makes it durable: a NEW field cannot be added to the record
+// without being modeled here first, so decoration cannot creep back in one key
+// at a time. Every field below therefore has a check somewhere in this file;
+// adding a field means deciding what makes it load-bearing.
+func crDecodeStrictly(raw []byte, path string) (crResults, *ModelFinding) {
+	var results crResults
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&results); err != nil {
+		code := "RESULTS_FILE_UNREADABLE"
+		detail := err.Error()
+		if strings.Contains(detail, "unknown field") {
+			code = "RESULTS_UNMODELED_FIELD"
+			detail = fmt.Sprintf(
+				"%s: an unmodeled field is decoration no validator can contradict. Model it in "+
+					"internal/formalplan/concurrencyresults.go and give it a check, or remove it.", detail)
+		}
+		finding := mpFinding(code, path, detail)
+		return results, &finding
+	}
+	// A second document after the first is not the record.
+	if decoder.More() {
+		finding := mpFinding("RESULTS_FILE_UNREADABLE", path,
+			"trailing content follows the record: the file holds more than one JSON document")
+		return results, &finding
+	}
+	return results, nil
 }
 
 // crRawStdoutLine extracts the one stdout_line string from the RAW document
@@ -329,6 +473,101 @@ var crRunFieldToCounter = map[string]string{
 	"max_drain_polls":         "execution.counters.max_drain_polls_observed",
 }
 
+// The run line's non-numeric fields.
+//
+// Review 01a0487b round 2 BLOCKING. `producer_admission_fairness_claimed` and
+// the entire `invariants` array were modeled by neither validator — the Go
+// half did not decode them and the Rust half compares only the printed line —
+// so flipping the fairness claim from false to true survived both at exit 0
+// after a routine DAG refreeze. The exploration now prints all three, so they
+// are re-derived from the measured run exactly like the counters are.
+const (
+	crRunTruncated         = "truncated"
+	crRunInvariants        = "invariants"
+	crRunWeakFairness      = "weak_fairness"
+	crRunProducerAdmission = "producer_admission_fairness"
+
+	// The two spellings the run may print for its producer-admission stance.
+	// "absent" is the plan's PRODUCER_ADMISSION_FAIRNESS_ABSENT position.
+	crProducerAdmissionAbsent  = "absent"
+	crProducerAdmissionClaimed = "claimed"
+
+	// The namespace the record prefixes every invariant property id with.
+	crInvariantNamespace = "concurrency."
+)
+
+// crRunLineFields is every field the cited run line may carry. A field
+// outside this set is refused: the line must contain only values this
+// validator re-derives a document claim from.
+var crRunLineFields = func() map[string]struct{} {
+	fields := map[string]struct{}{
+		crRunTruncated:         {},
+		crRunInvariants:        {},
+		crRunWeakFairness:      {},
+		crRunProducerAdmission: {},
+	}
+	for name := range crRunFieldToCounter {
+		fields[name] = struct{}{}
+	}
+	return fields
+}()
+
+// crValidateRunLists re-derives the document's three list-or-stance claims
+// from the cited run: the invariant table, the weak-fairness assumptions, and
+// the producer-admission stance.
+//
+// Sequence equality, not membership. The same lesson as BLOCKING 4: accepting
+// "the right set in any order" would let close-convergence's PASS stand in for
+// failure-halt-exclusivity's, and accepting a subset would let an invariant be
+// dropped from the table while the record still reads as ten-for-ten.
+func crValidateRunLists(results crResults, raws map[string]string, path string) []ModelFinding {
+	var findings []ModelFinding
+
+	if measured, present := raws[crRunInvariants]; !present {
+		findings = append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path,
+			"the cited run line has no invariants field, so the invariants table is unbacked"))
+	} else {
+		recorded := make([]string, 0, len(results.Invariants))
+		for _, invariant := range results.Invariants {
+			recorded = append(recorded, invariant.PropertyID+":"+invariant.Outcome)
+		}
+		if joined := strings.Join(recorded, ","); joined != measured {
+			findings = append(findings, mpFinding("RESULTS_INVARIANTS_CONTRADICT_RUN", path, fmt.Sprintf(
+				"the invariants table is not the one the cited run checked.\n  recorded: %s\n  run:      %s",
+				joined, measured)))
+		}
+	}
+
+	if measured, present := raws[crRunWeakFairness]; !present {
+		findings = append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path,
+			"the cited run line has no weak_fairness field, so execution.weak_fairness is unbacked"))
+	} else if joined := strings.Join(results.Execution.WeakFairness, ","); joined != measured {
+		findings = append(findings, mpFinding("RESULTS_FAIRNESS_CONTRADICTS_RUN", path, fmt.Sprintf(
+			"execution.weak_fairness records the assumptions %q but the cited run applied %q; a fairness "+
+				"assumption the run did not make is an unfounded strengthening of the result",
+			joined, measured)))
+	}
+
+	measured, present := raws[crRunProducerAdmission]
+	switch {
+	case !present:
+		findings = append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path,
+			"the cited run line has no producer_admission_fairness field, so "+
+				"execution.producer_admission_fairness_claimed is unbacked"))
+	case measured != crProducerAdmissionAbsent && measured != crProducerAdmissionClaimed:
+		findings = append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path, fmt.Sprintf(
+			"the cited run reports producer_admission_fairness=%q, which is neither %q nor %q",
+			measured, crProducerAdmissionAbsent, crProducerAdmissionClaimed)))
+	case results.Execution.ProducerAdmissionClaim != (measured == crProducerAdmissionClaimed):
+		findings = append(findings, mpFinding("RESULTS_FAIRNESS_CONTRADICTS_RUN", path, fmt.Sprintf(
+			"execution.producer_admission_fairness_claimed is %t but the cited run reports "+
+				"producer_admission_fairness=%s; claiming admission fairness the exploration never assumed "+
+				"would strengthen the result over both the port design and the preregistered plan",
+			results.Execution.ProducerAdmissionClaim, measured)))
+	}
+	return findings
+}
+
 // crDocumentCounters flattens the document's numeric claims under the names
 // crRunFieldToCounter targets.
 func crDocumentCounters(results crResults) map[string]int {
@@ -371,7 +610,7 @@ func crDocumentCounters(results crResults) map[string]int {
 // the run: rust/ws-driver/tests/schedule_exploration.rs formats this same line
 // from its own measured totals and compares it byte-for-byte with the string
 // recorded here.
-func crValidateExecutedRun(results crResults, raw []byte, path string) []ModelFinding {
+func crValidateExecutedRun(results crResults, rawLine string, rawLineErr error, path string) []ModelFinding {
 	var findings []ModelFinding
 	run := results.Execution.ExecutedRun
 	if run == nil {
@@ -381,12 +620,10 @@ func crValidateExecutedRun(results crResults, raw []byte, path string) []ModelFi
 
 	// The composition check: the bytes the Rust half will read must be the
 	// bytes this half is reading. Anything else and the two validators are
-	// not one binding, they are two binding different documents.
-	rawLine, err := crRawStdoutLine(raw)
-	if err != nil {
-		findings = append(findings, mpFinding("RESULTS_RUN_LINE_AMBIGUOUS", path, fmt.Sprintf(
-			"the run line cannot be read unambiguously from the raw bytes, so the Rust half of this binding may read a different value: %v", err)))
-	} else if rawLine != run.StdoutLine {
+	// not one binding, they are two binding different documents. The
+	// unreadable case is reported by the caller, which reads the raw bytes
+	// before this document is decoded at all.
+	if rawLineErr == nil && rawLine != run.StdoutLine {
 		findings = append(findings, mpFinding("RESULTS_RUN_LINE_AMBIGUOUS", path, fmt.Sprintf(
 			"the raw document yields a different run line than the structurally parsed execution.executed_run.stdout_line, so the two halves of this binding would validate different values.\n  raw:        %s\n  structural: %s",
 			rawLine, run.StdoutLine)))
@@ -400,7 +637,7 @@ func crValidateExecutedRun(results crResults, raw []byte, path string) []ModelFi
 			"execution.executed_run.command %q does not name the schedule_exploration harness", run.Command)))
 	}
 
-	fields := map[string]int{}
+	raws := map[string]string{}
 	tokens := strings.Fields(strings.TrimSpace(run.StdoutLine))
 	if len(tokens) == 0 || tokens[0] != "US017_EXPLORATION" {
 		return append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path,
@@ -412,11 +649,25 @@ func crValidateExecutedRun(results crResults, raw []byte, path string) []ModelFi
 			return append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path, fmt.Sprintf(
 				"execution.executed_run.stdout_line carries the non key=value token %q", token)))
 		}
-		if key == "truncated" {
-			if (value == "true") != results.Execution.Truncated {
-				findings = append(findings, mpFinding("RESULTS_COUNTER_CONTRADICTS_RUN", path, fmt.Sprintf(
-					"the cited run reports truncated=%s but execution.truncated is %t", value, results.Execution.Truncated)))
-			}
+		// Strictness in both directions, mirroring DisallowUnknownFields on
+		// the JSON side: an unrecognised run field is a field this validator
+		// does not re-derive anything from, so it must not be silently
+		// tolerated in the line the record cites.
+		if _, known := crRunLineFields[key]; !known {
+			return append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path, fmt.Sprintf(
+				"execution.executed_run.stdout_line carries the unrecognised field %q; every field of the "+
+					"cited line must be one this validator re-derives a document claim from", key)))
+		}
+		if _, duplicate := raws[key]; duplicate {
+			return append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path, fmt.Sprintf(
+				"execution.executed_run.stdout_line carries the field %q twice, so a reader could take either value", key)))
+		}
+		raws[key] = value
+	}
+
+	fields := map[string]int{}
+	for key, value := range raws {
+		if _, numeric := crRunFieldToCounter[key]; !numeric {
 			continue
 		}
 		parsed, err := strconv.Atoi(value)
@@ -426,6 +677,16 @@ func crValidateExecutedRun(results crResults, raw []byte, path string) []ModelFi
 		}
 		fields[key] = parsed
 	}
+	if value, present := raws[crRunTruncated]; present {
+		if (value == "true") != results.Execution.Truncated {
+			findings = append(findings, mpFinding("RESULTS_COUNTER_CONTRADICTS_RUN", path, fmt.Sprintf(
+				"the cited run reports truncated=%s but execution.truncated is %t", value, results.Execution.Truncated)))
+		}
+	} else {
+		findings = append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path,
+			"the cited run line has no truncated field, so execution.truncated is unbacked"))
+	}
+	findings = append(findings, crValidateRunLists(results, raws, path)...)
 
 	documented := crDocumentCounters(results)
 	names := make([]string, 0, len(crRunFieldToCounter))
@@ -552,6 +813,13 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 	}
 
 	// The pinned minimized seeds and the pinned defect reproduction.
+	//
+	// The digest proves the record names the bytes that are there. What the
+	// seed CONTENTS prove is stronger and was not being used: each seed is
+	// re-derived by the Rust retention test from a real minimization run and
+	// byte-compared, so the property, the minimized schedule and the queue
+	// capacity it carries are measured values. The record restates all three
+	// in its own words; before this they were transcriptions nothing checked.
 	for _, artifact := range results.Retention.MinimizedArtifacts {
 		rel := crMinimizedSeedDir + "/" + artifact.Seed + ".seed"
 		content, finding := read(rel)
@@ -563,6 +831,14 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 			findings = append(findings, mpFinding("RESULTS_SEED_DIGEST_STALE", rel, fmt.Sprintf(
 				"minimized artifact %s records %s but the pinned seed hashes to %s", artifact.Seed, artifact.SHA256, actual)))
 		}
+		seed := crParseSeed(content)
+		findings = append(findings, crCompareToSeed(rel, fmt.Sprintf("minimized artifact %s", artifact.Seed),
+			map[string]string{
+				"id":                   "minimized-" + artifact.Seed,
+				"property":             artifact.Property,
+				"schedule":             artifact.Schedule,
+				"event_queue_capacity": strconv.Itoa(results.Bounds.EventQueue),
+			}, seed)...)
 	}
 	for _, defect := range results.DefectsFoundFixed {
 		if defect.Reproduction == nil {
@@ -577,12 +853,59 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 			findings = append(findings, mpFinding("RESULTS_SEED_DIGEST_STALE", defect.Reproduction.Path, fmt.Sprintf(
 				"defect %s records reproduction digest %s but the pinned seed hashes to %s", defect.DefectID, defect.Reproduction.SHA256, actual)))
 		}
+		seed := crParseSeed(content)
+		findings = append(findings, crCompareToSeed(defect.Reproduction.Path, fmt.Sprintf("defect %s", defect.DefectID),
+			map[string]string{
+				"id":                   defect.DefectID,
+				"schedule":             defect.Reproduction.Schedule,
+				"event_queue_capacity": strconv.Itoa(defect.Reproduction.EventQueueCapacity),
+			}, seed)...)
 	}
 	return findings
 }
 
-// crPlanBounds is the subset of the preregistered plan's bounds section that
-// the results document's conformance claim actually rests on.
+// crParseSeed reads the key=value seed artifact format the exploration writes
+// (see render_seed in rust/ws-driver/tests/schedule_exploration.rs).
+func crParseSeed(content []byte) map[string]string {
+	seed := map[string]string{}
+	for _, line := range strings.Split(string(content), "\n") {
+		key, value, found := strings.Cut(strings.TrimSpace(line), "=")
+		if found {
+			seed[key] = value
+		}
+	}
+	return seed
+}
+
+// crCompareToSeed holds the record's restatement of a retained counterexample
+// against the counterexample itself.
+func crCompareToSeed(path, label string, expected, seed map[string]string) []ModelFinding {
+	var findings []ModelFinding
+	keys := make([]string, 0, len(expected))
+	for key := range expected {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		actual, present := seed[key]
+		if !present {
+			findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", path, fmt.Sprintf(
+				"%s: the pinned seed carries no %s field, so the record's value for it rests on nothing", label, key)))
+			continue
+		}
+		if actual != expected[key] {
+			findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", path, fmt.Sprintf(
+				"%s restates %s as %q but the pinned counterexample says %q; the seed is re-derived from a real "+
+					"minimization run, so the record is describing a counterexample it does not have",
+				label, key, expected[key], actual)))
+		}
+	}
+	return findings
+}
+
+// crPlanBounds is the subset of the preregistered plan the results document's
+// conformance and claim-ceiling claims actually rest on: its bounds, its
+// assurance posture, and its declared fairness stances.
 type crPlanBounds struct {
 	Bounds struct {
 		ProducerTasksMax      int `json:"producer_tasks_max"`
@@ -594,6 +917,64 @@ type crPlanBounds struct {
 		ScheduleCountMax      int `json:"schedule_count_max"`
 		BranchCountMax        int `json:"branch_count_max"`
 	} `json:"bounds"`
+	Assurance struct {
+		OwnerAttestation         string `json:"owner_attestation"`
+		IndependentReviewClaimed bool   `json:"independent_review_claimed"`
+	} `json:"assurance"`
+	Fairness []struct {
+		FairnessID string `json:"fairness_id"`
+		Kind       string `json:"kind"`
+	} `json:"fairness"`
+}
+
+// crPlanProducerAdmissionID is the plan's declared stance on admission
+// ordering among competing producers. Its `kind` is what the results
+// document's producer_admission_fairness_claimed must agree with.
+const crPlanProducerAdmissionID = "PRODUCER_ADMISSION_FAIRNESS_ABSENT"
+
+// crValidateFairnessAgainstPlan is the cross-artifact half of the fairness
+// binding. crValidateRunLists proves the record's stance is the one the
+// exploration ran with; this proves it is also the one the preregistered plan
+// declared, so the two cannot drift apart silently. Either alone would let a
+// stance be strengthened by editing the other side.
+func crValidateFairnessAgainstPlan(results crResults, plan crPlanBounds, path string) []ModelFinding {
+	var findings []ModelFinding
+	declaredAbsent := false
+	weakFairnessCount := 0
+	for _, entry := range plan.Fairness {
+		if entry.Kind == "weak_fairness" {
+			weakFairnessCount++
+		}
+		if entry.FairnessID == crPlanProducerAdmissionID {
+			declaredAbsent = entry.Kind == "absent"
+		}
+	}
+	if !declaredAbsent {
+		findings = append(findings, mpFinding("RESULTS_FAIRNESS_CONTRADICTS_PLAN", path, fmt.Sprintf(
+			"the preregistered plan does not declare %s with kind \"absent\", so this record's "+
+				"producer-admission stance rests on nothing", crPlanProducerAdmissionID)))
+	} else if results.Execution.ProducerAdmissionClaim {
+		findings = append(findings, mpFinding("RESULTS_FAIRNESS_CONTRADICTS_PLAN", path, fmt.Sprintf(
+			"execution.producer_admission_fairness_claimed is true but the preregistered plan declares "+
+				"%s: the plan's stance is that no producer is guaranteed admission ahead of another, and "+
+				"claiming that fairness here would strengthen the result over the plan it cites",
+			crPlanProducerAdmissionID)))
+	}
+	if weakFairnessCount != len(results.Execution.WeakFairness) {
+		findings = append(findings, mpFinding("RESULTS_FAIRNESS_CONTRADICTS_PLAN", path, fmt.Sprintf(
+			"execution.weak_fairness records %d assumptions but the preregistered plan declares %d entries "+
+				"of kind weak_fairness", len(results.Execution.WeakFairness), weakFairnessCount)))
+	}
+	if plan.Assurance.OwnerAttestation != "" && results.Assurance != plan.Assurance.OwnerAttestation {
+		findings = append(findings, mpFinding("RESULTS_CLAIM_CEILING_INFLATED", path, fmt.Sprintf(
+			"assurance is %q but the preregistered plan attests %q", results.Assurance, plan.Assurance.OwnerAttestation)))
+	}
+	if results.IndependentReview != plan.Assurance.IndependentReviewClaimed {
+		findings = append(findings, mpFinding("RESULTS_CLAIM_CEILING_INFLATED", path, fmt.Sprintf(
+			"independent_review_claimed is %t but the preregistered plan declares %t",
+			results.IndependentReview, plan.Assurance.IndependentReviewClaimed)))
+	}
+	return findings
 }
 
 // crValidatePlanConformance turns the conformance SENTENCE into a checked
@@ -647,6 +1028,17 @@ func crValidatePlanConformance(results crResults, planContent []byte, path strin
 				"bounds.%s is %d but the preregistered plan declares %d", pair.name, pair.actual, pair.wanted)))
 		}
 	}
+	for _, defect := range results.DefectsFoundFixed {
+		if defect.Reproduction == nil {
+			continue
+		}
+		if defect.Reproduction.EventQueueCapacity > plan.Bounds.EventQueueCapacity {
+			findings = append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_VIOLATED", path, fmt.Sprintf(
+				"defect %s reproduces at event_queue_capacity %d but the preregistered plan caps it at %d",
+				defect.DefectID, defect.Reproduction.EventQueueCapacity, plan.Bounds.EventQueueCapacity)))
+		}
+	}
+	findings = append(findings, crValidateFairnessAgainstPlan(results, plan, path)...)
 	return findings
 }
 
@@ -879,6 +1271,460 @@ func crValidateQuotedCounters(results crResults, path string) []ModelFinding {
 					"%s quotes %d at position %d where the counters require %d; a number that is recorded elsewhere in the document is still the wrong number here",
 					expectation.name, value, index+1, expectation.expected[index])))
 			}
+		}
+	}
+	return findings
+}
+
+// The claim ceilings this record is not allowed to exceed. Each is a value an
+// edit could inflate silently before strict decoding modeled it: a renamed
+// evidence_kind lets the record masquerade as a different artifact, a state
+// outside the closed vocabulary skips the PASS block below entirely (a
+// measured hole: "PASS CORRUPTED" produced no finding at all), and
+// production/publication/independent_review turn an owner-attested bounded
+// result into a claim nobody made.
+const (
+	crRequiredSchemaVersion = "1.0.0"
+	crRequiredEvidenceKind  = "US017_DRIVER_BOUNDED_SCHEDULE_AND_NATIVE_STRESS_RESULTS"
+	crRequiredStoryID       = "US-017"
+	crStatePass             = "PASS"
+	crStateFail             = "FAIL"
+	crInvariantPass         = "PASS"
+	crInvariantFail         = "FAIL"
+
+	// The native-thread stress ran on one host. Its outcome label carries
+	// that scope, and widening the label is the cheapest possible inflation
+	// of a two-platform claim the story explicitly leaves open.
+	crRequiredNativeStressOutcome = "PASS_CURRENT_HOST_ONLY"
+
+	// The bounded scope this record is written under, and the retention
+	// verdict. Both are labels an acceptance reader takes at face value.
+	crRequiredClaimScope       = "BOUNDED_SYSTEMATIC_AND_CURRENT_HOST_STRESS_TESTING"
+	crRequiredRetentionOutcome = "PASS_ALL_NAMED_FAULTS_KILLED_AND_MINIMIZED"
+)
+
+// crValidateClaimCeiling refuses a record that claims more assurance than it
+// has. Review 01a0487b round 2 BLOCKING: every field below was unmodeled, so
+// each was decoration — measured, corrupting any one of them produced no
+// finding from either validator.
+func crValidateClaimCeiling(results crResults, path string) []ModelFinding {
+	var findings []ModelFinding
+	inflated := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_CLAIM_CEILING_INFLATED", path, detail))
+	}
+
+	for _, pinned := range []struct{ field, actual, required string }{
+		{"schema_version", results.SchemaVersion, crRequiredSchemaVersion},
+		{"evidence_kind", results.EvidenceKind, crRequiredEvidenceKind},
+		{"story_id", results.StoryID, crRequiredStoryID},
+		{"claim_scope", results.ClaimScope, crRequiredClaimScope},
+		{"retention.outcome", results.Retention.Outcome, crRequiredRetentionOutcome},
+	} {
+		if pinned.actual != pinned.required {
+			inflated(fmt.Sprintf("%s is %q but this record is only evidence of kind %q",
+				pinned.field, pinned.actual, pinned.required))
+		}
+	}
+
+	// The state vocabulary is closed, and the state is DERIVED: the record
+	// passes exactly when every invariant it lists passed.
+	if results.State != crStatePass && results.State != crStateFail {
+		inflated(fmt.Sprintf(
+			"state is %q, which is neither %q nor %q; a state outside the vocabulary silently skips every "+
+				"check conditioned on PASS", results.State, crStatePass, crStateFail))
+	}
+	if len(results.Invariants) == 0 {
+		inflated("the record lists no invariants, so its state rests on nothing")
+	}
+	allPassed := true
+	for _, invariant := range results.Invariants {
+		if invariant.Outcome != crInvariantPass && invariant.Outcome != crInvariantFail {
+			inflated(fmt.Sprintf("invariant %s records outcome %q, which is neither %q nor %q",
+				invariant.PropertyID, invariant.Outcome, crInvariantPass, crInvariantFail))
+		}
+		if !strings.HasPrefix(invariant.PropertyID, crInvariantNamespace) {
+			inflated(fmt.Sprintf("invariant property id %q is outside the %q namespace this record's "+
+				"invariants live in", invariant.PropertyID, crInvariantNamespace))
+		}
+		if invariant.Outcome != crInvariantPass {
+			allPassed = false
+		}
+	}
+	if len(results.Invariants) > 0 && (results.State == crStatePass) != allPassed {
+		inflated(fmt.Sprintf(
+			"state is %q but %d of the %d listed invariants passed; the state must be derived from the "+
+				"invariant table, not asserted alongside it",
+			results.State, crCountPassing(results.Invariants), len(results.Invariants)))
+	}
+
+	// An owner-attested bounded record cannot also be a production or
+	// publication claim.
+	if results.Production {
+		inflated("production is true, but this record is bounded owner-attested evidence and no reviewed production claim exists for it")
+	}
+	if results.Publication {
+		inflated("publication is true, but this record is bounded owner-attested evidence and no reviewed publication claim exists for it")
+	}
+	if results.IndependentReview && strings.Contains(results.Assurance, "NOT_INDEPENDENT") {
+		inflated(fmt.Sprintf("independent_review_claimed is true but assurance is %q", results.Assurance))
+	}
+
+	// The claim ceiling must name the document that sets it. A claim-scope
+	// statement that cites no plan is a ceiling nobody can check.
+	if !strings.Contains(results.ClaimScopeStatement, crCanonicalPlanPath) {
+		inflated(fmt.Sprintf(
+			"claim_scope_statement does not cite %s, so the ceiling it describes is not anchored to the "+
+				"preregistered plan", crCanonicalPlanPath))
+	}
+
+	if results.NativeStress.Outcome != crRequiredNativeStressOutcome {
+		inflated(fmt.Sprintf(
+			"native_stress.outcome is %q but the stress suite ran on one host only and must say so (%q)",
+			results.NativeStress.Outcome, crRequiredNativeStressOutcome))
+	}
+	// The platform, the target triple and the limitation that discloses the
+	// single-host scope all describe the SAME host. Any one of them could be
+	// rewritten alone before this.
+	platform := strings.ToLower(strings.TrimSpace(strings.Split(results.NativeStress.Platform, "(")[0]))
+	triple := strings.ToLower(results.NativeStress.Target)
+	for _, word := range strings.Fields(platform) {
+		normalized := word
+		if normalized == "arm64" {
+			normalized = "aarch64"
+		}
+		if !strings.Contains(triple, normalized) {
+			inflated(fmt.Sprintf(
+				"native_stress.target %q does not name the %q the platform records; the triple and the platform "+
+					"must describe the same host", results.NativeStress.Target, word))
+		}
+	}
+	if platform != "" {
+		disclosed := false
+		for _, limitation := range results.Limitations {
+			if strings.Contains(strings.ToLower(limitation), platform) {
+				disclosed = true
+				break
+			}
+		}
+		if !disclosed {
+			inflated(fmt.Sprintf(
+				"no limitation discloses that the native-thread stress ran on %q only, though native_stress "+
+					"records exactly that platform", strings.TrimSpace(platform)))
+		}
+	}
+	return findings
+}
+
+func crCountPassing(invariants []crInvariant) int {
+	passing := 0
+	for _, invariant := range invariants {
+		if invariant.Outcome == crInvariantPass {
+			passing++
+		}
+	}
+	return passing
+}
+
+// crShrinkPattern reads the "<from> -> <to>" shrink record every minimized
+// artifact and defect reproduction carries.
+var crShrinkPattern = regexp.MustCompile(`([0-9]+)\s*->\s*([0-9]+)`)
+
+// crValidateNarrative turns the record's descriptive fields from free text
+// into claims with something behind them.
+//
+// Not every sentence can be re-derived from a run, and pretending otherwise
+// would be the same mistake in the other direction. What every one of them CAN
+// be held to is: present, and — where the sentence states a structure the
+// record also states numerically — consistent with that number. The
+// program-shape sentence, the shrink records and the minimized schedules all
+// enumerate things the bounds and the invariant table already count.
+func crValidateNarrative(results crResults, path string) []ModelFinding {
+	var findings []ModelFinding
+	contradiction := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_ACCOUNTING_CONTRADICTION", path, detail))
+	}
+	empty := func(field string) {
+		findings = append(findings, mpFinding("RESULTS_DESCRIPTION_ABSENT", path, fmt.Sprintf(
+			"%s is empty: the record states this claim to a reader and must not leave it blank", field)))
+	}
+
+	for _, described := range []struct{ field, text string }{
+		{"claim_scope", results.ClaimScope},
+		{"claim_scope_statement", results.ClaimScopeStatement},
+		{"recorded_at_provenance", results.RecordedAtProvenance},
+		{"revision_note", results.RevisionNote},
+		{"adapter_model", results.AdapterModel},
+		{"assurance", results.Assurance},
+		{"bounds.program_shape", results.Bounds.ProgramShape},
+		{"bounds.context_switch_bound_derivation", results.Bounds.ContextSwitchBoundDerivation},
+		{"preregistered_plan.conformance", results.PreregisteredPlan.Conformance},
+		{"execution.replay_determinism", results.Execution.ReplayDeterminism},
+		{"execution.terminal_disposition_exclusivity", results.Execution.TerminalExclusivity},
+		{"execution.counters.reconciliation", results.Execution.Counters.Reconciliation},
+		{"execution.outcome", results.Execution.Outcome},
+		{"terminal_disposition_model", results.TerminalModel},
+		{"retention.mechanism", results.Retention.Mechanism},
+		{"retention.real_failure_path", results.Retention.RealFailurePath},
+		{"retention.demonstration", results.Retention.Demonstration},
+		{"retention.regeneration", results.Retention.Regeneration},
+		{"retention.pinned_artifacts_unchanged_by_review_round", results.Retention.PinnedUnchanged},
+		{"retention.outcome", results.Retention.Outcome},
+		{"native_stress.platform", results.NativeStress.Platform},
+		{"native_stress.rustc", results.NativeStress.Rustc},
+		{"native_stress.target", results.NativeStress.Target},
+		{"native_stress.suite", results.NativeStress.Suite},
+		{"native_stress.executed", results.NativeStress.Executed},
+	} {
+		if strings.TrimSpace(described.text) == "" {
+			empty(described.field)
+		}
+	}
+	if run := results.Execution.ExecutedRun; run != nil {
+		for _, described := range []struct{ field, text string }{
+			{"execution.executed_run.exit_provenance", run.ExitProvenance},
+			{"execution.executed_run.executed_against", run.ExecutedAgainst},
+			{"execution.executed_run.binding", run.Binding},
+		} {
+			if strings.TrimSpace(described.text) == "" {
+				empty(described.field)
+			}
+		}
+		if _, err := time.Parse(time.RFC3339, run.ExecutedAt); err != nil || !strings.HasSuffix(run.ExecutedAt, "Z") {
+			findings = append(findings, mpFinding("RESULTS_TIMESTAMP_MALFORMED", path, fmt.Sprintf(
+				"execution.executed_run.executed_at %q is not a UTC RFC3339 instant", run.ExecutedAt)))
+		}
+	}
+	if _, err := time.Parse(time.RFC3339, results.RecordedAt); err != nil || !strings.HasSuffix(results.RecordedAt, "Z") {
+		findings = append(findings, mpFinding("RESULTS_TIMESTAMP_MALFORMED", path, fmt.Sprintf(
+			"recorded_at %q is not a UTC RFC3339 instant", results.RecordedAt)))
+	}
+	if len(results.Limitations) == 0 {
+		empty("limitations")
+	}
+	for index, limitation := range results.Limitations {
+		if strings.TrimSpace(limitation) == "" {
+			empty(fmt.Sprintf("limitations[%d]", index))
+		}
+	}
+
+	// The program-shape sentence enumerates the actor programs and their
+	// actions; bounds.actor_programs and bounds.actions_per_schedule count
+	// the same two things, and both are re-derived from the cited run.
+	programs, actions := crProgramShapeShape(results.Bounds.ProgramShape)
+	if programs != results.Bounds.ActorPrograms {
+		contradiction(fmt.Sprintf(
+			"bounds.program_shape describes %d actor programs but bounds.actor_programs is %d",
+			programs, results.Bounds.ActorPrograms))
+	}
+	if actions != results.Bounds.ActionsPerSchedule {
+		contradiction(fmt.Sprintf(
+			"bounds.program_shape lists %d actions across its programs but bounds.actions_per_schedule is %d",
+			actions, results.Bounds.ActionsPerSchedule))
+	}
+
+	// Every minimized artifact names an invariant the record actually lists,
+	// shrinks from the full schedule length, and carries a schedule whose
+	// length is the one the shrink claims.
+	invariants := map[string]struct{}{}
+	for _, invariant := range results.Invariants {
+		invariants[strings.TrimPrefix(invariant.PropertyID, crInvariantNamespace)] = struct{}{}
+	}
+	seen := map[string]struct{}{}
+	for _, artifact := range results.Retention.MinimizedArtifacts {
+		if _, listed := invariants[artifact.Property]; !listed {
+			contradiction(fmt.Sprintf(
+				"minimized artifact %s is retained for property %q, which is not one of the invariants this "+
+					"record checks", artifact.Seed, artifact.Property))
+		}
+		if _, duplicate := seen[artifact.Seed]; duplicate {
+			contradiction(fmt.Sprintf("minimized artifact %s is listed twice", artifact.Seed))
+		}
+		seen[artifact.Seed] = struct{}{}
+		if artifact.FoundIndex < 0 {
+			contradiction(fmt.Sprintf("minimized artifact %s records a negative found_index", artifact.Seed))
+		}
+		findings = append(findings, crValidateShrink(
+			fmt.Sprintf("minimized artifact %s", artifact.Seed),
+			artifact.Shrink, artifact.Schedule, results.Bounds.ActionsPerSchedule, path)...)
+	}
+
+	defects := map[string]struct{}{}
+	if len(results.DefectsFoundFixed) == 0 {
+		empty("defects_found_and_fixed")
+	}
+	for _, defect := range results.DefectsFoundFixed {
+		for _, described := range []struct{ field, text string }{
+			{"defect_id", defect.DefectID},
+			{"found_by", defect.FoundBy},
+			{"description", defect.Description},
+			{"fix", defect.Fix},
+		} {
+			if strings.TrimSpace(described.text) == "" {
+				empty(fmt.Sprintf("defects_found_and_fixed[%s].%s", defect.DefectID, described.field))
+			}
+		}
+		if _, duplicate := defects[defect.DefectID]; duplicate {
+			contradiction(fmt.Sprintf("defect id %q is recorded twice", defect.DefectID))
+		}
+		defects[defect.DefectID] = struct{}{}
+		if defect.Reproduction != nil {
+			findings = append(findings, crValidateShrink(
+				fmt.Sprintf("defect %s", defect.DefectID),
+				defect.Reproduction.Shrink, defect.Reproduction.Schedule,
+				results.Bounds.ActionsPerSchedule, path)...)
+			if strings.TrimSpace(defect.RedEvidence) == "" {
+				empty(fmt.Sprintf("defects_found_and_fixed[%s].red_evidence", defect.DefectID))
+			}
+			if len(defect.RegressionTests) == 0 {
+				empty(fmt.Sprintf("defects_found_and_fixed[%s].regression_tests", defect.DefectID))
+			}
+		}
+	}
+	return findings
+}
+
+// crValidateShrink checks a "<from> -> <to>" record against the schedule it
+// describes: shrinking starts from a full schedule, ends no longer than it
+// started, and the minimized schedule really carries that many actions. A
+// shrink claim nothing counts is the same decoration class as an invariant
+// table nothing derives.
+func crValidateShrink(label, shrink, schedule string, fullLength int, path string) []ModelFinding {
+	var findings []ModelFinding
+	contradiction := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_ACCOUNTING_CONTRADICTION", path, detail))
+	}
+	match := crShrinkPattern.FindStringSubmatch(shrink)
+	if match == nil {
+		contradiction(fmt.Sprintf("%s records the shrink %q, which does not state a <from> -> <to> length", label, shrink))
+		return findings
+	}
+	from, _ := strconv.Atoi(match[1])
+	to, _ := strconv.Atoi(match[2])
+	if from != fullLength {
+		contradiction(fmt.Sprintf(
+			"%s shrinks from %d actions but every schedule in this exploration is %d actions long",
+			label, from, fullLength))
+	}
+	if to < 1 || to > from {
+		contradiction(fmt.Sprintf("%s shrinks %d -> %d, which is not a shrink to a non-empty schedule", label, from, to))
+	}
+	actions := 0
+	for _, action := range strings.Split(schedule, ",") {
+		if strings.TrimSpace(action) != "" {
+			actions++
+		}
+	}
+	if actions != to {
+		contradiction(fmt.Sprintf(
+			"%s claims a %d-action minimized schedule but records %d actions (%q)", label, to, actions, schedule))
+	}
+	return findings
+}
+
+// crProgramShapeShape counts the actor programs and the total actions the
+// program-shape sentence enumerates. Programs are separated by ";" and each
+// names its actions inside brackets.
+func crProgramShapeShape(shape string) (programs, actions int) {
+	for _, segment := range strings.Split(shape, ";") {
+		if strings.TrimSpace(segment) == "" {
+			continue
+		}
+		programs++
+		open := strings.Index(segment, "[")
+		closed := strings.LastIndex(segment, "]")
+		if open < 0 || closed < open {
+			continue
+		}
+		for _, action := range strings.Split(segment[open+1:closed], ",") {
+			if strings.TrimSpace(action) != "" {
+				actions++
+			}
+		}
+	}
+	return programs, actions
+}
+
+// crValidateNamedArtifacts resolves the files this record names in prose but
+// never pinned by digest: the native stress suite, and the regression tests
+// each fixed defect claims now cover it.
+//
+// A record can claim a regression test exists; before this it did not have to
+// be true. The named test file must exist in the tree AND carry the named test
+// function, which is the difference between "a path that resolves" and "the
+// test that was claimed".
+func crValidateNamedArtifacts(results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
+	var findings []ModelFinding
+	if inputs.Root == "" {
+		return append(findings, mpAdvisory("RESULTS_NAMED_ARTIFACT_UNVERIFIED", inputs.ResultsPath,
+			"no tree root supplied: the named stress suite and regression tests were NOT resolved against the tree"))
+	}
+	missing := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_NAMED_ARTIFACT_MISSING", inputs.ResultsPath, detail))
+	}
+	read := func(rel string) ([]byte, bool) {
+		content, err := os.ReadFile(filepath.Join(inputs.Root, filepath.FromSlash(rel)))
+		return content, err == nil
+	}
+
+	// native_stress.suite opens with the repository-relative path of the
+	// suite it describes.
+	if fields := strings.Fields(results.NativeStress.Suite); len(fields) > 0 {
+		suite := strings.TrimSuffix(fields[0], ":")
+		if _, ok := read(suite); !ok {
+			missing(fmt.Sprintf(
+				"native_stress.suite names %q, which is not in the tree: the stress result describes a suite "+
+					"that does not exist here", suite))
+		}
+	}
+
+	for _, defect := range results.DefectsFoundFixed {
+		for _, reference := range defect.RegressionTests {
+			file, name, found := strings.Cut(reference, "::")
+			if !found {
+				missing(fmt.Sprintf(
+					"defect %s names the regression test %q, which does not spell out <file>::<test>",
+					defect.DefectID, reference))
+				continue
+			}
+			content, ok := read(file)
+			if !ok {
+				missing(fmt.Sprintf(
+					"defect %s claims regression coverage in %q, which is not in the tree",
+					defect.DefectID, file))
+				continue
+			}
+			if !strings.Contains(string(content), name) {
+				missing(fmt.Sprintf(
+					"defect %s claims regression coverage by %s in %s, but that file carries no such test; "+
+						"a claimed regression test that does not exist is the fix asserting its own coverage",
+					defect.DefectID, name, file))
+			}
+		}
+	}
+
+	// The pinned minimized corpus and the record must agree on WHICH faults
+	// were retained. A dropped entry would quietly shrink the demonstrated
+	// fault set while the record still reads as complete.
+	entries, err := os.ReadDir(filepath.Join(inputs.Root, filepath.FromSlash(crMinimizedSeedDir)))
+	if err != nil {
+		missing(fmt.Sprintf("the pinned minimized seed directory %s is unreadable: %v", crMinimizedSeedDir, err))
+		return findings
+	}
+	pinned := map[string]struct{}{}
+	for _, entry := range entries {
+		if name := entry.Name(); strings.HasSuffix(name, ".seed") {
+			pinned[strings.TrimSuffix(name, ".seed")] = struct{}{}
+		}
+	}
+	recorded := map[string]struct{}{}
+	for _, artifact := range results.Retention.MinimizedArtifacts {
+		recorded[artifact.Seed] = struct{}{}
+	}
+	for seed := range pinned {
+		if _, listed := recorded[seed]; !listed {
+			missing(fmt.Sprintf(
+				"%s/%s.seed is pinned in the tree but retention.minimized_artifacts does not record it, so the "+
+					"record understates the retained fault set", crMinimizedSeedDir, seed))
 		}
 	}
 	return findings

@@ -700,3 +700,406 @@ func TestConcurrencyResultsIsTheStoryEvidenceItClaimsToBe(t *testing.T) {
 		t.Fatalf("target symbol is %q, want ws_driver::ConnectionDriver::poll", results.Target.Symbol)
 	}
 }
+
+// crTestArray fetches an array from the decoded document.
+func crTestArray(t *testing.T, document map[string]any, keys ...string) []any {
+	t.Helper()
+	current := any(document)
+	for _, key := range keys {
+		object, ok := current.(map[string]any)
+		if !ok {
+			t.Fatalf("results document has no object before %s", key)
+		}
+		current = object[key]
+	}
+	array, ok := current.([]any)
+	if !ok {
+		t.Fatalf("results document has no array at %s", strings.Join(keys, "."))
+	}
+	return array
+}
+
+// TestConcurrencyResultsRefusesTheReviewersFairnessFlip is review 01a0487b
+// round 2 BLOCKING, encoded as the reviewer stated it.
+//
+// The attack, measured against the committed binding BEFORE this check
+// existed: change execution.producer_admission_fairness_claimed from false to
+// true, refreeze the evidence DAG through its own sanctioned
+// LINKAGE_REGENERATE=1 flow, and run both validators. `go test ./internal/...`
+// exited 0 and `cargo test -p ws-driver --release --test schedule_exploration`
+// exited 0. Nothing modeled the field: Go's permissive json.Unmarshal ignored
+// it and Rust compares only the printed line.
+//
+// Claiming admission fairness is not a cosmetic edit. The preregistered plan
+// declares PRODUCER_ADMISSION_FAIRNESS_ABSENT precisely because Java's
+// unbounded queue provides no admission ordering; a record claiming it would
+// assert a guarantee stronger than both the port and the plan.
+func TestConcurrencyResultsRefusesTheReviewersFairnessFlip(t *testing.T) {
+	document := crTestDecode(t)
+	crTestSection(t, document, "execution")["producer_admission_fairness_claimed"] = true
+	findings := ValidateConcurrencyResults(crTestWrite(t, document))
+	// Both halves of the binding refuse it, and each would refuse alone:
+	// the run never printed that stance, and the plan never declared it.
+	crTestRequireCode(t, findings, "RESULTS_FAIRNESS_CONTRADICTS_RUN")
+	crTestRequireCode(t, findings, "RESULTS_FAIRNESS_CONTRADICTS_PLAN")
+}
+
+// TestConcurrencyResultsRefusesAnInvariantTableThatIsNotTheRuns closes the
+// rest of the class the reviewer named: "the entire invariants array is
+// likewise unmodeled". Ten property ids and ten PASS outcomes an acceptance
+// reader takes as the coverage claim, and every one of them was free text.
+// Each case below was measured passing at exit 0 before the exploration
+// printed the table it actually checked.
+func TestConcurrencyResultsRefusesAnInvariantTableThatIsNotTheRuns(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			// A failing invariant relabeled as passing: the single edit that
+			// turns a real violation into acceptance evidence.
+			name: "an invariant outcome is flipped to PASS-by-assertion",
+			mutate: func(t *testing.T, document map[string]any) {
+				invariants := crTestArray(t, document, "invariants")
+				invariants[8].(map[string]any)["outcome"] = "FAIL"
+			},
+		},
+		{
+			name: "an invariant is renamed to a property the run never checked",
+			mutate: func(t *testing.T, document map[string]any) {
+				invariants := crTestArray(t, document, "invariants")
+				invariants[0].(map[string]any)["property_id"] = "concurrency.total-correctness"
+			},
+		},
+		{
+			name: "an invariant is dropped from the table",
+			mutate: func(t *testing.T, document map[string]any) {
+				invariants := crTestArray(t, document, "invariants")
+				document["invariants"] = invariants[:len(invariants)-1]
+			},
+		},
+		{
+			name: "an invariant the run never checked is added",
+			mutate: func(t *testing.T, document map[string]any) {
+				invariants := crTestArray(t, document, "invariants")
+				document["invariants"] = append(invariants,
+					map[string]any{"property_id": "concurrency.linearizability", "outcome": "PASS"})
+			},
+		},
+		{
+			name: "two invariants are reordered so one stands in for another",
+			mutate: func(t *testing.T, document map[string]any) {
+				invariants := crTestArray(t, document, "invariants")
+				invariants[0], invariants[1] = invariants[1], invariants[0]
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_INVARIANTS_CONTRADICT_RUN")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesFairnessTheRunDidNotAssume. The three
+// weak-fairness assumptions gate the final drain and are therefore part of
+// what the PASS means. They were unmodeled decoration too.
+func TestConcurrencyResultsRefusesFairnessTheRunDidNotAssume(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			name: "a stronger fairness assumption is substituted",
+			mutate: func(t *testing.T, document map[string]any) {
+				fairness := crTestArray(t, document, "execution", "weak_fairness")
+				fairness[0] = "STRONG_OWNER_PROGRESS_ALWAYS"
+			},
+		},
+		{
+			name: "an assumption the run never made is added",
+			mutate: func(t *testing.T, document map[string]any) {
+				fairness := crTestArray(t, document, "execution", "weak_fairness")
+				crTestSection(t, document, "execution")["weak_fairness"] =
+					append(fairness, "WEAK_PRODUCER_ADMISSION_ROTATION")
+			},
+		},
+		{
+			name: "an assumption is dropped",
+			mutate: func(t *testing.T, document map[string]any) {
+				fairness := crTestArray(t, document, "execution", "weak_fairness")
+				crTestSection(t, document, "execution")["weak_fairness"] = fairness[:2]
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_FAIRNESS_CONTRADICTS_RUN")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesAnUnmodeledField is the DURABLE half of the
+// round-2 fix, and the reason the fix is not a one-time patch.
+//
+// Modelling the fields that exist today fixes today's document. Strict
+// decoding is what stops the class from reopening: a field nothing models is
+// a field nothing can contradict, so a new one cannot be added silently.
+func TestConcurrencyResultsRefusesAnUnmodeledField(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			name: "a new top-level claim",
+			mutate: func(t *testing.T, document map[string]any) {
+				document["java_equivalence_established"] = true
+			},
+		},
+		{
+			name: "a new claim nested inside execution",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestSection(t, document, "execution")["strong_fairness_claimed"] = true
+			},
+		},
+		{
+			name: "a new claim nested inside native_stress",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestSection(t, document, "native_stress")["platforms_covered"] = float64(2)
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_UNMODELED_FIELD")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesAnInflatedClaimCeiling. Every field here was
+// unmodeled, so every one could be raised by one edit: an owner-attested
+// bounded single-host result could declare itself independently reviewed,
+// production, published, or passing on every platform.
+func TestConcurrencyResultsRefusesAnInflatedClaimCeiling(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			name:   "independent review claimed over an owner attestation",
+			mutate: func(t *testing.T, document map[string]any) { document["independent_review_claimed"] = true },
+		},
+		{
+			name:   "production claimed",
+			mutate: func(t *testing.T, document map[string]any) { document["production"] = true },
+		},
+		{
+			name:   "publication claimed",
+			mutate: func(t *testing.T, document map[string]any) { document["publication"] = true },
+		},
+		{
+			name:   "the assurance posture is raised above the plan's",
+			mutate: func(t *testing.T, document map[string]any) { document["assurance"] = "INDEPENDENTLY_REVIEWED" },
+		},
+		{
+			// Measured: "PASS CORRUPTED" produced NO finding at all, because
+			// every check was conditioned on state == "PASS" and simply
+			// stopped applying.
+			name:   "a state outside the vocabulary silently skips the PASS block",
+			mutate: func(t *testing.T, document map[string]any) { document["state"] = "PASS CORRUPTED" },
+		},
+		{
+			name: "the record renames itself to another evidence kind",
+			mutate: func(t *testing.T, document map[string]any) {
+				document["evidence_kind"] = "US017_FULL_STATE_SPACE_PROOF"
+			},
+		},
+		{
+			name: "the single-host stress result is widened to every host",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestSection(t, document, "native_stress")["outcome"] = "PASS"
+			},
+		},
+		{
+			name: "the claim ceiling stops naming the plan that sets it",
+			mutate: func(t *testing.T, document map[string]any) {
+				document["claim_scope_statement"] = "Bounded schedule exploration is systematic concurrency testing, never proof."
+			},
+		},
+		{
+			name: "the state stops being derived from the invariant table",
+			mutate: func(t *testing.T, document map[string]any) {
+				document["state"] = "FAIL"
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_CLAIM_CEILING_INFLATED")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesNamedArtifactsThatDoNotExist. The record
+// claims a stress suite and two regression tests; nothing required them to be
+// real. A fix asserting its own regression coverage is the same shape as a
+// counter asserting its own run.
+func TestConcurrencyResultsRefusesNamedArtifactsThatDoNotExist(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			name: "the stress suite names a file that is not in the tree",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestSection(t, document, "native_stress")["suite"] =
+					"rust/ws-driver/tests/two-platform-stress.rs (four producer threads)"
+			},
+		},
+		{
+			name: "a regression test names a file that is not in the tree",
+			mutate: func(t *testing.T, document map[string]any) {
+				defect := crTestArray(t, document, "defects_found_and_fixed")[0].(map[string]any)
+				defect["regression_tests"] = []any{"rust/ws-driver/tests/nowhere.rs::covers_the_defect"}
+			},
+		},
+		{
+			// The harder half: the FILE resolves, the TEST does not.
+			name: "a regression test names a function the file does not carry",
+			mutate: func(t *testing.T, document map[string]any) {
+				defect := crTestArray(t, document, "defects_found_and_fixed")[0].(map[string]any)
+				defect["regression_tests"] = []any{
+					"rust/ws-driver/tests/driver_contract.rs::this_regression_test_was_never_written"}
+			},
+		},
+		{
+			name: "a retained minimized artifact is dropped from the record",
+			mutate: func(t *testing.T, document map[string]any) {
+				artifacts := crTestArray(t, document, "retention", "minimized_artifacts")
+				crTestSection(t, document, "retention")["minimized_artifacts"] = artifacts[:len(artifacts)-1]
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_NAMED_ARTIFACT_MISSING")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesNarrativeThatContradictsItsOwnNumbers. Prose
+// that enumerates a structure the record also counts is checkable, and was
+// not being checked.
+func TestConcurrencyResultsRefusesNarrativeThatContradictsItsOwnNumbers(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			name: "the program shape describes fewer actor programs than the bounds count",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestSection(t, document, "bounds")["program_shape"] =
+					"producer A [send_text, send_binary]; producer B [send_ping, send_close]"
+			},
+		},
+		{
+			name: "a minimized artifact claims a shrink its schedule does not show",
+			mutate: func(t *testing.T, document map[string]any) {
+				artifact := crTestArray(t, document, "retention", "minimized_artifacts")[0].(map[string]any)
+				artifact["shrink"] = "12 -> 4"
+			},
+		},
+		{
+			name: "a minimized artifact is retained for a property the record does not check",
+			mutate: func(t *testing.T, document map[string]any) {
+				artifact := crTestArray(t, document, "retention", "minimized_artifacts")[0].(map[string]any)
+				artifact["property"] = "linearizability"
+			},
+		},
+		{
+			name: "a defect reproduction shrinks from a schedule length that does not exist",
+			mutate: func(t *testing.T, document map[string]any) {
+				defect := crTestArray(t, document, "defects_found_and_fixed")[0].(map[string]any)
+				reproduction := defect["minimized_reproduction"].(map[string]any)
+				reproduction["shrink"] = "64 -> 3 actions by the deterministic 1-minimal shrinker"
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_ACCOUNTING_CONTRADICTION")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesABlankedDescription keeps the descriptive
+// fields from being emptied rather than corrected.
+func TestConcurrencyResultsRefusesABlankedDescription(t *testing.T) {
+	document := crTestDecode(t)
+	document["adapter_model"] = ""
+	findings := ValidateConcurrencyResults(crTestWrite(t, document))
+	crTestRequireCode(t, findings, "RESULTS_DESCRIPTION_ABSENT")
+}
+
+func TestConcurrencyResultsRefusesAMalformedTimestamp(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			name:   "recorded_at is not an instant",
+			mutate: func(t *testing.T, document map[string]any) { document["recorded_at"] = "yesterday" },
+		},
+		{
+			name: "the cited run's executed_at is not UTC",
+			mutate: func(t *testing.T, document map[string]any) {
+				crTestSection(t, document, "execution", "executed_run")["executed_at"] = "2026-08-28T13:42:29+02:00"
+			},
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_TIMESTAMP_MALFORMED")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesAnUnrecognisedRunField is the run-line mirror
+// of strict JSON decoding: a field in the cited line that this validator
+// re-derives nothing from is a number a reader would trust and no check
+// covers.
+func TestConcurrencyResultsRefusesAnUnrecognisedRunField(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		suffix string
+	}{
+		{"a field this validator does not model", " platforms_covered=2"},
+		{"a duplicated field", " schedules=11"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			run := crTestSection(t, document, "execution", "executed_run")
+			line, ok := run["stdout_line"].(string)
+			if !ok {
+				t.Fatal("executed_run carries no stdout_line")
+			}
+			run["stdout_line"] = line + testCase.suffix
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_EXECUTED_RUN_UNPARSED")
+		})
+	}
+}
