@@ -829,3 +829,178 @@ fn shutdown_with_nothing_committed_reports_no_dropped_writes() {
         "shutdown still converges: {labels:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// US-017 story review ROUND 2 (session 01a0464f) BLOCKING-1: "A pending
+// `WritesDropped` disposition is suppressed by a fatal `Failure`, after
+// which the adapter halts, leaving a reachable committed write silently
+// unreported."
+//
+// AC2 lists adapter shutdown in the SAME typed-behaviour clause as every
+// other terminal disposition and carves out no exception for fatal
+// termination, so "cannot leak" binds the fatal route exactly as it binds
+// the clean one. A report queued BEHIND the Failure is unreachable by
+// construction, because a faithful adapter stops at the first Failure it
+// observes (that stop is itself required, and is what the earlier
+// exploration review forced). The report must therefore be surfaced before
+// any Failure can be produced.
+// ---------------------------------------------------------------------------
+
+/// Adapter-faithful drain: stops at the FIRST surfaced `Failure`, exactly
+/// like the ws-testee io_loop (`StepOutput::Failure` ends the connection).
+/// Anything this drain does not observe is, for a real adapter, lost.
+fn drain_until_halt(driver: &mut ConnectionDriver, first: DriverInput<'_>) -> Vec<String> {
+    let mut labels = Vec::new();
+    let mut input = first;
+    for _ in 0..64 {
+        let result = driver.poll(input);
+        input = DriverInput::Wake;
+        match result.output {
+            DriverOutput::Idle => {
+                labels.push("idle".to_owned());
+                if labels.iter().rev().take(2).all(|label| label == "idle") {
+                    break;
+                }
+            }
+            DriverOutput::Write(suffix) => labels.push(format!("write:{}", suffix.len())),
+            DriverOutput::Event(_) => labels.push("event".to_owned()),
+            DriverOutput::WritesDropped(dropped) => labels.push(format!(
+                "writes-dropped:frames={},bytes={},partial_front={}",
+                dropped.frames, dropped.bytes, dropped.partial_front
+            )),
+            DriverOutput::Failure(failure) => {
+                labels.push(format!("failure:{:?}", failure.code));
+                // The adapter stops here and never polls again.
+                break;
+            }
+            DriverOutput::Terminal(_) => {
+                labels.push("terminal".to_owned());
+                break;
+            }
+        }
+    }
+    labels
+}
+
+#[test]
+fn a_fatal_failure_ending_the_run_cannot_suppress_the_dropped_write_report() {
+    // max_actions(1) spends the whole action budget on the producer's send,
+    // so the EOF the shutdown latches is action 2 and the core refuses it
+    // FATALLY with ActionLimitExceeded — while that send's frame is still a
+    // committed, undelivered write. This is the reviewer's case: a reachable
+    // schedule where a committed write is pending and a fatal Failure ends
+    // the run.
+    let config = ConnectionConfig::builder()
+        .max_actions(1)
+        .build()
+        .expect("valid test config");
+    let (sender, mut driver) = connection_driver_in_state(config, Role::Server, InitialState::Open);
+    sender
+        .try_send(LocalCommand::SendText {
+            text: "a1".to_owned(),
+        })
+        .expect("enqueue");
+    let applied = driver.poll(DriverInput::Wake);
+    assert!(matches!(
+        applied.command,
+        Some(CommandDisposition::Applied(_))
+    ));
+    let DriverOutput::Write(suffix) = applied.output else {
+        panic!("the applied command commits a wire write");
+    };
+    assert_eq!(suffix, server_text_frame("a1").as_slice());
+
+    let labels = drain_until_halt(&mut driver, DriverInput::Shutdown);
+    // The run must really end fatally, or this test is not exercising the
+    // path the finding names.
+    assert!(
+        labels
+            .iter()
+            .any(|label| label == "failure:ActionLimitExceeded"),
+        "the fatal termination path must actually be taken: {labels:?}"
+    );
+    let dropped_at = labels
+        .iter()
+        .position(|label| label.starts_with("writes-dropped"))
+        .unwrap_or_else(|| {
+            panic!(
+                "the abandoned committed write must be reported on the FATAL path too: {labels:?}"
+            )
+        });
+    let failure_at = labels
+        .iter()
+        .position(|label| label.starts_with("failure:"))
+        .expect("failure observed");
+    assert!(
+        dropped_at < failure_at,
+        "the report must precede the Failure the adapter halts on, never be queued behind it: {labels:?}"
+    );
+    assert_eq!(
+        labels[dropped_at], "writes-dropped:frames=1,bytes=4,partial_front=false",
+        "the whole abandoned frame is accounted for: {labels:?}"
+    );
+}
+
+#[test]
+fn a_fatal_failure_with_a_partially_written_frame_reports_only_the_lost_suffix() {
+    // Same fatal route, but one byte of the committed frame reached the
+    // wire first: the peer saw a truncated frame and only the undrained
+    // suffix is lost.
+    let config = ConnectionConfig::builder()
+        .max_actions(1)
+        .build()
+        .expect("valid test config");
+    let (sender, mut driver) = connection_driver_in_state(config, Role::Server, InitialState::Open);
+    sender
+        .try_send(LocalCommand::SendText {
+            text: "a1".to_owned(),
+        })
+        .expect("enqueue");
+    assert!(matches!(
+        driver.poll(DriverInput::Wake).output,
+        DriverOutput::Write(_)
+    ));
+    let progressed = driver.poll(DriverInput::WriteProgress { bytes: 1 });
+    assert!(matches!(
+        progressed.input,
+        InputDisposition::Consumed { .. }
+    ));
+
+    let labels = drain_until_halt(&mut driver, DriverInput::Shutdown);
+    assert!(
+        labels
+            .iter()
+            .any(|label| label == "failure:ActionLimitExceeded"),
+        "the fatal termination path must actually be taken: {labels:?}"
+    );
+    assert_eq!(
+        labels.first().map(String::as_str),
+        Some("writes-dropped:frames=1,bytes=3,partial_front=true"),
+        "{labels:?}"
+    );
+}
+
+/// Polarity for the fatal route: when the fatal failure ends a run with
+/// nothing committed outstanding, no drop report is manufactured and the
+/// Failure is still the first thing the adapter sees.
+#[test]
+fn a_fatal_failure_with_nothing_committed_still_surfaces_the_failure_first() {
+    let config = ConnectionConfig::builder()
+        .max_actions(0)
+        .build()
+        .expect("valid test config");
+    let (_sender, mut driver) =
+        connection_driver_in_state(config, Role::Server, InitialState::Open);
+    let labels = drain_until_halt(&mut driver, DriverInput::Shutdown);
+    assert_eq!(
+        labels.first().map(String::as_str),
+        Some("failure:ActionLimitExceeded"),
+        "no committed write was pending, so nothing delays the failure: {labels:?}"
+    );
+    assert!(
+        !labels
+            .iter()
+            .any(|label| label.starts_with("writes-dropped")),
+        "the disposition is not manufactured: {labels:?}"
+    );
+}

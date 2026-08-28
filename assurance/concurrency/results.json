@@ -5,18 +5,18 @@
   "state": "PASS",
   "claim_scope": "BOUNDED_SYSTEMATIC_AND_CURRENT_HOST_STRESS_TESTING",
   "claim_scope_statement": "Bounded schedule exploration under the bounds below is systematic concurrency testing, never proof (assurance/concurrency/plan.json claim ceiling). Native-thread stress samples schedules without coverage accounting and cannot stand in for the systematic result, nor the systematic result for native-thread evidence.",
-  "recorded_at": "2026-08-28T02:52:26Z",
-  "recorded_at_provenance": "captured from `date -u` in the working session immediately after the US-017 story-review BLOCKING-1/BLOCKING-2 fix run whose printed counters this document transcribes; blob ids and artifact digests computed from the tree being committed at write time",
-  "revision_note": "supersedes the 7ea4780 revision after the US-017 STORY review (session 01a04626) returned BLOCK on two AC2 gaps, both now fixed at the driver/command seam: (1) BLOCKING-1 receiver-drop - dropping the sole owner (ws_core::CommandQueue) now publishes the typed CommandRefusalReason::ReceiverDropped, so a producer send after the owner is gone refuses instead of reporting accepted; the exploration probes it on EVERY schedule (79920/79920 typed refusals). (2) BLOCKING-2 dropped writes - adapter shutdown now surfaces DriverOutput::WritesDropped(DroppedWrites) accounting for every committed write it abandons, ahead of the terminal, instead of discarding them silently; the exploration checks the report against an INDEPENDENT boundary-side count of what the ended transport owed. Two new invariants (shutdown-write-drop-reported, no-write-after-shutdown) and one new named boundary fault (silent-write-drop) were added; no existing invariant was weakened and the six pre-existing minimized artifacts are byte-identical (unchanged, not refrozen). CLASSIFICATION SHIFT: the typed drop report occupies one drain poll, so 323 schedules that previously halted at a fatal Failure now reach the clean terminal instead (52924/26996 -> 53247/26673); the exclusivity assertion is unchanged and still holds on all 79920. CORRECTION CARRIED IN THIS REVISION: preregistered_plan.sha256 was stale - the recorded d73659b4... is plan.json as of 7ea4780, but plan.json changed afterwards (commits 9b8984e, 500713f), so the committed results artifact cited a digest that no tree at c680c3c had. Recomputed here from the tree; the plan BOUNDS themselves are unchanged and still satisfied.",
+  "recorded_at": "2026-08-28T03:23:28Z",
+  "recorded_at_provenance": "captured from `date -u` at write time, immediately after the US-017 story-review ROUND 2 (session 01a0464f) fix run whose printed counters this document transcribes; blob ids and artifact digests computed from the tree being committed",
+  "revision_note": "supersedes the 04f6c8e revision after the US-017 story review ROUND 2 (session 01a0464f) returned BLOCK on one finding: \"A pending WritesDropped disposition is suppressed by a fatal Failure, after which the adapter halts, leaving a reachable committed write silently unreported.\" Round 1 closed the silent abandonment on the CLEAN shutdown route; the fatal route still lost it, because finish_poll returns a supplied fatal failure WITHOUT calling next_output, and a faithful adapter halts at that Failure and never polls again. FIX: an undelivered dropped-write report now counts as pending output (has_pending_output), so the driver applies NO input while one is outstanding. Since a fatal failure can only be produced by applying an input (the latched EOF or an inbound chunk), no Failure can exist to suppress the report - the report is surfaced strictly before any failure rather than merely ordered ahead of one. EVIDENCE: a second exhaustive sweep over the SAME 79,920-schedule space under tightened action budgets (0,1,2,3) makes fatal termination reachable and exercises the class 56,189 times (198,037 undelivered bytes); the boundary's owed-vs-reported equality now also applies to halted runs, which is the exemption that hid the defect. The sweep was verified to FAIL on the pre-fix driver (budget 1, UnreportedWriteDrop). CLASSIFICATION SHIFT: main sweep 53,247/26,673 -> 56,777/23,143 closed/halted; exclusivity still asserted per run and in aggregate (56,777 + 23,143 = 79,920). The reported drop quantities are UNCHANGED (37,813 reports, 134,430 bytes, 4,172 partial-front): only when the EOF is applied moved, not what was abandoned. Round 1's prior revision_note content (BLOCKING-1/2 of session 01a04626, and the stale preregistered_plan.sha256 correction from d73659b4... to fe39048e...) remains in force.",
   "target": {
     "symbol": "ws_driver::ConnectionDriver::poll",
     "source": {
       "path": "rust/ws-driver/src/lib.rs",
-      "git_blob": "76946aba18410f963cc8c07a6fabba912bc7c679"
+      "git_blob": "2dab10459db8a34b44a9d031b3670010f9667fdb"
     },
     "harness": {
       "path": "rust/ws-driver/tests/schedule_exploration.rs",
-      "git_blob": "5614ad723e0556fff3eb6f6cf31f7dfc1849ef06"
+      "git_blob": "8d51594355b6d3fa958175683157cdc33731d043"
     }
   },
   "preregistered_plan": {
@@ -48,23 +48,23 @@
     "distinct_schedule_digests": 79920,
     "executions": 159840,
     "replay_determinism": "every schedule executed twice with FULL structured-trace equality: every poll record compares the input (kind + byte length), the complete typed input disposition (rejection details included), the complete command disposition (command payloads and typed rejection failures included), the complete owned output (semantic-event contents, typed failure values, byte-exact write suffixes), and the lifecycle state; the enumeration itself is re-run and compared; trace digests hash the full structured records plus the committed wire log",
-    "distinct_semantic_trace_digests": 19457,
-    "closed_terminal_runs": 53247,
-    "failure_halted_runs": 26673,
-    "terminal_disposition_exclusivity": "asserted per run AND in aggregate: terminals total 53247 == closed_terminal_runs (exactly one each), surfaced failures total 26673 == failure_halted_runs (exactly one each, the halting failure); 53247 + 26673 == 79920",
+    "distinct_semantic_trace_digests": 18755,
+    "closed_terminal_runs": 56777,
+    "failure_halted_runs": 23143,
+    "terminal_disposition_exclusivity": "asserted per run AND in aggregate: terminals total 56777 == closed_terminal_runs (exactly one each), surfaced failures total 23143 == failure_halted_runs (exactly one each, the halting failure); 56777 + 23143 == 79920",
     "counters": {
-      "accepted_commands": 220518,
-      "queue_full_refusals": 60366,
+      "accepted_commands": 222723,
+      "queue_full_refusals": 63482,
       "applied": 68144,
-      "typed_rejections": 22432,
-      "terminal_rejections": 114977,
-      "reconciliation": "clean-terminal runs reconcile EXACTLY per run (accepted == applied + rejected + terminal_rejected); halted runs assert at-most-once disposition of accepted commands, with commands still queued at the halt belonging to the embedding adapter's teardown (aggregate disposed 205553 of 220518 accepted; the 14965 remainder were queued at halt boundaries and never double-disposed)",
-      "events_drained": 459386,
-      "surfaced_typed_failures": 26673,
-      "deferred_output_pending": 30953,
-      "deferred_command_turn": 31456,
+      "typed_rejections": 20696,
+      "terminal_rejections": 121207,
+      "reconciliation": "clean-terminal runs reconcile EXACTLY per run (accepted == applied + rejected + terminal_rejected); halted runs assert at-most-once disposition of accepted commands, with commands still queued at the halt belonging to the embedding adapter's teardown (aggregate disposed 210047 of 222723 accepted; the 12676 remainder were queued at halt boundaries and never double-disposed)",
+      "events_drained": 483003,
+      "surfaced_typed_failures": 23143,
+      "deferred_output_pending": 41773,
+      "deferred_command_turn": 31383,
       "deferred_backpressure": 3550,
-      "typed_input_rejections": 52418,
+      "typed_input_rejections": 54100,
       "max_drain_polls_observed": 12,
       "dropped_write_reports": 37813,
       "dropped_write_frames": 37813,
@@ -79,8 +79,41 @@
       "WEAK_EVENT_DRAIN_WHEN_OUTPUT_PENDING"
     ],
     "producer_admission_fairness_claimed": false,
-    "outcome": "PASS - zero invariant violations across all 79920 schedules",
-    "new_disposition_coverage": "US-017 AC2 story-review dispositions are REACHED by the sweep, not only by unit fixtures: 37813 of the 79920 schedules shut down with a committed write still pending and every one of them surfaced exactly one typed DriverOutput::WritesDropped whose frames/bytes/partial_front matched the boundary's own independent count of what the ended transport owed (134430 undelivered bytes total, 4172 of the reports carrying a partially written front frame); and all 79920 schedules end with the sole owner dropped and the producer's next try_send refused with CommandRefusalReason::ReceiverDropped, never accepted"
+    "outcome": "PASS - zero invariant violations across all 79920 schedules in the main sweep and across all 79920 schedules at each of the 4 fatal-termination action budgets",
+    "new_disposition_coverage": "US-017 AC2 story-review dispositions are REACHED by the sweeps, not only by unit fixtures. Receiver-drop: all 79,920 schedules end with the sole owner dropped and the producer's next try_send refused with CommandRefusalReason::ReceiverDropped, never accepted. Dropped writes, CLEAN route: 37,813 of the 79,920 schedules shut down with a committed write pending and every one surfaced exactly one typed report whose frames/bytes/partial_front matched the boundary's independent count of what the ended transport owed (134,430 undelivered bytes, 4,172 with a partially written front frame). Dropped writes, FATAL route (round 2): the same schedule space re-swept under action budgets 0/1/2/3 exercises fatal termination with abandoned committed writes 56,189 times (198,037 undelivered bytes; per budget 7,572 / 23,072 / 13,985 / 11,560), and the same owed-vs-reported equality holds on every one",
+    "fatal_termination_sweep": {
+      "why": "the main sweep's action budget is the ConnectionConfig default (1024), far above the 12-action alphabet, so no schedule there can terminate fatally with a pending dropped-write report. That unreachability is exactly what let the round-2 defect hide.",
+      "method": "the SAME exhaustive enumeration (79,920 schedules, identical alphabet, bounds, and capacities) re-executed under tightened max_actions budgets so ActionLimitExceeded ends runs fatally while committed writes are outstanding; each schedule executed twice for replay equality, all invariants asserted, and the boundary's owed-vs-reported equality applied to halted runs too",
+      "action_budgets": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "fatal_path_drop_runs_total": 56189,
+      "fatal_path_dropped_bytes_total": 198037,
+      "per_budget_fatal_path_drop_runs": {
+        "0": 7572,
+        "1": 23072,
+        "2": 13985,
+        "3": 11560
+      },
+      "per_budget_halted_runs": {
+        "0": 79920,
+        "1": 58616,
+        "2": 34680,
+        "3": 24882
+      },
+      "per_budget_closed_terminal_runs": {
+        "0": 0,
+        "1": 21304,
+        "2": 45240,
+        "3": 55038
+      },
+      "exclusivity": "asserted per run at every budget: halted runs have exactly one surfaced failure and zero terminals, non-halted runs converge with exactly one terminal and zero failures, and halted + closed == 79920 at each budget",
+      "receiver_drop": "79,920 typed receiver-drop refusals at every budget: the disposition holds under fatal termination too",
+      "harness_polarity_read": "the sweep was run against the PRE-FIX driver and FAILED as required: \"budget 1: schedule enqueue-text-a,enqueue-binary-a,enqueue-ping-b,enqueue-close-b,inbound-ping,inbound-close,transport-eof,write-partial,wake,shutdown,write-all,write-all violated [UnreportedWriteDrop]\". The sweep therefore covers the defect rather than merely passing beside it."
+    }
   },
   "invariants": [
     {
@@ -192,6 +225,30 @@
         "rust/ws-driver/tests/schedule_exploration.rs (shutdown-write-drop-reported + no-write-after-shutdown invariants, 37813 reporting runs)"
       ],
       "red_evidence": "read on the pre-fix driver: `the abandoned committed suffix is reported, not silently dropped: [\"event\", \"event\", \"event\", \"event\", \"terminal\"]` / left: Some(\"event\") right: Some(\"writes-dropped:frames=1,bytes=3,partial_front=true\")"
+    },
+    {
+      "defect_id": "fatal-halt-suppressed-write-drop (US-017 story review round 2, BLOCKING-1)",
+      "found_by": "US-017 story review session 01a0464f-50bc-7591-9512-f11e49ef37f5",
+      "finding_verbatim": "A pending `WritesDropped` disposition is suppressed by a fatal `Failure`, after which the adapter halts, leaving a reachable committed write silently unreported.",
+      "description": "ConnectionDriver::finish_poll returns a supplied fatal TypedProtocolFailure WITHOUT calling next_output, so a DroppedWrites report set moments earlier by the Shutdown arm was never surfaced. The latched EOF is applied inside that same shutdown poll, and it fails fatally with ActionLimitExceeded once the action budget is spent, so the whole observable output of the run became a single Failure and the committed frame vanished. A faithful adapter halts at its first Failure, so anything queued behind it is unreachable by construction.",
+      "ac_reading": "AC2 lists adapter shutdown in the same typed-behaviour clause as every other terminal disposition and carves out no exception for fatal termination; 'cannot leak' is unconditional, so the report is owed on the fatal route exactly as on the clean one.",
+      "fix": "has_pending_output now counts an undelivered DroppedWrites report alongside an offered write, so the driver applies NO input while one is outstanding. A fatal failure can only be produced by APPLYING an input, so none can exist to suppress the report. Structural, not an ordering rule: the report is surfaced strictly before any failure can be generated. Schedules with nothing committed pending are bit-for-bit unaffected, because the report is only set when frames > 0.",
+      "minimized_reproduction": {
+        "path": "rust/ws-driver/fuzz-seeds/us017/regressions/fatal-halt-suppressed-write-drop.seed",
+        "sha256": "sha256:66df0cddd10a152d7b8f23e01ee6dd7b9ac8c6bb8bf04b88b697c4fc480e23e1",
+        "schedule": "enqueue-close-b,inbound-close,shutdown",
+        "shrink": "12 -> 3 actions by the deterministic 1-minimal shrinker, run against the pre-fix driver",
+        "event_queue_capacity": 8,
+        "max_actions": 1
+      },
+      "regression_tests": [
+        "rust/ws-driver/tests/driver_contract.rs::a_fatal_failure_ending_the_run_cannot_suppress_the_dropped_write_report",
+        "rust/ws-driver/tests/driver_contract.rs::a_fatal_failure_with_a_partially_written_frame_reports_only_the_lost_suffix",
+        "rust/ws-driver/tests/driver_contract.rs::a_fatal_failure_with_nothing_committed_still_surfaces_the_failure_first",
+        "rust/ws-driver/tests/schedule_exploration.rs::fatal_termination_sweep_reports_every_abandoned_committed_write",
+        "rust/ws-driver/tests/schedule_exploration.rs::fixed_defect_regressions_replay_clean_on_the_shipped_driver"
+      ],
+      "red_evidence": "read on the pre-fix driver with an adapter-faithful drain that stops at the first Failure: the ENTIRE observable output was [\"failure:ActionLimitExceeded\"] — panic text 'the abandoned committed write must be reported on the FATAL path too: [\"failure:ActionLimitExceeded\"]', and for the partial-front variant 'left: Some(\"failure:ActionLimitExceeded\") right: Some(\"writes-dropped:frames=1,bytes=3,partial_front=true\")'. The polarity control (nothing committed) PASSED in the same RED run."
     }
   ],
   "retention": {
@@ -258,8 +315,13 @@
         "added_by": "US-017 story review BLOCKING-2 fix; the Q19 close echo is committed by the inbound close and then abandoned by the shutdown"
       }
     ],
-    "pinned_artifacts_unchanged_by_review_round": "all SIX pre-existing minimized artifacts re-verified byte-identical under the new driver behavior and the new invariants (no regeneration of any of them was needed; `git status` showed only the new silent-write-drop.seed as untracked). US017_RETAIN=1 was run once, deliberately, to mint that one new artifact, and it rewrote none of the six",
-    "outcome": "PASS_ALL_NAMED_FAULTS_KILLED_AND_MINIMIZED"
+    "pinned_artifacts_unchanged_by_review_round": "all SEVEN minimized artifacts (the six adopted-vocabulary faults plus round 1's silent-write-drop) are byte-identical after round 2: `git status --short rust/ws-driver/fuzz-seeds/` showed exactly one line, `?? .../regressions/fatal-halt-suppressed-write-drop.seed`, and no `M`. No US017_RETAIN=1 run was needed in round 2; the new regression seed is a real-defect pin minted by minimizing against the pre-fix driver.",
+    "outcome": "PASS_ALL_NAMED_FAULTS_KILLED_AND_MINIMIZED",
+    "real_defect_regressions": [
+      "eof-backpressure-livelock.seed (batch-C EOF backpressure livelock)",
+      "fatal-halt-suppressed-write-drop.seed (round-2 suppressed dropped-write report; sha256 66df0cdd..., schedule enqueue-close-b,inbound-close,shutdown at max_actions=1)"
+    ],
+    "seed_format_note": "seeds gained an OPTIONAL max_actions line, written only when the budget is not the 1024 default, so every artifact pinned before the fatal-termination sweep existed stays byte-identical"
   },
   "native_stress": {
     "platform": "Darwin arm64 (macOS 25.4.0)",
@@ -277,7 +339,9 @@
     "the event-queue capacity used is 8, not the config floor 4: ConnectionCore::byte_input_event_bound needs 6 free slots to admit even a one-frame chunk, so floor-4 configurations can never make byte-path progress (recorded as an open config-floor observation, not changed by this closure)",
     "no live Java executed; no Java-equivalence claim",
     "max_dropped_frames_in_one_report is 1 across all 79920 schedules, and that is structural rather than lucky: next_output moves a committed write into the offered slot as soon as one exists, and no command, inbound chunk, or EOF is applied while a write is offered, so at most one committed write is pending at any shutdown instant. The plural accumulation in abort_pending_writes is therefore a guarantee, not an exercised path; it is pinned by driver_contract.rs::no_committed_write_survives_or_appears_after_the_shutdown_report rather than by a multi-frame observation",
-    "assurance/concurrency/plan.json is preregistered and was NOT edited by this revision, so its action vocabulary still names neither a dropped-write outcome under action.shutdown (SHUTDOWN_IDEMPOTENT, LATE_CONNECTION_GOING_AWAY, DRAIN_WINDOW_BOUNDED) nor any receiver-drop action at all. The two AC2 dispositions added here are therefore evidenced by the exploration and the unit suites, not by the preregistered action model"
+    "assurance/concurrency/plan.json is preregistered and was NOT edited by this revision, so its action vocabulary still names neither a dropped-write outcome under action.shutdown (SHUTDOWN_IDEMPOTENT, LATE_CONNECTION_GOING_AWAY, DRAIN_WINDOW_BOUNDED) nor any receiver-drop action at all. The two AC2 dispositions added here are therefore evidenced by the exploration and the unit suites, not by the preregistered action model",
+    "the fatal-termination sweep reaches fatal termination via ActionLimitExceeded (a tightened max_actions budget), which is one fatal family, not all of them. It is the family reachable from the existing 12-action alphabet without changing the alphabet or the pinned corpus; other fatal refusals are covered only insofar as they share the same finish_poll path, which they do by construction",
+    "a fatal Failure halt with NO shutdown ever polled leaves committed writes with the driver rather than abandoned by it, so no dropped-write report is owed there; the ws-testee io_loop does not pump Shutdown on its protocol-failure path, so such writes are torn down unreported. That is the pre-existing adapter-teardown stance the suite already takes for commands queued at a halt, it is outside the round-2 finding (which is about SUPPRESSION of a report that exists), and it was deliberately not changed here"
   ],
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,

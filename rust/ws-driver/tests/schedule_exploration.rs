@@ -62,6 +62,20 @@ const BRANCH_COUNT_MAX: usize = 1_000_000;
 /// cannot quiesce within this budget is a convergence failure.
 const DRAIN_BUDGET: usize = 256;
 
+/// The action budget for the MAIN sweep. 1024 is the `ConnectionConfig`
+/// default and is far above the 12-action alphabet, so no schedule can
+/// reach `ActionLimitExceeded` there: the main sweep's classification is
+/// exactly what it would be with the budget left unset.
+const MAX_ACTIONS_UNREACHED: u64 = 1024;
+/// Action budgets for the FATAL-TERMINATION sweep (US-017 story review
+/// round 2, session 01a0464f). A budget of N makes action N+1 fail FATALLY
+/// with `ActionLimitExceeded`, which is the reachable way to end a run
+/// fatally while committed writes are still outstanding. Budget 0 fails the
+/// very first action (nothing can be committed first); 1..=3 let a schedule
+/// commit writes and THEN hit the wall, which is the interleaving class the
+/// suppressed-report defect lives in.
+const FATAL_SWEEP_ACTION_BUDGETS: [u64; 4] = [0, 1, 2, 3];
+
 /// Bounded-channel capacities for the explored connection (plan bounds:
 /// command/write/event queue capacities <= 8). Small on purpose: queue-full
 /// refusals and backpressure deferrals must be REACHED by the schedule
@@ -558,17 +572,18 @@ struct Run {
     swap_hold: Option<Vec<u8>>,
 }
 
-fn exploration_config(event_queue_capacity: u64) -> ConnectionConfig {
+fn exploration_config(event_queue_capacity: u64, max_actions: u64) -> ConnectionConfig {
     ConnectionConfig::builder()
         .command_queue_capacity(COMMAND_QUEUE_CAPACITY)
         .write_queue_capacity(WRITE_QUEUE_CAPACITY)
         .event_queue_capacity(event_queue_capacity)
+        .max_actions(max_actions)
         .build()
         .expect("valid exploration config")
 }
 
 impl Run {
-    fn new(fault: Fault, event_queue_capacity: u64) -> Run {
+    fn new(fault: Fault, event_queue_capacity: u64, max_actions: u64) -> Run {
         // The exploration runs under the EXPLICIT
         // `AutoResponsePolicy::Disabled` configuration (US-015 AC1's
         // configurable policy): its invariants, boundary model, and
@@ -579,7 +594,7 @@ impl Run {
         // deterministic suite in `tests/auto_response.rs` and the live
         // cross-peer loopback assertion in ws-testee.
         let (sender, driver) = connection_driver_in_state_with_policy(
-            exploration_config(event_queue_capacity),
+            exploration_config(event_queue_capacity, max_actions),
             Role::Server,
             InitialState::Open,
             AutoResponsePolicy::Disabled,
@@ -1030,10 +1045,16 @@ impl Run {
             }
             // Commands still queued at the halt belong to the embedding
             // adapter's teardown; only the at-most-once subset invariant
-            // above applies. No further polls are issued. For the same
-            // reason a halted run makes no dropped-write claim: the
-            // surfaced Failure IS its terminal and the adapter stops
-            // there, so nothing downstream of it is scored.
+            // above applies. No further polls are issued.
+            //
+            // The dropped-write accounting, however, DOES apply here
+            // (US-017 story review round 2, session 01a0464f). Exempting
+            // halted runs is exactly what let a pending report be
+            // suppressed by the fatal Failure that ends the run: the
+            // adapter stops at that Failure, so anything not surfaced
+            // before it is lost for good. What the ended transport owed is
+            // owed on both routes.
+            self.check_write_drop_accounting();
             return self.probe_receiver_drop();
         }
         // Non-halted run: no Failure ever surfaced (a Failure halts by
@@ -1065,11 +1086,17 @@ impl Run {
                 self.outcome.record(Violation::WriteBypass);
             }
         }
-        // US-017 AC2 (story review BLOCKING-2): whatever the ended
-        // transport owed must have come back as the typed dropped-write
-        // disposition, accounted EXACTLY — frames, undelivered bytes, and
-        // whether the front frame was already partly on the wire. Silent
-        // abandonment (the reported defect) shows up here as a mismatch.
+        self.check_write_drop_accounting();
+        self.probe_receiver_drop()
+    }
+
+    /// US-017 AC2 (story review BLOCKING-2, and BLOCKING-1 of round 2):
+    /// whatever the ended transport owed must have come back as the typed
+    /// dropped-write disposition, accounted EXACTLY — frames, undelivered
+    /// bytes, and whether the front frame was already partly on the wire.
+    /// Silent abandonment shows up here as a mismatch, on the clean route
+    /// and on the fatal-halt route alike.
+    fn check_write_drop_accounting(&mut self) {
         if self.owed_frames != self.outcome.dropped_frames
             || self.owed_bytes != self.outcome.dropped_bytes
             || self.owed_partial_front != self.outcome.dropped_partial_front
@@ -1083,7 +1110,6 @@ impl Run {
         {
             self.outcome.record(Violation::UnreportedWriteDrop);
         }
-        self.probe_receiver_drop()
     }
 
     /// US-017 AC2 (story review BLOCKING-1): drop the sole owner from the
@@ -1121,12 +1147,21 @@ impl Run {
     }
 }
 
-fn execute_with_capacity(schedule: &[Action], fault: Fault, event_queue_capacity: u64) -> Outcome {
-    let mut run = Run::new(fault, event_queue_capacity);
+fn execute_with_limits(
+    schedule: &[Action],
+    fault: Fault,
+    event_queue_capacity: u64,
+    max_actions: u64,
+) -> Outcome {
+    let mut run = Run::new(fault, event_queue_capacity, max_actions);
     for action in schedule {
         run.exec(*action);
     }
     run.finish()
+}
+
+fn execute_with_capacity(schedule: &[Action], fault: Fault, event_queue_capacity: u64) -> Outcome {
+    execute_with_limits(schedule, fault, event_queue_capacity, MAX_ACTIONS_UNREACHED)
 }
 
 fn execute(schedule: &[Action], fault: Fault) -> Outcome {
@@ -1192,11 +1227,34 @@ fn render_seed(
     schedule: &[Action],
     event_queue_capacity: u64,
 ) -> String {
+    render_seed_with_limits(
+        id,
+        fault,
+        target,
+        schedule,
+        event_queue_capacity,
+        MAX_ACTIONS_UNREACHED,
+    )
+}
+
+/// `max_actions` is written ONLY when it is not the default, so every seed
+/// pinned before the fatal-termination sweep existed stays byte-identical.
+fn render_seed_with_limits(
+    id: &str,
+    fault: Fault,
+    target: Violation,
+    schedule: &[Action],
+    event_queue_capacity: u64,
+    max_actions: u64,
+) -> String {
     let mut body = String::new();
     let _ = writeln!(body, "id={id}");
     let _ = writeln!(body, "property={}", target.property());
     let _ = writeln!(body, "mutation={}", fault.mutation());
     let _ = writeln!(body, "event_queue_capacity={event_queue_capacity}");
+    if max_actions != MAX_ACTIONS_UNREACHED {
+        let _ = writeln!(body, "max_actions={max_actions}");
+    }
     let _ = writeln!(body, "schedule={}", render_schedule(schedule));
     let _ = writeln!(body, "counterexample={}", target.counterexample());
     body
@@ -1398,6 +1456,112 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
 }
 
 // ---------------------------------------------------------------------------
+// Fatal-termination sweep (US-017 story review round 2, session 01a0464f)
+// ---------------------------------------------------------------------------
+
+/// The SAME exhaustive schedule space, re-run under tightened action
+/// budgets so runs end FATALLY (`ActionLimitExceeded`) while committed
+/// writes are still outstanding.
+///
+/// The main sweep cannot reach this: its action budget is the config
+/// default, far above the 12-action alphabet, so no schedule there ever
+/// terminates fatally with a pending dropped-write report. That gap is
+/// precisely where the round-2 finding lived — "a pending `WritesDropped`
+/// disposition is suppressed by a fatal `Failure`, after which the adapter
+/// halts, leaving a reachable committed write silently unreported".
+///
+/// The invariant asserted is the same one the clean route uses, with the
+/// same INDEPENDENT boundary-side count of what the ended transport owed:
+/// a report must have surfaced, before the halting Failure, accounting for
+/// exactly the frames and undelivered bytes that were abandoned.
+#[test]
+fn fatal_termination_sweep_reports_every_abandoned_committed_write() {
+    let exploration = enumerate_schedules();
+    let schedule_count = exploration.schedules.len();
+    let mut total_fatal_path_drops = 0usize;
+    let mut total_fatal_path_bytes = 0usize;
+    let mut per_budget = Vec::new();
+
+    for budget in FATAL_SWEEP_ACTION_BUDGETS {
+        let mut halted_runs = 0usize;
+        let mut closed_runs = 0usize;
+        let mut fatal_path_drops = 0usize;
+        let mut fatal_path_bytes = 0usize;
+        let mut clean_path_drops = 0usize;
+        let mut receiver_drop_refusals = 0u32;
+
+        for schedule in &exploration.schedules {
+            let first = execute_with_limits(schedule, Fault::None, EVENT_QUEUE_CAPACITY, budget);
+            let second = execute_with_limits(schedule, Fault::None, EVENT_QUEUE_CAPACITY, budget);
+            let mut outcome = first;
+            if outcome != second {
+                outcome.record(Violation::Nondeterminism);
+            }
+            assert!(
+                outcome.violations.is_empty(),
+                "budget {budget}: schedule {} violated {:?}\noutcome: {outcome:?}",
+                render_schedule(schedule),
+                outcome.violations,
+            );
+            // Terminal-disposition exclusivity holds under the tightened
+            // budget exactly as it does in the main sweep.
+            if outcome.halted {
+                assert_eq!(outcome.failures, 1, "the halt is the first failure");
+                assert_eq!(outcome.terminals, 0, "no terminal after a failure halt");
+                halted_runs += 1;
+                if outcome.write_drop_reports > 0 {
+                    // THE ROUND-2 CLASS: committed writes were abandoned and
+                    // reported, and the run then ended at a fatal Failure the
+                    // adapter halts on. Pre-fix, the report never surfaced.
+                    fatal_path_drops += 1;
+                    fatal_path_bytes += outcome.dropped_bytes;
+                }
+            } else {
+                assert!(outcome.closed, "a non-halted full schedule converges");
+                assert_eq!(outcome.failures, 0, "any surfaced failure halts");
+                assert_eq!(outcome.terminals, 1, "terminal delivered exactly once");
+                closed_runs += 1;
+                if outcome.write_drop_reports > 0 {
+                    clean_path_drops += 1;
+                }
+            }
+            receiver_drop_refusals += outcome.receiver_drop_refusals;
+        }
+
+        assert_eq!(
+            halted_runs + closed_runs,
+            schedule_count,
+            "budget {budget}: every schedule reaches exactly one disposition"
+        );
+        assert_eq!(
+            receiver_drop_refusals as usize, schedule_count,
+            "budget {budget}: the receiver-drop disposition holds under fatal termination too"
+        );
+        println!(
+            "US017_FATAL_SWEEP budget={budget} schedules={schedule_count} halted_runs={halted_runs} \
+             closed_terminal_runs={closed_runs} fatal_path_drop_runs={fatal_path_drops} \
+             fatal_path_dropped_bytes={fatal_path_bytes} clean_path_drop_runs={clean_path_drops}"
+        );
+        per_budget.push((budget, fatal_path_drops));
+        total_fatal_path_drops += fatal_path_drops;
+        total_fatal_path_bytes += fatal_path_bytes;
+    }
+
+    // Coverage honesty: the sweep must actually REACH the class the finding
+    // names, or it proves nothing about it.
+    assert!(
+        total_fatal_path_drops > 0,
+        "the fatal-termination drop class must be exercised: {per_budget:?}"
+    );
+    assert!(total_fatal_path_bytes > 0);
+    println!(
+        "US017_FATAL_SWEEP_TOTAL budgets={:?} fatal_path_drop_runs={total_fatal_path_drops} \
+         fatal_path_dropped_bytes={total_fatal_path_bytes} per_budget={per_budget:?}",
+        FATAL_SWEEP_ACTION_BUDGETS,
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Retention demonstration: the six named boundary faults are found by the
 // exploration, shrunk to 1-minimal schedules, and pinned as artifacts.
 // ---------------------------------------------------------------------------
@@ -1553,7 +1717,13 @@ fn fixed_defect_regressions_replay_clean_on_the_shipped_driver() {
         })
         .collect::<Vec<_>>();
     names.sort();
-    assert_eq!(names, ["eof-backpressure-livelock.seed"]);
+    assert_eq!(
+        names,
+        [
+            "eof-backpressure-livelock.seed",
+            "fatal-halt-suppressed-write-drop.seed"
+        ]
+    );
     for name in names {
         let body = fs::read_to_string(dir.join(&name)).expect("read regression seed");
         let mut fields = std::collections::BTreeMap::new();
@@ -1565,21 +1735,40 @@ fn fixed_defect_regressions_replay_clean_on_the_shipped_driver() {
         let capacity: u64 = fields["event_queue_capacity"]
             .parse()
             .expect("numeric capacity");
+        let max_actions: u64 = fields
+            .get("max_actions")
+            .map_or(MAX_ACTIONS_UNREACHED, |value| {
+                value.parse().expect("numeric action budget")
+            });
         let schedule = fields["schedule"]
             .split(',')
             .map(|verb| Action::parse(verb.trim()))
             .collect::<Vec<_>>();
         // The reproduction runs under the exact configuration that exposed
-        // the defect (a smaller event queue than the exploration default).
-        let outcome = execute_with_capacity(&schedule, Fault::None, capacity);
-        let replay = execute_with_capacity(&schedule, Fault::None, capacity);
+        // the defect (a smaller event queue, or a tightened action budget,
+        // than the exploration default).
+        let outcome = execute_with_limits(&schedule, Fault::None, capacity, max_actions);
+        let replay = execute_with_limits(&schedule, Fault::None, capacity, max_actions);
         assert_eq!(outcome, replay, "{name}: deterministic replay");
         assert!(
             outcome.violations.is_empty(),
             "{name}: fixed defect must stay fixed: {outcome:?}"
         );
-        assert!(outcome.closed, "{name}: the run converges to Closed");
-        assert_eq!(outcome.terminals, 1, "{name}: terminal delivered once");
+        // Both typed terminal dispositions are legitimate end states for a
+        // pinned reproduction: a clean convergence, or the adapter-faithful
+        // halt at a fatal Failure — which is the very route the
+        // fatal-halt-suppressed-write-drop defect lived on.
+        if outcome.halted {
+            assert_eq!(outcome.failures, 1, "{name}: the halt is the first failure");
+            assert_eq!(outcome.terminals, 0, "{name}: no terminal after a halt");
+            assert!(
+                outcome.write_drop_reports > 0,
+                "{name}: the abandoned committed write is reported before the halting failure"
+            );
+        } else {
+            assert!(outcome.closed, "{name}: the run converges to Closed");
+            assert_eq!(outcome.terminals, 1, "{name}: terminal delivered once");
+        }
     }
 }
 

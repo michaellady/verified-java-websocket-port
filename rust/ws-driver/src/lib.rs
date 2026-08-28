@@ -752,8 +752,20 @@ impl ConnectionDriver {
             .map_or(0, |write| write.bytes.len() - self.write_cursor)
     }
 
+    /// Whether an undrained output is holding the owner's turn. Nothing new
+    /// is applied while this is true, which is what stops committed order
+    /// from being overtaken by a later step.
+    ///
+    /// An undelivered [`DroppedWrites`] report counts, and that is what
+    /// closes the fatal-termination hole (US-017 story review round 2,
+    /// session 01a0464f). A fatal failure can only be produced by APPLYING
+    /// an input — the latched EOF or an inbound chunk — so refusing to
+    /// apply anything until the report has been handed over means no
+    /// `Failure` can exist to suppress it. The report is surfaced strictly
+    /// before any failure rather than merely ordered ahead of one, so no
+    /// adapter that halts at its first `Failure` can miss it.
     fn has_pending_output(&self) -> bool {
-        self.offered_write.is_some()
+        self.offered_write.is_some() || self.dropped_writes.is_some()
     }
 
     /// Retry parked automatic pongs in order; stops on the first non-fatal
