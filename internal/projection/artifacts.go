@@ -43,8 +43,8 @@ type secureRepository struct {
 }
 
 var evaluatorSchemas = []inputBinding{
-	{Path: "schemas/us027-receipt-1.0.0.schema.json", SHA256: "sha256:5be62e9f6eeba3d2c5e387ec5d867d3624ca8be10378594b2e7d3fd6575a6f63", Bytes: 3531},
-	{Path: "schemas/us027-independent-replay-1.0.0.schema.json", SHA256: "sha256:0cc301df5b36e3fd8d56269b0db72845483a23dfc8d461f4484720f7ba951711", Bytes: 4699},
+	{Path: "schemas/us027-receipt-1.0.0.schema.json", SHA256: "sha256:94a8b635c13fa82c40710f1eceb5c42216430e36b5e7171d3e404039847e7838", Bytes: 3531},
+	{Path: "schemas/us027-independent-replay-1.0.0.schema.json", SHA256: "sha256:1e98e8823bbf1e19e5e24b517f0b29785fc8d97b53ff4e58a341fa2c1e4c9674", Bytes: 4698},
 	{Path: "schemas/us027-public-snapshot-1.0.0.schema.json", SHA256: "sha256:81abfd6bb26c2481a4e9e8c1c09919555d5e087586975c96f0e4babc49ebe478", Bytes: 2526},
 }
 

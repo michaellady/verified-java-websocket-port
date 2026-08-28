@@ -11,6 +11,7 @@ import (
 )
 
 var inputPaths = []string{
+	"docs/us027-independent-projection-contract.md",
 	"contracts/laboratory-template.json",
 	"assurance/candidate-manifest.json",
 	"assurance/candidate-claims.json",
@@ -77,6 +78,32 @@ func TestCaptureVerifyBindsRelaxedProjection(t *testing.T) {
 	}
 	if _, err := projection.Verify(root); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestCaptureRejectsMissingOrReplacedProjectionContract(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		mutate func(*testing.T, string)
+	}{
+		{"missing", func(t *testing.T, path string) {
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"replaced", func(t *testing.T, path string) {
+			if err := os.WriteFile(path, []byte("replacement contract\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			root := fixtureRoot(t)
+			test.mutate(t, filepath.Join(root, "docs", "us027-independent-projection-contract.md"))
+			if _, err := projection.Capture(root); err == nil {
+				t.Fatal("capture accepted an unbound projection contract")
+			}
+		})
 	}
 }
 

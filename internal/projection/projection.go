@@ -20,7 +20,7 @@ const (
 	DeclaredSubjectCommit = "98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc"
 	DeclaredSubjectTree   = "36ee700401268621aae58639185dcdc11e4c00c6"
 	CandidateRoot         = "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e"
-	ContractSHA256        = "sha256:bb5ac60b9738ffe66f5e082729c668007442661addd263e5539e0b674d1586ca"
+	ContractSHA256        = "sha256:08c14048d92b1066ad5f459d3e41e69d6e7a7cb81e8524c9c1cf06382c59f195"
 )
 
 const (
@@ -162,6 +162,7 @@ type artifactSet struct {
 }
 
 var canonicalInputs = []inputBinding{
+	{Path: "docs/us027-independent-projection-contract.md", SHA256: ContractSHA256, Bytes: 12794},
 	{Path: "contracts/laboratory-template.json", SHA256: "sha256:eb8afd7c9089456c08515b3b43182a57545ef50f40b1953944f85acdae308599", Bytes: 1000},
 	{Path: "assurance/candidate-manifest.json", SHA256: "sha256:ab24fb6cbc3b811ef1d08c46c3c1b4925b03595836f5ccd65f0858fea66c9925", Bytes: 227339},
 	{Path: "assurance/candidate-claims.json", SHA256: "sha256:34803e3d1a4047f86f5e59f7097481d76aa3decf88972fb557323cb7c2906024", Bytes: 23365},
@@ -285,6 +286,14 @@ func inputRaw(inputs map[string][]byte, name string) ([]byte, error) {
 }
 
 func validateInputs(inputs map[string][]byte) ([]string, error) {
+	contractRaw, err := inputRaw(inputs, "docs/us027-independent-projection-contract.md")
+	if err != nil {
+		return nil, err
+	}
+	if digest(contractRaw) != ContractSHA256 {
+		return nil, fmt.Errorf("held projection contract digest does not match emitted binding")
+	}
+
 	manifestRaw, err := inputRaw(inputs, "assurance/candidate-manifest.json")
 	if err != nil {
 		return nil, err

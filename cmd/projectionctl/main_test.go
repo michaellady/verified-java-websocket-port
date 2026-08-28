@@ -21,6 +21,7 @@ func fixtureRoot(t *testing.T) string {
 		t.Fatal(err)
 	}
 	paths := []string{
+		"docs/us027-independent-projection-contract.md",
 		"contracts/laboratory-template.json", "assurance/candidate-manifest.json",
 		"assurance/candidate-claims.json", "assurance/formal/obligation-catalog.json",
 		"assurance/reviews/human.json", "assurance/reviews/codex.json",

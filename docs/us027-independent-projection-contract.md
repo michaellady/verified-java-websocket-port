@@ -54,6 +54,8 @@ owner-visible repository inputs. Capture binds each path, byte count, SHA-256,
 and the declared subject identifiers; it does not bind the checkout to those
 identifiers. At minimum the closure includes:
 
+- `docs/us027-independent-projection-contract.md` as the exact held mechanics
+  contract whose digest is emitted by every receipt and replay;
 - `contracts/laboratory-template.json` for the required laboratory sections and
   publication rule;
 - `assurance/candidate-manifest.json` and `assurance/candidate-claims.json` for
@@ -77,7 +79,10 @@ Every input is opened from a root-pinned, no-follow filesystem boundary,
 bounded before allocation, and read exactly once into held bytes. Symlinked or
 non-directory ancestors, nonregular leaves, path escape, duplicate normalized
 paths, mutation between metadata and read, unexpected sizes, or digest drift
-fail closed before JSON parsing or projection.
+fail closed before JSON parsing or projection. The emitted
+`projection_contract_sha256` must equal the digest of the exact held contract
+bytes; a missing, replaced, symlinked, or drifting contract fails before any
+output is published.
 
 ## Receipt slots
 

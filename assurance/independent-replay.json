@@ -8,8 +8,13 @@
   },
   "subject_checkout": "NOT_VERIFIED",
   "candidate_root": "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e",
-  "projection_contract_sha256": "sha256:bb5ac60b9738ffe66f5e082729c668007442661addd263e5539e0b674d1586ca",
+  "projection_contract_sha256": "sha256:08c14048d92b1066ad5f459d3e41e69d6e7a7cb81e8524c9c1cf06382c59f195",
   "inputs": [
+    {
+      "path": "docs/us027-independent-projection-contract.md",
+      "sha256": "sha256:08c14048d92b1066ad5f459d3e41e69d6e7a7cb81e8524c9c1cf06382c59f195",
+      "bytes": 12794
+    },
     {
       "path": "contracts/laboratory-template.json",
       "sha256": "sha256:eb8afd7c9089456c08515b3b43182a57545ef50f40b1953944f85acdae308599",
@@ -56,7 +61,7 @@
       "bytes": 2847
     }
   ],
-  "input_root_sha256": "sha256:310b1f4585b8cee889d970447bba9affb362781073642428d0bb38251f59e207",
+  "input_root_sha256": "sha256:93d41275b7600583d71bf4985cd4be7301122496419d1cde4fc09aa1850f475b",
   "mechanics_status": "PASS_OWNER_RELAXED_PUBLIC_PROJECTION_MECHANICS",
   "acceptance_state": "INDEPENDENT_ACCEPTANCE_BLOCKED",
   "child_story_count": 26,
@@ -272,21 +277,21 @@
   "protected_replay": "NOT_EXECUTED",
   "human_review": "NOT_EXECUTED",
   "independent_custodian": "NOT_BOUND",
-  "public_projection_root": "sha256:9c48a9ec59e94d3cfb0e20e827ae2501974886be213b08e0ba3b7c4c97623526",
+  "public_projection_root": "sha256:e77e3ea6e5169806144d8bc46354a0f2939e764c6a92bf97999109a58296f8b0",
   "artifacts": [
     {
       "path": "assurance/receipts/human.json",
-      "sha256": "sha256:8e01ba13a6c5f304bbad44287a488e5da4ae6a10155da8596fb8907e04c16a20",
+      "sha256": "sha256:1af7fbf487b4720af9598de0d80c32129c67778860e42c903229efc72bd0e871",
       "bytes": 990
     },
     {
       "path": "assurance/receipts/codex.json",
-      "sha256": "sha256:245693c6888bf0780a9c25a260dddb4b63627ad00520eef4ba3ccf2a070c48c1",
+      "sha256": "sha256:803ee0637bf01c36d9e06811001b82bb0b81b12c16c4f9dd812d00ec5e4408be",
       "bytes": 1020
     },
     {
       "path": "assurance/receipts/reality.json",
-      "sha256": "sha256:a951cb6d531bbd50156789df93bf8fdb84a7ec4a87cfe1090872d36704381bb6",
+      "sha256": "sha256:a3e1029458fdb842bd1419dc4b3305bfb26fa3be742bfa01f60e20323f323dc7",
       "bytes": 1024
     },
     {
@@ -301,7 +306,7 @@
     },
     {
       "path": "public/snapshot.json",
-      "sha256": "sha256:833702d2de3d47c0d3d8908362460865437f40aaba2779dfd4ea5df7af2c6cd5",
+      "sha256": "sha256:384a9387c227da870bb15b286cf88613fa5c3095ca97f0db795c59f7ca032e5b",
       "bytes": 1699
     }
   ],
