@@ -665,3 +665,60 @@ fn terminal_stays_once_only_after_post_terminal_work() {
         "the terminal is delivered exactly once for the connection's lifetime"
     );
 }
+
+/// A REPEATED transport EOF is a SCORED EVENT, not an idempotent transport
+/// fact the owner may absorb (owner decision
+/// `us017-repeated-eof-owner-decision-2026-08-28.json`, sha f6270948, which
+/// AMENDS the earlier bd7849c3 decision's retention of the `eof_applied`
+/// latch). The core's own state machine already answers a repeated EOF —
+/// `handle_eof` counts the action and refuses with `STATE_VIOLATION`, which
+/// live Java reports as "eof repeated in CLOSED state" — so at-most-once
+/// APPLICATION was the wrong invariant to protect at the driver layer.
+#[test]
+fn repeated_transport_eof_reaches_the_core() {
+    let mut run = Run::new();
+    let _ = run.poll(DriverInput::TransportEof);
+    run.exec_verb("drain");
+    assert_eq!(run.driver.state(), ReadyState::Closed);
+    assert_eq!(run.terminals, 1, "the first EOF converges cleanly");
+    assert_eq!(
+        run.driver.counts().actions,
+        1,
+        "the first EOF counted its action"
+    );
+
+    let result = run.driver.poll(DriverInput::TransportEof);
+    let DriverOutput::Failure(surfaced) = result.output else {
+        panic!(
+            "REGRESSION: the owner absorbed a repeated transport EOF instead of handing it \
+             to the core (the eof latch skipped the core call)"
+        );
+    };
+    assert_eq!(
+        surfaced.code.wire_code(),
+        Some("STATE_VIOLATION"),
+        "the core refuses a repeated EOF in CLOSED"
+    );
+    assert_eq!(
+        run.driver.counts().actions,
+        2,
+        "the core saw the second EOF and counted its action too"
+    );
+}
+
+/// `Shutdown` arriving after an EOF was already applied inherits the same
+/// fix: it latches the same protocol EOF, so it must reach the core too.
+#[test]
+fn shutdown_after_applied_eof_reaches_the_core() {
+    let mut run = Run::new();
+    let _ = run.poll(DriverInput::TransportEof);
+    run.exec_verb("drain");
+    assert_eq!(run.driver.counts().actions, 1);
+
+    let result = run.driver.poll(DriverInput::Shutdown);
+    let DriverOutput::Failure(surfaced) = result.output else {
+        panic!("REGRESSION: shutdown-after-applied-EOF was absorbed instead of reaching the core");
+    };
+    assert_eq!(surfaced.code.wire_code(), Some("STATE_VIOLATION"));
+    assert_eq!(run.driver.counts().actions, 2);
+}

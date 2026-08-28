@@ -140,7 +140,7 @@
       "id": "evidence.linkage.schedule-exploration",
       "kind": "evidence",
       "title": "US-017 exhaustive bounded schedule exploration results (79920 schedules)",
-      "sha256": "sha256:1fb9177a5d7aecee86d4d7e4acd53d61d26671f63c942cc825cd94b939e145fa",
+      "sha256": "sha256:2dad447d8ae214319a19270e70228b0fb30573163b9d50c2fc9d6dcb2539ef16",
       "lineage": "deterministic ws-driver schedule exploration with full-trace replay equality",
       "path": "assurance/concurrency/results.json"
     },
@@ -1204,7 +1204,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-driver/src/lib.rs",
       "line": 376,
-      "sha256": "sha256:78c5d2ae36c880771fbcc5b764d85708d2195e93930b67ca62d81171e6d5c827"
+      "sha256": "sha256:12371462e95d364a0672c9b2d20fc73c037864e586d3d6bb67dcbcae21beaea9"
     },
     {
       "id": "ws_driver::connection_driver",
@@ -1213,7 +1213,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-driver/src/lib.rs",
       "line": 165,
-      "sha256": "sha256:78c5d2ae36c880771fbcc5b764d85708d2195e93930b67ca62d81171e6d5c827"
+      "sha256": "sha256:12371462e95d364a0672c9b2d20fc73c037864e586d3d6bb67dcbcae21beaea9"
     },
     {
       "id": "ws_testee::client::run_client_once",

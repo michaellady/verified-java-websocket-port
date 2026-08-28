@@ -5,9 +5,9 @@
   "state": "PASS",
   "claim_scope": "BOUNDED_SYSTEMATIC_AND_CURRENT_HOST_STRESS_TESTING",
   "claim_scope_statement": "Bounded schedule exploration under the bounds below is systematic concurrency testing, never proof (assurance/concurrency/plan.json claim ceiling). Native-thread stress samples schedules without coverage accounting and cannot stand in for the systematic result, nor the systematic result for native-thread evidence.",
-  "recorded_at": "2026-08-28T10:55:36Z",
-  "recorded_at_provenance": "captured from `date -u` immediately before this revision was written; the counters below are transcribed verbatim from the US017_EXPLORATION line printed by `cargo test -p ws-driver --release --test schedule_exploration bounded_exploration -- --nocapture` on the tree being committed, not carried over from the previous revision",
-  "revision_note": "supersedes the 0ee3c7f revision after owner decisions us017-eof-after-closed-owner-decision-2026-08-28.json (sha bd7849c3) and us017-post-terminal-owner-decision-2026-08-28.json (sha b52d244b). Three driver defects of one shape — a state check that decided NOT to hand an input to the core — were found and fixed: the latched EOF was absorbed when the core was already Closed; post-terminal inbound bytes were reported Consumed without reaching the core; and post-terminal commands were disposed with a driver-invented TerminalRejected verdict. All three now pass through, so every disposition is the core's own. CONSEQUENCES RE-MEASURED, NOT CARRIED OVER: (a) the CommandDisposition enum lost its TerminalRejected variant, so terminal_rejections is gone and those dispositions are now ordinary typed_rejections; (b) commands are applied one per poll instead of being swept in bulk at convergence, so the bounded queue stays fuller and queue_full_refusals rose while accepted_commands fell; (c) the two terminal dispositions are now ORDERED rather than mutually exclusive — a run may take its one clean Terminal and then refuse work still pushed at the converged connection — and the failure-halt-exclusivity check was narrowed to the property its own name states (no Terminal AFTER a Failure), asserted against the ordered trace; (d) distinct_semantic_trace_digests fell from 19698 to 9549 because outcomes that previously differed only in how a disposition was split between rejected and terminal_rejected are now genuinely identical. This exploration FOUND consequence (c) itself, on the first run after the ruling landed.",
+  "recorded_at": "2026-08-28T12:38:34Z",
+  "recorded_at_provenance": "captured from `date -u` immediately before this revision was written; the counters below are transcribed verbatim from the US017_EXPLORATION line printed by `cargo test -p ws-driver --release --test schedule_exploration bounded_exploration -- --nocapture`, and the retention entries from the US017_RETENTION lines of the retention test, both on the tree being committed",
+  "revision_note": "supersedes the dabb5d6 revision after owner decision us017-repeated-eof-owner-decision-2026-08-28.json (sha f6270948), which AMENDS the bd7849c3 decision's retention of the eof_applied latch. FOURTH defect of one shape closed: a REPEATED DriverInput::TransportEof (or a Shutdown after an applied EOF) was skipped by `&& !self.eof_applied`, so the core never saw it. DriverInput::TransportEof is a SCORED EVENT, not an idempotent transport fact the adapter may absorb; at-most-once APPLICATION was the wrong invariant at the driver layer. The eof/shutdown flags are now PER-NOTIFICATION: cleared when the core consumes the EOF, re-armed by any later notification, and deliberately RETAINED on a non-fatal refusal, which is what preserves the eof-backpressure-livelock fix. COUNTERS RE-MEASURED, NOT CARRIED OVER: far more schedules now surface a typed failure, because a repeat EOF/shutdown that used to be swallowed is answered by the core — failure_halted_runs 29699 -> 49548 and closed_terminal_runs 50221 -> 30372. The lost-command minimized artifact changed because the deterministic shrinker's 1-minimal counterexample moved from `enqueue-close-b,shutdown` to `enqueue-close-b,inbound-close`; refrozen through the sanctioned US017_RETAIN=1 path. The other five minimized artifacts re-verified byte-identical. Driver/core equivalence on this path was probe-verified: four consecutive EOFs give actions 1,2,2,2 with STATE_VIOLATION from the second onward, IDENTICALLY for the bare core and for the driver, so the driver is now a faithful pass-through and the non-increment from the third onward is the core's own decision.",
   "target": {
     "symbol": "ws_driver::ConnectionDriver::poll",
     "source": {
@@ -47,22 +47,22 @@
     "distinct_schedule_digests": 79920,
     "executions": 159840,
     "replay_determinism": "every schedule executed twice with FULL structured-trace equality: every poll record compares the input (kind + byte length), the complete typed input disposition (rejection details included), the complete command disposition (command payloads and typed rejection failures included), the complete owned output (semantic-event contents, typed failure values, byte-exact write suffixes), and the lifecycle state; the enumeration itself is re-run and compared; trace digests hash the full structured records plus the committed wire log",
-    "distinct_semantic_trace_digests": 9549,
-    "closed_terminal_runs": 50221,
-    "failure_halted_runs": 29699,
-    "terminal_disposition_exclusivity": "asserted per run AND in aggregate, as an ORDERING property since the post-terminal ruling: surfaced failures total 29699 == failure_halted_runs (exactly one each, the halting failure); 50221 + 29699 == 79920; terminals total equals closed_terminal_runs plus the clean terminals of runs that later halted refusing post-convergence work; and no Terminal is ever observed after a surfaced Failure, checked against the ordered trace of every run",
+    "distinct_semantic_trace_digests": 6028,
+    "closed_terminal_runs": 30372,
+    "failure_halted_runs": 49548,
+    "terminal_disposition_exclusivity": "asserted per run AND in aggregate, as an ORDERING property since the post-terminal ruling: surfaced failures total 49548 == failure_halted_runs (exactly one each, the halting failure); 30372 + 49548 == 79920; terminals total equals closed_terminal_runs plus the clean terminals of runs that later halted refusing post-convergence work; and no Terminal is ever observed after a surfaced Failure, checked against the ordered trace of every run",
     "counters": {
-      "accepted_commands": 209732,
-      "queue_full_refusals": 66628,
+      "accepted_commands": 199284,
+      "queue_full_refusals": 65926,
       "applied": 68144,
-      "typed_rejections": 117773,
-      "reconciliation": "clean-terminal runs reconcile EXACTLY per run (accepted == applied + rejected; the terminal_rejected term is gone because the driver no longer invents that verdict — a command that arrives after convergence is applied to the core and comes back as an ordinary typed rejection). Halted runs assert at-most-once disposition of accepted commands, with commands still queued at the halt belonging to the embedding adapter's teardown: aggregate applied 68144 + rejected 117773 = 185917 disposed of 209732 accepted, the 23815 remainder queued at halt boundaries and never double-disposed",
-      "events_drained": 473918,
-      "surfaced_typed_failures": 29699,
+      "typed_rejections": 84866,
+      "reconciliation": "clean-terminal runs reconcile EXACTLY per run (accepted == applied + rejected; the terminal_rejected term is gone because the driver no longer invents that verdict). Halted runs assert at-most-once disposition of accepted commands, with commands still queued at the halt belonging to the embedding adapter's teardown: aggregate applied 68144 + rejected 84866 = 153010 disposed of 199284 accepted, the 46274 remainder queued at halt boundaries and never double-disposed. The halted share grew with the repeated-EOF fix, which turns previously swallowed repeat notifications into surfaced refusals that stop their runs earlier",
+      "events_drained": 427741,
+      "surfaced_typed_failures": 49548,
       "deferred_output_pending": 27708,
       "deferred_command_turn": 33232,
       "deferred_backpressure": 3550,
-      "typed_input_rejections": 52584,
+      "typed_input_rejections": 51730,
       "max_drain_polls_observed": 11
     },
     "weak_fairness": [
@@ -115,7 +115,7 @@
       "outcome": "PASS"
     }
   ],
-  "terminal_disposition_model": "every full schedule ends in one of two typed dispositions, mirroring the real adapter: the clean Terminal from the absorbing Closed state (50221 runs, exactly one Terminal each, zero surfaced failures), or the halt at the first surfaced fatal Failure (29699 runs, exactly one surfaced failure each) — the poisoned core retains its final state per the oracle's partial-execution semantics and the adapter stops there. Since owner decision us017-post-terminal-owner-decision-2026-08-28 these are ORDERED, not mutually exclusive: a schedule may converge cleanly, take its one Terminal, and then have further work pushed at the already-converged connection, which the core refuses — so a halted run may legitimately carry one preceding clean Terminal. The invariant that holds unconditionally is the ordering one: no Terminal is ever observed AFTER a surfaced Failure. Both classes fully quiesce, and clean-terminal runs reconcile every accepted command exactly once",
+  "terminal_disposition_model": "every full schedule ends in one of two typed dispositions, mirroring the real adapter: the clean Terminal from the absorbing Closed state (30372 runs), or the halt at the first surfaced fatal Failure (49548 runs, exactly one surfaced failure each) — the poisoned core retains its final state per the oracle's partial-execution semantics and the adapter stops there. Since owner decision us017-post-terminal-owner-decision-2026-08-28 these are ORDERED, not mutually exclusive: a schedule may converge cleanly, take its one Terminal, and then have further work pushed at the already-converged connection, which the core refuses — so a halted run may legitimately carry one preceding clean Terminal. The invariant that holds unconditionally is the ordering one: no Terminal is ever observed AFTER a surfaced Failure. Both classes fully quiesce, and clean-terminal runs reconcile every accepted command exactly once",
   "defects_found_and_fixed": [
     {
       "defect_id": "eof-backpressure-livelock",
@@ -165,6 +165,15 @@
       "owner_ruling": "us017-post-terminal-owner-decision-2026-08-28.json (sha b52d244b), decision post-terminal-command: make it consistent.",
       "fix": "prepare_terminal and the TerminalRejected variant were removed entirely; a post-terminal command is applied to the core and comes back Rejected with the core's own STATE_VIOLATION. Terminal now waits for the command queue and held slot to be empty, so it still marks the true end.",
       "regression_guard": "ws-driver commands_queued_at_terminal_are_refused_by_the_core (the pre-existing test whose expectation this ruling moved, rewritten and disclosed)"
+    },
+    {
+      "defect_id": "repeated-eof-absorbed",
+      "found_by": "the third sibling audit mandated by the post-terminal ruling, measured with a scratch probe rather than reasoned about",
+      "description": "the `&& !self.eof_applied` guard on the latched-EOF arm was set once and never cleared, so a REPEATED DriverInput::TransportEof (or a Shutdown after an applied EOF) never reached the core. Measured: a second EOF yielded Consumed{bytes:0} with Idle output and counts.actions stuck at 1, while the bare core given the same input answered StateViolation with actions=2. Live Java's message for this case is literally 'eof repeated in CLOSED state'.",
+      "owner_ruling": "us017-repeated-eof-owner-decision-2026-08-28.json (sha f6270948), AMENDING bd7849c3: pass it through too; DriverInput::TransportEof is a scored event, not an idempotent transport fact, and at-most-once APPLICATION was the wrong invariant to protect at the driver layer.",
+      "fix": "eof_latched/shutdown_latched became PER-NOTIFICATION flags: cleared when the core consumes the EOF (Ok or fatal), re-armed by any later notification, and deliberately retained on a non-fatal refusal so the eof-backpressure-livelock fix is preserved. eof_applied is gone.",
+      "regression_guard": "ws-driver repeated_transport_eof_reaches_the_core and shutdown_after_applied_eof_reaches_the_core",
+      "equivalence_check": "probe-verified that four consecutive EOFs produce actions 1,2,2,2 with STATE_VIOLATION from the second onward, IDENTICALLY for the bare core and for the driver — the driver is a faithful pass-through and the non-increment from the third onward is the core's own decision"
     }
   ],
   "retention": {
@@ -184,10 +193,11 @@
       {
         "seed": "lost-command",
         "property": "accepted-eventual-exactly-once",
-        "found_index": 0,
+        "found_index": 4,
         "shrink": "12 -> 2",
-        "schedule": "enqueue-close-b,shutdown",
-        "sha256": "sha256:6547aa07f7887125a53fc17b0e00cc51b42aa3cfd5e4d91851269f315c713adf"
+        "schedule": "enqueue-close-b,inbound-close",
+        "sha256": "sha256:59c955d9e2a7918bf2ab661a39ef49c6db9564c8c783d6f6f1864fbbe856bd08",
+        "refreeze_note": "refrozen through the sanctioned US017_RETAIN=1 path after the repeated-EOF fix moved the deterministic 1-minimal counterexample off the `shutdown` variant; the other five artifacts re-verified byte-identical"
       },
       {
         "seed": "queue-bypass",

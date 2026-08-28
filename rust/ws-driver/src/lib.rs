@@ -385,9 +385,13 @@ pub struct ConnectionDriver {
     /// Fairness alternation: after a command turn, inbound bytes get the
     /// next quiescent turn (borrowed design: codex 6a7606a `command_turn`).
     command_turn: bool,
+    /// A transport EOF notification awaiting application to the core.
+    /// PER-NOTIFICATION: cleared once the core consumes it, and re-armed by
+    /// any later `TransportEof`/`Shutdown` input, because each notification
+    /// is a scored event the core answers in its own right (owner decision
+    /// us017-repeated-eof-owner-decision-2026-08-28).
     eof_latched: bool,
     shutdown_latched: bool,
-    eof_applied: bool,
     terminal_delivered: bool,
     /// The configured automatic response policy (US-015 AC1).
     policy: AutoResponsePolicy,
@@ -427,7 +431,6 @@ impl ConnectionDriver {
             command_turn: true,
             eof_latched: false,
             shutdown_latched: false,
-            eof_applied: false,
             terminal_delivered: false,
             policy,
             pending_auto_pongs: VecDeque::new(),
@@ -529,15 +532,15 @@ impl ConnectionDriver {
             if matches!(input, DriverInput::Inbound(_)) {
                 input_disposition = InputDisposition::Deferred(DeferredReason::OutputPending);
             }
-        } else if (self.eof_latched || self.shutdown_latched) && !self.eof_applied {
-            // The latched transport EOF gets the first quiescent turn. The
+        } else if self.eof_latched || self.shutdown_latched {
+            // A PENDING transport EOF gets the first quiescent turn. The
             // core owns the semantics (Q20). A NON-FATAL refusal is the
-            // core's event-queue backpressure: the EOF stays latched and is
+            // core's event-queue backpressure: the EOF stays pending and is
             // retried on the next quiescent turn once outputs drain (the
             // US-017 bounded schedule exploration retained the minimized
             // counterexample `enqueue-close-b,inbound-close,shutdown` —
             // fuzz-seeds/us017/regressions/eof-backpressure-livelock.seed —
-            // where latching `eof_applied` on a refused EOF lost the EOF
+            // where clearing the pending flag on a refused EOF lost the EOF
             // forever and the connection never terminated). A fatal
             // refusal is surfaced as a Failure output, never invented
             // around.
@@ -570,17 +573,34 @@ impl ConnectionDriver {
                 // adapter convenience. Surfaced by routing the corpus
                 // differential harness through this driver (US-017 AC5).
                 //
-                // The LATCH itself was never the defect and is unchanged:
-                // `eof_applied` still guarantees the core sees the EOF at
-                // most once, on whichever of the Ok/fatal arms below fires.
+                // AMENDING FIX (owner decision
+                // us017-repeated-eof-owner-decision-2026-08-28, sha
+                // f6270948, which AMENDS bd7849c3): the flags below are
+                // PER-NOTIFICATION, not at-most-once-ever. The arm used to
+                // carry `&& !self.eof_applied`, a latch that was set once
+                // and never cleared, so a REPEATED `DriverInput::TransportEof`
+                // (or a `Shutdown` after an applied EOF) never reached the
+                // core at all. `DriverInput::TransportEof` is a SCORED EVENT
+                // like any other input, not an idempotent transport fact the
+                // owner may absorb: `ConnectionCore::handle_eof` counts the
+                // action and refuses a repeat with `STATE_VIOLATION`, which
+                // live Java reports as "eof repeated in CLOSED state". The
+                // core decides.
+                //
+                // Clearing on application (rather than latching forever)
+                // keeps BOTH properties: one notification is applied exactly
+                // once, so a quiescent poll cannot re-apply it and spin; and
+                // a NEW notification re-arms the flags and is scored in its
+                // own right. The non-fatal arm deliberately leaves them set,
+                // which is what preserves the eof-backpressure-livelock fix.
                 match self.core.handle(Input::TransportEof) {
-                    Ok(()) => self.eof_applied = true,
+                    Ok(()) => self.clear_pending_eof(),
                     Err(failure) if !failure.code.is_fatal() => {
                         // Backpressure: this poll still drains one queued
                         // output below, so the retry makes progress.
                     }
                     Err(failure) => {
-                        self.eof_applied = true;
+                        self.clear_pending_eof();
                         return self.finish_poll(input_disposition, None, Some(failure));
                     }
                 }
@@ -682,6 +702,13 @@ impl ConnectionDriver {
         if self.held.is_none() {
             self.held = self.commands.pop();
         }
+    }
+
+    /// Marks the pending transport-EOF notification consumed. A later
+    /// `TransportEof`/`Shutdown` input re-arms it and is scored separately.
+    fn clear_pending_eof(&mut self) {
+        self.eof_latched = false;
+        self.shutdown_latched = false;
     }
 
     fn drop_pending_writes(&mut self) {
