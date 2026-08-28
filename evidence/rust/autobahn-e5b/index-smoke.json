@@ -1,0 +1,46 @@
+{
+   "verified-rust-ws-testee-e5b": {
+      "7.3.1": {
+         "behavior": "OK",
+         "behaviorClose": "FAILED BY CLIENT",
+         "duration": 1008,
+         "remoteCloseCode": 1000,
+         "reportfile": "verified_rust_ws_testee_e5b_case_7_3_1.json"
+      },
+      "7.3.2": {
+         "behavior": "OK",
+         "behaviorClose": "FAILED BY CLIENT",
+         "duration": 1011,
+         "remoteCloseCode": 1002,
+         "reportfile": "verified_rust_ws_testee_e5b_case_7_3_2.json"
+      },
+      "7.3.3": {
+         "behavior": "OK",
+         "behaviorClose": "FAILED BY CLIENT",
+         "duration": 1004,
+         "remoteCloseCode": 1000,
+         "reportfile": "verified_rust_ws_testee_e5b_case_7_3_3.json"
+      },
+      "7.3.4": {
+         "behavior": "OK",
+         "behaviorClose": "FAILED BY CLIENT",
+         "duration": 1008,
+         "remoteCloseCode": 1000,
+         "reportfile": "verified_rust_ws_testee_e5b_case_7_3_4.json"
+      },
+      "7.3.5": {
+         "behavior": "OK",
+         "behaviorClose": "FAILED BY CLIENT",
+         "duration": 1007,
+         "remoteCloseCode": 1000,
+         "reportfile": "verified_rust_ws_testee_e5b_case_7_3_5.json"
+      },
+      "7.3.6": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 2,
+         "remoteCloseCode": null,
+         "reportfile": "verified_rust_ws_testee_e5b_case_7_3_6.json"
+      }
+   }
+}

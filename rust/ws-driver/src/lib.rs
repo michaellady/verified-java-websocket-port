@@ -14,6 +14,14 @@
 //! layer this crate ports — so the automatic pong is injected here,
 //! through the ordinary command seam, when the Ping event is delivered.
 //!
+//! For the same layering reason it owns the close-echo WIRE composition
+//! ([`CloseEchoPolicy`], E5b): the core's Q19/Q10 echo is the Draft-level
+//! observable the java-oracle harness produces, while the shipped full
+//! stack answers an inbound close through `WebSocketImpl.close`, which
+//! builds its OWN close frame from the RECEIVED code and reason
+//! (WebSocketImpl.java:482-486). Autobahn 7.3.2 is the case that separates
+//! them.
+//!
 //! ## Borrow attribution (owner strategy: borrow with attribution)
 //!
 //! Adapted from the Codex-plane US-017 `websocket-driver` (codex-import
@@ -53,9 +61,11 @@
 
 use std::collections::VecDeque;
 
+use ws_core::close::CloseOrigin;
+use ws_core::framing::{CLOSE_CONSTRUCTOR_PAYLOAD, Draft6455, HeaderDecode, Opcode};
 use ws_core::{
-    CommandQueue, CommandSender, ConnectionConfig, ConnectionCore, InitialState, Input,
-    LocalCommand, ReadyState, Role, SemanticEvent, SemanticEventKind, TransportWrite,
+    CloseDetail, CommandQueue, CommandSender, ConnectionConfig, ConnectionCore, InitialState,
+    Input, LocalCommand, ReadyState, Role, SemanticEvent, SemanticEventKind, TransportWrite,
     TypedProtocolFailure,
 };
 
@@ -90,10 +100,57 @@ pub enum AutoResponsePolicy {
     Disabled,
 }
 
+/// The close-echo WIRE composition policy (E5b).
+///
+/// `ws_core` answers an inbound close received while Open with the Q19
+/// echo whose payload is the `CloseFrame` CONSTRUCTOR payload `[0x03,0xE8]`
+/// (Q10) — the observable the java-oracle harness produces, because the
+/// harness re-emits the RECEIVED frame object
+/// (`java-oracle/src/main/java/OracleEngine.java:382`,
+/// `emitOutbound(List.of(frame), index, "echo_close")`). That frame object
+/// legitimately carries the constructor payload: `CloseFrame.setPayload`
+/// overrides the base method and assigns only the `code`/`reason` fields,
+/// never `super.setPayload` (framing/CloseFrame.java:246-271), so the
+/// buffer built by the constructor (framing/CloseFrame.java:168-172,
+/// `FramedataImpl1.get` returning `new CloseFrame()` at
+/// framing/FramedataImpl1.java:241-242) survives the decode. That core
+/// observable is LIVE-ORACLE-CONFIRMED and ledgered (delta-954132f2…,
+/// delta-d509ac38…) and is NOT changed by this policy.
+///
+/// The shipped FULL STACK puts different bytes on the wire.
+/// `Draft_6455.processFrame` routes CLOSING to `processFrameClosing`
+/// (drafts/Draft_6455.java:896-897), which reads the decoded
+/// `cf.getCloseCode()` / `cf.getMessage()` (drafts/Draft_6455.java:1055-1060)
+/// and — TWOWAY handshake type (drafts/Draft_6455.java:1111-1113) — calls
+/// `webSocketImpl.close(code, reason, true)` (drafts/Draft_6455.java:1067-1068).
+/// `WebSocketImpl.close` then builds a BRAND NEW frame,
+/// `new CloseFrame(); setReason(message); setCode(code); isValid();
+/// sendFrame(closeFrame);` (WebSocketImpl.java:482-486), whose
+/// `updatePayload` writes the low two bytes of the code big-endian followed
+/// by the UTF-8 reason (framing/CloseFrame.java:294-302).
+///
+/// This crate is the `WebSocketImpl` mirror, so the full-stack composition
+/// lives here — the same layering decision as [`AutoResponsePolicy`]. It is
+/// the identical composition `ws_core`'s LOCAL close already emits
+/// (`send_close`), because in shipped Java both paths are the same
+/// `WebSocketImpl.close` method.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum CloseEchoPolicy {
+    /// Shipped-Java full-stack behavior: the echo carries the RECEIVED close
+    /// code and reason.
+    #[default]
+    WebSocketImplComposition,
+    /// Leave the core's Draft-level/oracle-harness echo bytes untouched (the
+    /// constructor payload). For callers scoring against the core observable
+    /// rather than the shipped full stack.
+    CoreDraftEcho,
+}
+
 /// Builds the bounded producer handle and its sole pull-driven owner for a
 /// fresh (`NotYetConnected`) connection, under the default
 /// [`AutoResponsePolicy::PongInboundPing`] (the shipped-Java listener
-/// default).
+/// default) and [`CloseEchoPolicy::WebSocketImplComposition`] (the
+/// shipped-Java full-stack close composition).
 #[must_use]
 pub fn connection_driver(
     config: ConnectionConfig,
@@ -109,15 +166,30 @@ pub fn connection_driver_with_policy(
     role: Role,
     policy: AutoResponsePolicy,
 ) -> (CommandSender, ConnectionDriver) {
+    connection_driver_with_policies(config, role, policy, CloseEchoPolicy::default())
+}
+
+/// [`connection_driver`] with both adapter-layer policies stated explicitly.
+#[must_use]
+pub fn connection_driver_with_policies(
+    config: ConnectionConfig,
+    role: Role,
+    policy: AutoResponsePolicy,
+    close_echo: CloseEchoPolicy,
+) -> (CommandSender, ConnectionDriver) {
     let (queue, sender) = CommandQueue::new(&config);
     let core = ConnectionCore::new(config, role);
-    (sender, ConnectionDriver::new(core, queue, policy))
+    (
+        sender,
+        ConnectionDriver::new(core, queue, policy, close_echo),
+    )
 }
 
 /// Builds the driver for a post-handshake connection in a given corpus
 /// state (test and fixture seam, mirroring
 /// [`ws_core::ConnectionCore::new_in_state`]), under the default
-/// [`AutoResponsePolicy::PongInboundPing`].
+/// [`AutoResponsePolicy::PongInboundPing`] and
+/// [`CloseEchoPolicy::WebSocketImplComposition`].
 #[must_use]
 pub fn connection_driver_in_state(
     config: ConnectionConfig,
@@ -136,9 +208,31 @@ pub fn connection_driver_in_state_with_policy(
     state: InitialState,
     policy: AutoResponsePolicy,
 ) -> (CommandSender, ConnectionDriver) {
+    connection_driver_in_state_with_policies(
+        config,
+        role,
+        state,
+        policy,
+        CloseEchoPolicy::default(),
+    )
+}
+
+/// [`connection_driver_in_state`] with both adapter-layer policies stated
+/// explicitly.
+#[must_use]
+pub fn connection_driver_in_state_with_policies(
+    config: ConnectionConfig,
+    role: Role,
+    state: InitialState,
+    policy: AutoResponsePolicy,
+    close_echo: CloseEchoPolicy,
+) -> (CommandSender, ConnectionDriver) {
     let (queue, sender) = CommandQueue::new(&config);
     let core = ConnectionCore::new_in_state(config, role, state);
-    (sender, ConnectionDriver::new(core, queue, policy))
+    (
+        sender,
+        ConnectionDriver::new(core, queue, policy, close_echo),
+    )
 }
 
 /// One transport fact admitted to [`ConnectionDriver::poll`].
@@ -293,6 +387,12 @@ pub struct ConnectionDriver {
     /// (no producer command exists to attach it to); surfaced as the next
     /// [`DriverOutput::Failure`].
     injected_failure: Option<TypedProtocolFailure>,
+    /// The configured close-echo wire composition policy (E5b).
+    close_echo: CloseEchoPolicy,
+    /// Armed for exactly the one core write that answers an inbound close
+    /// consumed while Open — the Q19 echo whose wire bytes
+    /// `WebSocketImpl.close` composes itself (WebSocketImpl.java:482-486).
+    close_echo_armed: bool,
 }
 
 impl ConnectionDriver {
@@ -300,6 +400,7 @@ impl ConnectionDriver {
         core: ConnectionCore,
         commands: CommandQueue,
         policy: AutoResponsePolicy,
+        close_echo: CloseEchoPolicy,
     ) -> ConnectionDriver {
         ConnectionDriver {
             core,
@@ -316,6 +417,8 @@ impl ConnectionDriver {
             policy,
             pending_auto_pongs: VecDeque::new(),
             injected_failure: None,
+            close_echo,
+            close_echo_armed: false,
         }
     }
 
@@ -368,6 +471,8 @@ impl ConnectionDriver {
                 self.write_cursor = 0;
                 self.drop_pending_writes();
                 self.pending_auto_pongs.clear();
+                // The echo whose composition was armed is undeliverable too.
+                self.close_echo_armed = false;
             }
             DriverInput::TransportEof => {
                 self.eof_latched = true;
@@ -463,8 +568,9 @@ impl ConnectionDriver {
                     }
                     DriverInput::Inbound(bytes) => {
                         self.command_turn = true;
+                        let state_before = self.core.state();
                         match self.core.handle(Input::TransportBytes(bytes)) {
-                            Ok(()) => {}
+                            Ok(()) => self.arm_close_echo(state_before),
                             Err(failure) if !failure.code.is_fatal() => {
                                 // Non-fatal backpressure: nothing was
                                 // consumed; the adapter drains (by polling)
@@ -594,11 +700,41 @@ impl ConnectionDriver {
         }
     }
 
+    /// Arm the close-echo recomposition when the core has just consumed an
+    /// inbound close while Open: exactly the Q19 echo arm
+    /// (`process_close_frame`), which is the port-side image of
+    /// `Draft_6455.processFrameClosing` -> `webSocketImpl.close(code, reason,
+    /// true)` (drafts/Draft_6455.java:1062-1071).
+    fn arm_close_echo(&mut self, state_before: ReadyState) {
+        if self.close_echo != CloseEchoPolicy::WebSocketImplComposition
+            || state_before != ReadyState::Open
+            || self.core.state() != ReadyState::Closing
+        {
+            return;
+        }
+        if self
+            .core
+            .close_detail()
+            .is_some_and(|detail| detail.origin == CloseOrigin::Remote)
+        {
+            self.close_echo_armed = true;
+        }
+    }
+
     fn next_output(&mut self) -> DriverOutput<'_> {
         // Writes drain before events so committed wire order can never be
         // reordered past a later step's output (FIFO owner order).
         if self.offered_write.is_none() {
-            self.offered_write = self.core.next_write();
+            let mut write = self.core.next_write();
+            if self.close_echo_armed
+                && let Some(pending) = write.as_mut()
+                && let Some(detail) = self.core.close_detail()
+                && let Some(composed) = compose_close_echo(&pending.bytes, detail)
+            {
+                pending.bytes = composed;
+                self.close_echo_armed = false;
+            }
+            self.offered_write = write;
             self.write_cursor = 0;
         }
         if let Some(write) = self.offered_write.as_ref() {
@@ -669,6 +805,58 @@ fn inject_auto_pong(
             *injected = Some(failure);
         }
     }
+}
+
+/// Recompose the core's Q19 close echo into the frame shipped Java's
+/// `WebSocketImpl.close(code, message, remote)` would actually send.
+///
+/// `encoded` is the core's own wire frame for the echo; `detail` is the
+/// governing REMOTE close the core parsed out of the inbound frame. The
+/// replacement is byte-for-byte what `new CloseFrame(); setReason(reason);
+/// setCode(code); sendFrame(...)` produces (WebSocketImpl.java:482-486 ->
+/// framing/CloseFrame.java:294-302): the low two bytes of the code,
+/// big-endian, then the UTF-8 reason. The original frame's FIN bit and mask
+/// key are reused, so a client-role echo stays masked under the core's own
+/// deterministic key sequence (quirk Q28) instead of a second key source.
+///
+/// Returns `None` — leaving the core's bytes untouched — whenever this is
+/// not that echo (not a close frame, not the constructor payload, an
+/// unreadable header) or the composition is already byte-identical. Java's
+/// `closeFrame.isValid()` (WebSocketImpl.java:485) cannot reject on this
+/// path: the code and reason came from a received `CloseFrame` that already
+/// passed the identical `CloseFrame.isValid` chain at translate time
+/// (drafts/Draft_6455.java:595; framing/CloseFrame.java:226-243), which is
+/// why no rejection arm is invented here.
+fn compose_close_echo(encoded: &[u8], detail: &CloseDetail) -> Option<Vec<u8>> {
+    let cap = u64::try_from(encoded.len()).ok()?;
+    let HeaderDecode::Header(header) = Draft6455::decode_frame_header(encoded, cap).ok()? else {
+        return None;
+    };
+    if header.opcode != Opcode::Closing {
+        return None;
+    }
+    let payload_len = usize::try_from(header.payload_len).ok()?;
+    let end = header.header_len.checked_add(payload_len)?;
+    let mut payload = encoded.get(header.header_len..end)?.to_vec();
+    if let Some(key) = header.mask_key {
+        Draft6455::apply_mask(&mut payload, key);
+    }
+    if payload != CLOSE_CONSTRUCTOR_PAYLOAD {
+        return None;
+    }
+    let code = u16::try_from(detail.code).ok()?;
+    let mut composed = Vec::with_capacity(2 + detail.reason.len());
+    composed.extend_from_slice(&code.to_be_bytes());
+    composed.extend_from_slice(detail.reason.as_bytes());
+    if composed == payload {
+        return None;
+    }
+    Some(Draft6455::encode_frame(
+        header.fin,
+        Opcode::Closing,
+        &composed,
+        header.mask_key,
+    ))
 }
 
 fn consumed(input: &DriverInput<'_>) -> InputDisposition {

@@ -49,7 +49,10 @@ fn echo_round_trip_with_clean_close() {
     let server = server.join().expect("server thread");
 
     // Client: echoed text delivered, then the clean close handshake — the
-    // server's echo close (constructor payload, Q10) completes it.
+    // server's echo close completes it. That echo is composed by the
+    // WebSocketImpl mirror from the received code and reason
+    // (ws_driver::CloseEchoPolicy; WebSocketImpl.java:482-486), so for this
+    // 1000/"done" close it carries 1000 plus the reason.
     assert!(client.clean(), "client: {}", client.summary());
     assert_eq!(client.texts, vec!["ping-hello".to_owned()]);
     let client_close = client.close.expect("client governing close");
@@ -534,4 +537,75 @@ fn sequential_sessions_reuse_the_listener() {
         "session 2: {}",
         reports[1].1.summary()
     );
+}
+
+#[test]
+fn autobahn_7_3_2_wire_reply_is_1002_end_to_end() {
+    // E5b: the WIRE-LEVEL reply the Autobahn 7.3.2 case observes, driven
+    // through the real io_loop over a real socket. The stimulus is exactly
+    // wstest's: a masked close frame whose payload is ONE byte. wstest
+    // requires close code 1002 or a TCP drop; the merged E5 run recorded
+    // FAILED (WRONG CODE, reply close code 1000) here.
+    //
+    // Shipped Java's full stack replies 1002 because
+    // `Draft_6455.processFrameClosing` reads the decoded code (1002 for a
+    // 1-byte payload, framing/CloseFrame.java:252-253) and calls
+    // `webSocketImpl.close(code, reason, true)` (drafts/Draft_6455.java:1067),
+    // which builds its OWN close frame from that code
+    // (WebSocketImpl.java:482-486). That composition lives in the
+    // WebSocketImpl mirror (`ws_driver::CloseEchoPolicy`), never in the
+    // live-oracle-confirmed core.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = server_thread(listener, IoBounds::default());
+
+    let mut stream = TcpStream::connect(address).expect("connect");
+    let (_sender, mut driver) = ws_driver::connection_driver(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Client,
+    );
+    driver
+        .begin_client_handshake("/chat", "localhost")
+        .expect("handshake start");
+    let mut report = ws_testee::io_loop::empty_report();
+    assert!(ws_testee::io_loop::drive_until_open(
+        &mut driver,
+        &mut stream,
+        &IoBounds::default(),
+        &mut report,
+    ));
+
+    // Raw wire from here on: the core would refuse to SEND a malformed
+    // close, so the poisoned frame goes straight onto the socket the way
+    // wstest puts it there (mask key zeroed so the masked byte is literal).
+    use std::io::{Read, Write};
+    stream
+        .write_all(&[0x88, 0x81, 0x00, 0x00, 0x00, 0x00, 0x03])
+        .expect("write the 7.3.2 close frame");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("read timeout");
+    let mut reply = Vec::new();
+    let mut buffer = [0u8; 64];
+    while reply.len() < 4 {
+        match stream.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => reply.extend_from_slice(&buffer[..n]),
+            Err(error) => panic!("reading the server's close reply: {error:?}"),
+        }
+    }
+    drop(stream);
+    let served = server.join().expect("server thread");
+
+    assert_eq!(
+        reply,
+        vec![0x88, 0x02, 0x03, 0xEA],
+        "the server's wire reply must carry close code 1002 (Autobahn 7.3.2)"
+    );
+    let close = served.close.expect("server governing close");
+    assert_eq!(
+        close.code, 1002,
+        "the core's governing close (delta-d509ac38)"
+    );
+    assert!(close.remote);
 }

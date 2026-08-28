@@ -54,6 +54,15 @@ type Definition struct {
 	// AutobahnRefs are nominal Autobahn case anchors (builder sorts them).
 	// No Autobahn execution exists on this plane; see AutobahnResultMarker.
 	AutobahnRefs []string
+	// AutobahnResult overrides AutobahnResultMarker for the records whose
+	// Autobahn refs ARE executed observations rather than nominal anchors
+	// (the E5 fuzzingclient leg against ws-testee, merged at commit
+	// 76158f35, plus the recovered Java server-mode qualification receipt).
+	// Empty means the honest non-execution marker.
+	AutobahnResult string
+	// AutobahnValue overrides AutobahnValueMarker on those same records.
+	// Empty means the unobserved marker.
+	AutobahnValue string
 	// Rationale is the bounded free-text record rationale: divergence,
 	// fidelity evidence, ws_core implementation site, safety note, and the
 	// owner-decision citation.
@@ -132,6 +141,9 @@ func Definitions() []Definition {
 	definitions := handshakeDefinitions()
 	definitions = append(definitions, framingDefinitions()...)
 	definitions = append(definitions, closeControlDefinitions()...)
+	// Appended last so the committed hash chain's existing prefix is
+	// unchanged by the E5/E5b Autobahn follow-ups.
+	definitions = append(definitions, autobahnCompositionDefinitions()...)
 	return definitions
 }
 
