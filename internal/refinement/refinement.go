@@ -350,11 +350,31 @@ func runCargoBuild(ctx context.Context, root, cargo string) (Artifact, error) {
 	if err := canonicalizeMachOUUID(path); err != nil {
 		return Artifact{}, err
 	}
+	if err := adhocSignMachO(ctx, path); err != nil {
+		return Artifact{}, err
+	}
 	raw, err := readBounded(path, 512<<20)
 	if err != nil {
 		return Artifact{}, err
 	}
 	return Artifact{Path: "rust/target/debug/websocket-testee", SHA256: digest(raw), Bytes: int64(len(raw))}, nil
+}
+
+func adhocSignMachO(ctx context.Context, path string) error {
+	command := exec.CommandContext(ctx, "/usr/bin/codesign", "--force", "--sign", "-", path)
+	command.Env = []string{"LANG=C", "LC_ALL=C", "PATH=/usr/bin:/bin"}
+	output := &cappedOutput{limit: 4 << 10}
+	command.Stdout = output
+	command.Stderr = output
+	if err := command.Run(); err != nil {
+		return fmt.Errorf("ad-hoc codesign failed: %w: %s", err, output.value.String())
+	}
+	verify := exec.CommandContext(ctx, "/usr/bin/codesign", "--verify", "--strict", path)
+	verify.Env = []string{"LANG=C", "LC_ALL=C", "PATH=/usr/bin:/bin"}
+	if output, err := verify.CombinedOutput(); err != nil {
+		return fmt.Errorf("ad-hoc signature verification failed: %w: %s", err, string(output))
+	}
+	return nil
 }
 
 func canonicalizeMachOUUID(path string) error {
@@ -876,8 +896,8 @@ func Capture(ctx context.Context, cfg CaptureConfig) (Evidence, error) {
 	if err != nil || !bytes.Equal(beforeLock, afterLock) {
 		return Evidence{}, errors.New("Cargo.lock drift")
 	}
-	beforeSubject := Subject{Commit: cfg.BeforeCommit, Tree: beforeResolved, RustTree: beforeRust, CargoLock: digest(beforeLock), Binary: beforeBinary.SHA256, BinarySize: beforeBinary.Bytes, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1"}
-	afterSubject := Subject{Commit: cfg.AfterCommit, Tree: afterTree, RustTree: afterRust, CargoLock: digest(afterLock), Binary: afterBinary.SHA256, BinarySize: afterBinary.Bytes, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1"}
+	beforeSubject := Subject{Commit: cfg.BeforeCommit, Tree: beforeResolved, RustTree: beforeRust, CargoLock: digest(beforeLock), Binary: beforeBinary.SHA256, BinarySize: beforeBinary.Bytes, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1_ADHOC"}
+	afterSubject := Subject{Commit: cfg.AfterCommit, Tree: afterTree, RustTree: afterRust, CargoLock: digest(afterLock), Binary: afterBinary.SHA256, BinarySize: afterBinary.Bytes, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1_ADHOC"}
 
 	beforeRows, err := differential.ReplayRustPublic(ctx, differential.RustReplayConfig{RepositoryRoot: beforeRoot, Executable: filepath.Join(beforeRoot, beforeBinary.Path), ScenarioTimeout: 5 * time.Second, SuiteTimeout: 15 * time.Minute})
 	if err != nil {
@@ -958,7 +978,7 @@ func validateStatic(e Evidence) error {
 		return errors.New("subject identity drift")
 	}
 	for _, subject := range []Subject{e.Before, e.After} {
-		if !digestPattern.MatchString(subject.RustTree) || !digestPattern.MatchString(subject.CargoLock) || !digestPattern.MatchString(subject.Binary) || subject.BinarySize <= 0 || subject.BinaryCanonicalization != "MACHO_LC_UUID_SHA256_V1" {
+		if !digestPattern.MatchString(subject.RustTree) || !digestPattern.MatchString(subject.CargoLock) || !digestPattern.MatchString(subject.Binary) || subject.BinarySize <= 0 || subject.BinaryCanonicalization != "MACHO_LC_UUID_SHA256_V1_ADHOC" {
 			return errors.New("subject artifact identity drift")
 		}
 	}
