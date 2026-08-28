@@ -3,10 +3,10 @@
   "schema": "vjwp-cutover-phase-receipt/1.0.0",
   "story_id": "US-026",
   "phase": "rollback",
-  "contract_sha256": "sha256:326ff523cb62f93e6ed48077f62a3a902f3230dd8d8f6c12b3e3ac01e00ce27b",
+  "contract_sha256": "sha256:ea342692911c716769bd3436523fd6aa08334137bdf21c66c364eb00831164fa",
   "fixture_sha256": "sha256:e21e66c0760e693c247fc6c5fbf1592e5a81ac675775b4220ef0b24b2a942938",
   "predecessor_path": "cutover/canary.json",
-  "predecessor_sha256": "sha256:b92da8d95712307186ee8eca8a4da4b200e6bee11d888d8c050fc39b712bfd11",
+  "predecessor_sha256": "sha256:52a48575396d531ede45d7407ed790c07840fcff1fcf3a7eaab548c8d1864d37",
   "subject": {
     "commit": "84935acb5665ed50bd5eb718e918ed19adfcc646",
     "tree": "838fd4f551312447af3be1958916a1c5c2b5c885"

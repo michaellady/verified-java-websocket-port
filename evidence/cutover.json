@@ -9,27 +9,27 @@
   "artifacts": [
     {
       "path": "cutover/contract.json",
-      "sha256": "sha256:326ff523cb62f93e6ed48077f62a3a902f3230dd8d8f6c12b3e3ac01e00ce27b",
-      "bytes": 10388
+      "sha256": "sha256:ea342692911c716769bd3436523fd6aa08334137bdf21c66c364eb00831164fa",
+      "bytes": 10782
     },
     {
       "path": "cutover/shadow.json",
-      "sha256": "sha256:37e7969b9837041ed92a54742a1dff7ecfe61244644c20128fb6180c223d2c34",
-      "bytes": 23551
+      "sha256": "sha256:c673f2630335381a7a7b8a3ccebbb2837826434b3066d94b98c1c6d747ca4257",
+      "bytes": 23552
     },
     {
       "path": "cutover/canary.json",
-      "sha256": "sha256:b92da8d95712307186ee8eca8a4da4b200e6bee11d888d8c050fc39b712bfd11",
-      "bytes": 30214
+      "sha256": "sha256:52a48575396d531ede45d7407ed790c07840fcff1fcf3a7eaab548c8d1864d37",
+      "bytes": 30215
     },
     {
       "path": "cutover/rollback.json",
-      "sha256": "sha256:9cd2094138cbe8d7d351efe4e7ca35f65d99eb6a700b1160cc167b765d563265",
+      "sha256": "sha256:d6c64c90c6e52af2b2556ce55d45b90974abf7207012005f2ad0247674c780f2",
       "bytes": 10303
     },
     {
       "path": "cutover/soak.json",
-      "sha256": "sha256:454b9e86881efac8f13ab73b758440eb800b4d768c69c33f5633e174d1401697",
+      "sha256": "sha256:5bdabb03e4be225b1171e9e9357fcf5a0f28660dfc180a1ca536455f2ca7fb87",
       "bytes": 15002
     }
   ],

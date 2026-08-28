@@ -17,6 +17,7 @@ var canonicalInputs = []inputBinding{
 	{Path: "assurance/candidate-manifest.json", SHA256: "sha256:ab24fb6cbc3b811ef1d08c46c3c1b4925b03595836f5ccd65f0858fea66c9925", Bytes: 227339},
 	{Path: "evidence/refinement-replay.json", SHA256: "sha256:3482e63dd0b5e31a244bdc82d5cd491ebeb3c22e5b345b434d709d1d27463853", Bytes: 74487},
 	{Path: "evidence/performance.json", SHA256: "sha256:645b18936d8939fdbf21c9877f29f7627c7a40aae7f3ab05bfd6129a0c10cd22", Bytes: 2675},
+	{Path: "evidence/intake/java-intake-manifest.json", SHA256: "sha256:fa21240329e3eea761743adcb7a0bb30ae966c307b7da4df49891385a9439b71", Bytes: 12002},
 	{Path: "java-oracle/pom.xml", SHA256: "sha256:607a3de79e47d3a68564ca5c64da649b90a6febe3bf9f8dcdfe98a2c2e12b5b3", Bytes: 4335},
 }
 
@@ -29,18 +30,11 @@ func openRepository(path string) (*secureRepository, error) {
 	if err != nil {
 		return nil, err
 	}
-	info, err := os.Lstat(absolute)
-	if err != nil {
-		return nil, fail(FailureInputAbsent, "repository root: %v", err)
-	}
-	if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
-		return nil, fail(FailureInputSymlinkOrNonregular, "repository root is not a regular directory")
-	}
-	canonical, err := filepath.EvalSymlinks(absolute)
+	info, err := validateRepositoryRootAncestry(absolute)
 	if err != nil {
 		return nil, err
 	}
-	root, err := os.OpenRoot(canonical)
+	root, err := os.OpenRoot(absolute)
 	if err != nil {
 		return nil, err
 	}
@@ -50,6 +44,35 @@ func openRepository(path string) (*secureRepository, error) {
 		return nil, fail(FailureInputSymlinkOrNonregular, "repository root changed while opening")
 	}
 	return &secureRepository{root: root}, nil
+}
+
+func validateRepositoryRootAncestry(absolute string) (os.FileInfo, error) {
+	clean := filepath.Clean(absolute)
+	volume := filepath.VolumeName(clean)
+	remainder := strings.TrimPrefix(clean[len(volume):], string(os.PathSeparator))
+	current := volume + string(os.PathSeparator)
+	var final os.FileInfo
+	for _, component := range strings.Split(remainder, string(os.PathSeparator)) {
+		if component == "" {
+			continue
+		}
+		current = filepath.Join(current, component)
+		info, err := os.Lstat(current)
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil, fail(FailureInputAbsent, "repository root component %s is absent", current)
+			}
+			return nil, fail(FailureInputSymlinkOrNonregular, "repository root component %s cannot be validated: %v", current, err)
+		}
+		if info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+			return nil, fail(FailureInputSymlinkOrNonregular, "repository root component %s is not a regular directory", current)
+		}
+		final = info
+	}
+	if final == nil {
+		final, _ = os.Lstat(clean)
+	}
+	return final, nil
 }
 
 func (repository *secureRepository) close() { _ = repository.root.Close() }
@@ -122,6 +145,17 @@ func canonicalInputBindings(repository *secureRepository) ([]inputBinding, error
 		}
 		if got := digest(raw); got != expected.SHA256 || len(raw) != expected.Bytes {
 			return nil, fail(FailureInputDigestMismatch, "%s identity is %s/%d, want %s/%d", expected.Path, got, len(raw), expected.SHA256, expected.Bytes)
+		}
+		if expected.Path == "evidence/intake/java-intake-manifest.json" {
+			var manifest struct {
+				Source struct {
+					SHA256               string `json:"sha256"`
+					ProductionSourceRoot string `json:"production_source_root"`
+				} `json:"source"`
+			}
+			if err := json.Unmarshal(raw, &manifest); err != nil || manifest.Source.SHA256 != "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4" || manifest.Source.ProductionSourceRoot != "src/main/java" {
+				return nil, fail(FailureInputDigestMismatch, "%s does not declare the bound Java source", expected.Path)
+			}
 		}
 		bindings[i] = expected
 	}

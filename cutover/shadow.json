@@ -3,10 +3,10 @@
   "schema": "vjwp-cutover-phase-receipt/1.0.0",
   "story_id": "US-026",
   "phase": "shadow",
-  "contract_sha256": "sha256:326ff523cb62f93e6ed48077f62a3a902f3230dd8d8f6c12b3e3ac01e00ce27b",
+  "contract_sha256": "sha256:ea342692911c716769bd3436523fd6aa08334137bdf21c66c364eb00831164fa",
   "fixture_sha256": "sha256:e21e66c0760e693c247fc6c5fbf1592e5a81ac675775b4220ef0b24b2a942938",
   "predecessor_path": "cutover/contract.json",
-  "predecessor_sha256": "sha256:326ff523cb62f93e6ed48077f62a3a902f3230dd8d8f6c12b3e3ac01e00ce27b",
+  "predecessor_sha256": "sha256:ea342692911c716769bd3436523fd6aa08334137bdf21c66c364eb00831164fa",
   "subject": {
     "commit": "84935acb5665ed50bd5eb718e918ed19adfcc646",
     "tree": "838fd4f551312447af3be1958916a1c5c2b5c885"
@@ -304,13 +304,13 @@
         {
           "request_id": "request-02",
           "java_semantic_sha256": "sha256:2d55db4e6752d9fd5291948a415cf2367f73d9a4de699c606bad54e46cb6a83c",
-          "rust_semantic_sha256": "sha256:2d55db4e6752d9fd5291948a415cf2367f73d9a4de699c606bad54e46cb6a83c",
+          "rust_semantic_sha256": "sha256:a62be09dc2230ed8cd793ca798455cbda552678726b7ff76ade224c24651e7d4",
           "java_effect_sha256": "sha256:227de33de199cfd9d5106da1e84cf605a0d9ec0bd6020b84317e73ad0a448771",
           "rust_effect_sha256": "sha256:227de33de199cfd9d5106da1e84cf605a0d9ec0bd6020b84317e73ad0a448771",
           "cpu_fixture_units": 12,
           "memory_fixture_units": 102,
           "backpressure_units": 2,
-          "equal": true
+          "equal": false
         },
         {
           "request_id": "request-03",

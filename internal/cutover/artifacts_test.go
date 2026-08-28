@@ -173,6 +173,91 @@ func TestCanonicalFixtureHasExactClosedTracesAndAbort(t *testing.T) {
 	}
 }
 
+func TestSeededMismatchIsOneConsistentUnequalSemanticResult(t *testing.T) {
+	root := fixtureRoot(t)
+	if _, err := Capture(root); err != nil {
+		t.Fatal(err)
+	}
+	var unequal []comparison
+	for _, phase := range []string{"shadow", "canary"} {
+		raw, err := os.ReadFile(filepath.Join(root, "cutover", phase+".json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var receipt phaseReceipt
+		if err := json.Unmarshal(raw, &receipt); err != nil {
+			t.Fatal(err)
+		}
+		var phaseUnequal []comparison
+		for _, observed := range receipt.Runs[1].Comparisons {
+			if !observed.Equal || observed.JavaSemanticSHA256 != observed.RustSemanticSHA256 {
+				phaseUnequal = append(phaseUnequal, observed)
+			}
+		}
+		if len(phaseUnequal) != 1 {
+			t.Fatalf("%s mismatch comparison count = %d", phase, len(phaseUnequal))
+		}
+		unequal = append(unequal, phaseUnequal[0])
+	}
+	if unequal[0] != unequal[1] {
+		t.Fatalf("shadow/canary mismatch differs: %+v / %+v", unequal[0], unequal[1])
+	}
+	canaryRaw, err := os.ReadFile(filepath.Join(root, "cutover", "canary.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var canary phaseReceipt
+	if err := json.Unmarshal(canaryRaw, &canary); err != nil {
+		t.Fatal(err)
+	}
+	attempt := canary.Runs[1].FailedAttempts[0]
+	if attempt.RequestID != unequal[0].RequestID || attempt.ExpectedSemantic != unequal[0].JavaSemanticSHA256 || attempt.ObservedSemantic != unequal[0].RustSemanticSHA256 {
+		t.Fatalf("failed attempt is not the compared mismatch: %+v / %+v", attempt, unequal[0])
+	}
+}
+
+func TestFallbackBindsDeclaredJavaIntakeSource(t *testing.T) {
+	root := fixtureRoot(t)
+	if _, err := Capture(root); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, "cutover", "contract.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contract map[string]any
+	if err := json.Unmarshal(raw, &contract); err != nil {
+		t.Fatal(err)
+	}
+	fallback := contract["java_fallback"].(map[string]any)
+	if fallback["source_intake_path"] != "evidence/intake/java-intake-manifest.json" ||
+		fallback["source_root"] != "src/main/java" ||
+		fallback["source_identity_sha256"] != "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4" ||
+		fallback["source_intake_sha256"] != "sha256:fa21240329e3eea761743adcb7a0bb30ae966c307b7da4df49891385a9439b71" {
+		t.Fatalf("fallback source binding = %+v", fallback)
+	}
+	for _, binding := range contract["authoritative_inputs"].([]any) {
+		input := binding.(map[string]any)
+		if input["path"] == "evidence/intake/java-intake-manifest.json" {
+			root = fixtureRoot(t)
+			manifestPath := filepath.Join(root, "evidence", "intake", "java-intake-manifest.json")
+			manifest, err := os.ReadFile(manifestPath)
+			if err != nil {
+				t.Fatal(err)
+			}
+			manifest = bytes.Replace(manifest, []byte("sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4"), []byte("sha256:0000000000000000000000000000000000000000000000000000000000000001"), 1)
+			if err := os.WriteFile(manifestPath, manifest, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := Capture(root); failureCode(err) != FailureInputDigestMismatch {
+				t.Fatalf("mutated Java source declaration error = %v", err)
+			}
+			return
+		}
+	}
+	t.Fatal("Java intake manifest is not an authoritative input")
+}
+
 func equalStrings(left, right []string) bool {
 	if len(left) != len(right) {
 		return false

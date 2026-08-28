@@ -29,6 +29,11 @@
       "bytes": 2675
     },
     {
+      "path": "evidence/intake/java-intake-manifest.json",
+      "sha256": "sha256:fa21240329e3eea761743adcb7a0bb30ae966c307b7da4df49891385a9439b71",
+      "bytes": 12002
+    },
+    {
       "path": "java-oracle/pom.xml",
       "sha256": "sha256:607a3de79e47d3a68564ca5c64da649b90a6febe3bf9f8dcdfe98a2c2e12b5b3",
       "bytes": 4335
@@ -205,7 +210,10 @@
   },
   "java_fallback": {
     "route_target": "java-oracle",
-    "source_identity_sha256": "sha256:ab24fb6cbc3b811ef1d08c46c3c1b4925b03595836f5ccd65f0858fea66c9925",
+    "source_intake_path": "evidence/intake/java-intake-manifest.json",
+    "source_intake_sha256": "sha256:fa21240329e3eea761743adcb7a0bb30ae966c307b7da4df49891385a9439b71",
+    "source_root": "src/main/java",
+    "source_identity_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
     "build_input_path": "java-oracle/pom.xml",
     "build_input_sha256": "sha256:607a3de79e47d3a68564ca5c64da649b90a6febe3bf9f8dcdfe98a2c2e12b5b3",
     "executable_presence_fact": "SOURCE_AND_BUILD_INPUT_RETAINED_EXECUTABLE_NOT_DRILLED",

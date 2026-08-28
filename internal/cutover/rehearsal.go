@@ -98,6 +98,9 @@ type fixtureSpec struct {
 
 type javaFallbackFact struct {
 	RouteTarget                   string `json:"route_target"`
+	SourceIntakePath              string `json:"source_intake_path"`
+	SourceIntakeSHA256            string `json:"source_intake_sha256"`
+	SourceRoot                    string `json:"source_root"`
 	SourceIdentitySHA256          string `json:"source_identity_sha256"`
 	BuildInputPath                string `json:"build_input_path"`
 	BuildInputSHA256              string `json:"build_input_sha256"`
@@ -398,30 +401,38 @@ func effectLedger(fixture fixtureSpec, mismatch bool) ([]effectRecord, int, stri
 }
 
 func phaseRuns(phase string, fixture fixtureSpec) []phaseRun {
-	comparisons := comparisonsFor(fixture)
+	nominalComparisons := comparisonsFor(fixture)
 	ids := requestIDs(fixture)
 	nominalEffects, nominalDuplicates, _ := effectLedger(fixture, false)
 	mismatchEffects, mismatchDuplicates, mismatchID := effectLedger(fixture, true)
 	mismatchExpected := ""
+	mismatchObserved := digest([]byte("seeded-mismatch:" + mismatchID))
+	mismatchComparisons := append([]comparison(nil), nominalComparisons...)
 	for _, request := range fixture.Requests {
 		if request.RequestID == mismatchID {
 			mismatchExpected = request.SemanticSHA256
 			break
 		}
 	}
-	mismatchObserved := digest([]byte("seeded-mismatch:" + mismatchID))
+	for i := range mismatchComparisons {
+		if mismatchComparisons[i].RequestID == mismatchID {
+			mismatchComparisons[i].RustSemanticSHA256 = mismatchObserved
+			mismatchComparisons[i].Equal = false
+			break
+		}
+	}
 	nominal := phaseRun{
 		RunID: "nominal", Outcome: "REHEARSAL_MECHANICS_COMPLETE", States: append([]string(nil), nominalTrace...),
 		RequestIDs: ids, SelectedRequestIDs: append([]string(nil), fixture.RustSelectedRequestIDs...),
 		RustAttemptedRequestIDs: append([]string(nil), fixture.RustSelectedRequestIDs...),
-		Comparisons:             comparisons, FailedAttempts: []failedAttempt{}, RollbackActions: []string{}, Ticks: []tickRecord{},
+		Comparisons:             nominalComparisons, FailedAttempts: []failedAttempt{}, RollbackActions: []string{}, Ticks: []tickRecord{},
 		CommittedFixtureEffects: nominalEffects, ExpectedEffectCount: 15,
 		DuplicateEffectsSuppressed: nominalDuplicates, SoakResult: "NOT_APPLICABLE_TO_PHASE",
 	}
 	mismatch := phaseRun{
 		RunID: "seeded-mismatch", Outcome: "FALLBACK_RECONCILED", States: append([]string(nil), mismatchTrace...),
 		RequestIDs: ids, SelectedRequestIDs: append([]string(nil), fixture.RustSelectedRequestIDs...),
-		RustAttemptedRequestIDs: []string{mismatchID}, Comparisons: comparisons,
+		RustAttemptedRequestIDs: []string{mismatchID}, Comparisons: mismatchComparisons,
 		FailedAttempts: []failedAttempt{{
 			RequestID: mismatchID, Route: "rust", Reason: "SEMANTIC_MISMATCH",
 			ExpectedSemantic: mismatchExpected, ObservedSemantic: mismatchObserved,
@@ -472,14 +483,23 @@ func deriveArtifacts(inputs []inputBinding) (artifactSet, error) {
 	if err != nil {
 		return artifactSet{}, err
 	}
+	javaIntake, err := inputByPath(inputs, "evidence/intake/java-intake-manifest.json")
+	if err != nil {
+		return artifactSet{}, err
+	}
+	javaBuild, err := inputByPath(inputs, "java-oracle/pom.xml")
+	if err != nil {
+		return artifactSet{}, err
+	}
 	contract := contractDocument{
 		Schema: "../schemas/cutover-rehearsal-contract-1.0.0.schema.json", SchemaID: "vjwp-cutover-rehearsal-contract/1.0.0",
 		StoryID: "US-026", ContractID: "us026.fixture-only.disposable-rehearsal",
 		Subject: subjectIdentity{Commit: SubjectCommit, Tree: SubjectTree}, AuthoritativeInputs: inputs,
 		RejectedAuthorities: []string{"assurance/developer-tools/cutover-contract.json"}, FixtureSHA256: digest(fixtureRaw), Fixture: fixture,
 		JavaFallback: javaFallbackFact{
-			RouteTarget: "java-oracle", SourceIdentitySHA256: inputs[1].SHA256,
-			BuildInputPath: "java-oracle/pom.xml", BuildInputSHA256: inputs[4].SHA256,
+			RouteTarget: "java-oracle", SourceIntakePath: javaIntake.Path, SourceIntakeSHA256: javaIntake.SHA256,
+			SourceRoot: "src/main/java", SourceIdentitySHA256: "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+			BuildInputPath: javaBuild.Path, BuildInputSHA256: javaBuild.SHA256,
 			ExecutablePresenceFact: "SOURCE_AND_BUILD_INPUT_RETAINED_EXECUTABLE_NOT_DRILLED", JavaFallbackExecutableDrilled: false,
 		},
 		CanonicalReadinessLadder: append([]string(nil), canonicalReadinessLadder...),
@@ -537,4 +557,13 @@ func deriveArtifacts(inputs []inputBinding) (artifactSet, error) {
 	}
 	artifacts = append(artifacts, namedArtifact{path: "evidence/cutover.json", bytes: evidenceRaw})
 	return artifactSet{artifacts: artifacts, summary: summary}, nil
+}
+
+func inputByPath(inputs []inputBinding, path string) (inputBinding, error) {
+	for _, input := range inputs {
+		if input.Path == path {
+			return input, nil
+		}
+	}
+	return inputBinding{}, fail(FailureInputAbsent, "authoritative input %s is absent", path)
 }

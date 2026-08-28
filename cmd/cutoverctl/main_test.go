@@ -56,12 +56,16 @@ func cliFixtureRoot(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := t.TempDir()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	for _, relative := range []string{
 		"evidence/intake/cutover-contract.json",
 		"assurance/candidate-manifest.json",
 		"evidence/refinement-replay.json",
 		"evidence/performance.json",
+		"evidence/intake/java-intake-manifest.json",
 		"java-oracle/pom.xml",
 	} {
 		content, err := os.ReadFile(filepath.Join(repositoryRoot, filepath.FromSlash(relative)))

@@ -15,12 +15,13 @@ var canonicalInputPaths = []string{
 	"assurance/candidate-manifest.json",
 	"evidence/refinement-replay.json",
 	"evidence/performance.json",
+	"evidence/intake/java-intake-manifest.json",
 	"java-oracle/pom.xml",
 }
 
 func fixtureRoot(t *testing.T) string {
 	t.Helper()
-	root := t.TempDir()
+	root := canonicalTempDir(t)
 	for _, relative := range canonicalInputPaths {
 		source := filepath.Join(repositoryRootForTests(t), filepath.FromSlash(relative))
 		content, err := os.ReadFile(source)
@@ -34,6 +35,15 @@ func fixtureRoot(t *testing.T) string {
 		if err := os.WriteFile(target, content, 0o600); err != nil {
 			t.Fatal(err)
 		}
+	}
+	return root
+}
+
+func canonicalTempDir(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
 	}
 	return root
 }
@@ -168,6 +178,43 @@ func TestCaptureRejectsSymlinkAndStrandedLock(t *testing.T) {
 	}
 	if _, err := Capture(root); failureCode(err) != FailureCaptureLocked {
 		t.Fatalf("stranded lock error = %v", err)
+	}
+}
+
+func TestCaptureRejectsHostileRepositoryRootAncestry(t *testing.T) {
+	realRoot := fixtureRoot(t)
+	finalRootSymlink := filepath.Join(canonicalTempDir(t), "repository-link")
+	if err := os.Symlink(realRoot, finalRootSymlink); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Capture(finalRootSymlink); failureCode(err) != FailureInputSymlinkOrNonregular {
+		t.Fatalf("root symlink error = %v", err)
+	}
+
+	parent := filepath.Dir(realRoot)
+	aliasParent := filepath.Join(canonicalTempDir(t), "root-parent-link")
+	if err := os.Symlink(parent, aliasParent); err != nil {
+		t.Fatal(err)
+	}
+	viaAncestorSymlink := filepath.Join(aliasParent, filepath.Base(realRoot))
+	if _, err := Capture(viaAncestorSymlink); failureCode(err) != FailureInputSymlinkOrNonregular {
+		t.Fatalf("ancestor symlink error = %v", err)
+	}
+
+	nondirectoryParent := filepath.Join(canonicalTempDir(t), "not-a-directory")
+	if err := os.WriteFile(nondirectoryParent, []byte("regular file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Capture(filepath.Join(nondirectoryParent, "repository")); failureCode(err) != FailureInputSymlinkOrNonregular {
+		t.Fatalf("nondirectory ancestor error = %v", err)
+	}
+
+	regularRoot := filepath.Join(canonicalTempDir(t), "regular-root")
+	if err := os.WriteFile(regularRoot, []byte("regular file"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Capture(regularRoot); failureCode(err) != FailureInputSymlinkOrNonregular {
+		t.Fatalf("non-directory root error = %v", err)
 	}
 }
 
