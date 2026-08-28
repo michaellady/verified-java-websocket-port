@@ -72,3 +72,44 @@ impl ContinuousFrame {
         (opcode, assembled)
     }
 }
+
+#[cfg(test)]
+mod accumulator_tests {
+    use super::*;
+
+    /// E1 mutation-campaign survivor kill (RED-first against
+    /// `m016-stale-fragment-retained`, the US-016 AC5 "stale-fragment"
+    /// defect class): `finish` must hand the accumulated bytes OUT, not copy
+    /// them out. A `finish` that clones instead of taking leaves the whole
+    /// delivered message retained behind a closed sequence — invisible to
+    /// every event, count, and corpus transcript today only because the next
+    /// `start` happens to overwrite the buffer, so nothing but this seam can
+    /// observe it. The retention bound is the property, so it is pinned here.
+    #[test]
+    fn finish_releases_the_accumulated_bytes_leaving_no_stale_retention() {
+        let mut accumulator = ContinuousFrame::default();
+        accumulator.start(Opcode::Binary, vec![1, 2, 3]);
+        accumulator.append(&[4, 5]);
+        assert_eq!(accumulator.buffered_len(), 5, "five bytes accumulated");
+        assert_eq!(accumulator.active_opcode(), Some(Opcode::Binary));
+
+        let (opcode, assembled) = accumulator.finish(&[6]);
+        assert_eq!(opcode, Opcode::Binary);
+        assert_eq!(assembled, vec![1, 2, 3, 4, 5, 6]);
+        assert_eq!(
+            accumulator.active_opcode(),
+            None,
+            "the sequence is closed after finish"
+        );
+        assert_eq!(
+            accumulator.buffered_len(),
+            0,
+            "finish must leave ZERO retained bytes; a stale buffer survived delivery"
+        );
+        assert_eq!(
+            accumulator,
+            ContinuousFrame::default(),
+            "a finished accumulator is indistinguishable from a fresh one"
+        );
+    }
+}
