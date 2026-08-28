@@ -22,6 +22,7 @@ name = "ws-oracle-harness"
 version = "0.0.0"
 dependencies = [
  "ws-core",
+ "ws-driver",
 ]
 
 [[package]]

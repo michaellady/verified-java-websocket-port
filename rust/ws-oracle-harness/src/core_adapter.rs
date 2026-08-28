@@ -26,17 +26,38 @@
 //!    `new Execution(...)`: construction failure (Java's
 //!    `NoClassDefFoundError` path) precedes ALL step validation.
 //!
-//! ## This round: WIRED to the real `ws_core` ConnectionCore
+//! ## This round: ROUTED THROUGH the shared `ws_driver` single owner
 //!
-//! Both US-009 lanes are merged on this branch, so [`active_core`] now
-//! answers with [`WiredCore`]: every scenario constructs a real
-//! [`ws_core::connection::ConnectionCore`] via `new_in_state` (the corpus
-//! `initial_state` seam), maps steps onto [`ws_core::connection::Input`]
-//! values (`bytes` -> `TransportBytes`, `eof` -> `TransportEof`, send
-//! actions -> `LocalCommand`), drains the core's typed event/write queues
-//! after every input, and projects the drained events 1:1 into the
-//! transcript vocabulary through [`crate::observe`]. Failure mapping is
-//! faithful and honest:
+//! US-017 AC5 requires the conformance AND differential adapters to invoke
+//! the same driver and core, so [`active_core`] answers with [`WiredCore`],
+//! which no longer holds a [`ws_core::connection::ConnectionCore`] at all.
+//! Every scenario builds the core INSIDE a
+//! [`ws_driver::ConnectionDriver`] (`connection_driver_in_state_with_policies`,
+//! the corpus `initial_state` seam) and reaches it only through the
+//! driver's two seams:
+//!
+//! - producer commands (`send_text`/`send_binary`/`send_ping`/`send_pong`/
+//!   `send_close`/`send_fragment`) go through the bounded
+//!   [`ws_core::CommandSender`] and come back as the driver's exactly-once
+//!   [`ws_driver::CommandDisposition`];
+//! - transport facts (`bytes` -> [`ws_driver::DriverInput::Inbound`],
+//!   `eof` -> [`ws_driver::DriverInput::TransportEof`]) and the ordered
+//!   output stream go through [`ws_driver::ConnectionDriver::poll`].
+//!
+//! The harness stays a PURE PROJECTOR: it drains the owner's ordered
+//! outputs, acknowledges every offered write in full without recording it
+//! (the transcript carries no raw-wire stream), and projects the drained
+//! semantic events 1:1 into the transcript vocabulary through
+//! [`crate::observe`]. No protocol decision is taken here — behaviour lives
+//! in `ws_core` and `ws_driver`.
+//!
+//! One MEASURED DIVERGENCE this routing surfaces is documented on
+//! `<WiredSession as ScenarioSession>::eof` and pinned by
+//! `surfaced_divergence_driver_absorbs_eof_after_closed_where_core_refuses`:
+//! the owner absorbs a transport EOF the core would refuse once the core is
+//! already `Closed`. It is reported to the owner, never synthesized around.
+//!
+//! Failure mapping is faithful and honest:
 //!
 //! - an oracle-coded [`ws_core::error::TypedProtocolFailure`] becomes the
 //!   failure envelope with its exact wire code and close code;
@@ -568,12 +589,118 @@ pub const UNIMPLEMENTED_DETAIL: &str = "ws_core refused this input honestly: its
 /// wear an oracle code).
 pub const BACKPRESSURE_CODE: &str = "CORE_BACKPRESSURE_UNDRAINED";
 
+/// The honest non-oracle failure code for a producer command the DRIVER
+/// disposed as [`ws_driver::CommandDisposition::TerminalRejected`]: the
+/// connection had already converged on its absorbing `Closed` state and
+/// delivered its once-only terminal, so the driver refused the command
+/// WITHOUT ever handing it to the core. No oracle expectation exists for
+/// that disposition — Java's own `Execution.requireOpen` would have raised
+/// `STATE_VIOLATION` — so the harness reports the driver's real disposition
+/// and lets the corpus fail loudly rather than synthesizing the Java code
+/// the core never produced.
+///
+/// Unreachable on the 74-case public corpus (no scenario has a step after
+/// the core reaches `Closed`); retained as the fail-closed report for the
+/// tiers that might.
+pub const TERMINAL_REJECTED_CODE: &str = "DRIVER_TERMINAL_REJECTED";
+
+/// Stable detail for [`TERMINAL_REJECTED_CODE`] (constant, so reruns stay
+/// byte-identical).
+pub const TERMINAL_REJECTED_DETAIL: &str = "ws_driver refused this command as terminal-rejected: \
+     the connection had already converged on Closed and delivered its once-only terminal, so the \
+     command never reached ws_core and no core-produced typed failure exists; the harness reports \
+     the driver's real disposition instead of fabricating Java's STATE_VIOLATION";
+
+/// The honest non-oracle failure code for a driver input the single owner
+/// never consumed: a deferral that survived the drain-and-retry the core's
+/// backpressure contract prescribes, or a rejected write acknowledgement.
+/// A seam contract bug, reported truthfully rather than dressed in an
+/// oracle code.
+pub const INPUT_UNCONSUMED_CODE: &str = "DRIVER_INPUT_UNCONSUMED";
+
+/// The honest non-oracle failure code for a bounded-command-channel refusal
+/// ([`ws_core::connection::CommandRefused`]). The harness is a single
+/// producer that submits one command at a time against a channel whose
+/// capacity is 64, so neither `Full` nor `Contended` is reachable here; a
+/// refusal would be a seam contract bug and is reported as one.
+pub const COMMAND_REFUSED_CODE: &str = "DRIVER_COMMAND_REFUSED";
+
+/// The corpus-faithful automatic-response policy — and the reason it is
+/// [`ws_driver::AutoResponsePolicy::Disabled`] rather than the driver's
+/// shipped-Java default.
+///
+/// This is a DELIBERATE, DISCLOSED scoping decision, not a way to satisfy
+/// AC5's letter while defeating its purpose. The oracle that produced the
+/// 74-case transcript is itself a `WebSocketImpl` + `Draft_6455` stack
+/// (`java-oracle/src/main/java/OracleEngine.java:303-307`), but its
+/// listener `OracleListener` OVERRIDES `onWebsocketPing` to record the
+/// event and nothing else (`OracleEngine.java:800-803`) — it never chains
+/// to `WebSocketAdapter.onWebsocketPing`, which is where shipped Java's
+/// `new PongFrame((PingFrame) f)` reply comes from
+/// (`WebSocketAdapter.java:84-86`). The corpus oracle therefore ran with
+/// the listener auto-pong suppressed, and its transcript contains no
+/// answering pong for any of its four inbound pings (`us005.pub.0002`,
+/// `0023`, `0040`, `0071`).
+///
+/// [`ws_driver::AutoResponsePolicy::Disabled`] is documented as exactly
+/// that configuration — "a custom `onWebsocketPing` override in Java
+/// vocabulary". Selecting it makes the Rust driver mirror the SAME listener
+/// the oracle ran, which is what scoring against that oracle means. It
+/// scopes ONE configurable policy of the driver; every other driver
+/// behaviour — the bounded command channel, the single-owner turn, the
+/// inbound/command fairness alternation, partial-write progress, EOF
+/// latching, terminal convergence and the once-only terminal delivery —
+/// is exercised unchanged on every corpus scenario. The auto-pong itself
+/// keeps its own coverage in `ws-driver/tests/auto_response.rs` and in the
+/// US-018 cross-peer exam.
+pub const CORPUS_AUTO_RESPONSE: ws_driver::AutoResponsePolicy =
+    ws_driver::AutoResponsePolicy::Disabled;
+
+/// The corpus-faithful close-echo composition policy, chosen for the same
+/// layering reason as [`CORPUS_AUTO_RESPONSE`]: the oracle answers an
+/// inbound close in `Execution.processInbound` by re-emitting the RECEIVED
+/// frame object, `emitOutbound(List.of(frame), index, "echo_close")`
+/// (`OracleEngine.java:382`), and never calls `WebSocketImpl.close`. That
+/// is the Draft-level echo [`ws_driver::CloseEchoPolicy::CoreDraftEcho`]
+/// names.
+///
+/// Measured, not assumed: the choice is transcript-INVISIBLE either way.
+/// [`ws_driver::CloseEchoPolicy::WebSocketImplComposition`] rewrites only
+/// `ws_core::TransportWrite::bytes`, and this harness projects no raw-wire
+/// stream (`WiredSession::run` acknowledges every offered write in full and
+/// records none of it), so both settings produce a byte-identical
+/// transcript. `close_echo_policy_is_transcript_invisible` pins that.
+pub const CORPUS_CLOSE_ECHO: ws_driver::CloseEchoPolicy = ws_driver::CloseEchoPolicy::CoreDraftEcho;
+
 /// The active, wired candidate: constructs one real
 /// [`ws_core::connection::ConnectionCore`] per scenario in the corpus
-/// `initial_state` (the `new_in_state` oracle-harness seam) with the
-/// scenario's role and limits.
-#[derive(Clone, Copy, Debug, Default)]
-pub struct WiredCore;
+/// `initial_state`, OWNED BY the shared [`ws_driver::ConnectionDriver`]
+/// (US-017 AC5: the differential adapter invokes the same driver and core
+/// the conformance adapters do), with the scenario's role and limits.
+///
+/// The harness reaches the core only through the driver's two seams — the
+/// bounded [`ws_core::CommandSender`] for producer commands and
+/// [`ws_driver::ConnectionDriver::poll`] for transport facts and ordered
+/// output. It holds no `ConnectionCore` handle of its own.
+#[derive(Clone, Copy, Debug)]
+pub struct WiredCore {
+    /// The driver's automatic control-frame response policy for this run.
+    pub auto_response: ws_driver::AutoResponsePolicy,
+    /// The driver's close-echo wire composition policy for this run.
+    pub close_echo: ws_driver::CloseEchoPolicy,
+}
+
+impl Default for WiredCore {
+    /// The corpus-faithful pair ([`CORPUS_AUTO_RESPONSE`],
+    /// [`CORPUS_CLOSE_ECHO`]) — the port-side image of the listener and
+    /// close handling the java-oracle itself ran.
+    fn default() -> Self {
+        WiredCore {
+            auto_response: CORPUS_AUTO_RESPONSE,
+            close_echo: CORPUS_CLOSE_ECHO,
+        }
+    }
+}
 
 impl CandidateCore for WiredCore {
     fn begin(
@@ -590,13 +717,24 @@ impl CandidateCore for WiredCore {
                  reported truthfully rather than fabricated"
             ),
         })?;
-        let core = ws_core::ConnectionCore::new_in_state(
+        // The driver builds the core; the harness keeps only the producer
+        // handle and the owner. `budget` bounds every drain loop so a seam
+        // contract bug can never spin.
+        let budget = poll_budget(&config);
+        let max_actions = config.max_actions();
+        let (sender, driver) = ws_driver::connection_driver_in_state_with_policies(
             config,
             wired_role(request.role),
             wired_initial_state(request.initial_state),
+            self.auto_response,
+            self.close_echo,
         );
         Ok(Box::new(WiredSession {
-            core,
+            driver,
+            sender,
+            max_actions,
+            budget,
+            disposed: false,
             pending_action: false,
             initial: request.initial_state.connection_state(),
             events: Vec::new(),
@@ -604,6 +742,22 @@ impl CandidateCore for WiredCore {
             transitions: Vec::new(),
         }))
     }
+}
+
+/// Bounds every driver drain loop. One poll retires at most one ordered
+/// output (a write offer, its acknowledgement, or one event) or one command
+/// turn, so four polls per slot across all three bounded queues plus a fixed
+/// margin cannot be reached by a correct owner; exceeding it is the seam
+/// contract bug [`INPUT_UNCONSUMED_CODE`] reports.
+fn poll_budget(config: &ws_core::ConnectionConfig) -> u32 {
+    let slots = config
+        .event_queue_capacity()
+        .saturating_add(config.write_queue_capacity())
+        .saturating_add(config.command_queue_capacity());
+    u32::try_from(slots)
+        .unwrap_or(u32::MAX / 8)
+        .saturating_mul(4)
+        .saturating_add(64)
 }
 
 /// Maps the corpus `limits` object onto the 13-field
@@ -655,13 +809,31 @@ fn scenario_config(
         .build()
 }
 
-/// One live scenario against the real core. The session owns NO protocol
-/// state: every count, state, limit, and protocol effect is read from (or
-/// produced by) the [`ws_core::ConnectionCore`] it drives; the vectors below
-/// only accumulate the core's drained observation events in transcript
+/// One live scenario against the real core, driven through the shared
+/// [`ws_driver::ConnectionDriver`]. The session owns NO protocol state:
+/// every count, state, limit, and protocol effect is read from (or produced
+/// by) the driver-owned [`ws_core::ConnectionCore`]; the vectors below only
+/// accumulate the core's drained observation events in transcript
 /// vocabulary.
 struct WiredSession {
-    core: ws_core::ConnectionCore,
+    /// The sole owner of the protocol core (US-017). The harness never
+    /// holds a `ConnectionCore`.
+    driver: ws_driver::ConnectionDriver,
+    /// The bounded producer handle — the only way a corpus action step
+    /// becomes a core command.
+    sender: ws_core::CommandSender,
+    /// `max_actions`, read once from the built configuration because the
+    /// driver exposes no `config()` passthrough. Configuration, not
+    /// protocol state: the live counter it is compared against is always
+    /// read from the driver.
+    max_actions: u64,
+    /// Bound on every drain loop (see [`poll_budget`]).
+    budget: u32,
+    /// Whether the driver surfaced a disposition for the command currently
+    /// in flight. Seam bookkeeping: the driver promises exactly-once
+    /// disposition, and a drain that reaches quiescence without one is the
+    /// contract bug [`INPUT_UNCONSUMED_CODE`] reports.
+    disposed: bool,
     /// Seam bookkeeping, NOT protocol state: Java increments `actionCount`
     /// inside `Execution.action` BEFORE the action's fields are read, so an
     /// action step whose command can NEVER reach the core (a malformed or
@@ -686,42 +858,157 @@ struct WiredSession {
     transitions: Vec<crate::observe::Transition>,
 }
 
+/// One driver poll reduced to owned data.
+///
+/// [`ws_driver::PollResult`] borrows the driver for as long as the offered
+/// write suffix lives, so a poll must be reduced before the next poll can
+/// run. Only the write's LENGTH survives the reduction, which is all the
+/// projection needs: the transcript has no raw-wire stream.
+enum StepOutput {
+    /// Nothing pending.
+    Idle,
+    /// The undrained suffix of the offered write, by length.
+    Write(usize),
+    /// One ordered semantic event.
+    Event(ws_core::SemanticEvent),
+    /// One typed core failure the owner surfaced.
+    Failure(ws_core::TypedProtocolFailure),
+    /// The once-only terminal delivery.
+    Terminal,
+}
+
 impl WiredSession {
-    /// Feeds one input to the core, honoring the documented backpressure
-    /// contract: a non-fatal refusal consumed nothing, so drain both queues
-    /// and retry the identical input once. The session drains after every
-    /// input, so a second refusal means the per-input event bound exceeds
-    /// the total queue capacity — reported as the honest non-oracle
-    /// [`BACKPRESSURE_CODE`].
-    fn submit(&mut self, input: ws_core::Input<'_>) -> Result<(), ScenarioFailure> {
-        let mut result = self.core.handle(input.clone());
-        if matches!(&result, Err(failure) if !failure.code.is_fatal()) {
-            self.drain();
-            result = self.core.handle(input);
-        }
-        self.drain();
-        result.map_err(|failure| map_core_failure(&failure))
+    /// One driver poll, reduced to owned data.
+    fn poll(
+        &mut self,
+        input: ws_driver::DriverInput<'_>,
+    ) -> (
+        ws_driver::InputDisposition,
+        Option<ws_driver::CommandDisposition>,
+        StepOutput,
+    ) {
+        let result = self.driver.poll(input);
+        let output = match result.output {
+            ws_driver::DriverOutput::Idle => StepOutput::Idle,
+            ws_driver::DriverOutput::Write(bytes) => StepOutput::Write(bytes.len()),
+            ws_driver::DriverOutput::Event(event) => StepOutput::Event(event),
+            ws_driver::DriverOutput::Failure(failure) => StepOutput::Failure(failure),
+            ws_driver::DriverOutput::Terminal(_) => StepOutput::Terminal,
+        };
+        (result.input, result.command, output)
     }
 
-    /// Routes one action command to the core. The core's own accounting is
-    /// authoritative from here; clearing the pending flag is defensive
-    /// symmetry for callers outside `drive_scenario` (the driver never
-    /// sets it on the delivered path).
+    /// Admits one driver input and then drains the owner's ordered output
+    /// stream to quiescence, projecting every semantic event and
+    /// acknowledging every offered write. Returns the disposition the
+    /// driver gave the ADMITTED input (later polls in the drain are
+    /// `Wake`/`WriteProgress` and their dispositions are seam mechanics).
+    ///
+    /// This is the driver-seam image of the direct-core round's
+    /// `handle(input)` + `drain()`: the same core inputs in the same order,
+    /// with the owner — not the adapter — deciding when each applies. A
+    /// fatal typed failure the owner surfaces ends the scenario exactly as
+    /// the core's own `Err` did.
+    fn run(
+        &mut self,
+        admitted: ws_driver::DriverInput<'_>,
+    ) -> Result<ws_driver::InputDisposition, ScenarioFailure> {
+        let mut input = admitted;
+        let mut admitted_disposition = None;
+        for _ in 0..self.budget {
+            let (disposition, command, output) = self.poll(input);
+            if admitted_disposition.is_none() {
+                admitted_disposition = Some(disposition);
+            } else if let ws_driver::InputDisposition::Rejected(_) = disposition {
+                // A rejected write acknowledgement means the adapter and
+                // the owner disagree about the offered suffix — a seam
+                // contract bug, never a protocol observable.
+                return Err(input_unconsumed(
+                    "the owner rejected a write acknowledgement",
+                ));
+            }
+            if let Some(command) = command {
+                self.dispose(command)?;
+            }
+            match output {
+                StepOutput::Failure(failure) => return Err(map_core_failure(&failure)),
+                StepOutput::Event(event) => {
+                    self.record(event);
+                    input = ws_driver::DriverInput::Wake;
+                }
+                StepOutput::Write(bytes) => {
+                    // Transport writes are acknowledged in full and NOT
+                    // recorded: the transcript has no raw-wire stream — the
+                    // observable form of every outbound frame is the
+                    // `frames[]`/`events[]` projection the core emits
+                    // alongside the write. This is the driver-seam image of
+                    // the direct-core round's `while next_write().is_some()
+                    // {}`; a real transport adapter would write the bytes
+                    // and report the same progress.
+                    input = ws_driver::DriverInput::WriteProgress { bytes };
+                }
+                StepOutput::Idle | StepOutput::Terminal => {
+                    return Ok(admitted_disposition.unwrap_or(disposition));
+                }
+            }
+        }
+        Err(input_unconsumed(
+            "the owner's ordered output stream did not reach quiescence within the poll budget",
+        ))
+    }
+
+    /// Folds one exactly-once command disposition into the scenario.
+    /// `Applied` continues; `Rejected` ends the scenario with the core's
+    /// own typed failure; `TerminalRejected` ends it with the honest
+    /// non-oracle [`TERMINAL_REJECTED_CODE`], because the core never saw
+    /// the command and no Java-coded failure exists to report.
+    fn dispose(
+        &mut self,
+        disposition: ws_driver::CommandDisposition,
+    ) -> Result<(), ScenarioFailure> {
+        self.disposed = true;
+        match disposition {
+            ws_driver::CommandDisposition::Applied(_) => Ok(()),
+            ws_driver::CommandDisposition::Rejected { failure, .. } => {
+                Err(map_core_failure(&failure))
+            }
+            ws_driver::CommandDisposition::TerminalRejected(_) => Err(ScenarioFailure {
+                code: TERMINAL_REJECTED_CODE.to_string(),
+                close_code: None,
+                detail: TERMINAL_REJECTED_DETAIL.to_string(),
+            }),
+        }
+    }
+
+    /// Routes one action command through the bounded producer channel and
+    /// drives the owner until it surfaces the command's exactly-once
+    /// disposition. The core's own accounting is authoritative from here;
+    /// clearing the pending flag is defensive symmetry for callers outside
+    /// `drive_scenario` (the step driver never sets it on the delivered
+    /// path).
     fn command(&mut self, command: ws_core::LocalCommand) -> Result<(), ScenarioFailure> {
         self.pending_action = false;
-        self.submit(ws_core::Input::Command(command))
-    }
-
-    /// Drains both bounded queues into the transcript projection. Transport
-    /// writes are drained but not recorded: the transcript has no raw-wire
-    /// stream — the observable form of every outbound frame is the
-    /// `frames[]`/`events[]` projection the core emits alongside the write
-    /// (the US-009 skeleton emits no writes at all; outbound framing is
-    /// US-012+).
-    fn drain(&mut self) {
-        while self.core.next_write().is_some() {}
-        while let Some(event) = self.core.next_event() {
-            self.record(event);
+        if let Err(refused) = self.sender.try_send(command) {
+            return Err(ScenarioFailure {
+                code: COMMAND_REFUSED_CODE.to_string(),
+                close_code: None,
+                detail: format!(
+                    "the bounded ws_core command channel refused a corpus action ({:?}); \
+                     the harness is a single producer submitting one command at a time, \
+                     so this is a seam contract bug reported truthfully rather than \
+                     dressed in an oracle code",
+                    refused.reason
+                ),
+            });
+        }
+        self.disposed = false;
+        self.run(ws_driver::DriverInput::Wake)?;
+        if self.disposed {
+            Ok(())
+        } else {
+            Err(input_unconsumed(
+                "the owner reached quiescence without disposing the submitted command",
+            ))
         }
     }
 
@@ -780,8 +1067,39 @@ impl WiredSession {
 }
 
 impl ScenarioSession for WiredSession {
+    /// Admits one inbound chunk through the owner. The owner honours the
+    /// core's documented backpressure contract by DEFERRING the chunk
+    /// (nothing consumed) rather than returning a non-fatal error; `run`
+    /// has already drained by the time the deferral is visible, so the
+    /// identical bytes are retried exactly once — the driver-seam image of
+    /// the direct-core round's drain-and-retry. A second deferral means the
+    /// per-input event bound exceeds the total queue capacity and is
+    /// reported as the honest non-oracle [`BACKPRESSURE_CODE`].
     fn bytes(&mut self, data: &[u8], _step: u32) -> Result<(), ScenarioFailure> {
-        self.submit(ws_core::Input::TransportBytes(data))
+        match self.run(ws_driver::DriverInput::Inbound(data))? {
+            ws_driver::InputDisposition::Consumed { .. } => Ok(()),
+            ws_driver::InputDisposition::Deferred(_) => {
+                match self.run(ws_driver::DriverInput::Inbound(data))? {
+                    ws_driver::InputDisposition::Consumed { .. } => Ok(()),
+                    ws_driver::InputDisposition::Deferred(
+                        ws_driver::DeferredReason::Backpressure,
+                    ) => Err(ScenarioFailure {
+                        code: BACKPRESSURE_CODE.to_string(),
+                        close_code: None,
+                        detail: "ws_core refused the input with backpressure even after a full \
+                                 drain-and-retry; the per-input event bound exceeds the configured \
+                                 queue capacity (core contract bug, reported honestly)"
+                            .to_string(),
+                    }),
+                    _ => Err(input_unconsumed(
+                        "the owner deferred the identical inbound chunk twice after draining",
+                    )),
+                }
+            }
+            ws_driver::InputDisposition::Rejected(_) => Err(input_unconsumed(
+                "the owner rejected an inbound chunk, which its contract never does",
+            )),
+        }
     }
 
     /// Java's `Execution.action` prelude (actionCount++/max_actions) for a
@@ -795,8 +1113,8 @@ impl ScenarioSession for WiredSession {
     /// Java's partial-execution counts do.
     fn begin_action(&mut self, _step: u32) -> Result<(), ScenarioFailure> {
         self.pending_action = true;
-        let next = self.core.counts().actions.saturating_add(1);
-        if next > self.core.config().max_actions() {
+        let next = self.driver.counts().actions.saturating_add(1);
+        if next > self.max_actions {
             return Err(map_core_failure(&ws_core::TypedProtocolFailure::protocol(
                 ws_core::FailureCode::ActionLimitExceeded,
             )));
@@ -813,7 +1131,7 @@ impl ScenarioSession for WiredSession {
     /// requireOpen-before-field-read order — input-shaping, not protocol
     /// behavior (re-review round 1).
     fn require_open(&mut self, _action: &str) -> Result<(), ScenarioFailure> {
-        if self.core.state() != ws_core::ReadyState::Open {
+        if self.driver.state() != ws_core::ReadyState::Open {
             return Err(map_core_failure(&ws_core::TypedProtocolFailure::protocol(
                 ws_core::FailureCode::StateViolation,
             )));
@@ -883,16 +1201,32 @@ impl ScenarioSession for WiredSession {
         })
     }
 
+    /// The corpus `eof` action is a TRANSPORT fact, so it is admitted as
+    /// [`ws_driver::DriverInput::TransportEof`] — the driver's only EOF
+    /// seam. `eof` participates in action accounting inside the core's
+    /// TransportEof path (derive.go actionStep), so the pending gap closes
+    /// exactly as for commands.
+    ///
+    /// DIVERGENCE, MEASURED AND NOT PAPERED OVER: the owner absorbs a
+    /// latched EOF WITHOUT handing it to the core when the core has already
+    /// converged on `Closed` (ws-driver/src/lib.rs, the
+    /// `else if self.core.state() == ReadyState::Closed { self.eof_applied
+    /// = true; }` arm). `ws_core::ConnectionCore` itself answers that same
+    /// input with `STATE_VIOLATION` after incrementing the action counter
+    /// (connection.rs `handle_eof`), which is what the java-oracle reports
+    /// ("eof repeated in CLOSED state"). Routing the corpus through the
+    /// driver therefore changes one public-corpus observable. That is a
+    /// finding surfaced to the owner, not something this adapter is
+    /// permitted to synthesize around: the harness admits the honest input
+    /// and reports whatever the owner produces.
     fn eof(&mut self, _step: u32) -> Result<(), ScenarioFailure> {
-        // `eof` participates in action accounting inside the core's
-        // TransportEof path (derive.go actionStep), so the pending gap
-        // closes exactly as for commands.
         self.pending_action = false;
-        self.submit(ws_core::Input::TransportEof)
+        self.run(ws_driver::DriverInput::TransportEof)?;
+        Ok(())
     }
 
     fn snapshot(&self) -> CountsWithState {
-        let mut counts = observed_counts(&self.core.counts());
+        let mut counts = observed_counts(&self.driver.counts());
         if self.pending_action {
             // The counted-but-never-delivered action of a fatal mid-action
             // failure (see the field docs).
@@ -900,13 +1234,13 @@ impl ScenarioSession for WiredSession {
         }
         CountsWithState {
             counts,
-            final_state: self.observed_state(self.core.state()),
+            final_state: self.observed_state(self.driver.state()),
         }
     }
 
     fn finish(self: Box<Self>) -> Observations {
         let counts = self.snapshot();
-        let close = self.core.close_detail().map(observed_close);
+        let close = self.driver.close_detail().map(observed_close);
         Observations {
             events: self.events,
             frames: self.frames,
@@ -914,6 +1248,20 @@ impl ScenarioSession for WiredSession {
             close,
             counts,
         }
+    }
+}
+
+/// The honest non-oracle seam-contract envelope ([`INPUT_UNCONSUMED_CODE`]).
+/// `reason` is one of a fixed set of constant strings, so reruns stay
+/// byte-identical.
+fn input_unconsumed(reason: &str) -> ScenarioFailure {
+    ScenarioFailure {
+        code: INPUT_UNCONSUMED_CODE.to_string(),
+        close_code: None,
+        detail: format!(
+            "the ws_driver single owner did not consume a corpus input: {reason}; \
+             reported as a seam contract bug rather than dressed in an oracle code"
+        ),
     }
 }
 
@@ -1066,11 +1414,13 @@ fn clamp_count(value: u64) -> i64 {
     i64::try_from(value).unwrap_or(i64::MAX)
 }
 
-/// Returns the active core implementation: the wired [`WiredCore`] (both
-/// US-009 lanes merged on this branch). [`UnwiredCore`] remains available
-/// for tests and as the pinned pre-merge envelope shape.
+/// Returns the active core implementation: the wired [`WiredCore`], which
+/// drives the real `ws_core` through the shared
+/// [`ws_driver::ConnectionDriver`] under the corpus-faithful policy pair
+/// ([`CORPUS_AUTO_RESPONSE`], [`CORPUS_CLOSE_ECHO`]). [`UnwiredCore`]
+/// remains available for tests and as the pinned pre-merge envelope shape.
 pub fn active_core() -> impl CandidateCore {
-    WiredCore
+    WiredCore::default()
 }
 
 #[cfg(test)]
@@ -1544,7 +1894,7 @@ mod tests {
             &mut self,
             request: &OracleRequest,
         ) -> Result<Box<dyn ScenarioSession>, ScenarioFailure> {
-            let inner = WiredCore.begin(request)?;
+            let inner = WiredCore::default().begin(request)?;
             Ok(Box::new(RecordingSession {
                 inner,
                 calls: self.calls.clone(),
@@ -1574,7 +1924,7 @@ mod tests {
     }
 
     fn wired_outcome(request: &OracleRequest) -> ScenarioOutcome {
-        drive_scenario(request, &mut WiredCore)
+        drive_scenario(request, &mut WiredCore::default())
     }
 
     /// The corpus limits map onto the 13-field builder exactly as the
@@ -1758,6 +2108,127 @@ mod tests {
         assert_eq!(failure.code, "STATE_VIOLATION");
         assert_eq!(counts.actions, 1, "the core counted the rejected action");
         assert_eq!(final_state, ConnectionState::Closed);
+    }
+
+    /// SURFACED DIVERGENCE (US-017 AC5 harness routing, owner decision
+    /// `us017-ac5-harness-through-driver`) — NOT an accepted expectation.
+    ///
+    /// `wired_eof_in_closed_counts_the_rejected_action` above FAILS once
+    /// the corpus harness is routed through the shared driver, and this
+    /// test isolates why at the two layers rather than leaving it as a
+    /// mystery. `ws_core::ConnectionCore` answers a transport EOF in the
+    /// absorbing `Closed` state by counting the action and refusing with
+    /// `STATE_VIOLATION` (connection.rs `handle_eof`) — the observable the
+    /// java-oracle reports as "eof repeated in CLOSED state"
+    /// (`us005.pub.0070`). `ws_driver::ConnectionDriver` ABSORBS the same
+    /// latched EOF without ever handing it to the core once the core is
+    /// `Closed`, so the refusal never happens and the action is never
+    /// counted.
+    ///
+    /// This test asserts the measured behaviour of BOTH layers so the
+    /// divergence is reproducible in one command. It deliberately makes no
+    /// claim about which layer is right; the transcript is
+    /// live-oracle-confirmed evidence and the ruling is the owner's.
+    #[test]
+    fn surfaced_divergence_driver_absorbs_eof_after_closed_where_core_refuses() {
+        let config = ws_core::ConnectionConfig::builder()
+            .build()
+            .expect("default config builds");
+
+        // Layer 1: the core itself, in the corpus `closed` initial state.
+        let mut core = ws_core::ConnectionCore::new_in_state(
+            config.clone(),
+            ws_core::Role::Client,
+            ws_core::InitialState::Closed,
+        );
+        let refusal = core
+            .handle(ws_core::Input::TransportEof)
+            .expect_err("ws_core refuses a transport EOF in the absorbing Closed state");
+        assert_eq!(
+            refusal.code.wire_code(),
+            Some("STATE_VIOLATION"),
+            "the core's eof-in-closed refusal is the corpus observable"
+        );
+        assert_eq!(
+            core.counts().actions,
+            1,
+            "the core counts the rejected action before refusing (derive.go actionStep)"
+        );
+
+        // Layer 2: the same core, owned by the shared driver.
+        let (_sender, mut driver) = ws_driver::connection_driver_in_state_with_policies(
+            config,
+            ws_core::Role::Client,
+            ws_core::InitialState::Closed,
+            CORPUS_AUTO_RESPONSE,
+            CORPUS_CLOSE_ECHO,
+        );
+        let result = driver.poll(ws_driver::DriverInput::TransportEof);
+        assert_eq!(
+            result.input,
+            ws_driver::InputDisposition::Consumed { bytes: 0 },
+            "the owner consumes the EOF fact"
+        );
+        assert!(
+            !matches!(result.output, ws_driver::DriverOutput::Failure(_)),
+            "SURFACED DIVERGENCE: the owner absorbed the EOF instead of surfacing the \
+             core's STATE_VIOLATION"
+        );
+        assert_eq!(
+            driver.counts().actions,
+            0,
+            "SURFACED DIVERGENCE: the core never saw the EOF, so the action is not counted"
+        );
+    }
+
+    /// The close-echo composition policy is INVISIBLE to this harness, so
+    /// the corpus-faithful [`CORPUS_CLOSE_ECHO`] choice costs no coverage.
+    ///
+    /// `ws_driver`'s `WebSocketImplComposition` rewrites only
+    /// `ws_core::TransportWrite::bytes`; the transcript carries no raw-wire
+    /// stream, and the outbound close FrameRecord it does carry comes from
+    /// the core's semantic-event queue, which the driver never rewrites.
+    /// Measured on the real inbound-close-while-open scenario
+    /// `us005.pub.0026` (client role, one masked close frame with code 1008
+    /// and an 18-byte reason, which the core answers with the Q19/Q10
+    /// constructor-payload echo).
+    #[test]
+    fn close_echo_policy_is_transcript_invisible() {
+        let request = wired_request(
+            &[("initial_state", "\"open\""), ("role", "\"client\"")],
+            "[{\"data_base64\":\"iBQD8F09dGJCbkBrMCsoQUh3RV1OZQ==\",\"kind\":\"bytes\"}]",
+        );
+        let draft = drive_scenario(
+            &request,
+            &mut WiredCore {
+                auto_response: CORPUS_AUTO_RESPONSE,
+                close_echo: ws_driver::CloseEchoPolicy::CoreDraftEcho,
+            },
+        );
+        let composed = drive_scenario(
+            &request,
+            &mut WiredCore {
+                auto_response: CORPUS_AUTO_RESPONSE,
+                close_echo: ws_driver::CloseEchoPolicy::WebSocketImplComposition,
+            },
+        );
+        let ScenarioOutcome::Completed(ref observations) = draft else {
+            panic!("expected the inbound close to complete: {draft:?}");
+        };
+        assert!(
+            observations.events.iter().any(|event| matches!(
+                event.kind,
+                crate::observe::SemanticEventKind::OutboundCause {
+                    cause: crate::observe::OutboundCause::EchoClose,
+                    ..
+                }
+            )),
+            "the fixture must actually exercise the close echo"
+        );
+        assert_eq!(
+            draft, composed,
+            "the close-echo composition policy must not move the transcript projection"
+        );
     }
 
     /// The action budget is enforced BEFORE the action field is read
@@ -1988,7 +2459,7 @@ mod tests {
     #[test]
     fn wired_poisoned_core_refuses_further_input_as_state_violation() {
         let request = request_with_steps("[]");
-        let mut session = WiredCore
+        let mut session = WiredCore::default()
             .begin(&request)
             .expect("wired construction succeeds");
         let oversized = vec![0u8; 65_537];
@@ -2088,7 +2559,7 @@ mod tests {
         }
         // States: the corpus projection of each post-handshake ReadyState.
         let request = parse_request(PUB_0000).unwrap();
-        let mut core = WiredCore;
+        let mut core = WiredCore::default();
         drop(core.begin(&request).expect("construction succeeds"));
         for (state, expected) in [
             (ws_core::ReadyState::Open, ConnectionState::Open),
