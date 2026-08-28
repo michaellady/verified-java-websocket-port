@@ -898,7 +898,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-core/src/fragment.rs",
       "line": 30,
-      "sha256": "sha256:88057fc9361e4fd9898a2978fd3479c717d9879558f1f030cb5c81715f0f8871"
+      "sha256": "sha256:bbb3a4a44e0194a71d3ce79f0c1786317a89835d92e3089a1187415eec802fc8"
     },
     {
       "id": "ws_core::framing::DecodedFrame",
