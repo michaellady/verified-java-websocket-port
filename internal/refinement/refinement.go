@@ -298,9 +298,12 @@ func extractSubject(root, commit string) (string, func(), error) {
 			}
 			continue
 		}
+		if header.Typeflag == tar.TypeXGlobalHeader && header.Name == "pax_global_header" {
+			continue
+		}
 		if header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA {
 			cleanup()
-			return "", nil, errors.New("nonregular archive member")
+			return "", nil, fmt.Errorf("nonregular archive member %q type %d", header.Name, header.Typeflag)
 		}
 		if header.Size < 0 || header.Size > 128<<20 {
 			cleanup()
