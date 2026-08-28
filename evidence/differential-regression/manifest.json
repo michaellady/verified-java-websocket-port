@@ -1,0 +1,847 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "corpus-invisible-differential-regression-set",
+  "recorded_at": "2026-08-28T02:53:00Z",
+  "recorded_at_provenance": "date -u +%Y-%m-%dT%H:%M:%SZ captured in the same shell invocation that wrote the manifest, immediately after both arms were recorded",
+  "bound_repo_head": "dc07516ab8003ce948ad29ac294d0b05f5887ec2",
+  "purpose": "Committed differential regression evidence for oracle requests that are deliberately NOT in the 74-scenario public corpus, covering the three Rust defect classes enumerated by the cross-plane defect audit. Both arms are recorded: the Java arm from the real pinned Java-WebSocket 1.6.0 oracle, the Rust arm from the ws_core harness built at the bound head.",
+  "provenance": {
+    "audit_report": "workspace/orchestrator/verified-java-websocket-port-claude/drafts/codex-us020-defect-crosscheck.md",
+    "java_arm_command": "java -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 -Dslf4j.internal.verbosity=ERROR -cp \u003cjava-oracle.jar\u003e:\u003cJava-WebSocket-1.6.0.jar\u003e:\u003cslf4j-api-2.0.13.jar\u003e OracleMain \u003c probes.jsonl",
+    "java_arm_exit": "0 read from the java process exit status; stderr 0 bytes",
+    "recovered_from": "/tmp/us020x/probes.jsonl, the cross-plane defect audit scratch file; the 8 recovered probe request lines regenerate BYTE-IDENTICALLY from internal/diffregress.Catalog(), verified by cmp",
+    "rust_arm_command": "ws-oracle-harness \u003c probes.jsonl, binary built from the bound head with CARGO_TARGET_DIR outside the repo",
+    "rust_arm_exit": "0 read from the harness process exit status; stderr 0 bytes"
+  },
+  "oracle_identity": {
+    "cargo": "cargo 1.95.0",
+    "java": "openjdk 17.0.19 2026-04-21 (Homebrew)",
+    "java_oracle_adapter_class_bytes": "all 15 class files byte-identical between the cached jar and a fresh build from the bound head; the jar container digests differ only in zip timestamp metadata",
+    "java_oracle_adapter_jar_sha256_audit_cached": "99c351e23099be9d68de4895273f708c4221bbcdf4a337c2af0c79f6eb662881",
+    "java_oracle_adapter_jar_sha256_fresh_build_from_bound_head": "87ebbdb6ad9222ceda13c2457a468d045e0b33e602a12ae701fe12ea67b5cea1",
+    "java_websocket_runtime_jar_sha256": "eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+    "rustc": "rustc 1.95.0",
+    "slf4j_api_jar_sha256": "e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9",
+    "ws_oracle_harness_binary_sha256": "496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
+  },
+  "artifact_sha256": {
+    "java-arm.jsonl": "sha256:99327715f35ce130a558638821e18536f744200b3a2f1d22096bccc89ba3e0b8",
+    "probes.jsonl": "sha256:351183027650e528e55939b87ee5a3c1af717cb54b7112c14692facb144a3c2d",
+    "rust-arm.jsonl": "sha256:d330d4355fee900fb6e915dcdbde1a61dcc7a3fce985b0cdf5a084c9d2ec2f28"
+  },
+  "counts": {
+    "behaviorally_divergent": 0,
+    "class_closed-bytes": 7,
+    "class_consumption": 9,
+    "class_empty-chunk": 7,
+    "origin_new": 15,
+    "origin_recovered": 8,
+    "probes": 23
+  },
+  "probes": [
+    {
+      "request_id": "xd.a1.rsv-midchunk",
+      "class": "consumption",
+      "origin": "recovered",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "valid frame + RSV frame + valid frame in one 25-byte chunk: is consumed the offset past the rejected frame, or the whole chunk? The public corpus only rejects at offset 0.",
+      "request_digest": "sha256:34df133105926177da36efc52d7fded764c9eeed3a41ae28f7573fffe3dcf17d",
+      "chunk_sizes": [
+        25
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.a2.rsv-split",
+      "class": "consumption",
+      "origin": "recovered",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "RSV frame split across two chunks (5+4, splitting inside the masking key), exercising the chunk-start subtraction in the consumed arithmetic.",
+      "request_digest": "sha256:cb99f88bea991adca695d41acf1800c7520b8980a7c703357193ca09f985050b",
+      "chunk_sizes": [
+        5,
+        4
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 9,
+        "input_bytes": 9,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 9,
+        "input_bytes": 9,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.b1.closed-64bytes",
+      "class": "closed-bytes",
+      "origin": "recovered",
+      "role": "server",
+      "initial_state": "closed",
+      "rationale": "64-byte non-empty chunk into CLOSED: are refused bytes counted?",
+      "request_digest": "sha256:5c2b93e084dee406db6c5235c0342c8b9ff3bc71baea070340271bcbe6a1a940",
+      "chunk_sizes": [
+        64
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.b2.closed-empty-then-bytes",
+      "class": "closed-bytes",
+      "origin": "recovered",
+      "role": "server",
+      "initial_state": "closed",
+      "rationale": "empty chunk then non-empty chunk into CLOSED: the empty no-op must not arm the counters for the refused chunk.",
+      "request_digest": "sha256:d3363bf170145d4f1f42e420590766fe7bb61e1469b3e569409dac541b10f260",
+      "chunk_sizes": [
+        0,
+        3
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.b3.closed-valid-frame",
+      "class": "closed-bytes",
+      "origin": "recovered",
+      "role": "server",
+      "initial_state": "closed",
+      "rationale": "a well-formed complete frame into CLOSED: the state check must precede framing, so well-formedness cannot change the counts.",
+      "request_digest": "sha256:628e751f7b46050324e97376d6cd46171a8f032587c1a881271528fd78c710e4",
+      "chunk_sizes": [
+        8
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.d1.closing-empty",
+      "class": "empty-chunk",
+      "origin": "recovered",
+      "role": "server",
+      "initial_state": "closing",
+      "rationale": "empty chunk in CLOSING.",
+      "request_digest": "sha256:c907b03ed97517d19050ccdc50907c24fdab58e18d15d7f2d7edf872b543fd13",
+      "chunk_sizes": [
+        0
+      ],
+      "java": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closing"
+      },
+      "rust": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closing"
+      },
+      "verdict": "identical",
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.d2.open-empty",
+      "class": "empty-chunk",
+      "origin": "recovered",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "empty chunk in OPEN.",
+      "request_digest": "sha256:81487d45ebbd805620424d79f3b0498a36dff165d05573bfe2b5781ea7b6585a",
+      "chunk_sizes": [
+        0
+      ],
+      "java": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical",
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.d3.closed-empty-twice",
+      "class": "empty-chunk",
+      "origin": "recovered",
+      "role": "server",
+      "initial_state": "closed",
+      "rationale": "two empty chunks in CLOSED: the no-op must be repeatable, not merely tolerated once.",
+      "request_digest": "sha256:2539305938fb436f50a4bf8fbc61d71b81b0d18360b985d693b7b5b1eb899115",
+      "chunk_sizes": [
+        0,
+        0
+      ],
+      "java": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "rust": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "verdict": "identical",
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.a3.rsv-after-two-valid",
+      "class": "consumption",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "two valid frames before the rejected frame: consumed must advance past BOTH prefixes, not just one.",
+      "request_digest": "sha256:aaec1e3b4403c2bdd41fb4a4e5d51498ef71445be2cca8ae89bcf60ff15e3426",
+      "chunk_sizes": [
+        25
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 25,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 25,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.a4.rsv-first-then-valid",
+      "class": "consumption",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "rejected frame at offset 0 followed by a valid frame: consumed must stop at the rejection and must not run on into the trailing valid frame.",
+      "request_digest": "sha256:b5f6391ac61a51d8ab72553147ef36fcb52a09437c35fb79404a3c5862410ac1",
+      "chunk_sizes": [
+        17
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 9,
+        "input_bytes": 17,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 9,
+        "input_bytes": 17,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.a5.rsv1-midchunk",
+      "class": "consumption",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "same offset arithmetic driven by RSV1 rather than RSV2, so the site is not special-cased to one reserved bit.",
+      "request_digest": "sha256:251935715dd18e755e9b534f72df424e51ebc3484e131305c36dd1cdbfd38d9d",
+      "chunk_sizes": [
+        25
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.a6.rsv3-midchunk",
+      "class": "consumption",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "same offset arithmetic driven by RSV3.",
+      "request_digest": "sha256:5593afdd3b32d301c9bb6a2025bab1f11c5a0045d3076a09a470b78d192a7215",
+      "chunk_sizes": [
+        25
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.a7.rsv-extended-length",
+      "class": "consumption",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "rejected frame using the 2-byte extended length form: consumed must span header+extended-length+mask+payload, an arithmetic path the corpus never rejects on.",
+      "request_digest": "sha256:fe299fa5678275560f21aca40b127c75580b45615c69c41a290cf11e1fb35af2",
+      "chunk_sizes": [
+        150
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 142,
+        "input_bytes": 150,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 142,
+        "input_bytes": 150,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.a8.rsv-split-three",
+      "class": "consumption",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "rejected frame split across three chunks, so the chunk-start subtraction is exercised at a non-first, non-last boundary.",
+      "request_digest": "sha256:ac8ae7ca1712bd944f45f89387b319a99c9401afdba12ac7d9077bb2b86bd5f6",
+      "chunk_sizes": [
+        2,
+        4,
+        3
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 9,
+        "input_bytes": 9,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 9,
+        "input_bytes": 9,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.a9.control-fin-midchunk",
+      "class": "consumption",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "the OTHER post-payload rejection the batch-A borrow receipt moved off header time: a fragmented control frame mid-chunk, same offset arithmetic as the RSV site.",
+      "request_digest": "sha256:8a560a8d911c776dc3e391442f0fe87615d1a110530f5a184e0372b50babcb45",
+      "chunk_sizes": [
+        25
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.b4.closed-multi-chunk",
+      "class": "closed-bytes",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "closed",
+      "rationale": "several non-empty chunks into CLOSED: the refusal must fire on the first and must not accumulate across steps.",
+      "request_digest": "sha256:75c853f5047eda58ef7f773fc7f7a46ef54b8fbc8c1a06cee7807bd4f9a72f5f",
+      "chunk_sizes": [
+        2,
+        3,
+        1
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.b5.closed-partial-header",
+      "class": "closed-bytes",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "closed",
+      "rationale": "a single byte (an incomplete frame header) into CLOSED: an input too short to frame at all must still be refused with zero counts.",
+      "request_digest": "sha256:e691d7cebdeb3f60651fa103cc283e87282f6bec7fdb40ee0724a67f5c0d045b",
+      "chunk_sizes": [
+        1
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.b6.closed-rsv-frame",
+      "class": "closed-bytes",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "closed",
+      "rationale": "an independently-invalid frame into CLOSED: the state refusal must win over the framing rejection, so the error identity is STATE_VIOLATION and not the RSV error.",
+      "request_digest": "sha256:cd7b65352e2e1d1e51a70a0427759bcca582b42b6e0a63dd31f03ef9c9f095df",
+      "chunk_sizes": [
+        9
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closed"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.b7.closing-nonempty",
+      "class": "closed-bytes",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "closing",
+      "rationale": "non-empty valid frame in CLOSING rather than CLOSED: pins whether the closed-state byte refusal extends to CLOSING, which the corpus does not settle.",
+      "request_digest": "sha256:665c6ca341a7ba43ee59f1830577c17f8835e891a1e3f4179a65bdb5d42805f6",
+      "chunk_sizes": [
+        8
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 8,
+        "input_bytes": 8,
+        "frames": 1,
+        "final_state": "closing"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "STATE_VIOLATION",
+        "close_code": null,
+        "consumed_bytes": 8,
+        "input_bytes": 8,
+        "frames": 1,
+        "final_state": "closing"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.d4.closing-empty-twice",
+      "class": "empty-chunk",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "closing",
+      "rationale": "repeated empty chunks in CLOSING, the CLOSING analogue of xd.d3.",
+      "request_digest": "sha256:f197a5cdcd64904afef93bf08aaa88b0e71f377f14054d350eaf7c36567eca45",
+      "chunk_sizes": [
+        0,
+        0
+      ],
+      "java": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closing"
+      },
+      "rust": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 0,
+        "input_bytes": 0,
+        "frames": 0,
+        "final_state": "closing"
+      },
+      "verdict": "identical",
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.d5.open-empty-then-frame",
+      "class": "empty-chunk",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "empty chunk then a valid frame in OPEN: the no-op must leave the subsequent frame's accounting untouched.",
+      "request_digest": "sha256:5096d772d9b19cfd45dcde3d7bc7e7749110fb9f0480c843eb25b628f5b7591d",
+      "chunk_sizes": [
+        0,
+        8
+      ],
+      "java": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 8,
+        "input_bytes": 8,
+        "frames": 1,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 8,
+        "input_bytes": 8,
+        "frames": 1,
+        "final_state": "open"
+      },
+      "verdict": "identical",
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.d6.open-empty-between-frame-halves",
+      "class": "empty-chunk",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "cross-class: an empty chunk interposed between the two halves of a split frame. If the empty no-op perturbed the reassembly offset, only this shape would show it.",
+      "request_digest": "sha256:5f93b476a5f6275e244f16322bf00f1db4683abd743f7e7cdb3e0484d00fbd9e",
+      "chunk_sizes": [
+        4,
+        0,
+        4
+      ],
+      "java": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 8,
+        "input_bytes": 8,
+        "frames": 1,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "ok",
+        "error_code": null,
+        "close_code": null,
+        "consumed_bytes": 8,
+        "input_bytes": 8,
+        "frames": 1,
+        "final_state": "open"
+      },
+      "verdict": "identical",
+      "behaviorally_agrees": true
+    },
+    {
+      "request_id": "xd.d7.open-empty-then-rsv-midchunk",
+      "class": "empty-chunk",
+      "origin": "new",
+      "role": "server",
+      "initial_state": "open",
+      "rationale": "cross-class: an empty no-op immediately before the xd.a1 shape, so a no-op that silently shifted the per-site consumed base would diverge here.",
+      "request_digest": "sha256:81efa64bfa00fc22971c9849e4decd053a15c4e07a6ee79688a119f27bbc6fba",
+      "chunk_sizes": [
+        0,
+        25
+      ],
+      "java": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "rust": {
+        "outcome": "error",
+        "error_code": "JAVA_INVALID_DATA",
+        "close_code": 1002,
+        "consumed_bytes": 17,
+        "input_bytes": 25,
+        "frames": 0,
+        "final_state": "open"
+      },
+      "verdict": "identical_except_error_detail",
+      "diff_paths": [
+        "error.detail"
+      ],
+      "behaviorally_agrees": true
+    }
+  ],
+  "nonclaims": [
+    "These probes bound the risk on three defect classes at points the public corpus does not reach; they are a hand-chosen set, not a saturating search, and they do not eliminate risk for all inputs.",
+    "error.detail is compared and reported. A divergence confined to error.detail alone is classified identical_except_error_detail because the adapter protocol documents that field as a non-semantic diagnostic and the corpus evaluator never compares it.",
+    "Every Java-side value in this manifest was read from a recorded run of the real pinned oracle. No Java value was predicted, derived, or copied from the Rust arm."
+  ]
+}
