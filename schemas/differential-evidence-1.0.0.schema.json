@@ -204,7 +204,20 @@
         "scenario": {"$ref": "#/$defs/attempt_scenario"},
         "original_scenario_sha256": {"$ref": "#/$defs/digest"},
         "scenario_sha256": {"$ref": "#/$defs/digest"},
-        "command": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"type": "string", "minLength": 1, "maxLength": 4096}},
+        "command": {
+          "type": "array", "minItems": 8, "maxItems": 8,
+          "prefixItems": [
+            {"const": "differentialctl"},
+            {"const": "reproduce"},
+            {"const": "--repository-root"},
+            {"type": "string", "pattern": "^/", "maxLength": 4096},
+            {"const": "--evidence"},
+            {"type": "string", "pattern": "^/", "maxLength": 4096},
+            {"const": "--reproducer-id"},
+            {"type": "string", "pattern": "^reproducer\\.us005\\.pub\\.[0-9]{4}\\.[0-9a-f]{16}$"}
+          ],
+          "items": false
+        },
         "repository_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
         "runtime_inputs": {"type": "array", "minItems": 10, "maxItems": 32, "items": {"$ref": "#/$defs/artifact"}},
         "candidate_attempts": {"type": "integer", "minimum": 1, "maximum": 512},

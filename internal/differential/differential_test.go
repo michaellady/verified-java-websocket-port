@@ -3,6 +3,7 @@ package differential
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"errors"
@@ -1278,4 +1279,550 @@ func TestEvidenceScenarioRoundTripsFlattenedPublicAndZeroStepCandidates(t *testi
 			}
 		})
 	}
+}
+
+func TestEvidenceScenarioRestoresOnlyBoundedIntegerValues(t *testing.T) {
+	value := map[string]any{"integer": float64(3), "nested": []any{float64(4), map[string]any{"integer": float64(5)}}, "text": "retained"}
+	if err := restoreEvidenceIntegers(value); err != nil {
+		t.Fatal(err)
+	}
+	if value["integer"] != 3 || value["nested"].([]any)[0] != 4 || value["nested"].([]any)[1].(map[string]any)["integer"] != 5 {
+		t.Fatalf("integer restoration drift: %#v", value)
+	}
+	for name, hostile := range map[string]any{"object": map[string]any{"bad": 1.5}, "array": []any{1.5}} {
+		t.Run(name, func(t *testing.T) {
+			if err := restoreEvidenceIntegers(hostile); err == nil {
+				t.Fatal("fractional evidence value accepted")
+			}
+		})
+	}
+	if err := restoreEvidenceIntegers(nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReproducerCommandIsExactReviewedArgv(t *testing.T) {
+	root := repositoryRoot(t)
+	evidence := filepath.Join(root, "evidence/differential/manifest.json")
+	id := "reproducer.us005.pub.0000.0123456789abcdef"
+	command := canonicalReproducerCommand(root, evidence, id)
+	if len(command) != 8 || validateReproducerCommand(command, root, evidence, id) != nil {
+		t.Fatalf("canonical command=%q", command)
+	}
+	mutations := map[string][]string{
+		"missing":    append([]string(nil), command[:7]...),
+		"extra":      append(append([]string(nil), command...), "extra"),
+		"reordered":  {command[0], command[1], command[4], command[5], command[2], command[3], command[6], command[7]},
+		"executable": append([]string{"other"}, command[1:]...),
+	}
+	for name, candidate := range mutations {
+		t.Run(name, func(t *testing.T) {
+			if err := validateReproducerCommand(candidate, root, evidence, id); err == nil {
+				t.Fatal("noncanonical argv accepted")
+			}
+		})
+	}
+}
+
+func TestLargeDifferentialDocumentStrictDecodeRetainsHostileChecks(t *testing.T) {
+	type document struct {
+		Padding string `json:"padding"`
+	}
+	padding := strings.Repeat("a", (8<<20)+1)
+	valid, err := json.Marshal(document{Padding: padding})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded document
+	if err := decodeStrict(valid, &decoded); err != nil || decoded.Padding != padding {
+		t.Fatalf("bounded large document rejected: %v", err)
+	}
+	duplicate := append([]byte(`{"padding":"`+padding+`","padding":"x"}`), '\n')
+	if err := decodeStrict(duplicate, &decoded); err == nil {
+		t.Fatal("duplicate field in large document accepted")
+	}
+	unknown := append([]byte(`{"padding":"`+padding+`","unknown":true}`), '\n')
+	if err := decodeStrict(unknown, &decoded); err == nil {
+		t.Fatal("unknown field in large document accepted")
+	}
+	trailing := append(append([]byte(nil), valid...), []byte(` {}`)...)
+	if err := decodeStrict(trailing, &decoded); err == nil {
+		t.Fatal("trailing value in large document accepted")
+	}
+	tooLarge := make([]byte, maximumDocumentBytes+1)
+	if err := decodeStrict(tooLarge, &decoded); err == nil {
+		t.Fatal("document beyond differential evidence bound accepted")
+	}
+}
+
+func testStateByte(state string) byte {
+	return map[string]byte{"open": 1, "closing": 2, "closed": 3}[state]
+}
+
+func testWriteBytes(buffer *bytes.Buffer, raw []byte) {
+	_ = binary.Write(buffer, binary.BigEndian, uint32(len(raw)))
+	buffer.Write(raw)
+}
+
+func testCloseBody(close *commonClose) []byte {
+	buffer := &bytes.Buffer{}
+	if close.Code == nil {
+		buffer.WriteByte(0)
+	} else {
+		buffer.WriteByte(1)
+		_ = binary.Write(buffer, binary.BigEndian, *close.Code)
+	}
+	testWriteBytes(buffer, []byte(close.Reason))
+	if close.Clean {
+		buffer.WriteByte(1)
+	} else {
+		buffer.WriteByte(0)
+	}
+	buffer.WriteByte(map[string]byte{"local": 1, "remote": 2, "unknown_before_scenario": 3, "none": 4, "transport": 5}[close.Origin])
+	return buffer.Bytes()
+}
+
+func testRustItem(item rustItem) []byte {
+	buffer := &bytes.Buffer{}
+	buffer.WriteByte(item.Kind)
+	switch item.Kind {
+	case 1:
+		event := item.Event
+		kind := map[string]byte{"text": 1, "binary": 2, "ping": 3, "pong": 4, "close": 5, "client_handshake_opened": 6, "server_handshake_opened": 7}[event.Kind]
+		buffer.WriteByte(kind)
+		switch event.Kind {
+		case "text":
+			testWriteBytes(buffer, []byte(event.Text))
+		case "binary", "ping", "pong":
+			payload, _ := base64.StdEncoding.DecodeString(event.PayloadB64)
+			testWriteBytes(buffer, payload)
+		case "close":
+			buffer.Write(testCloseBody(event.Close))
+		}
+	case 2:
+		frame := item.Frame
+		buffer.WriteByte(map[string]byte{"inbound": 1, "outbound": 2}[frame.Direction])
+		if frame.Fin {
+			buffer.WriteByte(1)
+		} else {
+			buffer.WriteByte(0)
+		}
+		buffer.WriteByte(map[string]byte{"continuous": 0, "text": 1, "binary": 2, "closing": 8, "ping": 9, "pong": 10}[frame.Opcode])
+		if frame.Masked {
+			buffer.WriteByte(1)
+		} else {
+			buffer.WriteByte(0)
+		}
+		payload, _ := base64.StdEncoding.DecodeString(frame.PayloadB64)
+		testWriteBytes(buffer, payload)
+		_ = binary.Write(buffer, binary.BigEndian, frame.WireLength)
+	case 3:
+		buffer.WriteByte(testStateByte(item.Transition.From))
+		buffer.WriteByte(testStateByte(item.Transition.To))
+	case 4:
+		buffer.Write(testCloseBody(item.Close))
+	case 5:
+		if item.Error.Terminal {
+			buffer.WriteByte(1)
+		} else {
+			buffer.WriteByte(0)
+		}
+		_ = binary.Write(buffer, binary.BigEndian, uint16(len(item.Error.Class)))
+		buffer.WriteString(item.Error.Class)
+	case 6:
+		buffer.WriteByte(1)
+		testWriteBytes(buffer, item.Transport)
+	}
+	return buffer.Bytes()
+}
+
+func testEncodeRustObservation(observation rustObservation) []byte {
+	body := &bytes.Buffer{}
+	body.WriteString("NOBS1")
+	appendTLV(body, 1, []byte(observation.ScenarioID))
+	appendTLV(body, 2, []byte{map[string]byte{"client": 1, "server": 2}[observation.Role]})
+	appendTLV(body, 3, []byte{testStateByte(observation.Initial)})
+	bootstrap := &bytes.Buffer{}
+	bootstrap.WriteByte(map[string]byte{"client": 1, "server": 2}[observation.Role])
+	bootstrap.WriteByte(testStateByte(observation.Initial))
+	bootstrap.WriteByte(testStateByte(observation.Initial))
+	_ = binary.Write(bootstrap, binary.BigEndian, uint16(0))
+	appendTLV(body, 4, bootstrap.Bytes())
+	steps := &bytes.Buffer{}
+	_ = binary.Write(steps, binary.BigEndian, uint16(len(observation.Steps)))
+	for _, step := range observation.Steps {
+		record := &bytes.Buffer{}
+		_ = binary.Write(record, binary.BigEndian, step.Index)
+		record.WriteByte(step.InputKind)
+		record.WriteByte(testStateByte(step.PreState))
+		record.WriteByte(testStateByte(step.PostState))
+		_ = binary.Write(record, binary.BigEndian, step.Consumed)
+		_ = binary.Write(record, binary.BigEndian, step.WireBuffered)
+		_ = binary.Write(record, binary.BigEndian, step.MessageBuffered)
+		_ = binary.Write(record, binary.BigEndian, uint16(len(step.Observations)))
+		for _, item := range step.Observations {
+			testWriteBytes(record, testRustItem(item))
+		}
+		testWriteBytes(steps, record.Bytes())
+	}
+	appendTLV(body, 5, steps.Bytes())
+	appendTLV(body, 6, []byte{testStateByte(observation.Final)})
+	if observation.Close == nil {
+		appendTLV(body, 7, []byte{0})
+	} else {
+		appendTLV(body, 7, append([]byte{1}, testCloseBody(observation.Close)...))
+	}
+	framed := &bytes.Buffer{}
+	_ = binary.Write(framed, binary.BigEndian, uint32(body.Len()))
+	framed.Write(body.Bytes())
+	return framed.Bytes()
+}
+
+func testSimpleRustObservation(sc corpora.Scenario) rustObservation {
+	steps := make([]rustStep, 0, len(sc.Core.Steps))
+	for index, source := range sc.Core.Steps {
+		kind := byte(1)
+		consumed := uint64(0)
+		observations := []rustItem{}
+		if source.Kind == "bytes" {
+			payload, _ := base64.StdEncoding.DecodeString(source.DataBase64)
+			if sc.Core.InitialState == "closed" && len(payload) != 0 {
+				observations = append(observations, rustItem{Kind: 5, Error: &commonError{Class: "INVALID_STATE"}})
+			} else {
+				consumed = uint64(len(payload))
+			}
+		} else {
+			kind = map[string]byte{"eof": 2, "send_text": 16, "send_binary": 17, "send_fragment": 18, "send_ping": 19, "send_pong": 20, "send_close": 21}[source.Action]
+		}
+		steps = append(steps, rustStep{Index: uint16(index), InputKind: kind, PreState: sc.Core.InitialState, PostState: sc.Core.InitialState, Consumed: consumed, Observations: observations})
+	}
+	return rustObservation{ScenarioID: sc.ScenarioID, Role: sc.Core.Role, Initial: sc.Core.InitialState, Steps: steps, Final: sc.Core.InitialState}
+}
+
+func testJavaClose(close *commonClose) any {
+	if close == nil {
+		return nil
+	}
+	return map[string]any{"code": *close.Code, "reason": close.Reason, "handshake_complete": close.Clean, "origin": close.Origin, "remote": close.Origin == "remote"}
+}
+
+func testJavaObservation(sc corpora.Scenario, observation commonObservation) ([]byte, error) {
+	request, err := corpora.OracleRequest(sc)
+	if err != nil {
+		return nil, err
+	}
+	object := map[string]any{"request_id": sc.ScenarioID, "protocol": "java-websocket-oracle", "version": "1.0.0", "request_digest": request["request_digest"], "runtime": map[string]any{"kind": "deterministic-fake"}, "outcome": observation.Outcome, "final_state": observation.FinalState, "counts": observation.Counts}
+	if observation.Outcome == "error" {
+		code := map[string]string{"PROTOCOL_REJECTION": "JAVA_INVALID_DATA", "INVALID_STATE": "STATE_VIOLATION", "LIMIT_EXCEEDED": "FRAME_LIMIT_EXCEEDED"}[observation.Error.Class]
+		if code == "" {
+			code = observation.Error.Class
+		}
+		object["error"] = map[string]any{"code": code, "detail": "deterministic fake observation"}
+	} else {
+		object["initial_state"], object["role"], object["close"] = sc.Core.InitialState, sc.Core.Role, testJavaClose(observation.Close)
+		events := []any{}
+		for _, event := range observation.Events {
+			value := map[string]any{"type": event.Kind, "step": event.Step}
+			switch event.Kind {
+			case "text":
+				value["text"], value["utf8_bytes"] = event.Text, len([]byte(event.Text))
+			case "binary", "ping", "pong":
+				payload, _ := base64.StdEncoding.DecodeString(event.PayloadB64)
+				value["data_base64"], value["bytes"] = event.PayloadB64, len(payload)
+			case "close":
+				close := testJavaClose(event.Close).(map[string]any)
+				for key, item := range close {
+					value[key] = item
+				}
+			}
+			events = append(events, value)
+		}
+		frames := []any{}
+		for _, frame := range observation.Frames {
+			payload, _ := base64.StdEncoding.DecodeString(frame.PayloadB64)
+			frames = append(frames, map[string]any{"direction": frame.Direction, "fin": frame.Fin, "masked": frame.Masked, "opcode": frame.Opcode, "payload_base64": frame.PayloadB64, "payload_bytes": len(payload), "rsv1": false, "rsv2": false, "rsv3": false, "step": frame.Step, "wire_bytes": frame.WireLength})
+		}
+		transitions := []any{}
+		for _, transition := range observation.Transitions {
+			transitions = append(transitions, map[string]any{"cause": "deterministic-fake", "from": transition.From, "step": transition.Step, "to": transition.To})
+		}
+		object["events"], object["frames"], object["transitions"] = events, frames, transitions
+	}
+	raw, err := canonical(object)
+	return append(raw, '\n'), err
+}
+
+func testScenarioFromJavaRequest(originals map[string]corpora.Scenario, raw []byte) (corpora.Scenario, error) {
+	var request struct {
+		RequestID    string         `json:"request_id"`
+		Role         string         `json:"role"`
+		InitialState string         `json:"initial_state"`
+		Limits       corpora.Limits `json:"limits"`
+		Steps        []corpora.Step `json:"steps"`
+	}
+	if err := json.Unmarshal(bytes.TrimSpace(raw), &request); err != nil {
+		return corpora.Scenario{}, err
+	}
+	scenario, ok := originals[request.RequestID]
+	if !ok {
+		return corpora.Scenario{}, fmt.Errorf("unknown fake Java request %q", request.RequestID)
+	}
+	scenario.Core = corpora.ScenarioCore{Role: request.Role, InitialState: request.InitialState, Limits: request.Limits, Steps: request.Steps}
+	return scenario, nil
+}
+
+func testScenarioIDFromNeutralRequest(raw []byte) (string, error) {
+	if len(raw) < 14 || int(binary.BigEndian.Uint32(raw[:4])) != len(raw)-4 || string(raw[4:9]) != "NDRV1" || raw[9] != 1 {
+		return "", errors.New("invalid fake NDRV1 request")
+	}
+	length := int(binary.BigEndian.Uint32(raw[10:14]))
+	if length <= 0 || 14+length > len(raw) {
+		return "", errors.New("invalid fake NDRV1 scenario id")
+	}
+	return string(raw[14 : 14+length]), nil
+}
+
+func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
+	root := repositoryRoot(t)
+	committedManifestRaw, committedManifest := committedManifestForTest(t)
+	committedLedgerRaw, err := os.ReadFile(filepath.Join(root, "evidence/java/behavior-delta-ledger.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(committedManifest.Scenarios) != 74 {
+		t.Fatalf("committed scenario templates=%d", len(committedManifest.Scenarios))
+	}
+
+	originals := map[string]corpora.Scenario{}
+	templates := map[string]ScenarioResult{}
+	for _, scenario := range publicScenarios(t) {
+		originals[scenario.ScenarioID] = scenario
+	}
+	for _, result := range committedManifest.Scenarios {
+		templates[result.ScenarioID] = result
+		scenario := originals[result.ScenarioID]
+		javaRaw, encodeErr := testJavaObservation(scenario, result.JavaObservation)
+		if encodeErr != nil {
+			t.Fatalf("encode Java template %s: %v", result.ScenarioID, encodeErr)
+		}
+		java, _, normalizeErr := normalizeJava(scenario, javaRaw)
+		if normalizeErr != nil || !canonicalEqual(java, result.JavaObservation) {
+			t.Fatalf("Java template drift %s: %v", result.ScenarioID, normalizeErr)
+		}
+		rustRaw := testEncodeRustObservation(rustObservation{ScenarioID: result.ScenarioID, Role: scenario.Core.Role, Initial: scenario.Core.InitialState, Steps: result.RustStepDiagnostics, Final: result.RustObservation.FinalState, Close: result.RustObservation.Close})
+		rust, diagnostics, normalizeErr := normalizeRust(scenario, rustRaw)
+		if normalizeErr != nil || !canonicalEqual(rust, result.RustObservation) || !canonicalEqual(diagnostics.Steps, result.RustStepDiagnostics) {
+			t.Fatalf("Rust template drift %s: %v", result.ScenarioID, normalizeErr)
+		}
+	}
+
+	work, err := os.MkdirTemp("/private/tmp", "us020-real-generator-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(work) })
+	writeInput := func(name, value string, mode os.FileMode) string {
+		t.Helper()
+		path := filepath.Join(work, name)
+		if err := os.WriteFile(path, []byte(value), mode); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	java := fakeJavaRuntime(t, true)
+	adapter := writeInput("java-adapter.jar", "deterministic-adapter", 0o600)
+	runtimeJar := writeInput("java-runtime.jar", "deterministic-runtime", 0o600)
+	support := writeInput("java-support.jar", "deterministic-support", 0o600)
+	rustTestee := writeInput("rust-testee", "deterministic-rust", 0o700)
+	tempLedger := filepath.Join(work, "transaction", "ledger.json")
+	tempManifest := filepath.Join(work, "transaction", "manifest.json")
+	if err := os.MkdirAll(filepath.Dir(tempLedger), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tempLedger, committedLedgerRaw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(tempManifest, committedManifestRaw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	oldExecute := executeChild
+	oldCommit := commitEvidenceDocuments
+	oldReadManifest := readCommittedEvidence
+	oldReadLedger := readVerificationLedger
+	t.Cleanup(func() {
+		executeChild = oldExecute
+		commitEvidenceDocuments = oldCommit
+		readCommittedEvidence = oldReadManifest
+		readVerificationLedger = oldReadLedger
+	})
+	candidates := map[string]corpora.Scenario{}
+	pid := 4000
+	executeChild = func(_ context.Context, request childRequest) (childResult, error) {
+		pid++
+		var raw []byte
+		if len(bytes.TrimSpace(request.Input)) > 0 && bytes.TrimSpace(request.Input)[0] == '{' {
+			if len(request.Args) != 4 || request.Args[0] != "-Dslf4j.internal.verbosity=ERROR" || request.Args[1] != "-cp" || request.Args[3] != "OracleMain" {
+				return childResult{}, fmt.Errorf("fake Java launch argv drift: %q", request.Args)
+			}
+			scenario, parseErr := testScenarioFromJavaRequest(originals, request.Input)
+			if parseErr != nil {
+				return childResult{}, parseErr
+			}
+			candidates[scenario.ScenarioID] = scenario
+			line, _ := scenario.CanonicalLine()
+			originalLine, _ := originals[scenario.ScenarioID].CanonicalLine()
+			observation := templates[scenario.ScenarioID].JavaObservation
+			if !bytes.Equal(line, originalLine) {
+				rustRaw := testEncodeRustObservation(testSimpleRustObservation(scenario))
+				observation, _, parseErr = normalizeRust(scenario, rustRaw)
+				if parseErr != nil {
+					return childResult{}, parseErr
+				}
+			}
+			raw, parseErr = testJavaObservation(scenario, observation)
+			if parseErr != nil {
+				return childResult{}, parseErr
+			}
+		} else {
+			if !canonicalEqual(request.Args, []string{"neutral-oracle", "--protocol", "NDRV1"}) {
+				return childResult{}, fmt.Errorf("fake Rust launch argv drift: %q", request.Args)
+			}
+			scenarioID, parseErr := testScenarioIDFromNeutralRequest(request.Input)
+			if parseErr != nil {
+				return childResult{}, parseErr
+			}
+			scenario, ok := candidates[scenarioID]
+			if !ok {
+				return childResult{}, fmt.Errorf("fake Rust request without Java candidate %q", scenarioID)
+			}
+			line, _ := scenario.CanonicalLine()
+			originalLine, _ := originals[scenarioID].CanonicalLine()
+			if bytes.Equal(line, originalLine) {
+				template := templates[scenarioID]
+				raw = testEncodeRustObservation(rustObservation{ScenarioID: scenarioID, Role: scenario.Core.Role, Initial: scenario.Core.InitialState, Steps: template.RustStepDiagnostics, Final: template.RustObservation.FinalState, Close: template.RustObservation.Close})
+			} else {
+				raw = testEncodeRustObservation(testSimpleRustObservation(scenario))
+			}
+		}
+		return childResult{PID: pid, Stdout: raw, Stderr: []byte{}, ExitCode: 0, Started: time.Unix(1700000000, int64(pid)), Duration: time.Millisecond}, nil
+	}
+
+	var generatedLedger, generatedManifest []byte
+	commitEvidenceDocuments = func(ledgerPath string, ledgerRaw []byte, manifestPath string, manifestRaw []byte) error {
+		if ledgerPath != filepath.Join(root, "evidence/java/behavior-delta-ledger.json") || manifestPath != filepath.Join(root, "evidence/differential/manifest.json") {
+			return errors.New("generator output path drift")
+		}
+		generatedLedger = append([]byte(nil), ledgerRaw...)
+		generatedManifest = append([]byte(nil), manifestRaw...)
+		return commitEvidencePair(tempLedger, generatedLedger, tempManifest, generatedManifest)
+	}
+	readCommittedEvidence = func(path string, maximum int64) ([]byte, error) {
+		if path == filepath.Join(root, "evidence/differential/manifest.json") && len(generatedManifest) != 0 {
+			return append([]byte(nil), generatedManifest...), nil
+		}
+		return readRegularBounded(path, maximum)
+	}
+	readVerificationLedger = func(path string, maximum int64) ([]byte, error) {
+		if path == filepath.Join(root, "evidence/java/behavior-delta-ledger.json") && len(generatedLedger) != 0 {
+			return append([]byte(nil), generatedLedger...), nil
+		}
+		return readRegularBounded(path, maximum)
+	}
+
+	cfg := Config{
+		RepositoryRoot: root, PublicCorpus: filepath.Join(root, "corpora/public/scenarios.jsonl"),
+		JavaExecutable: java, JavaAdapterJar: adapter, JavaRuntimeJar: runtimeJar, JavaSupportJars: []string{support}, RustTestee: rustTestee,
+		MigrationInventory: filepath.Join(root, "evidence/intake/semantic-id-migration-map.json"), CompatibilitySurface: filepath.Join(root, "evidence/intake/compatibility-surface.json"),
+		LedgerPath: filepath.Join(root, "evidence/java/behavior-delta-ledger.json"), EvidencePath: filepath.Join(root, "evidence/differential/manifest.json"), OracleHierarchyPath: filepath.Join(root, "evidence/oracle-hierarchy.json"),
+		ScenarioTimeout: time.Second, SuiteTimeout: 5 * time.Minute, MinimizationBudget: Budget{MaxCandidates: 128, MaxDuration: time.Minute},
+	}
+	receipt, err := RunPublicDifferential(context.Background(), cfg)
+	if err != nil {
+		t.Fatalf("real generator with deterministic observations: %v", err)
+	}
+	if receipt.Status != StatusPass || receipt.ScenarioCount != 74 || receipt.ProcessReceipts != 296 || receipt.DeltaCount != 103 || receipt.EvidenceSHA256 != digest(generatedManifest) {
+		t.Fatalf("receipt=%#v", receipt)
+	}
+	if err := VerifyPublicDifferential(root, generatedManifest); err != nil {
+		t.Fatalf("full verify: %v", err)
+	}
+	for _, schema := range []struct {
+		path string
+		raw  []byte
+	}{{filepath.Join(root, "schemas/differential-evidence-1.0.0.schema.json"), generatedManifest}, {filepath.Join(root, "schemas/behavior-delta-ledger-1.1.0.schema.json"), generatedLedger}} {
+		if err := compileAndValidateSchema(schema.path, schema.raw); err != nil {
+			t.Fatalf("schema %s: %v", filepath.Base(schema.path), err)
+		}
+	}
+	var manifest Manifest
+	var ledger Ledger
+	if err := decodeStrict(generatedManifest, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	if err := decodeStrict(generatedLedger, &ledger); err != nil {
+		t.Fatal(err)
+	}
+	classifications := map[string]int{}
+	for _, record := range ledger.Records {
+		classifications[record.Classification]++
+	}
+	modes := map[string]int{}
+	for _, reproducer := range manifest.Reproducers {
+		modes[reproducer.Mode]++
+		if len(reproducer.Command) != 8 || validateReproducerCommand(reproducer.Command, root, cfg.EvidencePath, reproducer.ReproducerID) != nil {
+			t.Fatalf("noncanonical reproducer command %s: %q", reproducer.ReproducerID, reproducer.Command)
+		}
+		for _, attempt := range reproducer.Attempts {
+			if attempt.Audits == nil {
+				t.Fatalf("null normalization audits in %s", reproducer.ReproducerID)
+			}
+		}
+	}
+	if len(manifest.Reproducers) != 103 || len(ledger.Records) != 103 || classifications["java_quirk"] != 98 || classifications["rust_defect"] != 5 || modes["FRESH_BOUNDED_MINIMIZATION"] != 98 || modes["HISTORICAL_CLOSED_IDENTITY_WITNESS"] != 5 {
+		t.Fatalf("closure reproducers=%d records=%d classes=%v modes=%v", len(manifest.Reproducers), len(ledger.Records), classifications, modes)
+	}
+	command := append([]string(nil), manifest.Reproducers[0].Command...)
+	commandMutations := map[string][]string{
+		"missing":    append([]string(nil), command[:7]...),
+		"extra":      append(append([]string(nil), command...), "extra"),
+		"reordered":  {command[0], command[1], command[4], command[5], command[2], command[3], command[6], command[7]},
+		"executable": append([]string{"other"}, command[1:]...),
+	}
+	for name, mutated := range commandMutations {
+		candidate := manifest
+		candidate.Reproducers = append([]PublicReproducer(nil), manifest.Reproducers...)
+		candidate.Reproducers[0].Command = mutated
+		raw, err := marshalIndented(candidate)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := compileAndValidateSchema(filepath.Join(root, "schemas/differential-evidence-1.0.0.schema.json"), raw); err == nil {
+			t.Fatalf("schema accepted %s reproducer argv", name)
+		}
+	}
+	if bytes.Contains(generatedManifest, []byte(`"normalization_audits": null`)) || bytes.Contains(generatedManifest, []byte(`"normalization_audits":null`)) {
+		t.Fatal("generated manifest contains null normalization_audits")
+	}
+	if manifest.Controls.Total != 7 || manifest.Controls.Killed != 7 || len(manifest.Coverage.Migration) != 47 || len(manifest.Coverage.Compatibility) != 14 || manifest.Counts.Flakes != 0 || manifest.Counts.NormalizationCollisions != 0 || manifest.Counts.UnresolvedDifferences != 0 {
+		t.Fatalf("derived closure drift controls=%#v coverage=%#v counts=%#v", manifest.Controls, manifest.Coverage.Summary, manifest.Counts)
+	}
+	if got, _ := os.ReadFile(tempLedger); !bytes.Equal(got, generatedLedger) {
+		t.Fatal("transaction ledger commit drift")
+	}
+	if got, _ := os.ReadFile(tempManifest); !bytes.Equal(got, generatedManifest) {
+		t.Fatal("transaction manifest commit drift")
+	}
+	for _, path := range []string{tempLedger + ".us020-journal", tempLedger + ".us020-lock", cfg.LedgerPath + ".us020-journal", cfg.LedgerPath + ".us020-lock"} {
+		if _, err := os.Lstat(path); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("transaction artifact retained %s: %v", path, err)
+		}
+	}
+	if actual, _ := os.ReadFile(cfg.LedgerPath); !bytes.Equal(actual, committedLedgerRaw) {
+		t.Fatal("test mutated committed ledger")
+	}
+	if actual, _ := os.ReadFile(cfg.EvidencePath); !bytes.Equal(actual, committedManifestRaw) {
+		t.Fatal("test mutated committed manifest")
+	}
+	t.Logf("generated manifest=%s bytes=%d ledger=%s processes=%d reproducers=%d", digest(generatedManifest), len(generatedManifest), digest(generatedLedger), len(manifest.Processes), len(manifest.Reproducers))
 }

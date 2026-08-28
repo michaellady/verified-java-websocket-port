@@ -228,6 +228,17 @@ type PublicReproducer struct {
 	ClosingRustObservation string                `json:"closing_rust_observation_sha256,omitempty"`
 }
 
+func canonicalReproducerCommand(repositoryRoot, evidencePath, reproducerID string) []string {
+	return []string{"differentialctl", "reproduce", "--repository-root", repositoryRoot, "--evidence", evidencePath, "--reproducer-id", reproducerID}
+}
+
+func validateReproducerCommand(command []string, repositoryRoot, evidencePath, reproducerID string) error {
+	if !canonicalEqual(command, canonicalReproducerCommand(repositoryRoot, evidencePath, reproducerID)) {
+		return errors.New("reproducer command is not the exact reviewed argv contract")
+	}
+	return nil
+}
+
 type MinimizationAttempt struct {
 	Scenario       corpora.Scenario     `json:"scenario"`
 	ScenarioSHA256 string               `json:"scenario_sha256"`
@@ -257,11 +268,60 @@ func decodeEvidenceScenario(raw []byte) (corpora.Scenario, error) {
 	if err := decodeStrict(raw, &wire); err != nil {
 		return corpora.Scenario{}, err
 	}
+	for _, values := range [][]map[string]any{wire.Expected.Events, wire.Expected.Frames, wire.Expected.Transitions} {
+		for _, value := range values {
+			if err := restoreEvidenceIntegers(value); err != nil {
+				return corpora.Scenario{}, err
+			}
+		}
+	}
+	if err := restoreEvidenceIntegers(wire.Expected.Close); err != nil {
+		return corpora.Scenario{}, err
+	}
 	return corpora.Scenario{
 		ScenarioID: wire.ScenarioID, Tier: wire.Tier, Family: wire.Family, SeedIndex: wire.SeedIndex,
 		Core:     corpora.ScenarioCore{Role: wire.Role, InitialState: wire.InitialState, Limits: wire.Limits, Steps: wire.Steps},
 		Expected: wire.Expected, ExpectationBasis: wire.ExpectationBasis, ExpectationStatus: wire.ExpectationStatus,
 	}, nil
+}
+
+func restoreEvidenceIntegers(value any) error {
+	switch typed := value.(type) {
+	case nil:
+		return nil
+	case map[string]any:
+		for key, item := range typed {
+			if number, ok := item.(float64); ok {
+				integer := int(number)
+				if float64(integer) != number {
+					return fmt.Errorf("evidence scenario field %s is not a bounded integer", key)
+				}
+				typed[key] = integer
+				continue
+			}
+			if err := restoreEvidenceIntegers(item); err != nil {
+				return err
+			}
+		}
+		return nil
+	case []any:
+		for index, item := range typed {
+			if number, ok := item.(float64); ok {
+				integer := int(number)
+				if float64(integer) != number {
+					return fmt.Errorf("evidence scenario array item %d is not a bounded integer", index)
+				}
+				typed[index] = integer
+				continue
+			}
+			if err := restoreEvidenceIntegers(item); err != nil {
+				return err
+			}
+		}
+		return nil
+	default:
+		return nil
+	}
 }
 
 // UnmarshalJSON preserves the corpus scenario's intentionally flattened wire
@@ -1054,6 +1114,9 @@ type childResult struct {
 }
 
 var executeChild = executeBoundedChild
+var commitEvidenceDocuments = commitEvidencePair
+var readCommittedEvidence = readRegularBounded
+var readVerificationLedger = readRegularBounded
 
 type cappedBuffer struct {
 	maximum int
@@ -2634,7 +2697,7 @@ func historicalClosedReproducers(cfg Config, hierarchy OracleHierarchy, sc corpo
 		signature := mismatchSignature{Pointer: defect.Pointer, Classification: "rust_defect"}
 		signatureRaw, _ := canonical(signature)
 		reproducerID := "reproducer." + sc.ScenarioID + "." + strings.TrimPrefix(digest(signatureRaw), "sha256:")[:16]
-		attempts := []MinimizationAttempt{{Scenario: sc, ScenarioSHA256: scenarioSHA, Signature: signature, Reproduced: true, Processes: []ProcessReceipt{}, EvidenceStatus: "RETAINED_HISTORICAL_FINDING_OBSERVATIONS"}}
+		attempts := []MinimizationAttempt{{Scenario: sc, ScenarioSHA256: scenarioSHA, Signature: signature, Reproduced: true, Processes: []ProcessReceipt{}, EvidenceStatus: "RETAINED_HISTORICAL_FINDING_OBSERVATIONS", Audits: []NormalizationTrace{}}}
 		for index := range sc.Core.Steps {
 			candidate := sc
 			candidate.Core.Steps = append([]corpora.Step(nil), sc.Core.Steps[:index]...)
@@ -2643,7 +2706,7 @@ func historicalClosedReproducers(cfg Config, hierarchy OracleHierarchy, sc corpo
 			if err != nil {
 				return nil, err
 			}
-			attempts = append(attempts, MinimizationAttempt{Scenario: candidate, ScenarioSHA256: digest(candidateLine), Signature: mismatchSignature{}, Reproduced: false, Processes: []ProcessReceipt{}, EvidenceStatus: "NO_RETAINED_HISTORICAL_FINDING_OBSERVATION"})
+			attempts = append(attempts, MinimizationAttempt{Scenario: candidate, ScenarioSHA256: digest(candidateLine), Signature: mismatchSignature{}, Reproduced: false, Processes: []ProcessReceipt{}, EvidenceStatus: "NO_RETAINED_HISTORICAL_FINDING_OBSERVATION", Audits: []NormalizationTrace{}})
 		}
 		foundDecision := false
 		for _, cell := range hierarchy.Cells {
@@ -2655,7 +2718,7 @@ func historicalClosedReproducers(cfg Config, hierarchy OracleHierarchy, sc corpo
 		if !foundDecision {
 			return nil, fmt.Errorf("historical reproducer decision absent %s", defect.Pointer)
 		}
-		reproducer := PublicReproducer{ReproducerID: reproducerID, LedgerDeltaID: deltaIDFor(sc.ScenarioID, defect.Pointer), ScenarioID: sc.ScenarioID, Mode: "HISTORICAL_CLOSED_IDENTITY_WITNESS", ProofScope: "RETAINED_HISTORICAL_OBSERVATION_IDENTITY", CurrentlyReproduces: false, Signature: signature, Scenario: sc, OriginalScenarioSHA256: scenarioSHA, ScenarioSHA256: scenarioSHA, Command: []string{"differentialctl", "reproduce", "--repository-root", cfg.RepositoryRoot, "--evidence", cfg.EvidencePath, "--reproducer-id", reproducerID}, RepositoryAnchor: closingAnchor, RuntimeInputs: append([]ArtifactIdentity(nil), inputs...), CandidateAttempts: len(sc.Core.Steps), Irreducible: true, Processes: []ProcessReceipt{}, Attempts: attempts, FindingJavaObservation: defect.JavaObservation, FindingRustObservation: defect.RustObservation, FindingRunAnchor: defect.FindingAnchor, ClosingRunAnchor: closingAnchor, ClosingJavaObservation: closingJavaDigest, ClosingRustObservation: closingRustDigest}
+		reproducer := PublicReproducer{ReproducerID: reproducerID, LedgerDeltaID: deltaIDFor(sc.ScenarioID, defect.Pointer), ScenarioID: sc.ScenarioID, Mode: "HISTORICAL_CLOSED_IDENTITY_WITNESS", ProofScope: "RETAINED_HISTORICAL_OBSERVATION_IDENTITY", CurrentlyReproduces: false, Signature: signature, Scenario: sc, OriginalScenarioSHA256: scenarioSHA, ScenarioSHA256: scenarioSHA, Command: canonicalReproducerCommand(cfg.RepositoryRoot, cfg.EvidencePath, reproducerID), RepositoryAnchor: closingAnchor, RuntimeInputs: append([]ArtifactIdentity(nil), inputs...), CandidateAttempts: len(sc.Core.Steps), Irreducible: true, Processes: []ProcessReceipt{}, Attempts: attempts, FindingJavaObservation: defect.JavaObservation, FindingRustObservation: defect.RustObservation, FindingRunAnchor: defect.FindingAnchor, ClosingRunAnchor: closingAnchor, ClosingJavaObservation: closingJavaDigest, ClosingRustObservation: closingRustDigest}
 		if closingJavaDigest == "" || closingRustDigest == "" {
 			return nil, errors.New("historical closing observations absent")
 		}
@@ -3970,7 +4033,7 @@ func minimizeRuntimeMismatch(ctx context.Context, cfg Config, suiteRoot string, 
 	}
 	reproducer.RepositoryAnchor = anchor
 	reproducer.RuntimeInputs = append([]ArtifactIdentity(nil), inputs...)
-	reproducer.Command = []string{"differentialctl", "reproduce", "--repository-root", cfg.RepositoryRoot, "--evidence", cfg.EvidencePath, "--reproducer-id", reproducer.ReproducerID}
+	reproducer.Command = canonicalReproducerCommand(cfg.RepositoryRoot, cfg.EvidencePath, reproducer.ReproducerID)
 	return reproducer, nil
 }
 
@@ -4261,10 +4324,10 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err := recheckLedgerCAS(cfg.LedgerPath, ledgerInputSHA, preHead); err != nil {
 		return Receipt{}, err
 	}
-	if err := commitEvidencePair(cfg.LedgerPath, ledgerDocument, cfg.EvidencePath, manifestDocument); err != nil {
+	if err := commitEvidenceDocuments(cfg.LedgerPath, ledgerDocument, cfg.EvidencePath, manifestDocument); err != nil {
 		return Receipt{}, err
 	}
-	committed, err := readRegularBounded(cfg.EvidencePath, maximumDocumentBytes)
+	committed, err := readCommittedEvidence(cfg.EvidencePath, maximumDocumentBytes)
 	if err != nil {
 		return Receipt{}, err
 	}
@@ -4479,7 +4542,98 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 }
 
 func decodeStrict(raw []byte, destination any) error {
-	return intake.DecodeStrict(raw, destination)
+	if len(raw) <= 8<<20 {
+		return intake.DecodeStrict(raw, destination)
+	}
+	if int64(len(raw)) > maximumDocumentBytes {
+		return errors.New("JSON document exceeds differential evidence bound")
+	}
+	if bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return errors.New("top-level null is not a document")
+	}
+	if err := rejectDuplicateJSONFields(raw); err != nil {
+		return err
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(destination); err != nil {
+		return err
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return errors.New("multiple JSON values are forbidden")
+		}
+		return err
+	}
+	return nil
+}
+
+func rejectDuplicateJSONFields(raw []byte) error {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	var scan func(int) error
+	scan = func(depth int) error {
+		if depth > 128 {
+			return errors.New("JSON nesting exceeds 128")
+		}
+		token, err := decoder.Token()
+		if err != nil {
+			return err
+		}
+		delimiter, ok := token.(json.Delim)
+		if !ok {
+			return nil
+		}
+		switch delimiter {
+		case '{':
+			seen := map[string]bool{}
+			for decoder.More() {
+				keyToken, err := decoder.Token()
+				if err != nil {
+					return err
+				}
+				key, ok := keyToken.(string)
+				if !ok {
+					return errors.New("JSON object key is not a string")
+				}
+				if seen[key] {
+					return fmt.Errorf("duplicate JSON field %q", key)
+				}
+				seen[key] = true
+				if err := scan(depth + 1); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim('}') {
+				return errors.New("unterminated JSON object")
+			}
+		case '[':
+			for decoder.More() {
+				if err := scan(depth + 1); err != nil {
+					return err
+				}
+			}
+			end, err := decoder.Token()
+			if err != nil || end != json.Delim(']') {
+				return errors.New("unterminated JSON array")
+			}
+		default:
+			return errors.New("unexpected JSON delimiter")
+		}
+		return nil
+	}
+	if err := scan(0); err != nil {
+		return err
+	}
+	if _, err := decoder.Token(); err != io.EOF {
+		if err == nil {
+			return errors.New("multiple JSON values are forbidden")
+		}
+		return err
+	}
+	return nil
 }
 
 func writeJSONAtomic(path string, value any) error {
@@ -5147,11 +5301,9 @@ func verifyReproducer(reproducer PublicReproducer, original corpora.Scenario, re
 	if err != nil {
 		return err
 	}
-	expectedCommand := []string{"differentialctl", "reproduce", "--repository-root", filepath.Clean(filepath.Dir(filepath.Dir(filepath.Dir(manifest.Inputs[0].Path)))), "--evidence", filepath.Join(filepath.Clean(filepath.Dir(filepath.Dir(filepath.Dir(manifest.Inputs[0].Path)))), "evidence/differential/manifest.json"), "--reproducer-id", reproducer.ReproducerID}
-	// The repository root is also directly recoverable from the fixed corpus path.
+	// The repository root is directly recoverable from the fixed corpus path.
 	root := filepath.Clean(filepath.Join(filepath.Dir(manifest.Inputs[0].Path), "../.."))
-	expectedCommand[3], expectedCommand[5] = root, filepath.Join(root, "evidence/differential/manifest.json")
-	if reproducer.LedgerDeltaID != record.DeltaID || reproducer.ScenarioID != original.ScenarioID || reproducer.Signature.Pointer != record.Pointer || reproducer.Signature.Classification != record.Classification || reproducer.OriginalScenarioSHA256 != digest(originalLine) || record.ReproducerSHA256 != reproducer.OriginalScenarioSHA256 || reproducer.ScenarioSHA256 != digest(line) || !reproducer.Irreducible || reproducer.CandidateAttempts <= 0 || !canonicalEqual(reproducer.RuntimeInputs, inputs) || !canonicalEqual(reproducer.Command, expectedCommand) || reproducer.RepositoryAnchor != manifest.RepositoryAnchor || reproducer.FindingJavaObservation != record.JavaObservation || reproducer.FindingRustObservation != record.RustObservation || reproducer.FindingRunAnchor != record.FindingRunAnchor || reproducer.ClosingRunAnchor != record.ClosingRunAnchor || reproducer.ClosingJavaObservation != record.ClosingJavaObservation || reproducer.ClosingRustObservation != record.ClosingRustObservation {
+	if reproducer.LedgerDeltaID != record.DeltaID || reproducer.ScenarioID != original.ScenarioID || reproducer.Signature.Pointer != record.Pointer || reproducer.Signature.Classification != record.Classification || reproducer.OriginalScenarioSHA256 != digest(originalLine) || record.ReproducerSHA256 != reproducer.OriginalScenarioSHA256 || reproducer.ScenarioSHA256 != digest(line) || !reproducer.Irreducible || reproducer.CandidateAttempts <= 0 || !canonicalEqual(reproducer.RuntimeInputs, inputs) || validateReproducerCommand(reproducer.Command, root, filepath.Join(root, "evidence/differential/manifest.json"), reproducer.ReproducerID) != nil || reproducer.RepositoryAnchor != manifest.RepositoryAnchor || reproducer.FindingJavaObservation != record.JavaObservation || reproducer.FindingRustObservation != record.RustObservation || reproducer.FindingRunAnchor != record.FindingRunAnchor || reproducer.ClosingRunAnchor != record.ClosingRunAnchor || reproducer.ClosingJavaObservation != record.ClosingJavaObservation || reproducer.ClosingRustObservation != record.ClosingRustObservation {
 		return errors.New("reproducer/ledger binding invalid")
 	}
 	if reproducer.Mode == "FRESH_BOUNDED_MINIMIZATION" {
@@ -5279,7 +5431,10 @@ func verifyLedgerClosure(manifest Manifest, ledger Ledger, scenarios []corpora.S
 					break
 				}
 			}
-			if !matched || record.ClosingJavaObservation != result.JavaPrimary || record.ClosingRustObservation != result.RustPrimary || record.ClosingRunAnchor != manifest.RepositoryAnchor {
+			// The append-only ledger retains the first execution that proved the
+			// defect closed. A later confirming run must bind the same current
+			// observations without rewriting that historical closing anchor.
+			if !matched || record.ClosingJavaObservation != result.JavaPrimary || record.ClosingRustObservation != result.RustPrimary || !validLedgerAnchor(record.ClosingRunAnchor) {
 				return fmt.Errorf("remediated defect record link drift %s", record.DeltaID)
 			}
 		}
@@ -5354,7 +5509,7 @@ func VerifyPublicDifferential(repositoryRoot string, receiptBytes []byte) error 
 	if err != nil {
 		return err
 	}
-	ledgerRaw, err := readRegularBounded(filepath.Join(repositoryRoot, "evidence/java/behavior-delta-ledger.json"), maximumDocumentBytes)
+	ledgerRaw, err := readVerificationLedger(filepath.Join(repositoryRoot, "evidence/java/behavior-delta-ledger.json"), maximumDocumentBytes)
 	if err != nil {
 		return err
 	}
