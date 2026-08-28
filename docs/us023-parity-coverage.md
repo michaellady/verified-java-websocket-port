@@ -2,8 +2,8 @@
 
 Snapshot: **FROZEN**  
 Parity: **BLOCKED**  
-Candidate root: `sha256:8fdcb31bd98997814a26d0c734d7d3c93856f19997450646d8bf099562878bc0`  
-Evaluation root: `sha256:a24eca4485b71c8bd5eb4846e78ee14503db8544878682af61d2a3c46113440d`
+Candidate root: `sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e`  
+Evaluation root: `sha256:a8358d8fea005518a305201accc0d2af113ef56ec7b3c6ff8725b45e176152c6`
 
 ## Original gates
 
