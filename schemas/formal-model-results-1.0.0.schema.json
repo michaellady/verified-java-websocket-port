@@ -21,6 +21,7 @@
     "invariants",
     "properties",
     "state_space",
+    "seeded_defects",
     "violations",
     "findings",
     "honesty_notes",
@@ -48,77 +49,191 @@
     "model": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["module", "tla_path", "cfg_path", "tla_sha256", "cfg_sha256", "staged_as"],
+      "required": [
+        "module",
+        "tla_path",
+        "cfg_path",
+        "tla_sha256",
+        "cfg_sha256",
+        "staged_as"
+      ],
       "properties": {
-        "module": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
-        "tla_path": { "type": "string", "minLength": 1 },
-        "cfg_path": { "type": "string", "minLength": 1 },
-        "tla_sha256": { "$ref": "#/$defs/digest" },
-        "cfg_sha256": { "$ref": "#/$defs/digest" },
-        "staged_as": { "type": "string", "minLength": 1 }
+        "module": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+        },
+        "tla_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "cfg_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tla_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "cfg_sha256": {
+          "$ref": "#/$defs/digest"
+        },
+        "staged_as": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "assurance": {
       "type": "string",
-      "enum": ["OWNER_ATTESTED_NOT_INDEPENDENT", "INDEPENDENTLY_VERIFIED"]
+      "enum": [
+        "OWNER_ATTESTED_NOT_INDEPENDENT",
+        "INDEPENDENTLY_VERIFIED"
+      ]
     },
-    "independent_review_claimed": { "type": "boolean" },
+    "independent_review_claimed": {
+      "type": "boolean"
+    },
     "claim_ceiling": {
       "type": "string",
-      "enum": ["observed", "differential", "bounded", "proved-model", "proved-production/refinement"]
+      "enum": [
+        "observed",
+        "differential",
+        "bounded",
+        "proved-model",
+        "proved-production/refinement"
+      ]
     },
     "backend": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["backend_id", "tool", "jvm"],
+      "required": [
+        "backend_id",
+        "tool",
+        "jvm"
+      ],
       "properties": {
-        "backend_id": { "const": "backend.tlc" },
+        "backend_id": {
+          "const": "backend.tlc"
+        },
         "tool": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["artifact", "pinned_release", "source_url", "sha256", "bytes", "sany_banner", "tlc_banner"],
+          "required": [
+            "artifact",
+            "pinned_release",
+            "source_url",
+            "sha256",
+            "bytes",
+            "sany_banner",
+            "tlc_banner"
+          ],
           "properties": {
-            "artifact": { "type": "string", "minLength": 1 },
-            "pinned_release": { "type": "string", "minLength": 1 },
-            "source_url": { "type": "string", "minLength": 1 },
-            "sha256": { "type": "string", "minLength": 1 },
-            "bytes": { "type": "integer", "minimum": 1 },
-            "sany_banner": { "type": "string", "minLength": 1 },
-            "tlc_banner": { "type": "string", "minLength": 1 }
+            "artifact": {
+              "type": "string",
+              "minLength": 1
+            },
+            "pinned_release": {
+              "type": "string",
+              "minLength": 1
+            },
+            "source_url": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "type": "string",
+              "minLength": 1
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "sany_banner": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tlc_banner": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
-        "jvm": { "type": "string", "minLength": 1 }
+        "jvm": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "execution": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["sbx_status", "attempt_id", "authorization", "sandbox", "sany", "tlc", "receipts", "window", "runtime_observed"],
+      "required": [
+        "sbx_status",
+        "attempt_id",
+        "authorization",
+        "sandbox",
+        "sany",
+        "tlc",
+        "receipts",
+        "window",
+        "runtime_observed"
+      ],
       "properties": {
         "sbx_status": {
           "type": "string",
-          "enum": ["EXECUTED_IN_SBX", "EXECUTED_ON_HOST_SBX_PENDING", "NOT_EXECUTED"]
+          "enum": [
+            "EXECUTED_IN_SBX",
+            "EXECUTED_ON_HOST_SBX_PENDING",
+            "NOT_EXECUTED"
+          ]
         },
-        "attempt_id": { "type": "string" },
-        "authorization": { "type": "string" },
-        "sandbox": { "type": "string" },
-        "sany": { "$ref": "#/$defs/step" },
-        "tlc": { "$ref": "#/$defs/step" },
+        "attempt_id": {
+          "type": "string"
+        },
+        "authorization": {
+          "type": "string"
+        },
+        "sandbox": {
+          "type": "string"
+        },
+        "sany": {
+          "$ref": "#/$defs/step"
+        },
+        "tlc": {
+          "$ref": "#/$defs/step"
+        },
         "receipts": {
           "type": "array",
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["path", "sha256", "bytes"],
+            "required": [
+              "path",
+              "sha256",
+              "bytes"
+            ],
             "properties": {
-              "path": { "type": "string", "minLength": 1 },
-              "sha256": { "$ref": "#/$defs/digest" },
-              "bytes": { "type": "integer", "minimum": 0 }
+              "path": {
+                "type": "string",
+                "minLength": 1
+              },
+              "sha256": {
+                "$ref": "#/$defs/digest"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              }
             }
           }
         },
-        "window": { "type": "string", "minLength": 1 },
-        "runtime_observed": { "type": "string", "minLength": 1 }
+        "window": {
+          "type": "string",
+          "minLength": 1
+        },
+        "runtime_observed": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "bounds": {
@@ -127,34 +242,115 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["constant", "value", "rationale"],
+        "required": [
+          "constant",
+          "value",
+          "rationale"
+        ],
         "properties": {
-          "constant": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
-          "value": { "type": "integer" },
-          "rationale": { "type": "string", "minLength": 1 }
+          "constant": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+          },
+          "value": {
+            "type": "integer"
+          },
+          "rationale": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
     "invariants": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/check" }
+      "items": {
+        "$ref": "#/$defs/check"
+      }
     },
     "properties": {
       "type": "array",
       "minItems": 1,
-      "items": { "$ref": "#/$defs/check" }
+      "items": {
+        "$ref": "#/$defs/check"
+      }
     },
     "state_space": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["states_generated", "distinct_states", "states_left_on_queue", "depth", "source"],
+      "required": [
+        "states_generated",
+        "distinct_states",
+        "states_left_on_queue",
+        "depth",
+        "source"
+      ],
       "properties": {
-        "states_generated": { "type": "integer", "minimum": 1 },
-        "distinct_states": { "type": "integer", "minimum": 1 },
-        "states_left_on_queue": { "type": "integer", "minimum": 0 },
-        "depth": { "type": "integer", "minimum": 1 },
-        "source": { "type": "string", "minLength": 1 }
+        "states_generated": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "distinct_states": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "states_left_on_queue": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "depth": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "seeded_defects": {
+      "description": "Every seeded-defect (mutation) run executed for this model. A mutation that the checker does NOT kill is a finding about the checks, not a footnote: the validator requires a survivor to be disclosed in findings.",
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "defect_id",
+          "mutation",
+          "outcome",
+          "exit_code",
+          "violated_check",
+          "receipt_path"
+        ],
+        "properties": {
+          "defect_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mutation": {
+            "type": "string",
+            "minLength": 1
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "Killed",
+              "Survived"
+            ]
+          },
+          "exit_code": {
+            "type": "integer"
+          },
+          "violated_check": {
+            "type": "string"
+          },
+          "receipt_path": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
       }
     },
     "violations": {
@@ -162,12 +358,32 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["check", "kind", "counterexample", "receipt_path"],
+        "required": [
+          "check",
+          "kind",
+          "counterexample",
+          "receipt_path"
+        ],
         "properties": {
-          "check": { "type": "string", "minLength": 1 },
-          "kind": { "type": "string", "enum": ["invariant", "property"] },
-          "counterexample": { "type": "string", "minLength": 1 },
-          "receipt_path": { "type": "string", "minLength": 1 }
+          "check": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "invariant",
+              "property"
+            ]
+          },
+          "counterexample": {
+            "type": "string",
+            "minLength": 1
+          },
+          "receipt_path": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     },
@@ -176,17 +392,38 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "kind", "statement", "disposition"],
+        "required": [
+          "id",
+          "kind",
+          "statement",
+          "disposition"
+        ],
         "properties": {
-          "id": { "type": "string", "minLength": 1 },
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
           "kind": {
             "type": "string",
-            "enum": ["unreachable_check", "inert_normalization", "declared_divergence", "residual_gap"]
+            "enum": [
+              "unreachable_check",
+              "inert_normalization",
+              "declared_divergence",
+              "residual_gap",
+              "model_defect_fixed"
+            ]
           },
-          "statement": { "type": "string", "minLength": 1 },
+          "statement": {
+            "type": "string",
+            "minLength": 1
+          },
           "disposition": {
             "type": "string",
-            "enum": ["RECORDED_NO_CHANGE_REQUIRED", "FIX_REQUIRED", "OWNER_DECISION_REQUIRED"]
+            "enum": [
+              "RECORDED_NO_CHANGE_REQUIRED",
+              "FIX_REQUIRED",
+              "OWNER_DECISION_REQUIRED"
+            ]
           }
         }
       }
@@ -194,10 +431,17 @@
     "honesty_notes": {
       "type": "array",
       "minItems": 1,
-      "items": { "type": "string", "minLength": 1 }
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
     },
-    "production": { "const": false },
-    "publication": { "const": false }
+    "production": {
+      "const": false
+    },
+    "publication": {
+      "const": false
+    }
   },
   "$defs": {
     "digest": {
@@ -207,23 +451,62 @@
     "step": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["argv", "exit_code", "observed"],
+      "required": [
+        "argv",
+        "exit_code",
+        "observed"
+      ],
       "properties": {
-        "argv": { "type": "string", "minLength": 1 },
-        "exit_code": { "type": "integer" },
-        "observed": { "type": "string", "minLength": 1 }
+        "argv": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exit_code": {
+          "type": "integer"
+        },
+        "observed": {
+          "type": "string",
+          "minLength": 1
+        }
       }
     },
     "check": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["name", "kind", "statement", "falsified_by", "outcome"],
+      "required": [
+        "name",
+        "kind",
+        "statement",
+        "falsified_by",
+        "outcome"
+      ],
       "properties": {
-        "name": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" },
-        "kind": { "type": "string", "enum": ["invariant", "property"] },
-        "statement": { "type": "string", "minLength": 1 },
-        "falsified_by": { "type": "string" },
-        "outcome": { "type": "string", "enum": ["Held", "Violated", "NotChecked"] }
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_]*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "invariant",
+            "property"
+          ]
+        },
+        "statement": {
+          "type": "string",
+          "minLength": 1
+        },
+        "falsified_by": {
+          "type": "string"
+        },
+        "outcome": {
+          "type": "string",
+          "enum": [
+            "Held",
+            "Violated",
+            "NotChecked"
+          ]
+        }
       }
     }
   }

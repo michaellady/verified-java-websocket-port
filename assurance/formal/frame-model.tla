@@ -65,7 +65,21 @@
 \*     per append. Fragment reassembly is OUT OF SCOPE for this model (see
 \*     MODEL SCOPE) and is named here only so its absence is deliberate.
 \*
-\* A REAL FINDING RECORDED, NOT SUPPRESSED. The shipped port checks the
+\* TWO REAL FINDINGS RECORDED, NOT SUPPRESSED.
+\* FINDING 2 (found BY the checker, in this model, on its first run). The
+\* first executed TLC run of this model exposed a defect in the MODEL, not
+\* in the port: the original MaskRoundTrip invariant asserted only that
+\* unmasking and then re-masking recovers the wire octets, and the declared
+\* key-index mutation (1 + ((i - 1) % 4) becoming 1 + (i % 4)) SURVIVED it
+\* -- exit 0, no error, over the identical 3,618-state space. XOR with any
+\* fixed index function is an involution, so the round trip is blind to key
+\* ALIGNMENT and the invariant was partially vacuous. The declared
+\* falsification note was therefore wrong. The fix is in the model: the mask
+\* equation is now restated independently as MaskEquationReference and the
+\* invariant checks the transform against it, after which the same mutation
+\* is killed. Recorded here rather than quietly re-labelled, because the
+\* whole point of running the checker is that it can contradict the author.
+\* FINDING 1 (an unreachable defensive check in the port). The shipped port checks the
 \* 125-octet control-payload limit twice: once by rejecting any control
 \* frame whose length MARKER is >= 126 at header byte 2, and again by
 \* comparing the decoded payload length against 125 at the length site. The
@@ -273,6 +287,20 @@ MaskKeys == [1..4 -> ByteValues]
 \* decode; the same function serves both directions, which is what makes the
 \* round trip an involution.
 MaskApply(payload, key) ==
+  [i \in DOMAIN payload |-> Xor2(payload[i], key[1 + ((i - 1) % 4)])]
+
+\* The SAME equation, restated independently for the invariant to check
+\* against. This duplication is deliberate and load-bearing, and the first
+\* TLC run is why it exists: an earlier revision of MaskRoundTrip asserted
+\* only that unmasking then re-masking recovers the wire octets, and the
+\* declared key-index mutation SURVIVED that check -- XOR with any fixed
+\* index function is an involution, so a misaligned mask round-trips just
+\* as cleanly as an aligned one. The round trip alone therefore says nothing
+\* about key ALIGNMENT. Checking the transform against this independent
+\* statement makes a mutation of either side detectable, exactly as the
+\* US-006 connection model's InboundCloseNormalization restates the
+\* CloseFrame table it checks.
+MaskEquationReference(payload, key) ==
   [i \in DOMAIN payload |-> Xor2(payload[i], key[1 + ((i - 1) % 4)])]
 
 \* ---- initial state --------------------------------------------------------
@@ -493,9 +521,9 @@ VerdictMatchesDeclaredTable ==
 \* allocation happens for a frame the header gate rejected. Together these
 \* are the "no unbounded allocation" obligation: the reservation is made
 \* only after the gate and only at the gated size.
-\* FALSIFIED BY: defect.frame.allocate-before-gate -- move the
-\*   allocated' assignment from HeaderAccept into StartFrame
-\*   (allocated' = LengthOctets(f.length)); an over_cap frame then reserves
+\* FALSIFIED BY: defect.frame.allocate-before-gate -- in StartFrame replace
+\*   allocated' = 0 with allocated' = LengthOctets(f.length), reserving
+\*   before the header gate has run; an over_cap frame then reserves
 \*   FramePayloadCap + 1.
 AllocationRespectsHeaderGate ==
   /\ allocated <= FramePayloadCap
@@ -554,15 +582,21 @@ ConsumedSiteIsDeclared ==
     => /\ verdict.consumed \in {2, LengthSite(frame), FrameOctets(frame)}
        /\ verdict.consumed <= FrameOctets(frame)
 
-\* The mask round trip on the wire domain: unmasking recovers the semantic
-\* octets, re-masking recovers the wire octets, and the length is preserved.
-\* This is the state-level companion of the exhaustive ASSUME above.
+\* The mask equation and its round trip on the wire domain: the unmasked
+\* octets equal the INDEPENDENTLY stated mask equation applied to the wire
+\* octets (this conjunct is what catches key-index misalignment; the round
+\* trip alone cannot -- see MaskEquationReference), re-masking recovers the
+\* wire octets, and the length is preserved. This is the state-level
+\* companion of the exhaustive ASSUME above.
 \* FALSIFIED BY: defect.frame.mask-index-misalignment -- in MaskApply change
-\*   the key index to 1 + (i % 4); TLC then reaches an unmasked state whose
-\*   re-mask differs from the wire payload.
+\*   the key index to 1 + (i % 4), leaving MaskEquationReference alone; TLC
+\*   then reaches an unmasked state whose octets differ from the reference
+\*   equation. EXECUTED as a seeded defect: the first run of this model
+\*   showed that the pre-fix invariant did NOT catch this mutation, which is
+\*   why the reference conjunct exists.
 MaskRoundTrip ==
   (phase = "unmasked")
-    => /\ semanticPayload = MaskApply(wirePayload, maskKey)
+    => /\ semanticPayload = MaskEquationReference(wirePayload, maskKey)
        /\ MaskApply(semanticPayload, maskKey) = wirePayload
        /\ Len(semanticPayload) = Len(wirePayload)
 

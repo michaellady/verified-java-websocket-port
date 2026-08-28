@@ -1,0 +1,260 @@
+{
+  "$schema": "../../schemas/formal-model-results-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "kind": "formal-model-results",
+  "story": "US-016",
+  "acceptance_criterion": "AC4",
+  "model": {
+    "module": "CloseModel",
+    "tla_path": "assurance/formal/close-model.tla",
+    "cfg_path": "assurance/formal/close-model.cfg",
+    "tla_sha256": "sha256:36370b0f30d0a47f942ae240312397b78aaf64b2ce2a08024b73187f4d4cd8a9",
+    "cfg_sha256": "sha256:c9072fa4c03036ea20a9b63bf48c976bbe5f3b2fd5c620439b31d58ca777c3f2",
+    "staged_as": "CloseModel.tla"
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "claim_ceiling": "proved-model",
+  "backend": {
+    "backend_id": "backend.tlc",
+    "tool": {
+      "artifact": "tla2tools.jar (TLA+ tools: SANY + TLC)",
+      "pinned_release": "tlaplus v1.8.0 'The Clarke release'",
+      "source_url": "https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar",
+      "sha256": "sha256:eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a",
+      "bytes": 4487757,
+      "sany_banner": "SANY2 Version 2.2 created 08 July 2020",
+      "tlc_banner": "TLC2 Version 2026.08.21.155922 (rev: 9787e65)"
+    },
+    "jvm": "openjdk 25.0.3 2026-04-21, OpenJDK Runtime Environment (build 25.0.3+9-2-26.04.2-Ubuntu) -- the sandbox template's JVM. TLC's own host line: 'Linux 7.0.12 aarch64, Ubuntu 25.0.3 64bit'. The authoring host's JVM (17.0.19) was never used for this run and the checker remains uninstalled there."
+  },
+  "execution": {
+    "sbx_status": "EXECUTED_IN_SBX",
+    "attempt_id": "us007-sbx-output-live-0127",
+    "authorization": "workspace/orchestrator/verified-java-websocket-port-claude/protected/us012-us016-attempt-0127-owner-authorization.json, which cites the standing owner decision protected/us009-us008-owner-decisions-2026-08-27.json key us006_tlc_in_sbx = AUTHORIZED (2026-08-27T03:21:08Z) and DISCLOSES in its authorization_scope_disclosure field that the standing decision's literal text authorized a single attempt, consumed by us007-sbx-output-live-0125; this attempt is a second attempt of the same authorized class and is not represented as a fresh owner grant.",
+    "sandbox": "Accepted US-007 Docker sbx workload profile: sbx v0.39.0 def8cb0523a77e757bdd6ef52b459fe374f3783e (read from the CLI banner), template docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec, sandbox us012-us016-tlc-0127, uid=1000(agent) unprivileged with no --privileged and no root at any point, --deny-network '**' (sbx policy ls showed the deny-all-hosts rule live alongside the clone-mode git-daemon internal allow present in all accepted attempts), clone mode over a clean clone of this repository at commit acc38e770810b25cfca1c81e5d7cd87a18e80c5c. The checker archive was fetched host-side with its sha256 recorded AT FETCH and entered the network-denied sandbox only via a digest-verified copy re-hashed inside the sandbox; sbx cp exit codes are untrusted per the 0124 finding, so all four staged model artifacts were re-hashed in-sandbox against the host bytes (four matches) and all thirteen output receipts were verified out on the host with shasum -c (exit 0). Sandbox removed after extraction.",
+    "sany": {
+      "argv": "java -cp tla2tools.jar tla2sany.SANY CloseModel.tla",
+      "exit_code": 0,
+      "observed": "Grammar and level check EXECUTED: semantic processing and linting of module CloseModel completed with no errors (receipt sany-CloseModel.out)."
+    },
+    "tlc": {
+      "argv": "java -cp tla2tools.jar tlc2.TLC -config CloseModel.cfg CloseModel",
+      "exit_code": 0,
+      "observed": "Full run with the shipped cfg: 'Model checking completed. No error has been found.' -- 348 states generated, 168 distinct states, 0 states left on queue, complete-state-graph depth 5. All eleven INVARIANTs and all three PROPERTYs in the shipped cfg were checked over the complete state space, so the two action properties and the ClosingResolves liveness property are included in the clean verdict (receipt tlc-CloseModel.out)."
+    },
+    "receipts": [
+      {
+        "path": "evidence/formal/us012-us016-model-check-0127/sany-CloseModel.out",
+        "sha256": "sha256:99b1c2ea5d80d40a028a79c00d1f8025aa2d1e59ab0a817d06b01055fdc2c064",
+        "bytes": 734
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0127/tlc-CloseModel.out",
+        "sha256": "sha256:55428207244b2a02f8aa95c01a02544da9d0148ddd677e4be745d26ee1358c7e",
+        "bytes": 3096
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-close-liveness.out",
+        "sha256": "sha256:f1f272333776754ad8422ded337eb4c24d596cf57caced2e5cb25fc37887be52",
+        "bytes": 4458
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-close-echo.out",
+        "sha256": "sha256:dd1eabd1b19ff06a7496602b0571807e926193f7c51b73d86fb9104fc53b346f",
+        "bytes": 4302
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-close-onebyte.out",
+        "sha256": "sha256:0163becabbd2f1e229137eab62fd5f0b055587cbd27efa7bed80b7970e00afaa",
+        "bytes": 4292
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0127/attempt-0127-run.sh",
+        "sha256": "sha256:b1c9010c30850fab1e5d36823f7b3e965458ea2e05c67fb90e06e0a0f79b3a68",
+        "bytes": 4083
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0127/window-start.txt",
+        "sha256": "sha256:b4ea95f03755f6a811cee333a58f6dec375c6bd8ddbd341a2f6073724ec3d23b",
+        "bytes": 21
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0127/window-end.txt",
+        "sha256": "sha256:da96bc3e4534d945448cf0d315f6e5ae97e96fc397bbd5371e2714706645d5b7",
+        "bytes": 21
+      }
+    ],
+    "window": "2026-08-27T23:58:50Z .. 2026-08-27T23:58:56Z (in-sandbox `date -u`, captured verbatim in window-start.txt / window-end.txt; the window covers both models' SANY and TLC runs plus all seven seeded-defect runs)",
+    "runtime_observed": "TLC's own line for this model: 'Finished in 00s'. Read from the checker output, not measured by the driver, and not a benchmark."
+  },
+  "bounds": [
+    {
+      "constant": "TerminalBudget",
+      "value": 2,
+      "rationale": "Two keeps the double-terminal-entry state REPRESENTABLE, so TerminalEnteredAtMostOnce fails loudly under its declared mutation instead of being true by typing."
+    }
+  ],
+  "invariants": [
+    {
+      "name": "TypeInvariant",
+      "kind": "invariant",
+      "statement": "Every variable stays inside its declared finite domain: the four ready states, the close-code domain, the two reason classes, the inbound and outbound vocabularies, and the bounded terminal-entry counter.",
+      "falsified_by": "defect.close.type-domain-escape -- set Init's closeDetail code to 9999, outside CloseCodeDomain.",
+      "outcome": "Held"
+    },
+    {
+      "name": "TerminalEnteredAtMostOnce",
+      "kind": "invariant",
+      "statement": "The absorbing terminal state is entered at most once. The counter's domain deliberately allows two, so the double-entry state is representable and this check is falsifiable rather than true by typing.",
+      "falsified_by": "defect.close.double-terminal-entry -- add \"Closed\" to TransportEof's enabling state set.",
+      "outcome": "Held"
+    },
+    {
+      "name": "ClosedIffOneTerminalEntry",
+      "kind": "invariant",
+      "statement": "Reaching the terminal state and accounting for it are the same event: no path enters Closed without the terminal accounting, and no accounting happens without Closed.",
+      "falsified_by": "defect.close.terminal-entry-unaccounted -- in RecvCloseWhileClosing replace the terminal-entry increment with UNCHANGED.",
+      "outcome": "Held"
+    },
+    {
+      "name": "CloseDetailPresentFromClosing",
+      "kind": "invariant",
+      "statement": "From CLOSING onward a governing close outcome exists: every modeled path into CLOSING or CLOSED records the origin and code that the terminal delivery later reports.",
+      "falsified_by": "defect.close.closing-without-detail -- in SendCloseAccepted replace the closeDetail assignment with UNCHANGED.",
+      "outcome": "Held"
+    },
+    {
+      "name": "InboundCloseNormalization",
+      "kind": "invariant",
+      "statement": "The shipped inbound close-payload table, restated independently of the receive actions: empty accepts as 1000, one octet accepts as 1002 (behavior-delta sequence 27, where the RFC would treat it as malformed), a valid code plus reason accepts, 1007 with an empty reason rejects as 1007, a reserved or out-of-range code rejects as 1002, and an invalid UTF-8 reason is a runtime rejection with NO reported close code (behavior-delta sequence 32).",
+      "falsified_by": "defect.close.one-byte-rejected -- change InboundCode's one_byte arm to 1005, which the validity chain then rejects, turning the accept row into an invalid_data row.",
+      "outcome": "Held"
+    },
+    {
+      "name": "EchoCarriesConstructorPayload",
+      "kind": "invariant",
+      "statement": "The echoed close frame always carries the CONSTRUCTOR payload, whose wire code is 1000, regardless of the received code (behavior-delta sequence 28). This is the invariant that would have caught an RFC-shaped acknowledgement echo.",
+      "falsified_by": "defect.close.echo-mirrors-received-code -- in RecvCloseAcceptOpen set the echo's payload to code_reason and its code to the received code.",
+      "outcome": "Held"
+    },
+    {
+      "name": "ForbiddenCodesNeverReachTheWire",
+      "kind": "invariant",
+      "statement": "No close code that the shipped validity chain forbids ever reaches the wire, for either the local close path (checked against its requested reason) or the echo path (checked against the constructor's empty reason).",
+      "falsified_by": "defect.close.validity-chain-bypassed -- delete the CloseCodeRejection guard from SendCloseAccepted.",
+      "outcome": "Held"
+    },
+    {
+      "name": "TlsErrorSendAlwaysRejectedAs1002",
+      "kind": "invariant",
+      "statement": "A local close requesting the TLS_ERROR code 1015 is ALWAYS rejected with reported code 1002, for every reason kind. This is the mechanical statement of the recorded inert-normalization finding.",
+      "falsified_by": "defect.close.tls-error-sendable -- delete the 1015 arm from the validity chain's fourth clause AND drop the normalization from SendCloseAccepted.",
+      "outcome": "Held"
+    },
+    {
+      "name": "NeverConnectedOnlyPreHandshake",
+      "kind": "invariant",
+      "statement": "The NEVER_CONNECTED code is a callback-vocabulary code, never a wire code, and can only be reported before the handshake completed.",
+      "falsified_by": "defect.close.never-connected-post-handshake -- in TransportEof's abnormal arm report the never-connected code instead of 1006.",
+      "outcome": "Held"
+    },
+    {
+      "name": "RejectedSendDoesNotTransition",
+      "kind": "invariant",
+      "statement": "A rejected local close emits no frame and does not move the lifecycle: the typed failure is reported to the caller and the connection poisons in place. This is the recorded, declared divergence from shipped Java's close(), which enters CLOSING on an illegal code.",
+      "falsified_by": "defect.close.rejected-send-transitions -- add state' = \"Closing\" to SendCloseRejected.",
+      "outcome": "Held"
+    },
+    {
+      "name": "PoisonNeverFabricatesTermination",
+      "kind": "invariant",
+      "statement": "The fatal-poison flag and the terminal state are independent absorbing facts: poisoning outside the terminal state never fabricates a terminal entry.",
+      "falsified_by": "defect.close.poison-implies-closed -- add a terminal-entry increment to RecvCloseRejectedOpen.",
+      "outcome": "Held"
+    }
+  ],
+  "properties": [
+    {
+      "name": "TerminalAbsorbing",
+      "kind": "property",
+      "statement": "CLOSED is absorbing: no modeled transition leaves the terminal state.",
+      "falsified_by": "defect.close.reopen-after-terminal -- add a Reopen action from Closed to Open.",
+      "outcome": "Held"
+    },
+    {
+      "name": "PoisonAbsorbing",
+      "kind": "property",
+      "statement": "The fatal-poison flag is absorbing and freezes the lifecycle: once a fatal typed failure is reported, no further input changes the state or the governing close outcome.",
+      "falsified_by": "defect.close.poison-recoverable -- drop the not-poisoned conjunct from OpenHandshake and TransportEof.",
+      "outcome": "Held"
+    },
+    {
+      "name": "ClosingResolves",
+      "kind": "property",
+      "statement": "Under the declared fairness, a closing connection that has not suffered a fatal failure always terminates; a poisoned one is allowed to stop, because the kernel's contract is to report and freeze and leave transport teardown to the adapter.",
+      "falsified_by": "defect.close.starved-closing-resolution -- change the cfg SPECIFICATION from FairSpec to Spec.",
+      "outcome": "Held"
+    }
+  ],
+  "state_space": {
+    "states_generated": 348,
+    "distinct_states": 168,
+    "states_left_on_queue": 0,
+    "depth": 5,
+    "source": "Read verbatim from the TLC summary lines of tlc-CloseModel.out: '348 states generated, 168 distinct states found, 0 states left on queue.' and 'The depth of the complete state graph search is 5.'"
+  },
+  "seeded_defects": [
+    {
+      "defect_id": "defect.close.starved-closing-resolution",
+      "mutation": "cfg SPECIFICATION FairSpec -> Spec (delete the fairness conjunct)",
+      "outcome": "Killed",
+      "exit_code": 13,
+      "violated_check": "ClosingResolves",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-close-liveness.out"
+    },
+    {
+      "defect_id": "defect.close.echo-mirrors-received-code",
+      "mutation": "RecvCloseAcceptOpen echo payload constructor -> code_reason and code 1000 -> the received code",
+      "outcome": "Killed",
+      "exit_code": 12,
+      "violated_check": "EchoCarriesConstructorPayload",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-close-echo.out"
+    },
+    {
+      "defect_id": "defect.close.one-byte-rejected",
+      "mutation": "InboundCode one_byte arm 1002 -> 1005, which the validity chain then rejects",
+      "outcome": "Killed",
+      "exit_code": 12,
+      "violated_check": "InboundCloseNormalization",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-close-onebyte.out"
+    }
+  ],
+  "violations": [],
+  "findings": [
+    {
+      "id": "finding.close.tls-normalization-inert-on-send",
+      "kind": "inert_normalization",
+      "statement": "The port's send-path normalization of the TLS_ERROR code 1015 to 1005 omits Java's accompanying side effect: shipped CloseFrame.setCode also clears the reason (framing/CloseFrame.java:184), and the port's pure normalizer does not. TLC shows the difference is observationally INERT on this path: TlsErrorSendAlwaysRejectedAs1002 holds over both reason kinds, because 1005 with a non-empty reason is rejected 1002 by the chain's second arm, 1005 with an empty reason is rejected 1002 by the fourth, and an un-normalized 1015 is rejected 1002 by the fourth as well. Every route reports 1002 and emits no frame, so the port's observable behavior matches the fidelity authority. No change is required; the difference is recorded so a future refactor cannot silently rely on it.",
+      "disposition": "RECORDED_NO_CHANGE_REQUIRED"
+    },
+    {
+      "id": "finding.close.rejected-send-does-not-transition",
+      "kind": "declared_divergence",
+      "statement": "Shipped Java's close(code, message, remote) catches the InvalidDataException raised by the close frame's isValid, calls flushAndClose with the abnormal-close code, and then sets readyState = CLOSING (WebSocketImpl.java:488-503) -- so a Java endpoint ENTERS CLOSING on an illegal local close code. The port's Sans-I/O kernel instead returns the typed failure to the caller, emits no frame, and does not transition, matching the reference model internal/corpora/derive.go sendClose, which the US-016 owner amendment names as the binding fidelity authority. The invariant RejectedSendDoesNotTransition pins the port's behavior, and the difference from raw Java is recorded here rather than hidden. It lives in the adapter layer's scope (US-018), not the kernel's; it is NOT covered by an existing behavior-delta-ledger record, so an owner decision on whether it warrants one is the honest next step.",
+      "disposition": "OWNER_DECISION_REQUIRED"
+    }
+  ],
+  "honesty_notes": [
+    "Claim ceiling proved-model, full stop. This run establishes properties of an ABSTRACTION of the shipped connection kernel and nothing about production Rust without a reviewed composition/refinement link.",
+    "The model is bounded and abstract: eight representative send codes, two reason classes, six inbound payload classes, and no queue, event-budget, or backpressure modelling. Checked results hold only inside those bounds.",
+    "This model checks the PORT's Sans-I/O kernel, not shipped Java. The US-006 connection model (assurance/formal/connection-model.tla) models Java's lifecycle, including its at-least-once terminal callback under listener re-entrancy. Neither model subsumes the other, and the terminal discipline checked here -- one entry into the absorbing Closed state -- is NOT the same claim as Java's callback count.",
+    "OWNER_ATTESTED_NOT_INDEPENDENT: one session authored the model, the invariants, the falsification notes, and this record, and ran the checker. No independent review is claimed.",
+    "Non-vacuity is partial, stated precisely: two of the eleven invariants (EchoCarriesConstructorPayload, InboundCloseNormalization) and one of the three properties (ClosingResolves) have an EXECUTED seeded-defect kill in this attempt. The other nine invariants and the two action properties carry declared falsification notes that were NOT executed here; their non-vacuity is asserted, not machine-confirmed.",
+    "The 168 distinct states are small because the lifecycle is short and most branches converge on the same absorbing states. A small state space is not a weak result on its own, but it does mean this model exercises far fewer interleavings than the US-006 connection model, and it says nothing about concurrency.",
+    "The authorization for this attempt extends a standing owner decision whose literal text authorized one attempt, already consumed by us007-sbx-output-live-0125. That extension is disclosed in the attempt's own authorization record and is the owner's to ratify or reject.",
+    "finding.close.rejected-send-does-not-transition is left OWNER_DECISION_REQUIRED on purpose: the port follows its named fidelity authority, but the divergence from raw shipped Java has no behavior-delta-ledger record, and inventing one unilaterally is not this worker's call."
+  ],
+  "production": false,
+  "publication": false
+}

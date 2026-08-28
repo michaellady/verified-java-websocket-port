@@ -116,6 +116,7 @@ type modelResultsDocument struct {
 	Invariants               []modelResultsCheck    `json:"invariants"`
 	Properties               []modelResultsCheck    `json:"properties"`
 	StateSpace               modelResultsStateSpace `json:"state_space"`
+	SeededDefects            []modelResultsDefect   `json:"seeded_defects"`
 	Violations               []modelResultsViol     `json:"violations"`
 	Findings                 []modelResultsFinding  `json:"findings"`
 	HonestyNotes             []string               `json:"honesty_notes"`
@@ -192,6 +193,15 @@ type modelResultsStateSpace struct {
 	StatesLeftOnQueue int    `json:"states_left_on_queue"`
 	Depth             int    `json:"depth"`
 	Source            string `json:"source"`
+}
+
+type modelResultsDefect struct {
+	DefectID      string `json:"defect_id"`
+	Mutation      string `json:"mutation"`
+	Outcome       string `json:"outcome"`
+	ExitCode      int    `json:"exit_code"`
+	ViolatedCheck string `json:"violated_check"`
+	ReceiptPath   string `json:"receipt_path"`
 }
 
 type modelResultsViol struct {
@@ -458,6 +468,57 @@ func ValidateModelResults(root string, binding ModelResultsBinding) []ModelFindi
 		findings = append(findings, finding("MODEL_RESULTS_STATE_SPACE_INCOHERENT",
 			fmt.Sprintf("search depth %d exceeds the distinct-state count %d", space.Depth,
 				space.DistinctStates)))
+	}
+
+	// --- seeded defects: the non-vacuity evidence ---------------------------
+	// A check that no mutation can falsify establishes nothing, so every
+	// recorded mutation must have been RUN (its receipt digest-bound above),
+	// must name a check the cfg actually runs, and — when it was killed —
+	// must carry the nonzero checker exit that killed it. A SURVIVING
+	// mutation is a finding about the checks and must be disclosed as one;
+	// silently listing a survivor is exactly the failure mode this rule
+	// exists to prevent.
+	checkNames := map[string]bool{}
+	for _, entry := range append(append([]modelResultsCheck{}, document.Invariants...),
+		document.Properties...) {
+		checkNames[entry.Name] = true
+	}
+	receiptPaths := map[string]bool{}
+	for _, receipt := range document.Execution.Receipts {
+		receiptPaths[receipt.Path] = true
+	}
+	findingIDs := map[string]bool{}
+	for _, entry := range document.Findings {
+		findingIDs[entry.ID] = true
+	}
+	for _, defect := range document.SeededDefects {
+		if !receiptPaths[defect.ReceiptPath] {
+			findings = append(findings, finding("MODEL_RESULTS_DEFECT_UNSUBSTANTIATED",
+				"seeded defect "+defect.DefectID+" cites receipt "+defect.ReceiptPath+
+					" which is not digest-bound in execution.receipts"))
+		}
+		switch defect.Outcome {
+		case "Killed":
+			if defect.ExitCode == 0 {
+				findings = append(findings, finding("MODEL_RESULTS_DEFECT_UNSUBSTANTIATED",
+					"seeded defect "+defect.DefectID+" is recorded Killed with checker exit 0"))
+			}
+			if !checkNames[defect.ViolatedCheck] {
+				findings = append(findings, finding("MODEL_RESULTS_DEFECT_UNSUBSTANTIATED",
+					"seeded defect "+defect.DefectID+" names violated check "+
+						strconv.Quote(defect.ViolatedCheck)+" which this cfg does not check"))
+			}
+		case "Survived":
+			if defect.ExitCode != 0 {
+				findings = append(findings, finding("MODEL_RESULTS_DEFECT_UNSUBSTANTIATED",
+					"seeded defect "+defect.DefectID+" is recorded Survived with a nonzero checker exit"))
+			}
+			if !findingIDs[defect.DefectID] {
+				findings = append(findings, finding("MODEL_RESULTS_DEFECT_SURVIVOR_UNDISCLOSED",
+					"seeded defect "+defect.DefectID+
+						" survived: a mutation the checks cannot kill is a finding and must appear in findings under the same id"))
+			}
+		}
 	}
 
 	// --- honest disclosure --------------------------------------------------
