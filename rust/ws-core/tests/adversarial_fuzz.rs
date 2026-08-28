@@ -118,6 +118,27 @@ struct StepRecord {
     writes: Vec<Vec<u8>>,
 }
 
+/// The FULL observable state of a core between inputs: ready state, every
+/// counter (which carries the buffered/pending byte state), and the close
+/// detail. Captured before each input so a refused input can be proven to
+/// have changed nothing — see the backpressure-atomicity oracle in `drive`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Observable {
+    state: ReadyState,
+    counts: Counts,
+    close: Option<CloseDetail>,
+}
+
+impl Observable {
+    fn capture(core: &ConnectionCore) -> Observable {
+        Observable {
+            state: core.state(),
+            counts: core.counts(),
+            close: core.close_detail().cloned(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Trace {
     steps: Vec<StepRecord>,
@@ -139,6 +160,11 @@ fn drive(
     let mut poisoned = false;
     let mut terminal_transitions = 0usize;
     for step in steps {
+        // Snapshot the whole observable surface BEFORE the input. The queues
+        // are drained to empty at the end of every step, so occupancy here is
+        // always zero; together with the drained-empty assertions below that
+        // pins queue occupancy across a refusal too.
+        let before = Observable::capture(&core);
         let result = match step {
             FuzzStep::Bytes(chunk) => core.handle(Input::TransportBytes(chunk)),
             FuzzStep::Eof => core.handle(Input::TransportEof),
@@ -175,9 +201,28 @@ fn drive(
         match &result {
             Err(failure) if failure.code.is_fatal() => poisoned = true,
             Err(_) => {
-                // Backpressure: the input was not consumed — no observation.
+                // Backpressure ATOMICITY: the input was not consumed, so the
+                // core must be byte-for-byte where it was before the call.
+                // Emitting nothing is necessary but nowhere near sufficient —
+                // a refusal that had already committed a counter, advanced the
+                // state, recorded a close, or retained pending bytes would
+                // satisfy the empty-queue checks while leaving the core in a
+                // state no retry can reproduce. Every observable is compared.
                 assert!(events.is_empty(), "backpressure refusal emitted events");
                 assert!(writes.is_empty(), "backpressure refusal emitted writes");
+                let after = Observable::capture(&core);
+                assert_eq!(
+                    after.state, before.state,
+                    "backpressure refusal changed the ready state"
+                );
+                assert_eq!(
+                    after.counts, before.counts,
+                    "backpressure refusal mutated the counters (including buffered/pending bytes)"
+                );
+                assert_eq!(
+                    after.close, before.close,
+                    "backpressure refusal changed the close detail"
+                );
             }
             Ok(()) => {}
         }

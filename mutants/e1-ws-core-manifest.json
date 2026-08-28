@@ -9,7 +9,16 @@
     "test_exit": 0
   },
   "campaign": "e1-ws-core-mutation-campaign",
-  "generated_at": "2026-08-28T00:27:57Z",
+  "generated_at": "2026-08-28T01:27:38Z",
+  "isolation": {
+    "containment_check": "resolved filesystem identity via EvalSymlinks + filepath.Rel component comparison (never a string prefix), checked before creation and again after",
+    "judged_tree_digest": "385ddf08ee01762a66cd8f7a6dee3e21b654798c0d5a4ebd7d91d8d5dca5dc7b",
+    "judged_tree_digest_algorithm": "sha256 over sorted (relative path, length, bytes) of rust/, excluding target/; symlinks refused",
+    "post_campaign_digest": "385ddf08ee01762a66cd8f7a6dee3e21b654798c0d5a4ebd7d91d8d5dca5dc7b",
+    "post_campaign_digest_matches": true,
+    "scratch_created_fresh": true,
+    "scratch_verified_identical": true
+  },
   "judge_2_exit_discipline": "harness_build_exit, harness_exit and corpus_exit are each read from the real ProcessState; a nonzero harness_exit can never score green (corpusVerdict)",
   "judges": [
     "cargo test -p ws-core (scratch workspace)",
@@ -37,7 +46,7 @@
       "corpus_exit": 1,
       "corpus_passed": 53,
       "corpus_failed": 21,
-      "runtime_seconds": 2.892227209
+      "runtime_seconds": 2.794019875
     },
     {
       "id": "m012-mask-modulus-swap",
@@ -55,7 +64,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:357:9: assertion `left == right` failed: case 0: XOR equation",
       "test_exit": 101,
-      "runtime_seconds": 2.3537004169999998
+      "runtime_seconds": 2.383183084
     },
     {
       "id": "m012-control-ext-marker-flip",
@@ -74,7 +83,7 @@
       ],
       "kill_detail": "ws-core/tests/frame_codec.rs:158:5: assertion `left == right` failed",
       "test_exit": 101,
-      "runtime_seconds": 3.6552476670000003
+      "runtime_seconds": 3.672261917
     },
     {
       "id": "m012-control-limit-off-by-one",
@@ -90,9 +99,9 @@
       "failed_tests": [
         "control_payload_exactly_125_delivers"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1175:5: assertion `left == right` failed: 125-byte ping is legal",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1220:5: assertion `left == right` failed: 125-byte ping is legal",
       "test_exit": 101,
-      "runtime_seconds": 2.098443416
+      "runtime_seconds": 2.115939792
     },
     {
       "id": "m012-frame-cap-off-by-one",
@@ -110,7 +119,7 @@
       ],
       "kill_detail": "ws-core/tests/frame_codec.rs:217:9: us012/canonical-64.hex",
       "test_exit": 101,
-      "runtime_seconds": 3.839459166
+      "runtime_seconds": 3.730054458
     },
     {
       "id": "m012-header-need-2-off-by-one",
@@ -130,12 +139,12 @@
         "family_frame_soup_no_panic_bounded_deterministic",
         "family_command_interleave_no_panic_deterministic",
         "family_byte_soup_no_panic_bounded_deterministic",
-        "family_seed_corpus_anchors",
-        "family_rechunk_invariance_single_frame"
+        "family_rechunk_invariance_single_frame",
+        "family_seed_corpus_anchors"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: fragment exact-boundary: panic caught by the fuzz oracle: internal error: entered unreachable code: translate_single_frame requires one complete frame span",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:333:13: fragment exact-boundary: panic caught by the fuzz oracle: internal error: entered unreachable code: translate_single_frame requires one complete frame span",
       "test_exit": 101,
-      "runtime_seconds": 1.548716458
+      "runtime_seconds": 1.5606942080000001
     },
     {
       "id": "m012-extended16-need-off-by-one",
@@ -150,13 +159,13 @@
       "killed_by": "family_rechunk_invariance_single_frame",
       "failed_tests": [
         "family_rechunk_invariance_single_frame",
-        "family_frame_soup_no_panic_bounded_deterministic",
         "family_rechunk_invariance_multi_frame",
+        "family_frame_soup_no_panic_bounded_deterministic",
         "family_seed_corpus_anchors"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: rechunk single case 4 strategy 1: panic caught by the fuzz oracle: index out of bounds: the len is 3 but the index is 3",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:333:13: rechunk single case 4 strategy 1: panic caught by the fuzz oracle: index out of bounds: the len is 3 but the index is 3",
       "test_exit": 101,
-      "runtime_seconds": 1.662818667
+      "runtime_seconds": 1.715422459
     },
     {
       "id": "m012-extended64-need-off-by-one",
@@ -175,9 +184,9 @@
         "family_seed_corpus_anchors",
         "family_frame_soup_no_panic_bounded_deterministic"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: rechunk single case 18 strategy 1: panic caught by the fuzz oracle: range end index 10 out of range for slice of length 9",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:333:13: rechunk single case 18 strategy 1: panic caught by the fuzz oracle: range end index 10 out of range for slice of length 9",
       "test_exit": 101,
-      "runtime_seconds": 1.73942475
+      "runtime_seconds": 1.7159735
     },
     {
       "id": "m012-span-header16-arith",
@@ -189,18 +198,18 @@
       "note": "span scan miscounts the 16-bit escape header",
       "line": 301,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "family_config_boundaries",
+      "killed_by": "fragment_accumulation_to_exactly_max_buffered_is_accepted",
       "failed_tests": [
-        "family_config_boundaries",
-        "family_command_interleave_no_panic_deterministic",
         "fragment_accumulation_to_exactly_max_buffered_is_accepted",
         "family_frame_soup_no_panic_bounded_deterministic",
         "family_rechunk_invariance_single_frame",
-        "family_rechunk_invariance_multi_frame"
+        "family_config_boundaries",
+        "family_rechunk_invariance_multi_frame",
+        "family_command_interleave_no_panic_deterministic"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: config_boundary case 24: panic caught by the fuzz oracle: range end index 208 out of range for slice of length 207",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:333:13: fragment exact-boundary: panic caught by the fuzz oracle: range end index 204 out of range for slice of length 203",
       "test_exit": 101,
-      "runtime_seconds": 1.763546625
+      "runtime_seconds": 1.7823185000000001
     },
     {
       "id": "m012-length16-endian-swap",
@@ -212,18 +221,18 @@
       "note": "16-bit extended length decodes little-endian",
       "line": 392,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "family_frame_soup_no_panic_bounded_deterministic",
+      "killed_by": "fragment_accumulation_to_exactly_max_buffered_is_accepted",
       "failed_tests": [
-        "family_frame_soup_no_panic_bounded_deterministic",
-        "family_config_boundaries",
-        "family_rechunk_invariance_single_frame",
-        "family_rechunk_invariance_multi_frame",
         "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_rechunk_invariance_single_frame",
+        "family_config_boundaries",
+        "family_rechunk_invariance_multi_frame",
         "family_command_interleave_no_panic_deterministic"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: frame_soup case 2: panic caught by the fuzz oracle: range end index 32516 out of range for slice of length 131",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:333:13: fragment exact-boundary: panic caught by the fuzz oracle: range end index 51204 out of range for slice of length 204",
       "test_exit": 101,
-      "runtime_seconds": 1.802272167
+      "runtime_seconds": 1.7363346659999999
     },
     {
       "id": "m012-rsv-check-weaken",
@@ -241,7 +250,7 @@
       ],
       "kill_detail": "ws-core/tests/frame_codec.rs:66:10: seed must reject under the reference semantics: ()",
       "test_exit": 101,
-      "runtime_seconds": 4.229614834
+      "runtime_seconds": 4.16249625
     },
     {
       "id": "m012-control-fin-flip",
@@ -258,9 +267,9 @@
         "control_payload_exactly_125_delivers",
         "close_ack_emits_the_close_event_before_the_terminal_transition"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1175:5: assertion `left == right` failed: 125-byte ping is legal",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1220:5: assertion `left == right` failed: 125-byte ping is legal",
       "test_exit": 101,
-      "runtime_seconds": 2.300032875
+      "runtime_seconds": 2.269882375
     },
     {
       "id": "m016-close-constructor-payload",
@@ -278,7 +287,7 @@
       ],
       "kill_detail": "ws-core/tests/close_eof.rs:158:5: assertion `left == right` failed: unmasked echo",
       "test_exit": 101,
-      "runtime_seconds": 2.865451958
+      "runtime_seconds": 2.9150894579999997
     },
     {
       "id": "m013-translate-dfa-drop",
@@ -290,14 +299,14 @@
       "note": "translate-time 1007 UTF-8 gate silently disabled",
       "line": 509,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "prior_valid_frame_is_discarded_when_a_later_frame_fails_translate",
+      "killed_by": "definitely_invalid_text_rejects_at_translate_with_no_frame_record",
       "failed_tests": [
-        "prior_valid_frame_is_discarded_when_a_later_frame_fails_translate",
-        "definitely_invalid_text_rejects_at_translate_with_no_frame_record"
+        "definitely_invalid_text_rejects_at_translate_with_no_frame_record",
+        "prior_valid_frame_is_discarded_when_a_later_frame_fails_translate"
       ],
-      "kill_detail": "ws-core/tests/messages.rs:105:5: assertion `left == right` failed: the valid 'ok' frame is NOT recorded",
+      "kill_detail": "ws-core/tests/messages.rs:92:9: assertion `left == right` failed: us013/invalid-continuation.hex: translate-stage rejection",
       "test_exit": 101,
-      "runtime_seconds": 5.28634575
+      "runtime_seconds": 5.371525542
     },
     {
       "id": "m012-encode-125-boundary",
@@ -315,7 +324,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:423:13: assertion `left == right` failed: case 2: marker for 125",
       "test_exit": 101,
-      "runtime_seconds": 2.728840125
+      "runtime_seconds": 2.748592
     },
     {
       "id": "m012-encode-16-boundary",
@@ -333,7 +342,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:423:13: assertion `left == right` failed: case 5: marker for 65535",
       "test_exit": 101,
-      "runtime_seconds": 2.749494709
+      "runtime_seconds": 2.786561167
     },
     {
       "id": "m014-start-during-open-swap",
@@ -349,9 +358,9 @@
       "failed_tests": [
         "fragment_accumulation_to_exactly_max_buffered_is_accepted"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1223:5: assertion `left == right` failed: start buffers",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1268:5: assertion `left == right` failed: start buffers",
       "test_exit": 101,
-      "runtime_seconds": 2.437042417
+      "runtime_seconds": 2.4600922499999998
     },
     {
       "id": "m014-data-during-frag-swap",
@@ -370,7 +379,7 @@
       ],
       "kill_detail": "ws-core/tests/core_semantics.rs:652:5: assertion failed: obs.results.iter().all(Result::is_ok)",
       "test_exit": 101,
-      "runtime_seconds": 4.094162375
+      "runtime_seconds": 4.00668225
     },
     {
       "id": "m014-orphan-continuation-swap",
@@ -382,20 +391,20 @@
       "note": "orphan continuations accepted; real continuations reject",
       "line": 714,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+      "killed_by": "family_rechunk_invariance_single_frame",
       "failed_tests": [
-        "fragment_accumulation_to_exactly_max_buffered_is_accepted",
         "family_rechunk_invariance_single_frame",
-        "family_command_interleave_no_panic_deterministic",
         "family_config_boundaries",
+        "fragment_accumulation_to_exactly_max_buffered_is_accepted",
+        "family_command_interleave_no_panic_deterministic",
         "family_frame_soup_no_panic_bounded_deterministic",
         "family_rechunk_invariance_multi_frame",
         "family_seed_corpus_anchors",
         "family_byte_soup_no_panic_bounded_deterministic"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1224:5: assertion `left == right` failed: growth to exactly max_buffered_bytes (256) is accepted",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:333:13: rechunk single case 0 strategy 0: panic caught by the fuzz oracle: finish requires an open fragment sequence",
       "test_exit": 101,
-      "runtime_seconds": 1.915732084
+      "runtime_seconds": 1.8703412080000001
     },
     {
       "id": "m014-continuation-cap-off-by-one",
@@ -411,9 +420,9 @@
       "failed_tests": [
         "fragment_accumulation_to_exactly_max_buffered_is_accepted"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1224:5: assertion `left == right` failed: growth to exactly max_buffered_bytes (256) is accepted",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1269:5: assertion `left == right` failed: growth to exactly max_buffered_bytes (256) is accepted",
       "test_exit": 101,
-      "runtime_seconds": 2.55175125
+      "runtime_seconds": 2.511446417
     },
     {
       "id": "m014-assembled-cap-off-by-one",
@@ -431,7 +440,7 @@
       ],
       "kill_detail": "ws-core/tests/fragmentation.rs:216:5: assertion failed: obs.result.is_ok()",
       "test_exit": 101,
-      "runtime_seconds": 4.580201125
+      "runtime_seconds": 4.491181417
     },
     {
       "id": "m014-buffered-reset-drop",
@@ -443,16 +452,16 @@
       "note": "fragment accounting never returns to zero after delivery",
       "line": 738,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "legal_text_and_binary_sequences_reassemble",
+      "killed_by": "control_interleave_delivers_the_ping_and_the_assembled_message",
       "failed_tests": [
-        "legal_text_and_binary_sequences_reassemble",
-        "exact_retention_at_the_cap_delivers",
         "control_interleave_delivers_the_ping_and_the_assembled_message",
-        "delivery_resets_state_for_the_next_message"
+        "legal_text_and_binary_sequences_reassemble",
+        "delivery_resets_state_for_the_next_message",
+        "exact_retention_at_the_cap_delivers"
       ],
-      "kill_detail": "ws-core/tests/fragmentation.rs:91:5: assertion `left == right` failed: reset after delivery",
+      "kill_detail": "ws-core/tests/fragmentation.rs:192:5: assertion `left == right` failed: reset after delivery",
       "test_exit": 101,
-      "runtime_seconds": 4.741099584
+      "runtime_seconds": 4.641441959
     },
     {
       "id": "m014-orphan-close-code-swap",
@@ -464,14 +473,14 @@
       "note": "orphan continuation reports 1007 instead of 1002",
       "line": 715,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "orphan_continuation_rejects_1002_after_its_frame_record",
+      "killed_by": "prior_delivery_survives_a_later_orphan_in_the_same_chunk",
       "failed_tests": [
-        "orphan_continuation_rejects_1002_after_its_frame_record",
-        "prior_delivery_survives_a_later_orphan_in_the_same_chunk"
+        "prior_delivery_survives_a_later_orphan_in_the_same_chunk",
+        "orphan_continuation_rejects_1002_after_its_frame_record"
       ],
-      "kill_detail": "ws-core/tests/fragmentation.rs:141:5: assertion `left == right` failed",
+      "kill_detail": "ws-core/tests/fragmentation.rs:156:5: assertion `left == right` failed",
       "test_exit": 101,
-      "runtime_seconds": 4.679846375
+      "runtime_seconds": 4.698061083
     },
     {
       "id": "m013-utf8-e0-window",
@@ -486,8 +495,8 @@
       "killed_by": "utf8_curated_malformed_corpus",
       "failed_tests": [
         "utf8_curated_malformed_corpus",
-        "utf8_differential_encoded_strings_corruptions_and_truncations",
-        "utf8_differential_random_byte_soup"
+        "utf8_differential_random_byte_soup",
+        "utf8_differential_encoded_strings_corruptions_and_truncations"
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [e0, 80, 80]",
       "test_exit": 101,
@@ -495,7 +504,7 @@
       "corpus_exit": 0,
       "corpus_passed": 74,
       "corpus_failed": 0,
-      "runtime_seconds": 3.726900833
+      "runtime_seconds": 3.670177084
     },
     {
       "id": "m013-utf8-ed-window",
@@ -515,7 +524,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [ed, a0, 80]",
       "test_exit": 101,
-      "runtime_seconds": 2.994501666
+      "runtime_seconds": 2.911511041
     },
     {
       "id": "m013-utf8-f0-window",
@@ -534,7 +543,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [f0, 80, 80, 80]",
       "test_exit": 101,
-      "runtime_seconds": 3.01456525
+      "runtime_seconds": 3.063595333
     },
     {
       "id": "m013-utf8-f4-window",
@@ -554,7 +563,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [f4, 90, 80, 80]",
       "test_exit": 101,
-      "runtime_seconds": 3.062428542
+      "runtime_seconds": 3.059603292
     },
     {
       "id": "m013-utf8-orphan-lead-accept",
@@ -566,15 +575,15 @@
       "note": "orphan continuations / overlong leads silently accepted",
       "line": 87,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "utf8_curated_malformed_corpus",
+      "killed_by": "utf8_differential_encoded_strings_corruptions_and_truncations",
       "failed_tests": [
-        "utf8_curated_malformed_corpus",
         "utf8_differential_encoded_strings_corruptions_and_truncations",
-        "utf8_differential_random_byte_soup"
+        "utf8_differential_random_byte_soup",
+        "utf8_curated_malformed_corpus"
       ],
-      "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [c0, af]",
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:214:5: assertion `left == right` failed: corrupted case 16: translate-time DFA vs interval reference on [73, ae, 93, 9b]",
       "test_exit": 101,
-      "runtime_seconds": 3.115932208
+      "runtime_seconds": 3.130907458
     },
     {
       "id": "m013-utf8-f5-accept",
@@ -594,7 +603,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:319:9: assertion `left == right` failed: translate gate on [ff]",
       "test_exit": 101,
-      "runtime_seconds": 3.194149209
+      "runtime_seconds": 3.108033417
     },
     {
       "id": "m013-utf8-2byte-length-swap",
@@ -614,7 +623,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:214:5: assertion `left == right` failed: encoded case 1: translate-time DFA vs interval reference on [f4, 8f, bf, bf, f2, a2, ae, 82, df, bf, 7f, f1, 92, 8e, 9e, f3, 82, 84, a1]",
       "test_exit": 101,
-      "runtime_seconds": 3.1340637080000002
+      "runtime_seconds": 3.117093458
     },
     {
       "id": "m016-normalize-target-swap",
@@ -632,7 +641,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:528:13: assertion `left == right` failed: 1015 must normalize to 1005",
       "test_exit": 101,
-      "runtime_seconds": 3.163254333
+      "runtime_seconds": 3.406781042
     },
     {
       "id": "m016-normalize-trigger-swap",
@@ -651,7 +660,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:530:13: assertion `left == right` failed: only 1015 normalizes",
       "test_exit": 101,
-      "runtime_seconds": 3.175469167
+      "runtime_seconds": 3.307168917
     },
     {
       "id": "m016-1007-entry-swap",
@@ -663,15 +672,15 @@
       "note": "empty-reason 1007 rejection reports 1002",
       "line": 97,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "close_payload_parse_round_trips",
+      "killed_by": "close_code_tables_exhaustive_against_the_java_model",
       "failed_tests": [
+        "close_code_tables_exhaustive_against_the_java_model",
         "close_payload_parse_round_trips",
-        "equivalent_mutant_witnesses_close_chain_redundancy",
-        "close_code_tables_exhaustive_against_the_java_model"
+        "equivalent_mutant_witnesses_close_chain_redundancy"
       ],
-      "kill_detail": "ws-core/tests/adversarial_properties.rs:568:17: assertion `left == right` failed: code 1007",
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:534:13: assertion `left == right` failed: rejection chain at code 1007, reason \"\"",
       "test_exit": 101,
-      "runtime_seconds": 3.196928083
+      "runtime_seconds": 8.472229833
     },
     {
       "id": "m016-1005-reason-flip",
@@ -688,7 +697,7 @@
       "corpus_exit": 0,
       "corpus_passed": 74,
       "corpus_failed": 0,
-      "runtime_seconds": 9.343329375,
+      "runtime_seconds": 11.66222475,
       "equivalent_analysis": "PROVEN output-identical by the exhaustive witness equivalent_mutant_witnesses_close_chain_redundancy (adversarial_properties.rs): flipping rule 2's reason predicate reroutes 1005-with-any-reason through rule 4's `code == 1005` arm, which reports the identical Some(1002) — the chain is redundant at 1005 for every reason, verified over all 65536 codes x {empty, non-empty} reasons."
     },
     {
@@ -706,7 +715,7 @@
       "corpus_exit": 0,
       "corpus_passed": 74,
       "corpus_failed": 0,
-      "runtime_seconds": 9.153500667,
+      "runtime_seconds": 10.199270667,
       "equivalent_analysis": "PROVEN output-identical by the exhaustive witness equivalent_mutant_witnesses_close_chain_redundancy: admitting 1015 into the 1016..2999 band moves 1015's rejection from rule 4 (`code == 1015`) to rule 3, but both report Some(1002); every other code is untouched. Verified over all 65536 codes x 2 reasons."
     },
     {
@@ -719,15 +728,15 @@
       "note": "3000 joins the reserved rejection band",
       "line": 103,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "close_payload_parse_round_trips",
+      "killed_by": "close_code_tables_exhaustive_against_the_java_model",
       "failed_tests": [
-        "close_payload_parse_round_trips",
+        "close_code_tables_exhaustive_against_the_java_model",
         "equivalent_mutant_witnesses_close_chain_redundancy",
-        "close_code_tables_exhaustive_against_the_java_model"
+        "close_payload_parse_round_trips"
       ],
-      "kill_detail": "ws-core/tests/adversarial_properties.rs:570:21: assertion `left == right` failed: code 3000",
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:534:13: assertion `left == right` failed: rejection chain at code 3000, reason \"\"",
       "test_exit": 101,
-      "runtime_seconds": 3.351195459
+      "runtime_seconds": 3.6637104579999997
     },
     {
       "id": "m016-1006-entry-swap",
@@ -739,15 +748,15 @@
       "note": "1006 becomes wire-legal; 1008 rejects",
       "line": 109,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "close_payload_parse_round_trips",
+      "killed_by": "close_code_tables_exhaustive_against_the_java_model",
       "failed_tests": [
-        "close_payload_parse_round_trips",
         "close_code_tables_exhaustive_against_the_java_model",
-        "equivalent_mutant_witnesses_close_chain_redundancy"
+        "equivalent_mutant_witnesses_close_chain_redundancy",
+        "close_payload_parse_round_trips"
       ],
-      "kill_detail": "ws-core/tests/adversarial_properties.rs:566:38: model rejects: (1006, \"\")",
+      "kill_detail": "ws-core/tests/adversarial_properties.rs:534:13: assertion `left == right` failed: rejection chain at code 1006, reason \"\"",
       "test_exit": 101,
-      "runtime_seconds": 3.40766875
+      "runtime_seconds": 3.6369375
     },
     {
       "id": "m016-range-4999-off-by-one",
@@ -767,7 +776,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:534:13: assertion `left == right` failed: rejection chain at code 5000, reason \"\"",
       "test_exit": 101,
-      "runtime_seconds": 3.351995334
+      "runtime_seconds": 3.648494375
     },
     {
       "id": "m016-parse-empty-default-swap",
@@ -785,7 +794,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:550:5: assertion `left == right` failed",
       "test_exit": 101,
-      "runtime_seconds": 3.457822542
+      "runtime_seconds": 3.605933583
     },
     {
       "id": "m016-parse-onebyte-default-swap",
@@ -803,7 +812,7 @@
       ],
       "kill_detail": "ws-core/tests/adversarial_properties.rs:556:5: assertion `left == right` failed",
       "test_exit": 101,
-      "runtime_seconds": 3.498484833
+      "runtime_seconds": 3.683101417
     },
     {
       "id": "m012-inbound-frame-counter-drop",
@@ -820,14 +829,14 @@
         "a_third_close_after_terminal_is_a_state_violation",
         "inbound_close_while_closing_terminates_without_echo",
         "inbound_close_while_open_echoes_the_constructor_payload",
-        "local_close_then_remote_close_terminates",
-        "continuation_after_local_close_is_stale",
         "echo_close_hits_the_frame_budget_after_the_close_event",
+        "continuation_after_local_close_is_stale",
+        "local_close_then_remote_close_terminates",
         "peer_close_twice_in_one_chunk_reaches_closed"
       ],
       "kill_detail": "ws-core/tests/close_eof.rs:221:5: assertion `left == right` failed: the third close records, then gates",
       "test_exit": 101,
-      "runtime_seconds": 3.863285083
+      "runtime_seconds": 4.10277825
     },
     {
       "id": "m015-outbound-frame-counter-drop",
@@ -844,13 +853,13 @@
         "a_third_close_after_terminal_is_a_state_violation",
         "continuation_after_local_close_is_stale",
         "inbound_close_while_open_echoes_the_constructor_payload",
-        "local_close_then_remote_close_terminates",
         "local_close_emits_frame_detail_and_transition",
+        "local_close_then_remote_close_terminates",
         "peer_close_twice_in_one_chunk_reaches_closed"
       ],
       "kill_detail": "ws-core/tests/close_eof.rs:221:5: assertion `left == right` failed: the third close records, then gates",
       "test_exit": 101,
-      "runtime_seconds": 4.007898333
+      "runtime_seconds": 4.385929083
     },
     {
       "id": "m016-eof-action-counter-drop",
@@ -868,7 +877,7 @@
       ],
       "kill_detail": "ws-core/tests/close_eof.rs:339:5: assertion `left == right` failed: eof participates in the accounting",
       "test_exit": 101,
-      "runtime_seconds": 3.9471628340000002
+      "runtime_seconds": 4.129741792
     },
     {
       "id": "m015-command-action-counter-drop",
@@ -890,7 +899,7 @@
       ],
       "kill_detail": "ws-core/tests/close_eof.rs:339:5: assertion `left == right` failed: eof participates in the accounting",
       "test_exit": 101,
-      "runtime_seconds": 4.201135167
+      "runtime_seconds": 4.158835
     },
     {
       "id": "m012-consumed-chunk-drop",
@@ -908,7 +917,7 @@
       ],
       "kill_detail": "ws-core/tests/core_semantics.rs:262:5: assertion `left == right` failed",
       "test_exit": 101,
-      "runtime_seconds": 5.965768708
+      "runtime_seconds": 5.978838333
     },
     {
       "id": "m016-closed-gate-flip",
@@ -926,7 +935,7 @@
       ],
       "kill_detail": "ws-core/tests/core_semantics.rs:363:5: assertion failed: core.handle(Input::TransportBytes(\u0026[])).is_ok()",
       "test_exit": 101,
-      "runtime_seconds": 5.708358958
+      "runtime_seconds": 5.725819125
     },
     {
       "id": "m016-closing-gate-swap",
@@ -942,9 +951,9 @@
       "failed_tests": [
         "close_ack_emits_the_close_event_before_the_terminal_transition"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1134:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got []",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1179:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got []",
       "test_exit": 101,
-      "runtime_seconds": 3.250259375
+      "runtime_seconds": 3.30505025
     },
     {
       "id": "m016-echo-branch-flip",
@@ -961,9 +970,9 @@
         "close_ack_emits_the_close_event_before_the_terminal_transition",
         "family_rechunk_invariance_multi_frame"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1134:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got [Close(CloseDetail { code: 1000, reason: \"\", origin: Remote, remote: true, handshake_complete: true })]",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1179:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got [Close(CloseDetail { code: 1000, reason: \"\", origin: Remote, remote: true, handshake_complete: true })]",
       "test_exit": 101,
-      "runtime_seconds": 3.169350916
+      "runtime_seconds": 3.197572208
     },
     {
       "id": "m016-echo-payload-swap",
@@ -985,7 +994,7 @@
       "corpus_exit": 1,
       "corpus_passed": 69,
       "corpus_failed": 5,
-      "runtime_seconds": 4.867642666
+      "runtime_seconds": 4.963095708
     },
     {
       "id": "m016-eof-code-swap",
@@ -997,14 +1006,14 @@
       "note": "abnormal EOF reports 1000 instead of 1006",
       "line": 1050,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "eof_while_open_closes_1006_transport_with_the_pinned_reason",
+      "killed_by": "eof_while_closing_without_prior_close_keeps_defaults_but_marks_remote",
       "failed_tests": [
-        "eof_while_open_closes_1006_transport_with_the_pinned_reason",
-        "eof_while_closing_without_prior_close_keeps_defaults_but_marks_remote"
+        "eof_while_closing_without_prior_close_keeps_defaults_but_marks_remote",
+        "eof_while_open_closes_1006_transport_with_the_pinned_reason"
       ],
-      "kill_detail": "ws-core/tests/core_semantics.rs:507:5: assertion `left == right` failed",
+      "kill_detail": "ws-core/tests/core_semantics.rs:549:5: assertion `left == right` failed",
       "test_exit": 101,
-      "runtime_seconds": 5.971974958
+      "runtime_seconds": 6.56113375
     },
     {
       "id": "m016-eof-remote-flip",
@@ -1023,7 +1032,7 @@
       ],
       "kill_detail": "ws-core/tests/close_eof.rs:327:5: assertion `left == right` failed: Q20: closing echoes the governing code/reason; handshake_complete stays false for a local-only close",
       "test_exit": 101,
-      "runtime_seconds": 4.345741834
+      "runtime_seconds": 4.362816666
     },
     {
       "id": "m016-send-close-normalize-skip",
@@ -1040,7 +1049,7 @@
       "corpus_exit": 0,
       "corpus_passed": 74,
       "corpus_failed": 0,
-      "runtime_seconds": 11.115631417,
+      "runtime_seconds": 11.244526459,
       "equivalent_analysis": "PROVEN output-identical by the exhaustive witness equivalent_mutant_witnesses_close_chain_redundancy: close_code_rejection(normalize(c), r) == close_code_rejection(c, r) for ALL c (normalize changes only 1015 -\u003e 1005, and the chain rejects both with the same 1002 for every reason), so no send_close observable can change; the Q14 normalization call is Java-faithful site wiring whose pure function is separately pinned (m016-normalize-target-swap and m016-normalize-trigger-swap both die)."
     },
     {
@@ -1059,9 +1068,9 @@
         "mask_key_derivation_advances_per_outbound_frame",
         "family_command_interleave_no_panic_deterministic"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1273:5: assertion `left == right` failed: 64-byte send at the cap succeeds",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1318:5: assertion `left == right` failed: 64-byte send at the cap succeeds",
       "test_exit": 101,
-      "runtime_seconds": 3.342278125
+      "runtime_seconds": 3.659536792
     },
     {
       "id": "m013-send-payload-gate-off-by-one",
@@ -1077,9 +1086,9 @@
       "failed_tests": [
         "send_payload_at_exactly_max_buffered_sends"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1273:5: assertion `left == right` failed: 64-byte send at the cap succeeds",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1318:5: assertion `left == right` failed: 64-byte send at the cap succeeds",
       "test_exit": 101,
-      "runtime_seconds": 3.296936292
+      "runtime_seconds": 3.508628541
     },
     {
       "id": "m015-send-fragment-dfa-drop",
@@ -1097,7 +1106,7 @@
       ],
       "kill_detail": "ws-core/tests/fragmentation.rs:360:10: 0x80 alone is definitely invalid: ()",
       "test_exit": 101,
-      "runtime_seconds": 7.055744833
+      "runtime_seconds": 7.419383
     },
     {
       "id": "mprobe-mask-counter-stall",
@@ -1113,9 +1122,9 @@
       "failed_tests": [
         "mask_key_derivation_advances_per_outbound_frame"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1090:9: assertion `left != right` failed: successive masked frames 0/1 must advance the key derivation counter",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1135:9: assertion `left != right` failed: successive masked frames 0/1 must advance the key derivation counter",
       "test_exit": 101,
-      "runtime_seconds": 3.489966291
+      "runtime_seconds": 3.7586310000000003
     },
     {
       "id": "mprobe-step-counter-fatal-drop",
@@ -1132,8 +1141,31 @@
       "corpus_exit": 0,
       "corpus_passed": 74,
       "corpus_failed": 0,
-      "runtime_seconds": 11.78835325,
+      "runtime_seconds": 12.512283125,
       "equivalent_analysis": "The fatal-arm step increment mutates state that can never flow to an observable: `step` exists only to tag events at emission time, the input that poisons the core emits its events BEFORE the failure returns (tagged with the pre-increment step), and after poisoning every subsequent input returns StateViolation and emits no event or write (pinned by the adversarial_fuzz poisoned-permanence oracle). counts() does not expose step. No test, corpus case, or transcript field can distinguish the mutant; equivalence holds for the whole observable vocabulary, not just the judges."
+    },
+    {
+      "id": "m012-backpressure-nonatomic-input-commit",
+      "operator": "atomicity-violation",
+      "file": "rust/ws-core/src/connection.rs",
+      "match": "        // Atomicity precheck: nothing has mutated yet, so a refused input\n        // can be retried identically after draining.\n        if self.events.available() \u003c self.byte_input_event_bound(spans.len()) {",
+      "occurrence": 0,
+      "replace": "        self.input_bytes = new_input_total;\n        // Atomicity precheck: nothing has mutated yet, so a refused input\n        // can be retried identically after draining.\n        if self.events.available() \u003c self.byte_input_event_bound(spans.len()) {",
+      "note": "input accounting is committed before the backpressure precheck, so a refused input mutates counts",
+      "line": 575,
+      "verdict": "KILLED_BY_TESTS",
+      "killed_by": "family_queue_pressure_typed_backpressure",
+      "failed_tests": [
+        "family_queue_pressure_typed_backpressure",
+        "family_config_boundaries"
+      ],
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:218:17: assertion `left == right` failed: backpressure refusal mutated the counters (including buffered/pending bytes)",
+      "test_exit": 101,
+      "harness_exit": 0,
+      "corpus_exit": 0,
+      "corpus_passed": 74,
+      "corpus_failed": 0,
+      "runtime_seconds": 4.520236459
     },
     {
       "id": "mpol-panic-span-mask-header",
@@ -1148,16 +1180,16 @@
       "killed_by": "family_rechunk_invariance_multi_frame",
       "failed_tests": [
         "family_rechunk_invariance_multi_frame",
-        "family_command_interleave_no_panic_deterministic",
         "family_frame_soup_no_panic_bounded_deterministic",
         "family_byte_soup_no_panic_bounded_deterministic",
+        "family_command_interleave_no_panic_deterministic",
         "family_config_boundaries",
         "family_rechunk_invariance_single_frame",
         "family_seed_corpus_anchors"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:288:13: rechunk case 0 strategy 0: panic caught by the fuzz oracle: range end index 11 out of range for slice of length 10",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:333:13: rechunk case 0 strategy 0: panic caught by the fuzz oracle: range end index 11 out of range for slice of length 10",
       "test_exit": 101,
-      "runtime_seconds": 2.909346334
+      "runtime_seconds": 3.025202
     },
     {
       "id": "mpol-nondeterminism-global-mask",
@@ -1169,17 +1201,17 @@
       "note": "mask-key derivation becomes process-global, so replaying the same seed diverges: proves the determinism and rechunk-invariance oracles actually fire",
       "line": 773,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "family_command_interleave_no_panic_deterministic",
+      "killed_by": "mask_key_derivation_advances_per_outbound_frame",
       "failed_tests": [
-        "family_command_interleave_no_panic_deterministic",
         "mask_key_derivation_advances_per_outbound_frame",
+        "family_command_interleave_no_panic_deterministic",
         "family_frame_soup_no_panic_bounded_deterministic",
         "family_rechunk_invariance_single_frame",
         "family_rechunk_invariance_multi_frame"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:799:9: assertion `left == right` failed: command_interleave case 2: determinism (identical full trace)",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1142:5: assertion `left == right` failed: the key sequence is seed-deterministic",
       "test_exit": 101,
-      "runtime_seconds": 3.063759042
+      "runtime_seconds": 3.243589583
     },
     {
       "id": "mpol-unbounded-input-accounting",
@@ -1195,9 +1227,9 @@
       "failed_tests": [
         "family_config_boundaries"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:202:9: input_bytes exceeded max_input_bytes",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:247:9: input_bytes exceeded max_input_bytes",
       "test_exit": 101,
-      "runtime_seconds": 3.5422673749999998
+      "runtime_seconds": 3.839627834
     },
     {
       "id": "m013-close-event-order-swap",
@@ -1216,13 +1248,13 @@
         "family_frame_soup_no_panic_bounded_deterministic",
         "family_rechunk_invariance_multi_frame"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:220:21: transition (ReceiveClose) emitted before its close notification",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:265:21: transition (ReceiveClose) emitted before its close notification",
       "test_exit": 101,
       "harness_exit": 0,
       "corpus_exit": 0,
       "corpus_passed": 74,
       "corpus_failed": 0,
-      "runtime_seconds": 3.942487709
+      "runtime_seconds": 4.078761417
     },
     {
       "id": "m013-payload-truncation",
@@ -1239,9 +1271,9 @@
         "control_payload_exactly_125_delivers",
         "fragment_accumulation_to_exactly_max_buffered_is_accepted"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1176:5: the 125-byte ping payload must deliver byte-exactly",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1221:5: the 125-byte ping payload must deliver byte-exactly",
       "test_exit": 101,
-      "runtime_seconds": 3.668428458
+      "runtime_seconds": 3.775718375
     },
     {
       "id": "m014-control-interleave-resets-accounting",
@@ -1259,7 +1291,7 @@
       ],
       "kill_detail": "ws-core/tests/ping_pong.rs:264:5: assertion `left == right` failed: fragment accounting untouched by the ping, retained past the fin failure",
       "test_exit": 101,
-      "runtime_seconds": 10.433370292
+      "runtime_seconds": 11.143347625
     },
     {
       "id": "m014-utf8-boundary-lossy",
@@ -1277,7 +1309,7 @@
       ],
       "kill_detail": "ws-core/tests/fragmentation.rs:281:10: assembled text is truncated: ()",
       "test_exit": 101,
-      "runtime_seconds": 7.662663375
+      "runtime_seconds": 7.6829318749999995
     },
     {
       "id": "m014-double-delivery-text",
@@ -1289,21 +1321,21 @@
       "note": "every delivered text message is emitted twice",
       "line": 723,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "empty_fragments_assemble_an_empty_message",
+      "killed_by": "cross_frame_utf8_scalar_split_reassembles",
       "failed_tests": [
-        "empty_fragments_assemble_an_empty_message",
         "cross_frame_utf8_scalar_split_reassembles",
+        "empty_fragments_assemble_an_empty_message",
         "control_interleave_delivers_the_ping_and_the_assembled_message",
         "legal_text_and_binary_sequences_reassemble",
         "delivery_resets_state_for_the_next_message"
       ],
-      "kill_detail": "ws-core/tests/fragmentation.rs:102:5: assertion `left == right` failed",
+      "kill_detail": "ws-core/tests/fragmentation.rs:129:5: assertion `left == right` failed",
       "test_exit": 101,
       "harness_exit": 0,
       "corpus_exit": 1,
       "corpus_passed": 62,
       "corpus_failed": 12,
-      "runtime_seconds": 8.7924225
+      "runtime_seconds": 9.109048542
     },
     {
       "id": "m015-send-ping-wrong-opcode",
@@ -1315,15 +1347,15 @@
       "note": "send_ping puts a pong on the wire",
       "line": 1186,
       "verdict": "KILLED_BY_TESTS",
-      "killed_by": "client_control_sends_are_masked",
+      "killed_by": "oversized_control_payloads_send_successfully_quirk_q17",
       "failed_tests": [
-        "client_control_sends_are_masked",
         "oversized_control_payloads_send_successfully_quirk_q17",
+        "client_control_sends_are_masked",
         "send_ping_and_send_pong_emit_real_frames_with_cause_events"
       ],
-      "kill_detail": "ws-core/tests/ping_pong.rs:346:5: assertion `left == right` failed",
+      "kill_detail": "ws-core/tests/ping_pong.rs:381:5: assertion `left == right` failed",
       "test_exit": 101,
-      "runtime_seconds": 11.025952625
+      "runtime_seconds": 11.303640875
     },
     {
       "id": "m015-unwanted-auto-pong",
@@ -1345,7 +1377,7 @@
       "corpus_exit": 1,
       "corpus_passed": 70,
       "corpus_failed": 4,
-      "runtime_seconds": 8.789293959
+      "runtime_seconds": 8.801373709
     },
     {
       "id": "m015-ping-payload-loss",
@@ -1361,9 +1393,9 @@
       "failed_tests": [
         "control_payload_exactly_125_delivers"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1176:5: the 125-byte ping payload must deliver byte-exactly",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1221:5: the 125-byte ping payload must deliver byte-exactly",
       "test_exit": 101,
-      "runtime_seconds": 3.936341375
+      "runtime_seconds": 3.884018166
     },
     {
       "id": "m016-missing-close-ack",
@@ -1389,7 +1421,7 @@
       "corpus_exit": 1,
       "corpus_passed": 69,
       "corpus_failed": 5,
-      "runtime_seconds": 6.989232334
+      "runtime_seconds": 6.081977292
     },
     {
       "id": "m016-premature-closed",
@@ -1405,9 +1437,9 @@
       "failed_tests": [
         "family_rechunk_invariance_multi_frame"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:762:13: assertion `left == right` failed: rechunk case 686: whole vs byte-at-a-time (fatal-free stream)",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:807:13: assertion `left == right` failed: rechunk case 686: whole vs byte-at-a-time (fatal-free stream)",
       "test_exit": 101,
-      "runtime_seconds": 4.4343285
+      "runtime_seconds": 3.859184542
     },
     {
       "id": "m016-duplicate-close-notification",
@@ -1423,9 +1455,9 @@
       "failed_tests": [
         "close_ack_emits_the_close_event_before_the_terminal_transition"
       ],
-      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1134:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got [Close(CloseDetail { code: 1000, reason: \"\", origin: Remote, remote: true, handshake_complete: true }), Close(CloseDetail { code: 1000, reason: \"\", origin: Remote, remote: true, handshake_complete: true }), Transition { from: Closing, to: Closed, cause: ReceiveClose }]",
+      "kill_detail": "ws-core/tests/adversarial_fuzz.rs:1179:5: assertion `left == right` failed: the ack step emits exactly one close and one transition, got [Close(CloseDetail { code: 1000, reason: \"\", origin: Remote, remote: true, handshake_complete: true }), Close(CloseDetail { code: 1000, reason: \"\", origin: Remote, remote: true, handshake_complete: true }), Transition { from: Closing, to: Closed, cause: ReceiveClose }]",
       "test_exit": 101,
-      "runtime_seconds": 4.519274542
+      "runtime_seconds": 3.9318975419999997
     },
     {
       "id": "m016-stale-fragment-retained",
@@ -1447,7 +1479,7 @@
       "corpus_exit": 0,
       "corpus_passed": 74,
       "corpus_failed": 0,
-      "runtime_seconds": 4.111181083
+      "runtime_seconds": 3.613317416
     },
     {
       "id": "m014-start-payload-drop",
@@ -1465,7 +1497,7 @@
       ],
       "kill_detail": "ws-core/src/fragment.rs:94:9: assertion `left == right` failed: five bytes accumulated",
       "test_exit": 101,
-      "runtime_seconds": 3.175637
+      "runtime_seconds": 2.785616042
     },
     {
       "id": "m014-append-drop",
@@ -1483,7 +1515,7 @@
       ],
       "kill_detail": "ws-core/src/fragment.rs:93:9: assertion `left == right` failed: five bytes accumulated",
       "test_exit": 101,
-      "runtime_seconds": 3.368697875
+      "runtime_seconds": 2.9660828329999998
     },
     {
       "id": "m014-finish-tail-drop",
@@ -1501,12 +1533,12 @@
       ],
       "kill_detail": "ws-core/src/fragment.rs:98:9: assertion `left == right` failed",
       "test_exit": 101,
-      "runtime_seconds": 3.102123375
+      "runtime_seconds": 2.973297959
     }
   ],
   "schema_version": "1.1.0",
   "tallies": {
     "EQUIVALENT_DOCUMENTED": 4,
-    "KILLED_BY_TESTS": 71
+    "KILLED_BY_TESTS": 72
   }
 }

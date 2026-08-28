@@ -30,6 +30,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -38,6 +40,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 )
@@ -219,6 +222,155 @@ func runList(arguments []string, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprintf(stdout, "total %d mutants\n", len(mutations))
 	return 0
+}
+
+// resolvePath returns the fully symlink-resolved absolute path. When the leaf
+// does not exist yet, the nearest existing ancestor is resolved and the
+// remaining lexical components are appended — so a path cannot escape
+// isolation through a symlinked PARENT either.
+func resolvePath(path string) (string, error) {
+	abs, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	remainder := ""
+	current := abs
+	for {
+		resolved, err := filepath.EvalSymlinks(current)
+		if err == nil {
+			if remainder == "" {
+				return resolved, nil
+			}
+			return filepath.Join(resolved, remainder), nil
+		}
+		if !os.IsNotExist(err) {
+			return "", err
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			return abs, nil // nothing on this path exists; lexical is all there is
+		}
+		remainder = filepath.Join(filepath.Base(current), remainder)
+		current = parent
+	}
+}
+
+// pathContains reports whether `outer` is `inner` or one of its ancestors.
+// Both arguments must already be resolved; the comparison is component-wise
+// via filepath.Rel, never a string prefix (which treats /repo-backup as being
+// inside /repo).
+func pathContains(outer, inner string) bool {
+	rel, err := filepath.Rel(outer, inner)
+	if err != nil {
+		return false
+	}
+	if rel == "." {
+		return true
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
+}
+
+// verifyWorkdirOutsideRepo proves, on RESOLVED filesystem identity, that the
+// campaign workdir and the repository are disjoint subtrees. Review 01a045b0:
+// the previous check was `strings.HasPrefix`, which a symlink defeats — a
+// workdir that merely LOOKS outside the repository could resolve inside it,
+// letting the campaign mutate and judge the scoped commit's own tree.
+func verifyWorkdirOutsideRepo(workdir, root string) error {
+	resolvedWork, err := resolvePath(workdir)
+	if err != nil {
+		return fmt.Errorf("resolving workdir %q: %w", workdir, err)
+	}
+	resolvedRoot, err := resolvePath(root)
+	if err != nil {
+		return fmt.Errorf("resolving repository root %q: %w", root, err)
+	}
+	if pathContains(resolvedRoot, resolvedWork) {
+		return fmt.Errorf(
+			"workdir %q resolves to %q, which is INSIDE the repository %q (resolved %q): "+
+				"mutants would be written to the scoped tree",
+			workdir, resolvedWork, root, resolvedRoot)
+	}
+	if pathContains(resolvedWork, resolvedRoot) {
+		return fmt.Errorf(
+			"workdir %q resolves to %q, which CONTAINS the repository %q (resolved %q)",
+			workdir, resolvedWork, root, resolvedRoot)
+	}
+	return nil
+}
+
+// requireFreshScratch refuses to reuse anything at the scratch path. Review
+// 01a045b0: the previous code reused any existing `scratch/rust`, so stale
+// content from an earlier commit — or a symlink to an entirely different
+// tree — would silently become the tree the campaign judged. Lstat is used
+// so a symlink is detected rather than followed.
+func requireFreshScratch(scratchParent string) error {
+	info, err := os.Lstat(scratchParent)
+	if err == nil {
+		kind := "directory"
+		if info.Mode()&os.ModeSymlink != 0 {
+			kind = "symlink"
+		}
+		return fmt.Errorf(
+			"scratch %s already exists at %q: refusing to reuse it (a stale or linked scratch "+
+				"would make the campaign judge a tree other than the scoped commit) — "+
+				"remove it or choose a fresh -workdir",
+			kind, scratchParent)
+	}
+	if !os.IsNotExist(err) {
+		return fmt.Errorf("checking scratch path %q: %w", scratchParent, err)
+	}
+	return nil
+}
+
+// treeDigest is the content address of a source tree: SHA-256 over each
+// file's relative path and bytes in sorted order, excluding cargo `target`
+// build output. A symlink anywhere in the tree is a hard error — a link could
+// otherwise smuggle content from outside the scoped commit into the digest's
+// blind spot. This is what lets the manifest STATE which tree was judged
+// instead of assuming it.
+func treeDigest(root string) (string, error) {
+	type entry struct {
+		rel  string
+		data []byte
+	}
+	var entries []entry
+	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if d.Name() == "target" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if d.Type()&os.ModeSymlink != 0 {
+			return fmt.Errorf("symlink in judged tree at %q: refusing to digest", rel)
+		}
+		if !d.Type().IsRegular() {
+			return fmt.Errorf("non-regular file in judged tree at %q: refusing to digest", rel)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		entries = append(entries, entry{rel: filepath.ToSlash(rel), data: data})
+		return nil
+	})
+	if err != nil {
+		return "", err
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].rel < entries[j].rel })
+	sum := sha256.New()
+	for _, e := range entries {
+		fmt.Fprintf(sum, "%s\x00%d\x00", e.rel, len(e.data))
+		sum.Write(e.data)
+	}
+	return hex.EncodeToString(sum.Sum(nil)), nil
 }
 
 // copyTree copies src into dst, skipping cargo target directories.
@@ -466,8 +618,12 @@ func runCampaign(arguments []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "run:", err)
 		return 1
 	}
-	if strings.HasPrefix(absWork+string(filepath.Separator), absRoot+string(filepath.Separator)) {
-		fmt.Fprintln(stderr, "run: the workdir must live OUTSIDE the repository (mutants are never committed)")
+	// Repository isolation on RESOLVED filesystem identity, never on string
+	// prefixes (review 01a045b0): a symlinked workdir that merely looks
+	// outside the repository must not be able to put mutants on the scoped
+	// tree.
+	if err := verifyWorkdirOutsideRepo(absWork, absRoot); err != nil {
+		fmt.Fprintln(stderr, "run: repository isolation refused:", err)
 		return 2
 	}
 
@@ -498,16 +654,48 @@ func runCampaign(arguments []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 
-	// Scratch workspace: one copy of rust/, reused across mutants with
-	// file-level restore (incremental builds stay warm).
-	scratchRust := filepath.Join(absWork, "scratch", "rust")
-	if _, err := os.Stat(scratchRust); os.IsNotExist(err) {
-		fmt.Fprintln(stdout, "mutctl: copying rust/ workspace into scratch...")
-		if err := copyTree(filepath.Join(absRoot, "rust"), scratchRust); err != nil {
-			fmt.Fprintln(stderr, "run: scratch copy:", err)
-			return 1
-		}
+	// Scratch workspace: one FRESH copy of rust/, reused across mutants
+	// within this campaign with file-level restore (incremental builds stay
+	// warm). A pre-existing scratch is never adopted — see requireFreshScratch.
+	scratchParent := filepath.Join(absWork, "scratch")
+	scratchRust := filepath.Join(scratchParent, "rust")
+	if err := requireFreshScratch(scratchParent); err != nil {
+		fmt.Fprintln(stderr, "run:", err)
+		return 2
 	}
+	repoRust := filepath.Join(absRoot, "rust")
+	judgedTreeDigest, err := treeDigest(repoRust)
+	if err != nil {
+		fmt.Fprintln(stderr, "run: digesting the repository rust/ tree:", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, "mutctl: copying rust/ workspace into a fresh scratch...")
+	if err := copyTree(repoRust, scratchRust); err != nil {
+		fmt.Fprintln(stderr, "run: scratch copy:", err)
+		return 1
+	}
+	// The scratch must be re-verified as outside the repository AFTER
+	// creation (the copy could have followed something unexpected), and its
+	// content must be byte-identical to the scoped tree — so the manifest can
+	// state WHICH tree the campaign judged rather than assume it.
+	if err := verifyWorkdirOutsideRepo(scratchRust, absRoot); err != nil {
+		fmt.Fprintln(stderr, "run: scratch isolation refused after creation:", err)
+		return 2
+	}
+	scratchDigest, err := treeDigest(scratchRust)
+	if err != nil {
+		fmt.Fprintln(stderr, "run: digesting the scratch tree:", err)
+		return 1
+	}
+	if scratchDigest != judgedTreeDigest {
+		fmt.Fprintf(stderr,
+			"run: scratch tree digest %s does not match the repository rust/ digest %s: "+
+				"the campaign would judge a tree other than the scoped commit\n",
+			scratchDigest, judgedTreeDigest)
+		return 2
+	}
+	fmt.Fprintf(stdout, "mutctl: judged tree digest %s (scratch verified identical to rust/)\n",
+		judgedTreeDigest)
 
 	// The 74-case public request stream, generated once from the REAL root.
 	requestsPath := filepath.Join(absWork, "public-requests.jsonl")
@@ -627,6 +815,19 @@ func runCampaign(arguments []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "run: post-campaign pristine verification failed exit=%d err=%v\n", verifyExit, err)
 		return 1
 	}
+	// Byte-level proof that every mutant was restored: the scratch must
+	// digest back to the scoped tree it started as.
+	finalDigest, err := treeDigest(scratchRust)
+	if err != nil {
+		fmt.Fprintln(stderr, "run: post-campaign scratch digest:", err)
+		return 1
+	}
+	if finalDigest != judgedTreeDigest {
+		fmt.Fprintf(stderr,
+			"run: post-campaign scratch digest %s != %s: a mutant was not restored\n",
+			finalDigest, judgedTreeDigest)
+		return 1
+	}
 
 	analyses := EquivalentAnalyses()
 	undocumentedSurvivors := 0
@@ -661,6 +862,15 @@ func runCampaign(arguments []string, stdout, stderr io.Writer) int {
 			"corporactl oracle-requests | ws-oracle-harness (scratch build) | corporactl evaluate --tier public",
 		},
 		"judge_2_exit_discipline": "harness_build_exit, harness_exit and corpus_exit are each read from the real ProcessState; a nonzero harness_exit can never score green (corpusVerdict)",
+		"isolation": map[string]any{
+			"judged_tree_digest":           judgedTreeDigest,
+			"judged_tree_digest_algorithm": "sha256 over sorted (relative path, length, bytes) of rust/, excluding target/; symlinks refused",
+			"scratch_verified_identical":   true,
+			"scratch_created_fresh":        true,
+			"post_campaign_digest":         finalDigest,
+			"post_campaign_digest_matches": finalDigest == judgedTreeDigest,
+			"containment_check":            "resolved filesystem identity via EvalSymlinks + filepath.Rel component comparison (never a string prefix), checked before creation and again after",
+		},
 		"baseline": map[string]any{
 			"test_exit":          baselineTestExit,
 			"harness_build_exit": baselineJudgment.HarnessBuildExit,

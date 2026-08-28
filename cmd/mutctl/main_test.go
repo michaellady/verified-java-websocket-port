@@ -276,6 +276,162 @@ func TestManifestInvariantRejectsEmptyKillDetail(t *testing.T) {
 	}
 }
 
+// --- Review 01a045b0 blocking finding, unrelayed until 01a045e0 ----------
+// "main.go:371 uses lexical path checking and reuses any existing
+// `scratch/rust`; symlinks or stale scratch content can bypass repository
+// isolation and make the campaign judge a tree other than the scoped
+// commit."
+//
+// Isolation is now decided on RESOLVED filesystem identity, not on string
+// prefixes, and a pre-existing scratch is refused outright.
+func TestWorkdirIsolationResolvesSymlinksInsteadOfComparingStrings(t *testing.T) {
+	tmp := t.TempDir()
+	real, err := filepath.EvalSymlinks(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repo := filepath.Join(real, "repo")
+	outside := filepath.Join(real, "outside")
+	for _, d := range []string{repo, outside} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// A genuinely outside workdir is accepted.
+	if err := verifyWorkdirOutsideRepo(outside, repo); err != nil {
+		t.Fatalf("an outside workdir must be accepted: %v", err)
+	}
+
+	// A workdir literally inside the repo is refused (the lexical case the
+	// old check did catch).
+	inside := filepath.Join(repo, "work")
+	if err := os.MkdirAll(inside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyWorkdirOutsideRepo(inside, repo); err == nil {
+		t.Fatal("a workdir inside the repository must be refused")
+	}
+
+	// THE BYPASS: a path that is lexically outside the repo but RESOLVES
+	// inside it via a symlink. The old strings.HasPrefix check accepted this.
+	link := filepath.Join(real, "looks-outside")
+	if err := os.Symlink(inside, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if !strings.HasPrefix(link, repo) {
+		t.Log("confirmed: the symlink is lexically outside the repository")
+	}
+	if err := verifyWorkdirOutsideRepo(link, repo); err == nil {
+		t.Fatal("a symlink that RESOLVES inside the repository must be refused")
+	}
+
+	// The reverse containment also matters: a workdir that CONTAINS the
+	// repository would put mutants on the same tree.
+	if err := verifyWorkdirOutsideRepo(real, repo); err == nil {
+		t.Fatal("a workdir containing the repository must be refused")
+	}
+}
+
+// A pre-existing scratch — stale content from an earlier commit, or a
+// symlink to another tree — must never be reused: the campaign would judge
+// a tree other than the scoped commit.
+func TestScratchMustBeCreatedFreshAndNeverReused(t *testing.T) {
+	work := t.TempDir()
+	scratchParent := filepath.Join(work, "scratch")
+
+	// Fresh: accepted.
+	if err := requireFreshScratch(scratchParent); err != nil {
+		t.Fatalf("a fresh scratch must be accepted: %v", err)
+	}
+
+	// Stale directory: refused.
+	if err := os.MkdirAll(filepath.Join(scratchParent, "rust"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := requireFreshScratch(scratchParent); err == nil {
+		t.Fatal("a pre-existing scratch directory must be refused, not reused")
+	}
+	if err := os.RemoveAll(scratchParent); err != nil {
+		t.Fatal(err)
+	}
+
+	// Symlinked scratch pointing at another tree: refused (Lstat, so a
+	// dangling or indirect link cannot slip through as "does not exist").
+	other := t.TempDir()
+	if err := os.Symlink(other, scratchParent); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if err := requireFreshScratch(scratchParent); err == nil {
+		t.Fatal("a symlinked scratch must be refused")
+	}
+}
+
+// The tree digest is what proves WHICH tree the campaign judged. It must be
+// content-addressed, order-independent, and must refuse symlinks outright so
+// a link cannot smuggle in content from outside the scoped commit.
+func TestTreeDigestIsContentAddressedAndRefusesSymlinks(t *testing.T) {
+	mk := func(files map[string]string) string {
+		dir := t.TempDir()
+		for name, body := range files {
+			full := filepath.Join(dir, name)
+			if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return dir
+	}
+	a := mk(map[string]string{"src/lib.rs": "fn main() {}", "Cargo.toml": "[package]"})
+	b := mk(map[string]string{"Cargo.toml": "[package]", "src/lib.rs": "fn main() {}"})
+	da, err := treeDigest(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	db, err := treeDigest(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if da != db {
+		t.Fatalf("identical content must digest identically: %s vs %s", da, db)
+	}
+
+	// One byte different -> different digest.
+	c := mk(map[string]string{"src/lib.rs": "fn main() {};", "Cargo.toml": "[package]"})
+	dc, err := treeDigest(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dc == da {
+		t.Fatal("a content change must change the digest")
+	}
+
+	// target/ is build output, not source: it must not affect the digest.
+	if err := os.MkdirAll(filepath.Join(a, "target", "debug"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(a, "target", "debug", "x"), []byte("junk"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	da2, err := treeDigest(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if da2 != da {
+		t.Fatal("target/ must be excluded from the judged-tree digest")
+	}
+
+	// A symlink anywhere in the tree is a hard error.
+	if err := os.Symlink(filepath.Join(a, "Cargo.toml"), filepath.Join(a, "linked.toml")); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	if _, err := treeDigest(a); err == nil {
+		t.Fatal("a symlink in the judged tree must be refused")
+	}
+}
+
 func TestCompileErrorPattern(t *testing.T) {
 	if !compileErrorPattern.MatchString("error[E0308]: mismatched types") {
 		t.Fatal("rustc error must match")

@@ -372,6 +372,24 @@ func CuratedMutations() []Mutation {
 			Replace: "self.step = self.step.saturating_add(0);",
 			Note:    "equivalence probe: step counter stalls on the poisoning input only",
 		},
+		// --- Backpressure atomicity ------------------------------------------
+		// Review 01a045b0 blocking finding (unrelayed until 01a045e0): the
+		// backpressure oracle asserted only that nothing was EMITTED, so a
+		// refusal that had already committed state would have survived. This
+		// mutant commits the input accounting BEFORE the atomicity precheck,
+		// which is invisible to the emit-only check and fatal to the
+		// strengthened full-observable comparison.
+		{
+			ID: "m012-backpressure-nonatomic-input-commit", Operator: "atomicity-violation", File: connection,
+			Match: "        // Atomicity precheck: nothing has mutated yet, so a refused input\n" +
+				"        // can be retried identically after draining.\n" +
+				"        if self.events.available() < self.byte_input_event_bound(spans.len()) {",
+			Replace: "        self.input_bytes = new_input_total;\n" +
+				"        // Atomicity precheck: nothing has mutated yet, so a refused input\n" +
+				"        // can be retried identically after draining.\n" +
+				"        if self.events.available() < self.byte_input_event_bound(spans.len()) {",
+			Note: "input accounting is committed before the backpressure precheck, so a refused input mutates counts",
+		},
 		// --- Oracle-polarity probes ------------------------------------------
 		// These three exist to prove the FUZZ ORACLES themselves fire, not
 		// just the curated unit suites: each corrupts the core in a way that
