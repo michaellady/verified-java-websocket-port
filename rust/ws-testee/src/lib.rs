@@ -25,12 +25,18 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+pub mod agent;
 pub mod client;
 pub mod io_loop;
 pub mod server;
 
+pub use agent::{
+    AgentFixture, AgentSweep, CASE_COUNT_TARGET, CaseCountOutcome, CaseOutcome, autobahn_config,
+    case_target, fetch_case_count, reports_target, run_agent_sweep, run_case, run_cases,
+    update_reports, valid_agent_name,
+};
 pub use client::{ClientFixture, run_client_once};
-pub use io_loop::{ConnectionReport, IoBounds, LoopOutcome};
+pub use io_loop::{ConnectionReport, EchoPolicy, HandshakeOutcome, IoBounds, LoopOutcome};
 pub use server::{ServerFixture, run_server_once, run_server_sessions};
 
 use std::net::SocketAddr;
@@ -43,6 +49,13 @@ pub enum SetupOutcome {
     NonLoopback,
     /// The socket could not be bound/connected (normalized kind name).
     SocketFailed(String),
+    /// The Autobahn agent name could not be placed in a request target
+    /// safely (see [`agent::valid_agent_name`]).
+    InvalidAgentName,
+    /// The Autobahn suite reported no parseable selected-case count on
+    /// `/getCaseCount`. Never coerced to zero: a zero-case sweep would
+    /// report success having executed nothing.
+    NoCaseCount,
 }
 
 /// Guard: the adapters serve loopback addresses only (US-018 AC2/AC5).

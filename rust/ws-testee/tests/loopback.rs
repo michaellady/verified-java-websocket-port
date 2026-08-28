@@ -131,12 +131,13 @@ fn server_driver_auto_pongs_a_live_client_ping() {
         .begin_client_handshake("/chat", "localhost")
         .expect("handshake start");
     let mut report = ws_testee::io_loop::empty_report();
-    assert!(ws_testee::io_loop::drive_until_open(
+    let handshake = ws_testee::io_loop::drive_until_open(
         &mut driver,
         &mut stream,
         &IoBounds::default(),
         &mut report,
-    ));
+    );
+    assert!(handshake.opened);
     let payload = vec![0xAB, 0xCD, 0xEF];
     sender
         .try_send(ws_core::connection::LocalCommand::SendPing {
@@ -191,12 +192,13 @@ fn peer_loss_after_handshake_is_the_1006_transport_close() {
             .begin_client_handshake("/chat", "localhost")
             .expect("handshake start");
         let mut report = ws_testee::io_loop::empty_report();
-        assert!(ws_testee::io_loop::drive_until_open(
+        let handshake = ws_testee::io_loop::drive_until_open(
             &mut driver,
             &mut stream,
             &IoBounds::default(),
             &mut report,
-        ));
+        );
+        assert!(handshake.opened);
         // Drop the socket with no close handshake.
     }
     let server = server.join().expect("server thread");
@@ -239,12 +241,13 @@ fn ping_scripted_client_completes_against_a_ponging_peer() {
             ws_core::connection::Role::Server,
         );
         let mut report = ws_testee::io_loop::empty_report();
-        assert!(ws_testee::io_loop::drive_until_open(
+        let handshake = ws_testee::io_loop::drive_until_open(
             &mut driver,
             &mut stream,
             &IoBounds::default(),
             &mut report,
-        ));
+        );
+        assert!(handshake.opened);
         let mut policy = PongingEcho;
         ws_testee::io_loop::drive_connection(
             &mut driver,
@@ -383,12 +386,13 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
             ws_core::connection::Role::Server,
         );
         let mut report = ws_testee::io_loop::empty_report();
-        assert!(ws_testee::io_loop::drive_until_open(
+        let handshake = ws_testee::io_loop::drive_until_open(
             &mut driver,
             &mut stream,
             &IoBounds::default(),
             &mut report,
-        ));
+        );
+        assert!(handshake.opened);
         // drive_until_open returns at state-open; the queued 101 response
         // bytes may still be undrained. Flush them through the driver seam,
         // then never touch the socket again (the never-reading peer).
@@ -432,12 +436,10 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
         ..IoBounds::default()
     };
     let mut report = ws_testee::io_loop::empty_report();
-    assert!(ws_testee::io_loop::drive_until_open(
-        &mut driver,
-        &mut stream,
-        &bounds,
-        &mut report,
-    ));
+    assert!(
+        ws_testee::io_loop::drive_until_open(&mut driver, &mut stream, &bounds, &mut report,)
+            .opened
+    );
     for _ in 0..48 {
         sender
             .try_send(ws_core::LocalCommand::SendBinary {
@@ -568,12 +570,13 @@ fn autobahn_7_3_2_wire_reply_is_1002_end_to_end() {
         .begin_client_handshake("/chat", "localhost")
         .expect("handshake start");
     let mut report = ws_testee::io_loop::empty_report();
-    assert!(ws_testee::io_loop::drive_until_open(
+    let handshake = ws_testee::io_loop::drive_until_open(
         &mut driver,
         &mut stream,
         &IoBounds::default(),
         &mut report,
-    ));
+    );
+    assert!(handshake.opened);
 
     // Raw wire from here on: the core would refuse to SEND a malformed
     // close, so the poisoned frame goes straight onto the socket the way

@@ -4,12 +4,12 @@
 
 use std::net::TcpListener;
 
-use ws_core::{CommandSender, ConnectionConfig, LocalCommand, Role, SemanticEvent};
+use ws_core::{ConnectionConfig, Role};
 use ws_driver::connection_driver;
 
 use crate::SetupOutcome;
 use crate::io_loop::{
-    ConnectionReport, EventPolicy, IoBounds, drive_connection, drive_until_open, empty_report,
+    ConnectionReport, EchoPolicy, IoBounds, drive_connection_from, drive_until_open, empty_report,
 };
 
 /// One server run's parameters (the caller owns the bound listener so
@@ -20,25 +20,6 @@ pub struct ServerFixture {
     pub config: ConnectionConfig,
     /// Bounded I/O parameters.
     pub bounds: IoBounds,
-}
-
-/// Echo policy: every delivered text/binary message is re-sent through the
-/// bounded command handle. Control and close behavior is deliberately NOT
-/// mirrored here — the core owns it (no adapter-side protocol, US-018 AC1).
-struct EchoPolicy;
-
-impl EventPolicy for EchoPolicy {
-    fn on_event(&mut self, event: &SemanticEvent, sender: &CommandSender) {
-        match &event.kind {
-            ws_core::SemanticEventKind::Text { text } => {
-                let _ = sender.try_send(LocalCommand::SendText { text: text.clone() });
-            }
-            ws_core::SemanticEventKind::Binary { data } => {
-                let _ = sender.try_send(LocalCommand::SendBinary { data: data.clone() });
-            }
-            _ => {}
-        }
-    }
 }
 
 /// Sequentially accepts and serves `sessions` connections on ONE bound
@@ -83,17 +64,19 @@ pub fn run_server_once(
     }
     let (sender, mut driver) = connection_driver(fixture.config.clone(), Role::Server);
     let mut report = empty_report();
-    if !drive_until_open(&mut driver, &mut stream, &fixture.bounds, &mut report) {
+    let handshake = drive_until_open(&mut driver, &mut stream, &fixture.bounds, &mut report);
+    if !handshake.opened {
         return Ok(report);
     }
     let mut policy = EchoPolicy;
-    drive_connection(
+    drive_connection_from(
         &mut driver,
         &sender,
         &mut stream,
         &fixture.bounds,
         &mut policy,
         &mut report,
+        handshake.carryover,
     );
     Ok(report)
 }

@@ -145,6 +145,32 @@ impl EventPolicy for ObserveOnly {
     fn on_event(&mut self, _event: &SemanticEvent, _sender: &CommandSender) {}
 }
 
+/// Echo policy: every delivered text/binary message is re-sent through the
+/// bounded command handle, text as text and binary as binary. Control and
+/// close behavior is deliberately NOT mirrored here — the core owns it (no
+/// adapter-side protocol, US-018 AC1).
+///
+/// Shared by BOTH Autobahn modes (US-019 AC3): the server role echoes for
+/// `wstest --mode fuzzingclient`, and the client agent echoes for
+/// `wstest --mode fuzzingserver`. One policy, so neither mode can drift into
+/// a different echo discipline than the other.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct EchoPolicy;
+
+impl EventPolicy for EchoPolicy {
+    fn on_event(&mut self, event: &SemanticEvent, sender: &CommandSender) {
+        match &event.kind {
+            ws_core::SemanticEventKind::Text { text } => {
+                let _ = sender.try_send(ws_core::LocalCommand::SendText { text: text.clone() });
+            }
+            ws_core::SemanticEventKind::Binary { data } => {
+                let _ = sender.try_send(ws_core::LocalCommand::SendBinary { data: data.clone() });
+            }
+            _ => {}
+        }
+    }
+}
+
 /// Drives one established socket to its terminal outcome through the
 /// single-owner driver. `sender` is the same bounded handle producers use;
 /// the policy enqueues through it. Accounting accumulates into the passed
@@ -157,11 +183,32 @@ pub fn drive_connection(
     policy: &mut dyn EventPolicy,
     report: &mut ConnectionReport,
 ) {
+    drive_connection_from(driver, sender, stream, bounds, policy, report, Vec::new());
+}
+
+/// [`drive_connection`] starting from bytes that already arrived.
+///
+/// `carryover` is the message-phase remainder of the read that completed the
+/// opening handshake ([`HandshakeOutcome::carryover`]). A peer is free to
+/// pipeline its first frames into the same TCP segment as the handshake —
+/// the Autobahn fuzzing SERVER does exactly that, answering `/getCaseCount`
+/// with the 101 response, the case-count text frame, and a close frame
+/// back-to-back. Those bytes must be processed before the socket is read
+/// again or the message is lost and the connection ends at a bare EOF.
+pub fn drive_connection_from(
+    driver: &mut ConnectionDriver,
+    sender: &CommandSender,
+    stream: &mut TcpStream,
+    bounds: &IoBounds,
+    policy: &mut dyn EventPolicy,
+    report: &mut ConnectionReport,
+    carryover: Vec<u8>,
+) {
     report.outcome = LoopOutcome::BudgetExhausted;
     let _ = stream.set_read_timeout(Some(bounds.read_timeout));
     let _ = stream.set_write_timeout(Some(bounds.write_timeout.max(Duration::from_millis(1))));
     let mut read_buffer = vec![0u8; bounds.read_buffer.max(1)];
-    let mut pending_chunk: Vec<u8> = Vec::new();
+    let mut pending_chunk: Vec<u8> = carryover;
     let mut eof_seen = false;
     let mut write_stall = WriteStallClock::new(bounds.write_stall_limit);
 
@@ -172,10 +219,17 @@ pub fn drive_connection(
         } else {
             let chunk = std::mem::take(&mut pending_chunk);
             let step = pump(driver, DriverInput::Inbound(&chunk), report);
-            if matches!(step.input, InputDisposition::Deferred(_)) {
+            match step.input {
                 // The driver did not consume the bytes; retry the identical
                 // chunk after this output is handled.
-                pending_chunk = chunk;
+                InputDisposition::Deferred(_) => pending_chunk = chunk,
+                // The driver consumes only what it could use this turn: one
+                // read can carry several frames, so anything it did not take
+                // must be re-offered, never dropped.
+                InputDisposition::Consumed { bytes } if bytes < chunk.len() => {
+                    pending_chunk = chunk[bytes..].to_vec();
+                }
+                InputDisposition::Consumed { .. } | InputDisposition::Rejected(_) => {}
             }
             step
         };
@@ -332,22 +386,55 @@ fn record_event(event: &SemanticEvent, report: &mut ConnectionReport) {
     }
 }
 
+/// The result of driving the opening handshake.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HandshakeOutcome {
+    /// Whether the connection left `NotYetConnected`.
+    pub opened: bool,
+    /// Message-phase bytes that arrived in the SAME read as the handshake
+    /// response and were therefore not consumed by the handshake. Must be
+    /// handed to [`drive_connection_from`]; dropping them silently loses
+    /// whatever the peer pipelined behind its handshake.
+    pub carryover: Vec<u8>,
+}
+
+impl HandshakeOutcome {
+    fn stopped(report_outcome: &mut LoopOutcome, outcome: LoopOutcome) -> HandshakeOutcome {
+        *report_outcome = outcome;
+        HandshakeOutcome {
+            opened: false,
+            carryover: Vec::new(),
+        }
+    }
+
+    fn failed() -> HandshakeOutcome {
+        HandshakeOutcome {
+            opened: false,
+            carryover: Vec::new(),
+        }
+    }
+}
+
 /// Wait until the driver leaves `NotYetConnected` (handshake completion)
-/// or a failure/budget stop occurs; used by both fixtures before their
-/// message scripts. Returns whether the connection opened.
+/// or a failure/budget stop occurs; used by every fixture before its
+/// message script.
 pub fn drive_until_open(
     driver: &mut ConnectionDriver,
     stream: &mut TcpStream,
     bounds: &IoBounds,
     report: &mut ConnectionReport,
-) -> bool {
+) -> HandshakeOutcome {
     let _ = stream.set_read_timeout(Some(bounds.read_timeout));
     let _ = stream.set_write_timeout(Some(bounds.write_timeout.max(Duration::from_millis(1))));
     let mut read_buffer = vec![0u8; bounds.read_buffer.max(1)];
     let mut write_stall = WriteStallClock::new(bounds.write_stall_limit);
+    let mut carryover: Vec<u8> = Vec::new();
     while report.polls < bounds.max_polls {
         if driver.state() != ReadyState::NotYetConnected {
-            return true;
+            return HandshakeOutcome {
+                opened: true,
+                carryover,
+            };
         }
         let step = pump(driver, DriverInput::Wake, report);
         match step.output {
@@ -372,52 +459,86 @@ pub fn drive_until_open(
                             // the driver is told to shut down BEFORE the
                             // socket closes (review 01a0453e).
                             let _ = pump(driver, DriverInput::Shutdown, report);
-                            report.outcome = LoopOutcome::WriteStalled;
                             let _ = stream.shutdown(std::net::Shutdown::Both);
-                            return false;
+                            return HandshakeOutcome::stopped(
+                                &mut report.outcome,
+                                LoopOutcome::WriteStalled,
+                            );
                         }
                     }
                     Err(error) => {
-                        report.outcome = LoopOutcome::SocketError(format!("{:?}", error.kind()));
-                        return false;
+                        return HandshakeOutcome::stopped(
+                            &mut report.outcome,
+                            LoopOutcome::SocketError(format!("{:?}", error.kind())),
+                        );
                     }
                 }
                 continue;
             }
             StepOutput::Failure(failure) => {
-                report.outcome = LoopOutcome::ProtocolFailure(failure);
-                return false;
+                return HandshakeOutcome::stopped(
+                    &mut report.outcome,
+                    LoopOutcome::ProtocolFailure(failure),
+                );
             }
             StepOutput::Event(_) | StepOutput::Terminal | StepOutput::Idle => {}
         }
         match stream.read(&mut read_buffer) {
             Ok(0) => {
                 let _ = pump(driver, DriverInput::TransportEof, report);
-                return false;
+                return HandshakeOutcome::failed();
             }
             Ok(n) => {
                 let chunk = read_buffer[..n].to_vec();
-                loop {
-                    let step = pump(driver, DriverInput::Inbound(&chunk), report);
+                // ONE read can carry the handshake response AND the peer's
+                // first message-phase frames: the Autobahn fuzzing server
+                // answers `/getCaseCount` with the 101 response, a text
+                // frame and a close frame in a single TCP segment.
+                //
+                // A chunk that straddles that boundary loses the frames.
+                // The core is a faithful mirror of the reference model's
+                // `inputStep`: `finish_handshake_open` stashes post-head
+                // remainder bytes into its pending wire buffer, and pending
+                // is only ever drained by a LATER non-empty chunk (an empty
+                // chunk records `input_chunk {bytes: 0}` and consumes
+                // nothing, by the model). A peer that pipelines and then
+                // closes therefore leaves those frames undecodable — they
+                // are lost to a bare EOF.
+                //
+                // So the adapter never hands the handshake a chunk that can
+                // straddle: while the connection is still `NotYetConnected`
+                // the bytes go in one at a time, and whatever remains once
+                // the core opens is carried into the connected loop. This is
+                // pure transport CHUNKING — the adapter never inspects a
+                // byte, parses a header, or decides anything about the
+                // protocol; only the core sees the boundary.
+                let mut rest = chunk;
+                let mut cursor = 0usize;
+                while cursor < rest.len() && driver.state() == ReadyState::NotYetConnected {
+                    let step = pump(driver, DriverInput::Inbound(&rest[cursor..=cursor]), report);
                     match step.input {
-                        InputDisposition::Consumed { .. } => break,
+                        InputDisposition::Consumed { .. } => cursor += 1,
                         InputDisposition::Deferred(_) => {
                             if report.polls >= bounds.max_polls {
-                                return false;
+                                return HandshakeOutcome::failed();
                             }
                         }
-                        InputDisposition::Rejected(_) => return false,
+                        InputDisposition::Rejected(_) => return HandshakeOutcome::failed(),
                     }
                 }
+                rest.drain(..cursor);
+                carryover = rest;
             }
             Err(error) if retryable(error.kind()) => {}
             Err(error) => {
-                report.outcome = LoopOutcome::SocketError(format!("{:?}", error.kind()));
-                return false;
+                return HandshakeOutcome::stopped(
+                    &mut report.outcome,
+                    LoopOutcome::SocketError(format!("{:?}", error.kind())),
+                );
             }
         }
     }
-    false
+    HandshakeOutcome::failed()
 }
 
 /// A fresh empty report for the fixtures.

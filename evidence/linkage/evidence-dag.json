@@ -57,6 +57,11 @@
       "title": "Blocking TCP adapters and cross-peer integration"
     },
     {
+      "id": "US-019",
+      "kind": "story",
+      "title": "Pass both pinned Autobahn conformance modes"
+    },
+    {
       "id": "evidence.linkage.corpus-baseline-batch-c",
       "kind": "evidence",
       "title": "Batch-C wired public corpus baseline (74/74)",
@@ -159,6 +164,110 @@
       "sha256": "sha256:6a7cea57cfb753579a40e28d7ebe53aaeb3db2e9628ab7e4e5eda4e31267ae8b",
       "lineage": "owner-attested receipt; 6/6 Java/Rust cross-peer exams against the digest-verified pinned jar",
       "path": "drafts/us018-closure-receipt.json"
+    },
+    {
+      "id": "evidence.linkage.us019-case-manifest",
+      "kind": "evidence",
+      "title": "US-019 statically expanded immutable Autobahn case manifest (247 selected cases)",
+      "sha256": "sha256:27243d52b4aa5907f6f0ab0b2f07661e137bdc9a8fc2ba832eddb981b7c730ba",
+      "lineage": "expanded from the committed reports of BOTH pinned-suite modes and byte-verified by cmd/autobahnsuitectl verify-manifest; 9.*/12.*/13.* recorded as declared nonselected categories, never skips",
+      "path": "autobahn/case-manifest.json"
+    },
+    {
+      "id": "evidence.linkage.us019-controls-manifest",
+      "kind": "evidence",
+      "title": "US-019 AC4 discrimination controls manifest (negative control + 4 planted mutants)",
+      "sha256": "sha256:28e1f75b28bf25df4b4ff1831a318b2f95736a5cf4aceeea3494f56c1b0fafe9",
+      "lineage": "declares each control's single planted deviation and its expected discrimination; expectations only, the measured results live in the per-control ledgers",
+      "path": "rust/autobahn-controls/manifest.json"
+    },
+    {
+      "id": "evidence.linkage.us019-dev-client-ledger",
+      "kind": "evidence",
+      "title": "US-019 client-role reconciliation ledger (every AC3 dimension)",
+      "sha256": "sha256:17398bbd6c931e157470e3c34a2530afc84494dbb494ac8d24c1a0deeb17737b",
+      "lineage": "counted from the suite's own report bytes by internal/autobahnsuite; partition identities checked arithmetically, strict_pass_all reported literally",
+      "path": "evidence/autobahn/dev-aarch64-nonauthoritative/ledgers/fuzzingserver-run1-ledger.json"
+    },
+    {
+      "id": "evidence.linkage.us019-dev-client-report",
+      "kind": "evidence",
+      "title": "US-019 fuzzingserver-mode report: the Rust CLIENT under the pinned suite (247 cases)",
+      "sha256": "sha256:61303fd0cb0518021d6df5744eb14bcd2695b9db590c70606c073af7e7d2bf67",
+      "lineage": "NONAUTHORITATIVE FOR AC1: aarch64 Docker Desktop under linux/amd64 binary translation, never native x86_64; harness-validation evidence for the new client agent only",
+      "path": "evidence/autobahn/dev-aarch64-nonauthoritative/fuzzingserver-run1/index.json"
+    },
+    {
+      "id": "evidence.linkage.us019-dev-server-ledger",
+      "kind": "evidence",
+      "title": "US-019 server-role reconciliation ledger (every AC3 dimension)",
+      "sha256": "sha256:ac7220216853a71cf4b707a3ef1f8deb72992e1dfcf3eb291c6107dab2772b12",
+      "lineage": "counted from the suite's own report bytes by internal/autobahnsuite; partition identities checked arithmetically, strict_pass_all reported literally",
+      "path": "evidence/autobahn/dev-aarch64-nonauthoritative/ledgers/fuzzingclient-run1-ledger.json"
+    },
+    {
+      "id": "evidence.linkage.us019-dev-server-report",
+      "kind": "evidence",
+      "title": "US-019 fuzzingclient-mode report: the Rust SERVER under the pinned suite (247 cases)",
+      "sha256": "sha256:c0b88ec78bc1ac7e900210b0148357fad3795265c8421a7b201d9774f9d56d76",
+      "lineage": "NONAUTHORITATIVE FOR AC1: same emulated aarch64 host; reproduces the E5b behavior tallies exactly, which is what re-qualifies the adapter change",
+      "path": "evidence/autobahn/dev-aarch64-nonauthoritative/fuzzingclient-run1/index.json"
+    },
+    {
+      "id": "evidence.linkage.us019-fuzzingclient-config",
+      "kind": "evidence",
+      "title": "US-019 pinned fuzzingclient configuration (suite drives the Rust server)",
+      "sha256": "sha256:68dc019c489f7cd64dfd68b0beac6015e51978acd6e57e033202111d4b57b8a7",
+      "lineage": "loopback-strict config bytes for the native --network host run; the aarch64 development runs used a disclosed derived variant, recorded alongside their reports",
+      "path": "autobahn/fuzzingclient.json"
+    },
+    {
+      "id": "evidence.linkage.us019-fuzzingserver-config",
+      "kind": "evidence",
+      "title": "US-019 pinned fuzzingserver configuration (suite drives the Rust client)",
+      "sha256": "sha256:f754a144403edec7ff23331ffdc338f4607b48937ab148c057a82571ab88ede6",
+      "lineage": "loopback-strict config bytes for the native --network host run; the aarch64 development runs used a disclosed derived variant, recorded alongside their reports",
+      "path": "autobahn/fuzzingserver.json"
+    },
+    {
+      "id": "evidence.linkage.us019-mutant-no-echo-ledger",
+      "kind": "evidence",
+      "title": "US-019 AC4: planted mutant no-echo scored by the pinned suite",
+      "sha256": "sha256:20168efdb58773619b71e224149187eafd10ccfef701f5e261f81c04a01836c4",
+      "lineage": "MEASURED: the echo obligation removed breaks 132 cases (66 failed + 66 missing) where the real port breaks 0",
+      "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-no-echo-fuzzingclient/ledger.json"
+    },
+    {
+      "id": "evidence.linkage.us019-mutant-opcode-swap-ledger",
+      "kind": "evidence",
+      "title": "US-019 AC4: planted mutant opcode-swap scored by the pinned suite",
+      "sha256": "sha256:9ca8fb5aff94648436844c5ee316ec7b3e9553c4862ad045f9fe1ab95fab428a",
+      "lineage": "MEASURED: echoing text as binary and binary as text breaks 207 cases (26 failed + 181 missing) where the real port breaks 0",
+      "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-opcode-swap-fuzzingclient/ledger.json"
+    },
+    {
+      "id": "evidence.linkage.us019-mutant-payload-truncate-ledger",
+      "kind": "evidence",
+      "title": "US-019 AC4: planted mutant payload-truncate scored by the pinned suite",
+      "sha256": "sha256:f0ecefa4975a7b554f86d97d2b060a7c9968a96b08b228b0d6ebf9f2eaa82c7d",
+      "lineage": "MEASURED: dropping the last byte of every non-empty echo breaks 93 cases and precisely spares the empty-payload cases 1.1.1 and 1.2.1, matching the declared deviation",
+      "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-payload-truncate-fuzzingclient/ledger.json"
+    },
+    {
+      "id": "evidence.linkage.us019-mutant-pong-suppressed-ledger",
+      "kind": "evidence",
+      "title": "US-019 AC4: planted mutant pong-suppressed scored by the pinned suite",
+      "sha256": "sha256:ba0c1e063cc0c3941a0f8f7462c247263547c53cbe66507acd00c1e6b85990f4",
+      "lineage": "MEASURED: disabling the automatic pong breaks exactly 13 ping-dependent cases (the 2.* family plus the fragmented 5.6-5.8/5.19-5.20 cases) where the real port breaks 0",
+      "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-pong-suppressed-fuzzingclient/ledger.json"
+    },
+    {
+      "id": "evidence.linkage.us019-negative-control-ledger",
+      "kind": "evidence",
+      "title": "US-019 AC4: empty/stub Rust negative control scored by the pinned suite",
+      "sha256": "sha256:15fa3edbbdd4ac037b125e1d5936afd3d121b112458b369f2fe2324d7bc22ba4",
+      "lineage": "MEASURED on the emulated aarch64 host: 0 passed, 0 non-strict, all 244 scoreable cases broken; proves the gate catches a wholly inert endpoint",
+      "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/negative-control-fuzzingclient/ledger.json"
     },
     {
       "id": "migration.org-java-websocket-drafts-draft",
@@ -1216,13 +1325,67 @@
       "sha256": "sha256:3964bf028b000933dee678fb656b80d91c9deb8d6707e2c6257dfc5400eb7979"
     },
     {
+      "id": "ws_testee::agent::AgentFixture",
+      "kind": "symbol",
+      "rust_path": "ws_testee::agent::AgentFixture",
+      "decl_kind": "struct",
+      "file": "rust/ws-testee/src/agent.rs",
+      "line": 47,
+      "sha256": "sha256:965b3fb36afc0b483b586c4f8f9b7c2d78dd5286ea85dd30f5b3d6d29c71bf32"
+    },
+    {
+      "id": "ws_testee::agent::fetch_case_count",
+      "kind": "symbol",
+      "rust_path": "ws_testee::agent::fetch_case_count",
+      "decl_kind": "fn",
+      "file": "rust/ws-testee/src/agent.rs",
+      "line": 225,
+      "sha256": "sha256:965b3fb36afc0b483b586c4f8f9b7c2d78dd5286ea85dd30f5b3d6d29c71bf32"
+    },
+    {
+      "id": "ws_testee::agent::run_agent_sweep",
+      "kind": "symbol",
+      "rust_path": "ws_testee::agent::run_agent_sweep",
+      "decl_kind": "fn",
+      "file": "rust/ws-testee/src/agent.rs",
+      "line": 277,
+      "sha256": "sha256:965b3fb36afc0b483b586c4f8f9b7c2d78dd5286ea85dd30f5b3d6d29c71bf32"
+    },
+    {
+      "id": "ws_testee::agent::run_cases",
+      "kind": "symbol",
+      "rust_path": "ws_testee::agent::run_cases",
+      "decl_kind": "fn",
+      "file": "rust/ws-testee/src/agent.rs",
+      "line": 305,
+      "sha256": "sha256:965b3fb36afc0b483b586c4f8f9b7c2d78dd5286ea85dd30f5b3d6d29c71bf32"
+    },
+    {
+      "id": "ws_testee::agent::update_reports",
+      "kind": "symbol",
+      "rust_path": "ws_testee::agent::update_reports",
+      "decl_kind": "fn",
+      "file": "rust/ws-testee/src/agent.rs",
+      "line": 256,
+      "sha256": "sha256:965b3fb36afc0b483b586c4f8f9b7c2d78dd5286ea85dd30f5b3d6d29c71bf32"
+    },
+    {
       "id": "ws_testee::client::run_client_once",
       "kind": "symbol",
       "rust_path": "ws_testee::client::run_client_once",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/client.rs",
       "line": 85,
-      "sha256": "sha256:c09b83b2ded83909f69e09c9fe1862428afeffa03a3056b466a74960f16a1f6a"
+      "sha256": "sha256:138e34b4ef2149b950d713d021727af2573d54fee0d9d70496bb7b75b81e72c8"
+    },
+    {
+      "id": "ws_testee::io_loop::HandshakeOutcome",
+      "kind": "symbol",
+      "rust_path": "ws_testee::io_loop::HandshakeOutcome",
+      "decl_kind": "struct",
+      "file": "rust/ws-testee/src/io_loop.rs",
+      "line": 391,
+      "sha256": "sha256:b48fe02fbf624d7ac6a02a73f55a866954c22b486a30accd416c90c48f6f7fed"
     },
     {
       "id": "ws_testee::io_loop::IoBounds",
@@ -1231,7 +1394,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 20,
-      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+      "sha256": "sha256:b48fe02fbf624d7ac6a02a73f55a866954c22b486a30accd416c90c48f6f7fed"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome",
@@ -1240,7 +1403,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 64,
-      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+      "sha256": "sha256:b48fe02fbf624d7ac6a02a73f55a866954c22b486a30accd416c90c48f6f7fed"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome::SocketError",
@@ -1249,7 +1412,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 71,
-      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+      "sha256": "sha256:b48fe02fbf624d7ac6a02a73f55a866954c22b486a30accd416c90c48f6f7fed"
     },
     {
       "id": "ws_testee::io_loop::drive_connection",
@@ -1257,8 +1420,17 @@
       "rust_path": "ws_testee::io_loop::drive_connection",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/io_loop.rs",
-      "line": 152,
-      "sha256": "sha256:7c1d89001efe28ea98b5339213ed2ff8d8b5a60d4b2e9b209fe5bbf5b671caaf"
+      "line": 178,
+      "sha256": "sha256:b48fe02fbf624d7ac6a02a73f55a866954c22b486a30accd416c90c48f6f7fed"
+    },
+    {
+      "id": "ws_testee::io_loop::drive_connection_from",
+      "kind": "symbol",
+      "rust_path": "ws_testee::io_loop::drive_connection_from",
+      "decl_kind": "fn",
+      "file": "rust/ws-testee/src/io_loop.rs",
+      "line": 198,
+      "sha256": "sha256:b48fe02fbf624d7ac6a02a73f55a866954c22b486a30accd416c90c48f6f7fed"
     },
     {
       "id": "ws_testee::server::run_server_once",
@@ -1266,8 +1438,8 @@
       "rust_path": "ws_testee::server::run_server_once",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/server.rs",
-      "line": 74,
-      "sha256": "sha256:aa3a84572bd5148671414c3bfac223bec966d9d508a8d2d09e9f59b0c9de4d4d"
+      "line": 55,
+      "sha256": "sha256:d549ce79e60a4bf04eb2722b1047f6468e2d7ed29ece455499d208bedd1abdd6"
     }
   ],
   "edges": [
@@ -1924,6 +2096,106 @@
     {
       "from": "US-018",
       "to": "ws_testee::server::run_server_once",
+      "kind": "implements"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-case-manifest",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-controls-manifest",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-dev-client-ledger",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-dev-client-report",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-dev-server-ledger",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-dev-server-report",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-fuzzingclient-config",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-fuzzingserver-config",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-mutant-no-echo-ledger",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-mutant-opcode-swap-ledger",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-mutant-payload-truncate-ledger",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-mutant-pong-suppressed-ledger",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "evidence.linkage.us019-negative-control-ledger",
+      "kind": "evidenced_by"
+    },
+    {
+      "from": "US-019",
+      "to": "ws_testee::agent::AgentFixture",
+      "kind": "implements"
+    },
+    {
+      "from": "US-019",
+      "to": "ws_testee::agent::fetch_case_count",
+      "kind": "implements"
+    },
+    {
+      "from": "US-019",
+      "to": "ws_testee::agent::run_agent_sweep",
+      "kind": "implements"
+    },
+    {
+      "from": "US-019",
+      "to": "ws_testee::agent::run_cases",
+      "kind": "implements"
+    },
+    {
+      "from": "US-019",
+      "to": "ws_testee::agent::update_reports",
+      "kind": "implements"
+    },
+    {
+      "from": "US-019",
+      "to": "ws_testee::io_loop::HandshakeOutcome",
+      "kind": "implements"
+    },
+    {
+      "from": "US-019",
+      "to": "ws_testee::io_loop::drive_connection_from",
       "kind": "implements"
     },
     {

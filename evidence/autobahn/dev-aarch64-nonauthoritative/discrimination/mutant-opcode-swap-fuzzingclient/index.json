@@ -1,0 +1,466 @@
+{
+   "us019-mutant-opcode-swap": {
+      "1.1.1": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2011,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_1_1.json"
+      },
+      "1.1.2": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2008,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_1_2.json"
+      },
+      "1.1.3": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2007,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_1_3.json"
+      },
+      "1.1.4": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2004,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_1_4.json"
+      },
+      "1.1.5": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2004,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_1_5.json"
+      },
+      "1.1.6": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 11012,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_1_6.json"
+      },
+      "1.1.7": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 11012,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_1_7.json"
+      },
+      "1.1.8": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 11011,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_1_8.json"
+      },
+      "1.2.1": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2005,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_2_1.json"
+      },
+      "1.2.2": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2007,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_2_2.json"
+      },
+      "1.2.3": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2005,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_2_3.json"
+      },
+      "1.2.4": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2003,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_2_4.json"
+      },
+      "1.2.5": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2005,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_2_5.json"
+      },
+      "1.2.6": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 11011,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_2_6.json"
+      },
+      "1.2.7": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 11010,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_2_7.json"
+      },
+      "1.2.8": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 11014,
+         "remoteCloseCode": 1001,
+         "reportfile": "us019_mutant_opcode_swap_case_1_2_8.json"
+      },
+      "2.1": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1007,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_1.json"
+      },
+      "2.10": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1013,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_10.json"
+      },
+      "2.11": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1041,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_11.json"
+      },
+      "2.2": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1008,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_2.json"
+      },
+      "2.3": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1004,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_3.json"
+      },
+      "2.4": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1009,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_4.json"
+      },
+      "2.5": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_2_5.json"
+      },
+      "2.6": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1024,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_6.json"
+      },
+      "2.7": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1004,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_7.json"
+      },
+      "2.8": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1007,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_8.json"
+      },
+      "2.9": {
+         "behavior": "OK",
+         "behaviorClose": "UNCLEAN",
+         "duration": 1007,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_2_9.json"
+      },
+      "3.1": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_3_1.json"
+      },
+      "3.2": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_3_2.json"
+      },
+      "3.3": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_3_3.json"
+      },
+      "3.4": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 11,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_3_4.json"
+      },
+      "3.5": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_3_5.json"
+      },
+      "3.6": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_3_6.json"
+      },
+      "3.7": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_3_7.json"
+      },
+      "4.1.1": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_1_1.json"
+      },
+      "4.1.2": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_1_2.json"
+      },
+      "4.1.3": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_1_3.json"
+      },
+      "4.1.4": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_1_4.json"
+      },
+      "4.1.5": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 22,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_1_5.json"
+      },
+      "4.2.1": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 0,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_2_1.json"
+      },
+      "4.2.2": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 0,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_2_2.json"
+      },
+      "4.2.3": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_2_3.json"
+      },
+      "4.2.4": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_2_4.json"
+      },
+      "4.2.5": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 3,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_4_2_5.json"
+      },
+      "5.1": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_1.json"
+      },
+      "5.10": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_10.json"
+      },
+      "5.11": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 3,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_11.json"
+      },
+      "5.12": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_12.json"
+      },
+      "5.13": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_13.json"
+      },
+      "5.14": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 4,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_14.json"
+      },
+      "5.15": {
+         "behavior": "NON-STRICT",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_15.json"
+      },
+      "5.16": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_16.json"
+      },
+      "5.17": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_17.json"
+      },
+      "5.18": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_18.json"
+      },
+      "5.19": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 3011,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_5_19.json"
+      },
+      "5.2": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 0,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_2.json"
+      },
+      "5.20": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 3009,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_5_20.json"
+      },
+      "5.3": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2006,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_5_3.json"
+      },
+      "5.4": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2011,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_5_4.json"
+      },
+      "5.5": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2006,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_5_5.json"
+      },
+      "5.6": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2008,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_5_6.json"
+      },
+      "5.7": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2009,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_5_7.json"
+      },
+      "5.8": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2017,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_5_8.json"
+      },
+      "5.9": {
+         "behavior": "OK",
+         "behaviorClose": "OK",
+         "duration": 1,
+         "remoteCloseCode": null,
+         "reportfile": "us019_mutant_opcode_swap_case_5_9.json"
+      },
+      "6.1.1": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2017,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_6_1_1.json"
+      },
+      "6.1.2": {
+         "behavior": "FAILED",
+         "behaviorClose": "UNCLEAN",
+         "duration": 2011,
+         "remoteCloseCode": 1000,
+         "reportfile": "us019_mutant_opcode_swap_case_6_1_2.json"
+      }
+   }
+}

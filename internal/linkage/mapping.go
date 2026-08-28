@@ -109,6 +109,17 @@ var symbolCatalog = map[string]symbolSpec{
 	"ws_testee::io_loop::LoopOutcome::SocketError": {DeclKind: "enum_variant", File: "rust/ws-testee/src/io_loop.rs"},
 	"ws_testee::client::run_client_once":           {DeclKind: "fn", File: "rust/ws-testee/src/client.rs"},
 	"ws_testee::server::run_server_once":           {DeclKind: "fn", File: "rust/ws-testee/src/server.rs"},
+
+	// US-019: the Autobahn fuzzingserver-mode client agent, and the
+	// handshake-boundary carryover seam it required.
+	"ws_testee::agent::AgentFixture":            {DeclKind: "struct", File: "rust/ws-testee/src/agent.rs"},
+	"ws_testee::agent::fetch_case_count":        {DeclKind: "fn", File: "rust/ws-testee/src/agent.rs"},
+	"ws_testee::agent::run_case":                {DeclKind: "fn", File: "rust/ws-testee/src/agent.rs"},
+	"ws_testee::agent::run_cases":               {DeclKind: "fn", File: "rust/ws-testee/src/agent.rs"},
+	"ws_testee::agent::run_agent_sweep":         {DeclKind: "fn", File: "rust/ws-testee/src/agent.rs"},
+	"ws_testee::agent::update_reports":          {DeclKind: "fn", File: "rust/ws-testee/src/agent.rs"},
+	"ws_testee::io_loop::drive_connection_from": {DeclKind: "fn", File: "rust/ws-testee/src/io_loop.rs"},
+	"ws_testee::io_loop::HandshakeOutcome":      {DeclKind: "struct", File: "rust/ws-testee/src/io_loop.rs"},
 }
 
 // rowMapping is the curated, truthful landed mapping for one migration row.
@@ -717,6 +728,71 @@ var evidenceCatalog = map[string]evidenceSpec{
 		Title:   "US-018 closure receipt (cross-peer exams, adapter-linkage gate, platform legs)",
 		Lineage: "owner-attested receipt; 6/6 Java/Rust cross-peer exams against the digest-verified pinned jar",
 	},
+	"evidence.linkage.us019-case-manifest": {
+		Path:    "autobahn/case-manifest.json",
+		Title:   "US-019 statically expanded immutable Autobahn case manifest (247 selected cases)",
+		Lineage: "expanded from the committed reports of BOTH pinned-suite modes and byte-verified by cmd/autobahnsuitectl verify-manifest; 9.*/12.*/13.* recorded as declared nonselected categories, never skips",
+	},
+	"evidence.linkage.us019-fuzzingclient-config": {
+		Path:    "autobahn/fuzzingclient.json",
+		Title:   "US-019 pinned fuzzingclient configuration (suite drives the Rust server)",
+		Lineage: "loopback-strict config bytes for the native --network host run; the aarch64 development runs used a disclosed derived variant, recorded alongside their reports",
+	},
+	"evidence.linkage.us019-fuzzingserver-config": {
+		Path:    "autobahn/fuzzingserver.json",
+		Title:   "US-019 pinned fuzzingserver configuration (suite drives the Rust client)",
+		Lineage: "loopback-strict config bytes for the native --network host run; the aarch64 development runs used a disclosed derived variant, recorded alongside their reports",
+	},
+	"evidence.linkage.us019-dev-client-report": {
+		Path:    "evidence/autobahn/dev-aarch64-nonauthoritative/fuzzingserver-run1/index.json",
+		Title:   "US-019 fuzzingserver-mode report: the Rust CLIENT under the pinned suite (247 cases)",
+		Lineage: "NONAUTHORITATIVE FOR AC1: aarch64 Docker Desktop under linux/amd64 binary translation, never native x86_64; harness-validation evidence for the new client agent only",
+	},
+	"evidence.linkage.us019-dev-server-report": {
+		Path:    "evidence/autobahn/dev-aarch64-nonauthoritative/fuzzingclient-run1/index.json",
+		Title:   "US-019 fuzzingclient-mode report: the Rust SERVER under the pinned suite (247 cases)",
+		Lineage: "NONAUTHORITATIVE FOR AC1: same emulated aarch64 host; reproduces the E5b behavior tallies exactly, which is what re-qualifies the adapter change",
+	},
+	"evidence.linkage.us019-dev-client-ledger": {
+		Path:    "evidence/autobahn/dev-aarch64-nonauthoritative/ledgers/fuzzingserver-run1-ledger.json",
+		Title:   "US-019 client-role reconciliation ledger (every AC3 dimension)",
+		Lineage: "counted from the suite's own report bytes by internal/autobahnsuite; partition identities checked arithmetically, strict_pass_all reported literally",
+	},
+	"evidence.linkage.us019-dev-server-ledger": {
+		Path:    "evidence/autobahn/dev-aarch64-nonauthoritative/ledgers/fuzzingclient-run1-ledger.json",
+		Title:   "US-019 server-role reconciliation ledger (every AC3 dimension)",
+		Lineage: "counted from the suite's own report bytes by internal/autobahnsuite; partition identities checked arithmetically, strict_pass_all reported literally",
+	},
+	"evidence.linkage.us019-controls-manifest": {
+		Path:    "rust/autobahn-controls/manifest.json",
+		Title:   "US-019 AC4 discrimination controls manifest (negative control + 4 planted mutants)",
+		Lineage: "declares each control's single planted deviation and its expected discrimination; expectations only, the measured results live in the per-control ledgers",
+	},
+	"evidence.linkage.us019-negative-control-ledger": {
+		Path:    "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/negative-control-fuzzingclient/ledger.json",
+		Title:   "US-019 AC4: empty/stub Rust negative control scored by the pinned suite",
+		Lineage: "MEASURED on the emulated aarch64 host: 0 passed, 0 non-strict, all 244 scoreable cases broken; proves the gate catches a wholly inert endpoint",
+	},
+	"evidence.linkage.us019-mutant-no-echo-ledger": {
+		Path:    "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-no-echo-fuzzingclient/ledger.json",
+		Title:   "US-019 AC4: planted mutant no-echo scored by the pinned suite",
+		Lineage: "MEASURED: the echo obligation removed breaks 132 cases (66 failed + 66 missing) where the real port breaks 0",
+	},
+	"evidence.linkage.us019-mutant-opcode-swap-ledger": {
+		Path:    "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-opcode-swap-fuzzingclient/ledger.json",
+		Title:   "US-019 AC4: planted mutant opcode-swap scored by the pinned suite",
+		Lineage: "MEASURED: echoing text as binary and binary as text breaks 207 cases (26 failed + 181 missing) where the real port breaks 0",
+	},
+	"evidence.linkage.us019-mutant-payload-truncate-ledger": {
+		Path:    "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-payload-truncate-fuzzingclient/ledger.json",
+		Title:   "US-019 AC4: planted mutant payload-truncate scored by the pinned suite",
+		Lineage: "MEASURED: dropping the last byte of every non-empty echo breaks 93 cases and precisely spares the empty-payload cases 1.1.1 and 1.2.1, matching the declared deviation",
+	},
+	"evidence.linkage.us019-mutant-pong-suppressed-ledger": {
+		Path:    "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-pong-suppressed-fuzzingclient/ledger.json",
+		Title:   "US-019 AC4: planted mutant pong-suppressed scored by the pinned suite",
+		Lineage: "MEASURED: disabling the automatic pong breaks exactly 13 ping-dependent cases (the 2.* family plus the fragmented 5.6-5.8/5.19-5.20 cases) where the real port breaks 0",
+	},
 }
 
 // storyEvidence binds each story node to its verifying evidence nodes.
@@ -731,6 +807,7 @@ var storyEvidence = map[string][]string{
 	"US-016": {"evidence.linkage.public-scenarios", "evidence.linkage.corpus-baseline-batch-c", "evidence.linkage.corpus-transcript-batch-c", "evidence.linkage.model-check-tlc", "evidence.linkage.proof-targets"},
 	"US-017": {"evidence.linkage.schedule-exploration"},
 	"US-018": {"evidence.linkage.us018-closure-receipt"},
+	"US-019": {"evidence.linkage.us019-case-manifest", "evidence.linkage.us019-fuzzingclient-config", "evidence.linkage.us019-fuzzingserver-config", "evidence.linkage.us019-dev-client-report", "evidence.linkage.us019-dev-server-report", "evidence.linkage.us019-dev-client-ledger", "evidence.linkage.us019-dev-server-ledger", "evidence.linkage.us019-controls-manifest", "evidence.linkage.us019-negative-control-ledger", "evidence.linkage.us019-mutant-no-echo-ledger", "evidence.linkage.us019-mutant-opcode-swap-ledger", "evidence.linkage.us019-mutant-payload-truncate-ledger", "evidence.linkage.us019-mutant-pong-suppressed-ledger"},
 }
 
 // storySymbols adds the driver/testee symbols that no migration row reaches
@@ -738,6 +815,7 @@ var storyEvidence = map[string][]string{
 var storySymbols = map[string][]string{
 	"US-017": {"ws_driver::ConnectionDriver", "ws_driver::connection_driver", "ws_core::connection::CommandQueue", "ws_core::connection::CommandSender", "ws_core::queue::BoundedQueue"},
 	"US-018": {"ws_testee::io_loop::drive_connection", "ws_testee::io_loop::IoBounds", "ws_testee::io_loop::LoopOutcome", "ws_testee::client::run_client_once", "ws_testee::server::run_server_once"},
+	"US-019": {"ws_testee::agent::run_agent_sweep", "ws_testee::agent::run_cases", "ws_testee::agent::fetch_case_count", "ws_testee::agent::update_reports", "ws_testee::agent::AgentFixture", "ws_testee::io_loop::drive_connection_from", "ws_testee::io_loop::HandshakeOutcome"},
 }
 
 // storyTitles names the story nodes.
@@ -752,4 +830,5 @@ var storyTitles = map[string]string{
 	"US-016": "Close, EOF, and terminal-state behavior",
 	"US-017": "Deterministic owner loop and schedule exploration",
 	"US-018": "Blocking TCP adapters and cross-peer integration",
+	"US-019": "Pass both pinned Autobahn conformance modes",
 }

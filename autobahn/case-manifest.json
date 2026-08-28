@@ -1,0 +1,1782 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "AutobahnCaseManifest",
+  "selected_families": [
+    "1.*",
+    "2.*",
+    "3.*",
+    "4.*",
+    "5.*",
+    "6.*",
+    "7.*",
+    "10.*"
+  ],
+  "nonselected_categories": [
+    {
+      "family": "9.*",
+      "disposition": "DECLARED_NONSELECTED",
+      "rationale": "Limits and performance family. Excluded by the pinned configuration because throughput measurement belongs to the benchmark story, not to wire conformance; the exclusion is part of the frozen suite selection.",
+      "never_a_test_skip": true
+    },
+    {
+      "family": "12.*",
+      "disposition": "DECLARED_NONSELECTED",
+      "rationale": "WebSocket compression (permessage-deflate) family. The port implements no extension or compression negotiation at all, so these cases address behavior outside the ported surface.",
+      "never_a_test_skip": true
+    },
+    {
+      "family": "13.*",
+      "disposition": "DECLARED_NONSELECTED",
+      "rationale": "WebSocket compression parameter family, same excluded extension surface as 12.*.",
+      "never_a_test_skip": true
+    }
+  ],
+  "expected_case_count": 247,
+  "cases": [
+    {
+      "case_id": "1.1.1",
+      "family": "1",
+      "selected_ordinal": 1,
+      "suite_case_number": 1,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.1.2",
+      "family": "1",
+      "selected_ordinal": 2,
+      "suite_case_number": 2,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.1.3",
+      "family": "1",
+      "selected_ordinal": 3,
+      "suite_case_number": 3,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.1.4",
+      "family": "1",
+      "selected_ordinal": 4,
+      "suite_case_number": 4,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.1.5",
+      "family": "1",
+      "selected_ordinal": 5,
+      "suite_case_number": 5,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.1.6",
+      "family": "1",
+      "selected_ordinal": 6,
+      "suite_case_number": 6,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.1.7",
+      "family": "1",
+      "selected_ordinal": 7,
+      "suite_case_number": 7,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.1.8",
+      "family": "1",
+      "selected_ordinal": 8,
+      "suite_case_number": 8,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.2.1",
+      "family": "1",
+      "selected_ordinal": 9,
+      "suite_case_number": 9,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.2.2",
+      "family": "1",
+      "selected_ordinal": 10,
+      "suite_case_number": 10,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.2.3",
+      "family": "1",
+      "selected_ordinal": 11,
+      "suite_case_number": 11,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.2.4",
+      "family": "1",
+      "selected_ordinal": 12,
+      "suite_case_number": 12,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.2.5",
+      "family": "1",
+      "selected_ordinal": 13,
+      "suite_case_number": 13,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.2.6",
+      "family": "1",
+      "selected_ordinal": 14,
+      "suite_case_number": 14,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.2.7",
+      "family": "1",
+      "selected_ordinal": 15,
+      "suite_case_number": 15,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "1.2.8",
+      "family": "1",
+      "selected_ordinal": 16,
+      "suite_case_number": 16,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.1",
+      "family": "2",
+      "selected_ordinal": 17,
+      "suite_case_number": 17,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.2",
+      "family": "2",
+      "selected_ordinal": 18,
+      "suite_case_number": 18,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.3",
+      "family": "2",
+      "selected_ordinal": 19,
+      "suite_case_number": 19,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.4",
+      "family": "2",
+      "selected_ordinal": 20,
+      "suite_case_number": 20,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.5",
+      "family": "2",
+      "selected_ordinal": 21,
+      "suite_case_number": 21,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.6",
+      "family": "2",
+      "selected_ordinal": 22,
+      "suite_case_number": 22,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.7",
+      "family": "2",
+      "selected_ordinal": 23,
+      "suite_case_number": 23,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.8",
+      "family": "2",
+      "selected_ordinal": 24,
+      "suite_case_number": 24,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.9",
+      "family": "2",
+      "selected_ordinal": 25,
+      "suite_case_number": 25,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.10",
+      "family": "2",
+      "selected_ordinal": 26,
+      "suite_case_number": 26,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "2.11",
+      "family": "2",
+      "selected_ordinal": 27,
+      "suite_case_number": 27,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "3.1",
+      "family": "3",
+      "selected_ordinal": 28,
+      "suite_case_number": 28,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "3.2",
+      "family": "3",
+      "selected_ordinal": 29,
+      "suite_case_number": 29,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "3.3",
+      "family": "3",
+      "selected_ordinal": 30,
+      "suite_case_number": 30,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "3.4",
+      "family": "3",
+      "selected_ordinal": 31,
+      "suite_case_number": 31,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "3.5",
+      "family": "3",
+      "selected_ordinal": 32,
+      "suite_case_number": 32,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "3.6",
+      "family": "3",
+      "selected_ordinal": 33,
+      "suite_case_number": 33,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "3.7",
+      "family": "3",
+      "selected_ordinal": 34,
+      "suite_case_number": 34,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.1.1",
+      "family": "4",
+      "selected_ordinal": 35,
+      "suite_case_number": 35,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.1.2",
+      "family": "4",
+      "selected_ordinal": 36,
+      "suite_case_number": 36,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.1.3",
+      "family": "4",
+      "selected_ordinal": 37,
+      "suite_case_number": 37,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.1.4",
+      "family": "4",
+      "selected_ordinal": 38,
+      "suite_case_number": 38,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.1.5",
+      "family": "4",
+      "selected_ordinal": 39,
+      "suite_case_number": 39,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.2.1",
+      "family": "4",
+      "selected_ordinal": 40,
+      "suite_case_number": 40,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.2.2",
+      "family": "4",
+      "selected_ordinal": 41,
+      "suite_case_number": 41,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.2.3",
+      "family": "4",
+      "selected_ordinal": 42,
+      "suite_case_number": 42,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.2.4",
+      "family": "4",
+      "selected_ordinal": 43,
+      "suite_case_number": 43,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "4.2.5",
+      "family": "4",
+      "selected_ordinal": 44,
+      "suite_case_number": 44,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.1",
+      "family": "5",
+      "selected_ordinal": 45,
+      "suite_case_number": 45,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.2",
+      "family": "5",
+      "selected_ordinal": 46,
+      "suite_case_number": 46,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.3",
+      "family": "5",
+      "selected_ordinal": 47,
+      "suite_case_number": 47,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.4",
+      "family": "5",
+      "selected_ordinal": 48,
+      "suite_case_number": 48,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.5",
+      "family": "5",
+      "selected_ordinal": 49,
+      "suite_case_number": 49,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.6",
+      "family": "5",
+      "selected_ordinal": 50,
+      "suite_case_number": 50,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.7",
+      "family": "5",
+      "selected_ordinal": 51,
+      "suite_case_number": 51,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.8",
+      "family": "5",
+      "selected_ordinal": 52,
+      "suite_case_number": 52,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.9",
+      "family": "5",
+      "selected_ordinal": 53,
+      "suite_case_number": 53,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.10",
+      "family": "5",
+      "selected_ordinal": 54,
+      "suite_case_number": 54,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.11",
+      "family": "5",
+      "selected_ordinal": 55,
+      "suite_case_number": 55,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.12",
+      "family": "5",
+      "selected_ordinal": 56,
+      "suite_case_number": 56,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.13",
+      "family": "5",
+      "selected_ordinal": 57,
+      "suite_case_number": 57,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.14",
+      "family": "5",
+      "selected_ordinal": 58,
+      "suite_case_number": 58,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.15",
+      "family": "5",
+      "selected_ordinal": 59,
+      "suite_case_number": 59,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.16",
+      "family": "5",
+      "selected_ordinal": 60,
+      "suite_case_number": 60,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.17",
+      "family": "5",
+      "selected_ordinal": 61,
+      "suite_case_number": 61,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.18",
+      "family": "5",
+      "selected_ordinal": 62,
+      "suite_case_number": 62,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.19",
+      "family": "5",
+      "selected_ordinal": 63,
+      "suite_case_number": 63,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "5.20",
+      "family": "5",
+      "selected_ordinal": 64,
+      "suite_case_number": 64,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.1.1",
+      "family": "6",
+      "selected_ordinal": 65,
+      "suite_case_number": 65,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.1.2",
+      "family": "6",
+      "selected_ordinal": 66,
+      "suite_case_number": 66,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.1.3",
+      "family": "6",
+      "selected_ordinal": 67,
+      "suite_case_number": 67,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.2.1",
+      "family": "6",
+      "selected_ordinal": 68,
+      "suite_case_number": 68,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.2.2",
+      "family": "6",
+      "selected_ordinal": 69,
+      "suite_case_number": 69,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.2.3",
+      "family": "6",
+      "selected_ordinal": 70,
+      "suite_case_number": 70,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.2.4",
+      "family": "6",
+      "selected_ordinal": 71,
+      "suite_case_number": 71,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.3.1",
+      "family": "6",
+      "selected_ordinal": 72,
+      "suite_case_number": 72,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.3.2",
+      "family": "6",
+      "selected_ordinal": 73,
+      "suite_case_number": 73,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.4.1",
+      "family": "6",
+      "selected_ordinal": 74,
+      "suite_case_number": 74,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.4.2",
+      "family": "6",
+      "selected_ordinal": 75,
+      "suite_case_number": 75,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.4.3",
+      "family": "6",
+      "selected_ordinal": 76,
+      "suite_case_number": 76,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.4.4",
+      "family": "6",
+      "selected_ordinal": 77,
+      "suite_case_number": 77,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.5.1",
+      "family": "6",
+      "selected_ordinal": 78,
+      "suite_case_number": 78,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.5.2",
+      "family": "6",
+      "selected_ordinal": 79,
+      "suite_case_number": 79,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.5.3",
+      "family": "6",
+      "selected_ordinal": 80,
+      "suite_case_number": 80,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.5.4",
+      "family": "6",
+      "selected_ordinal": 81,
+      "suite_case_number": 81,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.5.5",
+      "family": "6",
+      "selected_ordinal": 82,
+      "suite_case_number": 82,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.1",
+      "family": "6",
+      "selected_ordinal": 83,
+      "suite_case_number": 83,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.2",
+      "family": "6",
+      "selected_ordinal": 84,
+      "suite_case_number": 84,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.3",
+      "family": "6",
+      "selected_ordinal": 85,
+      "suite_case_number": 85,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.4",
+      "family": "6",
+      "selected_ordinal": 86,
+      "suite_case_number": 86,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.5",
+      "family": "6",
+      "selected_ordinal": 87,
+      "suite_case_number": 87,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.6",
+      "family": "6",
+      "selected_ordinal": 88,
+      "suite_case_number": 88,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.7",
+      "family": "6",
+      "selected_ordinal": 89,
+      "suite_case_number": 89,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.8",
+      "family": "6",
+      "selected_ordinal": 90,
+      "suite_case_number": 90,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.9",
+      "family": "6",
+      "selected_ordinal": 91,
+      "suite_case_number": 91,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.10",
+      "family": "6",
+      "selected_ordinal": 92,
+      "suite_case_number": 92,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.6.11",
+      "family": "6",
+      "selected_ordinal": 93,
+      "suite_case_number": 93,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.7.1",
+      "family": "6",
+      "selected_ordinal": 94,
+      "suite_case_number": 94,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.7.2",
+      "family": "6",
+      "selected_ordinal": 95,
+      "suite_case_number": 95,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.7.3",
+      "family": "6",
+      "selected_ordinal": 96,
+      "suite_case_number": 96,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.7.4",
+      "family": "6",
+      "selected_ordinal": 97,
+      "suite_case_number": 97,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.8.1",
+      "family": "6",
+      "selected_ordinal": 98,
+      "suite_case_number": 98,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.8.2",
+      "family": "6",
+      "selected_ordinal": 99,
+      "suite_case_number": 99,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.9.1",
+      "family": "6",
+      "selected_ordinal": 100,
+      "suite_case_number": 100,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.9.2",
+      "family": "6",
+      "selected_ordinal": 101,
+      "suite_case_number": 101,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.9.3",
+      "family": "6",
+      "selected_ordinal": 102,
+      "suite_case_number": 102,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.9.4",
+      "family": "6",
+      "selected_ordinal": 103,
+      "suite_case_number": 103,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.10.1",
+      "family": "6",
+      "selected_ordinal": 104,
+      "suite_case_number": 104,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.10.2",
+      "family": "6",
+      "selected_ordinal": 105,
+      "suite_case_number": 105,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.10.3",
+      "family": "6",
+      "selected_ordinal": 106,
+      "suite_case_number": 106,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.11.1",
+      "family": "6",
+      "selected_ordinal": 107,
+      "suite_case_number": 107,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.11.2",
+      "family": "6",
+      "selected_ordinal": 108,
+      "suite_case_number": 108,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.11.3",
+      "family": "6",
+      "selected_ordinal": 109,
+      "suite_case_number": 109,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.11.4",
+      "family": "6",
+      "selected_ordinal": 110,
+      "suite_case_number": 110,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.11.5",
+      "family": "6",
+      "selected_ordinal": 111,
+      "suite_case_number": 111,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.12.1",
+      "family": "6",
+      "selected_ordinal": 112,
+      "suite_case_number": 112,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.12.2",
+      "family": "6",
+      "selected_ordinal": 113,
+      "suite_case_number": 113,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.12.3",
+      "family": "6",
+      "selected_ordinal": 114,
+      "suite_case_number": 114,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.12.4",
+      "family": "6",
+      "selected_ordinal": 115,
+      "suite_case_number": 115,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.12.5",
+      "family": "6",
+      "selected_ordinal": 116,
+      "suite_case_number": 116,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.12.6",
+      "family": "6",
+      "selected_ordinal": 117,
+      "suite_case_number": 117,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.12.7",
+      "family": "6",
+      "selected_ordinal": 118,
+      "suite_case_number": 118,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.12.8",
+      "family": "6",
+      "selected_ordinal": 119,
+      "suite_case_number": 119,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.13.1",
+      "family": "6",
+      "selected_ordinal": 120,
+      "suite_case_number": 120,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.13.2",
+      "family": "6",
+      "selected_ordinal": 121,
+      "suite_case_number": 121,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.13.3",
+      "family": "6",
+      "selected_ordinal": 122,
+      "suite_case_number": 122,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.13.4",
+      "family": "6",
+      "selected_ordinal": 123,
+      "suite_case_number": 123,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.13.5",
+      "family": "6",
+      "selected_ordinal": 124,
+      "suite_case_number": 124,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.1",
+      "family": "6",
+      "selected_ordinal": 125,
+      "suite_case_number": 125,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.2",
+      "family": "6",
+      "selected_ordinal": 126,
+      "suite_case_number": 126,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.3",
+      "family": "6",
+      "selected_ordinal": 127,
+      "suite_case_number": 127,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.4",
+      "family": "6",
+      "selected_ordinal": 128,
+      "suite_case_number": 128,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.5",
+      "family": "6",
+      "selected_ordinal": 129,
+      "suite_case_number": 129,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.6",
+      "family": "6",
+      "selected_ordinal": 130,
+      "suite_case_number": 130,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.7",
+      "family": "6",
+      "selected_ordinal": 131,
+      "suite_case_number": 131,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.8",
+      "family": "6",
+      "selected_ordinal": 132,
+      "suite_case_number": 132,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.9",
+      "family": "6",
+      "selected_ordinal": 133,
+      "suite_case_number": 133,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.14.10",
+      "family": "6",
+      "selected_ordinal": 134,
+      "suite_case_number": 134,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.15.1",
+      "family": "6",
+      "selected_ordinal": 135,
+      "suite_case_number": 135,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.16.1",
+      "family": "6",
+      "selected_ordinal": 136,
+      "suite_case_number": 136,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.16.2",
+      "family": "6",
+      "selected_ordinal": 137,
+      "suite_case_number": 137,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.16.3",
+      "family": "6",
+      "selected_ordinal": 138,
+      "suite_case_number": 138,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.17.1",
+      "family": "6",
+      "selected_ordinal": 139,
+      "suite_case_number": 139,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.17.2",
+      "family": "6",
+      "selected_ordinal": 140,
+      "suite_case_number": 140,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.17.3",
+      "family": "6",
+      "selected_ordinal": 141,
+      "suite_case_number": 141,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.17.4",
+      "family": "6",
+      "selected_ordinal": 142,
+      "suite_case_number": 142,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.17.5",
+      "family": "6",
+      "selected_ordinal": 143,
+      "suite_case_number": 143,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.18.1",
+      "family": "6",
+      "selected_ordinal": 144,
+      "suite_case_number": 144,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.18.2",
+      "family": "6",
+      "selected_ordinal": 145,
+      "suite_case_number": 145,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.18.3",
+      "family": "6",
+      "selected_ordinal": 146,
+      "suite_case_number": 146,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.18.4",
+      "family": "6",
+      "selected_ordinal": 147,
+      "suite_case_number": 147,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.18.5",
+      "family": "6",
+      "selected_ordinal": 148,
+      "suite_case_number": 148,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.19.1",
+      "family": "6",
+      "selected_ordinal": 149,
+      "suite_case_number": 149,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.19.2",
+      "family": "6",
+      "selected_ordinal": 150,
+      "suite_case_number": 150,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.19.3",
+      "family": "6",
+      "selected_ordinal": 151,
+      "suite_case_number": 151,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.19.4",
+      "family": "6",
+      "selected_ordinal": 152,
+      "suite_case_number": 152,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.19.5",
+      "family": "6",
+      "selected_ordinal": 153,
+      "suite_case_number": 153,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.20.1",
+      "family": "6",
+      "selected_ordinal": 154,
+      "suite_case_number": 154,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.20.2",
+      "family": "6",
+      "selected_ordinal": 155,
+      "suite_case_number": 155,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.20.3",
+      "family": "6",
+      "selected_ordinal": 156,
+      "suite_case_number": 156,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.20.4",
+      "family": "6",
+      "selected_ordinal": 157,
+      "suite_case_number": 157,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.20.5",
+      "family": "6",
+      "selected_ordinal": 158,
+      "suite_case_number": 158,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.20.6",
+      "family": "6",
+      "selected_ordinal": 159,
+      "suite_case_number": 159,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.20.7",
+      "family": "6",
+      "selected_ordinal": 160,
+      "suite_case_number": 160,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.21.1",
+      "family": "6",
+      "selected_ordinal": 161,
+      "suite_case_number": 161,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.21.2",
+      "family": "6",
+      "selected_ordinal": 162,
+      "suite_case_number": 162,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.21.3",
+      "family": "6",
+      "selected_ordinal": 163,
+      "suite_case_number": 163,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.21.4",
+      "family": "6",
+      "selected_ordinal": 164,
+      "suite_case_number": 164,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.21.5",
+      "family": "6",
+      "selected_ordinal": 165,
+      "suite_case_number": 165,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.21.6",
+      "family": "6",
+      "selected_ordinal": 166,
+      "suite_case_number": 166,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.21.7",
+      "family": "6",
+      "selected_ordinal": 167,
+      "suite_case_number": 167,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.21.8",
+      "family": "6",
+      "selected_ordinal": 168,
+      "suite_case_number": 168,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.1",
+      "family": "6",
+      "selected_ordinal": 169,
+      "suite_case_number": 169,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.2",
+      "family": "6",
+      "selected_ordinal": 170,
+      "suite_case_number": 170,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.3",
+      "family": "6",
+      "selected_ordinal": 171,
+      "suite_case_number": 171,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.4",
+      "family": "6",
+      "selected_ordinal": 172,
+      "suite_case_number": 172,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.5",
+      "family": "6",
+      "selected_ordinal": 173,
+      "suite_case_number": 173,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.6",
+      "family": "6",
+      "selected_ordinal": 174,
+      "suite_case_number": 174,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.7",
+      "family": "6",
+      "selected_ordinal": 175,
+      "suite_case_number": 175,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.8",
+      "family": "6",
+      "selected_ordinal": 176,
+      "suite_case_number": 176,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.9",
+      "family": "6",
+      "selected_ordinal": 177,
+      "suite_case_number": 177,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.10",
+      "family": "6",
+      "selected_ordinal": 178,
+      "suite_case_number": 178,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.11",
+      "family": "6",
+      "selected_ordinal": 179,
+      "suite_case_number": 179,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.12",
+      "family": "6",
+      "selected_ordinal": 180,
+      "suite_case_number": 180,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.13",
+      "family": "6",
+      "selected_ordinal": 181,
+      "suite_case_number": 181,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.14",
+      "family": "6",
+      "selected_ordinal": 182,
+      "suite_case_number": 182,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.15",
+      "family": "6",
+      "selected_ordinal": 183,
+      "suite_case_number": 183,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.16",
+      "family": "6",
+      "selected_ordinal": 184,
+      "suite_case_number": 184,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.17",
+      "family": "6",
+      "selected_ordinal": 185,
+      "suite_case_number": 185,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.18",
+      "family": "6",
+      "selected_ordinal": 186,
+      "suite_case_number": 186,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.19",
+      "family": "6",
+      "selected_ordinal": 187,
+      "suite_case_number": 187,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.20",
+      "family": "6",
+      "selected_ordinal": 188,
+      "suite_case_number": 188,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.21",
+      "family": "6",
+      "selected_ordinal": 189,
+      "suite_case_number": 189,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.22",
+      "family": "6",
+      "selected_ordinal": 190,
+      "suite_case_number": 190,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.23",
+      "family": "6",
+      "selected_ordinal": 191,
+      "suite_case_number": 191,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.24",
+      "family": "6",
+      "selected_ordinal": 192,
+      "suite_case_number": 192,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.25",
+      "family": "6",
+      "selected_ordinal": 193,
+      "suite_case_number": 193,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.26",
+      "family": "6",
+      "selected_ordinal": 194,
+      "suite_case_number": 194,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.27",
+      "family": "6",
+      "selected_ordinal": 195,
+      "suite_case_number": 195,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.28",
+      "family": "6",
+      "selected_ordinal": 196,
+      "suite_case_number": 196,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.29",
+      "family": "6",
+      "selected_ordinal": 197,
+      "suite_case_number": 197,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.30",
+      "family": "6",
+      "selected_ordinal": 198,
+      "suite_case_number": 198,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.31",
+      "family": "6",
+      "selected_ordinal": 199,
+      "suite_case_number": 199,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.32",
+      "family": "6",
+      "selected_ordinal": 200,
+      "suite_case_number": 200,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.33",
+      "family": "6",
+      "selected_ordinal": 201,
+      "suite_case_number": 201,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.22.34",
+      "family": "6",
+      "selected_ordinal": 202,
+      "suite_case_number": 202,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.23.1",
+      "family": "6",
+      "selected_ordinal": 203,
+      "suite_case_number": 203,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.23.2",
+      "family": "6",
+      "selected_ordinal": 204,
+      "suite_case_number": 204,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.23.3",
+      "family": "6",
+      "selected_ordinal": 205,
+      "suite_case_number": 205,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.23.4",
+      "family": "6",
+      "selected_ordinal": 206,
+      "suite_case_number": 206,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.23.5",
+      "family": "6",
+      "selected_ordinal": 207,
+      "suite_case_number": 207,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.23.6",
+      "family": "6",
+      "selected_ordinal": 208,
+      "suite_case_number": 208,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "6.23.7",
+      "family": "6",
+      "selected_ordinal": 209,
+      "suite_case_number": 209,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.1.1",
+      "family": "7",
+      "selected_ordinal": 210,
+      "suite_case_number": 210,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.1.2",
+      "family": "7",
+      "selected_ordinal": 211,
+      "suite_case_number": 211,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.1.3",
+      "family": "7",
+      "selected_ordinal": 212,
+      "suite_case_number": 212,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.1.4",
+      "family": "7",
+      "selected_ordinal": 213,
+      "suite_case_number": 213,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.1.5",
+      "family": "7",
+      "selected_ordinal": 214,
+      "suite_case_number": 214,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.1.6",
+      "family": "7",
+      "selected_ordinal": 215,
+      "suite_case_number": 215,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.3.1",
+      "family": "7",
+      "selected_ordinal": 216,
+      "suite_case_number": 216,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.3.2",
+      "family": "7",
+      "selected_ordinal": 217,
+      "suite_case_number": 217,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.3.3",
+      "family": "7",
+      "selected_ordinal": 218,
+      "suite_case_number": 218,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.3.4",
+      "family": "7",
+      "selected_ordinal": 219,
+      "suite_case_number": 219,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.3.5",
+      "family": "7",
+      "selected_ordinal": 220,
+      "suite_case_number": 220,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.3.6",
+      "family": "7",
+      "selected_ordinal": 221,
+      "suite_case_number": 221,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.5.1",
+      "family": "7",
+      "selected_ordinal": 222,
+      "suite_case_number": 222,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.1",
+      "family": "7",
+      "selected_ordinal": 223,
+      "suite_case_number": 223,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.2",
+      "family": "7",
+      "selected_ordinal": 224,
+      "suite_case_number": 224,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.3",
+      "family": "7",
+      "selected_ordinal": 225,
+      "suite_case_number": 225,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.4",
+      "family": "7",
+      "selected_ordinal": 226,
+      "suite_case_number": 226,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.5",
+      "family": "7",
+      "selected_ordinal": 227,
+      "suite_case_number": 227,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.6",
+      "family": "7",
+      "selected_ordinal": 228,
+      "suite_case_number": 228,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.7",
+      "family": "7",
+      "selected_ordinal": 229,
+      "suite_case_number": 229,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.8",
+      "family": "7",
+      "selected_ordinal": 230,
+      "suite_case_number": 230,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.9",
+      "family": "7",
+      "selected_ordinal": 231,
+      "suite_case_number": 231,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.10",
+      "family": "7",
+      "selected_ordinal": 232,
+      "suite_case_number": 232,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.11",
+      "family": "7",
+      "selected_ordinal": 233,
+      "suite_case_number": 233,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.12",
+      "family": "7",
+      "selected_ordinal": 234,
+      "suite_case_number": 234,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.7.13",
+      "family": "7",
+      "selected_ordinal": 235,
+      "suite_case_number": 235,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.9.1",
+      "family": "7",
+      "selected_ordinal": 236,
+      "suite_case_number": 236,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.9.2",
+      "family": "7",
+      "selected_ordinal": 237,
+      "suite_case_number": 237,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.9.3",
+      "family": "7",
+      "selected_ordinal": 238,
+      "suite_case_number": 238,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.9.4",
+      "family": "7",
+      "selected_ordinal": 239,
+      "suite_case_number": 239,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.9.5",
+      "family": "7",
+      "selected_ordinal": 240,
+      "suite_case_number": 240,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.9.6",
+      "family": "7",
+      "selected_ordinal": 241,
+      "suite_case_number": 241,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.9.7",
+      "family": "7",
+      "selected_ordinal": 242,
+      "suite_case_number": 242,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.9.8",
+      "family": "7",
+      "selected_ordinal": 243,
+      "suite_case_number": 243,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.9.9",
+      "family": "7",
+      "selected_ordinal": 244,
+      "suite_case_number": 244,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.13.1",
+      "family": "7",
+      "selected_ordinal": 245,
+      "suite_case_number": 245,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "7.13.2",
+      "family": "7",
+      "selected_ordinal": 246,
+      "suite_case_number": 246,
+      "strict_pass_required": true
+    },
+    {
+      "case_id": "10.1.1",
+      "family": "10",
+      "selected_ordinal": 247,
+      "suite_case_number": 301,
+      "strict_pass_required": true
+    }
+  ],
+  "sources": [
+    {
+      "name": "dev-aarch64-fuzzingserver-run1",
+      "role": "client",
+      "index_path": "evidence/autobahn/dev-aarch64-nonauthoritative/fuzzingserver-run1/index.json",
+      "cases_dir": "evidence/autobahn/dev-aarch64-nonauthoritative/fuzzingserver-run1/cases",
+      "case_count": 247
+    },
+    {
+      "name": "dev-aarch64-fuzzingclient-run1",
+      "role": "server",
+      "index_path": "evidence/autobahn/dev-aarch64-nonauthoritative/fuzzingclient-run1/index.json",
+      "cases_dir": "evidence/autobahn/dev-aarch64-nonauthoritative/fuzzingclient-run1/cases",
+      "case_count": 247
+    }
+  ]
+}
