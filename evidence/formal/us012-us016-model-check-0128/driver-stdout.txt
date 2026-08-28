@@ -1,0 +1,42 @@
+DIGEST kind=tool name=tla2tools.jar sha256=sha256:eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a
+DIGEST kind=manifest name=model-mutations.json sha256=sha256:d7ecbdfe923a4c8b5b2f78eb6d334b53e2cbaab3497aac283cff4bdaffa65b08
+WINDOW start=2026-08-28T00:41:29Z
+DIGEST kind=staged name=FrameModel.tla sha256=sha256:57091c98ea125a8a250e6ca2b3da708096b42b67b09b9c7bb942293ef4475ce5
+DIGEST kind=staged name=FrameModel.cfg sha256=sha256:edec010717da0da99ee446ace457159fc1355535b2e2bd5aaff39660fca2933c
+DIGEST kind=staged name=CloseModel.cfg sha256=sha256:93447cec5745a3bb20b6e801e61d3b1084f243088d0e0d739696fec89bfb3d8a
+DIGEST kind=staged name=CloseModel.tla sha256=sha256:29f1c8f1d85ac6fc39cca48f8be2aa1fddf4cdd460a5b6dc15bdcd279378281d
+RESULT step=sany.FrameModel exit=0
+RESULT step=tlc.FrameModel exit=0 verdict=clean check=NONE
+RESULT step=sany.CloseModel exit=0
+RESULT step=tlc.CloseModel exit=0 verdict=clean check=NONE
+RESULT step=mutant.defect.frame.type-domain-escape exit=12 outcome=Killed check=TypeInvariant expected_check=TypeInvariant
+RESULT step=mutant.defect.frame.track-leak exit=12 outcome=Killed check=TracksAreDisjoint expected_check=TracksAreDisjoint
+RESULT step=mutant.defect.frame.action-adds-undeclared-rejection exit=12 outcome=Killed check=VerdictMatchesDeclaredTable expected_check=VerdictMatchesDeclaredTable
+RESULT step=mutant.defect.frame.allocate-before-gate exit=12 outcome=Killed check=AllocationRespectsHeaderGate expected_check=AllocationRespectsHeaderGate
+RESULT step=mutant.defect.frame.late-length-gate exit=12 outcome=Killed check=OverCapRejectedAtLengthSite expected_check=OverCapRejectedAtLengthSite
+RESULT step=mutant.defect.frame.unknown-opcode-late-site exit=12 outcome=Killed check=UnknownOpcodeRejectedAtBaseHeader expected_check=UnknownOpcodeRejectedAtBaseHeader
+RESULT step=mutant.defect.frame.control-extended-marker-late-site exit=12 outcome=Killed check=ControlOverLimitRejectedAtBaseHeader expected_check=ControlOverLimitRejectedAtBaseHeader
+RESULT step=mutant.defect.frame.control-fin-not-checked exit=12 outcome=Killed check=AcceptedControlFramesAreBounded expected_check=AcceptedControlFramesAreBounded
+RESULT step=mutant.defect.frame.consumed-overrun exit=12 outcome=Killed check=ConsumedSiteIsDeclared expected_check=ConsumedSiteIsDeclared
+RESULT step=mutant.defect.frame.mask-index-misalignment exit=12 outcome=Killed check=MaskRoundTrip expected_check=MaskRoundTrip
+RESULT step=mutant.defect.frame.budget-reset exit=13 outcome=Killed check=FrameBudgetMonotone expected_check=FrameBudgetMonotone
+RESULT step=mutant.defect.frame.starved-resolution exit=13 outcome=Killed check=FramesAlwaysResolve expected_check=FramesAlwaysResolve
+RESULT step=mutant.defect.close.type-domain-escape exit=12 outcome=Killed check=TypeInvariant expected_check=TypeInvariant
+RESULT step=mutant.defect.close.double-terminal-entry exit=12 outcome=Killed check=TerminalEnteredAtMostOnce expected_check=TerminalEnteredAtMostOnce
+RESULT step=mutant.defect.close.terminal-entry-unaccounted exit=12 outcome=Killed check=ClosedIffOneTerminalEntry expected_check=ClosedIffOneTerminalEntry
+RESULT step=mutant.defect.close.closing-without-detail exit=12 outcome=Killed check=CloseDetailPresentFromClosing expected_check=CloseDetailPresentFromClosing
+RESULT step=mutant.defect.close.one-byte-rejected exit=12 outcome=Killed check=InboundCloseNormalization expected_check=InboundCloseNormalization
+RESULT step=mutant.defect.close.echo-mirrors-received-code exit=12 outcome=Killed check=EchoCarriesConstructorPayload expected_check=EchoCarriesConstructorPayload
+RESULT step=mutant.defect.close.validity-chain-bypassed exit=12 outcome=Killed check=ForbiddenCodesNeverReachTheWire expected_check=ForbiddenCodesNeverReachTheWire
+RESULT step=mutant.defect.close.tls-error-sendable exit=12 outcome=Killed check=TlsErrorSendAlwaysRejectedAs1002 expected_check=TlsErrorSendAlwaysRejectedAs1002
+RESULT step=mutant.defect.close.never-connected-post-handshake exit=12 outcome=Killed check=NeverConnectedOnlyPreHandshake expected_check=NeverConnectedOnlyPreHandshake
+RESULT step=mutant.defect.close.rejected-send-transitions exit=12 outcome=Killed check=RejectedSendDoesNotTransition expected_check=RejectedSendDoesNotTransition
+RESULT step=mutant.defect.close.reopen-after-terminal exit=13 outcome=Killed check=TerminalAbsorbing expected_check=TerminalAbsorbing
+RESULT step=mutant.defect.close.poison-recoverable exit=13 outcome=Killed check=PoisonAbsorbing expected_check=PoisonAbsorbing
+RESULT step=mutant.defect.close.starved-closing-resolution exit=13 outcome=Killed check=ClosingResolves expected_check=ClosingResolves
+DIGEST kind=pristine name=FrameModel.tla sha256=sha256:57091c98ea125a8a250e6ca2b3da708096b42b67b09b9c7bb942293ef4475ce5
+DIGEST kind=pristine name=FrameModel.cfg sha256=sha256:edec010717da0da99ee446ace457159fc1355535b2e2bd5aaff39660fca2933c
+DIGEST kind=pristine name=CloseModel.tla sha256=sha256:29f1c8f1d85ac6fc39cca48f8be2aa1fddf4cdd460a5b6dc15bdcd279378281d
+DIGEST kind=pristine name=CloseModel.cfg sha256=sha256:93447cec5745a3bb20b6e801e61d3b1084f243088d0e0d739696fec89bfb3d8a
+WINDOW end=2026-08-28T00:41:42Z
+SUMMARY models=2 mutations=25

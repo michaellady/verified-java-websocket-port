@@ -30,67 +30,100 @@
   },
   "execution": {
     "sbx_status": "EXECUTED_IN_SBX",
-    "attempt_id": "us007-sbx-output-live-0127",
-    "authorization": "workspace/orchestrator/verified-java-websocket-port-claude/protected/us012-us016-attempt-0127-owner-authorization.json, which cites the standing owner decision protected/us009-us008-owner-decisions-2026-08-27.json key us006_tlc_in_sbx = AUTHORIZED (2026-08-27T03:21:08Z) and DISCLOSES in its authorization_scope_disclosure field that the standing decision's literal text authorized a single attempt, consumed by us007-sbx-output-live-0125; this attempt is a second attempt of the same authorized class and is not represented as a fresh owner grant.",
-    "sandbox": "Accepted US-007 Docker sbx workload profile: sbx v0.39.0 def8cb0523a77e757bdd6ef52b459fe374f3783e (read from the CLI banner), template docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec, sandbox us012-us016-tlc-0127, uid=1000(agent) unprivileged with no --privileged and no root at any point, --deny-network '**' (sbx policy ls showed the deny-all-hosts rule live alongside the clone-mode git-daemon internal allow present in all accepted attempts), clone mode over a clean clone of this repository at commit acc38e770810b25cfca1c81e5d7cd87a18e80c5c. The checker archive was fetched host-side with its sha256 recorded AT FETCH and entered the network-denied sandbox only via a digest-verified copy re-hashed inside the sandbox; sbx cp exit codes are untrusted per the 0124 finding, so all four staged model artifacts were re-hashed in-sandbox against the host bytes (four matches) and all thirteen output receipts were verified out on the host with shasum -c (exit 0). Sandbox removed after extraction.",
+    "attempt_id": "us007-sbx-output-live-0128",
+    "authorization": "workspace/orchestrator/verified-java-websocket-port-claude/protected/us012-us016-attempt-0128-owner-authorization.json, which cites the STANDING authority granted in protected/us012-us016-owner-decisions-2026-08-28-formal.json (sha256 d7a54e2c5aac48cc9ef1b3afa19d14593555e1fce7cb49fed69484ba24bfc352, recomputed and verified at read), decision id sbx-tlc-standing-authority. That decision ratified attempt 0127 and authorized repeated runs of this class without a fresh per-attempt owner decision, provided each attempt mints its own id and receipt and keeps the profile constraints. This attempt does.",
+    "sandbox": "Accepted US-007 Docker sbx workload profile: sbx v0.39.0 def8cb0523a77e757bdd6ef52b459fe374f3783e, template docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec, sandbox us012-us016-tlc-0128c, uid=1000(agent) unprivileged with no --privileged and no root at any point, --deny-network '**' (sbx policy ls showed the deny-all-hosts rule live), clone mode over a clean clone of this repository at commit 76f78e257196ebfccd292329f48a0f0aec0e66f6 (in-sandbox git rev-parse HEAD read back as the same commit). The checker archive was fetched host-side with its sha256 recorded AT FETCH and entered the network-denied sandbox only via a digest-verified copy re-hashed inside the sandbox; the driver binary was cross-compiled (CGO_ENABLED=0 GOOS=linux GOARCH=arm64) from that same clone and likewise digest-verified in. sbx cp exit codes are untrusted per the 0124 finding, so every transfer was digest-verified in both directions: two artifacts in (both matched) and 29 output receipts verified out on the host with shasum -c (29 OK). The driver re-hashed the staged models after all 25 mutant runs and reported them byte-identical to the repository bytes. ATTEMPT 0128 USED THREE SANDBOXES, disclosed rather than hidden: us012-us016-tlc-0128 aborted at manifest decode before any checker ran; us012-us016-tlc-0128b ran everything but its driver mis-classified three action-property kills as survivors; us012-us016-tlc-0128c is the run every number below comes from. All three were removed after use.",
     "sany": {
       "argv": "java -cp tla2tools.jar tla2sany.SANY FrameModel.tla",
       "exit_code": 0,
-      "observed": "Grammar and level check EXECUTED: semantic processing and linting of module FrameModel completed with no errors (receipt sany-FrameModel.out)."
+      "observed": "Grammar and level check EXECUTED: semantic processing and linting of module FrameModel completed with no errors.",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/sany-FrameModel.out"
     },
     "tlc": {
       "argv": "java -cp tla2tools.jar tlc2.TLC -config FrameModel.cfg FrameModel",
       "exit_code": 0,
-      "observed": "Full run with the shipped cfg: 'Model checking completed. No error has been found.' -- 62,226 states generated, 3,618 distinct states, 0 states left on queue, complete-state-graph depth 8. All ten INVARIANTs and both PROPERTYs in the shipped cfg were checked over the complete state space, and the module's ASSUME (XOR involution over the full two-bit domain) was evaluated at startup without error (receipt tlc-FrameModel.out)."
+      "observed": "Full run with the shipped cfg: 'Model checking completed. No error has been found.' -- 62,226 states generated, 3,618 distinct states, 0 states left on queue, complete-state-graph depth 8. All 10 INVARIANTs and all 2 PROPERTYs in the shipped cfg were checked over the complete state space.",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-FrameModel.out"
     },
+    "driver_log": "evidence/formal/us012-us016-model-check-0128/driver-stdout.txt",
     "receipts": [
       {
-        "path": "evidence/formal/us012-us016-model-check-0127/sany-FrameModel.out",
-        "sha256": "sha256:3255b7d08050caf16bd7cb25463cff6cd0f3fe47dc668ba6279eced78108064d",
-        "bytes": 911
+        "path": "evidence/formal/us012-us016-model-check-0128/sany-FrameModel.out",
+        "sha256": "sha256:3367b3085a42d14b8b185e9a6901d72369ed6150267973fdabba23c2d7cddfa2",
+        "bytes": 919
       },
       {
-        "path": "evidence/formal/us012-us016-model-check-0127/tlc-FrameModel.out",
-        "sha256": "sha256:96cc4f57085620636ba99a31118cac380da168f5859dc8818e966a4da763aa4d",
-        "bytes": 3106
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-FrameModel.out",
+        "sha256": "sha256:cc227d79d95667e3741d26220a378f68eaffe6d485562ae041646e50682fb037",
+        "bytes": 3112
       },
       {
-        "path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-frame-liveness.out",
-        "sha256": "sha256:ecef68d2a135c554324a90a35e223c94566ea3079500160d02fada196fad4289",
-        "bytes": 4686
+        "path": "evidence/formal/us012-us016-model-check-0128/driver-stdout.txt",
+        "sha256": "sha256:b515588a733c7e44ed1f5178ad80a40ef757fb6b60414286bd33ac1130a4db91",
+        "bytes": 5188
       },
       {
-        "path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-frame-mask.out",
-        "sha256": "sha256:63a07e3ac136620713a21eee2ea26805215de1dbc81a84ad6b51e01bbdeeeadb",
-        "bytes": 3865
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.type-domain-escape.out",
+        "sha256": "sha256:9a55774750894e22d4bbaf8bc8a602b7b6e2080553eb52112399ba5fb9d782d2",
+        "bytes": 2707
       },
       {
-        "path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-frame-alloc.out",
-        "sha256": "sha256:70a8379fa8299b00d279cd7454a16635587d799f5a761704707b1cb03b945ed2",
-        "bytes": 3547
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.track-leak.out",
+        "sha256": "sha256:7c3a9b250b27211982a7f0166efef77ef71a10ada26002c8a316b683e13114cb",
+        "bytes": 3468
       },
       {
-        "path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-frame-length-site.out",
-        "sha256": "sha256:903dd91eb17ae8e461ee15e678370545f68e707eae69fdf8735e55b63cf07899",
-        "bytes": 4001
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.action-adds-undeclared-rejection.out",
+        "sha256": "sha256:261ba14c8eb57599b9ba9124466dae88e891a975455fc0e4829143df7aa04d5e",
+        "bytes": 4446
       },
       {
-        "path": "evidence/formal/us012-us016-model-check-0127/attempt-0127-run.sh",
-        "sha256": "sha256:b1c9010c30850fab1e5d36823f7b3e965458ea2e05c67fb90e06e0a0f79b3a68",
-        "bytes": 4083
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.allocate-before-gate.out",
+        "sha256": "sha256:5ebd44feff5a15a3abb096e15974bbaed74190b1de7f993a48609ac4c02ffe9c",
+        "bytes": 3595
       },
       {
-        "path": "evidence/formal/us012-us016-model-check-0127/window-start.txt",
-        "sha256": "sha256:b4ea95f03755f6a811cee333a58f6dec375c6bd8ddbd341a2f6073724ec3d23b",
-        "bytes": 21
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.late-length-gate.out",
+        "sha256": "sha256:981808e77918ae4e679a653fd984233fe8eaf505b08a0f07242d1f0b267a8d17",
+        "bytes": 4009
       },
       {
-        "path": "evidence/formal/us012-us016-model-check-0127/window-end.txt",
-        "sha256": "sha256:da96bc3e4534d945448cf0d315f6e5ae97e96fc397bbd5371e2714706645d5b7",
-        "bytes": 21
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.unknown-opcode-late-site.out",
+        "sha256": "sha256:7e42039e8b17fdca29ad551315868c2a2da47ba685fa89a8e411fa0e62e1a1ef",
+        "bytes": 4019
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.control-extended-marker-late-site.out",
+        "sha256": "sha256:b140ccd68f5271156e4842b7f6a51993e5b1ae184f28557350b671d0c7eb6a56",
+        "bytes": 4054
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.control-fin-not-checked.out",
+        "sha256": "sha256:07814b402a4350482fef5d640e95014d5250856eebcad237b13f099a3f1774c6",
+        "bytes": 4448
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.consumed-overrun.out",
+        "sha256": "sha256:9046e06c3a0d57f9ffab3ccde62277e70ce1b371045e30355344c4405011b269",
+        "bytes": 4429
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.mask-index-misalignment.out",
+        "sha256": "sha256:c069216de028dbb43ac01907c96faaad5188b22f1ed3c6ca98a64efaefa78a65",
+        "bytes": 3902
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.budget-reset.out",
+        "sha256": "sha256:54e21cb5524330a47ec62035b5d4bd39a5646b9fffa0234949b2374362415f59",
+        "bytes": 4871
+      },
+      {
+        "path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.starved-resolution.out",
+        "sha256": "sha256:5ce513ea00816194cc4170394b82b13aa634d2b5a0c9046805845f370a126ef9",
+        "bytes": 5730
       }
     ],
-    "window": "2026-08-27T23:58:50Z .. 2026-08-27T23:58:56Z (in-sandbox `date -u`, captured verbatim in window-start.txt / window-end.txt; the window covers both models' SANY and TLC runs plus all seven seeded-defect runs)",
+    "window": "2026-08-28T00:41:29Z .. 2026-08-28T00:41:42Z (in-sandbox clock, captured by the driver binary and printed into its stdout receipt; the window covers both models' SANY and TLC runs plus all 25 seeded-defect runs)",
     "runtime_observed": "TLC's own line for this model: 'Finished in 01s'. Read from the checker output, not measured by the driver, and not a benchmark."
   },
   "bounds": [
@@ -125,70 +158,70 @@
       "name": "TypeInvariant",
       "kind": "invariant",
       "statement": "Every variable stays inside its declared finite domain; the verdict's consumed offset stays a natural number no larger than the largest representable frame.",
-      "falsified_by": "defect.frame.type-domain-escape -- set Init's verdict code to 1007, outside FrameCloseCodes.",
+      "falsified_by": "defect.frame.type-domain-escape -- Init carries a close code outside FrameCloseCodes, so the declared finite domain is escaped in the initial state. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     },
     {
       "name": "TracksAreDisjoint",
       "kind": "invariant",
       "statement": "The decode track and the mask track never mix: a mask-track state carries no frame, verdict, allocation, or frame count, and a decode-track state never enters a mask phase.",
-      "falsified_by": "defect.frame.track-leak -- drop the track = \"decode\" conjunct from HeaderAccept.",
+      "falsified_by": "defect.frame.track-leak -- MaskSelect loses its track guard, so a decode-track state can enter a mask phase and the two declared tracks mix. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     },
     {
       "name": "VerdictMatchesDeclaredTable",
       "kind": "invariant",
       "statement": "Every non-empty verdict equals the independently stated Java-faithful rejection table. This is what pins the ledger's NON-rejections (behavior-delta sequences 17 noncanonical extended length, 18 mask-by-role, 19 64-bit high bit): adding any RFC-strict rejection to an action without adding it to the table is caught immediately.",
-      "falsified_by": "defect.frame.rfc-strict-noncanonical-length -- add a non-minimal-length rejection to the HeaderReject action without adding it to HeaderRejection.",
+      "falsified_by": "defect.frame.action-adds-undeclared-rejection -- The accept action emits a rejection the declared table does not contain -- the shape an added RFC-strict rejection (non-minimal length, role masking, 64-bit high bit) would take. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     },
     {
       "name": "AllocationRespectsHeaderGate",
       "kind": "invariant",
       "statement": "No payload reservation exceeds the configured frame cap, no reservation exists for a frame the header gate rejected, and nothing is reserved while the header is still being decoded. This is the bounded-allocation obligation of US-012 AC3.",
-      "falsified_by": "defect.frame.allocate-before-gate -- in StartFrame replace allocated' = 0 with allocated' = LengthOctets(f.length), reserving before the header gate has run.",
+      "falsified_by": "defect.frame.allocate-before-gate -- The payload is reserved in StartFrame, before the header-time length gate has run, so an over-cap frame reserves beyond the configured cap. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     },
     {
       "name": "OverCapRejectedAtLengthSite",
       "kind": "invariant",
       "statement": "A declared payload length above the configured cap is rejected with close code 1009 at the length site (2, 4, or 10 octets consumed), before any payload is read.",
-      "falsified_by": "defect.frame.late-length-gate -- in HeaderRejection change the over-cap arm to Reject(1009, FrameOctets(f)).",
+      "falsified_by": "defect.frame.late-length-gate -- The over-cap rejection moves from the length site to the full frame, which would mean the payload was read before the cap was enforced. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     },
     {
       "name": "UnknownOpcodeRejectedAtBaseHeader",
       "kind": "invariant",
       "statement": "An unknown opcode nibble is rejected with 1002 after exactly the two base header bytes, matching the pinned runtime's observable consumed offset (behavior-delta sequence 22).",
-      "falsified_by": "defect.frame.unknown-opcode-late-site -- in HeaderRejection change the unknown-opcode arm to Reject(1002, FrameOctets(f)).",
+      "falsified_by": "defect.frame.unknown-opcode-late-site -- The unknown-opcode rejection reports the length site instead of the two base header bytes, breaking the pinned runtime's observable consumed offset. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     },
     {
       "name": "ControlOverLimitRejectedAtBaseHeader",
       "kind": "invariant",
       "statement": "Every control frame whose declared length exceeds the 125-octet limit is rejected at consumed offset 2 by the extended-marker gate, never at the length site. This is the mechanical statement of the recorded unreachable-check finding.",
-      "falsified_by": "defect.frame.control-extended-marker-allowed -- delete the control extended-marker arm from HeaderRejection.",
+      "falsified_by": "defect.frame.control-extended-marker-late-site -- The control extended-marker rejection reports the length site instead of header byte 2, i.e. the extended length bytes would have been read before rejecting. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     },
     {
       "name": "AcceptedControlFramesAreBounded",
       "kind": "invariant",
       "statement": "Every accepted control frame carries at most 125 octets, is final, and used the inline length marker.",
-      "falsified_by": "defect.frame.control-fin-not-checked -- delete the control-fin arm from PostPayloadRejection.",
+      "falsified_by": "defect.frame.control-fin-not-checked -- The control-frame FIN check is deleted, so a fragmented control frame is accepted. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     },
     {
       "name": "ConsumedSiteIsDeclared",
       "kind": "invariant",
       "statement": "Every rejection reports one of the three declared consumed offsets (2, the length site, or the full frame) and never claims to have consumed more than the frame contains.",
-      "falsified_by": "defect.frame.consumed-overrun -- in PostPayloadRejection change the reserved-bit arm to Reject(1002, FrameOctets(f) + 1).",
+      "falsified_by": "defect.frame.consumed-overrun -- The reserved-bit rejection claims to have consumed one octet more than the frame contains. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     },
     {
       "name": "MaskRoundTrip",
       "kind": "invariant",
-      "statement": "The unmasked octets equal the INDEPENDENTLY stated repeating four-octet XOR equation applied to the wire octets, re-masking recovers the wire octets, and the length is preserved. The independent-reference conjunct exists because the first executed run showed the round trip alone cannot detect key-index misalignment.",
-      "falsified_by": "defect.frame.mask-index-misalignment -- in MaskApply change the key index to 1 + (i % 4), leaving MaskEquationReference alone.",
+      "statement": "The unmasked octets equal the INDEPENDENTLY stated repeating four-octet XOR equation applied to the wire octets, re-masking recovers the wire octets, and the length is preserved. The independent-reference conjunct exists because attempt 0127 showed the round trip alone cannot detect key-index misalignment.",
+      "falsified_by": "defect.frame.mask-index-misalignment -- The mask key index is shifted by one while the independent reference equation is left intact. This is the mutation that SURVIVED the round-trip-only invariant in attempt 0127 and forced the model fix. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 12.",
       "outcome": "Held"
     }
   ],
@@ -197,14 +230,14 @@
       "name": "FrameBudgetMonotone",
       "kind": "property",
       "statement": "The retired-frame counter never runs backwards: the decoder makes monotone progress through its bounded frame budget.",
-      "falsified_by": "defect.frame.budget-reset -- add a Reset action that returns framesDone to 0.",
+      "falsified_by": "defect.frame.budget-reset -- A reset action returns the retired-frame counter to zero, so decoding progress is no longer monotone. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 13.",
       "outcome": "Held"
     },
     {
       "name": "FramesAlwaysResolve",
       "kind": "property",
       "statement": "Under the declared weak fairness on the in-flight resolution steps, a frame that entered the pipeline always reaches a verdict; the decoder never parks with a half-decoded frame.",
-      "falsified_by": "defect.frame.starved-resolution -- change the cfg SPECIFICATION from FairSpec to Spec.",
+      "falsified_by": "defect.frame.starved-resolution -- The fairness conjunct is deleted, so a frame can stutter in the pipeline forever without reaching a verdict. EXECUTED in attempt us007-sbx-output-live-0128; killed with checker exit 13.",
       "outcome": "Held"
     }
   ],
@@ -213,40 +246,104 @@
     "distinct_states": 3618,
     "states_left_on_queue": 0,
     "depth": 8,
-    "source": "Read verbatim from the TLC summary lines of tlc-FrameModel.out: '62226 states generated, 3618 distinct states found, 0 states left on queue.' and 'The depth of the complete state graph search is 8.'"
+    "source": "Read verbatim from the TLC summary lines of evidence/formal/us012-us016-model-check-0128/tlc-FrameModel.out and re-parsed out of those same bytes by the formalplan validator on every run."
   },
   "seeded_defects": [
     {
-      "defect_id": "defect.frame.starved-resolution",
-      "mutation": "cfg SPECIFICATION FairSpec -> Spec (delete the fairness conjunct)",
-      "outcome": "Killed",
-      "exit_code": 13,
-      "violated_check": "FramesAlwaysResolve",
-      "receipt_path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-frame-liveness.out"
-    },
-    {
-      "defect_id": "defect.frame.mask-index-misalignment",
-      "mutation": "MaskApply key index 1 + ((i - 1) % 4) -> 1 + (i % 4), MaskEquationReference left intact",
+      "defect_id": "defect.frame.type-domain-escape",
+      "mutation": "Init carries a close code outside FrameCloseCodes, so the declared finite domain is escaped in the initial state.",
       "outcome": "Killed",
       "exit_code": 12,
-      "violated_check": "MaskRoundTrip",
-      "receipt_path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-frame-mask.out"
+      "violated_check": "TypeInvariant",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.type-domain-escape.out"
+    },
+    {
+      "defect_id": "defect.frame.track-leak",
+      "mutation": "MaskSelect loses its track guard, so a decode-track state can enter a mask phase and the two declared tracks mix.",
+      "outcome": "Killed",
+      "exit_code": 12,
+      "violated_check": "TracksAreDisjoint",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.track-leak.out"
+    },
+    {
+      "defect_id": "defect.frame.action-adds-undeclared-rejection",
+      "mutation": "The accept action emits a rejection the declared table does not contain -- the shape an added RFC-strict rejection (non-minimal length, role masking, 64-bit high bit) would take.",
+      "outcome": "Killed",
+      "exit_code": 12,
+      "violated_check": "VerdictMatchesDeclaredTable",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.action-adds-undeclared-rejection.out"
     },
     {
       "defect_id": "defect.frame.allocate-before-gate",
-      "mutation": "StartFrame allocated' = 0 -> allocated' = LengthOctets(f.length), reserving before the header gate",
+      "mutation": "The payload is reserved in StartFrame, before the header-time length gate has run, so an over-cap frame reserves beyond the configured cap.",
       "outcome": "Killed",
       "exit_code": 12,
       "violated_check": "AllocationRespectsHeaderGate",
-      "receipt_path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-frame-alloc.out"
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.allocate-before-gate.out"
     },
     {
       "defect_id": "defect.frame.late-length-gate",
-      "mutation": "HeaderRejection over-cap arm Reject(1009, LengthSite(f)) -> Reject(1009, FrameOctets(f))",
+      "mutation": "The over-cap rejection moves from the length site to the full frame, which would mean the payload was read before the cap was enforced.",
       "outcome": "Killed",
       "exit_code": 12,
       "violated_check": "OverCapRejectedAtLengthSite",
-      "receipt_path": "evidence/formal/us012-us016-model-check-0127/tlc-mutant-frame-length-site.out"
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.late-length-gate.out"
+    },
+    {
+      "defect_id": "defect.frame.unknown-opcode-late-site",
+      "mutation": "The unknown-opcode rejection reports the length site instead of the two base header bytes, breaking the pinned runtime's observable consumed offset.",
+      "outcome": "Killed",
+      "exit_code": 12,
+      "violated_check": "UnknownOpcodeRejectedAtBaseHeader",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.unknown-opcode-late-site.out"
+    },
+    {
+      "defect_id": "defect.frame.control-extended-marker-late-site",
+      "mutation": "The control extended-marker rejection reports the length site instead of header byte 2, i.e. the extended length bytes would have been read before rejecting.",
+      "outcome": "Killed",
+      "exit_code": 12,
+      "violated_check": "ControlOverLimitRejectedAtBaseHeader",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.control-extended-marker-late-site.out"
+    },
+    {
+      "defect_id": "defect.frame.control-fin-not-checked",
+      "mutation": "The control-frame FIN check is deleted, so a fragmented control frame is accepted.",
+      "outcome": "Killed",
+      "exit_code": 12,
+      "violated_check": "AcceptedControlFramesAreBounded",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.control-fin-not-checked.out"
+    },
+    {
+      "defect_id": "defect.frame.consumed-overrun",
+      "mutation": "The reserved-bit rejection claims to have consumed one octet more than the frame contains.",
+      "outcome": "Killed",
+      "exit_code": 12,
+      "violated_check": "ConsumedSiteIsDeclared",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.consumed-overrun.out"
+    },
+    {
+      "defect_id": "defect.frame.mask-index-misalignment",
+      "mutation": "The mask key index is shifted by one while the independent reference equation is left intact. This is the mutation that SURVIVED the round-trip-only invariant in attempt 0127 and forced the model fix.",
+      "outcome": "Killed",
+      "exit_code": 12,
+      "violated_check": "MaskRoundTrip",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.mask-index-misalignment.out"
+    },
+    {
+      "defect_id": "defect.frame.budget-reset",
+      "mutation": "A reset action returns the retired-frame counter to zero, so decoding progress is no longer monotone.",
+      "outcome": "Killed",
+      "exit_code": 13,
+      "violated_check": "FrameBudgetMonotone",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.budget-reset.out"
+    },
+    {
+      "defect_id": "defect.frame.starved-resolution",
+      "mutation": "The fairness conjunct is deleted, so a frame can stutter in the pipeline forever without reaching a verdict.",
+      "outcome": "Killed",
+      "exit_code": 13,
+      "violated_check": "FramesAlwaysResolve",
+      "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-mutant-defect.frame.starved-resolution.out"
     }
   ],
   "violations": [],
@@ -254,22 +351,28 @@
     {
       "id": "finding.frame.control-length-check-unreachable",
       "kind": "unreachable_check",
-      "statement": "The shipped port checks the 125-octet control-payload limit twice: it rejects any control frame whose length marker is >= 126 at header byte 2, and it separately compares the decoded payload length against 125 at the length site. The second comparison is UNREACHABLE, because a control frame that survives the first gate has an inline marker and therefore a length of at most 125. TLC confirms this mechanically: ControlOverLimitRejectedAtBaseHeader holds, so every over-limit control frame is rejected at consumed offset 2. The shipped Java gate has the same shape (drafts/Draft_6455.java:617-620 throws for PING/PONG/CLOSING as soon as the >125 escape is entered, before the extended length bytes are read), so the port's second comparison is defensive depth and matches the fidelity authority. No change is required.",
+      "statement": "The shipped port checks the 125-octet control-payload limit twice: it rejects any control frame whose length marker is >= 126 at header byte 2, and it separately compares the decoded payload length against 125 at the length site. The second comparison is UNREACHABLE, because a control frame that survives the first gate has an inline marker and therefore a length of at most 125. TLC confirms this mechanically: ControlOverLimitRejectedAtBaseHeader holds, so every over-limit control frame is rejected at consumed offset 2. The shipped Java gate has the same shape (drafts/Draft_6455.java:617-620), so the port's second comparison is defensive depth that matches the fidelity authority.",
       "disposition": "RECORDED_NO_CHANGE_REQUIRED"
     },
     {
       "id": "finding.frame.mask-round-trip-was-vacuous",
       "kind": "model_defect_fixed",
-      "statement": "The checker contradicted the author. The first executed TLC run of this model (same attempt, same sandbox, same 3,618-state space) showed that the declared key-index mutation SURVIVED the original MaskRoundTrip invariant with exit 0 and no error: XOR with any fixed index function is an involution, so a round-trip-only check is blind to key ALIGNMENT and the invariant was partially vacuous, with a wrong falsification note. The fix is in the MODEL, not the port: the mask equation is now restated independently as MaskEquationReference and the invariant checks the transform against it. The same mutation is now killed with exit 12 (receipt tlc-mutant-frame-mask.out). The port's mask function was never in question; the defect was in the check.",
+      "statement": "The checker contradicted the author, in attempt us007-sbx-output-live-0127. The declared key-index mutation SURVIVED the original MaskRoundTrip invariant with exit 0 over the identical 3,618-state space: XOR with any fixed index function is an involution, so a round-trip-only check is blind to key ALIGNMENT and the invariant was partially vacuous with a wrong falsification note. The fix is in the MODEL: the mask equation is restated independently as MaskEquationReference and the invariant checks the transform against it. In attempt 0128 that same mutation is killed with exit 12. The port's mask function was never in question; the defect was in the check. This finding is the reason every check in both models now carries an EXECUTED mutation rather than a declared one.",
+      "disposition": "RECORDED_NO_CHANGE_REQUIRED"
+    },
+    {
+      "id": "finding.driver.action-property-message-form-missed",
+      "kind": "evidence_pipeline_defect_fixed",
+      "statement": "An EVIDENCE-PIPELINE defect, not a model or port defect. TLC reports a [][...]_vars ACTION property violation as 'Error: Action property X is violated', a third message form distinct from the state-invariant and temporal-property forms. The driver's first classification pass in this attempt (sandbox us012-us016-tlc-0128b) knew only the first two and therefore labelled three GENUINE kills -- FrameBudgetMonotone, TerminalAbsorbing, PoisonAbsorbing -- as SURVIVORS, while their checker exit codes said 13. It was caught by reading the raw checker output rather than trusting the classifier's summary, and the same gap was present in the results validator's binder and fixed there too. Had the summary been believed, this record would have understated the kill table by three and reported three false survivors.",
       "disposition": "RECORDED_NO_CHANGE_REQUIRED"
     }
   ],
   "honesty_notes": [
-    "Claim ceiling proved-model, full stop. This run establishes properties of an ABSTRACTION of the shipped decoder and nothing about production Rust without a reviewed composition/refinement link. It is not a proof about the shipped framing module.",
-    "The model is bounded. MaxFrames = 2 and the four length classes mean the checked results hold only for behaviors inside those bounds; nothing is claimed beyond them, and lengths strictly between the class representatives are not enumerated.",
-    "OWNER_ATTESTED_NOT_INDEPENDENT: one session authored the model, the invariants, the falsification notes, and this record, and ran the checker. The correlated-failure risk is real -- a shared blind spot between a model and its own checks is exactly what finding.frame.mask-round-trip-was-vacuous exhibited, and it surfaced only because a mutation was actually EXECUTED rather than assumed to kill.",
-    "Non-vacuity is partial, stated precisely: four of the ten invariants (MaskRoundTrip, AllocationRespectsHeaderGate, OverCapRejectedAtLengthSite) plus one property (FramesAlwaysResolve) have an EXECUTED seeded-defect kill in this attempt -- three invariants and one property, four kills total. The remaining seven invariants and the FrameBudgetMonotone property carry declared falsification notes that were NOT executed here; their non-vacuity is asserted, not machine-confirmed.",
-    "The authorization for this attempt extends a standing owner decision whose literal text authorized one attempt, already consumed by us007-sbx-output-live-0125. That extension is disclosed in the attempt's own authorization record and is the owner's to ratify or reject.",
+    "Claim ceiling proved-model, full stop. This run establishes properties of an ABSTRACTION and nothing about production Rust without a reviewed composition/refinement link.",
+    "OWNER_ATTESTED_NOT_INDEPENDENT: one session authored the model, the invariants, the mutations, and this record, and ran the checker. Two vacuous checks have already been found in this lane -- one by the checker, one by a reviewer -- so the correlated-failure risk is demonstrated, not hypothetical.",
+    "NON-VACUITY IS NOW COMPLETE FOR THIS MODEL, and that phrasing is exact: every invariant and every property in the shipped cfg has ONE seeded mutation that was EXECUTED and killed it, with the killing check read out of the checker's own output. That is stronger than attempt 0127, where most falsification notes were declared but never run -- and where two of the unexecuted ones turned out to be wrong. It is NOT a claim that the checks are complete: a mutation set proves the checks can fail, never that they would catch every possible defect.",
+    "The attempt used three sandboxes and both earlier ones are disclosed in the sandbox field rather than dropped. The first aborted before any checker ran; the second ran everything but mis-classified three kills as survivors.",
+    "The model is bounded. MaxFrames = 2 and the four length classes mean the checked results hold only for behaviors inside those bounds; lengths strictly between the class representatives are not enumerated.",
     "The two-track structure means the decode obligations and the mask obligations were checked in the SAME run but over DISJOINT state spaces. Nothing here checks their composition -- that an accepted masked frame's payload is the one that gets unmasked -- and no such claim is made."
   ],
   "production": false,

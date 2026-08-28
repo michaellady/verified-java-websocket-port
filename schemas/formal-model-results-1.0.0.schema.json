@@ -416,7 +416,8 @@
               "inert_normalization",
               "declared_divergence",
               "residual_gap",
-              "model_defect_fixed"
+              "model_defect_fixed",
+              "evidence_pipeline_defect_fixed"
             ]
           },
           "statement": {
@@ -428,7 +429,8 @@
             "enum": [
               "RECORDED_NO_CHANGE_REQUIRED",
               "FIX_REQUIRED",
-              "OWNER_DECISION_REQUIRED"
+              "OWNER_DECISION_REQUIRED",
+              "OWNER_DECIDED_PORT_CHANGE_PENDING"
             ]
           }
         }
