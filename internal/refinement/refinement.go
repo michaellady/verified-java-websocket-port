@@ -286,11 +286,15 @@ func extractSubject(root, commit string) (string, func(), error) {
 			return "", nil, err
 		}
 		entries++
-		if entries > 50_000 || filepath.IsAbs(header.Name) || filepath.Clean(header.Name) != header.Name || header.Name == ".." || strings.HasPrefix(header.Name, "../") {
-			cleanup()
-			return "", nil, errors.New("unsafe archive member")
+		memberName := header.Name
+		if header.Typeflag == tar.TypeDir {
+			memberName = strings.TrimSuffix(memberName, "/")
 		}
-		path := filepath.Join(destination, header.Name)
+		if entries > 50_000 || memberName == "" || filepath.IsAbs(memberName) || filepath.Clean(memberName) != memberName || memberName == ".." || strings.HasPrefix(memberName, "../") {
+			cleanup()
+			return "", nil, fmt.Errorf("unsafe archive member %q", header.Name)
+		}
+		path := filepath.Join(destination, memberName)
 		if header.Typeflag == tar.TypeDir {
 			if err := os.MkdirAll(path, 0o755); err != nil {
 				cleanup()
