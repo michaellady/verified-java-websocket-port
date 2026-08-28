@@ -23,7 +23,8 @@ import (
 )
 
 const (
-	qualificationSchema    = "../schemas/us020-current-head-qualification-1.0.0.schema.json"
+	qualificationSchema    = "../schemas/us020-current-head-qualification-1.1.0.schema.json"
+	qualificationVersion   = "1.1.0"
 	qualificationEvidence  = "evidence.us-020-current-head-qualification"
 	qualificationStatus    = "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK"
 	qualificationAssurance = "OWNER_ATTESTED_NOT_INDEPENDENT"
@@ -144,7 +145,7 @@ func validateCurrentHeadQualification(repositoryRoot string, document []byte) (q
 	if err := decoder.Decode(&trailing); err != io.EOF {
 		return qualificationReceipt{}, QualificationSummary{}, fmt.Errorf("QUALIFICATION_TRAILING_DATA")
 	}
-	if receipt.Schema != qualificationSchema || receipt.SchemaVersion != "1.0.0" ||
+	if receipt.Schema != qualificationSchema || receipt.SchemaVersion != qualificationVersion ||
 		receipt.EvidenceID != qualificationEvidence || receipt.StoryID != "US-020" ||
 		receipt.Status != qualificationStatus || receipt.Assurance != qualificationAssurance ||
 		receipt.ClaimScope != qualificationScope {
@@ -180,7 +181,10 @@ func validateCurrentHeadQualification(repositoryRoot string, document []byte) (q
 	if err != nil || tree != receipt.SourceTree {
 		return qualificationReceipt{}, QualificationSummary{}, fmt.Errorf("QUALIFIED_TREE_MISMATCH")
 	}
-	expectedPaths := expectedQualificationPaths()
+	expectedPaths, err := expectedQualificationPaths(root, receipt.HeadAtExecution)
+	if err != nil {
+		return qualificationReceipt{}, QualificationSummary{}, fmt.Errorf("QUALIFICATION_MEMBERSHIP_UNAVAILABLE: %w", err)
+	}
 	if len(receipt.Bindings) != len(expectedPaths) {
 		return qualificationReceipt{}, QualificationSummary{}, fmt.Errorf("QUALIFICATION_BINDING_COUNT_INVALID")
 	}
@@ -298,8 +302,20 @@ func validQualificationPath(path string) bool {
 		strings.ContainsAny(path, `:\`) || strings.HasPrefix(path, "-") {
 		return false
 	}
-	return strings.HasPrefix(path, "rust/") || strings.HasPrefix(path, "cmd/rustgate/") ||
-		strings.HasPrefix(path, "internal/rustgate/") || path == "docs/rust-workspace.md"
+	if path == "LICENSE" {
+		return true
+	}
+	if strings.HasPrefix(path, "cmd/rustgate/") || strings.HasPrefix(path, "cmd/currentheadctl/") ||
+		strings.HasPrefix(path, "internal/rustgate/") || strings.HasPrefix(path, "internal/provenance/") {
+		return strings.HasSuffix(path, ".go")
+	}
+	if !strings.HasPrefix(path, "rust/") || strings.Contains(path, "/target/") {
+		return false
+	}
+	base := filepath.Base(path)
+	return strings.HasSuffix(path, ".rs") || base == "Cargo.toml" || base == "Cargo.lock" ||
+		base == "rust-toolchain.toml" || base == "dependency-inventory.toml" ||
+		base == "dependency-policy.toml" || base == "Makefile"
 }
 
 func validHistoricalPath(path string) bool {
@@ -368,37 +384,29 @@ func readQualificationFile(repositoryRoot, name string) ([]byte, error) {
 	return data, nil
 }
 
-func expectedQualificationPaths() []string {
-	paths := []string{
-		"cmd/rustgate/main.go", "cmd/rustgate/main_test.go", "docs/rust-workspace.md",
-		"internal/rustgate/rustlex.go", "internal/rustgate/toml.go", "internal/rustgate/verify.go",
-		"rust/Cargo.lock", "rust/Cargo.toml", "rust/connection-core/Cargo.toml",
-		"rust/connection-core/src/close.rs", "rust/connection-core/src/connection.rs",
-		"rust/connection-core/src/control.rs", "rust/connection-core/src/fragment.rs",
-		"rust/connection-core/src/frame/decode.rs", "rust/connection-core/src/frame/encode.rs",
-		"rust/connection-core/src/frame/mask.rs", "rust/connection-core/src/frame/mod.rs",
-		"rust/connection-core/src/handshake.rs", "rust/connection-core/src/handshake/client.rs",
-		"rust/connection-core/src/handshake/crypto.rs", "rust/connection-core/src/handshake/http.rs",
-		"rust/connection-core/src/handshake/server.rs", "rust/connection-core/src/lib.rs",
-		"rust/connection-core/src/message.rs", "rust/connection-core/src/utf8.rs",
-		"rust/connection-core/tests/client_handshake.rs", "rust/connection-core/tests/close_eof.rs",
-		"rust/connection-core/tests/connection_contract.rs",
-		"rust/connection-core/tests/data/us011_frozen_cases.rs",
-		"rust/connection-core/tests/data/us011_nonce_vectors.rs",
-		"rust/connection-core/tests/fragmentation.rs", "rust/connection-core/tests/frame_codec.rs",
-		"rust/connection-core/tests/messages.rs", "rust/connection-core/tests/outbound_commands.rs",
-		"rust/connection-core/tests/ping_pong.rs", "rust/connection-core/tests/scaffold_smoke.rs",
-		"rust/connection-core/tests/server_handshake.rs", "rust/dependency-inventory.toml",
-		"rust/dependency-policy.toml", "rust/websocket-driver/Cargo.toml",
-		"rust/websocket-driver/src/lib.rs", "rust/websocket-driver/tests/concurrency.rs",
-		"rust/websocket-driver/tests/driver_contract.rs", "rust/websocket-testee/Cargo.toml",
-		"rust/websocket-testee/src/client.rs", "rust/websocket-testee/src/io_loop.rs",
-		"rust/websocket-testee/src/lib.rs", "rust/websocket-testee/src/main.rs",
-		"rust/websocket-testee/src/neutral.rs", "rust/websocket-testee/src/server.rs",
-		"rust/websocket-testee/tests/loopback.rs", "rust/websocket-testee/tests/process.rs",
+func expectedQualificationPaths(root, commit string) ([]string, error) {
+	command := exec.Command("git", "-C", root, "ls-tree", "-r", "-z", "--name-only", commit, "--",
+		"LICENSE", "cmd/currentheadctl", "cmd/rustgate", "internal/provenance", "internal/rustgate", "rust")
+	output, err := command.Output()
+	if err != nil {
+		return nil, err
+	}
+	parts := bytes.Split(output, []byte{0})
+	paths := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if len(part) == 0 {
+			continue
+		}
+		path := string(part)
+		if validQualificationPath(path) {
+			paths = append(paths, path)
+		}
+	}
+	if len(paths) == 0 {
+		return nil, fmt.Errorf("qualified source/test denominator is empty")
 	}
 	sort.Strings(paths)
-	return paths
+	return paths, nil
 }
 
 func expectedPredecessorScope() []string {

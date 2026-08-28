@@ -1,6 +1,7 @@
 package provenance
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -21,7 +23,7 @@ func TestValidateCurrentHeadQualificationBindsBlobToDeclaredCommit(t *testing.T)
 	if err != nil {
 		t.Fatalf("validate exact qualification: %v", err)
 	}
-	if summary.QualifiedCommit != firstCommit || summary.BindingCount != len(expectedQualificationPaths()) {
+	if summary.QualifiedCommit != firstCommit || summary.BindingCount != len(bindings) {
 		t.Fatalf("unexpected summary: %+v", summary)
 	}
 }
@@ -74,6 +76,15 @@ func TestLoadCurrentHeadQualificationRejectsMissingAndStaleCoverage(t *testing.T
 	runQualificationGit(t, root, "commit", "--quiet", "-m", "qualification receipt")
 	if _, err := LoadAndValidateCurrentHeadQualification(root); err != nil {
 		t.Fatalf("current receipt did not cover unchanged source: %v", err)
+	}
+	documentation := filepath.Join(root, "docs", "rust-workspace.md")
+	if err := os.WriteFile(documentation, []byte("later documentation only\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runQualificationGit(t, root, "add", "docs/rust-workspace.md")
+	runQualificationGit(t, root, "commit", "--quiet", "-m", "documentation after qualification")
+	if _, err := LoadAndValidateCurrentHeadQualification(root); err != nil {
+		t.Fatalf("documentation-only change invalidated source qualification: %v", err)
 	}
 
 	stalePath := filepath.Join(root, "rust", "connection-core", "src", "connection.rs")
@@ -144,7 +155,7 @@ func TestHistoricalReceiptResolutionSelectsOriginalEraNotRestoration(t *testing.
 func TestCurrentHeadQualificationSchemaIsClosed(t *testing.T) {
 	root, commit, tree, bindings := qualificationRepositoryAllPaths(t)
 	_ = root
-	schemaBytes, err := os.ReadFile(filepath.Join("..", "..", "schemas", "us020-current-head-qualification-1.0.0.schema.json"))
+	schemaBytes, err := os.ReadFile(filepath.Join("..", "..", "schemas", "us020-current-head-qualification-1.1.0.schema.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -171,6 +182,34 @@ func TestCurrentHeadQualificationSchemaIsClosed(t *testing.T) {
 	value.(map[string]any)["unreviewed_claim"] = true
 	if err := schema.Validate(value); err == nil {
 		t.Fatal("schema accepted an unreviewed top-level claim")
+	}
+}
+
+func TestMaterializeCurrentHeadQualificationUsesGitDerivedDenominator(t *testing.T) {
+	root, commit, _, bindings := qualificationRepositoryAllPaths(t)
+	if err := os.MkdirAll(filepath.Join(root, "evidence"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := MaterializeCurrentHeadQualification(root, CurrentHeadMaterialization{
+		ValidationTime: time.Date(2026, 8, 28, 12, 0, 0, 0, time.UTC),
+		Rustc:          "rustc 1.95.0 (59807616e 2026-04-14)",
+		Host:           "aarch64-apple-darwin",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(root, CurrentHeadQualificationPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary, err := ValidateCurrentHeadQualification(root, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if summary.QualifiedCommit != commit || summary.BindingCount != len(bindings) {
+		t.Fatalf("materialized summary = %+v, want commit %s and %d bindings", summary, commit, len(bindings))
+	}
+	if bytes.Contains(raw, []byte("docs/rust-workspace.md")) || bytes.Contains(raw, []byte("rust/target/generated.rs")) {
+		t.Fatal("documentation or build output entered the source/test denominator")
 	}
 }
 
@@ -203,8 +242,15 @@ func qualificationRepositoryAllPaths(t *testing.T) (string, string, string, []ma
 	runQualificationGit(t, root, "init", "--quiet")
 	runQualificationGit(t, root, "config", "user.email", "qualification@example.invalid")
 	runQualificationGit(t, root, "config", "user.name", "Qualification Test")
-	bindings := make([]map[string]any, 0, len(expectedQualificationPaths()))
-	for index, name := range expectedQualificationPaths() {
+	fixturePaths := []string{
+		"LICENSE", "README.md", "cmd/currentheadctl/main.go", "cmd/rustgate/main.go",
+		"docs/rust-workspace.md", "internal/provenance/current_head.go", "internal/rustgate/verify.go",
+		"rust/Cargo.lock", "rust/Cargo.toml", "rust/Makefile", "rust/dependency-inventory.toml",
+		"rust/dependency-policy.toml", "rust/rust-toolchain.toml", "rust/connection-core/Cargo.toml",
+		"rust/connection-core/src/connection.rs", "rust/connection-core/tests/connection_contract.rs",
+		"rust/target/generated.rs",
+	}
+	for _, name := range fixturePaths {
 		path := filepath.Join(root, filepath.FromSlash(name))
 		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 			t.Fatal(err)
@@ -214,24 +260,33 @@ func qualificationRepositoryAllPaths(t *testing.T) (string, string, string, []ma
 			t.Fatal(err)
 		}
 		runQualificationGit(t, root, "add", name)
-		digest := sha256.Sum256(content)
-		bindings = append(bindings, map[string]any{
-			"path": name, "sha256": "sha256:" + hex.EncodeToString(digest[:]), "git_blob": "pending-" + string(rune(index)),
-		})
 	}
 	runQualificationGit(t, root, "commit", "--quiet", "-m", "qualified source tree")
 	commit := runQualificationGit(t, root, "rev-parse", "HEAD")
 	tree := runQualificationGit(t, root, "rev-parse", "HEAD^{tree}")
-	for _, binding := range bindings {
-		binding["git_blob"] = runQualificationGit(t, root, "rev-parse", "HEAD:"+binding["path"].(string))
+	paths, err := expectedQualificationPaths(root, commit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bindings := make([]map[string]any, 0, len(paths))
+	for _, name := range paths {
+		content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(name)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		digest := sha256.Sum256(content)
+		bindings = append(bindings, map[string]any{
+			"path": name, "sha256": "sha256:" + hex.EncodeToString(digest[:]),
+			"git_blob": runQualificationGit(t, root, "rev-parse", "HEAD:"+name),
+		})
 	}
 	return root, commit, tree, bindings
 }
 
 func qualificationFixtureWithBindings(commit, tree string, bindings []map[string]any) map[string]any {
 	return map[string]any{
-		"$schema":           "../schemas/us020-current-head-qualification-1.0.0.schema.json",
-		"schema_version":    "1.0.0",
+		"$schema":           "../schemas/us020-current-head-qualification-1.1.0.schema.json",
+		"schema_version":    "1.1.0",
 		"evidence_id":       "evidence.us-020-current-head-qualification",
 		"story_id":          "US-020",
 		"status":            "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",

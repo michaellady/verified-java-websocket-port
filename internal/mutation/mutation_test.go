@@ -382,3 +382,14 @@ func TestClosureMembershipRejectsAnchorDeletion(t *testing.T) {
 		t.Fatal("closure file deleted from the current index was omitted without rejection")
 	}
 }
+
+func TestHistoricalClosureUsesAnchorWhileCampaignClosureRequiresCurrentEquality(t *testing.T) {
+	root := repositoryRoot(t)
+	plan, _ := loadPlan(t, root)
+	if _, _, err := closureDigests(root, "rust", plan.RepositoryAnchor); err != nil {
+		t.Fatalf("historical closure did not replay from immutable Git objects: %v", err)
+	}
+	if _, _, err := currentClosureDigests(root, "rust", plan.RepositoryAnchor); err == nil {
+		t.Fatal("new campaign accepted a current closure that differs from its historical anchor")
+	}
+}

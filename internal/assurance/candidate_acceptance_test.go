@@ -106,7 +106,18 @@ func TestUS023AcceptanceHostileSemanticClassesFailTyped(t *testing.T) {
 			appendAcceptanceBytes(t, filepath.Join(root, "docs/us023-parity-coverage.md"), []byte("drift\n"))
 		}},
 		{name: "historical-dag-byte-drift", wantCode: "GRAPH_GIT_OR_DIGEST_DRIFT", mutate: func(t *testing.T, root string) {
-			appendAcceptanceBytes(t, filepath.Join(root, "assurance/evidence-dag.json"), []byte(" \n"))
+			mutateAcceptanceJSON(t, root, "assurance/candidate-manifest.json", func(document map[string]any) {
+				nodes := arrayAcceptance(t, objectAcceptance(t, document, "graph"), "nodes")
+				for _, raw := range nodes {
+					node := raw.(map[string]any)
+					if node["path"] == "assurance/evidence-dag.json" {
+						node["sha256"] = "sha256:" + strings.Repeat("0", 64)
+						return
+					}
+				}
+				t.Fatal("historical DAG node missing")
+			})
+			commitAcceptanceFixture(t, root, "assurance/candidate-manifest.json")
 		}},
 		{name: "target-tree-drift", wantCode: "TARGET_SUBJECT_DRIFT", mutate: func(t *testing.T, root string) {
 			mutateAcceptanceJSON(t, root, "assurance/candidate-manifest.json", func(document map[string]any) {

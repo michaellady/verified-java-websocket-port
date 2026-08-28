@@ -407,7 +407,7 @@ func verifyCandidateGraph(root *projectRoot, rootPath string, manifest candidate
 		if _, err := canonicalPath(file); err != nil {
 			return errors.New("NONCANONICAL_GRAPH_PATH")
 		}
-		if err := verifyGraphFileNode(root, rootPath, node); err != nil {
+		if err := verifyGraphFileNode(rootPath, node); err != nil {
 			return errors.New("GRAPH_GIT_OR_DIGEST_DRIFT")
 		}
 	}
@@ -440,7 +440,7 @@ func verifyCandidateGraph(root *projectRoot, rootPath string, manifest candidate
 	return nil
 }
 
-func verifyGraphFileNode(root *projectRoot, rootPath string, node candidateGraphNode) error {
+func verifyGraphFileNode(rootPath string, node candidateGraphNode) error {
 	if !fullGitObjectID(node.Git.Commit) || !fullGitObjectID(node.Git.Tree) || !fullGitObjectID(node.Git.Blob) {
 		return errors.New("git object ID is not canonical")
 	}
@@ -455,10 +455,6 @@ func verifyGraphFileNode(root *projectRoot, rootPath string, node candidateGraph
 	committed, err := gitBytesCandidate(rootPath, "show", node.Git.Commit+":"+node.Path)
 	if err != nil || uint64(len(committed)) != node.Bytes || digestCandidate(committed) != node.SHA256 {
 		return errors.New("git object identity mismatch")
-	}
-	working, err := readRegularFile(root, node.Path, 16<<20)
-	if err != nil || !bytes.Equal(working, committed) {
-		return errors.New("working bytes differ from graph object")
 	}
 	return nil
 }

@@ -53,15 +53,20 @@ func RunPlanted(ctx context.Context, cfg Config) error {
 	if err := verifyPlan(root, &plan); err != nil {
 		return err
 	}
+	for _, input := range plan.Inputs {
+		if err := verifyCurrentArtifact(root, input, plan.RepositoryAnchor); err != nil {
+			return finding("CURRENT_INPUT_DRIFT", input.Path, err)
+		}
+	}
 	dependencies, err := resolveJavaDependencies(root)
 	if err != nil {
 		return err
 	}
-	sourceBeforeJava, testsBeforeJava, err := closureDigests(root, "java", plan.RepositoryAnchor)
+	sourceBeforeJava, testsBeforeJava, err := currentClosureDigests(root, "java", plan.RepositoryAnchor)
 	if err != nil {
 		return err
 	}
-	sourceBeforeRust, testsBeforeRust, err := closureDigests(root, "rust", plan.RepositoryAnchor)
+	sourceBeforeRust, testsBeforeRust, err := currentClosureDigests(root, "rust", plan.RepositoryAnchor)
 	if err != nil {
 		return err
 	}
@@ -111,11 +116,11 @@ func RunPlanted(ctx context.Context, cfg Config) error {
 			runtime.After = append(runtime.After, Baseline{Repeat: repeat, Phase: "after", Process: receipt, TestsPassed: count})
 		}
 	}
-	sourceAfterJava, testsAfterJava, err := closureDigests(root, "java", plan.RepositoryAnchor)
+	sourceAfterJava, testsAfterJava, err := currentClosureDigests(root, "java", plan.RepositoryAnchor)
 	if err != nil {
 		return err
 	}
-	sourceAfterRust, testsAfterRust, err := closureDigests(root, "rust", plan.RepositoryAnchor)
+	sourceAfterRust, testsAfterRust, err := currentClosureDigests(root, "rust", plan.RepositoryAnchor)
 	if err != nil {
 		return err
 	}

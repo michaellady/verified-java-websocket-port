@@ -373,7 +373,7 @@ func scanAcceptedBytes(name string, value []byte) error {
 }
 
 func verifyMutant(root string, anchor GitAnchor, mutant Mutant, expectedResult string, resultDigests map[string]bool) error {
-	raw, err := readArtifact(root, mutant.ProductionPath)
+	raw, err := gitBytes(root, "show", anchor.Commit+":"+mutant.ProductionPath)
 	if err != nil {
 		return err
 	}
@@ -383,10 +383,6 @@ func verifyMutant(root string, anchor GitAnchor, mutant Mutant, expectedResult s
 	blob, err := git(root, "rev-parse", anchor.Commit+":"+mutant.ProductionPath)
 	if err != nil {
 		return err
-	}
-	committed, err := gitBytes(root, "show", anchor.Commit+":"+mutant.ProductionPath)
-	if err != nil || !bytes.Equal(committed, raw) {
-		return errors.New("production working tree does not equal anchored Git blob")
 	}
 	if strings.TrimSpace(blob) == "" {
 		return errors.New("missing production blob")
@@ -616,7 +612,7 @@ func verifyRuntimeEvidence(root string, plan Plan, planDigest string, evidence R
 		if !ok || result.MutantID != expectedOrder[index] || result.Engine != "IN_TREE_PLANTED" || result.Disposition != "KILLED" || len(result.Observations) != 2 {
 			return finding("MUTATION_RESULT_DRIFT", runtime, result.MutantID)
 		}
-		raw, err := readArtifact(root, mutant.ProductionPath)
+		raw, err := gitBytes(root, "show", plan.RepositoryAnchor.Commit+":"+mutant.ProductionPath)
 		if err != nil {
 			return err
 		}
@@ -855,7 +851,7 @@ func verifyArtifact(root string, artifact Artifact, repository GitAnchor) error 
 	if artifact.Git.Commit != repository.Commit || artifact.Git.Tree != repository.Tree || artifact.Git.Blob == "" {
 		return errors.New("artifact Git anchor mismatch")
 	}
-	raw, err := readArtifact(root, artifact.Path)
+	raw, err := gitBytes(root, "show", repository.Commit+":"+artifact.Path)
 	if err != nil {
 		return err
 	}
@@ -866,11 +862,21 @@ func verifyArtifact(root string, artifact Artifact, repository GitAnchor) error 
 	if err != nil || strings.TrimSpace(blob) != artifact.Git.Blob {
 		return errors.New("artifact blob mismatch")
 	}
-	committed, err := gitBytes(root, "show", repository.Commit+":"+artifact.Path)
-	if err != nil || !bytes.Equal(committed, raw) {
-		return errors.New("artifact differs from immutable Git object")
-	}
 	return nil
+}
+
+func verifyCurrentArtifact(root string, artifact Artifact, repository GitAnchor) error {
+	if err := verifyArtifact(root, artifact, repository); err != nil {
+		return err
+	}
+	working, err := readArtifact(root, artifact.Path)
+	if err != nil || uint64(len(working)) != artifact.Bytes || digest(working) != artifact.SHA256 {
+		return errors.New("current artifact byte identity mismatch")
+	}
+	if err := verifyBytesAgainstGit(root, artifact.Path, repository.Commit, working); err != nil {
+		return err
+	}
+	return verifyCurrentGitFile(root, artifact.Path, working)
 }
 
 func verifyCommitTree(root string, anchor GitAnchor) error {
@@ -899,6 +905,14 @@ func gitBytes(root string, arguments ...string) ([]byte, error) {
 }
 
 func closureDigests(root, runtime string, anchor GitAnchor) (string, string, error) {
+	return closureDigestsMode(root, runtime, anchor, false)
+}
+
+func currentClosureDigests(root, runtime string, anchor GitAnchor) (string, string, error) {
+	return closureDigestsMode(root, runtime, anchor, true)
+}
+
+func closureDigestsMode(root, runtime string, anchor GitAnchor, requireCurrent bool) (string, string, error) {
 	var sourcePrefixes, testPrefixes []string
 	if runtime == "java" {
 		sourcePrefixes = []string{"java-oracle/src/main/"}
@@ -911,27 +925,36 @@ func closureDigests(root, runtime string, anchor GitAnchor) (string, string, err
 	if err != nil {
 		return "", "", err
 	}
-	currentIndex, err := git(root, "ls-files")
-	if err != nil {
-		return "", "", err
+	var currentPaths []string
+	if requireCurrent {
+		currentIndex, currentErr := git(root, "ls-files")
+		if currentErr != nil {
+			return "", "", currentErr
+		}
+		currentPaths = lines([]byte(currentIndex))
 	}
 	collect := func(prefixes []string) (string, error) {
 		expected := closureMembership(lines([]byte(anchoredTree)), prefixes)
-		current := closureMembership(lines([]byte(currentIndex)), prefixes)
-		if err := requireExactMembership(expected, current); err != nil {
-			return "", err
+		if requireCurrent {
+			current := closureMembership(currentPaths, prefixes)
+			if err := requireExactMembership(expected, current); err != nil {
+				return "", err
+			}
 		}
 		var entries []string
 		for _, path := range expected {
-			raw, err := readArtifact(root, path)
-			if err != nil {
-				return "", err
+			raw, readErr := gitBytes(root, "show", anchor.Commit+":"+path)
+			if readErr != nil {
+				return "", readErr
 			}
-			if err := verifyBytesAgainstGit(root, path, anchor.Commit, raw); err != nil {
-				return "", err
-			}
-			if err := verifyCurrentGitFile(root, path, raw); err != nil {
-				return "", err
+			if requireCurrent {
+				working, workingErr := readArtifact(root, path)
+				if workingErr != nil || !bytes.Equal(working, raw) {
+					return "", errors.New("current closure differs from immutable anchor tree")
+				}
+				if err := verifyCurrentGitFile(root, path, working); err != nil {
+					return "", err
+				}
 			}
 			entries = append(entries, path+"\x00"+digest(raw))
 		}
