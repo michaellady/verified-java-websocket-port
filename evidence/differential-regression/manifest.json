@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "kind": "corpus-invisible-differential-regression-set",
+  "kind": "differential-regression-set-with-audited-corpus-invisibility",
   "recorded_at": "2026-08-28T02:53:00Z",
   "recorded_at_provenance": "date -u +%Y-%m-%dT%H:%M:%SZ captured in the same shell invocation that wrote the manifest, immediately after both arms were recorded",
   "bound_repo_head": "dc07516ab8003ce948ad29ac294d0b05f5887ec2",
@@ -34,6 +34,9 @@
     "class_closed-bytes": 7,
     "class_consumption": 9,
     "class_empty-chunk": 7,
+    "invisibility_genuinely_invisible": 4,
+    "invisibility_partial": 12,
+    "invisibility_redundant": 7,
     "origin_new": 15,
     "origin_recovered": 8,
     "probes": 23
@@ -46,6 +49,8 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "valid frame + RSV frame + valid frame in one 25-byte chunk: is consumed the offset past the rejected frame, or the whole chunk? The public corpus only rejects at offset 0.",
+      "corpus_invisibility": "genuinely_invisible",
+      "corpus_invisibility_note": "The corpus has multi-frame chunks (us005.pub.0043/0053) but every frame in them is VALID, and it has RSV rejections (0005/0029/0058) but always at offset 0. No public case rejects a frame AFTER a successfully consumed frame in the same chunk, which is the arithmetic this pins.",
       "request_digest": "sha256:34df133105926177da36efc52d7fded764c9eeed3a41ae28f7573fffe3dcf17d",
       "chunk_sizes": [
         25
@@ -57,7 +62,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -66,7 +73,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -81,6 +90,12 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "RSV frame split across two chunks (5+4, splitting inside the masking key), exercising the chunk-start subtraction in the consumed arithmetic.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0005",
+        "us005.pub.0072"
+      ],
+      "corpus_invisibility_note": "DOWNGRADED after independent audit. The observed counts 9/9/frames=0 are IDENTICAL to us005.pub.0005, and us005.pub.0072 already pins carry-buffer consumed-summing on the OK path. Only the combination (a frame reassembled from a carry buffer and then rejected) is new.",
       "request_digest": "sha256:cb99f88bea991adca695d41acf1800c7520b8980a7c703357193ca09f985050b",
       "chunk_sizes": [
         5,
@@ -93,7 +108,9 @@
         "consumed_bytes": 9,
         "input_bytes": 9,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -102,7 +119,9 @@
         "consumed_bytes": 9,
         "input_bytes": 9,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -117,6 +136,11 @@
       "role": "server",
       "initial_state": "closed",
       "rationale": "64-byte non-empty chunk into CLOSED: are refused bytes counted?",
+      "corpus_invisibility": "redundant",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0015"
+      ],
+      "corpus_invisibility_note": "state-bytes-in-closed 0015 already pins non-empty bytes into CLOSED at consumed=0/input=0/frames=0 with STATE_VIOLATION. A larger chunk exercises the same rule; a defect here would be caught by 0015.",
       "request_digest": "sha256:5c2b93e084dee406db6c5235c0342c8b9ff3bc71baea070340271bcbe6a1a940",
       "chunk_sizes": [
         64
@@ -128,7 +152,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -137,7 +163,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -152,6 +180,12 @@
       "role": "server",
       "initial_state": "closed",
       "rationale": "empty chunk then non-empty chunk into CLOSED: the empty no-op must not arm the counters for the refused chunk.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0015",
+        "us005.pub.0017"
+      ],
+      "corpus_invisibility_note": "Both halves are pinned separately (0017 empty-in-closed, 0015 bytes-in-closed); the SEQUENCE is not, so only the interaction is new.",
       "request_digest": "sha256:d3363bf170145d4f1f42e420590766fe7bb61e1469b3e569409dac541b10f260",
       "chunk_sizes": [
         0,
@@ -164,7 +198,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -173,7 +209,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -187,7 +225,12 @@
       "origin": "recovered",
       "role": "server",
       "initial_state": "closed",
-      "rationale": "a well-formed complete frame into CLOSED: the state check must precede framing, so well-formedness cannot change the counts.",
+      "rationale": "a well-formed complete frame into CLOSED. (us005.pub.0015 already pins this: its own bytes are framing-invalid, so it already separates the state check from framing.)",
+      "corpus_invisibility": "redundant",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0015"
+      ],
+      "corpus_invisibility_note": "DOWNGRADED after independent audit. The premise was that 0015 feeds a benign input; it does not. 0015's bytes 5d 87 0a have FIN=0, RSV1=1, RSV3=1 and reserved opcode 0xd, so 0015 ALREADY discriminates state-check-before-framing. The CLOSED guard is one content-agnostic test (state == CLOSED \u0026\u0026 bytes.length != 0), so a well-formed frame takes the identical branch.",
       "request_digest": "sha256:628e751f7b46050324e97376d6cd46171a8f032587c1a881271528fd78c710e4",
       "chunk_sizes": [
         8
@@ -199,7 +242,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -208,7 +253,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -223,6 +270,12 @@
       "role": "server",
       "initial_state": "closing",
       "rationale": "empty chunk in CLOSING.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0017",
+        "us005.pub.0045"
+      ],
+      "corpus_invisibility_note": "DOWNGRADED after independent audit. The empty-chunk short-circuit is a single STATE-AGNOSTIC branch in OracleEngine.input(), and the corpus pins it in CLOSED (0017) and OPEN (0045). CLOSING adds only that a hypothetical per-state-coded no-op would diverge there.",
       "request_digest": "sha256:c907b03ed97517d19050ccdc50907c24fdab58e18d15d7f2d7edf872b543fd13",
       "chunk_sizes": [
         0
@@ -234,7 +287,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closing"
+        "final_state": "closing",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "ok",
@@ -243,7 +298,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closing"
+        "final_state": "closing",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical",
       "behaviorally_agrees": true
@@ -254,7 +311,12 @@
       "origin": "recovered",
       "role": "server",
       "initial_state": "open",
-      "rationale": "empty chunk in OPEN.",
+      "rationale": "empty chunk in OPEN. This is a literal duplicate of public scenario us005.pub.0045.",
+      "corpus_invisibility": "redundant",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0045"
+      ],
+      "corpus_invisibility_note": "LITERAL DUPLICATE: identical role, initial_state, limits and steps to us005.pub.0045, verified field by field. This is a duplicate of a public scenario, not a probe.",
       "request_digest": "sha256:81487d45ebbd805620424d79f3b0498a36dff165d05573bfe2b5781ea7b6585a",
       "chunk_sizes": [
         0
@@ -266,7 +328,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "ok",
@@ -275,7 +339,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical",
       "behaviorally_agrees": true
@@ -287,6 +353,11 @@
       "role": "server",
       "initial_state": "closed",
       "rationale": "two empty chunks in CLOSED: the no-op must be repeatable, not merely tolerated once.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0017"
+      ],
+      "corpus_invisibility_note": "0017 pins a single empty chunk in CLOSED. This adds only that the no-op is repeatable rather than tolerated once.",
       "request_digest": "sha256:2539305938fb436f50a4bf8fbc61d71b81b0d18360b985d693b7b5b1eb899115",
       "chunk_sizes": [
         0,
@@ -299,7 +370,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "ok",
@@ -308,7 +381,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical",
       "behaviorally_agrees": true
@@ -320,6 +395,8 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "two valid frames before the rejected frame: consumed must advance past BOTH prefixes, not just one.",
+      "corpus_invisibility": "genuinely_invisible",
+      "corpus_invisibility_note": "No public case rejects after any consumed prefix, let alone two. NOTE a real weakness surfaced by the independent audit: because consumed=25 equals the chunk length here, this probe alone cannot catch a 'consume the whole chunk' over-count. xd.a1 (consumed=17 of 25) is the discriminating one.",
       "request_digest": "sha256:aaec1e3b4403c2bdd41fb4a4e5d51498ef71445be2cca8ae89bcf60ff15e3426",
       "chunk_sizes": [
         25
@@ -331,7 +408,9 @@
         "consumed_bytes": 25,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -340,7 +419,9 @@
         "consumed_bytes": 25,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -355,6 +436,15 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "rejected frame at offset 0 followed by a valid frame: consumed must stop at the rejection and must not run on into the trailing valid frame.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0031",
+        "us005.pub.0036",
+        "us005.pub.0057",
+        "us005.pub.0059",
+        "us005.pub.0065"
+      ],
+      "corpus_invisibility_note": "The rule that a rejection stops consumption and leaves trailing bytes counted-but-unconsumed is pinned FIVE ways (0036/0065 consumed=2 of 8, 0031 2 of 86, 0057 2 of 173, 0059 2 of 134). Those all pin it at header-time sites; this adds the post-payload RSV site (consumed=9 of 17).",
       "request_digest": "sha256:b5f6391ac61a51d8ab72553147ef36fcb52a09437c35fb79404a3c5862410ac1",
       "chunk_sizes": [
         17
@@ -366,7 +456,9 @@
         "consumed_bytes": 9,
         "input_bytes": 17,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -375,7 +467,9 @@
         "consumed_bytes": 9,
         "input_bytes": 17,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -389,7 +483,12 @@
       "origin": "new",
       "role": "server",
       "initial_state": "open",
-      "rationale": "same offset arithmetic driven by RSV1 rather than RSV2, so the site is not special-cased to one reserved bit.",
+      "rationale": "the same offset arithmetic driven by RSV1 rather than RSV2. (The corpus already shows the site is not special-cased to one reserved bit: us005.pub.0029 pins RSV1 at offset 0.)",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0029"
+      ],
+      "corpus_invisibility_note": "Stated rationale FALSIFIED: 0029 already pins RSV1 rejection at 9/9/frames=0, so the site is demonstrably not special-cased to one reserved bit. The only increment is the nonzero offset, which xd.a1 already covers. The independent audit labelled this genuinely_invisible on the stricter reading that no case pins mid-chunk RSV1; recorded as partial here because 0029 pins the behaviour and only the offset is new.",
       "request_digest": "sha256:251935715dd18e755e9b534f72df424e51ebc3484e131305c36dd1cdbfd38d9d",
       "chunk_sizes": [
         25
@@ -401,7 +500,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -410,7 +511,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -424,7 +527,12 @@
       "origin": "new",
       "role": "server",
       "initial_state": "open",
-      "rationale": "same offset arithmetic driven by RSV3.",
+      "rationale": "the same offset arithmetic driven by RSV3. (us005.pub.0058 already pins RSV3 at offset 0.)",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0058"
+      ],
+      "corpus_invisibility_note": "Stated rationale FALSIFIED: 0058 already pins RSV3 rejection at 9/9/frames=0. Only the nonzero offset is new, which xd.a1 already covers. Audit dissent noted as for xd.a5.",
       "request_digest": "sha256:5593afdd3b32d301c9bb6a2025bab1f11c5a0045d3076a09a470b78d192a7215",
       "chunk_sizes": [
         25
@@ -436,7 +544,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -445,7 +555,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -460,6 +572,8 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "rejected frame using the 2-byte extended length form: consumed must span header+extended-length+mask+payload, an arithmetic path the corpus never rejects on.",
+      "corpus_invisibility": "genuinely_invisible",
+      "corpus_invisibility_note": "The corpus pins extended-length ACCEPTANCE (0011 consumed=134, 0013 consumed=923) and rejections at offset 0, but never a rejected frame that itself uses the 2-byte extended length form, and never one at a nonzero offset. consumed=142=8+134 exercises both at once.",
       "request_digest": "sha256:fe299fa5678275560f21aca40b127c75580b45615c69c41a290cf11e1fb35af2",
       "chunk_sizes": [
         150
@@ -471,7 +585,9 @@
         "consumed_bytes": 142,
         "input_bytes": 150,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -480,7 +596,9 @@
         "consumed_bytes": 142,
         "input_bytes": 150,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -495,6 +613,12 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "rejected frame split across three chunks, so the chunk-start subtraction is exercised at a non-first, non-last boundary.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0005",
+        "us005.pub.0072"
+      ],
+      "corpus_invisibility_note": "DOWNGRADED after independent audit. Counts 9/9/frames=0 are identical to 0005; over xd.a2 this adds only a chunk boundary that is neither first nor last. Marginal.",
       "request_digest": "sha256:ac8ae7ca1712bd944f45f89387b319a99c9401afdba12ac7d9077bb2b86bd5f6",
       "chunk_sizes": [
         2,
@@ -508,7 +632,9 @@
         "consumed_bytes": 9,
         "input_bytes": 9,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -517,7 +643,9 @@
         "consumed_bytes": 9,
         "input_bytes": 9,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -532,6 +660,11 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "the OTHER post-payload rejection the batch-A borrow receipt moved off header time: a fragmented control frame mid-chunk, same offset arithmetic as the RSV site.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0020"
+      ],
+      "corpus_invisibility_note": "control-nonfin 0020 already pins the fragmented-control rejection at offset 0 (consumed=10, frames=0), so the earlier claim that this probe independently confirms the batch-A borrow correction was WRONG: 0020 confirms it. The increment is the nonzero offset at a second post-payload site. The independent audit rated this genuinely_invisible as a real increment over xd.a1 (different rejection site); recorded as partial here because 0020 pins the site.",
       "request_digest": "sha256:8a560a8d911c776dc3e391442f0fe87615d1a110530f5a184e0372b50babcb45",
       "chunk_sizes": [
         25
@@ -543,7 +676,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -552,7 +687,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -566,7 +703,12 @@
       "origin": "new",
       "role": "server",
       "initial_state": "closed",
-      "rationale": "several non-empty chunks into CLOSED: the refusal must fire on the first and must not accumulate across steps.",
+      "rationale": "several non-empty chunks into CLOSED. NOTE: only chunk 0 ever executes - OracleEngine.run() has no try/catch, so the step-0 STATE_VIOLATION aborts the run. The trailing chunks are inert.",
+      "corpus_invisibility": "redundant",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0015"
+      ],
+      "corpus_invisibility_note": "DOWNGRADED after independent audit, and the stated rationale is UNREACHABLE BY CONSTRUCTION: OracleEngine.run() has no try/catch, so the STATE_VIOLATION thrown on step 0 propagates out of the step loop and chunks 1 and 2 are never fed. The probe cannot test non-accumulation across steps because the later steps do not execute.",
       "request_digest": "sha256:75c853f5047eda58ef7f773fc7f7a46ef54b8fbc8c1a06cee7807bd4f9a72f5f",
       "chunk_sizes": [
         2,
@@ -580,7 +722,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -589,7 +733,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -604,6 +750,11 @@
       "role": "server",
       "initial_state": "closed",
       "rationale": "a single byte (an incomplete frame header) into CLOSED: an input too short to frame at all must still be refused with zero counts.",
+      "corpus_invisibility": "redundant",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0015"
+      ],
+      "corpus_invisibility_note": "0015's own 3-byte chunk is already an incomplete frame in CLOSED. A 1-byte chunk exercises the identical rule; a defect here would be caught by 0015.",
       "request_digest": "sha256:e691d7cebdeb3f60651fa103cc283e87282f6bec7fdb40ee0724a67f5c0d045b",
       "chunk_sizes": [
         1
@@ -615,7 +766,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -624,7 +777,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -638,7 +793,12 @@
       "origin": "new",
       "role": "server",
       "initial_state": "closed",
-      "rationale": "an independently-invalid frame into CLOSED: the state refusal must win over the framing rejection, so the error identity is STATE_VIOLATION and not the RSV error.",
+      "rationale": "an independently-invalid frame into CLOSED. (us005.pub.0015 already pins this; its first byte carries RSV1+RSV3 and reserved opcode 0xd.)",
+      "corpus_invisibility": "redundant",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0015"
+      ],
+      "corpus_invisibility_note": "DOWNGRADED after independent audit. 0015's own first byte is framing-invalid (RSV1+RSV3, reserved opcode 0xd), so 0015 already pins that the state refusal outranks a framing rejection. Identical all-zero STATE_VIOLATION observable.",
       "request_digest": "sha256:cd7b65352e2e1d1e51a70a0427759bcca582b42b6e0a63dd31f03ef9c9f095df",
       "chunk_sizes": [
         9
@@ -650,7 +810,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -659,7 +821,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closed"
+        "final_state": "closed",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -673,7 +837,12 @@
       "origin": "new",
       "role": "server",
       "initial_state": "closing",
-      "rationale": "non-empty valid frame in CLOSING rather than CLOSED: pins whether the closed-state byte refusal extends to CLOSING, which the corpus does not settle.",
+      "rationale": "non-empty valid frame in CLOSING rather than CLOSED: CLOSING counts the bytes and decodes the frame (8/8, frames=1) before raising STATE_VIOLATION, where CLOSED refuses at 0/0. Note this is ALREADY pinned by us005.pub.0051; see InvisibilityNote.",
+      "corpus_invisibility": "redundant",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0051"
+      ],
+      "corpus_invisibility_note": "WITHDRAWN CLAIM. state-frame-in-closing 0051 already pins a valid non-close frame in CLOSING at consumed=9/input=9/frames=1 with STATE_VIOLATION and final_state=closing, and the evaluator compares the whole counts map exactly. Collapsing CLOSING into the CLOSED guard WOULD be caught by 0051. The prior round asserted the opposite.",
       "request_digest": "sha256:665c6ca341a7ba43ee59f1830577c17f8835e891a1e3f4179a65bdb5d42805f6",
       "chunk_sizes": [
         8
@@ -685,7 +854,9 @@
         "consumed_bytes": 8,
         "input_bytes": 8,
         "frames": 1,
-        "final_state": "closing"
+        "final_state": "closing",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -694,7 +865,9 @@
         "consumed_bytes": 8,
         "input_bytes": 8,
         "frames": 1,
-        "final_state": "closing"
+        "final_state": "closing",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -709,6 +882,12 @@
       "role": "server",
       "initial_state": "closing",
       "rationale": "repeated empty chunks in CLOSING, the CLOSING analogue of xd.d3.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0017",
+        "us005.pub.0045"
+      ],
+      "corpus_invisibility_note": "DOWNGRADED after independent audit. Equals xd.d1 plus xd.d3, adding nothing beyond those two already-marginal increments.",
       "request_digest": "sha256:f197a5cdcd64904afef93bf08aaa88b0e71f377f14054d350eaf7c36567eca45",
       "chunk_sizes": [
         0,
@@ -721,7 +900,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closing"
+        "final_state": "closing",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "ok",
@@ -730,7 +911,9 @@
         "consumed_bytes": 0,
         "input_bytes": 0,
         "frames": 0,
-        "final_state": "closing"
+        "final_state": "closing",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical",
       "behaviorally_agrees": true
@@ -742,6 +925,12 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "empty chunk then a valid frame in OPEN: the no-op must leave the subsequent frame's accounting untouched.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0006",
+        "us005.pub.0045"
+      ],
+      "corpus_invisibility_note": "DOWNGRADED after independent audit. 0045 pins the no-op and 0006 pins a masked text frame in OPEN; because the no-op holds no decoder state, the composition is thin.",
       "request_digest": "sha256:5096d772d9b19cfd45dcde3d7bc7e7749110fb9f0480c843eb25b628f5b7591d",
       "chunk_sizes": [
         0,
@@ -754,7 +943,9 @@
         "consumed_bytes": 8,
         "input_bytes": 8,
         "frames": 1,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "ok",
@@ -763,7 +954,9 @@
         "consumed_bytes": 8,
         "input_bytes": 8,
         "frames": 1,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical",
       "behaviorally_agrees": true
@@ -775,6 +968,13 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "cross-class: an empty chunk interposed between the two halves of a split frame. If the empty no-op perturbed the reassembly offset, only this shape would show it.",
+      "corpus_invisibility": "partial",
+      "pinned_by_public_scenarios": [
+        "us005.pub.0024",
+        "us005.pub.0045",
+        "us005.pub.0072"
+      ],
+      "corpus_invisibility_note": "DOWNGRADED after independent audit, though it is the strongest of class D: the only probe delivering a zero-length chunk WHILE carry state exists. 0072/0024 pin split-frame reassembly and 0045 pins the no-op, but never together.",
       "request_digest": "sha256:5f93b476a5f6275e244f16322bf00f1db4683abd743f7e7cdb3e0484d00fbd9e",
       "chunk_sizes": [
         4,
@@ -788,7 +988,9 @@
         "consumed_bytes": 8,
         "input_bytes": 8,
         "frames": 1,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "ok",
@@ -797,7 +999,9 @@
         "consumed_bytes": 8,
         "input_bytes": 8,
         "frames": 1,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical",
       "behaviorally_agrees": true
@@ -809,6 +1013,8 @@
       "role": "server",
       "initial_state": "open",
       "rationale": "cross-class: an empty no-op immediately before the xd.a1 shape, so a no-op that silently shifted the per-site consumed base would diverge here.",
+      "corpus_invisibility": "genuinely_invisible",
+      "corpus_invisibility_note": "Cross-class: an empty no-op immediately before the xd.a1 shape. No public case combines a zero-length chunk with a mid-chunk rejection.",
       "request_digest": "sha256:81efa64bfa00fc22971c9849e4decd053a15c4e07a6ee79688a119f27bbc6fba",
       "chunk_sizes": [
         0,
@@ -821,7 +1027,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+        "runtime_sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
       },
       "rust": {
         "outcome": "error",
@@ -830,7 +1038,9 @@
         "consumed_bytes": 17,
         "input_bytes": 25,
         "frames": 0,
-        "final_state": "open"
+        "final_state": "open",
+        "runtime_artifact": "ws-oracle-harness",
+        "runtime_sha256": "sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10"
       },
       "verdict": "identical_except_error_detail",
       "diff_paths": [
@@ -840,7 +1050,8 @@
     }
   ],
   "nonclaims": [
-    "These probes bound the risk on three defect classes at points the public corpus does not reach; they are a hand-chosen set, not a saturating search, and they do not eliminate risk for all inputs.",
+    "NOT every probe here is corpus-invisible. Each carries an audited corpus_invisibility verdict naming the public scenario that pins it where one exists. Of 23 probes, 4 are genuinely invisible, 12 partial and 7 redundant with the 74, after an independent adversarial re-audit that downgraded nine of an earlier, more generous pass. An earlier round asserted blanket invisibility in prose and was wrong about xd.b7, which us005.pub.0051 pins exactly. Redundant probes are kept as real differential checks but must not be cited as coverage the corpus lacks.",
+    "These probes are a hand-chosen set, not a saturating search, and they do not eliminate risk for all inputs.",
     "error.detail is compared and reported. A divergence confined to error.detail alone is classified identical_except_error_detail because the adapter protocol documents that field as a non-semantic diagnostic and the corpus evaluator never compares it.",
     "Every Java-side value in this manifest was read from a recorded run of the real pinned oracle. No Java value was predicted, derived, or copied from the Rust arm."
   ]

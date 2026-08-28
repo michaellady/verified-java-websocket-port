@@ -23,32 +23,66 @@ const (
 // ProbeRecord is the per-probe committed record: identity, provenance, and the
 // observed values from BOTH arms.
 type ProbeRecord struct {
-	RequestID     string   `json:"request_id"`
-	Class         Class    `json:"class"`
-	Origin        Origin   `json:"origin"`
-	Role          string   `json:"role"`
-	InitialState  string   `json:"initial_state"`
-	Rationale     string   `json:"rationale"`
-	RequestDigest string   `json:"request_digest"`
-	ChunkSizes    []int    `json:"chunk_sizes"`
-	Java          ArmView  `json:"java"`
-	Rust          ArmView  `json:"rust"`
-	Verdict       Verdict  `json:"verdict"`
-	DiffPaths     []string `json:"diff_paths,omitempty"`
-	Agree         bool     `json:"behaviorally_agrees"`
+	RequestID        string       `json:"request_id"`
+	Class            Class        `json:"class"`
+	Origin           Origin       `json:"origin"`
+	Role             string       `json:"role"`
+	InitialState     string       `json:"initial_state"`
+	Rationale        string       `json:"rationale"`
+	Invisibility     Invisibility `json:"corpus_invisibility"`
+	PinnedBy         []string     `json:"pinned_by_public_scenarios,omitempty"`
+	InvisibilityNote string       `json:"corpus_invisibility_note"`
+	RequestDigest    string       `json:"request_digest"`
+	ChunkSizes       []int        `json:"chunk_sizes"`
+	Java             ArmView      `json:"java"`
+	Rust             ArmView      `json:"rust"`
+	Verdict          Verdict      `json:"verdict"`
+	DiffPaths        []string     `json:"diff_paths,omitempty"`
+	Agree            bool         `json:"behaviorally_agrees"`
 }
 
 // ArmView is the behavioral projection recorded for one arm. It is derived from
 // that arm's recorded transcript, never predicted.
+//
+// RuntimeArtifact and RuntimeSHA256 carry the responder's OWN attestation of
+// which runtime produced the observation. They are the provenance discriminator:
+// a Java observation must carry the pinned Java-WebSocket identity, and the Rust
+// harness cannot emit that identity because it reports its own executable digest.
+//
+// Any field added here is automatically covered by the provenance guard, which
+// enumerates this struct reflectively rather than by hand. Three fields were
+// once omitted from a hand-written list; that is why the list is gone.
 type ArmView struct {
-	Outcome       string `json:"outcome"`
-	ErrorCode     any    `json:"error_code"`
-	CloseCode     any    `json:"close_code"`
-	ConsumedBytes any    `json:"consumed_bytes"`
-	InputBytes    any    `json:"input_bytes"`
-	Frames        any    `json:"frames"`
-	FinalState    any    `json:"final_state"`
+	Outcome         string `json:"outcome"`
+	ErrorCode       any    `json:"error_code"`
+	CloseCode       any    `json:"close_code"`
+	ConsumedBytes   any    `json:"consumed_bytes"`
+	InputBytes      any    `json:"input_bytes"`
+	Frames          any    `json:"frames"`
+	FinalState      any    `json:"final_state"`
+	RuntimeArtifact any    `json:"runtime_artifact"`
+	RuntimeSHA256   any    `json:"runtime_sha256"`
 }
+
+// PinnedJavaRuntimeArtifact and PinnedJavaRuntimeSHA256 are the identity the
+// java-oracle adapter attests on every response. The adapter re-hashes the jar
+// that supplied Draft_6455 at startup and denies startup with exit 78 on
+// mismatch, so a response carrying this identity was produced by a process that
+// loaded and self-verified the pinned runtime.
+//
+// This digest is the UPSTREAM Java-WebSocket 1.6.0 artifact digest, which is a
+// fixed published constant. It is deliberately NOT the java-oracle adapter jar
+// digest: adapter jars embed zip timestamps and are not byte-reproducible across
+// builds, so they cannot bind identity. See the receipt's note on class-file
+// byte identity for how the ADAPTER is bound instead.
+const (
+	PinnedJavaRuntimeArtifact = "org.java-websocket:Java-WebSocket:1.6.0"
+	PinnedJavaRuntimeSHA256   = "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
+)
+
+// HarnessRuntimeArtifact is the identity the Rust harness attests. A Java arm
+// carrying this identity is a copied Rust arm.
+const HarnessRuntimeArtifact = "ws-oracle-harness"
 
 // Manifest is the committed regression-set record.
 type Manifest struct {
@@ -81,6 +115,10 @@ func armView(response map[string]any) ArmView {
 		view.Frames = counts["frames"]
 	}
 	view.FinalState = response["final_state"]
+	if runtimeObject, ok := response[RuntimeField].(map[string]any); ok {
+		view.RuntimeArtifact = runtimeObject["artifact"]
+		view.RuntimeSHA256 = runtimeObject["sha256"]
+	}
 	return view
 }
 
@@ -98,7 +136,7 @@ func BuildManifest(dir, recordedAt, recordedAtSource, head string, provenance, o
 	}
 	manifest := &Manifest{
 		SchemaVersion:    "1.0.0",
-		Kind:             "corpus-invisible-differential-regression-set",
+		Kind:             "differential-regression-set-with-audited-corpus-invisibility",
 		RecordedAt:       recordedAt,
 		RecordedAtSource: recordedAtSource,
 		BoundHead:        head,
@@ -112,13 +150,15 @@ func BuildManifest(dir, recordedAt, recordedAtSource, head string, provenance, o
 		Artifacts:      map[string]string{},
 		Counts:         map[string]int{},
 		Nonclaims: []string{
-			"These probes bound the risk on three defect classes at points the public corpus does not reach; they are a hand-chosen set, not a saturating search, and they do not eliminate risk for all inputs.",
+			"NOT every probe here is corpus-invisible. Each carries an audited corpus_invisibility verdict naming the public scenario that pins it where one exists. Of 23 probes, 4 are genuinely invisible, 12 partial and 7 redundant with the 74, after an independent adversarial re-audit that downgraded nine of an earlier, more generous pass. An earlier round asserted blanket invisibility in prose and was wrong about xd.b7, which us005.pub.0051 pins exactly. Redundant probes are kept as real differential checks but must not be cited as coverage the corpus lacks.",
+			"These probes are a hand-chosen set, not a saturating search, and they do not eliminate risk for all inputs.",
 			"error.detail is compared and reported. A divergence confined to error.detail alone is classified identical_except_error_detail because the adapter protocol documents that field as a non-semantic diagnostic and the corpus evaluator never compares it.",
 			"Every Java-side value in this manifest was read from a recorded run of the real pinned oracle. No Java value was predicted, derived, or copied from the Rust arm.",
 		},
 	}
 	byClass := map[Class]int{}
 	byOrigin := map[Origin]int{}
+	byInvisibility := map[Invisibility]int{}
 	for _, probe := range Catalog() {
 		request, err := RequestObject(probe)
 		if err != nil {
@@ -139,22 +179,26 @@ func BuildManifest(dir, recordedAt, recordedAtSource, head string, provenance, o
 		}
 		digest, _ := request["request_digest"].(string)
 		manifest.Probes = append(manifest.Probes, ProbeRecord{
-			RequestID:     probe.ID,
-			Class:         probe.Class,
-			Origin:        probe.Origin,
-			Role:          probe.Role,
-			InitialState:  probe.InitialState,
-			Rationale:     probe.Rationale,
-			RequestDigest: digest,
-			ChunkSizes:    sizes,
-			Java:          armView(javaResponse),
-			Rust:          armView(rustResponse),
-			Verdict:       comparison.Verdict,
-			DiffPaths:     comparison.DiffPaths,
-			Agree:         comparison.Verdict != Divergent,
+			RequestID:        probe.ID,
+			Class:            probe.Class,
+			Origin:           probe.Origin,
+			Role:             probe.Role,
+			InitialState:     probe.InitialState,
+			Rationale:        probe.Rationale,
+			Invisibility:     probe.Invisibility,
+			PinnedBy:         probe.PinnedBy,
+			InvisibilityNote: probe.InvisibilityNote,
+			RequestDigest:    digest,
+			ChunkSizes:       sizes,
+			Java:             armView(javaResponse),
+			Rust:             armView(rustResponse),
+			Verdict:          comparison.Verdict,
+			DiffPaths:        comparison.DiffPaths,
+			Agree:            comparison.Verdict != Divergent,
 		})
 		byClass[probe.Class]++
 		byOrigin[probe.Origin]++
+		byInvisibility[probe.Invisibility]++
 	}
 	for _, name := range []string{ProbesFile, JavaArmFile, RustArmFile} {
 		data, err := os.ReadFile(filepath.Join(dir, name))
@@ -176,6 +220,9 @@ func BuildManifest(dir, recordedAt, recordedAtSource, head string, provenance, o
 	}
 	for origin, n := range byOrigin {
 		manifest.Counts["origin_"+string(origin)] = n
+	}
+	for verdict, n := range byInvisibility {
+		manifest.Counts["invisibility_"+string(verdict)] = n
 	}
 	// Probe records stay in catalog order: recovered probes first, then the
 	// widening set, so the committed manifest reads in provenance order.

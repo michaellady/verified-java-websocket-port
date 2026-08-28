@@ -1,20 +1,47 @@
-// Package diffregress holds the corpus-invisible differential regression set:
-// oracle requests that are deliberately NOT in the 74-scenario public corpus,
-// recorded with BOTH arms (the real pinned Java-WebSocket 1.6.0 oracle and the
-// ws_core Rust harness) so the agreement between them is committed evidence
-// rather than an ephemeral audit result.
+// Package diffregress holds a differential regression set: oracle requests that
+// are NOT in the 74-scenario public corpus, recorded with BOTH arms (the real
+// pinned Java-WebSocket 1.6.0 oracle and the ws_core Rust harness) so the
+// agreement between them is committed evidence rather than an ephemeral audit
+// result.
 //
 // The three probe classes generalize the three Rust defect classes the
 // cross-plane defect audit enumerated on the Codex plane:
 //
 //   - Class A "consumption": rejected-input consumption accounting, i.e. the
 //     per-site consumed_bytes arithmetic when a frame is rejected part-way
-//     through a multi-frame chunk. The public corpus only ever rejects at
-//     offset 0, so the offset arithmetic is corpus-invisible.
+//     through a multi-frame chunk.
 //   - Class B "closed-bytes": byte counting for input refused because the
 //     connection is already CLOSED.
 //   - Class D "empty-chunk": handling of a zero-length input chunk, in every
 //     ready state.
+//
+// ON "CORPUS-INVISIBLE". Not every probe here is corpus-invisible, and the set
+// does not claim to be. A review round found that an earlier version asserted
+// invisibility in prose for probes the 74 already pinned — notably xd.b7, which
+// us005.pub.0051 covers exactly. Every probe now carries an audited
+// Invisibility verdict naming the public scenario that pins it where one
+// exists. Of 23 probes, 4 are genuinely invisible, 12 are partial, and 7 are
+// redundant with the corpus. The redundant ones are KEPT: they cost nothing to
+// run and a redundant differential check against the real Java oracle is still
+// a real check. They simply may not be cited as coverage the corpus lacks.
+//
+// These verdicts survived an independent adversarial re-audit that downgraded
+// nine of them. Where that audit and this catalog still differ, the more
+// conservative verdict is recorded and the dissent is noted in the probe's
+// InvisibilityNote (xd.a5, xd.a6, xd.a9).
+//
+// What is genuinely not reachable by the 74: the corpus has multi-frame chunks
+// but only of valid frames; splits frames but only valid ones; and feeds
+// zero-length chunks only as standalone steps in OPEN and CLOSED. It never
+// FRAMING-rejects at a nonzero offset. (Precision owed to the audit: us005.pub.0032
+// does error on the second frame of a two-frame chunk, but as a frame-cap after
+// the whole chunk was consumed, so consumed=16 equals the chunk length and it
+// cannot discriminate offset arithmetic.)
+//
+// That reduces to three genuinely unreachable behaviours: a rejection preceded
+// by a consumed frame in the same chunk; the same at the fragmented-control
+// rejection site; and the same where the rejected frame uses the 2-byte
+// extended-length form.
 //
 // Probe REQUESTS are generated from this Go table, never hand-edited, so the
 // committed JSONL is reproducible and every request_digest is recomputed rather
@@ -65,7 +92,27 @@ const (
 	OriginNew Origin = "new"
 )
 
-// Probe is one corpus-invisible differential request.
+// Invisibility records, per probe, whether the 74-scenario public corpus
+// already pins the behaviour the probe exercises.
+//
+// This is deliberately DATA rather than prose. An earlier round asserted in
+// prose that xd.b7 exercised surface the corpus could not see; public case
+// us005.pub.0051 already pinned it. Encoding the claim per probe, with the
+// pinning scenario named, makes the claim checkable instead of rhetorical.
+type Invisibility string
+
+const (
+	// GenuinelyInvisible means no public scenario pins this behaviour.
+	GenuinelyInvisible Invisibility = "genuinely_invisible"
+	// PartiallyInvisible means the corpus pins a weaker or related version and
+	// the probe adds something specific beyond it.
+	PartiallyInvisible Invisibility = "partial"
+	// Redundant means a public scenario already pins this behaviour, so a
+	// defect the probe would catch would also be caught by the corpus.
+	Redundant Invisibility = "redundant"
+)
+
+// Probe is one differential request aimed at the three defect classes.
 type Probe struct {
 	ID           string
 	Class        Class
@@ -75,8 +122,17 @@ type Probe struct {
 	// Chunks are the raw input byte chunks, in order. A nil or empty chunk is
 	// a deliberate zero-length input step.
 	Chunks [][]byte
-	// Rationale states what the probe stresses that the public corpus does not.
+	// Rationale states what the probe stresses.
 	Rationale string
+	// Invisibility is the audited verdict on whether the public corpus already
+	// pins this behaviour.
+	Invisibility Invisibility
+	// PinnedBy names the public scenario ids that already pin this behaviour.
+	// It MUST be non-empty when Invisibility is Redundant or PartiallyInvisible,
+	// and MUST be empty when GenuinelyInvisible. A test enforces that.
+	PinnedBy []string
+	// InvisibilityNote justifies the verdict in one line.
+	InvisibilityNote string
 }
 
 // limits mirrors the limits block the committed 74 public requests carry, so a
@@ -156,146 +212,215 @@ func Catalog() []Probe {
 		{
 			ID: "xd.a1.rsv-midchunk", Class: ClassConsumption, Origin: OriginRecovered,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{concat(validHi(), rsv2Frame(), validOk())},
-			Rationale: "valid frame + RSV frame + valid frame in one 25-byte chunk: is consumed the offset past the rejected frame, or the whole chunk? The public corpus only rejects at offset 0.",
+			Chunks:           [][]byte{concat(validHi(), rsv2Frame(), validOk())},
+			Rationale:        "valid frame + RSV frame + valid frame in one 25-byte chunk: is consumed the offset past the rejected frame, or the whole chunk? The public corpus only rejects at offset 0.",
+			Invisibility:     GenuinelyInvisible,
+			PinnedBy:         nil,
+			InvisibilityNote: "The corpus has multi-frame chunks (us005.pub.0043/0053) but every frame in them is VALID, and it has RSV rejections (0005/0029/0058) but always at offset 0. No public case rejects a frame AFTER a successfully consumed frame in the same chunk, which is the arithmetic this pins.",
 		},
 		{
 			ID: "xd.a2.rsv-split", Class: ClassConsumption, Origin: OriginRecovered,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{rsv2Frame()[:5], rsv2Frame()[5:]},
-			Rationale: "RSV frame split across two chunks (5+4, splitting inside the masking key), exercising the chunk-start subtraction in the consumed arithmetic.",
+			Chunks:           [][]byte{rsv2Frame()[:5], rsv2Frame()[5:]},
+			Rationale:        "RSV frame split across two chunks (5+4, splitting inside the masking key), exercising the chunk-start subtraction in the consumed arithmetic.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0005", "us005.pub.0072"},
+			InvisibilityNote: "DOWNGRADED after independent audit. The observed counts 9/9/frames=0 are IDENTICAL to us005.pub.0005, and us005.pub.0072 already pins carry-buffer consumed-summing on the OK path. Only the combination (a frame reassembled from a carry buffer and then rejected) is new.",
 		},
 		{
 			ID: "xd.b1.closed-64bytes", Class: ClassClosedBytes, Origin: OriginRecovered,
 			Role: "server", InitialState: "closed",
-			Chunks:    [][]byte{repeatBytes(64)},
-			Rationale: "64-byte non-empty chunk into CLOSED: are refused bytes counted?",
+			Chunks:           [][]byte{repeatBytes(64)},
+			Rationale:        "64-byte non-empty chunk into CLOSED: are refused bytes counted?",
+			Invisibility:     Redundant,
+			PinnedBy:         []string{"us005.pub.0015"},
+			InvisibilityNote: "state-bytes-in-closed 0015 already pins non-empty bytes into CLOSED at consumed=0/input=0/frames=0 with STATE_VIOLATION. A larger chunk exercises the same rule; a defect here would be caught by 0015.",
 		},
 		{
 			ID: "xd.b2.closed-empty-then-bytes", Class: ClassClosedBytes, Origin: OriginRecovered,
 			Role: "server", InitialState: "closed",
-			Chunks:    [][]byte{{}, {0x5d, 0x87, 0x0a}},
-			Rationale: "empty chunk then non-empty chunk into CLOSED: the empty no-op must not arm the counters for the refused chunk.",
+			Chunks:           [][]byte{{}, {0x5d, 0x87, 0x0a}},
+			Rationale:        "empty chunk then non-empty chunk into CLOSED: the empty no-op must not arm the counters for the refused chunk.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0015", "us005.pub.0017"},
+			InvisibilityNote: "Both halves are pinned separately (0017 empty-in-closed, 0015 bytes-in-closed); the SEQUENCE is not, so only the interaction is new.",
 		},
 		{
 			ID: "xd.b3.closed-valid-frame", Class: ClassClosedBytes, Origin: OriginRecovered,
 			Role: "server", InitialState: "closed",
-			Chunks:    [][]byte{validHi()},
-			Rationale: "a well-formed complete frame into CLOSED: the state check must precede framing, so well-formedness cannot change the counts.",
+			Chunks:           [][]byte{validHi()},
+			Rationale:        "a well-formed complete frame into CLOSED. (us005.pub.0015 already pins this: its own bytes are framing-invalid, so it already separates the state check from framing.)",
+			Invisibility:     Redundant,
+			PinnedBy:         []string{"us005.pub.0015"},
+			InvisibilityNote: "DOWNGRADED after independent audit. The premise was that 0015 feeds a benign input; it does not. 0015's bytes 5d 87 0a have FIN=0, RSV1=1, RSV3=1 and reserved opcode 0xd, so 0015 ALREADY discriminates state-check-before-framing. The CLOSED guard is one content-agnostic test (state == CLOSED && bytes.length != 0), so a well-formed frame takes the identical branch.",
 		},
 		{
 			ID: "xd.d1.closing-empty", Class: ClassEmptyChunk, Origin: OriginRecovered,
 			Role: "server", InitialState: "closing",
-			Chunks:    [][]byte{{}},
-			Rationale: "empty chunk in CLOSING.",
+			Chunks:           [][]byte{{}},
+			Rationale:        "empty chunk in CLOSING.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0017", "us005.pub.0045"},
+			InvisibilityNote: "DOWNGRADED after independent audit. The empty-chunk short-circuit is a single STATE-AGNOSTIC branch in OracleEngine.input(), and the corpus pins it in CLOSED (0017) and OPEN (0045). CLOSING adds only that a hypothetical per-state-coded no-op would diverge there.",
 		},
 		{
 			ID: "xd.d2.open-empty", Class: ClassEmptyChunk, Origin: OriginRecovered,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{{}},
-			Rationale: "empty chunk in OPEN.",
+			Chunks:           [][]byte{{}},
+			Rationale:        "empty chunk in OPEN. This is a literal duplicate of public scenario us005.pub.0045.",
+			Invisibility:     Redundant,
+			PinnedBy:         []string{"us005.pub.0045"},
+			InvisibilityNote: "LITERAL DUPLICATE: identical role, initial_state, limits and steps to us005.pub.0045, verified field by field. This is a duplicate of a public scenario, not a probe.",
 		},
 		{
 			ID: "xd.d3.closed-empty-twice", Class: ClassEmptyChunk, Origin: OriginRecovered,
 			Role: "server", InitialState: "closed",
-			Chunks:    [][]byte{{}, {}},
-			Rationale: "two empty chunks in CLOSED: the no-op must be repeatable, not merely tolerated once.",
+			Chunks:           [][]byte{{}, {}},
+			Rationale:        "two empty chunks in CLOSED: the no-op must be repeatable, not merely tolerated once.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0017"},
+			InvisibilityNote: "0017 pins a single empty chunk in CLOSED. This adds only that the no-op is repeatable rather than tolerated once.",
 		},
 
 		// ---- new: class A, consumption accounting ----
 		{
 			ID: "xd.a3.rsv-after-two-valid", Class: ClassConsumption, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{concat(validHi(), validOk(), rsv2Frame())},
-			Rationale: "two valid frames before the rejected frame: consumed must advance past BOTH prefixes, not just one.",
+			Chunks:           [][]byte{concat(validHi(), validOk(), rsv2Frame())},
+			Rationale:        "two valid frames before the rejected frame: consumed must advance past BOTH prefixes, not just one.",
+			Invisibility:     GenuinelyInvisible,
+			PinnedBy:         nil,
+			InvisibilityNote: "No public case rejects after any consumed prefix, let alone two. NOTE a real weakness surfaced by the independent audit: because consumed=25 equals the chunk length here, this probe alone cannot catch a 'consume the whole chunk' over-count. xd.a1 (consumed=17 of 25) is the discriminating one.",
 		},
 		{
 			ID: "xd.a4.rsv-first-then-valid", Class: ClassConsumption, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{concat(rsv2Frame(), validHi())},
-			Rationale: "rejected frame at offset 0 followed by a valid frame: consumed must stop at the rejection and must not run on into the trailing valid frame.",
+			Chunks:           [][]byte{concat(rsv2Frame(), validHi())},
+			Rationale:        "rejected frame at offset 0 followed by a valid frame: consumed must stop at the rejection and must not run on into the trailing valid frame.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0031", "us005.pub.0036", "us005.pub.0057", "us005.pub.0059", "us005.pub.0065"},
+			InvisibilityNote: "The rule that a rejection stops consumption and leaves trailing bytes counted-but-unconsumed is pinned FIVE ways (0036/0065 consumed=2 of 8, 0031 2 of 86, 0057 2 of 173, 0059 2 of 134). Those all pin it at header-time sites; this adds the post-payload RSV site (consumed=9 of 17).",
 		},
 		{
 			ID: "xd.a5.rsv1-midchunk", Class: ClassConsumption, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{concat(validHi(), maskedFrame(rsv1Text, []byte{0x01, 0x02, 0x03}, keyB), validOk())},
-			Rationale: "same offset arithmetic driven by RSV1 rather than RSV2, so the site is not special-cased to one reserved bit.",
+			Chunks:           [][]byte{concat(validHi(), maskedFrame(rsv1Text, []byte{0x01, 0x02, 0x03}, keyB), validOk())},
+			Rationale:        "the same offset arithmetic driven by RSV1 rather than RSV2. (The corpus already shows the site is not special-cased to one reserved bit: us005.pub.0029 pins RSV1 at offset 0.)",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0029"},
+			InvisibilityNote: "Stated rationale FALSIFIED: 0029 already pins RSV1 rejection at 9/9/frames=0, so the site is demonstrably not special-cased to one reserved bit. The only increment is the nonzero offset, which xd.a1 already covers. The independent audit labelled this genuinely_invisible on the stricter reading that no case pins mid-chunk RSV1; recorded as partial here because 0029 pins the behaviour and only the offset is new.",
 		},
 		{
 			ID: "xd.a6.rsv3-midchunk", Class: ClassConsumption, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{concat(validHi(), maskedFrame(rsv3Text, []byte{0x01, 0x02, 0x03}, keyB), validOk())},
-			Rationale: "same offset arithmetic driven by RSV3.",
+			Chunks:           [][]byte{concat(validHi(), maskedFrame(rsv3Text, []byte{0x01, 0x02, 0x03}, keyB), validOk())},
+			Rationale:        "the same offset arithmetic driven by RSV3. (us005.pub.0058 already pins RSV3 at offset 0.)",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0058"},
+			InvisibilityNote: "Stated rationale FALSIFIED: 0058 already pins RSV3 rejection at 9/9/frames=0. Only the nonzero offset is new, which xd.a1 already covers. Audit dissent noted as for xd.a5.",
 		},
 		{
 			ID: "xd.a7.rsv-extended-length", Class: ClassConsumption, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{concat(validHi(), maskedFrame(rsv2Text, repeatBytes(126), keyB), validOk())},
-			Rationale: "rejected frame using the 2-byte extended length form: consumed must span header+extended-length+mask+payload, an arithmetic path the corpus never rejects on.",
+			Chunks:           [][]byte{concat(validHi(), maskedFrame(rsv2Text, repeatBytes(126), keyB), validOk())},
+			Rationale:        "rejected frame using the 2-byte extended length form: consumed must span header+extended-length+mask+payload, an arithmetic path the corpus never rejects on.",
+			Invisibility:     GenuinelyInvisible,
+			PinnedBy:         nil,
+			InvisibilityNote: "The corpus pins extended-length ACCEPTANCE (0011 consumed=134, 0013 consumed=923) and rejections at offset 0, but never a rejected frame that itself uses the 2-byte extended length form, and never one at a nonzero offset. consumed=142=8+134 exercises both at once.",
 		},
 		{
 			ID: "xd.a8.rsv-split-three", Class: ClassConsumption, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{rsv2Frame()[:2], rsv2Frame()[2:6], rsv2Frame()[6:]},
-			Rationale: "rejected frame split across three chunks, so the chunk-start subtraction is exercised at a non-first, non-last boundary.",
+			Chunks:           [][]byte{rsv2Frame()[:2], rsv2Frame()[2:6], rsv2Frame()[6:]},
+			Rationale:        "rejected frame split across three chunks, so the chunk-start subtraction is exercised at a non-first, non-last boundary.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0005", "us005.pub.0072"},
+			InvisibilityNote: "DOWNGRADED after independent audit. Counts 9/9/frames=0 are identical to 0005; over xd.a2 this adds only a chunk boundary that is neither first nor last. Marginal.",
 		},
 		{
 			ID: "xd.a9.control-fin-midchunk", Class: ClassConsumption, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{concat(validHi(), maskedFrame(nonFinPing, []byte{0x01, 0x02, 0x03}, keyB), validOk())},
-			Rationale: "the OTHER post-payload rejection the batch-A borrow receipt moved off header time: a fragmented control frame mid-chunk, same offset arithmetic as the RSV site.",
+			Chunks:           [][]byte{concat(validHi(), maskedFrame(nonFinPing, []byte{0x01, 0x02, 0x03}, keyB), validOk())},
+			Rationale:        "the OTHER post-payload rejection the batch-A borrow receipt moved off header time: a fragmented control frame mid-chunk, same offset arithmetic as the RSV site.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0020"},
+			InvisibilityNote: "control-nonfin 0020 already pins the fragmented-control rejection at offset 0 (consumed=10, frames=0), so the earlier claim that this probe independently confirms the batch-A borrow correction was WRONG: 0020 confirms it. The increment is the nonzero offset at a second post-payload site. The independent audit rated this genuinely_invisible as a real increment over xd.a1 (different rejection site); recorded as partial here because 0020 pins the site.",
 		},
 
 		// ---- new: class B, closed-state byte counting ----
 		{
 			ID: "xd.b4.closed-multi-chunk", Class: ClassClosedBytes, Origin: OriginNew,
 			Role: "server", InitialState: "closed",
-			Chunks:    [][]byte{{0x01, 0x02}, {0x03, 0x04, 0x05}, {0x06}},
-			Rationale: "several non-empty chunks into CLOSED: the refusal must fire on the first and must not accumulate across steps.",
+			Chunks:           [][]byte{{0x01, 0x02}, {0x03, 0x04, 0x05}, {0x06}},
+			Rationale:        "several non-empty chunks into CLOSED. NOTE: only chunk 0 ever executes - OracleEngine.run() has no try/catch, so the step-0 STATE_VIOLATION aborts the run. The trailing chunks are inert.",
+			Invisibility:     Redundant,
+			PinnedBy:         []string{"us005.pub.0015"},
+			InvisibilityNote: "DOWNGRADED after independent audit, and the stated rationale is UNREACHABLE BY CONSTRUCTION: OracleEngine.run() has no try/catch, so the STATE_VIOLATION thrown on step 0 propagates out of the step loop and chunks 1 and 2 are never fed. The probe cannot test non-accumulation across steps because the later steps do not execute.",
 		},
 		{
 			ID: "xd.b5.closed-partial-header", Class: ClassClosedBytes, Origin: OriginNew,
 			Role: "server", InitialState: "closed",
-			Chunks:    [][]byte{{0x81}},
-			Rationale: "a single byte (an incomplete frame header) into CLOSED: an input too short to frame at all must still be refused with zero counts.",
+			Chunks:           [][]byte{{0x81}},
+			Rationale:        "a single byte (an incomplete frame header) into CLOSED: an input too short to frame at all must still be refused with zero counts.",
+			Invisibility:     Redundant,
+			PinnedBy:         []string{"us005.pub.0015"},
+			InvisibilityNote: "0015's own 3-byte chunk is already an incomplete frame in CLOSED. A 1-byte chunk exercises the identical rule; a defect here would be caught by 0015.",
 		},
 		{
 			ID: "xd.b6.closed-rsv-frame", Class: ClassClosedBytes, Origin: OriginNew,
 			Role: "server", InitialState: "closed",
-			Chunks:    [][]byte{rsv2Frame()},
-			Rationale: "an independently-invalid frame into CLOSED: the state refusal must win over the framing rejection, so the error identity is STATE_VIOLATION and not the RSV error.",
+			Chunks:           [][]byte{rsv2Frame()},
+			Rationale:        "an independently-invalid frame into CLOSED. (us005.pub.0015 already pins this; its first byte carries RSV1+RSV3 and reserved opcode 0xd.)",
+			Invisibility:     Redundant,
+			PinnedBy:         []string{"us005.pub.0015"},
+			InvisibilityNote: "DOWNGRADED after independent audit. 0015's own first byte is framing-invalid (RSV1+RSV3, reserved opcode 0xd), so 0015 already pins that the state refusal outranks a framing rejection. Identical all-zero STATE_VIOLATION observable.",
 		},
 		{
 			ID: "xd.b7.closing-nonempty", Class: ClassClosedBytes, Origin: OriginNew,
 			Role: "server", InitialState: "closing",
-			Chunks:    [][]byte{validHi()},
-			Rationale: "non-empty valid frame in CLOSING rather than CLOSED: pins whether the closed-state byte refusal extends to CLOSING, which the corpus does not settle.",
+			Chunks:           [][]byte{validHi()},
+			Rationale:        "non-empty valid frame in CLOSING rather than CLOSED: CLOSING counts the bytes and decodes the frame (8/8, frames=1) before raising STATE_VIOLATION, where CLOSED refuses at 0/0. Note this is ALREADY pinned by us005.pub.0051; see InvisibilityNote.",
+			Invisibility:     Redundant,
+			PinnedBy:         []string{"us005.pub.0051"},
+			InvisibilityNote: "WITHDRAWN CLAIM. state-frame-in-closing 0051 already pins a valid non-close frame in CLOSING at consumed=9/input=9/frames=1 with STATE_VIOLATION and final_state=closing, and the evaluator compares the whole counts map exactly. Collapsing CLOSING into the CLOSED guard WOULD be caught by 0051. The prior round asserted the opposite.",
 		},
 
 		// ---- new: class D, empty-chunk handling ----
 		{
 			ID: "xd.d4.closing-empty-twice", Class: ClassEmptyChunk, Origin: OriginNew,
 			Role: "server", InitialState: "closing",
-			Chunks:    [][]byte{{}, {}},
-			Rationale: "repeated empty chunks in CLOSING, the CLOSING analogue of xd.d3.",
+			Chunks:           [][]byte{{}, {}},
+			Rationale:        "repeated empty chunks in CLOSING, the CLOSING analogue of xd.d3.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0017", "us005.pub.0045"},
+			InvisibilityNote: "DOWNGRADED after independent audit. Equals xd.d1 plus xd.d3, adding nothing beyond those two already-marginal increments.",
 		},
 		{
 			ID: "xd.d5.open-empty-then-frame", Class: ClassEmptyChunk, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{{}, validHi()},
-			Rationale: "empty chunk then a valid frame in OPEN: the no-op must leave the subsequent frame's accounting untouched.",
+			Chunks:           [][]byte{{}, validHi()},
+			Rationale:        "empty chunk then a valid frame in OPEN: the no-op must leave the subsequent frame's accounting untouched.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0006", "us005.pub.0045"},
+			InvisibilityNote: "DOWNGRADED after independent audit. 0045 pins the no-op and 0006 pins a masked text frame in OPEN; because the no-op holds no decoder state, the composition is thin.",
 		},
 		{
 			ID: "xd.d6.open-empty-between-frame-halves", Class: ClassEmptyChunk, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{validHi()[:4], {}, validHi()[4:]},
-			Rationale: "cross-class: an empty chunk interposed between the two halves of a split frame. If the empty no-op perturbed the reassembly offset, only this shape would show it.",
+			Chunks:           [][]byte{validHi()[:4], {}, validHi()[4:]},
+			Rationale:        "cross-class: an empty chunk interposed between the two halves of a split frame. If the empty no-op perturbed the reassembly offset, only this shape would show it.",
+			Invisibility:     PartiallyInvisible,
+			PinnedBy:         []string{"us005.pub.0024", "us005.pub.0045", "us005.pub.0072"},
+			InvisibilityNote: "DOWNGRADED after independent audit, though it is the strongest of class D: the only probe delivering a zero-length chunk WHILE carry state exists. 0072/0024 pin split-frame reassembly and 0045 pins the no-op, but never together.",
 		},
 		{
 			ID: "xd.d7.open-empty-then-rsv-midchunk", Class: ClassEmptyChunk, Origin: OriginNew,
 			Role: "server", InitialState: "open",
-			Chunks:    [][]byte{{}, concat(validHi(), rsv2Frame(), validOk())},
-			Rationale: "cross-class: an empty no-op immediately before the xd.a1 shape, so a no-op that silently shifted the per-site consumed base would diverge here.",
+			Chunks:           [][]byte{{}, concat(validHi(), rsv2Frame(), validOk())},
+			Rationale:        "cross-class: an empty no-op immediately before the xd.a1 shape, so a no-op that silently shifted the per-site consumed base would diverge here.",
+			Invisibility:     GenuinelyInvisible,
+			PinnedBy:         nil,
+			InvisibilityNote: "Cross-class: an empty no-op immediately before the xd.a1 shape. No public case combines a zero-length chunk with a mid-chunk rejection.",
 		},
 	}
 }

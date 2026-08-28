@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
@@ -141,6 +142,72 @@ func TestRecoveredProbesAreTheAuditsEightExactly(t *testing.T) {
 	for id := range want {
 		if !got[id] {
 			t.Fatalf("probe %s is no longer marked recovered", id)
+		}
+	}
+}
+
+// TestInvisibilityClaimsAreWellFormed enforces the shape of the per-probe
+// corpus-invisibility verdict. A probe claiming to be genuinely invisible may
+// not also name a scenario that pins it, and a probe admitting redundancy must
+// name the scenario that makes it redundant. This exists because an earlier
+// round asserted invisibility in prose for a probe the corpus already pinned.
+func TestInvisibilityClaimsAreWellFormed(t *testing.T) {
+	known := map[Invisibility]bool{
+		GenuinelyInvisible: true, PartiallyInvisible: true, Redundant: true,
+	}
+	for _, probe := range Catalog() {
+		if !known[probe.Invisibility] {
+			t.Fatalf("%s: unknown invisibility verdict %q", probe.ID, probe.Invisibility)
+		}
+		if probe.InvisibilityNote == "" {
+			t.Fatalf("%s: invisibility verdict carries no justification", probe.ID)
+		}
+		switch probe.Invisibility {
+		case GenuinelyInvisible:
+			if len(probe.PinnedBy) != 0 {
+				t.Fatalf("%s: claims genuine invisibility but names pinning scenarios %v",
+					probe.ID, probe.PinnedBy)
+			}
+		case Redundant, PartiallyInvisible:
+			if len(probe.PinnedBy) == 0 {
+				t.Fatalf("%s: verdict %q must name the public scenario(s) that pin it",
+					probe.ID, probe.Invisibility)
+			}
+			for _, id := range probe.PinnedBy {
+				if !strings.HasPrefix(id, "us005.pub.") {
+					t.Fatalf("%s: pinning scenario %q is not a public corpus id", probe.ID, id)
+				}
+			}
+		}
+	}
+}
+
+// TestPinningScenariosExistInThePublicCorpus proves every named pinning
+// scenario is real. A redundancy citation that names a nonexistent scenario
+// would be worse than no citation.
+func TestPinningScenariosExistInThePublicCorpus(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repoRoot(t), "corpora", "public", "scenarios.jsonl"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	present := map[string]bool{}
+	for _, line := range bytes.Split(bytes.TrimRight(raw, "\n"), []byte("\n")) {
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+		var scenario struct {
+			ScenarioID string `json:"scenario_id"`
+		}
+		if err := json.Unmarshal(line, &scenario); err != nil {
+			t.Fatal(err)
+		}
+		present[scenario.ScenarioID] = true
+	}
+	for _, probe := range Catalog() {
+		for _, id := range probe.PinnedBy {
+			if !present[id] {
+				t.Fatalf("%s cites pinning scenario %s, which is not in the public corpus", probe.ID, id)
+			}
 		}
 	}
 }
