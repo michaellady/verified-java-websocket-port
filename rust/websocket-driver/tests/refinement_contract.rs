@@ -1,3 +1,5 @@
+#![forbid(unsafe_code)]
+
 use websocket_core::{
     ClientRequestDescriptor, ConnectionConfig, ConnectionLimits, LocalCommand, Role, TransportBytes,
 };

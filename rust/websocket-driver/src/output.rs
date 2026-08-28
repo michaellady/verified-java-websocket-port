@@ -1,10 +1,8 @@
-use std::collections::VecDeque;
-
 use websocket_core::{
     ConnectionState, CoreOutput, SemanticEvent, TransportWrite, TypedProtocolFailure,
 };
 
-use crate::DriverOutput;
+use crate::{DriverOutput, VecDeque};
 
 #[derive(Debug)]
 enum PendingOutput {
@@ -99,7 +97,9 @@ impl OutputLedger {
     }
 
     pub(crate) fn take_flush_due(&mut self) -> bool {
-        std::mem::take(&mut self.flush_due)
+        let flush_due = self.flush_due;
+        self.flush_due = false;
+        flush_due
     }
 
     pub(crate) fn next(&mut self) -> Option<DriverOutput<'_>> {
