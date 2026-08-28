@@ -1,0 +1,99 @@
+{
+ "schema_version": "1.0.0",
+ "kind": "sbx-payload",
+ "attempt_id": "us007-sbx-output-live-0129",
+ "sandbox_name": "us012-kani-0129",
+ "story": "US-012 AC5: re-run the Kani actual-code verification of the shipped ws_core source INSIDE the accepted US-007 sandbox profile, satisfying the sandbox-execution condition the host-only Kani lane disclosed it could not meet.",
+ "profile": {
+  "sbx_binary": "/opt/homebrew/Caskroom/sbx/0.39.0/bin/sbx",
+  "cli_version": "v0.39.0",
+  "template_reference": "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+  "template_digest": "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+  "agent": "shell",
+  "workspace_mode": "clone",
+  "cpus": 2,
+  "memory": "2g",
+  "deny_network": "**",
+  "expected_uid": 1000,
+  "expected_user": "agent"
+ },
+ "inbound": {
+  "stage_subdir": "inbound",
+  "artifacts": [
+   "binutils-aarch64-linux-gnu_2.46-3ubuntu2_arm64.deb",
+   "binutils-common_2.46-3ubuntu2_arm64.deb",
+   "binutils_2.46-3ubuntu2_arm64.deb",
+   "cpp-15-aarch64-linux-gnu_15.2.0-16ubuntu1_arm64.deb",
+   "cpp-15_15.2.0-16ubuntu1_arm64.deb",
+   "cpp-aarch64-linux-gnu_4%3a15.2.0-5ubuntu1_arm64.deb",
+   "cpp_4%3a15.2.0-5ubuntu1_arm64.deb",
+   "gcc-15-aarch64-linux-gnu_15.2.0-16ubuntu1_arm64.deb",
+   "gcc-15-base_15.2.0-16ubuntu1_arm64.deb",
+   "gcc-15_15.2.0-16ubuntu1_arm64.deb",
+   "gcc-aarch64-linux-gnu_4%3a15.2.0-5ubuntu1_arm64.deb",
+   "gcc_4%3a15.2.0-5ubuntu1_arm64.deb",
+   "harness-specs.txt",
+   "kani-0.67.0-aarch64-unknown-linux-gnu.tar.gz",
+   "kanirun",
+   "kanisbxdriver",
+   "libasan8_16-20260322-1ubuntu1_arm64.deb",
+   "libatomic1_16-20260322-1ubuntu1_arm64.deb",
+   "libbinutils_2.46-3ubuntu2_arm64.deb",
+   "libc-bin_2.43-2ubuntu2.3_arm64.deb",
+   "libc-dev-bin_2.43-2ubuntu2.3_arm64.deb",
+   "libc-gconv-modules-extra_2.43-2ubuntu2.3_arm64.deb",
+   "libc6-dev_2.43-2ubuntu2.3_arm64.deb",
+   "libc6_2.43-2ubuntu2.3_arm64.deb",
+   "libcc1-0_16-20260322-1ubuntu1_arm64.deb",
+   "libctf-nobfd0_2.46-3ubuntu2_arm64.deb",
+   "libctf0_2.46-3ubuntu2_arm64.deb",
+   "libgcc-15-dev_15.2.0-16ubuntu1_arm64.deb",
+   "libgomp1_16-20260322-1ubuntu1_arm64.deb",
+   "libgprofng0_2.46-3ubuntu2_arm64.deb",
+   "libhwasan0_16-20260322-1ubuntu1_arm64.deb",
+   "libisl23_0.27-1build1_arm64.deb",
+   "libitm1_16-20260322-1ubuntu1_arm64.deb",
+   "liblsan0_16-20260322-1ubuntu1_arm64.deb",
+   "libmpc3_1.3.1-3_arm64.deb",
+   "libmpfr6_4.2.2-3_arm64.deb",
+   "libsframe3_2.46-3ubuntu2_arm64.deb",
+   "libtsan2_16-20260322-1ubuntu1_arm64.deb",
+   "libubsan1_16-20260322-1ubuntu1_arm64.deb",
+   "linux-libc-dev_7.0.0-30.30_arm64.deb",
+   "rpcsvc-proto_1.4.3-1build1_arm64.deb",
+   "rust-nightly-aarch64-unknown-linux-gnu.tar.gz"
+  ],
+  "sandbox_dir": "/home/agent/inbound",
+  "bundle_name": "inbound-us012-kani-0129.tar",
+  "manifest_name": "inbound-manifest.sha256"
+ },
+ "steps": [
+  {
+   "id": "unpack-inbound",
+   "argv": [
+    "sh",
+    "-lc",
+    "cd /home/agent/inbound && tar -xf inbound-us012-kani-0129.tar && rm -f inbound-us012-kani-0129.tar && ls | wc -l"
+   ],
+   "timeout_seconds": 1800,
+   "expect_exit": 0,
+   "capture_name": "step-unpack.log"
+  },
+  {
+   "id": "kani-sweep",
+   "argv": [
+    "sh",
+    "-lc",
+    "chmod +x /home/agent/inbound/kanisbxdriver && /home/agent/inbound/kanisbxdriver -inbound /home/agent/inbound -repo \"$PWD\" -out /home/agent/out -harnesses \"$(cat /home/agent/inbound/harness-specs.txt)\""
+   ],
+   "timeout_seconds": 21600,
+   "expect_exit": 0,
+   "capture_name": "step-kani-sweep.log"
+  }
+ ],
+ "outbound": {
+  "sandbox_dir": "/home/agent/out",
+  "manifest_name": "out-digests.sha256",
+  "bundle_name": "outbound-us012-kani-0129.tar"
+ }
+}
