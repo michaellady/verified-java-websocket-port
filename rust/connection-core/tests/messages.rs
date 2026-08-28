@@ -118,6 +118,27 @@ fn utf8_above_unicode_max_has_its_exact_failure_class() {
 }
 
 #[test]
+fn utf8_noncontinuation_after_f4_is_not_relabeled_as_a_unicode_range_error() {
+    let config = config_with(|_| {});
+    let mut core = open_core(Role::Server, config.clone());
+    let wire = encoded(
+        Role::Client,
+        &config,
+        true,
+        Opcode::Text,
+        &[0xf4, 0xc0, 0x80, 0x80],
+    );
+    let result = core.step(CoreInput::Transport(TransportBytes::new(&wire)));
+    assert_eq!(
+        result.failure().map(|failure| &failure.kind),
+        Some(&FailureKind::Utf8(Utf8Failure::InvalidContinuation {
+            offset: 1,
+            byte: 0xc0,
+        }))
+    );
+}
+
+#[test]
 fn completed_fragment_delivery_counts_against_later_frames_in_one_batch() {
     let config = config_with(|limits| {
         limits.frame_bytes = 5;

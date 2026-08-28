@@ -342,9 +342,19 @@ mod tests {
     #[test]
     fn status_line_arithmetic_and_minimum_shape_are_exact() {
         assert_eq!(validate_status_line(b"HTTP/1.1 101 "), Ok(()));
+        for malformed in [b"HTTP/1.1x101 ".as_slice(), b"HTTP/1.1 101x"] {
+            assert_eq!(
+                validate_status_line(malformed),
+                Err(HandshakeFailure::MalformedStatusLine)
+            );
+        }
         assert_eq!(
             validate_status_line(b"HTTP/1.1 201 nope"),
             Err(HandshakeFailure::StatusNotSwitchingProtocols { received: 201 })
+        );
+        assert_eq!(
+            validate_status_line(b"HTTP/1.1 111 nope"),
+            Err(HandshakeFailure::StatusNotSwitchingProtocols { received: 111 })
         );
         assert_eq!(
             validate_status_line(b"HTTP/1.1 10x nope"),

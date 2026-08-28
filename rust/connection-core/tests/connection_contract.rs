@@ -1,9 +1,9 @@
 #![forbid(unsafe_code)]
 
 use websocket_core::{
-    ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits, ConnectionState, CoreInput,
-    CoreOutput, FailureKind, FrameDirection, LimitKind, LimitRelationship, LocalCommand, Role,
-    TransportBytes,
+    ClientRequestDescriptor, ConfigError, ConnectionConfig, ConnectionCore, ConnectionLimits,
+    ConnectionState, CoreInput, CoreOutput, FailureKind, FrameDirection, LimitKind,
+    LimitRelationship, LocalCommand, Role, TransportBytes,
 };
 
 #[test]
@@ -105,6 +105,28 @@ fn outbound_frame_observations_pin_every_public_field() {
     assert_eq!(frames[0].opcode(), websocket_core::Opcode::Continuation);
     assert_eq!(frames[0].payload(), [0x33]);
     assert_eq!(frames[0].wire_length(), 3);
+
+    const RESPONSE: &[u8] = b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n";
+    let config = ConnectionConfig::try_from(ConnectionLimits::default()).unwrap();
+    let mut client = ConnectionCore::new(config, Role::Client);
+    let descriptor = ClientRequestDescriptor::try_new("/chat", "server.example.com").unwrap();
+    let _ = client.step(CoreInput::Command(LocalCommand::StartClientHandshake {
+        descriptor,
+        nonce: *b"the sample nonce",
+    }));
+    let _ = client.step(CoreInput::Transport(TransportBytes::new(RESPONSE)));
+    let _ = client.step(CoreInput::Command(LocalCommand::SendBinary {
+        payload: vec![0x44].into_boxed_slice(),
+        mask_key: Some([1, 2, 3, 4]),
+    }));
+    let frames = client.last_step_observation().frames().collect::<Vec<_>>();
+    assert_eq!(frames.len(), 1);
+    assert_eq!(frames[0].direction(), FrameDirection::Outbound);
+    assert!(frames[0].fin());
+    assert_eq!(frames[0].opcode(), websocket_core::Opcode::Binary);
+    assert!(frames[0].masked());
+    assert_eq!(frames[0].payload(), [0x44]);
+    assert_eq!(frames[0].wire_length(), 7);
 }
 
 #[test]

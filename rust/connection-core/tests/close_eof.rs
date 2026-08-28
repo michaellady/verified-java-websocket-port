@@ -213,6 +213,44 @@ fn peer_first_server_echoes_exact_close_then_closes_on_flush() {
 }
 
 #[test]
+fn peer_first_server_echo_admits_exact_write_and_total_capacity_only() {
+    let exact = config_with(|limits| {
+        limits.frame_bytes = 6;
+        limits.message_bytes = 6;
+        limits.total_buffered_bytes = 6;
+        limits.write_queue_entries = 1;
+    });
+    let payload = close_payload(Some(1000), b"");
+    let peer_wire = encoded_with(Role::Client, &config(), Opcode::Close, &payload);
+    let admitted =
+        open_core(Role::Server, exact).step(CoreInput::Transport(TransportBytes::new(&peer_wire)));
+    assert_eq!(failure(&admitted), None);
+    assert_eq!(admitted.state(), ConnectionState::Closing);
+    assert!(admitted.outputs().any(|output| matches!(
+        output,
+        CoreOutput::TransportWrite(write) if write.as_slice() == [0x88, 2, 0x03, 0xe8]
+    )));
+
+    let one_short = config_with(|limits| {
+        limits.frame_bytes = 5;
+        limits.message_bytes = 5;
+        limits.total_buffered_bytes = 5;
+        limits.write_queue_entries = 1;
+    });
+    let rejected = open_core(Role::Server, one_short)
+        .step(CoreInput::Transport(TransportBytes::new(&peer_wire)));
+    assert_eq!(
+        failure(&rejected),
+        Some(&FailureKind::LimitExceeded {
+            limit: LimitKind::TotalBufferedBytes,
+            attempted: 6,
+            maximum: 5,
+        })
+    );
+    assert_eq!(rejected.state(), ConnectionState::Closed);
+}
+
+#[test]
 fn local_close_code_table_and_reason_boundaries_are_role_exact_and_atomic() {
     let common = [
         1000, 1001, 1002, 1003, 1007, 1008, 1009, 1011, 1012, 1013, 1014, 3000, 4999,
