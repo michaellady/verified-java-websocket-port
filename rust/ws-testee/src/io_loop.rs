@@ -99,6 +99,13 @@ pub struct ConnectionReport {
     /// Terminal deliveries observed (the exactly-once property makes any
     /// value other than one a contract violation worth reporting).
     pub terminals: u64,
+    /// Committed wire writes the driver reported as undeliverable when the
+    /// transport service ended (US-017 AC2 typed dropped-write
+    /// disposition). Adapter-side accounting: `summary()` is deliberately
+    /// unchanged so the cross-peer transcript stays byte-identical.
+    pub dropped_write_frames: u64,
+    /// Undelivered bytes across [`Self::dropped_write_frames`].
+    pub dropped_write_bytes: u64,
 }
 
 impl ConnectionReport {
@@ -223,6 +230,11 @@ pub fn drive_connection(
                 let _ = stream.shutdown(std::net::Shutdown::Both);
                 break;
             }
+            StepOutput::WritesDropped(_) => {
+                // Already accounted in `pump`; the loop keeps draining to
+                // the terminal, which the drop never replaces.
+                continue;
+            }
             StepOutput::Terminal => {
                 report.terminals += 1;
                 report.outcome = LoopOutcome::Terminal;
@@ -298,6 +310,7 @@ enum StepOutput {
     Write(Vec<u8>),
     Event(SemanticEvent),
     Failure(TypedProtocolFailure),
+    WritesDropped(ws_driver::DroppedWrites),
     Terminal,
 }
 
@@ -313,8 +326,14 @@ fn pump(
         DriverOutput::Write(suffix) => StepOutput::Write(suffix.to_vec()),
         DriverOutput::Event(event) => StepOutput::Event(event),
         DriverOutput::Failure(failure) => StepOutput::Failure(failure),
+        DriverOutput::WritesDropped(dropped) => StepOutput::WritesDropped(dropped),
         DriverOutput::Terminal(_) => StepOutput::Terminal,
     };
+    if let StepOutput::WritesDropped(dropped) = &output {
+        // US-017 AC2: the loss is accounted for, never silently swallowed.
+        report.dropped_write_frames += dropped.frames as u64;
+        report.dropped_write_bytes += dropped.bytes as u64;
+    }
     PumpStep {
         input: result.input,
         output,
@@ -388,7 +407,10 @@ pub fn drive_until_open(
                 report.outcome = LoopOutcome::ProtocolFailure(failure);
                 return false;
             }
-            StepOutput::Event(_) | StepOutput::Terminal | StepOutput::Idle => {}
+            StepOutput::Event(_)
+            | StepOutput::WritesDropped(_)
+            | StepOutput::Terminal
+            | StepOutput::Idle => {}
         }
         match stream.read(&mut read_buffer) {
             Ok(0) => {
@@ -432,6 +454,8 @@ pub fn empty_report() -> ConnectionReport {
         close: None,
         polls: 0,
         terminals: 0,
+        dropped_write_frames: 0,
+        dropped_write_bytes: 0,
     }
 }
 

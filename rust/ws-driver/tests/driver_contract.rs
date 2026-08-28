@@ -48,6 +48,8 @@ struct Run {
     events: Vec<SemanticEvent>,
     /// Terminal deliveries observed (the property demands exactly one).
     terminals: u64,
+    /// Typed dropped-write dispositions observed, in order (US-017 AC2).
+    dropped_writes: Vec<ws_driver::DroppedWrites>,
 }
 
 impl Run {
@@ -64,6 +66,7 @@ impl Run {
             dispositions: Vec::new(),
             events: Vec::new(),
             terminals: 0,
+            dropped_writes: Vec::new(),
         }
     }
 
@@ -82,6 +85,10 @@ impl Run {
             }
             DriverOutput::Terminal(_) => {
                 self.terminals += 1;
+                None
+            }
+            DriverOutput::WritesDropped(dropped) => {
+                self.dropped_writes.push(dropped);
                 None
             }
             DriverOutput::Failure(_) | DriverOutput::Idle => None,
@@ -521,28 +528,78 @@ fn receiver_drop_keeps_try_send_bounded_and_typed() {
         .expect("valid test config");
     let (sender, driver) = connection_driver_in_state(config, Role::Server, InitialState::Open);
     drop(driver);
-    sender
+    // US-017 story review BLOCKING-1 (session 01a04626): the prior pin
+    // asserted "capacity admits one command even with the owner gone" —
+    // an ACCEPTED send into a queue no owner will ever drain. AC2 requires
+    // receiver-drop to have EXPLICIT TYPED BEHAVIOR and not to leak, so
+    // acceptance is exactly what must NOT happen: `Ok(())` is a promise
+    // the driver seam can no longer keep.
+    let refused = sender
         .try_send(LocalCommand::SendText {
             text: "into-the-void".to_owned(),
         })
-        .expect("capacity admits one command even with the owner gone");
-    let refused = sender
-        .try_send(LocalCommand::SendText {
-            text: "beyond-capacity".to_owned(),
-        })
-        .expect_err("the bounded queue refuses, never grows");
+        .expect_err("a send after the sole owner is dropped must never report accepted");
+    assert_eq!(
+        refused.reason,
+        ws_core::connection::CommandRefusalReason::ReceiverDropped,
+        "the receiver-drop outcome is its own typed disposition, not queue-full backpressure"
+    );
     assert_eq!(
         refused.command,
         LocalCommand::SendText {
-            text: "beyond-capacity".to_owned(),
+            text: "into-the-void".to_owned(),
         },
         "ownership returns to the producer intact"
     );
+    // Terminal and stable: it never degrades into Full (the queue stays
+    // empty because nothing was ever admitted) and never blocks.
+    let again = sender
+        .try_send(LocalCommand::SendText {
+            text: "beyond-capacity".to_owned(),
+        })
+        .expect_err("the refusal is terminal for this channel");
+    assert_eq!(
+        again.reason,
+        ws_core::connection::CommandRefusalReason::ReceiverDropped,
+    );
+    // Every surviving clone sees the same typed outcome: the drop is a
+    // property of the channel, not of one handle.
+    let clone = sender.clone();
+    let cloned_refusal = clone
+        .try_send(LocalCommand::SendPing { data: Vec::new() })
+        .expect_err("clones observe the dropped receiver too");
+    assert_eq!(
+        cloned_refusal.reason,
+        ws_core::connection::CommandRefusalReason::ReceiverDropped,
+    );
+}
+
+/// The receiver-drop disposition must not swallow the queue-full one: with
+/// the owner ALIVE, a full bounded queue still refuses with `Full` (US-017
+/// AC2 queue-full arm, unchanged by BLOCKING-1).
+#[test]
+fn a_live_owner_still_refuses_a_full_queue_with_the_full_reason() {
+    let config = ConnectionConfig::builder()
+        .command_queue_capacity(1)
+        .build()
+        .expect("valid test config");
+    let (sender, driver) = connection_driver_in_state(config, Role::Server, InitialState::Open);
+    sender
+        .try_send(LocalCommand::SendText {
+            text: "first".to_owned(),
+        })
+        .expect("capacity admits one command while the owner is alive");
+    let refused = sender
+        .try_send(LocalCommand::SendText {
+            text: "second".to_owned(),
+        })
+        .expect_err("the bounded queue refuses, never grows");
     assert_eq!(
         refused.reason,
         ws_core::connection::CommandRefusalReason::Full,
-        "the refusal is the explicit typed backpressure, not a hang"
+        "a live owner's full queue is backpressure, not receiver-drop"
     );
+    drop(driver);
 }
 
 #[test]
@@ -555,4 +612,220 @@ fn transport_eof_reaches_the_core_q20_vocabulary() {
     assert_eq!(close.code, 1006);
     assert!(!close.remote);
     assert_eq!(run.driver.state(), ReadyState::Closed);
+}
+
+// ---------------------------------------------------------------------------
+// US-017 story review BLOCKING-2 (session 01a04626): AC2 requires adapter
+// shutdown to have EXPLICIT TYPED BEHAVIOR and not to "leak". Writes the
+// core has COMMITTED are already promised to the producer (it saw
+// `CommandDisposition::Applied`); aborting them with the transport is
+// correct, abandoning them SILENTLY is the leak. The driver hands the loss
+// back as `DriverOutput::WritesDropped`, ahead of the terminal delivery.
+// ---------------------------------------------------------------------------
+
+/// Drain every output after `input`, copying each out of the owner borrow,
+/// until `Idle` or a budget stop. Returns the ordered output labels plus
+/// any dropped-write report observed.
+fn drain_outputs(driver: &mut ConnectionDriver, first: DriverInput<'_>) -> Vec<String> {
+    let mut labels = Vec::new();
+    let mut input = first;
+    for _ in 0..64 {
+        let result = driver.poll(input);
+        input = DriverInput::Wake;
+        match result.output {
+            DriverOutput::Idle => {
+                labels.push("idle".to_owned());
+                if labels.iter().rev().take(2).all(|label| label == "idle") {
+                    break;
+                }
+            }
+            DriverOutput::Write(suffix) => labels.push(format!("write:{}", suffix.len())),
+            DriverOutput::Event(_) => labels.push("event".to_owned()),
+            DriverOutput::Failure(_) => labels.push("failure".to_owned()),
+            DriverOutput::WritesDropped(dropped) => labels.push(format!(
+                "writes-dropped:frames={},bytes={},partial_front={}",
+                dropped.frames, dropped.bytes, dropped.partial_front
+            )),
+            DriverOutput::Terminal(_) => {
+                labels.push("terminal".to_owned());
+                break;
+            }
+        }
+    }
+    labels
+}
+
+#[test]
+fn shutdown_reports_the_partially_drained_committed_write_as_a_typed_drop() {
+    let (sender, mut driver) = connection_driver_in_state(
+        ConnectionConfig::default(),
+        Role::Server,
+        InitialState::Open,
+    );
+    sender
+        .try_send(LocalCommand::SendText {
+            text: "a1".to_owned(),
+        })
+        .expect("enqueue");
+    // The command is applied and its committed frame is offered.
+    let applied = driver.poll(DriverInput::Wake);
+    assert!(matches!(
+        applied.command,
+        Some(CommandDisposition::Applied(_))
+    ));
+    let DriverOutput::Write(suffix) = applied.output else {
+        panic!("the applied command commits a wire write");
+    };
+    assert_eq!(suffix, server_text_frame("a1").as_slice());
+    // One byte reaches the wire; three stay committed-but-undelivered.
+    let progressed = driver.poll(DriverInput::WriteProgress { bytes: 1 });
+    assert!(matches!(
+        progressed.input,
+        InputDisposition::Consumed { .. }
+    ));
+
+    let labels = drain_outputs(&mut driver, DriverInput::Shutdown);
+    assert_eq!(
+        labels.first().map(String::as_str),
+        Some("writes-dropped:frames=1,bytes=3,partial_front=true"),
+        "the abandoned committed suffix is reported, not silently dropped: {labels:?}"
+    );
+    assert_eq!(
+        labels
+            .iter()
+            .filter(|label| label.starts_with("writes-dropped"))
+            .count(),
+        1,
+        "the dropped-write disposition is delivered exactly once: {labels:?}"
+    );
+    let dropped_at = labels
+        .iter()
+        .position(|label| label.starts_with("writes-dropped"))
+        .expect("dropped report present");
+    let terminal_at = labels
+        .iter()
+        .position(|label| label == "terminal")
+        .expect("shutdown still converges to the terminal");
+    assert!(
+        dropped_at < terminal_at,
+        "no adapter can see the terminal without first seeing the loss: {labels:?}"
+    );
+    assert!(
+        !labels.iter().any(|label| label.starts_with("write:")),
+        "a shut-down transport is never offered a write: {labels:?}"
+    );
+}
+
+#[test]
+fn shutdown_reports_an_untouched_committed_write_as_a_whole_frame_drop() {
+    // The other reachable polarity of the front write: committed and
+    // offered, but not one byte accepted. The whole frame is lost and the
+    // peer saw nothing of it, so `partial_front` is false.
+    let (sender, mut driver) = connection_driver_in_state(
+        ConnectionConfig::default(),
+        Role::Server,
+        InitialState::Open,
+    );
+    sender
+        .try_send(LocalCommand::SendText {
+            text: "a1".to_owned(),
+        })
+        .expect("enqueue");
+    let applied = driver.poll(DriverInput::Wake);
+    assert!(matches!(
+        applied.command,
+        Some(CommandDisposition::Applied(_))
+    ));
+    assert!(matches!(applied.output, DriverOutput::Write(_)));
+
+    let labels = drain_outputs(&mut driver, DriverInput::Shutdown);
+    assert_eq!(
+        labels.first().map(String::as_str),
+        Some("writes-dropped:frames=1,bytes=4,partial_front=false"),
+        "the whole committed frame is reported: {labels:?}"
+    );
+}
+
+/// The committed-pending-write set at any shutdown instant is bounded at
+/// ONE frame by the driver's own structure, and this test pins the reason
+/// so the plural accounting in `abort_pending_writes` is not mistaken for
+/// a reachable-but-untested path: `next_output` moves a committed write
+/// into the offered slot as soon as one exists, and no command, inbound
+/// chunk, or EOF is applied while a write is offered. So the core's
+/// ordered write stream is empty whenever a write is in flight, and the
+/// in-flight write is the only thing a shutdown can abandon.
+///
+/// A committed write appearing AFTER shutdown would also be a leak; the
+/// only post-shutdown input the driver applies is the latched EOF, which
+/// emits events and no write. Both halves are asserted here.
+#[test]
+fn no_committed_write_survives_or_appears_after_the_shutdown_report() {
+    let (sender, mut driver) = connection_driver_in_state(
+        ConnectionConfig::default(),
+        Role::Server,
+        InitialState::Open,
+    );
+    // A close command commits a write AND drives the lifecycle, so the
+    // post-shutdown EOF has real work to do on top of the abandoned frame.
+    sender
+        .try_send(LocalCommand::SendClose {
+            code: 1000,
+            reason: String::new(),
+        })
+        .expect("enqueue");
+    let applied = driver.poll(DriverInput::Wake);
+    assert!(matches!(
+        applied.command,
+        Some(CommandDisposition::Applied(_))
+    ));
+    let DriverOutput::Write(suffix) = applied.output else {
+        panic!("the close command commits a wire write");
+    };
+    let committed = suffix.len();
+    assert_eq!(committed, 4, "close frame with the constructor payload");
+
+    let labels = drain_outputs(&mut driver, DriverInput::Shutdown);
+    assert_eq!(
+        labels
+            .iter()
+            .filter(|label| label.starts_with("writes-dropped"))
+            .count(),
+        1,
+        "exactly one dropped-write report, so no write appeared after it: {labels:?}"
+    );
+    assert_eq!(
+        labels.first().map(String::as_str),
+        Some("writes-dropped:frames=1,bytes=4,partial_front=false"),
+        "{labels:?}"
+    );
+    assert!(
+        !labels.iter().any(|label| label.starts_with("write:")),
+        "a shut-down transport is never offered a write: {labels:?}"
+    );
+    assert!(
+        labels.iter().any(|label| label == "terminal"),
+        "the run still converges: {labels:?}"
+    );
+}
+
+#[test]
+fn shutdown_with_nothing_committed_reports_no_dropped_writes() {
+    // Polarity: the typed disposition reports a real loss, it is not
+    // manufactured on every shutdown.
+    let (_sender, mut driver) = connection_driver_in_state(
+        ConnectionConfig::default(),
+        Role::Server,
+        InitialState::Open,
+    );
+    let labels = drain_outputs(&mut driver, DriverInput::Shutdown);
+    assert!(
+        !labels
+            .iter()
+            .any(|label| label.starts_with("writes-dropped")),
+        "no committed write was pending, so nothing is reported: {labels:?}"
+    );
+    assert!(
+        labels.iter().any(|label| label == "terminal"),
+        "shutdown still converges: {labels:?}"
+    );
 }

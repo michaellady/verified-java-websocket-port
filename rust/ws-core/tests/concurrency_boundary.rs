@@ -157,3 +157,82 @@ fn owner_drains_the_channel_into_the_core_it_exclusively_owns() {
         ws_core::error::FailureCode::StateViolation
     );
 }
+
+/// US-017 AC2 receiver-drop, at the seam that owns it (story review
+/// BLOCKING-1, session 01a04626).
+///
+/// The bounded channel's acceptance is a promise that the sole owner will
+/// apply the command. Once the owner half is dropped that promise cannot be
+/// kept, so `try_send` must refuse with its own typed reason instead of
+/// admitting the command into a queue nobody drains. Refusal stays
+/// non-blocking and returns the command intact, exactly like `Full`.
+#[test]
+fn dropping_the_owner_half_makes_every_later_send_a_typed_receiver_drop_refusal() {
+    let config = config_with_capacity(2);
+    let (queue, sender) = CommandQueue::new(&config);
+    let clone = sender.clone();
+    // While the owner is alive, capacity behaves exactly as before.
+    assert!(sender.try_send(tagged("a")).is_ok());
+    drop(queue);
+    for handle in [&sender, &clone] {
+        let refused = handle
+            .try_send(tagged("after-drop"))
+            .expect_err("no send is accepted once the sole owner is gone");
+        assert_eq!(
+            refused.reason,
+            ws_core::connection::CommandRefusalReason::ReceiverDropped,
+            "receiver-drop is its own typed disposition"
+        );
+        assert_eq!(tag_of(&refused.command), "after-drop");
+    }
+    // Free capacity does not resurrect acceptance: the refusal is terminal,
+    // not backpressure to retry.
+    let again = sender
+        .try_send(tagged("still-refused"))
+        .expect_err("terminal refusal");
+    assert_eq!(
+        again.reason,
+        ws_core::connection::CommandRefusalReason::ReceiverDropped
+    );
+}
+
+/// The receiver-drop signal is published under the queue lock, so a
+/// producer racing the drop from another thread either wins the push before
+/// the owner goes away or observes the typed refusal. It never blocks and
+/// never reports accepted after the drop has been published.
+#[test]
+fn a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accept() {
+    for _ in 0..64 {
+        let config = config_with_capacity(8);
+        let (queue, sender) = CommandQueue::new(&config);
+        let producer = thread::spawn(move || {
+            let mut accepted = 0usize;
+            let mut receiver_dropped = 0usize;
+            for index in 0..64 {
+                match sender.try_send(tagged(&format!("r{index}"))) {
+                    Ok(()) => accepted += 1,
+                    Err(refused) => {
+                        if refused.reason
+                            == ws_core::connection::CommandRefusalReason::ReceiverDropped
+                        {
+                            receiver_dropped += 1;
+                            // Terminal: every later send refuses the same way.
+                            assert!(
+                                sender.try_send(tagged("post")).is_err(),
+                                "the receiver-drop refusal is terminal"
+                            );
+                            break;
+                        }
+                    }
+                }
+            }
+            (accepted, receiver_dropped)
+        });
+        drop(queue);
+        let (accepted, receiver_dropped) = producer.join().expect("producer thread");
+        // Whatever the interleaving, acceptance never happens after the
+        // drop is observed, and the channel is bounded either way.
+        assert!(accepted <= 8, "bounded capacity held: {accepted}");
+        assert!(receiver_dropped <= 1);
+    }
+}

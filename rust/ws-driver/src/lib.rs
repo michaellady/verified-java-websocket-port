@@ -38,9 +38,18 @@
 //! the core's own bounded event/write queues are the ordered ledger and the
 //! driver drains them, never duplicating protocol state (the US-009
 //! "adapters cannot duplicate protocol state" promise). Their
-//! `ProducersDropped` disposition is NOT adopted: the `ws_core` channel has
-//! no disconnect signal by design, so producer lifecycle belongs to the
-//! embedding adapter.
+//! `ProducersDropped` disposition is NOT adopted: PRODUCER lifecycle
+//! belongs to the embedding adapter, and the `ws_core` channel carries no
+//! producer-disconnect signal.
+//!
+//! The mirror-image RECEIVER lifecycle IS carried, and by the incumbent
+//! seam rather than a parallel one: dropping the sole owner (this
+//! [`ConnectionDriver`], which holds the [`ws_core::CommandQueue`])
+//! publishes [`ws_core::CommandRefusalReason::ReceiverDropped`], so a
+//! producer's `try_send` refuses instead of reporting accepted into a
+//! queue nobody will drain (US-017 AC2 receiver-drop; story review
+//! BLOCKING-1, session 01a04626 — the earlier stance pinned that accepted
+//! send as correct).
 //!
 //! The six `fuzz-seeds/us017/*.seed` schedule seeds are adopted byte-verbatim
 //! with attribution; `tests/driver_contract.rs` re-derives each seed's
@@ -321,6 +330,32 @@ pub enum CommandDisposition {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TerminalOutcome;
 
+/// The typed disposition of committed wire writes the adapter can no
+/// longer deliver, reported once the transport service ends
+/// ([`DriverInput::Shutdown`]).
+///
+/// US-017 AC2 requires adapter shutdown to have "explicit typed behavior"
+/// and to not "leak". A write reaches this struct only after the core
+/// COMMITTED it — the command was applied, its frame is in the ordered
+/// wire stream, and the producer already saw
+/// [`CommandDisposition::Applied`]. Abandoning it silently would leave the
+/// producer believing bytes it will never see were sent, so the driver
+/// hands the loss back as [`DriverOutput::WritesDropped`] before it
+/// delivers [`DriverOutput::Terminal`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DroppedWrites {
+    /// Committed transport writes that will never be flushed. A partially
+    /// drained front write counts as one.
+    pub frames: usize,
+    /// Undelivered bytes across those writes. For a partially drained
+    /// front write only the UNDRAINED suffix counts — the bytes the
+    /// transport already accepted did reach the wire.
+    pub bytes: usize,
+    /// Whether the front write had already put bytes on the wire, so the
+    /// peer saw a truncated frame rather than no frame at all.
+    pub partial_front: bool,
+}
+
 /// The next ordered driver output.
 #[derive(Debug, PartialEq, Eq)]
 pub enum DriverOutput<'owner> {
@@ -334,6 +369,10 @@ pub enum DriverOutput<'owner> {
     Event(SemanticEvent),
     /// One typed failure the core reported for an owner-applied input.
     Failure(TypedProtocolFailure),
+    /// Committed wire writes the ended transport can no longer deliver
+    /// (US-017 AC2 adapter shutdown). Reported before
+    /// [`DriverOutput::Terminal`], never silently abandoned.
+    WritesDropped(DroppedWrites),
     /// The exactly-once terminal delivery.
     Terminal(TerminalOutcome),
 }
@@ -387,6 +426,10 @@ pub struct ConnectionDriver {
     /// (no producer command exists to attach it to); surfaced as the next
     /// [`DriverOutput::Failure`].
     injected_failure: Option<TypedProtocolFailure>,
+    /// Committed wire writes abandoned when the transport service ended,
+    /// awaiting their exactly-once [`DriverOutput::WritesDropped`] report
+    /// (US-017 AC2; story review BLOCKING-1/2, session 01a04626).
+    dropped_writes: Option<DroppedWrites>,
     /// The configured close-echo wire composition policy (E5b).
     close_echo: CloseEchoPolicy,
     /// Armed for exactly the one core write that answers an inbound close
@@ -417,6 +460,7 @@ impl ConnectionDriver {
             policy,
             pending_auto_pongs: VecDeque::new(),
             injected_failure: None,
+            dropped_writes: None,
             close_echo,
             close_echo_armed: false,
         }
@@ -465,11 +509,17 @@ impl ConnectionDriver {
                 self.shutdown_latched = true;
                 // Undeliverable wire output is aborted; the protocol EOF
                 // below still applies (borrowed design: abort-undrainable-
-                // writes on shutdown). Undelivered automatic replies are
-                // just as undeliverable.
-                self.offered_write = None;
-                self.write_cursor = 0;
-                self.drop_pending_writes();
+                // writes on shutdown). US-017 story review BLOCKING-2
+                // (session 01a04626): aborting is right, abandoning
+                // SILENTLY is the AC2 leak — every committed write that
+                // will never be flushed is accounted into the typed
+                // `DroppedWrites` disposition surfaced below.
+                self.abort_pending_writes();
+                // Parked automatic replies are NOT committed writes: the
+                // core refused them, so no frame exists and no producer was
+                // ever told they were applied. They are dropped, not
+                // reported (the reply's own state gate would refuse them
+                // now anyway — see `inject_auto_pong`).
                 self.pending_auto_pongs.clear();
                 // The echo whose composition was armed is undeliverable too.
                 self.close_echo_armed = false;
@@ -656,8 +706,44 @@ impl ConnectionDriver {
         }
     }
 
-    fn drop_pending_writes(&mut self) {
-        while self.core.next_write().is_some() {}
+    /// Abort every committed wire write the ended transport can no longer
+    /// deliver, ACCOUNTING for it in the pending [`DroppedWrites`] report
+    /// (US-017 AC2: adapter shutdown is typed and does not leak).
+    ///
+    /// Called at the shutdown instant and again from [`Self::next_output`]
+    /// on every later poll, so a write the core commits after shutdown is
+    /// aborted and reported too rather than being offered to a dead
+    /// transport. On the shipped core no such write exists — the only
+    /// post-shutdown input is the latched EOF, which emits events only —
+    /// which is why the report is observed exactly once.
+    fn abort_pending_writes(&mut self) {
+        let mut frames = 0usize;
+        let mut bytes = 0usize;
+        let mut partial_front = false;
+        if let Some(write) = self.offered_write.take() {
+            frames += 1;
+            // Only the UNDRAINED suffix is lost; the accepted prefix did
+            // reach the wire, which is exactly what makes the peer's view
+            // truncated rather than empty.
+            bytes += write.bytes.len() - self.write_cursor;
+            partial_front = self.write_cursor > 0;
+            self.write_cursor = 0;
+        }
+        while let Some(write) = self.core.next_write() {
+            frames += 1;
+            bytes += write.bytes.len();
+        }
+        if frames == 0 {
+            return;
+        }
+        let report = self.dropped_writes.get_or_insert(DroppedWrites {
+            frames: 0,
+            bytes: 0,
+            partial_front: false,
+        });
+        report.frames += frames;
+        report.bytes += bytes;
+        report.partial_front |= partial_front;
     }
 
     fn write_remaining(&self) -> usize {
@@ -722,6 +808,17 @@ impl ConnectionDriver {
     }
 
     fn next_output(&mut self) -> DriverOutput<'_> {
+        // US-017 AC2: once the transport service has ended, no committed
+        // write can be delivered. Sweep any that appeared since the last
+        // sweep into the report and surface the loss BEFORE any event or
+        // the terminal, so no adapter can reach `Terminal` without having
+        // been told what was abandoned.
+        if self.shutdown_latched {
+            self.abort_pending_writes();
+            if let Some(dropped) = self.dropped_writes.take() {
+                return DriverOutput::WritesDropped(dropped);
+            }
+        }
         // Writes drain before events so committed wire order can never be
         // reordered past a later step's output (FIFO owner order).
         if self.offered_write.is_none() {

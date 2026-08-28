@@ -31,10 +31,11 @@ use std::fs;
 use std::path::PathBuf;
 
 use ws_core::config::ConnectionConfig;
+use ws_core::connection::CommandRefusalReason;
 use ws_core::{CommandSender, InitialState, LocalCommand, ReadyState, Role};
 use ws_driver::{
     AutoResponsePolicy, CommandDisposition, ConnectionDriver, DeferredReason, DriverInput,
-    DriverOutput, InputDisposition, connection_driver_in_state_with_policy,
+    DriverOutput, DroppedWrites, InputDisposition, connection_driver_in_state_with_policy,
 };
 
 // ---------------------------------------------------------------------------
@@ -277,6 +278,11 @@ enum Fault {
     DropTerminal,
     /// `repeat-terminal-on-wake` (duplicate-delivery).
     RepeatTerminal,
+    /// `drop-writes-dropped-report` (silent-write-drop): the adapter
+    /// swallows the typed dropped-write disposition, which is exactly the
+    /// US-017 story-review BLOCKING-2 behavior (committed pending writes
+    /// abandoned on shutdown with nothing reported).
+    DropWritesDroppedReport,
 }
 
 impl Fault {
@@ -289,6 +295,7 @@ impl Fault {
             Fault::SwapCommittedWrites => "swap-committed-writes",
             Fault::DropTerminal => "drop-terminal-after-shutdown",
             Fault::RepeatTerminal => "repeat-terminal-on-wake",
+            Fault::DropWritesDroppedReport => "drop-writes-dropped-report",
         }
     }
 
@@ -300,6 +307,7 @@ impl Fault {
             "swap-committed-writes" => Fault::SwapCommittedWrites,
             "drop-terminal-after-shutdown" => Fault::DropTerminal,
             "repeat-terminal-on-wake" => Fault::RepeatTerminal,
+            "drop-writes-dropped-report" => Fault::DropWritesDroppedReport,
             other => panic!("unknown fault mutation {other:?}"),
         }
     }
@@ -330,6 +338,18 @@ enum Violation {
     /// exclusive, exactly as the real adapter (which stops at the first
     /// surfaced `Failure`) would experience them.
     TerminalAfterFailure,
+    /// Committed writes the ended transport abandoned were not reported
+    /// back to the adapter with the typed dropped-write disposition, or the
+    /// report did not account for exactly what was abandoned (US-017 AC2
+    /// adapter shutdown; story review BLOCKING-2).
+    UnreportedWriteDrop,
+    /// A committed write was offered to a transport that had already been
+    /// shut down.
+    WriteAfterShutdown,
+    /// A send after the sole owner was dropped did not yield the typed
+    /// receiver-drop refusal (US-017 AC2 receiver-drop; story review
+    /// BLOCKING-1).
+    ReceiverDropUnreported,
     /// Two executions of the same schedule diverged.
     Nondeterminism,
 }
@@ -346,6 +366,9 @@ impl Violation {
             Violation::DuplicateTerminal => "terminal-exactly-once",
             Violation::PostTerminalActivity => "no-post-terminal",
             Violation::TerminalAfterFailure => "failure-halt-exclusivity",
+            Violation::UnreportedWriteDrop => "shutdown-write-drop-reported",
+            Violation::WriteAfterShutdown => "no-write-after-shutdown",
+            Violation::ReceiverDropUnreported => "receiver-drop-typed",
             Violation::Nondeterminism => "deterministic-replay",
         }
     }
@@ -361,6 +384,9 @@ impl Violation {
             Violation::DuplicateTerminal => "terminal-count-two",
             Violation::PostTerminalActivity => "movement-after-terminal",
             Violation::TerminalAfterFailure => "terminal-and-failure-both-observed",
+            Violation::UnreportedWriteDrop => "committed-writes-abandoned-unreported",
+            Violation::WriteAfterShutdown => "write-offered-after-shutdown",
+            Violation::ReceiverDropUnreported => "send-accepted-after-owner-drop",
             Violation::Nondeterminism => "replay-trace-divergence",
         }
     }
@@ -419,6 +445,7 @@ enum TraceOutput {
     Write(Vec<u8>),
     Event(ws_core::SemanticEvent),
     Failure(ws_core::TypedProtocolFailure),
+    WritesDropped(DroppedWrites),
     Terminal,
 }
 
@@ -458,6 +485,17 @@ struct Outcome {
     /// The run stopped at its first surfaced fatal `Failure` output (the
     /// adapter-seam terminal disposition of a poisoned run).
     halted: bool,
+    /// Typed dropped-write dispositions surfaced (US-017 AC2).
+    write_drop_reports: u32,
+    /// Committed frames and undelivered bytes those reports accounted for.
+    dropped_frames: usize,
+    dropped_bytes: usize,
+    /// Whether a report said the abandoned front write was already partly
+    /// on the wire.
+    dropped_partial_front: bool,
+    /// Typed receiver-drop refusals observed by the end-of-run probe
+    /// (US-017 AC2; exactly one per non-halted run).
+    receiver_drop_refusals: u32,
     violations: Vec<Violation>,
 }
 
@@ -501,6 +539,14 @@ struct Run {
     disposed_tags: Vec<Tag>,
     shutdown_seen: bool,
     eof_seen: bool,
+    /// What the BOUNDARY independently computed the ended transport still
+    /// owed at the shutdown instant: committed frames not fully on the
+    /// wire, their undelivered bytes, and whether the front one was
+    /// already partly written. The driver's typed report must match it
+    /// exactly — that equality is the US-017 AC2 no-leak check.
+    owed_frames: usize,
+    owed_bytes: usize,
+    owed_partial_front: bool,
     /// Set when a `DriverOutput::Failure` surfaces: the modeled adapter
     /// stops driving the run at that instant, exactly like the real
     /// ws-testee io_loop (`StepOutput::Failure` ends the loop as
@@ -549,6 +595,9 @@ impl Run {
             disposed_tags: Vec::new(),
             shutdown_seen: false,
             eof_seen: false,
+            owed_frames: 0,
+            owed_bytes: 0,
+            owed_partial_front: false,
             halted: false,
             fault,
             fault_used: false,
@@ -582,6 +631,7 @@ impl Run {
                 DriverOutput::Write(suffix) => TraceOutput::Write(suffix.to_vec()),
                 DriverOutput::Event(event) => TraceOutput::Event(event),
                 DriverOutput::Failure(failure) => TraceOutput::Failure(failure),
+                DriverOutput::WritesDropped(dropped) => TraceOutput::WritesDropped(dropped),
                 DriverOutput::Terminal(_) => TraceOutput::Terminal,
             };
             (result.input, result.command, output, result.state)
@@ -614,6 +664,11 @@ impl Run {
         match &output {
             TraceOutput::Idle => {}
             TraceOutput::Write(suffix) => {
+                if self.shutdown_seen {
+                    // US-017 AC2: a transport that has ended can deliver
+                    // nothing, so no committed write may be offered to it.
+                    self.outcome.record(Violation::WriteAfterShutdown);
+                }
                 if let Some(offer) = &self.offer {
                     // The driver re-offers BYTE-EXACTLY the undrained
                     // suffix of the committed frame.
@@ -637,6 +692,19 @@ impl Run {
                 // stops driving here; Terminal-after-Failure is impossible
                 // by construction and asserted in finish().
                 self.halted = true;
+            }
+            TraceOutput::WritesDropped(dropped) => {
+                if self.arm(Fault::DropWritesDroppedReport) {
+                    // The seeded defect: the adapter never learns that
+                    // committed writes were abandoned — the exact
+                    // BLOCKING-2 behavior, now caught by the accounting
+                    // check in `finish`.
+                } else {
+                    self.outcome.write_drop_reports += 1;
+                    self.outcome.dropped_frames += dropped.frames;
+                    self.outcome.dropped_bytes += dropped.bytes;
+                    self.outcome.dropped_partial_front |= dropped.partial_front;
+                }
             }
             TraceOutput::Terminal => {
                 if self.arm(Fault::DropTerminal) {
@@ -851,6 +919,22 @@ impl Run {
             }
             Action::Shutdown => {
                 self.shutdown_seen = true;
+                // US-017 AC2: before dropping its expectations, the
+                // boundary computes what the ended transport still OWES —
+                // the committed frames that never fully reached the wire
+                // and their undelivered bytes — so the driver's typed
+                // report can be checked against an independent count
+                // instead of being taken on trust.
+                let already_on_wire = self.offer.as_ref().map_or(0, |offer| offer.accepted);
+                let owed_bytes = self
+                    .expected_frames
+                    .iter()
+                    .map(Vec::len)
+                    .sum::<usize>()
+                    .saturating_sub(already_on_wire);
+                self.owed_frames += self.expected_frames.len();
+                self.owed_bytes += owed_bytes;
+                self.owed_partial_front |= already_on_wire > 0;
                 // Undeliverable committed output is aborted with the
                 // transport; the boundary drops its expectations with it.
                 self.offer = None;
@@ -946,8 +1030,11 @@ impl Run {
             }
             // Commands still queued at the halt belong to the embedding
             // adapter's teardown; only the at-most-once subset invariant
-            // above applies. No further polls are issued.
-            return self.outcome;
+            // above applies. No further polls are issued. For the same
+            // reason a halted run makes no dropped-write claim: the
+            // surfaced Failure IS its terminal and the adapter stops
+            // there, so nothing downstream of it is scored.
+            return self.probe_receiver_drop();
         }
         // Non-halted run: no Failure ever surfaced (a Failure halts by
         // construction), so a transport that ended must converge to the
@@ -978,7 +1065,59 @@ impl Run {
                 self.outcome.record(Violation::WriteBypass);
             }
         }
-        self.outcome
+        // US-017 AC2 (story review BLOCKING-2): whatever the ended
+        // transport owed must have come back as the typed dropped-write
+        // disposition, accounted EXACTLY — frames, undelivered bytes, and
+        // whether the front frame was already partly on the wire. Silent
+        // abandonment (the reported defect) shows up here as a mismatch.
+        if self.owed_frames != self.outcome.dropped_frames
+            || self.owed_bytes != self.outcome.dropped_bytes
+            || self.owed_partial_front != self.outcome.dropped_partial_front
+        {
+            self.outcome.record(Violation::UnreportedWriteDrop);
+        }
+        // The report is a single disposition, not a stream: nothing is
+        // reported when nothing was owed, and one report otherwise.
+        if self.outcome.write_drop_reports > 1
+            || (self.owed_frames == 0 && self.outcome.write_drop_reports != 0)
+        {
+            self.outcome.record(Violation::UnreportedWriteDrop);
+        }
+        self.probe_receiver_drop()
+    }
+
+    /// US-017 AC2 (story review BLOCKING-1): drop the sole owner from the
+    /// state THIS schedule reached, then probe the producer seam. Once the
+    /// owner is gone a send can never be applied, so it must refuse with
+    /// the typed receiver-drop reason and hand the command back — never
+    /// report accepted. Running this on every explored schedule is what
+    /// makes the receiver-drop disposition exercised across interleavings
+    /// rather than in one fixture state.
+    fn probe_receiver_drop(self) -> Outcome {
+        let Run {
+            driver,
+            sender,
+            mut outcome,
+            ..
+        } = self;
+        drop(driver);
+        let probe = command_for(Tag::TextA);
+        match sender.try_send(probe.clone()) {
+            Ok(()) => outcome.record(Violation::ReceiverDropUnreported),
+            Err(refused) => {
+                if refused.reason == CommandRefusalReason::ReceiverDropped
+                    && refused.command == probe
+                {
+                    outcome.receiver_drop_refusals += 1;
+                } else {
+                    outcome.record(Violation::ReceiverDropUnreported);
+                }
+            }
+        }
+        if outcome.receiver_drop_refusals != 1 {
+            outcome.record(Violation::ReceiverDropUnreported);
+        }
+        outcome
     }
 }
 
@@ -1131,6 +1270,8 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     let mut max_drain = 0u32;
     let mut closed_terminal_runs = 0usize;
     let mut failure_halted_runs = 0usize;
+    let mut partial_front_drops = 0usize;
+    let mut max_dropped_frames = 0usize;
     for schedule in &exploration.schedules {
         let outcome = execute_deterministic(schedule, Fault::None);
         if let Some(violation) = outcome.violations.first().copied() {
@@ -1164,6 +1305,14 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.deferred_command_turn += outcome.deferred_command_turn;
         totals.deferred_backpressure += outcome.deferred_backpressure;
         totals.rejected_inputs += outcome.rejected_inputs;
+        totals.write_drop_reports += outcome.write_drop_reports;
+        totals.dropped_frames += outcome.dropped_frames;
+        totals.dropped_bytes += outcome.dropped_bytes;
+        totals.receiver_drop_refusals += outcome.receiver_drop_refusals;
+        if outcome.dropped_partial_front {
+            partial_front_drops += 1;
+        }
+        max_dropped_frames = max_dropped_frames.max(outcome.dropped_frames);
         max_drain = max_drain.max(outcome.drain_polls);
     }
 
@@ -1191,6 +1340,30 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         failure_halted_runs > 0,
         "the failure-halt disposition was explored"
     );
+    // US-017 AC2 story-review coverage: BOTH new dispositions are reached
+    // by the exhaustive sweep, not just by the unit fixtures.
+    assert_eq!(
+        totals.receiver_drop_refusals as usize, schedule_count,
+        "every explored schedule ends with the typed receiver-drop refusal, \
+         from whatever state it reached"
+    );
+    assert!(
+        totals.write_drop_reports > 0,
+        "shutdown with committed pending writes was explored, and reported"
+    );
+    assert!(
+        totals.dropped_bytes > 0,
+        "the reported drops account for real undelivered bytes"
+    );
+    assert!(
+        partial_front_drops > 0,
+        "the partially-written front frame (a truncated frame on the peer's \
+         wire) was explored"
+    );
+    assert!(
+        totals.write_drop_reports as usize <= schedule_count,
+        "at most one dropped-write disposition per schedule"
+    );
 
     println!(
         "US017_EXPLORATION programs={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
@@ -1198,7 +1371,10 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
          failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
          terminal_rejected={} events={} failures={} deferred_output_pending={} deferred_command_turn={} \
-         deferred_backpressure={} rejected_inputs={} max_drain_polls={max_drain}",
+         deferred_backpressure={} rejected_inputs={} write_drop_reports={} dropped_frames={} \
+         dropped_bytes={} partial_front_drops={partial_front_drops} \
+         max_dropped_frames={max_dropped_frames} receiver_drop_refusals={} \
+         max_drain_polls={max_drain}",
         PROGRAMS.iter().map(|program| program.len()).sum::<usize>(),
         exploration.branches,
         schedule_count * 2,
@@ -1214,6 +1390,10 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.deferred_command_turn,
         totals.deferred_backpressure,
         totals.rejected_inputs,
+        totals.write_drop_reports,
+        totals.dropped_frames,
+        totals.dropped_bytes,
+        totals.receiver_drop_refusals,
     );
 }
 
@@ -1222,7 +1402,7 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
 // exploration, shrunk to 1-minimal schedules, and pinned as artifacts.
 // ---------------------------------------------------------------------------
 
-const NAMED_FAULTS: [(&str, Fault, Violation); 6] = [
+const NAMED_FAULTS: [(&str, Fault, Violation); 7] = [
     (
         "lock-sharing",
         Fault::ProducerProtocolMutation,
@@ -1248,6 +1428,13 @@ const NAMED_FAULTS: [(&str, Fault, Violation); 6] = [
         "duplicate-delivery",
         Fault::RepeatTerminal,
         Violation::DuplicateTerminal,
+    ),
+    // US-017 story review BLOCKING-2: the reported defect itself, seeded
+    // as a boundary fault so the new accounting check is shown to kill it.
+    (
+        "silent-write-drop",
+        Fault::DropWritesDroppedReport,
+        Violation::UnreportedWriteDrop,
     ),
 ];
 
@@ -1426,9 +1613,10 @@ fn committed_minimized_schedules_replay_as_regressions() {
             "lock-sharing.seed",
             "lost-command.seed",
             "queue-bypass.seed",
+            "silent-write-drop.seed",
             "write-reorder.seed",
         ],
-        "exactly the six named minimized artifacts are retained"
+        "exactly the seven named minimized artifacts are retained"
     );
     for name in names {
         let body = fs::read_to_string(dir.join(&name)).expect("read minimized seed");
