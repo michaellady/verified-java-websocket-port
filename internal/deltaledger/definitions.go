@@ -144,6 +144,10 @@ func Definitions() []Definition {
 	// Appended last so the committed hash chain's existing prefix is
 	// unchanged by the E5/E5b Autobahn follow-ups.
 	definitions = append(definitions, autobahnCompositionDefinitions()...)
+	// Appended last for the same reason: the owner-mandated
+	// rejected-close-transition record must not disturb the committed
+	// 34-record prefix.
+	definitions = append(definitions, closeTransitionDefinitions()...)
 	return definitions
 }
 
