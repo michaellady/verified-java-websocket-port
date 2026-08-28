@@ -67,6 +67,9 @@ func EvaluateCandidate(ctx context.Context, request CandidateRequest) (Candidate
 	if err := validateManifestClaims(manifest); err != nil {
 		return invalid(codeOf(err), candidateManifestPath)
 	}
+	if manifest.Target.Commit != canonicalTargetCommit || manifest.Target.Tree != canonicalTargetTree {
+		return invalid("TARGET_SUBJECT_DRIFT", candidateManifestPath)
+	}
 	if err := verifyWorkingGitBytes(rootPath, candidateManifestPath, manifestRaw, "HEAD"); err != nil {
 		return invalid("ROOT_ENVELOPE_GIT_DRIFT", candidateManifestPath)
 	}
@@ -114,6 +117,9 @@ func EvaluateCandidate(ctx context.Context, request CandidateRequest) (Candidate
 	var catalog formalCatalog
 	if err := decodeCandidateJSON(catalogRaw, &catalog); err != nil {
 		return invalid("FORMAL_CATALOG_INVALID", formalCatalogPath)
+	}
+	if err := validateFormalSemantics(catalog); err != nil {
+		return invalid(codeOf(err), formalCatalogPath)
 	}
 	wantCatalog, err := buildFormalCatalog(rootPath, manifest.Target)
 	if err != nil {
@@ -505,6 +511,56 @@ func validateReviewLineage(receipts []reviewReceipt) error {
 	}
 	if full > 1 {
 		return errors.New("SECOND_FULL_REVIEW_FORBIDDEN")
+	}
+	return nil
+}
+
+func validateFormalSemantics(catalog formalCatalog) error {
+	if len(catalog.Obligations) == 0 || len(catalog.JavaBindings) != len(catalog.Obligations) || len(catalog.RustBindings) != len(catalog.Obligations) || len(catalog.Evidence) != len(catalog.Obligations) || len(catalog.Coverage) != len(catalog.Obligations) {
+		return errors.New("FORMAL_DENOMINATOR_DRIFT")
+	}
+	for index, obligation := range catalog.Obligations {
+		if obligation.ObligationID == "" || len(obligation.SurfaceIDs) == 0 || len(obligation.RequiredMutationIDs) == 0 || len(obligation.AllowedMethods) == 0 || len(obligation.RequiredEvidenceKinds) == 0 {
+			return errors.New("FORMAL_DENOMINATOR_DRIFT")
+		}
+		javaBinding, rustBinding := catalog.JavaBindings[index], catalog.RustBindings[index]
+		evidence, coverage := catalog.Evidence[index], catalog.Coverage[index]
+		if javaBinding.ObligationID != obligation.ObligationID || rustBinding.ObligationID != obligation.ObligationID || evidence.ObligationID != obligation.ObligationID || coverage.ObligationID != obligation.ObligationID {
+			return errors.New("FORMAL_DENOMINATOR_DRIFT")
+		}
+		lowerPath, lowerSymbol := strings.ToLower(rustBinding.SourcePath), strings.ToLower(rustBinding.ProductionSymbol)
+		if rustBinding.ConnectionState != "CONNECTED" || !rustBinding.ReachableFromEntry || strings.Contains(lowerPath, "/tests/") || strings.Contains(lowerSymbol, "proof") || strings.Contains(lowerSymbol, "adapter_local") {
+			return errors.New("SHIPPED_RUST_DISCONNECTED")
+		}
+		if evidence.ExecutionState != "NOT_EXECUTED" || evidence.ObservedStrength != "NONE" {
+			if evidence.Refinement.State != "CONNECTED" || evidence.Refinement.ArtifactSHA256 == nil || evidence.ExecutionState != "EXECUTED_PASS" {
+				return errors.New("FORMAL_STRENGTH_OVERSTATED")
+			}
+		}
+		if evidence.Bounds.MaxFrameBytes != nil || evidence.Bounds.MaxSteps != nil || evidence.Assumptions.Role != "UNRESOLVED" || evidence.Assumptions.Allocator != "UNRESOLVED" {
+			return errors.New("FORMAL_BOUND_OR_ASSUMPTION_INCOMPATIBLE")
+		}
+		if evidence.Refinement.State == "CONNECTED" && evidence.Refinement.ArtifactSHA256 == nil {
+			return errors.New("FORMAL_REFINEMENT_DISCONNECTED")
+		}
+		if len(evidence.MutationSensitivity) == 0 {
+			return errors.New("MUTATION_SURVIVOR")
+		}
+		mutants := map[string]bool{}
+		for _, mutation := range evidence.MutationSensitivity {
+			mutants[mutation.MutantID] = true
+			if mutation.Disposition == "SURVIVED" || mutation.Disposition == "NOT_EXECUTED" || mutation.Disposition == "UNCOVERED" {
+				return errors.New("MUTATION_SURVIVOR")
+			}
+		}
+		for _, required := range obligation.RequiredMutationIDs {
+			if !mutants[required] {
+				return errors.New("MUTATION_SURVIVOR")
+			}
+		}
+		if coverage.AggregateStatus == "SATISFIED" && (coverage.JavaStatus != "SATISFIED" || coverage.RustStatus != "SATISFIED" || coverage.RefinementStatus != "SATISFIED" || coverage.MutationStatus != "SATISFIED") {
+			return errors.New("FORMAL_STRENGTH_OVERSTATED")
+		}
 	}
 	return nil
 }

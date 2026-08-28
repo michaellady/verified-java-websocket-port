@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 )
@@ -593,27 +594,60 @@ func renderParityCoverage(replay parityReplay) []byte {
 	return []byte(out.String())
 }
 
-// CandidateSchemaDocuments returns the exact closed schema artifacts. Runtime
-// validation is stricter than these transport schemas and uses closed Go
-// structs for every nested object.
+// CandidateSchemaDocuments returns the exact closed schema artifacts. The
+// recursive projection makes every object closed; semantic enums and
+// cross-field rules remain enforced by EvaluateCandidate.
 func CandidateSchemaDocuments() map[string][]byte {
-	required := map[string][]string{
-		candidateSchemaPaths[0]: {"$schema", "schema_version", "story_id", "candidate_id", "target", "challenge_sha256", "platform_attempts", "verifier_attempts", "test_reconciliation", "source_reconciliation", "counts"},
-		candidateSchemaPaths[1]: {"$schema", "schema_version", "story_id", "candidate_id", "snapshot_state", "parity_state", "assurance", "independent_review_claimed", "publication", "production", "signing", "performance_claimed", "cutover_claimed", "target", "graph", "root_node_id", "candidate_root", "replay"},
-		candidateSchemaPaths[2]: {"$schema", "schema_version", "story_id", "candidate_id", "prd_identity", "gates", "evidence_families", "nonclaims", "blocker_catalog", "assurance", "independent_review_claimed", "publication", "production", "signing"},
-		candidateSchemaPaths[3]: {"$schema", "schema_version", "catalog_id", "denominator_basis", "obligations", "java_bindings", "rust_bindings", "evidence", "coverage", "assurance", "independent_review_claimed"},
-		candidateSchemaPaths[4]: {"$schema", "schema_version", "story_id", "candidate_id", "target", "candidate_root", "receipts", "evaluation_root", "snapshot_state", "parity_state", "gates", "evidence_families", "formal_coverage", "blockers", "nonclaims", "review_chain", "counts"},
-		candidateSchemaPaths[5]: {"$schema", "schema_version", "receipt_id", "role", "review_kind", "status", "provider", "model", "reasoning_effort", "invocation_id", "reviewer_identity", "candidate_root", "target", "scope", "comments_only", "findings", "remediation_target", "parent_gate_node_ids", "assurance", "independent_review_claimed"},
+	types := map[string]reflect.Type{
+		candidateSchemaPaths[0]: reflect.TypeOf(candidateAttempts{}),
+		candidateSchemaPaths[1]: reflect.TypeOf(candidateManifest{}),
+		candidateSchemaPaths[2]: reflect.TypeOf(candidateClaims{}),
+		candidateSchemaPaths[3]: reflect.TypeOf(formalCatalog{}),
+		candidateSchemaPaths[4]: reflect.TypeOf(parityReplay{}),
+		candidateSchemaPaths[5]: reflect.TypeOf(reviewReceipt{}),
 	}
 	documents := map[string][]byte{}
-	for file, fields := range required {
-		properties := map[string]any{}
-		for _, field := range fields {
-			properties[field] = true
+	for file, valueType := range types {
+		document := schemaForType(valueType)
+		document["$schema"] = "https://json-schema.org/draft/2020-12/schema"
+		document["$id"] = filepath.Base(file)
+		if file == candidateSchemaPaths[3] {
+			document["$defs"] = map[string]any{"coverageProjection": schemaForType(reflect.TypeOf(formalCoverageProjection{}))}
 		}
-		document := map[string]any{"$schema": "https://json-schema.org/draft/2020-12/schema", "$id": filepath.Base(file), "type": "object", "additionalProperties": false, "required": fields, "properties": properties}
 		raw, _ := json.Marshal(document)
 		documents[file] = append(raw, '\n')
 	}
 	return documents
+}
+
+func schemaForType(valueType reflect.Type) map[string]any {
+	if valueType.Kind() == reflect.Pointer {
+		return map[string]any{"anyOf": []any{schemaForType(valueType.Elem()), map[string]any{"type": "null"}}}
+	}
+	switch valueType.Kind() {
+	case reflect.Struct:
+		properties := map[string]any{}
+		required := make([]string, 0, valueType.NumField())
+		for index := 0; index < valueType.NumField(); index++ {
+			field := valueType.Field(index)
+			name := strings.Split(field.Tag.Get("json"), ",")[0]
+			if name == "" || name == "-" {
+				continue
+			}
+			properties[name] = schemaForType(field.Type)
+			required = append(required, name)
+		}
+		sort.Strings(required)
+		return map[string]any{"type": "object", "additionalProperties": false, "required": required, "properties": properties}
+	case reflect.Slice:
+		return map[string]any{"type": "array", "items": schemaForType(valueType.Elem())}
+	case reflect.String:
+		return map[string]any{"type": "string"}
+	case reflect.Bool:
+		return map[string]any{"type": "boolean"}
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64, reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return map[string]any{"type": "integer", "minimum": 0}
+	default:
+		panic("unsupported candidate schema type: " + valueType.String())
+	}
 }

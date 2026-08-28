@@ -115,10 +115,31 @@ func TestUS023SchemasAreClosedAtEveryDeclaredObject(t *testing.T) {
 		if err := json.Unmarshal(raw, &schema); err != nil {
 			t.Fatalf("%s: %v", path, err)
 		}
-		if schema["type"] != "object" || schema["additionalProperties"] != false {
+		if schema["type"] != "object" || schema["additionalProperties"] != false || !allSchemaObjectsClosed(schema) {
 			t.Fatalf("%s is not a closed root schema", path)
 		}
 	}
+}
+
+func allSchemaObjectsClosed(value any) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		if typed["type"] == "object" && typed["additionalProperties"] != false {
+			return false
+		}
+		for _, child := range typed {
+			if !allSchemaObjectsClosed(child) {
+				return false
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if !allSchemaObjectsClosed(child) {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func TestUS023AggregateAndCandidateRootsBindEveryNodeAndEdge(t *testing.T) {
@@ -144,5 +165,34 @@ func TestUS023HistoricalOwnerAttestationsRemainTypedAndNonIndependent(t *testing
 	verdict.IndependentReviewClaimed = true
 	if acceptedHistoricalLifecycle(verdict) {
 		t.Fatal("independence overclaim passed")
+	}
+}
+
+func TestUS023FormalHostileStatesHaveTypedFailures(t *testing.T) {
+	base := formalCatalog{
+		Obligations:  []formalObligation{{ObligationID: "o", SurfaceIDs: []string{"s"}, AllowedMethods: []string{"KANI"}, RequiredEvidenceKinds: []string{"PRODUCTION_LINKAGE"}, RequiredMutationIDs: []string{"m"}}},
+		JavaBindings: []languageBinding{{ObligationID: "o"}},
+		RustBindings: []languageBinding{{ObligationID: "o", ProductionSymbol: "crate::production", SourcePath: "rust/src/lib.rs", ReachableFromEntry: true, ConnectionState: "CONNECTED"}},
+		Evidence:     []formalEvidence{{ObligationID: "o", ExecutionState: "NOT_EXECUTED", ObservedStrength: "NONE", Assumptions: formalAssumptions{Role: "UNRESOLVED", Allocator: "UNRESOLVED"}, Refinement: formalRefinement{State: "DISCONNECTED"}, MutationSensitivity: []mutationSensitivity{{MutantID: "m", Disposition: "RETAINED_KILLED_DIFFERENT_SUBJECT"}}}},
+		Coverage:     []formalCoverageRow{{ObligationID: "o", AggregateStatus: "BLOCKED"}},
+	}
+	variants := []struct {
+		code   string
+		mutate func(*formalCatalog)
+	}{
+		{code: "SHIPPED_RUST_DISCONNECTED", mutate: func(value *formalCatalog) { value.RustBindings[0].ConnectionState = "DISCONNECTED" }},
+		{code: "FORMAL_BOUND_OR_ASSUMPTION_INCOMPATIBLE", mutate: func(value *formalCatalog) { steps := uint64(1); value.Evidence[0].Bounds.MaxSteps = &steps }},
+		{code: "FORMAL_STRENGTH_OVERSTATED", mutate: func(value *formalCatalog) { value.Evidence[0].ObservedStrength = "PRODUCTION_REFINEMENT" }},
+		{code: "MUTATION_SURVIVOR", mutate: func(value *formalCatalog) { value.Evidence[0].MutationSensitivity[0].Disposition = "SURVIVED" }},
+	}
+	for _, variant := range variants {
+		value := base
+		value.RustBindings = append([]languageBinding(nil), base.RustBindings...)
+		value.Evidence = append([]formalEvidence(nil), base.Evidence...)
+		value.Evidence[0].MutationSensitivity = append([]mutationSensitivity(nil), base.Evidence[0].MutationSensitivity...)
+		variant.mutate(&value)
+		if err := validateFormalSemantics(value); err == nil || codeOf(err) != variant.code {
+			t.Fatalf("%s: %v", variant.code, err)
+		}
 	}
 }
