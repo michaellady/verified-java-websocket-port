@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 )
@@ -209,17 +210,21 @@ var obligationTemplates = []obligationTemplate{
 	{id: "obligation.mask-involution", surface: "surface.framing.masking", statement: "Applying the same mask twice restores the input.", rustSymbol: "websocket_core::frame::mask::apply_mask_in_place", rustPath: "rust/connection-core/src/frame/mask.rs", javaSymbol: "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B", mutation: "invalid-frame-rejection-relabeled"},
 	{id: "obligation.preallocation-cap", surface: "surface.limits.allocation", statement: "Configured caps are enforced before payload allocation.", rustSymbol: "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", rustPath: "rust/connection-core/src/frame/decode.rs", javaSymbol: "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;", mutation: "close-payload-limit-disabled"},
 	{id: "obligation.role-masking", surface: "surface.framing.masking", statement: "Inbound masking is enforced by endpoint role.", rustSymbol: "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", rustPath: "rust/connection-core/src/frame/decode.rs", javaSymbol: "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;", mutation: "invalid-frame-rejection-relabeled"},
-	{id: "surface.adapter.byte-stream", surface: "surface.adapter.byte-stream", statement: "The adapter transports bytes without protocol duplication.", rustSymbol: "websocket_driver::ConnectionDriver::step", rustPath: "rust/websocket-driver/src/lib.rs", javaSymbol: "org.java_websocket.WebSocketImpl.decode(Ljava/nio/ByteBuffer;)V", mutation: "terminal-state-guard-disabled"},
-	{id: "surface.close.status-code", surface: "surface.close.status-code", statement: "Close status codes and reasons are validated.", rustSymbol: "websocket_core::close::parse_close_payload", rustPath: "rust/connection-core/src/close.rs", javaSymbol: "org.java_websocket.framing.CloseFrame.isValid()V", mutation: "close-payload-limit-disabled"},
+	{id: "surface.adapter.byte-stream", surface: "surface.adapter.byte-stream", statement: "The adapter transports bytes without protocol duplication.", rustSymbol: "websocket_driver::ConnectionOwner::poll", rustPath: "rust/websocket-driver/src/lib.rs", javaSymbol: "org.java_websocket.WebSocketImpl.decode(Ljava/nio/ByteBuffer;)V", mutation: "terminal-state-guard-disabled"},
+	{id: "surface.close.status-code", surface: "surface.close.status-code", statement: "Close status codes and reasons are validated.", rustSymbol: "websocket_core::ConnectionCore::step", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.framing.CloseFrame.isValid()V", mutation: "close-payload-limit-disabled"},
 	{id: "surface.close.terminal-state", surface: "surface.close.terminal-state", statement: "Terminal close state is absorbing.", rustSymbol: "websocket_core::ConnectionCore::step", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.WebSocketImpl.closeConnection(ILjava/lang/String;Z)V", mutation: "terminal-state-guard-disabled"},
-	{id: "surface.concurrency.command-order", surface: "surface.concurrency.command-order", statement: "Concurrent commands have one serialized owner order.", rustSymbol: "websocket_driver::ConnectionDriver::step", rustPath: "rust/websocket-driver/src/lib.rs", javaSymbol: "org.java_websocket.WebSocketImpl.sendFrame(Ljava/util/Collection;)V", mutation: "terminal-state-guard-disabled"},
-	{id: "surface.control.ping-pong", surface: "surface.control.ping-pong", statement: "Ping and pong control behavior preserves payloads and bounds.", rustSymbol: "websocket_core::control::handle_control", rustPath: "rust/connection-core/src/control.rs", javaSymbol: "org.java_websocket.WebSocketAdapter.onWebsocketPing(Lorg/java_websocket/WebSocket;Lorg/java_websocket/framing/Framedata;)V", mutation: "control-length-admission-disabled"},
-	{id: "surface.errors.protocol-fault", surface: "surface.errors.protocol-fault", statement: "Protocol faults remain typed and fail closed.", rustSymbol: "websocket_core::ConnectionError", rustPath: "rust/connection-core/src/lib.rs", javaSymbol: "org.java_websocket.exceptions.InvalidDataException", mutation: "invalid-frame-rejection-relabeled"},
-	{id: "surface.fragmentation.continuation", surface: "surface.fragmentation.continuation", statement: "Continuation fragments are admitted and assembled in order.", rustSymbol: "websocket_core::fragment::FragmentAssembler::accept", rustPath: "rust/connection-core/src/fragment.rs", javaSymbol: "org.java_websocket.drafts.Draft_6455.processFrameContinuousAndNonFin(Lorg/java_websocket/framing/Framedata;Lorg/java_websocket/WebSocketImpl;)V", mutation: "unexpected-continuation-accepted"},
-	{id: "surface.handshake.client-request", surface: "surface.handshake.client-request", statement: "Client opening requests follow RFC 6455.", rustSymbol: "websocket_core::handshake::client::build_request", rustPath: "rust/connection-core/src/handshake/client.rs", javaSymbol: "org.java_websocket.WebSocketImpl.startHandshake(Lorg/java_websocket/handshake/ClientHandshakeBuilder;)V", mutation: "invalid-frame-rejection-relabeled"},
-	{id: "surface.handshake.server-response", surface: "surface.handshake.server-response", statement: "Server opening responses follow RFC 6455.", rustSymbol: "websocket_core::handshake::server::accept_request", rustPath: "rust/connection-core/src/handshake/server.rs", javaSymbol: "org.java_websocket.drafts.Draft_6455.postProcessHandshakeResponseAsServer(Lorg/java_websocket/handshake/ClientHandshake;Lorg/java_websocket/handshake/ServerHandshakeBuilder;)Lorg/java_websocket/handshake/HandshakeBuilder;", mutation: "invalid-frame-rejection-relabeled"},
-	{id: "surface.messages.binary", surface: "surface.messages.binary", statement: "Binary message payloads are delivered exactly.", rustSymbol: "websocket_core::message::MessageAssembler::accept", rustPath: "rust/connection-core/src/message.rs", javaSymbol: "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/nio/ByteBuffer;)V", mutation: "fragment-buffer-not-drained"},
-	{id: "surface.messages.text-utf8", surface: "surface.messages.text-utf8", statement: "Text messages accept exactly valid UTF-8.", rustSymbol: "websocket_core::message::MessageAssembler::accept", rustPath: "rust/connection-core/src/message.rs", javaSymbol: "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/lang/String;)V", mutation: "invalid-frame-rejection-relabeled"},
+	{id: "surface.concurrency.command-order", surface: "surface.concurrency.command-order", statement: "Concurrent commands have one serialized owner order.", rustSymbol: "websocket_driver::ConnectionOwner::poll", rustPath: "rust/websocket-driver/src/lib.rs", javaSymbol: "org.java_websocket.WebSocketImpl.sendFrame(Ljava/util/Collection;)V", mutation: "terminal-state-guard-disabled"},
+	{id: "surface.control.ping-pong", surface: "surface.control.ping-pong", statement: "Ping and pong control behavior preserves payloads and bounds.", rustSymbol: "websocket_core::ConnectionCore::step", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.WebSocketAdapter.onWebsocketPing(Lorg/java_websocket/WebSocket;Lorg/java_websocket/framing/Framedata;)V", mutation: "control-length-admission-disabled"},
+	{id: "surface.errors.protocol-fault", surface: "surface.errors.protocol-fault", statement: "Protocol faults remain typed and fail closed.", rustSymbol: "websocket_core::FailureKind", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.exceptions.InvalidDataException", mutation: "invalid-frame-rejection-relabeled"},
+	{id: "surface.fragmentation.continuation", surface: "surface.fragmentation.continuation", statement: "Continuation fragments are admitted and assembled in order.", rustSymbol: "websocket_core::ConnectionCore::step", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.drafts.Draft_6455.processFrameContinuousAndNonFin(Lorg/java_websocket/framing/Framedata;Lorg/java_websocket/WebSocketImpl;)V", mutation: "unexpected-continuation-accepted"},
+	{id: "surface.framing.frame-octets", surface: "surface.framing.frame-octets", statement: "Frame octets are parsed and emitted canonically.", rustSymbol: "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", rustPath: "rust/connection-core/src/frame/decode.rs", javaSymbol: "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;", mutation: "invalid-frame-rejection-relabeled"},
+	{id: "surface.framing.masking", surface: "surface.framing.masking", statement: "Masking uses the RFC 6455 transform and role rules.", rustSymbol: "websocket_core::frame::mask::apply_mask_in_place", rustPath: "rust/connection-core/src/frame/mask.rs", javaSymbol: "org.java_websocket.drafts.Draft_6455.createBinaryFrame(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;", mutation: "invalid-frame-rejection-relabeled"},
+	{id: "surface.handshake.client-request", surface: "surface.handshake.client-request", statement: "Client opening requests follow RFC 6455.", rustSymbol: "websocket_core::ConnectionCore::step", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.WebSocketImpl.startHandshake(Lorg/java_websocket/handshake/ClientHandshakeBuilder;)V", mutation: "invalid-frame-rejection-relabeled"},
+	{id: "surface.handshake.server-response", surface: "surface.handshake.server-response", statement: "Server opening responses follow RFC 6455.", rustSymbol: "websocket_core::ConnectionCore::step", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.drafts.Draft_6455.postProcessHandshakeResponseAsServer(Lorg/java_websocket/handshake/ClientHandshake;Lorg/java_websocket/handshake/ServerHandshakeBuilder;)Lorg/java_websocket/handshake/HandshakeBuilder;", mutation: "invalid-frame-rejection-relabeled"},
+	{id: "surface.limits.allocation", surface: "surface.limits.allocation", statement: "Allocation limits are enforced before retaining payload bytes.", rustSymbol: "websocket_core::frame::decode::FrameHeaderDecoder::decode_header", rustPath: "rust/connection-core/src/frame/decode.rs", javaSymbol: "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;", mutation: "close-payload-limit-disabled"},
+	{id: "surface.messages.binary", surface: "surface.messages.binary", statement: "Binary message payloads are delivered exactly.", rustSymbol: "websocket_core::ConnectionCore::step", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/nio/ByteBuffer;)V", mutation: "fragment-buffer-not-drained"},
+	{id: "surface.messages.text-utf8", surface: "surface.messages.text-utf8", statement: "Text messages accept exactly valid UTF-8.", rustSymbol: "websocket_core::ConnectionCore::step", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/lang/String;)V", mutation: "invalid-frame-rejection-relabeled"},
+	{id: "surface.websocket-open", surface: "surface.websocket-open", statement: "The declared WebSocket opening seam enters the shipped connection core.", rustSymbol: "websocket_core::ConnectionCore::step", rustPath: "rust/connection-core/src/connection.rs", javaSymbol: "org.java_websocket.server.WebSocketServer", mutation: "invalid-frame-rejection-relabeled"},
 }
 
 func buildFormalCatalog(root string, target candidateTarget) (formalCatalog, error) {
@@ -232,30 +237,140 @@ func buildFormalCatalog(root string, target candidateTarget) (formalCatalog, err
 		}
 		basis = append(basis, identity)
 	}
-	sort.Slice(obligationTemplates, func(i, j int) bool { return obligationTemplates[i].id < obligationTemplates[j].id })
-	obligations := make([]formalObligation, 0, len(obligationTemplates))
-	javaBindings := make([]languageBinding, 0, len(obligationTemplates))
-	rustBindings := make([]languageBinding, 0, len(obligationTemplates))
-	evidence := make([]formalEvidence, 0, len(obligationTemplates))
-	coverage := make([]formalCoverageRow, 0, len(obligationTemplates))
+	denominator, err := deriveFormalDenominator(root, target.Commit)
+	if err != nil {
+		return formalCatalog{}, err
+	}
+	templates := make(map[string]obligationTemplate, len(obligationTemplates))
 	for _, template := range obligationTemplates {
+		if _, exists := templates[template.id]; exists {
+			return formalCatalog{}, errors.New("FORMAL_DENOMINATOR_DRIFT")
+		}
+		templates[template.id] = template
+	}
+	if len(templates) != len(denominator) {
+		return formalCatalog{}, errors.New("FORMAL_DENOMINATOR_DRIFT")
+	}
+	obligations := make([]formalObligation, 0, len(denominator))
+	javaBindings := make([]languageBinding, 0, len(denominator))
+	rustBindings := make([]languageBinding, 0, len(denominator))
+	evidence := make([]formalEvidence, 0, len(denominator))
+	coverage := make([]formalCoverageRow, 0, len(denominator))
+	for _, obligationID := range denominator {
+		template, exists := templates[obligationID]
+		if !exists {
+			return formalCatalog{}, errors.New("FORMAL_DENOMINATOR_DRIFT")
+		}
 		rustRaw, err := gitBytesCandidate(root, "show", target.Commit+":"+template.rustPath)
 		if err != nil {
 			return formalCatalog{}, err
 		}
+		if !rustDeclarationExists(rustRaw, template.rustSymbol) {
+			return formalCatalog{}, errors.New("RUST_PRODUCTION_SYMBOL_UNRESOLVED")
+		}
 		rustBlob, err := gitTextCandidate(root, "rev-parse", target.Commit+":"+template.rustPath)
-		if err != nil {
-			return formalCatalog{}, err
+		if err != nil || !fullGitObjectID(rustBlob) {
+			return formalCatalog{}, errors.New("RUST_PRODUCTION_SOURCE_UNRESOLVED")
 		}
 		commit, tree, blob := target.Commit, target.Tree, rustBlob
 		archive := "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4"
 		obligations = append(obligations, formalObligation{ObligationID: template.id, SurfaceIDs: []string{template.surface}, Statement: template.statement, NormativeRefs: []string{"RFC6455"}, RequiredStrength: "PRODUCTION_REFINEMENT", AllowedMethods: []string{"BOUNDED_MODEL", "KANI", "TLA_PLUS"}, RequiredEvidenceKinds: []string{"MUTATION_SENSITIVITY", "PRODUCTION_LINKAGE"}, RequiredMutationIDs: []string{template.mutation}})
 		javaBindings = append(javaBindings, languageBinding{ObligationID: template.id, Language: "JAVA", ProductionSymbol: template.javaSymbol, ItemKind: "PRODUCTION_SYMBOL", SourcePath: "upstream-java/" + strings.ReplaceAll(strings.Split(template.javaSymbol, "(")[0], ".", "/") + ".java", SourceSHA256: archive, Identity: bindingIdentity{ArchiveSHA256: &archive}, DeclarationIdentity: "java-descriptor:" + template.javaSymbol, ReachableFromEntry: false, ConnectionState: "DISCONNECTED", BlockerIDs: []string{"blocker-java-source"}})
-		rustBindings = append(rustBindings, languageBinding{ObligationID: template.id, Language: "RUST", ProductionSymbol: template.rustSymbol, ItemKind: "PRODUCTION_SYMBOL", SourcePath: template.rustPath, SourceSHA256: digestCandidate(rustRaw), Identity: bindingIdentity{Commit: &commit, Tree: &tree, Blob: &blob}, DeclarationIdentity: "git-blob:" + blob + "#" + template.rustSymbol, ReachableFromEntry: true, ConnectionState: "CONNECTED", BlockerIDs: []string{}})
+		rustBindings = append(rustBindings, languageBinding{ObligationID: template.id, Language: "RUST", ProductionSymbol: template.rustSymbol, ItemKind: "PRODUCTION_SYMBOL", SourcePath: template.rustPath, SourceSHA256: digestCandidate(rustRaw), Identity: bindingIdentity{Commit: &commit, Tree: &tree, Blob: &blob}, DeclarationIdentity: "git-blob:" + blob + "#" + template.rustSymbol, ReachableFromEntry: false, ConnectionState: "DISCONNECTED", BlockerIDs: []string{"blocker-formal-refinement"}})
 		evidence = append(evidence, formalEvidence{EvidenceID: "formal.unavailable." + template.id, ObligationID: template.id, SubjectLanguage: "RUST", Method: "KANI", ExecutionState: "NOT_EXECUTED", ObservedStrength: "NONE", Bounds: formalBounds{}, Assumptions: formalAssumptions{Role: "UNRESOLVED", Allocator: "UNRESOLVED"}, TrustedBase: []string{}, Tool: formalTool{Name: "kani", Version: "unavailable", BinarySHA256: nil}, InputSHA256s: []string{digestCandidate(rustRaw)}, OutputSHA256s: []string{}, Refinement: formalRefinement{State: "DISCONNECTED", FromSubject: "model:" + template.id, ToSymbol: template.rustSymbol, ArtifactSHA256: nil}, Counterexample: nil, MutationSensitivity: []mutationSensitivity{{MutantID: template.mutation, Anchor: target.Commit, Disposition: "RETAINED_KILLED_DIFFERENT_SUBJECT"}}})
 		coverage = append(coverage, formalCoverageRow{ObligationID: template.id, JavaStatus: "BLOCKED", RustStatus: "BLOCKED", RefinementStatus: "BLOCKED", MutationStatus: "BLOCKED", AggregateStatus: "BLOCKED", BlockerIDs: []string{"blocker-formal-backend", "blocker-formal-refinement", "blocker-gate-not-executed", "blocker-java-source"}})
 	}
 	return formalCatalog{Schema: "../../schemas/us023-formal-obligations-1.0.0.schema.json", SchemaVersion: "1.0.0", CatalogID: "us023-formal-obligations", DenominatorBasis: basis, Obligations: obligations, JavaBindings: javaBindings, RustBindings: rustBindings, Evidence: evidence, Coverage: coverage, Assurance: candidateAssurance, IndependentReviewClaimed: false}, nil
+}
+
+func deriveFormalDenominator(root, commit string) ([]string, error) {
+	type proofDocument struct {
+		Targets []struct {
+			Obligations []struct {
+				ObligationID string `json:"obligation_id"`
+			} `json:"obligations"`
+		} `json:"targets"`
+	}
+	type compatibilityDocument struct {
+		Items []struct {
+			SurfaceID string `json:"surface_id"`
+		} `json:"items"`
+	}
+	type dossierDocument struct {
+		Seams []struct {
+			SurfaceID string `json:"surface_id"`
+		} `json:"seams"`
+	}
+	read := func(path string, destination any) error {
+		raw, err := gitBytesCandidate(root, "show", commit+":"+path)
+		if err != nil {
+			return err
+		}
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		if err := decoder.Decode(destination); err != nil {
+			return err
+		}
+		if decoder.More() {
+			return errors.New("FORMAL_DENOMINATOR_DRIFT")
+		}
+		return nil
+	}
+	var proofs proofDocument
+	var compatibility compatibilityDocument
+	var dossier dossierDocument
+	if err := read("assurance/formal/proof-targets.json", &proofs); err != nil {
+		return nil, err
+	}
+	if err := read("evidence/intake/compatibility-surface.json", &compatibility); err != nil {
+		return nil, err
+	}
+	if err := read("assurance/developer-tools/port-seam-dossier.json", &dossier); err != nil {
+		return nil, err
+	}
+	ids := map[string]bool{}
+	add := func(id string) error {
+		if (!strings.HasPrefix(id, "obligation.") && !strings.HasPrefix(id, "surface.")) || ids[id] {
+			return errors.New("FORMAL_DENOMINATOR_DRIFT")
+		}
+		ids[id] = true
+		return nil
+	}
+	for _, target := range proofs.Targets {
+		for _, obligation := range target.Obligations {
+			if err := add(obligation.ObligationID); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, item := range compatibility.Items {
+		if err := add(item.SurfaceID); err != nil {
+			return nil, err
+		}
+	}
+	for _, seam := range dossier.Seams {
+		if err := add(seam.SurfaceID); err != nil {
+			return nil, err
+		}
+	}
+	denominator := make([]string, 0, len(ids))
+	for id := range ids {
+		denominator = append(denominator, id)
+	}
+	sort.Strings(denominator)
+	if len(denominator) == 0 {
+		return nil, errors.New("FORMAL_DENOMINATOR_DRIFT")
+	}
+	return denominator, nil
+}
+
+func rustDeclarationExists(raw []byte, symbol string) bool {
+	parts := strings.Split(symbol, "::")
+	name := parts[len(parts)-1]
+	if name == "" {
+		return false
+	}
+	pattern := `(?m)^\s*(?:pub(?:\([^)]*\))?\s+)?(?:async\s+)?(?:unsafe\s+)?(?:fn|struct|enum|trait|type|const|static)\s+` + regexp.QuoteMeta(name) + `\b`
+	return regexp.MustCompile(pattern).Find(raw) != nil
 }
 
 func artifactAt(root, commit, file string) (artifactIdentity, error) {
@@ -270,6 +385,9 @@ func artifactAt(root, commit, file string) (artifactIdentity, error) {
 	blob, err := gitTextCandidate(root, "rev-parse", commit+":"+file)
 	if err != nil {
 		return artifactIdentity{}, err
+	}
+	if !fullGitObjectID(commit) || !fullGitObjectID(tree) || !fullGitObjectID(blob) {
+		return artifactIdentity{}, errors.New("GIT_OBJECT_ID_NOT_CANONICAL")
 	}
 	return artifactIdentity{Path: file, SHA256: digestCandidate(raw), Git: candidateGit{Commit: commit, Tree: tree, Blob: blob}}, nil
 }
@@ -306,7 +424,10 @@ func buildParityReplay(root string, manifest candidateManifest, claims candidate
 		if err != nil || !bytes.Equal(committed, raw) {
 			return parityReplay{}, errors.New("receipt Git drift")
 		}
-		descriptors = append(descriptors, receiptDescriptor{Path: file, Role: receipts[index].Role, Status: receipts[index].Status, CandidateRoot: manifest.CandidateRoot, Bytes: uint64(len(raw)), SHA256: digestCandidate(raw), Git: candidateGit{Commit: commit, Tree: tree, Blob: blob}})
+		if !fullGitObjectID(commit) || !fullGitObjectID(tree) || !fullGitObjectID(blob) {
+			return parityReplay{}, errors.New("receipt Git object ID is not canonical")
+		}
+		descriptors = append(descriptors, receiptDescriptor{Path: file, Role: receipts[index].Role, ReviewKind: receipts[index].ReviewKind, Status: receipts[index].Status, CandidateRoot: receipts[index].CandidateRoot, RemediationTarget: receipts[index].RemediationTarget, Bytes: uint64(len(raw)), SHA256: digestCandidate(raw), Git: candidateGit{Commit: commit, Tree: tree, Blob: blob}})
 	}
 	sort.Slice(descriptors, func(i, j int) bool { return descriptors[i].Path < descriptors[j].Path })
 	descriptorRaw, _ := json.Marshal(descriptors)
@@ -317,7 +438,7 @@ func buildParityReplay(root string, manifest candidateManifest, claims candidate
 		if receipt.Role == "CODEX_REVIEWER" && receipt.ReviewKind == "FULL" && receipt.Status == "EXECUTED" {
 			chain.FullCodexReviews++
 		}
-		if receipt.ReviewKind == "TARGETED_CLOSURE" && receipt.Status == "EXECUTED" {
+		if receipt.ReviewKind == "TARGETED_CLOSURE" {
 			chain.TargetedClosures++
 		}
 		if receipt.Role == "HUMAN_REVIEWER" && receipt.Status == "EXECUTED" {
@@ -343,6 +464,20 @@ func buildPlaceholderReceipt(role string, manifest candidateManifest) reviewRece
 	}
 	sort.Strings(blockers)
 	return reviewReceipt{Schema: "../../schemas/us023-review-receipt-1.0.0.schema.json", SchemaVersion: "1.0.0", ReceiptID: "us023." + strings.ToLower(strings.TrimSuffix(role, "_REVIEWER")), Role: role, ReviewKind: "NOT_EXECUTED", Status: "NOT_EXECUTED", Provider: nil, Model: nil, ReasoningEffort: nil, InvocationID: nil, ReviewerIdentity: "UNASSIGNED", CandidateRoot: manifest.CandidateRoot, Target: reviewTarget{Commit: manifest.Target.Commit, Tree: manifest.Target.Tree}, Scope: reviewScope{CandidateRoot: manifest.CandidateRoot, GateIDs: []string{}, BlockerIDs: blockers}, CommentsOnly: false, Findings: []reviewFinding{}, RemediationTarget: nil, ParentGateNodeIDs: []string{}, Assurance: candidateAssurance, IndependentReviewClaimed: false}
+}
+
+func buildTargetedClosurePlaceholder(manifest candidateManifest) reviewReceipt {
+	return reviewReceipt{
+		Schema: "../../schemas/us023-review-receipt-1.0.0.schema.json", SchemaVersion: "1.0.0",
+		ReceiptID: "us023.codex.targeted-closure.001", Role: "CODEX_REVIEWER", ReviewKind: "TARGETED_CLOSURE", Status: "NOT_EXECUTED",
+		Provider: nil, Model: nil, ReasoningEffort: nil, InvocationID: nil, ReviewerIdentity: "UNASSIGNED",
+		CandidateRoot: manifest.CandidateRoot,
+		Target:        reviewTarget{Commit: manifest.Target.Commit, Tree: manifest.Target.Tree},
+		Scope:         reviewScope{CandidateRoot: manifest.CandidateRoot, GateIDs: []string{"gate.ac3.denominator", "gate.ac3.rust-bindings", "gate.ac4.content-dag", "gate.ac4.git-bindings", "gate.ac5.codex-review"}, BlockerIDs: []string{"blocker-formal-refinement", "blocker-sole-owner"}},
+		CommentsOnly:  false, Findings: []reviewFinding{},
+		RemediationTarget: &remediationTarget{PredecessorCandidateRoot: predecessorRoot, SuccessorCandidateRoot: manifest.CandidateRoot, FindingIDs: append([]string(nil), blockingReviewFindingIDs...)},
+		ParentGateNodeIDs: []string{rootNodeID}, Assurance: candidateAssurance, IndependentReviewClaimed: false,
+	}
 }
 
 // MaterializeCandidateContent writes the schemas and content artifacts that
@@ -381,14 +516,18 @@ func MaterializeCandidateManifest(root, targetCommit, contentCommit string) erro
 	if err != nil {
 		return err
 	}
-	if _, err := gitBytesCandidate(root, "merge-base", "--is-ancestor", targetCommit, contentCommit); err != nil {
+	contentCommit, err = gitTextCandidate(root, "rev-parse", contentCommit+"^{commit}")
+	if err != nil || !fullGitObjectID(contentCommit) {
+		return errors.New("content commit is not a canonical full Git object ID")
+	}
+	if _, err := gitBytesCandidate(root, "merge-base", "--is-ancestor", target.Commit, contentCommit); err != nil {
 		return errors.New("content commit is not descended from target")
 	}
 	contentTree, err := gitTextCandidate(root, "rev-parse", contentCommit+"^{tree}")
 	if err != nil {
 		return err
 	}
-	targetPaths, err := gitLines(root, "ls-tree", "-r", "--name-only", targetCommit)
+	targetPaths, err := gitLines(root, "ls-tree", "-r", "--name-only", target.Commit)
 	if err != nil {
 		return err
 	}
@@ -445,13 +584,20 @@ func MaterializeCandidateReceipts(root string) error {
 	if err := decodeCandidateJSON(raw, &manifest); err != nil {
 		return err
 	}
-	roles := []string{"CODEX_REVIEWER", "HUMAN_REVIEWER", "QA", "REALITY"}
-	for index, file := range reviewPaths {
-		if err := writeCandidateJSON(root, file, buildPlaceholderReceipt(roles[index], manifest)); err != nil {
+	// The original full Codex receipt is immutable predecessor evidence. Only
+	// successor-subject placeholders and the distinct targeted closure are
+	// materialized here.
+	roles := []struct{ path, role string }{
+		{reviewPaths[1], "HUMAN_REVIEWER"},
+		{reviewPaths[2], "QA"},
+		{reviewPaths[3], "REALITY"},
+	}
+	for _, item := range roles {
+		if err := writeCandidateJSON(root, item.path, buildPlaceholderReceipt(item.role, manifest)); err != nil {
 			return err
 		}
 	}
-	return nil
+	return writeCandidateJSON(root, targetedClosurePath, buildTargetedClosurePlaceholder(manifest))
 }
 
 func MaterializeCandidateReports(root string) error {
@@ -511,6 +657,9 @@ func resolveCandidateTarget(root, commit string) (candidateTarget, error) {
 	tree, err := gitTextCandidate(root, "rev-parse", resolved+"^{tree}")
 	if err != nil {
 		return candidateTarget{}, err
+	}
+	if !fullGitObjectID(resolved) || !fullGitObjectID(tree) {
+		return candidateTarget{}, errors.New("target Git object ID is not canonical")
 	}
 	return candidateTarget{Commit: resolved, Tree: tree, ObjectFormat: "sha1"}, nil
 }

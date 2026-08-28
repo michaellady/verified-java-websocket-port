@@ -2,6 +2,7 @@ package assurance
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -104,7 +105,7 @@ func TestUS023HumanReceiptRejectsAIAndReviewCycleExpansion(t *testing.T) {
 	closure.Provider, closure.Model, closure.ReasoningEffort, closure.InvocationID = &provider, &model, &effort, &invocation
 	closure.RemediationTarget = &remediationTarget{PredecessorCandidateRoot: manifest.CandidateRoot, SuccessorCandidateRoot: manifest.CandidateRoot, FindingIDs: []string{"F-1"}}
 	closure.Findings = []reviewFinding{{FindingID: "F-2", Severity: "NIT", Code: "NEW_SCOPE", Path: "new"}}
-	if err := validateReviewLineage([]reviewReceipt{closure}); err == nil || codeOf(err) != "TARGETED_CLOSURE_SCOPE_EXPANDED" {
+	if err := validateReviewLineage([]reviewReceipt{closure}, manifest); err == nil || codeOf(err) != "TARGETED_CLOSURE_SCOPE_EXPANDED" {
 		t.Fatalf("targeted closure expanded scope: %v", err)
 	}
 }
@@ -172,7 +173,7 @@ func TestUS023FormalHostileStatesHaveTypedFailures(t *testing.T) {
 	base := formalCatalog{
 		Obligations:  []formalObligation{{ObligationID: "o", SurfaceIDs: []string{"s"}, AllowedMethods: []string{"KANI"}, RequiredEvidenceKinds: []string{"PRODUCTION_LINKAGE"}, RequiredMutationIDs: []string{"m"}}},
 		JavaBindings: []languageBinding{{ObligationID: "o"}},
-		RustBindings: []languageBinding{{ObligationID: "o", ProductionSymbol: "crate::production", SourcePath: "rust/src/lib.rs", ReachableFromEntry: true, ConnectionState: "CONNECTED"}},
+		RustBindings: []languageBinding{{ObligationID: "o", ProductionSymbol: "crate::production", SourcePath: "rust/src/lib.rs", ReachableFromEntry: false, ConnectionState: "DISCONNECTED", BlockerIDs: []string{"blocker-formal-refinement"}}},
 		Evidence:     []formalEvidence{{ObligationID: "o", ExecutionState: "NOT_EXECUTED", ObservedStrength: "NONE", Assumptions: formalAssumptions{Role: "UNRESOLVED", Allocator: "UNRESOLVED"}, Refinement: formalRefinement{State: "DISCONNECTED"}, MutationSensitivity: []mutationSensitivity{{MutantID: "m", Disposition: "RETAINED_KILLED_DIFFERENT_SUBJECT"}}}},
 		Coverage:     []formalCoverageRow{{ObligationID: "o", AggregateStatus: "BLOCKED"}},
 	}
@@ -180,7 +181,9 @@ func TestUS023FormalHostileStatesHaveTypedFailures(t *testing.T) {
 		code   string
 		mutate func(*formalCatalog)
 	}{
-		{code: "SHIPPED_RUST_DISCONNECTED", mutate: func(value *formalCatalog) { value.RustBindings[0].ConnectionState = "DISCONNECTED" }},
+		{code: "RUST_PRODUCTION_LINKAGE_OVERCLAIM", mutate: func(value *formalCatalog) {
+			value.RustBindings[0].ConnectionState, value.RustBindings[0].ReachableFromEntry = "CONNECTED", true
+		}},
 		{code: "FORMAL_BOUND_OR_ASSUMPTION_INCOMPATIBLE", mutate: func(value *formalCatalog) { steps := uint64(1); value.Evidence[0].Bounds.MaxSteps = &steps }},
 		{code: "FORMAL_STRENGTH_OVERSTATED", mutate: func(value *formalCatalog) { value.Evidence[0].ObservedStrength = "PRODUCTION_REFINEMENT" }},
 		{code: "MUTATION_SURVIVOR", mutate: func(value *formalCatalog) { value.Evidence[0].MutationSensitivity[0].Disposition = "SURVIVED" }},
@@ -194,5 +197,89 @@ func TestUS023FormalHostileStatesHaveTypedFailures(t *testing.T) {
 		if err := validateFormalSemantics(value); err == nil || codeOf(err) != variant.code {
 			t.Fatalf("%s: %v", variant.code, err)
 		}
+	}
+}
+
+func TestUS023FormalDenominatorIsDerivedExactlyFromAnchoredInputs(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	denominator, err := deriveFormalDenominator(root, canonicalTargetCommit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(denominator) != 24 || !contains(denominator, "surface.websocket-open") || !contains(denominator, "surface.framing.frame-octets") || !contains(denominator, "surface.limits.allocation") {
+		t.Fatalf("derived denominator = %v", denominator)
+	}
+	target, err := resolveCandidateTarget(root, canonicalTargetCommit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := buildFormalCatalog(root, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := make([]string, 0, len(catalog.Obligations))
+	for _, obligation := range catalog.Obligations {
+		ids = append(ids, obligation.ObligationID)
+	}
+	if !reflect.DeepEqual(ids, denominator) {
+		t.Fatalf("catalog IDs = %v, denominator = %v", ids, denominator)
+	}
+}
+
+func TestUS023RustBindingsAreExactSourceMembersButNeverSelfAssertConnected(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	target, err := resolveCandidateTarget(root, canonicalTargetCommit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := buildFormalCatalog(root, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateRustBindingAnchors(root, target, catalog); err != nil {
+		t.Fatal(err)
+	}
+	catalog.RustBindings[0].ProductionSymbol = "websocket_core::NonexistentProductionSymbol"
+	if err := validateRustBindingAnchors(root, target, catalog); err == nil || codeOf(err) != "RUST_PRODUCTION_SYMBOL_UNRESOLVED" {
+		t.Fatalf("nonexistent production symbol passed: %v", err)
+	}
+	catalog, err = buildFormalCatalog(root, target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog.RustBindings[0].ConnectionState, catalog.RustBindings[0].ReachableFromEntry = "CONNECTED", true
+	if err := validateFormalSemantics(catalog); err == nil || codeOf(err) != "RUST_PRODUCTION_LINKAGE_OVERCLAIM" {
+		t.Fatalf("self-asserted connected binding passed: %v", err)
+	}
+}
+
+func TestUS023TargetedClosurePreservesFullReviewAndExactFindingScope(t *testing.T) {
+	manifest := candidateManifest{CandidateRoot: "sha256:" + strings.Repeat("d", 64), Target: candidateTarget{Commit: canonicalTargetCommit, Tree: canonicalTargetTree}}
+	provider, model, effort, invocation := "openai", "gpt-5.6-sol", "xhigh", "/root/us023_security_phase"
+	full := reviewReceipt{Role: "CODEX_REVIEWER", ReviewKind: "FULL", Status: "EXECUTED", CandidateRoot: predecessorRoot, Provider: &provider, Model: &model, ReasoningEffort: &effort, InvocationID: &invocation, ReviewerIdentity: "Codex /root/us023_security_phase"}
+	closure := buildTargetedClosurePlaceholder(manifest)
+	if err := validateReviewLineage([]reviewReceipt{full, closure}, manifest); err != nil {
+		t.Fatalf("valid predecessor-to-successor closure rejected: %v", err)
+	}
+	closure.RemediationTarget.FindingIDs = []string{"B-US023-001"}
+	if err := validateReviewLineage([]reviewReceipt{full, closure}, manifest); err == nil || codeOf(err) != "REVIEW_LINEAGE_INVALID" {
+		t.Fatalf("partial closure finding scope passed: %v", err)
+	}
+}
+
+func TestUS023GitObjectIDsRequireCanonicalFullSHA1(t *testing.T) {
+	for _, value := range []string{"f9aebea", strings.Repeat("A", 40), strings.Repeat("g", 40), strings.Repeat("0", 39)} {
+		if fullGitObjectID(value) {
+			t.Fatalf("noncanonical Git object ID passed: %q", value)
+		}
+	}
+	if !fullGitObjectID(strings.Repeat("a", 40)) {
+		t.Fatal("canonical full Git object ID rejected")
 	}
 }

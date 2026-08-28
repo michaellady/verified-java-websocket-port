@@ -19,16 +19,34 @@ import (
 )
 
 const (
-	acceptanceTargetCommit   = "1ff89fa30cb0ab6ff339afd3ce486a36e9f7f325"
-	acceptanceTargetTree     = "dfb1950301e9680b1c47f0bd9debc0fc026d0e4f"
-	acceptanceCandidateRoot  = "sha256:84740e62f7f2905dab355672511e34daa83aa5381e1f6fb5e71156cc1d39c7ab"
-	acceptanceEvaluationRoot = "sha256:149b654853ea5475159be44bede437c1ea9876100cb8ad600a6d846ec70db62e"
-	acceptanceHistoricalDAG  = "sha256:7dfaad953d9356369a9f4ee471163f8002b0b8e0c170f935af96778e830505bf"
+	acceptanceTargetCommit  = "1ff89fa30cb0ab6ff339afd3ce486a36e9f7f325"
+	acceptanceTargetTree    = "dfb1950301e9680b1c47f0bd9debc0fc026d0e4f"
+	acceptanceHistoricalDAG = "sha256:7dfaad953d9356369a9f4ee471163f8002b0b8e0c170f935af96778e830505bf"
 )
 
 func TestUS023AcceptanceExactFrozenBlockedVerifyReplay(t *testing.T) {
 	repo := acceptanceRepoRoot(t)
 	binary := buildAcceptanceCLI(t, repo)
+	manifest := readAcceptanceJSON(t, filepath.Join(repo, "assurance/candidate-manifest.json"))
+	replay := readAcceptanceJSON(t, filepath.Join(repo, "evidence/parity-replay.json"))
+	acceptanceCandidateRoot, ok := manifest["candidate_root"].(string)
+	if !ok || acceptanceCandidateRoot == "" {
+		t.Fatal("candidate manifest has no root")
+	}
+	acceptanceEvaluationRoot, ok := replay["evaluation_root"].(string)
+	if !ok || acceptanceEvaluationRoot == "" {
+		t.Fatal("parity replay has no evaluation root")
+	}
+	if findAcceptanceNode(t, manifest, "internal/assurance/candidate_acceptance_test.go")["kind"] != "TOOL" {
+		t.Fatal("candidate graph omitted the complete US-023 acceptance-test closure")
+	}
+	for _, raw := range arrayAcceptance(t, objectAcceptance(t, manifest, "graph"), "nodes") {
+		node := raw.(map[string]any)
+		gitIdentity := objectAcceptance(t, node, "git")
+		if len(gitIdentity["commit"].(string)) != 40 || len(gitIdentity["tree"].(string)) != 40 || (node["path"] != "" && len(gitIdentity["blob"].(string)) != 40) {
+			t.Fatalf("candidate graph contains an abbreviated Git anchor: %#v", node)
+		}
+	}
 	outputs := make([][]byte, 0, 2)
 	for _, mode := range []string{"candidate-verify", "candidate-replay"} {
 		output, exit := runAcceptanceCLI(t, binary, mode, repo, 90*time.Second)
@@ -61,7 +79,6 @@ func TestUS023AcceptanceExactFrozenBlockedVerifyReplay(t *testing.T) {
 	if !bytes.Equal(working, committed) || digestAcceptance(working) != acceptanceHistoricalDAG {
 		t.Fatalf("historical assurance/evidence-dag.json drifted: working=%s committed=%s", digestAcceptance(working), digestAcceptance(committed))
 	}
-	manifest := readAcceptanceJSON(t, filepath.Join(repo, "assurance/candidate-manifest.json"))
 	node := findAcceptanceNode(t, manifest, "assurance/evidence-dag.json")
 	gitIdentity := objectAcceptance(t, node, "git")
 	if node["kind"] != "HISTORICAL_DAG" || node["sha256"] != acceptanceHistoricalDAG ||
@@ -100,6 +117,13 @@ func TestUS023AcceptanceHostileSemanticClassesFailTyped(t *testing.T) {
 			mutateAcceptanceJSON(t, root, "assurance/candidate-manifest.json", func(document map[string]any) {
 				nodes := arrayAcceptance(t, objectAcceptance(t, document, "graph"), "nodes")
 				objectAcceptance(t, nodes[0].(map[string]any), "git")["blob"] = strings.Repeat("0", 40)
+			})
+			commitAcceptanceFixture(t, root, "assurance/candidate-manifest.json")
+		}},
+		{name: "abbreviated-git-anchor", wantCode: "GRAPH_GIT_OBJECT_ID_NOT_CANONICAL", mutate: func(t *testing.T, root string) {
+			mutateAcceptanceJSON(t, root, "assurance/candidate-manifest.json", func(document map[string]any) {
+				nodes := arrayAcceptance(t, objectAcceptance(t, document, "graph"), "nodes")
+				objectAcceptance(t, nodes[0].(map[string]any), "git")["commit"] = "f9aebea"
 			})
 			commitAcceptanceFixture(t, root, "assurance/candidate-manifest.json")
 		}},
@@ -187,10 +211,10 @@ func TestUS023AcceptanceHostileSemanticClassesFailTyped(t *testing.T) {
 			})
 			rebindAcceptanceContent(t, root)
 		}},
-		{name: "disconnected-shipped-rust", wantCode: "SHIPPED_RUST_DISCONNECTED", mutate: func(t *testing.T, root string) {
+		{name: "self-asserted-connected-shipped-rust", wantCode: "RUST_PRODUCTION_LINKAGE_OVERCLAIM", mutate: func(t *testing.T, root string) {
 			mutateAcceptanceJSON(t, root, "assurance/formal/obligation-catalog.json", func(document map[string]any) {
 				binding := arrayAcceptance(t, document, "rust_bindings")[0].(map[string]any)
-				binding["connection_state"], binding["reachable_from_entry"] = "DISCONNECTED", false
+				binding["connection_state"], binding["reachable_from_entry"] = "CONNECTED", true
 			})
 			rebindAcceptanceContent(t, root)
 		}},

@@ -19,6 +19,8 @@ const (
 	rootNodeID            = "root.us023-candidate"
 	canonicalTargetCommit = "1ff89fa30cb0ab6ff339afd3ce486a36e9f7f325"
 	canonicalTargetTree   = "dfb1950301e9680b1c47f0bd9debc0fc026d0e4f"
+	predecessorRoot       = "sha256:84740e62f7f2905dab355672511e34daa83aa5381e1f6fb5e71156cc1d39c7ab"
+	targetedClosurePath   = "assurance/reviews/codex-targeted-closure.json"
 )
 
 var candidateSchemaPaths = []string{
@@ -35,6 +37,14 @@ var reviewPaths = []string{
 	"assurance/reviews/human.json",
 	"assurance/reviews/qa.json",
 	"assurance/reviews/reality.json",
+	targetedClosurePath,
+}
+
+var blockingReviewFindingIDs = []string{
+	"B-US023-001",
+	"B-US023-002",
+	"B-US023-003",
+	"B-US023-004",
 }
 
 var evidenceFamilies = []string{

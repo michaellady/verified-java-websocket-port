@@ -121,6 +121,9 @@ func EvaluateCandidate(ctx context.Context, request CandidateRequest) (Candidate
 	if err := validateFormalSemantics(catalog); err != nil {
 		return invalid(codeOf(err), formalCatalogPath)
 	}
+	if err := validateRustBindingAnchors(rootPath, manifest.Target, catalog); err != nil {
+		return invalid(codeOf(err), formalCatalogPath)
+	}
 	wantCatalog, err := buildFormalCatalog(rootPath, manifest.Target)
 	if err != nil {
 		return invalid("FORMAL_DENOMINATOR_UNAVAILABLE", formalCatalogPath)
@@ -157,7 +160,7 @@ func EvaluateCandidate(ctx context.Context, request CandidateRequest) (Candidate
 		receipts = append(receipts, receipt)
 		receiptRaw[reviewPath] = raw
 	}
-	if err := validateReviewLineage(receipts); err != nil {
+	if err := validateReviewLineage(receipts, manifest); err != nil {
 		return invalid(codeOf(err), "assurance/reviews")
 	}
 
@@ -320,7 +323,7 @@ func validateManifestClaims(manifest candidateManifest) error {
 }
 
 func verifyTarget(root string, target candidateTarget) error {
-	if target.ObjectFormat != "sha1" || len(target.Commit) != 40 || len(target.Tree) != 40 {
+	if target.ObjectFormat != "sha1" || !fullGitObjectID(target.Commit) || !fullGitObjectID(target.Tree) {
 		return errors.New("invalid target identity")
 	}
 	if _, err := gitBytesCandidate(root, "cat-file", "-e", target.Commit+"^{commit}"); err != nil {
@@ -351,11 +354,14 @@ func verifyCandidateGraph(root *projectRoot, rootPath string, manifest candidate
 			return errors.New("SUBJECT_LINEAGE_OR_CLASSIFICATION_DRIFT")
 		}
 		if node.Kind == "ROOT_INPUT" {
-			if node.ID != rootNodeID || node.Path != "" || node.Git.Blob != "" || aggregate != nil {
+			if node.ID != rootNodeID || node.Path != "" || node.Git.Blob != "" || !fullGitObjectID(node.Git.Commit) || !fullGitObjectID(node.Git.Tree) || aggregate != nil {
 				return errors.New("ROOT_NODE_INVALID")
 			}
 			aggregate = &manifest.Graph.Nodes[index]
 			continue
+		}
+		if !fullGitObjectID(node.Git.Commit) || !fullGitObjectID(node.Git.Tree) || !fullGitObjectID(node.Git.Blob) {
+			return errors.New("GRAPH_GIT_OBJECT_ID_NOT_CANONICAL")
 		}
 		if node.ID != pathNodeID(node.Path) || nodeKind(node.Path) != node.Kind || nodeFamily(node.Path) != node.Family || node.ExecutionState != "IDENTITY_ONLY" || node.ClaimStrength != "IMMUTABLE_INPUT" {
 			return errors.New("GRAPH_NODE_DERIVATION_DRIFT")
@@ -435,6 +441,9 @@ func verifyCandidateGraph(root *projectRoot, rootPath string, manifest candidate
 }
 
 func verifyGraphFileNode(root *projectRoot, rootPath string, node candidateGraphNode) error {
+	if !fullGitObjectID(node.Git.Commit) || !fullGitObjectID(node.Git.Tree) || !fullGitObjectID(node.Git.Blob) {
+		return errors.New("git object ID is not canonical")
+	}
 	tree, err := gitTextCandidate(rootPath, "rev-parse", node.Git.Commit+"^{tree}")
 	if err != nil || tree != node.Git.Tree || node.Git.Blob == "" {
 		return errors.New("git anchor mismatch")
@@ -455,15 +464,20 @@ func verifyGraphFileNode(root *projectRoot, rootPath string, node candidateGraph
 }
 
 func validateReviewReceipt(path string, receipt reviewReceipt, manifest candidateManifest) error {
-	roleByPath := map[string]string{reviewPaths[0]: "CODEX_REVIEWER", reviewPaths[1]: "HUMAN_REVIEWER", reviewPaths[2]: "QA", reviewPaths[3]: "REALITY"}
-	if receipt.Schema != "../../schemas/us023-review-receipt-1.0.0.schema.json" || receipt.SchemaVersion != "1.0.0" || receipt.Role != roleByPath[path] || receipt.CandidateRoot != manifest.CandidateRoot || receipt.Scope.CandidateRoot != manifest.CandidateRoot || receipt.Target != (reviewTarget{Commit: manifest.Target.Commit, Tree: manifest.Target.Tree}) {
+	roleByPath := map[string]string{reviewPaths[0]: "CODEX_REVIEWER", reviewPaths[1]: "HUMAN_REVIEWER", reviewPaths[2]: "QA", reviewPaths[3]: "REALITY", reviewPaths[4]: "CODEX_REVIEWER"}
+	wantRoot := manifest.CandidateRoot
+	if path == reviewPaths[0] {
+		wantRoot = predecessorRoot
+	}
+	if receipt.Schema != "../../schemas/us023-review-receipt-1.0.0.schema.json" || receipt.SchemaVersion != "1.0.0" || receipt.Role != roleByPath[path] || receipt.CandidateRoot != wantRoot || receipt.Scope.CandidateRoot != wantRoot || receipt.Target != (reviewTarget{Commit: manifest.Target.Commit, Tree: manifest.Target.Tree}) {
 		return errors.New("REVIEW_SUBJECT_OR_ROLE_DRIFT")
 	}
 	if receipt.Assurance != candidateAssurance || receipt.IndependentReviewClaimed || !sortedUnique(receipt.Scope.GateIDs) || !sortedUnique(receipt.Scope.BlockerIDs) || !sortedUnique(receipt.ParentGateNodeIDs) {
 		return errors.New("REVIEW_ASSURANCE_OR_SCOPE_OVERCLAIM")
 	}
 	if receipt.Status == "NOT_EXECUTED" {
-		if receipt.ReviewKind != "NOT_EXECUTED" || receipt.Provider != nil || receipt.Model != nil || receipt.ReasoningEffort != nil || receipt.InvocationID != nil || len(receipt.Findings) != 0 || receipt.RemediationTarget != nil || receipt.CommentsOnly {
+		closurePlaceholder := path == targetedClosurePath && receipt.ReviewKind == "TARGETED_CLOSURE" && validTargetedRemediation(receipt.RemediationTarget, manifest.CandidateRoot)
+		if (!closurePlaceholder && receipt.ReviewKind != "NOT_EXECUTED") || receipt.Provider != nil || receipt.Model != nil || receipt.ReasoningEffort != nil || receipt.InvocationID != nil || len(receipt.Findings) != 0 || (!closurePlaceholder && receipt.RemediationTarget != nil) || receipt.CommentsOnly {
 			return errors.New("NOT_EXECUTED_REVIEW_OVERCLAIM")
 		}
 		if receipt.Role == "HUMAN_REVIEWER" && !contains(receipt.Scope.BlockerIDs, "blocker-human-review") {
@@ -493,26 +507,51 @@ func validateReviewReceipt(path string, receipt reviewReceipt, manifest candidat
 	if receipt.ReviewKind == "FULL" && receipt.RemediationTarget != nil {
 		return errors.New("REVIEW_LINEAGE_INVALID")
 	}
-	if receipt.ReviewKind == "TARGETED_CLOSURE" && receipt.RemediationTarget == nil {
+	if receipt.ReviewKind == "TARGETED_CLOSURE" && !validTargetedRemediation(receipt.RemediationTarget, manifest.CandidateRoot) {
 		return errors.New("REVIEW_LINEAGE_INVALID")
 	}
 	return nil
 }
 
-func validateReviewLineage(receipts []reviewReceipt) error {
+func validateReviewLineage(receipts []reviewReceipt, manifest candidateManifest) error {
 	full := 0
+	closures := 0
+	var fullReceipt *reviewReceipt
+	var closureReceipt *reviewReceipt
 	for _, receipt := range receipts {
 		if receipt.Role == "CODEX_REVIEWER" && receipt.ReviewKind == "FULL" && receipt.Status == "EXECUTED" {
 			full++
+			copy := receipt
+			fullReceipt = &copy
 		}
-		if receipt.ReviewKind == "TARGETED_CLOSURE" && len(receipt.Findings) != 0 {
-			return errors.New("TARGETED_CLOSURE_SCOPE_EXPANDED")
+		if receipt.ReviewKind == "TARGETED_CLOSURE" {
+			closures++
+			copy := receipt
+			closureReceipt = &copy
+			if len(receipt.Findings) != 0 {
+				return errors.New("TARGETED_CLOSURE_SCOPE_EXPANDED")
+			}
+		}
+	}
+	if full != 1 || closures != 1 || fullReceipt == nil || closureReceipt == nil {
+		return errors.New("REVIEW_LINEAGE_INCOMPLETE")
+	}
+	if fullReceipt.CandidateRoot != predecessorRoot || !validTargetedRemediation(closureReceipt.RemediationTarget, manifest.CandidateRoot) {
+		return errors.New("REVIEW_LINEAGE_INVALID")
+	}
+	if closureReceipt.Status == "EXECUTED" {
+		if closureReceipt.Provider == nil || fullReceipt.Provider == nil || *closureReceipt.Provider != *fullReceipt.Provider || closureReceipt.Model == nil || fullReceipt.Model == nil || *closureReceipt.Model != *fullReceipt.Model || closureReceipt.ReasoningEffort == nil || fullReceipt.ReasoningEffort == nil || *closureReceipt.ReasoningEffort != *fullReceipt.ReasoningEffort || closureReceipt.ReviewerIdentity != fullReceipt.ReviewerIdentity || closureReceipt.InvocationID == nil || fullReceipt.InvocationID == nil || !strings.HasPrefix(*closureReceipt.InvocationID, *fullReceipt.InvocationID) {
+			return errors.New("TARGETED_CLOSURE_REVIEWER_DRIFT")
 		}
 	}
 	if full > 1 {
 		return errors.New("SECOND_FULL_REVIEW_FORBIDDEN")
 	}
 	return nil
+}
+
+func validTargetedRemediation(target *remediationTarget, successorRoot string) bool {
+	return target != nil && target.PredecessorCandidateRoot == predecessorRoot && target.SuccessorCandidateRoot == successorRoot && reflect.DeepEqual(target.FindingIDs, blockingReviewFindingIDs)
 }
 
 func validateFormalSemantics(catalog formalCatalog) error {
@@ -529,8 +568,8 @@ func validateFormalSemantics(catalog formalCatalog) error {
 			return errors.New("FORMAL_DENOMINATOR_DRIFT")
 		}
 		lowerPath, lowerSymbol := strings.ToLower(rustBinding.SourcePath), strings.ToLower(rustBinding.ProductionSymbol)
-		if rustBinding.ConnectionState != "CONNECTED" || !rustBinding.ReachableFromEntry || strings.Contains(lowerPath, "/tests/") || strings.Contains(lowerSymbol, "proof") || strings.Contains(lowerSymbol, "adapter_local") {
-			return errors.New("SHIPPED_RUST_DISCONNECTED")
+		if rustBinding.ConnectionState != "DISCONNECTED" || rustBinding.ReachableFromEntry || !contains(rustBinding.BlockerIDs, "blocker-formal-refinement") || strings.Contains(lowerPath, "/tests/") || strings.Contains(lowerSymbol, "proof") || strings.Contains(lowerSymbol, "adapter_local") {
+			return errors.New("RUST_PRODUCTION_LINKAGE_OVERCLAIM")
 		}
 		if evidence.ExecutionState != "NOT_EXECUTED" || evidence.ObservedStrength != "NONE" {
 			if evidence.Refinement.State != "CONNECTED" || evidence.Refinement.ArtifactSHA256 == nil || evidence.ExecutionState != "EXECUTED_PASS" {
@@ -565,6 +604,23 @@ func validateFormalSemantics(catalog formalCatalog) error {
 	return nil
 }
 
+func validateRustBindingAnchors(root string, target candidateTarget, catalog formalCatalog) error {
+	for _, binding := range catalog.RustBindings {
+		if binding.Identity.Commit == nil || binding.Identity.Tree == nil || binding.Identity.Blob == nil || binding.Identity.ArchiveSHA256 != nil || !fullGitObjectID(*binding.Identity.Commit) || !fullGitObjectID(*binding.Identity.Tree) || !fullGitObjectID(*binding.Identity.Blob) || *binding.Identity.Commit != target.Commit || *binding.Identity.Tree != target.Tree {
+			return errors.New("RUST_PRODUCTION_SOURCE_UNRESOLVED")
+		}
+		raw, err := gitBytesCandidate(root, "show", target.Commit+":"+binding.SourcePath)
+		if err != nil || digestCandidate(raw) != binding.SourceSHA256 || !rustDeclarationExists(raw, binding.ProductionSymbol) {
+			return errors.New("RUST_PRODUCTION_SYMBOL_UNRESOLVED")
+		}
+		blob, err := gitTextCandidate(root, "rev-parse", target.Commit+":"+binding.SourcePath)
+		if err != nil || blob != *binding.Identity.Blob || binding.DeclarationIdentity != "git-blob:"+blob+"#"+binding.ProductionSymbol {
+			return errors.New("RUST_PRODUCTION_SOURCE_UNRESOLVED")
+		}
+	}
+	return nil
+}
+
 func aggregateListing(nodes []candidateGraphNode) []byte {
 	var buffer bytes.Buffer
 	for _, node := range nodes {
@@ -594,6 +650,18 @@ func calculateCandidateRoot(target candidateTarget, graph candidateGraph) string
 func digestCandidate(raw []byte) string {
 	sum := sha256.Sum256(raw)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func fullGitObjectID(value string) bool {
+	if len(value) != 40 {
+		return false
+	}
+	for _, character := range value {
+		if (character < '0' || character > '9') && (character < 'a' || character > 'f') {
+			return false
+		}
+	}
+	return true
 }
 
 func gitTextCandidate(root string, arguments ...string) (string, error) {

@@ -398,13 +398,15 @@ type reviewReceipt struct {
 }
 
 type receiptDescriptor struct {
-	Path          string       `json:"path"`
-	Role          string       `json:"role"`
-	Status        string       `json:"status"`
-	CandidateRoot string       `json:"candidate_root"`
-	Bytes         uint64       `json:"bytes"`
-	SHA256        string       `json:"sha256"`
-	Git           candidateGit `json:"git"`
+	Path              string             `json:"path"`
+	Role              string             `json:"role"`
+	ReviewKind        string             `json:"review_kind"`
+	Status            string             `json:"status"`
+	CandidateRoot     string             `json:"candidate_root"`
+	RemediationTarget *remediationTarget `json:"remediation_target"`
+	Bytes             uint64             `json:"bytes"`
+	SHA256            string             `json:"sha256"`
+	Git               candidateGit       `json:"git"`
 }
 
 type reviewChain struct {
