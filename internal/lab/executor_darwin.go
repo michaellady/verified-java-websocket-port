@@ -510,8 +510,15 @@ func darwinSandboxProfile(plan SandboxPlan, self, javaPath, jspawnPath, endpoint
 		profile.WriteString("(allow network-outbound (remote tcp \"localhost:*\"))\n")
 	}
 	profile.WriteString("(deny file-read* (subpath \"/Users\"))\n")
-	profile.WriteString("(deny file-read* (subpath \"/private/tmp\"))\n")
-	for _, allowed := range []string{plan.SourceDirectory, plan.ToolDirectory, plan.WorkspaceDirectory, plan.CacheDirectory, plan.OutputDirectory, self} {
+	readDirectories := []string{plan.SourceDirectory, plan.ToolDirectory, plan.WorkspaceDirectory, plan.CacheDirectory, plan.OutputDirectory}
+	for _, temporaryRoot := range []string{"/private/tmp", "/private/var/folders"} {
+		profile.WriteString("(deny file-read-data (require-all (subpath \"" + temporaryRoot + "\")")
+		for _, allowed := range readDirectories {
+			profile.WriteString(" (require-not (subpath \"" + quote(allowed) + "\"))")
+		}
+		profile.WriteString(" (require-not (literal \"" + quote(self) + "\"))))\n")
+	}
+	for _, allowed := range append(readDirectories, self) {
 		profile.WriteString("(allow file-read* (subpath \"" + quote(allowed) + "\"))\n")
 	}
 	profile.WriteString("(deny file-write*)\n")
@@ -964,15 +971,7 @@ public final class JavaNetworkCanary {
 		return finding("SANDBOX_CANARY_FAILED", "$.network", err.Error())
 	}
 	run := func(arguments ...string) error {
-		commandArguments := []string{
-			"-f", profilePath, javaPath, "-Djava.net.preferIPv4Stack=true",
-			"-Duser.home=" + filepath.Join(plan.WorkspaceDirectory, "home"),
-			"-Djava.io.tmpdir=" + filepath.Join(plan.WorkspaceDirectory, "tmp"), sourcePath,
-		}
-		commandArguments = append(commandArguments, arguments...)
-		command := exec.Command("/usr/bin/sandbox-exec", commandArguments...)
-		command.Env = []string{"HOME=" + filepath.Join(plan.WorkspaceDirectory, "home"), "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "TZ=UTC"}
-		return command.Run()
+		return javaNetworkCanaryCommand(plan, profilePath, javaPath, sourcePath, arguments...).Run()
 	}
 	if err := run("connect", "127.0.0.1", port); allowsLoopback && err != nil {
 		return finding("SANDBOX_CANARY_FAILED", "$.network", "the Java runtime was denied the allowed loopback endpoint")
@@ -994,6 +993,19 @@ public final class JavaNetworkCanary {
 		return finding("SANDBOX_CANARY_FAILED", "$.network", "Java non-loopback canary did not fail with exact sandbox permission denial")
 	}
 	return nil
+}
+
+func javaNetworkCanaryCommand(plan SandboxPlan, profilePath, javaPath, sourcePath string, arguments ...string) *exec.Cmd {
+	commandArguments := []string{
+		"-f", profilePath, javaPath, "-Djava.net.preferIPv4Stack=true",
+		"-Duser.home=" + filepath.Join(plan.WorkspaceDirectory, "home"),
+		"-Djava.io.tmpdir=" + filepath.Join(plan.WorkspaceDirectory, "tmp"), sourcePath,
+	}
+	commandArguments = append(commandArguments, arguments...)
+	command := exec.Command("/usr/bin/sandbox-exec", commandArguments...)
+	command.Dir = plan.WorkspaceDirectory
+	command.Env = []string{"HOME=" + filepath.Join(plan.WorkspaceDirectory, "home"), "LANG=C.UTF-8", "LC_ALL=C.UTF-8", "TZ=UTC"}
+	return command
 }
 
 func runNetworkPolicyCanary(plan SandboxPlan, profilePath, self, actualEndpoint string) error {

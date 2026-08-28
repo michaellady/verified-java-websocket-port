@@ -4,6 +4,7 @@ package lab
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -62,7 +63,7 @@ func TestDarwinSandboxProfileClosesAmbientAuthority(t *testing.T) {
 		"(deny network*)",
 		"(allow network-outbound (remote tcp \"localhost:43117\"))",
 		"(deny file-read* (subpath \"/Users\"))",
-		"(deny file-read* (subpath \"/private/tmp\"))",
+		"(deny file-read-data (require-all",
 		"(deny file-write*)",
 		"(deny process*)",
 		"(deny process-fork)",
@@ -74,12 +75,85 @@ func TestDarwinSandboxProfileClosesAmbientAuthority(t *testing.T) {
 			t.Fatalf("profile omitted required rule %q:\n%s", required, profile)
 		}
 	}
+	if strings.Contains(profile, `(deny file-read* (subpath "/private/tmp"))`) {
+		t.Fatalf("profile used a parent deny that overrides its planned child-path allows:\n%s", profile)
+	}
+	for _, allowed := range []string{
+		plan.SourceDirectory, plan.ToolDirectory, plan.WorkspaceDirectory,
+		plan.CacheDirectory, plan.OutputDirectory,
+	} {
+		if !strings.Contains(profile, `(require-not (subpath "`+allowed+`"))`) {
+			t.Fatalf("profile omitted the temporary read-data exclusion for %q:\n%s", allowed, profile)
+		}
+	}
+	if !strings.Contains(profile, `(require-not (literal "/private/tmp/labctl"))`) {
+		t.Fatalf("profile omitted the exact executor read-data exclusion:\n%s", profile)
+	}
 	if strings.Contains(profile, `(allow file-write* (subpath "`+plan.SourceDirectory+`"))`) ||
 		strings.Contains(profile, `(allow file-write* (subpath "`+plan.ToolDirectory+`"))`) {
 		t.Fatalf("profile made immutable inputs writable:\n%s", profile)
 	}
 	if !strings.Contains(profile, `(allow file-write* (subpath "`+plan.WorkspaceDirectory+`/build"))`) {
 		t.Fatalf("profile did not isolate the writable build copy beneath the workspace:\n%s", profile)
+	}
+}
+
+func TestDarwinSandboxProfileAllowsPlannedTempDataAndDeniesSiblingData(t *testing.T) {
+	base, err := os.MkdirTemp("/private/tmp", "lab-profile-read-data-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(base) })
+	plan := validSandboxPlan(t, SandboxMavenAcquire)
+	plan.SourceDirectory = filepath.Join(base, "source")
+	plan.ToolDirectory = filepath.Join(base, "tools")
+	plan.WorkspaceDirectory = filepath.Join(base, "workspace")
+	plan.CacheDirectory = filepath.Join(base, "cache")
+	plan.OutputDirectory = filepath.Join(base, "output")
+	for _, directory := range []string{
+		plan.SourceDirectory, plan.ToolDirectory, plan.WorkspaceDirectory,
+		plan.CacheDirectory, plan.OutputDirectory,
+	} {
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	allowed := filepath.Join(plan.WorkspaceDirectory, "allowed")
+	denied := filepath.Join(base, "denied")
+	for _, path := range []string{allowed, denied} {
+		if err := os.WriteFile(path, []byte("sentinel"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	profile, err := darwinSandboxProfile(
+		plan, "/bin/cat", "/private/tmp/tools/java",
+		"/private/tmp/tools/jspawnhelper", "127.0.0.1:43117",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run := func(path string) error {
+		command := exec.Command("/usr/bin/sandbox-exec", "-p", profile, "/bin/cat", path)
+		command.Stdout = nil
+		command.Stderr = nil
+		return command.Run()
+	}
+	if err := run(allowed); err != nil {
+		t.Fatalf("planned temporary data was unreadable: %v", err)
+	}
+	if err := run(denied); err == nil {
+		t.Fatal("sibling temporary data was readable")
+	}
+}
+
+func TestJavaNetworkCanaryCommandUsesPlannedWorkingDirectory(t *testing.T) {
+	plan := validSandboxPlan(t, SandboxMavenAcquire)
+	command := javaNetworkCanaryCommand(
+		plan, "/private/tmp/profile.sb", "/private/tmp/tools/java",
+		"/private/tmp/JavaNetworkCanary.java", "connect", "127.0.0.1", "43117",
+	)
+	if command.Dir != plan.WorkspaceDirectory {
+		t.Fatalf("Java canary cwd = %q, want planned workspace %q", command.Dir, plan.WorkspaceDirectory)
 	}
 }
 
