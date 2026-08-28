@@ -432,13 +432,18 @@ func buildParityReplay(root string, manifest candidateManifest, claims candidate
 	sort.Slice(descriptors, func(i, j int) bool { return descriptors[i].Path < descriptors[j].Path })
 	descriptorRaw, _ := json.Marshal(descriptors)
 	evaluationRoot := digestCandidate(append([]byte("US023-EVALUATION-V1\x00"+manifest.CandidateRoot), descriptorRaw...))
+	chain, counts := deriveReviewChain(receipts)
+	return parityReplay{Schema: "../schemas/us023-parity-replay-1.0.0.schema.json", SchemaVersion: "1.0.0", StoryID: candidateStory, CandidateID: candidateID, Target: manifest.Target, CandidateRoot: manifest.CandidateRoot, Receipts: descriptors, EvaluationRoot: evaluationRoot, SnapshotState: "FROZEN", ParityState: "BLOCKED", Gates: claims.Gates, EvidenceFamilies: claims.EvidenceFamilies, FormalCoverage: catalog.Coverage, Blockers: claims.BlockerCatalog, Nonclaims: claims.Nonclaims, ReviewChain: chain, Counts: counts}, nil
+}
+
+func deriveReviewChain(receipts []reviewReceipt) (reviewChain, derivedCounts) {
 	chain := reviewChain{}
 	counts := derivedCounts{}
 	for _, receipt := range receipts {
 		if receipt.Role == "CODEX_REVIEWER" && receipt.ReviewKind == "FULL" && receipt.Status == "EXECUTED" {
 			chain.FullCodexReviews++
 		}
-		if receipt.ReviewKind == "TARGETED_CLOSURE" {
+		if receipt.ReviewKind == "TARGETED_CLOSURE" && receipt.Status == "EXECUTED" {
 			chain.TargetedClosures++
 		}
 		if receipt.Role == "HUMAN_REVIEWER" && receipt.Status == "EXECUTED" {
@@ -451,7 +456,7 @@ func buildParityReplay(root string, manifest candidateManifest, claims candidate
 			}
 		}
 	}
-	return parityReplay{Schema: "../schemas/us023-parity-replay-1.0.0.schema.json", SchemaVersion: "1.0.0", StoryID: candidateStory, CandidateID: candidateID, Target: manifest.Target, CandidateRoot: manifest.CandidateRoot, Receipts: descriptors, EvaluationRoot: evaluationRoot, SnapshotState: "FROZEN", ParityState: "BLOCKED", Gates: claims.Gates, EvidenceFamilies: claims.EvidenceFamilies, FormalCoverage: catalog.Coverage, Blockers: claims.BlockerCatalog, Nonclaims: claims.Nonclaims, ReviewChain: chain, Counts: counts}, nil
+	return chain, counts
 }
 
 func buildPlaceholderReceipt(role string, manifest candidateManifest) reviewReceipt {

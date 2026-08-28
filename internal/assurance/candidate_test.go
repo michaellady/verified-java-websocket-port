@@ -273,6 +273,20 @@ func TestUS023TargetedClosurePreservesFullReviewAndExactFindingScope(t *testing.
 	}
 }
 
+func TestUS023TargetedClosureCountRequiresExecution(t *testing.T) {
+	pending := reviewReceipt{ReviewKind: "TARGETED_CLOSURE", Status: "NOT_EXECUTED"}
+	chain, _ := deriveReviewChain([]reviewReceipt{pending})
+	if chain.TargetedClosures != 0 {
+		t.Fatalf("pending targeted closure count = %d, want 0", chain.TargetedClosures)
+	}
+	executed := pending
+	executed.Status = "EXECUTED"
+	chain, _ = deriveReviewChain([]reviewReceipt{executed})
+	if chain.TargetedClosures != 1 {
+		t.Fatalf("executed targeted closure count = %d, want 1", chain.TargetedClosures)
+	}
+}
+
 func TestUS023GitObjectIDsRequireCanonicalFullSHA1(t *testing.T) {
 	for _, value := range []string{"f9aebea", strings.Repeat("A", 40), strings.Repeat("g", 40), strings.Repeat("0", 39)} {
 		if fullGitObjectID(value) {
