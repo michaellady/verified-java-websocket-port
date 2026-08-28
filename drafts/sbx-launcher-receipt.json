@@ -1,0 +1,820 @@
+{
+ "schema_version": "1.0.0",
+ "kind": "sbx-launcher-and-in-sandbox-kani-verification-receipt",
+ "lane": "sbx-launcher (plane-local sandbox launcher + US-012 AC5 re-run)",
+ "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+ "generated_at": "2026-08-28T15:06:51Z",
+ "generated_at_provenance": "captured from `date -u` immediately before writing this file",
+ "driver": "claude-opus-5",
+ "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+ "independent_review_claimed": false,
+ "production": false,
+ "signing": false,
+ "publication": false,
+ "commit": {
+  "branch": "claude/sbx-launcher",
+  "head": "23382cd26002558e48b64975b347a788f2edd778",
+  "base": "8ec01baf8a9b7d8e79d1ef6f8e1d2eba2aab7941 (claude/actual-code-verification, the Kani lane)",
+  "attempt_ran_at": "e5d799fcdcc0ce0a06c5665787c854eeb69b5ef3 (the commit cloned into the sandbox and read back from inside it)"
+ },
+ "owner_authorization": {
+  "attempt_record": "protected/us012-attempt-0129-owner-authorization.json",
+  "attempt_record_sha256": "28ae4df5c8fb57a82e1baad6b5dbf8742ea8052a42e996aef538d8a5d4ce3c64",
+  "cited_decision": "protected/us012-actual-code-verification-owner-decision-2026-08-28.json",
+  "cited_decision_sha256": "b4f6891da432e3d13ad6bcef6064c05cb3e7501fd72781fe8c06a80732313c69",
+  "brief_prefix_b4f6891d_matched": true,
+  "note": "The decision was already granted and explicitly requires sandbox execution under a fresh attempt id. This attempt supplies the condition the host-only Kani lane disclosed it had not met. No new owner grant is claimed."
+ },
+ "headline": "33 of 35 harness outcomes reproduced in-sandbox. The negative control reproduced COMPLETELY (19/19 identical, 14 planted defects detected). Two of the sixteen real harnesses did NOT reproduce, both because CBMC ran out of memory under the accepted profile's 2 GiB allowance, not because any property was violated. That difference is the finding and is reported, not reconciled.",
+ "launcher": {
+  "design": {
+   "host_component": "cmd/sbxlaunch \u2014 parameterised by -repo-root, -protected-root, -payload and -stage. Attempt id, sandbox name, profile constraints, inbound artifacts, steps and outbound capture all arrive as data in a payload manifest (assurance/sbx/us012-kani-0129-payload.json).",
+   "acquisition_component": "cmd/sbxfetch \u2014 fetches every artifact host-side and verifies it against a PUBLISHED checksum recorded in assurance/sbx/us012-kani-0129-fetch.json, which also names WHO published each digest. A mismatch deletes the file and exits nonzero.",
+   "guest_component": "cmd/kanisbxdriver \u2014 re-verifies the inbound bundle member by member, materializes the toolchain, probes it live, then delegates the sweep to the SAME runner binary the host run used (assurance/formal/kani/runner), built from the same source at the same commit for linux/arm64. Delegating rather than reimplementing keeps the outcome classification byte-identical between host and sandbox.",
+   "gcc_shim": "The driver dispatches on argv[0]: installed on PATH as `gcc` it execs the unprivileged-extracted compiler with the user prefix's -B, -isystem and -L paths. A compiled binary rather than the shell wrapper attempt 0126 disclosed, per the standing no-shell-for-logic rule."
+  },
+  "plane_locality_evidence": [
+   "Not one absolute path to any plane is compiled into cmd/sbxlaunch, cmd/sbxfetch or cmd/kanisbxdriver. Verified by reading the sources: the only absolute path anywhere in the attempt is the sbx binary location, and that lives in the payload DATA, not in code.",
+   "protected/us007-sbx-launcher was READ ONLY. It was never executed, never imported, never copied and never modified.",
+   "No file under workspace/orchestrator/verified-java-websocket-port/ (the Codex plane) and no file in the Codex repository was written at any point in this lane.",
+   "Everything this lane produced lives under workspace/orchestrator/verified-java-websocket-port-claude/protected/us007-sbx-output-live-0129/, protected/us012-attempt-0129-owner-authorization.json, the drafts receipt, and the worktree at branch claude/sbx-launcher."
+  ],
+  "differences_from_the_codex_plane_launcher": [
+   "Its repoPath, outputPath, ledgerPath and planPath are compile-time constants naming the OTHER plane; running it would have written the Codex plane. This launcher takes all four as arguments.",
+   "It requires VERIFIED_JAVA_WEBSOCKET_US001_OWNER_ED25519_PRIVATE_KEY to mint a promotion record and a signed launch authorization. This launcher requires no secret.",
+   "Its workload is a fixed 15-canary containment suite with no way to carry an arbitrary payload in and receipts out. This launcher carries both.",
+   "It records cpu_count and memory_bytes as hardcoded constants in its evidence. This launcher reads cpu count from the guest and refuses to claim the memory limit it could not read."
+  ],
+  "signing_stance": {
+   "signed": false,
+   "statement": "UNSIGNED, AND LABELLED UNSIGNED. This plane does not hold the owner ed25519 signing secret, and no substitute signature was invented. The launch receipt carries signed=false and a signing_stance field saying so on its face. This is a genuine reduction in evidentiary strength relative to the Codex-plane launcher's signed receipts and is reported as such.",
+   "is_the_signature_required_for_this_evidence_to_count": "That is the owner's call, not this lane's. The signature binds the attempt to the owner's key; it does not make the harness outcomes more or less true. Every number below is reproducible from committed source and the artifacts under the attempt directory. If the owner requires signed receipts for this class, this attempt must be re-run by a holder of the key."
+  }
+ },
+ "profile_parity": {
+  "method": "Each constraint was READ BACK from the live sandbox and compared, rather than asserted from the create argv. The check is tri-state: MATCHED, MISMATCHED (aborts the attempt), or DECLARED_NOT_OBSERVABLE (recorded, never silently upgraded to a pass).",
+  "all_observable_constraints_matched": true,
+  "checks": [
+   {
+    "constraint": "pinned template digest",
+    "declared": "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "observed": "sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "evidence_source": "sbx inspect --json .image_digest",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "template reference",
+    "declared": "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "observed": "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "evidence_source": "sbx inspect --json .image",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "agent",
+    "declared": "shell",
+    "observed": "shell",
+    "evidence_source": "sbx inspect --json .agent",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "sandbox name",
+    "declared": "us012-kani-0129",
+    "observed": "us012-kani-0129",
+    "evidence_source": "sbx inspect --json .name",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "workspace mode clone (git bridge)",
+    "declared": "exactly 1 localhost ->9418/tcp bridge",
+    "observed": "1 of 1 published ports",
+    "evidence_source": "sbx inspect --json .ports",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "workspace is the staged clone",
+    "declared": "staged clone directory",
+    "observed": "/tmp/us012-kani-sbx-0129/stage/src-us012-kani-0129",
+    "evidence_source": "sbx inspect --json .workspace",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "sandbox running",
+    "declared": "running",
+    "observed": "running",
+    "evidence_source": "sbx inspect --json .state",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "platform control secrets",
+    "declared": "exactly 1 uploaded mcpgateway token",
+    "observed": "1 of 1",
+    "evidence_source": "sbx inspect --json .secrets",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "cpu count",
+    "declared": "2",
+    "observed": "2",
+    "evidence_source": "in-sandbox `nproc`",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "memory limit",
+    "declared": "2g",
+    "observed": "UNAVAILABLE (no readable cgroup memory limit in this guest; value rests on the create argv)",
+    "evidence_source": "in-sandbox cgroup memory limit",
+    "status": "DECLARED_NOT_OBSERVABLE"
+   },
+   {
+    "constraint": "deny-network all paths",
+    "declared": "deny **",
+    "observed": "deny **",
+    "evidence_source": "sbx policy ls --json effective rules",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "unprivileged uid",
+    "declared": "1000",
+    "observed": "1000",
+    "evidence_source": "in-sandbox `id -u`",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "unprivileged user",
+    "declared": "agent",
+    "observed": "agent",
+    "evidence_source": "in-sandbox `id -un`",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "sbx cli version",
+    "declared": "v0.39.0",
+    "observed": "sbx version: v0.39.0 def8cb0523a77e757bdd6ef52b459fe374f3783e",
+    "evidence_source": "sbx version banner",
+    "status": "MATCHED"
+   },
+   {
+    "constraint": "in-sandbox source commit",
+    "declared": "e5d799fcdcc0ce0a06c5665787c854eeb69b5ef3",
+    "observed": "e5d799fcdcc0ce0a06c5665787c854eeb69b5ef3",
+    "evidence_source": "in-sandbox `git rev-parse HEAD`",
+    "status": "MATCHED"
+   }
+  ],
+  "against_the_accepted_profile": {
+   "sbx_v0_39_0": "MATCHED \u2014 banner read: sbx version: v0.39.0 def8cb0523a77e757bdd6ef52b459fe374f3783e",
+   "unprivileged_uid_1000": "MATCHED \u2014 in-sandbox `id -u`=1000, `id -un`=agent. The driver additionally refuses to run at all if getuid()==0.",
+   "deny_network_all_paths": "MATCHED \u2014 `sbx policy ls --json` carries the wildcard deny rule live. Every artifact was fetched host-side; nothing was downloaded inside.",
+   "clone_mode": "MATCHED \u2014 exactly one published port, the localhost ->9418/tcp git bridge that clone mode creates, and the in-sandbox `git rev-parse HEAD` equals the staged commit.",
+   "pinned_template_digest": "MATCHED \u2014 sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec, identical to the digest attempts 0126/0127/0128 recorded.",
+   "cpus_2": "MATCHED \u2014 in-sandbox `nproc` = 2. This is stronger than the prior accepted attempts, which recorded cpu count from the create argv.",
+   "memory_2g": "DECLARED_NOT_OBSERVABLE \u2014 sbx v0.39.0's `inspect --json` has no memory field and this guest exposes no readable cgroup memory limit, so `-m 2g` rests on the create argv exactly as it does in every prior accepted attempt on this plane. THIS IS THE CONSTRAINT THE DIVERGENCE BELOW IMPLICATES."
+  },
+  "disagreement_with_the_brief": "The brief said to verify the profile against the 0126/0127/0128 receipts rather than from the brief, which was correct and was done. Doing so surfaced that `sbx inspect --json` on v0.39.0 exposes NO cpu, memory or clone field at all \u2014 the prior receipts' cpu/memory figures come from the create argv, and the Codex-plane launcher hardcodes them into its evidence struct. Clone mode is observable only indirectly through the git-bridge port."
+ },
+ "materialization": {
+  "policy": "Network denied in-sandbox, so every artifact was acquired on the host against a published checksum and then digest-verified again inside. 39 artifacts fetched, 0 mismatches.",
+  "artifacts": [
+   {
+    "artifact": "kani-0.67.0-aarch64-unknown-linux-gnu.tar.gz",
+    "bytes": 137826806,
+    "published_sha256": "974128f44dd43618a06d21e5fe6d9ff67188de5986fe0bc57b534b0e4639efb9",
+    "published_by": "GitHub release API asset digest field, model-checking/kani tag kani-0.67.0, asset id 341228073",
+    "host_verified": true,
+    "resolved_by_probe": "the release API was queried directly rather than trusting the brief"
+   },
+   {
+    "artifact": "rust-nightly-aarch64-unknown-linux-gnu.tar.gz (2025-11-21)",
+    "bytes": 332448115,
+    "published_sha256": "7af72ca89dfb0434f68e48deb5456af430206a51b59b50e533c45d84523e3339",
+    "published_by": "static.rust-lang.org published .sha256 sidecar",
+    "host_verified": true
+   },
+   {
+    "artifact": "37-package gcc + libc6-dev apt closure, Ubuntu 26.04 arm64",
+    "bytes": 59751284,
+    "published_by": "SHA256 field of the signed Ubuntu apt index, resolved inside a pristine container of the pinned template image",
+    "host_verified": true
+   }
+  ],
+  "corrections_to_the_brief": [
+   "The brief instructed verification against release bundle 7fd0b711... . That is the aarch64-APPLE-DARWIN bundle (asset id 341228123) the host Kani lane used. The sandbox template is linux/arm64, so the required artifact is the aarch64-unknown-linux-gnu bundle at 974128f4... . The two are different files.",
+   "For the same reason the eight per-binary digests the Kani lane recorded are DARWIN binaries and cannot verify the linux ones. Host-side linux digests were computed fresh from the verified linux tarball and used as the comparison basis instead.",
+   "The crates.io kani-verifier checksum d6225a7e... is genuine but was NOT needed. That crate only provides the `kani`/`cargo-kani` shims, which locate the kani home and exec kani-driver. kani-driver is itself in the release bundle and dispatches on argv[0], so aliasing it as `cargo-kani` gives full cargo mode with no locally-compiled shim. This is stronger provenance, not weaker: the binary that ran came from the digest-verified release bundle rather than from a local build.",
+   "The Kani lane's receipt labels 341228123 a RELEASE id. The release id is 277243009; 341228123 is the darwin ASSET id. Cosmetic, but it is a citation error."
+  ],
+  "digest_verification_both_directions": {
+   "inbound": "All 42 payload members bundled into one tar; the tar's host digest was compared against a sha256sum computed INSIDE the sandbox (16a66d19faf73a0579c23665de4a99daf2d56acbd607e299c517a1e7a02b044a, match), then the driver re-verified all 42 members against the host manifest in-sandbox: verified=42 mismatches=0.",
+   "outbound": "The output directory was tarred in-sandbox and hashed there; the host re-hashed the received tar (match), then verified each of the 5 extracted files against the digest manifest the driver wrote in-sandbox: 5 verified, 0 mismatched.",
+   "sbx_cp_exit_codes": "Recorded but NOT load-bearing in either direction, per the 0124 finding. The digests decide."
+  },
+  "tool_binaries_in_sandbox_vs_host": [
+   {
+    "artifact": "kani/bin/cbmc",
+    "in_sandbox_sha256": "sha256:2c650b32078f157eb80a5c9349775a0f86338a1527f28ebe6892ae00d28ed808",
+    "host_sha256": "sha256:2c650b32078f157eb80a5c9349775a0f86338a1527f28ebe6892ae00d28ed808",
+    "match": true
+   },
+   {
+    "artifact": "kani/bin/goto-analyzer",
+    "in_sandbox_sha256": "sha256:fef7c04e906d212f091dfcaab78fe9921c8cee0d3c925186d7b49b3c50f2e8e3",
+    "host_sha256": "sha256:fef7c04e906d212f091dfcaab78fe9921c8cee0d3c925186d7b49b3c50f2e8e3",
+    "match": true
+   },
+   {
+    "artifact": "kani/bin/goto-cc",
+    "in_sandbox_sha256": "sha256:86a6e7f8a5994aa97e5eb50cd6c46dd62b5d5f1075954df008bf0a7a4c66fc6e",
+    "host_sha256": "sha256:86a6e7f8a5994aa97e5eb50cd6c46dd62b5d5f1075954df008bf0a7a4c66fc6e",
+    "match": true
+   },
+   {
+    "artifact": "kani/bin/goto-instrument",
+    "in_sandbox_sha256": "sha256:cca28532c795abbdccc495f81276552a29ad33e99c97c30b1da6b3a14d7c1be9",
+    "host_sha256": "sha256:cca28532c795abbdccc495f81276552a29ad33e99c97c30b1da6b3a14d7c1be9",
+    "match": true
+   },
+   {
+    "artifact": "kani/bin/kani-compiler",
+    "in_sandbox_sha256": "sha256:e5eac6871fb522dae3305575d23354569c4f4474948948749ed3a15f73b5687e",
+    "host_sha256": "sha256:e5eac6871fb522dae3305575d23354569c4f4474948948749ed3a15f73b5687e",
+    "match": true
+   },
+   {
+    "artifact": "kani/bin/kani-cov",
+    "in_sandbox_sha256": "sha256:89c556e22cdeed6b1bdc8c1b9672205077c9f93972814b1831281202ceda69f5",
+    "host_sha256": "sha256:89c556e22cdeed6b1bdc8c1b9672205077c9f93972814b1831281202ceda69f5",
+    "match": true
+   },
+   {
+    "artifact": "kani/bin/kani-driver",
+    "in_sandbox_sha256": "sha256:890824119b5af9054a4c45a8bdde7c0eb7fcb1690dba0f37d5996df0b9d711e5",
+    "host_sha256": "sha256:890824119b5af9054a4c45a8bdde7c0eb7fcb1690dba0f37d5996df0b9d711e5",
+    "match": true
+   },
+   {
+    "artifact": "kani/bin/kissat",
+    "in_sandbox_sha256": "sha256:c717f89fae9863ba07b4387f17e1ccda0493be43c2d7e7d865d513da3e9b362f",
+    "host_sha256": "sha256:c717f89fae9863ba07b4387f17e1ccda0493be43c2d7e7d865d513da3e9b362f",
+    "match": true
+   },
+   {
+    "artifact": "toolchain/bin/rustc",
+    "in_sandbox_sha256": "sha256:66abaddfe58b489de539e576d999021cea9e4ea0c77857063e7924d513b2d9ee",
+    "host_sha256": "sha256:66abaddfe58b489de539e576d999021cea9e4ea0c77857063e7924d513b2d9ee",
+    "match": true
+   },
+   {
+    "artifact": "toolchain/bin/cargo",
+    "in_sandbox_sha256": "sha256:c950cec9749502844977fecedb897405509262d24f91d7a38231c97d9fd12da5",
+    "host_sha256": "sha256:c950cec9749502844977fecedb897405509262d24f91d7a38231c97d9fd12da5",
+    "match": true
+   },
+   {
+    "artifact": "tc/usr/bin/gcc-15",
+    "in_sandbox_sha256": "sha256:5b06a5b85cab901e2af3e8f351a6d4e8e6a93af24797bd8c01e5391ac6b4e63b",
+    "host_sha256": null,
+    "match": "no host reference (built by unprivileged deb extraction in-sandbox)"
+   }
+  ],
+  "all_ten_referenced_binaries_matched": true,
+  "in_sandbox_tool_versions": {
+   "kani": "kani 0.67.0 (exit 0)",
+   "cbmc": "6.8.0 (cbmc-6.8.0) (exit 0)",
+   "rustc": "rustc 1.93.0-nightly (53732d5e0 2025-11-20) (exit 0) \u2014 the SAME nightly build the host lane used, for the linux target",
+   "cargo": "cargo 1.93.0-nightly (5c0343317 2025-11-18) (exit 0)",
+   "gcc": "gcc-15 (Ubuntu 15.2.0-16ubuntu1) 15.2.0 (exit 0)"
+  },
+  "privilege": "No root at any point. The 37 debs were extracted with `dpkg-deb -x` into /home/agent/tc as uid 1000, following the attempt-0126 precedent, and the driver aborts if it finds itself running as root.",
+  "shipped_tree_untouched": "The attempt ran from a clean clone at e5d799f with `git status --porcelain` empty, verified before sandbox creation. Nothing under rust/ was modified by this lane; the only files it added are cmd/sbxlaunch, cmd/sbxfetch, cmd/kanisbxdriver and assurance/sbx/."
+ },
+ "harness_outcomes": {
+  "totals": {
+   "harnesses": 35,
+   "host_matched_expectation": 35,
+   "sandbox_matched_expectation": 33,
+   "sandbox_vs_host_identical_outcome": 33,
+   "diverged": 2
+  },
+  "negative_control_in_sandbox": {
+   "harness_runs": 19,
+   "planted_defects": 15,
+   "sandbox_detected": 14,
+   "host_detected": 14,
+   "proven_equivalent": 1,
+   "identical_to_host_outcome": 19,
+   "identical_exit_code": 19,
+   "identical_failed_checks": 19,
+   "identical_total_checks": 19,
+   "verdict": "THE NEGATIVE CONTROL REPRODUCED COMPLETELY. All nineteen negative-control harness runs produced the same outcome, the same process exit code and the same failed/total check counts in-sandbox as on the host. The verifier that detects 14 of 15 planted defects on the host detects the same 14 inside the sandbox, and the one proven-equivalent mutant stays proven equivalent. The bar the brief set for the negative control is met."
+  },
+  "real_harnesses": {
+   "total": 16,
+   "identical_outcome": 14,
+   "identical_total_check_counts_among_those": 14,
+   "diverged": 2,
+   "verdict": "Fourteen of the sixteen verification harnesses over the shipped ws_core functions reproduced EXACTLY, down to identical total check counts. Two did not complete."
+  },
+  "divergences": [
+   {
+    "harness": "real_close_code_rejection_reason_insensitive_len_le_3",
+    "host": {
+     "outcome": "SUCCESSFUL",
+     "exit_code": 0,
+     "total_checks": 229,
+     "seconds": 89.031606333
+    },
+    "sandbox": {
+     "outcome": "FAILED",
+     "exit_code": 1,
+     "total_checks": 0,
+     "seconds": 117.566081598
+    }
+   },
+   {
+    "harness": "real_reference_decoder_agrees_with_core_str_len_le_3",
+    "host": {
+     "outcome": "SUCCESSFUL",
+     "exit_code": 0,
+     "total_checks": 210,
+     "seconds": 282.008028708
+    },
+    "sandbox": {
+     "outcome": "FAILED",
+     "exit_code": 1,
+     "total_checks": 0,
+     "seconds": 187.191637589
+    }
+   }
+  ],
+  "per_harness": [
+   {
+    "harness": "nc_m0_clean_clone_expected_success",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 134,
+    "sandbox_total_checks": 134,
+    "identical": true
+   },
+   {
+    "harness": "nc_m10_mask_skips_first_byte_exact_equation_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 108,
+    "sandbox_total_checks": 108,
+    "identical": true
+   },
+   {
+    "harness": "nc_m10_mask_skips_first_byte_involution_expected_success",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 113,
+    "sandbox_total_checks": 113,
+    "identical": true
+   },
+   {
+    "harness": "nc_m11_control_limit_expected_success_equivalent_mutant",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 134,
+    "sandbox_total_checks": 134,
+    "identical": true
+   },
+   {
+    "harness": "nc_m11_control_limit_proven_equivalent_to_clean_clone",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 226,
+    "sandbox_total_checks": 226,
+    "identical": true
+   },
+   {
+    "harness": "nc_m12_size_gate_ge_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 126,
+    "sandbox_total_checks": 126,
+    "identical": true
+   },
+   {
+    "harness": "nc_m13_control_check_late_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 134,
+    "sandbox_total_checks": 134,
+    "identical": true
+   },
+   {
+    "harness": "nc_m14_len16_little_endian_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 134,
+    "sandbox_total_checks": 134,
+    "identical": true
+   },
+   {
+    "harness": "nc_m15_control_limit_too_tight_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 126,
+    "sandbox_total_checks": 126,
+    "identical": true
+   },
+   {
+    "harness": "nc_m1_normalize_off_by_one_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 1,
+    "sandbox_total_checks": 1,
+    "identical": true
+   },
+   {
+    "harness": "nc_m2_normalize_wrong_target_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 1,
+    "sandbox_total_checks": 1,
+    "identical": true
+   },
+   {
+    "harness": "nc_m3_rejection_span_off_by_one_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 94,
+    "sandbox_total_checks": 94,
+    "identical": true
+   },
+   {
+    "harness": "nc_m4_rejection_drop_1007_rule_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 94,
+    "sandbox_total_checks": 94,
+    "identical": true
+   },
+   {
+    "harness": "nc_m5_rejection_drop_1004_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 94,
+    "sandbox_total_checks": 94,
+    "identical": true
+   },
+   {
+    "harness": "nc_m6_utf8_allow_overlong_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 197,
+    "sandbox_total_checks": 197,
+    "identical": true
+   },
+   {
+    "harness": "nc_m7_utf8_allow_surrogates_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 197,
+    "sandbox_total_checks": 197,
+    "identical": true
+   },
+   {
+    "harness": "nc_m8_utf8_allow_over_max_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 197,
+    "sandbox_total_checks": 197,
+    "identical": true
+   },
+   {
+    "harness": "nc_m9_mask_rotated_key_exact_equation_must_fail",
+    "host_outcome": "FAILED",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 1,
+    "sandbox_exit": 1,
+    "host_total_checks": 109,
+    "sandbox_total_checks": 109,
+    "identical": true
+   },
+   {
+    "harness": "nc_m9_mask_rotated_key_involution_expected_success",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 114,
+    "sandbox_total_checks": 114,
+    "identical": true
+   },
+   {
+    "harness": "real_apply_mask_exact_equation_len_le_12",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 115,
+    "sandbox_total_checks": 115,
+    "identical": true
+   },
+   {
+    "harness": "real_apply_mask_involution_len_le_12",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 113,
+    "sandbox_total_checks": 113,
+    "identical": true
+   },
+   {
+    "harness": "real_close_code_rejection_all_65536_witness_reasons",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 94,
+    "sandbox_total_checks": 94,
+    "identical": true
+   },
+   {
+    "harness": "real_close_code_rejection_reason_insensitive_len_le_3",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 0,
+    "sandbox_exit": 1,
+    "host_total_checks": 229,
+    "sandbox_total_checks": 0,
+    "identical": false
+   },
+   {
+    "harness": "real_decode_frame_header_len_le_14",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 373,
+    "sandbox_total_checks": 373,
+    "identical": true
+   },
+   {
+    "harness": "real_decode_frame_header_no_false_reject_len_le_14",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 125,
+    "sandbox_total_checks": 125,
+    "identical": true
+   },
+   {
+    "harness": "real_decode_frame_header_prefix_stable_len_le_14",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 121,
+    "sandbox_total_checks": 121,
+    "identical": true
+   },
+   {
+    "harness": "real_is_valid_utf8_exact_vs_reference_len_le_4",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 173,
+    "sandbox_total_checks": 173,
+    "identical": true
+   },
+   {
+    "harness": "real_normalize_send_close_code_all_65536",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 1,
+    "sandbox_total_checks": 1,
+    "identical": true
+   },
+   {
+    "harness": "real_normalize_send_close_code_idempotent_all_65536",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 1,
+    "sandbox_total_checks": 1,
+    "identical": true
+   },
+   {
+    "harness": "real_normalize_then_reject_equals_reject_all_65536",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 87,
+    "sandbox_total_checks": 87,
+    "identical": true
+   },
+   {
+    "harness": "real_reference_decoder_agrees_with_core_str_len_le_3",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "FAILED",
+    "host_exit": 0,
+    "sandbox_exit": 1,
+    "host_total_checks": 210,
+    "sandbox_total_checks": 0,
+    "identical": false
+   },
+   {
+    "harness": "real_string_utf8_strict_stage_len_eq_0",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 527,
+    "sandbox_total_checks": 527,
+    "identical": true
+   },
+   {
+    "harness": "real_string_utf8_strict_stage_len_eq_1",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 532,
+    "sandbox_total_checks": 532,
+    "identical": true
+   },
+   {
+    "harness": "real_string_utf8_strict_stage_len_eq_2",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 532,
+    "sandbox_total_checks": 532,
+    "identical": true
+   },
+   {
+    "harness": "real_string_utf8_strict_stage_len_eq_3",
+    "host_outcome": "SUCCESSFUL",
+    "sandbox_outcome": "SUCCESSFUL",
+    "host_exit": 0,
+    "sandbox_exit": 0,
+    "host_total_checks": 532,
+    "sandbox_total_checks": 532,
+    "identical": true
+   }
+  ]
+ },
+ "the_finding": {
+  "statement": "Two of the sixteen real harnesses that verify SUCCESSFUL on the host report VERIFICATION:- FAILED inside the accepted sandbox profile. THIS IS REPORTED, NOT RECONCILED. The attempt was not re-run with a larger memory allowance to obtain 35/35; doing so would change the accepted profile to get a preferred answer, and the profile is not this lane's to change.",
+  "affected": [
+   "real_close_code_rejection_reason_insensitive_len_le_3",
+   "real_reference_decoder_agrees_with_core_str_len_le_3"
+  ],
+  "what_the_difference_is_NOT": "It is not a disagreement about the shipped ws_core code. Both harnesses report 0 failed checks out of 0 total checks and carry no failure description \u2014 Kani never reached a verdict on any property. A genuine property violation reports `** N of M failed` and names the failing check, which is exactly what all fourteen detected negative controls did in this same run.",
+  "what_the_difference_IS": "CBMC exhausting memory. Established by controlled reproduction outside the attempt, in a plain container from the same pinned template image with the same driver, binaries and source:",
+  "controlled_reproduction": [
+   {
+    "condition": "docker --cpus 2 -m 2g, harness real_close_code_rejection_reason_insensitive_len_le_3",
+    "result": "SUCCESSFUL, exit 0, 229 checks, 164.4s"
+   },
+   {
+    "condition": "docker --cpus 2 -m 1g, same harness",
+    "result": "FAILED, exit 1, 0 of 0 checks, 233.3s \u2014 the EXACT signature observed in the sandbox"
+   },
+   {
+    "condition": "docker --cpus 2 -m 1g, same harness, raw cargo kani output captured",
+    "result": "Kani printed its own diagnostic verbatim: 'CBMC failed / VERIFICATION:- FAILED / CBMC appears to have run out of memory. You may want to rerun your proof in an environment with additional memory or use stubbing to reduce the size of the code the verifier reasons about.' The cgroup reported oom 2, oom_kill 2."
+   },
+   {
+    "condition": "docker --cpus 2 -m 2g, harness real_reference_decoder_agrees_with_core_str_len_le_3",
+    "result": "FAILED, exit 1, 0 of 0 checks, 250.7s, cgroup oom_kill 1 \u2014 this harness exceeds 2 GiB even at a genuine 2 GiB limit"
+   }
+  ],
+  "two_distinct_conclusions": [
+   "real_reference_decoder_agrees_with_core_str_len_le_3 needs MORE THAN 2 GiB. It cannot complete under the accepted US-007 profile at all. On the host it had the machine's full memory and took 282s. The accepted profile's memory allowance is below what this proof requires; that is a property of the profile, not of the code.",
+   "real_close_code_rejection_reason_insensitive_len_le_3 completes in a genuine 2 GiB container but did NOT complete inside the sbx sandbox created with -m 2g. The sandbox therefore left the workload less usable memory than a bare container at the same nominal limit. Whether sbx applied a smaller limit or the sandbox's own overhead consumed the difference could not be determined, because the memory limit is precisely the constraint that was DECLARED_NOT_OBSERVABLE."
+  ],
+  "why_this_matters_beyond_this_attempt": "The tri-state parity design earned its keep here. The single constraint the launcher could not read back is the single constraint the divergence implicates. Had the launcher recorded `-m 2g` as MATCHED on the strength of the create argv \u2014 as the Codex-plane launcher's hardcoded memory_bytes does \u2014 this attempt would have reported an unexplained two-harness failure with a profile receipt asserting the memory was fine.",
+  "evidence_gap_named": "The in-sandbox OOM message itself was NOT captured. assurance/formal/kani/runner extracts only summary fields from each harness and discards the rest of cargo kani's output, so the sandbox receipts show the 0/0 FAILED signature but not Kani's explanation of it. The runner was deliberately left unmodified so the outcome classification stayed byte-identical to the host run's; the gap is named here rather than patched mid-attempt. The OOM attribution therefore rests on signature-matching against the controlled reproduction, which is strong but is circumstantial and is labelled as such."
+ },
+ "back_pressure": {
+  "sandbox_instantiations": 5,
+  "disclosure": "The authorization record says attempt_limit 1 and 'one live sandbox attempt'. The attempt actually ran across FIVE launcher invocations, four of which were refused before or during the workload. This is the same governance discrepancy review round 3 raised against attempt 0128, and it is self-reported here rather than waiting to be found. Unlike 0128, EVERY run's evidence is preserved: each refused run's launch receipt and host capture directory is retained under the attempt directory with a name saying why it stopped. Nothing was overwritten and nothing was deleted.",
+  "runs": [
+   {
+    "run": 1,
+    "outcome": "REFUSED at sbx create \u2014 `--clone requires a Git repository`. The launcher staged the source with `git archive`, which produces a tree, not a repository. No sandbox was created.",
+    "evidence": "launch-receipt-run1-create-refused.json, host-capture-us012-kani-0129-run1-create-refused/"
+   },
+   {
+    "run": 2,
+    "outcome": "REFUSED by the profile parity gate: workspace mode read as not-clone and cpu count as 0. The launcher was reading `sbx inspect --json` fields (.clone, .cpus) that v0.39.0 does not emit. The gate was right to refuse; the fault was in the launcher's field mapping.",
+    "evidence": "launch-receipt-run2-parity-refused.json, host-capture-us012-kani-0129-run2-parity-refused/"
+   },
+   {
+    "run": 3,
+    "outcome": "REFUSED by the parity gate on the memory limit, which read UNAVAILABLE. Resolved by making the check tri-state rather than by deleting it or by asserting the declared value.",
+    "evidence": "launch-receipt-run3-memory-unobservable.json, host-capture-us012-kani-0129-run3-memory-unobservable/"
+   },
+   {
+    "run": 4,
+    "outcome": "FAILED in-sandbox at deb extraction: macOS tar had written AppleDouble `._*` members into the inbound bundle and the driver treated one as a package. Receipts were still extracted before removal \u2014 driver-stdout.txt survived a failed run, which is the E3 precondition working.",
+    "evidence": "launch-receipt-run4-appledouble.json, host-capture-us012-kani-0129-run4-appledouble/, sandbox-out-run4-appledouble/"
+   },
+   {
+    "run": 5,
+    "outcome": "RAN. Every profile constraint verified, both transfer directions verified, full 35-harness sweep executed, receipts extracted before removal, sandbox removed and confirmed absent. 33 of 35 outcomes matched. This is the published run.",
+    "evidence": "launch-receipt.json, host-capture-us012-kani-0129/, sandbox-out/"
+   }
+  ],
+  "capture_preconditions_honoured": [
+   "The driver writes its own stdout INTO the output directory (sandbox-out/driver-stdout.txt), so the recorded exit codes are bound to bytes that left the sandbox.",
+   "Host capture paths carry the sandbox name (host-capture-us012-kani-0129/), so no two runs could overwrite each other's evidence.",
+   "Receipts were extracted BEFORE `sbx rm` on every path including the failed run 4, enforced by ordering in the launcher rather than by remembering to do it."
+  ],
+  "gates": {
+   "sbx_create": 0,
+   "sbx_inspect": 0,
+   "sbx_policy_ls": 0,
+   "unpack_inbound_step": 0,
+   "kani_sweep_step": 1,
+   "kanirun": 1,
+   "sbx_rm": 0,
+   "sandbox_absent_after_remove": true,
+   "note": "The sweep exit of 1 is CORRECT and is the runner refusing to report a clean sweep when two outcomes did not match their declared expectations. An exit of 0 here would have been the failure."
+  }
+ },
+ "honesty_notes": [
+  "The receipts this attempt produced are UNSIGNED. The Codex-plane launcher's ed25519 promotion and launch-authorization records were not reproduced and no substitute was invented.",
+  "The memory constraint of the accepted profile could not be verified and is recorded as DECLARED_NOT_OBSERVABLE, not as a pass.",
+  "Five sandbox instantiations against an attempt_limit of 1, self-reported above, with every run's evidence retained.",
+  "The in-sandbox OOM diagnostic was not captured; the attribution rests on signature-matching against a controlled reproduction rather than on an in-sandbox message.",
+  "The controlled reproduction ran in plain Docker, not in sbx. It is a diagnostic, not evidence about the sandbox, and the attempt's recorded result stands at 33/35 independently of it.",
+  "This lane did not re-verify the Kani lane's HOST numbers by re-running them; the host column throughout is quoted from drafts/actual-code-verification-receipt.json.",
+  "The claim ceiling from the owner decision is unchanged: bounded verification, not universal proof. Nothing here widens any bound.",
+  "The two harnesses that did not complete in-sandbox remain verified ONLY on the host. Any claim resting on them must say so."
+ ],
+ "blockers": [
+  "real_reference_decoder_agrees_with_core_str_len_le_3 cannot be verified under the accepted US-007 profile: it needs more than 2 GiB and OOMs even in a bare 2 GiB container. Raising the profile's memory allowance is an owner decision, not this lane's.",
+  "real_close_code_rejection_reason_insensitive_len_le_3 fits in 2 GiB on bare Docker but not inside the sbx sandbox at -m 2g. Resolving this needs either a larger allowance or an sbx that exposes its memory limit so the discrepancy can be measured."
+ ],
+ "recommendations_not_actioned": [
+  "assurance/formal/kani/runner discards cargo kani's full per-harness output. Persisting it would have turned this attempt's circumstantial OOM attribution into a direct quotation. Left unmodified deliberately so the sandbox run used byte-identical classification logic to the host run.",
+  "sbx v0.39.0 exposes no memory limit. Until it does, every attempt on this plane records `-m` from the create argv alone."
+ ],
+ "regression_bar": {
+  "when": "re-run on the host at commit 23382cd, after the new Go packages were added and the attempt completed; working tree clean",
+  "make_-C_rust_gates": {
+   "exit": 0,
+   "ac1_gates": "PASS 8/8",
+   "detail": "forbid-unsafe PASS (10 first-party crate roots), dependency-inventory PASS (0 non-path deps), msrv PASS (1.95.0), license PASS, audit PASS, lockfile PASS (byte-identical and git-clean), canaries PASS (both polarities), adapter-linkage PASS"
+  },
+  "go_build_all": {
+   "exit": 0
+  },
+  "go_vet_cmd": {
+   "exit": 0
+  },
+  "go_test_all": {
+   "exit": 0,
+   "fail_lines": 0
+  },
+  "zero_new_shipped_dependencies": "The three new Go commands use the standard library only. rust/ was not touched; the dependency-inventory gate still reports 0 non-path dependencies and Cargo.lock is byte-identical and git-clean.",
+  "forbid_unsafe": "Unchanged and still enforced across all 10 first-party Rust crate roots."
+ }
+}
