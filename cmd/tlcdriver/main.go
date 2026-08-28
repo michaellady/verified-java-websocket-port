@@ -46,6 +46,7 @@ import (
 
 // mutationManifest is assurance/formal/model-mutations.json.
 type mutationManifest struct {
+	SchemaRef     string          `json:"$schema"`
 	SchemaVersion string          `json:"schema_version"`
 	Kind          string          `json:"kind"`
 	Statement     string          `json:"statement"`
