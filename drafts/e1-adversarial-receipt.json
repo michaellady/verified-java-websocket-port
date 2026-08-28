@@ -23,7 +23,7 @@
     "drafts/e1-adversarial-receipt.json (this file, committed in-repo as of review 01a045c9)"
   ],
   "pushed": false,
-  "recorded_at": "2026-08-28T01:29:38Z",
+  "recorded_at": "2026-08-28T01:33:47Z",
   "recorded_at_provenance": "date -u on the working host; every timestamp in this receipt was read from date -u or from a tool's own generated_at, never estimated",
   "attestation": "OWNER_ATTESTED_NOT_INDEPENDENT",
   "independent_review_claimed": false,
@@ -406,16 +406,10 @@
     "Review 01a045c9 found no defect in the round-1 code fixes - it found that the evidence explaining them was not in the repository and that my narration overcounted the tests by one. Both are recorded here verbatim rather than quietly fixed: the receipt now lives in-repo, and the true test count is four.",
     "The round-1 receipt claimed 'every exit code was read from the command's own status, never from a wrapper echo'. That claim was FALSE at cmd/mutctl/main.go:608, where the ws-oracle-harness process exit was discarded with `_`. It is now read from the real ProcessState and recorded per row.",
     "Review 01a045b0 emitted four blocking findings and this lane was given two. The two it never saw were real, and one of them (lexical isolation plus scratch reuse) bore on whether any campaign this lane ran judged the scoped tree at all. That is recorded plainly: the lane did not catch it, the relay did not carry it, and the fix is one round late for that reason.",
-    "The strengthened backpressure oracle was proven necessary before it was proven sufficient: the non-atomic mutation passes the old oracle 14/14 and fails the new one. The old 'backpressure atomicity' label had been claiming more than the assertions delivered since the original round."
+    "The strengthened backpressure oracle was proven necessary before it was proven sufficient: the non-atomic mutation passes the old oracle 14/14 and fails the new one. The old 'backpressure atomicity' label had been claiming more than the assertions delivered since the original round.",
+    "All four 01a045b0 finding strings stored in this receipt were normalizations until 2026-08-28T01:33:47Z, including the two this receipt had labelled RAW. The label was taken from the relay describing them as verbatim; I could not verify it and should have marked them unverified. The byte-exact strings are now stored and the superseded text is kept alongside each one."
   ],
-  "blockers": [
-    {
-      "blocker": "raw text unavailable for review 01a045b0 findings 1 and 2",
-      "detail": "The round-5 instruction requires the 01a045b0 findings to be stored as RAW review output. Raw text was supplied for findings 3 and 4 and is stored verbatim. For findings 1 and 2 this lane only ever received the coordinator's relayed text, which the reviewer notes was normalized (Markdown links, punctuation and backticks altered). I did not have the raw strings and did not reconstruct them, because a plausible reconstruction presented as raw output is exactly the kind of fabrication this receipt exists to prevent. Each of those two findings carries text_provenance recording that it is the relay, not the raw emission.",
-      "unblock": "supply the raw 01a045b0 output for findings 1 and 2; they will be swapped in verbatim.",
-      "severity": "documentation fidelity; does not affect any code, gate, or campaign result"
-    }
-  ],
+  "blockers": [],
   "reviews": {
     "key_note": "Reviews are keyed by FULL review session UUID, with an explicit ordinal inside each entry, so the mapping cannot drift. An earlier revision labelled the 01a045b0-3189-7a11-bc25-cd6cf0169c3e review 'review_round_2', colliding with the coordinator's numbering; the coordinator numbers 01a045b0-3189-7a11-bc25-cd6cf0169c3e as review round 1 and 01a045c9-0024-7a31-87d6-c7e63376605a as review round 2. Corrected under review 01a045d9-eb40-7f42-bd8d-ce88869dfced, which found the previous revision still used round_N keys and retained a stale review_round_2 cross-reference despite claiming UUID keys.",
     "01a045b0-3189-7a11-bc25-cd6cf0169c3e": {
@@ -428,43 +422,47 @@
       "findings": [
         {
           "finding": 1,
-          "verbatim": "cmd/mutctl/main.go:608 discards the harness process exit code, contradicting the claimed verbatim-exit discipline and permitting a complete transcript from a nonzero harness run to score green.",
+          "verbatim": "BLOCKING: [main.go](/Users/mikelady/hq/workspace/worktrees/vjwp-claude-e1/cmd/mutctl/main.go:608) discards the harness process exit code, contradicting the claimed verbatim-exit discipline and permitting a complete transcript from a nonzero harness run to score green.",
           "confirmed": "true — the call site read `_, transcript, err := command(scratchRust, requests, harness)`. The discarded value is the exit code `command` reads from the real ProcessState, so judge 2 could score a mutant green on a transcript produced by a harness that had exited nonzero. This is precisely the class of defect this lane exists to prevent, and the round-1 receipt's 'every exit code was read' claim did not hold at this site.",
           "fix": "corpusJudge now returns a corpusJudgment carrying harness_build_exit, harness_exit and evaluate_exit, each read from its own ProcessState and none inferred from output text. The judge-2 outcome moved into a pure function corpusVerdict(judgment): a nonzero harness exit is NEVER green — it is reported as a corpus kill named 'harness exit N (transcript not trustworthy)', because 'the mutant crashed the harness' and 'the run is untrustworthy' are indistinguishable from outside and only the conservative reading is honest. The pristine baseline gate moved into baselineCorpusOK(), which now also requires harness_build_exit == 0 and harness_exit == 0 before a single mutant runs. Every mutant row records harness_exit alongside corpus_exit, and the manifest carries a judge_2_exit_discipline field stating the rule.",
           "red_first_evidence": "TestNonzeroHarnessExitCanNeverScoreGreen and TestBaselineRejectsANonzeroHarnessExit were written first and run against the round-1 tool: RED read as a build failure naming the missing seams — 'undefined: corpusVerdict', 'undefined: corpusJudgment', 'undefined: baselineCorpusOK' (go test exit 1). The central case is the exact hazard the finding names: HarnessExit 101 with a COMPLETE 74/74 report and evaluate exit 0 must still be killed.",
           "honest_limit": "No mutant in the re-run produced a nonzero harness exit — all 12 corpus-judged rows record harness_exit 0. The guarantee is proven at the decision seam by unit test, not by a live nonzero-harness mutant, and this receipt does not claim otherwise.",
-          "text_provenance": "COORDINATOR RELAY, NOT RAW. Review 01a045dc/01a045e0 notes this string was normalized relative to the raw review output (Markdown links, punctuation and backticks altered). I never had access to the raw review output for this finding, so the relayed text is stored verbatim as received and is NOT presented as the raw emission. It must be replaced with the raw string when that is supplied - see blockers.",
-          "relayed_to_the_lane": true
+          "text_provenance": "RAW review output, byte-exact. Extracted by the coordinator from the captured 01a045b0 review stdout via a Python repr and supplied LATE (after the fixes had already landed), in response to the documentation-fidelity blocker this receipt raised. Markdown link, backticks, semicolons and U+2014 em dashes are preserved exactly as emitted; nothing here is normalized.",
+          "relayed_to_the_lane": true,
+          "superseded_text": "cmd/mutctl/main.go:608 discards the harness process exit code, contradicting the claimed verbatim-exit discipline and permitting a complete transcript from a nonzero harness run to score green."
         },
         {
           "finding": 2,
-          "verbatim": "cmd/mutctl/main.go:298 extracts assertions only from paths containing `tests/`; consequently four killed mutants — including m016-stale-fragment-retained — have no promised kill_detail in the committed manifest.",
+          "verbatim": "BLOCKING: [main.go](/Users/mikelady/hq/workspace/worktrees/vjwp-claude-e1/cmd/mutctl/main.go:298) extracts assertions only from paths containing `tests/`; consequently four killed mutants—including `m016-stale-fragment-retained`—have no promised `kill_detail` in the committed manifest.",
           "confirmed": "true — verified by querying the round-1 committed manifest directly: exactly 4 KILLED_BY_TESTS rows had an empty kill_detail (m016-stale-fragment-retained, m014-start-payload-drop, m014-append-drop, m014-finish-tail-drop), all four killed by the in-crate #[cfg(test)] module in rust/ws-core/src/fragment.rs, whose path contains no 'tests/' segment. The receipt promised a verbatim killing assertion per row and the committed manifest did not deliver it for those four.",
           "fix": "assertionPattern widened to every `panicked at <file>.rs:<line>:<col>` frame regardless of path. killDetail now prefers an integration-test frame when one exists (so the attributed oracle message with its case label and seed still wins over the raw library panic that caused it) and otherwise reports the first panic of any kind — which IS the assertion for an in-crate unit test, whose file lives under src/ and cannot be told from library code by path alone. Added validateKillDetails(), a manifest invariant enforced at campaign time: any KILLED_BY_TESTS row without a kill_detail prints the offending row and exits 4, so the extractor cannot silently regress into shipping a holed manifest again. The manifest records kill_detail_complete.",
           "red_first_evidence": "TestKillDetailCapturesInCrateUnitTestAssertions and TestManifestInvariantRejectsEmptyKillDetail were written first. After the finding-1 seams existed, the finding-2 tests were run against the UNFIXED extractor and failed RED with the exact defect: 'main_test.go:220: an in-crate src/ unit-test assertion produced NO kill_detail' (go test exit 1).",
           "verified_after_fix": "m016-stale-fragment-retained now carries 'ws-core/src/fragment.rs:104:9: assertion `left == right` failed: finish must leave ZERO retained bytes; a stale buffer survived delivery'; the other three carry their own fragment.rs assertions; 0 KILLED_BY_TESTS rows have an empty kill_detail.",
-          "text_provenance": "COORDINATOR RELAY, NOT RAW. Review 01a045dc/01a045e0 notes this string was normalized relative to the raw review output (Markdown links, punctuation and backticks altered). I never had access to the raw review output for this finding, so the relayed text is stored verbatim as received and is NOT presented as the raw emission. It must be replaced with the raw string when that is supplied - see blockers.",
-          "relayed_to_the_lane": true
+          "text_provenance": "RAW review output, byte-exact. Extracted by the coordinator from the captured 01a045b0 review stdout via a Python repr and supplied LATE (after the fixes had already landed), in response to the documentation-fidelity blocker this receipt raised. Markdown link, backticks, semicolons and U+2014 em dashes are preserved exactly as emitted; nothing here is normalized.",
+          "relayed_to_the_lane": true,
+          "superseded_text": "cmd/mutctl/main.go:298 extracts assertions only from paths containing `tests/`; consequently four killed mutants — including m016-stale-fragment-retained — have no promised kill_detail in the committed manifest."
         },
         {
           "finding": 3,
-          "verbatim": "adversarial_fuzz.rs:175 claims backpressure atomicity but only asserts empty events/writes; it never proves state, counts, close detail, or buffered state remained unchanged.",
-          "text_provenance": "RAW review output, quoted by the coordinator in the 01a045e0 relay under the heading 'Verbatim from the raw round-1 output'.",
+          "verbatim": "BLOCKING: [adversarial_fuzz.rs](/Users/mikelady/hq/workspace/worktrees/vjwp-claude-e1/rust/ws-core/tests/adversarial_fuzz.rs:175) claims backpressure atomicity but only asserts empty events/writes; it never proves state, counts, close detail, or buffered state remained unchanged.",
+          "text_provenance": "RAW review output, byte-exact. Extracted by the coordinator from the captured 01a045b0 review stdout via a Python repr and supplied LATE (after the fixes had already landed), in response to the documentation-fidelity blocker this receipt raised. Markdown link, backticks, semicolons and U+2014 em dashes are preserved exactly as emitted; nothing here is normalized.",
           "relayed_to_the_lane": false,
           "unrelayed_note": "NOT relayed when 01a045b0 was first handed to this lane; the coordinator read only the tail of the review output and passed on two of the four findings. Fixed in the 01a045e0 round, late, for that reason and no other.",
           "confirmed": "true, and demonstrated rather than accepted: the deliberately non-atomic mutation (input accounting committed BEFORE the backpressure precheck) was applied to a scratch copy and the adversarial_fuzz suite at commit 3c16a54 passed 14/14. The old oracle was blind to a refusal that had already mutated the core.",
           "fix": "The oracle now snapshots the FULL observable surface before every input (Observable::capture: ready state, all seven counters - which carry the buffered and pending byte state - and the close detail) and, on a non-fatal refusal, asserts every component is unchanged in addition to the queues draining empty. Queue occupancy is pinned by construction: drive() drains to empty after every step, so occupancy before each input is zero and the drained-empty assertions prove it is still zero after a refusal.",
           "red_first_evidence": "RED-A (old oracle, mutated core): adversarial_fuzz 14 passed, 0 failed - the finding reproduced. RED-B (strengthened oracle, same mutated core): 2 failed - family_queue_pressure_typed_backpressure and family_config_boundaries, at adversarial_fuzz.rs:218 with 'backpressure refusal mutated the counters (including buffered/pending bytes)', left input_bytes 496 vs right 0. GREEN (strengthened oracle, pristine core): 14 passed, 0 failed.",
-          "permanent_coverage": "The non-atomic defect is now curated mutant m012-backpressure-nonatomic-input-commit (operator atomicity-violation), so the oracle's polarity is re-runnable and the regression is caught by the campaign, not only by this one-off demonstration."
+          "permanent_coverage": "The non-atomic defect is now curated mutant m012-backpressure-nonatomic-input-commit (operator atomicity-violation), so the oracle's polarity is re-runnable and the regression is caught by the campaign, not only by this one-off demonstration.",
+          "superseded_text": "adversarial_fuzz.rs:175 claims backpressure atomicity but only asserts empty events/writes; it never proves state, counts, close detail, or buffered state remained unchanged."
         },
         {
           "finding": 4,
-          "verbatim": "main.go:371 uses lexical path checking and reuses any existing `scratch/rust`; symlinks or stale scratch content can bypass repository isolation and make the campaign judge a tree other than the scoped commit.",
-          "text_provenance": "RAW review output, quoted by the coordinator in the 01a045e0 relay under the heading 'Verbatim from the raw round-1 output'.",
+          "verbatim": "BLOCKING: [main.go](/Users/mikelady/hq/workspace/worktrees/vjwp-claude-e1/cmd/mutctl/main.go:371) uses lexical path checking and reuses any existing `scratch/rust`; symlinks or stale scratch content can bypass repository isolation and make the campaign judge a tree other than the scoped commit.",
+          "text_provenance": "RAW review output, byte-exact. Extracted by the coordinator from the captured 01a045b0 review stdout via a Python repr and supplied LATE (after the fixes had already landed), in response to the documentation-fidelity blocker this receipt raised. Markdown link, backticks, semicolons and U+2014 em dashes are preserved exactly as emitted; nothing here is normalized.",
           "relayed_to_the_lane": false,
           "unrelayed_note": "NOT relayed when 01a045b0 was first handed to this lane; see finding 3. This is the more serious of the two: it bears on whether earlier campaigns judged the scoped commit at all.",
           "confirmed": "true, and the bypass was demonstrated against the OLD predicate rather than argued: evaluating the exact pre-fix expression strings.HasPrefix(absWork+sep, absRoot+sep) with a workdir symlinked into the repository returns false (accepted). The same predicate also accepts a sibling path like <repo>-backup by coincidence of prefixes. Separately, the pre-fix code adopted any existing scratch/rust via os.Stat, so a stale or symlinked scratch became the judged tree.",
-          "fix": "See isolation_proof (top level) for the full mechanism and the three live refusal probes."
+          "fix": "See isolation_proof (top level) for the full mechanism and the three live refusal probes.",
+          "superseded_text": "main.go:371 uses lexical path checking and reuses any existing `scratch/rust`; symlinks or stale scratch content can bypass repository isolation and make the campaign judge a tree other than the scoped commit."
         }
       ],
       "full_campaign_rerun": {
@@ -502,6 +500,19 @@
       "addressed_in_commits": {
         "findings_1_and_2": "a7533fd882f693748a5acc38abe6331869fd743d",
         "findings_3_and_4": "9763edfab44c5b51abc5350fdbcfaa0c9c4433ca"
+      },
+      "raw_text_substitution": {
+        "substituted_on": "2026-08-28T01:33:47Z",
+        "supplied_by": "coordinator, from captured review stdout via Python repr, after this receipt raised the blocker",
+        "findings_changed": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "what_changed_in_every_case": "All four stored strings were normalizations, not the raw emission. Every one was missing the 'BLOCKING: ' prefix and the Markdown link wrapper around the file reference; finding 2 had additionally lost the backticks around `m016-stale-fragment-retained` and `kill_detail` and had its two U+2014 em dashes replaced by space-padded dashes.",
+        "provenance_correction": "IMPORTANT: findings 3 and 4 were previously stored under the provenance 'RAW review output, quoted by the coordinator in the 01a045e0 relay'. That label was WRONG. Those strings were also normalized (no BLOCKING prefix, no Markdown link), and this receipt asserted they were raw on the strength of the relay describing them as 'Verbatim from the raw round-1 output'. I had no way to verify that and should have marked them as unverified relay text rather than as raw. The blocker I raised was correctly scoped to findings 1 and 2 but should have covered all four.",
+        "superseded_text_retained": "Each finding keeps its prior string in superseded_text, so the normalization that was once stored is auditable rather than erased."
       }
     },
     "01a045c9-0024-7a31-87d6-c7e63376605a": {
@@ -609,7 +620,13 @@
         "corpus": "oracle_requests 0, harness_run 0, evaluate 0 - executed 74, passed 74, failed 0, missing 0, unmatched 0"
       },
       "fixed_by": "9763edfab44c5b51abc5350fdbcfaa0c9c4433ca",
-      "timestamp_note": "An earlier draft of this entry carried 2026-08-28T01:36:00Z, a value I typed rather than read. It was replaced with this reading from `date -u` before commit. Recorded because inventing a timestamp is the same class of error as inventing a commit sha (see fabricated_sha_disclosure)."
+      "timestamp_note": "An earlier draft of this entry carried 2026-08-28T01:36:00Z, a value I typed rather than read. It was replaced with this reading from `date -u` before commit. Recorded because inventing a timestamp is the same class of error as inventing a commit sha (see fabricated_sha_disclosure).",
+      "independent_verification_by_coordinator": {
+        "recorded_on": "2026-08-28T01:33:47Z",
+        "what_was_verified": "The coordinator built mutctl fresh and ran two live attacks of its own against the isolation work: a pre-existing stale scratch directory, and a workdir symlinked into the repository.",
+        "result_reported": "Both refused with exit 2 - the stale scratch with the refuse-to-reuse message, the symlinked workdir with the resolved-path message naming the real location. The coordinator reports both refusals as genuine.",
+        "status_of_this_claim": "This is a second party reproducing the refusals, which is stronger than my own probes alone. It is still NOT an independent review of the lane: independent_review_claimed remains false, and the attestation stays OWNER_ATTESTED_NOT_INDEPENDENT."
+      }
     }
   },
   "test_count_reconciliation": {
@@ -676,5 +693,14 @@
     ],
     "residual_risk": "The digest binds the judged tree to the repository's rust/ working tree at run time, not to a git object. A dirty working tree is still judged as-is (which is what a pre-commit campaign should do), so the guarantee is 'the campaign judged exactly the rust/ tree present at run time, recorded by digest' - not 'the campaign judged commit X'. Binding the digest to a git tree object would close that gap and is NOT claimed here."
   },
-  "commit_findings_3_4": "9763edfab44c5b51abc5350fdbcfaa0c9c4433ca"
+  "commit_findings_3_4": "9763edfab44c5b51abc5350fdbcfaa0c9c4433ca",
+  "resolved_blockers": [
+    {
+      "blocker": "raw text unavailable for review 01a045b0 findings 1 and 2",
+      "raised_on": "2026-08-28T01:29:38Z",
+      "resolved_on": "2026-08-28T01:33:47Z",
+      "resolution": "The coordinator extracted the raw strings from the captured 01a045b0 review stdout with a Python repr and supplied all four. All four stored strings were replaced with the byte-exact raw form; each keeps its prior normalized text in superseded_text. See reviews.01a045b0-3189-7a11-bc25-cd6cf0169c3e.raw_text_substitution.",
+      "scope_correction": "The blocker as raised covered only findings 1 and 2. It should have covered all four: findings 3 and 4 were also normalized, and this receipt had labelled them RAW on the strength of the relay calling them verbatim. Asserting a provenance I could not verify was the underlying error, and it is recorded rather than quietly fixed."
+    }
+  ]
 }
