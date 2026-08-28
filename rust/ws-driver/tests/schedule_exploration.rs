@@ -1600,13 +1600,25 @@ fn retention_minimizes_every_named_fault_and_pins_the_artifacts() {
         );
 
         // 5. Retention: the minimized schedule is a committed artifact.
-        let body = render_seed(
+        //
+        // The retained body carries `found_index` — the exploration ordinal at
+        // which this fault first failed. Reviews 01a0487b rounds 2, 3 and 4
+        // each named the six `retention.minimized_artifacts[*].found_index`
+        // values in assurance/concurrency/results.json as the record's last
+        // unbound leaves: the exploration only PRINTED the ordinal, so the
+        // document could carry any number and nothing contradicted it. Written
+        // here, the ordinal is inside the artifact whose sha256 the document
+        // pins and whose bytes this test re-derives from a real minimization
+        // run, so a wrong ordinal in the document now disagrees with the seed
+        // and a doctored seed disagrees with its digest.
+        let mut body = render_seed(
             &format!("minimized-{name}"),
             fault,
             target,
             &minimized,
             EVENT_QUEUE_CAPACITY,
         );
+        let _ = writeln!(body, "found_index={index}");
         let path = minimized_dir().join(format!("{name}.seed"));
         if regenerate {
             fs::create_dir_all(minimized_dir()).expect("create minimized dir");

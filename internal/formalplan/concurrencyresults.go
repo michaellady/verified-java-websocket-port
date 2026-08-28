@@ -95,14 +95,26 @@
 //	                                 one sentinel     full battery
 //	64abf3c, before round 2          102 inert        104 inert
 //	a46db0b, after round 2            35 inert         46 inert
-//	this commit                        -               17 inert
+//	ac96010, after round 3             -               17 inert
+//	this commit                        -               11 inert
 //
 // 102 is the correct pre-fix figure; the "108" that reached the owner is a
 // transcription with no measurement behind it, and no tree state in this
 // lane's history produces it. What remains inert is prose about how a defect
-// was found and fixed, two attested host tokens, and the six retention
-// found_index ordinals — enumerated leaf by leaf in crInertLeaves, not
-// summarized.
+// was found and fixed and two attested host tokens — enumerated leaf by leaf
+// in crInertLeaves, not summarized. The six retention found_index ordinals are
+// off that list for the first time; see crValidateProvenance and the retention
+// test in rust/ws-driver/tests/schedule_exploration.rs.
+//
+// HOW BIG THE BATTERY IS, ALSO MEASURED. Round 4 BLOCKING 3 caught the fourth
+// transcribed figure in this lane: the round-3 receipt said every leaf gets
+// "2 to 6 candidates" and the true span is 1 to 6. The 1 is not a gap. The six
+// leaves that get one candidate are exactly this document's six booleans, and
+// a boolean has exactly one other value, so the single flip is the EXHAUSTIVE
+// enumeration of wrong values for that leaf. The honest statement is "1 for
+// each boolean because flipping is exhaustive, 2 to 6 elsewhere", and
+// TestConcurrencyResultsCandidateBatteryIsMeasured derives all three numbers
+// from the battery so no future receipt can state them without a reading.
 //
 // WHERE THE OTHER HALF LIVES, AND HOW THEY ARE MADE TO COMPOSE. This validator
 // proves the counters match the cited line; it cannot prove the line came from
@@ -125,6 +137,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -133,6 +148,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 )
 
 // ConcurrencyResultsDocumentPath is the repository-relative home of the
@@ -977,6 +994,7 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 	// byte-compared, so the property, the minimized schedule and the queue
 	// capacity it carries are measured values. The record restates all three
 	// in its own words; before this they were transcriptions nothing checked.
+	seedFields := map[string]string{}
 	for _, artifact := range results.Retention.MinimizedArtifacts {
 		rel := crMinimizedSeedDir + "/" + artifact.Seed + ".seed"
 		content, finding := read(rel)
@@ -989,14 +1007,27 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 				"minimized artifact %s records %s but the pinned seed hashes to %s", artifact.Seed, artifact.SHA256, actual)))
 		}
 		seed := crParseSeed(content)
+		for key := range seed {
+			seedFields[key] = rel
+		}
 		findings = append(findings, crCompareToSeed(rel, fmt.Sprintf("minimized artifact %s", artifact.Seed),
 			map[string]string{
-				"id":                   "minimized-" + artifact.Seed,
-				"property":             artifact.Property,
-				"schedule":             artifact.Schedule,
+				"id":       "minimized-" + artifact.Seed,
+				"property": artifact.Property,
+				"schedule": artifact.Schedule,
+				// The exploration ordinal at which the fault first failed. Named
+				// by reviews 01a0487b rounds 2, 3 and 4 as the six leaves that
+				// could no longer be DELETED but still accepted a wrong value,
+				// because the retention run only printed the ordinal
+				// (US017_RETENTION found_index=). The retention test now writes
+				// it into the seed body it re-derives and byte-compares, so the
+				// document's copy is pinned by the same digest that pins the
+				// schedule.
+				"found_index":          strconv.Itoa(artifact.FoundIndex),
 				"event_queue_capacity": strconv.Itoa(results.Bounds.EventQueue),
 			}, seed)...)
 	}
+	findings = append(findings, crMechanismNamesEverySeedField(results.Retention.Mechanism, seedFields)...)
 	for _, defect := range results.DefectsFoundFixed {
 		if defect.Reproduction == nil {
 			continue
@@ -1019,6 +1050,61 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 			}, seed)...)
 	}
 	return findings
+}
+
+// crSeedIdentityField is the one seed key retention.mechanism is not required
+// to name: `id` is the artifact's own name, not one of the properties the
+// mechanism sentence claims the artifact records. Every other key is.
+const crSeedIdentityField = "id"
+
+// crMechanismNamesEverySeedField derives what retention.mechanism has to say
+// from what the retained seeds actually carry, instead of pinning the sentence
+// to a phrase list a reviewer has to trust. When the retention test starts
+// writing a new field — as it did in review 01a0487b round 4 with found_index —
+// the sentence that enumerates the recorded fields has to grow with it or this
+// fires.
+func crMechanismNamesEverySeedField(mechanism string, seedFields map[string]string) []ModelFinding {
+	sentence := crNormalizeFieldWords(mechanism)
+	keys := make([]string, 0, len(seedFields))
+	for key := range seedFields {
+		if key != crSeedIdentityField {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	var findings []ModelFinding
+	for _, key := range keys {
+		if strings.Contains(sentence, crNormalizeFieldWords(key)) {
+			continue
+		}
+		findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", seedFields[key], fmt.Sprintf(
+			"the retained seeds record %q but retention.mechanism does not say the artifact records it: the "+
+				"sentence enumerates what retention persists, so a field the seed carries and the sentence omits "+
+				"is a recorded value the record never claims to keep",
+			key)))
+	}
+	return findings
+}
+
+// crNormalizeFieldWords folds a seed key and a prose sentence onto the same
+// vocabulary: lower case, and `_`, `-` and runs of whitespace all collapse to a
+// single space. `event_queue_capacity` and "event-queue capacity" become the
+// same words, so the prose may read naturally without the check going slack.
+func crNormalizeFieldWords(text string) string {
+	var out strings.Builder
+	space := true
+	for _, symbol := range strings.ToLower(text) {
+		if symbol == '_' || symbol == '-' || unicode.IsSpace(symbol) {
+			if !space {
+				out.WriteByte(' ')
+				space = true
+			}
+			continue
+		}
+		out.WriteRune(symbol)
+		space = false
+	}
+	return strings.TrimSpace(out.String())
 }
 
 // crParseSeed reads the key=value seed artifact format the exploration writes
@@ -2266,10 +2352,15 @@ func crNarrativeAssertions(results crResults) []struct {
 			text:  results.Retention.PinnedUnchanged,
 			assertions: []crRequiredAssertion{
 				{
-					id:      fmt.Sprintf("covers-all-%d-artifacts", retained),
+					id: fmt.Sprintf("covers-all-%d-artifacts", retained),
 					phrases: []string{fmt.Sprintf("%s minimized artifacts", crNumberWord(retained)), "byte-identical",
-						"no regeneration was needed"},
-					why: "the claim is that every pinned artifact survived the round unchanged, so it must cover the number of artifacts this record pins AND say that nothing was refrozen",
+						crRetentionRegenerateEnv + "=1", "found_index"},
+					why: "this field discloses what happened to the pinned artifacts in the review round, so it must " +
+						"cover the number of artifacts this record pins and say exactly what was and was not " +
+						"refrozen. Review 01a0487b round 4 regenerated all six DELIBERATELY, so that each seed " +
+						"carries the found_index ordinal the six retention leaves had been quoting with nothing to " +
+						"check them against; the disclosure names the sanctioned switch that did it and the reason, " +
+						"and still claims byte-identity for everything the regeneration did not touch",
 				},
 			},
 		},
@@ -2442,6 +2533,349 @@ var (
 // crRustConstPattern reads `const NAME: <type> = <int>;` out of Rust source.
 var crRustConstPattern = regexp.MustCompile(`(?m)^\s*(?:pub\s+)?const\s+([A-Z][A-Z0-9_]*)\s*:\s*[A-Za-z0-9_]+\s*=\s*([0-9_]+)\s*;`)
 
+// ---------------------------------------------------------------------------
+// Reading Rust structurally rather than as a bag of bytes
+// ---------------------------------------------------------------------------
+//
+// A SUBSTRING IS NOT A PARSE. Review 01a0487b round 4 BLOCKING 1 and 2 are the
+// same defect one level down from round 3's: round 3 replaced "the file
+// resolves" with "the file contains the right substring", which is a longer
+// string and not a stronger claim. Both were measured on this tree before this
+// section existed, with the committed document and `go test
+// ./internal/formalplan/ -run TestConcurrencyResultsArtifactValidates`:
+//
+//   - the two real `thread::spawn` calls in rust/ws-driver/tests/concurrency.rs
+//     were replaced with a non-spawning call and the words left in a comment
+//     (`// ATTACK: this suite no longer calls thread::spawn`) — exit 0. The
+//     suite recorded as "native-thread stress" spawned no threads at all.
+//   - the same file kept `PRODUCERS = 4` and `COMMANDS_PER_PRODUCER = 50`
+//     declared but ran `for producer in 0..1 { ... for index in 0..1 }` —
+//     exit 0. The record's "4 producer threads x 50 commands" was re-derived
+//     from constants that bounded nothing.
+//   - `#[test]` above the regression test named by
+//     defects_found_and_fixed[0].regression_tests[0] was changed to
+//     `#[cfg(test)]`, which cargo never runs as a test — exit 0, because the
+//     attribute merely CONTAINED "test".
+//
+// Go has a parser in its standard library and the Go half now uses it. Rust
+// does not, so the Rust half is a structural SCAN over source whose comments
+// and string/char literals have been blanked out: what remains is code the
+// compiler executes, and delimiters in it are balanced, so blocks and call
+// arguments can be delimited exactly. That is weaker than a parse and stronger
+// than a substring, and the difference is precisely the class of forgery above.
+
+// crStripRustNoise blanks every comment and every string, byte-string, raw-string
+// and char literal in Rust source, replacing their bytes with spaces while
+// preserving newlines and byte offsets. Lifetimes (`'a`) are left alone; they
+// are not literals and treating them as one would swallow the rest of the file.
+func crStripRustNoise(source string) string {
+	out := []byte(source)
+	blank := func(from, to int) {
+		if to > len(out) {
+			to = len(out)
+		}
+		for index := from; index < to; index++ {
+			if out[index] != '\n' {
+				out[index] = ' '
+			}
+		}
+	}
+	size := len(source)
+	identByte := func(at int) bool {
+		if at < 0 || at >= size {
+			return false
+		}
+		c := source[at]
+		return c == '_' || ('0' <= c && c <= '9') || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z')
+	}
+	for index := 0; index < size; {
+		rest := source[index:]
+		switch {
+		case strings.HasPrefix(rest, "//"):
+			end := strings.IndexByte(rest, '\n')
+			if end < 0 {
+				end = size - index
+			}
+			blank(index, index+end)
+			index += end
+		case strings.HasPrefix(rest, "/*"):
+			depth, cursor := 1, index+2
+			for cursor < size && depth > 0 {
+				switch {
+				case strings.HasPrefix(source[cursor:], "/*"):
+					depth++
+					cursor += 2
+				case strings.HasPrefix(source[cursor:], "*/"):
+					depth--
+					cursor += 2
+				default:
+					cursor++
+				}
+			}
+			blank(index, cursor)
+			index = cursor
+		case source[index] == '\'':
+			index = crBlankRustCharOrSkipLifetime(source, index, blank)
+		default:
+			open, hashes, raw := crRustStringOpen(source, index, identByte(index-1))
+			if open < 0 {
+				index++
+				continue
+			}
+			end := crRustStringEnd(source, open, hashes, raw)
+			blank(index, end)
+			index = end
+		}
+	}
+	return string(out)
+}
+
+// crRustStringOpen recognises a string literal starting at index. It returns
+// the offset just past the opening quote, the raw-string hash count, and
+// whether the literal is raw (no backslash escapes).
+func crRustStringOpen(source string, index int, afterIdent bool) (open, hashes int, raw bool) {
+	if source[index] == '"' {
+		return index + 1, 0, false
+	}
+	if afterIdent {
+		// `foo"` is not a literal opener; only a prefix token is.
+		return -1, 0, false
+	}
+	cursor := index
+	byteString := false
+	if source[cursor] == 'b' {
+		byteString = true
+		cursor++
+	}
+	if cursor < len(source) && source[cursor] == 'r' {
+		cursor++
+		count := 0
+		for cursor < len(source) && source[cursor] == '#' {
+			count++
+			cursor++
+		}
+		if cursor < len(source) && source[cursor] == '"' {
+			return cursor + 1, count, true
+		}
+		return -1, 0, false
+	}
+	if byteString && cursor < len(source) && source[cursor] == '"' {
+		return cursor + 1, 0, false
+	}
+	return -1, 0, false
+}
+
+// crRustStringEnd returns the offset just past the literal's closing quote.
+func crRustStringEnd(source string, open, hashes int, raw bool) int {
+	if raw {
+		closer := `"` + strings.Repeat("#", hashes)
+		if at := strings.Index(source[open:], closer); at >= 0 {
+			return open + at + len(closer)
+		}
+		return len(source)
+	}
+	for cursor := open; cursor < len(source); cursor++ {
+		switch source[cursor] {
+		case '\\':
+			cursor++
+		case '"':
+			return cursor + 1
+		}
+	}
+	return len(source)
+}
+
+// crBlankRustCharOrSkipLifetime disambiguates `'a` (a lifetime, left intact)
+// from `'a'` and `'\n'` (char literals, blanked), returning the next offset.
+func crBlankRustCharOrSkipLifetime(source string, index int, blank func(int, int)) int {
+	size := len(source)
+	cursor := index + 1
+	for cursor < size {
+		c := source[cursor]
+		if c == '_' || ('0' <= c && c <= '9') || ('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') {
+			cursor++
+			continue
+		}
+		break
+	}
+	if cursor > index+1 && (cursor >= size || source[cursor] != '\'') {
+		return cursor // a lifetime
+	}
+	cursor = index + 1
+	for cursor < size {
+		switch source[cursor] {
+		case '\\':
+			cursor += 2
+			continue
+		case '\'':
+			cursor++
+			blank(index, cursor)
+			return cursor
+		case '\n':
+			blank(index, cursor)
+			return cursor
+		}
+		cursor++
+	}
+	blank(index, size)
+	return size
+}
+
+// crRustCloseIndex brace/paren-matches from an opening delimiter, returning the
+// offset just past its partner. Valid only on noise-stripped code, where every
+// remaining delimiter is a real one.
+func crRustCloseIndex(code string, open int, opener, closer byte) int {
+	if open < 0 || open >= len(code) || code[open] != opener {
+		return -1
+	}
+	depth := 0
+	for index := open; index < len(code); index++ {
+		switch code[index] {
+		case opener:
+			depth++
+		case closer:
+			depth--
+			if depth == 0 {
+				return index + 1
+			}
+		}
+	}
+	return -1
+}
+
+// crRustFnDeclPattern matches a function declaration up to its parameter list.
+var crRustFnDeclPattern = regexp.MustCompile(
+	`(?m)^[ \t]*(?:pub(?:\([^)]*\))?[ \t]+)?(?:const[ \t]+)?(?:async[ \t]+)?(?:unsafe[ \t]+)?(?:extern[ \t]+"[^"]*"[ \t]+)?fn[ \t]+[A-Za-z_][A-Za-z0-9_]*[ \t]*(?:<[^>]*>)?[ \t]*\(`)
+
+// crRustTestAttribute reports whether an attribute is a TEST attribute: the
+// attribute PATH's last segment is `test`. `#[test]` and `#[tokio::test]` are;
+// `#[cfg(test)]` is NOT — its path is `cfg` and `test` is an argument naming a
+// compilation condition, so the item is compiled under `cargo test` and never
+// RUN as one. That single distinction is review 01a0487b round 4 BLOCKING 2:
+// `strings.Contains(attribute, "test")` cannot draw it.
+func crRustTestAttribute(attribute string) bool {
+	inner := strings.TrimSpace(attribute)
+	inner = strings.TrimPrefix(inner, "#")
+	inner = strings.TrimPrefix(inner, "[")
+	inner = strings.TrimSuffix(inner, "]")
+	if cut := strings.IndexAny(inner, "(="); cut >= 0 {
+		inner = inner[:cut]
+	}
+	inner = strings.TrimSpace(inner)
+	if at := strings.LastIndex(inner, "::"); at >= 0 {
+		inner = strings.TrimSpace(inner[at+2:])
+	}
+	return inner == "test"
+}
+
+// crRustItemHasTestAttribute scans back from an item to the attributes attached
+// to it. Attributes are contiguous with their item modulo doc comments, and
+// comments are blank in noise-stripped code, so the first non-attribute line
+// ends the item's attribute list.
+func crRustItemHasTestAttribute(code string, at int) bool {
+	lines := strings.Split(code[:at], "\n")
+	for index := len(lines) - 1; index >= 0; index-- {
+		trimmed := strings.TrimSpace(lines[index])
+		if trimmed == "" {
+			continue
+		}
+		if !strings.HasPrefix(trimmed, "#[") {
+			return false
+		}
+		if crRustTestAttribute(trimmed) {
+			return true
+		}
+	}
+	return false
+}
+
+// crRustTestFnBodies returns the body of every `#[test]`-attributed function in
+// noise-stripped code. A body is the brace-matched block, so "inside this test"
+// is an exact span rather than a proximity guess.
+func crRustTestFnBodies(code string) []string {
+	var bodies []string
+	for _, location := range crRustFnDeclPattern.FindAllStringIndex(code, -1) {
+		if !crRustItemHasTestAttribute(code, location[0]) {
+			continue
+		}
+		paramsEnd := crRustCloseIndex(code, location[1]-1, '(', ')')
+		if paramsEnd < 0 {
+			continue
+		}
+		relative := strings.IndexByte(code[paramsEnd:], '{')
+		if relative < 0 {
+			continue
+		}
+		bodyOpen := paramsEnd + relative
+		bodyEnd := crRustCloseIndex(code, bodyOpen, '{', '}')
+		if bodyEnd < 0 {
+			continue
+		}
+		bodies = append(bodies, code[bodyOpen:bodyEnd])
+	}
+	return bodies
+}
+
+// crRustBlocksMatching brace-matches the block each match of pattern opens. The
+// pattern must end on the block's `{`.
+func crRustBlocksMatching(code string, pattern *regexp.Regexp) []string {
+	var blocks []string
+	for _, location := range pattern.FindAllStringIndex(code, -1) {
+		end := crRustCloseIndex(code, location[1]-1, '{', '}')
+		if end < 0 {
+			continue
+		}
+		blocks = append(blocks, code[location[1]-1:end])
+	}
+	return blocks
+}
+
+// crRustCountedLoopPattern matches `for <binding> in 0..CONST {` — the only
+// shape in which a declared count actually bounds a loop.
+func crRustCountedLoopPattern(constant string) *regexp.Regexp {
+	return regexp.MustCompile(
+		`for\s+(?:mut\s+)?(?:[A-Za-z_][A-Za-z0-9_]*|_)\s+in\s+0\s*\.\.=?\s*` + regexp.QuoteMeta(constant) + `\s*\{`)
+}
+
+// crRustThreadSpawnCall is the executed-code form of a native thread spawn.
+const crRustThreadSpawnCall = "thread::spawn("
+
+// crStressSuiteShape reads the two claims the record makes about its stress
+// suite straight out of the suite's structure:
+//
+//	spawns — some `#[test]` function CALLS thread::spawn in executed code.
+//	driven — some `#[test]` function runs `for _ in 0..PRODUCERS { … }` whose
+//	         body spawns a thread, and the arguments of that spawn call contain
+//	         `for _ in 0..COMMANDS_PER_PRODUCER { … }`.
+//
+// `driven` is the honest reading of "N producer threads x M commands": N bounds
+// the threads, M bounds each thread's commands, and both are the declared
+// constants rather than literals that happen to agree with them today.
+func crStressSuiteShape(code string) (spawns, driven bool) {
+	producerLoop := crRustCountedLoopPattern(crStressProducerConst)
+	commandLoop := crRustCountedLoopPattern(crStressCommandsConst)
+	for _, body := range crRustTestFnBodies(code) {
+		if strings.Contains(body, crRustThreadSpawnCall) {
+			spawns = true
+		}
+		for _, loop := range crRustBlocksMatching(body, producerLoop) {
+			at := strings.Index(loop, crRustThreadSpawnCall)
+			if at < 0 {
+				continue
+			}
+			callOpen := at + len(crRustThreadSpawnCall) - 1
+			callEnd := crRustCloseIndex(loop, callOpen, '(', ')')
+			if callEnd < 0 {
+				continue
+			}
+			if commandLoop.MatchString(loop[callOpen:callEnd]) {
+				driven = true
+			}
+		}
+	}
+	return spawns, driven
+}
+
 // crValidateStressSuiteIdentity holds native_stress.suite to being the suite
 // it claims to be rather than a path that resolves. Three independent
 // conditions, each of which `go.mod` fails:
@@ -2453,11 +2887,17 @@ var crRustConstPattern = regexp.MustCompile(`(?m)^\s*(?:pub\s+)?const\s+([A-Z][A
 //     anchors, applied to the anchor that was left out.
 //  2. THE CLAIM. "native-thread stress" means the suite spawns native
 //     threads. A suite that does not is not evidence of what this block says
-//     it is evidence of.
+//     it is evidence of. Round 4 BLOCKING 1: this was a raw
+//     strings.Contains("thread::spawn"), so deleting both real spawn calls and
+//     leaving the words in a comment passed at exit 0. The spawn must now be a
+//     CALL, in code the compiler executes, inside a `#[test]` function.
 //  3. THE NUMBERS. The record describes the suite as "N producer threads x M
 //     commands". N and M are declared as constants IN that suite, so they are
 //     re-derived from it exactly like every counter is re-derived from the
-//     cited run — and the description stops being free text.
+//     cited run — and the description stops being free text. Round 4 BLOCKING
+//     1 again: declaring the constants was enough, so a suite running
+//     `for _ in 0..1` while declaring PRODUCERS = 4 passed at exit 0. The
+//     constants must now BOUND the loops that spawn and feed the threads.
 func crValidateStressSuiteIdentity(results crResults, read func(string) ([]byte, bool), missing func(string)) []ModelFinding {
 	suite := results.NativeStress.Suite
 	fields := strings.Fields(suite)
@@ -2478,14 +2918,20 @@ func crValidateStressSuiteIdentity(results crResults, read func(string) ([]byte,
 		missing(fmt.Sprintf("native_stress.suite names %q, which is not in the tree", named))
 		return nil
 	}
-	source := string(content)
-	if !strings.Contains(source, "thread::spawn") {
+	// Everything below reads the suite's STRUCTURE, not its bytes: comments and
+	// literals are blanked first, so a claim can only be satisfied by code the
+	// compiler executes.
+	code := crStripRustNoise(string(content))
+	spawns, driven := crStressSuiteShape(code)
+	if !spawns {
 		missing(fmt.Sprintf(
-			"%s spawns no native threads, so it cannot be the native-thread stress this block records",
-			named))
+			"%s calls %s nowhere in an executed `#[test]` function, so it cannot be the native-thread stress "+
+				"this block records. A comment, a string literal or a dead occurrence of the words is not a spawn: "+
+				"deleting both real calls and leaving them in a comment passed here until review 01a0487b round 4",
+			named, crRustThreadSpawnCall))
 	}
 	constants := map[string]int{}
-	for _, match := range crRustConstPattern.FindAllStringSubmatch(source, -1) {
+	for _, match := range crRustConstPattern.FindAllStringSubmatch(code, -1) {
 		if value, err := strconv.Atoi(strings.ReplaceAll(match[2], "_", "")); err == nil {
 			constants[match[1]] = value
 		}
@@ -2499,6 +2945,16 @@ func crValidateStressSuiteIdentity(results crResults, read func(string) ([]byte,
 			named, crStressProducerConst, crStressCommandsConst))
 		return nil
 	}
+	if spawns && !driven {
+		missing(fmt.Sprintf(
+			"%s declares %s=%d and %s=%d but they do not BOUND the stress: no `#[test]` function runs "+
+				"`for _ in 0..%s { … }` whose body spawns a thread whose closure runs `for _ in 0..%s { … }`. "+
+				"A constant that appears in the file and drives no loop makes the record's "+
+				"\"%d producer threads x %d commands\" a coincidence, not a derivation: `for _ in 0..1` with both "+
+				"constants still declared passed here until review 01a0487b round 4",
+			named, crStressProducerConst, producers, crStressCommandsConst, commands,
+			crStressProducerConst, crStressCommandsConst, producers, commands))
+	}
 	required := fmt.Sprintf("%d producer threads x %d commands", producers, commands)
 	if !strings.Contains(suite, required) {
 		missing(fmt.Sprintf(
@@ -2509,44 +2965,111 @@ func crValidateStressSuiteIdentity(results crResults, read func(string) ([]byte,
 	return nil
 }
 
-// crDeclaresTest reports whether source DECLARES a test named name.
+// crDeclaresTest reports whether source declares a test named name that the
+// test runner would actually RUN.
 //
-// The distinction this draws is the whole of review 01a0487b round 3 BLOCKING
-// 1: `strings.Contains(source, "test")` is true of every test file ever
-// written, so it accepts `<file>::test` as a regression reference. A
-// declaration is an attributed `#[test] fn name(` in Rust or a
-// `func Test…(` in Go, and neither exists for a name nobody wrote.
+// Round 3 BLOCKING 1 established the first half: `strings.Contains(source,
+// "test")` is true of every test file ever written, so it accepted
+// `<file>::test` as a regression reference. Round 4 BLOCKING 2 established
+// that the replacement was the same mistake one level down — a name and an
+// attribute that merely CONTAINED the right letters:
+//
+//   - Rust accepted `#[cfg(test)] fn helper`, measured on this tree by
+//     changing the `#[test]` above the named regression test to `#[cfg(test)]`
+//     — exit 0. `cfg(test)` compiles the item under `cargo test` and never
+//     runs it as a test.
+//   - Go accepted any `func Test…(` whatever its signature, measured by
+//     pointing a regression reference at `func Testish() {}` in a file added
+//     to the tree — zero blocking findings. `go test` runs neither `Testish`
+//     (lowercase suffix) nor a function without a `*testing.T`, and runs
+//     nothing at all outside a `_test.go` file.
+//
+// So both halves now check a SIGNATURE. Go is parsed with go/parser, which is
+// the same parser the toolchain uses. Rust is scanned structurally over
+// noise-stripped source (see crStripRustNoise): the fn must be declared, take
+// no arguments as libtest requires, and carry an attribute whose PATH is
+// `test`.
 func crDeclaresTest(file, source, name string) bool {
 	if name == "" {
 		return false
 	}
 	if strings.HasSuffix(file, ".go") {
-		pattern := regexp.MustCompile(`(?m)^func\s+` + regexp.QuoteMeta(name) + `\s*\(`)
-		return strings.HasPrefix(name, "Test") && pattern.MatchString(source)
+		return crGoDeclaresTest(file, source, name)
 	}
-	// Rust: the fn must be declared AND carry a test attribute. The attribute
-	// may be separated from the fn by doc comments, other attributes or blank
-	// lines, so the preceding lines are scanned back to the previous item.
-	pattern := regexp.MustCompile(`(?m)^\s*(?:pub\s+)?(?:async\s+)?fn\s+` + regexp.QuoteMeta(name) + `\s*(?:<[^>]*>)?\s*\(`)
-	location := pattern.FindStringIndex(source)
+	return crRustDeclaresTest(source, name)
+}
+
+// crGoDeclaresTest holds a Go reference to what `go test` will actually run:
+// a `_test.go` file, a name `go test` recognises, and the exact signature
+// `func TestXxx(t *testing.T)` — one `*testing.T` parameter, no results, no
+// receiver.
+func crGoDeclaresTest(file, source, name string) bool {
+	if !strings.HasSuffix(file, "_test.go") || !crGoTestName(name) {
+		return false
+	}
+	parsed, err := parser.ParseFile(token.NewFileSet(), "source.go", source, 0)
+	if err != nil {
+		return false
+	}
+	for _, declaration := range parsed.Decls {
+		function, ok := declaration.(*ast.FuncDecl)
+		if !ok || function.Recv != nil || function.Name.Name != name {
+			continue
+		}
+		if function.Type.Results != nil && len(function.Type.Results.List) != 0 {
+			continue
+		}
+		if function.Type.Params == nil || len(function.Type.Params.List) != 1 {
+			continue
+		}
+		pointer, ok := function.Type.Params.List[0].Type.(*ast.StarExpr)
+		if !ok {
+			continue
+		}
+		selector, ok := pointer.X.(*ast.SelectorExpr)
+		if !ok || selector.Sel.Name != "T" {
+			continue
+		}
+		if pkg, ok := selector.X.(*ast.Ident); ok && pkg.Name == "testing" {
+			return true
+		}
+	}
+	return false
+}
+
+// crGoTestName applies `go test`'s own naming rule: `Test` followed by nothing
+// or by a rune that is not a lower-case letter. `Testish` is not a test.
+func crGoTestName(name string) bool {
+	rest, cut := strings.CutPrefix(name, "Test")
+	if !cut {
+		return false
+	}
+	if rest == "" {
+		return true
+	}
+	first, _ := utf8.DecodeRuneInString(rest)
+	return !unicode.IsLower(first)
+}
+
+// crRustDeclaresTest requires an argument-less fn carrying a test attribute.
+func crRustDeclaresTest(source, name string) bool {
+	code := crStripRustNoise(source)
+	pattern := regexp.MustCompile(
+		`(?m)^[ \t]*(?:pub(?:\([^)]*\))?[ \t]+)?(?:async[ \t]+)?(?:unsafe[ \t]+)?fn[ \t]+` +
+			regexp.QuoteMeta(name) + `[ \t]*(?:<[^>]*>)?[ \t]*\(`)
+	location := pattern.FindStringIndex(code)
 	if location == nil {
 		return false
 	}
-	lines := strings.Split(source[:location[0]], "\n")
-	for index := len(lines) - 1; index >= 0 && index > len(lines)-12; index-- {
-		trimmed := strings.TrimSpace(lines[index])
-		if trimmed == "" || strings.HasPrefix(trimmed, "//") {
-			continue
-		}
-		if strings.HasPrefix(trimmed, "#[") {
-			if strings.Contains(trimmed, "test") {
-				return true
-			}
-			continue
-		}
-		break
+	end := crRustCloseIndex(code, location[1]-1, '(', ')')
+	if end < 0 {
+		return false
 	}
-	return false
+	// A libtest test takes no arguments; anything else is a helper.
+	if strings.TrimSpace(code[location[1]:end-1]) != "" {
+		return false
+	}
+	return crRustItemHasTestAttribute(code, location[0])
 }
 
 // crValidateNamedArtifacts resolves the files this record names in prose but

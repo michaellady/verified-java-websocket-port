@@ -1080,6 +1080,371 @@ func TestConcurrencyResultsRefusesAResolvableButWrongReference(t *testing.T) {
 	}
 }
 
+// crTestRootWithOverride builds a tree root in which exactly one file differs
+// from the committed tree and everything else resolves through it by symlink.
+// It is how the round-4 cases below attack the SOURCE the record names without
+// mutating the repository: each doctored suite or test file was first applied
+// to the real tree, measured passing, and then reproduced here.
+func crTestRootWithOverride(t *testing.T, rel, content string) string {
+	t.Helper()
+	root := t.TempDir()
+	segments := strings.Split(rel, "/")
+	source, mirror := crTestRoot, root
+	for depth, segment := range segments {
+		entries, err := os.ReadDir(source)
+		if err != nil {
+			t.Fatalf("read %s: %v", source, err)
+		}
+		for _, entry := range entries {
+			if entry.Name() == segment {
+				continue
+			}
+			absolute, err := filepath.Abs(filepath.Join(source, entry.Name()))
+			if err != nil {
+				t.Fatalf("resolve %s: %v", entry.Name(), err)
+			}
+			if err := os.Symlink(absolute, filepath.Join(mirror, entry.Name())); err != nil {
+				t.Fatalf("link %s: %v", entry.Name(), err)
+			}
+		}
+		if depth == len(segments)-1 {
+			if err := os.WriteFile(filepath.Join(mirror, segment), []byte(content), 0o600); err != nil {
+				t.Fatalf("write override: %v", err)
+			}
+			break
+		}
+		source = filepath.Join(source, segment)
+		mirror = filepath.Join(mirror, segment)
+		if err := os.Mkdir(mirror, 0o750); err != nil {
+			t.Fatalf("mirror %s: %v", segment, err)
+		}
+	}
+	return root
+}
+
+func crTestReadTreeFile(t *testing.T, rel string) string {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(crTestRoot, filepath.FromSlash(rel)))
+	if err != nil {
+		t.Fatalf("read %s: %v", rel, err)
+	}
+	return string(content)
+}
+
+// TestConcurrencyResultsRefusesAStressSuiteThatOnlyMentionsThreads is review
+// 01a0487b round 4 BLOCKING 1.
+//
+// Round 3 replaced "the suite path exists" with
+// `strings.Contains(source, "thread::spawn")` and the record's numbers with
+// "the suite declares these constants". Both are substrings standing in for a
+// parse, which is the same defect one level down. Each case below was applied
+// to the REAL tree and measured passing at exit 0 before the structural reader
+// existed:
+//
+//	both real spawn calls deleted, the words left in a comment      Go 0
+//	both real spawn calls deleted, the words left in a string        Go 0
+//	PRODUCERS = 4 and COMMANDS_PER_PRODUCER = 50 still declared,
+//	  the loops rewritten to `for _ in 0..1`                         Go 0
+//
+// The last one is the sharpest: the suite recorded as "4 producer threads x 50
+// commands" ran one thread issuing one command, and the description was still
+// "re-derived from the suite's own constants".
+func TestConcurrencyResultsRefusesAStressSuiteThatOnlyMentionsThreads(t *testing.T) {
+	suite := crTestReadTreeFile(t, "rust/ws-driver/tests/concurrency.rs")
+	for _, testCase := range []struct {
+		name    string
+		doctor  func(string) string
+		because string
+	}{
+		{
+			name: "the spawn survives only in a comment",
+			doctor: func(source string) string {
+				source = strings.ReplaceAll(source,
+					"producers.push(thread::spawn(move || {", "producers.push(run_inline(move || {")
+				return strings.Replace(source, "use std::thread;",
+					"use std::thread;\n// this suite no longer calls thread::spawn", 1)
+			},
+			because: "a comment is not a call",
+		},
+		{
+			name: "the spawn survives only in a string literal",
+			doctor: func(source string) string {
+				return strings.ReplaceAll(source, "producers.push(thread::spawn(move || {",
+					"let _label = \"thread::spawn(\";\n        producers.push(run_inline(move || {")
+			},
+			because: "a string literal is not a call",
+		},
+		{
+			name: "the constants are declared and the loops use literals",
+			doctor: func(source string) string {
+				source = strings.Replace(source, "const TOTAL: usize = PRODUCERS * COMMANDS_PER_PRODUCER;",
+					"const TOTAL: usize = 1;", 1)
+				source = strings.ReplaceAll(source, "for producer in 0..PRODUCERS {", "for producer in 0..1 {")
+				source = strings.ReplaceAll(source, "for _ in 0..PRODUCERS {", "for _ in 0..1 {")
+				return strings.ReplaceAll(source, "for index in 0..COMMANDS_PER_PRODUCER {", "for index in 0..1 {")
+			},
+			because: "a constant that bounds no loop makes the record's numbers a coincidence",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			doctored := testCase.doctor(suite)
+			if doctored == suite {
+				t.Fatalf("the doctoring changed nothing, so this case attacks the committed suite unmodified")
+			}
+			root := crTestRootWithOverride(t, "rust/ws-driver/tests/concurrency.rs", doctored)
+			findings := ValidateConcurrencyResults(ConcurrencyResultsInputs{
+				ResultsPath: crTestResultsPath, Root: root})
+			crTestRequireCode(t, findings, "RESULTS_NAMED_ARTIFACT_MISSING")
+		})
+	}
+}
+
+// TestConcurrencyResultsReadsRustStructurallyNotTextually pins the reader the
+// case above depends on. crStressSuiteShape must read the COMMITTED suite as
+// both spawning and constant-driven, or the test above would be passing
+// because the reader refuses everything.
+func TestConcurrencyResultsReadsRustStructurallyNotTextually(t *testing.T) {
+	committed := crStripRustNoise(crTestReadTreeFile(t, "rust/ws-driver/tests/concurrency.rs"))
+	if spawns, driven := crStressSuiteShape(committed); !spawns || !driven {
+		t.Fatalf("the committed native-thread stress suite reads as spawns=%v driven=%v; the reader is refusing "+
+			"the real thing and every refusal it produces is meaningless", spawns, driven)
+	}
+	for _, testCase := range []struct {
+		name           string
+		source         string
+		spawns, driven bool
+	}{
+		{
+			name: "a spawn outside any test function is not this suite's evidence",
+			source: "use std::thread;\nfn helper() {\n    thread::spawn(|| {});\n}\n" +
+				"const PRODUCERS: usize = 4;\nconst COMMANDS_PER_PRODUCER: usize = 50;\n",
+		},
+		{
+			name: "a spawn in a doc comment is not a spawn",
+			source: "const PRODUCERS: usize = 4;\nconst COMMANDS_PER_PRODUCER: usize = 50;\n" +
+				"/// thread::spawn(\n#[test]\nfn stress() {\n    let _ = 1;\n}\n",
+		},
+		{
+			name: "the loops must be bounded by the constants",
+			source: "const PRODUCERS: usize = 4;\nconst COMMANDS_PER_PRODUCER: usize = 50;\n" +
+				"#[test]\nfn stress() {\n    for _ in 0..1 {\n        thread::spawn(move || {\n" +
+				"            for _ in 0..1 {}\n        });\n    }\n}\n",
+			spawns: true,
+		},
+		{
+			name: "the inner loop must be inside the spawned closure",
+			source: "const PRODUCERS: usize = 4;\nconst COMMANDS_PER_PRODUCER: usize = 50;\n" +
+				"#[test]\nfn stress() {\n    for _ in 0..PRODUCERS {\n        thread::spawn(move || {});\n" +
+				"        for _ in 0..COMMANDS_PER_PRODUCER {}\n    }\n}\n",
+			spawns: true,
+		},
+		{
+			name: "the real shape is accepted",
+			source: "const PRODUCERS: usize = 4;\nconst COMMANDS_PER_PRODUCER: usize = 50;\n" +
+				"#[test]\nfn stress() {\n    for producer in 0..PRODUCERS {\n" +
+				"        handles.push(thread::spawn(move || {\n            for index in 0..COMMANDS_PER_PRODUCER {\n" +
+				"                let _ = (producer, index);\n            }\n        }));\n    }\n}\n",
+			spawns: true,
+			driven: true,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			spawns, driven := crStressSuiteShape(crStripRustNoise(testCase.source))
+			if spawns != testCase.spawns || driven != testCase.driven {
+				t.Fatalf("read spawns=%v driven=%v, expected spawns=%v driven=%v",
+					spawns, driven, testCase.spawns, testCase.driven)
+			}
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesARegressionThatIsNotARunnableTest is review
+// 01a0487b round 4 BLOCKING 2.
+//
+// Round 3 required a "test DECLARATION" and implemented it as a name prefix on
+// the Go side and an attribute containing the letters "test" on the Rust side.
+// Measured on the real tree before the fix, both at exit 0:
+//
+//	`#[test]` above the named regression test changed to `#[cfg(test)]`   Go 0
+//	a regression reference pointed at `func Testish() {}` in a .go file   Go 0
+//
+// Neither function is ever RUN by its test runner. `cfg(test)` is a
+// compilation condition, and `go test` runs neither a lower-case-suffixed name
+// nor a function without a `*testing.T` nor anything outside a `_test.go`
+// file.
+func TestConcurrencyResultsRefusesARegressionThatIsNotARunnableTest(t *testing.T) {
+	contract := crTestReadTreeFile(t, "rust/ws-driver/tests/driver_contract.rs")
+	named := "fn eof_refused_by_event_backpressure_is_retried_until_the_core_accepts_it()"
+	for _, testCase := range []struct {
+		name      string
+		attribute string
+	}{
+		{name: "the test attribute becomes a cfg condition", attribute: "#[cfg(test)]"},
+		{name: "the test attribute becomes an unrelated attribute", attribute: "#[allow(dead_code)]"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			doctored := strings.Replace(contract, "#[test]\n"+named, testCase.attribute+"\n"+named, 1)
+			if doctored == contract {
+				t.Fatalf("the doctoring changed nothing")
+			}
+			root := crTestRootWithOverride(t, "rust/ws-driver/tests/driver_contract.rs", doctored)
+			findings := ValidateConcurrencyResults(ConcurrencyResultsInputs{
+				ResultsPath: crTestResultsPath, Root: root})
+			crTestRequireCode(t, findings, "RESULTS_NAMED_ARTIFACT_MISSING")
+		})
+	}
+}
+
+// TestConcurrencyResultsParsesTestDeclarations pins both halves of the
+// predicate, in both directions: the real declarations in this tree must be
+// accepted, or every refusal above is vacuous.
+func TestConcurrencyResultsParsesTestDeclarations(t *testing.T) {
+	for _, testCase := range []struct {
+		name     string
+		file     string
+		source   string
+		declared string
+		want     bool
+	}{
+		{
+			name: "rust: an attributed test is a test", file: "x.rs", declared: "stress",
+			source: "#[test]\nfn stress() {}\n", want: true,
+		},
+		{
+			name: "rust: a namespaced test attribute is still a test", file: "x.rs", declared: "stress",
+			source: "#[tokio::test]\nfn stress() {}\n", want: true,
+		},
+		{
+			name: "rust: doc comments and other attributes do not break the link", file: "x.rs", declared: "stress",
+			source: "/// doc\n#[test]\n#[should_panic]\nfn stress() {}\n", want: true,
+		},
+		{
+			name: "rust: cfg(test) is a compilation condition, not a test", file: "x.rs", declared: "helper",
+			source: "#[cfg(test)]\nfn helper() {}\n",
+		},
+		{
+			name: "rust: an unattributed fn is not a test", file: "x.rs", declared: "helper",
+			source: "fn helper() {}\n",
+		},
+		{
+			name: "rust: a test attribute on the previous item does not carry", file: "x.rs", declared: "helper",
+			source: "#[test]\nfn stress() {}\n\nfn helper() {}\n",
+		},
+		{
+			name: "rust: a libtest test takes no arguments", file: "x.rs", declared: "helper",
+			source: "#[test]\nfn helper(input: u32) {}\n",
+		},
+		{
+			name: "rust: the name in a comment is not a declaration", file: "x.rs", declared: "stress",
+			source: "// #[test]\n// fn stress() {}\n",
+		},
+		{
+			name: "go: the real signature is a test", file: "a_test.go", declared: "TestX",
+			source: "package a\n\nimport \"testing\"\n\nfunc TestX(t *testing.T) {}\n", want: true,
+		},
+		{
+			name: "go: a lower-case suffix is not a test go test would run", file: "a_test.go", declared: "Testish",
+			source: "package a\n\nfunc Testish() {}\n",
+		},
+		{
+			name: "go: a Test name without a *testing.T is not a test", file: "a_test.go", declared: "TestX",
+			source: "package a\n\nfunc TestX() {}\n",
+		},
+		{
+			name: "go: a Test name that returns something is not a test", file: "a_test.go", declared: "TestX",
+			source: "package a\n\nimport \"testing\"\n\nfunc TestX(t *testing.T) error { return nil }\n",
+		},
+		{
+			name: "go: a method is not a test", file: "a_test.go", declared: "TestX",
+			source: "package a\n\nimport \"testing\"\n\ntype S struct{}\n\nfunc (S) TestX(t *testing.T) {}\n",
+		},
+		{
+			name: "go: nothing outside a _test.go file is run", file: "a.go", declared: "TestX",
+			source: "package a\n\nimport \"testing\"\n\nfunc TestX(t *testing.T) {}\n",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := crDeclaresTest(testCase.file, testCase.source, testCase.declared); got != testCase.want {
+				t.Fatalf("crDeclaresTest(%s, %s) = %v, want %v",
+					testCase.file, testCase.declared, got, testCase.want)
+			}
+		})
+	}
+	// And the two references the record actually makes must still resolve, in
+	// the committed tree, through the same predicate.
+	for _, reference := range []struct{ file, name string }{
+		{"rust/ws-driver/tests/driver_contract.rs",
+			"eof_refused_by_event_backpressure_is_retried_until_the_core_accepts_it"},
+		{"rust/ws-driver/tests/schedule_exploration.rs",
+			"fixed_defect_regressions_replay_clean_on_the_shipped_driver"},
+	} {
+		if !crDeclaresTest(reference.file, crTestReadTreeFile(t, reference.file), reference.name) {
+			t.Fatalf("%s::%s is a real committed test and the predicate refuses it", reference.file, reference.name)
+		}
+	}
+}
+
+// TestConcurrencyResultsRefusesAWrongRetentionOrdinal closes the finding this
+// lane deferred for three review rounds.
+//
+// The six `retention.minimized_artifacts[*].found_index` values could no
+// longer be DELETED after round 3, but any wrong ordinal was still accepted:
+// the retention run printed the ordinal (US017_RETENTION found_index=) and
+// nothing in the tree recorded it, so the document's copy rested on nothing.
+// The retention test now writes `found_index=` into the seed body it
+// re-derives from a real minimization run and byte-compares, so a wrong
+// ordinal in the document contradicts the seed and a doctored seed contradicts
+// its digest.
+func TestConcurrencyResultsRefusesAWrongRetentionOrdinal(t *testing.T) {
+	for _, testCase := range []struct {
+		name     string
+		artifact int
+		ordinal  float64
+	}{
+		{name: "another artifact's real ordinal", artifact: 0, ordinal: 17},
+		{name: "the ordinal of the one fault found late, zeroed", artifact: 3, ordinal: 0},
+		{name: "an adjacent ordinal", artifact: 3, ordinal: 18},
+		{name: "a plausible small integer", artifact: 5, ordinal: 3},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			artifacts := crTestArray(t, document, "retention", "minimized_artifacts")
+			entry, ok := artifacts[testCase.artifact].(map[string]any)
+			if !ok {
+				t.Fatalf("minimized_artifacts[%d] is not an object", testCase.artifact)
+			}
+			if entry["found_index"] == testCase.ordinal {
+				t.Fatalf("minimized_artifacts[%d] already records found_index %v, so this substitutes nothing",
+					testCase.artifact, testCase.ordinal)
+			}
+			entry["found_index"] = testCase.ordinal
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_SEED_CONTENT_CONTRADICTED")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesAMechanismThatOmitsARecordedField keeps the
+// retention mechanism sentence derived from the seeds rather than pinned to a
+// phrase list. When the retention test started writing found_index, the
+// sentence that enumerates what the artifact records had to grow with it.
+func TestConcurrencyResultsRefusesAMechanismThatOmitsARecordedField(t *testing.T) {
+	document := crTestDecode(t)
+	retention := crTestSection(t, document, "retention")
+	mechanism, ok := retention["mechanism"].(string)
+	if !ok {
+		t.Fatalf("retention.mechanism is not a string")
+	}
+	shortened := strings.Replace(mechanism,
+		", and the found index at which the exploration first hit the fault", "", 1)
+	if shortened == mechanism {
+		t.Fatalf("retention.mechanism no longer names the found index, so this case attacks nothing")
+	}
+	retention["mechanism"] = shortened
+	findings := ValidateConcurrencyResults(crTestWrite(t, document))
+	crTestRequireCode(t, findings, "RESULTS_SEED_CONTENT_CONTRADICTED")
+}
+
 // TestConcurrencyResultsRefusesTheReviewersFiveDeletions is review 01a0487b
 // round 3 BLOCKING 2, encoded as the reviewer stated it.
 //

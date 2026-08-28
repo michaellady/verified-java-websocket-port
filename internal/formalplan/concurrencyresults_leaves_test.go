@@ -35,6 +35,19 @@ package formalplan
 // document — so INERT means "a plausible wrong value is accepted", not "an
 // obviously malformed value is accepted".
 //
+// HOW MANY CANDIDATES, AND WHY THE ANSWER IS NOT A RANGE. Review 01a0487b
+// round 4 BLOCKING 3: the round-3 receipt said "162 of 162 leaves attacked,
+// 2 to 6 candidates each". That was a fourth number typed rather than read.
+// The measured shape is 1 to 6, and the 1 is not a weakness — it is the only
+// honest count for a boolean. A boolean has exactly one other value, so the
+// single flip IS the exhaustive enumeration of wrong values for that leaf;
+// adding a second candidate would mean substituting a non-boolean, which is a
+// type error and not a plausible wrong reading. So the true statement is
+// "1 candidate for each of the six booleans, because flipping a boolean is
+// exhaustive; 2 to 6 for every other leaf", and
+// TestConcurrencyResultsCandidateBatteryIsMeasured derives all three of those
+// numbers from the battery rather than trusting this comment.
+//
 // DELETION IS A SEPARATE AXIS. Review 01a0487b round 3 BLOCKING 2: substitution
 // cannot see the omission gap, because an absent key decodes to the zero value
 // and the zero value is often exactly the value that agrees with everything.
@@ -186,6 +199,10 @@ var (
 func crLeafCandidates(root string, value any, otherStrings []string, otherTokens []string) []any {
 	switch typed := value.(type) {
 	case bool:
+		// EXHAUSTIVE, not thin. A boolean has one other value; this is every
+		// wrong value the leaf can hold. See the header note on round 4
+		// BLOCKING 3 — the receipt's "2 to 6 candidates each" was false here
+		// and the honest reading is "1, and 1 is all there is".
 		return []any{!typed}
 	case float64:
 		candidates := []any{typed + 1}
@@ -438,11 +455,18 @@ const crExpectedLeafCount = 162
 //     token nothing here can resolve (a compiler version, an imported commit
 //     id, the session prose). Their shape and their load-bearing clauses are
 //     checked; the token values are attested, not derived.
-//   - The six retention found_index ordinals. This is the one with a known
-//     fix that this round again did not take: the retention run PRINTS them
-//     (US017_RETENTION found_index=) but the pinned seed does not carry them,
-//     so binding them means recording those six lines in the document. Named
-//     here rather than implied, for the third round running.
+//
+// THE SIX found_index ORDINALS ARE GONE FROM THIS LIST, after being named in
+// it for three rounds. They were the class the reviewer kept re-flagging: the
+// retention run PRINTED each ordinal (US017_RETENTION found_index=) but the
+// pinned seed did not carry it, so the document could quote any number and
+// nothing disagreed. The retention test in
+// rust/ws-driver/tests/schedule_exploration.rs now writes `found_index=` into
+// the seed body it re-derives and byte-compares, and the Go validator compares
+// the document's ordinal to the seed's — so the ordinals are pinned by exactly
+// the digest that already pinned the schedule beside them. Measured after the
+// fix: substituting another artifact's real ordinal, an adjacent ordinal, or a
+// plausible small integer each produces RESULTS_SEED_CONTENT_CONTRADICTED.
 var crInertLeaves = []string{
 	"defects_found_and_fixed[0].description",
 	"defects_found_and_fixed[0].fix",
@@ -454,12 +478,6 @@ var crInertLeaves = []string{
 	"native_stress.rustc",
 	"recorded_at_provenance",
 	"retention.demonstration",
-	"retention.minimized_artifacts[0].found_index",
-	"retention.minimized_artifacts[1].found_index",
-	"retention.minimized_artifacts[2].found_index",
-	"retention.minimized_artifacts[3].found_index",
-	"retention.minimized_artifacts[4].found_index",
-	"retention.minimized_artifacts[5].found_index",
 	"revision_note",
 }
 
@@ -496,6 +514,107 @@ func TestConcurrencyResultsLeafInertnessIsPinned(t *testing.T) {
 	}
 	if t.Failed() {
 		t.Fatalf("measured %d inert of %d leaves, pinned %d", len(measured), len(outcomes), len(crInertLeaves))
+	}
+}
+
+// The three numbers the receipt is allowed to state about the battery's size.
+// They are asserted, not described, so a receipt sentence can be checked
+// against them: see TestConcurrencyResultsCandidateBatteryIsMeasured.
+const (
+	crBooleanLeafCandidates    = 1 // exhaustive: a boolean has one other value
+	crMinNonBooleanCandidates  = 2
+	crMaxCandidatesForAnyLeaf  = 6
+	crExpectedBooleanLeafCount = 6
+)
+
+// TestConcurrencyResultsCandidateBatteryIsMeasured is review 01a0487b round 4
+// BLOCKING 3.
+//
+// The round-3 receipt claimed "162 of 162 leaves attacked, 2 to 6 candidates
+// each". It was the lane's fourth transcribed figure — after 108, after the
+// 35 undercount — and it was wrong in the lane whose whole purpose is catching
+// exactly that. Every boolean leaf gets ONE candidate, so the real span is
+// 1 to 6.
+//
+// The correction is not a better sentence, it is a measurement: this test
+// derives the span from the battery itself and refuses the three numbers if
+// they drift. It also asserts WHY the 1 is not a gap — for a boolean the
+// single flip is the complete enumeration of wrong values, so a leaf with one
+// candidate is exhaustively attacked and a leaf with six is not.
+func TestConcurrencyResultsCandidateBatteryIsMeasured(t *testing.T) {
+	raw, err := os.ReadFile(crTestResultsPath)
+	if err != nil {
+		t.Fatalf("read results: %v", err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(raw, &document); err != nil {
+		t.Fatalf("decode results: %v", err)
+	}
+	var leaves []crLeaf
+	crWalkLeaves(document, nil, &leaves)
+
+	var otherStrings, otherTokens []string
+	for _, leaf := range leaves {
+		if text, ok := leaf.Value.(string); ok {
+			otherStrings = append(otherStrings, text)
+			if crTokenPattern.MatchString(text) {
+				otherTokens = append(otherTokens, text)
+			}
+		}
+	}
+
+	histogram := map[int]int{}
+	booleans, minimumNonBoolean, maximum := 0, 0, 0
+	for _, leaf := range leaves {
+		candidates := crLeafCandidates(crTestRoot, leaf.Value, otherStrings, otherTokens)
+		if len(candidates) == 0 {
+			t.Fatalf("leaf %s gets no candidate at all, so it is not attacked", leaf.Path)
+		}
+		histogram[len(candidates)]++
+		if len(candidates) > maximum {
+			maximum = len(candidates)
+		}
+		value, isBoolean := leaf.Value.(bool)
+		if isBoolean {
+			booleans++
+			if len(candidates) != crBooleanLeafCandidates {
+				t.Errorf("boolean leaf %s gets %d candidates, not %d", leaf.Path, len(candidates), crBooleanLeafCandidates)
+				continue
+			}
+			// Exhaustive: the one candidate is the only other value.
+			if flipped, ok := candidates[0].(bool); !ok || flipped != !value {
+				t.Errorf("boolean leaf %s is attacked with %v, which is not its negation, so the single "+
+					"candidate is not the exhaustive one", leaf.Path, candidates[0])
+			}
+			continue
+		}
+		if len(candidates) < crMinNonBooleanCandidates {
+			t.Errorf("non-boolean leaf %s gets only %d candidate(s); the receipt's lower bound for a "+
+				"non-boolean leaf is %d", leaf.Path, len(candidates), crMinNonBooleanCandidates)
+		}
+		if minimumNonBoolean == 0 || len(candidates) < minimumNonBoolean {
+			minimumNonBoolean = len(candidates)
+		}
+	}
+
+	if booleans != crExpectedBooleanLeafCount {
+		t.Errorf("the document has %d boolean leaves, the pinned reading covers %d", booleans, crExpectedBooleanLeafCount)
+	}
+	if minimumNonBoolean != crMinNonBooleanCandidates {
+		t.Errorf("the smallest non-boolean battery is %d, the receipt says %d", minimumNonBoolean, crMinNonBooleanCandidates)
+	}
+	if maximum != crMaxCandidatesForAnyLeaf {
+		t.Errorf("the largest battery is %d, the receipt says %d", maximum, crMaxCandidatesForAnyLeaf)
+	}
+	if t.Failed() {
+		sizes := make([]int, 0, len(histogram))
+		for size := range histogram {
+			sizes = append(sizes, size)
+		}
+		sort.Ints(sizes)
+		for _, size := range sizes {
+			t.Logf("candidates=%d -> %d leaves", size, histogram[size])
+		}
 	}
 }
 
@@ -597,13 +716,25 @@ func TestConcurrencyResultsLeafEnumerationReport(t *testing.T) {
 	}
 	outcomes := crRunEnumeration(t, crTestRoot, crTestResultsPath)
 	inert := 0
+	histogram := map[int]int{}
 	for _, outcome := range outcomes {
 		state := "CHECKED"
 		if outcome.Inert {
 			state = "INERT"
 			inert++
 		}
+		histogram[outcome.Candidate]++
 		fmt.Printf("%-7s %-72s candidates=%d accepted=%q\n", state, outcome.Path, outcome.Candidate, outcome.Accepted)
+	}
+	// The battery's own size, printed with the reading. Round 4 BLOCKING 3 was
+	// a receipt sentence about this histogram that nobody had ever printed.
+	sizes := make([]int, 0, len(histogram))
+	for size := range histogram {
+		sizes = append(sizes, size)
+	}
+	sort.Ints(sizes)
+	for _, size := range sizes {
+		fmt.Printf("LEAF_BATTERY candidates=%d leaves=%d\n", size, histogram[size])
 	}
 	fmt.Printf("LEAF_ENUMERATION leaves=%d checked=%d inert=%d\n", len(outcomes), len(outcomes)-inert, inert)
 }
