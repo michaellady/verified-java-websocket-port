@@ -1,0 +1,328 @@
+// Command compare builds the per-case Java-versus-Rust strictness comparison
+// from the four same-host, same-manifest Autobahn legs.
+//
+// It reports where the two agree and where they differ. It does not rule on
+// AC3: the criterion's disposition is the owner's, and this tool deliberately
+// emits no verdict field.
+package main
+
+import (
+	"encoding/json"
+	"flag"
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+)
+
+type caseEntry struct {
+	Behavior      string `json:"behavior"`
+	BehaviorClose string `json:"behaviorClose"`
+	Duration      int    `json:"duration"`
+	ReportFile    string `json:"reportfile"`
+}
+
+type manifestCase struct {
+	CaseID             string `json:"case_id"`
+	Family             string `json:"family"`
+	StrictPassRequired bool   `json:"strict_pass_required"`
+}
+
+type manifest struct {
+	ExpectedCaseCount int            `json:"expected_case_count"`
+	Cases             []manifestCase `json:"cases"`
+}
+
+// behaviorRank orders Autobahn outcomes from strictest to weakest so that a
+// difference can be given a direction rather than only being flagged.
+func behaviorRank(value string) int {
+	switch strings.ToUpper(strings.TrimSpace(value)) {
+	case "OK":
+		return 0
+	case "INFORMATIONAL":
+		return 1
+	case "NON-STRICT":
+		return 2
+	case "UNIMPLEMENTED":
+		return 3
+	case "WRONG CODE":
+		return 4
+	case "UNCLEAN":
+		return 5
+	case "FAILED BY CLIENT":
+		return 6
+	case "FAILED":
+		return 7
+	case "":
+		return 99
+	default:
+		return 50
+	}
+}
+
+func loadIndex(path string) (string, map[string]caseEntry, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return "", nil, err
+	}
+	var outer map[string]map[string]caseEntry
+	if err := json.Unmarshal(raw, &outer); err != nil {
+		return "", nil, fmt.Errorf("%s: %w", path, err)
+	}
+	if len(outer) != 1 {
+		return "", nil, fmt.Errorf("%s: expected exactly one agent, found %d", path, len(outer))
+	}
+	for agent, cases := range outer {
+		return agent, cases, nil
+	}
+	return "", nil, fmt.Errorf("%s: unreachable", path)
+}
+
+type comparison struct {
+	CaseID             string `json:"case_id"`
+	Family             string `json:"family"`
+	StrictPassRequired bool   `json:"strict_pass_required"`
+
+	RustServerBehavior      string `json:"rust_server_behavior"`
+	RustServerBehaviorClose string `json:"rust_server_behavior_close"`
+	JavaServerBehavior      string `json:"java_server_behavior"`
+	JavaServerBehaviorClose string `json:"java_server_behavior_close"`
+	ServerAgreement         string `json:"server_agreement"`
+	ServerCloseAgreement    string `json:"server_close_agreement"`
+
+	RustClientBehavior      string `json:"rust_client_behavior"`
+	RustClientBehaviorClose string `json:"rust_client_behavior_close"`
+	JavaClientBehavior      string `json:"java_client_behavior"`
+	JavaClientBehaviorClose string `json:"java_client_behavior_close"`
+	ClientAgreement         string `json:"client_agreement"`
+	ClientCloseAgreement    string `json:"client_close_agreement"`
+}
+
+// agreement names the relationship between the two implementations on one
+// case. "AGREE" says nothing about whether the shared outcome is good, only
+// that both behave the same way, which is exactly the question the
+// Java-faithful bar turns on.
+func agreement(rust, java string) string {
+	if rust == java {
+		if behaviorRank(rust) == 0 {
+			return "AGREE_STRICT"
+		}
+		return "AGREE_NON_STRICT"
+	}
+	rustRank, javaRank := behaviorRank(rust), behaviorRank(java)
+	switch {
+	case rustRank < javaRank:
+		return "RUST_STRICTER"
+	case rustRank > javaRank:
+		return "JAVA_STRICTER"
+	default:
+		return "DIFFER_SAME_RANK"
+	}
+}
+
+func main() {
+	root := flag.String("evidence", "", "evidence tree root")
+	manifestPath := flag.String("manifest", "", "case manifest path")
+	out := flag.String("out", "", "output JSON path")
+	summary := flag.String("summary", "", "output markdown summary path")
+	flag.Parse()
+	if *root == "" || *manifestPath == "" || *out == "" || *summary == "" {
+		fmt.Fprintln(os.Stderr,
+			"usage: compare -evidence DIR -manifest FILE -out FILE -summary FILE")
+		os.Exit(2)
+	}
+
+	raw, err := os.ReadFile(*manifestPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "compare: %v\n", err)
+		os.Exit(1)
+	}
+	var m manifest
+	if err := json.Unmarshal(raw, &m); err != nil {
+		fmt.Fprintf(os.Stderr, "compare: parse manifest: %v\n", err)
+		os.Exit(1)
+	}
+
+	// The subject is the SERVER in the fuzzingclient leg and the CLIENT in the
+	// fuzzingserver leg, so the legs are paired by role, not by file name.
+	rustServerAgent, rustServer, err := loadIndex(
+		filepath.Join(*root, "rust/fuzzingclient-run1/index.json"))
+	exitOn(err)
+	rustClientAgent, rustClient, err := loadIndex(
+		filepath.Join(*root, "rust/fuzzingserver-run1/index.json"))
+	exitOn(err)
+	javaServerAgent, javaServer, err := loadIndex(
+		filepath.Join(*root, "java/fuzzingclient-run1/index.json"))
+	exitOn(err)
+	javaClientAgent, javaClient, err := loadIndex(
+		filepath.Join(*root, "java/fuzzingserver-run1/index.json"))
+	exitOn(err)
+
+	rows := make([]comparison, 0, len(m.Cases))
+	for _, c := range m.Cases {
+		rs, rc := rustServer[c.CaseID], rustClient[c.CaseID]
+		js, jc := javaServer[c.CaseID], javaClient[c.CaseID]
+		rows = append(rows, comparison{
+			CaseID:             c.CaseID,
+			Family:             c.Family,
+			StrictPassRequired: c.StrictPassRequired,
+
+			RustServerBehavior:      rs.Behavior,
+			RustServerBehaviorClose: rs.BehaviorClose,
+			JavaServerBehavior:      js.Behavior,
+			JavaServerBehaviorClose: js.BehaviorClose,
+			ServerAgreement:         agreement(rs.Behavior, js.Behavior),
+			ServerCloseAgreement:    agreement(rs.BehaviorClose, js.BehaviorClose),
+
+			RustClientBehavior:      rc.Behavior,
+			RustClientBehaviorClose: rc.BehaviorClose,
+			JavaClientBehavior:      jc.Behavior,
+			JavaClientBehaviorClose: jc.BehaviorClose,
+			ClientAgreement:         agreement(rc.Behavior, jc.Behavior),
+			ClientCloseAgreement:    agreement(rc.BehaviorClose, jc.BehaviorClose),
+		})
+	}
+
+	tally := func(pick func(comparison) string) map[string]int {
+		counts := map[string]int{}
+		for _, row := range rows {
+			counts[pick(row)]++
+		}
+		return counts
+	}
+	collect := func(match func(comparison) bool, pick func(comparison) string) []string {
+		out := []string{}
+		for _, row := range rows {
+			if match(row) {
+				out = append(out, row.CaseID+"("+pick(row)+")")
+			}
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	document := map[string]any{
+		"schema_version": "1.0.0",
+		"entity_type":    "JavaRustStrictnessComparison",
+		"note": "Produced from four legs executed on one host against one 247-case " +
+			"manifest. This artifact reports agreement and difference only; it does " +
+			"not rule on AC3.",
+		"agents": map[string]string{
+			"rust_server_role": rustServerAgent,
+			"rust_client_role": rustClientAgent,
+			"java_server_role": javaServerAgent,
+			"java_client_role": javaClientAgent,
+		},
+		"expected_case_count": m.ExpectedCaseCount,
+		"compared_case_count": len(rows),
+		"summary": map[string]any{
+			"server_role_behavior":       tally(func(c comparison) string { return c.ServerAgreement }),
+			"server_role_behavior_close": tally(func(c comparison) string { return c.ServerCloseAgreement }),
+			"client_role_behavior":       tally(func(c comparison) string { return c.ClientAgreement }),
+			"client_role_behavior_close": tally(func(c comparison) string { return c.ClientCloseAgreement }),
+		},
+		"behavior_differences": map[string]any{
+			"server_role": collect(
+				func(c comparison) bool {
+					return !strings.HasPrefix(c.ServerAgreement, "AGREE")
+				},
+				func(c comparison) string {
+					return "rust=" + c.RustServerBehavior + " java=" + c.JavaServerBehavior
+				}),
+			"client_role": collect(
+				func(c comparison) bool {
+					return !strings.HasPrefix(c.ClientAgreement, "AGREE")
+				},
+				func(c comparison) string {
+					return "rust=" + c.RustClientBehavior + " java=" + c.JavaClientBehavior
+				}),
+		},
+		"shared_non_strict": map[string]any{
+			"server_role": collect(
+				func(c comparison) bool { return c.ServerAgreement == "AGREE_NON_STRICT" },
+				func(c comparison) string { return c.RustServerBehavior }),
+			"client_role": collect(
+				func(c comparison) bool { return c.ClientAgreement == "AGREE_NON_STRICT" },
+				func(c comparison) string { return c.RustClientBehavior }),
+		},
+		"cases": rows,
+	}
+
+	writeJSON(*out, document)
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "# Java 1.6.0 vs Rust port, same host, same 247-case manifest\n\n")
+	fmt.Fprintf(&b, "Rust agent `%s`; Java agent `%s`.\n\n", rustServerAgent, javaServerAgent)
+	fmt.Fprintf(&b, "This is a comparison, not a verdict. AC3 is not ruled on here.\n\n")
+	section := func(title string, counts map[string]int) {
+		fmt.Fprintf(&b, "## %s\n\n", title)
+		keys := make([]string, 0, len(counts))
+		for k := range counts {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			fmt.Fprintf(&b, "- %s: %d\n", k, counts[k])
+		}
+		fmt.Fprintln(&b)
+	}
+	section("Server role, `behavior`", tally(func(c comparison) string { return c.ServerAgreement }))
+	section("Server role, `behaviorClose`", tally(func(c comparison) string { return c.ServerCloseAgreement }))
+	section("Client role, `behavior`", tally(func(c comparison) string { return c.ClientAgreement }))
+	section("Client role, `behaviorClose`", tally(func(c comparison) string { return c.ClientCloseAgreement }))
+
+	fmt.Fprintf(&b, "## Per-case rows where `behavior` differs\n\n")
+	fmt.Fprintf(&b, "| case | strict required | role | rust | java | direction |\n")
+	fmt.Fprintf(&b, "|---|---|---|---|---|---|\n")
+	for _, row := range rows {
+		if !strings.HasPrefix(row.ServerAgreement, "AGREE") {
+			fmt.Fprintf(&b, "| %s | %t | server | %s | %s | %s |\n", row.CaseID,
+				row.StrictPassRequired, row.RustServerBehavior, row.JavaServerBehavior,
+				row.ServerAgreement)
+		}
+		if !strings.HasPrefix(row.ClientAgreement, "AGREE") {
+			fmt.Fprintf(&b, "| %s | %t | client | %s | %s | %s |\n", row.CaseID,
+				row.StrictPassRequired, row.RustClientBehavior, row.JavaClientBehavior,
+				row.ClientAgreement)
+		}
+	}
+	fmt.Fprintf(&b, "\n## Cases where BOTH are non-strict on `behavior`\n\n")
+	fmt.Fprintf(&b, "| case | role | shared outcome |\n|---|---|---|\n")
+	for _, row := range rows {
+		if row.ServerAgreement == "AGREE_NON_STRICT" {
+			fmt.Fprintf(&b, "| %s | server | %s |\n", row.CaseID, row.RustServerBehavior)
+		}
+		if row.ClientAgreement == "AGREE_NON_STRICT" {
+			fmt.Fprintf(&b, "| %s | client | %s |\n", row.CaseID, row.RustClientBehavior)
+		}
+	}
+	if err := os.WriteFile(*summary, []byte(b.String()), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "compare: %v\n", err)
+		os.Exit(1)
+	}
+	fmt.Print(b.String())
+}
+
+func writeJSON(path string, payload any) {
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "compare: %v\n", err)
+		os.Exit(1)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "compare: %v\n", err)
+		os.Exit(1)
+	}
+	if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+		fmt.Fprintf(os.Stderr, "compare: %v\n", err)
+		os.Exit(1)
+	}
+}
+
+func exitOn(err error) {
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "compare: %v\n", err)
+		os.Exit(1)
+	}
+}

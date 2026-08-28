@@ -1,0 +1,11 @@
+fce32ecd8db6ce574d9475f8927feed6a7f8e0f532c1e7a56b6d50f4750798ee  ./00-launch.sh
+222c3ebd0d70db2af81107a3d5cb7e07ecb807f30185ed7cc2b9ac9cde08f992  ./01-deadman.sh
+52aa3b01f2335d8627fc434d4cd92f3ae9b9d5795d47513c98df0a9dc8cd2f2c  ./02-bootstrap.sh
+287fee0599a47e89b63e6ab6501d26555180f90f10270cbdac6fa2929b1ad4b1  ./03-build.sh
+466290fa3b27e0d2a9ec716d56c6cef519a2a7b847193b4aaabf1cc3a0efcab3  ./04-provenance-pre.sh
+21858eb4e0b1295c1da41db08d847f47f9f7e43c51bd41574efeb1276c7bab31  ./05-leg-rust-fuzzingclient.sh
+21a0faa53e19cc2b8b33d52967617aab6b8958889bb12cceb7d2a1474eb322f7  ./06-leg-rust-fuzzingserver.sh
+f67b5a6c82fc44d146c87d68594b87a5c39ea6482663f0c2aebc4686dee7480b  ./07-leg-java-fuzzingclient.sh
+cc9e34f84a69cbd0dcd0cd8067bec712132bc48ab668d105c06593b29e70e7e0  ./08-leg-java-fuzzingserver.sh
+3812dfa89bf2a978efd5c93b4f8a441ed1779bfd672d30798900a439bd9066ad  ./09-finalize.sh
+c613cc1c30a81bb3131f352d71873c1ab896bcc14a959c6957cc6f3111abb89b  ./10-teardown.sh

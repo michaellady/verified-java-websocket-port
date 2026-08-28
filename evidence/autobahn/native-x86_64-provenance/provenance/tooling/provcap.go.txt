@@ -1,0 +1,701 @@
+// Command provcap captures execution provenance for the US-019 native
+// conformance run: image digests, source identity, process identities,
+// resource limits actually in force, and replay commands.
+//
+// Every value it emits is READ from the running system. Nothing is inferred
+// from a launch command and nothing is defaulted. When a value cannot be read
+// the field is recorded with status ABSENT and the reason, never omitted and
+// never invented.
+package main
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"flag"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+)
+
+const (
+	exitOK    = 0
+	exitUsage = 2
+	exitFail  = 1
+)
+
+// Value is the uniform carrier. Status is OBSERVED when the value was read
+// off the running system, ABSENT when it could not be, and never anything
+// else. An ABSENT value carries the reason and no value.
+type Value struct {
+	Status string `json:"status"`
+	Value  any    `json:"value,omitempty"`
+	Source string `json:"source"`
+	Reason string `json:"reason,omitempty"`
+}
+
+func observed(v any, source string) Value {
+	return Value{Status: "OBSERVED", Value: v, Source: source}
+}
+
+func absent(source, reason string) Value {
+	return Value{Status: "ABSENT", Source: source, Reason: reason}
+}
+
+func main() {
+	if len(os.Args) < 2 {
+		fmt.Fprintln(os.Stderr, "usage: provcap image|proc|container|source|verify [flags]")
+		os.Exit(exitUsage)
+	}
+	var code int
+	switch os.Args[1] {
+	case "image":
+		code = captureImage(os.Args[2:])
+	case "proc":
+		code = captureProc(os.Args[2:])
+	case "container":
+		code = captureContainer(os.Args[2:])
+	case "source":
+		code = captureSource(os.Args[2:])
+	default:
+		fmt.Fprintf(os.Stderr, "unknown subcommand %q\n", os.Args[1])
+		code = exitUsage
+	}
+	os.Exit(code)
+}
+
+// ---------------------------------------------------------------- utilities
+
+func nowUTC() string { return time.Now().UTC().Format("2006-01-02T15:04:05Z") }
+
+func readFileValue(path, source string) Value {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return absent(source, fmt.Sprintf("read %s: %v", path, err))
+	}
+	return observed(string(raw), source)
+}
+
+func sha256File(path string) (string, error) {
+	handle, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = handle.Close() }()
+	digest := sha256.New()
+	if _, err := io.Copy(digest, handle); err != nil {
+		return "", err
+	}
+	return "sha256:" + hex.EncodeToString(digest.Sum(nil)), nil
+}
+
+func runCapture(name string, args ...string) (string, error) {
+	command := exec.Command(name, args...)
+	var out strings.Builder
+	var errOut strings.Builder
+	command.Stdout = &out
+	command.Stderr = &errOut
+	if err := command.Run(); err != nil {
+		return "", fmt.Errorf("%s %s: %v: %s", name, strings.Join(args, " "), err,
+			strings.TrimSpace(errOut.String()))
+	}
+	return out.String(), nil
+}
+
+func writeJSON(path string, payload any) error {
+	encoded, err := json.MarshalIndent(payload, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(encoded, '\n'), 0o644)
+}
+
+// clockTicks reads USER_HZ rather than assuming 100, because start-time
+// arithmetic is wrong by a constant factor if it differs.
+func clockTicks() (int64, string, error) {
+	out, err := runCapture("getconf", "CLK_TCK")
+	if err != nil {
+		return 0, "", err
+	}
+	ticks, err := strconv.ParseInt(strings.TrimSpace(out), 10, 64)
+	if err != nil || ticks <= 0 {
+		return 0, "", fmt.Errorf("getconf CLK_TCK returned %q", strings.TrimSpace(out))
+	}
+	return ticks, "getconf CLK_TCK", nil
+}
+
+// bootTime reads btime from /proc/stat, the anchor for absolute process
+// start times.
+func bootTime() (int64, error) {
+	raw, err := os.ReadFile("/proc/stat")
+	if err != nil {
+		return 0, err
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		if strings.HasPrefix(line, "btime ") {
+			return strconv.ParseInt(strings.TrimSpace(strings.TrimPrefix(line, "btime ")), 10, 64)
+		}
+	}
+	return 0, fmt.Errorf("no btime line in /proc/stat")
+}
+
+// parseLimits turns the /proc/<pid>/limits table into structured entries.
+// This is the resource envelope actually in force on the running process, as
+// opposed to whatever the launch command asked for.
+type limitEntry struct {
+	Limit string `json:"limit"`
+	Soft  string `json:"soft"`
+	Hard  string `json:"hard"`
+	Units string `json:"units"`
+}
+
+func parseLimits(text string) []limitEntry {
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 {
+		return nil
+	}
+	header := lines[0]
+	softAt := strings.Index(header, "Soft Limit")
+	hardAt := strings.Index(header, "Hard Limit")
+	unitsAt := strings.Index(header, "Units")
+	if softAt < 0 || hardAt < 0 {
+		return nil
+	}
+	entries := make([]limitEntry, 0, len(lines))
+	for _, line := range lines[1:] {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		field := func(from, to int) string {
+			if from < 0 || from > len(line) {
+				return ""
+			}
+			if to < 0 || to > len(line) {
+				to = len(line)
+			}
+			return strings.TrimSpace(line[from:to])
+		}
+		entry := limitEntry{
+			Limit: field(0, softAt),
+			Soft:  field(softAt, hardAt),
+			Hard:  field(hardAt, unitsAt),
+		}
+		if unitsAt >= 0 {
+			entry.Units = field(unitsAt, len(line))
+		}
+		if entry.Limit != "" {
+			entries = append(entries, entry)
+		}
+	}
+	return entries
+}
+
+// ------------------------------------------------------------------- image
+
+// captureImage records the digest the run actually used. RepoDigests is the
+// load-bearing field: it is the manifest digest the local daemon resolved the
+// reference to, which is what "ran by digest" has to mean.
+func captureImage(arguments []string) int {
+	flags := flag.NewFlagSet("image", flag.ContinueOnError)
+	reference := flags.String("image", "", "the exact image reference the run invokes")
+	out := flags.String("out", "", "output JSON path")
+	if err := flags.Parse(arguments); err != nil || *reference == "" || *out == "" {
+		fmt.Fprintln(os.Stderr, "usage: provcap image -image REF -out FILE")
+		return exitUsage
+	}
+
+	record := map[string]any{
+		"schema_version":  "1.0.0",
+		"entity_type":     "ImageProvenance",
+		"captured_at":     nowUTC(),
+		"invoked_by":      *reference,
+		"invoked_by_form": referenceForm(*reference),
+	}
+
+	raw, err := runCapture("docker", "image", "inspect", *reference)
+	if err != nil {
+		record["inspect"] = absent("docker image inspect", err.Error())
+		if writeErr := writeJSON(*out, record); writeErr != nil {
+			fmt.Fprintf(os.Stderr, "provcap image: %v\n", writeErr)
+		}
+		fmt.Fprintf(os.Stderr, "provcap image: %v\n", err)
+		return exitFail
+	}
+
+	var inspected []map[string]any
+	if err := json.Unmarshal([]byte(raw), &inspected); err != nil || len(inspected) == 0 {
+		record["inspect"] = absent("docker image inspect", fmt.Sprintf("parse: %v", err))
+		_ = writeJSON(*out, record)
+		return exitFail
+	}
+	image := inspected[0]
+
+	record["image_id"] = observed(image["Id"], "docker image inspect .Id")
+	record["repo_digests"] = observed(image["RepoDigests"], "docker image inspect .RepoDigests")
+	record["repo_tags"] = observed(image["RepoTags"], "docker image inspect .RepoTags")
+	record["architecture"] = observed(image["Architecture"], "docker image inspect .Architecture")
+	record["os"] = observed(image["Os"], "docker image inspect .Os")
+	record["created"] = observed(image["Created"], "docker image inspect .Created")
+	if rootfs, ok := image["RootFS"].(map[string]any); ok {
+		record["rootfs_layers"] = observed(rootfs["Layers"], "docker image inspect .RootFS.Layers")
+	} else {
+		record["rootfs_layers"] = absent("docker image inspect .RootFS.Layers", "field not present")
+	}
+
+	// Bind the reference we ran BY to a digest the daemon reports, so the
+	// claim "ran by manifest digest" is checkable rather than asserted.
+	record["digest_binding"] = digestBinding(*reference, image)
+
+	if err := writeJSON(*out, record); err != nil {
+		fmt.Fprintf(os.Stderr, "provcap image: %v\n", err)
+		return exitFail
+	}
+	fmt.Printf("image provenance captured reference=%s out=%s\n", *reference, *out)
+	return exitOK
+}
+
+func referenceForm(reference string) string {
+	if strings.Contains(reference, "@sha256:") {
+		return "MANIFEST_DIGEST"
+	}
+	return "TAG"
+}
+
+func digestBinding(reference string, image map[string]any) map[string]any {
+	binding := map[string]any{
+		"reference_form": referenceForm(reference),
+	}
+	at := strings.Index(reference, "@")
+	if at < 0 {
+		binding["bound"] = false
+		binding["reason"] = "reference is not digest-pinned"
+		return binding
+	}
+	wanted := reference[at+1:]
+	binding["requested_digest"] = wanted
+	digests, _ := image["RepoDigests"].([]any)
+	matched := false
+	for _, entry := range digests {
+		text, _ := entry.(string)
+		if strings.HasSuffix(text, "@"+wanted) {
+			matched = true
+			break
+		}
+	}
+	binding["bound"] = matched
+	if !matched {
+		binding["reason"] = "requested digest not present in RepoDigests"
+	}
+	return binding
+}
+
+// -------------------------------------------------------------------- proc
+
+// captureProc records the identity of one live process: argv as the kernel
+// holds it, absolute start time, and the rlimits in force. It must be called
+// while the process is running; there is no way to recover any of this after
+// exit, which is the whole reason this re-run exists.
+func captureProc(arguments []string) int {
+	flags := flag.NewFlagSet("proc", flag.ContinueOnError)
+	pid := flags.Int("pid", 0, "process id to capture")
+	role := flags.String("role", "", "role of this process in the run")
+	label := flags.String("label", "", "run label")
+	out := flags.String("out", "", "output JSON path")
+	if err := flags.Parse(arguments); err != nil || *pid <= 0 || *out == "" || *role == "" {
+		fmt.Fprintln(os.Stderr, "usage: provcap proc -pid N -role ROLE -label L -out FILE")
+		return exitUsage
+	}
+	record := procRecord(*pid, *role, *label)
+	if err := writeJSON(*out, record); err != nil {
+		fmt.Fprintf(os.Stderr, "provcap proc: %v\n", err)
+		return exitFail
+	}
+	alive := "ALIVE"
+	if record["liveness"].(Value).Status != "OBSERVED" {
+		alive = "NOT_OBSERVED"
+	}
+	fmt.Printf("proc provenance captured pid=%d role=%s liveness=%s out=%s\n",
+		*pid, *role, alive, *out)
+	return exitOK
+}
+
+func procRecord(pid int, role, label string) map[string]any {
+	base := fmt.Sprintf("/proc/%d", pid)
+	record := map[string]any{
+		"schema_version": "1.0.0",
+		"entity_type":    "ProcessProvenance",
+		"captured_at":    nowUTC(),
+		"role":           role,
+		"label":          label,
+		"pid":            pid,
+	}
+
+	// Liveness first: every other field below is only meaningful if the
+	// process was actually running at capture time.
+	if _, err := os.Stat(base); err != nil {
+		record["liveness"] = absent(base, fmt.Sprintf("stat: %v", err))
+	} else {
+		record["liveness"] = observed("running at capture time", base+" exists")
+	}
+
+	// argv exactly as the kernel holds it, NUL-separated.
+	if raw, err := os.ReadFile(base + "/cmdline"); err == nil {
+		parts := strings.Split(strings.TrimRight(string(raw), "\x00"), "\x00")
+		record["argv"] = observed(parts, base+"/cmdline")
+	} else {
+		record["argv"] = absent(base+"/cmdline", err.Error())
+	}
+
+	record["status"] = procStatus(base)
+	record["start_time"] = procStartTime(base)
+	record["limits"] = procLimits(base)
+	record["cgroup"] = readFileValue(base+"/cgroup", base+"/cgroup")
+	record["cwd"] = linkValue(base+"/cwd", base+"/cwd")
+	record["exe"] = linkValue(base+"/exe", base+"/exe")
+
+	if target, err := os.Readlink(base + "/exe"); err == nil {
+		if digest, digestErr := sha256File(base + "/exe"); digestErr == nil {
+			record["exe_sha256"] = observed(digest, base+"/exe (content digest)")
+		} else {
+			record["exe_sha256"] = absent(base+"/exe", digestErr.Error())
+		}
+		record["exe_path"] = observed(target, base+"/exe (readlink)")
+	} else {
+		record["exe_sha256"] = absent(base+"/exe", err.Error())
+		record["exe_path"] = absent(base+"/exe", err.Error())
+	}
+
+	// The environment is deliberately not captured: it can carry credentials
+	// and is not required by the criterion. Recorded so its absence reads as
+	// a decision rather than an oversight.
+	record["environ"] = Value{
+		Status: "ABSENT",
+		Source: base + "/environ",
+		Reason: "deliberately not captured: process environments can carry credentials",
+	}
+	return record
+}
+
+func linkValue(path, source string) Value {
+	target, err := os.Readlink(path)
+	if err != nil {
+		return absent(source, err.Error())
+	}
+	return observed(target, source+" (readlink)")
+}
+
+func procStatus(base string) Value {
+	raw, err := os.ReadFile(base + "/status")
+	if err != nil {
+		return absent(base+"/status", err.Error())
+	}
+	fields := map[string]string{}
+	for _, line := range strings.Split(string(raw), "\n") {
+		key, value, found := strings.Cut(line, ":")
+		if !found {
+			continue
+		}
+		switch key {
+		case "Name", "State", "Pid", "PPid", "Uid", "Gid", "Threads", "VmRSS", "VmSize":
+			fields[key] = strings.TrimSpace(value)
+		}
+	}
+	return observed(fields, base+"/status")
+}
+
+func procStartTime(base string) Value {
+	raw, err := os.ReadFile(base + "/stat")
+	if err != nil {
+		return absent(base+"/stat", err.Error())
+	}
+	// comm can contain spaces and parentheses; fields after the final ')'
+	// are the ones with stable positions.
+	text := string(raw)
+	commEnd := strings.LastIndex(text, ")")
+	if commEnd < 0 {
+		return absent(base+"/stat", "malformed stat line")
+	}
+	fields := strings.Fields(text[commEnd+1:])
+	// starttime is field 22 overall; fields here start at field 3.
+	const startTimeIndex = 22 - 3
+	if len(fields) <= startTimeIndex {
+		return absent(base+"/stat", "stat has too few fields for starttime")
+	}
+	ticksSinceBoot, err := strconv.ParseInt(fields[startTimeIndex], 10, 64)
+	if err != nil {
+		return absent(base+"/stat", fmt.Sprintf("parse starttime: %v", err))
+	}
+	hz, hzSource, err := clockTicks()
+	if err != nil {
+		return absent(base+"/stat", fmt.Sprintf("clock ticks: %v", err))
+	}
+	boot, err := bootTime()
+	if err != nil {
+		return absent("/proc/stat btime", err.Error())
+	}
+	absolute := time.Unix(boot+ticksSinceBoot/hz, 0).UTC()
+	return observed(map[string]any{
+		"starttime_ticks_since_boot": ticksSinceBoot,
+		"clock_ticks_per_second":     hz,
+		"clock_ticks_source":         hzSource,
+		"boot_time_unix":             boot,
+		"boot_time_source":           "/proc/stat btime",
+		"process_start_utc":          absolute.Format("2006-01-02T15:04:05Z"),
+	}, base+"/stat field 22 anchored on /proc/stat btime")
+}
+
+func procLimits(base string) Value {
+	raw, err := os.ReadFile(base + "/limits")
+	if err != nil {
+		return absent(base+"/limits", err.Error())
+	}
+	entries := parseLimits(string(raw))
+	if len(entries) == 0 {
+		return absent(base+"/limits", "limits table did not parse")
+	}
+	return observed(map[string]any{
+		"entries": entries,
+		"raw":     string(raw),
+	}, base+"/limits")
+}
+
+// ---------------------------------------------------------------- container
+
+// captureContainer records the harness container's identity and the resource
+// envelope in force INSIDE it. Host-side HostConfig is recorded too, but the
+// authoritative reads are the ones taken from within the running container:
+// /proc/1/limits and the cgroup v2 interface files.
+func captureContainer(arguments []string) int {
+	flags := flag.NewFlagSet("container", flag.ContinueOnError)
+	name := flags.String("name", "", "container name or id")
+	role := flags.String("role", "", "role of this container in the run")
+	label := flags.String("label", "", "run label")
+	out := flags.String("out", "", "output JSON path")
+	if err := flags.Parse(arguments); err != nil || *name == "" || *out == "" || *role == "" {
+		fmt.Fprintln(os.Stderr, "usage: provcap container -name N -role ROLE -label L -out FILE")
+		return exitUsage
+	}
+
+	record := map[string]any{
+		"schema_version": "1.0.0",
+		"entity_type":    "ContainerProvenance",
+		"captured_at":    nowUTC(),
+		"container":      *name,
+		"role":           *role,
+		"label":          *label,
+	}
+
+	raw, err := runCapture("docker", "inspect", *name)
+	if err != nil {
+		record["inspect"] = absent("docker inspect", err.Error())
+		_ = writeJSON(*out, record)
+		fmt.Fprintf(os.Stderr, "provcap container: %v\n", err)
+		return exitFail
+	}
+	var inspected []map[string]any
+	if err := json.Unmarshal([]byte(raw), &inspected); err != nil || len(inspected) == 0 {
+		record["inspect"] = absent("docker inspect", fmt.Sprintf("parse: %v", err))
+		_ = writeJSON(*out, record)
+		return exitFail
+	}
+	container := inspected[0]
+
+	record["container_id"] = observed(container["Id"], "docker inspect .Id")
+	record["image_reference"] = observed(container["Image"], "docker inspect .Image")
+	record["args"] = observed(container["Args"], "docker inspect .Args")
+	if config, ok := container["Config"].(map[string]any); ok {
+		record["config_cmd"] = observed(config["Cmd"], "docker inspect .Config.Cmd")
+		record["config_entrypoint"] = observed(config["Entrypoint"],
+			"docker inspect .Config.Entrypoint")
+		record["config_image"] = observed(config["Image"], "docker inspect .Config.Image")
+	}
+	hostPID := 0
+	if state, ok := container["State"].(map[string]any); ok {
+		record["state_status"] = observed(state["Status"], "docker inspect .State.Status")
+		record["state_started_at"] = observed(state["StartedAt"],
+			"docker inspect .State.StartedAt")
+		if value, ok := state["Pid"].(float64); ok {
+			hostPID = int(value)
+			record["host_pid"] = observed(hostPID, "docker inspect .State.Pid")
+		}
+	}
+	if hostConfig, ok := container["HostConfig"].(map[string]any); ok {
+		requested := map[string]any{}
+		for _, key := range []string{
+			"Memory", "MemorySwap", "NanoCpus", "CpuShares", "CpuQuota", "CpuPeriod",
+			"CpusetCpus", "PidsLimit", "Ulimits", "NetworkMode", "Privileged", "ReadonlyRootfs",
+		} {
+			requested[key] = hostConfig[key]
+		}
+		// Explicitly labelled REQUESTED, not in-force. The in-force reads are
+		// below and are the ones the criterion asks for.
+		record["hostconfig_requested"] = observed(requested,
+			"docker inspect .HostConfig (REQUESTED at launch, not the in-force envelope)")
+	}
+
+	// In-force reads, taken from inside the running container.
+	record["in_force"] = containerInForce(*name, hostPID)
+
+	if err := writeJSON(*out, record); err != nil {
+		fmt.Fprintf(os.Stderr, "provcap container: %v\n", err)
+		return exitFail
+	}
+	fmt.Printf("container provenance captured name=%s role=%s host_pid=%d out=%s\n",
+		*name, *role, hostPID, *out)
+	return exitOK
+}
+
+func containerInForce(name string, hostPID int) map[string]any {
+	inForce := map[string]any{}
+
+	// rlimits of the container's own init process, read from inside.
+	if out, err := runCapture("docker", "exec", name, "cat", "/proc/1/limits"); err == nil {
+		entries := parseLimits(out)
+		if len(entries) == 0 {
+			inForce["rlimits_pid1"] = absent("docker exec "+name+" cat /proc/1/limits",
+				"limits table did not parse")
+		} else {
+			inForce["rlimits_pid1"] = observed(map[string]any{
+				"entries": entries,
+				"raw":     out,
+			}, "docker exec "+name+" cat /proc/1/limits")
+		}
+	} else {
+		inForce["rlimits_pid1"] = absent("docker exec "+name+" cat /proc/1/limits", err.Error())
+	}
+
+	// cgroup v2 interface files, read from inside the container.
+	cgroupFiles := []string{
+		"/sys/fs/cgroup/memory.max",
+		"/sys/fs/cgroup/memory.high",
+		"/sys/fs/cgroup/cpu.max",
+		"/sys/fs/cgroup/pids.max",
+		"/sys/fs/cgroup/cpuset.cpus.effective",
+		"/sys/fs/cgroup/cgroup.controllers",
+	}
+	cgroups := map[string]Value{}
+	for _, path := range cgroupFiles {
+		source := "docker exec " + name + " cat " + path
+		if out, err := runCapture("docker", "exec", name, "cat", path); err == nil {
+			cgroups[path] = observed(strings.TrimSpace(out), source)
+		} else {
+			cgroups[path] = absent(source, err.Error())
+		}
+	}
+	inForce["cgroup_v2_inside_container"] = cgroups
+
+	// The container's cgroup path and rlimits as the host kernel sees them.
+	if hostPID > 0 {
+		base := fmt.Sprintf("/proc/%d", hostPID)
+		inForce["host_view_cgroup"] = readFileValue(base+"/cgroup", base+"/cgroup")
+		inForce["host_view_limits"] = procLimits(base)
+		inForce["host_view_start_time"] = procStartTime(base)
+		if raw, err := os.ReadFile(base + "/cmdline"); err == nil {
+			parts := strings.Split(strings.TrimRight(string(raw), "\x00"), "\x00")
+			inForce["host_view_argv"] = observed(parts, base+"/cmdline")
+		} else {
+			inForce["host_view_argv"] = absent(base+"/cmdline", err.Error())
+		}
+	} else {
+		reason := "container State.Pid was not reported; container may not be running"
+		inForce["host_view_cgroup"] = absent("/proc/<State.Pid>/cgroup", reason)
+		inForce["host_view_limits"] = absent("/proc/<State.Pid>/limits", reason)
+		inForce["host_view_start_time"] = absent("/proc/<State.Pid>/stat", reason)
+		inForce["host_view_argv"] = absent("/proc/<State.Pid>/cmdline", reason)
+	}
+
+	// The harness process the suite actually runs, distinct from pid 1 when
+	// the entrypoint forks.
+	if out, err := runCapture("docker", "exec", name, "sh", "-c",
+		"for d in /proc/[0-9]*; do p=${d#/proc/}; "+
+			"printf '%s\\t%s\\n' \"$p\" \"$(tr '\\0' ' ' < $d/cmdline)\"; done"); err == nil {
+		lines := []string{}
+		for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+			if strings.TrimSpace(line) != "" {
+				lines = append(lines, line)
+			}
+		}
+		inForce["container_process_table"] = observed(lines,
+			"docker exec "+name+" (enumerated /proc/<pid>/cmdline)")
+	} else {
+		inForce["container_process_table"] = absent(
+			"docker exec "+name+" /proc enumeration", err.Error())
+	}
+
+	return inForce
+}
+
+// ------------------------------------------------------------------ source
+
+// captureSource binds the evidence to the exact tree it was produced from.
+// The commit sha is supplied by the caller because the host carries no git
+// checkout; the payload digest is what makes that binding checkable, since
+// the tarball is what the host actually unpacked and built.
+func captureSource(arguments []string) int {
+	flags := flag.NewFlagSet("source", flag.ContinueOnError)
+	commit := flags.String("commit", "", "commit sha of the tree under test")
+	branch := flags.String("branch", "", "branch of the tree under test")
+	payload := flags.String("payload-sha256", "", "sha256 of the payload tarball delivered here")
+	payloadPath := flags.String("payload-path", "", "path of the delivered payload tarball")
+	root := flags.String("root", "", "unpacked tree root on this host")
+	files := flags.String("files", "", "comma-separated root-relative files to digest")
+	out := flags.String("out", "", "output JSON path")
+	if err := flags.Parse(arguments); err != nil || *commit == "" || *out == "" || *root == "" {
+		fmt.Fprintln(os.Stderr,
+			"usage: provcap source -commit SHA -root DIR -files a,b -out FILE")
+		return exitUsage
+	}
+
+	record := map[string]any{
+		"schema_version": "1.0.0",
+		"entity_type":    "SourceProvenance",
+		"captured_at":    nowUTC(),
+		"commit_sha":     observed(*commit, "supplied by the launching operator from git rev-parse HEAD"),
+		"branch":         observed(*branch, "supplied by the launching operator from git rev-parse --abbrev-ref HEAD"),
+		"root":           *root,
+	}
+
+	if *payloadPath != "" {
+		if digest, err := sha256File(*payloadPath); err == nil {
+			record["payload_digest_observed_here"] = observed(digest,
+				"sha256 of "+*payloadPath+" as delivered to this host")
+			record["payload_digest_expected"] = observed("sha256:"+*payload,
+				"sha256 computed on the launching workstation before upload")
+			record["payload_digest_matches"] = observed(
+				digest == "sha256:"+*payload,
+				"comparison of the two digests above")
+		} else {
+			record["payload_digest_observed_here"] = absent(*payloadPath, err.Error())
+		}
+	}
+
+	digests := map[string]Value{}
+	for _, relative := range strings.Split(*files, ",") {
+		relative = strings.TrimSpace(relative)
+		if relative == "" {
+			continue
+		}
+		full := filepath.Join(*root, relative)
+		if digest, err := sha256File(full); err == nil {
+			digests[relative] = observed(digest, "sha256 of "+full)
+		} else {
+			digests[relative] = absent(full, err.Error())
+		}
+	}
+	record["artifact_digests"] = digests
+
+	if err := writeJSON(*out, record); err != nil {
+		fmt.Fprintf(os.Stderr, "provcap source: %v\n", err)
+		return exitFail
+	}
+	fmt.Printf("source provenance captured commit=%s out=%s\n", *commit, *out)
+	return exitOK
+}
