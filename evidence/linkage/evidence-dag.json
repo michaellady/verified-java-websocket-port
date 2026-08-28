@@ -1204,7 +1204,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-driver/src/lib.rs",
       "line": 450,
-      "sha256": "sha256:ae001b66cfecadcaa3b467afaac088e2716bb950733e119aed8f8508e0133d14"
+      "sha256": "sha256:ec3cdc0456a3a1615331bde7edf870ea06d863bbd88b6223fe311549b8f71309"
     },
     {
       "id": "ws_driver::connection_driver",
@@ -1213,7 +1213,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-driver/src/lib.rs",
       "line": 221,
-      "sha256": "sha256:ae001b66cfecadcaa3b467afaac088e2716bb950733e119aed8f8508e0133d14"
+      "sha256": "sha256:ec3cdc0456a3a1615331bde7edf870ea06d863bbd88b6223fe311549b8f71309"
     },
     {
       "id": "ws_testee::client::run_client_once",
@@ -1231,7 +1231,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 20,
-      "sha256": "sha256:2eb44b8e06656abb5bc7d07ca9f3f045e3af7176b75ca5b41ab35b993986f387"
+      "sha256": "sha256:8644529700f021659272f32011e921d05f6bec70306c63ebcc644a21b34867aa"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome",
@@ -1240,7 +1240,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 64,
-      "sha256": "sha256:2eb44b8e06656abb5bc7d07ca9f3f045e3af7176b75ca5b41ab35b993986f387"
+      "sha256": "sha256:8644529700f021659272f32011e921d05f6bec70306c63ebcc644a21b34867aa"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome::SocketError",
@@ -1249,7 +1249,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 71,
-      "sha256": "sha256:2eb44b8e06656abb5bc7d07ca9f3f045e3af7176b75ca5b41ab35b993986f387"
+      "sha256": "sha256:8644529700f021659272f32011e921d05f6bec70306c63ebcc644a21b34867aa"
     },
     {
       "id": "ws_testee::io_loop::drive_connection",
@@ -1257,8 +1257,8 @@
       "rust_path": "ws_testee::io_loop::drive_connection",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/io_loop.rs",
-      "line": 152,
-      "sha256": "sha256:2eb44b8e06656abb5bc7d07ca9f3f045e3af7176b75ca5b41ab35b993986f387"
+      "line": 159,
+      "sha256": "sha256:8644529700f021659272f32011e921d05f6bec70306c63ebcc644a21b34867aa"
     },
     {
       "id": "ws_testee::server::run_server_once",

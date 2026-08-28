@@ -609,3 +609,83 @@ fn autobahn_7_3_2_wire_reply_is_1002_end_to_end() {
     );
     assert!(close.remote);
 }
+
+/// C6 LAYER SPLIT, MEASURED AT THE WIRE (owner decision
+/// `us017-c6-layer-split-owner-decision-2026-08-28.json`, sha256 d41b5307…).
+///
+/// On a PURE protocol violation — RSV1 set on a TEXT frame — shipped
+/// `WebSocketImpl` answers with a 1002 close frame before the connection
+/// goes away (WebSocketImpl.java:405-408 -> :631-633 -> :481-487, flushed by
+/// :494/:594-595). Before this decision we sent NOTHING and dropped TCP,
+/// which is what all 17 Autobahn section-3/4 cases recorded
+/// (`close_frames=0`, `remoteCloseCode: null`).
+///
+/// The reaction deliberately does NOT live in `ws_core`: placing it there
+/// moved 18 of the 74 public corpus cases off live Java. It lives in
+/// `ws_testee`'s `io_loop`, which the corpus harness cannot reach.
+///
+/// This test is the difference between the two states, on a real socket.
+#[test]
+fn a_protocol_violation_gets_the_shipped_java_1002_close_on_the_wire() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = server_thread(listener, IoBounds::default());
+
+    let mut stream = TcpStream::connect(address).expect("connect");
+    let (_sender, mut driver) = ws_driver::connection_driver(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Client,
+    );
+    driver
+        .begin_client_handshake("/chat", "localhost")
+        .expect("handshake start");
+    let mut report = ws_testee::io_loop::empty_report();
+    assert!(ws_testee::io_loop::drive_until_open(
+        &mut driver,
+        &mut stream,
+        &IoBounds::default(),
+        &mut report,
+    ));
+
+    // Raw wire: FIN=1, RSV1=1, opcode=TEXT -> 0xC1; MASK=1, len=0 -> 0x80;
+    // zeroed mask key. The core would never SEND this, so it goes straight
+    // onto the socket the way wstest puts it there.
+    use std::io::{Read, Write};
+    stream
+        .write_all(&[0xC1, 0x80, 0x00, 0x00, 0x00, 0x00])
+        .expect("write the RSV1 violation frame");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("read timeout");
+    let mut reply = Vec::new();
+    let mut buffer = [0u8; 64];
+    while reply.len() < 4 {
+        match stream.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => reply.extend_from_slice(&buffer[..n]),
+            Err(error) => panic!("reading the server's violation close: {error:?}"),
+        }
+    }
+    drop(stream);
+    let served = server.join().expect("server thread");
+
+    assert_eq!(
+        reply,
+        vec![0x88, 0x02, 0x03, 0xEA],
+        "REGRESSION: a protocol violation must put shipped Java's 1002 close frame on the \
+         wire (unmasked, server role) instead of dropping TCP silently"
+    );
+    assert_eq!(
+        served.violation_close_sent,
+        Some(1002),
+        "the adapter must report the close code it actually wrote"
+    );
+    assert!(
+        matches!(
+            served.outcome,
+            ws_testee::io_loop::LoopOutcome::ProtocolFailure(_)
+        ),
+        "the halt itself is unchanged — only what goes on the wire on the way out: {:?}",
+        served.outcome
+    );
+}

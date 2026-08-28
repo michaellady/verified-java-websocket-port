@@ -148,6 +148,9 @@ func Definitions() []Definition {
 	// rejected-close-transition record must not disturb the committed
 	// 34-record prefix.
 	definitions = append(definitions, closeTransitionDefinitions()...)
+	// Appended last for the same reason: the C6 layer-split record must not
+	// disturb the committed 35-record prefix.
+	definitions = append(definitions, layerSplitDefinitions()...)
 	return definitions
 }
 

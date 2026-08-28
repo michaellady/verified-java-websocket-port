@@ -558,6 +558,32 @@ impl ConnectionDriver {
         self.core.close_detail()
     }
 
+    /// The close frame shipped `WebSocketImpl` would put on the wire in
+    /// answer to `failure`, or `None` when Java would send nothing.
+    ///
+    /// Reads the role, lifecycle state and mask-key seed from the core, so
+    /// an adapter cannot get any of the three out of step with the
+    /// connection it is actually driving. See
+    /// [`compose_violation_close`] for the Java citations, the carve-outs
+    /// and why this composition lives in this crate rather than in the
+    /// adapter that writes the bytes.
+    ///
+    /// PURE AND INERT: this only composes bytes. It changes no driver or
+    /// core state, and no path inside [`ConnectionDriver::poll`] calls it,
+    /// which is what keeps the differential corpus unable to observe it.
+    #[must_use]
+    pub fn compose_violation_close(
+        &self,
+        failure: &TypedProtocolFailure,
+    ) -> Option<(u16, Vec<u8>)> {
+        compose_violation_close(
+            failure,
+            self.core.role(),
+            self.core.state(),
+            self.core.config().mask_key_seed(),
+        )
+    }
+
     /// Performs at most one owner transition and returns the next ordered
     /// output. Deterministic: the same input sequence yields the same
     /// result sequence.
@@ -1033,6 +1059,103 @@ fn inject_auto_pong(
             *injected = Some(failure);
         }
     }
+}
+
+/// Java's `CloseFrame.ABNORMAL_CLOSE`. `WebSocketImpl.close` reaches
+/// `CLOSING` on this code WITHOUT building or sending a frame
+/// (WebSocketImpl.java:466-471), so it is the one close code whose reaction
+/// puts nothing on the wire.
+pub const ABNORMAL_CLOSE_CODE: u16 = 1006;
+
+/// Compose the close frame shipped `WebSocketImpl` puts on the wire in
+/// answer to a decode-path protocol violation, or `None` when Java would
+/// send nothing (owner decision
+/// `us017-c6-layer-split-owner-decision-2026-08-28.json`, sha256
+/// d41b5307…, resolving C6 from
+/// `us017-post-failure-owner-decisions-2026-08-28.json`, sha256 612546e8…).
+///
+/// `decodeFrames`' InvalidDataException arm (WebSocketImpl.java:405-408)
+/// calls `close(e)` (:631-633) -> `close(int,String,boolean)` (:463-507),
+/// which builds a `CloseFrame` carrying the rejection's OWN close code and
+/// sends it (:481-487), flushes it (:494, :594-595) and moves `OPEN ->
+/// CLOSING` (:503).
+///
+/// # Why this lives in `ws_driver` and not in the adapter that calls it
+///
+/// This crate is the WebSocketImpl mirror — it already owns the close-echo
+/// WIRE composition for exactly this layering reason (see
+/// [`CloseEchoPolicy`]) — and the `adapter-linkage` gate
+/// (`cmd/rustgatectl`) forbids adapter sources from naming
+/// `ws_core::framing` or `Draft6455` at all. Composing the frame inside
+/// `ws-testee` tripped that gate, which was right to reject it: framing
+/// belongs to the protocol layers, and an adapter that hand-rolls a frame is
+/// the thing the gate exists to catch.
+///
+/// # Why this cannot move the differential corpus
+///
+/// Nothing inside [`ConnectionDriver::poll`] calls it. It is a pure,
+/// inert composer that only an embedding adapter invokes, so the
+/// oracle harness — which drives this crate but never this function —
+/// produces byte-identical transcripts with and without it. That was
+/// measured, not assumed.
+///
+/// # Departures from Java, stated rather than buried
+///
+/// The reason is EMPTY. Java sends `e.getMessage()`;
+/// [`TypedProtocolFailure`] carries a code and a close code but no message,
+/// and inventing a diagnostic string would put a fabricated Java message on
+/// the wire.
+#[must_use]
+pub fn compose_violation_close(
+    failure: &TypedProtocolFailure,
+    role: Role,
+    state: ReadyState,
+    mask_key_seed: u64,
+) -> Option<(u16, Vec<u8>)> {
+    // `close(int,String,boolean)`'s :464 guard makes the whole method a
+    // no-op unless the connection is still OPEN. Callers that hold a
+    // [`ConnectionDriver`] should prefer
+    // [`ConnectionDriver::compose_violation_close`], which supplies all
+    // three of `role`, `state` and `mask_key_seed` from the core itself so
+    // they cannot drift from it.
+    if state != ReadyState::Open {
+        return None;
+    }
+    // No close code means no `InvalidDataException`, so `decodeFrames` never
+    // reached `close(e)`: STATE_VIOLATION and the limit codes land here,
+    // including the fatal command rejection C5 now surfaces.
+    let code = failure.close_code?;
+    if code == ABNORMAL_CLOSE_CODE {
+        return None;
+    }
+    let mut payload = Vec::with_capacity(2);
+    payload.extend_from_slice(&code.to_be_bytes());
+    // Quirk Q28: mask keys are never observable in any recorded artifact,
+    // and the core derives its own from a configured seed rather than from
+    // entropy. The core's stream is unreachable here — it is poisoned by the
+    // failure that triggered this — so the seed is mixed with the close code
+    // to give this last frame a key from the same deterministic family.
+    let mask = match role {
+        Role::Client => Some(violation_mask_key(mask_key_seed, code)),
+        Role::Server => None,
+    };
+    Some((
+        code,
+        Draft6455::encode_frame(true, Opcode::Closing, &payload, mask),
+    ))
+}
+
+/// SplitMix64 finalizer over the configured seed and the close code — the
+/// same mixer shape the core uses for its own outbound mask stream (quirk
+/// Q28; see [`compose_violation_close`]).
+fn violation_mask_key(seed: u64, code: u16) -> [u8; 4] {
+    let mut z = seed.wrapping_add(u64::from(code).wrapping_mul(0x9E37_79B9_7F4A_7C15));
+    z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+    z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+    z ^= z >> 31;
+    #[allow(clippy::cast_possible_truncation)]
+    let word = z as u32;
+    word.to_be_bytes()
 }
 
 /// Recompose the core's Q19 close echo into the frame shipped Java's

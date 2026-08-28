@@ -99,6 +99,13 @@ pub struct ConnectionReport {
     /// Terminal deliveries observed (the exactly-once property makes any
     /// value other than one a contract violation worth reporting).
     pub terminals: u64,
+    /// The close code this adapter put on the wire in answer to a protocol
+    /// violation, if it sent one (owner decision
+    /// `us017-c6-layer-split-owner-decision-2026-08-28.json`). `None` means
+    /// no violation-close was sent — either no violation occurred, or the
+    /// failure carried no close code, or it carried 1006, which shipped
+    /// Java also answers without a frame (WebSocketImpl.java:466-471).
+    pub violation_close_sent: Option<u16>,
 }
 
 impl ConnectionReport {
@@ -237,26 +244,61 @@ pub fn drive_connection(
                 // module docs: it keeps draining work committed before the
                 // failure, which is the half that matches shipped Java.
                 //
-                // KNOWN DIVERGENCE FROM SHIPPED JAVA AT THIS SEAM, pending
-                // an owner ruling. Autobahn drives `ws-testee` in the
-                // full-stack peer role — the role `WebSocketImpl` plays —
-                // and there shipped Java answers a protocol violation with a
-                // 1002 close frame before closing (WebSocketImpl.java:405-408,
-                // :481-487, :503), flushing it first (:594-595). We send
-                // nothing: all 17 Autobahn section-3/4 pure-violation cases
-                // record zero close frames back and `remoteCloseCode: null`,
-                // with `wasNotCleanReason` reading that the peer dropped TCP
-                // without a closing handshake. Autobahn grades all 17
-                // `behaviorClose: OK`, so nothing fails today. Owner decision
-                // `us017-post-failure-owner-decisions-2026-08-28.json`
-                // (`c6-match-java-fully`) rules this must change; the change
-                // is measured but not landed, because the placement that
-                // fixes it in `ws_core` moves 18 public corpus cases off the
-                // live oracle and the decision's hard-stop condition requires
-                // that be surfaced first. A placement confined to THIS file
-                // cannot move a corpus byte — `ws-oracle-harness` depends
-                // only on `ws-core` and `ws-driver` and never on `ws-testee`
-                // — which is the layer split the owner has yet to rule on.
+                // THE SHIPPED-LIBRARY REACTION LIVES HERE, AND ONLY HERE
+                // (owner decision
+                // `us017-c6-layer-split-owner-decision-2026-08-28.json`,
+                // sha256 d41b5307…, resolving C6 from
+                // `us017-post-failure-owner-decisions-2026-08-28.json`,
+                // sha256 612546e8…).
+                //
+                // Autobahn drives `ws-testee` in the full-stack peer role —
+                // the role `WebSocketImpl` itself plays — and there shipped
+                // Java answers a protocol violation with a close frame
+                // carrying the rejection's own code, flushed before the
+                // socket goes away: `decodeFrames`' InvalidDataException arm
+                // (WebSocketImpl.java:405-408) calls `close(e)` (:631-633)
+                // -> `close(int,String,boolean)` (:463-507), which sends the
+                // frame at :481-487, calls `flushAndClose` at :494 whose
+                // `onWriteDemand` "ensures that all outgoing frames are
+                // flushed before closing the connection" (:594-595), and
+                // sets CLOSING at :503. Before this, we sent nothing and
+                // dropped TCP.
+                //
+                // WHY THE REACTION IS HERE AND NOT IN `ws_core`. It was
+                // implemented in the core first, measured, and it moved 18
+                // of the 74 public corpus cases off live Java on
+                // `final_state` and `counts.frames`, taking scored-field
+                // disagreement with the live oracle from ZERO to 18. The
+                // corpus pins the ORACLE layer (`OracleEngine`, which takes
+                // no action on a violation) and C6 mandates the SHIPPED
+                // layer; both cannot hold at the core seam. The owner ruled
+                // the split: `ws_core` and `ws_driver` stay oracle-faithful,
+                // and the shipped-library fidelity is gained HERE, at the
+                // layer that actually faces a peer. This placement
+                // STRUCTURALLY cannot move a corpus byte —
+                // `ws-oracle-harness` declares exactly two dependencies,
+                // `ws-core` and `ws-driver`, and never references
+                // `ws-testee`.
+                //
+                // The core is poisoned by now and will compose nothing, so
+                // the frame is built here, exactly as `WebSocketImpl.close`
+                // builds its own rather than asking the Draft for one.
+                //
+                // Reason is empty: Java sends `e.getMessage()`, and
+                // `TypedProtocolFailure` carries a code and a close code but
+                // no message. Inventing a diagnostic string would put a
+                // fabricated Java message on the wire.
+                //
+                // The halt itself is UNCHANGED and is still adapter policy,
+                // not port semantics: we stop at the first surfaced
+                // `Failure`, discard the undrained backlog and tear the
+                // socket down, matching the differential counterpart
+                // `OracleEngine`, whose step loop aborts at the first
+                // failure (`OracleEngine.java:311-322`) and whose failure
+                // response omits `events`, `frames`, `transitions` and
+                // `close` (`OracleEngine.java:591-606`). What changed is
+                // only what goes on the wire on the way out.
+                send_violation_close(driver, &failure, stream, bounds, report);
                 report.outcome = LoopOutcome::ProtocolFailure(failure);
                 let _ = stream.shutdown(std::net::Shutdown::Both);
                 break;
@@ -337,6 +379,65 @@ enum StepOutput {
     Event(SemanticEvent),
     Failure(TypedProtocolFailure),
     Terminal,
+}
+
+/// Put shipped `WebSocketImpl`'s close frame on the wire in answer to a
+/// protocol violation, then let the caller tear the socket down.
+///
+/// This is the whole of the C6 layer-split placement. It runs AFTER the core
+/// is poisoned, so it composes the frame itself — exactly as
+/// `WebSocketImpl.close(int, String, boolean)` builds its own `CloseFrame`
+/// (WebSocketImpl.java:482-486) rather than asking the Draft for one.
+///
+/// Sends nothing when:
+/// - the failure carries no close code (`STATE_VIOLATION` and the limit
+///   codes; Java has no `InvalidDataException` on those paths, so
+///   `decodeFrames` never reaches `close(e)`), or
+/// - the close code is 1006, which `WebSocketImpl.close` answers by
+///   reaching `CLOSING` and returning WITHOUT a frame (:466-471), or
+/// - the connection has already left `Open`, which `close`'s :464 guard
+///   turns into a no-op.
+///
+/// Bounded exactly like the main write path: the same chunking, the same
+/// retryable-error classification, and the same
+/// [`IoBounds::write_stall_limit`] deadline, so a peer that has stopped
+/// reading cannot wedge the adapter inside this last write. Java has no such
+/// deadline (`flushAndClose` just demands the flush); the bound is the same
+/// disclosed US-018 adapter safety policy the main path already carries.
+fn send_violation_close(
+    driver: &ConnectionDriver,
+    failure: &TypedProtocolFailure,
+    stream: &mut TcpStream,
+    bounds: &IoBounds,
+    report: &mut ConnectionReport,
+) {
+    let Some((code, frame)) = driver.compose_violation_close(failure) else {
+        return;
+    };
+
+    let mut written_total = 0usize;
+    let mut stall = WriteStallClock::new(bounds.write_stall_limit);
+    while written_total < frame.len() {
+        let remaining = &frame[written_total..];
+        let take = remaining.len().min(bounds.write_chunk.max(1));
+        match stream.write(&remaining[..take]) {
+            Ok(written) if written > 0 => {
+                stall.progressed();
+                written_total += written;
+            }
+            Ok(_) => {}
+            Err(error) if retryable(error.kind()) => {
+                if stall.stalled() {
+                    // The peer stopped reading. Java would block in
+                    // `ostream.write`; we stop, and we do NOT claim a close
+                    // frame that never left.
+                    return;
+                }
+            }
+            Err(_) => return,
+        }
+    }
+    report.violation_close_sent = Some(code);
 }
 
 fn pump(
@@ -470,6 +571,7 @@ pub fn empty_report() -> ConnectionReport {
         close: None,
         polls: 0,
         terminals: 0,
+        violation_close_sent: None,
     }
 }
 
