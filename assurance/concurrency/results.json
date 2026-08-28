@@ -5,14 +5,14 @@
   "state": "PASS",
   "claim_scope": "BOUNDED_SYSTEMATIC_AND_CURRENT_HOST_STRESS_TESTING",
   "claim_scope_statement": "Bounded schedule exploration under the bounds below is systematic concurrency testing, never proof (assurance/concurrency/plan.json claim ceiling). Native-thread stress samples schedules without coverage accounting and cannot stand in for the systematic result, nor the systematic result for native-thread evidence.",
-  "recorded_at": "2026-08-28T13:35:00Z",
-  "recorded_at_provenance": "captured from `date -u` immediately before this revision. Every counter below is transcribed verbatim from the US017_EXPLORATION line of `cargo test -p ws-driver --release --test schedule_exploration bounded_exploration -- --nocapture` on the tree being committed; retention entries from the US017_RETENTION lines of the same tree's retention run; target blobs from `git hash-object` and the plan digest from `shasum -a 256`. NOTHING was carried forward from a previous revision.",
+  "recorded_at": "2026-08-28T14:17:05Z",
+  "recorded_at_provenance": "captured from `date -u` immediately before this revision. Counters transcribed verbatim from the US017_EXPLORATION line; retention entries from the US017_RETENTION lines; target blobs from `git hash-object` and digests from `shasum -a 256`, computed AFTER the last source edit of the round and re-verified against `git rev-parse HEAD:<path>` after the commit. NOTHING was carried forward.",
   "revision_note": "supersedes the 8a7e3a4 revision under owner decision us017-exploration-program-set-owner-decision-2026-08-28.json (sha 86793909). A CLEAN-FINISH SCENARIO was added, so clean convergence is genuinely reachable rather than reachable only through a defect. PREDECESSOR FIGURES WERE DEFECT-INFLUENCED AND ARE NOT CARRIED FORWARD: the clean-convergence populations reported in earlier revisions — 52924, then 50221, then 30372 runs — existed only because ConnectionDriver silently COALESCED multiple pending transport-EOF notifications into a pair of booleans (fixed at 8a7e3a4). Every schedule in the old single-scenario set ran both a Shutdown and a TransportEof, so those runs converged cleanly only because the two terminations were merged into one core call. They were an artifact of the defect, not evidence of clean convergence, and they are superseded by the 1108 clean-terminal runs measured here. The old scenario is retained unchanged as `abnormal-teardown` and now correctly halts on its second scored termination.",
   "target": {
     "symbol": "ws_driver::ConnectionDriver::poll",
     "source": {
       "path": "rust/ws-driver/src/lib.rs",
-      "git_blob": "863d555b480b2b1e4f521d9d21907e1d9781fcae"
+      "git_blob": "49aac16810e1360f996c20cdb7642fe64ea1837a"
     },
     "harness": {
       "path": "rust/ws-driver/tests/schedule_exploration.rs",
@@ -282,5 +282,6 @@
   "execution_status": {
     "state": "COMPLETE — the bounded exploration runs to completion on this tree",
     "note": "the 8a7e3a4 revision recorded state BLOCKED with all invariant outcomes downgraded to NOT_ESTABLISHED_THIS_REVISION, because fixing the EOF-coalescing defect left no schedule able to converge cleanly. The clean-finish scenario restores that coverage from a real adapter shape, and the outcomes below are re-established from this run only."
-  }
+  },
+  "binding_audit": "every binding in this document is swept mechanically rather than updated field-by-field: the two target blobs, the plan digest, the six minimized-artifact digests and the regression-seed digest — 10 bindings — are recomputed from the tree and compared. The sweep exists because the previous revision named the PARENT commit's src/lib.rs blob (863d555b) while the tree held a newer one, so the artifact claimed the exploration had run against the pre-fix driver (review 01a048b4-b557-7313-a895-f4575c6953f1, blocking 2). Root cause: the blob was computed once and then the source was edited again. Bindings are now computed after the last source edit and re-verified against HEAD after the commit."
 }

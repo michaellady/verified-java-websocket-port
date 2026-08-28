@@ -1005,18 +1005,55 @@ fn consumed(input: &DriverInput<'_>) -> InputDisposition {
 #[cfg(test)]
 mod pending_eof_ceiling_tests {
     use super::*;
+    use ws_core::TransportWrite;
     use ws_core::config::ConnectionConfig;
 
-    fn driver_at_ceiling() -> ConnectionDriver {
+    /// A driver carrying EVERY piece of state a `Shutdown` abandons, so a
+    /// refusal has something to protect.
+    ///
+    /// Review 01a048b4-b557-7313-a895-f4575c6953f1 blocked the previous
+    /// version of this fixture as VACUOUS: it seeded only `pending_eofs`,
+    /// and `close_echo_armed` already starts `false`, so the
+    /// "no side effects" assertions passed whether or not the early return
+    /// protected anything. Every field below is seeded and its precondition
+    /// asserted here, so the fixture cannot silently become empty again.
+    fn fixture_with_abandonable_state() -> ConnectionDriver {
         let (_sender, mut driver) = connection_driver_in_state(
             ConnectionConfig::default(),
             Role::Server,
             InitialState::Open,
         );
-        // Reach the ceiling directly. Admitting u32::MAX notifications by
-        // polling is infeasible, and lowering the real ceiling to make it
-        // testable would be reverse-engineering the bound to fit the test.
-        driver.pending_eofs = u32::MAX;
+        // 1. An OFFERED write, partially accepted, which Shutdown clears
+        //    along with its cursor.
+        driver.offered_write = Some(TransportWrite {
+            bytes: vec![0x81, 0x03, b'h', b'e', b'y'],
+        });
+        driver.write_cursor = 2;
+        // 2. A write still queued INSIDE THE CORE, which Shutdown drains via
+        //    drop_pending_writes. Applied straight to the core so the driver
+        //    has not yet taken it into `offered_write`.
+        driver
+            .core
+            .handle(Input::Command(LocalCommand::SendText {
+                text: "queued".to_owned(),
+            }))
+            .expect("the core accepts a send while Open");
+        // 3. A parked automatic pong, which Shutdown clears.
+        driver.pending_auto_pongs.push_back(vec![0xDE, 0xAD]);
+        // 4. An armed close-echo recomposition, which Shutdown disarms.
+        driver.close_echo_armed = true;
+
+        assert!(
+            driver.offered_write.is_some(),
+            "precondition: offered write"
+        );
+        assert_eq!(driver.write_cursor, 2, "precondition: partial cursor");
+        assert_eq!(
+            driver.pending_auto_pongs.len(),
+            1,
+            "precondition: parked auto-pong"
+        );
+        assert!(driver.close_echo_armed, "precondition: close echo armed");
         driver
     }
 
@@ -1025,7 +1062,12 @@ mod pending_eof_ceiling_tests {
     /// (review 01a04899-5adb-78c3-b8ae-ec78ea14e377, blocking 1).
     #[test]
     fn transport_eof_at_the_ceiling_is_explicitly_refused() {
-        let mut driver = driver_at_ceiling();
+        let (_sender, mut driver) = connection_driver_in_state(
+            ConnectionConfig::default(),
+            Role::Server,
+            InitialState::Open,
+        );
+        driver.pending_eofs = u32::MAX;
         let result = driver.poll(DriverInput::TransportEof);
         assert_eq!(
             result.input,
@@ -1039,22 +1081,81 @@ mod pending_eof_ceiling_tests {
         );
     }
 
-    /// `Shutdown` inherits the refusal AND performs none of its
-    /// write-abandonment side effects, because a rejected input changes
-    /// nothing at all.
+    /// A `Shutdown` refused at the ceiling performs NONE of its
+    /// abandonment side effects, on state that genuinely exists.
     #[test]
-    fn shutdown_at_the_ceiling_is_refused_without_side_effects() {
-        let mut driver = driver_at_ceiling();
+    fn shutdown_at_the_ceiling_abandons_nothing() {
+        let mut driver = fixture_with_abandonable_state();
+        driver.pending_eofs = u32::MAX;
+
         let result = driver.poll(DriverInput::Shutdown);
-        assert!(matches!(
-            result.input,
-            InputDisposition::Rejected(DriverInputError::PendingEofOverflow { .. })
-        ));
         assert!(
-            !driver.close_echo_armed,
-            "no state was mutated by the refused input"
+            matches!(
+                result.input,
+                InputDisposition::Rejected(DriverInputError::PendingEofOverflow { .. })
+            ),
+            "the notification must be refused"
         );
-        assert_eq!(driver.pending_eofs, u32::MAX);
+
+        assert_eq!(
+            driver
+                .offered_write
+                .as_ref()
+                .map(|write| write.bytes.clone()),
+            Some(vec![0x81, 0x03, b'h', b'e', b'y']),
+            "the offered write survives a refused shutdown"
+        );
+        assert_eq!(driver.write_cursor, 2, "the write cursor survives");
+        assert_eq!(
+            driver.pending_auto_pongs.front().cloned(),
+            Some(vec![0xDE, 0xAD]),
+            "the parked automatic pong survives"
+        );
+        assert!(driver.close_echo_armed, "the armed close echo survives");
+        assert_eq!(
+            driver.pending_eofs,
+            u32::MAX,
+            "the pending count is untouched"
+        );
+        // Consuming, so asserted last: the core's queued write was NOT
+        // drained by drop_pending_writes.
+        assert!(
+            driver.core.next_write().is_some(),
+            "the core's queued write survives a refused shutdown"
+        );
+    }
+
+    /// POSITIVE CONTROL for the test above. Same fixture, room to admit the
+    /// notification: the shutdown is ACCEPTED and every one of those fields
+    /// is abandoned. Without this, `shutdown_at_the_ceiling_abandons_nothing`
+    /// could not distinguish "the refusal protected the state" from "there
+    /// was nothing to protect" — which is exactly how the previous version
+    /// of that test was vacuous.
+    #[test]
+    fn shutdown_below_the_ceiling_does_abandon_all_of_it() {
+        let mut driver = fixture_with_abandonable_state();
+        assert_eq!(driver.pending_eofs, 0, "precondition: room to admit");
+
+        let result = driver.poll(DriverInput::Shutdown);
+        assert!(
+            matches!(result.input, InputDisposition::Consumed { .. }),
+            "with room, the notification is admitted"
+        );
+
+        assert!(
+            driver.offered_write.is_none(),
+            "an accepted shutdown clears the offered write"
+        );
+        assert_eq!(driver.write_cursor, 0, "and its cursor");
+        assert!(
+            driver.pending_auto_pongs.is_empty(),
+            "and the parked automatic pong"
+        );
+        assert!(!driver.close_echo_armed, "and disarms the close echo");
+        assert!(
+            driver.core.next_write().is_none(),
+            "and drains the core's queued write"
+        );
     }
 
     /// Below the ceiling nothing changes: notifications still accumulate
