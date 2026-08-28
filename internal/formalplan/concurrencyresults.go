@@ -12,33 +12,46 @@
 // ./...` exited 0 and `make -C rust gates` exited 0 once the DAG pin was
 // regenerated.
 //
-// WHAT THIS BINDS. Three classes the document cannot otherwise refute:
+// WHAT THIS BINDS. Four classes the document cannot otherwise refute:
 //
-//  1. PROVENANCE. The document names the exact bytes it was measured
-//     against — the driver source blob, the exploration harness blob, the
-//     preregistered plan digest, the minimized-seed digests. Those names are
-//     checked against the committed tree, so the record cannot keep claiming
-//     a run over source that has since changed. This is the drift the
-//     document actually suffered: at dc07516 all three of its top-level
-//     provenance anchors named blobs from commit 7ea4780 that the tree no
-//     longer contains, and nothing reported it.
+//  1. PROVENANCE, IDENTITY BEFORE DIGEST. The document names the bytes it was
+//     measured against — the driver source blob, the exploration harness blob,
+//     the preregistered plan digest, the minimized-seed digests — and every
+//     one is checked against the committed tree. Each reference must ALSO name
+//     the artifact it claims to be: a digest proves the bytes at a path, never
+//     that the path is the one that matters. This is the drift the document
+//     actually suffered (at dc07516 all three anchors named blobs from commit
+//     7ea4780 that the tree no longer contains) and the attack review 01a0487b
+//     found (swapping the source and harness references, or redirecting the
+//     plan to another file carrying its own digest, both passed).
 //
-//  2. THE CITED RUN. Every counter, bound and aggregate is re-derived from
+//  2. THE CITED RUN. Every counter and bound is re-derived from
 //     execution.executed_run.stdout_line — the verbatim line the exploration
-//     prints. A counter cannot be edited, fabricated, or half-refreshed
-//     without contradicting the run the document itself cites.
+//     prints — including the queue capacities and drain budget, which review
+//     01a0487b found were declared bounds tied to nothing.
 //
 //  3. INTERNAL ACCOUNTING. Every arithmetic identity the document asserts
-//     about itself is recomputed, and the prose that quotes counters back to
-//     the reader must quote the counters that are actually recorded.
+//     about itself is recomputed, and the run must have stayed inside the
+//     ceilings the preregistered plan declares, read from the plan rather than
+//     taken from the document's own prose.
 //
-// WHERE THE OTHER HALF LIVES. This validator proves the counters match the
-// cited line; it cannot prove the line came from a real run. That is proven at
-// the run itself: rust/ws-driver/tests/schedule_exploration.rs formats the
-// same line from its own measured totals and compares it byte-for-byte with
-// the string recorded here. Neither half is sufficient alone, and each runs
-// where the other cannot — this one in a plain `go test ./...` with no Rust
-// toolchain, that one only when the exploration actually executes.
+//  4. QUOTED COUNTERS. Each prose sentence must quote exactly the counters it
+//     is about, in order. Membership is not reconciliation: before review
+//     01a0487b this accepted any recorded number in any sentence, so the
+//     schedule total could stand in for the terminal total.
+//
+// WHERE THE OTHER HALF LIVES, AND HOW THEY ARE MADE TO COMPOSE. This validator
+// proves the counters match the cited line; it cannot prove the line came from
+// a real run. That is proven at the run: rust/ws-driver/tests/
+// schedule_exploration.rs formats the same line from its own measured totals
+// and compares it byte-for-byte with the string recorded here.
+//
+// Two validators only compose if they agree on what they are reading, and the
+// first version of this pair did not — one searched raw bytes for an exact
+// spelling, the other read the structurally nested field, and a single legal
+// JSON document could feed them different values. crRawStdoutLine now runs the
+// Rust half's exact algorithm here and asserts it agrees with the structural
+// parse, so the agreement is checked rather than assumed.
 package formalplan
 
 import (
@@ -64,6 +77,26 @@ const ConcurrencyResultsDocumentPath = "assurance/concurrency/results.json"
 // rust/ws-driver/tests/schedule_exploration.rs). Naming the convention here
 // rather than trusting it keeps the digests checkable.
 const crMinimizedSeedDir = "rust/ws-driver/fuzz-seeds/us017/minimized"
+
+// The canonical identities this record must describe.
+//
+// Review 01a0487b BLOCKING 3: without these the provenance check proved only
+// that the bytes at some path matched some digest, never that the path was the
+// one that matters — the plane's recurring "right hash of the wrong thing"
+// class. Measured before the fix: swapping the source and harness references
+// wholesale, and redirecting the plan to assurance/evidence-model.json with
+// that file's own digest, both passed at exit 0.
+const (
+	crCanonicalSourcePath      = "rust/ws-driver/src/lib.rs"
+	crCanonicalHarnessPath     = "rust/ws-driver/tests/schedule_exploration.rs"
+	crCanonicalPlanPath        = "assurance/concurrency/plan.json"
+	crCanonicalTargetSymbol    = "ws_driver::ConnectionDriver::poll"
+	crCanonicalReproductionDir = "rust/ws-driver/fuzz-seeds/us017/regressions"
+)
+
+// crStdoutLineKey is the bare key token whose single string value binds this
+// document to a run. See crRawStdoutLine.
+const crStdoutLineKey = `"stdout_line"`
 
 // ConcurrencyResultsInputs names the document and the tree its provenance
 // claims resolve against. When Root is empty the provenance half degrades to
@@ -202,10 +235,58 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 	}
 
 	findings = append(findings, crValidateProvenance(results, inputs)...)
-	findings = append(findings, crValidateExecutedRun(results, inputs.ResultsPath)...)
+	findings = append(findings, crValidateExecutedRun(results, raw, inputs.ResultsPath)...)
 	findings = append(findings, crValidateAccounting(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateQuotedCounters(results, inputs.ResultsPath)...)
 	return findings
+}
+
+// crRawStdoutLine extracts the one stdout_line string from the RAW document
+// bytes using the same algorithm as the Rust half
+// (rust/ws-driver/tests/schedule_exploration.rs::committed_stdout_line), so
+// the two halves can be checked to be reading identical bytes.
+//
+// WHY A SECOND READER EXISTS IN A FILE THAT ALREADY HAS encoding/json.
+// Review 01a0487b BLOCKING 1. The Rust half cannot use encoding/json and, in a
+// zero-dependency workspace, cannot get a JSON parser at all — so it reads raw
+// bytes. Two validators only compose if they agree on what they are reading.
+// The previous version did not: the Rust reader searched for the exact bytes
+// `"stdout_line": "` while this file read the structurally nested field, so a
+// document carrying an ignored top-level decoy in that exact spelling plus a
+// nested `"stdout_line" : "<forgery>"` — legal JSON whitespace — split them.
+// Both halves passed on forged counters; measured, both exits 0.
+//
+// The rule that closes it: the BARE key token must occur exactly once anywhere
+// in the document. There is then exactly one such string and every reader must
+// land on it, whatever its parsing strategy. crValidateExecutedRun asserts this
+// raw result equals the structural parse, so agreement is checked rather than
+// assumed.
+func crRawStdoutLine(raw []byte) (string, error) {
+	document := string(raw)
+	if occurrences := strings.Count(document, crStdoutLineKey); occurrences != 1 {
+		return "", fmt.Errorf(
+			"the document must carry exactly one %s key anywhere in it, found %d; more than one means two readers could land on different values",
+			crStdoutLineKey, occurrences)
+	}
+	rest := document[strings.Index(document, crStdoutLineKey)+len(crStdoutLineKey):]
+	rest = strings.TrimLeft(rest, " \t\r\n")
+	if !strings.HasPrefix(rest, ":") {
+		return "", fmt.Errorf("the %s key is not followed by a colon", crStdoutLineKey)
+	}
+	rest = strings.TrimLeft(rest[1:], " \t\r\n")
+	if !strings.HasPrefix(rest, `"`) {
+		return "", fmt.Errorf("the %s value is not a string literal", crStdoutLineKey)
+	}
+	rest = rest[1:]
+	end := strings.Index(rest, `"`)
+	if end < 0 {
+		return "", fmt.Errorf("the %s literal is unterminated", crStdoutLineKey)
+	}
+	value := rest[:end]
+	if strings.Contains(value, `\`) {
+		return "", fmt.Errorf("the %s value contains a JSON escape, which this reader does not unescape", crStdoutLineKey)
+	}
+	return value, nil
 }
 
 // crRunFieldToCounter maps each key of the exploration's printed line to the
@@ -214,10 +295,20 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 // `typed_rejections`); writing the mapping out is what makes the rename
 // auditable instead of a silent re-label.
 var crRunFieldToCounter = map[string]string{
-	"programs":                "bounds.actor_programs",
-	"actions_total":           "bounds.actions_per_schedule",
-	"context_switch_bound":    "bounds.context_switch_bound",
-	"preemption_budget":       "bounds.preemption_budget",
+	"programs":             "bounds.actor_programs",
+	"actions_total":        "bounds.actions_per_schedule",
+	"context_switch_bound": "bounds.context_switch_bound",
+	"preemption_budget":    "bounds.preemption_budget",
+	// Review 01a0487b BLOCKING 2: these four were declared bounds the document
+	// presents as part of the run, tied to neither the measured line nor the
+	// plan. Measured before the fix: changing command_queue_capacity from 2 to
+	// 7 and editing the small-number prose passed both validators at exit 0.
+	// The exploration holds all four as constants, so it now prints them and
+	// they are re-derived like every other number.
+	"command_queue_capacity":  "bounds.command_queue_capacity",
+	"write_queue_capacity":    "bounds.write_queue_capacity",
+	"event_queue_capacity":    "bounds.event_queue_capacity",
+	"drain_budget_polls":      "bounds.drain_budget_polls",
 	"schedules":               "execution.explored_schedules",
 	"branches":                "execution.enumeration_branches",
 	"executions":              "execution.executions",
@@ -247,6 +338,10 @@ func crDocumentCounters(results crResults) map[string]int {
 		"bounds.actions_per_schedule":                 results.Bounds.ActionsPerSchedule,
 		"bounds.context_switch_bound":                 results.Bounds.ContextSwitchBound,
 		"bounds.preemption_budget":                    results.Bounds.PreemptionBudget,
+		"bounds.command_queue_capacity":               results.Bounds.CommandQueue,
+		"bounds.write_queue_capacity":                 results.Bounds.WriteQueue,
+		"bounds.event_queue_capacity":                 results.Bounds.EventQueue,
+		"bounds.drain_budget_polls":                   results.Bounds.DrainBudgetPolls,
 		"execution.explored_schedules":                results.Execution.ExploredSchedules,
 		"execution.enumeration_branches":              results.Execution.EnumerationBranches,
 		"execution.executions":                        results.Execution.Executions,
@@ -276,12 +371,25 @@ func crDocumentCounters(results crResults) map[string]int {
 // the run: rust/ws-driver/tests/schedule_exploration.rs formats this same line
 // from its own measured totals and compares it byte-for-byte with the string
 // recorded here.
-func crValidateExecutedRun(results crResults, path string) []ModelFinding {
+func crValidateExecutedRun(results crResults, raw []byte, path string) []ModelFinding {
 	var findings []ModelFinding
 	run := results.Execution.ExecutedRun
 	if run == nil {
 		return append(findings, mpFinding("RESULTS_EXECUTED_RUN_ABSENT", path,
 			"execution.executed_run is absent: the counters cite no run, so nothing can contradict them"))
+	}
+
+	// The composition check: the bytes the Rust half will read must be the
+	// bytes this half is reading. Anything else and the two validators are
+	// not one binding, they are two binding different documents.
+	rawLine, err := crRawStdoutLine(raw)
+	if err != nil {
+		findings = append(findings, mpFinding("RESULTS_RUN_LINE_AMBIGUOUS", path, fmt.Sprintf(
+			"the run line cannot be read unambiguously from the raw bytes, so the Rust half of this binding may read a different value: %v", err)))
+	} else if rawLine != run.StdoutLine {
+		findings = append(findings, mpFinding("RESULTS_RUN_LINE_AMBIGUOUS", path, fmt.Sprintf(
+			"the raw document yields a different run line than the structurally parsed execution.executed_run.stdout_line, so the two halves of this binding would validate different values.\n  raw:        %s\n  structural: %s",
+			rawLine, run.StdoutLine)))
 	}
 	if run.Exit == nil || *run.Exit != 0 {
 		findings = append(findings, mpFinding("RESULTS_EXECUTED_RUN_NOT_PASSING", path,
@@ -378,6 +486,36 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 		return content, nil
 	}
 
+	// IDENTITY BEFORE DIGEST. A digest proves the bytes at a path; it proves
+	// nothing about the path being the one that matters. Review 01a0487b
+	// BLOCKING 3 — the plane's recurring "right hash of the wrong thing"
+	// class. Measured before this check existed: swapping the source and
+	// harness references wholesale passed at exit 0, and so did redirecting
+	// the plan to assurance/evidence-model.json carrying that file's own
+	// digest. Each reference must name the artifact it claims to be.
+	for label, pair := range map[string][2]string{
+		"target.source.path":      {results.Target.Source.Path, crCanonicalSourcePath},
+		"target.harness.path":     {results.Target.Harness.Path, crCanonicalHarnessPath},
+		"preregistered_plan.path": {results.PreregisteredPlan.Path, crCanonicalPlanPath},
+		"target.symbol":           {results.Target.Symbol, crCanonicalTargetSymbol},
+	} {
+		if pair[0] != pair[1] {
+			findings = append(findings, mpFinding("RESULTS_PROVENANCE_MISDIRECTED", inputs.ResultsPath, fmt.Sprintf(
+				"%s names %q but this record is only evidence about %q; a matching digest on the wrong artifact is not provenance",
+				label, pair[0], pair[1])))
+		}
+	}
+	for _, defect := range results.DefectsFoundFixed {
+		if defect.Reproduction == nil {
+			continue
+		}
+		if !strings.HasPrefix(defect.Reproduction.Path, crCanonicalReproductionDir+"/") {
+			findings = append(findings, mpFinding("RESULTS_PROVENANCE_MISDIRECTED", inputs.ResultsPath, fmt.Sprintf(
+				"defect %s cites a reproduction at %q, outside the pinned regression seed directory %s",
+				defect.DefectID, defect.Reproduction.Path, crCanonicalReproductionDir)))
+		}
+	}
+
 	// The two git blobs: the driver under exploration and the harness that
 	// produced the counters. A drift here means the record describes a run
 	// over source the tree no longer holds.
@@ -399,13 +537,18 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 	}
 
 	// The preregistered plan. The claim "the exploration stays inside the
-	// plan bounds" is only meaningful against a named plan document.
+	// plan bounds" is only meaningful against a named plan document — and
+	// only checkable if the plan is READ rather than merely hashed, which is
+	// the second half of the BLOCKING 3 fix.
 	if content, finding := read(results.PreregisteredPlan.Path); finding != nil {
 		findings = append(findings, *finding)
-	} else if actual := crSHA256(content); actual != results.PreregisteredPlan.SHA256 {
-		findings = append(findings, mpFinding("RESULTS_PLAN_DIGEST_STALE", results.PreregisteredPlan.Path, fmt.Sprintf(
-			"preregistered_plan.sha256 records %s but the committed plan hashes to %s; the conformance claim names a document that is not in the tree",
-			results.PreregisteredPlan.SHA256, actual)))
+	} else {
+		if actual := crSHA256(content); actual != results.PreregisteredPlan.SHA256 {
+			findings = append(findings, mpFinding("RESULTS_PLAN_DIGEST_STALE", results.PreregisteredPlan.Path, fmt.Sprintf(
+				"preregistered_plan.sha256 records %s but the committed plan hashes to %s; the conformance claim names a document that is not in the tree",
+				results.PreregisteredPlan.SHA256, actual)))
+		}
+		findings = append(findings, crValidatePlanConformance(results, content, inputs.ResultsPath)...)
 	}
 
 	// The pinned minimized seeds and the pinned defect reproduction.
@@ -433,6 +576,75 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 		if actual := crSHA256(content); actual != defect.Reproduction.SHA256 {
 			findings = append(findings, mpFinding("RESULTS_SEED_DIGEST_STALE", defect.Reproduction.Path, fmt.Sprintf(
 				"defect %s records reproduction digest %s but the pinned seed hashes to %s", defect.DefectID, defect.Reproduction.SHA256, actual)))
+		}
+	}
+	return findings
+}
+
+// crPlanBounds is the subset of the preregistered plan's bounds section that
+// the results document's conformance claim actually rests on.
+type crPlanBounds struct {
+	Bounds struct {
+		ProducerTasksMax      int `json:"producer_tasks_max"`
+		CommandQueueCapacity  int `json:"command_queue_capacity"`
+		WriteQueueCapacity    int `json:"write_queue_capacity"`
+		EventQueueCapacity    int `json:"event_queue_capacity"`
+		MaxActionsPerSchedule int `json:"max_actions_per_schedule"`
+		PreemptionBound       int `json:"preemption_bound"`
+		ScheduleCountMax      int `json:"schedule_count_max"`
+		BranchCountMax        int `json:"branch_count_max"`
+	} `json:"bounds"`
+}
+
+// crValidatePlanConformance turns the conformance SENTENCE into a checked
+// claim by comparing the results document's declared bounds against the plan's
+// declared ceilings, field by field.
+//
+// Two review findings meet here. BLOCKING 2: the queue capacities and the
+// drain budget were bounds nothing constrained, so a capacity could be edited
+// freely. BLOCKING 3: hashing the plan proved bytes, not that the document at
+// that path was a concurrency plan at all — a redirected path with a matching
+// digest passed. Requiring the named document to parse as a plan and to carry
+// ceilings this run fits inside closes both from the plan side, while
+// crRunFieldToCounter closes the capacities from the measured-run side.
+func crValidatePlanConformance(results crResults, planContent []byte, path string) []ModelFinding {
+	var findings []ModelFinding
+	var plan crPlanBounds
+	if err := json.Unmarshal(planContent, &plan); err != nil {
+		return append(findings, mpFinding("RESULTS_PLAN_NOT_CONFORMABLE", path, fmt.Sprintf(
+			"the preregistered plan does not parse as a concurrency plan, so the conformance claim cannot be checked: %v", err)))
+	}
+	if plan.Bounds.ScheduleCountMax == 0 && plan.Bounds.BranchCountMax == 0 && plan.Bounds.MaxActionsPerSchedule == 0 {
+		return append(findings, mpFinding("RESULTS_PLAN_NOT_CONFORMABLE", path,
+			"the preregistered plan declares no bounds section, so it is not the concurrency plan this record claims conformance to"))
+	}
+	ceiling := func(name string, actual, max int) {
+		if actual > max {
+			findings = append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_VIOLATED", path, fmt.Sprintf(
+				"bounds.%s is %d but the preregistered plan caps it at %d, so the run did not stay inside the plan it cites",
+				name, actual, max)))
+		}
+	}
+	ceiling("actor_programs", results.Bounds.ActorPrograms, plan.Bounds.ProducerTasksMax+2)
+	ceiling("command_queue_capacity", results.Bounds.CommandQueue, plan.Bounds.CommandQueueCapacity)
+	ceiling("write_queue_capacity", results.Bounds.WriteQueue, plan.Bounds.WriteQueueCapacity)
+	ceiling("event_queue_capacity", results.Bounds.EventQueue, plan.Bounds.EventQueueCapacity)
+	ceiling("actions_per_schedule", results.Bounds.ActionsPerSchedule, plan.Bounds.MaxActionsPerSchedule)
+	if results.Bounds.PreemptionBudget != plan.Bounds.PreemptionBound {
+		findings = append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_VIOLATED", path, fmt.Sprintf(
+			"bounds.preemption_budget is %d but the plan's preemption_bound is %d, and the conformance sentence claims they are equal",
+			results.Bounds.PreemptionBudget, plan.Bounds.PreemptionBound)))
+	}
+	for _, pair := range []struct {
+		name           string
+		actual, wanted int
+	}{
+		{"schedule_count_max", results.Bounds.ScheduleCountMax, plan.Bounds.ScheduleCountMax},
+		{"branch_count_max", results.Bounds.BranchCountMax, plan.Bounds.BranchCountMax},
+	} {
+		if pair.actual != pair.wanted {
+			findings = append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_VIOLATED", path, fmt.Sprintf(
+				"bounds.%s is %d but the preregistered plan declares %d", pair.name, pair.actual, pair.wanted)))
 		}
 	}
 	return findings
@@ -530,29 +742,6 @@ func crValidateAccounting(results crResults, path string) []ModelFinding {
 	return findings
 }
 
-// crQuotedProseFields are the four fields that quote counters back to a
-// reader in prose. They are the ones an acceptance reader believes without
-// recomputing, and the ones that silently keep the old number when a counter
-// is updated. Scanning is deliberately limited to these four: a document-wide
-// integer scan would fold in schedule strings, commit ids and dates.
-func crQuotedProseFields(results crResults) map[string]string {
-	return map[string]string{
-		"preregistered_plan.conformance":             results.PreregisteredPlan.Conformance,
-		"execution.terminal_disposition_exclusivity": results.Execution.TerminalExclusivity,
-		"execution.counters.reconciliation":          results.Execution.Counters.Reconciliation,
-		"terminal_disposition_model":                 results.TerminalModel,
-	}
-}
-
-// crIntegerTokens returns every standalone decimal integer of at least
-// minDigits digits — the numbers a reader reads as a counter.
-//
-// Two exclusions keep it from producing tokens that are not counters:
-//   - adjacency to another alphanumeric, so commit prefixes like 76b5350 and
-//     hex digests produce nothing;
-//   - digit-separator-digit context, so a date or timestamp like
-//     2026-08-27T22:04:57Z produces nothing. Only a separator with a digit on
-//     its far side counts; a sentence-ending "79920." still yields 79920.
 func crIntegerTokens(text string, minDigits int) []int {
 	var out []int
 	runes := []rune(text)
@@ -596,50 +785,99 @@ func crIntegerTokens(text string, minDigits int) []int {
 	return out
 }
 
-// crValidateQuotedCounters requires every large number the document quotes
-// at a reader to be a number the document actually records, or one of the two
-// values its own reconciliation identity derives. This is what turns the
-// prose from decoration into a checked claim: update a counter without
-// updating the sentence that cites it and this fires.
+// crValidateQuotedCounters requires each prose sentence that quotes counters
+// at a reader to quote EXACTLY the counters that sentence is about, in order.
+//
+// Review 01a0487b BLOCKING 4 replaced what this used to be. The previous
+// version checked global membership — any recorded number was accepted in any
+// checked sentence — so substituting the schedule total 79920 for the terminal
+// total 52924 in the exclusivity sentence passed at exit 0, measured. Global
+// membership is not reconciliation; it only catches a number that appears
+// nowhere in the document, which is the least likely half-refresh.
+//
+// Each sentence now declares the exact ordered sequence of counters it is
+// required to quote, derived from the fields. A wrong-but-recorded number, a
+// dropped number, an extra number and a reordering all fail.
 //
 // The threshold is four digits. Below that the prose legitimately carries
-// bounds and small cardinalities ("2 producer tasks", "1 owner", "12 actions",
-// capacities "2/2/8") that are not counters, and the accounting checks above
-// already bind the ones that matter.
+// bounds and small cardinalities ("2 producer tasks", "1 owner", "12 actions")
+// that are not counters; those are bound instead by crRunFieldToCounter, which
+// re-derives every one of them from the measured run.
 func crValidateQuotedCounters(results crResults, path string) []ModelFinding {
 	var findings []ModelFinding
 	execution := results.Execution
 	counters := execution.Counters
 	disposed := counters.Applied + counters.TypedRejections + counters.TerminalRejections
 
-	recorded := map[int]bool{}
-	for _, value := range []int{
-		results.Bounds.ScheduleCountMax, results.Bounds.BranchCountMax, results.Bounds.DrainBudgetPolls,
-		execution.ExploredSchedules, execution.EnumerationBranches, execution.DistinctScheduleDigests,
-		execution.Executions, execution.DistinctTraceDigests,
-		execution.ClosedTerminalRuns, execution.FailureHaltedRuns,
-		counters.AcceptedCommands, counters.QueueFullRefusals, counters.Applied,
-		counters.TypedRejections, counters.TerminalRejections, counters.EventsDrained,
-		counters.SurfacedTypedFailures, counters.DeferredOutputPending, counters.DeferredCommandTurn,
-		counters.DeferredBackpressure, counters.TypedInputRejections, counters.MaxDrainPollsObserved,
-		// The two values the reconciliation identity derives rather than records.
-		disposed, counters.AcceptedCommands - disposed,
-	} {
-		recorded[value] = true
+	// Each entry: the field, and the counters that sentence must quote, in the
+	// order it quotes them. Keeping the expected sequence next to the sentence
+	// is what makes this reconciliation rather than membership.
+	expectations := []struct {
+		name     string
+		text     string
+		expected []int
+	}{
+		{
+			// "... 79920 schedules (<= schedule_count_max 100000), 315070
+			//  enumeration branches (<= branch_count_max 1000000)"
+			name: "preregistered_plan.conformance",
+			text: results.PreregisteredPlan.Conformance,
+			expected: []int{
+				execution.ExploredSchedules, results.Bounds.ScheduleCountMax,
+				execution.EnumerationBranches, results.Bounds.BranchCountMax,
+			},
+		},
+		{
+			// "terminals total 52924 == closed_terminal_runs ...; surfaced
+			//  failures total 26996 == failure_halted_runs ...; 52924 + 26996
+			//  == 79920"
+			name: "execution.terminal_disposition_exclusivity",
+			text: execution.TerminalExclusivity,
+			expected: []int{
+				execution.ClosedTerminalRuns, execution.FailureHaltedRuns,
+				execution.ClosedTerminalRuns, execution.FailureHaltedRuns,
+				execution.ExploredSchedules,
+			},
+		},
+		{
+			// "aggregate disposed 206204 of 221353 accepted; the 15149
+			//  remainder ..." — the two derived values and the recorded one.
+			name: "execution.counters.reconciliation",
+			text: counters.Reconciliation,
+			expected: []int{
+				disposed, counters.AcceptedCommands, counters.AcceptedCommands - disposed,
+			},
+		},
+		{
+			// "... (52924 runs, exactly one Terminal each ...), or the halt at
+			//  the first surfaced fatal Failure (26996 runs, ...)"
+			name:     "terminal_disposition_model",
+			text:     results.TerminalModel,
+			expected: []int{execution.ClosedTerminalRuns, execution.FailureHaltedRuns},
+		},
+		{
+			// BLOCKING 4 also noted this field was omitted entirely, and it
+			// independently quotes the schedule count:
+			// "PASS - zero invariant violations across all 79920 schedules"
+			name:     "execution.outcome",
+			text:     execution.Outcome,
+			expected: []int{execution.ExploredSchedules},
+		},
 	}
 
-	fields := crQuotedProseFields(results)
-	names := make([]string, 0, len(fields))
-	for name := range fields {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		for _, value := range crIntegerTokens(fields[name], 4) {
-			if !recorded[value] {
+	for _, expectation := range expectations {
+		quoted := crIntegerTokens(expectation.text, 4)
+		if len(quoted) != len(expectation.expected) {
+			findings = append(findings, mpFinding("RESULTS_PROSE_CONTRADICTS_COUNTERS", path, fmt.Sprintf(
+				"%s quotes %d counters %v but must quote exactly %d %v; the sentence and the counters disagree",
+				expectation.name, len(quoted), quoted, len(expectation.expected), expectation.expected)))
+			continue
+		}
+		for index, value := range quoted {
+			if value != expectation.expected[index] {
 				findings = append(findings, mpFinding("RESULTS_PROSE_CONTRADICTS_COUNTERS", path, fmt.Sprintf(
-					"%s quotes %d, which is not a counter this document records nor a value its reconciliation identity derives; the prose and the counters disagree",
-					name, value)))
+					"%s quotes %d at position %d where the counters require %d; a number that is recorded elsewhere in the document is still the wrong number here",
+					expectation.name, value, index+1, expectation.expected[index])))
 			}
 		}
 	}

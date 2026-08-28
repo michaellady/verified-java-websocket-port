@@ -1194,7 +1194,9 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
 
     let measured = format!(
         "US017_EXPLORATION programs={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
-         preemption_budget={PREEMPTION_BUDGET} schedules={schedule_count} branches={} truncated=false \
+         preemption_budget={PREEMPTION_BUDGET} command_queue_capacity={COMMAND_QUEUE_CAPACITY} \
+         write_queue_capacity={WRITE_QUEUE_CAPACITY} event_queue_capacity={EVENT_QUEUE_CAPACITY} \
+         drain_budget_polls={DRAIN_BUDGET} schedules={schedule_count} branches={} truncated=false \
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
          failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
          terminal_rejected={} events={} failures={} deferred_output_pending={} deferred_command_turn={} \
@@ -1234,29 +1236,68 @@ fn repository_path(relative: &str) -> std::path::PathBuf {
         .join(relative)
 }
 
-/// Read `execution.executed_run.stdout_line` out of the committed results
-/// document.
+/// The key whose single string value binds this document to a run.
+const STDOUT_LINE_KEY: &str = "\"stdout_line\"";
+
+/// Read the one `stdout_line` string out of the committed results document.
 ///
 /// This is deliberately NOT a JSON parser — the workspace carries zero
 /// non-path dependencies and hand-rolling one would be a second, unverified
-/// parser in the tree. It locates a single key, which must occur EXACTLY once
-/// in the file, and returns the string literal after it. Every way that
-/// assumption could quietly stop holding — the key missing, the key appearing
-/// twice, an escape sequence inside the value — panics with what it saw
-/// instead of returning something plausible.
+/// parser in the tree.
+///
+/// THE RULE THAT MAKES IT COMPOSE. Review 01a0487b BLOCKING 1 broke the
+/// previous version: it searched for the exact bytes `"stdout_line": "`, so a
+/// document could carry an ignored top-level decoy in that exact form for this
+/// reader plus a nested `"stdout_line" : "<forgery>"` — legal JSON whitespace —
+/// for the structural Go reader. Both halves passed while the counters were
+/// forged. Reproduced and measured: both exits 0.
+///
+/// The fix is that this reader keys on the BARE key token and requires it to
+/// occur EXACTLY ONCE ANYWHERE in the document, under any legal whitespace.
+/// There is therefore exactly one such string in the file and every reader
+/// must land on it. internal/formalplan/concurrencyresults.go runs this same
+/// algorithm and asserts its result equals its own structural parse, so the
+/// two halves are checked to be reading identical bytes rather than assumed to.
+///
+/// Every way the assumption could quietly stop holding — key missing, key
+/// duplicated, a separator that is not a colon, a value that is not a string,
+/// an escape inside the value — panics with what it saw instead of returning
+/// something plausible.
 fn committed_stdout_line(document: &str) -> String {
-    const KEY: &str = "\"stdout_line\": \"";
-    let occurrences = document.matches(KEY).count();
+    let occurrences = document.matches(STDOUT_LINE_KEY).count();
     assert_eq!(
         occurrences, 1,
-        "{RESULTS_DOCUMENT} must carry exactly one {KEY} key for this binding to be unambiguous, found {occurrences}"
+        "{RESULTS_DOCUMENT} must carry exactly one {STDOUT_LINE_KEY} key anywhere in the document for this \
+         binding to be unambiguous, found {occurrences}. More than one means two readers could land on \
+         different values (review 01a0487b BLOCKING 1); zero means the document cites no run."
     );
-    let start = document.find(KEY).expect("occurrence count is 1") + KEY.len();
-    let rest = &document[start..];
-    let end = rest
+    let after_key = document
+        .find(STDOUT_LINE_KEY)
+        .expect("occurrence count is 1")
+        + STDOUT_LINE_KEY.len();
+    let rest = &document[after_key..];
+    let colon = rest
+        .find(|c: char| !c.is_whitespace())
+        .expect("the document ends after the stdout_line key");
+    assert_eq!(
+        rest[colon..].chars().next(),
+        Some(':'),
+        "{RESULTS_DOCUMENT} stdout_line key is not followed by a colon"
+    );
+    let after_colon = &rest[colon + 1..];
+    let quote = after_colon
+        .find(|c: char| !c.is_whitespace())
+        .expect("the document ends after the stdout_line colon");
+    assert_eq!(
+        after_colon[quote..].chars().next(),
+        Some('"'),
+        "{RESULTS_DOCUMENT} stdout_line value is not a string literal"
+    );
+    let value_start = &after_colon[quote + 1..];
+    let end = value_start
         .find('"')
         .expect("the stdout_line literal is unterminated");
-    let value = &rest[..end];
+    let value = &value_start[..end];
     assert!(
         !value.contains('\\'),
         "{RESULTS_DOCUMENT} stdout_line contains a JSON escape ({value:?}); this reader does not unescape, \
@@ -1548,4 +1589,61 @@ fn committed_minimized_schedules_replay_as_regressions() {
             "{name}: retained schedule passes on the real driver: {clean:?}"
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// Review 01a0487b BLOCKING 1: the split-read fabrication
+// ---------------------------------------------------------------------------
+
+/// Build the exact document the reviewer described: an ignored top-level
+/// `"stdout_line": "<real>"` in the spelling the OLD raw reader searched for,
+/// plus the real nested field written `"stdout_line" : "<forgery>"` with legal
+/// JSON whitespace before the colon.
+///
+/// Against the old reader this document was invisible — it found the decoy,
+/// compared it to the measurement, and passed, while the Go half validated
+/// forged counters against the nested forgery. Both exits were 0. Keying on
+/// the bare token and requiring it exactly once anywhere in the document is
+/// what makes the decoy fatal instead of useful.
+#[test]
+#[should_panic(expected = "must carry exactly one")]
+fn split_read_fabrication_is_refused() {
+    let document = concat!(
+        "{\n",
+        "  \"schema_version\": \"1.0.0\",\n",
+        "  \"stdout_line\": \"US017_EXPLORATION accepted=221353\",\n",
+        "  \"execution\": {\n",
+        "    \"executed_run\": {\n",
+        "      \"stdout_line\" : \"US017_EXPLORATION accepted=999999\"\n",
+        "    }\n",
+        "  }\n",
+        "}\n"
+    );
+    let _ = committed_stdout_line(document);
+}
+
+/// The reader must be defeated only by a real forgery, never by valid JSON
+/// formatting — the mistake the first version made.
+#[test]
+fn stdout_line_reader_tolerates_legal_whitespace() {
+    for spelling in [
+        "{\"stdout_line\": \"US017_EXPLORATION x=1\"}",
+        "{\"stdout_line\" : \"US017_EXPLORATION x=1\"}",
+        "{\"stdout_line\"\n\t:\n\t\"US017_EXPLORATION x=1\"}",
+        "{\"stdout_line\":\"US017_EXPLORATION x=1\"}",
+    ] {
+        assert_eq!(
+            committed_stdout_line(spelling),
+            "US017_EXPLORATION x=1",
+            "legal JSON spelling {spelling:?} must read the same value"
+        );
+    }
+}
+
+/// A document that cites no run at all must fail loudly rather than compare
+/// against an empty string.
+#[test]
+#[should_panic(expected = "must carry exactly one")]
+fn a_document_citing_no_run_is_refused() {
+    let _ = committed_stdout_line("{\"schedules\": 79920}");
 }

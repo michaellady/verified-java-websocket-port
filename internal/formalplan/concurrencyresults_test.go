@@ -206,6 +206,13 @@ func TestConcurrencyResultsDetectsCountersThatContradictTheCitedRun(t *testing.T
 		{"actions_per_schedule", []string{"bounds"}, "actions_per_schedule", float64(13)},
 		{"context_switch_bound", []string{"bounds"}, "context_switch_bound", float64(8)},
 		{"preemption_budget", []string{"bounds"}, "preemption_budget", float64(4)},
+		// Review 01a0487b BLOCKING 2. These four bounds were tied to nothing
+		// before the exploration printed them; the capacity case is the
+		// reviewer's own example, measured passing at exit 0 beforehand.
+		{"command_queue_capacity", []string{"bounds"}, "command_queue_capacity", float64(7)},
+		{"write_queue_capacity", []string{"bounds"}, "write_queue_capacity", float64(7)},
+		{"event_queue_capacity", []string{"bounds"}, "event_queue_capacity", float64(4)},
+		{"drain_budget_polls", []string{"bounds"}, "drain_budget_polls", float64(512)},
 		{"truncated", []string{"execution"}, "truncated", true},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -262,6 +269,254 @@ func TestConcurrencyResultsRejectsAnUncitedOrUnusableRun(t *testing.T) {
 		findings := ValidateConcurrencyResults(crTestWrite(t, document))
 		crTestRequireCode(t, findings, "RESULTS_EXECUTED_RUN_UNPARSED")
 	})
+}
+
+// crTestWriteRaw writes a document from raw text rather than a JSON
+// round-trip, so a test can control the exact whitespace and key placement.
+// The split-read fabrication below depends on both.
+func crTestWriteRaw(t *testing.T, document string) ConcurrencyResultsInputs {
+	t.Helper()
+	var probe map[string]any
+	if err := json.Unmarshal([]byte(document), &probe); err != nil {
+		t.Fatalf("the fabrication must be VALID JSON or it proves nothing: %v", err)
+	}
+	path := filepath.Join(t.TempDir(), "results.json")
+	if err := os.WriteFile(path, []byte(document), 0o600); err != nil {
+		t.Fatalf("write results: %v", err)
+	}
+	return ConcurrencyResultsInputs{ResultsPath: path, Root: crTestRoot}
+}
+
+// TestConcurrencyResultsRefusesTheSplitReadFabrication is review 01a0487b
+// BLOCKING 1, encoded exactly as the reviewer described it.
+//
+// The attack: this validator reads execution.executed_run.stdout_line
+// structurally, while the Rust half reads raw bytes. Give them a document with
+// an ignored top-level `"stdout_line": "<real measurement>"` in the exact
+// spelling the old Rust reader searched for, plus the real nested field written
+// `"stdout_line" : "<forgery>"` with legal JSON whitespace before the colon,
+// and each half validates a different value. Measured before the fix: Go exit
+// 0 and Rust exit 0 on a document whose deferred_command_turn counter was
+// forged from 31397 to 41397.
+//
+// Two validators only compose if they agree on what they are reading. The
+// binding is now keyed on the bare key token, which must occur exactly once
+// anywhere in the document, so the decoy is what makes it fail.
+func TestConcurrencyResultsRefusesTheSplitReadFabrication(t *testing.T) {
+	raw, err := os.ReadFile(crTestResultsPath)
+	if err != nil {
+		t.Fatalf("read results: %v", err)
+	}
+	document := string(raw)
+
+	real, err := crRawStdoutLine(raw)
+	if err != nil {
+		t.Fatalf("the committed document must yield one run line: %v", err)
+	}
+	const honest, forged = "deferred_command_turn=31397", "deferred_command_turn=41397"
+	if !strings.Contains(real, honest) {
+		t.Fatalf("the committed run line no longer carries %s; retarget this fabrication", honest)
+	}
+
+	// The nested field keeps the FORGERY, written with the legal whitespace
+	// the old raw reader could not see.
+	fabrication := strings.Replace(document,
+		`"stdout_line": "`+real+`"`,
+		`"stdout_line" : "`+strings.Replace(real, honest, forged, 1)+`"`, 1)
+	// The counter is forged to agree with it, so the re-derivation alone passes.
+	fabrication = strings.Replace(fabrication,
+		`"deferred_command_turn": 31397`, `"deferred_command_turn": 41397`, 1)
+	// And the decoy carries the REAL measurement for the other reader.
+	fabrication = strings.Replace(fabrication,
+		`"schema_version": "1.0.0",`,
+		`"schema_version": "1.0.0",`+"\n  "+`"stdout_line": "`+real+`",`, 1)
+	if fabrication == document {
+		t.Fatal("the fabrication did not apply; the document shape changed")
+	}
+
+	findings := ValidateConcurrencyResults(crTestWriteRaw(t, fabrication))
+	crTestRequireCode(t, findings, "RESULTS_RUN_LINE_AMBIGUOUS")
+}
+
+// TestConcurrencyResultsRawAndStructuralReadersAgree pins the property the
+// split-read fabrication violated, directly: the raw algorithm the Rust half
+// runs and this package's structural parse must yield the same string on the
+// committed document.
+func TestConcurrencyResultsRawAndStructuralReadersAgree(t *testing.T) {
+	raw, err := os.ReadFile(crTestResultsPath)
+	if err != nil {
+		t.Fatalf("read results: %v", err)
+	}
+	rawLine, err := crRawStdoutLine(raw)
+	if err != nil {
+		t.Fatalf("raw read: %v", err)
+	}
+	var results crResults
+	if err := json.Unmarshal(raw, &results); err != nil {
+		t.Fatalf("structural read: %v", err)
+	}
+	if results.Execution.ExecutedRun == nil {
+		t.Fatal("the committed document cites no run")
+	}
+	if rawLine != results.Execution.ExecutedRun.StdoutLine {
+		t.Fatalf("the two halves of this binding read different bytes:\n  raw:        %s\n  structural: %s",
+			rawLine, results.Execution.ExecutedRun.StdoutLine)
+	}
+}
+
+// TestConcurrencyResultsRawReaderToleratesLegalWhitespace keeps the raw reader
+// from being defeated by valid JSON formatting rather than by a real forgery —
+// the mistake the first version made.
+func TestConcurrencyResultsRawReaderToleratesLegalWhitespace(t *testing.T) {
+	for _, spelling := range []string{
+		`{"stdout_line": "US017_EXPLORATION x=1"}`,
+		`{"stdout_line" : "US017_EXPLORATION x=1"}`,
+		"{\"stdout_line\"\n\t:\n\t\"US017_EXPLORATION x=1\"}",
+		`{"stdout_line":"US017_EXPLORATION x=1"}`,
+	} {
+		value, err := crRawStdoutLine([]byte(spelling))
+		if err != nil {
+			t.Errorf("%s: %v", spelling, err)
+			continue
+		}
+		if value != "US017_EXPLORATION x=1" {
+			t.Errorf("%s yielded %q", spelling, value)
+		}
+	}
+	if _, err := crRawStdoutLine([]byte(`{"a":{"stdout_line": "one"},"b":{"stdout_line": "two"}}`)); err == nil {
+		t.Fatal("two stdout_line keys must be refused, not silently resolved to the first")
+	}
+	if _, err := crRawStdoutLine([]byte(`{"schedules": 79920}`)); err == nil {
+		t.Fatal("a document with no stdout_line key must be refused")
+	}
+}
+
+// TestConcurrencyResultsRefusesMisdirectedProvenance is review 01a0487b
+// BLOCKING 3 — the plane's recurring "right hash of the wrong thing" class.
+// Every case below carries a digest that MATCHES the file it points at; what
+// is wrong is which file that is. All of them passed at exit 0 beforehand.
+func TestConcurrencyResultsRefusesMisdirectedProvenance(t *testing.T) {
+	t.Run("source and harness references swapped wholesale", func(t *testing.T) {
+		document := crTestDecode(t)
+		target := crTestSection(t, document, "target")
+		source, harness := target["source"], target["harness"]
+		target["source"], target["harness"] = harness, source
+		findings := ValidateConcurrencyResults(crTestWrite(t, document))
+		crTestRequireCode(t, findings, "RESULTS_PROVENANCE_MISDIRECTED")
+	})
+	t.Run("plan redirected to another file with its own digest", func(t *testing.T) {
+		const decoy = "assurance/evidence-model.json"
+		content, err := os.ReadFile(filepath.Join(crTestRoot, decoy))
+		if err != nil {
+			t.Fatalf("read decoy: %v", err)
+		}
+		document := crTestDecode(t)
+		plan := crTestSection(t, document, "preregistered_plan")
+		plan["path"] = decoy
+		plan["sha256"] = crSHA256(content)
+		findings := ValidateConcurrencyResults(crTestWrite(t, document))
+		crTestRequireCode(t, findings, "RESULTS_PROVENANCE_MISDIRECTED")
+		// And independently, from the plan side: the decoy is not a plan.
+		crTestRequireCode(t, findings, "RESULTS_PLAN_NOT_CONFORMABLE")
+	})
+	t.Run("target symbol is not the explored symbol", func(t *testing.T) {
+		document := crTestDecode(t)
+		crTestSection(t, document, "target")["symbol"] = "ws_core::ConnectionCore::handle_eof"
+		findings := ValidateConcurrencyResults(crTestWrite(t, document))
+		crTestRequireCode(t, findings, "RESULTS_PROVENANCE_MISDIRECTED")
+	})
+	t.Run("reproduction seed moved outside the pinned directory", func(t *testing.T) {
+		document := crTestDecode(t)
+		defects, ok := document["defects_found_and_fixed"].([]any)
+		if !ok || len(defects) == 0 {
+			t.Fatal("results document records no defects")
+		}
+		defect, ok := defects[0].(map[string]any)
+		if !ok {
+			t.Fatal("defect is not an object")
+		}
+		reproduction, ok := defect["minimized_reproduction"].(map[string]any)
+		if !ok {
+			t.Fatal("defect records no minimized reproduction")
+		}
+		reproduction["path"] = "rust/ws-driver/fuzz-seeds/us017/minimized/close-race.seed"
+		findings := ValidateConcurrencyResults(crTestWrite(t, document))
+		crTestRequireCode(t, findings, "RESULTS_PROVENANCE_MISDIRECTED")
+	})
+}
+
+// TestConcurrencyResultsChecksPlanConformanceAgainstThePlan covers the second
+// half of BLOCKING 2 and 3: the conformance claim is checked against the
+// plan's own declared ceilings, read from the plan, not from this document's
+// prose.
+func TestConcurrencyResultsChecksPlanConformanceAgainstThePlan(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		field  string
+		value  any
+		expect string
+	}{
+		{"actions per schedule exceeds the plan ceiling", "actions_per_schedule", float64(65), "RESULTS_PLAN_CONFORMANCE_VIOLATED"},
+		{"event queue exceeds the plan ceiling", "event_queue_capacity", float64(9), "RESULTS_PLAN_CONFORMANCE_VIOLATED"},
+		{"preemption budget disagrees with the plan bound", "preemption_budget", float64(2), "RESULTS_PLAN_CONFORMANCE_VIOLATED"},
+		{"schedule ceiling disagrees with the plan", "schedule_count_max", float64(200000), "RESULTS_PLAN_CONFORMANCE_VIOLATED"},
+		{"branch ceiling disagrees with the plan", "branch_count_max", float64(2000000), "RESULTS_PLAN_CONFORMANCE_VIOLATED"},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			crTestSection(t, document, "bounds")[testCase.field] = testCase.value
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, testCase.expect)
+		})
+	}
+}
+
+// TestConcurrencyResultsProseReconciliationIsFieldSpecific is review 01a0487b
+// BLOCKING 4. The previous check was global membership over every recorded
+// number, so substituting one real counter for another passed. Each case below
+// uses only numbers the document genuinely records.
+func TestConcurrencyResultsProseReconciliationIsFieldSpecific(t *testing.T) {
+	for _, testCase := range []struct {
+		name string
+		from string
+		to   string
+	}{
+		{
+			// The reviewer's own example.
+			name: "schedule total substituted for the terminal total",
+			from: "in aggregate: terminals total 52924 ==",
+			to:   "in aggregate: terminals total 79920 ==",
+		},
+		{
+			name: "halted total substituted for the terminal total in the model sentence",
+			from: "(52924 runs, exactly one Terminal each",
+			to:   "(26996 runs, exactly one Terminal each",
+		},
+		{
+			name: "a quoted counter dropped from the conformance sentence",
+			from: "315070 enumeration branches (<= branch_count_max 1000000)",
+			to:   "enumeration branches (<= branch_count_max 1000000)",
+		},
+		{
+			name: "the outcome sentence quotes a different recorded number",
+			from: "across all 79920 schedules",
+			to:   "across all 52924 schedules",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			raw, err := os.ReadFile(crTestResultsPath)
+			if err != nil {
+				t.Fatalf("read results: %v", err)
+			}
+			document := string(raw)
+			if !strings.Contains(document, testCase.from) {
+				t.Fatalf("the committed document no longer contains %q; retarget this case", testCase.from)
+			}
+			findings := ValidateConcurrencyResults(crTestWriteRaw(t,
+				strings.Replace(document, testCase.from, testCase.to, 1)))
+			crTestRequireCode(t, findings, "RESULTS_PROSE_CONTRADICTS_COUNTERS")
+		})
+	}
 }
 
 // TestConcurrencyResultsDetectsAccountingContradictions walks the arithmetic
