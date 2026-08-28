@@ -357,24 +357,73 @@ fn inbound_yields_one_turn_to_a_queued_command_then_applies() {
     );
 }
 
-#[test]
-fn backpressure_defers_the_chunk_without_consuming_it() {
+/// The chunk both arms feed: two masked, empty-payload pings.
+const TWO_MASKED_PINGS: [u8; 12] = [
+    0x89, 0x80, 0x00, 0x00, 0x00, 0x00, 0x89, 0x80, 0x00, 0x00, 0x00, 0x00,
+];
+
+fn driver_with_event_capacity(capacity: u64) -> ConnectionDriver {
     let config = ConnectionConfig::builder()
-        .event_queue_capacity(4)
+        .event_queue_capacity(capacity)
         .build()
         .expect("valid test config");
-    let (_sender, mut driver) =
-        connection_driver_in_state(config, Role::Server, InitialState::Open);
-    // Two masked pings need more slots than the 4-slot queue offers.
-    let chunk = [
-        0x89, 0x80, 0x00, 0x00, 0x00, 0x00, 0x89, 0x80, 0x00, 0x00, 0x00, 0x00,
-    ];
-    let result = driver.poll(DriverInput::Inbound(&chunk));
+    let (_sender, driver) = connection_driver_in_state(config, Role::Server, InitialState::Open);
+    driver
+}
+
+#[test]
+fn backpressure_defers_the_chunk_without_consuming_it() {
+    // The core commits `input_bytes` only AFTER its backpressure precheck
+    // (ws-core/src/connection.rs: "the precheck must precede all mutation"),
+    // so a deferred chunk must leave the counter alone and stay retryable.
+    let mut driver = driver_with_event_capacity(4);
+    let result = driver.poll(DriverInput::Inbound(&TWO_MASKED_PINGS));
     assert_eq!(
         result.input,
         InputDisposition::Deferred(DeferredReason::Backpressure)
     );
     assert_eq!(driver.counts().input_bytes, 0, "nothing was consumed");
+}
+
+/// PAIRED POSITIVE CONTROL for the assertion above.
+///
+/// `input_bytes` is 0 on a freshly built driver, so "still 0 after a deferred
+/// chunk" passes whether the deferral protected the counter or the counter
+/// simply never moves in this fixture. Nothing else in this crate ever
+/// asserts `input_bytes` NON-zero, so without this arm the guard could not
+/// tell a working precheck from a dead counter.
+///
+/// Same constructor, same chunk, only the event-queue capacity changes: at 10
+/// slots the identical bytes ARE admitted and the counter DOES move to the
+/// full chunk length.
+///
+/// The capacity is MEASURED, not reasoned about — the first draft of this
+/// control guessed 8 and failed, because the two-ping chunk still defers
+/// there. Sweeping the fixture gives Deferred at 4/6/8 and
+/// `Consumed { bytes: 12 }` with `input_bytes = 12` from 10 upward, so 10 is
+/// the smallest capacity that makes this a true positive control.
+#[test]
+fn an_admitted_chunk_does_move_the_input_counter() {
+    let mut driver = driver_with_event_capacity(10);
+    assert_eq!(
+        driver.counts().input_bytes,
+        0,
+        "precondition: the counter starts at zero, as it does in the deferred arm"
+    );
+    let result = driver.poll(DriverInput::Inbound(&TWO_MASKED_PINGS));
+    assert_eq!(
+        result.input,
+        InputDisposition::Consumed {
+            bytes: TWO_MASKED_PINGS.len()
+        },
+        "capacity 10 admits what capacity 4 defers"
+    );
+    assert_eq!(
+        driver.counts().input_bytes,
+        TWO_MASKED_PINGS.len() as u64,
+        "the counter is live: a consumed chunk moves it, so the zero in the \
+         deferred arm is the precheck's doing and not a dead observable"
+    );
 }
 
 #[test]
@@ -576,7 +625,15 @@ fn transport_eof_reaches_the_core_q20_vocabulary() {
     assert_eq!(run.terminals, 1);
     let close = run.driver.close_detail().expect("eof close detail");
     assert_eq!(close.code, 1006);
-    assert!(!close.remote);
+    // `remote` is a live two-valued observable, not a field that is always
+    // false: the same core sets it TRUE for a closing-state EOF
+    // (ws-core/tests/core_semantics.rs, "closing-state EOF echoes
+    // remote=true"). The driver returns the core's `CloseDetail` verbatim,
+    // so that is this assertion's positive control.
+    assert!(
+        !close.remote,
+        "an open-state EOF is a local close, not a remote one"
+    );
     assert_eq!(run.driver.state(), ReadyState::Closed);
 }
 

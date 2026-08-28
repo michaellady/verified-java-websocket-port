@@ -386,10 +386,17 @@ enum Violation {
     DuplicateTerminal,
     /// Outputs or dispositions kept moving after terminal quiescence.
     PostTerminalActivity,
-    /// One run observed BOTH a surfaced fatal `Failure` output and a
-    /// `Terminal` delivery: the two terminal dispositions must be
-    /// exclusive, exactly as the real adapter (which stops at the first
-    /// surfaced `Failure`) would experience them.
+    /// The interpreter kept driving past the first surfaced fatal
+    /// `Failure`, so the trace carries a record after it.
+    ///
+    /// SCOPE, stated exactly, because the previous two phrasings both
+    /// promised more than they delivered. This is a property of the
+    /// INTERPRETER's halt model, NOT of the driver. The halt is enforced
+    /// here (`poll` sets `halted`; `exec` and `fair_drain` return on it),
+    /// so a correct interpreter can never record anything after the
+    /// failure — and the driver is never asked whether it would have.
+    /// See the reachability note in `finish` for what is and is not
+    /// verified, and for the measurement behind that distinction.
     TerminalAfterFailure,
     /// Two executions of the same schedule diverged.
     Nondeterminism,
@@ -687,8 +694,15 @@ impl Run {
                 self.outcome.failures += 1;
                 // Adapter-faithful stop: the real io_loop ends the
                 // connection at the first surfaced Failure, so this run
-                // stops driving here; Terminal-after-Failure is impossible
-                // by construction and asserted in finish().
+                // stops driving here.
+                //
+                // Note the consequence, spelled out because two rounds of
+                // this suite asserted around it without stating it: because
+                // the halt latches HERE, before the trace record is pushed,
+                // the failure is always the FINAL record. Nothing after it
+                // can be observed, so `finish` can only check that the halt
+                // held — never what the driver would have done next. See the
+                // reachability note in `finish`.
                 self.halted = true;
             }
             TraceOutput::Terminal => {
@@ -998,29 +1012,49 @@ impl Run {
             // work that is still pushed at it, so a clean `Terminal` may
             // legitimately PRECEDE a later refusal.
             //
-            // NAMING/STRENGTH CORRECTION (review
-            // 01a04866-df4b-7521-8abe-d8bad09edf38): this property was called
-            // `failure-halt-exclusivity` and looked only for a `Terminal`
-            // recorded after the first `Failure`. Because `exec` and
-            // `fair_drain` STOP DRIVING at the first surfaced failure, no
-            // record of ANY kind can follow it, so that condition was
-            // mechanically unreachable — a name promising more than the test
-            // delivered, which is the same failure class this story has spent
-            // four rounds digging out. The property is renamed
-            // `failure-halt-stops-driving` and now asserts what the halt model
-            // actually claims and what IS checkable: after the first surfaced
-            // failure the interpreter records no command disposition and no
-            // non-Idle output at all. A `Terminal` after a `Failure` is one
-            // instance of that, no longer the whole of it.
+            // REACHABILITY CORRECTION, THIRD PASS — and this time measured
+            // rather than reasoned about.
+            //
+            // Round one called this `failure-halt-exclusivity` and looked for
+            // a `Terminal` after the first `Failure`. Round two renamed it
+            // `failure-halt-stops-driving` and broadened the predicate to
+            // "no command disposition and no non-Idle output at all",
+            // claiming that made it checkable. It did not. `poll` sets
+            // `halted` BEFORE pushing the failure record, and both `exec`
+            // and `fair_drain` return on `halted`, so the failure record is
+            // always the LAST record in the trace and `trace[index + 1..]`
+            // is always EMPTY. `any()` over an empty slice is `false`, so
+            // the violation could not be recorded by any run.
+            //
+            // MEASURED, not asserted: over the full bounded exploration —
+            // 81180 schedules, 80072 of them carrying a failure record — the
+            // post-failure suffix length was 0 in every single run
+            // (`max_post_failure_suffix=0`, `runs_with_nonempty_suffix=0`).
+            // The broadened predicate was exactly as unreachable as the
+            // narrow one it replaced.
+            //
+            // WHAT IS CHECKED NOW: the halt model itself, which is the only
+            // thing this trace can witness. If the interpreter ever stops
+            // halting, the failure stops being the final record and this
+            // fires. That is reachable — removing the `halted` guards makes
+            // 77984 of the 80072 halted runs record post-failure output.
+            //
+            // WHAT IS NOT CHECKED, stated so no one reads more into it: this
+            // says NOTHING about the driver. The driver is never polled past
+            // a surfaced failure here, so whether IT would stay quiet is
+            // untested by this suite. Probing past the halt shows it does
+            // not — it goes on to deliver the pending EOF transition and a
+            // `Terminal`. Whether that is a defect depends on the intended
+            // post-failure contract, which the driver does not document and
+            // which this lane did not invent a verdict for; it is reported
+            // for an owner ruling instead.
             let first_failure = self
                 .outcome
                 .trace
                 .iter()
                 .position(|record| matches!(record.output, TraceOutput::Failure(_)));
             if let Some(index) = first_failure
-                && self.outcome.trace[index + 1..].iter().any(|record| {
-                    record.command.is_some() || !matches!(record.output, TraceOutput::Idle)
-                })
+                && index + 1 != self.outcome.trace.len()
             {
                 self.outcome.record(Violation::TerminalAfterFailure);
             }
@@ -1361,6 +1395,100 @@ fn first_failing_schedule(
         .enumerate()
         .find(|(_, schedule)| violates(schedule, fault, target))
         .map(|(index, schedule)| (index, schedule.clone()))
+}
+
+/// PAIRED POSITIVE CONTROL for the `failure-halt-stops-driving` check.
+///
+/// The check in `finish` records `TerminalAfterFailure` when the first
+/// surfaced `Failure` is not the final trace record. Two earlier versions of
+/// that check scanned `trace[first_failure + 1..]` — a slice the halt keeps
+/// EMPTY in all 81180 explored schedules — so neither could fail, and the
+/// invariant was upheld vacuously by every run.
+///
+/// This control is what makes the current check meaningful: it proves the
+/// check DISTINGUISHES a halted run from an unhalted one, rather than being
+/// satisfied by the absence of anything to look at. Without it, "no records
+/// after the failure" is indistinguishable from "no records were ever going
+/// to be there".
+#[test]
+fn failure_halt_check_distinguishes_a_halt_from_a_missing_one() {
+    let schedule: Vec<Action> = ["inbound-ping", "transport-eof", "wake", "shutdown"]
+        .iter()
+        .map(|verb| Action::parse(verb))
+        .collect();
+
+    // NEGATIVE ARM — the real interpreter halts, so the failure is last and
+    // no violation is recorded.
+    let mut run = Run::new(Fault::None, EVENT_QUEUE_CAPACITY);
+    for action in &schedule {
+        run.exec(*action);
+    }
+    run.fair_drain();
+    assert!(
+        run.halted,
+        "precondition: this schedule must reach a surfaced failure"
+    );
+    let failure_index = run
+        .outcome
+        .trace
+        .iter()
+        .position(|record| matches!(record.output, TraceOutput::Failure(_)))
+        .expect("precondition: a failure record exists");
+    assert_eq!(
+        failure_index + 1,
+        run.outcome.trace.len(),
+        "precondition: the halt leaves the failure as the final trace record"
+    );
+    let halted_outcome = run.finish();
+    assert!(
+        !halted_outcome
+            .violations
+            .contains(&Violation::TerminalAfterFailure),
+        "a properly halted run records no violation: {halted_outcome:?}"
+    );
+
+    // POSITIVE ARM — the identical schedule with the halt suppressed, which
+    // is what an interpreter that FAILED to stop driving would produce.
+    let mut run = Run::new(Fault::None, EVENT_QUEUE_CAPACITY);
+    for action in &schedule {
+        run.exec(*action);
+    }
+    run.fair_drain();
+    assert!(run.halted, "precondition: the same schedule halts");
+    let failure_index = run
+        .outcome
+        .trace
+        .iter()
+        .position(|record| matches!(record.output, TraceOutput::Failure(_)))
+        .expect("precondition: a failure record exists");
+    run.halted = false;
+    for _ in 0..2 {
+        let _ = run.poll(DriverInput::Wake);
+        // `poll` re-latches the halt if it surfaces another failure; the
+        // control deliberately keeps driving anyway.
+        run.halted = false;
+    }
+    // The driver did not merely get polled — it was still doing WORK past the
+    // point the adapter model stops looking. This is the observation the old
+    // check could never make, and it is contingent, not structural: it fails
+    // if the driver really does go quiet after a surfaced failure.
+    assert!(
+        run.outcome.trace[failure_index + 1..]
+            .iter()
+            .any(|record| record.command.is_some() || !matches!(record.output, TraceOutput::Idle)),
+        "control precondition: polling past the halt must surface real work, \
+         otherwise this arm proves nothing: {:?}",
+        &run.outcome.trace[failure_index + 1..]
+    );
+    run.halted = true;
+    let unhalted_outcome = run.finish();
+    assert!(
+        unhalted_outcome
+            .violations
+            .contains(&Violation::TerminalAfterFailure),
+        "the check MUST fire once a record follows the surfaced failure — if it \
+         does not, `failure-halt-stops-driving` is vacuous again: {unhalted_outcome:?}"
+    );
 }
 
 #[test]
