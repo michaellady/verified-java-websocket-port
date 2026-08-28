@@ -1,0 +1,80 @@
+{
+  "schema": "vjwp-us025-performance-mechanics/1.0.0",
+  "story_id": "US-025",
+  "mechanics_status": "PASS_OWNER_RELAXED_MECHANICS",
+  "measurement_acceptance": "INCONCLUSIVE_BLOCKED",
+  "performance_claimed": false,
+  "primary_host": "NOT_BOUND",
+  "confirmation_host": "NOT_BOUND",
+  "samples_authorized": false,
+  "raw_state": {
+    "primary": "ABSENT",
+    "confirmation": "ABSENT"
+  },
+  "decision_surface": {
+    "workloads": 6,
+    "hosts": 2,
+    "metrics_per_workload": 10,
+    "workload_host_decisions": 12,
+    "endpoint_decisions": 120,
+    "warmup_pairs": 5,
+    "measured_pairs": 30,
+    "all_decisions": "INCONCLUSIVE",
+    "all_validations": "BLOCKED",
+    "reason_code": "RAW_ABSENT"
+  },
+  "receipts": [
+    {
+      "path": "benchmarks/analysis/primary.json",
+      "sha256": "sha256:25a128b62a72193ea117ac2836ab2e479d28b0db7d09ba72f19b51019ce4f9c0"
+    },
+    {
+      "path": "benchmarks/analysis/confirmation.json",
+      "sha256": "sha256:143ed3644bf41d876cf17f964fec8750f6a93e49221b7dedd2bba9af36654056"
+    },
+    {
+      "path": "benchmarks/analysis/recompute-receipt.json",
+      "sha256": "sha256:aee0149d907ad7146c4b6c420f8e73a38b79119129b95307869b7fa86f44e817"
+    }
+  ],
+  "cli": {
+    "command": ["benchplanctl", "envelope", "--root", "ABSOLUTE_REPOSITORY_ROOT"],
+    "exit_code": 4,
+    "result": "INCONCLUSIVE_BLOCKED"
+  },
+  "blockers": [
+    "PRIMARY_NATIVE_HOST_NOT_BOUND",
+    "CONFIRMATION_LINUX_HOST_NOT_BOUND",
+    "SAMPLES_NOT_AUTHORIZED_OR_COLLECTED",
+    "DUAL_HOST_30_PAIR_EVIDENCE_NOT_EXECUTED",
+    "RESOURCE_THRESHOLDS_NOT_DECIDED",
+    "FD_AND_JAVA_GC_OBSERVATIONS_NOT_COLLECTED",
+    "INDEPENDENT_ANALYZER_REBUILD_NOT_EXECUTED",
+    "PROVENANCE_DISTINCT_RECOMPUTATION_NOT_EXECUTED",
+    "PERFORMANCE_TUNING_AND_AFFECTED_GATE_RERUNS_NOT_EXECUTED"
+  ],
+  "nonclaims": [
+    "no 20 percent memory win",
+    "no CPU, startup, latency, allocation, or throughput non-regression",
+    "no sufficient measured power or clean measured environment",
+    "no dual-host confirmation or independent recomputation",
+    "no publication, signing, production readiness, or cutover readiness"
+  ],
+  "sample_values_present": false,
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "provenance": {
+    "provider": "openai",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "xhigh",
+    "invocation": "/root/us024_implementation_phase reused for US025",
+    "review": "NOT_EXECUTED",
+    "qa": "NOT_EXECUTED",
+    "reality": "NOT_EXECUTED",
+    "new_claude_us025_work_borrowed": false,
+    "incumbent_us008_attribution": [
+      "66f33d4",
+      "39415fce46ffe538b5d30b2ddaf110c7011adb4f"
+    ]
+  }
+}

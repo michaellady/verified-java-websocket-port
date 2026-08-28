@@ -1,0 +1,38 @@
+{
+  "schema": "vjwp-benchmark-resource-envelope-host-analysis/1.0.0",
+  "environment_role": "confirmation",
+  "mechanics_status": "PASS_OWNER_RELAXED_MECHANICS",
+  "measurement_acceptance": "INCONCLUSIVE_BLOCKED",
+  "host": "NOT_BOUND",
+  "samples_authorized": false,
+  "raw_state": "ABSENT",
+  "workload_ids": [
+    "wl-01-handshake-close",
+    "wl-02-small-text-echo",
+    "wl-03-fragmented-64kib-binary-echo",
+    "wl-04-control-mix",
+    "wl-05-cap-rejection",
+    "wl-06-concurrent-pressure"
+  ],
+  "metric_names": [
+    "peak_rss",
+    "steady_rss",
+    "cpu_time",
+    "startup_to_ready",
+    "latency_p50",
+    "latency_p95",
+    "latency_p99",
+    "allocated_bytes",
+    "allocation_count",
+    "throughput"
+  ],
+  "workload_decisions": 6,
+  "endpoint_decisions": 60,
+  "decision": "INCONCLUSIVE",
+  "validation": "BLOCKED",
+  "reason_code": "RAW_ABSENT",
+  "sample_values_present": false,
+  "performance_claimed": false,
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false
+}

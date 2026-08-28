@@ -2,8 +2,13 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/benchplan"
 )
 
 const repoRoot = "../.."
@@ -96,5 +101,54 @@ func TestUsageErrors(t *testing.T) {
 	}
 	if code := run([]string{"order", "--workload", "wl-99-not-preregistered"}, &stdout, &stderr); code != exitFailures {
 		t.Errorf("unknown workload: exit %d, want %d", code, exitFailures)
+	}
+}
+
+func TestEnvelopeRealTreeReturnsDedicatedInconclusiveBlockedResult(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"envelope", "--root", repoRoot}, &stdout, &stderr)
+	if code != exitInconclusiveBlocked {
+		t.Fatalf("exit code %d, want %d\nstdout: %s\nstderr: %s", code, exitInconclusiveBlocked, stdout.String(), stderr.String())
+	}
+	var decision benchplan.ResourceEnvelopeDecision
+	decoder := json.NewDecoder(bytes.NewReader(stdout.Bytes()))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&decision); err != nil {
+		t.Fatal(err)
+	}
+	if decision.MechanicsStatus != benchplan.MechanicsPassOwnerRelaxed || decision.MeasurementAcceptance != benchplan.MeasurementInconclusiveBlocked || decision.PerformanceClaimed || decision.SamplesAuthorized {
+		t.Fatalf("claim boundary widened: %+v", decision)
+	}
+	if len(decision.Workloads) != 12 {
+		t.Fatalf("workloads = %d, want 12", len(decision.Workloads))
+	}
+	endpoints := 0
+	for _, workload := range decision.Workloads {
+		endpoints += len(workload.EndpointDecisions)
+	}
+	if endpoints != 120 {
+		t.Fatalf("endpoints = %d, want 120", endpoints)
+	}
+	if !bytes.Contains(stdout.Bytes(), []byte(`"raw_state": {`)) {
+		t.Fatal("envelope output is not deterministic indented JSON")
+	}
+}
+
+func TestRawAppendRefusesBeforeHostBindingWithoutCreatingRawEvidence(t *testing.T) {
+	root := repoRoot
+	primary := filepath.Join(root, "benchmarks", "raw", "primary.jsonl")
+	if _, err := os.Lstat(primary); !os.IsNotExist(err) {
+		t.Fatalf("test requires absent raw path, got %v", err)
+	}
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"raw-append", "--root", root, "--role", "primary", "--record-type", "BINDING_CLOSURE", "--payload", filepath.Join(t.TempDir(), "missing.json")}, &stdout, &stderr)
+	if code != exitInconclusiveBlocked {
+		t.Fatalf("exit code %d, want %d\nstdout: %s\nstderr: %s", code, exitInconclusiveBlocked, stdout.String(), stderr.String())
+	}
+	if !strings.Contains(stderr.String(), "SAMPLES_NOT_AUTHORIZED_OR_COLLECTED") {
+		t.Fatalf("stderr missing claim-boundary blocker: %s", stderr.String())
+	}
+	if _, err := os.Lstat(primary); !os.IsNotExist(err) {
+		t.Fatalf("raw-append created evidence while blocked: %v", err)
 	}
 }

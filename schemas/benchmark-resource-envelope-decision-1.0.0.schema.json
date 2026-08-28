@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/benchmark-resource-envelope-decision-1.0.0.schema.json",
+  "title": "US-025 resource-envelope campaign decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "mechanics_status", "measurement_acceptance", "performance_claimed", "primary_host", "confirmation_host", "samples_authorized", "raw_state", "workloads", "independent_recompute", "assurance", "independent_review_claimed", "blockers", "nonclaims"],
+  "properties": {
+    "schema": {"const": "vjwp-benchmark-resource-envelope-decision/1.0.0"},
+    "mechanics_status": {"enum": ["PASS_OWNER_RELAXED_MECHANICS", "BLOCKED"]},
+    "measurement_acceptance": {"const": "INCONCLUSIVE_BLOCKED"},
+    "performance_claimed": {"const": false},
+    "primary_host": {"const": "NOT_BOUND"},
+    "confirmation_host": {"const": "NOT_BOUND"},
+    "samples_authorized": {"const": false},
+    "raw_state": {
+      "type": "object", "additionalProperties": false, "required": ["primary", "confirmation"],
+      "properties": {"primary": {"$ref": "#/$defs/rawState"}, "confirmation": {"$ref": "#/$defs/rawState"}}
+    },
+    "workloads": {"type": "array", "minItems": 12, "maxItems": 12, "items": {"$ref": "#/$defs/workload"}},
+    "independent_recompute": {"const": "NOT_EXECUTED"},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "blockers": {"type": "array", "minItems": 9, "maxItems": 9, "uniqueItems": true, "items": {"type": "string", "minLength": 3}},
+    "nonclaims": {"type": "array", "minItems": 4, "uniqueItems": true, "items": {"type": "string", "minLength": 3}}
+  },
+  "$defs": {
+    "rawState": {"enum": ["ABSENT", "PRESENT_PARTIAL", "PRESENT_COMPLETE", "PRESENT_INVALID"]},
+    "decision": {"enum": ["THRESHOLD_MET", "THRESHOLD_NOT_MET", "INCONCLUSIVE"]},
+    "validation": {"enum": ["VALID", "BLOCKED"]},
+    "reasonCodes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 3}},
+    "endpoint": {
+      "type": "object", "additionalProperties": false, "required": ["metric", "decision", "validation", "reason_codes"],
+      "properties": {"metric": {"enum": ["peak_rss", "steady_rss", "cpu_time", "startup_to_ready", "latency_p50", "latency_p95", "latency_p99", "allocated_bytes", "allocation_count", "throughput"]}, "decision": {"$ref": "#/$defs/decision"}, "validation": {"$ref": "#/$defs/validation"}, "reason_codes": {"$ref": "#/$defs/reasonCodes"}}
+    },
+    "workload": {
+      "type": "object", "additionalProperties": false, "required": ["environment_role", "workload_id", "decision", "validation", "endpoint_decisions", "reason_codes"],
+      "properties": {"environment_role": {"enum": ["primary", "confirmation"]}, "workload_id": {"enum": ["wl-01-handshake-close", "wl-02-small-text-echo", "wl-03-fragmented-64kib-binary-echo", "wl-04-control-mix", "wl-05-cap-rejection", "wl-06-concurrent-pressure"]}, "decision": {"$ref": "#/$defs/decision"}, "validation": {"$ref": "#/$defs/validation"}, "endpoint_decisions": {"type": "array", "minItems": 10, "maxItems": 10, "items": {"$ref": "#/$defs/endpoint"}}, "reason_codes": {"$ref": "#/$defs/reasonCodes"}}
+    }
+  }
+}

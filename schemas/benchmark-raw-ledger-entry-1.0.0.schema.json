@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/benchmark-raw-ledger-entry-1.0.0.schema.json",
+  "title": "US-025 append-only benchmark raw-ledger entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "environment_role", "sequence", "previous_entry_digest", "payload_digest", "binding_closure_digest", "record_type", "payload"],
+  "properties": {
+    "schema": {"const": "vjwp-benchmark-raw-ledger-entry/1.0.0"},
+    "environment_role": {"enum": ["primary", "confirmation"]},
+    "sequence": {"type": "integer", "minimum": 0, "maximum": 66},
+    "previous_entry_digest": {"$ref": "#/$defs/digest"},
+    "payload_digest": {"$ref": "#/$defs/nonzeroDigest"},
+    "binding_closure_digest": {"$ref": "#/$defs/nonzeroDigest"},
+    "record_type": {"enum": ["BINDING_CLOSURE", "ENDPOINT", "WORKLOAD_SUPPORT"]},
+    "payload": {"type": "object"}
+  },
+  "allOf": [
+    {"if": {"properties": {"record_type": {"const": "BINDING_CLOSURE"}}}, "then": {"properties": {"sequence": {"const": 0}, "payload": {"$ref": "#/$defs/closure"}}}},
+    {"if": {"properties": {"record_type": {"const": "ENDPOINT"}}}, "then": {"properties": {"sequence": {"minimum": 1, "maximum": 60}, "payload": {"$ref": "#/$defs/endpoint"}}}},
+    {"if": {"properties": {"record_type": {"const": "WORKLOAD_SUPPORT"}}}, "then": {"properties": {"sequence": {"minimum": 61, "maximum": 66}, "payload": {"$ref": "#/$defs/support"}}}}
+  ],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "nonzeroDigest": {"$ref": "#/$defs/digest", "not": {"const": "sha256:0000000000000000000000000000000000000000000000000000000000000000"}},
+    "workloadID": {"enum": ["wl-01-handshake-close", "wl-02-small-text-echo", "wl-03-fragmented-64kib-binary-echo", "wl-04-control-mix", "wl-05-cap-rejection", "wl-06-concurrent-pressure"]},
+    "metric": {"enum": ["peak_rss", "steady_rss", "cpu_time", "startup_to_ready", "latency_p50", "latency_p95", "latency_p99", "allocated_bytes", "allocation_count", "throughput"]},
+    "workloadBinding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["workload_id", "definition_digest", "pair_order_digest"],
+      "properties": {"workload_id": {"$ref": "#/$defs/workloadID"}, "definition_digest": {"$ref": "#/$defs/nonzeroDigest"}, "pair_order_digest": {"$ref": "#/$defs/nonzeroDigest"}}
+    },
+    "closure": {
+      "type": "object", "additionalProperties": false,
+      "required": ["plan_digest", "primary_environment_digest", "primary_host_digest", "confirmation_environment_digest", "confirmation_host_digest", "java_source_digest", "java_executable_digest", "java_dependency_lock_digest", "rust_source_digest", "rust_executable_digest", "rust_dependency_lock_digest", "adapter_digest", "measurement_tool_manifest_digest", "analyzer_digest", "workloads", "sbx_inside_measurement_boundary"],
+      "properties": {
+        "plan_digest": {"$ref": "#/$defs/nonzeroDigest"}, "primary_environment_digest": {"$ref": "#/$defs/nonzeroDigest"}, "primary_host_digest": {"$ref": "#/$defs/nonzeroDigest"},
+        "confirmation_environment_digest": {"$ref": "#/$defs/nonzeroDigest"}, "confirmation_host_digest": {"$ref": "#/$defs/nonzeroDigest"},
+        "java_source_digest": {"$ref": "#/$defs/nonzeroDigest"}, "java_executable_digest": {"$ref": "#/$defs/nonzeroDigest"}, "java_dependency_lock_digest": {"$ref": "#/$defs/nonzeroDigest"},
+        "rust_source_digest": {"$ref": "#/$defs/nonzeroDigest"}, "rust_executable_digest": {"$ref": "#/$defs/nonzeroDigest"}, "rust_dependency_lock_digest": {"$ref": "#/$defs/nonzeroDigest"},
+        "adapter_digest": {"$ref": "#/$defs/nonzeroDigest"}, "measurement_tool_manifest_digest": {"$ref": "#/$defs/nonzeroDigest"}, "analyzer_digest": {"$ref": "#/$defs/nonzeroDigest"},
+        "workloads": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/$defs/workloadBinding"}},
+        "sbx_inside_measurement_boundary": {"const": false}
+      }
+    },
+    "pair": {"type": "object", "additionalProperties": false, "required": ["java", "rust"], "properties": {"java": {"type": "number", "exclusiveMinimum": 0}, "rust": {"type": "number", "exclusiveMinimum": 0}}},
+    "runValidity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["background_cpu_percent_max_observed", "thermal_throttle_events", "power_state_anomalies", "identity_checks_passed", "invalid_samples", "reference_drift"],
+      "properties": {
+        "background_cpu_percent_max_observed": {"type": "number", "minimum": 0}, "thermal_throttle_events": {"type": "integer", "minimum": 0}, "power_state_anomalies": {"type": "integer", "minimum": 0}, "identity_checks_passed": {"type": "boolean"}, "invalid_samples": {"type": "integer", "minimum": 0},
+        "reference_drift": {"type": "object", "additionalProperties": false, "required": ["baseline_statistic", "subsequent_statistics"], "properties": {"baseline_statistic": {"type": "number", "exclusiveMinimum": 0}, "subsequent_statistics": {"type": "array", "minItems": 7, "maxItems": 7, "items": {"type": "number", "exclusiveMinimum": 0}}}}
+      }
+    },
+    "endpoint": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "provenance_label", "environment_role", "workload_id", "metric", "order", "warmup_pairs", "measured_pairs", "bindings", "run_validity_observations"],
+      "properties": {
+        "schema": {"const": "vjwp-benchmark-raw-sample/1.0.0"}, "provenance_label": {"const": "MEASURED"}, "environment_role": {"enum": ["primary", "confirmation"]}, "workload_id": {"$ref": "#/$defs/workloadID"}, "metric": {"$ref": "#/$defs/metric"},
+        "order": {"type": "array", "minItems": 35, "maxItems": 35, "items": {"enum": ["JAVA_FIRST", "RUST_FIRST"]}}, "warmup_pairs": {"type": "array", "minItems": 5, "maxItems": 5, "items": {"$ref": "#/$defs/pair"}}, "measured_pairs": {"type": "array", "minItems": 30, "maxItems": 30, "items": {"$ref": "#/$defs/pair"}},
+        "bindings": {"type": "object"}, "run_validity_observations": {"$ref": "#/$defs/runValidity"}, "declared_summary": {"type": "object"}
+      }
+    },
+    "gcEvent": {"type": "object", "additionalProperties": false, "required": ["timestamp_seconds", "duration_seconds"], "properties": {"timestamp_seconds": {"type": "number", "minimum": 0}, "duration_seconds": {"type": "number", "exclusiveMinimum": 0}}},
+    "supportPosition": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pair_index", "order", "excluded_warmup", "java_fd_count", "rust_fd_count", "java_gc_events"],
+      "properties": {"pair_index": {"type": "integer", "minimum": 0, "maximum": 34}, "order": {"enum": ["JAVA_FIRST", "RUST_FIRST"]}, "excluded_warmup": {"type": "boolean"}, "java_fd_count": {"type": "integer", "minimum": 1}, "rust_fd_count": {"type": "integer", "minimum": 1}, "java_gc_events": {"type": "array", "items": {"$ref": "#/$defs/gcEvent"}}}
+    },
+    "support": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "environment_role", "workload_id", "collector_output_digest", "positions"],
+      "properties": {"schema": {"const": "vjwp-benchmark-workload-support/1.0.0"}, "environment_role": {"enum": ["primary", "confirmation"]}, "workload_id": {"$ref": "#/$defs/workloadID"}, "collector_output_digest": {"$ref": "#/$defs/nonzeroDigest"}, "positions": {"type": "array", "minItems": 35, "maxItems": 35, "items": {"$ref": "#/$defs/supportPosition"}}}
+    }
+  }
+}

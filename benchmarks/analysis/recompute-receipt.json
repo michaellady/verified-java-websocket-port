@@ -1,0 +1,33 @@
+{
+  "schema": "vjwp-benchmark-resource-envelope-recompute-receipt/1.0.0",
+  "mechanics_status": "PASS_OWNER_RELAXED_MECHANICS",
+  "measurement_acceptance": "INCONCLUSIVE_BLOCKED",
+  "performance_claimed": false,
+  "raw_paths": {
+    "primary": "ABSENT",
+    "confirmation": "ABSENT"
+  },
+  "analysis": {
+    "primary": {
+      "path": "benchmarks/analysis/primary.json",
+      "sha256": "sha256:25a128b62a72193ea117ac2836ab2e479d28b0db7d09ba72f19b51019ce4f9c0"
+    },
+    "confirmation": {
+      "path": "benchmarks/analysis/confirmation.json",
+      "sha256": "sha256:143ed3644bf41d876cf17f964fec8750f6a93e49221b7dedd2bba9af36654056"
+    }
+  },
+  "workload_decisions": 12,
+  "endpoint_decisions": 120,
+  "sample_values_present": false,
+  "independent_recompute": "NOT_EXECUTED",
+  "provenance_distinct_recompute": "NOT_EXECUTED",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "provenance": {
+    "provider": "openai",
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "xhigh",
+    "invocation": "/root/us024_implementation_phase reused for US025"
+  }
+}

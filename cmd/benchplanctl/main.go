@@ -6,10 +6,12 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/benchplan"
@@ -20,10 +22,11 @@ import (
 // 2 = usage error, 3 = documents consistent with the single remaining
 // owner-gated blocker class HOST_BINDING_PENDING.
 const (
-	exitFullyBound         = 0
-	exitFailures           = 1
-	exitUsage              = 2
-	exitHostBindingPending = 3
+	exitFullyBound          = 0
+	exitFailures            = 1
+	exitUsage               = 2
+	exitHostBindingPending  = 3
+	exitInconclusiveBlocked = 4
 )
 
 func main() {
@@ -40,6 +43,10 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		return runVerify(arguments[1:], stdout, stderr)
 	case "order":
 		return runOrder(arguments[1:], stdout, stderr)
+	case "envelope":
+		return runEnvelope(arguments[1:], stdout, stderr)
+	case "raw-append":
+		return runRawAppend(arguments[1:], stdout, stderr)
 	default:
 		printUsage(stderr)
 		return exitUsage
@@ -50,7 +57,91 @@ func printUsage(output io.Writer) {
 	fmt.Fprintln(output, "usage:")
 	fmt.Fprintln(output, "  benchplanctl verify --root DIR   validate the preregistration documents and print the binding completion meter")
 	fmt.Fprintln(output, "  benchplanctl order [--workload ID]   print the SHA-256-derived Java/Rust pair order (executable seed spec)")
-	fmt.Fprintln(output, "exit codes: 0 fully bound (owner-gated), 1 verification failures, 2 usage, 3 consistent but HOST_BINDING_PENDING")
+	fmt.Fprintln(output, "  benchplanctl envelope --root DIR   emit the complete two-host resource-envelope decision")
+	fmt.Fprintln(output, "  benchplanctl raw-append --root DIR --role ROLE --record-type TYPE --payload FILE   append one future authorized ledger record")
+	fmt.Fprintln(output, "exit codes: 0 accepted measurement, 1 verification failures, 2 usage, 3 consistent but HOST_BINDING_PENDING, 4 INCONCLUSIVE_BLOCKED")
+}
+
+func runEnvelope(arguments []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("envelope", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	root := flags.String("root", "", "repository root")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *root == "" {
+		printUsage(stderr)
+		return exitUsage
+	}
+	decision, err := benchplan.DecideResourceEnvelope(*root)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return exitFailures
+	}
+	encoder := json.NewEncoder(stdout)
+	encoder.SetIndent("", "  ")
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(decision); err != nil {
+		fmt.Fprintln(stderr, err)
+		return exitFailures
+	}
+	if decision.MeasurementAcceptance == benchplan.MeasurementInconclusiveBlocked {
+		return exitInconclusiveBlocked
+	}
+	return exitFullyBound
+}
+
+func runRawAppend(arguments []string, stdout, stderr io.Writer) int {
+	flags := flag.NewFlagSet("raw-append", flag.ContinueOnError)
+	flags.SetOutput(stderr)
+	root := flags.String("root", "", "repository root")
+	role := flags.String("role", "", "environment role")
+	recordType := flags.String("record-type", "", "ledger record type")
+	payloadPath := flags.String("payload", "", "payload JSON file")
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 || *root == "" || *role == "" || *recordType == "" || *payloadPath == "" {
+		printUsage(stderr)
+		return exitUsage
+	}
+	report, err := benchplan.Verify(*root)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return exitFailures
+	}
+	if !report.FullyBound() {
+		if report.HostBindingIsOnlyBlocker() {
+			fmt.Fprintln(stderr, "INCONCLUSIVE_BLOCKED: SAMPLES_NOT_AUTHORIZED_OR_COLLECTED; both exact native hosts and all tool identities must be BOUND before raw append")
+			return exitInconclusiveBlocked
+		}
+		fmt.Fprintf(stderr, "benchmark verification blockers: %v\n", report.BlockerClasses)
+		return exitFailures
+	}
+	if *role != benchplan.EnvironmentRolePrimary && *role != benchplan.EnvironmentRoleConfirmation {
+		fmt.Fprintln(stderr, "role must be primary or confirmation")
+		return exitUsage
+	}
+	info, err := os.Lstat(*payloadPath)
+	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() <= 0 || info.Size() > 4<<20 {
+		fmt.Fprintln(stderr, "payload must be a nonempty regular non-symlink file no larger than 4 MiB")
+		return exitFailures
+	}
+	payload, err := os.ReadFile(*payloadPath)
+	if err != nil || int64(len(payload)) != info.Size() {
+		fmt.Fprintln(stderr, "payload changed or could not be read")
+		return exitFailures
+	}
+	name := "primary.jsonl"
+	if *role == benchplan.EnvironmentRoleConfirmation {
+		name = "confirmation.jsonl"
+	}
+	receipt, err := benchplan.AppendRawLedger(filepath.Join(*root, "benchmarks", "raw", name), *role, *recordType, payload)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return exitFailures
+	}
+	encoder := json.NewEncoder(stdout)
+	encoder.SetIndent("", "  ")
+	if err := encoder.Encode(receipt); err != nil {
+		fmt.Fprintln(stderr, err)
+		return exitFailures
+	}
+	return exitInconclusiveBlocked
 }
 
 func runVerify(arguments []string, stdout, stderr io.Writer) int {
