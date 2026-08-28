@@ -501,7 +501,7 @@
       "findings_count": 4,
       "addressed_in_commits": {
         "findings_1_and_2": "a7533fd882f693748a5acc38abe6331869fd743d",
-        "findings_3_and_4": "PENDING_THIS_ROUND"
+        "findings_3_and_4": "9763edfab44c5b51abc5350fdbcfaa0c9c4433ca"
       }
     },
     "01a045c9-0024-7a31-87d6-c7e63376605a": {
@@ -608,7 +608,7 @@
         "go_test": "exit 0, 0 FAIL lines, 31 ok/no-test packages",
         "corpus": "oracle_requests 0, harness_run 0, evaluate 0 - executed 74, passed 74, failed 0, missing 0, unmatched 0"
       },
-      "fixed_by": "PENDING_THIS_ROUND",
+      "fixed_by": "9763edfab44c5b51abc5350fdbcfaa0c9c4433ca",
       "timestamp_note": "An earlier draft of this entry carried 2026-08-28T01:36:00Z, a value I typed rather than read. It was replaced with this reading from `date -u` before commit. Recorded because inventing a timestamp is the same class of error as inventing a commit sha (see fabricated_sha_disclosure)."
     }
   },
@@ -625,7 +625,7 @@
     "what_the_fifth_referred_to": "Nothing that exists. Grepping every artifact I produced finds no fifth Go test name and no literal 'five' claim: the a7533fd commit message names three test functions, this receipt's round-1 review section names four, and the code adds four. The miscount lives in my prose narration of the work, not in the committed artifacts. The most likely arithmetic is my two RED-first RUST tests from the original round (close_ack_emits_the_close_event_before_the_terminal_transition and fragment::accumulator_tests::finish_releases_the_accumulated_bytes_leaving_no_stale_retention) being counted alongside the Go ones, but I will not present a reconstruction as fact: what is certain is that four Go test functions were added and any statement of five was wrong.",
     "not_padded": "A fifth test was deliberately NOT written. There is a real remaining coverage gap in baselineCorpusOK - its harness_build_exit != 0, evaluate_exit != 0 and short-pass-count arms are exercised only by the live campaign, not by a unit test - but writing it now to make a wrong number right would be the exact rounding-up the review warned against. It is recorded here as a known gap instead."
   },
-  "commit_lineage_note": "76f6c37 (original lane work) -> a7533fd (review 01a045b0 fixes) -> d9e0a91 (review 01a045c9 fixes: this receipt committed in-repo) -> one metadata commit filling in commit_round_2_receipt. No commit was ever rewritten or amended.",
+  "commit_lineage_note": "76f6c37 (lane work) -> a7533fd (01a045b0 findings 1-2) -> d9e0a91, 21e42b7, 8f12d57, 3c16a54 (receipt reviews 01a045c9 / 01a045d9 / 01a045dc) -> 9763edfab44c5b51abc5350fdbcfaa0c9c4433ca (01a045b0 findings 3-4, surfaced by 01a045e0) -> one metadata commit filling in this field. Nothing was ever rewritten or amended.",
   "survivors_fixed": {
     "count_this_receipt": 0,
     "count_original_round": 2,
@@ -675,5 +675,6 @@
       "TestTreeDigestIsContentAddressedAndRefusesSymlinks - order-independent, content-sensitive, target/ excluded, symlink refused"
     ],
     "residual_risk": "The digest binds the judged tree to the repository's rust/ working tree at run time, not to a git object. A dirty working tree is still judged as-is (which is what a pre-commit campaign should do), so the guarantee is 'the campaign judged exactly the rust/ tree present at run time, recorded by digest' - not 'the campaign judged commit X'. Binding the digest to a git tree object would close that gap and is NOT claimed here."
-  }
+  },
+  "commit_findings_3_4": "9763edfab44c5b51abc5350fdbcfaa0c9c4433ca"
 }
