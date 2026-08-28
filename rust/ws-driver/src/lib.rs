@@ -293,6 +293,24 @@ pub enum DriverInputError {
         /// Currently offered suffix length.
         remaining: usize,
     },
+    /// The bounded pending transport-EOF notification set is full, so this
+    /// `TransportEof`/`Shutdown` was NOT admitted and nothing changed at
+    /// all — including a `Shutdown`'s write-abandonment side effects. Drain
+    /// by polling until pending notifications are consumed, then retry the
+    /// identical input.
+    ///
+    /// This arm exists because the alternative — saturating the count — is
+    /// the very defect the count replaced: at the ceiling a notification
+    /// would be reported `Consumed` while never reaching the core (review
+    /// 01a04899-5adb-78c3-b8ae-ec78ea14e377, blocking 1). The ceiling is
+    /// unreachable in practice; that is deliberately NOT the justification.
+    /// The counter's contract is that every admitted notification is
+    /// preserved, and a refusal keeps that contract where a silent
+    /// saturation would break it.
+    PendingEofOverflow {
+        /// Notifications already pending; none was added.
+        pending: u32,
+    },
 }
 
 /// Exact consumption result for the supplied driver input.
@@ -491,7 +509,11 @@ impl ConnectionDriver {
         let mut input_disposition = consumed(&input);
         match input {
             DriverInput::Shutdown => {
-                self.admit_eof();
+                if !self.admit_eof() {
+                    // Refused: nothing changed, INCLUDING the write
+                    // abandonment below.
+                    return self.reject_pending_eof_overflow();
+                }
                 // Undeliverable wire output is aborted; the protocol EOF
                 // below still applies (borrowed design: abort-undrainable-
                 // writes on shutdown). Undelivered automatic replies are
@@ -504,7 +526,9 @@ impl ConnectionDriver {
                 self.close_echo_armed = false;
             }
             DriverInput::TransportEof => {
-                self.admit_eof();
+                if !self.admit_eof() {
+                    return self.reject_pending_eof_overflow();
+                }
             }
             DriverInput::WriteProgress { bytes } => {
                 let remaining = self.write_remaining();
@@ -717,11 +741,38 @@ impl ConnectionDriver {
         }
     }
 
-    /// Admits one transport-EOF notification. Each admitted notification is
-    /// scored separately by the core, so they accumulate rather than
-    /// collapsing into a single flag.
-    fn admit_eof(&mut self) {
-        self.pending_eofs = self.pending_eofs.saturating_add(1);
+    /// Admits one transport-EOF notification, reporting whether there was
+    /// room. Each admitted notification is scored separately by the core, so
+    /// they accumulate rather than collapsing into a single flag.
+    ///
+    /// `checked_add`, NOT `saturating_add`: saturating would silently drop a
+    /// notification at the ceiling while `poll` still reported it consumed,
+    /// recreating false-consumption-without-a-core-call inside the very fix
+    /// that eliminated it.
+    fn admit_eof(&mut self) -> bool {
+        match self.pending_eofs.checked_add(1) {
+            Some(next) => {
+                self.pending_eofs = next;
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// The explicit typed refusal for a transport-EOF notification that did
+    /// not fit. The input changed nothing; outputs still drain on this poll
+    /// so the adapter can make room and retry (a refusal that also refused
+    /// to drain would deadlock).
+    fn reject_pending_eof_overflow(&mut self) -> PollResult<'_> {
+        let pending = self.pending_eofs;
+        let state = self.core.state();
+        let output = self.next_output();
+        PollResult {
+            input: InputDisposition::Rejected(DriverInputError::PendingEofOverflow { pending }),
+            command: None,
+            output,
+            state,
+        }
     }
 
     /// Marks exactly ONE pending transport-EOF notification consumed by the
@@ -948,5 +999,79 @@ fn consumed(input: &DriverInput<'_>) -> InputDisposition {
             DriverInput::Inbound(bytes) => bytes.len(),
             _ => 0,
         },
+    }
+}
+
+#[cfg(test)]
+mod pending_eof_ceiling_tests {
+    use super::*;
+    use ws_core::config::ConnectionConfig;
+
+    fn driver_at_ceiling() -> ConnectionDriver {
+        let (_sender, mut driver) = connection_driver_in_state(
+            ConnectionConfig::default(),
+            Role::Server,
+            InitialState::Open,
+        );
+        // Reach the ceiling directly. Admitting u32::MAX notifications by
+        // polling is infeasible, and lowering the real ceiling to make it
+        // testable would be reverse-engineering the bound to fit the test.
+        driver.pending_eofs = u32::MAX;
+        driver
+    }
+
+    /// At the ceiling a further `TransportEof` is REFUSED with a typed
+    /// error, not silently swallowed while being reported consumed
+    /// (review 01a04899-5adb-78c3-b8ae-ec78ea14e377, blocking 1).
+    #[test]
+    fn transport_eof_at_the_ceiling_is_explicitly_refused() {
+        let mut driver = driver_at_ceiling();
+        let result = driver.poll(DriverInput::TransportEof);
+        assert_eq!(
+            result.input,
+            InputDisposition::Rejected(DriverInputError::PendingEofOverflow { pending: u32::MAX }),
+            "the notification must be refused, never reported consumed"
+        );
+        assert_eq!(
+            driver.pending_eofs,
+            u32::MAX,
+            "a refused notification changes nothing"
+        );
+    }
+
+    /// `Shutdown` inherits the refusal AND performs none of its
+    /// write-abandonment side effects, because a rejected input changes
+    /// nothing at all.
+    #[test]
+    fn shutdown_at_the_ceiling_is_refused_without_side_effects() {
+        let mut driver = driver_at_ceiling();
+        let result = driver.poll(DriverInput::Shutdown);
+        assert!(matches!(
+            result.input,
+            InputDisposition::Rejected(DriverInputError::PendingEofOverflow { .. })
+        ));
+        assert!(
+            !driver.close_echo_armed,
+            "no state was mutated by the refused input"
+        );
+        assert_eq!(driver.pending_eofs, u32::MAX);
+    }
+
+    /// Below the ceiling nothing changes: notifications still accumulate
+    /// one per admission, which is the property the counter exists for.
+    #[test]
+    fn below_the_ceiling_notifications_still_accumulate() {
+        let (_sender, mut driver) = connection_driver_in_state(
+            ConnectionConfig::default(),
+            Role::Server,
+            InitialState::Open,
+        );
+        driver.pending_eofs = u32::MAX - 2;
+        assert!(driver.admit_eof());
+        assert_eq!(driver.pending_eofs, u32::MAX - 1);
+        assert!(driver.admit_eof());
+        assert_eq!(driver.pending_eofs, u32::MAX);
+        assert!(!driver.admit_eof(), "the next one does not fit");
+        assert_eq!(driver.pending_eofs, u32::MAX);
     }
 }

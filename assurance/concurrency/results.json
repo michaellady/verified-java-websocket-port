@@ -25,18 +25,19 @@
     "conformance": "the exploration stays inside the plan bounds across BOTH scenarios: 2 producer tasks (<= producer_tasks_max 3), 1 owner, command/write/event queue capacities 2/2/8 (<= 8), at most 12 actions per schedule (<= max_actions_per_schedule 64), preemption budget 3 (= preemption_bound), 81180 schedules (<= schedule_count_max 100000), 318661 enumeration branches (<= branch_count_max 1000000). PROGRAMS is not pinned in the plan (verified), so adding the clean-finish scenario does not alter the preregistered bounds; the schedule and branch counts remain inside them."
   },
   "bounds": {
-    "actor_programs": 5,
-    "program_shape": "producer A [send_text, send_binary]; producer B [send_ping, send_close]; transport-read [inbound-ping, inbound-close, transport-eof]; transport-write [write-partial, write-all, write-all]; adapter-control [wake, shutdown]",
-    "actions_per_schedule": 12,
+    "actor_programs": "5 per scenario",
+    "program_shape": "abnormal-teardown: producer A [send_text, send_binary]; producer B [send_ping, send_close]; transport-read [inbound-ping, inbound-close, transport-eof]; transport-write [write-partial, write-all, write-all]; adapter-control [wake, shutdown]. clean-finish: producer A [send_text]; producer B [send_close]; transport-read [inbound-close, transport-eof]; transport-write [write-all, write-all]; adapter-control [wake]",
+    "actions_per_schedule": "12 (abnormal-teardown) / 7 (clean-finish); 19 actions across both scenarios",
     "context_switch_bound": 7,
-    "context_switch_bound_derivation": "(5 programs - 1) mandatory switches + preemption budget 3",
+    "context_switch_bound_derivation": "(5 programs per scenario - 1) mandatory switches + preemption budget 3",
     "preemption_budget": 3,
     "command_queue_capacity": 2,
     "write_queue_capacity": 2,
     "event_queue_capacity": 8,
     "schedule_count_max": 100000,
     "branch_count_max": 1000000,
-    "drain_budget_polls": 256
+    "drain_budget_polls": 256,
+    "scenarios": 2
   },
   "adapter_model": "the interpreter drives the public driver boundary exactly as the real adapter does: a surfaced DriverOutput::Failure HALTS the run at that instant (ws-testee io_loop maps it to LoopOutcome::ProtocolFailure and stops), so no schedule action, drain poll, or quiescence poll follows a Failure; Terminal-after-Failure is impossible by construction and additionally asserted",
   "execution": {
@@ -71,7 +72,7 @@
       "WEAK_EVENT_DRAIN_WHEN_OUTPUT_PENDING"
     ],
     "producer_admission_fairness_claimed": false,
-    "outcome": "PASS - zero invariant violations across all 79920 schedules",
+    "outcome": "PASS - zero invariant violations across all 81180 schedules",
     "scenarios": [
       {
         "name": "abnormal-teardown",
@@ -154,8 +155,9 @@
       "defect_id": "harness-terminal-after-failure (closure-review finding 1, harness-side)",
       "found_by": "closure-commit review session 01a04533; reproduced RED by asserting terminal/failure exclusivity on the pre-fix interpreter",
       "description": "the exploration interpreter kept driving a run after a surfaced DriverOutput::Failure, so schedules such as the minimized `shutdown,inbound-close` recorded BOTH a fatal Failure and a later Terminal while passing, invalidating the exclusive disposition oracle and the prior 732-run classification",
-      "fix": "adapter-faithful stop-on-Failure in the interpreter (no further schedule actions, drain, or quiescence polls after a Failure) plus the failure-halt-exclusivity invariant; the schedule space was reclassified and re-counted (52924 clean-terminal / 26996 failure-halted)",
-      "note": "harness fix, not a driver change; the shipped driver passes the corrected oracle on all schedules"
+      "fix": "adapter-faithful stop-on-Failure in the interpreter (no further schedule actions, drain, or quiescence polls after a Failure) plus the invariant then called failure-halt-exclusivity (renamed failure-halt-stops-driving and strengthened at 8a7e3a4); the schedule space was reclassified and re-counted at the time as 52924 clean-terminal / 26996 failure-halted",
+      "note": "harness fix, not a driver change; the shipped driver passes the corrected oracle on all schedules",
+      "counts_are_defect_influenced_predecessors": "the 52924/26996 split quoted above is a NAMED DEFECT-INFLUENCED PREDECESSOR retained only as the historical record of this defect's round. It is superseded by the 1108 clean-terminal / 80072 failure-halted figures measured on the current tree; its clean-terminal population existed only because pending EOF notifications were coalescing."
     },
     {
       "defect_id": "eof-after-closed-absorbed",
@@ -203,15 +205,17 @@
         "found_index": 0,
         "shrink": "12 -> 1",
         "schedule": "enqueue-text-a",
-        "sha256": "sha256:874b5d43cd66da2bba7f7a95dbfaf8f50e40817d1b2efc2d5ca9398c414a36da"
+        "sha256": "sha256:874b5d43cd66da2bba7f7a95dbfaf8f50e40817d1b2efc2d5ca9398c414a36da",
+        "scenario": "abnormal-teardown"
       },
       {
         "seed": "lost-command",
         "property": "accepted-eventual-exactly-once",
         "found_index": 79920,
-        "shrink": "12 -> 2",
+        "shrink": "7 -> 2",
         "schedule": "enqueue-close-b,transport-eof",
-        "sha256": "sha256:e4a1bd50dec88e6339756e25df0e2eb7c506c96c90af1d8e3780f84b7a8d979e"
+        "sha256": "sha256:e4a1bd50dec88e6339756e25df0e2eb7c506c96c90af1d8e3780f84b7a8d979e",
+        "scenario": "clean-finish"
       },
       {
         "seed": "queue-bypass",
@@ -219,7 +223,8 @@
         "found_index": 0,
         "shrink": "12 -> 2",
         "schedule": "inbound-close,write-all",
-        "sha256": "sha256:04ee18f67620295fb95c90826644cd6849a774bd77a9152b001b8d2a033eb38c"
+        "sha256": "sha256:04ee18f67620295fb95c90826644cd6849a774bd77a9152b001b8d2a033eb38c",
+        "scenario": "abnormal-teardown"
       },
       {
         "seed": "write-reorder",
@@ -227,15 +232,17 @@
         "found_index": 17,
         "shrink": "12 -> 2",
         "schedule": "enqueue-ping-b,enqueue-close-b",
-        "sha256": "sha256:2acd0d1284bbf9294ddb45fea4a3cabef14465ae59b19537713b64ed9a2179f0"
+        "sha256": "sha256:2acd0d1284bbf9294ddb45fea4a3cabef14465ae59b19537713b64ed9a2179f0",
+        "scenario": "abnormal-teardown"
       },
       {
         "seed": "close-race",
         "property": "close-convergence",
         "found_index": 79920,
-        "shrink": "12 -> 1",
+        "shrink": "7 -> 1",
         "schedule": "transport-eof",
-        "sha256": "sha256:d2ac54d5365d0f8bc04ce1d2232b607f316243f184942d46f4b8a8d3f38d2b88"
+        "sha256": "sha256:d2ac54d5365d0f8bc04ce1d2232b607f316243f184942d46f4b8a8d3f38d2b88",
+        "scenario": "clean-finish"
       },
       {
         "seed": "duplicate-delivery",
@@ -243,12 +250,14 @@
         "found_index": 44635,
         "shrink": "12 -> 1",
         "schedule": "transport-eof",
-        "sha256": "sha256:809ff1fdaf6f9224c93e856ed083162d2b8a166ddae8282a7fa69c64648e0d5b"
+        "sha256": "sha256:809ff1fdaf6f9224c93e856ed083162d2b8a166ddae8282a7fa69c64648e0d5b",
+        "scenario": "abnormal-teardown"
       }
     ],
-    "pinned_artifacts_unchanged_by_review_round": "all six minimized artifacts re-verified byte-identical under the corrected interpreter (no regeneration was needed)",
     "outcome": "PASS_ALL_NAMED_FAULTS_KILLED_AND_MINIMIZED",
-    "fault_detection": "ALL SIX named faults are still detected under the two-scenario set; none was removed or made unreachable (owner requirement 3). Three minimized artifacts moved because the deterministic shrinker now finds its 1-minimal counterexample inside the shorter clean-finish scenario: lost-command (enqueue-close-b,inbound-close -> enqueue-close-b,transport-eof), close-race (shutdown -> transport-eof) and duplicate-delivery (shutdown -> transport-eof). All three were refrozen through the sanctioned US017_RETAIN=1 path after the pinned replay failed on the committed bytes, which is the pin working. lock-sharing, queue-bypass and write-reorder re-verified byte-identical."
+    "fault_detection": "ALL SIX named faults are still detected under the two-scenario set; none was removed or made unreachable (owner requirement 3). Three minimized artifacts moved because the deterministic shrinker now finds its 1-minimal counterexample inside the shorter clean-finish scenario: lost-command (enqueue-close-b,inbound-close -> enqueue-close-b,transport-eof), close-race (shutdown -> transport-eof) and duplicate-delivery (shutdown -> transport-eof). All three were refrozen through the sanctioned US017_RETAIN=1 path after the pinned replay failed on the committed bytes, which is the pin working. lock-sharing, queue-bypass and write-reorder re-verified byte-identical.",
+    "artifacts_changed_this_revision": "THREE of six minimized artifacts were refrozen through the sanctioned US017_RETAIN=1 path: lost-command, close-race and duplicate-delivery. The previous revision of this document carried a 'pinned_artifacts_unchanged / no regeneration was needed' claim that was FALSE once those three moved; it has been removed rather than reworded (review 01a04899-5adb-78c3-b8ae-ec78ea14e377, blocking 2). lock-sharing, queue-bypass and write-reorder re-verified byte-identical.",
+    "found_index_note": "`found_index` is a 0-based index into the COMBINED enumeration, not a schedule count: schedules 0..79919 are the abnormal-teardown scenario and 79920..81179 are clean-finish. The value 79920 in the lost-command and close-race entries is therefore the FIRST clean-finish schedule, measured in this run — it is not the superseded 79920 schedule total from earlier revisions, which no longer appears anywhere in this document except as a named defect-influenced predecessor."
   },
   "native_stress": {
     "platform": "Darwin arm64 (macOS 25.4.0)",
