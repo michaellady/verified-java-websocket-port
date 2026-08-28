@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -101,6 +102,127 @@ func TestReviewRound2CorrectionsHold(t *testing.T) {
 		expected := "rust/" + member + "/src"
 		if !scannedSet[expected] {
 			t.Fatalf("exclusion scan omits workspace member source dir %s (scans %v)", expected, scanned)
+		}
+	}
+}
+
+// ac2TypedSymbols are the three US-017 AC2 typed behaviours the pre-landing
+// review's round-2 mapping.go finding named as missing from the exact
+// linkage, each with the exact declaration text a deletion would remove.
+var ac2TypedSymbols = []struct {
+	rustPath string
+	file     string
+	declared string
+	deleted  string
+}{
+	{
+		rustPath: "ws_driver::DroppedWrites",
+		file:     "rust/ws-driver/src/lib.rs",
+		declared: "pub struct DroppedWrites {",
+		deleted:  "pub struct SomethingElseEntirely {",
+	},
+	{
+		rustPath: "ws_driver::DriverOutput::WritesDropped",
+		file:     "rust/ws-driver/src/lib.rs",
+		declared: "\n    WritesDropped(DroppedWrites),",
+		deleted:  "\n    SomethingElseEntirely(DroppedWrites),",
+	},
+	{
+		rustPath: "ws_core::connection::CommandRefusalReason::ReceiverDropped",
+		file:     "rust/ws-core/src/connection.rs",
+		declared: "\n    ReceiverDropped,",
+		deleted:  "\n    SomethingElseEntirely,",
+	},
+}
+
+// TestTheAC2TypedSymbolsAreBoundToUS017 pins the binding itself: the three
+// symbols must be US-017 story symbols and must be in the resolver catalog,
+// so removing an EDGE (rather than a declaration) is caught too.
+func TestTheAC2TypedSymbolsAreBoundToUS017(t *testing.T) {
+	bound := map[string]bool{}
+	for _, symbol := range storySymbols["US-017"] {
+		bound[symbol] = true
+	}
+	for _, symbol := range ac2TypedSymbols {
+		if !bound[symbol.rustPath] {
+			t.Fatalf("US-017 does not bind AC2 typed symbol %s; sanctioned regeneration could accept its removal", symbol.rustPath)
+		}
+		if _, known := symbolCatalog[symbol.rustPath]; !known {
+			t.Fatalf("AC2 typed symbol %s has no catalog specification", symbol.rustPath)
+		}
+	}
+}
+
+// TestDeletingAnAC2TypedSymbolFailsTheLinkageGate is the DELETION-SENSITIVE
+// polarity: a green gate with the symbols present proves nothing, so each
+// declaration is actually removed from an isolated copy of the derivation
+// inputs and both the drift gate (Verify) and the SANCTIONED regeneration
+// path (WriteArtifacts) must refuse. Before the round-2 mapping.go fix the
+// three symbols were absent from the exact linkage entirely, so deleting any
+// of them left every linkage check green.
+func TestDeletingAnAC2TypedSymbolFailsTheLinkageGate(t *testing.T) {
+	root := repoRoot(t)
+	isolated := t.TempDir()
+	for _, relative := range derivationInputPaths(t, root) {
+		content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(relative)))
+		if err != nil {
+			t.Fatalf("read %s: %v", relative, err)
+		}
+		target := filepath.Join(isolated, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatalf("mkdir: %v", err)
+		}
+		if err := os.WriteFile(target, content, 0o644); err != nil {
+			t.Fatalf("write %s: %v", relative, err)
+		}
+	}
+	if err := WriteArtifacts(isolated); err != nil {
+		t.Fatalf("write artifacts into the isolated copy: %v", err)
+	}
+	if findings := Verify(isolated); len(findings) != 0 {
+		t.Fatalf("the isolated copy must verify clean before any deletion, got %v", findings)
+	}
+
+	for _, symbol := range ac2TypedSymbols {
+		target := filepath.Join(isolated, filepath.FromSlash(symbol.file))
+		pristine, err := os.ReadFile(target)
+		if err != nil {
+			t.Fatalf("read %s: %v", symbol.file, err)
+		}
+		if !strings.Contains(string(pristine), symbol.declared) {
+			t.Fatalf("%s no longer declares %q as written; the polarity probe is stale",
+				symbol.file, symbol.declared)
+		}
+		mutated := strings.Replace(string(pristine), symbol.declared, symbol.deleted, 1)
+		if err := os.WriteFile(target, []byte(mutated), 0o644); err != nil {
+			t.Fatalf("delete %s: %v", symbol.rustPath, err)
+		}
+
+		findings := Verify(isolated)
+		refused := false
+		for _, finding := range findings {
+			if strings.HasPrefix(finding, "LINKAGE_DERIVATION_FAILED") && strings.Contains(finding, symbol.rustPath) {
+				refused = true
+			}
+		}
+		if !refused {
+			t.Fatalf("deleting %s left the gate reporting %v; the linkage does not discriminate on it",
+				symbol.rustPath, findings)
+		}
+		// The sanctioned regeneration path must refuse the same deletion,
+		// otherwise LINKAGE_REGENERATE=1 would launder the removal into a
+		// freshly "verified" artifact.
+		if err := WriteArtifacts(isolated); err == nil {
+			t.Fatalf("sanctioned regeneration accepted the removal of %s", symbol.rustPath)
+		} else if !strings.Contains(err.Error(), symbol.rustPath) {
+			t.Fatalf("regeneration refused %s with an unrelated error: %v", symbol.rustPath, err)
+		}
+
+		if err := os.WriteFile(target, pristine, 0o644); err != nil {
+			t.Fatalf("restore %s: %v", symbol.file, err)
+		}
+		if findings := Verify(isolated); len(findings) != 0 {
+			t.Fatalf("restoring %s must return the copy to clean, got %v", symbol.rustPath, findings)
 		}
 	}
 }

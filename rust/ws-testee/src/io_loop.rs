@@ -192,11 +192,22 @@ pub fn drive_connection(
                 match stream.write(&bytes[..take]) {
                     Ok(written) if written > 0 => {
                         write_stall.progressed();
-                        let _ = pump(
+                        let ack = pump(
                             driver,
                             DriverInput::WriteProgress { bytes: written },
                             report,
                         );
+                        // The write-progress acknowledgement drains the next
+                        // ordered output, and once the last committed write
+                        // has drained that output is the failure the driver
+                        // was holding behind it (pre-landing review round 2).
+                        // Discarding it would lose the protocol failure and
+                        // spin this loop to its poll budget.
+                        if let StepOutput::Failure(failure) = ack.output {
+                            report.outcome = LoopOutcome::ProtocolFailure(failure);
+                            let _ = stream.shutdown(std::net::Shutdown::Both);
+                            break;
+                        }
                     }
                     Ok(_) => {}
                     Err(error) if retryable(error.kind()) => {
@@ -249,7 +260,15 @@ pub fn drive_connection(
         match stream.read(&mut read_buffer) {
             Ok(0) => {
                 eof_seen = true;
-                let _ = pump(driver, DriverInput::TransportEof, report);
+                // The EOF pump can surface the held failure too (a poisoned
+                // core answers the protocol EOF with a state violation), and
+                // it is the last output this run will ever be offered.
+                let step = pump(driver, DriverInput::TransportEof, report);
+                if let StepOutput::Failure(failure) = step.output {
+                    report.outcome = LoopOutcome::ProtocolFailure(failure);
+                    let _ = stream.shutdown(std::net::Shutdown::Both);
+                    break;
+                }
             }
             Ok(n) => pending_chunk = read_buffer[..n].to_vec(),
             Err(error) if retryable(error.kind()) => {}
@@ -263,9 +282,9 @@ pub fn drive_connection(
     // The `while` condition itself is an exit that ends transport service:
     // the budget ran out and the caller is about to drop the driver
     // (pre-landing review finding 2). Every OTHER exit above already pumped
-    // `Shutdown`, except the protocol-failure arm — the disclosed stance
-    // that a run halted at its first `Failure` never drives the driver
-    // again.
+    // `Shutdown`, except the protocol-failure arms — see
+    // [`end_transport_service`] for exactly what that exception now covers
+    // and why nothing is owed there.
     if report.polls >= bounds.max_polls && report.outcome == LoopOutcome::BudgetExhausted {
         end_transport_service(driver, report);
     }
@@ -280,9 +299,28 @@ pub fn drive_connection(
 ///
 /// Every adapter exit that ends transport service calls this — socket
 /// errors, EOF during the handshake, rejected input, and both loops' poll
-/// budgets — not just the write-stall expiry that already did. The single
-/// disclosed exception is the protocol-failure arm: a run that surfaced a
-/// fatal `Failure` stops at that instant by contract and never polls again.
+/// budgets — not just the write-stall expiry that already did.
+///
+/// # The one remaining exception, and why its residue is empty
+///
+/// The protocol-failure arms still do not pump `Shutdown`: a run that
+/// surfaced a fatal [`ws_driver::DriverOutput::Failure`] stops at that
+/// instant by contract. What that exception covers is now exactly "a
+/// connection whose driver has already handed over every committed write",
+/// because [`ws_driver::DriverOutput::Failure`] is ordered strictly AFTER
+/// the committed write stream (US-017 AC2; pre-landing review round 2).
+/// Before that ordering existed the exception was NOT safe: a server
+/// handshake rejection queues its HTTP error head and then fails in the
+/// same core step, so halting at the `Failure` abandoned a committed write
+/// the peer was waiting for, with nothing counted. The ordering, not the
+/// adapter, is what empties the residue; the loopback regressions
+/// `a_rejected_server_handshake_delivers_its_committed_error_head_before_failing`
+/// and `a_protocol_failure_after_a_committed_close_echo_still_delivers_the_echo`
+/// pin it at the peer, and
+/// `a_protocol_failure_whose_committed_write_cannot_be_delivered_is_accounted`
+/// pins the accounted polarity: when the transport dies before the held
+/// failure can surface, the run exits through the socket-error arm, which
+/// DOES pump `Shutdown`, and the undeliverable head comes back typed.
 ///
 /// The report is delivered strictly before any terminal or failure, so ONE
 /// pump is enough to collect it; the accounting happens inside [`pump`].
@@ -402,11 +440,19 @@ pub fn drive_until_open(
                 match stream.write(&bytes[..take]) {
                     Ok(written) if written > 0 => {
                         write_stall.progressed();
-                        let _ = pump(
+                        let ack = pump(
                             driver,
                             DriverInput::WriteProgress { bytes: written },
                             report,
                         );
+                        // Same reason as the connected pump: the failure the
+                        // driver held behind the committed handshake write
+                        // arrives on this acknowledgement, and discarding it
+                        // would lose the rejection outcome entirely.
+                        if let StepOutput::Failure(failure) = ack.output {
+                            report.outcome = LoopOutcome::ProtocolFailure(failure);
+                            return false;
+                        }
                     }
                     Ok(_) => {}
                     Err(error) if retryable(error.kind()) => {
@@ -447,7 +493,11 @@ pub fn drive_until_open(
         }
         match stream.read(&mut read_buffer) {
             Ok(0) => {
-                let _ = pump(driver, DriverInput::TransportEof, report);
+                let step = pump(driver, DriverInput::TransportEof, report);
+                if let StepOutput::Failure(failure) = step.output {
+                    report.outcome = LoopOutcome::ProtocolFailure(failure);
+                    return false;
+                }
                 // The peer is gone mid-handshake: service is over, so the
                 // committed handshake frame is reported rather than dropped
                 // with the driver (pre-landing review finding 2).
@@ -458,6 +508,15 @@ pub fn drive_until_open(
                 let chunk = read_buffer[..n].to_vec();
                 loop {
                     let step = pump(driver, DriverInput::Inbound(&chunk), report);
+                    // The handshake pump surfaces failures too: a client that
+                    // reads a rejected server response fails here with no
+                    // committed write behind it, so the run must end on the
+                    // typed failure instead of spinning to its poll budget
+                    // (pre-landing review round 2).
+                    if let StepOutput::Failure(failure) = step.output {
+                        report.outcome = LoopOutcome::ProtocolFailure(failure);
+                        return false;
+                    }
                     match step.input {
                         InputDisposition::Consumed { .. } => break,
                         InputDisposition::Deferred(_) => {

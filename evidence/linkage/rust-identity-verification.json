@@ -511,7 +511,7 @@
           "file": "rust/ws-testee/src/io_loop.rs",
           "line": 71,
           "declaration": "SocketError(String),",
-          "sha256": "sha256:9bbb184a1da9ba94777eb22f32f4b10a4a68480920f9617735f70bcf48d9822e"
+          "sha256": "sha256:cbd15c1661992c54df7a213463c3c3ee7d2487388460de499c71f024db642356"
         }
       ],
       "rationale": "The planned ws_adapter crate landed as the ws-testee adapter (with ws-driver as the deterministic owner loop). WrappedIOException's wrapped-transport-error role landed as the normalized LoopOutcome::SocketError adapter outcome; no wrapper exception type exists."

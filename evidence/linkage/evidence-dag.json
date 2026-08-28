@@ -140,7 +140,7 @@
       "id": "evidence.linkage.schedule-exploration",
       "kind": "evidence",
       "title": "US-017 exhaustive bounded schedule exploration results (79920 schedules)",
-      "sha256": "sha256:f3d568396c28011cc8304b59e970d15a816ff3647bbfbbe2f28accca6babcc15",
+      "sha256": "sha256:56d6e329329952b0a53a0562d75f8644ac915fc9d27eb996d0076764f907015a",
       "lineage": "deterministic ws-driver schedule exploration with full-trace replay equality",
       "path": "assurance/concurrency/results.json"
     },
@@ -676,6 +676,15 @@
       "sha256": "sha256:5b8a56b8bb55b2ecbcc0915cf3c2e342ad688b517f73af5ee2865adf63ac0a81"
     },
     {
+      "id": "ws_core::connection::CommandRefusalReason::ReceiverDropped",
+      "kind": "symbol",
+      "rust_path": "ws_core::connection::CommandRefusalReason::ReceiverDropped",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 1336,
+      "sha256": "sha256:5b8a56b8bb55b2ecbcc0915cf3c2e342ad688b517f73af5ee2865adf63ac0a81"
+    },
+    {
       "id": "ws_core::connection::CommandSender",
       "kind": "symbol",
       "rust_path": "ws_core::connection::CommandSender",
@@ -1203,8 +1212,26 @@
       "rust_path": "ws_driver::ConnectionDriver",
       "decl_kind": "struct",
       "file": "rust/ws-driver/src/lib.rs",
-      "line": 397,
-      "sha256": "sha256:e678e2859850cbc6e087851695b05f569aa72718e35625b93c4ed1755a4385a4"
+      "line": 404,
+      "sha256": "sha256:540c63a1d7f12a0f31295326c52721d5fc3bf23b8d8e05c860cf10c9349a968a"
+    },
+    {
+      "id": "ws_driver::DriverOutput::WritesDropped",
+      "kind": "symbol",
+      "rust_path": "ws_driver::DriverOutput::WritesDropped",
+      "decl_kind": "enum_variant",
+      "file": "rust/ws-driver/src/lib.rs",
+      "line": 382,
+      "sha256": "sha256:540c63a1d7f12a0f31295326c52721d5fc3bf23b8d8e05c860cf10c9349a968a"
+    },
+    {
+      "id": "ws_driver::DroppedWrites",
+      "kind": "symbol",
+      "rust_path": "ws_driver::DroppedWrites",
+      "decl_kind": "struct",
+      "file": "rust/ws-driver/src/lib.rs",
+      "line": 346,
+      "sha256": "sha256:540c63a1d7f12a0f31295326c52721d5fc3bf23b8d8e05c860cf10c9349a968a"
     },
     {
       "id": "ws_driver::connection_driver",
@@ -1213,7 +1240,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-driver/src/lib.rs",
       "line": 164,
-      "sha256": "sha256:e678e2859850cbc6e087851695b05f569aa72718e35625b93c4ed1755a4385a4"
+      "sha256": "sha256:540c63a1d7f12a0f31295326c52721d5fc3bf23b8d8e05c860cf10c9349a968a"
     },
     {
       "id": "ws_testee::client::run_client_once",
@@ -1231,7 +1258,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 20,
-      "sha256": "sha256:9bbb184a1da9ba94777eb22f32f4b10a4a68480920f9617735f70bcf48d9822e"
+      "sha256": "sha256:cbd15c1661992c54df7a213463c3c3ee7d2487388460de499c71f024db642356"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome",
@@ -1240,7 +1267,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 64,
-      "sha256": "sha256:9bbb184a1da9ba94777eb22f32f4b10a4a68480920f9617735f70bcf48d9822e"
+      "sha256": "sha256:cbd15c1661992c54df7a213463c3c3ee7d2487388460de499c71f024db642356"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome::SocketError",
@@ -1249,7 +1276,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 71,
-      "sha256": "sha256:9bbb184a1da9ba94777eb22f32f4b10a4a68480920f9617735f70bcf48d9822e"
+      "sha256": "sha256:cbd15c1661992c54df7a213463c3c3ee7d2487388460de499c71f024db642356"
     },
     {
       "id": "ws_testee::io_loop::drive_connection",
@@ -1258,7 +1285,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 159,
-      "sha256": "sha256:9bbb184a1da9ba94777eb22f32f4b10a4a68480920f9617735f70bcf48d9822e"
+      "sha256": "sha256:cbd15c1661992c54df7a213463c3c3ee7d2487388460de499c71f024db642356"
     },
     {
       "id": "ws_testee::server::run_server_once",
@@ -1858,6 +1885,11 @@
     },
     {
       "from": "US-017",
+      "to": "ws_core::connection::CommandRefusalReason::ReceiverDropped",
+      "kind": "implements"
+    },
+    {
+      "from": "US-017",
       "to": "ws_core::connection::CommandSender",
       "kind": "implements"
     },
@@ -1869,6 +1901,16 @@
     {
       "from": "US-017",
       "to": "ws_driver::ConnectionDriver",
+      "kind": "implements"
+    },
+    {
+      "from": "US-017",
+      "to": "ws_driver::DriverOutput::WritesDropped",
+      "kind": "implements"
+    },
+    {
+      "from": "US-017",
+      "to": "ws_driver::DroppedWrites",
       "kind": "implements"
     },
     {

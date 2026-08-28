@@ -1165,3 +1165,75 @@ fn a_fatal_failure_with_nothing_committed_still_surfaces_the_failure_first() {
         "the disposition is not manufactured: {labels:?}"
     );
 }
+
+/// US-017 AC2, pre-landing review ROUND 2: a fatal core step that COMMITS a
+/// wire write must not let the failure overtake it.
+///
+/// A server handshake rejection is the exact shape the review named: the core
+/// queues its HTTP error head and returns the fatal `JavaInvalidData` from the
+/// SAME `ConnectionCore::handle` call. The shipped adapter halts at its first
+/// `Failure` by contract, so if the failure came first those bytes would be
+/// abandoned with nothing counted — proven at the peer by
+/// `ws-testee/tests/loopback.rs`. This is the seam-level guarantee the
+/// adapter's narrowed protocol-failure exception rests on.
+#[test]
+fn a_fatal_input_that_commits_a_write_offers_the_write_before_the_failure() {
+    let (_sender, mut driver) =
+        ws_driver::connection_driver(ConnectionConfig::default(), Role::Server);
+    // Well-formed HTTP, not a websocket upgrade: the version-only draft match
+    // fails and the core rejects.
+    let request = b"GET /chat HTTP/1.1\r\nHost: localhost\r\n\r\n";
+
+    let first = driver.poll(DriverInput::Inbound(request));
+    let committed = match first.output {
+        DriverOutput::Write(suffix) => suffix.to_vec(),
+        other => panic!("the committed rejection head must be offered first, got {other:?}"),
+    };
+    assert!(
+        !committed.is_empty(),
+        "the rejection head is a real committed write"
+    );
+
+    // Draining it is what releases the held failure.
+    let acked = driver.poll(DriverInput::WriteProgress {
+        bytes: committed.len(),
+    });
+    match acked.output {
+        DriverOutput::Failure(failure) => assert_eq!(failure.code, FailureCode::JavaInvalidData),
+        other => panic!("the failure must follow the drained write, got {other:?}"),
+    }
+
+    // Nothing is applied while the failure is held, and the failure is
+    // delivered exactly once.
+    assert!(matches!(
+        driver.poll(DriverInput::Wake).output,
+        DriverOutput::Idle
+    ));
+}
+
+/// The accounted polarity of the same guarantee: an adapter that cannot
+/// deliver the committed head ends transport service instead, and the head
+/// comes back as the typed disposition rather than vanishing with the
+/// failure.
+#[test]
+fn an_undrained_committed_write_is_reported_when_the_failing_run_shuts_down() {
+    let (_sender, mut driver) =
+        ws_driver::connection_driver(ConnectionConfig::default(), Role::Server);
+    let request = b"GET /chat HTTP/1.1\r\nHost: localhost\r\n\r\n";
+    let offered = match driver.poll(DriverInput::Inbound(request)).output {
+        DriverOutput::Write(suffix) => suffix.len(),
+        other => panic!("expected the committed head, got {other:?}"),
+    };
+    match driver.poll(DriverInput::Shutdown).output {
+        DriverOutput::WritesDropped(dropped) => {
+            assert_eq!(dropped.frames, 1);
+            assert_eq!(dropped.bytes, offered);
+            assert!(!dropped.partial_front);
+        }
+        other => panic!("the undelivered head must be reported, got {other:?}"),
+    }
+    match driver.poll(DriverInput::Wake).output {
+        DriverOutput::Failure(failure) => assert_eq!(failure.code, FailureCode::JavaInvalidData),
+        other => panic!("the failure follows the report, got {other:?}"),
+    }
+}

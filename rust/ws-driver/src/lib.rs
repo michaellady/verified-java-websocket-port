@@ -368,6 +368,13 @@ pub enum DriverOutput<'owner> {
     /// events all travel this stream, as in the core).
     Event(SemanticEvent),
     /// One typed failure the core reported for an owner-applied input.
+    ///
+    /// Ordered strictly AFTER every write the core had committed when it
+    /// failed, including any the failing step itself committed (US-017 AC2;
+    /// pre-landing review round 2). An embedder that halts at its first
+    /// `Failure` — the shipped adapter's contract — has therefore already
+    /// been offered every committed byte, so halting abandons nothing and
+    /// needs no [`DriverInput::Shutdown`] to account for a residue.
     Failure(TypedProtocolFailure),
     /// Committed wire writes the ended transport can no longer deliver
     /// (US-017 AC2 adapter shutdown). Reported before
@@ -426,6 +433,21 @@ pub struct ConnectionDriver {
     /// (no producer command exists to attach it to); surfaced as the next
     /// [`DriverOutput::Failure`].
     injected_failure: Option<TypedProtocolFailure>,
+    /// A fatal failure the core reported for an owner-APPLIED input, held
+    /// until every write the core had already committed — including the one
+    /// the failing step itself committed — has been offered and drained
+    /// (US-017 AC2; pre-landing review round 2).
+    ///
+    /// A fatal input can COMMIT a write and FAIL in the same core step: a
+    /// server handshake rejection queues its HTTP error head and then
+    /// returns the fatal `java_invalid_data`
+    /// (`ws_core::connection::ConnectionCore::handle_handshake_bytes`), and
+    /// a chunk carrying an inbound close followed by a data frame queues the
+    /// close echo and then fails the second frame's state gate. Surfacing
+    /// the failure first would abandon those bytes for every embedder that
+    /// halts at its first `Failure` — which is exactly what the shipped
+    /// adapter does by contract.
+    pending_failure: Option<TypedProtocolFailure>,
     /// Committed wire writes abandoned when the transport service ended,
     /// awaiting their exactly-once [`DriverOutput::WritesDropped`] report
     /// (US-017 AC2; story review BLOCKING-1/2, session 01a04626).
@@ -460,6 +482,7 @@ impl ConnectionDriver {
             policy,
             pending_auto_pongs: VecDeque::new(),
             injected_failure: None,
+            pending_failure: None,
             dropped_writes: None,
             close_echo,
             close_echo_armed: false,
@@ -646,18 +669,28 @@ impl ConnectionDriver {
         self.finish_poll(input_disposition, command, None)
     }
 
+    /// US-017 AC2 (pre-landing review round 2): a supplied fatal failure is
+    /// LATCHED rather than returned directly, and the ordinary output order
+    /// runs. [`Self::next_output`] drains every committed write first and
+    /// only then surfaces the latch, so a committed write can never be
+    /// overtaken by the failure that ended the connection. The latch also
+    /// counts as pending output ([`Self::has_pending_output`]), so no
+    /// further input is applied while it is outstanding and the FIRST
+    /// failure is the one delivered.
     fn finish_poll<'owner>(
         &'owner mut self,
         input: InputDisposition,
         command: Option<CommandDisposition>,
         failure: Option<TypedProtocolFailure>,
     ) -> PollResult<'owner> {
+        if let Some(failure) = failure
+            && self.pending_failure.is_none()
+        {
+            self.pending_failure = Some(failure);
+        }
         self.prepare_terminal();
         let state = self.core.state();
-        let output = match failure {
-            Some(failure) => DriverOutput::Failure(failure),
-            None => self.next_output(),
-        };
+        let output = self.next_output();
         PollResult {
             input,
             command,
@@ -775,8 +808,16 @@ impl ConnectionDriver {
     /// `Failure` can exist to suppress it. The report is surfaced strictly
     /// before any failure rather than merely ordered ahead of one, so no
     /// adapter that halts at its first `Failure` can miss it.
+    ///
+    /// A latched [`Self::pending_failure`] counts for the mirror-image
+    /// reason: once the connection has failed, nothing new may be applied,
+    /// so the failure that is delivered is the FIRST one the core produced
+    /// and the writes drained ahead of it are exactly the ones the core had
+    /// already committed.
     fn has_pending_output(&self) -> bool {
-        self.offered_write.is_some() || self.dropped_writes.is_some()
+        self.offered_write.is_some()
+            || self.dropped_writes.is_some()
+            || self.pending_failure.is_some()
     }
 
     /// Retry parked automatic pongs in order; stops on the first non-fatal
@@ -859,6 +900,16 @@ impl ConnectionDriver {
         }
         if let Some(write) = self.offered_write.as_ref() {
             return DriverOutput::Write(&write.bytes[self.write_cursor..]);
+        }
+        // Only now — with every committed write offered and drained — may a
+        // fatal failure be surfaced (US-017 AC2; pre-landing review round
+        // 2). The write queue is drained ABOVE this point, so an adapter
+        // that halts at its first `Failure` has already been handed every
+        // byte the core committed, including the bytes the failing step
+        // itself committed (a server handshake rejection's HTTP error head,
+        // a close echo followed by a refused data frame).
+        if let Some(failure) = self.pending_failure.take() {
+            return DriverOutput::Failure(failure);
         }
         // A fatal failure from an injected automatic pong surfaces before
         // further event drain (there is no producer command to carry it).
