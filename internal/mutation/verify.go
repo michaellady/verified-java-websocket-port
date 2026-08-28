@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 )
 
 var artifactPaths = []string{
@@ -45,6 +46,21 @@ var exactInputs = []string{
 var publicID = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*$`)
 var testIDGrammar = regexp.MustCompile(`^[A-Za-z0-9_.:-]+$`)
 var sha256Grammar = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+
+type closedMutant struct {
+	Runtime, ID, Behavior, Path, ProductionSHA256, MatchSHA256, ReplacementSHA256, TestID, ResultSHA256 string
+}
+
+var closedMutants = []closedMutant{
+	{"java", "close-echo-disabled", "close-terminal", "java-oracle/src/main/java/OracleEngine.java", "sha256:ea562de9da7e628bccdb410e6806cba16bab86293b2d59bac14b2bb6fb77b4c8", "sha256:52a977546dde872fbded9289d3c1e20e32f4164c2751ad2969da03db19bed247", "sha256:580cc35ca2e38c565aac165bd6145884a9ff30d1ce3c3f1ebd270832bbded370", "OracleMainTest.remote-close-echo", "sha256:fd887e495109244cbedc891cd4b8f2b070eb9b2727eef1ef1a9a594408b4062f"},
+	{"java", "fragment-buffer-not-drained", "fragment-sequencing", "java-oracle/src/main/java/OracleEngine.java", "sha256:ea562de9da7e628bccdb410e6806cba16bab86293b2d59bac14b2bb6fb77b4c8", "sha256:846683f814d339c629f3b61a03be09e27487e441baeeac504357062e3696ef32", "sha256:ea075687de765169740afa5de334f865a67c034b0bb8e53588a9bb8dfcbd9cdf", "OracleMainTest.fragment-buffer-drains", "sha256:61f44094dd5b783f4b09495ef08e25528d0d3862c08c82d6e2cdc1c9d38a7fda"},
+	{"java", "invalid-frame-rejection-relabeled", "frame-admission", "java-oracle/src/main/java/OracleEngine.java", "sha256:ea562de9da7e628bccdb410e6806cba16bab86293b2d59bac14b2bb6fb77b4c8", "sha256:f760cfdc078fd5009dfa08775dbd867098491f7366d39f9a0ebca09895105354", "sha256:ab747de5dbb66aa3c4a5d75ed056a17357f9a649912c22ed5e94c61a2f2b1c72", "OracleMainTest.invalid-frame", "sha256:9e4d1a9bc72f38cc88c02924dda61caaac4d4d168f1a7fee87db5eb9faea7014"},
+	{"java", "terminal-state-guard-disabled", "close-terminal", "java-oracle/src/main/java/OracleEngine.java", "sha256:ea562de9da7e628bccdb410e6806cba16bab86293b2d59bac14b2bb6fb77b4c8", "sha256:a827f97dcbcbccbd25f20892b055ea1de27bc758153ef6c9ef5143e3a633c281", "sha256:00fda4c65ea53c52523e9bebd14a2acf662f9c7ad22f92e2a27b1f52ba6c8703", "OracleMainTest.closed-state", "sha256:9f2b6f5e4cd0cde00ccb279491b966c49ebb9112b4e739a7f6e0da09d8521112"},
+	{"rust", "close-payload-limit-disabled", "close-terminal", "rust/connection-core/src/close.rs", "sha256:c9abc90888c9b6480f7c5d05e53f07f0c583ddb3ab9b20be578672f99ce60f1f", "sha256:df8c80ee0e6809c2f1fd7ee9b6f764d0b5d987135a35ef2dbe67e922a49259bb", "sha256:f545bcd24fcfaa906b437f420e917ed77c8fd009f7c6e06156289409a1f1b909", "close_eof::local_close_code_table_and_reason_boundaries_are_role_exact_and_atomic", "sha256:e6106a5ecf0ebc81b11454e7305785440d4b45a1aa77f536a530d42ce44afa69"},
+	{"rust", "control-length-admission-disabled", "frame-admission", "rust/connection-core/src/frame/mod.rs", "sha256:7b841c4f76c71e781aaccdd0b43a57493c0e45122cbd1e23af0874dd08aaaddb", "sha256:ad9b1218e23023535cac46af068cc0e02e4df97a890f18f5bdb977bfd792bf9c", "sha256:fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa", "frame_codec::invalid_frame_headers_are_rejected_before_payload_allocation", "sha256:157a8a588f72d8f53d6f2ba4928489dd42033868f500687ffacf41ff25015f3c"},
+	{"rust", "continuation-admission-relabeled", "fragment-sequencing", "rust/connection-core/src/fragment.rs", "sha256:e19fce786b0a7dc448aceb0886cb7b00fadf4e6024ef83b2781796af20e9c360", "sha256:7f9eaa81747471859d688cb15b35013b52f81241eae6fb44162a41d68b354085", "sha256:edc96ec8a5a2ef127d7e96ab93967137a5f30497fca51a18a7933db3af258a91", "fragmentation::orphan_continuation_is_rejected", "sha256:f1a1e6bae6d5085b58d9baeca780d9726453256e3e352469415ec15b650a88f1"},
+	{"rust", "unexpected-continuation-accepted", "strict-text", "rust/connection-core/src/utf8.rs", "sha256:cb97162b6099d26e78b1817202efdcd4f92aa160810ea95db2bffa23280d2e32", "sha256:43f782700b53e214135745453ecc036da95e22abb47908ec8f38b84919d7bbc0", "sha256:fc0c29d8bfec3ebdc7cc9e90931fdbafdce8a4897f8671d0be89a6de42ac8cb8", "messages::invalid_utf8_is_rejected", "sha256:82f29df55ce87cf9871287b96531e7f9e7a83ed8892c093e893ff9c1c6b21bf6"},
+}
 
 func validDigest(value string) bool { return sha256Grammar.MatchString(value) }
 
@@ -280,8 +296,12 @@ func verifyPlan(root string, plan *Plan) error {
 	counts := map[string]uint64{}
 	seen := map[string]bool{}
 	resultDigests := map[string]bool{}
+	if len(plan.Mutants) != len(closedMutants) {
+		return finding("MUTANT_INVENTORY_DRIFT", "mutants", "the exact eight-row contract is required")
+	}
 	for index := range plan.Mutants {
 		mutant := &plan.Mutants[index]
+		contract := closedMutants[index]
 		key := mutant.Runtime + "/" + mutant.MutantID
 		if seen[key] {
 			return finding("MUTANT_INVENTORY_DRIFT", key, "mutants must be unique")
@@ -289,6 +309,9 @@ func verifyPlan(root string, plan *Plan) error {
 		seen[key] = true
 		if mutant.Runtime != "java" && mutant.Runtime != "rust" {
 			return finding("INVALID_MUTANT", key, "unknown runtime")
+		}
+		if err := verifyClosedMutant(*mutant, contract); err != nil {
+			return finding("MUTANT_INVENTORY_DRIFT", key, err)
 		}
 		if mutant.Engine != "IN_TREE_PLANTED" || mutant.TimeoutMS != 120000 || !allowedBehavior(mutant.Behavior) || !publicID.MatchString(mutant.MutantID) || len(mutant.ExpectedKillingTestIDs) == 0 {
 			return finding("INVALID_MUTANT", key, "incomplete planted-mutant contract")
@@ -310,7 +333,7 @@ func verifyPlan(root string, plan *Plan) error {
 				return finding("INVALID_MUTANT", key, "invalid killing-test ID")
 			}
 		}
-		if err := verifyMutant(root, plan.RepositoryAnchor, *mutant, resultDigests); err != nil {
+		if err := verifyMutant(root, plan.RepositoryAnchor, *mutant, contract.ResultSHA256, resultDigests); err != nil {
 			return finding("INVALID_MUTANT", key, err)
 		}
 		counts[mutant.Runtime]++
@@ -323,7 +346,33 @@ func verifyPlan(root string, plan *Plan) error {
 	return nil
 }
 
-func verifyMutant(root string, anchor GitAnchor, mutant Mutant, resultDigests map[string]bool) error {
+func verifyClosedMutant(mutant Mutant, contract closedMutant) error {
+	if mutant.Runtime != contract.Runtime || mutant.MutantID != contract.ID || mutant.Behavior != contract.Behavior || mutant.ProductionPath != contract.Path || mutant.ProductionFileSHA256 != contract.ProductionSHA256 || mutant.UniqueMatchSHA256 != contract.MatchSHA256 || mutant.ReplacementSHA256 != contract.ReplacementSHA256 || len(mutant.ExpectedKillingTestIDs) != 1 || mutant.ExpectedKillingTestIDs[0] != contract.TestID {
+		return errors.New("mutant differs from the exact closed eight-row contract")
+	}
+	for name, value := range map[string]string{"runtime": mutant.Runtime, "mutant_id": mutant.MutantID, "behavior": mutant.Behavior, "production_path": mutant.ProductionPath, "test_id": mutant.ExpectedKillingTestIDs[0]} {
+		if err := scanAcceptedBytes(name, []byte(value)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func scanAcceptedBytes(name string, value []byte) error {
+	if len(value) == 0 || len(value) > 4096 || !utf8.Valid(value) || bytes.IndexByte(value, 0) >= 0 {
+		return fmt.Errorf("%s is not bounded public UTF-8", name)
+	}
+	raw, err := json.Marshal(string(value))
+	if err != nil {
+		return err
+	}
+	if err := rejectProtectedMaterial(raw); err != nil {
+		return fmt.Errorf("%s contains protected material: %w", name, err)
+	}
+	return nil
+}
+
+func verifyMutant(root string, anchor GitAnchor, mutant Mutant, expectedResult string, resultDigests map[string]bool) error {
 	raw, err := readArtifact(root, mutant.ProductionPath)
 	if err != nil {
 		return err
@@ -350,11 +399,20 @@ func verifyMutant(root string, anchor GitAnchor, mutant Mutant, resultDigests ma
 	if err != nil || len(replacement) == 0 || digest(replacement) != mutant.ReplacementSHA256 || bytes.Equal(match, replacement) {
 		return errors.New("invalid replacement")
 	}
+	if err := scanAcceptedBytes("unique match", match); err != nil {
+		return err
+	}
+	if err := scanAcceptedBytes("replacement", replacement); err != nil {
+		return err
+	}
 	if bytes.Count(raw, match) != 1 {
 		return errors.New("match is not unique")
 	}
 	mutated := bytes.Replace(raw, match, replacement, 1)
 	result := digest(mutated)
+	if result != expectedResult {
+		return errors.New("mutated result differs from the exact closed control identity")
+	}
 	if resultDigests[result] {
 		return errors.New("duplicate mutated result")
 	}
@@ -849,28 +907,34 @@ func closureDigests(root, runtime string, anchor GitAnchor) (string, string, err
 		sourcePrefixes = []string{"rust/connection-core/src/", "rust/websocket-driver/src/", "rust/websocket-testee/src/"}
 		testPrefixes = []string{"rust/connection-core/tests/", "rust/websocket-driver/tests/", "rust/websocket-testee/tests/", "rust/Cargo.toml", "rust/Cargo.lock", "rust/rust-toolchain.toml"}
 	}
-	tracked, err := git(root, "ls-files")
+	anchoredTree, err := git(root, "ls-tree", "-r", "--name-only", anchor.Commit)
+	if err != nil {
+		return "", "", err
+	}
+	currentIndex, err := git(root, "ls-files")
 	if err != nil {
 		return "", "", err
 	}
 	collect := func(prefixes []string) (string, error) {
-		var entries []string
-		for _, path := range lines([]byte(tracked)) {
-			for _, prefix := range prefixes {
-				if path == prefix || strings.HasPrefix(path, prefix) {
-					raw, err := readArtifact(root, path)
-					if err != nil {
-						return "", err
-					}
-					if err := verifyBytesAgainstGit(root, path, anchor.Commit, raw); err != nil {
-						return "", err
-					}
-					entries = append(entries, path+"\x00"+digest(raw))
-					break
-				}
-			}
+		expected := closureMembership(lines([]byte(anchoredTree)), prefixes)
+		current := closureMembership(lines([]byte(currentIndex)), prefixes)
+		if err := requireExactMembership(expected, current); err != nil {
+			return "", err
 		}
-		sort.Strings(entries)
+		var entries []string
+		for _, path := range expected {
+			raw, err := readArtifact(root, path)
+			if err != nil {
+				return "", err
+			}
+			if err := verifyBytesAgainstGit(root, path, anchor.Commit, raw); err != nil {
+				return "", err
+			}
+			if err := verifyCurrentGitFile(root, path, raw); err != nil {
+				return "", err
+			}
+			entries = append(entries, path+"\x00"+digest(raw))
+		}
 		return digest([]byte(strings.Join(entries, "\n") + "\n")), nil
 	}
 	source, err := collect(sourcePrefixes)
@@ -879,6 +943,27 @@ func closureDigests(root, runtime string, anchor GitAnchor) (string, string, err
 	}
 	tests, err := collect(testPrefixes)
 	return source, tests, err
+}
+
+func closureMembership(paths, prefixes []string) []string {
+	var result []string
+	for _, path := range paths {
+		for _, prefix := range prefixes {
+			if path == prefix || strings.HasPrefix(path, prefix) {
+				result = append(result, path)
+				break
+			}
+		}
+	}
+	sort.Strings(result)
+	return result
+}
+
+func requireExactMembership(expected, current []string) error {
+	if !equalStrings(expected, current) {
+		return errors.New("current closure membership differs from immutable anchor tree")
+	}
+	return nil
 }
 
 func rejectProtectedMaterial(raw []byte) error {

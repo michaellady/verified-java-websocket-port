@@ -1,6 +1,7 @@
 package mutation
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -283,6 +284,32 @@ func TestPlanCommandRejectsArbitraryExecutable(t *testing.T) {
 	}
 }
 
+func TestClosedMutantContractRejectsSecretBearingIdentityAndReplacement(t *testing.T) {
+	root := repositoryRoot(t)
+	base, _ := loadPlan(t, root)
+	for name, mutate := range map[string]func(*Mutant){
+		"grammar-valid mutant ID": func(mutant *Mutant) { mutant.MutantID = "tokenized-control" },
+		"grammar-valid test ID":   func(mutant *Mutant) { mutant.ExpectedKillingTestIDs = []string{"credential.synthetic-test"} },
+		"digest-consistent replacement": func(mutant *Mutant) {
+			replacement := []byte("credential=synthetic-test-value")
+			mutant.ReplacementBase64 = base64.StdEncoding.EncodeToString(replacement)
+			mutant.ReplacementSHA256 = digest(replacement)
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			value := base
+			value.Mutants = append([]Mutant(nil), base.Mutants...)
+			mutate(&value.Mutants[0])
+			if err := verifyPlan(root, &value); err == nil || !strings.Contains(err.Error(), "MUTANT_INVENTORY_DRIFT") {
+				t.Fatalf("closed mutant contract result=%v", err)
+			}
+		})
+	}
+	if err := scanAcceptedBytes("replacement", []byte("credential=synthetic-test-value")); err == nil {
+		t.Fatal("decoded secret-bearing replacement bytes were accepted")
+	}
+}
+
 func TestDifferentialManifestRejectsPermissiveDependencyRows(t *testing.T) {
 	keys := []string{"$schema", "schema_version", "story_id", "evidence_id", "status", "assurance", "independent_review_claimed", "signing", "production", "publication", "repository_anchor", "parity_scope", "coverage", "controls", "scenarios", "reproducers", "inputs", "processes", "ledger", "counts", "nonclaims"}
 	for name, row := range map[string]map[string]any{
@@ -345,5 +372,13 @@ func TestClosureRejectsPreexistingWorkingTreeDrift(t *testing.T) {
 	hostile := append(append([]byte(nil), raw...), '\n')
 	if err := verifyBytesAgainstGit(root, path, plan.RepositoryAnchor.Commit, hostile); err == nil {
 		t.Fatal("preexisting closure drift was accepted")
+	}
+}
+
+func TestClosureMembershipRejectsAnchorDeletion(t *testing.T) {
+	expected := []string{"rust/connection-core/src/close.rs", "rust/connection-core/src/lib.rs"}
+	currentAfterDeletion := []string{"rust/connection-core/src/close.rs"}
+	if err := requireExactMembership(expected, currentAfterDeletion); err == nil {
+		t.Fatal("closure file deleted from the current index was omitted without rejection")
 	}
 }
