@@ -152,3 +152,25 @@ func TestRawAppendRefusesBeforeHostBindingWithoutCreatingRawEvidence(t *testing.
 		t.Fatalf("raw-append created evidence while blocked: %v", err)
 	}
 }
+
+func TestRawAppendPayloadReaderRejectsSymlinkAndReadsHeldFile(t *testing.T) {
+	directory := t.TempDir()
+	target := filepath.Join(directory, "payload.json")
+	if err := os.WriteFile(target, []byte(`{"payload":"original"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(directory, "payload-link.json")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readPayloadFile(link); err == nil {
+		t.Fatal("symlinked payload accepted")
+	}
+	payload, err := readPayloadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(payload) != `{"payload":"original"}` {
+		t.Fatalf("payload = %q", payload)
+	}
+}

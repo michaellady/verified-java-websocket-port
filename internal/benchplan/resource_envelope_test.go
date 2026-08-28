@@ -1,6 +1,7 @@
 package benchplan
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -83,8 +84,9 @@ func TestResourceEnvelopeDistinguishesEmptyPartialAndUnboundCompleteRaw(t *testi
 	if err := os.Remove(primary); err != nil {
 		t.Fatal(err)
 	}
-	appendClosure(t, primary, EnvironmentRolePrimary, syntheticLedgerClosure(t))
-	decision, err = DecideResourceEnvelope(root)
+	expected := syntheticLedgerClosure(t)
+	appendClosure(t, root, EnvironmentRolePrimary, expected)
+	decision, err = decideResourceEnvelopeWithExpected(root, &expected)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,8 +102,8 @@ func TestResourceEnvelopeDistinguishesEmptyPartialAndUnboundCompleteRaw(t *testi
 	if err := os.Remove(primary); err != nil {
 		t.Fatal(err)
 	}
-	appendCompletePrimaryLedger(t, primary, nil)
-	decision, err = DecideResourceEnvelope(root)
+	appendCompletePrimaryLedger(t, root, nil)
+	decision, err = decideResourceEnvelopeWithExpected(root, &expected)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -110,5 +112,31 @@ func TestResourceEnvelopeDistinguishesEmptyPartialAndUnboundCompleteRaw(t *testi
 	}
 	if decision.MeasurementAcceptance != MeasurementInconclusiveBlocked || decision.PerformanceClaimed {
 		t.Fatalf("unbound complete ledger widened claim: %+v", decision)
+	}
+}
+
+func TestUnboundSampleBearingPartialIsPresentInvalid(t *testing.T) {
+	root := copyBenchmarkTree(t)
+	if err := os.MkdirAll(filepath.Join(root, "benchmarks", "raw"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	expected := syntheticLedgerClosure(t)
+	payload, err := json.Marshal(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AppendBoundRawLedger(root, EnvironmentRolePrimary, expected, RecordBindingClosure, payload); err != nil {
+		t.Fatal(err)
+	}
+	bundle, records, _ := completeSyntheticBundle(t)
+	if _, err := AppendBoundRawLedger(root, EnvironmentRolePrimary, expected, RecordEndpoint, records[bundle.Endpoints[0].RawRecordDigest]); err != nil {
+		t.Fatal(err)
+	}
+	decision, err := decideResourceEnvelopeWithExpected(root, &expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decision.RawState[EnvironmentRolePrimary] != RawPresentInvalid {
+		t.Fatalf("unbound closure+endpoint state = %q, want %q", decision.RawState[EnvironmentRolePrimary], RawPresentInvalid)
 	}
 }

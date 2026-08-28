@@ -7,6 +7,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -116,21 +117,17 @@ func runRawAppend(arguments []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, "role must be primary or confirmation")
 		return exitUsage
 	}
-	info, err := os.Lstat(*payloadPath)
-	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Size() <= 0 || info.Size() > 4<<20 {
-		fmt.Fprintln(stderr, "payload must be a nonempty regular non-symlink file no larger than 4 MiB")
+	expected, err := benchplan.DeriveRepositoryExpectedBindingClosure(*root)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
 		return exitFailures
 	}
-	payload, err := os.ReadFile(*payloadPath)
-	if err != nil || int64(len(payload)) != info.Size() {
-		fmt.Fprintln(stderr, "payload changed or could not be read")
+	payload, err := readPayloadFile(*payloadPath)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
 		return exitFailures
 	}
-	name := "primary.jsonl"
-	if *role == benchplan.EnvironmentRoleConfirmation {
-		name = "confirmation.jsonl"
-	}
-	receipt, err := benchplan.AppendRawLedger(filepath.Join(*root, "benchmarks", "raw", name), *role, *recordType, payload)
+	receipt, err := benchplan.AppendBoundRawLedger(*root, *role, expected, *recordType, payload)
 	if err != nil {
 		fmt.Fprintln(stderr, err)
 		return exitFailures
@@ -142,6 +139,53 @@ func runRawAppend(arguments []string, stdout, stderr io.Writer) int {
 		return exitFailures
 	}
 	return exitInconclusiveBlocked
+}
+
+func readPayloadFile(path string) ([]byte, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return nil, err
+	}
+	clean := filepath.Clean(absolute)
+	pathInfo, err := os.Lstat(clean)
+	if err != nil {
+		return nil, err
+	}
+	if pathInfo.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("payload path is a symlink: %s", clean)
+	}
+	canonicalDirectory, err := filepath.EvalSymlinks(filepath.Dir(clean))
+	if err != nil {
+		return nil, err
+	}
+	directory, err := os.OpenRoot(canonicalDirectory)
+	if err != nil {
+		return nil, err
+	}
+	defer directory.Close()
+	name := filepath.Base(clean)
+	before, err := directory.Lstat(name)
+	if err != nil || !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() <= 0 || before.Size() > 4<<20 {
+		return nil, errors.New("payload must be a nonempty regular non-symlink file no larger than 4 MiB")
+	}
+	file, err := directory.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	held, err := file.Stat()
+	if err != nil || !os.SameFile(before, held) || !held.Mode().IsRegular() {
+		return nil, errors.New("payload changed while being securely opened")
+	}
+	payload, err := io.ReadAll(io.LimitReader(file, 4<<20+1))
+	if err != nil {
+		return nil, err
+	}
+	after, err := file.Stat()
+	if err != nil || !os.SameFile(held, after) || held.Size() != after.Size() || int64(len(payload)) != after.Size() {
+		return nil, errors.New("payload changed while held and being read")
+	}
+	return payload, nil
 }
 
 func runVerify(arguments []string, stdout, stderr io.Writer) int {

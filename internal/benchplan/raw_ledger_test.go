@@ -14,41 +14,54 @@ import (
 
 func syntheticLedgerClosure(t *testing.T) BindingClosure {
 	t.Helper()
-	old := syntheticClosure()
-	closure := BindingClosure{
-		PlanDigest:                    old["plan_digest"],
-		PrimaryEnvironmentDigest:      old["primary_environment_digest"],
-		PrimaryHostDigest:             syntheticDigest("primary_host_digest"),
-		ConfirmationEnvironmentDigest: old["confirmation_environment_digest"],
-		ConfirmationHostDigest:        syntheticDigest("confirmation_host_digest"),
-		JavaSourceDigest:              old["java_source_digest"],
-		JavaExecutableDigest:          old["java_executable_digest"],
-		JavaDependencyLockDigest:      syntheticDigest("java_dependency_lock_digest"),
-		RustSourceDigest:              old["rust_source_digest"],
-		RustExecutableDigest:          old["rust_executable_digest"],
-		RustDependencyLockDigest:      syntheticDigest("rust_dependency_lock_digest"),
-		AdapterDigest:                 old["adapter_digest"],
-		MeasurementToolManifestDigest: old["tool_identity_digest"],
-		AnalyzerDigest:                old["analyzer_digest"],
-		SBXInsideMeasurementBoundary:  false,
+	fact := func(name string) []byte { return []byte("synthetic-binding-not-a-real-artifact|" + name) }
+	facts := VerifiedClosureFacts{
+		Plan:                    fact("plan_digest"),
+		PrimaryEnvironment:      fact("primary_environment_digest"),
+		PrimaryHost:             fact("primary_host_digest"),
+		ConfirmationEnvironment: fact("confirmation_environment_digest"),
+		ConfirmationHost:        fact("confirmation_host_digest"),
+		JavaSource:              fact("java_source_digest"),
+		JavaExecutable:          fact("java_executable_digest"),
+		JavaDependencyLock:      fact("java_dependency_lock_digest"),
+		RustSource:              fact("rust_source_digest"),
+		RustExecutable:          fact("rust_executable_digest"),
+		RustDependencyLock:      fact("rust_dependency_lock_digest"),
+		Adapter:                 fact("adapter_digest"),
+		MeasurementToolManifest: fact("tool_identity_digest"),
+		Analyzer:                fact("analyzer_digest"),
 	}
-	for _, workloadID := range WorkloadIDs {
-		order, err := PairOrder(workloadID)
-		if err != nil {
-			t.Fatal(err)
-		}
-		closure.Workloads = append(closure.Workloads, WorkloadBinding{
-			WorkloadID:       workloadID,
-			DefinitionDigest: syntheticDigest(workloadID + "|definition"),
-			PairOrderDigest:  pairOrderDigest(order),
-		})
+	for i, workloadID := range WorkloadIDs {
+		facts.WorkloadDefinitions[i] = fact(workloadID + "|definition")
+	}
+	closure, err := DeriveExpectedBindingClosure(facts)
+	if err != nil {
+		t.Fatal(err)
 	}
 	return closure
 }
 
+func newLedgerRepository(t *testing.T) string {
+	t.Helper()
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "benchmarks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	return root
+}
+
+func ledgerPath(root, role string) string {
+	name := "primary.jsonl"
+	if role == EnvironmentRoleConfirmation {
+		name = "confirmation.jsonl"
+	}
+	return filepath.Join(root, "benchmarks", "raw", name)
+}
+
 func TestRawLedgerWriterIsExclusiveAndVerifierRetainsPartial(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "primary.jsonl")
-	payload, err := json.Marshal(syntheticLedgerClosure(t))
+	root := newLedgerRepository(t)
+	expected := syntheticLedgerClosure(t)
+	payload, err := json.Marshal(expected)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -60,7 +73,7 @@ func TestRawLedgerWriterIsExclusiveAndVerifierRetainsPartial(t *testing.T) {
 		go func() {
 			defer workers.Done()
 			<-start
-			_, appendErr := AppendRawLedger(path, EnvironmentRolePrimary, RecordBindingClosure, payload)
+			_, appendErr := AppendBoundRawLedger(root, EnvironmentRolePrimary, expected, RecordBindingClosure, payload)
 			errors <- appendErr
 		}()
 	}
@@ -76,25 +89,25 @@ func TestRawLedgerWriterIsExclusiveAndVerifierRetainsPartial(t *testing.T) {
 	if succeeded != 1 {
 		t.Fatalf("successful writers = %d, want exactly one", succeeded)
 	}
-	if _, err := os.Lstat(path + ".lock"); !os.IsNotExist(err) {
+	if _, err := os.Lstat(ledgerPath(root, EnvironmentRolePrimary) + ".lock"); !os.IsNotExist(err) {
 		t.Fatalf("clean writer left adjacent lock: %v", err)
 	}
-	receipt, err := VerifyRawLedger(path, EnvironmentRolePrimary, nil)
+	receipt, err := VerifyRawLedger(root, EnvironmentRolePrimary, expected)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if receipt.State != RawPresentPartial || receipt.RecordCount != 1 || receipt.TerminalEntryDigest == "" || receipt.FileSHA256 == "" {
 		t.Fatalf("partial receipt = %+v", receipt)
 	}
-	content, err := os.ReadFile(path)
+	content, err := os.ReadFile(ledgerPath(root, EnvironmentRolePrimary))
 	if err != nil {
 		t.Fatal(err)
 	}
-	root := copyBenchmarkTree(t)
-	if err := os.WriteFile(filepath.Join(root, "entry.json"), bytes.TrimSuffix(content, []byte{'\n'}), 0o600); err != nil {
+	schemaRoot := copyBenchmarkTree(t)
+	if err := os.WriteFile(filepath.Join(schemaRoot, "entry.json"), bytes.TrimSuffix(content, []byte{'\n'}), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	failures, err := validateAgainstSchema(root, "entry.json", "benchmark-raw-ledger-entry-1.0.0.schema.json")
+	failures, err := validateAgainstSchema(schemaRoot, "entry.json", "benchmark-raw-ledger-entry-1.0.0.schema.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -103,13 +116,13 @@ func TestRawLedgerWriterIsExclusiveAndVerifierRetainsPartial(t *testing.T) {
 	}
 }
 
-func appendClosure(t *testing.T, path, role string, closure BindingClosure) RawLedgerReceipt {
+func appendClosure(t *testing.T, root, role string, closure BindingClosure) RawLedgerReceipt {
 	t.Helper()
 	payload, err := json.Marshal(closure)
 	if err != nil {
 		t.Fatal(err)
 	}
-	receipt, err := AppendRawLedger(path, role, RecordBindingClosure, payload)
+	receipt, err := AppendBoundRawLedger(root, role, closure, RecordBindingClosure, payload)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,9 +158,10 @@ func supportPayload(t *testing.T, role, workloadID string) []byte {
 	return payload
 }
 
-func appendCompletePrimaryLedger(t *testing.T, path string, mutate func(int, *SampleSet)) RawLedgerReceipt {
+func appendCompletePrimaryLedger(t *testing.T, root string, mutate func(int, *SampleSet)) RawLedgerReceipt {
 	t.Helper()
-	appendClosure(t, path, EnvironmentRolePrimary, syntheticLedgerClosure(t))
+	expected := syntheticLedgerClosure(t)
+	appendClosure(t, root, EnvironmentRolePrimary, expected)
 	bundle, records, _ := completeSyntheticBundle(t)
 	for i, endpoint := range bundle.Endpoints {
 		payload := records[endpoint.RawRecordDigest]
@@ -163,14 +177,14 @@ func appendCompletePrimaryLedger(t *testing.T, path string, mutate func(int, *Sa
 				t.Fatal(err)
 			}
 		}
-		if _, err := AppendRawLedger(path, EnvironmentRolePrimary, RecordEndpoint, payload); err != nil {
+		if _, err := AppendBoundRawLedger(root, EnvironmentRolePrimary, expected, RecordEndpoint, payload); err != nil {
 			t.Fatalf("append endpoint %d: %v", i, err)
 		}
 	}
 	var receipt RawLedgerReceipt
 	for _, workloadID := range WorkloadIDs {
 		var err error
-		receipt, err = AppendRawLedger(path, EnvironmentRolePrimary, RecordSupport, supportPayload(t, EnvironmentRolePrimary, workloadID))
+		receipt, err = AppendBoundRawLedger(root, EnvironmentRolePrimary, expected, RecordSupport, supportPayload(t, EnvironmentRolePrimary, workloadID))
 		if err != nil {
 			t.Fatalf("append support %s: %v", workloadID, err)
 		}
@@ -179,13 +193,13 @@ func appendCompletePrimaryLedger(t *testing.T, path string, mutate func(int, *Sa
 }
 
 func TestCompleteRawLedgerDelegatesToFrozenBundleDecision(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "primary.jsonl")
-	receipt := appendCompletePrimaryLedger(t, path, nil)
+	root := newLedgerRepository(t)
+	receipt := appendCompletePrimaryLedger(t, root, nil)
 	if receipt.State != RawPresentComplete || receipt.RecordCount != completeLedgerRecords || receipt.BundleOutcome != OutcomeThresholdMet {
 		t.Fatalf("complete receipt = %+v", receipt)
 	}
 
-	regressed := filepath.Join(t.TempDir(), "primary.jsonl")
+	regressed := newLedgerRepository(t)
 	receipt = appendCompletePrimaryLedger(t, regressed, func(index int, sample *SampleSet) {
 		if index != 0 {
 			return
@@ -203,9 +217,9 @@ func TestCompleteRawLedgerDelegatesToFrozenBundleDecision(t *testing.T) {
 }
 
 func TestRawLedgerRejectsChainAndCardinalityTampering(t *testing.T) {
-	validPath := filepath.Join(t.TempDir(), "primary.jsonl")
-	appendCompletePrimaryLedger(t, validPath, nil)
-	valid, err := os.ReadFile(validPath)
+	validRoot := newLedgerRepository(t)
+	appendCompletePrimaryLedger(t, validRoot, nil)
+	valid, err := os.ReadFile(ledgerPath(validRoot, EnvironmentRolePrimary))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -241,11 +255,14 @@ func TestRawLedgerRejectsChainAndCardinalityTampering(t *testing.T) {
 			if testCase.name != "truncated final line" {
 				content = append(content, '\n')
 			}
-			path := filepath.Join(t.TempDir(), "primary.jsonl")
-			if err := os.WriteFile(path, content, 0o600); err != nil {
+			root := newLedgerRepository(t)
+			if err := os.Mkdir(filepath.Join(root, "benchmarks", "raw"), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := VerifyRawLedger(path, EnvironmentRolePrimary, nil); err == nil {
+			if err := os.WriteFile(ledgerPath(root, EnvironmentRolePrimary), content, 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := VerifyRawLedger(root, EnvironmentRolePrimary, syntheticLedgerClosure(t)); err == nil {
 				t.Fatal("tampered ledger verified")
 			}
 		})
@@ -286,9 +303,9 @@ func TestBindingClosureRejectsEveryInvalidOrChangedIdentity(t *testing.T) {
 	}
 	changed := base
 	changed.AnalyzerDigest = syntheticDigest("changed analyzer")
-	path := filepath.Join(t.TempDir(), "primary.jsonl")
-	appendClosure(t, path, EnvironmentRolePrimary, changed)
-	if _, err := VerifyRawLedger(path, EnvironmentRolePrimary, &base); err == nil {
+	root := newLedgerRepository(t)
+	appendClosure(t, root, EnvironmentRolePrimary, changed)
+	if _, err := VerifyRawLedger(root, EnvironmentRolePrimary, base); err == nil {
 		t.Fatal("valid-but-changed raw closure agreed with the independently bound side")
 	}
 	changed = base
@@ -333,9 +350,9 @@ func TestRawLedgerRejectsInvalidEndpointAndSupportValues(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			path := filepath.Join(t.TempDir(), "primary.jsonl")
-			appendClosure(t, path, EnvironmentRolePrimary, closure)
-			if _, err := AppendRawLedger(path, EnvironmentRolePrimary, RecordEndpoint, payload); err == nil {
+			root := newLedgerRepository(t)
+			appendClosure(t, root, EnvironmentRolePrimary, closure)
+			if _, err := AppendBoundRawLedger(root, EnvironmentRolePrimary, closure, RecordEndpoint, payload); err == nil {
 				t.Fatal("invalid endpoint appended")
 			}
 		})
@@ -343,16 +360,16 @@ func TestRawLedgerRejectsInvalidEndpointAndSupportValues(t *testing.T) {
 	if _, err := json.Marshal(Pair{Java: math.NaN(), Rust: 1}); err == nil {
 		t.Fatal("encoding/json unexpectedly encoded NaN")
 	}
-	path := filepath.Join(t.TempDir(), "primary.jsonl")
-	appendClosure(t, path, EnvironmentRolePrimary, closure)
-	if _, err := AppendRawLedger(path, EnvironmentRolePrimary, RecordEndpoint, []byte(`{"java":NaN}`)); err == nil {
+	root := newLedgerRepository(t)
+	appendClosure(t, root, EnvironmentRolePrimary, closure)
+	if _, err := AppendBoundRawLedger(root, EnvironmentRolePrimary, closure, RecordEndpoint, []byte(`{"java":NaN}`)); err == nil {
 		t.Fatal("non-JSON nonfinite token appended")
 	}
 
-	partial := filepath.Join(t.TempDir(), "primary.jsonl")
+	partial := newLedgerRepository(t)
 	appendClosure(t, partial, EnvironmentRolePrimary, closure)
 	for _, endpoint := range bundle.Endpoints {
-		if _, err := AppendRawLedger(partial, EnvironmentRolePrimary, RecordEndpoint, records[endpoint.RawRecordDigest]); err != nil {
+		if _, err := AppendBoundRawLedger(partial, EnvironmentRolePrimary, closure, RecordEndpoint, records[endpoint.RawRecordDigest]); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -395,13 +412,14 @@ func TestRawLedgerRejectsInvalidEndpointAndSupportValues(t *testing.T) {
 }
 
 func TestWriterFailureStrandsLockAndPartialTail(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "primary.jsonl")
-	payload, err := json.Marshal(syntheticLedgerClosure(t))
+	root := newLedgerRepository(t)
+	expected := syntheticLedgerClosure(t)
+	payload, err := json.Marshal(expected)
 	if err != nil {
 		t.Fatal(err)
 	}
 	injected := errors.New("injected writer failure")
-	_, err = appendRawLedger(path, EnvironmentRolePrimary, RecordBindingClosure, payload, func(file *os.File, line []byte) (int, error) {
+	_, err = appendBoundRawLedger(root, EnvironmentRolePrimary, expected, RecordBindingClosure, payload, func(file *os.File, line []byte) (int, error) {
 		written, writeErr := file.Write(line[:len(line)/2])
 		if writeErr != nil {
 			return written, writeErr
@@ -411,24 +429,24 @@ func TestWriterFailureStrandsLockAndPartialTail(t *testing.T) {
 	if !errors.Is(err, injected) {
 		t.Fatalf("append error = %v", err)
 	}
-	if _, err := os.Lstat(path + ".lock"); err != nil {
+	if _, err := os.Lstat(ledgerPath(root, EnvironmentRolePrimary) + ".lock"); err != nil {
 		t.Fatalf("failed writer did not strand lock: %v", err)
 	}
-	if _, err := VerifyRawLedger(path, EnvironmentRolePrimary, nil); err == nil {
+	if _, err := VerifyRawLedger(root, EnvironmentRolePrimary, expected); err == nil {
 		t.Fatal("partial tail verified")
 	}
-	if _, err := AppendRawLedger(path, EnvironmentRolePrimary, RecordBindingClosure, payload); err == nil {
+	if _, err := AppendBoundRawLedger(root, EnvironmentRolePrimary, expected, RecordBindingClosure, payload); err == nil {
 		t.Fatal("stranded lock did not block subsequent append")
 	}
 
-	panicPath := filepath.Join(t.TempDir(), "primary.jsonl")
+	panicRoot := newLedgerRepository(t)
 	func() {
 		defer func() { _ = recover() }()
-		_, _ = appendRawLedger(panicPath, EnvironmentRolePrimary, RecordBindingClosure, payload, func(_ *os.File, _ []byte) (int, error) {
+		_, _ = appendBoundRawLedger(panicRoot, EnvironmentRolePrimary, expected, RecordBindingClosure, payload, func(_ *os.File, _ []byte) (int, error) {
 			panic("injected writer panic")
 		})
 	}()
-	if _, err := os.Lstat(panicPath + ".lock"); err != nil {
+	if _, err := os.Lstat(ledgerPath(panicRoot, EnvironmentRolePrimary) + ".lock"); err != nil {
 		t.Fatalf("panicked writer did not strand lock: %v", err)
 	}
 }
@@ -446,5 +464,86 @@ func TestStrictLedgerDecodeRejectsDuplicateUnknownTrailingAndNonfiniteJSON(t *te
 		if err := decodeStrictJSON(raw, &entry); err == nil {
 			t.Fatalf("hostile JSON decoded: %s", raw)
 		}
+	}
+}
+
+func TestBoundRawLedgerRejectsSelfAttestedClosureAndSymlinkEscapes(t *testing.T) {
+	repositoryRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repositoryRoot, "benchmarks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	expected := syntheticLedgerClosure(t)
+	forged := expected
+	forged.AnalyzerDigest = syntheticDigest("self-attested replacement")
+	forgedPayload, err := json.Marshal(forged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AppendBoundRawLedger(repositoryRoot, EnvironmentRolePrimary, expected, RecordBindingClosure, forgedPayload); err == nil {
+		t.Fatal("self-attested first closure appended")
+	}
+	if _, err := os.Lstat(filepath.Join(repositoryRoot, "benchmarks", "raw")); !os.IsNotExist(err) {
+		t.Fatalf("rejected first closure created raw directory: %v", err)
+	}
+
+	repositoryLink := filepath.Join(t.TempDir(), "repository-link")
+	if err := os.Symlink(repositoryRoot, repositoryLink); err != nil {
+		t.Fatal(err)
+	}
+	expectedPayload, err := json.Marshal(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AppendBoundRawLedger(repositoryLink, EnvironmentRolePrimary, expected, RecordBindingClosure, expectedPayload); err == nil {
+		t.Fatal("symlinked repository root accepted")
+	}
+
+	outside := t.TempDir()
+	if err := os.Symlink(outside, filepath.Join(repositoryRoot, "benchmarks", "raw")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AppendBoundRawLedger(repositoryRoot, EnvironmentRolePrimary, expected, RecordBindingClosure, expectedPayload); err == nil {
+		t.Fatal("symlinked raw directory accepted")
+	}
+	if _, err := os.Lstat(filepath.Join(outside, "primary.jsonl")); !os.IsNotExist(err) {
+		t.Fatalf("out-of-root raw file created: %v", err)
+	}
+}
+
+func TestBoundRawLedgerCreatesCleanRawTreeAndRejectsFinalSymlink(t *testing.T) {
+	repositoryRoot := t.TempDir()
+	if err := os.Mkdir(filepath.Join(repositoryRoot, "benchmarks"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	expected := syntheticLedgerClosure(t)
+	payload, err := json.Marshal(expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt, err := AppendBoundRawLedger(repositoryRoot, EnvironmentRolePrimary, expected, RecordBindingClosure, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if receipt.State != RawPresentPartial {
+		t.Fatalf("clean-tree first append = %+v", receipt)
+	}
+	rawInfo, err := os.Lstat(filepath.Join(repositoryRoot, "benchmarks", "raw"))
+	if err != nil || !rawInfo.IsDir() || rawInfo.Mode()&os.ModeSymlink != 0 {
+		t.Fatalf("secure raw directory missing: %v %+v", err, rawInfo)
+	}
+
+	confirmationTarget := filepath.Join(t.TempDir(), "outside.jsonl")
+	if err := os.WriteFile(confirmationTarget, []byte("outside"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(confirmationTarget, filepath.Join(repositoryRoot, "benchmarks", "raw", "confirmation.jsonl")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AppendBoundRawLedger(repositoryRoot, EnvironmentRoleConfirmation, expected, RecordBindingClosure, payload); err == nil {
+		t.Fatal("symlinked final ledger accepted")
+	}
+	outsideBytes, err := os.ReadFile(confirmationTarget)
+	if err != nil || string(outsideBytes) != "outside" {
+		t.Fatalf("outside target changed: %q, %v", outsideBytes, err)
 	}
 }

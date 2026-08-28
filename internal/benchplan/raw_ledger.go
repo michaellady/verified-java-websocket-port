@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
@@ -49,6 +50,77 @@ type BindingClosure struct {
 	AnalyzerDigest                string            `json:"analyzer_digest"`
 	Workloads                     []WorkloadBinding `json:"workloads"`
 	SBXInsideMeasurementBoundary  bool              `json:"sbx_inside_measurement_boundary"`
+}
+
+// VerifiedClosureFacts are independently opened and verified repository,
+// environment, host, source, executable, dependency-lock, adapter, tool, and
+// analyzer bytes. Raw-ledger bytes are never an input to this seam.
+type VerifiedClosureFacts struct {
+	Plan                    []byte
+	PrimaryEnvironment      []byte
+	PrimaryHost             []byte
+	ConfirmationEnvironment []byte
+	ConfirmationHost        []byte
+	JavaSource              []byte
+	JavaExecutable          []byte
+	JavaDependencyLock      []byte
+	RustSource              []byte
+	RustExecutable          []byte
+	RustDependencyLock      []byte
+	Adapter                 []byte
+	MeasurementToolManifest []byte
+	Analyzer                []byte
+	WorkloadDefinitions     [6][]byte
+}
+
+// DeriveExpectedBindingClosure hashes the independently verified fact set and
+// derives the frozen six workload pair-order identities. The returned closure
+// is the bound-side value every ledger must match exactly.
+func DeriveExpectedBindingClosure(facts VerifiedClosureFacts) (BindingClosure, error) {
+	values := [][]byte{
+		facts.Plan, facts.PrimaryEnvironment, facts.PrimaryHost,
+		facts.ConfirmationEnvironment, facts.ConfirmationHost,
+		facts.JavaSource, facts.JavaExecutable, facts.JavaDependencyLock,
+		facts.RustSource, facts.RustExecutable, facts.RustDependencyLock,
+		facts.Adapter, facts.MeasurementToolManifest, facts.Analyzer,
+	}
+	for i, value := range values {
+		if len(value) == 0 {
+			return BindingClosure{}, fmt.Errorf("verified closure fact %d is empty", i)
+		}
+	}
+	closure := BindingClosure{
+		PlanDigest:                    digestBytes(facts.Plan),
+		PrimaryEnvironmentDigest:      digestBytes(facts.PrimaryEnvironment),
+		PrimaryHostDigest:             digestBytes(facts.PrimaryHost),
+		ConfirmationEnvironmentDigest: digestBytes(facts.ConfirmationEnvironment),
+		ConfirmationHostDigest:        digestBytes(facts.ConfirmationHost),
+		JavaSourceDigest:              digestBytes(facts.JavaSource),
+		JavaExecutableDigest:          digestBytes(facts.JavaExecutable),
+		JavaDependencyLockDigest:      digestBytes(facts.JavaDependencyLock),
+		RustSourceDigest:              digestBytes(facts.RustSource),
+		RustExecutableDigest:          digestBytes(facts.RustExecutable),
+		RustDependencyLockDigest:      digestBytes(facts.RustDependencyLock),
+		AdapterDigest:                 digestBytes(facts.Adapter),
+		MeasurementToolManifestDigest: digestBytes(facts.MeasurementToolManifest),
+		AnalyzerDigest:                digestBytes(facts.Analyzer),
+		SBXInsideMeasurementBoundary:  false,
+	}
+	for i, workloadID := range WorkloadIDs {
+		if len(facts.WorkloadDefinitions[i]) == 0 {
+			return BindingClosure{}, fmt.Errorf("verified workload definition %d is empty", i)
+		}
+		order, err := PairOrder(workloadID)
+		if err != nil {
+			return BindingClosure{}, err
+		}
+		closure.Workloads = append(closure.Workloads, WorkloadBinding{
+			WorkloadID:       workloadID,
+			DefinitionDigest: digestBytes(facts.WorkloadDefinitions[i]),
+			PairOrderDigest:  pairOrderDigest(order),
+		})
+	}
+	return closure, validateBindingClosure(closure)
 }
 
 type GCEvent struct {
@@ -331,33 +403,16 @@ func validatePayloadForPosition(payload []byte, role, recordType string, positio
 	return BindingClosure{}, nil
 }
 
-// VerifyRawLedger verifies an exact newline-terminated hash chain. Valid
-// prefixes remain PRESENT_PARTIAL evidence; malformed, shortened, reordered,
-// replaced, or post-completion data returns an error and is never repaired.
-func VerifyRawLedger(path, role string, expectedClosure *BindingClosure) (RawLedgerReceipt, error) {
+func verifyRawLedgerBytes(content []byte, role string, expectedClosure BindingClosure) (RawLedgerReceipt, error) {
 	var receipt RawLedgerReceipt
 	if role != EnvironmentRolePrimary && role != EnvironmentRoleConfirmation {
 		return receipt, fmt.Errorf("environment role %q is invalid", role)
 	}
-	info, err := os.Lstat(path)
-	if err != nil {
-		return receipt, err
-	}
-	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
-		return receipt, errors.New("raw ledger must be a regular non-symlink file")
-	}
-	if info.Size() <= 0 {
+	if len(content) == 0 {
 		return receipt, errors.New("empty raw ledger is PRESENT_INVALID, not ABSENT")
 	}
-	if info.Size() > maxRawLedgerBytes {
+	if len(content) > maxRawLedgerBytes {
 		return receipt, errors.New("raw ledger exceeds byte bound")
-	}
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return receipt, err
-	}
-	if int64(len(content)) != info.Size() {
-		return receipt, errors.New("raw ledger changed while being read")
 	}
 	if content[len(content)-1] != '\n' {
 		return receipt, errors.New("raw ledger has a truncated final line")
@@ -388,7 +443,7 @@ func VerifyRawLedger(path, role string, expectedClosure *BindingClosure) (RawLed
 		if entry.PayloadDigest != digestBytes(entry.Payload) {
 			return receipt, fmt.Errorf("ledger line %d payload digest mismatch", i)
 		}
-		boundClosure := expectedClosure
+		boundClosure := &expectedClosure
 		if i > 0 {
 			boundClosure = &closure
 		}
@@ -437,24 +492,421 @@ func VerifyRawLedger(path, role string, expectedClosure *BindingClosure) (RawLed
 
 type rawLedgerWriter func(*os.File, []byte) (int, error)
 
-// AppendRawLedger serializes one canonical entry under an adjacent exclusive
-// lock. It never truncates or repairs evidence and fsyncs every successful
-// append before releasing ownership.
-func AppendRawLedger(path, role, recordType string, payload []byte) (RawLedgerReceipt, error) {
-	return appendRawLedger(path, role, recordType, payload, func(file *os.File, line []byte) (int, error) {
+type secureLedgerRepository struct {
+	repository *os.Root
+	raw        *os.Root
+}
+
+func rejectSymlinkedPath(path string) (string, error) {
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		return "", err
+	}
+	clean := filepath.Clean(absolute)
+	info, err := os.Lstat(clean)
+	if err != nil {
+		return "", err
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("repository root is a symlink: %s", clean)
+	}
+	canonical, err := filepath.EvalSymlinks(clean)
+	if err != nil {
+		return "", err
+	}
+	return canonical, nil
+}
+
+func openSecureLedgerRepository(repositoryRoot string, createRaw bool) (*secureLedgerRepository, error) {
+	clean, err := rejectSymlinkedPath(repositoryRoot)
+	if err != nil {
+		return nil, err
+	}
+	pathInfo, err := os.Lstat(clean)
+	if err != nil || !pathInfo.IsDir() {
+		return nil, fmt.Errorf("repository root is not a directory: %w", err)
+	}
+	repository, err := os.OpenRoot(clean)
+	if err != nil {
+		return nil, err
+	}
+	fail := func(cause error) (*secureLedgerRepository, error) {
+		_ = repository.Close()
+		return nil, cause
+	}
+	heldInfo, err := repository.Stat(".")
+	if err != nil || !os.SameFile(pathInfo, heldInfo) {
+		return fail(errors.New("repository root changed while being opened"))
+	}
+	benchmarksInfo, err := repository.Lstat("benchmarks")
+	if err != nil || !benchmarksInfo.IsDir() || benchmarksInfo.Mode()&os.ModeSymlink != 0 {
+		return fail(errors.New("benchmarks must be a regular directory beneath the held repository root"))
+	}
+	rawInfo, err := repository.Lstat("benchmarks/raw")
+	if errors.Is(err, os.ErrNotExist) && createRaw {
+		if err := repository.Mkdir("benchmarks/raw", 0o700); err != nil {
+			return fail(err)
+		}
+		if err := syncRootDirectory(repository, "benchmarks"); err != nil {
+			return fail(err)
+		}
+		rawInfo, err = repository.Lstat("benchmarks/raw")
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return &secureLedgerRepository{repository: repository}, nil
+	}
+	if err != nil || !rawInfo.IsDir() || rawInfo.Mode()&os.ModeSymlink != 0 {
+		return fail(errors.New("benchmarks/raw must be a regular non-symlink directory"))
+	}
+	raw, err := repository.OpenRoot("benchmarks/raw")
+	if err != nil {
+		return fail(err)
+	}
+	heldRawInfo, err := raw.Stat(".")
+	if err != nil || !os.SameFile(rawInfo, heldRawInfo) {
+		_ = raw.Close()
+		return fail(errors.New("benchmarks/raw changed while being opened"))
+	}
+	return &secureLedgerRepository{repository: repository, raw: raw}, nil
+}
+
+func (repository *secureLedgerRepository) close() {
+	if repository.raw != nil {
+		_ = repository.raw.Close()
+	}
+	_ = repository.repository.Close()
+}
+
+func syncRootDirectory(root *os.Root, name string) error {
+	directory, err := root.Open(name)
+	if err != nil {
+		return err
+	}
+	syncErr := directory.Sync()
+	closeErr := directory.Close()
+	if syncErr != nil {
+		return syncErr
+	}
+	return closeErr
+}
+
+func readHeldRepositoryFile(root *os.Root, name string, limit int64) ([]byte, error) {
+	file, err := openHeldRegular(root, name, os.O_RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || info.Size() <= 0 || info.Size() > limit {
+		return nil, fmt.Errorf("repository fact %s is empty or exceeds its byte bound", name)
+	}
+	content, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil || int64(len(content)) != info.Size() {
+		return nil, fmt.Errorf("repository fact %s changed while held", name)
+	}
+	return content, nil
+}
+
+func secureTreeFact(root *os.Root, directory string) ([]byte, error) {
+	var fact bytes.Buffer
+	err := fs.WalkDir(root.FS(), directory, func(name string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if name == directory {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil {
+			return err
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("repository fact tree contains symlink %s", name)
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("repository fact tree contains nonregular file %s", name)
+		}
+		content, err := readHeldRepositoryFile(root, name, 16<<20)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(&fact, "%s\x00%s\x00%d\n", name, digestBytes(content), len(content))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	if fact.Len() == 0 {
+		return nil, fmt.Errorf("repository fact tree %s is empty", directory)
+	}
+	return fact.Bytes(), nil
+}
+
+func boundToolFact(primary, confirmation environmentDocument, name string) ([]byte, string, error) {
+	left, leftPresent := primary.ToolIdentities[name]
+	right, rightPresent := confirmation.ToolIdentities[name]
+	if !leftPresent || !rightPresent || left.Status != "BOUND" || right.Status != "BOUND" || len(left.Value) == 0 || !bytes.Equal(left.Value, right.Value) {
+		return nil, "", fmt.Errorf("bound tool fact %s is absent or differs between hosts", name)
+	}
+	var digestValue string
+	if json.Unmarshal(left.Value, &digestValue) == nil && validDigest(digestValue) {
+		return append([]byte(nil), left.Value...), digestValue, nil
+	}
+	return append([]byte(nil), left.Value...), digestBytes(left.Value), nil
+}
+
+// DeriveRepositoryExpectedBindingClosure derives the bound-side closure from
+// the verified repository and both BOUND environment documents. The current
+// unbound tree fails before any raw or payload operation.
+func DeriveRepositoryExpectedBindingClosure(repositoryRoot string) (BindingClosure, error) {
+	report, err := Verify(repositoryRoot)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	if !report.FullyBound() {
+		return BindingClosure{}, errors.New("both verified environment documents must be BOUND before expected-closure derivation")
+	}
+	repository, err := openSecureLedgerRepository(repositoryRoot, false)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	defer repository.close()
+	plan, err := readHeldRepositoryFile(repository.repository, "benchmarks/plan/workloads.json", 4<<20)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	primaryRaw, err := readHeldRepositoryFile(repository.repository, "benchmarks/environments/primary-macos.json", 4<<20)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	confirmationRaw, err := readHeldRepositoryFile(repository.repository, "benchmarks/environments/confirmation.json", 4<<20)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	var primary, confirmation environmentDocument
+	if err := json.Unmarshal(primaryRaw, &primary); err != nil {
+		return BindingClosure{}, err
+	}
+	if err := json.Unmarshal(confirmationRaw, &confirmation); err != nil {
+		return BindingClosure{}, err
+	}
+	primaryHost, err := json.Marshal(primary.HostIdentity)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	confirmationHost, err := json.Marshal(confirmation.HostIdentity)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	javaSource, err := secureTreeFact(repository.repository, "java-oracle/src/main/java")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	rustCoreSource, err := secureTreeFact(repository.repository, "rust/connection-core/src")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	rustDriverSource, err := secureTreeFact(repository.repository, "rust/websocket-driver/src")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	rustTesteeSource, err := secureTreeFact(repository.repository, "rust/websocket-testee/src")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	rustSource := bytes.Join([][]byte{rustCoreSource, rustDriverSource, rustTesteeSource}, []byte{0})
+	adapter, err := secureTreeFact(repository.repository, "cmd/benchrunner")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	javaLock, err := readHeldRepositoryFile(repository.repository, "java-oracle/pom.xml", 4<<20)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	rustLock, err := readHeldRepositoryFile(repository.repository, "rust/Cargo.lock", 16<<20)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	javaExecutableFact, javaExecutableDigest, err := boundToolFact(primary, confirmation, "java_executable_digest")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	rustExecutableFact, rustExecutableDigest, err := boundToolFact(primary, confirmation, "rust_executable_digest")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	adapterFact, adapterDigest, err := boundToolFact(primary, confirmation, "load_driver")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	toolFact, toolDigest, err := boundToolFact(primary, confirmation, "measurement_tools")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	analyzerFact, analyzerDigest, err := boundToolFact(primary, confirmation, "analyzer")
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	var planWorkloads struct {
+		Workloads []json.RawMessage `json:"workloads"`
+	}
+	if err := json.Unmarshal(plan, &planWorkloads); err != nil {
+		return BindingClosure{}, err
+	}
+	if len(planWorkloads.Workloads) != len(WorkloadIDs) {
+		return BindingClosure{}, errors.New("verified plan workload denominator drift")
+	}
+	facts := VerifiedClosureFacts{
+		Plan: plan, PrimaryEnvironment: primaryRaw, PrimaryHost: primaryHost,
+		ConfirmationEnvironment: confirmationRaw, ConfirmationHost: confirmationHost,
+		JavaSource: javaSource, JavaExecutable: javaExecutableFact, JavaDependencyLock: javaLock,
+		RustSource: rustSource, RustExecutable: rustExecutableFact, RustDependencyLock: rustLock,
+		Adapter: append(adapter, adapterFact...), MeasurementToolManifest: toolFact, Analyzer: analyzerFact,
+	}
+	for i := range planWorkloads.Workloads {
+		facts.WorkloadDefinitions[i] = planWorkloads.Workloads[i]
+	}
+	closure, err := DeriveExpectedBindingClosure(facts)
+	if err != nil {
+		return BindingClosure{}, err
+	}
+	closure.JavaExecutableDigest = javaExecutableDigest
+	closure.RustExecutableDigest = rustExecutableDigest
+	closure.AdapterDigest = adapterDigest
+	closure.MeasurementToolManifestDigest = toolDigest
+	closure.AnalyzerDigest = analyzerDigest
+	return closure, validateBindingClosure(closure)
+}
+
+func ledgerFilename(role string) (string, error) {
+	switch role {
+	case EnvironmentRolePrimary:
+		return "primary.jsonl", nil
+	case EnvironmentRoleConfirmation:
+		return "confirmation.jsonl", nil
+	default:
+		return "", fmt.Errorf("environment role %q is invalid", role)
+	}
+}
+
+func openHeldRegular(root *os.Root, name string, flags int, perm os.FileMode) (*os.File, error) {
+	before, lstatErr := root.Lstat(name)
+	if lstatErr == nil && before.Mode()&os.ModeSymlink != 0 {
+		return nil, fmt.Errorf("%s must not be a symlink", name)
+	}
+	file, err := root.OpenFile(name, flags, perm)
+	if err != nil {
+		return nil, err
+	}
+	after, err := file.Stat()
+	if err != nil || !after.Mode().IsRegular() {
+		_ = file.Close()
+		return nil, fmt.Errorf("%s is not a held regular file", name)
+	}
+	if lstatErr == nil && !os.SameFile(before, after) {
+		_ = file.Close()
+		return nil, fmt.Errorf("%s changed while being opened", name)
+	}
+	if lstatErr != nil && !errors.Is(lstatErr, os.ErrNotExist) {
+		_ = file.Close()
+		return nil, lstatErr
+	}
+	return file, nil
+}
+
+func verifyHeldRawLedger(file *os.File, role string, expected BindingClosure) (RawLedgerReceipt, error) {
+	var receipt RawLedgerReceipt
+	before, err := file.Stat()
+	if err != nil || !before.Mode().IsRegular() {
+		return receipt, errors.New("raw ledger is not a regular held file")
+	}
+	if before.Size() <= 0 || before.Size() > maxRawLedgerBytes {
+		return receipt, errors.New("raw ledger is empty or exceeds its byte bound")
+	}
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return receipt, err
+	}
+	content, err := io.ReadAll(io.LimitReader(file, maxRawLedgerBytes+1))
+	if err != nil {
+		return receipt, err
+	}
+	after, err := file.Stat()
+	if err != nil || !os.SameFile(before, after) || before.Size() != after.Size() || int64(len(content)) != after.Size() {
+		return receipt, errors.New("raw ledger changed while held and being read")
+	}
+	return verifyRawLedgerBytes(content, role, expected)
+}
+
+// VerifyRawLedger securely opens and verifies one role's ledger beneath a
+// held repository/raw root against an independently derived expected closure.
+func VerifyRawLedger(repositoryRoot, role string, expected BindingClosure) (RawLedgerReceipt, error) {
+	if err := validateBindingClosure(expected); err != nil {
+		return RawLedgerReceipt{}, fmt.Errorf("expected closure: %w", err)
+	}
+	filename, err := ledgerFilename(role)
+	if err != nil {
+		return RawLedgerReceipt{}, err
+	}
+	repository, err := openSecureLedgerRepository(repositoryRoot, false)
+	if err != nil {
+		return RawLedgerReceipt{}, err
+	}
+	defer repository.close()
+	if repository.raw == nil {
+		return RawLedgerReceipt{}, os.ErrNotExist
+	}
+	file, err := openHeldRegular(repository.raw, filename, os.O_RDONLY, 0)
+	if err != nil {
+		return RawLedgerReceipt{}, err
+	}
+	defer file.Close()
+	return verifyHeldRawLedger(file, role, expected)
+}
+
+// AppendBoundRawLedger serializes one canonical entry under an adjacent
+// exclusive lock. The first record must equal the independently expected
+// closure; every later verification retains that same binding.
+func AppendBoundRawLedger(repositoryRoot, role string, expected BindingClosure, recordType string, payload []byte) (RawLedgerReceipt, error) {
+	return appendBoundRawLedger(repositoryRoot, role, expected, recordType, payload, func(file *os.File, line []byte) (int, error) {
 		return file.Write(line)
 	})
 }
 
-func appendRawLedger(path, role, recordType string, payload []byte, write rawLedgerWriter) (receipt RawLedgerReceipt, resultErr error) {
+func appendBoundRawLedger(repositoryRoot, role string, expected BindingClosure, recordType string, payload []byte, write rawLedgerWriter) (receipt RawLedgerReceipt, resultErr error) {
 	if role != EnvironmentRolePrimary && role != EnvironmentRoleConfirmation {
 		return receipt, fmt.Errorf("environment role %q is invalid", role)
+	}
+	if err := validateBindingClosure(expected); err != nil {
+		return receipt, fmt.Errorf("expected closure: %w", err)
 	}
 	if len(payload) == 0 || len(payload) > maxRawPayloadBytes {
 		return receipt, errors.New("raw payload is empty or exceeds its byte bound")
 	}
-	lockPath := path + ".lock"
-	lock, err := os.OpenFile(lockPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	// Reject a forged or non-closure first payload before clean-tree directory
+	// creation. Existing-ledger position is resolved only after lock ownership.
+	var prospective BindingClosure
+	if recordType == RecordBindingClosure {
+		var err error
+		prospective, err = validatePayloadForPosition(payload, role, recordType, 0, &expected)
+		if err != nil {
+			return receipt, err
+		}
+		_ = prospective
+	}
+	filename, err := ledgerFilename(role)
+	if err != nil {
+		return receipt, err
+	}
+	repository, err := openSecureLedgerRepository(repositoryRoot, true)
+	if err != nil {
+		return receipt, err
+	}
+	defer repository.close()
+	lockName := filename + ".lock"
+	lock, err := repository.raw.OpenFile(lockName, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return receipt, fmt.Errorf("raw ledger lock acquisition failed: %w", err)
 	}
@@ -464,8 +916,11 @@ func appendRawLedger(path, role, recordType string, payload []byte, write rawLed
 	preserveLock := false
 	defer func() {
 		if !preserveLock {
-			if removeErr := os.Remove(lockPath); resultErr == nil && removeErr != nil {
+			if removeErr := repository.raw.Remove(lockName); resultErr == nil && removeErr != nil {
 				resultErr = removeErr
+			}
+			if resultErr == nil {
+				resultErr = syncRootDirectory(repository.raw, ".")
 			}
 		}
 	}()
@@ -473,21 +928,38 @@ func appendRawLedger(path, role, recordType string, payload []byte, write rawLed
 	position := 0
 	previousDigest := zeroDigest
 	closureDigest := ""
-	var currentClosure *BindingClosure
-	_, statErr := os.Lstat(path)
+	currentClosure := &expected
+	_, statErr := repository.raw.Lstat(filename)
 	existing := statErr == nil
 	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
 		return receipt, statErr
 	}
+	flags := os.O_RDWR | os.O_APPEND
+	if !existing {
+		flags |= os.O_CREATE | os.O_EXCL
+	}
+	file, err := openHeldRegular(repository.raw, filename, flags, 0o600)
+	if err != nil {
+		return receipt, err
+	}
+	defer func() {
+		if closeErr := file.Close(); resultErr == nil && closeErr != nil {
+			resultErr = closeErr
+		}
+	}()
+	if !existing {
+		if err := syncRootDirectory(repository.raw, "."); err != nil {
+			return receipt, err
+		}
+	}
 	if existing {
-		current, err := VerifyRawLedger(path, role, nil)
+		current, err := verifyHeldRawLedger(file, role, expected)
 		if err != nil {
 			return receipt, err
 		}
 		position = current.RecordCount
 		previousDigest = current.TerminalEntryDigest
 		closureDigest = current.BindingClosureDigest
-		currentClosure = &current.Closure
 	}
 	parsedClosure, err := validatePayloadForPosition(payload, role, recordType, position, currentClosure)
 	if err != nil {
@@ -513,14 +985,6 @@ func appendRawLedger(path, role, recordType string, payload []byte, write rawLed
 		return receipt, err
 	}
 	encoded = append(encoded, '\n')
-	flags := os.O_WRONLY | os.O_APPEND
-	if !existing {
-		flags |= os.O_CREATE | os.O_EXCL
-	}
-	file, err := os.OpenFile(filepath.Clean(path), flags, 0o600)
-	if err != nil {
-		return receipt, err
-	}
 	preserveLock = true
 	written, writeErr := write(file, encoded)
 	if writeErr == nil && written != len(encoded) {
@@ -529,14 +993,10 @@ func appendRawLedger(path, role, recordType string, payload []byte, write rawLed
 	if writeErr == nil {
 		writeErr = file.Sync()
 	}
-	closeErr := file.Close()
 	if writeErr != nil {
 		return receipt, writeErr
 	}
-	if closeErr != nil {
-		return receipt, closeErr
-	}
-	receipt, err = VerifyRawLedger(path, role, nil)
+	receipt, err = verifyHeldRawLedger(file, role, expected)
 	if err != nil {
 		return receipt, err
 	}

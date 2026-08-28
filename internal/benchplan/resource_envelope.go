@@ -3,7 +3,6 @@ package benchplan
 import (
 	"errors"
 	"os"
-	"path/filepath"
 )
 
 const ResourceEnvelopeDecisionSchema = "vjwp-benchmark-resource-envelope-decision/1.0.0"
@@ -134,6 +133,10 @@ func newResourceEnvelopeDecision() ResourceEnvelopeDecision {
 // inspects raw evidence. It never measures, binds a host, or authorizes a
 // sample; current absent evidence therefore remains a typed blocked decision.
 func DecideResourceEnvelope(root string) (ResourceEnvelopeDecision, error) {
+	return decideResourceEnvelopeWithExpected(root, nil)
+}
+
+func decideResourceEnvelopeWithExpected(root string, expected *BindingClosure) (ResourceEnvelopeDecision, error) {
 	decision := newResourceEnvelopeDecision()
 	report, err := Verify(root)
 	if err != nil {
@@ -142,16 +145,17 @@ func DecideResourceEnvelope(root string) (ResourceEnvelopeDecision, error) {
 	if report.HostBindingIsOnlyBlocker() || report.FullyBound() {
 		decision.MechanicsStatus = MechanicsPassOwnerRelaxed
 	}
-	paths := map[string]string{
-		EnvironmentRolePrimary:      filepath.Join(root, "benchmarks", "raw", "primary.jsonl"),
-		EnvironmentRoleConfirmation: filepath.Join(root, "benchmarks", "raw", "confirmation.jsonl"),
+	repository, err := openSecureLedgerRepository(root, false)
+	if err != nil {
+		return decision, err
 	}
+	defer repository.close()
 	for _, role := range []string{EnvironmentRolePrimary, EnvironmentRoleConfirmation} {
 		document := "benchmarks/environments/primary-macos.json"
 		if role == EnvironmentRoleConfirmation {
 			document = "benchmarks/environments/confirmation.json"
 		}
-		state, err := classifyRawLedger(paths[role], role, report.EnvironmentBindingStatus[document] == "BOUND")
+		state, err := classifyRawLedger(repository, role, expected, report.EnvironmentBindingStatus[document] == "BOUND")
 		if err != nil {
 			return decision, err
 		}
@@ -168,8 +172,15 @@ func DecideResourceEnvelope(root string) (ResourceEnvelopeDecision, error) {
 	return decision, nil
 }
 
-func classifyRawLedger(path, role string, hostBound bool) (string, error) {
-	info, err := os.Lstat(path)
+func classifyRawLedger(repository *secureLedgerRepository, role string, expected *BindingClosure, hostBound bool) (string, error) {
+	if repository.raw == nil {
+		return RawAbsent, nil
+	}
+	filename, err := ledgerFilename(role)
+	if err != nil {
+		return "", err
+	}
+	info, err := repository.raw.Lstat(filename)
 	if errors.Is(err, os.ErrNotExist) {
 		return RawAbsent, nil
 	}
@@ -179,11 +190,25 @@ func classifyRawLedger(path, role string, hostBound bool) (string, error) {
 	if !info.Mode().IsRegular() || info.Size() == 0 {
 		return RawPresentInvalid, nil
 	}
-	receipt, err := VerifyRawLedger(path, role, nil)
+	if expected == nil {
+		return RawPresentInvalid, nil
+	}
+	file, err := openHeldRegular(repository.raw, filename, os.O_RDONLY, 0)
 	if err != nil {
 		return RawPresentInvalid, nil
 	}
+	receipt, err := verifyHeldRawLedger(file, role, *expected)
+	closeErr := file.Close()
+	if err != nil {
+		return RawPresentInvalid, nil
+	}
+	if closeErr != nil {
+		return "", closeErr
+	}
 	if receipt.State == RawPresentPartial {
+		if !hostBound && receipt.RecordCount > 1 {
+			return RawPresentInvalid, nil
+		}
 		return RawPresentPartial, nil
 	}
 	if !hostBound {
