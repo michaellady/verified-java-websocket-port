@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -201,8 +202,148 @@ func TestProtectedProjectionRejectsPathLeakAndStrongerClaims(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := rejectLeakKeys(raw); err == nil {
+		if err := rejectProtectedMaterial(raw); err == nil {
 			t.Fatal("protected path was accepted")
 		}
 	})
+	t.Run("secret in ordinary value", func(t *testing.T) {
+		if err := rejectProtectedMaterial([]byte(`{"status":"token=hostile"}`)); err == nil {
+			t.Fatal("secret-bearing ordinary value was accepted")
+		}
+	})
+}
+
+func TestRepositoryArtifactsRejectSymlinkFIFOAndRedirectedParent(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "safe"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	regular := filepath.Join(root, "safe", "regular.json")
+	if err := os.WriteFile(regular, []byte("{}"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(regular, filepath.Join(root, "safe", "link.json")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readArtifact(root, "safe/link.json"); err == nil {
+		t.Fatal("symlink artifact was accepted")
+	}
+	fifo := filepath.Join(root, "safe", "fifo.json")
+	if err := syscall.Mkfifo(fifo, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readArtifact(root, "safe/fifo.json"); err == nil {
+		t.Fatal("FIFO artifact was accepted")
+	}
+	redirect := filepath.Join(root, "redirect")
+	if err := os.Symlink(filepath.Join(root, "safe"), redirect); err != nil {
+		t.Fatal(err)
+	}
+	if err := atomicWrite(root, "redirect/output.json", []byte("{}\n")); err == nil {
+		t.Fatal("atomic write traversed a redirected parent")
+	}
+}
+
+func TestCanonicalConfigRejectsAncestorAliasOverlap(t *testing.T) {
+	base := t.TempDir()
+	real := filepath.Join(base, "real")
+	repository := filepath.Join(real, "repo")
+	scratch := filepath.Join(repository, "scratch")
+	if err := os.MkdirAll(scratch, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(base, "alias")
+	if err := os.Symlink(real, alias); err != nil {
+		t.Fatal(err)
+	}
+	executable := filepath.Join(real, "tool")
+	if err := os.WriteFile(executable, []byte("tool"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cfg := Config{RepositoryRoot: filepath.Join(alias, "repo"), ScratchRoot: scratch, JavaExecutable: executable, MavenExecutable: executable, MavenRepository: real, CargoExecutable: executable, RustcExecutable: executable}
+	if _, err := normalizeConfig(cfg); err == nil || !strings.Contains(err.Error(), "overlap") {
+		t.Fatalf("canonical alias overlap result=%v", err)
+	}
+}
+
+func TestPlanCommandRejectsArbitraryExecutable(t *testing.T) {
+	root := repositoryRoot(t)
+	plan, _ := loadPlan(t, root)
+	mutant := plan.Mutants[0]
+	mutant.BuildArgv = []string{"/bin/sh", "-c", "anything"}
+	if err := verifyCommandTemplate(mutant); err == nil {
+		t.Fatal("arbitrary command was accepted")
+	}
+	raw, err := readArtifact(root, artifactPaths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyCurrentGitFile(root, artifactPaths[0], append(raw, '\n')); err == nil {
+		t.Fatal("plan bytes outside the immutable current Git object were accepted")
+	}
+}
+
+func TestDifferentialManifestRejectsPermissiveDependencyRows(t *testing.T) {
+	keys := []string{"$schema", "schema_version", "story_id", "evidence_id", "status", "assurance", "independent_review_claimed", "signing", "production", "publication", "repository_anchor", "parity_scope", "coverage", "controls", "scenarios", "reproducers", "inputs", "processes", "ledger", "counts", "nonclaims"}
+	for name, row := range map[string]map[string]any{
+		"unknown": {"kind": "java-runtime-jar", "path": "/tmp/x", "sha256": "sha256:" + strings.Repeat("0", 64), "bytes": 1, "extra": true},
+		"missing": {"kind": "java-runtime-jar", "path": "/tmp/x", "sha256": "sha256:" + strings.Repeat("0", 64)},
+	} {
+		t.Run(name, func(t *testing.T) {
+			top := map[string]any{}
+			for _, key := range keys {
+				top[key] = nil
+			}
+			top["inputs"] = []any{row}
+			raw, err := json.Marshal(top)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := decodeDifferentialInputs(raw); err == nil {
+				t.Fatal("permissive dependency row was accepted")
+			}
+		})
+	}
+}
+
+func TestNestedShapeRejectsOmittedProcessField(t *testing.T) {
+	raw, err := readArtifact(repositoryRoot(t), artifactPaths[2])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var value map[string]any
+	if err := json.Unmarshal(raw, &value); err != nil {
+		t.Fatal(err)
+	}
+	before := value["before"].([]any)
+	process := before[0].(map[string]any)["process"].(map[string]any)
+	delete(process, "stdout_bytes")
+	hostile, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := verifyRuntimeJSONShape(hostile); err == nil {
+		t.Fatal("nested required-field omission was accepted")
+	}
+}
+
+func TestRunProcessClassifiesSignalAsToolFailure(t *testing.T) {
+	receipt, _, _, err := runProcess(t.Context(), t.TempDir(), []string{"/bin/sh", "-c", "kill -TERM $$"}, 5000)
+	if err == nil || receipt.TerminationReason != "SIGNALLED" || receipt.ExitCode != -1 {
+		t.Fatalf("signal result=%+v err=%v", receipt, err)
+	}
+}
+
+func TestClosureRejectsPreexistingWorkingTreeDrift(t *testing.T) {
+	root := repositoryRoot(t)
+	plan, _ := loadPlan(t, root)
+	path := "rust/connection-core/src/lib.rs"
+	raw, err := readArtifact(root, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hostile := append(append([]byte(nil), raw...), '\n')
+	if err := verifyBytesAgainstGit(root, path, plan.RepositoryAnchor.Commit, hostile); err == nil {
+		t.Fatal("preexisting closure drift was accepted")
+	}
 }

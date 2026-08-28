@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -23,6 +24,7 @@ type differentialInput struct {
 	Kind   string `json:"kind"`
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
+	Bytes  uint64 `json:"bytes"`
 }
 
 // RunPlanted executes only the public in-tree planted controls. It does not
@@ -32,7 +34,9 @@ func RunPlanted(ctx context.Context, cfg Config) error {
 	if err != nil {
 		return err
 	}
-	if err := validateConfig(root, cfg); err != nil {
+	cfg.RepositoryRoot = root
+	cfg, err = normalizeConfig(cfg)
+	if err != nil {
 		return err
 	}
 	planRaw, err := readArtifact(root, artifactPaths[0])
@@ -43,6 +47,9 @@ func RunPlanted(ctx context.Context, cfg Config) error {
 	if err := decodeStrict(planRaw, &plan); err != nil {
 		return err
 	}
+	if err := verifyCurrentGitFile(root, artifactPaths[0], planRaw); err != nil {
+		return finding("PLAN_GIT_DRIFT", artifactPaths[0], err)
+	}
 	if err := verifyPlan(root, &plan); err != nil {
 		return err
 	}
@@ -50,11 +57,11 @@ func RunPlanted(ctx context.Context, cfg Config) error {
 	if err != nil {
 		return err
 	}
-	sourceBeforeJava, testsBeforeJava, err := closureDigests(root, "java")
+	sourceBeforeJava, testsBeforeJava, err := closureDigests(root, "java", plan.RepositoryAnchor)
 	if err != nil {
 		return err
 	}
-	sourceBeforeRust, testsBeforeRust, err := closureDigests(root, "rust")
+	sourceBeforeRust, testsBeforeRust, err := closureDigests(root, "rust", plan.RepositoryAnchor)
 	if err != nil {
 		return err
 	}
@@ -104,11 +111,11 @@ func RunPlanted(ctx context.Context, cfg Config) error {
 			runtime.After = append(runtime.After, Baseline{Repeat: repeat, Phase: "after", Process: receipt, TestsPassed: count})
 		}
 	}
-	sourceAfterJava, testsAfterJava, err := closureDigests(root, "java")
+	sourceAfterJava, testsAfterJava, err := closureDigests(root, "java", plan.RepositoryAnchor)
 	if err != nil {
 		return err
 	}
-	sourceAfterRust, testsAfterRust, err := closureDigests(root, "rust")
+	sourceAfterRust, testsAfterRust, err := closureDigests(root, "rust", plan.RepositoryAnchor)
 	if err != nil {
 		return err
 	}
@@ -123,7 +130,7 @@ func RunPlanted(ctx context.Context, cfg Config) error {
 		if err != nil {
 			return err
 		}
-		if err := atomicWrite(filepath.Join(root, output.path), raw); err != nil {
+		if err := atomicWrite(root, output.path, raw); err != nil {
 			return err
 		}
 	}
@@ -145,41 +152,47 @@ func newRuntimeEvidence(runtime, planDigest, sources, tests, testManifest string
 	return evidence
 }
 
-func validateConfig(root string, cfg Config) error {
+func normalizeConfig(cfg Config) (Config, error) {
 	paths := []struct {
-		name, path string
-		directory  bool
+		name      string
+		path      *string
+		directory bool
 	}{
-		{"scratch-root", cfg.ScratchRoot, true}, {"java", cfg.JavaExecutable, false}, {"maven", cfg.MavenExecutable, false},
-		{"maven-repository", cfg.MavenRepository, true}, {"cargo", cfg.CargoExecutable, false}, {"rustc", cfg.RustcExecutable, false},
+		{"repository-root", &cfg.RepositoryRoot, true}, {"scratch-root", &cfg.ScratchRoot, true}, {"java", &cfg.JavaExecutable, false}, {"maven", &cfg.MavenExecutable, false},
+		{"maven-repository", &cfg.MavenRepository, true}, {"cargo", &cfg.CargoExecutable, false}, {"rustc", &cfg.RustcExecutable, false},
 	}
 	for _, value := range paths {
-		if !filepath.IsAbs(value.path) || filepath.Clean(value.path) != value.path {
-			return fmt.Errorf("%s must be a clean absolute path", value.name)
+		if !filepath.IsAbs(*value.path) || filepath.Clean(*value.path) != *value.path {
+			return Config{}, fmt.Errorf("%s must be a clean absolute path", value.name)
 		}
-		info, err := os.Lstat(value.path)
+		info, err := os.Lstat(*value.path)
 		if err != nil {
-			return fmt.Errorf("%s: %w", value.name, err)
+			return Config{}, fmt.Errorf("%s: %w", value.name, err)
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("%s must not be a symlink", value.name)
+			return Config{}, fmt.Errorf("%s must not be a symlink", value.name)
 		}
 		if value.directory != info.IsDir() {
-			return fmt.Errorf("%s has wrong filesystem kind", value.name)
+			return Config{}, fmt.Errorf("%s has wrong filesystem kind", value.name)
 		}
 		if !value.directory && info.Mode()&0o111 == 0 {
-			return fmt.Errorf("%s is not executable", value.name)
+			return Config{}, fmt.Errorf("%s is not executable", value.name)
 		}
+		real, err := filepath.EvalSymlinks(*value.path)
+		if err != nil {
+			return Config{}, fmt.Errorf("%s: %w", value.name, err)
+		}
+		*value.path = filepath.Clean(real)
 	}
-	if within(cfg.ScratchRoot, root) || within(root, cfg.ScratchRoot) {
-		return errors.New("scratch and repository roots must not overlap")
+	if within(cfg.ScratchRoot, cfg.RepositoryRoot) || within(cfg.RepositoryRoot, cfg.ScratchRoot) {
+		return Config{}, errors.New("scratch and repository roots must not overlap")
 	}
 	for _, path := range []string{cfg.JavaExecutable, cfg.MavenExecutable, cfg.MavenRepository, cfg.CargoExecutable, cfg.RustcExecutable} {
-		if within(path, root) || within(root, path) || within(path, cfg.ScratchRoot) {
-			return errors.New("input/output path overlap")
+		if within(path, cfg.RepositoryRoot) || within(cfg.RepositoryRoot, path) || within(path, cfg.ScratchRoot) || within(cfg.ScratchRoot, path) {
+			return Config{}, errors.New("input/output path overlap")
 		}
 	}
-	return nil
+	return cfg, nil
 }
 
 func within(path, parent string) bool {
@@ -188,29 +201,45 @@ func within(path, parent string) bool {
 }
 
 func resolveJavaDependencies(root string) (map[string]string, error) {
-	file, err := os.Open(filepath.Join(root, "evidence/differential/manifest.json"))
+	const relative = "evidence/differential/manifest.json"
+	path, err := repositoryPath(root, relative, false)
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
-	raw, err := io.ReadAll(io.LimitReader(file, 16<<20))
+	raw, err := readBoundedLimit(path, 16<<20)
 	if err != nil {
 		return nil, err
 	}
-	if len(raw) >= 16<<20 {
-		return nil, errors.New("differential manifest exceeds bound")
+	if err := verifyCurrentGitFile(root, relative, raw); err != nil {
+		return nil, finding("DEPENDENCY_MANIFEST_GIT_DRIFT", relative, err)
 	}
-	var manifest struct {
-		Inputs []differentialInput `json:"inputs"`
-	}
-	if err := json.Unmarshal(raw, &manifest); err != nil {
+	inputs, err := decodeDifferentialInputs(raw)
+	if err != nil {
 		return nil, err
 	}
 	result := map[string]string{}
-	for _, input := range manifest.Inputs {
+	accepted := map[string]struct {
+		digest string
+		bytes  uint64
+	}{
+		"java-runtime-jar":    {"sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f", 140686},
+		"java-support-jar-00": {"sha256:e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9", 68605},
+	}
+	for _, input := range inputs {
 		if input.Kind == "java-runtime-jar" || input.Kind == "java-support-jar-00" {
-			if !filepath.IsAbs(input.Path) || protectedComponent(input.Path) {
+			want := accepted[input.Kind]
+			if _, duplicate := result[input.Kind]; duplicate || input.SHA256 != want.digest || input.Bytes != want.bytes || !filepath.IsAbs(input.Path) || filepath.Clean(input.Path) != input.Path || protectedComponent(input.Path) {
 				return nil, errors.New("unsafe Java dependency path")
+			}
+			real, err := filepath.EvalSymlinks(input.Path)
+			if err != nil || real != input.Path {
+				return nil, errors.New("Java dependency path is not canonical")
+			}
+			if input.Kind == "java-runtime-jar" && !strings.HasSuffix(filepath.ToSlash(input.Path), "/objects/eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f") {
+				return nil, errors.New("runtime dependency path class mismatch")
+			}
+			if input.Kind == "java-support-jar-00" && input.Path != filepath.Join(root, ".quarantine", "slf4j-api-2.0.13.jar") {
+				return nil, errors.New("support dependency path class mismatch")
 			}
 			data, err := readBounded(input.Path)
 			if err != nil {
@@ -228,12 +257,39 @@ func resolveJavaDependencies(root string) (map[string]string, error) {
 	return result, nil
 }
 
+func decodeDifferentialInputs(raw []byte) ([]differentialInput, error) {
+	keys := []string{"$schema", "schema_version", "story_id", "evidence_id", "status", "assurance", "independent_review_claimed", "signing", "production", "publication", "repository_anchor", "parity_scope", "coverage", "controls", "scenarios", "reproducers", "inputs", "processes", "ledger", "counts", "nonclaims"}
+	if err := exactObjectKeys(raw, keys); err != nil {
+		return nil, err
+	}
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &top); err != nil {
+		return nil, err
+	}
+	var rows []json.RawMessage
+	if err := json.Unmarshal(top["inputs"], &rows); err != nil {
+		return nil, err
+	}
+	inputs := make([]differentialInput, 0, len(rows))
+	for _, row := range rows {
+		if err := exactObjectKeys(row, []string{"kind", "path", "sha256", "bytes"}); err != nil {
+			return nil, err
+		}
+		var input differentialInput
+		if err := decodeStrict(row, &input); err != nil {
+			return nil, err
+		}
+		inputs = append(inputs, input)
+	}
+	return inputs, nil
+}
+
 func runBaseline(ctx context.Context, cfg Config, deps map[string]string, runtime, phase string, repeat uint64) (ProcessReceipt, uint64, error) {
 	directory, working, err := materialize(cfg, deps, runtime, fmt.Sprintf("baseline-%s-%s-%d-", runtime, phase, repeat))
 	if err != nil {
 		return ProcessReceipt{}, 0, err
 	}
-	defer os.RemoveAll(directory)
+	defer cleanupScratch(cfg.ScratchRoot, directory)
 	argv := rustBaselineArgv(cfg)
 	if runtime == "java" {
 		argv = javaTestArgv(cfg)
@@ -257,7 +313,7 @@ func runMutant(ctx context.Context, cfg Config, deps map[string]string, mutant M
 	if err != nil {
 		return Observation{}, "", err
 	}
-	defer os.RemoveAll(directory)
+	defer cleanupScratch(cfg.ScratchRoot, directory)
 	relative := mutant.ProductionPath
 	if mutant.Runtime == "java" {
 		relative = strings.TrimPrefix(relative, "java-oracle/")
@@ -284,14 +340,18 @@ func runMutant(ctx context.Context, cfg Config, deps map[string]string, mutant M
 	if err := os.WriteFile(path, mutated, 0o600); err != nil {
 		return Observation{}, "", err
 	}
-	build, _, _, err := runProcess(ctx, working, mutant.BuildArgv, mutant.TimeoutMS)
+	buildArgv, testArgv, err := concreteMutantArgv(cfg, mutant)
+	if err != nil {
+		return Observation{}, "", err
+	}
+	build, _, _, err := runProcess(ctx, working, buildArgv, mutant.TimeoutMS)
 	if err != nil {
 		return Observation{}, "", err
 	}
 	if build.ExitCode != 0 || build.TerminationReason != "EXITED" {
 		return Observation{}, "", errors.New("mutant did not compile; compile failure is not a kill")
 	}
-	test, _, _, err := runProcess(ctx, working, mutant.TestArgv, mutant.TimeoutMS)
+	test, _, _, err := runProcess(ctx, working, testArgv, mutant.TimeoutMS)
 	if err != nil && test.TerminationReason != "EXITED" {
 		return Observation{}, "", err
 	}
@@ -307,12 +367,12 @@ func materialize(cfg Config, deps map[string]string, runtime, prefix string) (st
 		return "", "", err
 	}
 	if err := os.Chmod(directory, 0o700); err != nil {
-		os.RemoveAll(directory)
+		cleanupScratch(cfg.ScratchRoot, directory)
 		return "", "", err
 	}
 	working := filepath.Join(directory, runtimeRoot(runtime))
 	if err := os.MkdirAll(working, 0o700); err != nil {
-		os.RemoveAll(directory)
+		cleanupScratch(cfg.ScratchRoot, directory)
 		return "", "", err
 	}
 	prefixPath := "java-oracle/"
@@ -321,7 +381,7 @@ func materialize(cfg Config, deps map[string]string, runtime, prefix string) (st
 	}
 	tracked, err := git(cfg.RepositoryRoot, "ls-files", prefixPath)
 	if err != nil {
-		os.RemoveAll(directory)
+		cleanupScratch(cfg.ScratchRoot, directory)
 		return "", "", err
 	}
 	for _, relative := range lines([]byte(tracked)) {
@@ -330,24 +390,24 @@ func materialize(cfg Config, deps map[string]string, runtime, prefix string) (st
 		}
 		targetRelative := strings.TrimPrefix(relative, prefixPath)
 		if err := copyRegular(filepath.Join(cfg.RepositoryRoot, relative), filepath.Join(working, targetRelative)); err != nil {
-			os.RemoveAll(directory)
+			cleanupScratch(cfg.ScratchRoot, directory)
 			return "", "", err
 		}
 	}
 	if runtime == "rust" {
 		if err := copyRegular(filepath.Join(cfg.RepositoryRoot, "LICENSE"), filepath.Join(directory, "LICENSE")); err != nil {
-			os.RemoveAll(directory)
+			cleanupScratch(cfg.ScratchRoot, directory)
 			return "", "", err
 		}
 	}
 	if runtime == "java" {
 		dependencyRoot := filepath.Join(directory, "deps")
 		if err := copyRegular(deps["java-runtime-jar"], filepath.Join(dependencyRoot, "Java-WebSocket-1.6.0.jar")); err != nil {
-			os.RemoveAll(directory)
+			cleanupScratch(cfg.ScratchRoot, directory)
 			return "", "", err
 		}
 		if err := copyRegular(deps["java-support-jar-00"], filepath.Join(dependencyRoot, "slf4j-api-2.0.13.jar")); err != nil {
-			os.RemoveAll(directory)
+			cleanupScratch(cfg.ScratchRoot, directory)
 			return "", "", err
 		}
 	}
@@ -369,7 +429,7 @@ func copyRegular(source, destination string) error {
 	if info.Mode()&os.ModeSymlink != 0 || !info.Mode().IsRegular() {
 		return errors.New("copy source must be a regular non-symlink")
 	}
-	raw, err := os.ReadFile(source)
+	raw, err := readBoundedLimit(source, 16<<20)
 	if err != nil {
 		return err
 	}
@@ -382,6 +442,44 @@ func copyRegular(source, destination string) error {
 func javaBuildArgv(cfg Config) []string {
 	javaHome := filepath.Dir(filepath.Dir(cfg.JavaExecutable))
 	return []string{"/usr/bin/make", "build", "JAVA_WEBSOCKET_JAR=../deps/Java-WebSocket-1.6.0.jar", "RUNTIME_SUPPORT_CP=../deps/slf4j-api-2.0.13.jar", "BUILD_DIR=build", "JAVAC=" + filepath.Join(javaHome, "bin", "javac"), "JAVA=" + cfg.JavaExecutable, "JAR=" + filepath.Join(javaHome, "bin", "jar")}
+}
+
+func concreteMutantArgv(cfg Config, mutant Mutant) ([]string, []string, error) {
+	if err := verifyCommandTemplate(mutant); err != nil {
+		return nil, nil, err
+	}
+	if mutant.Runtime == "java" {
+		return javaBuildArgv(cfg), javaTestArgv(cfg), nil
+	}
+	targets := map[string]string{
+		"close-payload-limit-disabled":      "close_eof",
+		"control-length-admission-disabled": "frame_codec",
+		"continuation-admission-relabeled":  "fragmentation",
+		"unexpected-continuation-accepted":  "messages",
+	}
+	target, ok := targets[mutant.MutantID]
+	if !ok {
+		return nil, nil, errors.New("unknown Rust planted control")
+	}
+	build := []string{cfg.CargoExecutable, "test", "--offline", "--locked", "-p", "websocket-core", "--no-run"}
+	test := []string{cfg.CargoExecutable, "test", "--offline", "--locked", "-p", "websocket-core", "--test", target}
+	return build, test, nil
+}
+
+func cleanupScratch(scratchRoot, child string) {
+	parent, err := filepath.EvalSymlinks(filepath.Dir(child))
+	if err != nil || parent != scratchRoot || filepath.Dir(child) != scratchRoot {
+		return
+	}
+	info, err := os.Lstat(child)
+	if err != nil || info.Mode()&os.ModeSymlink != 0 || !info.IsDir() {
+		return
+	}
+	real, err := filepath.EvalSymlinks(child)
+	if err != nil || real != child {
+		return
+	}
+	_ = os.RemoveAll(child)
 }
 
 func javaTestArgv(cfg Config) []string {
@@ -436,7 +534,11 @@ func runProcess(parent context.Context, working string, argv []string, timeoutMS
 	} else if err != nil {
 		var exit *exec.ExitError
 		if errors.As(err, &exit) {
-			exitCode = exit.ExitCode()
+			if status, ok := exit.ProcessState.Sys().(syscall.WaitStatus); ok && status.Signaled() {
+				reason, exitCode = "SIGNALLED", -1
+			} else {
+				exitCode = exit.ExitCode()
+			}
 		} else {
 			reason, exitCode = "LAUNCH_FAILURE", -1
 		}

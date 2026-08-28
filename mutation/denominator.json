@@ -8,7 +8,7 @@
   "signing": false,
   "production": false,
   "publication": false,
-  "plan_sha256": "sha256:b8c6ba4b31579aef31dad89d001e0ef4c6cb51c9de1e23a147cab47c4b1b031d",
+  "plan_sha256": "sha256:6b18c3100a12adb17434014dad3690319f68de92b10bf9d5e9fe2f879e080129",
   "rows": [
     {"runtime": "java", "mutant_id": "close-echo-disabled", "disposition": "KILLED"},
     {"runtime": "java", "mutant_id": "fragment-buffer-not-drained", "disposition": "KILLED"},

@@ -76,7 +76,7 @@ func TestUS022MutationAndProtectedAcceptance(t *testing.T) {
 		if !evidence.NoRepositoryDrift {
 			t.Fatalf("%s did not reconcile repository state", evidence.Runtime)
 		}
-		sourceDigest, testDigest, err := closureDigests(root, evidence.Runtime)
+		sourceDigest, testDigest, err := closureDigests(root, evidence.Runtime, plan.RepositoryAnchor)
 		if err != nil {
 			t.Fatalf("derive %s closure digests: %v", evidence.Runtime, err)
 		}
@@ -126,7 +126,7 @@ func TestUS022MutationAndProtectedAcceptance(t *testing.T) {
 				if observation.Test.ExitCode == 0 || observation.Test.TerminationReason != "EXITED" || !observation.Killed || len(observation.FailedTestIDs) == 0 {
 					t.Fatalf("%s/%s observation %d was not killed by a failing selected test", evidence.Runtime, result.MutantID, index+1)
 				}
-				if !reflect.DeepEqual(observation.Build.Argv, mutant.BuildArgv) || !reflect.DeepEqual(observation.Test.Argv, mutant.TestArgv) || !reflect.DeepEqual(observation.FailedTestIDs, mutant.ExpectedKillingTestIDs) {
+				if !receiptCommandMatches(mutant, observation.Build.Argv, true) || !receiptCommandMatches(mutant, observation.Test.Argv, false) || !reflect.DeepEqual(observation.FailedTestIDs, mutant.ExpectedKillingTestIDs) {
 					t.Fatalf("%s/%s observation %d command or killing-test selection drifted", evidence.Runtime, result.MutantID, index+1)
 				}
 			}
@@ -158,7 +158,7 @@ func TestUS022MutationAndProtectedAcceptance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := rejectLeakKeys(receiptRaw); err != nil {
+	if err := rejectProtectedMaterial(receiptRaw); err != nil {
 		t.Fatalf("protected public projection contains protected data: %v", err)
 	}
 
