@@ -394,11 +394,29 @@ func TestFormalPreflightRealDocumentDeepRulesClean(t *testing.T) {
 		}
 		t.Fatalf("unexpected finding on real tree: %+v", finding)
 	}
-	if len(verdict.Documents) != 3 {
-		t.Fatalf("documents = %d, want 3", len(verdict.Documents))
+	// Three US-006 documents plus one model-results document per shipped
+	// model artifact (US-012 AC5's frame model and US-016 AC4's close
+	// model). The count is asserted exactly so a silently dropped document
+	// still fails here.
+	wantDocuments := 3 + len(ModelResultsBindings())
+	if len(verdict.Documents) != wantDocuments {
+		t.Fatalf("documents = %d, want %d", len(verdict.Documents), wantDocuments)
 	}
 	if !verdict.Documents[0].Present || !verdict.Documents[0].SchemaPresent {
 		t.Fatalf("backend qualification document/schema must be present: %+v", verdict.Documents[0])
+	}
+	reported := map[string]PreflightDocumentStatus{}
+	for _, document := range verdict.Documents {
+		reported[document.Path] = document
+	}
+	for _, binding := range ModelResultsBindings() {
+		status, present := reported[binding.ResultsPath]
+		if !present {
+			t.Fatalf("preflight does not report %s", binding.ResultsPath)
+		}
+		if !status.Present || !status.SchemaPresent {
+			t.Fatalf("model-results document/schema must be present: %+v", status)
+		}
 	}
 	if verdict.ObligationsEvaluated != 7 {
 		t.Fatalf("obligations evaluated = %d, want 7", verdict.ObligationsEvaluated)
