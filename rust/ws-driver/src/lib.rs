@@ -616,8 +616,13 @@ impl ConnectionDriver {
     /// `origin` is the arrival path the SAME poll reported alongside the
     /// failure ([`DriverOutput::Failure`]); it is a required argument
     /// precisely so a caller cannot compose a reaction without saying what
-    /// it is reacting to. See [`violation_close_code`] for the carve-outs
-    /// and the Java citations, and [`violation_close_frame`] for why the
+    /// it is reacting to. That requirement is not merely local to this
+    /// method: [`violation_close_frame`] takes a [`ViolationClose`] verdict
+    /// that only [`violation_close_verdict`] can mint, so there is no
+    /// lower-level door an adapter can use to compose the frame with an
+    /// origin it never named. See [`violation_close_verdict`] for the
+    /// carve-outs and the Java citations, [`ViolationClose`] for the bypass
+    /// that shape closes, and [`violation_close_frame`] for why the
     /// composition lives in this crate rather than in the adapter that
     /// writes the bytes.
     ///
@@ -648,11 +653,11 @@ impl ConnectionDriver {
         failure: &TypedProtocolFailure,
         origin: FailureOrigin,
     ) -> Option<(u16, Vec<u8>)> {
-        let code = violation_close_code(failure, origin, self.core.state())?;
+        let verdict = violation_close_verdict(failure, origin, self.core.state())?;
         // Reserved AFTER every carve-out: a decision to send nothing must
         // not consume a key.
         let mask = self.core.reserve_mask_key();
-        Some((code, violation_close_frame(code, mask)))
+        Some((verdict.code(), violation_close_frame(verdict, mask)))
     }
 
     /// Performs at most one owner transition and returns the next ordered
@@ -1164,11 +1169,50 @@ fn inject_auto_pong(
 /// puts nothing on the wire.
 pub const ABNORMAL_CLOSE_CODE: u16 = 1006;
 
-/// The close code shipped `WebSocketImpl` puts on the wire in answer to a
-/// decode-path protocol violation, or `None` when Java would send nothing
-/// (owner decision `us017-c6-layer-split-owner-decision-2026-08-28.json`,
+/// The origin gate's VERDICT: shipped `WebSocketImpl` does answer this
+/// failure with a close frame, and this is the close code it carries.
+///
+/// # Opaque BY CONSTRUCTION, which is the whole point
+///
+/// The field is private and this crate exposes NO constructor, no
+/// `Default`, and no `From` — so the only way any code outside `ws_driver`
+/// can obtain a value of this type is [`violation_close_verdict`], the
+/// origin gate. [`violation_close_frame`] demands one. An adapter therefore
+/// cannot compose the C6 frame without having passed the gate, and it
+/// cannot pass the gate without naming a [`FailureOrigin`].
+///
+/// Review 01a04899 round 2 blocked the previous shape, in which the gate
+/// merely took the origin as a required ARGUMENT while
+/// `violation_close_frame(code: u16, mask)` stayed reachable beside it. A
+/// required argument constrains only the caller who chooses that function;
+/// it does nothing to a caller who picks the other one. That was measured,
+/// not argued: an adapter calling `violation_close_frame(1002, None)` with
+/// no origin anywhere in scope produced exactly the shipped-Java bytes
+/// `88 02 03 EA`. The requirement was conventional. It is now structural —
+/// the bypass does not fail a check, it does not COMPILE.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ViolationClose {
+    code: u16,
+}
+
+impl ViolationClose {
+    /// The close code this verdict authorises on the wire — the rejection's
+    /// own code, which [`violation_close_verdict`] carried through.
+    #[must_use]
+    pub const fn code(self) -> u16 {
+        self.code
+    }
+}
+
+/// The origin gate. Returns the [`ViolationClose`] verdict when shipped
+/// `WebSocketImpl` puts a frame on the wire in answer to a decode-path
+/// protocol violation, or `None` when Java would send nothing (owner
+/// decision `us017-c6-layer-split-owner-decision-2026-08-28.json`,
 /// sha256 d41b5307…, resolving C6 from
 /// `us017-post-failure-owner-decisions-2026-08-28.json`, sha256 612546e8…).
+///
+/// This is the SOLE producer of [`ViolationClose`], so it is the sole route
+/// to a composed C6 frame.
 ///
 /// `decodeFrames`' InvalidDataException arm (WebSocketImpl.java:405-408)
 /// calls `close(e)` (:631-633) -> `close(int,String,boolean)` (:463-507),
@@ -1194,11 +1238,11 @@ pub const ABNORMAL_CLOSE_CODE: u16 = 1006;
 /// 4. **1006.** `WebSocketImpl.close` answers `ABNORMAL_CLOSE` by reaching
 ///    CLOSING with nothing on the wire (:466-471).
 #[must_use]
-pub fn violation_close_code(
+pub fn violation_close_verdict(
     failure: &TypedProtocolFailure,
     origin: FailureOrigin,
     state: ReadyState,
-) -> Option<u16> {
+) -> Option<ViolationClose> {
     if origin != FailureOrigin::InboundDecode {
         return None;
     }
@@ -1209,13 +1253,22 @@ pub fn violation_close_code(
     if code == ABNORMAL_CLOSE_CODE {
         return None;
     }
-    Some(code)
+    Some(ViolationClose { code })
 }
 
-/// Encode the close frame for [`violation_close_code`]'s verdict: shipped
+/// Encode the close frame for a [`ViolationClose`] verdict: shipped
 /// `WebSocketImpl.close` builds its own `CloseFrame` (:482-486) rather than
 /// asking the Draft for one, so this composes the two big-endian code bytes
 /// directly.
+///
+/// # Why this takes a verdict and not a `u16`
+///
+/// A `u16` is manufacturable by anyone; a [`ViolationClose`] is not. Taking
+/// the verdict is what makes the origin requirement unskippable rather than
+/// conventional — there is no second door into this encoder, because the
+/// only way to hold its argument is to have passed
+/// [`violation_close_verdict`]. See [`ViolationClose`] for the bypass this
+/// closes and the bytes that demonstrated it.
 ///
 /// `mask` comes from the connection's OWN masking sequence — see
 /// [`ConnectionDriver::compose_violation_close`], which reserves it. `None`
@@ -1235,7 +1288,7 @@ pub fn violation_close_code(
 /// # Why this cannot move the differential corpus
 ///
 /// Nothing inside [`ConnectionDriver::poll`] calls it or
-/// [`violation_close_code`]. Only an embedding adapter invokes them, so the
+/// [`violation_close_verdict`]. Only an embedding adapter invokes them, so the
 /// oracle harness — which drives this crate but never this path — produces
 /// byte-identical transcripts with and without them. That was measured, not
 /// assumed.
@@ -1247,9 +1300,9 @@ pub fn violation_close_code(
 /// and inventing a diagnostic string would put a fabricated Java message on
 /// the wire.
 #[must_use]
-pub fn violation_close_frame(code: u16, mask: Option<[u8; 4]>) -> Vec<u8> {
+pub fn violation_close_frame(verdict: ViolationClose, mask: Option<[u8; 4]>) -> Vec<u8> {
     let mut payload = Vec::with_capacity(2);
-    payload.extend_from_slice(&code.to_be_bytes());
+    payload.extend_from_slice(&verdict.code().to_be_bytes());
     Draft6455::encode_frame(true, Opcode::Closing, &payload, mask)
 }
 

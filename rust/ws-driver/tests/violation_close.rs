@@ -13,15 +13,41 @@
 //! that the reaction is gated on the failure's ARRIVAL PATH, and that the
 //! client-role frame's mask key comes from the connection's own masking
 //! sequence rather than a parallel derivation that collides with it.
+//!
+//! # The gate is enforced by this file's ability to COMPILE
+//!
+//! Every case below reaches the encoder by minting a [`ViolationClose`]
+//! through [`violation_close_verdict`], because from out here — an
+//! integration test is a separate crate, exactly like an adapter — there is
+//! no other way to obtain one. Round 2 blocked the previous shape, where
+//! `violation_close_frame(1002, None)` was directly callable and these
+//! tests used it: an adapter could compose the C6 bytes without naming an
+//! origin, so the gate was conventional. All four manufacture routes were
+//! run against the fixed crate and refused by rustc: passing a bare code
+//! (E0308), a struct literal over the private field (E0451), `Default`
+//! (E0277) and `From<u16>` (E0277).
 
 use ws_core::config::ConnectionConfig;
-use ws_core::connection::{ConnectionCore, InitialState, LocalCommand};
+use ws_core::connection::{CommandSender, InitialState, LocalCommand};
 use ws_core::error::FailureCode;
 use ws_core::{ReadyState, Role, TypedProtocolFailure};
 use ws_driver::{
-    ABNORMAL_CLOSE_CODE, DriverInput, DriverOutput, FailureOrigin, connection_driver_in_state,
-    violation_close_code, violation_close_frame,
+    ABNORMAL_CLOSE_CODE, ConnectionDriver, DriverInput, DriverOutput, FailureOrigin,
+    ViolationClose, connection_driver_in_state, violation_close_frame, violation_close_verdict,
 };
+
+/// The one route to a [`ViolationClose`]: the origin gate, on the arrival
+/// path and lifecycle state Java answers. Panics if the gate refuses, so a
+/// fixture that stopped reaching the encoder fails loudly rather than
+/// silently testing nothing.
+fn decode_path_verdict(code: u16) -> ViolationClose {
+    violation_close_verdict(
+        &TypedProtocolFailure::java_invalid_data(code),
+        FailureOrigin::InboundDecode,
+        ReadyState::Open,
+    )
+    .expect("a decode-path violation while Open is the case Java answers")
+}
 
 /// The exploration/default mask-key seed; irrelevant to every server-role
 /// case and pinned here so the client-role cases are reproducible.
@@ -39,14 +65,10 @@ const NON_DECODE_ORIGINS: [FailureOrigin; 3] = [
 /// server->client frame is itself a protocol error).
 #[test]
 fn server_role_composes_the_unmasked_1002_close() {
-    let code = violation_close_code(
-        &TypedProtocolFailure::java_invalid_data(1002),
-        FailureOrigin::InboundDecode,
-        ReadyState::Open,
-    );
-    assert_eq!(code, Some(1002));
+    let verdict = decode_path_verdict(1002);
+    assert_eq!(verdict.code(), 1002);
     assert_eq!(
-        violation_close_frame(1002, None),
+        violation_close_frame(verdict, None),
         vec![0x88, 0x02, 0x03, 0xEA]
     );
 }
@@ -57,17 +79,14 @@ fn server_role_composes_the_unmasked_1002_close() {
 #[test]
 fn the_failures_own_close_code_reaches_the_wire() {
     for (code, low) in [(1007u16, 0xEFu8), (1009, 0xF1)] {
+        let verdict = decode_path_verdict(code);
         assert_eq!(
-            violation_close_code(
-                &TypedProtocolFailure::java_invalid_data(code),
-                FailureOrigin::InboundDecode,
-                ReadyState::Open,
-            ),
-            Some(code),
+            verdict.code(),
+            code,
             "close code {code} must survive the carve-outs"
         );
         assert_eq!(
-            violation_close_frame(code, None),
+            violation_close_frame(verdict, None),
             vec![0x88, 0x02, 0x03, low],
             "close code {code} must reach the wire unchanged"
         );
@@ -79,7 +98,7 @@ fn the_failures_own_close_code_reaches_the_wire() {
 #[test]
 fn client_role_masks_the_violation_close() {
     let key = [0xA1u8, 0xB2, 0xC3, 0xD4];
-    let frame = violation_close_frame(1002, Some(key));
+    let frame = violation_close_frame(decode_path_verdict(1002), Some(key));
     assert_eq!(frame.len(), 8, "2 header + 4 mask key + 2 payload");
     assert_eq!(frame[0], 0x88);
     assert_eq!(frame[1], 0x82, "MASK bit set, payload length 2");
@@ -110,7 +129,7 @@ fn a_failure_without_a_close_code_composes_nothing() {
             "fixture precondition for {code:?}"
         );
         assert_eq!(
-            violation_close_code(&failure, FailureOrigin::InboundDecode, ReadyState::Open),
+            violation_close_verdict(&failure, FailureOrigin::InboundDecode, ReadyState::Open),
             None,
             "{code:?} must not fabricate a close frame"
         );
@@ -122,7 +141,7 @@ fn a_failure_without_a_close_code_composes_nothing() {
 #[test]
 fn abnormal_close_1006_composes_nothing() {
     assert_eq!(
-        violation_close_code(
+        violation_close_verdict(
             &TypedProtocolFailure::java_invalid_data(ABNORMAL_CLOSE_CODE),
             FailureOrigin::InboundDecode,
             ReadyState::Open,
@@ -141,7 +160,7 @@ fn outside_open_composes_nothing() {
         ReadyState::Closed,
     ] {
         assert_eq!(
-            violation_close_code(
+            violation_close_verdict(
                 &TypedProtocolFailure::java_invalid_data(1002),
                 FailureOrigin::InboundDecode,
                 state,
@@ -165,13 +184,14 @@ fn outside_open_composes_nothing() {
 fn only_an_inbound_decode_failure_gets_a_close_frame() {
     let failure = TypedProtocolFailure::java_invalid_data(1002);
     assert_eq!(
-        violation_close_code(&failure, FailureOrigin::InboundDecode, ReadyState::Open),
+        violation_close_verdict(&failure, FailureOrigin::InboundDecode, ReadyState::Open)
+            .map(ViolationClose::code),
         Some(1002),
         "the decode path is the one that answers"
     );
     for origin in NON_DECODE_ORIGINS {
         assert_eq!(
-            violation_close_code(&failure, origin, ReadyState::Open),
+            violation_close_verdict(&failure, origin, ReadyState::Open),
             None,
             "REGRESSION: {origin:?} is not a decode-path violation and Java answers it with \
              nothing"
@@ -302,52 +322,114 @@ fn the_violation_close_never_repeats_the_preceding_frames_mask_key() {
     );
 }
 
-/// The fix is a RESERVATION, not a coincidence: the key the C6 frame takes
-/// is the connection's NEXT sequence key — the one the core itself would
-/// have used — and it is CONSUMED, so nothing downstream can draw it again.
+/// Drive ONE ordinary outbound masked frame out of `driver` — a plain
+/// `send_binary` through the real command path — and return the 4-byte mask
+/// key the wire bytes carry.
 ///
-/// A composer that merely picked a key "far away" from the counter would
-/// pass the collision test above and still fail this one.
-#[test]
-fn the_violation_close_consumes_a_slot_of_the_connections_mask_sequence() {
-    // An independent core with the identical config/role/state: its first
-    // reservation IS the next key of the subject's sequence.
-    let mut reference = ConnectionCore::new_in_state(
-        ConnectionConfig::default(),
-        Role::Client,
-        InitialState::Open,
-    );
-    let expected = reference
-        .reserve_mask_key()
-        .expect("client role reserves a key");
+/// This reads the key off the FRAME, not out of any reservation API, which
+/// is what makes it usable as an independent expectation below.
+fn next_ordinary_outbound_mask_key(
+    sender: &CommandSender,
+    driver: &mut ConnectionDriver,
+) -> [u8; 4] {
+    sender
+        .try_send(LocalCommand::SendBinary { data: vec![0x11] })
+        .expect("bounded enqueue at quiescence");
+    for _ in 0..64 {
+        match driver.poll(DriverInput::Wake).output {
+            DriverOutput::Write(suffix) => {
+                let bytes = suffix.to_vec();
+                assert_eq!(bytes.len(), 7, "header(2) + mask(4) + payload(1)");
+                let key = [bytes[2], bytes[3], bytes[4], bytes[5]];
+                driver.poll(DriverInput::WriteProgress { bytes: bytes.len() });
+                return key;
+            }
+            DriverOutput::Failure { failure, .. } => panic!("unexpected failure: {failure:?}"),
+            _ => {}
+        }
+    }
+    panic!("the driver never produced the ordinary outbound frame");
+}
 
-    let (_sender, mut subject) = connection_driver_in_state(
+/// The mask key of a client-role driver's `nth` ordinary outbound frame,
+/// counting from 1, on a FRESH connection with the default config.
+fn ordinary_outbound_mask_key(nth: usize) -> [u8; 4] {
+    let (sender, mut driver) = connection_driver_in_state(
         ConnectionConfig::default(),
         Role::Client,
         InitialState::Open,
     );
-    let (_code, first) = subject
+    let mut key = [0u8; 4];
+    for _ in 0..nth {
+        key = next_ordinary_outbound_mask_key(&sender, &mut driver);
+    }
+    key
+}
+
+/// THE C6 FRAME TAKES EXACTLY ONE SLOT OF THE ORDINARY MASK SEQUENCE — the
+/// FIRST — and the next ordinary frame takes EXACTLY the SECOND.
+///
+/// # Why the expectation is derived this way
+///
+/// Review 01a04899 round 2 blocked the previous version of this test as
+/// SELF-FULFILLING: it obtained the "next key" expectation by calling
+/// `reserve_mask_key` on a reference core — the very method under test. An
+/// implementation that advanced the counter TWICE and returned the second
+/// key satisfied that expectation exactly, so it passed while silently
+/// burning a slot of the connection's masking sequence. That was measured,
+/// not argued: with `reserve_mask_key` mutated to advance twice, the whole
+/// Rust workspace — 403 tests across 37 binaries — passed.
+///
+/// So the expectation now comes from OUTSIDE the reservation API entirely:
+/// keys 1 and 2 are read off the wire bytes of an independent connection's
+/// ORDINARY outbound frames, composed by the core's own `emit_outbound`
+/// path with no reservation anywhere in it. The one-slot contract is then
+/// pinned from both sides, which is what makes it discriminating:
+///
+/// * take MORE than one slot (advance twice) and the C6 frame carries key 2
+///   instead of key 1 — the first assertion fails;
+/// * take FEWER than one slot (peek without advancing) and the C6 frame
+///   still carries key 1, but the following ordinary frame carries key 1
+///   again instead of key 2 — the second assertion fails.
+///
+/// Both mutations were run against this test and both were read failing.
+#[test]
+fn the_violation_close_takes_exactly_one_slot_of_the_ordinary_mask_sequence() {
+    // Expectations from ordinary outbound frames — no reservation API.
+    let ordinary_first = ordinary_outbound_mask_key(1);
+    let ordinary_second = ordinary_outbound_mask_key(2);
+    assert_ne!(
+        ordinary_first, ordinary_second,
+        "fixture precondition: successive ordinary frames must carry distinct keys"
+    );
+
+    let (sender, mut subject) = connection_driver_in_state(
+        ConnectionConfig::default(),
+        Role::Client,
+        InitialState::Open,
+    );
+
+    // The C6 frame is the FIRST thing this connection masks, so it must
+    // carry exactly the key an ordinary first frame would have carried.
+    let (_code, frame) = subject
         .compose_violation_close(
             &TypedProtocolFailure::java_invalid_data(1002),
             FailureOrigin::InboundDecode,
         )
         .expect("client composes a close frame");
     assert_eq!(
-        [first[2], first[3], first[4], first[5]],
-        expected,
-        "the C6 frame must take the connection's NEXT mask key, not a parallel derivation"
+        [frame[2], frame[3], frame[4], frame[5]],
+        ordinary_first,
+        "REGRESSION: the C6 frame did not take the FIRST key of the connection's ordinary \
+         masking sequence — it drew from a parallel derivation, or it burned a slot first"
     );
 
-    let (_code, second) = subject
-        .compose_violation_close(
-            &TypedProtocolFailure::java_invalid_data(1002),
-            FailureOrigin::InboundDecode,
-        )
-        .expect("client composes a close frame");
-    assert_ne!(
-        [first[2], first[3], first[4], first[5]],
-        [second[2], second[3], second[4], second[5]],
-        "REGRESSION: composing did not advance the sequence, so the key was never actually \
-         reserved"
+    // ...and exactly ONE slot is gone, so the next ordinary frame on the
+    // SAME connection must carry the ordinary SECOND key.
+    assert_eq!(
+        next_ordinary_outbound_mask_key(&sender, &mut subject),
+        ordinary_second,
+        "REGRESSION: the outbound frame following the C6 close did not take the SECOND key of \
+         the ordinary masking sequence — the reservation consumed the wrong number of slots"
     );
 }
