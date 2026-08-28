@@ -382,9 +382,78 @@ func TestDecideMeasuredMalformedObservedClockIsBlocked(t *testing.T) {
 	}
 }
 
+// Malformed mandatory evidence must never be MASKED by a second,
+// weaker defect on the same set. Before the ordering fix, DecideEndpoint
+// ran AnalyzePairs before validating run-validity observations, so a set
+// that was both malformed-in-evidence and unanalyzable returned
+// INCONCLUSIVE ("analysis fail-closed") and the missing clock evidence
+// was never reported — the documented guarantee "malformed clock
+// evidence is BLOCKED, not INCONCLUSIVE" was false for mixed-invalid
+// input. Absence of evidence outranks an analysis failure.
+func TestDecideMalformedClockOutranksUnanalyzablePairs(t *testing.T) {
+	for name, mutate := range map[string]func(*ObservedCPUClock){
+		"whitespace source": func(o *ObservedCPUClock) { o.Source = " " },
+		"no readings":       func(o *ObservedCPUClock) { o.SamplesMHz = nil },
+		"zero reading":      func(o *ObservedCPUClock) { o.SamplesMHz = []float64{0} },
+		"NaN reading":       func(o *ObservedCPUClock) { o.SamplesMHz = []float64{math.NaN()} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			set, closure := measuredSet(t)
+			mutate(set.RunValidity.ObservedCPUClock)
+			// Second, independent defect: a nonpositive measured pair
+			// makes AnalyzePairs fail closed with INCONCLUSIVE.
+			set.MeasuredPairs[7].Rust = 0
+
+			decision := DecideEndpoint(set, closure)
+			if decision.Outcome != OutcomeBlocked || !codesContain(decision.Codes, CodeRunValidityMissing) {
+				t.Fatalf("%s + nonpositive pair: outcome %s codes %v, want BLOCKED with %s (the analysis failure must not mask absent clock evidence)",
+					name, decision.Outcome, decision.Codes, CodeRunValidityMissing)
+			}
+			if !reasonsContain(decision.Reasons, "malformed") {
+				t.Fatalf("%s: reasons must name the malformed observations, got %v", name, decision.Reasons)
+			}
+		})
+	}
+
+	// Control: with the clock well formed, the same nonpositive pair
+	// still yields INCONCLUSIVE from the analysis seam. This proves the
+	// test above is discriminating on the clock defect and not merely
+	// observing that any bad set is BLOCKED.
+	set, closure := measuredSet(t)
+	set.MeasuredPairs[7].Rust = 0
+	if decision := DecideEndpoint(set, closure); decision.Outcome != OutcomeInconclusive {
+		t.Fatalf("well-formed clock + nonpositive pair: outcome %s, want %s", decision.Outcome, OutcomeInconclusive)
+	}
+}
+
+// A run-validity VIOLATION (as opposed to malformed evidence) is a rule
+// result about a well-formed run, so its INCONCLUSIVE decision must
+// still carry the computed analysis. Pins the half of the ordering that
+// deliberately did NOT move.
+func TestDecideRunValidityViolationStillCarriesAnalysis(t *testing.T) {
+	set, closure := measuredSet(t)
+	set.RunValidity.ThermalThrottleEvents = 2
+
+	decision := DecideEndpoint(set, closure)
+	if decision.Outcome != OutcomeInconclusive || !codesContain(decision.Codes, CodeRunValidityViolation) {
+		t.Fatalf("thermal violation: outcome %s codes %v, want %s with %s", decision.Outcome, decision.Codes, OutcomeInconclusive, CodeRunValidityViolation)
+	}
+	if decision.Analysis == nil {
+		t.Fatal("a run-validity violation decision must still record the computed analysis")
+	}
+}
+
 // The bound policy is RECORD-ONLY: no clock value, however unusual, may
 // by itself produce a violation. Guards against a threshold being added
 // to a frozen preregistration without a recorded change.
+//
+// SCOPE (review finding 3): this is an EXAMPLE-BASED test over four
+// vectors. It catches a threshold that rejects 1, 3200, 99999, or the
+// 800/4800/1200 spread — a low minimum, a low maximum, or a narrow
+// ratio rule. It does NOT catch a threshold that admits all four (for
+// example one rejecting only an unvisited band), nor a rule added at a
+// different seam such as DecideEndpoint or the schema. It is a tripwire
+// on the EnforceRunValidity seam, not a proof that no threshold exists.
 func TestObservedClockAppliesNoThreshold(t *testing.T) {
 	for _, samples := range [][]float64{{1}, {3200}, {99999}, {800, 4800, 1200}} {
 		observations := cleanObservations()

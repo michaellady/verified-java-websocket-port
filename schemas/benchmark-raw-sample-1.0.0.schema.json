@@ -63,9 +63,10 @@
           "required": ["source", "samples_mhz"],
           "properties": {
             "source": {
-              "description": "Identity of the reader that produced these observations (e.g. the exact sysfs path or tool invocation). Free-form but non-empty: an unattributed clock reading is not evidence.",
+              "description": "Identity of the reader that produced these observations (e.g. the exact sysfs path or tool invocation). Free-form but must carry at least one non-whitespace character: an unattributed clock reading is not evidence, and a whitespace-only string attributes nothing. The pattern is the exact complement of Go's unicode.IsSpace, so this schema and internal/benchplan.ObservedCPUClock.validate (which uses strings.TrimSpace) agree on every input; a differential test pins that agreement.",
               "type": "string",
-              "minLength": 1
+              "minLength": 1,
+              "pattern": "[^\\s\\x{000B}\\x{0085}\\p{Z}]"
             },
             "samples_mhz": {
               "description": "Observed CPU clock readings in MHz taken across the run sequence. At least one; every value finite and positive.",

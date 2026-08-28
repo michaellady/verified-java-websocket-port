@@ -727,6 +727,172 @@ func TestSchemaRequiresObservedClockOnMeasuredOnly(t *testing.T) {
 	}
 }
 
+// measuredSchemaDocument builds a schema-valid MEASURED raw-sample
+// document with a complete synthetic binding closure and a well-formed
+// observed clock, and returns the document plus its nested
+// run_validity_observations and observed_cpu_clock maps so a test can
+// mutate exactly one nested rule at a time. Every digest is synthetic
+// and labeled as such; this is not a measurement.
+func measuredSchemaDocument(t *testing.T) (document, observations, clock map[string]any) {
+	t.Helper()
+	document = map[string]any{}
+	content, err := os.ReadFile(filepath.Join(repoRoot, "internal", "benchplan", "testdata", "synthetic-valid.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(content, &document); err != nil {
+		t.Fatal(err)
+	}
+	document["provenance_label"] = "MEASURED"
+	bindings := map[string]any{}
+	for _, name := range RequiredSampleBindings {
+		bindings[name] = syntheticDigest(name)
+	}
+	document["bindings"] = bindings
+	clock = map[string]any{
+		"source":      "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+		"samples_mhz": []float64{3200, 3200},
+	}
+	observations = map[string]any{
+		"background_cpu_percent_max_observed": 1.5,
+		"thermal_throttle_events":             0,
+		"power_state_anomalies":               0,
+		"identity_checks_passed":              true,
+		"invalid_samples":                     0,
+		"reference_drift": map[string]any{
+			"baseline_statistic":    100.0,
+			"subsequent_statistics": []float64{100, 100, 100, 100, 100, 100, 100},
+		},
+		"observed_cpu_clock": clock,
+	}
+	document["run_validity_observations"] = observations
+	return document, observations, clock
+}
+
+// validateRawSampleDocument runs the canonical raw-sample schema over an
+// in-memory document via a temp root that symlinks the real schemas dir.
+func validateRawSampleDocument(t *testing.T, document map[string]any) []string {
+	t.Helper()
+	encoded, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "sample.json"), encoded, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(mustAbs(t, filepath.Join(repoRoot, "schemas")), filepath.Join(dir, "schemas")); err != nil {
+		t.Fatal(err)
+	}
+	failures, err := ValidateSampleSetDocument(dir, "sample.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return failures
+}
+
+// The nested observed_cpu_clock shape rules previously had no negative
+// tests: the reviewer's deletion-sensitivity matrix showed that missing
+// source/samples, an empty readings array, and additionalProperties
+// could all be deleted from the schema with every test still passing.
+// Each rule now has a concrete failing input.
+func TestSchemaObservedClockShapeRulesAreEnforced(t *testing.T) {
+	// Control: the unmutated document must conform, so every failure
+	// below is attributable to the single mutation and not to a broken
+	// base document.
+	if failures := func() []string {
+		document, _, _ := measuredSchemaDocument(t)
+		return validateRawSampleDocument(t, document)
+	}(); len(failures) > 0 {
+		t.Fatalf("control MEASURED document must conform, got: %v", failures)
+	}
+
+	for name, mutate := range map[string]func(observations, clock map[string]any){
+		"blank source": func(_, clock map[string]any) {
+			clock["source"] = "   "
+		},
+		"missing source": func(_, clock map[string]any) {
+			delete(clock, "source")
+		},
+		"missing samples": func(_, clock map[string]any) {
+			delete(clock, "samples_mhz")
+		},
+		"empty samples": func(_, clock map[string]any) {
+			clock["samples_mhz"] = []float64{}
+		},
+		"additional property on clock": func(_, clock map[string]any) {
+			clock["governor"] = "performance"
+		},
+		"additional property on observations": func(observations, _ map[string]any) {
+			observations["observed_cpu_mhz"] = 3200
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			document, observations, clock := measuredSchemaDocument(t)
+			mutate(observations, clock)
+			if failures := validateRawSampleDocument(t, document); len(failures) == 0 {
+				t.Fatalf("%s: schema accepted the document; a nested clock shape rule is missing", name)
+			}
+		})
+	}
+}
+
+// The canonical schema and the Go contract must agree on what counts as
+// an attributed source. They previously disagreed: the schema's
+// minLength:1 accepted "   " while ObservedCPUClock.validate rejects any
+// string that strings.TrimSpace empties. This test pins the two seams
+// together across the whole unicode.IsSpace set, so a future schema or
+// Go edit cannot reopen the gap in either direction.
+func TestSchemaAndGoAgreeOnClockSourceAttribution(t *testing.T) {
+	unattributed := []string{
+		" ", "   ", "\t", "\n", "\r\n", "\v", "\f",
+		"\u0085",           // NEL
+		"\u00a0",           // NBSP
+		"\u1680",           // OGHAM SPACE MARK
+		"\u2003",           // EM SPACE
+		"\u2028", "\u2029", // LINE / PARAGRAPH SEPARATOR
+		"\u202f", "\u205f", // NARROW NBSP / MEDIUM MATHEMATICAL SPACE
+		"\u3000",             // IDEOGRAPHIC SPACE
+		" \t\n\u00a0\u3000 ", // mixed whitespace only
+	}
+	for _, source := range unattributed {
+		document, _, clock := measuredSchemaDocument(t)
+		clock["source"] = source
+		schemaFailures := validateRawSampleDocument(t, document)
+
+		observations := cleanObservations()
+		observations.ObservedCPUClock = &ObservedCPUClock{Source: source, SamplesMHz: []float64{3200}}
+		_, goErr := EnforceRunValidity(observations)
+
+		if len(schemaFailures) == 0 || goErr == nil {
+			t.Errorf("source %q: schema rejected=%t go rejected=%t — the schema and the Go contract must both reject an unattributed source",
+				source, len(schemaFailures) > 0, goErr != nil)
+		}
+	}
+
+	attributed := []string{
+		"/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq",
+		"lscpu --json",
+		" turbostat ", // padded but attributed
+		"a",
+		" x ", // non-whitespace between whitespace
+	}
+	for _, source := range attributed {
+		document, _, clock := measuredSchemaDocument(t)
+		clock["source"] = source
+		schemaFailures := validateRawSampleDocument(t, document)
+
+		observations := cleanObservations()
+		observations.ObservedCPUClock = &ObservedCPUClock{Source: source, SamplesMHz: []float64{3200}}
+		_, goErr := EnforceRunValidity(observations)
+
+		if len(schemaFailures) > 0 || goErr != nil {
+			t.Errorf("source %q: schema failures=%v go err=%v — both seams must accept an attributed source",
+				source, schemaFailures, goErr)
+		}
+	}
+}
+
 func mustAbs(t *testing.T, path string) string {
 	t.Helper()
 	absolute, err := filepath.Abs(path)

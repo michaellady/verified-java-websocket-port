@@ -155,14 +155,44 @@ value is never the accounting method).
   `MEASURED` records only (the `then` branch, so every SYNTHETIC fixture
   is unaffected), with `internal/benchplan.DecideEndpoint` BLOCKING any
   MEASURED sample that omits it and `EnforceRunValidity` erroring on
-  malformed readings. It is **RECORD-ONLY**, exactly as the owner bound
-  the policy: no threshold is applied to clock values and a regression
-  test (`TestObservedClockAppliesNoThreshold`) guards that none is added
-  without a recorded preregistration change. Landed NOW, ahead of the
-  runner binding, deliberately: doing it before any Rust source or
-  sample exists keeps the recording contract frozen ahead of the
-  implementation instead of changing it afterwards. The runner that
-  POPULATES the slot still binds with the measurement runner identity.
+  malformed readings. Malformed evidence is BLOCKED even when the same
+  set carries a second defect: `DecideEndpoint` validates run-validity
+  observations BEFORE pair analysis, so an unanalyzable set cannot mask
+  absent clock evidence behind an `INCONCLUSIVE` analysis failure
+  (`TestDecideMalformedClockOutranksUnanalyzablePairs`). The canonical
+  schema and the Go contract agree on what counts as an attributed
+  `source` across the whole `unicode.IsSpace` set
+  (`TestSchemaAndGoAgreeOnClockSourceAttribution`), and each nested
+  shape rule has a negative test
+  (`TestSchemaObservedClockShapeRulesAreEnforced`).
+
+  It is **RECORD-ONLY**, exactly as the owner bound the policy: no
+  threshold is applied to clock values.
+  `TestObservedClockAppliesNoThreshold` is a tripwire on the
+  `EnforceRunValidity` seam over four vectors (`1`, `3200`, `99999`, and
+  the `800/4800/1200` spread). It catches a low minimum, a low maximum,
+  or a narrow ratio rule. It does NOT catch a threshold that admits all
+  four vectors, nor one added at a different seam (`DecideEndpoint`, or
+  the schema). **Correction:** an earlier revision of this bullet said
+  that test "guards that none is added" — that was an overstatement. A
+  mutation probe confirmed it: an unattested threshold rejecting only
+  the unvisited 2000–2500 MHz band leaves the test passing. The
+  record-only property rests on the frozen preregistration and review,
+  with this test as a partial tripwire, not as a proof.
+
+  Landed NOW, ahead of the runner binding, deliberately: doing it before
+  any MEASURED benchmark sample exists, and before the measurement
+  runner is built, keeps the recording contract frozen ahead of the
+  data it will govern instead of changing it afterwards.
+  **Correction:** an earlier revision of this bullet said this landed
+  "before any Rust source or sample exists." The "Rust source" half was
+  simply false. At `85366c4` this worktree already tracked 63 `.rs`
+  files totalling roughly 22,350 lines of Rust production code, and
+  `rust/ws-core/src/lib.rs` landed at `9fe68ff` (2026-08-26), an
+  ancestor of this commit. What is genuinely true, and all that was ever
+  needed, is that no MEASURED sample of any kind exists yet and the
+  measurement runner is still an unbound stub. The runner that POPULATES
+  the slot still binds with the measurement runner identity.
 - **Exact AWS provider pin + lockfile** for `terraform/benchmark`
   (currently floating `>= 6.0.0`), already flagged in
   `confirmation.json` terraform notes.
