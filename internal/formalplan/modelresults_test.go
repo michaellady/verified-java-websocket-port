@@ -310,6 +310,104 @@ func TestModelResultsReceiptContentIsBound(t *testing.T) {
 	}
 }
 
+// --- contradictory-receipt binding (review round 3, BLOCKING 1) -------------
+//
+// The round-2 binder inspected violation text only when the clean banner was
+// ABSENT, so a receipt carrying BOTH a clean completion and a violation
+// passed. Every case below feeds the binder self-contradictory bytes with a
+// consistent digest and length, and requires rejection. This is the same
+// defect class as the two vacuous invariants: a check that passes on input
+// it should have refused.
+func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
+	frame := ModelResultsBindings()[0]
+	close := ModelResultsBindings()[1]
+	var frameResults, closeResults modelResultsDocument
+	mrReadJSON(t, filepath.Join(us006RepoRoot(t), filepath.FromSlash(frame.ResultsPath)), &frameResults)
+	mrReadJSON(t, filepath.Join(us006RepoRoot(t), filepath.FromSlash(close.ResultsPath)), &closeResults)
+
+	cases := []struct {
+		name        string
+		binding     ModelResultsBinding
+		receiptPath string
+		transform   func(string) string
+	}{
+		{
+			name:        "a TLC receipt carrying BOTH a clean verdict and a violation blocks",
+			binding:     frame,
+			receiptPath: frameResults.Execution.TLC.ReceiptPath,
+			transform: func(text string) string {
+				return text + "\nError: Invariant MaskRoundTrip is violated.\n"
+			},
+		},
+		{
+			name:        "a TLC receipt carrying both a clean verdict and an ACTION property violation blocks",
+			binding:     frame,
+			receiptPath: frameResults.Execution.TLC.ReceiptPath,
+			transform: func(text string) string {
+				return text + "\nError: Action property FrameBudgetMonotone is violated.\n"
+			},
+		},
+		{
+			name:        "a killed mutant receipt that ALSO reports clean completion blocks",
+			binding:     frame,
+			receiptPath: frameResults.SeededDefects[0].ReceiptPath,
+			transform: func(text string) string {
+				return text + "\nModel checking completed. No error has been found.\n"
+			},
+		},
+		{
+			name:        "a mutant receipt naming a SECOND, different violated check blocks",
+			binding:     frame,
+			receiptPath: frameResults.SeededDefects[0].ReceiptPath,
+			transform: func(text string) string {
+				return text + "\nError: Invariant ConsumedSiteIsDeclared is violated.\n"
+			},
+		},
+		{
+			name:        "state counts must bind to TLC's FINAL summary, not an earlier progress line",
+			binding:     close,
+			receiptPath: closeResults.Execution.TLC.ReceiptPath,
+			transform: func(text string) string {
+				// Leave the Progress line intact and corrupt only the final
+				// summary. A binder reading the leftmost match never notices.
+				return strings.Replace(text, "\n348 states generated,", "\n999 states generated,", 1)
+			},
+		},
+		{
+			name:        "a driver log carrying two contradictory RESULT lines for one step blocks",
+			binding:     frame,
+			receiptPath: frameResults.Execution.DriverLog,
+			transform: func(text string) string {
+				// The contradictory line goes FIRST, so a last-wins map keeps
+				// the honest line and never notices the contradiction.
+				return "RESULT step=tlc.FrameModel exit=99 verdict=clean check=NONE\n" + text
+			},
+		},
+		{
+			name:        "a SANY receipt reporting a parse error alongside the module line blocks",
+			binding:     frame,
+			receiptPath: frameResults.Execution.SANY.ReceiptPath,
+			transform: func(text string) string {
+				return text + "\n***Parse Error***\n"
+			},
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if testCase.receiptPath == "" {
+				t.Fatal("case has no receipt path")
+			}
+			root := mrStageTree(t, testCase.binding)
+			mrRewriteReceipt(t, root, testCase.binding, testCase.receiptPath, testCase.transform)
+			findings := ValidateModelResults(root, testCase.binding)
+			if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
+				t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+			}
+		})
+	}
+}
+
 // A seeded defect whose own mutant receipt does not name the check it claims
 // to have killed must block.
 func TestModelResultsMutantReceiptNamesItsCheck(t *testing.T) {

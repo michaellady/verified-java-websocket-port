@@ -572,17 +572,36 @@ var (
 	mrCleanVerdict = "Model checking completed. No error has been found."
 )
 
-// mrViolatedCheck returns the check TLC named as violated, across all three
+// mrViolatedChecks returns EVERY check TLC named as violated, across all three
 // message forms it uses: state invariants, temporal properties, and
 // [][...]_vars ACTION properties. Knowing only the first two under-reports
-// genuine kills as survivors.
-func mrViolatedCheck(text string) string {
+// genuine kills as survivors; returning only the FIRST match would let a
+// receipt naming a second, contradictory violation pass because its opening
+// line happened to agree with the record (review round 3).
+func mrViolatedChecks(text string) []string {
+	seen := map[string]bool{}
+	var names []string
 	for _, pattern := range []*regexp.Regexp{mrInvariantViolated, mrPropertyViolated, mrActionViolated} {
-		if match := pattern.FindStringSubmatch(text); match != nil {
-			return match[1]
+		for _, match := range pattern.FindAllStringSubmatch(text, -1) {
+			if !seen[match[1]] {
+				seen[match[1]] = true
+				names = append(names, match[1])
+			}
 		}
 	}
-	return ""
+	sort.Strings(names)
+	return names
+}
+
+// mrLastSubmatch returns the LAST match of pattern in text. TLC's authority
+// for a run's numbers is its closing summary, not an interim progress line
+// of the same shape.
+func mrLastSubmatch(pattern *regexp.Regexp, text string) []string {
+	matches := pattern.FindAllStringSubmatch(text, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+	return matches[len(matches)-1]
 }
 
 // modelResultsBindReceipts re-reads every claim in the results document out
@@ -629,6 +648,17 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 		if !strings.Contains(text, "Semantic processing of module "+binding.Module) {
 			mismatch("the sany receipt does not show semantic processing of module " + binding.Module)
 		}
+		// Positive evidence alone is not enough: a receipt can show the module
+		// being processed AND report a failure. SANY's failure vocabulary is
+		// checked unconditionally (its clean output contains none of it; the
+		// banner's leading asterisks are deliberately not a marker here).
+		for _, marker := range []string{"Parse Error", "Semantic error", "Unknown operator",
+			"Unrecoverable error", "Fatal errors"} {
+			if strings.Contains(text, marker) {
+				mismatch("the sany receipt reports " + strconv.Quote(marker) +
+					"; a model that does not parse and level-check cleanly has no results")
+			}
+		}
 	}
 
 	// TLC: the recorded banner, the state counts, the depth, and whether the
@@ -638,7 +668,10 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 			mismatch("the tlc receipt does not contain the recorded banner " +
 				strconv.Quote(document.Backend.Tool.TLCBanner))
 		}
-		summary := mrStateSummary.FindStringSubmatch(text)
+		// TLC prints an interim Progress line with the SAME shape as its final
+		// summary. Binding to the leftmost match binds to the progress line;
+		// the authority is the LAST one (review round 3).
+		summary := mrLastSubmatch(mrStateSummary, text)
 		if summary == nil {
 			mismatch("the tlc receipt carries no state-count summary line; the recorded counts are unbound")
 		} else {
@@ -658,20 +691,28 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 				}
 			}
 		}
-		if depth := mrDepthLine.FindStringSubmatch(text); depth == nil {
+		if depth := mrLastSubmatch(mrDepthLine, text); depth == nil {
 			mismatch("the tlc receipt carries no search-depth line; the recorded depth is unbound")
 		} else if value, err := strconv.Atoi(depth[1]); err != nil || value != document.StateSpace.Depth {
 			mismatch(fmt.Sprintf("depth: record says %d, the tlc receipt says %s",
 				document.StateSpace.Depth, depth[1]))
 		}
+		// The violation scan runs UNCONDITIONALLY. The round-2 binder ran it
+		// only when the clean banner was absent, so a receipt carrying BOTH a
+		// clean completion and a violation passed (review round 3, BLOCKING 1).
 		clean := strings.Contains(text, mrCleanVerdict)
+		named := mrViolatedChecks(text)
+		if clean && len(named) != 0 {
+			mismatch("the tlc receipt contains BOTH the clean-completion verdict and a violation of " +
+				strings.Join(named, ", ") + "; a checker run is one or the other, never both")
+		}
 		if clean && len(document.Violations) != 0 {
 			mismatch("the tlc receipt reports a clean verdict but the record lists violations")
 		}
 		if !clean && len(document.Violations) == 0 {
 			reported := "no clean verdict"
-			if named := mrViolatedCheck(text); named != "" {
-				reported = named + " violated"
+			if len(named) != 0 {
+				reported = strings.Join(named, ", ") + " violated"
 			}
 			mismatch("the record lists no violation but the tlc receipt shows " + reported)
 		}
@@ -683,22 +724,37 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 		if !ok {
 			continue
 		}
-		named := mrViolatedCheck(text)
+		named := mrViolatedChecks(text)
+		mutantClean := strings.Contains(text, mrCleanVerdict)
+		// Contradiction check first, and unconditionally: a mutant receipt
+		// that both completes cleanly and reports a violation is fabricated
+		// whatever the record claims.
+		if mutantClean && len(named) != 0 {
+			mismatch("seeded defect " + defect.DefectID +
+				": its receipt contains BOTH the clean-completion verdict and a violation of " +
+				strings.Join(named, ", "))
+		}
 		switch defect.Outcome {
 		case "Killed":
-			if named == "" {
+			switch {
+			case len(named) == 0:
 				mismatch("seeded defect " + defect.DefectID +
 					" is recorded Killed but its receipt names no violated check")
-			} else if named != defect.ViolatedCheck {
+			case len(named) > 1:
+				mismatch("seeded defect " + defect.DefectID +
+					" is recorded as killing one check but its receipt names " +
+					strings.Join(named, ", "))
+			case named[0] != defect.ViolatedCheck:
 				mismatch("seeded defect " + defect.DefectID + ": record says it killed " +
-					defect.ViolatedCheck + ", its receipt says " + named)
+					defect.ViolatedCheck + ", its receipt says " + named[0])
 			}
 		case "Survived":
-			if named != "" {
+			if len(named) != 0 {
 				mismatch("seeded defect " + defect.DefectID +
-					" is recorded Survived but its receipt names violated check " + named)
+					" is recorded Survived but its receipt names violated check " +
+					strings.Join(named, ", "))
 			}
-			if !strings.Contains(text, mrCleanVerdict) {
+			if !mutantClean {
 				mismatch("seeded defect " + defect.DefectID +
 					" is recorded Survived but its receipt shows no clean verdict")
 			}
@@ -712,8 +768,16 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 	if !ok {
 		return modelResultsSorted(findings)
 	}
+	// A duplicated step line is rejected rather than silently overwritten: a
+	// last-wins map would keep the honest line and never see the
+	// contradictory one placed before it (review round 3).
 	driver := map[string]string{}
 	for _, match := range mrDriverResult.FindAllStringSubmatch(text, -1) {
+		if previous, seen := driver[match[1]]; seen {
+			mismatch("the driver log carries two RESULT lines for step " + match[1] +
+				": " + strconv.Quote(previous) + " and " + strconv.Quote(match[2]))
+			continue
+		}
 		driver[match[1]] = match[2]
 	}
 	field := func(fields, key string) string {
