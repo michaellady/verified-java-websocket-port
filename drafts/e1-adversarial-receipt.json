@@ -507,10 +507,29 @@
       "findings": [
         {
           "verbatim": "The receipt\u2019s `reviews` keys are `round_1` and `round_2`, not full session UUIDs as claimed, and line 403 retains a stale `review_round_2` cross-reference; requirement (c) is not satisfied.",
-          "fix": "Review entries re-keyed by full session UUID with an explicit ordinal field; the stale assurance-note cross-reference now points at reviews[\"01a045b0-3189-7a11-bc25-cd6cf0169c3e\"]. The verbatim quotation of review 01a045c9-0024-7a31-87d6-c7e63376605a's first finding still contains the string review_round_2 because it is a quotation and must not be altered."
+          "fix": "Review entries re-keyed by full session UUID with an explicit ordinal field; the stale assurance-note cross-reference now points at reviews[\"01a045b0-3189-7a11-bc25-cd6cf0169c3e\"]. The verbatim quotation of review 01a045c9-0024-7a31-87d6-c7e63376605a's first finding still contains the historical section label because it is a quotation and must not be altered."
         }
       ],
       "fixed_by": "the coordinator directly (receipt-text correction only; no code, test, manifest or campaign artifact touched)"
+    },
+    "01a045dc-e1a7-7f73-8204-182a5d39a98b": {
+      "ordinal": 4,
+      "session_id": "01a045dc-e1a7-7f73-8204-182a5d39a98b",
+      "recorded_at": "2026-08-28T00:58:29Z",
+      "verdict": "BLOCK",
+      "findings": [
+        {
+          "verbatim": "`reviews[\"01a045d9-eb40-7f42-bd8d-ce88869dfced\"].findings[0].fix` contains `review_round_2`; it is neither the `key_note` nor a verbatim quotation, so requirement 3\u2019s confinement claim is false.",
+          "status": "ACCEPTED_AND_FIXED",
+          "fix": "That fix note was rewritten to say \"the historical section label\" instead of reproducing the literal string, so every remaining occurrence in this file is either the key_note or a verbatim quotation."
+        },
+        {
+          "verbatim": "The round-3 `verbatim` finding says `receipt\u2019s` with U+2019 instead of the supplied `receipt's` with ASCII apostrophe, so the finding is not recorded verbatim.",
+          "status": "VOID_FALSE_PREMISE_DISCLOSED",
+          "analysis": "The receipt is correct and this finding rests on a corrupted comparison text. Review session 01a045d9 emitted U+2019 in its own raw output (verified by re-reading the captured stdout: \"The receipt\u2019s `reviews` keys are...\"), and the receipt reproduces that byte-for-byte. The ASCII apostrophe came from the COORDINATOR normalising the quotation when composing the round-4 review prompt. The receipt was therefore NOT changed to match the corrupted quote: altering a genuine verbatim record to satisfy a mis-transcribed prompt would defeat the purpose of verbatim recording. Coordinator error, disclosed rather than propagated."
+        }
+      ],
+      "fixed_by": "the coordinator directly (receipt-text only; no code, test, manifest or campaign artifact touched)"
     }
   },
   "test_count_reconciliation": {
