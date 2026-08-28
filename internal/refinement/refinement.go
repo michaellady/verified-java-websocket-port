@@ -339,7 +339,7 @@ func extractSubject(root, commit string) (string, func(), error) {
 func runCargoBuild(ctx context.Context, root, cargo string) (Artifact, error) {
 	command := exec.CommandContext(ctx, cargo, "build", "--locked", "--offline", "-p", "websocket-testee", "--bin", "websocket-testee")
 	command.Dir = filepath.Join(root, "rust")
-	command.Env = append(os.Environ(), "LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "RUSTC="+filepath.Join(filepath.Dir(cargo), "rustc"), "RUSTFLAGS=--remap-path-prefix="+root+"=/us024/source")
+	command.Env = append(os.Environ(), "LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "RUSTC="+filepath.Join(filepath.Dir(cargo), "rustc"), "RUSTDOC="+filepath.Join(filepath.Dir(cargo), "rustdoc"), "RUSTFLAGS=--remap-path-prefix="+root+"=/us024/source")
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return Artifact{}, fmt.Errorf("cargo build: %w: %s", err, string(output))
@@ -596,7 +596,7 @@ func runReplayCommand(ctx context.Context, root, cargo string, argv []string) (C
 	defer cancel()
 	command := exec.CommandContext(commandCtx, cargo, argv[1:]...)
 	command.Dir = filepath.Join(root, "rust")
-	command.Env = append(os.Environ(), "LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "RUSTC="+filepath.Join(filepath.Dir(cargo), "rustc"), "RUSTFLAGS=--remap-path-prefix="+root+"=/us024/source")
+	command.Env = append(os.Environ(), "LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "RUSTC="+filepath.Join(filepath.Dir(cargo), "rustc"), "RUSTDOC="+filepath.Join(filepath.Dir(cargo), "rustdoc"), "RUSTFLAGS=--remap-path-prefix="+root+"=/us024/source")
 	output := &cappedOutput{limit: 4 << 20}
 	command.Stdout = output
 	command.Stderr = output
@@ -624,7 +624,11 @@ func runReplayCommand(ctx context.Context, root, cargo string, argv []string) (C
 			result.ExitCode = command.ProcessState.ExitCode()
 		}
 		result.Status = "FAIL"
-		return result, fmt.Errorf("manifest replay failed: %w", err)
+		tail := output.value.Bytes()
+		if len(tail) > 4<<10 {
+			tail = tail[len(tail)-(4<<10):]
+		}
+		return result, fmt.Errorf("manifest replay failed: %w: %s", err, string(tail))
 	}
 	if result.TestsPassed <= 0 || result.TestsFailed != 0 {
 		return result, errors.New("manifest replay test denominator was not reconciled")
