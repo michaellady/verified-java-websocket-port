@@ -310,8 +310,8 @@ func TestModelResultsReceiptContentIsBound(t *testing.T) {
 			root := mrStageTree(t, binding)
 			mrRewriteReceipt(t, root, binding, testCase.receiptPath, testCase.transform)
 			findings := ValidateModelResults(root, binding)
-			if !mrHasCode(findings, testCase.code) {
-				t.Fatalf("expected %s, got %+v", testCase.code, findings)
+			if !mrHasFinding(findings, testCase.code, testCase.detail) {
+				t.Fatalf("expected %s containing %q, got %+v", testCase.code, testCase.detail, findings)
 			}
 		})
 	}
@@ -667,6 +667,102 @@ func TestModelResultsBindsEveryDriverDigest(t *testing.T) {
 			t.Fatalf("the shipped record must validate clean, got %d findings", len(findings))
 		}
 	})
+}
+
+// The DIGEST vocabulary must be closed at the NAME and GRAMMAR level too, not
+// just the kind level: an unexpected name or a malformed line must be
+// rejected so substituted or extra digest evidence cannot ride along
+// (review round 6, BLOCKING 1).
+func TestModelResultsClosesDigestVocabulary(t *testing.T) {
+	binding := ModelResultsBindings()[0]
+	var results modelResultsDocument
+	mrReadJSON(t, filepath.Join(us006RepoRoot(t), filepath.FromSlash(binding.ResultsPath)), &results)
+	bogus := "sha256:" + strings.Repeat("f", 64)
+
+	cases := []struct {
+		name      string
+		transform func(string) string
+		detail    string
+	}{
+		{
+			name: "a DIGEST line naming an unexpected artifact blocks",
+			transform: func(text string) string {
+				return text + "\nDIGEST kind=staged name=SmuggledModel.tla sha256=" + bogus + "\n"
+			},
+			detail: "unexpected DIGEST name",
+		},
+		{
+			name: "a tool DIGEST naming a different archive blocks",
+			transform: func(text string) string {
+				return text + "\nDIGEST kind=tool name=other-tool.jar sha256=" + bogus + "\n"
+			},
+			detail: "unexpected DIGEST name",
+		},
+		{
+			name: "a malformed DIGEST line blocks instead of being skipped",
+			transform: func(text string) string {
+				return text + "\nDIGEST kind=staged name=FrameModel.tla\n"
+			},
+			detail: "malformed DIGEST line",
+		},
+		{
+			name: "a DIGEST line with trailing junk blocks",
+			transform: func(text string) string {
+				return text + "\nDIGEST kind=staged name=FrameModel.cfg sha256=" + bogus + " extra=1\n"
+			},
+			detail: "malformed DIGEST line",
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := mrStageTree(t, binding)
+			mrRewriteReceipt(t, root, binding, results.Execution.DriverLog, testCase.transform)
+			findings := ValidateModelResults(root, binding)
+			if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH", testCase.detail) {
+				t.Fatalf("expected %q, got %+v", testCase.detail, findings)
+			}
+		})
+	}
+
+	// CONTROL: the untouched log must still be ACCEPTED outright, so a rule
+	// that rejected every log would not satisfy the cases above.
+	t.Run("CONTROL: the real driver log is ACCEPTED outright", func(t *testing.T) {
+		root := mrStageTree(t, binding)
+		findings := ValidateModelResults(root, binding)
+		if len(findings) != 0 {
+			for _, finding := range findings {
+				t.Errorf("unexpected finding: %s: %s", finding.Code, finding.Detail)
+			}
+			t.Fatalf("the shipped record must validate clean, got %d findings", len(findings))
+		}
+	})
+}
+
+// The manifest must be bound to the CANONICAL driver input by path, not
+// merely to bytes that happen to hash correctly.
+func TestModelResultsBindsManifestPathToCanonicalInput(t *testing.T) {
+	binding := ModelResultsBindings()[0]
+	root := mrStageTree(t, binding)
+	var results modelResultsDocument
+	mrReadJSON(t, filepath.Join(root, filepath.FromSlash(binding.ResultsPath)), &results)
+
+	// A byte-identical copy at a path the driver never reads.
+	decoy := "assurance/formal/decoy-mutations.json"
+	body, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(results.Execution.MutationManifest.Path)))
+	if err != nil {
+		t.Fatalf("read manifest: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(decoy)), body, 0o644); err != nil {
+		t.Fatalf("write decoy: %v", err)
+	}
+	mrMutateJSON(t, filepath.Join(root, filepath.FromSlash(binding.ResultsPath)),
+		"/execution/mutation_manifest/path", decoy)
+
+	findings := ValidateModelResults(root, binding)
+	if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+		"is not the canonical mutation manifest") {
+		t.Fatalf("expected a canonical-path mismatch, got %+v", findings)
+	}
 }
 
 // The manifest must be bound to BYTES and to the sweep it claims, not merely

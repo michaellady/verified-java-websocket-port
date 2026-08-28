@@ -58,6 +58,12 @@ const (
 
 	ModelResultsSchemaPath = "schemas/formal-model-results-1.0.0.schema.json"
 
+	// ModelMutationsPath is the CANONICAL seeded-defect manifest: the exact
+	// path cmd/tlcdriver reads. Binding the recorded path to this constant is
+	// what stops a decoy manifest whose bytes merely hash correctly from
+	// standing in for the driver's real input (review round 6).
+	ModelMutationsPath = "assurance/formal/model-mutations.json"
+
 	// modelResultsCeiling is the highest claim any abstract model check may
 	// carry. Raising it requires a reviewed composition/refinement link,
 	// which no artifact in this tree has.
@@ -600,7 +606,7 @@ var (
 	mrPropertyViolated  = regexp.MustCompile(`Error: Temporal property ([A-Za-z][A-Za-z0-9_]*) was violated`)
 	mrActionViolated    = regexp.MustCompile(`Error: Action property ([A-Za-z][A-Za-z0-9_]*) is violated`)
 	mrDriverResult      = regexp.MustCompile(`(?m)^RESULT step=([^\s]+) (.*)$`)
-	mrDriverDigest      = regexp.MustCompile(`(?m)^DIGEST kind=([^\s]+) name=([^\s]+) sha256=([^\s]+)$`)
+	mrDriverDigest      = regexp.MustCompile(`^DIGEST kind=([^\s]+) name=([^\s]+) sha256=([^\s]+)$`)
 
 	mrCleanVerdict = "Model checking completed. No error has been found."
 )
@@ -610,6 +616,31 @@ var (
 // digests nobody checks is a place to hide one.
 var mrDriverDigestKinds = map[string]bool{
 	"tool": true, "manifest": true, "staged": true, "pristine": true,
+}
+
+// mrDriverDigestNames is the closed NAME vocabulary, per kind. Closing the
+// kind alone still let an unexpected or substituted artifact ride along under
+// a legitimate kind, so the names are enumerated too: the checker archive, the
+// canonical manifest, and the staged/pristine files of the modules this
+// repository actually declares.
+func mrDriverDigestNames() map[string]map[string]bool {
+	manifestName := ModelMutationsPath
+	if index := strings.LastIndex(manifestName, "/"); index >= 0 {
+		manifestName = manifestName[index+1:]
+	}
+	allowed := map[string]map[string]bool{
+		"tool":     {"tla2tools.jar": true},
+		"manifest": {manifestName: true},
+		"staged":   {},
+		"pristine": {},
+	}
+	for _, binding := range ModelResultsBindings() {
+		for _, suffix := range []string{".tla", ".cfg"} {
+			allowed["staged"][binding.Module+suffix] = true
+			allowed["pristine"][binding.Module+suffix] = true
+		}
+	}
+	return allowed
 }
 
 // mrManifestForModule returns the seeded-defect ids the mutation manifest
@@ -919,12 +950,30 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 	if index := strings.LastIndex(manifestName, "/"); index >= 0 {
 		manifestName = manifestName[index+1:]
 	}
+	// The scan is LINE-ORIENTED so a malformed DIGEST line is rejected rather
+	// than silently skipped by a whole-text regex sweep: a line the parser
+	// cannot read is a line nothing checks.
+	allowedNames := mrDriverDigestNames()
 	digests := map[string]string{}
-	for _, match := range mrDriverDigest.FindAllStringSubmatch(text, -1) {
+	for _, line := range strings.Split(text, "\n") {
+		if !strings.HasPrefix(line, "DIGEST") {
+			continue
+		}
+		match := mrDriverDigest.FindStringSubmatch(line)
+		if match == nil {
+			mismatch("the driver log carries a malformed DIGEST line: " + strconv.Quote(line))
+			continue
+		}
 		kind, name, value := match[1], match[2], match[3]
-		if !mrDriverDigestKinds[kind] {
+		names, known := allowedNames[kind]
+		if !known {
 			mismatch("the driver log carries an unrecognised DIGEST kind " + strconv.Quote(kind) +
 				" for " + name + "; the kind vocabulary is closed")
+			continue
+		}
+		if !names[name] {
+			mismatch("the driver log carries an unexpected DIGEST name " + strconv.Quote(name) +
+				" under kind " + kind + "; the name vocabulary is closed")
 			continue
 		}
 		key := kind + "/" + name
@@ -959,6 +1008,12 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 	}
 
 	// Bind the manifest to BYTES and to the sweep it claims.
+	if document.Execution.MutationManifest.Path != ModelMutationsPath {
+		mismatch("the recorded mutation manifest " +
+			strconv.Quote(document.Execution.MutationManifest.Path) +
+			" is not the canonical mutation manifest " + strconv.Quote(ModelMutationsPath) +
+			" that the driver reads; matching bytes at another path are not the driver's input")
+	}
 	manifestPath := filepath.Join(root, filepath.FromSlash(document.Execution.MutationManifest.Path))
 	actualManifest, manifestErr := modelResultsDigestFile(manifestPath)
 	switch {
