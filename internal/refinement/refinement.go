@@ -269,7 +269,7 @@ func extractSubject(root, commit string) (string, func(), error) {
 	if len(raw) > 512<<20 {
 		return "", nil, errors.New("subject archive exceeded bound")
 	}
-	destination, err := os.MkdirTemp("", "us024-subject-")
+	destination, err := os.MkdirTemp("/private/tmp", "us024-subject-")
 	if err != nil {
 		return "", nil, err
 	}

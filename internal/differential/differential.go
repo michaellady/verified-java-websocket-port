@@ -123,7 +123,7 @@ func ReplayRustPublic(ctx context.Context, cfg RustReplayConfig) ([]RustReplayRo
 	if err != nil {
 		return nil, err
 	}
-	home, err := os.MkdirTemp("", "us024-rust-replay-")
+	home, err := os.MkdirTemp("/private/tmp", "us024-rust-replay-")
 	if err != nil {
 		return nil, err
 	}
