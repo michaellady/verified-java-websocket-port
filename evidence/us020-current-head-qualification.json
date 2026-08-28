@@ -1,8 +1,33 @@
 {
-  "$schema": "../schemas/us020-current-head-qualification-1.0.0.schema.json",
+  "$schema": "../schemas/us020-current-head-qualification-1.1.0.schema.json",
+  "schema_version": "1.1.0",
+  "evidence_id": "evidence.us-020-current-head-qualification",
+  "story_id": "US-020",
+  "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
-  "autobahn": false,
+  "head_at_execution": "745541de845b2e3e92f1b8a74aefb996af02cac5",
+  "source_tree": "fb51b276a8541e26347361ca52b7ac0d28b09e26",
+  "validation_time": "2026-08-28T15:41:51Z",
+  "toolchain": {
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "host": "aarch64-apple-darwin"
+  },
   "bindings": [
+    {
+      "path": "LICENSE",
+      "sha256": "sha256:c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+      "git_blob": "261eeb9e9f8b2b4b0d119366dda99c6fd7d35c64"
+    },
+    {
+      "path": "cmd/currentheadctl/main.go",
+      "sha256": "sha256:c9c7665ff27aca44a46a25ad69c38f64207bd8d88468aa8ed2608cbe5269c644",
+      "git_blob": "dbee51bc46b738de4b028d64f947bf3920f08326"
+    },
+    {
+      "path": "cmd/currentheadctl/main_test.go",
+      "sha256": "sha256:5cb92302b4c4a9fecc5e98bbae388944fc825ac3af97c2e1265fa4fbf96f3a18",
+      "git_blob": "46f38e85df0d1a5f8fb2456c2b5aa631cebcee06"
+    },
     {
       "path": "cmd/rustgate/main.go",
       "sha256": "sha256:373ddc958cf83f1744a900db4edf24a4d979524a32e2ea90c1237f7a33f01121",
@@ -14,9 +39,19 @@
       "git_blob": "cf9d33c3bed3b337e95e5cf2863e43d5752baf83"
     },
     {
-      "path": "docs/rust-workspace.md",
-      "sha256": "sha256:2bde4ba2eb7e974e3e02b9cbbc4f12ecb06fb794bd784cf1896782ac18524ce7",
-      "git_blob": "2f6ed85bc50a6cc4723b4dc50f52695675ba3e44"
+      "path": "internal/provenance/current_head.go",
+      "sha256": "sha256:dca76d31b120bfbebf2854e773a34571f26c2c33cc195ff79b7947ce34c7ee36",
+      "git_blob": "e90d584ddc67ab2b7b0e045e23745b44ae17bbfb"
+    },
+    {
+      "path": "internal/provenance/current_head_generate.go",
+      "sha256": "sha256:5825ce3ea3809a7ad35eb2e8abde693c4446995d014f6ed45397c0e10b29f135",
+      "git_blob": "fe28d98accc4284ef478ff38fbdfce3d098442a3"
+    },
+    {
+      "path": "internal/provenance/current_head_test.go",
+      "sha256": "sha256:62a463cf4caaa027fb5947d199a32ce3cc1251cc8fd9bc81a3f54c4ef61e1b85",
+      "git_blob": "ca3ec8fb20e7717238046d6ff5418bf6b1dfb2e2"
     },
     {
       "path": "internal/rustgate/rustlex.go",
@@ -42,6 +77,11 @@
       "path": "rust/Cargo.toml",
       "sha256": "sha256:316f90d18e749341ac236aa50695b70e87e25e0a8a0e18ad942a479e87c99615",
       "git_blob": "6e4371d41cf7f3c180081ac6606c5a0106c9071d"
+    },
+    {
+      "path": "rust/Makefile",
+      "sha256": "sha256:632fca67d372de5d334ec945e111d95cc0e084980c596f20b522a047d92d8c54",
+      "git_blob": "b09105c48d8dabcae3bba8e9ebe4ab0da5702808"
     },
     {
       "path": "rust/connection-core/Cargo.toml",
@@ -199,14 +239,24 @@
       "git_blob": "9e46a71ad87541213b8fd304a6f36f0574c0e7df"
     },
     {
+      "path": "rust/rust-toolchain.toml",
+      "sha256": "sha256:70025e01381c049c00b10b9060689dcb81bac086f59b38976e15dee33d4d5155",
+      "git_blob": "31e391a866d7b9caa8341cebd0bc8774e76ec603"
+    },
+    {
       "path": "rust/websocket-driver/Cargo.toml",
       "sha256": "sha256:d6e85a069a6e4c323d8300c6ec717e064d1105d020cf97b8cb41068bb163aaba",
       "git_blob": "34a470693b2710c03adca4435a09d18df09d9b67"
     },
     {
       "path": "rust/websocket-driver/src/lib.rs",
-      "sha256": "sha256:fc3c29623b2589ad5dbcf4e2523d3a43fcb61e17c1367f654b46cfe6d7631554",
-      "git_blob": "ca933e934f4e9c8452b295b4ca1f4742ed967b69"
+      "sha256": "sha256:c508bd4de5ef416cbfb6c402dcd227c4085ee3e50c7dd7e49902337853d77212",
+      "git_blob": "0b8ff32a72213140fd334f17b74ae0f667564266"
+    },
+    {
+      "path": "rust/websocket-driver/src/output.rs",
+      "sha256": "sha256:3b54812ebf5f8a23631a59883c64872680e6b9f9659672f45abb8aea009122e5",
+      "git_blob": "160f0f1ebce6cd08c62b04d11d5dcd28901eb317"
     },
     {
       "path": "rust/websocket-driver/tests/concurrency.rs",
@@ -217,6 +267,11 @@
       "path": "rust/websocket-driver/tests/driver_contract.rs",
       "sha256": "sha256:70b85ac07e190c6f623b9fec6094ef3b31c3659e203d7bf6502169ee5f382928",
       "git_blob": "576277c9fc696aec36517d6d12b1a2d77ddcd22b"
+    },
+    {
+      "path": "rust/websocket-driver/tests/refinement_contract.rs",
+      "sha256": "sha256:40a60a0b9bc21572a5e977ad2f41aa77f1fe74ffb7d6d50e28f3d0767c0c1471",
+      "git_blob": "132a136d8545e12daf6f546e3a8e888bb45c4afb"
     },
     {
       "path": "rust/websocket-testee/Cargo.toml",
@@ -260,73 +315,122 @@
     },
     {
       "path": "rust/websocket-testee/tests/process.rs",
-      "sha256": "sha256:599cee074f49b34dad3c532ad36fa34781a2e5005d5a44e3d3953af9963361e2",
-      "git_blob": "d918d8240ea7f9c5a02069d7d14fd05f93e7bd8f"
+      "sha256": "sha256:8c0d1911e9e00c945d4af386ef9e2f27190a342e158bff891d6a6e1f3b83a843",
+      "git_blob": "1148a112918d6349ecdf4eb9070cd67b5b34af0a"
     }
   ],
-  "claim_scope": "CURRENT_SOURCE_TEST_QUALIFICATION_ONLY",
   "commands": [
     {
-      "argv": ["cargo", "test", "--locked", "-p", "websocket-core"],
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "websocket-core"
+      ],
       "working_directory": "rust",
       "exit_code": 0,
       "result": "PASS"
     },
     {
-      "argv": ["cargo", "test", "--locked", "-p", "websocket-driver"],
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "websocket-driver"
+      ],
       "working_directory": "rust",
       "exit_code": 0,
       "result": "PASS"
     },
     {
-      "argv": ["cargo", "test", "--locked", "-p", "websocket-testee", "--lib"],
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "websocket-testee",
+        "--lib"
+      ],
       "working_directory": "rust",
       "exit_code": 0,
       "result": "PASS"
     },
     {
-      "argv": ["cargo", "test", "--locked", "-p", "websocket-testee", "--test", "process", "neutral_oracle"],
+      "argv": [
+        "cargo",
+        "test",
+        "--locked",
+        "-p",
+        "websocket-testee",
+        "--test",
+        "process",
+        "neutral_oracle"
+      ],
       "working_directory": "rust",
       "exit_code": 0,
       "result": "PASS"
     },
     {
-      "argv": ["cargo", "fmt", "--all", "--", "--check"],
+      "argv": [
+        "cargo",
+        "fmt",
+        "--all",
+        "--",
+        "--check"
+      ],
       "working_directory": "rust",
       "exit_code": 0,
       "result": "PASS"
     },
     {
-      "argv": ["cargo", "clippy", "--locked", "--workspace", "--all-targets", "--", "-D", "warnings"],
+      "argv": [
+        "cargo",
+        "clippy",
+        "--locked",
+        "--workspace",
+        "--all-targets",
+        "--",
+        "-D",
+        "warnings"
+      ],
       "working_directory": "rust",
       "exit_code": 0,
       "result": "PASS"
     },
     {
-      "argv": ["go", "test", "./cmd/rustgate", "-count=1"],
+      "argv": [
+        "go",
+        "test",
+        "./cmd/rustgate",
+        "-count=1"
+      ],
       "working_directory": ".",
       "exit_code": 0,
       "result": "PASS"
     }
   ],
-  "docker": false,
-  "evidence_id": "evidence.us-020-current-head-qualification",
-  "head_at_execution": "52e63a0f3fd3c8061523d94bf9b637f9d7f1bebc",
-  "live_java": false,
+  "predecessor_scope": [
+    "US-010",
+    "US-011",
+    "US-012",
+    "US-013",
+    "US-014",
+    "US-015",
+    "US-016",
+    "US-017",
+    "US-018",
+    "US-019"
+  ],
+  "claim_scope": "CURRENT_SOURCE_TEST_QUALIFICATION_ONLY",
   "network": false,
+  "live_java": false,
+  "docker": false,
+  "autobahn": false,
   "nonclaims": [
     "historical predecessor receipts are preserved and not rewritten",
     "no predecessor result is rerun or upgraded",
     "no live Java Docker Autobahn Linux network production publication signing or independent review claim"
-  ],
-  "predecessor_scope": ["US-010", "US-011", "US-012", "US-013", "US-014", "US-015", "US-016", "US-017", "US-018", "US-019"],
-  "schema_version": "1.0.0",
-  "source_tree": "b1e6cb09cd12c69f529143b7893319565dcdcf4c",
-  "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
-  "story_id": "US-020",
-  "toolchain": {
-    "host": "aarch64-apple-darwin",
-    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)"
-  },
-  "validation_time": "2026-08-28T02:47:19Z"
+  ]
 }
