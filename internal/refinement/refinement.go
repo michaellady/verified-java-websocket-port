@@ -536,6 +536,7 @@ var allowedDiff = map[string]bool{
 	"rust/websocket-driver/src/lib.rs":                   true,
 	"rust/websocket-driver/src/output.rs":                true,
 	"rust/websocket-driver/tests/refinement_contract.rs": true,
+	"rust/websocket-testee/tests/process.rs":             true,
 	"internal/differential/differential.go":              true,
 	"internal/differential/differential_test.go":         true,
 	"internal/refinement/refinement.go":                  true,
@@ -805,7 +806,7 @@ func testNamesAt(root, commit, path string) ([]string, error) {
 }
 
 func deriveTestInventory(root, before, after string) (TestInventory, error) {
-	paths := []string{"internal/differential/differential_test.go", "rust/websocket-driver/src/lib.rs"}
+	paths := []string{"internal/differential/differential_test.go", "rust/websocket-driver/src/lib.rs", "rust/websocket-testee/tests/process.rs"}
 	beforeNames, afterNames := []string{}, []string{}
 	for _, path := range paths {
 		left, err := testNamesAt(root, before, path)
@@ -1045,7 +1046,7 @@ func validateStatic(e Evidence) error {
 	if !reflect.DeepEqual(e.TestInventory.AddedNames, wantAdded) {
 		return errors.New("added test-name inventory drift")
 	}
-	if len(e.Membership.Production) != 2 || e.Membership.Production[0].Path != "rust/websocket-driver/src/lib.rs" || e.Membership.Production[1].Path != "rust/websocket-driver/src/output.rs" || len(e.Membership.Tests) != 1 || e.Membership.Tests[0].Path != "rust/websocket-driver/tests/refinement_contract.rs" {
+	if len(e.Membership.Production) != 2 || e.Membership.Production[0].Path != "rust/websocket-driver/src/lib.rs" || e.Membership.Production[1].Path != "rust/websocket-driver/src/output.rs" || len(e.Membership.Tests) != 2 || e.Membership.Tests[0].Path != "rust/websocket-driver/tests/refinement_contract.rs" || e.Membership.Tests[1].Path != "rust/websocket-testee/tests/process.rs" {
 		return errors.New("production or hostile-test membership drift")
 	}
 	wantProtected := map[string]string{

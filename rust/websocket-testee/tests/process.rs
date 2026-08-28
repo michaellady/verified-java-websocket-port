@@ -554,12 +554,10 @@ fn invalid_cli_and_failed_connect_have_stable_exit_classes() {
     assert_eq!(invalid.status.code(), Some(2));
     assert_eq!(String::from_utf8(invalid.stderr).unwrap(), "usage-error\n");
 
-    let unused = TcpListener::bind("127.0.0.1:0").unwrap();
-    let address = unused.local_addr().unwrap();
-    drop(unused);
+    let address = "127.0.0.1:0";
     let mut arguments = vec![
         "client".to_owned(),
-        address.to_string(),
+        address.to_owned(),
         "/chat".to_owned(),
         "server.example.com".to_owned(),
         "7468652073616d706c65206e6f6e6365".to_owned(),
