@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -50,6 +51,9 @@ func TestRunCaptureVerifyAndUsage(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"capture", "--root", root}, &stdout, &stderr); code != 0 {
 		t.Fatalf("capture exit %d: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), `"subject_checkout":"NOT_VERIFIED"`) {
+		t.Fatalf("capture summary omits checkout nonverification: %s", stdout.String())
 	}
 	stdout.Reset()
 	stderr.Reset()

@@ -7,12 +7,13 @@
   "provider": "openai",
   "model": "gpt-5.6-sol",
   "reasoning_effort": "xhigh",
-  "subject": {
+  "declared_subject": {
     "commit": "98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc",
     "tree": "36ee700401268621aae58639185dcdc11e4c00c6"
   },
+  "subject_checkout_verification": "NOT_VERIFIED",
   "candidate_root": "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e",
-  "projection_contract_sha256": "sha256:2bdda36812f3cbacfd913b65a122ab887d77a171f60ba7354501c8e435e0ed8f",
+  "projection_contract_sha256": "sha256:bb5ac60b9738ffe66f5e082729c668007442661addd263e5539e0b674d1586ca",
   "input_root_sha256": "sha256:310b1f4585b8cee889d970447bba9affb362781073642428d0bb38251f59e207",
   "mechanics_status": "PASS_OWNER_RELAXED_PUBLIC_PROJECTION_MECHANICS",
   "acceptance_state": "INDEPENDENT_ACCEPTANCE_BLOCKED",

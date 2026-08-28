@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/projection"
@@ -71,8 +72,48 @@ func TestCaptureVerifyBindsRelaxedProjection(t *testing.T) {
 	if summary.FormalObligations != 24 || summary.FormalBlocked != 24 || summary.FormalStrongAccepted != 0 {
 		t.Fatalf("unexpected obligation ledger: %+v", summary)
 	}
+	if summary.SubjectCheckout != projection.CheckoutNotVerified {
+		t.Fatalf("checkout verification = %q", summary.SubjectCheckout)
+	}
 	if _, err := projection.Verify(root); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNoGitCheckoutIsOnlyDeclaredAndExplicitlyNotVerified(t *testing.T) {
+	root := fixtureRoot(t)
+	if _, err := os.Lstat(filepath.Join(root, ".git")); !os.IsNotExist(err) {
+		t.Fatalf("fixture unexpectedly has Git metadata: %v", err)
+	}
+	if _, err := projection.Capture(root); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range projection.ArtifactPaths() {
+		raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(name)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		text := string(raw)
+		if strings.Contains(text, "SUBJECT_PINNED") || strings.Contains(strings.ToLower(text), "pinned git subject") {
+			t.Fatalf("%s claims a pinned subject", name)
+		}
+		if name == "assurance/independent-replay.json" {
+			for _, required := range []string{
+				`"declared_subject"`, `"subject_checkout": "NOT_VERIFIED"`,
+				`"SUBJECT_CHECKOUT_NOT_VERIFIED"`,
+				`"no verification that the supplied checkout equals the declared subject"`,
+			} {
+				if !strings.Contains(text, required) {
+					t.Fatalf("replay lacks %s", required)
+				}
+			}
+		}
+		if strings.HasPrefix(name, "assurance/receipts/") && !strings.Contains(text, `"subject_checkout_verification": "NOT_VERIFIED"`) {
+			t.Fatalf("%s omits checkout nonverification", name)
+		}
+		if name == "public/snapshot.json" && !strings.Contains(text, `"freshness": "DECLARED_SUBJECT_CHECKOUT_NOT_VERIFIED"`) {
+			t.Fatal("snapshot freshness implies more than a declared subject")
+		}
 	}
 }
 

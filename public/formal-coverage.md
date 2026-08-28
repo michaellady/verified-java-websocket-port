@@ -2,6 +2,8 @@
 
 Strong independent acceptance: **BLOCKED**
 
+The commit and tree are declared identifiers; the supplied checkout is **NOT_VERIFIED**.
+
 Strong formal coverage: **0/24**. Every obligation remains blocked.
 
 | Obligation | State |

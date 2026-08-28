@@ -2,12 +2,13 @@
   "$schema": "../schemas/us027-independent-replay-1.0.0.schema.json",
   "schema_version": "1.0.0",
   "story_id": "US-027",
-  "subject": {
+  "declared_subject": {
     "commit": "98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc",
     "tree": "36ee700401268621aae58639185dcdc11e4c00c6"
   },
+  "subject_checkout": "NOT_VERIFIED",
   "candidate_root": "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e",
-  "projection_contract_sha256": "sha256:2bdda36812f3cbacfd913b65a122ab887d77a171f60ba7354501c8e435e0ed8f",
+  "projection_contract_sha256": "sha256:bb5ac60b9738ffe66f5e082729c668007442661addd263e5539e0b674d1586ca",
   "inputs": [
     {
       "path": "contracts/laboratory-template.json",
@@ -271,40 +272,41 @@
   "protected_replay": "NOT_EXECUTED",
   "human_review": "NOT_EXECUTED",
   "independent_custodian": "NOT_BOUND",
-  "public_projection_root": "sha256:5dcb928035ae2f9d1f574312cf0b0f1b54e64a80c35f0f4c9f877c65e11a0975",
+  "public_projection_root": "sha256:9c48a9ec59e94d3cfb0e20e827ae2501974886be213b08e0ba3b7c4c97623526",
   "artifacts": [
     {
       "path": "assurance/receipts/human.json",
-      "sha256": "sha256:6368d0d845c8c4edb537ff0a4880440da966b41e896cbffb038d700539f07db3",
-      "bytes": 930
+      "sha256": "sha256:8e01ba13a6c5f304bbad44287a488e5da4ae6a10155da8596fb8907e04c16a20",
+      "bytes": 990
     },
     {
       "path": "assurance/receipts/codex.json",
-      "sha256": "sha256:94fbc8793036e6f0ecbfe69f581e30f6595430fbe8a07571e392a816922db54a",
-      "bytes": 960
+      "sha256": "sha256:245693c6888bf0780a9c25a260dddb4b63627ad00520eef4ba3ccf2a070c48c1",
+      "bytes": 1020
     },
     {
       "path": "assurance/receipts/reality.json",
-      "sha256": "sha256:69df255cb40ffa047607ff5d8263df28c2e11b7a51e173ba4403d9ae1e049d40",
-      "bytes": 964
+      "sha256": "sha256:a951cb6d531bbd50156789df93bf8fdb84a7ec4a87cfe1090872d36704381bb6",
+      "bytes": 1024
     },
     {
       "path": "public/formal-coverage.md",
-      "sha256": "sha256:f03bfcab5cf28aa6e813aab744c0b6b7881825b8433b5b7e869eecd5dae68153",
-      "bytes": 1311
+      "sha256": "sha256:798366d035d33a940568f41b65a59c7bf5c13123cc3a2ca956400addbdf8779a",
+      "bytes": 1401
     },
     {
       "path": "public/README.md",
-      "sha256": "sha256:18243b4efb1a007d5896585c0d8b4b6a0125058ad710a21a9e4af46ed2805d9b",
-      "bytes": 319
+      "sha256": "sha256:6ae5fed31aa0d8519ab871a024ec6e8a4b0fffdcfbea07c4fedf5e81f9a90bab",
+      "bytes": 393
     },
     {
       "path": "public/snapshot.json",
-      "sha256": "sha256:a0a51bd3a5ab8f371d009877d59326d7647ab58ad8b55e147eca69cb99b28ba9",
-      "bytes": 1623
+      "sha256": "sha256:833702d2de3d47c0d3d8908362460865437f40aaba2779dfd4ea5df7af2c6cd5",
+      "bytes": 1699
     }
   ],
   "blockers": [
+    "SUBJECT_CHECKOUT_NOT_VERIFIED",
     "CANONICAL_PRD_NOT_REPOSITORY_BOUND",
     "INDEPENDENT_CUSTODIAN_NOT_BOUND",
     "HUMAN_REVIEW_NOT_EXECUTED",
@@ -320,6 +322,7 @@
     "JAVA_REMOVAL_NOT_AUTHORIZED"
   ],
   "nonclaims": [
+    "no verification that the supplied checkout equals the declared subject",
     "no provenance-distinct custodian, identity, or independent review",
     "no human review or protected evaluator replay",
     "no strong acceptance of all child gates or formal obligations",

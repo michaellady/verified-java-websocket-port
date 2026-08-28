@@ -43,9 +43,9 @@ type secureRepository struct {
 }
 
 var evaluatorSchemas = []inputBinding{
-	{Path: "schemas/us027-receipt-1.0.0.schema.json", SHA256: "sha256:ba2c8767ab6c2ab24f0469fdadd2fbcb96bc8b435302feb7e91398cb2220d019", Bytes: 3410},
-	{Path: "schemas/us027-independent-replay-1.0.0.schema.json", SHA256: "sha256:59ad48b5726c11545b1cbb2913d79aad291f2bbc2b3c217c77140ffc422c72d8", Bytes: 4388},
-	{Path: "schemas/us027-public-snapshot-1.0.0.schema.json", SHA256: "sha256:7ad7c110c6135e0dd170f6c653aa9846e0438ff1dc681ba7cf86144160a045b0", Bytes: 2353},
+	{Path: "schemas/us027-receipt-1.0.0.schema.json", SHA256: "sha256:5be62e9f6eeba3d2c5e387ec5d867d3624ca8be10378594b2e7d3fd6575a6f63", Bytes: 3531},
+	{Path: "schemas/us027-independent-replay-1.0.0.schema.json", SHA256: "sha256:0cc301df5b36e3fd8d56269b0db72845483a23dfc8d461f4484720f7ba951711", Bytes: 4699},
+	{Path: "schemas/us027-public-snapshot-1.0.0.schema.json", SHA256: "sha256:81abfd6bb26c2481a4e9e8c1c09919555d5e087586975c96f0e4babc49ebe478", Bytes: 2526},
 }
 
 func openRepository(path string) (*secureRepository, error) {
@@ -437,7 +437,7 @@ func validateArtifact(path string, raw []byte) error {
 		if err := strictDecode(raw, &value); err != nil {
 			return fail(failureSchema, "%s: %v", path, err)
 		}
-		if value.Subject.Commit != SubjectCommit || value.Subject.Tree != SubjectTree || value.CandidateRoot != CandidateRoot || value.ProjectionContractSHA256 != ContractSHA256 || value.MechanicsStatus != MechanicsPass || value.AcceptanceState != AcceptanceBlocked || value.Independent || value.Accepted || value.ProtectedAccess || value.Assurance != Assurance {
+		if value.DeclaredSubject.Commit != DeclaredSubjectCommit || value.DeclaredSubject.Tree != DeclaredSubjectTree || value.SubjectCheckoutVerification != CheckoutNotVerified || value.CandidateRoot != CandidateRoot || value.ProjectionContractSHA256 != ContractSHA256 || value.MechanicsStatus != MechanicsPass || value.AcceptanceState != AcceptanceBlocked || value.Independent || value.Accepted || value.ProtectedAccess || value.Assurance != Assurance {
 			return fail(failureSchema, "%s exceeds the fixed receipt ceiling", path)
 		}
 		if path == "assurance/receipts/human.json" && (value.Role != "HUMAN_REVIEWER" || value.Status != "NOT_EXECUTED" || value.Provider != nil || value.Model != nil || value.ReasoningEffort != nil) {
@@ -448,7 +448,7 @@ func validateArtifact(path string, raw []byte) error {
 		if err := strictDecode(raw, &value); err != nil {
 			return fail(failureSchema, "%s: %v", path, err)
 		}
-		if value.MechanicsStatus != MechanicsPass || value.AcceptanceState != AcceptanceBlocked || value.ChildStoryCount != 26 || value.ChildMechanicsPassed != 26 || value.StrongChildAccepted != 0 || value.FormalObligations != 24 || value.FormalStrongAccepted != 0 || value.FormalBlocked != 24 || value.ProtectedReplay != "NOT_EXECUTED" || value.HumanReview != "NOT_EXECUTED" || value.IndependentCustodian != "NOT_BOUND" || value.Assurance != Assurance || value.IndependentReviewClaimed || len(value.Blockers) != 13 || len(value.Nonclaims) != 6 {
+		if value.DeclaredSubject.Commit != DeclaredSubjectCommit || value.DeclaredSubject.Tree != DeclaredSubjectTree || value.SubjectCheckout != CheckoutNotVerified || value.MechanicsStatus != MechanicsPass || value.AcceptanceState != AcceptanceBlocked || value.ChildStoryCount != 26 || value.ChildMechanicsPassed != 26 || value.StrongChildAccepted != 0 || value.FormalObligations != 24 || value.FormalStrongAccepted != 0 || value.FormalBlocked != 24 || value.ProtectedReplay != "NOT_EXECUTED" || value.HumanReview != "NOT_EXECUTED" || value.IndependentCustodian != "NOT_BOUND" || value.Assurance != Assurance || value.IndependentReviewClaimed || len(value.Blockers) != 14 || len(value.Nonclaims) != 7 || !contains(value.Blockers, "SUBJECT_CHECKOUT_NOT_VERIFIED") || !contains(value.Nonclaims, "no verification that the supplied checkout equals the declared subject") {
 			return fail(failureSchema, "independent replay ceiling or counts drift")
 		}
 	case "public/snapshot.json":
@@ -456,7 +456,7 @@ func validateArtifact(path string, raw []byte) error {
 		if err := strictDecode(raw, &value); err != nil {
 			return fail(failureSchema, "%s: %v", path, err)
 		}
-		if value.Badge != publicBadge || value.Freshness != publicFreshness || value.JavaFallback != publicJavaFallback || value.Supersession != publicSupersession || value.Revocation != publicRevocation || value.Publication != publicPublication || value.AcceptanceState != AcceptanceBlocked || value.StrongChildAccepted != 0 || value.FormalStrongAccepted != 0 {
+		if value.DeclaredSubject.Commit != DeclaredSubjectCommit || value.DeclaredSubject.Tree != DeclaredSubjectTree || value.SubjectCheckout != CheckoutNotVerified || value.Badge != publicBadge || value.Freshness != publicFreshness || value.JavaFallback != publicJavaFallback || value.Supersession != publicSupersession || value.Revocation != publicRevocation || value.Publication != publicPublication || value.AcceptanceState != AcceptanceBlocked || value.StrongChildAccepted != 0 || value.FormalStrongAccepted != 0 || len(value.Blockers) != 14 || !contains(value.Blockers, "SUBJECT_CHECKOUT_NOT_VERIFIED") {
 			return fail(failureSchema, "public snapshot claim ceiling drift")
 		}
 	}
@@ -511,6 +511,7 @@ func scanPublicBytes(raw []byte) error {
 		"synthetic_session_identifier", "synthetic_protected_canary", "synthetic_raw_trace",
 		"case_id", "expected_output", "stdout", "stderr", "machine_identity",
 		"invocation_transcript", "http://", "https://", "cutover_ready",
+		"subject_pinned", "pinned git subject",
 	}
 	for _, marker := range prohibited {
 		if strings.Contains(lower, marker) {

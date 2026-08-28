@@ -13,18 +13,19 @@ import (
 )
 
 const (
-	MechanicsPass     = "PASS_OWNER_RELAXED_PUBLIC_PROJECTION_MECHANICS"
-	AcceptanceBlocked = "INDEPENDENT_ACCEPTANCE_BLOCKED"
-	Assurance         = "OWNER_ATTESTED_NOT_INDEPENDENT"
-	SubjectCommit     = "98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc"
-	SubjectTree       = "36ee700401268621aae58639185dcdc11e4c00c6"
-	CandidateRoot     = "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e"
-	ContractSHA256    = "sha256:2bdda36812f3cbacfd913b65a122ab887d77a171f60ba7354501c8e435e0ed8f"
+	MechanicsPass         = "PASS_OWNER_RELAXED_PUBLIC_PROJECTION_MECHANICS"
+	AcceptanceBlocked     = "INDEPENDENT_ACCEPTANCE_BLOCKED"
+	Assurance             = "OWNER_ATTESTED_NOT_INDEPENDENT"
+	CheckoutNotVerified   = "NOT_VERIFIED"
+	DeclaredSubjectCommit = "98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc"
+	DeclaredSubjectTree   = "36ee700401268621aae58639185dcdc11e4c00c6"
+	CandidateRoot         = "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e"
+	ContractSHA256        = "sha256:bb5ac60b9738ffe66f5e082729c668007442661addd263e5539e0b674d1586ca"
 )
 
 const (
 	publicBadge        = "OWNER_RELAXED_MECHANICS_COMPLETE_INDEPENDENCE_BLOCKED"
-	publicFreshness    = "SUBJECT_PINNED_NO_EXTERNAL_FRESHNESS_AUTHORITY"
+	publicFreshness    = "DECLARED_SUBJECT_CHECKOUT_NOT_VERIFIED"
 	publicJavaFallback = "RETAINED_SOURCE_NOT_EXECUTABLE_DRILLED"
 	publicSupersession = "UNKNOWN_NOT_AUTHORITY_BOUND"
 	publicRevocation   = "UNKNOWN_NOT_AUTHORITY_BOUND"
@@ -42,9 +43,10 @@ type Summary struct {
 	FormalObligations    int    `json:"formal_obligations"`
 	FormalStrongAccepted int    `json:"formal_strong_accepted"`
 	FormalBlocked        int    `json:"formal_blocked"`
+	SubjectCheckout      string `json:"subject_checkout"`
 }
 
-type subjectIdentity struct {
+type declaredSubjectIdentity struct {
 	Commit string `json:"commit"`
 	Tree   string `json:"tree"`
 }
@@ -56,24 +58,25 @@ type inputBinding struct {
 }
 
 type receipt struct {
-	Schema                   string          `json:"$schema"`
-	SchemaVersion            string          `json:"schema_version"`
-	ReceiptID                string          `json:"receipt_id"`
-	Role                     string          `json:"role"`
-	Status                   string          `json:"status"`
-	Provider                 *string         `json:"provider"`
-	Model                    *string         `json:"model"`
-	ReasoningEffort          *string         `json:"reasoning_effort"`
-	Subject                  subjectIdentity `json:"subject"`
-	CandidateRoot            string          `json:"candidate_root"`
-	ProjectionContractSHA256 string          `json:"projection_contract_sha256"`
-	InputRootSHA256          string          `json:"input_root_sha256"`
-	MechanicsStatus          string          `json:"mechanics_status"`
-	AcceptanceState          string          `json:"acceptance_state"`
-	Independent              bool            `json:"independent"`
-	Accepted                 bool            `json:"accepted"`
-	ProtectedAccess          bool            `json:"protected_access"`
-	Assurance                string          `json:"assurance"`
+	Schema                      string                  `json:"$schema"`
+	SchemaVersion               string                  `json:"schema_version"`
+	ReceiptID                   string                  `json:"receipt_id"`
+	Role                        string                  `json:"role"`
+	Status                      string                  `json:"status"`
+	Provider                    *string                 `json:"provider"`
+	Model                       *string                 `json:"model"`
+	ReasoningEffort             *string                 `json:"reasoning_effort"`
+	DeclaredSubject             declaredSubjectIdentity `json:"declared_subject"`
+	SubjectCheckoutVerification string                  `json:"subject_checkout_verification"`
+	CandidateRoot               string                  `json:"candidate_root"`
+	ProjectionContractSHA256    string                  `json:"projection_contract_sha256"`
+	InputRootSHA256             string                  `json:"input_root_sha256"`
+	MechanicsStatus             string                  `json:"mechanics_status"`
+	AcceptanceState             string                  `json:"acceptance_state"`
+	Independent                 bool                    `json:"independent"`
+	Accepted                    bool                    `json:"accepted"`
+	ProtectedAccess             bool                    `json:"protected_access"`
+	Assurance                   string                  `json:"assurance"`
 }
 
 type childMechanic struct {
@@ -93,57 +96,59 @@ type artifactDigest struct {
 }
 
 type replayDocument struct {
-	Schema                   string             `json:"$schema"`
-	SchemaVersion            string             `json:"schema_version"`
-	StoryID                  string             `json:"story_id"`
-	Subject                  subjectIdentity    `json:"subject"`
-	CandidateRoot            string             `json:"candidate_root"`
-	ProjectionContractSHA256 string             `json:"projection_contract_sha256"`
-	Inputs                   []inputBinding     `json:"inputs"`
-	InputRootSHA256          string             `json:"input_root_sha256"`
-	MechanicsStatus          string             `json:"mechanics_status"`
-	AcceptanceState          string             `json:"acceptance_state"`
-	ChildStoryCount          int                `json:"child_story_count"`
-	ChildMechanicsPassed     int                `json:"child_mechanics_passed"`
-	StrongChildAccepted      int                `json:"strong_child_accepted"`
-	Children                 []childMechanic    `json:"children"`
-	FormalObligations        int                `json:"formal_obligations"`
-	FormalStrongAccepted     int                `json:"formal_strong_accepted"`
-	FormalBlocked            int                `json:"formal_blocked"`
-	Obligations              []formalObligation `json:"obligations"`
-	ProtectedReplay          string             `json:"protected_replay"`
-	HumanReview              string             `json:"human_review"`
-	IndependentCustodian     string             `json:"independent_custodian"`
-	PublicProjectionRoot     string             `json:"public_projection_root"`
-	Artifacts                []artifactDigest   `json:"artifacts"`
-	Blockers                 []string           `json:"blockers"`
-	Nonclaims                []string           `json:"nonclaims"`
-	Assurance                string             `json:"assurance"`
-	IndependentReviewClaimed bool               `json:"independent_review_claimed"`
+	Schema                   string                  `json:"$schema"`
+	SchemaVersion            string                  `json:"schema_version"`
+	StoryID                  string                  `json:"story_id"`
+	DeclaredSubject          declaredSubjectIdentity `json:"declared_subject"`
+	SubjectCheckout          string                  `json:"subject_checkout"`
+	CandidateRoot            string                  `json:"candidate_root"`
+	ProjectionContractSHA256 string                  `json:"projection_contract_sha256"`
+	Inputs                   []inputBinding          `json:"inputs"`
+	InputRootSHA256          string                  `json:"input_root_sha256"`
+	MechanicsStatus          string                  `json:"mechanics_status"`
+	AcceptanceState          string                  `json:"acceptance_state"`
+	ChildStoryCount          int                     `json:"child_story_count"`
+	ChildMechanicsPassed     int                     `json:"child_mechanics_passed"`
+	StrongChildAccepted      int                     `json:"strong_child_accepted"`
+	Children                 []childMechanic         `json:"children"`
+	FormalObligations        int                     `json:"formal_obligations"`
+	FormalStrongAccepted     int                     `json:"formal_strong_accepted"`
+	FormalBlocked            int                     `json:"formal_blocked"`
+	Obligations              []formalObligation      `json:"obligations"`
+	ProtectedReplay          string                  `json:"protected_replay"`
+	HumanReview              string                  `json:"human_review"`
+	IndependentCustodian     string                  `json:"independent_custodian"`
+	PublicProjectionRoot     string                  `json:"public_projection_root"`
+	Artifacts                []artifactDigest        `json:"artifacts"`
+	Blockers                 []string                `json:"blockers"`
+	Nonclaims                []string                `json:"nonclaims"`
+	Assurance                string                  `json:"assurance"`
+	IndependentReviewClaimed bool                    `json:"independent_review_claimed"`
 }
 
 type publicSnapshot struct {
-	Schema               string          `json:"$schema"`
-	SchemaVersion        string          `json:"schema_version"`
-	StoryID              string          `json:"story_id"`
-	Subject              subjectIdentity `json:"subject"`
-	ProjectionRoot       string          `json:"projection_root"`
-	Badge                string          `json:"badge"`
-	MechanicsStatus      string          `json:"mechanics_status"`
-	AcceptanceState      string          `json:"acceptance_state"`
-	ChildStoryCount      int             `json:"child_story_count"`
-	ChildMechanicsPassed int             `json:"child_mechanics_passed"`
-	StrongChildAccepted  int             `json:"strong_child_accepted"`
-	FormalObligations    int             `json:"formal_obligations"`
-	FormalBlocked        int             `json:"formal_blocked"`
-	FormalStrongAccepted int             `json:"formal_strong_accepted"`
-	Blockers             []string        `json:"blockers"`
-	Freshness            string          `json:"freshness"`
-	JavaFallback         string          `json:"java_fallback"`
-	Supersession         string          `json:"supersession"`
-	Revocation           string          `json:"revocation"`
-	Publication          string          `json:"publication"`
-	ReplayCommand        string          `json:"replay_command"`
+	Schema               string                  `json:"$schema"`
+	SchemaVersion        string                  `json:"schema_version"`
+	StoryID              string                  `json:"story_id"`
+	DeclaredSubject      declaredSubjectIdentity `json:"declared_subject"`
+	SubjectCheckout      string                  `json:"subject_checkout"`
+	ProjectionRoot       string                  `json:"projection_root"`
+	Badge                string                  `json:"badge"`
+	MechanicsStatus      string                  `json:"mechanics_status"`
+	AcceptanceState      string                  `json:"acceptance_state"`
+	ChildStoryCount      int                     `json:"child_story_count"`
+	ChildMechanicsPassed int                     `json:"child_mechanics_passed"`
+	StrongChildAccepted  int                     `json:"strong_child_accepted"`
+	FormalObligations    int                     `json:"formal_obligations"`
+	FormalBlocked        int                     `json:"formal_blocked"`
+	FormalStrongAccepted int                     `json:"formal_strong_accepted"`
+	Blockers             []string                `json:"blockers"`
+	Freshness            string                  `json:"freshness"`
+	JavaFallback         string                  `json:"java_fallback"`
+	Supersession         string                  `json:"supersession"`
+	Revocation           string                  `json:"revocation"`
+	Publication          string                  `json:"publication"`
+	ReplayCommand        string                  `json:"replay_command"`
 }
 
 type namedArtifact struct {
@@ -196,6 +201,7 @@ var expectedObligationIDs = []string{
 }
 
 var blockers = []string{
+	"SUBJECT_CHECKOUT_NOT_VERIFIED",
 	"CANONICAL_PRD_NOT_REPOSITORY_BOUND",
 	"INDEPENDENT_CUSTODIAN_NOT_BOUND",
 	"HUMAN_REVIEW_NOT_EXECUTED",
@@ -212,6 +218,7 @@ var blockers = []string{
 }
 
 var nonclaims = []string{
+	"no verification that the supplied checkout equals the declared subject",
 	"no provenance-distinct custodian, identity, or independent review",
 	"no human review or protected evaluator replay",
 	"no strong acceptance of all child gates or formal obligations",
@@ -399,7 +406,8 @@ func makeReceipt(id, role, status string, provider, model, reasoningEffort *stri
 	return receipt{
 		Schema: "../../schemas/us027-receipt-1.0.0.schema.json", SchemaVersion: "1.0.0",
 		ReceiptID: id, Role: role, Status: status, Provider: provider, Model: model, ReasoningEffort: reasoningEffort,
-		Subject: subjectIdentity{Commit: SubjectCommit, Tree: SubjectTree}, CandidateRoot: CandidateRoot,
+		DeclaredSubject:             declaredSubjectIdentity{Commit: DeclaredSubjectCommit, Tree: DeclaredSubjectTree},
+		SubjectCheckoutVerification: CheckoutNotVerified, CandidateRoot: CandidateRoot,
 		ProjectionContractSHA256: ContractSHA256, InputRootSHA256: inputRootSHA,
 		MechanicsStatus: MechanicsPass, AcceptanceState: AcceptanceBlocked,
 		Independent: false, Accepted: false, ProtectedAccess: false, Assurance: Assurance,
@@ -410,6 +418,7 @@ func formalMarkdown(ids []string) []byte {
 	var buffer bytes.Buffer
 	buffer.WriteString("# Formal coverage\n\n")
 	buffer.WriteString("Strong independent acceptance: **BLOCKED**\n\n")
+	buffer.WriteString("The commit and tree are declared identifiers; the supplied checkout is **NOT_VERIFIED**.\n\n")
 	buffer.WriteString("Strong formal coverage: **0/24**. Every obligation remains blocked.\n\n")
 	buffer.WriteString("| Obligation | State |\n| --- | --- |\n")
 	for _, id := range ids {
@@ -420,7 +429,7 @@ func formalMarkdown(ids []string) []byte {
 
 func publicReadme() []byte {
 	return []byte("# Local acceptance projection\n\n" +
-		"This deterministic projection proves that the owner-relaxed US-027 file mechanics completed for the pinned Git subject.\n\n" +
+		"This deterministic projection proves that the owner-relaxed US-027 file mechanics completed for declared Git identifiers. It does not verify that the supplied checkout equals those identifiers.\n\n" +
 		"Strong independent acceptance remains blocked: there is no distinct custodian or human review, all 24 formal obligations remain blocked, and the files are local only.\n")
 }
 
@@ -459,14 +468,16 @@ func deriveArtifacts(bindings []inputBinding, inputs map[string][]byte) (artifac
 		artifactDigest{Path: "public/README.md", SHA256: digest(readmeRaw), Bytes: len(readmeRaw)},
 	)
 	projectionBasis := struct {
-		Subject    subjectIdentity  `json:"subject"`
-		InputRoot  string           `json:"input_root_sha256"`
-		Contract   string           `json:"projection_contract_sha256"`
-		Artifacts  []artifactDigest `json:"artifacts"`
-		Blockers   []string         `json:"blockers"`
-		Acceptance string           `json:"acceptance_state"`
+		DeclaredSubject declaredSubjectIdentity `json:"declared_subject"`
+		SubjectCheckout string                  `json:"subject_checkout"`
+		InputRoot       string                  `json:"input_root_sha256"`
+		Contract        string                  `json:"projection_contract_sha256"`
+		Artifacts       []artifactDigest        `json:"artifacts"`
+		Blockers        []string                `json:"blockers"`
+		Acceptance      string                  `json:"acceptance_state"`
 	}{
-		Subject: subjectIdentity{Commit: SubjectCommit, Tree: SubjectTree}, InputRoot: rootDigest,
+		DeclaredSubject: declaredSubjectIdentity{Commit: DeclaredSubjectCommit, Tree: DeclaredSubjectTree},
+		SubjectCheckout: CheckoutNotVerified, InputRoot: rootDigest,
 		Contract: ContractSHA256, Artifacts: append([]artifactDigest(nil), digests...),
 		Blockers: append([]string(nil), blockers...), Acceptance: AcceptanceBlocked,
 	}
@@ -479,10 +490,12 @@ func deriveArtifacts(bindings []inputBinding, inputs map[string][]byte) (artifac
 		MechanicsStatus: MechanicsPass, AcceptanceState: AcceptanceBlocked,
 		ChildStoryCount: 26, ChildMechanicsPassed: 26, StrongChildAccepted: 0,
 		FormalObligations: 24, FormalStrongAccepted: 0, FormalBlocked: 24,
+		SubjectCheckout: CheckoutNotVerified,
 	}
 	snapshot := publicSnapshot{
 		Schema: "../schemas/us027-public-snapshot-1.0.0.schema.json", SchemaVersion: "1.0.0", StoryID: "US-027",
-		Subject: subjectIdentity{Commit: SubjectCommit, Tree: SubjectTree}, ProjectionRoot: projectionRoot,
+		DeclaredSubject: declaredSubjectIdentity{Commit: DeclaredSubjectCommit, Tree: DeclaredSubjectTree},
+		SubjectCheckout: CheckoutNotVerified, ProjectionRoot: projectionRoot,
 		Badge: publicBadge, MechanicsStatus: MechanicsPass, AcceptanceState: AcceptanceBlocked,
 		ChildStoryCount: 26, ChildMechanicsPassed: 26, StrongChildAccepted: 0,
 		FormalObligations: 24, FormalBlocked: 24, FormalStrongAccepted: 0,
@@ -497,7 +510,8 @@ func deriveArtifacts(bindings []inputBinding, inputs map[string][]byte) (artifac
 	digests = append(digests, artifactDigest{Path: "public/snapshot.json", SHA256: digest(snapshotRaw), Bytes: len(snapshotRaw)})
 	replay := replayDocument{
 		Schema: "../schemas/us027-independent-replay-1.0.0.schema.json", SchemaVersion: "1.0.0", StoryID: "US-027",
-		Subject: subjectIdentity{Commit: SubjectCommit, Tree: SubjectTree}, CandidateRoot: CandidateRoot,
+		DeclaredSubject: declaredSubjectIdentity{Commit: DeclaredSubjectCommit, Tree: DeclaredSubjectTree},
+		SubjectCheckout: CheckoutNotVerified, CandidateRoot: CandidateRoot,
 		ProjectionContractSHA256: ContractSHA256, Inputs: append([]inputBinding(nil), bindings...), InputRootSHA256: rootDigest,
 		MechanicsStatus: MechanicsPass, AcceptanceState: AcceptanceBlocked,
 		ChildStoryCount: 26, ChildMechanicsPassed: 26, StrongChildAccepted: 0, Children: children(),

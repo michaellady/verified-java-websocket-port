@@ -13,7 +13,7 @@ publication: false
 signing: false
 ```
 
-## Decision and immutable subject
+## Decision and declared subject
 
 US-027 ships a deterministic, local-only evaluator and minimized projection. It
 does not create the provenance-distinct verifier demanded by the original
@@ -21,16 +21,18 @@ story. The user authorized sole-owner protection and a relaxed completion
 ceiling, so the evaluator must expose the missing independence rather than
 manufacture it.
 
-The evaluated port subject is the exact pre-evaluator Git object:
+The owner declares these pre-evaluator Git identifiers:
 
 ```text
 commit 98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc
 tree   36ee700401268621aae58639185dcdc11e4c00c6
 ```
 
-US-027's Go evaluator, schemas, receipts, and projections are tooling around
-that subject and are never folded back into it. A later documentation commit
-may describe the result but cannot change the subject or upgrade its claim.
+US-027 does not inspect Git metadata, invoke Git, or parse Git objects, so it
+does not verify that the supplied checkout equals those identifiers. Its Go
+evaluator, schemas, receipts, and projections bind the identifiers only as the
+declared subject. `SUBJECT_CHECKOUT_NOT_VERIFIED` remains a strong blocker and
+no output may describe the checkout as pinned, current, fresh, or verified.
 
 ## Primitive Test and trust boundary
 
@@ -49,7 +51,8 @@ outputs are ordinary files under one caller-supplied repository root.
 
 `internal/projection` consumes only an exact allowlist of committed public or
 owner-visible repository inputs. Capture binds each path, byte count, SHA-256,
-and Git subject. At minimum the closure includes:
+and the declared subject identifiers; it does not bind the checkout to those
+identifiers. At minimum the closure includes:
 
 - `contracts/laboratory-template.json` for the required laboratory sections and
   publication rule;
@@ -78,7 +81,7 @@ fail closed before JSON parsing or projection.
 
 ## Receipt slots
 
-The three required receipts share one closed schema and bind the same subject,
+The three required receipts share one closed schema and bind the same declared subject,
 candidate root, projection contract, input-root digest, and acceptance ceiling:
 
 | Path | Role | Truthful committed state |
@@ -93,6 +96,8 @@ the three may set `independent:true`, `accepted:true`, or `protected_access:true
 The human slot has no invented identity, signature, model, invocation, or
 finding. Receipt replay, mixed subjects, mutated digests, upgraded roles, or an
 independence claim fails verification.
+
+Every receipt states `subject_checkout_verification: NOT_VERIFIED`.
 
 ## Independent-replay mechanics
 
@@ -111,6 +116,7 @@ formal_blocked         24
 protected_replay       NOT_EXECUTED
 human_review           NOT_EXECUTED
 independent_custodian  NOT_BOUND
+subject_checkout       NOT_VERIFIED
 ```
 
 The evaluator reads all 24 obligation IDs from the held obligation-catalog
@@ -123,6 +129,7 @@ projection digest, public snapshot digest, and receipt digests.
 The exact strong blockers are:
 
 ```text
+SUBJECT_CHECKOUT_NOT_VERIFIED
 CANONICAL_PRD_NOT_REPOSITORY_BOUND
 INDEPENDENT_CUSTODIAN_NOT_BOUND
 HUMAN_REVIEW_NOT_EXECUTED
@@ -141,6 +148,7 @@ JAVA_REMOVAL_NOT_AUTHORIZED
 The exact nonclaims are:
 
 ```text
+no verification that the supplied checkout equals the declared subject
 no provenance-distinct custodian, identity, or independent review
 no human review or protected evaluator replay
 no strong acceptance of all child gates or formal obligations
@@ -153,7 +161,8 @@ no production deployment or Java removal
 
 The release firewall emits only these local files:
 
-- `public/snapshot.json` — subject commit/tree, derived projection root, scoped
+- `public/snapshot.json` — declared subject commit/tree, checkout verification
+  `NOT_VERIFIED`, derived projection root, scoped
   mechanics badge, aggregate counts, blocker codes, freshness/fallback state,
   supersession/revocation unknown states, and deterministic replay command;
 - `public/formal-coverage.md` — the 24 public obligation IDs, each `BLOCKED`,
@@ -173,7 +182,7 @@ The public snapshot uses only these conservative states:
 
 ```text
 badge          OWNER_RELAXED_MECHANICS_COMPLETE_INDEPENDENCE_BLOCKED
-freshness      SUBJECT_PINNED_NO_EXTERNAL_FRESHNESS_AUTHORITY
+freshness      DECLARED_SUBJECT_CHECKOUT_NOT_VERIFIED
 java_fallback  RETAINED_SOURCE_NOT_EXECUTABLE_DRILLED
 supersession   UNKNOWN_NOT_AUTHORITY_BOUND
 revocation     UNKNOWN_NOT_AUTHORITY_BOUND
@@ -228,10 +237,11 @@ parsed back as authority.
 The implementation starts RED at public `Capture`/`Verify` and CLI seams. Green
 requires:
 
-- exact subject, input, receipt, 26-child, and 24-obligation binding;
+- exact declared-subject identifier, checkout-nonverification, input, receipt,
+  26-child, and 24-obligation binding;
 - exactly 26 mechanics-passed children, 0 strongly accepted children, 24
   blocked obligations, and 0 strongly accepted obligations;
-- three truthful same-subject receipt slots with independence false;
+- three truthful same-declared-subject receipt slots with independence false;
 - deterministic seven-artifact capture, verify, and byte-identical recapture;
 - closed-schema validation and cross-digest recomputation;
 - public-tree allowlisting and a zero-protected-marker scan;
