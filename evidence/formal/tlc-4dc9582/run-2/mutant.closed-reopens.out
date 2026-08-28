@@ -1,0 +1,84 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+TLC2 Version 2026.08.21.155922 (rev: 9787e65)
+Running breadth-first search Model-Checking with fp 0 and seed 20260828 with 2 workers on 2 cores with 455MB heap and 64MB offheap memory [pid: 441] (Linux 7.0.12 aarch64, Ubuntu 25.0.4 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tlc-work-final-4dc9582-b/mutants/closed-reopens/ConnectionModel.tla
+Parsing file /tmp/tlc-10323311713332444755/Naturals.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-10323311713332444755/Sequences.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-10323311713332444755/FiniteSets.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-10323311713332444755/_TLCTrace.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-10323311713332444755/TLC.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-10323311713332444755/TLCExt.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-10323311713332444755/Integers.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module ConnectionModel
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module ConnectionModel
+Starting... (2026-08-28 16:48:27)
+Implied-temporal checking--satisfiability problem has 3 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-08-28 16:48:27.
+Error: Action property ClosedIsTerminal is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ state = "Connecting"
+/\ acceptedCount = 0
+/\ disposedCount = 0
+/\ backpressureCount = 0
+/\ eventQ = <<>>
+/\ terminalDeliveryCount = 0
+/\ writeQ = <<>>
+/\ commandQ = <<>>
+/\ terminalQueued = FALSE
+/\ terminalDelivered = FALSE
+/\ shutdownRequested = FALSE
+
+State 2: <BeginShutdown line 85, col 5 to line 91, col 57 of module ConnectionModel>
+/\ state = "Closing"
+/\ acceptedCount = 0
+/\ disposedCount = 0
+/\ backpressureCount = 0
+/\ eventQ = <<>>
+/\ terminalDeliveryCount = 0
+/\ writeQ = <<>>
+/\ commandQ = <<>>
+/\ terminalQueued = FALSE
+/\ terminalDelivered = FALSE
+/\ shutdownRequested = TRUE
+
+State 3: <FinishClose line 113, col 5 to line 122, col 72 of module ConnectionModel>
+/\ state = "Closed"
+/\ acceptedCount = 0
+/\ disposedCount = 0
+/\ backpressureCount = 0
+/\ eventQ = <<>>
+/\ terminalDeliveryCount = 0
+/\ writeQ = <<>>
+/\ commandQ = <<>>
+/\ terminalQueued = FALSE
+/\ terminalDelivered = FALSE
+/\ shutdownRequested = TRUE
+
+State 4: <Reopen line 125, col 5 to line 129, col 72 of module ConnectionModel>
+/\ state = "Open"
+/\ acceptedCount = 0
+/\ disposedCount = 0
+/\ backpressureCount = 0
+/\ eventQ = <<>>
+/\ terminalDeliveryCount = 0
+/\ writeQ = <<>>
+/\ commandQ = <<>>
+/\ terminalQueued = FALSE
+/\ terminalDelivered = FALSE
+/\ shutdownRequested = TRUE
+
+29 states generated, 24 distinct states found, 14 states left on queue.
+The depth of the complete state graph search is 5.
+Finished in 00s at (2026-08-28 16:48:27)
+Trace exploration spec path: ./ConnectionModel_TTrace_1787935707.tla

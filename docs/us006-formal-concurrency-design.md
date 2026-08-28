@@ -433,8 +433,13 @@ the intended terminal state with no enabled `Next` action; terminal reachability
 and absorption remain explicit checked properties rather than being mislabeled
 as a deadlock failure.
 
-TLC output, if later executed, is recorded by the backend qualification. A
-structurally valid module or a TLC pass does not change production linkage.
+The supplemental current-head TLC execution is retained under
+`evidence/formal/tlc-4dc9582/`: two semantically identical Linux/arm64 replays
+of the clean model plus one killed mutant for every configured check. Its claim
+scope is `PROVED_MODEL_ONLY`. It intentionally does not promote the original
+US-006 backend-qualification envelope, whose broader typed sbx artifact
+protocol was not reconstructed for this supplemental run. A structurally valid
+module or a TLC pass does not change production linkage.
 Only a future reviewed refinement artifact may replace
 `FUTURE_PRODUCTION_REFINEMENT`; it must bind the exact model digest, exact Rust
 symbol/source digests, composition mapping, preserved invariants, uncovered

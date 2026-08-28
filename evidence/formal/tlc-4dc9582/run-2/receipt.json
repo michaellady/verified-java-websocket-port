@@ -1,0 +1,179 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "tlc-execution-receipt",
+  "started_at": "2026-08-28T16:48:25Z",
+  "finished_at": "2026-08-28T16:48:29Z",
+  "driver": {
+    "path": "/tmp/tlcdriver-final-4dc9582",
+    "sha256": "sha256:e619a82c381ba371792e75bf578c6d2c1a83c99811365a1e254cf99703e2f94f"
+  },
+  "tool": {
+    "path": "/tmp/tlaplus-v1.8.0/tla2tools.jar",
+    "sha256": "sha256:eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a"
+  },
+  "java": {
+    "path": "/usr/lib/jvm/java-25-openjdk-arm64/bin/java",
+    "sha256": "sha256:37ebeb8d71f94d654bdba7139dfd2fbafa7cdf5e6685d402baa9b5a57a24b7d5"
+  },
+  "runtime": {
+    "goos": "linux",
+    "goarch": "arm64",
+    "go_version": "go1.26.0"
+  },
+  "checker": {
+    "workers": 2,
+    "fingerprint_index": 0,
+    "seed": 20260828,
+    "process_timeout": "1m0s"
+  },
+  "manifest": {
+    "path": "/Users/mikelady/hq/repos/public/verified-java-websocket-port/assurance/formal/model-mutations.json",
+    "sha256": "sha256:0b9e1a243aea47b56959cbe598a3408436280c8c7f295eb10775a48c1079861c"
+  },
+  "models": [
+    {
+      "path": "assurance/formal/connection-model.cfg",
+      "sha256": "sha256:c8e31fb83a872f587f5e9c0d4d7add7098a8228051244652d815a87b9cfa1e15"
+    },
+    {
+      "path": "assurance/formal/connection-model.tla",
+      "sha256": "sha256:bc1df368e273e73cc1da9013da7d84b36aa7ee0faef03eda9ef4e33c4efa8d84"
+    }
+  ],
+  "results": [
+    {
+      "id": "sany.ConnectionModel",
+      "kind": "tla2sany.SANY",
+      "exit_code": 0,
+      "verdict": "indeterminate",
+      "check": "NONE",
+      "log": {
+        "path": "sany.ConnectionModel.out",
+        "sha256": "sha256:d378bb67788253025dbb2c9a651e12ff5ba36da61caa9f8343b3c82298402294"
+      }
+    },
+    {
+      "id": "tlc.ConnectionModel",
+      "kind": "tlc2.TLC",
+      "exit_code": 0,
+      "verdict": "clean",
+      "check": "NONE",
+      "log": {
+        "path": "tlc.ConnectionModel.out",
+        "sha256": "sha256:f66b5fc514d413d7eeda6534f0cc8f2f92c4b8c4364a3895fc70953121072250"
+      }
+    },
+    {
+      "id": "mutant.type-domain-escape",
+      "kind": "tlc2.TLC",
+      "exit_code": 12,
+      "verdict": "violated",
+      "check": "TypeOK",
+      "log": {
+        "path": "mutant.type-domain-escape.out",
+        "sha256": "sha256:a5d4579098561ac6bf53f34075a72e0e73f7dfe3e785ea44ee687f806cd092de"
+      }
+    },
+    {
+      "id": "mutant.command-queue-over-cap",
+      "kind": "tlc2.TLC",
+      "exit_code": 12,
+      "verdict": "violated",
+      "check": "QueueBounds",
+      "log": {
+        "path": "mutant.command-queue-over-cap.out",
+        "sha256": "sha256:36a7dbbfa3e814ff62a604061af0cdd56153ab98f67080f2096b13dec993dd6f"
+      }
+    },
+    {
+      "id": "mutant.terminal-duplicate",
+      "kind": "tlc2.TLC",
+      "exit_code": 12,
+      "verdict": "violated",
+      "check": "TerminalDeliveredAtMostOnce",
+      "log": {
+        "path": "mutant.terminal-duplicate.out",
+        "sha256": "sha256:89d17fd91524654322a3bf1a84250040573b1328b4d8eb70a77f82fa26e71319"
+      }
+    },
+    {
+      "id": "mutant.disposed-before-accepted",
+      "kind": "tlc2.TLC",
+      "exit_code": 12,
+      "verdict": "violated",
+      "check": "AcceptedCommandsDisposedExactlyOnce",
+      "log": {
+        "path": "mutant.disposed-before-accepted.out",
+        "sha256": "sha256:dcdb1519505b2ca935eac7e84cb150003de30430fe3b8842fb654ef9900e8b19"
+      }
+    },
+    {
+      "id": "mutant.lifecycle-skip",
+      "kind": "tlc2.TLC",
+      "exit_code": 13,
+      "verdict": "violated",
+      "check": "LifecycleMonotonic",
+      "log": {
+        "path": "mutant.lifecycle-skip.out",
+        "sha256": "sha256:f0d2ee17efac06f67140c1bbc2eb0874d82d06f9ee2eb1c7d9d653436f7986e4"
+      }
+    },
+    {
+      "id": "mutant.closed-reopens",
+      "kind": "tlc2.TLC",
+      "exit_code": 13,
+      "verdict": "violated",
+      "check": "ClosedIsTerminal",
+      "log": {
+        "path": "mutant.closed-reopens.out",
+        "sha256": "sha256:b9d35e4f990766de1e3b37710f403f7fa9258320b7e89c6d5660bf5116cab013"
+      }
+    },
+    {
+      "id": "mutant.backpressure-drops-command",
+      "kind": "tlc2.TLC",
+      "exit_code": 13,
+      "verdict": "violated",
+      "check": "BackpressurePreservesAcceptedWork",
+      "log": {
+        "path": "mutant.backpressure-drops-command.out",
+        "sha256": "sha256:333fb211b3e046cebbdc2de93957eba039224c2f201e4ea5df76bb40951fcff8"
+      }
+    },
+    {
+      "id": "mutant.accepted-work-starved",
+      "kind": "tlc2.TLC",
+      "exit_code": 13,
+      "verdict": "violated",
+      "check": "AcceptedCommandsEventuallyDisposed",
+      "log": {
+        "path": "mutant.accepted-work-starved.out",
+        "sha256": "sha256:86e021e5ebe1f8b4a617b68eb5fde04a49a65cfffb88411e504180f1c99571d0"
+      }
+    },
+    {
+      "id": "mutant.terminal-delivery-starved",
+      "kind": "tlc2.TLC",
+      "exit_code": 13,
+      "verdict": "violated",
+      "check": "TerminalDeliveryEventually",
+      "log": {
+        "path": "mutant.terminal-delivery-starved.out",
+        "sha256": "sha256:52d6cd8014527ae042dc8793edb7993cb06c6ed2a19779190cd23e6dc28f5c8b"
+      }
+    },
+    {
+      "id": "mutant.finish-close-unfair",
+      "kind": "tlc2.TLC",
+      "exit_code": 13,
+      "verdict": "violated",
+      "check": "TerminationUnderFairness",
+      "log": {
+        "path": "mutant.finish-close-unfair.out",
+        "sha256": "sha256:6205f70729b8faa98208f4c40fdcf0f13440b3f8e302de7bab9e00d9c5b17377"
+      }
+    }
+  ],
+  "status": "PASS",
+  "claim_scope": "PROVED_MODEL_ONLY"
+}

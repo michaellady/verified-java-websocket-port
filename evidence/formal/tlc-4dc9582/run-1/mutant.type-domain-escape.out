@@ -1,0 +1,39 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+TLC2 Version 2026.08.21.155922 (rev: 9787e65)
+Running breadth-first search Model-Checking with fp 0 and seed 20260828 with 2 workers on 2 cores with 455MB heap and 64MB offheap memory [pid: 1101] (Linux 7.0.12 aarch64, Ubuntu 25.0.4 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /tmp/tlc-work-final-4dc9582/mutants/type-domain-escape/ConnectionModel.tla
+Parsing file /tmp/tlc-2423742850169642482/Naturals.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-2423742850169642482/Sequences.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-2423742850169642482/FiniteSets.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Parsing file /tmp/tlc-2423742850169642482/_TLCTrace.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-2423742850169642482/TLC.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-2423742850169642482/TLCExt.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-2423742850169642482/Integers.tla (jar:file:/tmp/tlaplus-v1.8.0/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module Integers
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module ConnectionModel
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module ConnectionModel
+Starting... (2026-08-28 16:46:56)
+Implied-temporal checking--satisfiability problem has 3 branches.
+Computing initial states...
+Error: Invariant TypeOK is violated by the initial state:
+/\ state = "Connecting"
+/\ acceptedCount = 0
+/\ disposedCount = 0
+/\ backpressureCount = 3
+/\ eventQ = <<>>
+/\ terminalDeliveryCount = 0
+/\ writeQ = <<>>
+/\ commandQ = <<>>
+/\ terminalQueued = FALSE
+/\ terminalDelivered = FALSE
+/\ shutdownRequested = FALSE
+
+Finished in 00s at (2026-08-28 16:46:56)

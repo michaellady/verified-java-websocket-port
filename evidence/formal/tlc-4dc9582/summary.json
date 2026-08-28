@@ -1,0 +1,64 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "current-head-tlc-summary",
+  "subject": {
+    "commit": "4dc95825f50fa2fd01c52e4e401ed4c4b8e25c3a",
+    "tree": "630c9b5af14b3e9a9f1f781afeccdd38fe001aa2",
+    "object_format": "sha1",
+    "clean_checkout": true
+  },
+  "execution": {
+    "environment": "docker-sbx-linux-arm64",
+    "sandbox_name": "us-port-formal",
+    "tool_sha256": "sha256:eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a",
+    "model_sha256": "sha256:bc1df368e273e73cc1da9013da7d84b36aa7ee0faef03eda9ef4e33c4efa8d84",
+    "config_sha256": "sha256:c8e31fb83a872f587f5e9c0d4d7add7098a8228051244652d815a87b9cfa1e15",
+    "manifest_sha256": "sha256:0b9e1a243aea47b56959cbe598a3408436280c8c7f295eb10775a48c1079861c",
+    "seed": 20260828,
+    "fingerprint_index": 0,
+    "workers": 2,
+    "process_timeout_seconds": 60
+  },
+  "canonical_result": {
+    "status": "PASS",
+    "states_generated": 2424,
+    "distinct_states": 685,
+    "states_left_on_queue": 0,
+    "graph_depth": 17,
+    "temporal_distinct_states": 2055
+  },
+  "mutation_result": {
+    "configured_checks": 10,
+    "mutants_executed": 10,
+    "mutants_killed_by_expected_check": 10,
+    "survivors": 0,
+    "indeterminate": 0
+  },
+  "replay": {
+    "repeat_count": 2,
+    "semantically_identical": true,
+    "semantic_projection_sha256": "sha256:cef73d1c028e0167add8158ad375ffd7800e70935915a879a04a886e579d015e",
+    "receipts": [
+      {
+        "path": "evidence/formal/tlc-4dc9582/run-1/receipt.json",
+        "sha256": "sha256:036432171ac3da14ab28fbb6b628afc3e6b504d880838a00c601fa8be2cc3011"
+      },
+      {
+        "path": "evidence/formal/tlc-4dc9582/run-2/receipt.json",
+        "sha256": "sha256:021b782f04e71c3df6b8419a34d3f664177865a048cdaaa086c3657ec175b5e3"
+      }
+    ]
+  },
+  "claim_scope": "PROVED_MODEL_ONLY",
+  "production_rust_proved": false,
+  "independent_review_claimed": false,
+  "provenance": [
+    "BORROWED_MUTATION_CAMPAIGN_STRUCTURE_FROM_CLAUDE_DC07516",
+    "CODEX_FAIL_CLOSED_RUNNER_AND_MODEL_REPAIR"
+  ],
+  "limitations": [
+    "The checked subject is the bounded abstract ConnectionModel, not the production Rust implementation.",
+    "The two replays used the same sbx sandbox and therefore do not constitute independent-host validation.",
+    "The original US-006 backend-qualification envelope remains unpromoted because its broader typed sbx artifact protocol was intentionally not reconstructed for this supplemental run."
+  ]
+}
