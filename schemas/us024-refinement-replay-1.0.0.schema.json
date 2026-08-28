@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verified-java-websocket-port.invalid/us024-refinement-replay-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "story_id", "status", "assurance", "independent_review_claimed", "production", "publication", "signing", "performance_claimed", "cutover_claimed", "before", "after", "immutable_us023", "membership", "public_replay", "local_replays", "test_inventory", "connections", "gates", "provenance", "nonclaims"],
+  "properties": {
+    "$schema": {"const": "schemas/us024-refinement-replay-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "story_id": {"const": "US-024"},
+    "status": {"enum": ["IMPLEMENTATION_REPLAY_PASS_PENDING_REVIEW_QA_REALITY", "PASS_OWNER_RELAXED_MECHANICS"]},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "production": {"const": false},
+    "publication": {"const": false},
+    "signing": {"const": false},
+    "performance_claimed": {"const": false},
+    "cutover_claimed": {"const": false},
+    "before": {"$ref": "#/$defs/subject"},
+    "after": {"$ref": "#/$defs/subject"},
+    "immutable_us023": {"$ref": "#/$defs/us023"},
+    "membership": {"$ref": "#/$defs/membership"},
+    "public_replay": {"$ref": "#/$defs/publicReplay"},
+    "local_replays": {"type": "array", "minItems": 34, "maxItems": 34, "items": {"$ref": "#/$defs/localReplay"}},
+    "test_inventory": {"$ref": "#/$defs/testInventory"},
+    "connections": {"$ref": "#/$defs/connections"},
+    "gates": {"$ref": "#/$defs/gates"},
+    "provenance": {"$ref": "#/$defs/provenance"},
+    "nonclaims": {"type": "array", "minItems": 7, "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "minLength": 8, "maxLength": 256}}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "git": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {"path": {"type": "string", "minLength": 1, "maxLength": 256}, "sha256": {"$ref": "#/$defs/digest"}, "bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}}
+    },
+    "artifactArray": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/artifact"}},
+    "subject": {
+      "type": "object", "additionalProperties": false,
+      "required": ["commit", "tree", "rust_tree_sha256", "cargo_lock_sha256", "binary_sha256", "binary_bytes"],
+      "properties": {"commit": {"$ref": "#/$defs/git"}, "tree": {"$ref": "#/$defs/git"}, "rust_tree_sha256": {"$ref": "#/$defs/digest"}, "cargo_lock_sha256": {"$ref": "#/$defs/digest"}, "binary_sha256": {"$ref": "#/$defs/digest"}, "binary_bytes": {"type": "integer", "minimum": 1, "maximum": 536870912}}
+    },
+    "us023": {
+      "type": "object", "additionalProperties": false,
+      "required": ["target_commit", "target_tree", "candidate_root", "evaluation_root", "snapshot_state", "parity_state", "required_gates", "satisfied_gates", "blocked_gates", "protected_files"],
+      "properties": {"target_commit": {"$ref": "#/$defs/git"}, "target_tree": {"$ref": "#/$defs/git"}, "candidate_root": {"$ref": "#/$defs/digest"}, "evaluation_root": {"$ref": "#/$defs/digest"}, "snapshot_state": {"const": "FROZEN"}, "parity_state": {"const": "BLOCKED"}, "required_gates": {"const": 44}, "satisfied_gates": {"const": 0}, "blocked_gates": {"const": 44}, "protected_files": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/artifact"}}}
+    },
+    "membership": {
+      "type": "object", "additionalProperties": false, "required": ["production", "tests", "tools"],
+      "properties": {"production": {"allOf": [{"$ref": "#/$defs/artifactArray"}, {"minItems": 2, "maxItems": 2}]}, "tests": {"$ref": "#/$defs/artifactArray"}, "tools": {"$ref": "#/$defs/artifactArray"}}
+    },
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["expected", "selected", "executed", "compared", "equal", "failed", "duplicate", "missing", "filtered", "skipped", "timed_out"],
+      "properties": {"expected": {"const": 74}, "selected": {"const": 74}, "executed": {"const": 74}, "compared": {"const": 74}, "equal": {"const": 74}, "failed": {"const": 0}, "duplicate": {"const": 0}, "missing": {"const": 0}, "filtered": {"const": 0}, "skipped": {"const": 0}, "timed_out": {"const": 0}}
+    },
+    "row": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scenario_id", "input_sha256", "before_normalized_sha256", "after_normalized_sha256", "before_exit_code", "after_exit_code", "timed_out"],
+      "properties": {"scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}, "input_sha256": {"$ref": "#/$defs/digest"}, "before_normalized_sha256": {"$ref": "#/$defs/digest"}, "after_normalized_sha256": {"$ref": "#/$defs/digest"}, "before_exit_code": {"const": 0}, "after_exit_code": {"const": 0}, "timed_out": {"const": false}}
+    },
+    "publicReplay": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "counts", "rows", "forward_transcript_root", "reverse_transcript_root", "reverse_all_equal"],
+      "properties": {"kind": {"const": "FRESH_BEFORE_AFTER_PUBLIC_REPLAY"}, "counts": {"$ref": "#/$defs/counts"}, "rows": {"type": "array", "minItems": 74, "maxItems": 74, "items": {"$ref": "#/$defs/row"}}, "forward_transcript_root": {"$ref": "#/$defs/digest"}, "reverse_transcript_root": {"$ref": "#/$defs/digest"}, "reverse_all_equal": {"const": true}}
+    },
+    "commandResult": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "exit_code", "timed_out", "result_sha256", "tests_passed", "tests_failed"],
+      "properties": {"status": {"const": "PASS"}, "exit_code": {"const": 0}, "timed_out": {"const": false}, "result_sha256": {"$ref": "#/$defs/digest"}, "tests_passed": {"type": "integer", "minimum": 1, "maximum": 100000}, "tests_failed": {"const": 0}}
+    },
+    "localReplay": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "manifest", "target_id", "profile", "command", "repeat", "before", "after"],
+      "properties": {"kind": {"const": "FRESH_LOCAL_TEST_REPLAY"}, "manifest": {"$ref": "#/$defs/artifact"}, "target_id": {"type": "string", "minLength": 3, "maxLength": 128}, "profile": {"enum": ["debug", "release"]}, "command": {"type": "array", "minItems": 3, "maxItems": 20, "items": {"type": "string", "minLength": 1, "maxLength": 128}}, "repeat": {"type": "integer", "minimum": 1, "maximum": 4}, "before": {"$ref": "#/$defs/commandResult"}, "after": {"$ref": "#/$defs/commandResult"}}
+    },
+    "testInventory": {
+      "type": "object", "additionalProperties": false,
+      "required": ["before_names", "after_names", "added_names"],
+      "properties": {"before_names": {"type": "array", "minItems": 1, "maxItems": 512, "uniqueItems": true, "items": {"type": "string", "minLength": 3, "maxLength": 256}}, "after_names": {"type": "array", "minItems": 1, "maxItems": 512, "uniqueItems": true, "items": {"type": "string", "minLength": 3, "maxLength": 256}}, "added_names": {"type": "array", "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "minLength": 3, "maxLength": 256}}}
+    },
+    "connections": {
+      "type": "object", "additionalProperties": false,
+      "required": ["formal_connection", "formal_backend", "production_refinement", "concurrency_connection", "systematic_tests", "formal_equivalence"],
+      "properties": {"formal_connection": {"const": "DISCONNECTED_BLOCKED"}, "formal_backend": {"const": "NOT_EXECUTED"}, "production_refinement": {"const": "ABSENT"}, "concurrency_connection": {"const": "RETAINED_DIFFERENT_SUBJECT_BLOCKED"}, "systematic_tests": {"enum": ["FRESH_LOCAL_TEST_REPLAY", "BLOCKED"]}, "formal_equivalence": {"const": "NOT_CLAIMED"}}
+    },
+    "gateCounts": {
+      "type": "object", "additionalProperties": false, "required": ["required", "passed", "blocked"],
+      "properties": {"required": {"type": "integer", "minimum": 1, "maximum": 64}, "passed": {"type": "integer", "minimum": 0, "maximum": 64}, "blocked": {"type": "integer", "minimum": 1, "maximum": 64}}
+    },
+    "gates": {
+      "type": "object", "additionalProperties": false, "required": ["counts", "blockers"],
+      "properties": {"counts": {"$ref": "#/$defs/gateCounts"}, "blockers": {"type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}}}
+    },
+    "provenance": {
+      "type": "object", "additionalProperties": false, "required": ["review", "qa", "reality"],
+      "properties": {"review": {"type": "string", "minLength": 3, "maxLength": 256}, "qa": {"type": "string", "minLength": 3, "maxLength": 256}, "reality": {"type": "string", "minLength": 3, "maxLength": 256}}
+    }
+  }
+}

@@ -7,14 +7,18 @@
 #![forbid(unsafe_code)]
 #![deny(missing_docs)]
 
+mod output;
+
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, mpsc};
 
 use websocket_core::{
-    ConnectionConfig, ConnectionCore, ConnectionState, CoreInput, CoreOutput, CoreStepObservation,
-    LocalCommand, Role, SemanticEvent, TransportBytes, TransportWrite, TypedProtocolFailure,
+    ConnectionConfig, ConnectionCore, ConnectionState, CoreInput, CoreStepObservation,
+    LocalCommand, Role, SemanticEvent, TransportBytes, TypedProtocolFailure,
 };
+
+use output::OutputLedger;
 
 /// Builds one bounded producer handle and its sole pull-driven owner.
 #[must_use]
@@ -44,11 +48,7 @@ pub fn connection_driver(config: ConnectionConfig, role: Role) -> (CommandHandle
         receiver,
         gate,
         held_command: None,
-        ledger: VecDeque::new(),
-        offered_write: None,
-        write_cursor: 0,
-        batch_writes_remaining: 0,
-        flush_due: false,
+        output: OutputLedger::default(),
         command_turn: true,
         eof_latched: false,
         shutdown_latched: false,
@@ -368,14 +368,6 @@ pub struct ClosedObservationResult {
     pub state: ConnectionState,
 }
 
-#[derive(Debug)]
-enum PendingOutput {
-    Write(TransportWrite),
-    Event(SemanticEvent),
-    StateChanged(ConnectionState),
-    Failure(TypedProtocolFailure),
-}
-
 /// Sole mutable owner of protocol, ordering, write progress, and terminal state.
 #[derive(Debug)]
 pub struct ConnectionOwner {
@@ -383,11 +375,7 @@ pub struct ConnectionOwner {
     receiver: mpsc::Receiver<CommandEnvelope>,
     gate: Arc<AdmissionGate>,
     held_command: Option<CommandEnvelope>,
-    ledger: VecDeque<PendingOutput>,
-    offered_write: Option<TransportWrite>,
-    write_cursor: usize,
-    batch_writes_remaining: usize,
-    flush_due: bool,
+    output: OutputLedger,
     command_turn: bool,
     eof_latched: bool,
     shutdown_latched: bool,
@@ -463,26 +451,12 @@ impl ConnectionOwner {
         }
 
         if let DriverInput::WriteProgress { bytes } = input {
-            let remaining = self.write_remaining();
-            if remaining == 0 || bytes > remaining {
+            if let Err(remaining) = self.output.apply_progress(bytes) {
                 input_disposition =
                     InputDisposition::Rejected(DriverInputError::InvalidWriteProgress {
                         attempted: bytes,
                         remaining,
                     });
-            } else if bytes > 0 {
-                self.write_cursor += bytes;
-                if self.write_cursor == self.offered_write_length() {
-                    self.offered_write = None;
-                    self.write_cursor = 0;
-                    self.batch_writes_remaining = self
-                        .batch_writes_remaining
-                        .checked_sub(1)
-                        .expect("a promoted write belongs to the current batch");
-                    if self.batch_writes_remaining == 0 {
-                        self.flush_due = true;
-                    }
-                }
             }
             let command = self.next_disposition();
             let state = self.core.state();
@@ -511,8 +485,7 @@ impl ConnectionOwner {
         }
 
         let mut command_disposition = None;
-        if self.flush_due {
-            self.flush_due = false;
+        if self.output.take_flush_due() {
             if matches!(input, DriverInput::Inbound(_)) {
                 input_disposition = InputDisposition::Deferred(DeferredReason::FlushPending);
             }
@@ -582,32 +555,8 @@ impl ConnectionOwner {
         let state = result.state();
         let failure = result.failure().cloned();
         let outputs: Vec<_> = result.outputs().cloned().collect();
-        let writes = outputs
-            .iter()
-            .filter(|output| matches!(output, CoreOutput::TransportWrite(_)))
-            .count();
-        self.batch_writes_remaining = self
-            .batch_writes_remaining
-            .checked_add(writes)
-            .expect("bounded write entry accounting");
-        for output in outputs {
-            match output {
-                CoreOutput::TransportWrite(write) => {
-                    self.ledger.push_back(PendingOutput::Write(write));
-                }
-                CoreOutput::SemanticEvent(event) => {
-                    self.ledger.push_back(PendingOutput::Event(event));
-                }
-                CoreOutput::StateChanged(ConnectionState::Closed) => {
-                    self.begin_terminal();
-                }
-                CoreOutput::StateChanged(state) => {
-                    self.ledger.push_back(PendingOutput::StateChanged(state));
-                }
-            }
-        }
-        if let Some(failure) = failure {
-            self.ledger.push_back(PendingOutput::Failure(failure));
+        if self.output.append_step(outputs, failure) {
+            self.begin_terminal();
         }
         if state == ConnectionState::Closed {
             self.begin_terminal();
@@ -661,38 +610,13 @@ impl ConnectionOwner {
         self.dispositions.pop_front()
     }
 
-    fn offered_write_length(&self) -> usize {
-        self.offered_write
-            .as_ref()
-            .map_or(0, |write| write.as_slice().len())
-    }
-
-    fn write_remaining(&self) -> usize {
-        self.offered_write_length()
-            .saturating_sub(self.write_cursor)
-    }
-
     fn has_pending_output(&self) -> bool {
-        self.offered_write.is_some() || !self.ledger.is_empty()
+        self.output.has_pending_output()
     }
 
     fn next_output(&mut self) -> DriverOutput<'_> {
-        if self.offered_write.is_none()
-            && matches!(self.ledger.front(), Some(PendingOutput::Write(_)))
-        {
-            let Some(PendingOutput::Write(write)) = self.ledger.pop_front() else {
-                unreachable!("front was checked as a write")
-            };
-            self.offered_write = Some(write);
-        }
-        if let Some(write) = self.offered_write.as_ref() {
-            return DriverOutput::Write(&write.as_slice()[self.write_cursor..]);
-        }
-        match self.ledger.pop_front() {
-            Some(PendingOutput::Event(event)) => DriverOutput::Event(event),
-            Some(PendingOutput::StateChanged(state)) => DriverOutput::StateChanged(state),
-            Some(PendingOutput::Failure(failure)) => DriverOutput::Failure(failure),
-            Some(PendingOutput::Write(_)) => unreachable!("write was promoted before pop"),
+        match self.output.next() {
+            Some(output) => output,
             None if self.terminal_ready && self.dispositions.is_empty() => {
                 self.terminal_pending = false;
                 self.terminal_ready = false;
@@ -704,12 +628,7 @@ impl ConnectionOwner {
     }
 
     fn abort_undrainable_writes(&mut self) {
-        self.offered_write = None;
-        self.write_cursor = 0;
-        self.batch_writes_remaining = 0;
-        self.flush_due = false;
-        self.ledger
-            .retain(|output| !matches!(output, PendingOutput::Write(_)));
+        self.output.abort_undrainable_writes();
     }
 }
 

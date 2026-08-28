@@ -81,6 +81,87 @@ type Receipt struct {
 	EvidenceSHA256  string `json:"evidence_sha256"`
 }
 
+// RustReplayConfig bounds one Rust-only replay of the incumbent public corpus.
+// It deliberately exposes no alternate corpus, protocol, or normalizer seam.
+type RustReplayConfig struct {
+	RepositoryRoot  string
+	Executable      string
+	ScenarioTimeout time.Duration
+	SuiteTimeout    time.Duration
+}
+
+// RustReplayRow is one canonically ordered public scenario observation.
+type RustReplayRow struct {
+	ScenarioID       string `json:"scenario_id"`
+	InputSHA256      string `json:"input_sha256"`
+	NormalizedSHA256 string `json:"normalized_sha256"`
+	ExitCode         int    `json:"exit_code"`
+	TimedOut         bool   `json:"timed_out"`
+}
+
+// ReplayRustPublic executes exactly the frozen 74-scenario public corpus using
+// the incumbent NDRV1 encoder, bounded child runner, NOBS1 parser, and Rust
+// normalizer. The returned order is the canonical corpus order.
+func ReplayRustPublic(ctx context.Context, cfg RustReplayConfig) ([]RustReplayRow, error) {
+	if cfg.ScenarioTimeout <= 0 || cfg.ScenarioTimeout > 5*time.Second {
+		return nil, errors.New("scenario timeout must be in (0,5s]")
+	}
+	if cfg.SuiteTimeout <= 0 || cfg.SuiteTimeout > 15*time.Minute {
+		return nil, errors.New("suite timeout must be in (0,15m]")
+	}
+	if cfg.RepositoryRoot == "" || !filepath.IsAbs(cfg.RepositoryRoot) || filepath.Clean(cfg.RepositoryRoot) != cfg.RepositoryRoot || cfg.RepositoryRoot == string(filepath.Separator) {
+		return nil, errors.New("repository root must be absolute, clean, and narrow")
+	}
+	if err := validateExistingPath(cfg.Executable, true); err != nil {
+		return nil, fmt.Errorf("Rust replay executable: %w", err)
+	}
+	scenarios, _, err := loadPublicCorpus(cfg.RepositoryRoot, filepath.Join(cfg.RepositoryRoot, "corpora/public/scenarios.jsonl"))
+	if err != nil {
+		return nil, err
+	}
+	executable, err := artifact(cfg.Executable)
+	if err != nil {
+		return nil, err
+	}
+	home, err := os.MkdirTemp("", "us024-rust-replay-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(home)
+
+	suiteCtx, cancel := context.WithTimeout(ctx, cfg.SuiteTimeout)
+	defer cancel()
+	incumbent := Config{
+		RepositoryRoot:  cfg.RepositoryRoot,
+		PublicCorpus:    filepath.Join(cfg.RepositoryRoot, "corpora/public/scenarios.jsonl"),
+		RustTestee:      cfg.Executable,
+		ScenarioTimeout: cfg.ScenarioTimeout,
+		SuiteTimeout:    cfg.SuiteTimeout,
+	}
+	rows := make([]RustReplayRow, 0, len(scenarios))
+	for _, scenario := range scenarios {
+		input, err := encodeNeutralRequest(scenario)
+		if err != nil {
+			return nil, err
+		}
+		attempt, err := runAttempt(suiteCtx, incumbent, home, scenario, "rust", "refinement", executable.SHA256)
+		if err != nil {
+			return nil, err
+		}
+		rows = append(rows, RustReplayRow{
+			ScenarioID:       scenario.ScenarioID,
+			InputSHA256:      digest(input),
+			NormalizedSHA256: attempt.receipt.NormalizedSHA256,
+			ExitCode:         attempt.receipt.ExitCode,
+			TimedOut:         false,
+		})
+	}
+	if len(rows) != expectedPublicScenarios {
+		return nil, fmt.Errorf("public replay count = %d, want %d", len(rows), expectedPublicScenarios)
+	}
+	return rows, nil
+}
+
 type ReproductionReceipt struct {
 	Status              string `json:"status"`
 	ReproducerID        string `json:"reproducer_id"`

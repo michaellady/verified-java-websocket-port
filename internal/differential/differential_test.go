@@ -107,6 +107,18 @@ func TestFacadeRejectsUnboundedConfiguration(t *testing.T) {
 	}
 }
 
+func TestRustPublicReplayRejectsUnboundedConfiguration(t *testing.T) {
+	_, err := ReplayRustPublic(context.Background(), RustReplayConfig{
+		RepositoryRoot:  repositoryRoot(t),
+		Executable:      os.Args[0],
+		ScenarioTimeout: 0,
+		SuiteTimeout:    time.Minute,
+	})
+	if err == nil {
+		t.Fatal("zero scenario timeout must fail closed")
+	}
+}
+
 func TestPublicCorpusRederivesExactCommittedBytes(t *testing.T) {
 	root := repositoryRoot(t)
 	scenarios, raw, err := loadPublicCorpus(root, filepath.Join(root, "corpora/public/scenarios.jsonl"))
