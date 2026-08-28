@@ -26,10 +26,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
 )
 
 func TestProtocolRejectionClassIsEnumeratedCompletely(t *testing.T) {
-	if err := VerifyProtocolRejectionClass(ledgerTestRepoRoot); err != nil {
+	if err := VerifyProtocolRejectionClass(ledgerTestRepoRoot, Definitions()); err != nil {
 		t.Fatalf("protocol-rejection class: %v", err)
 	}
 }
@@ -107,46 +109,83 @@ func TestTheClassPredicateSelectsByCauseAndNotByCloseCode(t *testing.T) {
 	}
 }
 
-// TestTheClassPredicateDiscriminatesAMixedStepScenario IS THE ROUND-2
-// DISCRIMINATOR, and it is the leg the round-1 test set did not have.
-//
-// Round one replaced the close-code shape with `counts.input_bytes > 0`. Review
-// round 2 found that this is an AGGREGATE over the whole scenario rather than a
-// fact about the step that failed, so a VALID inbound frame followed by a local
-// `send_close(999)` satisfied every conjunct while its error is locally caused.
-// The round-1 test only ever covered the zero-input local case (us005.pub.0000),
-// which the aggregate happens to exclude for the wrong reason.
-//
-// REPRODUCED BEFORE THE FIX, by execution, not by reading: exactly this scenario
-// was appended to corpora/public/scenarios.jsonl as us005.pub.0074, enrolled in
-// the census, and named by the class record; `deltaledgerctl --check` then
-// returned exit 0 with all nineteen rows green, certifying a locally caused
-// close as an inbound protocol-decode rejection.
-//
-// Both directions are asserted. Removing the failing-step binding from
-// InProtocolRejectionClass makes the first half fail; weakening it into
-// "no action steps anywhere" makes the second half fail.
-func TestTheClassPredicateDiscriminatesAMixedStepScenario(t *testing.T) {
-	scenarios, err := ReadPublicScenarios(ledgerTestRepoRoot)
+// mixedStepScenario builds a synthetic scenario from an executable core, with
+// its recorded expectation DERIVED from that core rather than hand-written, so
+// a test scenario is the same kind of object the corpus holds. `forge` may then
+// corrupt the recorded counts to model an attacker.
+func mixedStepScenario(t *testing.T, id string, steps []corpora.Step, forge func(*PublicScenario)) PublicScenario {
+	t.Helper()
+	core := corpora.ScenarioCore{
+		Role:         "server",
+		InitialState: "open",
+		Limits: corpora.Limits{
+			MaxInputBytes: 65536, MaxBufferedBytes: 65536, MaxActions: 64,
+			MaxFrames: 64, MaxOutputBytes: 4194304,
+		},
+		Steps: steps,
+	}
+	expected, _, err := corpora.DeriveExpectedAndFailingStep(core)
 	if err != nil {
-		t.Fatalf("read public corpus: %v", err)
+		t.Fatalf("%s: derive the expectation from the core: %v", id, err)
 	}
-	byID := map[string]PublicScenario{}
-	for _, scenario := range scenarios {
-		byID[scenario.ScenarioID] = scenario
+	line, err := corpora.Scenario{
+		ScenarioID: id, Tier: "public", Family: "synthetic", SeedIndex: 0,
+		Core: core, Expected: expected,
+		ExpectationBasis:  []string{"rfc6455.section-5-2"},
+		ExpectationStatus: corpora.ExpectationStatusReferenceModel,
+	}.CanonicalLine()
+	if err != nil {
+		t.Fatalf("%s: render the scenario: %v", id, err)
 	}
-	inbound, exists := byID["us005.pub.0005"]
-	if !exists {
-		t.Fatal("us005.pub.0005 is missing from the public corpus")
+	var scenario PublicScenario
+	if err := json.Unmarshal(line, &scenario); err != nil {
+		t.Fatalf("%s: decode: %v", id, err)
+	}
+	if err := json.Unmarshal(line, &scenario.Core); err != nil {
+		t.Fatalf("%s: decode core: %v", id, err)
+	}
+	scenario.CommittedLine = string(line)
+	if forge != nil {
+		forge(&scenario)
+	}
+	return scenario
+}
+
+// TestTheClassPredicateDiscriminatesAMixedStepScenario carries the ROUND-2
+// discriminator and the ROUND-3 one, which are different attacks on the same
+// join.
+//
+// ROUND 2. Round one replaced the close-code shape with `counts.input_bytes >
+// 0`, an AGGREGATE over the whole scenario rather than a fact about the step
+// that failed, so a VALID inbound frame followed by a local `send_close(999)`
+// satisfied every conjunct while its error is locally caused. Reproduced by
+// execution before that fix: exactly this scenario was appended to the corpus
+// as us005.pub.0074, enrolled in the census and named by the class record, and
+// `deltaledgerctl --check` returned exit 0.
+//
+// ROUND 3. The round-2 fix derived the failing step FROM `expected.counts` —
+// evidence the scenario's own author writes. Recording `input_bytes=5,
+// actions=0` for that same run makes the bytes prefix the unique match, so the
+// ambiguity refusal never fires and the local failure is enrolled anyway.
+// Reproduced by execution before this fix: FailingStep returned index 0 kind
+// "bytes", InProtocolRejectionClass returned true, LocallyCausedRejections
+// returned nothing, and the full gate exited 0 with the scenario enrolled.
+//
+// Four legs are asserted, and each fails on a different regression: dropping
+// the failing-step binding fails leg 1; deriving the step from counts again
+// fails leg 2; refusing every scenario containing an action fails leg 3;
+// filtering the excluded shape away silently fails leg 4.
+func TestTheClassPredicateDiscriminatesAMixedStepScenario(t *testing.T) {
+	// A valid inbound frame (masked, server role), THEN a local send_close(999)
+	// which is what actually fails.
+	validFrame := "AoFGX5gV7g==" // us005.pub.0001's first step: a valid masked binary fragment.
+	mixedSteps := []corpora.Step{
+		{Kind: "bytes", DataBase64: validFrame},
+		{Kind: "action", Action: "send_close", Code: 999, Reason: "bad"},
 	}
 
-	// A valid inbound frame, THEN a local send_close(999) that is what fails.
-	// Aggregate input_bytes is nine, so the round-1 predicate enrolled it.
-	mixed := inbound
-	mixed.ScenarioID = "us005.pub.9001"
-	mixed.Steps = append(append([]ScenarioStep(nil), inbound.Steps...),
-		ScenarioStep{Kind: "action", Action: "send_close"})
-	mixed.Expected.Counts.Actions = 1
+	// LEG 1 (round 2): honest counts, and the run stops on the local action.
+	mixed := mixedStepScenario(t, "us005.pub.9001", mixedSteps, nil)
 	if mixed.Expected.Counts.InputBytes <= 0 {
 		t.Fatal("the mixed scenario must carry inbound bytes, or it does not reproduce the finding")
 	}
@@ -156,8 +195,7 @@ func TestTheClassPredicateDiscriminatesAMixedStepScenario(t *testing.T) {
 	}
 	if member {
 		t.Fatal("the class predicate enrolls a scenario whose run STOPPED ON A LOCAL ACTION after a valid inbound " +
-			"frame. counts.input_bytes is an aggregate over the whole scenario and cannot say which step failed; " +
-			"membership must bind to the failing step")
+			"frame; membership must bind to the failing step")
 	}
 	index, step, err := FailingStep(mixed)
 	if err != nil {
@@ -167,13 +205,30 @@ func TestTheClassPredicateDiscriminatesAMixedStepScenario(t *testing.T) {
 		t.Fatalf("the failing step derived as index %d kind %q, expected index 1 kind \"action\"", index, step.Kind)
 	}
 
-	// The other direction, so the fix is a DISCRIMINATOR and not a blanket
-	// refusal of every scenario that contains an action: a local action that
-	// SUCCEEDS before the inbound bytes that fail is still a class member.
-	actionFirst := inbound
-	actionFirst.ScenarioID = "us005.pub.9002"
-	actionFirst.Steps = append([]ScenarioStep{{Kind: "action", Action: "send_text"}}, inbound.Steps...)
-	actionFirst.Expected.Counts.Actions = 1
+	// LEG 2 (round 3): THE SAME SCENARIO WITH ITS ACTION COUNT UNDERSTATED.
+	// Under the counts-based derivation this uniquely selected the bytes
+	// prefix and was enrolled. It must now be REFUSED — not classified either
+	// way — because the recorded evidence disagrees with the execution.
+	forged := mixedStepScenario(t, "us005.pub.9003", mixedSteps, func(s *PublicScenario) {
+		s.Expected.Counts.Actions = 0
+	})
+	if _, _, err := FailingStep(forged); err == nil {
+		t.Fatal("a scenario that UNDERSTATES its own action count is still classified. The failing step must come " +
+			"from executing the steps, and a recorded expectation that disagrees with that execution must be " +
+			"refused: otherwise the party writing the scenario supplies the evidence that decides membership")
+	}
+	if member, err := InProtocolRejectionClass(forged); member || err == nil {
+		t.Fatalf("the class predicate accepted a scenario whose counts contradict its own execution "+
+			"(member=%v err=%v)", member, err)
+	}
+
+	// LEG 3: the fix is a DISCRIMINATOR and not a blanket refusal of every
+	// scenario containing an action. A local action that SUCCEEDS before the
+	// inbound bytes that fail is still a class member.
+	actionFirst := mixedStepScenario(t, "us005.pub.9002", []corpora.Step{
+		{Kind: "action", Action: "send_text", Text: "hi"},
+		{Kind: "bytes", DataBase64: "oYN0s9jSCOmF"}, // us005.pub.0005: a reserved-bit rejection.
+	}, nil)
 	member, err = InProtocolRejectionClass(actionFirst)
 	if err != nil {
 		t.Fatalf("classify the action-then-bytes scenario: %v", err)
@@ -183,14 +238,51 @@ func TestTheClassPredicateDiscriminatesAMixedStepScenario(t *testing.T) {
 			"predicate is refusing action steps rather than binding to the failing step")
 	}
 
-	// And the whole gate reports the excluded shape rather than filtering it
-	// away silently, which is the round-1 lesson applied to the round-2 fix.
+	// LEG 4: the whole gate reports the excluded shape rather than filtering it
+	// away silently.
 	locally, err := LocallyCausedRejections([]PublicScenario{mixed})
 	if err != nil {
 		t.Fatalf("report locally caused rejections: %v", err)
 	}
-	if len(locally) != 1 || !strings.Contains(locally[0], "us005.pub.9001") {
+	if len(locally) != 1 || locally[0].ScenarioID != "us005.pub.9001" {
 		t.Fatalf("the locally caused rejection is not reported: %v", locally)
+	}
+}
+
+// TestTheCommittedCorpusReDerivesInsideTheGate pins the production binding that
+// round 3 required: the identity check between the committed corpus and its
+// re-derivation used to live only in internal/corpora/committed_test.go, a test
+// binary the release path does not run. ReadPublicScenarios now performs it, so
+// every consumer of the corpus in this package gets it.
+func TestTheCommittedCorpusReDerivesInsideTheGate(t *testing.T) {
+	scenarios, err := ReadPublicScenarios(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("the committed public corpus does not re-derive inside the gate: %v", err)
+	}
+	if len(scenarios) != 74 {
+		t.Fatalf("the public tier is %d scenarios, expected 74", len(scenarios))
+	}
+
+	// Non-vacuity: a corpus with one forged count must be REFUSED by the same
+	// function, so the check above is a check and not a formality.
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "corpora", "public"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(ledgerTestRepoRoot, PublicCorpusRelativePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	forged := strings.Replace(string(raw), `"counts":{"actions":1,`, `"counts":{"actions":7,`, 1)
+	if forged == string(raw) {
+		t.Fatal("the forge did not apply; the corpus shape this test depends on has changed")
+	}
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(PublicCorpusRelativePath)),
+		[]byte(forged), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadPublicScenarios(root); err == nil {
+		t.Fatal("a corpus whose recorded counts disagree with executing its own steps was accepted")
 	}
 }
 

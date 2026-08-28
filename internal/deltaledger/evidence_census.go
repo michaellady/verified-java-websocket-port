@@ -52,7 +52,6 @@ package deltaledger
 // covering record able to exist at all.
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -61,6 +60,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
 )
 
 // LiveMappingRelativePath is the committed live handshake verdict mapping. It
@@ -87,6 +88,38 @@ const CensusSchemaRelativePath = "schemas/public-rfc-divergence-census-1.0.0.sch
 
 // ProtocolRejectionClass is the class whose membership is decided mechanically.
 const ProtocolRejectionClass = "protocol-rejection-readystate"
+
+// ProtocolRejectionClassDerivation is the ONE statement of how membership in
+// that class is decided, and it is the text every census row in the class must
+// carry verbatim.
+//
+// IT IS A CONSTANT IN CODE BECAUSE OF ROUND-3 FINDING 1. The census rows and
+// the class record went on describing membership as the AGGREGATE
+// `counts.input_bytes>0` rule for a whole round after round 2 replaced it with
+// the failing-step derivation: the code was fixed, the description of the code
+// was not, and nothing compared them, because `derivation` was decoded into the
+// struct and never read. Reproduced before this fix by rewriting a row's
+// derivation to "MECHANICAL SWEEP by whether the scenario id is even. Also the
+// moon is made of cheese." and reading `deltaledgerctl --check` at exit 0.
+// VerifyCensusRowsMatchEvidence now requires equality with this constant, so
+// the authoritative artifact cannot describe a rule the gate does not run.
+const ProtocolRejectionClassDerivation = "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by " +
+	"result shape and not by any recorded aggregate: expected.outcome==error AND " +
+	"expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND " +
+	"expected.final_state=='open' AND the step the run STOPPED ON is a `bytes` step — that is, the rejection was " +
+	"raised while decoding INBOUND wire data rather than by a local API call. THE FAILING STEP IS DERIVED BY " +
+	"EXECUTION: internal/corpora.DeriveExpectedAndFailingStep runs the scenario's own role, initial_state, limits " +
+	"and steps under the reference model and reports the index of the step whose execution raised the error. " +
+	"expected.counts is NOT consulted, and there is no fallback to it; a scenario whose steps the model cannot " +
+	"execute is refused rather than classified. internal/deltaledger.ReadPublicScenarios additionally requires every " +
+	"committed corpus line to EQUAL its own re-derivation, so a recorded expectation that disagrees with the " +
+	"scenario's execution is refused before any predicate reads it. Complete over the 74-scenario public tier by " +
+	"that predicate, re-derived on every run of cmd/deltaledgerctl --check. TWO EARLIER PREDICATES WERE WRONG AND " +
+	"ARE NAMED HERE SO THE CORRECTION STAYS VISIBLE: the first selected on close_code in {1002,1007,1009}, a result " +
+	"shape, and wrongly enrolled us005.pub.0000; the second selected on the aggregate counts.input_bytes>0, which a " +
+	"valid inbound frame followed by a rejected local send_close satisfies, and the third derived the failing step " +
+	"from those same counts, which let a scenario understate its own action count and choose the answer. See this " +
+	"document's completeness field."
 
 // MappingRowCitation matches the explicit citation token a ledger record uses
 // to claim a divergent mapping row that no corpus case exercises.
@@ -160,9 +193,18 @@ type ScenarioStep struct {
 // object so a census row's JSON pointer can be resolved against it.
 type PublicScenario struct {
 	ScenarioID string         `json:"scenario_id"`
+	Tier       string         `json:"tier"`
 	Family     string         `json:"family"`
+	SeedIndex  int            `json:"seed_index"`
 	Steps      []ScenarioStep `json:"steps"`
-	Expected   struct {
+	// Core is the scenario's EXECUTABLE portion — role, initial state, limits
+	// and steps — decoded into the reference model's own type. It is what makes
+	// the failing step derivable by EXECUTION rather than by reading the
+	// summary counts recorded beside the claim (round-3 finding 2).
+	Core              corpora.ScenarioCore `json:"-"`
+	ExpectationBasis  []string             `json:"expectation_basis"`
+	ExpectationStatus string               `json:"expectation_status"`
+	Expected          struct {
 		Outcome    string `json:"outcome"`
 		FinalState string `json:"final_state"`
 		Counts     struct {
@@ -180,7 +222,51 @@ type PublicScenario struct {
 	// `pointer` is resolved against the recorded evidence rather than against
 	// the handful of fields this struct happens to name.
 	ExpectedRaw json.RawMessage `json:"-"`
+	// CommittedLine is the scenario's committed JSONL line, kept so the
+	// re-derivation can be compared to the committed bytes rather than to a
+	// re-encoding of the fields this struct happens to name.
+	CommittedLine string `json:"-"`
 }
+
+// CensusStatement and CensusCompleteness are the census document's two prose
+// claims, held in code and required to match the committed artifact.
+//
+// They are here for the same reason ProtocolRejectionClassDerivation is. Round-3
+// finding 1 was a stale DESCRIPTION surviving a fixed IMPLEMENTATION, and the
+// mechanism that let it survive was simply that nothing compared the two.
+// `statement`, `completeness` and `derivation` were all decoded into the struct
+// and none was read. Pinning them means the document's account of itself is a
+// checked claim.
+const CensusStatement = "Public-corpus propositions where this port follows the pinned Java oracle over an " +
+	"RFC-strict reading, with the ledger record that discloses each one. It exists because the reserved-bit " +
+	"ready-state divergence was found by a cross-plane audit reading another plane's manifest by hand, and no gate " +
+	"of ours would have found it — nor the seventeen sibling instances the same mechanism produces. Rows are swept " +
+	"from the committed corpus by CAUSE, every row must carry the derivation this gate actually runs, and every row " +
+	"must name a ledger record that actually discusses its scenario; internal/deltaledger.VerifyIntegrity enforces " +
+	"all three, and cmd/deltaledgerctl --check runs it, so this is a gate rather than a document."
+
+// CensusCompleteness is the census's completeness claim.
+const CensusCompleteness = "The protocol-rejection-readystate class is COMPLETE over the 74-scenario public tier " +
+	"by the CAUSE predicate stated in every row's `derivation` field, and internal/deltaledger re-derives it from " +
+	"the corpus on every run, so a new scenario that falls in the class fails the gate until it is enrolled here " +
+	"and ledgered. THREE PREDICATES HAVE BEEN WRONG AND EACH CORRECTION IS RECORDED HERE RATHER THAN QUIETLY " +
+	"APPLIED. (1) The original selected on error.close_code in {1002,1007,1009}, a RESULT SHAPE. It enrolled " +
+	"us005.pub.0000, a locally initiated send_close(999) with no inbound byte decoded at all. RFC 6455 section " +
+	"7.1.7 requires closing only where another algorithm or provision requires Failing the WebSocket Connection, " +
+	"and an invalid local API call is not such a provision, so this document's claim that the RFC-strict state " +
+	"there was 'closed' was wrong; that scenario is ledgered separately and correctly at ledger sequence 35, which " +
+	"records that the RFC behaviour remains OPEN because no Close frame was ever sent. That correction is why the " +
+	"count went from nineteen to eighteen. (2) Its replacement selected on the AGGREGATE counts.input_bytes>0, " +
+	"which a valid inbound frame followed by a rejected local send_close also satisfies — the same mistake one " +
+	"level less obvious. (3) Its replacement derived the failing step FROM those same counts, so a scenario that " +
+	"understated its own action count made the bytes prefix the unique match and was enrolled anyway; the evidence " +
+	"that decided membership was supplied by the thing membership was meant to constrain. The failing step is now " +
+	"derived by EXECUTING each scenario's own steps under the reference model, and every committed corpus line " +
+	"must equal its own re-derivation. The close-code set is an asserted CONSISTENCY property of the class rather " +
+	"than its boundary: a future member carrying some other code fails the gate and forces a decision instead of " +
+	"being silently excluded. Completeness is claimed for THIS CLASS ONLY. Other Java-over-RFC propositions exist " +
+	"in the corpus (consumed-byte rejection sites, error-site offsets, the absent automatic pong) and no mechanical " +
+	"predicate sweeps them."
 
 // CensusEntry is one row of the public-corpus RFC-divergence census.
 type CensusEntry struct {
@@ -210,9 +296,111 @@ type CensusDocument struct {
 	Entries       []CensusEntry `json:"entries"`
 }
 
+// PublicCorpusManifestRelativePath holds the seed both committed corpora derive
+// from.
+const PublicCorpusManifestRelativePath = "corpora/public/manifest.json"
+
+// VerifyCommittedCorporaReDerive is the PRODUCTION identity check between the
+// committed corpus files and their derivation from the committed seed.
+//
+// WHY IT IS HERE AND NOT ONLY IN A TEST (found in this branch's own adversarial
+// pass, same class as round-3 finding 2). Both committed corpora are INPUTS to
+// the divergence measurement: corpora/public/scenarios.jsonl supplies the
+// protocol-rejection class, and corpora/handshake/cases.jsonl supplies the
+// family slug that decides whether a ledger record is ABOUT a mapping row. The
+// only thing binding either file to its generator was
+// internal/corpora/committed_test.go, a test binary no release path runs — the
+// exact criticism round 3 made of the public corpus, applied to the file that
+// decides coverage semantics.
+func VerifyCommittedCorporaReDerive(root string) error {
+	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(PublicCorpusManifestRelativePath)))
+	if err != nil {
+		return err
+	}
+	var manifest struct {
+		Generator struct {
+			PublicSeed string `json:"public_seed"`
+		} `json:"generator"`
+	}
+	if err := json.Unmarshal(raw, &manifest); err != nil {
+		return fmt.Errorf("decode %s: %w", PublicCorpusManifestRelativePath, err)
+	}
+	if manifest.Generator.PublicSeed == "" {
+		return fmt.Errorf("%s names no generator.public_seed, so the committed corpora cannot be re-derived and "+
+			"this refuses rather than skipping", PublicCorpusManifestRelativePath)
+	}
+	derivedPublic, derivedHandshake, err := corpora.RenderCommittedCorpora(manifest.Generator.PublicSeed)
+	if err != nil {
+		return fmt.Errorf("re-derive the committed corpora from the committed seed: %w", err)
+	}
+	for _, one := range []struct {
+		relative string
+		derived  []byte
+	}{
+		{PublicCorpusRelativePath, derivedPublic},
+		{HandshakeCorpusRelativePath, derivedHandshake},
+	} {
+		committed, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(one.relative)))
+		if err != nil {
+			return err
+		}
+		if string(committed) != string(one.derived) {
+			return fmt.Errorf("%s does not re-derive from the committed seed in %s. This corpus is an INPUT to the "+
+				"divergence measurement, so an edit to it moves what the gate is able to demand; the identity check "+
+				"used to run only in a test binary, which is not a gate",
+				one.relative, PublicCorpusManifestRelativePath)
+		}
+	}
+	return nil
+}
+
+// VerifyLiveMappingIsBoundToItsSourceTable requires the committed live
+// handshake mapping to be byte-identical to the table it is rendered from.
+//
+// FOUND IN THIS BRANCH'S OWN ADVERSARIAL PASS, in the class round 3 named, and
+// reproduced by execution before the fix: flipping ONE `divergent: true` row of
+// evidence/us005-handshake-live-mapping.json to false — client_request
+// HS_MISSING_HOST — silently removed a demand from the measurement's universe
+// and left `deltaledgerctl --check` at exit 0. It went unnoticed because only
+// the six server_response rows are claimed by the literal `mapping-row` token,
+// so the fail-closed "cites a row the evidence does not record as divergent"
+// arm never fires for the thirteen client_request rows. The document is
+// rendered from corpora.HandshakeVerdictMapping(), and until now the only thing
+// that said so was internal/corpora/handshake_live_test.go — a test binary no
+// release path runs, which is round-1 finding 3's shape and round-3 finding 2's
+// second half.
+//
+// IT IS A SEPARATE VERIFICATION RATHER THAN A CHECK INSIDE
+// ReadDivergentMappingRows, deliberately. "Is this artifact authentic" and
+// "what does this artifact say" are different questions, and the polarity
+// proofs for the measurement need to feed it a mapping with a divergence nobody
+// has written down — which is how a new divergence genuinely arrives, via the
+// source table and a regeneration. Folding the binding into the reader would
+// make those proofs impossible to state, and a measurement whose polarity
+// cannot be demonstrated is the defect this whole file exists to remove. Both
+// checks run in VerifyIntegrity, so the production gate refuses either failure.
+func VerifyLiveMappingIsBoundToItsSourceTable(root string) error {
+	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(LiveMappingRelativePath)))
+	if err != nil {
+		return err
+	}
+	rendered, err := corpora.RenderHandshakeLiveMappingDocument()
+	if err != nil {
+		return fmt.Errorf("render the live handshake mapping from its source table: %w", err)
+	}
+	if string(raw) != string(rendered) {
+		return fmt.Errorf("%s is not byte-identical to corpora.HandshakeVerdictMapping(), the source-derived "+
+			"table it is rendered from. This document decides which handshake divergences the measurement can "+
+			"DEMAND a record for, so an edit to it shrinks the universe the gate checks; it is re-derived here "+
+			"rather than believed", LiveMappingRelativePath)
+	}
+	return nil
+}
+
 // ReadDivergentMappingRows returns every `divergent: true` row of the committed
 // live handshake mapping. It fails closed on an empty document or an empty row,
-// so the census can never run vacuously against a truncated artifact.
+// so the census can never run vacuously against a truncated artifact. The
+// artifact's authenticity is VerifyLiveMappingIsBoundToItsSourceTable's job.
 func ReadDivergentMappingRows(root string) ([]MappingRow, error) {
 	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(LiveMappingRelativePath)))
 	if err != nil {
@@ -317,13 +505,31 @@ func FamilyForRow(cases []HandshakeCase, row MappingRow) (string, error) {
 	}
 }
 
-// ReadPublicScenarios decodes the public corpus.
+// ReadPublicScenarios decodes the public corpus AND re-derives every scenario's
+// recorded expectation from that scenario's own steps, refusing the corpus if
+// any committed line is not what executing its steps produces.
+//
+// WHY THE RE-DERIVATION LIVES HERE (round-3 finding 2). Every consumer of the
+// public corpus in this package goes through this function, so binding the
+// committed expectation to a re-derivation at this one chokepoint means no
+// consumer can read a scenario whose recorded summary was never checked against
+// its own program. The identity check used to exist only in
+// internal/corpora/committed_test.go — a test binary the release path does not
+// run — which is the same "rule that is not a gate" shape as round-1 finding 3.
+//
+// The comparison is on the COMMITTED BYTES: the line is rebuilt from the fields
+// the corpus itself carries, with `expected` replaced by the reference model's
+// derivation over `role`, `initial_state`, `limits` and `steps`, and rendered
+// through the same canonical writer that wrote the corpus. So a forged count, a
+// forged final state or a forged error code is a byte difference, not a matter
+// of which fields somebody remembered to compare.
 func ReadPublicScenarios(root string) ([]PublicScenario, error) {
 	raw, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(PublicCorpusRelativePath)))
 	if err != nil {
 		return nil, err
 	}
 	var scenarios []PublicScenario
+	var problems []string
 	for _, line := range strings.Split(string(raw), "\n") {
 		if strings.TrimSpace(line) == "" {
 			continue
@@ -332,92 +538,168 @@ func ReadPublicScenarios(root string) ([]PublicScenario, error) {
 		if err := json.Unmarshal([]byte(line), &scenario); err != nil {
 			return nil, fmt.Errorf("decode a line of %s: %w", PublicCorpusRelativePath, err)
 		}
-		var raw struct {
+		var envelope struct {
 			Expected json.RawMessage `json:"expected"`
 		}
-		if err := json.Unmarshal([]byte(line), &raw); err != nil {
+		if err := json.Unmarshal([]byte(line), &envelope); err != nil {
 			return nil, fmt.Errorf("decode the expected object of a line of %s: %w", PublicCorpusRelativePath, err)
 		}
-		scenario.ExpectedRaw = raw.Expected
+		if err := json.Unmarshal([]byte(line), &scenario.Core); err != nil {
+			return nil, fmt.Errorf("decode the executable core of a line of %s: %w", PublicCorpusRelativePath, err)
+		}
+		scenario.ExpectedRaw = envelope.Expected
+		scenario.CommittedLine = line
+		if err := verifyScenarioReDerives(scenario); err != nil {
+			problems = append(problems, err.Error())
+		}
 		scenarios = append(scenarios, scenario)
 	}
 	if len(scenarios) == 0 {
 		return nil, fmt.Errorf("%s yielded no scenarios", PublicCorpusRelativePath)
 	}
+	sort.Strings(problems)
+	if len(problems) != 0 {
+		return nil, fmt.Errorf("public corpus re-derivation (%d scenario(s) do not equal what executing their own "+
+			"steps produces):\n  %s", len(problems), strings.Join(problems, "\n  "))
+	}
 	return scenarios, nil
 }
 
-// FailingStep derives WHICH STEP the recorded run stopped on, from the
-// committed counts alone. It is the discriminator the class predicate needs and
-// it is derived from the evidence rather than declared beside it.
+// verifyScenarioReDerives rebuilds one committed line with `expected` recomputed
+// from the scenario's own steps and requires byte equality.
+func verifyScenarioReDerives(scenario PublicScenario) error {
+	expected, _, err := corpora.DeriveExpectedAndFailingStep(scenario.Core)
+	if err != nil {
+		return fmt.Errorf("%s: the reference model refuses to execute this scenario's own steps, so its recorded "+
+			"expectation cannot be checked against them: %w", scenario.ScenarioID, err)
+	}
+	rebuilt, err := corpora.Scenario{
+		ScenarioID:        scenario.ScenarioID,
+		Tier:              scenario.Tier,
+		Family:            scenario.Family,
+		SeedIndex:         scenario.SeedIndex,
+		Core:              scenario.Core,
+		Expected:          expected,
+		ExpectationBasis:  scenario.ExpectationBasis,
+		ExpectationStatus: scenario.ExpectationStatus,
+	}.CanonicalLine()
+	if err != nil {
+		return fmt.Errorf("%s: the re-derived scenario does not render canonically: %w", scenario.ScenarioID, err)
+	}
+	if string(rebuilt) != scenario.CommittedLine {
+		return fmt.Errorf("%s: the committed line is NOT what executing its own steps produces. The recorded "+
+			"expectation is evidence supplied alongside the scenario, and class membership turns on it, so it is "+
+			"re-derived rather than believed.\n    committed:  %s\n    re-derived: %s",
+			scenario.ScenarioID, scenario.CommittedLine, string(rebuilt))
+	}
+	return nil
+}
+
+// FailingStep derives WHICH STEP the recorded run stopped on BY EXECUTING THE
+// SCENARIO'S OWN STEPS under the reference model. It is the discriminator the
+// class predicate needs, and it is now derived from the scenario PROGRAM rather
+// than from the summary recorded beside it.
 //
-// THE DERIVATION. The harness executes a scenario's steps in order. A `bytes`
-// step contributes its decoded length to expected.counts.input_bytes; an
-// `action` step contributes one to expected.counts.actions. An error STOPS the
-// run at the step that raised it, and that step has already been counted — the
-// committed corpus shows both halves of this: us005.pub.0000 is a single
-// erroring `send_close` action and records actions=1, and us005.pub.0005 is a
-// single erroring 9-byte `bytes` step and records input_bytes=9.
+// WHAT ROUND 3 FOUND, and why the previous derivation had to go. The prior
+// implementation reconstructed the executed prefix from `expected.counts`: the
+// unique prefix of the step list whose byte total and action count equal the
+// recorded totals, with a refusal when the prefix was ambiguous. That is a
+// derivation from evidence — but from evidence THE SAME PARTY SUPPLIES. The
+// reviewer's attack: a VALID inbound 5-byte frame followed by a rejected local
+// `send_close(999)`, recorded as `input_bytes=5, actions=0`. The true counts of
+// that run are `input_bytes=5, actions=1`; understating the action count makes
+// the bytes prefix the UNIQUE match, so the ambiguity refusal never fires, the
+// failing step is reported as the `bytes` step, and a locally caused rejection
+// is enrolled as an inbound decode rejection. Reproduced before this fix:
+// `FailingStep` returned index 0 kind "bytes", `InProtocolRejectionClass`
+// returned true, `LocallyCausedRejections` returned nothing, and with the
+// scenario enrolled in the census and named by the class record
+// `deltaledgerctl --check` exited 0.
 //
-// So the executed prefix is the unique prefix of the step list whose byte total
-// and action count equal the recorded totals, and the failing step is that
-// prefix's LAST step. Uniqueness is REQUIRED rather than assumed: if two
-// prefixes match, or none does, the evidence does not determine which step
-// failed and this function returns an error instead of guessing. A guess here
-// would silently decide class membership, which is the whole thing the
-// predicate is supposed to be able to get right.
+// THE FIX IS TO STOP READING THE ANSWER FROM THE CLAIM. The reference model in
+// internal/corpora executes `role`, `initial_state`, `limits` and `steps` and
+// reports the index of the step whose execution raised the error. Counts are
+// not consulted, so the party writing the scenario no longer supplies the fact
+// that decides membership; they supply only the program, and the program is
+// run. ReadPublicScenarios additionally requires each committed line to EQUAL
+// its re-derivation, so a scenario whose recorded expectation disagrees with
+// its own execution is refused before any predicate sees it.
 //
-// It returns index -1 with no error in two cases. First, when the scenario did
-// not fail at all: `outcome` is not `error`, so there is no failing step to
-// find, and a zero-length `bytes` step in such a scenario (us005.pub.0017 and
-// us005.pub.0045 are the committed instances) is genuinely indistinguishable
-// from a step that did not run — which does not matter, because nothing failed.
-// Second, when the run DID fail but the executed prefix is EMPTY, which is the
-// recorded shape of the harness envelope refusals that reject an input before
-// feeding it (us005.pub.0015 and us005.pub.0044 both carry a `bytes` step with
-// input_bytes 0). No step was reached, so no step can be the cause.
+// IF THE SCENARIO'S OWN STEPS CANNOT SETTLE IT, THIS REFUSES. A step vocabulary
+// the reference model does not know, a role or limit outside the model's space,
+// or undecodable step data all produce an error rather than a fallback to the
+// counts. There is deliberately no fallback: the counts are exactly the input
+// the attack controls.
+//
+// It returns index -1 with no error when the run did not stop at all — the
+// scenario's outcome is `ok`, so there is no failing step to find.
 func FailingStep(scenario PublicScenario) (int, ScenarioStep, error) {
-	if scenario.Expected.Outcome != "error" {
+	derived, index, err := corpora.DeriveExpectedAndFailingStep(scenario.Core)
+	if err != nil {
+		return 0, ScenarioStep{}, fmt.Errorf("%s: the failing step cannot be derived by executing this scenario's "+
+			"own steps, and this refuses rather than falling back to the recorded counts, which are supplied by "+
+			"whoever writes the scenario: %w", scenario.ScenarioID, err)
+	}
+	if err := failingStepEvidenceAgrees(scenario, derived); err != nil {
+		return 0, ScenarioStep{}, err
+	}
+	if index < 0 {
 		return -1, ScenarioStep{}, nil
 	}
-	wantBytes := scenario.Expected.Counts.InputBytes
-	wantActions := scenario.Expected.Counts.Actions
-	var matches []int
-	if wantBytes == 0 && wantActions == 0 {
-		matches = append(matches, 0)
+	if index >= len(scenario.Steps) {
+		return 0, ScenarioStep{}, fmt.Errorf("%s: execution stopped on step %d but the committed step list has %d "+
+			"step(s)", scenario.ScenarioID, index, len(scenario.Steps))
 	}
-	bytesSoFar, actionsSoFar := 0, 0
-	for index, step := range scenario.Steps {
-		switch step.Kind {
-		case "bytes":
-			decoded, err := base64.StdEncoding.DecodeString(step.DataBase64)
-			if err != nil {
-				return 0, ScenarioStep{}, fmt.Errorf("%s step %d: data_base64 does not decode, so the failing step "+
-					"cannot be derived: %w", scenario.ScenarioID, index, err)
-			}
-			bytesSoFar += len(decoded)
-		case "action":
-			actionsSoFar++
-		default:
-			return 0, ScenarioStep{}, fmt.Errorf("%s step %d: unknown step kind %q. The failing-step derivation "+
-				"refuses to classify a scenario whose step vocabulary it does not know, because a silent default "+
-				"would decide protocol-rejection-class membership by accident", scenario.ScenarioID, index, step.Kind)
+	return index, scenario.Steps[index], nil
+}
+
+// failingStepEvidenceAgrees requires the scenario's RECORDED expectation to
+// agree with what executing its steps produces, on every field the class
+// predicate and the census read. ReadPublicScenarios enforces the stronger
+// whole-line equality; this keeps FailingStep safe when it is called on a
+// scenario that did not come through that path, so the discriminator can never
+// be used against an expectation nobody checked.
+func failingStepEvidenceAgrees(scenario PublicScenario, derived corpora.Expected) error {
+	mismatch := func(field string, recorded, executed any) error {
+		return fmt.Errorf("%s: recorded %s is %v but executing the scenario's own steps produces %v. The recorded "+
+			"expectation is supplied alongside the scenario and class membership turns on it, so a disagreement is "+
+			"refused rather than resolved in favour of the record", scenario.ScenarioID, field, recorded, executed)
+	}
+	if scenario.Expected.Outcome != derived.Outcome {
+		return mismatch("outcome", scenario.Expected.Outcome, derived.Outcome)
+	}
+	if scenario.Expected.FinalState != derived.FinalState {
+		return mismatch("final_state", scenario.Expected.FinalState, derived.FinalState)
+	}
+	if (scenario.Expected.Error == nil) != (derived.Error == nil) {
+		return mismatch("error presence", scenario.Expected.Error != nil, derived.Error != nil)
+	}
+	if scenario.Expected.Error != nil && derived.Error != nil {
+		if scenario.Expected.Error.Code != derived.Error.Code {
+			return mismatch("error.code", scenario.Expected.Error.Code, derived.Error.Code)
 		}
-		if bytesSoFar == wantBytes && actionsSoFar == wantActions {
-			matches = append(matches, index+1)
-		}
+		// error.close_code is DELIBERATELY not compared here. It is not a
+		// membership input — the close-code set is a derived consistency
+		// assertion in VerifyProtocolRejectionClass, never a filter — and
+		// binding it here would make it impossible to state, as a test does,
+		// that a hypothetical member carrying another code is still IN the
+		// class. It is bound in production all the same, by
+		// ReadPublicScenarios' whole-line re-derivation, which compares every
+		// recorded field including this one.
 	}
-	if len(matches) != 1 {
-		return 0, ScenarioStep{}, fmt.Errorf("%s: the recorded counts (input_bytes=%d, actions=%d) match %d step "+
-			"prefixes of %d, so the committed evidence does not determine which step failed. Membership in the %s "+
-			"class turns on that step, so this is refused rather than guessed",
-			scenario.ScenarioID, wantBytes, wantActions, len(matches), len(scenario.Steps), ProtocolRejectionClass)
+	if derived.Counts == nil {
+		return fmt.Errorf("%s: executing the scenario's own steps produced no counts", scenario.ScenarioID)
 	}
-	executed := matches[0]
-	if executed == 0 {
-		return -1, ScenarioStep{}, nil
+	if scenario.Expected.Counts.InputBytes != derived.Counts.InputBytes {
+		return mismatch("counts.input_bytes", scenario.Expected.Counts.InputBytes, derived.Counts.InputBytes)
 	}
-	return executed - 1, scenario.Steps[executed-1], nil
+	if scenario.Expected.Counts.Actions != derived.Counts.Actions {
+		return mismatch("counts.actions", scenario.Expected.Counts.Actions, derived.Counts.Actions)
+	}
+	if scenario.Expected.Counts.ConsumedBytes != derived.Counts.ConsumedBytes {
+		return mismatch("counts.consumed_bytes", scenario.Expected.Counts.ConsumedBytes, derived.Counts.ConsumedBytes)
+	}
+	return nil
 }
 
 // InProtocolRejectionClass is the class predicate, selecting by the stated
@@ -436,6 +718,13 @@ func FailingStep(scenario PublicScenario) (int, ScenarioStep, error) {
 //	AND the FAILING STEP is a `bytes` step (the rejection was raised while
 //	                                        decoding inbound wire data)
 //
+// There is deliberately NO conjunct on `counts`. An earlier version carried a
+// redundant `counts.input_bytes > 0` alongside the failing-step test; it is
+// removed rather than kept, because a redundant conjunct that reads like the
+// rejected aggregate rule is exactly what let the artifacts go on describing
+// the rejected rule (round-3 finding 1). What a bytes step is, and whether the
+// run stopped on one, is now settled by execution.
+//
 // WHAT CHANGED IN ROUND 1 (review 01a0495e BLOCKING 4). The original predicate
 // selected on `error.close_code in {1002,1007,1009}` — a result shape, not a
 // cause. It enrolled us005.pub.0000, a LOCALLY INITIATED `send_close(999)` with
@@ -447,19 +736,25 @@ func FailingStep(scenario PublicScenario) (int, ScenarioStep, error) {
 // ledgered at sequence 35 (websocketimpl.rejected-local-close-readystate).
 //
 // WHAT CHANGED IN ROUND 2, and why the first fix was not enough. The round-1
-// predicate replaced the close-code shape with `counts.input_bytes > 0`, which
-// is an AGGREGATE over the whole scenario rather than a fact about the step
-// that failed. Review round 2 named the hole exactly: a VALID inbound frame
-// followed by a local `send_close(999)` records input_bytes > 0 and
+// predicate replaced the close-code shape with an AGGREGATE over the whole
+// scenario — "some inbound byte arrived somewhere" — rather than a fact about
+// the step that failed. Review round 2 named the hole exactly: a VALID inbound
+// frame followed by a local `send_close(999)` carries inbound bytes and
 // JAVA_INVALID_DATA and final_state open, so it satisfied every conjunct while
 // its error is locally caused — the identical mistake us005.pub.0000 was, one
-// level less obvious. Reproduced before this fix by appending exactly that
+// level less obvious. Reproduced before that fix by appending exactly that
 // scenario to the corpus, enrolling it, and reading `deltaledgerctl --check`
 // exit 0 with the class record claiming it.
 //
-// Membership now turns on FailingStep: the step the run actually stopped on
-// must be a `bytes` step. An aggregate cannot say which step failed; the step
-// list and the counts together can, and they are both committed evidence.
+// WHAT CHANGED IN ROUND 3, and why the SECOND fix was not enough either. Round
+// 2 made membership turn on the failing step, but derived that step from
+// `expected.counts` — the summary the scenario's own author writes. Recording
+// `input_bytes=5, actions=0` for a run that really executed a valid frame and
+// then a rejected local close makes the bytes prefix the unique match, so the
+// ambiguity refusal never fires and the local failure is enrolled anyway.
+// Reproduced by execution before this fix. The step is now derived by EXECUTING
+// the scenario's steps under the reference model (see FailingStep), and the
+// counts decide nothing.
 //
 // The close-code set is not the boundary and is not a filter. It survives as a
 // derived CONSISTENCY ASSERTION (VerifyProtocolRejectionClass): every member
@@ -478,9 +773,6 @@ func InProtocolRejectionClass(scenario PublicScenario) (bool, error) {
 	if expected.Error == nil || expected.Error.Code != "JAVA_INVALID_DATA" {
 		return false, nil
 	}
-	if expected.Counts.InputBytes <= 0 {
-		return false, nil
-	}
 	index, step, err := FailingStep(scenario)
 	if err != nil {
 		return false, err
@@ -491,19 +783,38 @@ func InProtocolRejectionClass(scenario PublicScenario) (bool, error) {
 	return step.Kind == "bytes", nil
 }
 
-// LocallyCausedRejections returns the scenarios that satisfy every CAUSE
-// conjunct of the class EXCEPT the failing-step one: the decoder's typed
-// rejection code, inbound bytes somewhere in the scenario, and a final state of
-// open, but with the run stopping on a LOCAL action rather than on inbound
-// bytes.
+// LocallyCausedRejection is one scenario that carries every CAUSE marker of the
+// protocol-rejection class except the failing-step one: the decoder's typed
+// rejection code and a final state of open, but with the run stopping on a
+// LOCAL action rather than on inbound wire data.
+type LocallyCausedRejection struct {
+	ScenarioID string
+	StepIndex  int
+	StepKind   string
+	Action     string
+}
+
+func (r LocallyCausedRejection) String() string {
+	return fmt.Sprintf("%s (stopped on step %d, kind %q, action %q)", r.ScenarioID, r.StepIndex, r.StepKind, r.Action)
+}
+
+// LocallyCausedRejections returns those scenarios.
 //
 // They are surfaced rather than silently dropped. A scenario in this shape is a
 // real proposition about a locally caused rejection that leaves the endpoint
 // open — the sequence-35 proposition — and the point of round 2's finding is
 // that the gate must be able to tell the two apart out loud, not merely stop
 // enrolling one of them.
-func LocallyCausedRejections(scenarios []PublicScenario) ([]string, error) {
-	var locally []string
+//
+// ROUND-3 CHANGE: this used to be scoped by `counts.input_bytes > 0`, which
+// excluded us005.pub.0000 (a pure local close with no inbound byte) by an
+// AGGREGATE the scenario supplies. The scoping is gone: every locally caused
+// rejection is returned, and VerifyProtocolRejectionClass decides which of them
+// are already answered by an authoritative ledger record. Exclusion by "a
+// record says so" is checkable; exclusion by "the counts say so" was one more
+// place the constrained party supplied the constraint's input.
+func LocallyCausedRejections(scenarios []PublicScenario) ([]LocallyCausedRejection, error) {
+	var locally []LocallyCausedRejection
 	for _, scenario := range scenarios {
 		expected := scenario.Expected
 		if expected.Outcome != "error" || expected.FinalState != "open" {
@@ -512,19 +823,16 @@ func LocallyCausedRejections(scenarios []PublicScenario) ([]string, error) {
 		if expected.Error == nil || expected.Error.Code != "JAVA_INVALID_DATA" {
 			continue
 		}
-		if expected.Counts.InputBytes <= 0 {
-			continue
-		}
 		index, step, err := FailingStep(scenario)
 		if err != nil {
 			return nil, err
 		}
 		if index >= 0 && step.Kind != "bytes" {
-			locally = append(locally, fmt.Sprintf("%s (stopped on step %d, kind %q, action %q)",
-				scenario.ScenarioID, index, step.Kind, step.Action))
+			locally = append(locally, LocallyCausedRejection{
+				ScenarioID: scenario.ScenarioID, StepIndex: index, StepKind: step.Kind, Action: step.Action})
 		}
 	}
-	sort.Strings(locally)
+	sort.Slice(locally, func(i, j int) bool { return locally[i].ScenarioID < locally[j].ScenarioID })
 	return locally, nil
 }
 
@@ -561,6 +869,17 @@ func ReadCensus(root string) (CensusDocument, error) {
 	}
 	if len(document.Entries) == 0 {
 		return CensusDocument{}, fmt.Errorf("%s has no entries; the gate would be vacuous", CensusRelativePath)
+	}
+	if document.Statement != CensusStatement {
+		return CensusDocument{}, fmt.Errorf("%s `statement` is not the statement this gate makes. The document's "+
+			"account of itself is pinned to internal/deltaledger.CensusStatement, because a prose field that is "+
+			"decoded and never compared is how the rejected counts.input_bytes>0 rule survived a round after the "+
+			"code replaced it.\n    committed: %q", CensusRelativePath, document.Statement)
+	}
+	if document.Completeness != CensusCompleteness {
+		return CensusDocument{}, fmt.Errorf("%s `completeness` is not the completeness claim this gate supports. It "+
+			"is pinned to internal/deltaledger.CensusCompleteness.\n    committed: %q",
+			CensusRelativePath, document.Completeness)
 	}
 	return document, nil
 }
@@ -661,10 +980,7 @@ func coveringDefinitionsForRow(row MappingRow, definitions []Definition,
 		if superseded[definition.Subject] {
 			continue
 		}
-		if !strings.Contains(definition.Subject, "."+role+".") {
-			continue
-		}
-		if !strings.Contains(definition.Subject, "."+family) {
+		if !subjectHasSegment(definition.Subject, role) || !subjectHasSegment(definition.Subject, family) {
 			continue
 		}
 		text := definitionText(definition)
@@ -683,6 +999,28 @@ func coveringDefinitionsForRow(row MappingRow, definitions []Definition,
 	}
 	sort.Strings(covering)
 	return covering, nil
+}
+
+// subjectHasSegment reports whether a dot-separated SEGMENT of a subject equals
+// the given token.
+//
+// It replaces `strings.Contains(subject, "."+token)`, found in this branch's own
+// adversarial pass. That test had no trailing boundary, so the family slug
+// `missing-host` also matched a subject segment `missing-hostname`, and the role
+// test `"."+role+"."` matched a segment that merely CONTAINED the role. Both are
+// the substring-standing-in-for-a-parse shape the two rounds before this one
+// were about, in the check whose whole purpose is to decide whether a record is
+// ABOUT a row. Segment equality is the parse.
+func subjectHasSegment(subject, segment string) bool {
+	if segment == "" {
+		return false
+	}
+	for _, part := range strings.Split(subject, ".") {
+		if part == segment {
+			return true
+		}
+	}
+	return false
 }
 
 // VerifyHandshakeMappingCensus is the evidence-side census: every divergent row
@@ -750,7 +1088,11 @@ func VerifyHandshakeMappingCensus(root string, definitions []Definition) error {
 // VerifyProtocolRejectionClass re-derives the class from the committed corpus
 // and requires the census to enumerate exactly it, then asserts the derived
 // close-code consistency property described on InProtocolRejectionClass.
-func VerifyProtocolRejectionClass(root string) error {
+//
+// It takes the definitions because the locally-caused arm now asks whether an
+// AUTHORITATIVE ledger record names the scenario, rather than excluding it by
+// an aggregate count the scenario itself supplies.
+func VerifyProtocolRejectionClass(root string, definitions []Definition) error {
 	document, err := ReadCensus(root)
 	if err != nil {
 		return err
@@ -783,9 +1125,10 @@ func VerifyProtocolRejectionClass(root string) error {
 	for id := range derived {
 		if !enrolled[id] {
 			problems = append(problems, fmt.Sprintf(
-				"public-corpus scenario %s is in the %s class but is ABSENT from %s "+
-					"(predicate: outcome==error AND error.code==JAVA_INVALID_DATA AND counts.input_bytes>0 AND "+
-					"final_state==open)", id, ProtocolRejectionClass, CensusRelativePath))
+				"public-corpus scenario %s is in the %s class but is ABSENT from %s (predicate: outcome==error AND "+
+					"error.code==JAVA_INVALID_DATA AND final_state==open AND the step the run stopped on, derived by "+
+					"EXECUTING the scenario's own steps, is a `bytes` step)",
+				id, ProtocolRejectionClass, CensusRelativePath))
 		}
 	}
 	for id := range enrolled {
@@ -811,18 +1154,33 @@ func VerifyProtocolRejectionClass(root string) error {
 	// LOCAL action is not a member — and is not silently dropped either. It is a
 	// different proposition (a locally caused rejection that leaves the endpoint
 	// open, which sequence 35 ledgers) and it has to be decided deliberately,
-	// exactly as a member arriving with an unrecorded close code does.
+	// exactly as a member arriving with an unrecorded close code does. The one
+	// way out is an AUTHORITATIVE ledger record that names the scenario; a
+	// superseded record does not answer for anything.
 	locally, err := LocallyCausedRejections(scenarios)
 	if err != nil {
 		return err
 	}
+	classCovering := map[string]bool{}
+	for _, entry := range document.Entries {
+		if entry.Class == ProtocolRejectionClass && entry.LedgerDeltaID != "" {
+			classCovering[entry.LedgerDeltaID] = true
+		}
+	}
+	authoritativelyNamed, err := scenariosNamedByAuthoritativeRecords(definitions, classCovering)
+	if err != nil {
+		return err
+	}
 	for _, one := range locally {
+		if authoritativelyNamed[one.ScenarioID] {
+			continue
+		}
 		problems = append(problems, fmt.Sprintf(
-			"%s carries the %s cause markers (error.code JAVA_INVALID_DATA, final_state open, inbound bytes somewhere "+
-				"in the scenario) but the run STOPPED ON A LOCAL ACTION, so its error is locally caused and it is NOT a "+
-				"member of the class. It is the sequence-35 proposition, not this one. Ledger it deliberately or remove "+
-				"it; it is reported rather than filtered away, because an aggregate input_bytes>0 test used to enrol "+
-				"exactly this shape", one, ProtocolRejectionClass))
+			"%s carries the %s cause markers (error.code JAVA_INVALID_DATA, final_state open) but the run STOPPED ON "+
+				"A LOCAL ACTION, so its error is locally caused and it is NOT a member of the class. It is the "+
+				"sequence-35 proposition, not this one, and no authoritative ledger record names it. Ledger it "+
+				"deliberately or remove it; it is reported rather than filtered away, because an aggregate "+
+				"whole-scenario byte test used to enrol exactly this shape", one, ProtocolRejectionClass))
 	}
 	sort.Strings(problems)
 	if len(problems) != 0 {
@@ -830,6 +1188,46 @@ func VerifyProtocolRejectionClass(root string) error {
 			len(problems), strings.Join(problems, "\n  "))
 	}
 	return nil
+}
+
+// scenariosNamedByAuthoritativeRecords is the set of public-corpus scenario ids
+// that some NOT-SUPERSEDED definition's hashed preimages discuss, EXCLUDING the
+// records that cover class rows.
+//
+// WHY THE EXCLUSION (found in this branch's own adversarial pass). The escape
+// hatch for a locally caused rejection is "an authoritative record names it",
+// and naming is a token appearing in the record's hashed text. The CLASS record
+// names non-members too, in the sentence that says why they are excluded —
+// us005.pub.0000 appears in exactly such a sentence at sequence 48. Letting the
+// class record answer for a scenario the class excludes would make the class's
+// own exclusion note double as the authority for the excluded scenario, which
+// is circular: the record that defines the class cannot also be the record that
+// speaks for something outside it. A non-member is a different proposition and
+// needs a record of its own, which is what sequence 35 is for us005.pub.0000.
+//
+// `classCovering` is the set of delta ids the census names for class rows, so
+// the exclusion is DERIVED from the committed census rather than naming a
+// record by hand.
+func scenariosNamedByAuthoritativeRecords(definitions []Definition, classCovering map[string]bool) (
+	map[string]bool, error) {
+	deltas, err := buildDeltasFrom(definitions)
+	if err != nil {
+		return nil, err
+	}
+	if len(deltas) != len(definitions) {
+		return nil, fmt.Errorf("built %d deltas for %d definitions", len(deltas), len(definitions))
+	}
+	superseded := supersededSubjects(definitions)
+	named := map[string]bool{}
+	for index, definition := range definitions {
+		if superseded[definition.Subject] || classCovering[deltas[index].DeltaID] {
+			continue
+		}
+		for _, id := range publicScenarioCitation.FindAllString(definitionText(definition), -1) {
+			named[id] = true
+		}
+	}
+	return named, nil
 }
 
 // censusClasses and censusPortFollows are the closed vocabularies a census row
@@ -950,6 +1348,19 @@ func VerifyCensusRowsMatchEvidence(root string) error {
 			problems = append(problems, fmt.Sprintf("census cites %s, which is not in the public corpus", entry.ScenarioID))
 			continue
 		}
+		// The row's own account of HOW it was selected has to be the account
+		// the gate actually runs. Round-3 finding 1: `derivation` was decoded
+		// and never read, so eighteen committed rows went on stating the
+		// aggregate predicate round 2 had already replaced.
+		if entry.Class == ProtocolRejectionClass && entry.Derivation != ProtocolRejectionClassDerivation {
+			problems = append(problems, fmt.Sprintf(
+				"%s: the row's `derivation` is not the derivation this gate runs. A census row states how it was "+
+					"selected; if that statement is not compared to the selection, the authoritative artifact can "+
+					"describe a rule the code no longer implements — which is exactly what happened to the "+
+					"counts.input_bytes>0 wording. The required text is "+
+					"internal/deltaledger.ProtocolRejectionClassDerivation.\n    committed: %q",
+				entry.ScenarioID, entry.Derivation))
+		}
 		if entry.Class == ProtocolRejectionClass && entry.Pointer != ClassObservablePointer {
 			problems = append(problems, fmt.Sprintf(
 				"%s: the row enrols in the %s class but points at %q. That class is a proposition about the RESULTING "+
@@ -1039,6 +1450,7 @@ func VerifyCensusRowsAreLedgered(root string, definitions []Definition) error {
 	for index, delta := range deltas {
 		definitionByDelta[delta.DeltaID] = definitions[index]
 	}
+	superseded := supersededSubjects(definitions)
 	var problems []string
 	for _, entry := range document.Entries {
 		if entry.LedgerDeltaID == "" {
@@ -1050,6 +1462,19 @@ func VerifyCensusRowsAreLedgered(root string, definitions []Definition) error {
 			problems = append(problems, fmt.Sprintf(
 				"%s%s names ledger record %s, which is not in the chain",
 				entry.ScenarioID, entry.Pointer, entry.LedgerDeltaID))
+			continue
+		}
+		// A WITHDRAWN record covers nothing. Found in this branch's own
+		// adversarial pass: this rule checked that the named record exists and
+		// discusses the scenario, but not that it is still the authoritative
+		// statement of its subject, so a census row could be answered by a
+		// record the chain itself records as superseded.
+		if superseded[definition.Subject] {
+			problems = append(problems, fmt.Sprintf(
+				"%s%s names ledger record %s (%s), which the chain records as SUPERSEDED. A withdrawn record stays "+
+					"in the chain with its digest intact, but it is no longer the authoritative statement of its "+
+					"subject and so it covers nothing",
+				entry.ScenarioID, entry.Pointer, entry.LedgerDeltaID, definition.Subject))
 			continue
 		}
 		named := false
@@ -1096,8 +1521,18 @@ func UnledgeredEvidenceDemands(root string, definitions []Definition) ([]Evidenc
 		key := MappingRow{Direction: one.Direction, Key: one.Expected.RejectCode}
 		casesByRow[key] = append(casesByRow[key], one.CaseID)
 	}
+	// A SUPERSEDED record answers no demand. This mirrors what
+	// coveringDefinitionsForRow already does on the handshake arm; found in this
+	// branch's own adversarial pass, where the public-corpus arm was still
+	// counting withdrawn records as coverage — the round-2 finding about
+	// supersession being invisible to a consumer, surviving in one arm of the
+	// measurement it was added to protect.
+	superseded := supersededSubjects(definitions)
 	namedScenarios := map[string]bool{}
 	for _, definition := range definitions {
+		if superseded[definition.Subject] {
+			continue
+		}
 		for _, id := range publicScenarioCitation.FindAllString(definitionText(definition), -1) {
 			namedScenarios[id] = true
 		}

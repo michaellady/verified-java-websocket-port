@@ -440,3 +440,376 @@ func TestTheGovernanceMirrorEqualsWhatTheEvidenceAsserts(t *testing.T) {
 		t.Fatal("the governance gate accepted a mirror whose digest disagrees with the derivation")
 	}
 }
+
+// TestAQuotedSupersedesTokenIsNotAWithdrawal is the discrimination proof for
+// round-3 finding 4.
+//
+// REPRODUCED BEFORE THE FIX, by execution: a disclaimed, explicitly-quoted
+// canonical token planted in the class record's rationale withdrew sequence 44
+// (the reserved-bit ready-state record). `deltaledgerctl` on the WRITE path
+// wrote a sidecar with four links instead of three, and `--check` then exited 0
+// — declaration and prose agreeing with each other while the structured
+// Definition.Supersedes list claimed nothing at all.
+//
+// The token is now read as an ANCHORED PREFIX RUN and the canonical marker
+// anywhere else is a refusal. Both halves are asserted: the real prefix tokens
+// still parse, and a quoted one is refused rather than honoured.
+func TestAQuotedSupersedesTokenIsNotAWithdrawal(t *testing.T) {
+	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read committed ledger: %v", err)
+	}
+	links, err := ReadSupersessionLinks(committed.Records)
+	if err != nil {
+		t.Fatalf("the committed chain's own anchored tokens no longer parse: %v", err)
+	}
+	if len(links) != 3 {
+		t.Fatalf("the committed chain carries %d supersession links, expected the three prefix corrections",
+			len(links))
+	}
+
+	// Find a record that supersedes nothing, and have it QUOTE a canonical
+	// token that names a real earlier record.
+	target := committed.Records[len(committed.Records)-1]
+	victim := committed.Records[43] // sequence 44, the reserved-bit record.
+	if victim.Sequence != 44 {
+		t.Fatalf("record index 43 is sequence %d, not 44; this test names the record it withdraws", victim.Sequence)
+	}
+	quoted := "an earlier draft wrongly asserted 'SUPERSEDES ledger-sequence=44 delta=" + victim.Delta.DeltaID +
+		" subject=" + victim.Delta.SubjectRef + " reason=none;'. THAT IS QUOTED, NOT ASSERTED."
+	records := append([]lab.BehaviorLedgerRecord(nil), committed.Records...)
+	records[len(records)-1].Delta.Rationale = target.Delta.Rationale + " " + quoted
+
+	if _, err := ReadSupersessionLinks(records); err == nil {
+		t.Fatal("a QUOTED, disclaimed canonical token was accepted as a withdrawal. The marker is reserved: it " +
+			"must be parsed as an anchored prefix run, so a token in prose is a refusal rather than a claim")
+	} else if !strings.Contains(err.Error(), "OUTSIDE the anchored token run") {
+		t.Fatalf("the refusal does not name the reason: %v", err)
+	}
+}
+
+// TestSupersessionsAreBoundToTheStructuredClaim pins the other half of round-3
+// finding 4: the links parsed out of the hashed rationales must equal the links
+// the structured Definition.Supersedes lists declare, so generated text cannot
+// carry a withdrawal no Definition asked for.
+func TestSupersessionsAreBoundToTheStructuredClaim(t *testing.T) {
+	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read committed ledger: %v", err)
+	}
+	if err := VerifySupersessionsMatchDefinitions(Definitions(), committed.Records); err != nil {
+		t.Fatalf("the committed chain's links do not match the structured claims: %v", err)
+	}
+
+	// Non-vacuity: drop the structured claim from the definition that makes it,
+	// leaving the chain's text unchanged, and the two must disagree.
+	definitions := append([]Definition(nil), Definitions()...)
+	var stripped bool
+	for index := range definitions {
+		if len(definitions[index].Supersedes) != 0 {
+			definitions[index].Supersedes = nil
+			stripped = true
+			break
+		}
+	}
+	if !stripped {
+		t.Fatal("no Definition declares a supersession; this branch appends three")
+	}
+	if err := VerifySupersessionsMatchDefinitions(definitions, committed.Records); err == nil {
+		t.Fatal("a chain carrying a supersession link that no Definition declares was accepted")
+	}
+}
+
+// TestGovernanceRecognisesEveryCitedDecision is the discrimination proof for
+// round-3 finding 3.
+//
+// REPRODUCED BEFORE THE FIX, by execution against a scratch copy of the
+// protected store with us012-us016-owner-decisions-2026-08-28-formal.json
+// removed: the gate reported "3 governance record digest(s) recomputed from the
+// protected store and matched" and exited 0. That decision is cited only at
+// sequence 35, in the frozen prefix, in a phrasing the old one-wording
+// recogniser did not match, so it was never in the mirror to be missed.
+func TestGovernanceRecognisesEveryCitedDecision(t *testing.T) {
+	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read committed ledger: %v", err)
+	}
+	built, err := BuildOwnerDecisionManifest(committed.Records)
+	if err != nil {
+		t.Fatalf("derive the governance mirror: %v", err)
+	}
+	mirrored := map[string]bool{}
+	for _, decision := range built.Decisions {
+		mirrored[decision.Name] = true
+	}
+	// EVERY decision the chain cites with a digest must be mirrored, and the
+	// one the old recogniser omitted is named explicitly so a regression that
+	// narrows the parse again fails here rather than silently.
+	for _, required := range []string{
+		"us012-us016-owner-decisions-2026-08-28-formal.json",
+		"us010-016-ac-amendment-owner-decision-2026-08-27.json",
+		"ledger-frozen-prefix-owner-decision-2026-08-28.json",
+	} {
+		if !mirrored[required] {
+			t.Fatalf("%s is cited by the record chain with its sha256 but is absent from the governance mirror, so "+
+				"deleting it from the protected store would fail nothing", required)
+		}
+	}
+
+	// The fail-closed arm: a record that NAMES a decision without a digest
+	// attributable to it is refused rather than quietly left out.
+	records := append([]lab.BehaviorLedgerRecord(nil), committed.Records...)
+	last := len(records) - 1
+	records[last].Delta.Rationale = records[last].Delta.Rationale +
+		" See also protected/a-brand-new-owner-decision-2026-08-29.json for background."
+	if _, err := BuildOwnerDecisionManifest(records); err == nil {
+		t.Fatal("a governance decision NAMED with no attributable digest was accepted; the mirror would be " +
+			"silently incomplete, which is exactly how the gate went green with a deleted ruling")
+	}
+}
+
+// TestTheLiveMappingIsBoundToItsSourceTable is a finding this branch found in
+// its OWN adversarial pass, in the class round 3 named: an evidence input whose
+// identity check lived only in a test binary.
+//
+// REPRODUCED BEFORE THE FIX, by execution: flipping ONE `divergent: true` row of
+// evidence/us005-handshake-live-mapping.json to false — client_request
+// HS_MISSING_HOST — silently removed a demand from the measurement's universe
+// and left `deltaledgerctl --check` at exit 0. Only the six server_response rows
+// are claimed by the literal `mapping-row` token, so the fail-closed "cites a
+// row the evidence does not record as divergent" arm never fires for the
+// thirteen client_request rows.
+func TestTheLiveMappingIsBoundToItsSourceTable(t *testing.T) {
+	if err := VerifyLiveMappingIsBoundToItsSourceTable(ledgerTestRepoRoot); err != nil {
+		t.Fatalf("the committed live mapping does not equal its source table: %v", err)
+	}
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(LiveMappingRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read the live mapping: %v", err)
+		}
+		var document map[string]any
+		if err := json.Unmarshal(raw, &document); err != nil {
+			t.Fatalf("decode the live mapping: %v", err)
+		}
+		entries, _ := document["entries"].([]any)
+		var flipped bool
+		for _, one := range entries {
+			entry, _ := one.(map[string]any)
+			if entry["divergent"] == true && entry["direction"] == "client_request" {
+				entry["divergent"] = false
+				flipped = true
+				break
+			}
+		}
+		if !flipped {
+			t.Fatal("no client_request divergent row to switch off; this test's premise has moved")
+		}
+		encoded, _ := json.MarshalIndent(document, "", "  ")
+		if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+			t.Fatalf("write the live mapping: %v", err)
+		}
+	})
+	if err := VerifyLiveMappingIsBoundToItsSourceTable(root); err == nil {
+		t.Fatal("a divergent row was switched off in the committed evidence document and the gate accepted it; " +
+			"the measurement's universe can be shrunk by editing its own input")
+	}
+}
+
+// TestTheCommittedCorporaAreBoundInsideTheGate is the same class again, for the
+// two corpus files. Round 3 said of the public one that "the production gate
+// does not rederive the public corpus; that identity check remains test-only";
+// the handshake corpus had the same gap, and it is the file that decides the
+// family slug a record must carry to count as covering a mapping row.
+func TestTheCommittedCorporaAreBoundInsideTheGate(t *testing.T) {
+	if err := VerifyCommittedCorporaReDerive(ledgerTestRepoRoot); err != nil {
+		t.Fatalf("the committed corpora do not re-derive from the committed seed: %v", err)
+	}
+	for _, relative := range []string{PublicCorpusRelativePath, HandshakeCorpusRelativePath} {
+		root := degradedRoot(t, func(root string) {
+			path := filepath.Join(root, filepath.FromSlash(relative))
+			raw, err := os.ReadFile(path)
+			if err != nil {
+				t.Fatalf("read %s: %v", relative, err)
+			}
+			lines := strings.Split(strings.TrimRight(string(raw), "\n"), "\n")
+			if len(lines) < 2 {
+				t.Fatalf("%s has %d lines", relative, len(lines))
+			}
+			trimmed := strings.Join(lines[:len(lines)-1], "\n") + "\n"
+			if err := os.WriteFile(path, []byte(trimmed), 0o644); err != nil {
+				t.Fatalf("write %s: %v", relative, err)
+			}
+		})
+		if err := VerifyCommittedCorporaReDerive(root); err == nil {
+			t.Fatalf("%s lost a line and the production gate accepted it", relative)
+		}
+	}
+}
+
+// TestTheClassRecordCannotAnswerForANonMember pins the exclusion this branch
+// added in its own adversarial pass. The locally-caused escape hatch is "an
+// authoritative record names it", and the CLASS record names non-members in the
+// sentence that says why they are excluded. Letting that count would make the
+// class's own exclusion note the authority for the excluded scenario.
+func TestTheClassRecordCannotAnswerForANonMember(t *testing.T) {
+	definitions := Definitions()
+	deltas, err := buildDeltasFrom(definitions)
+	if err != nil {
+		t.Fatalf("build deltas: %v", err)
+	}
+	var classDelta string
+	for index, definition := range definitions {
+		if strings.Contains(definition.Subject, "protocol-rejection-readystate-class") {
+			classDelta = deltas[index].DeltaID
+			if !strings.Contains(definitionText(definition), "us005.pub.0000") {
+				t.Fatal("the class record no longer names us005.pub.0000; the exclusion this test pins has nothing " +
+					"to exclude and the test's premise has moved")
+			}
+		}
+	}
+	if classDelta == "" {
+		t.Fatal("the protocol-rejection class record is missing")
+	}
+
+	// With the class record excluded, us005.pub.0000 is still answered for —
+	// by sequence 35, which is the record that is genuinely about it.
+	named, err := scenariosNamedByAuthoritativeRecords(definitions, map[string]bool{classDelta: true})
+	if err != nil {
+		t.Fatalf("collect authoritative scenario names: %v", err)
+	}
+	if !named["us005.pub.0000"] {
+		t.Fatal("us005.pub.0000 has no authoritative record naming it once the class record is excluded; " +
+			"sequence 35 is supposed to be that record")
+	}
+
+	// Non-vacuity for the EXCLUSION MECHANISM itself: exclude every record that
+	// names us005.pub.0000 and the escape hatch must close. Without this the
+	// assertion above could pass with the exclusion doing nothing at all.
+	excludeAll := map[string]bool{}
+	for index, definition := range definitions {
+		if strings.Contains(definitionText(definition), "us005.pub.0000") {
+			excludeAll[deltas[index].DeltaID] = true
+		}
+	}
+	if len(excludeAll) < 2 {
+		t.Fatalf("only %d record(s) name us005.pub.0000; the committed chain has several", len(excludeAll))
+	}
+	named, err = scenariosNamedByAuthoritativeRecords(definitions, excludeAll)
+	if err != nil {
+		t.Fatalf("collect authoritative scenario names: %v", err)
+	}
+	if named["us005.pub.0000"] {
+		t.Fatal("us005.pub.0000 is still named after every record that names it is excluded, so the exclusion " +
+			"argument is being ignored and the escape hatch cannot be narrowed at all")
+	}
+}
+
+// TestAnInRepositoryPathIsNotAGovernanceCitation pins the path constraint on
+// the convention-independent citation parse. The recogniser keys on an asserted
+// sha256 rather than on a file-name convention, so it has to be told what a
+// PROTECTED-STORE record looks like: a bare name, or one explicitly under
+// protected/, and nothing under any other directory. Without that, a record
+// citing an in-repository evidence file with a digest would be mirrored and
+// then fail as RECORD_ABSENT, turning a correct citation into a gate failure.
+func TestAnInRepositoryPathIsNotAGovernanceCitation(t *testing.T) {
+	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read committed ledger: %v", err)
+	}
+	baseline, err := BuildOwnerDecisionManifest(committed.Records)
+	if err != nil {
+		t.Fatalf("derive the governance mirror: %v", err)
+	}
+
+	withInRepo := append([]lab.BehaviorLedgerRecord(nil), committed.Records...)
+	last := len(withInRepo) - 1
+	withInRepo[last].Delta.Rationale = withInRepo[last].Delta.Rationale +
+		" Context: evidence/us005-public-rfc-divergence-census.json (sha256 " + strings.Repeat("0", 64) + ")."
+	inRepo, err := BuildOwnerDecisionManifest(withInRepo)
+	if err != nil {
+		t.Fatalf("an in-repository citation was treated as a governance citation: %v", err)
+	}
+	if len(inRepo.Decisions) != len(baseline.Decisions) {
+		t.Fatalf("an in-repository path asserting a digest was mirrored as a protected-store record (%d -> %d)",
+			len(baseline.Decisions), len(inRepo.Decisions))
+	}
+
+	// The other direction, so the constraint is a discriminator: an explicitly
+	// protected/ record asserting a digest IS mirrored.
+	withProtected := append([]lab.BehaviorLedgerRecord(nil), committed.Records...)
+	withProtected[last].Delta.Rationale = withProtected[last].Delta.Rationale +
+		" Context: protected/some-new-owner-decision-2026-08-29.json (sha256 " + strings.Repeat("1", 64) + ")."
+	protectedManifest, err := BuildOwnerDecisionManifest(withProtected)
+	if err != nil {
+		t.Fatalf("derive the mirror with a protected-store citation: %v", err)
+	}
+	if len(protectedManifest.Decisions) != len(baseline.Decisions)+1 {
+		t.Fatalf("a protected/ record asserting a digest was NOT mirrored (%d -> %d); the recogniser is keying on "+
+			"something other than the asserted digest", len(baseline.Decisions), len(protectedManifest.Decisions))
+	}
+}
+
+// TestASupersededRecordCoversNothing closes the last two places a WITHDRAWN
+// record still counted as coverage, both found in this branch's own adversarial
+// pass. coveringDefinitionsForRow already excluded superseded records on the
+// handshake arm; the public-corpus demand arm and the census-coverage rule did
+// not, so the round-2 finding about supersession being invisible to a consumer
+// had survived in two consumers.
+func TestASupersededRecordCoversNothing(t *testing.T) {
+	definitions := Definitions()
+	superseded := supersededSubjects(definitions)
+	if len(superseded) == 0 {
+		t.Fatal("no Definition is superseded; this branch supersedes three")
+	}
+
+	// Take a superseded definition and make it the ONLY record naming a
+	// public-corpus scenario, then require the demand to stay unanswered.
+	withdrawn := -1
+	for index, definition := range definitions {
+		if superseded[definition.Subject] {
+			withdrawn = index
+			break
+		}
+	}
+	if withdrawn < 0 {
+		t.Fatal("no superseded definition found")
+	}
+
+	// The census-coverage half: point a class row at the withdrawn record and
+	// require a refusal that names supersession, not merely a missing mention.
+	deltas, err := buildDeltasFrom(definitions)
+	if err != nil {
+		t.Fatalf("build deltas: %v", err)
+	}
+	withdrawnDelta := deltas[withdrawn].DeltaID
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(CensusRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read the census: %v", err)
+		}
+		var document map[string]any
+		if err := json.Unmarshal(raw, &document); err != nil {
+			t.Fatalf("decode the census: %v", err)
+		}
+		entries, _ := document["entries"].([]any)
+		if len(entries) == 0 {
+			t.Fatal("the census has no rows to repoint")
+		}
+		entry, _ := entries[0].(map[string]any)
+		entry["ledger_delta_id"] = withdrawnDelta
+		encoded, _ := json.MarshalIndent(document, "", "  ")
+		if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+			t.Fatalf("write the census: %v", err)
+		}
+	})
+	err = VerifyCensusRowsAreLedgered(root, definitions)
+	if err == nil {
+		t.Fatal("a census row was answered by a record the chain records as SUPERSEDED")
+	}
+	if !strings.Contains(err.Error(), "SUPERSEDED") {
+		t.Fatalf("the refusal does not name supersession as the reason: %v", err)
+	}
+}

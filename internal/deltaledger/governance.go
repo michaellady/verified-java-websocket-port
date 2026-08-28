@@ -77,12 +77,101 @@ const ProtectedStoreEnv = "VJWP_PROTECTED_STORE"
 // export a variable is a check that does not run.
 var protectedStoreSuffix = filepath.Join("workspace", "orchestrator", "verified-java-websocket-port-claude", "protected")
 
-// ownerDecisionCitation parses an owner-decision citation out of a record's
-// hashed rationale. Both committed citation forms match it: the shared
-// `ownerDecision` constant (which appears in frozen records and must never
-// change) and `frozenPrefixOwnerDecision`.
-var ownerDecisionCitation = regexp.MustCompile(
-	`(?:protected/)?([A-Za-z0-9._-]+\.json) \(workspace orchestrator protected store, sha256 ([0-9a-f]{64})`)
+// GOVERNANCE CITATIONS ARE RECOGNISED BY WHAT THEY ARE (round-3 finding 3).
+//
+// THE DEFECT. The recogniser was one phrasing: a record name followed by the
+// literal "(workspace orchestrator protected store, sha256 <hex>". Forty-eight
+// of the fifty-one committed citations happen to use that wording. Three do
+// not, and one of those three is the ONLY citation of
+// us012-us016-owner-decisions-2026-08-28-formal.json — the ruling that mandates
+// the sequence-35 record — which is cited at sequence 35 as
+// "protected/<name>.json (sha256 <hex>, verified at read)". Sequence 35 is in
+// the FROZEN prefix, so that wording cannot be normalised; it has to be parsed.
+// The consequence was exactly what the mirror exists to prevent: that decision
+// was absent from the manifest, so deleting it from the protected store left
+// the gate green. Reproduced before this fix against a scratch copy of the
+// store with the file removed: "3 governance record digest(s) recomputed from
+// the protected store and matched", exit 0.
+//
+// WHAT A GOVERNANCE CITATION IS, structurally, with NO naming convention in it:
+// a reference to a record IN THE PROTECTED STORE — a bare `<name>.json` or an
+// explicitly `protected/`-prefixed one, and nothing under any other directory —
+// immediately followed by a CITATION CLAUSE that ASSERTS THAT RECORD'S SHA256.
+// The clause opens with ` (` or `, `, contains no `(`, `)` or `.` (so it cannot
+// run past a sentence boundary or across a second file name into somebody
+// else's digest), and ends in `sha256 <64 hex>`. The DIGEST is the marker,
+// because asserting a record's digest is what makes a citation load-bearing;
+// the file's name is not consulted. All three committed phrasings parse:
+//
+//	<name>.json (workspace orchestrator protected store, sha256 <hex>, …
+//	protected/<name>.json (sha256 <hex>, verified at read)
+//	(owner decision <name>.json, sha256 <hex>)
+//
+// AND THE RECOGNISER IS FAIL-CLOSED, which matters more than the pattern.
+// ownerDecisionCitationCompleteness independently finds every occurrence of a
+// name matching this plane's decision-record naming convention and requires
+// each one to have been parsed into a (name, digest) pair. A citation form the
+// parser does not understand therefore FAILS THE GATE instead of being quietly
+// omitted from the mirror. That arm IS convention-based, and it is the weaker
+// of the two on purpose: the primary recogniser above has no convention in it
+// at all, and this exists only to report when a decision is NAMED with no
+// digest attributable to it — the other way the mirror could go silently
+// incomplete.
+var (
+	// ownerDecisionRecordName is the naming convention of this plane's
+	// protected decision records, used ONLY by the completeness arm. Evidence
+	// receipts (…-receipt.json), transcripts and corpora do not match it.
+	ownerDecisionRecordName = regexp.MustCompile(
+		`((?:[A-Za-z0-9._-]+/)*)([A-Za-z0-9._-]*owner-(?:decisions?|authorizations?|rulings?)[A-Za-z0-9._-]*\.jsonl?)`)
+	// ownerDecisionCitation is a protected-store record name followed by a
+	// clause asserting its digest. The optional leading path is captured rather
+	// than assumed so it can be REQUIRED to be empty or `protected/`: an
+	// in-repository path that happens to end in a `.json` name must not be
+	// mirrored as if it lived in the protected store.
+	ownerDecisionCitation = regexp.MustCompile(
+		`((?:[A-Za-z0-9._-]+/)*)([A-Za-z0-9._-]+\.jsonl?)(?: \(|, )[^().]{0,120}?sha256 ([0-9a-f]{64})`)
+)
+
+// protectedStorePrefixIsAllowed reports whether a citation's captured path
+// prefix denotes the protected store.
+func protectedStorePrefixIsAllowed(prefix string) bool {
+	return prefix == "" || prefix == "protected/"
+}
+
+// ownerDecisionCitationCompleteness refuses any record that NAMES a governance
+// decision record without the parser being able to attribute a digest to it.
+func ownerDecisionCitationCompleteness(records []lab.BehaviorLedgerRecord) error {
+	var problems []string
+	for _, record := range records {
+		parsed := map[int]bool{}
+		for _, span := range ownerDecisionCitation.FindAllStringSubmatchIndex(record.Delta.Rationale, -1) {
+			parsed[span[4]] = true
+		}
+		for _, span := range ownerDecisionRecordName.FindAllStringSubmatchIndex(record.Delta.Rationale, -1) {
+			if parsed[span[4]] {
+				continue
+			}
+			prefix := record.Delta.Rationale[span[2]:span[3]]
+			if !protectedStorePrefixIsAllowed(prefix) {
+				continue
+			}
+			name := record.Delta.Rationale[span[4]:span[5]]
+			problems = append(problems, fmt.Sprintf(
+				"sequence %d names governance record %s but no sha256 could be attributed to it there. Every "+
+					"citation of a protected decision record must assert that record's digest in the same citation "+
+					"clause, so the digest mirror covers it. A citation form the parser does not understand is "+
+					"refused rather than silently omitted from the mirror — silent omission is how deleting "+
+					"us012-us016-owner-decisions-2026-08-28-formal.json used to leave this gate green.",
+				record.Sequence, name))
+		}
+	}
+	sort.Strings(problems)
+	if len(problems) != 0 {
+		return fmt.Errorf("governance citation completeness (%d problem(s)):\n  %s",
+			len(problems), strings.Join(problems, "\n  "))
+	}
+	return nil
+}
 
 // gateDesignOwnerDecisions are the decisions this repository's GATE DESIGN
 // rests on but that no divergence record cites. Without them, deleting the very
@@ -125,7 +214,14 @@ const OwnerDecisionManifestStatement = "Digest mirror of the owner decisions tha
 	"the ledger records' own hashed rationales already assert, plus the decisions this repository's gate design rests " +
 	"on — and internal/deltaledger.VerifyGovernance requires the committed file to equal that derivation AND requires " +
 	"the protected store to be reachable and every mirrored digest to recompute. An unreachable store is a refusal, " +
-	"not a skip."
+	"not a skip. CITATIONS ARE RECOGNISED STRUCTURALLY, not by phrasing: a protected-store record name (bare or " +
+	"explicitly under protected/, and under no other directory) followed by a clause asserting that record's sha256. " +
+	"The digest is the marker, because asserting a record's digest is what makes a citation load-bearing. An earlier " +
+	"version recognised one wording and therefore omitted the only citation of " +
+	"us012-us016-owner-decisions-2026-08-28-formal.json, which sits in the frozen prefix and cannot be reworded, so " +
+	"deleting that ruling from the store failed nothing. A second, deliberately weaker arm refuses any record that " +
+	"NAMES a decision record without a digest attributable to it, so a citation form the parser does not understand " +
+	"fails the gate rather than being quietly left out of the mirror."
 
 // OwnerDecisionManifestStore describes where the mirrored records live.
 const OwnerDecisionManifestStore = "workspace orchestrator protected store for the verified-java-websocket-port-claude " +
@@ -135,11 +231,19 @@ const OwnerDecisionManifestStore = "workspace orchestrator protected store for t
 // BuildOwnerDecisionManifest derives the manifest from the committed record
 // chain plus the gate-design decisions.
 func BuildOwnerDecisionManifest(records []lab.BehaviorLedgerRecord) (OwnerDecisionManifest, error) {
+	if err := ownerDecisionCitationCompleteness(records); err != nil {
+		return OwnerDecisionManifest{}, err
+	}
 	digests := map[string]string{}
 	sequences := map[string][]uint64{}
 	for _, record := range records {
 		for _, match := range ownerDecisionCitation.FindAllStringSubmatch(record.Delta.Rationale, -1) {
-			name, digest := match[1], match[2]
+			prefix, name, digest := match[1], match[2], match[3]
+			// A citation under any directory other than the protected store is
+			// not a governance citation, whatever it asserts about itself.
+			if !protectedStorePrefixIsAllowed(prefix) {
+				continue
+			}
 			if existing, seen := digests[name]; seen && existing != digest {
 				return OwnerDecisionManifest{}, fmt.Errorf(
 					"the record chain asserts two different digests for %s (%s at an earlier record, %s at sequence %d); "+

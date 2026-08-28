@@ -34,6 +34,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
+
 	"github.com/michaellady/verified-java-websocket-port/internal/lab"
 )
 
@@ -52,6 +54,7 @@ var degradedRootArtifacts = []string{
 	CensusSchemaRelativePath,
 	HandshakeCorpusRelativePath,
 	PublicCorpusRelativePath,
+	PublicCorpusManifestRelativePath,
 	OwnerDecisionManifestRelativePath,
 	OwnerDecisionManifestSchemaRelativePath,
 }
@@ -619,20 +622,34 @@ func TestTheCountRisesForANewlyObservedCorpusScenario(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read public corpus: %v", err)
 		}
-		scenario := map[string]any{
-			"scenario_id": "us005.pub.0099",
-			"family":      "rsv-bit",
-			"role":        "server",
-			"tier":        "public",
-			"steps":       []any{map[string]any{"kind": "bytes", "data_base64": "oYN0s9jSCOmF"}},
-			"expected": map[string]any{
-				"outcome":     "error",
-				"final_state": "open",
-				"counts":      map[string]any{"input_bytes": 9, "consumed_bytes": 9},
-				"error":       map[string]any{"code": "JAVA_INVALID_DATA", "close_code": 1002},
+		// The appended scenario is a REAL executable scenario whose recorded
+		// expectation is DERIVED from its own steps, not a hand-written
+		// summary. Round 3 made ReadPublicScenarios require every committed
+		// line to equal its re-derivation, so a fabricated line is refused
+		// before the class predicate sees it — which means this test's
+		// degraded corpus has to be a corpus, not a sketch of one.
+		core := corpora.ScenarioCore{
+			Role:         "server",
+			InitialState: "open",
+			Limits: corpora.Limits{
+				MaxInputBytes: 65536, MaxBufferedBytes: 65536, MaxActions: 64,
+				MaxFrames: 64, MaxOutputBytes: 4194304,
 			},
+			Steps: []corpora.Step{{Kind: "bytes", DataBase64: "oYN0s9jSCOmF"}},
 		}
-		encoded, _ := json.Marshal(scenario)
+		expected, _, err := corpora.DeriveExpectedAndFailingStep(core)
+		if err != nil {
+			t.Fatalf("derive the appended scenario: %v", err)
+		}
+		encoded, err := corpora.Scenario{
+			ScenarioID: "us005.pub.0099", Tier: "public", Family: "rsv-bit", SeedIndex: 0,
+			Core: core, Expected: expected,
+			ExpectationBasis:  []string{"rfc6455.section-5-2"},
+			ExpectationStatus: corpora.ExpectationStatusReferenceModel,
+		}.CanonicalLine()
+		if err != nil {
+			t.Fatalf("render the appended scenario: %v", err)
+		}
 		if err := os.WriteFile(path, append(raw, append(encoded, '\n')...), 0o644); err != nil {
 			t.Fatalf("write public corpus: %v", err)
 		}
@@ -649,7 +666,7 @@ func TestTheCountRisesForANewlyObservedCorpusScenario(t *testing.T) {
 		t.Fatalf("a new public-corpus scenario in the protocol-rejection class that no record discusses left "+
 			"unledgered_disagreements at %d", built.UnledgeredDisagreements)
 	}
-	if err := VerifyProtocolRejectionClass(root); err == nil {
+	if err := VerifyProtocolRejectionClass(root, Definitions()); err == nil {
 		t.Fatal("the class completeness rule accepted a corpus scenario that the census does not enroll")
 	}
 }

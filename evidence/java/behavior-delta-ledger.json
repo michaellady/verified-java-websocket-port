@@ -5,7 +5,7 @@
   "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
   "status": "BLOCKED_PENDING_BASELINE",
   "normative_authority": "rfc6455",
-  "head": "sha256:53c33b46b5f4a22123134f6444630e0e3ef44c546df776c3ba9bf270303d32a5",
+  "head": "sha256:ab9277cb6bf4c822196999367a91bb6f357296b7b2584c3489cbe893cf78c2ac",
   "records": [
     {
       "schema_version": "1.0.0",
@@ -1355,7 +1355,7 @@
       "previous_digest": "sha256:68991d1b2663ff9ef45fbb9e45eefe3bcb37e56c576bed33ecbe68290b1e09b4",
       "delta": {
         "schema_version": "1.0.0",
-        "delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
+        "delta_id": "delta-1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
         "subject_ref": "semantic:org.java-websocket.oracle-adapter.protocol-rejection-readystate-class:provisional-v1",
         "rfc_refs": [
           "rfc6455#section-5.2",
@@ -1366,7 +1366,7 @@
         "rfc_expectation_digest": "sha256:82f6f7e91a69fdd10983cc8c583a6cd667306ed98fc5e569b353c1f9d546b79c",
         "rfc_value_digest": "sha256:23c8a58dfdc5f382bfb417992f9450fc0d88de7913aad88ba3f1c27575d06aee",
         "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
-        "java_observation_digest": "sha256:d7e0b25e9f97affb728d88fb5475d5a2d321a3fcf2258836ce758efb539180ad",
+        "java_observation_digest": "sha256:799d994c5bce742312bf37deafa1c2f339b2cca2e09fb82c5bb3d11a12348e4c",
         "java_value_digest": "sha256:46a68f32b55c267a1aaed02d3248471b9e613c259cd24b955102b9906bbdb000",
         "autobahn_refs": [
           "autobahn-v25.10.1:3.1",
@@ -1375,12 +1375,12 @@
         ],
         "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
         "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
-        "disagreement_digest": "sha256:cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
+        "disagreement_digest": "sha256:1ad24fdcc3d6a5edbb1a3cc366e68be8fac7d55d83e039909c4736c3584afa1d",
         "normative_authority": "rfc6455",
         "disposition": "unresolved",
         "rationale": "DIVERGENCE (inbound protocol-decode rejection, resulting ReadyState — CLASS record): under an RFC-strict reading every one of these rejections fails the WebSocket connection and therefore does NOT leave the endpoint OPEN; the port stays OPEN because that is what the live pinned Java oracle records, on all eighteen affected public-corpus scenarios. SCOPE AND RELATION TO THE SINGLE-INSTANCE RECORDS: sequence 44 ledgers the reserved-bit instance (us005.pub.0005); this record covers the remaining seventeen and names the mechanism they all share. Sequence 35 ledgers us005.pub.0000, which is a DIFFERENT proposition and deliberately NOT a member of this class: it is a locally initiated close with no inbound decode, so no RFC provision requires failing the connection there. That distinction is the substance of review 01a0495e BLOCKING 4, which found the earlier close-code-shaped sweep enrolling it. This record exists because the cross-plane audit found ONE instance by hand and no gate of ours would have found the other seventeen — the census at evidence/us005-public-rfc-divergence-census.json now enumerates the class mechanically from the committed corpus BY CAUSE, and internal/deltaledger.VerifyIntegrity refuses unless every row names a ledger record that actually discusses that scenario. THE FRAMING MATTERS AND IS DELIBERATELY NOT FLATTENED: this is not a clean RFC-versus-Java split. Shipped Java's own WebSocketImpl.decodeFrames DOES close on these rejections; the adapter path simply never reaches it. Both readings are Java-faithful — they are faithful to DIFFERENT ENTRY POINTS of the same pinned runtime — and any review that treats 'Java says open' as the whole story will mis-rank the evidence. WS_CORE SITE: rust/ws-core/src/framing.rs and rust/ws-core/src/connection.rs produce the typed rejection without a state transition; pinned by rust/ws-core/tests/frame_codec.rs::reserved_bits_reject_1002_only_after_the_full_frame and rust/ws-core/tests/close_eof.rs::send_close_invalid_code_rejects_without_a_frame. SAFETY: staying OPEN after a refused frame is not permissive at the wire — the frame is rejected, nothing is delivered, no byte is written, and consumption stays bounded by the control-payload and configured frame-size gates under forbid(unsafe_code). An embedding layer that wants RFC 7.1.7 failure semantics drives the close from the returned typed failure, exactly as the shipped library's own decodeFrames does. DISPOSITION NOTE: 'unresolved' is the frozen 1.0.0 vocabulary's only retained-divergence term; the divergence is deliberately retained on live evidence, not left unexamined. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
       },
-      "record_digest": "sha256:53c33b46b5f4a22123134f6444630e0e3ef44c546df776c3ba9bf270303d32a5"
+      "record_digest": "sha256:ab9277cb6bf4c822196999367a91bb6f357296b7b2584c3489cbe893cf78c2ac"
     }
   ],
   "append_implementation": "hash-chained-cas",

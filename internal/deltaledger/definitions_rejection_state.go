@@ -55,7 +55,12 @@ package deltaledger
 // send_close(999) with zero inbound bytes, whose RFC behaviour REMAINS OPEN
 // because no Close frame was ever sent, and which sequence 35 already ledgers
 // correctly. The class is now swept by CAUSE and is eighteen scenarios, not
-// nineteen. See InProtocolRejectionClass in evidence_census.go.
+// nineteen. The cause test is that the step the run STOPPED ON is a `bytes`
+// step, and that step is derived by EXECUTING the scenario under the reference
+// model — not from `expected.counts`, which round 3 showed the scenario's own
+// author can set to choose the answer. See InProtocolRejectionClass and
+// FailingStep in evidence_census.go, and ProtocolRejectionClassDerivation,
+// which is the one text the census rows must carry verbatim.
 //
 // Appended last so the committed 47-record prefix is unchanged.
 func protocolRejectionStateDefinitions() []Definition {
@@ -84,18 +89,29 @@ func protocolRejectionStateDefinitions() []Definition {
 			RFCValue: "closed: every inbound protocol-level decode rejection takes the endpoint out of OPEN",
 			JavaRef:  "org.java_websocket.WebSocketImpl:decodeFrames",
 			JavaObservation: "This is a CLASS record. The committed public corpus contains eighteen scenarios whose " +
-				"recorded error code is JAVA_INVALID_DATA — the decoder's typed rejection — raised while decoding " +
-				"INBOUND bytes (counts.input_bytes > 0), and whose recorded final_state is nevertheless open: " +
+				"recorded error code is JAVA_INVALID_DATA — the decoder's typed rejection — raised ON A `bytes` STEP, " +
+				"that is, while decoding INBOUND wire data rather than in a local API call, and whose recorded " +
+				"final_state is nevertheless open. WHICH STEP THE RUN STOPPED ON IS DERIVED BY EXECUTION, not from " +
+				"any recorded aggregate: internal/corpora.DeriveExpectedAndFailingStep re-runs each scenario's own " +
+				"role, initial_state, limits and steps under the reference model and reports the index of the step " +
+				"whose execution raised the error, and internal/deltaledger.ReadPublicScenarios requires every " +
+				"committed corpus line to equal its own re-derivation. An earlier version of this record described " +
+				"membership as the aggregate `counts.input_bytes > 0`; that predicate was replaced because a valid " +
+				"inbound frame followed by a rejected local send_close satisfies it, and its successor — which " +
+				"derived the failing step FROM those counts — was replaced in turn because a scenario understating " +
+				"its own action count could select the bytes prefix and be enrolled anyway. The eighteen members: " +
 				"us005.pub.0005, us005.pub.0019, us005.pub.0020, us005.pub.0029, us005.pub.0031, us005.pub.0033, " +
 				"us005.pub.0036, us005.pub.0039, us005.pub.0041, us005.pub.0042, us005.pub.0052, us005.pub.0056, " +
 				"us005.pub.0057, us005.pub.0058, us005.pub.0059, us005.pub.0065, us005.pub.0066 and us005.pub.0067, " +
 				"across the families rsv-bit, close-code-invalid-wire, control-nonfin, buffer-limit-frame, " +
 				"bad-opcode, unexpected-continuation, data-during-fragment, fragment-restart, invalid-utf8-text and " +
 				"control-oversize (fifteen at close code 1002, two at 1007, one at 1009). NOT IN THE CLASS, and why: " +
-				"us005.pub.0000 is a locally initiated send_close(999) with input_bytes 0 and consumed_bytes 0, so no " +
-				"inbound byte was ever decoded and RFC 6455 section 7.1.7 does not require closing — an invalid local " +
-				"API call is not a provision requiring _Fail the WebSocket Connection_. It is ledgered separately and " +
-				"correctly at sequence 35. Every member of the class is live-confirmed: the recorded expectation and " +
+				"us005.pub.0000's single step is a locally initiated send_close(999), so the step the run stops on is " +
+				"an `action` and not a `bytes` step; no inbound byte was ever decoded, and RFC 6455 section 7.1.7 " +
+				"does not require closing — an invalid local API call is not a provision requiring _Fail the " +
+				"WebSocket Connection_. It is ledgered separately and correctly at sequence 35, and the gate requires " +
+				"exactly that: a locally caused rejection is reported unless an authoritative record names it. Every " +
+				"member of the class is live-confirmed: the recorded expectation and " +
 				"the live pinned-Java transcript agree at /final_state on all eighteen " +
 				"(protected/us005-corpora/live/public/transcript.jsonl; 74/74 reconciled). THE SINGLE CAUSE, read in " +
 				"the pinned trees: the oracle adapter constructs a WebSocketImpl " +

@@ -55,5 +55,13 @@ ac1-gates:
 # decision used to leave this branch green. The store is discovered above the
 # checkout when the variable is unset; set VJWP_PROTECTED_STORE to point at it
 # explicitly from a checkout that does not sit under the workspace.
+#
+# ROUND 3 moved in the last of the identity checks that lived only in test
+# binaries. `--check` now re-derives corpora/public/scenarios.jsonl and
+# corpora/handshake/cases.jsonl from the committed seed, and
+# evidence/us005-handshake-live-mapping.json from the source-derived table it is
+# rendered from. Those three files are INPUTS to the divergence measurement, so
+# an edit to any of them moves what the gate is able to demand; each was
+# previously bound only by internal/corpora's tests, which no release path runs.
 ledger-gates:
 	cd .. && go run ./cmd/deltaledgerctl --root . --check

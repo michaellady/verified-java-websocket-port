@@ -96,12 +96,15 @@ func VerifyIntegrity(root string) error {
 
 	add("frozen-prefix", VerifyFrozenPrefix(committed.Records))
 	add("evidence-document-schemas", VerifyEvidenceDocumentSchemas(root))
+	add("committed-corpora-rederive", VerifyCommittedCorporaReDerive(root))
+	add("live-mapping-source-binding", VerifyLiveMappingIsBoundToItsSourceTable(root))
 	add("observation-provenance", VerifyObservationProvenance(root, definitions))
 	add("handshake-mapping-census", VerifyHandshakeMappingCensus(root, definitions))
-	add("protocol-rejection-class", VerifyProtocolRejectionClass(root))
+	add("protocol-rejection-class", VerifyProtocolRejectionClass(root, definitions))
 	add("census-evidence-binding", VerifyCensusRowsMatchEvidence(root))
 	add("census-ledger-coverage", VerifyCensusRowsAreLedgered(root, definitions))
 	add("supersessions", VerifySupersessions(root, committed.Records))
+	add("supersessions-match-definitions", VerifySupersessionsMatchDefinitions(definitions, committed.Records))
 
 	// The measurement itself: recompute the published count rather than
 	// trusting the stored integer, and require it to be zero at rest.

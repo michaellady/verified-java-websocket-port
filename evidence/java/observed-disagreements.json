@@ -793,7 +793,7 @@
       "rfc_expectation_digest": "sha256:82f6f7e91a69fdd10983cc8c583a6cd667306ed98fc5e569b353c1f9d546b79c",
       "rfc_value_digest": "sha256:23c8a58dfdc5f382bfb417992f9450fc0d88de7913aad88ba3f1c27575d06aee",
       "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
-      "java_observation_digest": "sha256:d7e0b25e9f97affb728d88fb5475d5a2d321a3fcf2258836ce758efb539180ad",
+      "java_observation_digest": "sha256:799d994c5bce742312bf37deafa1c2f339b2cca2e09fb82c5bb3d11a12348e4c",
       "java_value_digest": "sha256:46a68f32b55c267a1aaed02d3248471b9e613c259cd24b955102b9906bbdb000",
       "autobahn_refs": [
         "autobahn-v25.10.1:3.1",

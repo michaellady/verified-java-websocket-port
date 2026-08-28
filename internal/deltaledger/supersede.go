@@ -21,10 +21,13 @@ package deltaledger
 //  1. Definition carries a structured `Supersedes` list.
 //  2. buildDeltasFrom emits a CANONICAL, MACHINE-PARSABLE token at the head of
 //     the record's rationale — the one free-text field the frozen schema does
-//     carry — of the exact form
-//     `SUPERSEDES ledger-sequence=<N> delta=<delta-id>;`
+//     carry — of the exact form emitted by Supersession.supersedesToken:
+//     `SUPERSEDES ledger-sequence=<N> delta=<delta-id> subject=<subject-ref> reason=<reason>;`
 //     so the link is inside the hashed digest preimage and cannot be edited
-//     away without changing the record digest.
+//     away without changing the record digest. Multiple tokens are separated by
+//     one space and the run is followed by one space, and internal/lab parses
+//     exactly that ANCHORED PREFIX RUN — a token anywhere else in the rationale
+//     is a refusal, not a claim (round-3 finding 4).
 //  3. deltaledgerctl emits evidence/java/ledger-supersessions.json, a committed
 //     first-class artifact that states, as DATA rather than as prose, which
 //     sequences are superseded, by which, and under whose authority. A consumer
@@ -49,6 +52,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -89,10 +93,12 @@ func (s Supersession) supersedesToken() string {
 		" subject=semantic:" + s.Subject + ":provisional-v1 reason=" + s.Reason + ";"
 }
 
-// supersedesPattern parses the canonical link back out of a rationale. It is
-// internal/lab's pattern, not a second copy: the readiness gate and the censuses
-// must agree about what a supersession IS, and two regexes cannot be trusted to.
-var supersedesPattern = lab.SupersedesPattern
+// There is deliberately no local copy of the parse here. internal/lab owns it —
+// the readiness gate and the censuses must agree about what a supersession IS,
+// and two implementations cannot be trusted to. An unused alias of lab's
+// pattern used to sit at this spot; it was removed because a dead alias whose
+// doc comment describes a parse it does not perform is the same
+// prose-outlives-the-code shape as round-3 finding 1, one scale down.
 
 // supersededSubjects is the set of Definition.Subject values that some later
 // definition supersedes. A superseded record is still in the chain, still
@@ -147,7 +153,13 @@ const SupersessionsStatement = "Machine-readable supersession map for evidence/j
 	"prefix. The LEDGER DOCUMENT is at 1.1.0 and carries the same links in a first-class `supersessions` array, and " +
 	"internal/lab.VerifyBaselineEvidence now consumes them: it re-derives the links from the records' own hashed " +
 	"rationales, refuses a document whose declared array disagrees, and builds its Autobahn coverage map from " +
-	"AUTHORITATIVE records only, so a withdrawn record covers nothing."
+	"AUTHORITATIVE records only, so a withdrawn record covers nothing. THE TOKEN IS PARSED, NOT SEARCHED FOR: it is " +
+	"read as an ANCHORED PREFIX RUN at the head of a rationale, and the canonical marker appearing anywhere else is " +
+	"a REFUSAL. An earlier version matched the token anywhere in the text, so a quoted or disclaimed token created a " +
+	"real withdrawal that regeneration then wrote into this file — the declaration and the prose agreeing with each " +
+	"other while the structured Definition.Supersedes claim said nothing. Generation is now bound to that structured " +
+	"claim as well: internal/deltaledger.VerifySupersessionsMatchDefinitions requires the links parsed out of the " +
+	"chain to equal the links the Definitions declare."
 
 // SupersessionsAuthority names the owner ruling.
 const SupersessionsAuthority = "protected/ledger-frozen-prefix-owner-decision-2026-08-28.json " +
@@ -220,6 +232,66 @@ func ReadSupersessions(root string) (SupersessionsDocument, error) {
 		return SupersessionsDocument{}, fmt.Errorf("decode %s: %w", SupersessionsRelativePath, err)
 	}
 	return document, nil
+}
+
+// VerifySupersessionsMatchDefinitions binds GENERATION to the STRUCTURED CLAIM.
+//
+// The links the sidecar, the 1.1.0 document and the readiness gate all consume
+// are parsed back out of the records' hashed rationales. That is deliberate —
+// the hashed text is the evidence — but it means the parse alone cannot tell a
+// withdrawal that some Definition actually declared from one that only appeared
+// in the text. Round-3 finding 4 turned that gap into a spurious withdrawal by
+// planting a disclaimed token in prose. internal/lab now refuses stray markers,
+// which closes the demonstrated attack; this closes the general shape, by
+// requiring the parsed links to equal the links the structured
+// `Definition.Supersedes` lists claim. Text and structure must say the same
+// thing, and if they ever diverge the gate names which is which.
+func VerifySupersessionsMatchDefinitions(definitions []Definition, records []lab.BehaviorLedgerRecord) error {
+	parsed, err := ReadSupersessionLinks(records)
+	if err != nil {
+		return err
+	}
+	deltas, err := buildDeltasFrom(definitions)
+	if err != nil {
+		return err
+	}
+	if len(deltas) != len(definitions) {
+		return fmt.Errorf("built %d deltas for %d definitions", len(deltas), len(definitions))
+	}
+	sequenceByDelta := map[string]uint64{}
+	for _, record := range records {
+		sequenceByDelta[record.Delta.DeltaID] = record.Sequence
+	}
+	var declared []SupersessionLink
+	for index, definition := range definitions {
+		if len(definition.Supersedes) == 0 {
+			continue
+		}
+		supersedingSequence, inChain := sequenceByDelta[deltas[index].DeltaID]
+		if !inChain {
+			return fmt.Errorf("definition %q claims a supersession but its delta %s is not in the committed chain",
+				definition.Subject, deltas[index].DeltaID)
+		}
+		for _, one := range definition.Supersedes {
+			declared = append(declared, SupersessionLink{
+				SupersededSequence:  uint64(one.Sequence),
+				SupersededDeltaID:   one.DeltaID,
+				SupersededSubject:   "semantic:" + one.Subject + ":provisional-v1",
+				SupersedingSequence: supersedingSequence,
+				SupersedingDeltaID:  deltas[index].DeltaID,
+				SupersedingSubject:  deltas[index].SubjectRef,
+			})
+		}
+	}
+	sort.Slice(declared, func(i, j int) bool { return declared[i].SupersededSequence < declared[j].SupersededSequence })
+	if !lab.SupersessionLinksEqual(declared, parsed) {
+		return fmt.Errorf("the supersession links parsed out of the committed rationales (%d) are not the links the "+
+			"structured Definition.Supersedes lists declare (%d). A withdrawal is a STRUCTURED claim that the "+
+			"generator renders into hashed text; text that carries a link no Definition declared is text pretending "+
+			"to be a claim.\n    declared by Definition.Supersedes: %v\n    parsed from the record chain:      %v",
+			len(parsed), len(declared), declared, parsed)
+	}
+	return nil
 }
 
 // VerifySupersessions requires the committed sidecar to equal the map the
