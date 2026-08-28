@@ -8,7 +8,7 @@
     "$schema": {"const": "schemas/us024-refinement-replay-1.0.0.schema.json"},
     "schema_version": {"const": "1.0.0"},
     "story_id": {"const": "US-024"},
-    "status": {"enum": ["IMPLEMENTATION_REPLAY_PASS_PENDING_REVIEW_QA_REALITY", "PASS_OWNER_RELAXED_MECHANICS"]},
+    "status": {"const": "IMPLEMENTATION_REPLAY_PASS_PENDING_REVIEW_QA_REALITY"},
     "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
     "independent_review_claimed": {"const": false},
     "production": {"const": false},
@@ -96,7 +96,7 @@
     },
     "provenance": {
       "type": "object", "additionalProperties": false, "required": ["review", "qa", "reality"],
-      "properties": {"review": {"type": "string", "minLength": 3, "maxLength": 256}, "qa": {"type": "string", "minLength": 3, "maxLength": 256}, "reality": {"type": "string", "minLength": 3, "maxLength": 256}}
+      "properties": {"review": {"const": "NOT_EXECUTED"}, "qa": {"const": "NOT_EXECUTED"}, "reality": {"const": "NOT_EXECUTED"}}
     }
   }
 }

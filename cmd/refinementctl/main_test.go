@@ -8,6 +8,16 @@ import (
 	"testing"
 )
 
+func privateTempDir(t *testing.T) string {
+	t.Helper()
+	directory, err := os.MkdirTemp("/private/tmp", "us024-refinementctl-test-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	return directory
+}
+
 func TestRunRejectsUnknownDuplicateAndRelativeArguments(t *testing.T) {
 	for _, args := range [][]string{
 		nil,
@@ -41,5 +51,56 @@ func TestVerifyUsesExactEvidencePathAndReturnsRealFailure(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	if code := run([]string{"verify", "--repository-root", root, "--evidence", path}, &stdout, &stderr); code != 1 {
 		t.Fatalf("code=%d stdout=%s stderr=%s", code, stdout.String(), stderr.String())
+	}
+}
+
+func TestWriteAtomicAnchorsRepositoryAndEvidenceDirectories(t *testing.T) {
+	root := privateTempDir(t)
+	evidenceDirectory := filepath.Join(root, "evidence")
+	if err := os.Mkdir(evidenceDirectory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(root, "evidence/refinement-replay.json")
+	if err := writeAtomic(root, path, []byte("first")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAtomic(root, path, []byte("second")); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(path)
+	if err != nil || string(raw) != "second" {
+		t.Fatalf("raw=%q err=%v", raw, err)
+	}
+}
+
+func TestWriteAtomicRejectsSymlinkedRepositoryOrEvidenceParent(t *testing.T) {
+	container := privateTempDir(t)
+	realRoot := filepath.Join(container, "real")
+	if err := os.MkdirAll(filepath.Join(realRoot, "evidence"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	linkedRoot := filepath.Join(container, "linked")
+	if err := os.Symlink(realRoot, linkedRoot); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAtomic(linkedRoot, filepath.Join(linkedRoot, "evidence/refinement-replay.json"), []byte("forbidden")); err == nil {
+		t.Fatal("accepted symlinked repository root")
+	}
+
+	outside := filepath.Join(container, "outside")
+	if err := os.Mkdir(outside, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Remove(filepath.Join(realRoot, "evidence")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(outside, filepath.Join(realRoot, "evidence")); err != nil {
+		t.Fatal(err)
+	}
+	if err := writeAtomic(realRoot, filepath.Join(realRoot, "evidence/refinement-replay.json"), []byte("forbidden")); err == nil {
+		t.Fatal("accepted symlinked evidence directory")
+	}
+	if _, err := os.Stat(filepath.Join(outside, "refinement-replay.json")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("outside destination changed: %v", err)
 	}
 }

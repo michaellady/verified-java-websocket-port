@@ -14,7 +14,7 @@ import (
 	"github.com/michaellady/verified-java-websocket-port/internal/refinement"
 )
 
-const usage = "usage: refinementctl capture --repository-root ABS --before FULL_COMMIT --after FULL_COMMIT --cargo ABS --evidence ABS\n       refinementctl verify --repository-root ABS --evidence ABS\n"
+const usage = "usage: refinementctl capture --repository-root ABS --before FULL_COMMIT --after FULL_COMMIT --cargo ABS --evidence ABS\n       refinementctl refresh-inventory --repository-root ABS --evidence ABS\n       refinementctl verify --repository-root ABS --evidence ABS\n"
 
 var capture = refinement.Capture
 var verify = refinement.Verify
@@ -42,16 +42,49 @@ func cleanAbsolute(path string) bool {
 	return filepath.IsAbs(path) && filepath.Clean(path) == path && path != string(filepath.Separator)
 }
 
-func writeAtomic(path string, raw []byte) error {
-	if info, err := os.Lstat(path); err == nil {
+func realDirectory(path string) (os.FileInfo, error) {
+	info, err := os.Lstat(path)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return nil, errors.New("path is not a real directory")
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil || filepath.Clean(resolved) != path {
+		return nil, errors.New("directory path contains a symbolic link")
+	}
+	return info, nil
+}
+
+func writeAtomic(repositoryRoot, path string, raw []byte) error {
+	if path != filepath.Join(repositoryRoot, refinement.EvidencePath) {
+		return errors.New("evidence destination is outside the repository contract")
+	}
+	if _, err := realDirectory(repositoryRoot); err != nil {
+		return err
+	}
+	parentPath := filepath.Dir(path)
+	parentInfo, err := realDirectory(parentPath)
+	if err != nil {
+		return err
+	}
+	parent, err := os.OpenRoot(parentPath)
+	if err != nil {
+		return err
+	}
+	defer parent.Close()
+	openedParent, err := parent.Stat(".")
+	if err != nil || !os.SameFile(parentInfo, openedParent) {
+		return errors.New("evidence directory identity changed while opening")
+	}
+	destination := filepath.Base(path)
+	if info, err := parent.Lstat(destination); err == nil {
 		if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 			return errors.New("evidence destination is not a regular file")
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	temporary := filepath.Join(filepath.Dir(path), ".refinement-replay.json.tmp")
-	file, err := os.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	temporary := ".refinement-replay.json.tmp"
+	file, err := parent.OpenFile(temporary, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
@@ -59,7 +92,7 @@ func writeAtomic(path string, raw []byte) error {
 	defer func() {
 		_ = file.Close()
 		if !ok {
-			_ = os.Remove(temporary)
+			_ = parent.Remove(temporary)
 		}
 	}()
 	if _, err := file.Write(raw); err != nil {
@@ -71,7 +104,7 @@ func writeAtomic(path string, raw []byte) error {
 	if err := file.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(temporary, path); err != nil {
+	if err := parent.Rename(temporary, destination); err != nil {
 		return err
 	}
 	ok = true
@@ -90,12 +123,40 @@ func captureCommand(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	raw, err := refinement.Marshal(evidence)
-	if err != nil || writeAtomic(values["--evidence"], raw) != nil {
+	if err != nil || writeAtomic(values["--repository-root"], values["--evidence"], raw) != nil {
 		fmt.Fprintln(stderr, "refinement evidence write failed")
 		return 1
 	}
 	if err := json.NewEncoder(stdout).Encode(map[string]any{"status": evidence.Status, "scenarios": evidence.PublicReplay.Counts.Equal, "local_replays": len(evidence.LocalReplays)}); err != nil {
 		fmt.Fprintln(stderr, "refinement receipt encode failed")
+		return 1
+	}
+	return 0
+}
+
+func refreshInventoryCommand(args []string, stdout, stderr io.Writer) int {
+	values, err := parse(args, []string{"--repository-root", "--evidence"})
+	if err != nil || !cleanAbsolute(values["--repository-root"]) || !cleanAbsolute(values["--evidence"]) || values["--evidence"] != filepath.Join(values["--repository-root"], refinement.EvidencePath) {
+		fmt.Fprint(stderr, usage)
+		return 64
+	}
+	raw, err := readEvidence(values["--evidence"])
+	if err != nil {
+		fmt.Fprintln(stderr, "refinement evidence read failed")
+		return 1
+	}
+	evidence, err := refinement.RefreshTestInventory(values["--repository-root"], raw)
+	if err != nil {
+		fmt.Fprintf(stderr, "refinement inventory refresh failed: %v\n", err)
+		return 1
+	}
+	raw, err = refinement.Marshal(evidence)
+	if err != nil || writeAtomic(values["--repository-root"], values["--evidence"], raw) != nil {
+		fmt.Fprintln(stderr, "refinement evidence write failed")
+		return 1
+	}
+	if err := json.NewEncoder(stdout).Encode(map[string]any{"status": evidence.Status, "test_names": len(evidence.TestInventory.AfterNames), "added_test_names": len(evidence.TestInventory.AddedNames)}); err != nil {
+		fmt.Fprintln(stderr, "refinement inventory receipt encode failed")
 		return 1
 	}
 	return 0
@@ -150,6 +211,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "capture":
 		return captureCommand(args[1:], stdout, stderr)
+	case "refresh-inventory":
+		return refreshInventoryCommand(args[1:], stdout, stderr)
 	case "verify":
 		return verifyCommand(args[1:], stdout, stderr)
 	default:

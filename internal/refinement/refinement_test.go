@@ -83,6 +83,8 @@ func TestStaticVerifierRejectsDriftCanaries(t *testing.T) {
 		{"deleted allowed-file test name", func(e *Evidence) { e.TestInventory.AfterNames = e.TestInventory.AfterNames[:1] }},
 		{"pass unavailable formal gate", func(e *Evidence) { e.Connections.FormalBackend = "PASS" }},
 		{"changed cargo lock", func(e *Evidence) { e.After.CargoLock = fakeDigest(13) }},
+		{"promoted repository status", func(e *Evidence) { e.Status = "PASS_OWNER_RELAXED_MECHANICS" }},
+		{"invented review provenance", func(e *Evidence) { e.Provenance.Review = "owner-review" }},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -92,6 +94,88 @@ func TestStaticVerifierRejectsDriftCanaries(t *testing.T) {
 				t.Fatal("drift canary passed")
 			}
 		})
+	}
+}
+
+func TestFreshRederivationBindsEveryReceiptClaim(t *testing.T) {
+	want := fixture()
+	if err := verifyRederivedClaims(want, cloneEvidence(t, want)); err != nil {
+		t.Fatal(err)
+	}
+	mutations := []func(*Evidence){
+		func(e *Evidence) { e.Gates.Blockers[0] = "FORGED_BLOCKER" },
+		func(e *Evidence) { e.Nonclaims[0] = "forged nonclaim" },
+		func(e *Evidence) { e.Provenance.QA = "forged provenance" },
+		func(e *Evidence) { e.Status = "PASS_OWNER_RELAXED_MECHANICS" },
+	}
+	for index, mutate := range mutations {
+		got := cloneEvidence(t, want)
+		mutate(&got)
+		if err := verifyRederivedClaims(got, want); err == nil {
+			t.Fatalf("unbound receipt claim %d", index)
+		}
+	}
+}
+
+func TestCargoEnvironmentIsClosedAndContained(t *testing.T) {
+	t.Setenv("RUSTC_WRAPPER", "/tmp/poison")
+	t.Setenv("DYLD_INSERT_LIBRARIES", "/tmp/poison")
+	root := t.TempDir()
+	environment, err := cargoEnvironment(root, "/toolchain/bin/cargo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := map[string]string{}
+	for _, entry := range environment {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok || values[key] != "" {
+			t.Fatalf("malformed or duplicate environment entry %q", entry)
+		}
+		values[key] = value
+	}
+	for _, forbidden := range []string{"RUSTC_WRAPPER", "RUSTDOC_WRAPPER", "DYLD_INSERT_LIBRARIES", "CARGO_BUILD_RUSTC_WRAPPER"} {
+		if _, ok := values[forbidden]; ok {
+			t.Fatalf("ambient override survived: %s", forbidden)
+		}
+	}
+	wantRoot := filepath.Join(root, "rust", "target", ".us024-environment")
+	for _, key := range []string{"HOME", "CARGO_HOME", "TMPDIR"} {
+		if !strings.HasPrefix(values[key], wantRoot+string(filepath.Separator)) {
+			t.Fatalf("%s escaped the subject: %q", key, values[key])
+		}
+	}
+	if values["PATH"] != "/toolchain/bin:/usr/bin:/bin" || values["RUSTC"] != "/toolchain/bin/rustc" || values["RUSTDOC"] != "/toolchain/bin/rustdoc" || len(values) != 14 {
+		t.Fatalf("closed tool environment drift: %#v", values)
+	}
+}
+
+func TestDerivedInventoryCoversEveryChangedTestBearingSource(t *testing.T) {
+	root := filepath.Clean("../..")
+	if _, err := os.Stat(filepath.Join(root, ".git")); err != nil {
+		t.Skip("Git metadata unavailable")
+	}
+	inventory, err := deriveTestInventory(root, beforeCommit, "579aa003760e6eac6a98d1d394fd07b81f447451")
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantPrefixes := []string{
+		"cmd/refinementctl/main_test.go::",
+		"internal/refinement/refinement_test.go::",
+		"rust/websocket-driver/src/lib.rs::",
+		"rust/websocket-driver/tests/refinement_contract.rs::",
+		"rust/websocket-testee/tests/process.rs::",
+	}
+	for _, prefix := range wantPrefixes {
+		found := false
+		for _, name := range inventory.AfterNames {
+			if strings.HasPrefix(name, prefix) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("changed test-bearing path absent from inventory: %s", prefix)
+		}
 	}
 }
 

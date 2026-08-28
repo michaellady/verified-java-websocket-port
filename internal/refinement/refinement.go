@@ -49,7 +49,7 @@ var (
 	fullGitObject     = regexp.MustCompile(`^[0-9a-f]{40}$`)
 	digestPattern     = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	testResultPattern = regexp.MustCompile(`test result: (?:ok|FAILED)\. ([0-9]+) passed; ([0-9]+) failed;`)
-	rustTestPattern   = regexp.MustCompile(`(?m)#\s*\[\s*test\s*\]\s*fn\s+([A-Za-z_][A-Za-z0-9_]*)`)
+	rustTestPattern   = regexp.MustCompile(`(?m)#\s*\[\s*test\s*\]\s*(?:async\s+)?fn\s+([A-Za-z_][A-Za-z0-9_]*)`)
 )
 
 type Artifact struct {
@@ -341,7 +341,11 @@ func extractSubject(root, commit string) (string, func(), error) {
 func runCargoBuild(ctx context.Context, root, cargo string) (Artifact, error) {
 	command := exec.CommandContext(ctx, cargo, "build", "--locked", "--offline", "-p", "websocket-testee", "--bin", "websocket-testee")
 	command.Dir = filepath.Join(root, "rust")
-	command.Env = cargoEnvironment(root, cargo)
+	environment, err := cargoEnvironment(root, cargo)
+	if err != nil {
+		return Artifact{}, err
+	}
+	command.Env = environment
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return Artifact{}, fmt.Errorf("cargo build: %w: %s", err, string(output))
@@ -435,14 +439,29 @@ func canonicalizeMachOUUID(path string) error {
 	return file.Close()
 }
 
-func cargoEnvironment(root, cargo string) []string {
+func cargoEnvironment(root, cargo string) ([]string, error) {
+	environmentRoot := filepath.Join(root, "rust", "target", ".us024-environment")
+	home := filepath.Join(environmentRoot, "home")
+	cargoHome := filepath.Join(environmentRoot, "cargo-home")
+	temporary := filepath.Join(environmentRoot, "tmp")
+	for _, directory := range []string{home, cargoHome, temporary} {
+		if err := os.MkdirAll(directory, 0o700); err != nil {
+			return nil, err
+		}
+	}
 	flags := "--remap-path-prefix=" + root + "=/us024/source -C codegen-units=1"
-	return append(os.Environ(),
+	toolchain := filepath.Dir(cargo)
+	return []string{
 		"LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "CARGO_INCREMENTAL=0", "SOURCE_DATE_EPOCH=0",
-		"RUSTC="+filepath.Join(filepath.Dir(cargo), "rustc"),
-		"RUSTDOC="+filepath.Join(filepath.Dir(cargo), "rustdoc"),
-		"RUSTFLAGS="+flags,
-	)
+		"PATH=" + toolchain + ":/usr/bin:/bin",
+		"HOME=" + home,
+		"CARGO_HOME=" + cargoHome,
+		"CARGO_TARGET_DIR=" + filepath.Join(root, "rust", "target"),
+		"TMPDIR=" + temporary,
+		"RUSTC=" + filepath.Join(toolchain, "rustc"),
+		"RUSTDOC=" + filepath.Join(toolchain, "rustdoc"),
+		"RUSTFLAGS=" + flags,
+	}, nil
 }
 
 func treeDigest(root, relative string) (string, error) {
@@ -690,11 +709,15 @@ func runReplayCommand(ctx context.Context, root, cargo string, argv []string) (C
 	defer cancel()
 	command := exec.CommandContext(commandCtx, cargo, argv[1:]...)
 	command.Dir = filepath.Join(root, "rust")
-	command.Env = cargoEnvironment(root, cargo)
+	environment, err := cargoEnvironment(root, cargo)
+	if err != nil {
+		return CommandResult{}, err
+	}
+	command.Env = environment
 	output := &cappedOutput{limit: 4 << 20}
 	command.Stdout = output
 	command.Stderr = output
-	err := command.Run()
+	err = command.Run()
 	passed, failed := 0, 0
 	for _, match := range testResultPattern.FindAllSubmatch(output.value.Bytes(), -1) {
 		value, parseErr := strconv.Atoi(string(match[1]))
@@ -805,15 +828,35 @@ func testNamesAt(root, commit, path string) ([]string, error) {
 	return names, nil
 }
 
+func testNamesIfPresentAt(root, commit, path string) ([]string, error) {
+	entry, err := git(root, "ls-tree", "-z", "--full-tree", commit, "--", path)
+	if err != nil {
+		return nil, err
+	}
+	if len(entry) == 0 {
+		return []string{}, nil
+	}
+	if bytes.Count(entry, []byte{0}) != 1 || entry[len(entry)-1] != 0 || !bytes.HasSuffix(entry[:len(entry)-1], []byte("\t"+path)) {
+		return nil, fmt.Errorf("ambiguous Git tree entry for %s", path)
+	}
+	return testNamesAt(root, commit, path)
+}
+
 func deriveTestInventory(root, before, after string) (TestInventory, error) {
-	paths := []string{"internal/differential/differential_test.go", "rust/websocket-driver/src/lib.rs", "rust/websocket-testee/tests/process.rs"}
+	changed, err := changedPaths(root, before, after)
+	if err != nil {
+		return TestInventory{}, err
+	}
 	beforeNames, afterNames := []string{}, []string{}
-	for _, path := range paths {
-		left, err := testNamesAt(root, before, path)
+	for _, path := range changed {
+		if !strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, ".rs") {
+			continue
+		}
+		left, err := testNamesIfPresentAt(root, before, path)
 		if err != nil {
 			return TestInventory{}, err
 		}
-		right, err := testNamesAt(root, after, path)
+		right, err := testNamesIfPresentAt(root, after, path)
 		if err != nil {
 			return TestInventory{}, err
 		}
@@ -966,11 +1009,11 @@ func Capture(ctx context.Context, cfg CaptureConfig) (Evidence, error) {
 }
 
 func validateStatic(e Evidence) error {
-	if e.Schema != SchemaPath || e.SchemaVersion != "1.0.0" || e.StoryID != "US-024" || (e.Status != "IMPLEMENTATION_REPLAY_PASS_PENDING_REVIEW_QA_REALITY" && e.Status != "PASS_OWNER_RELAXED_MECHANICS") || e.Assurance != assurance {
+	if e.Schema != SchemaPath || e.SchemaVersion != "1.0.0" || e.StoryID != "US-024" || e.Status != "IMPLEMENTATION_REPLAY_PASS_PENDING_REVIEW_QA_REALITY" || e.Assurance != assurance {
 		return errors.New("claim boundary drift")
 	}
-	if e.Status == "PASS_OWNER_RELAXED_MECHANICS" && (e.Provenance.Review == "NOT_EXECUTED" || e.Provenance.QA == "NOT_EXECUTED" || e.Provenance.Reality == "NOT_EXECUTED") {
-		return errors.New("final pass claimed before review, QA, or reality")
+	if e.Provenance != (PhaseProvenance{Review: "NOT_EXECUTED", QA: "NOT_EXECUTED", Reality: "NOT_EXECUTED"}) {
+		return errors.New("repository receipt cannot claim review, QA, or reality provenance")
 	}
 	if e.IndependentReviewClaimed || e.Production || e.Publication || e.Signing || e.PerformanceClaimed || e.CutoverClaimed {
 		return errors.New("unsupported positive claim")
@@ -1178,6 +1221,13 @@ func Verify(repositoryRoot string, raw []byte) error {
 	return VerifyContext(context.Background(), repositoryRoot, raw, pinnedCargo)
 }
 
+func verifyRederivedClaims(evidence, rederived Evidence) error {
+	if !reflect.DeepEqual(evidence, rederived) {
+		return errors.New("fresh receipt rederivation drift")
+	}
+	return nil
+}
+
 func VerifyContext(ctx context.Context, repositoryRoot string, raw []byte, cargo string) error {
 	if len(raw) == 0 || len(raw) > maximumEvidence {
 		return errors.New("evidence size invalid")
@@ -1245,19 +1295,38 @@ func VerifyContext(ctx context.Context, repositoryRoot string, raw []byte, cargo
 	if err != nil {
 		return fmt.Errorf("fresh subject replay failed: %w", err)
 	}
-	if !reflect.DeepEqual(evidence.Before, rederived.Before) || !reflect.DeepEqual(evidence.After, rederived.After) || !reflect.DeepEqual(evidence.US023, rederived.US023) || !reflect.DeepEqual(evidence.Membership, rederived.Membership) || !reflect.DeepEqual(evidence.PublicReplay, rederived.PublicReplay) || !reflect.DeepEqual(evidence.TestInventory, rederived.TestInventory) {
-		return errors.New("fresh Git-subject or public replay rederivation drift")
-	}
-	if len(evidence.LocalReplays) != len(rederived.LocalReplays) {
-		return errors.New("fresh local replay denominator drift")
-	}
-	for index := range evidence.LocalReplays {
-		left, right := evidence.LocalReplays[index], rederived.LocalReplays[index]
-		if left.Kind != right.Kind || left.Manifest != right.Manifest || left.TargetID != right.TargetID || left.Profile != right.Profile || !reflect.DeepEqual(left.Command, right.Command) || left.Repeat != right.Repeat || left.Before != right.Before || left.After != right.After {
-			return errors.New("fresh local replay descriptor drift")
-		}
-	}
-	return nil
+	return verifyRederivedClaims(evidence, rederived)
 }
 
 func Marshal(e Evidence) ([]byte, error) { return json.Marshal(e) }
+
+// RefreshTestInventory updates only the inventory derived from the immutable
+// before/after Git subjects. It intentionally does not rerun any replay.
+func RefreshTestInventory(repositoryRoot string, raw []byte) (Evidence, error) {
+	if len(raw) == 0 || len(raw) > maximumEvidence {
+		return Evidence{}, errors.New("evidence size invalid")
+	}
+	if err := validateSchema(repositoryRoot, raw); err != nil {
+		return Evidence{}, err
+	}
+	var evidence Evidence
+	if err := decodeStrict(raw, &evidence); err != nil {
+		return Evidence{}, err
+	}
+	canonical, err := json.Marshal(evidence)
+	if err != nil || !bytes.Equal(raw, canonical) {
+		return Evidence{}, errors.New("evidence is not canonical JSON")
+	}
+	if err := validateStatic(evidence); err != nil {
+		return Evidence{}, err
+	}
+	inventory, err := deriveTestInventory(repositoryRoot, evidence.Before.Commit, evidence.After.Commit)
+	if err != nil {
+		return Evidence{}, err
+	}
+	evidence.TestInventory = inventory
+	if err := validateStatic(evidence); err != nil {
+		return Evidence{}, err
+	}
+	return evidence, nil
+}
