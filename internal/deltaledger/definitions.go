@@ -151,6 +151,11 @@ func Definitions() []Definition {
 	// Appended last for the same reason again: the G3c/G3d/G3e gap-closure
 	// records must not disturb the committed 35-record prefix.
 	definitions = append(definitions, gapClosureDefinitions()...)
+	// Appended last for the same reason again: the owner-ruled superseding
+	// corrections for sequences 14-16 must not disturb the frozen prefix
+	// they correct (protected/ledger-frozen-prefix-owner-decision-2026-08-28.json,
+	// sha256 bb3cd0da7f4aed01...: SUPERSEDE, DO NOT REWRITE).
+	definitions = append(definitions, prefixCorrectionDefinitions()...)
 	return definitions
 }
 
