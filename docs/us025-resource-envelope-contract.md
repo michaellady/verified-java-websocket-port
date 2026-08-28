@@ -33,6 +33,61 @@ measurement phase after both host states are `BOUND`, both raw ledgers are
 complete, and independent recomputation succeeds. The mechanics pass itself
 must not change that ceiling.
 
+## Shipped result
+
+US-025 completed the owner-relaxed decision mechanics at repository head
+`84935acb5665ed50bd5eb718e918ed19adfcc646` and tree
+`838fd4f551312447af3be1958916a1c5c2b5c885`. The result is exactly
+`PASS_OWNER_RELAXED_MECHANICS` with measurement acceptance
+`INCONCLUSIVE_BLOCKED`. Both hosts remain `NOT_BOUND`, both raw paths remain
+`ABSENT`, samples remain unauthorized and uncollected, and
+`performance_claimed` remains false.
+
+The committed mechanics enumerate the complete two-host by six-workload by
+ten-endpoint surface before inspecting raw evidence. The resulting 12 workload
+decisions and 120 endpoint decisions are all `INCONCLUSIVE`, all validations
+are `BLOCKED`, and every reason is `RAW_ABSENT`. Two real invocations of
+`benchplanctl envelope --root .` emitted byte-identical 27,707-byte JSON and
+returned the dedicated inconclusive exit code 4.
+
+The exact sample-free receipt digests are:
+
+```text
+benchmarks/analysis/primary.json
+  sha256:25a128b62a72193ea117ac2836ab2e479d28b0db7d09ba72f19b51019ce4f9c0
+benchmarks/analysis/confirmation.json
+  sha256:143ed3644bf41d876cf17f964fec8750f6a93e49221b7dedd2bba9af36654056
+benchmarks/analysis/recompute-receipt.json
+  sha256:aee0149d907ad7146c4b6c420f8e73a38b79119129b95307869b7fa86f44e817
+evidence/performance.json
+  sha256:645b18936d8939fdbf21c9877f29f7627c7a40aae7f3ab05bfd6129a0c10cd22
+```
+
+One full comments-only review found four blocking evidence-boundary defects.
+The one permitted targeted closure closed `B-US025-002` through
+`B-US025-004`; `B-US025-001` then received one final bounded remediation and
+was validated by QA and fresh reality without a second review or second
+closure. Fresh-checkout validation ran 101 focused top-level tests. The review
+fix selection contained seven named tests with 42 closure-field subcases, and
+the guarded raw-append command stopped with exit 4 before reading a payload or
+creating `benchmarks/raw/`.
+
+Three important review notes remain intentionally unimplemented:
+
+```text
+I-US025-001 raw-entry schema is broader than runtime acceptance
+I-US025-002 canonical JSON encoding is not enforced
+I-US025-003 committed mechanics receipts are not machine-linked to reconstruction
+```
+
+The retained nit is that the top-level CLI comment documents exit codes 0-3
+but not public exit 4. These items do not expand the bounded completion claim.
+
+All shipped claim-bearing result artifacts remain
+`OWNER_ATTESTED_NOT_INDEPENDENT` with `independent_review_claimed:false`. The
+nine measurement blockers and five nonclaims in the retained section below
+remain authoritative.
+
 ## Facts resolved at architecture time
 
 The implementation must extend the incumbent US-008 machinery rather than
@@ -194,6 +249,27 @@ later recomputation rejects a shorter file, changed prefix, broken chain,
 duplicate sequence, reordered entry, replacement, or extra post-completion
 entry. Exactly one closure plus 60 endpoint records plus six support records is
 accepted per host. Partial ledgers remain evidence, but decide nothing.
+
+The shipped transport closes path and self-attestation races with held bytes,
+not pathname re-resolution. `benchplanctl raw-append` first opens the real
+repository and `benchmarks/raw` boundaries through `os.Root`, rejects symlinked
+or substituted directories, and derives the expected closure from repository
+facts before reading the caller's payload. Environment documents, referenced
+receipts, source/adapter trees, and lockfiles are opened as regular files,
+bounded, copied into a private verification snapshot, kept open across
+verification, and re-read through the same descriptors before the closure is
+accepted. Both exactly verified environment documents must be fully `BOUND`;
+raw bytes cannot nominate their own expected identity.
+
+The payload is likewise opened through a held directory/file descriptor and
+must retain the same file identity, size, and bytes before and after its bounded
+read. The append path acquires an adjacent exclusive lock under the held raw
+root, verifies the entire existing ledger through its held descriptor, and
+uses `O_APPEND` without truncation. When creating one host ledger while its
+sibling already exists, it first verifies that sibling against the same
+repository-derived closure. The writer synchronizes new directory entries and
+the appended file; a partial write or failed sync preserves the lock and
+evidence instead of repairing or retrying it.
 
 ### Strong US-025 identity closure
 
@@ -401,10 +477,18 @@ PROVENANCE_DISTINCT_RECOMPUTATION_NOT_EXECUTED
 PERFORMANCE_TUNING_AND_AFFECTED_GATE_RERUNS_NOT_EXECUTED
 ```
 
-Accordingly, US-025 makes no claim of a 20% memory win, CPU/startup/latency/
-allocation non-regression, throughput non-regression, sufficient measured
-power, clean measured environment, dual-host confirmation, independent
-review, publication, signing, production readiness, or cutover readiness.
+The exact retained nonclaims are:
+
+```text
+no 20 percent memory win
+no CPU, startup, latency, allocation, or throughput non-regression
+no sufficient measured power or clean measured environment
+no dual-host confirmation or independent recomputation
+no publication, signing, production readiness, or cutover readiness
+```
+
+The owner-only assurance ceiling separately excludes any independent-review
+claim.
 
 ## Provenance and attribution
 
@@ -426,21 +510,21 @@ and Codex catch-up completion `39415fce46ffe538b5d30b2ddaf110c7011adb4f`.
 That existing attribution remains intact and creates no new Codex first-finish
 claim for US-008.
 
-## Architecture handoff
+## Post-ship boundary
 
-Summary: implement the complete fail-closed outer campaign matrix and
-append-only evidence transport around the unchanged US-008 analyzer. Start
-with the absent-raw test: it is the current production truth and must emit 12
-inconclusive workload/host decisions while keeping measurement acceptance
-blocked.
+The fail-closed matrix and append-only evidence transport are implemented and
+validated. No implementation handoff remains for US-025. Future measurement
+work requires separate owner authorization and must begin by binding both
+exact native hosts, tools, analyzers, sources, executables, locks, adapter,
+workloads, and pair orders before creating either raw ledger.
 
-Context for the next worker:
+Until that authorization and complete binding exist:
 
-- do not bind either host, create either raw path, or manufacture a sample;
-- preserve the existing endpoint validator's detailed `BLOCKED` results and
-  translate them only at the outer claim layer;
-- make path absence the sole `ABSENT` representation;
+- do not create either raw path or manufacture a sample;
+- preserve the endpoint validator's detailed `BLOCKED` results and translate
+  them only at the outer claim layer;
+- keep path absence as the sole `ABSENT` representation;
 - keep mechanics status separate from measurement acceptance in every schema,
-  CLI result, receipt, and PRD note; and
-- stop after blocking review findings are closed. Measurement, independent
-  recomputation, and performance acceptance are later owner-authorized work.
+  CLI result, receipt, and project note; and
+- do not infer measurement acceptance, independent recomputation, performance,
+  publication, production, signing, or cutover from the mechanics pass.
