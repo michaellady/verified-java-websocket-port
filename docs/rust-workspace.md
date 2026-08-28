@@ -3,14 +3,17 @@
 Status: **US-009 through US-018 are shipped; US-019 provides inert conformance
 readiness; US-020 adds the bounded neutral differential process seam; US-024
 ships the owner-relaxed private output-lifecycle refinement; US-025 ships only
-the owner-relaxed resource-decision mechanics outside the Rust crates.** The
-`rust/` workspace contains the dependency-free Sans-I/O `ConnectionCore`, the
-single-owner driver, and the thin blocking and one-record neutral adapters.
+the owner-relaxed resource-decision mechanics outside the Rust crates; US-026
+ships only deterministic fixture-rehearsal mechanics outside the Rust crates.**
+The `rust/` workspace contains the dependency-free Sans-I/O `ConnectionCore`,
+the single-owner driver, and the thin blocking and one-record neutral adapters.
 US-024 centralizes the driver's pending-output and partial-write state in a
 private `OutputLedger` without changing public declarations or the core
 contract. US-025 retains absent raw ledgers, unbound hosts, and
-`INCONCLUSIVE_BLOCKED` measurement acceptance. No performance representation
-is authorized beyond compile/test correctness.
+`INCONCLUSIVE_BLOCKED` measurement acceptance. US-026 retains
+`CUTOVER_BLOCKED`, no live traffic/effects, and no production-shaped rehearsal.
+No performance or cutover-readiness representation is authorized beyond the
+recorded mechanics.
 
 **Explicit non-claims:**
 
@@ -78,6 +81,7 @@ pipeline stories, not this scaffold):
 | US-020 | **Rust process seam implemented.** `SendFragment`, exact read-only step accounting/frame traces, real Open/Closing/Closed bootstraps, and strict one-record `NDRV1`/`NOBS1` transport. A separate differential run and receipt determine story completion. |
 | US-024 | **Owner-relaxed refinement mechanics complete.** `ConnectionOwner` delegates its private ordered-output, partial-write, flush, and undrainable-write lifecycle to `output::OutputLedger`. The 74-scenario before/after replay is equal; the original parity, protected, formal, independent, performance, and release blockers remain. |
 | US-025 | **Owner-relaxed resource-decision mechanics complete outside the Rust crates.** The exact 12-workload/120-endpoint matrix is sample-free and `INCONCLUSIVE_BLOCKED`; no host binding, raw ledger, measurement, performance, or independent-recompute claim exists. |
+| US-026 | **Owner-relaxed cutover-rehearsal mechanics complete outside the Rust crates.** Fixed fixtures exercise shadow/canary/fallback/reconciliation/rollback/soak state transitions, while all 12 live/production blockers remain and `CUTOVER_READY` is unreachable. |
 
 ## Current shipped state
 

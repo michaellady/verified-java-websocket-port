@@ -23,6 +23,66 @@ production-shaped rehearsal, measured capacity/resources, wall-clock soak or
 rollback, real side-effect isolation, deployment readiness, or permission to
 remove Java.
 
+## Shipped result
+
+US-026 completed its owner-relaxed rehearsal mechanics at evaluator/tooling
+head `69bc2f40456083a30ca2cc2faa87acf1d2585338` and tree
+`c351fdc92d3c851fd3a001552eeb0d52d06b61e4`. The immutable rehearsed port
+subject remains commit `84935acb5665ed50bd5eb718e918ed19adfcc646` and tree
+`838fd4f551312447af3be1958916a1c5c2b5c885`. The result is exactly
+`PASS_OWNER_RELAXED_REHEARSAL_MECHANICS/CUTOVER_BLOCKED` under
+`OWNER_ATTESTED_NOT_INDEPENDENT` with `independent_review_claimed:false`.
+
+The deterministic fixture records 32 shadow comparisons, two Rust canary
+selections, one retained mismatch, three simulated rollback actions, 32
+synthetic soak ticks, 15 reconciled fixture effects, and one duplicate effect
+suppressed. It executes no live traffic, process, socket, clock, sleep, real
+side effect, deployment, publication, signing, or Java removal.
+
+The six write-once result artifacts are:
+
+| Artifact | Bytes | SHA-256 |
+| --- | ---: | --- |
+| `cutover/contract.json` | 10,782 | `sha256:ea342692911c716769bd3436523fd6aa08334137bdf21c66c364eb00831164fa` |
+| `cutover/shadow.json` | 23,552 | `sha256:c673f2630335381a7a7b8a3ccebbb2837826434b3066d94b98c1c6d747ca4257` |
+| `cutover/canary.json` | 30,215 | `sha256:52a48575396d531ede45d7407ed790c07840fcff1fcf3a7eaab548c8d1864d37` |
+| `cutover/rollback.json` | 10,303 | `sha256:d6c64c90c6e52af2b2556ce55d45b90974abf7207012005f2ad0247674c780f2` |
+| `cutover/soak.json` | 15,002 | `sha256:5bdabb03e4be225b1171e9e9357fcf5a0f28660dfc180a1ca536455f2ca7fb87` |
+| `evidence/cutover.json` | 2,688 | `sha256:89a6eed774d4f7fd6146d6e5d04390e282e9f792f3bf0bff192e8eec31f79af1` |
+
+Acceptance and security testing found and closed five blocking defects before
+the sole full review:
+
+```text
+B001 mismatch artifacts contradicted the retained changed Rust digest
+B002 symlinked repository-root ancestors were accepted
+B003 Java fallback identity pointed at the candidate manifest instead of Java intake/source identity
+B004 capture repaired a partial six-artifact bundle instead of rejecting it
+B005 rename publication could replace a concurrently created artifact
+```
+
+The one full comments-only review then found zero blockers, retained two
+important findings, and retained one wording nit. The important findings are
+that semantic validation maps many frozen invariants to generic
+`ARTIFACT_DRIFT`, and hostile-test coverage is representative rather than
+exhaustive. The nit observed that this contract described bundle-atomic rename
+while the shipped writer uses no-replace hard-link publication under an
+exclusive lock.
+
+This post-ship documentation pass corrects only that publication wording. The
+correction is doc-only: no code, test, schema, evidence, artifact digest, claim,
+review result, or assurance state changes, and the historical one-nit review
+record remains retained.
+
+Focused QA, race, vet, and build checks passed. Broad failures were unrelated
+historical binding drift and sandbox-denied loopback tests. Reality validation
+used a clean clone at the exact shipped head/tree, ran 17 focused tests,
+captured the six artifacts twice with byte-identical output, ran the real
+verifier, and removed its disposable checkout.
+
+The 12 blockers and seven nonclaims in the final retained section remain
+authoritative. `CUTOVER_READY` remains unreachable.
+
 ## Incumbent contracts and immutable subject
 
 The implementation extends the incumbent cutover vocabulary; it must not
@@ -60,11 +120,12 @@ opens no socket, starts no process, sleeps for no duration, reads no clock,
 touches no external service, and performs no real side effect.
 
 `cutoverctl capture --root DIR` evaluates two embedded canonical fixture runs
-and atomically writes the six PRD artifacts. `cutoverctl verify --root DIR`
-rederives them from the immutable inputs, byte-compares every artifact, checks
-all cross-digests, and exits nonzero on drift. Capture uses an adjacent
-exclusive lock, secure temporary files, file sync, rename, and parent-directory
-sync; it refuses symlink ancestors and never repairs partial evidence.
+and publishes the six PRD artifacts as one write-once bundle. `cutoverctl
+verify --root DIR` rederives them from the immutable inputs, byte-compares every
+artifact, checks all cross-digests, and exits nonzero on drift. Capture uses an
+adjacent exclusive lock, secure temporary files, file sync, no-replace hard
+links, and parent-directory sync. A concurrent destination appearance fails,
+and any existing partial bundle is rejected rather than repaired or completed.
 
 ### Two fixture runs
 
@@ -300,10 +361,17 @@ PRODUCTION_DEPLOYMENT_NOT_AUTHORIZED
 JAVA_REMOVAL_NOT_AUTHORIZED
 ```
 
-Accordingly, US-026 makes no claim of a production-shaped rehearsal, live
-traffic or effects, measured capacity/resources, elapsed soak/rollback,
-executable Java fallback drill, `CUTOVER_READY`, deployment readiness,
-production mutation, publication/signing, or Java removal.
+The exact retained nonclaims are:
+
+```text
+no production-shaped rehearsal
+no live traffic or effects
+no measured capacity or resources
+no elapsed soak or rollback bound
+no executable Java fallback drill
+no CUTOVER_READY or deployment readiness
+no production mutation, publication, signing, or Java removal
+```
 
 ## Provenance and attribution
 
