@@ -148,14 +148,33 @@ value is never the accounting method).
    OUTSTANDING EXTENSION. Whether it needs a schema change is
    CONDITIONAL on what is being added, and both halves of the condition
    were probed against the canonical schema:
-   - **Adding an OPTIONAL field record needs NO schema change.**
-     `host_identity` declares no named properties and its
-     `additionalProperties` is `{"$ref": "#/$defs/fieldRecord"}`, so a
-     well-formed record is already admitted under any name. PROBE:
-     adding `scaling_driver`, `smt_state` and `turbo_visibility` to
+   - **Adding an OPTIONAL field record needs NO schema change**, for a
+     name the schema does not already constrain. The base `host_identity`
+     subschema declares no named properties and its
+     `additionalProperties` is `{"$ref": "#/$defs/fieldRecord"}`, so an
+     unconstrained name admits any WELL-FORMED field record — the record
+     SHAPE is still enforced: a `host_identity` entry carrying
+     `not_a_field_record` failed with 7 failures including `additional
+     properties 'not_a_field_record' not allowed`. PROBE: adding
+     `scaling_driver`, `smt_state` and `turbo_visibility` to
      `host_identity` and validating against
      `benchmark-environment-1.0.0.schema.json` returned 0 failures
-     (control, unmodified document: also 0).
+     (control, unmodified document: also 0), and one of the three
+     carrying an arbitrary `BOUND` value also returned 0.
+     **Correction of record, round 4.** The round-3 wording of this
+     sentence — "a well-formed record is already admitted under any
+     name" — was too broad and is false as written. The confirmation
+     branch DOES declare one named `host_identity` property,
+     `observed_architecture`, which adds a status-gated value constraint
+     on top of the field-record shape: when `status` is `OBSERVED` or
+     `BOUND` it requires `value` and pins it to `x86_64`. Probed all four
+     ways against the canonical schema: `BOUND`/`arm64` fails with `at
+     '/host_identity/observed_architecture/value': value must be
+     'x86_64'`; `BOUND`/`x86_64` returns 0; `BOUND` with no `value` fails
+     with `missing property 'value'`; `NOT_MEASURED` returns 0, so the
+     constraint really is status-gated. What is demonstrated here is
+     therefore limited to previously UNDECLARED names, such as the three
+     probed.
    - **Making one MANDATORY — enrolling it on the completion meter —
      DOES need a schema change.** `required_binding_fields` is pinned
      by an EXACT 23-item `const` in the confirmation branch of
@@ -165,21 +184,63 @@ value is never the accounting method).
      `at '/required_binding_fields': 'const' failed`. Extending that
      `const` to 26 entries made the same document validate with 0
      failures, so the `const` is exactly the schema blocker.
-   Mandatory enrolment therefore moves three artifacts in lockstep: the
-   `required_binding_fields` `const` in the schema,
-   `CanonicalBindingFields["confirmation"]` in
-   `internal/benchplan/validate.go` (23 entries today), and the
-   `required_binding_fields` list in `confirmation.json`. The meter is
-   code+schema truth and fails when they disagree — PROBE: the
-   26-entry document metered as "declares 26 required binding fields;
-   the canonical confirmation list has 23". A fourth edit is needed only
-   if the RECORD'S PRESENCE is to be schema-enforced rather than only
-   meter-enforced: with the `const` extended but the three records
-   absent, the schema returned 0 failures and only the meter objected;
-   adding the names to the confirmation branch's `host_identity.required`
-   list produced `missing properties 'scaling_driver', 'smt_state',
-   'turbo_visibility'`. None of this is done: nothing records, requires,
-   or checks these facts today, and the extension is still outstanding.
+   Mandatory enrolment moves SEVEN edit sites across FIVE files in
+   lockstep.
+   **Correction of record, round 4.** The round-3 revision of this
+   sentence listed only the first three below and called them "three
+   artifacts in lockstep". That inventory was incomplete: it named three
+   of the seven sites, omitting four hard-coded counts that the build
+   itself enforces. The list below was produced by EXECUTING the
+   enrolment — extending the `const`,
+   `CanonicalBindingFields["confirmation"]` and `confirmation.json`
+   together and then reading which tests fail — rather than by
+   enumerating the sites from memory:
+   1. the `required_binding_fields` `const` in the schema's confirmation
+      branch (23 entries today);
+   2. `CanonicalBindingFields["confirmation"]` in
+      `internal/benchplan/validate.go` (23 entries today), at the SAME
+      INDEX as the document's list — the meter compares the two
+      positionally, so inserting into one and appending to the other
+      reported `METER_TAMPERED` even with both at 26 entries;
+   3. the `required_binding_fields` list in `confirmation.json`, PLUS the
+      three `host_identity` field records themselves, since the meter
+      fails a canonical field that has no record;
+   4. `internal/benchplan/validate_test.go`, the hard-coded
+      `len(CanonicalBindingFields["confirmation"]) != 23`
+      (`TestCanonicalBindingFieldListsAreTheFrozenShapes`);
+   5. `internal/benchplan/validate_test.go`, the hard-coded
+      `confirmationUnbound != 17`
+      (`TestVerifyShrunkenMeterIsMeterTampered`);
+   6. `internal/benchplan/validate_test.go`, the hard-coded
+      `len(report.UnboundFields) != 24`
+      (`TestVerifyRealTreeReportsOnlyHostBindingPending`);
+   7. `cmd/benchplanctl/main_test.go`, the literal expected line `binding
+      completion meter: 24 field(s) unbound`
+      (`TestVerifyOnRealTreeExitsHostBindingPending`).
+   Items 4–7 are CONDITIONAL on the enrolled records' status, and both
+   halves were probed rather than reasoned: enrolling three PENDING
+   records moves 23 → 26, 17 → 20 and 24 → 27 and failed all four of
+   those tests; enrolling three already-`BOUND` records failed item 4
+   only, because the unbound counts do not move. The meter is code+schema
+   truth and fails when code and document disagree — PROBE: the 26-entry
+   document metered as "declares 26 required binding fields; the
+   canonical confirmation list has 23".
+   An EIGHTH edit is needed only if the RECORD'S PRESENCE is to be
+   schema-enforced rather than only meter-enforced: with the `const`
+   extended but the three records absent, the schema returned 0 failures
+   and only the meter objected; adding the names to the confirmation
+   branch's `host_identity.required` list produced `missing properties
+   'scaling_driver', 'smt_state', 'turbo_visibility'`.
+   Beyond those, several PROSE counts would go stale without failing any
+   test — the meter line at the top of this file,
+   `docs/us008-benchmark-pipeline.md`, `benchmarks/README.md`, the
+   `cpu_frequency_policy` notes in `confirmation.json`, and the count
+   comments in `validate_test.go`. That they are unenforced is itself an
+   observation from the probe: the full suite reported exactly the four
+   test failures above and nothing else. They are listed for completeness
+   and must be updated by hand.
+   None of this is done: nothing records, requires, or checks these facts
+   today, and the extension is still outstanding.
    **Correction of record, round 3.** Both earlier framings of this
    sentence were wrong in opposite directions and are superseded by the
    conditional above. The round-1 note in `confirmation.json` said
@@ -243,30 +304,81 @@ value is never the accounting method).
   **Third correction (round 3):** "the claim and the coverage now match"
   was still an overstatement, in the half the round-2 fix did not touch.
   Enumeration made the REJECTED side exhaustive; the ACCEPTED side stayed
-  a sample, and every accepted vector in it is printable ASCII. PROBE:
-  narrowing the schema pattern to `[!-~]` — which rejects the Go-valid
-  source `"Ω"` (U+03A9) — left that test AND the whole suite at exit 0
-  (28 ok, 0 FAIL). The gap is now closed by comparing the two ACCEPTED
-  SETS exhaustively rather than by adding vectors:
-  `TestSchemaClockSourcePatternEqualsGoOnEveryRune` extracts the pattern
-  from the canonical schema by JSON path, compiles it with the validator's
-  own regexp engine, and requires schema-accepts to equal Go-accepts for
-  all 1,112,064 valid runes (every code point except the 2,048
-  surrogates, which cannot survive JSON decoding). Two proxies make that
-  sweep affordable — the extracted pattern for the schema, and
-  `strings.TrimSpace` for the Go seam — so the test first pins each proxy
-  against its REAL seam (`ValidateSampleSetDocument` and
-  `EnforceRunValidity`) on 40 witness runes and refuses to run the sweep
-  if either proxy disagrees. Per-rune exhaustion is equivalent to
-  every-input agreement here because both rules are "some rune qualifies"
-  over a per-rune predicate: the pattern is a single unanchored character
-  class, and `TrimSpace` empties a string only if every rune is a space.
-  MUTATION: with `[!-~]` applied, the new test FAILS, reporting
-  disagreement on 1,111,945 of 1,112,064 runes with the non-ASCII
-  witnesses `U+03A9 'Ω'`, `U+20AC '€'`, `U+65E5 '日'`, `U+1F600 '😀'`
-  named in the failure; the older differential test still passes, which is
-  exactly why the two are separate. The claim in that older test's comment
-  is now scoped to what it actually covers.
+  a sample. Every accepted vector in that sample contains at least one
+  non-space rune, and every non-space rune in every one of them is
+  printable ASCII (U+0021–U+007E). PROBE: narrowing the schema pattern to
+  `[!-~]` — which rejects the Go-valid source `"Ω"` (U+03A9) but matches
+  every one of those qualifying runes — left that test AND the whole
+  suite at exit 0 (28 ok, 0 FAIL).
+  **Correction of record, round 4 (a):** the round-3 wording of the
+  preceding sentence said "every accepted vector in it is printable
+  ASCII". That is false. Most of those vectors are a NON-ASCII Unicode
+  space wrapped around `"x"` — one per `unicode.IsSpace` code point — so
+  the vectors themselves are not ASCII at all; it is the QUALIFYING
+  non-space rune that is. The distinction is the whole point, since it is
+  precisely why the `[!-~]` narrowing survived that test. The corrected
+  property is now CHECKED rather than asserted: `assertBothAccept`
+  verifies, on every vector it is given, that the vector has at least one
+  non-space rune and that every non-space rune in it is printable ASCII.
+
+  The gap is closed by comparing the two ACCEPTED SETS over the whole
+  rune domain rather than by adding vectors:
+  `TestSchemaAndGoAgreeOnClockSourceForEveryRune` requires
+  schema-accepts to equal Go-accepts for all 1,112,064 valid runes
+  (every code point except the 2,048 surrogates, which cannot survive
+  JSON decoding).
+  **Correction of record, round 4 (b):** the round-3 revision of this
+  test SAMPLED ITS OWN JOIN. It swept two proxies — the extracted
+  pattern and `strings.TrimSpace` — having pinned them against the real
+  seams on only 40 witness runes, so a schema constraint rejecting an
+  unwitnessed rune left the sweep green while the real schema and the Go
+  seam disagreed. That was reproduced before the fix: adding
+  `{"not": {"const": "ሴ"}}` (U+1234) to the source subschema left the
+  round-3 test AND the whole suite at exit 0, 28 ok, 0 FAIL.
+  The proxies are now GONE. Both sides of the sweep are the real seams:
+  the schema side compiles the canonical schema with the production
+  `compileCanonicalSchema` and reads its verdict through the production
+  `validateDecodedValue` — the same two functions
+  `ValidateSampleSetDocument` itself calls — applying the whole schema to
+  a whole document, and the Go side calls `EnforceRunValidity` directly.
+  What is elided is only the per-rune re-read and re-compile of the
+  schema FILE, and only because a temporary timing probe measured the
+  full `ValidateSampleSetDocument` path at 0.94–1.20 ms per document —
+  17–22 minutes over the domain. The sweep as written runs the domain in
+  roughly 32 s of wall time on a 14-core host, across
+  `runtime.NumCPU()` workers that each hold their own compiled schema and
+  decoded document, so nothing mutable is shared; the Go side is not
+  stood in for at all, at a measured 39–48 ns per rune. The one remaining
+  shortcut — reassigning the source leaf of a decoded document instead of
+  re-encoding it per rune — is verified per rune rather than assumed: the
+  sweep round-trips each source string through `jsonschema`'s own decoder
+  and fails if any rune does not come back identical.
+  MUTATIONS, all executed and read: with the U+1234 `not` applied the
+  fixed test FAILS, naming `U+1234 'ሴ'` as the single disagreement of
+  1,112,064; with the same constraint moved OUT of the source subschema
+  into an `allOf`/`not` on `observed_cpu_clock` it also FAILS on
+  U+1234, so the sweep catches a constraint anywhere in the schema and
+  not merely one in the subschema it used to read; and with `[!-~]`
+  applied it FAILS on 1,111,945 of 1,112,064 runes, naming `U+03A9 'Ω'`,
+  `U+1234 'ሴ'`, `U+20AC '€'`, `U+65E5 '日'` and `U+1F600 '😀'`. Under
+  that last mutation the older differential test still passes, which is
+  exactly why the two are kept separate.
+  Per-rune exhaustion lifts to every-input agreement because both rules
+  are "some rune qualifies" over a per-rune predicate: `TrimSpace`
+  empties a string only if every rune is a space, and the schema pattern
+  is a single unanchored character class. That lift is a premise about
+  the schema rather than something the sweep measures, so its premises
+  are now CHECKED: the test asserts the clock-source subschema declares
+  exactly `description`/`type`/`minLength`/`pattern` and nothing else,
+  that the pattern parses (with `regexp/syntax` under the same Perl flags
+  `regexp.Compile` uses) to a single `OpCharClass` — which has no anchors
+  and matches exactly one rune — and that no applicator keyword anywhere
+  on the containment chain from the document root down to the source can
+  attach a further subschema to that string. MUTATION: adding
+  `maxLength: 1` to the source subschema — a constraint a single-rune
+  sweep provably cannot see, since it changes no single-rune verdict —
+  FAILS this guard. The empty string, the one input with no runes, is
+  covered by the differential test above.
 
   It is **RECORD-ONLY**, exactly as the owner bound the policy: no
   threshold is applied to clock values.
@@ -332,10 +444,20 @@ value is never the accounting method).
 - **Wire the raw-sample schema into the ingestion path before any
   measured run is accepted.** The canonical raw-sample schema is not
   runtime defense today: every `ValidateSampleSetDocument` caller lives
-  in `internal/benchplan/validate_test.go`, and `DecideEndpoint` and
-  `EnforceRunValidity` likewise have no non-test production callers, so
-  `additionalProperties: false` and the clock-source pattern currently
-  constrain fixtures and tests rather than incoming data. The round-3
+  in `internal/benchplan/validate_test.go`, and `DecideEndpoint` has no
+  non-test callers at all, so `additionalProperties: false` and the
+  clock-source pattern currently constrain fixtures and tests rather than
+  incoming data.
+  **Correction of record, round 4.** The round-3 wording said
+  `EnforceRunValidity` "likewise" has no non-test callers. That is false:
+  it has exactly one, `DecideEndpoint` at
+  `internal/benchplan/decide.go:308`. The accurate statement is that
+  `DecideEndpoint` is `EnforceRunValidity`'s only non-test caller and
+  `DecideEndpoint` itself has none, so the cluster is still unreachable
+  from any production entry point — which is the conclusion that
+  actually matters here, and it survives the correction. Verified by a
+  repo-wide search for each of the three symbols across every `.go` file,
+  not by reading the package alone. The round-3
   independent reviewer was asked to rule on whether this blocks and ruled
   that it does NOT block a preregistration-only change, because no
   production measurement path exists yet — but that it MUST block any
