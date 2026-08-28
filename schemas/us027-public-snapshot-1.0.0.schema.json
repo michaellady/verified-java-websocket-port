@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.enterprise-vibe-code.local/us027-public-snapshot-1.0.0.schema.json",
+  "title": "US-027 safe local public snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schema_version", "story_id", "subject", "projection_root", "badge",
+    "mechanics_status", "acceptance_state", "child_story_count", "child_mechanics_passed",
+    "strong_child_accepted", "formal_obligations", "formal_blocked", "formal_strong_accepted",
+    "blockers", "freshness", "java_fallback", "supersession", "revocation", "publication", "replay_command"
+  ],
+  "properties": {
+    "$schema": {"const": "../schemas/us027-public-snapshot-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "story_id": {"const": "US-027"},
+    "subject": {"$ref": "#/$defs/subject"},
+    "projection_root": {"$ref": "#/$defs/digest"},
+    "badge": {"const": "OWNER_RELAXED_MECHANICS_COMPLETE_INDEPENDENCE_BLOCKED"},
+    "mechanics_status": {"const": "PASS_OWNER_RELAXED_PUBLIC_PROJECTION_MECHANICS"},
+    "acceptance_state": {"const": "INDEPENDENT_ACCEPTANCE_BLOCKED"},
+    "child_story_count": {"const": 26},
+    "child_mechanics_passed": {"const": 26},
+    "strong_child_accepted": {"const": 0},
+    "formal_obligations": {"const": 24},
+    "formal_blocked": {"const": 24},
+    "formal_strong_accepted": {"const": 0},
+    "blockers": {"type": "array", "minItems": 13, "maxItems": 13, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "freshness": {"const": "SUBJECT_PINNED_NO_EXTERNAL_FRESHNESS_AUTHORITY"},
+    "java_fallback": {"const": "RETAINED_SOURCE_NOT_EXECUTABLE_DRILLED"},
+    "supersession": {"const": "UNKNOWN_NOT_AUTHORITY_BOUND"},
+    "revocation": {"const": "UNKNOWN_NOT_AUTHORITY_BOUND"},
+    "publication": {"const": "LOCAL_FILES_ONLY_NOT_PUBLISHED"},
+    "replay_command": {"const": "go run ./cmd/projectionctl verify --root ."}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree"],
+      "properties": {
+        "commit": {"const": "98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc"},
+        "tree": {"const": "36ee700401268621aae58639185dcdc11e4c00c6"}
+      }
+    }
+  }
+}

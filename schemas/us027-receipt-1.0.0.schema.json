@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.enterprise-vibe-code.local/us027-receipt-1.0.0.schema.json",
+  "title": "US-027 owner-relaxed receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schema_version", "receipt_id", "role", "status", "provider", "model", "reasoning_effort",
+    "subject", "candidate_root", "projection_contract_sha256", "input_root_sha256",
+    "mechanics_status", "acceptance_state", "independent", "accepted", "protected_access", "assurance"
+  ],
+  "properties": {
+    "$schema": {"const": "../../schemas/us027-receipt-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "receipt_id": {"enum": ["us027.human", "us027.codex", "us027.reality"]},
+    "role": {"enum": ["HUMAN_REVIEWER", "CODEX_OWNER_REVIEW", "OWNER_REALITY_REPLAY"]},
+    "status": {"enum": ["NOT_EXECUTED", "OWNER_ATTESTATION_ONLY"]},
+    "provider": {"type": ["string", "null"], "enum": ["openai", null]},
+    "model": {"type": ["string", "null"], "enum": ["gpt-5.6-sol", null]},
+    "reasoning_effort": {"type": ["string", "null"], "enum": ["xhigh", null]},
+    "subject": {"$ref": "#/$defs/subject"},
+    "candidate_root": {"const": "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e"},
+    "projection_contract_sha256": {"const": "sha256:2bdda36812f3cbacfd913b65a122ab887d77a171f60ba7354501c8e435e0ed8f"},
+    "input_root_sha256": {"$ref": "#/$defs/digest"},
+    "mechanics_status": {"const": "PASS_OWNER_RELAXED_PUBLIC_PROJECTION_MECHANICS"},
+    "acceptance_state": {"const": "INDEPENDENT_ACCEPTANCE_BLOCKED"},
+    "independent": {"const": false},
+    "accepted": {"const": false},
+    "protected_access": {"const": false},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"role": {"const": "HUMAN_REVIEWER"}}, "required": ["role"]},
+      "then": {
+        "properties": {
+          "receipt_id": {"const": "us027.human"},
+          "status": {"const": "NOT_EXECUTED"},
+          "provider": {"const": null},
+          "model": {"const": null},
+          "reasoning_effort": {"const": null}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"role": {"const": "CODEX_OWNER_REVIEW"}}, "required": ["role"]},
+      "then": {
+        "properties": {
+          "receipt_id": {"const": "us027.codex"},
+          "status": {"const": "OWNER_ATTESTATION_ONLY"},
+          "provider": {"const": "openai"},
+          "model": {"const": "gpt-5.6-sol"},
+          "reasoning_effort": {"const": "xhigh"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"role": {"const": "OWNER_REALITY_REPLAY"}}, "required": ["role"]},
+      "then": {
+        "properties": {
+          "receipt_id": {"const": "us027.reality"},
+          "status": {"const": "OWNER_ATTESTATION_ONLY"},
+          "provider": {"const": "openai"},
+          "model": {"const": "gpt-5.6-sol"},
+          "reasoning_effort": {"const": "xhigh"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree"],
+      "properties": {
+        "commit": {"const": "98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc"},
+        "tree": {"const": "36ee700401268621aae58639185dcdc11e4c00c6"}
+      }
+    }
+  }
+}

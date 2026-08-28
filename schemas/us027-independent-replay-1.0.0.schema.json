@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.enterprise-vibe-code.local/us027-independent-replay-1.0.0.schema.json",
+  "title": "US-027 blocked independent replay mechanics",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema", "schema_version", "story_id", "subject", "candidate_root",
+    "projection_contract_sha256", "inputs", "input_root_sha256", "mechanics_status",
+    "acceptance_state", "child_story_count", "child_mechanics_passed", "strong_child_accepted",
+    "children", "formal_obligations", "formal_strong_accepted", "formal_blocked", "obligations",
+    "protected_replay", "human_review", "independent_custodian", "public_projection_root",
+    "artifacts", "blockers", "nonclaims", "assurance", "independent_review_claimed"
+  ],
+  "properties": {
+    "$schema": {"const": "../schemas/us027-independent-replay-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "story_id": {"const": "US-027"},
+    "subject": {"$ref": "#/$defs/subject"},
+    "candidate_root": {"const": "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e"},
+    "projection_contract_sha256": {"const": "sha256:2bdda36812f3cbacfd913b65a122ab887d77a171f60ba7354501c8e435e0ed8f"},
+    "inputs": {"type": "array", "minItems": 9, "maxItems": 9, "items": {"$ref": "#/$defs/binding"}},
+    "input_root_sha256": {"$ref": "#/$defs/digest"},
+    "mechanics_status": {"const": "PASS_OWNER_RELAXED_PUBLIC_PROJECTION_MECHANICS"},
+    "acceptance_state": {"const": "INDEPENDENT_ACCEPTANCE_BLOCKED"},
+    "child_story_count": {"const": 26},
+    "child_mechanics_passed": {"const": 26},
+    "strong_child_accepted": {"const": 0},
+    "children": {"type": "array", "minItems": 26, "maxItems": 26, "items": {"$ref": "#/$defs/child"}},
+    "formal_obligations": {"const": 24},
+    "formal_strong_accepted": {"const": 0},
+    "formal_blocked": {"const": 24},
+    "obligations": {"type": "array", "minItems": 24, "maxItems": 24, "items": {"$ref": "#/$defs/obligation"}},
+    "protected_replay": {"const": "NOT_EXECUTED"},
+    "human_review": {"const": "NOT_EXECUTED"},
+    "independent_custodian": {"const": "NOT_BOUND"},
+    "public_projection_root": {"$ref": "#/$defs/digest"},
+    "artifacts": {"type": "array", "minItems": 6, "maxItems": 6, "items": {"$ref": "#/$defs/artifact"}},
+    "blockers": {"type": "array", "minItems": 13, "maxItems": 13, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "nonclaims": {"type": "array", "minItems": 6, "maxItems": 6, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "tree"],
+      "properties": {
+        "commit": {"const": "98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc"},
+        "tree": {"const": "36ee700401268621aae58639185dcdc11e4c00c6"}
+      }
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 1048576}
+      }
+    },
+    "child": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["story_id", "state"],
+      "properties": {
+        "story_id": {"type": "string", "pattern": "^US-0(0[1-9]|1[0-9]|2[0-6])$"},
+        "state": {"const": "PASS_OWNER_RELAXED_CHILD_MECHANICS"}
+      }
+    },
+    "obligation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["obligation_id", "state"],
+      "properties": {
+        "obligation_id": {"type": "string", "pattern": "^(obligation|surface)\\.[a-z0-9.-]+$"},
+        "state": {"const": "BLOCKED"}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 1048576}
+      }
+    }
+  }
+}

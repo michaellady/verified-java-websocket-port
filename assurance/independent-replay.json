@@ -1,0 +1,332 @@
+{
+  "$schema": "../schemas/us027-independent-replay-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "story_id": "US-027",
+  "subject": {
+    "commit": "98ddff676fe336e22ca9ae4ee7b6f8c6c9025ddc",
+    "tree": "36ee700401268621aae58639185dcdc11e4c00c6"
+  },
+  "candidate_root": "sha256:dd96c5fb0346f736e6ddadf7848d34ceb5e4c2beefe77c1730bec6649516190e",
+  "projection_contract_sha256": "sha256:2bdda36812f3cbacfd913b65a122ab887d77a171f60ba7354501c8e435e0ed8f",
+  "inputs": [
+    {
+      "path": "contracts/laboratory-template.json",
+      "sha256": "sha256:eb8afd7c9089456c08515b3b43182a57545ef50f40b1953944f85acdae308599",
+      "bytes": 1000
+    },
+    {
+      "path": "assurance/candidate-manifest.json",
+      "sha256": "sha256:ab24fb6cbc3b811ef1d08c46c3c1b4925b03595836f5ccd65f0858fea66c9925",
+      "bytes": 227339
+    },
+    {
+      "path": "assurance/candidate-claims.json",
+      "sha256": "sha256:34803e3d1a4047f86f5e59f7097481d76aa3decf88972fb557323cb7c2906024",
+      "bytes": 23365
+    },
+    {
+      "path": "assurance/formal/obligation-catalog.json",
+      "sha256": "sha256:21112518f48443b4e20ecae537bed72b8c9e19167ad00bc6f325bff9374cdf59",
+      "bytes": 76935
+    },
+    {
+      "path": "assurance/reviews/human.json",
+      "sha256": "sha256:aa1fa303fb264a3431087f7d6fdf0390dd6c54775ca6bd99c609886da992f2c9",
+      "bytes": 857
+    },
+    {
+      "path": "assurance/reviews/codex.json",
+      "sha256": "sha256:2836daa8a54bf4019726697c820ffaf27b58aef603874c319c2042f45ad7c292",
+      "bytes": 3467
+    },
+    {
+      "path": "assurance/reviews/reality.json",
+      "sha256": "sha256:e3b74a2d4cbb0a2e535e52ae41be047f6343e39834af975d09c358e38612b02f",
+      "bytes": 976
+    },
+    {
+      "path": "evidence/cutover.json",
+      "sha256": "sha256:89a6eed774d4f7fd6146d6e5d04390e282e9f792f3bf0bff192e8eec31f79af1",
+      "bytes": 2688
+    },
+    {
+      "path": "security/release-firewall.json",
+      "sha256": "sha256:74252e3448f76d47a978df882bc6b791b5fd0f5a21b26ac4c196e6c27caa044d",
+      "bytes": 2847
+    }
+  ],
+  "input_root_sha256": "sha256:310b1f4585b8cee889d970447bba9affb362781073642428d0bb38251f59e207",
+  "mechanics_status": "PASS_OWNER_RELAXED_PUBLIC_PROJECTION_MECHANICS",
+  "acceptance_state": "INDEPENDENT_ACCEPTANCE_BLOCKED",
+  "child_story_count": 26,
+  "child_mechanics_passed": 26,
+  "strong_child_accepted": 0,
+  "children": [
+    {
+      "story_id": "US-001",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-002",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-003",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-004",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-005",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-006",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-007",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-008",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-009",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-010",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-011",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-012",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-013",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-014",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-015",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-016",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-017",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-018",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-019",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-020",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-021",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-022",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-023",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-024",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-025",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    },
+    {
+      "story_id": "US-026",
+      "state": "PASS_OWNER_RELAXED_CHILD_MECHANICS"
+    }
+  ],
+  "formal_obligations": 24,
+  "formal_strong_accepted": 0,
+  "formal_blocked": 24,
+  "obligations": [
+    {
+      "obligation_id": "obligation.checked-header-arithmetic",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "obligation.control-fin-and-length",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "obligation.length-canonical-16",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "obligation.length-canonical-64-high-bit-zero",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "obligation.length-canonical-7",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "obligation.mask-equation",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "obligation.mask-involution",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "obligation.preallocation-cap",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "obligation.role-masking",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.adapter.byte-stream",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.close.status-code",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.close.terminal-state",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.concurrency.command-order",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.control.ping-pong",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.errors.protocol-fault",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.fragmentation.continuation",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.framing.frame-octets",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.framing.masking",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.handshake.client-request",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.handshake.server-response",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.limits.allocation",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.messages.binary",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.messages.text-utf8",
+      "state": "BLOCKED"
+    },
+    {
+      "obligation_id": "surface.websocket-open",
+      "state": "BLOCKED"
+    }
+  ],
+  "protected_replay": "NOT_EXECUTED",
+  "human_review": "NOT_EXECUTED",
+  "independent_custodian": "NOT_BOUND",
+  "public_projection_root": "sha256:5dcb928035ae2f9d1f574312cf0b0f1b54e64a80c35f0f4c9f877c65e11a0975",
+  "artifacts": [
+    {
+      "path": "assurance/receipts/human.json",
+      "sha256": "sha256:6368d0d845c8c4edb537ff0a4880440da966b41e896cbffb038d700539f07db3",
+      "bytes": 930
+    },
+    {
+      "path": "assurance/receipts/codex.json",
+      "sha256": "sha256:94fbc8793036e6f0ecbfe69f581e30f6595430fbe8a07571e392a816922db54a",
+      "bytes": 960
+    },
+    {
+      "path": "assurance/receipts/reality.json",
+      "sha256": "sha256:69df255cb40ffa047607ff5d8263df28c2e11b7a51e173ba4403d9ae1e049d40",
+      "bytes": 964
+    },
+    {
+      "path": "public/formal-coverage.md",
+      "sha256": "sha256:f03bfcab5cf28aa6e813aab744c0b6b7881825b8433b5b7e869eecd5dae68153",
+      "bytes": 1311
+    },
+    {
+      "path": "public/README.md",
+      "sha256": "sha256:18243b4efb1a007d5896585c0d8b4b6a0125058ad710a21a9e4af46ed2805d9b",
+      "bytes": 319
+    },
+    {
+      "path": "public/snapshot.json",
+      "sha256": "sha256:a0a51bd3a5ab8f371d009877d59326d7647ab58ad8b55e147eca69cb99b28ba9",
+      "bytes": 1623
+    }
+  ],
+  "blockers": [
+    "CANONICAL_PRD_NOT_REPOSITORY_BOUND",
+    "INDEPENDENT_CUSTODIAN_NOT_BOUND",
+    "HUMAN_REVIEW_NOT_EXECUTED",
+    "PROTECTED_EVALUATOR_ACCESS_NOT_EXECUTED",
+    "PROVENANCE_DISTINCT_REPLAY_NOT_EXECUTED",
+    "ORIGINAL_PARITY_GATES_REMAIN_BLOCKED",
+    "STRONG_CHILD_GATE_CLOSURE_NOT_ESTABLISHED",
+    "MEASURED_RESOURCE_ENVELOPE_NOT_ACCEPTED",
+    "LIVE_CUTOVER_NOT_ACCEPTED",
+    "SIGNED_ATTESTATION_NOT_AUTHORIZED",
+    "EXTERNAL_PUBLICATION_NOT_AUTHORIZED",
+    "PRODUCTION_DEPLOYMENT_NOT_AUTHORIZED",
+    "JAVA_REMOVAL_NOT_AUTHORIZED"
+  ],
+  "nonclaims": [
+    "no provenance-distinct custodian, identity, or independent review",
+    "no human review or protected evaluator replay",
+    "no strong acceptance of all child gates or formal obligations",
+    "no measured performance or live cutover acceptance",
+    "no ACCEPTED, PUBLISHED, signed, or externally published result",
+    "no production deployment or Java removal"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false
+}
