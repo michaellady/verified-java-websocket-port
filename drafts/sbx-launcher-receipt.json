@@ -34,7 +34,7 @@
    "gcc_shim": "The driver dispatches on argv[0]: installed on PATH as `gcc` it execs the unprivileged-extracted compiler with the user prefix's -B, -isystem and -L paths. A compiled binary rather than the shell wrapper attempt 0126 disclosed, per the standing no-shell-for-logic rule."
   },
   "plane_locality_evidence": [
-   "Not one absolute path to any plane is compiled into cmd/sbxlaunch, cmd/sbxfetch or cmd/kanisbxdriver. Verified by reading the sources: the only absolute path anywhere in the attempt is the sbx binary location, and that lives in the payload DATA, not in code.",
+   "Not one absolute path to any plane is compiled into cmd/sbxlaunch, cmd/sbxfetch or cmd/kanisbxdriver. Verified mechanically: `grep -rnE '/Users/mikelady/hq/(repos|workspace)'` over the three sources returns exactly ONE hit, a doc comment in cmd/sbxlaunch quoting the Codex-plane launcher's hardcoded repoPath in order to explain why this launcher exists. It is documentation, not control flow. The only absolute path the attempt actually uses is the sbx binary location, and that lives in the payload DATA.",
    "protected/us007-sbx-launcher was READ ONLY. It was never executed, never imported, never copied and never modified.",
    "No file under workspace/orchestrator/verified-java-websocket-port/ (the Codex plane) and no file in the Codex repository was written at any point in this lane.",
    "Everything this lane produced lives under workspace/orchestrator/verified-java-websocket-port-claude/protected/us007-sbx-output-live-0129/, protected/us012-attempt-0129-owner-authorization.json, the drafts receipt, and the worktree at branch claude/sbx-launcher."
