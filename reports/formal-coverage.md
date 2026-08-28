@@ -1,6 +1,6 @@
 # US-023 formal obligation coverage
 
-Target: `869b77ce1dd06c112e99df8129a66759b4739109`  
+Target: `1ff89fa30cb0ab6ff339afd3ce486a36e9f7f325`  
 Catalog: `us023-formal-obligations`
 
 | Obligation | Java | Rust | Refinement | Mutation | Aggregate |
