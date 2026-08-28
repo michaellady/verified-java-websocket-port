@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -58,12 +59,13 @@ type Artifact struct {
 }
 
 type Subject struct {
-	Commit     string `json:"commit"`
-	Tree       string `json:"tree"`
-	RustTree   string `json:"rust_tree_sha256"`
-	CargoLock  string `json:"cargo_lock_sha256"`
-	Binary     string `json:"binary_sha256"`
-	BinarySize int64  `json:"binary_bytes"`
+	Commit                 string `json:"commit"`
+	Tree                   string `json:"tree"`
+	RustTree               string `json:"rust_tree_sha256"`
+	CargoLock              string `json:"cargo_lock_sha256"`
+	Binary                 string `json:"binary_sha256"`
+	BinarySize             int64  `json:"binary_bytes"`
+	BinaryCanonicalization string `json:"binary_canonicalization"`
 }
 
 type PairRow struct {
@@ -345,6 +347,9 @@ func runCargoBuild(ctx context.Context, root, cargo string) (Artifact, error) {
 		return Artifact{}, fmt.Errorf("cargo build: %w: %s", err, string(output))
 	}
 	path := filepath.Join(root, "rust/target/debug/websocket-testee")
+	if err := canonicalizeMachOUUID(path); err != nil {
+		return Artifact{}, err
+	}
 	raw, err := readBounded(path, 512<<20)
 	if err != nil {
 		return Artifact{}, err
@@ -352,8 +357,66 @@ func runCargoBuild(ctx context.Context, root, cargo string) (Artifact, error) {
 	return Artifact{Path: "rust/target/debug/websocket-testee", SHA256: digest(raw), Bytes: int64(len(raw))}, nil
 }
 
+func canonicalizeMachOUUID(path string) error {
+	raw, err := readBounded(path, 512<<20)
+	if err != nil {
+		return err
+	}
+	if len(raw) < 32 || binary.LittleEndian.Uint32(raw[:4]) != 0xfeedfacf {
+		return errors.New("replay binary is not a little-endian Mach-O 64 executable")
+	}
+	commands := int(binary.LittleEndian.Uint32(raw[16:20]))
+	commandBytes := int(binary.LittleEndian.Uint32(raw[20:24]))
+	if commands <= 0 || commands > 4096 || commandBytes < 8 || 32+commandBytes > len(raw) {
+		return errors.New("Mach-O load-command envelope invalid")
+	}
+	offset, uuidOffset := 32, -1
+	for range commands {
+		if offset+8 > 32+commandBytes {
+			return errors.New("Mach-O load command truncated")
+		}
+		kind := binary.LittleEndian.Uint32(raw[offset : offset+4])
+		size := int(binary.LittleEndian.Uint32(raw[offset+4 : offset+8]))
+		if size < 8 || offset+size > 32+commandBytes {
+			return errors.New("Mach-O load command size invalid")
+		}
+		if kind == 0x1b {
+			if uuidOffset >= 0 || size != 24 {
+				return errors.New("Mach-O LC_UUID denominator invalid")
+			}
+			uuidOffset = offset + 8
+		}
+		offset += size
+	}
+	if uuidOffset < 0 {
+		return errors.New("Mach-O LC_UUID absent")
+	}
+	for index := 0; index < 16; index++ {
+		raw[uuidOffset+index] = 0
+	}
+	hash := sha256.New()
+	hash.Write([]byte("us024-macho-lc-uuid-v1\x00"))
+	hash.Write(raw)
+	uuid := hash.Sum(nil)[:16]
+	uuid[6] = (uuid[6] & 0x0f) | 0x50
+	uuid[8] = (uuid[8] & 0x3f) | 0x80
+	file, err := os.OpenFile(path, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	if _, err := file.WriteAt(uuid, int64(uuidOffset)); err != nil {
+		_ = file.Close()
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		_ = file.Close()
+		return err
+	}
+	return file.Close()
+}
+
 func cargoEnvironment(root, cargo string) []string {
-	flags := "--remap-path-prefix=" + root + "=/us024/source -C codegen-units=1 -C link-arg=-Wl,-no_uuid"
+	flags := "--remap-path-prefix=" + root + "=/us024/source -C codegen-units=1"
 	return append(os.Environ(),
 		"LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "CARGO_INCREMENTAL=0", "SOURCE_DATE_EPOCH=0",
 		"RUSTC="+filepath.Join(filepath.Dir(cargo), "rustc"),
@@ -813,8 +876,8 @@ func Capture(ctx context.Context, cfg CaptureConfig) (Evidence, error) {
 	if err != nil || !bytes.Equal(beforeLock, afterLock) {
 		return Evidence{}, errors.New("Cargo.lock drift")
 	}
-	beforeSubject := Subject{Commit: cfg.BeforeCommit, Tree: beforeResolved, RustTree: beforeRust, CargoLock: digest(beforeLock), Binary: beforeBinary.SHA256, BinarySize: beforeBinary.Bytes}
-	afterSubject := Subject{Commit: cfg.AfterCommit, Tree: afterTree, RustTree: afterRust, CargoLock: digest(afterLock), Binary: afterBinary.SHA256, BinarySize: afterBinary.Bytes}
+	beforeSubject := Subject{Commit: cfg.BeforeCommit, Tree: beforeResolved, RustTree: beforeRust, CargoLock: digest(beforeLock), Binary: beforeBinary.SHA256, BinarySize: beforeBinary.Bytes, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1"}
+	afterSubject := Subject{Commit: cfg.AfterCommit, Tree: afterTree, RustTree: afterRust, CargoLock: digest(afterLock), Binary: afterBinary.SHA256, BinarySize: afterBinary.Bytes, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1"}
 
 	beforeRows, err := differential.ReplayRustPublic(ctx, differential.RustReplayConfig{RepositoryRoot: beforeRoot, Executable: filepath.Join(beforeRoot, beforeBinary.Path), ScenarioTimeout: 5 * time.Second, SuiteTimeout: 15 * time.Minute})
 	if err != nil {
@@ -895,7 +958,7 @@ func validateStatic(e Evidence) error {
 		return errors.New("subject identity drift")
 	}
 	for _, subject := range []Subject{e.Before, e.After} {
-		if !digestPattern.MatchString(subject.RustTree) || !digestPattern.MatchString(subject.CargoLock) || !digestPattern.MatchString(subject.Binary) || subject.BinarySize <= 0 {
+		if !digestPattern.MatchString(subject.RustTree) || !digestPattern.MatchString(subject.CargoLock) || !digestPattern.MatchString(subject.Binary) || subject.BinarySize <= 0 || subject.BinaryCanonicalization != "MACHO_LC_UUID_SHA256_V1" {
 			return errors.New("subject artifact identity drift")
 		}
 	}

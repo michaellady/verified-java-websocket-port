@@ -1,9 +1,12 @@
 package refinement
 
 import (
+	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -21,8 +24,8 @@ func fixture() Evidence {
 	}
 	evidence := Evidence{
 		Schema: SchemaPath, SchemaVersion: "1.0.0", StoryID: "US-024", Status: "IMPLEMENTATION_REPLAY_PASS_PENDING_REVIEW_QA_REALITY", Assurance: assurance,
-		Before:        Subject{Commit: beforeCommit, Tree: beforeTree, RustTree: fakeDigest(3), CargoLock: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", Binary: fakeDigest(4), BinarySize: 1},
-		After:         Subject{Commit: strings.Repeat("a", 40), Tree: strings.Repeat("b", 40), RustTree: fakeDigest(5), CargoLock: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", Binary: fakeDigest(6), BinarySize: 1},
+		Before:        Subject{Commit: beforeCommit, Tree: beforeTree, RustTree: fakeDigest(3), CargoLock: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", Binary: fakeDigest(4), BinarySize: 1, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1"},
+		After:         Subject{Commit: strings.Repeat("a", 40), Tree: strings.Repeat("b", 40), RustTree: fakeDigest(5), CargoLock: "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb", Binary: fakeDigest(6), BinarySize: 1, BinaryCanonicalization: "MACHO_LC_UUID_SHA256_V1"},
 		US023:         ImmutableUS023{TargetCommit: "1ff89fa30cb0ab6ff339afd3ce486a36e9f7f325", TargetTree: "dfb1950301e9680b1c47f0bd9debc0fc026d0e4f", CandidateRoot: candidateRoot, EvaluationRoot: evaluationRoot, SnapshotState: "FROZEN", ParityState: "BLOCKED", RequiredGates: 44, BlockedGates: 44, ProtectedFiles: []Artifact{artifact("assurance/candidate-manifest.json", "sha256:ab24fb6cbc3b811ef1d08c46c3c1b4925b03595836f5ccd65f0858fea66c9925"), artifact("evidence/parity-replay.json", "sha256:f2ca5d490429609977fc4782da3890e29629a9353fd5bfdc9bc6390a89c5f182"), artifact("evidence/java/behavior-delta-ledger.json", "sha256:e4800359d8a667524216b74947e43c169153406338398473221286bfbba9724a")}},
 		Membership:    Membership{Production: []Artifact{artifact("rust/websocket-driver/src/lib.rs", fakeDigest(7)), artifact("rust/websocket-driver/src/output.rs", fakeDigest(8))}, Tests: []Artifact{artifact("rust/websocket-driver/tests/refinement_contract.rs", fakeDigest(9))}, Tools: []Artifact{}},
 		PublicReplay:  PublicReplay{Kind: "FRESH_BEFORE_AFTER_PUBLIC_REPLAY", Counts: ReplayCounts{Expected: 74, Selected: 74, Executed: 74, Compared: 74, Equal: 74}, Rows: rows, ReverseAllEqual: true},
@@ -115,6 +118,41 @@ func TestCaptureRejectsDirtyOrNonGitSubjectIdentity(t *testing.T) {
 	_, err := Capture(context.Background(), CaptureConfig{RepositoryRoot: t.TempDir(), BeforeCommit: "HEAD", AfterCommit: "dirty", Cargo: "/bin/false"})
 	if err == nil {
 		t.Fatal("symbolic or dirty source identity accepted")
+	}
+}
+
+func TestMachOUUIDCanonicalizationIgnoresLinkerRandomness(t *testing.T) {
+	makeBinary := func(marker byte) []byte {
+		raw := make([]byte, 56)
+		binary.LittleEndian.PutUint32(raw[:4], 0xfeedfacf)
+		binary.LittleEndian.PutUint32(raw[16:20], 1)
+		binary.LittleEndian.PutUint32(raw[20:24], 24)
+		binary.LittleEndian.PutUint32(raw[32:36], 0x1b)
+		binary.LittleEndian.PutUint32(raw[36:40], 24)
+		for index := 40; index < 56; index++ {
+			raw[index] = marker
+		}
+		return raw
+	}
+	paths := []string{filepath.Join(t.TempDir(), "left"), filepath.Join(t.TempDir(), "right")}
+	for index, path := range paths {
+		if err := os.WriteFile(path, makeBinary(byte(index+1)), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := canonicalizeMachOUUID(path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	left, err := os.ReadFile(paths[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	right, err := os.ReadFile(paths[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(left, right) {
+		t.Fatal("canonicalized binaries retain random linker UUID bytes")
 	}
 }
 
