@@ -1,22 +1,28 @@
-# Rust workspace (enabling scaffold)
+# Rust workspace
 
 Pinned, gated, safe-Rust workspace for the verified Java -> Rust WebSocket
-port. This directory is **enabling work only**: it exists so US-009
-("Establish the safe Rust ConnectionCore contract") can start instantly when
-its dependencies unblock. **No user story is claimed complete by anything in
-this directory**, and no performance representation of any kind is made --
-compile/test correctness only.
+port. US-009 through US-018 are shipped, US-019 retains inert conformance
+readiness, US-020 provides the bounded neutral process seam, and US-024 has
+completed its owner-relaxed private output-lifecycle refinement. None of those
+facts is a parity-`READY`, independent-review, performance, publication,
+production, or cutover claim.
 
 Full context: [`../docs/rust-workspace.md`](../docs/rust-workspace.md).
+US-024's exact boundary is in
+[`../docs/us024-refinement-contract.md`](../docs/us024-refinement-contract.md).
 
 ## Layout
 
 - `rust-toolchain.toml` -- pins the intake-qualified toolchain, `1.95.0`
   (see `evidence/intake/toolchain-pins.json`).
-- `connection-core/` -- UNIMPLEMENTED placeholder for the Sans-I/O
-  `ConnectionCore` (US-009). Doc-only modules for handshake, framing,
-  control, close, and the connection state machine; zero dependencies;
-  `#![forbid(unsafe_code)]` and `#![deny(missing_docs)]`.
+- `connection-core/` -- dependency-free Sans-I/O protocol core for handshake,
+  framing, messages, fragmentation, control, close, limits, and connection
+  state.
+- `websocket-driver/` -- bounded producer queue and sole mutable
+  `ConnectionOwner`. Its private `OutputLedger` owns ordered pending output,
+  partial-write progress, batch flush facts, and undrainable-write cleanup.
+- `websocket-testee/` -- thin bounded blocking and neutral-process adapters over
+  the same driver/core behavior.
 - `Makefile` -- the PRD quality-gate commands, verbatim.
 
 ## Gates

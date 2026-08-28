@@ -35,6 +35,71 @@ that the declared internal refactor preserved the locally replayable behavior
 and evidence invariants. It must coexist with the explicit blockers described
 below.
 
+## Shipped result
+
+US-024 completed its owner-relaxed mechanics at repository head
+`603ef0fdd5bb3f114d95b09e7282ee2a74c8e60a`. The implementation subject is
+`579aa003760e6eac6a98d1d394fd07b81f447451`: `ConnectionOwner` delegates the
+declared lifecycle to the private `OutputLedger`, while public declarations and
+the `ConnectionCore` contract remain unchanged. The final repository receipt
+is `evidence/refinement-replay.json` with digest
+`sha256:3482e63dd0b5e31a244bdc82d5cd491ebeb3c22e5b345b434d709d1d27463853`.
+It rederives 74/74 equal normalized public scenarios and 34 local replay
+descriptors with 986 before and 1010 after observations.
+
+The repository receipt deliberately retains
+`IMPLEMENTATION_REPLAY_PASS_PENDING_REVIEW_QA_REALITY` and `NOT_EXECUTED`
+phase provenance. Executed owner review, QA, and reality receipts live in the
+HQ orchestration record rather than being self-asserted by repository evidence.
+One full review and one targeted closure closed the four blocking review
+findings. Two important nonblocking notes remain: the receipt does not bind the
+exact tool versions/digests, feature/target set, or complete effective
+environment, and the evidence rename is not followed by parent-directory
+`fsync`. Full Rust debug and release QA passed 185/185, and fresh-checkout
+reality validation rederived the exact receipt. These phases do not create
+independent review.
+
+The eight retained blockers are exactly:
+
+```text
+AUTOBAHN_AUTHORITY_CONSUMED
+HIDDEN_SEALED_NOT_EXECUTED
+FORMAL_BACKEND_NOT_EXECUTED
+FORMAL_REFINEMENT_DISCONNECTED
+CONCURRENCY_DIFFERENT_SUBJECT
+INDEPENDENT_HOST_NOT_EXECUTED
+INDEPENDENT_HUMAN_REVIEW_NOT_EXECUTED
+PRODUCTION_CUTOVER_NOT_AUTHORIZED
+```
+
+The seven retained nonclaims are exactly:
+
+```text
+no fresh Java differential comparison
+no Autobahn or Docker/wstest rerun
+no hidden or sealed confirmation
+no formal proof or equivalence
+no independent host or human review
+no performance result
+no production, publication, signing, or cutover
+```
+
+Owner-relaxed completion also retains ten planned acceptance surfaces as
+explicit coverage reductions rather than claiming they ran:
+
+```text
+successive partial plus exact-final write trace
+multiple writes from one core step plus single final flush
+event/failure adjacency around writes
+shutdown with offered and queued writes plus surviving non-write outputs
+exact byte-budget boundary plus one
+twice-normalized replay of every hostile trace
+valid swapped-binary identity canary
+dirty Git worktree canary distinct from non-Git
+limit/exclusion/mutant denominator canaries
+filesystem symlink escape canary
+```
+
 ## Correct repository layout
 
 The PRD's `crates/...` paths are stale. The real workspace is rooted at
@@ -241,6 +306,7 @@ Add focused hostile acceptance coverage in:
 
 ```text
 rust/websocket-driver/tests/refinement_contract.rs  # new
+rust/websocket-testee/tests/process.rs               # test-only race correction
 ```
 
 The evidence implementation may add or modify only these supporting surfaces:
@@ -267,6 +333,11 @@ If a blocking defect requires another file, the implementation phase must
 report it and expand the declared membership before editing. It must not hide
 the expansion in generated evidence.
 
+The accepted `rust/websocket-testee/tests/process.rs` scope expansion is
+test-only. It replaces a released-ephemeral-port race with TCP port zero so the
+existing connect-failed exit class is exercised deterministically; it does not
+change production behavior or the neutral protocol.
+
 ## Before/after replay protocol
 
 ### Git subjects
@@ -286,9 +357,30 @@ ambiguous objects, and proves each path's blob membership in its declared tree.
 Both Rust testee binaries are built from clean materializations of those exact
 trees using the same pinned Rust 1.95.0 toolchain, `Cargo.lock`, feature set,
 profile, target, and environment. The receipt records the executable SHA-256,
-byte count, tool versions/digests, command vector, exit status, and source
-commit/tree. A binary copied from another tree or rebuilt after source drift is
-blocking.
+byte count, canonicalization label, and source commit/tree; local replay rows
+record command vectors and exit/timeout/test counts. It does not bind the exact
+tool versions/digests, feature/target set, or complete effective environment,
+which remains an important nonblocking evidence limitation. A binary copied
+from another tree or rebuilt after source drift is blocking.
+
+### Deterministic Mach-O identity
+
+The shipped V2 evidence build uses the closed Cargo environment and
+`--remap-path-prefix`, one codegen unit, and stripped debug information so a
+random materialization path cannot survive in linker OSO records. Before
+signing, the verifier requires one little-endian 64-bit Mach-O executable with
+exactly one bounded `LC_UUID` and one bounded `LC_CODE_SIGNATURE`. It zeros the
+existing UUID and signature blob in the hash preimage, hashes the
+domain-separated preimage, writes the RFC 4122-compatible derived UUID, then
+ad-hoc signs with `/usr/bin/codesign` and verifies the result with
+`codesign --verify --strict`.
+
+The receipt labels this algorithm
+`MACHO_LC_UUID_SHA256_V2_CODESIG_ZERO_STRIPPED_ADHOC`. Any absent, duplicate,
+truncated, or out-of-bounds command/signature structure fails closed. Three
+isolated after-subject builds produced identical final bytes at
+`sha256:f9d0ad21b2c06d2df215b8fb378c26f0adc9c0f37f01ea842fcdecfe68cab5e7`
+and 1,371,456 bytes before the single final capture and verifier pass.
 
 ### Public behavior matrix
 

@@ -1,10 +1,14 @@
 # Rust workspace: scope, gates, and story mapping
 
 Status: **US-009 through US-018 are shipped; US-019 provides inert conformance
-readiness; US-020 adds the bounded neutral differential process seam.** The
-`rust/` workspace contains the dependency-free Sans-I/O `ConnectionCore`, the
+readiness; US-020 adds the bounded neutral differential process seam; US-024
+ships the owner-relaxed private output-lifecycle refinement.** The `rust/`
+workspace contains the dependency-free Sans-I/O `ConnectionCore`, the
 single-owner driver, and the thin blocking and one-record neutral adapters.
-No performance representation is authorized beyond compile/test correctness.
+US-024 centralizes the driver's pending-output and partial-write state in a
+private `OutputLedger` without changing public declarations or the core
+contract. No performance representation is authorized beyond compile/test
+correctness.
 
 **Explicit non-claims:**
 
@@ -70,12 +74,16 @@ pipeline stories, not this scaffold):
 | US-018 | **Complete on the current host.** `websocket-testee` provides thin bounded blocking loopback client/server adapters. |
 | US-019 | **Inert readiness only.** `harness-contract` records `READY_NO_LIVE_CONFORMANCE`; it does not execute Autobahn. |
 | US-020 | **Rust process seam implemented.** `SendFragment`, exact read-only step accounting/frame traces, real Open/Closing/Closed bootstraps, and strict one-record `NDRV1`/`NOBS1` transport. A separate differential run and receipt determine story completion. |
+| US-024 | **Owner-relaxed refinement mechanics complete.** `ConnectionOwner` delegates its private ordered-output, partial-write, flush, and undrainable-write lifecycle to `output::OutputLedger`. The 74-scenario before/after replay is equal; the original parity, protected, formal, independent, performance, and release blockers remain. |
 
 ## Current shipped state
 
 - The workspace has three first-party packages: `websocket-core`,
   `websocket-driver`, and `websocket-testee`. The only dependency edges are
   local workspace edges; there are no external crates.
+- `websocket-driver::output::OutputLedger` is private. It does not add a public
+  type, dependency, allocator, lock, thread, socket, callback, clock, unsafe
+  block, or second state machine.
 - All three packages forbid first-party unsafe code and build hooks and are
   gated through the pinned Rust toolchain.
 - US-010 and US-011 evidence lives in the two story receipts under `evidence/`.

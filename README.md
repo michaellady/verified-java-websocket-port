@@ -25,3 +25,48 @@ go vet ./...
 ```
 
 See [docs/us001-immutable-intake.md](docs/us001-immutable-intake.md) for the evidence and trust boundary.
+
+## US-024 refinement status
+
+US-024 is complete at `603ef0fdd5bb3f114d95b09e7282ee2a74c8e60a`
+for the owner-relaxed deterministic-refinement mechanics. The sole mutable
+`ConnectionOwner` now delegates its private pending-output and partial-write
+lifecycle to a private `OutputLedger`; public declarations and the
+`ConnectionCore` contract did not change. The retained replay proves 74/74
+normalized public scenarios equal and records 34 local descriptors with 986
+before and 1010 after observations. Its V2 evidence build removes path-bearing
+debug information, derives the Mach-O UUID with the prior UUID and code-signature
+blob zeroed, then ad-hoc signs and strictly verifies the executable. Three
+isolated after-subject builds were byte-identical.
+
+The repository receipt remains intentionally pending-only: executed owner
+review, QA, and reality provenance is retained outside the repository in HQ
+orchestration state. The final receipt digest is
+`sha256:3482e63dd0b5e31a244bdc82d5cd491ebeb3c22e5b345b434d709d1d27463853`.
+The maximum result is `PASS_OWNER_RELAXED_MECHANICS` under
+`OWNER_ATTESTED_NOT_INDEPENDENT` with `independent_review_claimed:false`; it is
+not parity `READY` or release readiness.
+
+The eight retained blockers are:
+
+- `AUTOBAHN_AUTHORITY_CONSUMED`
+- `HIDDEN_SEALED_NOT_EXECUTED`
+- `FORMAL_BACKEND_NOT_EXECUTED`
+- `FORMAL_REFINEMENT_DISCONNECTED`
+- `CONCURRENCY_DIFFERENT_SUBJECT`
+- `INDEPENDENT_HOST_NOT_EXECUTED`
+- `INDEPENDENT_HUMAN_REVIEW_NOT_EXECUTED`
+- `PRODUCTION_CUTOVER_NOT_AUTHORIZED`
+
+The seven retained nonclaims are:
+
+- no fresh Java differential comparison
+- no Autobahn or Docker/wstest rerun
+- no hidden or sealed confirmation
+- no formal proof or equivalence
+- no independent host or human review
+- no performance result
+- no production, publication, signing, or cutover
+
+See [docs/us024-refinement-contract.md](docs/us024-refinement-contract.md) for
+the exact refinement and evidence boundary.
