@@ -5,7 +5,7 @@
   "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
   "status": "BLOCKED_PENDING_BASELINE",
   "normative_authority": "rfc6455",
-  "head": "sha256:b7a8492493d2752b8826a5d85d817f1dc90c7d6fa644ffdeb9b4886b3e99516e",
+  "head": "sha256:a8bf37b4b9e40dd803b6d36386f5bd50e3035e1d8e51c26e6f3d04b1b4e08f11",
   "records": [
     {
       "schema_version": "1.0.0",
@@ -912,6 +912,64 @@
         "rationale": "DIVERGENCE (invalid-UTF-8 close reason vocabulary): the RFC fails with 1007; the pinned runtime surfaces a NullPointerException-class rejection with NO close code (Q12). Added beyond the three task source lists under the completeness cross-check: every behavioral quirk with an RFC counterpart is ledgered. FIDELITY EVIDENCE: quirk Q12 (rust/ws-core/src/framing.rs:536-552 strict reason decode; rust/ws-core/src/error.rs JavaRuntimeRejection doc; derive.go javaRuntimeRejection vocabulary). Pinned by rust/ws-core/tests/close_eof.rs::invalid_utf8_close_reason_is_the_java_runtime_rejection (frame consumed, no close code, no frame record). WS_CORE SITE: rust/ws-core/src/framing.rs close-reason decode (Q12); rust/ws-core/src/error.rs. SAFETY: the rejection is a typed terminal failure over a bounded (\u003c=125-byte) control payload; the invalid reason is never delivered to the application. OWNER DECISION: us010-016-ac-amendment-owner-decision-2026-08-27.json (workspace orchestrator protected store, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974, decided 2026-08-27T21:42:50Z) binds the US-010..US-016 ACs to the recorded fidelity authority and mandates this record; disposition is 'unresolved' because the frozen 1.0.0 vocabulary has no java-faithful term — the divergence is deliberately retained under JAVA_FAITHFUL_PLUS_SAFE, not resolved toward the RFC. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors."
       },
       "record_digest": "sha256:b7a8492493d2752b8826a5d85d817f1dc90c7d6fa644ffdeb9b4886b3e99516e"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 33,
+      "previous_digest": "sha256:b7a8492493d2752b8826a5d85d817f1dc90c7d6fa644ffdeb9b4886b3e99516e",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-c5429efb69d93e52fcbc5e26542b511df205a8a932c8cd3bb981d961ca00b58b",
+        "subject_ref": "semantic:org.java-websocket.websocketimpl.close-echo-wire-composition:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.5.1",
+          "rfc6455#section-7.4.1"
+        ],
+        "rfc_expectation_digest": "sha256:5b9d550bf3cf49e6c94e2867d805a3990b248b2881f2c9c072fd71ba6d64346a",
+        "rfc_value_digest": "sha256:711ddba921fa872754e30350ac3110deecd1f631785e601b6f46ac2eeaac3b75",
+        "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:close",
+        "java_observation_digest": "sha256:202f3243e56acf475f92753151199223061d8d635967852c2a1eeab6a7515c4f",
+        "java_value_digest": "sha256:090921d8c16c54eb12746cbf518d5e5a6ab1e6d85c4e99876db08b6e1086992b",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:7.3.2"
+        ],
+        "autobahn_result_digest": "sha256:203e9da746482ae1ad371ef67abcac3e3f6bc729b5521f1d781e961ed454d1e6",
+        "autobahn_value_digest": "sha256:6c7363a8d913d8697f8e9eaa0517b2e5e6faeda2b4046096206b42a1b45e84da",
+        "disagreement_digest": "sha256:c5429efb69d93e52fcbc5e26542b511df205a8a932c8cd3bb981d961ca00b58b",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (close-echo wire composition, Autobahn 7.3.2): the ingredients were already ledgered at the core-observable level — delta-d509ac380f51587105ed2fb3 (a 1-byte close payload is a VALID 1002 close) and delta-954132f2fb781974 (the echo/record carries the constructor payload [0x03,0xE8]) — but their WIRE-LEVEL COMPOSITION replied 1000 to a malformed close, which wstest scores WRONG CODE. FIDELITY EVIDENCE: quarantined Java sites above, all read in the digest-pinned 1.6.0 tree. RESOLUTION (adapter layer only): rust/ws-driver gained CloseEchoPolicy, defaulting to the shipped-Java WebSocketImplComposition, which recomposes the core's Q19 echo write into the frame WebSocketImpl.close would send (received code big-endian, then the reason), reusing the frame's own mask key so the core's deterministic client-role mask sequence is undisturbed. ws_core is UNCHANGED: its Q19/Q10 echo and every semantic event, frame record and governing close detail are byte-identical, proven by a 74/74 public-corpus run whose transcript is byte-identical (sha256 fd3f7a1c1eb0eeed0a7b214eac2dc517ab169511ce266d98280f7eff571f2326) to the merged E5 baseline. WS_CORE SITE (unchanged, cited for the layer boundary): rust/ws-core/src/connection.rs close echo arm; rust/ws-core/src/framing.rs constructor payload (Q10). PORT SITE: rust/ws-driver/src/lib.rs (CloseEchoPolicy, compose_close_echo), pinned by rust/ws-driver/tests/close_composition.rs and the end-to-end wire test rust/ws-testee/tests/loopback.rs::autobahn_7_3_2_wire_reply_is_1002_end_to_end. SAFETY: the recomposition is a bounded rewrite of one control frame (\u003c=125 bytes) under forbid(unsafe_code) with zero new dependencies; it emits no attacker-controlled bytes beyond the peer's own close reason, which shipped Java also echoes, and it leaves the core's protocol state untouched. DISPOSITION NOTE: 'unresolved' is the frozen 1.0.0 vocabulary's only retained-divergence term; under the recorded JAVA_FAITHFUL_PLUS_SAFE fidelity authority (owner decision us010-016-ac-amendment-owner-decision-2026-08-27.json, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974) the divergence is deliberately retained, not resolved toward the RFC. Basis for this record: the merged E5 receipt's own finding that the site needed one. AUTOBAHN (EXECUTED, not a nominal anchor): pinned image crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074 (suite 25.10.1), fuzzingclient mode against ws-testee, 247/247 cases executed in the merged E5 leg (evidence/rust/autobahn-e5/) and re-executed 247/247 in the E5b leg (evidence/rust/autobahn-e5b/). The Java side is the recovered server-mode qualification receipt 13-qualification-pass.json (247/247 executed, per-case BEHAVIOR STATUS CLASS ONLY — it records no behaviorClose and no close codes, so no claim is made about WHICH wstest-accepted observable live Java produced)."
+      },
+      "record_digest": "sha256:133abcb3d4ce5011f3afcfdc4e11d59ddc77af4bafce932e3c7a732207cde1f3"
+    },
+    {
+      "schema_version": "1.0.0",
+      "sequence": 34,
+      "previous_digest": "sha256:133abcb3d4ce5011f3afcfdc4e11d59ddc77af4bafce932e3c7a732207cde1f3",
+      "delta": {
+        "schema_version": "1.0.0",
+        "delta_id": "delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8",
+        "subject_ref": "semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering:provisional-v1",
+        "rfc_refs": [
+          "rfc6455#section-5.4",
+          "rfc6455#section-7.1.7"
+        ],
+        "rfc_expectation_digest": "sha256:21eb3a4cda08cf1d7034da10b70096dae95b74f9dfceace0f105fc896054df33",
+        "rfc_value_digest": "sha256:f5516d80312db4429c877bb8df8c67bc14f6fe53a09274b186f09791e9ed9861",
+        "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
+        "java_observation_digest": "sha256:1cbc61947b76d271af5cc4b34e5981830c56b676f833f7472ff89aa87dae3c7b",
+        "java_value_digest": "sha256:3cf88ecdf7ee7a0ecc54444bf3a978c2e7ddd1285797ef9c761e7da0318a3989",
+        "autobahn_refs": [
+          "autobahn-v25.10.1:5.15"
+        ],
+        "autobahn_result_digest": "sha256:957802b00d3767c8121a0005f636107125209d015969417ee85fc281f0726127",
+        "autobahn_value_digest": "sha256:174a29abf00f37816f02618da3e3584d1ed09f0020d7fd9acbcb86e9ff1a690f",
+        "disagreement_digest": "sha256:71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8",
+        "normative_authority": "rfc6455",
+        "disposition": "unresolved",
+        "rationale": "DIVERGENCE (dispatch-phase echo enqueue vs fail-before-delivery, Autobahn 5.15): the fuzzer sends a complete 2-fragment text message, a CONTINUATION frame with FIN=false where there is nothing to continue, and an unfragmented text, all in ONE chop. Java translates the whole chop first, then dispatches frame by frame, so the echo is ENQUEUED during the second fragment's dispatch and the failure path's flushAndClose write demand flushes it; the Rust adapter's typed failure lands before the completed message's Text event is delivered, so the echo is never enqueued at all. RFC 6455 7.1.7 permits immediate fail-on-violation, so the Rust side is the RFC-STRICTER behavior and Autobahn classes both as passing (OK vs NON-STRICT). MECHANISM CORRECTION (review round 2, session 01a045b9-7292-7961-9483-211103fdf53d): this record's first preimage said Java 'decodes and dispatches ONE frame at a time' and that the echo flushed BEFORE the poisoned frame was decoded. That was wrong and was corrected against the pinned source: translateFrame decodes ALL complete frames up front, so the poisoned frame is decoded first and only DISPATCHED later. FIDELITY EVIDENCE: protected e5-autobahn-receipt.json java_comparison.divergences[5.15]; per-case reports evidence/rust/autobahn-e5/cases-run1/ and evidence/rust/autobahn-e5b/cases-run1/. RELATED LEDGER RECORDS (same family, different sites): delta-b375f7126b944afad6a75453a1871d (post-payload rejection site) and delta-4e6bffb12b05856babb99a3df92f45 (consumed-bytes error sites). NOT RESOLVED IN CODE: unlike the 7.3.2 composition, this ordering lives in the adapter's drain strategy over a bounded batch, and changing it would trade an RFC-stricter observable for a Java-faithful one with no Autobahn class gain; it is recorded as a retained divergence pending an owner fidelity decision. WS_CORE SITE: rust/ws-core/src/connection.rs process_inbound (the typed failure ends the input); PORT SITES: rust/ws-driver/src/lib.rs finish_poll (a failure is surfaced without draining queued events) and rust/ws-testee/src/io_loop.rs drain loop (ProtocolFailure shuts the socket and breaks). SAFETY: failing earlier is strictly the safer of the two observables — no bytes are emitted after a detected protocol violation. DISPOSITION NOTE: 'unresolved' is the frozen 1.0.0 vocabulary's only retained-divergence term; under the recorded JAVA_FAITHFUL_PLUS_SAFE fidelity authority (owner decision us010-016-ac-amendment-owner-decision-2026-08-27.json, sha256 26849b5ea74006504d18507ac694c00e882e7fd37d4cd8c8502ea824e96ea974) the divergence is deliberately retained, not resolved toward the RFC. Basis for this record: the merged E5 receipt's own finding that the site needed one. AUTOBAHN (EXECUTED, not a nominal anchor): pinned image crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074 (suite 25.10.1), fuzzingclient mode against ws-testee, 247/247 cases executed in the merged E5 leg (evidence/rust/autobahn-e5/) and re-executed 247/247 in the E5b leg (evidence/rust/autobahn-e5b/). The Java side is the recovered server-mode qualification receipt 13-qualification-pass.json (247/247 executed, per-case BEHAVIOR STATUS CLASS ONLY — it records no behaviorClose and no close codes, so no claim is made about WHICH wstest-accepted observable live Java produced)."
+      },
+      "record_digest": "sha256:a8bf37b4b9e40dd803b6d36386f5bd50e3035e1d8e51c26e6f3d04b1b4e08f11"
     }
   ],
   "append_implementation": "hash-chained-cas",

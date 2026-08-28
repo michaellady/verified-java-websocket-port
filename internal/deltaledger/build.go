@@ -42,6 +42,17 @@ func BuildDeltas() ([]lab.BehaviorDelta, error) {
 		sort.Strings(rfcRefs)
 		autobahnRefs := append([]string(nil), definition.AutobahnRefs...)
 		sort.Strings(autobahnRefs)
+		// Records whose Autobahn refs are executed observations carry their
+		// own preimages; every other record keeps the honest non-execution
+		// markers (see Definition.AutobahnResult).
+		autobahnResult := AutobahnResultMarker
+		if definition.AutobahnResult != "" {
+			autobahnResult = definition.AutobahnResult
+		}
+		autobahnValue := AutobahnValueMarker
+		if definition.AutobahnValue != "" {
+			autobahnValue = definition.AutobahnValue
+		}
 		disagreement := lab.ObservedDisagreement{
 			SubjectRef:            "semantic:" + definition.Subject + ":provisional-v1",
 			RFCRefs:               rfcRefs,
@@ -51,8 +62,8 @@ func BuildDeltas() ([]lab.BehaviorDelta, error) {
 			JavaObservationDigest: intake.DigestBytes([]byte(definition.JavaObservation)),
 			JavaValueDigest:       intake.DigestBytes([]byte(definition.JavaValue)),
 			AutobahnRefs:          autobahnRefs,
-			AutobahnResultDigest:  intake.DigestBytes([]byte(AutobahnResultMarker)),
-			AutobahnValueDigest:   intake.DigestBytes([]byte(AutobahnValueMarker)),
+			AutobahnResultDigest:  intake.DigestBytes([]byte(autobahnResult)),
+			AutobahnValueDigest:   intake.DigestBytes([]byte(autobahnValue)),
 		}
 		digest, err := disagreement.Digest()
 		if err != nil {
