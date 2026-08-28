@@ -584,7 +584,7 @@
         "rfc6455#section-4.1",
         "rfc6455#section-4.2.2"
       ],
-      "rfc_expectation_digest": "sha256:a9a8e4d5541fe2ad6b9ebdfa91d022e88fd23dc28b485c244b46cd86f5d59a8e",
+      "rfc_expectation_digest": "sha256:daed87822896b9a6461a688669851123761579b5c604bf614106d88228d2aa88",
       "rfc_value_digest": "sha256:6df4bded27899f1fc1dd36fea6f0a38af225d5ea60f85147b459fd54cb206571",
       "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
       "java_observation_digest": "sha256:aa50ab321fe06802d9bdcb7bbb715f8d303a7ec1e77b711c3dea0a22651b7efa",
@@ -601,7 +601,7 @@
         "rfc6455#section-4.1",
         "rfc6455#section-4.2.2"
       ],
-      "rfc_expectation_digest": "sha256:a9a8e4d5541fe2ad6b9ebdfa91d022e88fd23dc28b485c244b46cd86f5d59a8e",
+      "rfc_expectation_digest": "sha256:daed87822896b9a6461a688669851123761579b5c604bf614106d88228d2aa88",
       "rfc_value_digest": "sha256:6df4bded27899f1fc1dd36fea6f0a38af225d5ea60f85147b459fd54cb206571",
       "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
       "java_observation_digest": "sha256:ff3071fc7849e6fd09f8765814fd31ff6c8acb6fe3e0e9d8fec7aa77646a0f94",
@@ -618,7 +618,7 @@
         "rfc6455#section-4.1",
         "rfc6455#section-4.2.2"
       ],
-      "rfc_expectation_digest": "sha256:a9a8e4d5541fe2ad6b9ebdfa91d022e88fd23dc28b485c244b46cd86f5d59a8e",
+      "rfc_expectation_digest": "sha256:daed87822896b9a6461a688669851123761579b5c604bf614106d88228d2aa88",
       "rfc_value_digest": "sha256:6df4bded27899f1fc1dd36fea6f0a38af225d5ea60f85147b459fd54cb206571",
       "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
       "java_observation_digest": "sha256:f186f42fa9b5923bb10e7a46ac4824e46421a3ae0d55e9acc1c2b5c54b722ad8",
@@ -722,8 +722,8 @@
       "rfc_expectation_digest": "sha256:094bb612157c62bd09284b2ceefe085ce319ed3420937f6ac76ff670b2fe6166",
       "rfc_value_digest": "sha256:64e6fa4d18cee372c778da59e6c475c6a0c1b077e9121ef3fda2ff8dfa4a0588",
       "java_ref": "java-v1.6.0:org.java_websocket.extensions.DefaultExtension:isFrameValid",
-      "java_observation_digest": "sha256:7fa082f5de9689b386e0e82e475c1d7f16f55ec6c6643adcb04ff9bcca504ed1",
-      "java_value_digest": "sha256:39aafd7fc5a994182208cd83c9acd2ef150f039c673f3d045ae74139d636aab8",
+      "java_observation_digest": "sha256:f7fbb72b25aa26ad4a3a06a4651e4324575d9234cd280154b690fb7e6bbda442",
+      "java_value_digest": "sha256:854341d82d11e3406dc331dc08d23f449899de560b9369633f061787ebc166be",
       "autobahn_refs": [
         "autobahn-v25.10.1:3.1",
         "autobahn-v25.10.1:3.2"
@@ -737,7 +737,7 @@
         "rfc6455#section-4.1",
         "rfc6455#section-4.2.1"
       ],
-      "rfc_expectation_digest": "sha256:a77f4ebffd945750a6b42dbd507d05b098b2abbff6c652e0873c667c2bc72e7c",
+      "rfc_expectation_digest": "sha256:1c1d4c21b4cd8599f0c02a8a746ce1a32611bc46ae397d5ad0d2e1402e5a0b2d",
       "rfc_value_digest": "sha256:6df4bded27899f1fc1dd36fea6f0a38af225d5ea60f85147b459fd54cb206571",
       "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
       "java_observation_digest": "sha256:e45e4a4d13bf7e64d14ada416995403fc68c2cfe7cf980f529ca51ed7eb5908b",
@@ -754,7 +754,7 @@
         "rfc6455#section-4.1",
         "rfc6455#section-4.2.1"
       ],
-      "rfc_expectation_digest": "sha256:a77f4ebffd945750a6b42dbd507d05b098b2abbff6c652e0873c667c2bc72e7c",
+      "rfc_expectation_digest": "sha256:1c1d4c21b4cd8599f0c02a8a746ce1a32611bc46ae397d5ad0d2e1402e5a0b2d",
       "rfc_value_digest": "sha256:6df4bded27899f1fc1dd36fea6f0a38af225d5ea60f85147b459fd54cb206571",
       "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
       "java_observation_digest": "sha256:2a19500cef8d705fc977563597947a649fa863495bb0ddd5c3633c7f3c43c846",
@@ -771,7 +771,7 @@
         "rfc6455#section-4.1",
         "rfc6455#section-4.2.1"
       ],
-      "rfc_expectation_digest": "sha256:a77f4ebffd945750a6b42dbd507d05b098b2abbff6c652e0873c667c2bc72e7c",
+      "rfc_expectation_digest": "sha256:1c1d4c21b4cd8599f0c02a8a746ce1a32611bc46ae397d5ad0d2e1402e5a0b2d",
       "rfc_value_digest": "sha256:6df4bded27899f1fc1dd36fea6f0a38af225d5ea60f85147b459fd54cb206571",
       "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
       "java_observation_digest": "sha256:a7c9e630d7c55987d57af0cabcad4dd69bf0b32ef9239a460c5013e64d04139f",
@@ -785,16 +785,16 @@
     {
       "subject_ref": "semantic:org.java-websocket.oracle-adapter.protocol-rejection-readystate-class:provisional-v1",
       "rfc_refs": [
-        "rfc6455#section-10.4",
         "rfc6455#section-5.2",
         "rfc6455#section-7.1.7",
+        "rfc6455#section-7.4.1",
         "rfc6455#section-8.1"
       ],
-      "rfc_expectation_digest": "sha256:7ffa2d0f459a951124fa3bda08d9f1443e677b7576610a327622068ed4d6a48a",
-      "rfc_value_digest": "sha256:6a895c23bd63c07c0e42ab6bcb4338c18166d340572a5ec645c0cc3fae5d0327",
+      "rfc_expectation_digest": "sha256:82f6f7e91a69fdd10983cc8c583a6cd667306ed98fc5e569b353c1f9d546b79c",
+      "rfc_value_digest": "sha256:23c8a58dfdc5f382bfb417992f9450fc0d88de7913aad88ba3f1c27575d06aee",
       "java_ref": "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
-      "java_observation_digest": "sha256:fb139edc0f86b9f206f8de5dac92be6fababe81eb91c795fd53081f0ae4d1e64",
-      "java_value_digest": "sha256:c572e2f6dff8fa00ae9f0d9d500d15e5d9ca1229b87b5908e0758d111ca9be29",
+      "java_observation_digest": "sha256:d7e0b25e9f97affb728d88fb5475d5a2d321a3fcf2258836ce758efb539180ad",
+      "java_value_digest": "sha256:46a68f32b55c267a1aaed02d3248471b9e613c259cd24b955102b9906bbdb000",
       "autobahn_refs": [
         "autobahn-v25.10.1:3.1",
         "autobahn-v25.10.1:5.1",
@@ -810,9 +810,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
         "rust/ws-core/tests/handshake_server.rs",
@@ -824,9 +823,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
         "rust/ws-core/tests/handshake_server.rs",
@@ -838,9 +836,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
         "rust/ws-core/tests/handshake_server.rs",
@@ -853,9 +850,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
         "rust/ws-core/tests/handshake_server.rs",
@@ -867,9 +863,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
         "rust/ws-core/tests/handshake_server.rs",
@@ -882,9 +877,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/noncanonical-key.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -897,9 +891,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
         "rust/ws-core/tests/handshake_server.rs",
@@ -912,9 +905,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/wrong-key-length.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -927,9 +919,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
         "rust/ws-core/tests/handshake_server.rs",
@@ -942,9 +933,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
         "rust/ws-core/tests/handshake_server.rs",
@@ -956,9 +946,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/invalid-header-name.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -971,9 +960,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
         "rust/ws-core/tests/handshake_server.rs",
@@ -986,9 +974,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/bare-lf.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -1001,9 +988,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/total-limit.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -1016,9 +1002,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/count-limit.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -1031,9 +1016,8 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/line-limit.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -1125,7 +1109,7 @@
     },
     {
       "subject_ref": "semantic:org.java-websocket.draft6455.buffer-limit-check-sites:provisional-v1",
-      "source_kind": "recorded-receipt-or-executed-observation",
+      "source_kind": "public-corpus-proposition-plus-pinned-java-source",
       "evidence": [
         "rust/ws-core/fuzz-seeds/us014/exact-retention.hex",
         "rust/ws-core/src/fragment.rs",
@@ -1136,7 +1120,7 @@
     },
     {
       "subject_ref": "semantic:org.java-websocket.draft6455.no-automatic-pong:provisional-v1",
-      "source_kind": "recorded-receipt-or-executed-observation",
+      "source_kind": "public-corpus-proposition-plus-pinned-java-source",
       "evidence": [
         "rust/ws-core/fuzz-seeds/us015/no-unwanted-reply.hex",
         "rust/ws-core/src/connection.rs",
@@ -1245,10 +1229,9 @@
       "subject_ref": "semantic:org.java-websocket.websocketimpl.rejected-local-close-readystate:provisional-v1",
       "source_kind": "public-corpus-proposition-plus-pinned-java-source",
       "evidence": [
-        "corpora/live/public/transcript.jsonl",
         "internal/corpora/derive.go",
         "java-oracle/src/main/java/OracleEngine.java",
-        "protected/us005-corpora/live/public/transcript.json",
+        "protected/us005-corpora/live/public/transcript.jsonl",
         "protected/us012-us016-owner-decisions-2026-08-28-formal.json",
         "rust/ws-core/src/connection.rs",
         "rust/ws-core/tests/close_eof.rs",
@@ -1360,11 +1343,8 @@
       "subject_ref": "semantic:org.java-websocket.draft6455.framing.rsv-rejection-readystate:provisional-v1",
       "source_kind": "public-corpus-proposition-plus-reference-model",
       "evidence": [
-        "corpora/live/public/transcript.jsonl",
-        "evidence/java/behavior-delta-ledger.json",
-        "evidence/oracle-hierarchy.json",
         "java-oracle/src/main/java/OracleEngine.java",
-        "protected/us005-corpora/live/public/transcript.json",
+        "protected/us005-corpora/live/public/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us012/rsv1.hex",
         "rust/ws-core/src/connection.rs",
         "rust/ws-core/src/framing.rs",
@@ -1378,10 +1358,9 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
         "protected/ledger-frozen-prefix-owner-decision-2026-08-28.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/total-limit.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -1394,10 +1373,9 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
         "protected/ledger-frozen-prefix-owner-decision-2026-08-28.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/count-limit.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -1410,10 +1388,9 @@
       "source_kind": "live-handshake-exam-case-or-borrowed-seed (server direction)",
       "evidence": [
         "corpora/handshake/cases.jsonl",
-        "corpora/live/handshake/transcript.jsonl",
         "evidence/us005-handshake-live-mapping.json",
         "protected/ledger-frozen-prefix-owner-decision-2026-08-28.json",
-        "protected/us005-corpora/live/handshake/transcript.json",
+        "protected/us005-corpora/live/handshake/transcript.jsonl",
         "rust/ws-core/fuzz-seeds/us011/line-limit.hex",
         "rust/ws-core/src/handshake/http.rs",
         "rust/ws-core/src/handshake/server.rs",
@@ -1423,18 +1400,34 @@
     },
     {
       "subject_ref": "semantic:org.java-websocket.oracle-adapter.protocol-rejection-readystate-class:provisional-v1",
-      "source_kind": "recorded-receipt-or-executed-observation",
+      "source_kind": "public-corpus-class-sweep-plus-pinned-java-source",
       "evidence": [
-        "corpora/live/public/transcript.jsonl",
         "evidence/us005-public-rfc-divergence-census.json",
         "java-oracle/src/main/java/OracleEngine.java",
-        "protected/us005-corpora/live/public/transcript.json",
+        "protected/us005-corpora/live/public/transcript.jsonl",
         "rust/ws-core/src/connection.rs",
         "rust/ws-core/src/framing.rs",
         "rust/ws-core/tests/close_eof.rs",
         "rust/ws-core/tests/frame_codec.rs",
         "us005.pub.0000",
-        "us005.pub.0005"
+        "us005.pub.0005",
+        "us005.pub.0019",
+        "us005.pub.0020",
+        "us005.pub.0029",
+        "us005.pub.0031",
+        "us005.pub.0033",
+        "us005.pub.0036",
+        "us005.pub.0039",
+        "us005.pub.0041",
+        "us005.pub.0042",
+        "us005.pub.0052",
+        "us005.pub.0056",
+        "us005.pub.0057",
+        "us005.pub.0058",
+        "us005.pub.0059",
+        "us005.pub.0065",
+        "us005.pub.0066",
+        "us005.pub.0067"
       ]
     }
   ]

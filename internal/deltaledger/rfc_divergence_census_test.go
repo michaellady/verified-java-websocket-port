@@ -1,254 +1,194 @@
 package deltaledger
 
-// The public-corpus RFC-divergence census.
+// The public-corpus RFC-divergence census: the TESTS.
 //
-// WHY IT EXISTS. The reserved-bit ready-state divergence (us005.pub.0005
+// The rules live in evidence_census.go and run inside cmd/deltaledgerctl, for
+// the reason given at the top of mapping_census_test.go. What is here is the
+// run against the committed tree, plus a discrimination test for each defect
+// review 01a0495e found and this branch reproduced by execution.
+//
+// WHY THE CENSUS EXISTS. The reserved-bit ready-state divergence (us005.pub.0005
 // /final_state) was found by a cross-plane audit reading another plane's
 // manifest by hand. No gate on this plane would have found it. Worse, once
-// found, sweeping the corpus for the same predicate showed it was not one
-// scenario but nineteen — so the hand-audit found roughly five percent of the
-// class it had stumbled into.
+// found, sweeping the corpus for the same cause showed it was not one scenario
+// but eighteen — so the hand-audit found roughly five percent of the class it
+// had stumbled into.
 //
-// This census closes that. It enumerates the public-corpus propositions where
-// the port follows the pinned Java oracle over an RFC-strict reading, and
-// requires every one to carry a ledger record. Two properties make it a gate
-// rather than a document:
-//
-//   - COMPLETENESS is re-derived, not asserted. The protocol-rejection class
-//     is swept from corpora/public/scenarios.jsonl and the live transcript on
-//     every run, so a new corpus scenario that falls in the class fails the
-//     suite until it is enrolled.
-//   - COVERAGE is enforced. Every row must name a ledger delta that actually
-//     resolves, so observing a new divergence refuses the gate until it is
-//     ledgered — the same polarity as the observed-disagreement set.
-//
-// It is deliberately sourced from OUR evidence only. The Codex plane holds a
-// comparable artifact (evidence/oracle-hierarchy.json), and making our gate
-// read it would couple the planes and let their normative choices silently
-// become ours. The two planes disagree at this exact pointer on purpose; that
-// disagreement has to stay separately auditable.
+// IT IS DELIBERATELY SOURCED FROM OUR EVIDENCE ONLY. The Codex plane holds a
+// comparable artifact, and making our gate read it would couple the planes and
+// let their normative choices silently become ours. The two planes disagree at
+// this exact pointer on purpose; that disagreement has to stay separately
+// auditable.
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"testing"
 )
 
-const censusRelativePath = "evidence/us005-public-rfc-divergence-census.json"
-
-type censusEntry struct {
-	ScenarioID           string   `json:"scenario_id"`
-	Pointer              string   `json:"pointer"`
-	Family               string   `json:"family"`
-	Class                string   `json:"class"`
-	Derivation           string   `json:"derivation"`
-	RFCClauses           []string `json:"rfc_clauses"`
-	RFCStrictExpectation string   `json:"rfc_strict_expectation"`
-	RecordedObservable   string   `json:"recorded_observable"`
-	RecordedCloseCode    int      `json:"recorded_close_code"`
-	PortFollows          string   `json:"port_follows"`
-	JavaEntryPointNote   string   `json:"java_entry_point_note"`
-	LedgerDeltaID        string   `json:"ledger_delta_id"`
-	Evidence             []string `json:"evidence"`
+func TestProtocolRejectionClassIsEnumeratedCompletely(t *testing.T) {
+	if err := VerifyProtocolRejectionClass(ledgerTestRepoRoot); err != nil {
+		t.Fatalf("protocol-rejection class: %v", err)
+	}
 }
 
-type censusDocument struct {
-	SchemaVersion string        `json:"schema_version"`
-	EvidenceKind  string        `json:"evidence_kind"`
-	Statement     string        `json:"statement"`
-	Completeness  string        `json:"completeness"`
-	Entries       []censusEntry `json:"entries"`
+func TestCensusRowsMatchTheCommittedEvidence(t *testing.T) {
+	if err := VerifyCensusRowsMatchEvidence(ledgerTestRepoRoot); err != nil {
+		t.Fatalf("census versus evidence: %v", err)
+	}
 }
 
-// protocolRejectionClass is the class whose membership is decided mechanically.
-const protocolRejectionClass = "protocol-rejection-readystate"
-
-func readCensus(t *testing.T) censusDocument {
-	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(censusRelativePath)))
-	if err != nil {
-		t.Fatalf("read %s: %v", censusRelativePath, err)
+func TestEveryCensusRowIsLedgered(t *testing.T) {
+	if err := VerifyCensusRowsAreLedgered(ledgerTestRepoRoot, Definitions()); err != nil {
+		t.Fatalf("census ledger coverage: %v", err)
 	}
-	var document censusDocument
-	if err := json.Unmarshal(raw, &document); err != nil {
-		t.Fatalf("decode %s: %v", censusRelativePath, err)
-	}
-	if document.SchemaVersion != "1.0.0" || document.EvidenceKind != "public-rfc-divergence-census" {
-		t.Fatalf("census envelope drifted: version=%q kind=%q", document.SchemaVersion, document.EvidenceKind)
-	}
-	if len(document.Entries) == 0 {
-		t.Fatalf("%s has no entries; the gate would be vacuous", censusRelativePath)
-	}
-	return document
 }
 
-type publicScenario struct {
-	ScenarioID string `json:"scenario_id"`
-	Family     string `json:"family"`
-	Expected   struct {
-		Outcome    string `json:"outcome"`
-		FinalState string `json:"final_state"`
-		Error      *struct {
-			CloseCode int `json:"close_code"`
-		} `json:"error"`
-	} `json:"expected"`
-}
-
-func readPublicScenarios(t *testing.T) []publicScenario {
-	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(ledgerTestRepoRoot, "corpora", "public", "scenarios.jsonl"))
+// TestTheClassPredicateSelectsByCauseAndNotByCloseCode is the discrimination
+// proof for review BLOCKING 4.
+//
+// The previous predicate was `outcome==error AND final_state==open AND
+// close_code in {1002,1007,1009}` — a result shape. It enrolled us005.pub.0000,
+// a locally initiated `send_close(999)` with input_bytes 0 and consumed_bytes 0.
+// RFC 6455 section 7.1.7 requires closing only where another algorithm or
+// provision requires _Fail the WebSocket Connection_, and an invalid local API
+// call is not such a provision, so the census's claim that the RFC-strict state
+// there was `closed` was wrong. That false positive is what proves
+// {1002,1007,1009} was never a principled cause boundary.
+func TestTheClassPredicateSelectsByCauseAndNotByCloseCode(t *testing.T) {
+	scenarios, err := ReadPublicScenarios(ledgerTestRepoRoot)
 	if err != nil {
 		t.Fatalf("read public corpus: %v", err)
 	}
-	var scenarios []publicScenario
-	for _, line := range strings.Split(string(raw), "\n") {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		var scenario publicScenario
-		if err := json.Unmarshal([]byte(line), &scenario); err != nil {
-			t.Fatalf("decode a public scenario: %v", err)
-		}
-		scenarios = append(scenarios, scenario)
+	byID := map[string]PublicScenario{}
+	for _, scenario := range scenarios {
+		byID[scenario.ScenarioID] = scenario
 	}
-	if len(scenarios) == 0 {
-		t.Fatal("public corpus yielded no scenarios")
-	}
-	return scenarios
-}
 
-// inProtocolRejectionClass is the sweep predicate, stated once so the census
-// artifact and this test cannot drift on what the class means.
-func inProtocolRejectionClass(scenario publicScenario) bool {
-	if scenario.Expected.Outcome != "error" || scenario.Expected.FinalState != "open" {
-		return false
+	local, exists := byID["us005.pub.0000"]
+	if !exists {
+		t.Fatal("us005.pub.0000 is missing from the public corpus; this test pins its exclusion")
 	}
-	if scenario.Expected.Error == nil {
-		return false
+	if local.Expected.Error == nil || local.Expected.Error.CloseCode != 1002 {
+		t.Fatal("us005.pub.0000 no longer carries close code 1002; the discrimination this test proves has moved")
 	}
-	switch scenario.Expected.Error.CloseCode {
-	case 1002, 1007, 1009:
-		return true
+	if local.Expected.Counts.InputBytes != 0 {
+		t.Fatalf("us005.pub.0000 now reports %d input bytes; it was the zero-inbound local-action case",
+			local.Expected.Counts.InputBytes)
 	}
-	return false
-}
+	if InProtocolRejectionClass(local) {
+		t.Fatal("the class predicate still enrolls us005.pub.0000, a locally initiated send_close(999) with no " +
+			"inbound decode; it is selecting by result shape rather than by cause")
+	}
 
-// TestProtocolRejectionClassIsEnumeratedCompletely re-derives the class from
-// the committed corpus and requires the census to enumerate exactly it. This
-// is what makes the census a live gate: a corpus scenario added tomorrow that
-// falls in the class fails here until it is enrolled and ledgered.
-func TestProtocolRejectionClassIsEnumeratedCompletely(t *testing.T) {
-	document := readCensus(t)
-	derived := map[string]bool{}
-	for _, scenario := range readPublicScenarios(t) {
-		if inProtocolRejectionClass(scenario) {
-			derived[scenario.ScenarioID] = true
-		}
+	inbound, exists := byID["us005.pub.0005"]
+	if !exists {
+		t.Fatal("us005.pub.0005 is missing from the public corpus")
 	}
-	if len(derived) == 0 {
-		t.Fatal("the sweep predicate matched nothing; it cannot be validating anything")
+	if !InProtocolRejectionClass(inbound) {
+		t.Fatal("the class predicate no longer enrolls us005.pub.0005, the founding member of the class")
 	}
-	enrolled := map[string]bool{}
-	for _, entry := range document.Entries {
-		if entry.Class == protocolRejectionClass {
-			enrolled[entry.ScenarioID] = true
-		}
-	}
-	var missing, extra []string
-	for id := range derived {
-		if !enrolled[id] {
-			missing = append(missing, id)
-		}
-	}
-	for id := range enrolled {
-		if !derived[id] {
-			extra = append(extra, id)
-		}
-	}
-	sort.Strings(missing)
-	sort.Strings(extra)
-	if len(missing) != 0 {
-		t.Errorf("public-corpus scenarios in the protocol-rejection class but ABSENT from %s: %v\n"+
-			"predicate: outcome==error AND error.close_code in {1002,1007,1009} AND final_state==open",
-			censusRelativePath, missing)
-	}
-	if len(extra) != 0 {
-		t.Errorf("%s enrolls scenarios that are NOT in the class: %v", censusRelativePath, extra)
+
+	// Non-vacuity in the other direction: a member's close code is an asserted
+	// consistency property, not a filter, so a hypothetical member carrying
+	// 1008 is still IN the class and must be dealt with rather than dropped.
+	odd := inbound
+	odd.ScenarioID = "us005.pub.9999"
+	odd.Expected.Error = &struct {
+		Code      string `json:"code"`
+		CloseCode int    `json:"close_code"`
+	}{Code: "JAVA_INVALID_DATA", CloseCode: 1008}
+	if !InProtocolRejectionClass(odd) {
+		t.Fatal("a decoder rejection carrying close code 1008 is excluded from the class; the close-code set is " +
+			"acting as a membership filter again, which is exactly the defect")
 	}
 }
 
-// TestCensusRowsMatchTheCommittedEvidence binds every row to the artifacts it
-// claims, so the census cannot drift into a story of its own.
-func TestCensusRowsMatchTheCommittedEvidence(t *testing.T) {
-	document := readCensus(t)
-	scenarios := map[string]publicScenario{}
-	for _, scenario := range readPublicScenarios(t) {
-		scenarios[scenario.ScenarioID] = scenario
+// TestCensusCoverageRefusesAnUnrelatedLedgerRecord is the discrimination proof
+// for review BLOCKING 5.
+//
+// THE ATTACK, reproduced against the previous rule and READ PASSING before the
+// fix: repoint every census row's `ledger_delta_id` at the unrelated sequence-1
+// record (a server-handshake missing-Host divergence). The old rule performed
+// set membership on delta ids, so it stayed green. The rule now requires the
+// named record's own hashed preimages to MENTION the scenario.
+func TestCensusCoverageRefusesAnUnrelatedLedgerRecord(t *testing.T) {
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(CensusRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read census: %v", err)
+		}
+		var document map[string]any
+		if err := json.Unmarshal(raw, &document); err != nil {
+			t.Fatalf("decode census: %v", err)
+		}
+		committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
+		if err != nil {
+			t.Fatalf("read committed ledger: %v", err)
+		}
+		unrelated := committed.Records[0].Delta.DeltaID
+		entries, _ := document["entries"].([]any)
+		if len(entries) == 0 {
+			t.Fatal("census has no entries to repoint")
+		}
+		for _, entry := range entries {
+			row, _ := entry.(map[string]any)
+			row["ledger_delta_id"] = unrelated
+		}
+		encoded, err := json.MarshalIndent(document, "", "  ")
+		if err != nil {
+			t.Fatalf("encode census: %v", err)
+		}
+		if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+			t.Fatalf("write census: %v", err)
+		}
+	})
+	err := VerifyCensusRowsAreLedgered(root, Definitions())
+	if err == nil {
+		t.Fatal("census coverage accepted every row pointing at an unrelated record; it is checking that SOMETHING " +
+			"exists rather than that it is the RIGHT something")
 	}
-	for _, entry := range document.Entries {
-		scenario, exists := scenarios[entry.ScenarioID]
-		if !exists {
-			t.Errorf("census cites %s, which is not in the public corpus", entry.ScenarioID)
-			continue
-		}
-		if entry.Pointer == "/final_state" && scenario.Expected.FinalState != entry.RecordedObservable {
-			t.Errorf("%s%s: census records %q but the corpus expectation is %q",
-				entry.ScenarioID, entry.Pointer, entry.RecordedObservable, scenario.Expected.FinalState)
-		}
-		if entry.Family != scenario.Family {
-			t.Errorf("%s: census family %q != corpus family %q", entry.ScenarioID, entry.Family, scenario.Family)
-		}
-		if scenario.Expected.Error != nil && entry.RecordedCloseCode != scenario.Expected.Error.CloseCode {
-			t.Errorf("%s: census close code %d != corpus close code %d",
-				entry.ScenarioID, entry.RecordedCloseCode, scenario.Expected.Error.CloseCode)
-		}
-		if strings.TrimSpace(entry.JavaEntryPointNote) == "" {
-			t.Errorf("%s: every row must carry the java_entry_point_note; flattening this divergence back into a "+
-				"binary RFC-versus-Java split is the specific misreading the note exists to prevent", entry.ScenarioID)
-		}
-		if len(entry.RFCClauses) == 0 || len(entry.Evidence) == 0 {
-			t.Errorf("%s: row names no RFC clause or no evidence", entry.ScenarioID)
-		}
+	if !strings.Contains(err.Error(), "never mention") {
+		t.Fatalf("refused, but not on the semantic binding; got: %v", err)
 	}
 }
 
-// TestEveryCensusRowIsLedgered is the coverage gate: a proposition recorded
-// here as a divergence the port retains must be disclosed in the ledger.
-func TestEveryCensusRowIsLedgered(t *testing.T) {
-	document := readCensus(t)
-	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
+// TestTheCensusNamesASchemaThatExists pins review BLOCKING 5's second half: the
+// census pointed at schemas/public-rfc-divergence-census-1.0.0.schema.json while
+// no such file existed, and the decoder ignored both `$schema` and `census_id`,
+// so the missing contract was undetectable.
+func TestTheCensusNamesASchemaThatExists(t *testing.T) {
+	document, err := ReadCensus(ledgerTestRepoRoot)
 	if err != nil {
-		t.Fatalf("read committed ledger: %v", err)
+		t.Fatalf("read census: %v", err)
 	}
-	known := map[string]bool{}
-	for _, record := range committed.Records {
-		known[record.Delta.DeltaID] = true
+	if document.CensusID == "" || document.Schema == "" {
+		t.Fatal("the census envelope no longer carries census_id and $schema")
 	}
-	uncovered := map[string][]string{}
-	for _, entry := range document.Entries {
-		if entry.LedgerDeltaID == "" {
-			t.Errorf("%s%s names no ledger record", entry.ScenarioID, entry.Pointer)
-			continue
-		}
-		if !known[entry.LedgerDeltaID] {
-			uncovered[entry.LedgerDeltaID] = append(uncovered[entry.LedgerDeltaID],
-				entry.ScenarioID+entry.Pointer)
-		}
+	if _, err := os.Stat(filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(CensusSchemaRelativePath))); err != nil {
+		t.Fatalf("the census names a schema that does not exist: %v", err)
 	}
-	if len(uncovered) != 0 {
-		var report []string
-		for delta, rows := range uncovered {
-			sort.Strings(rows)
-			report = append(report, fmt.Sprintf("  %s covers %d census row(s) but is NOT in the ledger: %s",
-				delta, len(rows), strings.Join(rows, ", ")))
+	// Discrimination: a drifted pointer must fail rather than pass.
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(CensusRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read census: %v", err)
 		}
-		sort.Strings(report)
-		t.Fatalf("census rows whose ledger record does not exist:\n%s\n"+
-			"coverage rule: every public-corpus proposition where the port follows Java over an RFC-strict reading "+
-			"must be disclosed by a ledger record.", strings.Join(report, "\n"))
+		var decoded map[string]any
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			t.Fatalf("decode census: %v", err)
+		}
+		decoded["$schema"] = "../schemas/a-contract-that-does-not-exist.schema.json"
+		encoded, _ := json.MarshalIndent(decoded, "", "  ")
+		if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+			t.Fatalf("write census: %v", err)
+		}
+	})
+	if _, err := ReadCensus(root); err == nil {
+		t.Fatal("ReadCensus accepted a census naming a schema pointer that drifted")
 	}
 }

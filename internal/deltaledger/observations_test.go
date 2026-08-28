@@ -1,16 +1,31 @@
 package deltaledger
 
-// The polarity proof for unledgered_disagreements, plus the evidence bindings
+// THE POLARITY PROOF for unledgered_disagreements, plus the evidence bindings
 // that keep the observed-disagreement set honest.
 //
 // THE POINT OF THIS FILE. A fix that yields zero because everything happens to
 // be ledgered is indistinguishable from the bug it replaces — the old field
 // yielded zero too, and could yield nothing else. So the deliverable is not
-// "the count is 0"; it is a demonstration that the count CAN be nonzero and
-// that the readiness gate refuses when it is.
-// TestUnledgeredCountReportsNonzeroAndTheReadinessGateRefuses is that
-// demonstration, and it is a committed regression test rather than a one-off
-// manual run, so re-breaking the gate into a constant fails the suite.
+// "the count is 0"; it is a demonstration that the count CAN be nonzero, for
+// BOTH failure modes it claims to report, and that the readiness gate refuses
+// when it is.
+//
+// THE PREVIOUS VERSION OF THIS FILE DID NOT DEMONSTRATE THAT, and review
+// 01a0495e (BLOCKING 2) was right about why. It hand-constructed a degraded
+// document and set `document.UnledgeredDisagreements = len(orphaned)` itself,
+// never calling BuildLedgerFile. Reverting the production assignment in
+// build.go to the literal `0` was executed on this branch before the fix and
+// READ PASSING: the whole deltaledger suite stayed green and `deltaledgerctl
+// --check` still reported ok. The tests below call BuildLedgerFileFrom — the
+// single production assignment — so that revert now fails them.
+//
+// And review BLOCKING 1 was right that even a working record-deletion proof
+// could not reach the failure that actually happened. Observations were built
+// one-per-Definition, so they were 1:1 with the records by construction and a
+// NEW divergence with no definition produced neither side. Appending a
+// `divergent: true` row to the live mapping was executed on this branch before
+// the fix and READ PASSING at count 0. TestTheCountRisesForANewlyObservedDivergence
+// is the leg that closes it, and it fails if the evidence arm is removed.
 
 import (
 	"encoding/json"
@@ -21,6 +36,48 @@ import (
 
 	"github.com/michaellady/verified-java-websocket-port/internal/lab"
 )
+
+// degradedRootArtifacts are the committed artifacts every integrity rule reads.
+// A degraded root is a copy of them, so an attack can mutate evidence without
+// touching the worktree.
+var degradedRootArtifacts = []string{
+	LedgerRelativePath,
+	ObservationsRelativePath,
+	SupersessionsRelativePath,
+	LiveMappingRelativePath,
+	CensusRelativePath,
+	CensusSchemaRelativePath,
+	HandshakeCorpusRelativePath,
+	PublicCorpusRelativePath,
+}
+
+// degradedRoot materializes a temporary repository root holding a copy of every
+// committed artifact the rules read, then applies one mutation to it. The rules
+// are then run against the REAL production entry points over that root, so a
+// discrimination test exercises the shipping code path rather than a re-stated
+// copy of it.
+func degradedRoot(t *testing.T, degrade func(root string)) string {
+	t.Helper()
+	root := t.TempDir()
+	for _, relative := range degradedRootArtifacts {
+		source := filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(relative))
+		raw, err := os.ReadFile(source)
+		if err != nil {
+			t.Fatalf("read %s: %v", relative, err)
+		}
+		target := filepath.Join(root, filepath.FromSlash(relative))
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			t.Fatalf("mkdir for %s: %v", relative, err)
+		}
+		if err := os.WriteFile(target, raw, 0o644); err != nil {
+			t.Fatalf("write %s: %v", relative, err)
+		}
+	}
+	if degrade != nil {
+		degrade(root)
+	}
+	return root
+}
 
 // TestCommittedObservationSetIsWellFormed fails closed on an empty, truncated
 // or provenance-less observation set, so the gate can never become vacuous by
@@ -46,13 +103,65 @@ func TestCommittedObservationSetIsWellFormed(t *testing.T) {
 			t.Errorf("observation %d (%s) does not digest: %v", index, observation.SubjectRef, err)
 		}
 	}
-	for index, provenance := range set.Provenance {
-		if provenance.SubjectRef != set.Observed[index].SubjectRef {
-			t.Errorf("provenance %d is for %s but observation %d is %s",
-				index, provenance.SubjectRef, index, set.Observed[index].SubjectRef)
+}
+
+// TestObservationProvenanceResolvesOnDisk is the discrimination proof for
+// review BLOCKING 7.
+//
+// The previous check required only a non-empty evidence list and a non-empty
+// source-kind string, and it passed against a committed set in which 44
+// citations named files that do not exist — including
+// `corpora/live/handshake/transcript.jsonl` and
+// `corpora/live/public/transcript.jsonl`, which the repository has never had,
+// manufactured by a regex matching mid-string inside
+// `protected/us005-corpora/live/…`, and
+// `protected/us005-corpora/live/handshake/transcript.json`, manufactured by a
+// regex truncating a `.jsonl` path.
+func TestObservationProvenanceResolvesOnDisk(t *testing.T) {
+	if err := VerifyObservationProvenance(ledgerTestRepoRoot); err != nil {
+		t.Fatalf("observation provenance: %v", err)
+	}
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(ObservationsRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read observations: %v", err)
 		}
-		if len(provenance.Evidence) == 0 || strings.TrimSpace(provenance.SourceKind) == "" {
-			t.Errorf("provenance %d (%s) names no evidence or no source kind", index, provenance.SubjectRef)
+		var document map[string]any
+		if err := json.Unmarshal(raw, &document); err != nil {
+			t.Fatalf("decode observations: %v", err)
+		}
+		provenance, _ := document["provenance"].([]any)
+		if len(provenance) == 0 {
+			t.Fatal("no provenance entries to degrade")
+		}
+		entry, _ := provenance[0].(map[string]any)
+		entry["evidence"] = []any{"evidence/a-file-that-does-not-exist.json"}
+		encoded, _ := json.MarshalIndent(document, "", "  ")
+		if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+			t.Fatalf("write observations: %v", err)
+		}
+	})
+	err := VerifyObservationProvenance(root)
+	if err == nil {
+		t.Fatal("provenance verification accepted a citation of a file that does not exist")
+	}
+	if !strings.Contains(err.Error(), "a-file-that-does-not-exist.json") {
+		t.Fatalf("refused, but not on the unresolvable citation; got: %v", err)
+	}
+}
+
+// TestObservationSourceKindFailsClosed pins that the classifier can be wrong in
+// a way something catches. Its previous `default:` arm returned a
+// plausible-sounding label for every possible subject, so misclassification was
+// unfalsifiable.
+func TestObservationSourceKindFailsClosed(t *testing.T) {
+	if observationSourceKind("org.java-websocket.some-domain-nobody-classified.thing") != "" {
+		t.Fatal("observationSourceKind still invents a label for an unrecognised subject domain")
+	}
+	for _, definition := range Definitions() {
+		if observationSourceKind(definition.Subject) == "" {
+			t.Errorf("%s has no source kind; classify its domain deliberately", definition.Subject)
 		}
 	}
 }
@@ -64,40 +173,39 @@ func TestCommittedLedgerCountsItsUnledgeredDisagreements(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read committed ledger: %v", err)
 	}
-	set, err := ReadObservations(ledgerTestRepoRoot)
-	if err != nil {
-		t.Fatalf("read observations: %v", err)
-	}
-	unledgered, err := UnledgeredSubjects(committed.Records, set.Observed)
+	subjects, demands, err := UnledgeredDisagreements(ledgerTestRepoRoot, committed.Records, Definitions())
 	if err != nil {
 		t.Fatalf("compute unledgered: %v", err)
 	}
-	if committed.UnledgeredDisagreements != len(unledgered) {
-		t.Fatalf("committed unledgered_disagreements is %d but the computation over the committed observation set says %d (%v)",
-			committed.UnledgeredDisagreements, len(unledgered), unledgered)
+	if committed.UnledgeredDisagreements != len(subjects)+len(demands) {
+		t.Fatalf("committed unledgered_disagreements is %d but the recomputation says %d (%v / %v)",
+			committed.UnledgeredDisagreements, len(subjects)+len(demands), subjects, demands)
 	}
 }
 
-// TestTheLedgerHasNoUnledgeredObservedDisagreements is the REQUIREMENT: at
-// rest, every observed disagreement must have a record. It is deliberately a
-// separate test from the computation above, because the computation being
-// correct and the count being zero are two different claims and conflating
-// them is how the original fake gate read clean.
+// TestTheLedgerHasNoUnledgeredObservedDisagreements is the REQUIREMENT: at rest,
+// every observed disagreement must have a record. It is deliberately a separate
+// test from the computation above, because the computation being correct and
+// the count being zero are two different claims, and conflating them is how the
+// original fake gate read clean.
 func TestTheLedgerHasNoUnledgeredObservedDisagreements(t *testing.T) {
 	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
 	if err != nil {
 		t.Fatalf("read committed ledger: %v", err)
 	}
-	set, err := ReadObservations(ledgerTestRepoRoot)
-	if err != nil {
-		t.Fatalf("read observations: %v", err)
-	}
-	unledgered, err := UnledgeredSubjects(committed.Records, set.Observed)
+	subjects, demands, err := UnledgeredDisagreements(ledgerTestRepoRoot, committed.Records, Definitions())
 	if err != nil {
 		t.Fatalf("compute unledgered: %v", err)
 	}
-	if len(unledgered) != 0 {
-		t.Fatalf("%d observed disagreements have no ledger record: %v", len(unledgered), unledgered)
+	if len(subjects) != 0 {
+		t.Errorf("%d observed disagreements have no ledger record: %v", len(subjects), subjects)
+	}
+	if len(demands) != 0 {
+		t.Errorf("%d evidence-derived divergences have no ledger record: %v", len(demands), demands)
+	}
+	set, err := ReadObservations(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read observations: %v", err)
 	}
 	if err := lab.DetectUnledgeredDisagreements(committed.Records, set.Observed); err != nil {
 		t.Fatalf("the lab detector disagrees with the committed ledger: %v", err)
@@ -105,9 +213,9 @@ func TestTheLedgerHasNoUnledgeredObservedDisagreements(t *testing.T) {
 }
 
 // TestUnledgeredComputationAgreesWithTheLabDetector pins that this package's
-// reporting computation and the canonical detector cannot drift apart: the
-// detector says THAT something is unledgered, this package says WHICH, and
-// they must agree on every prefix of the record chain.
+// digest-arm computation and the canonical detector cannot drift apart: the
+// detector says THAT something is unledgered, this package says WHICH, and they
+// must agree on every prefix of the record chain.
 func TestUnledgeredComputationAgreesWithTheLabDetector(t *testing.T) {
 	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
 	if err != nil {
@@ -132,77 +240,94 @@ func TestUnledgeredComputationAgreesWithTheLabDetector(t *testing.T) {
 }
 
 // TestUnledgeredCountReportsNonzeroAndTheReadinessGateRefuses IS THE POLARITY
-// PROOF, and it is the deliverable of this change.
+// PROOF FOR THE DIGEST ARM, and it goes through the production assignment.
 //
-// It removes exactly one record from the chain while the committed observation
-// set keeps that observation, and asserts three things the previous design
-// could not produce at all:
+// It builds the ledger document from the real definitions MINUS the last one,
+// with the committed observation set intact, and asserts three things:
 //
-//  1. the computed count becomes exactly 1, naming the orphaned subject;
-//  2. the ledger document that BuildLedgerFile would emit carries that nonzero
-//     value — i.e. the artifact is able to say "one disagreement is
-//     unledgered", where the old schema's `const: 0` forbade it;
+//  1. BuildLedgerFileFrom — the one place the field is assigned — emits 1;
+//  2. the serialized document carries that nonzero value, where the old
+//     schema's `const: 0` forbade it;
 //  3. internal/lab.VerifyBaselineEvidence REFUSES readiness on that document
 //     with UNLEDGERED_BEHAVIOR_DISAGREEMENT.
 //
-// Restoring the record returns the count to 0 and the gate to passing, so the
-// gate is proven to discriminate rather than merely to agree.
+// Building from the intact definitions returns the count to 0, so the gate is
+// proven to discriminate rather than merely to agree.
 func TestUnledgeredCountReportsNonzeroAndTheReadinessGateRefuses(t *testing.T) {
 	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
 	if err != nil {
 		t.Fatalf("read committed ledger: %v", err)
 	}
+	definitions := Definitions()
+	if len(definitions) < 2 {
+		t.Fatal("polarity proof needs at least two definitions")
+	}
+
+	// Baseline through the production path: the intact tree reports zero.
+	intact, err := BuildLedgerFileFrom(ledgerTestRepoRoot, committed, definitions)
+	if err != nil {
+		t.Fatalf("build the intact ledger: %v", err)
+	}
+	if intact.UnledgeredDisagreements != 0 {
+		t.Fatalf("polarity proof needs a clean baseline, the production build reports %d",
+			intact.UnledgeredDisagreements)
+	}
+
+	// Remove ONE record whose removal isolates the digest arm.
+	//
+	// The record chosen is the framing record for the non-canonical extended
+	// length, sequence 17. It is not a superseding correction, no divergent
+	// mapping row is covered by it, and no public-corpus scenario depends on it
+	// being the record that names it — so removing it orphans exactly its own
+	// committed observation and nothing else, which is what makes the expected
+	// count exactly 1 rather than a number this test would have to derive from
+	// the thing it is testing. If a future change makes it load-bearing, this
+	// test fails loudly and a different isolated record should be named here.
+	const isolated = "org.java-websocket.draft6455.framing.noncanonical-extended-length"
+	var removed Definition
+	var truncated []Definition
+	for _, definition := range definitions {
+		if definition.Subject == isolated {
+			removed = definition
+			continue
+		}
+		truncated = append(truncated, definition)
+	}
+	if removed.Subject == "" {
+		t.Fatalf("%s is no longer in the definition set; name another isolated record", isolated)
+	}
+
+	degradedDocument, err := BuildLedgerFileFrom(ledgerTestRepoRoot, committed, truncated)
+	if err != nil {
+		t.Fatalf("build the truncated ledger: %v", err)
+	}
+	if degradedDocument.UnledgeredDisagreements != 1 {
+		t.Fatalf("removing one record must make the PRODUCTION assignment emit 1, it emitted %d. If this reads 0, "+
+			"BuildLedgerFileFrom is not computing the field.", degradedDocument.UnledgeredDisagreements)
+	}
+
+	// It must be the removed subject that is orphaned, not something else.
+	subjects, demands, err := UnledgeredDisagreements(ledgerTestRepoRoot, degradedDocument.Records, truncated)
+	if err != nil {
+		t.Fatalf("compute unledgered on the truncated chain: %v", err)
+	}
+	if len(demands) != 0 {
+		t.Fatalf("removing the tail record should orphan a digest-arm observation, not an evidence demand: %v", demands)
+	}
+	if len(subjects) != 1 || subjects[0] != "semantic:"+removed.Subject+":provisional-v1" {
+		t.Fatalf("orphaned subjects are %v, expected exactly the removed definition %s", subjects, removed.Subject)
+	}
+
+	// The canonical detector must refuse the same chain.
 	set, err := ReadObservations(ledgerTestRepoRoot)
 	if err != nil {
 		t.Fatalf("read observations: %v", err)
 	}
-	if len(committed.Records) < 2 {
-		t.Fatal("polarity proof needs at least two records")
-	}
-
-	// Baseline: the intact chain reports zero.
-	intact, err := UnledgeredSubjects(committed.Records, set.Observed)
-	if err != nil {
-		t.Fatalf("compute unledgered on the intact chain: %v", err)
-	}
-	if len(intact) != 0 {
-		t.Fatalf("polarity proof needs a clean baseline, got %d unledgered: %v", len(intact), intact)
-	}
-
-	// Remove the LAST record. Removing a tail record keeps the remaining
-	// chain internally valid (each record still follows its predecessor), so
-	// the only thing that changes is coverage — which is precisely the
-	// property under test.
-	removed := committed.Records[len(committed.Records)-1]
-	truncated := committed.Records[:len(committed.Records)-1]
-
-	orphaned, err := UnledgeredSubjects(truncated, set.Observed)
-	if err != nil {
-		t.Fatalf("compute unledgered on the truncated chain: %v", err)
-	}
-	if len(orphaned) != 1 {
-		t.Fatalf("removing one record must orphan exactly one observation, got %d: %v", len(orphaned), orphaned)
-	}
-	if orphaned[0] != removed.Delta.SubjectRef {
-		t.Fatalf("orphaned subject is %s but the removed record was %s", orphaned[0], removed.Delta.SubjectRef)
-	}
-
-	// The canonical detector must refuse the same chain.
-	if err := lab.DetectUnledgeredDisagreements(truncated, set.Observed); err == nil {
+	if err := lab.DetectUnledgeredDisagreements(degradedDocument.Records, set.Observed); err == nil {
 		t.Fatal("the lab detector accepted a chain missing a record for a committed observation")
 	}
 
-	// The emitted artifact must be able to CARRY the nonzero value, and the
-	// readiness gate must refuse it. Both were impossible before: the schema
-	// pinned the field to 0 and build.go assigned that constant.
-	document := committed
-	document.Records = truncated
-	document.Head = truncated[len(truncated)-1].RecordDigest
-	document.UnledgeredDisagreements = len(orphaned)
-	if document.UnledgeredDisagreements != 1 {
-		t.Fatalf("emitted document should carry 1, carries %d", document.UnledgeredDisagreements)
-	}
-	raw, err := json.Marshal(document)
+	raw, err := json.Marshal(degradedDocument)
 	if err != nil {
 		t.Fatalf("marshal degraded ledger: %v", err)
 	}
@@ -210,14 +335,133 @@ func TestUnledgeredCountReportsNonzeroAndTheReadinessGateRefuses(t *testing.T) {
 		t.Fatal("the serialized ledger document does not carry the nonzero count")
 	}
 	assertReadinessRefusesUnledgered(t, raw)
+}
 
-	// Restoring the record returns the count to zero: the gate discriminates.
-	restored, err := UnledgeredSubjects(committed.Records, set.Observed)
+// TestTheCountRisesForANewlyObservedDivergence IS THE POLARITY PROOF FOR THE
+// EVIDENCE ARM, and it is the leg the previous design could not have.
+//
+// Review BLOCKING 1: because observations were derived one-per-Definition, a
+// divergence that no definition described produced neither an observation nor a
+// record, and the count read zero. That is exactly the G3c failure this plane
+// actually suffered — six divergent `server_response` mapping rows with no
+// record at all, while `unledgered_disagreements` read 0 throughout.
+//
+// This test appends a `divergent: true` row to a COPY of the committed live
+// mapping and requires the production build to report it. The row is invented
+// by the test, not by any definition, so nothing on the definition side can
+// make it go away.
+func TestTheCountRisesForANewlyObservedDivergence(t *testing.T) {
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(LiveMappingRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read live mapping: %v", err)
+		}
+		var document map[string]any
+		if err := json.Unmarshal(raw, &document); err != nil {
+			t.Fatalf("decode live mapping: %v", err)
+		}
+		entries, _ := document["entries"].([]any)
+		if len(entries) == 0 {
+			t.Fatal("live mapping has no entries")
+		}
+		document["entries"] = append(entries, map[string]any{
+			"direction":       "server_response",
+			"key":             "HS_LIMIT_HEADER_COUNT_NEWLY_OBSERVED",
+			"rfc_verdict":     "reject",
+			"java_observable": "conditional",
+			"divergent":       true,
+			"basis":           []any{"a divergence observed today that nobody has written a definition for"},
+		})
+		encoded, _ := json.MarshalIndent(document, "", "  ")
+		if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+			t.Fatalf("write live mapping: %v", err)
+		}
+	})
+
+	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
 	if err != nil {
-		t.Fatalf("compute unledgered after restore: %v", err)
+		t.Fatalf("read committed ledger: %v", err)
 	}
-	if len(restored) != 0 {
-		t.Fatalf("restoring the record must return the count to 0, got %d: %v", len(restored), restored)
+
+	// Sanity: the unmutated copy reports zero through the same path, so the
+	// nonzero below is the new row and not an artifact of the temp root.
+	clean := degradedRoot(t, nil)
+	cleanDocument, err := BuildLedgerFileFrom(clean, committed, Definitions())
+	if err != nil {
+		t.Fatalf("build over the clean copy: %v", err)
+	}
+	if cleanDocument.UnledgeredDisagreements != 0 {
+		t.Fatalf("the unmutated copy reports %d; the temp root is not equivalent to the worktree",
+			cleanDocument.UnledgeredDisagreements)
+	}
+
+	built, err := BuildLedgerFileFrom(root, committed, Definitions())
+	if err != nil {
+		t.Fatalf("build over the degraded copy: %v", err)
+	}
+	if built.UnledgeredDisagreements != 1 {
+		t.Fatalf("a NEWLY OBSERVED divergence with no definition left unledgered_disagreements at %d. This is the "+
+			"G3c failure mode: the field must be able to report a divergence nobody wrote down, not only a record "+
+			"someone deleted.", built.UnledgeredDisagreements)
+	}
+	_, demands, err := UnledgeredDisagreements(root, built.Records, Definitions())
+	if err != nil {
+		t.Fatalf("compute unledgered over the degraded copy: %v", err)
+	}
+	if len(demands) != 1 || !strings.Contains(demands[0].ID, "HS_LIMIT_HEADER_COUNT_NEWLY_OBSERVED") {
+		t.Fatalf("the unledgered demand is %v, expected the newly observed mapping row", demands)
+	}
+
+	raw, err := json.Marshal(built)
+	if err != nil {
+		t.Fatalf("marshal degraded ledger: %v", err)
+	}
+	assertReadinessRefusesUnledgered(t, raw)
+}
+
+// TestTheCountRisesForANewlyObservedCorpusScenario is the same proof for the
+// other evidence arm: a public-corpus scenario that falls in the
+// protocol-rejection class and that no record discusses.
+func TestTheCountRisesForANewlyObservedCorpusScenario(t *testing.T) {
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(PublicCorpusRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read public corpus: %v", err)
+		}
+		scenario := map[string]any{
+			"scenario_id": "us005.pub.0099",
+			"family":      "rsv-bit",
+			"role":        "server",
+			"tier":        "public",
+			"steps":       []any{map[string]any{"kind": "bytes", "data_base64": "oYN0s9jSCOmF"}},
+			"expected": map[string]any{
+				"outcome":     "error",
+				"final_state": "open",
+				"counts":      map[string]any{"input_bytes": 9, "consumed_bytes": 9},
+				"error":       map[string]any{"code": "JAVA_INVALID_DATA", "close_code": 1002},
+			},
+		}
+		encoded, _ := json.Marshal(scenario)
+		if err := os.WriteFile(path, append(raw, append(encoded, '\n')...), 0o644); err != nil {
+			t.Fatalf("write public corpus: %v", err)
+		}
+	})
+	committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read committed ledger: %v", err)
+	}
+	built, err := BuildLedgerFileFrom(root, committed, Definitions())
+	if err != nil {
+		t.Fatalf("build over the degraded copy: %v", err)
+	}
+	if built.UnledgeredDisagreements != 1 {
+		t.Fatalf("a new public-corpus scenario in the protocol-rejection class that no record discusses left "+
+			"unledgered_disagreements at %d", built.UnledgeredDisagreements)
+	}
+	if err := VerifyProtocolRejectionClass(root); err == nil {
+		t.Fatal("the class completeness rule accepted a corpus scenario that the census does not enroll")
 	}
 }
 

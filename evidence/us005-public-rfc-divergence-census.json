@@ -3,38 +3,15 @@
   "schema_version": "1.0.0",
   "evidence_kind": "public-rfc-divergence-census",
   "census_id": "us005-public-rfc-divergence-census",
-  "statement": "Public-corpus propositions where this port follows the pinned Java oracle over an RFC-strict reading, with the ledger record that discloses each one. It exists because the reserved-bit ready-state divergence was found by a cross-plane audit reading another plane's manifest by hand, and no gate of ours would have found it \u2014 nor the eighteen sibling instances the same mechanism produces. Rows are swept mechanically from committed evidence (the public corpus and the live pinned-Java transcript), never from another plane's artifacts: this census is deliberately independent of the Codex plane's evidence/oracle-hierarchy.json, so the two planes' normative choices stay separately auditable. Every row must carry a ledger_delta_id that resolves in evidence/java/behavior-delta-ledger.json, and internal/deltaledger enforces that, so a newly observed divergence refuses the gate until it is ledgered.",
-  "completeness": "The protocol-rejection-readystate class is COMPLETE over the 74-scenario public tier by the stated predicate, and internal/deltaledger re-derives it from the corpus on every run, so a new scenario that falls in the class fails the suite until it is enrolled here. Completeness is claimed for THAT CLASS ONLY. Other Java-over-RFC propositions exist in the corpus (consumed-byte rejection sites, error-site offsets, the absent automatic pong) and are disclosed in the ledger, but they are not swept by a mechanical predicate and this census does not claim to enumerate them.",
+  "statement": "Public-corpus propositions where this port follows the pinned Java oracle over an RFC-strict reading, with the ledger record that discloses each one. It exists because the reserved-bit ready-state divergence was found by a cross-plane audit reading another plane's manifest by hand, and no gate of ours would have found it \u2014 nor the seventeen sibling instances the same mechanism produces. Rows are swept from the committed corpus by CAUSE and every row must name a ledger record that actually discusses its scenario; internal/deltaledger.VerifyIntegrity enforces both, and cmd/deltaledgerctl --check runs it, so this is a gate rather than a document.",
+  "completeness": "The protocol-rejection-readystate class is COMPLETE over the 74-scenario public tier by the stated CAUSE predicate, and internal/deltaledger re-derives it from the corpus on every run, so a new scenario that falls in the class fails the gate until it is enrolled here and ledgered. WHAT CHANGED, and why the count went from nineteen to eighteen: the predicate used to select on error.close_code in {1002,1007,1009}, which is a RESULT SHAPE. It enrolled us005.pub.0000, a locally initiated send_close(999) with input_bytes 0 and consumed_bytes 0 \u2014 no inbound byte was ever decoded. RFC 6455 section 7.1.7 requires closing only where another algorithm or provision requires Failing the WebSocket Connection, and an invalid local API call is not such a provision, so this document's claim that the RFC-strict state there was 'closed' was wrong. That scenario is ledgered separately and correctly at ledger sequence 35, which records that the RFC behaviour remains OPEN because no Close frame was ever sent. The close-code set is now an asserted CONSISTENCY property of the class rather than its boundary: a future member carrying some other code fails the gate and forces a decision instead of being silently excluded. Completeness is claimed for THIS CLASS ONLY. Other Java-over-RFC propositions exist in the corpus (consumed-byte rejection sites, error-site offsets, the absent automatic pong) and no mechanical predicate sweeps them.",
   "entries": [
-    {
-      "scenario_id": "us005.pub.0000",
-      "pointer": "/final_state",
-      "family": "send-close-invalid-code",
-      "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
-      "rfc_clauses": [
-        "rfc6455#section-7.1.7",
-        "rfc6455#section-7.4"
-      ],
-      "rfc_strict_expectation": "closed \u2014 RFC 6455 section 7.1.7 requires Failing the WebSocket Connection on this error, which takes the endpoint out of OPEN",
-      "recorded_observable": "open",
-      "recorded_close_code": 1002,
-      "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-9dd3ab86744b6c2dc69a0452ea51ec26c5d170dc50e15b923bcb507af8a0b1ae",
-      "evidence": [
-        "corpora/public/scenarios.jsonl",
-        "protected/us005-corpora/live/public/transcript.jsonl",
-        "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
-      ]
-    },
     {
       "scenario_id": "us005.pub.0005",
       "pointer": "/final_state",
       "family": "rsv-bit",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.2",
         "rfc6455#section-7.1.7"
@@ -43,13 +20,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-af00995e9722aa7dc5f5973244129e4914e6254205e8fb8196719f088696110a",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-137c3716a7e7280172a22e7f2cd0e468a923442aec3eea765c3b36c6e7ddacac",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -57,7 +34,7 @@
       "pointer": "/final_state",
       "family": "close-code-invalid-wire",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-7.1.7",
         "rfc6455#section-7.4"
@@ -66,13 +43,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -80,7 +57,7 @@
       "pointer": "/final_state",
       "family": "control-nonfin",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.5.2",
         "rfc6455#section-5.5.3",
@@ -90,13 +67,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -104,7 +81,7 @@
       "pointer": "/final_state",
       "family": "rsv-bit",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.2",
         "rfc6455#section-7.1.7"
@@ -113,13 +90,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -127,7 +104,7 @@
       "pointer": "/final_state",
       "family": "buffer-limit-frame",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-10.4",
         "rfc6455#section-7.1.7"
@@ -136,13 +113,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1009,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -150,7 +127,7 @@
       "pointer": "/final_state",
       "family": "close-code-invalid-wire",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-7.1.7",
         "rfc6455#section-7.4"
@@ -159,13 +136,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -173,7 +150,7 @@
       "pointer": "/final_state",
       "family": "bad-opcode",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.2",
         "rfc6455#section-7.1.7"
@@ -182,13 +159,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -196,7 +173,7 @@
       "pointer": "/final_state",
       "family": "unexpected-continuation",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.4",
         "rfc6455#section-7.1.7"
@@ -205,13 +182,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -219,7 +196,7 @@
       "pointer": "/final_state",
       "family": "close-code-invalid-wire",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-7.1.7",
         "rfc6455#section-7.4"
@@ -228,13 +205,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -242,7 +219,7 @@
       "pointer": "/final_state",
       "family": "data-during-fragment",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.4",
         "rfc6455#section-7.1.7"
@@ -251,13 +228,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -265,7 +242,7 @@
       "pointer": "/final_state",
       "family": "fragment-restart",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.4",
         "rfc6455#section-7.1.7"
@@ -274,13 +251,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -288,7 +265,7 @@
       "pointer": "/final_state",
       "family": "invalid-utf8-text",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-7.1.7",
         "rfc6455#section-8.1"
@@ -297,13 +274,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1007,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -311,7 +288,7 @@
       "pointer": "/final_state",
       "family": "control-oversize",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-10.4",
         "rfc6455#section-7.1.7"
@@ -320,13 +297,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -334,7 +311,7 @@
       "pointer": "/final_state",
       "family": "rsv-bit",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.2",
         "rfc6455#section-7.1.7"
@@ -343,13 +320,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -357,7 +334,7 @@
       "pointer": "/final_state",
       "family": "control-oversize",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-10.4",
         "rfc6455#section-7.1.7"
@@ -366,13 +343,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -380,7 +357,7 @@
       "pointer": "/final_state",
       "family": "bad-opcode",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.2",
         "rfc6455#section-7.1.7"
@@ -389,13 +366,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -403,7 +380,7 @@
       "pointer": "/final_state",
       "family": "unexpected-continuation",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-5.4",
         "rfc6455#section-7.1.7"
@@ -412,13 +389,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1002,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     },
     {
@@ -426,7 +403,7 @@
       "pointer": "/final_state",
       "family": "invalid-utf8-text",
       "class": "protocol-rejection-readystate",
-      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl: outcome==error AND error.close_code in {1002,1007,1009} AND final_state=='open'. Complete over the 74-scenario public tier by that predicate.",
+      "derivation": "MECHANICAL SWEEP of corpora/public/scenarios.jsonl BY CAUSE, not by result shape: expected.outcome==error AND expected.error.code==JAVA_INVALID_DATA (the pinned Java decoder's typed rejection) AND expected.counts.input_bytes>0 (the rejection came from inbound bytes) AND expected.final_state=='open'. Complete over the 74-scenario public tier by that predicate, re-derived by internal/deltaledger.InProtocolRejectionClass on every run of cmd/deltaledgerctl --check. The earlier predicate selected on close_code in {1002,1007,1009}, a result shape, and wrongly enrolled us005.pub.0000; see this document's completeness field.",
       "rfc_clauses": [
         "rfc6455#section-7.1.7",
         "rfc6455#section-8.1"
@@ -435,13 +412,13 @@
       "recorded_observable": "open",
       "recorded_close_code": 1007,
       "port_follows": "java-adapter-path",
-      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:404-407). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
-      "ledger_delta_id": "delta-fa830ac0f66dc7d6918a7689bca1576ac10b73c4bfd38cd0da7155c6c8dab0b3",
+      "java_entry_point_note": "NOT a clean RFC-versus-Java split. Shipped WebSocketImpl.decodeFrames DOES close on this rejection (its InvalidDataException arm calls close(e) at WebSocketImpl.java:408, inside the InvalidDataException arm at WebSocketImpl.java:405-408). The oracle adapter never routes through decodeFrames \u2014 it calls draft.translateFrame directly (OracleEngine.java:343) and uses WebSocketImpl only as the processFrame listener (OracleEngine.java:387) \u2014 so the close ladder is unreachable and the ready state stays open. Both readings are Java-faithful; they are faithful to different entry points of the same pinned runtime.",
+      "ledger_delta_id": "delta-cdadfb12d8fa2707f86ff3943e7d21d0abc319f74f3e0505c58995fb3025f1fa",
       "evidence": [
         "corpora/public/scenarios.jsonl",
         "protected/us005-corpora/live/public/transcript.jsonl",
         "java-oracle/src/main/java/OracleEngine.java",
-        "WebSocketImpl.java:390-417"
+        "WebSocketImpl.java:391-419"
       ]
     }
   ]

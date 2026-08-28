@@ -85,6 +85,17 @@ func run(root string, check bool) error {
 	}
 	encoded = append(encoded, '\n')
 	path := filepath.Join(root, filepath.FromSlash(deltaledger.LedgerRelativePath))
+
+	supersessions, err := deltaledger.BuildSupersessionsDocument(built.Records)
+	if err != nil {
+		return err
+	}
+	encodedSupersessions, err := deltaledger.EncodeSupersessions(supersessions)
+	if err != nil {
+		return err
+	}
+	supersessionsPath := filepath.Join(root, filepath.FromSlash(deltaledger.SupersessionsRelativePath))
+
 	if check {
 		existing, err := os.ReadFile(path)
 		if err != nil {
@@ -94,13 +105,50 @@ func run(root string, check bool) error {
 			return fmt.Errorf("%s does not equal the deterministic regeneration (%d records, head %s)",
 				deltaledger.LedgerRelativePath, len(built.Records), built.Head)
 		}
+		existingSupersessions, err := os.ReadFile(supersessionsPath)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(existingSupersessions, encodedSupersessions) {
+			return fmt.Errorf("%s does not equal the supersession map carried by the record chain (%d link(s))",
+				deltaledger.SupersessionsRelativePath, len(supersessions.Links))
+		}
+		// THE INTEGRITY GATE. Until this call existed, every census and
+		// observation rule this repository had lived only in `_test.go` files
+		// that no release or readiness path ran (review 01a0495e, BLOCKING 3),
+		// and `--check` verified only that the ledger equalled its own
+		// regeneration — which a wrong-but-consistent pair of artifacts passes.
+		if err := deltaledger.VerifyIntegrity(root); err != nil {
+			return fmt.Errorf("ledger integrity:\n%w", err)
+		}
+		checkedDecisions, err := deltaledger.VerifyCitedOwnerDecisions()
+		if err != nil {
+			return err
+		}
 		fmt.Printf("ok: %s equals the regeneration (%d records, head %s)\n",
 			deltaledger.LedgerRelativePath, len(built.Records), built.Head)
+		fmt.Printf("ok: %s equals the chain's supersession map (%d link(s))\n",
+			deltaledger.SupersessionsRelativePath, len(supersessions.Links))
+		fmt.Printf("ok: ledger integrity verified (frozen prefix through sequence %d, observation provenance, "+
+			"handshake mapping census, protocol-rejection class, census evidence and ledger binding, supersessions, "+
+			"unledgered_disagreements recomputed = %d)\n",
+			deltaledger.FrozenPrefixSequence, built.UnledgeredDisagreements)
+		if checkedDecisions == 0 {
+			fmt.Printf("note: cited owner-decision digests were NOT recomputed; set %s to the workspace "+
+				"orchestrator protected store to recompute them\n", deltaledger.ProtectedStoreEnv)
+		} else {
+			fmt.Printf("ok: %d cited owner-decision digest(s) recomputed and matched\n", checkedDecisions)
+		}
 		return nil
 	}
 	if err := os.WriteFile(path, encoded, 0o644); err != nil {
 		return err
 	}
+	if err := os.WriteFile(supersessionsPath, encodedSupersessions, 0o644); err != nil {
+		return err
+	}
 	fmt.Printf("wrote %s: %d records, head %s\n", deltaledger.LedgerRelativePath, len(built.Records), built.Head)
+	fmt.Printf("wrote %s: %d link(s)\n", deltaledger.SupersessionsRelativePath, len(supersessions.Links))
+	fmt.Printf("unledgered_disagreements = %d\n", built.UnledgeredDisagreements)
 	return nil
 }

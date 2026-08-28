@@ -147,6 +147,14 @@ func BuildObservationSet(existing ObservationSet) (ObservationSet, error) {
 	built := existing
 	built.Observed = make([]lab.ObservedDisagreement, 0, len(deltas))
 	built.Provenance = make([]ObservationProvenance, 0, len(deltas))
+	for index, definition := range definitions {
+		if observationSourceKind(definition.Subject) == "" {
+			return ObservationSet{}, fmt.Errorf(
+				"definition %d (%s): observationSourceKind does not recognise this subject domain. Classify it "+
+					"deliberately in observations.go rather than letting a default arm invent a plausible label",
+				index, definition.Subject)
+		}
+	}
 	for index, delta := range deltas {
 		built.Observed = append(built.Observed, lab.ObservedDisagreement{
 			SubjectRef:            delta.SubjectRef,
@@ -181,8 +189,8 @@ func observationProvenanceFor(subjectRef string, definition Definition) Observat
 	text := definitionText(definition)
 	evidence := map[string]struct{}{}
 	for _, pattern := range provenancePatterns {
-		for _, match := range pattern.FindAllString(text, -1) {
-			evidence[strings.TrimRight(match, ".,;")] = struct{}{}
+		for _, match := range pattern.FindAllStringSubmatch(text, -1) {
+			evidence[strings.TrimRight(match[1], ".,;")] = struct{}{}
 		}
 	}
 	cited := make([]string, 0, len(evidence))
@@ -198,22 +206,75 @@ func observationProvenanceFor(subjectRef string, definition Definition) Observat
 }
 
 // provenancePatterns are the evidence shapes a definition can cite. Each is a
-// thing a reader can go and open.
+// thing a reader can go and open, and ResolveProvenance now requires the
+// in-repository ones to actually be there.
+//
+// TWO REGEX DEFECTS ARE FIXED HERE, both found by review BLOCKING 7 and both
+// reproduced by dumping the committed provenance and stat()ing every path:
+//
+//   - `protected/…\.json` truncated a cited `…/transcript.jsonl` into
+//     `…/transcript.json`, manufacturing 22 citations of a file that does not
+//     exist under any name. The pattern now ends `\.jsonl?` and, being greedy,
+//     keeps the `l`.
+//   - `corpora/…\.jsonl` matched MID-STRING inside
+//     `protected/us005-corpora/live/handshake/transcript.jsonl`, manufacturing
+//     22 more citations of `corpora/live/handshake/transcript.jsonl` — a path
+//     that has never existed in this repository, since `corpora/` holds only
+//     handshake/, public/, sealed/ and hidden/. Every path pattern is now
+//     preceded by a boundary group so a path may only start where a path can
+//     start, and matches are taken from the capture rather than the whole hit.
+//
+// Group 1 of every pattern is the citation.
 var provenancePatterns = []*regexp.Regexp{
-	regexp.MustCompile(`us005\.hs\.[0-9]{4}`),
-	regexp.MustCompile(`us005\.pub\.[0-9]{4}`),
-	regexp.MustCompile(`mapping-row direction=[a-z_]+ key=HS_[A-Z0-9_]+`),
-	regexp.MustCompile(`evidence/[A-Za-z0-9/_.-]+\.json`),
-	regexp.MustCompile(`protected/[A-Za-z0-9/_.-]+\.json`),
-	regexp.MustCompile(`rust/ws-core/[A-Za-z0-9/_.-]+\.(?:rs|hex)`),
-	regexp.MustCompile(`corpora/[A-Za-z0-9/_.-]+\.jsonl`),
-	regexp.MustCompile(`internal/corpora/[A-Za-z0-9_.-]+\.go`),
-	regexp.MustCompile(`java-oracle/[A-Za-z0-9/_.-]+\.java`),
+	regexp.MustCompile(`(us005\.hs\.[0-9]{4})`),
+	regexp.MustCompile(`(us005\.pub\.[0-9]{4})`),
+	regexp.MustCompile(`(mapping-row direction=[a-z_]+ key=HS_[A-Z0-9_]+)`),
+	regexp.MustCompile(`(?:^|[\s(",])(evidence/[A-Za-z0-9/_.-]+\.jsonl?)`),
+	regexp.MustCompile(`(?:^|[\s(",])(protected/[A-Za-z0-9/_.-]+\.jsonl?)`),
+	regexp.MustCompile(`(?:^|[\s(",])(rust/ws-core/[A-Za-z0-9/_.-]+\.(?:rs|hex))`),
+	regexp.MustCompile(`(?:^|[\s(",])(corpora/[A-Za-z0-9/_.-]+\.jsonl?)`),
+	regexp.MustCompile(`(?:^|[\s(",])(internal/corpora/[A-Za-z0-9_.-]+\.go)`),
+	regexp.MustCompile(`(?:^|[\s(",])(java-oracle/[A-Za-z0-9/_.-]+\.java)`),
+}
+
+// inRepositoryProvenancePrefixes are the citation prefixes that name a file
+// inside this repository, and must therefore resolve on disk.
+var inRepositoryProvenancePrefixes = []string{
+	"evidence/", "corpora/", "rust/", "internal/", "java-oracle/", "schemas/", "drafts/",
+}
+
+// ProvenanceIsResolvable reports whether one provenance citation must resolve
+// on disk, and if so whether it does.
+//
+// `protected/…` is deliberately EXEMPT and the exemption is stated rather than
+// implied: the protected store is the workspace orchestrator's immutable
+// sidecar store, which is outside this repository by design and is cited by
+// path plus sha256. Its absence from a worktree is expected; a typo in such a
+// path is therefore NOT caught here, and that residue is disclosed in
+// VerifyObservationProvenance's error text rather than papered over.
+// Non-path citations (corpus case ids, mapping-row tokens) are resolved by the
+// censuses in evidence_census.go, not here.
+func ProvenanceIsResolvable(root, citation string) (mustResolve bool, resolved bool) {
+	for _, prefix := range inRepositoryProvenancePrefixes {
+		if strings.HasPrefix(citation, prefix) {
+			_, err := os.Stat(filepath.Join(root, filepath.FromSlash(citation)))
+			return true, err == nil
+		}
+	}
+	return false, true
 }
 
 // observationSourceKind classifies an observation by the subject domain the
 // definition chose, so a reader can tell at a glance which evidence family
 // backs it.
+//
+// IT FAILS CLOSED. The previous version ended in a `default:` arm returning a
+// plausible-sounding label for anything, which review BLOCKING 7 correctly
+// identified as unfalsifiable: no subject could ever be misclassified in a way
+// a test could catch, because every subject matched. An unrecognised subject
+// domain is now an empty string, which BuildObservationSet turns into a
+// regeneration error naming the subject. Adding a new domain is a deliberate
+// act.
 func observationSourceKind(subject string) string {
 	switch {
 	case strings.Contains(subject, ".client-handshake."):
@@ -222,13 +283,67 @@ func observationSourceKind(subject string) string {
 		return "live-handshake-exam-case-or-borrowed-seed (server direction)"
 	case strings.Contains(subject, ".framing."):
 		return "public-corpus-proposition-plus-reference-model"
-	case strings.Contains(subject, "closeframe.") || strings.Contains(subject, "websocketimpl."):
+	case strings.Contains(subject, ".closeframe.") || strings.Contains(subject, ".websocketimpl."):
 		return "public-corpus-proposition-plus-pinned-java-source"
-	case strings.Contains(subject, "charsetfunctions."):
+	case strings.Contains(subject, ".charsetfunctions."):
+		return "public-corpus-proposition-plus-pinned-java-source"
+	case strings.Contains(subject, ".oracle-adapter."):
+		return "public-corpus-class-sweep-plus-pinned-java-source"
+	case strings.HasSuffix(subject, ".buffer-limit-check-sites"),
+		strings.HasSuffix(subject, ".no-automatic-pong"):
+		// Two draft6455-level propositions that are neither framing nor
+		// handshake: where the buffer-limit checks fire, and the absence of an
+		// automatic pong. Named explicitly rather than swept into a default,
+		// which is the point of the fail-closed switch.
 		return "public-corpus-proposition-plus-pinned-java-source"
 	default:
-		return "recorded-receipt-or-executed-observation"
+		return ""
 	}
+}
+
+// VerifyObservationProvenance requires every observation to name evidence, and
+// every in-repository citation to resolve on disk. The previous check required
+// only a non-empty list and a non-empty source-kind string, and passed against
+// a committed set in which 44 of the citations named files that do not exist.
+func VerifyObservationProvenance(root string) error {
+	set, err := ReadObservations(root)
+	if err != nil {
+		return err
+	}
+	var problems []string
+	for index, provenance := range set.Provenance {
+		if index >= len(set.Observed) {
+			break
+		}
+		if provenance.SubjectRef != set.Observed[index].SubjectRef {
+			problems = append(problems, fmt.Sprintf("provenance %d is for %s but observation %d is %s",
+				index, provenance.SubjectRef, index, set.Observed[index].SubjectRef))
+		}
+		if strings.TrimSpace(provenance.SourceKind) == "" {
+			problems = append(problems, fmt.Sprintf("provenance %d (%s) has no source kind; observationSourceKind "+
+				"fails closed on an unrecognised subject domain rather than inventing a plausible label",
+				index, provenance.SubjectRef))
+		}
+		if len(provenance.Evidence) == 0 {
+			problems = append(problems, fmt.Sprintf("provenance %d (%s) names no evidence", index, provenance.SubjectRef))
+			continue
+		}
+		for _, citation := range provenance.Evidence {
+			mustResolve, resolved := ProvenanceIsResolvable(root, citation)
+			if mustResolve && !resolved {
+				problems = append(problems, fmt.Sprintf("provenance %d (%s) cites %s, which does not exist",
+					index, provenance.SubjectRef, citation))
+			}
+		}
+	}
+	sort.Strings(problems)
+	if len(problems) != 0 {
+		return fmt.Errorf("observation provenance (%d problem(s)):\n  %s\n"+
+			"NOTE ON SCOPE, stated rather than implied: `protected/...` citations name the workspace orchestrator's "+
+			"immutable store, which is outside this repository by design, so a typo in one of those paths is not "+
+			"caught by this check.", len(problems), strings.Join(problems, "\n  "))
+	}
+	return nil
 }
 
 // EncodeObservations renders the observation set exactly as it is committed.

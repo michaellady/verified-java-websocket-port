@@ -93,7 +93,10 @@ func buildDeltasFrom(definitions []Definition) ([]lab.BehaviorDelta, error) {
 			DisagreementDigest:    digest,
 			NormativeAuthority:    "rfc6455",
 			Disposition:           "unresolved",
-			Rationale:             definition.Rationale,
+			// The supersession link is emitted at the HEAD of the rationale
+			// so it is inside a hashed digest preimage and a reader meets it
+			// first, rather than having to find it in later prose.
+			Rationale: supersedesPrefix(definition) + definition.Rationale,
 		}
 		if err := delta.Validate(); err != nil {
 			return nil, fmt.Errorf("definition %d (%s): %w", index, definition.Subject, err)
@@ -107,7 +110,12 @@ func buildDeltasFrom(definitions []Definition) ([]lab.BehaviorDelta, error) {
 // implementation (in a private scratch directory) and returns the verified
 // record chain and its head.
 func BuildLedger() ([]lab.BehaviorLedgerRecord, string, error) {
-	deltas, err := BuildDeltas()
+	return buildLedgerFrom(Definitions())
+}
+
+// buildLedgerFrom is BuildLedger over an explicit definition list.
+func buildLedgerFrom(definitions []Definition) ([]lab.BehaviorLedgerRecord, string, error) {
+	deltas, err := buildDeltasFrom(definitions)
 	if err != nil {
 		return nil, "", err
 	}
@@ -153,23 +161,67 @@ func BuildLedger() ([]lab.BehaviorLedgerRecord, string, error) {
 // the count honestly whatever it is, and internal/lab.VerifyBaselineEvidence
 // refuses readiness when it is nonzero.
 func BuildLedgerFile(root string, existing LedgerFile) (LedgerFile, error) {
-	records, head, err := BuildLedger()
+	return BuildLedgerFileFrom(root, existing, Definitions())
+}
+
+// BuildLedgerFileFrom is BuildLedgerFile over an EXPLICIT definition list, and
+// it is the single production assignment of unledgered_disagreements.
+//
+// The seam exists so the polarity proof can exercise THIS function rather than
+// hand-constructing a degraded document beside it. Review BLOCKING 2 reproduced
+// the previous arrangement's failure: reverting the assignment below to the
+// literal 0 left the entire deltaledger suite green and `deltaledgerctl
+// --check` passing, because the polarity test set the field itself. The tests
+// in observations_test.go now call this function with a truncated definition
+// list and with a degraded evidence root, so reverting the assignment fails
+// them.
+func BuildLedgerFileFrom(root string, existing LedgerFile, definitions []Definition) (LedgerFile, error) {
+	records, head, err := buildLedgerFrom(definitions)
 	if err != nil {
 		return LedgerFile{}, err
 	}
-	observations, err := ReadObservations(root)
-	if err != nil {
-		return LedgerFile{}, err
-	}
-	unledgered, err := UnledgeredSubjects(records, observations.Observed)
+	unledgeredSubjects, unledgeredDemands, err := UnledgeredDisagreements(root, records, definitions)
 	if err != nil {
 		return LedgerFile{}, err
 	}
 	built := existing
 	built.Head = head
 	built.Records = records
-	built.UnledgeredDisagreements = len(unledgered)
+	built.UnledgeredDisagreements = len(unledgeredSubjects) + len(unledgeredDemands)
 	return built, nil
+}
+
+// UnledgeredDisagreements is the whole measurement, in its two arms.
+//
+//   - THE DIGEST ARM (unledgeredSubjects) compares the committed
+//     observed-disagreement set against the record chain by exact disagreement
+//     digest. It reports a record that was DELETED or DRIFTED away from an
+//     observation that outlived it.
+//
+//   - THE EVIDENCE ARM (unledgeredDemands) sweeps the committed evidence
+//     artifacts for divergences and reports the ones no record is about. It
+//     reports a divergence that was NEWLY OBSERVED and never written down —
+//     the G3c failure this plane actually suffered, and the failure the digest
+//     arm alone is structurally incapable of seeing, because an observation
+//     built from the definitions can only exist where a definition already did.
+//
+// Both arms are needed. Neither subsumes the other, and the sum is the number
+// the ledger publishes and internal/lab.VerifyBaselineEvidence refuses on.
+func UnledgeredDisagreements(root string, records []lab.BehaviorLedgerRecord, definitions []Definition) (
+	unledgeredSubjects []string, unledgeredDemands []EvidenceDemand, err error) {
+	observations, err := ReadObservations(root)
+	if err != nil {
+		return nil, nil, err
+	}
+	unledgeredSubjects, err = UnledgeredSubjects(records, observations.Observed)
+	if err != nil {
+		return nil, nil, err
+	}
+	unledgeredDemands, err = UnledgeredEvidenceDemands(root, definitions)
+	if err != nil {
+		return nil, nil, err
+	}
+	return unledgeredSubjects, unledgeredDemands, nil
 }
 
 // ReadCommittedLedger decodes the committed evidence document at root.

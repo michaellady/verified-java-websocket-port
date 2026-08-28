@@ -1,252 +1,225 @@
 package deltaledger
 
-// Evidence-side census for the behavior-delta ledger.
+// Evidence-side census for the behavior-delta ledger: the TESTS.
 //
-// WHY THIS FILE EXISTS. The source-side census in ledger_test.go
-// (TestEveryShippedQuirkWithAnRFCCounterpartIsLedgered) drives coverage from
-// the Q-series quirk tokens written into rust/ws-core/src. That rule is
-// necessary but NOT sufficient, and the acceptance audit found the exact hole
-// it leaves open: a whole DIRECTION of recorded divergence can go unledgered
-// while the source-side census stays green, because the source need not carry
-// a Q-token for it at all. Concretely, every one of the sixteen original
-// handshake records cited a `client_request`-direction case (the SERVER
-// slice), no record covered the `server_response` direction (the CLIENT
-// slice), and the source-side census could not notice: the only Q-tokens in
-// rust/ws-core/src/handshake/client.rs are Q9 and Q28, and both are
-// allowlisted.
+// The RULES now live in evidence_census.go as ordinary production code, because
+// review 01a0495e (BLOCKING 3) established that a rule which exists only in a
+// `_test.go` file is not a gate — nothing in the release or readiness path ran
+// these. cmd/deltaledgerctl calls the same functions, and rust/Makefile's
+// `gates` target depends on it. What remains here is (a) running the rule
+// against the committed tree and (b) DISCRIMINATION tests: each one performs
+// the exact attack that the previous version of the rule was reproduced to
+// accept, and requires the current rule to refuse it.
 //
-// The rule below closes that hole by inverting the direction of the census.
-// It reads the committed live handshake evidence document
-// (evidence/us005-handshake-live-mapping.json) and requires that EVERY row
-// recorded there as `divergent: true` be covered by a ledger record —
-// regardless of whether any Q-token, any source comment, or any corpus case
-// names it. Evidence in, coverage required out.
-//
-// A divergent row is covered in exactly one of two ways:
-//
-//  1. CORPUS-CASE COVERAGE. A handshake corpus case exists with the same
-//     direction and the same `expected.reject_code`, and some ledger record
-//     cites that case id. This is how the sixteen original handshake records
-//     cover the thirteen divergent `client_request` rows, so the rule adds no
-//     churn to the committed hash-chain prefix.
-//
-//  2. EXPLICIT MAPPING-ROW COVERAGE. Some ledger record cites the row
-//     literally, as `mapping-row direction=<direction> key=<KEY>`. This is
-//     the only route available for a divergent row that no corpus case
-//     exercises — which is the situation for all six divergent
-//     `server_response` rows: the ten `server_response` corpus cases carry the
-//     reject codes HS_STATUS_NOT_101, HS_MISSING_ACCEPT, HS_ACCEPT_MISMATCH
-//     and HS_MISSING_UPGRADE, none of which is a divergent key.
-//
-// The rule is fail-closed in both directions: an explicit mapping-row citation
-// that does not resolve to a genuinely divergent row in the committed evidence
-// is itself an error, so the gate cannot be satisfied with an invented token.
+// WHY THE RULE IS SHAPED THE WAY IT IS. The source-side census in ledger_test.go
+// (TestEveryShippedQuirkWithAnRFCCounterpartIsLedgered) drives coverage from the
+// Q-series quirk tokens written into rust/ws-core/src. That is necessary but NOT
+// sufficient, and the acceptance audit found the hole it leaves: a whole
+// DIRECTION of recorded divergence went unledgered while the source-side census
+// stayed green, because the source need not carry a Q-token for it at all —
+// client.rs's only Q-tokens, Q9 and Q28, are both allowlisted. The rule here
+// inverts the direction of the census: it reads the committed live handshake
+// evidence and requires every `divergent: true` row to be covered by a ledger
+// record that is demonstrably about it.
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
-	"sort"
 	"strings"
 	"testing"
 )
 
-// liveMappingRelativePath is the committed live handshake evidence document
-// this census reads. It is rendered from corpora.HandshakeVerdictMapping and
-// pinned byte-identical to that rendering by
-// internal/corpora.TestHandshakeLiveMappingEvidenceDocument, so reading the
-// artifact here reads the same evidence the audit read.
-const liveMappingRelativePath = "evidence/us005-handshake-live-mapping.json"
-
-// handshakeCorpusRelativePath is the live handshake corpus.
-const handshakeCorpusRelativePath = "corpora/handshake/cases.jsonl"
-
-// mappingRowCitation matches the explicit mapping-row citation token a ledger
-// record uses to claim a divergent row that no corpus case exercises.
-var mappingRowCitation = regexp.MustCompile(`mapping-row direction=([a-z_]+) key=(HS_[A-Z0-9_]+)`)
-
-type liveMappingDocument struct {
-	Entries []struct {
-		Direction      string `json:"direction"`
-		Key            string `json:"key"`
-		RFCVerdict     string `json:"rfc_verdict"`
-		JavaObservable string `json:"java_observable"`
-		Divergent      bool   `json:"divergent"`
-	} `json:"entries"`
-}
-
-type handshakeCorpusCase struct {
-	CaseID    string `json:"case_id"`
-	Direction string `json:"direction"`
-	Expected  struct {
-		RejectCode string `json:"reject_code"`
-	} `json:"expected"`
-}
-
-// mappingRow identifies one row of the live handshake verdict mapping.
-type mappingRow struct {
-	Direction string
-	Key       string
-}
-
-func (r mappingRow) String() string {
-	return fmt.Sprintf("direction=%s key=%s", r.Direction, r.Key)
-}
-
-func readDivergentMappingRows(t *testing.T) []mappingRow {
-	t.Helper()
-	path := filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(liveMappingRelativePath))
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", liveMappingRelativePath, err)
-	}
-	var document liveMappingDocument
-	if err := json.Unmarshal(raw, &document); err != nil {
-		t.Fatalf("decode %s: %v", liveMappingRelativePath, err)
-	}
-	if len(document.Entries) == 0 {
-		t.Fatalf("%s yielded no entries; the census cannot run fail-open", liveMappingRelativePath)
-	}
-	var rows []mappingRow
-	for _, entry := range document.Entries {
-		if !entry.Divergent {
-			continue
-		}
-		if entry.Direction == "" || entry.Key == "" {
-			t.Fatalf("%s has a divergent row with an empty direction or key", liveMappingRelativePath)
-		}
-		rows = append(rows, mappingRow{Direction: entry.Direction, Key: entry.Key})
-	}
-	if len(rows) == 0 {
-		t.Fatalf("%s recorded no divergent rows; the census cannot run fail-open", liveMappingRelativePath)
-	}
-	return rows
-}
-
-func readHandshakeCorpusCases(t *testing.T) []handshakeCorpusCase {
-	t.Helper()
-	path := filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(handshakeCorpusRelativePath))
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", handshakeCorpusRelativePath, err)
-	}
-	var cases []handshakeCorpusCase
-	for _, line := range strings.Split(string(raw), "\n") {
-		line = strings.TrimSpace(line)
-		if line == "" {
-			continue
-		}
-		var parsed handshakeCorpusCase
-		if err := json.Unmarshal([]byte(line), &parsed); err != nil {
-			t.Fatalf("decode a line of %s: %v", handshakeCorpusRelativePath, err)
-		}
-		cases = append(cases, parsed)
-	}
-	if len(cases) == 0 {
-		t.Fatalf("%s yielded no cases", handshakeCorpusRelativePath)
-	}
-	return cases
-}
-
-// citedMappingRows returns the rows the ledger records claim explicitly.
-func citedMappingRows() map[mappingRow]bool {
-	cited := map[mappingRow]bool{}
-	for _, definition := range Definitions() {
-		for _, match := range mappingRowCitation.FindAllStringSubmatch(definitionText(definition), -1) {
-			cited[mappingRow{Direction: match[1], Key: match[2]}] = true
-		}
-	}
-	return cited
-}
-
-// TestEveryDivergentLiveMappingRowIsLedgered is the evidence-side census. It
-// is the rule the source-side quirk census cannot express: a divergence
-// recorded in the live handshake mapping must have a ledger record whether or
-// not any Q-token in the shipped sources names it.
 func TestEveryDivergentLiveMappingRowIsLedgered(t *testing.T) {
-	rows := readDivergentMappingRows(t)
-	corpusCases := readHandshakeCorpusCases(t)
-	explicit := citedMappingRows()
+	if err := VerifyHandshakeMappingCensus(ledgerTestRepoRoot, Definitions()); err != nil {
+		t.Fatalf("handshake mapping census: %v", err)
+	}
+}
 
-	// Which handshake corpus case ids do the ledger records cite?
-	casePattern := regexp.MustCompile(`us005\.hs\.[0-9]{4}`)
-	citedCases := map[string]bool{}
-	for _, definition := range Definitions() {
-		for _, id := range casePattern.FindAllString(definitionText(definition), -1) {
-			citedCases[id] = true
+// TestMappingRowCoverageRefusesACitationTokenInAnUnrelatedRecord is the
+// discrimination proof for review BLOCKING 6.
+//
+// THE ATTACK, reproduced against the previous rule and READ PASSING before the
+// fix: delete the six meaningful client-handshake records and paste their six
+// `mapping-row direction=… key=…` citation tokens into an unrelated record's
+// free prose. Under the old token-grep rule the census stayed green, because
+// coverage meant "this literal string appears somewhere in some definition".
+//
+// The rule now additionally requires the covering record's SUBJECT to name the
+// endpoint role that parses the row's direction and to carry the corpus family
+// slug for the row's reject code, so an unrelated record cannot claim the row
+// however its prose is written.
+func TestMappingRowCoverageRefusesACitationTokenInAnUnrelatedRecord(t *testing.T) {
+	rows, err := ReadDivergentMappingRows(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read divergent rows: %v", err)
+	}
+	var serverResponseRows []MappingRow
+	for _, row := range rows {
+		if row.Direction == "server_response" {
+			serverResponseRows = append(serverResponseRows, row)
 		}
 	}
+	if len(serverResponseRows) == 0 {
+		t.Fatal("the attack needs at least one server_response divergent row")
+	}
 
-	// Which (direction, reject_code) rows does a cited corpus case exercise?
-	byCorpusCase := map[mappingRow][]string{}
-	for _, corpusCase := range corpusCases {
-		if corpusCase.Expected.RejectCode == "" || !citedCases[corpusCase.CaseID] {
+	// Delete every client-handshake record (the ones that legitimately cover
+	// the server_response rows) and paste their citation tokens into a record
+	// that is about something else entirely.
+	var mutated []Definition
+	victim := -1
+	for _, definition := range Definitions() {
+		if strings.Contains(definition.Subject, ".client-handshake.") {
 			continue
 		}
-		row := mappingRow{Direction: corpusCase.Direction, Key: corpusCase.Expected.RejectCode}
-		byCorpusCase[row] = append(byCorpusCase[row], corpusCase.CaseID)
+		if victim < 0 && strings.Contains(definition.Subject, ".framing.") {
+			victim = len(mutated)
+		}
+		mutated = append(mutated, definition)
 	}
+	if victim < 0 {
+		t.Fatal("no unrelated record available to carry the pasted tokens")
+	}
+	var tokens []string
+	for _, row := range serverResponseRows {
+		tokens = append(tokens, row.CitationToken())
+	}
+	mutated[victim].Rationale += " ATTACK TOKENS: " + strings.Join(tokens, " ") + "."
 
-	var uncovered []string
-	coveredDirections := map[string]bool{}
-	divergentDirections := map[string]bool{}
-	for _, row := range rows {
-		divergentDirections[row.Direction] = true
-		switch {
-		case len(byCorpusCase[row]) != 0:
-			coveredDirections[row.Direction] = true
-		case explicit[row]:
-			coveredDirections[row.Direction] = true
-		default:
-			uncovered = append(uncovered, row.String())
+	err = VerifyHandshakeMappingCensus(ledgerTestRepoRoot, mutated)
+	if err == nil {
+		t.Fatal("the census accepted an unrelated record claiming six mapping rows by pasting their citation " +
+			"tokens into its prose; coverage is back to being a token grep")
+	}
+	for _, row := range serverResponseRows {
+		if !strings.Contains(err.Error(), row.String()) {
+			t.Errorf("the census refused, but did not name the uncovered row %s; got: %v", row, err)
 		}
 	}
-	sort.Strings(uncovered)
-	if len(uncovered) != 0 {
-		t.Errorf("divergent live-mapping rows with no ledger record (%d):\n  %s\n"+
-			"coverage rule: every `divergent: true` row of %s must be covered by a ledger record, either by a record "+
-			"citing a handshake corpus case with the same direction and reject_code, or by a record citing the row "+
-			"literally as `mapping-row direction=<direction> key=<KEY>`. This rule is evidence-driven on purpose: the "+
-			"source-side quirk census cannot see a divergence the shipped sources do not name with a Q-token.",
-			len(uncovered), strings.Join(uncovered, "\n  "), liveMappingRelativePath)
+}
+
+// TestASupersededRecordDoesNotCoverAnything joins review BLOCKING 6 to review
+// BLOCKING 8: a divergent row whose only claimant is a WITHDRAWN record is an
+// uncovered row, and the census can say so only because supersession is now
+// machine-visible rather than prose.
+//
+// The three server-side handshake budget rows are the live instance: sequences
+// 14-16 claim them and are superseded by 45-47. Deleting the corrections must
+// leave those rows uncovered, not silently covered by the records whose RFC
+// basis was withdrawn.
+func TestASupersededRecordDoesNotCoverAnything(t *testing.T) {
+	superseded := supersededSubjects(Definitions())
+	if len(superseded) == 0 {
+		t.Fatal("no definition supersedes another; this branch appends corrections for sequences 14-16")
 	}
 
-	// The blind spot the audit found was direction-shaped: an entire
-	// direction of divergence had zero records. Name that failure directly
-	// rather than leaving it to be inferred from the row list.
-	var missingDirections []string
-	for direction := range divergentDirections {
-		if !coveredDirections[direction] {
-			missingDirections = append(missingDirections, direction)
+	// Strip the CITATIONS out of the superseding corrections while keeping
+	// their Supersedes links, so sequences 14-16 stay withdrawn and are the
+	// only remaining claimants of their rows. The rows must then read as
+	// uncovered: a withdrawn record is not coverage.
+	mutated := append([]Definition(nil), Definitions()...)
+	stripped := 0
+	for index := range mutated {
+		if len(mutated[index].Supersedes) == 0 {
+			continue
 		}
+		mutated[index].JavaObservation = "citations removed by this test"
+		mutated[index].Rationale = "citations removed by this test"
+		stripped++
 	}
-	sort.Strings(missingDirections)
-	if len(missingDirections) != 0 {
-		t.Errorf("entire handshake direction(s) with divergent rows and ZERO ledger records: %v "+
-			"(this is the exact shape of the gap the acceptance audit found: the client-handshake direction "+
-			"`server_response` had 6 divergent rows and no record, and the source-side quirk census could not "+
-			"catch it because client.rs's only Q-tokens, Q9 and Q28, are both allowlisted)", missingDirections)
+	if stripped != 3 {
+		t.Fatalf("stripped %d superseding records, expected the three budget corrections", stripped)
+	}
+
+	err := VerifyHandshakeMappingCensus(ledgerTestRepoRoot, mutated)
+	if err == nil {
+		t.Fatal("the census left the three server-side budget rows covered when their only remaining claimants were " +
+			"the WITHDRAWN sequences 14-16; a superseded record is still being accepted as coverage")
+	}
+	for _, key := range []string{"HS_LIMIT_TOTAL_BYTES", "HS_LIMIT_HEADER_COUNT", "HS_LIMIT_HEADER_LINE_BYTES"} {
+		if !strings.Contains(err.Error(), key) {
+			t.Errorf("the census refused, but did not report %s as uncovered; got: %v", key, err)
+		}
 	}
 }
 
 // TestExplicitMappingRowCitationsResolve is the fail-closed other half: a
-// record may not claim a mapping row that is not recorded as divergent in the
-// committed evidence, so the census above cannot be satisfied with an invented
-// citation token.
+// record may not claim a mapping row the committed evidence does not record as
+// divergent, so the census cannot be satisfied with an invented token.
 func TestExplicitMappingRowCitationsResolve(t *testing.T) {
-	divergent := map[mappingRow]bool{}
-	for _, row := range readDivergentMappingRows(t) {
-		divergent[row] = true
+	mutated := append([]Definition(nil), Definitions()...)
+	mutated[0].Rationale += " mapping-row direction=server_response key=HS_NOT_A_DIVERGENT_ROW."
+	err := VerifyHandshakeMappingCensus(ledgerTestRepoRoot, mutated)
+	if err == nil {
+		t.Fatal("the census accepted a citation of a row that is not `divergent: true` in the committed evidence")
 	}
-	for _, definition := range Definitions() {
-		for _, match := range mappingRowCitation.FindAllStringSubmatch(definitionText(definition), -1) {
-			row := mappingRow{Direction: match[1], Key: match[2]}
-			if !divergent[row] {
-				t.Errorf("%s cites mapping row %s, which is not a `divergent: true` row of %s",
-					definition.Subject, row, liveMappingRelativePath)
-			}
+	if !strings.Contains(err.Error(), "HS_NOT_A_DIVERGENT_ROW") {
+		t.Fatalf("refused, but not on the invented citation; got: %v", err)
+	}
+}
+
+// TestTheFamilySlugMapIsDerivedFromTheCorpus pins that the subject-slug binding
+// comes from committed evidence rather than from a hand table that could drift
+// away from it, and that it is non-vacuous.
+func TestTheFamilySlugMapIsDerivedFromTheCorpus(t *testing.T) {
+	cases, err := ReadHandshakeCorpusCases(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read handshake corpus: %v", err)
+	}
+	rows, err := ReadDivergentMappingRows(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read divergent rows: %v", err)
+	}
+	for _, row := range rows {
+		family, err := FamilyForRow(cases, row)
+		if err != nil {
+			t.Errorf("divergent row %s: %v", row, err)
+			continue
 		}
+		if family == "" {
+			t.Errorf("divergent row %s resolved to an empty family slug", row)
+		}
+	}
+
+	// Direction sensitivity is load-bearing: the corpus maps HS_MISSING_UPGRADE
+	// to different families on the two sides of the handshake, and picking the
+	// wrong one would silently weaken the coverage rule.
+	client, err := FamilyForRow(cases, MappingRow{Direction: "client_request", Key: "HS_MISSING_UPGRADE"})
+	if err != nil {
+		t.Fatalf("client_request HS_MISSING_UPGRADE: %v", err)
+	}
+	server, err := FamilyForRow(cases, MappingRow{Direction: "server_response", Key: "HS_MISSING_UPGRADE"})
+	if err != nil {
+		t.Fatalf("server_response HS_MISSING_UPGRADE: %v", err)
+	}
+	if client == server {
+		t.Fatalf("both directions resolve HS_MISSING_UPGRADE to %q; the direction-first resolution has stopped "+
+			"discriminating", client)
+	}
+
+	// Non-vacuity: an unknown reject code must be an error rather than a
+	// fallback to a token-only match.
+	if _, err := FamilyForRow(cases, MappingRow{Direction: "client_request", Key: "HS_NO_SUCH_CODE"}); err == nil {
+		t.Fatal("FamilyForRow invented a family for a reject code the corpus does not carry")
+	}
+
+	// Non-vacuity: an ambiguity WITHIN one direction must be an error rather
+	// than a silently chosen winner. HS_KEY_NOT_BASE64 carries two
+	// client_request cases (us005.hs.0019 and us005.hs.0020), so giving them
+	// different families is a real in-direction conflict.
+	ambiguous := MappingRow{Direction: "client_request", Key: "HS_KEY_NOT_BASE64"}
+	conflicting := append([]HandshakeCase(nil), cases...)
+	seen := 0
+	for index := range conflicting {
+		if conflicting[index].Expected.RejectCode == ambiguous.Key &&
+			conflicting[index].Direction == ambiguous.Direction {
+			conflicting[index].Family = "attack-family-" + conflicting[index].CaseID
+			seen++
+		}
+	}
+	if seen < 2 {
+		t.Fatalf("%s has %d case(s) in its direction; the in-direction ambiguity check needs at least two",
+			ambiguous, seen)
+	}
+	if _, err := FamilyForRow(conflicting, ambiguous); err == nil {
+		t.Fatalf("FamilyForRow accepted a corpus mapping %s to many families in one direction", ambiguous)
 	}
 }

@@ -4,9 +4,9 @@
 # The root Makefile is intentionally untouched; wiring these targets into the
 # root build is a follow-up owned by the pipeline stories.
 
-.PHONY: gates fmt-check clippy test test-release ac1-gates
+.PHONY: gates fmt-check clippy test test-release ac1-gates ledger-gates
 
-gates: fmt-check clippy test test-release ac1-gates
+gates: fmt-check clippy test test-release ac1-gates ledger-gates
 
 fmt-check:
 	cargo fmt --all -- --check
@@ -29,3 +29,15 @@ test-release:
 # nonzero if any gate fails, which fails this target and `gates` with it.
 ac1-gates:
 	cd .. && go run ./cmd/rustgatectl -root .
+
+# Behavior-delta ledger integrity. Independent review (session 01a0495e,
+# BLOCKING 3) found that every census and observation-integrity rule this
+# repository had lived only in `_test.go` files which no release or readiness
+# path executed: this target had no `go test` step, there is no root Makefile,
+# no workflow runs Go tests, and `deltaledgerctl --check` verified only that the
+# ledger equalled its own regeneration. The rules now live in
+# internal/deltaledger as production code and `--check` runs them, so the gate
+# and the test suite exercise one implementation. It exits nonzero on any
+# integrity failure, which fails this target and `gates` with it.
+ledger-gates:
+	cd .. && go run ./cmd/deltaledgerctl --root . --check

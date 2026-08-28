@@ -73,9 +73,10 @@ func rsvRejectionStateDefinitions() []Definition {
 				"(protected/us005-corpora/live/public/transcript.jsonl). WHAT THE RESULTING STATE IS DEPENDS ON WHICH " +
 				"JAVA ENTRY POINT RUNS, and the two shipped entry points disagree — the same structure the " +
 				"rejected-local-close record at sequence 35 documents. (A) The shipped library path " +
-				"WebSocketImpl.decodeFrames (WebSocketImpl.java:390-417) wraps draft.translateFrame in a try block whose " +
-				"InvalidDataException arm logs, notifies onWebsocketError and then calls close(e) " +
-				"(WebSocketImpl.java:404-407). Through this path the connection DOES leave OPEN. (B) The pinned oracle " +
+				"WebSocketImpl.decodeFrames (WebSocketImpl.java:391-419) wraps draft.translateFrame in a try block whose " +
+				"InvalidDataException arm (WebSocketImpl.java:405-408) logs, notifies onWebsocketError and then calls " +
+				"close(e) at WebSocketImpl.java:408. Through this path the connection DOES leave the OPEN ready " +
+				"state. (B) The pinned oracle " +
 				"adapter never calls decodeFrames: OracleEngine.input calls draft.translateFrame(input) directly " +
 				"(java-oracle/src/main/java/OracleEngine.java:343), so the InvalidFrameException propagates out of the " +
 				"step loop to the adapter's top-level catch (OracleEngine.java:95-97), which records JAVA_INVALID_DATA " +
@@ -85,8 +86,8 @@ func rsvRejectionStateDefinitions() []Definition {
 				"Java agree field for field on us005.pub.0005 — final_state open, no transitions, consumed_bytes 9 = 9, " +
 				"input_bytes 9 = 9, frames 0, actions 0, close_code 1002 — and the 74/74 public evaluate is exit 0.",
 			JavaValue: "entry-point-dependent: WebSocketImpl.decodeFrames closes on the caught InvalidDataException " +
-				"(WebSocketImpl.java:404-407) while the adapter's direct translateFrame call lets the same exception " +
-				"propagate, and the live-recorded ready state stays open",
+				"(close(e) at WebSocketImpl.java:408) while the adapter's direct translateFrame call lets the same " +
+				"exception propagate, and the live-recorded ready state stays open",
 			AutobahnRefs: []string{"autobahn-v25.10.1:3.1", "autobahn-v25.10.1:3.2"},
 			Rationale: "DIVERGENCE (reserved-bit rejection, resulting ReadyState): the RFC requires failing the " +
 				"connection, which takes the endpoint out of OPEN; the port leaves it OPEN because that is what the live " +
@@ -96,13 +97,16 @@ func rsvRejectionStateDefinitions() []Definition {
 				"(framing.post-payload-rejection-site) scopes itself to the rejection SITE and asserts that RFC and Java " +
 				"AGREE on the 1002 verdict, so it never reaches the state question, and sequence 35 is a locally " +
 				"initiated close on us005.pub.0000. OPPOSING AUTHORITY, verified rather than paraphrased: the Codex " +
-				"plane at commit df6aa20 ranks the RFC above Java at this exact pointer. Its " +
-				"evidence/oracle-hierarchy.json cell for us005.pub.0005 /final_state reads authority " +
+				"plane at commit df6aa20 ranks the RFC above Java at this exact pointer. Its artifact " +
+				"codex-plane:evidence-oracle-hierarchy (named with that prefix because it is a file of the OTHER " +
+				"plane's tree and deliberately does not exist in this repository; the previous unqualified spelling " +
+				"read as a path here and named a file that is not present) has a cell for us005.pub.0005 " +
+				"/final_state that reads authority " +
 				"rfc6455.section-5-2, rank 1, expected_sha256 " +
 				"sha256:02e31f51aa8b1b6a622c4f7c30fab328d711cad4c9da74b9965ada8aa15d9df2 — which is the SHA-256 of the " +
-				"JSON-encoded string \"closed\" (with quotes), not of the bare six bytes. Its own " +
-				"evidence/java/behavior-delta-ledger.json sequence 1 (delta.us005.pub.0005.final_state) classifies " +
-				"Java's open as java_quirk with resolution retained_java_quirk, and its sequence 2 " +
+				"JSON-encoded string \"closed\" (with quotes), not of the bare six bytes. That plane's own " +
+				"codex-plane:evidence-java-behavior-delta-ledger sequence 1 (delta.us005.pub.0005.final_state) " +
+				"classifies Java's open as java_quirk with resolution retained_java_quirk, and its sequence 2 " +
 				"(delta.us005.pub.0005.transitions) does the same for the transitions pointer under " +
 				"rfc6455.section-7-1-7. Both planes are internally self-consistent, so this is a normative choice, not " +
 				"a defect on either side — but the choice is now recorded on this side too. NOTE ON WHAT THE CODEX " +
@@ -211,25 +215,22 @@ func replaceKey(template, key string) string {
 // Java here, which makes these safe-strengthening records in the shape of
 // sequence 44, not leniency-emulation records.
 //
-// The earlier drafts of these records cited RFC 6455 section 10.4 as
+// The earliest drafts of these records cited RFC 6455 section 10.4 as
 // "expecting implementations to enforce implementation-specific limits on
-// handshake inputs". That was wrong twice over and is corrected here: 10.4
-// reads "Implementations of WebSocket clients and servers may implement limits
-// on the sizes of frames and messages they are willing to accept", which is
-// (a) permissive, not an expectation, and (b) scoped to FRAMES AND MESSAGES,
-// not to the opening handshake.
+// handshake inputs", which was wrong. Their first correction was wrong too, in
+// the opposite direction: it quoted, as verbatim 10.4, a sentence about clients
+// and servers MAY-implementing limits that appears nowhere in RFC 6455, and
+// called the section purely permissive (review 01a0495e, BLOCKING 9). The
+// corrected basis — 10.4 quoted verbatim and in full, and the conclusion resting
+// on its SCOPE rather than on its modality — is the shared
+// rfc6455NoHandshakeBudget in definitions.go.
 func clientLimitDefinition(key, family, subject, javaObservation, seed, rationale string) Definition {
 	return Definition{
 		Subject: subject,
 		RFCRefs: []string{"rfc6455#section-4.1", "rfc6455#section-4.2.2"},
-		RFCExpectation: "RFC 6455 imposes NO limit on the opening handshake's total size, header count, or " +
-			"header-line length, in either direction. Section 4.1 and section 4.2.2 govern the client's generation " +
-			"and validation of the opening handshake and prescribe required fields and their values, never a size " +
-			"bound. The one clause that speaks about limits, section 10.4 (Implementation-Specific Limits), reads " +
-			"\"Implementations of WebSocket clients and servers may implement limits on the sizes of frames and " +
-			"messages they are willing to accept\" — permissive rather than mandatory, and scoped to FRAMES AND " +
-			"MESSAGES, not to the handshake. The wider HTTP layer likewise leaves any field-section bound to the " +
-			"implementation. There is therefore no RFC requirement here for shipped Java to fall short of.",
+		RFCExpectation: "Section 4.1 and section 4.2.2 govern the client's generation and validation of the opening " +
+			"handshake and prescribe required fields and their values, never a size bound. " +
+			rfc6455NoHandshakeBudget,
 		RFCValue: "no-requirement: the RFC prescribes no handshake head-size, header-count or header-line bound, so " +
 			"both an unbounded parser and a budgeted one conform",
 		JavaRef: "org.java_websocket.drafts.Draft:translateHandshakeHttp",
