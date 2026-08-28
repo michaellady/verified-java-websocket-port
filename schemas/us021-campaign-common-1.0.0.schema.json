@@ -1,0 +1,90 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/schemas/us021-campaign-common-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_id", "story_id", "kind", "status", "assurance", "independent_review_claimed", "production", "publication", "signing", "repository_anchor", "rustc_version", "targets", "platforms", "external_tools", "remediations", "counts", "nonclaims"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_id": {"type": "string"},
+    "story_id": {"const": "US-021"},
+    "kind": {"enum": ["property", "fuzz", "runtime"]},
+    "status": {"enum": ["PASS_OWNER_RELAXED", "BLOCKED"]},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "production": {"const": false},
+    "publication": {"const": false},
+    "signing": {"const": false},
+    "repository_anchor": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "rustc_version": {"const": "rustc 1.95.0 (59807616e 2026-04-14)"},
+    "engine": {"$ref": "#/$defs/engine"},
+    "targets": {"type": "array", "items": {"$ref": "#/$defs/target"}},
+    "platforms": {"type": "array", "items": {"$ref": "#/$defs/platform"}},
+    "external_tools": {"type": "array", "items": {"$ref": "#/$defs/external_tool"}},
+    "remediations": {"type": "array", "items": {"$ref": "#/$defs/remediation"}},
+    "counts": {"$ref": "#/$defs/counts"},
+    "nonclaims": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "artifact": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/digest"}}
+    },
+    "source_tree": {
+      "type": "object", "additionalProperties": false, "required": ["commit", "tree"],
+      "properties": {"commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"}}
+    },
+    "engine": {
+      "type": "object", "additionalProperties": false, "required": ["id", "seed", "minimum_cases", "repetitions", "deterministic"],
+      "properties": {"id": {"const": "in-tree-deterministic-v1"}, "seed": {"type": "integer", "minimum": 0}, "minimum_cases": {"type": "integer", "minimum": 1}, "repetitions": {"const": 2}, "deterministic": {"const": true}}
+    },
+    "observation": {
+      "type": "object", "additionalProperties": false, "required": ["platform", "profile", "repeat", "status", "exit_code", "timed_out", "tests_passed", "tests_failed"],
+      "properties": {"platform": {"type": "string"}, "profile": {"type": "string"}, "repeat": {"type": "integer", "minimum": 1}, "status": {"enum": ["PASS", "BLOCKED"]}, "exit_code": {"type": "integer"}, "timed_out": {"type": "boolean"}, "tests_passed": {"type": "integer", "minimum": 0}, "tests_failed": {"type": "integer", "minimum": 0}}
+    },
+    "target": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "invariant", "sources", "test_name", "command", "replay_command", "generator_domain", "shrinker", "cases", "seed_roots", "seed_count", "corpus_sha256", "timeout_seconds", "oom_policy", "crash_policy", "observations"],
+      "properties": {
+        "id": {"type": "string"}, "invariant": {"type": "string"},
+        "sources": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/artifact"}},
+        "test_name": {"type": "string"},
+        "command": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+        "replay_command": {"type": "array", "minItems": 2, "items": {"type": "string"}},
+        "generator_domain": {"type": "string"}, "shrinker": {"type": "string"},
+        "cases": {"type": "integer", "minimum": 1},
+        "seed_roots": {"type": "array", "items": {"type": "string"}},
+        "seed_count": {"type": "integer", "minimum": 0}, "corpus_sha256": {"$ref": "#/$defs/digest"},
+        "timeout_seconds": {"type": "integer", "minimum": 1},
+        "oom_policy": {"const": "FAIL_AND_CAPTURE"}, "crash_policy": {"const": "FAIL_MINIMIZE_AND_REPLAY"},
+        "observations": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/observation"}}
+      }
+    },
+    "runtime_command": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repeat", "command", "status", "exit_code", "timed_out", "tests_passed", "tests_failed", "panics", "hangs", "leaks"],
+      "properties": {"repeat": {"type": "integer", "minimum": 1}, "command": {"type": "array", "minItems": 2, "items": {"type": "string"}}, "status": {"enum": ["PASS", "BLOCKED"]}, "exit_code": {"type": "integer"}, "timed_out": {"type": "boolean"}, "tests_passed": {"type": "integer", "minimum": 0}, "tests_failed": {"type": "integer", "minimum": 0}, "panics": {"type": "integer", "minimum": 0}, "hangs": {"type": "integer", "minimum": 0}, "leaks": {"type": "integer", "minimum": 0}}
+    },
+    "platform": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "execution_kind", "rustc_version", "source_tree", "debug", "release", "file_descriptor_cleanup", "process_cleanup", "flakes", "unresolved"],
+      "properties": {"id": {"type": "string"}, "execution_kind": {"enum": ["NATIVE", "BLOCKED"]}, "rustc_version": {"type": "string"}, "source_tree": {"$ref": "#/$defs/source_tree"}, "debug": {"type": "array", "items": {"$ref": "#/$defs/runtime_command"}}, "release": {"type": "array", "items": {"$ref": "#/$defs/runtime_command"}}, "file_descriptor_cleanup": {"enum": ["PASS", "BLOCKED"]}, "process_cleanup": {"enum": ["PASS", "BLOCKED"]}, "flakes": {"type": "integer", "minimum": 0}, "unresolved": {"type": "integer", "minimum": 0}}
+    },
+    "external_tool": {
+      "type": "object", "additionalProperties": false, "required": ["id", "status", "claimed_pass", "evidence"],
+      "properties": {"id": {"type": "string"}, "status": {"enum": ["PASS", "UNAVAILABLE"]}, "claimed_pass": {"type": "boolean"}, "evidence": {"type": "string"}}
+    },
+    "remediation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "platform", "original_command", "failure_class", "minimized_command", "inferred_boundary", "fix_commit", "closure_replays", "status"],
+      "properties": {"id": {"type": "string"}, "platform": {"type": "string"}, "original_command": {"type": "array", "minItems": 2, "items": {"type": "string"}}, "failure_class": {"type": "string"}, "minimized_command": {"type": "array", "minItems": 2, "items": {"type": "string"}}, "inferred_boundary": {"type": "string"}, "fix_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "closure_replays": {"type": "integer", "minimum": 1}, "status": {"const": "CLOSED"}}
+    },
+    "counts": {
+      "type": "object", "additionalProperties": false,
+      "required": ["targets", "cases", "observations", "platforms", "runtime_commands", "remediations", "failures", "timeouts", "panics", "hangs", "leaks", "flakes", "unresolved"],
+      "properties": {"targets": {"type": "integer", "minimum": 0}, "cases": {"type": "integer", "minimum": 0}, "observations": {"type": "integer", "minimum": 0}, "platforms": {"type": "integer", "minimum": 0}, "runtime_commands": {"type": "integer", "minimum": 0}, "remediations": {"type": "integer", "minimum": 0}, "failures": {"type": "integer", "minimum": 0}, "timeouts": {"type": "integer", "minimum": 0}, "panics": {"type": "integer", "minimum": 0}, "hangs": {"type": "integer", "minimum": 0}, "leaks": {"type": "integer", "minimum": 0}, "flakes": {"type": "integer", "minimum": 0}, "unresolved": {"type": "integer", "minimum": 0}}
+    }
+  }
+}

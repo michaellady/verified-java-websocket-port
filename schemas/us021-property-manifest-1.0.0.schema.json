@@ -1,0 +1,1 @@
+{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"https://example.invalid/schemas/us021-property-manifest-1.0.0.schema.json","allOf":[{"$ref":"us021-campaign-common-1.0.0.schema.json"},{"properties":{"kind":{"const":"property"}},"required":["engine"]}]}

@@ -1,0 +1,79 @@
+{
+  "$schema": "../../schemas/us021-runtime-manifest-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_id": "evidence.us-021-runtime",
+  "story_id": "US-021",
+  "kind": "runtime",
+  "status": "PASS_OWNER_RELAXED",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false,
+  "signing": false,
+  "repository_anchor": "52e63a0f3fd3c8061523d94bf9b637f9d7f1bebc",
+  "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
+  "targets": [],
+  "platforms": [
+    {
+      "id": "darwin/arm64",
+      "execution_kind": "NATIVE",
+      "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "source_tree": {"commit": "52e63a0f3fd3c8061523d94bf9b637f9d7f1bebc", "tree": "b1e6cb09cd12c69f529143b7893319565dcdcf4c"},
+      "debug": [
+        {"repeat": 1, "command": ["cargo", "test", "--workspace", "--all-targets", "--locked"], "status": "PASS", "exit_code": 0, "timed_out": false, "tests_passed": 181, "tests_failed": 0, "panics": 0, "hangs": 0, "leaks": 0},
+        {"repeat": 2, "command": ["cargo", "test", "--workspace", "--all-targets", "--locked"], "status": "PASS", "exit_code": 0, "timed_out": false, "tests_passed": 181, "tests_failed": 0, "panics": 0, "hangs": 0, "leaks": 0}
+      ],
+      "release": [
+        {"repeat": 1, "command": ["cargo", "test", "--workspace", "--all-targets", "--locked", "--release"], "status": "PASS", "exit_code": 0, "timed_out": false, "tests_passed": 181, "tests_failed": 0, "panics": 0, "hangs": 0, "leaks": 0},
+        {"repeat": 2, "command": ["cargo", "test", "--workspace", "--all-targets", "--locked", "--release"], "status": "PASS", "exit_code": 0, "timed_out": false, "tests_passed": 181, "tests_failed": 0, "panics": 0, "hangs": 0, "leaks": 0}
+      ],
+      "file_descriptor_cleanup": "PASS",
+      "process_cleanup": "PASS",
+      "flakes": 0,
+      "unresolved": 0
+    },
+    {
+      "id": "linux/arm64",
+      "execution_kind": "NATIVE",
+      "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
+      "source_tree": {"commit": "52e63a0f3fd3c8061523d94bf9b637f9d7f1bebc", "tree": "b1e6cb09cd12c69f529143b7893319565dcdcf4c"},
+      "debug": [
+        {"repeat": 1, "command": ["cargo", "test", "--workspace", "--all-targets", "--locked"], "status": "PASS", "exit_code": 0, "timed_out": false, "tests_passed": 181, "tests_failed": 0, "panics": 0, "hangs": 0, "leaks": 0},
+        {"repeat": 2, "command": ["cargo", "test", "--workspace", "--all-targets", "--locked"], "status": "PASS", "exit_code": 0, "timed_out": false, "tests_passed": 181, "tests_failed": 0, "panics": 0, "hangs": 0, "leaks": 0}
+      ],
+      "release": [
+        {"repeat": 1, "command": ["cargo", "test", "--workspace", "--all-targets", "--locked", "--release"], "status": "PASS", "exit_code": 0, "timed_out": false, "tests_passed": 181, "tests_failed": 0, "panics": 0, "hangs": 0, "leaks": 0},
+        {"repeat": 2, "command": ["cargo", "test", "--workspace", "--all-targets", "--locked", "--release"], "status": "PASS", "exit_code": 0, "timed_out": false, "tests_passed": 181, "tests_failed": 0, "panics": 0, "hangs": 0, "leaks": 0}
+      ],
+      "file_descriptor_cleanup": "PASS",
+      "process_cleanup": "PASS",
+      "flakes": 0,
+      "unresolved": 0
+    }
+  ],
+  "external_tools": [
+    {"id": "miri", "status": "UNAVAILABLE", "claimed_pass": false, "evidence": "the pinned stable aarch64-apple-darwin toolchain has no miri component"},
+    {"id": "sanitizers", "status": "UNAVAILABLE", "claimed_pass": false, "evidence": "no sanitizer component was installed or executed for the pinned stable toolchain"},
+    {"id": "thread-sanitizer", "status": "UNAVAILABLE", "claimed_pass": false, "evidence": "no ThreadSanitizer runtime was installed or executed for the pinned stable toolchain"}
+  ],
+  "remediations": [
+    {
+      "id": "us021-linux-tcp-reset",
+      "platform": "linux/arm64",
+      "original_command": ["cargo", "test", "--workspace", "--all-targets", "--locked"],
+      "failure_class": "INTERMITTENT_CONNECTION_RESET_AFTER_COMPLETE_SERVER_RESPONSE",
+      "minimized_command": ["cargo", "test", "--locked", "-p", "websocket-testee", "--test", "process", "server_process_binds_one_loopback_peer_and_exits", "--", "--exact"],
+      "inferred_boundary": "full-duplex Shutdown::Both after a drained peer EOF allowed Linux to surface ECONNRESET; write-side FIN preserves clean peer EOF while drop still releases the socket",
+      "fix_commit": "52e63a0f3fd3c8061523d94bf9b637f9d7f1bebc",
+      "closure_replays": 8,
+      "status": "CLOSED"
+    }
+  ],
+  "counts": {"targets": 0, "cases": 1448, "observations": 0, "platforms": 2, "runtime_commands": 8, "remediations": 1, "failures": 0, "timeouts": 0, "panics": 0, "hangs": 0, "leaks": 0, "flakes": 0, "unresolved": 0},
+  "nonclaims": [
+    "no unbounded proof or race-freedom claim",
+    "no live Autobahn or Docker/wstest conformance rerun",
+    "the original Linux reset receipt is historical and not counted as a passing command",
+    "no Miri, sanitizer, or ThreadSanitizer pass claim"
+  ]
+}

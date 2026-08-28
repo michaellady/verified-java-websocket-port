@@ -230,8 +230,8 @@
     },
     {
       "path": "rust/websocket-testee/src/io_loop.rs",
-      "sha256": "sha256:e7bbd861a6f1d8630937ffeee6e6d59265654cbe9ec2ebc856ca59e003c98207",
-      "git_blob": "60c1b43cb8c0590faf14269f4e1ee0b67f5cd69e"
+      "sha256": "sha256:0de8194def8019c4718742fd6d510646700e803fffcf5cc6652ee6805ce3af49",
+      "git_blob": "38762782cd0c876babdb2b3fc108df1ad00bac69"
     },
     {
       "path": "rust/websocket-testee/src/lib.rs",
@@ -311,7 +311,7 @@
   ],
   "docker": false,
   "evidence_id": "evidence.us-020-current-head-qualification",
-  "head_at_execution": "89ecf1e702a426eb7cf928b944684fb4fd13a526",
+  "head_at_execution": "52e63a0f3fd3c8061523d94bf9b637f9d7f1bebc",
   "live_java": false,
   "network": false,
   "nonclaims": [
@@ -321,12 +321,12 @@
   ],
   "predecessor_scope": ["US-010", "US-011", "US-012", "US-013", "US-014", "US-015", "US-016", "US-017", "US-018", "US-019"],
   "schema_version": "1.0.0",
-  "source_tree": "761d64f0dbbdae90f8ce8ecbd3c590fa1da376cf",
+  "source_tree": "b1e6cb09cd12c69f529143b7893319565dcdcf4c",
   "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "story_id": "US-020",
   "toolchain": {
     "host": "aarch64-apple-darwin",
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)"
   },
-  "validation_time": "2026-08-27T23:18:52Z"
+  "validation_time": "2026-08-28T02:47:19Z"
 }
