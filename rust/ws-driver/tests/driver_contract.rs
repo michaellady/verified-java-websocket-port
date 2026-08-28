@@ -395,8 +395,21 @@ fn rejected_command_surfaces_its_typed_failure() {
     assert_eq!(failure.close_code, Some(1002));
 }
 
+/// BEHAVIOUR CHANGED BY OWNER RULING — disclosed, not quietly rewritten.
+///
+/// This test was `commands_queued_at_terminal_are_terminal_rejected` and
+/// asserted `CommandDisposition::TerminalRejected`, i.e. that the driver
+/// disposed a post-terminal command WITHOUT ever calling the core. Owner
+/// decision `us017-post-terminal-owner-decision-2026-08-28.json`
+/// (`post-terminal-command`) ruled that verdict defective: every
+/// post-terminal path must pass through to the core so the refusal that
+/// surfaces is the core's own. The `TerminalRejected` variant was removed,
+/// so this test could not be left unmodified — its expectation was the
+/// behaviour being corrected. The scenario it covers is preserved exactly;
+/// only the expectation moved, from a driver-invented verdict to the core's
+/// typed `STATE_VIOLATION`.
 #[test]
-fn commands_queued_at_terminal_are_terminal_rejected() {
+fn commands_queued_at_terminal_are_refused_by_the_core() {
     let mut run = Run::new();
     run.exec_verb("shutdown");
     run.exec_verb("drain");
@@ -407,13 +420,23 @@ fn commands_queued_at_terminal_are_terminal_rejected() {
         })
         .expect("enqueue after terminal");
     let result = run.driver.poll(DriverInput::Wake);
+    let Some(CommandDisposition::Rejected { command, failure }) = result.command else {
+        panic!(
+            "a post-terminal command must reach the core; got {:?}",
+            result.command
+        );
+    };
     assert_eq!(
-        result.command,
-        Some(CommandDisposition::TerminalRejected(
-            LocalCommand::SendText {
-                text: "late".to_owned(),
-            }
-        ))
+        command,
+        LocalCommand::SendText {
+            text: "late".to_owned()
+        },
+        "the producer's own command comes back with the disposition"
+    );
+    assert_eq!(
+        failure.code.wire_code(),
+        Some("STATE_VIOLATION"),
+        "the refusal is the core's typed failure, not a driver-invented one"
     );
     assert!(matches!(result.output, DriverOutput::Idle));
 }
@@ -555,4 +578,90 @@ fn transport_eof_reaches_the_core_q20_vocabulary() {
     assert_eq!(close.code, 1006);
     assert!(!close.remote);
     assert_eq!(run.driver.state(), ReadyState::Closed);
+}
+
+// ---------------------------------------------------------------------------
+// Post-terminal input paths (owner decision
+// us017-post-terminal-owner-decision-2026-08-28.json, sha b52d244b,
+// decisions `post-terminal-inbound` and `post-terminal-command`).
+//
+// The eof-after-closed defect had two siblings, both gated on
+// `terminal_delivered`: inbound bytes were reported Consumed while the core
+// never saw them, and queued commands were disposed TerminalRejected without
+// a core call. The owner ruled BOTH must pass through to the core so its own
+// typed refusal is what surfaces. These are the regression guards.
+// ---------------------------------------------------------------------------
+
+/// Inbound bytes admitted after the once-only terminal MUST reach the core,
+/// so the core's `STATE_VIOLATION` for a frame in CLOSED is what the adapter
+/// sees. The defect returned `InputDisposition::Consumed { bytes: N }` with
+/// an `Idle` output and no core call — reporting success for work never
+/// done, which no adapter could detect.
+///
+/// WHAT THE DEFECT MARKER IS, precisely. This test was first written
+/// asserting `!Consumed`, which was a WRONG PROXY: `Consumed` is the
+/// CORRECT disposition once the bytes do reach the core and are fatally
+/// refused, because the adapter must not retry them — the identical shape
+/// the eof-after-closed fix produces. The real marker is the presence of
+/// the core's typed refusal on the output. Counting is not a usable marker
+/// either: the core refuses a CLOSED-state byte input BEFORE accounting it,
+/// so `counts` is unchanged either way (matching `us005.pub.0015`, which
+/// live Java reports with input_bytes 0 and consumed_bytes 0). Recorded so
+/// the weaker proxies are not reintroduced.
+#[test]
+fn post_terminal_inbound_reaches_the_core() {
+    let mut run = Run::new();
+    run.exec_verb("shutdown");
+    run.exec_verb("drain");
+    assert_eq!(run.terminals, 1, "the terminal is delivered once");
+    assert_eq!(run.driver.state(), ReadyState::Closed);
+
+    // A well-formed masked 1-byte binary frame: real bytes a real peer could
+    // deliver on a socket that has not yet been torn down.
+    let frame = [0x82u8, 0x81, 0x00, 0x00, 0x00, 0x00, 0xA8];
+    let result = run.driver.poll(DriverInput::Inbound(&frame));
+    let DriverOutput::Failure(surfaced) = result.output else {
+        panic!(
+            "REGRESSION: post-terminal inbound bytes did not reach the core — the owner \
+             reported them consumed and surfaced no refusal (false success defeats detection)"
+        );
+    };
+    assert_eq!(
+        surfaced.code.wire_code(),
+        Some("STATE_VIOLATION"),
+        "the core refuses a frame received in CLOSED"
+    );
+    assert!(
+        matches!(result.input, InputDisposition::Consumed { bytes: 7 }),
+        "the bytes were delivered and fatally refused, so they must not be retried"
+    );
+}
+
+// NOTE: the post-terminal COMMAND guard is
+// `commands_queued_at_terminal_are_refused_by_the_core` above — the
+// pre-existing test whose expectation the same owner ruling moved. It was
+// written RED here first as `post_terminal_command_reaches_the_core` and
+// then folded into that test rather than left as a duplicate of it.
+
+/// The once-only terminal stays once-only after both fixes: passing
+/// post-terminal work through must not re-arm a second delivery.
+#[test]
+fn terminal_stays_once_only_after_post_terminal_work() {
+    let mut run = Run::new();
+    run.exec_verb("shutdown");
+    run.exec_verb("drain");
+    assert_eq!(run.terminals, 1);
+
+    let frame = [0x82u8, 0x81, 0x00, 0x00, 0x00, 0x00, 0xA8];
+    let _ = run.driver.poll(DriverInput::Inbound(&frame));
+    run.sender
+        .try_send(LocalCommand::SendText {
+            text: "late".to_owned(),
+        })
+        .expect("enqueue after terminal");
+    run.exec_verb("drain");
+    assert_eq!(
+        run.terminals, 1,
+        "the terminal is delivered exactly once for the connection's lifetime"
+    );
 }

@@ -591,27 +591,17 @@ pub const UNIMPLEMENTED_DETAIL: &str = "ws_core refused this input honestly: its
 /// wear an oracle code).
 pub const BACKPRESSURE_CODE: &str = "CORE_BACKPRESSURE_UNDRAINED";
 
-/// The honest non-oracle failure code for a producer command the DRIVER
-/// disposed as [`ws_driver::CommandDisposition::TerminalRejected`]: the
-/// connection had already converged on its absorbing `Closed` state and
-/// delivered its once-only terminal, so the driver refused the command
-/// WITHOUT ever handing it to the core. No oracle expectation exists for
-/// that disposition — Java's own `Execution.requireOpen` would have raised
-/// `STATE_VIOLATION` — so the harness reports the driver's real disposition
-/// and lets the corpus fail loudly rather than synthesizing the Java code
-/// the core never produced.
-///
-/// Unreachable on the 74-case public corpus (no scenario has a step after
-/// the core reaches `Closed`); retained as the fail-closed report for the
-/// tiers that might.
-pub const TERMINAL_REJECTED_CODE: &str = "DRIVER_TERMINAL_REJECTED";
-
-/// Stable detail for [`TERMINAL_REJECTED_CODE`] (constant, so reruns stay
-/// byte-identical).
-pub const TERMINAL_REJECTED_DETAIL: &str = "ws_driver refused this command as terminal-rejected: \
-     the connection had already converged on Closed and delivered its once-only terminal, so the \
-     command never reached ws_core and no core-produced typed failure exists; the harness reports \
-     the driver's real disposition instead of fabricating Java's STATE_VIOLATION";
+// NOTE: this module used to define a `DRIVER_TERMINAL_REJECTED` non-oracle
+// code for `ws_driver::CommandDisposition::TerminalRejected` — a command the
+// driver refused WITHOUT handing it to the core once the connection had
+// converged. Owner decision
+// `us017-post-terminal-owner-decision-2026-08-28.json`
+// (`post-terminal-command`) removed that disposition from the driver
+// entirely: a post-terminal command is now applied to the core and comes
+// back as `Rejected` carrying the core's own `STATE_VIOLATION`, which
+// `map_core_failure` renders as the ordinary oracle-coded envelope. The
+// honest-report code is gone because the dishonest disposition it reported
+// is gone — it was not silently repurposed.
 
 /// The honest non-oracle failure code for a driver input the single owner
 /// never consumed: a deferral that survived the drain-and-retry the core's
@@ -960,10 +950,10 @@ impl WiredSession {
     }
 
     /// Folds one exactly-once command disposition into the scenario.
-    /// `Applied` continues; `Rejected` ends the scenario with the core's
-    /// own typed failure; `TerminalRejected` ends it with the honest
-    /// non-oracle [`TERMINAL_REJECTED_CODE`], because the core never saw
-    /// the command and no Java-coded failure exists to report.
+    /// `Applied` continues; `Rejected` ends the scenario with the CORE's own
+    /// typed failure. Every disposition the driver can produce is now the
+    /// core's verdict, so there is no adapter-vocabulary arm here at all
+    /// (owner decision `post-terminal-command`).
     fn dispose(
         &mut self,
         disposition: ws_driver::CommandDisposition,
@@ -974,11 +964,6 @@ impl WiredSession {
             ws_driver::CommandDisposition::Rejected { failure, .. } => {
                 Err(map_core_failure(&failure))
             }
-            ws_driver::CommandDisposition::TerminalRejected(_) => Err(ScenarioFailure {
-                code: TERMINAL_REJECTED_CODE.to_string(),
-                close_code: None,
-                detail: TERMINAL_REJECTED_DETAIL.to_string(),
-            }),
         }
     }
 

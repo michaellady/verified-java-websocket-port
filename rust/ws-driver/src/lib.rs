@@ -27,9 +27,19 @@
 //! Adapted from the Codex-plane US-017 `websocket-driver` (codex-import
 //! 6a7606a): the pull-driven `poll(DriverInput) -> PollResult` shape, the
 //! partial-write cursor with exact `WriteProgress` validation, the
-//! inbound-vs-command alternation turn, EOF/shutdown latching, the
-//! exactly-once `Terminal` delivery, and the terminal rejection of still
-//! queued commands are their design. **Adaptation to `ws_core`:** their
+//! inbound-vs-command alternation turn, EOF/shutdown latching and the
+//! exactly-once `Terminal` delivery are their design. Their terminal
+//! REJECTION of still-queued commands was adopted and has since been
+//! REMOVED: under owner decision
+//! `us017-post-terminal-owner-decision-2026-08-28.json`
+//! (`post-terminal-command`) a command that arrives after convergence is
+//! applied to the core like any other, so the refusal that surfaces is the
+//! core's own `STATE_VIOLATION` rather than a driver-invented verdict. The
+//! same decision (`post-terminal-inbound`) removed the `terminal_delivered`
+//! gate on input application, which had made post-terminal inbound bytes
+//! report `Consumed` while the core never saw them. `terminal_delivered`
+//! remains what its name says: a DELIVERY latch keeping `Terminal`
+//! once-only. **Adaptation to `ws_core`:** their
 //! `AdmissionGate` + `mpsc::sync_channel` producer machinery is NOT adopted —
 //! the incumbent `ws_core` bounded multi-producer command channel
 //! ([`ws_core::CommandQueue`] / [`ws_core::CommandSender`], the US-009 AC4
@@ -300,6 +310,17 @@ pub enum InputDisposition {
 }
 
 /// Exactly-once owner disposition of one accepted producer command.
+///
+/// Every disposition is the CORE's own verdict. There is deliberately no
+/// driver-invented refusal: a command that arrives after the connection has
+/// converged on `Closed` — even after the once-only terminal has been
+/// delivered — is still applied to the core, which answers with its typed
+/// `STATE_VIOLATION`, and that is what `Rejected` carries. The former
+/// `TerminalRejected` variant, which the owner produced WITHOUT calling the
+/// core, was removed under owner decision
+/// `us017-post-terminal-owner-decision-2026-08-28.json` (`post-terminal-command`):
+/// leaving one post-terminal path on a driver-invented verdict while the
+/// inbound path passes through is how the next sibling defect hides.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandDisposition {
     /// The core accepted and fully applied the command.
@@ -311,9 +332,6 @@ pub enum CommandDisposition {
         /// The exact typed core failure.
         failure: TypedProtocolFailure,
     },
-    /// Terminal convergence rejected a command that was still queued when
-    /// the connection closed.
-    TerminalRejected(LocalCommand),
 }
 
 /// The single normalized terminal result: the core reached its one
@@ -371,8 +389,6 @@ pub struct ConnectionDriver {
     shutdown_latched: bool,
     eof_applied: bool,
     terminal_delivered: bool,
-    /// Queued command dispositions not yet surfaced (terminal rejections).
-    dispositions: VecDeque<CommandDisposition>,
     /// The configured automatic response policy (US-015 AC1).
     policy: AutoResponsePolicy,
     /// Automatic pong payloads whose injection the core refused with
@@ -413,7 +429,6 @@ impl ConnectionDriver {
             shutdown_latched: false,
             eof_applied: false,
             terminal_delivered: false,
-            dispositions: VecDeque::new(),
             policy,
             pending_auto_pongs: VecDeque::new(),
             injected_failure: None,
@@ -492,7 +507,9 @@ impl ConnectionDriver {
                         self.write_cursor = 0;
                     }
                 }
-                let command = self.dispositions.pop_front();
+                // Write progress is transport accounting and never applies
+                // a producer command, so no disposition can surface here.
+                let command = None;
                 let state = self.core.state();
                 let output = self.next_output();
                 return PollResult {
@@ -568,7 +585,21 @@ impl ConnectionDriver {
                     }
                 }
             }
-        } else if !self.terminal_delivered {
+        } else {
+            // NOTE (owner decision us017-post-terminal-owner-decision-2026-08-28,
+            // `post-terminal-inbound` / `post-terminal-command`): this arm was
+            // gated on `!self.terminal_delivered`. That gate meant that once
+            // the once-only terminal had been delivered NO branch ran, so
+            // `poll` returned the initial `consumed(&input)` disposition —
+            // reporting inbound bytes as `Consumed { bytes: N }` that the core
+            // never saw. Reporting success for work never done is strictly
+            // worse than absorbing it silently, because no correct adapter can
+            // detect it. The gate is gone: post-terminal work is applied to the
+            // core like any other input and the core's own typed refusal is
+            // what surfaces. The terminal stays once-only via the
+            // `terminal_delivered` latch in `next_output`, which is a
+            // DELIVERY latch and was never meant to gate input application.
+            //
             // A backpressured automatic reply holds priority over new owner
             // work (see the EOF arm above for why); until it lands, new
             // inbound facts and held commands wait like committed output.
@@ -609,9 +640,7 @@ impl ConnectionDriver {
             }
         }
 
-        self.prepare_terminal();
-        let command = command_disposition.or_else(|| self.dispositions.pop_front());
-        self.finish_poll(input_disposition, command, None)
+        self.finish_poll(input_disposition, command_disposition, None)
     }
 
     fn finish_poll<'owner>(
@@ -620,7 +649,6 @@ impl ConnectionDriver {
         command: Option<CommandDisposition>,
         failure: Option<TypedProtocolFailure>,
     ) -> PollResult<'owner> {
-        self.prepare_terminal();
         let state = self.core.state();
         let output = match failure {
             Some(failure) => DriverOutput::Failure(failure),
@@ -653,24 +681,6 @@ impl ConnectionDriver {
     fn fill_held(&mut self) {
         if self.held.is_none() {
             self.held = self.commands.pop();
-        }
-    }
-
-    /// After the core reaches its absorbing `Closed` state and no queued
-    /// output remains, still-queued commands are disposed as
-    /// `TerminalRejected` exactly once each (borrowed design: codex
-    /// terminal convergence).
-    fn prepare_terminal(&mut self) {
-        if self.core.state() != ReadyState::Closed {
-            return;
-        }
-        if let Some(command) = self.held.take() {
-            self.dispositions
-                .push_back(CommandDisposition::TerminalRejected(command));
-        }
-        while let Some(command) = self.commands.pop() {
-            self.dispositions
-                .push_back(CommandDisposition::TerminalRejected(command));
         }
     }
 
@@ -784,8 +794,16 @@ impl ConnectionDriver {
             }
             return DriverOutput::Event(event);
         }
+        // Terminal convergence: the core is in its absorbing state AND no
+        // producer work remains undisposed. Held/queued commands keep the
+        // terminal waiting rather than being swept aside with a
+        // driver-invented verdict (owner decision
+        // us017-post-terminal-owner-decision-2026-08-28, `post-terminal-command`);
+        // each is applied to the core on a later turn and surfaces the
+        // core's own refusal.
         if self.core.state() == ReadyState::Closed
-            && self.dispositions.is_empty()
+            && self.held.is_none()
+            && self.commands.is_empty()
             && !self.terminal_delivered
         {
             self.terminal_delivered = true;

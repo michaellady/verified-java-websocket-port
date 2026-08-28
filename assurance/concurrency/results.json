@@ -5,9 +5,9 @@
   "state": "PASS",
   "claim_scope": "BOUNDED_SYSTEMATIC_AND_CURRENT_HOST_STRESS_TESTING",
   "claim_scope_statement": "Bounded schedule exploration under the bounds below is systematic concurrency testing, never proof (assurance/concurrency/plan.json claim ceiling). Native-thread stress samples schedules without coverage accounting and cannot stand in for the systematic result, nor the systematic result for native-thread evidence.",
-  "recorded_at": "2026-08-27T22:04:57Z",
-  "recorded_at_provenance": "captured from `date -u` in the working session immediately after the closure-review round-2 run whose printed counters this document transcribes; blob ids computed from the tree being committed at write time",
-  "revision_note": "supersedes the 76b5350 revision after the closure-commit review (session 01a04533): (1) the interpreter now halts at the first surfaced DriverOutput::Failure exactly like the real ws-testee io_loop, making the two terminal dispositions exclusive by construction and reclassifying the schedule space (RED read: the pre-fix interpreter recorded both Failure and Terminal on the minimized schedule `shutdown,inbound-close`); (2) replay equality and digests now cover the FULL structured trace (semantic-event contents, typed failure values, command-rejection details, byte-exact reoffered write suffixes); (3) source blob ids computed at write time from the committed tree",
+  "recorded_at": "2026-08-28T10:55:36Z",
+  "recorded_at_provenance": "captured from `date -u` immediately before this revision was written; the counters below are transcribed verbatim from the US017_EXPLORATION line printed by `cargo test -p ws-driver --release --test schedule_exploration bounded_exploration -- --nocapture` on the tree being committed, not carried over from the previous revision",
+  "revision_note": "supersedes the 0ee3c7f revision after owner decisions us017-eof-after-closed-owner-decision-2026-08-28.json (sha bd7849c3) and us017-post-terminal-owner-decision-2026-08-28.json (sha b52d244b). Three driver defects of one shape — a state check that decided NOT to hand an input to the core — were found and fixed: the latched EOF was absorbed when the core was already Closed; post-terminal inbound bytes were reported Consumed without reaching the core; and post-terminal commands were disposed with a driver-invented TerminalRejected verdict. All three now pass through, so every disposition is the core's own. CONSEQUENCES RE-MEASURED, NOT CARRIED OVER: (a) the CommandDisposition enum lost its TerminalRejected variant, so terminal_rejections is gone and those dispositions are now ordinary typed_rejections; (b) commands are applied one per poll instead of being swept in bulk at convergence, so the bounded queue stays fuller and queue_full_refusals rose while accepted_commands fell; (c) the two terminal dispositions are now ORDERED rather than mutually exclusive — a run may take its one clean Terminal and then refuse work still pushed at the converged connection — and the failure-halt-exclusivity check was narrowed to the property its own name states (no Terminal AFTER a Failure), asserted against the ordered trace; (d) distinct_semantic_trace_digests fell from 19698 to 9549 because outcomes that previously differed only in how a disposition was split between rejected and terminal_rejected are now genuinely identical. This exploration FOUND consequence (c) itself, on the first run after the ruling landed.",
   "target": {
     "symbol": "ws_driver::ConnectionDriver::poll",
     "source": {
@@ -47,23 +47,22 @@
     "distinct_schedule_digests": 79920,
     "executions": 159840,
     "replay_determinism": "every schedule executed twice with FULL structured-trace equality: every poll record compares the input (kind + byte length), the complete typed input disposition (rejection details included), the complete command disposition (command payloads and typed rejection failures included), the complete owned output (semantic-event contents, typed failure values, byte-exact write suffixes), and the lifecycle state; the enumeration itself is re-run and compared; trace digests hash the full structured records plus the committed wire log",
-    "distinct_semantic_trace_digests": 19698,
-    "closed_terminal_runs": 52924,
-    "failure_halted_runs": 26996,
-    "terminal_disposition_exclusivity": "asserted per run AND in aggregate: terminals total 52924 == closed_terminal_runs (exactly one each), surfaced failures total 26996 == failure_halted_runs (exactly one each, the halting failure); 52924 + 26996 == 79920",
+    "distinct_semantic_trace_digests": 9549,
+    "closed_terminal_runs": 50221,
+    "failure_halted_runs": 29699,
+    "terminal_disposition_exclusivity": "asserted per run AND in aggregate, as an ORDERING property since the post-terminal ruling: surfaced failures total 29699 == failure_halted_runs (exactly one each, the halting failure); 50221 + 29699 == 79920; terminals total equals closed_terminal_runs plus the clean terminals of runs that later halted refusing post-convergence work; and no Terminal is ever observed after a surfaced Failure, checked against the ordered trace of every run",
     "counters": {
-      "accepted_commands": 221353,
-      "queue_full_refusals": 59358,
+      "accepted_commands": 209732,
+      "queue_full_refusals": 66628,
       "applied": 68144,
-      "typed_rejections": 22826,
-      "terminal_rejections": 115234,
-      "reconciliation": "clean-terminal runs reconcile EXACTLY per run (accepted == applied + rejected + terminal_rejected); halted runs assert at-most-once disposition of accepted commands, with commands still queued at the halt belonging to the embedding adapter's teardown (aggregate disposed 206204 of 221353 accepted; the 15149 remainder were queued at halt boundaries and never double-disposed)",
-      "events_drained": 471171,
-      "surfaced_typed_failures": 26996,
+      "typed_rejections": 117773,
+      "reconciliation": "clean-terminal runs reconcile EXACTLY per run (accepted == applied + rejected; the terminal_rejected term is gone because the driver no longer invents that verdict — a command that arrives after convergence is applied to the core and comes back as an ordinary typed rejection). Halted runs assert at-most-once disposition of accepted commands, with commands still queued at the halt belonging to the embedding adapter's teardown: aggregate applied 68144 + rejected 117773 = 185917 disposed of 209732 accepted, the 23815 remainder queued at halt boundaries and never double-disposed",
+      "events_drained": 473918,
+      "surfaced_typed_failures": 29699,
       "deferred_output_pending": 27708,
-      "deferred_command_turn": 31397,
+      "deferred_command_turn": 33232,
       "deferred_backpressure": 3550,
-      "typed_input_rejections": 52418,
+      "typed_input_rejections": 52584,
       "max_drain_polls_observed": 11
     },
     "weak_fairness": [
@@ -75,18 +74,48 @@
     "outcome": "PASS - zero invariant violations across all 79920 schedules"
   },
   "invariants": [
-    {"property_id": "concurrency.single-owner", "outcome": "PASS"},
-    {"property_id": "concurrency.queue-bounds", "outcome": "PASS"},
-    {"property_id": "concurrency.accepted-eventual-exactly-once", "outcome": "PASS"},
-    {"property_id": "concurrency.fifo-owner-order", "outcome": "PASS"},
-    {"property_id": "concurrency.no-write-bypass", "outcome": "PASS"},
-    {"property_id": "concurrency.close-convergence", "outcome": "PASS"},
-    {"property_id": "concurrency.terminal-exactly-once", "outcome": "PASS"},
-    {"property_id": "concurrency.no-post-terminal", "outcome": "PASS"},
-    {"property_id": "concurrency.failure-halt-exclusivity", "outcome": "PASS"},
-    {"property_id": "concurrency.deterministic-replay", "outcome": "PASS"}
+    {
+      "property_id": "concurrency.single-owner",
+      "outcome": "PASS"
+    },
+    {
+      "property_id": "concurrency.queue-bounds",
+      "outcome": "PASS"
+    },
+    {
+      "property_id": "concurrency.accepted-eventual-exactly-once",
+      "outcome": "PASS"
+    },
+    {
+      "property_id": "concurrency.fifo-owner-order",
+      "outcome": "PASS"
+    },
+    {
+      "property_id": "concurrency.no-write-bypass",
+      "outcome": "PASS"
+    },
+    {
+      "property_id": "concurrency.close-convergence",
+      "outcome": "PASS"
+    },
+    {
+      "property_id": "concurrency.terminal-exactly-once",
+      "outcome": "PASS"
+    },
+    {
+      "property_id": "concurrency.no-post-terminal",
+      "outcome": "PASS"
+    },
+    {
+      "property_id": "concurrency.failure-halt-exclusivity",
+      "outcome": "PASS"
+    },
+    {
+      "property_id": "concurrency.deterministic-replay",
+      "outcome": "PASS"
+    }
   ],
-  "terminal_disposition_model": "every full schedule reaches EXACTLY ONE typed terminal disposition, mirroring the real adapter: the clean Terminal from the absorbing Closed state (52924 runs, exactly one Terminal each, zero surfaced failures), or the halt at the first surfaced fatal Failure (26996 runs, exactly one surfaced failure each, zero Terminals) — the poisoned core retains its final state per the oracle's partial-execution semantics and the adapter stops there; both classes fully quiesce, clean-terminal runs reconcile every accepted command exactly once",
+  "terminal_disposition_model": "every full schedule ends in one of two typed dispositions, mirroring the real adapter: the clean Terminal from the absorbing Closed state (50221 runs, exactly one Terminal each, zero surfaced failures), or the halt at the first surfaced fatal Failure (29699 runs, exactly one surfaced failure each) — the poisoned core retains its final state per the oracle's partial-execution semantics and the adapter stops there. Since owner decision us017-post-terminal-owner-decision-2026-08-28 these are ORDERED, not mutually exclusive: a schedule may converge cleanly, take its one Terminal, and then have further work pushed at the already-converged connection, which the core refuses — so a halted run may legitimately carry one preceding clean Terminal. The invariant that holds unconditionally is the ordering one: no Terminal is ever observed AFTER a surfaced Failure. Both classes fully quiesce, and clean-terminal runs reconcile every accepted command exactly once",
   "defects_found_and_fixed": [
     {
       "defect_id": "eof-backpressure-livelock",
@@ -112,6 +141,30 @@
       "description": "the exploration interpreter kept driving a run after a surfaced DriverOutput::Failure, so schedules such as the minimized `shutdown,inbound-close` recorded BOTH a fatal Failure and a later Terminal while passing, invalidating the exclusive disposition oracle and the prior 732-run classification",
       "fix": "adapter-faithful stop-on-Failure in the interpreter (no further schedule actions, drain, or quiescence polls after a Failure) plus the failure-halt-exclusivity invariant; the schedule space was reclassified and re-counted (52924 clean-terminal / 26996 failure-halted)",
       "note": "harness fix, not a driver change; the shipped driver passes the corrected oracle on all schedules"
+    },
+    {
+      "defect_id": "eof-after-closed-absorbed",
+      "found_by": "routing the US-017 AC5 corpus differential harness through this driver, which moved the live-oracle-confirmed public transcript on us005.pub.0070",
+      "description": "ConnectionDriver::poll's latched-EOF arm set eof_applied=true WITHOUT calling the core once the core had converged on Closed, so ConnectionCore::handle_eof — which counts the action then refuses with STATE_VIOLATION — never ran. The connection silently swallowed an event shipped Java-WebSocket 1.6.0 reports as \"eof repeated in CLOSED state\".",
+      "owner_ruling": "us017-eof-after-closed-owner-decision-2026-08-28.json (sha bd7849c3): driver defect; pass the EOF through. Corpus expectation NOT amended and transcript NOT re-baselined.",
+      "fix": "the latched EOF is handed to the core on every path; the eof_applied latch, which was never the defect, still guarantees at-most-once application",
+      "regression_guard": "ws-oracle-harness driver_surfaces_the_cores_eof_after_closed_refusal, plus the pre-existing wired_eof_in_closed_counts_the_rejected_action which passes unmodified"
+    },
+    {
+      "defect_id": "post-terminal-inbound-false-consumed",
+      "found_by": "the sibling audit mandated by the eof-after-closed ruling, measured with a scratch probe rather than reasoned about",
+      "description": "after the once-only Terminal was delivered, the `!terminal_delivered` gate meant no branch of poll() ran, so poll returned the initial InputDisposition::Consumed{bytes:N} while the core never saw the bytes. Measured: Consumed{bytes:7} with counts.input_bytes 0 before and after. Reporting success for work never done, undetectable by any adapter — counts are not a usable detector either, because the core refuses a CLOSED-state byte input before accounting it.",
+      "owner_ruling": "us017-post-terminal-owner-decision-2026-08-28.json (sha b52d244b), decision post-terminal-inbound: same ruling as the EOF defect; pass it through.",
+      "fix": "the terminal_delivered gate on input application was removed; terminal_delivered is now only what its name says, a DELIVERY latch keeping Terminal once-only",
+      "regression_guard": "ws-driver post_terminal_inbound_reaches_the_core and terminal_stays_once_only_after_post_terminal_work"
+    },
+    {
+      "defect_id": "post-terminal-command-invented-verdict",
+      "found_by": "the same sibling audit",
+      "description": "prepare_terminal disposed still-queued commands as CommandDisposition::TerminalRejected without a core call, a driver-invented verdict where the oracle reports STATE_VIOLATION. Less severe than the inbound sibling because it reported a refusal rather than false success, but it left two post-terminal paths on different principles.",
+      "owner_ruling": "us017-post-terminal-owner-decision-2026-08-28.json (sha b52d244b), decision post-terminal-command: make it consistent.",
+      "fix": "prepare_terminal and the TerminalRejected variant were removed entirely; a post-terminal command is applied to the core and comes back Rejected with the core's own STATE_VIOLATION. Terminal now waits for the command queue and held slot to be empty, so it still marks the true end.",
+      "regression_guard": "ws-driver commands_queued_at_terminal_are_refused_by_the_core (the pre-existing test whose expectation this ruling moved, rewritten and disclosed)"
     }
   ],
   "retention": {
@@ -120,12 +173,54 @@
     "demonstration": "the six named boundary faults (mutation vocabulary adopted with attribution from codex-import 6a7606a fuzz-seeds/us017/*.seed) are each injected at the test-only public driver boundary; the exploration detects every one, the shrinker minimizes it, fault-localization is verified (minimized schedule passes clean, fails faulted), and the minimized artifact is pinned byte-for-byte",
     "regeneration": "US017_RETAIN=1 is the sanctioned deliberate-refreeze path; the pinned replay otherwise compares committed bytes; a corpus mutex serializes writer and reader tests",
     "minimized_artifacts": [
-      {"seed": "lock-sharing", "property": "single-owner", "found_index": 0, "shrink": "12 -> 1", "schedule": "enqueue-text-a", "sha256": "sha256:874b5d43cd66da2bba7f7a95dbfaf8f50e40817d1b2efc2d5ca9398c414a36da"},
-      {"seed": "lost-command", "property": "accepted-eventual-exactly-once", "found_index": 0, "shrink": "12 -> 2", "schedule": "enqueue-close-b,shutdown", "sha256": "sha256:6547aa07f7887125a53fc17b0e00cc51b42aa3cfd5e4d91851269f315c713adf"},
-      {"seed": "queue-bypass", "property": "no-write-bypass", "found_index": 0, "shrink": "12 -> 2", "schedule": "inbound-close,write-all", "sha256": "sha256:04ee18f67620295fb95c90826644cd6849a774bd77a9152b001b8d2a033eb38c"},
-      {"seed": "write-reorder", "property": "fifo-owner-order", "found_index": 17, "shrink": "12 -> 2", "schedule": "enqueue-ping-b,enqueue-close-b", "sha256": "sha256:2acd0d1284bbf9294ddb45fea4a3cabef14465ae59b19537713b64ed9a2179f0"},
-      {"seed": "close-race", "property": "close-convergence", "found_index": 0, "shrink": "12 -> 1", "schedule": "shutdown", "sha256": "sha256:594d4f2d3ab8b3c4601575c427b34b920af16ba287d8f725a29792b5a21d7729"},
-      {"seed": "duplicate-delivery", "property": "terminal-exactly-once", "found_index": 0, "shrink": "12 -> 1", "schedule": "shutdown", "sha256": "sha256:b84ea8593ca643c4ce13033c28ccac0e063fccad56d582f358c60949e961eaa0"}
+      {
+        "seed": "lock-sharing",
+        "property": "single-owner",
+        "found_index": 0,
+        "shrink": "12 -> 1",
+        "schedule": "enqueue-text-a",
+        "sha256": "sha256:874b5d43cd66da2bba7f7a95dbfaf8f50e40817d1b2efc2d5ca9398c414a36da"
+      },
+      {
+        "seed": "lost-command",
+        "property": "accepted-eventual-exactly-once",
+        "found_index": 0,
+        "shrink": "12 -> 2",
+        "schedule": "enqueue-close-b,shutdown",
+        "sha256": "sha256:6547aa07f7887125a53fc17b0e00cc51b42aa3cfd5e4d91851269f315c713adf"
+      },
+      {
+        "seed": "queue-bypass",
+        "property": "no-write-bypass",
+        "found_index": 0,
+        "shrink": "12 -> 2",
+        "schedule": "inbound-close,write-all",
+        "sha256": "sha256:04ee18f67620295fb95c90826644cd6849a774bd77a9152b001b8d2a033eb38c"
+      },
+      {
+        "seed": "write-reorder",
+        "property": "fifo-owner-order",
+        "found_index": 17,
+        "shrink": "12 -> 2",
+        "schedule": "enqueue-ping-b,enqueue-close-b",
+        "sha256": "sha256:2acd0d1284bbf9294ddb45fea4a3cabef14465ae59b19537713b64ed9a2179f0"
+      },
+      {
+        "seed": "close-race",
+        "property": "close-convergence",
+        "found_index": 0,
+        "shrink": "12 -> 1",
+        "schedule": "shutdown",
+        "sha256": "sha256:594d4f2d3ab8b3c4601575c427b34b920af16ba287d8f725a29792b5a21d7729"
+      },
+      {
+        "seed": "duplicate-delivery",
+        "property": "terminal-exactly-once",
+        "found_index": 0,
+        "shrink": "12 -> 1",
+        "schedule": "shutdown",
+        "sha256": "sha256:b84ea8593ca643c4ce13033c28ccac0e063fccad56d582f358c60949e961eaa0"
+      }
     ],
     "pinned_artifacts_unchanged_by_review_round": "all six minimized artifacts re-verified byte-identical under the corrected interpreter (no regeneration was needed)",
     "outcome": "PASS_ALL_NAMED_FAULTS_KILLED_AND_MINIMIZED"

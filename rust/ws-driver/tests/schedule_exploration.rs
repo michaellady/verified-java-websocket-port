@@ -445,7 +445,6 @@ struct Outcome {
     refused_full: u32,
     applied: u32,
     rejected: u32,
-    terminal_rejected: u32,
     events: u32,
     failures: u32,
     terminals: u32,
@@ -600,13 +599,6 @@ impl Run {
                 let tag = tag_of(command);
                 if !self.arm(Fault::DropFirstDisposition) {
                     self.outcome.rejected += 1;
-                    self.disposed_tags.push(tag);
-                }
-            }
-            Some(CommandDisposition::TerminalRejected(command)) => {
-                let tag = tag_of(command);
-                if !self.arm(Fault::DropFirstDisposition) {
-                    self.outcome.terminal_rejected += 1;
                     self.disposed_tags.push(tag);
                 }
             }
@@ -939,9 +931,27 @@ impl Run {
             // exactly as the real adapter does: that Failure IS the
             // adapter-seam terminal (oracle partial-execution semantics —
             // a poisoned core retains its final state). The two terminal
-            // dispositions are exclusive: no driver `Terminal` may have
-            // been observed in the same run.
-            if self.outcome.terminals > 0 {
+            // dispositions are ORDERED, not merely exclusive. Owner decision
+            // us017-post-terminal-owner-decision-2026-08-28
+            // (`post-terminal-inbound`) makes a converged connection REFUSE
+            // work that is still pushed at it, so a clean `Terminal` may
+            // legitimately PRECEDE a later refusal. What must never happen is
+            // a `Terminal` AFTER a surfaced failure: the adapter stops driving
+            // there, so a terminal past that point would be a second
+            // end-of-connection signal. This exploration caught the
+            // co-occurrence form of the check the moment the ruling landed;
+            // the check is narrowed to the property its own name states
+            // (`TerminalAfterFailure`), not weakened.
+            let first_failure = self
+                .outcome
+                .trace
+                .iter()
+                .position(|record| matches!(record.output, TraceOutput::Failure(_)));
+            if let Some(index) = first_failure
+                && self.outcome.trace[index + 1..]
+                    .iter()
+                    .any(|record| matches!(record.output, TraceOutput::Terminal))
+            {
                 self.outcome.record(Violation::TerminalAfterFailure);
             }
             // Commands still queued at the halt belong to the embedding
@@ -1131,6 +1141,10 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     let mut max_drain = 0u32;
     let mut closed_terminal_runs = 0usize;
     let mut failure_halted_runs = 0usize;
+    // Clean terminals observed in runs that LATER halted, refusing work
+    // pushed at an already-converged connection (owner decision
+    // post-terminal-inbound).
+    let mut halted_terminals = 0usize;
     for schedule in &exploration.schedules {
         let outcome = execute_deterministic(schedule, Fault::None);
         if let Some(violation) = outcome.violations.first().copied() {
@@ -1140,10 +1154,19 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         // terminal dispositions, mirroring the real adapter: the clean
         // Terminal from the absorbing Closed state, or the halt at the
         // first surfaced fatal Failure (the poisoned core's final state
-        // per the oracle's partial-execution semantics). Never both.
+        // per the oracle's partial-execution semantics). Since the
+        // post-terminal ruling these are ORDERED rather than mutually
+        // exclusive: a schedule may converge cleanly, take its one Terminal,
+        // and then have further work pushed at the converged connection,
+        // which the core refuses. The ordering property (no Terminal AFTER a
+        // Failure) is asserted in `finish` against the trace itself.
         if outcome.halted {
             assert_eq!(outcome.failures, 1, "the halt is the first failure");
-            assert_eq!(outcome.terminals, 0, "no terminal after a failure halt");
+            assert!(
+                outcome.terminals <= 1,
+                "at most one terminal, and only before the failure"
+            );
+            halted_terminals += usize::try_from(outcome.terminals).expect("small count");
             failure_halted_runs += 1;
         } else {
             assert!(outcome.closed, "a non-halted full schedule converges");
@@ -1156,7 +1179,6 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.refused_full += outcome.refused_full;
         totals.applied += outcome.applied;
         totals.rejected += outcome.rejected;
-        totals.terminal_rejected += outcome.terminal_rejected;
         totals.events += outcome.events;
         totals.failures += outcome.failures;
         totals.terminals += outcome.terminals;
@@ -1178,8 +1200,10 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     );
     assert!(totals.rejected_inputs > 0, "typed input rejection explored");
     assert_eq!(
-        totals.terminals as usize, closed_terminal_runs,
-        "exactly one terminal per Closed run and none elsewhere"
+        totals.terminals as usize,
+        closed_terminal_runs + halted_terminals,
+        "exactly one terminal per Closed run, plus the clean terminals of runs that \
+         later halted refusing post-convergence work"
     );
     assert_eq!(
         totals.failures as usize, failure_halted_runs,
@@ -1197,7 +1221,7 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
          preemption_budget={PREEMPTION_BUDGET} schedules={schedule_count} branches={} truncated=false \
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
          failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
-         terminal_rejected={} events={} failures={} deferred_output_pending={} deferred_command_turn={} \
+         events={} failures={} deferred_output_pending={} deferred_command_turn={} \
          deferred_backpressure={} rejected_inputs={} max_drain_polls={max_drain}",
         PROGRAMS.iter().map(|program| program.len()).sum::<usize>(),
         exploration.branches,
@@ -1207,7 +1231,6 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.refused_full,
         totals.applied,
         totals.rejected,
-        totals.terminal_rejected,
         totals.events,
         totals.failures,
         totals.deferred_output_pending,
