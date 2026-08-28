@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 )
 
 const RawLedgerEntrySchema = "vjwp-benchmark-raw-ledger-entry/1.0.0"
@@ -601,7 +602,11 @@ func readHeldRepositoryFile(root *os.Root, name string, limit int64) ([]byte, er
 		return nil, fmt.Errorf("repository fact %s is empty or exceeds its byte bound", name)
 	}
 	content, err := io.ReadAll(io.LimitReader(file, limit+1))
-	if err != nil || int64(len(content)) != info.Size() {
+	if err != nil {
+		return nil, fmt.Errorf("repository fact %s changed while held", name)
+	}
+	after, err := file.Stat()
+	if err != nil || !os.SameFile(info, after) || info.Size() != after.Size() || int64(len(content)) != after.Size() {
 		return nil, fmt.Errorf("repository fact %s changed while held", name)
 	}
 	return content, nil
@@ -658,34 +663,199 @@ func boundToolFact(primary, confirmation environmentDocument, name string) ([]by
 	return append([]byte(nil), left.Value...), digestBytes(left.Value), nil
 }
 
+type heldVerifiedFile struct {
+	name    string
+	file    *os.File
+	info    os.FileInfo
+	content []byte
+}
+
+func holdVerifiedFile(root *os.Root, name string, limit int64) (*heldVerifiedFile, error) {
+	file, err := openHeldRegular(root, name, os.O_RDONLY, 0)
+	if err != nil {
+		return nil, err
+	}
+	fail := func(cause error) (*heldVerifiedFile, error) {
+		_ = file.Close()
+		return nil, cause
+	}
+	before, err := file.Stat()
+	if err != nil || before.Size() <= 0 || before.Size() > limit {
+		return fail(fmt.Errorf("verified repository file %s is empty or exceeds its byte bound", name))
+	}
+	content, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil {
+		return fail(err)
+	}
+	after, err := file.Stat()
+	if err != nil || !os.SameFile(before, after) || before.Size() != after.Size() || int64(len(content)) != after.Size() {
+		return fail(fmt.Errorf("verified repository file %s changed while being held", name))
+	}
+	return &heldVerifiedFile{name: name, file: file, info: after, content: content}, nil
+}
+
+func (held *heldVerifiedFile) confirm(root *os.Root) error {
+	pathInfo, err := root.Lstat(held.name)
+	if err != nil || pathInfo.Mode()&os.ModeSymlink != 0 || !os.SameFile(held.info, pathInfo) {
+		return fmt.Errorf("verified repository file %s was replaced", held.name)
+	}
+	if _, err := held.file.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	content, err := io.ReadAll(io.LimitReader(held.file, int64(len(held.content))+1))
+	if err != nil {
+		return err
+	}
+	after, err := held.file.Stat()
+	if err != nil || !os.SameFile(held.info, after) || after.Size() != int64(len(content)) || !bytes.Equal(content, held.content) {
+		return fmt.Errorf("verified repository file %s changed after verification", held.name)
+	}
+	return nil
+}
+
+type verifiedRepositorySnapshot struct {
+	root      string
+	held      map[string]*heldVerifiedFile
+	documents map[string][]byte
+}
+
+func (snapshot *verifiedRepositorySnapshot) close() {
+	for _, held := range snapshot.held {
+		_ = held.file.Close()
+	}
+	_ = os.RemoveAll(snapshot.root)
+}
+
+func writeSnapshotFile(snapshotRoot, name string, content []byte) error {
+	if !fs.ValidPath(name) {
+		return fmt.Errorf("snapshot path %q is not a clean repository-relative path", name)
+	}
+	target := filepath.Join(snapshotRoot, filepath.FromSlash(name))
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(target, content, 0o600)
+}
+
+func (snapshot *verifiedRepositorySnapshot) add(root *os.Root, name string, limit int64) ([]byte, error) {
+	if existing := snapshot.held[name]; existing != nil {
+		return existing.content, nil
+	}
+	if !fs.ValidPath(name) {
+		return nil, fmt.Errorf("verified path %q is not repository-relative", name)
+	}
+	held, err := holdVerifiedFile(root, name, limit)
+	if err != nil {
+		return nil, err
+	}
+	if err := writeSnapshotFile(snapshot.root, name, held.content); err != nil {
+		_ = held.file.Close()
+		return nil, err
+	}
+	snapshot.held[name] = held
+	return held.content, nil
+}
+
+func referencedReceiptPaths(environmentRaw []byte) ([]string, error) {
+	var environment environmentDocument
+	if err := json.Unmarshal(environmentRaw, &environment); err != nil {
+		return nil, err
+	}
+	var paths []string
+	for _, fields := range []map[string]environmentField{environment.HostIdentity, environment.RunPolicy, environment.ToolIdentities} {
+		for _, field := range fields {
+			if field.EvidenceReceipt == nil {
+				continue
+			}
+			name := field.EvidenceReceipt.Path
+			if !fs.ValidPath(name) || !strings.HasPrefix(name, "benchmarks/evidence/receipts/") {
+				return nil, fmt.Errorf("evidence receipt path %q is outside the canonical receipt tree", name)
+			}
+			paths = append(paths, name)
+		}
+	}
+	return paths, nil
+}
+
+func snapshotAndVerifyRepository(repository *secureLedgerRepository, allowTestOnlyReceipts bool, afterVerification func() error) (*verifiedRepositorySnapshot, error) {
+	snapshotRoot, err := os.MkdirTemp("", "vjwp-us025-verified-repository-")
+	if err != nil {
+		return nil, err
+	}
+	snapshot := &verifiedRepositorySnapshot{
+		root:      snapshotRoot,
+		held:      map[string]*heldVerifiedFile{},
+		documents: map[string][]byte{},
+	}
+	fail := func(cause error) (*verifiedRepositorySnapshot, error) {
+		snapshot.close()
+		return nil, cause
+	}
+	for document, schemaName := range BenchmarkDocuments {
+		content, err := snapshot.add(repository.repository, document, 4<<20)
+		if err != nil {
+			return fail(err)
+		}
+		snapshot.documents[document] = content
+		if _, err := snapshot.add(repository.repository, "schemas/"+schemaName, 4<<20); err != nil {
+			return fail(err)
+		}
+	}
+	for _, document := range []string{
+		"benchmarks/environments/primary-macos.json",
+		"benchmarks/environments/confirmation.json",
+	} {
+		paths, err := referencedReceiptPaths(snapshot.documents[document])
+		if err != nil {
+			return fail(err)
+		}
+		for _, name := range paths {
+			if _, err := snapshot.add(repository.repository, name, 4<<20); err != nil {
+				return fail(err)
+			}
+		}
+	}
+	report, err := verify(snapshot.root, allowTestOnlyReceipts)
+	if err != nil {
+		return fail(err)
+	}
+	if !report.FullyBound() {
+		return fail(errors.New("both exactly verified environment documents must be BOUND before expected-closure derivation"))
+	}
+	if afterVerification != nil {
+		if err := afterVerification(); err != nil {
+			return fail(err)
+		}
+	}
+	for _, held := range snapshot.held {
+		if err := held.confirm(repository.repository); err != nil {
+			return fail(err)
+		}
+	}
+	return snapshot, nil
+}
+
 // DeriveRepositoryExpectedBindingClosure derives the bound-side closure from
 // the verified repository and both BOUND environment documents. The current
 // unbound tree fails before any raw or payload operation.
 func DeriveRepositoryExpectedBindingClosure(repositoryRoot string) (BindingClosure, error) {
-	report, err := Verify(repositoryRoot)
-	if err != nil {
-		return BindingClosure{}, err
-	}
-	if !report.FullyBound() {
-		return BindingClosure{}, errors.New("both verified environment documents must be BOUND before expected-closure derivation")
-	}
+	return deriveRepositoryExpectedBindingClosure(repositoryRoot, false, nil)
+}
+
+func deriveRepositoryExpectedBindingClosure(repositoryRoot string, allowTestOnlyReceipts bool, afterVerification func() error) (BindingClosure, error) {
 	repository, err := openSecureLedgerRepository(repositoryRoot, false)
 	if err != nil {
 		return BindingClosure{}, err
 	}
 	defer repository.close()
-	plan, err := readHeldRepositoryFile(repository.repository, "benchmarks/plan/workloads.json", 4<<20)
+	snapshot, err := snapshotAndVerifyRepository(repository, allowTestOnlyReceipts, afterVerification)
 	if err != nil {
 		return BindingClosure{}, err
 	}
-	primaryRaw, err := readHeldRepositoryFile(repository.repository, "benchmarks/environments/primary-macos.json", 4<<20)
-	if err != nil {
-		return BindingClosure{}, err
-	}
-	confirmationRaw, err := readHeldRepositoryFile(repository.repository, "benchmarks/environments/confirmation.json", 4<<20)
-	if err != nil {
-		return BindingClosure{}, err
-	}
+	defer snapshot.close()
+	plan := snapshot.documents["benchmarks/plan/workloads.json"]
+	primaryRaw := snapshot.documents["benchmarks/environments/primary-macos.json"]
+	confirmationRaw := snapshot.documents["benchmarks/environments/confirmation.json"]
 	var primary, confirmation environmentDocument
 	if err := json.Unmarshal(primaryRaw, &primary); err != nil {
 		return BindingClosure{}, err
@@ -933,6 +1103,33 @@ func appendBoundRawLedger(repositoryRoot, role string, expected BindingClosure, 
 	existing := statErr == nil
 	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
 		return receipt, statErr
+	}
+	if !existing {
+		siblingRole := EnvironmentRolePrimary
+		if role == EnvironmentRolePrimary {
+			siblingRole = EnvironmentRoleConfirmation
+		}
+		siblingFilename, err := ledgerFilename(siblingRole)
+		if err != nil {
+			return receipt, err
+		}
+		_, siblingStatErr := repository.raw.Lstat(siblingFilename)
+		if siblingStatErr == nil {
+			sibling, err := openHeldRegular(repository.raw, siblingFilename, os.O_RDONLY, 0)
+			if err != nil {
+				return receipt, err
+			}
+			_, verifyErr := verifyHeldRawLedger(sibling, siblingRole, expected)
+			closeErr := sibling.Close()
+			if verifyErr != nil {
+				return receipt, fmt.Errorf("existing sibling ledger does not match expected closure: %w", verifyErr)
+			}
+			if closeErr != nil {
+				return receipt, closeErr
+			}
+		} else if !errors.Is(siblingStatErr, os.ErrNotExist) {
+			return receipt, siblingStatErr
+		}
 	}
 	flags := os.O_RDWR | os.O_APPEND
 	if !existing {

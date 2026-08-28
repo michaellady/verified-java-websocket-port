@@ -547,3 +547,52 @@ func TestBoundRawLedgerCreatesCleanRawTreeAndRejectsFinalSymlink(t *testing.T) {
 		t.Fatalf("outside target changed: %q, %v", outsideBytes, err)
 	}
 }
+
+func TestRepositoryClosureRejectsVerifiedFactReplacement(t *testing.T) {
+	repositoryRoot := copyBenchmarkTree(t)
+	bindAllPendingFields(t, repositoryRoot)
+	setBindingStatuses(t, repositoryRoot, "BOUND")
+
+	primaryPath := filepath.Join(repositoryRoot, "benchmarks", "environments", "primary-macos.json")
+	_, err := deriveRepositoryExpectedBindingClosure(repositoryRoot, true, func() error {
+		originalPath := primaryPath + ".verified"
+		if err := os.Rename(primaryPath, originalPath); err != nil {
+			return err
+		}
+		return os.WriteFile(primaryPath, []byte(`{"replacement":"not-the-verified-fact"}`), 0o600)
+	})
+	if err == nil {
+		t.Fatal("closure derived after a verified repository fact was replaced")
+	}
+	if _, statErr := os.Lstat(filepath.Join(repositoryRoot, "benchmarks", "raw")); !os.IsNotExist(statErr) {
+		t.Fatalf("rejected derivation created a raw evidence path: %v", statErr)
+	}
+}
+
+func TestNewSiblingLedgerMustMatchExistingClosure(t *testing.T) {
+	repositoryRoot := newLedgerRepository(t)
+	primaryClosure := syntheticLedgerClosure(t)
+	primaryPayload, err := json.Marshal(primaryClosure)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AppendBoundRawLedger(repositoryRoot, EnvironmentRolePrimary, primaryClosure, RecordBindingClosure, primaryPayload); err != nil {
+		t.Fatal(err)
+	}
+
+	confirmationClosure := primaryClosure
+	confirmationClosure.AnalyzerDigest = syntheticDigest("sequential repository replacement")
+	confirmationPayload, err := json.Marshal(confirmationClosure)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AppendBoundRawLedger(repositoryRoot, EnvironmentRoleConfirmation, confirmationClosure, RecordBindingClosure, confirmationPayload); err == nil {
+		t.Fatal("confirmation ledger accepted a closure different from the existing primary ledger")
+	}
+	if _, err := os.Lstat(ledgerPath(repositoryRoot, EnvironmentRoleConfirmation)); !os.IsNotExist(err) {
+		t.Fatalf("closure mismatch created confirmation ledger: %v", err)
+	}
+	if _, err := VerifyRawLedger(repositoryRoot, EnvironmentRolePrimary, primaryClosure); err != nil {
+		t.Fatalf("sibling mismatch damaged the incumbent primary ledger: %v", err)
+	}
+}
