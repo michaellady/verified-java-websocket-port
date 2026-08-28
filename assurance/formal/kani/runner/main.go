@@ -8,11 +8,14 @@
 package main
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -30,6 +33,13 @@ type result struct {
 	Matches      bool    `json:"matches_expectation"`
 	FirstFailure string  `json:"first_failure_description,omitempty"`
 	DurationSec  float64 `json:"duration_seconds"`
+
+	// Raw-output provenance. Both are omitempty, so records are byte-identical
+	// to the pre-raw-dir shape when -raw-dir is unset — host-vs-sandbox
+	// comparison reads the classification fields above and must not see a
+	// difference merely because one side captured logs.
+	RawLog       string `json:"raw_log,omitempty"`
+	RawLogSHA256 string `json:"raw_log_sha256,omitempty"`
 }
 
 var (
@@ -43,7 +53,15 @@ func main() {
 	kaniBin := flag.String("kani-bin", "", "directory containing the cargo-kani binary")
 	out := flag.String("out", "", "path to write the JSON result array")
 	list := flag.String("harnesses", "", "comma-separated harness=expectation pairs")
+	rawDir := flag.String("raw-dir", "", "directory to write each harness's full combined output to (<dir>/<harness>.log)")
 	flag.Parse()
+
+	if *rawDir != "" {
+		if err := os.MkdirAll(*rawDir, 0o755); err != nil {
+			fmt.Fprintf(os.Stderr, "kanirun: -raw-dir: %v\n", err)
+			os.Exit(3)
+		}
+	}
 
 	if *list == "" {
 		fmt.Fprintln(os.Stderr, "kanirun: -harnesses is required")
@@ -91,13 +109,32 @@ func main() {
 			}
 		}
 
-		text := string(combined)
 		r := result{
 			Harness:     name,
 			Expectation: expect,
 			ExitCode:    exitCode,
 			DurationSec: elapsed,
 		}
+
+		// Persist the FULL combined output before any parsing. Attempt 0129
+		// lost Kani's "CBMC appears to have run out of memory" line this way:
+		// the summary fields recorded a 0-of-0 FAILED signature while the
+		// explanation was discarded, so the cause could only be attributed
+		// circumstantially by reproducing the signature elsewhere. A write
+		// failure here is fatal rather than skipped — silently not writing
+		// the log recreates exactly that gap.
+		if *rawDir != "" {
+			path := filepath.Join(*rawDir, logFileName(name))
+			if err := os.WriteFile(path, combined, 0o644); err != nil {
+				fmt.Fprintf(os.Stderr, "kanirun: %s: raw log: %v\n", name, err)
+				os.Exit(3)
+			}
+			sum := sha256.Sum256(combined)
+			r.RawLog = path
+			r.RawLogSHA256 = hex.EncodeToString(sum[:])
+		}
+
+		text := string(combined)
 		if m := reVerdict.FindStringSubmatch(text); m != nil {
 			r.Verification = m[1]
 		}
@@ -155,6 +192,31 @@ func main() {
 		fmt.Fprintf(os.Stderr, "kanirun: %d harness outcome(s) did not match expectation\n", mismatched)
 		os.Exit(1)
 	}
+}
+
+// logFileName maps a harness name to a filesystem-safe log file name. Kani
+// harness names are Rust paths, so a separator is possible; anything outside
+// the conservative set is replaced so a name can never escape -raw-dir or
+// collide with a directory component.
+func logFileName(harness string) string {
+	// Dots are excluded along with separators. A name like "../x" cannot
+	// traverse once its slashes are gone, but keeping the dots would leave
+	// ".._x.log" on disk, which reads as suspicious and invites a future
+	// reader to wonder whether it escaped. The stricter rule is free.
+	safe := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9':
+			return r
+		case r == '_', r == '-':
+			return r
+		default:
+			return '_'
+		}
+	}, harness)
+	if strings.Trim(safe, "_") == "" {
+		safe = "harness"
+	}
+	return safe + ".log"
 }
 
 func orNone(s string) string {
