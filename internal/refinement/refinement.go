@@ -339,7 +339,7 @@ func extractSubject(root, commit string) (string, func(), error) {
 func runCargoBuild(ctx context.Context, root, cargo string) (Artifact, error) {
 	command := exec.CommandContext(ctx, cargo, "build", "--locked", "--offline", "-p", "websocket-testee", "--bin", "websocket-testee")
 	command.Dir = filepath.Join(root, "rust")
-	command.Env = append(os.Environ(), "LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "RUSTC="+filepath.Join(filepath.Dir(cargo), "rustc"), "RUSTDOC="+filepath.Join(filepath.Dir(cargo), "rustdoc"), "RUSTFLAGS=--remap-path-prefix="+root+"=/us024/source")
+	command.Env = cargoEnvironment(root, cargo)
 	output, err := command.CombinedOutput()
 	if err != nil {
 		return Artifact{}, fmt.Errorf("cargo build: %w: %s", err, string(output))
@@ -350,6 +350,16 @@ func runCargoBuild(ctx context.Context, root, cargo string) (Artifact, error) {
 		return Artifact{}, err
 	}
 	return Artifact{Path: "rust/target/debug/websocket-testee", SHA256: digest(raw), Bytes: int64(len(raw))}, nil
+}
+
+func cargoEnvironment(root, cargo string) []string {
+	flags := "--remap-path-prefix=" + root + "=/us024/source -C codegen-units=1 -C link-arg=-Wl,-no_uuid"
+	return append(os.Environ(),
+		"LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "CARGO_INCREMENTAL=0", "SOURCE_DATE_EPOCH=0",
+		"RUSTC="+filepath.Join(filepath.Dir(cargo), "rustc"),
+		"RUSTDOC="+filepath.Join(filepath.Dir(cargo), "rustdoc"),
+		"RUSTFLAGS="+flags,
+	)
 }
 
 func treeDigest(root, relative string) (string, error) {
@@ -596,7 +606,7 @@ func runReplayCommand(ctx context.Context, root, cargo string, argv []string) (C
 	defer cancel()
 	command := exec.CommandContext(commandCtx, cargo, argv[1:]...)
 	command.Dir = filepath.Join(root, "rust")
-	command.Env = append(os.Environ(), "LANG=C", "LC_ALL=C", "TZ=UTC", "CARGO_NET_OFFLINE=true", "RUSTC="+filepath.Join(filepath.Dir(cargo), "rustc"), "RUSTDOC="+filepath.Join(filepath.Dir(cargo), "rustdoc"), "RUSTFLAGS=--remap-path-prefix="+root+"=/us024/source")
+	command.Env = cargoEnvironment(root, cargo)
 	output := &cappedOutput{limit: 4 << 20}
 	command.Stdout = output
 	command.Stderr = output
