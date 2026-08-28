@@ -1,9 +1,9 @@
 {
   "schema_version": "1.0.0",
   "entity_type": "AutobahnEvidenceDigestManifest",
-  "root": "evidence/autobahn",
+  "root": "evidence/autobahn/dev-aarch64-nonauthoritative",
   "file_count": 1506,
-  "total_bytes": 5987691,
+  "total_bytes": 6001728,
   "files": [
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-no-echo-fuzzingclient/cases/us019_mutant_no_echo_case_1_1_1.json",
@@ -922,8 +922,8 @@
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-no-echo-fuzzingclient/ledger.json",
-      "sha256": "sha256:20168efdb58773619b71e224149187eafd10ccfef701f5e261f81c04a01836c4",
-      "bytes": 3982
+      "sha256": "sha256:f926bb12d9182069e5a9e06360cd6ceda65a48cf6226c3b257ffac8badd6c800",
+      "bytes": 6081
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-opcode-swap-fuzzingclient/cases/us019_mutant_opcode_swap_case_1_1_1.json",
@@ -1267,8 +1267,8 @@
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-opcode-swap-fuzzingclient/ledger.json",
-      "sha256": "sha256:9ca8fb5aff94648436844c5ee316ec7b3e9553c4862ad045f9fe1ab95fab428a",
-      "bytes": 4426
+      "sha256": "sha256:ad3cf2581014a6c32be60518587990201a2264269cd1c39b263bf9ce5f56b610",
+      "bytes": 5603
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-payload-truncate-fuzzingclient/cases/us019_mutant_payload_truncate_case_10_1_1.json",
@@ -2517,8 +2517,8 @@
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-payload-truncate-fuzzingclient/ledger.json",
-      "sha256": "sha256:f0ecefa4975a7b554f86d97d2b060a7c9968a96b08b228b0d6ebf9f2eaa82c7d",
-      "bytes": 3866
+      "sha256": "sha256:30f8f3c21c210e598bf1010126bc6530c55550174c4f8034fdabed8a691a62e0",
+      "bytes": 6563
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-pong-suppressed-fuzzingclient/cases/us019_mutant_pong_suppressed_case_10_1_1.json",
@@ -3767,8 +3767,8 @@
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/mutant-pong-suppressed-fuzzingclient/ledger.json",
-      "sha256": "sha256:ba0c1e063cc0c3941a0f8f7462c247263547c53cbe66507acd00c1e6b85990f4",
-      "bytes": 1766
+      "sha256": "sha256:1fbc821e0c69f889829c78ef634afa045ecf0427b36bc869e8702eadee664801",
+      "bytes": 2786
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/negative-control-fuzzingclient/cases/us019_negative_control_case_10_1_1.json",
@@ -5017,8 +5017,8 @@
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/discrimination/negative-control-fuzzingclient/ledger.json",
-      "sha256": "sha256:15fa3edbbdd4ac037b125e1d5936afd3d121b112458b369f2fe2324d7bc22ba4",
-      "bytes": 4330
+      "sha256": "sha256:6e77b37fb0f82b5a99fa3a19974380f7613b94afc91b5c830190498e2c5d4a35",
+      "bytes": 9810
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/fuzzingclient-run1/cases/verified_rust_ws_testee_us019_case_10_1_1.json",
@@ -7527,13 +7527,13 @@
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/ledgers/fuzzingclient-run1-ledger.json",
-      "sha256": "sha256:ac7220216853a71cf4b707a3ef1f8deb72992e1dfcf3eb291c6107dab2772b12",
-      "bytes": 1618
+      "sha256": "sha256:047724698aa57ea835913a8779fa8f4f712cba9969c1f51ddd513d15d465f253",
+      "bytes": 2400
     },
     {
       "path": "evidence/autobahn/dev-aarch64-nonauthoritative/ledgers/fuzzingserver-run1-ledger.json",
-      "sha256": "sha256:17398bbd6c931e157470e3c34a2530afc84494dbb494ac8d24c1a0deeb17737b",
-      "bytes": 1229
+      "sha256": "sha256:d2c5e61eb50dfc961eb277d2814be0473dc5aeebb36ca8833b6fc300848b0fa1",
+      "bytes": 2011
     }
   ]
 }

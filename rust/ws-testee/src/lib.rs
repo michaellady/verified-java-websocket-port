@@ -56,6 +56,10 @@ pub enum SetupOutcome {
     /// `/getCaseCount`. Never coerced to zero: a zero-case sweep would
     /// report success having executed nothing.
     NoCaseCount,
+    /// The requested case range selects no cases at all (an empty or
+    /// inverted range). A sweep that runs zero cases cannot evidence
+    /// anything, so it is refused rather than reported as a success.
+    EmptyCaseRange,
 }
 
 /// Guard: the adapters serve loopback addresses only (US-018 AC2/AC5).

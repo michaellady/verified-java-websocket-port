@@ -2,6 +2,7 @@ package autobahnsuite
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 )
 
@@ -58,6 +59,33 @@ type Ledger struct {
 	CloseHandshakeTimeouts int `json:"close_handshake_timeouts"`
 	ConnectionDropTimeouts int `json:"connection_drop_timeouts"`
 
+	// IndexEntryCount is the number of case records the report's OWN index
+	// contains, counted independently of the manifest walk above. The
+	// partition identities are computed by that walk and are therefore
+	// self-consistent by construction; this is an OUTSIDE observation, so the
+	// identity that binds it (see Identities) is the one a miscounted or
+	// truncated report can actually violate.
+	IndexEntryCount int `json:"index_entry_count"`
+	// CaseReportCount is the number of per-case report files scanned, again
+	// observed rather than derived. Zero when no cases directory was given.
+	CaseReportCount int `json:"case_report_count"`
+
+	// StrictRequiredNotOK counts manifest cases carrying
+	// StrictPassRequired whose observed behavior is not OK. This is where
+	// the manifest's per-case strictness declaration is CONSUMED: without
+	// it, StrictPassRequired would record an expectation nothing checks.
+	StrictRequiredNotOK      int      `json:"strict_required_not_ok"`
+	StrictRequiredNotOKCases []string `json:"strict_required_not_ok_cases"`
+
+	// Disagreements counts cross-source contradictions between the index and
+	// the per-case reports it names: a differing behavior class, a differing
+	// agent, a missing per-case report, or an index entry whose `reportfile`
+	// names a file the scanned directory does not contain. A report that
+	// contradicts itself cannot reconcile, and this is what binds the index
+	// to the case files rather than letting the two be paired arbitrarily.
+	Disagreements      int      `json:"disagreements"`
+	DisagreementDetail []string `json:"disagreement_detail"`
+
 	Agent             string   `json:"agent"`
 	FailedCases       []string `json:"failed_cases"`
 	NonStrictCases    []string `json:"non_strict_cases"`
@@ -72,8 +100,18 @@ type Ledger struct {
 	// behaved OK. NON-STRICT and INFORMATIONAL are not strict passes, so
 	// this is false whenever either exists. It is never softened.
 	StrictPassAll bool `json:"strict_pass_all"`
-	// Reconciles is true only when both partition identities hold exactly
-	// and no case in the report is absent from the manifest.
+	// Reconciles is true only when the report ACCOUNTS FOR the manifest:
+	// both partition identities hold, no reported case is absent from the
+	// manifest, the report's own index size matches what was counted, every
+	// expected case is either executed or explicitly filtered (nothing
+	// missing), and the index does not contradict its per-case reports.
+	//
+	// The two partition identities alone are self-consistent by
+	// construction — the counting loop assigns every manifest case to
+	// exactly one scope bucket and every executed case to exactly one class
+	// bucket, so they hold even for an EMPTY report, where all 247 cases
+	// land in Missing. The missing/coverage and cross-source conditions are
+	// what make this a check a report can fail.
 	Reconciles bool `json:"reconciles"`
 	// Identities records each checked equation and its evaluated values, so
 	// a reader can see the arithmetic rather than trust the boolean.
@@ -116,9 +154,39 @@ func Reconcile(manifest *Manifest, indexPath, casesDir string, options *Options)
 		}
 	}
 
-	ledger := &Ledger{Expected: len(manifest.Cases), Agent: agent}
+	ledger := &Ledger{
+		Expected:        len(manifest.Cases),
+		Agent:           agent,
+		IndexEntryCount: len(entries),
+		CaseReportCount: len(reports),
+	}
 	if casesDir == "" {
 		ledger.TimedOut = -1
+	}
+	// Bind the index to the case files it names. Without this the index's
+	// `reportfile` values are decorative and a stale case directory can be
+	// paired with a freshly relabelled index.
+	if casesDir != "" {
+		presentFiles := map[string]bool{}
+		names, globErr := filepath.Glob(filepath.Join(casesDir, "*.json"))
+		if globErr != nil {
+			return nil, fmt.Errorf("scan %s: %w", casesDir, globErr)
+		}
+		for _, name := range names {
+			presentFiles[filepath.Base(name)] = true
+		}
+		for caseID, entry := range entries {
+			if entry.ReportFile == "" {
+				ledger.noteDisagreement(fmt.Sprintf(
+					"case %s: index entry names no reportfile", caseID))
+				continue
+			}
+			if !presentFiles[entry.ReportFile] {
+				ledger.noteDisagreement(fmt.Sprintf(
+					"case %s: index names reportfile %q which is not in the scanned cases directory",
+					caseID, entry.ReportFile))
+			}
+		}
 	}
 	for _, entry := range manifest.Cases {
 		if filtered[entry.CaseID] {
@@ -152,7 +220,24 @@ func Reconcile(manifest *Manifest, indexPath, casesDir string, options *Options)
 			ledger.UnclassifiedCases = append(ledger.UnclassifiedCases,
 				fmt.Sprintf("%s=%s", entry.CaseID, result.Behavior))
 		}
+		if entry.StrictPassRequired && result.Behavior != BehaviorOK {
+			ledger.StrictRequiredNotOK++
+			ledger.StrictRequiredNotOKCases = append(ledger.StrictRequiredNotOKCases,
+				fmt.Sprintf("%s=%s", entry.CaseID, result.Behavior))
+		}
 		if report, ok := reports[entry.CaseID]; ok {
+			// The index and the per-case report are two renderings of the
+			// same case. If they disagree, one of them is from another run.
+			if report.Behavior != result.Behavior {
+				ledger.noteDisagreement(fmt.Sprintf(
+					"case %s: index says behavior %q but its per-case report says %q",
+					entry.CaseID, result.Behavior, report.Behavior))
+			}
+			if report.Agent != agent {
+				ledger.noteDisagreement(fmt.Sprintf(
+					"case %s: per-case report is filed under agent %q but the index is %q",
+					entry.CaseID, report.Agent, agent))
+			}
 			if report.WasOpenHandshakeTimeout {
 				ledger.OpenHandshakeTimeouts++
 			}
@@ -167,6 +252,10 @@ func Reconcile(manifest *Manifest, indexPath, casesDir string, options *Options)
 				ledger.TimedOut++
 				ledger.TimedOutCases = append(ledger.TimedOutCases, entry.CaseID)
 			}
+		} else if casesDir != "" {
+			ledger.noteDisagreement(fmt.Sprintf(
+				"case %s: the index scores it but no per-case report exists for it",
+				entry.CaseID))
 		}
 	}
 	for caseID := range entries {
@@ -197,6 +286,18 @@ func Reconcile(manifest *Manifest, indexPath, casesDir string, options *Options)
 			ledger.Executed, ledger.Passed, ledger.NonStrict, ledger.Informational,
 			ledger.Failed, ledger.Skipped, ledger.Unclassified, classSum),
 		fmt.Sprintf("unexpected_cases(%d) must be 0", len(ledger.UnexpectedCases)),
+		// The three identities below are the NON-self-consistent ones: each
+		// compares the counting walk against something observed outside it.
+		fmt.Sprintf(
+			"coverage: missing(%d) must be 0 - every expected case is executed or explicitly filtered",
+			ledger.Missing),
+		fmt.Sprintf(
+			"index_entry_count(%d) = executed(%d) + unexpected(%d) -> %d",
+			ledger.IndexEntryCount, ledger.Executed, len(ledger.UnexpectedCases),
+			ledger.Executed+len(ledger.UnexpectedCases)),
+		fmt.Sprintf(
+			"cross-source disagreements(%d) between the index and its per-case reports must be 0",
+			ledger.Disagreements),
 		fmt.Sprintf(
 			"timed_out(%d) is an OVERLAY, not a partition member = open(%d) + close(%d) + "+
 				"drop(%d) counted per case",
@@ -205,11 +306,32 @@ func Reconcile(manifest *Manifest, indexPath, casesDir string, options *Options)
 	}
 	ledger.Reconciles = scopeSum == ledger.Expected &&
 		classSum == ledger.Executed &&
-		len(ledger.UnexpectedCases) == 0
+		len(ledger.UnexpectedCases) == 0 &&
+		// Coverage: a report that simply omits cases has not reconciled with
+		// the manifest, it has failed to address it. This is the condition
+		// that stops an EMPTY report from reconciling.
+		ledger.Missing == 0 &&
+		// The report's own index size must agree with what was counted from
+		// it, which a truncated or double-counted index cannot satisfy.
+		ledger.IndexEntryCount == ledger.Executed+len(ledger.UnexpectedCases) &&
+		// And the index must not contradict the per-case reports it names.
+		ledger.Disagreements == 0
 	ledger.StrictPassAll = ledger.Reconciles &&
 		ledger.Executed == ledger.Selected &&
-		ledger.Passed == ledger.Executed
+		ledger.Passed == ledger.Executed &&
+		ledger.StrictRequiredNotOK == 0
 	return ledger, nil
+}
+
+// noteDisagreement records one cross-source contradiction. The detail list is
+// capped so a wholly mismatched pair of directories cannot produce a
+// multi-megabyte ledger, but the COUNT is always exact.
+func (ledger *Ledger) noteDisagreement(detail string) {
+	ledger.Disagreements++
+	const maxDetail = 20
+	if len(ledger.DisagreementDetail) < maxDetail {
+		ledger.DisagreementDetail = append(ledger.DisagreementDetail, detail)
+	}
 }
 
 // Verdict is the outcome of checking a ledger against what a SUBJECT was
@@ -236,16 +358,37 @@ func Discriminate(subject Subject, ledger *Ledger) Verdict {
 			Reason:  "ledger does not reconcile; no verdict is possible from it",
 		}
 	}
-	broken := ledger.Failed + ledger.Skipped + ledger.Unclassified + ledger.Missing
+	// broken counts only cases the suite ACTUALLY SCORED and scored badly.
+	// Missing is deliberately excluded: a case the run never produced is an
+	// absence of evidence, not evidence of a deviation. Counting it as
+	// discrimination is what let an empty index and a crashed process pass
+	// as successful controls. Reconciles already requires Missing == 0, so a
+	// truncated run cannot reach this function at all; excluding Missing here
+	// keeps that true independently of the reconciliation predicate.
+	broken := ledger.Failed + ledger.Skipped + ledger.Unclassified
+	if ledger.Executed == 0 {
+		return Verdict{
+			Subject: subject,
+			Reason: "the run scored no cases at all; an empty report cannot demonstrate " +
+				"anything about any subject",
+		}
+	}
 	switch subject {
 	case SubjectUnderTest, SubjectJavaBaseline:
+		// AC3 is literal: "every in-scope case is strict-pass". The manifest
+		// carries StrictPassRequired on every case, so the verdict CONSUMES
+		// that declaration. NON-STRICT and INFORMATIONAL are not strict
+		// passes, and a subject that produced any of them has not met AC3.
 		return Verdict{
 			Subject:    subject,
-			AsExpected: broken == 0,
+			AsExpected: ledger.StrictPassAll,
 			Reason: fmt.Sprintf(
-				"expected no failed/skipped/unclassified/missing case; observed %d "+
-					"(failed=%d skipped=%d unclassified=%d missing=%d)",
-				broken, ledger.Failed, ledger.Skipped, ledger.Unclassified, ledger.Missing),
+				"AC3 requires every in-scope case to be a STRICT pass; observed "+
+					"strict_pass_all=%t with %d strict-required cases not OK "+
+					"(failed=%d non_strict=%d informational=%d skipped=%d unclassified=%d missing=%d)",
+				ledger.StrictPassAll, ledger.StrictRequiredNotOK, ledger.Failed,
+				ledger.NonStrict, ledger.Informational, ledger.Skipped,
+				ledger.Unclassified, ledger.Missing),
 		}
 	case SubjectNegativeControl:
 		// An empty/stub endpoint implements nothing, so every case the suite
@@ -265,21 +408,32 @@ func Discriminate(subject Subject, ledger *Ledger) Verdict {
 		return Verdict{
 			Subject: subject,
 			AsExpected: ledger.Passed == 0 && ledger.NonStrict == 0 &&
-				scoreable > 0 && broken == scoreable,
+				scoreable > 0 && broken == scoreable &&
+				// The control must have been SCORED end to end. Without this,
+				// a control that died early "discriminates" by absence.
+				ledger.Executed == ledger.Selected && ledger.Missing == 0,
 			Reason: fmt.Sprintf(
-				"expected 0 passed, 0 non-strict, and all %d scoreable cases broken "+
-					"(%d selected minus %d informational-by-construction); observed "+
-					"passed=%d non_strict=%d broken=%d",
+				"expected 0 passed, 0 non-strict, and all %d scoreable cases OBSERVED broken "+
+					"(%d selected minus %d informational-by-construction), across a complete "+
+					"run; observed passed=%d non_strict=%d broken=%d executed=%d missing=%d",
 				scoreable, ledger.Selected, ledger.Informational,
-				ledger.Passed, ledger.NonStrict, broken),
+				ledger.Passed, ledger.NonStrict, broken, ledger.Executed, ledger.Missing),
 		}
 	case SubjectMutant:
+		// A mutant must be caught by an OBSERVED bad score on a case the
+		// suite actually ran to completion. A mutant run that terminated
+		// early leaves its remaining cases Missing, and Missing is not a
+		// deviation the suite detected — it is a run that did not happen.
 		return Verdict{
-			Subject:    subject,
-			AsExpected: broken > 0,
+			Subject: subject,
+			AsExpected: broken > 0 &&
+				ledger.Executed == ledger.Selected && ledger.Missing == 0,
 			Reason: fmt.Sprintf(
-				"expected the planted deviation to break at least one case; observed %d broken",
-				broken),
+				"expected the planted deviation to break at least one case across a COMPLETE "+
+					"run; observed %d broken (failed=%d skipped=%d unclassified=%d) with "+
+					"executed=%d of selected=%d and missing=%d",
+				broken, ledger.Failed, ledger.Skipped, ledger.Unclassified,
+				ledger.Executed, ledger.Selected, ledger.Missing),
 		}
 	default:
 		return Verdict{Subject: subject, Reason: "unknown subject"}

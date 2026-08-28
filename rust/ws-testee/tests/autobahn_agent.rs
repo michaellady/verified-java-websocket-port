@@ -539,3 +539,45 @@ fn a_case_count_the_suite_never_sent_is_reported_as_absent_not_guessed() {
     let _ = server.join().expect("mock thread");
     assert_eq!(outcome.count, None, "no text at all is absent, not zero");
 }
+
+#[test]
+fn an_explicit_zero_case_count_is_refused_rather_than_swept() {
+    // The suite always selects at least one case. An explicit "0" therefore
+    // means the suite refused, was misconfigured, or is not the suite --
+    // never that there is legitimately nothing to run. Accepting it would
+    // produce a sweep that reports SUCCESS having executed no case at all,
+    // which is the exact vacuous outcome the case count exists to prevent.
+    let (address, server) = mock_server(vec![MockScript::case_count("0")]);
+    let outcome = ws_testee::fetch_case_count(&fixture(address, "rust-agent")).expect("setup");
+    let _ = server.join().expect("mock thread");
+    assert_eq!(
+        outcome.count, None,
+        "an explicit zero is no better evidence than a missing count"
+    );
+
+    // And the whole sweep must fail closed on it, not return an empty success.
+    let (address, server) = mock_server(vec![MockScript::case_count("0")]);
+    let swept = ws_testee::run_agent_sweep(&fixture(address, "zero-agent"), None);
+    let _ = server.join().expect("mock thread");
+    assert_eq!(
+        swept.err(),
+        Some(SetupOutcome::NoCaseCount),
+        "a zero-case sweep must be refused, never reported as a successful run"
+    );
+}
+
+#[test]
+fn an_empty_or_inverted_case_range_is_refused_rather_than_swept() {
+    // A restricted rerun whose range selects nothing would otherwise run the
+    // loop zero times and return a "successful" empty sweep.
+    for range in [(1_u32, 0_u32), (5, 4), (0, 0)] {
+        let (address, server) = mock_server(vec![MockScript::case_count("9")]);
+        let swept = ws_testee::run_agent_sweep(&fixture(address, "range-agent"), Some(range));
+        let _ = server.join().expect("mock thread");
+        assert_eq!(
+            swept.err(),
+            Some(SetupOutcome::EmptyCaseRange),
+            "range {range:?} selects no case and must be refused"
+        );
+    }
+}

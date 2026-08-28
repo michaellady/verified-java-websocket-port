@@ -14,6 +14,27 @@
   "open_handshake_timeouts": 0,
   "close_handshake_timeouts": 0,
   "connection_drop_timeouts": 32,
+  "index_entry_count": 247,
+  "case_report_count": 247,
+  "strict_required_not_ok": 14,
+  "strict_required_not_ok_cases": [
+    "3.2=NON-STRICT",
+    "3.3=NON-STRICT",
+    "4.1.3=NON-STRICT",
+    "4.1.4=NON-STRICT",
+    "4.2.3=NON-STRICT",
+    "4.2.4=NON-STRICT",
+    "5.15=NON-STRICT",
+    "6.4.1=NON-STRICT",
+    "6.4.2=NON-STRICT",
+    "6.4.3=NON-STRICT",
+    "6.4.4=NON-STRICT",
+    "7.1.6=INFORMATIONAL",
+    "7.13.1=INFORMATIONAL",
+    "7.13.2=INFORMATIONAL"
+  ],
+  "disagreements": 0,
+  "disagreement_detail": null,
   "agent": "verified-rust-ws-testee-us019",
   "failed_cases": null,
   "non_strict_cases": [
@@ -79,6 +100,9 @@
     "selected(247) = expected(247) - filtered(0)",
     "executed(247) = passed(233) + non_strict(11) + informational(3) + failed(0) + skipped(0) + unclassified(0) -\u003e 247",
     "unexpected_cases(0) must be 0",
+    "coverage: missing(0) must be 0 - every expected case is executed or explicitly filtered",
+    "index_entry_count(247) = executed(247) + unexpected(0) -\u003e 247",
+    "cross-source disagreements(0) between the index and its per-case reports must be 0",
     "timed_out(32) is an OVERLAY, not a partition member = open(0) + close(0) + drop(32) counted per case"
   ]
 }

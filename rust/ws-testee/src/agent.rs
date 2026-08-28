@@ -225,10 +225,17 @@ fn run_one(
 pub fn fetch_case_count(fixture: &AgentFixture<'_>) -> Result<CaseCountOutcome, SetupOutcome> {
     let mut policy = ObserveOnly;
     let report = run_one(fixture, CASE_COUNT_TARGET, &mut policy)?;
+    // A count of zero is NOT a usable count. The suite always selects at
+    // least one case, so `"0"` means the suite refused, answered from an
+    // empty configuration, or was not the suite at all. Accepting it would
+    // let a sweep "succeed" having run nothing, which is exactly the
+    // outcome the `Option` here exists to prevent — an explicit zero is no
+    // better evidence than a missing or unparseable answer.
     let count = report
         .texts
         .first()
-        .and_then(|text| text.trim().parse::<u32>().ok());
+        .and_then(|text| text.trim().parse::<u32>().ok())
+        .filter(|count| *count > 0);
     Ok(CaseCountOutcome { count, report })
 }
 
@@ -309,6 +316,12 @@ pub fn run_cases(
     on_case: &mut dyn FnMut(&CaseOutcome),
 ) -> Result<Vec<CaseOutcome>, SetupOutcome> {
     let (first, last) = range.unwrap_or((1, case_count));
+    // An empty or inverted range would leave the loop below untouched and
+    // return an EMPTY, "successful" sweep. A sweep that executed no case is
+    // not evidence, so refuse it at the boundary rather than reporting it.
+    if first == 0 || last < first {
+        return Err(SetupOutcome::EmptyCaseRange);
+    }
     let mut cases = Vec::new();
     for case in first..=last {
         let report = run_case(fixture, case)?;

@@ -14,6 +14,12 @@
 //	digest-manifest -root DIR -tree SUBTREE -out FILE
 //	    Pin every byte of an evidence subtree by sha256.
 //
+//	verify-digest-manifest -root DIR -tree SUBTREE -manifest FILE
+//	    Re-walk the pinned subtree and require every committed digest to
+//	    still describe the bytes on disk, with no pinned file missing and no
+//	    tree file unpinned. This is the digest manifest's CONSUMER: without
+//	    it the manifest is a generated artifact nothing ever reads.
+//
 //	reconcile -manifest FILE -index FILE [-cases DIR] [-subject S]
 //	          [-require-agent NAME] [-out FILE]
 //	    Count a report against the manifest in every dimension and print the
@@ -60,6 +66,8 @@ func run(arguments []string) int {
 		return reconcile(arguments[1:])
 	case "digest-manifest":
 		return digestManifest(arguments[1:])
+	case "verify-digest-manifest":
+		return verifyDigestManifest(arguments[1:])
 	default:
 		fmt.Fprintf(os.Stderr, "unknown subcommand %q\n", arguments[0])
 		return exitUsage
@@ -180,6 +188,24 @@ func reconcile(arguments []string) int {
 		fmt.Fprintln(os.Stderr, "reconcile: -index is required")
 		return exitUsage
 	}
+	// The anti-stale binding is not optional. Left to default, it is a gate
+	// nobody arms: a report from any other run satisfies the command. The
+	// caller must state which agent's evidence this reconciliation is FOR.
+	if *requireAgent == "" {
+		fmt.Fprintln(os.Stderr,
+			"reconcile: -require-agent is required; without it any run's report satisfies "+
+				"this command, including a stale one from another agent")
+		return exitUsage
+	}
+	// The per-case reports are what bind the index to the run that produced
+	// it. Reconciling an index alone cannot detect an index paired with
+	// another run's cases, so the cases directory is required too.
+	if *casesDir == "" {
+		fmt.Fprintln(os.Stderr,
+			"reconcile: -cases is required; the index alone cannot be bound to the run "+
+				"that produced it")
+		return exitUsage
+	}
 	raw, err := os.ReadFile(*manifestPath) //nolint:gosec // operator-supplied path
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "reconcile: %v\n", err)
@@ -256,6 +282,131 @@ type digestManifestDocument struct {
 	Files         []digestEntry `json:"files"`
 }
 
+// buildDigestManifest walks an evidence tree and pins every file by sha256.
+// `selfPath` is the repo-relative path of the manifest being produced, which
+// is excluded because its own digest cannot be known before it is written.
+func buildDigestManifest(absoluteRoot, tree, selfPath string) (*digestManifestDocument, error) {
+	base := filepath.Join(absoluteRoot, tree)
+	document := &digestManifestDocument{
+		SchemaVersion: autobahnsuite.SchemaVersion,
+		EntityType:    "AutobahnEvidenceDigestManifest",
+		Root:          tree,
+	}
+	walkErr := filepath.WalkDir(base, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		relative, err := filepath.Rel(absoluteRoot, path)
+		if err != nil {
+			return err
+		}
+		if relative == selfPath {
+			return nil
+		}
+		raw, err := os.ReadFile(path) //nolint:gosec // repo-relative evidence path
+		if err != nil {
+			return err
+		}
+		sum := sha256.Sum256(raw)
+		document.Files = append(document.Files, digestEntry{
+			Path:   relative,
+			SHA256: "sha256:" + hex.EncodeToString(sum[:]),
+			Bytes:  int64(len(raw)),
+		})
+		document.TotalBytes += int64(len(raw))
+		return nil
+	})
+	if walkErr != nil {
+		return nil, walkErr
+	}
+	sort.Slice(document.Files, func(left, right int) bool {
+		return document.Files[left].Path < document.Files[right].Path
+	})
+	document.FileCount = len(document.Files)
+	return document, nil
+}
+
+// verifyDigestManifest re-walks the pinned tree and requires every committed
+// digest to still describe the bytes on disk.
+//
+// Without this, the digest manifest is a large generated artifact that
+// nothing ever reads: tampering with a pinned report, or deleting one,
+// changes no gate outcome. This is its verification consumer.
+func verifyDigestManifest(arguments []string) int {
+	flags := flag.NewFlagSet("verify-digest-manifest", flag.ContinueOnError)
+	root := flags.String("root", ".", "repository root")
+	tree := flags.String("tree", "", "evidence subtree the manifest pins, repo-relative")
+	manifestPath := flags.String("manifest", "", "committed digest manifest to verify")
+	if err := flags.Parse(arguments); err != nil {
+		return exitUsage
+	}
+	if *tree == "" || *manifestPath == "" {
+		fmt.Fprintln(os.Stderr, "verify-digest-manifest: -tree and -manifest are required")
+		return exitUsage
+	}
+	absoluteRoot, err := filepath.Abs(*root)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "root: %v\n", err)
+		return exitUsage
+	}
+	raw, err := os.ReadFile(filepath.Join(absoluteRoot, *manifestPath)) //nolint:gosec // repo-relative
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "verify-digest-manifest: %v\n", err)
+		return exitGate
+	}
+	var committed digestManifestDocument
+	if err := json.Unmarshal(raw, &committed); err != nil {
+		fmt.Fprintf(os.Stderr, "verify-digest-manifest: parse: %v\n", err)
+		return exitGate
+	}
+	observed, err := buildDigestManifest(absoluteRoot, *tree, *manifestPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "verify-digest-manifest: %v\n", err)
+		return exitGate
+	}
+	observedByPath := make(map[string]digestEntry, len(observed.Files))
+	for _, entry := range observed.Files {
+		observedByPath[entry.Path] = entry
+	}
+	findings := 0
+	report := func(format string, args ...any) {
+		findings++
+		if findings <= 20 {
+			fmt.Fprintf(os.Stderr, format+"\n", args...)
+		}
+	}
+	for _, want := range committed.Files {
+		got, present := observedByPath[want.Path]
+		if !present {
+			report("MISSING %s: pinned by the manifest but absent from the tree", want.Path)
+			continue
+		}
+		if got.SHA256 != want.SHA256 {
+			report("TAMPERED %s: pinned %s but the tree holds %s",
+				want.Path, want.SHA256, got.SHA256)
+		}
+		delete(observedByPath, want.Path)
+	}
+	for path := range observedByPath {
+		report("UNPINNED %s: present in the tree but not pinned by the manifest", path)
+	}
+	if committed.FileCount != len(committed.Files) {
+		report("file_count says %d but %d files are listed",
+			committed.FileCount, len(committed.Files))
+	}
+	if findings > 0 {
+		fmt.Fprintf(os.Stderr,
+			"verify-digest-manifest: %d finding(s) against %s\n", findings, *manifestPath)
+		return exitGate
+	}
+	fmt.Printf("digest-manifest=%s VERIFIED files=%d bytes=%d\n",
+		*manifestPath, committed.FileCount, committed.TotalBytes)
+	return exitOK
+}
+
 // digestManifest walks an evidence tree and pins every file by sha256, so a
 // later reader can prove the reports it is judging are the reports that were
 // produced. Reused unchanged for the native x86_64 run.
@@ -276,49 +427,11 @@ func digestManifest(arguments []string) int {
 		fmt.Fprintf(os.Stderr, "root: %v\n", err)
 		return exitUsage
 	}
-	base := filepath.Join(absoluteRoot, *tree)
-	document := digestManifestDocument{
-		SchemaVersion: autobahnsuite.SchemaVersion,
-		EntityType:    "AutobahnEvidenceDigestManifest",
-		Root:          *tree,
-	}
-	walkErr := filepath.WalkDir(base, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		relative, err := filepath.Rel(absoluteRoot, path)
-		if err != nil {
-			return err
-		}
-		// The manifest must never pin itself: its own digest cannot be
-		// known before it is written.
-		if relative == *out {
-			return nil
-		}
-		raw, err := os.ReadFile(path) //nolint:gosec // repo-relative evidence path
-		if err != nil {
-			return err
-		}
-		sum := sha256.Sum256(raw)
-		document.Files = append(document.Files, digestEntry{
-			Path:   relative,
-			SHA256: "sha256:" + hex.EncodeToString(sum[:]),
-			Bytes:  int64(len(raw)),
-		})
-		document.TotalBytes += int64(len(raw))
-		return nil
-	})
+	document, walkErr := buildDigestManifest(absoluteRoot, *tree, *out)
 	if walkErr != nil {
 		fmt.Fprintf(os.Stderr, "digest-manifest: %v\n", walkErr)
 		return exitGate
 	}
-	sort.Slice(document.Files, func(left, right int) bool {
-		return document.Files[left].Path < document.Files[right].Path
-	})
-	document.FileCount = len(document.Files)
 	rendered, err := render(document)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "render: %v\n", err)

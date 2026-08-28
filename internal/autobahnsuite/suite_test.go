@@ -24,6 +24,20 @@ func repoRoot(t *testing.T) string {
 	return ""
 }
 
+// mustExist fails the test when a load-bearing evidence path is absent.
+//
+// Acceptance fixtures are the substance these tests check. A `t.Skipf` on a
+// missing fixture turns the whole gate green while testing nothing, and
+// `go test` without -v prints nothing for a skip, so the loss is silent. Any
+// evidence-dependent test in this package uses this helper instead.
+func mustExist(t *testing.T, path string) {
+	t.Helper()
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("load-bearing evidence is missing, so this gate would otherwise "+
+			"pass while testing nothing: %v", err)
+	}
+}
+
 func devSources(root string) []ReportSource {
 	base := filepath.Join(root, "evidence", "autobahn", "dev-aarch64-nonauthoritative")
 	return []ReportSource{
@@ -299,9 +313,10 @@ func TestAStaleReportCannotSatisfyAGate(t *testing.T) {
 	// real, well-formed Autobahn report for agent `verified-rust-ws-testee-e5`
 	// — reconciling it while REQUIRING the current agent must fail closed.
 	stale := filepath.Join(root, "evidence", "rust", "autobahn-e5", "index-run1.json")
-	if _, err := os.Stat(stale); err != nil {
-		t.Skipf("historical report unavailable: %v", err)
-	}
+	// This fixture is LOAD-BEARING acceptance evidence, not an optional
+	// convenience. If it disappears, this gate is testing nothing, so its
+	// absence must fail rather than skip green.
+	mustExist(t, stale)
 	options := &Options{RequireAgent: "verified-rust-ws-testee-us019"}
 	if _, err := Reconcile(manifest, stale, "", options); err == nil {
 		t.Fatal("a stale historical report satisfied a gate requiring the current agent")
@@ -321,13 +336,100 @@ func TestDiscriminationClassifiesControls(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Reconcile: %v", err)
 	}
-	// A subject under test must show NO failures; a negative control must
-	// show failures. The verdict is computed from the ledger, never asserted.
-	if verdict := Discriminate(SubjectUnderTest, ledger); !verdict.AsExpected {
-		t.Errorf("subject-under-test verdict: %+v", verdict)
+	// The verdict is computed from the ledger, never asserted.
+	//
+	// AC3 is literal: "every in-scope case is strict-pass". The committed
+	// port run is NOT a strict pass — it carries 11 NON-STRICT and 3
+	// INFORMATIONAL cases — so the subject-under-test verdict must be
+	// NEGATIVE. This test records that as the measured state of the branch
+	// rather than softening the bar to match it: the run is clean of
+	// FAILURES, which is a weaker claim than AC3 makes.
+	if ledger.NonStrict == 0 && ledger.Informational == 0 {
+		t.Fatal("fixture expected to carry NON-STRICT/INFORMATIONAL cases")
+	}
+	verdict := Discriminate(SubjectUnderTest, ledger)
+	if verdict.AsExpected {
+		t.Errorf("AC3 requires a strict pass; a run with %d NON-STRICT and %d "+
+			"INFORMATIONAL cases must not satisfy the subject-under-test "+
+			"expectation: %+v", ledger.NonStrict, ledger.Informational, verdict)
+	}
+	if ledger.Failed != 0 {
+		t.Errorf("the port run is expected to be free of FAILED cases; observed %d",
+			ledger.Failed)
+	}
+	if ledger.StrictRequiredNotOK != ledger.NonStrict+ledger.Informational {
+		t.Errorf("strict_required_not_ok = %d, want the %d non-strict plus %d informational",
+			ledger.StrictRequiredNotOK, ledger.NonStrict, ledger.Informational)
 	}
 	if verdict := Discriminate(SubjectNegativeControl, ledger); verdict.AsExpected {
 		t.Error("a clean run must NOT satisfy the negative-control expectation")
+	}
+}
+
+// TestAnEmptyOrTruncatedReportCannotReconcileOrDiscriminate is the
+// can-this-check-fail regression for the reconciliation identities and the
+// discrimination verdicts. The partition identities are self-consistent by
+// construction, so an empty report satisfies them; what must stop it is the
+// coverage, index-size and cross-source conditions.
+func TestAnEmptyOrTruncatedReportCannotReconcileOrDiscriminate(t *testing.T) {
+	root := repoRoot(t)
+	manifest, err := BuildManifest(devSources(root))
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+	dir := t.TempDir()
+	empty := filepath.Join(dir, "index.json")
+	if err := os.WriteFile(empty,
+		[]byte(`{"verified-rust-ws-testee-us019":{}}`), 0o600); err != nil {
+		t.Fatalf("write empty index: %v", err)
+	}
+	ledger, err := Reconcile(manifest, empty, "", nil)
+	if err != nil {
+		t.Fatalf("Reconcile: %v", err)
+	}
+	if ledger.Missing != SelectedCaseCount {
+		t.Fatalf("an empty report should leave every case missing; got %d", ledger.Missing)
+	}
+	if ledger.Reconciles {
+		t.Error("an EMPTY report must not reconcile: it addresses none of the manifest")
+	}
+	// Every subject must refuse to draw a conclusion from it. Missing is an
+	// absence of evidence and must never read as evidence of a deviation.
+	for _, subject := range []Subject{
+		SubjectUnderTest, SubjectJavaBaseline, SubjectNegativeControl, SubjectMutant,
+	} {
+		if verdict := Discriminate(subject, ledger); verdict.AsExpected {
+			t.Errorf("an empty report satisfied the %s expectation: %+v", subject, verdict)
+		}
+	}
+}
+
+// TestAnIndexPairedWithAnotherRunsCasesDoesNotReconcile proves the index is
+// BOUND to the per-case reports it names, rather than merely sitting beside
+// them. Pairing a real index with a real-but-different run's case directory
+// must be detected.
+func TestAnIndexPairedWithAnotherRunsCasesDoesNotReconcile(t *testing.T) {
+	root := repoRoot(t)
+	manifest, err := BuildManifest(devSources(root))
+	if err != nil {
+		t.Fatalf("BuildManifest: %v", err)
+	}
+	base := filepath.Join(root, "evidence", "autobahn", "dev-aarch64-nonauthoritative")
+	// The clean port index, paired with the NEGATIVE CONTROL's case reports.
+	// Both are genuine Autobahn output; they are from different subjects.
+	control := filepath.Join(base, "discrimination", "negative-control-fuzzingclient", "cases")
+	mustExist(t, control)
+	ledger, err := Reconcile(manifest,
+		filepath.Join(base, "fuzzingclient-run1", "index.json"), control, nil)
+	if err != nil {
+		// A hard read error is also an acceptable refusal.
+		return
+	}
+	if ledger.Disagreements == 0 {
+		t.Error("pairing an index with another run's case reports produced no disagreement")
+	}
+	if ledger.Reconciles {
+		t.Error("an index paired with another run's case reports must not reconcile")
 	}
 }
 
@@ -339,9 +441,8 @@ func TestNegativeControlDiscriminationIsMeasuredAgainstTheRealControlRun(t *test
 	}
 	base := filepath.Join(root, "evidence", "autobahn", "dev-aarch64-nonauthoritative",
 		"discrimination", "negative-control-fuzzingclient")
-	if _, err := os.Stat(filepath.Join(base, "index.json")); err != nil {
-		t.Skipf("negative-control run unavailable: %v", err)
-	}
+	// Load-bearing AC4 evidence: absence must fail, never skip.
+	mustExist(t, filepath.Join(base, "index.json"))
 	ledger, err := Reconcile(manifest, filepath.Join(base, "index.json"),
 		filepath.Join(base, "cases"), nil)
 	if err != nil {
