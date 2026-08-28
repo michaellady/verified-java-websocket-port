@@ -56,6 +56,25 @@
         "power_state_anomalies": {"type": "integer", "minimum": 0},
         "identity_checks_passed": {"type": "boolean"},
         "invalid_samples": {"type": "integer", "minimum": 0},
+        "observed_cpu_clock": {
+          "description": "Per-run observed CPU clock, required by the owner-bound host CPU-frequency policy DOCUMENT_DEFAULTS_RECORD_OBSERVED (decision record us009-us008-owner-decisions-2026-08-27.json, us008_cpu_frequency_policy). RECORD-ONLY: the bound policy documents default scaling behavior and records the observed clock; it declares no threshold, so no pass/fail rule is applied to these values and none may be added without a recorded preregistration change. Required for MEASURED records only.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["source", "samples_mhz"],
+          "properties": {
+            "source": {
+              "description": "Identity of the reader that produced these observations (e.g. the exact sysfs path or tool invocation). Free-form but non-empty: an unattributed clock reading is not evidence.",
+              "type": "string",
+              "minLength": 1
+            },
+            "samples_mhz": {
+              "description": "Observed CPU clock readings in MHz taken across the run sequence. At least one; every value finite and positive.",
+              "type": "array",
+              "minItems": 1,
+              "items": {"type": "number", "exclusiveMinimum": 0}
+            }
+          }
+        },
         "reference_drift": {
           "type": "object",
           "additionalProperties": false,
@@ -90,6 +109,9 @@
     "properties": {
       "bindings": {
         "required": ["plan_digest", "primary_environment_digest", "confirmation_environment_digest", "java_source_digest", "rust_source_digest", "java_executable_digest", "rust_executable_digest", "adapter_digest", "tool_identity_digest", "analyzer_digest"]
+      },
+      "run_validity_observations": {
+        "required": ["background_cpu_percent_max_observed", "thermal_throttle_events", "power_state_anomalies", "identity_checks_passed", "invalid_samples", "reference_drift", "observed_cpu_clock"]
       }
     }
   },

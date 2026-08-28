@@ -246,7 +246,15 @@ func DecideEndpoint(set SampleSet, bound BoundIdentities) Decision {
 			return decision
 		}
 		if set.RunValidity == nil {
-			return blocked(CodeRunValidityMissing, "MEASURED sample set carries no run-validity observations (background CPU, thermal, power, identity, invalid samples, reference drift are mandatory)")
+			return blocked(CodeRunValidityMissing, "MEASURED sample set carries no run-validity observations (background CPU, thermal, power, identity, invalid samples, reference drift, observed CPU clock are mandatory)")
+		}
+		// The owner-bound host CPU-frequency policy
+		// DOCUMENT_DEFAULTS_RECORD_OBSERVED requires the observed clock
+		// recorded per measured run. A MEASURED record that omits it is
+		// missing a mandatory observation and is BLOCKED — it is never
+		// defaulted, back-filled, or inferred from the host binding.
+		if set.RunValidity.ObservedCPUClock == nil {
+			return blocked(CodeRunValidityMissing, "MEASURED sample set carries no observed-CPU-clock record (the owner-bound host CPU-frequency policy DOCUMENT_DEFAULTS_RECORD_OBSERVED requires the observed clock recorded per run; it is never back-filled)")
 		}
 	default:
 		return blocked("", "unknown provenance label %q (must be %s or %s)", set.ProvenanceLabel, LabelSynthetic, LabelMeasured)

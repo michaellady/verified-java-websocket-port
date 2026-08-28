@@ -144,11 +144,25 @@ value is never the accounting method).
 
 ## Driver follow-ups flagged before any measured run (not owner acts)
 
-- **Per-run observed-clock record slot.** The bound CPU-frequency policy
-  requires the observed clock recorded per measured run; the canonical
-  raw-sample schema's `run_validity_observations` has no such slot yet.
-  It must be added (schema or runner-record extension) when the
-  measurement runner and tools bind — before any measured sample exists.
+- ~~**Per-run observed-clock record slot.**~~ **DONE 2026-08-28**
+  (US-008 restart). The bound CPU-frequency policy requires the observed
+  clock recorded per measured run; `run_validity_observations` had no
+  such slot, and its `additionalProperties: false` meant one could not
+  be added at measurement time without a preregistration change. The
+  slot now exists: `run_validity_observations.observed_cpu_clock`
+  (`source` + `samples_mhz`) in
+  `schemas/benchmark-raw-sample-1.0.0.schema.json`, required on
+  `MEASURED` records only (the `then` branch, so every SYNTHETIC fixture
+  is unaffected), with `internal/benchplan.DecideEndpoint` BLOCKING any
+  MEASURED sample that omits it and `EnforceRunValidity` erroring on
+  malformed readings. It is **RECORD-ONLY**, exactly as the owner bound
+  the policy: no threshold is applied to clock values and a regression
+  test (`TestObservedClockAppliesNoThreshold`) guards that none is added
+  without a recorded preregistration change. Landed NOW, ahead of the
+  runner binding, deliberately: doing it before any Rust source or
+  sample exists keeps the recording contract frozen ahead of the
+  implementation instead of changing it afterwards. The runner that
+  POPULATES the slot still binds with the measurement runner identity.
 - **Exact AWS provider pin + lockfile** for `terraform/benchmark`
   (currently floating `>= 6.0.0`), already flagged in
   `confirmation.json` terraform notes.

@@ -640,6 +640,102 @@ func TestFixturesConformToRawSampleSchema(t *testing.T) {
 	}
 }
 
+// Defense in depth above the engine: the canonical schema itself must
+// require the per-run observed-CPU-clock record on MEASURED documents
+// (owner-bound policy DOCUMENT_DEFAULTS_RECORD_OBSERVED) and must accept
+// a well-formed one. SYNTHETIC documents are unaffected — the
+// requirement lives in the MEASURED-only "then" branch, which is why the
+// existing synthetic fixtures above still conform.
+func TestSchemaRequiresObservedClockOnMeasuredOnly(t *testing.T) {
+	base := map[string]any{}
+	content, err := os.ReadFile(filepath.Join(repoRoot, "internal", "benchplan", "testdata", "synthetic-valid.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(content, &base); err != nil {
+		t.Fatal(err)
+	}
+	// Promote the fixture to MEASURED with a complete synthetic binding
+	// closure so the only remaining question is the clock record.
+	base["provenance_label"] = "MEASURED"
+	bindings := map[string]any{}
+	for _, name := range RequiredSampleBindings {
+		bindings[name] = syntheticDigest(name)
+	}
+	base["bindings"] = bindings
+	observations := map[string]any{
+		"background_cpu_percent_max_observed": 1.5,
+		"thermal_throttle_events":             0,
+		"power_state_anomalies":               0,
+		"identity_checks_passed":              true,
+		"invalid_samples":                     0,
+		"reference_drift": map[string]any{
+			"baseline_statistic":    100.0,
+			"subsequent_statistics": []float64{100, 100, 100, 100, 100, 100, 100},
+		},
+	}
+	base["run_validity_observations"] = observations
+
+	write := func(t *testing.T, document map[string]any) string {
+		t.Helper()
+		encoded, err := json.Marshal(document)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "sample.json"), encoded, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		return dir
+	}
+	// The schema resource lives under root/schemas, so validate with the
+	// repo as root and an absolute-from-root document path is not
+	// possible; copy the schema dir reference by validating through a
+	// symlinked temp root instead.
+	validate := func(t *testing.T, document map[string]any) []string {
+		t.Helper()
+		dir := write(t, document)
+		if err := os.Symlink(mustAbs(t, filepath.Join(repoRoot, "schemas")), filepath.Join(dir, "schemas")); err != nil {
+			t.Fatal(err)
+		}
+		failures, err := ValidateSampleSetDocument(dir, "sample.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return failures
+	}
+
+	if failures := validate(t, base); len(failures) == 0 {
+		t.Error("a MEASURED document without observed_cpu_clock must be rejected by the schema")
+	}
+
+	observations["observed_cpu_clock"] = map[string]any{
+		"source":      "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+		"samples_mhz": []float64{3200, 3200},
+	}
+	if failures := validate(t, base); len(failures) > 0 {
+		t.Errorf("a MEASURED document with a well-formed observed_cpu_clock must conform, got: %v", failures)
+	}
+
+	// A nonpositive reading is schema-invalid.
+	observations["observed_cpu_clock"] = map[string]any{
+		"source":      "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+		"samples_mhz": []float64{0},
+	}
+	if failures := validate(t, base); len(failures) == 0 {
+		t.Error("a nonpositive observed clock reading must be rejected by the schema")
+	}
+}
+
+func mustAbs(t *testing.T, path string) string {
+	t.Helper()
+	absolute, err := filepath.Abs(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return absolute
+}
+
 // bindAllPendingFields rewrites every OWNER_DECISION_PENDING and
 // NOT_MEASURED required binding field in both environment documents to
 // a BOUND record with an obviously-synthetic test value (review fix I5

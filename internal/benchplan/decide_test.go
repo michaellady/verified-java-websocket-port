@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -339,6 +340,65 @@ func TestDecideMeasuredMalformedRunValidityIsBlocked(t *testing.T) {
 	decision := DecideEndpoint(set, closure)
 	if decision.Outcome != OutcomeBlocked || !codesContain(decision.Codes, CodeRunValidityMissing) {
 		t.Fatalf("malformed observations: outcome %s codes %v, want BLOCKED with %s", decision.Outcome, decision.Codes, CodeRunValidityMissing)
+	}
+}
+
+// The owner-bound host CPU-frequency policy
+// DOCUMENT_DEFAULTS_RECORD_OBSERVED requires the observed clock recorded
+// per measured run. A MEASURED record omitting it is BLOCKED: the value
+// is never defaulted or back-filled from the host binding.
+func TestDecideMeasuredWithoutObservedClockIsBlocked(t *testing.T) {
+	set, closure := measuredSet(t)
+	set.RunValidity.ObservedCPUClock = nil
+	decision := DecideEndpoint(set, closure)
+	if decision.Outcome != OutcomeBlocked || !codesContain(decision.Codes, CodeRunValidityMissing) {
+		t.Fatalf("missing observed clock: outcome %s codes %v, want BLOCKED with %s", decision.Outcome, decision.Codes, CodeRunValidityMissing)
+	}
+	if !reasonsContain(decision.Reasons, "observed-CPU-clock") {
+		t.Fatalf("reasons must name the missing observed-CPU-clock record, got %v", decision.Reasons)
+	}
+}
+
+// Malformed clock evidence is BLOCKED, not INCONCLUSIVE: a badly formed
+// record means the mandatory observation is absent, not that a rule was
+// broken (the bound policy declares no threshold).
+func TestDecideMeasuredMalformedObservedClockIsBlocked(t *testing.T) {
+	for name, mutate := range map[string]func(*ObservedCPUClock){
+		"empty source":     func(o *ObservedCPUClock) { o.Source = "   " },
+		"no readings":      func(o *ObservedCPUClock) { o.SamplesMHz = nil },
+		"zero reading":     func(o *ObservedCPUClock) { o.SamplesMHz = []float64{3200, 0} },
+		"negative reading": func(o *ObservedCPUClock) { o.SamplesMHz = []float64{-3200} },
+		"NaN reading":      func(o *ObservedCPUClock) { o.SamplesMHz = []float64{math.NaN()} },
+		"Inf reading":      func(o *ObservedCPUClock) { o.SamplesMHz = []float64{math.Inf(1)} },
+	} {
+		t.Run(name, func(t *testing.T) {
+			set, closure := measuredSet(t)
+			mutate(set.RunValidity.ObservedCPUClock)
+			decision := DecideEndpoint(set, closure)
+			if decision.Outcome != OutcomeBlocked || !codesContain(decision.Codes, CodeRunValidityMissing) {
+				t.Fatalf("%s: outcome %s codes %v, want BLOCKED with %s", name, decision.Outcome, decision.Codes, CodeRunValidityMissing)
+			}
+		})
+	}
+}
+
+// The bound policy is RECORD-ONLY: no clock value, however unusual, may
+// by itself produce a violation. Guards against a threshold being added
+// to a frozen preregistration without a recorded change.
+func TestObservedClockAppliesNoThreshold(t *testing.T) {
+	for _, samples := range [][]float64{{1}, {3200}, {99999}, {800, 4800, 1200}} {
+		observations := cleanObservations()
+		observations.ObservedCPUClock = &ObservedCPUClock{
+			Source:     "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+			SamplesMHz: samples,
+		}
+		violations, err := EnforceRunValidity(observations)
+		if err != nil {
+			t.Fatalf("well-formed clock %v must not error: %v", samples, err)
+		}
+		if len(violations) != 0 {
+			t.Fatalf("record-only policy must derive no violation from clock %v, got %v", samples, violations)
+		}
 	}
 }
 
