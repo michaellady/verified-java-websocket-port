@@ -15,8 +15,8 @@ duplicate, stale, unavailable-as-pass, or overclaimed evidence. The small
 The actual protocol campaigns remain in Rust integration tests and call the
 public `websocket_core` and `websocket_driver` APIs. They never copy protocol
 parsers or frame logic into an evidence tool. Existing US-010 through US-017
-properties and seed replays remain authoritative inputs; one US-021 aggregation
-test adds deterministic cross-seam schedules and a closed target inventory.
+properties and seed replays remain authoritative inputs; US-021 freezes their
+closed inventory without adding a second Rust campaign implementation.
 
 ## Fixed target inventory
 
@@ -49,11 +49,12 @@ pass from a declared command or static corpus alone.
 ## Runtime evidence
 
 Runtime receipts are keyed by exact OS, architecture, Rust compiler identity,
-profile, command, source tree, and output digest. Each admitted platform runs
-debug and release suites twice with an outer deadline, reconciles process exit
-and test counts, and records file-descriptor and child-process cleanup checks.
-Linux execution is distinct from compilation or emulation and may not be
-inferred from either.
+profile, command, and immutable Git source tree. Each admitted platform records
+two debug and two release executions, reconciled process exit and test counts,
+and owner-observed file-descriptor and child-process cleanup checks. Linux
+execution is distinct from compilation or emulation and may not be inferred
+from either. These receipts remain owner-attested; the verifier does not claim
+to independently re-execute or reconstruct their process output.
 
 Miri, sanitizers, ThreadSanitizer, `cargo-fuzz`, and other race/fuzz engines are
 accepted only when the pinned toolchain actually identifies and executes them.
@@ -64,12 +65,13 @@ PRD must retain the missing external-tool nonclaims.
 
 ## Failure handling
 
-Campaign subprocesses have fixed deadlines and output ceilings. Nonzero exit,
-signal, timeout, panic, OOM, malformed output, digest drift, differing repeat
-results, leaked descriptor/process canaries, or a surviving planted failure
-fails the manifest. Public-safe failures are minimized to the existing seed
-format and committed under the owning Rust crate; protected inputs remain
-digest-only and are never copied into public evidence.
+`campaignctl` launches no campaign subprocesses. It fails closed when a receipt
+declares a nonzero exit, timeout, panic, hang, leak, flake, unresolved failure,
+identity drift, differing fixed command, or incomplete repeat inventory. The
+execution operator remains responsible for process deadlines and bounded
+output capture. Public-safe failures are reduced to an existing test seam and
+retained in the remediation record; protected inputs remain digest-only and
+are never copied into public evidence.
 
 ## Explicit nonclaims
 

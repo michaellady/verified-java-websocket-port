@@ -3,6 +3,7 @@ package campaign
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -128,6 +129,13 @@ func Verify(repositoryRoot string) error {
 		if err != nil {
 			return err
 		}
+		tree, err := decodeJSONTree(raw)
+		if err != nil {
+			return finding("INVALID_CAMPAIGN_EVIDENCE", relative, err.Error())
+		}
+		if err := verifyManifestShape(tree); err != nil {
+			return finding("INVALID_CAMPAIGN_EVIDENCE", relative, err.Error())
+		}
 		var manifest Manifest
 		if err := decodeStrict(raw, &manifest); err != nil {
 			return finding("INVALID_CAMPAIGN_EVIDENCE", relative, err.Error())
@@ -146,6 +154,207 @@ func Verify(repositoryRoot string) error {
 		}
 	}
 	return nil
+}
+
+func verifyManifestShape(value any) error {
+	root, err := jsonObject(value, "$")
+	if err != nil {
+		return err
+	}
+	kind, ok := root["kind"].(string)
+	if !ok || (kind != "property" && kind != "fuzz" && kind != "runtime") {
+		return errors.New("$.kind must identify a campaign kind")
+	}
+	top := []string{"$schema", "schema_version", "evidence_id", "story_id", "kind", "status", "assurance", "independent_review_claimed", "production", "publication", "signing", "repository_anchor", "rustc_version", "targets", "platforms", "external_tools", "remediations", "counts", "nonclaims"}
+	if kind != "runtime" {
+		top = append(top, "engine")
+	}
+	if err := requireObjectKeys(root, "$", top); err != nil {
+		return err
+	}
+	if kind != "runtime" {
+		engine, err := jsonObject(root["engine"], "$.engine")
+		if err != nil {
+			return err
+		}
+		if err := requireObjectKeys(engine, "$.engine", []string{"id", "seed", "minimum_cases", "repetitions", "deterministic"}); err != nil {
+			return err
+		}
+	}
+	targets, err := jsonArray(root["targets"], "$.targets")
+	if err != nil {
+		return err
+	}
+	for index, value := range targets {
+		path := fmt.Sprintf("$.targets[%d]", index)
+		target, err := jsonObject(value, path)
+		if err != nil {
+			return err
+		}
+		if err := requireObjectKeys(target, path, []string{"id", "invariant", "sources", "test_name", "command", "replay_command", "generator_domain", "shrinker", "cases", "seed_roots", "seed_count", "corpus_sha256", "timeout_seconds", "oom_policy", "crash_policy", "observations"}); err != nil {
+			return err
+		}
+		if err := verifyObjectArrayShape(target["sources"], path+".sources", []string{"path", "sha256"}); err != nil {
+			return err
+		}
+		if err := verifyObjectArrayShape(target["observations"], path+".observations", []string{"platform", "profile", "repeat", "status", "exit_code", "timed_out", "tests_passed", "tests_failed"}); err != nil {
+			return err
+		}
+	}
+	platforms, err := jsonArray(root["platforms"], "$.platforms")
+	if err != nil {
+		return err
+	}
+	for index, value := range platforms {
+		path := fmt.Sprintf("$.platforms[%d]", index)
+		platform, err := jsonObject(value, path)
+		if err != nil {
+			return err
+		}
+		if err := requireObjectKeys(platform, path, []string{"id", "execution_kind", "rustc_version", "source_tree", "debug", "release", "file_descriptor_cleanup", "process_cleanup", "flakes", "unresolved"}); err != nil {
+			return err
+		}
+		sourceTree, err := jsonObject(platform["source_tree"], path+".source_tree")
+		if err != nil {
+			return err
+		}
+		if err := requireObjectKeys(sourceTree, path+".source_tree", []string{"commit", "tree"}); err != nil {
+			return err
+		}
+		commandKeys := []string{"repeat", "command", "status", "exit_code", "timed_out", "tests_passed", "tests_failed", "panics", "hangs", "leaks"}
+		if err := verifyObjectArrayShape(platform["debug"], path+".debug", commandKeys); err != nil {
+			return err
+		}
+		if err := verifyObjectArrayShape(platform["release"], path+".release", commandKeys); err != nil {
+			return err
+		}
+	}
+	if err := verifyObjectArrayShape(root["external_tools"], "$.external_tools", []string{"id", "status", "claimed_pass", "evidence"}); err != nil {
+		return err
+	}
+	if err := verifyObjectArrayShape(root["remediations"], "$.remediations", []string{"id", "platform", "original_command", "failure_class", "minimized_command", "inferred_boundary", "fix_commit", "closure_replays", "status"}); err != nil {
+		return err
+	}
+	counts, err := jsonObject(root["counts"], "$.counts")
+	if err != nil {
+		return err
+	}
+	if err := requireObjectKeys(counts, "$.counts", []string{"targets", "cases", "observations", "platforms", "runtime_commands", "remediations", "failures", "timeouts", "panics", "hangs", "leaks", "flakes", "unresolved"}); err != nil {
+		return err
+	}
+	_, err = jsonArray(root["nonclaims"], "$.nonclaims")
+	return err
+}
+
+func verifyObjectArrayShape(value any, path string, keys []string) error {
+	values, err := jsonArray(value, path)
+	if err != nil {
+		return err
+	}
+	for index, value := range values {
+		itemPath := fmt.Sprintf("%s[%d]", path, index)
+		object, err := jsonObject(value, itemPath)
+		if err != nil {
+			return err
+		}
+		if err := requireObjectKeys(object, itemPath, keys); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func requireObjectKeys(object map[string]any, path string, expected []string) error {
+	for _, key := range expected {
+		if _, ok := object[key]; !ok {
+			return fmt.Errorf("%s.%s is required", path, key)
+		}
+	}
+	if len(object) != len(expected) {
+		return fmt.Errorf("%s has %d fields, want %d", path, len(object), len(expected))
+	}
+	return nil
+}
+
+func jsonObject(value any, path string) (map[string]any, error) {
+	object, ok := value.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("%s must be an object", path)
+	}
+	return object, nil
+}
+
+func jsonArray(value any, path string) ([]any, error) {
+	array, ok := value.([]any)
+	if !ok {
+		return nil, fmt.Errorf("%s must be an array", path)
+	}
+	return array, nil
+}
+
+func decodeJSONTree(data []byte) (any, error) {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	value, err := decodeJSONValue(decoder, "$")
+	if err != nil {
+		return nil, err
+	}
+	if _, err := decoder.Token(); !errors.Is(err, io.EOF) {
+		return nil, errors.New("trailing JSON value")
+	}
+	return value, nil
+}
+
+func decodeJSONValue(decoder *json.Decoder, path string) (any, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	delimiter, isDelimiter := token.(json.Delim)
+	if !isDelimiter {
+		return token, nil
+	}
+	switch delimiter {
+	case '{':
+		object := make(map[string]any)
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return nil, err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return nil, fmt.Errorf("%s has a non-string key", path)
+			}
+			if _, duplicate := object[key]; duplicate {
+				return nil, fmt.Errorf("%s.%s is duplicated", path, key)
+			}
+			child, err := decodeJSONValue(decoder, path+"."+key)
+			if err != nil {
+				return nil, err
+			}
+			object[key] = child
+		}
+		if closing, err := decoder.Token(); err != nil || closing != json.Delim('}') {
+			return nil, fmt.Errorf("%s object is not closed", path)
+		}
+		return object, nil
+	case '[':
+		array := make([]any, 0)
+		for decoder.More() {
+			child, err := decodeJSONValue(decoder, fmt.Sprintf("%s[%d]", path, len(array)))
+			if err != nil {
+				return nil, err
+			}
+			array = append(array, child)
+		}
+		if closing, err := decoder.Token(); err != nil || closing != json.Delim(']') {
+			return nil, fmt.Errorf("%s array is not closed", path)
+		}
+		return array, nil
+	default:
+		return nil, fmt.Errorf("%s has unexpected delimiter", path)
+	}
 }
 
 func verifySchemas(root string) error {
@@ -204,7 +413,7 @@ func CorpusIdentity(repositoryRoot string, seedRoots []string) (string, uint64, 
 	if err != nil {
 		return "", 0, err
 	}
-	return digestSeedRoots(root, seedRoots)
+	return digestSeedRoots(root, "", seedRoots)
 }
 
 // Manifest is the closed common envelope shared by the three US-021 evidence layers.
@@ -388,7 +597,7 @@ func verifyTargets(root, relative string, manifest Manifest) error {
 	var cases, observations uint64
 	for _, target := range manifest.Targets {
 		ids = append(ids, target.ID)
-		if err := verifyTarget(root, relative, manifest.Kind, target); err != nil {
+		if err := verifyTarget(root, manifest.RepositoryAnchor, relative, manifest.Kind, target); err != nil {
 			return err
 		}
 		cases += target.Cases
@@ -405,7 +614,7 @@ func verifyTargets(root, relative string, manifest Manifest) error {
 	return nil
 }
 
-func verifyTarget(root, manifestPath, kind string, target Target) error {
+func verifyTarget(root, anchor, manifestPath, kind string, target Target) error {
 	if target.ID == "" || target.Invariant == "" || target.TestName == "" || len(target.Sources) == 0 || target.GeneratorDomain == "" || target.Shrinker == "" || target.Cases == 0 || target.TimeoutSeconds == 0 || target.OOMPolicy != "FAIL_AND_CAPTURE" || target.CrashPolicy != "FAIL_MINIMIZE_AND_REPLAY" {
 		return finding("INVALID_CAMPAIGN_TARGET", manifestPath, target.ID)
 	}
@@ -421,7 +630,7 @@ func verifyTarget(root, manifestPath, kind string, target Target) error {
 		}
 		seenSources[source.Path] = true
 		sourcePaths = append(sourcePaths, source.Path)
-		if err := verifyArtifact(root, source); err != nil {
+		if err := verifyArtifact(root, anchor, source); err != nil {
 			return err
 		}
 	}
@@ -439,7 +648,7 @@ func verifyTarget(root, manifestPath, kind string, target Target) error {
 			return finding("CAMPAIGN_OBSERVATION_FAILED", manifestPath, target.ID)
 		}
 	}
-	digest, count, err := digestSeedRoots(root, target.SeedRoots)
+	digest, count, err := digestSeedRoots(root, anchor, target.SeedRoots)
 	if err != nil {
 		return err
 	}
@@ -526,6 +735,35 @@ func repositoryTree(root, commit string) (string, error) {
 	return tree, nil
 }
 
+func readGitFile(root, commit, relative string, maximum int) ([]byte, error) {
+	clean, err := safeRelative(relative)
+	if err != nil {
+		return nil, err
+	}
+	objectOutput, err := exec.Command("git", "-C", root, "rev-parse", "--verify", commit+":"+clean).Output()
+	object := strings.TrimSpace(string(objectOutput))
+	if err != nil || len(object) != 40 || strings.Trim(object, "0123456789abcdef") != "" {
+		return nil, finding("CAMPAIGN_ANCHOR_PATH_MISSING", relative, commit)
+	}
+	typeOutput, err := exec.Command("git", "-C", root, "cat-file", "-t", object).Output()
+	if err != nil || strings.TrimSpace(string(typeOutput)) != "blob" {
+		return nil, finding("CAMPAIGN_ANCHOR_PATH_INVALID", relative, "object is not a blob")
+	}
+	sizeOutput, err := exec.Command("git", "-C", root, "cat-file", "-s", object).Output()
+	var size int
+	if err != nil {
+		return nil, finding("CAMPAIGN_ANCHOR_PATH_INVALID", relative, "blob size unavailable")
+	}
+	if _, err := fmt.Sscan(strings.TrimSpace(string(sizeOutput)), &size); err != nil || size < 0 || size > maximum {
+		return nil, finding("CAMPAIGN_ANCHOR_PATH_INVALID", relative, "blob size outside bounds")
+	}
+	data, err := exec.Command("git", "-C", root, "cat-file", "blob", object).Output()
+	if err != nil || len(data) != size {
+		return nil, finding("CAMPAIGN_ANCHOR_PATH_INVALID", relative, "blob read failed")
+	}
+	return data, nil
+}
+
 func verifyExternalTools(path, kind string, tools []ExternalTool) error {
 	ids := make([]string, 0, len(tools))
 	for _, tool := range tools {
@@ -549,7 +787,7 @@ func verifyExternalTools(path, kind string, tools []ExternalTool) error {
 	return nil
 }
 
-func verifyArtifact(root string, artifact Artifact) error {
+func verifyArtifact(root, anchor string, artifact Artifact) error {
 	data, err := readRepositoryFile(root, artifact.Path, maximumDocument)
 	if err != nil {
 		return err
@@ -557,14 +795,22 @@ func verifyArtifact(root string, artifact Artifact) error {
 	if artifact.SHA256 != digest(data) {
 		return finding("CAMPAIGN_SOURCE_DRIFT", artifact.Path, "content digest differs")
 	}
+	committed, err := readGitFile(root, anchor, artifact.Path, maximumDocument)
+	if err != nil {
+		return err
+	}
+	if artifact.SHA256 != digest(committed) {
+		return finding("CAMPAIGN_ANCHOR_DRIFT", artifact.Path, anchor)
+	}
 	return nil
 }
 
-func digestSeedRoots(root string, roots []string) (string, uint64, error) {
+func digestSeedRoots(root, anchor string, roots []string) (string, uint64, error) {
 	if len(roots) == 0 {
 		return digest(nil), 0, nil
 	}
 	entries := make([]string, 0)
+	paths := make([]string, 0)
 	for _, relativeRoot := range roots {
 		clean, err := safeRelative(relativeRoot)
 		if err != nil {
@@ -591,7 +837,18 @@ func digestSeedRoots(root string, roots []string) (string, uint64, error) {
 				return finding("INVALID_CAMPAIGN_PATH", path, "seed cannot be read safely")
 			}
 			relative, _ := filepath.Rel(root, path)
-			entries = append(entries, filepath.ToSlash(relative)+" "+digest(data))
+			repositoryPath := filepath.ToSlash(relative)
+			if anchor != "" {
+				committed, err := readGitFile(root, anchor, repositoryPath, maximumDocument)
+				if err != nil {
+					return err
+				}
+				if digest(data) != digest(committed) {
+					return finding("CAMPAIGN_ANCHOR_DRIFT", repositoryPath, anchor)
+				}
+			}
+			paths = append(paths, repositoryPath)
+			entries = append(entries, repositoryPath+" "+digest(data))
 			return nil
 		})
 		if err != nil {
@@ -599,7 +856,46 @@ func digestSeedRoots(root string, roots []string) (string, uint64, error) {
 		}
 	}
 	sort.Strings(entries)
+	sort.Strings(paths)
+	if anchor != "" {
+		committedPaths, err := gitSeedPaths(root, anchor, roots)
+		if err != nil {
+			return "", 0, err
+		}
+		if !equalStrings(paths, committedPaths) {
+			return "", 0, finding("CAMPAIGN_ANCHOR_CORPUS_DRIFT", "$", anchor)
+		}
+	}
 	return digest([]byte(strings.Join(entries, "\n") + "\n")), uint64(len(entries)), nil
+}
+
+func gitSeedPaths(root, anchor string, roots []string) ([]string, error) {
+	arguments := []string{"-C", root, "ls-tree", "-r", "--name-only", "-z", anchor, "--"}
+	for _, relative := range roots {
+		clean, err := safeRelative(relative)
+		if err != nil {
+			return nil, err
+		}
+		arguments = append(arguments, clean)
+	}
+	output, err := exec.Command("git", arguments...).Output()
+	if err != nil || len(output) > maximumDocument {
+		return nil, finding("CAMPAIGN_ANCHOR_CORPUS_INVALID", "$", anchor)
+	}
+	parts := bytes.Split(output, []byte{0})
+	paths := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if len(part) == 0 {
+			continue
+		}
+		path := string(part)
+		if _, err := safeRelative(path); err != nil {
+			return nil, err
+		}
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return paths, nil
 }
 
 func verifyCommand(command []string) error {

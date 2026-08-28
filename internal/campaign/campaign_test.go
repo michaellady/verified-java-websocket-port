@@ -143,3 +143,35 @@ func TestDecodeStrictRejectsUnknownAndTrailingFields(t *testing.T) {
 		t.Fatal("trailing JSON was accepted")
 	}
 }
+
+func TestManifestShapeRejectsMissingZeroValuedAndDuplicateFields(t *testing.T) {
+	root := repositoryRoot(t)
+	raw, err := readRepositoryFile(root, manifestPaths[0], maximumDocument)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree, err := decodeJSONTree(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object := tree.(map[string]any)
+	delete(object, "independent_review_claimed")
+	if err := verifyManifestShape(object); err == nil || !strings.Contains(err.Error(), "independent_review_claimed is required") {
+		t.Fatalf("missing false-valued required field was accepted: %v", err)
+	}
+	if _, err := decodeJSONTree([]byte(`{"kind":"property","kind":"runtime"}`)); err == nil || !strings.Contains(err.Error(), "duplicated") {
+		t.Fatalf("duplicate JSON key was accepted: %v", err)
+	}
+}
+
+func TestArtifactMustMatchWorkingTreeAndDeclaredCommit(t *testing.T) {
+	root := repositoryRoot(t)
+	path := "rust/websocket-testee/src/io_loop.rs"
+	data, err := readRepositoryFile(root, path, maximumDocument)
+	if err != nil {
+		t.Fatal(err)
+	}
+	artifact := Artifact{Path: path, SHA256: digest(data)}
+	const preFixAnchor = "70a3cfad6b083d3ad39b76f938f64f9156412f33"
+	requireFinding(t, verifyArtifact(root, preFixAnchor, artifact), "CAMPAIGN_ANCHOR_DRIFT")
+}
