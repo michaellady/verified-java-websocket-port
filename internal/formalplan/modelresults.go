@@ -30,6 +30,7 @@ package formalplan
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -151,16 +152,22 @@ type modelResultsTool struct {
 }
 
 type modelResultsExecution struct {
-	SbxStatus       string                `json:"sbx_status"`
-	AttemptID       string                `json:"attempt_id"`
-	Authorization   string                `json:"authorization"`
-	Sandbox         string                `json:"sandbox"`
-	SANY            modelResultsStep      `json:"sany"`
-	TLC             modelResultsStep      `json:"tlc"`
-	DriverLog       string                `json:"driver_log"`
-	Receipts        []modelResultsReceipt `json:"receipts"`
-	Window          string                `json:"window"`
-	RuntimeObserved string                `json:"runtime_observed"`
+	SbxStatus        string                  `json:"sbx_status"`
+	AttemptID        string                  `json:"attempt_id"`
+	Authorization    string                  `json:"authorization"`
+	Sandbox          string                  `json:"sandbox"`
+	SANY             modelResultsStep        `json:"sany"`
+	TLC              modelResultsStep        `json:"tlc"`
+	MutationManifest modelResultsManifestRef `json:"mutation_manifest"`
+	DriverLog        string                  `json:"driver_log"`
+	Receipts         []modelResultsReceipt   `json:"receipts"`
+	Window           string                  `json:"window"`
+	RuntimeObserved  string                  `json:"runtime_observed"`
+}
+
+type modelResultsManifestRef struct {
+	Path   string `json:"path"`
+	SHA256 string `json:"sha256"`
 }
 
 type modelResultsStep struct {
@@ -593,9 +600,47 @@ var (
 	mrPropertyViolated  = regexp.MustCompile(`Error: Temporal property ([A-Za-z][A-Za-z0-9_]*) was violated`)
 	mrActionViolated    = regexp.MustCompile(`Error: Action property ([A-Za-z][A-Za-z0-9_]*) is violated`)
 	mrDriverResult      = regexp.MustCompile(`(?m)^RESULT step=([^\s]+) (.*)$`)
+	mrDriverDigest      = regexp.MustCompile(`(?m)^DIGEST kind=([^\s]+) name=([^\s]+) sha256=([^\s]+)$`)
 
 	mrCleanVerdict = "Model checking completed. No error has been found."
 )
+
+// mrDriverDigestKinds is the closed vocabulary of DIGEST kinds the driver
+// emits. An unrecognised kind is rejected rather than ignored: a log carrying
+// digests nobody checks is a place to hide one.
+var mrDriverDigestKinds = map[string]bool{
+	"tool": true, "manifest": true, "staged": true, "pristine": true,
+}
+
+// mrManifestForModule returns the seeded-defect ids the mutation manifest
+// declares for one module, plus each one's expected check.
+func mrManifestForModule(path, module string) ([]string, map[string]string, error) {
+	body, err := os.ReadFile(path)
+	if err != nil {
+		return nil, nil, err
+	}
+	var manifest struct {
+		Mutations []struct {
+			DefectID      string `json:"defect_id"`
+			Module        string `json:"module"`
+			ExpectedCheck string `json:"expected_check"`
+		} `json:"mutations"`
+	}
+	if err := json.Unmarshal(body, &manifest); err != nil {
+		return nil, nil, err
+	}
+	var ids []string
+	checks := map[string]string{}
+	for _, mutation := range manifest.Mutations {
+		if mutation.Module != module {
+			continue
+		}
+		ids = append(ids, mutation.DefectID)
+		checks[mutation.DefectID] = mutation.ExpectedCheck
+	}
+	sort.Strings(ids)
+	return ids, checks, nil
+}
 
 // mrViolatedChecks returns EVERY check TLC named as violated, across all three
 // message forms it uses: state invariants, temporal properties, and
@@ -865,21 +910,86 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 		}
 		return fields
 	}
-	// The driver log carries DIGEST lines for the tool it used and the model
-	// bytes it staged. Without binding those, a log from a DIFFERENT run whose
-	// RESULT lines happen to line up would be accepted: the log was checked to
-	// exist, never to be this run's log.
-	for _, want := range []struct {
-		line  string
-		label string
-	}{
-		{"DIGEST kind=tool name=tla2tools.jar sha256=" + document.Backend.Tool.SHA256, "checker archive"},
-		{"DIGEST kind=staged name=" + binding.Module + ".tla sha256=" + document.Model.TLASHA256, "staged model"},
-		{"DIGEST kind=staged name=" + binding.Module + ".cfg sha256=" + document.Model.CfgSHA256, "staged cfg"},
+	// EVERY DIGEST line is parsed, checked for internal consistency, and
+	// compared with what this record claims. Round 4 bound three of them by
+	// PRESENCE, which left conflicting duplicates and extra lines accepted and
+	// the manifest and post-run pristine digests unbound (review round 5,
+	// BLOCKING 1).
+	manifestName := document.Execution.MutationManifest.Path
+	if index := strings.LastIndex(manifestName, "/"); index >= 0 {
+		manifestName = manifestName[index+1:]
+	}
+	digests := map[string]string{}
+	for _, match := range mrDriverDigest.FindAllStringSubmatch(text, -1) {
+		kind, name, value := match[1], match[2], match[3]
+		if !mrDriverDigestKinds[kind] {
+			mismatch("the driver log carries an unrecognised DIGEST kind " + strconv.Quote(kind) +
+				" for " + name + "; the kind vocabulary is closed")
+			continue
+		}
+		key := kind + "/" + name
+		if previous, seen := digests[key]; seen && previous != value {
+			mismatch("the driver log carries conflicting DIGEST lines for " + key + ": " +
+				previous + " and " + value)
+			continue
+		}
+		digests[key] = value
+	}
+	for _, want := range []struct{ key, expect, label string }{
+		{"tool/tla2tools.jar", document.Backend.Tool.SHA256, "checker archive"},
+		{"manifest/" + manifestName, document.Execution.MutationManifest.SHA256, "mutation-manifest"},
+		{"staged/" + binding.Module + ".tla", document.Model.TLASHA256, "staged model"},
+		{"staged/" + binding.Module + ".cfg", document.Model.CfgSHA256, "staged cfg"},
+		// The pristine digests are the post-sweep re-hash. Binding them is
+		// what shows the shipped models were unmodified across all 25 mutant
+		// runs, rather than taking the driver's word for it.
+		{"pristine/" + binding.Module + ".tla", document.Model.TLASHA256, "post-run pristine model"},
+		{"pristine/" + binding.Module + ".cfg", document.Model.CfgSHA256, "post-run pristine cfg"},
 	} {
-		if !strings.Contains(text, want.line) {
+		got, present := digests[want.key]
+		if !present {
 			mismatch("the driver log carries no " + want.label +
-				" digest matching this record; expected line " + strconv.Quote(want.line))
+				" digest matching this record; expected a DIGEST line for " + want.key)
+			continue
+		}
+		if got != want.expect {
+			mismatch(want.label + " digest: record says " + want.expect +
+				", the driver log says " + got)
+		}
+	}
+
+	// Bind the manifest to BYTES and to the sweep it claims.
+	manifestPath := filepath.Join(root, filepath.FromSlash(document.Execution.MutationManifest.Path))
+	actualManifest, manifestErr := modelResultsDigestFile(manifestPath)
+	switch {
+	case manifestErr != nil:
+		mismatch("the mutation manifest " + document.Execution.MutationManifest.Path +
+			" is not readable in this tree: " + manifestErr.Error())
+	case actualManifest != document.Execution.MutationManifest.SHA256:
+		mismatch("the recorded mutation-manifest digest does not match the manifest bytes: record says " +
+			document.Execution.MutationManifest.SHA256 + ", bytes hash to " + actualManifest)
+	default:
+		declared, expectedChecks, parseErr := mrManifestForModule(manifestPath, binding.Module)
+		if parseErr != nil {
+			mismatch("the mutation manifest could not be parsed: " + parseErr.Error())
+			break
+		}
+		recordedIDs := make([]string, 0, len(document.SeededDefects))
+		for _, defect := range document.SeededDefects {
+			recordedIDs = append(recordedIDs, defect.DefectID)
+		}
+		sort.Strings(recordedIDs)
+		if !mrSameStrings(recordedIDs, declared) {
+			mismatch("the seeded-defect set disagrees with the mutation manifest for " + binding.Module +
+				": record has [" + strings.Join(recordedIDs, ", ") + "], manifest declares [" +
+				strings.Join(declared, ", ") + "]")
+		}
+		for _, defect := range document.SeededDefects {
+			want, known := expectedChecks[defect.DefectID]
+			if known && defect.Outcome == "Killed" && want != defect.ViolatedCheck {
+				mismatch("seeded defect " + defect.DefectID + ": the manifest declares it targets " +
+					want + ", the record says it killed " + defect.ViolatedCheck)
+			}
 		}
 	}
 	requireExit("sany."+binding.Module, document.Execution.SANY.ExitCode, "sany")

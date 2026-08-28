@@ -241,6 +241,7 @@ func TestModelResultsReceiptContentIsBound(t *testing.T) {
 		receiptPath string
 		transform   func(string) string
 		code        string
+		detail      string
 	}{
 		{
 			name:        "state counts that disagree with the TLC receipt block",
@@ -248,7 +249,8 @@ func TestModelResultsReceiptContentIsBound(t *testing.T) {
 			transform: func(text string) string {
 				return strings.ReplaceAll(text, "states generated", "states generated ")
 			},
-			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			code:   "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			detail: "carries no state-count summary line",
 		},
 		{
 			name:        "a checker banner the receipt never printed blocks",
@@ -256,7 +258,8 @@ func TestModelResultsReceiptContentIsBound(t *testing.T) {
 			transform: func(text string) string {
 				return strings.ReplaceAll(text, "TLC2 Version", "TLC2 Fabricated")
 			},
-			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			code:   "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			detail: "does not contain the recorded banner",
 		},
 		{
 			name:        "a SANY receipt that never processed this module blocks",
@@ -264,7 +267,8 @@ func TestModelResultsReceiptContentIsBound(t *testing.T) {
 			transform: func(text string) string {
 				return strings.ReplaceAll(text, "Semantic processing of module", "Skipped module")
 			},
-			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			code:   "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			detail: "does not show semantic processing of module",
 		},
 		{
 			name:        "a TLC receipt reporting a violation under an empty violations list blocks",
@@ -274,7 +278,8 @@ func TestModelResultsReceiptContentIsBound(t *testing.T) {
 					"Model checking completed. No error has been found.",
 					"Error: Invariant TypeInvariant is violated.")
 			},
-			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			code:   "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			detail: "the record lists no violation but the tlc receipt shows",
 		},
 		{
 			name:        "an exit code absent from the driver log blocks",
@@ -283,7 +288,8 @@ func TestModelResultsReceiptContentIsBound(t *testing.T) {
 				return strings.ReplaceAll(text, "RESULT step=tlc.FrameModel exit=0",
 					"RESULT step=tlc.FrameModel exit=7")
 			},
-			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			code:   "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			detail: "the driver log says exit",
 		},
 		{
 			name:        "a seeded-defect outcome the driver log contradicts blocks",
@@ -291,7 +297,8 @@ func TestModelResultsReceiptContentIsBound(t *testing.T) {
 			transform: func(text string) string {
 				return strings.ReplaceAll(text, "outcome=Killed", "outcome=Survived")
 			},
-			code: "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			code:   "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			detail: "record says outcome",
 		},
 	}
 
@@ -330,6 +337,7 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 		binding     ModelResultsBinding
 		receiptPath string
 		transform   func(string) string
+		detail      string
 	}{
 		{
 			name:        "a TLC receipt carrying BOTH a clean verdict and a violation blocks",
@@ -338,6 +346,7 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 			transform: func(text string) string {
 				return text + "\nError: Invariant MaskRoundTrip is violated.\n"
 			},
+			detail: "contains BOTH the clean-completion verdict",
 		},
 		{
 			name:        "a TLC receipt carrying both a clean verdict and an ACTION property violation blocks",
@@ -346,6 +355,7 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 			transform: func(text string) string {
 				return text + "\nError: Action property FrameBudgetMonotone is violated.\n"
 			},
+			detail: "contains BOTH the clean-completion verdict",
 		},
 		{
 			name:        "a killed mutant receipt that ALSO reports clean completion blocks",
@@ -354,6 +364,7 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 			transform: func(text string) string {
 				return text + "\nModel checking completed. No error has been found.\n"
 			},
+			detail: "its receipt contains BOTH the clean-completion verdict",
 		},
 		{
 			name:        "a mutant receipt naming a SECOND, different violated check blocks",
@@ -362,6 +373,7 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 			transform: func(text string) string {
 				return text + "\nError: Invariant ConsumedSiteIsDeclared is violated.\n"
 			},
+			detail: "is recorded as killing one check but its receipt names",
 		},
 		{
 			name:        "state counts must bind to TLC's FINAL summary, not an earlier progress line",
@@ -372,6 +384,7 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 				// summary. A binder reading the leftmost match never notices.
 				return strings.Replace(text, "\n348 states generated,", "\n999 states generated,", 1)
 			},
+			detail: "states_generated: record says",
 		},
 		{
 			name:        "a driver log carrying two contradictory RESULT lines for one step blocks",
@@ -382,6 +395,7 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 				// the honest line and never notices the contradiction.
 				return "RESULT step=tlc.FrameModel exit=99 verdict=clean check=NONE\n" + text
 			},
+			detail: "carries two RESULT lines for step",
 		},
 		{
 			name:        "a SANY receipt reporting a parse error alongside the module line blocks",
@@ -390,6 +404,7 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 			transform: func(text string) string {
 				return text + "\n***Parse Error***\n"
 			},
+			detail: "the sany receipt reports",
 		},
 	}
 
@@ -401,8 +416,9 @@ func TestModelResultsRejectsContradictoryReceipts(t *testing.T) {
 			root := mrStageTree(t, testCase.binding)
 			mrRewriteReceipt(t, root, testCase.binding, testCase.receiptPath, testCase.transform)
 			findings := ValidateModelResults(root, testCase.binding)
-			if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
-				t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+			if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH", testCase.detail) {
+				t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH containing %q, got %+v",
+					testCase.detail, findings)
 			}
 		})
 	}
@@ -504,23 +520,29 @@ func TestModelResultsBindsViolationNames(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			root := mrMakeViolatingFixture(t, binding, testCase.receiptNames, testCase.recordNames)
 			findings := ValidateModelResults(root, binding)
-			if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
-				t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+			if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH", "violated checks disagree") {
+				t.Fatalf("expected a violated-check name mismatch, got %+v", findings)
 			}
 		})
 	}
 
-	// The control: names that agree on both sides must NOT trip the name
-	// comparison. Without this, a rule that rejects everything would pass the
-	// three cases above and prove nothing.
-	t.Run("matching names do not trip the name comparison", func(t *testing.T) {
+	// The control asserts ACCEPTANCE OUTRIGHT. The round-4 version only
+	// checked that no finding mentioned "violated check", so a binder that
+	// rejected the fixture for ANY other stated reason still satisfied it --
+	// a control satisfiable by the wrong outcome, which manufactures
+	// confidence rather than providing it (review round 5, BLOCKING 2). It
+	// immediately earned its keep: the strengthened form caught a decode
+	// failure on this same fixture that the old form passed straight over.
+	t.Run("CONTROL: agreeing names are ACCEPTED outright", func(t *testing.T) {
 		root := mrMakeViolatingFixture(t, binding,
 			[]string{"MaskRoundTrip"}, []string{"MaskRoundTrip"})
-		for _, finding := range ValidateModelResults(root, binding) {
-			if finding.Code == "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH" &&
-				strings.Contains(finding.Detail, "violated check") {
-				t.Fatalf("agreeing names must not be reported as a mismatch: %s", finding.Detail)
+		findings := ValidateModelResults(root, binding)
+		if len(findings) != 0 {
+			for _, finding := range findings {
+				t.Errorf("unexpected finding: %s %s: %s", finding.Severity, finding.Code, finding.Detail)
 			}
+			t.Fatalf("a coherent non-clean record whose names agree must be accepted, got %d findings",
+				len(findings))
 		}
 	})
 }
@@ -537,8 +559,8 @@ func TestModelResultsBindsReceiptToItsOwnModule(t *testing.T) {
 		return strings.ReplaceAll(text, "module FrameModel", "module CloseModel")
 	})
 	findings := ValidateModelResults(root, frame)
-	if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
-		t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+	if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH", "it is not this model's run") {
+		t.Fatalf("expected a module-binding mismatch, got %+v", findings)
 	}
 }
 
@@ -555,9 +577,126 @@ func TestModelResultsBindsDriverLogToTheStagedModel(t *testing.T) {
 			"sha256:"+strings.Repeat("c", 64), 1)
 	})
 	findings := ValidateModelResults(root, binding)
-	if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
-		t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+	if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH", "staged model") {
+		t.Fatalf("expected a staged-model digest mismatch, got %+v", findings)
 	}
+}
+
+// --- complete driver-receipt digest binding (review round 5, BLOCKING 1) ----
+//
+// Round 4 bound three DIGEST lines by PRESENCE. That left conflicting and
+// extra lines accepted, and the manifest and post-run pristine digests
+// ignored entirely, so the log was not bound to the run or the mutation
+// sweep it claims. The principle applies to itself: knowing a digest is
+// present is not knowing it is the RIGHT digest.
+func TestModelResultsBindsEveryDriverDigest(t *testing.T) {
+	binding := ModelResultsBindings()[0]
+	var results modelResultsDocument
+	mrReadJSON(t, filepath.Join(us006RepoRoot(t), filepath.FromSlash(binding.ResultsPath)), &results)
+	bogus := "sha256:" + strings.Repeat("d", 64)
+
+	cases := []struct {
+		name      string
+		transform func(string) string
+		detail    string
+	}{
+		{
+			name: "a conflicting duplicate DIGEST line blocks",
+			transform: func(text string) string {
+				return text + "\nDIGEST kind=staged name=FrameModel.tla sha256=" + bogus + "\n"
+			},
+			detail: "conflicting DIGEST lines",
+		},
+		{
+			name: "an unrecognised DIGEST kind blocks",
+			transform: func(text string) string {
+				return text + "\nDIGEST kind=smuggled name=FrameModel.tla sha256=" + bogus + "\n"
+			},
+			detail: "unrecognised DIGEST kind",
+		},
+		{
+			name: "a mutation-manifest digest the log disagrees with blocks",
+			transform: func(text string) string {
+				return strings.Replace(text,
+					"DIGEST kind=manifest name=model-mutations.json sha256="+
+						results.Execution.MutationManifest.SHA256,
+					"DIGEST kind=manifest name=model-mutations.json sha256="+bogus, 1)
+			},
+			detail: "mutation-manifest digest",
+		},
+		{
+			name: "a post-run pristine digest that differs from the staged model blocks",
+			transform: func(text string) string {
+				return strings.Replace(text,
+					"DIGEST kind=pristine name=FrameModel.tla sha256="+results.Model.TLASHA256,
+					"DIGEST kind=pristine name=FrameModel.tla sha256="+bogus, 1)
+			},
+			detail: "post-run pristine",
+		},
+		{
+			name: "a missing post-run pristine line blocks",
+			transform: func(text string) string {
+				return strings.Replace(text,
+					"DIGEST kind=pristine name=FrameModel.cfg sha256="+results.Model.CfgSHA256+"\n",
+					"", 1)
+			},
+			detail: "post-run pristine",
+		},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			root := mrStageTree(t, binding)
+			mrRewriteReceipt(t, root, binding, results.Execution.DriverLog, testCase.transform)
+			findings := ValidateModelResults(root, binding)
+			if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH", testCase.detail) {
+				t.Fatalf("expected a digest-binding mismatch containing %q, got %+v",
+					testCase.detail, findings)
+			}
+		})
+	}
+
+	// CONTROL: the untouched driver log must be ACCEPTED outright, so a rule
+	// that rejected every log would not satisfy the cases above.
+	t.Run("CONTROL: the real driver log is ACCEPTED outright", func(t *testing.T) {
+		root := mrStageTree(t, binding)
+		findings := ValidateModelResults(root, binding)
+		if len(findings) != 0 {
+			for _, finding := range findings {
+				t.Errorf("unexpected finding: %s: %s", finding.Code, finding.Detail)
+			}
+			t.Fatalf("the shipped record must validate clean, got %d findings", len(findings))
+		}
+	})
+}
+
+// The manifest must be bound to BYTES and to the sweep it claims, not merely
+// named.
+func TestModelResultsBindsMutationManifest(t *testing.T) {
+	binding := ModelResultsBindings()[0]
+
+	t.Run("a recorded manifest digest that does not match the manifest bytes blocks", func(t *testing.T) {
+		root := mrStageTree(t, binding)
+		mrMutateJSON(t, filepath.Join(root, filepath.FromSlash(binding.ResultsPath)),
+			"/execution/mutation_manifest/sha256", "sha256:"+strings.Repeat("e", 64))
+		findings := ValidateModelResults(root, binding)
+		if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			"recorded mutation-manifest digest") {
+			t.Fatalf("expected a manifest byte-binding mismatch, got %+v", findings)
+		}
+	})
+
+	t.Run("a seeded-defect set that disagrees with the manifest blocks", func(t *testing.T) {
+		root := mrStageTree(t, binding)
+		// Rename one defect id: the coverage rule still passes (the violated
+		// check is unchanged), so only the manifest comparison can fire.
+		mrMutateJSON(t, filepath.Join(root, filepath.FromSlash(binding.ResultsPath)),
+			"/seeded_defects/0/defect_id", "defect.frame.not-in-the-manifest")
+		findings := ValidateModelResults(root, binding)
+		if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH",
+			"seeded-defect set disagrees with the mutation manifest") {
+			t.Fatalf("expected a manifest sweep mismatch, got %+v", findings)
+		}
+	})
 }
 
 // A seeded defect whose own mutant receipt does not name the check it claims
@@ -575,8 +714,8 @@ func TestModelResultsMutantReceiptNamesItsCheck(t *testing.T) {
 		return strings.ReplaceAll(text, defect.ViolatedCheck, "SomeOtherCheck")
 	})
 	findings := ValidateModelResults(root, binding)
-	if !mrHasCode(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH") {
-		t.Fatalf("expected MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH, got %+v", findings)
+	if !mrHasFinding(findings, "MODEL_RESULTS_RECEIPT_CONTENT_MISMATCH", "its receipt says") {
+		t.Fatalf("expected a mutant-receipt name mismatch, got %+v", findings)
 	}
 }
 
@@ -589,6 +728,13 @@ func TestEveryCheckHasAnExecutedSeededDefect(t *testing.T) {
 		t.Run(binding.Module, func(t *testing.T) {
 			var results modelResultsDocument
 			mrReadJSON(t, filepath.Join(root, filepath.FromSlash(binding.ResultsPath)), &results)
+			// Guard against a vacuous pass: an empty check list satisfies
+			// "every check is covered" trivially.
+			if len(results.Invariants) == 0 || len(results.Properties) == 0 ||
+				len(results.SeededDefects) == 0 {
+				t.Fatalf("coverage control is vacuous: %d invariants, %d properties, %d seeded defects",
+					len(results.Invariants), len(results.Properties), len(results.SeededDefects))
+			}
 			covered := map[string]bool{}
 			for _, defect := range results.SeededDefects {
 				covered[defect.ViolatedCheck] = true
@@ -637,6 +783,11 @@ func TestFormalPreflightBindsModelResults(t *testing.T) {
 	for _, document := range verdict.Documents {
 		seen[document.Path] = true
 	}
+	// Guard against a vacuous pass: an empty binding set makes the loop below
+	// assert nothing at all.
+	if len(ModelResultsBindings()) == 0 {
+		t.Fatal("binding control is vacuous: no model-results bindings are declared")
+	}
 	for _, binding := range ModelResultsBindings() {
 		if !seen[binding.ResultsPath] {
 			t.Fatalf("preflight verdict does not report %s; documents=%+v",
@@ -646,6 +797,19 @@ func TestFormalPreflightBindsModelResults(t *testing.T) {
 }
 
 // --- helpers ---------------------------------------------------------------
+
+// mrHasFinding requires the expected code AND a detail identifying the
+// intended reason. Asserting the code alone lets a case pass when an
+// unrelated rule happens to emit the same code -- the negative-test twin of
+// the weak-control problem (review round 5, BLOCKING 2).
+func mrHasFinding(findings []ModelFinding, code, detail string) bool {
+	for _, finding := range findings {
+		if finding.Code == code && strings.Contains(finding.Detail, detail) {
+			return true
+		}
+	}
+	return false
+}
 
 func mrHasCode(findings []ModelFinding, code string) bool {
 	for _, finding := range findings {
@@ -666,6 +830,9 @@ func mrStageTree(t *testing.T, binding ModelResultsBinding) string {
 	paths := []string{binding.TLAPath, binding.CfgPath, binding.ResultsPath, binding.SchemaPath}
 	var results modelResultsDocument
 	mrReadJSON(t, filepath.Join(root, filepath.FromSlash(binding.ResultsPath)), &results)
+	// Everything the validator READS must exist in the staged tree, or a case
+	// fails for a staging artefact rather than the rule under test.
+	paths = append(paths, results.Execution.MutationManifest.Path)
 	for _, receipt := range results.Execution.Receipts {
 		paths = append(paths, receipt.Path)
 	}

@@ -173,6 +173,7 @@
         "sandbox",
         "sany",
         "tlc",
+        "mutation_manifest",
         "driver_log",
         "receipts",
         "window",
@@ -201,6 +202,24 @@
         },
         "tlc": {
           "$ref": "#/$defs/step"
+        },
+        "mutation_manifest": {
+          "description": "The seeded-defect manifest this run applied. Binding it is what ties the driver receipt to the MUTATION SWEEP it claims: the digest is compared against the manifest bytes in the tree AND against the manifest DIGEST line the driver printed, and the manifest's mutation set for this module must equal the recorded seeded-defect set.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha256": {
+              "$ref": "#/$defs/digest"
+            }
+          }
         },
         "driver_log": {
           "description": "The driver binary's own stdout receipt. It carries one RESULT line per checker invocation with the real exit status, and one per seeded defect with the outcome and the violated check, so every recorded exit code is bound to committed bytes rather than asserted.",

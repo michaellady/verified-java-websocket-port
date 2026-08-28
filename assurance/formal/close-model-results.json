@@ -45,6 +45,10 @@
       "observed": "Full run with the shipped cfg: 'Model checking completed. No error has been found.' -- 348 states generated, 168 distinct states, 0 states left on queue, complete-state-graph depth 5. All 10 INVARIANTs and all 3 PROPERTYs in the shipped cfg were checked over the complete state space.",
       "receipt_path": "evidence/formal/us012-us016-model-check-0128/tlc-CloseModel.out"
     },
+    "mutation_manifest": {
+      "path": "assurance/formal/model-mutations.json",
+      "sha256": "sha256:d7ecbdfe923a4c8b5b2f78eb6d334b53e2cbaab3497aac283cff4bdaffa65b08"
+    },
     "driver_log": "evidence/formal/us012-us016-model-check-0128/driver-stdout.txt",
     "receipts": [
       {
