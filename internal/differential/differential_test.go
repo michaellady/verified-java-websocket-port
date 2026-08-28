@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -1003,17 +1004,37 @@ func TestOnDiskLockAndJournaledPairRecovery(t *testing.T) {
 	dir := t.TempDir()
 	ledgerPath := filepath.Join(dir, "ledger.json")
 	manifestPath := filepath.Join(dir, "manifest.json")
-	lock, err := acquireEvidenceLock(ledgerPath)
+	lock, err := acquireEvidenceLock(dir, ledgerPath, manifestPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := acquireEvidenceLock(ledgerPath); err == nil {
+	if within(dir, lock.path) {
+		t.Fatalf("coordination file is inside repository: %s", lock.path)
+	}
+	if _, err := acquireEvidenceLock(dir, ledgerPath, manifestPath); err == nil {
 		t.Fatal("concurrent on-disk writer accepted")
 	}
 	if err := lock.Release(); err != nil {
 		t.Fatal(err)
 	}
-	if err := commitEvidencePair(ledgerPath, []byte("ledger\n"), manifestPath, []byte("manifest\n")); err != nil {
+	if _, err := os.Lstat(lock.path); err != nil {
+		t.Fatalf("stable coordination file absent after release: %v", err)
+	}
+	reacquired, err := acquireEvidenceLock(dir, ledgerPath, manifestPath)
+	if err != nil {
+		t.Fatalf("crash/stale coordination file was not reusable: %v", err)
+	}
+	coordinationPath := reacquired.path
+	defer func() {
+		if err := reacquired.Release(); err != nil {
+			t.Error(err)
+		}
+		_ = os.Remove(coordinationPath)
+	}()
+	if err := recoverEvidencePair(nil, ledgerPath, manifestPath); err == nil {
+		t.Fatal("journal recovery without exclusive coordination was accepted")
+	}
+	if err := commitEvidencePair(reacquired, ledgerPath, []byte("ledger\n"), manifestPath, []byte("manifest\n")); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := os.ReadFile(ledgerPath); string(got) != "ledger\n" {
@@ -1037,7 +1058,7 @@ func TestOnDiskLockAndJournaledPairRecovery(t *testing.T) {
 	if err := os.Rename(ledgerStage, ledgerPath); err != nil {
 		t.Fatal(err)
 	}
-	if err := recoverEvidencePair(ledgerPath, manifestPath); err != nil {
+	if err := recoverEvidencePair(reacquired, ledgerPath, manifestPath); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := os.ReadFile(ledgerPath); string(got) != "ledger-recovered\n" {
@@ -1045,6 +1066,284 @@ func TestOnDiskLockAndJournaledPairRecovery(t *testing.T) {
 	}
 	if got, _ := os.ReadFile(manifestPath); string(got) != "manifest-recovered\n" {
 		t.Fatalf("recovered manifest=%q", got)
+	}
+}
+
+func TestEvidenceCoordinationPathIsStableAcrossProcessTempEnvironment(t *testing.T) {
+	dir, err := os.MkdirTemp("/private/tmp", "us020-coordination-key-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	ledgerPath := filepath.Join(dir, "ledger.json")
+	manifestPath := filepath.Join(dir, "manifest.json")
+	firstTemp, err := os.MkdirTemp("/private/tmp", "us020-temp-a-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondTemp, err := os.MkdirTemp("/private/tmp", "us020-temp-b-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(firstTemp)
+	defer os.RemoveAll(secondTemp)
+	for _, path := range []string{firstTemp, secondTemp} {
+		if err := os.Chmod(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Setenv("TMPDIR", firstTemp)
+	first, err := evidenceCoordinationPath(dir, ledgerPath, manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("TMPDIR", secondTemp)
+	second, err := evidenceCoordinationPath(dir, ledgerPath, manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second {
+		t.Fatalf("coordination path changed across process temp environments: %s != %s", first, second)
+	}
+}
+
+func TestEvidenceCrashWriterHelper(t *testing.T) {
+	if os.Getenv("US020_CRASH_WRITER") != "1" {
+		return
+	}
+	repositoryRoot := os.Getenv("US020_CRASH_REPOSITORY")
+	ledgerPath := os.Getenv("US020_CRASH_LEDGER")
+	manifestPath := os.Getenv("US020_CRASH_MANIFEST")
+	ledgerRaw, err := os.ReadFile(os.Getenv("US020_CRASH_NEW_LEDGER"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestRaw, err := os.ReadFile(os.Getenv("US020_CRASH_NEW_MANIFEST"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lock, err := acquireEvidenceLock(repositoryRoot, ledgerPath, manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = lock // Deliberately abandoned through os.Exit to simulate a process crash.
+	ledgerStage, err := stageDocument(ledgerPath, ledgerRaw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestStage, err := stageDocument(manifestPath, manifestRaw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	journal := pairJournal{SchemaVersion: "1.0.0", LedgerPath: ledgerPath, LedgerStage: ledgerStage, LedgerSHA256: digest(ledgerRaw), ManifestPath: manifestPath, ManifestStage: manifestStage, ManifestSHA256: digest(manifestRaw)}
+	if err := writeJSONAtomic(ledgerPath+".us020-journal", journal); err != nil {
+		t.Fatal(err)
+	}
+	switch os.Getenv("US020_CRASH_DIRECTION") {
+	case "ledger-installed":
+		if err := os.Rename(ledgerStage, ledgerPath); err != nil {
+			t.Fatal(err)
+		}
+	case "manifest-installed":
+		if err := os.Rename(manifestStage, manifestPath); err != nil {
+			t.Fatal(err)
+		}
+	default:
+		t.Fatal("unknown crash direction")
+	}
+	os.Exit(86)
+}
+
+func crashLedgerDocument(t *testing.T, label string) ([]byte, Ledger) {
+	t.Helper()
+	ledger := emptyMigratedLedgerForTest(t)
+	ledger.AcceptedRootDigest = digest([]byte(label))
+	raw, err := marshalIndented(ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw, ledger
+}
+
+func TestCrashReleasedCoordinationRecoversHalfInstalledPairAndCAS(t *testing.T) {
+	for _, direction := range []string{"ledger-installed", "manifest-installed"} {
+		t.Run(direction, func(t *testing.T) {
+			dir, err := os.MkdirTemp("/private/tmp", "us020-crash-recovery-")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.RemoveAll(dir)
+			ledgerPath := filepath.Join(dir, "ledger.json")
+			manifestPath := filepath.Join(dir, "manifest.json")
+			oldLedger, _ := crashLedgerDocument(t, "old-"+direction)
+			newLedger, newLedgerValue := crashLedgerDocument(t, "new-"+direction)
+			oldManifest := []byte("old manifest\n")
+			newManifest := []byte("new manifest " + direction + "\n")
+			newLedgerSource := filepath.Join(dir, "new-ledger.source")
+			newManifestSource := filepath.Join(dir, "new-manifest.source")
+			for path, raw := range map[string][]byte{ledgerPath: oldLedger, manifestPath: oldManifest, newLedgerSource: newLedger, newManifestSource: newManifest} {
+				if err := os.WriteFile(path, raw, 0o600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			childTemp := filepath.Join(dir, "child-temp")
+			if err := os.Mkdir(childTemp, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			command := exec.Command(os.Args[0], "-test.run=^TestEvidenceCrashWriterHelper$", "-test.count=1")
+			command.Env = append(os.Environ(),
+				"TMPDIR="+childTemp,
+				"US020_CRASH_WRITER=1",
+				"US020_CRASH_REPOSITORY="+dir,
+				"US020_CRASH_LEDGER="+ledgerPath,
+				"US020_CRASH_MANIFEST="+manifestPath,
+				"US020_CRASH_NEW_LEDGER="+newLedgerSource,
+				"US020_CRASH_NEW_MANIFEST="+newManifestSource,
+				"US020_CRASH_DIRECTION="+direction,
+			)
+			output, err := command.CombinedOutput()
+			var exitError *exec.ExitError
+			if !errors.As(err, &exitError) || exitError.ExitCode() != 86 {
+				t.Fatalf("crash helper err=%v output=%q", err, output)
+			}
+			if _, err := os.Lstat(ledgerPath + ".us020-journal"); err != nil {
+				t.Fatalf("crash journal absent: %v", err)
+			}
+			lock, err := acquireEvidenceLock(dir, ledgerPath, manifestPath)
+			if err != nil {
+				t.Fatalf("OS did not release crashed coordination: %v", err)
+			}
+			coordinationPath := lock.path
+			if err := recoverEvidencePair(lock, ledgerPath, manifestPath); err != nil {
+				lock.Release()
+				t.Fatalf("recover half-installed pair: %v", err)
+			}
+			if got, _ := os.ReadFile(ledgerPath); !bytes.Equal(got, newLedger) {
+				lock.Release()
+				t.Fatal("recovered ledger drift")
+			}
+			if got, _ := os.ReadFile(manifestPath); !bytes.Equal(got, newManifest) {
+				lock.Release()
+				t.Fatal("recovered manifest drift")
+			}
+			if err := recheckLedgerCAS(ledgerPath, digest(newLedger), newLedgerValue.Head); err != nil {
+				lock.Release()
+				t.Fatalf("post-recovery CAS: %v", err)
+			}
+			if err := commitEvidencePair(lock, ledgerPath, newLedger, manifestPath, newManifest); err != nil {
+				lock.Release()
+				t.Fatalf("idempotent completion: %v", err)
+			}
+			if err := recheckLedgerCAS(ledgerPath, digest(newLedger), newLedgerValue.Head); err != nil {
+				lock.Release()
+				t.Fatalf("post-idempotent CAS: %v", err)
+			}
+			if err := lock.Release(); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(coordinationPath, []byte("pid=999999 token=irrelevant stale=1\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			stale, err := acquireEvidenceLock(dir, ledgerPath, manifestPath)
+			if err != nil {
+				t.Fatalf("stale PID/token content affected advisory acquisition: %v", err)
+			}
+			if err := stale.Release(); err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(coordinationPath)
+			for _, residue := range []string{ledgerPath + ".us020-journal", ledgerPath + ".us020.lock", manifestPath + ".us020.lock"} {
+				if _, err := os.Lstat(residue); !errors.Is(err, os.ErrNotExist) {
+					t.Fatalf("repository transaction residue %s: %v", residue, err)
+				}
+			}
+			stages, err := filepath.Glob(filepath.Join(dir, ".us020-pair-*.stage"))
+			if err != nil || len(stages) != 0 {
+				t.Fatalf("stage residue=%v err=%v", stages, err)
+			}
+		})
+	}
+}
+
+func TestRecoveryRejectsCorruptAndMismatchedJournalWhileHeld(t *testing.T) {
+	dir, err := os.MkdirTemp("/private/tmp", "us020-hostile-journal-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	ledgerPath := filepath.Join(dir, "ledger.json")
+	manifestPath := filepath.Join(dir, "manifest.json")
+	oldLedger, _ := crashLedgerDocument(t, "hostile-old")
+	oldManifest := []byte("hostile old manifest\n")
+	if err := os.WriteFile(ledgerPath, oldLedger, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, oldManifest, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	lock, err := acquireEvidenceLock(dir, ledgerPath, manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	coordinationPath := lock.path
+	defer func() {
+		_ = lock.Release()
+		_ = os.Remove(coordinationPath)
+	}()
+	journalPath := ledgerPath + ".us020-journal"
+	if err := os.WriteFile(journalPath, []byte(`{"schema_version":`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverEvidencePair(lock, ledgerPath, manifestPath); err == nil {
+		t.Fatal("corrupt journal accepted")
+	}
+	if got, _ := os.ReadFile(ledgerPath); !bytes.Equal(got, oldLedger) {
+		t.Fatal("corrupt journal changed ledger")
+	}
+	if got, _ := os.ReadFile(manifestPath); !bytes.Equal(got, oldManifest) {
+		t.Fatal("corrupt journal changed manifest")
+	}
+	if err := os.Remove(journalPath); err != nil {
+		t.Fatal(err)
+	}
+	ledgerStage, err := stageDocument(ledgerPath, []byte("hostile ledger\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestStage, err := stageDocument(manifestPath, []byte("hostile manifest\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(ledgerStage)
+	defer os.Remove(manifestStage)
+	mismatched := pairJournal{SchemaVersion: "1.0.0", LedgerPath: ledgerPath, LedgerStage: ledgerStage, LedgerSHA256: digest([]byte("hostile ledger\n")), ManifestPath: filepath.Join(dir, "other-manifest.json"), ManifestStage: manifestStage, ManifestSHA256: digest([]byte("hostile manifest\n"))}
+	if err := writeJSONAtomic(journalPath, mismatched); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverEvidencePair(lock, ledgerPath, manifestPath); err == nil {
+		t.Fatal("path-mismatched journal accepted")
+	}
+	if got, _ := os.ReadFile(ledgerPath); !bytes.Equal(got, oldLedger) {
+		t.Fatal("mismatched journal changed ledger")
+	}
+	if got, _ := os.ReadFile(manifestPath); !bytes.Equal(got, oldManifest) {
+		t.Fatal("mismatched journal changed manifest")
+	}
+	if err := os.Remove(journalPath); err != nil {
+		t.Fatal(err)
+	}
+	digestMismatched := pairJournal{SchemaVersion: "1.0.0", LedgerPath: ledgerPath, LedgerStage: ledgerStage, LedgerSHA256: digest([]byte("different ledger\n")), ManifestPath: manifestPath, ManifestStage: manifestStage, ManifestSHA256: digest([]byte("hostile manifest\n"))}
+	if err := writeJSONAtomic(journalPath, digestMismatched); err != nil {
+		t.Fatal(err)
+	}
+	if err := recoverEvidencePair(lock, ledgerPath, manifestPath); err == nil {
+		t.Fatal("digest-mismatched journal accepted")
+	}
+	if got, _ := os.ReadFile(ledgerPath); !bytes.Equal(got, oldLedger) {
+		t.Fatal("digest-mismatched journal changed ledger")
+	}
+	if got, _ := os.ReadFile(manifestPath); !bytes.Equal(got, oldManifest) {
+		t.Fatal("digest-mismatched journal changed manifest")
 	}
 }
 
@@ -1709,13 +2008,22 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 	}
 
 	var generatedLedger, generatedManifest []byte
-	commitEvidenceDocuments = func(ledgerPath string, ledgerRaw []byte, manifestPath string, manifestRaw []byte) error {
+	commitEvidenceDocuments = func(_ *evidenceLock, ledgerPath string, ledgerRaw []byte, manifestPath string, manifestRaw []byte) error {
 		if ledgerPath != filepath.Join(root, "evidence/java/behavior-delta-ledger.json") || manifestPath != filepath.Join(root, "evidence/differential/manifest.json") {
 			return errors.New("generator output path drift")
 		}
 		generatedLedger = append([]byte(nil), ledgerRaw...)
 		generatedManifest = append([]byte(nil), manifestRaw...)
-		return commitEvidencePair(tempLedger, generatedLedger, tempManifest, generatedManifest)
+		tempLock, err := acquireEvidenceLock(root, tempLedger, tempManifest)
+		if err != nil {
+			return err
+		}
+		coordinationPath := tempLock.path
+		defer func() {
+			_ = tempLock.Release()
+			_ = os.Remove(coordinationPath)
+		}()
+		return commitEvidencePair(tempLock, tempLedger, generatedLedger, tempManifest, generatedManifest)
 	}
 	readCommittedEvidence = func(path string, maximum int64) ([]byte, error) {
 		if path == filepath.Join(root, "evidence/differential/manifest.json") && len(generatedManifest) != 0 {

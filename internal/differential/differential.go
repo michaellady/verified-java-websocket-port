@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
@@ -4135,12 +4136,12 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err := validateConfig(cfg); err != nil {
 		return Receipt{}, err
 	}
-	lock, err := acquireEvidenceLock(cfg.LedgerPath)
+	lock, err := acquireEvidenceLock(cfg.RepositoryRoot, cfg.LedgerPath, cfg.EvidencePath)
 	if err != nil {
 		return Receipt{}, err
 	}
 	defer func() { _ = lock.Release() }()
-	if err := recoverEvidencePair(cfg.LedgerPath, cfg.EvidencePath); err != nil {
+	if err := recoverEvidencePair(lock, cfg.LedgerPath, cfg.EvidencePath); err != nil {
 		return Receipt{}, err
 	}
 	suiteCtx, cancel := context.WithTimeout(ctx, cfg.SuiteTimeout)
@@ -4324,7 +4325,7 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 	if err := recheckLedgerCAS(cfg.LedgerPath, ledgerInputSHA, preHead); err != nil {
 		return Receipt{}, err
 	}
-	if err := commitEvidenceDocuments(cfg.LedgerPath, ledgerDocument, cfg.EvidencePath, manifestDocument); err != nil {
+	if err := commitEvidenceDocuments(lock, cfg.LedgerPath, ledgerDocument, cfg.EvidencePath, manifestDocument); err != nil {
 		return Receipt{}, err
 	}
 	committed, err := readCommittedEvidence(cfg.EvidencePath, maximumDocumentBytes)
@@ -4679,49 +4680,131 @@ func writeJSONAtomic(path string, value any) error {
 }
 
 type evidenceLock struct {
-	path string
-	file *os.File
-	info os.FileInfo
+	path         string
+	file         *os.File
+	repository   string
+	ledgerPath   string
+	manifestPath string
 }
 
-func acquireEvidenceLock(ledgerPath string) (*evidenceLock, error) {
-	path := ledgerPath + ".us020.lock"
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+func canonicalCoordinationInputs(repositoryRoot, ledgerPath, manifestPath string) (string, string, string, error) {
+	paths := []string{repositoryRoot, ledgerPath, manifestPath}
+	for _, path := range paths {
+		if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path {
+			return "", "", "", errors.New("coordination paths must be absolute and clean")
+		}
+	}
+	resolvedRoot, err := filepath.EvalSymlinks(repositoryRoot)
 	if err != nil {
-		return nil, fmt.Errorf("evidence writer lock: %w", err)
+		return "", "", "", errors.New("coordination repository root cannot be canonicalized")
 	}
-	info, err := file.Stat()
+	canonicalOutput := func(path string) (string, error) {
+		parent := filepath.Dir(path)
+		resolved, err := filepath.EvalSymlinks(parent)
+		if err != nil {
+			return "", errors.New("coordination output parent cannot be canonicalized")
+		}
+		return filepath.Join(resolved, filepath.Base(path)), nil
+	}
+	ledger, err := canonicalOutput(ledgerPath)
 	if err != nil {
-		file.Close()
+		return "", "", "", err
+	}
+	manifest, err := canonicalOutput(manifestPath)
+	if err != nil {
+		return "", "", "", err
+	}
+	return resolvedRoot, ledger, manifest, nil
+}
+
+func evidenceCoordinationPath(repositoryRoot, ledgerPath, manifestPath string) (string, error) {
+	repository, ledger, manifest, err := canonicalCoordinationInputs(repositoryRoot, ledgerPath, manifestPath)
+	if err != nil {
+		return "", err
+	}
+	key := sha256.Sum256([]byte(repository + "\x00" + ledger + "\x00" + manifest))
+	// /tmp is the shared macOS/Linux process-coordination namespace. Do not use
+	// TMPDIR: independent writers may have different environment values and
+	// must still contend on the same canonical-path key.
+	directory := filepath.Join(string(filepath.Separator), "tmp", fmt.Sprintf("verified-java-websocket-port-us020-%d", os.Getuid()))
+	if err := os.MkdirAll(directory, 0o700); err != nil {
+		return "", err
+	}
+	info, err := os.Lstat(directory)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o077 != 0 {
+		return "", errors.New("evidence coordination directory is not private and real")
+	}
+	path := filepath.Join(directory, hex.EncodeToString(key[:])+".lock")
+	if within(repository, path) {
+		return "", errors.New("evidence coordination file must be outside repository")
+	}
+	return path, nil
+}
+
+func acquireEvidenceLock(repositoryRoot, ledgerPath, manifestPath string) (*evidenceLock, error) {
+	repository, ledger, manifest, err := canonicalCoordinationInputs(repositoryRoot, ledgerPath, manifestPath)
+	if err != nil {
 		return nil, err
 	}
-	if _, err := fmt.Fprintf(file, "pid=%d\n", os.Getpid()); err != nil {
-		file.Close()
+	path, err := evidenceCoordinationPath(repository, ledger, manifest)
+	if err != nil {
 		return nil, err
 	}
-	if err := file.Sync(); err != nil {
-		file.Close()
-		return nil, err
+	fd, err := syscall.Open(path, syscall.O_RDWR|syscall.O_CREAT|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open evidence coordination file: %w", err)
 	}
-	return &evidenceLock{path: path, file: file, info: info}, nil
+	file := os.NewFile(uintptr(fd), path)
+	closeOnError := func(cause error) (*evidenceLock, error) {
+		if closeErr := file.Close(); closeErr != nil {
+			return nil, errors.Join(cause, closeErr)
+		}
+		return nil, cause
+	}
+	opened, err := file.Stat()
+	if err != nil || !opened.Mode().IsRegular() || opened.Mode().Perm()&0o077 != 0 {
+		return closeOnError(errors.New("evidence coordination file is not private and regular"))
+	}
+	current, err := os.Lstat(path)
+	if err != nil || current.Mode()&os.ModeSymlink != 0 || !os.SameFile(opened, current) {
+		return closeOnError(errors.New("evidence coordination file identity changed"))
+	}
+	if err := syscall.Flock(fd, syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		return closeOnError(fmt.Errorf("live evidence writer coordination held: %w", err))
+	}
+	return &evidenceLock{path: path, file: file, repository: repository, ledgerPath: ledger, manifestPath: manifest}, nil
 }
 
 func (lock *evidenceLock) Release() error {
 	if lock == nil || lock.file == nil {
 		return errors.New("invalid evidence lock")
 	}
-	if err := lock.file.Close(); err != nil {
-		return err
+	unlockErr := syscall.Flock(int(lock.file.Fd()), syscall.LOCK_UN)
+	closeErr := lock.file.Close()
+	lock.file = nil
+	return errors.Join(unlockErr, closeErr)
+}
+
+func validateEvidenceLock(lock *evidenceLock, ledgerPath, manifestPath string) error {
+	if lock == nil || lock.file == nil {
+		return errors.New("evidence coordination is not exclusively held")
 	}
-	current, err := os.Lstat(lock.path)
+	_, ledger, manifest, err := canonicalCoordinationInputs(lock.repository, ledgerPath, manifestPath)
 	if err != nil {
 		return err
 	}
-	if !os.SameFile(lock.info, current) {
-		return errors.New("evidence lock identity replaced")
+	if ledger != lock.ledgerPath || manifest != lock.manifestPath {
+		return errors.New("evidence coordination path binding mismatch")
 	}
-	lock.file = nil
-	return os.Remove(lock.path)
+	opened, err := lock.file.Stat()
+	if err != nil {
+		return err
+	}
+	current, err := os.Lstat(lock.path)
+	if err != nil || current.Mode()&os.ModeSymlink != 0 || !os.SameFile(opened, current) {
+		return errors.New("held evidence coordination identity changed")
+	}
+	return nil
 }
 
 type pairJournal struct {
@@ -4781,7 +4864,10 @@ func installJournalDocument(stage, destination, expected string) error {
 	return nil
 }
 
-func recoverEvidencePair(ledgerPath, manifestPath string) error {
+func recoverEvidencePair(lock *evidenceLock, ledgerPath, manifestPath string) error {
+	if err := validateEvidenceLock(lock, ledgerPath, manifestPath); err != nil {
+		return err
+	}
 	journalPath := ledgerPath + ".us020-journal"
 	raw, err := readRegularBounded(journalPath, 1<<20)
 	if errors.Is(err, os.ErrNotExist) {
@@ -4820,8 +4906,8 @@ func recoverEvidencePair(ledgerPath, manifestPath string) error {
 	return nil
 }
 
-func commitEvidencePair(ledgerPath string, ledgerRaw []byte, manifestPath string, manifestRaw []byte) error {
-	if err := recoverEvidencePair(ledgerPath, manifestPath); err != nil {
+func commitEvidencePair(lock *evidenceLock, ledgerPath string, ledgerRaw []byte, manifestPath string, manifestRaw []byte) error {
+	if err := recoverEvidencePair(lock, ledgerPath, manifestPath); err != nil {
 		return fmt.Errorf("recover evidence pair: %w", err)
 	}
 	ledgerStage, err := stageDocument(ledgerPath, ledgerRaw)
@@ -4839,7 +4925,7 @@ func commitEvidencePair(ledgerPath string, ledgerRaw []byte, manifestPath string
 		os.Remove(manifestStage)
 		return err
 	}
-	return recoverEvidencePair(ledgerPath, manifestPath)
+	return recoverEvidencePair(lock, ledgerPath, manifestPath)
 }
 
 func recheckLedgerCAS(path, expectedDocumentSHA, expectedHead string) error {
