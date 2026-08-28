@@ -79,7 +79,12 @@ type edit struct {
 var (
 	invariantViolation = regexp.MustCompile(`Error: Invariant ([A-Za-z][A-Za-z0-9_]*) is violated`)
 	propertyViolation  = regexp.MustCompile(`Error: Temporal property ([A-Za-z][A-Za-z0-9_]*) was violated`)
-	cleanVerdict       = "Model checking completed. No error has been found."
+	// TLC reports a [][...]_vars ACTION property with a third message form.
+	// Missing it made the driver's first run under-report three genuine kills
+	// as survivors; the exit codes (13) said otherwise, which is why the raw
+	// output is read rather than the classifier trusted.
+	actionViolation = regexp.MustCompile(`Error: Action property ([A-Za-z][A-Za-z0-9_]*) is violated`)
+	cleanVerdict    = "Model checking completed. No error has been found."
 )
 
 func main() {
@@ -288,6 +293,9 @@ func classify(path string) (string, string) {
 		return "violated", match[1]
 	}
 	if match := propertyViolation.FindStringSubmatch(text); match != nil {
+		return "violated", match[1]
+	}
+	if match := actionViolation.FindStringSubmatch(text); match != nil {
 		return "violated", match[1]
 	}
 	if strings.Contains(text, cleanVerdict) {

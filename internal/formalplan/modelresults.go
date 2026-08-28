@@ -566,10 +566,24 @@ var (
 		`The depth of the complete state graph search is ([0-9]+)\.`)
 	mrInvariantViolated = regexp.MustCompile(`Error: Invariant ([A-Za-z][A-Za-z0-9_]*) is violated`)
 	mrPropertyViolated  = regexp.MustCompile(`Error: Temporal property ([A-Za-z][A-Za-z0-9_]*) was violated`)
+	mrActionViolated    = regexp.MustCompile(`Error: Action property ([A-Za-z][A-Za-z0-9_]*) is violated`)
 	mrDriverResult      = regexp.MustCompile(`(?m)^RESULT step=([^\s]+) (.*)$`)
 
 	mrCleanVerdict = "Model checking completed. No error has been found."
 )
+
+// mrViolatedCheck returns the check TLC named as violated, across all three
+// message forms it uses: state invariants, temporal properties, and
+// [][...]_vars ACTION properties. Knowing only the first two under-reports
+// genuine kills as survivors.
+func mrViolatedCheck(text string) string {
+	for _, pattern := range []*regexp.Regexp{mrInvariantViolated, mrPropertyViolated, mrActionViolated} {
+		if match := pattern.FindStringSubmatch(text); match != nil {
+			return match[1]
+		}
+	}
+	return ""
+}
 
 // modelResultsBindReceipts re-reads every claim in the results document out
 // of the receipts it cites. A results document may only say what its
@@ -656,10 +670,8 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 		}
 		if !clean && len(document.Violations) == 0 {
 			reported := "no clean verdict"
-			if match := mrInvariantViolated.FindStringSubmatch(text); match != nil {
-				reported = "invariant " + match[1] + " violated"
-			} else if match := mrPropertyViolated.FindStringSubmatch(text); match != nil {
-				reported = "property " + match[1] + " violated"
+			if named := mrViolatedCheck(text); named != "" {
+				reported = named + " violated"
 			}
 			mismatch("the record lists no violation but the tlc receipt shows " + reported)
 		}
@@ -671,12 +683,7 @@ func modelResultsBindReceipts(root string, binding ModelResultsBinding,
 		if !ok {
 			continue
 		}
-		named := ""
-		if match := mrInvariantViolated.FindStringSubmatch(text); match != nil {
-			named = match[1]
-		} else if match := mrPropertyViolated.FindStringSubmatch(text); match != nil {
-			named = match[1]
-		}
+		named := mrViolatedCheck(text)
 		switch defect.Outcome {
 		case "Killed":
 			if named == "" {
