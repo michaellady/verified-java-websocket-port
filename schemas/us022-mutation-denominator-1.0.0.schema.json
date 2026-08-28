@@ -1,0 +1,25 @@
+{
+  "$id": "us022-mutation-denominator-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "story_id", "status", "assurance", "independent_review_claimed", "signing", "production", "publication", "plan_sha256", "rows", "counts", "full", "excluded", "eligible", "missed", "score_basis_points"],
+  "properties": {
+    "$schema": {"const": "../schemas/us022-mutation-denominator-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "story_id": {"const": "US-022"},
+    "status": {"const": "PASS_OWNER_RELAXED"},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "signing": {"const": false},
+    "production": {"const": false},
+    "publication": {"const": false},
+    "plan_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "rows": {"type": "array", "minItems": 4, "items": {"type": "object", "additionalProperties": false, "required": ["runtime", "mutant_id", "disposition"], "properties": {"runtime": {"enum": ["java", "rust"]}, "mutant_id": {"type": "string"}, "disposition": {"enum": ["KILLED", "SURVIVED", "NOT_EXECUTED", "UNCOVERED", "TIMEOUT", "TOOL_FAILURE", "FLAKY", "EQUIVALENT", "TECHNICALLY_UNVIABLE"]}}}},
+    "counts": {"type": "object", "additionalProperties": false, "required": ["KILLED", "SURVIVED", "NOT_EXECUTED", "UNCOVERED", "TIMEOUT", "TOOL_FAILURE", "FLAKY", "EQUIVALENT", "TECHNICALLY_UNVIABLE"]},
+    "full": {"type": "integer", "minimum": 1},
+    "excluded": {"type": "integer", "minimum": 0},
+    "eligible": {"type": "integer", "minimum": 1},
+    "missed": {"const": 0},
+    "score_basis_points": {"const": 10000}
+  }
+}

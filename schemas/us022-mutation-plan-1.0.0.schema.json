@@ -1,0 +1,33 @@
+{
+  "$id": "us022-mutation-plan-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "story_id", "status", "assurance", "independent_review_claimed", "signing", "production", "publication", "repository_anchor", "inputs", "external_engines", "mutants", "minimum_per_runtime", "ideal_per_runtime", "inventory_gap", "nonclaims"],
+  "properties": {
+    "$schema": {"const": "../schemas/us022-mutation-plan-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "story_id": {"const": "US-022"},
+    "status": {"const": "PASS_OWNER_RELAXED"},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "signing": {"const": false},
+    "production": {"const": false},
+    "publication": {"const": false},
+    "repository_anchor": {"$ref": "#/$defs/git"},
+    "inputs": {"type": "array", "minItems": 9, "maxItems": 9, "items": {"$ref": "#/$defs/artifact"}},
+    "external_engines": {"type": "array", "minItems": 2, "maxItems": 2, "items": {"$ref": "#/$defs/engine"}},
+    "mutants": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/mutant"}},
+    "minimum_per_runtime": {"type": "integer", "minimum": 1},
+    "ideal_per_runtime": {"type": "integer", "minimum": 4},
+    "inventory_gap": {"type": "string", "minLength": 1, "maxLength": 512},
+    "nonclaims": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "git": {"type": "object", "additionalProperties": false, "required": ["commit", "tree"], "properties": {"commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"}, "blob": {"type": "string", "pattern": "^[0-9a-f]{40}$"}}},
+    "artifact": {"type": "object", "additionalProperties": false, "required": ["path", "bytes", "sha256", "git"], "properties": {"path": {"type": "string", "minLength": 1}, "bytes": {"type": "integer", "minimum": 1}, "sha256": {"$ref": "#/$defs/digest"}, "git": {"$ref": "#/$defs/git"}}},
+    "engine": {"type": "object", "additionalProperties": false, "required": ["id", "status", "result_count"], "properties": {"id": {"enum": ["cargo-mutants", "pit"]}, "status": {"const": "UNAVAILABLE_NOT_RUN"}, "result_count": {"const": 0}}},
+    "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "mutant": {"type": "object", "additionalProperties": false, "required": ["runtime", "mutant_id", "behavior", "engine", "production_path", "production_file_sha256", "unique_match_base64", "unique_match_sha256", "replacement_base64", "replacement_sha256", "build_argv", "test_argv", "timeout_ms", "expected_killing_test_ids"], "properties": {"runtime": {"enum": ["java", "rust"]}, "mutant_id": {"type": "string", "pattern": "^[a-z0-9-]+$"}, "behavior": {"enum": ["frame-admission", "strict-text", "fragment-sequencing", "close-terminal"]}, "engine": {"const": "IN_TREE_PLANTED"}, "production_path": {"type": "string", "minLength": 1}, "production_file_sha256": {"$ref": "#/$defs/digest"}, "unique_match_base64": {"type": "string", "minLength": 4}, "unique_match_sha256": {"$ref": "#/$defs/digest"}, "replacement_base64": {"type": "string", "minLength": 4}, "replacement_sha256": {"$ref": "#/$defs/digest"}, "build_argv": {"$ref": "#/$defs/argv"}, "test_argv": {"$ref": "#/$defs/argv"}, "timeout_ms": {"type": "integer", "minimum": 1000, "maximum": 300000}, "expected_killing_test_ids": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}}}
+  }
+}

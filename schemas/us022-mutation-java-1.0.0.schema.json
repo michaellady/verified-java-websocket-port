@@ -1,0 +1,13 @@
+{
+  "$id": "us022-mutation-java-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "story_id", "runtime", "status", "assurance", "independent_review_claimed", "signing", "production", "publication", "plan_sha256", "source_closure_sha256", "test_closure_sha256", "test_manifest_sha256", "before", "after", "results", "external_engines", "no_repository_drift", "nonclaims"],
+  "properties": {
+    "$schema": {"const": "../../schemas/us022-mutation-java-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"}, "story_id": {"const": "US-022"}, "runtime": {"const": "java"}, "status": {"const": "PASS_OWNER_RELAXED"}, "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false}, "signing": {"const": false}, "production": {"const": false}, "publication": {"const": false},
+    "plan_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "source_closure_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "test_closure_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "test_manifest_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "before": {"type": "array", "minItems": 2, "maxItems": 2}, "after": {"type": "array", "minItems": 2, "maxItems": 2}, "results": {"type": "array", "minItems": 1}, "external_engines": {"type": "array", "minItems": 2, "maxItems": 2}, "no_repository_drift": {"const": true}, "nonclaims": {"type": "array", "minItems": 1}
+  }
+}

@@ -1,0 +1,82 @@
+{
+  "$schema": "../../schemas/us022-protected-receipt-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "story_id": "US-022",
+  "status": "PASS_OWNER_RELAXED",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "signing": false,
+  "production": false,
+  "publication": false,
+  "policy_sha256": "sha256:67b20f391ad9a7386726f901bd89973d87501e1c21d6fbb8bf4c6c3dd126038b",
+  "evaluator_sha256": "sha256:61e1ce89fb298787619603c12b2a90611347f91d591bdf33ba281591afb560e3",
+  "tiers": [
+    {
+      "tier": "hidden",
+      "manifest_sha256": "sha256:b80c51d6af90d0989e2ddbc74ddf9043eb8b2d16e3a48fa7a2cacdf37e44ea63",
+      "corpus_id": "us005-behavior-hidden",
+      "expected": 92,
+      "selected": 92,
+      "executed": 92,
+      "passed": 92,
+      "failed": 0,
+      "skipped": 0,
+      "filtered": 0,
+      "timed_out": 0,
+      "commitment_root": "sha256:b0c056def3461cf299f4467350d0f574c25b1984036b743d7cf70730b0ee7cd1",
+      "transcript_sha256": "sha256:f38b23c3dfc8b58462c366ea0b23bc84388a05eb6ba7cfa2e58d6565f552783b",
+      "report_sha256": "sha256:61e1ce89fb298787619603c12b2a90611347f91d591bdf33ba281591afb560e3",
+      "custodian_policy_sha256": "sha256:67b20f391ad9a7386726f901bd89973d87501e1c21d6fbb8bf4c6c3dd126038b"
+    },
+    {
+      "tier": "sealed",
+      "manifest_sha256": "sha256:10da65ef33f5232631a5ace30be2e2027601f1f1c589146b314fe6de1e4ebf0f",
+      "corpus_id": "us005-behavior-sealed",
+      "expected": 92,
+      "selected": 92,
+      "executed": 92,
+      "passed": 92,
+      "failed": 0,
+      "skipped": 0,
+      "filtered": 0,
+      "timed_out": 0,
+      "commitment_root": "sha256:6d89e0291728a363fba8b6163c3c6d1f0aa7b9517b8b147c7bc435ec02de783b",
+      "transcript_sha256": "sha256:d6650506270bee1904230964da0c1d1b807b5fcf123b9049014ac2a74de077c3",
+      "report_sha256": "sha256:61e1ce89fb298787619603c12b2a90611347f91d591bdf33ba281591afb560e3",
+      "custodian_policy_sha256": "sha256:67b20f391ad9a7386726f901bd89973d87501e1c21d6fbb8bf4c6c3dd126038b"
+    }
+  ],
+  "subjects": [
+    {"id": "pinned_java", "status": "PASS_RETAINED_RECONCILED"},
+    {"id": "rust_candidate", "status": "NOT_EXECUTED_NO_PUBLIC_RECEIPT"},
+    {"id": "empty_rust", "status": "NOT_EXECUTED_NO_PUBLIC_RECEIPT"},
+    {"id": "planted_java", "status": "NOT_EXECUTED_NO_PUBLIC_RECEIPT"},
+    {"id": "planted_rust", "status": "NOT_EXECUTED_NO_PUBLIC_RECEIPT"}
+  ],
+  "isolation": {
+    "identity": "DISTINCT_RETAINED",
+    "workspace": "ISOLATED_RETAINED",
+    "filesystem": "ISOLATED_RETAINED",
+    "cache": "ISOLATED_RETAINED",
+    "network": "NOT_CLAIMED",
+    "protected_store": "CUSTODIAN_RETAINED",
+    "signing_key_separation": "UNAVAILABLE_NOT_USED"
+  },
+  "budgets": {"query_spent": 8, "diagnostic_spent": 0},
+  "leaks": {
+    "case_ids": 0,
+    "case_bodies": 0,
+    "expected_outputs": 0,
+    "actual_outputs": 0,
+    "diagnostics": 0,
+    "salts": 0,
+    "keys": 0,
+    "tokens": 0,
+    "credentials": 0,
+    "protected_paths": 0,
+    "timestamps": 0,
+    "prose": 0
+  },
+  "calibration_sha256": "sha256:59845d2713fcd429de792670f687dba29542a74b9e5cfa5351159d5e7fea987a",
+  "projection_sha256": "sha256:c8466603f648f4777f5fbfb1176a0febb1ab3a3e1e5a24c38910455e5dfd07d6"
+}

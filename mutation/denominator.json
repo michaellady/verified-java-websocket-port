@@ -1,0 +1,38 @@
+{
+  "$schema": "../schemas/us022-mutation-denominator-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "story_id": "US-022",
+  "status": "PASS_OWNER_RELAXED",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "signing": false,
+  "production": false,
+  "publication": false,
+  "plan_sha256": "sha256:b8c6ba4b31579aef31dad89d001e0ef4c6cb51c9de1e23a147cab47c4b1b031d",
+  "rows": [
+    {"runtime": "java", "mutant_id": "close-echo-disabled", "disposition": "KILLED"},
+    {"runtime": "java", "mutant_id": "fragment-buffer-not-drained", "disposition": "KILLED"},
+    {"runtime": "java", "mutant_id": "invalid-frame-rejection-relabeled", "disposition": "KILLED"},
+    {"runtime": "java", "mutant_id": "terminal-state-guard-disabled", "disposition": "KILLED"},
+    {"runtime": "rust", "mutant_id": "close-payload-limit-disabled", "disposition": "KILLED"},
+    {"runtime": "rust", "mutant_id": "control-length-admission-disabled", "disposition": "KILLED"},
+    {"runtime": "rust", "mutant_id": "continuation-admission-relabeled", "disposition": "KILLED"},
+    {"runtime": "rust", "mutant_id": "unexpected-continuation-accepted", "disposition": "KILLED"}
+  ],
+  "counts": {
+    "KILLED": 8,
+    "SURVIVED": 0,
+    "NOT_EXECUTED": 0,
+    "UNCOVERED": 0,
+    "TIMEOUT": 0,
+    "TOOL_FAILURE": 0,
+    "FLAKY": 0,
+    "EQUIVALENT": 0,
+    "TECHNICALLY_UNVIABLE": 0
+  },
+  "full": 8,
+  "excluded": 0,
+  "eligible": 8,
+  "missed": 0,
+  "score_basis_points": 10000
+}

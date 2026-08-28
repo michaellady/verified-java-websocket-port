@@ -1,0 +1,13 @@
+{
+  "$id": "us022-protected-receipt-1.0.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["$schema", "schema_version", "story_id", "status", "assurance", "independent_review_claimed", "signing", "production", "publication", "policy_sha256", "evaluator_sha256", "tiers", "subjects", "isolation", "budgets", "leaks", "calibration_sha256", "projection_sha256"],
+  "properties": {
+    "$schema": {"const": "../../schemas/us022-protected-receipt-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"}, "story_id": {"const": "US-022"}, "status": {"const": "PASS_OWNER_RELAXED"}, "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false}, "signing": {"const": false}, "production": {"const": false}, "publication": {"const": false},
+    "policy_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "evaluator_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "calibration_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "projection_sha256": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "tiers": {"type": "array", "minItems": 2, "maxItems": 2}, "subjects": {"type": "array", "minItems": 5, "maxItems": 5}, "isolation": {"type": "object"}, "budgets": {"type": "object"}, "leaks": {"type": "object"}
+  }
+}
