@@ -1192,7 +1192,7 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         "the failure-halt disposition was explored"
     );
 
-    println!(
+    let measured = format!(
         "US017_EXPLORATION programs={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
          preemption_budget={PREEMPTION_BUDGET} schedules={schedule_count} branches={} truncated=false \
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
@@ -1214,6 +1214,88 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.deferred_command_turn,
         totals.deferred_backpressure,
         totals.rejected_inputs,
+    );
+    println!("{measured}");
+    assert_committed_results_cite_this_run(&measured);
+}
+
+// ---------------------------------------------------------------------------
+// Binding the committed acceptance evidence to this run
+// ---------------------------------------------------------------------------
+
+/// The acceptance-evidence document this exploration produces.
+const RESULTS_DOCUMENT: &str = "assurance/concurrency/results.json";
+
+/// Repository-relative path resolved against this crate's manifest directory,
+/// so the check works from any working directory cargo is invoked from.
+fn repository_path(relative: &str) -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(relative)
+}
+
+/// Read `execution.executed_run.stdout_line` out of the committed results
+/// document.
+///
+/// This is deliberately NOT a JSON parser — the workspace carries zero
+/// non-path dependencies and hand-rolling one would be a second, unverified
+/// parser in the tree. It locates a single key, which must occur EXACTLY once
+/// in the file, and returns the string literal after it. Every way that
+/// assumption could quietly stop holding — the key missing, the key appearing
+/// twice, an escape sequence inside the value — panics with what it saw
+/// instead of returning something plausible.
+fn committed_stdout_line(document: &str) -> String {
+    const KEY: &str = "\"stdout_line\": \"";
+    let occurrences = document.matches(KEY).count();
+    assert_eq!(
+        occurrences, 1,
+        "{RESULTS_DOCUMENT} must carry exactly one {KEY} key for this binding to be unambiguous, found {occurrences}"
+    );
+    let start = document.find(KEY).expect("occurrence count is 1") + KEY.len();
+    let rest = &document[start..];
+    let end = rest
+        .find('"')
+        .expect("the stdout_line literal is unterminated");
+    let value = &rest[..end];
+    assert!(
+        !value.contains('\\'),
+        "{RESULTS_DOCUMENT} stdout_line contains a JSON escape ({value:?}); this reader does not unescape, \
+         so the comparison below would be against the wrong bytes"
+    );
+    value.to_string()
+}
+
+/// Fail if the committed acceptance evidence does not cite THIS run.
+///
+/// WHY. `assurance/concurrency/results.json` is the sole evidence node bound
+/// to US-017. Before this check nothing connected its twenty-two counters to
+/// an execution: the numbers were transcribed by hand from a printed line, and
+/// a measured corruption confirmed the consequence — with explored_schedules
+/// rewritten from 79920 to 11 and accepted_commands from 221353 to 999999,
+/// `make -C rust gates` exited 0 and `go test ./...` exited 0 once the
+/// evidence-DAG byte pin was regenerated.
+///
+/// WHAT IT PROVES. Only that the recorded line is a line this exploration
+/// really emits. It says nothing about whether the document's counter FIELDS
+/// agree with that line — that half is `ValidateConcurrencyResults` in
+/// internal/formalplan/concurrencyresults.go, which re-derives every field
+/// from the same string. Neither half alone is a binding.
+fn assert_committed_results_cite_this_run(measured: &str) {
+    let path = repository_path(RESULTS_DOCUMENT);
+    let document = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+        panic!("{RESULTS_DOCUMENT} is the acceptance evidence this run produces and must be readable at {path:?}: {error}")
+    });
+    let committed = committed_stdout_line(&document);
+    assert_eq!(
+        committed, measured,
+        "\n{RESULTS_DOCUMENT} cites a run that is not this one.\n  \
+         committed: {committed}\n  \
+         measured:  {measured}\n\
+         The committed acceptance evidence is stale. Refresh it deliberately: copy the measured line into \
+         execution.executed_run.stdout_line, bring every counter field into agreement with it (the Go validator \
+         internal/formalplan/concurrencyresults.go re-derives them and will name any that disagree), update \
+         target.source.git_blob, target.harness.git_blob and preregistered_plan.sha256 to the current tree, and \
+         record what moved and why in revision_note. Do NOT edit this assertion.\n"
     );
 }
 
