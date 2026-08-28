@@ -2,11 +2,13 @@ package benchplan
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 const repoRoot = "../.."
@@ -837,25 +839,63 @@ func TestSchemaObservedClockShapeRulesAreEnforced(t *testing.T) {
 	}
 }
 
+// unicodeSpaceCodePoints returns the COMPLETE current unicode.IsSpace set,
+// derived from Go's own Unicode tables rather than transcribed by hand.
+//
+// Review round 2 found the previous revision of the differential test below
+// unable to fail. It drove itself from 17 literal strings covering only 15 of
+// this set's 25 code points, omitting ten members of U+2000-U+200A, so a
+// schema pattern narrowed to just the 15 exercised code points passed while
+// genuinely disagreeing with Go on the other ten. That was reproduced by
+// mutation before this fix was written, and the same mutation is now caught.
+// Enumerating the set makes such an omission impossible to reintroduce and
+// keeps the vectors correct as Go's Unicode tables are updated.
+func unicodeSpaceCodePoints() []rune {
+	var spaces []rune
+	for r := rune(0); r <= unicode.MaxRune; r++ {
+		if unicode.IsSpace(r) {
+			spaces = append(spaces, r)
+		}
+	}
+	return spaces
+}
+
 // The canonical schema and the Go contract must agree on what counts as
 // an attributed source. They previously disagreed: the schema's
 // minLength:1 accepted "   " while ObservedCPUClock.validate rejects any
 // string that strings.TrimSpace empties. This test pins the two seams
-// together across the whole unicode.IsSpace set, so a future schema or
-// Go edit cannot reopen the gap in either direction.
+// together across EVERY code point in unicode.IsSpace -- enumerated, never
+// sampled -- so a future schema or Go edit cannot reopen the gap in either
+// direction, and no member can be silently left unexercised.
 func TestSchemaAndGoAgreeOnClockSourceAttribution(t *testing.T) {
-	unattributed := []string{
-		" ", "   ", "\t", "\n", "\r\n", "\v", "\f",
-		"\u0085",           // NEL
-		"\u00a0",           // NBSP
-		"\u1680",           // OGHAM SPACE MARK
-		"\u2003",           // EM SPACE
-		"\u2028", "\u2029", // LINE / PARAGRAPH SEPARATOR
-		"\u202f", "\u205f", // NARROW NBSP / MEDIUM MATHEMATICAL SPACE
-		"\u3000",             // IDEOGRAPHIC SPACE
-		" \t\n\u00a0\u3000 ", // mixed whitespace only
+	spaces := unicodeSpaceCodePoints()
+
+	// The derivation is the entire basis of this test's coverage, so the
+	// derivation itself is checked. A floor rather than an exact count: a
+	// future Unicode update may ADD members, which the enumeration picks up
+	// automatically, but a derivation that silently collapsed to a handful of
+	// code points would make every vector below vacuous without failing.
+	if len(spaces) < 25 {
+		t.Fatalf("unicode.IsSpace enumeration yielded %d code points, want >= 25: the derivation is broken and every vector below would be vacuous", len(spaces))
 	}
-	for _, source := range unattributed {
+	derived := make(map[rune]bool, len(spaces))
+	for _, r := range spaces {
+		derived[r] = true
+	}
+	// Regression anchor on the exact historical gap: these ten members of
+	// U+2000-U+200A are the ones the hand-written list omitted.
+	for r := rune(0x2000); r <= 0x200A; r++ {
+		if !derived[r] {
+			t.Fatalf("U+%04X missing from the derived unicode.IsSpace set: this is the exact gap review round 2 found, and the enumeration must cover it", r)
+		}
+	}
+	t.Logf("differential vectors derived from unicode.IsSpace: %d code points", len(spaces))
+
+	// assertBothReject and assertBothAccept evaluate the two seams on
+	// identical input, so any disagreement is attributable to the seams and
+	// not to differently-constructed vectors.
+	assertBothReject := func(t *testing.T, source string) {
+		t.Helper()
 		document, _, clock := measuredSchemaDocument(t)
 		clock["source"] = source
 		schemaFailures := validateRawSampleDocument(t, document)
@@ -865,19 +905,12 @@ func TestSchemaAndGoAgreeOnClockSourceAttribution(t *testing.T) {
 		_, goErr := EnforceRunValidity(observations)
 
 		if len(schemaFailures) == 0 || goErr == nil {
-			t.Errorf("source %q: schema rejected=%t go rejected=%t — the schema and the Go contract must both reject an unattributed source",
+			t.Errorf("source %q: schema rejected=%t go rejected=%t -- the schema and the Go contract must both reject an unattributed source",
 				source, len(schemaFailures) > 0, goErr != nil)
 		}
 	}
-
-	attributed := []string{
-		"/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq",
-		"lscpu --json",
-		" turbostat ", // padded but attributed
-		"a",
-		" x ", // non-whitespace between whitespace
-	}
-	for _, source := range attributed {
+	assertBothAccept := func(t *testing.T, source string) {
+		t.Helper()
 		document, _, clock := measuredSchemaDocument(t)
 		clock["source"] = source
 		schemaFailures := validateRawSampleDocument(t, document)
@@ -887,9 +920,55 @@ func TestSchemaAndGoAgreeOnClockSourceAttribution(t *testing.T) {
 		_, goErr := EnforceRunValidity(observations)
 
 		if len(schemaFailures) > 0 || goErr != nil {
-			t.Errorf("source %q: schema failures=%v go err=%v — both seams must accept an attributed source",
+			t.Errorf("source %q: schema failures=%v go err=%v -- both seams must accept an attributed source",
 				source, schemaFailures, goErr)
 		}
+	}
+
+	// Every enumerated whitespace code point, in both directions: alone it is
+	// unattributed and must be rejected; wrapped around a non-whitespace
+	// character it is attributed and must be accepted. The accept half stops
+	// the rejection rule from being satisfied by an over-broad pattern that
+	// simply rejects every source containing any whitespace.
+	for _, r := range spaces {
+		source := string(r)
+		t.Run(fmt.Sprintf("unattributed/U+%04X", r), func(t *testing.T) {
+			assertBothReject(t, source)
+		})
+		t.Run(fmt.Sprintf("attributed/U+%04X", r), func(t *testing.T) {
+			assertBothAccept(t, source+"x"+source)
+		})
+	}
+
+	// Multi-code-point whitespace-only vectors, including one built from the
+	// entire enumerated set at once.
+	var everySpace strings.Builder
+	for _, r := range spaces {
+		everySpace.WriteRune(r)
+	}
+	for _, vector := range []struct{ name, source string }{
+		{"ascii run", "   "},
+		{"crlf", "\r\n"},
+		{"mixed", " \t\n 　 "},
+		{"every code point", everySpace.String()},
+		{"empty", ""},
+	} {
+		t.Run("unattributed/"+vector.name, func(t *testing.T) {
+			assertBothReject(t, vector.source)
+		})
+	}
+
+	// Realistic attributed sources, including padded ones.
+	for _, source := range []string{
+		"/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq",
+		"lscpu --json",
+		" turbostat ", // padded but attributed
+		"a",
+		" x ", // non-whitespace between whitespace
+	} {
+		t.Run("attributed/"+source, func(t *testing.T) {
+			assertBothAccept(t, source)
+		})
 	}
 }
 

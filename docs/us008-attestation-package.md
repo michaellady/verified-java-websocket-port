@@ -125,20 +125,51 @@ value is never the accounting method).
    (`NOT_MEASURED`, never fabricated): `java_executable_digest`,
    `rust_executable_digest` in both environments (no Rust executable
    exists before US-009+; no Java benchmark executable is promoted).
-5. **Booted-host facts recorded at provision of the bound host**
-   (`NOT_MEASURED` until the first bound boot): `instance_id`,
+5. **Booted-host facts that HAVE a field, holding a `NOT_MEASURED`
+   sentinel until the first bound boot**: `instance_id`,
    `observed_architecture` (schema-pinned to `x86_64`),
    `availability_zone`, `os_identity`, `kernel_identity`, `cpu_model`,
-   `memory_total_bytes`, `numa_topology`, `clocksource` — plus the
-   default-scaling FACTS the bound CPU-frequency policy defers to
-   provision (cpufreq driver/governor presence or absence, turbo
-   visibility, SMT state).
-6. **Primary runtime-snapshot fields** (`PENDING_FREEZE_AT_MEASUREMENT`,
+   `memory_total_bytes`, `numa_topology`, `clocksource`. These nine are
+   exactly the `NOT_MEASURED` entries of `host_identity` in
+   `confirmation.json`, and all nine sit on the completion meter, so
+   `benchplanctl verify` counts them as unbound today.
+6. **Default-scaling facts that have NO field at all** — the facts the
+   bound CPU-frequency policy defers to provision: cpufreq
+   driver/governor presence or absence, turbo/boost visibility, SMT
+   state. These are a DIFFERENT category from item 5 and are listed
+   separately for that reason. An earlier revision of this list grouped
+   them under item 5's "`NOT_MEASURED` until the first bound boot"
+   heading, which wrongly implied a field exists and is merely empty.
+   It does not: no field exists for any of them in `confirmation.json`,
+   so they are UNRECORDED and UNREPRESENTED, not unmeasured. Only
+   `cpu_model`'s notes gesture at them ("base/turbo policy"), and
+   `cpu_frequency_policy` is `BOUND` — it binds the POLICY and asserts
+   no fact about the booted host, so it is not a sentinel either.
+   OUTSTANDING EXTENSION, and it is the METER rather than the schema:
+   `benchmark-environment-1.0.0.schema.json` does NOT block these
+   fields. `host_identity` declares no named properties and its
+   `additionalProperties` is `{"$ref": "#/$defs/fieldRecord"}`, so a
+   well-formed field record is already admitted under any name —
+   probed by adding `scaling_driver`, `smt_state` and
+   `turbo_visibility` to `host_identity` and validating against the
+   canonical schema, which returned 0 failures. What actually gates
+   representation is the completion meter:
+   `CanonicalBindingFields["confirmation"]` in
+   `internal/benchplan/validate.go` (23 entries) and the mirrored
+   `required_binding_fields` in `confirmation.json` list none of them,
+   and the meter fails if the two disagree, so nothing records,
+   requires, or checks these facts today. Extending that list is the
+   recorded preregistration change, and it is still outstanding.
+   **Correction:** the round-1 note in `confirmation.json` said
+   representing these facts "requires adding fields to
+   `benchmark-environment-1.0.0.schema.json`." That was itself
+   inaccurate, for the reason just probed; the schema needs no change.
+7. **Primary runtime-snapshot fields** (`PENDING_FREEZE_AT_MEASUREMENT`,
    frozen per-run by their recorded procedures, not before):
    `power_source_state`, `low_power_mode_state`,
    `thermal_pressure_state`, `background_process_census`,
    `clock_sync_state`.
-7. **Tier-2 (`METAL_MEASURED`) — only if a flagship run is ever
+8. **Tier-2 (`METAL_MEASURED`) — only if a flagship run is ever
    scheduled** (`DEFERRED_BY_OWNER`): metal instance type binding plus
    the vCPU quota-increase request sized to it.
 
@@ -165,6 +196,26 @@ value is never the accounting method).
   (`TestSchemaAndGoAgreeOnClockSourceAttribution`), and each nested
   shape rule has a negative test
   (`TestSchemaObservedClockShapeRulesAreEnforced`).
+  **Correction:** the round-1 revision of that differential test did not
+  support the "whole `unicode.IsSpace` set" claim made for it. It drove
+  itself from 17 literal strings covering only 15 of the set's 25 code
+  points, silently omitting ten members of U+2000–U+200A. That was not a
+  theoretical gap: narrowing the schema pattern to exactly the 15
+  exercised code points — a pattern that genuinely disagrees with Go on
+  the other ten — left the test PASSING (exit 0). The test now derives
+  its vectors by ENUMERATING `unicode.IsSpace` over `0..unicode.MaxRune`
+  from Go's own tables instead of from a hand-written list, so no member
+  can be omitted and the set cannot drift as the standard library is
+  updated. It runs 60 subtests over the 25 enumerated code points in
+  both directions (each alone must be rejected by both seams; each
+  wrapped around a non-whitespace character must be accepted by both),
+  plus whitespace-only composites and realistic attributed sources, and
+  it checks its own derivation so a collapsed enumeration cannot render
+  it vacuous. Re-running the same narrowing mutation against the fixed
+  test now FAILS on exactly the ten previously-omitted code points
+  (U+2000–U+2002, U+2004–U+200A) plus the all-code-points composite,
+  reporting `schema rejected=false go rejected=true`. The claim and the
+  coverage now match.
 
   It is **RECORD-ONLY**, exactly as the owner bound the policy: no
   threshold is applied to clock values.
@@ -186,13 +237,47 @@ value is never the accounting method).
   data it will govern instead of changing it afterwards.
   **Correction:** an earlier revision of this bullet said this landed
   "before any Rust source or sample exists." The "Rust source" half was
-  simply false. At `85366c4` this worktree already tracked 63 `.rs`
-  files totalling roughly 22,350 lines of Rust production code, and
-  `rust/ws-core/src/lib.rs` landed at `9fe68ff` (2026-08-26), an
-  ancestor of this commit. What is genuinely true, and all that was ever
-  needed, is that no MEASURED sample of any kind exists yet and the
-  measurement runner is still an unbound stub. The runner that POPULATES
-  the slot still binds with the measurement runner identity.
+  simply false. **Second correction:** the round-1 wording that replaced
+  it was itself inaccurate. It said this worktree "tracked 63 `.rs`
+  files totalling roughly 22,350 lines of Rust production code," which
+  mixed two different scopes and counted test code as production. The
+  whole tree tracks 64 `.rs` files, not 63; 63 is the count under
+  `rust/`. And 22,350 is `rust/`'s TOTAL line count, of which a
+  majority is not production. The verified figures, identical at
+  `85366c4` and at this commit because no `.rs` file changed between
+  them:
+  - tracked `.rs`, whole tree: **64 files, 22,359 lines**.
+  - tracked `.rs` under `rust/`: **63 files, 22,350 lines**. The 64th is
+    outside `rust/` —
+    `assurance/replay/fixtures/us006-standin/production-connection-state-machine.rs`,
+    9 lines, a replay fixture rather than a crate.
+  - within `rust/`: Cargo integration tests (`*/tests/*`) are 25 files /
+    9,638 lines; gate canaries (`rust/gates/canaries/`) are 2 files / 48
+    lines; inline `#[cfg(test)]` modules inside `src/` files are a
+    further 2,269 lines across 12 files.
+  - so **11,955 lines are test or canary code and 10,395 lines are
+    production Rust** — not 22,350.
+
+  Counting rule, stated so the figures are auditable rather than
+  asserted: lines are `wc -l` lines over `git ls-files '*.rs'`; a file
+  is test code if it has a `/tests/` path segment or sits under
+  `rust/gates/canaries/`; inside every other file, lines within
+  `#[cfg(test)]` items are test code. The inline figure was measured by
+  brace-matching with a Rust-aware lexer and independently cross-checked
+  against a naive first-`#[cfg(test)]`-to-EOF count; both give 2,269.
+
+  None of the argument rests on those counts, and the part that does is
+  unchanged: Rust source predates this commit. The earliest tracked
+  `.rs` landed at `d9211f8` (2026-08-26T15:37:07Z), and
+  `rust/ws-core/src/lib.rs` reached that path at `9fe68ff`
+  (2026-08-27T03:29:19Z) via the crate rename; both are ancestors of
+  this commit, confirmed with `git merge-base --is-ancestor`. (The
+  round-1 correction dated `9fe68ff` "2026-08-26"; that was the
+  committer's local date — in UTC it is 2026-08-27.) What is genuinely
+  true, and all that was ever needed, is that no MEASURED sample of any
+  kind exists yet and the measurement runner is still an unbound stub.
+  The runner that POPULATES the slot still binds with the measurement
+  runner identity.
 - **Exact AWS provider pin + lockfile** for `terraform/benchmark`
   (currently floating `>= 6.0.0`), already flagged in
   `confirmation.json` terraform notes.
@@ -209,6 +294,9 @@ value is never the accounting method).
 2. Decide/acquire the tool identities + digests as artifacts land
    (item 3; executables arrive with US-009+).
 3. Provision the bound host once; record the booted-host facts (item 5).
+   This covers item 5 ONLY. The item-6 default-scaling facts are not on
+   the meter and have no field, so provisioning does not record them and
+   step 4 will not report them as missing.
 4. Verify `benchplanctl verify --root .` reports zero unbound fields.
 5. Set both environments `binding_status: BOUND` and attest
    independently (`attestation_state: INDEPENDENTLY_ATTESTED`) — at
