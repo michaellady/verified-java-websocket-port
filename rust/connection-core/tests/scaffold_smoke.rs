@@ -8,6 +8,7 @@
 // "crate compiles" assertion.
 use websocket_core as _;
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -19,6 +20,44 @@ fn manifest_dir() -> PathBuf {
 fn read(path: &Path) -> String {
     fs::read_to_string(path)
         .unwrap_or_else(|err| panic!("failed to read {}: {err}", path.display()))
+}
+
+fn lockfile_dependencies(lock: &str) -> BTreeMap<String, Vec<String>> {
+    let mut packages = BTreeMap::new();
+    for block in lock.split("[[package]]").skip(1) {
+        let name = block
+            .lines()
+            .map(str::trim)
+            .find_map(|line| line.strip_prefix("name = \"")?.strip_suffix('"'))
+            .expect("every Cargo.lock package must have a name");
+        let dependencies = block
+            .find("dependencies = [")
+            .map(|start| {
+                let values = &block[start + "dependencies = [".len()..];
+                let values = values
+                    .split_once(']')
+                    .expect("Cargo.lock dependency array must terminate")
+                    .0;
+                values
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty())
+                    .map(|value| {
+                        value
+                            .strip_prefix('"')
+                            .and_then(|value| value.strip_suffix('"'))
+                            .expect("Cargo.lock dependency must be a quoted package name")
+                            .to_owned()
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        assert!(
+            packages.insert(name.to_owned(), dependencies).is_none(),
+            "Cargo.lock contains a duplicate package named {name}"
+        );
+    }
+    packages
 }
 
 #[test]
@@ -90,19 +129,21 @@ fn lockfile_and_inventory_allow_only_the_exact_first_party_edges() {
     let inventory = read(&workspace.join("dependency-inventory.toml"));
     let policy = read(&workspace.join("dependency-policy.toml"));
 
-    assert!(lock.contains("name = \"websocket-core\""));
-    assert!(lock.contains("name = \"websocket-driver\""));
-    assert!(lock.contains("name = \"websocket-testee\""));
     assert!(!lock.contains("source = "));
     assert!(!lock.contains("checksum = "));
     assert_eq!(
-        lock.matches("dependencies = [\"websocket-core\"]").count(),
-        1
-    );
-    assert_eq!(
-        lock.matches("dependencies = [\"websocket-core\", \"websocket-driver\"]")
-            .count(),
-        1
+        lockfile_dependencies(&lock),
+        BTreeMap::from([
+            ("websocket-core".to_owned(), vec![]),
+            (
+                "websocket-driver".to_owned(),
+                vec!["websocket-core".to_owned()],
+            ),
+            (
+                "websocket-testee".to_owned(),
+                vec!["websocket-core".to_owned(), "websocket-driver".to_owned(),],
+            ),
+        ])
     );
     assert!(inventory.contains("status = \"FIRST_PARTY_LOCAL_PATH_ONLY\""));
     assert!(inventory.contains(
@@ -116,6 +157,39 @@ fn lockfile_and_inventory_allow_only_the_exact_first_party_edges() {
     ));
     assert!(policy.contains("first_party_unsafe_allowed = false"));
     assert!(policy.contains("rust_toolchain = \"1.95.0\""));
+}
+
+#[test]
+fn lockfile_dependency_parser_accepts_cargo_inline_and_multiline_arrays() {
+    let lock = r#"
+[[package]]
+name = "core"
+version = "0.0.0"
+
+[[package]]
+name = "inline"
+version = "0.0.0"
+dependencies = ["core"]
+
+[[package]]
+name = "multiline"
+version = "0.0.0"
+dependencies = [
+ "core",
+ "inline",
+]
+"#;
+    assert_eq!(
+        lockfile_dependencies(lock),
+        BTreeMap::from([
+            ("core".to_owned(), vec![]),
+            ("inline".to_owned(), vec!["core".to_owned()]),
+            (
+                "multiline".to_owned(),
+                vec!["core".to_owned(), "inline".to_owned()],
+            ),
+        ])
+    );
 }
 
 #[test]

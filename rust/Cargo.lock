@@ -9,9 +9,14 @@ version = "0.0.0"
 [[package]]
 name = "websocket-driver"
 version = "0.0.0"
-dependencies = ["websocket-core"]
+dependencies = [
+ "websocket-core",
+]
 
 [[package]]
 name = "websocket-testee"
 version = "0.0.0"
-dependencies = ["websocket-core", "websocket-driver"]
+dependencies = [
+ "websocket-core",
+ "websocket-driver",
+]
