@@ -10,7 +10,7 @@
   "production": false,
   "publication": false,
   "signing": false,
-  "repository_anchor": "501712916d527a28200725129379c3804db1fb8f",
+  "repository_anchor": "949cc55006d5520cf69f703563c99d9c04e38ff7",
   "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
   "engine": {"id": "in-tree-deterministic-v1", "seed": 110316774361121, "minimum_cases": 6, "repetitions": 2, "deterministic": true},
   "targets": [
@@ -30,7 +30,7 @@
     {
       "id": "allocation-before-admission",
       "invariant": "role, control, frame, and total limits reject before output allocation",
-      "sources": [{"path": "rust/connection-core/tests/frame_codec.rs", "sha256": "sha256:2122fccc866d2b851d413792636c3a921c240dffe4263ebb92acbbf6c3b2c868"}],
+      "sources": [{"path": "rust/connection-core/tests/frame_codec.rs", "sha256": "sha256:189f182cba4d5cff5b7f9d226452fd0d00af481e87144bdc05e0bf0efb53dbea"}],
       "test_name": "encoder_role_control_and_limit_rejections_precede_allocation",
       "command": ["cargo", "test", "--locked", "-p", "websocket-core", "--test", "frame_codec", "encoder_role_control_and_limit_rejections_precede_allocation", "--", "--exact"],
       "replay_command": ["cargo", "test", "--locked", "-p", "websocket-core", "--test", "frame_codec", "encoder_role_control_and_limit_rejections_precede_allocation", "--", "--exact"],
@@ -43,7 +43,7 @@
     {
       "id": "canonical-length-roundtrip",
       "invariant": "canonical 7, 16, and 64 bit length encodings round trip for both masking roles",
-      "sources": [{"path": "rust/connection-core/tests/frame_codec.rs", "sha256": "sha256:2122fccc866d2b851d413792636c3a921c240dffe4263ebb92acbbf6c3b2c868"}],
+      "sources": [{"path": "rust/connection-core/tests/frame_codec.rs", "sha256": "sha256:189f182cba4d5cff5b7f9d226452fd0d00af481e87144bdc05e0bf0efb53dbea"}],
       "test_name": "canonical_length_classes_have_exact_headers_and_streaming_round_trips",
       "command": ["cargo","test","--locked","-p","websocket-core","--test","frame_codec","canonical_length_classes_have_exact_headers_and_streaming_round_trips","--","--exact"],
       "replay_command": ["cargo","test","--locked","-p","websocket-core","--test","frame_codec","canonical_length_classes_have_exact_headers_and_streaming_round_trips","--","--exact"],
@@ -56,7 +56,7 @@
     {
       "id": "chunk-boundary-invariance",
       "invariant": "every transport cut preserves exact frame output order",
-      "sources": [{"path": "rust/connection-core/tests/frame_codec.rs", "sha256": "sha256:2122fccc866d2b851d413792636c3a921c240dffe4263ebb92acbbf6c3b2c868"}],
+      "sources": [{"path": "rust/connection-core/tests/frame_codec.rs", "sha256": "sha256:189f182cba4d5cff5b7f9d226452fd0d00af481e87144bdc05e0bf0efb53dbea"}],
       "test_name": "every_cut_and_multi_frame_tail_preserve_wire_order",
       "command": ["cargo","test","--locked","-p","websocket-core","--test","frame_codec","every_cut_and_multi_frame_tail_preserve_wire_order","--","--exact"],
       "replay_command": ["cargo","test","--locked","-p","websocket-core","--test","frame_codec","every_cut_and_multi_frame_tail_preserve_wire_order","--","--exact"],
@@ -95,7 +95,7 @@
     {
       "id": "mask-equation-involution",
       "invariant": "mask application matches the RFC equation and applying it twice restores every byte",
-      "sources": [{"path": "rust/connection-core/tests/frame_codec.rs", "sha256": "sha256:2122fccc866d2b851d413792636c3a921c240dffe4263ebb92acbbf6c3b2c868"}],
+      "sources": [{"path": "rust/connection-core/tests/frame_codec.rs", "sha256": "sha256:189f182cba4d5cff5b7f9d226452fd0d00af481e87144bdc05e0bf0efb53dbea"}],
       "test_name": "mask_equation_involution_offsets_chunks_and_rfc_literal_hold",
       "command": ["cargo","test","--locked","-p","websocket-core","--test","frame_codec","mask_equation_involution_offsets_chunks_and_rfc_literal_hold","--","--exact"],
       "replay_command": ["cargo","test","--locked","-p","websocket-core","--test","frame_codec","mask_equation_involution_offsets_chunks_and_rfc_literal_hold","--","--exact"],

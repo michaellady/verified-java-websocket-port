@@ -5,9 +5,9 @@
   "story_id": "US-020",
   "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
-  "head_at_execution": "04960336574bf14e788b327166d8e3f2d87d74ca",
-  "source_tree": "fe265e85247215e660fce7caf59a5bde8ad3efb1",
-  "validation_time": "2026-08-29T01:28:19Z",
+  "head_at_execution": "949cc55006d5520cf69f703563c99d9c04e38ff7",
+  "source_tree": "97ca368119762546a5419c9281121e554318e5bc",
+  "validation_time": "2026-08-29T03:14:14Z",
   "toolchain": {
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "host": "aarch64-apple-darwin"
@@ -75,8 +75,8 @@
     },
     {
       "path": "rust/Cargo.toml",
-      "sha256": "sha256:316f90d18e749341ac236aa50695b70e87e25e0a8a0e18ad942a479e87c99615",
-      "git_blob": "6e4371d41cf7f3c180081ac6606c5a0106c9071d"
+      "sha256": "sha256:c7b603bf01c78483dda01a623750006e12f467a102aae2ef00fcce9defe362e2",
+      "git_blob": "1e25bd7d200ea866750e9802c5a84130b6b17208"
     },
     {
       "path": "rust/Makefile",
@@ -110,8 +110,8 @@
     },
     {
       "path": "rust/connection-core/src/frame/decode.rs",
-      "sha256": "sha256:40f9bff8bf11a275a289a6c2e3b0625b934da617348159a393a019d600a70c24",
-      "git_blob": "35362ccd948b13b9c048a76be7d9336fdeef071b"
+      "sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+      "git_blob": "58d0350bea1baefcaae36cac3229d3d30dfe7212"
     },
     {
       "path": "rust/connection-core/src/frame/encode.rs",
@@ -120,8 +120,8 @@
     },
     {
       "path": "rust/connection-core/src/frame/mask.rs",
-      "sha256": "sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
-      "git_blob": "309038147fd825fee401cfe47eb09f31c7932658"
+      "sha256": "sha256:316ec1c447d3c37d4b8593ac7ccb82567b272158a7102d90846797e26d8deb29",
+      "git_blob": "15bf4ff702775073a7995534c1acdc40001d2def"
     },
     {
       "path": "rust/connection-core/src/frame/mod.rs",
@@ -205,8 +205,8 @@
     },
     {
       "path": "rust/connection-core/tests/frame_codec.rs",
-      "sha256": "sha256:2122fccc866d2b851d413792636c3a921c240dffe4263ebb92acbbf6c3b2c868",
-      "git_blob": "1c7c21fcb4d5165a3315dbc288469147591c1b56"
+      "sha256": "sha256:189f182cba4d5cff5b7f9d226452fd0d00af481e87144bdc05e0bf0efb53dbea",
+      "git_blob": "cc311bae7958e3e7c2421a9732a194f2322129ce"
     },
     {
       "path": "rust/connection-core/tests/messages.rs",
