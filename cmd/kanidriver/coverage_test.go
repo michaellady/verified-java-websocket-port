@@ -110,6 +110,21 @@ func TestValidateCoverageProjectionRejectsCountAndClaimInflation(t *testing.T) {
 	}
 }
 
+func TestVerifyRetainedCoverageProjection(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection, err := verifyCoverage(root, "evidence/formal/kani-coverage-0cf36a9.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projection.Counts.Required != 24 || projection.Counts.RustSatisfied != 11 ||
+		projection.Counts.MutationSatisfied != 9 || projection.Counts.AggregateSatisfied != 0 {
+		t.Fatalf("retained coverage posture drifted: %#v", projection.Counts)
+	}
+}
+
 func TestCoverageSchemaCompilesAndAcceptsGeneratedProjection(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
