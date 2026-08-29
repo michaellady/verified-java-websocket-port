@@ -1,0 +1,529 @@
+{
+  "$schema": "../../schemas/kani-formal-coverage-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "KANI_FORMAL_COVERAGE_PROJECTION",
+  "projection_basis": {
+    "commit": "818ed48e501354f1eebfa87c47b15c22916489e9",
+    "tree": "c018d4ccfe82a9666337e89682e5b453a1fbd615",
+    "object_format": "sha1"
+  },
+  "catalog": {
+    "path": "assurance/formal/obligation-catalog.json",
+    "sha256": "sha256:21112518f48443b4e20ecae537bed72b8c9e19167ad00bc6f325bff9374cdf59",
+    "git_blob": "be929320dc8f6e52a357a6124bc17fa1db197d2b"
+  },
+  "kani_receipt": {
+    "path": "evidence/formal/kani-17e92c5/summary.json",
+    "sha256": "sha256:3561ec363466187a9b02304aa9d6f6eca02785ae2b890e2788a89123ef40fc3b",
+    "git_blob": "c66519f3702b678114aa7dc591fcc7b596f253e0"
+  },
+  "current_head_qualification": {
+    "path": "evidence/us020-current-head-qualification.json",
+    "sha256": "sha256:def1adb10d3305f28b8ba1cdffbdc37d8e0d119fda609f625f229ea20adb5270",
+    "git_blob": "3660026dfea0fd5968e10ccbbf3587cfb4b7c729"
+  },
+  "qualified_source": {
+    "qualified_commit": "0200cee2a3edd328d595a890ffe9e2345b1af3d2",
+    "binding_count": 62
+  },
+  "proof_subject": {
+    "commit": "17e92c53c8463703720c2c5eb9052b94fbfe4ed5",
+    "tree": "e3be0e65368f01d1500466f63ad52d18837aa851",
+    "object_format": "sha1"
+  },
+  "coverage": [
+    {
+      "obligation_id": "obligation.checked-header-arithmetic",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "obligation.control-fin-and-length",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-16",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-64-high-bit-zero",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-7",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "obligation.mask-equation",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "obligation.mask-involution",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "obligation.preallocation-cap",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "obligation.role-masking",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.adapter.byte-stream",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.close.status-code",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.close.terminal-state",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.concurrency.command-order",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.control.ping-pong",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.errors.protocol-fault",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.fragmentation.continuation",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.framing.frame-octets",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.framing.masking",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.handshake.client-request",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.handshake.server-response",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.limits.allocation",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.messages.binary",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.messages.text-utf8",
+      "java_status": "BLOCKED",
+      "rust_status": "SATISFIED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "SATISFIED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-production-refinement"
+      ]
+    },
+    {
+      "obligation_id": "surface.websocket-open",
+      "java_status": "BLOCKED",
+      "rust_status": "BLOCKED",
+      "refinement_status": "BLOCKED",
+      "mutation_status": "BLOCKED",
+      "aggregate_status": "BLOCKED",
+      "blocker_ids": [
+        "blocker-independent-host",
+        "blocker-java-formal-bindings",
+        "blocker-kani-mutation-coverage",
+        "blocker-kani-production-coverage",
+        "blocker-production-refinement"
+      ]
+    }
+  ],
+  "counts": {
+    "required": 24,
+    "java_satisfied": 0,
+    "rust_satisfied": 11,
+    "rust_blocked": 13,
+    "refinement_satisfied": 0,
+    "mutation_satisfied": 11,
+    "mutation_blocked": 13,
+    "aggregate_satisfied": 0,
+    "aggregate_blocked": 24
+  },
+  "blockers": [
+    {
+      "blocker_id": "blocker-independent-host",
+      "code": "INDEPENDENT_REPLAY_ABSENT",
+      "uncovered_obligation_ids": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ]
+    },
+    {
+      "blocker_id": "blocker-java-formal-bindings",
+      "code": "JAVA_FORMAL_BINDINGS_ABSENT",
+      "uncovered_obligation_ids": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ]
+    },
+    {
+      "blocker_id": "blocker-kani-mutation-coverage",
+      "code": "RUST_MUTATION_KANI_ABSENT",
+      "uncovered_obligation_ids": [
+        "surface.adapter.byte-stream",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.websocket-open"
+      ]
+    },
+    {
+      "blocker_id": "blocker-kani-production-coverage",
+      "code": "RUST_PRODUCTION_KANI_ABSENT",
+      "uncovered_obligation_ids": [
+        "surface.adapter.byte-stream",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.websocket-open"
+      ]
+    },
+    {
+      "blocker_id": "blocker-production-refinement",
+      "code": "JAVA_RUST_REFINEMENT_ABSENT",
+      "uncovered_obligation_ids": [
+        "obligation.checked-header-arithmetic",
+        "obligation.control-fin-and-length",
+        "obligation.length-canonical-16",
+        "obligation.length-canonical-64-high-bit-zero",
+        "obligation.length-canonical-7",
+        "obligation.mask-equation",
+        "obligation.mask-involution",
+        "obligation.preallocation-cap",
+        "obligation.role-masking",
+        "surface.adapter.byte-stream",
+        "surface.close.status-code",
+        "surface.close.terminal-state",
+        "surface.concurrency.command-order",
+        "surface.control.ping-pong",
+        "surface.errors.protocol-fault",
+        "surface.fragmentation.continuation",
+        "surface.framing.frame-octets",
+        "surface.framing.masking",
+        "surface.handshake.client-request",
+        "surface.handshake.server-response",
+        "surface.limits.allocation",
+        "surface.messages.binary",
+        "surface.messages.text-utf8",
+        "surface.websocket-open"
+      ]
+    }
+  ],
+  "status": "BLOCKED",
+  "claim_scope": "SUPPLEMENTAL_RUST_FORMAL_COVERAGE_ONLY",
+  "limitations": [
+    "Rust status is credited only from the verified retained shipped-symbol Kani receipt; its logs, source bindings, toolchain, replay, and exact source mutations are transitively validated.",
+    "Java formal bindings and Java-to-Rust refinement are absent for all 24 obligations, so aggregate formal coverage is 0/24.",
+    "Thirteen obligations have no retained shipped-symbol Kani harness; fifteen have no obligation-specific killed exact source mutation.",
+    "The Kani execution is owner-attested on one darwin/arm64 host and is not independent-host evidence.",
+    "No sbx isolation, Autobahn rerun, production deployment, signing, publication, or cutover is claimed."
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false
+}
