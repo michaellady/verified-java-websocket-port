@@ -206,6 +206,48 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 		return encode(stdout, map[string]any{"status": "PASS", "claim_scope": value.ClaimScope, "harnesses": len(value.Execution.Harnesses), "mutations_killed": len(value.Execution.MutationCanaries), "repeat_count": value.Execution.RepeatCount})
+	case "project-coverage":
+		flags := flag.NewFlagSet("project-coverage", flag.ContinueOnError)
+		flags.SetOutput(stderr)
+		root := flags.String("root", "", "clean repository root")
+		summary := flags.String("summary", "", "repository-relative Kani summary path")
+		out := flags.String("out", "", "new repository-relative coverage path")
+		if err := flags.Parse(arguments[1:]); err != nil || flags.NArg() != 0 || *root == "" || *summary == "" || *out == "" || !safeRelativePath(*out) {
+			return 2
+		}
+		absoluteRoot, err := filepath.Abs(*root)
+		if err != nil {
+			fmt.Fprintf(stderr, "kanidriver: %v\n", err)
+			return 1
+		}
+		if err := requireCleanSubject(absoluteRoot); err != nil {
+			fmt.Fprintf(stderr, "kanidriver: %v\n", err)
+			return 1
+		}
+		value, err := buildCoverageProjection(absoluteRoot, *summary)
+		if err != nil {
+			fmt.Fprintf(stderr, "kanidriver: %v\n", err)
+			return 1
+		}
+		if err := writeCoverageProjection(absoluteRoot, *out, value); err != nil {
+			fmt.Fprintf(stderr, "kanidriver: %v\n", err)
+			return 1
+		}
+		return encode(stdout, map[string]any{"status": value.Status, "coverage": *out, "required": value.Counts.Required, "rust_satisfied": value.Counts.RustSatisfied, "mutation_satisfied": value.Counts.MutationSatisfied, "aggregate_satisfied": value.Counts.AggregateSatisfied})
+	case "verify-coverage":
+		flags := flag.NewFlagSet("verify-coverage", flag.ContinueOnError)
+		flags.SetOutput(stderr)
+		root := flags.String("root", "", "repository root")
+		coverage := flags.String("coverage", "", "repository-relative coverage path")
+		if err := flags.Parse(arguments[1:]); err != nil || flags.NArg() != 0 || *root == "" || *coverage == "" {
+			return 2
+		}
+		value, err := verifyCoverage(*root, *coverage)
+		if err != nil {
+			_ = encode(stdout, map[string]string{"status": "ERROR", "error": err.Error()})
+			return 1
+		}
+		return encode(stdout, map[string]any{"status": value.Status, "claim_scope": value.ClaimScope, "required": value.Counts.Required, "rust_satisfied": value.Counts.RustSatisfied, "mutation_satisfied": value.Counts.MutationSatisfied, "aggregate_satisfied": value.Counts.AggregateSatisfied})
 	default:
 		usage(stderr)
 		return 2
@@ -213,7 +255,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 }
 
 func usage(writer io.Writer) {
-	fmt.Fprintln(writer, "usage: kanidriver run --root DIR --cargo-kani FILE --kani-compiler FILE --cbmc FILE --rustc FILE --kani-source-root DIR --work DIR --out DIR | kanidriver verify --root DIR --summary PATH")
+	fmt.Fprintln(writer, "usage: kanidriver run --root DIR --cargo-kani FILE --kani-compiler FILE --cbmc FILE --rustc FILE --kani-source-root DIR --work DIR --out DIR | kanidriver verify --root DIR --summary PATH | kanidriver project-coverage --root DIR --summary PATH --out PATH | kanidriver verify-coverage --root DIR --coverage PATH")
 }
 
 func encode(writer io.Writer, value any) int {

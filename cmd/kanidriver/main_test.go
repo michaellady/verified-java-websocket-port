@@ -202,7 +202,7 @@ func TestControlledEnvironmentDoesNotShadowRustupCargo(t *testing.T) {
 }
 
 func TestRunRejectsUnknownAndIncompleteCommands(t *testing.T) {
-	for _, arguments := range [][]string{nil, {"unknown"}, {"run"}, {"verify"}} {
+	for _, arguments := range [][]string{nil, {"unknown"}, {"run"}, {"verify"}, {"project-coverage"}, {"verify-coverage"}} {
 		var stdout, stderr bytes.Buffer
 		if exit := run(arguments, &stdout, &stderr); exit != 2 {
 			t.Fatalf("run(%v)=%d stdout=%s stderr=%s", arguments, exit, stdout.String(), stderr.String())
