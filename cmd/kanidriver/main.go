@@ -736,6 +736,10 @@ func verify(rootPath, relativeSummary string) (receipt, error) {
 	if err != nil {
 		return receipt{}, err
 	}
+	return verifyReceiptDocument(root, filepath.Dir(summaryPath), body)
+}
+
+func verifyReceiptDocument(root, summaryDirectory string, body []byte) (receipt, error) {
 	if bytes.Contains(body, []byte("/Users/")) || bytes.Contains(body, []byte("/private/tmp/")) {
 		return receipt{}, errors.New("summary contains a host-local absolute path")
 	}
@@ -751,7 +755,7 @@ func verify(rootPath, relativeSummary string) (receipt, error) {
 	if err := validateSchema(root, body); err != nil {
 		return receipt{}, fmt.Errorf("schema validation: %w", err)
 	}
-	if err := validateReceipt(root, filepath.Dir(summaryPath), value); err != nil {
+	if err := validateReceipt(root, summaryDirectory, value); err != nil {
 		return receipt{}, err
 	}
 	return value, nil

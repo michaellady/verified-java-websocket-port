@@ -267,31 +267,35 @@ func validateCoverageProjection(rootPath string, value coverageProjection) error
 	if err != nil || resolvedTree != value.ProjectionBasis.Tree {
 		return errors.New("projection basis commit/tree binding is unavailable or inconsistent")
 	}
-	for _, binding := range []gitArtifactBinding{value.Catalog, value.KaniReceipt, value.CurrentHeadQualification} {
-		if err := verifyCoverageArtifact(root, value.ProjectionBasis.Commit, binding); err != nil {
-			return err
-		}
+	catalogBody, err := verifyCoverageArtifact(root, value.ProjectionBasis.Commit, value.Catalog)
+	if err != nil {
+		return err
+	}
+	receiptBody, err := verifyCoverageArtifact(root, value.ProjectionBasis.Commit, value.KaniReceipt)
+	if err != nil {
+		return err
+	}
+	qualificationBody, err := verifyCoverageArtifact(root, value.ProjectionBasis.Commit, value.CurrentHeadQualification)
+	if err != nil {
+		return err
 	}
 	if value.Catalog.Path != coverageCatalogPath || value.CurrentHeadQualification.Path != provenance.CurrentHeadQualificationPath {
 		return errors.New("coverage input paths are not canonical")
 	}
-	receiptValue, err := verify(root, value.KaniReceipt.Path)
+	receiptDirectory := filepath.Join(root, filepath.FromSlash(filepath.Dir(value.KaniReceipt.Path)))
+	receiptValue, err := verifyReceiptDocument(root, receiptDirectory, receiptBody)
 	if err != nil {
 		return fmt.Errorf("Kani receipt: %w", err)
 	}
 	if value.ProofSubject != (gitIdentity{Commit: receiptValue.Subject.Commit, Tree: receiptValue.Subject.Tree, ObjectFormat: receiptValue.Subject.ObjectFormat}) {
 		return errors.New("proof subject does not match the verified Kani receipt")
 	}
-	qualification, err := provenance.LoadAndValidateCurrentHeadQualification(root)
+	qualification, err := provenance.ValidateCurrentHeadQualification(root, qualificationBody)
 	if err != nil {
 		return fmt.Errorf("current-head qualification: %w", err)
 	}
 	if value.QualifiedSource != (qualifiedSourceBinding{QualifiedCommit: qualification.QualifiedCommit, BindingCount: qualification.BindingCount}) {
 		return errors.New("qualified source identity does not match the verified current-head receipt")
-	}
-	catalogBody, err := readBoundedRegular(filepath.Join(root, filepath.FromSlash(value.Catalog.Path)))
-	if err != nil {
-		return err
 	}
 	obligationIDs, err := decodeCoverageCatalog(catalogBody)
 	if err != nil {
@@ -425,23 +429,19 @@ func bindCurrentArtifact(root, commit, relativePath string) (gitArtifactBinding,
 	return gitArtifactBinding{Path: relativePath, SHA256: digestBytes(body), GitBlob: blob}, body, nil
 }
 
-func verifyCoverageArtifact(root, commit string, binding gitArtifactBinding) error {
+func verifyCoverageArtifact(root, commit string, binding gitArtifactBinding) ([]byte, error) {
 	if !safeRelativePath(binding.Path) || !hexDigest.MatchString(binding.SHA256) || !hexCommit.MatchString(binding.GitBlob) {
-		return errors.New("coverage artifact binding is malformed")
+		return nil, errors.New("coverage artifact binding is malformed")
 	}
 	blob, err := gitOutput(root, "rev-parse", "--verify", commit+":"+binding.Path)
 	if err != nil || blob != binding.GitBlob {
-		return fmt.Errorf("coverage artifact Git binding failed for %s", binding.Path)
+		return nil, fmt.Errorf("coverage artifact Git binding failed for %s", binding.Path)
 	}
 	committed, err := gitBytes(root, "show", commit+":"+binding.Path)
 	if err != nil || digestBytes(committed) != binding.SHA256 {
-		return fmt.Errorf("coverage artifact content binding failed for %s", binding.Path)
+		return nil, fmt.Errorf("coverage artifact content binding failed for %s", binding.Path)
 	}
-	current, err := readBoundedRegular(filepath.Join(root, filepath.FromSlash(binding.Path)))
-	if err != nil || !bytes.Equal(current, committed) {
-		return fmt.Errorf("coverage artifact is stale at current checkout: %s", binding.Path)
-	}
-	return nil
+	return committed, nil
 }
 
 func validateCoverageSchema(root string, document []byte) error {
