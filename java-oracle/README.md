@@ -48,9 +48,10 @@ local repository after that closure is promoted. Default resource and Surefire
 executions are unbound, so the pure Java harness is the only test executor.
 
 Run it with the same variables using `make -C java-oracle run`. Standard input
-and standard output are UTF-8 JSONL. Standard output contains protocol records
-only. Expected request failures are protocol responses; only bounded fatal
-adapter diagnostics go to standard error.
+and standard output are UTF-8 JSONL, independent of the host locale and Java's
+default charset. Standard output contains protocol records only. Expected
+request failures are protocol responses; only bounded fatal adapter diagnostics
+go to standard error.
 
 ## Protocol 1.0.0
 

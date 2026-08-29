@@ -2117,7 +2117,13 @@ impl ConnectionCore {
             if self.role != Role::Client || !self.close.has_peer() {
                 return self.invalid_state(InputKind::LocalCommand);
             }
-            if !self.close.acknowledgement_matches(code, reason) {
+            let acknowledgement_matches =
+                if self.config.behavior_profile() == BehaviorProfile::JavaWebSocketV1_6_0 {
+                    code == Some(1000) && reason.is_empty()
+                } else {
+                    self.close.acknowledgement_matches(code, reason)
+                };
+            if !acknowledgement_matches {
                 return self.nonterminal_failure(FailureKind::Close(
                     crate::close::CloseFailure::AcknowledgementMismatch,
                 ));

@@ -123,6 +123,12 @@ differentialctl run \
   --migration-inventory ABS --compatibility-surface ABS \
   --ledger ABS --oracle-hierarchy ABS --evidence ABS
 
+differentialctl diagnose \
+  (same flags as run; strict RFC profile; writes no ledger/evidence)
+
+differentialctl parity \
+  (same flags as run; Java-WebSocket 1.6.0 profile; writes no ledger/evidence)
+
 differentialctl verify \
   --repository-root ABS --evidence ABS --ledger ABS \
   --oracle-hierarchy ABS
@@ -135,6 +141,13 @@ controls are detected, and the ledger/evidence commit succeeds atomically.
 `verify` is read-only and independently validates schema, hashes, source/input
 identities, process receipts, normalization loss audits, decision cells,
 coverage, controls, and the ledger chain. It never silently upgrades evidence.
+`diagnose` keeps the strict profile and reports RFC-adjudicated accepted Java
+quirks versus blockers. `parity` selects the explicit Java-compatible profile
+and reports exact normalized agreement plus every differing JSON leaf. Both run
+the same bounded four-process-per-scenario primary/replay matrix and write zero
+ledger or evidence files. Keeping these questions separate prevents a Java
+quirk from weakening the strict implementation while still making source-port
+fidelity measurable.
 
 ## Exact Rust process seam
 
@@ -142,6 +155,8 @@ The testee gains one non-network route:
 
 ```text
 websocket-testee neutral-oracle --protocol NDRV1
+websocket-testee neutral-oracle --protocol NDRV1 \
+  --behavior-profile java-websocket-1.6.0
 ```
 
 Each child accepts exactly one length-prefixed `NDRV1` record on standard
@@ -562,6 +577,11 @@ make -C rust gates
 make -C java-oracle test
 go test ./... -count=1
 
+# Build the exact executable named by --rust-testee. `cargo test --release`
+# does not prove that an existing target/release/websocket-testee is fresh.
+cargo build --manifest-path rust/Cargo.toml --release --locked \
+  -p websocket-testee
+
 go run ./cmd/differentialctl run \
   --repository-root /ABS/REPO \
   --public-corpus /ABS/REPO/corpora/public/scenarios.jsonl \
@@ -581,6 +601,20 @@ go run ./cmd/differentialctl verify \
   --evidence /ABS/REPO/evidence/differential/manifest.json \
   --ledger /ABS/REPO/evidence/java/behavior-delta-ledger.json \
   --oracle-hierarchy /ABS/REPO/evidence/oracle-hierarchy.json
+
+go run ./cmd/differentialctl parity \
+  --repository-root /ABS/REPO \
+  --public-corpus /ABS/REPO/corpora/public/scenarios.jsonl \
+  --java-executable /ABS/JAVA \
+  --java-adapter /ABS/JAVA-ORACLE.jar \
+  --java-runtime /ABS/Java-WebSocket-1.6.0.jar \
+  --java-support /ABS/SUPPORT.jar \
+  --rust-testee /ABS/websocket-testee \
+  --migration-inventory /ABS/REPO/evidence/intake/semantic-id-migration-map.json \
+  --compatibility-surface /ABS/REPO/evidence/intake/compatibility-surface.json \
+  --ledger /ABS/REPO/evidence/java/behavior-delta-ledger.json \
+  --oracle-hierarchy /ABS/REPO/evidence/oracle-hierarchy.json \
+  --evidence /ABS/REPO/evidence/differential/manifest.json
 ```
 
 The final reality check is the `run` command itself followed by the independent

@@ -18,6 +18,7 @@ public final class OracleMainTest {
     System.setProperty("slf4j.internal.verbosity", "ERROR");
     runtimeDigest = OracleMain.verifyRuntime();
     testRuntimeBinding();
+    testUtf8ProtocolOutput();
     testDeterministicReplay();
     testChunkPartitionSemantics();
     testFragmentAndBufferedCounts();
@@ -36,6 +37,16 @@ public final class OracleMainTest {
     testHandshakeClientDirection();
     testHandshakeProtocolStrictness();
     System.out.println("PASS " + tests + " java-oracle tests");
+  }
+
+  private static void testUtf8ProtocolOutput() {
+    ByteArrayOutputStream output = new ByteArrayOutputStream();
+    PrintStream protocol = OracleMain.protocolOutput(output);
+    protocol.print("漢ñ");
+    protocol.flush();
+    equal("漢ñ", output.toString(StandardCharsets.UTF_8),
+        "protocol output is UTF-8 independent of the process locale");
+    pass();
   }
 
   private static void testRuntimeBinding() {

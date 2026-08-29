@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"syscall"
@@ -858,6 +859,83 @@ func TestDiagnosticValueReportsExactFieldWithoutWritingEvidence(t *testing.T) {
 	want := `[{"direction":"inbound","fin":true,"masked":false,"opcode":"text","payload_base64":"YQ==","step":2,"wire_length":3}]`
 	if got != want {
 		t.Fatalf("diagnostic value = %s", got)
+	}
+}
+
+func TestObservationDifferencesReportsEveryDeterministicLeaf(t *testing.T) {
+	left := commonObservation{
+		FinalState: "open",
+		Frames: []commonFrame{{
+			Direction:  "inbound",
+			PayloadB64: "YQ==",
+			WireLength: 3,
+		}},
+	}
+	right := commonObservation{
+		FinalState: "closed",
+		Frames: []commonFrame{{
+			Direction:  "inbound",
+			PayloadB64: "Yg==",
+			WireLength: 4,
+		}},
+	}
+	got, err := observationDifferences(left, right)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"/final_state", "/frames/0/payload_base64", "/frames/0/wire_length"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("differences = %v, want %v", got, want)
+	}
+	first, err := firstDifference(left, right)
+	if err != nil || first != want[0] {
+		t.Fatalf("first = %q, %v, want %q", first, err, want[0])
+	}
+}
+
+func TestJavaParityProjectionOmitsPartialFailureDetailsButKeepsCounts(t *testing.T) {
+	var scenario corpora.Scenario
+	for _, candidate := range publicScenarios(t) {
+		if candidate.ScenarioID == "us005.pub.0030" {
+			scenario = candidate
+			break
+		}
+	}
+	if scenario.ScenarioID == "" {
+		t.Fatal("public action-limit scenario absent")
+	}
+	frame := commonFrame{
+		Step:       0,
+		Direction:  "outbound",
+		Fin:        true,
+		Opcode:     "text",
+		Masked:     true,
+		PayloadB64: "YQ==",
+		WireLength: 7,
+	}
+	raw := testEncodeRustObservation(rustObservation{
+		ScenarioID: scenario.ScenarioID,
+		Role:       scenario.Core.Role,
+		Initial:    scenario.Core.InitialState,
+		Final:      "open",
+		Steps: []rustStep{
+			{Index: 0, InputKind: 16, PreState: "open", PostState: "open", Observations: []rustItem{{Kind: 2, Frame: &frame}}},
+			{Index: 1, InputKind: 16, PreState: "open", PostState: "open", Observations: []rustItem{{Kind: 5, Error: &commonError{Class: "ACTION_LIMIT_EXCEEDED"}}}},
+		},
+	})
+	strict, _, err := normalizeRust(scenario, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	java, _, err := normalizeRustWithProfile(scenario, raw, rustBehaviorJavaWebSocketV1_6_0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(strict.Frames) != 1 || len(java.Frames) != 0 {
+		t.Fatalf("strict frames=%d Java frames=%d", len(strict.Frames), len(java.Frames))
+	}
+	if strict.Counts.Frames != 1 || java.Counts.Frames != 1 || java.Error == nil || java.Outcome != "error" {
+		t.Fatalf("strict=%+v Java=%+v", strict.Counts, java)
 	}
 }
 

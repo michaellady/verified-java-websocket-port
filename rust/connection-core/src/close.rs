@@ -290,7 +290,9 @@ pub(crate) fn parse_peer_close(
     if payload.len() == 1 && behavior_profile == BehaviorProfile::Rfc6455Strict {
         return Err(FailureKind::Close(CloseFailure::PayloadLengthOne));
     }
-    let code = if payload.len() == 1 {
+    let code = if payload.is_empty() && behavior_profile == BehaviorProfile::JavaWebSocketV1_6_0 {
+        Some(1000)
+    } else if payload.len() == 1 {
         Some(1002)
     } else if payload.len() >= 2 {
         let code = u16::from_be_bytes([payload[0], payload[1]]);
@@ -300,6 +302,7 @@ pub(crate) fn parse_peer_close(
         None
     };
     let reason_start = match payload.len() {
+        0 => 0,
         1 => 1,
         _ if code.is_some() => 2,
         _ => 0,

@@ -525,6 +525,30 @@ fn java_websocket_profile_preserves_the_one_byte_close_constructor_quirk() {
 }
 
 #[test]
+fn java_websocket_profile_projects_empty_close_through_constructor_defaults() {
+    let java_compatible = config().with_behavior_profile(BehaviorProfile::JavaWebSocketV1_6_0);
+    let wire = encoded_with(Role::Client, &java_compatible, Opcode::Close, &[]);
+    let mut core = open_core(Role::Server, java_compatible);
+
+    let result = core.step(CoreInput::Transport(TransportBytes::new(&wire)));
+
+    assert_eq!(failure(&result), None);
+    assert_eq!(result.state(), ConnectionState::Closing);
+    assert!(matches!(
+        result.outputs().collect::<Vec<_>>().as_slice(),
+        [
+            CoreOutput::SemanticEvent(SemanticEvent::FrameReceived { frame }),
+            CoreOutput::SemanticEvent(SemanticEvent::CloseReceived { close, initiator: CloseInitiator::Peer }),
+            CoreOutput::StateChanged(ConnectionState::Closing),
+            CoreOutput::TransportWrite(write),
+        ] if frame.payload() == [0x03, 0xe8]
+            && close.code() == Some(1000)
+            && close.reason().is_empty()
+            && write.as_slice() == [0x88, 0x02, 0x03, 0xe8]
+    ));
+}
+
+#[test]
 fn peer_first_client_requires_an_exact_explicit_key_acknowledgement() {
     let payload = close_payload(Some(1001), "going away 🦀".as_bytes());
     let wire = encoded(Role::Server, &payload);
@@ -577,6 +601,39 @@ fn peer_first_client_requires_an_exact_explicit_key_acknowledgement() {
     assert_eq!(failure(&done), None);
     assert_eq!(done.state(), ConnectionState::Closed);
     assert_eq!(done.outputs().len(), 1);
+}
+
+#[test]
+fn java_websocket_client_acknowledges_with_constructor_payload() {
+    let java_compatible = config().with_behavior_profile(BehaviorProfile::JavaWebSocketV1_6_0);
+    let payload = close_payload(Some(1008), b"]=tbBn@k0+(AHwE]Ne");
+    let wire = encoded_with(Role::Server, &java_compatible, Opcode::Close, &payload);
+    let mut core = open_core(Role::Client, java_compatible);
+
+    let peer = core.step(CoreInput::Transport(TransportBytes::new(&wire)));
+    assert_eq!(failure(&peer), None);
+    assert_eq!(peer.state(), ConnectionState::Closing);
+    assert!(matches!(
+        peer.outputs().nth(1),
+        Some(CoreOutput::SemanticEvent(SemanticEvent::CloseReceived { close, .. }))
+            if close.code() == Some(1008) && close.reason() == "]=tbBn@k0+(AHwE]Ne"
+    ));
+
+    let acknowledgement = core.step(CoreInput::Command(local_close(
+        Role::Client,
+        Some(1000),
+        "",
+    )));
+    assert_eq!(failure(&acknowledgement), None);
+    assert_eq!(acknowledgement.state(), ConnectionState::Closing);
+    assert!(matches!(
+        acknowledgement.outputs().collect::<Vec<_>>().as_slice(),
+        [CoreOutput::TransportWrite(write)] if write.as_slice().len() == 8
+    ));
+    let frames: Vec<_> = core.last_step_observation().frames().collect();
+    assert_eq!(frames.len(), 1);
+    assert_eq!(frames[0].payload(), [0x03, 0xe8]);
+    assert!(frames[0].masked());
 }
 
 #[test]

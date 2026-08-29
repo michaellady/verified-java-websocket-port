@@ -60,8 +60,25 @@ fn neutral_request_with_limits(
 }
 
 fn run_neutral(input: &[u8]) -> std::process::Output {
+    run_neutral_with_args(input, &["neutral-oracle", "--protocol", "NDRV1"])
+}
+
+fn run_neutral_java(input: &[u8]) -> std::process::Output {
+    run_neutral_with_args(
+        input,
+        &[
+            "neutral-oracle",
+            "--protocol",
+            "NDRV1",
+            "--behavior-profile",
+            "java-websocket-1.6.0",
+        ],
+    )
+}
+
+fn run_neutral_with_args(input: &[u8], args: &[&str]) -> std::process::Output {
     let mut child = Command::new(binary())
-        .args(["neutral-oracle", "--protocol", "NDRV1"])
+        .args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -188,7 +205,7 @@ fn neutral_oracle_drives_outbound_fragments_through_the_owner() {
 fn neutral_oracle_reports_java_state_and_full_chunk_for_public_rsv_rejection() {
     const US005_PUBLIC_0005: &[u8] = b"\xa1\x83\x74\xb3\xd8\xd2\x08\xe9\x85";
     let step = [vec![1], US005_PUBLIC_0005.to_vec()].concat();
-    let output = run_neutral(&neutral_request_for(2, 1, &[step]));
+    let output = run_neutral_java(&neutral_request_for(2, 1, &[step]));
     assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
     assert!(output.stderr.is_empty());
 
@@ -221,6 +238,22 @@ fn neutral_oracle_reports_java_state_and_full_chunk_for_public_rsv_rejection() {
     assert!(remaining.is_empty());
     assert_eq!(error_class, Some(b"FRAME_RESERVED_BITS".as_slice()));
     assert_eq!(response_field(&output.stdout, 6), &[1]);
+}
+
+#[test]
+fn neutral_oracle_default_remains_strict_for_public_rsv_rejection() {
+    const US005_PUBLIC_0005: &[u8] = b"\xa1\x83\x74\xb3\xd8\xd2\x08\xe9\x85";
+    let step = [vec![1], US005_PUBLIC_0005.to_vec()].concat();
+    let output = run_neutral(&neutral_request_for(2, 1, &[step]));
+
+    assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
+    let steps = response_steps(&output.stdout);
+    assert_eq!(&steps[0][..5], &[0, 0, 1, 1, 3]);
+    assert_eq!(
+        step_error_class(steps[0]),
+        Some(b"FRAME_RESERVED_BITS".as_slice())
+    );
+    assert_eq!(response_field(&output.stdout, 6), &[3]);
 }
 
 #[test]
@@ -416,10 +449,29 @@ fn neutral_oracle_projects_peer_close_event_and_terminal_transition() {
 }
 
 #[test]
+fn neutral_oracle_java_profile_projects_empty_close_constructor_code() {
+    const EMPTY_PEER_CLOSE: &[u8] = b"\x88\x80\xd2\x81\x14\x8b";
+    let step = [vec![1], EMPTY_PEER_CLOSE.to_vec()].concat();
+    let output = run_neutral_java(&neutral_request_for(2, 1, &[step]));
+
+    assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
+    let observations = step_observations(response_steps(&output.stdout)[0]);
+    assert!(
+        observations
+            .iter()
+            .any(|item| { item.starts_with(&[1, 5, 1, 0x03, 0xe8]) && item.ends_with(&[1, 2]) })
+    );
+    assert_eq!(
+        response_field(&output.stdout, 7),
+        &[1, 1, 0x03, 0xe8, 0, 0, 0, 0, 1, 2]
+    );
+}
+
+#[test]
 fn neutral_oracle_projects_java_one_byte_close_constructor_semantics() {
     const ONE_BYTE_PEER_CLOSE: &[u8] = b"\x88\x81\xb7\xbe\x28\x83\xb4";
     let step = [vec![1], ONE_BYTE_PEER_CLOSE.to_vec()].concat();
-    let output = run_neutral(&neutral_request_for(2, 1, &[step]));
+    let output = run_neutral_java(&neutral_request_for(2, 1, &[step]));
 
     assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
     let steps = response_steps(&output.stdout);
@@ -488,6 +540,28 @@ fn neutral_oracle_client_echoes_peer_close_with_a_deterministic_mask() {
     assert!(!observations.iter().any(|item| item == &[3, 2, 3]));
     assert_eq!(response_field(&output.stdout, 6), &[2]);
     assert!(response_field(&output.stdout, 7).ends_with(&[1, 2]));
+}
+
+#[test]
+fn neutral_oracle_java_client_ack_uses_close_constructor_payload() {
+    const REASON: &[u8] = b"]=tbBn@k0+(AHwE]Ne";
+    let mut payload = 1008_u16.to_be_bytes().to_vec();
+    payload.extend_from_slice(REASON);
+    let mut wire = vec![0x88, u8::try_from(payload.len()).unwrap()];
+    wire.extend_from_slice(&payload);
+    let step = [vec![1], wire].concat();
+
+    let output = run_neutral_java(&neutral_request_for(1, 1, &[step]));
+    assert_eq!(output.status.code(), Some(0), "{:?}", output.stderr);
+    let observations = step_observations(response_steps(&output.stdout)[0]);
+    let frames: Vec<_> = observations
+        .iter()
+        .filter(|observation| observation[0] == 2)
+        .collect();
+    assert_eq!(frames.len(), 2);
+    let echo = frames[1];
+    assert_eq!(&echo[..11], &[2, 2, 1, 8, 1, 0, 0, 0, 2, 3, 232]);
+    assert_eq!(u64::from_be_bytes(echo[11..].try_into().unwrap()), 8);
 }
 
 #[test]

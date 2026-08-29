@@ -1,6 +1,7 @@
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.CharacterCodingException;
@@ -33,7 +34,7 @@ public final class OracleMain {
       // fatal adapter diagnostics are emitted through the bounded path below.
       System.setProperty("slf4j.internal.verbosity", "ERROR");
       String runtimeDigest = verifyRuntime();
-      run(System.in, System.out, System.err, runtimeDigest);
+      run(System.in, protocolOutput(System.out), System.err, runtimeDigest);
     } catch (ProtocolException e) {
       diagnostic(System.err, "oracle startup denied: " + e.code() + ": " + e.getMessage());
       System.exit(78);
@@ -47,6 +48,10 @@ public final class OracleMain {
       diagnostic(System.err, "oracle startup failure: " + e.getClass().getSimpleName());
       System.exit(70);
     }
+  }
+
+  static PrintStream protocolOutput(OutputStream output) {
+    return new PrintStream(output, true, StandardCharsets.UTF_8);
   }
 
   static void run(InputStream in, PrintStream out, PrintStream err, String runtimeDigest)

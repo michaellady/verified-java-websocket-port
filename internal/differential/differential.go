@@ -69,7 +69,15 @@ type Config struct {
 	SuiteTimeout         time.Duration
 	MinimizationBudget   Budget
 	launchInputs         map[string][]LaunchIdentity
+	rustBehaviorProfile  rustBehaviorProfile
 }
+
+type rustBehaviorProfile uint8
+
+const (
+	rustBehaviorStrict rustBehaviorProfile = iota
+	rustBehaviorJavaWebSocketV1_6_0
+)
 
 // Receipt is the small transport result; the complete auditable material is
 // stored in the manifest named by EvidencePath.
@@ -191,6 +199,8 @@ type DiagnosticReport struct {
 	ScenarioCount    int                 `json:"scenario_count"`
 	ProcessReceipts  int                 `json:"process_receipts"`
 	StableScenarios  int                 `json:"stable_scenarios"`
+	ExactAgreements  int                 `json:"exact_agreements"`
+	ExactMismatches  int                 `json:"exact_mismatches"`
 	AcceptedQuirks   int                 `json:"accepted_quirks"`
 	BlockingFindings int                 `json:"blocking_findings"`
 	EvidenceWrites   int                 `json:"evidence_writes"`
@@ -3694,6 +3704,10 @@ func validateRustDerivedCounters(sc corpora.Scenario, result ScenarioResult) err
 }
 
 func normalizeRust(sc corpora.Scenario, raw []byte) (commonObservation, rustObservation, error) {
+	return normalizeRustWithProfile(sc, raw, rustBehaviorStrict)
+}
+
+func normalizeRustWithProfile(sc corpora.Scenario, raw []byte, profile rustBehaviorProfile) (commonObservation, rustObservation, error) {
 	decoded, err := decodeNeutralResponse(raw)
 	if err != nil {
 		return commonObservation{}, rustObservation{}, err
@@ -3744,6 +3758,15 @@ func normalizeRust(sc corpora.Scenario, raw []byte) (commonObservation, rustObse
 		}
 	}
 	result.Counts.BufferedBytes = result.Counts.WireBufferedBytes + result.Counts.MessageBufferedBytes
+	if profile == rustBehaviorJavaWebSocketV1_6_0 && result.Error != nil {
+		// OracleEngine.failure intentionally retains counts and state but omits
+		// partial semantic details. Preserve frame-derived accounting before
+		// projecting the same failure envelope from NOBS1.
+		result.Events = []commonEvent{}
+		result.Frames = []commonFrame{}
+		result.Transitions = []commonTransition{}
+		result.Close = nil
+	}
 	return result, decoded, nil
 }
 
@@ -4007,6 +4030,9 @@ func runAttempt(ctx context.Context, cfg Config, suiteHome string, sc corpora.Sc
 		request.Input = input
 		request.Executable = cfg.RustTestee
 		request.Args = []string{"neutral-oracle", "--protocol", "NDRV1"}
+		if cfg.rustBehaviorProfile == rustBehaviorJavaWebSocketV1_6_0 {
+			request.Args = append(request.Args, "--behavior-profile", "java-websocket-1.6.0")
+		}
 	}
 	result, err := executeChild(ctx, request)
 	if err != nil {
@@ -4016,7 +4042,7 @@ func runAttempt(ctx context.Context, cfg Config, suiteHome string, sc corpora.Sc
 	if runtimeName == "java" {
 		output.observation, output.loss, err = normalizeJava(sc, result.Stdout)
 	} else {
-		output.observation, output.rust, err = normalizeRust(sc, result.Stdout)
+		output.observation, output.rust, err = normalizeRustWithProfile(sc, result.Stdout, cfg.rustBehaviorProfile)
 	}
 	if err != nil {
 		return attemptOutput{}, fmt.Errorf("normalize %s %s: %w", runtimeName, sc.ScenarioID, err)
@@ -4120,23 +4146,33 @@ func minimizeRuntimeMismatch(ctx context.Context, cfg Config, suiteRoot string, 
 	return reproducer, nil
 }
 
-func firstDifference(left, right commonObservation) (string, error) {
+func observationDifferences(left, right commonObservation) ([]string, error) {
 	leftRaw, err := canonical(left)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	rightRaw, err := canonical(right)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var leftValue, rightValue any
 	if err := json.Unmarshal(leftRaw, &leftValue); err != nil {
-		return "", err
+		return nil, err
 	}
 	if err := json.Unmarshal(rightRaw, &rightValue); err != nil {
+		return nil, err
+	}
+	differences := []string{}
+	collectJSONDifferences(leftValue, rightValue, "", &differences)
+	return differences, nil
+}
+
+func firstDifference(left, right commonObservation) (string, error) {
+	differences, err := observationDifferences(left, right)
+	if err != nil || len(differences) == 0 {
 		return "", err
 	}
-	return firstJSONDifference(leftValue, rightValue, ""), nil
+	return differences[0], nil
 }
 
 func diagnosticValue(observation commonObservation, pointer string) (string, error) {
@@ -4152,11 +4188,21 @@ func diagnosticValue(observation commonObservation, pointer string) (string, err
 }
 
 func firstJSONDifference(left, right any, pointer string) string {
+	differences := []string{}
+	collectJSONDifferences(left, right, pointer, &differences)
+	if len(differences) == 0 {
+		return ""
+	}
+	return differences[0]
+}
+
+func collectJSONDifferences(left, right any, pointer string, differences *[]string) {
 	leftMap, leftOK := left.(map[string]any)
 	rightMap, rightOK := right.(map[string]any)
 	if leftOK || rightOK {
 		if !leftOK || !rightOK {
-			return pointer
+			*differences = append(*differences, pointer)
+			return
 		}
 		keys := map[string]bool{}
 		for key := range leftMap {
@@ -4175,33 +4221,35 @@ func firstJSONDifference(left, right any, pointer string) string {
 			lv, lPresent := leftMap[key]
 			rv, rPresent := rightMap[key]
 			if !lPresent || !rPresent {
-				return next
+				*differences = append(*differences, next)
+				continue
 			}
-			if difference := firstJSONDifference(lv, rv, next); difference != "" {
-				return difference
-			}
+			collectJSONDifferences(lv, rv, next, differences)
 		}
-		return ""
+		return
 	}
 	leftArray, leftOK := left.([]any)
 	rightArray, rightOK := right.([]any)
 	if leftOK || rightOK {
 		if !leftOK || !rightOK || len(leftArray) != len(rightArray) {
-			return pointer
+			*differences = append(*differences, pointer)
+			return
 		}
 		for index := range leftArray {
-			if difference := firstJSONDifference(leftArray[index], rightArray[index], fmt.Sprintf("%s/%d", pointer, index)); difference != "" {
-				return difference
-			}
+			collectJSONDifferences(
+				leftArray[index],
+				rightArray[index],
+				fmt.Sprintf("%s/%d", pointer, index),
+				differences,
+			)
 		}
-		return ""
+		return
 	}
 	leftRaw, _ := canonical(left)
 	rightRaw, _ := canonical(right)
 	if !bytes.Equal(leftRaw, rightRaw) {
-		return pointer
+		*differences = append(*differences, pointer)
 	}
-	return ""
 }
 
 func marshalIndented(value any) ([]byte, error) {
@@ -4509,6 +4557,19 @@ func ReproducePublicDifferential(ctx context.Context, repositoryRoot string, rec
 // semantic divergence is accumulated instead of ending the sweep; preflight,
 // process, codec, and replay failures remain explicit diagnostic findings.
 func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, error) {
+	return runPublicDiagnostic(ctx, cfg, false)
+}
+
+// RunJavaParityDiagnostic executes the public primary/replay matrix with the
+// Rust testee's explicit Java-WebSocket 1.6.0 profile. It treats the live Java
+// observation itself as the comparison target, writes no ledger or evidence,
+// and reports every normalized field mismatch.
+func RunJavaParityDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, error) {
+	cfg.rustBehaviorProfile = rustBehaviorJavaWebSocketV1_6_0
+	return runPublicDiagnostic(ctx, cfg, true)
+}
+
+func runPublicDiagnostic(ctx context.Context, cfg Config, javaParity bool) (DiagnosticReport, error) {
 	if err := validateConfig(cfg); err != nil {
 		return DiagnosticReport{}, err
 	}
@@ -4523,16 +4584,18 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
-	hierarchyRaw, err := readRegularBounded(cfg.OracleHierarchyPath, maximumDocumentBytes)
-	if err != nil {
-		return DiagnosticReport{}, err
-	}
 	var hierarchy OracleHierarchy
-	if err := decodeStrict(hierarchyRaw, &hierarchy); err != nil {
-		return DiagnosticReport{}, err
-	}
-	if err := ValidateOracleHierarchy(scenarios, hierarchy); err != nil {
-		return DiagnosticReport{}, err
+	if !javaParity {
+		hierarchyRaw, hierarchyErr := readRegularBounded(cfg.OracleHierarchyPath, maximumDocumentBytes)
+		if hierarchyErr != nil {
+			return DiagnosticReport{}, hierarchyErr
+		}
+		if err := decodeStrict(hierarchyRaw, &hierarchy); err != nil {
+			return DiagnosticReport{}, err
+		}
+		if err := ValidateOracleHierarchy(scenarios, hierarchy); err != nil {
+			return DiagnosticReport{}, err
+		}
 	}
 	javaIdentity, err := artifact(cfg.JavaExecutable)
 	if err != nil {
@@ -4550,8 +4613,12 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
+	status := "DIAGNOSTIC_ONLY_NO_WRITES"
+	if javaParity {
+		status = "JAVA_PARITY_DIAGNOSTIC_ONLY_NO_WRITES"
+	}
 	report := DiagnosticReport{
-		Status:           "DIAGNOSTIC_ONLY_NO_WRITES",
+		Status:           status,
 		ScenarioCount:    len(scenarios),
 		Findings:         []DiagnosticFinding{},
 		AcceptedFindings: []DiagnosticFinding{},
@@ -4589,6 +4656,51 @@ func RunPublicDiagnostic(ctx context.Context, cfg Config) (DiagnosticReport, err
 			continue
 		}
 		report.StableScenarios++
+		exact := canonicalEqual(javaPrimary.observation, rustPrimary.observation)
+		if exact {
+			report.ExactAgreements++
+		} else {
+			report.ExactMismatches++
+		}
+		if javaParity {
+			if !exact {
+				pointers, differenceErr := observationDifferences(javaPrimary.observation, rustPrimary.observation)
+				if differenceErr != nil {
+					report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: "", Classification: "diagnostic_failure", Detail: differenceErr.Error()})
+					continue
+				}
+				for _, pointer := range pointers {
+					javaValue, javaValueErr := diagnosticValue(javaPrimary.observation, pointer)
+					rustValue, rustValueErr := diagnosticValue(rustPrimary.observation, pointer)
+					if javaValueErr != nil || rustValueErr != nil {
+						report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: pointer, Classification: "diagnostic_failure", Detail: "encode Java parity field values"})
+						continue
+					}
+					report.Findings = append(report.Findings, DiagnosticFinding{
+						ScenarioID:     sc.ScenarioID,
+						Pointer:        pointer,
+						Classification: "java_parity_mismatch",
+						JavaSHA256:     javaPrimary.receipt.NormalizedSHA256,
+						RustSHA256:     rustPrimary.receipt.NormalizedSHA256,
+						JavaValue:      javaValue,
+						RustValue:      rustValue,
+						Detail:         "field-addressed Java compatibility mismatch",
+					})
+				}
+			}
+			notes := []string{}
+			for _, step := range sc.Core.Steps {
+				if step.Kind == "bytes" {
+					notes = append(notes, rustInputDerivationNote)
+					break
+				}
+			}
+			result := ScenarioResult{ScenarioID: sc.ScenarioID, RustObservation: rustPrimary.observation, RustStepDiagnostics: rustPrimary.rust.Steps, RustNormalizationNotes: notes, Classification: "java_parity"}
+			if err := validateRustDerivedCounters(sc, result); err != nil {
+				report.Findings = append(report.Findings, DiagnosticFinding{ScenarioID: sc.ScenarioID, Pointer: "/counts", Classification: "normalization_failure", Detail: err.Error()})
+			}
+			continue
+		}
 		classification, findings, adjudicationErr := adjudicateScenario(sc, hierarchy, javaPrimary.observation, rustPrimary.observation)
 		for _, finding := range findings {
 			if finding.Classification == "java_quirk" {

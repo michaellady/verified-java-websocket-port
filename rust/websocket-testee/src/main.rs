@@ -7,7 +7,9 @@ use std::net::{SocketAddr, TcpListener};
 use std::process::exit;
 use std::time::Duration;
 
-use websocket_core::{ClientRequestDescriptor, ConnectionConfig, ConnectionLimits, Role};
+use websocket_core::{
+    BehaviorProfile, ClientRequestDescriptor, ConnectionConfig, ConnectionLimits, Role,
+};
 use websocket_testee::{
     AdapterCounters, AdapterReport, ClientFixture, IoBounds, IoBoundsSpec, ServerFixture,
     SetupOutcome, SocketErrorKind, run_client_once, run_server_once,
@@ -18,14 +20,34 @@ const USAGE_EXIT: i32 = 2;
 fn main() {
     let arguments: Vec<String> = args().collect();
     if arguments.get(1).map(String::as_str) == Some("neutral-oracle") {
-        if arguments.get(2).map(String::as_str) != Some("--protocol")
-            || arguments.get(3).map(String::as_str) != Some("NDRV1")
-            || arguments.len() != 4
-        {
+        let behavior_profile = match arguments.as_slice() {
+            [_, _, protocol_flag, protocol]
+                if protocol_flag == "--protocol" && protocol == "NDRV1" =>
+            {
+                BehaviorProfile::Rfc6455Strict
+            }
+            [_, _, protocol_flag, protocol, profile_flag, profile]
+                if protocol_flag == "--protocol"
+                    && protocol == "NDRV1"
+                    && profile_flag == "--behavior-profile"
+                    && profile == "java-websocket-1.6.0" =>
+            {
+                BehaviorProfile::JavaWebSocketV1_6_0
+            }
+            _ => {
+                eprintln!("neutral-protocol-error");
+                exit(USAGE_EXIT);
+            }
+        };
+        if arguments.len() != 4 && arguments.len() != 6 {
             eprintln!("neutral-protocol-error");
             exit(USAGE_EXIT);
         }
-        match websocket_testee::neutral::run_neutral(stdin().lock(), stdout().lock()) {
+        match websocket_testee::neutral::run_neutral_with_profile(
+            stdin().lock(),
+            stdout().lock(),
+            behavior_profile,
+        ) {
             Ok(()) => exit(0),
             Err(_) => {
                 eprintln!("neutral-protocol-error");

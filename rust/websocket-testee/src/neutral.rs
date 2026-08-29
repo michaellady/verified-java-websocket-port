@@ -157,8 +157,21 @@ struct Session {
 
 /// Runs exactly one bounded `NDRV1` request and emits exactly one `NOBS1` response.
 pub fn run_neutral(mut input: impl Read, mut output: impl Write) -> Result<(), NeutralError> {
+    run_neutral_with_profile(&mut input, &mut output, BehaviorProfile::Rfc6455Strict)
+}
+
+/// Runs one bounded neutral request under an explicitly selected behavior profile.
+///
+/// The strict profile remains the default differential and conformance surface.
+/// Callers must opt into Java-WebSocket compatibility when measuring source-port
+/// behavioral parity.
+pub fn run_neutral_with_profile(
+    mut input: impl Read,
+    mut output: impl Write,
+    behavior_profile: BehaviorProfile,
+) -> Result<(), NeutralError> {
     let request = read_request(&mut input)?;
-    let config = config_for(request.limits)?;
+    let config = config_for(request.limits, behavior_profile)?;
     let (mut session, bootstrap) = bootstrap(request.role, request.initial_state, config)?;
     let mut responses = Vec::new();
     responses
@@ -203,6 +216,7 @@ pub fn run_neutral(mut input: impl Read, mut output: impl Write) -> Result<(), N
             step,
             request.initial_state,
             request.role,
+            behavior_profile,
         )?;
         let mut limited_observations = Vec::new();
         let mut step_limit = None;
@@ -456,14 +470,17 @@ fn decode_key(cursor: &mut Cursor<'_>, role: Role) -> Result<Option<[u8; 4]>, Ne
     Ok(key)
 }
 
-fn config_for(limits: Limits) -> Result<ConnectionConfig, NeutralError> {
+fn config_for(
+    limits: Limits,
+    behavior_profile: BehaviorProfile,
+) -> Result<ConnectionConfig, NeutralError> {
     ConnectionConfig::try_from(ConnectionLimits {
         frame_bytes: limits.max_buffered,
         message_bytes: limits.max_buffered,
         total_buffered_bytes: limits.max_buffered,
         ..ConnectionLimits::default()
     })
-    .map(|config| config.with_behavior_profile(BehaviorProfile::JavaWebSocketV1_6_0))
+    .map(|config| config.with_behavior_profile(behavior_profile))
     .map_err(|_| NeutralError)
 }
 
@@ -627,6 +644,7 @@ fn drive_scenario_step(
     step: &Step,
     _initial_state: InitialState,
     role: Role,
+    behavior_profile: BehaviorProfile,
 ) -> Result<StepResponse, NeutralError> {
     let pre = session.owner.state();
     let mut observations = Vec::new();
@@ -666,7 +684,7 @@ fn drive_scenario_step(
         }
     };
 
-    acknowledge_peer_close(role, session, &mut observations)?;
+    acknowledge_peer_close(role, session, &mut observations, behavior_profile)?;
 
     if let Step::Close { code, reason, .. } = step
         && !observations
@@ -713,6 +731,7 @@ fn acknowledge_peer_close(
     role: Role,
     session: &mut Session,
     observations: &mut Vec<Observation>,
+    behavior_profile: BehaviorProfile,
 ) -> Result<(), NeutralError> {
     if role != Role::Client || session.owner.state() != ConnectionState::Closing {
         return Ok(());
@@ -726,11 +745,16 @@ fn acknowledge_peer_close(
     else {
         return Ok(());
     };
+    let (code, reason) = if behavior_profile == BehaviorProfile::JavaWebSocketV1_6_0 {
+        (Some(1000), String::new())
+    } else {
+        (close.code, close.reason)
+    };
     let _ = drive_command(
         session,
         LocalCommand::Close {
-            code: close.code,
-            reason: close.reason.into_boxed_str(),
+            code,
+            reason: reason.into_boxed_str(),
             mask_key: Some(CLIENT_PEER_CLOSE_MASK_KEY),
         },
         observations,

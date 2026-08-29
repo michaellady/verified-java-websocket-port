@@ -28,18 +28,20 @@ representation is authorized beyond the recorded mechanics.
   at the existing decoder/encoder seams.
 - `websocket-testee neutral-oracle --protocol NDRV1` is a strict, bounded,
   dependency-free process codec over `ConnectionOwner`; it is not another
-  WebSocket parser or state machine.
-- `BehaviorProfile::Rfc6455Strict` remains the default. The neutral
-  differential adapter explicitly selects `JavaWebSocketV1_6_0`; that profile
-  currently covers the live-verified failed-frame state/poisoning behavior and
-  close-frame constructor/one-byte-payload quirks. Its name is not a blanket
-  parity claim: additional Java divergences remain ledgered until implemented
-  and replayed.
+  WebSocket parser or state machine. It uses `Rfc6455Strict` unless the caller
+  explicitly supplies `--behavior-profile java-websocket-1.6.0`.
+- `BehaviorProfile::Rfc6455Strict` remains the default for RFC, security, and
+  canonical evidence gates. `JavaWebSocketV1_6_0` is an opt-in source-fidelity
+  surface. A fresh no-write public diagnostic executed 74 scenarios through
+  both live processes twice (296 receipts) with 74 stable exact normalized
+  agreements and zero field mismatches. This is public-corpus, owner-attested
+  behavioral evidence, not hidden/independent acceptance or a blanket API,
+  performance, platform, and integration parity claim.
 - No performance representation of any kind is made. No benchmark sample was
   collected, no tuning performed.
-- No fresh Autobahn run, Linux run, publication, production, parity, or
-  independent-review claim is made by this workspace. The process seam alone
-  is not a passing Java-versus-Rust differential receipt.
+- No fresh Autobahn run, Linux run, publication, production, hidden-corpus, or
+  independent-review claim is made by this workspace. The no-write public
+  parity diagnostic does not replace the canonical strict differential receipt.
 
 ## Toolchain pin
 
