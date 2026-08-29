@@ -2,14 +2,17 @@ package benchplan
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io/fs"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"regexp/syntax"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -1060,31 +1063,154 @@ var clockSourceSchemaPath = []string{
 	"properties", "source",
 }
 
-// applicatorKeywords are the JSON Schema 2020-12 keywords that attach a
-// further subschema to a value. Any of these appearing on the containment
-// chain down to the clock source is a way for some OTHER part of the
-// schema to constrain that string, which is what the lift in step 2 of
-// TestSchemaAndGoAgreeOnClockSourceForEveryRune must rule out.
-var applicatorKeywords = map[string]bool{
+// censusKeywords are the keywords whose PRESENCE anywhere in the raw-sample
+// schema document is frozen by rawSampleConstraintCensus.
+//
+// The set is deliberately NOT "every applicator". The round-4 fix introduced
+// a guard that enumerated the ROUTES from the document root down to the clock
+// source -- the root's applicator keywords, then run_validity_observations',
+// then observed_cpu_clock's, plus a special case for the root if/then pair.
+// Review round 5 defeated it with a `then.allOf` that re-descends to source
+// from a branch the route list did not walk. Enumerating routes is the wrong
+// shape, because there are unboundedly many of them. What IS bounded is the
+// set of keywords that can actually change a string's verdict, so the census
+// walks the WHOLE document and records every occurrence of one, wherever it
+// sits, with no notion of route at all.
+//
+// Two groups:
+//
+//   - stringConstrainingKeywords are the assertions that can, on their own,
+//     accept or reject a string. A new constraint on the clock source is
+//     necessarily one of these, at some pointer, and the census records it
+//     whether it hangs off properties, allOf, then, dependentSchemas, or
+//     anything else.
+//   - composingKeywords cannot constrain a string by themselves, but can
+//     pull in a subschema whose own constraints are NOT visible in this
+//     document -- $ref/$dynamicRef to another resource being the only real
+//     route out. They are censused so that such a route cannot be opened
+//     silently; $ref entries carry their target, so a retarget is a census
+//     change too.
+//
+// Container keywords that neither assert nor import (properties, items,
+// prefixItems, contains, additionalProperties, required, ...) are NOT
+// censused: whatever they contain is itself censused if it can constrain a
+// string, so listing the containers would only make the frozen list longer
+// and noisier without widening what it catches. `type` is likewise not
+// censused, because it occurs on nearly every node: the clock source's own
+// `type` is pinned BY VALUE a few lines below in
+// TestSchemaAndGoAgreeOnClockSourceForEveryRune, and a `type` introduced
+// anywhere else can only reach the source through a composing keyword,
+// which is censused.
+//
+// WHAT THE CENSUS IS AND IS NOT. It is complete over keyword occurrences
+// ADDED to or REMOVED from this document: a new constraint on the clock
+// source, reached by any route whatsoever, necessarily adds at least one
+// entry. It is BLIND to a change in the VALUE of a keyword already present.
+// The value-change routes that can reach the clock source are exactly the
+// three keywords on its own subschema -- type, minLength and pattern -- of
+// which type and minLength are pinned by value below, and pattern is the
+// thing both differential sweeps exercise. It is also blind to $id and
+// $anchor, and to the CONTENT of any external resource a $ref were
+// repointed at (the repoint itself is caught, since $ref entries carry
+// their target; today every $ref target is same-document).
+var stringConstrainingKeywords = map[string]bool{
+	"const": true, "enum": true, "format": true,
+	"maxLength": true, "minLength": true, "pattern": true,
+	"contentEncoding": true, "contentMediaType": true, "contentSchema": true,
+}
+
+var composingKeywords = map[string]bool{
 	"$ref": true, "$dynamicRef": true,
 	"allOf": true, "anyOf": true, "oneOf": true, "not": true,
 	"if": true, "then": true, "else": true,
-	"dependentSchemas": true,
-	"items":            true, "prefixItems": true, "contains": true,
-	"properties": true, "patternProperties": true, "additionalProperties": true,
-	"propertyNames":    true,
-	"unevaluatedItems": true, "unevaluatedProperties": true,
+	"dependentSchemas": true, "propertyNames": true, "patternProperties": true,
+	"unevaluatedProperties": true, "unevaluatedItems": true,
 }
 
-func applicatorKeysOf(node map[string]any) []string {
-	var keys []string
-	for key := range node {
-		if applicatorKeywords[key] {
-			keys = append(keys, key)
+// frozenRawSampleConstraintCensus is the complete census of the canonical
+// raw-sample schema as frozen by this preregistration. Entries are JSON
+// pointers to the keyword occurrence, sorted; $ref entries append their
+// target.
+//
+// This list is EXTRACTED, not transcribed: it was produced by running
+// rawSampleConstraintCensus over the schema and pasted verbatim, so it
+// describes the schema rather than someone's reading of it.
+var frozenRawSampleConstraintCensus = []string{
+	"/$defs/digest/pattern",
+	"/if",
+	"/if/properties/provenance_label/const",
+	"/properties/bindings/properties/adapter_digest/$ref -> #/$defs/digest",
+	"/properties/bindings/properties/analyzer_digest/$ref -> #/$defs/digest",
+	"/properties/bindings/properties/confirmation_environment_digest/$ref -> #/$defs/digest",
+	"/properties/bindings/properties/java_executable_digest/$ref -> #/$defs/digest",
+	"/properties/bindings/properties/java_source_digest/$ref -> #/$defs/digest",
+	"/properties/bindings/properties/plan_digest/$ref -> #/$defs/digest",
+	"/properties/bindings/properties/primary_environment_digest/$ref -> #/$defs/digest",
+	"/properties/bindings/properties/rust_executable_digest/$ref -> #/$defs/digest",
+	"/properties/bindings/properties/rust_source_digest/$ref -> #/$defs/digest",
+	"/properties/bindings/properties/tool_identity_digest/$ref -> #/$defs/digest",
+	"/properties/environment_role/enum",
+	"/properties/measured_pairs/items/$ref -> #/$defs/pair",
+	"/properties/metric/enum",
+	"/properties/order/items/enum",
+	"/properties/provenance_label/enum",
+	"/properties/run_validity_observations/properties/observed_cpu_clock/properties/source/minLength",
+	"/properties/run_validity_observations/properties/observed_cpu_clock/properties/source/pattern",
+	"/properties/schema/const",
+	"/properties/warmup_pairs/items/$ref -> #/$defs/pair",
+	"/properties/workload_id/enum",
+	"/then",
+}
+
+// rawSampleConstraintCensus walks the whole raw-sample schema document and
+// returns the sorted census described on censusKeywords above.
+func rawSampleConstraintCensus(t *testing.T) []string {
+	t.Helper()
+	content, err := os.ReadFile(filepath.Join(repoRoot, "schemas", "benchmark-raw-sample-1.0.0.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document any
+	if err := json.Unmarshal(content, &document); err != nil {
+		t.Fatal(err)
+	}
+	var census []string
+	var walk func(node any, pointer string)
+	walk = func(node any, pointer string) {
+		switch typed := node.(type) {
+		case map[string]any:
+			keys := make([]string, 0, len(typed))
+			for key := range typed {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			for _, key := range keys {
+				child := typed[key]
+				childPointer := pointer + "/" + escapeJSONPointerToken(key)
+				if stringConstrainingKeywords[key] || composingKeywords[key] {
+					entry := childPointer
+					if key == "$ref" || key == "$dynamicRef" {
+						if target, ok := child.(string); ok {
+							entry += " -> " + target
+						}
+					}
+					census = append(census, entry)
+				}
+				walk(child, childPointer)
+			}
+		case []any:
+			for i, child := range typed {
+				walk(child, pointer+"/"+strconv.Itoa(i))
+			}
 		}
 	}
-	sort.Strings(keys)
-	return keys
+	walk(document, "")
+	sort.Strings(census)
+	return census
+}
+
+func escapeJSONPointerToken(token string) string {
+	return strings.ReplaceAll(strings.ReplaceAll(token, "~", "~0"), "/", "~1")
 }
 
 // TestSchemaAndGoAgreeOnClockSourceForEveryRune closes the half that
@@ -1266,14 +1392,40 @@ func TestSchemaAndGoAgreeOnClockSourceForEveryRune(t *testing.T) {
 			len(disagreements), compared, len(shown), strings.Join(detail, ", "), namedWitnesses)
 	}
 
-	// STEP 2 -- the lift from per-rune agreement to every-input agreement.
+	// STEP 2 -- the STRUCTURAL ASSUMPTIONS behind reading step 1 as
+	// evidence about longer strings.
 	//
-	// Step 1 compares SINGLE-RUNE sources. It lifts to every string only
-	// because of the shape of the two rules, and that shape is a premise
-	// about the schema rather than something step 1 measures. Review round
-	// 4's prose findings were all of the form "a stated property was not
-	// the property that actually holds", so the premises are checked here
-	// rather than argued in a comment.
+	// SCOPE, stated first because five review rounds have now found a
+	// stated property not to be the property that actually holds. Step 1
+	// compares SINGLE-RUNE sources and nothing else. It is NOT a proof
+	// about every string, and the checks below are NOT a proof that it
+	// lifts to one. Review round 5 defeated the previous revision of this
+	// guard with a `then.allOf` that re-descends to source carrying a
+	// large `maxLength`: that route was not on the hand-enumerated chain,
+	// so the guard passed, and a length constraint is invisible to any
+	// single-rune probe by construction. Enumerating routes was the wrong
+	// shape. The every-input property is now tested DIRECTLY, on strings,
+	// by TestSchemaAndGoAgreeOnClockSourceForGeneratedStrings below --
+	// which catches that same `then.allOf` construction by observing the
+	// disagreement itself rather than by anticipating its shape.
+	//
+	// What remains here is two things worth checking cheaply and one that
+	// is genuinely complete for its own narrow claim:
+	//
+	//   - the clock-source subschema's own keyword set, so a constraint
+	//     added at the obvious place is named at the obvious place;
+	//   - the pattern's parse shape, which is WHY single-rune exhaustion
+	//     is evidence about longer strings at all rather than an
+	//     unrelated fact;
+	//   - the whole-document constraint census, which is complete over
+	//     keyword OCCURRENCES in this document (see censusKeywords) and
+	//     therefore does catch the round-5 construction -- but is blind to
+	//     changes in the VALUE of a keyword already present, and to the
+	//     content of any resource a $ref target might be repointed at.
+	//
+	// Together these narrow, but do not close, the space of schema changes
+	// the two sweeps cannot see. The residual is recorded in
+	// docs/us008-attestation-package.md rather than argued away.
 	//
 	// Go side, true by inspection of ObservedCPUClock.validate and
 	// unaffected by anything in the schema: strings.TrimSpace empties a
@@ -1282,17 +1434,21 @@ func TestSchemaAndGoAgreeOnClockSourceForEveryRune(t *testing.T) {
 	// per-rune predicate.
 	//
 	// Schema side, checked below: the source value is constrained by
-	// exactly type/minLength/pattern and by nothing reachable from
-	// elsewhere in the document, and the pattern parses to a single
-	// character class. A bare character class has no anchors and every
-	// match is exactly one rune, so an unanchored search accepts a string
-	// iff at least one of its runes is in the class -- the same shape.
+	// exactly type/minLength/pattern, the pattern parses to a single
+	// character class, and no constraint keyword occurs anywhere else in
+	// the document than the census records. A bare character class has no
+	// anchors and every match is exactly one rune, so an unanchored search
+	// accepts a string iff at least one of its runes is in the class --
+	// the same shape.
 	//
-	// Both sides are then "some rune qualifies", so agreement on every
-	// rune gives agreement on every non-empty string. The empty string is
-	// the one input with no runes: minLength:1 rejects it and TrimSpace
-	// empties it, and TestSchemaAndGoAgreeOnClockSourceAttribution covers
-	// that case directly.
+	// Under those assumptions both sides are "some rune qualifies", and
+	// agreement on every rune would give agreement on every non-empty
+	// string. The assumptions are checked, not proven exhaustive, which is
+	// exactly why the generated-string leg exists as well. The empty
+	// string is the one input with no runes: minLength:1 rejects it and
+	// TrimSpace empties it, and both
+	// TestSchemaAndGoAgreeOnClockSourceAttribution and the generated
+	// corpus cover that case directly.
 	source := rawSampleSchemaNode(t, clockSourceSchemaPath...)
 	var sourceKeys []string
 	for key := range source {
@@ -1300,7 +1456,7 @@ func TestSchemaAndGoAgreeOnClockSourceForEveryRune(t *testing.T) {
 	}
 	sort.Strings(sourceKeys)
 	if want := []string{"description", "minLength", "pattern", "type"}; !equalStrings(sourceKeys, want) {
-		t.Fatalf("clock-source subschema declares keys %v, want exactly %v: an added keyword could constrain the source string outside the pattern, and the per-rune sweep would no longer lift to every input", sourceKeys, want)
+		t.Fatalf("clock-source subschema declares keys %v, want exactly %v: an added keyword could constrain the source string outside the pattern, and the per-rune sweep would no longer be evidence about longer inputs", sourceKeys, want)
 	}
 	if source["type"] != "string" {
 		t.Errorf("clock-source type is %v, want \"string\"", source["type"])
@@ -1317,54 +1473,601 @@ func TestSchemaAndGoAgreeOnClockSourceForEveryRune(t *testing.T) {
 	// regexp package. It does: santhosh-tekuri/jsonschema/v6 defaults
 	// roots.regexpEngine to goRegexpCompile, which is regexp.Compile
 	// (roots.go:25 and compiler.go:330 at v6.0.3), and UseRegexpEngine --
-	// the only way to change it -- appears nowhere in this repository,
-	// checked by repo-wide search rather than by reading this package
-	// alone. regexp.Compile parses with syntax.Perl, so that is the flag
-	// set used here.
+	// the only way to change it -- is never CALLED in this repository,
+	// checked by repo-wide search across every .go file rather than by
+	// reading this package alone. (The round-4 wording said the identifier
+	// "appears nowhere in this repository"; that is now false of this
+	// sentence itself, which is the only place the identifier occurs.)
+	// regexp.Compile parses with syntax.Perl, so that is the flag set used
+	// here. Nothing pins this: see residual R5 in
+	// docs/us008-attestation-package.md.
 	parsed, err := syntax.Parse(pattern, syntax.Perl)
 	if err != nil {
 		t.Fatalf("clock-source pattern %q does not parse with the validator's regexp syntax: %v", pattern, err)
 	}
 	if parsed.Op != syntax.OpCharClass {
-		t.Fatalf("clock-source pattern %q parses to %v, want a single character class (OpCharClass): only then is every match exactly one rune with no anchors, which is what lifts the per-rune sweep to every input", pattern, parsed.Op)
+		t.Fatalf("clock-source pattern %q parses to %v, want a single character class (OpCharClass): only then is every match exactly one rune with no anchors, which is what makes the per-rune sweep evidence about longer inputs", pattern, parsed.Op)
 	}
-	t.Logf("clock-source pattern %q parses to a single character class; the per-rune sweep lifts to every non-empty input", pattern)
+	t.Logf("clock-source pattern %q parses to a single character class", pattern)
 
-	// Nothing on the containment chain from the document root down to the
-	// source may attach another subschema to that string.
-	for _, chain := range []struct {
-		name    string
-		path    []string
-		allowed []string
-	}{
-		{"document root", nil, []string{"additionalProperties", "if", "properties", "then"}},
-		{"run_validity_observations", clockSourceSchemaPath[:2], []string{"additionalProperties", "properties"}},
-		{"observed_cpu_clock", clockSourceSchemaPath[:4], []string{"additionalProperties", "properties"}},
+	// The whole-document constraint census. This REPLACES the route
+	// enumeration that rounds 4 and 5 each defeated: instead of listing the
+	// ways a constraint could reach the source, it lists every place a
+	// constraint occurs at all.
+	census := rawSampleConstraintCensus(t)
+	if !equalStrings(census, frozenRawSampleConstraintCensus) {
+		frozen := make(map[string]bool, len(frozenRawSampleConstraintCensus))
+		for _, entry := range frozenRawSampleConstraintCensus {
+			frozen[entry] = true
+		}
+		present := make(map[string]bool, len(census))
+		var added []string
+		for _, entry := range census {
+			present[entry] = true
+			if !frozen[entry] {
+				added = append(added, entry)
+			}
+		}
+		var removed []string
+		for _, entry := range frozenRawSampleConstraintCensus {
+			if !present[entry] {
+				removed = append(removed, entry)
+			}
+		}
+		t.Errorf("the raw-sample schema's constraint census changed: %d added %v, %d removed %v; every constraint on the clock source is one of these occurrences, so an unrecorded entry means the frozen preregistration now constrains a string differently than it did when the sweeps were run",
+			len(added), added, len(removed), removed)
+	} else {
+		t.Logf("raw-sample schema constraint census matches the frozen %d entries", len(frozenRawSampleConstraintCensus))
+	}
+}
+
+// Sizes of the generated-string corpus. Every one of these appears in the
+// claim recorded in docs/us008-attestation-package.md, because the claim is
+// bounded by them and a bounded claim that does not state its bound is not
+// checkable.
+const (
+	// clockSourceDenseMaxRunes is the largest length covered by the DENSE
+	// ladder. Four independent properties are required of the corpus at
+	// every value n from 1 to this one, and each is checked against the
+	// real Go seam rather than assumed:
+	//
+	//	1. some source of RUNE length n that Go ACCEPTS
+	//	2. some source of BYTE length n that Go ACCEPTS
+	//	3. some source of rune length n that Go ACCEPTS and that contains
+	//	   no printable-ASCII rune (U+0021-U+007E) anywhere
+	//	4. some source of rune length n that Go REJECTS
+	//
+	// (1) and (2) are what make a maxLength or minLength counting either
+	// runes or bytes impossible to hide in the range; (3) is what makes a
+	// character class narrowed to printable ASCII impossible to hide at
+	// any length rather than only at length 1; (4) keeps the rejection
+	// half of the property covered at every length too.
+	clockSourceDenseMaxRunes = 256
+
+	// clockSourceRandomStrings is the size of the random battery drawn on
+	// top of the ladder.
+	clockSourceRandomStrings = 200000
+)
+
+// clockSourceLongRuneLengths extends the ladder geometrically past the dense
+// range, so a length constraint far above it is still caught, at four
+// documents per length rather than at the cost of a dense sweep.
+var clockSourceLongRuneLengths = []int{512, 1024, 2048, 4096, 8192, 16384, 32768, 65536}
+
+// clockSourceCorpusSeed pins the corpus. math/rand/v2's PCG is seeded from
+// these two constants and from nothing else -- no clock, no address, no
+// environment -- so the corpus is a pure function of this file for a GIVEN
+// Go toolchain, and a failure reproduces on any host running that toolchain.
+// Not across toolchains: math/rand/v2 fixes the PCG bit stream but not the
+// mapping from it to IntN results, so a future Go release may generate a
+// different corpus. Nothing this test proves depends on that -- the four
+// coverage properties above are recomputed from whatever corpus is built --
+// which is why the corpus digest is logged and never asserted. Recorded as
+// residual R4 in docs/us008-attestation-package.md.
+const (
+	clockSourceCorpusSeedHi uint64 = 0x5553303038524553 // "US008RES"
+	clockSourceCorpusSeedLo uint64 = 0x5452544553524f54 // "TRTESROT"
+)
+
+// clockSourceRunePools returns the rune pools the corpus is built from,
+// PARTITIONED BY unicode.IsSpace at run time rather than by transcription. A
+// curated candidate Go classifies as a space (U+00A0, U+0085, U+2028 and
+// U+3000 all are) joins the space pool instead of silently corrupting the
+// attributed strata, and a future Unicode table update re-partitions them
+// automatically.
+func clockSourceRunePools(t *testing.T) (spaces, nonSpaces []rune) {
+	t.Helper()
+	seen := make(map[rune]bool)
+	for _, r := range unicodeSpaceCodePoints() {
+		spaces = append(spaces, r)
+		seen[r] = true
+	}
+	var candidates []rune
+	for r := rune(0x21); r <= 0x7E; r++ {
+		candidates = append(candidates, r) // printable ASCII
+	}
+	// Candidates are curated for INTEREST, not for classification: which
+	// side of unicode.IsSpace each lands on is decided below, not here.
+	// Several of these are spaces (U+0085, U+00A0, U+2028, U+2029, U+3000)
+	// and are included precisely so the partition, rather than a comment,
+	// decides that.
+	candidates = append(candidates,
+		0x00, 0x01, 0x07, 0x08, 0x0E, 0x1B, 0x1F, 0x7F, // C0/C1 controls and DEL
+		0x0085, 0x00A0, 0x00B7, 0x00E9, 0x00FF, // NEL, NBSP, and Latin-1 letters
+		0x0301, 0x03A9, 0x0416, 0x05D0, 0x0627, 0x0915, // a combining mark and non-Latin letters
+		0x1234, 0x180E, 0x200B, 0x2028, 0x2029, 0x20AC, // the round-4 witness U+1234, and space lookalikes
+		0x3000, 0x65E5, 0xD55C, 0xFEFF, 0xFFFD, // ideographic space, CJK, Hangul, BOM, replacement
+		0x10000, 0x1F600, 0xE0001, 0x10FFFF, // astral planes, including the last valid rune
+	)
+	for _, r := range candidates {
+		if unicode.IsSpace(r) {
+			if !seen[r] {
+				spaces = append(spaces, r)
+				seen[r] = true
+			}
+			continue
+		}
+		nonSpaces = append(nonSpaces, r)
+	}
+	// The pools are the entire basis of this test's discriminating power,
+	// so the pools themselves are checked. A collapsed pool would make
+	// every stratum below vacuous without failing anything.
+	if len(spaces) < 25 {
+		t.Fatalf("space pool holds %d runes, want >= 25: the corpus strata that must be REJECTED would be vacuous", len(spaces))
+	}
+	if len(nonSpaces) < 100 {
+		t.Fatalf("non-space pool holds %d runes, want >= 100: the corpus strata that must be ACCEPTED would be vacuous", len(nonSpaces))
+	}
+	member := make(map[rune]bool, len(nonSpaces))
+	for _, r := range nonSpaces {
+		member[r] = true
+	}
+	// Named witnesses that must be on the non-space side for the strata to
+	// mean what the comments say. U+1234 is the round-4 mutation witness;
+	// U+200B and U+FEFF are the two runes most often mistaken for spaces.
+	for _, r := range []rune{0x03A9, 0x1234, 0x20AC, 0x65E5, 0x1F600, 0x200B, 0xFEFF, 0x10FFFF} {
+		if !member[r] {
+			t.Fatalf("U+%04X is not in the non-space pool: Go now classifies it as a space, and the attributed strata built from it would be whitespace-only", r)
+		}
+	}
+	return spaces, nonSpaces
+}
+
+// clockSourceCorpus builds the generated multi-rune corpus, deterministically
+// and single-threaded, so that sharding it across workers cannot perturb it.
+func clockSourceCorpus(t *testing.T) []string {
+	t.Helper()
+	spaces, nonSpaces := clockSourceRunePools(t)
+
+	// Two derived pools, split at U+007E, each giving one stratum below
+	// exactly the property that stratum needs:
+	//
+	//   - singleByteNonSpace: every member encodes to ONE UTF-8 byte, so a
+	//     string built from it has byte length equal to rune length. That
+	//     is what supplies coverage property (2).
+	//   - unprintableNonSpace: no member lies in U+0021-U+007E, so a
+	//     string built from it contains no printable-ASCII rune at all.
+	//     That is what supplies coverage property (3). U+007F is
+	//     single-byte too, but it belongs here: for these strata what
+	//     matters about it is that it is not printable ASCII.
+	//
+	// Neither pool is asserted to be exhaustive of its property; each is
+	// asserted, by the coverage checks in the test itself, to be big
+	// enough to realise it at every length.
+	var singleByteNonSpace, unprintableNonSpace []rune
+	for _, r := range nonSpaces {
+		if r <= 0x7E {
+			singleByteNonSpace = append(singleByteNonSpace, r)
+		} else {
+			unprintableNonSpace = append(unprintableNonSpace, r)
+		}
+	}
+
+	prng := rand.New(rand.NewPCG(clockSourceCorpusSeedHi, clockSourceCorpusSeedLo))
+	pick := func(pool []rune) rune { return pool[prng.IntN(len(pool))] }
+	build := func(n int, at func(i int) rune) string {
+		var out strings.Builder
+		for i := 0; i < n; i++ {
+			out.WriteRune(at(i))
+		}
+		return out.String()
+	}
+	randomValidRune := func() rune {
+		for {
+			r := rune(prng.IntN(unicode.MaxRune + 1))
+			if utf8.ValidRune(r) {
+				return r
+			}
+		}
+	}
+
+	var corpus []string
+	add := func(source string) { corpus = append(corpus, source) }
+
+	// (A) The empty string: the one input with no runes at all.
+	add("")
+
+	// (B) The dense ladder. Seven shapes at every length from 1 to
+	// clockSourceDenseMaxRunes, chosen so that the four coverage
+	// properties named on clockSourceDenseMaxRunes hold at every length:
+	// the whitespace-only shape supplies (4); the singleByteNonSpace shape
+	// supplies (2) because its byte length equals its rune length; the
+	// unprintableNonSpace shape supplies (3); any of the attributed shapes
+	// supplies (1). The three single-qualifier shapes additionally put the
+	// one non-space rune at the start, the end and the middle of a
+	// whitespace run, so a constraint sensitive to WHERE the qualifying
+	// rune sits is exercised rather than only one sensitive to whether one
+	// exists. At n = 1 those three coincide, which is harmless.
+	for n := 1; n <= clockSourceDenseMaxRunes; n++ {
+		add(build(n, func(int) rune { return pick(spaces) }))
+		add(build(n, func(int) rune { return pick(singleByteNonSpace) }))
+		add(build(n, func(int) rune { return pick(unprintableNonSpace) }))
+		for _, position := range []int{0, n - 1, n / 2} {
+			qualifierAt := position
+			add(build(n, func(i int) rune {
+				if i == qualifierAt {
+					return pick(unprintableNonSpace)
+				}
+				return pick(spaces)
+			}))
+		}
+		add(build(n, func(int) rune {
+			if prng.IntN(2) == 0 {
+				return pick(spaces)
+			}
+			return pick(nonSpaces)
+		}))
+	}
+
+	// (C) The long ladder, four shapes per length.
+	for _, n := range clockSourceLongRuneLengths {
+		length := n
+		add(build(length, func(int) rune { return pick(spaces) }))
+		add(build(length, func(int) rune { return pick(singleByteNonSpace) }))
+		add(build(length, func(i int) rune {
+			if i == 0 {
+				return pick(unprintableNonSpace)
+			}
+			return pick(spaces)
+		}))
+		add(build(length, func(i int) rune {
+			if i == length-1 {
+				return pick(unprintableNonSpace)
+			}
+			return pick(spaces)
+		}))
+	}
+
+	// (D) The random battery. Lengths are drawn from a mixture weighted
+	// towards short strings, because that is where boundary behaviour
+	// lives, while still reaching the dense maximum.
+	for i := 0; i < clockSourceRandomStrings; i++ {
+		var n int
+		switch prng.IntN(4) {
+		case 0:
+			n = prng.IntN(9)
+		case 1:
+			n = prng.IntN(33)
+		case 2:
+			n = prng.IntN(65)
+		default:
+			n = prng.IntN(clockSourceDenseMaxRunes + 1)
+		}
+		switch prng.IntN(5) {
+		case 0:
+			add(build(n, func(int) rune { return pick(spaces) }))
+		case 1:
+			add(build(n, func(int) rune { return pick(nonSpaces) }))
+		case 2:
+			add(build(n, func(int) rune {
+				if prng.IntN(2) == 0 {
+					return pick(spaces)
+				}
+				return pick(nonSpaces)
+			}))
+		case 3:
+			// Drawn from the WHOLE rune domain rather than the curated
+			// pools, so the battery is not confined to runes someone
+			// thought to list.
+			add(build(n, func(int) rune { return randomValidRune() }))
+		default:
+			if n == 0 {
+				add("")
+				continue
+			}
+			at := prng.IntN(n)
+			add(build(n, func(i int) rune {
+				if i == at {
+					return pick(nonSpaces)
+				}
+				return pick(spaces)
+			}))
+		}
+	}
+
+	// (E) Realistic sources and regression witnesses, including lengths
+	// just past the dense ladder.
+	for _, source := range []string{
+		"/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq",
+		"SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+		"lscpu --json", " turbostat ", "a", " x ",
+		"   ", "\r\n", " \t\n 　 ",
+		"Ω", "ሴ", "日", "\U0001f600", " Ω ", "  ሴ\t",
+		strings.Repeat("Ω", 300),
+		strings.Repeat(" ", 300),
+		strings.Repeat(" ", 299) + "Ω",
 	} {
-		node := rawSampleSchemaNode(t, chain.path...)
-		if keys := applicatorKeysOf(node); !equalStrings(keys, chain.allowed) {
-			t.Errorf("%s declares applicator keywords %v, want exactly %v: a new applicator here could constrain the clock source outside its own subschema", chain.name, keys, chain.allowed)
-		}
-		if additional, present := node["additionalProperties"]; present && additional != false {
-			t.Errorf("%s additionalProperties is %v, want false: a subschema there could constrain the clock source", chain.name, additional)
-		}
+		add(source)
 	}
-	// The root's if/then is the one applicator pair on that chain. It must
-	// reach no deeper than run_validity_observations' required list.
-	for _, branch := range []string{"if", "then"} {
-		node := rawSampleSchemaNode(t, branch)
-		properties, ok := node["properties"].(map[string]any)
-		if !ok {
+	return corpus
+}
+
+// TestSchemaAndGoAgreeOnClockSourceForGeneratedStrings tests the property
+// that actually matters -- for a source string s, schema-accepts(s) equals
+// Go-accepts(s) -- DIRECTLY, on strings, rather than on single runes plus a
+// structural argument that the single-rune result lifts.
+//
+// WHY THIS EXISTS. The every-rune sweep proves a fact about single runes.
+// Everything beyond that was carried by a guard asserting the schema was
+// shaped so the single-rune fact generalised, and that guard is what review
+// round 5 broke, with a `then.allOf` carrying a large maxLength. (Rounds 3
+// and 4 found the sweep itself sampling proxies rather than driving the real
+// seams; that is a different defect, fixed at fcca87c, and the sweep here
+// drives the same real seams for the same reason.) A length constraint is the
+// clean counterexample class for the single-rune approach, because no
+// single-rune probe can see one at all: every one-rune source has length 1,
+// so maxLength: 64 changes no single-rune verdict and leaves the whole sweep
+// green while rejecting Go-valid sources.
+//
+// REPRODUCED BEFORE THIS TEST WAS WRITTEN, exactly as the finding described
+// it. Adding to the schema root's `then`:
+//
+//	"allOf": [{"properties": {"run_validity_observations": {"properties":
+//	  {"observed_cpu_clock": {"properties": {"source": {"maxLength": 64}}}}}}}]
+//
+// makes the schema reject a 65-character Go-valid source -- read directly at
+// the seam: "at '/run_validity_observations/observed_cpu_clock/source':
+// maxLength: got 65, want 64" -- and yet `go test -count=1 ./...` at fcca87c
+// stayed at exit 0, 28 ok, 3 no-test, 0 FAIL. The same mutation now fails
+// this test.
+//
+// The two seams are the same two the every-rune sweep drives, for the same
+// reasons: the schema side compiles the canonical schema with the production
+// compileCanonicalSchema and reads its verdict through the production
+// validateDecodedValue, and the Go side calls EnforceRunValidity with no
+// stand-in. The same leaf-reassignment shortcut is used, and is verified per
+// string rather than assumed: every source is round-tripped through
+// jsonschema's own decoder and the sweep fails if any does not come back
+// identical.
+//
+// WHAT THIS TEST DOES NOT DO. It is a bounded battery, not a proof. It does
+// not establish agreement on every string; it establishes agreement on the
+// generated corpus, whose bounds are stated on clockSourceDenseMaxRunes,
+// clockSourceRandomStrings and clockSourceLongRuneLengths and are logged on
+// every run. A constraint sensitive only to a length above the largest one
+// swept, or to a rune combination no generated string realises, would pass
+// it. That residual is recorded in docs/us008-attestation-package.md.
+func TestSchemaAndGoAgreeOnClockSourceForGeneratedStrings(t *testing.T) {
+	corpus := clockSourceCorpus(t)
+
+	// NON-VACUITY, computed on the real Go seam and checked BEFORE the
+	// expensive sweep so a corpus that lost its discriminating power fails
+	// fast and loudly. Each map is keyed by the length at which the
+	// property holds, because "the corpus has some accepted strings" is
+	// not enough: a maxLength at length n is only visible if the corpus
+	// holds a Go-ACCEPTED string of exactly that length.
+	acceptedByRunes := map[int]int{}
+	acceptedByBytes := map[int]int{}
+	acceptedWithoutASCII := map[int]int{}
+	rejectedByRunes := map[int]int{}
+	goAccepted, goRejected, longestRunes, longestBytes := 0, 0, 0, 0
+	for _, source := range corpus {
+		runes := utf8.RuneCountInString(source)
+		if runes > longestRunes {
+			longestRunes = runes
+		}
+		if len(source) > longestBytes {
+			longestBytes = len(source)
+		}
+		observations := cleanObservations()
+		observations.ObservedCPUClock = &ObservedCPUClock{Source: source, SamplesMHz: []float64{3200}}
+		if _, err := EnforceRunValidity(observations); err != nil {
+			goRejected++
+			rejectedByRunes[runes]++
 			continue
 		}
-		observations, ok := properties["run_validity_observations"].(map[string]any)
-		if !ok {
-			continue
+		goAccepted++
+		acceptedByRunes[runes]++
+		acceptedByBytes[len(source)]++
+		printableASCII := false
+		for _, r := range source {
+			if r >= 0x21 && r <= 0x7E {
+				printableASCII = true
+				break
+			}
 		}
-		if _, reaches := observations["properties"]; reaches {
-			t.Errorf("the root %q branch declares properties under run_validity_observations: it can now constrain the clock source, and the per-rune sweep no longer lifts to every input", branch)
+		if !printableASCII {
+			acceptedWithoutASCII[runes]++
 		}
 	}
+	if acceptedByRunes[0] != 0 {
+		t.Fatalf("the Go seam accepted %d zero-length sources: the empty string must be rejected and the corpus census is measuring the wrong thing", acceptedByRunes[0])
+	}
+	if rejectedByRunes[0] == 0 {
+		t.Fatal("the corpus holds no empty source: the one input with no runes is not covered")
+	}
+	for n := 1; n <= clockSourceDenseMaxRunes; n++ {
+		if acceptedByRunes[n] == 0 {
+			t.Fatalf("the corpus holds no Go-ACCEPTED source of rune length %d: a maxLength or minLength at that length would be invisible to this test", n)
+		}
+		if acceptedByBytes[n] == 0 {
+			t.Fatalf("the corpus holds no Go-ACCEPTED source of BYTE length %d: a length constraint counting bytes rather than runes would be invisible to this test", n)
+		}
+		if acceptedWithoutASCII[n] == 0 {
+			t.Fatalf("the corpus holds no Go-ACCEPTED source of rune length %d free of printable ASCII: a pattern narrowed to [!-~] would be invisible at that length", n)
+		}
+		if rejectedByRunes[n] == 0 {
+			t.Fatalf("the corpus holds no Go-REJECTED source of rune length %d: the rejection half of the property is not covered at that length", n)
+		}
+	}
+	for _, n := range clockSourceLongRuneLengths {
+		if acceptedByRunes[n] == 0 {
+			t.Fatalf("the corpus holds no Go-ACCEPTED source of rune length %d: a maxLength at that length would be invisible to this test", n)
+		}
+		if rejectedByRunes[n] == 0 {
+			t.Fatalf("the corpus holds no Go-REJECTED source of rune length %d", n)
+		}
+	}
+	// The corpus digest is LOGGED, never asserted. Logged so that two runs
+	// can be compared and "seeded deterministically" is observable rather
+	// than claimed; never asserted because math/rand/v2 guarantees the PCG
+	// bit stream but NOT the mapping from that stream to IntN results
+	// across Go releases, so pinning the digest would turn a toolchain
+	// upgrade into a spurious failure. Nothing this test proves depends on
+	// the digest: every coverage property it relies on is recomputed from
+	// the corpus above on every run.
+	digest := sha256.New()
+	for _, source := range corpus {
+		fmt.Fprintf(digest, "%d:%s\n", len(source), source)
+	}
+	t.Logf("generated corpus: %d sources, %d Go-accepted / %d Go-rejected, dense rune lengths 0-%d, long lengths %v, longest %d runes / %d bytes, PCG seed %#016x/%#016x, corpus sha256 %x (logged, not asserted; %s)",
+		len(corpus), goAccepted, goRejected, clockSourceDenseMaxRunes, clockSourceLongRuneLengths, longestRunes, longestBytes,
+		clockSourceCorpusSeedHi, clockSourceCorpusSeedLo, digest.Sum(nil), runtime.Version())
+
+	document, _, _ := measuredSchemaDocument(t)
+	encoded, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	workers := runtime.NumCPU()
+	type shard struct {
+		compared      int
+		disagreements []int
+		roundTripBad  []int
+		err           error
+	}
+	shards := make([]shard, workers)
+	var waiting sync.WaitGroup
+	for w := 0; w < workers; w++ {
+		waiting.Add(1)
+		go func(w int) {
+			defer waiting.Done()
+			out := &shards[w]
+
+			schema, err := compileCanonicalSchema(repoRoot, "benchmark-raw-sample-1.0.0.schema.json")
+			if err != nil {
+				out.err = err
+				return
+			}
+			value, err := jsonschema.UnmarshalJSON(bytes.NewReader(encoded))
+			if err != nil {
+				out.err = err
+				return
+			}
+			root, ok := value.(map[string]any)
+			if !ok {
+				out.err = fmt.Errorf("decoded document is %T, want an object", value)
+				return
+			}
+			leaf, ok := root["run_validity_observations"].(map[string]any)["observed_cpu_clock"].(map[string]any)
+			if !ok {
+				out.err = fmt.Errorf("decoded document has no observed_cpu_clock object")
+				return
+			}
+			observations := cleanObservations()
+			clock := &ObservedCPUClock{SamplesMHz: []float64{3200}}
+			observations.ObservedCPUClock = clock
+
+			for i := w; i < len(corpus); i += workers {
+				out.compared++
+				source := corpus[i]
+
+				sourceJSON, err := json.Marshal(source)
+				if err != nil {
+					out.err = err
+					return
+				}
+				decoded, err := jsonschema.UnmarshalJSON(bytes.NewReader(sourceJSON))
+				if err != nil {
+					out.err = err
+					return
+				}
+				if decoded != any(source) {
+					out.roundTripBad = append(out.roundTripBad, i)
+					continue
+				}
+
+				leaf["source"] = source
+				schemaAccepts := len(validateDecodedValue(schema, value)) == 0
+
+				clock.Source = source
+				_, goErr := EnforceRunValidity(observations)
+
+				if schemaAccepts != (goErr == nil) {
+					out.disagreements = append(out.disagreements, i)
+				}
+			}
+		}(w)
+	}
+	waiting.Wait()
+
+	compared := 0
+	var disagreements, roundTripBad []int
+	for w := range shards {
+		if shards[w].err != nil {
+			t.Fatalf("sweep worker %d failed: %v", w, shards[w].err)
+		}
+		compared += shards[w].compared
+		disagreements = append(disagreements, shards[w].disagreements...)
+		roundTripBad = append(roundTripBad, shards[w].roundTripBad...)
+	}
+	if len(roundTripBad) > 0 {
+		sort.Ints(roundTripBad)
+		t.Fatalf("%d generated sources do not survive a JSON round trip through jsonschema's decoder (first at corpus index %d); the leaf-reassignment shortcut is unsound and the sweep result means nothing",
+			len(roundTripBad), roundTripBad[0])
+	}
+	if compared != len(corpus) {
+		t.Fatalf("swept %d sources, want exactly %d: the sweep did not cover the corpus and its result means nothing", compared, len(corpus))
+	}
+	t.Logf("compared the canonical schema against EnforceRunValidity on all %d generated sources across %d workers", compared, workers)
+
+	if len(disagreements) > 0 {
+		sort.Ints(disagreements)
+		shown := disagreements
+		if len(shown) > 10 {
+			shown = shown[:10]
+		}
+		var detail []string
+		for _, i := range shown {
+			detail = append(detail, describeClockSource(corpus[i]))
+		}
+		t.Fatalf("the canonical raw-sample schema and Go's unicode.IsSpace contract disagree on %d of %d generated sources; first %d: %s",
+			len(disagreements), compared, len(shown), strings.Join(detail, "; "))
+	}
+}
+
+// describeClockSource renders a corpus witness compactly enough to read in a
+// failure message and precisely enough to reconstruct: both lengths, and a
+// quoted prefix truncated on a RUNE boundary so the quoting never shows a
+// split code point.
+func describeClockSource(source string) string {
+	prefix := source
+	if utf8.RuneCountInString(prefix) > 24 {
+		count := 0
+		for i := range prefix {
+			if count == 24 {
+				prefix = prefix[:i]
+				break
+			}
+			count++
+		}
+	}
+	suffix := ""
+	if prefix != source {
+		suffix = "..."
+	}
+	return fmt.Sprintf("%d runes / %d bytes %q%s", utf8.RuneCountInString(source), len(source), prefix, suffix)
 }
 
 func equalStrings(got, want []string) bool {

@@ -363,22 +363,128 @@ value is never the accounting method).
   `U+1234 'ሴ'`, `U+20AC '€'`, `U+65E5 '日'` and `U+1F600 '😀'`. Under
   that last mutation the older differential test still passes, which is
   exactly why the two are kept separate.
-  Per-rune exhaustion lifts to every-input agreement because both rules
-  are "some rune qualifies" over a per-rune predicate: `TrimSpace`
-  empties a string only if every rune is a space, and the schema pattern
-  is a single unanchored character class. That lift is a premise about
-  the schema rather than something the sweep measures, so its premises
-  are now CHECKED: the test asserts the clock-source subschema declares
-  exactly `description`/`type`/`minLength`/`pattern` and nothing else,
-  that the pattern parses (with `regexp/syntax` under the same Perl flags
-  `regexp.Compile` uses) to a single `OpCharClass` — which has no anchors
-  and matches exactly one rune — and that no applicator keyword anywhere
-  on the containment chain from the document root down to the source can
-  attach a further subschema to that string. MUTATION: adding
-  `maxLength: 1` to the source subschema — a constraint a single-rune
-  sweep provably cannot see, since it changes no single-rune verdict —
-  FAILS this guard. The empty string, the one input with no runes, is
-  covered by the differential test above.
+  **Correction of record, round 5.** The round-4 revision of this bullet
+  claimed the every-rune sweep lifted to every input because a guard
+  ruled out "any applicator keyword anywhere on the containment chain
+  from the document root down to the source". That claim was false. The
+  guard enumerated ROUTES, and review round 5 found a route it did not
+  walk: attaching `allOf` to the schema root's existing `then` branch and
+  re-descending from there to `source` with a large `maxLength`. Read at
+  the seam, that mutation makes the schema reject a 65-character Go-valid
+  source — `at '/run_validity_observations/observed_cpu_clock/source':
+  maxLength: got 65, want 64` — and REPRODUCED at `fcca87c`, before any
+  fix, it left `go test -count=1 ./...` at exit 0 with 28 ok, 3 no-test,
+  0 FAIL. That route enumeration was itself the round-4 fix, one round
+  old when it fell. Enumerating routes was the wrong shape: there are
+  unboundedly many of them, and `maxLength` is invisible to any
+  single-rune probe by construction, since every one-rune source has
+  length 1.
+
+  **The approach changed rather than the guard deepening.** The property
+  that matters — for a source string `s`, schema-accepts(`s`) equals
+  Go-accepts(`s`) — is now tested DIRECTLY on strings by
+  `TestSchemaAndGoAgreeOnClockSourceForGeneratedStrings`, driving the
+  same two real seams (`compileCanonicalSchema` +
+  `validateDecodedValue`; `EnforceRunValidity`) over a deterministically
+  generated corpus. Length-sensitive constraints, and constraints
+  attached under any applicator whatsoever, fall out of it by
+  OBSERVATION instead of by anticipation. The corpus is a pure function
+  of a PCG seed pair fixed in the source (`0x5553303038524553` /
+  `0x5452544553524f54`) and is **201,843** sources: the empty string; a
+  dense ladder of seven shapes at every rune length 1–256
+  (whitespace-only; all-single-byte-non-space, so byte length equals rune
+  length; all-non-space-outside-U+0021–U+007E, so no printable ASCII
+  appears anywhere; a single qualifying rune at the start, at the end and
+  in the middle of a whitespace run; and a random mix); four shapes at
+  each of the long lengths 512,
+  1 024, 2 048, 4 096, 8 192, 16 384, 32 768 and 65 536; a 200 000-string
+  random battery, one of whose five strata draws from the WHOLE rune
+  domain rather than from a curated list; and 18 realistic sources and
+  regression witnesses. Those five figures sum to the total exactly:
+  1 + 1 792 + 32 + 200 000 + 18 = 201 843. Its **coverage is asserted from the corpus, not assumed**:
+  at every rune length 1–256 the test requires at least one Go-ACCEPTED
+  source of that rune length, at least one Go-ACCEPTED source of that
+  BYTE length, at least one Go-ACCEPTED source of that length carrying no
+  printable-ASCII rune at all, and at least one Go-REJECTED source of
+  that length — and it fails fast, before the sweep, if any is missing.
+  Those four are exactly what make a `maxLength`, a `minLength`, a
+  byte-counting length rule and a `[!-~]`-style narrowing impossible to
+  hide from it in that range. The JSON round trip is verified per source
+  through `jsonschema`'s own decoder, as in the rune sweep. Measured
+  across the runs of this round on a 14-core host, it takes **3.75–4.02 s**
+  of wall time. Observed on `go1.25.5`: 153,659
+  Go-accepted / 48,184 Go-rejected, longest 65,536 runes / 159,936 bytes,
+  corpus `sha256 9a6fc6d6…2816e870` — logged on every run, and
+  deliberately NOT asserted, because `math/rand/v2` pins the PCG bit
+  stream but not the mapping from it to `IntN` across Go releases.
+
+  **The structural checks are kept, and are described as partial.** The
+  test still asserts that the clock-source subschema declares exactly
+  `description`/`type`/`minLength`/`pattern`, and that the pattern parses
+  (with `regexp/syntax` under the same Perl flags `regexp.Compile` uses)
+  to a single `OpCharClass` — which is *why* single-rune exhaustion is
+  evidence about longer strings, not a proof that it is. The route
+  enumeration is GONE, replaced by a whole-document **constraint
+  census**: every occurrence, at any pointer in
+  `benchmark-raw-sample-1.0.0.schema.json`, of a keyword that can assert
+  on a string (`const`, `enum`, `format`, `maxLength`, `minLength`,
+  `pattern`, `contentEncoding`, `contentMediaType`, `contentSchema`) or
+  compose another subschema onto one (`$ref`, `$dynamicRef`, `allOf`,
+  `anyOf`, `oneOf`, `not`, `if`, `then`, `else`, `dependentSchemas`,
+  `propertyNames`, `patternProperties`, `unevaluatedProperties`,
+  `unevaluatedItems`), frozen as **24 entries** with `$ref` targets
+  attached. The census does not care how a constraint is reached, only
+  that it exists, so it has no routes to miss. It is complete over
+  keyword occurrences ADDED to or REMOVED from this document; it is
+  **blind to a change in the VALUE of a keyword already present**, and to
+  `$id`/`$anchor`, and to the content of an external resource a `$ref`
+  were repointed at (the repoint itself is caught). It is not called
+  complete anywhere.
+
+  **Mutations, all executed and read**, against the two legs
+  (`gen` = generated-strings leg, `rune` = every-rune leg including the
+  structural checks; exit 1 = caught):
+
+  | mutation | `gen` | `rune` | what caught it |
+  | --- | --- | --- | --- |
+  | round-5 finding: `then.allOf` → `source.maxLength: 64` | 1 | 1 | 31,092 disagreements, first at 65 runes; census `+2` |
+  | `anyOf` at root → `source.maxLength: 64` | 1 | 1 | same 31,092; census `+2` |
+  | `dependentSchemas` at root → `source.maxLength: 64` | 1 | 1 | same 31,092; census `+2` |
+  | round-4 witness: `source.not.const = "ሴ"` (U+1234) | 1 | 1 | 31 disagreements; rune sweep names U+1234 |
+  | `source.pattern = "[!-~]"` | 1 | 1 | 49,847 disagreements; rune sweep 1,111,945 of 1,112,064 |
+  | `source.pattern` anchored with `^` | 1 | 1 | 51,401 disagreements. The rune SWEEP reports none — single-rune verdicts are identical under an anchor — so the generated leg carries the semantics here and the `OpCharClass` check (`parses to Concat`) is what fails on the rune leg |
+  | `source.minLength: 2` | 1 | 1 | 5,535 disagreements at length 1 |
+  | `source.maxLength: 65535` | 1 | 1 | 3 disagreements, all at 65,536 runes |
+  | `source.maxLength: 65536` | **0** | 1 | **the bound**: the string battery does NOT see it; only the subschema key assertion does |
+  | delete the `source` subschema | 1 | 1 | 153,659 disagreements; the rune sweep fails first, on 1,112,039 of 1,112,064, so the census `−2` is never reached |
+
+  The last row is the honest edge of the battery and is stated as a
+  residual below rather than smoothed over.
+
+  **THE CLAIM, stated as what is actually proven.** For the clock-source
+  string, the canonical raw-sample schema — compiled and read through the
+  production `compileCanonicalSchema` and `validateDecodedValue`, the
+  same two functions `ValidateSampleSetDocument` calls, applied to a
+  whole document — and `internal/benchplan.EnforceRunValidity` return the
+  SAME accept/reject verdict on:
+
+  1. every one of the **1,112,064** valid single-rune sources
+     (exhaustive over the rune domain; the 2,048 surrogates are excluded
+     because they are not valid runes and cannot survive JSON decoding),
+     and
+  2. all **201,843** sources of the generated corpus described above,
+     spanning rune lengths 0–256 densely and 512–65,536 sparsely, with
+     the four per-length coverage properties asserted rather than
+     assumed, and
+  3. the enumerated `unicode.IsSpace` differential vectors of
+     `TestSchemaAndGoAgreeOnClockSourceAttribution`, including the empty
+     string.
+
+  That is what is established. It is **not** "agreement on every possible
+  input", and the earlier wording that said so is withdrawn. Agreement on
+  inputs outside those three sets rests on the structural assumptions
+  recorded under RESIDUALS below, which are checked but not proved
+  exhaustive.
 
   It is **RECORD-ONLY**, exactly as the owner bound the policy: no
   threshold is applied to clock values.
@@ -471,6 +577,122 @@ value is never the accounting method).
   go_toolchain notes.
 - **AMI deprecation 2026-11-10**: re-probe and re-pin (a recorded
   preregistration change) if measured runs continue past that date.
+
+## RESIDUALS — known limitations carried, not closed
+
+This branch's adversarial review is bounded and stops after round 5. What
+follows is every limitation the driver knows of and is deliberately NOT
+closing, with the reason. It is written to be read WITHOUT the review
+conversation: each item states the limitation, how it was established,
+and what would close it. Nothing here is a discovered defect awaiting a
+fix; each is a scope edge that a future reader should treat as an open
+assumption rather than a proven property.
+
+### R1 — The clock-source agreement claim is bounded, not universal
+
+The two differential legs prove agreement on 1,112,064 single-rune
+sources and on 201,843 generated sources up to 65,536 runes. They do not
+prove it for every string. Concretely, and MEASURED rather than
+estimated: adding `maxLength: 65536` to the source subschema — a
+constraint that rejects Go-valid sources of 65,537 runes and longer —
+leaves the generated-strings leg at exit 0. It is caught today only
+because the subschema's own keyword set is pinned by name, and it would
+also be caught by the constraint census (R2). **Closing it** would mean
+either an unbounded-length argument the schema does not currently
+support, or a symbolic/decision-procedure comparison of the regexp
+against `strings.TrimSpace` rather than a battery. Neither is proposed.
+
+### R2 — The constraint census is blind to value changes
+
+`frozenRawSampleConstraintCensus` freezes 24 keyword OCCURRENCES by JSON
+pointer (with `$ref` targets attached). It catches any constraint added
+anywhere or removed anywhere, which is what defeated the round-4 and
+round-5 constructions. It does NOT catch a change to the VALUE of a
+keyword already present, nor `$id`/`$anchor` changes, nor the content of
+an external resource a `$ref` were repointed at (the repoint itself is
+caught, since the target string is part of the entry; today the twelve
+`$ref` occurrences carry just two distinct targets, `#/$defs/digest` and
+`#/$defs/pair`, both same-document).
+
+The value-change routes that can reach the clock source are exactly the
+three keywords on its own subschema. `type` and `minLength` are pinned by
+value in the same test. `pattern` is not pinned by value on purpose — it
+is what the two sweeps exercise — so a `pattern` edit that keeps a single
+`OpCharClass`, agrees with `unicode.IsSpace` on all 1,112,064 runes, and
+still disagrees on some longer string is invisible to everything here.
+No such pattern is known to exist; the point is that nothing in this
+suite rules one out.
+
+### R3 — The lift argument is an argument, not a proof
+
+The chain "both rules are *some rune qualifies*, therefore per-rune
+agreement gives per-string agreement" is reasoning, and reasoning of
+exactly this shape has now been falsified four times on this branch
+(rounds 2, 3, 4 and 5 each found a stated property was not the property
+that held). Its premises are checked — subschema key set, `OpCharClass`
+parse, whole-document census — but the checks are not a proof that the
+premise list is complete. Treat the executed facts (the two sweeps, the
+census, the mutation table) as the evidence, and the lift as commentary.
+
+### R4 — The generated corpus is toolchain-deterministic, not universally so
+
+The corpus is a pure function of the two PCG seed constants: no clock, no
+address, no environment. It reproduced byte-identically across
+consecutive runs (identical corpus line, `sha256 9a6fc6d6…2816e870`).
+However `math/rand/v2` guarantees the PCG bit stream, not the mapping
+from that stream to `IntN` results across Go releases, so a future
+toolchain may produce a different corpus. The digest is therefore LOGGED
+and not asserted. Nothing the test proves depends on that stability: the
+four per-length coverage properties are recomputed from whatever corpus
+is generated, on every run, and the test fails if they do not hold.
+
+### R5 — `pattern` semantics rest on the validator's regexp engine
+
+The `OpCharClass` parse characterises what the validator ran only because
+`santhosh-tekuri/jsonschema/v6` defaults its engine to `goRegexpCompile`
+= `regexp.Compile` (`roots.go:25`, `compiler.go:330` at v6.0.3) and
+`UseRegexpEngine` is never called in this repository — verified by
+repo-wide search over every `.go` file, whose single hit is the
+explanatory comment in `validate_test.go` that says so, with no call
+site. A dependency bump that changed the default engine, or
+a future call to `UseRegexpEngine`, would silently invalidate that
+characterisation. Neither is pinned by a test.
+
+### R6 — `DecideEndpoint` has no non-test caller
+
+Carried forward unchanged from round 3, where the independent reviewer
+ruled it does not block a preregistration-only change but MUST block any
+future runner or ingestion acceptance. The observed-clock rule is
+IMPLEMENTED in `DecideEndpoint`; nothing in production calls
+`DecideEndpoint` yet, so no measured sample is actually gated by it
+today. See the driver follow-up above; repeated here so the residuals
+list is self-contained.
+
+### R7 — The record-only tripwire is partial by disclosure
+
+`TestObservedClockAppliesNoThreshold` covers four vectors and cannot
+catch a threshold that admits all four, nor one added at a different
+seam. Already disclosed in the body above with the mutation that proves
+it (an unattested threshold rejecting only the unvisited 2,000–2,500 MHz
+band leaves it passing). The record-only property rests on the frozen
+preregistration and on review, not on that test.
+
+### R8 — The census makes legitimate schema evolution loud
+
+By design: any future edit to `benchmark-raw-sample-1.0.0.schema.json`
+that adds or removes a censused keyword fails
+`TestSchemaAndGoAgreeOnClockSourceForEveryRune` until
+`frozenRawSampleConstraintCensus` is updated. That is the intended
+behaviour of a preregistration freeze, and the failure message names the
+exact added and removed pointers, but a future editor should expect it
+rather than read it as a defect.
+
+### R9 — Test cost
+
+The two differential legs cost roughly 24 s and 4 s of wall time on a
+14-core host, and scale with `runtime.NumCPU()`. On a low-core CI runner
+the package's test time will be substantially higher. No timeout tuning
+has been done.
 
 ## One-sitting owner checklist
 
