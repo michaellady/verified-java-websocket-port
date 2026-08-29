@@ -482,7 +482,7 @@ func applyExactMutation(source []byte, find, replace string) ([]byte, error) {
 }
 
 func controlledEnvironment(request generateRequest) []string {
-	pathParts := []string{filepath.Dir(request.CargoKani), filepath.Dir(request.CBMC), filepath.Dir(request.Rustc), "/opt/homebrew/bin", "/usr/bin", "/bin", os.Getenv("PATH")}
+	pathParts := []string{filepath.Dir(request.CargoKani), filepath.Dir(request.CBMC), "/opt/homebrew/bin", os.Getenv("PATH"), "/usr/bin", "/bin"}
 	environment := []string{"LANG=C", "LC_ALL=C", "PATH=" + strings.Join(pathParts, string(os.PathListSeparator))}
 	for _, name := range []string{"HOME", "CARGO_HOME", "RUSTUP_HOME"} {
 		if value, ok := os.LookupEnv(name); ok {

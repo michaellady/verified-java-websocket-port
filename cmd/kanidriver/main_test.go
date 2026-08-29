@@ -105,6 +105,19 @@ func TestApplyExactMutationRequiresOneSite(t *testing.T) {
 	}
 }
 
+func TestControlledEnvironmentDoesNotShadowRustupCargo(t *testing.T) {
+	environment := controlledEnvironment(generateRequest{
+		CargoKani: "/pinned/kani/scripts/cargo-kani",
+		CBMC:      "/pinned/cbmc/bin/cbmc",
+		Rustc:     "/pinned/nightly/bin/rustc",
+	})
+	for _, entry := range environment {
+		if strings.HasPrefix(entry, "PATH=") && strings.Contains(entry, "/pinned/nightly/bin") {
+			t.Fatalf("nightly bin directory would shadow rustup-aware cargo: %s", entry)
+		}
+	}
+}
+
 func TestRunRejectsUnknownAndIncompleteCommands(t *testing.T) {
 	for _, arguments := range [][]string{nil, {"unknown"}, {"run"}, {"verify"}} {
 		var stdout, stderr bytes.Buffer
