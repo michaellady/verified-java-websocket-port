@@ -119,6 +119,11 @@ func TestParseKaniResult(t *testing.T) {
 			exitCode: 0, status: "PASS", failed: 0, total: 487, unreachable: 6,
 		},
 		{
+			name:     "success_without_unreachable_suffix",
+			output:   "VERIFICATION RESULT:\n ** 0 of 398 failed\n\nVERIFICATION:- SUCCESSFUL\n",
+			exitCode: 0, status: "PASS", failed: 0, total: 398, unreachable: 0,
+		},
+		{
 			name:     "counterexample",
 			output:   "VERIFICATION RESULT:\n ** 1 of 127 failed (1 unreachable)\nFailed Checks: assertion failed\n\nVERIFICATION:- FAILED\n",
 			exitCode: 1, status: "COUNTEREXAMPLE", failed: 1, total: 127, unreachable: 1,

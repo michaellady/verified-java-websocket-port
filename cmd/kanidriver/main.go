@@ -34,7 +34,7 @@ const (
 )
 
 var (
-	resultPattern = regexp.MustCompile(`(?m)^ \*\* ([0-9]+) of ([0-9]+) failed \(([0-9]+) unreachable\)$`)
+	resultPattern = regexp.MustCompile(`(?m)^ \*\* ([0-9]+) of ([0-9]+) failed( \(([0-9]+) unreachable\))?$`)
 	timePattern   = regexp.MustCompile(`(?m)^Verification Time: [^\r\n]+$`)
 	finishPattern = regexp.MustCompile(`(?m)(target\(s\) in) [0-9.]+s$`)
 	hexDigest     = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
@@ -459,7 +459,10 @@ func parseKaniResult(output []byte, exitCode int) (kaniResult, error) {
 	}
 	failed, _ := strconv.Atoi(string(matches[0][1]))
 	total, _ := strconv.Atoi(string(matches[0][2]))
-	unreachable, _ := strconv.Atoi(string(matches[0][3]))
+	unreachable := 0
+	if len(matches[0][4]) != 0 {
+		unreachable, _ = strconv.Atoi(string(matches[0][4]))
+	}
 	success := bytes.Count(output, []byte("VERIFICATION:- SUCCESSFUL"))
 	failure := bytes.Count(output, []byte("VERIFICATION:- FAILED"))
 	observed := kaniResult{ExitCode: exitCode, FailedChecks: failed, TotalChecks: total, UnreachableChecks: unreachable}
