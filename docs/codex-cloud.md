@@ -1,13 +1,16 @@
 # Codex cloud environment
 
 The cloud worker uses a Linux amd64 universal image plus a repository-owned,
-fail-closed bootstrap. The bootstrap downloads only exact public artifacts,
-checks their byte counts and SHA-256 digests, and verifies every installed tool's
-reported version before making the environment available to an agent.
+fail-closed bootstrap. Artifact downloads have exact byte-count and SHA-256
+bindings. Kani is checked out at an exact commit and tree, built from its locked
+Rust dependency graph, and accepted only while its tracked source remains clean.
+The bootstrap verifies every installed tool's reported version before making the
+environment available to an agent.
 
 ## Environment settings
 
-In Codex cloud environment settings, select this repository and configure:
+In Codex cloud environment settings, select this repository's Ubuntu 24.04
+universal image on Linux amd64 and configure:
 
 - setup script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup setup --root .`
 - maintenance script: `GOTOOLCHAIN=auto go run ./cmd/cloudsetup maintain --root .`
@@ -18,7 +21,8 @@ In Codex cloud environment settings, select this repository and configure:
 The setup phase writes an idempotent managed block to `~/.bashrc`; setup-process
 environment exports do not otherwise persist into the agent phase. Codex may
 cache this environment, so the maintenance command rechecks immutable downloads,
-the Kani source identity, tracked-source cleanliness, and tool versions.
+materialized directory types, the Kani source identity and cleanliness, and all
+tool versions.
 
 The exact materialized locations can be inspected without changing state:
 
@@ -43,3 +47,12 @@ replay; it does not replace or extend the original toolchain provenance claim.
 The cloud environment deliberately avoids `rust/Makefile`: that wrapper checks a
 Darwin-specific promoted toolchain and is expected to reject Linux. The direct
 Linux commands and nonclaims are recorded in the root `AGENTS.md`.
+
+For the project's formal lane, `cloudsetup` installs the exact Kani source used
+locally and the published Ubuntu 24.04 CBMC 6.11.0 package in a private cache. It
+does not use `sudo`, `apt`, `dpkg`, or Kani's upstream dependency installer. The
+upstream cvc5 and Kissat installers are intentionally not invoked: neither tool
+is called by this repository's `cmd/kanidriver` execution graph. Kani's nightly
+Rust toolchain is fixed by the bound source tree; rustup verifies the official
+distribution manifest, while Cargo verifies locked registry package checksums.
+Formal executions still retain their own tool-binary digests in evidence.

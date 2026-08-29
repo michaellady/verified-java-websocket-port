@@ -1,7 +1,11 @@
 package main
 
 import (
+	"archive/tar"
+	"bytes"
+	"compress/gzip"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -20,12 +24,9 @@ func TestCloudSetupPlanUsesExactProjectAndVerifierPins(t *testing.T) {
 	if !reflect.DeepEqual(plan, want) {
 		t.Fatalf("setup plan = %#v, want %#v", plan, want)
 	}
-	if kaniCommit != "37960b2bea719b86f3a99d28b650110203cffabb" ||
-		kaniTree != "140c732427576e199ba96406f3657b2c2008d35d" {
-		t.Fatalf("Kani source pin drifted: commit=%s tree=%s", kaniCommit, kaniTree)
-	}
 	paths := cloudPaths(home)
 	if paths.KaniRoot != filepath.Join(home, ".cache", "verified-java-websocket-port", "kani-37960b2bea71") ||
+		paths.CBMCRoot != filepath.Join(home, ".cache", "verified-java-websocket-port", "cbmc-6.11.0-ubuntu-24.04") ||
 		paths.JavaHome != filepath.Join(home, ".cache", "verified-java-websocket-port", "jdk-17.0.19+10") ||
 		paths.MavenHome != filepath.Join(home, ".cache", "verified-java-websocket-port", "apache-maven-3.9.11") {
 		t.Fatalf("cloud paths = %#v", paths)
@@ -68,6 +69,174 @@ func TestLinuxJDKPinIsTheProbedTemurinRelease(t *testing.T) {
 		linuxJDK.Bytes != 193335385 {
 		t.Fatalf("Linux JDK pin drifted: %#v", linuxJDK)
 	}
+}
+
+func TestFormalToolClosureUsesExactPublicPinsWithoutUpstreamInstaller(t *testing.T) {
+	if kaniURL != "https://github.com/model-checking/kani.git" ||
+		kaniCommit != "37960b2bea719b86f3a99d28b650110203cffabb" ||
+		kaniTree != "140c732427576e199ba96406f3657b2c2008d35d" ||
+		kaniCharonCommit != "b250680abd40ff1aaa07081d0497dc2755ed112e" ||
+		kaniCharonTree != "a83f56525e28511f65e17584db0303fed72b00b2" {
+		t.Fatalf("Kani source pin drifted: url=%s commit=%s tree=%s charon_commit=%s charon_tree=%s", kaniURL, kaniCommit, kaniTree, kaniCharonCommit, kaniCharonTree)
+	}
+	if cbmcUbuntu2404.URL != "https://github.com/diffblue/cbmc/releases/download/cbmc-6.11.0/ubuntu-24.04-cbmc-6.11.0-Linux.deb" ||
+		cbmcUbuntu2404.SHA256 != "sha256:b3721aa541038384d7801ea3aeabbcddc3e8845ac8f1cbff637cf8dec7481ac8" ||
+		cbmcUbuntu2404.Bytes != 73477756 {
+		t.Fatalf("CBMC pin drifted: %#v", cbmcUbuntu2404)
+	}
+	want := []commandSpec{
+		{Name: "submodules-kani", Dir: "/kani", Path: "git", Args: []string{"submodule", "update", "--init", "--depth", "1"}},
+		{Name: "build-kani", Dir: "/kani", Path: "cargo", Args: []string{"build-dev"}},
+	}
+	plan := kaniBuildPlan("/kani")
+	if !reflect.DeepEqual(plan, want) {
+		t.Fatalf("Kani build plan = %#v, want %#v", plan, want)
+	}
+	for _, command := range plan {
+		joined := command.Path + " " + strings.Join(command.Args, " ")
+		if strings.Contains(joined, "install_deps") || strings.Contains(joined, "install_cbmc") ||
+			strings.Contains(joined, "install_kissat") || strings.Contains(joined, "cvc5") {
+			t.Fatalf("Kani build delegates unpinned dependency installation: %s", joined)
+		}
+	}
+	checkout := kaniCheckoutCommand("/kani")
+	wantCheckout := commandSpec{Name: "checkout-kani", Dir: "/kani", Path: "git", Args: []string{"checkout", "--detach", kaniCommit}}
+	if !reflect.DeepEqual(checkout, wantCheckout) {
+		t.Fatalf("Kani checkout command = %#v, want %#v", checkout, wantCheckout)
+	}
+}
+
+func TestTrackedStatusDiagnosticIsBounded(t *testing.T) {
+	status := "D  first\nD  second\nD  third\n"
+	if got := summarizeStatus(status, 2); got != "D  first; D  second; ..." {
+		t.Fatalf("summarizeStatus = %q", got)
+	}
+}
+
+func TestCloudEnvironmentExportsPinnedFormalTools(t *testing.T) {
+	home := t.TempDir()
+	if err := appendBashEnvironment(home, cloudPaths(home)); err != nil {
+		t.Fatal(err)
+	}
+	bashrc, err := os.ReadFile(filepath.Join(home, ".bashrc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range [][]byte{
+		[]byte("VJWP_KANI_ROOT"),
+		[]byte("VJWP_CBMC_ROOT"),
+		[]byte("$VJWP_KANI_ROOT/scripts"),
+		[]byte("$VJWP_CBMC_ROOT/usr/bin"),
+	} {
+		if !bytes.Contains(bashrc, required) {
+			t.Fatalf("managed environment does not export %q: %s", required, bashrc)
+		}
+	}
+}
+
+func TestCloudOperatingSystemMustBeUbuntu2404(t *testing.T) {
+	if err := verifyOperatingSystem([]byte("NAME=Ubuntu\nID=ubuntu\nVERSION_ID=\"24.04\"\n")); err != nil {
+		t.Fatalf("Ubuntu 24.04 rejected: %v", err)
+	}
+	for _, body := range [][]byte{
+		[]byte("ID=ubuntu\nVERSION_ID=\"22.04\"\n"),
+		[]byte("ID=debian\nVERSION_ID=\"24.04\"\n"),
+		[]byte("ID=ubuntu\n"),
+	} {
+		if err := verifyOperatingSystem(body); err == nil {
+			t.Fatalf("unsupported operating system accepted: %q", body)
+		}
+	}
+}
+
+func TestCBMCPackageAndPayloadValidationFailClosed(t *testing.T) {
+	if err := verifyDebianMembers("debian-binary\ncontrol.tar.gz\ndata.tar.gz\n"); err != nil {
+		t.Fatalf("exact Debian members rejected: %v", err)
+	}
+	for _, members := range []string{
+		"debian-binary\ndata.tar.gz\ncontrol.tar.gz\n",
+		"debian-binary\ncontrol.tar.gz\ndata.tar.gz\npostinst\n",
+	} {
+		if err := verifyDebianMembers(members); err == nil {
+			t.Fatalf("unexpected Debian members accepted: %q", members)
+		}
+	}
+
+	valid := writeTestTarGzip(t, []tar.Header{
+		{Name: "./usr/", Typeflag: tar.TypeDir, Mode: 0o755},
+		{Name: "./usr/bin/", Typeflag: tar.TypeDir, Mode: 0o755},
+		{Name: "./usr/bin/cbmc", Typeflag: tar.TypeReg, Mode: 0o755},
+		{Name: "./usr/bin/goto-gcc", Typeflag: tar.TypeSymlink, Linkname: "goto-cc"},
+	})
+	if err := validateTarGzip(valid, "usr"); err != nil {
+		t.Fatalf("valid CBMC payload rejected: %v", err)
+	}
+
+	for _, headers := range [][]tar.Header{
+		{{Name: "./usr/bin/cbmc", Typeflag: tar.TypeReg, Mode: 0o755}, {Name: "../../escape", Typeflag: tar.TypeReg}},
+		{{Name: "./usr/bin/cbmc", Typeflag: tar.TypeSymlink, Linkname: "../../../escape"}},
+		{{Name: "/usr/bin/cbmc", Typeflag: tar.TypeReg, Mode: 0o755}},
+		{{Name: "./usr/device", Typeflag: tar.TypeChar}},
+	} {
+		archive := writeTestTarGzip(t, headers)
+		if err := validateTarGzip(archive, "usr"); err == nil {
+			t.Fatalf("unsafe archive accepted: %#v", headers)
+		}
+	}
+}
+
+func TestPinnedJDKArchiveFixture(t *testing.T) {
+	archive := os.Getenv("VJWP_CLOUDSETUP_JDK_ARCHIVE")
+	if archive == "" {
+		t.Skip("set VJWP_CLOUDSETUP_JDK_ARCHIVE to exercise the probed Linux archive")
+	}
+	if err := validateTarGzip(archive, "jdk-17.0.19+10"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPinnedCBMCPackageFixture(t *testing.T) {
+	archive := os.Getenv("VJWP_CLOUDSETUP_CBMC_PACKAGE")
+	if archive == "" {
+		t.Skip("set VJWP_CLOUDSETUP_CBMC_PACKAGE to exercise the probed Linux package")
+	}
+	destination := filepath.Join(t.TempDir(), "cbmc")
+	var output bytes.Buffer
+	if err := ensureCBMC(cbmcUbuntu2404, archive, destination, &output, &output); err != nil {
+		t.Fatalf("materialize CBMC: %v\n%s", err, output.String())
+	}
+	command := exec.Command(filepath.Join(destination, "usr", "bin", "cbmc"), "--version")
+	body, err := command.CombinedOutput()
+	if err != nil || !bytes.Contains(body, []byte("6.11.0 (cbmc-6.11.0)")) {
+		t.Fatalf("run materialized CBMC: %v\n%s", err, body)
+	}
+}
+
+func writeTestTarGzip(t *testing.T, headers []tar.Header) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "fixture.tar.gz")
+	handle, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	compressed := gzip.NewWriter(handle)
+	archive := tar.NewWriter(compressed)
+	for index := range headers {
+		header := headers[index]
+		if err := archive.WriteHeader(&header); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := compressed.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := handle.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func TestLoadCloudPinsRejectsDuplicateSelectedArtifact(t *testing.T) {

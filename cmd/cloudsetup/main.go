@@ -1,9 +1,12 @@
 // Command cloudsetup materializes the exact public dependencies needed by a
-// Codex cloud worker and prepares the pinned Rust and Kani toolchains.
+// Codex cloud worker and prepares the pinned Java, Rust, Kani, and CBMC
+// toolchains.
 package main
 
 import (
+	"archive/tar"
 	"bytes"
+	"compress/gzip"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,6 +17,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	pathpkg "path"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -23,16 +27,24 @@ import (
 )
 
 const (
-	kaniCommit = "37960b2bea719b86f3a99d28b650110203cffabb"
-	kaniTree   = "140c732427576e199ba96406f3657b2c2008d35d"
-	kaniURL    = "https://github.com/model-checking/kani.git"
-	cacheName  = "verified-java-websocket-port"
+	kaniCommit       = "37960b2bea719b86f3a99d28b650110203cffabb"
+	kaniTree         = "140c732427576e199ba96406f3657b2c2008d35d"
+	kaniCharonCommit = "b250680abd40ff1aaa07081d0497dc2755ed112e"
+	kaniCharonTree   = "a83f56525e28511f65e17584db0303fed72b00b2"
+	kaniURL          = "https://github.com/model-checking/kani.git"
+	cacheName        = "verified-java-websocket-port"
 )
 
 var linuxJDK = downloadPin{
 	URL:    "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.19%2B10/OpenJDK17U-jdk_x64_linux_hotspot_17.0.19_10.tar.gz",
 	SHA256: "sha256:d8afc263758141a66e0e3aafc321e783f7016696f4eaea067d340a269037d331",
 	Bytes:  193335385,
+}
+
+var cbmcUbuntu2404 = downloadPin{
+	URL:    "https://github.com/diffblue/cbmc/releases/download/cbmc-6.11.0/ubuntu-24.04-cbmc-6.11.0-Linux.deb",
+	SHA256: "sha256:b3721aa541038384d7801ea3aeabbcddc3e8845ac8f1cbff637cf8dec7481ac8",
+	Bytes:  73477756,
 }
 
 type downloadPin struct {
@@ -59,6 +71,7 @@ type commandSpec struct {
 
 type paths struct {
 	KaniRoot  string `json:"kani_root"`
+	CBMCRoot  string `json:"cbmc_root"`
 	JavaHome  string `json:"java_home"`
 	MavenHome string `json:"maven_home"`
 }
@@ -81,12 +94,12 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 	}
 	rootPath, err := filepath.Abs(*root)
 	if err != nil {
-		fmt.Fprintln(stderr, err)
+		_, _ = fmt.Fprintln(stderr, err)
 		return 1
 	}
 	homePath, err := filepath.Abs(*home)
 	if err != nil || strings.ContainsAny(homePath, "\r\n") {
-		fmt.Fprintln(stderr, "home must resolve to one absolute path")
+		_, _ = fmt.Fprintln(stderr, "home must resolve to one absolute path")
 		return 1
 	}
 	switch arguments[0] {
@@ -94,7 +107,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		return encode(stdout, cloudPaths(homePath))
 	case "setup", "maintain":
 		if err := prepare(rootPath, homePath, stdout, stderr); err != nil {
-			fmt.Fprintln(stderr, err)
+			_, _ = fmt.Fprintln(stderr, err)
 			return 1
 		}
 		return encode(stdout, cloudPaths(homePath))
@@ -105,7 +118,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 }
 
 func usage(writer io.Writer) {
-	fmt.Fprintln(writer, "usage: cloudsetup setup|maintain|paths --root DIR [--home DIR]")
+	_, _ = fmt.Fprintln(writer, "usage: cloudsetup setup|maintain|paths --root DIR [--home DIR]")
 }
 
 func encode(writer io.Writer, value any) int {
@@ -121,6 +134,7 @@ func cloudPaths(home string) paths {
 	root := filepath.Join(home, ".cache", cacheName)
 	return paths{
 		KaniRoot:  filepath.Join(root, "kani-"+kaniCommit[:12]),
+		CBMCRoot:  filepath.Join(root, "cbmc-6.11.0-ubuntu-24.04"),
 		JavaHome:  filepath.Join(root, "jdk-17.0.19+10"),
 		MavenHome: filepath.Join(root, "apache-maven-3.9.11"),
 	}
@@ -134,9 +148,27 @@ func setupPlan(root, _ string) []commandSpec {
 	}
 }
 
+func kaniBuildPlan(root string) []commandSpec {
+	return []commandSpec{
+		{Name: "submodules-kani", Dir: root, Path: "git", Args: []string{"submodule", "update", "--init", "--depth", "1"}},
+		{Name: "build-kani", Dir: root, Path: "cargo", Args: []string{"build-dev"}},
+	}
+}
+
+func kaniCheckoutCommand(root string) commandSpec {
+	return commandSpec{Name: "checkout-kani", Dir: root, Path: "git", Args: []string{"checkout", "--detach", kaniCommit}}
+}
+
 func prepare(root, home string, stdout, stderr io.Writer) error {
 	if runtime.GOOS != "linux" || runtime.GOARCH != "amd64" {
 		return fmt.Errorf("cloud setup requires linux/amd64, observed %s/%s", runtime.GOOS, runtime.GOARCH)
+	}
+	osRelease, err := os.ReadFile("/etc/os-release")
+	if err != nil {
+		return fmt.Errorf("read cloud operating-system identity: %w", err)
+	}
+	if err := verifyOperatingSystem(osRelease); err != nil {
+		return err
 	}
 	for _, required := range []string{"go.mod", "rust/Cargo.toml", "evidence/intake/source-pins.json"} {
 		if info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(required))); err != nil || !info.Mode().IsRegular() {
@@ -156,7 +188,7 @@ func prepare(root, home string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("JDK: %w", err)
 	}
 	if err := ensureArchive(pins["apache-maven-3.9.11"], filepath.Join(cacheRoot, "apache-maven-3.9.11-bin.tar.gz"), cloud.MavenHome, "apache-maven-3.9.11", stdout, stderr); err != nil {
-		return fmt.Errorf("Maven: %w", err)
+		return fmt.Errorf("maven: %w", err)
 	}
 	if _, err := portplan.EnsureQuarantinedSource(root); err != nil {
 		return err
@@ -166,20 +198,26 @@ func prepare(root, home string, stdout, stderr io.Writer) error {
 	}
 	runtimeJar := filepath.Join(root, ".quarantine", "Java-WebSocket-1.6.0.jar")
 	if err := downloadExact(pins["java-websocket-runtime-jar"], runtimeJar); err != nil {
-		return fmt.Errorf("Java runtime: %w", err)
+		return fmt.Errorf("java runtime: %w", err)
 	}
-	if err := ensureKani(cloud.KaniRoot, stdout, stderr); err != nil {
-		return err
+	cbmcArchive := filepath.Join(cacheRoot, "ubuntu-24.04-cbmc-6.11.0-Linux.deb")
+	if err := ensureCBMC(cbmcUbuntu2404, cbmcArchive, cloud.CBMCRoot, stdout, stderr); err != nil {
+		return fmt.Errorf("CBMC: %w", err)
 	}
 	environment := append(os.Environ(),
 		"JAVA_HOME="+cloud.JavaHome,
 		"MAVEN_HOME="+cloud.MavenHome,
-		"PATH="+strings.Join([]string{filepath.Join(cloud.JavaHome, "bin"), filepath.Join(cloud.MavenHome, "bin"), filepath.Join(cloud.KaniRoot, "scripts"), filepath.Join(home, ".cargo", "bin"), os.Getenv("PATH")}, string(os.PathListSeparator)),
+		"VJWP_KANI_ROOT="+cloud.KaniRoot,
+		"VJWP_CBMC_ROOT="+cloud.CBMCRoot,
+		"PATH="+strings.Join([]string{filepath.Join(cloud.JavaHome, "bin"), filepath.Join(cloud.MavenHome, "bin"), filepath.Join(cloud.KaniRoot, "scripts"), filepath.Join(cloud.CBMCRoot, "usr", "bin"), filepath.Join(home, ".cargo", "bin"), os.Getenv("PATH")}, string(os.PathListSeparator)),
 	)
 	for _, command := range setupPlan(root, home) {
 		if err := execute(command, environment, stdout, stderr); err != nil {
 			return err
 		}
+	}
+	if err := ensureKani(cloud.KaniRoot, environment, stdout, stderr); err != nil {
+		return err
 	}
 	if err := verifyTools(cloud, environment, stdout, stderr); err != nil {
 		return err
@@ -220,6 +258,25 @@ func loadCloudPins(root string) (map[string]downloadPin, error) {
 	return result, nil
 }
 
+func verifyOperatingSystem(body []byte) error {
+	values := make(map[string]string)
+	for _, line := range strings.Split(string(body), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		values[parts[0]] = strings.Trim(strings.TrimSpace(parts[1]), "\"'")
+	}
+	if values["ID"] != "ubuntu" || values["VERSION_ID"] != "24.04" {
+		return fmt.Errorf("cloud setup requires Ubuntu 24.04, observed ID=%q VERSION_ID=%q", values["ID"], values["VERSION_ID"])
+	}
+	return nil
+}
+
 func ensureArchive(pin downloadPin, archive, destination, top string, stdout, stderr io.Writer) error {
 	if err := downloadExact(pin, archive); err != nil {
 		return err
@@ -232,17 +289,8 @@ func ensureArchive(pin downloadPin, archive, destination, top string, stdout, st
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	listing := exec.Command("tar", "-tzf", archive)
-	listed, err := listing.Output()
-	if err != nil {
-		return fmt.Errorf("inspect archive: %w", err)
-	}
-	for _, name := range strings.Split(strings.TrimSpace(string(listed)), "\n") {
-		clean := filepath.ToSlash(filepath.Clean(name))
-		if clean == "." || clean == top || strings.HasPrefix(clean, top+"/") {
-			continue
-		}
-		return fmt.Errorf("archive member escapes expected top-level directory: %s", name)
+	if err := validateTarGzip(archive, top); err != nil {
+		return err
 	}
 	parent := filepath.Dir(destination)
 	staging, err := os.MkdirTemp(parent, ".cloudsetup-extract-")
@@ -250,7 +298,7 @@ func ensureArchive(pin downloadPin, archive, destination, top string, stdout, st
 		return err
 	}
 	defer func() { _ = os.RemoveAll(staging) }()
-	command := commandSpec{Name: "extract-" + top, Dir: parent, Path: "tar", Args: []string{"-xzf", archive, "-C", staging}}
+	command := commandSpec{Name: "extract-" + top, Dir: parent, Path: "tar", Args: []string{"-xzf", archive, "-C", staging, "--no-same-owner"}}
 	if err := execute(command, os.Environ(), stdout, stderr); err != nil {
 		return err
 	}
@@ -259,6 +307,55 @@ func ensureArchive(pin downloadPin, archive, destination, top string, stdout, st
 		return errors.New("archive did not produce the expected real directory")
 	}
 	return os.Rename(extracted, destination)
+}
+
+func validateTarGzip(archive, expectedTop string) error {
+	handle, err := os.Open(archive)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = handle.Close() }()
+	compressed, err := gzip.NewReader(handle)
+	if err != nil {
+		return fmt.Errorf("inspect archive: %w", err)
+	}
+	defer func() { _ = compressed.Close() }()
+	reader := tar.NewReader(compressed)
+	for {
+		header, err := reader.Next()
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("inspect archive: %w", err)
+		}
+		clean := pathpkg.Clean(strings.TrimPrefix(header.Name, "./"))
+		if pathpkg.IsAbs(header.Name) || !withinArchiveTop(clean, expectedTop) {
+			return fmt.Errorf("archive member escapes expected top-level directory: %s", header.Name)
+		}
+		switch header.Typeflag {
+		case tar.TypeReg, tar.TypeDir:
+		case tar.TypeSymlink:
+			if pathpkg.IsAbs(header.Linkname) {
+				return fmt.Errorf("archive link escapes expected top-level directory: %s -> %s", header.Name, header.Linkname)
+			}
+			target := pathpkg.Clean(pathpkg.Join(pathpkg.Dir(clean), header.Linkname))
+			if !withinArchiveTop(target, expectedTop) {
+				return fmt.Errorf("archive link escapes expected top-level directory: %s -> %s", header.Name, header.Linkname)
+			}
+		case tar.TypeLink:
+			target := pathpkg.Clean(strings.TrimPrefix(header.Linkname, "./"))
+			if pathpkg.IsAbs(header.Linkname) || !withinArchiveTop(target, expectedTop) {
+				return fmt.Errorf("archive link escapes expected top-level directory: %s -> %s", header.Name, header.Linkname)
+			}
+		default:
+			return fmt.Errorf("archive contains unsupported member type %d: %s", header.Typeflag, header.Name)
+		}
+	}
+}
+
+func withinArchiveTop(candidate, expectedTop string) bool {
+	return candidate == expectedTop || strings.HasPrefix(candidate, expectedTop+"/")
 }
 
 func downloadExact(pin downloadPin, destination string) error {
@@ -275,7 +372,7 @@ func downloadExact(pin downloadPin, destination string) error {
 	if err != nil {
 		return err
 	}
-	defer response.Body.Close()
+	defer func() { _ = response.Body.Close() }()
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("GET %s: HTTP %d", pin.URL, response.StatusCode)
 	}
@@ -321,56 +418,161 @@ func verifyDownloaded(body []byte, pin downloadPin) error {
 	return nil
 }
 
-func ensureKani(root string, stdout, stderr io.Writer) error {
+func ensureCBMC(pin downloadPin, archive, destination string, stdout, stderr io.Writer) error {
+	if err := downloadExact(pin, archive); err != nil {
+		return err
+	}
+	if info, err := os.Lstat(destination); err == nil {
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return errors.New("materialized CBMC path is not a real directory")
+		}
+		return verifyExecutable(filepath.Join(destination, "usr", "bin", "cbmc"))
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	parent := filepath.Dir(destination)
+	staging, err := os.MkdirTemp(parent, ".cloudsetup-cbmc-")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = os.RemoveAll(staging) }()
+	members, err := commandOutput(staging, "ar", "t", archive)
+	if err != nil {
+		return fmt.Errorf("inspect CBMC package: %w", err)
+	}
+	if err := verifyDebianMembers(members); err != nil {
+		return err
+	}
+	if err := execute(commandSpec{Name: "unpack-cbmc-package", Dir: staging, Path: "ar", Args: []string{"x", archive, "data.tar.gz"}}, os.Environ(), stdout, stderr); err != nil {
+		return err
+	}
+	dataArchive := filepath.Join(staging, "data.tar.gz")
+	if info, err := os.Lstat(dataArchive); err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("CBMC package did not contain a regular data.tar.gz member")
+	}
+	if err := validateTarGzip(dataArchive, "usr"); err != nil {
+		return fmt.Errorf("inspect CBMC payload: %w", err)
+	}
+	extracted := filepath.Join(staging, "root")
+	if err := os.Mkdir(extracted, 0o755); err != nil {
+		return err
+	}
+	if err := execute(commandSpec{Name: "extract-cbmc", Dir: staging, Path: "tar", Args: []string{"-xzf", dataArchive, "-C", extracted, "--no-same-owner"}}, os.Environ(), stdout, stderr); err != nil {
+		return err
+	}
+	if err := verifyExecutable(filepath.Join(extracted, "usr", "bin", "cbmc")); err != nil {
+		return err
+	}
+	return os.Rename(extracted, destination)
+}
+
+func verifyDebianMembers(body string) error {
+	members := strings.Fields(body)
+	want := []string{"debian-binary", "control.tar.gz", "data.tar.gz"}
+	if len(members) != len(want) {
+		return fmt.Errorf("CBMC Debian package has unexpected members: %q", members)
+	}
+	for index := range want {
+		if members[index] != want[index] {
+			return fmt.Errorf("CBMC Debian package has unexpected members: %q", members)
+		}
+	}
+	return nil
+}
+
+func verifyExecutable(path string) error {
+	info, err := os.Lstat(path)
+	if err != nil {
+		return err
+	}
+	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm()&0o111 == 0 {
+		return fmt.Errorf("expected a regular executable at %s", path)
+	}
+	return nil
+}
+
+func ensureKani(root string, environment []string, stdout, stderr io.Writer) error {
+	newCheckout := false
 	if _, err := os.Lstat(root); errors.Is(err, os.ErrNotExist) {
 		if err := os.MkdirAll(filepath.Dir(root), 0o755); err != nil {
 			return err
 		}
-		if err := execute(commandSpec{Name: "clone-kani", Dir: filepath.Dir(root), Path: "git", Args: []string{"clone", "--filter=blob:none", "--no-checkout", kaniURL, root}}, os.Environ(), stdout, stderr); err != nil {
+		if err := execute(commandSpec{Name: "clone-kani", Dir: filepath.Dir(root), Path: "git", Args: []string{"clone", "--filter=blob:none", "--no-checkout", kaniURL, root}}, environment, stdout, stderr); err != nil {
 			return err
 		}
+		newCheckout = true
 	} else if err != nil {
 		return err
+	} else if info, err := os.Lstat(root); err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return errors.New("materialized Kani path is not a real directory")
 	}
-	head, _ := commandOutput(root, "git", "rev-parse", "HEAD")
-	if strings.TrimSpace(head) != kaniCommit {
-		if strings.TrimSpace(head) != "HEAD" && strings.TrimSpace(head) != "" {
-			return fmt.Errorf("cached Kani checkout is at %s, expected %s", strings.TrimSpace(head), kaniCommit)
-		}
-		if err := execute(commandSpec{Name: "checkout-kani", Dir: root, Path: "git", Args: []string{"checkout", "--detach", kaniCommit}}, os.Environ(), stdout, stderr); err != nil {
+	head, headErr := commandOutput(root, "git", "rev-parse", "HEAD")
+	if headErr != nil && !newCheckout {
+		return errors.New("cached Kani checkout is not a Git repository")
+	}
+	if newCheckout {
+		if err := execute(kaniCheckoutCommand(root), environment, stdout, stderr); err != nil {
 			return err
 		}
+	} else if strings.TrimSpace(head) != kaniCommit {
+		return fmt.Errorf("cached Kani checkout is at %s, expected %s", strings.TrimSpace(head), kaniCommit)
 	}
-	if err := execute(commandSpec{Name: "submodules-kani", Dir: root, Path: "git", Args: []string{"submodule", "update", "--init", "--depth", "1"}}, os.Environ(), stdout, stderr); err != nil {
+	plan := kaniBuildPlan(root)
+	if err := execute(plan[0], environment, stdout, stderr); err != nil {
 		return err
 	}
 	if err := verifyKaniIdentity(root); err != nil {
 		return err
 	}
 	compiler := filepath.Join(root, "target", "kani", "bin", "kani-compiler")
-	if info, err := os.Lstat(compiler); err == nil && info.Mode().IsRegular() && info.Mode().Perm()&0o111 != 0 {
-		return nil
+	if err := verifyExecutable(compiler); err == nil {
+		return verifyExecutable(filepath.Join(root, "scripts", "cargo-kani"))
 	}
-	if err := execute(commandSpec{Name: "kani-system-dependencies", Dir: root, Path: "bash", Args: []string{"scripts/setup/ubuntu/install_deps.sh"}}, os.Environ(), stdout, stderr); err != nil {
+	if err := execute(plan[1], environment, stdout, stderr); err != nil {
 		return err
 	}
-	return execute(commandSpec{Name: "build-kani", Dir: root, Path: "cargo", Args: []string{"build-dev"}}, os.Environ(), stdout, stderr)
+	if err := verifyExecutable(compiler); err != nil {
+		return err
+	}
+	return verifyExecutable(filepath.Join(root, "scripts", "cargo-kani"))
 }
 
 func verifyKaniIdentity(root string) error {
+	if err := verifyGitIdentity(root, "Kani", kaniCommit, kaniTree, true); err != nil {
+		return err
+	}
+	return verifyGitIdentity(filepath.Join(root, "charon"), "Kani Charon submodule", kaniCharonCommit, kaniCharonTree, false)
+}
+
+func verifyGitIdentity(root, name, commit, tree string, ignoreSubmodules bool) error {
 	head, err := commandOutput(root, "git", "rev-parse", "HEAD")
-	if err != nil || strings.TrimSpace(head) != kaniCommit {
-		return errors.New("Kani commit binding failed")
+	if err != nil || strings.TrimSpace(head) != commit {
+		return fmt.Errorf("%s commit binding failed", name)
 	}
-	tree, err := commandOutput(root, "git", "rev-parse", "HEAD^{tree}")
-	if err != nil || strings.TrimSpace(tree) != kaniTree {
-		return errors.New("Kani tree binding failed")
+	observedTree, err := commandOutput(root, "git", "rev-parse", "HEAD^{tree}")
+	if err != nil || strings.TrimSpace(observedTree) != tree {
+		return fmt.Errorf("%s tree binding failed", name)
 	}
-	status, err := commandOutput(root, "git", "status", "--porcelain", "--untracked-files=no")
-	if err != nil || strings.TrimSpace(status) != "" {
-		return errors.New("Kani checkout has tracked modifications")
+	arguments := []string{"status", "--porcelain", "--untracked-files=no"}
+	if ignoreSubmodules {
+		arguments = append(arguments, "--ignore-submodules=all")
+	}
+	status, err := commandOutput(root, "git", arguments...)
+	if err != nil {
+		return fmt.Errorf("%s tracked-source cleanliness check failed", name)
+	}
+	if strings.TrimSpace(status) != "" {
+		return fmt.Errorf("%s has tracked modifications: %s", name, summarizeStatus(status, 10))
 	}
 	return nil
+}
+
+func summarizeStatus(status string, limit int) string {
+	lines := strings.Split(strings.TrimSpace(status), "\n")
+	if len(lines) <= limit {
+		return strings.Join(lines, "; ")
+	}
+	return strings.Join(lines[:limit], "; ") + "; ..."
 }
 
 func execute(spec commandSpec, environment []string, stdout, stderr io.Writer) error {
@@ -396,7 +598,7 @@ func verifyTools(cloud paths, environment []string, stdout, stderr io.Writer) er
 	if runtime.Version() != "go1.25.5" {
 		return fmt.Errorf("cloudsetup is running under %s, expected go1.25.5", runtime.Version())
 	}
-	fmt.Fprintln(stdout, "go-version=1.25.5")
+	_, _ = fmt.Fprintln(stdout, "go-version=1.25.5")
 	checks := []struct {
 		spec commandSpec
 		want string
@@ -404,8 +606,9 @@ func verifyTools(cloud paths, environment []string, stdout, stderr io.Writer) er
 		{commandSpec{Name: "java-version", Dir: cloud.JavaHome, Path: filepath.Join(cloud.JavaHome, "bin", "javac"), Args: []string{"-version"}}, "17.0.19"},
 		{commandSpec{Name: "maven-version", Dir: cloud.MavenHome, Path: filepath.Join(cloud.MavenHome, "bin", "mvn"), Args: []string{"-version"}}, "3.9.11"},
 		{commandSpec{Name: "rust-version", Dir: cloud.KaniRoot, Path: "rustc", Args: []string{"+1.95.0", "--version"}}, "1.95.0"},
-		{commandSpec{Name: "kani-version", Dir: cloud.KaniRoot, Path: filepath.Join(cloud.KaniRoot, "scripts", "cargo-kani"), Args: []string{"--version"}}, "0.67.0"},
-		{commandSpec{Name: "cbmc-version", Dir: cloud.KaniRoot, Path: "cbmc", Args: []string{"--version"}}, "6.11.0"},
+		{commandSpec{Name: "kani-rust-version", Dir: cloud.KaniRoot, Path: "rustc", Args: []string{"+nightly-2026-08-21", "--version"}}, "rustc 1.100.0-nightly (8925ea358 2026-08-20)"},
+		{commandSpec{Name: "kani-version", Dir: cloud.KaniRoot, Path: filepath.Join(cloud.KaniRoot, "scripts", "cargo-kani"), Args: []string{"--version"}}, "Kani Rust Verifier 0.67.0"},
+		{commandSpec{Name: "cbmc-version", Dir: cloud.CBMCRoot, Path: filepath.Join(cloud.CBMCRoot, "usr", "bin", "cbmc"), Args: []string{"--version"}}, "6.11.0 (cbmc-6.11.0)"},
 	}
 	for _, check := range checks {
 		command := exec.Command(check.spec.Path, check.spec.Args...)
@@ -416,7 +619,7 @@ func verifyTools(cloud paths, environment []string, stdout, stderr io.Writer) er
 			_, _ = stderr.Write(body)
 			return fmt.Errorf("%s did not report pinned version %s", check.spec.Name, check.want)
 		}
-		fmt.Fprintf(stdout, "%s=%s\n", check.spec.Name, check.want)
+		_, _ = fmt.Fprintf(stdout, "%s=%s\n", check.spec.Name, check.want)
 	}
 	return verifyKaniIdentity(cloud.KaniRoot)
 }
@@ -428,7 +631,8 @@ func appendBashEnvironment(home string, cloud paths) error {
 		"export JAVA_HOME=" + shellQuote(cloud.JavaHome),
 		"export MAVEN_HOME=" + shellQuote(cloud.MavenHome),
 		"export VJWP_KANI_ROOT=" + shellQuote(cloud.KaniRoot),
-		`export PATH="$JAVA_HOME/bin:$MAVEN_HOME/bin:$VJWP_KANI_ROOT/scripts:$HOME/.cargo/bin:$PATH"`,
+		"export VJWP_CBMC_ROOT=" + shellQuote(cloud.CBMCRoot),
+		`export PATH="$JAVA_HOME/bin:$MAVEN_HOME/bin:$VJWP_KANI_ROOT/scripts:$VJWP_CBMC_ROOT/usr/bin:$HOME/.cargo/bin:$PATH"`,
 		"# end verified-java-websocket-port cloud environment",
 		"",
 	}, "\n")
