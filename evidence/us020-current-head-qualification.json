@@ -5,9 +5,9 @@
   "story_id": "US-020",
   "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
-  "head_at_execution": "0200cee2a3edd328d595a890ffe9e2345b1af3d2",
-  "source_tree": "aa7c3d802716736724623b513362f37574b854c4",
-  "validation_time": "2026-08-29T05:42:57Z",
+  "head_at_execution": "f5d252d7c508d7b1978046b32a2ebc81445c369b",
+  "source_tree": "19d95b73ae04791bff7f42b67ab1a9b8c6990851",
+  "validation_time": "2026-08-29T07:17:37Z",
   "toolchain": {
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "host": "aarch64-apple-darwin"
@@ -115,8 +115,8 @@
     },
     {
       "path": "rust/connection-core/src/frame/encode.rs",
-      "sha256": "sha256:9cbf67c8578f514e3e7dfc4ac4a13b1c67b4d8768718bccd3e28c1e604982c72",
-      "git_blob": "c8fa86e1f7ae4b384372e2c90a39ee75cc143aa1"
+      "sha256": "sha256:8ef10fd0b248fc268126e33cddb33bd9418ff86d2e57084422c6c6f030b640f2",
+      "git_blob": "9c726a1b19a4d17a0d92b4572c6bdc46486c74f6"
     },
     {
       "path": "rust/connection-core/src/frame/mask.rs",
