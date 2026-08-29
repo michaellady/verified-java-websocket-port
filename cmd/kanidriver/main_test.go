@@ -213,6 +213,35 @@ func TestPlansCoverConnectionControlPingPong(t *testing.T) {
 	}
 }
 
+func TestPlansCoverCloseTerminalStateMachine(t *testing.T) {
+	var plans []harnessPlan
+	for _, plan := range harnessPlans() {
+		for _, obligationID := range plan.ObligationIDs {
+			if obligationID == "surface.close.terminal-state" {
+				plans = append(plans, plan)
+			}
+		}
+	}
+	if len(plans) != 1 || plans[0].HarnessID != "close::proofs::prove_close_machine_terminal_lifecycle" ||
+		plans[0].TargetSymbol != "websocket_core::close::CloseMachine lifecycle" ||
+		plans[0].SourcePath != "rust/connection-core/src/close.rs" {
+		t.Fatalf("close-terminal production plan = %#v", plans)
+	}
+
+	var mutations []mutationPlan
+	for _, mutation := range mutationPlans() {
+		for _, obligationID := range mutation.Obligations {
+			if obligationID == "surface.close.terminal-state" {
+				mutations = append(mutations, mutation)
+			}
+		}
+	}
+	if len(mutations) != 1 || mutations[0].CanaryID != "canary.bad-close-completes-before-flush" ||
+		mutations[0].HarnessID != plans[0].HarnessID {
+		t.Fatalf("close-terminal mutation plan = %#v", mutations)
+	}
+}
+
 func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {

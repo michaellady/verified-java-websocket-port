@@ -364,8 +364,14 @@ fn validate_code(code: u16, sender: Role) -> Result<(), CloseFailure> {
 
 #[cfg(kani)]
 mod proofs {
-    use super::{CloseCodeRejection, CloseFailure, validate_code};
+    use alloc::sync::Arc;
+
+    use super::{
+        CloseCodeRejection, CloseFailure, CloseFrame, CloseInitiator, CloseMachine, validate_code,
+    };
     use crate::Role;
+
+    const MAX_CLOSE_PAYLOAD: usize = 2;
 
     fn reference_rejection(code: u16, sender: Role) -> Option<CloseCodeRejection> {
         if code < 1000 || code >= 5000 {
@@ -396,6 +402,115 @@ mod proofs {
         };
 
         assert_eq!(validate_code(code, sender), expected);
+    }
+
+    #[kani::proof]
+    #[kani::unwind(8)]
+    fn prove_close_machine_terminal_lifecycle() {
+        let local_bytes: [u8; MAX_CLOSE_PAYLOAD] = kani::any();
+        let local_length: u8 = kani::any();
+        kani::assume(usize::from(local_length) <= local_bytes.len());
+        let local_payload = local_bytes[..usize::from(local_length)].to_vec();
+
+        let peer_bytes: [u8; MAX_CLOSE_PAYLOAD] = kani::any();
+        let peer_length: u8 = kani::any();
+        kani::assume(usize::from(peer_length) <= peer_bytes.len());
+        let peer_payload = peer_bytes[..usize::from(peer_length)].to_vec();
+        let peer = CloseFrame {
+            owner: Arc::new(peer_payload),
+            code: None,
+            reason_start: 0,
+        };
+
+        let local_first: bool = kani::any();
+        let flush_before_peer: bool = kani::any();
+        let peer_echo: bool = kani::any();
+        let mut machine = CloseMachine::new();
+        assert!(!machine.has_local());
+        assert!(!machine.has_peer());
+        assert!(!machine.write_pending());
+        assert!(!machine.is_complete());
+        assert_eq!(machine.initiator(), None);
+        assert_eq!(machine.retained_bytes(), 0);
+        assert_eq!(machine.eof_failure(), CloseFailure::UnexpectedEofOpen);
+
+        if local_first {
+            machine.begin_local(local_payload.into_boxed_slice());
+            assert!(machine.has_local());
+            assert!(!machine.has_peer());
+            assert!(machine.write_pending());
+            assert!(!machine.is_complete());
+            assert_eq!(machine.initiator(), Some(CloseInitiator::Local));
+            assert_eq!(machine.retained_bytes(), usize::from(local_length));
+            assert_eq!(machine.eof_failure(), CloseFailure::EofBeforePeerClose);
+
+            if flush_before_peer {
+                machine.mark_write_flushed();
+                assert!(!machine.write_pending());
+                assert!(!machine.is_complete());
+                assert_eq!(machine.eof_failure(), CloseFailure::EofBeforePeerClose);
+            }
+
+            machine.accept_peer(peer);
+            assert!(machine.has_peer());
+            assert_eq!(
+                machine.retained_bytes(),
+                usize::from(local_length) + usize::from(peer_length)
+            );
+            if flush_before_peer {
+                assert!(machine.is_complete());
+            } else {
+                assert!(!machine.is_complete());
+                assert!(machine.write_pending());
+                assert_eq!(
+                    machine.eof_failure(),
+                    CloseFailure::EofBeforeCloseWriteFlushed
+                );
+                machine.mark_write_flushed();
+                assert!(machine.is_complete());
+            }
+        } else {
+            machine.begin_peer(peer);
+            assert!(!machine.has_local());
+            assert!(machine.has_peer());
+            assert!(!machine.write_pending());
+            assert!(!machine.is_complete());
+            assert_eq!(machine.initiator(), Some(CloseInitiator::Peer));
+            assert_eq!(machine.retained_bytes(), usize::from(peer_length));
+            assert_eq!(
+                machine.eof_failure(),
+                CloseFailure::EofBeforeAcknowledgement
+            );
+
+            if peer_echo {
+                machine.admit_peer_echo();
+                assert_eq!(machine.retained_bytes(), usize::from(peer_length));
+            } else {
+                machine.admit_local_half(local_payload.into_boxed_slice());
+                assert_eq!(
+                    machine.retained_bytes(),
+                    usize::from(local_length) + usize::from(peer_length)
+                );
+            }
+            assert!(machine.has_local());
+            assert!(machine.write_pending());
+            assert!(!machine.is_complete());
+            assert_eq!(
+                machine.eof_failure(),
+                CloseFailure::EofBeforeCloseWriteFlushed
+            );
+            machine.mark_write_flushed();
+            assert!(machine.is_complete());
+        }
+
+        machine.reset();
+        assert!(!machine.has_local());
+        assert!(!machine.has_peer());
+        assert!(!machine.write_pending());
+        assert!(!machine.is_complete());
+        assert_eq!(machine.initiator(), None);
+        assert_eq!(machine.retained_bytes(), 0);
+        assert_eq!(machine.eof_failure(), CloseFailure::UnexpectedEofOpen);
     }
 }
 
