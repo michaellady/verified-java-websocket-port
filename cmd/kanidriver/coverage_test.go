@@ -130,12 +130,12 @@ func TestVerifyRetainedCoverageProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := verifyCoverage(root, "evidence/formal/kani-coverage-e624399.json")
+	projection, err := verifyCoverage(root, "evidence/formal/kani-coverage-2531f12.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if projection.Counts.Required != 24 || projection.Counts.RustSatisfied != 16 ||
-		projection.Counts.MutationSatisfied != 16 || projection.Counts.AggregateSatisfied != 0 {
+	if projection.Counts.Required != 24 || projection.Counts.RustSatisfied != 17 ||
+		projection.Counts.MutationSatisfied != 17 || projection.Counts.AggregateSatisfied != 0 {
 		t.Fatalf("retained coverage posture drifted: %#v", projection.Counts)
 	}
 }
@@ -153,6 +153,7 @@ func TestVerifyHistoricalCoverageProjections(t *testing.T) {
 		{path: "evidence/formal/kani-coverage-0cf36a9.json", rust: 11, mutation: 9},
 		{path: "evidence/formal/kani-coverage-17e92c5.json", rust: 11, mutation: 11},
 		{path: "evidence/formal/kani-coverage-467a224.json", rust: 14, mutation: 14},
+		{path: "evidence/formal/kani-coverage-e624399.json", rust: 16, mutation: 16},
 	} {
 		projection, err := verifyCoverage(root, test.path)
 		if err != nil {
