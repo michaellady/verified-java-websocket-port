@@ -959,6 +959,67 @@ func TestObservationDifferencesReportsEveryDeterministicLeaf(t *testing.T) {
 	}
 }
 
+func TestPortableParityDiagnosticSchemaHasNoHostPaths(t *testing.T) {
+	ids := make([]string, 0, 74)
+	for index := 1; index <= 74; index++ {
+		ids = append(ids, fmt.Sprintf("us005.pub.%04d", index))
+	}
+	inputs := make([]PortableArtifactIdentity, 0, 10)
+	for index := 0; index < 10; index++ {
+		inputs = append(inputs, PortableArtifactIdentity{
+			Kind:   fmt.Sprintf("input-%02d", index),
+			SHA256: digest([]byte(fmt.Sprintf("input-%02d", index))),
+			Bytes:  int64(index + 1),
+		})
+	}
+	report := DiagnosticReport{
+		Schema:                   "../../schemas/differential-diagnostic-1.0.0.schema.json",
+		SchemaVersion:            "1.0.0",
+		EvidenceID:               "evidence.us-020-java-parity-diagnostic",
+		StoryID:                  "US-020",
+		Status:                   "JAVA_PARITY_DIAGNOSTIC_ONLY_NO_WRITES",
+		BehaviorProfile:          "java-websocket-1.6.0",
+		Assurance:                "OWNER_ATTESTED_NOT_INDEPENDENT",
+		IndependentReviewClaimed: false,
+		Production:               false,
+		Publication:              false,
+		RepositoryAnchor:         strings.Repeat("a", 40),
+		Inputs:                   inputs,
+		ScenarioCount:            74,
+		ProcessReceipts:          296,
+		StableScenarios:          74,
+		ExactAgreements:          74,
+		ExactScenarioIDs:         ids,
+		MismatchScenarioIDs:      []string{},
+		Findings:                 []DiagnosticFinding{},
+		AcceptedFindings:         []DiagnosticFinding{},
+		Nonclaims: []string{
+			"portable summary omits raw process receipts and normalization traces",
+			"canonical strict differential manifest remains the raw replay evidence",
+			"no hidden sealed Autobahn performance production publication signing or independent review claim",
+		},
+	}
+	raw, err := marshalIndented(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(raw, []byte("/Users/")) {
+		t.Fatalf("portable diagnostic contains a host path: %s", raw)
+	}
+	schemaPath := filepath.Join(repositoryRoot(t), "schemas/differential-diagnostic-1.0.0.schema.json")
+	if err := compileAndValidateSchema(schemaPath, raw); err != nil {
+		t.Fatalf("valid portable diagnostic rejected: %v", err)
+	}
+	report.Inputs[0].SHA256 = "not-a-digest"
+	tampered, err := marshalIndented(report)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := compileAndValidateSchema(schemaPath, tampered); err == nil {
+		t.Fatal("schema accepted a malformed artifact digest")
+	}
+}
+
 func TestJavaParityProjectionOmitsPartialFailureDetailsButKeepsCounts(t *testing.T) {
 	var scenario corpora.Scenario
 	for _, candidate := range publicScenarios(t) {

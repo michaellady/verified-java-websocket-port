@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verified-java-websocket-port.invalid/differential-diagnostic-1.0.0.schema.json",
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "artifact": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "sha256", "bytes"],
+      "properties": {
+        "kind": {"type": "string", "minLength": 1, "maxLength": 64},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "bytes": {"type": "integer", "minimum": 1, "maximum": 1073741824}
+      }
+    },
+    "finding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scenario_id", "pointer", "classification", "detail"],
+      "properties": {
+        "scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"},
+        "pointer": {"type": "string", "maxLength": 512},
+        "classification": {"type": "string", "minLength": 1, "maxLength": 64},
+        "java_sha256": {"$ref": "#/$defs/digest"},
+        "rust_sha256": {"$ref": "#/$defs/digest"},
+        "expected_sha256": {"$ref": "#/$defs/digest"},
+        "java_value": {"type": "string", "maxLength": 1048576},
+        "rust_value": {"type": "string", "maxLength": 1048576},
+        "detail": {"type": "string", "minLength": 1, "maxLength": 4096}
+      }
+    }
+  },
+  "type": "object", "additionalProperties": false,
+  "required": ["$schema", "schema_version", "evidence_id", "story_id", "status", "behavior_profile", "assurance", "independent_review_claimed", "production", "publication", "repository_anchor", "inputs", "scenario_count", "process_receipts", "stable_scenarios", "exact_agreements", "exact_mismatches", "accepted_quirks", "blocking_findings", "evidence_writes", "ledger_writes", "exact_scenario_ids", "mismatch_scenario_ids", "findings", "accepted_findings", "nonclaims"],
+  "properties": {
+    "$schema": {"const": "../../schemas/differential-diagnostic-1.0.0.schema.json"},
+    "schema_version": {"const": "1.0.0"},
+    "evidence_id": {"enum": ["evidence.us-020-public-diagnostic", "evidence.us-020-java-parity-diagnostic"]},
+    "story_id": {"const": "US-020"},
+    "status": {"enum": ["DIAGNOSTIC_ONLY_NO_WRITES", "JAVA_PARITY_DIAGNOSTIC_ONLY_NO_WRITES"]},
+    "behavior_profile": {"enum": ["rfc6455-strict", "java-websocket-1.6.0"]},
+    "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+    "independent_review_claimed": {"const": false},
+    "production": {"const": false},
+    "publication": {"const": false},
+    "repository_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "inputs": {"type": "array", "minItems": 10, "maxItems": 32, "items": {"$ref": "#/$defs/artifact"}},
+    "scenario_count": {"const": 74},
+    "process_receipts": {"type": "integer", "minimum": 0, "maximum": 296},
+    "stable_scenarios": {"type": "integer", "minimum": 0, "maximum": 74},
+    "exact_agreements": {"type": "integer", "minimum": 0, "maximum": 74},
+    "exact_mismatches": {"type": "integer", "minimum": 0, "maximum": 74},
+    "accepted_quirks": {"type": "integer", "minimum": 0, "maximum": 8192},
+    "blocking_findings": {"type": "integer", "minimum": 0, "maximum": 8192},
+    "evidence_writes": {"const": 0},
+    "ledger_writes": {"const": 0},
+    "exact_scenario_ids": {"type": "array", "maxItems": 74, "uniqueItems": true, "items": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}},
+    "mismatch_scenario_ids": {"type": "array", "maxItems": 74, "uniqueItems": true, "items": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"}},
+    "findings": {"type": "array", "maxItems": 8192, "items": {"$ref": "#/$defs/finding"}},
+    "accepted_findings": {"type": "array", "maxItems": 8192, "items": {"$ref": "#/$defs/finding"}},
+    "nonclaims": {"type": "array", "minItems": 3, "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 256}}
+  }
+}

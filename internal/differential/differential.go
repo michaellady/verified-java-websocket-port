@@ -191,22 +191,44 @@ type DiagnosticFinding struct {
 	Detail         string `json:"detail"`
 }
 
-// DiagnosticReport is deliberately in-memory and non-authoritative. It lets a
+// DiagnosticReport is a portable, owner-attested diagnostic summary. It lets a
 // bounded remediation pass see every public blocker without weakening the
-// official facade's transactional, fail-closed evidence behavior.
+// official facade's transactional, fail-closed evidence behavior. A parity
+// report may be retained and identity-verified, but it is not a substitute for
+// the canonical raw-trace manifest or independent replay.
 type DiagnosticReport struct {
-	Status           string              `json:"status"`
-	ScenarioCount    int                 `json:"scenario_count"`
-	ProcessReceipts  int                 `json:"process_receipts"`
-	StableScenarios  int                 `json:"stable_scenarios"`
-	ExactAgreements  int                 `json:"exact_agreements"`
-	ExactMismatches  int                 `json:"exact_mismatches"`
-	AcceptedQuirks   int                 `json:"accepted_quirks"`
-	BlockingFindings int                 `json:"blocking_findings"`
-	EvidenceWrites   int                 `json:"evidence_writes"`
-	LedgerWrites     int                 `json:"ledger_writes"`
-	Findings         []DiagnosticFinding `json:"findings"`
-	AcceptedFindings []DiagnosticFinding `json:"accepted_findings"`
+	Schema                   string                     `json:"$schema"`
+	SchemaVersion            string                     `json:"schema_version"`
+	EvidenceID               string                     `json:"evidence_id"`
+	StoryID                  string                     `json:"story_id"`
+	Status                   string                     `json:"status"`
+	BehaviorProfile          string                     `json:"behavior_profile"`
+	Assurance                string                     `json:"assurance"`
+	IndependentReviewClaimed bool                       `json:"independent_review_claimed"`
+	Production               bool                       `json:"production"`
+	Publication              bool                       `json:"publication"`
+	RepositoryAnchor         string                     `json:"repository_anchor"`
+	Inputs                   []PortableArtifactIdentity `json:"inputs"`
+	ScenarioCount            int                        `json:"scenario_count"`
+	ProcessReceipts          int                        `json:"process_receipts"`
+	StableScenarios          int                        `json:"stable_scenarios"`
+	ExactAgreements          int                        `json:"exact_agreements"`
+	ExactMismatches          int                        `json:"exact_mismatches"`
+	AcceptedQuirks           int                        `json:"accepted_quirks"`
+	BlockingFindings         int                        `json:"blocking_findings"`
+	EvidenceWrites           int                        `json:"evidence_writes"`
+	LedgerWrites             int                        `json:"ledger_writes"`
+	ExactScenarioIDs         []string                   `json:"exact_scenario_ids"`
+	MismatchScenarioIDs      []string                   `json:"mismatch_scenario_ids"`
+	Findings                 []DiagnosticFinding        `json:"findings"`
+	AcceptedFindings         []DiagnosticFinding        `json:"accepted_findings"`
+	Nonclaims                []string                   `json:"nonclaims"`
+}
+
+type PortableArtifactIdentity struct {
+	Kind   string `json:"kind"`
+	SHA256 string `json:"sha256"`
+	Bytes  int64  `json:"bytes"`
 }
 
 type ArtifactIdentity struct {
@@ -4155,6 +4177,14 @@ func collectInputIdentities(cfg Config) ([]ArtifactIdentity, error) {
 	return inputs, nil
 }
 
+func portableInputIdentities(inputs []ArtifactIdentity) []PortableArtifactIdentity {
+	portable := make([]PortableArtifactIdentity, 0, len(inputs))
+	for _, input := range inputs {
+		portable = append(portable, PortableArtifactIdentity{Kind: input.Kind, SHA256: input.SHA256, Bytes: input.Bytes})
+	}
+	return portable
+}
+
 func gitAnchor(root string) (string, error) {
 	cmd := exec.Command("git", "-C", root, "rev-parse", "HEAD")
 	cmd.Env = []string{"LANG=C", "LC_ALL=C"}
@@ -4791,19 +4821,45 @@ func runPublicDiagnostic(ctx context.Context, cfg Config, javaParity bool) (Diag
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
+	anchor, err := gitAnchor(cfg.RepositoryRoot)
+	if err != nil {
+		return DiagnosticReport{}, err
+	}
 	launchedCfg, err := materializeConfiguredLaunch(cfg, suiteRoot, inputs)
 	if err != nil {
 		return DiagnosticReport{}, err
 	}
 	status := "DIAGNOSTIC_ONLY_NO_WRITES"
+	profile := "rfc6455-strict"
+	evidenceID := "evidence.us-020-public-diagnostic"
 	if javaParity {
 		status = "JAVA_PARITY_DIAGNOSTIC_ONLY_NO_WRITES"
+		profile = "java-websocket-1.6.0"
+		evidenceID = "evidence.us-020-java-parity-diagnostic"
 	}
 	report := DiagnosticReport{
-		Status:           status,
-		ScenarioCount:    len(scenarios),
-		Findings:         []DiagnosticFinding{},
-		AcceptedFindings: []DiagnosticFinding{},
+		Schema:                   "../../schemas/differential-diagnostic-1.0.0.schema.json",
+		SchemaVersion:            "1.0.0",
+		EvidenceID:               evidenceID,
+		StoryID:                  "US-020",
+		Status:                   status,
+		BehaviorProfile:          profile,
+		Assurance:                "OWNER_ATTESTED_NOT_INDEPENDENT",
+		IndependentReviewClaimed: false,
+		Production:               false,
+		Publication:              false,
+		RepositoryAnchor:         anchor,
+		Inputs:                   portableInputIdentities(inputs),
+		ScenarioCount:            len(scenarios),
+		ExactScenarioIDs:         []string{},
+		MismatchScenarioIDs:      []string{},
+		Findings:                 []DiagnosticFinding{},
+		AcceptedFindings:         []DiagnosticFinding{},
+		Nonclaims: []string{
+			"portable summary omits raw process receipts and normalization traces",
+			"canonical strict differential manifest remains the raw replay evidence",
+			"no hidden sealed Autobahn performance production publication signing or independent review claim",
+		},
 	}
 	for _, sc := range scenarios {
 		home := filepath.Join(suiteRoot, sc.ScenarioID)
@@ -4841,8 +4897,10 @@ func runPublicDiagnostic(ctx context.Context, cfg Config, javaParity bool) (Diag
 		exact := canonicalEqual(javaPrimary.observation, rustPrimary.observation)
 		if exact {
 			report.ExactAgreements++
+			report.ExactScenarioIDs = append(report.ExactScenarioIDs, sc.ScenarioID)
 		} else {
 			report.ExactMismatches++
+			report.MismatchScenarioIDs = append(report.MismatchScenarioIDs, sc.ScenarioID)
 		}
 		if javaParity {
 			if !exact {
@@ -4938,6 +4996,54 @@ func runPublicDiagnostic(ctx context.Context, cfg Config, javaParity bool) (Diag
 		}
 	}
 	return report, nil
+}
+
+// VerifyJavaParityDiagnostic validates a retained portable parity summary
+// against the caller-supplied current runtime identities and the exact public
+// corpus at its repository anchor. The summary deliberately does not claim to
+// contain the canonical manifest's raw traces or to independently rerun them.
+func VerifyJavaParityDiagnostic(cfg Config, raw []byte) error {
+	if err := validateConfig(cfg); err != nil {
+		return err
+	}
+	if len(raw) == 0 || int64(len(raw)) > maximumDocumentBytes {
+		return errors.New("Java parity diagnostic is absent or oversized")
+	}
+	if err := compileAndValidateSchema(filepath.Join(cfg.RepositoryRoot, "schemas/differential-diagnostic-1.0.0.schema.json"), raw); err != nil {
+		return fmt.Errorf("Java parity diagnostic schema: %w", err)
+	}
+	var report DiagnosticReport
+	if err := decodeStrict(raw, &report); err != nil {
+		return err
+	}
+	if report.Schema != "../../schemas/differential-diagnostic-1.0.0.schema.json" || report.SchemaVersion != "1.0.0" || report.EvidenceID != "evidence.us-020-java-parity-diagnostic" || report.StoryID != "US-020" || report.Status != "JAVA_PARITY_DIAGNOSTIC_ONLY_NO_WRITES" || report.BehaviorProfile != "java-websocket-1.6.0" || report.Assurance != "OWNER_ATTESTED_NOT_INDEPENDENT" || report.IndependentReviewClaimed || report.Production || report.Publication {
+		return errors.New("Java parity diagnostic identity or assurance invalid")
+	}
+	scenarios, _, err := loadPublicCorpus(cfg.RepositoryRoot, cfg.PublicCorpus)
+	if err != nil {
+		return err
+	}
+	expectedIDs := make([]string, 0, len(scenarios))
+	for _, scenario := range scenarios {
+		expectedIDs = append(expectedIDs, scenario.ScenarioID)
+	}
+	if report.ScenarioCount != expectedPublicScenarios || report.ProcessReceipts != expectedProcessReceipts || report.StableScenarios != expectedPublicScenarios || report.ExactAgreements != expectedPublicScenarios || report.ExactMismatches != 0 || report.AcceptedQuirks != 0 || report.BlockingFindings != 0 || report.EvidenceWrites != 0 || report.LedgerWrites != 0 || len(report.Findings) != 0 || len(report.AcceptedFindings) != 0 || len(report.MismatchScenarioIDs) != 0 || !canonicalEqual(report.ExactScenarioIDs, expectedIDs) {
+		return errors.New("Java parity diagnostic closure counts invalid")
+	}
+	if !contains(report.Nonclaims, "portable summary omits raw process receipts and normalization traces") || !contains(report.Nonclaims, "canonical strict differential manifest remains the raw replay evidence") || !contains(report.Nonclaims, "no hidden sealed Autobahn performance production publication signing or independent review claim") {
+		return errors.New("Java parity diagnostic nonclaims incomplete")
+	}
+	inputs, err := collectInputIdentities(cfg)
+	if err != nil {
+		return err
+	}
+	if !canonicalEqual(report.Inputs, portableInputIdentities(inputs)) {
+		return errors.New("Java parity diagnostic input identity drift")
+	}
+	if err := validateExecutionAnchor(cfg.RepositoryRoot, report.RepositoryAnchor, inputs); err != nil {
+		return err
+	}
+	return nil
 }
 
 func decodeStrict(raw []byte, destination any) error {

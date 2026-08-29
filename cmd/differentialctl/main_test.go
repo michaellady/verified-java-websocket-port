@@ -118,6 +118,56 @@ func TestParityIsJavaCompatibilityNoWriteTransport(t *testing.T) {
 	}
 }
 
+func TestVerifyParityReadsPortableSummaryAndCurrentRuntimeConfig(t *testing.T) {
+	original := verifyParityDiagnostic
+	defer func() { verifyParityDiagnostic = original }()
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	summary := filepath.Join(root, "parity.json")
+	if err := os.WriteFile(summary, []byte("{\"status\":\"portable\"}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	verifyParityDiagnostic = func(cfg differential.Config, raw []byte) error {
+		called = true
+		if cfg.RepositoryRoot != root || cfg.JavaRuntimeJar != filepath.Join(root, "runtime") || string(raw) != "{\"status\":\"portable\"}\n" {
+			return errors.New("wrong parity verification input")
+		}
+		return nil
+	}
+	args := []string{"verify-parity", "--repository-root", root, "--public-corpus", filepath.Join(root, "corpus"), "--java-executable", filepath.Join(root, "java"), "--java-adapter", filepath.Join(root, "adapter"), "--java-runtime", filepath.Join(root, "runtime"), "--java-support", filepath.Join(root, "support"), "--rust-testee", filepath.Join(root, "rust"), "--migration-inventory", filepath.Join(root, "migration"), "--compatibility-surface", filepath.Join(root, "compat"), "--ledger", filepath.Join(root, "ledger"), "--oracle-hierarchy", filepath.Join(root, "hierarchy"), "--evidence", filepath.Join(root, "evidence"), "--parity-summary", summary}
+	var stdout, stderr bytes.Buffer
+	if code := run(args, &stdout, &stderr); code != 0 {
+		t.Fatalf("exit=%d stderr=%s", code, stderr.String())
+	}
+	if !called || stdout.String() != "PASS\n" {
+		t.Fatalf("called=%v stdout=%q", called, stdout.String())
+	}
+}
+
+func TestReadParitySummaryRejectsRelativeAndSymlinkPaths(t *testing.T) {
+	root, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, "parity.json")
+	if err := os.WriteFile(target, []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readParitySummary("parity.json"); err == nil {
+		t.Fatal("relative parity summary path accepted")
+	}
+	link := filepath.Join(root, "parity-link.json")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readParitySummary(link); err == nil {
+		t.Fatal("symlink parity summary path accepted")
+	}
+}
+
 func TestVerifyReadsOneBoundedEvidenceFile(t *testing.T) {
 	original := verifyDifferential
 	defer func() { verifyDifferential = original }()

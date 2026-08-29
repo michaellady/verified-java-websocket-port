@@ -129,6 +129,9 @@ differentialctl diagnose \
 differentialctl parity \
   (same flags as run; Java-WebSocket 1.6.0 profile; writes no ledger/evidence)
 
+differentialctl verify-parity \
+  (same flags as run plus --parity-summary ABS; reads only)
+
 differentialctl verify \
   --repository-root ABS --evidence ABS --ledger ABS \
   --oracle-hierarchy ABS
@@ -145,9 +148,13 @@ coverage, controls, and the ledger chain. It never silently upgrades evidence.
 quirks versus blockers. `parity` selects the explicit Java-compatible profile
 and reports exact normalized agreement plus every differing JSON leaf. Both run
 the same bounded four-process-per-scenario primary/replay matrix and write zero
-ledger or evidence files. Keeping these questions separate prevents a Java
-quirk from weakening the strict implementation while still making source-port
-fidelity measurable.
+ledger or evidence files. The parity report omits host paths and can be retained
+as a portable owner-attested summary; `verify-parity` reopens the caller-supplied
+current runtime identities, corpus, repository anchor, schema, exact 74 scenario
+IDs, and closure counts. It does not invent raw traces that the summary
+deliberately omits, so the canonical strict manifest remains the raw replay
+evidence. Keeping these questions separate prevents a Java quirk from weakening
+the strict implementation while still making source-port fidelity measurable.
 
 ## Exact Rust process seam
 
@@ -477,6 +484,8 @@ Implementation creates or updates exactly these US-020 products:
   ledger pre/post heads;
 * `schemas/differential-evidence-1.0.0.schema.json` — closed schema for that
   bundle, including bounded arrays/counts and exact enum domains;
+* `schemas/differential-diagnostic-1.0.0.schema.json` — portable closed schema
+  for strict and Java-compatible no-write summaries without host paths;
 * `evidence/oracle-hierarchy.json` and
   `schemas/oracle-hierarchy-1.0.0.schema.json` — reviewed, field-addressed
   authority cells and evidence digests;
@@ -619,7 +628,23 @@ go run ./cmd/differentialctl parity \
   --compatibility-surface /ABS/REPO/evidence/intake/compatibility-surface.json \
   --ledger /ABS/REPO/evidence/java/behavior-delta-ledger.json \
   --oracle-hierarchy /ABS/REPO/evidence/oracle-hierarchy.json \
-  --evidence /ABS/REPO/evidence/differential/manifest.json
+  --evidence /ABS/REPO/evidence/differential/manifest.json \
+  > /ABS/REPO/evidence/differential/java-parity-diagnostic.json
+
+go run ./cmd/differentialctl verify-parity \
+  --repository-root /ABS/REPO \
+  --public-corpus /ABS/REPO/corpora/public/scenarios.jsonl \
+  --java-executable /ABS/JAVA \
+  --java-adapter /ABS/JAVA-ORACLE.jar \
+  --java-runtime /ABS/Java-WebSocket-1.6.0.jar \
+  --java-support /ABS/SUPPORT.jar \
+  --rust-testee /ABS/websocket-testee \
+  --migration-inventory /ABS/REPO/evidence/intake/semantic-id-migration-map.json \
+  --compatibility-surface /ABS/REPO/evidence/intake/compatibility-surface.json \
+  --ledger /ABS/REPO/evidence/java/behavior-delta-ledger.json \
+  --oracle-hierarchy /ABS/REPO/evidence/oracle-hierarchy.json \
+  --evidence /ABS/REPO/evidence/differential/manifest.json \
+  --parity-summary /ABS/REPO/evidence/differential/java-parity-diagnostic.json
 ```
 
 The final reality check is the `run` command itself followed by the independent

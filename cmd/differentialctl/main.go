@@ -14,13 +14,16 @@ import (
 	"github.com/michaellady/verified-java-websocket-port/internal/differential"
 )
 
-const usage = "usage: differentialctl run --repository-root ABS --public-corpus ABS --java-executable ABS --java-adapter ABS --java-runtime ABS --java-support ABS[,ABS...] --rust-testee ABS --migration-inventory ABS --compatibility-surface ABS --ledger ABS --oracle-hierarchy ABS --evidence ABS\n       differentialctl diagnose (same flags as run; strict RFC profile; writes no ledger/evidence)\n       differentialctl parity (same flags as run; Java-WebSocket 1.6.0 profile; writes no ledger/evidence)\n       differentialctl verify --repository-root ABS --evidence ABS --ledger ABS --oracle-hierarchy ABS\n       differentialctl reproduce --repository-root ABS --evidence ABS --reproducer-id ID\n"
+const usage = "usage: differentialctl run --repository-root ABS --public-corpus ABS --java-executable ABS --java-adapter ABS --java-runtime ABS --java-support ABS[,ABS...] --rust-testee ABS --migration-inventory ABS --compatibility-surface ABS --ledger ABS --oracle-hierarchy ABS --evidence ABS\n       differentialctl diagnose (same flags as run; strict RFC profile; writes no ledger/evidence)\n       differentialctl parity (same flags as run; Java-WebSocket 1.6.0 profile; writes no ledger/evidence)\n       differentialctl verify-parity (same flags as run plus --parity-summary ABS; reads only)\n       differentialctl verify --repository-root ABS --evidence ABS --ledger ABS --oracle-hierarchy ABS\n       differentialctl reproduce --repository-root ABS --evidence ABS --reproducer-id ID\n"
 
 var runDifferential = differential.RunPublicDifferential
 var diagnoseDifferential = differential.RunPublicDiagnostic
 var parityDifferential = differential.RunJavaParityDiagnostic
+var verifyParityDiagnostic = differential.VerifyJavaParityDiagnostic
 var verifyDifferential = differential.VerifyPublicDifferential
 var reproduceDifferential = differential.ReproducePublicDifferential
+
+const maximumParitySummaryBytes int64 = 32 << 20
 
 func parse(args []string, allowed []string) (map[string]string, error) {
 	if len(args)%2 != 0 {
@@ -81,21 +84,29 @@ func runCommand(args []string, stdout, stderr io.Writer) int {
 
 type diagnosticRunner func(context.Context, differential.Config) (differential.DiagnosticReport, error)
 
+var diagnosticFlags = []string{"--repository-root", "--public-corpus", "--java-executable", "--java-adapter", "--java-runtime", "--java-support", "--rust-testee", "--migration-inventory", "--compatibility-surface", "--ledger", "--oracle-hierarchy", "--evidence"}
+
+func configFromValues(values map[string]string) (differential.Config, bool) {
+	support := strings.Split(values["--java-support"], ",")
+	for _, path := range support {
+		if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path {
+			return differential.Config{}, false
+		}
+	}
+	return differential.Config{RepositoryRoot: values["--repository-root"], PublicCorpus: values["--public-corpus"], JavaExecutable: values["--java-executable"], JavaAdapterJar: values["--java-adapter"], JavaRuntimeJar: values["--java-runtime"], JavaSupportJars: support, RustTestee: values["--rust-testee"], MigrationInventory: values["--migration-inventory"], CompatibilitySurface: values["--compatibility-surface"], LedgerPath: values["--ledger"], OracleHierarchyPath: values["--oracle-hierarchy"], EvidencePath: values["--evidence"], ScenarioTimeout: 5 * time.Second, SuiteTimeout: 15 * time.Minute, MinimizationBudget: differential.Budget{MaxCandidates: 128, MaxDuration: 10 * time.Minute}}, true
+}
+
 func diagnosticCommand(args []string, stdout, stderr io.Writer, runner diagnosticRunner, label string) int {
-	allowed := []string{"--repository-root", "--public-corpus", "--java-executable", "--java-adapter", "--java-runtime", "--java-support", "--rust-testee", "--migration-inventory", "--compatibility-surface", "--ledger", "--oracle-hierarchy", "--evidence"}
-	values, err := parse(args, allowed)
+	values, err := parse(args, diagnosticFlags)
 	if err != nil {
 		fmt.Fprint(stderr, usage)
 		return 64
 	}
-	support := strings.Split(values["--java-support"], ",")
-	for _, path := range support {
-		if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path {
-			fmt.Fprint(stderr, usage)
-			return 64
-		}
+	cfg, ok := configFromValues(values)
+	if !ok {
+		fmt.Fprint(stderr, usage)
+		return 64
 	}
-	cfg := differential.Config{RepositoryRoot: values["--repository-root"], PublicCorpus: values["--public-corpus"], JavaExecutable: values["--java-executable"], JavaAdapterJar: values["--java-adapter"], JavaRuntimeJar: values["--java-runtime"], JavaSupportJars: support, RustTestee: values["--rust-testee"], MigrationInventory: values["--migration-inventory"], CompatibilitySurface: values["--compatibility-surface"], LedgerPath: values["--ledger"], OracleHierarchyPath: values["--oracle-hierarchy"], EvidencePath: values["--evidence"], ScenarioTimeout: 5 * time.Second, SuiteTimeout: 15 * time.Minute, MinimizationBudget: differential.Budget{MaxCandidates: 128, MaxDuration: 10 * time.Minute}}
 	report, err := runner(context.Background(), cfg)
 	if err != nil {
 		fmt.Fprintf(stderr, "differential %s failed: %v\n", label, err)
@@ -116,6 +127,61 @@ func diagnoseCommand(args []string, stdout, stderr io.Writer) int {
 
 func parityCommand(args []string, stdout, stderr io.Writer) int {
 	return diagnosticCommand(args, stdout, stderr, parityDifferential, "parity")
+}
+
+func readParitySummary(path string) ([]byte, error) {
+	if path == "" || !filepath.IsAbs(path) || filepath.Clean(path) != path {
+		return nil, errors.New("parity summary path must be absolute and clean")
+	}
+	resolved, err := filepath.EvalSymlinks(path)
+	if err != nil || resolved != path {
+		return nil, errors.New("parity summary path may not resolve through a symlink")
+	}
+	before, err := os.Lstat(path)
+	if err != nil || !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() <= 0 || before.Size() > maximumParitySummaryBytes {
+		return nil, errors.New("parity summary must be a bounded regular file")
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !opened.Mode().IsRegular() || !os.SameFile(before, opened) {
+		return nil, errors.New("parity summary changed during open")
+	}
+	raw, err := io.ReadAll(io.LimitReader(file, maximumParitySummaryBytes+1))
+	if err != nil || len(raw) == 0 || int64(len(raw)) > maximumParitySummaryBytes {
+		return nil, errors.New("parity summary read failed")
+	}
+	return raw, nil
+}
+
+func verifyParityCommand(args []string, stdout, stderr io.Writer) int {
+	allowed := append(append([]string(nil), diagnosticFlags...), "--parity-summary")
+	values, err := parse(args, allowed)
+	if err != nil {
+		fmt.Fprint(stderr, usage)
+		return 64
+	}
+	summaryPath := values["--parity-summary"]
+	delete(values, "--parity-summary")
+	cfg, ok := configFromValues(values)
+	if !ok {
+		fmt.Fprint(stderr, usage)
+		return 64
+	}
+	raw, err := readParitySummary(summaryPath)
+	if err != nil {
+		fmt.Fprintln(stderr, "parity summary read failed")
+		return 1
+	}
+	if err := verifyParityDiagnostic(cfg, raw); err != nil {
+		fmt.Fprintf(stderr, "differential parity verify failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, "PASS")
+	return 0
 }
 
 func verifyCommand(args []string, stdout, stderr io.Writer) int {
@@ -179,6 +245,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return diagnoseCommand(args[1:], stdout, stderr)
 	case "parity":
 		return parityCommand(args[1:], stdout, stderr)
+	case "verify-parity":
+		return verifyParityCommand(args[1:], stdout, stderr)
 	case "verify":
 		return verifyCommand(args[1:], stdout, stderr)
 	case "reproduce":

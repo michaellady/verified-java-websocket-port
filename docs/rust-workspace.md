@@ -35,8 +35,11 @@ representation is authorized beyond the recorded mechanics.
   surface. A fresh no-write public diagnostic executed 74 scenarios through
   both live processes twice (296 receipts) with 74 stable exact normalized
   agreements and zero field mismatches. This is public-corpus, owner-attested
-  behavioral evidence, not hidden/independent acceptance or a blanket API,
-  performance, platform, and integration parity claim.
+  behavioral evidence. Its host-path-free summary is schema-checked and can be
+  reopened against the current runtime inputs with `differentialctl
+  verify-parity`; it remains owner-attested and omits raw traces. It is not
+  hidden/independent acceptance or a blanket API, performance, platform, and
+  integration parity claim.
 - No performance representation of any kind is made. No benchmark sample was
   collected, no tuning performed.
 - No fresh Autobahn run, Linux run, publication, production, hidden-corpus, or
