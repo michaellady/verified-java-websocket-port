@@ -85,19 +85,19 @@ func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	relative := "evidence/formal/kani-d39faf5/summary.json"
+	relative := "evidence/formal/kani-8d1cd48/summary.json"
 	value, err := verify(root, relative)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if value.Status != "PASS" || value.Execution.RepeatCount != 2 ||
-		len(value.Execution.Harnesses) != 9 || len(value.Execution.MutationCanaries) != 9 ||
+		len(value.Execution.Harnesses) != 11 || len(value.Execution.MutationCanaries) != 11 ||
 		value.Execution.MutationSurvivors != 0 || !value.Execution.SemanticallyIdentical {
 		t.Fatalf("retained evidence posture drifted: %#v", value)
 	}
 
 	value.Execution.MutationSurvivors = 1
-	summaryDirectory := filepath.Join(root, "evidence", "formal", "kani-d39faf5")
+	summaryDirectory := filepath.Join(root, "evidence", "formal", "kani-8d1cd48")
 	if err := validateReceipt(root, summaryDirectory, value); err == nil {
 		t.Fatal("inflated survivor count was accepted")
 	}

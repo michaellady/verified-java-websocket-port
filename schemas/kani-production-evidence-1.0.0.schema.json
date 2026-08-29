@@ -85,8 +85,16 @@
         "clean_checkout": {"const": true},
         "sources": {
           "type": "array",
-          "minItems": 2,
-          "maxItems": 2,
+          "oneOf": [
+            {
+              "minItems": 2,
+              "maxItems": 2
+            },
+            {
+              "minItems": 4,
+              "maxItems": 4
+            }
+          ],
           "uniqueItems": true,
           "items": {"$ref": "#/$defs/source"}
         }
@@ -165,8 +173,16 @@
         "run_id": {"enum": ["run-1", "run-2"]},
         "results": {
           "type": "array",
-          "minItems": 9,
-          "maxItems": 9,
+          "oneOf": [
+            {
+              "minItems": 9,
+              "maxItems": 9
+            },
+            {
+              "minItems": 11,
+              "maxItems": 11
+            }
+          ],
           "items": {"$ref": "#/$defs/harnessResult"}
         },
         "semantic_projection_sha256": {"$ref": "#/$defs/digest"}
@@ -215,8 +231,16 @@
         "environment": {"$ref": "#/$defs/stringSet"},
         "harnesses": {
           "type": "array",
-          "minItems": 9,
-          "maxItems": 9,
+          "oneOf": [
+            {
+              "minItems": 9,
+              "maxItems": 9
+            },
+            {
+              "minItems": 11,
+              "maxItems": 11
+            }
+          ],
           "items": {"$ref": "#/$defs/harness"}
         },
         "repeat_count": {"const": 2},
@@ -230,8 +254,16 @@
         "semantic_projection_sha256": {"$ref": "#/$defs/digest"},
         "mutation_canaries": {
           "type": "array",
-          "minItems": 9,
-          "maxItems": 9,
+          "oneOf": [
+            {
+              "minItems": 9,
+              "maxItems": 9
+            },
+            {
+              "minItems": 11,
+              "maxItems": 11
+            }
+          ],
           "items": {"$ref": "#/$defs/mutation"}
         },
         "mutation_survivors": {"const": 0},

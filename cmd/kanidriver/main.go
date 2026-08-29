@@ -342,6 +342,12 @@ func generate(ctx context.Context, request generateRequest) (receipt, error) {
 	if bytes.Contains(body, []byte("/Users/")) || bytes.Contains(body, []byte("/private/tmp/")) {
 		return receipt{}, errors.New("portable summary contains a host-local absolute path")
 	}
+	if err := validateSchema(root, body); err != nil {
+		return receipt{}, fmt.Errorf("generated summary schema validation: %w", err)
+	}
+	if err := validateReceipt(root, request.Out, value); err != nil {
+		return receipt{}, fmt.Errorf("generated receipt validation: %w", err)
+	}
 	if err := os.WriteFile(filepath.Join(request.Out, "summary.json"), body, 0o644); err != nil {
 		return receipt{}, err
 	}
@@ -653,12 +659,14 @@ func validateReceipt(root, summaryDirectory string, value receipt) error {
 	if err != nil || observedTree != value.Subject.Tree {
 		return errors.New("subject commit/tree binding is unavailable or inconsistent")
 	}
-	if len(value.Subject.Sources) != 2 {
-		return errors.New("exactly two production source bindings are required")
+	if len(value.Subject.Sources) != 4 {
+		return errors.New("exactly four production source bindings are required")
 	}
 	expectedSources := map[string]bool{
+		"rust/connection-core/src/close.rs":        false,
 		"rust/connection-core/src/frame/decode.rs": false,
 		"rust/connection-core/src/frame/mask.rs":   false,
+		"rust/connection-core/src/utf8.rs":         false,
 	}
 	sourceBodies := make(map[string][]byte, len(expectedSources))
 	sourceDigests := make(map[string]string, len(expectedSources))
