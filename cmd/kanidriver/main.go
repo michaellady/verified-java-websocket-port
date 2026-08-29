@@ -428,12 +428,34 @@ func mutationPlans() []mutationPlan {
 		{CanaryID: "canary.bad-length-noncanonical-16", HarnessID: "frame::decode::proofs::prove_length_canonical_16", SourcePath: decode, Find: "if length_code == 126 && payload_length_u64 < 126 {", Replace: "if length_code == 126 && payload_length_u64 < 125 {", Description: "admit noncanonical 16-bit length 125", Obligations: []string{"obligation.length-canonical-16"}},
 		{CanaryID: "canary.bad-length-high-bit-64", HarnessID: "frame::decode::proofs::prove_length_canonical_64_and_high_bit", SourcePath: decode, Find: "if bytes[0] & 0x80 != 0 {", Replace: "if bytes[0] & 0x80 == 0 {", Description: "invert the 64-bit payload high-bit rejection", Obligations: []string{"obligation.length-canonical-64-high-bit-zero"}},
 		{CanaryID: "canary.bad-length-noncanonical-64", HarnessID: "frame::decode::proofs::prove_length_canonical_64_and_high_bit", SourcePath: decode, Find: "if length_code == 127 && payload_length_u64 <= u64::from(u16::MAX) {", Replace: "if length_code == 127 && payload_length_u64 < u64::from(u16::MAX) {", Description: "admit noncanonical 64-bit length 65535", Obligations: []string{"obligation.length-canonical-64-high-bit-zero"}},
+		{CanaryID: "canary.bad-length-inline-7", HarnessID: "frame::decode::proofs::prove_length_canonical_7", SourcePath: decode, Find: "value => u64::from(value),", Replace: "value => u64::from(value).wrapping_add(1),", Description: "increment every inline 7-bit payload length", Obligations: []string{"obligation.length-canonical-7"}},
 		{CanaryID: "canary.bad-allocation-before-cap", HarnessID: "frame::decode::proofs::prove_preallocation_cap", SourcePath: decode, Find: "if payload_length > config.frame_bytes() {", Replace: "if payload_length >= config.frame_bytes() {", Description: "reject the exact admitted frame-cap boundary", Obligations: []string{"obligation.preallocation-cap"}},
 		{CanaryID: "canary.bad-role-masking", HarnessID: "frame::decode::proofs::prove_role_masking", SourcePath: decode, Find: "if masked != expected_masked {", Replace: "if masked == expected_masked {", Description: "invert inbound role-mask validation", Obligations: []string{"obligation.role-masking"}},
 		{CanaryID: "canary.bad-mask-key-index", HarnessID: "frame::mask::proofs::prove_mask_equation", SourcePath: mask, Find: "key[payload_offset.wrapping_add(index) % key.len()]", Replace: "key[payload_offset.wrapping_add(index).wrapping_add(1) % key.len()]", Description: "shift the RFC mask-key index by one", Obligations: []string{"obligation.mask-equation"}},
+		{CanaryID: "canary.bad-mask-non-involutive", HarnessID: "frame::mask::proofs::prove_mask_involution", SourcePath: mask, Find: "*byte ^= key[payload_offset.wrapping_add(index) % key.len()];", Replace: "*byte = (*byte).wrapping_add(key[payload_offset.wrapping_add(index) % key.len()]);", Description: "replace mask XOR with non-involutive wrapping addition", Obligations: []string{"obligation.mask-involution"}},
 		{CanaryID: "canary.bad-close-code-sender-role", HarnessID: "close::proofs::prove_close_code_classification", SourcePath: closeCode, Find: "1010 if sender == Role::Server => Some(CloseCodeRejection::WrongSenderRole),", Replace: "1010 if sender == Role::Client => Some(CloseCodeRejection::WrongSenderRole),", Description: "invert which sender role may transmit close code 1010", Obligations: []string{"surface.close.status-code"}},
 		{CanaryID: "canary.bad-utf8-surrogate", HarnessID: "utf8::proofs::prove_strict_utf8_exact_len_le_4", SourcePath: utf8, Find: "0xed => self.expect(2, 0x80, 0x9f, FirstContinuationRule::NoSurrogate),", Replace: "0xed => self.expect(2, 0x80, 0xbf, FirstContinuationRule::NoSurrogate),", Description: "admit UTF-8 encodings of surrogate code points", Obligations: []string{"surface.messages.text-utf8"}},
 	}
+}
+
+func legacyMutationPlans() []mutationPlan {
+	result := make([]mutationPlan, 0, 11)
+	for _, plan := range mutationPlans() {
+		if plan.CanaryID == "canary.bad-length-inline-7" || plan.CanaryID == "canary.bad-mask-non-involutive" {
+			continue
+		}
+		result = append(result, plan)
+	}
+	return result
+}
+
+func mutationPlansForReceipt(results []mutationResult) ([]mutationPlan, bool) {
+	for _, plans := range [][]mutationPlan{mutationPlans(), legacyMutationPlans()} {
+		if len(results) == len(plans) {
+			return plans, true
+		}
+	}
+	return nil, false
 }
 
 func executeHarness(ctx context.Context, request generateRequest, stagedRoot, outRoot, group, harnessID, logID string) (kaniResult, error) {
@@ -737,10 +759,11 @@ func validateReceipt(root, summaryDirectory string, value receipt) error {
 		return errors.New("toolchain identity is incomplete")
 	}
 	expectedPlans := harnessPlans()
+	expectedMutations, mutationsOK := mutationPlansForReceipt(value.Execution.MutationCanaries)
 	if !equalHarnessPlans(value.Execution.Harnesses, expectedPlans) || value.Execution.RepeatCount != 2 ||
 		len(value.Execution.Runs) != 2 || !value.Execution.SemanticallyIdentical ||
 		!hexDigest.MatchString(value.Execution.SemanticProjectionSHA256) || value.Execution.MutationSurvivors != 0 ||
-		len(value.Execution.MutationCanaries) != len(mutationPlans()) {
+		!mutationsOK {
 		return errors.New("execution denominator or replay posture is invalid")
 	}
 	for runIndex, run := range value.Execution.Runs {
@@ -766,7 +789,6 @@ func validateReceipt(root, summaryDirectory string, value receipt) error {
 			}
 		}
 	}
-	expectedMutations := mutationPlans()
 	for index, result := range value.Execution.MutationCanaries {
 		expected := expectedMutations[index]
 		if result.CanaryID != expected.CanaryID || result.HarnessID != expected.HarnessID || result.SourcePath != expected.SourcePath ||

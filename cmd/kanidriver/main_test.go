@@ -80,6 +80,22 @@ func TestPlansCoverCloseCodeAndUTF8ProductionSymbols(t *testing.T) {
 	}
 }
 
+func TestEveryKaniObligationHasAnExactSourceMutation(t *testing.T) {
+	covered := map[string]bool{}
+	for _, mutation := range mutationPlans() {
+		for _, obligationID := range mutation.Obligations {
+			covered[obligationID] = true
+		}
+	}
+	for _, harness := range harnessPlans() {
+		for _, obligationID := range harness.ObligationIDs {
+			if !covered[obligationID] {
+				t.Errorf("passing Kani obligation lacks an exact source mutation: %s", obligationID)
+			}
+		}
+	}
+}
+
 func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
