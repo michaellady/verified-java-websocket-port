@@ -227,6 +227,7 @@
         "finding_java_observation_sha256": {"$ref": "#/$defs/digest"},
         "finding_rust_observation_sha256": {"$ref": "#/$defs/digest"},
         "finding_run_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+        "correction_delta_id": {"type": "string", "pattern": "^delta\\.us005\\.pub\\.[0-9]{4}\\.", "maxLength": 256},
         "closing_run_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
         "closing_java_observation_sha256": {"$ref": "#/$defs/digest"},
         "closing_rust_observation_sha256": {"$ref": "#/$defs/digest"}

@@ -574,6 +574,64 @@ func TestObservedRustDefectRemainsVisibleAfterClosingRun(t *testing.T) {
 	}
 }
 
+func TestLocaleHarnessArtifactIsRetractedWithoutRewritingHistory(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(repositoryRoot(t), "evidence/java/behavior-delta-ledger.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ledger, err := migrateLedger(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	scenarios := publicScenarios(t)
+	hierarchy, err := BuildOracleHierarchy(scenarios)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scenario corpora.Scenario
+	for _, candidate := range scenarios {
+		if candidate.ScenarioID == "us005.pub.0006" {
+			scenario = candidate
+			break
+		}
+	}
+	if scenario.ScenarioID == "" {
+		t.Fatal("fixture scenario absent")
+	}
+	aligned, err := neutralObservation(scenario)
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := len(ledger.Records)
+	closingJava := digest([]byte("utf8-java"))
+	closingRust := digest([]byte("utf8-rust"))
+	anchor := strings.Repeat("9", 40)
+	if err := appendObservedHarnessCorrections(&ledger, hierarchy, scenario, aligned, aligned, closingJava, closingRust, anchor); err != nil {
+		t.Fatalf("append harness correction: %v", err)
+	}
+	if len(ledger.Records) != before+1 {
+		t.Fatalf("correction count=%d want=%d", len(ledger.Records), before+1)
+	}
+	correction := ledger.Records[len(ledger.Records)-1]
+	originalDeltaID := deltaIDFor(scenario.ScenarioID, "/events/0/text")
+	if correction.DeltaID != harnessCorrectionDeltaID(originalDeltaID) || correction.SupersedesDeltaID != originalDeltaID || correction.Classification != "harness_artifact_correction" || correction.Resolution != "retracted_harness_artifact" || correction.CorrectionReason != localeProtocolEncodingCorrection || correction.ClosingJavaObservation != closingJava || correction.ClosingRustObservation != closingRust {
+		t.Fatalf("correction=%#v", correction)
+	}
+	if err := appendObservedHarnessCorrections(&ledger, hierarchy, scenario, aligned, aligned, closingJava, closingRust, anchor); err != nil {
+		t.Fatalf("idempotent correction: %v", err)
+	}
+	if len(ledger.Records) != before+1 {
+		t.Fatalf("duplicate correction appended: %d", len(ledger.Records))
+	}
+	document, err := marshalIndented(ledger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := compileAndValidateSchema(filepath.Join(repositoryRoot(t), "schemas/behavior-delta-ledger-1.1.0.schema.json"), document); err != nil {
+		t.Fatalf("corrected ledger schema: %v", err)
+	}
+}
+
 func TestFieldLevelAdjudicationSeparatesRFCJavaQuirkFromCounterDefect(t *testing.T) {
 	scenarios := publicScenarios(t)
 	scenario := scenarios[5]

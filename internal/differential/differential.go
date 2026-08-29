@@ -316,6 +316,7 @@ type PublicReproducer struct {
 	FindingJavaObservation string                `json:"finding_java_observation_sha256"`
 	FindingRustObservation string                `json:"finding_rust_observation_sha256"`
 	FindingRunAnchor       string                `json:"finding_run_anchor"`
+	CorrectionDeltaID      string                `json:"correction_delta_id,omitempty"`
 	ClosingRunAnchor       string                `json:"closing_run_anchor,omitempty"`
 	ClosingJavaObservation string                `json:"closing_java_observation_sha256,omitempty"`
 	ClosingRustObservation string                `json:"closing_rust_observation_sha256,omitempty"`
@@ -585,6 +586,8 @@ type LedgerRecord struct {
 	Decision               OracleCell `json:"decision"`
 	Resolution             string     `json:"resolution"`
 	FindingRunAnchor       string     `json:"finding_run_anchor"`
+	SupersedesDeltaID      string     `json:"supersedes_delta_id,omitempty"`
+	CorrectionReason       string     `json:"correction_reason,omitempty"`
 	ClosingRunAnchor       string     `json:"closing_run_anchor,omitempty"`
 	ClosingJavaObservation string     `json:"closing_java_observation_sha256,omitempty"`
 	ClosingRustObservation string     `json:"closing_rust_observation_sha256,omitempty"`
@@ -2581,7 +2584,7 @@ func validateLedger(ledger Ledger) error {
 	} else if ledger.MigrationSourceHead != "" {
 		return errors.New("migration source head without legacy records")
 	}
-	seen := make(map[string]struct{}, len(ledger.Records))
+	seen := make(map[string]LedgerRecord, len(ledger.Records))
 	for index, record := range ledger.Records {
 		if record.Sequence != len(ledger.MigratedV1Records)+index+1 || record.PreviousDigest != previous || !validLedgerDigest(record.RecordDigest) || !strings.HasPrefix(record.DeltaID, "delta.") || len(record.DeltaID) > 256 || !validLedgerScenarioID(record.ScenarioID) || !strings.HasPrefix(record.Pointer, "/") || len(record.Pointer) > 512 || !validLedgerDigest(record.JavaObservation) || !validLedgerDigest(record.RustObservation) || !validLedgerDigest(record.ReproducerSHA256) || !validLedgerAnchor(record.FindingRunAnchor) {
 			return fmt.Errorf("ledger chain broken at %d", index)
@@ -2589,7 +2592,7 @@ func validateLedger(ledger Ledger) error {
 		if _, duplicate := seen[record.DeltaID]; duplicate {
 			return fmt.Errorf("duplicate ledger delta at %d", index)
 		}
-		seen[record.DeltaID] = struct{}{}
+		seen[record.DeltaID] = record
 		if record.Decision.ScenarioID != record.ScenarioID || record.Decision.Pointer != record.Pointer || record.Decision.Authority == "" || len(record.Decision.Authority) > 128 || record.Decision.Rank < 1 || record.Decision.Rank > 5 || !validLedgerDigest(record.Decision.ExpectedSHA256) || len(record.Decision.Evidence) == 0 || len(record.Decision.Evidence) > 8 {
 			return fmt.Errorf("ledger decision invalid at %d", index)
 		}
@@ -2600,12 +2603,17 @@ func validateLedger(ledger Ledger) error {
 		}
 		switch record.Classification {
 		case "java_quirk":
-			if record.Resolution != "retained_java_quirk" || record.ClosingRunAnchor != "" || record.ClosingJavaObservation != "" || record.ClosingRustObservation != "" {
+			if record.Resolution != "retained_java_quirk" || record.SupersedesDeltaID != "" || record.CorrectionReason != "" || record.ClosingRunAnchor != "" || record.ClosingJavaObservation != "" || record.ClosingRustObservation != "" {
 				return fmt.Errorf("retained Java quirk lifecycle invalid at %d", index)
 			}
 		case "rust_defect":
-			if record.Resolution != "remediated" || !validLedgerAnchor(record.ClosingRunAnchor) || !validLedgerDigest(record.ClosingJavaObservation) || !validLedgerDigest(record.ClosingRustObservation) {
+			if record.Resolution != "remediated" || record.SupersedesDeltaID != "" || record.CorrectionReason != "" || !validLedgerAnchor(record.ClosingRunAnchor) || !validLedgerDigest(record.ClosingJavaObservation) || !validLedgerDigest(record.ClosingRustObservation) {
 				return fmt.Errorf("remediated Rust defect lifecycle invalid at %d", index)
+			}
+		case "harness_artifact_correction":
+			original, present := seen[record.SupersedesDeltaID]
+			if !present || original.DeltaID == record.DeltaID || original.Classification != "java_quirk" || record.Resolution != "retracted_harness_artifact" || record.CorrectionReason != localeProtocolEncodingCorrection || !validLedgerAnchor(record.ClosingRunAnchor) || !validLedgerDigest(record.ClosingJavaObservation) || !validLedgerDigest(record.ClosingRustObservation) || record.JavaObservation != original.JavaObservation || record.RustObservation != original.RustObservation || record.ReproducerSHA256 != original.ReproducerSHA256 || !canonicalEqual(record.Decision, original.Decision) {
+				return fmt.Errorf("harness artifact correction lifecycle invalid at %d", index)
 			}
 		default:
 			return fmt.Errorf("ledger classification invalid at %d", index)
@@ -2717,6 +2725,38 @@ var retainedDefects = map[string][]retainedDefectEvidence{
 	},
 }
 
+const localeProtocolEncodingCorrection = "locale_dependent_protocol_encoding"
+
+// retainedHarnessArtifacts pins findings that were faithfully recorded by an
+// earlier run but were produced by the Java adapter's locale-dependent stdout
+// encoding rather than Java-WebSocket. The append-only ledger keeps the
+// original record; a correction record closes it after both live observations
+// agree with the field-addressed authority under explicit UTF-8 output.
+var retainedHarnessArtifacts = map[string][]retainedDefectEvidence{
+	"us005.pub.0006": {{Pointer: "/events/0/text", JavaObservation: "sha256:f75063e8ff6cd288aa5ab63991aaf0498984a74a829226e30a7588abbb51a18c", RustObservation: "sha256:2d3a797267d435e42988b82f0aff44922e0b12116a27659291d33678874c13fb", FindingAnchor: "5545db74643c9ad1730cf97ef42f4b050927bb96"}},
+	"us005.pub.0007": {{Pointer: "/events/0/text", JavaObservation: "sha256:299354a368c549bf273a5775c39ac3500a9c43d27c4ce2037b8eb48784146151", RustObservation: "sha256:6d131220279571a97caa82589a954ead768284bb4c7f230e73b32db640194c7c", FindingAnchor: "5545db74643c9ad1730cf97ef42f4b050927bb96"}},
+	"us005.pub.0014": {{Pointer: "/events/0/text", JavaObservation: "sha256:41a728ddc17e9d903b5d81c3d0e9ce12d7c5d039cbdb8a077a9d9ea7e8097932", RustObservation: "sha256:102a35ba6e2ffedd6effbe4ad37fdb618e74826a544507aeea5325fdb4f03dcd", FindingAnchor: "5545db74643c9ad1730cf97ef42f4b050927bb96"}},
+	"us005.pub.0023": {{Pointer: "/events/1/text", JavaObservation: "sha256:337fbecdabfe846962c6f6532743e6429cae076a2503e018dae1331346a9bf4c", RustObservation: "sha256:2fbc4d4bd537e4903435960abcce0214e4e08ecf5365a2da3a4030e3ba544ed4", FindingAnchor: "5545db74643c9ad1730cf97ef42f4b050927bb96"}},
+	"us005.pub.0027": {{Pointer: "/events/0/text", JavaObservation: "sha256:34a1cd7894b9017c17511486d32bc5050daf67f23900b8d20216291c1032132a", RustObservation: "sha256:1bf5b52e65e21e60dc309fffd89f1ef31f42b287e67012b929a08890c5c3b652", FindingAnchor: "5545db74643c9ad1730cf97ef42f4b050927bb96"}},
+	"us005.pub.0028": {{Pointer: "/events/0/text", JavaObservation: "sha256:c86c554b275e7d6defb98b922dd590f949317e3d02586559eacc64cbdd5aa927", RustObservation: "sha256:dbe1501978d091ce2ded9d7d437396e672083d42396d6f0691fe64e6739976dc", FindingAnchor: "5545db74643c9ad1730cf97ef42f4b050927bb96"}},
+	"us005.pub.0043": {{Pointer: "/events/0/text", JavaObservation: "sha256:02e12a16986d6b949bf5b9b820014deeee8908f7a60dfbb9aab8fc0a5ab0dedd", RustObservation: "sha256:7a396d4c501f05a2607927c72e9a5a1a10f8b607d881fc82b97060d7585de862", FindingAnchor: "5545db74643c9ad1730cf97ef42f4b050927bb96"}},
+	"us005.pub.0053": {{Pointer: "/events/0/text", JavaObservation: "sha256:cdb07f74a69c6f5e18fd12fd2b8b56b49477a5c5e0bee2bb184690b515ca8971", RustObservation: "sha256:dfd19af2413131b122c08095c9417a3316f980ef563094fb5cba45059f989af6", FindingAnchor: "5545db74643c9ad1730cf97ef42f4b050927bb96"}},
+	"us005.pub.0055": {{Pointer: "/events/0/text", JavaObservation: "sha256:46a6c8acbc4a30e7db3bf1fc22556a04d0234d30a307ff164afddcd7c0b8c350", RustObservation: "sha256:ff3d0f05c1e3b71954aee2ea1f2340d783082f47492e1a4ceec7782f8bfe6ebc", FindingAnchor: "5545db74643c9ad1730cf97ef42f4b050927bb96"}},
+}
+
+func harnessCorrectionDeltaID(original string) string {
+	return original + ".correction.locale-utf8"
+}
+
+func retainedHarnessArtifact(scenarioID, pointer string) (retainedDefectEvidence, bool) {
+	for _, artifact := range retainedHarnessArtifacts[scenarioID] {
+		if artifact.Pointer == pointer {
+			return artifact, true
+		}
+	}
+	return retainedDefectEvidence{}, false
+}
+
 func appendObservedRemediations(ledger *Ledger, hierarchy OracleHierarchy, sc corpora.Scenario, closingJavaObservation, closingRustObservation commonObservation, closingJavaDigest, closingRustDigest, closingAnchor string) error {
 	defects := retainedDefects[sc.ScenarioID]
 	if len(defects) == 0 {
@@ -2770,6 +2810,132 @@ func appendObservedRemediations(ledger *Ledger, hierarchy OracleHierarchy, sc co
 		}
 	}
 	return nil
+}
+
+func ledgerRecordByDelta(ledger Ledger, deltaID string) (LedgerRecord, bool) {
+	for _, record := range ledger.Records {
+		if record.DeltaID == deltaID {
+			return record, true
+		}
+	}
+	return LedgerRecord{}, false
+}
+
+func appendObservedHarnessCorrections(ledger *Ledger, hierarchy OracleHierarchy, sc corpora.Scenario, closingJavaObservation, closingRustObservation commonObservation, closingJavaDigest, closingRustDigest, closingAnchor string) error {
+	for _, artifact := range retainedHarnessArtifacts[sc.ScenarioID] {
+		originalDeltaID := deltaIDFor(sc.ScenarioID, artifact.Pointer)
+		original, present := ledgerRecordByDelta(*ledger, originalDeltaID)
+		if !present {
+			// A freshly generated ledger has no invalid historical finding to
+			// retract. The correction path activates only for the pinned record.
+			continue
+		}
+		if original.Classification != "java_quirk" || original.Resolution != "retained_java_quirk" || original.JavaObservation != artifact.JavaObservation || original.RustObservation != artifact.RustObservation || original.FindingRunAnchor != artifact.FindingAnchor {
+			return fmt.Errorf("historical harness artifact identity drift: %s", originalDeltaID)
+		}
+		var decision *OracleCell
+		for index := range hierarchy.Cells {
+			cell := &hierarchy.Cells[index]
+			if cell.ScenarioID == sc.ScenarioID && cell.Pointer == artifact.Pointer {
+				decision = cell
+				break
+			}
+		}
+		if decision == nil || !canonicalEqual(original.Decision, *decision) {
+			return fmt.Errorf("historical harness correction oracle cell absent or drifted: %s", artifact.Pointer)
+		}
+		javaValue, err := observationValue(closingJavaObservation, artifact.Pointer)
+		if err != nil {
+			return err
+		}
+		rustValue, err := observationValue(closingRustObservation, artifact.Pointer)
+		if err != nil {
+			return err
+		}
+		javaRaw, err := canonical(javaValue)
+		if err != nil {
+			return err
+		}
+		rustRaw, err := canonical(rustValue)
+		if err != nil {
+			return err
+		}
+		if digest(javaRaw) != decision.ExpectedSHA256 || digest(rustRaw) != decision.ExpectedSHA256 {
+			// The field still differs in this run, so the original finding remains
+			// current and receives a fresh minimization instead of a retraction.
+			continue
+		}
+		correction := LedgerRecord{
+			DeltaID: harnessCorrectionDeltaID(originalDeltaID), ScenarioID: sc.ScenarioID,
+			Pointer: artifact.Pointer, Classification: "harness_artifact_correction",
+			JavaObservation: original.JavaObservation, RustObservation: original.RustObservation,
+			ReproducerSHA256: original.ReproducerSHA256, Decision: original.Decision,
+			Resolution: "retracted_harness_artifact", FindingRunAnchor: closingAnchor,
+			SupersedesDeltaID: originalDeltaID, CorrectionReason: localeProtocolEncodingCorrection,
+			ClosingRunAnchor: closingAnchor, ClosingJavaObservation: closingJavaDigest,
+			ClosingRustObservation: closingRustDigest,
+		}
+		if err := appendLedgerRecord(ledger, ledger.Head, correction); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func historicalHarnessArtifactReproducers(cfg Config, ledger Ledger, sc corpora.Scenario, closingAnchor string, inputs []ArtifactIdentity) ([]PublicReproducer, error) {
+	artifacts := retainedHarnessArtifacts[sc.ScenarioID]
+	if len(artifacts) == 0 {
+		return []PublicReproducer{}, nil
+	}
+	if len(sc.Core.Steps) > cfg.MinimizationBudget.MaxCandidates {
+		return nil, errors.New("historical harness witness exceeds candidate budget")
+	}
+	line, err := sc.CanonicalLine()
+	if err != nil {
+		return nil, err
+	}
+	scenarioSHA := digest(line)
+	result := make([]PublicReproducer, 0, len(artifacts))
+	for _, artifact := range artifacts {
+		originalDeltaID := deltaIDFor(sc.ScenarioID, artifact.Pointer)
+		original, originalPresent := ledgerRecordByDelta(ledger, originalDeltaID)
+		correctionDeltaID := harnessCorrectionDeltaID(originalDeltaID)
+		correction, correctionPresent := ledgerRecordByDelta(ledger, correctionDeltaID)
+		if !correctionPresent {
+			continue
+		}
+		if !originalPresent || correction.SupersedesDeltaID != originalDeltaID {
+			return nil, fmt.Errorf("incomplete historical harness correction: %s", originalDeltaID)
+		}
+		signature := mismatchSignature{Pointer: artifact.Pointer, Classification: original.Classification}
+		signatureRaw, _ := canonical(signature)
+		reproducerID := "reproducer." + sc.ScenarioID + "." + strings.TrimPrefix(digest(signatureRaw), "sha256:")[:16]
+		attempts := []MinimizationAttempt{{Scenario: sc, ScenarioSHA256: scenarioSHA, Signature: signature, Reproduced: true, Processes: []ProcessReceipt{}, EvidenceStatus: "RETAINED_HISTORICAL_FINDING_OBSERVATIONS", Audits: []NormalizationTrace{}}}
+		for index := range sc.Core.Steps {
+			candidate := sc
+			candidate.Core.Steps = append([]corpora.Step(nil), sc.Core.Steps[:index]...)
+			candidate.Core.Steps = append(candidate.Core.Steps, sc.Core.Steps[index+1:]...)
+			candidateLine, err := candidate.CanonicalLine()
+			if err != nil {
+				return nil, err
+			}
+			attempts = append(attempts, MinimizationAttempt{Scenario: candidate, ScenarioSHA256: digest(candidateLine), Signature: mismatchSignature{}, Reproduced: false, Processes: []ProcessReceipt{}, EvidenceStatus: "NO_RETAINED_HISTORICAL_FINDING_OBSERVATION", Audits: []NormalizationTrace{}})
+		}
+		result = append(result, PublicReproducer{
+			ReproducerID: reproducerID, LedgerDeltaID: originalDeltaID, ScenarioID: sc.ScenarioID,
+			Mode: "HISTORICAL_CLOSED_IDENTITY_WITNESS", ProofScope: "RETAINED_HISTORICAL_OBSERVATION_IDENTITY",
+			CurrentlyReproduces: false, Signature: signature, Scenario: sc,
+			OriginalScenarioSHA256: scenarioSHA, ScenarioSHA256: scenarioSHA,
+			Command:          canonicalReproducerCommand(cfg.RepositoryRoot, cfg.EvidencePath, reproducerID),
+			RepositoryAnchor: closingAnchor, RuntimeInputs: append([]ArtifactIdentity(nil), inputs...),
+			CandidateAttempts: len(sc.Core.Steps), Irreducible: true, Processes: []ProcessReceipt{}, Attempts: attempts,
+			FindingJavaObservation: original.JavaObservation, FindingRustObservation: original.RustObservation,
+			FindingRunAnchor: original.FindingRunAnchor, CorrectionDeltaID: correctionDeltaID,
+			ClosingRunAnchor: correction.ClosingRunAnchor, ClosingJavaObservation: correction.ClosingJavaObservation,
+			ClosingRustObservation: correction.ClosingRustObservation,
+		})
+	}
+	return result, nil
 }
 
 func historicalClosedReproducers(cfg Config, hierarchy OracleHierarchy, sc corpora.Scenario, closingJavaDigest, closingRustDigest, closingAnchor string, inputs []ArtifactIdentity) ([]PublicReproducer, error) {
@@ -4408,11 +4574,19 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 		if err := appendObservedRemediations(&ledger, hierarchy, sc, javaPrimary.observation, rustPrimary.observation, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
 			return Receipt{}, err
 		}
+		if err := appendObservedHarnessCorrections(&ledger, hierarchy, sc, javaPrimary.observation, rustPrimary.observation, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor); err != nil {
+			return Receipt{}, err
+		}
 		historicalReproducers, err := historicalClosedReproducers(cfg, hierarchy, sc, javaPrimary.receipt.NormalizedSHA256, rustPrimary.receipt.NormalizedSHA256, anchor, inputs)
 		if err != nil {
 			return Receipt{}, err
 		}
 		manifest.Reproducers = append(manifest.Reproducers, historicalReproducers...)
+		harnessReproducers, err := historicalHarnessArtifactReproducers(cfg, ledger, sc, anchor, inputs)
+		if err != nil {
+			return Receipt{}, err
+		}
+		manifest.Reproducers = append(manifest.Reproducers, harnessReproducers...)
 	}
 	recordByDelta := map[string]LedgerRecord{}
 	for _, record := range ledger.Records {
@@ -4426,9 +4600,17 @@ func RunPublicDifferential(ctx context.Context, cfg Config) (Receipt, error) {
 		manifest.Reproducers[index].FindingJavaObservation = record.JavaObservation
 		manifest.Reproducers[index].FindingRustObservation = record.RustObservation
 		manifest.Reproducers[index].FindingRunAnchor = record.FindingRunAnchor
-		manifest.Reproducers[index].ClosingRunAnchor = record.ClosingRunAnchor
-		manifest.Reproducers[index].ClosingJavaObservation = record.ClosingJavaObservation
-		manifest.Reproducers[index].ClosingRustObservation = record.ClosingRustObservation
+		closingRecord := record
+		if correctionID := manifest.Reproducers[index].CorrectionDeltaID; correctionID != "" {
+			correction, ok := recordByDelta[correctionID]
+			if !ok || correction.SupersedesDeltaID != record.DeltaID {
+				return Receipt{}, fmt.Errorf("reproducer correction record absent: %s", correctionID)
+			}
+			closingRecord = correction
+		}
+		manifest.Reproducers[index].ClosingRunAnchor = closingRecord.ClosingRunAnchor
+		manifest.Reproducers[index].ClosingJavaObservation = closingRecord.ClosingJavaObservation
+		manifest.Reproducers[index].ClosingRustObservation = closingRecord.ClosingRustObservation
 	}
 	manifest.Counts = CountsReceipt{Scenarios: len(scenarios), JavaPrimary: len(scenarios), JavaReplay: len(scenarios), RustPrimary: len(scenarios), RustReplay: len(scenarios), Processes: len(manifest.Processes)}
 	manifest.Ledger = LedgerBinding{PreHead: preHead, PostHead: ledger.Head, Records: len(ledger.MigratedV1Records) + len(ledger.Records)}
@@ -5594,7 +5776,7 @@ func verifyCandidateProcesses(sc corpora.Scenario, attempt MinimizationAttempt, 
 	return nil
 }
 
-func verifyReproducer(reproducer PublicReproducer, original corpora.Scenario, record LedgerRecord, manifest Manifest, inputs []ArtifactIdentity) error {
+func verifyReproducer(reproducer PublicReproducer, original corpora.Scenario, record LedgerRecord, correction *LedgerRecord, manifest Manifest, inputs []ArtifactIdentity) error {
 	originalLine, err := original.CanonicalLine()
 	if err != nil {
 		return err
@@ -5605,7 +5787,16 @@ func verifyReproducer(reproducer PublicReproducer, original corpora.Scenario, re
 	}
 	// The repository root is directly recoverable from the fixed corpus path.
 	root := filepath.Clean(filepath.Join(filepath.Dir(manifest.Inputs[0].Path), "../.."))
-	if reproducer.LedgerDeltaID != record.DeltaID || reproducer.ScenarioID != original.ScenarioID || reproducer.Signature.Pointer != record.Pointer || reproducer.Signature.Classification != record.Classification || reproducer.OriginalScenarioSHA256 != digest(originalLine) || record.ReproducerSHA256 != reproducer.OriginalScenarioSHA256 || reproducer.ScenarioSHA256 != digest(line) || !reproducer.Irreducible || reproducer.CandidateAttempts <= 0 || !canonicalEqual(reproducer.RuntimeInputs, inputs) || validateReproducerCommand(reproducer.Command, root, filepath.Join(root, "evidence/differential/manifest.json"), reproducer.ReproducerID) != nil || reproducer.RepositoryAnchor != manifest.RepositoryAnchor || reproducer.FindingJavaObservation != record.JavaObservation || reproducer.FindingRustObservation != record.RustObservation || reproducer.FindingRunAnchor != record.FindingRunAnchor || reproducer.ClosingRunAnchor != record.ClosingRunAnchor || reproducer.ClosingJavaObservation != record.ClosingJavaObservation || reproducer.ClosingRustObservation != record.ClosingRustObservation {
+	closingRecord := record
+	correctionDeltaID := ""
+	if correction != nil {
+		closingRecord = *correction
+		correctionDeltaID = correction.DeltaID
+		if correction.SupersedesDeltaID != record.DeltaID {
+			return errors.New("reproducer correction/ledger binding invalid")
+		}
+	}
+	if reproducer.LedgerDeltaID != record.DeltaID || reproducer.CorrectionDeltaID != correctionDeltaID || reproducer.ScenarioID != original.ScenarioID || reproducer.Signature.Pointer != record.Pointer || reproducer.Signature.Classification != record.Classification || reproducer.OriginalScenarioSHA256 != digest(originalLine) || record.ReproducerSHA256 != reproducer.OriginalScenarioSHA256 || reproducer.ScenarioSHA256 != digest(line) || !reproducer.Irreducible || reproducer.CandidateAttempts <= 0 || !canonicalEqual(reproducer.RuntimeInputs, inputs) || validateReproducerCommand(reproducer.Command, root, filepath.Join(root, "evidence/differential/manifest.json"), reproducer.ReproducerID) != nil || reproducer.RepositoryAnchor != manifest.RepositoryAnchor || reproducer.FindingJavaObservation != record.JavaObservation || reproducer.FindingRustObservation != record.RustObservation || reproducer.FindingRunAnchor != record.FindingRunAnchor || reproducer.ClosingRunAnchor != closingRecord.ClosingRunAnchor || reproducer.ClosingJavaObservation != closingRecord.ClosingJavaObservation || reproducer.ClosingRustObservation != closingRecord.ClosingRustObservation {
 		return errors.New("reproducer/ledger binding invalid")
 	}
 	if reproducer.Mode == "FRESH_BOUNDED_MINIMIZATION" {
@@ -5681,14 +5872,37 @@ func verifyLedgerClosure(manifest Manifest, ledger Ledger, scenarios []corpora.S
 		resultByID[sc.ScenarioID] = manifest.Scenarios[index]
 	}
 	expected := map[string]bool{}
+	currentFindings := map[string]bool{}
 	for scenarioID, scenarioFindings := range findings {
 		for _, finding := range scenarioFindings {
-			expected[deltaIDFor(scenarioID, finding.Pointer)] = true
+			deltaID := deltaIDFor(scenarioID, finding.Pointer)
+			expected[deltaID] = true
+			currentFindings[deltaID] = true
 		}
 	}
 	for scenarioID, defects := range retainedDefects {
 		for _, defect := range defects {
 			expected[deltaIDFor(scenarioID, defect.Pointer)] = true
+		}
+	}
+	recordByDelta := map[string]LedgerRecord{}
+	for _, record := range ledger.Records {
+		recordByDelta[record.DeltaID] = record
+	}
+	correctionCount := 0
+	for scenarioID, artifacts := range retainedHarnessArtifacts {
+		for _, artifact := range artifacts {
+			originalDeltaID := deltaIDFor(scenarioID, artifact.Pointer)
+			if currentFindings[originalDeltaID] {
+				continue
+			}
+			if _, present := recordByDelta[originalDeltaID]; !present {
+				continue
+			}
+			correctionDeltaID := harnessCorrectionDeltaID(originalDeltaID)
+			expected[originalDeltaID] = true
+			expected[correctionDeltaID] = true
+			correctionCount++
 		}
 	}
 	if len(ledger.Records) != len(expected) {
@@ -5701,7 +5915,7 @@ func verifyLedgerClosure(manifest Manifest, ledger Ledger, scenarios []corpora.S
 		}
 		reproducerByDelta[reproducer.LedgerDeltaID] = reproducer
 	}
-	if len(reproducerByDelta) != len(expected) {
+	if len(reproducerByDelta) != len(expected)-correctionCount {
 		return errors.New("reproducer exact set drift")
 	}
 	for _, record := range ledger.Records {
@@ -5721,11 +5935,30 @@ func verifyLedgerClosure(manifest Manifest, ledger Ledger, scenarios []corpora.S
 		if decision == nil || !canonicalEqual(record.Decision, *decision) {
 			return fmt.Errorf("ledger decision drift %s", record.DeltaID)
 		}
-		if record.Classification == "java_quirk" {
+		if record.Classification == "harness_artifact_correction" {
+			artifact, pinned := retainedHarnessArtifact(record.ScenarioID, record.Pointer)
+			original, originalPresent := recordByDelta[record.SupersedesDeltaID]
+			if !pinned || !originalPresent || record.DeltaID != harnessCorrectionDeltaID(original.DeltaID) || artifact.JavaObservation != original.JavaObservation || artifact.RustObservation != original.RustObservation || artifact.FindingAnchor != original.FindingRunAnchor || record.ClosingJavaObservation != result.JavaPrimary || record.ClosingRustObservation != result.RustPrimary || reproducerByDelta[record.DeltaID].ReproducerID != "" {
+				return fmt.Errorf("harness correction record link drift %s", record.DeltaID)
+			}
+			continue
+		}
+		var correction *LedgerRecord
+		if artifact, pinned := retainedHarnessArtifact(record.ScenarioID, record.Pointer); pinned && !currentFindings[record.DeltaID] {
+			correctionRecord, present := recordByDelta[harnessCorrectionDeltaID(record.DeltaID)]
+			javaValue, javaErr := observationValue(result.JavaObservation, record.Pointer)
+			rustValue, rustErr := observationValue(result.RustObservation, record.Pointer)
+			javaRaw, javaCanonicalErr := canonical(javaValue)
+			rustRaw, rustCanonicalErr := canonical(rustValue)
+			if !present || record.Classification != "java_quirk" || artifact.JavaObservation != record.JavaObservation || artifact.RustObservation != record.RustObservation || artifact.FindingAnchor != record.FindingRunAnchor || javaErr != nil || rustErr != nil || javaCanonicalErr != nil || rustCanonicalErr != nil || digest(javaRaw) != record.Decision.ExpectedSHA256 || digest(rustRaw) != record.Decision.ExpectedSHA256 {
+				return fmt.Errorf("historical harness artifact link drift %s", record.DeltaID)
+			}
+			correction = &correctionRecord
+		} else if record.Classification == "java_quirk" {
 			if record.JavaObservation != result.JavaPrimary || record.RustObservation != result.RustPrimary || record.Resolution != "retained_java_quirk" {
 				return fmt.Errorf("Java quirk record link drift %s", record.DeltaID)
 			}
-		} else {
+		} else if record.Classification == "rust_defect" {
 			matched := false
 			for _, defect := range retainedDefects[record.ScenarioID] {
 				if defect.Pointer == record.Pointer && defect.JavaObservation == record.JavaObservation && defect.RustObservation == record.RustObservation && defect.FindingAnchor == record.FindingRunAnchor {
@@ -5739,8 +5972,10 @@ func verifyLedgerClosure(manifest Manifest, ledger Ledger, scenarios []corpora.S
 			if !matched || record.ClosingJavaObservation != result.JavaPrimary || record.ClosingRustObservation != result.RustPrimary || !validLedgerAnchor(record.ClosingRunAnchor) {
 				return fmt.Errorf("remediated defect record link drift %s", record.DeltaID)
 			}
+		} else {
+			return fmt.Errorf("unexpected ledger classification %s", record.Classification)
 		}
-		if err := verifyReproducer(reproducerByDelta[record.DeltaID], scenario, record, manifest, inputs); err != nil {
+		if err := verifyReproducer(reproducerByDelta[record.DeltaID], scenario, record, correction, manifest, inputs); err != nil {
 			return fmt.Errorf("%s: %w", record.DeltaID, err)
 		}
 	}

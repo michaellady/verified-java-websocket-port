@@ -398,9 +398,14 @@ Append semantics are:
 * the file and evidence bundle are staged, fsynced, validated, and atomically
   renamed only after all suite gates pass. Failure leaves the pre-run ledger
   byte-for-byte intact; and
-* a Rust defect remains historically visible after remediation. A Java quirk
-  remains visible without a Rust emulation. An underspecified record gains a
-  later decision/closure record; history is never edited.
+* a Rust defect remains historically visible after remediation. A genuine
+  Java quirk remains visible without a Rust emulation. If a later run proves a
+  recorded quirk came from the measurement harness itself, the original record
+  stays immutable and a hash-chained `harness_artifact_correction` names the
+  superseded delta, bounded reason, and closing observations. The manifest
+  retains a historical identity witness instead of deleting the bad evidence.
+  An underspecified record gains a later decision/closure record; history is
+  never edited.
 
 The final suite may contain historical closed quirks/defects but has zero
 unexplained or unresolved **current** mismatches, zero flakes, zero missing

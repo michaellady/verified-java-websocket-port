@@ -80,11 +80,13 @@
           "previous_digest": {"$ref": "#/$defs/digest"}, "record_digest": {"$ref": "#/$defs/digest"},
           "scenario_id": {"type": "string", "pattern": "^us005\\.pub\\.[0-9]{4}$"},
           "pointer": {"type": "string", "pattern": "^/", "maxLength": 512},
-          "classification": {"enum": ["java_quirk", "rust_defect", "underspecified"]},
+          "classification": {"enum": ["java_quirk", "rust_defect", "harness_artifact_correction", "underspecified"]},
           "java_observation_sha256": {"$ref": "#/$defs/digest"}, "rust_observation_sha256": {"$ref": "#/$defs/digest"}, "reproducer_sha256": {"$ref": "#/$defs/digest"},
           "decision": {"$ref": "#/$defs/cell"},
-          "resolution": {"enum": ["retained_java_quirk", "remediated", "owner_decision_pending", "closed_by_later_record"]},
+          "resolution": {"enum": ["retained_java_quirk", "remediated", "retracted_harness_artifact", "owner_decision_pending", "closed_by_later_record"]},
           "finding_run_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+          "supersedes_delta_id": {"type": "string", "pattern": "^delta\\.", "maxLength": 256},
+          "correction_reason": {"const": "locale_dependent_protocol_encoding"},
           "closing_run_anchor": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
           "closing_java_observation_sha256": {"$ref": "#/$defs/digest"},
           "closing_rust_observation_sha256": {"$ref": "#/$defs/digest"}
@@ -100,6 +102,10 @@
           {
             "if": {"properties": {"classification": {"const": "rust_defect"}}, "required": ["classification"]},
             "then": {"properties": {"resolution": {"const": "remediated"}}, "required": ["closing_run_anchor", "closing_java_observation_sha256", "closing_rust_observation_sha256"]}
+          },
+          {
+            "if": {"properties": {"classification": {"const": "harness_artifact_correction"}}, "required": ["classification"]},
+            "then": {"properties": {"resolution": {"const": "retracted_harness_artifact"}}, "required": ["supersedes_delta_id", "correction_reason", "closing_run_anchor", "closing_java_observation_sha256", "closing_rust_observation_sha256"]}
           }
         ]
       }
