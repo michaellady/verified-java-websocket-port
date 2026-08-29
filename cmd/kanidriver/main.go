@@ -407,10 +407,6 @@ func executeHarness(ctx context.Context, request generateRequest, stagedRoot, ou
 		}
 		exitCode = exitError.ExitCode()
 	}
-	observed, err := parseKaniResult(output, exitCode)
-	if err != nil {
-		return kaniResult{}, err
-	}
 	normalized := normalizeLog(output, filepath.Dir(stagedRoot))
 	directory := filepath.Join(outRoot, group)
 	if err := os.MkdirAll(directory, 0o755); err != nil {
@@ -420,8 +416,13 @@ func executeHarness(ctx context.Context, request generateRequest, stagedRoot, ou
 	if err := os.WriteFile(filepath.Join(directory, name), []byte(normalized), 0o644); err != nil {
 		return kaniResult{}, err
 	}
+	logBinding := artifact{Path: filepath.ToSlash(filepath.Join(group, name)), SHA256: digestBytes([]byte(normalized))}
+	observed, err := parseKaniResult(output, exitCode)
+	if err != nil {
+		return kaniResult{}, fmt.Errorf("%w; normalized diagnostic retained at %s", err, logBinding.Path)
+	}
 	observed.RawOutputSHA256 = digestBytes(output)
-	observed.NormalizedLog = artifact{Path: filepath.ToSlash(filepath.Join(group, name)), SHA256: digestBytes([]byte(normalized))}
+	observed.NormalizedLog = logBinding
 	return observed, nil
 }
 
@@ -491,7 +492,13 @@ func applyExactMutation(source []byte, find, replace string) ([]byte, error) {
 
 func controlledEnvironment(request generateRequest) []string {
 	pathParts := []string{filepath.Dir(request.CargoKani), filepath.Dir(request.CBMC), "/opt/homebrew/bin", os.Getenv("PATH"), "/usr/bin", "/bin"}
-	environment := []string{"LANG=C", "LC_ALL=C", "PATH=" + strings.Join(pathParts, string(os.PathListSeparator))}
+	environment := []string{
+		"LANG=C",
+		"LC_ALL=C",
+		"KANI_OUTPUT_FORMAT=terse",
+		"CARGO_KANI_JOBS=1",
+		"PATH=" + strings.Join(pathParts, string(os.PathListSeparator)),
+	}
 	for _, name := range []string{"HOME", "CARGO_HOME", "RUSTUP_HOME"} {
 		if value, ok := os.LookupEnv(name); ok {
 			environment = append(environment, name+"="+value)

@@ -185,6 +185,15 @@ func TestControlledEnvironmentDoesNotShadowRustupCargo(t *testing.T) {
 			t.Fatalf("nightly bin directory would shadow rustup-aware cargo: %s", entry)
 		}
 	}
+	for _, wanted := range []string{"KANI_OUTPUT_FORMAT=terse", "CARGO_KANI_JOBS=1"} {
+		found := false
+		for _, entry := range environment {
+			found = found || entry == wanted
+		}
+		if !found {
+			t.Errorf("declared controlled variable is not enacted: %s", wanted)
+		}
+	}
 }
 
 func TestRunRejectsUnknownAndIncompleteCommands(t *testing.T) {
