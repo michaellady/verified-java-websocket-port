@@ -138,3 +138,61 @@ impl FrameEncoder {
         Ok(wire_length)
     }
 }
+
+#[cfg(kani)]
+mod proofs {
+    use super::FrameEncoder;
+    use crate::frame::{Opcode, OutboundFrame};
+    use crate::{ConnectionConfig, ConnectionLimits, Role};
+
+    const MAX_PAYLOAD: usize = 4;
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_short_frame_octets_and_masking() {
+        let payload: [u8; MAX_PAYLOAD] = kani::any();
+        let payload_length: u8 = kani::any();
+        kani::assume(usize::from(payload_length) <= payload.len());
+        let fin: bool = kani::any();
+        let opcode = if kani::any::<bool>() {
+            Opcode::Text
+        } else {
+            Opcode::Binary
+        };
+        let role = if kani::any::<bool>() {
+            Role::Client
+        } else {
+            Role::Server
+        };
+        let key: [u8; 4] = kani::any();
+        let mask_key = (role == Role::Client).then_some(key);
+        let config = ConnectionConfig::try_from(ConnectionLimits::default())
+            .expect("default limits are valid");
+        let encoder = FrameEncoder::new(config, role);
+        let frame = OutboundFrame::new(fin, opcode, &payload[..usize::from(payload_length)]);
+
+        let encoded = encoder
+            .encode(frame, mask_key)
+            .expect("bounded frame is encodable");
+        let wire = encoded.as_slice();
+        let payload_start = if role == Role::Client { 6 } else { 2 };
+
+        assert_eq!(wire.len(), payload_start + usize::from(payload_length));
+        assert_eq!(wire[0], (if fin { 0x80 } else { 0 }) + opcode.wire());
+        assert_eq!(
+            wire[1],
+            (if role == Role::Client { 0x80 } else { 0 }) + payload_length
+        );
+        if role == Role::Client {
+            assert_eq!(&wire[2..6], &key);
+        }
+        for index in 0..usize::from(payload_length) {
+            let expected = if role == Role::Client {
+                payload[index] ^ key[index % key.len()]
+            } else {
+                payload[index]
+            };
+            assert_eq!(wire[payload_start + index], expected);
+        }
+    }
+}

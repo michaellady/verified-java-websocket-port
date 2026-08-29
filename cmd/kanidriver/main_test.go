@@ -96,6 +96,37 @@ func TestEveryKaniObligationHasAnExactSourceMutation(t *testing.T) {
 	}
 }
 
+func TestPlansCoverEncoderAndExistingSurfaceAliases(t *testing.T) {
+	harnessCoverage := map[string][]harnessPlan{}
+	for _, plan := range harnessPlans() {
+		for _, obligationID := range plan.ObligationIDs {
+			harnessCoverage[obligationID] = append(harnessCoverage[obligationID], plan)
+		}
+	}
+	encoderPlans := harnessCoverage["surface.framing.frame-octets"]
+	if len(encoderPlans) != 1 || encoderPlans[0].TargetSymbol != "websocket_core::frame::encode::FrameEncoder::encode" ||
+		encoderPlans[0].SourcePath != "rust/connection-core/src/frame/encode.rs" {
+		t.Fatalf("frame-octet production plan = %#v", encoderPlans)
+	}
+	for _, obligationID := range []string{"surface.framing.masking", "surface.limits.allocation"} {
+		if len(harnessCoverage[obligationID]) == 0 {
+			t.Errorf("missing Rust proof mapping for existing surface obligation %s", obligationID)
+		}
+	}
+
+	mutationCoverage := map[string]bool{}
+	for _, mutation := range mutationPlans() {
+		for _, obligationID := range mutation.Obligations {
+			mutationCoverage[obligationID] = true
+		}
+	}
+	for _, obligationID := range []string{"surface.framing.frame-octets", "surface.framing.masking", "surface.limits.allocation"} {
+		if !mutationCoverage[obligationID] {
+			t.Errorf("missing exact source mutation for surface obligation %s", obligationID)
+		}
+	}
+}
+
 func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {

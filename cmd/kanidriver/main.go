@@ -399,6 +399,7 @@ func generate(ctx context.Context, request generateRequest) (receipt, error) {
 func harnessPlans() []harnessPlan {
 	const decode = "websocket_core::frame::decode::FrameHeaderDecoder::decode_header"
 	const mask = "websocket_core::frame::mask::apply_mask_in_place"
+	const encode = "websocket_core::frame::encode::FrameEncoder::encode"
 	const closeCode = "websocket_core::close::validate_code"
 	const utf8 = "websocket_core::utf8::Utf8Validator::feed+finish"
 	return []harnessPlan{
@@ -407,13 +408,35 @@ func harnessPlans() []harnessPlan {
 		{HarnessID: "frame::decode::proofs::prove_length_canonical_16", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.length-canonical-16"}, Unwind: 12, SymbolicDomain: []string{"all u16 encoded lengths"}},
 		{HarnessID: "frame::decode::proofs::prove_length_canonical_64_and_high_bit", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.length-canonical-64-high-bit-zero"}, Unwind: 12, SymbolicDomain: []string{"all u64 encoded lengths"}},
 		{HarnessID: "frame::decode::proofs::prove_length_canonical_7", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.length-canonical-7"}, Unwind: 12, SymbolicDomain: []string{"all payload lengths 0..125"}},
-		{HarnessID: "frame::decode::proofs::prove_preallocation_cap", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.preallocation-cap"}, Unwind: 12, SymbolicDomain: []string{"all u16 payload lengths", "all u16 retained-byte counts", "frame cap 256", "total cap 512"}},
+		{HarnessID: "frame::decode::proofs::prove_preallocation_cap", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.preallocation-cap", "surface.limits.allocation"}, Unwind: 12, SymbolicDomain: []string{"all u16 payload lengths", "all u16 retained-byte counts", "frame cap 256", "total cap 512"}},
 		{HarnessID: "frame::decode::proofs::prove_role_masking", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.role-masking"}, Unwind: 12, SymbolicDomain: []string{"both endpoint roles", "both wire mask states"}},
 		{HarnessID: "frame::mask::proofs::prove_mask_equation", TargetSymbol: mask, SourcePath: "rust/connection-core/src/frame/mask.rs", ObligationIDs: []string{"obligation.mask-equation"}, Unwind: 5, SymbolicDomain: []string{"all four-byte payloads", "all four-byte keys", "all usize offsets"}},
 		{HarnessID: "frame::mask::proofs::prove_mask_involution", TargetSymbol: mask, SourcePath: "rust/connection-core/src/frame/mask.rs", ObligationIDs: []string{"obligation.mask-involution"}, Unwind: 9, SymbolicDomain: []string{"all four-byte payloads", "all four-byte keys", "all usize offsets"}},
+		{HarnessID: "frame::encode::proofs::prove_short_frame_octets_and_masking", TargetSymbol: encode, SourcePath: "rust/connection-core/src/frame/encode.rs", ObligationIDs: []string{"surface.framing.frame-octets", "surface.framing.masking"}, Unwind: 12, SymbolicDomain: []string{"all payloads of exact lengths 0..4", "text and binary opcodes", "both FIN states", "both endpoint roles", "all four-byte client mask keys"}},
 		{HarnessID: "close::proofs::prove_close_code_classification", TargetSymbol: closeCode, SourcePath: "rust/connection-core/src/close.rs", ObligationIDs: []string{"surface.close.status-code"}, Unwind: 2, SymbolicDomain: []string{"all u16 close codes", "both sender roles"}},
 		{HarnessID: "utf8::proofs::prove_strict_utf8_exact_len_le_4", TargetSymbol: utf8, SourcePath: "rust/connection-core/src/utf8.rs", ObligationIDs: []string{"surface.messages.text-utf8"}, Unwind: 6, SymbolicDomain: []string{"all byte sequences of exact lengths 0..4"}},
 	}
+}
+
+func priorHarnessPlans() []harnessPlan {
+	result := make([]harnessPlan, 0, 11)
+	for _, plan := range harnessPlans() {
+		if plan.HarnessID == "frame::encode::proofs::prove_short_frame_octets_and_masking" {
+			continue
+		}
+		plan.ObligationIDs = withoutObligations(plan.ObligationIDs, "surface.limits.allocation")
+		result = append(result, plan)
+	}
+	return result
+}
+
+func harnessPlansForReceipt(actual []harnessPlan) ([]harnessPlan, bool) {
+	for _, plans := range [][]harnessPlan{harnessPlans(), priorHarnessPlans()} {
+		if equalHarnessPlans(actual, plans) {
+			return plans, true
+		}
+	}
+	return nil, false
 }
 
 func mutationPlans() []mutationPlan {
@@ -429,18 +452,31 @@ func mutationPlans() []mutationPlan {
 		{CanaryID: "canary.bad-length-high-bit-64", HarnessID: "frame::decode::proofs::prove_length_canonical_64_and_high_bit", SourcePath: decode, Find: "if bytes[0] & 0x80 != 0 {", Replace: "if bytes[0] & 0x80 == 0 {", Description: "invert the 64-bit payload high-bit rejection", Obligations: []string{"obligation.length-canonical-64-high-bit-zero"}},
 		{CanaryID: "canary.bad-length-noncanonical-64", HarnessID: "frame::decode::proofs::prove_length_canonical_64_and_high_bit", SourcePath: decode, Find: "if length_code == 127 && payload_length_u64 <= u64::from(u16::MAX) {", Replace: "if length_code == 127 && payload_length_u64 < u64::from(u16::MAX) {", Description: "admit noncanonical 64-bit length 65535", Obligations: []string{"obligation.length-canonical-64-high-bit-zero"}},
 		{CanaryID: "canary.bad-length-inline-7", HarnessID: "frame::decode::proofs::prove_length_canonical_7", SourcePath: decode, Find: "value => u64::from(value),", Replace: "value => u64::from(value).wrapping_add(1),", Description: "increment every inline 7-bit payload length", Obligations: []string{"obligation.length-canonical-7"}},
-		{CanaryID: "canary.bad-allocation-before-cap", HarnessID: "frame::decode::proofs::prove_preallocation_cap", SourcePath: decode, Find: "if payload_length > config.frame_bytes() {", Replace: "if payload_length >= config.frame_bytes() {", Description: "reject the exact admitted frame-cap boundary", Obligations: []string{"obligation.preallocation-cap"}},
-		{CanaryID: "canary.bad-role-masking", HarnessID: "frame::decode::proofs::prove_role_masking", SourcePath: decode, Find: "if masked != expected_masked {", Replace: "if masked == expected_masked {", Description: "invert inbound role-mask validation", Obligations: []string{"obligation.role-masking"}},
-		{CanaryID: "canary.bad-mask-key-index", HarnessID: "frame::mask::proofs::prove_mask_equation", SourcePath: mask, Find: "key[payload_offset.wrapping_add(index) % key.len()]", Replace: "key[payload_offset.wrapping_add(index).wrapping_add(1) % key.len()]", Description: "shift the RFC mask-key index by one", Obligations: []string{"obligation.mask-equation"}},
+		{CanaryID: "canary.bad-allocation-before-cap", HarnessID: "frame::decode::proofs::prove_preallocation_cap", SourcePath: decode, Find: "if payload_length > config.frame_bytes() {", Replace: "if payload_length >= config.frame_bytes() {", Description: "reject the exact admitted frame-cap boundary", Obligations: []string{"obligation.preallocation-cap", "surface.limits.allocation"}},
+		{CanaryID: "canary.bad-role-masking", HarnessID: "frame::decode::proofs::prove_role_masking", SourcePath: decode, Find: "if masked != expected_masked {", Replace: "if masked == expected_masked {", Description: "invert inbound role-mask validation", Obligations: []string{"obligation.role-masking", "surface.framing.masking"}},
+		{CanaryID: "canary.bad-mask-key-index", HarnessID: "frame::mask::proofs::prove_mask_equation", SourcePath: mask, Find: "key[payload_offset.wrapping_add(index) % key.len()]", Replace: "key[payload_offset.wrapping_add(index).wrapping_add(1) % key.len()]", Description: "shift the RFC mask-key index by one", Obligations: []string{"obligation.mask-equation", "surface.framing.masking"}},
 		{CanaryID: "canary.bad-mask-non-involutive", HarnessID: "frame::mask::proofs::prove_mask_involution", SourcePath: mask, Find: "*byte ^= key[payload_offset.wrapping_add(index) % key.len()];", Replace: "*byte = (*byte).wrapping_add(key[payload_offset.wrapping_add(index) % key.len()]);", Description: "replace mask XOR with non-involutive wrapping addition", Obligations: []string{"obligation.mask-involution"}},
+		{CanaryID: "canary.bad-frame-fin-bit", HarnessID: "frame::encode::proofs::prove_short_frame_octets_and_masking", SourcePath: "rust/connection-core/src/frame/encode.rs", Find: "bytes.push((if frame.fin() { 0x80 } else { 0 }) + opcode.wire());", Replace: "bytes.push((if frame.fin() { 0x40 } else { 0 }) + opcode.wire());", Description: "encode FIN in the reserved-bit position", Obligations: []string{"surface.framing.frame-octets"}},
 		{CanaryID: "canary.bad-close-code-sender-role", HarnessID: "close::proofs::prove_close_code_classification", SourcePath: closeCode, Find: "1010 if sender == Role::Server => Some(CloseCodeRejection::WrongSenderRole),", Replace: "1010 if sender == Role::Client => Some(CloseCodeRejection::WrongSenderRole),", Description: "invert which sender role may transmit close code 1010", Obligations: []string{"surface.close.status-code"}},
 		{CanaryID: "canary.bad-utf8-surrogate", HarnessID: "utf8::proofs::prove_strict_utf8_exact_len_le_4", SourcePath: utf8, Find: "0xed => self.expect(2, 0x80, 0x9f, FirstContinuationRule::NoSurrogate),", Replace: "0xed => self.expect(2, 0x80, 0xbf, FirstContinuationRule::NoSurrogate),", Description: "admit UTF-8 encodings of surrogate code points", Obligations: []string{"surface.messages.text-utf8"}},
 	}
 }
 
+func priorMutationPlans() []mutationPlan {
+	result := make([]mutationPlan, 0, 13)
+	for _, plan := range mutationPlans() {
+		if plan.CanaryID == "canary.bad-frame-fin-bit" {
+			continue
+		}
+		plan.Obligations = withoutObligations(plan.Obligations, "surface.framing.masking", "surface.limits.allocation")
+		result = append(result, plan)
+	}
+	return result
+}
+
 func legacyMutationPlans() []mutationPlan {
 	result := make([]mutationPlan, 0, 11)
-	for _, plan := range mutationPlans() {
+	for _, plan := range priorMutationPlans() {
 		if plan.CanaryID == "canary.bad-length-inline-7" || plan.CanaryID == "canary.bad-mask-non-involutive" {
 			continue
 		}
@@ -449,8 +485,22 @@ func legacyMutationPlans() []mutationPlan {
 	return result
 }
 
+func withoutObligations(actual []string, removed ...string) []string {
+	reject := make(map[string]bool, len(removed))
+	for _, obligationID := range removed {
+		reject[obligationID] = true
+	}
+	result := make([]string, 0, len(actual))
+	for _, obligationID := range actual {
+		if !reject[obligationID] {
+			result = append(result, obligationID)
+		}
+	}
+	return result
+}
+
 func mutationPlansForReceipt(results []mutationResult) ([]mutationPlan, bool) {
-	for _, plans := range [][]mutationPlan{mutationPlans(), legacyMutationPlans()} {
+	for _, plans := range [][]mutationPlan{mutationPlans(), priorMutationPlans(), legacyMutationPlans()} {
 		if len(results) == len(plans) {
 			return plans, true
 		}
@@ -723,14 +773,16 @@ func validateReceipt(root, summaryDirectory string, value receipt) error {
 	if err != nil || observedTree != value.Subject.Tree {
 		return errors.New("subject commit/tree binding is unavailable or inconsistent")
 	}
-	if len(value.Subject.Sources) != 4 {
-		return errors.New("exactly four production source bindings are required")
+	expectedPlans, plansOK := harnessPlansForReceipt(value.Execution.Harnesses)
+	if !plansOK {
+		return errors.New("execution harness denominator or plan is invalid")
 	}
-	expectedSources := map[string]bool{
-		"rust/connection-core/src/close.rs":        false,
-		"rust/connection-core/src/frame/decode.rs": false,
-		"rust/connection-core/src/frame/mask.rs":   false,
-		"rust/connection-core/src/utf8.rs":         false,
+	expectedSources := make(map[string]bool)
+	for _, plan := range expectedPlans {
+		expectedSources[plan.SourcePath] = false
+	}
+	if len(value.Subject.Sources) != len(expectedSources) {
+		return fmt.Errorf("exactly %d production source bindings are required", len(expectedSources))
 	}
 	sourceBodies := make(map[string][]byte, len(expectedSources))
 	sourceDigests := make(map[string]string, len(expectedSources))
@@ -758,9 +810,8 @@ func validateReceipt(root, summaryDirectory string, value receipt) error {
 		!strings.Contains(value.Toolchain.CBMCVersion, "6.11.0") || value.Toolchain.RustcVersion == "" {
 		return errors.New("toolchain identity is incomplete")
 	}
-	expectedPlans := harnessPlans()
 	expectedMutations, mutationsOK := mutationPlansForReceipt(value.Execution.MutationCanaries)
-	if !equalHarnessPlans(value.Execution.Harnesses, expectedPlans) || value.Execution.RepeatCount != 2 ||
+	if value.Execution.RepeatCount != 2 ||
 		len(value.Execution.Runs) != 2 || !value.Execution.SemanticallyIdentical ||
 		!hexDigest.MatchString(value.Execution.SemanticProjectionSHA256) || value.Execution.MutationSurvivors != 0 ||
 		!mutationsOK {
