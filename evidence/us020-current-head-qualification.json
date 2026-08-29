@@ -5,9 +5,9 @@
   "story_id": "US-020",
   "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
-  "head_at_execution": "a103b8b1435fe0ca9309410c63e90e59858c92d6",
-  "source_tree": "33a54f32d8a20b9bf99aa7a557238d14aa8aa4fc",
-  "validation_time": "2026-08-28T23:34:30Z",
+  "head_at_execution": "501712916d527a28200725129379c3804db1fb8f",
+  "source_tree": "8046eef16f56f7fc05d8f72db014799ee0ca870f",
+  "validation_time": "2026-08-29T00:18:22Z",
   "toolchain": {
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "host": "aarch64-apple-darwin"
@@ -90,13 +90,13 @@
     },
     {
       "path": "rust/connection-core/src/close.rs",
-      "sha256": "sha256:79d83310949bd33eeff9a21b050ce2e920dac7ac64217472a593b5231cd47919",
-      "git_blob": "84a31cc5027fcd9ef18e2b37cb3d87605152ba89"
+      "sha256": "sha256:89595fb426ec5b1f9296ed1c87da75ee77c6c773ff2e982e9e571000582b3e72",
+      "git_blob": "9115baec49c2fbbc65ec62b3bf24d3eee9113821"
     },
     {
       "path": "rust/connection-core/src/connection.rs",
-      "sha256": "sha256:59fcdb4cad6aa0fc501f26f73c737ac41e7a2f23c4011a69b64895801b0d7e52",
-      "git_blob": "dce84afabbf321bd71a8e8e902a5b25e29cdae0f"
+      "sha256": "sha256:3596b741e206d454b0d8f702a88c0c7fd1c3bc85d98358f86afc2f587d5d7c22",
+      "git_blob": "d68a8887095e3f5baf7843b6613f862374452b7a"
     },
     {
       "path": "rust/connection-core/src/control.rs",
@@ -180,8 +180,8 @@
     },
     {
       "path": "rust/connection-core/tests/close_eof.rs",
-      "sha256": "sha256:752e7bca7bc848f0e51844807c22aa22984f296b6e195fae7ed05ec3657eab78",
-      "git_blob": "ce174326d65e63240f26da676e1d470fe2e01f45"
+      "sha256": "sha256:9f66e21b14e2352f5c7d78710975d0189419a28b4f56d49b356db2a65b8be1b0",
+      "git_blob": "f65811389ad9b1541c6e783478739c059ae46164"
     },
     {
       "path": "rust/connection-core/tests/connection_contract.rs",
@@ -300,13 +300,13 @@
     },
     {
       "path": "rust/websocket-testee/src/main.rs",
-      "sha256": "sha256:787901936b364a10c08d7509f986c7254ef897e15f1f7da2de3eab3eaa3207f9",
-      "git_blob": "090963b5204c23e9d8967d55f0682bdab3883412"
+      "sha256": "sha256:3388b0b6bbbf5fd3d4034862dc34b4ff63cca7196b97af3c165d8d394502d022",
+      "git_blob": "679a6df470ed0d079827322007eac0d08563c80e"
     },
     {
       "path": "rust/websocket-testee/src/neutral.rs",
-      "sha256": "sha256:f55040b3e032afd6d8710df31e5a7a88119b7d2d466ba9f793944eabac66c7e7",
-      "git_blob": "473071a5a178fcf4121aa9022b8fd31b071ffc2e"
+      "sha256": "sha256:72c228f29ef83e463c967683e1318d242ed2ae72e9dc7106587a5492c2b5c9c9",
+      "git_blob": "a2c5f642fa787dfe3898e20a02c9c9cd9759b287"
     },
     {
       "path": "rust/websocket-testee/src/server.rs",
@@ -320,8 +320,8 @@
     },
     {
       "path": "rust/websocket-testee/tests/process.rs",
-      "sha256": "sha256:6cd4447cb9b5c87619116b7ee10219ee6e17b3f45c05e1015173d9d6648cfa7f",
-      "git_blob": "e68ac5455e6cceafbf4b3b9939d371a29a89fa9c"
+      "sha256": "sha256:97665946c04c9ed7d8ac1745df196177a0943b10b4a05e5b3b30a90fc3cbb571",
+      "git_blob": "4e217bbca211997a197e9cd3eaed5c7abe4ceb09"
     }
   ],
   "commands": [
