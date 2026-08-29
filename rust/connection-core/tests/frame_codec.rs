@@ -473,6 +473,16 @@ fn mask_equation_involution_offsets_chunks_and_rfc_literal_hold() {
         }
     }
 
+    let original = [0x10, 0x20, 0x30, 0x40];
+    let mut masked = original;
+    apply_mask_in_place(&mut masked, RFC_KEY, usize::MAX);
+    for (index, (&actual, &before)) in masked.iter().zip(&original).enumerate() {
+        assert_eq!(
+            actual,
+            before ^ RFC_KEY[usize::MAX.wrapping_add(index) % RFC_KEY.len()]
+        );
+    }
+
     let original = b"Hello";
     let mut chunked = original.to_vec();
     apply_mask_in_place(&mut chunked[..1], RFC_KEY, 0);

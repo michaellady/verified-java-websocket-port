@@ -229,6 +229,246 @@ impl FrameHeaderDecoder {
     }
 }
 
+#[cfg(kani)]
+mod proofs {
+    use super::{FrameHeaderDecode, FrameHeaderDecoder};
+    use crate::{ConnectionConfig, ConnectionLimits, FailureKind, FrameFailure, LimitKind, Role};
+
+    fn default_config() -> ConnectionConfig {
+        ConnectionConfig::try_from(ConnectionLimits::default())
+            .expect("the default limits are valid")
+    }
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_header_safety() {
+        let prefix: [u8; 14] = kani::any();
+        let prefix_length: u8 = kani::any();
+        kani::assume(usize::from(prefix_length) <= prefix.len());
+        let role = if kani::any::<bool>() {
+            Role::Client
+        } else {
+            Role::Server
+        };
+        let retained_payload_bytes: usize = kani::any();
+        let config = default_config();
+
+        let _ = FrameHeaderDecoder::decode_header(
+            &config,
+            role,
+            retained_payload_bytes,
+            &prefix[..usize::from(prefix_length)],
+        );
+    }
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_control_fin_and_length() {
+        let config = default_config();
+        let wire_opcode: u8 = kani::any();
+        kani::assume(matches!(wire_opcode, 0x08..=0x0a));
+        let fin: bool = kani::any();
+        let length_code: u8 = kani::any();
+        kani::assume(length_code <= 127);
+        let prefix = [u8::from(fin) << 7 | wire_opcode, length_code, 0, 0];
+
+        let result = FrameHeaderDecoder::decode_header(&config, Role::Client, 0, &prefix);
+
+        if !fin {
+            assert!(matches!(
+                result,
+                Err(FailureKind::Frame(FrameFailure::FragmentedControl { .. }))
+            ));
+        } else if length_code > 125 {
+            assert!(matches!(
+                result,
+                Err(FailureKind::Frame(FrameFailure::ControlPayloadTooLarge {
+                    length
+                })) if length == u64::from(length_code)
+            ));
+        } else {
+            assert!(matches!(
+                result,
+                Ok(FrameHeaderDecode::Complete(header))
+                    if header.fin()
+                        && header.opcode().is_control()
+                        && header.payload_length() == usize::from(length_code)
+            ));
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_length_canonical_16() {
+        let config = default_config();
+        let length: u16 = kani::any();
+        let [high, low] = length.to_be_bytes();
+        let prefix = [0x82, 126, high, low];
+
+        let result = FrameHeaderDecoder::decode_header(&config, Role::Client, 0, &prefix);
+
+        if length < 126 {
+            assert!(matches!(
+                result,
+                Err(FailureKind::Frame(
+                    FrameFailure::NonCanonicalLength16 { length: observed }
+                )) if observed == u64::from(length)
+            ));
+        } else {
+            assert!(matches!(
+                result,
+                Ok(FrameHeaderDecode::Complete(header))
+                    if header.payload_length() == usize::from(length)
+                        && header.header_length() == 4
+            ));
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_length_canonical_64_and_high_bit() {
+        let config = default_config();
+        let encoded: u64 = kani::any();
+        let mut prefix = [0_u8; 10];
+        prefix[0] = 0x82;
+        prefix[1] = 127;
+        prefix[2..].copy_from_slice(&encoded.to_be_bytes());
+
+        let result = FrameHeaderDecoder::decode_header(&config, Role::Client, 0, &prefix);
+
+        if encoded & (1_u64 << 63) != 0 {
+            assert!(matches!(
+                result,
+                Err(FailureKind::Frame(FrameFailure::PayloadLengthHighBitSet))
+            ));
+        } else if encoded <= u64::from(u16::MAX) {
+            assert!(matches!(
+                result,
+                Err(FailureKind::Frame(
+                    FrameFailure::NonCanonicalLength64 { length }
+                )) if length == encoded
+            ));
+        } else if encoded <= config.limits().frame_bytes {
+            assert!(matches!(
+                result,
+                Ok(FrameHeaderDecode::Complete(header))
+                    if u64::try_from(header.payload_length()) == Ok(encoded)
+                        && header.header_length() == 10
+            ));
+        } else {
+            assert!(matches!(
+                result,
+                Err(FailureKind::LimitExceeded {
+                    limit: LimitKind::FrameBytes,
+                    attempted,
+                    maximum,
+                }) if attempted == encoded && maximum == config.limits().frame_bytes
+            ));
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_length_canonical_7() {
+        let config = default_config();
+        let length: u8 = kani::any();
+        kani::assume(length < 126);
+        let prefix = [0x82, length];
+
+        let result = FrameHeaderDecoder::decode_header(&config, Role::Client, 0, &prefix);
+
+        assert!(matches!(
+            result,
+            Ok(FrameHeaderDecode::Complete(header))
+                if header.payload_length() == usize::from(length)
+                    && header.header_length() == 2
+                    && !header.masked()
+        ));
+    }
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_preallocation_cap() {
+        let mut limits = ConnectionLimits::default();
+        limits.frame_bytes = 256;
+        limits.message_bytes = 512;
+        limits.total_buffered_bytes = 512;
+        let config = ConnectionConfig::try_from(limits).expect("the bounded limits are valid");
+        let payload_length: u16 = kani::any();
+        let retained_payload_bytes = usize::from(kani::any::<u16>());
+        let [high, low] = payload_length.to_be_bytes();
+        let prefix = if payload_length <= 125 {
+            [0x82, payload_length as u8, 0, 0]
+        } else {
+            [0x82, 126, high, low]
+        };
+
+        let result = FrameHeaderDecoder::decode_header(
+            &config,
+            Role::Client,
+            retained_payload_bytes,
+            &prefix,
+        );
+
+        if payload_length > 256 {
+            assert!(matches!(
+                result,
+                Err(FailureKind::LimitExceeded {
+                    limit: LimitKind::FrameBytes,
+                    attempted,
+                    maximum: 256,
+                }) if attempted == u64::from(payload_length)
+            ));
+        } else if retained_payload_bytes + usize::from(payload_length) > 512 {
+            assert!(matches!(
+                result,
+                Err(FailureKind::LimitExceeded {
+                    limit: LimitKind::TotalBufferedBytes,
+                    attempted,
+                    maximum: 512,
+                }) if attempted == u64::try_from(
+                    retained_payload_bytes + usize::from(payload_length)
+                ).unwrap()
+            ));
+        } else {
+            assert!(matches!(result, Ok(FrameHeaderDecode::Complete(_))));
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_role_masking() {
+        let config = default_config();
+        let role = if kani::any::<bool>() {
+            Role::Client
+        } else {
+            Role::Server
+        };
+        let actual_masked: bool = kani::any();
+        let expected_masked = role == Role::Server;
+        let prefix = [0x82, u8::from(actual_masked) << 7, 1, 2, 3, 4];
+
+        let result = FrameHeaderDecoder::decode_header(&config, role, 0, &prefix);
+
+        if actual_masked == expected_masked {
+            assert!(matches!(
+                result,
+                Ok(FrameHeaderDecode::Complete(header))
+                    if header.masked() == actual_masked
+                        && header.header_length() == if actual_masked { 6 } else { 2 }
+            ));
+        } else {
+            assert!(matches!(
+                result,
+                Err(FailureKind::Frame(FrameFailure::IncorrectMasking {
+                    expected_masked: observed_expected,
+                    actual_masked: observed_actual,
+                })) if observed_expected == expected_masked && observed_actual == actual_masked
+            ));
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct FrameDecoder {
     header: [u8; MAX_HEADER_BYTES],
