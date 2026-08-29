@@ -15,15 +15,15 @@ func TestBuildCoverageProjectionUsesExactCatalogDenominator(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := buildCoverageProjection(root, "evidence/formal/kani-2531f12/summary.json")
+	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if projection.Status != "BLOCKED" || projection.ClaimScope != "SUPPLEMENTAL_RUST_FORMAL_COVERAGE_ONLY" {
 		t.Fatalf("projection posture = %#v", projection)
 	}
-	if projection.Counts.Required != 24 || projection.Counts.RustSatisfied != 17 ||
-		projection.Counts.MutationSatisfied != 17 || projection.Counts.JavaSatisfied != 0 ||
+	if projection.Counts.Required != 24 || projection.Counts.RustSatisfied != 18 ||
+		projection.Counts.MutationSatisfied != 18 || projection.Counts.JavaSatisfied != 0 ||
 		projection.Counts.RefinementSatisfied != 0 || projection.Counts.AggregateSatisfied != 0 ||
 		projection.Counts.AggregateBlocked != 24 {
 		t.Fatalf("coverage counts = %#v", projection.Counts)
@@ -58,6 +58,7 @@ func TestBuildCoverageProjectionUsesExactCatalogDenominator(t *testing.T) {
 		"obligation.preallocation-cap",
 		"obligation.role-masking",
 		"surface.close.status-code",
+		"surface.close.terminal-state",
 		"surface.control.ping-pong",
 		"surface.framing.frame-octets",
 		"surface.framing.masking",
@@ -84,6 +85,7 @@ func TestBuildCoverageProjectionUsesExactCatalogDenominator(t *testing.T) {
 		"obligation.preallocation-cap",
 		"obligation.role-masking",
 		"surface.close.status-code",
+		"surface.close.terminal-state",
 		"surface.control.ping-pong",
 		"surface.framing.frame-octets",
 		"surface.framing.masking",
@@ -96,7 +98,7 @@ func TestBuildCoverageProjectionUsesExactCatalogDenominator(t *testing.T) {
 			t.Errorf("missing verified mutation coverage for %s", obligationID)
 		}
 	}
-	if projection.Limitations[2] != "7 obligations have no retained shipped-symbol Kani harness; 7 have no obligation-specific killed exact source mutation." {
+	if projection.Limitations[2] != "6 obligations have no retained shipped-symbol Kani harness; 6 have no obligation-specific killed exact source mutation." {
 		t.Fatalf("coverage limitation does not reconcile current counts: %q", projection.Limitations[2])
 	}
 }
@@ -106,7 +108,7 @@ func TestValidateCoverageProjectionRejectsCountAndClaimInflation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := buildCoverageProjection(root, "evidence/formal/kani-2531f12/summary.json")
+	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +117,7 @@ func TestValidateCoverageProjectionRejectsCountAndClaimInflation(t *testing.T) {
 		t.Fatal("inflated Rust coverage count was accepted")
 	}
 
-	projection, err = buildCoverageProjection(root, "evidence/formal/kani-2531f12/summary.json")
+	projection, err = buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,12 +132,12 @@ func TestVerifyRetainedCoverageProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := verifyCoverage(root, "evidence/formal/kani-coverage-2531f12.json")
+	projection, err := verifyCoverage(root, "evidence/formal/kani-coverage-a2b00ef.json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if projection.Counts.Required != 24 || projection.Counts.RustSatisfied != 17 ||
-		projection.Counts.MutationSatisfied != 17 || projection.Counts.AggregateSatisfied != 0 {
+	if projection.Counts.Required != 24 || projection.Counts.RustSatisfied != 18 ||
+		projection.Counts.MutationSatisfied != 18 || projection.Counts.AggregateSatisfied != 0 {
 		t.Fatalf("retained coverage posture drifted: %#v", projection.Counts)
 	}
 }
@@ -154,6 +156,7 @@ func TestVerifyHistoricalCoverageProjections(t *testing.T) {
 		{path: "evidence/formal/kani-coverage-17e92c5.json", rust: 11, mutation: 11},
 		{path: "evidence/formal/kani-coverage-467a224.json", rust: 14, mutation: 14},
 		{path: "evidence/formal/kani-coverage-e624399.json", rust: 16, mutation: 16},
+		{path: "evidence/formal/kani-coverage-2531f12.json", rust: 17, mutation: 17},
 	} {
 		projection, err := verifyCoverage(root, test.path)
 		if err != nil {
@@ -187,7 +190,7 @@ func TestCoverageSchemaCompilesAndAcceptsGeneratedProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := buildCoverageProjection(root, "evidence/formal/kani-2531f12/summary.json")
+	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json")
 	if err != nil {
 		t.Fatal(err)
 	}
