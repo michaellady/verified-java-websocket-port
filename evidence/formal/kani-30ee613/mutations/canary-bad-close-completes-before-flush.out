@@ -1,0 +1,41 @@
+Kani Rust Verifier 0.67.0 (cargo plugin)
+CBMC 6.11.0
+   Compiling websocket-core v0.0.0 (<staged-workspace>/subject/rust/connection-core)
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | #![feature(register_tool)]
+  |            ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: Found the following unsupported constructs:
+             - caller_location (1)
+             - foreign function (2)
+         
+         Verification will fail if one or more of these constructs is reachable.
+         See https://model-checking.github.io/kani/rust-feature-support.html for more details.
+
+warning: Kani currently does not support concurrency. The following constructs will be treated as sequential operations:
+             - atomic_xsub (5)
+             - atomic_fence (4)
+         
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in <elapsed>
+Checking harness close::proofs::prove_close_machine_terminal_lifecycle...
+
+VERIFICATION RESULT:
+ ** 3 of 914 failed (16 unreachable)
+Failed Checks: assertion failed: machine.is_complete()
+ File: "connection-core/src/close.rs", line 461, in close::proofs::prove_close_machine_terminal_lifecycle
+Failed Checks: assertion failed: !machine.is_complete()
+ File: "connection-core/src/close.rs", line 463, in close::proofs::prove_close_machine_terminal_lifecycle
+Failed Checks: assertion failed: !machine.is_complete()
+ File: "connection-core/src/close.rs", line 497, in close::proofs::prove_close_machine_terminal_lifecycle
+
+VERIFICATION:- FAILED
+Verification Time: <elapsed>
+
+Manual Harness Summary:
+Verification failed for - close::proofs::prove_close_machine_terminal_lifecycle
+Complete - 0 successfully verified harnesses, 1 failures, 1 total.

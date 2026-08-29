@@ -1,0 +1,46 @@
+Kani Rust Verifier 0.67.0 (cargo plugin)
+CBMC 6.11.0
+   Compiling websocket-core v0.0.0 (<staged-workspace>/subject/rust/connection-core)
+warning: use of an unstable feature
+ --> <crate attribute>:1:12
+  |
+1 | #![feature(register_tool)]
+  |            ^^^^^^^^^^^^^
+  |
+  = note: requested on the command line with `--force-warn unstable-features`
+
+warning: Found the following unsupported constructs:
+             - caller_location (1)
+             - foreign function (1)
+         
+         Verification will fail if one or more of these constructs is reachable.
+         See https://model-checking.github.io/kani/rust-feature-support.html for more details.
+
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in <elapsed>
+Checking harness frame::decode::proofs::prove_length_canonical_64_and_high_bit...
+
+VERIFICATION RESULT:
+ ** 4 of 487 failed (6 unreachable)
+Failed Checks: assertion failed: matches!(result,
+Err(FailureKind::Frame(FrameFailure::PayloadLengthHighBitSet)))
+ File: "connection-core/src/frame/decode.rs", line 428, in frame::decode::proofs::prove_length_canonical_64_and_high_bit
+Failed Checks: assertion failed: matches!(result,
+Err(FailureKind::Frame(FrameFailure::NonCanonicalLength64 { length })) if
+length == encoded)
+ File: "connection-core/src/frame/decode.rs", line 433, in frame::decode::proofs::prove_length_canonical_64_and_high_bit
+Failed Checks: assertion failed: matches!(result, Ok(FrameHeaderDecode::Complete(header)) if
+u64::try_from(header.payload_length()) == Ok(encoded) &&
+header.header_length() == 10)
+ File: "connection-core/src/frame/decode.rs", line 440, in frame::decode::proofs::prove_length_canonical_64_and_high_bit
+Failed Checks: assertion failed: matches!(result,
+Err(FailureKind::LimitExceeded
+{ limit: LimitKind::FrameBytes, attempted, maximum, }) if attempted == encoded
+&& maximum == config.limits().frame_bytes)
+ File: "connection-core/src/frame/decode.rs", line 447, in frame::decode::proofs::prove_length_canonical_64_and_high_bit
+
+VERIFICATION:- FAILED
+Verification Time: <elapsed>
+
+Manual Harness Summary:
+Verification failed for - frame::decode::proofs::prove_length_canonical_64_and_high_bit
+Complete - 0 successfully verified harnesses, 1 failures, 1 total.
