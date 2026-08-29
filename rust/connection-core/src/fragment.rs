@@ -379,6 +379,100 @@ impl FragmentAccumulator {
     }
 }
 
+#[cfg(kani)]
+mod proofs {
+    use alloc::vec::Vec;
+
+    use super::{ActiveFragment, FragmentAccumulator, FragmentPlan};
+    use crate::frame::{FrameHeaderDecode, FrameHeaderDecoder};
+    use crate::message::{DeliveryKind, MessageDelivery};
+    use crate::{ConnectionConfig, ConnectionLimits, Role};
+
+    const MAX_FRAGMENT: usize = 2;
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_binary_continuation_assembly() {
+        let initial_bytes: [u8; MAX_FRAGMENT] = kani::any();
+        let initial_length: u8 = kani::any();
+        kani::assume(usize::from(initial_length) <= initial_bytes.len());
+        let continuation_bytes: [u8; MAX_FRAGMENT] = kani::any();
+        let continuation_length: u8 = kani::any();
+        kani::assume(usize::from(continuation_length) <= continuation_bytes.len());
+        let final_frame: bool = kani::any();
+
+        let mut initial = Vec::new();
+        initial.extend_from_slice(&initial_bytes[..usize::from(initial_length)]);
+        let mut expected = initial.clone();
+        expected.extend_from_slice(&continuation_bytes[..usize::from(continuation_length)]);
+        let mut fragments = FragmentAccumulator {
+            active: Some(ActiveFragment::Binary { payload: initial }),
+        };
+        let config = ConnectionConfig::try_from(ConnectionLimits::default())
+            .expect("default limits are valid");
+        let wire_header = [if final_frame { 0x80 } else { 0x00 }, continuation_length];
+        let header = match FrameHeaderDecoder::decode_header(
+            &config,
+            Role::Client,
+            fragments.retained_bytes(),
+            &wire_header,
+        )
+        .expect("bounded continuation header is valid")
+        {
+            FrameHeaderDecode::Complete(header) => header,
+            FrameHeaderDecode::Incomplete { .. } => panic!("two-byte header is complete"),
+        };
+        let plan = fragments
+            .plan(&config, &header, 0, 0)
+            .expect("active binary message admits a bounded continuation");
+        assert_eq!(
+            plan,
+            FragmentPlan::Continue {
+                kind: DeliveryKind::Binary,
+                final_frame,
+            }
+        );
+        fragments
+            .prepare(plan, usize::from(continuation_length))
+            .expect("bounded continuation allocation succeeds");
+        fragments
+            .feed(
+                plan,
+                &continuation_bytes[..usize::from(continuation_length)],
+            )
+            .expect("binary continuation has no UTF-8 failure");
+        let delivery = fragments
+            .commit(
+                plan,
+                &continuation_bytes[..usize::from(continuation_length)],
+            )
+            .expect("binary continuation commit succeeds");
+
+        if final_frame {
+            match delivery {
+                Some(MessageDelivery::Binary(message)) => {
+                    assert_eq!(message.as_slice(), expected.as_slice());
+                }
+                Some(MessageDelivery::Text(_)) | None => {
+                    panic!("final binary continuation must deliver binary bytes");
+                }
+            }
+            assert_eq!(fragments.retained_bytes(), 0);
+        } else {
+            assert!(delivery.is_none());
+            assert_eq!(fragments.retained_bytes(), expected.len());
+            match fragments.active.as_ref() {
+                Some(ActiveFragment::Binary { payload }) => {
+                    assert_eq!(payload.as_slice(), expected.as_slice());
+                }
+                Some(ActiveFragment::Text { .. }) | None => {
+                    panic!("non-final binary continuation must remain binary");
+                }
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

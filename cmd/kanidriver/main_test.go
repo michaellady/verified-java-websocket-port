@@ -96,6 +96,27 @@ func TestEveryKaniObligationHasAnExactSourceMutation(t *testing.T) {
 	}
 }
 
+func TestEveryExactMutationAppliesOnceToCurrentSource(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mutation := range mutationPlans() {
+		body, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(mutation.SourcePath)))
+		if err != nil {
+			t.Fatalf("read source for %s: %v", mutation.CanaryID, err)
+		}
+		mutated, err := applyExactMutation(body, mutation.Find, mutation.Replace)
+		if err != nil {
+			t.Errorf("apply %s: %v", mutation.CanaryID, err)
+			continue
+		}
+		if bytes.Equal(mutated, body) {
+			t.Errorf("mutation %s did not change its source", mutation.CanaryID)
+		}
+	}
+}
+
 func TestPlansCoverEncoderAndExistingSurfaceAliases(t *testing.T) {
 	harnessCoverage := map[string][]harnessPlan{}
 	for _, plan := range harnessPlans() {
@@ -123,6 +144,42 @@ func TestPlansCoverEncoderAndExistingSurfaceAliases(t *testing.T) {
 	for _, obligationID := range []string{"surface.framing.frame-octets", "surface.framing.masking", "surface.limits.allocation"} {
 		if !mutationCoverage[obligationID] {
 			t.Errorf("missing exact source mutation for surface obligation %s", obligationID)
+		}
+	}
+}
+
+func TestPlansCoverFragmentAssemblyAndBinaryDelivery(t *testing.T) {
+	harnessCoverage := map[string][]harnessPlan{}
+	for _, plan := range harnessPlans() {
+		for _, obligationID := range plan.ObligationIDs {
+			harnessCoverage[obligationID] = append(harnessCoverage[obligationID], plan)
+		}
+	}
+	for _, obligationID := range []string{
+		"surface.fragmentation.continuation",
+		"surface.messages.binary",
+	} {
+		plans := harnessCoverage[obligationID]
+		if len(plans) != 1 || plans[0].HarnessID != "fragment::proofs::prove_binary_continuation_assembly" ||
+			plans[0].TargetSymbol != "websocket_core::fragment::FragmentAccumulator::plan+prepare+feed+commit" ||
+			plans[0].SourcePath != "rust/connection-core/src/fragment.rs" {
+			t.Errorf("fragment production plan for %s = %#v", obligationID, plans)
+		}
+	}
+
+	mutationCoverage := map[string][]mutationPlan{}
+	for _, mutation := range mutationPlans() {
+		for _, obligationID := range mutation.Obligations {
+			mutationCoverage[obligationID] = append(mutationCoverage[obligationID], mutation)
+		}
+	}
+	for obligationID, canaryID := range map[string]string{
+		"surface.fragmentation.continuation": "canary.bad-final-continuation-not-delivered",
+		"surface.messages.binary":            "canary.bad-binary-continuation-payload-dropped",
+	} {
+		mutations := mutationCoverage[obligationID]
+		if len(mutations) != 1 || mutations[0].CanaryID != canaryID {
+			t.Errorf("fragment mutation plan for %s = %#v", obligationID, mutations)
 		}
 	}
 }
