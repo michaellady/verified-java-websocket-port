@@ -362,6 +362,43 @@ fn validate_code(code: u16, sender: Role) -> Result<(), CloseFailure> {
     }
 }
 
+#[cfg(kani)]
+mod proofs {
+    use super::{validate_code, CloseCodeRejection, CloseFailure};
+    use crate::Role;
+
+    fn reference_rejection(code: u16, sender: Role) -> Option<CloseCodeRejection> {
+        if code < 1000 || code >= 5000 {
+            Some(CloseCodeRejection::OutsideWireRange)
+        } else if code == 1004 || code == 1005 || code == 1006 || code == 1015 {
+            Some(CloseCodeRejection::ForbiddenWireCode)
+        } else if code == 1010 && sender == Role::Server {
+            Some(CloseCodeRejection::WrongSenderRole)
+        } else if (1016..=2999).contains(&code) {
+            Some(CloseCodeRejection::UnassignedOrExtensionReserved)
+        } else {
+            None
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(2)]
+    fn prove_close_code_classification() {
+        let code: u16 = kani::any();
+        let sender = if kani::any::<bool>() {
+            Role::Client
+        } else {
+            Role::Server
+        };
+        let expected = match reference_rejection(code, sender) {
+            Some(rejection) => Err(CloseFailure::InvalidCode { code, rejection }),
+            None => Ok(()),
+        };
+
+        assert_eq!(validate_code(code, sender), expected);
+    }
+}
+
 const fn peer_role(endpoint_role: Role) -> Role {
     match endpoint_role {
         Role::Client => Role::Server,

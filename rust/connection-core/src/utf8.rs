@@ -140,3 +140,26 @@ impl Utf8Validator {
         Ok(())
     }
 }
+
+#[cfg(kani)]
+mod proofs {
+    use super::Utf8Validator;
+
+    #[kani::proof]
+    #[kani::unwind(6)]
+    fn prove_strict_utf8_exact_len_le_4() {
+        let bytes: [u8; 4] = kani::any();
+        let length: u8 = kani::any();
+        kani::assume(length <= 4);
+        let input = &bytes[..usize::from(length)];
+
+        let mut validator = Utf8Validator::new();
+        let actual = validator
+            .feed(input)
+            .and_then(|()| validator.finish())
+            .is_ok();
+        let expected = core::str::from_utf8(input).is_ok();
+
+        assert_eq!(actual, expected);
+    }
+}

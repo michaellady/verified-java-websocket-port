@@ -34,6 +34,52 @@ func TestEvidenceSchemaCompilesAndIsClosed(t *testing.T) {
 	}
 }
 
+func TestPlansCoverCloseCodeAndUTF8ProductionSymbols(t *testing.T) {
+	plans := map[string]harnessPlan{}
+	for _, plan := range harnessPlans() {
+		for _, obligation := range plan.ObligationIDs {
+			plans[obligation] = plan
+		}
+	}
+	for obligation, expected := range map[string]struct {
+		target string
+		path   string
+	}{
+		"surface.close.status-code": {
+			target: "websocket_core::close::validate_code",
+			path:   "rust/connection-core/src/close.rs",
+		},
+		"surface.messages.text-utf8": {
+			target: "websocket_core::utf8::Utf8Validator::feed+finish",
+			path:   "rust/connection-core/src/utf8.rs",
+		},
+	} {
+		plan, ok := plans[obligation]
+		if !ok {
+			t.Errorf("missing production proof plan for %s", obligation)
+			continue
+		}
+		if plan.TargetSymbol != expected.target || plan.SourcePath != expected.path {
+			t.Errorf("%s plan = %#v", obligation, plan)
+		}
+	}
+
+	mutations := map[string]mutationPlan{}
+	for _, plan := range mutationPlans() {
+		for _, obligation := range plan.Obligations {
+			mutations[obligation] = plan
+		}
+	}
+	for _, obligation := range []string{
+		"surface.close.status-code",
+		"surface.messages.text-utf8",
+	} {
+		if _, ok := mutations[obligation]; !ok {
+			t.Errorf("missing exact source mutation for %s", obligation)
+		}
+	}
+}
+
 func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {

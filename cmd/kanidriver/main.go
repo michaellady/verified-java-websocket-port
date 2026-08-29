@@ -351,6 +351,8 @@ func generate(ctx context.Context, request generateRequest) (receipt, error) {
 func harnessPlans() []harnessPlan {
 	const decode = "websocket_core::frame::decode::FrameHeaderDecoder::decode_header"
 	const mask = "websocket_core::frame::mask::apply_mask_in_place"
+	const closeCode = "websocket_core::close::validate_code"
+	const utf8 = "websocket_core::utf8::Utf8Validator::feed+finish"
 	return []harnessPlan{
 		{HarnessID: "frame::decode::proofs::prove_header_safety", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.checked-header-arithmetic"}, Unwind: 12, SymbolicDomain: []string{"all 14-byte prefixes", "all prefix lengths 0..14", "both endpoint roles", "all usize retained-byte counts"}},
 		{HarnessID: "frame::decode::proofs::prove_control_fin_and_length", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.control-fin-and-length"}, Unwind: 12, SymbolicDomain: []string{"all defined control opcodes", "both FIN states", "all 7-bit length codes"}},
@@ -361,12 +363,16 @@ func harnessPlans() []harnessPlan {
 		{HarnessID: "frame::decode::proofs::prove_role_masking", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.role-masking"}, Unwind: 12, SymbolicDomain: []string{"both endpoint roles", "both wire mask states"}},
 		{HarnessID: "frame::mask::proofs::prove_mask_equation", TargetSymbol: mask, SourcePath: "rust/connection-core/src/frame/mask.rs", ObligationIDs: []string{"obligation.mask-equation"}, Unwind: 5, SymbolicDomain: []string{"all four-byte payloads", "all four-byte keys", "all usize offsets"}},
 		{HarnessID: "frame::mask::proofs::prove_mask_involution", TargetSymbol: mask, SourcePath: "rust/connection-core/src/frame/mask.rs", ObligationIDs: []string{"obligation.mask-involution"}, Unwind: 9, SymbolicDomain: []string{"all four-byte payloads", "all four-byte keys", "all usize offsets"}},
+		{HarnessID: "close::proofs::prove_close_code_classification", TargetSymbol: closeCode, SourcePath: "rust/connection-core/src/close.rs", ObligationIDs: []string{"surface.close.status-code"}, Unwind: 2, SymbolicDomain: []string{"all u16 close codes", "both sender roles"}},
+		{HarnessID: "utf8::proofs::prove_strict_utf8_exact_len_le_4", TargetSymbol: utf8, SourcePath: "rust/connection-core/src/utf8.rs", ObligationIDs: []string{"surface.messages.text-utf8"}, Unwind: 6, SymbolicDomain: []string{"all byte sequences of exact lengths 0..4"}},
 	}
 }
 
 func mutationPlans() []mutationPlan {
 	const decode = "rust/connection-core/src/frame/decode.rs"
 	const mask = "rust/connection-core/src/frame/mask.rs"
+	const closeCode = "rust/connection-core/src/close.rs"
+	const utf8 = "rust/connection-core/src/utf8.rs"
 	return []mutationPlan{
 		{CanaryID: "canary.bad-header-overflow", HarnessID: "frame::decode::proofs::prove_header_safety", SourcePath: decode, Find: "let retained_total = retained_payload_bytes\n                .checked_add(payload_length)\n                .ok_or(FailureKind::Frame(FrameFailure::ArithmeticOverflow))?;", Replace: "let retained_total = retained_payload_bytes + payload_length;", Description: "replace checked retained-byte addition with overflowing addition", Obligations: []string{"obligation.checked-header-arithmetic"}},
 		{CanaryID: "canary.bad-control-fragmented", HarnessID: "frame::decode::proofs::prove_control_fin_and_length", SourcePath: decode, Find: "if opcode.is_control() && !fin {", Replace: "if opcode.is_control() && fin {", Description: "invert the control-frame FIN rejection", Obligations: []string{"obligation.control-fin-and-length"}},
@@ -377,6 +383,8 @@ func mutationPlans() []mutationPlan {
 		{CanaryID: "canary.bad-allocation-before-cap", HarnessID: "frame::decode::proofs::prove_preallocation_cap", SourcePath: decode, Find: "if payload_length > config.frame_bytes() {", Replace: "if payload_length >= config.frame_bytes() {", Description: "reject the exact admitted frame-cap boundary", Obligations: []string{"obligation.preallocation-cap"}},
 		{CanaryID: "canary.bad-role-masking", HarnessID: "frame::decode::proofs::prove_role_masking", SourcePath: decode, Find: "if masked != expected_masked {", Replace: "if masked == expected_masked {", Description: "invert inbound role-mask validation", Obligations: []string{"obligation.role-masking"}},
 		{CanaryID: "canary.bad-mask-key-index", HarnessID: "frame::mask::proofs::prove_mask_equation", SourcePath: mask, Find: "key[payload_offset.wrapping_add(index) % key.len()]", Replace: "key[payload_offset.wrapping_add(index).wrapping_add(1) % key.len()]", Description: "shift the RFC mask-key index by one", Obligations: []string{"obligation.mask-equation"}},
+		{CanaryID: "canary.bad-close-code-sender-role", HarnessID: "close::proofs::prove_close_code_classification", SourcePath: closeCode, Find: "1010 if sender == Role::Server => Some(CloseCodeRejection::WrongSenderRole),", Replace: "1010 if sender == Role::Client => Some(CloseCodeRejection::WrongSenderRole),", Description: "invert which sender role may transmit close code 1010", Obligations: []string{"surface.close.status-code"}},
+		{CanaryID: "canary.bad-utf8-surrogate", HarnessID: "utf8::proofs::prove_strict_utf8_exact_len_le_4", SourcePath: utf8, Find: "0xed => self.expect(2, 0x80, 0x9f, FirstContinuationRule::NoSurrogate),", Replace: "0xed => self.expect(2, 0x80, 0xbf, FirstContinuationRule::NoSurrogate),", Description: "admit UTF-8 encodings of surrogate code points", Obligations: []string{"surface.messages.text-utf8"}},
 	}
 }
 
