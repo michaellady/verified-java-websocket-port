@@ -10,7 +10,7 @@
   "production": false,
   "publication": false,
   "signing": false,
-  "repository_anchor": "6ed7bd080740697da4276e7c18c132a47af5f7e0",
+  "repository_anchor": "501712916d527a28200725129379c3804db1fb8f",
   "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
   "engine": {"id": "in-tree-deterministic-v1", "seed": 110316774361121, "minimum_cases": 6, "repetitions": 2, "deterministic": true},
   "targets": [
@@ -69,7 +69,7 @@
     {
       "id": "close-terminal-at-most-once",
       "invariant": "close chunking emits one close event and terminal transition at most once",
-      "sources": [{"path": "rust/connection-core/tests/close_eof.rs", "sha256": "sha256:824d3f0f70c40d18f68348a31cdaf4d63a24d3a3a7a298661d4da0966dab8775"}],
+      "sources": [{"path": "rust/connection-core/tests/close_eof.rs", "sha256": "sha256:9f66e21b14e2352f5c7d78710975d0189419a28b4f56d49b356db2a65b8be1b0"}],
       "test_name": "close_chunking_and_trailing_partial_bytes_are_deterministic",
       "command": ["cargo","test","--locked","-p","websocket-core","--test","close_eof","close_chunking_and_trailing_partial_bytes_are_deterministic","--","--exact"],
       "replay_command": ["cargo","test","--locked","-p","websocket-core","--test","close_eof","close_chunking_and_trailing_partial_bytes_are_deterministic","--","--exact"],
@@ -108,7 +108,7 @@
     {
       "id": "owner-schedule-replay",
       "invariant": "bounded actor schedules replay to the same trace with no lost command, reordered write, or duplicate terminal",
-      "sources": [{"path": "rust/websocket-driver/tests/concurrency.rs", "sha256": "sha256:bdb6581667fec36b0c9c4c72e7ea02674d8456df2a308e93c2fe1db7641854a8"}],
+      "sources": [{"path": "rust/websocket-driver/tests/concurrency.rs", "sha256": "sha256:b353a27ee2f6a3c5a10bf81f3c05a3488cc0245051635b089d8e9bbf0d802f48"}],
       "test_name": "bounded_actor_interleavings_execute_and_replay_with_honest_metrics",
       "command": ["cargo","test","--locked","-p","websocket-driver","--test","concurrency","bounded_actor_interleavings_execute_and_replay_with_honest_metrics","--","--exact"],
       "replay_command": ["cargo","test","--locked","-p","websocket-driver","--test","concurrency","bounded_actor_interleavings_execute_and_replay_with_honest_metrics","--","--exact"],

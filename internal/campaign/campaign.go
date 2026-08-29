@@ -111,10 +111,10 @@ var targetContracts = map[string]targetContract{
 		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "fragmentation", "--test", "ping_pong"}, sourcePaths: []string{"rust/connection-core/tests/fragmentation.rs", "rust/connection-core/tests/ping_pong.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us014", "rust/connection-core/fuzz-seeds/us015"}, cases: 30, testsPassed: 25,
 	},
 	"fuzz/close-eof": {
-		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "close_eof"}, sourcePaths: []string{"rust/connection-core/tests/close_eof.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us016"}, cases: 6, testsPassed: 20,
+		command: []string{"cargo", "test", "--locked", "-p", "websocket-core", "--test", "close_eof"}, sourcePaths: []string{"rust/connection-core/tests/close_eof.rs"}, seedRoots: []string{"rust/connection-core/fuzz-seeds/us016"}, cases: 6, testsPassed: 23,
 	},
 	"fuzz/owner-command-byte-schedule": {
-		command: []string{"cargo", "test", "--locked", "-p", "websocket-driver"}, sourcePaths: []string{"rust/websocket-driver/tests/concurrency.rs", "rust/websocket-driver/tests/driver_contract.rs", "rust/websocket-driver/tests/refinement_contract.rs"}, seedRoots: []string{"rust/websocket-driver/fuzz-seeds/us017"}, cases: 6, testsPassed: 22,
+		command: []string{"cargo", "test", "--locked", "-p", "websocket-driver"}, sourcePaths: []string{"rust/websocket-driver/tests/concurrency.rs", "rust/websocket-driver/tests/driver_contract.rs", "rust/websocket-driver/tests/refinement_contract.rs"}, seedRoots: []string{"rust/websocket-driver/fuzz-seeds/us017"}, cases: 6, testsPassed: 23,
 	},
 }
 
