@@ -85,7 +85,7 @@ func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	relative := "evidence/formal/kani-8d1cd48/summary.json"
+	relative := "evidence/formal/kani-0cf36a9/summary.json"
 	value, err := verify(root, relative)
 	if err != nil {
 		t.Fatal(err)
@@ -97,7 +97,7 @@ func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
 	}
 
 	value.Execution.MutationSurvivors = 1
-	summaryDirectory := filepath.Join(root, "evidence", "formal", "kani-8d1cd48")
+	summaryDirectory := filepath.Join(root, "evidence", "formal", "kani-0cf36a9")
 	if err := validateReceipt(root, summaryDirectory, value); err == nil {
 		t.Fatal("inflated survivor count was accepted")
 	}
