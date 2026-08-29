@@ -479,7 +479,7 @@ func TestVerifyBehaviorDeltaLedgerIsStrictAndClosed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("committed ledger: %v", err)
 	}
-	if summary.SchemaVersion != "1.1.0" || summary.Status != "PASS_WITH_CLOSED_HISTORY" || summary.RecordCount != 103 || !summary.CurrentDeltasResolved || summary.Production || summary.Publication {
+	if summary.SchemaVersion != "1.1.0" || summary.Status != "PASS_WITH_CLOSED_HISTORY" || summary.RecordCount != 112 || !summary.CurrentDeltasResolved || summary.Production || summary.Publication {
 		t.Fatalf("summary=%#v", summary)
 	}
 
@@ -583,6 +583,14 @@ func TestLocaleHarnessArtifactIsRetractedWithoutRewritingHistory(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	uncorrected := make([]LedgerRecord, 0, len(ledger.Records))
+	for _, record := range ledger.Records {
+		if record.Classification != "harness_artifact_correction" {
+			uncorrected = append(uncorrected, record)
+		}
+	}
+	ledger.Records = uncorrected
+	ledger.Head = ledger.Records[len(ledger.Records)-1].RecordDigest
 	scenarios := publicScenarios(t)
 	hierarchy, err := BuildOracleHierarchy(scenarios)
 	if err != nil {
@@ -2197,7 +2205,7 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("real generator with deterministic observations: %v", err)
 	}
-	if receipt.Status != StatusPass || receipt.ScenarioCount != 74 || receipt.ProcessReceipts != 296 || receipt.DeltaCount != 103 || receipt.EvidenceSHA256 != digest(generatedManifest) {
+	if receipt.Status != StatusPass || receipt.ScenarioCount != 74 || receipt.ProcessReceipts != 296 || receipt.DeltaCount != 112 || receipt.EvidenceSHA256 != digest(generatedManifest) {
 		t.Fatalf("receipt=%#v", receipt)
 	}
 	if err := VerifyPublicDifferential(root, generatedManifest); err != nil {
@@ -2235,7 +2243,7 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 			}
 		}
 	}
-	if len(manifest.Reproducers) != 103 || len(ledger.Records) != 103 || classifications["java_quirk"] != 98 || classifications["rust_defect"] != 5 || modes["FRESH_BOUNDED_MINIMIZATION"] != 98 || modes["HISTORICAL_CLOSED_IDENTITY_WITNESS"] != 5 {
+	if len(manifest.Reproducers) != 103 || len(ledger.Records) != 112 || classifications["java_quirk"] != 98 || classifications["rust_defect"] != 5 || classifications["harness_artifact_correction"] != 9 || modes["FRESH_BOUNDED_MINIMIZATION"] != 89 || modes["HISTORICAL_CLOSED_IDENTITY_WITNESS"] != 14 {
 		t.Fatalf("closure reproducers=%d records=%d classes=%v modes=%v", len(manifest.Reproducers), len(ledger.Records), classifications, modes)
 	}
 	command := append([]string(nil), manifest.Reproducers[0].Command...)

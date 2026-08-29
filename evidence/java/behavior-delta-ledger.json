@@ -5,7 +5,7 @@
   "accepted_root_digest": "sha256:5713245496362ece061c769bc4ee8eb909bfcc6d7d319bc3fc9b750f6e0a4ad8",
   "status": "PASS_WITH_CLOSED_HISTORY",
   "normative_authority": "field-addressed-oracle-hierarchy",
-  "head": "sha256:189125ce3df8f2fa64770d913f5363adaced01c1f31b0e8f715a71da4472e231",
+  "head": "sha256:cac2fb225f851e7795c858765e3ce67e9f4eead65202d4090596b11ebd75495c",
   "records": [
     {
       "sequence": 1,
@@ -2905,6 +2905,303 @@
       },
       "resolution": "retained_java_quirk",
       "finding_run_anchor": "5545db74643c9ad1730cf97ef42f4b050927bb96"
+    },
+    {
+      "sequence": 104,
+      "delta_id": "delta.us005.pub.0006.events-0-text.correction.locale-utf8",
+      "previous_digest": "sha256:189125ce3df8f2fa64770d913f5363adaced01c1f31b0e8f715a71da4472e231",
+      "record_digest": "sha256:2fc1bfd22f6a7a30baac3307aaee94481f53014f3ba32909f981e7da7855a648",
+      "scenario_id": "us005.pub.0006",
+      "pointer": "/events/0/text",
+      "classification": "harness_artifact_correction",
+      "java_observation_sha256": "sha256:f75063e8ff6cd288aa5ab63991aaf0498984a74a829226e30a7588abbb51a18c",
+      "rust_observation_sha256": "sha256:2d3a797267d435e42988b82f0aff44922e0b12116a27659291d33678874c13fb",
+      "reproducer_sha256": "sha256:c542a3a47a170056017b27410a86e98359de1edff87c826864520a6675412ae8",
+      "decision": {
+        "scenario_id": "us005.pub.0006",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:8f6b1162e5c2699b8c4cacd707ff9a5e9344e2d68064231fed91bbe2bc876789",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0006#expected/events/0/text",
+            "sha256": "sha256:8f6b1162e5c2699b8c4cacd707ff9a5e9344e2d68064231fed91bbe2bc876789"
+          }
+        ]
+      },
+      "resolution": "retracted_harness_artifact",
+      "finding_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "supersedes_delta_id": "delta.us005.pub.0006.events-0-text",
+      "correction_reason": "locale_dependent_protocol_encoding",
+      "closing_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "closing_java_observation_sha256": "sha256:2d3a797267d435e42988b82f0aff44922e0b12116a27659291d33678874c13fb",
+      "closing_rust_observation_sha256": "sha256:2d3a797267d435e42988b82f0aff44922e0b12116a27659291d33678874c13fb"
+    },
+    {
+      "sequence": 105,
+      "delta_id": "delta.us005.pub.0007.events-0-text.correction.locale-utf8",
+      "previous_digest": "sha256:2fc1bfd22f6a7a30baac3307aaee94481f53014f3ba32909f981e7da7855a648",
+      "record_digest": "sha256:d28640ee4c3a2dfa00ecc528f12629e59d29aff0debed4668b384da0b895ed5a",
+      "scenario_id": "us005.pub.0007",
+      "pointer": "/events/0/text",
+      "classification": "harness_artifact_correction",
+      "java_observation_sha256": "sha256:299354a368c549bf273a5775c39ac3500a9c43d27c4ce2037b8eb48784146151",
+      "rust_observation_sha256": "sha256:6d131220279571a97caa82589a954ead768284bb4c7f230e73b32db640194c7c",
+      "reproducer_sha256": "sha256:dc4e7a8cef1988c3f730734dee93a4ae04fcd898d21e24eb229e9d77ad82f1e9",
+      "decision": {
+        "scenario_id": "us005.pub.0007",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:ab49e7a7495f49290b4c7a2353f645e3f365a27379549ea581c0e86acdd05858",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0007#expected/events/0/text",
+            "sha256": "sha256:ab49e7a7495f49290b4c7a2353f645e3f365a27379549ea581c0e86acdd05858"
+          }
+        ]
+      },
+      "resolution": "retracted_harness_artifact",
+      "finding_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "supersedes_delta_id": "delta.us005.pub.0007.events-0-text",
+      "correction_reason": "locale_dependent_protocol_encoding",
+      "closing_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "closing_java_observation_sha256": "sha256:6d131220279571a97caa82589a954ead768284bb4c7f230e73b32db640194c7c",
+      "closing_rust_observation_sha256": "sha256:6d131220279571a97caa82589a954ead768284bb4c7f230e73b32db640194c7c"
+    },
+    {
+      "sequence": 106,
+      "delta_id": "delta.us005.pub.0014.events-0-text.correction.locale-utf8",
+      "previous_digest": "sha256:d28640ee4c3a2dfa00ecc528f12629e59d29aff0debed4668b384da0b895ed5a",
+      "record_digest": "sha256:431da30c6c4702e726cb01530dbba00c608b3869324ee960846af4b47b12f30c",
+      "scenario_id": "us005.pub.0014",
+      "pointer": "/events/0/text",
+      "classification": "harness_artifact_correction",
+      "java_observation_sha256": "sha256:41a728ddc17e9d903b5d81c3d0e9ce12d7c5d039cbdb8a077a9d9ea7e8097932",
+      "rust_observation_sha256": "sha256:102a35ba6e2ffedd6effbe4ad37fdb618e74826a544507aeea5325fdb4f03dcd",
+      "reproducer_sha256": "sha256:3656c6c4d25a08ef5a38390d1e6b91aa077ad7d295b451475aa3e1261617d6d1",
+      "decision": {
+        "scenario_id": "us005.pub.0014",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:193c18a48d96871d6077d6dfdaf9c2b890bfb43021a8cc9291cdec3a3e80fe5c",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0014#expected/events/0/text",
+            "sha256": "sha256:193c18a48d96871d6077d6dfdaf9c2b890bfb43021a8cc9291cdec3a3e80fe5c"
+          }
+        ]
+      },
+      "resolution": "retracted_harness_artifact",
+      "finding_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "supersedes_delta_id": "delta.us005.pub.0014.events-0-text",
+      "correction_reason": "locale_dependent_protocol_encoding",
+      "closing_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "closing_java_observation_sha256": "sha256:102a35ba6e2ffedd6effbe4ad37fdb618e74826a544507aeea5325fdb4f03dcd",
+      "closing_rust_observation_sha256": "sha256:102a35ba6e2ffedd6effbe4ad37fdb618e74826a544507aeea5325fdb4f03dcd"
+    },
+    {
+      "sequence": 107,
+      "delta_id": "delta.us005.pub.0023.events-1-text.correction.locale-utf8",
+      "previous_digest": "sha256:431da30c6c4702e726cb01530dbba00c608b3869324ee960846af4b47b12f30c",
+      "record_digest": "sha256:92cd482185c83c5cbf0cd9e0181592d37fbcbcbf26853786a8227d6a1d2b1f0b",
+      "scenario_id": "us005.pub.0023",
+      "pointer": "/events/1/text",
+      "classification": "harness_artifact_correction",
+      "java_observation_sha256": "sha256:337fbecdabfe846962c6f6532743e6429cae076a2503e018dae1331346a9bf4c",
+      "rust_observation_sha256": "sha256:2fbc4d4bd537e4903435960abcce0214e4e08ecf5365a2da3a4030e3ba544ed4",
+      "reproducer_sha256": "sha256:599cc416135620067bd21ad52981dbb17df920c319b26d9454fa0d2b2bfd4d89",
+      "decision": {
+        "scenario_id": "us005.pub.0023",
+        "pointer": "/events/1/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:4e6fd8025f4acf249cd7e740dbd5c405f58c0b4c49e897891cef295f39134d95",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0023#expected/events/1/text",
+            "sha256": "sha256:4e6fd8025f4acf249cd7e740dbd5c405f58c0b4c49e897891cef295f39134d95"
+          }
+        ]
+      },
+      "resolution": "retracted_harness_artifact",
+      "finding_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "supersedes_delta_id": "delta.us005.pub.0023.events-1-text",
+      "correction_reason": "locale_dependent_protocol_encoding",
+      "closing_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "closing_java_observation_sha256": "sha256:2fbc4d4bd537e4903435960abcce0214e4e08ecf5365a2da3a4030e3ba544ed4",
+      "closing_rust_observation_sha256": "sha256:2fbc4d4bd537e4903435960abcce0214e4e08ecf5365a2da3a4030e3ba544ed4"
+    },
+    {
+      "sequence": 108,
+      "delta_id": "delta.us005.pub.0027.events-0-text.correction.locale-utf8",
+      "previous_digest": "sha256:92cd482185c83c5cbf0cd9e0181592d37fbcbcbf26853786a8227d6a1d2b1f0b",
+      "record_digest": "sha256:ed37d86ba01f34bc0a4d2ec184e69ada7f7beaac0fab4b3da09cacce807d059c",
+      "scenario_id": "us005.pub.0027",
+      "pointer": "/events/0/text",
+      "classification": "harness_artifact_correction",
+      "java_observation_sha256": "sha256:34a1cd7894b9017c17511486d32bc5050daf67f23900b8d20216291c1032132a",
+      "rust_observation_sha256": "sha256:1bf5b52e65e21e60dc309fffd89f1ef31f42b287e67012b929a08890c5c3b652",
+      "reproducer_sha256": "sha256:800cc1c38ad0b0f6f465126604c204580c2c6411e2564a23d98855e2fe12f43f",
+      "decision": {
+        "scenario_id": "us005.pub.0027",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:e4d65bc3a28bc2a8a65ef1b31b2d9fb20f4203a1c5902eba4ba5f28ba08df7c5",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0027#expected/events/0/text",
+            "sha256": "sha256:e4d65bc3a28bc2a8a65ef1b31b2d9fb20f4203a1c5902eba4ba5f28ba08df7c5"
+          }
+        ]
+      },
+      "resolution": "retracted_harness_artifact",
+      "finding_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "supersedes_delta_id": "delta.us005.pub.0027.events-0-text",
+      "correction_reason": "locale_dependent_protocol_encoding",
+      "closing_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "closing_java_observation_sha256": "sha256:1bf5b52e65e21e60dc309fffd89f1ef31f42b287e67012b929a08890c5c3b652",
+      "closing_rust_observation_sha256": "sha256:1bf5b52e65e21e60dc309fffd89f1ef31f42b287e67012b929a08890c5c3b652"
+    },
+    {
+      "sequence": 109,
+      "delta_id": "delta.us005.pub.0028.events-0-text.correction.locale-utf8",
+      "previous_digest": "sha256:ed37d86ba01f34bc0a4d2ec184e69ada7f7beaac0fab4b3da09cacce807d059c",
+      "record_digest": "sha256:ea757b983a19ba96c95ad45ad61dad9badbe7d836f3d21acfaf8acea30993c84",
+      "scenario_id": "us005.pub.0028",
+      "pointer": "/events/0/text",
+      "classification": "harness_artifact_correction",
+      "java_observation_sha256": "sha256:c86c554b275e7d6defb98b922dd590f949317e3d02586559eacc64cbdd5aa927",
+      "rust_observation_sha256": "sha256:dbe1501978d091ce2ded9d7d437396e672083d42396d6f0691fe64e6739976dc",
+      "reproducer_sha256": "sha256:d04b36fc8630cfa4835956da3c68c22e62a04cda73f2d818838b1a3853cd4de5",
+      "decision": {
+        "scenario_id": "us005.pub.0028",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:fe90d11f772f25adbed4ae7b95fd715db50a0a19813af0b7b17d78870cd775b6",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0028#expected/events/0/text",
+            "sha256": "sha256:fe90d11f772f25adbed4ae7b95fd715db50a0a19813af0b7b17d78870cd775b6"
+          }
+        ]
+      },
+      "resolution": "retracted_harness_artifact",
+      "finding_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "supersedes_delta_id": "delta.us005.pub.0028.events-0-text",
+      "correction_reason": "locale_dependent_protocol_encoding",
+      "closing_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "closing_java_observation_sha256": "sha256:dbe1501978d091ce2ded9d7d437396e672083d42396d6f0691fe64e6739976dc",
+      "closing_rust_observation_sha256": "sha256:dbe1501978d091ce2ded9d7d437396e672083d42396d6f0691fe64e6739976dc"
+    },
+    {
+      "sequence": 110,
+      "delta_id": "delta.us005.pub.0043.events-0-text.correction.locale-utf8",
+      "previous_digest": "sha256:ea757b983a19ba96c95ad45ad61dad9badbe7d836f3d21acfaf8acea30993c84",
+      "record_digest": "sha256:c215c5c992a0e5870ae38637d4cab3ac3ac44e237b632f1d4a48c10743b41bd8",
+      "scenario_id": "us005.pub.0043",
+      "pointer": "/events/0/text",
+      "classification": "harness_artifact_correction",
+      "java_observation_sha256": "sha256:02e12a16986d6b949bf5b9b820014deeee8908f7a60dfbb9aab8fc0a5ab0dedd",
+      "rust_observation_sha256": "sha256:7a396d4c501f05a2607927c72e9a5a1a10f8b607d881fc82b97060d7585de862",
+      "reproducer_sha256": "sha256:b239ee51a25f503bcb9e4f99f732d75f89c141358d952ea9997ce7cbd89d8a7a",
+      "decision": {
+        "scenario_id": "us005.pub.0043",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:86afc2a64caf84aafbdebd7041327432d01c3cbcc2ffb983017eaf72763739ac",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0043#expected/events/0/text",
+            "sha256": "sha256:86afc2a64caf84aafbdebd7041327432d01c3cbcc2ffb983017eaf72763739ac"
+          }
+        ]
+      },
+      "resolution": "retracted_harness_artifact",
+      "finding_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "supersedes_delta_id": "delta.us005.pub.0043.events-0-text",
+      "correction_reason": "locale_dependent_protocol_encoding",
+      "closing_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "closing_java_observation_sha256": "sha256:7a396d4c501f05a2607927c72e9a5a1a10f8b607d881fc82b97060d7585de862",
+      "closing_rust_observation_sha256": "sha256:7a396d4c501f05a2607927c72e9a5a1a10f8b607d881fc82b97060d7585de862"
+    },
+    {
+      "sequence": 111,
+      "delta_id": "delta.us005.pub.0053.events-0-text.correction.locale-utf8",
+      "previous_digest": "sha256:c215c5c992a0e5870ae38637d4cab3ac3ac44e237b632f1d4a48c10743b41bd8",
+      "record_digest": "sha256:d2428bd5b74b95e0b68424a7b4703968881df505baa192bc50518eda77849da7",
+      "scenario_id": "us005.pub.0053",
+      "pointer": "/events/0/text",
+      "classification": "harness_artifact_correction",
+      "java_observation_sha256": "sha256:cdb07f74a69c6f5e18fd12fd2b8b56b49477a5c5e0bee2bb184690b515ca8971",
+      "rust_observation_sha256": "sha256:dfd19af2413131b122c08095c9417a3316f980ef563094fb5cba45059f989af6",
+      "reproducer_sha256": "sha256:cfa23256c0da6da5187df75907cdc02dd5415830682610de9afceb79e1fa0e76",
+      "decision": {
+        "scenario_id": "us005.pub.0053",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:993147f316e8af4494bf1a36cb8b14e16e795ae91a948f4300c4047b771c0dba",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0053#expected/events/0/text",
+            "sha256": "sha256:993147f316e8af4494bf1a36cb8b14e16e795ae91a948f4300c4047b771c0dba"
+          }
+        ]
+      },
+      "resolution": "retracted_harness_artifact",
+      "finding_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "supersedes_delta_id": "delta.us005.pub.0053.events-0-text",
+      "correction_reason": "locale_dependent_protocol_encoding",
+      "closing_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "closing_java_observation_sha256": "sha256:dfd19af2413131b122c08095c9417a3316f980ef563094fb5cba45059f989af6",
+      "closing_rust_observation_sha256": "sha256:dfd19af2413131b122c08095c9417a3316f980ef563094fb5cba45059f989af6"
+    },
+    {
+      "sequence": 112,
+      "delta_id": "delta.us005.pub.0055.events-0-text.correction.locale-utf8",
+      "previous_digest": "sha256:d2428bd5b74b95e0b68424a7b4703968881df505baa192bc50518eda77849da7",
+      "record_digest": "sha256:cac2fb225f851e7795c858765e3ce67e9f4eead65202d4090596b11ebd75495c",
+      "scenario_id": "us005.pub.0055",
+      "pointer": "/events/0/text",
+      "classification": "harness_artifact_correction",
+      "java_observation_sha256": "sha256:46a6c8acbc4a30e7db3bf1fc22556a04d0234d30a307ff164afddcd7c0b8c350",
+      "rust_observation_sha256": "sha256:ff3d0f05c1e3b71954aee2ea1f2340d783082f47492e1a4ceec7782f8bfe6ebc",
+      "reproducer_sha256": "sha256:0c0ba51ccc33d09724707282b2f6c5098f037cfbaccd813fdcd8fa6f24899806",
+      "decision": {
+        "scenario_id": "us005.pub.0055",
+        "pointer": "/events/0/text",
+        "authority": "neutral",
+        "rank": 3,
+        "expected_sha256": "sha256:4ee6b7fece281f33b4499318b7229d1e3306d9dfaee0a750226e5caa95391357",
+        "evidence": [
+          {
+            "kind": "committed_neutral_expectation",
+            "id": "us005.pub.0055#expected/events/0/text",
+            "sha256": "sha256:4ee6b7fece281f33b4499318b7229d1e3306d9dfaee0a750226e5caa95391357"
+          }
+        ]
+      },
+      "resolution": "retracted_harness_artifact",
+      "finding_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "supersedes_delta_id": "delta.us005.pub.0055.events-0-text",
+      "correction_reason": "locale_dependent_protocol_encoding",
+      "closing_run_anchor": "b717f15abc841e48a22442ed959354fe645eb8aa",
+      "closing_java_observation_sha256": "sha256:ff3d0f05c1e3b71954aee2ea1f2340d783082f47492e1a4ceec7782f8bfe6ebc",
+      "closing_rust_observation_sha256": "sha256:ff3d0f05c1e3b71954aee2ea1f2340d783082f47492e1a4ceec7782f8bfe6ebc"
     }
   ],
   "append_implementation": "hash-chained-cas",
