@@ -188,3 +188,66 @@ pub(crate) fn encode_local_control(
         .encode(frame, mask_key)
         .map(|frame| frame.into_bytes())
 }
+
+#[cfg(kani)]
+mod proofs {
+    use alloc::sync::Arc;
+    use alloc::vec::Vec;
+
+    use super::{
+        AutomaticPongPolicy, ControlPayload, encode_automatic_pong, is_observed_control,
+        should_automatically_pong,
+    };
+    use crate::frame::{Frame, Opcode};
+    use crate::{ConnectionConfig, ConnectionLimits, Role};
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_ping_pong_policy_and_encoding() {
+        let endpoint_role = if kani::any::<bool>() {
+            Role::Client
+        } else {
+            Role::Server
+        };
+        let opcode = if kani::any::<bool>() {
+            Opcode::Ping
+        } else {
+            Opcode::Pong
+        };
+        let policy = if kani::any::<bool>() {
+            AutomaticPongPolicy::Disabled
+        } else {
+            AutomaticPongPolicy::ServerOnly
+        };
+        let payload_length = usize::from(kani::any::<u8>() % 5);
+        let mut payload = Vec::new();
+        for _ in 0..payload_length {
+            payload.push(kani::any::<u8>());
+        }
+
+        let config = ConnectionConfig::try_from(ConnectionLimits::default())
+            .expect("default limits are valid")
+            .with_automatic_pong_policy(policy);
+        let frame = Frame::new(true, opcode, kani::any::<bool>(), Arc::new(payload.clone()));
+        assert!(is_observed_control(&frame));
+        assert_eq!(
+            ControlPayload::from_frame(&frame).as_slice(),
+            payload.as_slice()
+        );
+
+        let expected_automatic = endpoint_role == Role::Server
+            && policy == AutomaticPongPolicy::ServerOnly
+            && opcode == Opcode::Ping;
+        assert_eq!(
+            should_automatically_pong(&config, endpoint_role, opcode),
+            expected_automatic
+        );
+        if expected_automatic {
+            let wire =
+                encode_automatic_pong(&config, &payload).expect("bounded server Pong is encodable");
+            assert_eq!(wire[0], 0x8a);
+            assert_eq!(usize::from(wire[1]), payload_length);
+            assert_eq!(&wire[2..], payload.as_slice());
+        }
+    }
+}

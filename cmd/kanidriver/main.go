@@ -401,6 +401,7 @@ func harnessPlans() []harnessPlan {
 	const mask = "websocket_core::frame::mask::apply_mask_in_place"
 	const encode = "websocket_core::frame::encode::FrameEncoder::encode"
 	const fragment = "websocket_core::fragment::FragmentAccumulator::plan+prepare+feed+commit"
+	const control = "websocket_core::control::is_observed_control+should_automatically_pong+encode_automatic_pong"
 	const closeCode = "websocket_core::close::validate_code"
 	const utf8 = "websocket_core::utf8::Utf8Validator::feed+finish"
 	return []harnessPlan{
@@ -415,14 +416,26 @@ func harnessPlans() []harnessPlan {
 		{HarnessID: "frame::mask::proofs::prove_mask_involution", TargetSymbol: mask, SourcePath: "rust/connection-core/src/frame/mask.rs", ObligationIDs: []string{"obligation.mask-involution"}, Unwind: 9, SymbolicDomain: []string{"all four-byte payloads", "all four-byte keys", "all usize offsets"}},
 		{HarnessID: "frame::encode::proofs::prove_short_frame_octets_and_masking", TargetSymbol: encode, SourcePath: "rust/connection-core/src/frame/encode.rs", ObligationIDs: []string{"surface.framing.frame-octets", "surface.framing.masking"}, Unwind: 12, SymbolicDomain: []string{"all payloads of exact lengths 0..4", "text and binary opcodes", "both FIN states", "both endpoint roles", "all four-byte client mask keys"}},
 		{HarnessID: "fragment::proofs::prove_binary_continuation_assembly", TargetSymbol: fragment, SourcePath: "rust/connection-core/src/fragment.rs", ObligationIDs: []string{"surface.fragmentation.continuation", "surface.messages.binary"}, Unwind: 12, SymbolicDomain: []string{"all initial binary fragments of exact lengths 0..2", "all continuation payloads of exact lengths 0..2", "both final-continuation states"}},
+		{HarnessID: "control::proofs::prove_ping_pong_policy_and_encoding", TargetSymbol: control, SourcePath: "rust/connection-core/src/control.rs", ObligationIDs: []string{"surface.control.ping-pong"}, Unwind: 12, SymbolicDomain: []string{"all control payloads of exact lengths 0..4", "Ping and Pong opcodes", "both endpoint roles", "disabled and server-only automatic-Pong policies", "both decoded wire-mask observations", "helper composition only; excludes ConnectionCore decoder/event wiring"}},
 		{HarnessID: "close::proofs::prove_close_code_classification", TargetSymbol: closeCode, SourcePath: "rust/connection-core/src/close.rs", ObligationIDs: []string{"surface.close.status-code"}, Unwind: 2, SymbolicDomain: []string{"all u16 close codes", "both sender roles"}},
 		{HarnessID: "utf8::proofs::prove_strict_utf8_exact_len_le_4", TargetSymbol: utf8, SourcePath: "rust/connection-core/src/utf8.rs", ObligationIDs: []string{"surface.messages.text-utf8"}, Unwind: 6, SymbolicDomain: []string{"all byte sequences of exact lengths 0..4"}},
 	}
 }
 
 func priorHarnessPlans() []harnessPlan {
-	result := make([]harnessPlan, 0, 12)
+	result := make([]harnessPlan, 0, 13)
 	for _, plan := range harnessPlans() {
+		if plan.HarnessID == "control::proofs::prove_ping_pong_policy_and_encoding" {
+			continue
+		}
+		result = append(result, plan)
+	}
+	return result
+}
+
+func preFragmentHarnessPlans() []harnessPlan {
+	result := make([]harnessPlan, 0, 12)
+	for _, plan := range priorHarnessPlans() {
 		if plan.HarnessID == "fragment::proofs::prove_binary_continuation_assembly" {
 			continue
 		}
@@ -433,7 +446,7 @@ func priorHarnessPlans() []harnessPlan {
 
 func legacyHarnessPlans() []harnessPlan {
 	result := make([]harnessPlan, 0, 11)
-	for _, plan := range priorHarnessPlans() {
+	for _, plan := range preFragmentHarnessPlans() {
 		if plan.HarnessID == "frame::encode::proofs::prove_short_frame_octets_and_masking" {
 			continue
 		}
@@ -444,7 +457,7 @@ func legacyHarnessPlans() []harnessPlan {
 }
 
 func harnessPlansForReceipt(actual []harnessPlan) ([]harnessPlan, bool) {
-	for _, plans := range [][]harnessPlan{harnessPlans(), priorHarnessPlans(), legacyHarnessPlans()} {
+	for _, plans := range [][]harnessPlan{harnessPlans(), priorHarnessPlans(), preFragmentHarnessPlans(), legacyHarnessPlans()} {
 		if equalHarnessPlans(actual, plans) {
 			return plans, true
 		}
@@ -473,14 +486,26 @@ func mutationPlans() []mutationPlan {
 		{CanaryID: "canary.bad-frame-fin-bit", HarnessID: "frame::encode::proofs::prove_short_frame_octets_and_masking", SourcePath: "rust/connection-core/src/frame/encode.rs", Find: "bytes.push((if frame.fin() { 0x80 } else { 0 }) + opcode.wire());", Replace: "bytes.push((if frame.fin() { 0x40 } else { 0 }) + opcode.wire());", Description: "encode FIN in the reserved-bit position", Obligations: []string{"surface.framing.frame-octets"}},
 		{CanaryID: "canary.bad-final-continuation-not-delivered", HarnessID: "fragment::proofs::prove_binary_continuation_assembly", SourcePath: fragment, Find: "if matches!(\n                    plan,\n                    FragmentPlan::Continue {\n                        final_frame: true,\n                        ..\n                    }\n                ) {", Replace: "if matches!(\n                    plan,\n                    FragmentPlan::Continue {\n                        final_frame: false,\n                        ..\n                    }\n                ) {", Description: "deliver a non-final continuation instead of the final continuation", Obligations: []string{"surface.fragmentation.continuation"}},
 		{CanaryID: "canary.bad-binary-continuation-payload-dropped", HarnessID: "fragment::proofs::prove_binary_continuation_assembly", SourcePath: fragment, Find: ".extend_from_slice(payload);", Replace: ".extend_from_slice(&[]);", Description: "drop the current continuation payload during assembly", Obligations: []string{"surface.messages.binary"}},
+		{CanaryID: "canary.bad-auto-pong-opcode", HarnessID: "control::proofs::prove_ping_pong_policy_and_encoding", SourcePath: "rust/connection-core/src/control.rs", Find: "    role == Role::Server\n        && config.automatic_pong_policy() == AutomaticPongPolicy::ServerOnly\n        && opcode == Opcode::Ping", Replace: "    role == Role::Server\n        && config.automatic_pong_policy() == AutomaticPongPolicy::ServerOnly\n        && opcode == Opcode::Pong", Description: "emit automatic Pong for inbound Pong instead of inbound Ping", Obligations: []string{"surface.control.ping-pong"}},
 		{CanaryID: "canary.bad-close-code-sender-role", HarnessID: "close::proofs::prove_close_code_classification", SourcePath: closeCode, Find: "1010 if sender == Role::Server => Some(CloseCodeRejection::WrongSenderRole),", Replace: "1010 if sender == Role::Client => Some(CloseCodeRejection::WrongSenderRole),", Description: "invert which sender role may transmit close code 1010", Obligations: []string{"surface.close.status-code"}},
 		{CanaryID: "canary.bad-utf8-surrogate", HarnessID: "utf8::proofs::prove_strict_utf8_exact_len_le_4", SourcePath: utf8, Find: "0xed => self.expect(2, 0x80, 0x9f, FirstContinuationRule::NoSurrogate),", Replace: "0xed => self.expect(2, 0x80, 0xbf, FirstContinuationRule::NoSurrogate),", Description: "admit UTF-8 encodings of surrogate code points", Obligations: []string{"surface.messages.text-utf8"}},
 	}
 }
 
 func priorMutationPlans() []mutationPlan {
-	result := make([]mutationPlan, 0, 14)
+	result := make([]mutationPlan, 0, 16)
 	for _, plan := range mutationPlans() {
+		if plan.CanaryID == "canary.bad-auto-pong-opcode" {
+			continue
+		}
+		result = append(result, plan)
+	}
+	return result
+}
+
+func preFragmentMutationPlans() []mutationPlan {
+	result := make([]mutationPlan, 0, 14)
+	for _, plan := range priorMutationPlans() {
 		if plan.CanaryID == "canary.bad-final-continuation-not-delivered" ||
 			plan.CanaryID == "canary.bad-binary-continuation-payload-dropped" {
 			continue
@@ -492,7 +517,7 @@ func priorMutationPlans() []mutationPlan {
 
 func legacyThirteenMutationPlans() []mutationPlan {
 	result := make([]mutationPlan, 0, 13)
-	for _, plan := range priorMutationPlans() {
+	for _, plan := range preFragmentMutationPlans() {
 		if plan.CanaryID == "canary.bad-frame-fin-bit" {
 			continue
 		}
@@ -528,7 +553,7 @@ func withoutObligations(actual []string, removed ...string) []string {
 }
 
 func mutationPlansForReceipt(results []mutationResult) ([]mutationPlan, bool) {
-	for _, plans := range [][]mutationPlan{mutationPlans(), priorMutationPlans(), legacyThirteenMutationPlans(), legacyMutationPlans()} {
+	for _, plans := range [][]mutationPlan{mutationPlans(), priorMutationPlans(), preFragmentMutationPlans(), legacyThirteenMutationPlans(), legacyMutationPlans()} {
 		if len(results) == len(plans) {
 			return plans, true
 		}

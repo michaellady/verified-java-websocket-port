@@ -101,6 +101,10 @@
             {
               "minItems": 6,
               "maxItems": 6
+            },
+            {
+              "minItems": 7,
+              "maxItems": 7
             }
           ],
           "uniqueItems": true,
@@ -197,6 +201,10 @@
             {
               "minItems": 13,
               "maxItems": 13
+            },
+            {
+              "minItems": 14,
+              "maxItems": 14
             }
           ],
           "items": {"$ref": "#/$defs/harnessResult"}
@@ -263,6 +271,10 @@
             {
               "minItems": 13,
               "maxItems": 13
+            },
+            {
+              "minItems": 14,
+              "maxItems": 14
             }
           ],
           "items": {"$ref": "#/$defs/harness"}
@@ -298,6 +310,10 @@
             {
               "minItems": 16,
               "maxItems": 16
+            },
+            {
+              "minItems": 17,
+              "maxItems": 17
             }
           ],
           "items": {"$ref": "#/$defs/mutation"}

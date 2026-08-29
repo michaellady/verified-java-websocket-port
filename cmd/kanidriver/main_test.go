@@ -184,6 +184,35 @@ func TestPlansCoverFragmentAssemblyAndBinaryDelivery(t *testing.T) {
 	}
 }
 
+func TestPlansCoverConnectionControlPingPong(t *testing.T) {
+	var plans []harnessPlan
+	for _, plan := range harnessPlans() {
+		for _, obligationID := range plan.ObligationIDs {
+			if obligationID == "surface.control.ping-pong" {
+				plans = append(plans, plan)
+			}
+		}
+	}
+	if len(plans) != 1 || plans[0].HarnessID != "control::proofs::prove_ping_pong_policy_and_encoding" ||
+		plans[0].TargetSymbol != "websocket_core::control::is_observed_control+should_automatically_pong+encode_automatic_pong" ||
+		plans[0].SourcePath != "rust/connection-core/src/control.rs" {
+		t.Fatalf("control production plan = %#v", plans)
+	}
+
+	var mutations []mutationPlan
+	for _, mutation := range mutationPlans() {
+		for _, obligationID := range mutation.Obligations {
+			if obligationID == "surface.control.ping-pong" {
+				mutations = append(mutations, mutation)
+			}
+		}
+	}
+	if len(mutations) != 1 || mutations[0].CanaryID != "canary.bad-auto-pong-opcode" ||
+		mutations[0].HarnessID != plans[0].HarnessID {
+		t.Fatalf("control mutation plan = %#v", mutations)
+	}
+}
+
 func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
