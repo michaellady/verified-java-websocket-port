@@ -209,15 +209,15 @@ func validateProofTargets(targets *proofTargets, collector *findingCollector) {
 			"rust/connection-core/src/frame/decode.rs",
 			"websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
 			"ASSOCIATED_FUNCTION",
-			"sha256:2d3b9d8cbda6ce8deea03b21e1e2beeab7ebf00195757ec3ef7dcff75e844da2",
-			"08ab31cb7fa28dfe8451a70d4633fb18a21567d7",
+			"sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+			"58d0350bea1baefcaae36cac3229d3d30dfe7212",
 		},
 		"target.frame-mask": {
 			"rust/connection-core/src/frame/mask.rs",
 			"websocket_core::frame::mask::apply_mask_in_place",
 			"FUNCTION",
-			"sha256:04908fc1452ac9d219ebd23eb636d8676d987123365b594e1bfa6d987b31f2fd",
-			"309038147fd825fee401cfe47eb09f31c7932658",
+			"sha256:316ec1c447d3c37d4b8593ac7ccb82567b272158a7102d90846797e26d8deb29",
+			"15bf4ff702775073a7995534c1acdc40001d2def",
 		},
 	}
 	if len(targets.Targets) != len(expectedTargets) {
