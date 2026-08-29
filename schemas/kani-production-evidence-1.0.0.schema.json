@@ -209,6 +209,10 @@
             {
               "minItems": 15,
               "maxItems": 15
+            },
+            {
+              "minItems": 16,
+              "maxItems": 16
             }
           ],
           "items": {"$ref": "#/$defs/harnessResult"}
@@ -283,6 +287,10 @@
             {
               "minItems": 15,
               "maxItems": 15
+            },
+            {
+              "minItems": 16,
+              "maxItems": 16
             }
           ],
           "items": {"$ref": "#/$defs/harness"}
@@ -326,6 +334,10 @@
             {
               "minItems": 18,
               "maxItems": 18
+            },
+            {
+              "minItems": 19,
+              "maxItems": 19
             }
           ],
           "items": {"$ref": "#/$defs/mutation"}

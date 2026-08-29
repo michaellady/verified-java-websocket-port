@@ -413,6 +413,7 @@ func harnessPlans() []harnessPlan {
 		{HarnessID: "frame::decode::proofs::prove_length_canonical_7", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.length-canonical-7"}, Unwind: 12, SymbolicDomain: []string{"all payload lengths 0..125"}},
 		{HarnessID: "frame::decode::proofs::prove_preallocation_cap", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.preallocation-cap", "surface.limits.allocation"}, Unwind: 12, SymbolicDomain: []string{"all u16 payload lengths", "all u16 retained-byte counts", "frame cap 256", "total cap 512"}},
 		{HarnessID: "frame::decode::proofs::prove_role_masking", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"obligation.role-masking"}, Unwind: 12, SymbolicDomain: []string{"both endpoint roles", "both wire mask states"}},
+		{HarnessID: "frame::decode::proofs::prove_two_byte_protocol_fault_classification", TargetSymbol: decode, SourcePath: "rust/connection-core/src/frame/decode.rs", ObligationIDs: []string{"surface.errors.protocol-fault"}, Unwind: 12, SymbolicDomain: []string{"all 65,536 two-byte frame prefixes", "both endpoint roles", "independent RFC opcode and early-decision table", "exact typed reserved-bit, reserved-opcode, fragmented-control, oversized-control, and incorrect-masking failures", "exact incomplete boundaries and admitted inline-length header fields", "header decision only; excludes extended-length contents, payload semantics, ConnectionCore terminal wiring, Java, refinement, and independence"}},
 		{HarnessID: "frame::mask::proofs::prove_mask_equation", TargetSymbol: mask, SourcePath: "rust/connection-core/src/frame/mask.rs", ObligationIDs: []string{"obligation.mask-equation"}, Unwind: 5, SymbolicDomain: []string{"all four-byte payloads", "all four-byte keys", "all usize offsets"}},
 		{HarnessID: "frame::mask::proofs::prove_mask_involution", TargetSymbol: mask, SourcePath: "rust/connection-core/src/frame/mask.rs", ObligationIDs: []string{"obligation.mask-involution"}, Unwind: 9, SymbolicDomain: []string{"all four-byte payloads", "all four-byte keys", "all usize offsets"}},
 		{HarnessID: "frame::encode::proofs::prove_short_frame_octets_and_masking", TargetSymbol: encode, SourcePath: "rust/connection-core/src/frame/encode.rs", ObligationIDs: []string{"surface.framing.frame-octets", "surface.framing.masking"}, Unwind: 12, SymbolicDomain: []string{"all payloads of exact lengths 0..4", "text and binary opcodes", "both FIN states", "both endpoint roles", "all four-byte client mask keys"}},
@@ -425,8 +426,19 @@ func harnessPlans() []harnessPlan {
 }
 
 func priorHarnessPlans() []harnessPlan {
-	result := make([]harnessPlan, 0, 14)
+	result := make([]harnessPlan, 0, 15)
 	for _, plan := range harnessPlans() {
+		if plan.HarnessID == "frame::decode::proofs::prove_two_byte_protocol_fault_classification" {
+			continue
+		}
+		result = append(result, plan)
+	}
+	return result
+}
+
+func preCloseHarnessPlans() []harnessPlan {
+	result := make([]harnessPlan, 0, 14)
+	for _, plan := range priorHarnessPlans() {
 		if plan.HarnessID == "close::proofs::prove_close_machine_terminal_lifecycle" {
 			continue
 		}
@@ -437,7 +449,7 @@ func priorHarnessPlans() []harnessPlan {
 
 func preControlHarnessPlans() []harnessPlan {
 	result := make([]harnessPlan, 0, 13)
-	for _, plan := range priorHarnessPlans() {
+	for _, plan := range preCloseHarnessPlans() {
 		if plan.HarnessID == "control::proofs::prove_ping_pong_policy_and_encoding" {
 			continue
 		}
@@ -470,7 +482,7 @@ func legacyHarnessPlans() []harnessPlan {
 }
 
 func harnessPlansForReceipt(actual []harnessPlan) ([]harnessPlan, bool) {
-	for _, plans := range [][]harnessPlan{harnessPlans(), priorHarnessPlans(), preControlHarnessPlans(), preFragmentHarnessPlans(), legacyHarnessPlans()} {
+	for _, plans := range [][]harnessPlan{harnessPlans(), priorHarnessPlans(), preCloseHarnessPlans(), preControlHarnessPlans(), preFragmentHarnessPlans(), legacyHarnessPlans()} {
 		if equalHarnessPlans(actual, plans) {
 			return plans, true
 		}
@@ -494,6 +506,7 @@ func mutationPlans() []mutationPlan {
 		{CanaryID: "canary.bad-length-inline-7", HarnessID: "frame::decode::proofs::prove_length_canonical_7", SourcePath: decode, Find: "value => u64::from(value),", Replace: "value => u64::from(value).wrapping_add(1),", Description: "increment every inline 7-bit payload length", Obligations: []string{"obligation.length-canonical-7"}},
 		{CanaryID: "canary.bad-allocation-before-cap", HarnessID: "frame::decode::proofs::prove_preallocation_cap", SourcePath: decode, Find: "if payload_length > config.frame_bytes() {", Replace: "if payload_length >= config.frame_bytes() {", Description: "reject the exact admitted frame-cap boundary", Obligations: []string{"obligation.preallocation-cap", "surface.limits.allocation"}},
 		{CanaryID: "canary.bad-role-masking", HarnessID: "frame::decode::proofs::prove_role_masking", SourcePath: decode, Find: "if masked != expected_masked {", Replace: "if masked == expected_masked {", Description: "invert inbound role-mask validation", Obligations: []string{"obligation.role-masking", "surface.framing.masking"}},
+		{CanaryID: "canary.bad-reserved-opcode-relabeled", HarnessID: "frame::decode::proofs::prove_two_byte_protocol_fault_classification", SourcePath: decode, Find: "let opcode = Opcode::from_wire(wire_opcode).ok_or(FailureKind::Frame(\n            FrameFailure::ReservedOpcode {\n                opcode: wire_opcode,\n            },\n        ))?;", Replace: "let opcode = Opcode::from_wire(wire_opcode)\n            .ok_or(FailureKind::Frame(FrameFailure::ReservedBits))?;", Description: "relabel a reserved opcode as a reserved-bit failure instead of preserving its typed opcode", Obligations: []string{"surface.errors.protocol-fault"}},
 		{CanaryID: "canary.bad-mask-key-index", HarnessID: "frame::mask::proofs::prove_mask_equation", SourcePath: mask, Find: "key[payload_offset.wrapping_add(index) % key.len()]", Replace: "key[payload_offset.wrapping_add(index).wrapping_add(1) % key.len()]", Description: "shift the RFC mask-key index by one", Obligations: []string{"obligation.mask-equation", "surface.framing.masking"}},
 		{CanaryID: "canary.bad-mask-non-involutive", HarnessID: "frame::mask::proofs::prove_mask_involution", SourcePath: mask, Find: "*byte ^= key[payload_offset.wrapping_add(index) % key.len()];", Replace: "*byte = (*byte).wrapping_add(key[payload_offset.wrapping_add(index) % key.len()]);", Description: "replace mask XOR with non-involutive wrapping addition", Obligations: []string{"obligation.mask-involution"}},
 		{CanaryID: "canary.bad-frame-fin-bit", HarnessID: "frame::encode::proofs::prove_short_frame_octets_and_masking", SourcePath: "rust/connection-core/src/frame/encode.rs", Find: "bytes.push((if frame.fin() { 0x80 } else { 0 }) + opcode.wire());", Replace: "bytes.push((if frame.fin() { 0x40 } else { 0 }) + opcode.wire());", Description: "encode FIN in the reserved-bit position", Obligations: []string{"surface.framing.frame-octets"}},
@@ -507,8 +520,19 @@ func mutationPlans() []mutationPlan {
 }
 
 func priorMutationPlans() []mutationPlan {
-	result := make([]mutationPlan, 0, 17)
+	result := make([]mutationPlan, 0, 18)
 	for _, plan := range mutationPlans() {
+		if plan.CanaryID == "canary.bad-reserved-opcode-relabeled" {
+			continue
+		}
+		result = append(result, plan)
+	}
+	return result
+}
+
+func preCloseMutationPlans() []mutationPlan {
+	result := make([]mutationPlan, 0, 17)
+	for _, plan := range priorMutationPlans() {
 		if plan.CanaryID == "canary.bad-close-completes-before-flush" {
 			continue
 		}
@@ -519,7 +543,7 @@ func priorMutationPlans() []mutationPlan {
 
 func preControlMutationPlans() []mutationPlan {
 	result := make([]mutationPlan, 0, 16)
-	for _, plan := range priorMutationPlans() {
+	for _, plan := range preCloseMutationPlans() {
 		if plan.CanaryID == "canary.bad-auto-pong-opcode" {
 			continue
 		}
@@ -578,7 +602,7 @@ func withoutObligations(actual []string, removed ...string) []string {
 }
 
 func mutationPlansForReceipt(results []mutationResult) ([]mutationPlan, bool) {
-	for _, plans := range [][]mutationPlan{mutationPlans(), priorMutationPlans(), preControlMutationPlans(), preFragmentMutationPlans(), legacyThirteenMutationPlans(), legacyMutationPlans()} {
+	for _, plans := range [][]mutationPlan{mutationPlans(), priorMutationPlans(), preCloseMutationPlans(), preControlMutationPlans(), preFragmentMutationPlans(), legacyThirteenMutationPlans(), legacyMutationPlans()} {
 		if len(results) == len(plans) {
 			return plans, true
 		}

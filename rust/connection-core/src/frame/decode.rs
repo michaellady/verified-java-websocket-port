@@ -239,6 +239,94 @@ mod proofs {
             .expect("the default limits are valid")
     }
 
+    fn expected_opcode(wire_opcode: u8) -> Option<crate::frame::Opcode> {
+        match wire_opcode {
+            0x0 => Some(crate::frame::Opcode::Continuation),
+            0x1 => Some(crate::frame::Opcode::Text),
+            0x2 => Some(crate::frame::Opcode::Binary),
+            0x8 => Some(crate::frame::Opcode::Close),
+            0x9 => Some(crate::frame::Opcode::Ping),
+            0xa => Some(crate::frame::Opcode::Pong),
+            _ => None,
+        }
+    }
+
+    #[kani::proof]
+    #[kani::unwind(12)]
+    fn prove_two_byte_protocol_fault_classification() {
+        let first: u8 = kani::any();
+        let second: u8 = kani::any();
+        let role = if kani::any::<bool>() {
+            Role::Client
+        } else {
+            Role::Server
+        };
+        let result =
+            FrameHeaderDecoder::decode_header(&default_config(), role, 0, &[first, second]);
+
+        let wire_opcode = first & 0x0f;
+        let fin = first & 0x80 != 0;
+        let length_code = second & 0x7f;
+        let actual_masked = second & 0x80 != 0;
+        let expected_masked = role == Role::Server;
+
+        if first & 0x70 != 0 {
+            assert!(matches!(
+                result,
+                Err(FailureKind::Frame(FrameFailure::ReservedBits))
+            ));
+        } else if let Some(opcode) = expected_opcode(wire_opcode) {
+            let is_control = matches!(wire_opcode, 0x8..=0xa);
+            if is_control && !fin {
+                assert!(matches!(
+                    result,
+                    Err(FailureKind::Frame(FrameFailure::FragmentedControl {
+                        opcode: observed
+                    })) if observed == opcode
+                ));
+            } else if is_control && length_code > 125 {
+                assert!(matches!(
+                    result,
+                    Err(FailureKind::Frame(FrameFailure::ControlPayloadTooLarge {
+                        length
+                    })) if length == u64::from(length_code)
+                ));
+            } else if length_code == 126 {
+                assert_eq!(result, Ok(FrameHeaderDecode::Incomplete { minimum: 4 }));
+            } else if length_code == 127 {
+                assert_eq!(result, Ok(FrameHeaderDecode::Incomplete { minimum: 10 }));
+            } else if actual_masked != expected_masked {
+                assert!(matches!(
+                    result,
+                    Err(FailureKind::Frame(FrameFailure::IncorrectMasking {
+                        expected_masked: observed_expected,
+                        actual_masked: observed_actual,
+                    })) if observed_expected == expected_masked
+                        && observed_actual == actual_masked
+                ));
+            } else if actual_masked {
+                assert_eq!(result, Ok(FrameHeaderDecode::Incomplete { minimum: 6 }));
+            } else {
+                assert!(matches!(
+                    result,
+                    Ok(FrameHeaderDecode::Complete(header))
+                        if header.fin() == fin
+                            && header.opcode() == opcode
+                            && !header.masked()
+                            && header.payload_length() == usize::from(length_code)
+                            && header.mask_key().is_none()
+                            && header.header_length() == 2
+                ));
+            }
+        } else {
+            assert!(matches!(
+                result,
+                Err(FailureKind::Frame(FrameFailure::ReservedOpcode { opcode }))
+                    if opcode == wire_opcode
+            ));
+        }
+    }
+
     #[kani::proof]
     #[kani::unwind(12)]
     fn prove_header_safety() {
