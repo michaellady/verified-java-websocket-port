@@ -517,7 +517,7 @@
   "limitations": [
     "Rust status is credited only from the verified retained shipped-symbol Kani receipt; its logs, source bindings, toolchain, replay, and exact source mutations are transitively validated.",
     "Java formal bindings and Java-to-Rust refinement are absent for all 24 obligations, so aggregate formal coverage is 0/24.",
-    "Thirteen obligations have no retained shipped-symbol Kani harness; fifteen have no obligation-specific killed exact source mutation.",
+    "Thirteen obligations have no retained shipped-symbol Kani harness; thirteen have no obligation-specific killed exact source mutation.",
     "The Kani execution is owner-attested on one darwin/arm64 host and is not independent-host evidence.",
     "No sbx isolation, Autobahn rerun, production deployment, signing, publication, or cutover is claimed."
   ],

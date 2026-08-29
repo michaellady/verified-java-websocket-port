@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/michaellady/verified-java-websocket-port/internal/provenance"
 	"github.com/santhosh-tekuri/jsonschema/v6"
@@ -196,7 +197,7 @@ func buildCoverageProjection(rootPath, relativeSummary string) (coverageProjecti
 		Blockers:                 blockers,
 		Status:                   coverageStatus,
 		ClaimScope:               coverageClaimScope,
-		Limitations:              exactCoverageLimitations(),
+		Limitations:              exactCoverageLimitations(counts),
 		Assurance:                assurance,
 		IndependentReviewClaimed: false,
 		Production:               false,
@@ -255,7 +256,7 @@ func validateCoverageProjection(rootPath string, value coverageProjection) error
 		value.EvidenceKind != coverageEvidenceKind || value.Status != coverageStatus ||
 		value.ClaimScope != coverageClaimScope || value.Assurance != assurance ||
 		value.IndependentReviewClaimed || value.Production || value.Signing || value.Publication ||
-		!reflect.DeepEqual(value.Limitations, exactCoverageLimitations()) {
+		!reflect.DeepEqual(value.Limitations, exactCoverageLimitations(value.Counts)) {
 		return errors.New("coverage posture is inflated or incomplete")
 	}
 	if !hexCommit.MatchString(value.ProjectionBasis.Commit) || !hexCommit.MatchString(value.ProjectionBasis.Tree) ||
@@ -468,13 +469,24 @@ func validateCoverageSchema(root string, document []byte) error {
 	return schema.Validate(documentValue)
 }
 
-func exactCoverageLimitations() []string {
+func exactCoverageLimitations(counts coverageCounts) []string {
 	return []string{
 		"Rust status is credited only from the verified retained shipped-symbol Kani receipt; its logs, source bindings, toolchain, replay, and exact source mutations are transitively validated.",
 		"Java formal bindings and Java-to-Rust refinement are absent for all 24 obligations, so aggregate formal coverage is 0/24.",
-		"Thirteen obligations have no retained shipped-symbol Kani harness; fifteen have no obligation-specific killed exact source mutation.",
+		fmt.Sprintf("%s obligations have no retained shipped-symbol Kani harness; %s have no obligation-specific killed exact source mutation.", coverageCountText(counts.RustBlocked), strings.ToLower(coverageCountText(counts.MutationBlocked))),
 		"The Kani execution is owner-attested on one darwin/arm64 host and is not independent-host evidence.",
 		"No sbx isolation, Autobahn rerun, production deployment, signing, publication, or cutover is claimed.",
+	}
+}
+
+func coverageCountText(value int) string {
+	switch value {
+	case 13:
+		return "Thirteen"
+	case 15:
+		return "Fifteen"
+	default:
+		return fmt.Sprintf("%d", value)
 	}
 }
 
