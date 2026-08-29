@@ -5,9 +5,9 @@
   "story_id": "US-020",
   "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
-  "head_at_execution": "949cc55006d5520cf69f703563c99d9c04e38ff7",
-  "source_tree": "97ca368119762546a5419c9281121e554318e5bc",
-  "validation_time": "2026-08-29T03:14:14Z",
+  "head_at_execution": "01a7aa73401e2ad41235f61ec4918c8e5b0a1ee3",
+  "source_tree": "4f4e4e74184ff1bcb86e1f4349a08eb59ac26861",
+  "validation_time": "2026-08-29T03:54:20Z",
   "toolchain": {
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "host": "aarch64-apple-darwin"
@@ -70,8 +70,8 @@
     },
     {
       "path": "rust/Cargo.lock",
-      "sha256": "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb",
-      "git_blob": "beb9c9fe6075149151935cb48c1b147c330d3943"
+      "sha256": "sha256:b625671a716511a643b7da148f0e19b3edd8abde39f9d47a49143929d0dfc4bd",
+      "git_blob": "22ccc6f500aea56f7354148e64dd7ecc2cd80bca"
     },
     {
       "path": "rust/Cargo.toml",
@@ -225,8 +225,8 @@
     },
     {
       "path": "rust/connection-core/tests/scaffold_smoke.rs",
-      "sha256": "sha256:6c53024af4b097b97172c20cb9677d3e59d67468073a02c5ab360f3a4fc9e9e7",
-      "git_blob": "156a3714e508db424cd7af0cce0c220ded3207e2"
+      "sha256": "sha256:291239c651d26007141044ac4134c9f40909c434496fc715c9dbc2c70f9b259c",
+      "git_blob": "f97c6ff4cabf23dccf9b77a008036d61d251beeb"
     },
     {
       "path": "rust/connection-core/tests/server_handshake.rs",
