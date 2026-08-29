@@ -34,6 +34,29 @@ func TestEvidenceSchemaCompilesAndIsClosed(t *testing.T) {
 	}
 }
 
+func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	relative := "evidence/formal/kani-d39faf5/summary.json"
+	value, err := verify(root, relative)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.Status != "PASS" || value.Execution.RepeatCount != 2 ||
+		len(value.Execution.Harnesses) != 9 || len(value.Execution.MutationCanaries) != 9 ||
+		value.Execution.MutationSurvivors != 0 || !value.Execution.SemanticallyIdentical {
+		t.Fatalf("retained evidence posture drifted: %#v", value)
+	}
+
+	value.Execution.MutationSurvivors = 1
+	summaryDirectory := filepath.Join(root, "evidence", "formal", "kani-d39faf5")
+	if err := validateReceipt(root, summaryDirectory, value); err == nil {
+		t.Fatal("inflated survivor count was accepted")
+	}
+}
+
 func TestParseKaniResult(t *testing.T) {
 	for _, test := range []struct {
 		name        string
