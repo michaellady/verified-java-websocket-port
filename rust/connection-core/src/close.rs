@@ -364,7 +364,7 @@ fn validate_code(code: u16, sender: Role) -> Result<(), CloseFailure> {
 
 #[cfg(kani)]
 mod proofs {
-    use super::{validate_code, CloseCodeRejection, CloseFailure};
+    use super::{CloseCodeRejection, CloseFailure, validate_code};
     use crate::Role;
 
     fn reference_rejection(code: u16, sender: Role) -> Option<CloseCodeRejection> {
