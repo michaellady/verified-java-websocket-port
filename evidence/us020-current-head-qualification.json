@@ -5,9 +5,9 @@
   "story_id": "US-020",
   "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
-  "head_at_execution": "19a200bd6b96c2bb384459bf068eb0e371b741c6",
-  "source_tree": "c4f404b2ebb88d74f10aa4eab8ecef8146e04917",
-  "validation_time": "2026-08-29T00:37:33Z",
+  "head_at_execution": "04960336574bf14e788b327166d8e3f2d87d74ca",
+  "source_tree": "fe265e85247215e660fce7caf59a5bde8ad3efb1",
+  "validation_time": "2026-08-29T01:28:19Z",
   "toolchain": {
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "host": "aarch64-apple-darwin"
