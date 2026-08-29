@@ -1,0 +1,956 @@
+{
+  "$schema": "../../../schemas/kani-production-evidence-1.0.0.schema.json",
+  "schema_version": "1.0.0",
+  "evidence_kind": "KANI_PRODUCTION_SYMBOL_EVIDENCE",
+  "subject": {
+    "commit": "e6243994060e1a8f14b2b09fc0db88af80d5bcd2",
+    "tree": "b44e07d888b0840c0dc54b58f6d512c5f6ef6ffb",
+    "object_format": "sha1",
+    "clean_checkout": true,
+    "sources": [
+      {
+        "path": "rust/connection-core/src/close.rs",
+        "sha256": "sha256:52f50d851c71af1a799a94f0c2a2c2ad846855aedfd4436ebb12c038d6cbd391"
+      },
+      {
+        "path": "rust/connection-core/src/fragment.rs",
+        "sha256": "sha256:de139af4049e4ddd3202f97476f63e8444be1462bc3ff0a38d7b16c77c2a8dd2"
+      },
+      {
+        "path": "rust/connection-core/src/frame/decode.rs",
+        "sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88"
+      },
+      {
+        "path": "rust/connection-core/src/frame/encode.rs",
+        "sha256": "sha256:8ef10fd0b248fc268126e33cddb33bd9418ff86d2e57084422c6c6f030b640f2"
+      },
+      {
+        "path": "rust/connection-core/src/frame/mask.rs",
+        "sha256": "sha256:316ec1c447d3c37d4b8593ac7ccb82567b272158a7102d90846797e26d8deb29"
+      },
+      {
+        "path": "rust/connection-core/src/utf8.rs",
+        "sha256": "sha256:ee004efecba748b36ff962eb0a40289a9e2c8ca8bff5508475c70fb542f44dcc"
+      }
+    ]
+  },
+  "toolchain": {
+    "kani_version": "Kani Rust Verifier 0.67.0 (cargo plugin)\nCBMC 6.11.0",
+    "kani_source_commit": "37960b2bea719b86f3a99d28b650110203cffabb",
+    "kani_source_tree": "140c732427576e199ba96406f3657b2c2008d35d",
+    "cargo_kani_sha256": "sha256:a0fca4b405bedc008d4f1fd3a5b03c097b190896c633a301badef846e8560291",
+    "kani_compiler_sha256": "sha256:8ca95f5653d501fe5d667e8dc767f86eaff47944018ccd5f939409c61a3e88bc",
+    "cbmc_version": "6.11.0 (cbmc-6.11.0)",
+    "cbmc_sha256": "sha256:21d0bf43f03b86000b68ccb455c483125935c0b01a12113daf6654dfab61bc8b",
+    "rustc_version": "rustc 1.100.0-nightly (8925ea358 2026-08-20)\nbinary: rustc\ncommit-hash: 8925ea358a0f265ca61026aadc7ecc506c545cbe\ncommit-date: 2026-08-20\nhost: aarch64-apple-darwin\nrelease: 1.100.0-nightly\nLLVM version: 23.1.0",
+    "rustc_sha256": "sha256:810c21d31c80aaf16d19821282dc075bac26afec59a60d0404a6da6f89862694",
+    "driver_sha256": "sha256:7508aadfec97b1dbe81a536556bb6f1b8e6dbbcd6fb88fd027453890429195da"
+  },
+  "execution": {
+    "goos": "darwin",
+    "goarch": "arm64",
+    "pointer_width": 64,
+    "environment": [
+      "LANG=C",
+      "LC_ALL=C",
+      "KANI_OUTPUT_FORMAT=terse",
+      "CARGO_KANI_JOBS=1"
+    ],
+    "harnesses": [
+      {
+        "harness_id": "frame::decode::proofs::prove_header_safety",
+        "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "obligation_ids": [
+          "obligation.checked-header-arithmetic"
+        ],
+        "unwind": 12,
+        "symbolic_domain": [
+          "all 14-byte prefixes",
+          "all prefix lengths 0..14",
+          "both endpoint roles",
+          "all usize retained-byte counts"
+        ]
+      },
+      {
+        "harness_id": "frame::decode::proofs::prove_control_fin_and_length",
+        "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "obligation_ids": [
+          "obligation.control-fin-and-length"
+        ],
+        "unwind": 12,
+        "symbolic_domain": [
+          "all defined control opcodes",
+          "both FIN states",
+          "all 7-bit length codes"
+        ]
+      },
+      {
+        "harness_id": "frame::decode::proofs::prove_length_canonical_16",
+        "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "obligation_ids": [
+          "obligation.length-canonical-16"
+        ],
+        "unwind": 12,
+        "symbolic_domain": [
+          "all u16 encoded lengths"
+        ]
+      },
+      {
+        "harness_id": "frame::decode::proofs::prove_length_canonical_64_and_high_bit",
+        "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "obligation_ids": [
+          "obligation.length-canonical-64-high-bit-zero"
+        ],
+        "unwind": 12,
+        "symbolic_domain": [
+          "all u64 encoded lengths"
+        ]
+      },
+      {
+        "harness_id": "frame::decode::proofs::prove_length_canonical_7",
+        "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "obligation_ids": [
+          "obligation.length-canonical-7"
+        ],
+        "unwind": 12,
+        "symbolic_domain": [
+          "all payload lengths 0..125"
+        ]
+      },
+      {
+        "harness_id": "frame::decode::proofs::prove_preallocation_cap",
+        "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "obligation_ids": [
+          "obligation.preallocation-cap",
+          "surface.limits.allocation"
+        ],
+        "unwind": 12,
+        "symbolic_domain": [
+          "all u16 payload lengths",
+          "all u16 retained-byte counts",
+          "frame cap 256",
+          "total cap 512"
+        ]
+      },
+      {
+        "harness_id": "frame::decode::proofs::prove_role_masking",
+        "target_symbol": "websocket_core::frame::decode::FrameHeaderDecoder::decode_header",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "obligation_ids": [
+          "obligation.role-masking"
+        ],
+        "unwind": 12,
+        "symbolic_domain": [
+          "both endpoint roles",
+          "both wire mask states"
+        ]
+      },
+      {
+        "harness_id": "frame::mask::proofs::prove_mask_equation",
+        "target_symbol": "websocket_core::frame::mask::apply_mask_in_place",
+        "source_path": "rust/connection-core/src/frame/mask.rs",
+        "obligation_ids": [
+          "obligation.mask-equation"
+        ],
+        "unwind": 5,
+        "symbolic_domain": [
+          "all four-byte payloads",
+          "all four-byte keys",
+          "all usize offsets"
+        ]
+      },
+      {
+        "harness_id": "frame::mask::proofs::prove_mask_involution",
+        "target_symbol": "websocket_core::frame::mask::apply_mask_in_place",
+        "source_path": "rust/connection-core/src/frame/mask.rs",
+        "obligation_ids": [
+          "obligation.mask-involution"
+        ],
+        "unwind": 9,
+        "symbolic_domain": [
+          "all four-byte payloads",
+          "all four-byte keys",
+          "all usize offsets"
+        ]
+      },
+      {
+        "harness_id": "frame::encode::proofs::prove_short_frame_octets_and_masking",
+        "target_symbol": "websocket_core::frame::encode::FrameEncoder::encode",
+        "source_path": "rust/connection-core/src/frame/encode.rs",
+        "obligation_ids": [
+          "surface.framing.frame-octets",
+          "surface.framing.masking"
+        ],
+        "unwind": 12,
+        "symbolic_domain": [
+          "all payloads of exact lengths 0..4",
+          "text and binary opcodes",
+          "both FIN states",
+          "both endpoint roles",
+          "all four-byte client mask keys"
+        ]
+      },
+      {
+        "harness_id": "fragment::proofs::prove_binary_continuation_assembly",
+        "target_symbol": "websocket_core::fragment::FragmentAccumulator::plan+prepare+feed+commit",
+        "source_path": "rust/connection-core/src/fragment.rs",
+        "obligation_ids": [
+          "surface.fragmentation.continuation",
+          "surface.messages.binary"
+        ],
+        "unwind": 12,
+        "symbolic_domain": [
+          "all initial binary fragments of exact lengths 0..2",
+          "all continuation payloads of exact lengths 0..2",
+          "both final-continuation states"
+        ]
+      },
+      {
+        "harness_id": "close::proofs::prove_close_code_classification",
+        "target_symbol": "websocket_core::close::validate_code",
+        "source_path": "rust/connection-core/src/close.rs",
+        "obligation_ids": [
+          "surface.close.status-code"
+        ],
+        "unwind": 2,
+        "symbolic_domain": [
+          "all u16 close codes",
+          "both sender roles"
+        ]
+      },
+      {
+        "harness_id": "utf8::proofs::prove_strict_utf8_exact_len_le_4",
+        "target_symbol": "websocket_core::utf8::Utf8Validator::feed+finish",
+        "source_path": "rust/connection-core/src/utf8.rs",
+        "obligation_ids": [
+          "surface.messages.text-utf8"
+        ],
+        "unwind": 6,
+        "symbolic_domain": [
+          "all byte sequences of exact lengths 0..4"
+        ]
+      }
+    ],
+    "repeat_count": 2,
+    "runs": [
+      {
+        "run_id": "run-1",
+        "results": [
+          {
+            "harness_id": "frame::decode::proofs::prove_header_safety",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 334,
+            "unreachable_checks": 1,
+            "raw_output_sha256": "sha256:25d8e607036d162648fbd17ddc9467ed56e80bd8bf13a71f386063741c3e8ed8",
+            "normalized_log": {
+              "path": "run-1/frame--decode--proofs--prove-header-safety.out",
+              "sha256": "sha256:fa9ab981e94946eb03dd4a97cefd4f2d41e3f49fb66d6f4f0d999afee63b1f16"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_control_fin_and_length",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 365,
+            "unreachable_checks": 4,
+            "raw_output_sha256": "sha256:46903b4abec963a6a996b59ac3f434b866d4afce11eaa9b84e01c73eadd23cc5",
+            "normalized_log": {
+              "path": "run-1/frame--decode--proofs--prove-control-fin-and-length.out",
+              "sha256": "sha256:d83c48b2a311874f4f9bdb533a23ba456f9c429242b7fc9e6361d8cebdeebbf8"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_length_canonical_16",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 357,
+            "unreachable_checks": 2,
+            "raw_output_sha256": "sha256:0a8cbbfb85543b904200d5afec610455832ade81b0ca5ee197a15d93a4706ce1",
+            "normalized_log": {
+              "path": "run-1/frame--decode--proofs--prove-length-canonical-16.out",
+              "sha256": "sha256:808f271881b8f2464b4eded8eb5f10bf0dd55a5eccb4f008aa54413459c1443b"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_length_canonical_64_and_high_bit",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 487,
+            "unreachable_checks": 6,
+            "raw_output_sha256": "sha256:43c0113e7eb7dc85b223dd470ac321edcb1c8d30c333eeb11245cf068b57068d",
+            "normalized_log": {
+              "path": "run-1/frame--decode--proofs--prove-length-canonical-64-and-high-bit.out",
+              "sha256": "sha256:b54d57ce8bf7ee6d6b5dd25161dfca04c2804421e986d7e858afb9c56a85d8df"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_length_canonical_7",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 356,
+            "unreachable_checks": 4,
+            "raw_output_sha256": "sha256:4cbd99ef153cb377308ff13c0321bca3d3543cc551e0de443ffd405f5babc5d9",
+            "normalized_log": {
+              "path": "run-1/frame--decode--proofs--prove-length-canonical-7.out",
+              "sha256": "sha256:240cea43e1621e1762bc15b53e98873b89d9e128b8fa6c1d2576b872dc1e2828"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_preallocation_cap",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 355,
+            "unreachable_checks": 2,
+            "raw_output_sha256": "sha256:6559c2680798329457c1507138e200436a2330351bae1a4432deec398efc0051",
+            "normalized_log": {
+              "path": "run-1/frame--decode--proofs--prove-preallocation-cap.out",
+              "sha256": "sha256:04cf5b52e9dba2d14d2c4ddb8c09d35b97eaaef2e02fbba3060486d360cb9b99"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_role_masking",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 364,
+            "unreachable_checks": 4,
+            "raw_output_sha256": "sha256:8209d17d962b329892b858f850f2872705b1e28033a2d1b9a12ebf7536e97c86",
+            "normalized_log": {
+              "path": "run-1/frame--decode--proofs--prove-role-masking.out",
+              "sha256": "sha256:082bc0bb9b454781ba8658441898b50ac0a985fa08f141ef61ecf37ef7a67c64"
+            }
+          },
+          {
+            "harness_id": "frame::mask::proofs::prove_mask_equation",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 126,
+            "unreachable_checks": 1,
+            "raw_output_sha256": "sha256:17a3d27003a70b16048a8c8e9265a72cceb76c461c39494b8cd4b3ce74ae2ac2",
+            "normalized_log": {
+              "path": "run-1/frame--mask--proofs--prove-mask-equation.out",
+              "sha256": "sha256:65ad220558635dbc5d433d88aa5948839bc673ffe40a353343fbfebddb67b0a6"
+            }
+          },
+          {
+            "harness_id": "frame::mask::proofs::prove_mask_involution",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 105,
+            "unreachable_checks": 1,
+            "raw_output_sha256": "sha256:2d297e447d44cb46239a7a02b9c6a098be43e5e7d8ba14e2b2309f46b7c2b7fb",
+            "normalized_log": {
+              "path": "run-1/frame--mask--proofs--prove-mask-involution.out",
+              "sha256": "sha256:ee04124f24b84e320fcf51b37afad0edc423243f0ee13f8920f49641542590cf"
+            }
+          },
+          {
+            "harness_id": "frame::encode::proofs::prove_short_frame_octets_and_masking",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 882,
+            "unreachable_checks": 9,
+            "raw_output_sha256": "sha256:748c6e77cc4c917a7c291fc267bde2760fa77b2e41e91e5f5ecbfd9d1f6bdd87",
+            "normalized_log": {
+              "path": "run-1/frame--encode--proofs--prove-short-frame-octets-and-masking.out",
+              "sha256": "sha256:7495a6f3f3054bcc2bf9a002220dcb39bfe11d9ed18a0d73899260bbca1861ce"
+            }
+          },
+          {
+            "harness_id": "fragment::proofs::prove_binary_continuation_assembly",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 1543,
+            "unreachable_checks": 10,
+            "raw_output_sha256": "sha256:0caedcb4d7cd29a87d4e2adf0526d108d3d17725003ac2f5862754ac66ce73d3",
+            "normalized_log": {
+              "path": "run-1/fragment--proofs--prove-binary-continuation-assembly.out",
+              "sha256": "sha256:2b4f9bb21ad9a3e72624fc519bbed46e9a11d3a0619161658baf35c8d7bb34c3"
+            }
+          },
+          {
+            "harness_id": "close::proofs::prove_close_code_classification",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 398,
+            "unreachable_checks": 0,
+            "raw_output_sha256": "sha256:1dc77308d47516eec043d13beaebf2b97966455c0761408cbf20dc162c135ae4",
+            "normalized_log": {
+              "path": "run-1/close--proofs--prove-close-code-classification.out",
+              "sha256": "sha256:4f492ce1b6c7914295b8249109777d0daf28d0103b49105e5f25107dcac7b0e7"
+            }
+          },
+          {
+            "harness_id": "utf8::proofs::prove_strict_utf8_exact_len_le_4",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 476,
+            "unreachable_checks": 7,
+            "raw_output_sha256": "sha256:a577f31d58d2a2a165c1afb2c36726bf3293212e3c22282d8b58142966932935",
+            "normalized_log": {
+              "path": "run-1/utf8--proofs--prove-strict-utf8-exact-len-le-4.out",
+              "sha256": "sha256:0b6f1078fdb3382b3aeb4dbcf7a96b6fdd38bf74ab050e293f0d2f4d5bb37877"
+            }
+          }
+        ],
+        "semantic_projection_sha256": "sha256:b73d74799a4160cd1da90e8c4213a758fac5bf006f05c159ca4afdc870708644"
+      },
+      {
+        "run_id": "run-2",
+        "results": [
+          {
+            "harness_id": "frame::decode::proofs::prove_header_safety",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 334,
+            "unreachable_checks": 1,
+            "raw_output_sha256": "sha256:e80db9fcce84884cc25602702a2f5efa0c0ef21d6acbf9f65f257147548fa7da",
+            "normalized_log": {
+              "path": "run-2/frame--decode--proofs--prove-header-safety.out",
+              "sha256": "sha256:1780696cce206aeeb8d53b6628a84908322715d77d15578b1ed094643b6a67a8"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_control_fin_and_length",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 365,
+            "unreachable_checks": 4,
+            "raw_output_sha256": "sha256:af3729a6cb0182f4832544b852f94102e02ef133b424b0e7ccb39f62ee034c6f",
+            "normalized_log": {
+              "path": "run-2/frame--decode--proofs--prove-control-fin-and-length.out",
+              "sha256": "sha256:bb4a7fcf76a900c4ea92c6937eff16930eaab443516f8c7839e5cfbc8cf20ad4"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_length_canonical_16",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 357,
+            "unreachable_checks": 2,
+            "raw_output_sha256": "sha256:b147959e2d691061cce4d242de853d47fc9c7db13c25ce21cc0d296e7ec7ece6",
+            "normalized_log": {
+              "path": "run-2/frame--decode--proofs--prove-length-canonical-16.out",
+              "sha256": "sha256:d516a1db5a8bd64908a852cf99d9a875ac4ea0bb3fb0781a22d916b97b4242a1"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_length_canonical_64_and_high_bit",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 487,
+            "unreachable_checks": 6,
+            "raw_output_sha256": "sha256:8cf9ccc002d2bf96ebb7f4fdcced8ae7123e09ce9afdb615cae18fb85c83009a",
+            "normalized_log": {
+              "path": "run-2/frame--decode--proofs--prove-length-canonical-64-and-high-bit.out",
+              "sha256": "sha256:b0aa5c753aff737134de2cd48d9998e1b290b37b51b61e836e2237d903b1f839"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_length_canonical_7",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 356,
+            "unreachable_checks": 4,
+            "raw_output_sha256": "sha256:ebc2b95c6d353e53f75c6bc77af4ea227243901e4174f659b493a40839e2a1df",
+            "normalized_log": {
+              "path": "run-2/frame--decode--proofs--prove-length-canonical-7.out",
+              "sha256": "sha256:a18216f35f5ac4fd78d9f29443873e45dc0a638e2d052a51909ce7718f93b425"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_preallocation_cap",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 355,
+            "unreachable_checks": 2,
+            "raw_output_sha256": "sha256:bb8dddf8a49fd59654cecc2fb79cd4e38339b37a4ef40a96dfadf607f179cf4e",
+            "normalized_log": {
+              "path": "run-2/frame--decode--proofs--prove-preallocation-cap.out",
+              "sha256": "sha256:d1f43472ca8adcf54f5c27111afff8d970dd4ccc48d1fb3beecf0f4fa9c763cf"
+            }
+          },
+          {
+            "harness_id": "frame::decode::proofs::prove_role_masking",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 364,
+            "unreachable_checks": 4,
+            "raw_output_sha256": "sha256:58dc420ef3adf26339ff799448cf105df61ecbaddc7aa765ccac35367d499669",
+            "normalized_log": {
+              "path": "run-2/frame--decode--proofs--prove-role-masking.out",
+              "sha256": "sha256:1fdbef890d50f67de76f8bf5a68a0f1297c4ae7b57be7973c31dfcc5c3443bba"
+            }
+          },
+          {
+            "harness_id": "frame::mask::proofs::prove_mask_equation",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 126,
+            "unreachable_checks": 1,
+            "raw_output_sha256": "sha256:b1d6baa652ae07d22dd4896ff445b4714b3aee7f9b96d9da06cb3658443caff3",
+            "normalized_log": {
+              "path": "run-2/frame--mask--proofs--prove-mask-equation.out",
+              "sha256": "sha256:2d62bc645060351d24595f0d8a07f817763656449096084c373667189da51c67"
+            }
+          },
+          {
+            "harness_id": "frame::mask::proofs::prove_mask_involution",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 105,
+            "unreachable_checks": 1,
+            "raw_output_sha256": "sha256:7f6a1be8a7470c82f611af48c0260b5720f9619d273ec22bb641cab752cc63a8",
+            "normalized_log": {
+              "path": "run-2/frame--mask--proofs--prove-mask-involution.out",
+              "sha256": "sha256:514a3d1e6ea41899ee3989b299e7b68318fd7cfb4bd9dba63b53ca8336c5e84e"
+            }
+          },
+          {
+            "harness_id": "frame::encode::proofs::prove_short_frame_octets_and_masking",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 882,
+            "unreachable_checks": 9,
+            "raw_output_sha256": "sha256:96ab08ca9536f89dd21014469e71f012a8a5056c74e8a0058497ba71bbc589af",
+            "normalized_log": {
+              "path": "run-2/frame--encode--proofs--prove-short-frame-octets-and-masking.out",
+              "sha256": "sha256:db3a36862914bbd3290b2ab7d4f96d930034df3dd5c4552aa50e10e4bdef6b25"
+            }
+          },
+          {
+            "harness_id": "fragment::proofs::prove_binary_continuation_assembly",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 1543,
+            "unreachable_checks": 10,
+            "raw_output_sha256": "sha256:d7e8cf0a30003360295ec96ae73c110fe920cb513a16378bdae0b5f1a9813251",
+            "normalized_log": {
+              "path": "run-2/fragment--proofs--prove-binary-continuation-assembly.out",
+              "sha256": "sha256:d7fd697dcdf0aeea0c43ee4ff64df36ee22186b837ad25bc3779bb7197a322c6"
+            }
+          },
+          {
+            "harness_id": "close::proofs::prove_close_code_classification",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 398,
+            "unreachable_checks": 0,
+            "raw_output_sha256": "sha256:ac178dcc31bdd63217d3db16e74ba9b4b23db949537747eb2cc70c7ebb015081",
+            "normalized_log": {
+              "path": "run-2/close--proofs--prove-close-code-classification.out",
+              "sha256": "sha256:70fd4595ed43fbf0197e716be3e93a6affb8808c67e2ca259947d3fcf004971e"
+            }
+          },
+          {
+            "harness_id": "utf8::proofs::prove_strict_utf8_exact_len_le_4",
+            "status": "PASS",
+            "exit_code": 0,
+            "failed_checks": 0,
+            "total_checks": 476,
+            "unreachable_checks": 7,
+            "raw_output_sha256": "sha256:d8974cf7a98510ee7f39c6e9ed9c0d2bc4413580abe4cc8d7ec77c82a7e1cefb",
+            "normalized_log": {
+              "path": "run-2/utf8--proofs--prove-strict-utf8-exact-len-le-4.out",
+              "sha256": "sha256:804f1aca1f9ee1bdb939a344871e9a7ce53645c39babd6e2fd40adb8b6ce6922"
+            }
+          }
+        ],
+        "semantic_projection_sha256": "sha256:b73d74799a4160cd1da90e8c4213a758fac5bf006f05c159ca4afdc870708644"
+      }
+    ],
+    "semantically_identical": true,
+    "semantic_projection_sha256": "sha256:b73d74799a4160cd1da90e8c4213a758fac5bf006f05c159ca4afdc870708644",
+    "mutation_canaries": [
+      {
+        "canary_id": "canary.bad-header-overflow",
+        "harness_id": "frame::decode::proofs::prove_header_safety",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "mutation": "replace checked retained-byte addition with overflowing addition",
+        "baseline_source_sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+        "mutated_source_sha256": "sha256:13367dd18566d3d8cc537fd9e4a2087ce66d0867d20c79f3b547ee1b08236ffe",
+        "obligation_ids": [
+          "obligation.checked-header-arithmetic"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 334,
+        "unreachable_checks": 1,
+        "raw_output_sha256": "sha256:dabc5019ea3583b5f954e14f54007e41b3f3ed6dc131301cd74c9ea4b165ab28",
+        "normalized_log": {
+          "path": "mutations/canary-bad-header-overflow.out",
+          "sha256": "sha256:ab000b10f97b735b17307855d98962c6fe9c222a80bb255884469209660b86c7"
+        }
+      },
+      {
+        "canary_id": "canary.bad-control-fragmented",
+        "harness_id": "frame::decode::proofs::prove_control_fin_and_length",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "mutation": "invert the control-frame FIN rejection",
+        "baseline_source_sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+        "mutated_source_sha256": "sha256:f608ba4768e65d764307e78951d9c1e1ac875c535fc9c9b91a48fec8caaa7cd1",
+        "obligation_ids": [
+          "obligation.control-fin-and-length"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 3,
+        "total_checks": 365,
+        "unreachable_checks": 4,
+        "raw_output_sha256": "sha256:50951233759b28d946b9f0d0859430c532bd49d5ccafb708b16cec88687f7db4",
+        "normalized_log": {
+          "path": "mutations/canary-bad-control-fragmented.out",
+          "sha256": "sha256:2dabdf18ab3630efae81ed46f9c686d84dce2a9c105f4ab97b57ba30865ab345"
+        }
+      },
+      {
+        "canary_id": "canary.bad-control-oversized",
+        "harness_id": "frame::decode::proofs::prove_control_fin_and_length",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "mutation": "admit control length code 126 past the early bound",
+        "baseline_source_sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+        "mutated_source_sha256": "sha256:476d956a67e6ec7e7802efddf0cfb41bacac78b1569c4be44c29d5e738549115",
+        "obligation_ids": [
+          "obligation.control-fin-and-length"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 365,
+        "unreachable_checks": 2,
+        "raw_output_sha256": "sha256:334f1adeba8fed59f6d187e80d8bd1f0a8bd9f849f629c32742db5e1bb43ed2b",
+        "normalized_log": {
+          "path": "mutations/canary-bad-control-oversized.out",
+          "sha256": "sha256:3e223ab47df98197e921268a703981d3f695c89c7a0309e9bc4b203a01d0e92b"
+        }
+      },
+      {
+        "canary_id": "canary.bad-length-noncanonical-16",
+        "harness_id": "frame::decode::proofs::prove_length_canonical_16",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "mutation": "admit noncanonical 16-bit length 125",
+        "baseline_source_sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+        "mutated_source_sha256": "sha256:8e8797936572c68abe357de863658d547bbe839014e275e23d3dcedfe6403c5e",
+        "obligation_ids": [
+          "obligation.length-canonical-16"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 357,
+        "unreachable_checks": 2,
+        "raw_output_sha256": "sha256:614ce0c0905d79fbad13f98709159b973a1278bc4eb3972c27a5a6404cff925f",
+        "normalized_log": {
+          "path": "mutations/canary-bad-length-noncanonical-16.out",
+          "sha256": "sha256:523f39fac4fd81c571eab8951ef1a58845542467ca78364e656017720921164a"
+        }
+      },
+      {
+        "canary_id": "canary.bad-length-high-bit-64",
+        "harness_id": "frame::decode::proofs::prove_length_canonical_64_and_high_bit",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "mutation": "invert the 64-bit payload high-bit rejection",
+        "baseline_source_sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+        "mutated_source_sha256": "sha256:1cca9e031d493d236cf39d7a01ae11b6420b8876a805679ab12f26b77b48a219",
+        "obligation_ids": [
+          "obligation.length-canonical-64-high-bit-zero"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 4,
+        "total_checks": 487,
+        "unreachable_checks": 6,
+        "raw_output_sha256": "sha256:92b90295cb18a2215610b8e029c6fe975e0ee501ce510130adb398ee31a6e5f7",
+        "normalized_log": {
+          "path": "mutations/canary-bad-length-high-bit-64.out",
+          "sha256": "sha256:ca2676c33d9f6bddceaac73e2d7f0746c0010913ae7a32e21f4af70724f6fe7c"
+        }
+      },
+      {
+        "canary_id": "canary.bad-length-noncanonical-64",
+        "harness_id": "frame::decode::proofs::prove_length_canonical_64_and_high_bit",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "mutation": "admit noncanonical 64-bit length 65535",
+        "baseline_source_sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+        "mutated_source_sha256": "sha256:3452a35c0b5cb5cd22af4e6705961b029d60a40e4dde212914716b2d7ed39c97",
+        "obligation_ids": [
+          "obligation.length-canonical-64-high-bit-zero"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 487,
+        "unreachable_checks": 6,
+        "raw_output_sha256": "sha256:636522d9a547b954cc226a965b3a7532751af04a5b19d4af24faba8d916f7a1e",
+        "normalized_log": {
+          "path": "mutations/canary-bad-length-noncanonical-64.out",
+          "sha256": "sha256:b3a7e4d0671de8cab2d295e74f303eef460ec79b534e85e240c15b1077c09c25"
+        }
+      },
+      {
+        "canary_id": "canary.bad-length-inline-7",
+        "harness_id": "frame::decode::proofs::prove_length_canonical_7",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "mutation": "increment every inline 7-bit payload length",
+        "baseline_source_sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+        "mutated_source_sha256": "sha256:7633edc2a74902f4ae8ba097eb88e7effcebc19d57d9ca3c51451790a8ba2e67",
+        "obligation_ids": [
+          "obligation.length-canonical-7"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 356,
+        "unreachable_checks": 4,
+        "raw_output_sha256": "sha256:61fb16de9af6dbce27efa9954a99b650de51a64d6d1f65cb5f7900d2e05be021",
+        "normalized_log": {
+          "path": "mutations/canary-bad-length-inline-7.out",
+          "sha256": "sha256:4c27f34b07779cd0d42f3d143a9cf628d9ee7058c0d03ec6c2e9bb55dfc59e4a"
+        }
+      },
+      {
+        "canary_id": "canary.bad-allocation-before-cap",
+        "harness_id": "frame::decode::proofs::prove_preallocation_cap",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "mutation": "reject the exact admitted frame-cap boundary",
+        "baseline_source_sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+        "mutated_source_sha256": "sha256:4cfbedab55503690b3187795e3849867b151586754486f839bf1e38383f5541f",
+        "obligation_ids": [
+          "obligation.preallocation-cap",
+          "surface.limits.allocation"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 2,
+        "total_checks": 355,
+        "unreachable_checks": 2,
+        "raw_output_sha256": "sha256:80df611074990222595f576422dc32df23795d9af011cc33de84007ef9b5270c",
+        "normalized_log": {
+          "path": "mutations/canary-bad-allocation-before-cap.out",
+          "sha256": "sha256:52ec109d9d1615cf3bc348d64ce2118f3e68b02d5ab3df16bb852dd6a2afec91"
+        }
+      },
+      {
+        "canary_id": "canary.bad-role-masking",
+        "harness_id": "frame::decode::proofs::prove_role_masking",
+        "source_path": "rust/connection-core/src/frame/decode.rs",
+        "mutation": "invert inbound role-mask validation",
+        "baseline_source_sha256": "sha256:973f7f00cd1cf862fba289b4317d772fc58d2d774ec1f92f8d42c049e9ee4e88",
+        "mutated_source_sha256": "sha256:2dab1127185ed505f780a718faf7725859dadb17c2058ddfbc1d438be4962f04",
+        "obligation_ids": [
+          "obligation.role-masking",
+          "surface.framing.masking"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 2,
+        "total_checks": 364,
+        "unreachable_checks": 4,
+        "raw_output_sha256": "sha256:a262042830df7cd5f0e501d84fa8e8861ae84a5cb7e4a213fd3375b528ba31bb",
+        "normalized_log": {
+          "path": "mutations/canary-bad-role-masking.out",
+          "sha256": "sha256:0f86a56acd25cfd3264a4b7d165ed609ff6b2b1b10ea4e1fa5dc5b0563b795de"
+        }
+      },
+      {
+        "canary_id": "canary.bad-mask-key-index",
+        "harness_id": "frame::mask::proofs::prove_mask_equation",
+        "source_path": "rust/connection-core/src/frame/mask.rs",
+        "mutation": "shift the RFC mask-key index by one",
+        "baseline_source_sha256": "sha256:316ec1c447d3c37d4b8593ac7ccb82567b272158a7102d90846797e26d8deb29",
+        "mutated_source_sha256": "sha256:03b66ff6e1dcca49da564340d9ba04af8231f0ffb3fcaf6477d268fd434a0a41",
+        "obligation_ids": [
+          "obligation.mask-equation",
+          "surface.framing.masking"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 126,
+        "unreachable_checks": 1,
+        "raw_output_sha256": "sha256:9e995146fc64b03768554e6d99333af3951dbcadc0853f5ad724bfe15405a1a9",
+        "normalized_log": {
+          "path": "mutations/canary-bad-mask-key-index.out",
+          "sha256": "sha256:16bd55e574edd42c1abbdf38e070c33d830979ef8f3b748925c68aa2b9c3d51a"
+        }
+      },
+      {
+        "canary_id": "canary.bad-mask-non-involutive",
+        "harness_id": "frame::mask::proofs::prove_mask_involution",
+        "source_path": "rust/connection-core/src/frame/mask.rs",
+        "mutation": "replace mask XOR with non-involutive wrapping addition",
+        "baseline_source_sha256": "sha256:316ec1c447d3c37d4b8593ac7ccb82567b272158a7102d90846797e26d8deb29",
+        "mutated_source_sha256": "sha256:c8cd71215adc63640a46d86c286ab06179c40fe63474e14b9ae2acee499cc415",
+        "obligation_ids": [
+          "obligation.mask-involution"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 111,
+        "unreachable_checks": 1,
+        "raw_output_sha256": "sha256:ae0fd07d959119b00e5c69ed777ab33b035fbf5cab6a25bc0b1aee6afa8ef188",
+        "normalized_log": {
+          "path": "mutations/canary-bad-mask-non-involutive.out",
+          "sha256": "sha256:54354263bdf260048c2946763c405369da6670d0dc126e7eaed244ab9f633d22"
+        }
+      },
+      {
+        "canary_id": "canary.bad-frame-fin-bit",
+        "harness_id": "frame::encode::proofs::prove_short_frame_octets_and_masking",
+        "source_path": "rust/connection-core/src/frame/encode.rs",
+        "mutation": "encode FIN in the reserved-bit position",
+        "baseline_source_sha256": "sha256:8ef10fd0b248fc268126e33cddb33bd9418ff86d2e57084422c6c6f030b640f2",
+        "mutated_source_sha256": "sha256:a82704e7e92105d4ca8bdc538ba34e5e8cf830b2ff21c164d269b1cc9d385329",
+        "obligation_ids": [
+          "surface.framing.frame-octets"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 882,
+        "unreachable_checks": 9,
+        "raw_output_sha256": "sha256:19799c4bc3c7bf2b16679f6bd2396ad47c320b3c48bef3eb4263b5ca6b5fe69c",
+        "normalized_log": {
+          "path": "mutations/canary-bad-frame-fin-bit.out",
+          "sha256": "sha256:c0dc07039e44831358966f99fc7e786f7e63152e9861280cd1b2a6c39d237e43"
+        }
+      },
+      {
+        "canary_id": "canary.bad-final-continuation-not-delivered",
+        "harness_id": "fragment::proofs::prove_binary_continuation_assembly",
+        "source_path": "rust/connection-core/src/fragment.rs",
+        "mutation": "deliver a non-final continuation instead of the final continuation",
+        "baseline_source_sha256": "sha256:de139af4049e4ddd3202f97476f63e8444be1462bc3ff0a38d7b16c77c2a8dd2",
+        "mutated_source_sha256": "sha256:a36d54a8d7c6994cbfb7ae45d900cfe34f93f24aff2865dae5dfe4dfb044bae2",
+        "obligation_ids": [
+          "surface.fragmentation.continuation"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 2,
+        "total_checks": 1543,
+        "unreachable_checks": 14,
+        "raw_output_sha256": "sha256:4d5f2f06e9b8c3708cc650e7e5edbabaa6d3ae6ae90b1d363b0f866802ab0781",
+        "normalized_log": {
+          "path": "mutations/canary-bad-final-continuation-not-delivered.out",
+          "sha256": "sha256:10db3f48f3f4a8407fc38d3fa3562fd3b88651f8723b76a42d56673ed64717fe"
+        }
+      },
+      {
+        "canary_id": "canary.bad-binary-continuation-payload-dropped",
+        "harness_id": "fragment::proofs::prove_binary_continuation_assembly",
+        "source_path": "rust/connection-core/src/fragment.rs",
+        "mutation": "drop the current continuation payload during assembly",
+        "baseline_source_sha256": "sha256:de139af4049e4ddd3202f97476f63e8444be1462bc3ff0a38d7b16c77c2a8dd2",
+        "mutated_source_sha256": "sha256:41bc1d70ca425cb7a61918a30037f48c25f56a193ec1958906fdf78dff2f6af5",
+        "obligation_ids": [
+          "surface.messages.binary"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 2,
+        "total_checks": 1543,
+        "unreachable_checks": 10,
+        "raw_output_sha256": "sha256:a82ab8516609107a2529df2437e9db5d881a51b4039fa2f16dd12dbe1efb2713",
+        "normalized_log": {
+          "path": "mutations/canary-bad-binary-continuation-payload-dropped.out",
+          "sha256": "sha256:b62d02960e63741d3984792e0d0587a8cf8d1a6361c18c6a00123e671d3fbee3"
+        }
+      },
+      {
+        "canary_id": "canary.bad-close-code-sender-role",
+        "harness_id": "close::proofs::prove_close_code_classification",
+        "source_path": "rust/connection-core/src/close.rs",
+        "mutation": "invert which sender role may transmit close code 1010",
+        "baseline_source_sha256": "sha256:52f50d851c71af1a799a94f0c2a2c2ad846855aedfd4436ebb12c038d6cbd391",
+        "mutated_source_sha256": "sha256:1397d75918e0e7db8c31d5bfae388e5462678c10d0999928952bfe4b1a4fd692",
+        "obligation_ids": [
+          "surface.close.status-code"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 398,
+        "unreachable_checks": 0,
+        "raw_output_sha256": "sha256:990088d24959384102c7f5eb49dfb7b6b60b209026df847a1211ad81ce5d200a",
+        "normalized_log": {
+          "path": "mutations/canary-bad-close-code-sender-role.out",
+          "sha256": "sha256:570c57a91c5be02824c02b13a1beb2c0396f3f333542b0f906e6a0acf82c29d5"
+        }
+      },
+      {
+        "canary_id": "canary.bad-utf8-surrogate",
+        "harness_id": "utf8::proofs::prove_strict_utf8_exact_len_le_4",
+        "source_path": "rust/connection-core/src/utf8.rs",
+        "mutation": "admit UTF-8 encodings of surrogate code points",
+        "baseline_source_sha256": "sha256:ee004efecba748b36ff962eb0a40289a9e2c8ca8bff5508475c70fb542f44dcc",
+        "mutated_source_sha256": "sha256:74393bb2a91fe888728629ade1909709523fa8b5a9486310f33953f742328203",
+        "obligation_ids": [
+          "surface.messages.text-utf8"
+        ],
+        "status": "COUNTEREXAMPLE",
+        "exit_code": 1,
+        "failed_checks": 1,
+        "total_checks": 476,
+        "unreachable_checks": 7,
+        "raw_output_sha256": "sha256:2a8009b65826c0bb1e2c61ce8336c64768cef7aa2a96d63fb2b006d4be34e2c4",
+        "normalized_log": {
+          "path": "mutations/canary-bad-utf8-surrogate.out",
+          "sha256": "sha256:4ffe687269595b9d0ffd2a0eb9de33988a8f4fc4a5120283959469d02a0368f1"
+        }
+      }
+    ],
+    "mutation_survivors": 0,
+    "unsupported_constructs": [
+      "caller_location (reported globally, unreachable from every retained harness)",
+      "foreign function (reported globally, unreachable from every retained harness)"
+    ]
+  },
+  "status": "PASS",
+  "claim_scope": "OWNER_EXECUTED_KANI_PRODUCTION_SYMBOLS",
+  "limitations": [
+    "The proofs cover the exact retained symbolic domains and unwind bounds, not every WebSocket behavior.",
+    "The Kani execution is owner-attested on one darwin/arm64 host and is not independent-host evidence.",
+    "Normalized logs retain semantic results and raw-output digests but intentionally omit host paths and elapsed times.",
+    "No sbx isolation, production deployment, signing, publication, or cutover is claimed.",
+    "The reported unsupported constructs were unreachable from every retained harness; reachable unsupported constructs would fail verification."
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false
+}
