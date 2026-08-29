@@ -218,19 +218,19 @@ func TestVerifyRetainedKaniEvidenceAndRejectInflation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	relative := "evidence/formal/kani-e624399/summary.json"
+	relative := "evidence/formal/kani-2531f12/summary.json"
 	value, err := verify(root, relative)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if value.Status != "PASS" || value.Execution.RepeatCount != 2 ||
-		len(value.Execution.Harnesses) != 13 || len(value.Execution.MutationCanaries) != 16 ||
+		len(value.Execution.Harnesses) != 14 || len(value.Execution.MutationCanaries) != 17 ||
 		value.Execution.MutationSurvivors != 0 || !value.Execution.SemanticallyIdentical {
 		t.Fatalf("retained evidence posture drifted: %#v", value)
 	}
 
 	value.Execution.MutationSurvivors = 1
-	summaryDirectory := filepath.Join(root, "evidence", "formal", "kani-e624399")
+	summaryDirectory := filepath.Join(root, "evidence", "formal", "kani-2531f12")
 	if err := validateReceipt(root, summaryDirectory, value); err == nil {
 		t.Fatal("inflated survivor count was accepted")
 	}
@@ -274,6 +274,20 @@ func TestVerifyHistoricalFourteenCanaryReceipt(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(value.Execution.Harnesses) != 12 || len(value.Execution.MutationCanaries) != 14 {
+		t.Fatalf("historical denominator drifted: harnesses=%d mutations=%d", len(value.Execution.Harnesses), len(value.Execution.MutationCanaries))
+	}
+}
+
+func TestVerifyHistoricalSixteenCanaryReceipt(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := verify(root, "evidence/formal/kani-e624399/summary.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(value.Execution.Harnesses) != 13 || len(value.Execution.MutationCanaries) != 16 {
 		t.Fatalf("historical denominator drifted: harnesses=%d mutations=%d", len(value.Execution.Harnesses), len(value.Execution.MutationCanaries))
 	}
 }
