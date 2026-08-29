@@ -38,7 +38,7 @@
     "preparation_observed_binary_bytes": 1400192,
     "binary_reverified_by_static_verifier": false,
     "source_tree_digest": "sha256:ee9c54136153a002bd4f7a28298140a59841daaa75386d4595847511be7fdcf1",
-    "cargo_lock_digest": "sha256:4e889e0da92e71acff96ad07d7bc2ffcee24968fbb21d580b8b0c9aad9a043cb",
+    "cargo_lock_digest": "sha256:b625671a716511a643b7da148f0e19b3edd8abde39f9d47a49143929d0dfc4bd",
     "host": "darwin/arm64",
     "rustc_version": "rustc 1.95.0 (59807616e 2026-04-14)",
     "challenge": "58025e5ecb22cdfc8651bcb1302fce3af07048ee038b24a3e7f856ebbb709867",
