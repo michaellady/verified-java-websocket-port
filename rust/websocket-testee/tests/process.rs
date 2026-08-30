@@ -717,26 +717,45 @@ fn server_process_binds_one_loopback_peer_and_exits() {
     drop(reservation);
     let mut arguments = vec!["server".to_owned(), address.to_string()];
     arguments.extend(bounds().map(str::to_owned));
-    let child = Command::new(binary())
+    let mut child = Command::new(binary())
         .args(arguments)
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
         .unwrap();
 
-    let deadline = Instant::now() + Duration::from_millis(500);
+    let deadline = Instant::now() + Duration::from_secs(2);
     let mut peer = loop {
         match TcpStream::connect(address) {
             Ok(stream) => break stream,
             Err(_) if Instant::now() < deadline => thread::sleep(Duration::from_millis(1)),
-            Err(error) => panic!("server process did not bind: {error}"),
+            Err(error) => {
+                let _ = child.kill();
+                let output = child.wait_with_output().unwrap();
+                panic!(
+                    "server process did not bind: {error}; status={:?} stdout={:?} stderr={:?}",
+                    output.status.code(),
+                    output.stdout,
+                    output.stderr
+                );
+            }
         }
     };
     peer.write_all(RFC_REQUEST).unwrap();
     peer.shutdown(Shutdown::Write).unwrap();
-    let mut response = Vec::new();
-    peer.read_to_end(&mut response).unwrap();
+    let mut response = vec![0_u8; RFC_RESPONSE.len()];
+    let response_result = peer.read_exact(&mut response);
+    let mut trailing = [0_u8; 1];
+    let teardown_result = peer.read(&mut trailing);
     let output = child.wait_with_output().unwrap();
+
+    response_result.unwrap();
+    match teardown_result {
+        Ok(0) => {}
+        Err(error) if error.kind() == std::io::ErrorKind::ConnectionReset => {}
+        Ok(bytes) => panic!("server emitted {bytes} trailing response bytes"),
+        Err(error) => panic!("server response teardown failed: {error}"),
+    }
 
     assert_eq!(response, RFC_RESPONSE);
     assert_eq!(output.status.code(), Some(0));

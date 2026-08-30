@@ -272,7 +272,7 @@ func extractSubject(root, commit string) (string, func(), error) {
 	if len(raw) > 512<<20 {
 		return "", nil, errors.New("subject archive exceeded bound")
 	}
-	destination, err := os.MkdirTemp("/private/tmp", "us024-subject-")
+	destination, err := makeRealTemporaryDirectory("us024-subject-")
 	if err != nil {
 		return "", nil, err
 	}
@@ -337,6 +337,18 @@ func extractSubject(root, commit string) (string, func(), error) {
 		}
 	}
 	return destination, cleanup, nil
+}
+
+func makeRealTemporaryDirectory(prefix string) (string, error) {
+	root, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		return "", fmt.Errorf("resolve system temporary directory: %w", err)
+	}
+	info, err := os.Lstat(root)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || !filepath.IsAbs(root) || filepath.Clean(root) != root || root == string(filepath.Separator) {
+		return "", errors.New("system temporary directory must resolve to one narrow real directory")
+	}
+	return os.MkdirTemp(root, prefix)
 }
 
 func runCargoBuild(ctx context.Context, root, cargo string) (Artifact, error) {

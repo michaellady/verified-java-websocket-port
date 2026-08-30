@@ -4,8 +4,10 @@ The cloud worker uses a Linux amd64 universal image plus a repository-owned,
 fail-closed bootstrap. Artifact downloads have exact byte-count and SHA-256
 bindings. Kani is checked out at an exact commit and tree, built from its locked
 Rust dependency graph, and accepted only while its tracked source remains clean.
-The bootstrap verifies every installed tool's reported version before making the
-environment available to an agent.
+The bootstrap restores the public project history needed by retained evidence,
+then verifies every installed tool's reported version before making the
+environment available to an agent. The history fetch must leave both `HEAD` and
+the working-tree status unchanged.
 
 ## Environment settings
 
@@ -18,11 +20,15 @@ universal image on Linux amd64 and configure:
 - agent internet access: disabled unless a specific task requires and records it
 - secrets: none
 
-The setup phase writes an idempotent managed block to `~/.bashrc`; setup-process
-environment exports do not otherwise persist into the agent phase. Codex may
-cache this environment, so the maintenance command rechecks immutable downloads,
-materialized directory types, the Kani source identity and cleanliness, and all
-tool versions.
+The setup phase prepends an idempotent managed block to `~/.bashrc`, ahead of
+Ubuntu's early return for non-interactive shells; setup-process environment
+exports do not otherwise persist into the agent phase. A cached legacy block at
+the end of the file is moved without changing unrelated shell content. Codex may
+cache this environment, so the maintenance command rechecks project history,
+immutable downloads, materialized directory types, the Kani source identity and
+cleanliness, and all tool versions. Setup also rebuilds the Java oracle adapter
+with its evidence-bound deterministic ZIP timestamps and rejects any digest
+other than the adapter retained by the differential manifest.
 
 The exact materialized locations can be inspected without changing state:
 

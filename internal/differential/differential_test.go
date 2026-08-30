@@ -1287,18 +1287,18 @@ func TestOnDiskLockAndJournaledPairRecovery(t *testing.T) {
 }
 
 func TestEvidenceCoordinationPathIsStableAcrossProcessTempEnvironment(t *testing.T) {
-	dir, err := os.MkdirTemp("/private/tmp", "us020-coordination-key-")
+	dir, err := makeRealTemporaryDirectory("us020-coordination-key-")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(dir)
 	ledgerPath := filepath.Join(dir, "ledger.json")
 	manifestPath := filepath.Join(dir, "manifest.json")
-	firstTemp, err := os.MkdirTemp("/private/tmp", "us020-temp-a-")
+	firstTemp, err := makeRealTemporaryDirectory("us020-temp-a-")
 	if err != nil {
 		t.Fatal(err)
 	}
-	secondTemp, err := os.MkdirTemp("/private/tmp", "us020-temp-b-")
+	secondTemp, err := makeRealTemporaryDirectory("us020-temp-b-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1385,7 +1385,7 @@ func crashLedgerDocument(t *testing.T, label string) ([]byte, Ledger) {
 func TestCrashReleasedCoordinationRecoversHalfInstalledPairAndCAS(t *testing.T) {
 	for _, direction := range []string{"ledger-installed", "manifest-installed"} {
 		t.Run(direction, func(t *testing.T) {
-			dir, err := os.MkdirTemp("/private/tmp", "us020-crash-recovery-")
+			dir, err := makeRealTemporaryDirectory("us020-crash-recovery-")
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -1483,7 +1483,7 @@ func TestCrashReleasedCoordinationRecoversHalfInstalledPairAndCAS(t *testing.T) 
 }
 
 func TestRecoveryRejectsCorruptAndMismatchedJournalWhileHeld(t *testing.T) {
-	dir, err := os.MkdirTemp("/private/tmp", "us020-hostile-journal-")
+	dir, err := makeRealTemporaryDirectory("us020-hostile-journal-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1617,7 +1617,7 @@ func TestLaunchBundleUsesImmutableContentAddressedBytes(t *testing.T) {
 
 func fakeJavaRuntime(t *testing.T, complete bool) string {
 	t.Helper()
-	base, err := os.MkdirTemp("/private/tmp", "us020-fake-jdk-")
+	base, err := makeRealTemporaryDirectory("us020-fake-jdk-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1730,7 +1730,7 @@ func TestJavaRuntimeImageLaunchesRealPinnedJDK(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store, err := os.MkdirTemp("/private/tmp", "us020-jdk-image-smoke-")
+	store, err := makeRealTemporaryDirectory("us020-jdk-image-smoke-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2132,7 +2132,7 @@ func TestRealGeneratorProducesExact103SchemaValidReproducers(t *testing.T) {
 		}
 	}
 
-	work, err := os.MkdirTemp("/private/tmp", "us020-real-generator-")
+	work, err := makeRealTemporaryDirectory("us020-real-generator-")
 	if err != nil {
 		t.Fatal(err)
 	}

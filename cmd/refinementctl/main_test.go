@@ -10,7 +10,7 @@ import (
 
 func privateTempDir(t *testing.T) string {
 	t.Helper()
-	directory, err := os.MkdirTemp("/private/tmp", "us024-refinementctl-test-")
+	directory, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
 	}

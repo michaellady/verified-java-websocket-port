@@ -32,7 +32,10 @@ const (
 	kaniCharonCommit = "b250680abd40ff1aaa07081d0497dc2755ed112e"
 	kaniCharonTree   = "a83f56525e28511f65e17584db0303fed72b00b2"
 	kaniURL          = "https://github.com/model-checking/kani.git"
+	projectURL       = "https://github.com/michaellady/verified-java-websocket-port.git"
 	cacheName        = "verified-java-websocket-port"
+	javaOracleSHA256 = "sha256:a9f895456837a90ae7e7652421f4d4c41ed9643e0b9f9f9e4d2a552007e769c7"
+	javaOracleBytes  = 38637
 )
 
 var linuxJDK = downloadPin{
@@ -145,6 +148,7 @@ func setupPlan(root, _ string) []commandSpec {
 		{Name: "rust-toolchain", Dir: root, Path: "rustup", Args: []string{"toolchain", "install", "1.95.0", "--profile", "minimal", "--component", "rustfmt", "--component", "clippy"}},
 		{Name: "go-dependencies", Dir: root, Path: "go", Args: []string{"mod", "download"}},
 		{Name: "rust-dependencies", Dir: root, Path: "cargo", Args: []string{"+1.95.0", "fetch", "--locked", "--manifest-path", filepath.Join(root, "rust", "Cargo.toml")}},
+		{Name: "java-oracle", Dir: root, Path: "make", Args: []string{"-C", "java-oracle", "build", "JAVA_WEBSOCKET_JAR=../.quarantine/Java-WebSocket-1.6.0.jar"}},
 	}
 }
 
@@ -174,6 +178,9 @@ func prepare(root, home string, stdout, stderr io.Writer) error {
 		if info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(required))); err != nil || !info.Mode().IsRegular() {
 			return fmt.Errorf("repository root is missing regular file %s", required)
 		}
+	}
+	if err := ensureRepositoryHistory(root, projectURL, os.Environ(), stdout, stderr); err != nil {
+		return err
 	}
 	pins, err := loadCloudPins(root)
 	if err != nil {
@@ -216,6 +223,14 @@ func prepare(root, home string, stdout, stderr io.Writer) error {
 			return err
 		}
 	}
+	javaOracle, err := os.ReadFile(filepath.Join(root, "java-oracle", "build", "java-oracle.jar"))
+	if err != nil {
+		return fmt.Errorf("read Java oracle adapter: %w", err)
+	}
+	if err := verifyDownloaded(javaOracle, downloadPin{SHA256: javaOracleSHA256, Bytes: javaOracleBytes}); err != nil {
+		return fmt.Errorf("Java oracle adapter identity: %w", err)
+	}
+	_, _ = fmt.Fprintf(stdout, "java-oracle=%s\n", javaOracleSHA256)
 	if err := ensureKani(cloud.KaniRoot, environment, stdout, stderr); err != nil {
 		return err
 	}
@@ -594,6 +609,48 @@ func commandOutput(directory, path string, arguments ...string) (string, error) 
 	return string(body), err
 }
 
+func ensureRepositoryHistory(root, repository string, environment []string, stdout, stderr io.Writer) error {
+	headBefore, err := commandOutput(root, "git", "rev-parse", "--verify", "HEAD^{commit}")
+	if err != nil {
+		return errors.New("cloud checkout has no committed HEAD")
+	}
+	statusBefore, err := commandOutput(root, "git", "status", "--porcelain", "--untracked-files=all")
+	if err != nil {
+		return errors.New("cloud checkout status is unavailable")
+	}
+	shallow, err := commandOutput(root, "git", "rev-parse", "--is-shallow-repository")
+	if err != nil || (strings.TrimSpace(shallow) != "true" && strings.TrimSpace(shallow) != "false") {
+		return errors.New("cloud checkout shallow identity is unavailable")
+	}
+	arguments := []string{"fetch", "--no-tags", "--force"}
+	if strings.TrimSpace(shallow) == "true" {
+		arguments = append(arguments, "--unshallow")
+	}
+	arguments = append(arguments, repository, "+refs/heads/*:refs/remotes/vjwp-cloud/*")
+	if err := execute(commandSpec{Name: "fetch-project-history", Dir: root, Path: "git", Args: arguments}, environment, stdout, stderr); err != nil {
+		return err
+	}
+	headAfter, err := commandOutput(root, "git", "rev-parse", "--verify", "HEAD^{commit}")
+	if err != nil || headAfter != headBefore {
+		return errors.New("project history fetch changed the checked-out commit")
+	}
+	statusAfter, err := commandOutput(root, "git", "status", "--porcelain", "--untracked-files=all")
+	if err != nil || statusAfter != statusBefore {
+		return errors.New("project history fetch changed the working tree")
+	}
+	objects, err := commandOutput(root, "git", "rev-list", "--objects", "--missing=print", "HEAD")
+	if err != nil {
+		return errors.New("project history remains unreadable after fetch")
+	}
+	for _, line := range strings.Split(objects, "\n") {
+		if strings.HasPrefix(line, "?") {
+			return errors.New("project history remains incomplete after fetch")
+		}
+	}
+	_, _ = fmt.Fprintln(stdout, "repository-history=complete")
+	return nil
+}
+
 func verifyTools(cloud paths, environment []string, stdout, stderr io.Writer) error {
 	if runtime.Version() != "go1.25.5" {
 		return fmt.Errorf("cloudsetup is running under %s, expected go1.25.5", runtime.Version())
@@ -641,27 +698,29 @@ func appendBashEnvironment(home string, cloud paths) error {
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	if bytes.Contains(body, []byte(begin)) {
-		if !bytes.Contains(body, []byte(block)) {
+	blockBytes := []byte(block)
+	beginBytes := []byte(begin)
+	if bytes.Contains(body, beginBytes) {
+		if bytes.Count(body, beginBytes) != 1 {
+			return errors.New("existing managed cloud environment block is duplicated; reset the Codex environment cache")
+		}
+		start := bytes.Index(body, beginBytes)
+		if start < 0 || !bytes.HasPrefix(body[start:], blockBytes) {
 			return errors.New("existing managed cloud environment block differs; reset the Codex environment cache")
 		}
-		return nil
-	}
-	handle, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
-	if err != nil {
-		return err
-	}
-	if len(body) > 0 && body[len(body)-1] != '\n' {
-		if _, err := handle.WriteString("\n"); err != nil {
-			_ = handle.Close()
-			return err
+		if start == 0 {
+			return nil
 		}
+		migrated := make([]byte, 0, len(body))
+		migrated = append(migrated, blockBytes...)
+		migrated = append(migrated, body[:start]...)
+		migrated = append(migrated, body[start+len(blockBytes):]...)
+		return os.WriteFile(path, migrated, 0o644)
 	}
-	if _, err := handle.WriteString(block); err != nil {
-		_ = handle.Close()
-		return err
-	}
-	return handle.Close()
+	updated := make([]byte, 0, len(blockBytes)+len(body))
+	updated = append(updated, blockBytes...)
+	updated = append(updated, body...)
+	return os.WriteFile(path, updated, 0o644)
 }
 
 func shellQuote(value string) string {

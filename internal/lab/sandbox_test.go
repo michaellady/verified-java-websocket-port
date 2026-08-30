@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -17,19 +18,22 @@ func TestControlledCanaryRequestIsClosedAndRequiresAuthenticatedPromotions(t *te
 		Resources: validSandboxPlan(t, SandboxMavenBuild).Resources,
 	}
 	planDigest, err := ControlledCanaryPlanDigest(request)
+	if runtime.GOOS != "darwin" {
+		assertFinding(t, err, "PLATFORM_EXECUTOR_UNSUPPORTED")
+		request.PlanDigest = intake.DigestBytes([]byte("unavailable-platform-plan"))
+		assertClosedCanaryRequestEncoding(t, request)
+		if _, executeErr := ExecuteControlledCanary(request); executeErr == nil {
+			t.Fatal("unsupported platform accepted controlled canary execution")
+		} else {
+			assertFinding(t, executeErr, "PLATFORM_EXECUTOR_UNSUPPORTED")
+		}
+		return
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
 	request.PlanDigest = planDigest
-	encoded, err := json.Marshal(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, forbidden := range []string{"path", "argument", "environment", "operation", "secret", "signing", "publication"} {
-		if strings.Contains(string(encoded), forbidden) {
-			t.Fatalf("closed request exposed caller-controlled %s: %s", forbidden, encoded)
-		}
-	}
+	assertClosedCanaryRequestEncoding(t, request)
 	if _, err := ExecuteControlledCanary(request); err == nil {
 		t.Fatal("unpromoted self executable was allowed to run")
 	} else {
@@ -53,6 +57,19 @@ func TestControlledCanaryRequestIsClosedAndRequiresAuthenticatedPromotions(t *te
 				t.Fatal("open or malformed controlled-canary request was accepted")
 			}
 		})
+	}
+}
+
+func assertClosedCanaryRequestEncoding(t *testing.T, request ControlledCanaryRequest) {
+	t.Helper()
+	encoded, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"path", "argument", "environment", "operation", "secret", "signing", "publication"} {
+		if strings.Contains(string(encoded), forbidden) {
+			t.Fatalf("closed request exposed caller-controlled %s: %s", forbidden, encoded)
+		}
 	}
 }
 

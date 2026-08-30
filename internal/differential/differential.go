@@ -131,7 +131,7 @@ func ReplayRustPublic(ctx context.Context, cfg RustReplayConfig) ([]RustReplayRo
 	if err != nil {
 		return nil, err
 	}
-	home, err := os.MkdirTemp("/private/tmp", "us024-rust-replay-")
+	home, err := makeRealTemporaryDirectory("us024-rust-replay-")
 	if err != nil {
 		return nil, err
 	}
@@ -168,6 +168,18 @@ func ReplayRustPublic(ctx context.Context, cfg RustReplayConfig) ([]RustReplayRo
 		return nil, fmt.Errorf("public replay count = %d, want %d", len(rows), expectedPublicScenarios)
 	}
 	return rows, nil
+}
+
+func makeRealTemporaryDirectory(prefix string) (string, error) {
+	root, err := filepath.EvalSymlinks(os.TempDir())
+	if err != nil {
+		return "", fmt.Errorf("resolve system temporary directory: %w", err)
+	}
+	info, err := os.Lstat(root)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || !filepath.IsAbs(root) || filepath.Clean(root) != root || root == string(filepath.Separator) {
+		return "", errors.New("system temporary directory must resolve to one narrow real directory")
+	}
+	return os.MkdirTemp(root, prefix)
 }
 
 type ReproductionReceipt struct {

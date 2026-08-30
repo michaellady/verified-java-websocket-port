@@ -20,6 +20,7 @@ func TestCloudSetupPlanUsesExactProjectAndVerifierPins(t *testing.T) {
 		{Name: "rust-toolchain", Dir: root, Path: "rustup", Args: []string{"toolchain", "install", "1.95.0", "--profile", "minimal", "--component", "rustfmt", "--component", "clippy"}},
 		{Name: "go-dependencies", Dir: root, Path: "go", Args: []string{"mod", "download"}},
 		{Name: "rust-dependencies", Dir: root, Path: "cargo", Args: []string{"+1.95.0", "fetch", "--locked", "--manifest-path", filepath.Join(root, "rust", "Cargo.toml")}},
+		{Name: "java-oracle", Dir: root, Path: "make", Args: []string{"-C", "java-oracle", "build", "JAVA_WEBSOCKET_JAR=../.quarantine/Java-WebSocket-1.6.0.jar"}},
 	}
 	if !reflect.DeepEqual(plan, want) {
 		t.Fatalf("setup plan = %#v, want %#v", plan, want)
@@ -30,6 +31,12 @@ func TestCloudSetupPlanUsesExactProjectAndVerifierPins(t *testing.T) {
 		paths.JavaHome != filepath.Join(home, ".cache", "verified-java-websocket-port", "jdk-17.0.19+10") ||
 		paths.MavenHome != filepath.Join(home, ".cache", "verified-java-websocket-port", "apache-maven-3.9.11") {
 		t.Fatalf("cloud paths = %#v", paths)
+	}
+}
+
+func TestJavaOracleIdentityMatchesDifferentialEvidence(t *testing.T) {
+	if javaOracleSHA256 != "sha256:a9f895456837a90ae7e7652421f4d4c41ed9643e0b9f9f9e4d2a552007e769c7" || javaOracleBytes != 38637 {
+		t.Fatalf("Java oracle identity drifted: digest=%s bytes=%d", javaOracleSHA256, javaOracleBytes)
 	}
 }
 
@@ -282,4 +289,116 @@ func TestAppendBashEnvironmentIsIdempotentAndFailsClosedOnDrift(t *testing.T) {
 	if err := appendBashEnvironment(home, cloud); err == nil {
 		t.Fatal("drifted managed block was accepted")
 	}
+}
+
+func TestCloudEnvironmentPrecedesUbuntuNoninteractiveReturnAndMigratesCache(t *testing.T) {
+	home := t.TempDir()
+	cloud := cloudPaths(home)
+	ubuntuGuard := []byte("# If not running interactively, don't do anything\ncase $- in\n    *i*) ;;\n      *) return;;\nesac\nexport UNRELATED=preserved\n")
+	if err := os.WriteFile(filepath.Join(home, ".bashrc"), ubuntuGuard, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := appendBashEnvironment(home, cloud); err != nil {
+		t.Fatal(err)
+	}
+	assertCloudEnvironmentLoadsBeforeGuard(t, home, cloud)
+
+	first, err := os.ReadFile(filepath.Join(home, ".bashrc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	begin := []byte("# verified-java-websocket-port cloud environment (managed block)")
+	end := []byte("# end verified-java-websocket-port cloud environment\n")
+	start := bytes.Index(first, begin)
+	finish := bytes.Index(first, end)
+	if start != 0 || finish < 0 {
+		t.Fatalf("managed block not prepended: %s", first)
+	}
+	finish += len(end)
+	legacy := append(append([]byte(nil), ubuntuGuard...), first[start:finish]...)
+	if err := os.WriteFile(filepath.Join(home, ".bashrc"), legacy, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := appendBashEnvironment(home, cloud); err != nil {
+		t.Fatal(err)
+	}
+	migrated, err := os.ReadFile(filepath.Join(home, ".bashrc"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Count(migrated, begin) != 1 || !bytes.HasPrefix(migrated, begin) || !bytes.Contains(migrated, []byte("export UNRELATED=preserved")) {
+		t.Fatalf("cached block was not migrated without disturbing user content: %s", migrated)
+	}
+	assertCloudEnvironmentLoadsBeforeGuard(t, home, cloud)
+}
+
+func assertCloudEnvironmentLoadsBeforeGuard(t *testing.T, home string, cloud paths) {
+	t.Helper()
+	command := exec.Command("bash", "-c", `source "$HOME/.bashrc"; printf '%s\n%s\n' "$JAVA_HOME" "$MAVEN_HOME"`)
+	command.Env = append(os.Environ(), "HOME="+home)
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("source managed environment: %v: %s", err, output)
+	}
+	want := cloud.JavaHome + "\n" + cloud.MavenHome + "\n"
+	if string(output) != want {
+		t.Fatalf("noninteractive environment = %q, want %q", output, want)
+	}
+}
+
+func TestEnsureRepositoryHistoryRestoresDetachedShallowCheckoutWithoutRemote(t *testing.T) {
+	source := filepath.Join(t.TempDir(), "source")
+	runTestGit(t, "", "init", source)
+	runTestGit(t, source, "config", "user.name", "Cloud Setup Test")
+	runTestGit(t, source, "config", "user.email", "cloudsetup@example.test")
+	if err := os.WriteFile(filepath.Join(source, "tracked.txt"), []byte("old\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runTestGit(t, source, "add", "tracked.txt")
+	runTestGit(t, source, "commit", "-m", "old")
+	oldCommit := strings.TrimSpace(runTestGit(t, source, "rev-parse", "HEAD"))
+	if err := os.WriteFile(filepath.Join(source, "tracked.txt"), []byte("new\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runTestGit(t, source, "add", "tracked.txt")
+	runTestGit(t, source, "commit", "-m", "new")
+
+	checkout := filepath.Join(t.TempDir(), "checkout")
+	runTestGit(t, "", "clone", "--depth", "1", "--no-tags", "file://"+source, checkout)
+	runTestGit(t, checkout, "remote", "remove", "origin")
+	head := strings.TrimSpace(runTestGit(t, checkout, "rev-parse", "HEAD"))
+	if command := exec.Command("git", "-C", checkout, "cat-file", "-e", oldCommit+"^{commit}"); command.Run() == nil {
+		t.Fatal("shallow fixture unexpectedly contains historical commit")
+	}
+
+	var output bytes.Buffer
+	if err := ensureRepositoryHistory(checkout, "file://"+source, os.Environ(), &output, &output); err != nil {
+		t.Fatalf("restore repository history: %v\n%s", err, output.String())
+	}
+	if got := strings.TrimSpace(runTestGit(t, checkout, "rev-parse", "HEAD")); got != head {
+		t.Fatalf("history restoration moved HEAD from %s to %s", head, got)
+	}
+	runTestGit(t, checkout, "cat-file", "-e", oldCommit+"^{commit}")
+	if got := strings.TrimSpace(runTestGit(t, checkout, "rev-parse", "--is-shallow-repository")); got != "false" {
+		t.Fatalf("repository remains shallow: %s", got)
+	}
+	if got := strings.TrimSpace(runTestGit(t, checkout, "status", "--porcelain")); got != "" {
+		t.Fatalf("history restoration changed working tree: %s", got)
+	}
+	if got := strings.TrimSpace(runTestGit(t, checkout, "remote")); got != "" {
+		t.Fatalf("history restoration invented a configured remote: %s", got)
+	}
+}
+
+func runTestGit(t *testing.T, directory string, arguments ...string) string {
+	t.Helper()
+	command := exec.Command("git", arguments...)
+	if directory != "" {
+		command = exec.Command("git", append([]string{"-C", directory}, arguments...)...)
+	}
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v: %v: %s", arguments, err, output)
+	}
+	return string(output)
 }

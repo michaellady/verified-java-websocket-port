@@ -1227,7 +1227,7 @@ func assurectlBinaryForUS004(t *testing.T) string {
 	binary := filepath.Join(t.TempDir(), "assurectl")
 	command := exec.Command("go", "build", "-o", binary, "./cmd/assurectl")
 	command.Dir = repo
-	command.Env = append(os.Environ(), "GOCACHE=/private/tmp/us004-adapter-acceptance-cache")
+	command.Env = append(os.Environ(), "GOCACHE="+filepath.Join(t.TempDir(), "go-cache"))
 	if output, err := command.CombinedOutput(); err != nil {
 		t.Fatalf("build assurectl: %v\n%s", err, output)
 	}
