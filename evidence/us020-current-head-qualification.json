@@ -5,9 +5,9 @@
   "story_id": "US-020",
   "status": "PASS_OWNER_ATTESTED_CURRENT_HEAD_NONNETWORK",
   "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
-  "head_at_execution": "782363b192080642181d6e5d67230ce9cba5c5a9",
-  "source_tree": "8d17e76a5ea4fbcd02644779dd610bc079732eb8",
-  "validation_time": "2026-08-29T12:07:23Z",
+  "head_at_execution": "2a337ae08b16428fbed4e38ea042ad4bf5df1c79",
+  "source_tree": "1f7edcd5ad14b924dc1df07eece2b0abc6eb7905",
+  "validation_time": "2026-08-30T23:21:16Z",
   "toolchain": {
     "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
     "host": "aarch64-apple-darwin"
@@ -320,8 +320,8 @@
     },
     {
       "path": "rust/websocket-testee/tests/process.rs",
-      "sha256": "sha256:97665946c04c9ed7d8ac1745df196177a0943b10b4a05e5b3b30a90fc3cbb571",
-      "git_blob": "4e217bbca211997a197e9cd3eaed5c7abe4ceb09"
+      "sha256": "sha256:1bc165404f27deb7708d291df334f00afe838ca0534526111e9587e7f3660b5e",
+      "git_blob": "b26ede093c3f3bd33a82cc1cc9dd51c9c45d38a1"
     }
   ],
   "commands": [
