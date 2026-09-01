@@ -1,0 +1,29 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decisions-close-resolution-us008-gate-host-boot",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T02:13:12Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior (standing no-estimates rule).",
+  "owner": "mikelady",
+  "decisions": [
+    {
+      "id": "rejected-close-transition-resolution",
+      "supersedes_execution_of": "decision rejected-close-transition-divergence in protected/us012-us016-owner-decisions-2026-08-28-formal.json (sha256 prefix d7a54e2c). That decision's own escape clause is hereby exercised; the decision is not repudiated, its stop-and-surface branch is taken.",
+      "context": "The close-transition lane implemented MATCH JAVA red-first and measured it. The public corpus fell to 73/74: us005.pub.0000 reported final_state closing where the LIVE recorded Java transcript reports open. Root cause established by source reading: 'rejected local close' is not one uniform case. Shipped WebSocketImpl.close():463-507 does reach CLOSING via the caught-InvalidDataException path at :488-491 falling to the unconditional tail at :503. But the entry point the corpus actually measures is java-oracle OracleEngine.sendClose():461-475, which builds the CloseFrame itself and calls isValid() UNWRAPPED at :470, so the exception propagates and WebSocketImpl.close is never invoked. internal/corpora/derive.go:890-912 names OracleEngine.sendClose in its own doc comment and mirrors it correctly. derive.go, the port, and the live Java oracle all AGREE; the disagreement is between two Java call sites.",
+      "decision": "ACCEPT THE ESCAPE CLAUSE: the port is kept as-is. The behavior-delta-ledger record delta-9dd3ab86744b6c2dc69a0452ea51ec26c5d170dc50e15b923bcb507af8a0b1ae (sequence 35) is the resolution of record. No port change, no re-baselining of live evidence, no second API. The formal close model's RejectedSendDoesNotTransition invariant therefore REMAINS TRUE and must NOT be inverted; only its expiry commentary needs correcting so it no longer instructs a future reader to invert it."
+    },
+    {
+      "id": "us008-attestation-gate-amendment",
+      "context": "US-008's exit-0 gate requires INDEPENDENTLY_ATTESTED (internal/benchplan/validate.go:315), but attestation on this plane is owner-only by prior amendment, and AC5 additionally requires an independently rebuilt analyzer. US-008 is therefore unpassable by construction regardless of implementation progress. US-025 depends on US-008.",
+      "decision": "AMEND US-008's PASS CRITERION TO ACCEPT OWNER ATTESTATION, mirroring the amendment already granted for US-009's equivalent dependency. The evidence itself keeps its honest labelling: assurance stays OWNER_ATTESTED_NOT_INDEPENDENT and independent_review_claimed stays false wherever it is recorded. This amendment changes what US-008 must ACHIEVE to pass, never what its evidence may CLAIM. The independently-rebuilt-analyzer clause of AC5 is amended on the same basis and for the same reason."
+    },
+    {
+      "id": "x86_64-host-boot-shared",
+      "context": "US-019 AC1 requires native Linux x86_64. No such instance exists on this plane: c7i.xlarge is the bound instance TYPE in the frozen US-008 plan and was never launched; a c7i.large plumbing instance existed and was destroyed. US-008 separately needs nine booted-host facts from the bound host.",
+      "decision": "PROVISION ONE SHARED HOST: a single x86_64 boot may serve BOTH the US-019 Autobahn AC1 runs and the capture of US-008's nine booted-host facts. Standard cloud checks and the plane's tenancy posture apply. Every artifact transferred back digest-verified in both directions; every exit read from the real process. Emulation is never to be presented as native. The two evidence chains remain separately receipted even though they share a boot, and each records that the boot was shared."
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

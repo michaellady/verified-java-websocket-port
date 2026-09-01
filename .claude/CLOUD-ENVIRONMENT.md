@@ -73,33 +73,45 @@ both planes at once.
 - Autobahn conformance runs: Docker is present and Docker Hub is allowlisted, so
   the pinned `crossbario/autobahn-testsuite` image can be pulled.
 
+### The governance store, and why you no longer need HQ for it
+
+This used to be the blocker. It no longer is.
+
+The owner-decision records that govern this project are now published in this
+repository at `evidence/governance/decisions/` — 63 records plus a README.
+Point the gate at them:
+
+```bash
+export VJWP_PROTECTED_STORE=<repo-root>/evidence/governance/decisions
+```
+
+`ledger-gates` then recomputes each mirrored digest against those files, and a
+cloud session runs the full gate target like any other checkout.
+
+An earlier ruling mirrored the records **as digests only**, on the stated
+grounds that they carried internal deliberation, cost figures and
+infrastructure identifiers. That assessment was measured afterwards and found
+to be overstated: across all 62 records there were no credentials of any kind,
+and the genuinely identifying content was one AWS account id and one EC2
+instance id, both now redacted. Two independent scanners were run over the
+published content. `gitleaks` reported no leaks across 588 KB. HQ's own secret
+patterns produced a single false positive, on a findings identifier about a
+masking round trip whose middle happens to match the OpenAI/Stripe key rule.
+The owner then superseded the digests-only ruling.
+
+**What has NOT changed, and must not:** an unreachable store is still a
+REFUSAL, not a skip. Do not weaken that to make a checkout pass, and do not
+point `VJWP_PROTECTED_STORE` at a stub. A gate that skips when a variable is
+unset is indistinguishable from a passing gate, and that is the exact hole the
+mirror exists to close.
+
+The canonical store remains HQ and remains append-only. What is in the
+repository is a MIRROR: corrections land in HQ as new records and are
+re-published, never edited in place here. Four records have their digests
+asserted inside the behaviour-delta ledger and must stay byte-identical; they
+are listed in that directory's README.
+
 ## What does not work, and why
-
-### The protected governance store
-
-This is the significant one. The owner-decision records that govern this project
-live at `workspace/orchestrator/verified-java-websocket-port-claude/protected/`
-inside HQ. HQ is local-only and is never pushed, so those records are not in this
-repository and cannot be cloned.
-
-That matters because of a deliberate design decision. The owner ruled that
-governance records are mirrored into the repository **as digests only** — never
-as content — because this repository is public and the records carry internal
-deliberation, cost figures and infrastructure identifiers. The ruling's binding
-implementation note is that the check must treat an unreachable store as a
-**refusal, not a skip**, since skipping when the store is absent is
-indistinguishable from a passing check and is precisely the hole the mirror
-exists to close.
-
-The consequence follows directly: once `claude/ledger-integrity` merges,
-`ledger-gates` will **refuse** in any checkout that cannot reach the protected
-store, and a cloud session is exactly such a checkout. This is the gate working
-as designed, not a defect to route around. Do not set `VJWP_PROTECTED_STORE` to
-a stub or copy the records into the repository to make it pass — that would
-defeat the guard and publish the content the owner chose to withhold.
-
-Run `ledger-gates` on the local plane. A cloud session can still run the Rust
-and Go suites, which do not depend on the store.
 
 ### HQ orchestration state
 

@@ -1,0 +1,20 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-frozen-ledger-prefix-correction",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T12:54:30Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "owner": "mikelady",
+  "context": "Review 01a0464f found sequences 36-39 and 42-43 bound wrong RFC readings in their HASHED preimages. The lane verified every reading against the authoritative text, upheld the reviewer on all substantive points, rebuilt six records, withdrew one (sequence 42 documented a non-divergence: Content-Length: 0 is a valid zero-length body), and self-found two further errors the review missed. It then reported that the SAME wrong basis — RFC 6455 section 10.4 applied to handshake budgets, where that section is permissive and scoped to frames and messages, and no clause mandates any handshake budget — sits in the FROZEN prefix at sequences 14, 15 and 16 (the server-side budget records for us005.hs.0046/0047/0048). Independently confirmed by the coordinator: all three carry a 10.4 reference. Correcting them in place would rewrite the committed hash chain from sequence 14, so the client-side and server-side budget records currently bind DIFFERENT normative readings of the same question.",
+  "decision": "SUPERSEDE, DO NOT REWRITE. Append correction records that explicitly supersede sequences 14, 15 and 16, naming what each got wrong and binding the corrected basis, while leaving the frozen prefix byte-identical. The chain stays intact and the error remains visible next to its correction.",
+  "reasoning": "This mirrors the immutable-store sidecar pattern already used on this plane for the US-009 repository-handoff corrections and the attempt-0128 sandbox reconciliation: a wrong record a reader can see, with its correction attached, is better evidence than a rewrite a reader cannot audit. Rewriting sealed evidence is precisely the operation the hash chain exists to make detectable.",
+  "requirements": [
+    "Each superseding record must name the sequence it corrects, quote the wrong basis, and state the verified correct one.",
+    "The frozen prefix through sequence 35 must remain byte-identical, verified after the append.",
+    "The RFC-divergence census and the observation set must be regenerated after the append so coverage is recomputed rather than assumed.",
+    "Sequence branch hygiene: claude/ledger-integrity is based on 1ddd8bc and still carries the OLD wrong-RFC records; it must be rebased onto the corrected claude/ledger-gaps head and BOTH its artifacts regenerated before review or merge, since every digest tuple for the rebuilt records changes."
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

@@ -1,0 +1,130 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "borrow-receipt",
+  "batch": "C",
+  "stories": ["US-015", "US-016", "US-017", "US-018"],
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "recorded_at": "2026-08-27T20:08:58Z",
+  "recorded_at_provenance": "captured from `date -u` in the working session immediately after the post-commit gate reruns",
+  "strategy_record": "protected/race-strategy-borrow-and-race-2026-08-27.json (owner directive verbatim: 'Borrow, but verify that it works'; borrows labeled, no first-finish credit)",
+  "integration_commit": {
+    "branch": "claude/borrow-batch-c",
+    "worktree": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-borrow-c",
+    "base": "1b382a7 (Claude mainline HEAD, batches A+B merged)",
+    "sha": "7867681afb3e32eb59c17ffd23981d8f4723a453",
+    "subject": "borrow(us-015,us-016,us-017,us-018): control+close lifecycles, driver, testee <- codex 8f18f91/f53f479/6a7606a/f1d023d (adapted to ws_core, Java-fidelity corrections applied)",
+    "trailers": "Borrowed-From per story sha (4 trailers)",
+    "pushed": false
+  },
+  "source": {
+    "ref": "refs/codex-import/codex/race-catchup (tip 29a259a; codex plane fetch-only, never written)",
+    "story_shas": {
+      "US-015": "8f18f9150cc204c749a713461d2fc51e4d5d68cc",
+      "US-016": "f53f479dc5268025c5be8bc8e614cb2d0a128a31",
+      "US-017": "6a7606ac0fc216e5c87148faf98c957ab18af324",
+      "US-018": "f1d023dda39df244b3b9b27b71e11aefe4de66ef"
+    },
+    "ancestry_confirmation": "git merge-base --is-ancestor answered OK for all four story shas against refs/codex-import/codex/race-catchup, verified in this session",
+    "codex_verification_posture": "the Codex chain had ZERO live-Java/corpus execution; every behavioral site was re-derived against the pinned reference model internal/corpora/derive.go per the fidelity-authority rule"
+  },
+  "borrowed_files": [
+    {
+      "source_path": "rust/connection-core/fuzz-seeds/us015/*.hex (16 files at 8f18f91)",
+      "source_blob_sha": "per-file git blobs verified identical after copy (git hash-object == git rev-parse <commit>:<path> for all 16): coalesced-controls 602b6f40, empty-ping f7633a96, empty-pong 159e023d, event-limit 613468e7, fragment-interleave a6049bc9, fragmented-control 1ed5e988, masked-ping d87dcbf4, masked-pong 0b579773, no-unwanted-reply 55c98313, payload-126 33ccf977, payload-loss d07e0a2b, total-limit dda46a85, valid-prefix-reserved 8af5738f, write-limit fed4f87d, wrong-mask-client 302430fe, wrong-mask-server f7633a96",
+      "adapted_path": "rust/ws-core/fuzz-seeds/us015/*.hex",
+      "adaptation_summary": "seed BYTES adopted verbatim; every replay EXPECTATION re-derived from derive.go in tests/ping_pong.rs. Two seeds' original assertions were Java-infidelities and are asserted INVERTED with documentation: wrong-mask-client / wrong-mask-server (mask-by-role acceptance, the batch-A strip). The event-limit seed re-targets the batch-C event-slot bound; no-unwanted-reply asserts the Q18 no-auto-pong stance directly"
+    },
+    {
+      "source_path": "rust/connection-core/fuzz-seeds/us016/*.seed (6 scenario-name files at f53f479)",
+      "source_blob_sha": "per-file blobs verified identical after copy: data-after-close be076181, duplicate-terminal 34b7cf72, missing-ack c3dfb78b, premature-closed 85ea8346, stale-fragment 5b631bea, wrong-code 530a3a3e",
+      "adapted_path": "rust/ws-core/fuzz-seeds/us016/*.seed",
+      "adaptation_summary": "scenario-name assets adopted verbatim; each named scenario re-derived in tests/close_eof.rs with Java-faithful expectations that INVERT the Codex close machine on nearly every site (their close model is RFC-strict): one-byte payload is a VALID 1002 close (their PayloadLengthOne rejection dropped), peer-close-twice completes the handshake (their DuplicatePeerClose dropped), close-then-EOF is the ordinary Q20 vocabulary (their EOF failure classes dropped), send-after-close is requireOpen STATE_VIOLATION (their DataAfterClose dropped), continuation-after-local-close is the closing state gate (send_close during an open inbound fragment is LEGAL in Java)"
+    },
+    {
+      "source_path": "rust/websocket-driver/fuzz-seeds/us017/*.seed (6 schedule files at 6a7606a)",
+      "source_blob_sha": "per-file blobs verified identical after copy: close-race d61bd6ff, duplicate-delivery 5518bf81, lock-sharing 51c4f955, lost-command e855d752, queue-bypass b1420d9e, write-reorder 3231f879",
+      "adapted_path": "rust/ws-driver/fuzz-seeds/us017/*.seed",
+      "adaptation_summary": "schedule seeds adopted verbatim; tests/driver_contract.rs implements a deterministic interpreter for the seeds' OWN schedule verbs and asserts each seed's named counterexample never occurs against the ws_core-adapted driver"
+    },
+    {
+      "source_path": "rust/connection-core/src/control.rs (blob 32c0e6bf) + connection.rs US-015 arms (studied, NOT grafted)",
+      "adapted_path": "rust/ws-core/src/connection.rs (process_inbound ping/pong arms, handle_command control sends) + control.rs (behavior-map doc module)",
+      "adaptation_summary": "their batch-planning/Arc-payload/AutomaticPongPolicy/caller-mask machinery NOT adopted. ws_core dispatches ping/pong beside the state gates as pure event delivery (derive.go:671-678), with NO auto-pong (Q18) and NO send-path payload cap (Q17 — their encoder preflight rejects >125 control payloads on send; shipped Java sends them successfully)"
+    },
+    {
+      "source_path": "rust/connection-core/src/close.rs (blob 313503e4) + connection.rs US-016 arms (blob 130c1e1e; studied, NOT grafted)",
+      "adapted_path": "rust/ws-core/src/connection.rs (process_close_frame, send_close)",
+      "adaptation_summary": "their CloseMachine (initiator tracking, acknowledgement echo matching, write-flush gating, RFC close-code table with role-dependent/unassigned rejections) NOT adopted — nearly every behavior diverges from shipped Java. The landed lifecycle mirrors derive.go processInbound/sendClose exactly and CALLS the existing US-009 owner-decision-backed pure fns close::normalize_send_close_code (Q14) and close::close_code_rejection (Q13) per the batch-C special rule — close.rs itself is UNTOUCHED by this batch"
+    },
+    {
+      "source_path": "rust/websocket-driver/src/lib.rs (blob 43acb6c3) + tests/concurrency.rs (blob fec85e3c)",
+      "adapted_path": "rust/ws-driver/src/lib.rs + tests/{driver_contract,concurrency}.rs (new crate, workspace member)",
+      "adaptation_summary": "DESIGN adopted with attribution: pull-driven poll(DriverInput)->PollResult, partial-write cursor with exact WriteProgress validation, inbound-vs-command alternation turn, EOF/shutdown latching, exactly-once Terminal, terminal rejection of queued commands. REPLACED: their AdmissionGate+mpsc::sync_channel producer machinery -> the incumbent ws_core CommandQueue/CommandSender bounded boundary (US-009 AC4; no second admission mechanism); their StepResult-batch commit ledger -> direct draining of the core's own bounded queues (adapters cannot duplicate protocol state); their ProducersDropped disposition dropped (the ws_core channel has no disconnect signal by design). Native-thread stress tests written fresh (4 producers x 50 commands exactly-once; terminal exactly-once under racing producers)"
+    },
+    {
+      "source_path": "rust/websocket-testee/src/{lib,io_loop,main,client,server}.rs (blobs 82947318/60c1b43c/0e56734c/2b99ce14/3da146aa)",
+      "adapted_path": "rust/ws-testee/src/{lib,io_loop,main,client,server}.rs + tests/{loopback,process}.rs (new crate + ws-testee binary, workspace member)",
+      "adaptation_summary": "DESIGN adopted with attribution: crate split (client/server fixtures + one bounded blocking io loop + tiny CLI), loopback-only refusal, normalized setup/socket-error vocabulary, single-connection-per-invocation, bounded buffers/timeouts/poll budget. REWRITTEN for this plane: the loop drives ws_driver's poll contract; echo is adapter-side command routing through CommandSender; close/EOF observables are the Java-faithful ws_core vocabulary. Loopback e2e (real client+server ws_core handshakes over TCP, echo round-trip, clean close, 1-byte write chunks, peer-loss 1006, budget honesty, two-process CLI round-trip) all pass"
+    }
+  ],
+  "adopted_with_attribution": [
+    "16 us015 hex seeds + 6 us016 scenario names + 6 us017 schedule seeds (bytes verbatim, expectations re-derived)",
+    "pull-driven single-owner driver design (poll/PollResult, write cursor, alternation, latching, exactly-once terminal)",
+    "blocking-testee crate architecture (fixtures + io loop + CLI, loopback-only, bounded I/O)",
+    "nonclaims-ledger discipline mirrored in this receipt"
+  ],
+  "stripped_or_corrected": [
+    "STRIPPED (US-015): automatic-pong machinery (AutomaticPongPolicy/plan_batch) — the reference model's observable space contains NO automatic pong (derive.go:671-675, Q18); the core never replies on its own",
+    "STRIPPED (US-015): send-path control payload cap — Execution.sendControl performs NO size check (Q17); oversized control payloads send successfully with extended length (their encoder preflight rejection dropped); pinned by tests (200-byte ping sends)",
+    "STRIPPED (US-015): mask-by-role rejections on the control path (batch-A precedent; wrong-mask seeds asserted inverted)",
+    "STRIPPED (US-016): PayloadLengthOne rejection — CloseFrame.setPayload maps one byte to code 1002 with empty reason, a VALID close (Q11; corpus family close-payload-1)",
+    "STRIPPED (US-016): AcknowledgementMismatch exact code/reason echo — the echoed frame object always carries the constructor payload [0x03,0xe8] (Q10), and the inbound close frame RECORD does too",
+    "STRIPPED (US-016): DuplicatePeerClose / DataAfterClose / TrailingBytesAfterClose / the EOF failure classes (UnexpectedEofOpen, EofBeforePeerClose, EofBeforeAcknowledgement, EofBeforeCloseWriteFlushed) — Java completes the handshake from closing, gates via requireOpen/processInbound STATE_VIOLATION, and treats every EOF as the ordinary Q20 close vocabulary",
+    "STRIPPED (US-016): the RFC close-code table (OutsideWireRange/ForbiddenWireCode/WrongSenderRole/UnassignedOrExtensionReserved) — replaced by the shipped CloseFrame.isValid chain via the EXISTING US-009 pure fns (called, not reimplemented)",
+    "CORRECTED (US-016): close-while-open echoes then transitions to CLOSING (not closed); closing+close completes to CLOSED without echo; eof carries the governing close's code/reason with remote = was-closing and handshake_complete propagated (derive.go closeMap sites)",
+    "CORRECTED (US-017): producer boundary replaced by the incumbent ws_core CommandQueue/CommandSender; no duplicated protocol/output ledger; ProducersDropped dropped (documented)",
+    "CORRECTED (US-018): close/EOF observables are ws_core's Java-faithful vocabulary; echo policy is adapter routing, not protocol",
+    "RE-DERIVED (bounds): MAX_EVENT_SLOTS_PER_INPUT 2 -> 4 (send_close: record+cause+close_initiated+transition), EVENT_SLOTS_PER_FRAME 2 -> 3 (close-in-closing worst case), new CLOSE_ECHO_EVENT_SLOTS = 2 once per byte input (at most ONE echo per input: close-while-open -> closing; closing close -> closed; no path re-enters open), byte-path write precheck (1 slot when spans exist); harness event-capacity formula headroom (+8) shown to cover the echo slots; config EventQueueCapacity ceiling comment re-derived (12294 at the max_frames ceiling, under the 16384 ceiling)",
+    "UPDATED PINNED TEST (batch-A receipt note): us014/control-interleave now asserts FULL interleave delivery (ping event mid-fragment + assembled text) instead of the honest Unimplemented refusal",
+    "UPDATED STALE PINS: core_semantics action-limit/Q17-asymmetry/honest-refusal tests, harness PUB_0000 tests (send_close 999 now the oracle-coded JAVA_INVALID_DATA 1002 envelope), protocol.rs golden lines, stale module docs (remaining honest Unimplemented arms = NotYetConnected command/EOF only)"
+  ],
+  "baseline": {
+    "before": "56/74 (rust/ws-oracle-harness/baseline/borrow-batch-a-public-baseline.json, retained unchanged as history); the pre-edit run in this worktree reproduced the exact 18-failure set (corporactl exit 1 read)",
+    "after": "74/74 (corporactl evaluate exit 0 READ; executed 74, passed 74, failed 0, missing 0, unmatched 0)",
+    "after_artifacts": "rust/ws-oracle-harness/baseline/borrow-batch-c-public-{baseline.json,transcript.jsonl} committed in 7867681; requests sha256 0c1503c0... identical to the US-009/batch-A baselines; transcript sha256 b3e7324f..., rerun byte-identical; harness binary sha256 50643ef5...; final-committed-tree rerun reproduced 74/74 exit 0 with byte-identical transcript",
+    "flipped_count": 18,
+    "regressions": [],
+    "flipped": "exactly the 18 batch-A remaining failures: ping-inbound 0002/0071, pong-inbound 0016/0049, send-ping 0054, send-pong 0038, fragment-interleaved-ping 0023/0040, send-close-invalid-code 0000, closing-recv-close 0021, close-local-then-eof 0022, close-remote 0026/0050/0061, close-local-then-remote 0034/0047, close-payload-1 0035, close-remote-empty 0046",
+    "handshake_exam": "protected/us005-corpora/live/handshake/requests.jsonl (sha e00d968f..., byte-identical to the batch-B record) through the release harness: 49/49 lines identical to the recorded protected transcript-rerun.jsonl under FULL per-line JSON comparison with only the runtime object excluded (stricter than batch B's field-subset differential); rerun byte-identical (sha cc690bcc... both runs). NO handshake regression",
+    "custodian": "public tier is custodian-free; the protected store was READ-ONLY throughout; custodian ledger byte-identical before and after every read (9001 bytes, sha256 f4941dc801af5a41a2e3285a71d269975ea6e06774d1e1a4573fd6b6d6f400ae); no hidden/sealed tier requested, evaluated, or touched"
+  },
+  "back_pressure": {
+    "rust_gates": "make -C rust gates: exit 0 READ post-commit (fmt-check; clippy --workspace --all-targets --all-features -D warnings; cargo test debug; cargo test release; ac1-gates 7/7 PASS incl. forbid-unsafe scan over all 10 crate roots, zero-dep inventory/audit, MSRV, license, lockfile git-clean, canary polarity). 614 test results summed across binaries (debug+release); the only 'warning' line in the log is inside the bad-scaffold canary's REQUIRED failure output. A pre-commit run failed ONLY the lockfile gate (Cargo.lock vs committed HEAD — the two new members), passing once the batch commit landed",
+    "go_gates": "go build ./... exit 0 READ; go test -count=1 ./... exit 0 READ (24 packages ok), re-read on the committed tree. First run failed twice with the two KNOWN shapes from the batch-A receipt: (1) internal/portplan TestDeriveReproducesCommittedEvidence first-run .quarantine materialization in the fresh worktree, passing on re-run; (2) internal/formalplan TestUS006FixtureCatalogThroughRealCLI frozen tree digests (fixture trees copy rust/ sources), refreezed via the SANCTIONED US006_REGENERATE=1 path only (assurance/replay/fixtures/us006-cases.json, 22 digest lines, committed with the batch)",
+    "tdd": "RED-first verified: tests/ping_pong.rs (19), tests/close_eof.rs (19 as committed), and the updated fragmentation interleave test were written and RUN before the implementation (13+16+1 failures read at exactly the unimplemented arms), then GREEN after",
+    "corpora_unchanged": "internal/corpora/ and corpora/ untouched (git status clean for both paths in the batch commit)",
+    "forbid_unsafe": "#![forbid(unsafe_code)] present in every crate root incl. the two new crates and the ws-testee binary (gate-scanned)",
+    "zero_new_dependencies": "ws-driver depends only on path crate ws-core; ws-testee only on path crates ws-core+ws-driver; dependency-inventory and audit gates read 0 non-path dependencies"
+  },
+  "review": {
+    "status": "PENDING - the parent orchestrator runs the pinned bounded batch review (fail-closed) per the plan; this receipt is the review input"
+  },
+  "honesty_notes": [
+    "74/74 on the wired public corpus is a REFERENCE-MODEL-scored result (expectation_status REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION plus the US-005 calibration lineage); no live Java executed in this batch and no Java-equivalence proof is claimed",
+    "US-017 concurrency evidence in this batch is deterministic seed-schedule interpretation plus native-thread stress — NOT the story's bounded schedule exploration with minimized-schedule retention, and no assurance/concurrency results artifact is produced; the story's acceptance criteria are NOT met and not claimed",
+    "US-018 covers loopback echo/close/peer-loss/partial-IO/two-process paths on this host (darwin arm64) only — no Linux x86_64 run, no Java cross-peer integration, no Autobahn wiring, no linkage/architecture gate; the story's acceptance criteria are NOT met and not claimed",
+    "the ws_core CommandQueue has no producer-disconnect signal, so the Codex ProducersDropped disposition has no counterpart; producer lifecycle is documented as the embedding adapter's concern",
+    "the driver treats only an in-flight WRITE as ordering-critical pending output; queued events ride the core's own FIFO queue (documented in DeferredReason::OutputPending)",
+    "an out-of-u16 send_close code cannot reach the core; it is schema-invalid (corpus bounds codes to 0..=65535) and the harness seam keeps its honest non-oracle refusal for that never-occurring shape (comment updated, behavior unchanged)",
+    "the remaining honest Unimplemented arms are the pre-handshake NotYetConnected command/EOF lifecycle, unreachable by any corpus scenario (pinned by core_semantics)"
+  ],
+  "nonclaims": [
+    "no story acceptance claimed for US-015/US-016/US-017/US-018 as Claude independent first-finishes: these are borrows with attribution per the race rules (no first-finish credit)",
+    "no live Java execution occurred in this batch; the judge is the wired public corpus and the recorded live handshake exam transcripts",
+    "no hidden or sealed tier was requested, evaluated, or touched",
+    "no independent review claimed by this worker; the pinned bounded review is pending (see review.status)"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5 (borrow batch C backend-dev worker)"
+}

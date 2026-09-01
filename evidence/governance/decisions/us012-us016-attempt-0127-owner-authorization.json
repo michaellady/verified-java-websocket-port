@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us012-us016-model-check-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "attempt_id": "us007-sbx-output-live-0127",
+  "sandbox_name": "us012-us016-tlc-0127",
+  "story": "US-012 AC5 and US-016 AC4 (execute SANY grammar/level checks and full TLC model checks of assurance/formal/frame-model.tla and assurance/formal/close-model.tla with their shipped cfgs; run the declared liveness-fairness mutations to establish non-vacuity as time permits)",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-27T23:53:10Z",
+  "authorized_at_provenance": "Captured from `date -u` immediately before writing this record (standing no-estimates rule).",
+  "owner": "mikelady",
+  "authorization_basis": "Standing owner decision protected/us009-us008-owner-decisions-2026-08-27.json, key us006_tlc_in_sbx = AUTHORIZED (2026-08-27T03:21:08Z): 'One owner-authorized sandbox attempt (continuing the us007-sbx-output-live-NNNN series) to fetch the pinned TLA+ tools archive (digest recorded at fetch per probe-before-wire; the owner explicitly approved the tool download in the question text), run SANY/TLC on assurance/formal/connection-model.tla with the shipped cfg, and record genuine results.'",
+  "authorization_scope_disclosure": "STATED PLAINLY, NOT PAPERED OVER: the standing decision's literal text authorizes ONE attempt and names the US-006 connection model; that single attempt was consumed by us007-sbx-output-live-0125. This attempt is a SECOND attempt of the same authorized class -- same pinned tool, same digest, same accepted US-007 workload profile, same TLA+/TLC activity -- applied to two additional model artifacts (the US-012 frame model and the US-016 close model) at the orchestrator's direction. It is NOT a fresh owner grant and is not represented as one. If the owner intended the authorization to be strictly single-use, this attempt is outside it and its results must be re-authorized before any consumer relies on them; that determination is the owner's, and this record exists so the question is visible rather than buried.",
+  "tool_fetch": {
+    "artifact": "tla2tools.jar (TLA+ tools: SANY + TLC)",
+    "pinned_release": "tlaplus v1.8.0 'The Clarke release'",
+    "source_url": "https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar",
+    "expected_sha256_from_attempt_0125": "eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a",
+    "note": "Same pinned release and expected digest as attempt 0125. The digest is recomputed AT FETCH by this attempt's driver and compared with the 0125 value before the jar is allowed near the sandbox; the jar enters the network-denied sandbox only via a digest-verified copy that is re-hashed inside the sandbox."
+  },
+  "constraints": [
+    "One live sandbox attempt; failures preserved immutably; a model error found by SANY or TLC is a finding to fix and re-check, never to hide",
+    "Sandbox unprivileged, non-root, --deny-network '**' (tool fetched host-side first), clone-mode source at a named commit, template digest per the 0124-accepted profile",
+    "Every exit code read from the real command; never `go run` for an exit code; sbx cp exit codes untrusted, so every transfer is digest-verified in BOTH directions",
+    "Model-check status flips to EXECUTED only for what genuinely ran, with verbatim output receipts",
+    "Codex plane untouched; production=false, signing=false, publication=false"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

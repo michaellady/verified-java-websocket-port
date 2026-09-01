@@ -74,18 +74,23 @@ pushed.
   naming the reviewer session that produced its verdict.
 - Orchestrator state, execution records, drafts, and the race scoreboard.
 
-### The consequence you will hit first
+### The governance store is published — you do not hit this
 
-Once `claude/ledger-integrity` merges, `ledger-gates` will **refuse** in any
-checkout that cannot reach the protected store — including every cloud session
-and every fresh clone. That is the gate working exactly as designed: the owner's
-ruling requires an unreachable store to be a refusal rather than a skip, because
-skipping when the store is absent is indistinguishable from a passing check.
+An earlier version of this handoff warned that `ledger-gates` would refuse in
+every cloud session and fresh clone, because the owner-decision records lived
+only in HQ. That is no longer true. The records are published in this
+repository at `evidence/governance/decisions/`; set
 
-Do not point `VJWP_PROTECTED_STORE` at a stub, and do not copy the records into
-the repository to make it pass. The first defeats the guard; the second
-publishes content that was deliberately withheld. Run that gate on the machine
-that has the store.
+```bash
+export VJWP_PROTECTED_STORE=<repo-root>/evidence/governance/decisions
+```
+
+and the gate runs anywhere.
+
+What has not changed: an unreachable store is still a REFUSAL rather than a
+skip, and that must not be weakened. Do not point the variable at a stub. The
+canonical store is still HQ and is still append-only — the repository copy is a
+mirror, and corrections are re-published rather than edited in place.
 
 ## The defect class this project keeps finding
 
