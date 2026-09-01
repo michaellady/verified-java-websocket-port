@@ -27,8 +27,10 @@ the end of the file is moved without changing unrelated shell content. Codex may
 cache this environment, so the maintenance command rechecks project history,
 immutable downloads, materialized directory types, the Kani source identity and
 cleanliness, and all tool versions. Setup also rebuilds the Java oracle adapter
-with its evidence-bound deterministic ZIP timestamps and rejects any digest
-other than the adapter retained by the differential manifest.
+with the repository's canonical Go JAR writer and rejects any digest other than
+the adapter retained by the differential manifest. That writer fixes entry
+order, manifest bytes, timestamps, modes, and the uncompressed ZIP method, so
+JDK vendor and host ZIP implementations cannot change the adapter identity.
 
 The exact materialized locations can be inspected without changing state:
 

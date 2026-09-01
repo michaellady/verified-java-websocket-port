@@ -3,9 +3,7 @@ RUNTIME_SUPPORT_CP ?=
 BUILD_DIR ?= build
 JAVAC ?= javac
 JAVA ?= java
-JAR ?= jar
-BOUND_CLASS_TIMESTAMP ?= 202608281716.20
-BOUND_METADATA_TIMESTAMP ?= 2026-08-28T17:16:22Z
+GO ?= go
 
 MAIN_SOURCES := $(sort $(wildcard src/main/java/*.java))
 TEST_SOURCES := $(sort $(wildcard src/test/java/*.java))
@@ -23,13 +21,8 @@ build: require-runtime
 	mkdir -p "$(BUILD_DIR)/classes"
 	$(JAVAC) --release 17 -encoding UTF-8 -Xlint:all -Werror \
 		-cp "$(JAVA_WEBSOCKET_JAR)" -d "$(BUILD_DIR)/classes" $(MAIN_SOURCES)
-	find "$(BUILD_DIR)/classes" -type f -name '*.class' \
-		-exec touch -t "$(BOUND_CLASS_TIMESTAMP)" {} +
-	mkdir -p "$(BUILD_DIR)/empty"
-	$(JAR) --create --file "$(BUILD_DIR)/java-oracle.jar" --main-class OracleMain \
-		--date="$(BOUND_METADATA_TIMESTAMP)" -C "$(BUILD_DIR)/empty" .
-	$(JAR) --update --file "$(BUILD_DIR)/java-oracle.jar" \
-		-C "$(BUILD_DIR)/classes" .
+	$(GO) run ../cmd/javaoraclejar --classes "$(BUILD_DIR)/classes" \
+		--output "$(BUILD_DIR)/java-oracle.jar" --main-class OracleMain
 
 test: build
 	mkdir -p "$(BUILD_DIR)/test-classes"

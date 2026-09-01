@@ -34,8 +34,8 @@ const (
 	kaniURL          = "https://github.com/model-checking/kani.git"
 	projectURL       = "https://github.com/michaellady/verified-java-websocket-port.git"
 	cacheName        = "verified-java-websocket-port"
-	javaOracleSHA256 = "sha256:a9f895456837a90ae7e7652421f4d4c41ed9643e0b9f9f9e4d2a552007e769c7"
-	javaOracleBytes  = 38637
+	javaOracleSHA256 = "sha256:8cfd5f53cfaa028f8f359dc84fecefad1a317a68cd269c6cfac97870411e353d"
+	javaOracleBytes  = 76321
 )
 
 var linuxJDK = downloadPin{

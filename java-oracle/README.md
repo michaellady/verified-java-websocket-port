@@ -24,10 +24,14 @@ make -C java-oracle test \
   RUNTIME_SUPPORT_CP=/isolated-cache/slf4j-api.jar
 ```
 
-The build uses `--release 17`, `-Xlint:all`, and `-Werror`. The pure Java test
-harness covers deterministic replay, arbitrary input partitioning, local
-actions, close transitions, Java runtime rejection, strict JSON, strict base64,
-all resource limits, JSONL framing, canonical output, and stdout isolation.
+The build uses `--release 17`, `-Xlint:all`, and `-Werror`. It packages the
+compiled classes with `cmd/javaoraclejar`, which fixes manifest bytes, entry
+order, timestamps, modes, and the uncompressed ZIP method. The adapter JAR is
+therefore independent of JDK ZIP vendor behavior and filesystem metadata. The
+pure Java test harness covers deterministic replay, arbitrary input
+partitioning, local actions, close transitions, Java runtime rejection, strict
+JSON, strict base64, all resource limits, JSONL framing, canonical output, and
+stdout isolation.
 
 The checked-in Maven project provides the same dependency-free build and fixed
 test-harness execution required by the story:

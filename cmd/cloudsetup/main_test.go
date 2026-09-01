@@ -35,7 +35,7 @@ func TestCloudSetupPlanUsesExactProjectAndVerifierPins(t *testing.T) {
 }
 
 func TestJavaOracleIdentityMatchesDifferentialEvidence(t *testing.T) {
-	if javaOracleSHA256 != "sha256:a9f895456837a90ae7e7652421f4d4c41ed9643e0b9f9f9e4d2a552007e769c7" || javaOracleBytes != 38637 {
+	if javaOracleSHA256 != "sha256:8cfd5f53cfaa028f8f359dc84fecefad1a317a68cd269c6cfac97870411e353d" || javaOracleBytes != 76321 {
 		t.Fatalf("Java oracle identity drifted: digest=%s bytes=%d", javaOracleSHA256, javaOracleBytes)
 	}
 }
