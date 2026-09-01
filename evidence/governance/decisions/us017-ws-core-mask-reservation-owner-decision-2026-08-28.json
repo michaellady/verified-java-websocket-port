@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-ws-core-mask-reservation",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T17:49:49Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "supersedes_claim_in": [
+    "commit 77d8c23 (message text asserting ws-core byte-identity)",
+    "behavior-delta ledger record 36"
+  ],
+  "does_not_supersede": "protected/us017-c6-layer-split-owner-decision-2026-08-28.json (sha256 prefix d41b5307). That ruling placed the C6 protocol-violation reaction at the ADAPTER layer, and it is NOT disturbed: the close composer remains in ws-driver and ws-testee still contains zero references to ws_core::framing or Draft6455. Only the supporting byte-identity claim changes.",
+  "owner": "mikelady",
+  "context": "Independent review 01a0494a-2d07-71e2-9a3e-1b304072278c BLOCKed claude/post-failure with two correctness findings. The second: violation_mask_key (ws-driver/src/lib.rs:1151) derived the masking key from the CLOSE CODE using the same SplitMix64 mixer that next_mask_key (ws-core/src/connection.rs:772) applies to the FRAME COUNTER, so the two agree exactly when counter == close_code. A 1002 reaction after the 1002nd outbound frame, or 1007 after the 1007th, repeats that frame's key, violating the distinct-successive-mask-key contract. Both counts are reachable under the 4096-frame ceiling. The implementing lane REPRODUCED this by execution before fixing: driving a client to its 1002nd outbound masked frame and composing the 1002 violation close produced preceding=[21,1f,94,2d] and violation=[21,1f,94,2d], failing assert_ne! on identical values. The collision is algebraic, not probabilistic.",
+  "the_constraint_in_tension": "The post-failure lane's own hard-stop discipline was that the C6 work does not change ws-core, and the coordinator verified ws-core byte-identical to f1bed2d before the review. The reviewer's prescribed remedy, however, was that 'the adapter-generated frame must advance or otherwise reserve the connection's masking sequence' -- which cannot be done from outside the core.",
+  "alternatives_measured_not_estimated": [
+    "Driver-side shadow counting: mask_counter is private and Counts.frames mixes inbound with outbound, so any driver-side count UNDERCOUNTS writes the core emitted but has not yet handed over. An undercount re-derives a key that did reach the wire, which is the same defect.",
+    "Seed-side domain separation, or reserving a slot past max_frames: truncation to 32 bits means only taking the real next slot reserves anything. These only RELOCATE the collision.",
+    "Marginal-cost measurement: reverting ws-core alone was tried. internal/linkage still failed (ws-driver/ws-testee symbol digests go stale from any C6 fix regardless), but the US-006 fixture catalog PASSED. So the ws-core change is responsible for exactly one thing -- the US-006 realized-tree digests -- because us006-base/mutation.json copies connection.rs verbatim into every fixture tree."
+  ],
+  "question_put_to_owner": "Fixing the close-frame masking collision needs one additive method in the protocol core (ws-core: +41 lines, zero existing lines modified). That contradicts a 'core left byte-identical' claim in commit 77d8c23 and ledger record 36. How should I proceed?",
+  "options_offered": [
+    "Accept it, record a correction (recommended)",
+    "No core changes -- leave the bug, document it as a known open defect",
+    "No core changes -- send it back for another driver-only attempt"
+  ],
+  "decision": "ACCEPT THE ADDITIVE ws-core CHANGE, AND RECORD A SUPERSEDING CORRECTION.",
+  "decision_detail": "ConnectionCore::reserve_mask_key is added: +41 lines, one new public method, ZERO existing lines touched. compose_violation_close becomes &mut self and reserves from the core's own sequence AFTER every carve-out, so deciding to send nothing never consumes a key. The stale byte-identity clause in commit 77d8c23 and ledger record 36 is corrected by a NEW superseding record, never by rewriting the frozen ones -- honouring protected/ledger-frozen-prefix-owner-decision-2026-08-28.json (sha256 prefix bb3cd0da).",
+  "rationale": "The C6 layer-split ruling concerned WHERE the protocol-violation reaction lives, and that placement is unchanged. The byte-identity property was supporting evidence for that ruling, not the ruling itself. Refusing the fix would preserve an evidence claim at the cost of shipping a reproducible protocol defect, which inverts the priority this project exists to enforce.",
+  "escalation_provenance": "The implementing lane did NOT make this call itself. It flagged the deviation in the first sentence of its report, stated explicitly that the stale clause 'needs an owner ruling, not mine', and declined to rewrite owner-decision-linked evidence on its own authority. That is the intended behaviour and is recorded here as such.",
+  "verification_at_1e29a7a": {
+    "make_rust_gates": "EXIT 0",
+    "ac1_gates": "PASS 8/8; adapter-linkage PASS (5 production sources, edges exact, no protocol surface or parser branch)",
+    "cargo_tests": "804 passing, 0 failed, 0 ignored (debug + release)",
+    "go_test": "EXIT 0 across 33 packages (29 ok, 4 no-test), 0 FAIL",
+    "public_corpus": "74/74, evaluate EXIT 0; requests sha256 0c1503c0... byte-identical to the pinned set",
+    "vs_pinned_baseline": "0 non-runtime, 0 scored -- the transcript did not shift and was NOT re-baselined",
+    "live_java_scored_disagreement": "ZERO (26 non-runtime, all error.detail only)",
+    "live_handshake_exam": "49/49, 0 non-runtime differing",
+    "regenerations_disclosed": "LINKAGE_REGENERATE=1 moved only line/sha256 with no symbol added, dropped or rebound; US006_REGENERATE=1 moved only realized_tree_sha256 with every expected block untouched and re-proved through the real assurectl CLI. Both are sanctioned flags, neither is a bypass."
+  },
+  "assurance": {
+    "attestation": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "note": "The fix itself is pending round-2 independent review; this record covers the scope decision only."
+  }
+}

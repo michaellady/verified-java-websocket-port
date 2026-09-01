@@ -1,0 +1,16 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-eof-after-closed",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T10:19:05Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "owner": "mikelady",
+  "context": "Routing the corpus differential harness through ws-driver (per the us017-ac5-harness-through-driver decision) triggered that decision's HARD STOP CONDITION: the live-oracle-confirmed 74-case public transcript shifted on exactly one record, us005.pub.0070. Cause established by the lane: ws-driver's latched-EOF arm sets eof_applied WITHOUT handing Input::TransportEof to the core once the core is Closed, so ws_core::handle_eof — which counts the action then refuses with STATE_VIOLATION — never runs. Live Java reports STATE_VIOLATION 'eof repeated in CLOSED state' with counts.actions 1. The lane stopped, re-baselined nothing, adjusted no expectation, loosened no test, and explicitly declined an available shortcut of adapter-synthesizing the STATE_VIOLATION. Its pre-registered prediction (drafts/harness-driver-prediction.json, written before any edit) named this exact record and field set and held on all six points.",
+  "decision": "DRIVER DEFECT — PASS THE EOF THROUGH. ws-driver must hand a Closed-state TransportEof to the core like every other input, restoring exact agreement with live Java. The latch's legitimate purpose (not applying the same EOF twice) is retained; the defect is skipping the core call. The corpus expectation is NOT amended, the live-oracle-confirmed transcript is NOT re-baselined, and the pre-existing test wired_eof_in_closed_counts_the_rejected_action must pass WITHOUT modification.",
+  "reasoning": "This plane's recorded normativity is JAVA_FAITHFUL_PLUS_SAFE; the corpus eof action is an explicit scored action; and absorbing an event the reference implementation reports is a behavioural change, not an adapter convenience. The alternative reading — that a socket adapter should absorb EOF after a completed close handshake — was considered and rejected because taking it would have required editing live-Java-verified evidence.",
+  "follow_up_required": "The lane must audit whether the same latch-without-apply shape exists on any other driver input path; this is the third instance on this plane of closing one silent-loss path while a sibling stayed open.",
+  "deferred_separately": "The latent terminal-rejection divergence (driver TerminalRejects commands issued after Terminal delivery where the oracle reports STATE_VIOLATION) is unreachable in the public corpus and would need the hidden or sealed tiers to exercise. That is a custodian-budget decision, routed separately; no tier was spent.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

@@ -1,0 +1,150 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "us-live-oracle-confirmation",
+  "kind": "live-oracle-confirmation-public-tier",
+  "recorded_at": "2026-08-27T21:11:23Z",
+  "recorded_at_provenance": "date -u +%Y-%m-%dT%H:%M:%SZ read in the same shell session immediately after the evaluate runs and the custodian ledger check",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "mission": "Kill the REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION caveat for the 74-case public corpus by executing the REAL pinned Java-WebSocket 1.6.0 oracle against the public tier and comparing live results to (a) the calibrated expectations and (b) the committed batch-C Rust transcript.",
+  "verdict": {
+    "expectation_vs_live_java": "74/74 PASS - corporactl evaluate --tier public reconciled the live-Java transcript with zero failures, zero missing, zero unmatched (exit 0 read from the real corporactl process, both runs)",
+    "rust_vs_live_java": "0 behavioral divergences across all 74 cases - 48 response lines identical excluding only the runtime identity object; 26 identical except the free-text error.detail wording (bounded diagnostic text the adapter protocol does not treat as semantic and the evaluator never compares); every compared behavioral field (outcome, error.code, error.close_code, counts, final_state, close, events, frames, transitions, initial_state, role) identical",
+    "caveat_status": "For the public tier, expectations are now LIVE-ORACLE-CONFIRMED against the real pinned Java-WebSocket 1.6.0 runtime; the fresh live transcript is additionally byte-identical to the US-005 recorded protected live transcript, so the US-005 calibration lineage and this run corroborate each other. Hidden/sealed tiers were NOT touched and retain their own US-005 lineage."
+  },
+  "environment": {
+    "host": "darwin/arm64 (macOS, local owner machine)",
+    "java": "openjdk 17.0.19 2026-04-21 (Homebrew), javac 17.0.19",
+    "go": "go1.25.5 darwin/arm64",
+    "repo": "/Users/mikelady/hq/repos/public/verified-java-websocket-port-claude",
+    "repo_head": "5fc92fe684de03d879ee4bab5faf3f91430bfd8c",
+    "repo_branch": "claude/feature/verified-java-websocket-port",
+    "repo_git_status": "clean before and after; this run made zero writes inside the repo (adapter built into scratch BUILD_DIR, corporactl built to /tmp)"
+  },
+  "jar_identity_verification": {
+    "runtime_jar_path": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-us005/.quarantine/Java-WebSocket-1.6.0.jar",
+    "runtime_jar_sha256_read": "eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+    "runtime_jar_pin_source": "java-oracle/README.md promoted digest, internal/corpora/oracleproj.go oracleRuntimeSHA256, java-oracle OracleMain.EXPECTED_RUNTIME_SHA256",
+    "runtime_jar_match": true,
+    "no_download_performed": true,
+    "adapter_startup_self_verification": "OracleMain.verifyRuntime() locates the jar that supplied Draft_6455 and re-hashes it against the promoted digest before the JSONL loop; a mismatch denies startup with exit 78. Both runs exited 0, so the self-verification passed on the live path.",
+    "runtime_attestation_echoed_per_response": {
+      "artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+      "sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
+    },
+    "runtime_support_jar_path": "/Users/mikelady/hq/repos/public/verified-java-websocket-port-claude/.quarantine/slf4j-api-2.0.13.jar",
+    "runtime_support_sha256_read": "e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9",
+    "runtime_support_pin_source": "evidence/us005-candidate-public-proof.json environment.runtime_support and evidence/intake/java-intake-manifest.json",
+    "runtime_support_match": true
+  },
+  "toolchain_builds": {
+    "java_oracle_adapter": {
+      "built_from": "java-oracle/src at repo HEAD 5fc92fe (committed source, git status clean)",
+      "build_command": "make -C java-oracle build BUILD_DIR=/tmp/us-live-oracle/build JAVA_WEBSOCKET_JAR=<pinned jar> RUNTIME_SUPPORT_CP=<slf4j jar> (javac --release 17 -Xlint:all -Werror; exit 0 read)",
+      "artifact": "/tmp/us-live-oracle/build/java-oracle.jar",
+      "artifact_sha256": "99c351e23099be9d68de4895273f708c4221bbcdf4a337c2af0c79f6eb662881"
+    },
+    "corporactl": {
+      "built_from": "cmd/corporactl at repo HEAD 5fc92fe (go build -o /tmp/us-live-oracle/corporactl ./cmd/corporactl; exit 0 read)",
+      "binary_sha256": "9f5f4fdcb18bfc47351628144f4c3409058fc8f153893ab7710165db7a12734a"
+    }
+  },
+  "requests": {
+    "command": "corporactl oracle-requests --root /Users/mikelady/hq/repos/public/verified-java-websocket-port-claude --protected-root /Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected --tier public --out <file> (exit 0 read, run twice)",
+    "file": "drafts/us-live-oracle-confirmation/requests.jsonl",
+    "lines": 74,
+    "sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85",
+    "regeneration_byte_identical": true,
+    "matches_batch_c_baseline_record": "rust/ws-oracle-harness/baseline/borrow-batch-c-public-baseline.json artifacts.requests_jsonl_sha256 = 0c1503c0... (same bytes)",
+    "byte_identical_to_us005_recorded_live_requests": "cmp clean against protected/us005-corpora/live/public/requests.jsonl"
+  },
+  "invocation": {
+    "command": "java -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 -Dslf4j.internal.verbosity=ERROR -cp /tmp/us-live-oracle/build/java-oracle.jar:<pinned Java-WebSocket-1.6.0.jar>:<slf4j-api-2.0.13.jar> OracleMain < requests.jsonl > transcript.jsonl (LANG=en_US.UTF-8)",
+    "derivation": "java-oracle/Makefile run target plus the UTF-8 stdout correction recorded in evidence/corpus-calibration.json (US-005 mutant-run note); stdin/stdout JSONL per adapter protocol java-websocket-oracle 1.0.0",
+    "stderr": "empty on both runs (0 bytes read)"
+  },
+  "runs": [
+    {
+      "run": 1,
+      "transcript": "drafts/us-live-oracle-confirmation/live-java-transcript-run1.jsonl",
+      "transcript_lines": 74,
+      "transcript_sha256": "2eb11ca38caf9fef9b7edb8b83f3c7f6297b3e6e3d7ccbfc2a11c84e5221bd8b",
+      "exit_code": 0,
+      "exit_code_read_from": "the java process's own exit status ($?) read directly after the run"
+    },
+    {
+      "run": 2,
+      "transcript": "drafts/us-live-oracle-confirmation/live-java-transcript-run2.jsonl",
+      "transcript_lines": 74,
+      "transcript_sha256": "2eb11ca38caf9fef9b7edb8b83f3c7f6297b3e6e3d7ccbfc2a11c84e5221bd8b",
+      "exit_code": 0,
+      "exit_code_read_from": "the java process's own exit status ($?) read directly after the run"
+    }
+  ],
+  "rerun_determinism": {
+    "byte_identical": true,
+    "note": "both live-Java runs produced sha256 2eb11ca3... with zero nondeterministic fields; client output mask keys are deliberately absent from the adapter's semantic observation, which is what makes byte-identical replay possible"
+  },
+  "us005_lineage_cross_check": {
+    "recorded_live_transcript": "protected/us005-corpora/live/public/transcript.jsonl (read-only)",
+    "recorded_sha256": "2eb11ca38caf9fef9b7edb8b83f3c7f6297b3e6e3d7ccbfc2a11c84e5221bd8b",
+    "byte_identical_to_this_run": true,
+    "meaning": "this fresh execution independently reproduced the exact bytes of the US-005 calibration-time live public run, from a freshly built adapter and freshly regenerated requests"
+  },
+  "evaluate": {
+    "command": "corporactl evaluate --root <repo> --protected-root <protected> --tier public --transcript <live-java-transcript> (run once per live run)",
+    "run1": { "executed": 74, "passed": 74, "failed": 0, "missing": 0, "unmatched": 0, "exit_code": 0 },
+    "run2": { "executed": 74, "passed": 74, "failed": 0, "missing": 0, "unmatched": 0, "exit_code": 0 },
+    "counts_read_from": "the corporactl process's own JSON stdout (saved as evaluate-live-java-run1.json / evaluate-live-java-run2.json) and its own exit status",
+    "runtime_pin_behavior": "READ FROM SOURCE, NOT ASSUMED: internal/corpora/oracleproj.go EvaluateOracleResponse compares protocol, version, request_id, request_digest, outcome, and the behavioral fields only; it never inspects the response's runtime object. The behavior-tier evaluator therefore judges the live-Java transcript directly - no runtime neutralization was needed (unlike the handshake --live path, which does pin runtime identity). Both transcripts (committed Rust baseline and this live-Java run) are preserved regardless.",
+    "custodian": "public tier is custodian-free by code (heldOutTier gates every RecordQuery/RecordDiagnostic); verified empirically: protected/us005-corpora/custodian/ledger.json is 9001 bytes sha256 f4941dc801af5a41a2e3285a71d269975ea6e06774d1e1a4573fd6b6d6f400ae after this run, byte-identical to the batch-C baseline record - zero spend, zero writes"
+  },
+  "expectation_vs_java_diff": {
+    "matches": 74,
+    "divergences": [],
+    "note": "zero calibration findings; no expectation, corpus, or internal/corpora file was touched"
+  },
+  "rust_vs_java_diff": {
+    "rust_transcript": "rust/ws-oracle-harness/baseline/borrow-batch-c-public-transcript.jsonl (committed, sha256 b3e7324fe80a50f74e57911c56faa03e4da8d15975d1fef5cc0bb32ec411e23e, 74 lines)",
+    "java_transcript": "drafts/us-live-oracle-confirmation/live-java-transcript-run1.jsonl (sha256 2eb11ca3...)",
+    "method": "full per-line JSON field comparison per request_id with ONLY the runtime identity object excluded (same stricture as the batch-C handshake differential); canonical key-sorted serialization; detail-only error divergence drilled and classified separately rather than hidden",
+    "identical_excluding_runtime": 48,
+    "identical_except_error_detail_wording": 26,
+    "behaviorally_divergent": 0,
+    "error_detail_wording_case_ids": [
+      "us005.pub.0000", "us005.pub.0005", "us005.pub.0015", "us005.pub.0019",
+      "us005.pub.0020", "us005.pub.0029", "us005.pub.0030", "us005.pub.0031",
+      "us005.pub.0032", "us005.pub.0033", "us005.pub.0036", "us005.pub.0039",
+      "us005.pub.0041", "us005.pub.0042", "us005.pub.0044", "us005.pub.0051",
+      "us005.pub.0052", "us005.pub.0056", "us005.pub.0057", "us005.pub.0058",
+      "us005.pub.0059", "us005.pub.0065", "us005.pub.0066", "us005.pub.0067",
+      "us005.pub.0068", "us005.pub.0070"
+    ],
+    "error_detail_wording_explanation": "all 26 are error-outcome cases where error.code, error.close_code, counts, and final_state are identical and only the free-text error.detail differs (Rust: 'ws_core reported <CODE> (close code N)'; Java: the runtime exception message, e.g. 'closecode must not be sent over the wire: 999'). error.detail is a bounded diagnostic the adapter protocol documents as non-semantic and the evaluator never compares. Full per-case values in rust-vs-live-java-diff.json.",
+    "diff_file": "drafts/us-live-oracle-confirmation/rust-vs-live-java-diff.json"
+  },
+  "cases_not_executable_by_oracle": {
+    "count": 0,
+    "note": "all 74 public requests executed on the live Java oracle; none exercise harness-only seams"
+  },
+  "constraints_honored": {
+    "repo_read_only": "no commits, no working-tree writes; git status clean before and after",
+    "protected_store": "read-only throughout (requests/transcript/ledger reads only); nothing written under protected/",
+    "codex_plane": "never touched",
+    "corpora_untouched": "internal/corpora/ and corpora/ unmodified",
+    "no_unpinned_downloads": "no network fetches of any artifact; the locally materialized pinned jar was digest-verified before use"
+  },
+  "artifacts_written": [
+    "drafts/us-live-oracle-confirmation/requests.jsonl",
+    "drafts/us-live-oracle-confirmation/requests-regen.jsonl",
+    "drafts/us-live-oracle-confirmation/live-java-transcript-run1.jsonl",
+    "drafts/us-live-oracle-confirmation/live-java-transcript-run2.jsonl",
+    "drafts/us-live-oracle-confirmation/live-java-stderr-run1.txt",
+    "drafts/us-live-oracle-confirmation/live-java-stderr-run2.txt",
+    "drafts/us-live-oracle-confirmation/evaluate-live-java-run1.json",
+    "drafts/us-live-oracle-confirmation/evaluate-live-java-run2.json",
+    "drafts/us-live-oracle-confirmation/rust-vs-live-java-diff.json",
+    "drafts/us-live-oracle-confirmation-receipt.json"
+  ],
+  "driver": "claude-fable-5 (live-oracle confirmation worker)"
+}

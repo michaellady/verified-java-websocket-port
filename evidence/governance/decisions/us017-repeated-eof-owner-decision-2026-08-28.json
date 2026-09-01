@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-repeated-eof",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T12:31:52Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "amends": "protected/us017-eof-after-closed-owner-decision-2026-08-28.json (sha bd7849c3), whose text retained the eof_applied latch's purpose of 'not applying the same EOF twice'. That retention is hereby AMENDED.",
+  "owner": "mikelady",
+  "context": "The third sibling audit found that a repeated DriverInput::TransportEof (or a Shutdown after an applied EOF) is skipped by the '&& !self.eof_applied' guard, so the core never sees it. Measured: a second EOF yields Consumed{bytes:0} with Idle and counts.actions stays 1, while the core given the same input directly answers StateViolation with actions=2. Live Java's own message for this case is literally 'eof repeated in CLOSED state'. The lane declined to fix it because the prior decision explicitly blessed the latch — correctly refusing to contradict a standing instruction. This is the third instance of one shape across three rounds: a state check that decides not to call the core.",
+  "decision": "PASS IT THROUGH TOO. DriverInput::TransportEof is a SCORED EVENT like any other input, not an idempotent transport fact the adapter may absorb. The core decides. The prior decision's retention of the latch for 'not applying the same EOF twice' is amended: at-most-once APPLICATION was the wrong invariant to protect at the driver layer, because the core's own state machine already answers a repeated EOF correctly and Java reports it as an error rather than swallowing it.",
+  "constraints": [
+    "Public corpus stays 74/74, transcript byte-identical modulo the runtime object, scored-field disagreements with live Java stay ZERO.",
+    "No adapter-side counter-reading detector; that remains reserved.",
+    "Re-run the sibling audit AGAIN after this fix. Three rounds have each found exactly one more instance; a fourth clean audit is the first real evidence the class is closed."
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}
