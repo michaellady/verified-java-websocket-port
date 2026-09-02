@@ -273,7 +273,36 @@ so neither can silently become vacuous.
 
 ---
 
-## 6. Findings recorded rather than hidden
+## 6. Suite readings on this branch
+
+`go build ./...` exit 0. `go vet ./...` exit 0. `gofmt -l` clean over
+`internal/ac5class`, `cmd/ac5ctl`, `cmd/mutctl`.
+
+`go test ./...` with `VJWP_PROTECTED_STORE` unset and no `.quarantine` in the
+worktree reported four failing packages. Each was then re-run with the missing
+input supplied, and every one of them is an environment condition rather than a
+change on this branch:
+
+| package | first run | with the input supplied |
+| --- | --- | --- |
+| `internal/deltaledger` | 18 tests refuse: `THE PROTECTED GOVERNANCE STORE IS NOT REACHABLE` | **ok, 24.063s** with `VJWP_PROTECTED_STORE` exported |
+| `internal/linkage`, `internal/securitygate` | ok | **ok** |
+| `internal/formalplan` | `JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403` (the worktree has no `.quarantine`, and the proxy refuses the fetch) | **ok, 344.006s** after copying the pinned Java source tree and jars into the worktree's `.quarantine` |
+| `internal/portplan` | same missing-quarantine error | reduces to the documented `JAVAC_UNAVAILABLE: javac … 21.0.10, pinned JDK is 17.0.19` on `TestDeriveReproducesCommittedEvidence` and `TestDeriveFailsOnDeclarationLevelOracleTamper` |
+| `internal/lab` | `PLATFORM_EXECUTOR_UNSUPPORTED` (Darwin `sandbox-exec`) | unchanged — the documented baseline failure |
+
+`internal/lab` and `internal/portplan` are the two failures
+`.claude/CLOUD-ENVIRONMENT.md` records as known. `internal/deltaledger` and
+`internal/formalplan` fail only for missing inputs a worktree does not inherit,
+and both are green once supplied. Nothing on this branch is implicated: the diff
+adds two packages nothing else imports and changes one comment.
+
+`make -C rust gates` was NOT run, and is not claimed. This branch touches no
+file under `rust/` — `git status` shows one modified Go comment and four new
+paths — so there is nothing for the Rust gates to say about it that they did not
+already say at `57e881c`.
+
+## 7. Findings recorded rather than hidden
 
 1. **`m013-payload-truncation`, the loudest mutant in the E1 table, does not
    discriminate consumed-byte.** It moves 22 observation field paths and leaves
@@ -304,7 +333,7 @@ so neither can silently become vacuous.
 
 ---
 
-## 7. What I did NOT do, by name
+## 8. What I did NOT do, by name
 
 - **I did not re-run the 76-mutant E1 campaign, and did not add the five new
   seeds to `cmd/mutctl.CuratedMutations`.** Doing so would leave

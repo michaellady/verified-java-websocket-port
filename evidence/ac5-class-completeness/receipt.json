@@ -14,7 +14,7 @@
     "normalization-collision"
   ],
   "exit_discipline": "every exit code in this receipt was read from the command's real ProcessState; none is inferred from output text",
-  "generated_at": "2026-09-02T20:08:47Z",
+  "generated_at": "2026-09-02T20:35:51Z",
   "judged_tree_digest": {
     "algorithm": "sha256 over sorted (relative path, length, bytes) of rust/, excluding target/; symlinks refused",
     "post_campaign_digest": "0079ea2daae71f354d546e36216f2668dbc2edd4ac308dd5a31ba3678ff7c657",
@@ -132,7 +132,7 @@
       ],
       "collision_confirmed": true,
       "verdict": "COLLISION_DETECTED",
-      "seconds": 1.708492165
+      "seconds": 1.5897205620000001
     },
     {
       "class": "Java-quirk emulation",
@@ -143,13 +143,13 @@
       "detector_cmd": "cargo test -p ws-core",
       "detector_exit": 101,
       "detector_failed_tests": [
-        "control_payload_exactly_125_delivers",
         "family_command_interleave_no_panic_deterministic",
-        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_config_boundaries",
         "family_byte_soup_no_panic_bounded_deterministic",
+        "control_payload_exactly_125_delivers",
+        "family_frame_soup_no_panic_bounded_deterministic",
         "family_rechunk_invariance_multi_frame",
         "family_rechunk_invariance_single_frame",
-        "family_config_boundaries",
         "family_seed_corpus_anchors"
       ],
       "detector_kill_detail": "ws-core/tests/adversarial_fuzz.rs:265:21: transition (SendClose) emitted before its close notification",
@@ -167,7 +167,7 @@
       "fields_agree": true,
       "is_collision": false,
       "verdict": "CLASS_DETECTED",
-      "seconds": 4.590060804
+      "seconds": 3.229058484
     },
     {
       "class": "Rust semantic defect",
@@ -236,7 +236,7 @@
       "fields_agree": true,
       "is_collision": false,
       "verdict": "CLASS_DETECTED",
-      "seconds": 6.57545538
+      "seconds": 4.501783543
     },
     {
       "class": "event-order",
@@ -274,7 +274,7 @@
       "fields_agree": true,
       "is_collision": false,
       "verdict": "CLASS_DETECTED",
-      "seconds": 2.07795843
+      "seconds": 1.5447203630000002
     },
     {
       "class": "error-class",
@@ -303,7 +303,7 @@
       "fields_agree": true,
       "is_collision": false,
       "verdict": "CLASS_DETECTED",
-      "seconds": 1.651417235
+      "seconds": 1.601920394
     },
     {
       "class": "close-initiator",
@@ -338,7 +338,7 @@
       "fields_agree": true,
       "is_collision": false,
       "verdict": "CLASS_DETECTED",
-      "seconds": 2.059159399
+      "seconds": 1.5442455499999999
     },
     {
       "class": "consumed-byte",
@@ -364,7 +364,7 @@
       "fields_agree": true,
       "is_collision": false,
       "verdict": "CLASS_DETECTED",
-      "seconds": 1.860632295
+      "seconds": 1.490788576
     },
     {
       "class": "normalization-collision",
@@ -375,11 +375,11 @@
       "detector_cmd": "cargo test -p ws-testee --test loopback",
       "detector_exit": 101,
       "detector_failed_tests": [
-        "a_server_that_initiates_a_close_hangs_up_without_waiting_for_the_echo",
         "a_server_closes_the_tcp_connection_once_its_close_echo_has_drained",
+        "a_server_that_initiates_a_close_hangs_up_without_waiting_for_the_echo",
         "the_server_fixture_reaches_its_terminal_without_the_peer_ever_closing"
       ],
-      "detector_kill_detail": "ws-testee/tests/loopback.rs:1609:5: Java's server closes on flush-and-close, not on having received a Close (WebSocketImpl.java:494 -\u003e :592, SocketChannelIOHelper.java:110-113)",
+      "detector_kill_detail": "ws-testee/tests/loopback.rs:1432:5: shipped Java's server closes the TCP connection once the echo has drained (SocketChannelIOHelper.java:110-113 -\u003e WebSocketImpl.java:546); the peer saw the echo and then no EOF, so this endpoint left the socket open",
       "named_test_failed": true,
       "harness_build_exit": 0,
       "harness_exit": 0,
@@ -398,7 +398,7 @@
       "blind_judge_ws_core_exit": 0,
       "collision_confirmed": true,
       "verdict": "COLLISION_DETECTED",
-      "seconds": 53.504041478
+      "seconds": 46.774354625
     }
   ],
   "witness_skipped": false
