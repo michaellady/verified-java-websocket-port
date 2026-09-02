@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,6 +32,10 @@ const (
 	claimScope   = "OWNER_EXECUTED_KANI_PRODUCTION_SYMBOLS"
 	assurance    = "OWNER_ATTESTED_NOT_INDEPENDENT"
 	maxFileSize  = int64(8 << 20)
+
+	timeoutEvidenceKind    = "KANI_HARNESS_TIMEOUT_NEGATIVE_EVIDENCE"
+	timeoutEnvelopeVersion = "1.0.0"
+	diagnosticTailBytes    = 4096
 )
 
 var (
@@ -39,6 +44,10 @@ var (
 	finishPattern = regexp.MustCompile(`(?m)(target\(s\) in) [0-9.]+s$`)
 	hexDigest     = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 	hexCommit     = regexp.MustCompile(`^[0-9a-f]{40}$`)
+
+	// hostPathPattern folds host-local absolute paths out of retained diagnostics.
+	hostPathPattern = regexp.MustCompile(`(?:/Users|/home|/private/tmp|/private/var|/var/folders|/tmp)/[^\s"',:;)\]]*`)
+	hostPathMarkers = []string{"/Users/", "/home/", "/private/tmp/", "/private/var/", "/var/folders/"}
 )
 
 type artifact struct {
@@ -153,6 +162,46 @@ type mutationPlan struct {
 	Replace     string
 	Description string
 	Obligations []string
+}
+
+// timeoutEnvelope is the typed negative-evidence record retained when a harness
+// exceeds its configured budget. A ceiling crossing is FAILED evidence and is
+// never downgraded to a skip or a pass; the envelope exists so that the failure
+// is citable from an artifact instead of resting on prose. It deliberately
+// carries no host paths, matching the retained receipts' stated privacy posture.
+type timeoutEnvelope struct {
+	EvidenceKind             string   `json:"evidence_kind"`
+	SchemaVersion            string   `json:"schema_version"`
+	Disposition              string   `json:"disposition"`
+	Status                   string   `json:"status"`
+	Group                    string   `json:"group"`
+	HarnessID                string   `json:"harness_id"`
+	LogID                    string   `json:"log_id"`
+	ConfiguredTimeoutSeconds float64  `json:"configured_timeout_seconds"`
+	ElapsedSeconds           float64  `json:"elapsed_seconds"`
+	RawOutputBytes           int      `json:"raw_output_bytes"`
+	RawOutputSHA256          string   `json:"raw_output_sha256"`
+	NormalizedLog            artifact `json:"normalized_log"`
+	DiagnosticTailBytes      int      `json:"diagnostic_tail_bytes"`
+	DiagnosticTailSHA256     string   `json:"diagnostic_tail_sha256"`
+	DiagnosticTail           string   `json:"diagnostic_tail"`
+	Limitations              []string `json:"limitations"`
+}
+
+// harnessTimeoutError reports a budget overrun and names the retained envelope.
+// It keeps the timeout a hard failure for every caller while making the retained
+// record discoverable from the error text alone.
+type harnessTimeoutError struct {
+	HarnessID    string
+	LogID        string
+	Configured   time.Duration
+	Elapsed      time.Duration
+	EnvelopePath string
+}
+
+func (value *harnessTimeoutError) Error() string {
+	return fmt.Sprintf("harness %s exceeded its configured %s budget after %s; typed negative-evidence envelope retained at %s",
+		value.HarnessID, value.Configured, value.Elapsed.Round(time.Millisecond), value.EnvelopePath)
 }
 
 func main() {
@@ -617,18 +666,11 @@ func executeHarness(ctx context.Context, request generateRequest, stagedRoot, ou
 	command := exec.CommandContext(processCtx, request.CargoKani, arguments...)
 	command.Dir = stagedRoot
 	command.Env = controlledEnvironment(request)
+	started := time.Now()
 	output, runErr := command.CombinedOutput()
-	if processCtx.Err() != nil {
-		return kaniResult{}, processCtx.Err()
-	}
-	exitCode := 0
-	if runErr != nil {
-		var exitError *exec.ExitError
-		if !errors.As(runErr, &exitError) {
-			return kaniResult{}, runErr
-		}
-		exitCode = exitError.ExitCode()
-	}
+	elapsed := time.Since(started)
+	// The normalized log is written before any disposition is decided so that a
+	// harness killed at its ceiling retains its diagnostic bytes instead of none.
 	normalized := normalizeLog(output, filepath.Dir(stagedRoot))
 	directory := filepath.Join(outRoot, group)
 	if err := os.MkdirAll(directory, 0o755); err != nil {
@@ -639,6 +681,17 @@ func executeHarness(ctx context.Context, request generateRequest, stagedRoot, ou
 		return kaniResult{}, err
 	}
 	logBinding := artifact{Path: filepath.ToSlash(filepath.Join(group, name)), SHA256: digestBytes([]byte(normalized))}
+	if processCtx.Err() != nil {
+		return kaniResult{}, retainTimeoutEnvelope(directory, group, harnessID, logID, request.Timeout, elapsed, normalized, output, logBinding)
+	}
+	exitCode := 0
+	if runErr != nil {
+		var exitError *exec.ExitError
+		if !errors.As(runErr, &exitError) {
+			return kaniResult{}, runErr
+		}
+		exitCode = exitError.ExitCode()
+	}
 	observed, err := parseKaniResult(output, exitCode)
 	if err != nil {
 		return kaniResult{}, fmt.Errorf("%w; normalized diagnostic retained at %s", err, logBinding.Path)
@@ -646,6 +699,87 @@ func executeHarness(ctx context.Context, request generateRequest, stagedRoot, ou
 	observed.RawOutputSHA256 = digestBytes(output)
 	observed.NormalizedLog = logBinding
 	return observed, nil
+}
+
+// retainTimeoutEnvelope writes the typed negative-evidence record for a harness
+// that crossed its configured ceiling and returns the error that fails the run.
+// Retention never softens the verdict: the caller still fails.
+func retainTimeoutEnvelope(directory, group, harnessID, logID string, configured, elapsed time.Duration, normalized string, raw []byte, logBinding artifact) error {
+	tail := diagnosticTail(sanitizeDiagnostic(normalized))
+	value := timeoutEnvelope{
+		EvidenceKind:             timeoutEvidenceKind,
+		SchemaVersion:            timeoutEnvelopeVersion,
+		Disposition:              "FAILED",
+		Status:                   "TIMEOUT",
+		Group:                    group,
+		HarnessID:                harnessID,
+		LogID:                    logID,
+		ConfiguredTimeoutSeconds: configured.Seconds(),
+		ElapsedSeconds:           math.Round(elapsed.Seconds()*1000) / 1000,
+		RawOutputBytes:           len(raw),
+		RawOutputSHA256:          digestBytes(raw),
+		NormalizedLog:            logBinding,
+		DiagnosticTailBytes:      len(tail),
+		DiagnosticTailSHA256:     digestBytes([]byte(tail)),
+		DiagnosticTail:           tail,
+		Limitations: []string{
+			"A timeout is FAILED evidence: the harness produced no verdict and earns no proof credit.",
+			"The diagnostic tail is truncated and sanitized; host paths are intentionally omitted.",
+			"Elapsed time is wall clock on one owner-attested host and is not a portable cost measurement.",
+		},
+	}
+	body, err := json.MarshalIndent(value, "", "  ")
+	if err != nil {
+		return err
+	}
+	// Fail safe rather than leak: if any host path survived sanitization, drop the
+	// tail entirely instead of retaining it.
+	if containsHostPath(body) {
+		value.DiagnosticTail = "<diagnostic tail withheld: host path detected during sanitization>"
+		value.DiagnosticTailBytes = len(value.DiagnosticTail)
+		value.DiagnosticTailSHA256 = digestBytes([]byte(value.DiagnosticTail))
+		body, err = json.MarshalIndent(value, "", "  ")
+		if err != nil {
+			return err
+		}
+	}
+	body = append(body, '\n')
+	name := safeHarnessName(logID) + ".timeout.json"
+	path := filepath.Join(directory, name)
+	if err := os.WriteFile(path, body, 0o644); err != nil {
+		return err
+	}
+	return &harnessTimeoutError{
+		HarnessID: harnessID, LogID: logID, Configured: configured, Elapsed: elapsed,
+		EnvelopePath: filepath.ToSlash(filepath.Join(group, name)),
+	}
+}
+
+func containsHostPath(body []byte) bool {
+	for _, marker := range hostPathMarkers {
+		if bytes.Contains(body, []byte(marker)) {
+			return true
+		}
+	}
+	return false
+}
+
+// sanitizeDiagnostic strips host-local absolute paths that normalizeLog does not
+// already fold into <staged-workspace>, preserving the receipts' privacy posture.
+func sanitizeDiagnostic(value string) string {
+	return hostPathPattern.ReplaceAllString(value, "<redacted-host-path>")
+}
+
+// diagnosticTail keeps the final diagnosticTailBytes of a log, trimmed forward to
+// a line boundary so the retained excerpt stays readable and valid UTF-8.
+func diagnosticTail(value string) string {
+	if len(value) > diagnosticTailBytes {
+		value = value[len(value)-diagnosticTailBytes:]
+		if index := strings.IndexByte(value, '\n'); index >= 0 && index+1 <= len(value) {
+			value = value[index+1:]
+		}
+	}
+	return strings.ToValidUTF8(value, "�")
 }
 
 func executeMutation(ctx context.Context, request generateRequest, stagedRoot, outRoot string, plan mutationPlan) (mutationResult, error) {

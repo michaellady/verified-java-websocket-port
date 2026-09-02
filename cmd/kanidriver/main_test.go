@@ -2,11 +2,14 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
 )
@@ -468,5 +471,95 @@ func TestRunRejectsUnknownAndIncompleteCommands(t *testing.T) {
 		if exit := run(arguments, &stdout, &stderr); exit != 2 {
 			t.Fatalf("run(%v)=%d stdout=%s stderr=%s", arguments, exit, stdout.String(), stderr.String())
 		}
+	}
+}
+
+// A harness killed at its ceiling must retain a typed negative-evidence envelope
+// and its diagnostic bytes. Before this regression test the timeout path returned
+// before the log write and retained zero bytes, which made every ceiling-crossing
+// claim unfalsifiable from the artifact set.
+func TestTimedOutHarnessRetainsTypedNegativeEvidence(t *testing.T) {
+	staged := t.TempDir()
+	out := t.TempDir()
+	fake := filepath.Join(t.TempDir(), "cargo-kani")
+	// exec replaces the shell so the context kill lands on the sleeping process
+	// itself and the output pipe closes promptly.
+	script := "#!/bin/sh\necho \"probing " + staged + "/rust\"\necho 'Checking harness demo::proof...'\nexec sleep 30\n"
+	if err := os.WriteFile(fake, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	request := generateRequest{CargoKani: fake, CBMC: filepath.Join(staged, "cbmc"), Timeout: 300 * time.Millisecond}
+
+	observed, err := executeHarness(context.Background(), request, staged, out, "run-1", "demo::proof", "demo::proof")
+	if err == nil {
+		t.Fatal("a harness that exceeds its budget must fail")
+	}
+	if observed.Status != "" {
+		t.Fatalf("a timeout must never carry a verdict, got %q", observed.Status)
+	}
+	var timeoutErr *harnessTimeoutError
+	if !errors.As(err, &timeoutErr) {
+		t.Fatalf("timeout must surface a typed error, got %T: %v", err, err)
+	}
+	if timeoutErr.Configured != request.Timeout || timeoutErr.Elapsed < request.Timeout {
+		t.Fatalf("typed error must record the configured budget and a plausible elapsed time: %+v", timeoutErr)
+	}
+
+	logPath := filepath.Join(out, "run-1", "demo--proof.out")
+	logBody, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("a timed-out harness must retain its normalized log: %v", err)
+	}
+	if len(logBody) == 0 {
+		t.Fatal("a timed-out harness retained zero diagnostic bytes")
+	}
+
+	envelopePath := filepath.Join(out, "run-1", "demo--proof.timeout.json")
+	body, err := os.ReadFile(envelopePath)
+	if err != nil {
+		t.Fatalf("a timed-out harness must retain a negative-evidence envelope: %v", err)
+	}
+	var envelope timeoutEnvelope
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if envelope.EvidenceKind != timeoutEvidenceKind || envelope.Disposition != "FAILED" || envelope.Status != "TIMEOUT" {
+		t.Fatalf("a timeout must be retained as FAILED evidence, never a skip or a pass: %+v", envelope)
+	}
+	if envelope.HarnessID != "demo::proof" || envelope.ConfiguredTimeoutSeconds != request.Timeout.Seconds() || envelope.ElapsedSeconds <= 0 {
+		t.Fatalf("envelope must record harness id, configured timeout, and elapsed time: %+v", envelope)
+	}
+	if envelope.DiagnosticTail == "" || !strings.Contains(envelope.DiagnosticTail, "Checking harness") {
+		t.Fatalf("envelope must retain the diagnostic tail: %q", envelope.DiagnosticTail)
+	}
+	if containsHostPath(body) {
+		t.Fatalf("envelope leaked a host path, violating the retained receipts' privacy posture: %s", body)
+	}
+}
+
+func TestSanitizeDiagnosticRemovesHostPaths(t *testing.T) {
+	for _, sample := range []string{
+		"error at /Users/someone/hq/rust/src/lib.rs:12",
+		"cached under /private/tmp/work/subject",
+		"home build /home/runner/project/target",
+		"scratch /var/folders/xx/T/kani",
+	} {
+		if got := sanitizeDiagnostic(sample); containsHostPath([]byte(got)) {
+			t.Errorf("sanitizeDiagnostic(%q)=%q still carries a host path", sample, got)
+		}
+	}
+	if got := sanitizeDiagnostic("VERIFICATION:- FAILED"); got != "VERIFICATION:- FAILED" {
+		t.Errorf("sanitizeDiagnostic must not disturb semantic output, got %q", got)
+	}
+}
+
+func TestDiagnosticTailKeepsTheEndAndBoundsSize(t *testing.T) {
+	long := strings.Repeat("noise line that fills the buffer\n", 400) + "FINAL DIAGNOSTIC LINE"
+	tail := diagnosticTail(long)
+	if len(tail) > diagnosticTailBytes {
+		t.Fatalf("tail is unbounded: %d bytes", len(tail))
+	}
+	if !strings.HasSuffix(tail, "FINAL DIAGNOSTIC LINE") {
+		t.Fatal("tail must retain the end of the diagnostic, which is where the failure is")
 	}
 }
