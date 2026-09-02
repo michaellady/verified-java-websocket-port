@@ -297,6 +297,18 @@ change on this branch:
 and both are green once supplied. Nothing on this branch is implicated: the diff
 adds two packages nothing else imports and changes one comment.
 
+Mainline moved to `cb5c878` while this branch was in flight, and its diff over
+`rust/` touches `ws-core/src/connection.rs`, `ws-core/src/handshake/server.rs`
+and `ws-testee/src/server.rs` — three of the five files this register reads. The
+branch was NOT merged (merging is not mine to do here), so the seeded sites were
+resolved against mainline's own blobs instead: `git show cb5c878:<path>` into a
+throwaway root, then `ac5ctl verify -root <that root>`. **All eight sites
+resolve, `VERIFY_EXIT=0`**, with one line number shifted
+(`ac5-event-order-send-close-pair-swap`, `connection.rs:1274 -> :1282`) and
+nothing else changed. If a later refactor does move one of them, `ResolveSite`
+fails loudly rather than skipping — that is the intended behaviour, not a
+fragility.
+
 `make -C rust gates` was NOT run, and is not claimed. This branch touches no
 file under `rust/` — `git status` shows one modified Go comment and four new
 paths — so there is nothing for the Rust gates to say about it that they did not
