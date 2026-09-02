@@ -307,6 +307,75 @@ The harness was restored and re-run to exit 0 afterwards.
 
 ---
 
+## The inert-leaf reading, re-measured
+
+`CR_LEAF_ENUM=print`, transcribed from the print, not chosen:
+
+```
+LEAF_ENUMERATION leaves=401 checked=331 inert=70
+LEAF_BATTERY candidates=1 leaves=6      (the six booleans; one flip is exhaustive)
+LEAF_BATTERY candidates=2 leaves=34
+LEAF_BATTERY candidates=3 leaves=178
+LEAF_BATTERY candidates=4 leaves=127
+LEAF_BATTERY candidates=5 leaves=52
+LEAF_BATTERY candidates=6 leaves=4
+```
+
+**75 inert of 337 before this branch, 70 of 401 after.** The pinned enumeration
+in `internal/formalplan/concurrencyresults_leaves_test.go` is updated to match,
+and the +64 leaves are accounted for leaf-path by leaf-path rather than
+counted by hand:
+
+| change | leaves |
+| --- | --- |
+| `revision_note` (one string) → `revision_history` (8 paragraphs × 7 leaves) | +56 −1 |
+| the appended `clean-finish-inbound-ping` scenario shape | +5 |
+| the three clean-route coverage readings in `execution` | +3 |
+| `limitations[12]`, the clean-route coverage ceiling | +1 |
+
+Six leaves changed class, in three directions:
+
+* **`revision_note` is gone from the residual list.** It had been on it in
+  every round since the list existed, always with the same justification —
+  "session prose" — which was true only because nothing had been asked of it.
+  All 56 leaves of the field replacing it are CHECKED.
+* **The four scenario-prose leaves are gone.** `bounds.scenario_shapes[*]
+  .models` and `.why_explored` were added to the list at the post-failure
+  landing as "prose about history … nothing in this tree can contradict it".
+  The harness contradicts it now. The two leaves of the THIRD scenario are
+  checked from the moment it lands, so appending a scenario no longer appends
+  inert leaves.
+* **`preregistered_plan.conformance` went INERT and is checked again** — the
+  regression described in finding C above.
+
+`native_stress.rustc` is now the only survivor of the pair
+("`native_stress.rustc` and `revision_note`") that this list has carried in
+every round it has existed.
+
+---
+
+## Gates and suites, exits read from the process
+
+| run | exit |
+| --- | --- |
+| `cargo test -p ws-driver --release --test schedule_exploration` (from `rust/`) | **0**, `11 passed; 0 failed` |
+| `make -C rust gates`, first attempt | **2** — `fmt-check` refused the harness `fe736b3` left unformatted |
+| `make -C rust gates`, after `cargo fmt --all` | see below |
+| `go test ./internal/linkage/` before regeneration | **1** by design — `LINKAGE_DAG_DRIFTED`, `schedule-exploration digest is stale` |
+| `LINKAGE_REGENERATE=1 go test ./internal/linkage/ -run TestRegenerateLinkageArtifacts` | **0** |
+| `go test ./internal/linkage/` after regeneration | **0** |
+| `go test ./internal/formalplan/ -run 'TestConcurrencyResults\|TestCommittedConcurrencyResults'` | see below |
+
+`cargo fmt` moved the harness blob, so `target.harness.git_blob` is rebound
+`53e08b8d…` → `800c0d51…` and the sweep re-run. Both cited runs remain
+**byte-identical** after the reformat: the single `US017_EXPLORATION` line and
+the five `US017_FATAL_SWEEP` lines, checked by `diff`, not by eye.
+
+The evidence DAG's title had also gone stale — it said "81180 schedules across
+2 scenarios" — and is now derived from the same reading as the rest.
+
+---
+
 ## Not done, by name
 
 Recorded so the omissions are not read as coverage.
