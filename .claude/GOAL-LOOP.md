@@ -195,15 +195,22 @@ PR-to-open in the log; never block the work on it.
   iteration 2 → `claude/ledger-integrity` (PASS r4) LANDED 2fbad99 on
   2026-09-02 → `claude/us017-ac2` (PASS r4) LANDED 7262a29 on 2026-09-02 (US-006
   fixture refrozen, plan digest re-bound, evidence-dag refreshed, all under
-  sanctioned flags with both exits read) → **next:** `claude/evidence-validation`
-  (self-review to PASS first) → `claude/post-failure` (PASS r3; lands LAST, it
-  collides with `us017-ac2` on `rust/ws-driver`, with `evidence-validation` on
-  `assurance/concurrency/results.json`, with `us019` on `rust/ws-testee`) →
-  `claude/us019-native-run` (BLOCK, partly fixed; self-review to PASS first).
+  sanctioned flags with both exits read) → `claude/evidence-validation`
+  (self-review round 5 by the loop, PASS) LANDED 35edf8c on 2026-09-02 as a
+  union with `us017-ac2` (branch commit ccd0cc0; records
+  `drafts/self-review/evidence-validation-round-5.md` and
+  `evidence-validation-landing.md`) → **next:** `claude/us019-native-run`
+  (BLOCK, partly fixed; self-review to PASS first) → `claude/post-failure`
+  (PASS r3; lands LAST, it collides with `us017-ac2` on `rust/ws-driver`, with
+  `evidence-validation` on `assurance/concurrency/results.json`, with `us019`
+  on `rust/ws-testee`; its forward merge must keep both run citations in
+  `results.json` and re-run both harness citation checks).
   Also decide `claude/us019-autobahn` (1 commit ahead) and
   `claude/vacuity-sweep` (9 ahead): merged as part of another branch, or
   queued.
-- **P1a Reconciliation plan for `claude/evidence-validation`** (read
+- **P1a Reconciliation plan for `claude/evidence-validation`** — EXECUTED
+  2026-09-02 as written (union kept, no refusal dropped, round 5 recorded,
+  landed 35edf8c); retained here as the record of what was planned. (read
   2026-09-02 after `us017-ac2` landed; execute as one unit, self-review
   round included, since the branch has no recorded PASS: round 5 was in flight
   on 2026-08-29 and its last commit is r4 at 9aa73ab). Facts: the dry run
@@ -284,7 +291,7 @@ owner-attested scope and Codex's README states its maximum result is
 | US-014 | Reassemble fragmented messages with bounded state | borrowed batch A | PRD done (owner-attested); contract | closure receipt |
 | US-015 | Implement ping and pong control behavior | e4 auto-pong merged | PRD done (owner-attested); contract | closure receipt |
 | US-016 | Complete close, EOF, and terminal-state behavior | e4/e5b merged; owner decisions retained | PRD done (owner-attested); contract | closure receipt |
-| US-017 | Drive bounded concurrent commands through one owner | closure receipt in drafts; `us017-ac2` (PASS r4) landed 2026-09-02 as 7262a29: typed receiver-drop and dropped-write dispositions, concurrency results bound to the tree by a checked gate | PRD done (owner-attested); contract | judge against PRD criteria when they land |
+| US-017 | Drive bounded concurrent commands through one owner | closure receipt in drafts; `us017-ac2` (PASS r4) landed 2026-09-02 as 7262a29: typed receiver-drop and dropped-write dispositions, concurrency results bound to the tree by a checked gate; `evidence-validation` (r5) landed 2026-09-02 as 35edf8c: `results.json` cites both the exploration line and the five fatal-termination sweep lines, both compared by the harness and re-derived by `internal/formalplan`; 71 inert leaves of 327 remain, listed, record stays PARTIAL | PRD done (owner-attested); contract | judge against PRD criteria when they land |
 | US-018 | Add thin blocking TCP client and server adapters | passes; fixture made kernel-independent 2026-09-02 | PRD done (owner-attested); contract | receipt correction is owner's |
 | US-019 | Pass both pinned Autobahn conformance modes | `us019-autobahn` 1 ahead; `us019-native-run` BLOCK; AC1 owner gate (AWS) | PRD done (owner-attested); readiness only, no current-subject run | P1 self-review, then owner gate |
 | US-020 | Close Java and Rust differential divergences | ledger-integrity landed 2026-09-02: delta ledger 48 records, 3 supersessions, unledgered_disagreements recomputed = 0 behind `ledger-gates`; public differential 74/74 for port and live Java; not yet judged against the PRD criteria | PRD done (owner-attested); 4 files | P2 gaps, then criteria |
@@ -335,3 +342,4 @@ a close echo (open, unledgered).
 - 2026-09-02T09:59:58Z interactive: recorded the owner's port-* skill family (mike-skills#7) as an external input; two named gaps (per-method bytecode oracle, Java branch-coverage denominator) queued as P4 candidates; self-review rounds to borrow its 'checks that cannot fail' classes once REFERENCE.md is read. Mainline head 996abe7.
 - 2026-09-02T10:01:52Z interactive: read mike-skills#7 REFERENCE.md (anonymous clone); folded its polarity forms, count questions, claim vocabulary and canary table into protocol step 5; filed three port-learn findings from today under drafts/self-review/findings (F001 vendor-bound reproduction check, F002 host-sized backpressure fixture, F003 toolchain home). Mainline head 7ec2ea3.
 - 2026-09-02T10:19:07Z interactive: PRD pack part 2 of 6 received (master foundation-wave stories US-001..006, US-024, all passes:true); stored verbatim at docs/prd-pack/02-master-stories-foundation.md. No child-board change. Mainline head 4eea327.
+- 2026-09-02T11:29:45Z interactive: P1 landed claude/evidence-validation — forward merge of mainline 0bb5196 resolved as a union with us017-ac2 (branch commit ccd0cc0): both validators kept (ValidateConcurrencyResultsBindings / ValidateConcurrencyResults / ValidateConcurrencyResultsAll), harness merged (13 checked invariants, found_index in every seed; US017_RETAIN=1 once for silent-write-drop.seed, exit 0), results.json now cites the exploration line AND the five US017_FATAL_SWEEP lines (RED first: sweep exit 101 with no lines recorded, then exit 0), max_actions/added_by/ten-defect roll with exact regression sets/seed identity/RED-reading/seed-naming/prose-number bindings added (45 permanent mutation cases), inert leaves 91→71 of 327, omission holes 29→0 of 394, three stale r1–r4 probes retargeted to read the document, seven document sentences reconciled with disclosures (revision_note a–g). Gates 8/8 + ledger ok, 75 test blocks; go 29 ok, only lab (Darwin) and portplan derive (vendor); LINKAGE_REGENERATE=1 exit 1 by design then verify 0 (one digest). Differential/exam not re-run: no behaviour-bearing byte differs from mainline. Mainline merge 35edf8c, tree d99939e. Records: drafts/self-review/evidence-validation-round-5.md, evidence-validation-landing.md. No PR: the topic branch is already contained in mainline and PR #3 against main stays closed by owner decision. Next: P1 claude/us019-native-run (self-review to PASS first). Mainline head 35edf8c before this record commit.
