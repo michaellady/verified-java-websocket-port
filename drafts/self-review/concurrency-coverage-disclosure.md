@@ -195,7 +195,9 @@ carrying
 * **`counters_quoted`** — the exploration reading the paragraph speaks about,
   hoisted out of the prose and held to the partition every exploration reading
   obeys (clean-terminal + failure-halted = schedules). A superseded block need
-  not be RECOVERABLE to be CHECKABLE.
+  not be RECOVERABLE to be CHECKABLE;
+* and an **anchor** on the oldest paragraph, added after the omission walk
+  found it deletable — see finding B.
 
 The CURRENT paragraph's counters must equal the document's; a SUPERSEDED
 paragraph's must not equal the CURRENT one's, so today's numbers cannot wear a
