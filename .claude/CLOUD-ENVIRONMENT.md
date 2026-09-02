@@ -148,10 +148,16 @@ Three rules govern that file and are easy to violate by accident:
 2. **It must finish within about five minutes**, or the environment cache cannot
    build and every new session pays the full cost again. The Rust and Go
    installs run concurrently for this reason.
-3. **It runs as root, but the session may not.** Toolchains go into
-   `/usr/local/rustup` and `/usr/local/cargo` rather than root's home, are made
-   world-readable, and are put on `PATH` for every user through
-   `/etc/profile.d/vjwp-toolchains.sh`.
+3. **It must install where the session's rustup looks.** Both the script and
+   the session run as root, and the session shell carries
+   `RUSTUP_HOME=/root/.rustup` in the environment the harness hands it, which
+   overrides anything `/etc/profile.d` exports. So the script installs into
+   rustup's default home and never sets `RUSTUP_HOME` or `CARGO_HOME`. An
+   earlier revision installed into `/usr/local/rustup`; the toolchain landed
+   there correctly and the session never saw it. The MSRV gate still passed in
+   that session, but only because cargo's first run under
+   `rust-toolchain.toml` made rustup install 1.95.0 on demand, which needs
+   network at session time and hides the setup failure.
 
 One syntax trap is worth recording because it is silent. In
 `rustup toolchain install`, `--component` takes a **comma-separated** list;
@@ -164,12 +170,31 @@ called `clippy`. The script uses the comma form, with a comment saying why.
 
 The setup script prints every tool's real version at the end rather than
 assuming the installs succeeded, and states explicitly whether the MSRV
-toolchain is present. After creating the environment, start a session and
-confirm from that output that `rustc 1.95.0` is installed via rustup. Then run:
+toolchain is present. That output is visible where the environment is built,
+not from inside a session, so verify from the session as well, and do it before
+the first cargo command: cargo's first run under `rust-toolchain.toml` asks
+rustup to install a missing 1.95.0 on demand, which masks a setup script that
+did not land.
 
 ```
+rustup toolchain list
+```
+
+must already show `1.95.0-x86_64-unknown-linux-gnu`. Then run:
+
+```
+export VJWP_PROTECTED_STORE=$PWD/evidence/governance/decisions
 make -C rust gates
 ```
 
 and read the result. If `ac1-gates` reports `gates_passed=8/8` and the msrv gate
 does not complain about a missing toolchain, the environment is correct.
+
+The debug and release test steps run before `ac1-gates`, so a failing test
+stops the chain before that line ever prints. Until 2026-09-02 the loopback
+suite's stalled-writer test assumed macOS-sized socket buffers and failed on
+Linux hosts that autotune the send buffer past its fixed 3 MiB flood, reporting
+`SocketError("ConnectionReset")` after 60 seconds. It now feeds the
+never-reading peer until the kernel refuses, with the core's per-connection
+frame and action budgets raised to their ceilings on the client side so the
+core cannot stop emitting first, and so it holds on any buffer size.

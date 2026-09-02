@@ -33,11 +33,16 @@ set -uo pipefail
 echo "=== verified-java-websocket-port cloud setup ==="
 echo "started: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# Rust and Go go into shared prefixes rather than root's home, because this
-# script runs as root while the session may not. World-readable prefixes plus a
-# profile.d entry keep both on PATH for every user.
-export RUSTUP_HOME=/usr/local/rustup
-export CARGO_HOME=/usr/local/cargo
+# Rust goes into rustup's DEFAULT home (root's ~/.rustup and ~/.cargo), not a
+# shared prefix. The session runs as root too, and its shell carries
+# RUSTUP_HOME=/root/.rustup in the environment the harness hands it, which
+# overrides anything /etc/profile.d exports. An earlier revision of this script
+# installed into /usr/local/rustup: the toolchain landed there correctly and
+# the session never saw it (verified 2026-09-02 -- `rustup toolchain list`
+# showed only the pre-installed stable until cargo's first run under
+# rust-toolchain.toml made rustup install 1.95.0 on demand, which needs network
+# at session time and hides the setup failure). Do NOT export RUSTUP_HOME or
+# CARGO_HOME here.
 RUST_CHANNEL=1.95.0
 GO_VERSION=1.25.5
 
@@ -51,7 +56,7 @@ install_rust() {
     # the pinned toolchain is installed by exactly one code path below.
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
       | sh -s -- -y --no-modify-path --profile minimal --default-toolchain none
-    rustup_bin="${CARGO_HOME}/bin/rustup"
+    rustup_bin="${HOME:-/root}/.cargo/bin/rustup"
   fi
   if [ ! -x "${rustup_bin}" ]; then
     echo "ERROR: rustup is not available at ${rustup_bin}"
@@ -102,17 +107,13 @@ GO_PID=$!
 wait "${RUST_PID}" || echo "WARNING: rust install returned non-zero"
 wait "${GO_PID}"   || echo "WARNING: go install returned non-zero"
 
-# PATH for every subsequent shell, including the one Claude Code runs in.
+# PATH for login shells. The session shell already carries /root/.cargo/bin
+# and /usr/local/go/bin; this entry only matters for a shell that does not.
 cat >/etc/profile.d/vjwp-toolchains.sh <<'PROFILE'
-export RUSTUP_HOME=/usr/local/rustup
-export CARGO_HOME=/usr/local/cargo
-export PATH="/usr/local/cargo/bin:/usr/local/go/bin:${PATH}"
+export PATH="${HOME:-/root}/.cargo/bin:/usr/local/go/bin:${PATH}"
 PROFILE
 chmod 0644 /etc/profile.d/vjwp-toolchains.sh
-export PATH="/usr/local/cargo/bin:/usr/local/go/bin:${PATH}"
-
-# Readable and executable by non-root users; the session may not run as root.
-chmod -R a+rX /usr/local/rustup /usr/local/cargo 2>/dev/null || true
+export PATH="${HOME:-/root}/.cargo/bin:/usr/local/go/bin:${PATH}"
 
 # Warm the cargo registry cache. The workspace ships zero non-path
 # dependencies, so this is quick -- which is why it is worth doing here rather
@@ -127,6 +128,7 @@ fi
 # would surface much later and much less clearly.
 echo "=== verification ==="
 echo "rustup:  $(rustup --version 2>&1 | head -1 || echo MISSING)"
+echo "rustup home: $(rustup show home 2>&1 || echo MISSING)  (the session's rustup reads RUSTUP_HOME=/root/.rustup)"
 echo "rustc:   $(rustc --version 2>&1 || echo MISSING)"
 echo "cargo:   $(cargo --version 2>&1 || echo MISSING)"
 echo "fmt:     $(cargo fmt --version 2>&1 || echo MISSING)"
@@ -142,7 +144,7 @@ else
   echo "WARNING: MSRV toolchain ${RUST_CHANNEL} is NOT installed via rustup."
   echo "         cmd/rustgatectl's msrv gate will FAIL, not skip."
   echo "         Recover inside the session with:"
-  echo "           rustup toolchain install ${RUST_CHANNEL} --component rustfmt clippy"
+  echo "           rustup toolchain install ${RUST_CHANNEL} --component rustfmt,clippy"
 fi
 
 echo "finished: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
