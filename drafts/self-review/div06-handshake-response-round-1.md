@@ -407,3 +407,106 @@ red; section 5 is the evidence that they can fail.
   against a regression landing unnoticed in the Go plane; the behavioural proof
   is in the two Rust test files, and this document does not claim the Go check
   substitutes for them.
+
+## 10. Addendum — mainline moved while this branch was being built
+
+Recorded after the commit, because it could not be known before it.
+
+The branch is based on mainline at `57e881c`, the head named in the task. While
+this work was in progress mainline advanced to `d3110c0`
+(`Merge claude/oracle-hierarchy`). Three things were checked, none of which
+required merging anything into this branch or touching mainline:
+
+- **It still merges cleanly.** `git merge-tree --write-tree --name-only
+  origin/claude/feature/verified-java-websocket-port
+  claude/div06-handshake-response` → **exit 0**, one tree hash, no conflict
+  paths.
+- **There is no overlap with this branch's subject.**
+  `git diff --stat 57e881c origin/… -- rust/ws-core rust/ws-testee
+  rust/ws-driver rust/ws-oracle-harness evidence/linkage
+  internal/divergencesweep` is **empty**, so the linkage freeze taken here
+  stays correct across the merge and nothing in the new work re-derives it.
+- **Mainline added two gate targets, and both pass on the union.** `rust/
+  Makefile`'s `gates` now also runs `fixture-guard` and
+  `oracle-hierarchy-gates`. Both were run against the merged tree (materialised
+  read-only with `git archive` from the merge-tree result; this branch was not
+  modified):
+  - `go test ./cmd/fixtureguardctl/` → **exit 0**;
+    `go run ./cmd/fixtureguardctl -root . -max-waivers 0` → **exit 0**,
+    `step=selfcheck cases=6 firing=3 silent=3 result=PASS`, then
+    `step=scan files=44 loops=215 violations=0 waivers=0 max_waivers=0`.
+    This matters directly: that gate is the F005 detector, and the two
+    liveness tests added here are among the 44 files it scanned. They use
+    wall-clock deadlines (`Instant::now() + budget`), so they contribute no
+    violation and need no waiver.
+  - `go test ./internal/oraclerank/` → **exit 0**;
+    `go run ./cmd/oraclerankctl -root . --check` → **exit 0**.
+
+Whoever lands this should still run `make -C rust gates` on the merged result
+rather than trusting the above, since the merge was measured and not performed
+here.
+
+## 11. Addendum — the Go suite's failures, and which are mine
+
+`go test ./... -timeout 40m` at this head reports three failing packages:
+`internal/formalplan`, `internal/lab`, `internal/portplan`. `internal/lab` and
+`internal/portplan` are the stated known-baseline failures. `internal/formalplan`
+is not on that list, so it was run down rather than assumed:
+
+- **None of the three reads anything this branch changed.** `grep -rl` for
+  `divergencesweep`, `ws-testee/src/server`, `handshake/server.rs` and
+  `evidence/linkage` across all three packages returns **no matches**.
+- **The failures name the environment, not the change.** Two causes appear:
+  `JAVA_SOURCE_UNAVAILABLE_OFFLINE: pinned immutable URL returned HTTP 403`
+  (the agent proxy blocks re-downloading the pinned Java source) and
+  `JAVAC_UNAVAILABLE: … javac 21.0.10, pinned JDK is 17.0.19` (the `javac` on
+  PATH is not the pinned one). A third, `MODEL_CITATION_UNVERIFIED …
+  quarantined Java tree unavailable`, is because `.quarantine/` is gitignored
+  and therefore absent from every worktree.
+- **Demonstrated, not argued.** With the pinned tree linked into the worktree,
+  `go test ./internal/formalplan/ -run TestShippedModelArtifactsValidateClean`
+  goes from FAIL to **`ok` exit 0**, and re-running all three packages that way
+  drops `TestShippedModelArtifactsValidateClean` out of the failure list
+  entirely. Of the failures that remain, every single one names the
+  environment: 16 occurrences of `JAVA_SOURCE_UNAVAILABLE_OFFLINE` paired with
+  16 of `HTTP 403`, and 1 of `JAVAC_UNAVAILABLE`. **Zero** name anything this
+  branch touched. The link is a gitignored symlink and is not part of the
+  commit (`git status --short --ignored` shows `!! .quarantine/`).
+
+This is reported rather than waved past because "a known baseline failure" is
+exactly the sentence under which a real regression hides.
+
+## 12. Addendum — proving the expectations are Java's, not my code's
+
+The obvious way for a byte-exactness test to be worthless is for its expected
+strings to have been copied out of the implementation they check. The pinned
+tables in `handshake_server_response.rs` were in fact transcribed from the
+pinned JDK's output, but "in fact" is not evidence, so it was checked
+mechanically.
+
+The port was made to print its 101 head for the **same six requests** the Java
+ground-truth program uses (a throwaway test, run and then deleted; it is not
+part of the commit). The two six-case outputs were diffed with **only the
+`Date` VALUE masked** — the one field that is a clock, masked by a regex that
+matches the format and nothing else:
+
+```
+=== masked lines still containing a raw Date (must be none) ===
+java-heads.masked:0
+port-heads.masked:0
+=== diff: pinned jar vs port, Date value masked ===
+CROSSCHECK_DIFF_EXIT=0
+=== and the mask really is only the Date (unmasked diff should differ) ===
+UNMASKED_DIFF_EXIT=1 (nonzero expected: the clocks differ)
+```
+
+So the port's six heads are **byte-identical to the pinned jar's six**,
+including the field set, the wire order, the `Connection` echo in all four of
+its shapes, both literals and the status line — with the single exception of
+the clock reading, which cannot be identical and which the unmasked diff
+confirms is genuinely different. The second reading matters as much as the
+first: it shows the mask is doing real work rather than being satisfied
+vacuously.
+
+Nothing else is normalized. Masking any other field would be the DIV-02
+failure this round was warned about.
