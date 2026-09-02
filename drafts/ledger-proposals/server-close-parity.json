@@ -1,0 +1,73 @@
+{
+  "draft_kind": "behavior-delta-ledger-record-proposal",
+  "draft_status": "NOT APPENDED — proposal only",
+  "drafted_at": "2026-09-02T18:07:12Z",
+  "drafted_by": "claude/server-close-parity",
+  "target_ledger": "evidence/java/behavior-delta-ledger.json",
+  "why_this_is_a_draft_and_not_an_append": "The ledger is append-only with a frozen prefix (through sequence 35) and another track is editing it concurrently, so this record is proposed here rather than appended. Appending is ALSO not a JSON edit: cmd/deltaledgerctl --check verifies the committed document equals a regeneration from the Go Definition list in internal/deltaledger, so landing this record means adding the `proposed_definition` below to that list and regenerating. The `proposed_record` fields were derived with the repository's own derivation (internal/lab.ObservedDisagreement.Digest and internal/lab.BehaviorDeltaID over internal/intake.DigestBytes preimages), so they are reproducible rather than hand-written.",
+
+  "sequence_and_previous_digest": "DELIBERATELY OMITTED. Both are a function of the ledger head at landing time; the head read during this work was sha256:ab9277cb6bf4c822196999367a91bb6f357296b7b2584c3489cbe893cf78c2ac at 48 records. Whoever lands this fills them from the head then current.",
+
+  "proposed_record": {
+    "schema_version": "1.0.0",
+    "delta": {
+      "schema_version": "1.0.0",
+      "delta_id": "delta-516914f1e75aaf2c86bd082772a98b204ee217f86b54cecca648826688e40b82",
+      "subject_ref": "semantic:org.java-websocket.adapter.role-gated-transport-close:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-5.5.1",
+        "rfc6455#section-7.1.1",
+        "rfc6455#section-7.1.2"
+      ],
+      "rfc_expectation_digest": "sha256:ccb5b10d2e391a05f2a2fbfc7d77d6d170455a632745e2b8e72fa43b6acd5841",
+      "rfc_value_digest": "sha256:63b02a2651f38cd565dcb5919e8ac2c32649e70b408d539774eac364c22e7ecf",
+      "java_ref": "java-v1.6.0:org.java_websocket.SocketChannelIOHelper:batch",
+      "java_observation_digest": "sha256:bf293453bbc8f95b36490edd96dc3566ea3128bf7947cbeaec988b7397263458",
+      "java_value_digest": "sha256:011514dc592bd8188109af30f11c7ceaac4dd9f6810da64a5e65b69217ac20cc",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:7.1.1"
+      ],
+      "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+      "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+      "disagreement_digest": "sha256:516914f1e75aaf2c86bd082772a98b204ee217f86b54cecca648826688e40b82",
+      "normative_authority": "rfc6455",
+      "disposition": "unresolved",
+      "rationale": "DIVERGENCE (adapter transport policy, role-gated TCP close at the end of the close handshake). WHAT JAVA DOES: shipped Java closes the TCP connection from the SERVER side and never from the client side. SocketChannelIOHelper.batch (Java-WebSocket 1.6.0, pinned commit da3cf2a777aed862f2f5b5cf060cae7969958667, src/main/java/org/java_websocket/SocketChannelIOHelper.java:110-113) reads `if (ws.outQueue.isEmpty() && ws.isFlushAndClose() && ws.getDraft() != null && ws.getDraft().getRole() != null && ws.getDraft().getRole() == Role.SERVER) { ws.closeConnection(); }`; its only caller is the server write path WebSocketServer.java:586, and closeConnection() (WebSocketImpl.java:573-578) closes the channel at WebSocketImpl.java:546 and reports the governing close at :557. The client has no counterpart: WebSocketClient.WebsocketWriteThread.runWriteData (WebSocketClient.java:837-851) writes until interrupted and closes its socket only when the write thread itself ends, so a client that has echoed a close waits for the server to hang up. WHAT THE PORT DID: neither role closed. The Sans-I/O core owns no socket, and the ws-testee adapter loop left the socket open after the close handshake and waited for the peer's EOF, so a peer of the Rust server received the close echo and then nothing; the run only ended when the peer closed or the poll budget ran out. WHAT THE PORT DOES NOW: rust/ws-testee/src/io_loop.rs carries Java's gate verbatim as `server_closes_transport(role, state)` — `role == Role::Server && state == ReadyState::Closing` — consulted only on the drained (Idle) path, which is this side's image of `outQueue.isEmpty()`; ReadyState::Closing is this side's image of isFlushAndClose(), since Java sets flushandclosestate in flushAndClose (WebSocketImpl.java:592) on the same path that moves readyState to CLOSING (:494 and :503), for an echoed close (Draft_6455.java:1068) and a locally initiated one alike. On the gate the adapter shuts the socket down and then hands the core TransportEof, mirroring Java closing the channel (:546) before reporting the close (:557). NORMATIVE BASIS AND WHY THIS IS STILL A DIVERGENCE RECORD: RFC 6455 section 5.5.1 requires that an endpoint close the underlying TCP connection after BOTH sending and receiving a Close, with the server closing immediately and the client waiting (section 7.1.1). For an ECHOED close Java and the RFC agree, and the port now agrees with both — that half is a fidelity FIX, not a divergence. The divergence this record exists for is the locally initiated close: Java gates on isFlushAndClose(), not on having received a Close, so a Java SERVER that initiates a close tears the TCP connection down as soon as its own close frame has flushed, without waiting for the peer's Close, which section 5.5.1 does not permit. The port now follows shipped Java there rather than the RFC, which is the standing owner strategy for behaviour differences. EVIDENCE: rust/ws-testee/tests/loopback.rs — a_server_closes_the_tcp_connection_once_its_close_echo_has_drained and the_server_fixture_reaches_its_terminal_without_the_peer_ever_closing pin the echo case at a raw TCP peer that never closes its own side; a_server_that_initiates_a_close_hangs_up_without_waiting_for_the_echo pins the RFC-divergent sub-case against a peer that sends nothing at all; a_client_does_not_close_the_tcp_connection_after_its_close_echo pins the client half of the role gate. Each was reproduced RED before the change and re-failed by deleting the code it describes (drafts/self-review/server-close-parity-round-1.md). SCOPE: adapter transport policy only. ws-core and ws-driver are byte-unchanged on this branch, the corpus differential and handshake exam are unmoved (public 74/74 and handshake 49/49 on both the port and the live pinned Java runtime, 16 documented divergences on each handshake leg, handshake request digest sha256:e00d968f0ae623dd75a09842ad435642c0dca53ee5e9f9ef654ce26c1f814c49 unchanged), and NO Autobahn run was executed for this record — its autobahn_refs are nominal anchors carrying the honest non-execution markers."
+    }
+  },
+
+  "proposed_definition": {
+    "note": "The internal/deltaledger.Definition that regenerates `proposed_record`. The digests above are DigestBytes over these exact preimages; changing a byte of any of them changes delta_id and disagreement_digest.",
+    "Subject": "org.java-websocket.adapter.role-gated-transport-close",
+    "RFCRefs": [
+      "rfc6455#section-5.5.1",
+      "rfc6455#section-7.1.1",
+      "rfc6455#section-7.1.2"
+    ],
+    "RFCExpectation": "RFC 6455 section 5.5.1: an endpoint closes the underlying TCP connection after BOTH sending and receiving a Close message; the server closes first and the client waits for it (section 7.1.1).",
+    "RFCValue": "close the TCP connection only after a Close has both been sent and been received; server closes first, client waits",
+    "JavaRef": "org.java_websocket.SocketChannelIOHelper:batch",
+    "JavaObservation": "PINNED SOURCE (Java-WebSocket 1.6.0, commit da3cf2a777aed862f2f5b5cf060cae7969958667): SocketChannelIOHelper.java:110-113 closes the TCP connection when the out queue is empty, the connection is flush-and-close, and the draft's role is SERVER; its only caller is the server write path WebSocketServer.java:586. closeConnection() (WebSocketImpl.java:573-578) closes the channel at WebSocketImpl.java:546. flushandclosestate is set by flushAndClose (WebSocketImpl.java:592), reached from close(int,String,boolean) at WebSocketImpl.java:494 on the same path that moves readyState to CLOSING at :503, for a peer close echoed via Draft_6455.java:1068 and for a locally initiated close alike. WebSocketClient.WebsocketWriteThread.runWriteData (WebSocketClient.java:837-851) has no counterpart: the client closes its socket only when the write thread ends.",
+    "JavaValue": "server closes the TCP connection as soon as its own close frame has flushed, whether or not a Close has been received; client never closes on this path",
+    "AutobahnRefs": [
+      "autobahn-v25.10.1:7.1.1"
+    ],
+    "AutobahnResult": "",
+    "AutobahnValue": "",
+    "Rationale": "SEE proposed_record.delta.rationale above — that string is this Definition's Rationale verbatim. It is not part of the disagreement digest preimage (internal/lab.ObservedDisagreement carries no rationale field), so rewording it does not move delta_id; the schema caps it at 4096 characters.",
+    "Supersedes": []
+  },
+
+  "open_questions_for_the_owner": [
+    "SCOPE OF THE SUBJECT. Two framings were derived and both validate against internal/lab.ObservedDisagreement.Digest. Variant A ('org.java-websocket.adapter.server-tcp-close-after-close-echo', delta-148035f142cc41686bde5d8cba0c75d063d6c1227b9ab15cb44a3e0d47fe7839) covers the ECHO case alone. It is NOT proposed, because on the echo case RFC 6455 section 5.5.1 and shipped Java AGREE, so there is no RFC-versus-Java disagreement to record: variant A passes the builder's NO_BEHAVIOR_DISAGREEMENT guard only because that guard reads `java_value == rfc_value AND autobahn_value == rfc_value`, and the Autobahn value here is the AUTOBAHN_VALUE_UNOBSERVED marker, which trivially differs. Filing variant A would put a record in the ledger whose only disagreement is an unobserved marker. Variant B is proposed instead because it names the sub-case where Java genuinely departs from the RFC.",
+    "WHETHER THIS LEDGER IS THE RIGHT HOME AT ALL. Every one of the 48 existing records is a divergence the port KEEPS. This record is filed for a divergence the port newly ADOPTS in order to match Java, and the change it documents also CLOSES a port-versus-Java gap. If the owner would rather the ledger stay a register of retained divergences only, the echo half belongs in a fidelity-fix receipt and only the initiated-close half belongs here.",
+    "JAVA EVIDENCE CLASS. java_observation cites the PINNED SOURCE read directly, not an executed observation: the java-oracle adapter is a JSONL request/response oracle and never runs a real server socket, so no live Java run on this plane observes which endpoint closes TCP. If this record must rest on execution rather than source reading, it needs a live Java cross-peer socket leg that does not exist yet."
+  ],
+
+  "landing_checklist": [
+    "Append `proposed_definition` to the internal/deltaledger Definition list (NOT a hand edit of the JSON), regenerate, and confirm cmd/deltaledgerctl --root . --check passes.",
+    "Fill sequence and previous_digest from the ledger head current at landing.",
+    "Re-derive delta_id and disagreement_digest and confirm they still equal the values above; if a preimage was reworded they will not.",
+    "Confirm the frozen prefix (through sequence 35) is untouched."
+  ]
+}
