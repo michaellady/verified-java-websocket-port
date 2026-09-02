@@ -31,6 +31,26 @@ envelope, cutover blocked. Independence cannot be self-granted, so the loop's
 job is to make every claim strong enough to survive that acceptance and to
 record exactly which owner or independent step remains.
 
+## External inputs the loop may draw on
+
+- **port-* skill family** (relayed from the owner 2026-09-02): draft PR
+  michaellady/mike-skills#7, branch `claude/port-jvm-to-rust-skills`, twelve
+  skills orchestrated by `port-jvm-to-rust`, with `REFERENCE.md` carrying a
+  ten-link confidence chain, a fixed claim vocabulary ("formally verified" only
+  per named harness with bound; "calibrated differential assurance";
+  "behavior-preserving on the reachable surface"), four questions before quoting
+  any count, "checks that cannot fail" defect classes with canary forms per
+  verifier, a JVM-to-Rust semantic impedance checklist, a nondeterminism
+  census, and artifact schemas. Much of it was distilled from this repository.
+  The owner's instruction: use or modify it as we see fit; no action required
+  beyond awareness. Two gaps it names that this project does not yet have, both
+  candidates for P4: a per-method oracle via bytecode instrumentation (the
+  Syzygy decomposition) and a branch-coverage denominator on the Java (the
+  alphabet audit). Feedback path: `port-learn` findings in its fixed shape,
+  filed as a PR against the family, especially rediscoveries. The unified rig
+  is not in the PR; binaries stay split between this repo's `cmd/` and
+  `twitter-port-matrix/tools/cmd`.
+
 ## Owner decisions binding this loop (answered 2026-09-02)
 
 - **Equivalence target:** shipped Java 1.6.0, quirks included. RFC departures
@@ -284,3 +304,4 @@ a close echo (open, unledgered).
 - 2026-09-02T09:42:25Z interactive (owner approval to proceed): P1 landed claude/ledger-integrity — forward merge f052795, mainline merge 2fbad99, tree 122bd90 equal to the dry run; gates 8/8 + ledger-gates ok, exit 0; differential and exam unchanged to the digest through the port and live Java; go suite 29 ok with the store exported and JDK 17.0.19 on PATH, failing only lab (Darwin canary) and portplan derive-reproduction (jdk_vendor line). Environment: pinned source archive reproduced byte-exactly (git archive | gzip -n -6), Temurin JDK 17.0.19+10 digest-verified and staged, setup script now stages all four pinned Java inputs. PRD pack part 1 committed earlier; this cloud session cannot message the bridge session back. Record: drafts/self-review/ledger-integrity-landing.md. Next: P1 claude/us017-ac2. Mainline head 2fbad99.
 - 2026-09-02T09:56:58Z interactive: P1 landed claude/us017-ac2 — forward merge 0c0c4b0 with the US-006 fixture refrozen (US006_REGENERATE=1 exit 0, verify exit 0), re-binding commit 20e216f (plan digest re-bound after ledger-integrity moved plan.json's ledger metadata; evidence-dag refreshed, LINKAGE_REGENERATE=1 exit 1 by design then verify exit 0), mainline merge 7262a29, tree 6d70078. Gates 8/8 + ledger ok on the Rust tree that landed; ac1 + ledger re-run after the evidence edits, exit 0; harness rebuilt e2898c13…; differential and exam unchanged to the digest, port and live Java 74/74 and 49/49; go 29 ok, only lab (Darwin) and portplan derive (jdk_vendor). Record: drafts/self-review/us017-ac2-landing.md. Next: P1 claude/evidence-validation (needs a self-review round to PASS). Mainline head 7262a29.
 - 2026-09-02T09:58:54Z interactive: inspected claude/evidence-validation — conflicts on results.json, evidence-dag.json and schedule_exploration.rs, plus a duplicate ValidateConcurrencyResults in internal/formalplan against the landed us017-ac2 validator; wrote the P1a reconciliation plan (keep the union, self-review round stands in for its round 5). Not started. Mainline head 5b4e85d.
+- 2026-09-02T09:59:58Z interactive: recorded the owner's port-* skill family (mike-skills#7) as an external input; two named gaps (per-method bytecode oracle, Java branch-coverage denominator) queued as P4 candidates; self-review rounds to borrow its 'checks that cannot fail' classes once REFERENCE.md is read. Mainline head 996abe7.
