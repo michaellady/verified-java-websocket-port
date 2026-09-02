@@ -1,0 +1,186 @@
+{
+  "argv": {
+    "status": "OBSERVED",
+    "value": [
+      "/opt/vjwp/rust/target/release/ws-testee",
+      "autobahn-client",
+      "127.0.0.1:9001",
+      "127.0.0.1:9001",
+      "verified-rust-ws-testee-us019"
+    ],
+    "source": "/proc/32221/cmdline"
+  },
+  "captured_at": "2026-08-28T18:51:01Z",
+  "cgroup": {
+    "status": "OBSERVED",
+    "value": "0::/system.slice/amazon-ssm-agent.service\n",
+    "source": "/proc/32221/cgroup"
+  },
+  "cwd": {
+    "status": "OBSERVED",
+    "value": "/usr/bin",
+    "source": "/proc/32221/cwd (readlink)"
+  },
+  "entity_type": "ProcessProvenance",
+  "environ": {
+    "status": "ABSENT",
+    "source": "/proc/32221/environ",
+    "reason": "deliberately not captured: process environments can carry credentials"
+  },
+  "exe": {
+    "status": "OBSERVED",
+    "value": "/opt/vjwp/rust/target/release/ws-testee",
+    "source": "/proc/32221/exe (readlink)"
+  },
+  "exe_path": {
+    "status": "OBSERVED",
+    "value": "/opt/vjwp/rust/target/release/ws-testee",
+    "source": "/proc/32221/exe (readlink)"
+  },
+  "exe_sha256": {
+    "status": "OBSERVED",
+    "value": "sha256:4f0d1c37badee36d1d3862ff533b01a9a703d44b8af9958f4134048cb2065342",
+    "source": "/proc/32221/exe (content digest)"
+  },
+  "label": "us019-prov-20260828T183623Z/rust-fuzzingserver",
+  "limits": {
+    "status": "OBSERVED",
+    "value": {
+      "entries": [
+        {
+          "limit": "Max cpu time",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "seconds"
+        },
+        {
+          "limit": "Max file size",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "bytes"
+        },
+        {
+          "limit": "Max data size",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "bytes"
+        },
+        {
+          "limit": "Max stack size",
+          "soft": "10485760",
+          "hard": "10485760",
+          "units": "bytes"
+        },
+        {
+          "limit": "Max core file size",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "bytes"
+        },
+        {
+          "limit": "Max resident set",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "bytes"
+        },
+        {
+          "limit": "Max processes",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "processes"
+        },
+        {
+          "limit": "Max open files",
+          "soft": "65535",
+          "hard": "65535",
+          "units": "files"
+        },
+        {
+          "limit": "Max locked memory",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "bytes"
+        },
+        {
+          "limit": "Max address space",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "bytes"
+        },
+        {
+          "limit": "Max file locks",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "locks"
+        },
+        {
+          "limit": "Max pending signals",
+          "soft": "30446",
+          "hard": "30446",
+          "units": "signals"
+        },
+        {
+          "limit": "Max msgqueue size",
+          "soft": "819200",
+          "hard": "819200",
+          "units": "bytes"
+        },
+        {
+          "limit": "Max nice priority",
+          "soft": "0",
+          "hard": "0",
+          "units": ""
+        },
+        {
+          "limit": "Max realtime priority",
+          "soft": "0",
+          "hard": "0",
+          "units": ""
+        },
+        {
+          "limit": "Max realtime timeout",
+          "soft": "unlimited",
+          "hard": "unlimited",
+          "units": "us"
+        }
+      ],
+      "raw": "Limit                     Soft Limit           Hard Limit           Units     \nMax cpu time              unlimited            unlimited            seconds   \nMax file size             unlimited            unlimited            bytes     \nMax data size             unlimited            unlimited            bytes     \nMax stack size            10485760             10485760             bytes     \nMax core file size        unlimited            unlimited            bytes     \nMax resident set          unlimited            unlimited            bytes     \nMax processes             unlimited            unlimited            processes \nMax open files            65535                65535                files     \nMax locked memory         unlimited            unlimited            bytes     \nMax address space         unlimited            unlimited            bytes     \nMax file locks            unlimited            unlimited            locks     \nMax pending signals       30446                30446                signals   \nMax msgqueue size         819200               819200               bytes     \nMax nice priority         0                    0                    \nMax realtime priority     0                    0                    \nMax realtime timeout      unlimited            unlimited            us        \n"
+    },
+    "source": "/proc/32221/limits"
+  },
+  "liveness": {
+    "status": "OBSERVED",
+    "value": "running at capture time",
+    "source": "/proc/32221 exists"
+  },
+  "pid": 32221,
+  "role": "subject-under-test-rust-client-agent",
+  "schema_version": "1.0.0",
+  "start_time": {
+    "status": "OBSERVED",
+    "value": {
+      "boot_time_source": "/proc/stat btime",
+      "boot_time_unix": 1787942701,
+      "clock_ticks_per_second": 100,
+      "clock_ticks_source": "getconf CLK_TCK",
+      "process_start_utc": "2026-08-28T18:50:58Z",
+      "starttime_ticks_since_boot": 35717
+    },
+    "source": "/proc/32221/stat field 22 anchored on /proc/stat btime"
+  },
+  "status": {
+    "status": "OBSERVED",
+    "value": {
+      "Gid": "0\t0\t0\t0",
+      "Name": "ws-testee",
+      "PPid": "31840",
+      "Pid": "32221",
+      "State": "S (sleeping)",
+      "Threads": "1",
+      "Uid": "0\t0\t0\t0",
+      "VmRSS": "2800 kB",
+      "VmSize": "5088 kB"
+    },
+    "source": "/proc/32221/status"
+  }
+}

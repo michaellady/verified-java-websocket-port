@@ -1,0 +1,65 @@
+{
+  "architecture": {
+    "status": "OBSERVED",
+    "value": "amd64",
+    "source": "docker image inspect .Architecture"
+  },
+  "captured_at": "2026-08-28T18:48:27Z",
+  "created": {
+    "status": "OBSERVED",
+    "value": "2025-10-07T02:16:00.406882165+02:00",
+    "source": "docker image inspect .Created"
+  },
+  "digest_binding": {
+    "bound": true,
+    "reference_form": "MANIFEST_DIGEST",
+    "requested_digest": "sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074"
+  },
+  "entity_type": "ImageProvenance",
+  "image_id": {
+    "status": "OBSERVED",
+    "value": "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f",
+    "source": "docker image inspect .Id"
+  },
+  "invoked_by": "crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+  "invoked_by_form": "MANIFEST_DIGEST",
+  "os": {
+    "status": "OBSERVED",
+    "value": "linux",
+    "source": "docker image inspect .Os"
+  },
+  "repo_digests": {
+    "status": "OBSERVED",
+    "value": [
+      "crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074"
+    ],
+    "source": "docker image inspect .RepoDigests"
+  },
+  "repo_tags": {
+    "status": "OBSERVED",
+    "value": [],
+    "source": "docker image inspect .RepoTags"
+  },
+  "rootfs_layers": {
+    "status": "OBSERVED",
+    "value": [
+      "sha256:7c070db41ec632bd0d46fc5b930e8927ed4dafbb76150adf0cf1201fc0fbb837",
+      "sha256:0954f971ab4db68ac48411b19a78f953ce182a79c967ae6339322a7cca550252",
+      "sha256:3b928ddf1f17ef12255f77d68dea1c1fbbc9963e17e201aa0334f87da542d5e9",
+      "sha256:7948c811968613161dc98c1213f565a5aa766e5c720bbe116187b8e7fbbe328a",
+      "sha256:4eff05e625544081c18f29271107608fe62a298c046704f14431f569c556e5d3",
+      "sha256:d6899b3c69fa0f74f56ac4cd934e9f0bbfaea1f1f984f62bd096bef1c7316ddd",
+      "sha256:116b0d469b08efe49dc1408b25e9ae059f6f71a164a9f750cc4bbb45fbe03008",
+      "sha256:afd711d37c3ff113d8370e3ef65ff4614c8c6b720a984fab45ea1cbda05631f1",
+      "sha256:961d0534a4a3c35c6df4c5446abf966d6d4aafa64cff870add8e35cf5b4743b9",
+      "sha256:75b7e1e8077131d3ec11bf66cd7c871bc0fa1a45cdc188efe791dd3c3da852bb",
+      "sha256:b796279747352ca4e78aedcead3ec367b2bddf4e40f64d0fd691c1cd79d7378f",
+      "sha256:10468a981f5c1c8d26d9a2138b27df2d9e5afcca18ee2d359f8c691cbadbfffd",
+      "sha256:4f8c73cbb59daea8ef6b0357ee10bdb01d9e3d990b3b59c35cf4c9bf93339772",
+      "sha256:53f714f40a17274c7b5a750f32a5c8ae3fff2f85124c5d9c390c2c43b28e70cc",
+      "sha256:11486d5fbb59b4ceb8b0a9d101ec9e2916375522f71c5c2b879c9e38b3b584a8"
+    ],
+    "source": "docker image inspect .RootFS.Layers"
+  },
+  "schema_version": "1.0.0"
+}

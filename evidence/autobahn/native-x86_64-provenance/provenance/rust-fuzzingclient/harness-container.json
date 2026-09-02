@@ -1,0 +1,368 @@
+{
+  "args": {
+    "status": "OBSERVED",
+    "value": [
+      "--mode",
+      "fuzzingclient",
+      "--spec",
+      "/config/fuzzingclient-rust.json"
+    ],
+    "source": "docker inspect .Args"
+  },
+  "captured_at": "2026-08-28T18:48:51Z",
+  "config_cmd": {
+    "status": "OBSERVED",
+    "value": [
+      "wstest",
+      "--mode",
+      "fuzzingclient",
+      "--spec",
+      "/config/fuzzingclient-rust.json"
+    ],
+    "source": "docker inspect .Config.Cmd"
+  },
+  "config_entrypoint": {
+    "status": "OBSERVED",
+    "source": "docker inspect .Config.Entrypoint"
+  },
+  "config_image": {
+    "status": "OBSERVED",
+    "value": "crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074",
+    "source": "docker inspect .Config.Image"
+  },
+  "container": "us019-prov-20260828T183623Z-fc-rust",
+  "container_id": {
+    "status": "OBSERVED",
+    "value": "48839b864d0bb89036a8874da46dc4b0cfbb3f893271db6ae2ac8c8830518591",
+    "source": "docker inspect .Id"
+  },
+  "entity_type": "ContainerProvenance",
+  "host_pid": {
+    "status": "OBSERVED",
+    "value": 31176,
+    "source": "docker inspect .State.Pid"
+  },
+  "hostconfig_requested": {
+    "status": "OBSERVED",
+    "value": {
+      "CpuPeriod": 0,
+      "CpuQuota": 0,
+      "CpuShares": 0,
+      "CpusetCpus": "",
+      "Memory": 0,
+      "MemorySwap": 0,
+      "NanoCpus": 0,
+      "NetworkMode": "host",
+      "PidsLimit": null,
+      "Privileged": false,
+      "ReadonlyRootfs": false,
+      "Ulimits": [
+        {
+          "Hard": 65536,
+          "Name": "nofile",
+          "Soft": 32768
+        }
+      ]
+    },
+    "source": "docker inspect .HostConfig (REQUESTED at launch, not the in-force envelope)"
+  },
+  "image_reference": {
+    "status": "OBSERVED",
+    "value": "sha256:b0475418d42ae284876bd695f0282fbe6684e00f745d787b095d60e55727a06f",
+    "source": "docker inspect .Image"
+  },
+  "in_force": {
+    "cgroup_v2_inside_container": {
+      "/sys/fs/cgroup/cgroup.controllers": {
+        "status": "OBSERVED",
+        "value": "cpuset cpu io memory hugetlb pids misc",
+        "source": "docker exec us019-prov-20260828T183623Z-fc-rust cat /sys/fs/cgroup/cgroup.controllers"
+      },
+      "/sys/fs/cgroup/cpu.max": {
+        "status": "OBSERVED",
+        "value": "max 100000",
+        "source": "docker exec us019-prov-20260828T183623Z-fc-rust cat /sys/fs/cgroup/cpu.max"
+      },
+      "/sys/fs/cgroup/cpuset.cpus.effective": {
+        "status": "OBSERVED",
+        "value": "0-3",
+        "source": "docker exec us019-prov-20260828T183623Z-fc-rust cat /sys/fs/cgroup/cpuset.cpus.effective"
+      },
+      "/sys/fs/cgroup/memory.high": {
+        "status": "OBSERVED",
+        "value": "max",
+        "source": "docker exec us019-prov-20260828T183623Z-fc-rust cat /sys/fs/cgroup/memory.high"
+      },
+      "/sys/fs/cgroup/memory.max": {
+        "status": "OBSERVED",
+        "value": "max",
+        "source": "docker exec us019-prov-20260828T183623Z-fc-rust cat /sys/fs/cgroup/memory.max"
+      },
+      "/sys/fs/cgroup/pids.max": {
+        "status": "OBSERVED",
+        "value": "9279",
+        "source": "docker exec us019-prov-20260828T183623Z-fc-rust cat /sys/fs/cgroup/pids.max"
+      }
+    },
+    "container_process_table": {
+      "status": "OBSERVED",
+      "value": [
+        "1\t/opt/pypy/bin/pypy /opt/pypy/bin/wstest --mode fuzzingclient --spec /config/fuzzingclient-rust.json ",
+        "50\tsh -c for d in /proc/[0-9]*; do p=${d#/proc/}; printf '%s\\t%s\\n' \"$p\" \"$(tr '\\0' ' ' \u003c $d/cmdline)\"; done"
+      ],
+      "source": "docker exec us019-prov-20260828T183623Z-fc-rust (enumerated /proc/\u003cpid\u003e/cmdline)"
+    },
+    "host_view_argv": {
+      "status": "OBSERVED",
+      "value": [
+        "/opt/pypy/bin/pypy",
+        "/opt/pypy/bin/wstest",
+        "--mode",
+        "fuzzingclient",
+        "--spec",
+        "/config/fuzzingclient-rust.json"
+      ],
+      "source": "/proc/31176/cmdline"
+    },
+    "host_view_cgroup": {
+      "status": "OBSERVED",
+      "value": "0::/system.slice/docker-48839b864d0bb89036a8874da46dc4b0cfbb3f893271db6ae2ac8c8830518591.scope\n",
+      "source": "/proc/31176/cgroup"
+    },
+    "host_view_limits": {
+      "status": "OBSERVED",
+      "value": {
+        "entries": [
+          {
+            "limit": "Max cpu time",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "seconds"
+          },
+          {
+            "limit": "Max file size",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max data size",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max stack size",
+            "soft": "10485760",
+            "hard": "10485760",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max core file size",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max resident set",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max processes",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "processes"
+          },
+          {
+            "limit": "Max open files",
+            "soft": "32768",
+            "hard": "65536",
+            "units": "files"
+          },
+          {
+            "limit": "Max locked memory",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max address space",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max file locks",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "locks"
+          },
+          {
+            "limit": "Max pending signals",
+            "soft": "30446",
+            "hard": "30446",
+            "units": "signals"
+          },
+          {
+            "limit": "Max msgqueue size",
+            "soft": "819200",
+            "hard": "819200",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max nice priority",
+            "soft": "0",
+            "hard": "0",
+            "units": ""
+          },
+          {
+            "limit": "Max realtime priority",
+            "soft": "0",
+            "hard": "0",
+            "units": ""
+          },
+          {
+            "limit": "Max realtime timeout",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "us"
+          }
+        ],
+        "raw": "Limit                     Soft Limit           Hard Limit           Units     \nMax cpu time              unlimited            unlimited            seconds   \nMax file size             unlimited            unlimited            bytes     \nMax data size             unlimited            unlimited            bytes     \nMax stack size            10485760             10485760             bytes     \nMax core file size        unlimited            unlimited            bytes     \nMax resident set          unlimited            unlimited            bytes     \nMax processes             unlimited            unlimited            processes \nMax open files            32768                65536                files     \nMax locked memory         unlimited            unlimited            bytes     \nMax address space         unlimited            unlimited            bytes     \nMax file locks            unlimited            unlimited            locks     \nMax pending signals       30446                30446                signals   \nMax msgqueue size         819200               819200               bytes     \nMax nice priority         0                    0                    \nMax realtime priority     0                    0                    \nMax realtime timeout      unlimited            unlimited            us        \n"
+      },
+      "source": "/proc/31176/limits"
+    },
+    "host_view_start_time": {
+      "status": "OBSERVED",
+      "value": {
+        "boot_time_source": "/proc/stat btime",
+        "boot_time_unix": 1787942701,
+        "clock_ticks_per_second": 100,
+        "clock_ticks_source": "getconf CLK_TCK",
+        "process_start_utc": "2026-08-28T18:48:51Z",
+        "starttime_ticks_since_boot": 23088
+      },
+      "source": "/proc/31176/stat field 22 anchored on /proc/stat btime"
+    },
+    "rlimits_pid1": {
+      "status": "OBSERVED",
+      "value": {
+        "entries": [
+          {
+            "limit": "Max cpu time",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "seconds"
+          },
+          {
+            "limit": "Max file size",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max data size",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max stack size",
+            "soft": "10485760",
+            "hard": "10485760",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max core file size",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max resident set",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max processes",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "processes"
+          },
+          {
+            "limit": "Max open files",
+            "soft": "32768",
+            "hard": "65536",
+            "units": "files"
+          },
+          {
+            "limit": "Max locked memory",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max address space",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max file locks",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "locks"
+          },
+          {
+            "limit": "Max pending signals",
+            "soft": "30446",
+            "hard": "30446",
+            "units": "signals"
+          },
+          {
+            "limit": "Max msgqueue size",
+            "soft": "819200",
+            "hard": "819200",
+            "units": "bytes"
+          },
+          {
+            "limit": "Max nice priority",
+            "soft": "0",
+            "hard": "0",
+            "units": ""
+          },
+          {
+            "limit": "Max realtime priority",
+            "soft": "0",
+            "hard": "0",
+            "units": ""
+          },
+          {
+            "limit": "Max realtime timeout",
+            "soft": "unlimited",
+            "hard": "unlimited",
+            "units": "us"
+          }
+        ],
+        "raw": "Limit                     Soft Limit           Hard Limit           Units     \nMax cpu time              unlimited            unlimited            seconds   \nMax file size             unlimited            unlimited            bytes     \nMax data size             unlimited            unlimited            bytes     \nMax stack size            10485760             10485760             bytes     \nMax core file size        unlimited            unlimited            bytes     \nMax resident set          unlimited            unlimited            bytes     \nMax processes             unlimited            unlimited            processes \nMax open files            32768                65536                files     \nMax locked memory         unlimited            unlimited            bytes     \nMax address space         unlimited            unlimited            bytes     \nMax file locks            unlimited            unlimited            locks     \nMax pending signals       30446                30446                signals   \nMax msgqueue size         819200               819200               bytes     \nMax nice priority         0                    0                    \nMax realtime priority     0                    0                    \nMax realtime timeout      unlimited            unlimited            us        \n"
+      },
+      "source": "docker exec us019-prov-20260828T183623Z-fc-rust cat /proc/1/limits"
+    }
+  },
+  "label": "us019-prov-20260828T183623Z/rust-fuzzingclient",
+  "role": "harness-wstest-fuzzingclient",
+  "schema_version": "1.0.0",
+  "state_started_at": {
+    "status": "OBSERVED",
+    "value": "2026-08-28T18:48:51.978552586Z",
+    "source": "docker inspect .State.StartedAt"
+  },
+  "state_status": {
+    "status": "OBSERVED",
+    "value": "running",
+    "source": "docker inspect .State.Status"
+  }
+}
