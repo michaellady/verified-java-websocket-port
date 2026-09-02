@@ -30,40 +30,40 @@ import (
 )
 
 // ConcurrencyResultsDocumentPath is the US-017 exploration PASS artifact.
-const ConcurrencyResultsDocumentPath = "assurance/concurrency/results.json"
+// ConcurrencyResultsDocumentPath is declared in concurrencyresults.go; both validators share it.
 
 // minimizedSeedDir is where the exploration's pinned minimized artifacts
 // live; the artifact names them by seed rather than by path.
 const minimizedSeedDir = "rust/ws-driver/fuzz-seeds/us017/minimized"
 
-type crTargetFile struct {
+type cbTargetFile struct {
 	Path    string `json:"path"`
 	GitBlob string `json:"git_blob"`
 }
 
-type crDigestRef struct {
+type cbDigestRef struct {
 	Path   string `json:"path"`
 	SHA256 string `json:"sha256"`
 }
 
-type crMinimizedArtifact struct {
+type cbMinimizedArtifact struct {
 	Seed   string `json:"seed"`
 	SHA256 string `json:"sha256"`
 }
 
-type crResults struct {
+type cbResults struct {
 	Target struct {
 		Symbol  string       `json:"symbol"`
-		Source  crTargetFile `json:"source"`
-		Harness crTargetFile `json:"harness"`
+		Source  cbTargetFile `json:"source"`
+		Harness cbTargetFile `json:"harness"`
 	} `json:"target"`
-	PreregisteredPlan crDigestRef `json:"preregistered_plan"`
+	PreregisteredPlan cbDigestRef `json:"preregistered_plan"`
 	DefectsFound      []struct {
 		DefectID              string      `json:"defect_id"`
-		MinimizedReproduction crDigestRef `json:"minimized_reproduction"`
+		MinimizedReproduction cbDigestRef `json:"minimized_reproduction"`
 	} `json:"defects_found_and_fixed"`
 	Retention struct {
-		MinimizedArtifacts []crMinimizedArtifact `json:"minimized_artifacts"`
+		MinimizedArtifacts []cbMinimizedArtifact `json:"minimized_artifacts"`
 	} `json:"retention"`
 }
 
@@ -88,7 +88,7 @@ func fileSHA256(content []byte) string {
 // the US-017 results artifact against the tree at `root` and returns a typed
 // blocking finding for each one that names different bytes. An empty result
 // means the artifact describes the tree it is committed with.
-func ValidateConcurrencyResults(root string) []ModelFinding {
+func ValidateConcurrencyResultsBindings(root string) []ModelFinding {
 	resultsPath := filepath.Join(root, filepath.FromSlash(ConcurrencyResultsDocumentPath))
 	raw, err := os.ReadFile(resultsPath)
 	if err != nil {
@@ -98,7 +98,7 @@ func ValidateConcurrencyResults(root string) []ModelFinding {
 		return []ModelFinding{mpFinding("RESULTS_FILE_UNREADABLE", ConcurrencyResultsDocumentPath,
 			"results artifact exceeds the bounded size")}
 	}
-	var results crResults
+	var results cbResults
 	if err := json.Unmarshal(raw, &results); err != nil {
 		return []ModelFinding{mpFinding("RESULTS_FILE_UNREADABLE", ConcurrencyResultsDocumentPath, err.Error())}
 	}
@@ -119,7 +119,7 @@ func ValidateConcurrencyResults(root string) []ModelFinding {
 		}
 		return content, true
 	}
-	checkBlob := func(field string, target crTargetFile) {
+	checkBlob := func(field string, target cbTargetFile) {
 		content, ok := read(field, target.Path)
 		if !ok {
 			return
@@ -132,7 +132,7 @@ func ValidateConcurrencyResults(root string) []ModelFinding {
 					field, target.GitBlob, target.Path, actual)))
 		}
 	}
-	checkSHA := func(field string, ref crDigestRef) {
+	checkSHA := func(field string, ref cbDigestRef) {
 		content, ok := read(field, ref.Path)
 		if !ok {
 			return
@@ -169,7 +169,7 @@ func ValidateConcurrencyResults(root string) []ModelFinding {
 	}
 	for index, artifact := range results.Retention.MinimizedArtifacts {
 		checkSHA(fmt.Sprintf("retention.minimized_artifacts[%d] (%s)", index, artifact.Seed),
-			crDigestRef{
+			cbDigestRef{
 				Path:   minimizedSeedDir + "/" + artifact.Seed + ".seed",
 				SHA256: artifact.SHA256,
 			})

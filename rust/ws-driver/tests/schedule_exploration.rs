@@ -406,6 +406,78 @@ impl Violation {
     }
 }
 
+/// The invariant property ids this exploration checks, in the order the
+/// acceptance record (`assurance/concurrency/results.json` `invariants`)
+/// lists them.
+///
+/// WHY THIS EXISTS. Review 01a0487b round 2 BLOCKING: the whole `invariants`
+/// array was unmodeled by both validators, so its ten `PASS` outcomes were
+/// decoration a reader trusted and nothing could contradict. Measured before
+/// this: the array could be rewritten wholesale and both halves still exited
+/// 0. The exploration now PRINTS the array it actually checked, so the
+/// document's copy is re-derived from the run like every counter.
+///
+/// `violation_index` looks a variant up in THIS array and panics if it is
+/// absent, and `Outcome::record` calls it on every recorded violation — so a
+/// new `Violation` variant that can actually fire cannot stay undeclared.
+const CHECKED_INVARIANTS: [Violation; 13] = [
+    Violation::SingleOwner,
+    Violation::QueueBound,
+    Violation::LostOrDuplicatedCommand,
+    Violation::WriteReorder,
+    Violation::WriteBypass,
+    Violation::Convergence,
+    Violation::DuplicateTerminal,
+    Violation::PostTerminalActivity,
+    Violation::TerminalAfterFailure,
+    Violation::Nondeterminism,
+    // The three US-017 AC2 dispositions (claude/us017-ac2, landed 7262a29)
+    // the acceptance record lists after the original ten. They are checked
+    // by the same per-schedule accounting as the rest, so printing them
+    // from the observed set is derived, not declared.
+    Violation::UnreportedWriteDrop,
+    Violation::WriteAfterShutdown,
+    Violation::ReceiverDropUnreported,
+];
+
+/// The namespace the acceptance record prefixes every property id with.
+const INVARIANT_NAMESPACE: &str = "concurrency.";
+
+/// The three weak-fairness assumptions `fair_drain` implements, in the order
+/// the acceptance record lists them. They gate ONLY the final drain; no
+/// fairness is assumed during the schedule itself.
+const WEAK_FAIRNESS: [&str; 3] = [
+    "WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING",
+    "WEAK_FLUSH_PROGRESS_WHEN_WRITABLE",
+    "WEAK_EVENT_DRAIN_WHEN_OUTPUT_PENDING",
+];
+
+/// The producer-admission fairness stance this exploration takes, matching
+/// the preregistered plan's `PRODUCER_ADMISSION_FAIRNESS_ABSENT` entry.
+///
+/// "absent" is a structural property of the enumeration, not a label:
+/// `enumerate_schedules` advances `positions[actor]` on every visit, so a
+/// producer step is CONSUMED whether or not the command was admitted. A
+/// queue-full refusal is therefore final for that step and no producer is
+/// ever guaranteed admission ahead of another.
+/// `producer_admission_is_absent_by_construction` asserts it against a real
+/// schedule rather than trusting this string.
+const PRODUCER_ADMISSION_FAIRNESS: &str = "absent";
+
+/// Position of `violation` in [`CHECKED_INVARIANTS`].
+fn violation_index(violation: Violation) -> usize {
+    CHECKED_INVARIANTS
+        .iter()
+        .position(|candidate| *candidate == violation)
+        .unwrap_or_else(|| {
+            panic!(
+                "{violation:?} is a checked invariant violation but is not declared in \
+                 CHECKED_INVARIANTS, so the exploration would print an invariant list that \
+                 omits it and the acceptance record would claim coverage it does not have"
+            )
+        })
+}
+
 /// Identity of each producer command (payloads are distinct on purpose).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 enum Tag {
@@ -529,6 +601,10 @@ impl Outcome {
     }
 
     fn record(&mut self, violation: Violation) {
+        // Panics if the variant is not declared in CHECKED_INVARIANTS, so a
+        // violation the exploration can actually observe cannot be missing
+        // from the invariant list it prints.
+        let _ = violation_index(violation);
         if !self.violations.contains(&violation) {
             self.violations.push(violation);
         }
@@ -1354,10 +1430,17 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     let mut max_drain = 0u32;
     let mut closed_terminal_runs = 0usize;
     let mut failure_halted_runs = 0usize;
+    // Every invariant violation any schedule observed. The outcome the
+    // printed invariant list carries is DERIVED from this set rather than
+    // written as a literal PASS; `retain_and_fail` below means a non-empty
+    // set never reaches the print, which is exactly what makes reaching the
+    // print evidence that the set is empty.
+    let mut observed_violations: BTreeSet<Violation> = BTreeSet::new();
     let mut partial_front_drops = 0usize;
     let mut max_dropped_frames = 0usize;
     for schedule in &exploration.schedules {
         let outcome = execute_deterministic(schedule, Fault::None);
+        observed_violations.extend(outcome.violations.iter().copied());
         if let Some(violation) = outcome.violations.first().copied() {
             retain_and_fail(schedule, violation, &outcome);
         }
@@ -1449,16 +1532,44 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         "at most one dropped-write disposition per schedule"
     );
 
-    println!(
+    // The invariant list and the fairness stance the record carries, derived
+    // from what this run actually checked. Review 01a0487b round 2 BLOCKING:
+    // both were unmodeled decoration until they were printed here.
+    for (index, violation) in CHECKED_INVARIANTS.iter().enumerate() {
+        assert_eq!(
+            violation_index(*violation),
+            index,
+            "CHECKED_INVARIANTS must list each violation exactly once"
+        );
+    }
+    let invariants = CHECKED_INVARIANTS
+        .iter()
+        .map(|violation| {
+            let outcome = if observed_violations.contains(violation) {
+                "FAIL"
+            } else {
+                "PASS"
+            };
+            format!("{INVARIANT_NAMESPACE}{}:{outcome}", violation.property())
+        })
+        .collect::<Vec<_>>()
+        .join(",");
+    let weak_fairness = WEAK_FAIRNESS.join(",");
+
+    let measured = format!(
         "US017_EXPLORATION programs={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
-         preemption_budget={PREEMPTION_BUDGET} schedules={schedule_count} branches={} truncated=false \
+         preemption_budget={PREEMPTION_BUDGET} command_queue_capacity={COMMAND_QUEUE_CAPACITY} \
+         write_queue_capacity={WRITE_QUEUE_CAPACITY} event_queue_capacity={EVENT_QUEUE_CAPACITY} \
+         drain_budget_polls={DRAIN_BUDGET} schedules={schedule_count} branches={} truncated=false \
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
          failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
          terminal_rejected={} events={} failures={} deferred_output_pending={} deferred_command_turn={} \
          deferred_backpressure={} rejected_inputs={} write_drop_reports={} dropped_frames={} \
          dropped_bytes={} partial_front_drops={partial_front_drops} \
          max_dropped_frames={max_dropped_frames} receiver_drop_refusals={} \
-         max_drain_polls={max_drain}",
+         max_drain_polls={max_drain} \
+         invariants={invariants} weak_fairness={weak_fairness} \
+         producer_admission_fairness={PRODUCER_ADMISSION_FAIRNESS}",
         PROGRAMS.iter().map(|program| program.len()).sum::<usize>(),
         exploration.branches,
         schedule_count * 2,
@@ -1479,6 +1590,8 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.dropped_bytes,
         totals.receiver_drop_refusals,
     );
+    println!("{measured}");
+    assert_committed_results_cite_this_run(&measured);
 }
 
 // ---------------------------------------------------------------------------
@@ -1507,6 +1620,7 @@ fn fatal_termination_sweep_reports_every_abandoned_committed_write() {
     let mut total_fatal_path_drops = 0usize;
     let mut total_fatal_path_bytes = 0usize;
     let mut per_budget = Vec::new();
+    let mut lines = Vec::new();
 
     for budget in FATAL_SWEEP_ACTION_BUDGETS {
         let mut halted_runs = 0usize;
@@ -1563,11 +1677,13 @@ fn fatal_termination_sweep_reports_every_abandoned_committed_write() {
             receiver_drop_refusals as usize, schedule_count,
             "budget {budget}: the receiver-drop disposition holds under fatal termination too"
         );
-        println!(
+        let line = format!(
             "US017_FATAL_SWEEP budget={budget} schedules={schedule_count} halted_runs={halted_runs} \
              closed_terminal_runs={closed_runs} fatal_path_drop_runs={fatal_path_drops} \
              fatal_path_dropped_bytes={fatal_path_bytes} clean_path_drop_runs={clean_path_drops}"
         );
+        println!("{line}");
+        lines.push(line);
         per_budget.push((budget, fatal_path_drops));
         total_fatal_path_drops += fatal_path_drops;
         total_fatal_path_bytes += fatal_path_bytes;
@@ -1580,10 +1696,288 @@ fn fatal_termination_sweep_reports_every_abandoned_committed_write() {
         "the fatal-termination drop class must be exercised: {per_budget:?}"
     );
     assert!(total_fatal_path_bytes > 0);
-    println!(
+    let total = format!(
         "US017_FATAL_SWEEP_TOTAL budgets={:?} fatal_path_drop_runs={total_fatal_path_drops} \
          fatal_path_dropped_bytes={total_fatal_path_bytes} per_budget={per_budget:?}",
         FATAL_SWEEP_ACTION_BUDGETS,
+    );
+    println!("{total}");
+    lines.push(total);
+    // The committed record cites THIS sweep, line for line, or the sweep
+    // fails: the same binding the exploration line carries, so the
+    // fatal-termination magnitudes stop being transcribed numbers.
+    assert_committed_results_cite_this_sweep(&lines);
+}
+
+/// The `producer_admission_fairness=absent` token the exploration prints is a
+/// MEASURED property of the enumeration, not a label someone typed.
+///
+/// WHY THIS EXISTS. Review 01a0487b round 2 BLOCKING, the reviewer's own
+/// example: `execution.producer_admission_fairness_claimed` could be flipped
+/// from `false` to `true` and both validators still exited 0, because neither
+/// modeled the field. It is now re-derived from this run — which only means
+/// something if the run's own stance is checked rather than asserted.
+///
+/// Absence of admission fairness is exactly this: a producer step is CONSUMED
+/// whether or not the command was admitted, so a queue-full refusal is final
+/// for that step. If the interpreter retried refused sends (the fairness this
+/// document declines to claim), the producers would dispose MORE steps than
+/// their programs contain.
+#[test]
+fn producer_admission_is_absent_by_construction() {
+    // All four producer steps run back to back, before any owner poll can
+    // drain the command queue, so the bounded channel (capacity 2) must
+    // refuse some of them.
+    let schedule = [
+        Action::EnqueueTextA,
+        Action::EnqueueBinaryA,
+        Action::EnqueuePingB,
+        Action::EnqueueCloseB,
+        Action::InboundPing,
+        Action::InboundClose,
+        Action::TransportEof,
+        Action::WritePartial,
+        Action::WriteAll,
+        Action::WriteAll,
+        Action::Wake,
+        Action::Shutdown,
+    ];
+    let producer_steps = schedule
+        .iter()
+        .filter(|action| {
+            matches!(
+                action,
+                Action::EnqueueTextA
+                    | Action::EnqueueBinaryA
+                    | Action::EnqueuePingB
+                    | Action::EnqueueCloseB
+            )
+        })
+        .count() as u32;
+
+    let outcome = execute_deterministic(&schedule, Fault::None);
+    assert!(
+        outcome.refused_full > 0,
+        "this schedule must actually reach a queue-full refusal or it proves nothing about \
+         what happens to a refused producer step"
+    );
+    assert_eq!(
+        outcome.accepted + outcome.refused_full,
+        producer_steps,
+        "each producer step is admitted or refused EXACTLY ONCE ({} accepted + {} refused vs \
+         {producer_steps} steps). A larger total would mean a refused send was re-offered, \
+         which is the admission fairness assurance/concurrency/plan.json declares absent \
+         (PRODUCER_ADMISSION_FAIRNESS_ABSENT) and the results record must not claim.",
+        outcome.accepted,
+        outcome.refused_full,
+    );
+    assert_eq!(
+        PRODUCER_ADMISSION_FAIRNESS, "absent",
+        "the printed stance must be the one this test just measured"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Binding the committed acceptance evidence to this run
+// ---------------------------------------------------------------------------
+
+/// The acceptance-evidence document this exploration produces.
+const RESULTS_DOCUMENT: &str = "assurance/concurrency/results.json";
+
+/// Repository-relative path resolved against this crate's manifest directory,
+/// so the check works from any working directory cargo is invoked from.
+fn repository_path(relative: &str) -> std::path::PathBuf {
+    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .join(relative)
+}
+
+/// The key whose single string value binds this document to a run.
+const STDOUT_LINE_KEY: &str = "\"stdout_line\"";
+
+/// Read the one `stdout_line` string out of the committed results document.
+///
+/// This is deliberately NOT a JSON parser — the workspace carries zero
+/// non-path dependencies and hand-rolling one would be a second, unverified
+/// parser in the tree.
+///
+/// THE RULE THAT MAKES IT COMPOSE. Review 01a0487b BLOCKING 1 broke the
+/// previous version: it searched for the exact bytes `"stdout_line": "`, so a
+/// document could carry an ignored top-level decoy in that exact form for this
+/// reader plus a nested `"stdout_line" : "<forgery>"` — legal JSON whitespace —
+/// for the structural Go reader. Both halves passed while the counters were
+/// forged. Reproduced and measured: both exits 0.
+///
+/// The fix is that this reader keys on the BARE key token and requires it to
+/// occur EXACTLY ONCE ANYWHERE in the document, under any legal whitespace.
+/// There is therefore exactly one such string in the file and every reader
+/// must land on it. internal/formalplan/concurrencyresults.go runs this same
+/// algorithm and asserts its result equals its own structural parse, so the
+/// two halves are checked to be reading identical bytes rather than assumed to.
+///
+/// Every way the assumption could quietly stop holding — key missing, key
+/// duplicated, a separator that is not a colon, a value that is not a string,
+/// an escape inside the value — panics with what it saw instead of returning
+/// something plausible.
+fn committed_stdout_line(document: &str) -> String {
+    let occurrences = document.matches(STDOUT_LINE_KEY).count();
+    assert_eq!(
+        occurrences, 1,
+        "{RESULTS_DOCUMENT} must carry exactly one {STDOUT_LINE_KEY} key anywhere in the document for this \
+         binding to be unambiguous, found {occurrences}. More than one means two readers could land on \
+         different values (review 01a0487b BLOCKING 1); zero means the document cites no run."
+    );
+    let after_key = document
+        .find(STDOUT_LINE_KEY)
+        .expect("occurrence count is 1")
+        + STDOUT_LINE_KEY.len();
+    let rest = &document[after_key..];
+    let colon = rest
+        .find(|c: char| !c.is_whitespace())
+        .expect("the document ends after the stdout_line key");
+    assert_eq!(
+        rest[colon..].chars().next(),
+        Some(':'),
+        "{RESULTS_DOCUMENT} stdout_line key is not followed by a colon"
+    );
+    let after_colon = &rest[colon + 1..];
+    let quote = after_colon
+        .find(|c: char| !c.is_whitespace())
+        .expect("the document ends after the stdout_line colon");
+    assert_eq!(
+        after_colon[quote..].chars().next(),
+        Some('"'),
+        "{RESULTS_DOCUMENT} stdout_line value is not a string literal"
+    );
+    let value_start = &after_colon[quote + 1..];
+    let end = value_start
+        .find('"')
+        .expect("the stdout_line literal is unterminated");
+    let value = &value_start[..end];
+    assert!(
+        !value.contains('\\'),
+        "{RESULTS_DOCUMENT} stdout_line contains a JSON escape ({value:?}); this reader does not unescape, \
+         so the comparison below would be against the wrong bytes"
+    );
+    value.to_string()
+}
+
+/// Fail if the committed acceptance evidence does not cite THIS run.
+///
+/// WHY. `assurance/concurrency/results.json` is the sole evidence node bound
+/// to US-017. Before this check nothing connected its twenty-two counters to
+/// an execution: the numbers were transcribed by hand from a printed line, and
+/// a measured corruption confirmed the consequence — with explored_schedules
+/// rewritten from 79920 to 11 and accepted_commands from 221353 to 999999,
+/// `make -C rust gates` exited 0 and `go test ./...` exited 0 once the
+/// evidence-DAG byte pin was regenerated.
+///
+/// WHAT IT PROVES. Only that the recorded line is a line this exploration
+/// really emits. It says nothing about whether the document's counter FIELDS
+/// agree with that line — that half is `ValidateConcurrencyResults` in
+/// internal/formalplan/concurrencyresults.go, which re-derives every field
+/// from the same string. Neither half alone is a binding.
+fn assert_committed_results_cite_this_run(measured: &str) {
+    let path = repository_path(RESULTS_DOCUMENT);
+    let document = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+        panic!("{RESULTS_DOCUMENT} is the acceptance evidence this run produces and must be readable at {path:?}: {error}")
+    });
+    let committed = committed_stdout_line(&document);
+    assert_eq!(
+        committed, measured,
+        "\n{RESULTS_DOCUMENT} cites a run that is not this one.\n  \
+         committed: {committed}\n  \
+         measured:  {measured}\n\
+         The committed acceptance evidence is stale. Refresh it deliberately: copy the measured line into \
+         execution.executed_run.stdout_line, bring every counter field into agreement with it (the Go validator \
+         internal/formalplan/concurrencyresults.go re-derives them and will name any that disagree), update \
+         target.source.git_blob, target.harness.git_blob and preregistered_plan.sha256 to the current tree, and \
+         record what moved and why in revision_note. Do NOT edit this assertion.\n"
+    );
+}
+
+/// The bare key under which the record cites the fatal-termination sweep's
+/// printed lines. Distinct from STDOUT_LINE_KEY on purpose: neither key is a
+/// substring of the other, so each reader's exactly-once rule stays exact.
+const SWEEP_STDOUT_LINES_KEY: &str = "\"sweep_stdout_lines\"";
+
+/// Read the one `sweep_stdout_lines` string array out of the committed
+/// results document, by the same bare-key, exactly-once, no-escape rules as
+/// `committed_stdout_line`; internal/formalplan/concurrencyresults.go runs the
+/// same algorithm on the raw bytes and checks it against its structural parse.
+fn committed_sweep_lines(document: &str) -> Vec<String> {
+    let occurrences = document.matches(SWEEP_STDOUT_LINES_KEY).count();
+    assert_eq!(
+        occurrences, 1,
+        "{RESULTS_DOCUMENT} must carry exactly one {SWEEP_STDOUT_LINES_KEY} key anywhere in the document \
+         for this binding to be unambiguous, found {occurrences}; zero means the record cites no sweep."
+    );
+    let after_key = document
+        .find(SWEEP_STDOUT_LINES_KEY)
+        .expect("occurrence count is 1")
+        + SWEEP_STDOUT_LINES_KEY.len();
+    let mut rest = document[after_key..].trim_start();
+    assert!(
+        rest.starts_with(':'),
+        "{RESULTS_DOCUMENT} sweep_stdout_lines key is not followed by a colon"
+    );
+    rest = rest[1..].trim_start();
+    assert!(
+        rest.starts_with('['),
+        "{RESULTS_DOCUMENT} sweep_stdout_lines value is not an array"
+    );
+    rest = rest[1..].trim_start();
+    let mut lines = Vec::new();
+    while !rest.starts_with(']') {
+        assert!(
+            rest.starts_with('"'),
+            "{RESULTS_DOCUMENT} sweep_stdout_lines element {} is not a string literal",
+            lines.len()
+        );
+        let body = &rest[1..];
+        let end = body
+            .find('"')
+            .expect("a sweep_stdout_lines literal is unterminated");
+        let value = &body[..end];
+        assert!(
+            !value.contains('\\'),
+            "{RESULTS_DOCUMENT} sweep_stdout_lines element contains a JSON escape ({value:?}); this reader \
+             does not unescape, so the comparison would be against the wrong bytes"
+        );
+        lines.push(value.to_string());
+        rest = body[end + 1..].trim_start();
+        if rest.starts_with(',') {
+            rest = rest[1..].trim_start();
+            continue;
+        }
+        assert!(
+            rest.starts_with(']'),
+            "{RESULTS_DOCUMENT} sweep_stdout_lines element is followed by neither a comma nor the closing bracket"
+        );
+    }
+    lines
+}
+
+/// Fail if the committed acceptance evidence does not cite THIS fatal-termination
+/// sweep. Same contract as `assert_committed_results_cite_this_run`: this half
+/// proves the recorded lines are lines this sweep really emits, and the Go half
+/// re-derives every per-budget map and total from them.
+fn assert_committed_results_cite_this_sweep(measured: &[String]) {
+    let path = repository_path(RESULTS_DOCUMENT);
+    let document = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+        panic!("{RESULTS_DOCUMENT} is the acceptance evidence this sweep produces and must be readable at {path:?}: {error}")
+    });
+    let committed = committed_sweep_lines(&document);
+    assert_eq!(
+        committed, measured,
+        "\n{RESULTS_DOCUMENT} cites a fatal-termination sweep that is not this one.\n  \
+         committed: {committed:#?}\n  \
+         measured:  {measured:#?}\n\
+         The committed acceptance evidence is stale. Refresh it deliberately: copy the measured lines into \
+         execution.fatal_termination_sweep.executed_run.sweep_stdout_lines, bring the per-budget maps and totals \
+         into agreement with them (internal/formalplan/concurrencyresults.go re-derives them and will name any that \
+         disagree), update target.harness.git_blob to the current tree, and record what moved and why in \
+         revision_note. Do NOT edit this assertion.\n"
     );
 }
 
@@ -1684,13 +2078,25 @@ fn retention_minimizes_every_named_fault_and_pins_the_artifacts() {
         );
 
         // 5. Retention: the minimized schedule is a committed artifact.
-        let body = render_seed(
+        //
+        // The retained body carries `found_index` — the exploration ordinal at
+        // which this fault first failed. Reviews 01a0487b rounds 2, 3 and 4
+        // each named the six `retention.minimized_artifacts[*].found_index`
+        // values in assurance/concurrency/results.json as the record's last
+        // unbound leaves: the exploration only PRINTED the ordinal, so the
+        // document could carry any number and nothing contradicted it. Written
+        // here, the ordinal is inside the artifact whose sha256 the document
+        // pins and whose bytes this test re-derives from a real minimization
+        // run, so a wrong ordinal in the document now disagrees with the seed
+        // and a doctored seed disagrees with its digest.
+        let mut body = render_seed(
             &format!("minimized-{name}"),
             fault,
             target,
             &minimized,
             EVENT_QUEUE_CAPACITY,
         );
+        let _ = writeln!(body, "found_index={index}");
         let path = minimized_dir().join(format!("{name}.seed"));
         if regenerate {
             fs::create_dir_all(minimized_dir()).expect("create minimized dir");
@@ -1972,4 +2378,61 @@ fn committed_minimized_schedules_replay_as_regressions() {
             "{name}: retained schedule passes on the real driver: {clean:?}"
         );
     }
+}
+
+// ---------------------------------------------------------------------------
+// Review 01a0487b BLOCKING 1: the split-read fabrication
+// ---------------------------------------------------------------------------
+
+/// Build the exact document the reviewer described: an ignored top-level
+/// `"stdout_line": "<real>"` in the spelling the OLD raw reader searched for,
+/// plus the real nested field written `"stdout_line" : "<forgery>"` with legal
+/// JSON whitespace before the colon.
+///
+/// Against the old reader this document was invisible — it found the decoy,
+/// compared it to the measurement, and passed, while the Go half validated
+/// forged counters against the nested forgery. Both exits were 0. Keying on
+/// the bare token and requiring it exactly once anywhere in the document is
+/// what makes the decoy fatal instead of useful.
+#[test]
+#[should_panic(expected = "must carry exactly one")]
+fn split_read_fabrication_is_refused() {
+    let document = concat!(
+        "{\n",
+        "  \"schema_version\": \"1.0.0\",\n",
+        "  \"stdout_line\": \"US017_EXPLORATION accepted=221353\",\n",
+        "  \"execution\": {\n",
+        "    \"executed_run\": {\n",
+        "      \"stdout_line\" : \"US017_EXPLORATION accepted=999999\"\n",
+        "    }\n",
+        "  }\n",
+        "}\n"
+    );
+    let _ = committed_stdout_line(document);
+}
+
+/// The reader must be defeated only by a real forgery, never by valid JSON
+/// formatting — the mistake the first version made.
+#[test]
+fn stdout_line_reader_tolerates_legal_whitespace() {
+    for spelling in [
+        "{\"stdout_line\": \"US017_EXPLORATION x=1\"}",
+        "{\"stdout_line\" : \"US017_EXPLORATION x=1\"}",
+        "{\"stdout_line\"\n\t:\n\t\"US017_EXPLORATION x=1\"}",
+        "{\"stdout_line\":\"US017_EXPLORATION x=1\"}",
+    ] {
+        assert_eq!(
+            committed_stdout_line(spelling),
+            "US017_EXPLORATION x=1",
+            "legal JSON spelling {spelling:?} must read the same value"
+        );
+    }
+}
+
+/// A document that cites no run at all must fail loudly rather than compare
+/// against an empty string.
+#[test]
+#[should_panic(expected = "must carry exactly one")]
+fn a_document_citing_no_run_is_refused() {
+    let _ = committed_stdout_line("{\"schedules\": 79920}");
 }

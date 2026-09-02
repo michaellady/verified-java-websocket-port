@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-const crTestRoot = "../.."
+const cbTestRoot = "../.."
 
 // crBindingCount is the number of file-naming bindings the committed artifact
 // declares: two target blobs, the preregistered plan, two minimized
@@ -49,7 +49,7 @@ func crEnumerateBindings(t *testing.T, root string) []crBinding {
 	if err != nil {
 		t.Fatalf("read results artifact: %v", err)
 	}
-	var results crResults
+	var results cbResults
 	if err := json.Unmarshal(raw, &results); err != nil {
 		t.Fatalf("parse results artifact: %v", err)
 	}
@@ -104,7 +104,7 @@ func crTestIsolate(t *testing.T) string {
 	t.Helper()
 	isolated := t.TempDir()
 	copyIn := func(relative string) {
-		content, err := os.ReadFile(filepath.Join(crTestRoot, filepath.FromSlash(relative)))
+		content, err := os.ReadFile(filepath.Join(cbTestRoot, filepath.FromSlash(relative)))
 		if err != nil {
 			t.Fatalf("read %s: %v", relative, err)
 		}
@@ -117,10 +117,10 @@ func crTestIsolate(t *testing.T) string {
 		}
 	}
 	copyIn(ConcurrencyResultsDocumentPath)
-	for _, binding := range crEnumerateBindings(t, crTestRoot) {
+	for _, binding := range crEnumerateBindings(t, cbTestRoot) {
 		copyIn(binding.path)
 	}
-	if findings := ValidateConcurrencyResults(isolated); len(findings) != 0 {
+	if findings := ValidateConcurrencyResultsBindings(isolated); len(findings) != 0 {
 		t.Fatalf("the isolated copy must validate clean before any mutation, got %v", findings)
 	}
 	return isolated
@@ -197,7 +197,7 @@ func crFlipDigest(t *testing.T, recorded string) string {
 
 func crTestRequireFinding(t *testing.T, root, code, needle string) {
 	t.Helper()
-	findings := ValidateConcurrencyResults(root)
+	findings := ValidateConcurrencyResultsBindings(root)
 	for _, finding := range findings {
 		if finding.Code == code && strings.Contains(finding.Detail, needle) {
 			if finding.Severity != SeverityBlocking {
@@ -212,7 +212,7 @@ func crTestRequireFinding(t *testing.T, root, code, needle string) {
 // TestCommittedConcurrencyResultsBindTheCommittedTree is the gate: the PASS
 // artifact's recorded blobs and digests must describe the tree it ships with.
 func TestCommittedConcurrencyResultsBindTheCommittedTree(t *testing.T) {
-	if findings := ValidateConcurrencyResults(crTestRoot); len(findings) != 0 {
+	if findings := ValidateConcurrencyResultsBindings(cbTestRoot); len(findings) != 0 {
 		t.Fatalf("the committed results artifact does not describe the committed tree: %v", findings)
 	}
 }
@@ -323,7 +323,7 @@ func TestAStaleResultsTargetBindingIsRefused(t *testing.T) {
 // recorded side and from the named-file side, and the typed refusal is read
 // each time.
 func TestEveryResultsBindingIsRefusedFromBothSides(t *testing.T) {
-	for _, binding := range crEnumerateBindings(t, crTestRoot) {
+	for _, binding := range crEnumerateBindings(t, cbTestRoot) {
 		t.Run(binding.field+" -- recorded id edited", func(t *testing.T) {
 			isolated := crTestIsolate(t)
 			crTestOverwriteUnique(t, isolated, ConcurrencyResultsDocumentPath,
@@ -348,7 +348,7 @@ func TestEveryResultsBindingIsRefusedFromBothSides(t *testing.T) {
 // what makes the deletion fail.
 func TestAHalfMinimizedReproductionBindingIsRefused(t *testing.T) {
 	covered := 0
-	for _, binding := range crEnumerateBindings(t, crTestRoot) {
+	for _, binding := range crEnumerateBindings(t, cbTestRoot) {
 		if !binding.isMinimizedReproduction {
 			continue
 		}
@@ -415,7 +415,7 @@ func TestAnAbsentMinimizedReproductionStaysLegitimate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read isolated results artifact: %v", err)
 	}
-	var results crResults
+	var results cbResults
 	if err := json.Unmarshal(raw, &results); err != nil {
 		t.Fatalf("parse isolated results artifact: %v", err)
 	}
@@ -428,7 +428,7 @@ func TestAnAbsentMinimizedReproductionStaysLegitimate(t *testing.T) {
 	if absent == 0 {
 		t.Fatalf("no defect records an absent minimized_reproduction; this test is vacuous")
 	}
-	if findings := ValidateConcurrencyResults(isolated); len(findings) != 0 {
+	if findings := ValidateConcurrencyResultsBindings(isolated); len(findings) != 0 {
 		t.Fatalf("%d defects legitimately record no minimized_reproduction, but the gate "+
 			"refused the unmutated artifact: %v", absent, findings)
 	}

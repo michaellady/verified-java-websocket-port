@@ -4,3 +4,4 @@ mutation=drop-writes-dropped-report
 event_queue_capacity=8
 schedule=inbound-close,shutdown
 counterexample=committed-writes-abandoned-unreported
+found_index=5
