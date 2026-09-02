@@ -398,3 +398,176 @@ func mustDecodeEvidence(t *testing.T, raw []byte, out any) {
 		t.Fatal(err)
 	}
 }
+
+// TestReadinessRefusesAWithdrawnRecordAsCoverage IS THE DISCRIMINATION PROOF FOR
+// ROUND-2 FINDING 6, and it is about the one consumer whose opinion decides
+// release readiness.
+//
+// THE GAP, reproduced by execution before the fix: internal/deltaledger made
+// supersession machine-visible — a structured Supersedes list, a canonical
+// SUPERSEDES token inside each correcting record's hashed rationale, a committed
+// sidecar, and AuthoritativeSequences — but validateAggregateDisagreementLedger
+// built its Autobahn coverage map from `ledger.Records`, every record, withdrawn
+// or not. So a WITHDRAWN record went on covering a live non-OK Autobahn
+// behaviour and this gate returned READY. With the coverage map reverted to
+// `ledger.Records` this test reads:
+//
+//	readiness accepted a non-OK Autobahn result whose only covering record is
+//	SUPERSEDED (status=READY)
+//
+// The chain below is synthesised rather than borrowed from the committed
+// evidence, because the committed chain's superseded records bind the
+// non-execution Autobahn markers and could not exhibit the failure.
+func TestReadinessRefusesAWithdrawnRecordAsCoverage(t *testing.T) {
+	documents := readyEvidenceDocuments(t)
+	var autobahn autobahnEvidence
+	var ledger ledgerEvidence
+	mustDecodeEvidence(t, documents.Autobahn, &autobahn)
+	mustDecodeEvidence(t, documents.Ledger, &ledger)
+
+	// One live, non-OK terminal Autobahn behaviour.
+	failing := &autobahn.Client.Results[0]
+	failing.Status = "FAILED"
+	binding, err := AutobahnResultBindingDigest("client", *failing)
+	if err != nil {
+		t.Fatal(err)
+	}
+	failing.BindingDigest = binding
+
+	// A two-record chain: the first binds that behaviour, the second supersedes
+	// the first. The first is therefore WITHDRAWN and covers nothing.
+	withdrawn := syntheticDelta(t, "org.java-websocket.test.withdrawn-coverage", binding, "", nil)
+	correction := syntheticDelta(t, "org.java-websocket.test.correcting-record",
+		DigestBytesForTest("no executed autobahn observation"), "", &withdrawn)
+
+	directory := filepath.Join(t.TempDir(), "ledger")
+	head := GenesisLedgerHead
+	for _, delta := range []BehaviorDelta{withdrawn, correction} {
+		head, err = AppendBehaviorDelta(directory, head, delta)
+		if err != nil {
+			t.Fatalf("append %s: %v", delta.SubjectRef, err)
+		}
+	}
+	records, verifiedHead, err := ReadBehaviorLedger(directory)
+	if err != nil {
+		t.Fatalf("read the synthetic chain: %v", err)
+	}
+	links, err := ReadSupersessionLinks(records)
+	if err != nil {
+		t.Fatalf("read the synthetic chain's supersessions: %v", err)
+	}
+	if len(links) != 1 || links[0].SupersededSequence != 1 {
+		t.Fatalf("the synthetic chain does not record record 1 as superseded: %+v", links)
+	}
+	ledger.Records = records
+	ledger.Head = verifiedHead
+	ledger.Supersessions = links
+	documents.Autobahn = canonicalEvidence(t, autobahn)
+	documents.Ledger = canonicalEvidence(t, ledger)
+
+	readiness, err := VerifyBaselineEvidence(evidenceTestRoot, documents)
+	if err == nil {
+		t.Fatalf("readiness accepted a non-OK Autobahn result whose only covering record is SUPERSEDED (status=%s). "+
+			"A withdrawn record must not be authoritative to the consumer that decides release readiness; that is the "+
+			"whole point of making supersession machine-visible", readiness.Status)
+	}
+	if !strings.Contains(err.Error(), "UNLEDGERED_BEHAVIOR_DISAGREEMENT") {
+		t.Fatalf("readiness refused, but not on the unledgered behaviour; got: %v", err)
+	}
+
+	// The other direction, so this is a DISCRIMINATOR and not a blanket refusal:
+	// the same chain with the supersession removed DOES cover the behaviour.
+	authoritative := syntheticDelta(t, "org.java-websocket.test.correcting-record",
+		DigestBytesForTest("no executed autobahn observation"), "", nil)
+	plainDirectory := filepath.Join(t.TempDir(), "ledger")
+	plainHead := GenesisLedgerHead
+	for _, delta := range []BehaviorDelta{withdrawn, authoritative} {
+		plainHead, err = AppendBehaviorDelta(plainDirectory, plainHead, delta)
+		if err != nil {
+			t.Fatalf("append %s: %v", delta.SubjectRef, err)
+		}
+	}
+	plainRecords, plainVerified, err := ReadBehaviorLedger(plainDirectory)
+	if err != nil {
+		t.Fatalf("read the un-superseded chain: %v", err)
+	}
+	ledger.Records = plainRecords
+	ledger.Head = plainVerified
+	ledger.Supersessions = []SupersessionLink{}
+	documents.Ledger = canonicalEvidence(t, ledger)
+	readiness, err = VerifyBaselineEvidence(evidenceTestRoot, documents)
+	if err != nil {
+		t.Fatalf("readiness refused a non-OK Autobahn result that an AUTHORITATIVE record covers: %v", err)
+	}
+	if readiness.Status != "READY" {
+		t.Fatalf("readiness returned %s where the covering record is authoritative", readiness.Status)
+	}
+}
+
+// TestReadinessRefusesADeclaredSupersessionArrayThatTheRecordsDoNotCarry pins
+// the other half of the 1.1.0 addition: the declared array is checked against
+// the links the hashed rationales carry, so the gate cannot be TOLD that
+// nothing is superseded.
+func TestReadinessRefusesADeclaredSupersessionArrayThatTheRecordsDoNotCarry(t *testing.T) {
+	documents := readyEvidenceDocuments(t)
+	var ledger ledgerEvidence
+	mustDecodeEvidence(t, documents.Ledger, &ledger)
+	if len(ledger.Supersessions) == 0 {
+		t.Fatal("the committed ledger declares no supersessions; this test needs at least one to remove")
+	}
+	ledger.Supersessions = []SupersessionLink{}
+	documents.Ledger = canonicalEvidence(t, ledger)
+	if _, err := VerifyBaselineEvidence(evidenceTestRoot, documents); err == nil {
+		t.Fatal("readiness accepted a ledger document declaring no supersessions while its records carry them")
+	} else if !strings.Contains(err.Error(), "BEHAVIOR_LEDGER_SUPERSESSION_MISMATCH") {
+		t.Fatalf("readiness refused, but not on the supersession mismatch; got: %v", err)
+	}
+}
+
+// DigestBytesForTest is a thin alias so the synthetic deltas above read clearly.
+func DigestBytesForTest(value string) string { return intake.DigestBytes([]byte(value)) }
+
+// syntheticDelta builds a valid BehaviorDelta for the readiness proofs. When
+// supersedes is non-nil the rationale carries the canonical SUPERSEDES token, in
+// exactly the form internal/deltaledger emits it.
+func syntheticDelta(t *testing.T, subject, autobahnResultDigest string, _ string, supersedes *BehaviorDelta) BehaviorDelta {
+	t.Helper()
+	rationale := "SYNTHETIC readiness-gate proof record for " + subject + "."
+	if supersedes != nil {
+		rationale = "SUPERSEDES ledger-sequence=1 delta=" + supersedes.DeltaID + " subject=" + supersedes.SubjectRef +
+			" reason=synthetic; " + rationale
+	}
+	disagreement := ObservedDisagreement{
+		SubjectRef:            "semantic:" + subject + ":provisional-v1",
+		RFCRefs:               []string{"rfc6455#section-5.2"},
+		RFCExpectationDigest:  DigestBytesForTest("rfc expectation " + subject),
+		RFCValueDigest:        DigestBytesForTest("rfc value " + subject),
+		JavaRef:               "java-v1.6.0:org.java_websocket.WebSocketImpl:decodeFrames",
+		JavaObservationDigest: DigestBytesForTest("java observation " + subject),
+		JavaValueDigest:       DigestBytesForTest("java value " + subject),
+		AutobahnRefs:          []string{"autobahn-v25.10.1:1.1"},
+		AutobahnResultDigest:  autobahnResultDigest,
+		AutobahnValueDigest:   DigestBytesForTest("autobahn value " + subject),
+	}
+	digest, err := disagreement.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	identity, err := BehaviorDeltaID(digest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	delta := BehaviorDelta{
+		SchemaVersion: "1.0.0", DeltaID: identity, SubjectRef: disagreement.SubjectRef,
+		RFCRefs: disagreement.RFCRefs, RFCExpectationDigest: disagreement.RFCExpectationDigest,
+		RFCValueDigest: disagreement.RFCValueDigest, JavaRef: disagreement.JavaRef,
+		JavaObservationDigest: disagreement.JavaObservationDigest, JavaValueDigest: disagreement.JavaValueDigest,
+		AutobahnRefs: disagreement.AutobahnRefs, AutobahnResultDigest: disagreement.AutobahnResultDigest,
+		AutobahnValueDigest: disagreement.AutobahnValueDigest, DisagreementDigest: digest,
+		NormativeAuthority: "rfc6455", Disposition: "unresolved", Rationale: rationale,
+	}
+	if err := delta.Validate(); err != nil {
+		t.Fatalf("synthetic delta for %s does not validate: %v", subject, err)
+	}
+	return delta
+}

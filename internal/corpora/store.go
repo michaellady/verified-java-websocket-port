@@ -645,3 +645,29 @@ func normalizeJSON(value any) (any, error) {
 		return value, nil
 	}
 }
+
+// RenderCommittedCorpora re-derives the PUBLIC and HANDSHAKE corpus files from
+// the committed public seed and returns them exactly as they are committed.
+//
+// It is exported so a PRODUCTION gate can perform the identity check that used
+// to live only in committed_test.go. Review round 3 named that shape precisely
+// — "the production gate does not rederive the public corpus; that identity
+// check remains test-only" — and a rule that only a test binary runs is not a
+// gate, which was round-1 finding 3 on this branch. internal/deltaledger calls
+// this from VerifyIntegrity, which cmd/deltaledgerctl --check runs and
+// rust/Makefile's `gates` target invokes.
+func RenderCommittedCorpora(publicSeed string) (public []byte, handshake []byte, err error) {
+	scenarios, cases, _, err := GeneratePublic(publicSeed)
+	if err != nil {
+		return nil, nil, err
+	}
+	public, err = scenarioLines(scenarios)
+	if err != nil {
+		return nil, nil, err
+	}
+	handshake, err = handshakeLines(cases)
+	if err != nil {
+		return nil, nil, err
+	}
+	return public, handshake, nil
+}

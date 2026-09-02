@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/behavior-delta-ledger-1.0.0.schema.json",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/behavior-delta-ledger-1.1.0.schema.json",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -13,16 +13,17 @@
     "head",
     "records",
     "append_implementation",
+    "supersessions",
     "unledgered_disagreements",
     "production",
     "publication"
   ],
   "properties": {
     "$schema": {
-      "const": "../../schemas/behavior-delta-ledger-1.0.0.schema.json"
+      "const": "../../schemas/behavior-delta-ledger-1.1.0.schema.json"
     },
     "schema_version": {
-      "const": "1.0.0"
+      "const": "1.1.0"
     },
     "evidence_kind": {
       "const": "behavior-delta-ledger"
@@ -51,6 +52,14 @@
     },
     "append_implementation": {
       "const": "hash-chained-cas"
+    },
+    "supersessions": {
+      "type": "array",
+      "maxItems": 100000,
+      "description": "The supersession links the record chain's own hashed rationales carry, declared as data. internal/lab re-derives them from the records and refuses a document that declares anything else, so this array is a convenience for consumers and never an authority of its own.",
+      "items": {
+        "$ref": "#/$defs/supersession_link"
+      }
     },
     "unledgered_disagreements": {
       "type": "integer",
@@ -192,6 +201,45 @@
           "maxLength": 4096
         }
       }
+    },
+    "supersession_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "superseded_sequence",
+        "superseded_delta_id",
+        "superseded_subject_ref",
+        "superseding_sequence",
+        "superseding_delta_id",
+        "superseding_subject_ref"
+      ],
+      "properties": {
+        "superseded_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "superseded_delta_id": {
+          "type": "string",
+          "pattern": "^delta-[0-9a-f]{64}$"
+        },
+        "superseded_subject_ref": {
+          "type": "string",
+          "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"
+        },
+        "superseding_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "superseding_delta_id": {
+          "type": "string",
+          "pattern": "^delta-[0-9a-f]{64}$"
+        },
+        "superseding_subject_ref": {
+          "type": "string",
+          "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"
+        }
+      }
     }
-  }
+  },
+  "description": "Behavior-delta ledger DOCUMENT, version 1.1.0. The bump is at the document level and only there. 1.1.0 adds the first-class `supersessions` array so the readiness gate in internal/lab can see which records the chain records as withdrawn: before it, supersession existed only as a token inside each correcting record's hashed rationale plus a sidecar, and internal/lab.VerifyBaselineEvidence -- the one consumer that decides release readiness -- validated every record identically, so a withdrawn record stayed authoritative to it. The PER-RECORD schema_version stays 1.0.0 on purpose: it is inside every record's digest preimage, so bumping it would change every record digest and rewrite the hash chain from sequence 1, breaking the frozen prefix (sequence 35 at sha256:3fcd461cfea72e049628a0031bfbb90addecea2f2bb6997e62280cad1962656d) that the same owner ruling protects. Authority: protected/governance-mirroring-and-record-schema-owner-decision-2026-08-28.json, sha256 e6837006a722b71f6b7137b82be31f4a9e8d802f0ef4c0614dbd4016f27c361f, decided 2026-08-28T20:05:00Z."
 }
