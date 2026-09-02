@@ -550,6 +550,7 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 	findings = append(findings, crValidateScenarioProse(results, inputs)...)
 	findings = append(findings, crValidateRevisionHistory(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateCleanRouteCeiling(results, inputs.ResultsPath)...)
+	findings = append(findings, crValidatePlanConformanceShape(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateExecutedRun(results, rawLine, rawLineErr, inputs.ResultsPath)...)
 	findings = append(findings, crValidateSweepRun(results, raw, inputs.ResultsPath)...)
 	findings = append(findings, crValidateAccounting(results, inputs.ResultsPath)...)
@@ -5240,6 +5241,72 @@ func crValidateCleanRouteCeiling(results crResults, path string) []ModelFinding 
 		refuse(fmt.Sprintf(
 			"the clean-route ceiling names no revision_history identity, so its account of the reading it replaced points at nothing; revision_history carries %d paragraphs",
 			len(results.RevisionHistory)))
+	}
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// The plan-conformance sentence's scenario arithmetic
+// ---------------------------------------------------------------------------
+
+// crValidatePlanConformanceShape re-derives the SCENARIO clauses of
+// preregistered_plan.conformance from bounds.scenario_shapes.
+//
+// WHY IT EXISTS, and it is a regression this branch caused and then measured.
+// The conformance sentence used to open "across BOTH scenarios"; appending a
+// third scenario reworded it to "across ALL 3 scenarios", and that one edit
+// turned the leaf from CHECKED to INERT. The battery's plausible-wrong value
+// for a sentence carrying a number is the same sentence with its FIRST number
+// moved, and the counter tokenizer that guards this document's prose applies a
+// four-digit floor — so "ALL 4 scenarios" was accepted at zero findings while
+// the record enumerated three. A scenario count is exactly the kind of claim a
+// reader takes at face value, and it had come loose in the sentence whose job
+// is to say the exploration stayed inside its preregistered bounds.
+//
+// The three clauses below are the sub-threshold numbers that sentence carries
+// about the scenarios. Each is rendered from bounds.scenario_shapes and must
+// appear verbatim, so moving any of them contradicts the shapes the run
+// printed. Re-wording the sentence deliberately means updating this rendering
+// deliberately, which is the intended cost: the alternative is what happened
+// here, where a re-wording silently unbound a number.
+func crValidatePlanConformanceShape(results crResults, path string) []ModelFinding {
+	var findings []ModelFinding
+	sentence := results.PreregisteredPlan.Conformance
+	if strings.TrimSpace(sentence) == "" {
+		// crValidateNarrative already refuses an empty conformance sentence;
+		// there is nothing here to re-derive from.
+		return findings
+	}
+	shapes := results.Bounds.ScenarioShapes
+	if len(shapes) == 0 {
+		return append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_UNDERIVED", path,
+			"bounds.scenario_shapes is empty, so the conformance sentence's scenario clauses derive from nothing"))
+	}
+	actions := make([]string, 0, len(shapes))
+	widest := 0
+	for _, shape := range shapes {
+		actions = append(actions, strconv.Itoa(shape.ActionsPerSchedule))
+		if shape.ActionsPerSchedule > widest {
+			widest = shape.ActionsPerSchedule
+		}
+	}
+	list := actions[0]
+	if len(actions) > 1 {
+		list = strings.Join(actions[:len(actions)-1], ", ") + " and " + actions[len(actions)-1]
+	}
+	for _, clause := range []struct {
+		what     string
+		rendered string
+	}{
+		{"how many scenarios the exploration covers", fmt.Sprintf("across ALL %d scenarios", len(shapes))},
+		{"the per-scenario action counts", fmt.Sprintf("%d scenarios of %s actions", len(shapes), list)},
+		{"the widest schedule the bound has to hold", fmt.Sprintf("at most %d actions per schedule", widest)},
+	} {
+		if !strings.Contains(sentence, clause.rendered) {
+			findings = append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_CONTRADICTED", path, fmt.Sprintf(
+				"preregistered_plan.conformance does not state %s as bounds.scenario_shapes gives it: the sentence must carry %q",
+				clause.what, clause.rendered)))
+		}
 	}
 	return findings
 }

@@ -716,7 +716,7 @@ var evidenceCatalog = map[string]evidenceSpec{
 	},
 	"evidence.linkage.schedule-exploration": {
 		Path:    "assurance/concurrency/results.json",
-		Title:   "US-017 exhaustive bounded schedule exploration results (81180 schedules across 2 scenarios)",
+		Title:   "US-017 exhaustive bounded schedule exploration results (92160 schedules across 3 scenarios)",
 		Lineage: "deterministic ws-driver schedule exploration with full-trace replay equality",
 	},
 	"evidence.linkage.us018-closure-receipt": {

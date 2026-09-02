@@ -1778,12 +1778,13 @@ func crTestRevisionEntry(t *testing.T, document map[string]any, index int) map[s
 // recorded 81,180 / 49 / 81,131, and no check could say so. Four rounds of the
 // leaf enumeration listed the field INERT.
 //
-// EACH CASE BELOW WAS RUN AGAINST THE VALIDATOR WITH crValidateRevisionHistory
-// UNREGISTERED AND OBSERVED TO PASS AT ZERO FINDINGS, so none of them is a
-// case that reports clean because the document happens to be fine. The
-// deletion was of the CALL, not of the function, so the package still compiled
-// and the reading is a real one - see
-// drafts/self-review/concurrency-coverage-disclosure.md.
+// MEASURED with crValidateRevisionHistory's CALL removed - the function kept,
+// so the package still compiles and the reading is a real one. Nine of the ten
+// cases below were then ACCEPTED AT ZERO FINDINGS. The tenth, "the whole
+// history is dropped", stayed refused, by RESULTS_CLEAN_ROUTE_CEILING_UNSOUND:
+// the clean-route ceiling names a revision_history identity and an empty
+// history gives it nothing to resolve. That case is therefore not ISOLATING
+// for this check, and is recorded as such rather than counted as proof.
 func TestConcurrencyResultsRefusesARevisionHistoryThatIsNotOne(t *testing.T) {
 	for _, testCase := range []struct {
 		name   string
@@ -1892,8 +1893,15 @@ func TestConcurrencyResultsRefusesARevisionHistoryThatIsNotOne(t *testing.T) {
 // scenario a real adapter shape rather than one chosen to make a gate green -
 // and until this branch they were attested.
 //
-// Run with crValidateScenarioProse unregistered: every case passed at zero
-// findings.
+// MEASURED with crValidateScenarioProse's call removed: the three
+// CONTRADICTED cases were accepted at zero findings. The fourth, the
+// UNDERIVED one, stayed refused by RESULTS_SCENARIO_NAMES_CONTRADICTED - a
+// scenario name the harness's table does not bind already fails the NAME
+// derivation, so no document that reaches the UNDERIVED arm through a wrong
+// name can isolate it. It is kept because it exercises the arm and because
+// the name check is not the only way to reach it (a scenario constant with no
+// RECORD marker reaches it too, and that is a harness edit, not a document
+// one), but it is NOT counted as proof.
 func TestConcurrencyResultsDerivesScenarioProseFromTheHarness(t *testing.T) {
 	shapeAt := func(t *testing.T, document map[string]any, index int) map[string]any {
 		t.Helper()
@@ -1972,23 +1980,50 @@ func TestConcurrencyResultsDerivesScenarioProseFromTheHarness(t *testing.T) {
 // beside it - and a recorded number is only as good as the relations it has to
 // satisfy.
 //
-// Run with the clean-route block of crValidateAccounting deleted: every case
-// passed at zero findings.
+// EACH CASE MOVES THE CITED RUN LINE TOO, and that is the whole design. The
+// first version of this test moved only the document's counter, and the
+// deletion attack said so: with the clean-route block of crValidateAccounting
+// deleted, all five cases were STILL refused - by RESULTS_COUNTER_CONTRADICTS_RUN,
+// because every counter here is re-derived from the line the record cites. The
+// test was measuring the run binding, not the relations, and would have gone on
+// passing if the relations were deleted. Moving both sides models the document
+// whose cited line was fabricated CONSISTENTLY, which is the only shape the
+// relations exist for: re-measured with the block deleted, all five are then
+// accepted at zero findings.
 func TestConcurrencyResultsRefusesACleanRouteReadingThatIsImpossible(t *testing.T) {
 	for _, testCase := range []struct {
 		name  string
 		field string
-		value float64
+		token string
+		value int
 	}{
-		{"more distinct clean traces than clean runs", "distinct_clean_terminal_digests", 2000},
-		{"clean runs that carry no trace at all", "distinct_clean_terminal_digests", 0},
-		{"clean runs belonging to no scenario", "clean_terminal_scenarios", 0},
-		{"a clean terminal reached in more scenarios than exist", "clean_terminal_scenarios", 9},
-		{"more halted terminals than halted runs", "halted_terminals", 99999},
+		{"more distinct clean traces than clean runs", "distinct_clean_terminal_digests", "clean_terminal_digests", 2000},
+		{"clean runs that carry no trace at all", "distinct_clean_terminal_digests", "clean_terminal_digests", 0},
+		{"clean runs belonging to no scenario", "clean_terminal_scenarios", "clean_terminal_scenarios", 0},
+		{"a clean terminal reached in more scenarios than exist", "clean_terminal_scenarios", "clean_terminal_scenarios", 9},
+		{"more halted terminals than halted runs", "halted_terminals", "halted_terminals", 99999},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			document := crTestDecode(t)
-			crTestSection(t, document, "execution")[testCase.field] = testCase.value
+			execution := crTestSection(t, document, "execution")
+			was, ok := execution[testCase.field].(float64)
+			if !ok {
+				t.Fatalf("execution carries no %s", testCase.field)
+			}
+			execution[testCase.field] = float64(testCase.value)
+
+			run := crTestSection(t, document, "execution", "executed_run")
+			line, ok := run["stdout_line"].(string)
+			if !ok {
+				t.Fatal("executed_run carries no stdout_line")
+			}
+			from := fmt.Sprintf("%s=%d ", testCase.token, int(was))
+			if !strings.Contains(line, from) {
+				t.Fatalf("the cited run line carries no %q; retarget this case", from)
+			}
+			run["stdout_line"] = strings.Replace(line, from,
+				fmt.Sprintf("%s=%d ", testCase.token, testCase.value), 1)
+
 			findings := ValidateConcurrencyResults(crTestWrite(t, document))
 			crTestRequireCode(t, findings, "RESULTS_ACCOUNTING_CONTRADICTION")
 		})
@@ -2000,8 +2035,12 @@ func TestConcurrencyResultsRefusesACleanRouteReadingThatIsImpossible(t *testing.
 // mentioned the collapse; the thirteenth states it, so it must not be
 // removable, renameable or quietly re-numbered.
 //
-// Run with the limitations.clean_route_ceiling expectation deleted from
-// crValidateQuotedCounters: every case passed at zero findings.
+// MEASURED with the limitations.clean_route_ceiling expectation deleted from
+// crValidateQuotedCounters: "the ceiling understates the halted remainder" was
+// then accepted at zero findings, which is the isolating reading. The other
+// two cases stayed refused by RESULTS_CLEAN_ROUTE_CEILING_UNSOUND, which is
+// the overlap between the two checks and is recorded rather than claimed as
+// proof.
 func TestConcurrencyResultsRefusesADroppedCleanRouteCeiling(t *testing.T) {
 	locate := func(t *testing.T, document map[string]any) ([]any, int) {
 		t.Helper()
@@ -2093,8 +2132,12 @@ func crTestRewriteCeiling(t *testing.T, document map[string]any, rewrite func(st
 // limitation whose whole purpose is to stop a coverage claim being
 // strengthened.
 //
-// Every case below was run with crValidateCleanRouteCeiling unregistered and
-// observed to pass at zero findings.
+// MEASURED with crValidateCleanRouteCeiling's call removed: five of the six
+// cases here were accepted at zero findings, including the one that produced
+// the check. "the ceiling is removed from the record" stayed refused by
+// RESULTS_PROSE_CONTRADICTS_COUNTERS (the quoted-counter expectation already
+// refuses a missing ceiling on arity), so that case is not isolating and is
+// recorded as such.
 func TestConcurrencyResultsRefusesACeilingThatForbidsNothing(t *testing.T) {
 	for _, testCase := range []struct {
 		name    string
@@ -2212,6 +2255,70 @@ func TestConcurrencyResultsRefusesAHistoryWithItsBeginningRemoved(t *testing.T) 
 			testCase.mutate(t, document)
 			findings := ValidateConcurrencyResults(crTestWrite(t, document))
 			crTestRequireCode(t, findings, "RESULTS_REVISION_HISTORY_UNSOUND")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesAConformanceSentenceThatMiscountsTheScenarios
+// is a regression THIS BRANCH caused, found by re-running the leaf enumeration
+// rather than by reasoning about the change.
+//
+// preregistered_plan.conformance was CHECKED before this branch and measured
+// INERT after it. The cause was one re-wording: appending a third scenario
+// turned "across BOTH scenarios" into "across ALL 3 scenarios", and the
+// battery's candidate for a sentence with a number in it moves the FIRST
+// number, so "ALL 4 scenarios" was accepted at zero findings - the prose
+// tokenizer that guards this document's counters applies a four-digit floor
+// and never looked at it. A scenario count in the sentence that says the
+// exploration stayed inside its preregistered bounds is not a number a reader
+// should have to take on trust.
+//
+// MEASURED with crValidatePlanConformanceShape's call removed: three of the
+// four cases were accepted at zero findings. "the widest schedule is
+// understated" stayed refused by RESULTS_ACCOUNTING_CONTRADICTION, because
+// crValidatePlanConformance already holds the widest scenario's action count
+// to the plan's max_actions_per_schedule; that case is not isolating.
+func TestConcurrencyResultsRefusesAConformanceSentenceThatMiscountsTheScenarios(t *testing.T) {
+	for _, testCase := range []struct {
+		name string
+		from string
+		to   string
+	}{
+		{
+			// Verbatim the value the enumeration accepted.
+			name: "the scenario count moves in the opening clause",
+			from: "across ALL 3 scenarios",
+			to:   "across ALL 4 scenarios",
+		},
+		{
+			name: "the per-scenario action list gains a scenario",
+			from: "3 scenarios of 12, 7 and 9 actions",
+			to:   "4 scenarios of 12, 7, 9 and 9 actions",
+		},
+		{
+			name: "one scenario's action count moves in the list",
+			from: "3 scenarios of 12, 7 and 9 actions",
+			to:   "3 scenarios of 12, 7 and 10 actions",
+		},
+		{
+			name: "the widest schedule is understated",
+			from: "at most 12 actions per schedule",
+			to:   "at most 9 actions per schedule",
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			plan := crTestSection(t, document, "preregistered_plan")
+			sentence, ok := plan["conformance"].(string)
+			if !ok {
+				t.Fatal("preregistered_plan carries no conformance sentence")
+			}
+			if !strings.Contains(sentence, testCase.from) {
+				t.Fatalf("the conformance sentence no longer contains %q; retarget this case", testCase.from)
+			}
+			plan["conformance"] = strings.Replace(sentence, testCase.from, testCase.to, 1)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_PLAN_CONFORMANCE_CONTRADICTED")
 		})
 	}
 }
