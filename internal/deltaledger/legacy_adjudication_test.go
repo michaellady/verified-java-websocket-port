@@ -322,6 +322,78 @@ func TestVerifyLegacyAdjudicationsRefusesEachWayAnEntryCanFailToBind(t *testing.
 			},
 			expect: "pre_vocabulary_sequence is 35",
 		},
+		{
+			// The subject is the third of the three content bindings and had no
+			// probe until this round. Naming a NEIGHBOUR's subject rather than a
+			// fabricated one keeps the value well-formed, so only the binding
+			// can refuse it.
+			name: "an entry names the subject of a different record",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 21)].SubjectRef =
+					file.Adjudications[indexOfSequence(file, 22)].SubjectRef
+			},
+			expect: "the entry names subject",
+		},
+		{
+			// The effort floor on the adjudication itself. It cannot judge
+			// quality — nothing mechanical can — but an entry that files a
+			// record under one of AC3's three classes with nothing said is the
+			// failure this whole document exists to avoid.
+			name: "an entry files a class with no argument behind it",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 23)].Argument = "java does that"
+			},
+			expect: "under the 160-byte floor",
+		},
+		{
+			name: "an entry cites no RFC ref at all",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 25)].CitedRFCRefs = nil
+			},
+			expect: "cites no RFC ref",
+		},
+		{
+			name: "a quote is too short to be anything but a coincidence",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 27)].RationaleQuote = "DIVERGENCE"
+			},
+			expect: "rationale_quote is 10 bytes",
+		},
+		{
+			// Two entries for one record, which is how a total-looking document
+			// could still leave a record unjudged.
+			name: "one record is adjudicated twice",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				index := indexOfSequence(file, 29)
+				duplicated := make([]LegacyAdjudication, 0, len(file.Adjudications)+1)
+				duplicated = append(duplicated, file.Adjudications[:index+1]...)
+				duplicated = append(duplicated, file.Adjudications[index])
+				duplicated = append(duplicated, file.Adjudications[index+1:]...)
+				file.Adjudications = duplicated
+			},
+			expect: "adjudicated more than once",
+		},
+		{
+			name: "two entries are out of ascending order",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				first, second := indexOfSequence(file, 31), indexOfSequence(file, 32)
+				file.Adjudications[first], file.Adjudications[second] =
+					file.Adjudications[second], file.Adjudications[first]
+			},
+			expect: "not in ascending sequence order",
+		},
+		{
+			// A draft that EXISTS but is not a draft. Nothing on this path may
+			// append to the ledger, so a "supersession draft" pointing at a
+			// committed evidence document would be a correction that had already
+			// happened.
+			name: "a contesting entry names a real file that is not a held draft",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 13)].SupersessionDraft =
+					LegacyAdjudicationsSchemaRelativePath
+			},
+			expect: "is not under drafts/ledger-proposals/",
+		},
 	}
 
 	for _, testCase := range cases {
@@ -378,6 +450,104 @@ func TestTheRecomputedIdentityCatchesATamperedStoredDeltaID(t *testing.T) {
 	if !strings.Contains(err.Error(), "RECOMPUTED from the record's own disagreement digest") {
 		t.Fatalf("the gate refused, but not on the recomputation.\ngot: %v", err)
 	}
+}
+
+// TestTheStoredComparisonCatchesARecordWhoseOwnDeltaIDDrifted is the mirror of
+// the probe above, and it is recorded here with its limitation stated.
+//
+// The two delta_id comparisons are checked in opposite directions: this one
+// tampers the RECORD's stored delta_id and leaves the entry agreeing with the
+// identity recomputed from the disagreement digest, so the recomputation is
+// satisfied and only the stored comparison can speak. It discriminates by
+// MESSAGE, not by admission: because AC3ClassFor looks a record's class up by
+// the delta_id the RECORD stores, a drifted stored value also makes that record
+// count as unclassed, and the residual recomputation refuses the document too.
+// The round-1 self-review records that reading rather than claiming this rule
+// is the only thing standing between the chain and acceptance.
+func TestTheStoredComparisonCatchesARecordWhoseOwnDeltaIDDrifted(t *testing.T) {
+	records := committedChain(t)
+	tampered := make([]lab.BehaviorLedgerRecord, len(records))
+	copy(tampered, records)
+	tampered[6].Delta.DeltaID = "delta-" +
+		"cafecafecafecafecafecafecafecafecafecafecafecafecafecafecafecafe"
+
+	root := legacyProbeRoot(t, nil)
+	err := VerifyLegacyAdjudications(root, tampered, Definitions())
+	if err == nil {
+		t.Fatal("the gate accepted a chain whose record 7 stores a delta_id its own entry does not name")
+	}
+	if !strings.Contains(err.Error(), "; the record carries ") {
+		t.Fatalf("the gate refused, but not on the stored comparison.\ngot: %v", err)
+	}
+}
+
+// TestAnOtherwisePerfectEntryIsStillRefusedForAPostVocabularyRecord isolates the
+// range rule, which the table probe above does not.
+//
+// That probe copies entry 1 and renumbers it, so the identity, digest, subject
+// and quote all belong to the wrong record and four other rules would refuse it
+// even with the range rule gone. This one BUILDS a valid entry for sequence 50
+// out of record 50's own content — recomputed identity, its record digest, its
+// subject, a ninety-byte verbatim quote of its rationale that appears in no
+// other record, a subset of its RFC refs and its exact Java ref — so the only
+// thing wrong with it is that record 50 can carry the field itself. That is
+// what the rule is for: a side entry must never become a way to leave a new
+// record's adjudication outside the hash chain.
+func TestAnOtherwisePerfectEntryIsStillRefusedForAPostVocabularyRecord(t *testing.T) {
+	records := committedChain(t)
+	const sequence = PreVocabularySequence + 1
+	record := records[sequence-1]
+	if record.Sequence != sequence {
+		t.Fatalf("record at index %d carries sequence %d", sequence-1, record.Sequence)
+	}
+	identity, err := lab.BehaviorDeltaID(record.Delta.DisagreementDigest)
+	if err != nil {
+		t.Fatalf("identity: %v", err)
+	}
+	if len(record.Delta.Rationale) < 90 {
+		t.Fatalf("record %d's rationale is %d bytes", sequence, len(record.Delta.Rationale))
+	}
+	quote := record.Delta.Rationale[:90]
+	for _, other := range records {
+		if other.Sequence != sequence && strings.Contains(other.Delta.Rationale, quote) {
+			t.Fatalf("the quote chosen for the probe is not unique to sequence %d; sequence %d shares it",
+				sequence, other.Sequence)
+		}
+	}
+	if record.Delta.MismatchClass == "" {
+		t.Fatalf("record %d carries no mismatch_class, so it is not a post-vocabulary record", sequence)
+	}
+
+	root := legacyProbeRoot(t, func(file *LegacyAdjudicationsFile) {
+		file.Adjudications = append(file.Adjudications, LegacyAdjudication{
+			Sequence:       sequence,
+			DeltaID:        identity,
+			RecordDigest:   record.RecordDigest,
+			SubjectRef:     record.Delta.SubjectRef,
+			Examination:    ExaminationSettles,
+			MismatchClass:  record.Delta.MismatchClass,
+			CitedRFCRefs:   record.Delta.RFCRefs[:1],
+			CitedJavaRef:   record.Delta.JavaRef,
+			RationaleQuote: quote,
+			Argument: "This entry is correct in every respect the document can check: its identity is " +
+				"recomputed from the record's own disagreement digest, its record digest and subject are the " +
+				"record's, and its quote is ninety verbatim bytes of that record's hashed rationale which no " +
+				"other record carries. It is refused anyway, because the record it adjudicates can carry the " +
+				"field itself and an adjudication that can be sealed into the chain must be.",
+		})
+	})
+	err = VerifyLegacyAdjudications(root, records, Definitions())
+	if err == nil {
+		t.Fatal("the gate accepted an entry for a record that must carry mismatch_class in its own sealed delta")
+	}
+	if !strings.Contains(err.Error(), "outside 1..49") {
+		t.Fatalf("the gate refused, but not on the range rule.\ngot: %v", err)
+	}
+	if strings.Count(err.Error(), "problem(s)") == 1 && strings.Contains(err.Error(), "1 problem(s)") {
+		return
+	}
+	t.Fatalf("the probe was meant to leave exactly one problem, so the range rule is the only rule speaking.\n"+
+		"got: %v", err)
 }
 
 // TestSequence13BareLFBasisIsContradictedBySequence39 re-verifies the FINDING's
