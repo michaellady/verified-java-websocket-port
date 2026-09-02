@@ -59,6 +59,25 @@ suggests, in that order.**
 Recorded in the document as `limitations[12]`, `CLEAN-ROUTE COVERAGE CEILING`,
 with the measured numbers and with a bound pointer to the superseded reading.
 
+**And it had been named once already.** Searching the tree for the superseded
+counters turned up carried follow-up BP1 inside a protected owner decision,
+`us017-c6-layer-split-owner-decision-2026-08-28`:
+
+> BP1 from the same lane is treated as a real follow-up, not a footnote: the C5
+> fix cuts clean-convergence exploration runs from 1108 to 49 (failure_halted
+> 80072 → 81131, sum 81180 both ways), a 96 percent coverage drop on one
+> branch, measured on both sides. It belongs to the interpreter's halt model
+> rather than the driver.
+
+So the review's "nobody has said whether 49 is adequate" is exact but generous:
+somebody had said the drop was real, in August, in a governance record — and
+it reached no limitation of the evidence document it constrains for the week
+that followed. The ceiling now says where it came from, and the check RESOLVES
+the decision it cites against `evidence/governance/decisions` rather than
+reading it, because a citation nobody resolves is how "the owner already knows"
+becomes a sentence rather than a fact. The governance record itself is
+untouched: it is accurate as the history it is.
+
 ### Why the clean route is intrinsically the thin half
 
 All 1,211 halted runs of `clean-finish` halt on a `StateViolation`, and none of
@@ -181,7 +200,7 @@ Two further things were bound on the way:
 
 ## Findings this branch made against ITSELF
 
-Four, all found by running the instruments rather than by reasoning, and all
+Five, all found by running the instruments rather than by reasoning, and all
 fixed here.
 
 ### A. The ceiling could be cut in half and nothing complained
@@ -238,6 +257,21 @@ last limitation **by index**, and the appended ceiling silently made it delete
 the ceiling instead of softening the disclosure its name promises. A green test
 that had quietly stopped testing what it says is the worse of the two failure
 modes. It is now located by content.
+
+### E. A derivation a formatter could break
+
+`cargo fmt` split the third `SCENARIOS` entry across lines and added a trailing
+comma. `crScenarioEntryPattern` required the `ProgramSet` constant to be
+followed directly by `)`, so the validator stopped finding the scenario at all
+and reported `RESULTS_SCENARIO_PROSE_UNDERIVED` against a document that was
+correct. Three tests went red on it — the artifact check, the union's
+committed-document case, and the leaf enumeration's own pristine control. The
+entry was short enough to fit on one line as hand-written and long enough to be
+split the moment the formatter ran, so the derivation added to bind the
+scenario prose was one `cargo fmt` away from failing on a correct tree.
+
+A derivation a formatter can break is not a derivation. The pattern accepts the
+trailing comma now, and the comment records why rather than just what.
 
 ---
 
