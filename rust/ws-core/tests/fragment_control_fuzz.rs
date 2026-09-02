@@ -99,6 +99,20 @@
 //!   shrinker normal forms failed with it. `adversarial_fuzz.rs` again
 //!   passed all 14.
 //!
+//! ## Deletion attacks on this file's own oracles
+//!
+//! An oracle nobody removed is an oracle nobody measured.
+//!
+//! - Collapsing `predict`'s TWO STAGES back into one, on correct shipped
+//!   source: `modeled_programs` FAILS. The two-stage split is load-bearing
+//!   and is not decoration; a one-stage model would have to be weakened
+//!   somewhere else to pass.
+//! - Deleting the shrinker's PASS 1 (frame deletion): both shrinker tests
+//!   fail.
+//! - Deleting the shrinker's PASS 2 (payload truncation): both shrinker tests
+//!   fail. Each pass is separately load-bearing, which is the point of
+//!   pinning normal forms that need each.
+//!
 //! ## Claim grade
 //!
 //! Bounded. Fixed committed seeds, no coverage feedback, no corpus

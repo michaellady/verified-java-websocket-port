@@ -86,19 +86,35 @@
 //!   `adversarial_fuzz.rs` passed all 14 again.
 //! - **RED-F** -- the `closed`-state refusal of a non-empty chunk in
 //!   `handle_bytes` deleted. **MISSED at first, and the miss was the test's
-//!   fault, not the defect's.** Two things were wrong here and both are
-//!   fixed below. (1) The inertness family compared only the close-vocabulary
-//!   projection, which drops chunk records -- so a terminated core recording
-//!   an `input_chunk` for a chunk it should have refused before recording
-//!   anything was invisible; the comparison now includes every event KIND.
-//!   (2) The baseline was clamped to `head_len` rather than `head_len - 1`,
-//!   which silently pulled the first post-terminal step INTO the baseline and
-//!   made the comparison vacuous for exactly the step that mattered. With
-//!   both corrected the plant is CAUGHT: "input 3 after the terminal was not
-//!   a typed StateViolation", because with the outer gate gone a malformed
-//!   frame arriving at a closed core is rejected by the translate stage
-//!   instead of absorbed by the state machine. Outside this file only
+//!   fault, not the defect's.** The inertness family's baseline was clamped
+//!   to `head_len` rather than `head_len - 1`, which silently pulled the
+//!   FIRST post-terminal step INTO the baseline and made the whole comparison
+//!   vacuous for exactly the step that mattered. With the clamp corrected the
+//!   plant is CAUGHT: "input 3 after the terminal was not a typed
+//!   StateViolation", because with the outer gate gone a malformed frame
+//!   arriving at a closed core is rejected by the translate stage instead of
+//!   absorbed by the state machine. Outside this file only
 //!   `core_semantics.rs` caught it, with one fixed-example test.
+//!
+//! ## Deletion attacks on this file's own oracles
+//!
+//! An oracle nobody removed is an oracle nobody measured.
+//!
+//! - Deleting the every-event-KIND comparison in the inertness family and
+//!   re-planting RED-F: still CAUGHT, by the typed-StateViolation-per-input
+//!   assertion. So that comparison is REDUNDANT for RED-F -- it was added
+//!   while chasing the miss, and the clamp was the actual fix. It is kept
+//!   because it states a strictly stronger contract (no new event of any
+//!   kind, not merely none of the close vocabulary), but this file does not
+//!   claim it caught anything, and no reading here rests on it.
+//! - Deleting the outbound-write differential from the modeled family and
+//!   re-planting RED-D: still CAUGHT, by the isolated echo assertion in
+//!   `close_payload_parse_differential`. Deleting BOTH and re-planting RED-D:
+//!   the whole 23,000-case campaign PASSES. The two are individually
+//!   redundant and jointly load-bearing, which is the shape
+//!   `internal/fuzzpin/check.go` warns about -- a check whose only witness is
+//!   another check's finding is not evidence -- so both stay, and the
+//!   dependency is recorded here rather than discovered later.
 //!
 //! ## Claim grade
 //!

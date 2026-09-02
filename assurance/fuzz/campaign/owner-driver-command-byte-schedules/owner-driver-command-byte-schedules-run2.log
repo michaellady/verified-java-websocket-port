@@ -5,14 +5,14 @@
 # exit=0
 # deadline_hit=false
 
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
      Running tests/driver_schedule_fuzz.rs (target/debug/deps/driver_schedule_fuzz-b6c803e1496fc1d7)
 
 running 4 tests
 test owner_driver_invalid_write_progress_on_a_quiescent_owner_moves_nothing ... ok
-test owner_driver_schedule_soup_no_panic_deterministic ... ok
 test owner_driver_producer_backpressure_is_typed ... ok
 test owner_driver_transport_termination_accounting ... ok
+test owner_driver_schedule_soup_no_panic_deterministic ... ok
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.50s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
 

@@ -38,7 +38,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 35.676,
+          "wall_seconds": 7.226,
           "log_path": "assurance/fuzz/campaign/handshake-client/handshake-client-run1.log",
           "outcome_lines": [
             "test handshake_budget_refusal_races_the_parse_rejection_under_rechunking ... ok",
@@ -62,7 +62,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 39.681,
+          "wall_seconds": 6.718,
           "log_path": "assurance/fuzz/campaign/handshake-client/handshake-client-run2.log",
           "outcome_lines": [
             "test handshake_budget_refusal_races_the_parse_rejection_under_rechunking ... ok",
@@ -92,7 +92,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 34.886,
+          "wall_seconds": 6.645,
           "log_path": "assurance/fuzz/campaign/handshake-server/handshake-server-run1.log",
           "outcome_lines": [
             "test handshake_budget_refusal_races_the_parse_rejection_under_rechunking ... ok",
@@ -116,7 +116,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 42.015,
+          "wall_seconds": 6.717,
           "log_path": "assurance/fuzz/campaign/handshake-server/handshake-server-run2.log",
           "outcome_lines": [
             "test handshake_budget_refusal_races_the_parse_rejection_under_rechunking ... ok",
@@ -146,7 +146,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 7.994,
+          "wall_seconds": 2.078,
           "log_path": "assurance/fuzz/campaign/frame-decode/frame-decode-run1.log",
           "outcome_lines": [
             "test close_ack_emits_the_close_event_before_the_terminal_transition ... ok",
@@ -174,7 +174,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 11.573,
+          "wall_seconds": 2.029,
           "log_path": "assurance/fuzz/campaign/frame-decode/frame-decode-run2.log",
           "outcome_lines": [
             "test close_ack_emits_the_close_event_before_the_terminal_transition ... ok",
@@ -208,7 +208,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 1.492,
+          "wall_seconds": 0.52,
           "log_path": "assurance/fuzz/campaign/message-utf8/message-utf8-run1.log",
           "outcome_lines": [
             "test close_code_tables_exhaustive_against_the_java_model ... ok",
@@ -231,7 +231,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 1.006,
+          "wall_seconds": 0.221,
           "log_path": "assurance/fuzz/campaign/message-utf8/message-utf8-run2.log",
           "outcome_lines": [
             "test close_code_tables_exhaustive_against_the_java_model ... ok",
@@ -260,7 +260,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 2.335,
+          "wall_seconds": 1.184,
           "log_path": "assurance/fuzz/campaign/fragment-control-sequences/fragment-control-sequences-run1.log",
           "outcome_lines": [
             "test fragment_control_hostile_soup_no_panic_deterministic ... ok",
@@ -280,7 +280,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 6.037,
+          "wall_seconds": 1.093,
           "log_path": "assurance/fuzz/campaign/fragment-control-sequences/fragment-control-sequences-run2.log",
           "outcome_lines": [
             "test fragment_control_hostile_soup_no_panic_deterministic ... ok",
@@ -306,7 +306,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 0.441,
+          "wall_seconds": 0.195,
           "log_path": "assurance/fuzz/campaign/close-eof/close-eof-run1.log",
           "outcome_lines": [
             "test close_eof_hostile_soup_no_panic_deterministic ... ok",
@@ -324,7 +324,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 0.677,
+          "wall_seconds": 0.18,
           "log_path": "assurance/fuzz/campaign/close-eof/close-eof-run2.log",
           "outcome_lines": [
             "test close_eof_hostile_soup_no_panic_deterministic ... ok",
@@ -348,7 +348,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 3.351,
+          "wall_seconds": 0.686,
           "log_path": "assurance/fuzz/campaign/owner-driver-command-byte-schedules/owner-driver-command-byte-schedules-run1.log",
           "outcome_lines": [
             "test owner_driver_invalid_write_progress_on_a_quiescent_owner_moves_nothing ... ok",
@@ -366,7 +366,7 @@
           "exit": 0,
           "exit_text": "exit=0",
           "deadline_hit": false,
-          "wall_seconds": 0.6,
+          "wall_seconds": 0.272,
           "log_path": "assurance/fuzz/campaign/owner-driver-command-byte-schedules/owner-driver-command-byte-schedules-run2.log",
           "outcome_lines": [
             "test owner_driver_invalid_write_progress_on_a_quiescent_owner_moves_nothing ... ok",

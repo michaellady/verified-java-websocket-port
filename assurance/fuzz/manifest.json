@@ -24,7 +24,7 @@
         "rust/ws-core/tests/handshake_fuzz.rs",
         "rust/ws-driver/tests/driver_schedule_fuzz.rs"
       ],
-      "source_digest": "sha256:94a72c48f30840683ede32edb3a76a3bded638eab8ff6de1ab304c7f14f33735"
+      "source_digest": "sha256:700d44752934a593cd76b380eaff826f8efea0cbadaab4a70aaa9a1e913b0fcc"
     },
     {
       "id": "cargo-fuzz-libfuzzer",
