@@ -38,6 +38,96 @@ type BehaviorDelta struct {
 	NormativeAuthority    string   `json:"normative_authority"`
 	Disposition           string   `json:"disposition"`
 	Rationale             string   `json:"rationale"`
+	// MismatchClass is the US-020 AC3 ATTRIBUTION axis: where the mismatch
+	// this record binds ORIGINATES. It is OPTIONAL and it is declared LAST, and
+	// both facts are load-bearing.
+	//
+	// The record digest preimage is the whole delta, canonicalized by
+	// intake.CanonicalJSON, which is json.Marshal plus a compaction. A field
+	// that is present serializes; a field with `omitempty` that is empty
+	// serializes to nothing at all. So every record appended before this field
+	// existed produces byte-identical preimage bytes with the field in the
+	// struct, and the frozen prefix through sequence 35 keeps its digest. A
+	// REQUIRED field, or a field with a non-empty default, would have rewritten
+	// the chain from sequence 1 — which is exactly what the owner ruling that
+	// pins the per-record schema_version at 1.0.0 forbids.
+	MismatchClass string `json:"mismatch_class,omitempty"`
+}
+
+// THE DISPOSITION VOCABULARY, in its two independent axes.
+//
+// `disposition` answers WHAT THE PROGRAM DOES about the mismatch, and
+// `mismatch_class` answers WHERE THE MISMATCH ORIGINATES. They are separate
+// fields because they vary independently: a divergence rooted in the RFC's
+// silence can be one the port keeps deliberately (client request field order)
+// or one the port still owes an answer for (the 101 response's Server/Date
+// fields), and a divergence rooted in a Java quirk can be one the port adopts
+// (the role-gated transport close) or one nobody has ruled on yet (the stall on
+// an invalid-UTF-8 close reason). A single enum would need their cross product
+// and would force a record to misstate one axis in order to state the other.
+//
+// The `disposition` terms are not invented here. `unresolved` and `rfc-governs`
+// are the frozen 1.0.0 vocabulary, unchanged in meaning and still carried by
+// every record appended before this vocabulary existed. The three added terms
+// are the inherited foundation schema's own adoption/correction axis
+// (assurance/schema/behavior-delta-ledger.schema.json: PRESERVE,
+// INTENTIONALLY_CORRECT, UNRESOLVED) in this ledger's spelling, and they agree
+// term-for-term with the divergence sweep's recommendation vocabulary
+// (FIX_IN_PORT, LEDGER_INTENTIONAL_CORRECTION).
+const (
+	// DispositionUnresolved: no adjudication has been made. The mismatch
+	// stands and the decision is owed. Unchanged from the 1.0.0 vocabulary.
+	DispositionUnresolved = "unresolved"
+	// DispositionRFCGoverns: the RFC's requirement governs and the port
+	// follows the RFC rather than Java. Unchanged from the 1.0.0 vocabulary.
+	DispositionRFCGoverns = "rfc-governs"
+	// DispositionAdoptJava: the port reproduces shipped Java, including where
+	// Java departs from the RFC. The foundation schema's PRESERVE.
+	DispositionAdoptJava = "adopt-java"
+	// DispositionFixInPort: the remedy is a change in the Rust port, which is
+	// short of its equivalence target. The sweep's FIX_IN_PORT.
+	DispositionFixInPort = "fix-in-port"
+	// DispositionIntentionalCorrection: the port deliberately differs from
+	// shipped Java and keeps the difference, disclosed rather than removed.
+	// The foundation schema's INTENTIONALLY_CORRECT.
+	DispositionIntentionalCorrection = "intentional-correction"
+)
+
+// The `mismatch_class` terms are US-020 AC3's three, verbatim in meaning:
+// "Java quirk, Rust defect, or underspecified behavior". Each names one of the
+// three places a mismatch can originate, and exactly one of them is true of any
+// given record:
+//
+//   - MismatchJavaQuirk: RFC 6455 determines the observable and the pinned Java
+//     runtime is on the other side of it.
+//   - MismatchRustDefect: Java and the RFC agree, or Java is the equivalence
+//     target on a point the RFC leaves open, and the PORT fails to reproduce it.
+//   - MismatchUnderspecified: RFC 6455 does not determine the observable at
+//     all, and Java and the port each chose differently.
+const (
+	MismatchJavaQuirk      = "java-quirk"
+	MismatchRustDefect     = "rust-defect"
+	MismatchUnderspecified = "underspecified-behavior"
+)
+
+// Dispositions and MismatchClasses are the closed vocabularies, exported so a
+// consumer cannot drift a private copy away from the one Validate enforces.
+func Dispositions() []string {
+	return []string{DispositionUnresolved, DispositionRFCGoverns, DispositionAdoptJava,
+		DispositionFixInPort, DispositionIntentionalCorrection}
+}
+
+func MismatchClasses() []string {
+	return []string{MismatchJavaQuirk, MismatchRustDefect, MismatchUnderspecified}
+}
+
+func inVocabulary(value string, vocabulary []string) bool {
+	for _, term := range vocabulary {
+		if value == term {
+			return true
+		}
+	}
+	return false
 }
 
 func (d BehaviorDelta) Validate() error {
@@ -47,8 +137,17 @@ func (d BehaviorDelta) Validate() error {
 	if d.NormativeAuthority != "rfc6455" {
 		return finding("INVALID_ORACLE_AUTHORITY", "$.normative_authority", "RFC 6455 must remain normative over Java and Autobahn observations")
 	}
-	if d.Disposition != "unresolved" && d.Disposition != "rfc-governs" {
+	if !inVocabulary(d.Disposition, Dispositions()) {
 		return finding("INVALID_BEHAVIOR_DELTA", "$.disposition", "disposition is outside the stable provisional vocabulary")
+	}
+	// The EMPTY mismatch class is admitted, and only the empty one: it is what
+	// every record appended before this axis existed carries, and admitting it
+	// is what leaves those records' digest preimages byte-identical. Whether an
+	// EMPTY class is ACCEPTABLE on a given record is a ledger-level question
+	// about that record's position and rationale, not a delta-level one, and it
+	// is answered by deltaledger.VerifyAdjudication.
+	if d.MismatchClass != "" && !inVocabulary(d.MismatchClass, MismatchClasses()) {
+		return finding("INVALID_BEHAVIOR_DELTA", "$.mismatch_class", "mismatch class is outside the US-020 AC3 vocabulary")
 	}
 	if d.Rationale == "" || len(d.Rationale) > 4096 || strings.ContainsRune(d.Rationale, 0) {
 		return finding("INVALID_BEHAVIOR_DELTA", "$.rationale", "bounded rationale is required")

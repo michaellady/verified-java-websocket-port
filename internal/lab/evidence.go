@@ -14,14 +14,18 @@ const (
 	JavaTestEvidenceSchema    = "../../schemas/java-test-manifest-1.0.0.schema.json"
 	JavaDefaultPolicySchema   = "../../schemas/java-default-policy-behavior-1.0.0.schema.json"
 	AutobahnEvidenceSchema    = "../../schemas/autobahn-baseline-1.0.0.schema.json"
-	// BehaviorLedgerSchema is the LEDGER DOCUMENT schema, bumped to 1.1.0 under
-	// the owner ruling of 2026-08-28 so the document can carry a first-class
-	// `supersessions` array that this package's readiness gate consumes. The
-	// PER-RECORD schema_version stays 1.0.0: it is inside every record's digest
-	// preimage, so bumping it would rewrite the hash chain from sequence 1 and
-	// break the frozen prefix the same ruling protects.
-	BehaviorLedgerSchema        = "../../schemas/behavior-delta-ledger-1.1.0.schema.json"
-	BehaviorLedgerSchemaVersion = "1.1.0"
+	// BehaviorLedgerSchema is the LEDGER DOCUMENT schema. 1.1.0 added the
+	// first-class `supersessions` array; 1.2.0 adds the disposition vocabulary
+	// — the record-level optional `mismatch_class` (US-020 AC3's attribution
+	// axis) and the document-level computed `records_without_mismatch_class`.
+	// The PER-RECORD schema_version stays 1.0.0 through both bumps: it is
+	// inside every record's digest preimage, so bumping it would rewrite the
+	// hash chain from sequence 1 and break the frozen prefix the owner ruling
+	// of 2026-08-28 protects. That is also why `mismatch_class` is optional
+	// rather than defaulted — an absent field serializes to nothing, so the
+	// records that predate it keep their digests exactly.
+	BehaviorLedgerSchema        = "../../schemas/behavior-delta-ledger-1.2.0.schema.json"
+	BehaviorLedgerSchemaVersion = "1.2.0"
 )
 
 const (
@@ -373,6 +377,12 @@ type ledgerEvidence struct {
 	// re-deriving it.
 	Supersessions           []SupersessionLink `json:"supersessions"`
 	UnledgeredDisagreements int                `json:"unledgered_disagreements"`
+	// RecordsWithoutMismatchClass is the 1.2.0 addition: how many records in
+	// the chain carry no US-020 AC3 mismatch class. It is DECLARED by the
+	// document and RECOMPUTED here, for the same reason the supersession array
+	// is: a readiness gate that believed the declaration could be told the
+	// residual is zero.
+	RecordsWithoutMismatchClass int `json:"records_without_mismatch_class"`
 }
 
 // VerifyBaselineEvidence is the single fail-closed readiness decision. Every
@@ -829,6 +839,21 @@ func validateLedgerEvidence(value ledgerEvidence) error {
 	}
 	if value.UnledgeredDisagreements != 0 {
 		return finding("UNLEDGERED_BEHAVIOR_DISAGREEMENT", "$.ledger.unledgered_disagreements", "readiness requires every observed disagreement to be ledgered")
+	}
+	// THE 1.2.0 ADDITION, and it is a RECOMPUTATION rather than a bound. The
+	// residual is not required to be zero: forty-nine records were sealed
+	// before the mismatch-class axis existed and their digest preimages cannot
+	// be altered to carry one. What IS required is that the published number
+	// equal the chain, so the size of that residual cannot be understated.
+	unclassed := 0
+	for _, record := range value.Records {
+		if record.Delta.MismatchClass == "" {
+			unclassed++
+		}
+	}
+	if value.RecordsWithoutMismatchClass != unclassed {
+		return finding("INVALID_BEHAVIOR_LEDGER", "$.ledger.records_without_mismatch_class",
+			"the declared count of records with no US-020 AC3 mismatch class does not equal the record chain")
 	}
 	switch value.Status {
 	case "READY":

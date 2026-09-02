@@ -67,6 +67,18 @@ type Definition struct {
 	// fidelity evidence, ws_core implementation site, safety note, and the
 	// owner-decision citation.
 	Rationale string
+	// Disposition is WHAT THE PROGRAM DOES about the mismatch, in the 1.2.0
+	// vocabulary (internal/lab.Dispositions). EMPTY MEANS "unresolved", which
+	// is the token every record sealed before the vocabulary existed carries;
+	// that is why every definition written before this field reproduces its
+	// record byte-for-byte with the field left alone.
+	Disposition string
+	// MismatchClass is WHERE THE MISMATCH ORIGINATES, in US-020 AC3's three
+	// classes (internal/lab.MismatchClasses). Empty means the record makes no
+	// attribution. VerifyAdjudication refuses an empty class on any record
+	// appended after PreVocabularySequence, and on any record whose disposition
+	// is not "unresolved", so emptiness is grandfathered rather than allowed.
+	MismatchClass string
 	// Supersedes names the earlier ledger records this record CORRECTS, as
 	// structured data rather than as prose. The builder emits a canonical
 	// machine-parsable token for each at the head of the rationale, which is
@@ -219,6 +231,12 @@ func Definitions() []Definition {
 	// keeps its digest, and only this record's own sequence and
 	// previous_digest move.
 	definitions = append(definitions, layerSplitDefinitions()...)
+	// Appended LAST of all at THIS landing, sequences 50-56: the seven records
+	// that were drafted and held because the 1.1.0 disposition vocabulary could
+	// not say what they turn on. Appending them last is what leaves every
+	// earlier record's sequence, previous_digest and record_digest untouched —
+	// the frozen prefix through 35 and the whole 36-49 tail alike.
+	definitions = append(definitions, adjudicatedDefinitions()...)
 	return definitions
 }
 

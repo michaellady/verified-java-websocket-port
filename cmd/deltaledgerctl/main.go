@@ -152,8 +152,9 @@ func run(root string, check bool) error {
 			deltaledger.SupersessionsRelativePath, len(supersessions.Links))
 		fmt.Printf("ok: ledger integrity verified (frozen prefix through sequence %d, evidence document schemas, "+
 			"observation provenance, handshake mapping census, protocol-rejection class, census evidence and ledger "+
-			"binding, supersessions, unledgered_disagreements recomputed = %d)\n",
-			deltaledger.FrozenPrefixSequence, built.UnledgeredDisagreements)
+			"binding, supersessions, adjudication, held proposal drafts, unledgered_disagreements recomputed = %d, "+
+			"records_without_mismatch_class recomputed = %d)\n",
+			deltaledger.FrozenPrefixSequence, built.UnledgeredDisagreements, built.RecordsWithoutMismatchClass)
 		fmt.Printf("ok: %s equals the derivation and %d governance record digest(s) recomputed from the protected "+
 			"store and matched\n", deltaledger.OwnerDecisionManifestRelativePath, verifiedDecisions)
 		return nil
@@ -175,5 +176,7 @@ func run(root string, check bool) error {
 	fmt.Printf("wrote %s: %d governance record digest(s)\n",
 		deltaledger.OwnerDecisionManifestRelativePath, len(manifest.Decisions))
 	fmt.Printf("unledgered_disagreements = %d\n", built.UnledgeredDisagreements)
+	fmt.Printf("records_without_mismatch_class = %d of %d\n",
+		built.RecordsWithoutMismatchClass, len(built.Records))
 	return nil
 }

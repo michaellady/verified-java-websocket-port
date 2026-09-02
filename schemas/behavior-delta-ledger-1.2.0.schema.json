@@ -1,0 +1,264 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/behavior-delta-ledger-1.2.0.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "evidence_kind",
+    "accepted_root_digest",
+    "status",
+    "normative_authority",
+    "head",
+    "records",
+    "append_implementation",
+    "supersessions",
+    "unledgered_disagreements",
+    "records_without_mismatch_class",
+    "production",
+    "publication"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/behavior-delta-ledger-1.2.0.schema.json"
+    },
+    "schema_version": {
+      "const": "1.2.0"
+    },
+    "evidence_kind": {
+      "const": "behavior-delta-ledger"
+    },
+    "accepted_root_digest": {
+      "$ref": "#/$defs/digest"
+    },
+    "status": {
+      "enum": [
+        "READY",
+        "BLOCKED_PENDING_BASELINE"
+      ]
+    },
+    "normative_authority": {
+      "const": "rfc6455"
+    },
+    "head": {
+      "$ref": "#/$defs/digest"
+    },
+    "records": {
+      "type": "array",
+      "maxItems": 100000,
+      "items": {
+        "$ref": "#/$defs/record"
+      }
+    },
+    "append_implementation": {
+      "const": "hash-chained-cas"
+    },
+    "supersessions": {
+      "type": "array",
+      "maxItems": 100000,
+      "description": "The supersession links the record chain's own hashed rationales carry, declared as data. internal/lab re-derives them from the records and refuses a document that declares anything else, so this array is a convenience for consumers and never an authority of its own.",
+      "items": {
+        "$ref": "#/$defs/supersession_link"
+      }
+    },
+    "unledgered_disagreements": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000,
+      "description": "COMPUTED count of observed disagreements (evidence/java/observed-disagreements.json) that have no ledger record. Was previously const 0, which made it a gate that could not fail; the zero REQUIREMENT now lives in the readiness gate (internal/lab VerifyBaselineEvidence), which refuses readiness on any nonzero value."
+    },
+    "records_without_mismatch_class": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100000,
+      "description": "COMPUTED count of records in the chain that carry no `mismatch_class`. It is deliberately NOT const 0 and NOT bounded above by anything but the chain length: forty-nine records were sealed before the mismatch-class axis existed, their digest preimages cannot be altered to carry one, and a schema that admitted only zero would be the same fake gate `unledgered_disagreements` used to be. The number is recomputed from the records by internal/deltaledger.VerifyAdjudication and by internal/lab.VerifyBaselineEvidence, so it can be wrong but it cannot be understated."
+    },
+    "production": {
+      "const": false
+    },
+    "publication": {
+      "const": false
+    }
+  },
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "record": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "sequence",
+        "previous_digest",
+        "delta",
+        "record_digest"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "previous_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "delta": {
+          "$ref": "#/$defs/delta"
+        },
+        "record_digest": {
+          "$ref": "#/$defs/digest"
+        }
+      }
+    },
+    "delta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "delta_id",
+        "subject_ref",
+        "rfc_refs",
+        "rfc_expectation_digest",
+        "rfc_value_digest",
+        "java_ref",
+        "java_observation_digest",
+        "java_value_digest",
+        "autobahn_refs",
+        "autobahn_result_digest",
+        "autobahn_value_digest",
+        "disagreement_digest",
+        "normative_authority",
+        "disposition",
+        "rationale"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0"
+        },
+        "delta_id": {
+          "type": "string",
+          "pattern": "^delta-[0-9a-f]{64}$"
+        },
+        "subject_ref": {
+          "type": "string",
+          "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"
+        },
+        "rfc_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^rfc6455#section-[0-9]+(?:\\.[0-9]+)*$"
+          }
+        },
+        "rfc_expectation_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "rfc_value_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "java_ref": {
+          "type": "string",
+          "pattern": "^java-v1\\.6\\.0:[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"
+        },
+        "java_observation_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "java_value_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "autobahn_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^autobahn-v25\\.10\\.1:([1-7]|9|10|12|13)\\.[0-9]+(?:\\.[0-9]+)*$"
+          }
+        },
+        "autobahn_result_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "autobahn_value_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "disagreement_digest": {
+          "$ref": "#/$defs/digest"
+        },
+        "normative_authority": {
+          "const": "rfc6455"
+        },
+        "disposition": {
+          "enum": [
+            "unresolved",
+            "rfc-governs",
+            "adopt-java",
+            "fix-in-port",
+            "intentional-correction"
+          ],
+          "description": "WHAT THE PROGRAM DOES about the mismatch. `unresolved` (no adjudication; the decision is owed) and `rfc-governs` (the RFC governs and the port follows it) are the frozen 1.0.0 terms, unchanged in meaning. The three 1.2.0 terms are the inherited foundation schema's adoption/correction axis (assurance/schema/behavior-delta-ledger.schema.json PRESERVE / INTENTIONALLY_CORRECT / UNRESOLVED) in this ledger's spelling: `adopt-java` reproduces shipped Java including where Java departs from the RFC, `fix-in-port` says the remedy is a change in the Rust port, `intentional-correction` says the port deliberately differs from Java and keeps the difference. Extending the enum adds terms and redefines none, so every record already sealed still validates with the token it was sealed with."
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4096
+        },
+        "mismatch_class": {
+          "enum": [
+            "java-quirk",
+            "rust-defect",
+            "underspecified-behavior"
+          ],
+          "description": "WHERE THE MISMATCH ORIGINATES: US-020 AC3's three classes. `java-quirk` = RFC 6455 determines the observable and the pinned Java runtime is on the other side of it. `rust-defect` = Java and the RFC agree (or Java is the equivalence target on a point the RFC leaves open) and the PORT fails to reproduce it. `underspecified-behavior` = RFC 6455 does not determine the observable at all and Java and the port each chose differently. OPTIONAL, and that is the whole reason the frozen prefix survives this bump: the record digest preimage is the canonical JSON of the delta, so a field that is absent contributes no bytes and every record sealed before this axis existed keeps its digest. A required field, or one with a non-empty default, would have rewritten the chain from sequence 1. Absence is not silence: internal/deltaledger.VerifyAdjudication refuses a record with no class unless that record predates the vocabulary AND states its adjudication inside its own hashed rationale, and the residual is published as records_without_mismatch_class."
+        }
+      }
+    },
+    "supersession_link": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "superseded_sequence",
+        "superseded_delta_id",
+        "superseded_subject_ref",
+        "superseding_sequence",
+        "superseding_delta_id",
+        "superseding_subject_ref"
+      ],
+      "properties": {
+        "superseded_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "superseded_delta_id": {
+          "type": "string",
+          "pattern": "^delta-[0-9a-f]{64}$"
+        },
+        "superseded_subject_ref": {
+          "type": "string",
+          "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"
+        },
+        "superseding_sequence": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "superseding_delta_id": {
+          "type": "string",
+          "pattern": "^delta-[0-9a-f]{64}$"
+        },
+        "superseding_subject_ref": {
+          "type": "string",
+          "pattern": "^semantic:[a-z0-9][a-z0-9._-]{0,127}:provisional-v[0-9]+$"
+        }
+      }
+    }
+  },
+  "description": "Behavior-delta ledger DOCUMENT, version 1.2.0. THE 1.2.0 BUMP adds the DISPOSITION VOCABULARY: three terms on `disposition` and the optional per-record `mismatch_class`, plus the computed document-level `records_without_mismatch_class`. It exists because US-020 AC3 requires every mismatch to be recorded as a Java quirk, a Rust defect or underspecified behavior, and the 1.1.0 vocabulary could say neither that nor the adoption-versus-correction question the pending records turn on: `disposition` admitted only `unresolved` and `rfc-governs`, and all forty-nine records read `unresolved`. The two axes are separate FIELDS because they vary independently — the RFC's silence about handshake field order yields one record the port keeps deliberately and one it still owes an answer for. WHAT 1.1.0 SAID ABOUT THE FROZEN PREFIX STILL HOLDS AND IS WHY `mismatch_class` IS OPTIONAL, see its description. Everything below this sentence is the 1.1.0 description, unchanged. ---- Behavior-delta ledger DOCUMENT, version 1.1.0. The bump is at the document level and only there. 1.1.0 adds the first-class `supersessions` array so the readiness gate in internal/lab can see which records the chain records as withdrawn: before it, supersession existed only as a token inside each correcting record's hashed rationale plus a sidecar, and internal/lab.VerifyBaselineEvidence -- the one consumer that decides release readiness -- validated every record identically, so a withdrawn record stayed authoritative to it. The PER-RECORD schema_version stays 1.0.0 on purpose: it is inside every record's digest preimage, so bumping it would change every record digest and rewrite the hash chain from sequence 1, breaking the frozen prefix (sequence 35 at sha256:3fcd461cfea72e049628a0031bfbb90addecea2f2bb6997e62280cad1962656d) that the same owner ruling protects. Authority: protected/governance-mirroring-and-record-schema-owner-decision-2026-08-28.json, sha256 e6837006a722b71f6b7137b82be31f4a9e8d802f0ef4c0614dbd4016f27c361f, decided 2026-08-28T20:05:00Z."
+}

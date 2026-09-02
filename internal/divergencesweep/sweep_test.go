@@ -196,11 +196,26 @@ func TestAlreadyLedgeredClassResolvesInTheLedgerAndTheRegister(t *testing.T) {
 	}
 }
 
-// Every class recommended for a ledger record proposes a subject_ref that the
-// committed ledger does NOT yet carry. This is a tripwire on purpose: the day
-// a proposal lands, this fails and the sweep document's recommendation has to
-// be brought up to date rather than quietly going stale.
-func TestProposedLedgerRecordsHaveNotLandedYet(t *testing.T) {
+// Every class that proposes a ledger record agrees with the committed ledger
+// about whether that record exists, and where.
+//
+// THIS TEST USED TO SAY "HAVE NOT LANDED YET", asserting the proposed
+// subject_ref was ABSENT from the ledger, as a tripwire on a stale
+// recommendation. THE TRIPWIRE FIRED: all six proposals landed at sequences
+// 51-56 once the behavior-delta ledger gained a disposition vocabulary that
+// could express what they turn on. Following its own instruction — "the
+// proposal has landed, so update this sweep's recommendation" — the rule is now
+// the CONSISTENCY one, and it is strictly stronger than what it replaces:
+//
+//   - a proposal the ledger CARRIES must be recorded as landed AT THAT EXACT
+//     SEQUENCE, so a landing nobody records still fails here, exactly as
+//     before, and a landing recorded at the wrong sequence now fails too;
+//   - a proposal the ledger does NOT carry must not claim to have landed, so
+//     the field cannot be filled in ahead of the append.
+//
+// Both directions are checked, so neither an unrecorded landing nor an invented
+// one passes.
+func TestProposedLedgerRecordsAgreeWithTheCommittedLedger(t *testing.T) {
 	root := repoRoot(t)
 	_, document, err := Recompute(root)
 	if err != nil {
@@ -210,19 +225,33 @@ func TestProposedLedgerRecordsHaveNotLandedYet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	proposed := 0
+	proposed, landed := 0, 0
 	for _, class := range document.Classes {
 		if class.ProposedLedgerSubjectRef == "" {
 			continue
 		}
 		proposed++
-		if sequence, landed := refs[class.ProposedLedgerSubjectRef]; landed {
-			t.Fatalf("class %s proposes subject_ref %q and the committed ledger now carries it at sequence %d: the proposal has landed, so update this sweep's recommendation and drafts/ledger-proposals/",
+		sequence, inLedger := refs[class.ProposedLedgerSubjectRef]
+		switch {
+		case inLedger && class.LandedLedgerSequence == 0:
+			t.Fatalf("class %s proposes subject_ref %q and the committed ledger carries it at sequence %d, but the class records no landing: the proposal has landed and this sweep still reads as though it had not",
 				class.ID, class.ProposedLedgerSubjectRef, sequence)
+		case inLedger && class.LandedLedgerSequence != sequence:
+			t.Fatalf("class %s records its proposal as landed at sequence %d; the committed ledger carries %q at %d",
+				class.ID, class.LandedLedgerSequence, class.ProposedLedgerSubjectRef, sequence)
+		case !inLedger && class.LandedLedgerSequence != 0:
+			t.Fatalf("class %s records its proposal as landed at sequence %d, but the committed ledger does not carry %q at all",
+				class.ID, class.LandedLedgerSequence, class.ProposedLedgerSubjectRef)
+		}
+		if inLedger {
+			landed++
 		}
 	}
 	if proposed == 0 {
 		t.Fatal("no class proposes a ledger record, so this check proved nothing")
+	}
+	if landed == 0 {
+		t.Fatal("no proposed record is in the committed ledger, so the landed arm of this check proved nothing")
 	}
 }
 
