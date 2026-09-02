@@ -19,6 +19,20 @@ used it on the seven records appended at sequences 50–56. The forty-nine seale
 before the field existed carry nothing, and the ledger publishes the honest
 residual `records_without_mismatch_class = 49` on every check.
 
+### AC3's own sentence is in tension for these forty-nine
+
+AC3 reads: *"Every mismatch is minimized, reproducible, and appended to the
+Behavior Delta Ledger as Java quirk, Rust defect, or underspecified behavior
+with finding/adjudication evidence **and no rewritten history**."* For records
+sealed before the vocabulary existed, the first clause and the last cannot both
+be satisfied by putting the class in the record: writing it in IS rewriting
+history. A strict reader who holds that the class must live inside the appended
+record will find this design short of AC3's letter, and should say so. What this
+branch claims is narrower and, I think, the most that can honestly be claimed:
+**the adjudication exists, is sealed, is bound to the record by that record's
+own content, and is recomputed rather than declared — with no byte of history
+rewritten.**
+
 **Rejected: classify in place (all forty-nine).** A record's digest preimage is
 the canonical JSON of its whole delta, so a byte added to any record from 1 to
 35 rewrites the chain and breaks the prefix
