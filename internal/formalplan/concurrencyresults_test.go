@@ -197,7 +197,6 @@ func TestConcurrencyResultsDetectsCountersThatContradictTheCitedRun(t *testing.T
 		{"queue_full_refusals", []string{"execution", "counters"}, "queue_full_refusals", float64(59359)},
 		{"applied", []string{"execution", "counters"}, "applied", float64(68145)},
 		{"typed_rejections", []string{"execution", "counters"}, "typed_rejections", float64(22827)},
-		{"terminal_rejections", []string{"execution", "counters"}, "terminal_rejections", float64(115235)},
 		{"events_drained", []string{"execution", "counters"}, "events_drained", float64(471172)},
 		{"surfaced_typed_failures", []string{"execution", "counters"}, "surfaced_typed_failures", float64(26997)},
 		{"deferred_output_pending", []string{"execution", "counters"}, "deferred_output_pending", float64(27709)},
@@ -206,7 +205,8 @@ func TestConcurrencyResultsDetectsCountersThatContradictTheCitedRun(t *testing.T
 		{"typed_input_rejections", []string{"execution", "counters"}, "typed_input_rejections", float64(52419)},
 		{"max_drain_polls_observed", []string{"execution", "counters"}, "max_drain_polls_observed", float64(13)},
 		{"actor_programs", []string{"bounds"}, "actor_programs", float64(6)},
-		{"actions_per_schedule", []string{"bounds"}, "actions_per_schedule", float64(13)},
+		{"scenarios", []string{"bounds"}, "scenarios", float64(3)},
+		{"actions_across_scenarios", []string{"bounds"}, "actions_across_scenarios", float64(20)},
 		{"context_switch_bound", []string{"bounds"}, "context_switch_bound", float64(8)},
 		{"preemption_budget", []string{"bounds"}, "preemption_budget", float64(4)},
 		// Review 01a0487b BLOCKING 2. These four bounds were tied to nothing
@@ -263,7 +263,7 @@ func TestConcurrencyResultsRejectsAnUncitedOrUnusableRun(t *testing.T) {
 		}
 		kept := []string{}
 		for _, token := range strings.Fields(line) {
-			if strings.HasPrefix(token, "terminal_rejected=") {
+			if strings.HasPrefix(token, "rejected=") {
 				continue
 			}
 			kept = append(kept, token)
@@ -461,13 +461,29 @@ func TestConcurrencyResultsRefusesMisdirectedProvenance(t *testing.T) {
 // plan's own declared ceilings, read from the plan, not from this document's
 // prose.
 func TestConcurrencyResultsChecksPlanConformanceAgainstThePlan(t *testing.T) {
+	// The action ceiling now binds the LONGEST scenario rather than a single
+	// actions_per_schedule bound, so its case mutates the scenario shape the
+	// ceiling is derived from instead of a flat bounds field.
+	t.Run("actions per schedule exceeds the plan ceiling", func(t *testing.T) {
+		document := crTestDecode(t)
+		shapes, ok := crTestSection(t, document, "bounds")["scenario_shapes"].([]any)
+		if !ok || len(shapes) == 0 {
+			t.Fatalf("bounds.scenario_shapes is not a non-empty array")
+		}
+		shape, ok := shapes[0].(map[string]any)
+		if !ok {
+			t.Fatalf("bounds.scenario_shapes[0] is not an object")
+		}
+		shape["actions_per_schedule"] = float64(65)
+		findings := ValidateConcurrencyResults(crTestWrite(t, document))
+		crTestRequireCode(t, findings, "RESULTS_PLAN_CONFORMANCE_VIOLATED")
+	})
 	for _, testCase := range []struct {
 		name   string
 		field  string
 		value  any
 		expect string
 	}{
-		{"actions per schedule exceeds the plan ceiling", "actions_per_schedule", float64(65), "RESULTS_PLAN_CONFORMANCE_VIOLATED"},
 		{"event queue exceeds the plan ceiling", "event_queue_capacity", float64(9), "RESULTS_PLAN_CONFORMANCE_VIOLATED"},
 		{"preemption budget disagrees with the plan bound", "preemption_budget", float64(2), "RESULTS_PLAN_CONFORMANCE_VIOLATED"},
 		{"schedule ceiling disagrees with the plan", "schedule_count_max", float64(200000), "RESULTS_PLAN_CONFORMANCE_VIOLATED"},
@@ -493,25 +509,27 @@ func TestConcurrencyResultsProseReconciliationIsFieldSpecific(t *testing.T) {
 		to   string
 	}{
 		{
-			// The reviewer's own example.
-			name: "schedule total substituted for the terminal total",
-			from: "in aggregate: terminals total 56777 ==",
-			to:   "in aggregate: terminals total 79920 ==",
+			// The reviewer's own example, retargeted onto the sentence's
+			// current wording: the schedule total substituted for the
+			// failure total the clause is actually about.
+			name: "schedule total substituted for the failure total",
+			from: "surfaced failures total 81131 ==",
+			to:   "surfaced failures total 81180 ==",
 		},
 		{
-			name: "halted total substituted for the terminal total in the model sentence",
-			from: "(56777 runs, exactly one Terminal each",
-			to:   "(23143 runs, exactly one Terminal each",
+			name: "schedule total substituted for the halted total in the model sentence",
+			from: "(81131 runs, exactly one surfaced failure each",
+			to:   "(81180 runs, exactly one surfaced failure each",
 		},
 		{
 			name: "a quoted counter dropped from the conformance sentence",
-			from: "315070 enumeration branches (<= branch_count_max 1000000)",
+			from: "318661 enumeration branches (<= branch_count_max 1000000)",
 			to:   "enumeration branches (<= branch_count_max 1000000)",
 		},
 		{
 			name: "the outcome sentence quotes a different recorded number",
-			from: "across all 79920 schedules",
-			to:   "across all 52924 schedules",
+			from: "across all 81180 schedules in the main sweep",
+			to:   "across all 37813 schedules in the main sweep",
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -645,9 +663,9 @@ func TestConcurrencyResultsDetectsProseThatContradictsTheCounters(t *testing.T) 
 			},
 		},
 		{
-			name: "terminal_rejections moves but the reconciliation sentence does not",
+			name: "typed_rejections moves but the reconciliation sentence does not",
 			mutate: func(t *testing.T, document map[string]any) {
-				crTestSection(t, document, "execution", "counters")["terminal_rejections"] = float64(115000)
+				crTestSection(t, document, "execution", "counters")["typed_rejections"] = float64(115000)
 			},
 		},
 		{

@@ -82,6 +82,22 @@
         35
       ],
       "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    },
+    {
+      "name": "us017-c6-layer-split-owner-decision-2026-08-28.json",
+      "sha256": "d41b5307de3a85f6e83d49767a366035139721eadb03be0efb4784af810bb8c6",
+      "cited_by_sequences": [
+        49
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
+    },
+    {
+      "name": "us017-post-failure-owner-decisions-2026-08-28.json",
+      "sha256": "612546e8ee34cf6979d1258b0f2f020aeacfeedee3e22a291c4e4c9e6c474a33",
+      "cited_by_sequences": [
+        49
+      ],
+      "basis": "cited by the hashed rationale of the ledger records listed in cited_by_sequences"
     }
   ]
 }

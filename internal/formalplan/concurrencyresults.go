@@ -220,10 +220,37 @@ type crPreregisteredPlan struct {
 	SHA256Provenance string `json:"sha256_provenance"`
 }
 
+// crScenarioShape is ONE explored scenario: its own five-actor program set,
+// its own action count, and why it is explored at all.
+//
+// The exploration ran a single program set until owner decision
+// us017-exploration-program-set-owner-decision-2026-08-28 (sha 86793909) added
+// the clean-finish scenario, so "the actions per schedule" stopped being one
+// number. Modelling the scenarios rather than flattening them is what keeps
+// the shrink lengths, the plan ceiling and the program-shape sentence checkable
+// per scenario instead of against a figure that describes neither.
+type crScenarioShape struct {
+	Name               string `json:"name"`
+	ProgramShape       string `json:"program_shape"`
+	ActionsPerSchedule int    `json:"actions_per_schedule"`
+	Models             string `json:"models"`
+	WhyExplored        string `json:"why_explored"`
+}
+
 type crBounds struct {
-	ActorPrograms                int    `json:"actor_programs"`
-	ProgramShape                 string `json:"program_shape"`
-	ActionsPerSchedule           int    `json:"actions_per_schedule"`
+	ActorPrograms int `json:"actor_programs"`
+	// Scenarios is re-derived from the cited run's `scenarios=` field and must
+	// equal len(ScenarioShapes).
+	Scenarios    int    `json:"scenarios"`
+	ProgramShape string `json:"program_shape"`
+	// ScenarioShapes carries every explored scenario. ScenarioShapes[0] is the
+	// scenario ProgramShape above describes, and that identity is checked.
+	ScenarioShapes []crScenarioShape `json:"scenario_shapes"`
+	// ActionsAcrossScenarios is re-derived from the cited run's
+	// `actions_total=` field and must equal the sum of the per-scenario action
+	// counts. It replaced actions_per_schedule, which named a single number
+	// that no longer exists once more than one scenario is explored.
+	ActionsAcrossScenarios       int    `json:"actions_across_scenarios"`
 	ContextSwitchBound           int    `json:"context_switch_bound"`
 	ContextSwitchBoundDerivation string `json:"context_switch_bound_derivation"`
 	PreemptionBudget             int    `json:"preemption_budget"`
@@ -236,11 +263,17 @@ type crBounds struct {
 }
 
 type crCounters struct {
-	AcceptedCommands             int    `json:"accepted_commands"`
-	QueueFullRefusals            int    `json:"queue_full_refusals"`
-	Applied                      int    `json:"applied"`
-	TypedRejections              int    `json:"typed_rejections"`
-	TerminalRejections           int    `json:"terminal_rejections"`
+	AcceptedCommands  int `json:"accepted_commands"`
+	QueueFullRefusals int `json:"queue_full_refusals"`
+	Applied           int `json:"applied"`
+	TypedRejections   int `json:"typed_rejections"`
+	// terminal_rejections is GONE, not merely unused. Owner decision
+	// us017-post-terminal-owner-decision-2026-08-28 (`post-terminal-command`)
+	// removed CommandDisposition::TerminalRejected: a command arriving after
+	// convergence is applied to the core like any other and surfaces the
+	// core's own STATE_VIOLATION, which lands in typed_rejections. Keeping a
+	// field for a disposition the driver can no longer produce would let a
+	// record report a count nothing measures.
 	Reconciliation               string `json:"reconciliation"`
 	EventsDrained                int    `json:"events_drained"`
 	SurfacedTypedFailures        int    `json:"surfaced_typed_failures"`
@@ -495,6 +528,7 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 	findings = append(findings, crValidateRequiredKeys(raw, inputs.ResultsPath)...)
 
 	findings = append(findings, crValidateProvenance(results, inputs)...)
+	findings = append(findings, crValidateScenarioNames(results, inputs)...)
 	findings = append(findings, crValidateExecutedRun(results, rawLine, rawLineErr, inputs.ResultsPath)...)
 	findings = append(findings, crValidateSweepRun(results, raw, inputs.ResultsPath)...)
 	findings = append(findings, crValidateAccounting(results, inputs.ResultsPath)...)
@@ -750,10 +784,15 @@ func crRawStdoutLine(raw []byte) (string, error) {
 // `typed_rejections`); writing the mapping out is what makes the rename
 // auditable instead of a silent re-label.
 var crRunFieldToCounter = map[string]string{
-	"programs":             "bounds.actor_programs",
-	"actions_total":        "bounds.actions_per_schedule",
-	"context_switch_bound": "bounds.context_switch_bound",
-	"preemption_budget":    "bounds.preemption_budget",
+	// The exploration prints `programs_per_scenario` because the five actor
+	// programs are per scenario, not per run; the document keeps the older
+	// `actor_programs` name. Both count the same thing and the mapping is
+	// written down here rather than being a silent re-label.
+	"scenarios":             "bounds.scenarios",
+	"programs_per_scenario": "bounds.actor_programs",
+	"actions_total":         "bounds.actions_across_scenarios",
+	"context_switch_bound":  "bounds.context_switch_bound",
+	"preemption_budget":     "bounds.preemption_budget",
 	// Review 01a0487b BLOCKING 2: these four were declared bounds the document
 	// presents as part of the run, tied to neither the measured line nor the
 	// plan. Measured before the fix: changing command_queue_capacity from 2 to
@@ -774,7 +813,6 @@ var crRunFieldToCounter = map[string]string{
 	"refused_full":            "execution.counters.queue_full_refusals",
 	"applied":                 "execution.counters.applied",
 	"rejected":                "execution.counters.typed_rejections",
-	"terminal_rejected":       "execution.counters.terminal_rejections",
 	"events":                  "execution.counters.events_drained",
 	"failures":                "execution.counters.surfaced_typed_failures",
 	"deferred_output_pending": "execution.counters.deferred_output_pending",
@@ -895,7 +933,8 @@ func crDocumentCounters(results crResults) map[string]int {
 	counters := results.Execution.Counters
 	return map[string]int{
 		"bounds.actor_programs":                               results.Bounds.ActorPrograms,
-		"bounds.actions_per_schedule":                         results.Bounds.ActionsPerSchedule,
+		"bounds.scenarios":                                    results.Bounds.Scenarios,
+		"bounds.actions_across_scenarios":                     results.Bounds.ActionsAcrossScenarios,
 		"bounds.context_switch_bound":                         results.Bounds.ContextSwitchBound,
 		"bounds.preemption_budget":                            results.Bounds.PreemptionBudget,
 		"bounds.command_queue_capacity":                       results.Bounds.CommandQueue,
@@ -912,7 +951,6 @@ func crDocumentCounters(results crResults) map[string]int {
 		"execution.counters.queue_full_refusals":              counters.QueueFullRefusals,
 		"execution.counters.applied":                          counters.Applied,
 		"execution.counters.typed_rejections":                 counters.TypedRejections,
-		"execution.counters.terminal_rejections":              counters.TerminalRejections,
 		"execution.counters.events_drained":                   counters.EventsDrained,
 		"execution.counters.surfaced_typed_failures":          counters.SurfacedTypedFailures,
 		"execution.counters.deferred_output_pending":          counters.DeferredOutputPending,
@@ -1052,6 +1090,67 @@ func crGitBlobID(content []byte) string {
 func crSHA256(content []byte) string {
 	sum := sha256.Sum256(content)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+// crScenarioTableStart and crScenarioNamePattern find the harness's own
+// SCENARIOS table and the scenario names it declares, in declaration order.
+var (
+	crScenarioTableStart  = regexp.MustCompile(`const SCENARIOS:[^=]*=\s*\[`)
+	crScenarioNamePattern = regexp.MustCompile(`\(\s*"([^"]+)"\s*,`)
+)
+
+// crValidateScenarioNames re-derives bounds.scenario_shapes[*].name from the
+// harness this record already binds by git_blob.
+//
+// A scenario NAME is an identity, not prose: terminal_disposition_model says
+// which scenario the clean terminals are all in, and a reader takes that at
+// face value. Left unchecked it measured INERT - "MUTATED" in either name was
+// accepted by every validator - so it is derived from the one place that
+// decides what the scenarios are, rather than attested. The harness path is
+// the one crValidateProvenance already pins by identity AND digest, so this
+// cannot be redirected at a file that happens to contain the right words.
+func crValidateScenarioNames(results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
+	var findings []ModelFinding
+	if inputs.Root == "" {
+		return append(findings, mpAdvisory("RESULTS_PROVENANCE_UNVERIFIED", inputs.ResultsPath,
+			"no tree root supplied: the scenario names were NOT checked against the harness"))
+	}
+	content, err := os.ReadFile(filepath.Join(inputs.Root, filepath.FromSlash(crCanonicalHarnessPath)))
+	if err != nil {
+		return append(findings, mpFinding("RESULTS_PROVENANCE_MISSING", crCanonicalHarnessPath, err.Error()))
+	}
+	body := string(content)
+	start := crScenarioTableStart.FindStringIndex(body)
+	if start == nil {
+		return append(findings, mpFinding("RESULTS_SCENARIO_TABLE_UNREADABLE", crCanonicalHarnessPath,
+			"the harness declares no SCENARIOS table, so the record's scenario names derive from nothing"))
+	}
+	end := strings.Index(body[start[1]:], "];")
+	if end < 0 {
+		return append(findings, mpFinding("RESULTS_SCENARIO_TABLE_UNREADABLE", crCanonicalHarnessPath,
+			"the harness's SCENARIOS table is unterminated"))
+	}
+	var declared []string
+	for _, match := range crScenarioNamePattern.FindAllStringSubmatch(body[start[1]:start[1]+end], -1) {
+		declared = append(declared, match[1])
+	}
+	var recorded []string
+	for _, shape := range results.Bounds.ScenarioShapes {
+		recorded = append(recorded, shape.Name)
+	}
+	if len(declared) != len(recorded) {
+		return append(findings, mpFinding("RESULTS_SCENARIO_NAMES_CONTRADICTED", inputs.ResultsPath, fmt.Sprintf(
+			"the harness declares %d scenarios %v but this record carries %d %v",
+			len(declared), declared, len(recorded), recorded)))
+	}
+	for index := range declared {
+		if declared[index] != recorded[index] {
+			findings = append(findings, mpFinding("RESULTS_SCENARIO_NAMES_CONTRADICTED", inputs.ResultsPath, fmt.Sprintf(
+				"bounds.scenario_shapes[%d].name is %q but the harness declares %q at that position",
+				index, recorded[index], declared[index])))
+		}
+	}
+	return findings
 }
 
 func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
@@ -1440,7 +1539,7 @@ func crValidatePlanConformance(results crResults, planContent []byte, path strin
 	ceiling("command_queue_capacity", results.Bounds.CommandQueue, plan.Bounds.CommandQueueCapacity)
 	ceiling("write_queue_capacity", results.Bounds.WriteQueue, plan.Bounds.WriteQueueCapacity)
 	ceiling("event_queue_capacity", results.Bounds.EventQueue, plan.Bounds.EventQueueCapacity)
-	ceiling("actions_per_schedule", results.Bounds.ActionsPerSchedule, plan.Bounds.MaxActionsPerSchedule)
+	ceiling("actions_per_schedule", crMaxScenarioActions(results), plan.Bounds.MaxActionsPerSchedule)
 	if results.Bounds.PreemptionBudget != plan.Bounds.PreemptionBound {
 		findings = append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_VIOLATED", path, fmt.Sprintf(
 			"bounds.preemption_budget is %d but the plan's preemption_bound is %d, and the conformance sentence claims they are equal",
@@ -1533,11 +1632,56 @@ func crValidateAccounting(results crResults, path string) []ModelFinding {
 		contradiction(fmt.Sprintf("context_switch_bound %d does not match its stated derivation (actor_programs %d - 1) + preemption_budget %d = %d",
 			results.Bounds.ContextSwitchBound, results.Bounds.ActorPrograms, results.Bounds.PreemptionBudget, want))
 	}
-	// Commands cannot be disposed more often than they were accepted.
-	disposed := counters.Applied + counters.TypedRejections + counters.TerminalRejections
+	// Commands cannot be disposed more often than they were accepted. Two
+	// dispositions, not three: the driver-invented TerminalRejected verdict
+	// was removed by owner decision post-terminal-command, so a
+	// post-convergence command lands in typed_rejections with the core's own
+	// STATE_VIOLATION.
+	disposed := counters.Applied + counters.TypedRejections
 	if disposed > counters.AcceptedCommands {
-		contradiction(fmt.Sprintf("applied %d + typed_rejections %d + terminal_rejections %d = %d disposed, which exceeds accepted_commands %d",
-			counters.Applied, counters.TypedRejections, counters.TerminalRejections, disposed, counters.AcceptedCommands))
+		contradiction(fmt.Sprintf("applied %d + typed_rejections %d = %d disposed, which exceeds accepted_commands %d",
+			counters.Applied, counters.TypedRejections, disposed, counters.AcceptedCommands))
+	}
+	// Every explored scenario is declared, and the scenario count the cited
+	// run prints is the number of shapes the record actually carries.
+	if len(results.Bounds.ScenarioShapes) != results.Bounds.Scenarios {
+		contradiction(fmt.Sprintf(
+			"bounds.scenario_shapes carries %d scenarios but bounds.scenarios is %d, which is the figure the "+
+				"cited run prints", len(results.Bounds.ScenarioShapes), results.Bounds.Scenarios))
+	}
+	scenarioActions := 0
+	seenScenario := map[string]struct{}{}
+	for index, shape := range results.Bounds.ScenarioShapes {
+		if strings.TrimSpace(shape.Name) == "" {
+			contradiction(fmt.Sprintf("bounds.scenario_shapes[%d] carries no name", index))
+		}
+		if _, duplicate := seenScenario[shape.Name]; duplicate {
+			contradiction(fmt.Sprintf("bounds.scenario_shapes lists the scenario %q twice", shape.Name))
+		}
+		seenScenario[shape.Name] = struct{}{}
+		for field, text := range map[string]string{"models": shape.Models, "why_explored": shape.WhyExplored} {
+			if strings.TrimSpace(text) == "" {
+				contradiction(fmt.Sprintf("bounds.scenario_shapes[%d] (%s) carries an empty %s, so the scenario is "+
+					"listed without saying what it models or why it is explored", index, shape.Name, field))
+			}
+		}
+		programs, actions := crProgramShapeShape(shape.ProgramShape)
+		if programs != results.Bounds.ActorPrograms {
+			contradiction(fmt.Sprintf(
+				"bounds.scenario_shapes[%d] (%s) describes %d actor programs but bounds.actor_programs is %d",
+				index, shape.Name, programs, results.Bounds.ActorPrograms))
+		}
+		if actions != shape.ActionsPerSchedule {
+			contradiction(fmt.Sprintf(
+				"bounds.scenario_shapes[%d] (%s) lists %d actions across its programs but records "+
+					"actions_per_schedule %d", index, shape.Name, actions, shape.ActionsPerSchedule))
+		}
+		scenarioActions += shape.ActionsPerSchedule
+	}
+	if scenarioActions != results.Bounds.ActionsAcrossScenarios {
+		contradiction(fmt.Sprintf(
+			"the scenario shapes total %d actions but bounds.actions_across_scenarios is %d, which is the figure "+
+				"the cited run prints as actions_total", scenarioActions, results.Bounds.ActionsAcrossScenarios))
 	}
 
 	// Coverage honesty: the exploration test asserts each of these was
@@ -1641,7 +1785,7 @@ func crValidateQuotedCounters(results crResults, path string) []ModelFinding {
 	var findings []ModelFinding
 	execution := results.Execution
 	counters := execution.Counters
-	disposed := counters.Applied + counters.TypedRejections + counters.TerminalRejections
+	disposed := counters.Applied + counters.TypedRejections
 
 	// Each entry: the field, and the counters that sentence must quote, in the
 	// order it quotes them. Keeping the expected sequence next to the sentence
@@ -1708,6 +1852,21 @@ func crValidateQuotedCounters(results crResults, path string) []ModelFinding {
 
 	for _, expectation := range expectations {
 		quoted := crIntegerTokens(expectation.text, 4)
+		// The expected sequence is filtered by the SAME four-digit threshold
+		// the tokenizer applies. Since the clean-finish scenario landed,
+		// closed_terminal_runs is a two-digit number, so an unfiltered
+		// expectation would demand a token the tokenizer deliberately never
+		// produces and every sentence would fail on arity rather than on a
+		// wrong number. Filtering keeps the check exact over what IS quoted;
+		// the sub-threshold counters stay bound by crRunFieldToCounter, which
+		// re-derives each of them from the measured run.
+		expected := make([]int, 0, len(expectation.expected))
+		for _, value := range expectation.expected {
+			if value >= 1000 || value <= -1000 {
+				expected = append(expected, value)
+			}
+		}
+		expectation.expected = expected
 		if len(quoted) != len(expectation.expected) {
 			findings = append(findings, mpFinding("RESULTS_PROSE_CONTRADICTS_COUNTERS", path, fmt.Sprintf(
 				"%s quotes %d counters %v but must quote exactly %d %v; the sentence and the counters disagree",
@@ -2050,7 +2209,8 @@ func crValidateNarrative(results crResults, path string) []ModelFinding {
 		fmt.Sprintf("%d producer tasks", producers),
 		fmt.Sprintf("command/write/event queue capacities %d/%d/%d",
 			results.Bounds.CommandQueue, results.Bounds.WriteQueue, results.Bounds.EventQueue),
-		fmt.Sprintf("%d actions per schedule", results.Bounds.ActionsPerSchedule),
+		fmt.Sprintf("%d scenarios", results.Bounds.Scenarios),
+		fmt.Sprintf("at most %d actions per schedule", crMaxScenarioActions(results)),
 		fmt.Sprintf("preemption budget %d", results.Bounds.PreemptionBudget),
 	} {
 		if !strings.Contains(results.PreregisteredPlan.Conformance, required) {
@@ -2069,18 +2229,22 @@ func crValidateNarrative(results crResults, path string) []ModelFinding {
 	}
 
 	// The program-shape sentence enumerates the actor programs and their
-	// actions; bounds.actor_programs and bounds.actions_per_schedule count
-	// the same two things, and both are re-derived from the cited run.
-	programs, actions := crProgramShapeShape(results.Bounds.ProgramShape)
+	// actions; bounds.actor_programs counts the first of those and is
+	// re-derived from the cited run. Its action count is checked against the
+	// scenario it belongs to, in crValidateAccounting, where every scenario
+	// shape is walked — so bounds.program_shape must BE one of those shapes
+	// rather than a third description nothing reconciles.
+	programs, _ := crProgramShapeShape(results.Bounds.ProgramShape)
 	if programs != results.Bounds.ActorPrograms {
 		contradiction(fmt.Sprintf(
 			"bounds.program_shape describes %d actor programs but bounds.actor_programs is %d",
 			programs, results.Bounds.ActorPrograms))
 	}
-	if actions != results.Bounds.ActionsPerSchedule {
-		contradiction(fmt.Sprintf(
-			"bounds.program_shape lists %d actions across its programs but bounds.actions_per_schedule is %d",
-			actions, results.Bounds.ActionsPerSchedule))
+	if len(results.Bounds.ScenarioShapes) == 0 ||
+		results.Bounds.ScenarioShapes[0].ProgramShape != results.Bounds.ProgramShape {
+		contradiction(
+			"bounds.program_shape is not bounds.scenario_shapes[0].program_shape, so the record carries a " +
+				"program shape that belongs to no declared scenario")
 	}
 
 	// Every minimized artifact names an invariant the record actually lists,
@@ -2106,7 +2270,7 @@ func crValidateNarrative(results crResults, path string) []ModelFinding {
 		}
 		findings = append(findings, crValidateShrink(
 			fmt.Sprintf("minimized artifact %s", artifact.Seed),
-			artifact.Shrink, artifact.Schedule, results.Bounds.ActionsPerSchedule, path)...)
+			artifact.Shrink, artifact.Schedule, crScenarioLengths(results), path)...)
 	}
 
 	defects := map[string]struct{}{}
@@ -2132,7 +2296,7 @@ func crValidateNarrative(results crResults, path string) []ModelFinding {
 			findings = append(findings, crValidateShrink(
 				fmt.Sprintf("defect %s", defect.DefectID),
 				defect.Reproduction.Shrink, defect.Reproduction.Schedule,
-				results.Bounds.ActionsPerSchedule, path)...)
+				crScenarioLengths(results), path)...)
 			if strings.TrimSpace(defect.RedEvidence) == "" {
 				empty(fmt.Sprintf("defects_found_and_fixed[%s].red_evidence", defect.DefectID))
 			}
@@ -2149,7 +2313,7 @@ func crValidateNarrative(results crResults, path string) []ModelFinding {
 // started, and the minimized schedule really carries that many actions. A
 // shrink claim nothing counts is the same decoration class as an invariant
 // table nothing derives.
-func crValidateShrink(label, shrink, schedule string, fullLength int, path string) []ModelFinding {
+func crValidateShrink(label, shrink, schedule string, fullLengths []int, path string) []ModelFinding {
 	var findings []ModelFinding
 	contradiction := func(detail string) {
 		findings = append(findings, mpFinding("RESULTS_ACCOUNTING_CONTRADICTION", path, detail))
@@ -2161,10 +2325,21 @@ func crValidateShrink(label, shrink, schedule string, fullLength int, path strin
 	}
 	from, _ := strconv.Atoi(match[1])
 	to, _ := strconv.Atoi(match[2])
-	if from != fullLength {
+	// A shrink starts from a FULL schedule of one of the declared scenarios.
+	// It is a set rather than a single number because the scenarios have
+	// different lengths; accepting any integer would drop the check entirely,
+	// and pinning one length would refuse every seed from the other scenario.
+	full := false
+	for _, length := range fullLengths {
+		if from == length {
+			full = true
+			break
+		}
+	}
+	if !full {
 		contradiction(fmt.Sprintf(
-			"%s shrinks from %d actions but every schedule in this exploration is %d actions long",
-			label, from, fullLength))
+			"%s shrinks from %d actions but every schedule in this exploration is one of %v actions long",
+			label, from, fullLengths))
 	}
 	if to < 1 || to > from {
 		contradiction(fmt.Sprintf("%s shrinks %d -> %d, which is not a shrink to a non-empty schedule", label, from, to))
@@ -2180,6 +2355,29 @@ func crValidateShrink(label, shrink, schedule string, fullLength int, path strin
 			"%s claims a %d-action minimized schedule but records %d actions (%q)", label, to, actions, schedule))
 	}
 	return findings
+}
+
+// crScenarioLengths is every full-schedule length the exploration produces,
+// one per declared scenario.
+func crScenarioLengths(results crResults) []int {
+	lengths := make([]int, 0, len(results.Bounds.ScenarioShapes))
+	for _, shape := range results.Bounds.ScenarioShapes {
+		lengths = append(lengths, shape.ActionsPerSchedule)
+	}
+	return lengths
+}
+
+// crMaxScenarioActions is the longest schedule any scenario produces: the
+// figure the plan's max_actions_per_schedule ceiling binds, and the alphabet
+// size the limitations quote.
+func crMaxScenarioActions(results crResults) int {
+	most := 0
+	for _, shape := range results.Bounds.ScenarioShapes {
+		if shape.ActionsPerSchedule > most {
+			most = shape.ActionsPerSchedule
+		}
+	}
+	return most
 }
 
 // crProgramShapeShape counts the actor programs and the total actions the
@@ -3372,7 +3570,7 @@ func crRequiredLimitations(results crResults) []crRequiredAssertion {
 				"not a formal proof", "exhaustive only within",
 				// Re-derived: the alphabet and the switch bound the
 				// exhaustiveness is bounded BY are recorded numerically above.
-				fmt.Sprintf("%d-program/%d-action", results.Bounds.ActorPrograms, results.Bounds.ActionsPerSchedule),
+				fmt.Sprintf("%d-program/%d-action", results.Bounds.ActorPrograms, crMaxScenarioActions(results)),
 				fmt.Sprintf("context-switch bound %d", results.Bounds.ContextSwitchBound),
 			},
 			why: "the plan's claim ceiling is systematic testing, never proof, and this record is exhaustive only inside the alphabet and switch bound it states numerically",
@@ -3425,7 +3623,7 @@ func crRequiredLimitations(results crResults) []crRequiredAssertion {
 			id: "one-fatal-family",
 			phrases: []string{"ActionLimitExceeded", "one fatal family, not all of them",
 				// Re-derived: the alphabet the family is reachable from.
-				fmt.Sprintf("existing %d-action alphabet", results.Bounds.ActionsPerSchedule), "finish_poll"},
+				fmt.Sprintf("existing %d-action alphabet", crMaxScenarioActions(results)), "finish_poll"},
 			why: "the sweep reaches fatal termination through one refusal family; the claim about the others rests on a shared code path, and the record has to say which",
 		},
 		{
@@ -3590,8 +3788,18 @@ func crNarrativeAssertions(results crResults) []struct {
 			field: "terminal_disposition_model",
 			text:  results.TerminalModel,
 			assertions: []crRequiredAssertion{
-				{id: "exactly-one-typed-terminal", phrases: []string{"exactly one typed terminal disposition"},
-					why: "this is the model the exclusivity counters are counting"},
+				// This asked for "exactly one typed terminal disposition"
+				// until owner decision
+				// us017-post-terminal-owner-decision-2026-08-28
+				// (post-terminal-inbound) made a converged connection REFUSE
+				// work still pushed at it instead of absorbing it. A run may
+				// now take its one clean Terminal and only then reach a
+				// fatal, so exclusivity is not what the harness proves and
+				// demanding the sentence claim it would pin a claim nothing
+				// checks. What the harness does assert against the trace is
+				// the ORDERING, and that is what the sentence must state.
+				{id: "terminal-dispositions-are-ordered", phrases: []string{"no terminal is ever recorded after a failure"},
+					why: "this is the model the disposition counters are counting: the two dispositions are ordered, not exclusive"},
 				{id: "and-both-classes-reconcile", phrases: []string{"reconcile every accepted command exactly once"},
 					why: "the sentence's last clause is the at-most-once claim; a half-truncated sentence keeps both counters and drops it",
 				},

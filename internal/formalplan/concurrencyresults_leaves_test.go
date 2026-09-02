@@ -435,9 +435,14 @@ func crPrintable(value any) string {
 // ---------------------------------------------------------------------------
 
 // crExpectedLeafCount is the document's leaf cardinality. It is pinned so the
-// denominator of every "N of 327" statement is itself a measurement. It was
-// 162 until the landing union merged claude/us017-ac2's record into this one.
-const crExpectedLeafCount = 327
+// denominator of every "N of 337" statement is itself a measurement. It was
+// 162 until the landing union merged claude/us017-ac2's record into this one,
+// and 327 until the claude/post-failure landing modelled the explored
+// SCENARIOS: bounds.scenarios and bounds.actions_across_scenarios replaced the
+// single bounds.actions_per_schedule, bounds.scenario_shapes added five leaves
+// per scenario, and execution.counters.terminal_rejections went away with the
+// disposition it counted (+12 -2 = +10).
+const crExpectedLeafCount = 337
 
 // crInertLeaves is the residual set: leaves that still accept a plausible
 // wrong value. Transcribed from CR_LEAF_ENUM=print, not chosen.
@@ -499,8 +504,22 @@ const crExpectedLeafCount = 327
 // (execution.fatal_termination_sweep.executed_run.sweep_stdout_lines, compared
 // element-for-element by assert_committed_results_cite_this_sweep) and
 // crValidateSweepRun re-derives the block from them.
+// THE SCENARIO PROSE IS THE ONE CLASS THIS LANDING ADDS, and it is four leaves,
+// not six. bounds.scenario_shapes[*].models and [*].why_explored say what a
+// scenario stands for and why the owner asked for it; that is prose about
+// history, exactly the defect-narrative class above, and nothing in this tree
+// can contradict it. The NAMES beside them are NOT in this list: a name is an
+// identity a reader takes at face value (terminal_disposition_model says which
+// scenario the clean terminals are all in), it measured INERT with "MUTATED"
+// accepted in either position, and crValidateScenarioNames now derives both
+// from the harness's own SCENARIOS table - the harness this record already
+// pins by identity and git_blob.
 var crInertLeaves = []string{
 	"adapter_model",
+	"bounds.scenario_shapes[0].models",
+	"bounds.scenario_shapes[0].why_explored",
+	"bounds.scenario_shapes[1].models",
+	"bounds.scenario_shapes[1].why_explored",
 	"defects_found_and_fixed[0].description",
 	"defects_found_and_fixed[0].fix",
 	"defects_found_and_fixed[0].found_by",

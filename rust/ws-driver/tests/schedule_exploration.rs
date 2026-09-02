@@ -157,8 +157,25 @@ impl Action {
     }
 }
 
-/// The five fixed actor programs whose interleavings are explored.
-const PROGRAMS: [&[Action]; PROGRAM_COUNT] = [
+/// One scenario's five fixed actor programs.
+type ProgramSet = [&'static [Action]; PROGRAM_COUNT];
+
+/// Scenario A — ABNORMAL TEARDOWN. The adapter stops serving the transport
+/// (`Shutdown`) AND the read side independently reaches EOF, so the
+/// connection is terminated TWICE. This models a real but exceptional
+/// shape: the embedding application tearing down, or the write side
+/// failing, while the peer is also closing.
+///
+/// This was the ONLY scenario explored until owner decision
+/// `us017-exploration-program-set-owner-decision-2026-08-28.json`
+/// (sha 86793909). Because every schedule ran both terminations, and
+/// because the driver silently COALESCED multiple pending EOF
+/// notifications until 8a7e3a4, its "clean convergence" runs were an
+/// artifact of that defect rather than evidence of clean convergence. With
+/// the coalescing fixed, every schedule in this scenario correctly halts on
+/// the second scored termination — which is right, and is why a second
+/// scenario is required to cover the normal lifecycle at all.
+const SCENARIO_ABNORMAL_TEARDOWN: ProgramSet = [
     // Producer A: bounded data commands.
     &[Action::EnqueueTextA, Action::EnqueueBinaryA],
     // Producer B: bounded control + local-close commands.
@@ -175,6 +192,43 @@ const PROGRAMS: [&[Action]; PROGRAM_COUNT] = [
     &[Action::Wake, Action::Shutdown],
 ];
 
+/// Scenario B — CLEAN FINISH. The connection is terminated exactly ONCE.
+///
+/// REAL-ADAPTER JUSTIFICATION (owner requirement 1: this must be a shape a
+/// real adapter produces, not a shape reverse-engineered to make a gate
+/// green). This is the ordinary WebSocket close lifecycle: the application
+/// sends a message and initiates close, the peer's close frame arrives, the
+/// committed frames flush, and the read side reaches EOF exactly once. A
+/// healthy adapter never calls `Shutdown` on this path — `Shutdown` means
+/// "the adapter can provide no further transport service" and belongs to
+/// abnormal teardown (scenario A). The `ws-testee` io_loop drives exactly
+/// this shape: it reads until EOF and lets the connection converge, calling
+/// shutdown only when it is itself being torn down.
+///
+/// The point is not that this scenario is easier. It is that the previous
+/// program set modelled ONLY the abnormal double-termination path, so the
+/// normal lifecycle every real deployment spends its life in was never
+/// actually explored — its apparent coverage came from two terminations
+/// being silently merged into one.
+const SCENARIO_CLEAN_FINISH: ProgramSet = [
+    // Producer A: one bounded data command.
+    &[Action::EnqueueTextA],
+    // Producer B: the local close that opens the closing handshake.
+    &[Action::EnqueueCloseB],
+    // Transport read: the peer's close, then the read side ending ONCE.
+    &[Action::InboundClose, Action::TransportEof],
+    // Transport write: flush the committed frames to completion.
+    &[Action::WriteAll, Action::WriteAll],
+    // Adapter control: owner turns only; no shutdown on a healthy close.
+    &[Action::Wake],
+];
+
+/// Every scenario explored, each an independent bounded enumeration.
+const SCENARIOS: [(&str, ProgramSet); 2] = [
+    ("abnormal-teardown", SCENARIO_ABNORMAL_TEARDOWN),
+    ("clean-finish", SCENARIO_CLEAN_FINISH),
+];
+
 // ---------------------------------------------------------------------------
 // Exhaustive bounded enumeration
 // ---------------------------------------------------------------------------
@@ -186,6 +240,7 @@ struct Exploration {
 
 fn enumerate_schedules() -> Exploration {
     fn visit(
+        programs: &ProgramSet,
         schedules: &mut Vec<Vec<Action>>,
         branches: &mut usize,
         positions: &mut [usize; PROGRAM_COUNT],
@@ -196,13 +251,13 @@ fn enumerate_schedules() -> Exploration {
         if positions
             .iter()
             .enumerate()
-            .all(|(actor, position)| *position == PROGRAMS[actor].len())
+            .all(|(actor, position)| *position == programs[actor].len())
         {
             schedules.push(schedule.clone());
             return;
         }
         for actor in 0..PROGRAM_COUNT {
-            if positions[actor] == PROGRAMS[actor].len() {
+            if positions[actor] == programs[actor].len() {
                 continue;
             }
             let next_switches =
@@ -215,7 +270,7 @@ fn enumerate_schedules() -> Exploration {
             // cannot finish within the bound is never entered (branches
             // count real prefix nodes only).
             let unfinished_others = (0..PROGRAM_COUNT)
-                .filter(|other| *other != actor && positions[*other] < PROGRAMS[*other].len())
+                .filter(|other| *other != actor && positions[*other] < programs[*other].len())
                 .count();
             if next_switches + unfinished_others > CONTEXT_SWITCH_BOUND {
                 continue;
@@ -225,10 +280,11 @@ fn enumerate_schedules() -> Exploration {
                 *branches <= BRANCH_COUNT_MAX,
                 "enumeration exceeded the declared branch bound"
             );
-            let action = PROGRAMS[actor][positions[actor]];
+            let action = programs[actor][positions[actor]];
             positions[actor] += 1;
             schedule.push(action);
             visit(
+                programs,
                 schedules,
                 branches,
                 positions,
@@ -243,14 +299,19 @@ fn enumerate_schedules() -> Exploration {
 
     let mut schedules = Vec::new();
     let mut branches = 0usize;
-    visit(
-        &mut schedules,
-        &mut branches,
-        &mut [0; PROGRAM_COUNT],
-        &mut Vec::new(),
-        None,
-        0,
-    );
+    // Each scenario is its own bounded enumeration; the explored space is
+    // their union.
+    for (_name, programs) in &SCENARIOS {
+        visit(
+            programs,
+            &mut schedules,
+            &mut branches,
+            &mut [0; PROGRAM_COUNT],
+            &mut Vec::new(),
+            None,
+            0,
+        );
+    }
     Exploration {
         schedules,
         branches,
@@ -347,10 +408,48 @@ enum Violation {
     DuplicateTerminal,
     /// Outputs or dispositions kept moving after terminal quiescence.
     PostTerminalActivity,
-    /// One run observed BOTH a surfaced fatal `Failure` output and a
-    /// `Terminal` delivery: the two terminal dispositions must be
-    /// exclusive, exactly as the real adapter (which stops at the first
-    /// surfaced `Failure`) would experience them.
+    /// The interpreter kept driving past the first surfaced fatal
+    /// `Failure`, so the trace carries a record after it.
+    ///
+    /// SCOPE, stated exactly, because the previous two phrasings both
+    /// promised more than they delivered. This is a property of the
+    /// INTERPRETER's halt model, NOT of the driver. The halt is enforced
+    /// here (`poll` sets `halted`; `exec` and `fair_drain` return on it),
+    /// so a correct interpreter can never record anything after the
+    /// failure — and the driver is never asked whether it would have.
+    /// See the reachability note in `finish` for what is and is not
+    /// verified, and for the measurement behind that distinction.
+    ///
+    /// THE PROPERTY NAME WAS THE THIRD THING THAT OVERPROMISED, and it is
+    /// now fixed: `property()` reads
+    /// `interpreter-halts-at-first-surfaced-failure`, not
+    /// `failure-halt-stops-driving`. The old name named a DRIVER guarantee
+    /// while the check is a property of this interpreter, which is the
+    /// same conflation the two predicate rounds documented in `finish`
+    /// made — expressed in the one place a reader looks first (owner
+    /// decision `us017-post-failure-owner-decisions-2026-08-28.json`,
+    /// sequencing note; investigation finding C4).
+    ///
+    /// C5 CAVEAT — WHAT "FAILURE" MEANS HERE, AND WHY IT NOW MEANS MORE
+    /// THAN IT DID. The halt keys on `DriverOutput::Failure`, which is NOT
+    /// the same predicate as "a fatal happened". A fatal reaches the owner
+    /// by two routes, and the COMMAND route used to surface only a
+    /// `CommandDisposition::Rejected` with no `Failure` output at all
+    /// (`ws_driver::ConnectionDriver::finish_poll` was called with
+    /// `failure = None`), while `ws_core::ConnectionCore::handle` poisoned
+    /// the core all the same. Neither halt model halted on it and the
+    /// poisoned connection could still deliver a clean `Terminal`. That
+    /// asymmetry was ruled a defect
+    /// (`c5-fatal-command-rejection-surfaces-failure`) and fixed at the
+    /// source in `finish_poll`, so a fatal now surfaces a `Failure`
+    /// whichever way it arrived. Two consequences for this suite, stated
+    /// rather than left to be rediscovered: schedules whose fatal arrives
+    /// as a command rejection now HALT where they previously ran on, which
+    /// moves runs from the `closed_terminal_runs` column into
+    /// `failure_halted_runs` while their sum is unchanged; and the
+    /// `failure`-vs-`fatal` gap the accounting note at the bottom of
+    /// `finish` warns about is narrowed by the fix but is NOT claimed
+    /// closed — only measurement, not this comment, can say that.
     TerminalAfterFailure,
     /// Committed writes the ended transport abandoned were not reported
     /// back to the adapter with the typed dropped-write disposition, or the
@@ -379,7 +478,7 @@ impl Violation {
             Violation::Convergence => "close-convergence",
             Violation::DuplicateTerminal => "terminal-exactly-once",
             Violation::PostTerminalActivity => "no-post-terminal",
-            Violation::TerminalAfterFailure => "failure-halt-exclusivity",
+            Violation::TerminalAfterFailure => "interpreter-halts-at-first-surfaced-failure",
             Violation::UnreportedWriteDrop => "shutdown-write-drop-reported",
             Violation::WriteAfterShutdown => "no-write-after-shutdown",
             Violation::ReceiverDropUnreported => "receiver-drop-typed",
@@ -397,7 +496,7 @@ impl Violation {
             Violation::Convergence => "no-terminal-after-fair-drain",
             Violation::DuplicateTerminal => "terminal-count-two",
             Violation::PostTerminalActivity => "movement-after-terminal",
-            Violation::TerminalAfterFailure => "terminal-and-failure-both-observed",
+            Violation::TerminalAfterFailure => "output-recorded-after-surfaced-failure",
             Violation::UnreportedWriteDrop => "committed-writes-abandoned-unreported",
             Violation::WriteAfterShutdown => "write-offered-after-shutdown",
             Violation::ReceiverDropUnreported => "send-accepted-after-owner-drop",
@@ -558,7 +657,6 @@ struct Outcome {
     refused_full: u32,
     applied: u32,
     rejected: u32,
-    terminal_rejected: u32,
     events: u32,
     failures: u32,
     terminals: u32,
@@ -734,7 +832,7 @@ impl Run {
                 DriverOutput::Idle => TraceOutput::Idle,
                 DriverOutput::Write(suffix) => TraceOutput::Write(suffix.to_vec()),
                 DriverOutput::Event(event) => TraceOutput::Event(event),
-                DriverOutput::Failure(failure) => TraceOutput::Failure(failure),
+                DriverOutput::Failure { failure, .. } => TraceOutput::Failure(failure),
                 DriverOutput::WritesDropped(dropped) => TraceOutput::WritesDropped(dropped),
                 DriverOutput::Terminal(_) => TraceOutput::Terminal,
             };
@@ -754,13 +852,6 @@ impl Run {
                 let tag = tag_of(command);
                 if !self.arm(Fault::DropFirstDisposition) {
                     self.outcome.rejected += 1;
-                    self.disposed_tags.push(tag);
-                }
-            }
-            Some(CommandDisposition::TerminalRejected(command)) => {
-                let tag = tag_of(command);
-                if !self.arm(Fault::DropFirstDisposition) {
-                    self.outcome.terminal_rejected += 1;
                     self.disposed_tags.push(tag);
                 }
             }
@@ -793,8 +884,15 @@ impl Run {
                 self.outcome.failures += 1;
                 // Adapter-faithful stop: the real io_loop ends the
                 // connection at the first surfaced Failure, so this run
-                // stops driving here; Terminal-after-Failure is impossible
-                // by construction and asserted in finish().
+                // stops driving here.
+                //
+                // Note the consequence, spelled out because two rounds of
+                // this suite asserted around it without stating it: because
+                // the halt latches HERE, before the trace record is pushed,
+                // the failure is always the FINAL record. Nothing after it
+                // can be observed, so `finish` can only check that the halt
+                // held — never what the driver would have done next. See the
+                // reachability note in `finish`.
                 self.halted = true;
             }
             TraceOutput::WritesDropped(dropped) => {
@@ -1127,9 +1225,74 @@ impl Run {
             // exactly as the real adapter does: that Failure IS the
             // adapter-seam terminal (oracle partial-execution semantics —
             // a poisoned core retains its final state). The two terminal
-            // dispositions are exclusive: no driver `Terminal` may have
-            // been observed in the same run.
-            if self.outcome.terminals > 0 {
+            // dispositions are ORDERED, not merely exclusive. Owner decision
+            // us017-post-terminal-owner-decision-2026-08-28
+            // (`post-terminal-inbound`) makes a converged connection REFUSE
+            // work that is still pushed at it, so a clean `Terminal` may
+            // legitimately PRECEDE a later refusal.
+            //
+            // REACHABILITY CORRECTION, THIRD PASS — and this time measured
+            // rather than reasoned about.
+            //
+            // Round one called this `failure-halt-exclusivity` and looked for
+            // a `Terminal` after the first `Failure`. Round two renamed it
+            // `failure-halt-stops-driving` and broadened the predicate to
+            // "no command disposition and no non-Idle output at all",
+            // claiming that made it checkable. It did not. `poll` sets
+            // `halted` BEFORE pushing the failure record, and both `exec`
+            // and `fair_drain` return on `halted`, so the failure record is
+            // always the LAST record in the trace and `trace[index + 1..]`
+            // is always EMPTY. `any()` over an empty slice is `false`, so
+            // the violation could not be recorded by any run.
+            //
+            // MEASURED, not asserted: over the full bounded exploration —
+            // 81180 schedules, 80072 of them carrying a failure record — the
+            // post-failure suffix length was 0 in every single run
+            // (`max_post_failure_suffix=0`, `runs_with_nonempty_suffix=0`).
+            // The broadened predicate was exactly as unreachable as the
+            // narrow one it replaced.
+            //
+            // WHAT IS CHECKED NOW: the halt model itself, which is the only
+            // thing this trace can witness. If the interpreter ever stops
+            // halting, the failure stops being the final record and this
+            // fires. That is reachable — removing the `halted` guards makes
+            // 77984 of the 80072 halted runs record post-failure output.
+            //
+            // WHAT IS NOT CHECKED, stated so no one reads more into it: this
+            // says NOTHING about the driver. The driver is never polled past
+            // a surfaced failure here, so whether IT would stay quiet is
+            // untested by this suite. Probing past the halt shows it does
+            // not — it goes on to deliver the pending EOF transition and a
+            // `Terminal`.
+            //
+            // THE OWNER RULING THAT NOTE ASKED FOR HAS ARRIVED, and it
+            // resolved into two different answers, so read them separately
+            // rather than as one verdict
+            // (`us017-post-failure-owner-decisions-2026-08-28.json`):
+            //
+            //   * The continuation itself is NOT a defect. It is ordered
+            //     delivery of work committed BEFORE the failure — the EOF
+            //     transition and `Terminal` seen past the halt were earned
+            //     by inputs the core had already accepted. On a PURE
+            //     protocol violation (RSV1 on TEXT, reserved opcode 0x3)
+            //     the driver composes nothing at all and stays in `Open`,
+            //     which is the measurement that separates "finishes a
+            //     shutdown it had already begun" from "shuts down because
+            //     of the failure". The contract is now written down in
+            //     `ws_driver`'s module docs instead of being inferred here.
+            //   * What WAS a defect is C5, folded into
+            //     `Violation::TerminalAfterFailure`'s doc comment above: a
+            //     fatal arriving as a command rejection surfaced no
+            //     `Failure` output, so this halt model never saw it. Fixed
+            //     in `finish_poll`; the halt now covers both arrival paths.
+            let first_failure = self
+                .outcome
+                .trace
+                .iter()
+                .position(|record| matches!(record.output, TraceOutput::Failure(_)));
+            if let Some(index) = first_failure
+                && index + 1 != self.outcome.trace.len()
+            {
                 self.outcome.record(Violation::TerminalAfterFailure);
             }
             // Commands still queued at the halt belong to the embedding
@@ -1430,6 +1593,10 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     let mut max_drain = 0u32;
     let mut closed_terminal_runs = 0usize;
     let mut failure_halted_runs = 0usize;
+    // Clean terminals observed in runs that LATER halted, refusing work
+    // pushed at an already-converged connection (owner decision
+    // post-terminal-inbound).
+    let mut halted_terminals = 0usize;
     // Every invariant violation any schedule observed. The outcome the
     // printed invariant list carries is DERIVED from this set rather than
     // written as a literal PASS; `retain_and_fail` below means a non-empty
@@ -1448,10 +1615,19 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         // terminal dispositions, mirroring the real adapter: the clean
         // Terminal from the absorbing Closed state, or the halt at the
         // first surfaced fatal Failure (the poisoned core's final state
-        // per the oracle's partial-execution semantics). Never both.
+        // per the oracle's partial-execution semantics). Since the
+        // post-terminal ruling these are ORDERED rather than mutually
+        // exclusive: a schedule may converge cleanly, take its one Terminal,
+        // and then have further work pushed at the converged connection,
+        // which the core refuses. The ordering property (no Terminal AFTER a
+        // Failure) is asserted in `finish` against the trace itself.
         if outcome.halted {
             assert_eq!(outcome.failures, 1, "the halt is the first failure");
-            assert_eq!(outcome.terminals, 0, "no terminal after a failure halt");
+            assert!(
+                outcome.terminals <= 1,
+                "at most one terminal, and only before the failure"
+            );
+            halted_terminals += usize::try_from(outcome.terminals).expect("small count");
             failure_halted_runs += 1;
         } else {
             assert!(outcome.closed, "a non-halted full schedule converges");
@@ -1464,7 +1640,6 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.refused_full += outcome.refused_full;
         totals.applied += outcome.applied;
         totals.rejected += outcome.rejected;
-        totals.terminal_rejected += outcome.terminal_rejected;
         totals.events += outcome.events;
         totals.failures += outcome.failures;
         totals.terminals += outcome.terminals;
@@ -1494,8 +1669,10 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     );
     assert!(totals.rejected_inputs > 0, "typed input rejection explored");
     assert_eq!(
-        totals.terminals as usize, closed_terminal_runs,
-        "exactly one terminal per Closed run and none elsewhere"
+        totals.terminals as usize,
+        closed_terminal_runs + halted_terminals,
+        "exactly one terminal per Closed run, plus the clean terminals of runs that \
+         later halted refusing post-convergence work"
     );
     assert_eq!(
         totals.failures as usize, failure_halted_runs,
@@ -1557,20 +1734,24 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     let weak_fairness = WEAK_FAIRNESS.join(",");
 
     let measured = format!(
-        "US017_EXPLORATION programs={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
+        "US017_EXPLORATION scenarios={} programs_per_scenario={PROGRAM_COUNT} actions_total={} context_switch_bound={CONTEXT_SWITCH_BOUND} \
          preemption_budget={PREEMPTION_BUDGET} command_queue_capacity={COMMAND_QUEUE_CAPACITY} \
          write_queue_capacity={WRITE_QUEUE_CAPACITY} event_queue_capacity={EVENT_QUEUE_CAPACITY} \
          drain_budget_polls={DRAIN_BUDGET} schedules={schedule_count} branches={} truncated=false \
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
          failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
-         terminal_rejected={} events={} failures={} deferred_output_pending={} deferred_command_turn={} \
+         events={} failures={} deferred_output_pending={} deferred_command_turn={} \
          deferred_backpressure={} rejected_inputs={} write_drop_reports={} dropped_frames={} \
          dropped_bytes={} partial_front_drops={partial_front_drops} \
          max_dropped_frames={max_dropped_frames} receiver_drop_refusals={} \
          max_drain_polls={max_drain} \
          invariants={invariants} weak_fairness={weak_fairness} \
          producer_admission_fairness={PRODUCER_ADMISSION_FAIRNESS}",
-        PROGRAMS.iter().map(|program| program.len()).sum::<usize>(),
+        SCENARIOS.len(),
+        SCENARIOS
+            .iter()
+            .map(|(_, programs)| programs.iter().map(|program| program.len()).sum::<usize>())
+            .sum::<usize>(),
         exploration.branches,
         schedule_count * 2,
         distinct_outcomes.len(),
@@ -1578,7 +1759,6 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.refused_full,
         totals.applied,
         totals.rejected,
-        totals.terminal_rejected,
         totals.events,
         totals.failures,
         totals.deferred_output_pending,
@@ -1643,11 +1823,23 @@ fn fatal_termination_sweep_reports_every_abandoned_committed_write() {
                 render_schedule(schedule),
                 outcome.violations,
             );
-            // Terminal-disposition exclusivity holds under the tightened
-            // budget exactly as it does in the main sweep.
+            // Terminal-disposition ORDERING holds under the tightened budget
+            // exactly as it does in the main sweep — and it is ordering, not
+            // exclusivity. Since owner decision
+            // us017-post-terminal-owner-decision-2026-08-28
+            // (`post-terminal-inbound`) a converged connection REFUSES work
+            // still pushed at it instead of absorbing it, so a schedule may
+            // take its one clean Terminal and only then reach a fatal. This
+            // arm previously demanded `terminals == 0` and read `left: 1`
+            // against the merged tree. The no-Terminal-AFTER-a-Failure
+            // property is asserted where it can actually be seen, in
+            // `finish`, against the trace itself.
             if outcome.halted {
                 assert_eq!(outcome.failures, 1, "the halt is the first failure");
-                assert_eq!(outcome.terminals, 0, "no terminal after a failure halt");
+                assert!(
+                    outcome.terminals <= 1,
+                    "at most one terminal, and only before the failure"
+                );
                 halted_runs += 1;
                 if outcome.write_drop_reports > 0 {
                     // THE ROUND-2 CLASS: committed writes were abandoned and
@@ -2035,6 +2227,102 @@ fn first_failing_schedule(
         .enumerate()
         .find(|(_, schedule)| violates(schedule, fault, target))
         .map(|(index, schedule)| (index, schedule.clone()))
+}
+
+/// PAIRED POSITIVE CONTROL for the
+/// `interpreter-halts-at-first-surfaced-failure` check.
+///
+/// The check in `finish` records `TerminalAfterFailure` when the first
+/// surfaced `Failure` is not the final trace record. Two earlier versions of
+/// that check scanned `trace[first_failure + 1..]` — a slice the halt keeps
+/// EMPTY in all 81180 explored schedules — so neither could fail, and the
+/// invariant was upheld vacuously by every run.
+///
+/// This control is what makes the current check meaningful: it proves the
+/// check DISTINGUISHES a halted run from an unhalted one, rather than being
+/// satisfied by the absence of anything to look at. Without it, "no records
+/// after the failure" is indistinguishable from "no records were ever going
+/// to be there".
+#[test]
+fn failure_halt_check_distinguishes_a_halt_from_a_missing_one() {
+    let schedule: Vec<Action> = ["inbound-ping", "transport-eof", "wake", "shutdown"]
+        .iter()
+        .map(|verb| Action::parse(verb))
+        .collect();
+
+    // NEGATIVE ARM — the real interpreter halts, so the failure is last and
+    // no violation is recorded.
+    let mut run = Run::new(Fault::None, EVENT_QUEUE_CAPACITY, MAX_ACTIONS_UNREACHED);
+    for action in &schedule {
+        run.exec(*action);
+    }
+    run.fair_drain();
+    assert!(
+        run.halted,
+        "precondition: this schedule must reach a surfaced failure"
+    );
+    let failure_index = run
+        .outcome
+        .trace
+        .iter()
+        .position(|record| matches!(record.output, TraceOutput::Failure(_)))
+        .expect("precondition: a failure record exists");
+    assert_eq!(
+        failure_index + 1,
+        run.outcome.trace.len(),
+        "precondition: the halt leaves the failure as the final trace record"
+    );
+    let halted_outcome = run.finish();
+    assert!(
+        !halted_outcome
+            .violations
+            .contains(&Violation::TerminalAfterFailure),
+        "a properly halted run records no violation: {halted_outcome:?}"
+    );
+
+    // POSITIVE ARM — the identical schedule with the halt suppressed, which
+    // is what an interpreter that FAILED to stop driving would produce.
+    let mut run = Run::new(Fault::None, EVENT_QUEUE_CAPACITY, MAX_ACTIONS_UNREACHED);
+    for action in &schedule {
+        run.exec(*action);
+    }
+    run.fair_drain();
+    assert!(run.halted, "precondition: the same schedule halts");
+    let failure_index = run
+        .outcome
+        .trace
+        .iter()
+        .position(|record| matches!(record.output, TraceOutput::Failure(_)))
+        .expect("precondition: a failure record exists");
+    run.halted = false;
+    for _ in 0..2 {
+        let _ = run.poll(DriverInput::Wake);
+        // `poll` re-latches the halt if it surfaces another failure; the
+        // control deliberately keeps driving anyway.
+        run.halted = false;
+    }
+    // The driver did not merely get polled — it was still doing WORK past the
+    // point the adapter model stops looking. This is the observation the old
+    // check could never make, and it is contingent, not structural: it fails
+    // if the driver really does go quiet after a surfaced failure.
+    assert!(
+        run.outcome.trace[failure_index + 1..]
+            .iter()
+            .any(|record| record.command.is_some() || !matches!(record.output, TraceOutput::Idle)),
+        "control precondition: polling past the halt must surface real work, \
+         otherwise this arm proves nothing: {:?}",
+        &run.outcome.trace[failure_index + 1..]
+    );
+    run.halted = true;
+    let unhalted_outcome = run.finish();
+    assert!(
+        unhalted_outcome
+            .violations
+            .contains(&Violation::TerminalAfterFailure),
+        "the check MUST fire once a record follows the surfaced failure — if it \
+         does not, `interpreter-halts-at-first-surfaced-failure` is vacuous again: \
+         {unhalted_outcome:?}"
+    );
 }
 
 #[test]

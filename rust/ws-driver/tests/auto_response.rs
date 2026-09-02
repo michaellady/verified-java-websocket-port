@@ -61,7 +61,7 @@ fn poll_owned(driver: &mut ConnectionDriver, input: DriverInput<'_>) -> Owned {
         DriverOutput::Idle => Owned::Idle,
         DriverOutput::Write(suffix) => Owned::Write(suffix.to_vec()),
         DriverOutput::Event(event) => Owned::Event(event),
-        DriverOutput::Failure(_) => Owned::Failure,
+        DriverOutput::Failure { .. } => Owned::Failure,
         DriverOutput::WritesDropped(dropped) => Owned::WritesDropped(dropped),
         DriverOutput::Terminal(_) => Owned::Terminal,
     }
