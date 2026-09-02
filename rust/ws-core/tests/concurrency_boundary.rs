@@ -230,6 +230,17 @@ fn a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accep
             let mut accepted = 0usize;
             let mut receiver_dropped = 0usize;
             let mut refusals_before_the_drop = 0usize;
+            // The spin is bounded by WALL CLOCK, not by an iteration count.
+            // The count this used to be (4096 refusals) was a host-speed
+            // assumption: on a loaded Linux host the owner thread's
+            // `drop(queue)` can be descheduled for longer than 4096 lock
+            // round-trips take, and the test failed 2 runs in 5 with no
+            // defect anywhere (goal-loop 2026-09-02, gates on the
+            // us019-native-run forward merge; ws-core untouched). What the
+            // bound guards is that the producer cannot spin FOREVER, and a
+            // generous deadline says exactly that without saying anything
+            // about how fast this machine is.
+            let started = std::time::Instant::now();
             loop {
                 // The racing window: this send may land before, during, or
                 // after the owner goes away.
@@ -258,6 +269,11 @@ fn a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accep
                             break;
                         }
                         refusals_before_the_drop += 1;
+                        // Give the owner thread a turn: a refused send is
+                        // the producer learning the queue is full, and the
+                        // race is about the DROP landing, not about how many
+                        // times a full queue can be asked.
+                        thread::yield_now();
                     }
                 }
                 if observer.load(Ordering::Acquire) {
@@ -277,8 +293,9 @@ fn a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accep
                     break;
                 }
                 assert!(
-                    refusals_before_the_drop < 4096,
-                    "the producer must never spin unboundedly before the drop lands"
+                    started.elapsed() < std::time::Duration::from_secs(30),
+                    "the producer must never spin unboundedly before the drop lands \
+                     ({refusals_before_the_drop} refusals and the drop still not observed)"
                 );
             }
             (accepted, receiver_dropped)
