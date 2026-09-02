@@ -225,7 +225,7 @@ S=/tmp/vjwp-protected; mkdir -p $S/us005-corpora/secrets
 python3 -c 'import secrets; print(secrets.token_hex(32))' > $S/us005-corpora/secrets/master-secret.hex
 go run ./cmd/corporactl oracle-requests --root . --protected-root $S --tier public --out public.jsonl
 go run ./cmd/corporactl oracle-requests --root . --protected-root $S --tier handshake --wire --out handshake.jsonl
-cargo build --release --manifest-path rust/Cargo.toml -p ws-oracle-harness --locked
+(cd rust && cargo build --release -p ws-oracle-harness --locked)
 rust/target/release/ws-oracle-harness < public.jsonl > public-rust.jsonl
 go run ./cmd/corporactl evaluate --root . --protected-root $S --tier public --transcript public-rust.jsonl
 rust/target/release/ws-oracle-harness < handshake.jsonl > handshake-rust.jsonl
@@ -251,8 +251,24 @@ curl -sSfL -o .quarantine/Java-WebSocket-1.6.0.jar https://repo1.maven.org/maven
 curl -sSfL -o .quarantine/slf4j-api-2.0.13.jar https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar
 sha256sum .quarantine/Java-WebSocket-1.6.0.jar   # eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f
 make -C java-oracle test JAVA_WEBSOCKET_JAR=$PWD/.quarantine/Java-WebSocket-1.6.0.jar RUNTIME_SUPPORT_CP=$PWD/.quarantine/slf4j-api-2.0.13.jar
-java -Dstdout.encoding=UTF-8 -Dslf4j.internal.verbosity=ERROR -cp java-oracle/build/java-oracle.jar:.quarantine/Java-WebSocket-1.6.0.jar:.quarantine/slf4j-api-2.0.13.jar OracleMain < public.jsonl > public-java.jsonl
+.quarantine/jdk-17.0.19+10/bin/java -Dfile.encoding=UTF-8 -Dsun.stdout.encoding=UTF-8 -Dstdout.encoding=UTF-8 -Dslf4j.internal.verbosity=ERROR -cp java-oracle/build/java-oracle.jar:.quarantine/Java-WebSocket-1.6.0.jar:.quarantine/slf4j-api-2.0.13.jar OracleMain < public.jsonl > public-java.jsonl
 ```
+
+Two things about those commands were learned by reading a wrong result first,
+on 2026-09-02 during the us019-native-run forward merge:
+
+- Run cargo from inside `rust/`. `rust/rust-toolchain.toml` pins 1.95.0, but
+  rustup resolves the toolchain from the working directory, not from
+  `--manifest-path`; invoked from the repository root the build used the
+  default 1.94.1 and stopped at the MSRV ("rustc 1.94.1 is not supported by
+  ws-core"), exit 101, and the stale release harness was still on disk to be
+  run by mistake. Read the harness digest after every rebuild.
+- On the pinned JDK 17 the stdout-encoding property is `sun.stdout.encoding`;
+  `stdout.encoding` is the JDK 19+ name and JDK 17 ignores it. With only
+  `-Dstdout.encoding=UTF-8` the pinned JDK 17 read 65/74 on the public tier,
+  exactly the nine non-ASCII payloads written as `?`; with
+  `-Dsun.stdout.encoding=UTF-8` it read 74/74. Pass all three properties as
+  above so the command is right under either JDK.
 
 SLF4J 2.0.13 is the version the pinned runtime's own POM declares. Its digest
 `e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9` is the
@@ -271,6 +287,14 @@ Results read on 2026-09-02 in this environment, harness sha256
 | Handshake exam, live Java | 49/49, the same 16 divergences |
 | Port vs live Java, handshake transcripts | no non-runtime field differs on any of the 49 |
 | java-oracle self-test | 18 pass |
+
+Re-read on 2026-09-02 on the us019-native-run forward merge (harness
+`e2898c13…`, unchanged because `ws-core` and `ws-oracle-harness` were
+unchanged): port 74/74 and 49/49 (runtime neutralised), live Java 74/74 (JDK 17
+with `sun.stdout.encoding`) and 49/49, 16 documented divergences on both
+handshake legs; the two public transcripts differ only in `/error/detail` (26
+cases) and the runtime fields, the two handshake transcripts in nothing but the
+runtime fields.
 
 ## Pinned Java inputs: how to materialise them here
 
