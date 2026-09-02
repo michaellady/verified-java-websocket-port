@@ -10,6 +10,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread;
+use std::time::{Duration, Instant};
 
 use ws_core::config::ConnectionConfig;
 use ws_core::{InitialState, LocalCommand, ReadyState, Role};
@@ -18,9 +19,23 @@ use ws_driver::{CommandDisposition, DriverInput, DriverOutput, connection_driver
 const PRODUCERS: usize = 4;
 const COMMANDS_PER_PRODUCER: usize = 50;
 const TOTAL: usize = PRODUCERS * COMMANDS_PER_PRODUCER;
-/// Generous owner-poll budget: the run is a contract violation if it does
-/// not converge far below this.
-const POLL_BUDGET: u64 = 2_000_000;
+/// Generous owner-poll deadline: the run is a contract violation if it does
+/// not converge far inside this.
+///
+/// This is a DURATION and not a poll count on purpose. It used to be
+/// `POLL_BUDGET: u64 = 2_000_000` owner polls, and a count of how many times
+/// a fast machine can go round a loop is a host-speed measurement dressed as
+/// a bound: on a loaded host the producer threads had not finished enqueueing
+/// when the owner exhausted the count, and
+/// `racing_producers_never_lose_or_duplicate_commands` failed
+/// `applied.len() == TOTAL` with `left: 179 right: 200` and no defect
+/// anywhere. What these loops guard against is spinning FOREVER, and a
+/// generous wall clock says exactly that without saying anything about how
+/// fast this machine is. Same class as
+/// `drafts/self-review/findings/F004-race-test-spin-bound-sized-to-a-host.md`
+/// and F002 before it; the poll counter is kept, but only to REPORT in the
+/// failure message, never to decide.
+const POLL_DEADLINE: Duration = Duration::from_secs(60);
 
 fn stress_config() -> ConnectionConfig {
     ConnectionConfig::builder()
@@ -66,7 +81,8 @@ fn racing_producers_never_lose_or_duplicate_commands() {
     let mut applied: Vec<String> = Vec::new();
     let mut wire_bytes = 0usize;
     let mut polls = 0u64;
-    while applied.len() < TOTAL && polls < POLL_BUDGET {
+    let started = Instant::now();
+    while applied.len() < TOTAL && started.elapsed() < POLL_DEADLINE {
         polls += 1;
         let result = driver.poll(DriverInput::Wake);
         if let Some(CommandDisposition::Applied(LocalCommand::SendText { text })) = result.command {
@@ -154,7 +170,8 @@ fn terminal_is_exactly_once_under_racing_producers() {
     let mut disposed = 0u64;
     let mut terminals = 0u64;
     let mut polls = 0u64;
-    while disposed < 20 && polls < POLL_BUDGET {
+    let started = Instant::now();
+    while disposed < 20 && started.elapsed() < POLL_DEADLINE {
         polls += 1;
         let result = driver.poll(DriverInput::Wake);
         if result.command.is_some() {
@@ -179,7 +196,7 @@ fn terminal_is_exactly_once_under_racing_producers() {
     // Drain to quiescence while producers still race, then stop them and
     // drain the tail.
     let mut drained_idle_passes = 0;
-    while drained_idle_passes < 3 && polls < POLL_BUDGET {
+    while drained_idle_passes < 3 && started.elapsed() < POLL_DEADLINE {
         polls += 1;
         let result = driver.poll(DriverInput::Wake);
         if result.command.is_some() {
@@ -215,11 +232,17 @@ fn terminal_is_exactly_once_under_racing_producers() {
             break;
         }
     }
-    assert_eq!(terminals, 1, "terminal delivered exactly once");
+    // `polls` decides nothing — the loops above are bounded by POLL_DEADLINE —
+    // but reporting how far the owner actually got is what tells a reader
+    // whether a failure is a real disposition bug or a starved run.
+    assert_eq!(
+        terminals, 1,
+        "terminal delivered exactly once (polls={polls})"
+    );
     assert_eq!(
         disposed,
         accepted.load(Ordering::SeqCst),
-        "every accepted command disposed exactly once"
+        "every accepted command disposed exactly once (polls={polls})"
     );
     assert_eq!(driver.state(), ReadyState::Closed);
 }
