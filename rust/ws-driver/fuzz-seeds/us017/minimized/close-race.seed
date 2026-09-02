@@ -4,3 +4,4 @@ mutation=drop-terminal-after-shutdown
 event_queue_capacity=8
 schedule=transport-eof
 counterexample=no-terminal-after-fair-drain
+found_index=79925

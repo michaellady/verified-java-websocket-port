@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-authorized-inherited-contract-amendment",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "story": "US-008 (confirmation-host rigor; applies to US-025 envelope decisions and the future scale campaign)",
+  "authorized_at": "2026-08-26T18:20:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner explicit AskUserQuestion decision 2026-08-26T18:20Z ('Bootstrap + tiered design (Recommended)') after a cost/scale briefing: the end-state goal is up to 1,000 Java-to-Rust conversions as a scalable skill demonstration, where per-project bare-metal rigor is unnecessary and cost-prohibitive; the owner accepts jitter-averaged multi-round measurements for the scale tier ('best of three or five rounds... or even ten') and does not want infrastructure spend ahead of the scale that demands bare-metal accuracy.",
+  "amendment": {
+    "from": "The confirmation environment is a provenance-distinct dedicated or exclusively reserved Linux x86_64 host (bare-metal per the virtualization-overhead rationale) for every measured claim.",
+    "to": "Confirmation rigor is TIERED through the same preregistered pipeline, chosen per run and recorded in the environment binding: (TIER 1, default for the scale campaign) an ordinary provenance-distinct Linux x86_64 cloud VM running N-round jitter-averaged measurements (N preregistered per plan, e.g. 3-10 rounds of the paired-sample protocol), honestly labeled VM_MEASURED_JITTER_AVERAGED with the instance identity recorded; (TIER 2, opt-in for flagship claims) a dedicated bare-metal x86_64 host, single-protocol, labeled METAL_MEASURED, used when the owner elects flagship-grade rigor (e.g. this first showcase port). Every published number states its tier; a Tier-1 number must never be represented as metal-grade. All other preregistration invariants (frozen workloads, pairing, stats plan, no fabricated samples, binding before measurement) are unchanged and apply to both tiers.",
+    "unchanged_invariants": [
+      "No benchmark samples inside sbx; sbx remains build/test preparation only",
+      "Primary measurements native on the pinned macOS host",
+      "Confirmation host provenance-distinct from the primary (different physical hardware and vendor)",
+      "Exact host and tool identities bind before any sample; fixed sample counts; preregistered stats; no fabricated results",
+      "Assurance OWNER_ATTESTED_NOT_INDEPENDENT, independent_review_claimed false"
+    ]
+  },
+  "cost_context": "Standing infra ~USD 1-2/month (state storage + lock table + OIDC/IAM only; no running compute). Tier-1 run: cents per project. Tier-2 run: ~USD 3-4 (machine destroyed in-job). Owner-approved budget alarm to be set in the dev account.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

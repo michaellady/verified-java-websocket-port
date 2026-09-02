@@ -1,0 +1,26 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decisions-post-failure-contract",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T15:23:04Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "owner": "mikelady",
+  "context": "The post-failure investigation (drafts/post-failure-contract-finding.md) established the question splits on TWO AXES the test invariant conflated. AXIS 1, reaction to the failure: shipped WebSocketImpl sends a 1002 close frame and moves OPEN->CLOSING->CLOSED (WebSocketImpl.java:399-418, :481-487, :494, :503), while our core, driver AND testee take no action and carry 1002 as metadata — matching the java-oracle adapter, which aborts its step loop (OracleEngine.java:311-322) and whose error response structurally cannot carry events, frames, transitions or close (:591-606). AXIS 2, continuation of work committed BEFORE the failure: Java drains its write queue and delivers the terminal, and our driver drains its backlog — these AGREE. The investigation recommended option (c): per-layer contracts plus a test rename, with NO behavioural change. The coordinator independently verified the schema claim (the error branch is additionalProperties:false with properties limited to outcome/final_state/error/counts) and the transcript claim (74 records, 26 errors, ZERO carrying observables).",
+  "decisions": [
+    {
+      "id": "c6-match-java-fully",
+      "decision": "MAKE THE DRIVER MATCH JAVA FULLY on axis 1: on a protocol violation the stack must send the 1002 close frame and follow shipped WebSocketImpl's reaction, rather than the oracle-shaped no-action behaviour it has today. This OVERRIDES the investigation's recommended option (c) no-change path.",
+      "hard_stop_condition": "The 74-case public transcript is LIVE-ORACLE-CONFIRMED evidence and the corpus currently pins agreement with the ORACLE layer, which does NOT send the close frame. If this change shifts the transcript by even one non-runtime byte, or moves scored-field disagreements with live Java above ZERO, STOP and surface it rather than re-baselining. A shift is the expected outcome, not a surprise: the investigation explicitly warned this change alters the oracle agreement the corpus pins and needs an explicit layer-split decision first. Surfacing it IS that decision reaching the owner.",
+      "re_verification_required": "public corpus, live-oracle differential, Autobahn e5/e5b, cross-peer loopback, formal close model, handshake exam — all re-run, none assumed."
+    },
+    {
+      "id": "c5-fatal-command-rejection-surfaces-failure",
+      "decision": "REPORT IT AS A FAILURE. A fatal arriving as CommandDisposition::Rejected currently poisons the core while producing NO Failure output, because finish_poll is called with failure=None, so neither halt model halts on it and the connection goes on to deliver a clean Terminal. A fatal must surface identically regardless of how it arrived; fix it at the source so both halt models work as their names claim.",
+      "note": "This is the THIRD way the invariant's name overpromised, orthogonal to the two documented rounds."
+    }
+  ],
+  "sequencing": "The C4 test rename and the C5 caveat touch the same regions of schedule_exploration.rs as the vacuity-sweep lane's edits; they must land as ONE edit, not two.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

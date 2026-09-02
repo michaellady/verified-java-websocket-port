@@ -889,6 +889,21 @@ impl WiredSession {
             // (`OracleEngine`'s failure response carries error code and
             // close code, never an arrival path).
             ws_driver::DriverOutput::Failure { failure, .. } => StepOutput::Failure(failure),
+            // US-017 AC2's dropped-write disposition is unreachable HERE, and
+            // it is refused rather than absorbed so it stays that way. The
+            // driver only reports it after `DriverInput::Shutdown`, and this
+            // harness never sends one: its only transport-termination input is
+            // `TransportEof`, because `OracleEngine`'s `eof` action is the one
+            // termination the corpus scenarios can express. Absorbing it into
+            // `Idle` would be the exact leak AC2 forbids — a committed write
+            // the transcript would never mention — so if a future step ever
+            // does end transport service, this stops rather than producing a
+            // transcript that silently omits what was abandoned.
+            ws_driver::DriverOutput::WritesDropped(dropped) => panic!(
+                "the oracle harness sends no DriverInput::Shutdown, so it can own no \
+                 dropped-write report; the transcript has no projection for {dropped:?} \
+                 and dropping it silently would be the US-017 AC2 leak"
+            ),
             ws_driver::DriverOutput::Terminal(_) => StepOutput::Terminal,
         };
         (result.input, result.command, output)

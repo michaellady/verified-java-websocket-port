@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.1",
+  "kind": "owner-decision-record-timestamp-correction",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "corrects": "protected/us008-owner-pinning-tier1.json",
+  "recorded_at": "2026-08-26T20:11:31Z",
+  "recorded_at_provenance": "Captured from `date -u` immediately before this revision was written — not an estimate.",
+  "revision_note": "This is revision 2 of this sidecar. Revision 1 committed the same class of error it existed to correct: its recorded_at (2026-08-26T20:20:00Z) was a typed estimate that postdated the file's actual creation and the commit (792d726, 2026-08-26T20:04Z) that cited it — flagged by pinned review session 01a03fad. Revision 2 replaces the estimate with a captured timestamp and documents both errors. No other content changed in substance.",
+  "finding": "Pinned review session 01a03f9c-b538-7270-ad5d-3f2d91bf22a8 (US-008 binding commit ac17b35) flagged an impossible chronology: the decision record's decided_at (2026-08-26T19:55:00Z) postdates the binding commit it authorizes (committed 2026-08-26T19:46:21Z).",
+  "root_cause": "The decided_at value in the original record was an estimate typed by the driver when writing the record, not a captured event time. The estimate was too late. The original file is otherwise correct and is preserved unmodified per protected-store immutability.",
+  "reconciled_chronology": [
+    "1. The probed pinning decision package was delivered by the research agent.",
+    "2. The owner answered the AskUserQuestion (Tier-1 'c7i.xlarge + proven image'; Tier-2 'Defer') immediately after the package was surfaced — before the decision record was written and before the binding agent was launched.",
+    "3. The driver wrote protected/us008-owner-pinning-tier1.json citing that answer, then launched the binding agent.",
+    "4. The binding agent committed ac17b35 at 2026-08-26T19:46:21Z.",
+    "The owner decision therefore genuinely PRECEDES the binding commit; only the recorded estimates were wrong. Corrected honest bound: the decision occurred after the decision package's delivery and no later than 2026-08-26T19:46:21Z. Exact event timestamps were not captured and are not invented here."
+  ],
+  "instruction_to_consumers": "Read decided_at in the original record as 'no later than 2026-08-26T19:46:21Z'; this sidecar (revision 2) is the authoritative chronology.",
+  "standing_rule": "Every future authorization/decision/receipt timestamp on this plane is captured from `date -u` at write time; estimated wall-clock values are prohibited.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

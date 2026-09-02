@@ -49,6 +49,7 @@
 //! records once their baseline observations exist.
 
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering as AtomicOrdering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use crate::close::{
@@ -1368,12 +1369,23 @@ pub enum CommandRefusalReason {
     /// Another producer momentarily holds the queue; retry immediately.
     /// Surfaced instead of waiting so `try_send` NEVER blocks (US-009 AC4).
     Contended,
+    /// The sole owner half ([`CommandQueue`]) has been dropped: no owner
+    /// will ever apply this command, so it is refused rather than accepted
+    /// into a queue nobody drains. Terminal for this channel — every later
+    /// `try_send` on any surviving [`CommandSender`] clone refuses the same
+    /// way (US-017 AC2 receiver-drop: explicit typed behavior, no leak).
+    ReceiverDropped,
 }
 
 #[derive(Debug)]
 struct CommandChannel {
     queue: Mutex<VecDeque<LocalCommand>>,
     capacity: usize,
+    /// Set by [`CommandQueue`]'s `Drop` while it HOLDS the queue lock, and
+    /// read by [`CommandSender::try_send`] while it holds the same lock, so
+    /// the flag and the push are decided in one critical section: no send
+    /// can slip an accepted command past a receiver that is going away.
+    receiver_dropped: AtomicBool,
 }
 
 impl CommandChannel {
@@ -1401,7 +1413,9 @@ impl CommandSender {
     /// # Errors
     ///
     /// [`CommandRefused`] carries the rejected command; the producer decides
-    /// whether to retry after the owner drains.
+    /// whether to retry after the owner drains. A
+    /// [`CommandRefusalReason::ReceiverDropped`] refusal is terminal — the
+    /// sole owner is gone and no retry can ever be applied.
     pub fn try_send(&self, command: LocalCommand) -> Result<(), CommandRefused> {
         // Review round 1 (session 01a04407): a blocking Mutex::lock here could
         // stall behind another producer, violating the try-send-only contract.
@@ -1417,6 +1431,19 @@ impl CommandSender {
                 });
             }
         };
+        // US-017 story review BLOCKING-1 (session 01a04626): AC2 gives
+        // receiver-drop explicit typed behavior, so an accepted send after
+        // the sole owner is gone is not allowed — `Ok(())` would promise an
+        // application that can never happen and would strand the command in
+        // a queue nobody drains. The check sits INSIDE the queue lock (the
+        // same lock `CommandQueue::drop` takes before setting the flag), so
+        // it is decided atomically with respect to the push below.
+        if self.channel.receiver_dropped.load(AtomicOrdering::SeqCst) {
+            return Err(CommandRefused {
+                command,
+                reason: CommandRefusalReason::ReceiverDropped,
+            });
+        }
         if queue.len() >= self.channel.capacity {
             return Err(CommandRefused {
                 command,
@@ -1446,6 +1473,7 @@ impl CommandQueue {
         let channel = Arc::new(CommandChannel {
             queue: Mutex::new(VecDeque::with_capacity(capacity)),
             capacity,
+            receiver_dropped: AtomicBool::new(false),
         });
         (
             CommandQueue {
@@ -1476,6 +1504,25 @@ impl CommandQueue {
     #[must_use]
     pub fn capacity(&self) -> usize {
         self.channel.capacity
+    }
+}
+
+/// Dropping the sole owner half publishes the terminal receiver-drop
+/// signal every surviving [`CommandSender`] observes (US-017 AC2).
+///
+/// The flag is set while the queue lock is HELD, which is the same lock
+/// [`CommandSender::try_send`] holds when it reads the flag and pushes:
+/// a producer therefore either sees a live receiver and its push is
+/// ordered before this drop, or sees the flag and refuses. There is no
+/// interleaving in which a command is accepted into a queue whose owner
+/// has already gone away. Commands still queued here belong to the
+/// embedding adapter's teardown and are dropped with the channel.
+impl Drop for CommandQueue {
+    fn drop(&mut self) {
+        let _guard = self.channel.lock();
+        self.channel
+            .receiver_dropped
+            .store(true, AtomicOrdering::SeqCst);
     }
 }
 

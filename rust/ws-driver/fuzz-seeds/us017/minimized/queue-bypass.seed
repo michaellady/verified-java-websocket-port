@@ -4,3 +4,4 @@ mutation=apply-second-command-before-front-write-drains
 event_queue_capacity=8
 schedule=inbound-close,write-all
 counterexample=second-wire-observed-before-first-completes
+found_index=0

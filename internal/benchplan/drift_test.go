@@ -21,6 +21,17 @@ func cleanObservations() RunValidityObservations {
 		IdentityChecksPassed:            true,
 		InvalidSamples:                  0,
 		ReferenceDrift:                  cleanDrift(),
+		ObservedCPUClock:                cleanObservedClock(),
+	}
+}
+
+// cleanObservedClock is a synthetic well-formed clock record for
+// exercising code paths. It is NOT a measurement: no bound host has been
+// provisioned and no benchmark sample of any kind exists.
+func cleanObservedClock() *ObservedCPUClock {
+	return &ObservedCPUClock{
+		Source:     "SYNTHETIC_FIXTURE_NOT_A_MEASUREMENT",
+		SamplesMHz: []float64{3200, 3200, 3200},
 	}
 }
 

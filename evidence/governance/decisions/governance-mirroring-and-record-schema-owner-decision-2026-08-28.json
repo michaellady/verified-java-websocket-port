@@ -1,0 +1,53 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-governance-mirroring-and-record-schema",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T20:05:00Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "owner": "mikelady",
+  "resolves": "two items escalated by the ledger-integrity lane after independent review 01a0495e-669c-7ff1-8b3d-e15fd80bf9d0 BLOCKed claude/ledger-integrity with ten findings, all of which held",
+
+  "decision_1_governance_mirroring": {
+    "problem": "The owner-decision records that govern this project live in workspace/orchestrator/verified-java-websocket-port-claude/protected/, outside the code repository. Deleting or editing one fails NO branch check when VJWP_PROTECTED_STORE is unset. The governance layer is unbound by anything in the repo, so the artifacts that authorize the work are the least protected things in it.",
+    "options_offered": [
+      "Mirror digests only (recommended)",
+      "Mirror the full records",
+      "Leave as-is, document the gap"
+    ],
+    "decision": "MIRROR DIGESTS ONLY.",
+    "decision_detail": "Commit a manifest of each decision record's sha256 into the repo. Deleting or editing a governance record must then fail a check. The record CONTENTS stay out of the repository.",
+    "rationale": "repos/public/verified-java-websocket-port-claude is a PUBLIC repository. The decision records contain internal deliberation, cost figures, owner reasoning and infrastructure identifiers; committing them publishes all of that permanently. A digest manifest gets the tamper-detection without the disclosure.",
+    "implementation_notes": [
+      "The manifest must be verified by something that RUNS -- a rule that lives only in a _test.go file was finding 3 of this very review and does not count as a gate.",
+      "A missing protected store must not silently pass. Absence of the store is different from a matching digest, and the check must distinguish them rather than skipping when VJWP_PROTECTED_STORE is unset -- that is the exact shape of the defect being closed.",
+      "Prove the gate by execution before claiming it works: delete a record and read the failure, edit one and read the failure, then restore and read the pass."
+    ]
+  },
+
+  "decision_2_record_schema_bump": {
+    "problem": "The ledger-integrity lane made supersession machine-visible (a Supersedes field producing a canonical SUPERSEDES token in the hashed rationale, plus evidence/java/ledger-supersessions.json and AuthoritativeSequences). But internal/lab's readiness gate reads the FROZEN record vocabulary and cannot see supersession, so a withdrawn record still reads as authoritative to the one consumer that decides release readiness.",
+    "options_offered": [
+      "Bump to 1.1.0 and teach the gate (recommended)",
+      "Defer, document the inconsistency",
+      "Decide after the remaining reviews land"
+    ],
+    "decision": "BUMP THE RECORD SCHEMA TO 1.1.0 AND TEACH THE READINESS GATE ABOUT SUPERSESSION.",
+    "rationale": "Leaving it deferred means the single consumer that decides release-readiness is reading records the rest of the system considers withdrawn -- which is precisely the failure the supersede mechanism was built to prevent. A supersede mechanism invisible to the gate that matters is not a mechanism.",
+    "implementation_notes": [
+      "Prove the gap first: make a record superseded, run the readiness gate, and read it treating the withdrawn record as authoritative. Then fix, then read the refusal.",
+      "The bump must not disturb the frozen prefix. Sequence 35 digests to 3fcd461c... and is now pinned by VerifyFrozenPrefix; verify that pin still holds after the migration."
+    ]
+  },
+
+  "standing_rule_derived_this_phase": {
+    "problem": "THREE lanes have now escalated the same shape: prose inside an owner-decision-linked artifact goes stale as code moves, and the lane correctly refuses to rewrite it on its own authority. Instances: commit 77d8c23 plus ledger record 36 asserting ws-core byte-identity; commit 85366c4's message claiming work landed 'before any Rust source'; and internal/deltaledger/definitions_layer_split.go:102 naming rust/ws-testee/src/io_loop.rs as the C6 violation_close_frame site when that symbol has lived in ws-driver since the layer split.",
+    "rule": "The freeze boundary already answers this. The owner ruling freezes the ledger prefix THROUGH SEQUENCE 35 and expressly requires the rest to be rebuilt. Therefore: a stale statement in a record at sequence 36 or later may be corrected IN PLACE, because those are this project's own appends and rebuilding them is required, not merely permitted. A stale statement at sequence 35 or earlier requires a NEW SUPERSEDING record and must never be rewritten. A stale statement in a COMMIT MESSAGE is never rewritten -- history stands and a later commit becomes the correction of record.",
+    "applies_to_the_open_instance": "definitions_layer_split.go:102 -- determine the record's sequence, then apply the rule above. Do not escalate this class again unless the record falls at or below sequence 35, or the correction would change a decision rather than a description.",
+    "caveat": "In-place correction is sanctioned for DESCRIPTIONS that have gone stale. It is NOT sanctioned for changing what a record decided or concluded. If a correction would alter the substance of a ruling rather than its description of where code lives, escalate regardless of sequence."
+  },
+
+  "assurance": {
+    "attestation": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false
+  }
+}

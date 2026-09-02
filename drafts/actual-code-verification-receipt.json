@@ -1,0 +1,1066 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "actual-code-verification-receipt",
+  "lane": "us012-ac5-actual-code-verification (Kani)",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "generated_at": "2026-08-28T13:42:00Z",
+  "generated_at_provenance": "captured from `date -u` in the same process that wrote this file",
+  "driver": "claude-opus-5",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "owner_authorization": {
+    "path": "protected/us012-actual-code-verification-owner-decision-2026-08-28.json",
+    "sha256": "b4f6891da432e3d13ad6bcef6064c05cb3e7501fd72781fe8c06a80732313c69",
+    "digest_prefix_matched_brief": true
+  },
+  "commit": {
+    "branch": "claude/actual-code-verification",
+    "head": "e3484539cd828f09586d6679da160fb3fafbd004",
+    "base": "c680c3c844cf5f86716859f4fab443b127a20683"
+  },
+  "verdict": {
+    "feasible": true,
+    "summary": "Kani 0.67.0 verifies the ACTUAL shipped ws_core source. 16 harnesses all verified, of which 15 are over the real shipped functions and 1 is ORACLE VALIDATION, not actual-code verification: real_reference_decoder_agrees_with_core_str_len_le_3 (real.rs:104) ties the independent reference decoder in spec to core::str::from_utf8 and calls no ws_core function at all. It earns the reference decoder the right to be used as an oracle by the 15, which is why it is here, but counting it among harnesses 'over the real functions' overstated the actual-code figure by one. The harness's own doc comment always said ORACLE VALIDATION; this summary is what was wrong. 14 of 15 planted defects were detected, 1 was PROVEN EQUIVALENT, and 1 pair demonstrates a blind spot in a property this project already carries. The zero-dependency gate is untouched: rust/ still reports 0 non-path dependencies and ac1-gates is 8/8.",
+    "claim_ceiling": "BOUNDED verification. Every property below states its bound. The u16 close-code harnesses are exhaustive over their entire input domain; every other harness proves its property only up to the stated bound and NOT universally."
+  },
+  "gate_reading_verified_at_source": {
+    "question": "Does the zero-dependency gate prohibit an external source-analysing verifier?",
+    "answer": "NO.",
+    "evidence": "cmd/rustgatectl/main.go: gateDependencyInventory (line 591) and gateAudit (line 952) both operate exclusively on meta.externalDependencies(), which (line 269) selects packages from `cargo metadata --format-version 1 --locked` whose `source` field is non-empty -- i.e. NON-PATH dependencies of the rust/ workspace. Neither gate inspects PATH, host-installed tools, or anything outside the cargo graph.",
+    "precedents_confirmed": [
+      "tla2tools.jar (TLC) -- digest-pinned, assurance/formal/backend-qualification.json",
+      "crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074 -- evidence/intake/toolchain-pins.json",
+      "Java-WebSocket 1.6.0 oracle jar -- evidence/intake/source-pins.json"
+    ],
+    "conclusion": "Kani is a fourth external verification vehicle of the same shape. It is NOT prohibited by the gate."
+  },
+  "tool": {
+    "name": "Kani Rust Verifier",
+    "version": "0.67.0",
+    "reported_by": "`kani --version` -> `kani 0.67.0`, process exit 0",
+    "backend": "CBMC with CaDiCaL 2.0.0 / kissat, goto-cc, goto-instrument",
+    "acquisition_provenance": {
+      "driver_crate": {
+        "source": "crates.io kani-verifier 0.67.0",
+        "published_checksum_sha256": "d6225a7ec13037e984f6bebdda33d34390e643a1cd2a4522cb5d5e8e6ed85e2b",
+        "published_checksum_source": "https://crates.io/api/v1/crates/kani-verifier (versions[].checksum)",
+        "independently_downloaded_and_hashed": "d6225a7ec13037e984f6bebdda33d34390e643a1cd2a4522cb5d5e8e6ed85e2b",
+        "match": true,
+        "installed_via": "cargo install --locked kani-verifier --version 0.67.0 --root /tmp/kani-install"
+      },
+      "release_bundle": {
+        "artifact": "kani-0.67.0-aarch64-apple-darwin.tar.gz",
+        "size_bytes": 104168339,
+        "url": "https://github.com/model-checking/kani/releases/download/kani-0.67.0/kani-0.67.0-aarch64-apple-darwin.tar.gz",
+        "published_digest": "sha256:7fd0b71130aa37bd1e346eba675aad09e9b66e4b383f707fc657330ceb29eeec",
+        "published_digest_source": "GitHub release API asset `digest` field for release kani-0.67.0 (id 341228123)",
+        "independently_downloaded_and_hashed": "7fd0b71130aa37bd1e346eba675aad09e9b66e4b383f707fc657330ceb29eeec",
+        "match": true
+      },
+      "installed_binary_cross_check": {
+        "method": "`cargo kani setup` fetched its own copy of the bundle into ~/.kani. Every binary in ~/.kani/kani-0.67.0/bin was hashed and compared against the SAME binary extracted from the tarball this lane independently digest-verified above. All 8 match byte-for-byte.",
+        "digests": {
+          "bin/cbmc": "sha256:941a843499275d60625bdb5e3631617c8b9760cc9e1709d2126d3858ba85e85d",
+          "bin/goto-analyzer": "sha256:7698e19f5f6b6cfa2f7a2663a1a1d97c90ab9124a6da65bfc2da7d704f715b6b",
+          "bin/goto-cc": "sha256:005656e6dab1700c50351101ee36575b7c84712cb8167f52466aa23aaa691838",
+          "bin/goto-instrument": "sha256:54b03b79863ea6f84d6b5bf094c85a5090b0fd9b0d25049cfee9cf210dba320c",
+          "bin/kani-compiler": "sha256:7c514266bb2ec9c26d2aed1dfa021464603ff5f456e3c1975dc475417942cd85",
+          "bin/kani-cov": "sha256:37923a3a4b5444036d286484a9c8e976e535a0bc1d5b14241b290388361fd7de",
+          "bin/kani-driver": "sha256:00e3872e33d1546f556f6cc55c3ece1f9f906eeb2b0c5ac5513b2aa66f0017cb",
+          "bin/kissat": "sha256:6cbea531c356468c23872474053de41e8c281cec0d7e4189f80b3524101c9aaf"
+        },
+        "all_match": true
+      },
+      "driver_binaries": {
+        "kani": "sha256:c3f18a60530c51d27c2a8b12570568bde4bdbfe7394fe1224d1fac37186d9022",
+        "cargo-kani": "sha256:b2dd8879035967b76ae14eb72008dcb3f114ad3a8f283e2667aab81ea4df1dcb",
+        "note": "Built locally from the digest-verified crates.io source with the host stable toolchain, so these digests are this-host artifacts, not published values."
+      }
+    }
+  },
+  "toolchain_arrangement": {
+    "shipped_pin_untouched": {
+      "file": "rust/rust-toolchain.toml",
+      "channel": "1.95.0",
+      "sha256": "70025e01381c049c00b10b9060689dcb81bac086f59b38976e15dee33d4d5155",
+      "git_status": "clean -- `git diff HEAD -- rust/rust-toolchain.toml` empty, exit 0",
+      "shipped_tree_diff": "`git diff HEAD -- rust/ cmd/ internal/ evidence/ contracts/ schemas/` is EMPTY, exit 0: not one shipped file was modified by this lane."
+    },
+    "verifier_toolchain": {
+      "toolchain": "nightly-2025-11-21-aarch64-apple-darwin",
+      "rustc": "rustc 1.93.0-nightly (53732d5e0 2025-11-20)",
+      "rustc_binary_sha256": "sha256:35ac51dc4c414acbe362bc1d173e911dcd89b98f6fa65ff32807de3424a13888",
+      "cargo_binary_sha256": "sha256:a8167e1ab9e977dff79938f756a258cec6dbbbaf9926d71de8651830a2c90530",
+      "installed_by": "`cargo kani setup`, which calls rustup; Kani pins this exact nightly in its bundle (~/.kani/kani-0.67.0/rust-toolchain-version)",
+      "rustup_state_after": "stable-aarch64-apple-darwin (active, default)\nnightly-2025-11-21-aarch64-apple-darwin\n1.95.0-aarch64-apple-darwin",
+      "default_toolchain_unchanged": "stable-aarch64-apple-darwin remains the rustup default; 1.95.0 remains installed and is what `make -C rust gates` used (msrv gate PASS reports `workspace builds under MSRV toolchain 1.95.0-aarch64-apple-darwin`).",
+      "strongest_evidence_the_pin_is_intact": "The msrv gate itself ENUMERATES Kani's toolchain and still passes. Its post-commit log shows `rustup toolchain list` exit 0 listing stable (default), nightly-2025-11-21, and 1.95.0 (active); it then resolves each (`rustup run nightly-2025-11-21-aarch64-apple-darwin rustc --version` -> rustc 1.93.0-nightly, exit 0) and runs `rustup run 1.95.0-aarch64-apple-darwin cargo check --workspace --all-targets --locked` exit 0. The verifier toolchain is visible to the gate and changes nothing about which toolchain the workspace is built and checked under."
+    },
+    "how_the_msrv_conflict_was_resolved": {
+      "obstacle": "`cargo kani` in a crate that path-depends on rust/ws-core fails: `error: rustc 1.93.0-nightly is not supported by the following package: ws-core@0.0.0 requires rustc 1.95.0` (exit 101). cargo-kani does not forward `--ignore-rust-version` (`error: unexpected argument '--ignore-rust-version' found`, exit 2).",
+      "resolution": "A verification-only source-view crate, assurance/formal/kani/ws-core-under-verification, whose `[lib] path` points DIRECTLY at ../../../../rust/ws-core/src/lib.rs and whose `[lib] name` is `ws_core`. Nothing is copied and nothing shipped is edited: cargo kani compiles the byte-identical production source files in place. The view carries no `rust-version`, which is a cargo POLICY field with no effect on generated code, so the MSRV gate never fires for the verification pass while the shipped manifest and pin stay exactly as they are.",
+      "why_this_is_still_actual_code": "The compiled sources ARE rust/ws-core/src/*.rs, referenced by path, digest-recorded below. The shipped crate's own build continues to use 1.95.0 and is gated by the msrv gate, which passed."
+    }
+  },
+  "verified_source_identity": {
+    "statement": "These are the exact files kani-compiler compiled. They are the shipped files, not copies.",
+    "digests": {
+      "rust/ws-core/src/close.rs": "sha256:13523ae6d725dcb547d020b935788bdbb037c9bb6350e189f0d3d9f09d9aa238",
+      "rust/ws-core/src/config.rs": "sha256:97cfb4dd9b755d6760fb38bfbecaff0774cab164471668f61c29387a796e095f",
+      "rust/ws-core/src/connection.rs": "sha256:85f76afd0a033aeacd6d2419f2d595f1773dd9b8007f5e04b575e0de4f5ffeda",
+      "rust/ws-core/src/control.rs": "sha256:3ead4ca71c78101dfbfb7dec6df0887b4bc05189cfa32e660588879848831683",
+      "rust/ws-core/src/error.rs": "sha256:db28a1f3205d52d6b119411d68a09f166e3cc47512140a49ca1242c5a5f8f084",
+      "rust/ws-core/src/event.rs": "sha256:e4915daa80ddb1b6c6a02f5cc1beae68cceaecfd8529b6981ff84b02ac4576f0",
+      "rust/ws-core/src/fragment.rs": "sha256:bbb3a4a44e0194a71d3ce79f0c1786317a89835d92e3089a1187415eec802fc8",
+      "rust/ws-core/src/framing.rs": "sha256:13e954c585a6f9c3522ef218ede6322be3bdd92b95c7d26e25297cc7a9681e3d",
+      "rust/ws-core/src/handshake/client.rs": "sha256:907453e2218a691741a0ff37b3e5f08084a07201bed0165f27a1d78ce93223b9",
+      "rust/ws-core/src/handshake/crypto.rs": "sha256:86bd5e2a7347bba8e201e2db34131623c6fee76799f12e993ca3b9eb273ff1cd",
+      "rust/ws-core/src/handshake/http.rs": "sha256:a57b37edf0197331ab9efd5f5736f174164090f1faddcbae058721d730dfe99e",
+      "rust/ws-core/src/handshake/server.rs": "sha256:04df86320cfd2a9ba11698672575335b42de7f601abc1c9f5c34175502b209f6",
+      "rust/ws-core/src/handshake.rs": "sha256:ec8d574b44f0b3fe4ff34535a6687ee19acefe801bdd25a20cbf807391c3d922",
+      "rust/ws-core/src/lib.rs": "sha256:c8fd4aec9fa7151640248983b52b6d3998568a0dc1553a1a2fe95354ead9df16",
+      "rust/ws-core/src/message.rs": "sha256:4ec3aa46e95f78c569b17bf8c5cc2c19de9afbc28a3b1151c98f25f641d2535c",
+      "rust/ws-core/src/queue.rs": "sha256:717ff6a4bdae583fa7e49af51621fb9d0f039e0821644112cd5e1d45dc2c9bc9"
+    }
+  },
+  "dependency_graph_evidence": {
+    "command": "cargo metadata --format-version 1 --locked (run in rust/, the same invocation cmd/rustgatectl/main.go uses)",
+    "packages": 5,
+    "non_path_dependencies": 0,
+    "workspace_members": [
+      "candidate-stub",
+      "ws-core",
+      "ws-driver",
+      "ws-oracle-harness",
+      "ws-testee"
+    ],
+    "unchanged_before_and_after": "The (name, version, source) triple set is IDENTICAL before and after this lane's work; the comparison exited 0.",
+    "why_the_verification_crates_are_invisible": "assurance/formal/kani/{harness,ws-core-under-verification} live OUTSIDE the rust/ directory, each declares its own empty [workspace] table so neither is swept into the rust/ workspace, and no shipped crate depends on either. They therefore never appear in rust/'s cargo metadata, which is the only thing the dependency-inventory and audit gates read.",
+    "verification_crate_lockfile": "assurance/formal/kani/harness/Cargo.lock contains exactly two packages, kani-harness and ws-core-under-verification, both path-local with no `source` -- the verification graph itself pulls nothing from any registry.",
+    "kani_library_is_not_a_cargo_dependency": "Kani injects its `kani` crate at compile time under `--cfg=kani`; it is NOT declared in any Cargo.toml, so it cannot appear in cargo metadata. All harness code is behind #[cfg(kani)], so an ordinary `cargo build` of the harness crate compiles an empty library."
+  },
+  "negative_control": {
+    "discipline": "Run and read BEFORE any positive claim. Each mutant is a defect-planted COPY of a target function; the SAME spec predicate is applied to the copy that the real harness applies to the shipped function. Every harness was run as its own process and its REAL exit status read (cmd: assurance/formal/kani/runner).",
+    "planted": 15,
+    "detected": 14,
+    "proven_equivalent": 1,
+    "results": [
+      {
+        "mutant_id": "M1",
+        "target": "close.rs normalize_send_close_code",
+        "planted_defect": "off-by-one trigger: normalizes 1014 instead of 1015, so 1015 survives",
+        "harness": "nc_m1_normalize_off_by_one_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 0.3
+      },
+      {
+        "mutant_id": "M2",
+        "target": "close.rs normalize_send_close_code",
+        "planted_defect": "wrong target: 1015 -> 1006 instead of 1015 -> 1005",
+        "harness": "nc_m2_normalize_wrong_target_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 0.3
+      },
+      {
+        "mutant_id": "M3",
+        "target": "close.rs close_code_rejection",
+        "planted_defect": "reserved-span boundary widened (code < 3000 -> code <= 3000): legal application code 3000 wrongly rejected",
+        "harness": "nc_m3_rejection_span_off_by_one_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 0.4
+      },
+      {
+        "mutant_id": "M4",
+        "target": "close.rs close_code_rejection",
+        "planted_defect": "the 1007-with-empty-reason rule dropped entirely",
+        "harness": "nc_m4_rejection_drop_1007_rule_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 0.4
+      },
+      {
+        "mutant_id": "M5",
+        "target": "close.rs close_code_rejection",
+        "planted_defect": "1004 dropped from the never-on-the-wire disjunction: reserved code wrongly accepted",
+        "harness": "nc_m5_rejection_drop_1004_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 0.4
+      },
+      {
+        "mutant_id": "M6",
+        "target": "message.rs Utf8Validator",
+        "planted_defect": "overlong shortcut: accepts the 0xc0/0xc1 lead bytes",
+        "harness": "nc_m6_utf8_allow_overlong_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 6.5
+      },
+      {
+        "mutant_id": "M7",
+        "target": "message.rs Utf8Validator",
+        "planted_defect": "surrogate shortcut: 0xed continuation window widened from 0x9f to 0xbf",
+        "harness": "nc_m7_utf8_allow_surrogates_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 6.6
+      },
+      {
+        "mutant_id": "M8",
+        "target": "message.rs Utf8Validator",
+        "planted_defect": "out-of-range shortcut: accepts the 0xf5..=0xff lead bytes",
+        "harness": "nc_m8_utf8_allow_over_max_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 6.5
+      },
+      {
+        "mutant_id": "M9",
+        "target": "framing.rs apply_mask",
+        "planted_defect": "key rotated by one: key[(i+1) % 4] instead of key[i % 4]",
+        "harness": "nc_m9_mask_rotated_key_exact_equation_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 1.7
+      },
+      {
+        "mutant_id": "M10",
+        "target": "framing.rs apply_mask",
+        "planted_defect": "byte 0 skipped: first payload byte left unmasked",
+        "harness": "nc_m10_mask_skips_first_byte_exact_equation_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 1.6
+      },
+      {
+        "mutant_id": "M11",
+        "target": "framing.rs decode_frame_header",
+        "planted_defect": "control payload ceiling widened from 125 to 126",
+        "harness": "nc_m11_control_limit_expected_success_equivalent_mutant",
+        "kani_verdict": "SUCCESSFUL",
+        "process_exit": 0,
+        "detected": false,
+        "classification": "NOT_DETECTED_PROVEN_EQUIVALENT",
+        "seconds": 1.6
+      },
+      {
+        "mutant_id": "M12",
+        "target": "framing.rs decode_frame_header",
+        "planted_defect": "frame-size gate weakened from `>` to `>=`: over-rejects a frame declared at exactly the cap",
+        "harness": "nc_m12_size_gate_ge_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 1.4
+      },
+      {
+        "mutant_id": "M13",
+        "target": "framing.rs decode_frame_header",
+        "planted_defect": "extended-length control check moved after the length read: rejection reported at offset 4/10 instead of Java's 2",
+        "harness": "nc_m13_control_check_late_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 1.6
+      },
+      {
+        "mutant_id": "M14",
+        "target": "framing.rs decode_frame_header",
+        "planted_defect": "16-bit extended length decoded little-endian",
+        "harness": "nc_m14_len16_little_endian_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 1.6
+      },
+      {
+        "mutant_id": "M15",
+        "target": "framing.rs decode_frame_header",
+        "planted_defect": "control payload ceiling tightened from 125 to 124: over-rejects a legal 125-byte control payload",
+        "harness": "nc_m15_control_limit_too_tight_must_fail",
+        "kani_verdict": "FAILED",
+        "process_exit": 1,
+        "detected": true,
+        "classification": "DETECTED",
+        "seconds": 1.4
+      }
+    ],
+    "controls_on_the_control": [
+      {
+        "harness": "nc_m0_clean_clone_expected_success",
+        "purpose": "the same decoder clone with every defect switch OFF must satisfy the soundness spec, so the must-fail harnesses fail because of their defect and not because the clone or the spec is broken",
+        "verdict": "SUCCESSFUL",
+        "exit": 0,
+        "seconds": 1.7
+      },
+      {
+        "harness": "nc_m11_control_limit_proven_equivalent_to_clean_clone",
+        "purpose": "states the M11 equivalence rigorously: the widened-ceiling mutant is OUTPUT-IDENTICAL to the clean clone over the whole bounded input space",
+        "verdict": "SUCCESSFUL",
+        "exit": 0,
+        "seconds": 1.3
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "F1",
+      "severity": "finding",
+      "title": "M11 (control payload ceiling 125 -> 126) is an EQUIVALENT mutant, proven so",
+      "detail": "The mutant was planted expecting detection and Kani reported SUCCESS. The reason is sound and was then proven directly: decode_frame_header rejects a control frame carrying an extended-length marker (marker >= 126) BEFORE the ceiling check is reached, so the ceiling only ever sees payload_len == marker <= 125. Both `> 125` and `> 126` are dead comparisons for control frames. nc_m11_control_limit_proven_equivalent_to_clean_clone proves output-identity to the clean clone over all buffers of length <= 14 and all u64 caps. M15 (ceiling tightened to 124) was added as the REACHABLE control-ceiling mutant and IS detected.",
+      "consequence": "The control-ceiling dimension retains a live negative control. The port is not affected: this is a statement about the mutant, not a defect."
+    },
+    {
+      "id": "F2",
+      "severity": "finding",
+      "title": "The mask INVOLUTION property is blind to key misalignment",
+      "detail": "M9 (key rotated by one) and M10 (first byte skipped) are both real defects. Both are DETECTED by the exact mask equation out[i] == in[i] ^ key[i % 4], and both are PROVEN NOT DETECTABLE by the involution property (mask twice == identity): nc_m9/nc_m10_..._involution_expected_success both verify SUCCESSFUL. XOR with ANY fixed per-index key function is an involution, so involution alone cannot pin the key-to-byte alignment.",
+      "cross_check": "This is not a gap in the existing suite: the merged E1 property family `masking_equation_involution_and_chunked_equivalence` already carries `apply_mask vs a naive independent XOR model` alongside involution. The finding is that the exact-equation half is the load-bearing one and must not be dropped."
+    },
+    {
+      "id": "F3",
+      "severity": "tool-limitation",
+      "title": "CBMC cannot bound core::str's validator loop under a symbolic slice length",
+      "detail": "Harnesses that call String::from_utf8 with a SYMBOLIC-length slice fail with an unwinding assertion in core::str::validations::run_utf8_validation (`Not unwinding loop ... iteration 16`), still failing at --unwind 16 after 924s. Kani reported FAILED with failed_checks=0 / total_checks=0, i.e. it failed LOUDLY rather than silently claiming success. Fixing the slice length per harness (len_eq_0/1/2/3) bounds the loop while leaving every byte symbolic, and all four then verify in under a minute each. Coverage is identical to the symbolic-length form.",
+      "correction_of_an_earlier_diagnosis": "This lane first attributed a 12-minute stall on a UTF-8 harness to std's word-at-a-time fast path. That was WRONG: the cause was a missing #[kani::unwind] bound on the harness's own slice-iterator loop (CBMC was unwinding past iteration 616 over a <= 4 byte slice). Adding the bound cut the harness to 6.5s. The std cost above is a separate, real, and measured effect."
+    }
+  ],
+  "verified_functions": [
+    {
+      "function": "ws_core::close::normalize_send_close_code",
+      "file": "rust/ws-core/src/close.rs:78",
+      "properties": [
+        {
+          "property": "1015 never survives normalization (out != 1015 for every input); 1015 maps to 1005; every other code passes through unchanged",
+          "bound": "EXHAUSTIVE over the entire input domain -- a symbolic u16 covers all 65,536 close codes",
+          "harness": "real_normalize_send_close_code_all_65536",
+          "result": {
+            "harness": "real_normalize_send_close_code_all_65536",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 0.3
+          }
+        },
+        {
+          "property": "idempotence: normalize(normalize(c)) == normalize(c)",
+          "bound": "EXHAUSTIVE over all 65,536 close codes",
+          "harness": "real_normalize_send_close_code_idempotent_all_65536",
+          "result": {
+            "harness": "real_normalize_send_close_code_idempotent_all_65536",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 0.3
+          }
+        }
+      ]
+    },
+    {
+      "function": "ws_core::close::close_code_rejection",
+      "file": "rust/ws-core/src/close.rs:96",
+      "properties": [
+        {
+          "property": "the close-code decision table as derived FACTS: codomain is exactly {None, Some(1002), Some(1007)}; 1007 is the only code ever reported as 1007 and does so exactly when the reason is empty; 1004/1005/1006/1015 always reject 1002; codes <1000 or >4999 always reject 1002; 1016..=2999 always reject 1002; 3000..=4999 are always legal; the remainder of 1000..=1015 is legal",
+          "bound": "EXHAUSTIVE over all 65,536 close codes, with the reason represented by the two canonical witnesses \"\" and \"x\"",
+          "harness": "real_close_code_rejection_all_65536_witness_reasons",
+          "result": {
+            "harness": "real_close_code_rejection_all_65536_witness_reasons",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 0.4
+          }
+        },
+        {
+          "property": "reason-insensitivity: the answer depends on the reason ONLY through is_empty(), which is what makes the two-witness table above a complete account of the reason dimension",
+          "bound": "all 65,536 close codes x EVERY valid UTF-8 close reason of length <= 3 bytes (bytes fully symbolic)",
+          "harness": "real_close_code_rejection_reason_insensitive_len_le_3",
+          "result": {
+            "harness": "real_close_code_rejection_reason_insensitive_len_le_3",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 89.0
+          }
+        },
+        {
+          "property": "normalize-then-reject equals reject: close_code_rejection(normalize(c), r) == close_code_rejection(c, r) -- an independent re-derivation of E1's m016-send-close-normalize-skip equivalence ruling",
+          "bound": "EXHAUSTIVE over all 65,536 close codes x the two reason witnesses",
+          "harness": "real_normalize_then_reject_equals_reject_all_65536",
+          "result": {
+            "harness": "real_normalize_then_reject_equals_reject_all_65536",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 0.4
+          }
+        }
+      ]
+    },
+    {
+      "function": "ws_core::message::Charsetfunctions::is_valid_utf8 (translate stage, quirk Q15 stage 1)",
+      "file": "rust/ws-core/src/message.rs:171 (DFA at message.rs:57-148)",
+      "properties": [
+        {
+          "property": "EXACT characterization: is_valid_utf8(b) is true iff b is a PREFIX of some valid UTF-8 string, against an independent value-based reference decoder that reconstructs code points and validates by range",
+          "bound": "all byte strings of length <= 4, every byte symbolic (covers 2^32 + 2^24 + 2^16 + 2^8 + 1 concrete inputs)",
+          "harness": "real_is_valid_utf8_exact_vs_reference_len_le_4",
+          "result": {
+            "harness": "real_is_valid_utf8_exact_vs_reference_len_le_4",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 6.7
+          }
+        },
+        {
+          "property": "ORACLE VALIDATION: the reference decoder itself agrees with core::str::from_utf8, using error_len()==None as the documented 'ended mid-sequence' discriminator, on BOTH the translate-stage and strict-stage readings",
+          "bound": "all byte strings of length <= 3, every byte symbolic",
+          "harness": "real_reference_decoder_agrees_with_core_str_len_le_3",
+          "result": {
+            "harness": "real_reference_decoder_agrees_with_core_str_len_le_3",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 282.0
+          }
+        }
+      ]
+    },
+    {
+      "function": "ws_core::message::Charsetfunctions::string_utf8 (strict process stage, quirk Q15 stage 2)",
+      "file": "rust/ws-core/src/message.rs:187",
+      "properties": [
+        {
+          "property": "strict acceptance is exactly 'complete well-formed UTF-8'; Q15 layering (strict acceptance implies translate acceptance); and zero-copy byte fidelity (the decoded string's bytes ARE the input bytes)",
+          "bound": "all byte strings of length exactly 0, 1, 2 and 3 -- i.e. every payload of length <= 3 -- with every byte symbolic. Split by concrete length because a symbolic length makes CBMC unable to bound core::str's validator loop (finding F3)",
+          "harnesses": [
+            "real_string_utf8_strict_stage_len_eq_0",
+            "real_string_utf8_strict_stage_len_eq_1",
+            "real_string_utf8_strict_stage_len_eq_2",
+            "real_string_utf8_strict_stage_len_eq_3"
+          ],
+          "result": [
+            {
+              "harness": "real_string_utf8_strict_stage_len_eq_0",
+              "verdict": "SUCCESSFUL",
+              "exit": 0,
+              "seconds": 1.3
+            },
+            {
+              "harness": "real_string_utf8_strict_stage_len_eq_1",
+              "verdict": "SUCCESSFUL",
+              "exit": 0,
+              "seconds": 47.6
+            },
+            {
+              "harness": "real_string_utf8_strict_stage_len_eq_2",
+              "verdict": "SUCCESSFUL",
+              "exit": 0,
+              "seconds": 44.8
+            },
+            {
+              "harness": "real_string_utf8_strict_stage_len_eq_3",
+              "verdict": "SUCCESSFUL",
+              "exit": 0,
+              "seconds": 56.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "function": "ws_core::framing::Draft6455::apply_mask",
+      "file": "rust/ws-core/src/framing.rs:269",
+      "properties": [
+        {
+          "property": "the EXACT mask equation out[i] == in[i] ^ key[i % 4], plus non-interference: bytes past the masked slice are untouched",
+          "bound": "all payloads of length <= 12 with every payload byte and all 4 key bytes symbolic",
+          "harness": "real_apply_mask_exact_equation_len_le_12",
+          "result": {
+            "harness": "real_apply_mask_exact_equation_len_le_12",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 2.6
+          }
+        },
+        {
+          "property": "involution (proof family mask-equation-involution): masking twice with the same key restores the input. NOTE finding F2 -- this property alone is provably blind to key misalignment",
+          "bound": "all payloads of length <= 12, all keys",
+          "harness": "real_apply_mask_involution_len_le_12",
+          "result": {
+            "harness": "real_apply_mask_involution_len_le_12",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 3.3
+          }
+        }
+      ]
+    },
+    {
+      "function": "ws_core::framing::Draft6455::decode_frame_header (frame-header decode AND length decoding)",
+      "file": "rust/ws-core/src/framing.rs:357",
+      "properties": [
+        {
+          "property": "SOUNDNESS: RFC 6455 length grammar agreement (marker <126 / ==126 big-endian u16 / ==127 big-endian u64); header_len == base + mask; header_len <= buf.len(); mask bit, key presence and key bytes agree; fin/rsv bits are exactly byte 0's high nibble; opcode nibble round-trips; a decoded control frame is within the 125 ceiling and never used an extended-length marker; payload_len <= cap; rejections land on a length-grammar site (2/4/10) with close code in {1002, 1009}; unknown opcode and extended-length control both reject at exactly 2 bytes consumed. Kani additionally checks absence of panics, arithmetic overflow and out-of-bounds indexing over the whole space by default",
+          "bound": "all buffers of length <= 14 (the largest possible frame header) with every byte symbolic, and a FULLY SYMBOLIC u64 max_frame_payload_bytes",
+          "harness": "real_decode_frame_header_len_le_14",
+          "result": {
+            "harness": "real_decode_frame_header_len_le_14",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 3.3
+          }
+        },
+        {
+          "property": "COMPLETENESS (no false rejection): a complete header violating none of the four header-time checks decodes rather than rejecting -- the direction that catches an over-strict gate",
+          "bound": "all buffers of length <= 14, all u64 caps",
+          "harness": "real_decode_frame_header_no_false_reject_len_le_14",
+          "result": {
+            "harness": "real_decode_frame_header_no_false_reject_len_le_14",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 1.6
+          }
+        },
+        {
+          "property": "PREFIX STABILITY: a header that decodes from buf decodes identically from exactly its own header_len bytes -- the decoder never depends on payload bytes it has not claimed",
+          "bound": "all buffers of length <= 14, all u64 caps",
+          "harness": "real_decode_frame_header_prefix_stable_len_le_14",
+          "result": {
+            "harness": "real_decode_frame_header_prefix_stable_len_le_14",
+            "verdict": "SUCCESSFUL",
+            "exit": 0,
+            "seconds": 2.1
+          }
+        }
+      ]
+    }
+  ],
+  "cross_checks_against_the_existing_evidence": [
+    {
+      "claim_checked": "E1 property suite: `close_code_tables_exhaustive_against_the_java_model` -- EXHAUSTIVE over all 65536 codes x {empty, non-empty} reason; Q14 normalization is exactly 1015 -> 1005 and identity elsewhere (drafts/e1-adversarial-receipt.json).",
+      "kani_result": "AGREES. real_close_code_rejection_all_65536_witness_reasons and real_normalize_send_close_code_all_65536 verify over the identical domain by a different vehicle.",
+      "disagreement": null
+    },
+    {
+      "claim_checked": "E1 documented-equivalent mutant `m016-send-close-normalize-skip`, ruled output-identical because close_code_rejection(normalize(c), r) == close_code_rejection(c, r) for ALL c.",
+      "kani_result": "AGREES. real_normalize_then_reject_equals_reject_all_65536 re-derives the equivalence exhaustively over all 65536 codes.",
+      "disagreement": null
+    },
+    {
+      "claim_checked": "E1 UTF-8 family: shipped DFA + strict decoder vs an independent reference decoder AND std::str::from_utf8, plus the Q15 stage relation (strict acceptance implies DFA acceptance).",
+      "kani_result": "AGREES. real_is_valid_utf8_exact_vs_reference_len_le_4 and the four strict-stage harnesses reproduce both the differential and the Q15 layering symbolically.",
+      "disagreement": null
+    },
+    {
+      "claim_checked": "Brief: rust/rust-toolchain.toml pins 1.95.0, digest-qualified via evidence/intake/toolchain-pins.json.",
+      "kani_result": "ACCURATE. toolchain-pins.json carries artifact_id rustc-1.95.0-aarch64-apple-darwin for aarch64-apple-darwin.",
+      "disagreement": null
+    },
+    {
+      "claim_checked": "Brief: E1 property suite is 290,681 cases.",
+      "kani_result": "ACCURATE. drafts/e1-adversarial-receipt.json property_total_cases = 290681.",
+      "disagreement": null
+    }
+  ],
+  "disagreements_with_the_property_suite": [],
+  "regression_bar": {
+    "make_-C_rust_gates": {
+      "exit": 0,
+      "ac1_gates": "8/8",
+      "when": "re-run AFTER the commit, with the verification crates present on disk and Kani's nightly installed in rustup; working tree clean"
+    },
+    "ac1_gate_detail": {
+      "forbid-unsafe": "PASS -- 10 first-party crate roots (lib+bin) all carry #![forbid(unsafe_code)]",
+      "dependency-inventory": "PASS -- workspace has 0 non-path dependencies; inventory agrees (0 entries)",
+      "msrv": "PASS -- declarations consistent (channel=rust-version=intake=1.95.0); workspace builds under MSRV toolchain 1.95.0-aarch64-apple-darwin",
+      "license": "PASS",
+      "audit": "PASS -- zero non-path dependencies (empty audit surface)",
+      "lockfile": "PASS -- Cargo.lock byte-identical and git-clean",
+      "canaries": "PASS",
+      "adapter-linkage": "PASS"
+    },
+    "go_build_all": {
+      "exit": 0,
+      "when": "re-run after the new Go packages (runner, runner/hsdiff) were added"
+    },
+    "go_vet_assurance": {
+      "exit": 0
+    },
+    "go_test_all": {
+      "exit": 0,
+      "fail_lines": 0,
+      "when": "re-run after the new Go packages were added"
+    },
+    "public_corpus": {
+      "executed": 74,
+      "passed": 74,
+      "failed": 0,
+      "harness_exit": 0,
+      "evaluate_exit": 0
+    },
+    "live_handshake_exam": {
+      "executed": 49,
+      "passed": 49,
+      "failed": 0,
+      "exit": 0,
+      "method": "Rust ws-oracle-harness transcript vs the RECORDED live Java transcript at protected/us005-corpora/live/handshake/transcript.jsonl, field-by-field. Requests digest verified: sha256 e00d968f0ae623dd75a09842ad435642c0dca53ee5e9f9ef654ce26c1f814c49, matching the recorded value.",
+      "runtime_field_excluded": "all 49 differ in the `runtime` self-attestation object by construction (Rust harness binary vs the pinned Java jar). This is the same runtime-neutralized scoring the borrow-batch-b receipt documents; the honest `corporactl evaluate --live` exit is 1 for any Rust candidate for exactly that reason and that is a runtime-pin fact, not a behavioral failure."
+    }
+  },
+  "reproduction": {
+    "acquire": [
+      "curl -sSL https://github.com/model-checking/kani/releases/download/kani-0.67.0/kani-0.67.0-aarch64-apple-darwin.tar.gz -o kani.tgz && shasum -a 256 kani.tgz  # must equal 7fd0b711...eeec",
+      "cargo install --locked kani-verifier --version 0.67.0 --root /tmp/kani-install",
+      "PATH=/tmp/kani-install/bin:$PATH cargo kani setup"
+    ],
+    "run": [
+      "go build -o /tmp/kanirun ./assurance/formal/kani/runner",
+      "cd assurance/formal/kani && /tmp/kanirun -dir harness -kani-bin /tmp/kani-install/bin -out results.json -harnesses '<name>=<SUCCESSFUL|FAILED>,...'"
+    ],
+    "note": "The runner spawns each harness as its own process and records that process's real exit status alongside Kani's printed verdict, flagging any mismatch between them. It exits nonzero if ANY harness outcome differs from its declared expectation, so the negative controls cannot silently start passing."
+  },
+  "nonclaims": [
+    "NOT UNIVERSAL PROOF. Every property except the u16 close-code harnesses is proven only up to its stated bound. A defect that first appears at a payload of 5 bytes, a close reason of 4 bytes, or a frame buffer of 15 bytes is outside what was checked.",
+    "NOT RUN IN THE US-007 SANDBOX. The owner decision asks for execution inside the accepted US-007 sandbox profile under a fresh attempt id. That was NOT done. protected/us007-sbx-launcher is hard-wired to the OTHER plane's repo and protected paths (/Users/mikelady/hq/repos/public/verified-java-websocket-port and .../verified-java-websocket-port/protected/...) and requires an owner ed25519 signing secret; using it would have meant writing the Codex plane, which this lane is forbidden to do. Everything here ran on the host in an isolated git worktree instead. The digest-verified-acquisition condition WAS met; the sandbox-execution condition was NOT.",
+    "THE CONNECTION STATE MACHINE WAS NOT ATTEMPTED, per the owner decision's scope.",
+    "scan_spans AND Opcode::from_wire WERE NOT VERIFIED DIRECTLY. Both are pub(crate), so an external harness crate cannot call them. Length decoding and opcode mapping are covered only as they surface through the public decode_frame_header.",
+    "THE VERIFIER'S OWN CORRECTNESS IS ASSUMED. Kani/CBMC soundness is not established here; the negative control establishes only that this configuration DETECTS the 14 reachable defects planted against these specs.",
+    "THE NIGHTLY TOOLCHAIN IS NOT INDEPENDENTLY DIGEST-QUALIFIED THE WAY THE KANI BUNDLE IS. rustup installed nightly-2025-11-21 against its own signed manifests; this lane recorded the resulting rustc/cargo binary digests after the fact but did not verify them against a published checksum, because rustup does not expose one per binary.",
+    "NO ORACLE COMPARISON AGAINST JAVA WAS PERFORMED BY THIS LANE. The specs are derived from the RFC, the recorded Java semantics, and core::str; Java fidelity continues to rest on the existing corpus and live-oracle evidence.",
+    "SPEC-CORRELATION RISK IS REDUCED, NOT ELIMINATED. The UTF-8 reference decoder is structurally different from the shipped DFA (it reconstructs code points and validates by range; the DFA uses per-byte continuation windows and never computes a code point) and is itself tied to core::str::from_utf8 at length <= 3. The close-code specs are stated as range facts rather than as the implementation's branch order. Neither device is a guarantee of independence."
+  ],
+  "artifacts": {
+    "harness_crate": "assurance/formal/kani/harness",
+    "source_view_crate": "assurance/formal/kani/ws-core-under-verification",
+    "process_runner": "assurance/formal/kani/runner (Go)",
+    "handshake_differ": "assurance/formal/kani/runner/hsdiff (Go)",
+    "raw_harness_results": [
+      {
+        "harness": "nc_m0_clean_clone_expected_success",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 134,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 1.719040125
+      },
+      {
+        "harness": "nc_m10_mask_skips_first_byte_exact_equation_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 108,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: buf[i] == original[i] ^ key[i % 4]",
+        "duration_seconds": 1.551572792
+      },
+      {
+        "harness": "nc_m10_mask_skips_first_byte_involution_expected_success",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 113,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 3.196253334
+      },
+      {
+        "harness": "nc_m11_control_limit_expected_success_equivalent_mutant",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 134,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 1.6496797079999999
+      },
+      {
+        "harness": "nc_m11_control_limit_proven_equivalent_to_clean_clone",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 226,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 1.289402667
+      },
+      {
+        "harness": "nc_m12_size_gate_ge_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 126,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "legal header was rejected",
+        "duration_seconds": 1.401665834
+      },
+      {
+        "harness": "nc_m13_control_check_late_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 134,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: consumed == 2",
+        "duration_seconds": 1.604665375
+      },
+      {
+        "harness": "nc_m14_len16_little_endian_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 2,
+        "total_checks": 134,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: payload_len > max",
+        "duration_seconds": 1.572346875
+      },
+      {
+        "harness": "nc_m15_control_limit_too_tight_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 126,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "legal header was rejected",
+        "duration_seconds": 1.392421917
+      },
+      {
+        "harness": "nc_m1_normalize_off_by_one_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 1,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: spec::normalize_fact(code, mutants::m1_normalize_off_by_one(code))",
+        "duration_seconds": 0.309534708
+      },
+      {
+        "harness": "nc_m2_normalize_wrong_target_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 1,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: spec::normalize_fact(code, mutants::m2_normalize_wrong_target(code))",
+        "duration_seconds": 0.313138792
+      },
+      {
+        "harness": "nc_m3_rejection_span_off_by_one_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 94,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: spec::close_rejection_fact(code, empty,",
+        "duration_seconds": 0.370058792
+      },
+      {
+        "harness": "nc_m4_rejection_drop_1007_rule_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 94,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: spec::close_rejection_fact(code, empty,",
+        "duration_seconds": 0.372402
+      },
+      {
+        "harness": "nc_m5_rejection_drop_1004_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 94,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: spec::close_rejection_fact(code, empty,",
+        "duration_seconds": 0.372841875
+      },
+      {
+        "harness": "nc_m6_utf8_allow_overlong_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 197,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: mutants::m6_utf8_allow_overlong(bytes) == spec::utf8_translate_oracle(bytes)",
+        "duration_seconds": 6.5420032500000005
+      },
+      {
+        "harness": "nc_m7_utf8_allow_surrogates_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 197,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: mutants::m7_utf8_allow_surrogates(bytes) == spec::utf8_translate_oracle(bytes)",
+        "duration_seconds": 6.56139875
+      },
+      {
+        "harness": "nc_m8_utf8_allow_over_max_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 197,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: mutants::m8_utf8_allow_over_max(bytes) == spec::utf8_translate_oracle(bytes)",
+        "duration_seconds": 6.527296791
+      },
+      {
+        "harness": "nc_m9_mask_rotated_key_exact_equation_must_fail",
+        "expectation": "FAILED",
+        "exit_code": 1,
+        "verification": "FAILED",
+        "failed_checks": 1,
+        "total_checks": 109,
+        "outcome": "FAILED",
+        "matches_expectation": true,
+        "first_failure_description": "assertion failed: buf[i] == original[i] ^ key[i % 4]",
+        "duration_seconds": 1.6749832919999998
+      },
+      {
+        "harness": "nc_m9_mask_rotated_key_involution_expected_success",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 114,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 3.2585835
+      },
+      {
+        "harness": "real_apply_mask_exact_equation_len_le_12",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 115,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 2.598514041
+      },
+      {
+        "harness": "real_apply_mask_involution_len_le_12",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 113,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 3.282334833
+      },
+      {
+        "harness": "real_close_code_rejection_all_65536_witness_reasons",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 94,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 0.405848458
+      },
+      {
+        "harness": "real_close_code_rejection_reason_insensitive_len_le_3",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 229,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 89.031606333
+      },
+      {
+        "harness": "real_decode_frame_header_len_le_14",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 373,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 3.261575542
+      },
+      {
+        "harness": "real_decode_frame_header_no_false_reject_len_le_14",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 125,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 1.629841083
+      },
+      {
+        "harness": "real_decode_frame_header_prefix_stable_len_le_14",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 121,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 2.083442958
+      },
+      {
+        "harness": "real_is_valid_utf8_exact_vs_reference_len_le_4",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 173,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 6.65144875
+      },
+      {
+        "harness": "real_normalize_send_close_code_all_65536",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 1,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 0.332341958
+      },
+      {
+        "harness": "real_normalize_send_close_code_idempotent_all_65536",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 1,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 0.322424583
+      },
+      {
+        "harness": "real_normalize_then_reject_equals_reject_all_65536",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 87,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 0.404432708
+      },
+      {
+        "harness": "real_reference_decoder_agrees_with_core_str_len_le_3",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 210,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 282.008028708
+      },
+      {
+        "harness": "real_string_utf8_strict_stage_len_eq_0",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 527,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 1.327671292
+      },
+      {
+        "harness": "real_string_utf8_strict_stage_len_eq_1",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 532,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 47.603669417
+      },
+      {
+        "harness": "real_string_utf8_strict_stage_len_eq_2",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 532,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 44.751915333
+      },
+      {
+        "harness": "real_string_utf8_strict_stage_len_eq_3",
+        "expectation": "SUCCESSFUL",
+        "exit_code": 0,
+        "verification": "SUCCESSFUL",
+        "failed_checks": 0,
+        "total_checks": 532,
+        "outcome": "SUCCESSFUL",
+        "matches_expectation": true,
+        "duration_seconds": 56.527092667
+      }
+    ]
+  },
+  "harness_results_summary": {
+    "total": 35,
+    "outcome_matched_expectation": 35,
+    "runner_exit": 0
+  }
+}

@@ -26,6 +26,7 @@ var symbolCatalog = map[string]symbolSpec{
 	"ws_core::connection::Role":                                   {DeclKind: "enum", File: "rust/ws-core/src/connection.rs"},
 	"ws_core::connection::CommandQueue":                           {DeclKind: "struct", File: "rust/ws-core/src/connection.rs"},
 	"ws_core::connection::CommandSender":                          {DeclKind: "struct", File: "rust/ws-core/src/connection.rs"},
+	"ws_core::connection::CommandRefusalReason::ReceiverDropped":  {DeclKind: "enum_variant", File: "rust/ws-core/src/connection.rs"},
 	"ws_core::connection::ConnectionCore::handle":                 {DeclKind: "method", File: "rust/ws-core/src/connection.rs"},
 	"ws_core::connection::ConnectionCore::handle_command":         {DeclKind: "method", File: "rust/ws-core/src/connection.rs"},
 	"ws_core::connection::ConnectionCore::handle_eof":             {DeclKind: "method", File: "rust/ws-core/src/connection.rs"},
@@ -101,6 +102,12 @@ var symbolCatalog = map[string]symbolSpec{
 	// ws_driver
 	"ws_driver::ConnectionDriver":  {DeclKind: "struct", File: "rust/ws-driver/src/lib.rs"},
 	"ws_driver::connection_driver": {DeclKind: "fn", File: "rust/ws-driver/src/lib.rs"},
+	// US-017 AC2's typed dispositions. Without these three the exact
+	// linkage covered the driver's SHAPE but none of its AC2 BEHAVIOUR, so
+	// a sanctioned regeneration could have accepted their deletion silently
+	// (pre-landing review round 2, mapping.go finding).
+	"ws_driver::DroppedWrites":               {DeclKind: "struct", File: "rust/ws-driver/src/lib.rs"},
+	"ws_driver::DriverOutput::WritesDropped": {DeclKind: "enum_variant", File: "rust/ws-driver/src/lib.rs"},
 
 	// ws_testee
 	"ws_testee::io_loop::drive_connection":         {DeclKind: "fn", File: "rust/ws-testee/src/io_loop.rs"},
@@ -735,8 +742,16 @@ var storyEvidence = map[string][]string{
 
 // storySymbols adds the driver/testee symbols that no migration row reaches
 // (they are port-side architecture, not Java identities) to their stories.
+//
+// US-017's list carries AC2's three typed BEHAVIOURS alongside the driver's
+// shape — the dropped-write disposition, the output that reports it, and the
+// receiver-drop refusal reason. Before the pre-landing review round-2 finding
+// they were absent, so nothing in the linkage layer noticed if they were
+// deleted; now their removal fails both `Verify` and the sanctioned
+// LINKAGE_REGENERATE=1 path, which is pinned by
+// TestDeletingAnAC2TypedSymbolFailsTheLinkageGate.
 var storySymbols = map[string][]string{
-	"US-017": {"ws_driver::ConnectionDriver", "ws_driver::connection_driver", "ws_core::connection::CommandQueue", "ws_core::connection::CommandSender", "ws_core::queue::BoundedQueue"},
+	"US-017": {"ws_driver::ConnectionDriver", "ws_driver::connection_driver", "ws_driver::DroppedWrites", "ws_driver::DriverOutput::WritesDropped", "ws_core::connection::CommandQueue", "ws_core::connection::CommandSender", "ws_core::connection::CommandRefusalReason::ReceiverDropped", "ws_core::queue::BoundedQueue"},
 	"US-018": {"ws_testee::io_loop::drive_connection", "ws_testee::io_loop::IoBounds", "ws_testee::io_loop::LoopOutcome", "ws_testee::client::run_client_once", "ws_testee::server::run_server_once"},
 }
 

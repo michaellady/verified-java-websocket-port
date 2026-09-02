@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decisions-us019-strict-pass-and-host",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T03:37:30Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "owner": "mikelady",
+  "decisions": [
+    {
+      "id": "us019-ac3-strict-pass-reading",
+      "context": "US-019 AC3 requires 'every in-scope case is strict-pass'. Both Autobahn modes now execute all 247 selected cases with 0 FAILED, but the classes are 233 OK / 11 NON-STRICT / 3 INFORMATIONAL. The pinned Java baseline carries the SAME classes (client 233/11/3, server 234/10/3), so the literal bar is not met by the library being ported either. Meeting it literally would require the port to behave BETTER than shipped Java on 11 cases, contradicting the JAVA_FAITHFUL_PLUS_SAFE normativity decision.",
+      "decision": "READ THE BAR AS JAVA-CLASS AGREEMENT: AC3's strict-pass clause is amended to require per-case behavior-class agreement with the pinned Java baseline, which the port achieves (client 245/247, server 246/247, with the residual differences separately analysed and ledgered). The reconciliation requirements of AC3 are NOT amended and remain in force literally: expected, selected, executed, passed, failed, non-strict, informational, skipped, filtered, timed-out and missing counts must reconcile exactly, and skipped must be zero — never a test skip."
+    },
+    {
+      "id": "us019-us008-provision-x86_64",
+      "context": "AC1 requires native Linux x86_64. No instance exists: c7i.xlarge is the bound TYPE in the frozen US-008 plan, never launched; the c7i.large plumbing instance was destroyed. Every Autobahn run so far is disclosed as linux/amd64 binary-translation emulation on an arm64 host and filed as non-authoritative.",
+      "decision": "PROVISION NOW: create a fresh x86_64 Linux host, execute the AC1-scoped Autobahn runs natively, capture US-008's nine booted-host facts on the same boot, then DESTROY the instance. Standard cloud checks and the plane's tenancy posture apply. Every artifact transferred back digest-verified in both directions; every exit read from the real process. Emulation is never presented as native. The two evidence chains stay separately receipted while recording that the boot was shared."
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

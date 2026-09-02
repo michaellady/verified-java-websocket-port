@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/michaellady/verified-java-websocket-port/schemas/owner-decision-digests-1.0.0.schema.json",
+  "description": "Digest mirror of the owner decisions that govern this project. The records themselves live in the workspace orchestrator's immutable protected store and are deliberately NOT committed: this repository is public and those records carry internal deliberation, cost figures and infrastructure identifiers. Committing their sha256 gets tamper-detection without the disclosure. Authority: protected/governance-mirroring-and-record-schema-owner-decision-2026-08-28.json, sha256 e6837006a722b71f6b7137b82be31f4a9e8d802f0ef4c0614dbd4016f27c361f, decided 2026-08-28T20:05:00Z, which ruled MIRROR DIGESTS ONLY.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "evidence_kind",
+    "statement",
+    "store",
+    "decisions"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/owner-decision-digests-1.0.0.schema.json"
+    },
+    "schema_version": {
+      "const": "1.0.0"
+    },
+    "evidence_kind": {
+      "const": "owner-decision-digest-manifest"
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 4096
+    },
+    "store": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "decisions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "items": {
+        "$ref": "#/$defs/decision"
+      }
+    }
+  },
+  "$defs": {
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "sha256",
+        "cited_by_sequences",
+        "basis"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+\\.json$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Bare hex sha256 of the protected-store file, matching how the ledger records quote it."
+        },
+        "cited_by_sequences": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "description": "Ledger sequences whose hashed rationales assert this digest. Empty means no divergence record cites it and the decision is mirrored because the gate design itself rests on it."
+        },
+        "basis": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1024
+        }
+      }
+    }
+  }
+}

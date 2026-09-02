@@ -1,0 +1,19 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-sbx-rust-toolchain-materialization",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-27T19:28:58Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior (standing no-estimates rule).",
+  "owner": "mikelady",
+  "context": "US-009 AC1 requires every Rust build/test to execute through the accepted US-007 Docker sbx workload profile. Pre-probe (protected/us009-attempt-0126-toolchain-preprobe-blocked.json) proved the pinned template has no rustc/cargo/rustup and no C toolchain, with all network denied; no standing authorization covered a Rust toolchain (the tla2tools.jar precedent covered only TLC).",
+  "decision": "MATERIALIZE TOOLCHAIN: the owner authorizes host-side acquisition of the pinned Rust 1.95.0 toolchain for aarch64-unknown-linux-gnu (rustup-managed layout so the msrv gate genuinely executes) plus a C linker sufficient for cargo test, digest-verified against published upstream checksums before transfer, copied into the sandbox with digest re-verification inside (sbx cp exit codes are untrusted), continuing the standing attempt-id series with a fresh owner-auth record per attempt.",
+  "bounds": [
+    "Exact pinned version 1.95.0 only; aarch64-unknown-linux-gnu; digests recorded in the attempt receipt",
+    "Materialization is per-attempt into the cloned sandbox; the template itself is never mutated",
+    "All existing US-007 profile constraints stay (unprivileged uid, deny-network, pinned template digest)",
+    "Every transfer digest-verified in both directions; all gate exits read from real output"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

@@ -27,25 +27,25 @@
           "rust_path": "ws_core::connection::ConnectionCore",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 279,
+          "line": 280,
           "declaration": "pub struct ConnectionCore {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         },
         {
           "rust_path": "ws_core::connection::LocalCommand",
           "decl_kind": "enum",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 170,
+          "line": 171,
           "declaration": "pub enum LocalCommand {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         },
         {
           "rust_path": "ws_core::connection::CommandSender",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 1394,
+          "line": 1406,
           "declaration": "pub struct CommandSender {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         }
       ],
       "rationale": "The WebSocket interface's command surface landed as the single owned ConnectionCore with the explicit LocalCommand vocabulary and CommandSender/CommandQueue owner seam — the collapse the map's own known_non_equivalent_cases declares (abstract class hierarchy -\u003e one owned core with explicit command and event types). No trait named WebSocket exists."
@@ -87,17 +87,17 @@
           "rust_path": "ws_core::connection::WebSocketImpl",
           "decl_kind": "type_alias",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 334,
+          "line": 335,
           "declaration": "pub type WebSocketImpl = ConnectionCore;",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         },
         {
           "rust_path": "ws_core::connection::ConnectionCore",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 279,
+          "line": 280,
           "declaration": "pub struct ConnectionCore {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         }
       ],
       "rationale": "The planned identity exists verbatim as the deliberate alias `pub type WebSocketImpl = ConnectionCore` in connection.rs; ConnectionCore is the landed connection state machine behind it."
@@ -121,9 +121,9 @@
           "rust_path": "ws_core::connection::TransportWrite",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 226,
+          "line": 227,
           "declaration": "pub struct TransportWrite {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         }
       ],
       "rationale": "The listener callback boundary landed as the two owner-drained output streams: SemanticEvent (semantic callbacks) and TransportWrite (onWriteDemand/wire writes). No WebSocketListener trait exists; the map's known_non_equivalent_cases predicted this serialization through the owner."
@@ -201,17 +201,17 @@
           "rust_path": "ws_core::connection::ConnectionCore::handle_command",
           "decl_kind": "method",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 1130,
+          "line": 1131,
           "declaration": "fn handle_command(\u0026mut self, command: \u0026LocalCommand) -\u003e Result\u003c(), TypedProtocolFailure\u003e {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         },
         {
           "rust_path": "ws_core::connection::ConnectionCore::process_inbound",
           "decl_kind": "method",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 726,
+          "line": 727,
           "declaration": "fn process_inbound(\u0026mut self, frame: DecodedFrame) -\u003e Result\u003c(), TypedProtocolFailure\u003e {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         }
       ],
       "rationale": "CloseHandshakeType existed to let Draft implementations declare NONE/ONEWAY/TWOWAY closing. The single-draft port hardwires the RFC 6455 two-way close inside ConnectionCore's command/inbound close arms, so the capability enum was eliminated with the Draft seam; no CloseHandshakeType enum exists."
@@ -263,9 +263,9 @@
           "rust_path": "ws_core::connection::ReadyState",
           "decl_kind": "enum",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 98,
+          "line": 99,
           "declaration": "pub enum ReadyState {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         }
       ],
       "rationale": "Planned identity landed as declared."
@@ -281,9 +281,9 @@
           "rust_path": "ws_core::connection::Role",
           "decl_kind": "enum",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 72,
+          "line": 73,
           "declaration": "pub enum Role {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         }
       ],
       "rationale": "Planned identity landed as declared."
@@ -511,7 +511,7 @@
           "file": "rust/ws-testee/src/io_loop.rs",
           "line": 71,
           "declaration": "SocketError(String),",
-          "sha256": "sha256:2b40206d468fc6169fdbdc9f80a6ae7359c31de44ae675c16940ca5a0aa01f90"
+          "sha256": "sha256:3eff613c1e4d2d8e87df57b4c90a37fe4b63f36ae371d8b8c5244e4cbb1d146a"
         }
       ],
       "rationale": "The planned ws_adapter crate landed as the ws-testee adapter (with ws-driver as the deterministic owner loop). WrappedIOException's wrapped-transport-error role landed as the normalized LoopOutcome::SocketError adapter outcome; no wrapper exception type exists."
@@ -527,9 +527,9 @@
           "rust_path": "ws_core::connection::DataOpcode",
           "decl_kind": "enum",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 158,
+          "line": 159,
           "declaration": "pub enum DataOpcode {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         },
         {
           "rust_path": "ws_core::framing::DecodedFrame",
@@ -647,9 +647,9 @@
           "rust_path": "ws_core::connection::DataOpcode",
           "decl_kind": "enum",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 158,
+          "line": 159,
           "declaration": "pub enum DataOpcode {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         }
       ],
       "rationale": "DataFrame's data-opcode abstraction landed as DecodedFrame plus the DataOpcode send vocabulary; no DataFrame type exists."
@@ -769,9 +769,9 @@
           "rust_path": "ws_core::connection::DataOpcode",
           "decl_kind": "enum",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 158,
+          "line": 159,
           "declaration": "pub enum DataOpcode {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         },
         {
           "rust_path": "ws_core::message::Charsetfunctions",
@@ -1058,9 +1058,9 @@
           "rust_path": "ws_core::connection::ConnectionCore",
           "decl_kind": "struct",
           "file": "rust/ws-core/src/connection.rs",
-          "line": 279,
+          "line": 280,
           "declaration": "pub struct ConnectionCore {",
-          "sha256": "sha256:06468a803e80d761fad99eed1d3592cb2a48ac28dfb3ac1d1116b2a6888e2519"
+          "sha256": "sha256:15cdb6755dddec5b25f5d822e4c95ec41152a3ed534602681862c0ccb664173f"
         }
       ],
       "rationale": "ByteBufferUtils (transferByteBuffer/getEmptyByteBuffer) is a ByteBuffer-management shim with no Rust equivalent need: slice/Vec ownership subsumes it. Its remaining behavioral role (bounded wire-buffer accumulation across chunks) lives in ConnectionCore's pending-buffer accounting; no utility type exists."

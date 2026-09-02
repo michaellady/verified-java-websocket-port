@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verified-java-websocket-port/schemas/public-rfc-divergence-census-1.0.0.schema.json",
+  "title": "Public-corpus RFC-divergence census 1.0.0",
+  "description": "Enumerates the public-corpus propositions where this port follows the pinned Java oracle over an RFC-strict reading, with the ledger record that discloses each one. Membership of the protocol-rejection-readystate class is re-derived mechanically from corpora/public/scenarios.jsonl by internal/deltaledger.InProtocolRejectionClass on every run, with the step each scenario stopped on derived by EXECUTING that scenario under the reference model rather than read from its recorded counts; this document is the enumeration that sweep must equal exactly. Its statement, completeness and per-row derivation are pinned to constants in internal/deltaledger, so the document cannot describe a rule the gate does not run.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "evidence_kind",
+    "census_id",
+    "statement",
+    "completeness",
+    "entries"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "../schemas/public-rfc-divergence-census-1.0.0.schema.json"
+    },
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "evidence_kind": {
+      "type": "string",
+      "const": "public-rfc-divergence-census"
+    },
+    "census_id": {
+      "type": "string",
+      "const": "us005-public-rfc-divergence-census"
+    },
+    "statement": {
+      "type": "string",
+      "minLength": 1
+    },
+    "completeness": {
+      "type": "string",
+      "minLength": 1
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    }
+  },
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenario_id",
+        "pointer",
+        "family",
+        "class",
+        "derivation",
+        "rfc_clauses",
+        "rfc_strict_expectation",
+        "recorded_observable",
+        "recorded_close_code",
+        "port_follows",
+        "java_entry_point_note",
+        "ledger_delta_id",
+        "evidence"
+      ],
+      "properties": {
+        "scenario_id": {
+          "type": "string",
+          "pattern": "^us005\\.pub\\.[0-9]{4}$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^/[A-Za-z0-9_/]+$"
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "class": {
+          "type": "string",
+          "enum": [
+            "protocol-rejection-readystate"
+          ]
+        },
+        "derivation": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The selection rule, stated verbatim. It is compared to internal/deltaledger.ProtocolRejectionClassDerivation rather than merely required to be non-empty: review round 3 found eighteen committed rows still describing the aggregate counts.input_bytes>0 predicate that round 2 had already replaced, because this field was decoded and never read."
+        },
+        "rfc_clauses": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^rfc6455#section-[0-9]+(?:\\.[0-9]+)*$"
+          }
+        },
+        "rfc_strict_expectation": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recorded_observable": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recorded_close_code": {
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 4999
+        },
+        "port_follows": {
+          "type": "string",
+          "enum": [
+            "java-adapter-path"
+          ]
+        },
+        "java_entry_point_note": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Required and non-empty on every row on purpose: flattening this divergence back into a binary RFC-versus-Java split is the specific misreading the note exists to prevent. Shipped WebSocketImpl.decodeFrames DOES close on these rejections; the oracle adapter never routes through it."
+        },
+        "ledger_delta_id": {
+          "type": "string",
+          "pattern": "^delta-[0-9a-f]{64}$"
+        },
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

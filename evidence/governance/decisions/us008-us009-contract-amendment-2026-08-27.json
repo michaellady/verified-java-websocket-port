@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-authorized-inherited-contract-amendment",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "story": "US-008 (attestation independence) and US-009 (dependency on US-008)",
+  "authorized_at": "2026-08-27T08:14:24Z",
+  "authorized_at_provenance": "Captured from `date -u` immediately before writing; the owner answered the two-question AskUserQuestion immediately prior (standing no-estimates rule).",
+  "owner": "mikelady",
+  "authorization_basis": "US-008 reality review (session 01a04179-d37e-78f0-b6fe-995572b3709f) classified the story's remaining blockers: AC2/AC3/AC4 CLOSED; AC1 open on tool identities (OWNER_ACT_PENDING at acquisition) + booted-host facts (MEASUREMENT_TIME) + executable digests (IMPLEMENTATION_DEPENDENT); AC5 open on future Java/Rust source/executable/adapter digests and the independently rebuilt analyzer (IMPLEMENTATION_DEPENDENT); story-note 'independently attested plan commit' open (OWNER_ACT_PENDING, impossible solo). The classification exposed a dependency circularity: US-009 dependsOn US-008, but US-008's remaining artifacts depend on US-009+ outputs.",
+  "amendments": {
+    "us009_dependency": {
+      "from": "US-009 dependsOn includes US-008 with passes=true semantics.",
+      "to": "US-009's US-008 prerequisite is satisfied by the FROZEN AND OWNER-ATTESTED PREREGISTRATION (its true purpose: the plan, workloads, sampling rules, statistics, and thresholds must be immutable BEFORE any Rust source or tuning exists, so measurements cannot be gamed). That precondition is met: plan digest 5fb3fea8b5f1213b7ae5039ce7574c23bf720f543b0bd8c568abe596eef86993 frozen at 51257ac, OWNER_ATTESTED, thresholds locked, forbidden-decisions list frozen, and the attestation PREDATES all Rust implementation. US-008 itself stays honestly passes=false until its measurement-time and implementation-dependent artifacts exist.",
+      "unchanged_invariants": [
+        "No benchmark sample, tuning, or performance claim before measurement artifacts bind",
+        "The frozen plan cannot be altered after Rust work begins (digest-bound; any change voids the attestation)",
+        "benchplanctl keeps failing closed until full binding"
+      ]
+    },
+    "us008_attestation_independence": {
+      "from": "Story note requires an 'independently attested plan commit'.",
+      "to": "OWNER-ONLY ATTESTATION ACCEPTED for the plan-freeze criterion, recorded as a labeled deviation: attestation_state OWNER_ATTESTED with assurance OWNER_ATTESTED_NOT_INDEPENDENT and independent_review_claimed:false. The INDEPENDENTLY_ATTESTED state, its structural guards, and its disclosed limits remain in the code unchanged — if an independent attestor ever exists, the stronger state remains reachable and preferable. No independent review is claimed anywhere.",
+      "unchanged_invariants": [
+        "Assurance labels never overstate: OWNER_ATTESTED_NOT_INDEPENDENT everywhere",
+        "The structural unreachability of INDEPENDENTLY_ATTESTED by relabeling stays enforced",
+        "US-027's independent-acceptance question is NOT prejudged by this amendment"
+      ]
+    }
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}
