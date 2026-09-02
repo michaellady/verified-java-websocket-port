@@ -1617,3 +1617,204 @@ fn a_server_that_initiates_a_close_hangs_up_without_waiting_for_the_echo() {
         report.summary()
     );
 }
+
+// ---------------------------------------------------------------------------
+// DIV-06: the 101 response's Date field carries a LIVE clock
+// ---------------------------------------------------------------------------
+
+/// Read the server's 101 head off a raw peer socket, bounded by a WALL-CLOCK
+/// deadline (never an iteration count — finding F005). Returns `None` if the
+/// head does not arrive in time.
+fn read_head_until_deadline(peer: &mut TcpStream, budget: Duration) -> Option<String> {
+    use std::io::Read as _;
+    use std::time::Instant;
+
+    let deadline = Instant::now() + budget;
+    peer.set_read_timeout(Some(Duration::from_millis(20)))
+        .expect("peer read timeout");
+    let mut received: Vec<u8> = Vec::new();
+    while Instant::now() < deadline {
+        let mut buffer = [0u8; 512];
+        match peer.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => received.extend_from_slice(&buffer[..n]),
+            Err(_) => {}
+        }
+        if let Some(end) = received.windows(4).position(|window| window == b"\r\n\r\n") {
+            return Some(
+                String::from_utf8(received[..end + 4].to_vec()).expect("the 101 head is ASCII"),
+            );
+        }
+    }
+    None
+}
+
+/// The port's `Date` field must carry THIS server's clock, read per
+/// connection, exactly as shipped Java reads it per handshake
+/// (`Draft_6455.java:450` -> `getServerTime`, `:818-824`).
+///
+/// `ws-core` is clockless by design, so the core formats an instant its
+/// owner supplies. That makes a forgotten clock read silent inside the core:
+/// the head would still be perfectly well-formed and every `ws-core` test
+/// would still pass — it would just say `Thu, 01 Jan 1970 00:00:00 GMT`
+/// forever. This is the check that the ADAPTER actually reads a clock, and
+/// it is the only place a real clock is observed, so it necessarily asserts
+/// a WINDOW rather than a value.
+///
+/// It deliberately does NOT normalize the `Date` away. Java's own recorded
+/// native run shows nine distinct `Date` values across its 247 server cases;
+/// the field genuinely varies, and a differential that erased it would be
+/// hiding a real difference rather than measuring one. What is compared here
+/// is the property that survives the variation — that the instant is the
+/// present — while the FORMAT, which does not vary, is pinned byte-for-byte
+/// against the pinned JDK in `ws-core/tests/handshake_server_response.rs`.
+#[test]
+fn the_servers_101_date_field_carries_a_live_clock_not_a_fixed_instant() {
+    use std::io::Write as _;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = thread::spawn(move || {
+        let fixture = ServerFixture {
+            config: ConnectionConfig::default(),
+            bounds: prompt_bounds(20_000),
+        };
+        run_server_once(&listener, &fixture)
+    });
+
+    let before = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("host clock is at or after 1970")
+        .as_secs();
+
+    let mut peer = TcpStream::connect(address).expect("connect to the server under test");
+    peer.write_all(
+        b"GET /chat HTTP/1.1\r\nHost: example.com\r\nUpgrade: websocket\r\n\
+          Connection: keep-alive, Upgrade\r\n\
+          Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+    )
+    .expect("write the upgrade request");
+    peer.flush().expect("flush");
+
+    let head = read_head_until_deadline(&mut peer, Duration::from_secs(20))
+        .expect("the 101 head must arrive within the wall-clock budget");
+
+    let after = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .expect("host clock is at or after 1970")
+        .as_secs();
+
+    // The full field set is still Java's, over a real socket.
+    let names: Vec<&str> = head
+        .split("\r\n")
+        .skip(1)
+        .filter(|line| !line.is_empty())
+        .map(|line| line.split_once(':').map_or(line, |(name, _)| name))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "Connection",
+            "Date",
+            "Sec-WebSocket-Accept",
+            "Server",
+            "Upgrade"
+        ],
+        "DIV-06 over a real socket; the server answered: {head:?}"
+    );
+
+    // And the request's Connection value was echoed, not hard-coded.
+    assert!(
+        head.contains("Connection: keep-alive, Upgrade\r\n"),
+        "Draft_6455.java:435-436 echoes the request's Connection value: {head:?}"
+    );
+
+    let date = head
+        .split("\r\n")
+        .find_map(|line| line.strip_prefix("Date: "))
+        .expect("the 101 head carries a Date field");
+
+    // Search the window the handshake demonstrably happened inside. It is
+    // bounded by two wall-clock readings taken around the exchange, so it is
+    // a real interval and not an iteration count; a 1970 stamp, or any other
+    // fixed instant, falls outside it.
+    let matched = (before..=after).any(|second| {
+        ws_core::handshake::server::java_server_time(
+            i64::try_from(second).expect("a present-day epoch second fits in i64"),
+        ) == date
+    });
+    assert!(
+        matched,
+        "the 101 Date field must be the server's clock read at handshake time. \
+         Java reads it per handshake (Draft_6455.java:450 -> :818-824), and the \
+         adapter is the only place in this port that may read a clock. Got \
+         {date:?}, which is not any instant in the window [{before}, {after}] \
+         this handshake ran in — a fixed or forgotten instant (epoch 0 renders \
+         as \"Thu, 01 Jan 1970 00:00:00 GMT\") looks exactly like this."
+    );
+
+    drop(peer);
+    let _ = server.join().expect("server thread");
+}
+
+/// Two connections served by ONE fixture must each stamp their own instant.
+/// `ServerFixture` holds a `ConnectionConfig` that outlives every session on
+/// the listener, so reading the clock once per FIXTURE instead of once per
+/// ACCEPT would pass the test above and still be unfaithful: Java reads its
+/// clock inside the per-handshake call, so two connections a second apart
+/// carry two different `Date` values.
+#[test]
+fn each_accepted_connection_stamps_its_own_date_not_the_fixtures() {
+    use std::io::Write as _;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = thread::spawn(move || {
+        let fixture = ServerFixture {
+            config: ConnectionConfig::default(),
+            bounds: prompt_bounds(20_000),
+        };
+        // Both sessions come from ONE fixture value.
+        for _ in 0..2 {
+            let _ = run_server_once(&listener, &fixture);
+        }
+    });
+
+    let mut dates = Vec::new();
+    for _ in 0..2 {
+        let mut peer = TcpStream::connect(address).expect("connect");
+        peer.write_all(
+            b"GET /chat HTTP/1.1\r\nHost: example.com\r\nUpgrade: websocket\r\n\
+              Connection: Upgrade\r\n\
+              Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+        )
+        .expect("write the upgrade request");
+        peer.flush().expect("flush");
+        let head = read_head_until_deadline(&mut peer, Duration::from_secs(20))
+            .expect("the 101 head must arrive within the wall-clock budget");
+        dates.push(
+            head.split("\r\n")
+                .find_map(|line| line.strip_prefix("Date: "))
+                .expect("a Date field")
+                .to_owned(),
+        );
+        drop(peer);
+        // Cross a second boundary so two per-accept clock reads must differ,
+        // while one per-fixture read cannot. The wait is what makes the two
+        // hypotheses distinguishable, so it is the measurement itself rather
+        // than a delay standing in for one.
+        thread::sleep(Duration::from_millis(1_100));
+    }
+
+    assert_ne!(
+        dates[0], dates[1],
+        "both connections stamped {:?}: the clock is being read once per \
+         fixture (or not at all) rather than once per accepted connection, \
+         which is where Java reads it (Draft_6455.java:450, inside \
+         postProcessHandshakeResponseAsServer)",
+        dates[0]
+    );
+
+    server.join().expect("server thread");
+}

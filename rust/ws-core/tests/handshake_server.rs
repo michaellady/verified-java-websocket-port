@@ -13,8 +13,15 @@ use ws_core::handshake::http::{JavaHeadParse, parse_java_head};
 use ws_core::handshake::server::{HandshakeState, ServerHandshake, ServerHandshakeOutcome};
 use ws_core::handshake::{HandshakeLimitKind, HandshakeLimits, RejectChannel};
 
+/// A fixed instant for the machines these tests build. `ServerHandshake`
+/// now requires one because Java stamps a clock reading into the 101
+/// response's `Date` field (Draft_6455.java:450); none of the assertions in
+/// THIS file read the response head, so the value only has to be fixed. The
+/// head itself is examined in `handshake_server_response.rs`.
+const FIXED_INSTANT: i64 = 1_787_943_099;
+
 fn exam() -> ServerHandshake {
-    ServerHandshake::new(HandshakeLimits::hard_ceilings())
+    ServerHandshake::new(HandshakeLimits::hard_ceilings(), FIXED_INSTANT)
 }
 
 fn judge(raw: &[u8]) -> ServerHandshakeOutcome {
@@ -337,21 +344,21 @@ fn configured_budgets_refuse_with_the_named_limit() {
         max_header_count: count,
         max_header_line_bytes: line,
     };
-    let mut machine = ServerHandshake::new(tiny(16, 1024, 65536));
+    let mut machine = ServerHandshake::new(tiny(16, 1024, 65536), FIXED_INSTANT);
     let ServerHandshakeOutcome::LimitExceeded(refusal) = machine.consume(VALID) else {
         panic!("expected total-bytes refusal");
     };
     assert_eq!(refusal.limit, HandshakeLimitKind::TotalBytes);
     assert_eq!(refusal.attempted, 17);
 
-    let mut machine = ServerHandshake::new(tiny(1_048_576, 2, 65536));
+    let mut machine = ServerHandshake::new(tiny(1_048_576, 2, 65536), FIXED_INSTANT);
     let ServerHandshakeOutcome::LimitExceeded(refusal) = machine.consume(VALID) else {
         panic!("expected header-count refusal");
     };
     assert_eq!(refusal.limit, HandshakeLimitKind::HeaderCount);
     assert_eq!(refusal.attempted, 3);
 
-    let mut machine = ServerHandshake::new(tiny(1_048_576, 1024, 8));
+    let mut machine = ServerHandshake::new(tiny(1_048_576, 1024, 8), FIXED_INSTANT);
     let ServerHandshakeOutcome::LimitExceeded(refusal) = machine.consume(VALID) else {
         panic!("expected line refusal");
     };
