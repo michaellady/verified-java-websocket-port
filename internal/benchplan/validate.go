@@ -687,9 +687,16 @@ func environmentCompletionMeter(root, document, expectedRole string) (meterResul
 	return meter, nil
 }
 
-// validateAgainstSchema validates one document against a schema in
-// schemas/ and returns the flattened failure messages.
-func validateAgainstSchema(root, document, schemaName string) ([]string, error) {
+// compileCanonicalSchema loads one schema from schemas/ and compiles it.
+//
+// EXTRACTED FROM validateAgainstSchema, unchanged, so that a caller which
+// must validate MANY documents against one schema runs the identical
+// compile path rather than a reimplementation of it. The full-rune-domain
+// differential sweep in validate_test.go is that caller: the full
+// ValidateSampleSetDocument path measures 0.94-1.20ms per document, which
+// over 1,112,064 runes is 17-22 minutes, while a compile sequence
+// transcribed into the test could drift from this one.
+func compileCanonicalSchema(root, schemaName string) (*jsonschema.Schema, error) {
 	schemaContent, err := os.ReadFile(filepath.Join(root, "schemas", schemaName))
 	if err != nil {
 		return nil, err
@@ -703,7 +710,28 @@ func validateAgainstSchema(root, document, schemaName string) ([]string, error) 
 	if err := compiler.AddResource(resourceURL, schemaValue); err != nil {
 		return nil, err
 	}
-	schema, err := compiler.Compile(resourceURL)
+	return compiler.Compile(resourceURL)
+}
+
+// validateDecodedValue applies a compiled canonical schema to an already
+// decoded JSON value and returns the flattened failure messages. Also
+// extracted from validateAgainstSchema unchanged, for the same reason:
+// the accept/reject verdict the sweep reads is produced by this function
+// and not by a second reading of jsonschema's error types.
+func validateDecodedValue(schema *jsonschema.Schema, documentValue any) []string {
+	if err := schema.Validate(documentValue); err != nil {
+		if validationError, ok := err.(*jsonschema.ValidationError); ok {
+			return flattenSchemaError(validationError)
+		}
+		return []string{err.Error()}
+	}
+	return nil
+}
+
+// validateAgainstSchema validates one document against a schema in
+// schemas/ and returns the flattened failure messages.
+func validateAgainstSchema(root, document, schemaName string) ([]string, error) {
+	schema, err := compileCanonicalSchema(root, schemaName)
 	if err != nil {
 		return nil, err
 	}
@@ -715,13 +743,7 @@ func validateAgainstSchema(root, document, schemaName string) ([]string, error) 
 	if err != nil {
 		return nil, err
 	}
-	if err := schema.Validate(documentValue); err != nil {
-		if validationError, ok := err.(*jsonschema.ValidationError); ok {
-			return flattenSchemaError(validationError), nil
-		}
-		return []string{err.Error()}, nil
-	}
-	return nil, nil
+	return validateDecodedValue(schema, documentValue), nil
 }
 
 // ValidateSampleSetDocument validates one raw sample-set document (for

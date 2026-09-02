@@ -3,6 +3,7 @@ package benchplan
 import (
 	"fmt"
 	"math"
+	"strings"
 )
 
 // Frozen reference-drift procedure (review fix B4). The plan document
@@ -68,6 +69,48 @@ type RunValidityObservations struct {
 	IdentityChecksPassed            bool                       `json:"identity_checks_passed"`
 	InvalidSamples                  int                        `json:"invalid_samples"`
 	ReferenceDrift                  ReferenceDriftObservations `json:"reference_drift"`
+
+	// ObservedCPUClock is the per-run observed CPU clock required by the
+	// owner-bound host CPU-frequency policy
+	// DOCUMENT_DEFAULTS_RECORD_OBSERVED (decision record
+	// us009-us008-owner-decisions-2026-08-27.json,
+	// us008_cpu_frequency_policy). It is a pointer so that ABSENCE is
+	// distinguishable from a zero-valued record: a MEASURED sample that
+	// omits it is BLOCKED, never defaulted.
+	//
+	// RECORD-ONLY by construction. The bound policy documents the host's
+	// default scaling behavior and records the observed clock; it
+	// declares NO threshold. EnforceRunValidity therefore validates only
+	// that the readings are well formed and never derives a violation
+	// from their values — adding a clock threshold would be an
+	// unattested addition to a frozen preregistration.
+	ObservedCPUClock *ObservedCPUClock `json:"observed_cpu_clock,omitempty"`
+}
+
+// ObservedCPUClock is one run sequence's recorded CPU-clock evidence:
+// the identity of the reader that produced it and the readings
+// themselves. An unattributed reading is not evidence, so Source is
+// mandatory and non-empty.
+type ObservedCPUClock struct {
+	Source     string    `json:"source"`
+	SamplesMHz []float64 `json:"samples_mhz"`
+}
+
+// validate reports whether the recorded clock evidence is well formed.
+// It applies no threshold: see the ObservedCPUClock field comment.
+func (o *ObservedCPUClock) validate() error {
+	if strings.TrimSpace(o.Source) == "" {
+		return fmt.Errorf("run validity: observed CPU clock record has an empty source (an unattributed clock reading is not evidence)")
+	}
+	if len(o.SamplesMHz) == 0 {
+		return fmt.Errorf("run validity: observed CPU clock record from %q carries no readings (the bound CPU-frequency policy requires the observed clock recorded per run)", o.Source)
+	}
+	for i, mhz := range o.SamplesMHz {
+		if math.IsNaN(mhz) || math.IsInf(mhz, 0) || mhz <= 0 {
+			return fmt.Errorf("run validity: observed CPU clock reading %d from %q is %g, not a finite positive MHz value", i, o.Source, mhz)
+		}
+	}
+	return nil
 }
 
 // EnforceRunValidity applies the frozen fail-closed validity rules to a
@@ -81,6 +124,14 @@ func EnforceRunValidity(observations RunValidityObservations) ([]string, error) 
 	if observations.ThermalThrottleEvents < 0 || observations.PowerStateAnomalies < 0 || observations.InvalidSamples < 0 {
 		return nil, fmt.Errorf("run validity: negative event counts (%d thermal, %d power, %d invalid)",
 			observations.ThermalThrottleEvents, observations.PowerStateAnomalies, observations.InvalidSamples)
+	}
+	// Malformed clock evidence is an error (BLOCKED), never a violation:
+	// the bound policy is record-only, so a badly formed record means the
+	// required observation is absent, not that a rule was broken.
+	if observations.ObservedCPUClock != nil {
+		if err := observations.ObservedCPUClock.validate(); err != nil {
+			return nil, err
+		}
 	}
 	var violations []string
 	if observations.BackgroundCPUPercentMaxObserved > 2 {
