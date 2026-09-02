@@ -10,8 +10,11 @@ package formalplan
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -201,7 +204,7 @@ func TestConcurrencyResultsDetectsCountersThatContradictTheCitedRun(t *testing.T
 		{"deferred_command_turn", []string{"execution", "counters"}, "deferred_command_turn", float64(31398)},
 		{"deferred_backpressure", []string{"execution", "counters"}, "deferred_backpressure", float64(3551)},
 		{"typed_input_rejections", []string{"execution", "counters"}, "typed_input_rejections", float64(52419)},
-		{"max_drain_polls_observed", []string{"execution", "counters"}, "max_drain_polls_observed", float64(12)},
+		{"max_drain_polls_observed", []string{"execution", "counters"}, "max_drain_polls_observed", float64(13)},
 		{"actor_programs", []string{"bounds"}, "actor_programs", float64(6)},
 		{"actions_per_schedule", []string{"bounds"}, "actions_per_schedule", float64(13)},
 		{"context_switch_bound", []string{"bounds"}, "context_switch_bound", float64(8)},
@@ -313,10 +316,18 @@ func TestConcurrencyResultsRefusesTheSplitReadFabrication(t *testing.T) {
 	if err != nil {
 		t.Fatalf("the committed document must yield one run line: %v", err)
 	}
-	const honest, forged = "deferred_command_turn=31397", "deferred_command_turn=41397"
-	if !strings.Contains(real, honest) {
-		t.Fatalf("the committed run line no longer carries %s; retarget this fabrication", honest)
+	// The honest value is READ from the committed line (it moved from 31397 to
+	// 31383 when claude/us017-ac2's run landed) and the forgery is that value
+	// plus ten thousand, so this case follows the record instead of pinning it.
+	match := regexp.MustCompile(`deferred_command_turn=([0-9]+)`).FindStringSubmatch(real)
+	if match == nil {
+		t.Fatalf("the committed run line no longer carries deferred_command_turn; retarget this fabrication")
 	}
+	honestValue, err := strconv.Atoi(match[1])
+	if err != nil {
+		t.Fatalf("deferred_command_turn is not an integer: %v", err)
+	}
+	honest, forged := match[0], fmt.Sprintf("deferred_command_turn=%d", honestValue+10000)
 
 	// The nested field keeps the FORGERY, written with the legal whitespace
 	// the old raw reader could not see.
@@ -484,13 +495,13 @@ func TestConcurrencyResultsProseReconciliationIsFieldSpecific(t *testing.T) {
 		{
 			// The reviewer's own example.
 			name: "schedule total substituted for the terminal total",
-			from: "in aggregate: terminals total 52924 ==",
+			from: "in aggregate: terminals total 56777 ==",
 			to:   "in aggregate: terminals total 79920 ==",
 		},
 		{
 			name: "halted total substituted for the terminal total in the model sentence",
-			from: "(52924 runs, exactly one Terminal each",
-			to:   "(26996 runs, exactly one Terminal each",
+			from: "(56777 runs, exactly one Terminal each",
+			to:   "(23143 runs, exactly one Terminal each",
 		},
 		{
 			name: "a quoted counter dropped from the conformance sentence",

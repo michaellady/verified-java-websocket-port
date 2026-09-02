@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-authorized-inherited-contract-amendment",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "story": "US-008 (external prerequisite ordering; affects US-009..US-019 start gating)",
+  "authorized_at": "2026-08-26T14:40:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner explicit AskUserQuestion decision 2026-08-26T14:40Z ('Start Rust now (Recommended)') after the benchmark-host feasibility investigation. The inherited external prerequisite independent-linux-benchmark-host-binding says the exact confirmation host must bind 'before US-008 passes or any sample, tuning, performance claim, or implementation story begins.'",
+  "amendment": {
+    "from": "No implementation story (US-009 onward) may begin before the independent Linux x86_64 confirmation host is bound.",
+    "to": "Implementation stories (US-009 onward) MAY begin before the confirmation host binds. Everything measurement-related keeps its original gate unchanged: no benchmark sample may be collected, no tuning performed, no performance claim made, and US-008 cannot pass, until the exact confirmation host and every measurement/analyzer tool identity are preregistered and bound. Rust implementation work performed before binding must make no performance representations beyond compile/test correctness.",
+    "unchanged_invariants": [
+      "No benchmark samples inside sbx (build/test preparation only)",
+      "Primary measurements run natively on the pinned macOS Apple M4 Pro environment",
+      "Confirmation requires a provenance-distinct dedicated/exclusively-reserved Linux x86_64 host (bare-metal preferred per the virtualization-overhead rationale)",
+      "Fixed sample counts, preregistered stats plan, no fabricated results",
+      "Assurance OWNER_ATTESTED_NOT_INDEPENDENT, independent_review_claimed false"
+    ]
+  },
+  "context": "Confirmation-host plan per owner direction: a DIALED-derived, job-scoped PR pipeline in AWS (shape A: separate benchmark Terraform root, SSM-driven native run on a metal instance, same-job teardown, janitor sweep). Blocked on AWS account assignment, resolved by the owner's same-day decision to move this project into Enterprise Vibe Code.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

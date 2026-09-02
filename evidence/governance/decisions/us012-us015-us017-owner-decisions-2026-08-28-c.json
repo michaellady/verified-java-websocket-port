@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decisions-scoping-round",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T02:31:21Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "owner": "mikelady",
+  "decisions": [
+    {
+      "id": "us017-ac5-harness-through-driver",
+      "context": "US-017 story review 01a04626 BLOCKING-3: the corpus-scoring differential adapter invokes ws-core directly and does not invoke the shared ws-driver, because rust/ws-oracle-harness depends on ws-core only by design. The six-case Java/Rust cross-peer exam does exercise the driver but was judged not to close AC5's path.",
+      "decision": "ROUTE THE HARNESS THROUGH THE DRIVER: change the corpus harness so it drives the core via the shared ws-driver, satisfying AC5 literally. HARD CONDITION: the 74-case public transcript is live-oracle-confirmed evidence. If routing through the driver shifts the transcript by even one non-runtime byte, STOP and surface the difference rather than accepting a new baseline; a changed transcript means the driver alters observable behaviour and that is a finding, not a migration."
+    },
+    {
+      "id": "us015-ac1-driver-layer-placement",
+      "context": "US-015 AC1 binds the automatic-response policy to crates/websocket-core/src/control.rs, but the implementation correctly lives at the ws-driver layer, mirroring shipped Java where WebSocketAdapter.onWebsocketPing sends the pong ABOVE the Draft. ws-core/src/control.rs exports nothing by design, and the core is deliberately Q18-faithful (it never auto-pongs).",
+      "decision": "ACCEPT THE DRIVER-LAYER PLACEMENT: the AC's named path predates the live determination of where shipped Java layers this behaviour. The implementation mirrors the real library and is proven by dedicated driver tests plus a live TCP cross-peer assertion. The corrected location is recorded; the AC's path clause is amended to the driver layer."
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

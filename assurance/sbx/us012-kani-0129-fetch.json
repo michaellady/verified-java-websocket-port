@@ -1,0 +1,280 @@
+{
+ "schema_version": "1.0.0",
+ "kind": "sbx-fetch-manifest",
+ "statement": "Every artifact this attempt carries into the network-denied sandbox, with the PUBLISHED checksum it is verified against on the host before transfer. No artifact is fetched inside the sandbox.",
+ "artifacts": [
+  {
+   "name": "libc-gconv-modules-extra_2.43-2ubuntu2.3_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/glibc/libc-gconv-modules-extra_2.43-2ubuntu2.3_arm64.deb",
+   "sha256": "785d347f74398227a13a044c781e0aa15686be67e9fdfb997c0e5027325cd8c9",
+   "size": 1383434,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libc6_2.43-2ubuntu2.3_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/glibc/libc6_2.43-2ubuntu2.3_arm64.deb",
+   "sha256": "f367411c4fdf375d59517b16f14a19371a40acc76ebaf606b29c6ca70b1b0afa",
+   "size": 1641076,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libc-bin_2.43-2ubuntu2.3_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/glibc/libc-bin_2.43-2ubuntu2.3_arm64.deb",
+   "sha256": "12d52a9f3eab7927ddfd580d5b6c70b430866492f0f1225e0e8eeae6c6fc44b3",
+   "size": 597622,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libatomic1_16-20260322-1ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-16/libatomic1_16-20260322-1ubuntu1_arm64.deb",
+   "sha256": "b9b2c94062924229201e25b694536119b153146abb8f464e31afa9e422d07d22",
+   "size": 11116,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libsframe3_2.46-3ubuntu2_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/b/binutils/libsframe3_2.46-3ubuntu2_arm64.deb",
+   "sha256": "8f423b964f7f77946eca229256ebaef5e260546f5b458a1438ee2ab86e6ac689",
+   "size": 21544,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "binutils-common_2.46-3ubuntu2_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/b/binutils/binutils-common_2.46-3ubuntu2_arm64.deb",
+   "sha256": "18e619412ee478765b370ae73bda3ef54dd0aaa1028953f804b082368e3b0cd4",
+   "size": 221614,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libbinutils_2.46-3ubuntu2_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/b/binutils/libbinutils_2.46-3ubuntu2_arm64.deb",
+   "sha256": "292c5ba71f96e31ebdda5b82f445d85a0aea3ae71cdf52b8d4730eb7cb89dcdc",
+   "size": 812154,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libgprofng0_2.46-3ubuntu2_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/b/binutils/libgprofng0_2.46-3ubuntu2_arm64.deb",
+   "sha256": "d036c04973db42ce1e390937e407d2390ae9ac4f503e8b55d1243c31311cc316",
+   "size": 793018,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libctf-nobfd0_2.46-3ubuntu2_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/b/binutils/libctf-nobfd0_2.46-3ubuntu2_arm64.deb",
+   "sha256": "e1c8d7aea62a809c06c57f692d126ae161835b5ab4923c271c26d29d8f954b48",
+   "size": 104076,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libctf0_2.46-3ubuntu2_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/b/binutils/libctf0_2.46-3ubuntu2_arm64.deb",
+   "sha256": "07fc52f17e42cb4006c16981e006e14afc5d0fba016946b271bafcc8a51820e0",
+   "size": 101188,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "binutils-aarch64-linux-gnu_2.46-3ubuntu2_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/b/binutils/binutils-aarch64-linux-gnu_2.46-3ubuntu2_arm64.deb",
+   "sha256": "26ff0ce39c131c35432e07cf62120ca784c6d08f881c40d0b0cd7196c06a705a",
+   "size": 1012368,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "binutils_2.46-3ubuntu2_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/b/binutils/binutils_2.46-3ubuntu2_arm64.deb",
+   "sha256": "1b5105f405c42b7e336a16f450bb30f3f589ffe28faf55db84a9dc9a4aeeee1b",
+   "size": 227974,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "gcc-15-base_15.2.0-16ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-15/gcc-15-base_15.2.0-16ubuntu1_arm64.deb",
+   "sha256": "d49ef1f45b0b2c9437265502bef20a2b22895a8dafce02194c2acbed2f5c51eb",
+   "size": 39048,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libisl23_0.27-1build1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/i/isl/libisl23_0.27-1build1_arm64.deb",
+   "sha256": "7330868538614d28d452624846a30c8f253322b32de3630a4674dd7852fa5aa4",
+   "size": 675662,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libmpfr6_4.2.2-3_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/m/mpfr4/libmpfr6_4.2.2-3_arm64.deb",
+   "sha256": "cfe352c39da9744f0c06666a788d6a6f624e97cc279d84a18c2f7f9f9b72f6bc",
+   "size": 344796,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libmpc3_1.3.1-3_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/m/mpclib3/libmpc3_1.3.1-3_arm64.deb",
+   "sha256": "514b0bd679855353b1b72cba66f3fe880e53ce40ebbd98b7f04d812b79a07358",
+   "size": 55684,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "cpp-15-aarch64-linux-gnu_15.2.0-16ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-15/cpp-15-aarch64-linux-gnu_15.2.0-16ubuntu1_arm64.deb",
+   "sha256": "57e316dfd840b2483a7e9db8af05f240712afa0f15f2d0f3a4426723c11646a7",
+   "size": 11723684,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "cpp-15_15.2.0-16ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-15/cpp-15_15.2.0-16ubuntu1_arm64.deb",
+   "sha256": "e42a9af99852ed156b42800c4a61fd0b7d68e30982d935ad3f2833ed9a9fb7fc",
+   "size": 1030,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "cpp-aarch64-linux-gnu_4%3a15.2.0-5ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-defaults/cpp-aarch64-linux-gnu_15.2.0-5ubuntu1_arm64.deb",
+   "sha256": "dab86f1d376b6c25552f967e90349d1366886ea34f9cd6b9f874917e3e4fad6f",
+   "size": 5840,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "cpp_4%3a15.2.0-5ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-defaults/cpp_15.2.0-5ubuntu1_arm64.deb",
+   "sha256": "f02270e4ffc715801a591f3be361ecbc80a8bcca7bfa9cfd76161d553bbe1aef",
+   "size": 22424,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libcc1-0_16-20260322-1ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-16/libcc1-0_16-20260322-1ubuntu1_arm64.deb",
+   "sha256": "be244d570f0ba743103d00a6d6f2a2352b3ec55fa2aac2bdf807988395dc6c68",
+   "size": 51318,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libgomp1_16-20260322-1ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-16/libgomp1_16-20260322-1ubuntu1_arm64.deb",
+   "sha256": "a9d1fc09eebccb7049b408ef51362ad6c44d0421570d47410af072b52d14481e",
+   "size": 153930,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libitm1_16-20260322-1ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-16/libitm1_16-20260322-1ubuntu1_arm64.deb",
+   "sha256": "190e0d37e04565c1ccd34869b3eb7af6600c9196689c102d43046ad370aef49c",
+   "size": 27806,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libasan8_16-20260322-1ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-16/libasan8_16-20260322-1ubuntu1_arm64.deb",
+   "sha256": "ae30b45c86daf779ebaf53fcf9c37b091202cf547bab64c12895d377941e4547",
+   "size": 2998866,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "liblsan0_16-20260322-1ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-16/liblsan0_16-20260322-1ubuntu1_arm64.deb",
+   "sha256": "b969830163936911594c3f60e1c525171ac78e46760e3734aa8197e13dfc6d74",
+   "size": 1336400,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libtsan2_16-20260322-1ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-16/libtsan2_16-20260322-1ubuntu1_arm64.deb",
+   "sha256": "ad3d232427bf5c2c3ba8e048db2d083f5eca14c9ef813630df0073b7f9fc8904",
+   "size": 2743696,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libubsan1_16-20260322-1ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-16/libubsan1_16-20260322-1ubuntu1_arm64.deb",
+   "sha256": "a96cad95dc058f8b82951f3a0df373477e8aa0f5664569c7dcbc08891f951a71",
+   "size": 1192592,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libhwasan0_16-20260322-1ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-16/libhwasan0_16-20260322-1ubuntu1_arm64.deb",
+   "sha256": "1ebe901005e414249d062eb0cee54b1d0b17f777913c28d321a3dfd648561583",
+   "size": 1668138,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libgcc-15-dev_15.2.0-16ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-15/libgcc-15-dev_15.2.0-16ubuntu1_arm64.deb",
+   "sha256": "d088c97ff459ab243eb369666dfc43b92f278556e45d72c2def4d7657d728fe4",
+   "size": 2600202,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "gcc-15-aarch64-linux-gnu_15.2.0-16ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-15/gcc-15-aarch64-linux-gnu_15.2.0-16ubuntu1_arm64.deb",
+   "sha256": "e3483ce05b22e201393a40a8cea4414144dc73f45ca902dcc026123f76312d6a",
+   "size": 23124142,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "gcc-15_15.2.0-16ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-15/gcc-15_15.2.0-16ubuntu1_arm64.deb",
+   "sha256": "772d57b952842e600fd7823b2aa217394d78b70756406a6b0e89297eb8d03fe8",
+   "size": 528112,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "gcc-aarch64-linux-gnu_4%3a15.2.0-5ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-defaults/gcc-aarch64-linux-gnu_15.2.0-5ubuntu1_arm64.deb",
+   "sha256": "5d6a8f17d87333843ff5f180fb6dda171441068bdda002b047a2c3ae73c15607",
+   "size": 1206,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "gcc_4%3a15.2.0-5ubuntu1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/gcc-defaults/gcc_15.2.0-5ubuntu1_arm64.deb",
+   "sha256": "dde3a5ce12ecee04b40220d80335123f0070bb154f51b75338e08b69588318bb",
+   "size": 5004,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libc-dev-bin_2.43-2ubuntu2.3_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/glibc/libc-dev-bin_2.43-2ubuntu2.3_arm64.deb",
+   "sha256": "7f0842fb3fb25bc9787b412a45d7ff4a2826eec2f776c444da45f7304ff17d12",
+   "size": 22564,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "linux-libc-dev_7.0.0-30.30_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/l/linux/linux-libc-dev_7.0.0-30.30_arm64.deb",
+   "sha256": "dbe9e27e157a0c1a0d2873c4eab5fdf7870fb3acf899ec4a458a4dcb29175662",
+   "size": 1592246,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "rpcsvc-proto_1.4.3-1build1_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/r/rpcsvc-proto/rpcsvc-proto_1.4.3-1build1_arm64.deb",
+   "sha256": "1d9b9424baee119a4c654e5c9d4a35638468996c74a6b493d07ad44693bf6f33",
+   "size": 65578,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "libc6-dev_2.43-2ubuntu2.3_arm64.deb",
+   "url": "http://ports.ubuntu.com/ubuntu-ports/pool/main/g/glibc/libc6-dev_2.43-2ubuntu2.3_arm64.deb",
+   "sha256": "674efd842e374ca3b9c829a8ab91337fa96ad2b783a6201e3a1c4f35905b0624",
+   "size": 1844132,
+   "checksum_source": "Ubuntu 26.04 arm64 signed apt index (Packages file fetched by apt-get update inside a pristine container of the pinned template image), SHA256 field"
+  },
+  {
+   "name": "kani-0.67.0-aarch64-unknown-linux-gnu.tar.gz",
+   "url": "https://github.com/model-checking/kani/releases/download/kani-0.67.0/kani-0.67.0-aarch64-unknown-linux-gnu.tar.gz",
+   "sha256": "974128f44dd43618a06d21e5fe6d9ff67188de5986fe0bc57b534b0e4639efb9",
+   "size": 137826806,
+   "checksum_source": "GitHub release API asset digest field, repos/model-checking/kani releases/tags/kani-0.67.0, asset id 341228073"
+  },
+  {
+   "name": "rust-nightly-aarch64-unknown-linux-gnu.tar.gz",
+   "url": "https://static.rust-lang.org/dist/2025-11-21/rust-nightly-aarch64-unknown-linux-gnu.tar.gz",
+   "sha256": "7af72ca89dfb0434f68e48deb5456af430206a51b59b50e533c45d84523e3339",
+   "size": 332448115,
+   "checksum_source": "https://static.rust-lang.org/dist/2025-11-21/rust-nightly-aarch64-unknown-linux-gnu.tar.gz.sha256 (published sidecar)"
+  }
+ ]
+}

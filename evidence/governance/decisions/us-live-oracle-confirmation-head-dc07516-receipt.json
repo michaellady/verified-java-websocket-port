@@ -1,0 +1,168 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "us-live-oracle-confirmation-head-dc07516",
+  "kind": "live-oracle-confirmation-public-tier-head-rebinding",
+  "recorded_at": "2026-08-28T02:57:22Z",
+  "recorded_at_provenance": "date -u +%Y-%m-%dT%H:%M:%SZ read in the same shell session immediately after the HEAD run and the comparison, before this file was written",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5 (differential-regression worker)",
+
+  "supersession": {
+    "supersedes_for_head_purposes": "protected/us-live-oracle-confirmation-receipt.json (receipt_id us-live-oracle-confirmation)",
+    "prior_receipt_left_untouched": true,
+    "prior_receipt_untouched_evidence": "The prior receipt was opened read-only at the start of this work and never written. Its mtime is still 2026-08-27 14:43, unchanged from the pre-work directory listing, and its content digests to sha256 bc60c074eac8481559ef7f5728da66d7d488ce6f9258b11992a346ec6723683f. This receipt is a NEW file, not an edit. Honest scope note: that digest was read AFTER the work, so it is corroborated by the unchanged mtime rather than by a before/after digest pair.",
+    "plain_statement": "The prior receipt's anchor had gone stale. It binds repo head 5fc92fe684de03d879ee4bab5faf3f91430bfd8c and scores the Rust transcript committed at 7867681. rust/ws-core/src has changed since that anchor, so the prior receipt did NOT by itself cover current mainline HEAD. This receipt re-establishes the same claim at HEAD dc07516ab8003ce948ad29ac294d0b05f5887ec2 by rebuilding the harness from HEAD and re-running the real path, and supersedes the prior receipt for HEAD purposes. The prior receipt remains valid for what it actually says: the state of the tree at 5fc92fe.",
+    "staleness_evidence": {
+      "command": "git diff --numstat 5fc92fe..dc07516 -- rust/ws-core/src",
+      "files_changed": 4,
+      "insertions": 239,
+      "deletions": 36,
+      "per_file": [
+        "rust/ws-core/src/close.rs +15 -2",
+        "rust/ws-core/src/connection.rs +177 -28",
+        "rust/ws-core/src/error.rs +6 -6",
+        "rust/ws-core/src/fragment.rs +41 -0"
+      ],
+      "commits_touching_ws_core_src_in_range": [
+        "f81ec52 e4: close the US-015 AC1 and US-016 AC3 audited gaps (driver auto-pong + NotYetConnected EOF/command arms)",
+        "4d51b67 fix(e4): transport EOF bypasses action counters pre-handshake",
+        "76f6c37 e1: adversarial evidence for US-012..016 AC4/AC5",
+        "500713f close-transition: owner mandate executed, escape clause fired",
+        "c680c3c merge: close-transition"
+      ],
+      "coordinator_brief_check": "The brief named exactly these five commits. Verified: git log 5fc92fe..dc07516 -- rust/ws-core/src returns exactly these five and no others.",
+      "e3_merge_note": "HEAD advanced past c680c3c to dc07516 (the E3 formal merge, plus 9d18afe). git diff --stat c680c3c..dc07516 -- rust/ws-core/src is EMPTY, so the E3 formal merge changed no port source. The defect audit's run at c680c3c and this run at dc07516 therefore scored the same ws-core sources; this receipt nonetheless re-ran the real path at dc07516 rather than reasoning from that fact."
+    }
+  },
+
+  "environment": {
+    "host": "darwin/arm64 (macOS, local owner machine)",
+    "worktree": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-diffregress",
+    "branch": "claude/differential-regression",
+    "bound_head": "dc07516ab8003ce948ad29ac294d0b05f5887ec2",
+    "bound_head_branch_of_origin": "claude/feature/verified-java-websocket-port (read as its actual HEAD, not assumed)",
+    "java": "openjdk 17.0.19 2026-04-21 (Homebrew)",
+    "cargo": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+    "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
+    "go": "go version go1.25.5 darwin/arm64",
+    "build_isolation": "CARGO_TARGET_DIR=/tmp/dr-head/target and BUILD_DIR=/tmp/dr-head/build, both outside the repo; the worktree was not written by any build"
+  },
+
+  "oracle_identity_verification": {
+    "method": "every digest below was read with shasum -a 256 off disk during this run; nothing was copied forward from the prior receipt without re-reading",
+    "runtime_jar_path": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-us005/.quarantine/Java-WebSocket-1.6.0.jar",
+    "runtime_jar_sha256_read": "eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+    "runtime_jar_matches_brief_and_pin": true,
+    "runtime_jar_pin_sites_read_at_head": [
+      "java-oracle/src/main/java/OracleMain.java:22 (EXPECTED_RUNTIME_SHA256)",
+      "java-oracle/README.md:12 (promoted digest)",
+      "internal/corpora/oracleproj.go:13 (oracleRuntimeSHA256)",
+      "internal/lab/oracle.go:21 (JavaWebSocketRuntimeDigest)"
+    ],
+    "runtime_support_jar_path": "/Users/mikelady/hq/repos/public/verified-java-websocket-port-claude/.quarantine/slf4j-api-2.0.13.jar",
+    "runtime_support_sha256_read": "e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9",
+    "runtime_support_matches_brief_and_pin": true,
+    "adapter_startup_self_verification": "OracleMain.verifyRuntime() re-hashes the jar that supplied Draft_6455 against the promoted digest before the JSONL loop and denies startup with exit 78 on mismatch. The run exited 0, so the self-verification passed on the live path.",
+    "no_download_performed": true,
+
+    "java_oracle_jar_faithfulness": {
+      "brief_requirement": "confirm git diff --stat over java-oracle between the receipt's anchor and HEAD is empty so the cached jar is still faithful",
+      "command": "git diff --stat 5fc92fe..dc07516 -- java-oracle",
+      "result": "EMPTY (0 bytes of diff output)",
+      "audit_cached_jar_sha256": "99c351e23099be9d68de4895273f708c4221bbcdf4a337c2af0c79f6eb662881",
+      "strengthened_check": "Rather than rely on the empty diff alone, the adapter was REBUILT from HEAD (make -C java-oracle build, exit 0 read) and the two jars were compared by content.",
+      "fresh_build_from_head_sha256": "87ebbdb6ad9222ceda13c2457a468d045e0b33e602a12ae701fe12ea67b5cea1",
+      "jar_container_digests_differ": true,
+      "why_container_digests_differ": "the jar tool embeds zip timestamp metadata, so a jar is not byte-reproducible across builds; this is a property of the container, not of the code",
+      "class_byte_identity": "All 15 compiled class files are byte-identical between the audit's cached jar and the fresh HEAD build (per-file shasum -a 256 equal for every entry; diff -r over the extracted trees excluding MANIFEST.MF returned exit 0). The executable content of the oracle at HEAD is therefore provably the same as the audit used.",
+      "jar_used_for_this_run": "/tmp/dr-head/build/java-oracle.jar (the FRESH build from HEAD, not the cached jar)"
+    }
+  },
+
+  "head_bound_rederivation": {
+    "harness_build": {
+      "command": "CARGO_TARGET_DIR=/tmp/dr-head/target cargo build --release --bin ws-oracle-harness",
+      "exit_code": 0,
+      "exit_code_read_from": "the cargo process's own exit status",
+      "binary_sha256": "496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10",
+      "identify": "{\"artifact\":\"ws-oracle-harness\",\"core\":\"wired\",\"protocol\":\"java-websocket-oracle\",\"purpose\":\"us009-oracle-candidate-harness\",\"version\":\"1.0.0\"}"
+    },
+    "requests": {
+      "file": "protected/us-live-oracle-confirmation/requests.jsonl (read-only)",
+      "sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85",
+      "lines": 74
+    },
+    "rust_run": {
+      "command": "ws-oracle-harness < requests.jsonl > rust-head-transcript.jsonl",
+      "exit_code": 0,
+      "exit_code_read_from": "the harness process's own exit status",
+      "stderr_bytes": 0,
+      "response_lines": 74,
+      "transcript_sha256": "fd3f7a1c1eb0eeed0a7b214eac2dc517ab169511ce266d98280f7eff571f2326"
+    },
+    "java_side": {
+      "authority": "protected/us005-corpora/live/public/transcript.jsonl (the RECORDED live pinned-Java transcript, read-only)",
+      "sha256": "2eb11ca38caf9fef9b7edb8b83f3c7f6297b3e6e3d7ccbfc2a11c84e5221bd8b",
+      "lines": 74,
+      "path_equivalence_check": "The coordinator brief cited protected/us005-corpora/live/public/transcript.jsonl; the defect audit cited protected/us-live-oracle-confirmation/live-java-transcript-run1.jsonl. Both were digested during this run and are BYTE-IDENTICAL (2eb11ca3...), as are live-java-transcript-run2.jsonl and transcript-rerun.jsonl. The brief and the audit cite the same artifact under two paths; there is no disagreement."
+    },
+    "comparison": {
+      "method": "internal/diffregress.CompareTranscripts: full recursive per-request_id JSON comparison of every response field, with ONLY the top-level runtime identity object excluded. Presence/absence differences and array-length differences are reported, not skipped. Integer counters are compared as json.Number literal text so no float64 rounding can equate unequal counts.",
+      "total": 74,
+      "behaviorally_divergent": 0,
+      "identical_except_error_detail": 26,
+      "identical_excluding_runtime": 48,
+      "counts_read_from": "the diffregressctl process's own JSON output (/tmp/dr-head/run74/summary.json) and its exit status 0",
+      "distinct_differing_paths_across_all_74": "error.detail (26 occurrences) and nothing else",
+      "detail_only_case_ids_match_prior_receipt": "YES - the 26 ids at HEAD are the same set, element for element, as the prior receipt's error_detail_wording_case_ids (diff exit 0)"
+    },
+    "transcript_byte_identity_modulo_runtime": {
+      "compared_against": "rust/ws-oracle-harness/baseline/borrow-batch-c-public-transcript.jsonl (committed at 7867681, sha256 b3e7324fe80a50f74e57911c56faa03e4da8d15975d1fef5cc0bb32ec411e23e)",
+      "head_transcript_sha256": "fd3f7a1c1eb0eeed0a7b214eac2dc517ab169511ce266d98280f7eff571f2326",
+      "file_digests_differ": true,
+      "with_runtime_object_stripped": "BYTE-IDENTICAL: both project to sha256 727dfb68cc2fe7ea69aa81fd47a5e04531c79dbb610fd7ff2bb16b48448abd22 (jq -cS 'del(.runtime)', cmp exit 0)",
+      "only_difference": "the runtime identity object: committed batch-C answered with harness sha256:50643ef5d6c02f77877136f6d0b732d67268ce4fbeaf2cc373b78bc9c41aafff, the HEAD build with sha256:496b4f2a35892884aaa08635a0f523c2eb047a875a44fe3b68a2a7eeb5cf6c10 (which equals the binary digest recorded above, self-consistently)",
+      "meaning": "The 239-insertion change to rust/ws-core/src across the five commits produced ZERO observable behavioral change on the 74 public scenarios. That is the outcome, not the premise: it was not knowable without re-running, which is exactly the evidence gap this receipt closes."
+    }
+  },
+
+  "verdict": {
+    "rust_vs_live_java_at_head": "0 behavioral divergences across all 74 public scenarios at HEAD dc07516: 48 fully identical excluding the runtime object, 26 identical except the free-text error.detail wording. Every compared behavioral field (outcome, error.code, error.close_code, counts, final_state, close, events, frames, transitions, initial_state, role) is identical.",
+    "claim_now_bound_to": "dc07516ab8003ce948ad29ac294d0b05f5887ec2",
+    "independently_reproduces": "the defect audit's HEAD re-derivation (0/74, 26 detail-only, 48 identical at c680c3c) and the prior receipt's headline numbers, now with a freshly built HEAD harness rather than the committed batch-C transcript"
+  },
+
+  "regression_bar_exits_read": {
+    "make -C rust gates": 0,
+    "rust_gates_detail": "fmt-check, clippy -D warnings, test, test-release, ac1-gates all passed; ac1-gates verdict=PASS gates_passed=8/8 including the forbid(unsafe_code) scan, dependency-unsafe inventory, and the good/bad scaffold canary polarity run",
+    "go build ./...": 0,
+    "go test ./...": 0,
+    "go_test_fail_count": 0,
+    "go_test_ok_packages": 30,
+    "public_corpus": "74/74, transcript byte-identical modulo the runtime object",
+    "live_handshake_exam": "49/49 passed, 0 failed, 0 missing, 0 unmatched, corporactl evaluate --tier handshake --live exit 0 on the runtime-neutralized transcript; honest-runtime evaluate exit 1 with 49 runtime-pin failures, which is the documented and expected polarity recorded in borrow-receipt-batch-b.json",
+    "handshake_requests_regenerated_at_head": "byte-identical to protected/us005-corpora/live/handshake/requests.jsonl (sha256 e00d968f0ae623dd75a09842ad435642c0dca53ee5e9f9ef654ce26c1f814c49, cmp exit 0)",
+    "linkage_and_formalplan_regeneration": "NOT run and NOT needed: this change adds a new Go package, a new command, and a new evidence directory; it moves no linkage or formalplan input. internal/linkage and internal/formalplan both pass unregenerated in the go test ./... run above."
+  },
+
+  "constraints_honored": {
+    "worktree_only": "all work in /Users/mikelady/hq/workspace/worktrees/vjwp-claude-diffregress on branch claude/differential-regression",
+    "no_push": true,
+    "protected_store": "read-only except this one NEW file; the existing us-live-oracle-confirmation-receipt.json was read and never written",
+    "codex_plane": "never read for mutation and never written; no file under workspace/orchestrator/verified-java-websocket-port/ or repos/public/verified-java-websocket-port was touched",
+    "no_unpinned_downloads": "no network fetch of any oracle artifact; the locally materialized pinned jars were digest-verified before use",
+    "forbid_unsafe_code": "unchanged and enforced by the ac1-gates scan; no Rust source was modified by this work",
+    "zero_new_rust_dependencies": "no Rust source or manifest was modified at all",
+    "zero_new_go_dependencies": "go.mod and go.sum unmodified; the new package uses only the standard library and the in-repo internal/corpora canonical-JSON helper"
+  },
+
+  "honesty_notes": [
+    "The prior receipt is not wrong; it is narrower than it reads. It scored the COMMITTED batch-C Rust transcript against live Java at anchor 5fc92fe. This run scored a FRESHLY BUILT HEAD harness, which is the stronger and previously missing link.",
+    "The Java side of this comparison is a RECORDED transcript, not a Java process executed in this run for the 74. That recorded transcript's provenance is the prior receipt's two live runs, which were byte-identical to each other and to the US-005 calibration-time run. A live Java process WAS executed in this session, but for the corpus-invisible probe set, not for the 74.",
+    "The java-oracle jar is not byte-reproducible across builds. The faithfulness argument therefore rests on class-file byte identity plus the empty git diff, both of which were checked, rather than on a jar digest match.",
+    "error.detail is compared and reported, not excluded. It is classified separately because the adapter protocol documents it as a non-semantic diagnostic and the corpus evaluator never compares it. All 26 detail-only cases at HEAD are the same case ids as the prior receipt's 26.",
+    "On a COLD worktree the first `go test ./...` FAILS in internal/portplan with ORACLE_TREE_MISMATCH, because TestDeriveReproducesCommittedEvidence races its own materialization of the gitignored .quarantine upstream source tree. It passes on re-run (exit 0 read) and in the final full-suite run. This is a pre-existing cold-start condition at HEAD, not caused by this change, and it is reported rather than smoothed over.",
+    "This receipt is owner-attested, not independently reviewed."
+  ]
+}

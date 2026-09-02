@@ -31,10 +31,11 @@ use std::fs;
 use std::path::PathBuf;
 
 use ws_core::config::ConnectionConfig;
+use ws_core::connection::CommandRefusalReason;
 use ws_core::{CommandSender, InitialState, LocalCommand, ReadyState, Role};
 use ws_driver::{
     AutoResponsePolicy, CommandDisposition, ConnectionDriver, DeferredReason, DriverInput,
-    DriverOutput, InputDisposition, connection_driver_in_state_with_policy,
+    DriverOutput, DroppedWrites, InputDisposition, connection_driver_in_state_with_policy,
 };
 
 // ---------------------------------------------------------------------------
@@ -60,6 +61,20 @@ const BRANCH_COUNT_MAX: usize = 1_000_000;
 /// event drain — the three declared weak-fairness assumptions). A run that
 /// cannot quiesce within this budget is a convergence failure.
 const DRAIN_BUDGET: usize = 256;
+
+/// The action budget for the MAIN sweep. 1024 is the `ConnectionConfig`
+/// default and is far above the 12-action alphabet, so no schedule can
+/// reach `ActionLimitExceeded` there: the main sweep's classification is
+/// exactly what it would be with the budget left unset.
+const MAX_ACTIONS_UNREACHED: u64 = 1024;
+/// Action budgets for the FATAL-TERMINATION sweep (US-017 story review
+/// round 2, session 01a0464f). A budget of N makes action N+1 fail FATALLY
+/// with `ActionLimitExceeded`, which is the reachable way to end a run
+/// fatally while committed writes are still outstanding. Budget 0 fails the
+/// very first action (nothing can be committed first); 1..=3 let a schedule
+/// commit writes and THEN hit the wall, which is the interleaving class the
+/// suppressed-report defect lives in.
+const FATAL_SWEEP_ACTION_BUDGETS: [u64; 4] = [0, 1, 2, 3];
 
 /// Bounded-channel capacities for the explored connection (plan bounds:
 /// command/write/event queue capacities <= 8). Small on purpose: queue-full
@@ -277,6 +292,11 @@ enum Fault {
     DropTerminal,
     /// `repeat-terminal-on-wake` (duplicate-delivery).
     RepeatTerminal,
+    /// `drop-writes-dropped-report` (silent-write-drop): the adapter
+    /// swallows the typed dropped-write disposition, which is exactly the
+    /// US-017 story-review BLOCKING-2 behavior (committed pending writes
+    /// abandoned on shutdown with nothing reported).
+    DropWritesDroppedReport,
 }
 
 impl Fault {
@@ -289,6 +309,7 @@ impl Fault {
             Fault::SwapCommittedWrites => "swap-committed-writes",
             Fault::DropTerminal => "drop-terminal-after-shutdown",
             Fault::RepeatTerminal => "repeat-terminal-on-wake",
+            Fault::DropWritesDroppedReport => "drop-writes-dropped-report",
         }
     }
 
@@ -300,6 +321,7 @@ impl Fault {
             "swap-committed-writes" => Fault::SwapCommittedWrites,
             "drop-terminal-after-shutdown" => Fault::DropTerminal,
             "repeat-terminal-on-wake" => Fault::RepeatTerminal,
+            "drop-writes-dropped-report" => Fault::DropWritesDroppedReport,
             other => panic!("unknown fault mutation {other:?}"),
         }
     }
@@ -330,6 +352,18 @@ enum Violation {
     /// exclusive, exactly as the real adapter (which stops at the first
     /// surfaced `Failure`) would experience them.
     TerminalAfterFailure,
+    /// Committed writes the ended transport abandoned were not reported
+    /// back to the adapter with the typed dropped-write disposition, or the
+    /// report did not account for exactly what was abandoned (US-017 AC2
+    /// adapter shutdown; story review BLOCKING-2).
+    UnreportedWriteDrop,
+    /// A committed write was offered to a transport that had already been
+    /// shut down.
+    WriteAfterShutdown,
+    /// A send after the sole owner was dropped did not yield the typed
+    /// receiver-drop refusal (US-017 AC2 receiver-drop; story review
+    /// BLOCKING-1).
+    ReceiverDropUnreported,
     /// Two executions of the same schedule diverged.
     Nondeterminism,
 }
@@ -346,6 +380,9 @@ impl Violation {
             Violation::DuplicateTerminal => "terminal-exactly-once",
             Violation::PostTerminalActivity => "no-post-terminal",
             Violation::TerminalAfterFailure => "failure-halt-exclusivity",
+            Violation::UnreportedWriteDrop => "shutdown-write-drop-reported",
+            Violation::WriteAfterShutdown => "no-write-after-shutdown",
+            Violation::ReceiverDropUnreported => "receiver-drop-typed",
             Violation::Nondeterminism => "deterministic-replay",
         }
     }
@@ -361,6 +398,9 @@ impl Violation {
             Violation::DuplicateTerminal => "terminal-count-two",
             Violation::PostTerminalActivity => "movement-after-terminal",
             Violation::TerminalAfterFailure => "terminal-and-failure-both-observed",
+            Violation::UnreportedWriteDrop => "committed-writes-abandoned-unreported",
+            Violation::WriteAfterShutdown => "write-offered-after-shutdown",
+            Violation::ReceiverDropUnreported => "send-accepted-after-owner-drop",
             Violation::Nondeterminism => "replay-trace-divergence",
         }
     }
@@ -380,7 +420,7 @@ impl Violation {
 /// `violation_index` looks a variant up in THIS array and panics if it is
 /// absent, and `Outcome::record` calls it on every recorded violation — so a
 /// new `Violation` variant that can actually fire cannot stay undeclared.
-const CHECKED_INVARIANTS: [Violation; 10] = [
+const CHECKED_INVARIANTS: [Violation; 13] = [
     Violation::SingleOwner,
     Violation::QueueBound,
     Violation::LostOrDuplicatedCommand,
@@ -391,6 +431,13 @@ const CHECKED_INVARIANTS: [Violation; 10] = [
     Violation::PostTerminalActivity,
     Violation::TerminalAfterFailure,
     Violation::Nondeterminism,
+    // The three US-017 AC2 dispositions (claude/us017-ac2, landed 7262a29)
+    // the acceptance record lists after the original ten. They are checked
+    // by the same per-schedule accounting as the rest, so printing them
+    // from the observed set is derived, not declared.
+    Violation::UnreportedWriteDrop,
+    Violation::WriteAfterShutdown,
+    Violation::ReceiverDropUnreported,
 ];
 
 /// The namespace the acceptance record prefixes every property id with.
@@ -484,6 +531,7 @@ enum TraceOutput {
     Write(Vec<u8>),
     Event(ws_core::SemanticEvent),
     Failure(ws_core::TypedProtocolFailure),
+    WritesDropped(DroppedWrites),
     Terminal,
 }
 
@@ -523,6 +571,17 @@ struct Outcome {
     /// The run stopped at its first surfaced fatal `Failure` output (the
     /// adapter-seam terminal disposition of a poisoned run).
     halted: bool,
+    /// Typed dropped-write dispositions surfaced (US-017 AC2).
+    write_drop_reports: u32,
+    /// Committed frames and undelivered bytes those reports accounted for.
+    dropped_frames: usize,
+    dropped_bytes: usize,
+    /// Whether a report said the abandoned front write was already partly
+    /// on the wire.
+    dropped_partial_front: bool,
+    /// Typed receiver-drop refusals observed by the end-of-run probe
+    /// (US-017 AC2; exactly one per non-halted run).
+    receiver_drop_refusals: u32,
     violations: Vec<Violation>,
 }
 
@@ -570,6 +629,14 @@ struct Run {
     disposed_tags: Vec<Tag>,
     shutdown_seen: bool,
     eof_seen: bool,
+    /// What the BOUNDARY independently computed the ended transport still
+    /// owed at the shutdown instant: committed frames not fully on the
+    /// wire, their undelivered bytes, and whether the front one was
+    /// already partly written. The driver's typed report must match it
+    /// exactly — that equality is the US-017 AC2 no-leak check.
+    owed_frames: usize,
+    owed_bytes: usize,
+    owed_partial_front: bool,
     /// Set when a `DriverOutput::Failure` surfaces: the modeled adapter
     /// stops driving the run at that instant, exactly like the real
     /// ws-testee io_loop (`StepOutput::Failure` ends the loop as
@@ -581,17 +648,18 @@ struct Run {
     swap_hold: Option<Vec<u8>>,
 }
 
-fn exploration_config(event_queue_capacity: u64) -> ConnectionConfig {
+fn exploration_config(event_queue_capacity: u64, max_actions: u64) -> ConnectionConfig {
     ConnectionConfig::builder()
         .command_queue_capacity(COMMAND_QUEUE_CAPACITY)
         .write_queue_capacity(WRITE_QUEUE_CAPACITY)
         .event_queue_capacity(event_queue_capacity)
+        .max_actions(max_actions)
         .build()
         .expect("valid exploration config")
 }
 
 impl Run {
-    fn new(fault: Fault, event_queue_capacity: u64) -> Run {
+    fn new(fault: Fault, event_queue_capacity: u64, max_actions: u64) -> Run {
         // The exploration runs under the EXPLICIT
         // `AutoResponsePolicy::Disabled` configuration (US-015 AC1's
         // configurable policy): its invariants, boundary model, and
@@ -601,8 +669,21 @@ impl Run {
         // default `PongInboundPing` behavior is pinned by the dedicated
         // deterministic suite in `tests/auto_response.rs` and the live
         // cross-peer loopback assertion in ws-testee.
+        //
+        // DISCLOSED CONSEQUENCE (pre-landing review finding 1, session
+        // 01a04960): this sweep therefore cannot reach ANY interaction
+        // between the automatic reply and shutdown, and the reviewer found
+        // two that were reachable under the default policy — a post-shutdown
+        // Ping delivery committing a pong (a real defect, now fixed by the
+        // `!shutdown_latched` gate in `ConnectionDriver::next_output`), and a
+        // report legitimately carrying TWO committed frames. Both are pinned
+        // by `driver_contract.rs::a_ping_delivered_after_shutdown_injects_no_pong_and_emits_no_second_report`
+        // and `..::a_shutdown_report_accounts_for_every_committed_frame_not_just_the_offered_one`,
+        // which is where the default policy meets shutdown. Do not read the
+        // one-report/one-frame counters below as properties of the default
+        // policy; they are properties of THIS sweep's configuration.
         let (sender, driver) = connection_driver_in_state_with_policy(
-            exploration_config(event_queue_capacity),
+            exploration_config(event_queue_capacity, max_actions),
             Role::Server,
             InitialState::Open,
             AutoResponsePolicy::Disabled,
@@ -618,6 +699,9 @@ impl Run {
             disposed_tags: Vec::new(),
             shutdown_seen: false,
             eof_seen: false,
+            owed_frames: 0,
+            owed_bytes: 0,
+            owed_partial_front: false,
             halted: false,
             fault,
             fault_used: false,
@@ -651,6 +735,7 @@ impl Run {
                 DriverOutput::Write(suffix) => TraceOutput::Write(suffix.to_vec()),
                 DriverOutput::Event(event) => TraceOutput::Event(event),
                 DriverOutput::Failure(failure) => TraceOutput::Failure(failure),
+                DriverOutput::WritesDropped(dropped) => TraceOutput::WritesDropped(dropped),
                 DriverOutput::Terminal(_) => TraceOutput::Terminal,
             };
             (result.input, result.command, output, result.state)
@@ -683,6 +768,11 @@ impl Run {
         match &output {
             TraceOutput::Idle => {}
             TraceOutput::Write(suffix) => {
+                if self.shutdown_seen {
+                    // US-017 AC2: a transport that has ended can deliver
+                    // nothing, so no committed write may be offered to it.
+                    self.outcome.record(Violation::WriteAfterShutdown);
+                }
                 if let Some(offer) = &self.offer {
                     // The driver re-offers BYTE-EXACTLY the undrained
                     // suffix of the committed frame.
@@ -706,6 +796,19 @@ impl Run {
                 // stops driving here; Terminal-after-Failure is impossible
                 // by construction and asserted in finish().
                 self.halted = true;
+            }
+            TraceOutput::WritesDropped(dropped) => {
+                if self.arm(Fault::DropWritesDroppedReport) {
+                    // The seeded defect: the adapter never learns that
+                    // committed writes were abandoned — the exact
+                    // BLOCKING-2 behavior, now caught by the accounting
+                    // check in `finish`.
+                } else {
+                    self.outcome.write_drop_reports += 1;
+                    self.outcome.dropped_frames += dropped.frames;
+                    self.outcome.dropped_bytes += dropped.bytes;
+                    self.outcome.dropped_partial_front |= dropped.partial_front;
+                }
             }
             TraceOutput::Terminal => {
                 if self.arm(Fault::DropTerminal) {
@@ -920,6 +1023,22 @@ impl Run {
             }
             Action::Shutdown => {
                 self.shutdown_seen = true;
+                // US-017 AC2: before dropping its expectations, the
+                // boundary computes what the ended transport still OWES —
+                // the committed frames that never fully reached the wire
+                // and their undelivered bytes — so the driver's typed
+                // report can be checked against an independent count
+                // instead of being taken on trust.
+                let already_on_wire = self.offer.as_ref().map_or(0, |offer| offer.accepted);
+                let owed_bytes = self
+                    .expected_frames
+                    .iter()
+                    .map(Vec::len)
+                    .sum::<usize>()
+                    .saturating_sub(already_on_wire);
+                self.owed_frames += self.expected_frames.len();
+                self.owed_bytes += owed_bytes;
+                self.owed_partial_front |= already_on_wire > 0;
                 // Undeliverable committed output is aborted with the
                 // transport; the boundary drops its expectations with it.
                 self.offer = None;
@@ -1016,7 +1135,16 @@ impl Run {
             // Commands still queued at the halt belong to the embedding
             // adapter's teardown; only the at-most-once subset invariant
             // above applies. No further polls are issued.
-            return self.outcome;
+            //
+            // The dropped-write accounting, however, DOES apply here
+            // (US-017 story review round 2, session 01a0464f). Exempting
+            // halted runs is exactly what let a pending report be
+            // suppressed by the fatal Failure that ends the run: the
+            // adapter stops at that Failure, so anything not surfaced
+            // before it is lost for good. What the ended transport owed is
+            // owed on both routes.
+            self.check_write_drop_accounting();
+            return self.probe_receiver_drop();
         }
         // Non-halted run: no Failure ever surfaced (a Failure halts by
         // construction), so a transport that ended must converge to the
@@ -1047,16 +1175,95 @@ impl Run {
                 self.outcome.record(Violation::WriteBypass);
             }
         }
-        self.outcome
+        self.check_write_drop_accounting();
+        self.probe_receiver_drop()
+    }
+
+    /// US-017 AC2 (story review BLOCKING-2, and BLOCKING-1 of round 2):
+    /// whatever the ended transport owed must have come back as the typed
+    /// dropped-write disposition, accounted EXACTLY — frames, undelivered
+    /// bytes, and whether the front frame was already partly on the wire.
+    /// Silent abandonment shows up here as a mismatch, on the clean route
+    /// and on the fatal-halt route alike.
+    fn check_write_drop_accounting(&mut self) {
+        if self.owed_frames != self.outcome.dropped_frames
+            || self.owed_bytes != self.outcome.dropped_bytes
+            || self.owed_partial_front != self.outcome.dropped_partial_front
+        {
+            self.outcome.record(Violation::UnreportedWriteDrop);
+        }
+        // The report is a single disposition, not a stream: nothing is
+        // reported when nothing was owed, and one report otherwise. The
+        // report may carry MORE THAN ONE frame — the plural arm is reachable
+        // under the default automatic-response policy and pinned in
+        // `driver_contract.rs` — so only the report COUNT is bounded here,
+        // never the frame count (pre-landing review finding 1).
+        if self.outcome.write_drop_reports > 1
+            || (self.owed_frames == 0 && self.outcome.write_drop_reports != 0)
+        {
+            self.outcome.record(Violation::UnreportedWriteDrop);
+        }
+    }
+
+    /// US-017 AC2 (story review BLOCKING-1): drop the sole owner from the
+    /// state THIS schedule reached, then probe the producer seam. Once the
+    /// owner is gone a send can never be applied, so it must refuse with
+    /// the typed receiver-drop reason and hand the command back — never
+    /// report accepted.
+    ///
+    /// WHAT THIS IS AND IS NOT (pre-landing review finding 3, session
+    /// 01a04960). It is a deterministic post-run EPILOGUE, executed once per
+    /// schedule, so it exercises the typed refusal from every END STATE the
+    /// 79,920 schedules reach — that is why the counter equals the schedule
+    /// count exactly. It is NOT receiver-drop RACE exploration: the drop and
+    /// the send are sequenced on one thread here, and no interleaving of the
+    /// two is explored. The racing evidence is the native-thread test
+    /// `ws-core/tests/concurrency_boundary.rs::a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accept`,
+    /// which requires a typed post-drop observation rather than merely
+    /// tolerating one.
+    fn probe_receiver_drop(self) -> Outcome {
+        let Run {
+            driver,
+            sender,
+            mut outcome,
+            ..
+        } = self;
+        drop(driver);
+        let probe = command_for(Tag::TextA);
+        match sender.try_send(probe.clone()) {
+            Ok(()) => outcome.record(Violation::ReceiverDropUnreported),
+            Err(refused) => {
+                if refused.reason == CommandRefusalReason::ReceiverDropped
+                    && refused.command == probe
+                {
+                    outcome.receiver_drop_refusals += 1;
+                } else {
+                    outcome.record(Violation::ReceiverDropUnreported);
+                }
+            }
+        }
+        if outcome.receiver_drop_refusals != 1 {
+            outcome.record(Violation::ReceiverDropUnreported);
+        }
+        outcome
     }
 }
 
-fn execute_with_capacity(schedule: &[Action], fault: Fault, event_queue_capacity: u64) -> Outcome {
-    let mut run = Run::new(fault, event_queue_capacity);
+fn execute_with_limits(
+    schedule: &[Action],
+    fault: Fault,
+    event_queue_capacity: u64,
+    max_actions: u64,
+) -> Outcome {
+    let mut run = Run::new(fault, event_queue_capacity, max_actions);
     for action in schedule {
         run.exec(*action);
     }
     run.finish()
+}
+
+fn execute_with_capacity(schedule: &[Action], fault: Fault, event_queue_capacity: u64) -> Outcome {
+    execute_with_limits(schedule, fault, event_queue_capacity, MAX_ACTIONS_UNREACHED)
 }
 
 fn execute(schedule: &[Action], fault: Fault) -> Outcome {
@@ -1122,11 +1329,34 @@ fn render_seed(
     schedule: &[Action],
     event_queue_capacity: u64,
 ) -> String {
+    render_seed_with_limits(
+        id,
+        fault,
+        target,
+        schedule,
+        event_queue_capacity,
+        MAX_ACTIONS_UNREACHED,
+    )
+}
+
+/// `max_actions` is written ONLY when it is not the default, so every seed
+/// pinned before the fatal-termination sweep existed stays byte-identical.
+fn render_seed_with_limits(
+    id: &str,
+    fault: Fault,
+    target: Violation,
+    schedule: &[Action],
+    event_queue_capacity: u64,
+    max_actions: u64,
+) -> String {
     let mut body = String::new();
     let _ = writeln!(body, "id={id}");
     let _ = writeln!(body, "property={}", target.property());
     let _ = writeln!(body, "mutation={}", fault.mutation());
     let _ = writeln!(body, "event_queue_capacity={event_queue_capacity}");
+    if max_actions != MAX_ACTIONS_UNREACHED {
+        let _ = writeln!(body, "max_actions={max_actions}");
+    }
     let _ = writeln!(body, "schedule={}", render_schedule(schedule));
     let _ = writeln!(body, "counterexample={}", target.counterexample());
     body
@@ -1206,6 +1436,8 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     // set never reaches the print, which is exactly what makes reaching the
     // print evidence that the set is empty.
     let mut observed_violations: BTreeSet<Violation> = BTreeSet::new();
+    let mut partial_front_drops = 0usize;
+    let mut max_dropped_frames = 0usize;
     for schedule in &exploration.schedules {
         let outcome = execute_deterministic(schedule, Fault::None);
         observed_violations.extend(outcome.violations.iter().copied());
@@ -1240,6 +1472,14 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.deferred_command_turn += outcome.deferred_command_turn;
         totals.deferred_backpressure += outcome.deferred_backpressure;
         totals.rejected_inputs += outcome.rejected_inputs;
+        totals.write_drop_reports += outcome.write_drop_reports;
+        totals.dropped_frames += outcome.dropped_frames;
+        totals.dropped_bytes += outcome.dropped_bytes;
+        totals.receiver_drop_refusals += outcome.receiver_drop_refusals;
+        if outcome.dropped_partial_front {
+            partial_front_drops += 1;
+        }
+        max_dropped_frames = max_dropped_frames.max(outcome.dropped_frames);
         max_drain = max_drain.max(outcome.drain_polls);
     }
 
@@ -1266,6 +1506,30 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
     assert!(
         failure_halted_runs > 0,
         "the failure-halt disposition was explored"
+    );
+    // US-017 AC2 story-review coverage: BOTH new dispositions are reached
+    // by the exhaustive sweep, not just by the unit fixtures.
+    assert_eq!(
+        totals.receiver_drop_refusals as usize, schedule_count,
+        "every explored schedule ends with the typed receiver-drop refusal, \
+         from whatever state it reached"
+    );
+    assert!(
+        totals.write_drop_reports > 0,
+        "shutdown with committed pending writes was explored, and reported"
+    );
+    assert!(
+        totals.dropped_bytes > 0,
+        "the reported drops account for real undelivered bytes"
+    );
+    assert!(
+        partial_front_drops > 0,
+        "the partially-written front frame (a truncated frame on the peer's \
+         wire) was explored"
+    );
+    assert!(
+        totals.write_drop_reports as usize <= schedule_count,
+        "at most one dropped-write disposition per schedule"
     );
 
     // The invariant list and the fairness stance the record carries, derived
@@ -1300,7 +1564,10 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
          executions={} distinct_trace_digests={} closed_terminal_runs={closed_terminal_runs} \
          failure_halted_runs={failure_halted_runs} accepted={} refused_full={} applied={} rejected={} \
          terminal_rejected={} events={} failures={} deferred_output_pending={} deferred_command_turn={} \
-         deferred_backpressure={} rejected_inputs={} max_drain_polls={max_drain} \
+         deferred_backpressure={} rejected_inputs={} write_drop_reports={} dropped_frames={} \
+         dropped_bytes={} partial_front_drops={partial_front_drops} \
+         max_dropped_frames={max_dropped_frames} receiver_drop_refusals={} \
+         max_drain_polls={max_drain} \
          invariants={invariants} weak_fairness={weak_fairness} \
          producer_admission_fairness={PRODUCER_ADMISSION_FAIRNESS}",
         PROGRAMS.iter().map(|program| program.len()).sum::<usize>(),
@@ -1318,9 +1585,128 @@ fn bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants()
         totals.deferred_command_turn,
         totals.deferred_backpressure,
         totals.rejected_inputs,
+        totals.write_drop_reports,
+        totals.dropped_frames,
+        totals.dropped_bytes,
+        totals.receiver_drop_refusals,
     );
     println!("{measured}");
     assert_committed_results_cite_this_run(&measured);
+}
+
+// ---------------------------------------------------------------------------
+// Fatal-termination sweep (US-017 story review round 2, session 01a0464f)
+// ---------------------------------------------------------------------------
+
+/// The SAME exhaustive schedule space, re-run under tightened action
+/// budgets so runs end FATALLY (`ActionLimitExceeded`) while committed
+/// writes are still outstanding.
+///
+/// The main sweep cannot reach this: its action budget is the config
+/// default, far above the 12-action alphabet, so no schedule there ever
+/// terminates fatally with a pending dropped-write report. That gap is
+/// precisely where the round-2 finding lived — "a pending `WritesDropped`
+/// disposition is suppressed by a fatal `Failure`, after which the adapter
+/// halts, leaving a reachable committed write silently unreported".
+///
+/// The invariant asserted is the same one the clean route uses, with the
+/// same INDEPENDENT boundary-side count of what the ended transport owed:
+/// a report must have surfaced, before the halting Failure, accounting for
+/// exactly the frames and undelivered bytes that were abandoned.
+#[test]
+fn fatal_termination_sweep_reports_every_abandoned_committed_write() {
+    let exploration = enumerate_schedules();
+    let schedule_count = exploration.schedules.len();
+    let mut total_fatal_path_drops = 0usize;
+    let mut total_fatal_path_bytes = 0usize;
+    let mut per_budget = Vec::new();
+    let mut lines = Vec::new();
+
+    for budget in FATAL_SWEEP_ACTION_BUDGETS {
+        let mut halted_runs = 0usize;
+        let mut closed_runs = 0usize;
+        let mut fatal_path_drops = 0usize;
+        let mut fatal_path_bytes = 0usize;
+        let mut clean_path_drops = 0usize;
+        let mut receiver_drop_refusals = 0u32;
+
+        for schedule in &exploration.schedules {
+            let first = execute_with_limits(schedule, Fault::None, EVENT_QUEUE_CAPACITY, budget);
+            let second = execute_with_limits(schedule, Fault::None, EVENT_QUEUE_CAPACITY, budget);
+            let mut outcome = first;
+            if outcome != second {
+                outcome.record(Violation::Nondeterminism);
+            }
+            assert!(
+                outcome.violations.is_empty(),
+                "budget {budget}: schedule {} violated {:?}\noutcome: {outcome:?}",
+                render_schedule(schedule),
+                outcome.violations,
+            );
+            // Terminal-disposition exclusivity holds under the tightened
+            // budget exactly as it does in the main sweep.
+            if outcome.halted {
+                assert_eq!(outcome.failures, 1, "the halt is the first failure");
+                assert_eq!(outcome.terminals, 0, "no terminal after a failure halt");
+                halted_runs += 1;
+                if outcome.write_drop_reports > 0 {
+                    // THE ROUND-2 CLASS: committed writes were abandoned and
+                    // reported, and the run then ended at a fatal Failure the
+                    // adapter halts on. Pre-fix, the report never surfaced.
+                    fatal_path_drops += 1;
+                    fatal_path_bytes += outcome.dropped_bytes;
+                }
+            } else {
+                assert!(outcome.closed, "a non-halted full schedule converges");
+                assert_eq!(outcome.failures, 0, "any surfaced failure halts");
+                assert_eq!(outcome.terminals, 1, "terminal delivered exactly once");
+                closed_runs += 1;
+                if outcome.write_drop_reports > 0 {
+                    clean_path_drops += 1;
+                }
+            }
+            receiver_drop_refusals += outcome.receiver_drop_refusals;
+        }
+
+        assert_eq!(
+            halted_runs + closed_runs,
+            schedule_count,
+            "budget {budget}: every schedule reaches exactly one disposition"
+        );
+        assert_eq!(
+            receiver_drop_refusals as usize, schedule_count,
+            "budget {budget}: the receiver-drop disposition holds under fatal termination too"
+        );
+        let line = format!(
+            "US017_FATAL_SWEEP budget={budget} schedules={schedule_count} halted_runs={halted_runs} \
+             closed_terminal_runs={closed_runs} fatal_path_drop_runs={fatal_path_drops} \
+             fatal_path_dropped_bytes={fatal_path_bytes} clean_path_drop_runs={clean_path_drops}"
+        );
+        println!("{line}");
+        lines.push(line);
+        per_budget.push((budget, fatal_path_drops));
+        total_fatal_path_drops += fatal_path_drops;
+        total_fatal_path_bytes += fatal_path_bytes;
+    }
+
+    // Coverage honesty: the sweep must actually REACH the class the finding
+    // names, or it proves nothing about it.
+    assert!(
+        total_fatal_path_drops > 0,
+        "the fatal-termination drop class must be exercised: {per_budget:?}"
+    );
+    assert!(total_fatal_path_bytes > 0);
+    let total = format!(
+        "US017_FATAL_SWEEP_TOTAL budgets={:?} fatal_path_drop_runs={total_fatal_path_drops} \
+         fatal_path_dropped_bytes={total_fatal_path_bytes} per_budget={per_budget:?}",
+        FATAL_SWEEP_ACTION_BUDGETS,
+    );
+    println!("{total}");
+    lines.push(total);
+    // The committed record cites THIS sweep, line for line, or the sweep
+    // fails: the same binding the exploration line carries, so the
+    // fatal-termination magnitudes stop being transcribed numbers.
+    assert_committed_results_cite_this_sweep(&lines);
 }
 
 /// The `producer_admission_fairness=absent` token the exploration prints is a
@@ -1510,12 +1896,97 @@ fn assert_committed_results_cite_this_run(measured: &str) {
     );
 }
 
+/// The bare key under which the record cites the fatal-termination sweep's
+/// printed lines. Distinct from STDOUT_LINE_KEY on purpose: neither key is a
+/// substring of the other, so each reader's exactly-once rule stays exact.
+const SWEEP_STDOUT_LINES_KEY: &str = "\"sweep_stdout_lines\"";
+
+/// Read the one `sweep_stdout_lines` string array out of the committed
+/// results document, by the same bare-key, exactly-once, no-escape rules as
+/// `committed_stdout_line`; internal/formalplan/concurrencyresults.go runs the
+/// same algorithm on the raw bytes and checks it against its structural parse.
+fn committed_sweep_lines(document: &str) -> Vec<String> {
+    let occurrences = document.matches(SWEEP_STDOUT_LINES_KEY).count();
+    assert_eq!(
+        occurrences, 1,
+        "{RESULTS_DOCUMENT} must carry exactly one {SWEEP_STDOUT_LINES_KEY} key anywhere in the document \
+         for this binding to be unambiguous, found {occurrences}; zero means the record cites no sweep."
+    );
+    let after_key = document
+        .find(SWEEP_STDOUT_LINES_KEY)
+        .expect("occurrence count is 1")
+        + SWEEP_STDOUT_LINES_KEY.len();
+    let mut rest = document[after_key..].trim_start();
+    assert!(
+        rest.starts_with(':'),
+        "{RESULTS_DOCUMENT} sweep_stdout_lines key is not followed by a colon"
+    );
+    rest = rest[1..].trim_start();
+    assert!(
+        rest.starts_with('['),
+        "{RESULTS_DOCUMENT} sweep_stdout_lines value is not an array"
+    );
+    rest = rest[1..].trim_start();
+    let mut lines = Vec::new();
+    while !rest.starts_with(']') {
+        assert!(
+            rest.starts_with('"'),
+            "{RESULTS_DOCUMENT} sweep_stdout_lines element {} is not a string literal",
+            lines.len()
+        );
+        let body = &rest[1..];
+        let end = body
+            .find('"')
+            .expect("a sweep_stdout_lines literal is unterminated");
+        let value = &body[..end];
+        assert!(
+            !value.contains('\\'),
+            "{RESULTS_DOCUMENT} sweep_stdout_lines element contains a JSON escape ({value:?}); this reader \
+             does not unescape, so the comparison would be against the wrong bytes"
+        );
+        lines.push(value.to_string());
+        rest = body[end + 1..].trim_start();
+        if rest.starts_with(',') {
+            rest = rest[1..].trim_start();
+            continue;
+        }
+        assert!(
+            rest.starts_with(']'),
+            "{RESULTS_DOCUMENT} sweep_stdout_lines element is followed by neither a comma nor the closing bracket"
+        );
+    }
+    lines
+}
+
+/// Fail if the committed acceptance evidence does not cite THIS fatal-termination
+/// sweep. Same contract as `assert_committed_results_cite_this_run`: this half
+/// proves the recorded lines are lines this sweep really emits, and the Go half
+/// re-derives every per-budget map and total from them.
+fn assert_committed_results_cite_this_sweep(measured: &[String]) {
+    let path = repository_path(RESULTS_DOCUMENT);
+    let document = std::fs::read_to_string(&path).unwrap_or_else(|error| {
+        panic!("{RESULTS_DOCUMENT} is the acceptance evidence this sweep produces and must be readable at {path:?}: {error}")
+    });
+    let committed = committed_sweep_lines(&document);
+    assert_eq!(
+        committed, measured,
+        "\n{RESULTS_DOCUMENT} cites a fatal-termination sweep that is not this one.\n  \
+         committed: {committed:#?}\n  \
+         measured:  {measured:#?}\n\
+         The committed acceptance evidence is stale. Refresh it deliberately: copy the measured lines into \
+         execution.fatal_termination_sweep.executed_run.sweep_stdout_lines, bring the per-budget maps and totals \
+         into agreement with them (internal/formalplan/concurrencyresults.go re-derives them and will name any that \
+         disagree), update target.harness.git_blob to the current tree, and record what moved and why in \
+         revision_note. Do NOT edit this assertion.\n"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Retention demonstration: the six named boundary faults are found by the
 // exploration, shrunk to 1-minimal schedules, and pinned as artifacts.
 // ---------------------------------------------------------------------------
 
-const NAMED_FAULTS: [(&str, Fault, Violation); 6] = [
+const NAMED_FAULTS: [(&str, Fault, Violation); 7] = [
     (
         "lock-sharing",
         Fault::ProducerProtocolMutation,
@@ -1541,6 +2012,13 @@ const NAMED_FAULTS: [(&str, Fault, Violation); 6] = [
         "duplicate-delivery",
         Fault::RepeatTerminal,
         Violation::DuplicateTerminal,
+    ),
+    // US-017 story review BLOCKING-2: the reported defect itself, seeded
+    // as a boundary fault so the new accounting check is shown to kill it.
+    (
+        "silent-write-drop",
+        Fault::DropWritesDroppedReport,
+        Violation::UnreportedWriteDrop,
     ),
 ];
 
@@ -1657,6 +2135,16 @@ fn retention_minimizes_every_named_fault_and_pins_the_artifacts() {
 /// the core refused the EOF with non-fatal event-queue backpressure, so
 /// the EOF was lost, the close never converged, and no terminal was ever
 /// delivered.
+///
+/// SCOPE (pre-landing review finding 5, session 01a04960): these are PINS,
+/// not polarity controls. `mutation=none` is asserted below precisely
+/// because a real defect must stay fixed against the SHIPPED driver — which
+/// means a pin can only ever show that the current driver is clean, never
+/// that a pre-fix one was not. The executable polarity evidence lives in the
+/// seeds that declare a real, parsed, executed mutation:
+/// `minimized/silent-write-drop.seed` for round 1 and
+/// `controls/fatal-halt-write-drop-accounting.seed` for round 2 (see
+/// `round_two_fatal_halt_accounting_control_replays_both_polarities`).
 #[test]
 fn fixed_defect_regressions_replay_clean_on_the_shipped_driver() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("fuzz-seeds/us017/regressions");
@@ -1671,7 +2159,13 @@ fn fixed_defect_regressions_replay_clean_on_the_shipped_driver() {
         })
         .collect::<Vec<_>>();
     names.sort();
-    assert_eq!(names, ["eof-backpressure-livelock.seed"]);
+    assert_eq!(
+        names,
+        [
+            "eof-backpressure-livelock.seed",
+            "fatal-halt-suppressed-write-drop.seed"
+        ]
+    );
     for name in names {
         let body = fs::read_to_string(dir.join(&name)).expect("read regression seed");
         let mut fields = std::collections::BTreeMap::new();
@@ -1683,22 +2177,134 @@ fn fixed_defect_regressions_replay_clean_on_the_shipped_driver() {
         let capacity: u64 = fields["event_queue_capacity"]
             .parse()
             .expect("numeric capacity");
+        let max_actions: u64 = fields
+            .get("max_actions")
+            .map_or(MAX_ACTIONS_UNREACHED, |value| {
+                value.parse().expect("numeric action budget")
+            });
         let schedule = fields["schedule"]
             .split(',')
             .map(|verb| Action::parse(verb.trim()))
             .collect::<Vec<_>>();
         // The reproduction runs under the exact configuration that exposed
-        // the defect (a smaller event queue than the exploration default).
-        let outcome = execute_with_capacity(&schedule, Fault::None, capacity);
-        let replay = execute_with_capacity(&schedule, Fault::None, capacity);
+        // the defect (a smaller event queue, or a tightened action budget,
+        // than the exploration default).
+        let outcome = execute_with_limits(&schedule, Fault::None, capacity, max_actions);
+        let replay = execute_with_limits(&schedule, Fault::None, capacity, max_actions);
         assert_eq!(outcome, replay, "{name}: deterministic replay");
         assert!(
             outcome.violations.is_empty(),
             "{name}: fixed defect must stay fixed: {outcome:?}"
         );
-        assert!(outcome.closed, "{name}: the run converges to Closed");
-        assert_eq!(outcome.terminals, 1, "{name}: terminal delivered once");
+        // Both typed terminal dispositions are legitimate end states for a
+        // pinned reproduction: a clean convergence, or the adapter-faithful
+        // halt at a fatal Failure — which is the very route the
+        // fatal-halt-suppressed-write-drop defect lived on.
+        if outcome.halted {
+            assert_eq!(outcome.failures, 1, "{name}: the halt is the first failure");
+            assert_eq!(outcome.terminals, 0, "{name}: no terminal after a halt");
+            assert!(
+                outcome.write_drop_reports > 0,
+                "{name}: the abandoned committed write is reported before the halting failure"
+            );
+        } else {
+            assert!(outcome.closed, "{name}: the run converges to Closed");
+            assert_eq!(outcome.terminals, 1, "{name}: terminal delivered once");
+        }
     }
+}
+
+/// The ROUND-2 polarity control, committed and rerunnable (pre-landing
+/// review finding 5, session 01a04960).
+///
+/// `regressions/fatal-halt-suppressed-write-drop.seed` is a real-defect PIN:
+/// `mutation=none`, so it only replays the fixed driver and can never
+/// demonstrate the pre-fix polarity. The reviewer's objection was that the
+/// round-2 evidence was therefore prose. This control closes that: it
+/// executes a REAL test-only mutation (`drop-writes-dropped-report`) on the
+/// FATAL-HALT route, which is precisely where the round-2 defect hid,
+/// because exempting halted runs from the owed-vs-reported equality was the
+/// hiding place. Both polarities are read from one committed artifact:
+///
+/// * faulted — the adapter swallows the typed report, the run still halts at
+///   its fatal `Failure`, and `UnreportedWriteDrop` fires. If the halted-run
+///   accounting check in `finish()` were removed (or re-exempted), this
+///   assertion fails and the control goes red.
+/// * clean — the same schedule and budget on the shipped driver surfaces
+///   exactly one report, BEFORE the halting failure, with zero violations.
+#[test]
+fn round_two_fatal_halt_accounting_control_replays_both_polarities() {
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("fuzz-seeds/us017/controls/fatal-halt-write-drop-accounting.seed");
+    let body = fs::read_to_string(&path).unwrap_or_else(|err| {
+        panic!(
+            "round-2 polarity control missing at {} ({err})",
+            path.display()
+        )
+    });
+    let mut fields = std::collections::BTreeMap::new();
+    for line in body.lines().filter(|line| !line.trim().is_empty()) {
+        let (key, value) = line.split_once('=').expect("key=value seed line");
+        fields.insert(key.trim().to_owned(), value.trim().to_owned());
+    }
+    let fault = Fault::parse(&fields["mutation"]);
+    assert_ne!(
+        fault,
+        Fault::None,
+        "a POLARITY control declares a mutation that is actually executed"
+    );
+    let capacity: u64 = fields["event_queue_capacity"]
+        .parse()
+        .expect("numeric capacity");
+    let max_actions: u64 = fields["max_actions"]
+        .parse()
+        .expect("numeric action budget");
+    assert!(
+        max_actions < MAX_ACTIONS_UNREACHED,
+        "the control's budget must be tight enough to terminate FATALLY"
+    );
+    let schedule = fields["schedule"]
+        .split(',')
+        .map(|verb| Action::parse(verb.trim()))
+        .collect::<Vec<_>>();
+    let target = Violation::UnreportedWriteDrop;
+    assert_eq!(fields["property"], target.property());
+    assert_eq!(fields["counterexample"], target.counterexample());
+
+    // Faulted polarity: the report is swallowed on the fatal route and the
+    // boundary's independent owed count catches it.
+    let faulted = execute_with_limits(&schedule, fault, capacity, max_actions);
+    let faulted_replay = execute_with_limits(&schedule, fault, capacity, max_actions);
+    assert_eq!(faulted, faulted_replay, "deterministic faulted replay");
+    assert!(
+        faulted.halted,
+        "the control must reach the FATAL-HALT route, not the clean terminal: {faulted:?}"
+    );
+    assert!(
+        faulted.violations.contains(&target),
+        "suppressing the report on a halted run must be caught: {faulted:?}"
+    );
+
+    // Clean polarity: the shipped driver surfaces the report strictly before
+    // the halting failure.
+    let clean = execute_with_limits(&schedule, Fault::None, capacity, max_actions);
+    let clean_replay = execute_with_limits(&schedule, Fault::None, capacity, max_actions);
+    assert_eq!(clean, clean_replay, "deterministic clean replay");
+    assert!(
+        clean.violations.is_empty(),
+        "the shipped driver passes the control clean: {clean:?}"
+    );
+    assert!(clean.halted, "same fatal route without the fault");
+    assert_eq!(clean.failures, 1, "exactly one surfaced failure");
+    assert_eq!(clean.terminals, 0, "no terminal after a halt");
+    assert_eq!(
+        clean.write_drop_reports, 1,
+        "the abandoned committed write is reported before the halting failure"
+    );
+    assert!(
+        clean.dropped_frames > 0 && clean.dropped_bytes > 0,
+        "{clean:?}"
+    );
 }
 
 /// The committed minimized artifacts replay as regressions on their own:
@@ -1731,9 +2337,10 @@ fn committed_minimized_schedules_replay_as_regressions() {
             "lock-sharing.seed",
             "lost-command.seed",
             "queue-bypass.seed",
+            "silent-write-drop.seed",
             "write-reorder.seed",
         ],
-        "exactly the six named minimized artifacts are retained"
+        "exactly the seven named minimized artifacts are retained"
     );
     for name in names {
         let body = fs::read_to_string(dir.join(&name)).expect("read minimized seed");

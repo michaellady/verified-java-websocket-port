@@ -185,12 +185,12 @@ func crContainerAt(document map[string]any, path crLeafPath) any {
 // ---------------------------------------------------------------------------
 
 var (
-	crRefPattern       = regexp.MustCompile(`^([A-Za-z0-9_./-]+)::(.+)$`)
-	crSHA256Pattern    = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
-	crBlobPattern      = regexp.MustCompile(`^[0-9a-f]{40}$`)
-	crStampPattern     = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$`)
-	crTokenPattern     = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
-	crFirstNumPattern  = regexp.MustCompile(`\d+`)
+	crRefPattern        = regexp.MustCompile(`^([A-Za-z0-9_./-]+)::(.+)$`)
+	crSHA256Pattern     = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	crBlobPattern       = regexp.MustCompile(`^[0-9a-f]{40}$`)
+	crStampPattern      = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$`)
+	crTokenPattern      = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+	crFirstNumPattern   = regexp.MustCompile(`\d+`)
 	crUnrelatedRealPath = "go.mod"
 )
 
@@ -435,26 +435,47 @@ func crPrintable(value any) string {
 // ---------------------------------------------------------------------------
 
 // crExpectedLeafCount is the document's leaf cardinality. It is pinned so the
-// denominator of every "N of 162" statement is itself a measurement.
-const crExpectedLeafCount = 162
+// denominator of every "N of 327" statement is itself a measurement. It was
+// 162 until the landing union merged claude/us017-ac2's record into this one.
+const crExpectedLeafCount = 327
 
 // crInertLeaves is the residual set: leaves that still accept a plausible
 // wrong value. Transcribed from CR_LEAF_ENUM=print, not chosen.
 //
-// WHAT IS LEFT, AND WHY EACH ONE IS LEFT. Three classes, and none of them is
+// WHAT IS LEFT, AND WHY EACH ONE IS LEFT. Four classes, and none of them is
 // "we ran out of ideas":
 //
-//   - Seven defect-narrative fields (found_by, description, fix, note). How a
-//     defect was found, what it was, and how it was fixed is prose about
-//     history. It carries no number, verdict, identity or scope claim that
-//     anything in this tree can contradict. The claim ceiling inside a defect
-//     record — its RED evidence, its regression coverage, its shrink — is
-//     bound; the story around it is not.
-//   - native_stress.rustc, recorded_at_provenance, retention.demonstration and
-//     revision_note each still accept ONE candidate: a substitution inside a
-//     token nothing here can resolve (a compiler version, an imported commit
-//     id, the session prose). Their shape and their load-bearing clauses are
-//     checked; the token values are attested, not derived.
+//   - Defect narrative (description, fix, found_by, note, finding_verbatim,
+//     ac_reading, reproduction_read, reproduction): 51 leaves across the ten
+//     defects the landed record rolls. How a defect was found, what it was,
+//     what the reviewer wrote and how it was fixed is prose about history. It
+//     carries no number, verdict, identity or scope claim that anything in
+//     this tree can contradict. The claim ceiling inside a defect record — its
+//     RED evidence, its regression coverage, its shrink, its reproduction's
+//     seed — is bound; the story around it is not.
+//   - Seven RED readings — defects 3, 4, 5, 6, 8, 9 and the sweep's
+//     harness_polarity_read — each accept ONE candidate: a number moved inside
+//     the runtime output they quote (frames=1 becoming frames=2 in a label the
+//     failing test printed; "budget 1:" becoming "budget 2:" in the violation
+//     the pre-fix sweep printed). The quoted ASSERTION text is resolved into
+//     the body of a test the defect names, the polarity read must name a
+//     control test the harness declares, and the quotation must be whole, so
+//     "MUTATED", a neighbour's reading and a truncation are refused; the
+//     values the pre-fix run printed exist nowhere in the committed tree to
+//     compare against.
+//   - Prose that accepts one candidate — a number moved inside a citation
+//     token (AC2, round-2, io_loop.rs:228, US-017, a commit id, a session id)
+//     or a truncation that keeps every load-bearing clause: adapter_model,
+//     the two run citations' binding and executed_against sentences, the
+//     sweep's why, limitations 7, 9, 10 and 11, sha256_provenance,
+//     recorded_at_provenance, retention.demonstration, added_by,
+//     pinned_artifacts_unchanged_by_review_round and
+//     real_defect_regressions[1]. Their shape and their load-bearing clauses
+//     are checked (phrases from both halves, re-derived numbers where the
+//     sentence quotes a counter, the seed's own fields where it names a seed);
+//     the token values are attested, not derived.
+//   - native_stress.rustc and revision_note, as in every round before this
+//     one: a compiler version string and the session prose.
 //
 // THE SIX found_index ORDINALS ARE GONE FROM THIS LIST, after being named in
 // it for three rounds. They were the class the reviewer kept re-flagging: the
@@ -467,7 +488,19 @@ const crExpectedLeafCount = 162
 // the digest that already pinned the schedule beside them. Measured after the
 // fix: substituting another artifact's real ordinal, an adjacent ordinal, or a
 // plausible small integer each produces RESULTS_SEED_CONTENT_CONTRADICTED.
+//
+// THE FATAL-TERMINATION SWEEP'S MAGNITUDES ARE GONE FROM THIS LIST TOO. At the
+// 2026-09-02 landing union the document carried the sweep block claude/us017-ac2
+// added — two totals and, after the union, five per-budget maps — and the
+// first enumeration of the merged document read every one of those numbers as
+// INERT: fatal_path_drop_runs_total moved from 56189 to 56190 and nothing
+// disagreed, exactly the transcription the record's own limitation admitted.
+// The harness now cites the five US017_FATAL_SWEEP lines it prints
+// (execution.fatal_termination_sweep.executed_run.sweep_stdout_lines, compared
+// element-for-element by assert_committed_results_cite_this_sweep) and
+// crValidateSweepRun re-derives the block from them.
 var crInertLeaves = []string{
+	"adapter_model",
 	"defects_found_and_fixed[0].description",
 	"defects_found_and_fixed[0].fix",
 	"defects_found_and_fixed[0].found_by",
@@ -475,9 +508,68 @@ var crInertLeaves = []string{
 	"defects_found_and_fixed[1].fix",
 	"defects_found_and_fixed[1].found_by",
 	"defects_found_and_fixed[1].note",
+	"defects_found_and_fixed[2].description",
+	"defects_found_and_fixed[2].finding_verbatim",
+	"defects_found_and_fixed[2].fix",
+	"defects_found_and_fixed[2].found_by",
+	"defects_found_and_fixed[3].description",
+	"defects_found_and_fixed[3].finding_verbatim",
+	"defects_found_and_fixed[3].fix",
+	"defects_found_and_fixed[3].found_by",
+	"defects_found_and_fixed[3].red_evidence",
+	"defects_found_and_fixed[4].ac_reading",
+	"defects_found_and_fixed[4].description",
+	"defects_found_and_fixed[4].finding_verbatim",
+	"defects_found_and_fixed[4].fix",
+	"defects_found_and_fixed[4].found_by",
+	"defects_found_and_fixed[4].red_evidence",
+	"defects_found_and_fixed[5].description",
+	"defects_found_and_fixed[5].finding_verbatim",
+	"defects_found_and_fixed[5].fix",
+	"defects_found_and_fixed[5].found_by",
+	"defects_found_and_fixed[5].red_evidence",
+	"defects_found_and_fixed[5].reproduction_read",
+	"defects_found_and_fixed[6].description",
+	"defects_found_and_fixed[6].finding_verbatim",
+	"defects_found_and_fixed[6].fix",
+	"defects_found_and_fixed[6].found_by",
+	"defects_found_and_fixed[6].red_evidence",
+	"defects_found_and_fixed[7].description",
+	"defects_found_and_fixed[7].finding_verbatim",
+	"defects_found_and_fixed[7].fix",
+	"defects_found_and_fixed[7].found_by",
+	"defects_found_and_fixed[7].note",
+	"defects_found_and_fixed[7].reproduction_read",
+	"defects_found_and_fixed[8].description",
+	"defects_found_and_fixed[8].finding_verbatim",
+	"defects_found_and_fixed[8].fix",
+	"defects_found_and_fixed[8].found_by",
+	"defects_found_and_fixed[8].note",
+	"defects_found_and_fixed[8].red_evidence",
+	"defects_found_and_fixed[8].reproduction_read",
+	"defects_found_and_fixed[9].ac_reading",
+	"defects_found_and_fixed[9].description",
+	"defects_found_and_fixed[9].finding_verbatim",
+	"defects_found_and_fixed[9].fix",
+	"defects_found_and_fixed[9].found_by",
+	"defects_found_and_fixed[9].red_evidence",
+	"defects_found_and_fixed[9].reproduction",
+	"execution.executed_run.binding",
+	"execution.executed_run.executed_against",
+	"execution.fatal_termination_sweep.executed_run.executed_against",
+	"execution.fatal_termination_sweep.harness_polarity_read",
+	"execution.fatal_termination_sweep.why",
+	"limitations[7]",
+	"limitations[9]",
+	"limitations[10]",
+	"limitations[11]",
 	"native_stress.rustc",
+	"preregistered_plan.sha256_provenance",
 	"recorded_at_provenance",
 	"retention.demonstration",
+	"retention.minimized_artifacts[6].added_by",
+	"retention.pinned_artifacts_unchanged_by_review_round",
+	"retention.real_defect_regressions[1]",
 	"revision_note",
 }
 

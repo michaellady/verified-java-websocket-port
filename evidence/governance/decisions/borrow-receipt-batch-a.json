@@ -1,0 +1,119 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "borrow-receipt",
+  "batch": "A",
+  "stories": ["US-012", "US-013", "US-014"],
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "recorded_at": "2026-08-27T18:34:00Z",
+  "recorded_at_provenance": "captured from `date -u` in the working session immediately after the baseline evaluate run",
+  "strategy_record": "protected/race-strategy-borrow-and-race-2026-08-27.json (owner directive verbatim: 'Borrow, but verify that it works'; borrows labeled, no first-finish credit)",
+  "integration_commit": {
+    "branch": "claude/borrow-batch-a",
+    "worktree": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-borrow-a",
+    "base": "c18fdf2 (Claude mainline HEAD, the assignment's foundation pin)",
+    "sha": "37dd0343d04a04a23299b37c47170f3523763344",
+    "subject": "borrow(us-012,us-013,us-014): core data path <- codex 8e5b19b/0be0766/dca0fdb (adapted to ws_core, Java-fidelity corrections applied)",
+    "pushed": false
+  },
+  "source": {
+    "ref": "refs/codex-import/codex/race-catchup (tip 29a259a; codex plane fetch-only, never written)",
+    "story_shas": {
+      "US-012": "8e5b19b4015af159e3f26906556fe4ac697c8af5",
+      "US-013": "0be07662d009c993ca197149b7b2fbd4df2f471c",
+      "US-014": "dca0fdb7face1c391d6f4b36ca58642aec76a49b"
+    },
+    "ancestry_confirmation": "git merge-base --is-ancestor answered OK for all three story shas against refs/codex-import/codex/race-catchup, re-verified in this session"
+  },
+  "borrowed_files": [
+    {
+      "source_path": "rust/connection-core/src/utf8.rs",
+      "source_blob_sha": "9e36b16f019b1b3e9aa927e44551ae020ed83e08",
+      "source_blob_note": "git ls-tree verified; blob identical at 0be0766 and at the dca0fdb final state",
+      "adapted_path": "rust/ws-core/src/message.rs (internal Utf8Validator)",
+      "adaptation_summary": "allocation-free incremental DFA state machine adopted (the first-continuation window encoding of overlong/surrogate/range rules is theirs). Adapted: their per-failure taxonomy (TruncatedSequence/UnexpectedContinuation/...) collapses to the DFA error state (Java reports only the state; the oracle only close code 1007); the validator serves ONLY the translate-time gate behind the pinned proof-target symbol message::Charsetfunctions::is_valid_utf8, while the strict process-time gate (string_utf8) decodes with the standard library so the two Q15 stages cannot share the lenient tail rule"
+    },
+    {
+      "source_path": "rust/connection-core/fuzz-seeds/{us012,us013,us014}/*.hex (54 files)",
+      "source_blob_sha": "per-file blobs at dca0fdb; every copied file verified byte-identical to its dca0fdb blob via sha256 comparison in this session (54/54 identical)",
+      "adapted_path": "rust/ws-core/fuzz-seeds/{us012,us013,us014}/*.hex",
+      "adaptation_summary": "seed BYTES adopted verbatim as deterministic replay regression inputs; every replay EXPECTATION re-derived from internal/corpora/derive.go (tests/frame_codec.rs, tests/messages.rs, tests/fragmentation.rs). Four seeds' original assertions were Java-infidelities and are asserted INVERTED with documentation: noncanonical-16/noncanonical-64 (accepted, not rejected), wrong-mask-client/wrong-mask-server (accepted), high-bit-64 (ordinary 1009 at the length site, not a dedicated high-bit rejection)"
+    },
+    {
+      "source_path": "rust/connection-core/src/frame/decode.rs",
+      "source_blob_sha": "53b61c69fa10be3247bf0b8d4045dd11ab81271e (at 8e5b19b; f163c00d2ce7c8ea73aeee0c3fb5b60e6a73bca1 at the dca0fdb final state)",
+      "adapted_path": "rust/ws-core/src/framing.rs (Draft6455::decode_frame_header / translate path)",
+      "adaptation_summary": "DESIGN adopted, body not grafted verbatim: header-time length gate before any payload allocation, reserve-exact payload backing (Vec reserved once, moved into the delivered message), incremental header-completeness discipline. Their validation ORDER is RFC-strict at header time (RSV, control-fin, mask-by-role, canonical length) where shipped Java validates post-payload or not at all, so the translate body was written against derive.go's site-exact semantics with the borrowed design elements"
+    },
+    {
+      "source_path": "rust/connection-core/src/frame/encode.rs",
+      "source_blob_sha": "41f2e1d7ec7f4c1d12eb1b1b32340bd89f180fd4 (at 8e5b19b)",
+      "adapted_path": "rust/ws-core/src/framing.rs (Draft6455::encode_frame)",
+      "adaptation_summary": "shape reviewed; the shipped encoder mirrors the reference model's EncodeFrame (internal/corpora/frames.go) directly. Their role/mask-key argument contract (client requires caller key, server forbids) was replaced by the config mask_key_seed derivation (Q28)"
+    },
+    {
+      "source_path": "rust/connection-core/src/fragment.rs",
+      "source_blob_sha": "8c1e09e08ab595141ba685a2f39ca92caab23aaa (at dca0fdb)",
+      "adapted_path": "rust/ws-core/src/fragment.rs + framing.rs process arms",
+      "adaptation_summary": "reviewed, NOT grafted: their FragmentPlan admission rejects sequence violations at header-plan time and feeds an incremental UTF-8 validator across continuation fragments — both fire at non-Java sites (derive.go rejects fragment-sequence violations at PROCESS time after the frame record, and strict-validates the ASSEMBLED text only at the fin). ws_core's ContinuousFrame accumulator and the process_frame/process_frame_continuous/check_buffer_limit arms were written fresh against derive.go processDataFrame"
+    }
+  ],
+  "adopted_with_attribution": [
+    "incremental allocation-free Utf8Validator state machine (utf8.rs body, adapted)",
+    "header-time length gate before payload allocation (decode design)",
+    "reserve-exactly-then-move payload backing (zero-copy delivery of unfragmented messages into the event; the Arc<Vec<u8>> shared backing itself was NOT adopted because the authoritative SemanticEvent/FrameRecord vocabulary owns plain Vec payloads)",
+    "54 deterministic hex regression seeds (bytes verbatim, expectations re-derived)",
+    "nonclaims-ledger discipline mirrored in this receipt"
+  ],
+  "stripped_or_corrected": [
+    "STRIPPED: NonCanonicalLength16/NonCanonicalLength64 rejection (Java accepts non-minimal extended lengths; derive.go:400-420)",
+    "STRIPPED: IncorrectMasking mask-by-role rejection (pinned runtime accepts either masking toward either role; derive.go:439-447; corpus-invisible, so no behavior-delta ledger entry is required — the port now matches shipped Java exactly)",
+    "STRIPPED: PayloadLengthHighBitSet rejection (length parses unsigned; a 2^63 length fails the ordinary 1009 frame-size gate at length site 10 — outside the model's generated space, noted under honesty_notes)",
+    "CORRECTED: RSV-bit and control-fin rejections moved from header time to Java's post-payload site (full frame consumed, close 1002)",
+    "CORRECTED: fragment-sequence violations (orphan continuation, data-during-fragment, fragment-restart) moved from plan/admission time to Java's process time (after the frame record), close 1002",
+    "CORRECTED: cross-fragment text UTF-8 validated strictly ONLY at the fin on the assembled payload (their incremental per-fragment feeding would fail at earlier steps with different counts); two-stage Q15 timing preserved (translate DFA accepts dangling tails, frame recorded, strict 1007 at process)",
+    "CORRECTED: per-site consumed_bytes reconciled with derive.go quirk Q25 (opcode@2, control-marker@2 before extended length bytes, control-length/frame-size@2/4/10, post-payload checks@full frame; translate rejections discard ALL frames decoded from the same chunk and suppress input_chunk)",
+    "CORRECTED: failure vocabulary remapped onto oracle FailureCode wire codes (JAVA_INVALID_DATA+close_code, BUFFER_LIMIT_EXCEEDED without close code for the adapter add-bounded continuation overflow, JAVA_NOT_SENDABLE for the send-path DFA)",
+    "WRITTEN FRESH (no source on their chain): outbound send_fragment against derive.go sendFragment/Draft.continuousFrame incl. first-frame-only send DFA and mid-sequence continuation opcodes; outbound send_text/send_binary tails against derive.go actionStep; deterministic SplitMix64 mask-key stream from config mask_key_seed"
+  ],
+  "admission_rederivation": "MAX_EVENT_SLOTS_PER_INPUT re-derived as the US-009 docs required: non-byte inputs keep the 2-slot bound; byte inputs use the dynamic bound 1 + EVENT_SLOTS_PER_FRAME(=2) * min(complete_spans, remaining_frame_budget + 1), prechecked before any mutation so backpressure atomicity holds. EventQueueCapacity ceiling raised 4096 -> 16384 (port-side table, config_limits test updated) and the harness sizes the event queue from max_frames (2*(max_frames+1)+8) — construction plumbing, not protocol behavior; an undersized queue surfaces as the honest CORE_BACKPRESSURE_UNDRAINED, never as Java behavior",
+  "gates": {
+    "rust_gates": "make -C rust gates: exit 0 READ (fmt-check; clippy --workspace --all-targets --all-features -D warnings; cargo test debug; cargo test release). Log clean of warnings/errors; 366 test results summed across test binaries (debug+release)",
+    "go_gates": "go build ./... exit 0 READ; go test ./... exit 0 READ (23 packages ok). First run failed twice: (1) internal/portplan TestDeriveReproducesCommittedEvidence — a first-run .quarantine materialization race in the fresh worktree, passing on re-run with the tree materialized (also passes on the clean c18fdf2 worktree; unrelated to this batch); (2) internal/formalplan TestUS006FixtureCatalogThroughRealCLI — its fixture trees copy rust/ sources, so frozen tree digests change with any ws_core edit; deliberately refreezed env-gated via US006_REGENERATE=1 (assurance/replay/fixtures/us006-cases.json, 22 digest lines), the identical precedent to mainline 716bb19",
+    "corpora_unchanged": "internal/corpora/ and corpora/ untouched (git status clean for both paths in the batch commit)"
+  },
+  "baseline": {
+    "before": "7/74 (rust/ws-oracle-harness/baseline/us009-public-wired-baseline.json, retained unchanged as history)",
+    "after": "56/74 (corporactl evaluate exit 1 READ; executed 74, passed 56, failed 18, missing 0, unmatched 0)",
+    "after_artifacts": "rust/ws-oracle-harness/baseline/borrow-batch-a-public-baseline.json + borrow-batch-a-public-transcript.jsonl (committed in 37dd034); requests sha256 0c1503c0... identical to the US-009 baseline's; transcript sha256 9ab45639..., rerun byte-identical",
+    "flipped_count": 49,
+    "regressions": [],
+    "flipped_predicted": "all 44 scenarios of the plan's predicted batch-A families",
+    "flipped_unexpected_explained": [
+      "close-code-invalid-wire us005.pub.0019/0033/0041: translate-time close-payload validation is part of the frame codec (derive.go decodeFrame -> parseCloseSemantics); implemented in framing.rs by calling the existing US-009 pure fn close::close_code_rejection (no close.rs edits, no batch-C close-lifecycle behavior claimed); transcript details read 'ws_core reported JAVA_INVALID_DATA' — core-produced",
+      "state-frame-in-closing us005.pub.0051: the processInbound closing-state gate (derive.go:637-641) is the data-path dispatch gate in connection.rs; core-produced STATE_VIOLATION",
+      "action-limit us005.pub.0030: the scenario's first send_text now emits a real frame (its expectation requires frames=1), the second action is counted then rejected by the core prelude; core-produced ACTION_LIMIT_EXCEEDED"
+    ],
+    "remaining_failures": "all 18 are US-015/US-016 families (ping-inbound 2, pong-inbound 2, send-ping 1, send-pong 1, fragment-interleaved-ping 2, close-remote 3, close-remote-empty 1, close-payload-1 1, close-code... send-close-invalid-code 1, close-local-then-remote 2, close-local-then-eof 1, closing-recv-close 1), each refusing through the honest CORE_BEHAVIOR_UNIMPLEMENTED-class envelope",
+    "custodian": "public tier is custodian-free; the protected store was READ-ONLY throughout; custodian ledger byte-identical to the US-009 baseline record (9001 bytes, sha256 f4941dc801af5a41a2e3285a71d269975ea6e06774d1e1a4573fd6b6d6f400ae, verified after the run); no hidden/sealed tier requested or evaluated"
+  },
+  "review": {
+    "status": "PENDING - the parent orchestrator runs the bounded batch review (pinned gpt-5.6-sol @ xhigh, runtime receipt, fail-closed) per the plan's step 5 scope: attribution correctness, adaptation fidelity vs derive.go, gate results actually read. This receipt is the review input; the review receipt is appended by the parent before the batch closes"
+  },
+  "honesty_notes": [
+    "one deliberate divergence-shaped port choice outside the verified space: a 64-bit length with the high bit set parses as a huge unsigned length and rejects 1009 at the length site; shipped Java reads it as a negative long with untested downstream behavior, and the reference model marks such lengths outside the generated space (derive.go:266-268) — corpus-invisible, recorded here rather than in the behavior-delta ledger because no baseline observation of it can exist",
+    "translate rejections inside frames completed FROM BUFFERED BYTES (span starting in pending) are outside the model's verified space (derive.go returns unsupportedError); the port saturates the consumed-site offset at zero for that shape",
+    "send_fragment mid-sequence opcode change is outside the verified space (derive.go unsupportedError); the port reports JAVA_NOT_SENDABLE as the closest Java-shaped refusal, documented in framing.rs",
+    "sends during an open OUTBOUND fragment sequence (send_text/send_binary) are outside the verified space (derive.go unsupportedError); the port sends normally (independent inbound/outbound sequence state), documented in the code",
+    "the us014/control-interleave seed cannot complete until US-015: its ping-processing arm refuses Unimplemented; the fragmentation test pins that refusal explicitly and batch C must update it to the full interleave delivery"
+  ],
+  "nonclaims": [
+    "no story acceptance claimed for US-012/US-013/US-014 as Claude independent first-finishes: these are borrows with attribution per the race rules (no first-finish credit)",
+    "no live Java execution occurred in this batch; the judge is the wired public corpus whose expectations are REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION plus the US-005 calibration lineage",
+    "no hidden or sealed tier was requested, evaluated, or touched",
+    "no claim that 56/74 is terminal: the remaining 18 failures are batch C scope (US-015/US-016)",
+    "no independent review claimed by this worker; the pinned bounded review is pending (see review.status)"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5 (borrow batch A backend-dev worker)"
+}

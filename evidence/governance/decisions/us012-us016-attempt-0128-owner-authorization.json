@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us012-us016-model-check-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "attempt_id": "us007-sbx-output-live-0128",
+  "sandbox_name": "us012-us016-tlc-0128",
+  "story": "US-012 AC5 and US-016 AC4, review round 2 re-run: SANY grammar/level checks and full TLC model checks of assurance/formal/frame-model.tla and assurance/formal/close-model.tla with their shipped cfgs, plus ONE seeded-defect run per checked invariant and per checked property in both models (25 mutations), executed by the compiled Go driver cmd/tlcdriver instead of the round-1 shell script.",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-28T00:36:54Z",
+  "authorized_at_provenance": "Captured from `date -u` immediately before writing this record (standing no-estimates rule).",
+  "owner": "mikelady",
+  "authorization_basis": "STANDING AUTHORITY, no fresh owner decision required. protected/us012-us016-owner-decisions-2026-08-28-formal.json (sha256 d7a54e2c5aac48cc9ef1b3afa19d14593555e1fce7cb49fed69484ba24bfc352, recomputed and verified at read by this driver), decision id sbx-tlc-standing-authority: the owner RATIFIED attempt us007-sbx-output-live-0127 and granted standing authority for repeated runs of this same already-approved class -- TLA+/TLC model checking within the accepted US-007 sandbox profile using the pinned tla2tools.jar. That decision requires each attempt to mint a fresh attempt id, write its own receipt under protected/, keep the profile constraints (unprivileged uid, deny-network, pinned template digest), and digest-verify transfers in both directions. This record and the attempt satisfy all four.",
+  "scope_note": "The standing authority covers ONLY this class. This attempt changes nothing about the class: same pinned tool and digest, same accepted profile, same TLA+/TLC activity. The only change is the DRIVER -- a compiled Go binary built from the repository at the attempt's named commit, replacing the round-1 Bash script that review round 2 correctly flagged under the standing 'no shell for non-trivial logic' rule. No new tool class and no profile change, so no owner decision is required.",
+  "why_a_re_run": "Review session 01a045ba-61a3-76e1-b214-88178f506760 raised three blocking findings against attempt 0127's results. Two of them (the vacuous RejectedSendDoesNotTransition invariant, and the shell driver) mean the 0127 numbers can no longer stand as the published record: the close model changed, and the driver that produced the evidence is being replaced. Every number in the round-2 results documents comes from THIS attempt. The 0127 receipts are retained immutably and are not deleted or rewritten.",
+  "tool_fetch": {
+    "artifact": "tla2tools.jar (TLA+ tools: SANY + TLC)",
+    "pinned_release": "tlaplus v1.8.0 'The Clarke release'",
+    "source_url": "https://github.com/tlaplus/tlaplus/releases/download/v1.8.0/tla2tools.jar",
+    "expected_sha256": "eabd140a70f49eb9305a3bd3f3df944eddf87e5a90d329789085f8953a80533a",
+    "note": "Same pinned release and expected digest as attempts 0125 and 0127. The digest is recomputed AT FETCH by this attempt's driver and compared with the pinned value before the jar goes near the sandbox; the jar enters the network-denied sandbox only via a digest-verified copy re-hashed inside the sandbox."
+  },
+  "constraints": [
+    "One live sandbox attempt; failures preserved immutably; a model error found by SANY or TLC is a finding to fix and re-check, never to hide",
+    "A seeded defect that SURVIVES is a finding about the checks and must be reported as one, never dropped from the table",
+    "Sandbox unprivileged, non-root, --deny-network '**' (tool fetched host-side first), clone-mode source at a named commit, template digest per the 0124-accepted profile",
+    "Every exit code read from the real java process by the compiled driver; never `go run`; sbx cp exit codes untrusted, so every transfer is digest-verified in BOTH directions",
+    "The driver's own stdout is committed as a receipt so the recorded exit codes are bound to committed bytes",
+    "Codex plane untouched; production=false, signing=false, publication=false"
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

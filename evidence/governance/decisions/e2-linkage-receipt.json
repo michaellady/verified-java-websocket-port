@@ -1,0 +1,131 @@
+{
+  "kind": "e2-linkage-receipt",
+  "plane": "claude",
+  "mission": "Close the AC5-class linkage gaps (US-010..US-016 AC-closure dossier gap G7): resolver-verify the migration map's 47 planned Rust identities against the merged tree and add evidence-DAG story/symbol nodes binding proof targets to the implemented Rust symbols.",
+  "branch": "claude/e2-linkage",
+  "base": "2244a344618bf30a05c35cddf99e8746775e909c",
+  "commit": "5364e1bcb611665487cbeed15508226d4394fc90",
+  "commit_round_1": "d6ee6371f5b9fab0213d2201e047d70adde47f7a",
+  "pushed": false,
+  "recorded_at": "2026-08-27T22:57:32Z",
+  "recorded_at_round_1": "2026-08-27T22:41:12Z",
+  "recorded_at_provenance": "date -u on the working host",
+  "review_round_2": {
+    "review_session": "01a04566-bccd-7851-8582-3379eca41bd5",
+    "verdict_addressed": "three blocking findings, each verified against the tree before writing, fixed in commit 5364e1bcb611665487cbeed15508226d4394fc90",
+    "corrections": [
+      {
+        "finding": 1,
+        "was": "sym.allocation.check-alloc bound Draft6455::check_buffer_limit + ConnectionCore::handle, conflating the pre-allocation checkAlloc guard with the reassembly-time checkBufferLimit gate the frozen targets bind separately",
+        "now": "binds ws_core::framing::Draft6455::decode_frame_header — the header-time declared-length gate (1009 at the length site, before any payload allocation; framing.rs comment cites derive.go:424-425), verified in the tree at framing.rs:~415 before the edit"
+      },
+      {
+        "finding": 2,
+        "was": "sym.connection.open bound begin_client_handshake + ServerHandshake, handshake initiation/parser symbols that do not perform the state transition",
+        "now": "binds ws_core::connection::ConnectionCore::finish_handshake_open (connection.rs:951) — verified before the edit as the single declaration that sets self.state = ReadyState::Open (both roles route through it)"
+      },
+      {
+        "finding": 3,
+        "was": "capability-exclusion scan hardcoded rust/{ws-core,ws-driver,ws-testee}/src while claiming workspace-wide absence; candidate-stub and ws-oracle-harness member sources were omitted from the scan and the drift-gate input copier",
+        "now": "workspaceSourceDirs(root) derives the scan scope from rust/Cargo.toml's members list (all 5 members incl. candidate-stub and ws-oracle-harness); confirmExclusions and the tamper-test input copier both use it, and rust/Cargo.toml joined the copied derivation inputs; an independent Cargo.toml parse in the test cross-checks the scope"
+      }
+    ],
+    "tdd": "RED-first: TestReviewRound2CorrectionsHold written and run against the prior code (FAIL read, log e2-r2-red-1.log); after the mapping fixes the drift gate fired LINKAGE_DAG_DRIFTED on the stale committed DAG (log e2-r2-red-2.log); sanctioned LINKAGE_REGENERATE=1 refreeze (byte-idempotent) then full linkage suite green including polarity (resolver-refusal + tamper detection) and idempotence.",
+    "regenerated_counts": {
+      "dag_nodes": 171,
+      "dag_edges": 265,
+      "edge_delta_vs_round_1": "-2 (each corrected planned symbol now binds its single true carrier); symbol set: finish_handshake_open added, unreferenced begin_client_handshake dropped (still 70 symbol nodes)",
+      "verification_artifact": "unchanged semantics: 47 rows, 45 verified (9 exact / 1 relocated / 2 renamed / 33 absorbed), 2 excluded-confirmed — the corrections were proof-target-binding (DAG-side) data"
+    },
+    "gate_exits_round_2": [
+      {"gate": "go build ./...", "exit": 0},
+      {"gate": "go test -count=1 ./...", "exit": 0, "detail": "26 packages ok, 0 FAIL (FULL_EXIT=0 read)"},
+      {"gate": "make -C rust gates", "exit": 0, "detail": "ac1-gates 8/8 PASS (GATES_EXIT=0 read)"}
+    ]
+  },
+  "rows_verified": {
+    "total_rows": 47,
+    "resolver_verified": 45,
+    "excluded_confirmed": 2,
+    "dispositions": {
+      "exact": 9,
+      "relocated": 1,
+      "renamed": 2,
+      "absorbed": 33
+    },
+    "statement": "All 47 rows of evidence/intake/semantic-id-migration-map.json were verified against the merged tree at the base commit: 45 rows carry rust_identity_verified=true in the overlay artifact with every landed symbol's file, declaration line, declaration text, and file sha256 recorded at verification time; the 2 capability-excluded rows (ISSLChannel EXCLUDED_TLS_WSS, NamedThreadFactory EXCLUDED_JAVA_NIO_TOPOLOGY) are exclusion-confirmed (no counterpart declaration anywhere in rust/ws-core, ws-driver, ws-testee sources) and honestly remain unverified since there is no Rust identity to verify."
+  },
+  "renamed_mappings": [
+    {
+      "row": "migration.org-java-websocket-enums-handshakestate",
+      "planned": "ws_core::handshake::client::HandshakeState",
+      "landed": "ws_core::handshake::server::HandshakeState",
+      "disposition": "relocated",
+      "rationale": "Same name, different module: the enum's only consumer is the server-side acceptance predicate, whose home is handshake/server.rs."
+    },
+    {
+      "row": "migration.org-java-websocket-exceptions-invaliddataexception",
+      "planned": "ws_core::framing::InvalidDataException",
+      "landed": "ws_core::error::FailureCode::JavaInvalidData (+ TypedProtocolFailure)",
+      "disposition": "renamed",
+      "rationale": "One-to-one landed counterpart: the typed failure vocabulary variant with wire code JAVA_INVALID_DATA carrying the close code."
+    },
+    {
+      "row": "migration.org-java-websocket-exceptions-notsendableexception",
+      "planned": "ws_core::framing::NotSendableException",
+      "landed": "ws_core::error::FailureCode::JavaNotSendable",
+      "disposition": "renamed",
+      "rationale": "One-to-one landed counterpart: wire code JAVA_NOT_SENDABLE, send-path DFA rejection (quirk Q16)."
+    },
+    {
+      "note": "33 further rows are 'absorbed': the planned type has no distinct landed symbol because the implementation deliberately collapsed Java's class/exception/builder hierarchies (single owned ConnectionCore, typed failure codes, owned immutable handshake values, event stream instead of listener traits — collapses the map's own known_non_equivalent_cases predicted). Each absorbed row names the real landed carrier symbols (resolver-verified, digest-pinned) plus a per-row rationale in evidence/linkage/rust-identity-verification.json. No symbol was claimed that does not exist."
+    }
+  ],
+  "dag_nodes_added": {
+    "artifact": "evidence/linkage/evidence-dag.json (new additive linkage DAG)",
+    "nodes": 171,
+    "edges": 267,
+    "node_kinds": {
+      "story": 10,
+      "proof_target": 10,
+      "planned_symbol": 21,
+      "symbol": 70,
+      "migration_row": 47,
+      "evidence": 13
+    },
+    "edge_kinds": {
+      "owns": 90,
+      "maps_to": 76,
+      "evidenced_by": 31,
+      "landed_as": 29,
+      "declares": 21,
+      "implements": 10,
+      "declared_in": 10
+    },
+    "bindings": "All 10 US-006 proof targets -> their 21 planned production symbols -> landed implemented symbols with dispositions/rationales; US-009..US-018 story nodes -> owned migration rows -> verified symbols; stories -> 13 digest-pinned in-repo evidence files (batch-C corpus baseline + transcript, public scenarios, live handshake cases + batch-B exam raw/neutralized + US-005 live divergence mapping, US-006 TLC model check, proof-targets plan, US-017 schedule-exploration results, US-018 closure receipt, US-009 wired baseline, migration map). Every evidence node carries an honest lineage disclosure (reference-model-derived corpus pending live-oracle confirmation; proved-model-only TLC; plan-only proof targets)."
+  },
+  "tdd": {
+    "red": "go test ./internal/linkage before generation: 4 closure tests FAILED on the missing artifacts (LINKAGE_VERIFICATION_MISSING / LINKAGE_DAG_MISSING) — log retained at /tmp/e2-red-phase.log during the session; the frozen-map assertion test (all 47 rows rust_identity_verified=false, blocker active) passed and continues to pass, pinning the honest pre-existing state.",
+    "green": "Sanctioned generation via LINKAGE_REGENERATE=1 (env-gated regeneration test, byte-idempotent), then full suite green.",
+    "polarity": "TestResolverRefusesASymbolThatDoesNotExist (the scan cannot match a fabricated declaration) and TestTamperedCommittedArtifactIsDetected (isolated-copy derivation verifies clean; one tampered byte in either artifact produces the typed drift finding)."
+  },
+  "gate_exits": [
+    {"gate": "go build ./...", "exit": 0},
+    {"gate": "go test -count=1 ./...", "exit": 0, "detail": "26 packages ok, 0 FAIL (read from log, FULL_EXIT=0)"},
+    {"gate": "make -C rust gates", "exit": 0, "detail": "ac1-gates 8/8 PASS incl. canary polarity and adapter-linkage (read from log, GATES_EXIT=0)"}
+  ],
+  "corpus_note": "74/74 corpus NOT rerun: no Rust source, corpus, or harness file was touched (additive Go package + schemas + derived evidence artifacts only); the batch-C baseline and transcript are digest-pinned unchanged in the new DAG.",
+  "us006_regenerate": "NOT used — no US-006 fixture was touched.",
+  "honesty_notes": [
+    "The frozen migration map's rows still read rust_identity_verified=false and were deliberately NOT flipped in place. Three independent freezes make the in-map flip an owner-authorization matter, not an E2 action: (1) schemas/semantic-id-migration-map-1.0.0.schema.json pins rust_identity_verified to const false (and TestSchemaRefusesVerifiedRustIdentity pins that); (2) portplan's non-skippable TestDeriveReproducesCommittedEvidence pins the map's bytes to the Java-only derivation pipeline, so an in-map flip would couple the US-003 derived document to the moving Rust tree; (3) assurance/formal/proof-targets.json digest-pins the map's exact bytes (US-006 evidence). The verification therefore lives in the additive overlay evidence/linkage/rust-identity-verification.json, which is what the map's own blocker statement requires ('each Rust identity must be resolver-verified'); flipping the in-map bits would additionally require a US-003 schema/derivation refreeze plus a US-006 proof-targets refreeze under owner authority.",
+    "The frozen US-004 lifecycle DAG at assurance/evidence-dag.json was NOT extended: internal/assurance blocks any node drift there ('exact frozen owner-only closure', ROOT_BINDING_MISMATCH). The story/symbol nodes live in the new additive evidence/linkage/evidence-dag.json beside it, with a scope statement disclosing exactly this.",
+    "Resolver strength is disclosed inside the artifact: deterministic declaration scan (reviewed-glancer class) with owner-impl presence checks and per-file digests — NOT rust-analyzer semantic resolution. The migration map's planned_resolver names rust-analyzer; proof-targets' rust_identity_resolution state was accordingly left at RUST_IDENTITIES_NOT_YET_RESOLVER_VERIFIED (no overclaim).",
+    "The live-oracle confirmation receipt exists only in the workspace orchestrator drafts (not merged in-repo at base 2244a34; corpora/public scenarios still carry REFERENCE_MODEL_DERIVED_PENDING_ORACLE_CONFIRMATION), so no digest-pinned DAG evidence node references it; corpus evidence nodes disclose the pending-confirmation lineage instead.",
+    "The linkage artifacts are self-freshening: the Go tests re-derive both from the tree on every run, so any later symbol move or evidence-file change fails loudly and requires a deliberate LINKAGE_REGENERATE=1 refreeze.",
+    "No story acceptance is claimed. protected/ untouched, Codex plane untouched, branch not pushed."
+  ],
+  "back_pressure": "None outstanding: fmt/build/vet/full go test/rust gates all read green at the commit; the linkage tests add ~4s to the Go suite. Future ws-core/ws-driver/ws-testee edits will trip the linkage drift gate by design (deliberate refreeze required) — flagged so later lanes are not surprised.",
+  "blockers": "None for this lane. Owner decisions that remain open (out of E2 scope): in-map bit flip via US-003/US-006 refreeze if wanted; running actual rust-analyzer for semantic-strength resolution; the dossier's other gap-register items (G1-G6, G8-G13).",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false
+}

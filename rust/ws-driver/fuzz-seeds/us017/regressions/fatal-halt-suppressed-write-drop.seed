@@ -1,0 +1,7 @@
+id=regression-fatal-halt-suppressed-write-drop
+property=shutdown-write-drop-reported
+mutation=none
+event_queue_capacity=8
+max_actions=1
+schedule=enqueue-close-b,inbound-close,shutdown
+counterexample=committed-writes-abandoned-unreported

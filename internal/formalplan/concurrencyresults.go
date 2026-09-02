@@ -163,6 +163,12 @@ const ConcurrencyResultsDocumentPath = "assurance/concurrency/results.json"
 // rather than trusting it keeps the digests checkable.
 const crMinimizedSeedDir = "rust/ws-driver/fuzz-seeds/us017/minimized"
 
+// crAdoptedSeedDir holds the seed vocabulary adopted with attribution from
+// codex-import 6a7606a: one <fault>.seed per adopted mutation. A minimized
+// artifact whose fault has no seed here was added by a later revision of this
+// record and has to carry added_by naming that revision.
+const crAdoptedSeedDir = "rust/ws-driver/fuzz-seeds/us017"
+
 // The canonical identities this record must describe.
 //
 // Review 01a0487b BLOCKING 3: without these the provenance check proved only
@@ -208,9 +214,10 @@ type crTarget struct {
 }
 
 type crPreregisteredPlan struct {
-	Path        string `json:"path"`
-	SHA256      string `json:"sha256"`
-	Conformance string `json:"conformance"`
+	Path             string `json:"path"`
+	SHA256           string `json:"sha256"`
+	Conformance      string `json:"conformance"`
+	SHA256Provenance string `json:"sha256_provenance"`
 }
 
 type crBounds struct {
@@ -229,19 +236,25 @@ type crBounds struct {
 }
 
 type crCounters struct {
-	AcceptedCommands      int    `json:"accepted_commands"`
-	QueueFullRefusals     int    `json:"queue_full_refusals"`
-	Applied               int    `json:"applied"`
-	TypedRejections       int    `json:"typed_rejections"`
-	TerminalRejections    int    `json:"terminal_rejections"`
-	Reconciliation        string `json:"reconciliation"`
-	EventsDrained         int    `json:"events_drained"`
-	SurfacedTypedFailures int    `json:"surfaced_typed_failures"`
-	DeferredOutputPending int    `json:"deferred_output_pending"`
-	DeferredCommandTurn   int    `json:"deferred_command_turn"`
-	DeferredBackpressure  int    `json:"deferred_backpressure"`
-	TypedInputRejections  int    `json:"typed_input_rejections"`
-	MaxDrainPollsObserved int    `json:"max_drain_polls_observed"`
+	AcceptedCommands             int    `json:"accepted_commands"`
+	QueueFullRefusals            int    `json:"queue_full_refusals"`
+	Applied                      int    `json:"applied"`
+	TypedRejections              int    `json:"typed_rejections"`
+	TerminalRejections           int    `json:"terminal_rejections"`
+	Reconciliation               string `json:"reconciliation"`
+	EventsDrained                int    `json:"events_drained"`
+	SurfacedTypedFailures        int    `json:"surfaced_typed_failures"`
+	DeferredOutputPending        int    `json:"deferred_output_pending"`
+	DeferredCommandTurn          int    `json:"deferred_command_turn"`
+	DeferredBackpressure         int    `json:"deferred_backpressure"`
+	TypedInputRejections         int    `json:"typed_input_rejections"`
+	MaxDrainPollsObserved        int    `json:"max_drain_polls_observed"`
+	DroppedWriteReports          int    `json:"dropped_write_reports"`
+	DroppedWriteFrames           int    `json:"dropped_write_frames"`
+	DroppedWriteBytes            int    `json:"dropped_write_bytes"`
+	DroppedWritePartialFrontRuns int    `json:"dropped_write_partial_front_runs"`
+	MaxDroppedFramesInOneReport  int    `json:"max_dropped_frames_in_one_report"`
+	ReceiverDropTypedRefusals    int    `json:"receiver_drop_typed_refusals"`
 }
 
 // crExecutedRun records the run the counters were transcribed from. The
@@ -261,22 +274,65 @@ type crExecutedRun struct {
 }
 
 type crExecution struct {
-	ExploredSchedules       int            `json:"explored_schedules"`
-	ExhaustiveWithinBound   bool           `json:"exhaustive_within_bound"`
-	Truncated               bool           `json:"truncated"`
-	EnumerationBranches     int            `json:"enumeration_branches"`
-	DistinctScheduleDigests int            `json:"distinct_schedule_digests"`
-	Executions              int            `json:"executions"`
-	ReplayDeterminism       string         `json:"replay_determinism"`
-	DistinctTraceDigests    int            `json:"distinct_semantic_trace_digests"`
-	ClosedTerminalRuns      int            `json:"closed_terminal_runs"`
-	FailureHaltedRuns       int            `json:"failure_halted_runs"`
-	TerminalExclusivity     string         `json:"terminal_disposition_exclusivity"`
-	Counters                crCounters     `json:"counters"`
-	WeakFairness            []string       `json:"weak_fairness"`
-	ProducerAdmissionClaim  bool           `json:"producer_admission_fairness_claimed"`
-	ExecutedRun             *crExecutedRun `json:"executed_run"`
-	Outcome                 string         `json:"outcome"`
+	ExploredSchedules       int                     `json:"explored_schedules"`
+	ExhaustiveWithinBound   bool                    `json:"exhaustive_within_bound"`
+	Truncated               bool                    `json:"truncated"`
+	EnumerationBranches     int                     `json:"enumeration_branches"`
+	DistinctScheduleDigests int                     `json:"distinct_schedule_digests"`
+	Executions              int                     `json:"executions"`
+	ReplayDeterminism       string                  `json:"replay_determinism"`
+	DistinctTraceDigests    int                     `json:"distinct_semantic_trace_digests"`
+	ClosedTerminalRuns      int                     `json:"closed_terminal_runs"`
+	FailureHaltedRuns       int                     `json:"failure_halted_runs"`
+	TerminalExclusivity     string                  `json:"terminal_disposition_exclusivity"`
+	Counters                crCounters              `json:"counters"`
+	WeakFairness            []string                `json:"weak_fairness"`
+	ProducerAdmissionClaim  bool                    `json:"producer_admission_fairness_claimed"`
+	ExecutedRun             *crExecutedRun          `json:"executed_run"`
+	Outcome                 string                  `json:"outcome"`
+	NewDispositionCoverage  string                  `json:"new_disposition_coverage"`
+	FatalTerminationSweep   crFatalTerminationSweep `json:"fatal_termination_sweep"`
+}
+
+// crFatalTerminationSweep models the US-017 AC2 fatal-termination sweep block
+// the document gained on claude/us017-ac2 (landed 7262a29). Modelling it here
+// keeps strict decoding and the required-key walk exact complements over one
+// declaration, as crValidateRequiredKeys demands; the per-budget maps are
+// keyed by the budget as a decimal string.
+type crFatalTerminationSweep struct {
+	Why                            string         `json:"why"`
+	Method                         string         `json:"method"`
+	ActionBudgets                  []int          `json:"action_budgets"`
+	FatalPathDropRunsTotal         int            `json:"fatal_path_drop_runs_total"`
+	FatalPathDroppedBytesTotal     int            `json:"fatal_path_dropped_bytes_total"`
+	PerBudgetFatalPathDropRuns     map[string]int `json:"per_budget_fatal_path_drop_runs"`
+	PerBudgetHaltedRuns            map[string]int `json:"per_budget_halted_runs"`
+	PerBudgetClosedTerminalRuns    map[string]int `json:"per_budget_closed_terminal_runs"`
+	PerBudgetFatalPathDroppedBytes map[string]int `json:"per_budget_fatal_path_dropped_bytes"`
+	PerBudgetCleanPathDropRuns     map[string]int `json:"per_budget_clean_path_drop_runs"`
+	Exclusivity                    string         `json:"exclusivity"`
+	ReceiverDrop                   string         `json:"receiver_drop"`
+	HarnessPolarityRead            string         `json:"harness_polarity_read"`
+	// ExecutedRun cites the sweep the block was transcribed from: the five
+	// US017_FATAL_SWEEP lines the harness prints, compared element-for-element
+	// by the harness's own sweep test and re-derived here (crValidateSweepRun).
+	// Until the 2026-09-02 landing these magnitudes were transcribed and the
+	// record's own limitation said so.
+	ExecutedRun *crSweepRun `json:"executed_run"`
+}
+
+// crSweepRun is the fatal-termination sweep's run citation. Its lines are
+// read twice — structurally here and from the raw bytes by crRawSweepLines,
+// which is the algorithm the Rust harness runs — and the two readings must
+// agree, exactly as they must for execution.executed_run.stdout_line.
+type crSweepRun struct {
+	Command          string   `json:"command"`
+	Exit             *int     `json:"exit"`
+	ExitProvenance   string   `json:"exit_provenance"`
+	ExecutedAt       string   `json:"executed_at"`
+	ExecutedAgainst  string   `json:"executed_against"`
+	SweepStdoutLines []string `json:"sweep_stdout_lines"`
+	Binding          string   `json:"binding"`
 }
 
 // crInvariant is one entry of the document's `invariants` array. Review
@@ -294,16 +350,26 @@ type crMinimizedArtifact struct {
 	Shrink     string `json:"shrink"`
 	Schedule   string `json:"schedule"`
 	SHA256     string `json:"sha256"`
+	// AddedBy names the revision that added a fault to the vocabulary AFTER
+	// the six adopted from codex-import 6a7606a. Its presence is dictated by
+	// the tree, not by the model (crMinimizedArtifactShapeKeys): an artifact
+	// whose fault has an adopted seed at crAdoptedSeedDir/<seed>.seed was not
+	// added by anyone here and may not claim to have been; an artifact with
+	// no adopted seed was, and must say by whom. See crValidateAddedBy.
+	AddedBy string `json:"added_by"`
 }
 
 type crRetention struct {
-	Mechanism          string                `json:"mechanism"`
-	RealFailurePath    string                `json:"real_failure_path"`
-	Demonstration      string                `json:"demonstration"`
-	Regeneration       string                `json:"regeneration"`
-	MinimizedArtifacts []crMinimizedArtifact `json:"minimized_artifacts"`
-	PinnedUnchanged    string                `json:"pinned_artifacts_unchanged_by_review_round"`
-	Outcome            string                `json:"outcome"`
+	Mechanism             string                `json:"mechanism"`
+	RealFailurePath       string                `json:"real_failure_path"`
+	Demonstration         string                `json:"demonstration"`
+	Regeneration          string                `json:"regeneration"`
+	MinimizedArtifacts    []crMinimizedArtifact `json:"minimized_artifacts"`
+	PinnedUnchanged       string                `json:"pinned_artifacts_unchanged_by_review_round"`
+	Outcome               string                `json:"outcome"`
+	RealDefectRegressions []string              `json:"real_defect_regressions"`
+	SeedFormatNote        string                `json:"seed_format_note"`
+	PolarityControls      []string              `json:"polarity_controls"`
 }
 
 type crReproduction struct {
@@ -312,6 +378,15 @@ type crReproduction struct {
 	Schedule           string `json:"schedule"`
 	Shrink             string `json:"shrink"`
 	EventQueueCapacity int    `json:"event_queue_capacity"`
+	// MaxActions is the tightened action budget a reproduction ran under, and
+	// it is present ONLY where the pinned seed carries a max_actions= line: the
+	// harness writes that line only when the budget is not the default, so
+	// every seed pinned before the fatal-termination sweep stays byte-identical
+	// (render_seed_with_limits in the harness). A pointer keeps presence
+	// distinguishable from a zero budget; crReproductionShapeKeys exempts the
+	// key from the flat presence rule; crValidateNamedArtifacts requires it
+	// exactly where the seed demands it and refuses it where the seed does not.
+	MaxActions *int `json:"max_actions"`
 }
 
 type crDefect struct {
@@ -323,6 +398,13 @@ type crDefect struct {
 	RegressionTests []string        `json:"regression_tests"`
 	RedEvidence     string          `json:"red_evidence"`
 	Note            string          `json:"note"`
+	// Per-defect keys the record gained on claude/us017-ac2 (landed 7262a29);
+	// present only where that defect's narrative carries them, so they are
+	// shape keys (crDefectShapeKeys), modelled so strict decoding accepts them.
+	FindingVerbatim       string `json:"finding_verbatim"`
+	ACReading             string `json:"ac_reading"`
+	ReproductionRead      string `json:"reproduction_read"`
+	ReproductionNarrative string `json:"reproduction"`
 }
 
 type crNativeStress struct {
@@ -365,6 +447,23 @@ type crResults struct {
 // record contradicts the tree it claims to describe or contradicts itself.
 // An empty slice means the record is consistent — it does NOT mean the
 // counters were re-measured; that is the Rust binding's job.
+// ValidateConcurrencyResultsAll runs both binding sets over the committed
+// document under root: the run-citation, accounting, narrative and claim-ceiling
+// checks of ValidateConcurrencyResults (review 01a0487b lineage) and the blob,
+// digest and minimized-reproduction bindings of
+// ValidateConcurrencyResultsBindings (US-017 AC2 lineage, concurrency_results.go).
+// Two independently reviewed validators for one document met when
+// claude/evidence-validation landed on a mainline that already carried the
+// other (2026-09-02). Neither subsumes the other, so the union is the gate and
+// both test files keep every refusal their review rounds proved.
+func ValidateConcurrencyResultsAll(root string) []ModelFinding {
+	findings := ValidateConcurrencyResults(ConcurrencyResultsInputs{
+		ResultsPath: filepath.Join(root, filepath.FromSlash(ConcurrencyResultsDocumentPath)),
+		Root:        root,
+	})
+	return append(findings, ValidateConcurrencyResultsBindings(root)...)
+}
+
 func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding {
 	var findings []ModelFinding
 
@@ -397,12 +496,16 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 
 	findings = append(findings, crValidateProvenance(results, inputs)...)
 	findings = append(findings, crValidateExecutedRun(results, rawLine, rawLineErr, inputs.ResultsPath)...)
+	findings = append(findings, crValidateSweepRun(results, raw, inputs.ResultsPath)...)
 	findings = append(findings, crValidateAccounting(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateQuotedCounters(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateClaimCeiling(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateNarrative(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateNamedArtifacts(results, inputs)...)
 	findings = append(findings, crValidateDefectShape(crRawDefects(raw), results, inputs.ResultsPath)...)
+	findings = append(findings, crValidateAddedBy(crRawMinimizedArtifacts(raw), results, inputs)...)
+	findings = append(findings, crValidateRedReadings(results, inputs)...)
+	findings = append(findings, crValidateCorpusNarrative(results, inputs)...)
 	return findings
 }
 
@@ -416,6 +519,30 @@ var crDefectShapeKeys = map[string]struct{}{
 	"regression_tests":       {},
 	"red_evidence":           {},
 	"note":                   {},
+	"finding_verbatim":       {},
+	"ac_reading":             {},
+	"reproduction_read":      {},
+	"reproduction":           {},
+}
+
+// crMinimizedArtifactShapeKeys are the crMinimizedArtifact keys whose presence
+// is dictated by the tree: added_by exists exactly on the artifacts whose fault
+// has no adopted seed in crAdoptedSeedDir. crValidateAddedBy requires it there
+// and refuses it everywhere else, so like the other shape keys it is held to a
+// rule stronger than presence, not exempted from one.
+var crMinimizedArtifactShapeKeys = map[string]struct{}{
+	"added_by": {},
+}
+
+// crReproductionShapeKeys are the crReproduction keys whose presence is
+// dictated by the pinned seed rather than by the model: max_actions is written
+// into a seed only when the reproduction ran under a tightened action budget.
+// Like crDefectShapeKeys these are NOT unchecked. crValidateNamedArtifacts
+// holds each reproduction to its seed in both directions: a seed that carries
+// max_actions= makes the document's copy mandatory, and a document copy the
+// seed does not carry is a value resting on nothing.
+var crReproductionShapeKeys = map[string]struct{}{
+	"max_actions": {},
 }
 
 // crValidateRequiredKeys refuses a document that OMITS a modeled key.
@@ -490,6 +617,16 @@ func crWalkRequiredKeys(node any, typ reflect.Type, at string, report func(at, k
 			}
 			if typ == reflect.TypeOf(crDefect{}) {
 				if _, shaped := crDefectShapeKeys[key]; shaped {
+					continue
+				}
+			}
+			if typ == reflect.TypeOf(crReproduction{}) {
+				if _, shaped := crReproductionShapeKeys[key]; shaped {
+					continue
+				}
+			}
+			if typ == reflect.TypeOf(crMinimizedArtifact{}) {
+				if _, shaped := crMinimizedArtifactShapeKeys[key]; shaped {
 					continue
 				}
 			}
@@ -645,6 +782,16 @@ var crRunFieldToCounter = map[string]string{
 	"deferred_backpressure":   "execution.counters.deferred_backpressure",
 	"rejected_inputs":         "execution.counters.typed_input_rejections",
 	"max_drain_polls":         "execution.counters.max_drain_polls_observed",
+	// The six write-drop and receiver-drop tokens the harness prints since
+	// claude/us017-ac2 (landed 7262a29): each re-derives the counter the
+	// document records under execution.counters, so a document that keeps the
+	// old counters while citing the new line is refused like any other.
+	"write_drop_reports":     "execution.counters.dropped_write_reports",
+	"dropped_frames":         "execution.counters.dropped_write_frames",
+	"dropped_bytes":          "execution.counters.dropped_write_bytes",
+	"partial_front_drops":    "execution.counters.dropped_write_partial_front_runs",
+	"max_dropped_frames":     "execution.counters.max_dropped_frames_in_one_report",
+	"receiver_drop_refusals": "execution.counters.receiver_drop_typed_refusals",
 }
 
 // The run line's non-numeric fields.
@@ -747,32 +894,38 @@ func crValidateRunLists(results crResults, raws map[string]string, path string) 
 func crDocumentCounters(results crResults) map[string]int {
 	counters := results.Execution.Counters
 	return map[string]int{
-		"bounds.actor_programs":                       results.Bounds.ActorPrograms,
-		"bounds.actions_per_schedule":                 results.Bounds.ActionsPerSchedule,
-		"bounds.context_switch_bound":                 results.Bounds.ContextSwitchBound,
-		"bounds.preemption_budget":                    results.Bounds.PreemptionBudget,
-		"bounds.command_queue_capacity":               results.Bounds.CommandQueue,
-		"bounds.write_queue_capacity":                 results.Bounds.WriteQueue,
-		"bounds.event_queue_capacity":                 results.Bounds.EventQueue,
-		"bounds.drain_budget_polls":                   results.Bounds.DrainBudgetPolls,
-		"execution.explored_schedules":                results.Execution.ExploredSchedules,
-		"execution.enumeration_branches":              results.Execution.EnumerationBranches,
-		"execution.executions":                        results.Execution.Executions,
-		"execution.distinct_semantic_trace_digests":   results.Execution.DistinctTraceDigests,
-		"execution.closed_terminal_runs":              results.Execution.ClosedTerminalRuns,
-		"execution.failure_halted_runs":               results.Execution.FailureHaltedRuns,
-		"execution.counters.accepted_commands":        counters.AcceptedCommands,
-		"execution.counters.queue_full_refusals":      counters.QueueFullRefusals,
-		"execution.counters.applied":                  counters.Applied,
-		"execution.counters.typed_rejections":         counters.TypedRejections,
-		"execution.counters.terminal_rejections":      counters.TerminalRejections,
-		"execution.counters.events_drained":           counters.EventsDrained,
-		"execution.counters.surfaced_typed_failures":  counters.SurfacedTypedFailures,
-		"execution.counters.deferred_output_pending":  counters.DeferredOutputPending,
-		"execution.counters.deferred_command_turn":    counters.DeferredCommandTurn,
-		"execution.counters.deferred_backpressure":    counters.DeferredBackpressure,
-		"execution.counters.typed_input_rejections":   counters.TypedInputRejections,
-		"execution.counters.max_drain_polls_observed": counters.MaxDrainPollsObserved,
+		"bounds.actor_programs":                               results.Bounds.ActorPrograms,
+		"bounds.actions_per_schedule":                         results.Bounds.ActionsPerSchedule,
+		"bounds.context_switch_bound":                         results.Bounds.ContextSwitchBound,
+		"bounds.preemption_budget":                            results.Bounds.PreemptionBudget,
+		"bounds.command_queue_capacity":                       results.Bounds.CommandQueue,
+		"bounds.write_queue_capacity":                         results.Bounds.WriteQueue,
+		"bounds.event_queue_capacity":                         results.Bounds.EventQueue,
+		"bounds.drain_budget_polls":                           results.Bounds.DrainBudgetPolls,
+		"execution.explored_schedules":                        results.Execution.ExploredSchedules,
+		"execution.enumeration_branches":                      results.Execution.EnumerationBranches,
+		"execution.executions":                                results.Execution.Executions,
+		"execution.distinct_semantic_trace_digests":           results.Execution.DistinctTraceDigests,
+		"execution.closed_terminal_runs":                      results.Execution.ClosedTerminalRuns,
+		"execution.failure_halted_runs":                       results.Execution.FailureHaltedRuns,
+		"execution.counters.accepted_commands":                counters.AcceptedCommands,
+		"execution.counters.queue_full_refusals":              counters.QueueFullRefusals,
+		"execution.counters.applied":                          counters.Applied,
+		"execution.counters.typed_rejections":                 counters.TypedRejections,
+		"execution.counters.terminal_rejections":              counters.TerminalRejections,
+		"execution.counters.events_drained":                   counters.EventsDrained,
+		"execution.counters.surfaced_typed_failures":          counters.SurfacedTypedFailures,
+		"execution.counters.deferred_output_pending":          counters.DeferredOutputPending,
+		"execution.counters.deferred_command_turn":            counters.DeferredCommandTurn,
+		"execution.counters.deferred_backpressure":            counters.DeferredBackpressure,
+		"execution.counters.typed_input_rejections":           counters.TypedInputRejections,
+		"execution.counters.max_drain_polls_observed":         counters.MaxDrainPollsObserved,
+		"execution.counters.dropped_write_reports":            counters.DroppedWriteReports,
+		"execution.counters.dropped_write_frames":             counters.DroppedWriteFrames,
+		"execution.counters.dropped_write_bytes":              counters.DroppedWriteBytes,
+		"execution.counters.dropped_write_partial_front_runs": counters.DroppedWritePartialFrontRuns,
+		"execution.counters.max_dropped_frames_in_one_report": counters.MaxDroppedFramesInOneReport,
+		"execution.counters.receiver_drop_typed_refusals":     counters.ReceiverDropTypedRefusals,
 	}
 }
 
@@ -1042,14 +1195,48 @@ func crValidateProvenance(results crResults, inputs ConcurrencyResultsInputs) []
 				"defect %s records reproduction digest %s but the pinned seed hashes to %s", defect.DefectID, defect.Reproduction.SHA256, actual)))
 		}
 		seed := crParseSeed(content)
+		// The seed's id has to identify THIS defect. The record names a
+		// defect by its short id followed by a parenthesised review citation;
+		// a regression seed carries the short id, optionally under the
+		// `regression-` prefix the harness gives a pin minted from a review
+		// finding rather than from the exploration's own first execution.
+		// Anything else is a seed pinned for some other defect.
+		if id, present := seed["id"]; !present {
+			findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", defect.Reproduction.Path, fmt.Sprintf(
+				"defect %s: the pinned seed carries no id field, so nothing says which defect it reproduces", defect.DefectID)))
+		} else if short := crDefectShortID(defect.DefectID); id != short && id != "regression-"+short {
+			findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", defect.Reproduction.Path, fmt.Sprintf(
+				"defect %s points at a seed whose id is %q; the seed for this defect is %q or %q, so the record is "+
+					"citing a counterexample pinned for a different defect", defect.DefectID, id, short, "regression-"+short)))
+		}
+		expected := map[string]string{
+			"schedule":             defect.Reproduction.Schedule,
+			"event_queue_capacity": strconv.Itoa(defect.Reproduction.EventQueueCapacity),
+		}
+		// The action budget is a shape key (crReproductionShapeKeys): the seed
+		// decides whether it exists. When the document names one, it must be
+		// the seed's; when the seed names one, the document may not stay
+		// silent about the configuration its reproduction actually ran under.
+		if defect.Reproduction.MaxActions != nil {
+			expected["max_actions"] = strconv.Itoa(*defect.Reproduction.MaxActions)
+		} else if budget, tightened := seed["max_actions"]; tightened {
+			findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", defect.Reproduction.Path, fmt.Sprintf(
+				"defect %s: the pinned seed tightens the action budget to max_actions=%s but the record's "+
+					"minimized_reproduction does not say so, so it describes a reproduction under a configuration it "+
+					"never discloses", defect.DefectID, budget)))
+		}
 		findings = append(findings, crCompareToSeed(defect.Reproduction.Path, fmt.Sprintf("defect %s", defect.DefectID),
-			map[string]string{
-				"id":                   defect.DefectID,
-				"schedule":             defect.Reproduction.Schedule,
-				"event_queue_capacity": strconv.Itoa(defect.Reproduction.EventQueueCapacity),
-			}, seed)...)
+			expected, seed)...)
 	}
 	return findings
+}
+
+// crDefectShortID strips the parenthesised review citation from a defect id:
+// "fatal-halt-suppressed-write-drop (US-017 story review round 2, BLOCKING-1)"
+// is the defect "fatal-halt-suppressed-write-drop" as the seed names it.
+func crDefectShortID(defectID string) string {
+	short, _, _ := strings.Cut(defectID, " (")
+	return strings.TrimSpace(short)
 }
 
 // crSeedIdentityField is the one seed key retention.mechanism is not required
@@ -1280,6 +1467,18 @@ func crValidatePlanConformance(results crResults, planContent []byte, path strin
 				"defect %s reproduces at event_queue_capacity %d but the preregistered plan caps it at %d",
 				defect.DefectID, defect.Reproduction.EventQueueCapacity, plan.Bounds.EventQueueCapacity)))
 		}
+		if budget := defect.Reproduction.MaxActions; budget != nil {
+			if *budget < 1 {
+				findings = append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_VIOLATED", path, fmt.Sprintf(
+					"defect %s reproduces under max_actions %d, a budget that admits no action at all, so the "+
+						"recorded schedule cannot have run", defect.DefectID, *budget)))
+			}
+			if *budget > plan.Bounds.MaxActionsPerSchedule {
+				findings = append(findings, mpFinding("RESULTS_PLAN_CONFORMANCE_VIOLATED", path, fmt.Sprintf(
+					"defect %s reproduces under max_actions %d but the preregistered plan caps actions per schedule at %d",
+					defect.DefectID, *budget, plan.Bounds.MaxActionsPerSchedule)))
+			}
+		}
 	}
 	findings = append(findings, crValidateFairnessAgainstPlan(results, plan, path)...)
 	return findings
@@ -1493,10 +1692,17 @@ func crValidateQuotedCounters(results crResults, path string) []ModelFinding {
 		{
 			// BLOCKING 4 also noted this field was omitted entirely, and it
 			// independently quotes the schedule count:
-			// "PASS - zero invariant violations across all 79920 schedules"
+			// "PASS - zero invariant violations across all 79920 schedules in
+			//  the main sweep and across all 79920 schedules at each of the 4
+			//  fatal-termination action budgets"
+			// The second total is the fatal-termination sweep's, derived per
+			// budget as halted + closed-terminal runs (the sweep re-executes
+			// the same enumeration, so it must equal the main total and the
+			// sentence must quote it as such); the budget count is a single
+			// digit and below the four-digit floor crIntegerTokens applies.
 			name:     "execution.outcome",
 			text:     execution.Outcome,
-			expected: []int{execution.ExploredSchedules},
+			expected: []int{execution.ExploredSchedules, crSweepSchedulesPerBudget(execution)},
 		},
 	}
 
@@ -1517,6 +1723,30 @@ func crValidateQuotedCounters(results crResults, path string) []ModelFinding {
 		}
 	}
 	return findings
+}
+
+// crSweepSchedulesPerBudget derives how many schedules the fatal-termination
+// sweep ran at each budget: halted plus closed-terminal runs, which are the
+// sweep's two exclusive dispositions. When the budgets disagree with one
+// another the derivation returns -1, a value no sentence can quote, so the
+// disagreement surfaces as a prose contradiction rather than being averaged.
+func crSweepSchedulesPerBudget(execution crExecution) int {
+	sweep := execution.FatalTerminationSweep
+	total := -1
+	for _, budget := range sweep.ActionBudgets {
+		key := strconv.Itoa(budget)
+		halted, haltedOK := sweep.PerBudgetHaltedRuns[key]
+		closed, closedOK := sweep.PerBudgetClosedTerminalRuns[key]
+		if !haltedOK || !closedOK {
+			return -1
+		}
+		if total == -1 {
+			total = halted + closed
+		} else if halted+closed != total {
+			return -1
+		}
+	}
+	return total
 }
 
 // The claim ceilings this record is not allowed to exceed. Each is a value an
@@ -1997,21 +2227,143 @@ var crCanonicalDefects = []struct {
 	id      string
 	present []string
 	absent  []string
-	why     string
+	// regressions is the exact regression coverage the defect's fix was pinned
+	// by, in the order the record names it. Pinned like the roll itself: the
+	// omission walk showed every single reference of the eight review-found
+	// defects could be deleted without a finding once a defect names more than
+	// the two kinds crValidateDefectShape requires, so the set is declared.
+	regressions []string
+	why         string
 }{
 	{
 		id:      "eof-backpressure-livelock",
 		present: []string{"minimized_reproduction", "regression_tests", "red_evidence"},
-		absent:  []string{"note"},
-		why: "a driver defect the exploration found: it has a pinned minimized reproduction, so the record must " +
-			"name the tests that replay it and the RED reading that proved they fail without the fix",
+		absent:  []string{"note", "finding_verbatim", "ac_reading", "reproduction_read", "reproduction"},
+		regressions: []string{
+			"rust/ws-driver/tests/driver_contract.rs::eof_refused_by_event_backpressure_is_retried_until_the_core_accepts_it",
+			"rust/ws-driver/tests/schedule_exploration.rs::fixed_defect_regressions_replay_clean_on_the_shipped_driver",
+		},
+		why: "a driver defect the exploration found on its own first execution: it has a pinned minimized " +
+			"reproduction, so the record must name the tests that replay it and the RED reading that proved they " +
+			"fail without the fix; no reviewer wrote it up, so there is no finding text or AC reading to carry",
 	},
 	{
-		id:      "harness-terminal-after-failure (closure-review finding 1, harness-side)",
-		present: []string{"note"},
-		absent:  []string{"minimized_reproduction", "regression_tests", "red_evidence"},
+		id:          "harness-terminal-after-failure (closure-review finding 1, harness-side)",
+		present:     []string{"note"},
+		absent:      []string{"minimized_reproduction", "regression_tests", "red_evidence", "finding_verbatim", "ac_reading", "reproduction_read", "reproduction"},
+		regressions: nil,
 		why: "a harness defect: the interpreter was wrong, not the driver, so there is no driver-side " +
 			"reproduction or regression to name and the note is where the record has to say so",
+	},
+	{
+		id:      "receiver-drop-accepted-send (US-017 story review BLOCKING-1)",
+		present: []string{"finding_verbatim", "regression_tests", "red_evidence"},
+		absent:  []string{"minimized_reproduction", "note", "ac_reading", "reproduction_read", "reproduction"},
+		regressions: []string{
+			"rust/ws-core/tests/concurrency_boundary.rs::dropping_the_owner_half_makes_every_later_send_a_typed_receiver_drop_refusal",
+			"rust/ws-core/tests/concurrency_boundary.rs::a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accept",
+			"rust/ws-driver/tests/driver_contract.rs::receiver_drop_keeps_try_send_bounded_and_typed",
+			"rust/ws-driver/tests/driver_contract.rs::a_live_owner_still_refuses_a_full_queue_with_the_full_reason",
+			"rust/ws-driver/tests/schedule_exploration.rs::bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants",
+		},
+		why: "a driver defect a story review found by reading the code, not by a failing schedule: the reviewer's " +
+			"finding is quoted verbatim and the fix is pinned by direct regression tests with a RED reading; " +
+			"there was no counterexample schedule to minimize, so no reproduction is pinned",
+	},
+	{
+		id:      "silent-write-drop-on-shutdown (US-017 story review BLOCKING-2)",
+		present: []string{"finding_verbatim", "regression_tests", "red_evidence"},
+		absent:  []string{"minimized_reproduction", "note", "ac_reading", "reproduction_read", "reproduction"},
+		regressions: []string{
+			"rust/ws-driver/tests/driver_contract.rs::shutdown_reports_the_partially_drained_committed_write_as_a_typed_drop",
+			"rust/ws-driver/tests/driver_contract.rs::shutdown_reports_an_untouched_committed_write_as_a_whole_frame_drop",
+			"rust/ws-driver/tests/driver_contract.rs::shutdown_with_nothing_committed_reports_no_dropped_writes",
+			"rust/ws-driver/tests/driver_contract.rs::no_committed_write_survives_or_appears_after_the_shutdown_report",
+			"rust/ws-driver/tests/schedule_exploration.rs::bounded_exploration_is_exhaustive_and_every_schedule_upholds_the_invariants",
+		},
+		why: "a driver defect a story review found by reading the code: quoted finding, direct regression tests " +
+			"and a RED reading; the fault it exposed became the seventh named boundary fault (the silent-write-drop " +
+			"minimized artifact), which is retention's artifact and not this defect's reproduction",
+	},
+	{
+		id:      "fatal-halt-suppressed-write-drop (US-017 story review round 2, BLOCKING-1)",
+		present: []string{"finding_verbatim", "ac_reading", "minimized_reproduction", "regression_tests", "red_evidence"},
+		absent:  []string{"note", "reproduction_read", "reproduction"},
+		regressions: []string{
+			"rust/ws-driver/tests/driver_contract.rs::a_fatal_failure_ending_the_run_cannot_suppress_the_dropped_write_report",
+			"rust/ws-driver/tests/driver_contract.rs::a_fatal_failure_with_a_partially_written_frame_reports_only_the_lost_suffix",
+			"rust/ws-driver/tests/driver_contract.rs::a_fatal_failure_with_nothing_committed_still_surfaces_the_failure_first",
+			"rust/ws-driver/tests/schedule_exploration.rs::fatal_termination_sweep_reports_every_abandoned_committed_write",
+			"rust/ws-driver/tests/schedule_exploration.rs::fixed_defect_regressions_replay_clean_on_the_shipped_driver",
+		},
+		why: "a driver defect a review found whose route WAS a schedule: it has a pinned minimized reproduction " +
+			"under a tightened action budget, so it must name the harness replay and direct tests and their RED " +
+			"reading, and it carries the reviewer's finding and the AC reading that made the fatal route a defect",
+	},
+	{
+		id:      "post-shutdown-auto-pong-second-report (pre-landing review finding 1)",
+		present: []string{"finding_verbatim", "regression_tests", "red_evidence", "reproduction_read"},
+		absent:  []string{"minimized_reproduction", "note", "ac_reading", "reproduction"},
+		regressions: []string{
+			"rust/ws-driver/tests/driver_contract.rs::a_ping_delivered_after_shutdown_injects_no_pong_and_emits_no_second_report",
+			"rust/ws-driver/tests/driver_contract.rs::a_shutdown_report_accounts_for_every_committed_frame_not_just_the_offered_one",
+		},
+		why: "a driver defect a pre-landing review found and reproduced by a configuration sweep rather than a " +
+			"minimized schedule: the sweep's reading is recorded in reproduction_read, and the fix is pinned by " +
+			"direct regression tests with a RED reading; nothing was shrunk, so no reproduction is pinned",
+	},
+	{
+		id:      "adapter-teardown-without-shutdown (pre-landing review finding 2)",
+		present: []string{"finding_verbatim", "regression_tests", "red_evidence"},
+		absent:  []string{"minimized_reproduction", "note", "ac_reading", "reproduction_read", "reproduction"},
+		regressions: []string{
+			"rust/ws-testee/tests/loopback.rs::a_hard_handshake_write_error_shuts_down_and_reports_the_committed_request",
+			"rust/ws-testee/tests/loopback.rs::an_exhausted_poll_budget_shuts_down_and_reports_the_abandoned_committed_writes",
+			"rust/ws-testee/tests/loopback.rs::a_shutdown_report_carrying_two_frames_is_accounted_whole_by_the_adapter",
+		},
+		why: "an adapter defect a pre-landing review found by reading the teardown path: quoted finding, direct " +
+			"loopback regression tests and a RED reading; it lives outside the exploration's schedule vocabulary, " +
+			"so there is no minimized reproduction",
+	},
+	{
+		id:      "vacuous-native-receiver-drop-race (pre-landing review finding 3, test-side)",
+		present: []string{"finding_verbatim", "regression_tests", "red_evidence", "note", "reproduction_read"},
+		absent:  []string{"minimized_reproduction", "ac_reading", "reproduction"},
+		regressions: []string{
+			"rust/ws-core/tests/concurrency_boundary.rs::a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accept",
+		},
+		why: "a test-side defect: the test was vacuous and the driver was already correct, so the note has to " +
+			"say the implementation is unchanged, reproduction_read has to record how the vacuity was shown " +
+			"(the guard deleted and the test still green), and the rewritten test is pinned with its RED reading",
+	},
+	{
+		id:      "deletion-insensitive-adapter-accounting (pre-landing review finding 4, test-side)",
+		present: []string{"finding_verbatim", "regression_tests", "red_evidence", "note", "reproduction_read"},
+		absent:  []string{"minimized_reproduction", "ac_reading", "reproduction"},
+		regressions: []string{
+			"rust/ws-testee/tests/loopback.rs::an_exhausted_poll_budget_shuts_down_and_reports_the_abandoned_committed_writes",
+			"rust/ws-testee/tests/loopback.rs::a_shutdown_report_carrying_two_frames_is_accounted_whole_by_the_adapter",
+			"rust/ws-testee/tests/loopback.rs::a_hard_handshake_write_error_shuts_down_and_reports_the_committed_request",
+		},
+		why: "a test-side defect: the adapter's accounting increments were deletion-insensitive under the full " +
+			"gate set, so the note has to say the increments are unchanged, reproduction_read has to record the " +
+			"deletion run that nothing discriminated, and the new tests are pinned with their RED reading",
+	},
+	{
+		id:      "failure-overtakes-committed-write (pre-landing review round 2, io_loop.rs:228)",
+		present: []string{"finding_verbatim", "ac_reading", "regression_tests", "red_evidence", "reproduction"},
+		absent:  []string{"minimized_reproduction", "note", "reproduction_read"},
+		regressions: []string{
+			"rust/ws-driver/tests/driver_contract.rs::a_fatal_input_that_commits_a_write_offers_the_write_before_the_failure",
+			"rust/ws-driver/tests/driver_contract.rs::an_undrained_committed_write_is_reported_when_the_failing_run_shuts_down",
+			"rust/ws-testee/tests/loopback.rs::a_rejected_server_handshake_delivers_its_committed_error_head_before_failing",
+			"rust/ws-testee/tests/loopback.rs::a_protocol_failure_after_a_committed_close_echo_still_delivers_the_echo",
+			"rust/ws-testee/tests/loopback.rs::a_protocol_failure_whose_committed_write_cannot_be_delivered_is_accounted",
+		},
+		why: "a driver-and-adapter defect a pre-landing re-review found on a third leak route: the reviewer's " +
+			"finding and the AC reading that makes a committed write's abandonment a leak are quoted, the " +
+			"reproduction was real loopback sockets rather than a schedule (so it is narrated, not pinned), and " +
+			"the fix is pinned by direct regression tests with a RED reading",
 	},
 }
 
@@ -2075,6 +2427,12 @@ func crValidateDefectShape(rawDefects []map[string]any, results crResults, path 
 					"defects_found_and_fixed[%d] (%s) carries %q, which its kind excludes: %s",
 					index, declared.id, key, declared.why))
 			}
+		}
+		if index < len(results.DefectsFoundFixed) && !crSameStrings(results.DefectsFoundFixed[index].RegressionTests, declared.regressions) {
+			shape(fmt.Sprintf(
+				"defects_found_and_fixed[%d] (%s) names the regression tests %v but this record pins its fix by exactly %v; "+
+					"a regression the fix was pinned by may not be dropped, swapped or reordered",
+				index, declared.id, results.DefectsFoundFixed[index].RegressionTests, declared.regressions))
 		}
 	}
 
@@ -2140,6 +2498,830 @@ func crRawDefects(raw []byte) []map[string]any {
 		return nil
 	}
 	return document.Defects
+}
+
+// crRawMinimizedArtifacts returns retention.minimized_artifacts as raw
+// objects, so key PRESENCE can be read where the typed decode would only show
+// a zero value.
+func crRawMinimizedArtifacts(raw []byte) []map[string]any {
+	var document struct {
+		Retention struct {
+			Artifacts []map[string]any `json:"minimized_artifacts"`
+		} `json:"retention"`
+	}
+	if err := json.Unmarshal(raw, &document); err != nil {
+		return nil
+	}
+	return document.Retention.Artifacts
+}
+
+// crValidateAddedBy holds each minimized artifact's added_by to the tree.
+//
+// The six-fault vocabulary was adopted with attribution from codex-import
+// 6a7606a and lives as one seed per fault in crAdoptedSeedDir. The seventh
+// fault (silent-write-drop) was added by the US-017 story review's BLOCKING-2
+// fix, and the record says so in added_by. Whether an artifact is adopted or
+// added is therefore a fact about the tree, and the field is held to it in
+// both directions: an adopted fault may not claim a local origin, and an
+// added fault may not stay silent about having one. When present the value
+// must name a review, because "added by" a session that reviewed nothing is
+// not an origin anyone can trace.
+func crValidateAddedBy(rawArtifacts []map[string]any, results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
+	if inputs.Root == "" {
+		return nil
+	}
+	var findings []ModelFinding
+	for index, artifact := range results.Retention.MinimizedArtifacts {
+		if index >= len(rawArtifacts) {
+			break
+		}
+		_, present := rawArtifacts[index]["added_by"]
+		adopted := crAdoptedSeedDir + "/" + artifact.Seed + ".seed"
+		_, err := os.Stat(filepath.Join(inputs.Root, filepath.FromSlash(adopted)))
+		hasAdoptedSeed := err == nil
+		where := fmt.Sprintf("retention.minimized_artifacts[%d] (%s)", index, artifact.Seed)
+		switch {
+		case hasAdoptedSeed && present:
+			findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", inputs.ResultsPath, fmt.Sprintf(
+				"%s carries added_by but its fault is one of the adopted vocabulary (%s exists), so the record "+
+					"claims a local origin for a fault it imported with attribution", where, adopted)))
+		case !hasAdoptedSeed && !present:
+			findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", inputs.ResultsPath, fmt.Sprintf(
+				"%s has no adopted seed at %s, so the fault was added by a later revision of this record, and "+
+					"added_by has to name which one", where, adopted)))
+		case present && !strings.Contains(artifact.AddedBy, results.StoryID):
+			findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", inputs.ResultsPath, fmt.Sprintf(
+				"%s.added_by is %q and does not name this record's story %s; the review that added the fault reviewed "+
+					"this story", where, artifact.AddedBy, results.StoryID)))
+		case present && !strings.Contains(strings.ToLower(artifact.AddedBy), "review"):
+			findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", inputs.ResultsPath, fmt.Sprintf(
+				"%s.added_by is %q, which names no review; a fault added outside the adopted vocabulary has to "+
+					"be traceable to the review that demanded it", where, artifact.AddedBy)))
+		}
+	}
+	return findings
+}
+
+// crRedReadingSpanPattern picks the quoted spans out of a RED reading: the
+// assertion text a failing test printed, in backticks or in quotes.
+var crRedReadingSpanPattern = regexp.MustCompile("`([^`]+)`|'([^']{8,}?)'|\"([^\"]{8,}?)\"")
+
+// crRedReadingIdentifierPattern picks the identifiers out of a RED reading: a
+// snake_case or CamelCase token at least eight characters long, which is the
+// shape of a Rust field, function or variant name and not of an English word.
+var crRedReadingIdentifierPattern = regexp.MustCompile(`[A-Za-z][A-Za-z0-9]*(?:_[A-Za-z0-9]+)+|[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+`)
+
+// crRedReadingAttestation is the attestation form a RED reading may take
+// instead of quoting its tests: it says the named tests were run against the
+// pre-fix code and that the failures were read. This is the form the first
+// defect's reading has carried since this validator was written, and it is
+// the floor: crValidateRedReadings accepts it, and accepts nothing weaker.
+var crRedReadingAttestation = crRequiredAssertion{
+	id:      "executed-pre-fix-and-the-failures-were-read",
+	phrases: []string{"pre-fix", "failures were read"},
+	why:     "a regression test that was never run without the fix proves only that it passes",
+}
+
+// crValidateRedReadings binds every defect's red_evidence to the tests it
+// names.
+//
+// WHY. red_evidence is the claim ceiling inside a defect record: it asserts
+// the named regression tests were watched to FAIL without the fix. For the
+// first defect that claim is an attestation in a fixed form (pre-fix, failures
+// were read). The eight defects the story reviews added carry a different and
+// stronger form: they QUOTE what the failing test printed — the assertion
+// message, the field the assertion compared, the variant the run produced.
+// A quotation is checkable where an attestation is not: the quoted assertion
+// text has to exist in the body of a test the defect itself names. Measured
+// before this check: swapping one review-found defect's red_evidence for
+// another's, or for prose from elsewhere in the record, produced no finding.
+//
+// THE RULE. A reading is bound when it takes the attestation form, or when at
+// least one quoted span or identifier it contains appears verbatim inside the
+// body of one of the tests its regression_tests name (the test body, not the
+// file: a message from a different test in the same file is a different
+// defect's evidence). A reading that does neither is a RED half nobody can
+// check against anything.
+func crValidateRedReadings(results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
+	if inputs.Root == "" {
+		return nil
+	}
+	var findings []ModelFinding
+	for index, defect := range results.DefectsFoundFixed {
+		if defect.RedEvidence == "" {
+			continue
+		}
+		var bodies []string
+		for _, reference := range defect.RegressionTests {
+			file, name, found := strings.Cut(reference, "::")
+			if !found {
+				continue
+			}
+			content, err := os.ReadFile(filepath.Join(inputs.Root, filepath.FromSlash(file)))
+			if err != nil {
+				continue
+			}
+			if body := crTestBody(string(content), name); body != "" {
+				bodies = append(bodies, body)
+			}
+		}
+		if len(bodies) == 0 {
+			// No resolvable <file>::<test>: crValidateNamedArtifacts has
+			// already refused the reference itself.
+			continue
+		}
+		if crAssertionSatisfied([]string{defect.RedEvidence}, crRedReadingAttestation) {
+			continue
+		}
+		if !crBalancedQuotation(defect.RedEvidence) {
+			findings = append(findings, mpFinding("RESULTS_RED_READING_UNBOUND", inputs.ResultsPath, fmt.Sprintf(
+				"defects_found_and_fixed[%d] (%s).red_evidence leaves a quotation, bracket or parenthesis open; a RED "+
+					"reading that quotes what a failing test printed has to quote it whole, and one cut short is a "+
+					"reading nobody finished", index, defect.DefectID)))
+		}
+		spans := crRedReadingSpans(defect.RedEvidence)
+		bound := false
+		for _, span := range spans {
+			for _, body := range bodies {
+				if strings.Contains(body, span) {
+					bound = true
+					break
+				}
+			}
+			if bound {
+				break
+			}
+		}
+		if !bound {
+			findings = append(findings, mpFinding("RESULTS_RED_READING_UNBOUND", inputs.ResultsPath, fmt.Sprintf(
+				"defects_found_and_fixed[%d] (%s).red_evidence neither attests %v nor quotes anything that appears in "+
+					"the body of a test it names (tried %d quoted spans and identifiers: %v); a RED reading that "+
+					"quotes no named test is a failure nobody can check was observed",
+				index, defect.DefectID, crRedReadingAttestation.phrases, len(spans), spans)))
+		}
+	}
+	return findings
+}
+
+// crRedReadingSpans returns the checkable fragments of a RED reading: each
+// quoted span with any trailing `: payload` removed (the payload is the
+// runtime value, the prefix is the assertion text the source carries), and
+// each identifier-shaped token of at least eight characters.
+func crRedReadingSpans(reading string) []string {
+	seen := map[string]struct{}{}
+	var spans []string
+	add := func(span string) {
+		span = strings.TrimSpace(span)
+		if len(span) < 8 {
+			return
+		}
+		if _, done := seen[span]; done {
+			return
+		}
+		seen[span] = struct{}{}
+		spans = append(spans, span)
+	}
+	for _, match := range crRedReadingSpanPattern.FindAllStringSubmatch(reading, -1) {
+		quoted := match[1] + match[2] + match[3]
+		if prefix, _, cut := strings.Cut(quoted, ":"); cut && len(strings.TrimSpace(prefix)) >= 8 {
+			add(prefix)
+		}
+		add(quoted)
+	}
+	for _, token := range crRedReadingIdentifierPattern.FindAllString(reading, -1) {
+		add(token)
+	}
+	return spans
+}
+
+// crTestBody returns the source text of the named function from its
+// declaration to the first line that is a lone closing brace at column zero,
+// which is where a top-level Rust or Go function ends. Empty when the file
+// declares no such function.
+func crTestBody(source, name string) string {
+	declaration := regexp.MustCompile(`(?m)^[ 	]*(?:pub[ 	]+)?(?:async[ 	]+)?(?:fn|func)[ 	]+` + regexp.QuoteMeta(name) + `[ 	]*(?:<[^>]*>)?[ 	]*\(`)
+	location := declaration.FindStringIndex(source)
+	if location == nil {
+		return ""
+	}
+	rest := source[location[0]:]
+	if end := strings.Index(rest, "\n}\n"); end >= 0 {
+		return rest[:end+2]
+	}
+	return rest
+}
+
+// crBalancedQuotation reports whether every backtick, double quote, bracket
+// and parenthesis in the text is closed. Single quotes are not counted: they
+// are apostrophes in English prose as often as they are quotation marks.
+func crBalancedQuotation(text string) bool {
+	return strings.Count(text, "`")%2 == 0 &&
+		strings.Count(text, `"`)%2 == 0 &&
+		strings.Count(text, "[") == strings.Count(text, "]") &&
+		strings.Count(text, "(") == strings.Count(text, ")")
+}
+
+// ---------------------------------------------------------------------------
+// The fatal-termination sweep's run citation
+// ---------------------------------------------------------------------------
+
+// crSweepLinesKey is the bare key under which the record cites the sweep's
+// printed lines. It is deliberately not a substring of crStdoutLineKey and
+// vice versa, so each exactly-once rule stays exact.
+const crSweepLinesKey = `"sweep_stdout_lines"`
+
+const (
+	crSweepLinePrefix  = "US017_FATAL_SWEEP"
+	crSweepTotalPrefix = "US017_FATAL_SWEEP_TOTAL"
+)
+
+// crSweepLineFields are the seven key=value fields of a per-budget sweep line,
+// every one of which is re-derived against the block. As with the exploration
+// line, an unrecognised field is refused rather than tolerated.
+var crSweepLineFields = []string{
+	"budget", "schedules", "halted_runs", "closed_terminal_runs",
+	"fatal_path_drop_runs", "fatal_path_dropped_bytes", "clean_path_drop_runs",
+}
+
+var crSweepTotalPattern = regexp.MustCompile(
+	`^US017_FATAL_SWEEP_TOTAL budgets=\[([0-9, ]*)\] fatal_path_drop_runs=([0-9]+) fatal_path_dropped_bytes=([0-9]+) per_budget=\[((?:\([0-9]+, [0-9]+\)(?:, )?)*)\]$`)
+
+// crRawSweepLines reads the sweep lines from the raw bytes by the algorithm the
+// Rust harness runs (committed_sweep_lines): the bare key exactly once, a
+// colon, an array of string literals with no JSON escapes.
+func crRawSweepLines(raw []byte) ([]string, error) {
+	document := string(raw)
+	if occurrences := strings.Count(document, crSweepLinesKey); occurrences != 1 {
+		return nil, fmt.Errorf(
+			"the document must carry exactly one %s key anywhere in it, found %d; more than one means two readers could land on different values",
+			crSweepLinesKey, occurrences)
+	}
+	rest := document[strings.Index(document, crSweepLinesKey)+len(crSweepLinesKey):]
+	rest = strings.TrimLeft(rest, " \t\r\n")
+	if !strings.HasPrefix(rest, ":") {
+		return nil, fmt.Errorf("the %s key is not followed by a colon", crSweepLinesKey)
+	}
+	rest = strings.TrimLeft(rest[1:], " \t\r\n")
+	if !strings.HasPrefix(rest, "[") {
+		return nil, fmt.Errorf("the %s value is not an array", crSweepLinesKey)
+	}
+	rest = strings.TrimLeft(rest[1:], " \t\r\n")
+	var lines []string
+	for !strings.HasPrefix(rest, "]") {
+		if !strings.HasPrefix(rest, `"`) {
+			return nil, fmt.Errorf("%s element %d is not a string literal", crSweepLinesKey, len(lines))
+		}
+		body := rest[1:]
+		end := strings.Index(body, `"`)
+		if end < 0 {
+			return nil, fmt.Errorf("a %s literal is unterminated", crSweepLinesKey)
+		}
+		value := body[:end]
+		if strings.Contains(value, `\`) {
+			return nil, fmt.Errorf("a %s element contains a JSON escape, which this reader does not unescape", crSweepLinesKey)
+		}
+		lines = append(lines, value)
+		rest = strings.TrimLeft(body[end+1:], " \t\r\n")
+		if strings.HasPrefix(rest, ",") {
+			rest = strings.TrimLeft(rest[1:], " \t\r\n")
+			continue
+		}
+		if !strings.HasPrefix(rest, "]") {
+			return nil, fmt.Errorf("a %s element is followed by neither a comma nor the closing bracket", crSweepLinesKey)
+		}
+	}
+	return lines, nil
+}
+
+// crValidateSweepRun re-derives the fatal-termination sweep block from the
+// lines it cites, the way crValidateExecutedRun re-derives the counters from
+// the exploration line.
+//
+// WHY. limitations[11] of the landed record admitted that every magnitude in
+// `execution` was TRANSCRIBED from printed output. The exploration line had
+// already been made a citation by this lane; the sweep block — two totals and
+// five per-budget maps — had not, and the leaf enumeration read every one of
+// its numbers as INERT: fatal_path_drop_runs_total could move from 56189 to
+// 56190 and nothing here disagreed. The harness now asserts the committed
+// lines equal its measured ones (assert_committed_results_cite_this_sweep),
+// and this function holds the block to those lines in every field.
+func crValidateSweepRun(results crResults, raw []byte, path string) []ModelFinding {
+	var findings []ModelFinding
+	sweep := results.Execution.FatalTerminationSweep
+	run := sweep.ExecutedRun
+	where := "execution.fatal_termination_sweep.executed_run"
+	if run == nil {
+		return append(findings, mpFinding("RESULTS_EXECUTED_RUN_ABSENT", path,
+			where+" is absent: the sweep block cites no run, so nothing can contradict its magnitudes"))
+	}
+	contradiction := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_COUNTER_CONTRADICTS_RUN", path, detail))
+	}
+	unparsed := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_EXECUTED_RUN_UNPARSED", path, detail))
+	}
+
+	if rawLines, err := crRawSweepLines(raw); err != nil {
+		findings = append(findings, mpFinding("RESULTS_RUN_LINE_AMBIGUOUS", path, fmt.Sprintf(
+			"the sweep lines cannot be read unambiguously from the raw bytes, so the Rust half of this binding may read different values: %v", err)))
+	} else if !crSameStrings(rawLines, run.SweepStdoutLines) {
+		findings = append(findings, mpFinding("RESULTS_RUN_LINE_AMBIGUOUS", path, fmt.Sprintf(
+			"the raw document yields different sweep lines than the structurally parsed %s.sweep_stdout_lines, so the two halves of this binding would validate different values.\n  raw:        %q\n  structural: %q",
+			where, rawLines, run.SweepStdoutLines)))
+	}
+	if run.Exit == nil || *run.Exit != 0 {
+		findings = append(findings, mpFinding("RESULTS_EXECUTED_RUN_NOT_PASSING", path,
+			where+".exit is not 0, so the sweep block was transcribed from a run that did not pass"))
+	}
+	if !strings.Contains(run.Command, "fatal_termination_sweep") {
+		findings = append(findings, mpFinding("RESULTS_EXECUTED_RUN_NOT_PASSING", path, fmt.Sprintf(
+			"%s.command %q does not name the fatal-termination sweep test", where, run.Command)))
+	}
+	findings = append(findings, crValidateInstant(where+".executed_at", run.ExecutedAt, path)...)
+
+	budgets := sweep.ActionBudgets
+	if len(run.SweepStdoutLines) != len(budgets)+1 {
+		unparsed(fmt.Sprintf(
+			"%s.sweep_stdout_lines carries %d lines but the sweep declares %d action budgets, so it must carry one line per budget plus the total line (%d)",
+			where, len(run.SweepStdoutLines), len(budgets), len(budgets)+1))
+		return findings
+	}
+	for name, table := range map[string]map[string]int{
+		"per_budget_halted_runs":              sweep.PerBudgetHaltedRuns,
+		"per_budget_closed_terminal_runs":     sweep.PerBudgetClosedTerminalRuns,
+		"per_budget_fatal_path_drop_runs":     sweep.PerBudgetFatalPathDropRuns,
+		"per_budget_fatal_path_dropped_bytes": sweep.PerBudgetFatalPathDroppedBytes,
+		"per_budget_clean_path_drop_runs":     sweep.PerBudgetCleanPathDropRuns,
+	} {
+		if len(table) != len(budgets) {
+			contradiction(fmt.Sprintf(
+				"execution.fatal_termination_sweep.%s records %d budgets but the sweep ran %d (%v); a budget the cited lines never mention is a magnitude with no run behind it",
+				name, len(table), len(budgets), budgets))
+		}
+	}
+
+	sumDrops, sumBytes := 0, 0
+	perBudget := make([]string, 0, len(budgets))
+	for index, budget := range budgets {
+		line := run.SweepStdoutLines[index]
+		tokens := strings.Fields(line)
+		if len(tokens) == 0 || tokens[0] != crSweepLinePrefix {
+			unparsed(fmt.Sprintf("%s.sweep_stdout_lines[%d] is not a %s line: %q", where, index, crSweepLinePrefix, line))
+			return findings
+		}
+		values := map[string]int{}
+		for _, token := range tokens[1:] {
+			key, value, found := strings.Cut(token, "=")
+			if !found {
+				unparsed(fmt.Sprintf("%s.sweep_stdout_lines[%d] carries the non key=value token %q", where, index, token))
+				return findings
+			}
+			known := false
+			for _, field := range crSweepLineFields {
+				if field == key {
+					known = true
+				}
+			}
+			if !known {
+				unparsed(fmt.Sprintf(
+					"%s.sweep_stdout_lines[%d] carries the unrecognised field %q; every field of a cited line must be one this validator re-derives a block claim from",
+					where, index, key))
+				return findings
+			}
+			if _, duplicate := values[key]; duplicate {
+				unparsed(fmt.Sprintf("%s.sweep_stdout_lines[%d] carries the field %q twice", where, index, key))
+				return findings
+			}
+			parsed, err := strconv.Atoi(value)
+			if err != nil {
+				unparsed(fmt.Sprintf("%s.sweep_stdout_lines[%d] field %s carries the non-integer value %q", where, index, key, value))
+				return findings
+			}
+			values[key] = parsed
+		}
+		for _, field := range crSweepLineFields {
+			if _, present := values[field]; !present {
+				unparsed(fmt.Sprintf("%s.sweep_stdout_lines[%d] carries no %s field", where, index, field))
+				return findings
+			}
+		}
+		if values["budget"] != budget {
+			contradiction(fmt.Sprintf(
+				"execution.fatal_termination_sweep.action_budgets[%d] is %d but the cited line at that position ran budget %d",
+				index, budget, values["budget"]))
+		}
+		if values["schedules"] != results.Execution.ExploredSchedules {
+			contradiction(fmt.Sprintf(
+				"the cited sweep line for budget %d ran %d schedules but execution.explored_schedules is %d; the sweep is the SAME enumeration or it is not this sweep",
+				budget, values["schedules"], results.Execution.ExploredSchedules))
+		}
+		if values["halted_runs"]+values["closed_terminal_runs"] != values["schedules"] {
+			contradiction(fmt.Sprintf(
+				"the cited sweep line for budget %d reports %d halted + %d closed runs, which is not its %d schedules",
+				budget, values["halted_runs"], values["closed_terminal_runs"], values["schedules"]))
+		}
+		key := strconv.Itoa(budget)
+		for _, pair := range []struct {
+			name  string
+			table map[string]int
+			field string
+		}{
+			{"per_budget_halted_runs", sweep.PerBudgetHaltedRuns, "halted_runs"},
+			{"per_budget_closed_terminal_runs", sweep.PerBudgetClosedTerminalRuns, "closed_terminal_runs"},
+			{"per_budget_fatal_path_drop_runs", sweep.PerBudgetFatalPathDropRuns, "fatal_path_drop_runs"},
+			{"per_budget_fatal_path_dropped_bytes", sweep.PerBudgetFatalPathDroppedBytes, "fatal_path_dropped_bytes"},
+			{"per_budget_clean_path_drop_runs", sweep.PerBudgetCleanPathDropRuns, "clean_path_drop_runs"},
+		} {
+			recorded, present := pair.table[key]
+			if !present {
+				contradiction(fmt.Sprintf(
+					"execution.fatal_termination_sweep.%s has no entry for budget %s, which the cited line ran", pair.name, key))
+				continue
+			}
+			if recorded != values[pair.field] {
+				contradiction(fmt.Sprintf(
+					"execution.fatal_termination_sweep.%s[%s] is %d but the cited line reports %s=%d",
+					pair.name, key, recorded, pair.field, values[pair.field]))
+			}
+		}
+		sumDrops += values["fatal_path_drop_runs"]
+		sumBytes += values["fatal_path_dropped_bytes"]
+		perBudget = append(perBudget, fmt.Sprintf("(%d, %d)", budget, values["fatal_path_drop_runs"]))
+	}
+
+	total := run.SweepStdoutLines[len(budgets)]
+	match := crSweepTotalPattern.FindStringSubmatch(total)
+	if match == nil {
+		unparsed(fmt.Sprintf("%s.sweep_stdout_lines[%d] is not the %s line the sweep prints: %q", where, len(budgets), crSweepTotalPrefix, total))
+		return findings
+	}
+	wantBudgets := make([]string, 0, len(budgets))
+	for _, budget := range budgets {
+		wantBudgets = append(wantBudgets, strconv.Itoa(budget))
+	}
+	if match[1] != strings.Join(wantBudgets, ", ") {
+		contradiction(fmt.Sprintf(
+			"the cited total line ran budgets [%s] but execution.fatal_termination_sweep.action_budgets is %v", match[1], budgets))
+	}
+	totalDrops, _ := strconv.Atoi(match[2])
+	totalBytes, _ := strconv.Atoi(match[3])
+	if totalDrops != sweep.FatalPathDropRunsTotal {
+		contradiction(fmt.Sprintf(
+			"execution.fatal_termination_sweep.fatal_path_drop_runs_total is %d but the cited total line reports %d",
+			sweep.FatalPathDropRunsTotal, totalDrops))
+	}
+	if totalBytes != sweep.FatalPathDroppedBytesTotal {
+		contradiction(fmt.Sprintf(
+			"execution.fatal_termination_sweep.fatal_path_dropped_bytes_total is %d but the cited total line reports %d",
+			sweep.FatalPathDroppedBytesTotal, totalBytes))
+	}
+	if totalDrops != sumDrops || totalBytes != sumBytes {
+		contradiction(fmt.Sprintf(
+			"the cited total line reports %d drop runs and %d bytes but its own per-budget lines sum to %d and %d",
+			totalDrops, totalBytes, sumDrops, sumBytes))
+	}
+	if match[4] != strings.Join(perBudget, ", ") {
+		contradiction(fmt.Sprintf(
+			"the cited total line's per_budget list [%s] disagrees with its own per-budget lines [%s]",
+			match[4], strings.Join(perBudget, ", ")))
+	}
+	return findings
+}
+
+func crSameStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+// ---------------------------------------------------------------------------
+// Retention corpus narrative: the fields that NAME seeds have to agree with them
+// ---------------------------------------------------------------------------
+
+// crControlSeedDir holds the rerunnable polarity controls the landed record
+// lists under retention.polarity_controls.
+const crControlSeedDir = "rust/ws-driver/fuzz-seeds/us017/controls"
+
+// crHarnessTestReferencePattern picks a `schedule_exploration.rs::<test>`
+// reference out of prose.
+var crHarnessTestReferencePattern = regexp.MustCompile(`schedule_exploration\.rs::([A-Za-z_][A-Za-z0-9_]*)`)
+
+// crRustToolchainPath pins the toolchain the record's drift limitation quotes.
+const crRustToolchainPath = "rust/rust-toolchain.toml"
+
+var crToolchainChannelPattern = regexp.MustCompile(`(?m)^\s*channel\s*=\s*"([^"]+)"`)
+
+// crHarnessActionBudgetConst is the harness constant that makes the main
+// sweep's action budget unreachable; the record quotes its value twice.
+const crHarnessActionBudgetConst = "MAX_ACTIONS_UNREACHED"
+
+// crGroupedIntegerTokens is crIntegerTokens over prose that writes thousands
+// with separators ("79,920"): the separators are removed first, so the
+// sentence's numbers are read as the numbers they are.
+var crThousandsPattern = regexp.MustCompile(`([0-9]),([0-9]{3})\b`)
+
+func crGroupedIntegerTokens(text string, minDigits int) []int {
+	for crThousandsPattern.MatchString(text) {
+		text = crThousandsPattern.ReplaceAllString(text, "$1$2")
+	}
+	return crIntegerTokens(text, minDigits)
+}
+
+// crValidateCorpusNarrative binds the retention fields that NAME seeds — the
+// polarity controls, the real-defect regression pins, the seed-format note —
+// and the sweep prose that quotes magnitudes, to the seeds and counters they
+// describe. Measured before this check, every one of them accepted "MUTATED",
+// a moved number, or a neighbouring sentence.
+func crValidateCorpusNarrative(results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
+	if inputs.Root == "" {
+		return nil
+	}
+	var findings []ModelFinding
+	contradicted := func(rel, detail string) {
+		findings = append(findings, mpFinding("RESULTS_SEED_CONTENT_CONTRADICTED", rel, detail))
+	}
+	missing := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_NAMED_ARTIFACT_MISSING", inputs.ResultsPath, detail))
+	}
+	read := func(rel string) ([]byte, bool) {
+		content, err := os.ReadFile(filepath.Join(inputs.Root, filepath.FromSlash(rel)))
+		return content, err == nil
+	}
+	seedsIn := func(dir string) []string {
+		entries, err := os.ReadDir(filepath.Join(inputs.Root, filepath.FromSlash(dir)))
+		if err != nil {
+			missing(fmt.Sprintf("the seed directory %s is unreadable: %v", dir, err))
+			return nil
+		}
+		var names []string
+		for _, entry := range entries {
+			if strings.HasSuffix(entry.Name(), ".seed") {
+				names = append(names, entry.Name())
+			}
+		}
+		return names
+	}
+	retention := results.Retention
+
+	// retention.polarity_controls: each entry opens with a seed path under
+	// rust/ws-driver and restates that seed's mutation, schedule and (where
+	// the seed carries one) action budget; every control seed is listed.
+	named := map[string]int{}
+	for index, entry := range retention.PolarityControls {
+		fields := strings.Fields(entry)
+		label := fmt.Sprintf("retention.polarity_controls[%d]", index)
+		if len(fields) == 0 || !strings.HasPrefix(fields[0], "fuzz-seeds/us017/") {
+			missing(fmt.Sprintf("%s does not open with a fuzz-seeds/us017/ seed path, so it names no control that can be replayed", label))
+			continue
+		}
+		named[fields[0]]++
+		if !crBalancedQuotation(entry) {
+			contradicted(inputs.ResultsPath, fmt.Sprintf("%s leaves a parenthesis or quotation open; an entry cut short describes a control nobody finished describing", label))
+		}
+		rel := "rust/ws-driver/" + fields[0]
+		content, ok := read(rel)
+		if !ok {
+			missing(fmt.Sprintf("%s names %s, which is not in the tree", label, rel))
+			continue
+		}
+		seed := crParseSeed(content)
+		for _, key := range []string{"mutation", "schedule"} {
+			if value, present := seed[key]; !present {
+				contradicted(rel, fmt.Sprintf("%s: the control seed carries no %s line", label, key))
+			} else if !strings.Contains(entry, key+" "+value) {
+				contradicted(rel, fmt.Sprintf(
+					"%s does not restate the control's %s as the seed records it (%q); the entry describes a control it does not have", label, key, value))
+			}
+		}
+		if budget, tightened := seed["max_actions"]; tightened && !strings.Contains(entry, "max_actions="+budget) {
+			contradicted(rel, fmt.Sprintf(
+				"%s: the control seed runs at max_actions=%s but the entry does not say so", label, budget))
+		}
+	}
+	// Which seeds ARE polarity controls is derived from the tree: every seed
+	// under minimized/ or controls/ whose mutation is outside the adopted
+	// vocabulary (no seed in crAdoptedSeedDir carries it) was minted by a
+	// review round as the control for that round's fix, and the record must
+	// list it. The six adopted faults are retention's demonstration, not the
+	// controls, and are excluded by the same derivation.
+	adoptedMutations := map[string]struct{}{}
+	for _, name := range seedsIn(crAdoptedSeedDir) {
+		if content, ok := read(crAdoptedSeedDir + "/" + name); ok {
+			if mutation, present := crParseSeed(content)["mutation"]; present {
+				adoptedMutations[mutation] = struct{}{}
+			}
+		}
+	}
+	for _, dir := range []string{crMinimizedSeedDir, crControlSeedDir} {
+		for _, name := range seedsIn(dir) {
+			content, ok := read(dir + "/" + name)
+			if !ok {
+				continue
+			}
+			mutation, present := crParseSeed(content)["mutation"]
+			if !present || mutation == "none" {
+				continue
+			}
+			if _, adopted := adoptedMutations[mutation]; adopted {
+				continue
+			}
+			head := strings.TrimPrefix(dir, "rust/ws-driver/") + "/" + name
+			if named[head] == 0 {
+				missing(fmt.Sprintf(
+					"%s/%s carries the mutation %q, which is outside the adopted vocabulary, so it is a review-minted polarity "+
+						"control, but retention.polarity_controls does not list it", dir, name, mutation))
+			}
+		}
+	}
+
+	// retention.real_defect_regressions: one entry per pinned regression seed,
+	// opening with its file name; a quoted digest prefix, schedule or action
+	// budget has to be the seed's.
+	listed := map[string]int{}
+	for index, entry := range retention.RealDefectRegressions {
+		fields := strings.Fields(entry)
+		label := fmt.Sprintf("retention.real_defect_regressions[%d]", index)
+		if len(fields) == 0 || !strings.HasSuffix(fields[0], ".seed") {
+			missing(fmt.Sprintf("%s does not open with a <name>.seed file name, so it pins nothing", label))
+			continue
+		}
+		if !crBalancedQuotation(entry) {
+			contradicted(inputs.ResultsPath, fmt.Sprintf("%s leaves a parenthesis or quotation open; an entry cut short describes a pin nobody finished describing", label))
+		}
+		listed[fields[0]]++
+		rel := crCanonicalReproductionDir + "/" + fields[0]
+		content, ok := read(rel)
+		if !ok {
+			missing(fmt.Sprintf("%s names %s, which is not in the tree", label, rel))
+			continue
+		}
+		seed := crParseSeed(content)
+		if budget, tightened := seed["max_actions"]; tightened && !strings.Contains(entry, "max_actions="+budget) {
+			contradicted(rel, fmt.Sprintf("%s: the pinned seed runs at max_actions=%s but the entry does not say so", label, budget))
+		}
+		if at := strings.Index(entry, "sha256 "); at >= 0 {
+			quoted := entry[at+len("sha256 "):]
+			end := 0
+			for end < len(quoted) && strings.ContainsRune("0123456789abcdef", rune(quoted[end])) {
+				end++
+			}
+			prefix := quoted[:end]
+			actual := strings.TrimPrefix(crSHA256(content), "sha256:")
+			if len(prefix) < 8 || !strings.HasPrefix(actual, prefix) {
+				contradicted(rel, fmt.Sprintf(
+					"%s quotes the digest prefix %q but the pinned seed hashes to %s...", label, prefix, actual[:12]))
+			}
+		}
+		if at := strings.Index(entry, "schedule "); at >= 0 {
+			if schedule, present := seed["schedule"]; present && !strings.Contains(entry, "schedule "+schedule) {
+				contradicted(rel, fmt.Sprintf(
+					"%s quotes a schedule but not the pinned seed's (%s)", label, schedule))
+			}
+		}
+	}
+	for _, name := range seedsIn(crCanonicalReproductionDir) {
+		if listed[name] != 1 {
+			missing(fmt.Sprintf(
+				"%s/%s is pinned in the tree but retention.real_defect_regressions lists it %d times, not once",
+				crCanonicalReproductionDir, name, listed[name]))
+		}
+	}
+
+	// The harness's unreachable budget: quoted by seed_format_note and by the
+	// sweep's own `why`, so both are held to the constant the harness declares.
+	// The sweep's polarity read is a working-session observation and says so;
+	// what it can be held to is the RERUNNABLE control it names, which must be
+	// a test the harness declares, and the pre-fix reading it claims.
+	if harness, ok := read(crCanonicalHarnessPath); ok {
+		polarity := results.Execution.FatalTerminationSweep.HarnessPolarityRead
+		for _, phrase := range []string{"PRE-FIX driver and FAILED", "RERUNNABLE round-2 polarity evidence"} {
+			if !strings.Contains(polarity, phrase) {
+				contradicted(inputs.ResultsPath, fmt.Sprintf(
+					"execution.fatal_termination_sweep.harness_polarity_read does not say %q; the field records a RED reading and has to say what was read and what can be re-run", phrase))
+			}
+		}
+		if match := crHarnessTestReferencePattern.FindStringSubmatch(polarity); match == nil {
+			contradicted(inputs.ResultsPath,
+				"execution.fatal_termination_sweep.harness_polarity_read names no schedule_exploration.rs::<test> as the rerunnable control, so the reading rests on a session nobody can replay")
+		} else if !crRustDeclaresTest(crStripRustNoise(string(harness)), match[1]) {
+			missing(fmt.Sprintf(
+				"execution.fatal_termination_sweep.harness_polarity_read names %s as the rerunnable control but %s declares no such test",
+				match[0], crCanonicalHarnessPath))
+		}
+		budget, declared := -1, false
+		for _, match := range crRustConstPattern.FindAllStringSubmatch(crStripRustNoise(string(harness)), -1) {
+			if match[1] == crHarnessActionBudgetConst {
+				if value, err := strconv.Atoi(strings.ReplaceAll(match[2], "_", "")); err == nil {
+					budget, declared = value, true
+				}
+			}
+		}
+		if !declared {
+			missing(fmt.Sprintf("%s declares no %s constant, so the record's action-budget claims cannot be re-derived", crCanonicalHarnessPath, crHarnessActionBudgetConst))
+		} else {
+			for _, field := range []struct{ name, text string }{
+				{"retention.seed_format_note", retention.SeedFormatNote},
+				{"execution.fatal_termination_sweep.why", results.Execution.FatalTerminationSweep.Why},
+			} {
+				if !strings.Contains(field.text, crHarnessActionBudgetConst) || !strings.Contains(field.text, strconv.Itoa(budget)) {
+					contradicted(inputs.ResultsPath, fmt.Sprintf(
+						"%s does not name %s as %d, which is what %s declares; the sentence explains a budget by a constant it must quote correctly",
+						field.name, crHarnessActionBudgetConst, budget, crCanonicalHarnessPath))
+				}
+			}
+			if !strings.Contains(retention.SeedFormatNote, "max_actions") || !strings.Contains(strings.ToLower(retention.SeedFormatNote), "optional") {
+				contradicted(inputs.ResultsPath,
+					"retention.seed_format_note does not say the max_actions line is optional; that is the whole content of the note")
+			}
+		}
+	}
+
+	// The toolchain pin the transcription limitation quotes is the one
+	// rust/rust-toolchain.toml declares.
+	if toolchain, ok := read(crRustToolchainPath); ok {
+		if match := crToolchainChannelPattern.FindStringSubmatch(string(toolchain)); match != nil {
+			for index, limitation := range results.Limitations {
+				if strings.Contains(limitation, "TRANSCRIBED") && !strings.Contains(limitation, "pinned at "+match[1]) {
+					contradicted(inputs.ResultsPath, fmt.Sprintf(
+						"limitations[%d] discusses magnitude drift but does not say the Rust toolchain is pinned at %s, which is what %s declares",
+						index, match[1], crRustToolchainPath))
+				}
+			}
+		} else {
+			missing(fmt.Sprintf("%s declares no channel, so the toolchain pin the record quotes cannot be re-derived", crRustToolchainPath))
+		}
+	} else {
+		missing(fmt.Sprintf("%s is not in the tree, so the toolchain pin the record quotes cannot be re-derived", crRustToolchainPath))
+	}
+
+	// preregistered_plan.sha256_provenance names the tool and the file.
+	if provenance := results.PreregisteredPlan.SHA256Provenance; !strings.Contains(provenance, "sha256sum") ||
+		!strings.Contains(provenance, results.PreregisteredPlan.Path) {
+		contradicted(inputs.ResultsPath, fmt.Sprintf(
+			"preregistered_plan.sha256_provenance does not say the digest came from sha256sum over %s", results.PreregisteredPlan.Path))
+	}
+
+	// The sweep prose and the coverage paragraph quote magnitudes: each has to
+	// quote exactly the block's, in the order the sentence states them.
+	execution := results.Execution
+	sweep := execution.FatalTerminationSweep
+	coverage := []int{
+		execution.ExploredSchedules,
+		execution.Counters.DroppedWriteReports, execution.ExploredSchedules,
+		execution.Counters.DroppedWriteBytes, execution.Counters.DroppedWritePartialFrontRuns,
+		sweep.FatalPathDropRunsTotal, sweep.FatalPathDroppedBytesTotal,
+	}
+	for _, budget := range sweep.ActionBudgets {
+		coverage = append(coverage, sweep.PerBudgetFatalPathDropRuns[strconv.Itoa(budget)])
+	}
+	for _, clause := range []struct{ name, text, phrase, why string }{
+		{"execution.fatal_termination_sweep.method", sweep.Method, "applied to halted runs too",
+			"the sentence's last clause extends the owed-vs-reported equality to halted runs, which is the sweep's whole point"},
+		{"execution.fatal_termination_sweep.receiver_drop", sweep.ReceiverDrop, "holds under fatal termination too",
+			"the sentence's last clause is the claim; the number alone is the main sweep's"},
+		{"execution.fatal_termination_sweep.why", sweep.Why, "deliberately unreachable budget",
+			"the correction at the end of the sentence is what makes the opening claim true"},
+		{"execution.new_disposition_coverage", execution.NewDispositionCoverage, results.StoryID,
+			"the paragraph reports coverage of this story's dispositions and must name the story"},
+		{"execution.new_disposition_coverage", execution.NewDispositionCoverage, "the same owed-vs-reported equality holds on every one",
+			"the sentence's last clause is the claim the sweep totals support"},
+	} {
+		if !strings.Contains(clause.text, clause.phrase) {
+			contradicted(inputs.ResultsPath, fmt.Sprintf("%s does not say %q: %s", clause.name, clause.phrase, clause.why))
+		}
+	}
+	for _, expectation := range []struct {
+		name     string
+		text     string
+		expected []int
+	}{
+		{"execution.fatal_termination_sweep.method", sweep.Method, []int{execution.ExploredSchedules}},
+		{"execution.fatal_termination_sweep.exclusivity", sweep.Exclusivity, []int{execution.ExploredSchedules}},
+		{"execution.fatal_termination_sweep.receiver_drop", sweep.ReceiverDrop, []int{execution.Counters.ReceiverDropTypedRefusals}},
+		{"execution.new_disposition_coverage", execution.NewDispositionCoverage, coverage},
+	} {
+		quoted := crGroupedIntegerTokens(expectation.text, 4)
+		if len(quoted) != len(expectation.expected) {
+			findings = append(findings, mpFinding("RESULTS_PROSE_CONTRADICTS_COUNTERS", inputs.ResultsPath, fmt.Sprintf(
+				"%s quotes %d counters %v but must quote exactly %d %v; the sentence and the counters disagree",
+				expectation.name, len(quoted), quoted, len(expectation.expected), expectation.expected)))
+			continue
+		}
+		for index, value := range quoted {
+			if value != expectation.expected[index] {
+				findings = append(findings, mpFinding("RESULTS_PROSE_CONTRADICTS_COUNTERS", inputs.ResultsPath, fmt.Sprintf(
+					"%s quotes %d at position %d where the counters require %d; a number that is recorded elsewhere in the document is still the wrong number here",
+					expectation.name, value, index+1, expectation.expected[index])))
+			}
+		}
+	}
+	return findings
 }
 
 // crRequiredAssertion is a disclosure this record is not allowed to soften.
@@ -2223,6 +3405,44 @@ func crRequiredLimitations(results crResults) []crRequiredAssertion {
 			phrases: []string{"no live java executed", "no java-equivalence claim"},
 			why:     "this record is Rust-side only and an acceptance reader must not infer a Java equivalence claim from it",
 		},
+		// The six disclosures claude/us017-ac2 added. Each is held by phrases
+		// from BOTH halves of its sentence, so a truncation loses one of them.
+		{
+			id: "one-report-per-run-is-bounded-but-the-frame-count-is-not",
+			phrases: []string{
+				// Re-derived: the counter and the schedule count the sentence opens with.
+				fmt.Sprintf("max_dropped_frames_in_one_report is %d across all %d schedules",
+					results.Execution.Counters.MaxDroppedFramesInOneReport, results.Execution.ExploredSchedules),
+				"AutoResponsePolicy::Disabled", "frames=2,bytes=12", "the frame count is not"},
+			why: "the sweep's max-one-frame reading is a property of its disabled auto-response policy, not of the driver; the record corrected itself on this and the correction must stay",
+		},
+		{
+			id:      "plan-not-edited-for-the-ac2-dispositions",
+			phrases: []string{"plan.json is preregistered and was not edited", "neither a dropped-write outcome", "nor any receiver-drop action", "not by the preregistered action model"},
+			why:     "the two AC2 dispositions are evidenced outside the preregistered action vocabulary, and a reader of the plan would otherwise look for them there",
+		},
+		{
+			id: "one-fatal-family",
+			phrases: []string{"ActionLimitExceeded", "one fatal family, not all of them",
+				// Re-derived: the alphabet the family is reachable from.
+				fmt.Sprintf("existing %d-action alphabet", results.Bounds.ActionsPerSchedule), "finish_poll"},
+			why: "the sweep reaches fatal termination through one refusal family; the claim about the others rests on a shared code path, and the record has to say which",
+		},
+		{
+			id:      "no-shutdown-exit-narrowed-not-removed",
+			phrases: []string{"no shutdown ever polled", "ordered strictly after the committed write stream", "does not witness the guarantee", "narrowed to that, not removed"},
+			why:     "a fatal halt with no shutdown owes no report only because failure is ordered after committed writes; this sweep cannot witness that and the record must name what does",
+		},
+		{
+			id:      "carried-forward-acknowledgement-arms",
+			phrases: []string{"carried forward", "io_loop.rs", "discard every other output", "no claim in this document rests on it"},
+			why:     "a known adapter gap found while fixing round 2 and deliberately left for its own pass must stay visible, with the statement that nothing here depends on it",
+		},
+		{
+			id:      "magnitudes-were-transcribed-and-are-now-cited",
+			phrases: []string{"transcribed", "no assertion pins a magnitude", "ws-core is not pinned", "US017_FATAL_SWEEP", "superseded in part", "assert_committed_results_cite_this_sweep", "what remains unpinned is ws-core"},
+			why:     "the record's magnitudes were transcribed before the landing union cited both run lines; the limitation carries both the original admission and the supersession, and neither half may be dropped",
+		},
 	}
 }
 
@@ -2273,6 +3493,8 @@ func crNarrativeAssertions(results crResults) []struct {
 					why: "the interpreter's fidelity to the real adapter rests on stopping at the first surfaced failure"},
 				{id: "terminal-after-failure-impossible", phrases: []string{"Terminal-after-Failure is impossible"},
 					why: "the two terminal dispositions are exclusive by construction, which is what makes the exclusivity counters mean anything"},
+				{id: "and-says-what-the-sweep-does-not-witness", phrases: []string{"ordered strictly AFTER the committed write stream", "NOT by this sweep"},
+					why: "the halt is sound only because of the failure-after-writes ordering, and the sentence's last clause is where it says that ordering is evidenced elsewhere; a truncation keeps the model and drops the caveat"},
 			},
 		},
 		{
@@ -2403,6 +3625,56 @@ func crNarrativeAssertions(results crResults) []struct {
 		},
 	}
 
+	for _, run := range []*crSweepRun{results.Execution.FatalTerminationSweep.ExecutedRun} {
+		if run == nil {
+			continue
+		}
+		table = append(table,
+			struct {
+				field      string
+				text       string
+				assertions []crRequiredAssertion
+			}{
+				field: "execution.fatal_termination_sweep.executed_run.exit_provenance",
+				text:  run.ExitProvenance,
+				assertions: []crRequiredAssertion{
+					{id: "exit-read-from-the-process", phrases: []string{"read from the", "process"},
+						why: "an exit code inferred from output text is the failure mode this project's own rules name"},
+					{id: "not-inferred", phrases: []string{"not inferred"},
+						why: "the sentence must refuse the inference explicitly, not merely omit it"},
+					{id: "and-discloses-the-first-run-that-failed-the-citation", phrases: []string{"exited 101", "re-run to exit 0"},
+						why: "the lines were necessarily captured from a run that failed its own citation check; the record must say so and say the re-run passed"},
+				},
+			},
+			struct {
+				field      string
+				text       string
+				assertions []crRequiredAssertion
+			}{
+				field: "execution.fatal_termination_sweep.executed_run.executed_against",
+				text:  run.ExecutedAgainst,
+				assertions: []crRequiredAssertion{
+					{id: "names-both-blob-anchors", phrases: []string{"target.source.git_blob", "target.harness.git_blob"},
+						why: "the sweep ran against a tree; the two blob anchors are how the record names it"},
+				},
+			},
+			struct {
+				field      string
+				text       string
+				assertions []crRequiredAssertion
+			}{
+				field: "execution.fatal_termination_sweep.executed_run.binding",
+				text:  run.Binding,
+				assertions: []crRequiredAssertion{
+					{id: "harness-compares-the-lines", phrases: []string{crCanonicalHarnessPath, "element-for-element"},
+						why: "the binding sentence has to name the half that lives in the harness and how it compares"},
+					{id: "validator-re-derives-the-block", phrases: []string{"internal/formalplan/concurrencyresults.go", "re-derives"},
+						why: "and the half that lives here"},
+				},
+			},
+		)
+	}
+
 	for _, run := range []*crExecutedRun{results.Execution.ExecutedRun} {
 		if run == nil {
 			continue
@@ -2420,6 +3692,8 @@ func crNarrativeAssertions(results crResults) []struct {
 						why: "an exit code inferred from output text is the failure mode this project's own rules name"},
 					{id: "not-inferred", phrases: []string{"not inferred"},
 						why: "the sentence must refuse the inference explicitly, not merely omit it"},
+					{id: "and-the-re-run-passed", phrases: []string{"re-run to exit 0"},
+						why: "the line was necessarily captured from a run that failed its own citation check; the sentence's last clause is where it says the re-run passed, and a truncation keeps the capture and drops the pass"},
 				},
 			},
 			struct {

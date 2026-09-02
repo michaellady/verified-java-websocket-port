@@ -1,0 +1,7 @@
+id=control-fatal-halt-write-drop-accounting
+property=shutdown-write-drop-reported
+mutation=drop-writes-dropped-report
+event_queue_capacity=8
+max_actions=1
+schedule=enqueue-close-b,inbound-close,shutdown
+counterexample=committed-writes-abandoned-unreported
