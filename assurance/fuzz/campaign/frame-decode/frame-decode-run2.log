@@ -5,16 +5,16 @@
 # exit=0
 # deadline_hit=false
 
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.03s
      Running tests/adversarial_fuzz.rs (target/debug/deps/adversarial_fuzz-fce417d712f06802)
 
 running 14 tests
 test close_ack_emits_the_close_event_before_the_terminal_transition ... ok
 test control_payload_exactly_125_delivers ... ok
 test family_declared_length_headers ... ok
+test family_command_interleave_no_panic_deterministic ... ok
 test family_config_boundaries ... ok
 test family_queue_pressure_typed_backpressure ... ok
-test family_command_interleave_no_panic_deterministic ... ok
 test family_byte_soup_no_panic_bounded_deterministic ... ok
 test family_seed_corpus_anchors ... ok
 test fragment_accumulation_to_exactly_max_buffered_is_accepted ... ok
@@ -24,5 +24,5 @@ test family_rechunk_invariance_single_frame ... ok
 test family_rechunk_invariance_multi_frame ... ok
 test family_frame_soup_no_panic_bounded_deterministic ... ok
 
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.47s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.69s
 
