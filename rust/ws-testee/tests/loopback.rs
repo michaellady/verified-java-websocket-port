@@ -152,6 +152,7 @@ fn server_driver_auto_pongs_a_live_client_ping() {
         &sender,
         &mut stream,
         &IoBounds::default(),
+        ws_core::connection::Role::Client,
         &mut policy,
         &mut report,
     );
@@ -251,6 +252,7 @@ fn ping_scripted_client_completes_against_a_ponging_peer() {
             &sender,
             &mut stream,
             &IoBounds::default(),
+            ws_core::connection::Role::Server,
             &mut policy,
             &mut report,
         );
@@ -507,6 +509,7 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
         &sender,
         &mut stream,
         &bounds,
+        ws_core::connection::Role::Client,
         &mut policy,
         &mut report,
     );
@@ -635,6 +638,7 @@ fn an_exhausted_poll_budget_shuts_down_and_reports_the_abandoned_committed_write
             &sender,
             &mut stream,
             &bounds,
+            ws_core::connection::Role::Server,
             &mut policy,
             &mut report,
         );
@@ -705,6 +709,7 @@ fn a_shutdown_report_carrying_two_frames_is_accounted_whole_by_the_adapter() {
         &sender,
         &mut stream,
         &bounds,
+        ws_core::connection::Role::Server,
         &mut policy,
         &mut report,
     );
@@ -1085,6 +1090,306 @@ fn a_protocol_failure_whose_committed_write_cannot_be_delivered_is_accounted() {
         (report.dropped_write_frames, report.dropped_write_bytes),
         (1, REJECT_HEAD.len() as u64),
         "an undeliverable committed head is reported, not silently abandoned: {}",
+        report.summary()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Java-equivalence gap (goal loop P2 item b): who closes the TCP connection
+// once the close handshake's writes have drained. Shipped Java's SERVER
+// closes it; a CLIENT does not, and waits for the peer.
+//
+// The gate is `SocketChannelIOHelper.batch`, whose only caller is the server
+// write path at `WebSocketServer.java:586` (Java-WebSocket 1.6.0, pinned
+// commit da3cf2a777aed862f2f5b5cf060cae7969958667,
+// src/main/java/org/java_websocket/SocketChannelIOHelper.java:110-113):
+//
+//     if (ws.outQueue.isEmpty() && ws.isFlushAndClose() && ws.getDraft() != null
+//         && ws.getDraft().getRole() != null && ws.getDraft().getRole() == Role.SERVER) {
+//       ws.closeConnection();
+//     }
+//
+// `closeConnection()` reaches `channel.close()` at WebSocketImpl.java:546.
+// The client's write loop (`WebSocketClient.WebsocketWriteThread.runWriteData`,
+// WebSocketClient.java:837-851) has no such branch: it closes its socket only
+// when the write thread itself ends.
+//
+// Before the adapter carried this gate, the port's server left the socket open
+// after echoing and waited for the peer's EOF, so the peer of a Rust server saw
+// the echo and then nothing.
+// ---------------------------------------------------------------------------
+
+/// The unmasked server->client CLOSE frame for 1000/"done" — also exactly the
+/// echo a server composes for it (`ws_driver::CloseEchoPolicy`).
+const CLOSE_1000_DONE_UNMASKED: &[u8] = &[0x88, 0x06, 0x03, 0xE8, b'd', b'o', b'n', b'e'];
+
+/// The mask key these tests use for client->server frames.
+const TEST_MASK: [u8; 4] = [0x11, 0x22, 0x33, 0x44];
+
+/// A masked client->server CLOSE frame for 1000/"done", hand-assembled so the
+/// raw peer in these tests stays raw TCP and the adapter crate's fixtures do
+/// not reach into the core's framing module for wire bytes.
+fn masked_close_1000_done() -> Vec<u8> {
+    let payload: [u8; 6] = [0x03, 0xE8, b'd', b'o', b'n', b'e'];
+    let mut frame = vec![0x88, 0x80 | payload.len() as u8];
+    frame.extend_from_slice(&TEST_MASK);
+    for (index, byte) in payload.iter().enumerate() {
+        frame.push(byte ^ TEST_MASK[index % 4]);
+    }
+    frame
+}
+
+/// Read from `peer` until the ADAPTER closes the connection (EOF) or the read
+/// timeout expires. Returns the bytes and whether EOF was actually observed —
+/// `read_to_end_or_timeout` deliberately collapses that distinction, and this
+/// gap is precisely about which of the two happens.
+fn drain_until_eof_or_timeout(peer: &mut TcpStream) -> (Vec<u8>, bool) {
+    use std::io::Read as _;
+    let mut received = Vec::new();
+    let mut buffer = [0u8; 4096];
+    loop {
+        match peer.read(&mut buffer) {
+            Ok(0) => return (received, true),
+            Ok(n) => received.extend_from_slice(&buffer[..n]),
+            Err(_) => return (received, false),
+        }
+    }
+}
+
+/// Bounds with a 1ms socket read timeout and an explicit poll budget. An
+/// endpoint that does NOT close the transport spends this whole budget waiting
+/// on its peer, so the budget is also the window in which a wrongly-closing
+/// endpoint would have had every chance to close.
+fn prompt_bounds(max_polls: u64) -> IoBounds {
+    IoBounds {
+        read_timeout: Duration::from_millis(1),
+        max_polls,
+        ..IoBounds::default()
+    }
+}
+
+#[test]
+fn a_server_closes_the_tcp_connection_once_its_close_echo_has_drained() {
+    use std::io::Write as _;
+
+    let (mut stream, mut peer) = socket_pair();
+    peer.set_read_timeout(Some(Duration::from_millis(750)))
+        .expect("peer read timeout");
+    let (sender, mut driver) = ws_driver::connection_driver_in_state(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Server,
+        ws_core::connection::InitialState::Open,
+    );
+
+    peer.write_all(&masked_close_1000_done())
+        .expect("peer close frame");
+    peer.flush().expect("flush");
+
+    let mut report = ws_testee::io_loop::empty_report();
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &prompt_bounds(2_000),
+        ws_core::connection::Role::Server,
+        &mut policy,
+        &mut report,
+    );
+
+    // `stream` is still owned here and deliberately NOT dropped: the only way
+    // the peer can see EOF is the adapter having closed it itself.
+    let (received, saw_eof) = drain_until_eof_or_timeout(&mut peer);
+
+    assert_eq!(
+        received, CLOSE_1000_DONE_UNMASKED,
+        "the server's composed close echo must reach the peer"
+    );
+    assert!(
+        saw_eof,
+        "shipped Java's server closes the TCP connection once the echo has drained \
+         (SocketChannelIOHelper.java:110-113 -> WebSocketImpl.java:546); the peer saw \
+         the echo and then no EOF, so this endpoint left the socket open"
+    );
+    assert!(
+        report.clean(),
+        "closing the transport is what carries this run to its terminal: {}",
+        report.summary()
+    );
+    let close = report.close.expect("governing close");
+    assert_eq!(
+        close.code, 1000,
+        "Java reports closecode from the close frame"
+    );
+    assert_eq!(close.reason, "done", "and closemessage with it");
+}
+
+#[test]
+fn a_client_does_not_close_the_tcp_connection_after_its_close_echo() {
+    use std::io::Write as _;
+
+    // The other half of the same gate: Java's role check is what keeps a
+    // CLIENT from doing this, so an adapter that closed unconditionally would
+    // be just as wrong as one that never closed.
+    let (mut stream, mut peer) = socket_pair();
+    peer.set_read_timeout(Some(Duration::from_millis(750)))
+        .expect("peer read timeout");
+    let (sender, mut driver) = ws_driver::connection_driver_in_state(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Client,
+        ws_core::connection::InitialState::Open,
+    );
+
+    peer.write_all(CLOSE_1000_DONE_UNMASKED)
+        .expect("peer close frame");
+    peer.flush().expect("flush");
+
+    let mut report = ws_testee::io_loop::empty_report();
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &prompt_bounds(250),
+        ws_core::connection::Role::Client,
+        &mut policy,
+        &mut report,
+    );
+
+    let (received, saw_eof) = drain_until_eof_or_timeout(&mut peer);
+
+    // A masked client close echo: 2 header bytes + 4 mask bytes + 6 payload.
+    assert_eq!(
+        received.len(),
+        12,
+        "a masked client close echo: {received:?}"
+    );
+    assert_eq!(received[0], 0x88, "FIN + CLOSING opcode");
+    assert_eq!(received[1], 0x86, "MASK bit set, 6-byte payload");
+    let key = &received[2..6];
+    let unmasked: Vec<u8> = received[6..]
+        .iter()
+        .enumerate()
+        .map(|(index, byte)| byte ^ key[index % 4])
+        .collect();
+    assert_eq!(
+        unmasked,
+        vec![0x03, 0xE8, b'd', b'o', b'n', b'e'],
+        "the client echoes 1000/\"done\" back"
+    );
+    assert!(
+        !saw_eof,
+        "shipped Java's CLIENT has no such branch (WebSocketClient.java:837-851): it \
+         echoes and waits for the peer to close. An unconditional adapter close would \
+         make this endpoint tear down the connection Java leaves to the server."
+    );
+    assert_eq!(
+        report.outcome,
+        LoopOutcome::BudgetExhausted,
+        "the client is still waiting on the peer when the budget runs out: {}",
+        report.summary()
+    );
+}
+
+#[test]
+fn the_server_fixture_reaches_its_terminal_without_the_peer_ever_closing() {
+    use std::io::{Read as _, Write as _};
+
+    // The same gate through the SHIPPED server fixture and a real opening
+    // handshake, so the witness is the adapter a caller actually runs.
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = server_thread(listener, prompt_bounds(2_000));
+
+    let mut peer = TcpStream::connect(address).expect("connect");
+    peer.set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("read timeout");
+    peer.write_all(&upgrade_request()).expect("request");
+    peer.flush().expect("flush");
+    let mut head = [0u8; 4096];
+    let head_len = peer.read(&mut head).expect("101 head");
+    assert!(
+        head[..head_len].starts_with(b"HTTP/1.1 101 "),
+        "the handshake must complete before the close case"
+    );
+
+    peer.write_all(&masked_close_1000_done())
+        .expect("peer close frame");
+    peer.flush().expect("flush");
+
+    let (received, saw_eof) = drain_until_eof_or_timeout(&mut peer);
+    let report = server.join().expect("server thread");
+
+    assert_eq!(
+        received, CLOSE_1000_DONE_UNMASKED,
+        "the composed close echo reaches the peer"
+    );
+    assert!(saw_eof, "and the server closes the connection behind it");
+    assert!(
+        report.clean(),
+        "the peer never closed its side, so only a server-side close can carry this \
+         run to its exactly-once terminal: {}",
+        report.summary()
+    );
+}
+
+#[test]
+fn a_server_that_initiates_a_close_hangs_up_without_waiting_for_the_echo() {
+    // Java's gate is `isFlushAndClose()`, NOT "a Close has been received":
+    // `close(int, String, boolean)` reaches `flushAndClose` at
+    // WebSocketImpl.java:494 on the same path that moves readyState to CLOSING
+    // at :503, for a locally initiated close exactly as for an echoed one. So a
+    // Java server that initiates a close tears the TCP connection down as soon
+    // as its own close frame has flushed, without waiting for the peer's Close.
+    //
+    // This is the sub-case where the gate DIVERGES from a strict RFC 6455
+    // section 5.5.1 reading ("after both sending and receiving a Close ... the
+    // server MUST close the underlying TCP connection immediately"), and the
+    // port follows shipped Java rather than the RFC. Drafted for the
+    // behaviour-delta ledger as drafts/ledger-proposals/server-close-parity.json.
+    let (mut stream, mut peer) = socket_pair();
+    peer.set_read_timeout(Some(Duration::from_millis(750)))
+        .expect("peer read timeout");
+    let (sender, mut driver) = ws_driver::connection_driver_in_state(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Server,
+        ws_core::connection::InitialState::Open,
+    );
+    sender
+        .try_send(ws_core::connection::LocalCommand::SendClose {
+            code: 1000,
+            reason: "bye".to_owned(),
+        })
+        .expect("enqueue the locally initiated close");
+
+    let mut report = ws_testee::io_loop::empty_report();
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &prompt_bounds(2_000),
+        ws_core::connection::Role::Server,
+        &mut policy,
+        &mut report,
+    );
+
+    // The peer sent NOTHING: it never echoed, and it never closed its side.
+    let (received, saw_eof) = drain_until_eof_or_timeout(&mut peer);
+
+    assert_eq!(
+        received,
+        vec![0x88, 0x05, 0x03, 0xE8, b'b', b'y', b'e'],
+        "the server's own close frame (1000, \"bye\")"
+    );
+    assert!(
+        saw_eof,
+        "Java's server closes on flush-and-close, not on having received a Close \
+         (WebSocketImpl.java:494 -> :592, SocketChannelIOHelper.java:110-113)"
+    );
+    assert!(
+        report.clean(),
+        "and the run reaches its exactly-once terminal without any peer close: {}",
         report.summary()
     );
 }

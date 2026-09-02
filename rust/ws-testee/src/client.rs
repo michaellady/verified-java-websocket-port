@@ -115,6 +115,7 @@ pub fn run_client_once(fixture: &ClientFixture<'_>) -> Result<ConnectionReport, 
         &sender,
         &mut stream,
         &fixture.bounds,
+        Role::Client,
         &mut policy,
         &mut report,
     );
