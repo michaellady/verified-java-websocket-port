@@ -21,8 +21,13 @@ not an independent review; the branch's substantive review is its own rounds
     only NEW files under `rust/`, `assurance/concurrency/`, `evidence/linkage/`,
     `internal/formalplan/` and `internal/deltaledger/` and modifies none, so the
     tree the previous commit measured is byte-identical here.
-- Mainline merge commit: `MAINLINE_MERGE_SHA`.
-- Branch head after the landing: `BRANCH_SHA`.
+- Mainline merge commit: `b62a979`, onto mainline `83a992c`. Its tree equals
+  the branch tree exactly (`git rev-parse HEAD^{tree}` on both reads
+  `9ac71c374b4ffe0575aafb3248438dd2874f7703`), so the tree validated below
+  IS the landed tree.
+- Branch head after the landing: `8c6320d`. Both refs pushed, first attempt,
+  `git push` exit 0 each: `1d1a1e2..8c6320d claude/post-failure` and
+  `83a992c..b62a979 -> claude/feature/verified-java-websocket-port`.
 
 Every conflict was resolved as a UNION. The seams where the two sides had
 genuinely different designs, and what the union does:
