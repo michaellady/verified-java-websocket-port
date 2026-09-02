@@ -5,7 +5,7 @@
 # exit=0
 # deadline_hit=false
 
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.04s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
      Running tests/adversarial_fuzz.rs (target/debug/deps/adversarial_fuzz-fce417d712f06802)
 
 running 14 tests
@@ -24,5 +24,5 @@ test family_rechunk_invariance_single_frame ... ok
 test family_rechunk_invariance_multi_frame ... ok
 test family_frame_soup_no_panic_bounded_deterministic ... ok
 
-test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.84s
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.38s
 
