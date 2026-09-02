@@ -549,7 +549,7 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 	findings = append(findings, crValidateScenarioNames(results, inputs)...)
 	findings = append(findings, crValidateScenarioProse(results, inputs)...)
 	findings = append(findings, crValidateRevisionHistory(results, inputs.ResultsPath)...)
-	findings = append(findings, crValidateCleanRouteCeiling(results, inputs.ResultsPath)...)
+	findings = append(findings, crValidateCleanRouteCeiling(results, inputs)...)
 	findings = append(findings, crValidatePlanConformanceShape(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateExecutedRun(results, rawLine, rawLineErr, inputs.ResultsPath)...)
 	findings = append(findings, crValidateSweepRun(results, raw, inputs.ResultsPath)...)
@@ -1129,11 +1129,21 @@ func crSHA256(content []byte) string {
 var (
 	crScenarioTableStart  = regexp.MustCompile(`const SCENARIOS:[^=]*=\s*\[`)
 	crScenarioNamePattern = regexp.MustCompile(`\(\s*"([^"]+)"\s*,`)
-	// crScenarioEntryPattern reads the table's PAIRS — the name and the
-	// ProgramSet constant it binds — so a scenario's prose can be resolved
+	// crScenarioEntryPattern reads the table's PAIRS - the name and the
+	// ProgramSet constant it binds - so a scenario's prose can be resolved
 	// into that constant's own doc comment rather than searched for anywhere
 	// in the file.
-	crScenarioEntryPattern = regexp.MustCompile(`\(\s*"([^"]+)"\s*,\s*([A-Z][A-Z0-9_]*)\s*\)`)
+	//
+	// THE TRAILING COMMA IS NOT OPTIONAL DECORATION. rustfmt breaks a table
+	// entry across lines once it is long enough and then adds a trailing
+	// comma, and the first version of this pattern required the constant to
+	// be followed directly by `)`. The third scenario's entry was short
+	// enough to fit on one line as written and long enough to be split the
+	// moment `cargo fmt` ran, at which point this validator stopped finding
+	// the scenario at all - RESULTS_SCENARIO_PROSE_UNDERIVED against a
+	// document that was correct. A derivation that a formatter can break is
+	// not a derivation.
+	crScenarioEntryPattern = regexp.MustCompile(`\(\s*"([^"]+)"\s*,\s*([A-Z][A-Z0-9_]*)\s*,?\s*\)`)
 )
 
 // crScenarioProseFields are the bounds.scenario_shapes[*] leaves whose text
@@ -5183,7 +5193,22 @@ var crCleanRouteCeilingClauses = []string{
 	"WHY IT IS NOT WIDER:",
 	// The pointer to the superseded reading, checked for real below.
 	"THE READING THIS REPLACED",
+	// The provenance of the disclosure itself. This drop was named ONCE
+	// before any review found it - as a carried follow-up in an owner
+	// decision, in August - and reached no limitation of this record for the
+	// week that followed. A ceiling that does not say where it came from
+	// invites the same thing to happen again to the next one.
+	"THIS CLOSES A CARRIED FOLLOW-UP",
 }
+
+// crGovernanceDecisionID matches the identity of an owner decision as this
+// repository names them, so a citation in the ceiling can be RESOLVED against
+// the decisions directory rather than read.
+var crGovernanceDecisionID = regexp.MustCompile(`[a-z0-9][a-z0-9-]*-owner-decision-\d{4}-\d{2}-\d{2}`)
+
+// crGovernanceDecisionsDir is where this repository keeps the owner decisions
+// the record is allowed to cite.
+const crGovernanceDecisionsDir = "evidence/governance/decisions"
 
 // crValidateCleanRouteCeiling binds the ceiling's PROSE, where
 // crValidateQuotedCounters binds its numbers.
@@ -5196,8 +5221,9 @@ var crCleanRouteCeilingClauses = []string{
 // name: the identity the ceiling points at must be a paragraph this document
 // actually carries, and it must be marked SUPERSEDED. A dangling pointer, or
 // one aimed at the CURRENT paragraph, is refused.
-func crValidateCleanRouteCeiling(results crResults, path string) []ModelFinding {
+func crValidateCleanRouteCeiling(results crResults, inputs ConcurrencyResultsInputs) []ModelFinding {
 	var findings []ModelFinding
+	path := inputs.ResultsPath
 	refuse := func(detail string) {
 		findings = append(findings, mpFinding("RESULTS_CLEAN_ROUTE_CEILING_UNSOUND", path, detail))
 	}
@@ -5241,6 +5267,29 @@ func crValidateCleanRouteCeiling(results crResults, path string) []ModelFinding 
 		refuse(fmt.Sprintf(
 			"the clean-route ceiling names no revision_history identity, so its account of the reading it replaced points at nothing; revision_history carries %d paragraphs",
 			len(results.RevisionHistory)))
+	}
+
+	// And the follow-up it says it closes must be a decision this repository
+	// actually holds. A citation nobody resolves is how "the owner already
+	// knows" becomes a sentence rather than a fact - which is the shape of the
+	// original omission, in which a real carried follow-up sat in a governance
+	// record while the evidence document it constrained said nothing.
+	cited := crGovernanceDecisionID.FindAllString(ceiling, -1)
+	if len(cited) == 0 {
+		refuse("the clean-route ceiling says it closes a carried follow-up and names no owner decision, so the claim resolves to nothing")
+	}
+	if inputs.Root == "" {
+		findings = append(findings, mpAdvisory("RESULTS_PROVENANCE_UNVERIFIED", path,
+			"no tree root supplied: the clean-route ceiling's owner-decision citation was NOT resolved"))
+		return findings
+	}
+	for _, decision := range cited {
+		at := filepath.Join(inputs.Root, filepath.FromSlash(crGovernanceDecisionsDir), decision+".json")
+		if _, err := os.Stat(at); err != nil {
+			refuse(fmt.Sprintf(
+				"the clean-route ceiling cites owner decision %q, which this tree does not hold at %s/%s.json",
+				decision, crGovernanceDecisionsDir, decision))
+		}
 	}
 	return findings
 }

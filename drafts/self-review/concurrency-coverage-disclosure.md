@@ -181,7 +181,7 @@ Two further things were bound on the way:
 
 ## Findings this branch made against ITSELF
 
-Three, all found by running the instruments rather than by reasoning, and all
+Four, all found by running the instruments rather than by reasoning, and all
 fixed here.
 
 ### A. The ceiling could be cut in half and nothing complained
@@ -226,16 +226,18 @@ tokenizer that guards this document's counters applies a four-digit floor and
 never looked at it. `crValidatePlanConformanceShape` now renders the three
 scenario clauses from `bounds.scenario_shapes` and requires each verbatim.
 
-### D. Nine stale probes, one of them worse than stale
+### D. Ten probes stopped testing what they name
 
-Changing the explored space left nine negative cases citing the old one. Four
-aimed at sentences containing 81131 / 81180 / 318661 that no longer exist (they
-failed loudly, as designed); one bounds mutation had become a no-op
-(`bounds.scenarios` 3 → 3, i.e. no mutation at all); four more in the union
-suite. The tenth was worse than stale: the no-live-Java case addressed the last
-limitation **by index**, and the appended ceiling silently made it delete the
-ceiling instead of softening the disclosure it names — a test that had quietly
-stopped testing what its name says. It is now located by content.
+Changing the explored space left ten negative cases addressed at the old one.
+Nine were stale: four aimed at sentences containing 81131 / 81180 / 318661 that
+no longer exist (they failed loudly, as designed), one bounds mutation had
+become a no-op (`bounds.scenarios` 3 → 3, i.e. no mutation at all), and four
+more in the union suite cited run-line tokens that had moved. The tenth was
+worse than stale, because it did not fail: the no-live-Java case addressed the
+last limitation **by index**, and the appended ceiling silently made it delete
+the ceiling instead of softening the disclosure its name promises. A green test
+that had quietly stopped testing what it says is the worse of the two failure
+modes. It is now located by content.
 
 ---
 

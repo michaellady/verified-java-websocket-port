@@ -2176,6 +2176,35 @@ func TestConcurrencyResultsRefusesACeilingThatForbidsNothing(t *testing.T) {
 			},
 		},
 		{
+			// The provenance clause. This drop was named ONCE before any
+			// review found it - as carried follow-up BP1 in the owner
+			// decision us017-c6-layer-split-owner-decision-2026-08-28, which
+			// called the C5 fix's effect on clean-convergence exploration
+			// runs a 96 percent coverage drop - and reached no limitation of
+			// this record for the week that followed. A ceiling that does not
+			// say where it came from invites the same disappearance.
+			name: "the follow-up this ceiling closes is dropped",
+			rewrite: func(text string) string {
+				return strings.Replace(text, "THIS CLOSES A CARRIED FOLLOW-UP", "SEPARATELY", 1)
+			},
+		},
+		{
+			// A citation nobody resolves is how "the owner already knows"
+			// becomes a sentence rather than a fact.
+			name: "the owner decision it cites is not one this tree holds",
+			rewrite: func(text string) string {
+				return strings.Replace(text, "us017-c6-layer-split-owner-decision-2026-08-28",
+					"us017-c6-layer-split-owner-decision-2026-08-27", 1)
+			},
+		},
+		{
+			name: "the citation is removed and the claim left standing",
+			rewrite: func(text string) string {
+				return strings.Replace(text, "us017-c6-layer-split-owner-decision-2026-08-28",
+					"an earlier owner decision", 1)
+			},
+		},
+		{
 			name:    "the ceiling is removed from the record",
 			rewrite: func(string) string { return "" },
 		},
