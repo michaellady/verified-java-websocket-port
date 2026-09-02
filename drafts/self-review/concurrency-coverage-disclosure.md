@@ -317,10 +317,14 @@ zero findings for a mutation it is supposed to refuse.
 | `crValidateRevisionHistory` (the call) | 1 | **12 of 13** | 1 — `the whole history is dropped`, caught by `RESULTS_CLEAN_ROUTE_CEILING_UNSOUND` |
 | the `crRevisionHistoryAnchor` block only | 1 | **3 of 3** | 0 |
 | `crValidateScenarioProse` (the call) | 1 | **3 of 4** | 1 — `the scenario is not one the harness enumerates`, caught by `RESULTS_SCENARIO_NAMES_CONTRADICTED` |
-| `crValidateCleanRouteCeiling` (the call) | 1 | **5 of 7** | 2 — `the ceiling is removed from the record` and `PointingAtALiveParagraph` |
+| `crValidateCleanRouteCeiling` (the call) | 1 | **8 of 10** | 2 — `the ceiling is removed from the record` and `PointingAtALiveParagraph` |
 | `crValidatePlanConformanceShape` (the call) | 1 | **3 of 4** | 1 — `the widest schedule is understated`, caught by `RESULTS_ACCOUNTING_CONTRADICTION` |
 | the clean-route relations in `crValidateAccounting` | 1 | **5 of 5**, after the cases were made isolating | 0 (before: 0 of 5, all caught by the run re-derivation — see below) |
 | the `limitations.clean_route_ceiling` expectation | 1 | **1 of 3** | 2 — caught by `RESULTS_CLEAN_ROUTE_CEILING_UNSOUND` |
+
+The ceiling row was re-measured after the check grew its follow-up clause and
+its citation resolution, so the table describes the check as it stands rather
+than as it was when the first attack ran.
 
 The non-isolating rows are recorded, not rounded off. Two of them are honest
 overlap between two checks that both refuse the same document; the scenario-prose
