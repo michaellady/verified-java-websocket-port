@@ -1,0 +1,405 @@
+{
+  "baseline": {
+    "harness_build_exit": 0,
+    "harness_exit": 0,
+    "ws_core_test_exit": 0
+  },
+  "classes_from_prd": [
+    "Java-quirk emulation",
+    "Rust semantic defect",
+    "event-order",
+    "error-class",
+    "close-initiator",
+    "consumed-byte",
+    "normalization-collision"
+  ],
+  "exit_discipline": "every exit code in this receipt was read from the command's real ProcessState; none is inferred from output text",
+  "generated_at": "2026-09-02T20:08:47Z",
+  "judged_tree_digest": {
+    "algorithm": "sha256 over sorted (relative path, length, bytes) of rust/, excluding target/; symlinks refused",
+    "post_campaign_digest": "0079ea2daae71f354d546e36216f2668dbc2edd4ac308dd5a31ba3678ff7c657",
+    "post_campaign_restored": true,
+    "post_campaign_tests_exit": 0,
+    "rust": "0079ea2daae71f354d546e36216f2668dbc2edd4ac308dd5a31ba3678ff7c657",
+    "scratch_created_fresh": true,
+    "scratch_identical": true
+  },
+  "kind": "us020-ac5-class-completeness-receipt",
+  "prd_clause_source": "docs/prd-pack/07c-child-prd-us020-us027.md (US-020 AC5, parsed — never retyped)",
+  "rejected_bindings": [
+    {
+      "class": "error-class",
+      "operator": "close-code-swap",
+      "mutant_id": "m014-orphan-close-code-swap",
+      "moves": [
+        "error.close_code"
+      ],
+      "reason": "it moves the close CODE carried by a JAVA_INVALID_DATA rejection; error.code — the class — never changes. A close code is not an error class."
+    },
+    {
+      "class": "error-class",
+      "operator": "close-code-swap",
+      "mutant_id": "m016-eof-code-swap",
+      "moves": [
+        "close.code",
+        "events[].code"
+      ],
+      "reason": "same shape one layer over: the EOF close code moves, the error class does not."
+    },
+    {
+      "class": "close-initiator",
+      "operator": "close-echo-swap",
+      "mutant_id": "m016-echo-payload-swap",
+      "moves": [
+        "frames[].payload_base64",
+        "frames[].payload_bytes",
+        "frames[].wire_bytes"
+      ],
+      "reason": "it moves the echoed PAYLOAD. close.origin, close.remote and transitions[].cause — every field that says who initiated — are untouched."
+    },
+    {
+      "class": "close-initiator",
+      "operator": "close-transition-swap",
+      "mutant_id": "m016-echo-branch-flip",
+      "moves": [
+        "counts.frames",
+        "events.length",
+        "final_state",
+        "frames.length",
+        "transitions.length",
+        "transitions[].to"
+      ],
+      "reason": "it moves the transition TARGET and the echo's existence. transitions[].cause, close.origin and close.remote never move, so it discriminates the close transition, not the initiator."
+    },
+    {
+      "class": "consumed-byte",
+      "operator": "payload-truncation",
+      "mutant_id": "m013-payload-truncation",
+      "moves": [
+        "22 field paths, none of them counts.consumed_bytes"
+      ],
+      "reason": "the loudest mutant in the table moves almost every observation field and leaves the consumed-byte counter exactly right. Breadth is not identity."
+    },
+    {
+      "class": "event-order",
+      "operator": "event-order-swap",
+      "mutant_id": "m013-close-event-order-swap",
+      "moves": [],
+      "reason": "the existing US-013 AC5 event-order seed moves NOTHING in the differential. It reorders a close EVENT against a TRANSITION, and the normalization projects events[] and transitions[] into separate arrays, so every ordering relation BETWEEN the arrays is erased. It is a second normalization collision, found by this register rather than by a person."
+    },
+    {
+      "class": "event-order",
+      "operator": "event-order-swap",
+      "mutant_id": "cand-event-order-outbound-pair-swap",
+      "moves": [],
+      "reason": "swapping emit_outbound's own two emissions is invisible for the same reason: one lands in frames[], the other in events[]. Only a swap of two ADJACENT events[] entries is observable, which is why the registered seed is the send_close/close_initiated pair."
+    }
+  ],
+  "rejected_bindings_note": "operators this repository could have claimed for a class and which MEASUREMENT says do not discriminate it",
+  "requests": {
+    "count": 97,
+    "streams": {
+      "probes.jsonl": "sha256:351183027650e528e55939b87ee5a3c1af717cb54b7112c14692facb144a3c2d",
+      "public-requests.jsonl": "sha256:0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85"
+    }
+  },
+  "schema_version": "1.0.0",
+  "variants": [
+    {
+      "class": "Java-quirk emulation",
+      "id": "ac5-jq-handshake-unbounded-head",
+      "file": "rust/ws-core/src/handshake/http.rs",
+      "line": 229,
+      "operator": "java-quirk-emulation",
+      "detector_cmd": "cargo test -p ws-core --test handshake_server",
+      "detector_exit": 101,
+      "detector_failed_tests": [
+        "configured_budgets_refuse_with_the_named_limit"
+      ],
+      "detector_kill_detail": "ws-core/tests/handshake_server.rs:342:9: expected total-bytes refusal",
+      "named_test_failed": true,
+      "harness_build_exit": 0,
+      "harness_exit": 0,
+      "measured_fields": [],
+      "declared_fields": null,
+      "fields_agree": true,
+      "is_collision": true,
+      "witness_cmd": "cargo test -p ws-core --test handshake_server",
+      "witness_exit_pristine": 0,
+      "witness_exit_mutated": 101,
+      "witness_failed_tests": [
+        "configured_budgets_refuse_with_the_named_limit"
+      ],
+      "collision_confirmed": true,
+      "verdict": "COLLISION_DETECTED",
+      "seconds": 1.708492165
+    },
+    {
+      "class": "Java-quirk emulation",
+      "id": "ac5-jq-violation-close-in-core",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 665,
+      "operator": "java-quirk-emulation",
+      "detector_cmd": "cargo test -p ws-core",
+      "detector_exit": 101,
+      "detector_failed_tests": [
+        "control_payload_exactly_125_delivers",
+        "family_command_interleave_no_panic_deterministic",
+        "family_frame_soup_no_panic_bounded_deterministic",
+        "family_byte_soup_no_panic_bounded_deterministic",
+        "family_rechunk_invariance_multi_frame",
+        "family_rechunk_invariance_single_frame",
+        "family_config_boundaries",
+        "family_seed_corpus_anchors"
+      ],
+      "detector_kill_detail": "ws-core/tests/adversarial_fuzz.rs:265:21: transition (SendClose) emitted before its close notification",
+      "named_test_failed": true,
+      "harness_build_exit": 0,
+      "harness_exit": 0,
+      "measured_fields": [
+        "counts.frames",
+        "final_state"
+      ],
+      "declared_fields": [
+        "counts.frames",
+        "final_state"
+      ],
+      "fields_agree": true,
+      "is_collision": false,
+      "verdict": "CLASS_DETECTED",
+      "seconds": 4.590060804
+    },
+    {
+      "class": "Rust semantic defect",
+      "id": "m013-payload-truncation",
+      "file": "rust/ws-core/src/framing.rs",
+      "line": 483,
+      "operator": "payload-truncation",
+      "detector_cmd": "cargo test -p ws-core",
+      "detector_exit": 101,
+      "detector_failed_tests": [
+        "control_payload_exactly_125_delivers",
+        "fragment_accumulation_to_exactly_max_buffered_is_accepted"
+      ],
+      "detector_kill_detail": "ws-core/tests/adversarial_fuzz.rs:1221:5: the 125-byte ping payload must deliver byte-exactly",
+      "named_test_failed": true,
+      "harness_build_exit": 0,
+      "harness_exit": 0,
+      "measured_fields": [
+        "close",
+        "close.code",
+        "close.reason",
+        "counts.buffered_bytes",
+        "counts.frames",
+        "counts.message_buffered_bytes",
+        "error",
+        "events",
+        "events[].bytes",
+        "events[].code",
+        "events[].data_base64",
+        "events[].reason",
+        "events[].text",
+        "events[].utf8_bytes",
+        "final_state",
+        "frames",
+        "frames[].payload_base64",
+        "frames[].payload_bytes",
+        "initial_state",
+        "outcome",
+        "role",
+        "transitions"
+      ],
+      "declared_fields": [
+        "close",
+        "close.code",
+        "close.reason",
+        "counts.buffered_bytes",
+        "counts.frames",
+        "counts.message_buffered_bytes",
+        "error",
+        "events",
+        "events[].bytes",
+        "events[].code",
+        "events[].data_base64",
+        "events[].reason",
+        "events[].text",
+        "events[].utf8_bytes",
+        "final_state",
+        "frames",
+        "frames[].payload_base64",
+        "frames[].payload_bytes",
+        "initial_state",
+        "outcome",
+        "role",
+        "transitions"
+      ],
+      "fields_agree": true,
+      "is_collision": false,
+      "verdict": "CLASS_DETECTED",
+      "seconds": 6.57545538
+    },
+    {
+      "class": "event-order",
+      "id": "ac5-event-order-send-close-pair-swap",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 1274,
+      "operator": "event-order-swap",
+      "detector_cmd": "cargo test -p ws-core --test close_eof",
+      "detector_exit": 101,
+      "detector_failed_tests": [
+        "local_close_emits_frame_detail_and_transition"
+      ],
+      "detector_kill_detail": "ws-core/tests/close_eof.rs:274:5: derive.go: emitOutbound precedes close_initiated",
+      "named_test_failed": true,
+      "harness_build_exit": 0,
+      "harness_exit": 0,
+      "measured_fields": [
+        "events[].code",
+        "events[].handshake_complete",
+        "events[].opcode",
+        "events[].origin",
+        "events[].reason",
+        "events[].remote",
+        "events[].type"
+      ],
+      "declared_fields": [
+        "events[].code",
+        "events[].handshake_complete",
+        "events[].opcode",
+        "events[].origin",
+        "events[].reason",
+        "events[].remote",
+        "events[].type"
+      ],
+      "fields_agree": true,
+      "is_collision": false,
+      "verdict": "CLASS_DETECTED",
+      "seconds": 2.07795843
+    },
+    {
+      "class": "error-class",
+      "id": "ac5-error-class-input-to-buffer",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 592,
+      "operator": "error-class-swap",
+      "detector_cmd": "cargo test -p ws-core --test core_semantics",
+      "detector_exit": 101,
+      "detector_failed_tests": [
+        "input_limit_uses_add_bounded_semantics",
+        "fatal_failures_poison_the_core_into_state_violation_refusals"
+      ],
+      "detector_kill_detail": "ws-core/tests/core_semantics.rs:283:5: assertion `left == right` failed",
+      "named_test_failed": true,
+      "harness_build_exit": 0,
+      "harness_exit": 0,
+      "measured_fields": [
+        "error.code",
+        "error.detail"
+      ],
+      "declared_fields": [
+        "error.code",
+        "error.detail"
+      ],
+      "fields_agree": true,
+      "is_collision": false,
+      "verdict": "CLASS_DETECTED",
+      "seconds": 1.651417235
+    },
+    {
+      "class": "close-initiator",
+      "id": "ac5-close-initiator-remote-to-local",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 784,
+      "operator": "close-initiator-swap",
+      "detector_cmd": "cargo test -p ws-core --test close_eof",
+      "detector_exit": 101,
+      "detector_failed_tests": [
+        "inbound_close_while_open_echoes_the_constructor_payload",
+        "inbound_close_while_closing_terminates_without_echo",
+        "local_close_then_remote_close_terminates",
+        "one_byte_close_payload_is_a_valid_1002_close"
+      ],
+      "detector_kill_detail": "ws-core/tests/close_eof.rs:78:5: assertion `left == right` failed: remote close: handshake_complete true (derive.go closeMap)",
+      "named_test_failed": true,
+      "harness_build_exit": 0,
+      "harness_exit": 0,
+      "measured_fields": [
+        "close.origin",
+        "close.remote",
+        "events[].origin",
+        "events[].remote"
+      ],
+      "declared_fields": [
+        "close.origin",
+        "close.remote",
+        "events[].origin",
+        "events[].remote"
+      ],
+      "fields_agree": true,
+      "is_collision": false,
+      "verdict": "CLASS_DETECTED",
+      "seconds": 2.059159399
+    },
+    {
+      "class": "consumed-byte",
+      "id": "m012-consumed-chunk-drop",
+      "file": "rust/ws-core/src/connection.rs",
+      "line": 687,
+      "operator": "counter-increment-drop",
+      "detector_cmd": "cargo test -p ws-core --test core_semantics",
+      "detector_exit": 101,
+      "detector_failed_tests": [
+        "surviving_chunks_emit_input_chunk_and_advance_counts"
+      ],
+      "detector_kill_detail": "ws-core/tests/core_semantics.rs:262:5: assertion `left == right` failed",
+      "named_test_failed": true,
+      "harness_build_exit": 0,
+      "harness_exit": 0,
+      "measured_fields": [
+        "counts.consumed_bytes"
+      ],
+      "declared_fields": [
+        "counts.consumed_bytes"
+      ],
+      "fields_agree": true,
+      "is_collision": false,
+      "verdict": "CLASS_DETECTED",
+      "seconds": 1.860632295
+    },
+    {
+      "class": "normalization-collision",
+      "id": "ac5-collision-server-tcp-close",
+      "file": "rust/ws-testee/src/io_loop.rs",
+      "line": 509,
+      "operator": "normalization-collision",
+      "detector_cmd": "cargo test -p ws-testee --test loopback",
+      "detector_exit": 101,
+      "detector_failed_tests": [
+        "a_server_that_initiates_a_close_hangs_up_without_waiting_for_the_echo",
+        "a_server_closes_the_tcp_connection_once_its_close_echo_has_drained",
+        "the_server_fixture_reaches_its_terminal_without_the_peer_ever_closing"
+      ],
+      "detector_kill_detail": "ws-testee/tests/loopback.rs:1609:5: Java's server closes on flush-and-close, not on having received a Close (WebSocketImpl.java:494 -\u003e :592, SocketChannelIOHelper.java:110-113)",
+      "named_test_failed": true,
+      "harness_build_exit": 0,
+      "harness_exit": 0,
+      "measured_fields": [],
+      "declared_fields": null,
+      "fields_agree": true,
+      "is_collision": true,
+      "witness_cmd": "cargo test -p ws-testee --test loopback",
+      "witness_exit_pristine": 0,
+      "witness_exit_mutated": 101,
+      "witness_failed_tests": [
+        "a_server_closes_the_tcp_connection_once_its_close_echo_has_drained",
+        "a_server_that_initiates_a_close_hangs_up_without_waiting_for_the_echo",
+        "the_server_fixture_reaches_its_terminal_without_the_peer_ever_closing"
+      ],
+      "blind_judge_ws_core_exit": 0,
+      "collision_confirmed": true,
+      "verdict": "COLLISION_DETECTED",
+      "seconds": 53.504041478
+    }
+  ],
+  "witness_skipped": false
+}

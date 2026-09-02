@@ -1,0 +1,77 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "AC5DifferentialVocabularyParityRecord",
+  "purpose": "The US-020 AC5 class register (internal/ac5class) states, per seeded class variant, which normalized DIFFERENTIAL observation fields the variant moves. `ac5ctl run` measures those fields by comparing the pristine port arm against the mutated port arm, not against Java, so the gate stays runnable without the pinned JVM. This record is what makes that substitution exact rather than convenient: it is a real run of the pinned Java-WebSocket 1.6.0 oracle over the same request streams, showing the pristine port and live Java agree on every behavioural field. A field therefore moves against Java exactly when it moves against the pristine port.",
+  "recorded_at": "2026-09-02T19:34:00Z",
+  "recorded_at_provenance": "date -u captured in the same shell session that ran both arms",
+  "bound_repo_head": "57e881c26e4c74e51f0dcbfe1bee1e5c0e2b6a5f (mainline claude/feature/verified-java-websocket-port at the time of the run; the branch adds no rust/ change)",
+  "java_arm": {
+    "runtime_jar": "org.java-websocket:Java-WebSocket:1.6.0",
+    "runtime_jar_sha256": "eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+    "slf4j_api_jar_sha256": "e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9",
+    "adapter_source": "java-oracle/src/main/java (pristine; no mutant overlay)",
+    "adapter_build": "make -C java-oracle build JAVA_WEBSOCKET_JAR=<pinned jar> BUILD_DIR=<scratch>",
+    "jvm": "openjdk 21.0.10 2026-01-20 (Ubuntu 24.04); javac --release 17 -Xlint:all -Werror",
+    "command": "java -Dstdout.encoding=UTF-8 -Dfile.encoding=UTF-8 -Dslf4j.internal.verbosity=ERROR -cp <java-oracle.jar>:<Java-WebSocket-1.6.0.jar>:<slf4j-api-2.0.13.jar> OracleMain < requests.jsonl",
+    "exit": 0,
+    "exit_provenance": "read from the java process exit status; stderr carried only the harness JAVA_TOOL_OPTIONS banner"
+  },
+  "rust_arm": {
+    "binary": "rust/ws-oracle-harness (cargo build -p ws-oracle-harness --locked, debug)",
+    "exit": 0,
+    "exit_provenance": "read from the harness process exit status"
+  },
+  "artifacts": {
+    "public-requests.jsonl": {
+      "sha256": "sha256:0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85",
+      "lines": 74,
+      "generated_by": "corporactl oracle-requests --root . --protected-root <store> --tier public --out public-requests.jsonl",
+      "protected_root_note": "the public tier is derived from the committed public seed alone and does not depend on the custodian master secret; .claude/CLOUD-ENVIRONMENT.md records that two different throwaway secrets produce byte-identical public and handshake requests. A throwaway store was used and this record is NOT a custodian-ledgered hidden/sealed result."
+    },
+    "java-arm-public.jsonl": {
+      "sha256": "sha256:2eb11ca38caf9fef9b7edb8b83f3c7f6297b3e6e3d7ccbfc2a11c84e5221bd8b",
+      "lines": 74,
+      "independent_confirmation": "this digest is BYTE-IDENTICAL to the recorded live public transcript mutants/manifest.json already pins under baselines.java_pristine.public_tier_separation, produced on a different host at a different time. The Java arm reproduced exactly."
+    },
+    "probes.jsonl": {
+      "path": "evidence/differential-regression/probes.jsonl",
+      "sha256": "sha256:351183027650e528e55939b87ee5a3c1af717cb54b7112c14692facb144a3c2d",
+      "lines": 23
+    },
+    "java-arm-probes": {
+      "path": "evidence/differential-regression/java-arm.jsonl",
+      "sha256": "sha256:99327715f35ce130a558638821e18536f744200b3a2f1d22096bccc89ba3e0b8",
+      "independent_confirmation": "the freshly recorded Java probe arm compares 23/23 identical against this committed file (diffregressctl compare, 0 divergent, 0 detail-only), so the committed differential-regression Java evidence reproduces from the pinned jar."
+    }
+  },
+  "measured_parity": [
+    {
+      "tier": "public",
+      "cases": 74,
+      "comparator": "diffregressctl compare (internal/diffregress.CompareResponses: every response field compared recursively, runtime excluded, presence/absence reported)",
+      "identical_excluding_runtime": 48,
+      "identical_except_error_detail": 26,
+      "behaviorally_divergent": 0
+    },
+    {
+      "tier": "differential-regression probes",
+      "cases": 23,
+      "comparator": "diffregressctl compare",
+      "identical_excluding_runtime": 6,
+      "identical_except_error_detail": 17,
+      "behaviorally_divergent": 0
+    },
+    {
+      "tier": "handshake exam",
+      "cases": 49,
+      "comparator": "field-by-field over the java-websocket-handshake-oracle protocol (case_id keyed; diffregressctl is request_id keyed and cannot read this tier)",
+      "divergent": 0,
+      "note": "recorded because the Java-quirk-emulation seed ac5-jq-handshake-unbounded-head lives on the handshake path. The exam does not reach the configured budget on any of its 49 cases — the ledger's own record 45 says the live-exam input fits the budget — so the exam cannot detect that seed either. That is why the seed carries a collision record naming its blind judges instead of a discriminating field set."
+    }
+  ],
+  "what_this_does_not_claim": [
+    "It is one run of one port build against one Java build, on one host. It is not a proof that the two agree in general.",
+    "error.detail wording differs on 43 of the 97 cases and always has; internal/diffregress classifies that as identical_except_error_detail by documented design, not as parity.",
+    "The handshake tier's 49 cases were compared by an ad-hoc field walk, not by the committed comparator, because that protocol has no request_id. The number is reported for context, not as gate evidence."
+  ]
+}
