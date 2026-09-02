@@ -66,7 +66,9 @@ both planes at once.
 ## What works in a cloud session
 
 - The full Rust gate suite: `make -C rust gates` — fmt, clippy with
-  `-D warnings`, debug and release tests, and the eight AC1 gates.
+  `-D warnings`, debug and release tests, the eight AC1 gates, and since
+  `ledger-integrity` landed the `ledger-gates` target, which needs
+  `VJWP_PROTECTED_STORE` exported and treats an unreachable store as a failure.
 - The Go suite: `go build ./...` passes; `go test ./...` passes except for
   three packages that fail on Linux for environment reasons, listed under
   "Known environment failures" below. Read those per package.
@@ -252,9 +254,10 @@ make -C java-oracle test JAVA_WEBSOCKET_JAR=$PWD/.quarantine/Java-WebSocket-1.6.
 java -Dstdout.encoding=UTF-8 -Dslf4j.internal.verbosity=ERROR -cp java-oracle/build/java-oracle.jar:.quarantine/Java-WebSocket-1.6.0.jar:.quarantine/slf4j-api-2.0.13.jar OracleMain < public.jsonl > public-java.jsonl
 ```
 
-SLF4J 2.0.13 is the version the pinned runtime's own POM declares; it is not
-in `source-pins.json`, so its digest is recorded here as an observation, not a
-promoted input: `e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9`.
+SLF4J 2.0.13 is the version the pinned runtime's own POM declares. Its digest
+`e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9` is the
+US-002-qualified value that `java-semantic-oracle/Makefile` and
+`internal/portplan` enforce before javac runs; it is not in `source-pins.json`.
 
 Results read on 2026-09-02 in this environment, harness sha256
 `414d7e5b85c8ef8b7de2a32ebbdad824cae0d82f7d332514325e705d4a90adb9`:
@@ -269,21 +272,76 @@ Results read on 2026-09-02 in this environment, harness sha256
 | Port vs live Java, handshake transcripts | no non-runtime field differs on any of the 49 |
 | java-oracle self-test | 18 pass |
 
+## Pinned Java inputs: how to materialise them here
+
+Four inputs live under `.quarantine/` (ignored by git). The setup script
+stages them into `~/.cache/verified-java-websocket-port/quarantine/`; copy
+that directory to `.quarantine/` at the start of a session, or fetch them by
+hand as below. Every one is digest-verified against a pin before use, here and
+again by the code that consumes it.
+
+| Input | Source | Pin |
+| --- | --- | --- |
+| `Java-WebSocket-1.6.0.jar` | Maven Central immutable URL | sha256 `eae29213…c22f`, 140686 bytes, `evidence/intake/source-pins.json` |
+| `slf4j-api-2.0.13.jar` | Maven Central immutable URL | sha256 `e7c2a48e…04a9`, the US-002-qualified digest enforced by `java-semantic-oracle/Makefile` and `internal/portplan` |
+| `java-websocket-source-archive.tar.gz` | reproduced from an anonymous clone | sha256 `f44e7647…3cb4`, 190008 bytes, `evidence/intake/source-pins.json` |
+| `jdk-17.0.19+10/` | Temurin release asset | sha256 `d8afc263…d331`, 193335385 bytes, the pin Codex's `cmd/cloudsetup` carries |
+
+The archive's immutable URL returns HTTP 403 through the session proxy, which
+serves anonymous git reads of public repositories but not their archive
+downloads. GitHub builds those archives with `git archive` and gzip level 6,
+so the bytes are reproducible from the pinned commit:
+
+```
+git clone --depth 1 https://github.com/TooTallNate/Java-WebSocket /tmp/jws
+git -C /tmp/jws fetch --depth 1 origin da3cf2a777aed862f2f5b5cf060cae7969958667
+git -C /tmp/jws archive --format=tar --prefix=Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667/ da3cf2a777aed862f2f5b5cf060cae7969958667 \
+  | gzip -n -6 > .quarantine/java-websocket-source-archive.tar.gz
+sha256sum .quarantine/java-websocket-source-archive.tar.gz   # f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4
+```
+
+Verified 2026-09-02: git's built-in `--format=tar.gz` and gzip levels 1 and 9
+do not match the pin; `gzip -n -6` does. `internal/portplan` verifies the
+digest before extracting, so a reproduced archive is exactly as trustworthy as
+a downloaded one.
+
+The JDK pin matters because `internal/portplan` regenerates the semantic-id
+oracle report with the `javac` found on `PATH` and refuses any version but
+17.0.19:
+
+```
+curl -sSfL -o /tmp/jdk17.tar.gz 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.19%2B10/OpenJDK17U-jdk_x64_linux_hotspot_17.0.19_10.tar.gz'
+sha256sum /tmp/jdk17.tar.gz   # d8afc263758141a66e0e3aafc321e783f7016696f4eaea067d340a269037d331
+tar -xzf /tmp/jdk17.tar.gz -C .quarantine        # creates .quarantine/jdk-17.0.19+10
+export PATH=$PWD/.quarantine/jdk-17.0.19+10/bin:$PATH
+```
+
 ## Known environment failures in `go test ./...`
 
-`go build ./...` passes. Three packages fail here for environment reasons, and
-each failure is a typed finding, never a skip. Read them per package; do not
-treat the suite as green, and do not treat these as project failures.
+`go build ./...` passes. With the inputs above in place, the protected store
+exported, and the pinned JDK first on `PATH`, 29 packages pass and two fail for
+environment reasons. Each failure is a typed finding, never a skip. Read them
+per package; do not treat the suite as green, and do not treat these as
+project failures.
 
 - `internal/lab`: `PLATFORM_EXECUTOR_UNSUPPORTED`, the controlled canary
   requires Darwin `sandbox-exec`. Linux cannot satisfy it.
-- `internal/formalplan` and `internal/portplan`: `JAVA_SOURCE_UNAVAILABLE_OFFLINE`.
-  The pinned upstream source archive at
-  `github.com/TooTallNate/Java-WebSocket/archive/<commit>.tar.gz` returns
-  HTTP 403 through the session proxy, which only serves repositories attached
-  to the session. Attaching that public repository needs an approval the
-  session could not obtain on its own. Either attach it to the environment's
-  GitHub scope or place the archive at
-  `.quarantine/java-websocket-source-archive.tar.gz`; the code verifies its
-  sha256 against the pin before extracting, so a pre-placed archive is as safe
-  as a downloaded one.
+- `internal/portplan`, `TestDeriveReproducesCommittedEvidence`:
+  `ORACLE_REPRODUCTION_MISMATCH`. The check byte-compares the regenerated
+  semantic-id oracle report with the committed one, and the committed report
+  embeds `"jdk_vendor": "Homebrew"`. On 2026-09-02 the Linux Temurin 17.0.19
+  regeneration differed in that one line only, reading `"Eclipse Adoptium"`;
+  all 969 declarations, the totals, and the javac options were identical. So
+  the check can pass byte-for-byte only on a Homebrew OpenJDK host. Making it
+  vendor-agnostic, or pinning the vendor as an explicit host requirement, is an
+  owner decision on intake evidence; it is recorded in the goal loop and not
+  changed here.
+
+Two more things read as failures only when something is missing:
+
+- `VJWP_PROTECTED_STORE` must be exported for `go test` as well as for
+  `make -C rust gates`. Otherwise twelve `internal/deltaledger` tests refuse
+  with THE PROTECTED GOVERNANCE STORE IS NOT REACHABLE, which is that gate's
+  design, not a defect.
+- Without the pinned JDK first on `PATH`, `internal/portplan` fails earlier
+  with `JAVAC_UNAVAILABLE` naming the image's javac 21.0.10.

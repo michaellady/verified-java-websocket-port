@@ -78,7 +78,9 @@ record exactly which owner or independent step remains.
 ## Iteration protocol (every firing)
 
 0. `git fetch origin '+refs/heads/*:refs/remotes/origin/*'`. Check out
-   mainline; note its head in the log.
+   mainline; note its head in the log. If `.quarantine/` lacks the four pinned
+   Java inputs, copy them from `~/.cache/verified-java-websocket-port/quarantine/`
+   or materialise them per `CLOUD-ENVIRONMENT.md`, "Pinned Java inputs".
 1. Read this file: board, queue, log. Read `docs/prd.json` if present.
 2. Pick the top item of the priority queue whose preconditions hold.
 3. Do ONE bounded unit of work (about 90 minutes at most): a merge, a review
@@ -87,16 +89,17 @@ record exactly which owner or independent step remains.
 4. Validate, reading real exit codes (no pipes):
 
    ```
-   export VJWP_PROTECTED_STORE=$PWD/evidence/governance/decisions
-   make -C rust gates          # expect: ac1-gates verdict=PASS gates_passed=8/8, exit 0
+   export VJWP_PROTECTED_STORE=$PWD/evidence/governance/decisions   # needed by ledger-gates AND go test
+   export PATH=$PWD/.quarantine/jdk-17.0.19+10/bin:$PATH             # internal/portplan refuses any other javac
+   make -C rust gates          # expect: ac1-gates 8/8, then ledger-gates ok, exit 0
    go build ./... && go test -count=1 ./...
    ```
 
-   `go test` has three packages that fail on Linux for environment reasons
-   (`internal/lab` needs Darwin `sandbox-exec`; `internal/formalplan` and
-   `internal/portplan` need the quarantined Java source, see the owner action
-   under P0). Read results per package: every other package must pass, and
-   those three must fail with exactly those typed findings and nothing else.
+   `go test` has two packages that fail on Linux for environment reasons
+   (`internal/lab` needs Darwin `sandbox-exec`; `internal/portplan`'s
+   derive-reproduction test is vendor-bound, see the owner decision under P0).
+   Read results per package: every other package must pass, and those two must
+   fail with exactly those typed findings and nothing else.
 
    When behaviour-bearing code changed (`rust/ws-core`, `rust/ws-driver`,
    `rust/ws-testee/src`, `rust/ws-oracle-harness`, `java-oracle`), also run the
@@ -125,24 +128,24 @@ PR-to-open in the log; never block the work on it.
 
 ## Priority queue (ordered; each firing takes the first item whose preconditions hold)
 
-- **P0 Environment proof: DONE in iteration 1 (2026-09-02).** Public
+- **P0 Environment proof: DONE (iterations 1 to 3, 2026-09-02).** Public
   differential port 74/74, live Java 74/74; handshake exam port 49/49 and live
   Java 49/49 with the 16 recorded divergences; request sets secret-independent
   and the handshake digest equal to the batch-B record; java-oracle self-test
-  18 pass. Recipe and results are in `CLOUD-ENVIRONMENT.md`. **Residual owner
-  action:** the quarantined Java source archive cannot be fetched here (the
-  session proxy returns 403 for repositories not attached to the session, and
-  attaching `TooTallNate/Java-WebSocket` was denied by the auto-mode
-  classifier). Attach that repository to the environment's GitHub scope, or
-  place the pinned archive at `.quarantine/java-websocket-source-archive.tar.gz`
-  (sha256 `f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4`).
-  Until then `internal/formalplan` and `internal/portplan` tests cannot run
-  here, and any work that needs Java source citations verified stops at this
-  gate.
+  18 pass. The quarantined source archive is reproduced byte-exactly from an
+  anonymous clone and the pinned Temurin JDK 17.0.19+10 is digest-verified and
+  staged; with both, `internal/formalplan` passes and `internal/portplan`
+  reaches its last check. Recipe and results in `CLOUD-ENVIRONMENT.md`.
+  **Owner decision outstanding:** `TestDeriveReproducesCommittedEvidence`
+  byte-compares the regenerated semantic-id oracle report with the committed
+  one, which embeds `"jdk_vendor": "Homebrew"`; the Linux regeneration differs
+  in that line alone (969 declarations identical). Decide whether the check
+  becomes vendor-agnostic or the vendor is pinned as a host requirement. Until
+  then that one test fails on Linux by construction.
 - **P1 Land the merge queue**, strictly one branch per firing, in the
   handoff's order: `claude/us008-restart` (PASS r5) LANDED e7a66a0 in
-  iteration 2 → **next:** `claude/ledger-integrity`
-  (PASS r4) → `claude/us017-ac2` (PASS r4) → `claude/evidence-validation`
+  iteration 2 → `claude/ledger-integrity` (PASS r4) LANDED 2fbad99 on
+  2026-09-02 → **next:** `claude/us017-ac2` (PASS r4) → `claude/evidence-validation`
   (self-review to PASS first) → `claude/post-failure` (PASS r3; lands LAST, it
   collides with `us017-ac2` on `rust/ws-driver`, with `evidence-validation` on
   `assurance/concurrency/results.json`, with `us019` on `rust/ws-testee`) →
@@ -181,7 +184,7 @@ owner-attested scope and Codex's README states its maximum result is
 | --- | --- | --- | --- | --- |
 | US-001 | Promote every immutable laboratory input | passes | PRD done (owner-attested); complete (README) | none |
 | US-002 | Establish the fresh Java authority and Autobahn baseline | passes | PRD done (owner-attested); qualified; attempt budget consumed | none |
-| US-003 | Freeze intake, compatibility, semantic IDs, and port seams | passes | PRD done (owner-attested); referenced | none |
+| US-003 | Freeze intake, compatibility, semantic IDs, and port seams | passes; semantic-id oracle reproduced on Linux with pinned JDK 17.0.19 on 2026-09-02, 969 declarations identical, only `jdk_vendor` differs | PRD done (owner-attested); referenced | owner: vendor-agnostic reproduction check |
 | US-004 | Instantiate the inherited evidence lifecycle | passes | PRD done (owner-attested); 6 files | none |
 | US-005 | Calibrate public, hidden, sealed, and handshake corpora | passes | PRD done (owner-attested); 2 files | none |
 | US-006 | Qualify implementation-linked proof and concurrency seams | passes | PRD done (owner-attested); TLA+ model + Kani backend qualification | none |
@@ -198,7 +201,7 @@ owner-attested scope and Codex's README states its maximum result is
 | US-017 | Drive bounded concurrent commands through one owner | closure receipt in drafts; `us017-ac2` PASS r4 unmerged | PRD done (owner-attested); contract | P1 merge |
 | US-018 | Add thin blocking TCP client and server adapters | passes; fixture made kernel-independent 2026-09-02 | PRD done (owner-attested); contract | receipt correction is owner's |
 | US-019 | Pass both pinned Autobahn conformance modes | `us019-autobahn` 1 ahead; `us019-native-run` BLOCK; AC1 owner gate (AWS) | PRD done (owner-attested); readiness only, no current-subject run | P1 self-review, then owner gate |
-| US-020 | Close Java and Rust differential divergences | not started | PRD done (owner-attested); 4 files | P3 |
+| US-020 | Close Java and Rust differential divergences | ledger-integrity landed 2026-09-02: delta ledger 48 records, 3 supersessions, unledgered_disagreements recomputed = 0 behind `ledger-gates`; public differential 74/74 for port and live Java; not yet judged against the PRD criteria | PRD done (owner-attested); 4 files | P2 gaps, then criteria |
 | US-021 | Close property, fuzz, and runtime evidence | not started | PRD done (owner-attested); 5 files | P3 |
 | US-022 | Pass normalized mutation and protected evaluation | not started | PRD done (owner-attested); 6 files | P3 |
 | US-023 | Freeze the complete parity candidate | not started | PRD done (owner-attested); 9 files; every gate BLOCKED in its own register | P3 |
@@ -240,3 +243,4 @@ a close echo (open, unledgered).
 - 2026-09-02T06:35:20Z iteration 1 (routine): P0 environment proof. Public differential: port 74/74 (harness sha256 414d7e5b…adb9), live Java 74/74 with -Dstdout.encoding=UTF-8 (65/74 without, encoding artefact). Handshake exam: port 49/49 with the runtime field neutralised, live Java 49/49, 16 documented divergences; no non-runtime field differs between the two transcripts; public transcripts differ only in free-text error detail. Requests from two throwaway secrets byte-identical; handshake request digest e00d968f… equals the batch-B record. java-oracle self-test 18 PASS. go build ok; go test fails only in internal/lab (Darwin-only canary) and internal/formalplan + internal/portplan (quarantined Java source: archive 403 via session proxy; add_repo denied by the auto-mode classifier) — OWNER ACTION recorded under P0. No code changed. Next: P1 merge claude/us008-restart. Mainline head dbac020.
 - 2026-09-02T08:30:28Z iteration 2 (routine): P1 landed claude/us008-restart. Forward merge 9096f07 (clean; tree 8d4801a equals the merge-tree dry run), mainline merge e7a66a0 with identical tree. Gates 8/8 exit 0; go build 0; go test 28 ok plus the three known environment packages only (same typed findings as iteration 1). rust/ unchanged, so the differential and exam were not re-run. Record: drafts/self-review/us008-restart-landing.md. Both branches pushed. PRD still absent. Next: P1 claude/ledger-integrity. Mainline head e7a66a0.
 - 2026-09-02T09:19:02Z interactive: PRD pack part 1 of 6 received from HQ via bridge session; stored verbatim at docs/prd-pack/01-structure-and-index.md. Board titles replaced with the canonical child-PRD titles; program context added (master US-008 independent acceptance is the open gate). Acceptance criteria await parts 2 to 6. Mainline head before this commit 70a10bc.
+- 2026-09-02T09:42:25Z interactive (owner approval to proceed): P1 landed claude/ledger-integrity — forward merge f052795, mainline merge 2fbad99, tree 122bd90 equal to the dry run; gates 8/8 + ledger-gates ok, exit 0; differential and exam unchanged to the digest through the port and live Java; go suite 29 ok with the store exported and JDK 17.0.19 on PATH, failing only lab (Darwin canary) and portplan derive-reproduction (jdk_vendor line). Environment: pinned source archive reproduced byte-exactly (git archive | gzip -n -6), Temurin JDK 17.0.19+10 digest-verified and staged, setup script now stages all four pinned Java inputs. PRD pack part 1 committed earlier; this cloud session cannot message the bridge session back. Record: drafts/self-review/ledger-integrity-landing.md. Next: P1 claude/us017-ac2. Mainline head 2fbad99.

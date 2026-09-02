@@ -27,6 +27,13 @@
 #   "build-under-MSRV is a hard requirement and cannot execute, so the gate
 #   FAILS rather than passing pending". A session carrying only the
 #   pre-installed rustc cannot pass `make -C rust gates`.
+#   The four pinned Java inputs the Go suites and the live Java oracle need,
+#   staged under ~/.cache/verified-java-websocket-port/quarantine/ and
+#   digest-verified: the Java-WebSocket 1.6.0 jar, its SLF4J API, the upstream
+#   source archive (reproduced with git archive, since the session proxy
+#   refuses GitHub archive downloads), and the Temurin JDK 17.0.19+10 that
+#   internal/portplan requires. Copy that directory to .quarantine/ in a
+#   session. See CLOUD-ENVIRONMENT.md, "Pinned Java inputs".
 
 set -uo pipefail
 
@@ -96,16 +103,65 @@ install_go() {
   rm -f "/tmp/${tarball}"
 }
 
-# The two installs are independent, so run them concurrently to stay inside the
-# five-minute budget. Both return zero even on a failed non-essential step; a
+# Pinned Java inputs, staged outside the checkout because the checkout is
+# cloned fresh per session. Every file is verified against its pin here, and
+# again by the code that consumes it, so a partial or corrupted download is
+# discarded rather than kept. Nothing here is fatal.
+STAGE="${HOME:-/root}/.cache/verified-java-websocket-port/quarantine"
+fetch_pinned() { # url dest sha256
+  if [ -f "$2" ] && [ "$(sha256sum "$2" | cut -c1-64)" = "$3" ]; then echo "present: $(basename "$2")"; return 0; fi
+  if ! curl -sSfL -o "$2.part" "$1"; then echo "WARNING: fetch failed: $1"; rm -f "$2.part"; return 0; fi
+  if [ "$(sha256sum "$2.part" | cut -c1-64)" = "$3" ]; then mv "$2.part" "$2"; echo "verified: $(basename "$2")"
+  else echo "WARNING: digest mismatch, discarded: $1"; rm -f "$2.part"; fi
+}
+stage_java_inputs() {
+  echo "--- pinned java inputs -> ${STAGE} ---"
+  mkdir -p "${STAGE}"
+  fetch_pinned https://repo1.maven.org/maven2/org/java-websocket/Java-WebSocket/1.6.0/Java-WebSocket-1.6.0.jar \
+    "${STAGE}/Java-WebSocket-1.6.0.jar" eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f
+  fetch_pinned https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar \
+    "${STAGE}/slf4j-api-2.0.13.jar" e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9
+  # GitHub builds source archives with `git archive` and gzip level 6, so the
+  # pinned archive is reproduced from an anonymous shallow clone and checked
+  # against evidence/intake/source-pins.json. Verified byte-exact 2026-09-02.
+  local sha=da3cf2a777aed862f2f5b5cf060cae7969958667
+  local pin=f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4
+  local archive="${STAGE}/java-websocket-source-archive.tar.gz"
+  if [ -f "${archive}" ] && [ "$(sha256sum "${archive}" | cut -c1-64)" = "${pin}" ]; then
+    echo "present: java-websocket-source-archive.tar.gz"
+  else
+    local clone; clone="$(mktemp -d)"
+    if git clone -q --depth 1 https://github.com/TooTallNate/Java-WebSocket "${clone}/jws" \
+       && git -C "${clone}/jws" fetch -q --depth 1 origin "${sha}"; then
+      git -C "${clone}/jws" archive --format=tar --prefix="Java-WebSocket-${sha}/" "${sha}" | gzip -n -6 > "${archive}.part"
+      if [ "$(sha256sum "${archive}.part" | cut -c1-64)" = "${pin}" ]; then
+        mv "${archive}.part" "${archive}"; echo "verified: java-websocket-source-archive.tar.gz (reproduced)"
+      else echo "WARNING: reproduced archive digest mismatch, discarded"; rm -f "${archive}.part"; fi
+    else echo "WARNING: could not clone the pinned upstream to reproduce the archive"; fi
+    rm -rf "${clone}"
+  fi
+  # Temurin JDK 17.0.19+10: internal/portplan refuses any other javac version.
+  local jdk="${STAGE}/OpenJDK17U-jdk_x64_linux_hotspot_17.0.19_10.tar.gz"
+  fetch_pinned 'https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.19%2B10/OpenJDK17U-jdk_x64_linux_hotspot_17.0.19_10.tar.gz' \
+    "${jdk}" d8afc263758141a66e0e3aafc321e783f7016696f4eaea067d340a269037d331
+  if [ -f "${jdk}" ] && [ ! -x "${STAGE}/jdk-17.0.19+10/bin/javac" ]; then
+    tar -xzf "${jdk}" -C "${STAGE}" || echo "WARNING: jdk extract failed"
+  fi
+}
+
+# The installs are independent, so run them concurrently to stay inside the
+# five-minute budget. All return zero even on a failed non-essential step; a
 # genuine Rust failure is reported by the verification block below rather than
 # aborting here, so a session still starts and can be diagnosed interactively.
 install_rust &
 RUST_PID=$!
 install_go &
 GO_PID=$!
+stage_java_inputs &
+JAVA_PID=$!
 wait "${RUST_PID}" || echo "WARNING: rust install returned non-zero"
 wait "${GO_PID}"   || echo "WARNING: go install returned non-zero"
+wait "${JAVA_PID}" || echo "WARNING: java input staging returned non-zero"
 
 # PATH for login shells. The session shell already carries /root/.cargo/bin
 # and /usr/local/go/bin; this entry only matters for a shell that does not.
@@ -137,6 +193,8 @@ echo "go:      $(go version 2>&1 || echo MISSING)"
 echo "java:    $(java -version 2>&1 | head -1 || echo MISSING)"
 echo "mvn:     $(mvn --version 2>&1 | head -1 || echo MISSING)"
 echo "docker:  $(docker --version 2>&1 || echo MISSING)"
+echo "staged java inputs: $(ls "${STAGE}" 2>/dev/null | tr '\n' ' ')"
+echo "jdk17:   $("${STAGE}/jdk-17.0.19+10/bin/javac" -version 2>&1 | grep -v JAVA_TOOL_OPTIONS || echo MISSING)"
 
 if rustup toolchain list 2>/dev/null | grep -q "^${RUST_CHANNEL}"; then
   echo "OK: MSRV toolchain ${RUST_CHANNEL} is installed via rustup, so the msrv gate can execute"
