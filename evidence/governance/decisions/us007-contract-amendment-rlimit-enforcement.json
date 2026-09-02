@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-authorized-inherited-contract-amendment",
+  "plane": "verified-java-websocket-port-claude (Claude parallel authority plane)",
+  "story": "US-007",
+  "authorized_at": "2026-08-26T02:35:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner explicit AskUserQuestion decision 2026-08-26T02:35Z ('Redesign enforcement (Recommended)') after being shown that sbx v0.39.0 runs sandboxed workloads with Docker default capabilities (no CAP_SYS_ADMIN) and a read-only cgroupfs, so the inherited requirement of in-sandbox kernel-cgroup envelope enforcement cannot be satisfied without weakening sandbox isolation. Owner elected to amend the enforcement mechanism rather than change the sandbox security posture.",
+  "amendment": {
+    "from": "The per-workload envelope (CPU-time, memory, PID, FD, output, workspace/disk, wall) must be imposed by the in-sandbox supervisor via kernel cgroup v2 controllers it creates as parent of each hostile workload; self-applied canary limits and a launcher-authored boolean are insufficient.",
+    "to": "The per-workload envelope must be imposed EXTERNALLY TO EACH HOSTILE WORKLOAD by the supervisor acting as the workload's parent, using kernel-enforced POSIX resource limits set BEFORE exec that the child cannot raise (RLIMIT_CPU, RLIMIT_AS, RLIMIT_DATA, RLIMIT_NPROC, RLIMIT_NOFILE, RLIMIT_FSIZE), a parent-owned wall-clock deadline with SIGKILL, and observation derived from the parent's wait4/getrusage and the kill signal — never from a workload-authored value or boolean. This preserves the contract's substance (kernel enforcement, external to the workload, self-applied limits insufficient) while using primitives valid under sbx's unprivileged posture. The outer CPU/memory envelope remains imposed by sbx at sandbox creation (--cpus/--memory).",
+    "unchanged_invariants": [
+      "Enforcement is kernel-enforced, not a workload-authored boolean or self-applied canary limit",
+      "Enforcement is imposed by the supervisor as parent, external to the hostile workload, before the workload runs",
+      "Every receipt binds runtime, template, policy, limits, roots, control-plane closure, cleanup, and post-removal absence",
+      "Deny-all network, secret/protected-store absence, fail-closed capture, sbx rm cleanup, post-removal absence all still required and proven",
+      "Assurance stays OWNER_ATTESTED_NOT_INDEPENDENT, independent_review_claimed false; production/signing/publication false",
+      "No Autobahn rerun"
+    ]
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

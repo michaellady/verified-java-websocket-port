@@ -356,13 +356,42 @@ fn non_loopback_addresses_are_refused() {
 fn stalled_peer_reader_trips_the_bounded_write_deadline() {
     // REAL socket backpressure (US-018 AC2 slow reader, review round 2):
     // the peer completes a genuine ws_core handshake and then STOPS READING
-    // FOREVER. The client floods 48 x 64 KiB binary messages (3 MiB, under
-    // the core's 4 MiB output ceiling and 64 KiB message limit); loopback
-    // kernel socket buffers (macOS ~128 KiB snd + ~128 KiB rcv defaults;
-    // std cannot shrink SO_SNDBUF/SO_RCVBUF, so the kernel default IS the
-    // documented bound) absorb well under that, the socket write actually
-    // blocks, and the bounded write deadline must fire with the typed
-    // WriteStalled outcome instead of hanging forever.
+    // FOREVER. A producer thread keeps the bounded command queue topped up
+    // with 64 KiB binary messages (the core's message limit) for as long as
+    // the adapter runs, so the kernel -- not a flood size chosen in advance
+    // -- decides when the socket write stops making progress. Once the
+    // loopback socket buffers are exhausted the write actually blocks, and
+    // the bounded write deadline must fire with the typed WriteStalled
+    // outcome instead of hanging forever.
+    //
+    // Why the flood is open-ended (fixture change 2026-09-02): the original
+    // fixture sent a fixed 48 x 64 KiB (3 MiB), sized against macOS
+    // loopback defaults of ~128 KiB send + ~128 KiB receive. Linux autotunes
+    // the send buffer up to net.ipv4.tcp_wmem[2] (4 MiB by default): a
+    // Claude Code cloud host (Linux 6.18 x86_64) absorbed 4.05 MiB of a
+    // never-read loopback connection under this adapter's own write pattern
+    // before the first write blocked, so the 3 MiB flood drained without
+    // ever stalling, the client idled on read timeouts, and when the peer's
+    // 60 s hold expired and dropped a socket with unread data the kernel
+    // answered with RST -- SocketError("ConnectionReset") instead of
+    // WriteStalled. The US-018 closure receipt's Linux legs ran inside
+    // Docker linuxkit VMs and did not meet that profile. std cannot shrink
+    // SO_SNDBUF/SO_RCVBUF, so the kernel default IS the documented bound;
+    // feeding until the kernel refuses is the only fixture that holds on
+    // every buffer size. The property under test is unchanged.
+    //
+    // Budget note: the core's max_output_bytes is not enforced on the send
+    // path; what bounds an open-ended flood are the per-connection scenario
+    // budgets max_frames and max_actions (default 64 each, derive.go
+    // fidelity). At the defaults the core stops after 64 frames (4.0 MiB on
+    // the wire), which this kernel absorbs with ~50 KiB to spare, and every
+    // later command becomes a Rejected disposition that the adapter loop
+    // drops without touching the socket -- so nothing ever stalled. The
+    // client config below raises both budgets to their ceilings: 1024
+    // actions x 64 KiB is 64 MiB of headroom, sixteen times the Linux
+    // default send-buffer cap. The driver applies the next queued command
+    // only after the offered write drains, so pending output never exceeds
+    // one message however long the producer runs.
     //
     // Java-fidelity note: shipped Java has NO socket-layer write deadline —
     // WebSocketClient.WebsocketWriteThread blocks in ostream.write()
@@ -370,7 +399,8 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
     // bound is the adapter-layer connectionLostTimeout keepalive. The
     // bounded write deadline here is US-018 adapter SAFETY policy (AC2
     // bounded write resources), a disclosed divergence, not core protocol.
-    use std::sync::mpsc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::{Arc, mpsc};
     use std::time::Instant;
 
     let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
@@ -417,10 +447,13 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
     });
 
     let mut stream = TcpStream::connect(address).expect("connect");
-    let (sender, mut driver) = ws_driver::connection_driver(
-        ConnectionConfig::default(),
-        ws_core::connection::Role::Client,
-    );
+    let client_config = ConnectionConfig::builder()
+        .max_actions(1024)
+        .max_frames(4096)
+        .build()
+        .expect("ceiling-valued scenario budgets are a valid config");
+    let (sender, mut driver) =
+        ws_driver::connection_driver(client_config, ws_core::connection::Role::Client);
     driver
         .begin_client_handshake("/chat", "localhost")
         .expect("handshake start");
@@ -438,13 +471,35 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
         &bounds,
         &mut report,
     ));
-    for _ in 0..48 {
-        sender
-            .try_send(ws_core::LocalCommand::SendBinary {
+    // Producer: refill the bounded queue (capacity 64) whenever the owner
+    // drains it, through the same try-send-only handle real producers use.
+    // A refusal (full or momentarily contended) is retried after a short
+    // yield; the flag stops the producer once the adapter has returned.
+    let stop = Arc::new(AtomicBool::new(false));
+    let producer = {
+        let sender = sender.clone();
+        let stop = Arc::clone(&stop);
+        thread::spawn(move || {
+            let message = || ws_core::LocalCommand::SendBinary {
                 data: vec![0x42u8; 65_536],
-            })
-            .expect("command queue admits the flood (capacity 64)");
-    }
+            };
+            let mut admitted: u64 = 0;
+            let mut next = message();
+            while !stop.load(Ordering::Acquire) {
+                match sender.try_send(next) {
+                    Ok(()) => {
+                        admitted += 1;
+                        next = message();
+                    }
+                    Err(refused) => {
+                        next = refused.command;
+                        thread::sleep(Duration::from_micros(200));
+                    }
+                }
+            }
+            admitted
+        })
+    };
     let started = Instant::now();
     let mut policy = ws_testee::io_loop::ObserveOnly;
     ws_testee::io_loop::drive_connection(
@@ -456,14 +511,17 @@ fn stalled_peer_reader_trips_the_bounded_write_deadline() {
         &mut report,
     );
     let elapsed = started.elapsed();
+    stop.store(true, Ordering::Release);
+    let admitted = producer.join().expect("producer thread");
     let _ = release_tx.send(());
     peer.join().expect("peer thread");
 
     assert_eq!(
         report.outcome,
         LoopOutcome::WriteStalled,
-        "stalled write must trip the typed deadline outcome: {}",
-        report.summary()
+        "stalled write must trip the typed deadline outcome: {} (producer admitted {admitted} x 64 KiB commands; {} polls in {elapsed:?})",
+        report.summary(),
+        report.polls
     );
     assert!(!report.clean());
     assert!(

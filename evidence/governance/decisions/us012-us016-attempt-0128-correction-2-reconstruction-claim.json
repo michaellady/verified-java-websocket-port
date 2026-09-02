@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "attempt-correction-sidecar",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "corrects": "protected/us012-us016-attempt-0128-correction-sandbox-reconciliation.json",
+  "corrects_field": "$.reconstruction_guarantee",
+  "correction_mechanism": "The protected store is immutable. The record being corrected is itself a correction sidecar, and it declares that immutability in its own text; editing it one round later to fix its wording would break the discipline it invokes. This is therefore a NEW file that SUPERSEDES the named field. A reader of the first sidecar must read this one alongside it, exactly as a reader of the original authorization record must read the first sidecar.",
+  "supersedes_chain": [
+    "protected/us012-us016-attempt-0128-owner-authorization.json",
+    "protected/us012-us016-attempt-0128-correction-sandbox-reconciliation.json",
+    "this file"
+  ],
+  "recorded_at": "2026-08-28T01:28:46Z",
+  "recorded_at_provenance": "Captured from `date -u` immediately before writing this record (standing no-estimates rule).",
+  "raised_by": "Adversarial review session 01a045f1-8c87-7db2-860f-a9db0e9e325c, BLOCKING 2.",
+  "finding_verbatim": "protected/us012-us016-attempt-0128-correction-sandbox-reconciliation.json:84 claims readers can determine exactly what ran and in what order 'without taking prose on trust,' but no evidence from ordinals 1-2 survives; rebuilding proves the source defects, not those historical executions, contradicting the permanent-gap disclosure.",
+  "finding_accepted": true,
+  "what_was_wrong": "The sidecar's confidence claim did not match its own evidence. It asserted a reader could establish what ran WITHOUT taking prose on trust, and then two paragraphs later declared that the output bytes of ordinals 1 and 2 are gone and unrecoverable. Both cannot be true. Reproducing the defects at commits 8f19e2b and 9012a58 demonstrates that those commits were DEFECTIVE; it does not demonstrate that the two historical executions happened, when they happened, or what they emitted. The overclaim was mine, it was internally contradictory, and it is corrected here by weakening the CLAIM rather than by manufacturing evidence.",
+
+  "superseded_text": {
+    "claim": "A reader can determine exactly what ran, in what order, and which artifacts came from which sandbox, WITHOUT taking prose on trust.",
+    "also_superseded": [
+      "Ordinal 1 field what_a_reader_CAN_still_verify_independently: 'The failure itself is REPRODUCIBLE FROM COMMITTED SOURCE, which is stronger than a retained log.' The clause 'which is stronger than a retained log' is a second overclaim in the same family and is withdrawn: source-level reproduction and a retained execution log establish different things, and for auditing a historical run the retained log is the stronger artifact, which is precisely what is missing.",
+      "Ordinal 2 field what_a_reader_CAN_still_verify_independently, to the extent it implies the historical run is verifiable. It is not."
+    ]
+  },
+
+  "replacement_text": {
+    "claim": "Evidence quality is SPLIT, and unevenly. Ordinal 3 is independently auditable end to end. Ordinals 1 and 2 are NOT: for those two sandboxes a reader MUST take this prose on trust, because their output bytes no longer exist and nothing committed records what they emitted.",
+    "what_a_reader_can_establish_without_trusting_prose": [
+      "Everything about ordinal 3 (us012-us016-tlc-0128c). All 30 output files are committed twice, in evidence/formal/us012-us016-model-check-0128/ and mirrored in protected/us007-sbx-output-live-0128/ with the in-sandbox digest manifest. Its driver-stdout.txt carries DIGEST lines for the tool, the manifest, and every staged and post-run model file, plus one RESULT line per invocation, and the formalplan validator re-parses that log and the TLC receipts on every run and blocks on any disagreement with the results documents.",
+      "That EVERY published number originates from ordinal 3, because ordinals 1 and 2 contributed zero committed artifacts. This is verifiable by inspection of what is committed, not by testimony.",
+      "That commits 8f19e2b9d7ba4f42fe47fa4198702c6f1bf47d88 and 9012a58f61899df0db708660a47654a0e4c26c23 contain the two defects described. Checking out those commits and reading or running cmd/tlcdriver establishes the DEFECT CLASSES."
+    ],
+    "what_a_reader_must_take_on_trust": [
+      "That sandbox us012-us016-tlc-0128 was ever created, that the driver was invoked in it, and that it exited 1 at manifest decode having started no java process.",
+      "That sandbox us012-us016-tlc-0128b was ever created, that it ran the full sweep, and that its driver mislabelled exactly three action-property kills as survivors.",
+      "The ordering and timing of all three instantiations relative to one another.",
+      "In short: the EXISTENCE and CONDUCT of ordinals 1 and 2 rest on this record's word alone."
+    ],
+    "why_source_reproduction_is_not_a_substitute": "Rebuilding at 8f19e2b shows that a driver built from that commit rejects the committed manifest. It does not show that such a driver was ever built, transferred into a sandbox, or executed. A defect class is a property of source code; an execution is an event. Committed source can establish the former and can never establish the latter. Presenting the first as if it discharged the second is the error being corrected.",
+    "permanent_gap": "UNCHANGED AND NOT SOFTENED. The literal output bytes of ordinals 1 and 2 are gone and are not recoverable. A reader can reproduce the failures; a reader cannot audit those runs' actual output. That gap is permanent for this attempt and no later work can close it."
+  },
+
+  "what_was_deliberately_not_done": [
+    "The lost artifacts were NOT reconstructed. Their text survives in the working session transcript and could have been pasted into files that would look like receipts; doing so would fabricate evidence for executions nobody can now verify, and would be worse than the gap it papered over.",
+    "The permanent-gap language was NOT softened, per the review's explicit instruction and independently because softening it is what created this finding.",
+    "No new authority was sought and no published number changed. This corrects a sentence."
+  ],
+
+  "unchanged_from_the_first_sidecar": "Everything outside $.reconstruction_guarantee stands: the two self-reported constraint violations, the per-sandbox ledger, the statement that all published numbers come from ordinal 3, the restored one-sandbox-per-attempt-id discipline, and the three required-before-next-attempt items.",
+
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "signing": false,
+  "publication": false,
+  "driver": "claude-fable-5"
+}

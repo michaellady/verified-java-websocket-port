@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "fresh-generic-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude parallel authority plane)",
+  "attempt_id": "us007-sbx-output-live-0103",
+  "sandbox_name": "us007-resource-envelope-0103",
+  "target_commit": "870aac28139604e217ae44469e679557994f7a0d",
+  "scope": "ONE_GENERIC_NON_AUTOBAHN_PROTECTED_SBX_ATTEMPT",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-26T02:10:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner standing iteration approval ('I approve of you running any tests you need and iterating') plus owner explicit approval, after two clarifying questions verified against Codex's live tree, to remove the globally-scoped Docker sandbox 'openai' service secret ('Yes, remove it', 2026-08-26T02:05Z). Attempt 0102 was BLOCKED by a genuine SBX_INSPECT_MISMATCH finding: the daemon attached a second secret (openai, global scope) to the sandbox, which the acceptance criteria forbid. Remediation was environmental, not validator loosening: `sbx secret rm openai --force` executed and the store verified empty. Recorded owner decisions, not independent attestations.",
+  "predecessor_attempts": [
+    {"attempt_id": "us007-sbx-output-live-0101", "state": "BLOCKED inspect mismatch + absence-validator defect; sandbox created and removed; receipts immutable"},
+    {"attempt_id": "us007-sbx-output-live-0102", "state": "BLOCKED SBX_INSPECT_MISMATCH: retained diag-inspect.json shows extra global 'openai' secret attached by daemon; cleanup fully clean (absence validator fix verified live); receipts immutable"}
+  ],
+  "environment_change": "Global Docker sandbox service secret 'openai' removed with owner approval; value never read or displayed by the driver (CLI masks it); owner can re-add via `sbx secret set openai`.",
+  "driver": "claude-fable-5",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "constraints": [
+    "One live attempt under this authorization; failures preserved immutably",
+    "No Autobahn rerun of any kind",
+    "Codex-plane ledger, nonces, receipts, and attempt dirs remain untouched",
+    "production=false, signing=false, publication=false"
+  ],
+  "compiled_identity": {
+    "host_operator_digest": "sha256:5564d35c71d4b9ecbc9a55f945c5ac3add873c45a9e434c29af7ed54f9d9ed0a",
+    "linux_supervisor_digest": "sha256:ba55c0730ffca801dc4cdd2ec7c87b15ac1c414057ff19256a30b2eee72756e1",
+    "owner_anchor_digest": "sha256:0887fbbf407915fe211f82659b575d7d02e95f50862eddbc10b011be433324a4",
+    "owner_public_key_digest": "sha256:441147ea2da5e63d2411bc01242153c86a81022935635ca8edad494416055f22",
+    "role_snapshot_digest": "sha256:11cacdccca949676aa712d58575995c5eeb041aa9e1cc4adcf279add37ecee39",
+    "revocation_snapshot_digest": "sha256:bca86576c90f52d97677fa4be0783a050383aef0edace19bbec7b60fb4665459",
+    "sbx_cli_digest": "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf",
+    "source_clone_tree": "4937f8fab01300b542ca4dd23f90f6202ed3f268"
+  }
+}

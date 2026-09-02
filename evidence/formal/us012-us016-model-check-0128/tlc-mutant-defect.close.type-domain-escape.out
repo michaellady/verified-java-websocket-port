@@ -1,0 +1,47 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+TLC2 Version 2026.08.21.155922 (rev: 9787e65)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 59 and seed 337560902128504534 with 1 worker on 2 cores with 512MB heap and 64MB offheap memory [pid: 610] (Linux 7.0.12 aarch64, Ubuntu 25.0.3 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/agent/tlc/work/mut/defect.close.type-domain-escape/CloseModel.tla
+Parsing file /tmp/tlc-16014247615059789988/Integers.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-16014247615059789988/_TLCTrace.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-16014247615059789988/Naturals.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-16014247615059789988/TLC.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-16014247615059789988/TLCExt.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-16014247615059789988/Sequences.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-16014247615059789988/FiniteSets.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module CloseModel
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module CloseModel
+Starting... (2026-08-28 00:41:38)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Error: Invariant TypeInvariant is violated by the initial state:
+/\ closeDetail = [ origin |-> "none",
+  code |-> 9999,
+  reason |-> "none",
+  remote |-> FALSE,
+  hsComplete |-> FALSE ]
+/\ refusals = FALSE
+/\ lastInbound = [code |-> 0, class |-> "none", kind |-> "none"]
+/\ state = "NotYetConnected"
+/\ lastSend = [ reason |-> "none",
+  requested |-> 0,
+  normalized |-> 0,
+  outcome |-> "none",
+  reported |-> 0 ]
+/\ terminalEntries = 0
+/\ poisoned = FALSE
+/\ handshakeDone = FALSE
+/\ lastOutbound = [code |-> 0, kind |-> "none", payload |-> "none"]
+
+Finished in 00s at (2026-08-28 00:41:38)

@@ -1,0 +1,464 @@
+package deltaledger
+
+// The public-corpus RFC-divergence census: the TESTS.
+//
+// The rules live in evidence_census.go and run inside cmd/deltaledgerctl, for
+// the reason given at the top of mapping_census_test.go. What is here is the
+// run against the committed tree, plus a discrimination test for each defect
+// review 01a0495e found and this branch reproduced by execution.
+//
+// WHY THE CENSUS EXISTS. The reserved-bit ready-state divergence (us005.pub.0005
+// /final_state) was found by a cross-plane audit reading another plane's
+// manifest by hand. No gate on this plane would have found it. Worse, once
+// found, sweeping the corpus for the same cause showed it was not one scenario
+// but eighteen — so the hand-audit found roughly five percent of the class it
+// had stumbled into.
+//
+// IT IS DELIBERATELY SOURCED FROM OUR EVIDENCE ONLY. The Codex plane holds a
+// comparable artifact, and making our gate read it would couple the planes and
+// let their normative choices silently become ours. The two planes disagree at
+// this exact pointer on purpose; that disagreement has to stay separately
+// auditable.
+
+import (
+	"encoding/json"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/michaellady/verified-java-websocket-port/internal/corpora"
+)
+
+func TestProtocolRejectionClassIsEnumeratedCompletely(t *testing.T) {
+	if err := VerifyProtocolRejectionClass(ledgerTestRepoRoot, Definitions()); err != nil {
+		t.Fatalf("protocol-rejection class: %v", err)
+	}
+}
+
+func TestCensusRowsMatchTheCommittedEvidence(t *testing.T) {
+	if err := VerifyCensusRowsMatchEvidence(ledgerTestRepoRoot); err != nil {
+		t.Fatalf("census versus evidence: %v", err)
+	}
+}
+
+func TestEveryCensusRowIsLedgered(t *testing.T) {
+	if err := VerifyCensusRowsAreLedgered(ledgerTestRepoRoot, Definitions()); err != nil {
+		t.Fatalf("census ledger coverage: %v", err)
+	}
+}
+
+// TestTheClassPredicateSelectsByCauseAndNotByCloseCode is the discrimination
+// proof for review BLOCKING 4.
+//
+// The previous predicate was `outcome==error AND final_state==open AND
+// close_code in {1002,1007,1009}` — a result shape. It enrolled us005.pub.0000,
+// a locally initiated `send_close(999)` with input_bytes 0 and consumed_bytes 0.
+// RFC 6455 section 7.1.7 requires closing only where another algorithm or
+// provision requires _Fail the WebSocket Connection_, and an invalid local API
+// call is not such a provision, so the census's claim that the RFC-strict state
+// there was `closed` was wrong. That false positive is what proves
+// {1002,1007,1009} was never a principled cause boundary.
+func TestTheClassPredicateSelectsByCauseAndNotByCloseCode(t *testing.T) {
+	scenarios, err := ReadPublicScenarios(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read public corpus: %v", err)
+	}
+	byID := map[string]PublicScenario{}
+	for _, scenario := range scenarios {
+		byID[scenario.ScenarioID] = scenario
+	}
+
+	local, exists := byID["us005.pub.0000"]
+	if !exists {
+		t.Fatal("us005.pub.0000 is missing from the public corpus; this test pins its exclusion")
+	}
+	if local.Expected.Error == nil || local.Expected.Error.CloseCode != 1002 {
+		t.Fatal("us005.pub.0000 no longer carries close code 1002; the discrimination this test proves has moved")
+	}
+	if local.Expected.Counts.InputBytes != 0 {
+		t.Fatalf("us005.pub.0000 now reports %d input bytes; it was the zero-inbound local-action case",
+			local.Expected.Counts.InputBytes)
+	}
+	if member, err := InProtocolRejectionClass(local); err != nil || member {
+		t.Fatalf("the class predicate still enrolls us005.pub.0000, a locally initiated send_close(999) with no "+
+			"inbound decode; it is selecting by result shape rather than by cause (member=%v err=%v)", member, err)
+	}
+
+	inbound, exists := byID["us005.pub.0005"]
+	if !exists {
+		t.Fatal("us005.pub.0005 is missing from the public corpus")
+	}
+	if member, err := InProtocolRejectionClass(inbound); err != nil || !member {
+		t.Fatalf("the class predicate no longer enrolls us005.pub.0005, the founding member of the class "+
+			"(member=%v err=%v)", member, err)
+	}
+
+	// Non-vacuity in the other direction: a member's close code is an asserted
+	// consistency property, not a filter, so a hypothetical member carrying
+	// 1008 is still IN the class and must be dealt with rather than dropped.
+	odd := inbound
+	odd.ScenarioID = "us005.pub.9999"
+	odd.Expected.Error = &struct {
+		Code      string `json:"code"`
+		CloseCode int    `json:"close_code"`
+	}{Code: "JAVA_INVALID_DATA", CloseCode: 1008}
+	if member, err := InProtocolRejectionClass(odd); err != nil || !member {
+		t.Fatalf("a decoder rejection carrying close code 1008 is excluded from the class; the close-code set is "+
+			"acting as a membership filter again, which is exactly the defect (member=%v err=%v)", member, err)
+	}
+}
+
+// mixedStepScenario builds a synthetic scenario from an executable core, with
+// its recorded expectation DERIVED from that core rather than hand-written, so
+// a test scenario is the same kind of object the corpus holds. `forge` may then
+// corrupt the recorded counts to model an attacker.
+func mixedStepScenario(t *testing.T, id string, steps []corpora.Step, forge func(*PublicScenario)) PublicScenario {
+	t.Helper()
+	core := corpora.ScenarioCore{
+		Role:         "server",
+		InitialState: "open",
+		Limits: corpora.Limits{
+			MaxInputBytes: 65536, MaxBufferedBytes: 65536, MaxActions: 64,
+			MaxFrames: 64, MaxOutputBytes: 4194304,
+		},
+		Steps: steps,
+	}
+	expected, _, err := corpora.DeriveExpectedAndFailingStep(core)
+	if err != nil {
+		t.Fatalf("%s: derive the expectation from the core: %v", id, err)
+	}
+	line, err := corpora.Scenario{
+		ScenarioID: id, Tier: "public", Family: "synthetic", SeedIndex: 0,
+		Core: core, Expected: expected,
+		ExpectationBasis:  []string{"rfc6455.section-5-2"},
+		ExpectationStatus: corpora.ExpectationStatusReferenceModel,
+	}.CanonicalLine()
+	if err != nil {
+		t.Fatalf("%s: render the scenario: %v", id, err)
+	}
+	var scenario PublicScenario
+	if err := json.Unmarshal(line, &scenario); err != nil {
+		t.Fatalf("%s: decode: %v", id, err)
+	}
+	if err := json.Unmarshal(line, &scenario.Core); err != nil {
+		t.Fatalf("%s: decode core: %v", id, err)
+	}
+	scenario.CommittedLine = string(line)
+	if forge != nil {
+		forge(&scenario)
+	}
+	return scenario
+}
+
+// TestTheClassPredicateDiscriminatesAMixedStepScenario carries the ROUND-2
+// discriminator and the ROUND-3 one, which are different attacks on the same
+// join.
+//
+// ROUND 2. Round one replaced the close-code shape with `counts.input_bytes >
+// 0`, an AGGREGATE over the whole scenario rather than a fact about the step
+// that failed, so a VALID inbound frame followed by a local `send_close(999)`
+// satisfied every conjunct while its error is locally caused. Reproduced by
+// execution before that fix: exactly this scenario was appended to the corpus
+// as us005.pub.0074, enrolled in the census and named by the class record, and
+// `deltaledgerctl --check` returned exit 0.
+//
+// ROUND 3. The round-2 fix derived the failing step FROM `expected.counts` —
+// evidence the scenario's own author writes. Recording `input_bytes=5,
+// actions=0` for that same run makes the bytes prefix the unique match, so the
+// ambiguity refusal never fires and the local failure is enrolled anyway.
+// Reproduced by execution before this fix: FailingStep returned index 0 kind
+// "bytes", InProtocolRejectionClass returned true, LocallyCausedRejections
+// returned nothing, and the full gate exited 0 with the scenario enrolled.
+//
+// Four legs are asserted, and each fails on a different regression: dropping
+// the failing-step binding fails leg 1; deriving the step from counts again
+// fails leg 2; refusing every scenario containing an action fails leg 3;
+// filtering the excluded shape away silently fails leg 4.
+func TestTheClassPredicateDiscriminatesAMixedStepScenario(t *testing.T) {
+	// A valid inbound frame (masked, server role), THEN a local send_close(999)
+	// which is what actually fails.
+	validFrame := "AoFGX5gV7g==" // us005.pub.0001's first step: a valid masked binary fragment.
+	mixedSteps := []corpora.Step{
+		{Kind: "bytes", DataBase64: validFrame},
+		{Kind: "action", Action: "send_close", Code: 999, Reason: "bad"},
+	}
+
+	// LEG 1 (round 2): honest counts, and the run stops on the local action.
+	mixed := mixedStepScenario(t, "us005.pub.9001", mixedSteps, nil)
+	if mixed.Expected.Counts.InputBytes <= 0 {
+		t.Fatal("the mixed scenario must carry inbound bytes, or it does not reproduce the finding")
+	}
+	member, err := InProtocolRejectionClass(mixed)
+	if err != nil {
+		t.Fatalf("classify the mixed-step scenario: %v", err)
+	}
+	if member {
+		t.Fatal("the class predicate enrolls a scenario whose run STOPPED ON A LOCAL ACTION after a valid inbound " +
+			"frame; membership must bind to the failing step")
+	}
+	index, step, err := FailingStep(mixed)
+	if err != nil {
+		t.Fatalf("derive the failing step: %v", err)
+	}
+	if index != 1 || step.Kind != "action" {
+		t.Fatalf("the failing step derived as index %d kind %q, expected index 1 kind \"action\"", index, step.Kind)
+	}
+
+	// LEG 2 (round 3): THE SAME SCENARIO WITH ITS ACTION COUNT UNDERSTATED.
+	// Under the counts-based derivation this uniquely selected the bytes
+	// prefix and was enrolled. It must now be REFUSED — not classified either
+	// way — because the recorded evidence disagrees with the execution.
+	forged := mixedStepScenario(t, "us005.pub.9003", mixedSteps, func(s *PublicScenario) {
+		s.Expected.Counts.Actions = 0
+	})
+	if _, _, err := FailingStep(forged); err == nil {
+		t.Fatal("a scenario that UNDERSTATES its own action count is still classified. The failing step must come " +
+			"from executing the steps, and a recorded expectation that disagrees with that execution must be " +
+			"refused: otherwise the party writing the scenario supplies the evidence that decides membership")
+	}
+	if member, err := InProtocolRejectionClass(forged); member || err == nil {
+		t.Fatalf("the class predicate accepted a scenario whose counts contradict its own execution "+
+			"(member=%v err=%v)", member, err)
+	}
+
+	// LEG 3: the fix is a DISCRIMINATOR and not a blanket refusal of every
+	// scenario containing an action. A local action that SUCCEEDS before the
+	// inbound bytes that fail is still a class member.
+	actionFirst := mixedStepScenario(t, "us005.pub.9002", []corpora.Step{
+		{Kind: "action", Action: "send_text", Text: "hi"},
+		{Kind: "bytes", DataBase64: "oYN0s9jSCOmF"}, // us005.pub.0005: a reserved-bit rejection.
+	}, nil)
+	member, err = InProtocolRejectionClass(actionFirst)
+	if err != nil {
+		t.Fatalf("classify the action-then-bytes scenario: %v", err)
+	}
+	if !member {
+		t.Fatal("a scenario whose run stopped on INBOUND BYTES after a successful local action is excluded; the " +
+			"predicate is refusing action steps rather than binding to the failing step")
+	}
+
+	// LEG 4: the whole gate reports the excluded shape rather than filtering it
+	// away silently.
+	locally, err := LocallyCausedRejections([]PublicScenario{mixed})
+	if err != nil {
+		t.Fatalf("report locally caused rejections: %v", err)
+	}
+	if len(locally) != 1 || locally[0].ScenarioID != "us005.pub.9001" {
+		t.Fatalf("the locally caused rejection is not reported: %v", locally)
+	}
+}
+
+// TestTheCommittedCorpusReDerivesInsideTheGate pins the production binding that
+// round 3 required: the identity check between the committed corpus and its
+// re-derivation used to live only in internal/corpora/committed_test.go, a test
+// binary the release path does not run. ReadPublicScenarios now performs it, so
+// every consumer of the corpus in this package gets it.
+func TestTheCommittedCorpusReDerivesInsideTheGate(t *testing.T) {
+	scenarios, err := ReadPublicScenarios(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("the committed public corpus does not re-derive inside the gate: %v", err)
+	}
+	if len(scenarios) != 74 {
+		t.Fatalf("the public tier is %d scenarios, expected 74", len(scenarios))
+	}
+
+	// Non-vacuity: a corpus with one forged count must be REFUSED by the same
+	// function, so the check above is a check and not a formality.
+	root := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(root, "corpora", "public"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(ledgerTestRepoRoot, PublicCorpusRelativePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	forged := strings.Replace(string(raw), `"counts":{"actions":1,`, `"counts":{"actions":7,`, 1)
+	if forged == string(raw) {
+		t.Fatal("the forge did not apply; the corpus shape this test depends on has changed")
+	}
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(PublicCorpusRelativePath)),
+		[]byte(forged), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ReadPublicScenarios(root); err == nil {
+		t.Fatal("a corpus whose recorded counts disagree with executing its own steps was accepted")
+	}
+}
+
+// TestTheFailingStepDerivationIsUniqueOverTheCommittedCorpus pins that the
+// derivation the class predicate depends on actually resolves for every
+// committed scenario. If a future corpus change makes a scenario ambiguous, the
+// gate refuses it — and this test says so first, with the scenario named.
+func TestTheFailingStepDerivationIsUniqueOverTheCommittedCorpus(t *testing.T) {
+	scenarios, err := ReadPublicScenarios(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read public corpus: %v", err)
+	}
+	for _, scenario := range scenarios {
+		if _, _, err := FailingStep(scenario); err != nil {
+			t.Errorf("%s: %v", scenario.ScenarioID, err)
+		}
+	}
+}
+
+// TestTheCensusRequiresTheExactProposition is the discrimination proof for
+// round-2 finding 2.
+//
+// THE ATTACK, reproduced against the previous rule and READ PASSING before the
+// fix: the observable comparison was guarded by `entry.Pointer == "/final_state"`
+// and nothing required that pointer, so rewriting one row's pointer to
+// `/counts/wire_buffered_bytes` and its recorded_observable to a sentence that
+// matches nothing skipped the comparison entirely. `deltaledgerctl --check`
+// returned exit 0, with enrollment and ledger coverage still passing by
+// scenario id.
+func TestTheCensusRequiresTheExactProposition(t *testing.T) {
+	for _, attack := range []struct {
+		name      string
+		pointer   string
+		value     string
+		mustMatch string
+	}{
+		{
+			name:      "an unrelated but syntactically valid pointer",
+			pointer:   "/counts/wire_buffered_bytes",
+			value:     "this value is asserted of nothing the gate can resolve",
+			mustMatch: "enrols in the protocol-rejection-readystate class but points at",
+		},
+		{
+			name:      "a pointer that does not resolve at all",
+			pointer:   "/a/pointer/that/is/not/there",
+			value:     "open",
+			mustMatch: "does not resolve against the recorded expectation",
+		},
+		{
+			name:      "the right pointer with the wrong value",
+			pointer:   "/final_state",
+			value:     "closed",
+			mustMatch: "census records \"closed\" but the corpus expectation is \"open\"",
+		},
+	} {
+		t.Run(attack.name, func(t *testing.T) {
+			root := degradedRoot(t, func(root string) {
+				path := filepath.Join(root, filepath.FromSlash(CensusRelativePath))
+				raw, err := os.ReadFile(path)
+				if err != nil {
+					t.Fatalf("read census: %v", err)
+				}
+				var document map[string]any
+				if err := json.Unmarshal(raw, &document); err != nil {
+					t.Fatalf("decode census: %v", err)
+				}
+				entries, _ := document["entries"].([]any)
+				if len(entries) == 0 {
+					t.Fatal("census has no entries to attack")
+				}
+				row, _ := entries[0].(map[string]any)
+				row["pointer"] = attack.pointer
+				row["recorded_observable"] = attack.value
+				encoded, err := json.MarshalIndent(document, "", "  ")
+				if err != nil {
+					t.Fatalf("encode census: %v", err)
+				}
+				if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+					t.Fatalf("write census: %v", err)
+				}
+			})
+			err := VerifyCensusRowsMatchEvidence(root)
+			if err == nil {
+				t.Fatal("the census accepted a row whose proposition it never checked; requiring the exact " +
+					"pointer AND value is the whole point")
+			}
+			if !strings.Contains(err.Error(), attack.mustMatch) {
+				t.Fatalf("refused, but not on the substituted proposition; got: %v", err)
+			}
+		})
+	}
+}
+
+// TestCensusCoverageRefusesAnUnrelatedLedgerRecord is the discrimination proof
+// for review BLOCKING 5.
+//
+// THE ATTACK, reproduced against the previous rule and READ PASSING before the
+// fix: repoint every census row's `ledger_delta_id` at the unrelated sequence-1
+// record (a server-handshake missing-Host divergence). The old rule performed
+// set membership on delta ids, so it stayed green. The rule now requires the
+// named record's own hashed preimages to MENTION the scenario.
+func TestCensusCoverageRefusesAnUnrelatedLedgerRecord(t *testing.T) {
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(CensusRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read census: %v", err)
+		}
+		var document map[string]any
+		if err := json.Unmarshal(raw, &document); err != nil {
+			t.Fatalf("decode census: %v", err)
+		}
+		committed, err := ReadCommittedLedger(ledgerTestRepoRoot)
+		if err != nil {
+			t.Fatalf("read committed ledger: %v", err)
+		}
+		unrelated := committed.Records[0].Delta.DeltaID
+		entries, _ := document["entries"].([]any)
+		if len(entries) == 0 {
+			t.Fatal("census has no entries to repoint")
+		}
+		for _, entry := range entries {
+			row, _ := entry.(map[string]any)
+			row["ledger_delta_id"] = unrelated
+		}
+		encoded, err := json.MarshalIndent(document, "", "  ")
+		if err != nil {
+			t.Fatalf("encode census: %v", err)
+		}
+		if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+			t.Fatalf("write census: %v", err)
+		}
+	})
+	err := VerifyCensusRowsAreLedgered(root, Definitions())
+	if err == nil {
+		t.Fatal("census coverage accepted every row pointing at an unrelated record; it is checking that SOMETHING " +
+			"exists rather than that it is the RIGHT something")
+	}
+	if !strings.Contains(err.Error(), "never mention") {
+		t.Fatalf("refused, but not on the semantic binding; got: %v", err)
+	}
+}
+
+// TestTheCensusNamesASchemaThatExists pins review BLOCKING 5's second half: the
+// census pointed at schemas/public-rfc-divergence-census-1.0.0.schema.json while
+// no such file existed, and the decoder ignored both `$schema` and `census_id`,
+// so the missing contract was undetectable.
+func TestTheCensusNamesASchemaThatExists(t *testing.T) {
+	document, err := ReadCensus(ledgerTestRepoRoot)
+	if err != nil {
+		t.Fatalf("read census: %v", err)
+	}
+	if document.CensusID == "" || document.Schema == "" {
+		t.Fatal("the census envelope no longer carries census_id and $schema")
+	}
+	if _, err := os.Stat(filepath.Join(ledgerTestRepoRoot, filepath.FromSlash(CensusSchemaRelativePath))); err != nil {
+		t.Fatalf("the census names a schema that does not exist: %v", err)
+	}
+	// Discrimination: a drifted pointer must fail rather than pass.
+	root := degradedRoot(t, func(root string) {
+		path := filepath.Join(root, filepath.FromSlash(CensusRelativePath))
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read census: %v", err)
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			t.Fatalf("decode census: %v", err)
+		}
+		decoded["$schema"] = "../schemas/a-contract-that-does-not-exist.schema.json"
+		encoded, _ := json.MarshalIndent(decoded, "", "  ")
+		if err := os.WriteFile(path, append(encoded, '\n'), 0o644); err != nil {
+			t.Fatalf("write census: %v", err)
+		}
+	})
+	if _, err := ReadCensus(root); err == nil {
+		t.Fatal("ReadCensus accepted a census naming a schema pointer that drifted")
+	}
+}

@@ -246,7 +246,15 @@ func DecideEndpoint(set SampleSet, bound BoundIdentities) Decision {
 			return decision
 		}
 		if set.RunValidity == nil {
-			return blocked(CodeRunValidityMissing, "MEASURED sample set carries no run-validity observations (background CPU, thermal, power, identity, invalid samples, reference drift are mandatory)")
+			return blocked(CodeRunValidityMissing, "MEASURED sample set carries no run-validity observations (background CPU, thermal, power, identity, invalid samples, reference drift, observed CPU clock are mandatory)")
+		}
+		// The owner-bound host CPU-frequency policy
+		// DOCUMENT_DEFAULTS_RECORD_OBSERVED requires the observed clock
+		// recorded per measured run. A MEASURED record that omits it is
+		// missing a mandatory observation and is BLOCKED — it is never
+		// defaulted, back-filled, or inferred from the host binding.
+		if set.RunValidity.ObservedCPUClock == nil {
+			return blocked(CodeRunValidityMissing, "MEASURED sample set carries no observed-CPU-clock record (the owner-bound host CPU-frequency policy DOCUMENT_DEFAULTS_RECORD_OBSERVED requires the observed clock recorded per run; it is never back-filled)")
 		}
 	default:
 		return blocked("", "unknown provenance label %q (must be %s or %s)", set.ProvenanceLabel, LabelSynthetic, LabelMeasured)
@@ -279,30 +287,46 @@ func DecideEndpoint(set SampleSet, bound BoundIdentities) Decision {
 		return blocked("", "measured pair count %d violates the preregistration (must be exactly %d; missing and extra pairs are forbidden)", len(set.MeasuredPairs), MeasuredPairs)
 	}
 
+	// Run-validity enforcement: mandatory for MEASURED (checked above),
+	// and enforced identically when a synthetic fixture carries
+	// observations so the rules themselves are testable.
+	//
+	// ORDERING IS LOAD-BEARING. Malformed observations are evaluated
+	// BEFORE pair analysis. A malformed mandatory observation means the
+	// required evidence is ABSENT, which is BLOCKED; if analysis ran
+	// first, a set that is BOTH malformed-in-evidence AND unanalyzable
+	// would return INCONCLUSIVE from AnalyzePairs and the missing
+	// evidence would never be reported (review finding: mixed-invalid
+	// input silently downgraded BLOCKED to INCONCLUSIVE). Absence of
+	// evidence must never be maskable by a second, weaker defect.
+	//
+	// The VIOLATION path stays after analysis: a violation is a real
+	// rule result about a well-formed run, and its INCONCLUSIVE decision
+	// carries the computed analysis for the record.
+	var runValidityViolations []string
+	if set.RunValidity != nil {
+		violations, err := EnforceRunValidity(*set.RunValidity)
+		if err != nil {
+			return blocked(CodeRunValidityMissing, "run-validity observations are malformed: %v", err)
+		}
+		runValidityViolations = violations
+	}
+
 	analysis, err := AnalyzePairs(set.MeasuredPairs)
 	if err != nil {
 		return inconclusive("", "analysis fail-closed: %v", err)
 	}
 	decision.Analysis = &analysis
 
-	// Run-validity enforcement: mandatory for MEASURED (checked above),
-	// and enforced identically when a synthetic fixture carries
-	// observations so the rules themselves are testable.
-	if set.RunValidity != nil {
-		violations, err := EnforceRunValidity(*set.RunValidity)
-		if err != nil {
-			return blocked(CodeRunValidityMissing, "run-validity observations are malformed: %v", err)
+	if len(runValidityViolations) > 0 {
+		for range runValidityViolations {
+			decision.Codes = append(decision.Codes, CodeRunValidityViolation)
 		}
-		if len(violations) > 0 {
-			for range violations {
-				decision.Codes = append(decision.Codes, CodeRunValidityViolation)
-			}
-			decision.Outcome = OutcomeInconclusive
-			for _, violation := range violations {
-				decision.Reasons = append(decision.Reasons, "RUN_VALIDITY_VIOLATION "+violation)
-			}
-			return decision
+		decision.Outcome = OutcomeInconclusive
+		for _, violation := range runValidityViolations {
+			decision.Reasons = append(decision.Reasons, "RUN_VALIDITY_VIOLATION "+violation)
 		}
+		return decision
 	}
 
 	if analysis.SampleSD > MaxLogRatioSD {

@@ -1,0 +1,14 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "citation-correction",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "recorded_at": "2026-08-28T01:16:45Z",
+  "recorded_at_provenance": "Captured from date -u immediately before writing; the digest below was read from the real file in the same command.",
+  "finding": "The coordinator repeatedly cited the formal-lane owner-decision record as protected/us012-us016-owner-decisions-2026-08-27-formal.json in agent briefs and review prompts. That filename never existed. The E3 agent flagged it rather than chasing the nonexistent path.",
+  "correct_binding": "protected/us012-us016-owner-decisions-2026-08-28-formal.json (sha256 d7a54e2c5aac48cc9ef1b3afa19d14593555e1fce7cb49fed69484ba24bfc352), containing the two owner decisions: sbx-tlc-standing-authority (ratifying attempt 0127 and granting standing authority for the TLA+/TLC-in-sandbox class) and rejected-close-transition-divergence (MATCH JAVA).",
+  "root_cause": "The record was written with a date -u derived filename just after 00:00Z; the coordinator then paraphrased the date from memory as the prior day. Same failure class as the earlier us010-016 amendment citation error, which was likewise caught by an agent verifying the brief against disk.",
+  "standing_instruction": "Agent briefs must cite protected-store paths by copying them from a directory listing, never from recollection; agents must verify cited paths exist and report mismatches rather than substituting a guess.",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5 (session continued from claude-fable-5)"
+}

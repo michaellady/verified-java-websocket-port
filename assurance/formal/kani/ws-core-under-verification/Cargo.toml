@@ -1,0 +1,30 @@
+# Source-view shim for actual-code verification (US-012 AC5, Kani lane).
+#
+# This crate ADDS NOTHING and COPIES NOTHING. Its [lib] path points directly at
+# the shipped rust/ws-core/src/lib.rs, so `cargo kani` compiles the byte-identical
+# production source files in place, under the crate name `ws_core`.
+#
+# It exists for exactly one reason: the shipped rust/ws-core/Cargo.toml carries
+# `rust-version = 1.95.0` (inherited from [workspace.package]), and cargo refuses
+# to build that package with Kani's own pinned toolchain (nightly-2025-11-21 =
+# rustc 1.93.0-nightly). `rust-version` is a cargo *policy* field with no effect
+# on generated code, so dropping it from this verification-only view changes the
+# compiled program not at all while leaving the shipped pin and the shipped
+# manifest completely untouched.
+#
+# It is NOT a member of the rust/ workspace (it carries its own empty [workspace]
+# table) and it is NOT a dependency of any shipped crate, so it does not appear in
+# `cargo metadata` for rust/ and cannot affect the dependency-inventory or audit gates.
+[workspace]
+
+[package]
+name = "ws-core-under-verification"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[lib]
+name = "ws_core"
+path = "../../../../rust/ws-core/src/lib.rs"
+
+[dependencies]

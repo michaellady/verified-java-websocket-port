@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decisions-us019-us008",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T01:48:41Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior (standing no-estimates rule).",
+  "owner": "mikelady",
+  "decisions": [
+    {
+      "id": "us019-native-x86_64-host",
+      "context": "US-019 AC1 requires the promoted Autobahn image to run 'on native Linux x86_64'. This plane's host is an arm64 Mac; the only x86_64 available locally is Docker binary-translation emulation, which US-018 already disclosed as emulated and never presented as native. An owner-provisioned c7i.xlarge x86_64 instance exists from the US-008 benchmark work.",
+      "decision": "USE THE CLOUD HOST: provision or reuse the owner's c7i.xlarge x86_64 instance to execute the Autobahn conformance suite natively, satisfying AC1 as written. Emulation is not to be presented as native under any circumstance. Standard cloud checks and the plane's existing tenancy proof posture apply; every run digest-verified with exits read from the real processes.",
+      "bounds": [
+        "x86_64 native execution for the AC1-scoped Autobahn runs only; no scope creep into other stories' evidence without a separate decision",
+        "Instance lifecycle and cost are the owner's; the driver reports what it provisions and releases",
+        "All artifacts transferred back digest-verified in both directions"
+      ]
+    },
+    {
+      "id": "us008-restart",
+      "context": "US-008 (benchmark preregistration) is passes=false with a recorded blocker stating the preflight 'remains blocked through US-002/US-003 while US-007 lacks accepted live sbx evidence'. US-002, US-003 and US-007 have all since PASSED, and US-007's live sandbox evidence is accepted, so the stated blocker no longer holds. US-025 depends on US-008.",
+      "decision": "RESTART US-008 NOW IN PARALLEL: resume the story from its recorded state, re-evaluate whether its stated blocker is genuinely discharged by the completed US-002/US-003/US-007 evidence, and drive it toward acceptance off the critical path. If a NEW blocker is found, surface it rather than forcing completion."
+    }
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}
