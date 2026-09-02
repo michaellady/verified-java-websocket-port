@@ -286,7 +286,21 @@ readings against the real binary, all with
 The gate prints both counters side by side on success, deliberately: reading
 either one alone misdescribes the chain.
 
-### 6.2 The deletion matrix
+### 6.2 The rest of the tree
+
+`go test ./... -timeout 35m` finishes at **exit 1** with five failing packages,
+and **none of them is mine**:
+
+| package | status |
+|---|---|
+| `internal/deltaledger` | **ok**, 105.5s — the package this branch changes |
+| `internal/lab`, `internal/portplan`, `internal/formalplan` | FAIL — the three baseline failures named for this environment |
+| `cmd/formalcoverctl`, `internal/formalcoverage` | FAIL — **not** on that list, so I checked: both reproduce identically at this branch's merge base `2c63205` (`the retained evidence/formal/us023-coverage-report.json is not what the evidence derives`), i.e. pre-existing |
+
+`internal/lab`'s failure is `PLATFORM_EXECUTOR_UNSUPPORTED … CONTROLLED_CANARY
+requires Darwin sandbox-exec`, which no change on this branch can reach.
+
+### 6.3 The deletion matrix
 
 **41 attacks, one rule deleted per attack, every one recompiled before running.**
 Each mutation neuters a guard by conjoining `false` to it, which is deletion of
@@ -329,7 +343,7 @@ chain does not say
 
 So the supersession rules are jointly load-bearing, and neither is individually.
 
-### 6.3 The two attacks that did not isolate in the previous round — finished
+### 6.4 The two attacks that did not isolate in the previous round — finished
 
 Both are now isolated at the admission level, and both readings are quoted from
 the process rather than paraphrased.
@@ -363,7 +377,7 @@ the gate accepted an entry whose delta_id agrees with a TAMPERED stored delta_id
 but not with the identity the record's own disagreement digest produces
 ```
 
-### 6.4 Probe coverage
+### 6.5 Probe coverage
 
 Nine top-level tests: two baselines (the committed document passes its own gate;
 every pre-vocabulary record is adjudicated and both counters recompute), one
