@@ -75,20 +75,24 @@ fact below before relying on it; mainline moves.
    go build ./... && go test -count=1 ./...
    ```
 
+   `go test` has three packages that fail on Linux for environment reasons
+   (`internal/lab` needs Darwin `sandbox-exec`; `internal/formalplan` and
+   `internal/portplan` need the quarantined Java source, see the owner action
+   under P0). Read results per package: every other package must pass, and
+   those three must fail with exactly those typed findings and nothing else.
+
    When behaviour-bearing code changed (`rust/ws-core`, `rust/ws-driver`,
    `rust/ws-testee/src`, `rust/ws-oracle-harness`, `java-oracle`), also run the
-   public corpus differential and the live handshake exam, reconstructed from
-   the `pipeline` fields in `rust/ws-oracle-harness/baseline/*.json`:
-
-   ```
-   go run ./cmd/corporactl oracle-requests --root . --protected-root <protected> --tier public --out requests.jsonl
-   rust/target/release/ws-oracle-harness < requests.jsonl > transcript.jsonl
-   go run ./cmd/corporactl evaluate --root . --protected-root <protected> --tier public --transcript transcript.jsonl
-   ```
-
-   Expect 74/74 with zero non-runtime diffs and the exam at 49/49. Iteration 1
-   resolves `<protected>` from `cmd/corporactl` and confirms both pipelines run
-   in this environment before any behaviour-bearing change is attempted.
+   public corpus differential and the handshake exam through both the port and
+   the live Java oracle, using the recipe verified in iteration 1 and recorded
+   in `CLOUD-ENVIRONMENT.md` under "Running the corpus differential and the
+   handshake exam here": a throwaway 32-byte hex secret in a scratch protected
+   root (public and handshake tiers are secret-independent, proven), the
+   release harness, and the Java oracle run with `-Dstdout.encoding=UTF-8`.
+   Expect the port at 74/74 and 49/49 (runtime field neutralised), live Java at
+   74/74 and 49/49 with 16 documented divergences, and no non-runtime field
+   difference between the two transcripts beyond the free-text error detail.
+   Never run the hidden or sealed tiers against a throwaway secret.
 5. Self-review round, adversarial: vacuous tests (cannot fail), over-claimed
    evidence, evidence not bound to the tree it describes, forbidden symbols,
    piped exits. Record it as `drafts/self-review/<branch>-round-<N>.md` with
@@ -104,12 +108,20 @@ PR-to-open in the log; never block the work on it.
 
 ## Priority queue (ordered; each firing takes the first item whose preconditions hold)
 
-- **P0 Environment proof (iteration 1).** Run the public corpus differential
-  and the live handshake exam unchanged in this environment and record the
-  exact commands and results. No `.quarantine` directory exists here; find how
-  the pinned Java-WebSocket 1.6.0 inputs are materialised (the environment doc
-  allowlists `repo1.maven.org` for it) and record it. Precondition for every
-  behaviour-bearing change.
+- **P0 Environment proof: DONE in iteration 1 (2026-09-02).** Public
+  differential port 74/74, live Java 74/74; handshake exam port 49/49 and live
+  Java 49/49 with the 16 recorded divergences; request sets secret-independent
+  and the handshake digest equal to the batch-B record; java-oracle self-test
+  18 pass. Recipe and results are in `CLOUD-ENVIRONMENT.md`. **Residual owner
+  action:** the quarantined Java source archive cannot be fetched here (the
+  session proxy returns 403 for repositories not attached to the session, and
+  attaching `TooTallNate/Java-WebSocket` was denied by the auto-mode
+  classifier). Attach that repository to the environment's GitHub scope, or
+  place the pinned archive at `.quarantine/java-websocket-source-archive.tar.gz`
+  (sha256 `f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4`).
+  Until then `internal/formalplan` and `internal/portplan` tests cannot run
+  here, and any work that needs Java source citations verified stops at this
+  gate.
 - **P1 Land the merge queue**, strictly one branch per firing, in the
   handoff's order: `claude/us008-restart` (PASS r5) → `claude/ledger-integrity`
   (PASS r4) → `claude/us017-ac2` (PASS r4) → `claude/evidence-validation`
@@ -157,8 +169,8 @@ result; its README states its maximum result is
 | US-007 | Sandbox release firewall, resource supervisor | passes | 1 file | none |
 | US-008 | Benchmark preregistration, confirmation host | not passing; `us008-restart` PASS r5 unmerged | 1 file | P1 merge |
 | US-009 | Rust workspace core, AC1 gates, oracle harness | passes | 1 file | none |
-| US-010 | Client handshake | exam 49/49 (drafts); borrowed batch B | contract + evidence DAG | closure receipt |
-| US-011 | Server handshake | exam 49/49 (drafts); borrowed batch B | contract + frozen cases | closure receipt |
+| US-010 | Client handshake | exam 49/49 (drafts); borrowed batch B; reproduced here 2026-09-02, port and live Java both 49/49 | contract + evidence DAG | closure receipt |
+| US-011 | Server handshake | exam 49/49 (drafts); borrowed batch B; reproduced here 2026-09-02, port and live Java both 49/49 | contract + frozen cases | closure receipt |
 | US-012 | Frame codec, core data path; AC5 actual-code Kani | borrowed batch A; Kani qualified (merged) | contract + codec tests | closure receipt |
 | US-013 | Messages, UTF-8 | borrowed batch A | contract | closure receipt |
 | US-014 | Fragmentation | borrowed batch A | contract | closure receipt |
@@ -206,3 +218,4 @@ a close echo (open, unledgered).
 ## Iteration log (UTC; one line per firing)
 
 - 2026-09-02T05:24:42Z iteration 0 (interactive): fetched all heads; compared planes; built the provisional board; created Routine trig_019dqmkqgWGFkXwSSJrBYXqJ (cron 22 */2 * * *, next 06:22Z); closed PR #3; PRD still to be pasted by the owner. Mainline head 51962e5.
+- 2026-09-02T06:35:20Z iteration 1 (routine): P0 environment proof. Public differential: port 74/74 (harness sha256 414d7e5b…adb9), live Java 74/74 with -Dstdout.encoding=UTF-8 (65/74 without, encoding artefact). Handshake exam: port 49/49 with the runtime field neutralised, live Java 49/49, 16 documented divergences; no non-runtime field differs between the two transcripts; public transcripts differ only in free-text error detail. Requests from two throwaway secrets byte-identical; handshake request digest e00d968f… equals the batch-B record. java-oracle self-test 18 PASS. go build ok; go test fails only in internal/lab (Darwin-only canary) and internal/formalplan + internal/portplan (quarantined Java source: archive 403 via session proxy; add_repo denied by the auto-mode classifier) — OWNER ACTION recorded under P0. No code changed. Next: P1 merge claude/us008-restart. Mainline head dbac020.
