@@ -287,6 +287,16 @@ Current count in the tree: **0**.
    listed here for completeness. None exists in the tree.
 7. **Go, Java and shell fixtures are not scanned at all.** The class is not
    Rust-specific; the gate is.
+8. **A waiver comment can reach three lines down.** The lookback exists so a
+   marker can sit above a multi-line `assert!`; a second guard written within
+   those three lines would be waived by the first one's justification. The
+   waiver count would still go up, so the ceiling still catches it, but the
+   printed `why=` would belong to the wrong guard.
+9. **A nested loop's guard is attributed to the outermost enclosing loop.**
+   Findings are deduplicated by the position of the comparison, and the first
+   loop encountered wins the `loop=` field. The file and line of the guard
+   itself are always right; only the enclosing-loop annotation can point at an
+   outer loop.
 
 ### False positives I know of (the noisy direction)
 
@@ -408,8 +418,10 @@ All exit codes read from the process.
 `make -C rust gates` detail: fmt-check and `clippy -D warnings` clean;
 `fixture-liveness-guard result=PASS` with `files=43 loops=209 violations=0
 waivers=0`; `cargo test --workspace --all-targets --all-features` and
-`cargo test --workspace --release` both clean, every `test result:` block `ok`
-and 0 failed; `ac1-gates verdict=PASS gates_passed=8/8`; `canaries verdict=PASS`
+`cargo test --workspace --release` both clean, **77** `test result: ok` blocks
+and **0** FAILED — the same count `drafts/self-review/post-failure-landing.md`
+records for mainline, so nothing was lost;
+`ac1-gates verdict=PASS gates_passed=8/8`; `canaries verdict=PASS`
 (polarity proven, good-scaffold 0/0/0, bad-scaffold 1/101);
 `adapter-linkage verdict=PASS` over 5 production sources; ledger-gates `ok` on
 all four lines (49 records, integrity verified, 6 governance digests recomputed
