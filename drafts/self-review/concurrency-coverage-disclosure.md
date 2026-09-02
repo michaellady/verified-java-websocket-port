@@ -457,3 +457,14 @@ Recorded so the omissions are not read as coverage.
 - `drafts/self-review/evidence-validation-round-5.md` was **not** edited. Its
   "71 inert of 327" is that round's reading and is correct as history; the
   current reading lives in `crInertLeaves` and here.
+- The owner decision `us017-c6-layer-split-owner-decision-2026-08-28` was
+  **not** edited, and neither was anything else under
+  `evidence/governance/decisions`. Its carried follow-up BP1 is cited, and its
+  numbers describe the tree of 2026-08-28 accurately as the history they are.
+- No mainline merge and no mainline push. The branch stands on its own and the
+  landing decision is not this unit's to make.
+- The whole-tree `go test ./...` was not run to completion here. The packages
+  this branch touches were: `internal/formalplan` (the concurrency-results
+  suites) and `internal/linkage`. The baseline failures this environment
+  carries — `internal/lab`, `internal/portplan` — were not investigated and are
+  not this branch's.
