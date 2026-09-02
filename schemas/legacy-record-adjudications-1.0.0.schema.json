@@ -143,12 +143,17 @@
           },
           "contests_record_basis": {
             "type": "boolean",
-            "description": "True when the record's OWN sealed RFC basis or Java observation is contradicted by evidence recorded LATER in the chain AND the chain does not already carry the correction. It is a declaration, but it carries a mechanical obligation: a contesting entry must name a supersession_draft that exists under drafts/ledger-proposals/. A record whose correction has already landed (sequences 14-16, superseded by 45-47) is NOT marked here; its entry says so in the argument instead."
+            "description": "True when the record's OWN sealed RFC basis or Java observation is contradicted by evidence recorded LATER in the chain. It is a declaration, and it carries a mechanical obligation with exactly two discharges: name a `supersession_draft` that exists under drafts/ledger-proposals/, or name the `superseded_by_sequence` the chain already carries. AN EARLIER VERSION OF THIS DOCUMENT LEFT SEQUENCES 14-16 UNMARKED and said in their `argument` prose that the chain had already corrected them. That was a finding recorded where nothing checks it: internal/deltaledger.VerifyLegacyAdjudications now re-derives the supersession links from the RECORDS' own hashed rationales and refuses an entry that adjudicates a withdrawn record without saying it is withdrawn."
           },
           "supersession_draft": {
             "type": "string",
             "maxLength": 512,
-            "description": "Repository-relative path to the committed draft proposing the superseding record. Required and must exist when contests_record_basis is true; must be empty otherwise. Nothing on this path appends to the ledger -- corrections are DRAFTED and appending one is an owner decision."
+            "description": "Repository-relative path to the committed draft proposing the superseding record. Must exist under drafts/ledger-proposals/ when named, and may be named only when contests_record_basis is true. Nothing on this path appends to the ledger -- corrections are DRAFTED and appending one is an owner decision."
+          },
+          "superseded_by_sequence": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "The sequence whose record supersedes this one, for a record the chain has ALREADY corrected. Not a label: the gate re-derives the supersession links from the records' own hashed rationales and refuses a value the chain does not say, refuses its absence when the chain records a supersession, and refuses the entry entirely if the class filed here disagrees with the class filed for the superseding record. Absent when the chain records no supersession of this record."
           }
         }
       }

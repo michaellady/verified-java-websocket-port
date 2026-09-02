@@ -244,10 +244,11 @@
       ],
       "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
       "rationale_quote": "DIVERGENCE (limit-total-bytes, live case us005.hs.0046): the RFC-derived model rejects the over-budget handshake; the live pinned Java server (which has no limits) accepted it.",
-      "argument": "The RFC basis this record bound was WRONG and the chain already says so. Sequence 45 supersedes it (evidence/java/ledger-supersessions.json) with the finding that section 10.4 is scoped to FRAMES and to total message size after reassembly, that the opening handshake is neither, and that 'no clause of RFC 6455 mandates a handshake size, header-count or header-line limit'. On the corrected basis the RFC does not determine this observable at all: shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose differently on a point the RFC leaves open. That is underspecified-behavior. The class is taken from the CORRECTED basis rather than from this record's own preimage, and the correction is already in the chain, so no draft is owed.",
+      "argument": "The RFC basis this record bound was WRONG and the chain already says so. Sequence 45 supersedes it (evidence/java/ledger-supersessions.json) with the finding that section 10.4 is scoped to FRAMES and to total message size after reassembly, that the opening handshake is neither, and that 'no clause of RFC 6455 mandates a handshake size, header-count or header-line limit'. On the corrected basis the RFC does not determine this observable at all: shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose differently on a point the RFC leaves open. That is underspecified-behavior. The class is taken from the CORRECTED basis rather than from this record's own preimage. THIS ENTRY CONTESTS THE RECORD IT ADJUDICATES, and discharges that obligation by naming the superseding SEQUENCE rather than a draft: the correction is already appended, so drafting one would be proposing a record the chain has. The gate re-derives the link from the records' own hashed rationales, so superseded_by_sequence=45 is checked against sealed content and not taken on this entry's word.",
       "blocking_question": "",
-      "contests_record_basis": false,
-      "supersession_draft": ""
+      "contests_record_basis": true,
+      "supersession_draft": "",
+      "superseded_by_sequence": 45
     },
     {
       "sequence": 15,
@@ -261,10 +262,11 @@
       ],
       "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
       "rationale_quote": "DIVERGENCE (limit-header-count, live case us005.hs.0047): the RFC-derived model rejects the over-count handshake; the live pinned Java server (no limits) accepted it.",
-      "argument": "The RFC basis this record bound was WRONG and the chain already says so. Sequence 46 supersedes it (evidence/java/ledger-supersessions.json) with the finding that section 10.4 is scoped to FRAMES and to total message size after reassembly, that the opening handshake is neither, and that 'no clause of RFC 6455 mandates a handshake size, header-count or header-line limit'. On the corrected basis the RFC does not determine this observable at all: shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose differently on a point the RFC leaves open. That is underspecified-behavior. The class is taken from the CORRECTED basis rather than from this record's own preimage, and the correction is already in the chain, so no draft is owed.",
+      "argument": "The RFC basis this record bound was WRONG and the chain already says so. Sequence 46 supersedes it (evidence/java/ledger-supersessions.json) with the finding that section 10.4 is scoped to FRAMES and to total message size after reassembly, that the opening handshake is neither, and that 'no clause of RFC 6455 mandates a handshake size, header-count or header-line limit'. On the corrected basis the RFC does not determine this observable at all: shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose differently on a point the RFC leaves open. That is underspecified-behavior. The class is taken from the CORRECTED basis rather than from this record's own preimage. THIS ENTRY CONTESTS THE RECORD IT ADJUDICATES, and discharges that obligation by naming the superseding SEQUENCE rather than a draft: the correction is already appended, so drafting one would be proposing a record the chain has. The gate re-derives the link from the records' own hashed rationales, so superseded_by_sequence=46 is checked against sealed content and not taken on this entry's word.",
       "blocking_question": "",
-      "contests_record_basis": false,
-      "supersession_draft": ""
+      "contests_record_basis": true,
+      "supersession_draft": "",
+      "superseded_by_sequence": 46
     },
     {
       "sequence": 16,
@@ -278,10 +280,11 @@
       ],
       "cited_java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:translateHandshakeHttp",
       "rationale_quote": "DIVERGENCE (limit-header-line, live case us005.hs.0048): the RFC-derived model rejects the over-length header line; the live pinned Java server (no limits) accepted it.",
-      "argument": "The RFC basis this record bound was WRONG and the chain already says so. Sequence 47 supersedes it (evidence/java/ledger-supersessions.json) with the finding that section 10.4 is scoped to FRAMES and to total message size after reassembly, that the opening handshake is neither, and that 'no clause of RFC 6455 mandates a handshake size, header-count or header-line limit'. On the corrected basis the RFC does not determine this observable at all: shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose differently on a point the RFC leaves open. That is underspecified-behavior. The class is taken from the CORRECTED basis rather than from this record's own preimage, and the correction is already in the chain, so no draft is owed.",
+      "argument": "The RFC basis this record bound was WRONG and the chain already says so. Sequence 47 supersedes it (evidence/java/ledger-supersessions.json) with the finding that section 10.4 is scoped to FRAMES and to total message size after reassembly, that the opening handshake is neither, and that 'no clause of RFC 6455 mandates a handshake size, header-count or header-line limit'. On the corrected basis the RFC does not determine this observable at all: shipped Java is unbounded (translateHandshakeHttp reads unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose differently on a point the RFC leaves open. That is underspecified-behavior. The class is taken from the CORRECTED basis rather than from this record's own preimage. THIS ENTRY CONTESTS THE RECORD IT ADJUDICATES, and discharges that obligation by naming the superseding SEQUENCE rather than a draft: the correction is already appended, so drafting one would be proposing a record the chain has. The gate re-derives the link from the records' own hashed rationales, so superseded_by_sequence=47 is checked against sealed content and not taken on this entry's word.",
       "blocking_question": "",
-      "contests_record_basis": false,
-      "supersession_draft": ""
+      "contests_record_basis": true,
+      "supersession_draft": "",
+      "superseded_by_sequence": 47
     },
     {
       "sequence": 17,

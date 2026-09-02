@@ -56,7 +56,16 @@ package deltaledger
 //   - a record whose own sealed RFC-value preimage says the RFC does not
 //     determine the observable may not be classed `java-quirk`, because that
 //     class asserts the RFC IS determinate. This one is checked against the
-//     definition preimage, not against prose.
+//     definition preimage, not against prose;
+//   - a record the CHAIN ITSELF withdraws must be adjudicated as withdrawn. The
+//     supersession links are re-derived from the records' own hashed
+//     rationales, so an entry for a superseded record must set
+//     contests_record_basis and name the superseding sequence, and its class
+//     must equal the class filed for the record that replaced it. Sequences 14,
+//     15 and 16 bound an RFC basis that 45, 46 and 47 corrected; the first
+//     version of this document said so only in the `argument` prose, which is
+//     the one field nothing checks. A finding recorded where nothing checks it
+//     is a footnote, and this is the rule that stops it being one.
 //
 // AND WHAT IT PUBLISHES. records_without_ac3_class is RECOMPUTED over the whole
 // chain — a record is classed if it carries the field OR a sealed entry gives it
@@ -161,10 +170,16 @@ type LegacyAdjudication struct {
 	BlockingQuestion string `json:"blocking_question"`
 	// ContestsRecordBasis marks a record whose own sealed RFC basis or Java
 	// observation is contradicted by evidence recorded LATER in the chain. It
-	// carries an obligation: a contesting entry must name a committed draft
-	// proposing the superseding record.
+	// carries an obligation, and the obligation has exactly two discharges:
+	// name a committed draft proposing the superseding record, or name the
+	// sequence that ALREADY supersedes it in the chain.
 	ContestsRecordBasis bool   `json:"contests_record_basis"`
 	SupersessionDraft   string `json:"supersession_draft"`
+	// SupersededBySequence is the sequence whose record supersedes this one.
+	// It is not a label: the gate re-derives the supersession links from the
+	// RECORDS' own hashed rationales and refuses a value the chain does not
+	// say. Zero means the chain records no supersession for this record.
+	SupersededBySequence int `json:"superseded_by_sequence,omitempty"`
 }
 
 // LegacyAdjudicationsFile mirrors the committed document field for field.
@@ -280,6 +295,22 @@ func VerifyLegacyAdjudications(root string, records []lab.BehaviorLedgerRecord, 
 			"hash-linked, that value pins every byte of records 1-%d, so an adjudication document that names a "+
 			"different one is adjudicating a chain this repository does not have",
 			file.PreVocabularyHead, PreVocabularySequence, head.RecordDigest, PreVocabularySequence)
+	}
+
+	// 1b. THE SUPERSESSION MAP, re-derived from the RECORDS rather than read
+	// from the sidecar that declares it. Three of the forty-nine — 14, 15 and
+	// 16 — bound an RFC basis that records 45, 46 and 47 later corrected, and
+	// the correction is IN the chain. An adjudication of a withdrawn record
+	// that did not say the record was withdrawn would be filing a class under a
+	// basis the chain itself has already refuted, which is precisely the
+	// footnote this rule refuses to let a finding become.
+	supersededBy := map[int]int{}
+	links, linkErr := ReadSupersessionLinks(records)
+	if linkErr != nil {
+		fail("the supersession links cannot be re-derived from the chain: %v", linkErr)
+	}
+	for _, link := range links {
+		supersededBy[int(link.SupersededSequence)] = int(link.SupersedingSequence)
 	}
 
 	// 2. TOTALITY. Exactly one entry per record 1..PreVocabularySequence, in
@@ -442,22 +473,68 @@ func VerifyLegacyAdjudications(root string, records []lab.BehaviorLedgerRecord, 
 			}
 		}
 
-		// 9. A CONTESTED RECORD OWES A DRAFT. The flag is a declaration; the
-		// obligation it carries is not.
+		// 9. A CONTESTED RECORD OWES A CORRECTION, and there are exactly two
+		// ways to owe it: a held draft proposing one, or a superseding record
+		// the chain already carries. The flag is a declaration; the obligation
+		// it carries is not.
+		superseding := supersededBy[entry.Sequence]
 		if entry.ContestsRecordBasis {
-			if entry.SupersessionDraft == "" {
-				fail("%s: contests_record_basis is set but no supersession_draft is named. A legacy record whose "+
-					"own sealed basis is contradicted by later evidence is a finding, and a finding this program "+
-					"records is one with a proposal beside it", where)
-			} else if _, statErr := os.Stat(filepath.Join(root,
-				filepath.FromSlash(entry.SupersessionDraft))); statErr != nil {
-				fail("%s: supersession_draft %s does not exist: %v", where, entry.SupersessionDraft, statErr)
-			} else if !strings.HasPrefix(entry.SupersessionDraft, "drafts/ledger-proposals/") {
-				fail("%s: supersession_draft %s is not under drafts/ledger-proposals/. Corrections are DRAFTED "+
-					"there; nothing on this path appends to the ledger", where, entry.SupersessionDraft)
+			if entry.SupersessionDraft == "" && entry.SupersededBySequence == 0 {
+				fail("%s: contests_record_basis is set but the entry names neither a supersession_draft nor a "+
+					"superseded_by_sequence. A legacy record whose own sealed basis is contradicted by later "+
+					"evidence is a finding, and a finding this program records is one with a correction beside it "+
+					"— drafted, or already in the chain", where)
 			}
-		} else if entry.SupersessionDraft != "" {
-			fail("%s: a supersession_draft is named but contests_record_basis is not set", where)
+			if entry.SupersessionDraft != "" {
+				if _, statErr := os.Stat(filepath.Join(root,
+					filepath.FromSlash(entry.SupersessionDraft))); statErr != nil {
+					fail("%s: supersession_draft %s does not exist: %v", where, entry.SupersessionDraft, statErr)
+				} else if !strings.HasPrefix(entry.SupersessionDraft, "drafts/ledger-proposals/") {
+					fail("%s: supersession_draft %s is not under drafts/ledger-proposals/. Corrections are DRAFTED "+
+						"there; nothing on this path appends to the ledger", where, entry.SupersessionDraft)
+				}
+			}
+		} else {
+			if entry.SupersessionDraft != "" {
+				fail("%s: a supersession_draft is named but contests_record_basis is not set", where)
+			}
+			if entry.SupersededBySequence != 0 {
+				fail("%s: a superseded_by_sequence is named but contests_record_basis is not set", where)
+			}
+		}
+
+		// 9b. THE CHAIN'S OWN SUPERSESSIONS ARE NOT OPTIONAL TO MENTION. The
+		// links are re-derived from the records' hashed rationales, so this is
+		// checked against sealed content and not against the sidecar that
+		// declares the same links.
+		if superseding != 0 {
+			if !entry.ContestsRecordBasis {
+				fail("%s: the chain records this record as SUPERSEDED by sequence %d, but the entry does not set "+
+					"contests_record_basis. An adjudication of a withdrawn record that does not say the record was "+
+					"withdrawn files a class under a basis the chain has already refuted", where, superseding)
+			}
+			if entry.SupersededBySequence != superseding {
+				fail("%s: the entry names superseded_by_sequence %d; the chain's own hashed rationales say this "+
+					"record is superseded by sequence %d", where, entry.SupersededBySequence, superseding)
+			}
+		} else if entry.SupersededBySequence != 0 {
+			fail("%s: the entry names superseded_by_sequence %d, but the chain records no supersession of this "+
+				"record at all", where, entry.SupersededBySequence)
+		}
+
+		// 9c. TWO RECORDS ABOUT ONE SUBJECT MAY NOT BE FILED UNDER TWO CLASSES.
+		// A superseding record states the corrected basis for the same
+		// observable; if the adjudication of the withdrawn record and the
+		// adjudication of the record that replaced it disagree about where the
+		// mismatch ORIGINATES, one of them is wrong and the disagreement is the
+		// finding.
+		if superseding != 0 && superseding <= len(records) && entry.MismatchClass != "" {
+			replacement := AC3ClassFor(records[superseding-1], byDelta)
+			if replacement != "" && replacement != entry.MismatchClass {
+				fail("%s: filed %q, but sequence %d — the record that supersedes it, about the same observable on "+
+					"the corrected basis — is filed %q. Two adjudications of one subject may not disagree about "+
+					"where the mismatch originates", where, entry.MismatchClass, superseding, replacement)
+			}
 		}
 	}
 

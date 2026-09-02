@@ -8,6 +8,7 @@ is what binds it to the chain. Run from the repository root.
 import json
 
 LEDGER = 'evidence/java/behavior-delta-ledger.json'
+SUPERSESSIONS = 'evidence/java/ledger-supersessions.json'
 OUT = 'evidence/java/legacy-record-adjudications.json'
 
 JQ = 'java-quirk'
@@ -109,8 +110,12 @@ BUDGET_SUPERSEDED = (
     "this observable at all: shipped Java is unbounded (translateHandshakeHttp reads "
     "unboundedly, Draft.java:70-132) and the port budgets, so Java and the port each chose "
     "differently on a point the RFC leaves open. That is underspecified-behavior. The class "
-    "is taken from the CORRECTED basis rather than from this record's own preimage, and the "
-    "correction is already in the chain, so no draft is owed.")
+    "is taken from the CORRECTED basis rather than from this record's own preimage. THIS ENTRY "
+    "CONTESTS THE RECORD IT ADJUDICATES, and discharges that obligation by naming the "
+    "superseding SEQUENCE rather than a draft: the correction is already appended, so drafting "
+    "one would be proposing a record the chain has. The gate re-derives the link from the "
+    "records' own hashed rationales, so superseded_by_sequence={sup} is checked against sealed "
+    "content and not taken on this entry's word.")
 
 q(14, UB, BUDGET_SUPERSEDED.format(sup=45))
 q(15, UB, BUDGET_SUPERSEDED.format(sup=46))
@@ -453,6 +458,15 @@ def main():
     d = json.load(open(LEDGER))
     recs = {r['sequence']: r for r in d['records']}
     rats = {s: r['delta']['rationale'] for s, r in recs.items()}
+    # A record the chain itself withdraws is contested by definition, and the
+    # correction is already appended, so the entry names the SEQUENCE rather
+    # than a draft. This is read here from the sidecar because this is an
+    # authoring aid; the gate re-derives the same links from the records' own
+    # hashed rationales and refuses a value the chain does not say.
+    superseded_by = {
+        link['superseded_sequence']: link['superseding_sequence']
+        for link in json.load(open(SUPERSESSIONS))['links']
+    }
 
     def first_sentence(text, minlen=60):
         i = minlen
@@ -481,7 +495,8 @@ def main():
         else:
             exam = SETTLES
             assert blocking == '', seq
-        entries.append({
+        withdrawn = superseded_by.get(seq, 0)
+        entry = {
             'sequence': seq,
             'delta_id': rec['delta']['delta_id'],
             'record_digest': rec['record_digest'],
@@ -493,9 +508,16 @@ def main():
             'rationale_quote': quote,
             'argument': argument,
             'blocking_question': blocking,
-            'contests_record_basis': contests,
+            'contests_record_basis': contests or bool(withdrawn),
             'supersession_draft': draft,
-        })
+        }
+        if withdrawn:
+            entry['superseded_by_sequence'] = withdrawn
+            # The class a withdrawn record is filed under must equal the class
+            # its replacement is filed under: they are two statements about one
+            # observable, and the later one carries the corrected basis.
+            assert A[withdrawn][0] == cls, (seq, withdrawn, cls, A[withdrawn][0])
+        entries.append(entry)
 
     classed = 0
     for r in d['records']:

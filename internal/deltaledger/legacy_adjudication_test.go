@@ -293,12 +293,51 @@ func TestVerifyLegacyAdjudicationsRefusesEachWayAnEntryCanFailToBind(t *testing.
 			expect: "outside 1..49",
 		},
 		{
-			name: "a contesting entry names no draft",
+			name: "a contesting entry names neither a draft nor a superseding sequence",
 			mutate: func(file *LegacyAdjudicationsFile) {
 				index := indexOfSequence(file, 13)
 				file.Adjudications[index].SupersessionDraft = ""
 			},
-			expect: "no supersession_draft is named",
+			expect: "names neither a supersession_draft nor a superseded_by_sequence",
+		},
+		{
+			// THE FINDING THIS RULE EXISTS FOR. Sequences 14, 15 and 16 bound an
+			// RFC basis that records 45, 46 and 47 later corrected, and an
+			// earlier version of this document recorded that only in the
+			// argument prose.
+			name: "an entry adjudicates a withdrawn record without saying it is withdrawn",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				index := indexOfSequence(file, 14)
+				file.Adjudications[index].ContestsRecordBasis = false
+				file.Adjudications[index].SupersededBySequence = 0
+			},
+			expect: "the chain records this record as SUPERSEDED by sequence 45",
+		},
+		{
+			name: "an entry names a superseding sequence the chain does not say",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 15)].SupersededBySequence = 45
+			},
+			expect: "the chain's own hashed rationales say this record is superseded by sequence 46",
+		},
+		{
+			name: "an entry claims a supersession for a record the chain never withdrew",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				index := indexOfSequence(file, 20)
+				file.Adjudications[index].ContestsRecordBasis = true
+				file.Adjudications[index].SupersededBySequence = 45
+			},
+			expect: "the chain records no supersession of this record at all",
+		},
+		{
+			// Sequence 14's own sealed rfc_value opens "reject:", so the
+			// determinacy rule permits java-quirk and cannot be what refuses
+			// this. Only the disagreement with sequence 45 can.
+			name: "a withdrawn record and the record that replaced it are filed under different classes",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 14)].MismatchClass = lab.MismatchJavaQuirk
+			},
+			expect: "may not disagree about where the mismatch originates",
 		},
 		{
 			name: "a contesting entry names a draft that does not exist",
