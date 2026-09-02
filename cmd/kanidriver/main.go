@@ -36,6 +36,9 @@ const (
 	timeoutEvidenceKind    = "KANI_HARNESS_TIMEOUT_NEGATIVE_EVIDENCE"
 	timeoutEnvelopeVersion = "1.0.0"
 	diagnosticTailBytes    = 4096
+
+	// defaultHarnessPackage is the crate every retained harness was verified in.
+	defaultHarnessPackage = "websocket-core"
 )
 
 var (
@@ -88,6 +91,22 @@ type harnessPlan struct {
 	ObligationIDs  []string `json:"obligation_ids"`
 	Unwind         int      `json:"unwind"`
 	SymbolicDomain []string `json:"symbolic_domain"`
+	// Package names the Cargo package that owns the harness. It is execution
+	// configuration rather than evidence content and is deliberately not
+	// serialized: the retained receipt schema closes the harness object with
+	// additionalProperties:false, and the owning crate is already recoverable
+	// from the recorded source_path and target_symbol. An empty value means
+	// defaultHarnessPackage, so every pre-existing plan keeps its exact bytes.
+	Package string `json:"-"`
+}
+
+// cargoPackage resolves the crate a harness is verified in, defaulting to the
+// historical single-crate value so existing plans are unchanged.
+func (plan harnessPlan) cargoPackage() string {
+	if plan.Package == "" {
+		return defaultHarnessPackage
+	}
+	return plan.Package
 }
 
 type kaniResult struct {
@@ -390,7 +409,7 @@ func generate(ctx context.Context, request generateRequest) (receipt, error) {
 		runID := fmt.Sprintf("run-%d", runIndex)
 		current := replayRun{RunID: runID}
 		for _, plan := range plans {
-			observed, runErr := executeHarness(ctx, request, stagedRoot, request.Out, runID, plan.HarnessID, plan.HarnessID)
+			observed, runErr := executeHarness(ctx, request, stagedRoot, request.Out, runID, plan.cargoPackage(), plan.HarnessID, plan.HarnessID)
 			if runErr != nil {
 				return receipt{}, fmt.Errorf("%s %s: %w", runID, plan.HarnessID, runErr)
 			}
@@ -659,8 +678,18 @@ func mutationPlansForReceipt(results []mutationResult) ([]mutationPlan, bool) {
 	return nil, false
 }
 
-func executeHarness(ctx context.Context, request generateRequest, stagedRoot, outRoot, group, harnessID, logID string) (kaniResult, error) {
-	arguments := []string{"--manifest-path", filepath.Join(stagedRoot, "rust", "Cargo.toml"), "--package", "websocket-core", "--harness", harnessID, "--output-format", "terse"}
+// harnessArguments builds the cargo-kani argv for one harness. The package is a
+// parameter rather than a constant so obligations bound to symbols outside the
+// core crate are runnable at all.
+func harnessArguments(stagedRoot, cargoPackage, harnessID string) []string {
+	return []string{"--manifest-path", filepath.Join(stagedRoot, "rust", "Cargo.toml"), "--package", cargoPackage, "--harness", harnessID, "--output-format", "terse"}
+}
+
+func executeHarness(ctx context.Context, request generateRequest, stagedRoot, outRoot, group, cargoPackage, harnessID, logID string) (kaniResult, error) {
+	if cargoPackage == "" {
+		cargoPackage = defaultHarnessPackage
+	}
+	arguments := harnessArguments(stagedRoot, cargoPackage, harnessID)
 	processCtx, cancel := context.WithTimeout(ctx, request.Timeout)
 	defer cancel()
 	command := exec.CommandContext(processCtx, request.CargoKani, arguments...)
@@ -782,6 +811,18 @@ func diagnosticTail(value string) string {
 	return strings.ToValidUTF8(value, "�")
 }
 
+// harnessPackageFor resolves the crate a canary's harness lives in. An unknown
+// harness id is a registry inconsistency and fails loudly rather than silently
+// defaulting to the core crate.
+func harnessPackageFor(harnessID string) (string, error) {
+	for _, plan := range harnessPlans() {
+		if plan.HarnessID == harnessID {
+			return plan.cargoPackage(), nil
+		}
+	}
+	return "", fmt.Errorf("mutation canary references unregistered harness: %s", harnessID)
+}
+
 func executeMutation(ctx context.Context, request generateRequest, stagedRoot, outRoot string, plan mutationPlan) (mutationResult, error) {
 	path := filepath.Join(stagedRoot, filepath.FromSlash(plan.SourcePath))
 	baseline, err := os.ReadFile(path)
@@ -792,11 +833,15 @@ func executeMutation(ctx context.Context, request generateRequest, stagedRoot, o
 	if err != nil {
 		return mutationResult{}, err
 	}
+	cargoPackage, err := harnessPackageFor(plan.HarnessID)
+	if err != nil {
+		return mutationResult{}, err
+	}
 	if err := os.WriteFile(path, mutated, 0o644); err != nil {
 		return mutationResult{}, err
 	}
 	defer func() { _ = os.WriteFile(path, baseline, 0o644) }()
-	observed, err := executeHarness(ctx, request, stagedRoot, outRoot, "mutations", plan.HarnessID, plan.CanaryID)
+	observed, err := executeHarness(ctx, request, stagedRoot, outRoot, "mutations", cargoPackage, plan.HarnessID, plan.CanaryID)
 	if err != nil {
 		return mutationResult{}, err
 	}

@@ -490,7 +490,7 @@ func TestTimedOutHarnessRetainsTypedNegativeEvidence(t *testing.T) {
 	}
 	request := generateRequest{CargoKani: fake, CBMC: filepath.Join(staged, "cbmc"), Timeout: 300 * time.Millisecond}
 
-	observed, err := executeHarness(context.Background(), request, staged, out, "run-1", "demo::proof", "demo::proof")
+	observed, err := executeHarness(context.Background(), request, staged, out, "run-1", defaultHarnessPackage, "demo::proof", "demo::proof")
 	if err == nil {
 		t.Fatal("a harness that exceeds its budget must fail")
 	}
@@ -561,5 +561,71 @@ func TestDiagnosticTailKeepsTheEndAndBoundsSize(t *testing.T) {
 	}
 	if !strings.HasSuffix(tail, "FINAL DIAGNOSTIC LINE") {
 		t.Fatal("tail must retain the end of the diagnostic, which is where the failure is")
+	}
+}
+
+// Two of the five open obligations bind to websocket_driver::ConnectionOwner::poll,
+// which lives outside the core crate. Hardcoding --package websocket-core made them
+// unrunnable by construction.
+func TestHarnessPlanPackageDefaultsToCoreAndIsThreadedIntoArgv(t *testing.T) {
+	for _, plan := range harnessPlans() {
+		if plan.Package != "" {
+			t.Errorf("retained plan %s must keep the implicit default package so its receipt bytes are unchanged", plan.HarnessID)
+		}
+		if plan.cargoPackage() != defaultHarnessPackage {
+			t.Errorf("plan %s resolved package %q, want %q", plan.HarnessID, plan.cargoPackage(), defaultHarnessPackage)
+		}
+	}
+
+	driver := harnessPlan{HarnessID: "output::proofs::prove_x", Package: "websocket-driver"}
+	if driver.cargoPackage() != "websocket-driver" {
+		t.Fatalf("an explicit package must win, got %q", driver.cargoPackage())
+	}
+
+	for _, testCase := range []struct{ cargoPackage, want string }{
+		{defaultHarnessPackage, "websocket-core"},
+		{"websocket-driver", "websocket-driver"},
+	} {
+		arguments := harnessArguments("/staged", testCase.cargoPackage, "demo::proof")
+		found := ""
+		for index, argument := range arguments {
+			if argument == "--package" && index+1 < len(arguments) {
+				found = arguments[index+1]
+			}
+		}
+		if found != testCase.want {
+			t.Errorf("harnessArguments(%q) put --package %q, want %q", testCase.cargoPackage, found, testCase.want)
+		}
+	}
+}
+
+// The package a canary runs under is resolved from the harness registry, so a
+// canary naming an unregistered harness fails loudly instead of silently running
+// against the wrong crate.
+func TestEveryMutationCanaryResolvesARegisteredHarnessPackage(t *testing.T) {
+	for _, plan := range mutationPlans() {
+		cargoPackage, err := harnessPackageFor(plan.HarnessID)
+		if err != nil {
+			t.Errorf("canary %s: %v", plan.CanaryID, err)
+			continue
+		}
+		if cargoPackage != defaultHarnessPackage {
+			t.Errorf("canary %s resolved package %q, want %q", plan.CanaryID, cargoPackage, defaultHarnessPackage)
+		}
+	}
+	if _, err := harnessPackageFor("does::not::exist"); err == nil {
+		t.Fatal("an unregistered harness id must be rejected, not defaulted")
+	}
+}
+
+// The package field must never reach the receipt: schema 1.0.0 closes the harness
+// object, and adding a key would break replay of every retained receipt.
+func TestHarnessPackageIsNotSerializedIntoReceipts(t *testing.T) {
+	body, err := json.Marshal(harnessPlan{HarnessID: "h", TargetSymbol: "s", SourcePath: "p", Unwind: 1, Package: "websocket-driver"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(body, []byte("package")) || bytes.Contains(body, []byte("websocket-driver")) {
+		t.Fatalf("harness plan leaked its package into evidence JSON: %s", body)
 	}
 }
