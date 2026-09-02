@@ -1,0 +1,22 @@
+// Synthetic validator input for the fuzzpinctl polarity fixtures.
+//
+// This is NOT a compiled source file and NOT a claim artifact. It exists so the
+// fixture manifests can point at a real file with a real `#[test]` function, a
+// real loop literal, and a real generator seed, and so the mutations that make
+// each check fire have something true to be a mutation OF. The `.rs.txt`
+// extension keeps it outside every cargo target and every Rust gate.
+
+#[test]
+fn fixture_target_ok() {
+    let mut rng = SplitMix64::new(0xf1x7_0001);
+    for case in 0..7_000u32 {
+        drive(&mut rng, case);
+    }
+}
+
+// A plain helper with a test-shaped name and NO `#[test]` attribute. The
+// entrypoint check must refuse to accept this as a target: a function that the
+// harness never runs is not an entrypoint.
+fn fixture_target_not_a_test() {
+    unreachable!()
+}
