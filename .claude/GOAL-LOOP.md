@@ -262,9 +262,24 @@ PR-to-open in the log; never block the work on it.
   contracts fit, implement the rest.
 - **P4 Confidence.** Expand differential coverage; mutation sensitivity on the
   Rust side; map retained Kani obligations to the Java behaviours they cover.
-  Hidden and sealed corpora are protected: owner gate.
+  Hidden and sealed corpora are protected: owner gate. **The bar is master
+  US-008** (PRD pack part 4, `docs/prd-pack/04-…`): independently recomputed
+  Java-versus-Rust formal coverage over the language-neutral 24-obligation
+  denominator with zero blocking gaps, 100% eligible mutation score with zero
+  MISSED mutants, 247/247 client and 247/247 server Autobahn cases from the
+  retained receipt without a rerun, two fresh adversarial reviews, and a
+  production-shaped shadow/canary rehearsal. Its final child evaluator reads
+  0/26 child entries strongly accepted and the Codex plane's owner-executed
+  Kani lane at Rust proof 19/24, mutation sensitivity 19/24, Java formal
+  binding 0/24, refinement 0/24, aggregate 0/24 (receipt 30ee613); the open
+  blockers it names are Java/refinement coverage, independence, two-host
+  performance, production-shaped cutover, publication, signing and
+  Java-removal authority. Independence, performance hosts, cutover,
+  publication and signing are owner gates; the Java/refinement side of the
+  24-obligation denominator and the five remaining Rust/mutation obligations
+  are where this plane can move the number.
 
-## Story board (titles from the child PRD index in `docs/prd-pack/01-structure-and-index.md`; acceptance criteria pending parts 2 to 6)
+## Story board (titles from the child PRD index in `docs/prd-pack/01-structure-and-index.md`; acceptance criteria pending the child-story parts of the seven-part pack)
 
 Claude-plane status: "passes" means `passes: true` per the handoff's reading
 of the PRD on 2026-08-29; everything else is read from branches and files on
@@ -343,3 +358,5 @@ a close echo (open, unledgered).
 - 2026-09-02T10:01:52Z interactive: read mike-skills#7 REFERENCE.md (anonymous clone); folded its polarity forms, count questions, claim vocabulary and canary table into protocol step 5; filed three port-learn findings from today under drafts/self-review/findings (F001 vendor-bound reproduction check, F002 host-sized backpressure fixture, F003 toolchain home). Mainline head 7ec2ea3.
 - 2026-09-02T10:19:07Z interactive: PRD pack part 2 of 6 received (master foundation-wave stories US-001..006, US-024, all passes:true); stored verbatim at docs/prd-pack/02-master-stories-foundation.md. No child-board change. Mainline head 4eea327.
 - 2026-09-02T11:29:45Z interactive: P1 landed claude/evidence-validation — forward merge of mainline 0bb5196 resolved as a union with us017-ac2 (branch commit ccd0cc0): both validators kept (ValidateConcurrencyResultsBindings / ValidateConcurrencyResults / ValidateConcurrencyResultsAll), harness merged (13 checked invariants, found_index in every seed; US017_RETAIN=1 once for silent-write-drop.seed, exit 0), results.json now cites the exploration line AND the five US017_FATAL_SWEEP lines (RED first: sweep exit 101 with no lines recorded, then exit 0), max_actions/added_by/ten-defect roll with exact regression sets/seed identity/RED-reading/seed-naming/prose-number bindings added (45 permanent mutation cases), inert leaves 91→71 of 327, omission holes 29→0 of 394, three stale r1–r4 probes retargeted to read the document, seven document sentences reconciled with disclosures (revision_note a–g). Gates 8/8 + ledger ok, 75 test blocks; go 29 ok, only lab (Darwin) and portplan derive (vendor); LINKAGE_REGENERATE=1 exit 1 by design then verify 0 (one digest). Differential/exam not re-run: no behaviour-bearing byte differs from mainline. Mainline merge 35edf8c, tree d99939e. Records: drafts/self-review/evidence-validation-round-5.md, evidence-validation-landing.md. No PR: the topic branch is already contained in mainline and PR #3 against main stays closed by owner decision. Next: P1 claude/us019-native-run (self-review to PASS first). Mainline head 35edf8c before this record commit.
+- 2026-09-02T12:12:03Z interactive: PRD pack part 3 of 6 received (master stories US-020..023 and US-007, all passes:true); stored verbatim at docs/prd-pack/03-master-stories-intake-lsp-protocol-labzero.md. Relevant to this child: US-007 confirms the 27-story child plan, the excluded surface (TLS/WSS, proxies, reconnect, Android, RFC 7692, Java API parity) and the two fail-closed gates already recorded (target-repository authorization, independent Linux benchmark host for child US-008); the 2026-08-28 denominator correction (11/24 Rust production-symbol proof coverage, 9/24 obligation-specific mutation sensitivity, 0/24 Java formal bindings, 0/24 refinement) is the P4 confidence baseline to beat. No child-board change. Awaiting parts 4 to 6 (child stories). Mainline head aef7032 before this record commit.
+- 2026-09-02T12:14:29Z interactive: PRD pack part 4 of 7 received (the pack grew from six to seven parts): master US-008 (independent acceptance gate, passes:false) and US-009 (private skill draft, passes:false), stored verbatim at docs/prd-pack/04-master-stories-acceptance-gate-and-skill-draft.md. US-008's strong criteria recorded under P4 as the confidence bar: 24-obligation denominator (Codex plane at 19/24 Rust proof and mutation, 0/24 Java/refinement/aggregate), 100% eligible mutation score, 247/247 both Autobahn roles from the retained receipt, two fresh adversarial reviews, production-shaped rehearsal; its blockers split into owner gates (independence, two-host performance, cutover, publication, signing, Java removal) and plane work (Java/refinement side of the denominator, five Rust/mutation obligations). No child-board change. Awaiting parts 5 to 7. Mainline head aef7032 before this record commit.
