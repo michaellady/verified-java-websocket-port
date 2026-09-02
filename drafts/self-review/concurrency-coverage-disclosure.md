@@ -8,6 +8,23 @@ Answering the two findings of `drafts/self-review/post-failure-landing-review.md
 Self-review by the goal loop: **OWNER_ATTESTED_NOT_INDEPENDENT**. Nothing here
 was reviewed by anyone else.
 
+### The state this work was resumed from
+
+A container restart interrupted this track at `fe736b3`. That commit had the
+scenario, the `revision_history` field and the validator checks in it — and it
+was RED, in four places nobody had run:
+
+* `make -C rust gates` exit **2** at its first target, `fmt-check`;
+* `go test ./internal/formalplan/` failing the pinned leaf enumeration (337
+  leaves pinned against a document with 401), one omission hole, and ten
+  negative cases addressed at a space the branch had changed;
+* the evidence DAG carrying a stale digest AND a stale title;
+* every new validator check GREEN-only — not one negative test between them.
+
+None of that is a criticism of the interrupted work; it is where the work had
+got to. It is recorded because "the branch existed" and "the branch was green"
+are different claims and only the first was true.
+
 ---
 
 ## The question, answered
@@ -396,7 +413,7 @@ every round it has existed.
 | --- | --- |
 | `cargo test -p ws-driver --release --test schedule_exploration` (from `rust/`) | **0**, `11 passed; 0 failed` |
 | `make -C rust gates`, first attempt | **2** — `fmt-check` refused the harness `fe736b3` left unformatted |
-| `make -C rust gates`, after `cargo fmt --all` | see below |
+| `make -C rust gates`, after `cargo fmt --all` | **0** — `ac1-gates verdict=PASS gates_passed=8/8`, `adapter-linkage verdict=PASS`, ledger integrity verified at 56 records, 79 `test result: ok`, 0 FAILED |
 | `go test ./internal/linkage/` before regeneration | **1** by design — `LINKAGE_DAG_DRIFTED`, `schedule-exploration digest is stale` |
 | `LINKAGE_REGENERATE=1 go test ./internal/linkage/ -run TestRegenerateLinkageArtifacts` | **0** |
 | `go test ./internal/linkage/` after regeneration | **0** |
