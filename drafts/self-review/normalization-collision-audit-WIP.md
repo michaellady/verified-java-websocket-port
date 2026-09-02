@@ -78,3 +78,11 @@ Wire `818201020304696b` vs `8182aabbccddc2d2` — different octets, same
 unmasked payload. Responses identical modulo identity. No field in the
 observation vocabulary can EVER carry a mask key, so no witness exists;
 this is a global erasure, not a projection-local one.
+
+---
+
+**SUPERSEDED** by `drafts/self-review/normalization-collision-audit.md`.
+This file is kept unedited because it records the reading I had mid-audit —
+including the "six top-level keys" claim, which the landing record corrects to
+four (`role` and `initial_state` are request echoes recoverable from
+`request_digest`, so their absence cannot hide a behaviour).
