@@ -23,11 +23,21 @@ import (
 // DOCUMENT level: the document gains a first-class `supersessions` array,
 // records stay at record schema_version 1.0.0, and VerifyFrozenPrefix still
 // finds sequence 35 at 3fcd461c….
+//
+// THE 1.2.0 BUMP lands the same way and for the same reason. It adds the
+// DISPOSITION VOCABULARY — three terms on `disposition`, the optional
+// per-record `mismatch_class`, and the computed document-level
+// `records_without_mismatch_class` — because US-020 AC3 requires every mismatch
+// to be recorded as a Java quirk, a Rust defect or underspecified behavior and
+// the 1.1.0 vocabulary could express neither that nor the adoption-versus-
+// correction question. `mismatch_class` is OPTIONAL rather than defaulted so
+// that the forty-nine records sealed before it existed serialize to the same
+// preimage bytes they always did; the record schema_version stays 1.0.0.
 const (
 	LedgerRelativePath       = "evidence/java/behavior-delta-ledger.json"
-	LedgerSchemaRelativePath = "schemas/behavior-delta-ledger-1.1.0.schema.json"
-	LedgerSchemaPointer      = "../../schemas/behavior-delta-ledger-1.1.0.schema.json"
-	LedgerSchemaVersion      = "1.1.0"
+	LedgerSchemaRelativePath = "schemas/behavior-delta-ledger-1.2.0.schema.json"
+	LedgerSchemaPointer      = "../../schemas/behavior-delta-ledger-1.2.0.schema.json"
+	LedgerSchemaVersion      = "1.2.0"
 )
 
 // LedgerFile mirrors the committed evidence document field-for-field (and in
@@ -47,8 +57,14 @@ type LedgerFile struct {
 	// and refuses a document that declares anything else.
 	Supersessions           []SupersessionLink `json:"supersessions"`
 	UnledgeredDisagreements int                `json:"unledgered_disagreements"`
-	Production              bool               `json:"production"`
-	Publication             bool               `json:"publication"`
+	// RecordsWithoutMismatchClass is the 1.2.0 addition: how many records carry
+	// no US-020 AC3 mismatch class. Like unledgered_disagreements it is
+	// COMPUTED, never assigned a literal, and the requirement on it is a
+	// RECOMPUTATION rather than a constant — see adjudication.go for why a
+	// `const: 0` here would have been the same fake gate all over again.
+	RecordsWithoutMismatchClass int  `json:"records_without_mismatch_class"`
+	Production                  bool `json:"production"`
+	Publication                 bool `json:"publication"`
 }
 
 // BuildDeltas materializes every recorded divergence definition into a
@@ -112,11 +128,22 @@ func buildDeltasFrom(definitions []Definition) ([]lab.BehaviorDelta, error) {
 			AutobahnValueDigest:   disagreement.AutobahnValueDigest,
 			DisagreementDigest:    digest,
 			NormativeAuthority:    "rfc6455",
-			Disposition:           "unresolved",
+			// The disposition was a HARDCODED "unresolved" here until the
+			// 1.2.0 vocabulary existed, which is precisely why all
+			// forty-nine committed records read "unresolved": no definition
+			// could say anything else. It now comes from the definition, and
+			// the empty definition field still means "unresolved" so that
+			// every definition written before this change reproduces its
+			// sealed record byte-for-byte.
+			Disposition: dispositionOf(definition),
 			// The supersession link is emitted at the HEAD of the rationale
 			// so it is inside a hashed digest preimage and a reader meets it
 			// first, rather than having to find it in later prose.
 			Rationale: supersedesPrefix(definition) + definition.Rationale,
+			// MismatchClass is LAST and empty on every pre-vocabulary
+			// definition, so `omitempty` drops it from the canonical JSON and
+			// those records' digests do not move.
+			MismatchClass: definition.MismatchClass,
 		}
 		if err := delta.Validate(); err != nil {
 			return nil, fmt.Errorf("definition %d (%s): %w", index, definition.Subject, err)
@@ -221,7 +248,22 @@ func BuildLedgerFileFrom(root string, existing LedgerFile, definitions []Definit
 	built.Records = records
 	built.Supersessions = links
 	built.UnledgeredDisagreements = len(unledgeredSubjects) + len(unledgeredDemands)
+	built.RecordsWithoutMismatchClass = CountRecordsWithoutMismatchClass(records)
 	return built, nil
+}
+
+// dispositionOf is the definition-to-record disposition, with the empty
+// definition field meaning the frozen vocabulary's "unresolved".
+//
+// THE DEFAULT IS NOT A CONVENIENCE. Every definition written before the 1.2.0
+// vocabulary leaves the field empty, and each of those definitions must keep
+// reproducing the exact record digest it was sealed with; "unresolved" is the
+// token those records carry, so it is the only value the empty field can mean.
+func dispositionOf(definition Definition) string {
+	if definition.Disposition == "" {
+		return lab.DispositionUnresolved
+	}
+	return definition.Disposition
 }
 
 // UnledgeredDisagreements is the whole measurement, in its two arms.

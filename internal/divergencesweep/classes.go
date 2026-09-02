@@ -60,11 +60,29 @@ type ClassSpec struct {
 	Direction      string
 	Recommendation Recommendation
 	Why            string
-	// ProposedLedgerSubjectRef is the subject_ref a drafted ledger record
-	// under drafts/ledger-proposals/ would carry. It is asserted ABSENT from
-	// the committed behavior-delta ledger: the day it appears, the draft has
-	// landed and this sweep's recommendation is stale.
+	// ProposedLedgerSubjectRef is the subject_ref the drafted ledger record
+	// under drafts/ledger-proposals/ carries.
+	//
+	// IT WAS ASSERTED ABSENT from the committed behavior-delta ledger, as a
+	// tripwire on a stale recommendation, and the tripwire FIRED: all six
+	// drafts landed at sequences 51-56 once the ledger gained a disposition
+	// vocabulary that could express them. The rule is now the CONSISTENCY one
+	// it should always have been -- a proposal the ledger carries must be
+	// recorded here as landed, at that exact sequence, and one it does not
+	// carry must not claim to be -- which still fires on a proposal that lands
+	// without anyone noticing, and additionally fires on a wrong sequence.
 	ProposedLedgerSubjectRef string
+	// LandedLedgerSequence is the sequence at which the proposal landed, or 0
+	// while it has not. It is CROSS-CHECKED against the committed ledger in
+	// both directions, so it can be neither stale nor invented.
+	//
+	// It is deliberately NOT ExistingLedgerSubjectRef. That field means the
+	// proposition was ALREADY ledgered before this sweep ran, and it carries a
+	// second obligation: every case the class selects must be cited at that
+	// same sequence by the committed behaviour-class divergence register, which
+	// is measured evidence from the run and cannot be edited to accommodate a
+	// later append.
+	LandedLedgerSequence int
 	// ExistingLedgerSubjectRef and ExistingLedgerSequence are set only where
 	// a committed ledger record already carries the proposition. They are
 	// asserted PRESENT, at that sequence.
@@ -79,6 +97,7 @@ func Classes() []ClassSpec {
 		{
 			ID:                       "DIV-01-fail-without-close-frame",
 			ProposedLedgerSubjectRef: "semantic:org.java-websocket.websocketimpl.failure-close-frame-emission:provisional-v1",
+			LandedLedgerSequence:     51,
 			Title:                    "On a connection failure the port drops TCP without sending a Close frame; shipped Java sends one and completes the closing handshake",
 			Selector: Selector{
 				Dimension: "subject_close_code",
@@ -109,6 +128,7 @@ func Classes() []ClassSpec {
 		{
 			ID:                       "DIV-02-server-leaves-tcp-open",
 			ProposedLedgerSubjectRef: "semantic:org.java-websocket.websocketimpl.server-tcp-close-after-close-handshake:provisional-v1",
+			LandedLedgerSequence:     52,
 			Title:                    "After the closing handshake the port's server leaves the TCP connection open; shipped Java's server closes it",
 			Selector: Selector{
 				Dimension: "tcp_connection_dropped_by",
@@ -137,6 +157,7 @@ func Classes() []ClassSpec {
 		{
 			ID:                       "DIV-03-invalid-utf8-close-reason-tcp-end",
 			ProposedLedgerSubjectRef: "semantic:org.java-websocket.closeframe.invalid-utf8-reason-transport-stall:provisional-v1",
+			LandedLedgerSequence:     53,
 			Title:                    "On a Close frame whose reason is invalid UTF-8, the port ends the TCP connection and shipped Java neither answers nor ends it",
 			Selector: Selector{
 				Dimension: "tcp_connection_dropped_by",
@@ -180,6 +201,7 @@ func Classes() []ClassSpec {
 		{
 			ID:                       "DIV-05-close-overtakes-a-large-echo",
 			ProposedLedgerSubjectRef: "semantic:org.java-websocket.websocketimpl.pending-echo-versus-close-ordering:provisional-v1",
+			LandedLedgerSequence:     54,
 			Title:                    "Autobahn 7.1.6: a close arriving during a 256 KiB echo cancels the echo in the port and does not in shipped Java",
 			Selector: Selector{
 				Dimension:       "received_messages",
@@ -197,6 +219,7 @@ func Classes() []ClassSpec {
 		{
 			ID:                       "DIV-06-server-101-headers",
 			ProposedLedgerSubjectRef: "semantic:org.java-websocket.draft6455.server-handshake.response-server-and-date-fields:provisional-v1",
+			LandedLedgerSequence:     55,
 			Title:                    "The port's 101 response omits Server and Date and does not sort its header names; shipped Java sends five headers in case-insensitive alphabetical order",
 			Selector: Selector{
 				Dimension: "subject_handshake_header_names",
@@ -214,6 +237,7 @@ func Classes() []ClassSpec {
 		{
 			ID:                       "DIV-07-client-request-header-order",
 			ProposedLedgerSubjectRef: "semantic:org.java-websocket.handshake.field-emission-order:provisional-v1",
+			LandedLedgerSequence:     56,
 			Title:                    "The port's client request carries the same five header names as shipped Java in a different order",
 			Selector: Selector{
 				Dimension: "subject_handshake_header_names",

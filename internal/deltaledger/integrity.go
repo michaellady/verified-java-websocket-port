@@ -105,6 +105,14 @@ func VerifyIntegrity(root string) error {
 	add("census-ledger-coverage", VerifyCensusRowsAreLedgered(root, definitions))
 	add("supersessions", VerifySupersessions(root, committed.Records))
 	add("supersessions-match-definitions", VerifySupersessionsMatchDefinitions(definitions, committed.Records))
+	// THE 1.2.0 DISPOSITION VOCABULARY, both halves, in the GATE rather than in
+	// a test binary. adjudication.go is the rule that every record states an
+	// adjudication in machine-readable form or is grandfathered by content it
+	// already carries; proposal_drafts.go is the rule that the seven drafts held
+	// for want of that vocabulary actually became the records their own digest
+	// preimages produce.
+	add("adjudication", VerifyAdjudication(committed.Records, committed.RecordsWithoutMismatchClass))
+	add("proposal-drafts-ledgered", VerifyProposalDraftsAreLedgered(root, committed.Records))
 
 	// The measurement itself: recompute the published count rather than
 	// trusting the stored integer, and require it to be zero at rest.

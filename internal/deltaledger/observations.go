@@ -276,7 +276,15 @@ var provenancePatterns = []*regexp.Regexp{
 	regexp.MustCompile(`(mapping-row direction=[a-z_]+ key=HS_[A-Z0-9_]+)`),
 	regexp.MustCompile(`(?:^|[\s(",])(evidence/[A-Za-z0-9/_.-]+\.jsonl?)`),
 	regexp.MustCompile(`(?:^|[\s(",])(protected/[A-Za-z0-9/_.-]+\.jsonl?)`),
-	regexp.MustCompile(`(?:^|[\s(",])(rust/ws-core/[A-Za-z0-9/_.-]+\.(?:rs|hex))`),
+	// ANY Rust crate, not only ws-core. It was ws-core alone until the 1.2.0
+	// landing, and the consequence showed up immediately: the role-gated
+	// transport-close record's whole in-repository evidence is
+	// rust/ws-testee/src/io_loop.rs and rust/ws-testee/tests/loopback.rs, so its
+	// derived provenance came out EMPTY and the gate refused it — correctly,
+	// since a record whose evidence nothing can open is a record nobody can
+	// check. Widening the pattern makes those citations resolvable, and
+	// ProvenanceIsResolvable then requires them to exist on disk.
+	regexp.MustCompile(`(?:^|[\s(",])(rust/[A-Za-z0-9_-]+/[A-Za-z0-9/_.-]+\.(?:rs|hex))`),
 	regexp.MustCompile(`(?:^|[\s(",])(corpora/[A-Za-z0-9/_.-]+\.jsonl?)`),
 	regexp.MustCompile(`(?:^|[\s(",])(internal/corpora/[A-Za-z0-9_.-]+\.go)`),
 	regexp.MustCompile(`(?:^|[\s(",])(java-oracle/[A-Za-z0-9/_.-]+\.java)`),
@@ -322,6 +330,19 @@ func ProvenanceIsResolvable(root, citation string) (mustResolve bool, resolved b
 // act.
 func observationSourceKind(subject string) string {
 	switch {
+	case strings.HasSuffix(subject, ".server-handshake.response-server-and-date-fields"):
+		// NAMED BEFORE the direction arms below, and the ordering is the whole
+		// point. Its subject carries the ".server-handshake." segment, so the
+		// arm below would label it a live-handshake-exam case or a borrowed
+		// seed — and that label would be FALSE. The handshake exam scores the
+		// accept/reject decision and the Sec-WebSocket-Accept value; it never
+		// observes the response field SET, which is exactly why this divergence
+		// went unrecorded until the executed native x86_64 provenance run
+		// measured it on 247/247 server-role cases. A classifier keyed on a
+		// subject substring will hand back a plausible label for a record whose
+		// evidence is somewhere else entirely, which is the shape this
+		// repository keeps rediscovering.
+		return "executed-divergence-sweep-plus-pinned-java-source"
 	case strings.Contains(subject, ".client-handshake."):
 		return "live-handshake-mapping-row (client direction; no live corpus case exercises these keys)"
 	case strings.Contains(subject, ".server-handshake."):
@@ -334,6 +355,24 @@ func observationSourceKind(subject string) string {
 		return "public-corpus-proposition-plus-pinned-java-source"
 	case strings.Contains(subject, ".oracle-adapter."):
 		return "public-corpus-class-sweep-plus-pinned-java-source"
+	case strings.Contains(subject, ".adapter."):
+		// The 1.2.0 landing's role-gated transport close. Its Java side is the
+		// PINNED SOURCE read directly, not an executed observation: the
+		// java-oracle adapter is a JSONL request/response oracle and never runs
+		// a real server socket, so no live Java run on this plane observes
+		// which endpoint closes TCP. Its port side is the ws-testee loopback
+		// regression. Named as its own kind rather than folded into a
+		// neighbouring one, because it is the only record whose evidence is
+		// source-read on one side and a wire regression on the other.
+		return "pinned-java-source-plus-adapter-loopback-regression"
+	case strings.Contains(subject, ".handshake."):
+		// The client-request field ORDER record. It is not ".client-handshake."
+		// or ".server-handshake.": those two name the direction a Java
+		// ENDPOINT parses, and this proposition is about how BOTH endpoints
+		// EMIT, measured on the executed native x86_64 provenance run. This arm
+		// must stay BELOW the two direction arms above, which are more
+		// specific and match first.
+		return "executed-divergence-sweep-plus-pinned-java-source"
 	case strings.HasSuffix(subject, ".buffer-limit-check-sites"),
 		strings.HasSuffix(subject, ".no-automatic-pong"):
 		// Two draft6455-level propositions that are neither framing nor
