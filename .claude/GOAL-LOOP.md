@@ -133,10 +133,38 @@ record exactly which owner or independent step remains.
    74/74 and 49/49 with 16 documented divergences, and no non-runtime field
    difference between the two transcripts beyond the free-text error detail.
    Never run the hidden or sealed tiers against a throwaway secret.
-5. Self-review round, adversarial: vacuous tests (cannot fail), over-claimed
-   evidence, evidence not bound to the tree it describes, forbidden symbols,
-   piped exits. Record it as `drafts/self-review/<branch>-round-<N>.md` with
-   the head sha, each finding, and each fix.
+5. Self-review round, adversarial, against the port-* family's checklists
+   (mike-skills#7, `port-jvm-to-rust/REFERENCE.md` sections 2 to 4):
+   - **Polarity, checks that cannot fail:** an expectation computed by the
+     implementation (or the host) under test; existence standing in for
+     identity (a path that resolves, a digest of the wrong thing); a substring
+     standing in for a parse; rejecting unknown fields without requiring the
+     modelled ones; a required argument a lower-level function bypasses; a test
+     asserting only *that* something failed; a harness whose `assume` empties
+     the input space; a rung pointed at the unmutated original. Remedy: prove
+     the gap by execution first (corrupt, plant, run, read the passing exit),
+     fix, then read the refusal.
+   - **Counts, four questions before quoting any:** did the verifier parse the
+     file; can it reach the obligation (negation refuted, planted defect
+     fails); can the program reach the branch on a real path; is the contract
+     on the shipped symbol rather than a hand-written twin.
+   - **Claims, fixed vocabulary:** "formally verified" only for named
+     Kani-proved properties with bounds and the refinement check; "calibrated
+     differential assurance" always with the kill table and coverage
+     denominator; "behavior-preserving on the reachable surface" with the
+     measured reachable number; every concurrency result "bounded", never
+     "proved"; never "1:1", "absolutely correct", "formally verified port", or
+     "equivalent" without qualification.
+   - **Canaries:** injection and negation for deductive checks;
+     planted-defect controls, one per spec clause, for Kani; clean-substitution
+     for every gate runner.
+   Also: forbidden symbols, piped exits, evidence not bound to the tree it
+   describes. Record the round as `drafts/self-review/<branch>-round-<N>.md`
+   with the head sha, each finding, and each fix. File anything that surprised,
+   cost, or reversed a belief as a port-learn finding under
+   `drafts/self-review/findings/F<nnn>-<slug>.md` in the family's fixed shape,
+   binned REDISCOVERY | NEW RULE | TOOL GAP | TARGET-LOCAL; the first three are
+   owed back to the family as a reviewed PR citing the finding.
 6. Commit with `date -u` timestamps; push. Story work: PR based on mainline.
    Review-passed branches: forward-merge mainline into the branch, gates green
    on the branch, then a `merge: <branch> — <summary>` commit on mainline.
@@ -305,3 +333,4 @@ a close echo (open, unledgered).
 - 2026-09-02T09:56:58Z interactive: P1 landed claude/us017-ac2 — forward merge 0c0c4b0 with the US-006 fixture refrozen (US006_REGENERATE=1 exit 0, verify exit 0), re-binding commit 20e216f (plan digest re-bound after ledger-integrity moved plan.json's ledger metadata; evidence-dag refreshed, LINKAGE_REGENERATE=1 exit 1 by design then verify exit 0), mainline merge 7262a29, tree 6d70078. Gates 8/8 + ledger ok on the Rust tree that landed; ac1 + ledger re-run after the evidence edits, exit 0; harness rebuilt e2898c13…; differential and exam unchanged to the digest, port and live Java 74/74 and 49/49; go 29 ok, only lab (Darwin) and portplan derive (jdk_vendor). Record: drafts/self-review/us017-ac2-landing.md. Next: P1 claude/evidence-validation (needs a self-review round to PASS). Mainline head 7262a29.
 - 2026-09-02T09:58:54Z interactive: inspected claude/evidence-validation — conflicts on results.json, evidence-dag.json and schedule_exploration.rs, plus a duplicate ValidateConcurrencyResults in internal/formalplan against the landed us017-ac2 validator; wrote the P1a reconciliation plan (keep the union, self-review round stands in for its round 5). Not started. Mainline head 5b4e85d.
 - 2026-09-02T09:59:58Z interactive: recorded the owner's port-* skill family (mike-skills#7) as an external input; two named gaps (per-method bytecode oracle, Java branch-coverage denominator) queued as P4 candidates; self-review rounds to borrow its 'checks that cannot fail' classes once REFERENCE.md is read. Mainline head 996abe7.
+- 2026-09-02T10:01:52Z interactive: read mike-skills#7 REFERENCE.md (anonymous clone); folded its polarity forms, count questions, claim vocabulary and canary table into protocol step 5; filed three port-learn findings from today under drafts/self-review/findings (F001 vendor-bound reproduction check, F002 host-sized backpressure fixture, F003 toolchain home). Mainline head 7ec2ea3.
