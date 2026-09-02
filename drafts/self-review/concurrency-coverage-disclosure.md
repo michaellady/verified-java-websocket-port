@@ -245,21 +245,65 @@ Every check added here was proved capable of failing. A mutation that breaks
 compilation proves nothing, so each deletion removes a CALL or a self-contained
 BLOCK and the package still builds.
 
-### The Rust side
-
-`clean_terminal_digests`, `clean_terminal_scenarios` and `halted_terminals` are
-computed by the sweep and printed into the cited line; the harness compares the
-whole line byte-for-byte against the document, so the three counters are RED
-against any edit of either side. Their floors
-(`clean_terminal_digests >= 2`, `>= 100`, `clean_terminal_scenarios >= 2`) are
-set BELOW what the tree measures (403, 403, 2) so ordinary drift does not trip
-them; they catch the collapse, which is the failure mode that actually
-happened. At the pre-branch shape (18 digests, 1 scenario) two of the three
-floors are violated.
+The clean-path floors in the sweep (`clean_terminal_digests >= 2`, `>= 100`,
+`clean_terminal_scenarios >= 2`) are set BELOW what the tree measures (403,
+403, 2) so ordinary drift does not trip them; they exist to catch the collapse,
+which is the failure mode that actually happened. The three counters themselves
+are printed into the cited line, which the harness compares byte-for-byte with
+the document, so no edit of either side can go unnoticed.
 
 ### The Go side
 
-<!-- DELETION-ATTACK-TABLE -->
+Seven deletions, each of a CALL or a self-contained BLOCK so the package still
+builds (`package built = True` asserted in every run), each followed by the
+cases that claim to prove that check. "Accepted" means the validator returned
+zero findings for a mutation it is supposed to refuse.
+
+| deletion | `go test` exit | cases accepted at zero findings | cases still refused by another check |
+| --- | --- | --- | --- |
+| `crValidateRevisionHistory` (the call) | 1 | **12 of 13** | 1 — `the whole history is dropped`, caught by `RESULTS_CLEAN_ROUTE_CEILING_UNSOUND` |
+| the `crRevisionHistoryAnchor` block only | 1 | **3 of 3** | 0 |
+| `crValidateScenarioProse` (the call) | 1 | **3 of 4** | 1 — `the scenario is not one the harness enumerates`, caught by `RESULTS_SCENARIO_NAMES_CONTRADICTED` |
+| `crValidateCleanRouteCeiling` (the call) | 1 | **5 of 7** | 2 — `the ceiling is removed from the record` and `PointingAtALiveParagraph` |
+| `crValidatePlanConformanceShape` (the call) | 1 | **3 of 4** | 1 — `the widest schedule is understated`, caught by `RESULTS_ACCOUNTING_CONTRADICTION` |
+| the clean-route relations in `crValidateAccounting` | 1 | **5 of 5**, after the cases were made isolating | 0 (before: 0 of 5, all caught by the run re-derivation — see below) |
+| the `limitations.clean_route_ceiling` expectation | 1 | **1 of 3** | 2 — caught by `RESULTS_CLEAN_ROUTE_CEILING_UNSOUND` |
+
+The non-isolating rows are recorded, not rounded off. Two of them are honest
+overlap between two checks that both refuse the same document; the scenario-prose
+one is structural (a name the harness's table does not bind fails the NAME
+derivation before the prose derivation is reached).
+
+**The accounting row is a finding about the tests, not about the checks.** On
+the first measurement, deleting the clean-route relations changed nothing:
+all five cases were still refused, by `RESULTS_COUNTER_CONTRADICTS_RUN`, because
+each moved only the document's counter and every counter here is re-derived
+from the line the record cites. The test was measuring the run binding and
+would have gone on passing with the relations deleted. The cases now move the
+cited line too — the document whose run line was fabricated CONSISTENTLY, which
+is the only shape those relations exist for — and the deletion then accepts all
+five.
+
+### The Rust side, read from the cargo process
+
+The floors are not deleted to prove they can fire; deleting an assert proves
+nothing. The mutation is the tree they were written against — the exploration
+WITHOUT the appended scenario, which is exactly the shape the post-failure
+landing left behind. Removing `("clean-finish-inbound-ping", …)` from the
+`SCENARIOS` table:
+
+```
+cargo exit = 101
+test result: FAILED. 0 passed; 1 failed
+panicked at ws-driver/tests/schedule_exploration.rs:1846:5:
+clean-terminal BREADTH floor: 49 clean-terminal runs carry only 18 distinct
+semantic traces, so the properties that hold only on the clean route
+(convergence, exactly-once reconciliation, post-terminal quiescence, no write
+bypass) are exercised against that many behaviours, not against the run count
+```
+
+49 and 18: the floor fires on precisely the reading the review asked about.
+The harness was restored and re-run to exit 0 afterwards.
 
 ---
 
