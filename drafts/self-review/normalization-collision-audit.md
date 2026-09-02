@@ -264,3 +264,36 @@ gofmt -l, go vet on both new packages                               clean, exit 
 - My pre-restart note said "six top-level keys". Two of the six were not
   collision-bearing. The corrected count is four, and the earlier claim is left
   visible in the WIP file rather than edited away.
+
+---
+
+## 9. Proposed owner actions (none taken here)
+
+I deliberately did **not** write a `drafts/ledger-proposals/` record. The
+behaviour delta ledger describes Java-versus-Rust *behaviour* deltas; a
+normalization collision is a property of the *measuring instrument*, not a
+behaviour delta. Forcing these into that schema would be a category error and
+would also require reproducing `internal/deltaledger`'s digest construction,
+which I was told not to touch. The actions below are for the owner to weigh.
+
+1. **Register the seven in `internal/ac5class`.** The register already has the
+   exact `Collision{DivergenceID, Mechanism, Witness, BlindJudges}` shape, and
+   it currently carries two entries where this audit found seven. Its own
+   doc-comment argues a collision seed should be found "by construction"; this
+   package supplies the constructions. Not done here because `ac5class` is a
+   US-020 acceptance artifact.
+2. **Decide whether NC-04 costs the 74/74 a row.** Two shipped scenarios are
+   indistinguishable. Either the corpus gains a scenario that separates them,
+   or the headline is restated as 73 distinguishable observations. The census
+   test pins 73 so the choice cannot be made silently.
+3. **Consider whether `error.detail` should stay excused.** On an error row it
+   is the *only* field carrying what actually went wrong, and `diffregress`
+   classifies it non-semantic — which is why 26 of 74 rows land in
+   `detail_only`. That classification is defensible; its interaction with
+   NC-01 is what makes the error surface as thin as ten scalars.
+4. **Note that NC-02 is a live hazard for future corpora.** Any scenario with a
+   tight `max_output_bytes` produces rows with no `runtime` at all, so Java and
+   Rust answers become byte-identical. A corpus generator that ever emits a
+   small budget would silently create unfalsifiable rows.
+5. **Decide the five candidates in §4**, particularly `CAND-CROSSARRAY`, which
+   needs a mutated harness (`cmd/mutctl`) rather than a request seed.
