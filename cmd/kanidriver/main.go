@@ -280,7 +280,10 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 		root := flags.String("root", "", "clean repository root")
 		summary := flags.String("summary", "", "repository-relative Kani summary path")
 		out := flags.String("out", "", "new repository-relative coverage path")
-		if err := flags.Parse(arguments[1:]); err != nil || flags.NArg() != 0 || *root == "" || *summary == "" || *out == "" || !safeRelativePath(*out) {
+		schemaVersion := flags.String("schema-version", coverageSchemaVersion, "coverage schema version to project under")
+		javaReceipt := flags.String("java-receipt", "", "optional repository-relative Java formal receipt path")
+		if err := flags.Parse(arguments[1:]); err != nil || flags.NArg() != 0 || *root == "" || *summary == "" || *out == "" || !safeRelativePath(*out) ||
+			(*javaReceipt != "" && !safeRelativePath(*javaReceipt)) {
 			return 2
 		}
 		absoluteRoot, err := filepath.Abs(*root)
@@ -292,7 +295,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "kanidriver: %v\n", err)
 			return 1
 		}
-		value, err := buildCoverageProjection(absoluteRoot, *summary)
+		value, err := buildCoverageProjection(absoluteRoot, *summary, *schemaVersion, *javaReceipt)
 		if err != nil {
 			fmt.Fprintf(stderr, "kanidriver: %v\n", err)
 			return 1

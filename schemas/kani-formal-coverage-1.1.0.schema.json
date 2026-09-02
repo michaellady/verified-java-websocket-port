@@ -1,0 +1,324 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verified-java-websocket-port.invalid/schemas/kani-formal-coverage-1.1.0.schema.json",
+  "title": "Kani supplemental formal coverage projection (Java axis enumerated)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "$schema",
+    "schema_version",
+    "evidence_kind",
+    "projection_basis",
+    "catalog",
+    "kani_receipt",
+    "current_head_qualification",
+    "qualified_source",
+    "proof_subject",
+    "coverage",
+    "counts",
+    "blockers",
+    "status",
+    "claim_scope",
+    "limitations",
+    "assurance",
+    "independent_review_claimed",
+    "production",
+    "signing",
+    "publication"
+  ],
+  "properties": {
+    "$schema": {
+      "const": "../../schemas/kani-formal-coverage-1.1.0.schema.json"
+    },
+    "schema_version": {
+      "const": "1.1.0"
+    },
+    "evidence_kind": {
+      "const": "KANI_FORMAL_COVERAGE_PROJECTION"
+    },
+    "projection_basis": {
+      "$ref": "#/$defs/gitIdentity"
+    },
+    "catalog": {
+      "$ref": "#/$defs/artifact"
+    },
+    "kani_receipt": {
+      "$ref": "#/$defs/artifact"
+    },
+    "current_head_qualification": {
+      "$ref": "#/$defs/artifact"
+    },
+    "qualified_source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "qualified_commit",
+        "binding_count"
+      ],
+      "properties": {
+        "qualified_commit": {
+          "$ref": "#/$defs/gitHash"
+        },
+        "binding_count": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "proof_subject": {
+      "$ref": "#/$defs/gitIdentity"
+    },
+    "coverage": {
+      "type": "array",
+      "minItems": 24,
+      "maxItems": 24,
+      "items": {
+        "$ref": "#/$defs/coverageRow"
+      }
+    },
+    "counts": {
+      "$ref": "#/$defs/counts"
+    },
+    "blockers": {
+      "type": "array",
+      "minItems": 5,
+      "maxItems": 5,
+      "items": {
+        "$ref": "#/$defs/blocker"
+      }
+    },
+    "status": {
+      "const": "BLOCKED"
+    },
+    "claim_scope": {
+      "const": "SUPPLEMENTAL_RUST_FORMAL_COVERAGE_ONLY"
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 6,
+      "maxItems": 6,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "assurance": {
+      "const": "OWNER_ATTESTED_NOT_INDEPENDENT"
+    },
+    "independent_review_claimed": {
+      "const": false
+    },
+    "production": {
+      "const": false
+    },
+    "signing": {
+      "const": false
+    },
+    "publication": {
+      "const": false
+    },
+    "java_receipt": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/artifact"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "gitHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "safePath": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._/-]+$",
+      "not": {
+        "pattern": "(^/|(^|/)\\.\\.?(/|$))"
+      }
+    },
+    "gitIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "commit",
+        "tree",
+        "object_format"
+      ],
+      "properties": {
+        "commit": {
+          "$ref": "#/$defs/gitHash"
+        },
+        "tree": {
+          "$ref": "#/$defs/gitHash"
+        },
+        "object_format": {
+          "const": "sha1"
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "git_blob"
+      ],
+      "properties": {
+        "path": {
+          "$ref": "#/$defs/safePath"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "git_blob": {
+          "$ref": "#/$defs/gitHash"
+        }
+      }
+    },
+    "coverageRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "obligation_id",
+        "java_status",
+        "rust_status",
+        "refinement_status",
+        "mutation_status",
+        "aggregate_status",
+        "blocker_ids"
+      ],
+      "properties": {
+        "obligation_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "java_status": {
+          "enum": [
+            "SATISFIED",
+            "BLOCKED"
+          ]
+        },
+        "rust_status": {
+          "enum": [
+            "SATISFIED",
+            "BLOCKED"
+          ]
+        },
+        "refinement_status": {
+          "const": "BLOCKED"
+        },
+        "mutation_status": {
+          "enum": [
+            "SATISFIED",
+            "BLOCKED"
+          ]
+        },
+        "aggregate_status": {
+          "const": "BLOCKED"
+        },
+        "blocker_ids": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 5,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "java_satisfied",
+        "rust_satisfied",
+        "rust_blocked",
+        "refinement_satisfied",
+        "mutation_satisfied",
+        "mutation_blocked",
+        "aggregate_satisfied",
+        "aggregate_blocked"
+      ],
+      "properties": {
+        "required": {
+          "const": 24
+        },
+        "java_satisfied": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24
+        },
+        "rust_satisfied": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24
+        },
+        "rust_blocked": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24
+        },
+        "refinement_satisfied": {
+          "const": 0
+        },
+        "mutation_satisfied": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24
+        },
+        "mutation_blocked": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24
+        },
+        "aggregate_satisfied": {
+          "const": 0
+        },
+        "aggregate_blocked": {
+          "const": 24
+        }
+      }
+    },
+    "blocker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blocker_id",
+        "code",
+        "uncovered_obligation_ids"
+      ],
+      "properties": {
+        "blocker_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "uncovered_obligation_ids": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 24,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

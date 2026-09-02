@@ -15,7 +15,7 @@ func TestBuildCoverageProjectionUsesExactCatalogDenominator(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json")
+	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json", coverageSchemaVersion, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestValidateCoverageProjectionRejectsCountAndClaimInflation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json")
+	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json", coverageSchemaVersion, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestValidateCoverageProjectionRejectsCountAndClaimInflation(t *testing.T) {
 		t.Fatal("inflated Rust coverage count was accepted")
 	}
 
-	projection, err = buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json")
+	projection, err = buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json", coverageSchemaVersion, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,7 +190,7 @@ func TestCoverageSchemaCompilesAndAcceptsGeneratedProjection(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json")
+	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json", coverageSchemaVersion, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,5 +204,134 @@ func TestCoverageSchemaCompilesAndAcceptsGeneratedProjection(t *testing.T) {
 	}
 	if err := schema.Validate(document); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// Schema 1.0.0 pinned java_status to a const and java_satisfied to 0, so no input
+// could ever raise Java coverage. 1.1.0 makes the axis an enumeration. 1.0.0 and
+// everything validated under it stay untouched.
+func TestJavaAxisIsRepresentableUnderOneOneZeroAndImpossibleUnderOneZeroZero(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	projection, err := buildCoverageProjection(root, "evidence/formal/kani-a2b00ef/summary.json", coverageSchemaVersionV11, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projection.SchemaVersion != coverageSchemaVersionV11 || projection.Schema != coverageSchemaReferenceV11 {
+		t.Fatalf("projection did not adopt 1.1.0 identity: %s %s", projection.SchemaVersion, projection.Schema)
+	}
+	if projection.Counts.JavaSatisfied != 0 {
+		t.Fatalf("no Java receipt was cited, so the axis must stay 0, got %d", projection.Counts.JavaSatisfied)
+	}
+
+	body, err := json.Marshal(projection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document map[string]any
+	if err := json.Unmarshal(body, &document); err != nil {
+		t.Fatal(err)
+	}
+	// Raise the Java axis the way a real Java receipt would.
+	counts := document["counts"].(map[string]any)
+	counts["java_satisfied"] = 1
+	rows := document["coverage"].([]any)
+	rows[0].(map[string]any)["java_status"] = "SATISFIED"
+	raised, err := json.Marshal(document)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := validateCoverageSchema(root, coverageSchemaPathV11, raised); err != nil {
+		t.Errorf("schema 1.1.0 must admit nonzero Java coverage: %v", err)
+	}
+	if err := validateCoverageSchema(root, coverageSchemaPath, raised); err == nil {
+		t.Error("schema 1.0.0 must remain unable to represent Java coverage")
+	}
+}
+
+// Retained 1.0.0 projections must keep validating under the untouched 1.0.0 path.
+func TestRetainedProjectionsStillValidateUnderOneZeroZero(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"0cf36a9", "17e92c5", "467a224", "e624399", "2531f12", "a2b00ef", "30ee613"} {
+		path := filepath.Join("evidence", "formal", "kani-coverage-"+id+".json")
+		value, verifyErr := verifyCoverage(root, path)
+		if verifyErr != nil {
+			t.Errorf("retained projection %s no longer verifies: %v", id, verifyErr)
+			continue
+		}
+		if value.SchemaVersion != coverageSchemaVersion || value.Counts.JavaSatisfied != 0 || value.Status != coverageStatus {
+			t.Errorf("retained projection %s drifted: %+v", id, value.Counts)
+		}
+	}
+}
+
+// A Java result is credited only when it targets the symbol the catalog binds for
+// that obligation. A self-declared obligation label is not evidence.
+func TestDeriveJavaCoverageRequiresTheBoundSymbol(t *testing.T) {
+	bindings := map[string]string{"o.one": "com.example.A.m()V", "o.two": "com.example.B.n()V"}
+	catalogSet := map[string]bool{"o.one": true, "o.two": true}
+	base := func(results ...javaFormalResult) javaFormalReceipt {
+		return javaFormalReceipt{SchemaVersion: javaFormalSchemaVersion, EvidenceKind: javaFormalEvidenceKind, Results: results}
+	}
+
+	covered, err := deriveJavaCoverage(bindings, catalogSet, base(
+		javaFormalResult{ObligationID: "o.one", ProductionSymbol: "com.example.A.m()V", Status: "SATISFIED"},
+	))
+	if err != nil || len(covered) != 1 || !covered["o.one"] {
+		t.Fatalf("a matching Java result must raise the axis: %v %v", covered, err)
+	}
+
+	if _, err := deriveJavaCoverage(bindings, catalogSet, base(
+		javaFormalResult{ObligationID: "o.one", ProductionSymbol: "com.example.WRONG.m()V", Status: "SATISFIED"},
+	)); err == nil {
+		t.Error("a Java result on an unbound symbol must be rejected, not credited")
+	}
+
+	if _, err := deriveJavaCoverage(bindings, catalogSet, base(
+		javaFormalResult{ObligationID: "o.absent", ProductionSymbol: "com.example.A.m()V", Status: "SATISFIED"},
+	)); err == nil {
+		t.Error("a Java result outside the catalog must be rejected")
+	}
+
+	covered, err = deriveJavaCoverage(bindings, catalogSet, base(
+		javaFormalResult{ObligationID: "o.one", ProductionSymbol: "com.example.A.m()V", Status: "BLOCKED"},
+	))
+	if err != nil || len(covered) != 0 {
+		t.Fatalf("a blocked Java result must not be credited: %v %v", covered, err)
+	}
+
+	if _, err := deriveJavaCoverage(bindings, catalogSet, javaFormalReceipt{SchemaVersion: "9.9.9", EvidenceKind: javaFormalEvidenceKind}); err == nil {
+		t.Error("a Java receipt with foreign identity must be rejected")
+	}
+}
+
+// The catalog's bindings must actually be readable; cmd/kanidriver previously
+// unmarshalled only obligation_id and never loaded them at all.
+func TestCatalogBindingsAreLoaded(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(coverageCatalogPath)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := decodeCoverageCatalog(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.JavaBindings) != coverageRequiredCount {
+		t.Fatalf("expected %d Java bindings, got %d", coverageRequiredCount, len(catalog.JavaBindings))
+	}
+	for _, obligationID := range catalog.ObligationIDs {
+		if catalog.JavaBindings[obligationID] == "" {
+			t.Errorf("obligation %s has no Java production symbol", obligationID)
+		}
 	}
 }
