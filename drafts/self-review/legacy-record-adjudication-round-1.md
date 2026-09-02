@@ -280,6 +280,7 @@ readings against the real binary, all with
 | committed state | `go run ./cmd/deltaledgerctl --root . --check` | **0** |
 | one entry dropped and the residual corrected for it | same | **1**, `sequence 7 carries no adjudication…` |
 | `records_without_ac3_class` faked to 0 | same | **1**, `publishes records_without_ac3_class=0 but 1 of the 56 records…` |
+| an unknown field added to one entry | same | **1**, refused TWICE and independently — by the JSON-schema binding (`additional properties … not allowed`) and by the decoder's `DisallowUnknownFields` |
 | `make -C rust ledger-gates oracle-hierarchy-gates` | | **0** |
 
 The gate prints both counters side by side on success, deliberately: reading
