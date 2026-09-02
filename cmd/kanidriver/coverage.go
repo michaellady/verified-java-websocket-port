@@ -88,6 +88,10 @@ type coverageRow struct {
 	MutationStatus   string   `json:"mutation_status"`
 	AggregateStatus  string   `json:"aggregate_status"`
 	BlockerIDs       []string `json:"blocker_ids"`
+	// RustLinkage is absent under 1.0.0 and required under 1.1.0. It records
+	// whether the crediting harness proves the cataloged bound symbol (DIRECT), a
+	// leaf that symbol calls (SUPPORTING), or nothing (ABSENT).
+	RustLinkage string `json:"rust_linkage,omitempty"`
 }
 
 type coverageCounts struct {
@@ -100,6 +104,10 @@ type coverageCounts struct {
 	MutationBlocked     int `json:"mutation_blocked"`
 	AggregateSatisfied  int `json:"aggregate_satisfied"`
 	AggregateBlocked    int `json:"aggregate_blocked"`
+	// RustSupporting counts obligations whose only Kani evidence proves a leaf the
+	// bound symbol calls. It is a separate column and is never summed into
+	// RustSatisfied. Absent under 1.0.0, which has no such concept.
+	RustSupporting *int `json:"rust_supporting,omitempty"`
 }
 
 type coverageBlocker struct {
@@ -142,6 +150,7 @@ type obligationCatalogProjection struct {
 		ObligationID string `json:"obligation_id"`
 	} `json:"obligations"`
 	JavaBindings []catalogBinding `json:"java_bindings"`
+	RustBindings []catalogBinding `json:"rust_bindings"`
 }
 
 // catalogBinding is the catalog's record of which shipped symbol an obligation is
@@ -157,6 +166,10 @@ type catalogBinding struct {
 type coverageCatalog struct {
 	ObligationIDs []string
 	JavaBindings  map[string]string
+	// RustBindings maps an obligation to the shipped Rust symbol the catalog says
+	// it is about. This is the join key the projection needs to tell a proof of the
+	// bound symbol apart from a proof of something else wearing the same label.
+	RustBindings map[string]string
 }
 
 // javaFormalReceipt is the minimal typed view of Java bounded-model evidence.
@@ -594,33 +607,55 @@ func deriveCoverageForRelease(release coverageRelease, catalog coverageCatalog, 
 // separate axes with separate blockers and are deliberately left untouched.
 func deriveCoverageV11(catalog coverageCatalog, value receipt, javaCovered map[string]bool) ([]coverageRow, coverageCounts, []coverageBlocker, error) {
 	obligationIDs := catalog.ObligationIDs
+	catalogSet := make(map[string]bool, len(obligationIDs))
+	for _, obligationID := range obligationIDs {
+		catalogSet[obligationID] = true
+	}
+
+	// The join that 1.0.0 never performed. An obligation earns rust credit only
+	// when a harness both declares it AND targets the production symbol the catalog
+	// binds for it. Proving a callee says nothing about the caller's dispatch,
+	// ordering, or state gating, which is exactly what a step-bound obligation
+	// asserts; crediting it anyway is a production-linkage overclaim.
 	rustCovered := map[string]bool{}
+	rustSupporting := map[string]bool{}
+	harnessSymbols := map[string]string{}
 	for _, harness := range value.Execution.Harnesses {
+		harnessSymbols[harness.HarnessID] = harness.TargetSymbol
 		for _, obligationID := range harness.ObligationIDs {
-			rustCovered[obligationID] = true
+			if !catalogSet[obligationID] {
+				return nil, coverageCounts{}, nil, fmt.Errorf("Kani harness references obligation outside catalog: %s", obligationID)
+			}
+			if catalog.RustBindings[obligationID] == harness.TargetSymbol {
+				rustCovered[obligationID] = true
+			} else {
+				rustSupporting[obligationID] = true
+			}
 		}
 	}
+	for obligationID := range rustCovered {
+		delete(rustSupporting, obligationID)
+	}
+
+	// Mutation sensitivity is credited on the same terms: the killed canary's
+	// harness must itself prove the bound symbol, and the obligation must already
+	// hold direct rust linkage.
 	mutationCovered := map[string]bool{}
 	for _, mutation := range value.Execution.MutationCanaries {
 		if mutation.Status != "COUNTEREXAMPLE" {
 			continue
 		}
 		for _, obligationID := range mutation.ObligationIDs {
+			if !catalogSet[obligationID] {
+				return nil, coverageCounts{}, nil, fmt.Errorf("mutation canary references obligation outside catalog: %s", obligationID)
+			}
+			if !rustCovered[obligationID] {
+				continue
+			}
+			if catalog.RustBindings[obligationID] != harnessSymbols[mutation.HarnessID] {
+				continue
+			}
 			mutationCovered[obligationID] = true
-		}
-	}
-	catalogSet := make(map[string]bool, len(obligationIDs))
-	for _, obligationID := range obligationIDs {
-		catalogSet[obligationID] = true
-	}
-	for obligationID := range rustCovered {
-		if !catalogSet[obligationID] {
-			return nil, coverageCounts{}, nil, fmt.Errorf("Kani harness references obligation outside catalog: %s", obligationID)
-		}
-	}
-	for obligationID := range mutationCovered {
-		if !catalogSet[obligationID] || !rustCovered[obligationID] {
-			return nil, coverageCounts{}, nil, fmt.Errorf("mutation coverage lacks a cataloged passing harness: %s", obligationID)
 		}
 	}
 	for obligationID := range javaCovered {
@@ -657,6 +692,12 @@ func deriveCoverageV11(catalog coverageCatalog, value receipt, javaCovered map[s
 			blockerIDs = append(blockerIDs, "blocker-kani-mutation-coverage")
 		}
 		sort.Strings(blockerIDs)
+		linkage := "ABSENT"
+		if rustCovered[obligationID] {
+			linkage = "DIRECT"
+		} else if rustSupporting[obligationID] {
+			linkage = "SUPPORTING"
+		}
 		rows = append(rows, coverageRow{
 			ObligationID:     obligationID,
 			JavaStatus:       javaStatus,
@@ -665,8 +706,10 @@ func deriveCoverageV11(catalog coverageCatalog, value receipt, javaCovered map[s
 			MutationStatus:   mutationStatus,
 			AggregateStatus:  coverageBlocked,
 			BlockerIDs:       blockerIDs,
+			RustLinkage:      linkage,
 		})
 	}
+	supporting := len(rustSupporting)
 	counts := coverageCounts{
 		Required:            len(obligationIDs),
 		JavaSatisfied:       len(javaCovered),
@@ -677,6 +720,7 @@ func deriveCoverageV11(catalog coverageCatalog, value receipt, javaCovered map[s
 		MutationBlocked:     len(obligationIDs) - len(mutationCovered),
 		AggregateSatisfied:  0,
 		AggregateBlocked:    len(obligationIDs),
+		RustSupporting:      &supporting,
 	}
 	blockers := []coverageBlocker{
 		{BlockerID: "blocker-independent-host", Code: "INDEPENDENT_REPLAY_ABSENT", UncoveredObligationIDs: append([]string(nil), obligationIDs...)},
@@ -707,7 +751,11 @@ func decodeCoverageCatalog(body []byte) (coverageCatalog, error) {
 	if err != nil {
 		return coverageCatalog{}, err
 	}
-	return coverageCatalog{ObligationIDs: ids, JavaBindings: javaBindings}, nil
+	rustBindings, err := indexCatalogBindings(catalog.RustBindings, "RUST", ids)
+	if err != nil {
+		return coverageCatalog{}, err
+	}
+	return coverageCatalog{ObligationIDs: ids, JavaBindings: javaBindings, RustBindings: rustBindings}, nil
 }
 
 // indexCatalogBindings turns the catalog's binding list into an obligation-keyed
@@ -807,13 +855,17 @@ func exactCoverageLimitationsV11(counts coverageCounts) []string {
 	if counts.JavaSatisfied > 0 {
 		javaText = fmt.Sprintf("Java formal evidence covers %d of 24 obligations on their cataloged bound symbols.", counts.JavaSatisfied)
 	}
+	supporting := 0
+	if counts.RustSupporting != nil {
+		supporting = *counts.RustSupporting
+	}
 	return []string{
-		"Rust status is credited only from the verified retained shipped-symbol Kani receipt; its logs, source bindings, toolchain, replay, and exact source mutations are transitively validated.",
+		"Rust status is credited only when a harness in the verified retained Kani receipt targets the production symbol the catalog binds for that obligation; a harness's self-declared obligation label alone is not sufficient.",
 		javaText,
 		"Java-to-Rust refinement is absent for all 24 obligations, so aggregate formal coverage is 0/24; refinement and aggregate are separate axes with separate blockers and are unchanged by this schema version.",
-		fmt.Sprintf("%s obligations have no retained shipped-symbol Kani harness; %s have no obligation-specific killed exact source mutation.", coverageCountText(counts.RustBlocked), strings.ToLower(coverageCountText(counts.MutationBlocked))),
-		"The Kani execution is owner-attested on one darwin/arm64 host and is not independent-host evidence.",
-		"No sbx isolation, Autobahn rerun, production deployment, signing, publication, or cutover is claimed.",
+		fmt.Sprintf("%d of 24 obligations have direct Kani linkage to their bound symbol and %d have only supporting evidence on a leaf that symbol calls; supporting evidence is reported separately and is never summed into rust_satisfied.", counts.RustSatisfied, supporting),
+		fmt.Sprintf("%s obligations have no retained shipped-symbol Kani harness; %s have no obligation-specific killed exact source mutation on the bound symbol.", coverageCountText(counts.RustBlocked), strings.ToLower(coverageCountText(counts.MutationBlocked))),
+		"The Kani execution is owner-attested on one darwin/arm64 host and is not independent-host evidence; no sbx isolation, Autobahn rerun, production deployment, signing, publication, or cutover is claimed.",
 	}
 }
 

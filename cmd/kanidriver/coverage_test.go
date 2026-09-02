@@ -335,3 +335,101 @@ func TestCatalogBindingsAreLoaded(t *testing.T) {
 		}
 	}
 }
+
+// deriveCoverage credited an obligation purely from a harness's self-declared
+// obligation_ids and never checked target_symbol against the catalog's bound
+// production_symbol. Nine obligations bind ConnectionCore::step, the CALLER of
+// every proved leaf; proving a callee says nothing about the caller's dispatch,
+// ordering, or state gating. Under 1.1.0 credit requires the join.
+func TestOneOneZeroCreditsOnlyHarnessesOnTheBoundSymbol(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const receipt = "evidence/formal/kani-30ee613/summary.json"
+
+	legacy, err := buildCoverageProjection(root, receipt, coverageSchemaVersion, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.Counts.RustSatisfied != 19 || legacy.Counts.MutationSatisfied != 19 {
+		t.Fatalf("the 1.0.0 derivation must be preserved exactly for replay, got rust=%d mutation=%d",
+			legacy.Counts.RustSatisfied, legacy.Counts.MutationSatisfied)
+	}
+	if legacy.Counts.RustSupporting != nil {
+		t.Error("1.0.0 has no supporting column and must not emit one")
+	}
+
+	joined, err := buildCoverageProjection(root, receipt, coverageSchemaVersionV11, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if joined.Counts.RustSatisfied != 10 || joined.Counts.MutationSatisfied != 10 {
+		t.Errorf("symbol-joined credit drifted: rust=%d mutation=%d, want 10 and 10",
+			joined.Counts.RustSatisfied, joined.Counts.MutationSatisfied)
+	}
+	if joined.Counts.RustSupporting == nil || *joined.Counts.RustSupporting != 9 {
+		t.Errorf("supporting count drifted: %v, want 9", joined.Counts.RustSupporting)
+	}
+	// Supporting evidence must never inflate the satisfied integer.
+	if joined.Counts.RustSatisfied+joined.Counts.RustBlocked != coverageRequiredCount {
+		t.Error("supporting evidence leaked into the satisfied/blocked partition")
+	}
+
+	linkage := map[string]string{}
+	status := map[string]string{}
+	for _, row := range joined.Coverage {
+		linkage[row.ObligationID] = row.RustLinkage
+		status[row.ObligationID] = row.RustStatus
+	}
+	// Bound to ConnectionCore::step, proved only on leaves it calls.
+	for _, obligationID := range []string{
+		"surface.close.status-code", "surface.close.terminal-state", "surface.control.ping-pong",
+		"surface.fragmentation.continuation", "surface.messages.binary", "surface.messages.text-utf8",
+	} {
+		if linkage[obligationID] != "SUPPORTING" || status[obligationID] != coverageBlocked {
+			t.Errorf("%s is bound to the caller but was credited: linkage=%s status=%s",
+				obligationID, linkage[obligationID], status[obligationID])
+		}
+	}
+	// Bound to the decoder and actually proved on the decoder.
+	for _, obligationID := range []string{"obligation.checked-header-arithmetic", "obligation.role-masking"} {
+		if linkage[obligationID] != "DIRECT" || status[obligationID] != coverageSatisfied {
+			t.Errorf("%s has genuine linkage but was not credited: linkage=%s status=%s",
+				obligationID, linkage[obligationID], status[obligationID])
+		}
+	}
+}
+
+// A harness that declares an obligation it does not prove must not credit it, and
+// the catalog must not be consulted by label alone.
+func TestDeriveCoverageV11RejectsLabelOnlyCredit(t *testing.T) {
+	catalog := coverageCatalog{
+		ObligationIDs: []string{"o.one"},
+		JavaBindings:  map[string]string{"o.one": "com.example.A.m()V"},
+		RustBindings:  map[string]string{"o.one": "crate::Bound::symbol"},
+	}
+	mismatched := receipt{}
+	mismatched.Execution.Harnesses = []harnessPlan{
+		{HarnessID: "h", TargetSymbol: "crate::Some::leaf", ObligationIDs: []string{"o.one"}},
+	}
+	rows, counts, _, err := deriveCoverageV11(catalog, mismatched, map[string]bool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counts.RustSatisfied != 0 || rows[0].RustStatus != coverageBlocked || rows[0].RustLinkage != "SUPPORTING" {
+		t.Fatalf("a harness on a different symbol must not credit the obligation: %+v %s", counts, rows[0].RustLinkage)
+	}
+
+	matched := receipt{}
+	matched.Execution.Harnesses = []harnessPlan{
+		{HarnessID: "h", TargetSymbol: "crate::Bound::symbol", ObligationIDs: []string{"o.one"}},
+	}
+	rows, counts, _, err = deriveCoverageV11(catalog, matched, map[string]bool{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if counts.RustSatisfied != 1 || rows[0].RustLinkage != "DIRECT" {
+		t.Fatalf("a harness on the bound symbol must credit the obligation: %+v %s", counts, rows[0].RustLinkage)
+	}
+}

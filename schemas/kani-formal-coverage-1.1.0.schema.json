@@ -194,7 +194,8 @@
         "refinement_status",
         "mutation_status",
         "aggregate_status",
-        "blocker_ids"
+        "blocker_ids",
+        "rust_linkage"
       ],
       "properties": {
         "obligation_id": {
@@ -234,6 +235,13 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "rust_linkage": {
+          "enum": [
+            "DIRECT",
+            "SUPPORTING",
+            "ABSENT"
+          ]
         }
       }
     },
@@ -249,7 +257,8 @@
         "mutation_satisfied",
         "mutation_blocked",
         "aggregate_satisfied",
-        "aggregate_blocked"
+        "aggregate_blocked",
+        "rust_supporting"
       ],
       "properties": {
         "required": {
@@ -288,6 +297,11 @@
         },
         "aggregate_blocked": {
           "const": 24
+        },
+        "rust_supporting": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 24
         }
       }
     },
@@ -310,7 +324,7 @@
         },
         "uncovered_obligation_ids": {
           "type": "array",
-          "minItems": 1,
+          "minItems": 0,
           "maxItems": 24,
           "uniqueItems": true,
           "items": {
