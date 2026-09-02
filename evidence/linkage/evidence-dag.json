@@ -1366,7 +1366,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/agent.rs",
       "line": 47,
-      "sha256": "sha256:51084c6300ab349a52627562eb301a2608b2bd0aee892b744a78dc13626fac35"
+      "sha256": "sha256:b9e30b6ae8dec5c1d0d386e8f0b4db2241c777d579f8cd9f0ba1b839a9ec6705"
     },
     {
       "id": "ws_testee::agent::fetch_case_count",
@@ -1374,8 +1374,8 @@
       "rust_path": "ws_testee::agent::fetch_case_count",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/agent.rs",
-      "line": 225,
-      "sha256": "sha256:51084c6300ab349a52627562eb301a2608b2bd0aee892b744a78dc13626fac35"
+      "line": 226,
+      "sha256": "sha256:b9e30b6ae8dec5c1d0d386e8f0b4db2241c777d579f8cd9f0ba1b839a9ec6705"
     },
     {
       "id": "ws_testee::agent::run_agent_sweep",
@@ -1383,8 +1383,8 @@
       "rust_path": "ws_testee::agent::run_agent_sweep",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/agent.rs",
-      "line": 284,
-      "sha256": "sha256:51084c6300ab349a52627562eb301a2608b2bd0aee892b744a78dc13626fac35"
+      "line": 285,
+      "sha256": "sha256:b9e30b6ae8dec5c1d0d386e8f0b4db2241c777d579f8cd9f0ba1b839a9ec6705"
     },
     {
       "id": "ws_testee::agent::run_cases",
@@ -1392,8 +1392,8 @@
       "rust_path": "ws_testee::agent::run_cases",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/agent.rs",
-      "line": 312,
-      "sha256": "sha256:51084c6300ab349a52627562eb301a2608b2bd0aee892b744a78dc13626fac35"
+      "line": 313,
+      "sha256": "sha256:b9e30b6ae8dec5c1d0d386e8f0b4db2241c777d579f8cd9f0ba1b839a9ec6705"
     },
     {
       "id": "ws_testee::agent::update_reports",
@@ -1401,8 +1401,8 @@
       "rust_path": "ws_testee::agent::update_reports",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/agent.rs",
-      "line": 263,
-      "sha256": "sha256:51084c6300ab349a52627562eb301a2608b2bd0aee892b744a78dc13626fac35"
+      "line": 264,
+      "sha256": "sha256:b9e30b6ae8dec5c1d0d386e8f0b4db2241c777d579f8cd9f0ba1b839a9ec6705"
     },
     {
       "id": "ws_testee::client::run_client_once",
@@ -1411,7 +1411,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/client.rs",
       "line": 85,
-      "sha256": "sha256:138e34b4ef2149b950d713d021727af2573d54fee0d9d70496bb7b75b81e72c8"
+      "sha256": "sha256:71683a299dd3ce473c0dd29ede4350e6350aa686d46b2dd5b10ee0fa348d7927"
     },
     {
       "id": "ws_testee::io_loop::HandshakeOutcome",
@@ -1419,8 +1419,8 @@
       "rust_path": "ws_testee::io_loop::HandshakeOutcome",
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/io_loop.rs",
-      "line": 475,
-      "sha256": "sha256:b44328c2421690d39d1f8a585d5854d8b03fe219849853b7175dd996740f4a5a"
+      "line": 567,
+      "sha256": "sha256:30ce9fa2731e71d0b6c6bb45bfc17796dcab674d5f3cbc026f7d872acb853a00"
     },
     {
       "id": "ws_testee::io_loop::IoBounds",
@@ -1429,7 +1429,7 @@
       "decl_kind": "struct",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 20,
-      "sha256": "sha256:b44328c2421690d39d1f8a585d5854d8b03fe219849853b7175dd996740f4a5a"
+      "sha256": "sha256:30ce9fa2731e71d0b6c6bb45bfc17796dcab674d5f3cbc026f7d872acb853a00"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome",
@@ -1438,7 +1438,7 @@
       "decl_kind": "enum",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 64,
-      "sha256": "sha256:b44328c2421690d39d1f8a585d5854d8b03fe219849853b7175dd996740f4a5a"
+      "sha256": "sha256:30ce9fa2731e71d0b6c6bb45bfc17796dcab674d5f3cbc026f7d872acb853a00"
     },
     {
       "id": "ws_testee::io_loop::LoopOutcome::SocketError",
@@ -1447,7 +1447,7 @@
       "decl_kind": "enum_variant",
       "file": "rust/ws-testee/src/io_loop.rs",
       "line": 71,
-      "sha256": "sha256:b44328c2421690d39d1f8a585d5854d8b03fe219849853b7175dd996740f4a5a"
+      "sha256": "sha256:30ce9fa2731e71d0b6c6bb45bfc17796dcab674d5f3cbc026f7d872acb853a00"
     },
     {
       "id": "ws_testee::io_loop::drive_connection",
@@ -1455,8 +1455,8 @@
       "rust_path": "ws_testee::io_loop::drive_connection",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/io_loop.rs",
-      "line": 185,
-      "sha256": "sha256:b44328c2421690d39d1f8a585d5854d8b03fe219849853b7175dd996740f4a5a"
+      "line": 190,
+      "sha256": "sha256:30ce9fa2731e71d0b6c6bb45bfc17796dcab674d5f3cbc026f7d872acb853a00"
     },
     {
       "id": "ws_testee::io_loop::drive_connection_from",
@@ -1464,8 +1464,8 @@
       "rust_path": "ws_testee::io_loop::drive_connection_from",
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/io_loop.rs",
-      "line": 205,
-      "sha256": "sha256:b44328c2421690d39d1f8a585d5854d8b03fe219849853b7175dd996740f4a5a"
+      "line": 235,
+      "sha256": "sha256:30ce9fa2731e71d0b6c6bb45bfc17796dcab674d5f3cbc026f7d872acb853a00"
     },
     {
       "id": "ws_testee::server::run_server_once",
@@ -1474,7 +1474,7 @@
       "decl_kind": "fn",
       "file": "rust/ws-testee/src/server.rs",
       "line": 55,
-      "sha256": "sha256:d549ce79e60a4bf04eb2722b1047f6468e2d7ed29ece455499d208bedd1abdd6"
+      "sha256": "sha256:214677b471285bf0b589d12d454438f8f18b726f4401eade0809e3125da69895"
     }
   ],
   "edges": [

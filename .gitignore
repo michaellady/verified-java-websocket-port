@@ -32,3 +32,10 @@ java-semantic-oracle/build/
 /terraform/bootstrap/.terraform/
 /terraform/bootstrap/.terraform.lock.hcl
 /rustgatectl
+
+# Subagent worktrees. Each is a transient, isolated `git worktree` checkout of
+# THIS repository, created for a parallel agent and removed when it finishes.
+# Committing them would commit a copy of the repository into itself (1.2 GiB
+# for the four in flight on 2026-09-02). The work they produce reaches this
+# repository as a pushed branch, never as files under this path.
+.claude/worktrees/

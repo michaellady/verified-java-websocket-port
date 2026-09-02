@@ -181,6 +181,7 @@ fn serve_mock(listener: &TcpListener, script: &MockScript) -> MockSession {
         &sender,
         &mut stream,
         &bounds,
+        Role::Server,
         &mut policy,
         &mut report,
         handshake.carryover,

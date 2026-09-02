@@ -209,6 +209,7 @@ fn run_one(
         &sender,
         &mut stream,
         &fixture.bounds,
+        Role::Client,
         policy,
         &mut report,
         handshake.carryover,

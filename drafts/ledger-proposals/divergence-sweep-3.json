@@ -1,0 +1,57 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "BehaviorDeltaLedgerRecordProposal",
+  "note": "A DRAFT, not a ledger record. evidence/java/behavior-delta-ledger.json is append-only with a frozen prefix and is edited by another track; this file exists so the owner can append the record without retyping it. previous_digest and record_digest are functions of the append position and are therefore marked PENDING_APPEND_POSITION. Everything else, including delta_id, is computed here from the digest preimages below by the same construction internal/deltaledger uses, so appending this definition reproduces this delta_id exactly.",
+  "sweep_class_id": "DIV-03-invalid-utf8-close-reason-tcp-end",
+  "sweep_recommendation": "FIX_IN_PORT",
+  "measured_extent": {
+    "sweep_document": "evidence/java/observed-close-divergences.json",
+    "run_id": "us019-prov-20260828T183623Z",
+    "subject_commit": "518b77aa3ecdc180c832a0d988adf498d687e1b8",
+    "case_counts_by_subject_role": {
+      "server": 1
+    },
+    "cases_by_subject_role": {
+      "server": [
+        "7.5.1"
+      ]
+    }
+  },
+  "digest_preimages": {
+    "autobahn_result_digest": "EXECUTED, native x86_64 provenance run us019-prov-20260828T183623Z, port build 518b77aa. MEASURED EXTENT (native x86_64 run, 247-case pinned manifest, both roles): server role 1/247 cases, client role 0/247 cases. This is the ONLY case in 494 (247 cases times two roles) where the port ends a TCP connection that shipped Java leaves open: the port scored resultClose='Connection was properly closed' with duration 0 ms, Java scored 'It is preferred that the server close the TCP connection' with wasCloseHandshakeTimeout=true. Both subjects' subject_close_code is null, so no close-code divergence exists here. The extent above is recomputed from the committed per-case report bytes by internal/divergencesweep and recorded per case in evidence/java/observed-close-divergences.json; the digest manifest over the 1048 pinned files is verified before any report is read, and internal/divergencesweep's tests refuse a document that disagrees with the reports.",
+    "autobahn_value_digest": "port tcp_connection_dropped_by=SUBJECT, close_handshake_timeout=false; java tcp_connection_dropped_by=AUTOBAHN_SUITE, close_handshake_timeout=true",
+    "java_observation_digest": "Shipped Java 1.6.0 rejects the invalid-UTF-8 reason at runtime inside CloseFrame.isValid (the rejection already ledgered at behavior-delta sequence 32) and then neither answers the close nor closes the socket. Observed on the native x86_64 run as the suite's own close-handshake timer expiring: wasCloseHandshakeTimeout=true, wasNotCleanReason='peer did not respond (in time) in closing handshake', droppedByMe=true, duration 1001 ms.",
+    "java_value_digest": "subject neither sends a close frame nor closes TCP; the peer times out and drops",
+    "rfc_expectation_digest": "RFC 6455 8.1 requires an endpoint that receives a Close frame whose reason is not valid UTF-8 to fail the WebSocket connection, which under 7.1.6 ends with the TCP connection closed.",
+    "rfc_value_digest": "connection failed and the TCP connection closed by the receiving endpoint"
+  },
+  "proposed_record": {
+    "schema_version": "1.0.0",
+    "sequence": "PENDING_APPEND_POSITION (the next free sequence at append time)",
+    "previous_digest": "PENDING_APPEND_POSITION",
+    "delta": {
+      "schema_version": "1.0.0",
+      "delta_id": "delta-7677db91f7b6267d3614468f70abebcb7c119d539297cd58c697e9bc7b7b8dfa",
+      "subject_ref": "semantic:org.java-websocket.closeframe.invalid-utf8-reason-transport-stall:provisional-v1",
+      "rfc_refs": [
+        "rfc6455#section-7.1.6",
+        "rfc6455#section-8.1"
+      ],
+      "rfc_expectation_digest": "sha256:c72f896f92af3c63d5f644554079ead17d81cce0a9329c068601cd3cf699432d",
+      "rfc_value_digest": "sha256:5877426239ab1aebffdd69b3528a983b53259563d5c5966ca34fde625b1f1df3",
+      "java_ref": "java-v1.6.0:org.java_websocket.framing.CloseFrame:isValid",
+      "java_observation_digest": "sha256:873ed9282aced750c42b0e6b72a2f08274a4861b0c89df4126911abb91eccac4",
+      "java_value_digest": "sha256:36d1a17cba2ec97a4f37585ea684fd8f1bbeb59ae6623c5d21f39910a63e556a",
+      "autobahn_refs": [
+        "autobahn-v25.10.1:7.5.1"
+      ],
+      "autobahn_result_digest": "sha256:fb38e88594e72a79bab8252df5ffbd5a3c3962ca898553eb18e0184318642cbd",
+      "autobahn_value_digest": "sha256:3a116902e64f791d21a0204aae971929aab7f93bc80eea2d35c59b2610cce094",
+      "disagreement_digest": "sha256:7677db91f7b6267d3614468f70abebcb7c119d539297cd58c697e9bc7b7b8dfa",
+      "normative_authority": "rfc6455",
+      "disposition": "unresolved",
+      "rationale": "DIVERGENCE (invalid-UTF-8 close reason, resulting transport end): shipped Java stalls — it rejects the reason, sends nothing and holds the socket until the peer times out — and the port ends the transport immediately. MEASURED EXTENT (native x86_64 run, 247-case pinned manifest, both roles): server role 1/247 cases, client role 0/247 cases. MECHANISM: this is the failure-without-a-close-frame mechanism with the polarity reversed, because the port's reaction to any failure is to drop TCP. RECOMMENDATION: FIX IN THE PORT, as part of the failure-close-frame fix, and NOT ledgered as an intentional correction. It is recorded separately because it is the one case where a fix that only adds a close frame would still leave a difference: shipped Java's behaviour here is to send nothing AND hold the socket, so reproducing it means reproducing the stall. Its acceptance criterion is therefore explicitly NOT 'this case now agrees with the port's old behaviour'. If the owner rules that reproducing a 1-second peer-side timeout is not worth reproducing, this becomes LEDGER AS INTENTIONAL CORRECTION instead, with the port's prompt close disclosed. SAFETY: the port's current behaviour is the safe one; the risk of matching Java here is holding a socket a peer has already misused, which is why this needs an owner ruling rather than a silent fix. The extent above is recomputed from the committed per-case report bytes by internal/divergencesweep and recorded per case in evidence/java/observed-close-divergences.json; the digest manifest over the 1048 pinned files is verified before any report is read, and internal/divergencesweep's tests refuse a document that disagrees with the reports."
+    },
+    "record_digest": "PENDING_APPEND_POSITION"
+  }
+}

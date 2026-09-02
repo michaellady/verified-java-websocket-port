@@ -1,0 +1,782 @@
+{
+  "schema_version": "1.0.0",
+  "projection_id": "java-formal-binding-coverage",
+  "catalog_id": "us023-formal-obligations",
+  "assurance": {
+    "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+    "independent_review_claimed": false,
+    "production": false,
+    "publication": false,
+    "signing": false
+  },
+  "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+  "required_strength": "PRODUCTION_REFINEMENT",
+  "claim": {
+    "statement": "For each CONNECTED obligation: the immutable catalog's declared Java production symbol resolves to exactly one declaration in the digest-pinned Java-WebSocket 1.6.0 source; every declared clause of the obligation is witnessed by predicates over byte-exact responses of the pinned runtime executed out of process; and each clause carries its own exact digest-anchored edit inside the bound declaration's byte span which, delivered through a repackaged runtime archive whose recompiled-but-unmutated control reproduces the baseline observation, flips a predicate of that clause which held on the baseline.",
+    "not_claims": [
+      "This is not a proof of the Java library; no prover or model checker is applied to Java-WebSocket 1.6.0.",
+      "This is not 'formally verified'; that phrase is reserved here for named Kani-proved properties quoted with their bounds together with the refinement check.",
+      "This does not establish Java-to-model, model-to-Rust or Java-to-Rust refinement; refinement remains 0/24.",
+      "This does not move aggregate obligation coverage, which remains 0/24.",
+      "Executed observations are finite scenario sets with declared bounds; they say nothing about inputs outside those sets.",
+      "This is owner-executed on a single host and is not independent.",
+      "A satisfied binding reports what the pinned Java did; it does not adjudicate that behaviour as correct. RFC 6455 remains normative."
+    ]
+  },
+  "spec": {
+    "path": "assurance/formal/java-binding-spec.json",
+    "sha256": "sha256:468142c6d01a8c358e636f4f52aefd564c5d9854c824ece3008be67d4da7c15b"
+  },
+  "catalog": {
+    "path": "assurance/formal/obligation-catalog.json",
+    "sha256": "sha256:21112518f48443b4e20ecae537bed72b8c9e19167ad00bc6f325bff9374cdf59"
+  },
+  "receipt": {
+    "path": "evidence/java/formal-bindings/receipt.json",
+    "sha256": "sha256:4a4dff73c49ebf0c418aa8a2664a40718753e2f81cefa47f21ffc44689974f3f"
+  },
+  "pinned_source": {
+    "archive_sha256": "sha256:f44e7647b4aee40819b51947cf0bb5f35a48293a202b77704c3c79e98ed13cb4",
+    "tree_directory": "Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "source_revision": "da3cf2a777aed862f2f5b5cf060cae7969958667",
+    "source_root": "src/main/java"
+  },
+  "pinned_runtime": {
+    "artifact": "org.java-websocket:Java-WebSocket:1.6.0",
+    "sha256": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f"
+  },
+  "counts": {
+    "denominator": 24,
+    "java_bindings_connected": 4,
+    "java_bindings_partial": 2,
+    "java_bindings_disconnected": 18,
+    "java_mutation_sensitive": 6,
+    "java_bindings_at_required_strength": 0,
+    "refinement": 0,
+    "aggregate": 0,
+    "clauses_declared": 11,
+    "clauses_satisfied": 9,
+    "canaries_declared": 10,
+    "canaries_killed": 10
+  },
+  "obligations": [
+    {
+      "obligation_id": "obligation.checked-header-arithmetic",
+      "catalog_statement": "Header and payload arithmetic is checked before allocation.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "binding_state": "CONNECTED",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "chain": [
+        "translateSingleFrame"
+      ],
+      "span_sha256": "sha256:a469fed7be335c3cf9553721d4e09de8d5ee3de55418fea5c1b135e47ac5b1e9",
+      "descriptor_agreement": "RETURN_DIVERGENT",
+      "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false,
+      "clauses_declared": 1,
+      "clauses_satisfied": 1,
+      "canaries_killed": 1,
+      "clauses": [
+        {
+          "clause_id": "c.header-arithmetic.shortfall-detected",
+          "statement": "A frame header that declares more payload than the buffer holds is detected by the decoder's own header/payload arithmetic, and nothing is allocated or delivered for it.",
+          "satisfied": true,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.header.declared-exceeds-available",
+              "predicate": "{\"kind\":\"outcome\",\"string\":\"ok\"}",
+              "satisfied": true,
+              "observed": "ok"
+            },
+            {
+              "scenario_id": "s.header.declared-exceeds-available",
+              "predicate": "{\"kind\":\"frame_count\",\"direction\":\"inbound\",\"number\":0}",
+              "satisfied": true,
+              "observed": "0"
+            },
+            {
+              "scenario_id": "s.header.declared-exceeds-available",
+              "predicate": "{\"kind\":\"event_absent\",\"event_type\":\"binary\"}",
+              "satisfied": true,
+              "observed": "0 \"binary\" events"
+            },
+            {
+              "scenario_id": "s.header.declared-exceeds-available",
+              "predicate": "{\"kind\":\"counts_field\",\"field\":\"buffered_bytes\",\"number\":7}",
+              "satisfied": true,
+              "observed": "7"
+            },
+            {
+              "scenario_id": "s.header.declared-exceeds-available",
+              "predicate": "{\"kind\":\"counts_field\",\"field\":\"wire_buffered_bytes\",\"number\":7}",
+              "satisfied": true,
+              "observed": "7"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.header-arithmetic.drop-payload-term",
+            "scenario_id": "s.header.declared-exceeds-available",
+            "chain_member": "translateSingleFrame",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.header-arithmetic.shortfall-detected",
+            "flipped_predicate": "{\"kind\":\"outcome\",\"string\":\"ok\"}",
+            "baseline_observed": "ok",
+            "mutant_observed": "error"
+          }
+        }
+      ]
+    },
+    {
+      "obligation_id": "obligation.control-fin-and-length",
+      "catalog_statement": "Control frames are final and have payload length at most 125.",
+      "catalog_symbol": "org.java_websocket.framing.ControlFrame.isValid()V",
+      "binding_state": "PARTIAL",
+      "source_file": "org/java_websocket/framing/ControlFrame.java",
+      "chain": [
+        "isValid"
+      ],
+      "span_sha256": "sha256:a6e0bfe618ff469d6ea94c761d01b6c63c40a5fadc9043cd0093f42408a2592d",
+      "descriptor_agreement": "EXACT",
+      "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false,
+      "clauses_declared": 2,
+      "clauses_satisfied": 1,
+      "canaries_killed": 1,
+      "clauses": [
+        {
+          "clause_id": "c.control.frames-are-final",
+          "statement": "A control frame that arrives with the FIN bit clear is rejected as a typed protocol fault.",
+          "satisfied": true,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.control.fin-clear-ping",
+              "predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+              "satisfied": true,
+              "observed": "error"
+            },
+            {
+              "scenario_id": "s.control.fin-clear-ping",
+              "predicate": "{\"kind\":\"error_close_code\",\"number\":1002}",
+              "satisfied": true,
+              "observed": "1002"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.control.admit-non-final",
+            "scenario_id": "s.control.fin-clear-ping",
+            "chain_member": "isValid",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.control.frames-are-final",
+            "flipped_predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+            "baseline_observed": "error",
+            "mutant_observed": "ok"
+          }
+        },
+        {
+          "clause_id": "c.control.length-at-most-125",
+          "statement": "A control frame declaring a payload length above 125 is rejected as a typed protocol fault.",
+          "satisfied": false,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.control.oversized-ping",
+              "predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+              "satisfied": true,
+              "observed": "error"
+            },
+            {
+              "scenario_id": "s.control.oversized-ping",
+              "predicate": "{\"kind\":\"error_close_code\",\"number\":1002}",
+              "satisfied": true,
+              "observed": "1002"
+            }
+          ],
+          "no_canary_reason": "The 125-octet control bound is not implemented in ControlFrame.isValid, which is the symbol the immutable catalog declares for this obligation. In the pinned source the bound is enforced in Draft_6455.translateSingleFramePayloadLength, a different compilation unit, so no edit inside this binding's chain can flip this clause's witnesses. The witnesses are recorded because the pinned Java does reject the frame; the clause is nonetheless unsatisfied because the rejection cannot be attributed to the bound construct.",
+          "unsatisfied_reason": "NO_CANARY_IN_BOUND_CHAIN"
+        }
+      ]
+    },
+    {
+      "obligation_id": "obligation.length-canonical-16",
+      "catalog_statement": "The 16-bit length form is canonical.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE",
+      "reason_detail": "The catalog declares this obligation against Draft_6455.translateSingleFrame, the receive path. Java-WebSocket 1.6.0 accepts non-minimal sixteen-bit length encodings on receive, so the pinned construct does not implement canonicality and no honest witness exists at that symbol. The emit-side choice lives in createByteBufferFromFramedata, which is not the declared symbol for this obligation.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "obligation.length-canonical-64-high-bit-zero",
+      "catalog_statement": "The 64-bit length form is canonical and has a clear high bit.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE",
+      "reason_detail": "Same receive-path symbol as the sixteen-bit obligation, with the same non-minimal acceptance. The high-bit case additionally never reaches the pinned construct through this adapter: the java-oracle wire tracker rejects a sixty-four-bit header with the high bit set before Java decodes it, so any observation there would be an observation of the adapter, not of Draft_6455.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "obligation.length-canonical-7",
+      "catalog_statement": "Payload lengths through 125 use the seven-bit form.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.createBinaryFrame(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+      "binding_state": "CONNECTED",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "chain": [
+        "createBinaryFrame",
+        "createByteBufferFromFramedata",
+        "getSizeBytes"
+      ],
+      "span_sha256": "sha256:88f6107a15c4e472931667184ea8fd946721951827a7a7f20bccc1733d0dd8b0",
+      "descriptor_agreement": "EXACT",
+      "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false,
+      "clauses_declared": 2,
+      "clauses_satisfied": 2,
+      "canaries_killed": 2,
+      "clauses": [
+        {
+          "clause_id": "c.len7.used-through-125",
+          "statement": "Emitted frames whose payload length is at most 125 use the seven-bit form, so their wire size is exactly the payload plus a two-byte header.",
+          "satisfied": true,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.emit.length-forms",
+              "predicate": "{\"kind\":\"frame_field\",\"direction\":\"outbound\",\"field\":\"wire_bytes\",\"index\":0,\"number\":7}",
+              "satisfied": true,
+              "observed": "7"
+            },
+            {
+              "scenario_id": "s.emit.length-forms",
+              "predicate": "{\"kind\":\"frame_field\",\"direction\":\"outbound\",\"field\":\"payload_bytes\",\"index\":0,\"number\":5}",
+              "satisfied": true,
+              "observed": "5"
+            },
+            {
+              "scenario_id": "s.emit.length-forms",
+              "predicate": "{\"kind\":\"frame_field\",\"direction\":\"outbound\",\"field\":\"wire_bytes\",\"index\":1,\"number\":127}",
+              "satisfied": true,
+              "observed": "127"
+            },
+            {
+              "scenario_id": "s.emit.length-forms",
+              "predicate": "{\"kind\":\"frame_field\",\"direction\":\"outbound\",\"field\":\"payload_bytes\",\"index\":1,\"number\":125}",
+              "satisfied": true,
+              "observed": "125"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.len7.never-use-seven-bit-form",
+            "scenario_id": "s.emit.length-forms",
+            "chain_member": "getSizeBytes",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.len7.used-through-125",
+            "flipped_predicate": "{\"kind\":\"frame_field\",\"direction\":\"outbound\",\"field\":\"wire_bytes\",\"index\":0,\"number\":7}",
+            "baseline_observed": "7",
+            "mutant_observed": "9"
+          }
+        },
+        {
+          "clause_id": "c.len7.not-used-beyond-125",
+          "statement": "The seven-bit form stops exactly at 125: a 126-byte payload is emitted with the extended sixteen-bit form, so its wire size is the payload plus a four-byte header.",
+          "satisfied": true,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.emit.length-forms",
+              "predicate": "{\"kind\":\"frame_field\",\"direction\":\"outbound\",\"field\":\"wire_bytes\",\"index\":2,\"number\":130}",
+              "satisfied": true,
+              "observed": "130"
+            },
+            {
+              "scenario_id": "s.emit.length-forms",
+              "predicate": "{\"kind\":\"frame_field\",\"direction\":\"outbound\",\"field\":\"payload_bytes\",\"index\":2,\"number\":126}",
+              "satisfied": true,
+              "observed": "126"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.len7.extend-boundary-to-126",
+            "scenario_id": "s.emit.length-forms",
+            "chain_member": "getSizeBytes",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.len7.not-used-beyond-125",
+            "flipped_predicate": "{\"kind\":\"frame_field\",\"direction\":\"outbound\",\"field\":\"wire_bytes\",\"index\":2,\"number\":130}",
+            "baseline_observed": "130",
+            "mutant_observed": "128"
+          }
+        }
+      ]
+    },
+    {
+      "obligation_id": "obligation.mask-equation",
+      "catalog_statement": "Masking applies RFC 6455 XOR at the correct offset.",
+      "catalog_symbol": "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "CATALOG_SYMBOL_SCOPE_MISMATCH",
+      "reason_detail": "The immutable catalog declares this masking obligation against org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B, which converts a string to UTF-8 bytes and has nothing to do with the RFC 6455 masking transform. Binding a masking witness to that symbol would be a false attribution, and the catalog cannot be edited, so this obligation stays unbound.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "obligation.mask-involution",
+      "catalog_statement": "Applying the same mask twice restores the input.",
+      "catalog_symbol": "org.java_websocket.util.Charsetfunctions.utf8Bytes(Ljava/lang/String;)[B",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "CATALOG_SYMBOL_SCOPE_MISMATCH",
+      "reason_detail": "Declared against the same Charsetfunctions.utf8Bytes symbol as obligation.mask-equation, with the same mismatch.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "obligation.preallocation-cap",
+      "catalog_statement": "Configured caps are enforced before payload allocation.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "binding_state": "CONNECTED",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "chain": [
+        "translateSingleFrame",
+        "translateSingleFrameCheckLengthLimit"
+      ],
+      "span_sha256": "sha256:a469fed7be335c3cf9553721d4e09de8d5ee3de55418fea5c1b135e47ac5b1e9",
+      "descriptor_agreement": "RETURN_DIVERGENT",
+      "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false,
+      "clauses_declared": 1,
+      "clauses_satisfied": 1,
+      "canaries_killed": 1,
+      "clauses": [
+        {
+          "clause_id": "c.cap.enforced-before-payload",
+          "statement": "A frame declaring a payload above the configured cap is rejected as a typed too-big fault while only its four header bytes have been supplied, so no payload byte is ever retained.",
+          "satisfied": true,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.limits.cap-exceeded-16",
+              "predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+              "satisfied": true,
+              "observed": "error"
+            },
+            {
+              "scenario_id": "s.limits.cap-exceeded-16",
+              "predicate": "{\"kind\":\"error_close_code\",\"number\":1009}",
+              "satisfied": true,
+              "observed": "1009"
+            },
+            {
+              "scenario_id": "s.limits.cap-exceeded-16",
+              "predicate": "{\"kind\":\"counts_field\",\"field\":\"input_bytes\",\"number\":4}",
+              "satisfied": true,
+              "observed": "4"
+            },
+            {
+              "scenario_id": "s.limits.cap-exceeded-16",
+              "predicate": "{\"kind\":\"frame_count\",\"direction\":\"inbound\",\"number\":0}",
+              "satisfied": true,
+              "observed": "0"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.cap.disable-configured-limit",
+            "scenario_id": "s.limits.cap-exceeded-16",
+            "chain_member": "translateSingleFrameCheckLengthLimit",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.cap.enforced-before-payload",
+            "flipped_predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+            "baseline_observed": "error",
+            "mutant_observed": "ok"
+          }
+        }
+      ]
+    },
+    {
+      "obligation_id": "obligation.role-masking",
+      "catalog_statement": "Inbound masking is enforced by endpoint role.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE",
+      "reason_detail": "Java-WebSocket 1.6.0's Draft_6455.translateSingleFrame reads the mask bit and unmasks when it is set, but performs no endpoint-role check on inbound masking: a server accepts an unmasked client frame. The declared construct therefore does not implement the obligation. Recorded as a Java-versus-RFC divergence in drafts/ledger-proposals/java-formal-binding-findings.json.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.adapter.byte-stream",
+      "catalog_statement": "The adapter transports bytes without protocol duplication.",
+      "catalog_symbol": "org.java_websocket.WebSocketImpl.decode(Ljava/nio/ByteBuffer;)V",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "NOT_ATTEMPTED_THIS_ROUND",
+      "reason_detail": "WebSocketImpl.decode is resolvable and on the executed path, and chunk-boundary invariance is observable, but this round found no edit inside decode that flips an invariance witness without breaking decoding outright, which would be a non-specific canary. Deferred rather than credited.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.close.status-code",
+      "catalog_statement": "Close status codes and reasons are validated.",
+      "catalog_symbol": "org.java_websocket.framing.CloseFrame.isValid()V",
+      "binding_state": "PARTIAL",
+      "source_file": "org/java_websocket/framing/CloseFrame.java",
+      "chain": [
+        "isValid"
+      ],
+      "span_sha256": "sha256:7c2fe210b9c68584f006d6ba66c08dd7e0ef7680e63399d1c2c7b29b43616914",
+      "descriptor_agreement": "EXACT",
+      "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false,
+      "clauses_declared": 3,
+      "clauses_satisfied": 2,
+      "canaries_killed": 3,
+      "clauses": [
+        {
+          "clause_id": "c.close.unsendable-code-rejected",
+          "statement": "A received close frame carrying a status code that must not appear on the wire is rejected as a typed protocol fault.",
+          "satisfied": true,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.close.unsendable-code-1006",
+              "predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+              "satisfied": true,
+              "observed": "error"
+            },
+            {
+              "scenario_id": "s.close.unsendable-code-1006",
+              "predicate": "{\"kind\":\"error_code\",\"string\":\"JAVA_INVALID_DATA\"}",
+              "satisfied": true,
+              "observed": "JAVA_INVALID_DATA"
+            },
+            {
+              "scenario_id": "s.close.unsendable-code-1006",
+              "predicate": "{\"kind\":\"error_close_code\",\"number\":1002}",
+              "satisfied": true,
+              "observed": "1002"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.close.admit-unsendable-codes",
+            "scenario_id": "s.close.unsendable-code-1006",
+            "chain_member": "isValid",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.close.unsendable-code-rejected",
+            "flipped_predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+            "baseline_observed": "error",
+            "mutant_observed": "ok"
+          }
+        },
+        {
+          "clause_id": "c.close.valid-code-admitted",
+          "statement": "A received close frame carrying a valid status code is admitted, closes the connection with that code, and is echoed.",
+          "satisfied": true,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.close.valid-code-1000",
+              "predicate": "{\"kind\":\"outcome\",\"string\":\"ok\"}",
+              "satisfied": true,
+              "observed": "ok"
+            },
+            {
+              "scenario_id": "s.close.valid-code-1000",
+              "predicate": "{\"kind\":\"close_code\",\"number\":1000}",
+              "satisfied": true,
+              "observed": "1000"
+            },
+            {
+              "scenario_id": "s.close.valid-code-1000",
+              "predicate": "{\"kind\":\"frame_count\",\"direction\":\"outbound\",\"number\":1}",
+              "satisfied": true,
+              "observed": "1"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.close.reject-every-code",
+            "scenario_id": "s.close.valid-code-1000",
+            "chain_member": "isValid",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.close.valid-code-admitted",
+            "flipped_predicate": "{\"kind\":\"outcome\",\"string\":\"ok\"}",
+            "baseline_observed": "ok",
+            "mutant_observed": "error"
+          }
+        },
+        {
+          "clause_id": "c.close.invalid-reason-rejected",
+          "statement": "A received close frame whose reason is not valid UTF-8 is rejected as a typed protocol fault carrying close code 1007.",
+          "satisfied": false,
+          "witnesses_hold": false,
+          "witnesses": [
+            {
+              "scenario_id": "s.close.invalid-utf8-reason",
+              "predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+              "satisfied": true,
+              "observed": "error"
+            },
+            {
+              "scenario_id": "s.close.invalid-utf8-reason",
+              "predicate": "{\"kind\":\"error_code\",\"string\":\"JAVA_INVALID_DATA\"}",
+              "satisfied": false,
+              "observed": "JAVA_RUNTIME_REJECTION"
+            },
+            {
+              "scenario_id": "s.close.invalid-utf8-reason",
+              "predicate": "{\"kind\":\"error_close_code\",\"number\":1007}",
+              "satisfied": false,
+              "observed": "absent"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.close.skip-reason-utf8-test",
+            "scenario_id": "s.close.invalid-utf8-reason",
+            "chain_member": "isValid",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.close.invalid-reason-rejected",
+            "flipped_predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+            "baseline_observed": "error",
+            "mutant_observed": "ok"
+          },
+          "unsatisfied_reason": "WITNESS_PREDICATE_FAILED"
+        }
+      ]
+    },
+    {
+      "obligation_id": "surface.close.terminal-state",
+      "catalog_statement": "Terminal close state is absorbing.",
+      "catalog_symbol": "org.java_websocket.WebSocketImpl.closeConnection(ILjava/lang/String;Z)V",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "NOT_ATTEMPTED_THIS_ROUND",
+      "reason_detail": "WebSocketImpl.closeConnection is resolvable and on the executed path; the absorbing-terminal-state clauses and their canaries were not built this round.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.concurrency.command-order",
+      "catalog_statement": "Concurrent commands have one serialized owner order.",
+      "catalog_symbol": "org.java_websocket.WebSocketImpl.sendFrame(Ljava/util/Collection;)V",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "NOT_OBSERVABLE_THROUGH_ADAPTER",
+      "reason_detail": "The java-oracle adapter executes one ordered scenario in a single thread and owns no executors, so it cannot exhibit concurrent command submission. Serialized-owner-order claims are not observable through it at any strength.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.control.ping-pong",
+      "catalog_statement": "Ping and pong control behavior preserves payloads and bounds.",
+      "catalog_symbol": "org.java_websocket.WebSocketAdapter.onWebsocketPing(Lorg/java_websocket/WebSocket;Lorg/java_websocket/framing/Framedata;)V",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH",
+      "reason_detail": "The catalog declares this obligation against WebSocketAdapter.onWebsocketPing, whose body sends the automatic pong. The java-oracle listener extends WebSocketAdapter and overrides onWebsocketPing without calling super, so the declared construct never executes under this adapter and no observation could be attributed to it.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.errors.protocol-fault",
+      "catalog_statement": "Protocol faults remain typed and fail closed.",
+      "catalog_symbol": "org.java_websocket.exceptions.InvalidDataException",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "CATALOG_SYMBOL_SCOPE_MISMATCH",
+      "reason_detail": "The catalog declares this obligation against the exception type org.java_websocket.exceptions.InvalidDataException. The type declaration carries a close code and a constructor; the decisions that make faults typed and fail closed live at the throw sites in Draft_6455 and the framing classes, outside the declared symbol.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.fragmentation.continuation",
+      "catalog_statement": "Continuation fragments are admitted and assembled in order.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.processFrameContinuousAndNonFin(Lorg/java_websocket/framing/Framedata;Lorg/java_websocket/WebSocketImpl;)V",
+      "binding_state": "CONNECTED",
+      "source_file": "org/java_websocket/drafts/Draft_6455.java",
+      "chain": [
+        "processFrameContinuousAndNonFin"
+      ],
+      "span_sha256": "sha256:e6ab6ac19cf6e95cadbb5dacf8f9cf004145ec4c6c38d9c7b6afe674bcae2170",
+      "descriptor_agreement": "PARAMETERS_DIVERGENT",
+      "observed_strength": "EXECUTED_OBSERVATION_WITH_MUTATION_SENSITIVITY",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false,
+      "clauses_declared": 2,
+      "clauses_satisfied": 2,
+      "canaries_killed": 2,
+      "clauses": [
+        {
+          "clause_id": "c.frag.assembled-in-order",
+          "statement": "A non-final text fragment followed by a final continuation is assembled, in order, into exactly one delivered message.",
+          "satisfied": true,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.fragment.text-ordered",
+              "predicate": "{\"kind\":\"event_field\",\"event_type\":\"text\",\"field\":\"text\",\"index\":0,\"string\":\"hello\"}",
+              "satisfied": true,
+              "observed": "hello"
+            },
+            {
+              "scenario_id": "s.fragment.text-ordered",
+              "predicate": "{\"kind\":\"counts_field\",\"field\":\"consumed_bytes\",\"number\":9}",
+              "satisfied": true,
+              "observed": "9"
+            },
+            {
+              "scenario_id": "s.fragment.text-ordered",
+              "predicate": "{\"kind\":\"frame_count\",\"direction\":\"inbound\",\"number\":2}",
+              "satisfied": true,
+              "observed": "2"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.frag.never-complete-sequence",
+            "scenario_id": "s.fragment.text-ordered",
+            "chain_member": "processFrameContinuousAndNonFin",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.frag.assembled-in-order",
+            "flipped_predicate": "{\"kind\":\"event_field\",\"event_type\":\"text\",\"field\":\"text\",\"index\":0,\"string\":\"hello\"}",
+            "baseline_observed": "hello",
+            "mutant_observed": "only 0 \"text\" events"
+          }
+        },
+        {
+          "clause_id": "c.frag.orphan-continuation-rejected",
+          "statement": "A continuation fragment that arrives with no started sequence is rejected as a typed protocol fault, so continuations are admitted only inside a sequence.",
+          "satisfied": true,
+          "witnesses_hold": true,
+          "witnesses": [
+            {
+              "scenario_id": "s.fragment.orphan-continuation",
+              "predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+              "satisfied": true,
+              "observed": "error"
+            },
+            {
+              "scenario_id": "s.fragment.orphan-continuation",
+              "predicate": "{\"kind\":\"error_close_code\",\"number\":1002}",
+              "satisfied": true,
+              "observed": "1002"
+            },
+            {
+              "scenario_id": "s.fragment.orphan-continuation",
+              "predicate": "{\"kind\":\"event_absent\",\"event_type\":\"text\"}",
+              "satisfied": true,
+              "observed": "0 \"text\" events"
+            }
+          ],
+          "mutation": {
+            "mutation_id": "m.frag.admit-orphan-continuation",
+            "scenario_id": "s.fragment.orphan-continuation",
+            "chain_member": "processFrameContinuousAndNonFin",
+            "applied": true,
+            "control_agrees_with_baseline": true,
+            "killed": true,
+            "flipped_clause_id": "c.frag.orphan-continuation-rejected",
+            "flipped_predicate": "{\"kind\":\"outcome\",\"string\":\"error\"}",
+            "baseline_observed": "error",
+            "mutant_observed": "ok"
+          }
+        }
+      ]
+    },
+    {
+      "obligation_id": "surface.framing.frame-octets",
+      "catalog_statement": "Frame octets are parsed and emitted canonically.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "NOT_ATTEMPTED_THIS_ROUND",
+      "reason_detail": "Declared against Draft_6455.translateSingleFrame, which this round already binds for two other obligations. A separate clause set and separate canaries are needed so that one witness cannot be credited to three obligations; that work was not done this round.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.framing.masking",
+      "catalog_statement": "Masking uses the RFC 6455 transform and role rules.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.createBinaryFrame(Lorg/java_websocket/framing/Framedata;)Ljava/nio/ByteBuffer;",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "NOT_OBSERVABLE_THROUGH_ADAPTER",
+      "reason_detail": "Declared against Draft_6455.createBinaryFrame. The role rules are observable, but the adapter deliberately omits client mask keys from its output because Java-WebSocket randomises them, so the XOR transform clause of this obligation cannot be witnessed. A binding on the role rules alone would be partial, and this round did not build it.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.handshake.client-request",
+      "catalog_statement": "Client opening requests follow RFC 6455.",
+      "catalog_symbol": "org.java_websocket.WebSocketImpl.startHandshake(Lorg/java_websocket/handshake/ClientHandshakeBuilder;)V",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH",
+      "reason_detail": "Declared against WebSocketImpl.startHandshake. The handshake oracle's client_request direction feeds raw client request bytes into the server-side translateHandshake path; it never runs startHandshake, so no observation could be attributed to the declared construct.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.handshake.server-response",
+      "catalog_statement": "Server opening responses follow RFC 6455.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.postProcessHandshakeResponseAsServer(Lorg/java_websocket/handshake/ClientHandshake;Lorg/java_websocket/handshake/ServerHandshakeBuilder;)Lorg/java_websocket/handshake/HandshakeBuilder;",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "NOT_ATTEMPTED_THIS_ROUND",
+      "reason_detail": "Declared against Draft_6455.postProcessHandshakeResponseAsServer, which the handshake oracle protocol does execute and whose Sec-WebSocket-Accept output it reads back. Binding it needs the separate java-websocket-handshake-oracle request shape, which this round's runner does not yet emit.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.limits.allocation",
+      "catalog_statement": "Allocation limits are enforced before retaining payload bytes.",
+      "catalog_symbol": "org.java_websocket.drafts.Draft_6455.translateSingleFrame(Ljava/nio/ByteBuffer;)Ljava/util/List;",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "NOT_ATTEMPTED_THIS_ROUND",
+      "reason_detail": "Declared against Draft_6455.translateSingleFrame. Its only witness available this round is the configured-cap rejection already credited to obligation.preallocation-cap, and crediting one witness to two obligations would inflate the numerator. A distinct clause targeting checkAlloc is needed, and checkAlloc is declared in Draft, a different compilation unit.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.messages.binary",
+      "catalog_statement": "Binary message payloads are delivered exactly.",
+      "catalog_symbol": "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/nio/ByteBuffer;)V",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE",
+      "reason_detail": "Declared against WebSocketListener.onWebsocketMessage(WebSocket, ByteBuffer). WebSocketListener is an interface: the declaration has no body, so it can host no canary. It is also one of two members named onWebsocketMessage, so the binding key declaringType#name is ambiguous and resolution is refused.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.messages.text-utf8",
+      "catalog_statement": "Text messages accept exactly valid UTF-8.",
+      "catalog_symbol": "org.java_websocket.WebSocketListener.onWebsocketMessage(Lorg/java_websocket/WebSocket;Ljava/lang/String;)V",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE",
+      "reason_detail": "Declared against WebSocketListener.onWebsocketMessage(WebSocket, String), with the same body-less interface declaration and the same name ambiguity as the binary overload.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    },
+    {
+      "obligation_id": "surface.websocket-open",
+      "catalog_statement": "The declared WebSocket opening seam enters the shipped connection core.",
+      "catalog_symbol": "org.java_websocket.server.WebSocketServer",
+      "binding_state": "DISCONNECTED",
+      "reason_code": "NOT_OBSERVABLE_THROUGH_ADAPTER",
+      "reason_detail": "Declared against the type org.java_websocket.server.WebSocketServer. The java-oracle adapter deliberately owns no sockets and never instantiates a server, so the declared opening seam is not exercised.",
+      "required_strength": "PRODUCTION_REFINEMENT",
+      "meets_required_strength": false
+    }
+  ]
+}

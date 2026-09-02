@@ -11,7 +11,7 @@ use std::io::{ErrorKind, Read, Write};
 use std::net::TcpStream;
 use std::time::{Duration, Instant};
 
-use ws_core::{CloseDetail, CommandSender, ReadyState, SemanticEvent, TypedProtocolFailure};
+use ws_core::{CloseDetail, CommandSender, ReadyState, Role, SemanticEvent, TypedProtocolFailure};
 use ws_driver::{ConnectionDriver, DriverInput, DriverOutput, InputDisposition};
 
 /// Bounded I/O parameters (US-018 AC1: bounded I/O buffers and explicit
@@ -182,15 +182,30 @@ impl EventPolicy for EchoPolicy {
 /// single-owner driver. `sender` is the same bounded handle producers use;
 /// the policy enqueues through it. Accounting accumulates into the passed
 /// report (the fixtures seed it with their handshake-phase polls).
+///
+/// `role` is the endpoint's role, and the loop uses it for exactly ONE
+/// decision: the role-gated transport close described on
+/// [`server_closes_transport`]. It is passed rather than defaulted so no
+/// call site can acquire that behavior — in either direction — by omission.
 pub fn drive_connection(
     driver: &mut ConnectionDriver,
     sender: &CommandSender,
     stream: &mut TcpStream,
     bounds: &IoBounds,
+    role: Role,
     policy: &mut dyn EventPolicy,
     report: &mut ConnectionReport,
 ) {
-    drive_connection_from(driver, sender, stream, bounds, policy, report, Vec::new());
+    drive_connection_from(
+        driver,
+        sender,
+        stream,
+        bounds,
+        role,
+        policy,
+        report,
+        Vec::new(),
+    );
 }
 
 /// [`drive_connection`] starting from bytes that already arrived.
@@ -202,11 +217,27 @@ pub fn drive_connection(
 /// with the 101 response, the case-count text frame, and a close frame
 /// back-to-back. Those bytes must be processed before the socket is read
 /// again or the message is lost and the connection ends at a bare EOF.
+///
+/// `role` carries the same single decision it carries on
+/// [`drive_connection`]: the role-gated transport close of
+/// [`server_closes_transport`]. This is the function that owns the loop, so
+/// every entry point — the plain one, the agent, and the mutant controls —
+/// must state its role here rather than inherit one.
+///
+/// The eight parameters are the driver, its command sender, the socket, the
+/// I/O bounds, the role, the event policy, the report, and the carryover —
+/// each one a distinct thing this loop needs and none of them derivable from
+/// another. Grouping them behind a struct would satisfy the lint by hiding
+/// the role, which is the opposite of what the role gate is for, so the lint
+/// is suppressed HERE and named in the branch's residual list rather than
+/// silenced globally.
+#[allow(clippy::too_many_arguments)]
 pub fn drive_connection_from(
     driver: &mut ConnectionDriver,
     sender: &CommandSender,
     stream: &mut TcpStream,
     bounds: &IoBounds,
+    role: Role,
     policy: &mut dyn EventPolicy,
     report: &mut ConnectionReport,
     carryover: Vec<u8>,
@@ -307,7 +338,26 @@ pub fn drive_connection_from(
             }
             StepOutput::Idle => {}
         }
-        // 2. Idle: look for transport facts.
+        // 2. Idle means the driver offered no write, no failure, no event and
+        //    no terminal, so every committed byte is on the wire: this is the
+        //    port's image of Java's `ws.outQueue.isEmpty()`. That is where
+        //    Java decides, BY ROLE, whether this endpoint hangs up.
+        if server_closes_transport(role, driver.state()) && !eof_seen && pending_chunk.is_empty() {
+            // Java closes the channel first (WebSocketImpl.java:546) and
+            // reports the governing close after (line 557). `TransportEof` is
+            // how this side tells the core its transport ended, and it is what
+            // carries the run to the exactly-once terminal with the same Q20
+            // governing close a peer-driven EOF would have produced.
+            let _ = stream.shutdown(std::net::Shutdown::Both);
+            eof_seen = true;
+            let step = pump(driver, DriverInput::TransportEof, report);
+            if let StepOutput::Failure(failure) = step.output {
+                report.outcome = LoopOutcome::ProtocolFailure(failure);
+                break;
+            }
+            continue;
+        }
+        // 3. Otherwise: look for transport facts.
         if eof_seen || !pending_chunk.is_empty() {
             continue;
         }
@@ -380,6 +430,48 @@ pub fn drive_connection_from(
 /// pump is enough to collect it; the accounting happens inside [`pump`].
 fn end_transport_service(driver: &mut ConnectionDriver, report: &mut ConnectionReport) {
     let _ = pump(driver, DriverInput::Shutdown, report);
+}
+
+/// Java's role gate for who closes the TCP connection once the close
+/// handshake's writes have drained.
+///
+/// Shipped Java, `SocketChannelIOHelper.batch` (Java-WebSocket 1.6.0, pinned
+/// commit `da3cf2a777aed862f2f5b5cf060cae7969958667`,
+/// `src/main/java/org/java_websocket/SocketChannelIOHelper.java:110-113`):
+///
+/// ```text
+/// if (ws.outQueue.isEmpty() && ws.isFlushAndClose() && ws.getDraft() != null
+///     && ws.getDraft().getRole() != null && ws.getDraft().getRole() == Role.SERVER) {
+///   ws.closeConnection();
+/// }
+/// ```
+///
+/// `batch` is reached only from the server write path
+/// (`WebSocketServer.java:586`), and `closeConnection()`
+/// (`WebSocketImpl.java:573-578`) closes the channel at
+/// `WebSocketImpl.java:546`. The client has no counterpart: its write thread
+/// (`WebSocketClient.java:837-851`) writes until it is interrupted and closes
+/// the socket only when the thread itself ends, so a client that has echoed a
+/// close waits for the server to hang up.
+///
+/// The two operands map as:
+///
+/// - `getRole() == Role.SERVER` -> `role == Role::Server`, verbatim.
+/// - `isFlushAndClose()` -> [`ReadyState::Closing`]. Java sets
+///   `flushandclosestate` in `flushAndClose` (`WebSocketImpl.java:592`), which
+///   `close(int, String, boolean)` reaches on every branch that also moves
+///   `readyState` to `CLOSING` (`WebSocketImpl.java:494` and `:503`) — whether
+///   this endpoint echoed a peer's close (`Draft_6455.java:1068`) or sent its
+///   own. A live connection observed as `Closing` is one Java would observe as
+///   flush-and-close.
+/// - `outQueue.isEmpty()` is the caller's precondition, not this predicate's:
+///   it is checked by only ever consulting this on the drained (`Idle`) path.
+///
+/// This is TRANSPORT policy and belongs to the adapter. The Sans-I/O core owns
+/// no socket and takes no position on which endpoint hangs up; Java's own
+/// answer lives in its I/O helper, not in `Draft_6455`.
+fn server_closes_transport(role: Role, state: ReadyState) -> bool {
+    role == Role::Server && state == ReadyState::Closing
 }
 
 fn retryable(kind: ErrorKind) -> bool {
@@ -725,5 +817,28 @@ mod tests {
     fn write_stall_clock_zero_limit_fires_immediately() {
         let mut clock = WriteStallClock::new(Duration::ZERO);
         assert!(clock.stalled());
+    }
+
+    #[test]
+    fn only_a_closing_server_closes_the_transport_itself() {
+        // The truth table of `SocketChannelIOHelper.java:110-113`. The role
+        // half is the whole point of the gate: Java's client write loop has no
+        // such branch, so a `Closing` CLIENT must answer false in every state.
+        for state in [
+            ReadyState::NotYetConnected,
+            ReadyState::Open,
+            ReadyState::Closing,
+            ReadyState::Closed,
+        ] {
+            assert_eq!(
+                server_closes_transport(Role::Server, state),
+                state == ReadyState::Closing,
+                "a server hangs up in Closing (isFlushAndClose) and nowhere else: {state:?}"
+            );
+            assert!(
+                !server_closes_transport(Role::Client, state),
+                "a client never hangs up on this path (WebSocketClient.java:837-851): {state:?}"
+            );
+        }
     }
 }

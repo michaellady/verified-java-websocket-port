@@ -74,6 +74,7 @@ pub fn run_server_once(
         &sender,
         &mut stream,
         &fixture.bounds,
+        Role::Server,
         &mut policy,
         &mut report,
         handshake.carryover,
