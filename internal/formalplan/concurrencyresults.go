@@ -549,6 +549,7 @@ func ValidateConcurrencyResults(inputs ConcurrencyResultsInputs) []ModelFinding 
 	findings = append(findings, crValidateScenarioNames(results, inputs)...)
 	findings = append(findings, crValidateScenarioProse(results, inputs)...)
 	findings = append(findings, crValidateRevisionHistory(results, inputs.ResultsPath)...)
+	findings = append(findings, crValidateCleanRouteCeiling(results, inputs.ResultsPath)...)
 	findings = append(findings, crValidateExecutedRun(results, rawLine, rawLineErr, inputs.ResultsPath)...)
 	findings = append(findings, crValidateSweepRun(results, raw, inputs.ResultsPath)...)
 	findings = append(findings, crValidateAccounting(results, inputs.ResultsPath)...)
@@ -4986,6 +4987,21 @@ const (
 // stamps are unambiguous.
 var crRevisionIdentity = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{7,79}$`)
 
+// crRevisionHistoryAnchor is the identity of the OLDEST paragraph this record
+// carries, and it is pinned here rather than derived because it can never
+// legitimately change: the history is append-only at the tail, so a document
+// whose history begins somewhere else has had its beginning removed.
+//
+// MEASURED, not anticipated. TestConcurrencyResultsEveryModeledKeyIsRequired
+// walks every removable position in the document and deleting
+// `revision_history[0]` produced NO finding: the forward chain is relative, so
+// a shortened array still chains, still carries exactly one CURRENT entry at
+// its end, and still agrees with the counters. That is the same omission gap
+// the round-3 review found for the claim-ceiling booleans, reappearing in the
+// field added to close a disclosure gap — the oldest paragraph, which is the
+// one a reader is least likely to miss, was the one nothing held down.
+const crRevisionHistoryAnchor = "round2-blocking-findings-2026-09-02"
+
 // crValidateRevisionHistory is the whole of finding 2's fix.
 func crValidateRevisionHistory(results crResults, path string) []ModelFinding {
 	var findings []ModelFinding
@@ -4996,6 +5012,14 @@ func crValidateRevisionHistory(results crResults, path string) []ModelFinding {
 	if len(history) == 0 {
 		refuse("revision_history is empty: the record accounts for none of its own revisions")
 		return findings
+	}
+
+	// The head. Without this the array can be shortened from the front and
+	// every other rule here still holds — measured, see crRevisionHistoryAnchor.
+	if history[0].Revision != crRevisionHistoryAnchor {
+		refuse(fmt.Sprintf(
+			"revision_history begins at %q, not at this record's oldest paragraph %q: the history is append-only at the tail, so a history that starts later has had its beginning deleted",
+			history[0].Revision, crRevisionHistoryAnchor))
 	}
 
 	seen := map[string]int{}
@@ -5128,4 +5152,94 @@ func crCleanRouteLimitation(results crResults) string {
 		}
 	}
 	return ""
+}
+
+// ---------------------------------------------------------------------------
+// The clean-route ceiling, held to more than its numbers
+// ---------------------------------------------------------------------------
+
+// crCleanRouteCeilingClauses are the clauses that make the ceiling a CEILING
+// rather than a paragraph of arithmetic.
+//
+// WHY THIS EXISTS, and it is a real reading rather than a precaution. With
+// only the quoted-counter expectation in force, cutting this limitation in
+// half was ACCEPTED at zero findings: the four counters it must quote all
+// occur in its first 863 characters, so a truncation that removes what the
+// ceiling forbids, why it cannot be widened, and where the reading it replaced
+// is recorded still satisfied every check. That is exactly the softening this
+// document's own leaf enumeration lists as a live candidate — half a
+// disclosure still reads as a disclosure — landing on the one limitation whose
+// whole purpose is to stop a coverage claim being strengthened.
+//
+// The counters say how thin the clean route is. These clauses say what follows
+// from that, which is the part a reader acts on.
+var crCleanRouteCeilingClauses = []string{
+	// The prohibition. Without it the entry is an observation, and an
+	// observation forbids nothing.
+	"WHAT THIS CEILING FORBIDS:",
+	// The bound's justification: a ceiling nobody has to justify is a ceiling
+	// that can be raised by asserting a different one.
+	"WHY IT IS NOT WIDER:",
+	// The pointer to the superseded reading, checked for real below.
+	"THE READING THIS REPLACED",
+}
+
+// crValidateCleanRouteCeiling binds the ceiling's PROSE, where
+// crValidateQuotedCounters binds its numbers.
+//
+// The last clause is not a phrase check. The ceiling declines to restate the
+// pre-landing counters — they describe a space this tree can no longer
+// produce, and restating them in a live limitation is how the record acquired
+// a present-tense superseded reading in the first place — and instead names
+// the revision_history entry that holds them. So this check resolves that
+// name: the identity the ceiling points at must be a paragraph this document
+// actually carries, and it must be marked SUPERSEDED. A dangling pointer, or
+// one aimed at the CURRENT paragraph, is refused.
+func crValidateCleanRouteCeiling(results crResults, path string) []ModelFinding {
+	var findings []ModelFinding
+	refuse := func(detail string) {
+		findings = append(findings, mpFinding("RESULTS_CLEAN_ROUTE_CEILING_UNSOUND", path, detail))
+	}
+	ceiling := crCleanRouteLimitation(results)
+	if ceiling == "" {
+		refuse(fmt.Sprintf(
+			"no limitation opens with %q: the record states no clean-route coverage ceiling, which is the omission the post-failure landing review found across all twelve of them",
+			crCleanRouteLimitationTag))
+		return findings
+	}
+	for _, clause := range crCleanRouteCeilingClauses {
+		if !strings.Contains(ceiling, clause) {
+			refuse(fmt.Sprintf(
+				"the clean-route ceiling carries no %q clause, so it states how thin the clean route is without stating what follows from that",
+				clause))
+		}
+	}
+
+	// Resolve the pointer. Exactly one superseded paragraph may be named, so
+	// the ceiling cannot hedge by naming several and hoping one resolves.
+	var named []string
+	current := ""
+	if len(results.RevisionHistory) > 0 {
+		current = results.RevisionHistory[len(results.RevisionHistory)-1].Revision
+	}
+	for _, entry := range results.RevisionHistory {
+		if entry.Revision != "" && strings.Contains(ceiling, entry.Revision) {
+			named = append(named, entry.Revision)
+			if entry.Revision == current {
+				refuse(fmt.Sprintf(
+					"the clean-route ceiling says the reading it replaced is recorded under %q, which is this document's CURRENT paragraph: a reading cannot have been superseded by itself",
+					entry.Revision))
+			} else if entry.Status != crRevisionSuperseded {
+				refuse(fmt.Sprintf(
+					"the clean-route ceiling names revision_history entry %q as holding the reading it replaced, but that entry is %q rather than %s",
+					entry.Revision, entry.Status, crRevisionSuperseded))
+			}
+		}
+	}
+	if len(named) == 0 {
+		refuse(fmt.Sprintf(
+			"the clean-route ceiling names no revision_history identity, so its account of the reading it replaced points at nothing; revision_history carries %d paragraphs",
+			len(results.RevisionHistory)))
+	}
+	return findings
 }

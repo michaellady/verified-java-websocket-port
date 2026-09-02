@@ -205,7 +205,7 @@ func TestConcurrencyResultsDetectsCountersThatContradictTheCitedRun(t *testing.T
 		{"typed_input_rejections", []string{"execution", "counters"}, "typed_input_rejections", float64(52419)},
 		{"max_drain_polls_observed", []string{"execution", "counters"}, "max_drain_polls_observed", float64(13)},
 		{"actor_programs", []string{"bounds"}, "actor_programs", float64(6)},
-		{"scenarios", []string{"bounds"}, "scenarios", float64(3)},
+		{"scenarios", []string{"bounds"}, "scenarios", float64(4)},
 		{"actions_across_scenarios", []string{"bounds"}, "actions_across_scenarios", float64(20)},
 		{"context_switch_bound", []string{"bounds"}, "context_switch_bound", float64(8)},
 		{"preemption_budget", []string{"bounds"}, "preemption_budget", float64(4)},
@@ -513,22 +513,22 @@ func TestConcurrencyResultsProseReconciliationIsFieldSpecific(t *testing.T) {
 			// current wording: the schedule total substituted for the
 			// failure total the clause is actually about.
 			name: "schedule total substituted for the failure total",
-			from: "surfaced failures total 81131 ==",
-			to:   "surfaced failures total 81180 ==",
+			from: "surfaced failures total 90984 ==",
+			to:   "surfaced failures total 92160 ==",
 		},
 		{
 			name: "schedule total substituted for the halted total in the model sentence",
-			from: "(81131 runs, exactly one surfaced failure each",
-			to:   "(81180 runs, exactly one surfaced failure each",
+			from: "(90984 runs, exactly one surfaced failure each",
+			to:   "(92160 runs, exactly one surfaced failure each",
 		},
 		{
 			name: "a quoted counter dropped from the conformance sentence",
-			from: "318661 enumeration branches (<= branch_count_max 1000000)",
+			from: "352598 enumeration branches (<= branch_count_max 1000000)",
 			to:   "enumeration branches (<= branch_count_max 1000000)",
 		},
 		{
 			name: "the outcome sentence quotes a different recorded number",
-			from: "across all 81180 schedules in the main sweep",
+			from: "across all 92160 schedules in the main sweep",
 			to:   "across all 37813 schedules in the main sweep",
 		},
 	} {
@@ -1567,10 +1567,25 @@ func TestConcurrencyResultsRefusesADroppedDefectOrDisclosure(t *testing.T) {
 			code: "RESULTS_CLAIM_CEILING_INFLATED",
 		},
 		{
+			// Located by its CONTENT, not by its index. This case used to
+			// overwrite the last limitation, which happened to be the
+			// no-live-Java one; the clean-route coverage ceiling is now
+			// appended after it, so an index-addressed case silently stopped
+			// testing what it names and started deleting the ceiling instead.
 			name: "the no-live-Java disclosure is softened away",
 			mutate: func(t *testing.T, document map[string]any) {
 				limitations := crTestArray(t, document, "limitations")
-				limitations[len(limitations)-1] = "some Java context was considered"
+				softened := false
+				for index, limitation := range limitations {
+					if strings.Contains(limitation.(string), "no live Java executed") {
+						limitations[index] = "some Java context was considered"
+						softened = true
+						break
+					}
+				}
+				if !softened {
+					t.Fatal("no limitation discloses that no live Java was executed")
+				}
 				document["limitations"] = limitations
 			},
 			code: "RESULTS_CLAIM_CEILING_INFLATED",
@@ -2027,12 +2042,168 @@ func TestConcurrencyResultsRefusesADroppedCleanRouteCeiling(t *testing.T) {
 				limitations[index] = strings.Replace(limitations[index].(string), "90984", "9084", 1)
 			},
 		},
+		// The truncation case is NOT here. It belongs to
+		// TestConcurrencyResultsRefusesACeilingThatForbidsNothing, because
+		// cutting this limitation in half leaves every counter it must quote
+		// intact: the quoted-counter expectation says nothing about it, and
+		// discovering that is what produced crValidateCleanRouteCeiling.
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			testCase.mutate(t, document)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_PROSE_CONTRADICTS_COUNTERS")
+		})
+	}
+}
+
+// crTestRewriteCeiling locates the clean-route ceiling limitation and
+// rewrites it through the supplied function.
+func crTestRewriteCeiling(t *testing.T, document map[string]any, rewrite func(string) string) {
+	t.Helper()
+	limitations, ok := document["limitations"].([]any)
+	if !ok {
+		t.Fatal("results document carries no limitations array")
+	}
+	for index, entry := range limitations {
+		text, ok := entry.(string)
+		if !ok || !strings.HasPrefix(strings.TrimSpace(text), "CLEAN-ROUTE COVERAGE CEILING:") {
+			continue
+		}
+		replacement := rewrite(text)
+		if replacement == "" {
+			document["limitations"] = append(append([]any{}, limitations[:index]...), limitations[index+1:]...)
+			return
+		}
+		limitations[index] = replacement
+		return
+	}
+	t.Fatal("no limitation states the clean-route coverage ceiling")
+}
+
+// TestConcurrencyResultsRefusesACeilingThatForbidsNothing is a finding this
+// branch made against ITSELF, and it is the reason this check exists.
+//
+// With only the quoted-counter expectation in force, cutting the ceiling
+// limitation in half was accepted at zero findings: every counter it must
+// quote occurs in the first 863 of its 1726 characters, so the truncation
+// removed what the ceiling forbids, why it cannot be widened, and the pointer
+// to the reading it replaced, and no check said anything. That is the
+// softening the leaf enumeration lists as a live candidate, landing on the one
+// limitation whose whole purpose is to stop a coverage claim being
+// strengthened.
+//
+// Every case below was run with crValidateCleanRouteCeiling unregistered and
+// observed to pass at zero findings.
+func TestConcurrencyResultsRefusesACeilingThatForbidsNothing(t *testing.T) {
+	for _, testCase := range []struct {
+		name    string
+		rewrite func(string) string
+	}{
 		{
-			name: "the ceiling is softened to its first half",
+			// The reading that produced this test.
+			name:    "the ceiling is cut in half, keeping every counter",
+			rewrite: func(text string) string { return text[:len(text)/2] },
+		},
+		{
+			name: "the prohibition is dropped",
+			rewrite: func(text string) string {
+				return strings.Replace(text, "WHAT THIS CEILING FORBIDS:", "AS AN ASIDE,", 1)
+			},
+		},
+		{
+			name: "the bound is asserted without a reason",
+			rewrite: func(text string) string {
+				return strings.Replace(text, "WHY IT IS NOT WIDER:", "SEPARATELY,", 1)
+			},
+		},
+		{
+			// The pointer at the superseded reading is aimed at a paragraph
+			// this document does not carry.
+			name: "the reading it replaced is filed under an identity that does not exist",
+			rewrite: func(text string) string {
+				return strings.Replace(text, "post-failure-landing-2026-09-02", "post-failure-landing-2026-08-30", 1)
+			},
+		},
+		{
+			// A reading cannot have been superseded by itself.
+			name: "the reading it replaced is filed under the current paragraph",
+			rewrite: func(text string) string {
+				return strings.Replace(text, "post-failure-landing-2026-09-02", "clean-finish-breadth-2026-09-02", 1)
+			},
+		},
+		{
+			name:    "the ceiling is removed from the record",
+			rewrite: func(string) string { return "" },
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			document := crTestDecode(t)
+			crTestRewriteCeiling(t, document, testCase.rewrite)
+			findings := ValidateConcurrencyResults(crTestWrite(t, document))
+			crTestRequireCode(t, findings, "RESULTS_CLEAN_ROUTE_CEILING_UNSOUND")
+		})
+	}
+}
+
+// TestConcurrencyResultsRefusesACeilingPointingAtALiveParagraph closes the
+// remaining direction: the ceiling names a paragraph that exists but has not
+// been superseded. Marking that paragraph CURRENT is not possible without
+// breaking revision_history's own rules, so the case is built the other way -
+// the named paragraph's status is what changes, and the ceiling's pointer
+// stops resolving to history.
+func TestConcurrencyResultsRefusesACeilingPointingAtALiveParagraph(t *testing.T) {
+	document := crTestDecode(t)
+	entry := crTestRevisionEntry(t, document, -2)
+	entry["status"] = "PROVISIONAL"
+	findings := ValidateConcurrencyResults(crTestWrite(t, document))
+	crTestRequireCode(t, findings, "RESULTS_CLEAN_ROUTE_CEILING_UNSOUND")
+	crTestRequireCode(t, findings, "RESULTS_REVISION_HISTORY_UNSOUND")
+}
+
+// TestConcurrencyResultsRefusesAHistoryWithItsBeginningRemoved is the omission
+// gap the whole-document walk found in the field this branch ADDED.
+//
+// TestConcurrencyResultsEveryModeledKeyIsRequired reported "deleting
+// revision_history[0] produces no finding". It was right: the forward chain is
+// relative, so a shortened array still chains, still carries exactly one
+// CURRENT paragraph at its end, and still agrees with the record's counters.
+// The oldest paragraph could simply be dropped. Substitution could never have
+// found this - an absent element is not a wrong value - which is why the
+// omission walk is a separate axis, and it found the hole in the field added
+// to close a disclosure gap.
+func TestConcurrencyResultsRefusesAHistoryWithItsBeginningRemoved(t *testing.T) {
+	for _, testCase := range []struct {
+		name   string
+		mutate func(t *testing.T, document map[string]any)
+	}{
+		{
+			// Verbatim the walk's reading.
+			name: "the oldest paragraph is deleted",
 			mutate: func(t *testing.T, document map[string]any) {
-				limitations, index := locate(t, document)
-				text := limitations[index].(string)
-				limitations[index] = text[:len(text)/2]
+				document["revision_history"] = crTestRevisionHistory(t, document)[1:]
+			},
+		},
+		{
+			name: "the two oldest paragraphs are deleted",
+			mutate: func(t *testing.T, document map[string]any) {
+				document["revision_history"] = crTestRevisionHistory(t, document)[2:]
+			},
+		},
+		{
+			// Deletion's quieter cousin: the oldest paragraph stays but stops
+			// being the paragraph the record began at, stamps and all. Nothing
+			// points BACK at the head, so every other rule still holds.
+			name: "the oldest paragraph is re-identified",
+			mutate: func(t *testing.T, document map[string]any) {
+				first := crTestRevisionEntry(t, document, 0)
+				was, ok := first["revision"].(string)
+				if !ok {
+					t.Fatal("revision_history[0] carries no revision identity")
+				}
+				renamed := "recut-" + was
+				first["note"] = strings.ReplaceAll(first["note"].(string), was, renamed)
+				first["revision"] = renamed
 			},
 		},
 	} {
@@ -2040,7 +2211,7 @@ func TestConcurrencyResultsRefusesADroppedCleanRouteCeiling(t *testing.T) {
 			document := crTestDecode(t)
 			testCase.mutate(t, document)
 			findings := ValidateConcurrencyResults(crTestWrite(t, document))
-			crTestRequireCode(t, findings, "RESULTS_PROSE_CONTRADICTS_COUNTERS")
+			crTestRequireCode(t, findings, "RESULTS_REVISION_HISTORY_UNSOUND")
 		})
 	}
 }

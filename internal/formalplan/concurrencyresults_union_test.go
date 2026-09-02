@@ -245,7 +245,7 @@ func TestConcurrencyResultsUnionRefusesEachNewInertLeaf(t *testing.T) {
 			name: "a per-budget halted count moves in the cited line",
 			mutate: func(t *testing.T, document map[string]any) {
 				lines := unionSweepLines(t, document)
-				lines[1] = unionReplace(t, lines[1].(string), "halted_runs=81180", "halted_runs=81181")
+				lines[1] = unionReplace(t, lines[1].(string), "halted_runs=92160", "halted_runs=92161")
 			},
 			code: "RESULTS_COUNTER_CONTRADICTS_RUN",
 		},
@@ -312,7 +312,7 @@ func TestConcurrencyResultsUnionRefusesEachNewInertLeaf(t *testing.T) {
 			name: "the sweep ran a different enumeration",
 			mutate: func(t *testing.T, document map[string]any) {
 				lines := unionSweepLines(t, document)
-				lines[0] = unionReplace(t, lines[0].(string), "schedules=81180", "schedules=81181")
+				lines[0] = unionReplace(t, lines[0].(string), "schedules=92160", "schedules=92161")
 			},
 			code: "RESULTS_COUNTER_CONTRADICTS_RUN",
 		},
@@ -414,7 +414,7 @@ func TestConcurrencyResultsUnionRefusesEachNewInertLeaf(t *testing.T) {
 			name: "the frame-count limitation moves the counter it opens with",
 			mutate: func(t *testing.T, document map[string]any) {
 				limitations := crTestArray(t, document, "limitations")
-				limitations[6] = unionReplace(t, limitations[6].(string), "is 1 across all 81180", "is 2 across all 81180")
+				limitations[6] = unionReplace(t, limitations[6].(string), "is 1 across all 92160", "is 2 across all 92160")
 			},
 			code: "RESULTS_CLAIM_CEILING_INFLATED",
 		},
@@ -432,7 +432,7 @@ func TestConcurrencyResultsUnionRefusesEachNewInertLeaf(t *testing.T) {
 			mutate: func(t *testing.T, document map[string]any) {
 				unionSetString(t, document,
 					unionReplace(t, unionString(t, document, "execution", "outcome"),
-						"across all 81180 schedules at each", "across all 81181 schedules at each"),
+						"across all 92160 schedules at each", "across all 92161 schedules at each"),
 					"execution", "outcome")
 			},
 			code: "RESULTS_PROSE_CONTRADICTS_COUNTERS",
