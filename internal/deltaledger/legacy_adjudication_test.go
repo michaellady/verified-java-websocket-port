@@ -394,6 +394,70 @@ func TestVerifyLegacyAdjudicationsRefusesEachWayAnEntryCanFailToBind(t *testing.
 			},
 			expect: "is not under drafts/ledger-proposals/",
 		},
+		{
+			// The flag and the obligation are checked in both directions: a
+			// contesting entry owes a draft, and a draft named without the flag
+			// is an entry contesting a record without saying so.
+			name: "an entry names a draft without declaring that it contests the record",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 33)].SupersessionDraft =
+					"drafts/ledger-proposals/legacy-13-bare-lf-server-basis-correction.json"
+			},
+			expect: "contests_record_basis is not set",
+		},
+		{
+			name: "a settled entry also states a blocking question",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 35)].BlockingQuestion =
+					"what would settle a record this entry has just said its own evidence already settles?"
+			},
+			expect: "A settled record has nothing blocking",
+		},
+		{
+			name: "an entry says it did not look and files a class anyway",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 37)].Examination = ExaminationNotExamined
+			},
+			expect: "may state neither a class nor a blocking question",
+		},
+		{
+			name: "an entry uses a verdict outside the examination vocabulary",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 39)].Examination = "looks-fine-to-me"
+			},
+			expect: "outside the vocabulary",
+		},
+		{
+			name: "the document declares a schema version the gate does not implement",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.SchemaVersion = "2.0.0"
+			},
+			expect: "schema_version is \"2.0.0\"",
+		},
+		{
+			name: "the document declares some other evidence kind",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.EvidenceKind = "notes"
+			},
+			expect: "evidence_kind is \"notes\"",
+		},
+		{
+			name: "the document points at some other schema",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Schema = "../../schemas/behavior-delta-ledger-1.2.0.schema.json"
+			},
+			expect: "$schema is",
+		},
+		{
+			// The adjudications are about ONE ledger document. A document that
+			// named a different one would be adjudicating records this gate
+			// never reads.
+			name: "the document claims to adjudicate a different ledger",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.LedgerDocument = "evidence/java/ledger-supersessions.json"
+			},
+			expect: "ledger_document is",
+		},
 	}
 
 	for _, testCase := range cases {
@@ -449,6 +513,22 @@ func TestTheRecomputedIdentityCatchesATamperedStoredDeltaID(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "RECOMPUTED from the record's own disagreement digest") {
 		t.Fatalf("the gate refused, but not on the recomputation.\ngot: %v", err)
+	}
+}
+
+// TestAChainTooShortToAdjudicateIsRefusedRatherThanIndexedInto guards the one
+// rule that returns early instead of collecting a problem. It is not a
+// formality: reading records[PreVocabularySequence-1] on a shorter chain would
+// panic, and a gate that panics is a gate whose result nobody reads.
+func TestAChainTooShortToAdjudicateIsRefusedRatherThanIndexedInto(t *testing.T) {
+	records := committedChain(t)
+	root := legacyProbeRoot(t, nil)
+	err := VerifyLegacyAdjudications(root, records[:10], Definitions())
+	if err == nil {
+		t.Fatal("the gate accepted a ten-record chain against a document adjudicating forty-nine records")
+	}
+	if !strings.Contains(err.Error(), "cannot be adjudicated") {
+		t.Fatalf("the gate refused, but not on the chain length.\ngot: %v", err)
 	}
 }
 
