@@ -123,7 +123,8 @@ PR-to-open in the log; never block the work on it.
   here, and any work that needs Java source citations verified stops at this
   gate.
 - **P1 Land the merge queue**, strictly one branch per firing, in the
-  handoff's order: `claude/us008-restart` (PASS r5) → `claude/ledger-integrity`
+  handoff's order: `claude/us008-restart` (PASS r5) LANDED e7a66a0 in
+  iteration 2 → **next:** `claude/ledger-integrity`
   (PASS r4) → `claude/us017-ac2` (PASS r4) → `claude/evidence-validation`
   (self-review to PASS first) → `claude/post-failure` (PASS r3; lands LAST, it
   collides with `us017-ac2` on `rust/ws-driver`, with `evidence-validation` on
@@ -167,7 +168,7 @@ result; its README states its maximum result is
 | US-005 | Corpora, handshake verdicts, sbx candidates | passes | 2 files | none |
 | US-006 | Formal concurrency model (TLA+/TLC) | passes | TLA+ model + Kani backend qualification | none |
 | US-007 | Sandbox release firewall, resource supervisor | passes | 1 file | none |
-| US-008 | Benchmark preregistration, confirmation host | not passing; `us008-restart` PASS r5 unmerged | 1 file | P1 merge |
+| US-008 | Benchmark preregistration, confirmation host | `us008-restart` (PASS r5) landed on mainline 2026-09-02 as e7a66a0; story completion judged against the PRD once committed; confirmation-host run is an owner gate | 1 file | owner: PRD flag, benchmark host run |
 | US-009 | Rust workspace core, AC1 gates, oracle harness | passes | 1 file | none |
 | US-010 | Client handshake | exam 49/49 (drafts); borrowed batch B; reproduced here 2026-09-02, port and live Java both 49/49 | contract + evidence DAG | closure receipt |
 | US-011 | Server handshake | exam 49/49 (drafts); borrowed batch B; reproduced here 2026-09-02, port and live Java both 49/49 | contract + frozen cases | closure receipt |
@@ -219,3 +220,4 @@ a close echo (open, unledgered).
 
 - 2026-09-02T05:24:42Z iteration 0 (interactive): fetched all heads; compared planes; built the provisional board; created Routine trig_019dqmkqgWGFkXwSSJrBYXqJ (cron 22 */2 * * *, next 06:22Z); closed PR #3; PRD still to be pasted by the owner. Mainline head 51962e5.
 - 2026-09-02T06:35:20Z iteration 1 (routine): P0 environment proof. Public differential: port 74/74 (harness sha256 414d7e5b…adb9), live Java 74/74 with -Dstdout.encoding=UTF-8 (65/74 without, encoding artefact). Handshake exam: port 49/49 with the runtime field neutralised, live Java 49/49, 16 documented divergences; no non-runtime field differs between the two transcripts; public transcripts differ only in free-text error detail. Requests from two throwaway secrets byte-identical; handshake request digest e00d968f… equals the batch-B record. java-oracle self-test 18 PASS. go build ok; go test fails only in internal/lab (Darwin-only canary) and internal/formalplan + internal/portplan (quarantined Java source: archive 403 via session proxy; add_repo denied by the auto-mode classifier) — OWNER ACTION recorded under P0. No code changed. Next: P1 merge claude/us008-restart. Mainline head dbac020.
+- 2026-09-02T08:30:28Z iteration 2 (routine): P1 landed claude/us008-restart. Forward merge 9096f07 (clean; tree 8d4801a equals the merge-tree dry run), mainline merge e7a66a0 with identical tree. Gates 8/8 exit 0; go build 0; go test 28 ok plus the three known environment packages only (same typed findings as iteration 1). rust/ unchanged, so the differential and exam were not re-run. Record: drafts/self-review/us008-restart-landing.md. Both branches pushed. PRD still absent. Next: P1 claude/ledger-integrity. Mainline head e7a66a0.
