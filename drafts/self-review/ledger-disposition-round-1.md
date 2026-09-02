@@ -420,3 +420,26 @@ and it is absent from the failure list on both trees now.
 | `go test ./internal/divergencesweep/` | 0 |
 | `go test ./internal/linkage/` | 0 |
 | `gofmt -l ./cmd ./internal` | lists only five files this branch does not touch |
+
+### The baseline read exactly, test for test
+
+`go test ./internal/formalplan/ ./internal/lab/ ./internal/portplan/` was run on
+BOTH trees — this branch, and pristine mainline `57e881c` extracted with
+`git archive` into a scratch directory. The failing set is **identical, all 17,
+test for test**:
+
+```
+TestUS006FixtureCatalogThroughRealCLI                        TestFormalPreflightCloseDeliveryConsistency
+TestShippedModelArtifactsValidateClean                       TestTargetsRound1CloseClaimMatchesShippedReentrancy
+TestFormalPreflightBaseTreeDeepClean                         TestTargetsRound1ArithmeticClaimMatchesShippedOverflow
+TestFormalPreflightDeepValidatesProofTargets                 TestTargetsRound1SweepClaimsMatchShippedSemantics
+TestFormalPreflightDeepValidatesConcurrencyPlan              TestProofTargetsRealDocumentVerifies
+TestFormalPreflightDeepValidatesConnectionModel              TestProofTargetsSeededDefectsBlockWithTypedFindings
+TestFormalPreflightRealDocumentDeepRulesClean                TestControlledCanaryRequestIsClosedAndRequiresAuthenticatedPromotions
+TestDeriveReproducesCommittedEvidence                        TestDeriveFailsWhenOracleDisagreesWithTree
+TestDeriveFailsOnDeclarationLevelOracleTamper
+```
+
+This branch adds no failing test and removes none. The one it DID break —
+`TestCommittedConcurrencyResultsBindTheCommittedTree` — passes on both trees
+after the re-binding above, and is absent from both lists.
