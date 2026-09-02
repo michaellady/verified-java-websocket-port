@@ -1,0 +1,91 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+TLC2 Version 2026.08.21.155922 (rev: 9787e65)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 75 and seed 2211172099107592466 with 1 worker on 2 cores with 512MB heap and 64MB offheap memory [pid: 771] (Linux 7.0.12 aarch64, Ubuntu 25.0.3 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/agent/tlc/work/mut/defect.close.validity-chain-bypassed/CloseModel.tla
+Parsing file /tmp/tlc-10524801033076052570/Integers.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-10524801033076052570/_TLCTrace.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-10524801033076052570/Naturals.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-10524801033076052570/TLC.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-10524801033076052570/TLCExt.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-10524801033076052570/Sequences.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-10524801033076052570/FiniteSets.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module CloseModel
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module CloseModel
+Starting... (2026-08-28 00:41:40)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-08-28 00:41:40.
+Error: Invariant ForbiddenCodesNeverReachTheWire is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ closeDetail = [ origin |-> "none",
+  code |-> 0,
+  reason |-> "none",
+  remote |-> FALSE,
+  hsComplete |-> FALSE ]
+/\ refusals = FALSE
+/\ lastInbound = [code |-> 0, class |-> "none", kind |-> "none"]
+/\ state = "NotYetConnected"
+/\ lastSend = [ reason |-> "none",
+  requested |-> 0,
+  normalized |-> 0,
+  outcome |-> "none",
+  reported |-> 0 ]
+/\ terminalEntries = 0
+/\ poisoned = FALSE
+/\ handshakeDone = FALSE
+/\ lastOutbound = [code |-> 0, kind |-> "none", payload |-> "none"]
+
+State 2: <OpenHandshake line 299, col 3 to line 304, col 51 of module CloseModel>
+/\ closeDetail = [ origin |-> "none",
+  code |-> 0,
+  reason |-> "none",
+  remote |-> FALSE,
+  hsComplete |-> FALSE ]
+/\ refusals = FALSE
+/\ lastInbound = [code |-> 0, class |-> "none", kind |-> "none"]
+/\ state = "Open"
+/\ lastSend = [ reason |-> "none",
+  requested |-> 0,
+  normalized |-> 0,
+  outcome |-> "none",
+  reported |-> 0 ]
+/\ terminalEntries = 0
+/\ poisoned = FALSE
+/\ handshakeDone = TRUE
+/\ lastOutbound = [code |-> 0, kind |-> "none", payload |-> "none"]
+
+State 3: <SendCloseAccepted(1004,"empty") line 366, col 3 to line 376, col 27 of module CloseModel>
+/\ closeDetail = [ origin |-> "local",
+  code |-> 1004,
+  reason |-> "empty",
+  remote |-> FALSE,
+  hsComplete |-> FALSE ]
+/\ refusals = FALSE
+/\ lastInbound = [code |-> 0, class |-> "none", kind |-> "none"]
+/\ state = "Closing"
+/\ lastSend = [ reason |-> "empty",
+  requested |-> 1004,
+  normalized |-> 1004,
+  outcome |-> "accepted",
+  reported |-> 0 ]
+/\ terminalEntries = 0
+/\ poisoned = FALSE
+/\ handshakeDone = TRUE
+/\ lastOutbound = [code |-> 1004, kind |-> "send_close", payload |-> "code_reason"]
+
+33 states generated, 21 distinct states found, 18 states left on queue.
+The depth of the complete state graph search is 3.
+Finished in 00s at (2026-08-28 00:41:40)
+Trace exploration spec path: ./CloseModel_TTrace_1787877700.tla

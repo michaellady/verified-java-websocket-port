@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us009-repository-handoff-authorization-receipt",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "story": "US-009 AC1 (separately authorized repository handoff before any implementation file write)",
+  "authorized_at": "2026-08-27T08:27:40Z",
+  "authorized_at_provenance": "Captured from `date -u` immediately before writing; the owner answered the dedicated single-question AskUserQuestion immediately prior (standing no-estimates rule).",
+  "owner": "mikelady",
+  "authorization": "Authorize (Recommended) — write the Rust port implementation into the existing project repository, claude/* branches only, continuing the arrangement set at project start and now separately receipted as US-009 AC1 requires.",
+  "binding": {
+    "metadata_repoPath": "repos/public/verified-java-websocket-port-claude (a standalone git root: own .git, own remote; not the HQ repository)",
+    "remote_owner_name": "michaellady/verified-java-websocket-port (probed: git remote get-url origin = git@github.com:michaellady/verified-java-websocket-port.git)",
+    "default_branch": "feature/verified-java-websocket-port (probed: refs/remotes/origin/HEAD; NOTE: this shared default branch is deliberately never pushed by this plane — all writes go to claude/* branches per the standing branch discipline)",
+    "license": "Apache-2.0 (probed: LICENSE file header, Apache License Version 2.0, January 2004)",
+    "write_scope": "claude/* branches only; the Codex plane's branches and the shared default branch are never written"
+  },
+  "registry_agreement": {
+    "statement": "AC1 references a 'laboratory manifest and program registry'. In this plane those resolve to: the PRD metadata (companies/enterprise-vibe-code/projects/verified-java-websocket-port-claude/prd.json metadata.repoPath/branchName, which agree with the probed values above) and the intake manifest chain (evidence/intake/java-intake-manifest.json + source-pins.json, which bind the upstream Java source identity this repository ports). No separate artifact named 'laboratory manifest' or 'program registry' exists in this plane; this resolution is recorded honestly rather than fabricating one, and the reviewer of US-009 judges its sufficiency.",
+    "prd_metadata_agrees": true
+  },
+  "immutability": "This receipt is a protected-store artifact; it is never edited after write (corrections, if ever needed, follow the sidecar pattern).",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

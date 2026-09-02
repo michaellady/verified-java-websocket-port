@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us005-candidate-execution-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude parallel authority plane)",
+  "attempt_id": "us007-sbx-output-live-0124",
+  "sandbox_name": "us005-cand-0124",
+  "story": "US-005 (live calibration gates: empty_rust_target_fails, planted_java_rust_mutants_killed, sealed_network_denial, execution_rerun_reconciliation)",
+  "plan": "evidence/us005-sbx-candidate-plan.json at repo commit 43a304c (review chain 01a03f84 BLOCK -> 01a03fef BLOCK -> 01a03ff4 PASS)",
+  "scope": "ONE candidate-execution sandbox attempt under the accepted US-007 workload profile shape: unprivileged, non-root, --deny-network '**', clone-mode source, plain stdin/stdout candidate workloads. Executions 1 and 2 of the plan (with the sealed-window netprobe) run inside this one sandbox lifetime; a second sandbox for the rerun requires attempt 0125 minted the same way.",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-26T21:26:52Z",
+  "authorized_at_provenance": "Captured from `date -u` immediately before this record was written (standing rule: no estimated timestamps).",
+  "owner": "mikelady",
+  "authorization_basis": "Owner standing iteration approval ('I approve of you running any tests you need and iterating') plus the owner's /loop directive for this project, which explicitly instructs: 'Live sandbox attempts use the protected operator with fresh attempt ids (continue the us007-sbx-output-live-NNNN series), owner-authorization records per attempt, and vault key injection via hq secrets exec; retain all receipts immutably.' Precedent: attempts 0101-0123 were authorized and executed under this same basis. The calibration document's sbx constraint (owner authorization per attempt, run by the orchestrating owner session) is satisfied by this record.",
+  "custodian_constraints": [
+    "NEVER re-emit oracle-requests on hidden or sealed tiers (recorded requests are reused from protected/us005-corpora/live/<tier>/requests.jsonl)",
+    "EVERY held-out evaluate is immediately preceded by the plan's fail-closed ledger pre-check (set -euo pipefail; single-jq count; abort nonzero on parse failure or count >= 2)",
+    "Observed ledger state at authorization: seq 8, query 192/200, diagnostic 50/50, probing latch untripped, four digests at 2-of-3"
+  ],
+  "constraints": [
+    "One live sandbox attempt under this authorization; failures preserved immutably; no retry-until-pretty",
+    "No Autobahn run of any kind; no held-out content leaves the protected boundary; candidates receive request bytes only",
+    "Codex-plane ledger, nonces, receipts, and attempt dirs remain untouched",
+    "production=false, signing=false, publication=false",
+    "Gate results recorded ONLY per the round-6 semantics: kill gates require >= 1 failing execution; no PASS without genuine execution"
+  ],
+  "target_platform": {
+    "sbx_cli": "v0.39.0 def8cb0523a77e757bdd6ef52b459fe374f3783e",
+    "template": "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "os_arch": "linux/arm64"
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

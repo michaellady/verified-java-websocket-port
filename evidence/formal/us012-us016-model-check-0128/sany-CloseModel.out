@@ -1,0 +1,11 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+
+****** SANY2 Version 2.2 created 08 July 2020
+
+Parsing file /home/agent/tlc/work/CloseModel.tla
+Parsing file /tmp/tlc-9585214752030714165/Integers.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-9585214752030714165/Naturals.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module CloseModel
+Linting of module CloseModel

@@ -1,0 +1,116 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "e4-gap-closure-receipt",
+  "recorded_at": "2026-08-27T22:25:04Z",
+  "recorded_at_provenance": "captured from `date -u` immediately after the commit, in the same shell session as every gate run below",
+  "worker": "E4 product-code worker, verified-java-websocket-port-claude plane (company enterprise-vibe-code)",
+  "branch": "claude/e4-autopong-eof",
+  "base": "76b5350 (us017-closure; stacked deliberately, not rebased)",
+  "commit": "f81ec5208083880d2ae6dee5ab0d4b487536c0d6",
+  "worktree": "/Users/mikelady/hq/workspace/worktrees/vjwp-claude-e4",
+  "attestation": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "tdd": "RED-first on both gaps: the new close_eof.rs NotYetConnected section failed to compile/pass against the pinned Unimplemented arms (missing NEVER_CONNECTED_CLOSE_CODE API, E0432/E0308) and rust/ws-driver/tests/auto_response.rs failed to compile against the policy-less driver, both BEFORE any production edit; implementations followed, then full-suite green.",
+  "gaps_closed": {
+    "us015_ac1": {
+      "ac_text_verbatim": "A valid inbound ping emits a Ping semantic event and a pong write with byte-identical payload according to the configured automatic-response policy; inbound pong emits one Pong event and no automatic data write.",
+      "owner_amendment_applied": "behaviors bind to what pinned live Java-WebSocket 1.6.0 exhibits (us010-016 AC amendment, decision record sha256 26849b5e...)",
+      "layer": "rust/ws-driver (the WebSocketImpl-pump port layer). The sans-io core stays Q18-faithful and UNCHANGED: it never auto-pongs (pinned by corpus + live oracle confirmation).",
+      "design": "AutoResponsePolicy { PongInboundPing (default, shipped-Java listener default), Disabled }. The reply is injected when the Ping semantic event is DELIVERED, through the ordinary LocalCommand::SendPong command seam (no duplicated protocol state, no second framing path); its state gate at injection time is Java's own send(Collection) isOpen throw, so a connection that has left Open gets no reply and no failure. Backpressured injections are parked and retried with priority (eof-backpressure-livelock lesson); a fatal injected failure surfaces as DriverOutput::Failure.",
+      "payload_echo_semantics_verified": "PongFrame(PingFrame) copy constructor calls setPayload(pingFrame.getPayloadData()) \u2014 byte-identical payload echo; asserted byte-for-byte in tests including under the client-role mask.",
+      "java_sites": [
+        "drafts/Draft_6455.java:893-899 \u2014 processFrame dispatches PING to the listener (the reply lives ABOVE the Draft, i.e. above the core)",
+        "WebSocketAdapter.java:84-86 \u2014 default onWebsocketPing: conn.sendFrame(new PongFrame((PingFrame) f))",
+        "framing/PongFrame.java:47-50 \u2014 PongFrame(PingFrame) copies the ping payload",
+        "WebSocketImpl.java:667-670 \u2014 send(Collection) !isOpen() -> WebsocketNotConnectedException (the reply's state gate)"
+      ],
+      "live_evidence_cited": "US-018 cross-peer exam proved shipped Java auto-pongs live (rust-client ping -> Java auto-pong, protected/us018-closure/crosspeer/, read-only). This change adds the rust-side mirror: a live TCP cross-peer loopback assertion where the SERVER testee's driver auto-pongs a real client ping.",
+      "tests": [
+        "rust/ws-driver/tests/auto_response.rs::default_policy_answers_an_inbound_ping_with_a_byte_identical_pong",
+        "rust/ws-driver/tests/auto_response.rs::inbound_pong_emits_one_event_and_no_automatic_write",
+        "rust/ws-driver/tests/auto_response.rs::disabled_policy_never_writes_an_automatic_reply",
+        "rust/ws-driver/tests/auto_response.rs::client_role_masks_the_automatic_pong",
+        "rust/ws-driver/tests/auto_response.rs::every_ping_in_a_chunk_gets_its_own_pong_in_order",
+        "rust/ws-driver/tests/auto_response.rs::a_close_that_already_moved_the_state_supersedes_the_reply",
+        "rust/ws-driver/tests/auto_response.rs::eof_landing_before_the_ping_delivers_drops_the_reply_and_converges",
+        "rust/ws-testee/tests/loopback.rs::server_driver_auto_pongs_a_live_client_ping (cross-peer-style live TCP assertion)"
+      ]
+    },
+    "us016_ac3": {
+      "ac_text_verbatim": "EOF before open, after local close, after remote close, with pending writes, and during incomplete framing/fragmentation maps to the declared normal or abnormal close semantics without duplicate terminal callbacks/events.",
+      "gap_scope": "the EOF-before-open arms: the pinned FailureCode::Unimplemented refusals on the NotYetConnected EOF/command paths in rust/ws-core/src/connection.rs (all post-handshake EOF arms were already landed and corpus-pinned by batch C).",
+      "authority": "derive.go has NO pre-handshake vocabulary (the behavior corpora begin post-handshake; derive.go eof:961-976 handles open/closing/closed only), so the shipped Java source governs these arms directly, per the Java-faithful owner amendment.",
+      "design": [
+        "EOF in NotYetConnected: eot():608-610 -> closeConnection(CloseFrame.NEVER_CONNECTED, true); two-arg overload :569-571 supplies reason \"\"; closeConnection reports onWebsocketClose(-1, \"\", true) exactly once (:557) then CLOSED (:566). Port: CloseDetail { code: -1, reason: \"\", origin: transport, remote: true, handshake_complete: false }, Eof event + terminal transition, absorbing Closed.",
+        "send_close in NotYetConnected: close(code, reason, false):463-506 never-connected ladder \u2014 PROTOCOL_ERROR 1002 keeps its code (:498-500), every other code records NEVER_CONNECTED (:501; FLASHPOLICY -3 is inexpressible in the u16 command vocabulary), reason preserved, closedremotely=false, readyState=CLOSING (:503). No CloseFrame is built: the Q13 isValid chain and Q14 setCode normalization live in the OPEN branch only (:481-486), so NO wire frame and no code validation. The existing close.rs pure fns stay the post-handshake authority and are deliberately NOT invoked on this arm \u2014 that is itself the Java-faithful behavior.",
+        "EOF after a pre-open send_close: eot() flushandclosestate arm :611-612 -> closeConnection(closecode, closemessage, closedremotely) with the RECORDED closedremotely (false). Gated by a new handshake_completed flag so the corpus-pinned Q20 remote=(state==closing) projection is untouched for every handshake-completed connection (new_in_state, the corpus entry, begins handshake-completed: the gate is inert on every corpus path).",
+        "data/control sends in NotYetConnected: send(Collection):667-670 !isOpen() -> WebsocketNotConnectedException, projected STATE_VIOLATION (the same oracle projection as the post-handshake requireOpen gate, Q26); sendFragmentedFrame:683-685 evaluates continuousFrame as send()'s argument, so an invalid first text fragment rejects JAVA_NOT_SENDABLE (Draft.java:210-239 isValid -> IllegalArgumentException) BEFORE the isOpen throw.",
+        "CloseDetail.code widened u16 -> i32 to carry the honest shipped -1 (CloseFrame.java:140); every corpus-observable code is unchanged in value and serialization (harness already serialized i64).",
+        "Pre-handshake inputs stay OUTSIDE the corpus counters (actions/input_bytes), exactly like the existing handshake byte path \u2014 the corpus action vocabulary is post-handshake."
+      ],
+      "java_sites": [
+        "WebSocketImpl.java:608-610 (eot NOT_YET_CONNECTED -> closeConnection(NEVER_CONNECTED, true))",
+        "WebSocketImpl.java:569-571 (two-arg closeConnection supplies reason \"\")",
+        "WebSocketImpl.java:530-566 (closeConnection: CLOSED dedupe :531-533, onWebsocketClose once :557, terminal :566)",
+        "WebSocketImpl.java:463-506 (close(): never-connected flush ladder :495-503)",
+        "WebSocketImpl.java:584-590 (flushAndClose records closecode/closemessage/closedremotely)",
+        "WebSocketImpl.java:611-612 (eot flushandclosestate arm)",
+        "WebSocketImpl.java:667-670 (send(Collection) WebsocketNotConnectedException)",
+        "WebSocketImpl.java:683-685 + drafts/Draft.java:210-239 (sendFragmentedFrame argument-evaluation order; continuousFrame isValid)",
+        "framing/CloseFrame.java:140 (NEVER_CONNECTED = -1)"
+      ],
+      "tests": [
+        "rust/ws-core/tests/close_eof.rs::eof_before_open_is_javas_never_connected_close",
+        "rust/ws-core/tests/close_eof.rs::eof_before_open_never_duplicates_the_terminal_callback",
+        "rust/ws-core/tests/close_eof.rs::eof_mid_client_handshake_is_still_never_connected",
+        "rust/ws-core/tests/close_eof.rs::send_close_before_open_flushes_never_connected_without_a_wire_frame",
+        "rust/ws-core/tests/close_eof.rs::send_close_before_open_keeps_a_protocol_error_code",
+        "rust/ws-core/tests/close_eof.rs::send_close_before_open_skips_the_open_branch_validity_chain",
+        "rust/ws-core/tests/close_eof.rs::data_and_control_sends_before_open_are_the_not_connected_rejection",
+        "rust/ws-core/tests/close_eof.rs::send_fragment_before_open_validates_the_first_text_fragment_first",
+        "rust/ws-core/tests/core_semantics.rs::pre_handshake_arms_are_now_owned_java_behavior (replaces the retired Unimplemented pin)"
+      ]
+    }
+  },
+  "back_pressure": {
+    "make_rust_gates": "exit 0 READ (MAKE_GATES_EXIT=0 from the logged run; includes cargo fmt --check, clippy -D warnings, cargo test --workspace --all-targets --all-features, cargo test --workspace --release, and rustgatectl ac1-gates 7/7 PASS with canary polarity proven)",
+    "go_build": "go build ./... exit 0 READ",
+    "go_test": "go test ./... exit 0 READ, 0 FAIL. internal/formalplan frozen fixture digests changed because ws_core sources changed (fixture trees copy rust/ sources); refrozen via the SANCTIONED US006_REGENERATE=1 go test ./internal/formalplan/ (exit 0 READ), then re-verified without the flag (exit 0 READ). Only assurance/replay/fixtures/us006-cases.json moved.",
+    "corpus_invariance": {
+      "requests": "corporactl oracle-requests --tier public exit 0 READ; 74 lines; sha256 0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85 == the batch-C baseline's requests hash exactly",
+      "transcript": "ws-oracle-harness (rebuilt release binary, sha256 ad0508886d543f79df1133cadbdd16270c51cec4963ce31a877cd6507c582697) exit 0 READ; 74 lines; deterministic rerun byte-identical (sha256 cc296c8564e42511757a98baed7567581c134aee72180415cfd9e9dbcce56037 both runs)",
+      "byte_identity_vs_b3e7324f": "All 74 transcript lines are byte-identical to the pinned baseline transcript (b3e7324f...) with the runtime field excluded: a per-line JSON comparison (the SAME runtime-excluded methodology the batch-C baseline itself used for its handshake regression check) found 0 non-runtime differences. The raw file hash cannot equal b3e7324f from any rebuilt harness because every transcript line embeds the harness binary's OWN sha256 in its runtime field (baseline embeds 50643ef5..., this build embeds ad050888..., verified equal to the binary on disk); every protocol observable \u2014 counts, events, frames, transitions, close, errors, final_state, request_digest \u2014 is byte-identical. The EOF arms and driver changes are corpus-invisible.",
+      "evaluate": "corporactl evaluate --tier public exit 0 READ; executed 74, passed 74, failed 0, missing 0, unmatched 0"
+    },
+    "protected_root": "/Users/mikelady/hq/workspace/orchestrator/verified-java-websocket-port-claude/protected used read-only throughout; nothing under protected/ was written; the Codex plane was never touched"
+  },
+  "honesty_notes": [
+    "The raw transcript sha256 is cc296c85..., not the pinned b3e7324f...: the pinned hash is reproducible only with the exact batch-C harness BINARY because each transcript line self-attests the binary's sha256 in its runtime field. Corpus invisibility is proven at the observable level: 74/74 lines byte-identical with runtime excluded, plus corporactl 74/74 exit 0. No stronger claim is possible for ANY change that recompiles ws-core, and none is made.",
+    "The US-017 bounded schedule exploration now constructs its drivers under the EXPLICIT AutoResponsePolicy::Disabled configuration (documented in the test): its invariants and byte-pinned retained corpus (fuzz-seeds/us017/minimized/, fuzz-seeds/us017/regressions/) are driver-seam concurrency properties orthogonal to the automatic reply, and they remain valid and green unchanged. The default PongInboundPing behavior is pinned by the dedicated deterministic auto_response.rs suite and the live cross-peer loopback test; the exploration was NOT re-run under the default policy, so no concurrency-exploration claim is made for the auto-pong path.",
+    "Driver-seam ordering deltas vs synchronous Java, documented in code and tests: (1) in a single chunk [ping, close], Java pongs before the close echo; the port's core has already queued the close echo when the Ping event drains, so the reply is dropped at the Java isOpen gate \u2014 no pong, no failure, close lifecycle untouched. (2) an EOF that latches before the Ping event drains wins the first quiescent turn (pinned US-017 contract) and the reply is dropped \u2014 within Java's own envelope, since closeConnection closes the channel without flushing the outQueue. Neither delta is corpus-observable (the corpus never drives the driver).",
+    "Pre-open data/control sends refuse with STATE_VIOLATION and POISON the core (the port's uniform partial-execution discipline, same as every fatal code); Java's WebsocketNotConnectedException leaves the connection usable by the caller. This is a JAVA_FAITHFUL_PLUS_SAFE strengthening on a corpus-invisible arm (strictly refuses more), consistent with how the incumbent Unimplemented refusal already poisoned.",
+    "The pre-open send_close arm cannot express Java's FLASHPOLICY (-3) branch because the corpus command vocabulary types the requested code as u16; only the 1002 branch and the NEVER_CONNECTED default are reachable, and both are implemented.",
+    "Injected auto-pongs consume the core's action/frame budgets (they travel the ordinary command seam); a driver-embedded connection's counters therefore differ from a bare core fed identical inputs. Corpus scoring drives the bare core through ws-oracle-harness, so this is corpus-invisible.",
+    "The injection-backpressure retry path (pending_auto_pongs) is defensive: in every schedule we could construct, the byte-path admission bound leaves enough event-queue slack for immediate injection, so no test reaches the parked-retry path; it exists so a refused reply can never be silently lost (the eof-backpressure-livelock lesson).",
+    "The handshake exam (49/49) was not re-run: no handshake source changed; the public-tier requests hash equality and 74/74 evaluate are the demanded invariance gates. The full US-018 cross-peer exam was not re-run per instruction; the new loopback test is the cheap cross-peer-style assertion.",
+    "Line numbers cited for Java are from the quarantined pinned source tree .quarantine/Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667 in the main repo checkout (read-only)."
+  ],
+  "files_changed": [
+    "rust/ws-core/src/close.rs (NEVER_CONNECTED_CLOSE_CODE; CloseDetail.code u16 -> i32)",
+    "rust/ws-core/src/connection.rs (NotYetConnected EOF/command arms; handshake_completed flag; docs)",
+    "rust/ws-core/src/error.rs (Unimplemented doc: one surviving defensive site)",
+    "rust/ws-core/tests/close_eof.rs (new pre-handshake section, 8 tests)",
+    "rust/ws-core/tests/core_semantics.rs (retired Unimplemented pin replaced)",
+    "rust/ws-driver/src/lib.rs (AutoResponsePolicy, policy constructors, injection + prioritized retry, docs)",
+    "rust/ws-driver/tests/auto_response.rs (new, 7 tests)",
+    "rust/ws-driver/tests/schedule_exploration.rs (explicit Disabled policy with rationale)",
+    "rust/ws-testee/tests/loopback.rs (live cross-peer auto-pong test)",
+    "assurance/replay/fixtures/us006-cases.json (sanctioned US006_REGENERATE=1 refreeze)"
+  ],
+  "review_round_2": {
+    "recorded_at": "2026-08-27T22:38:19Z",
+    "review_block": "session 01a04556-87df-7960-b786-95983c7ff009: EOF after a pre-open send_close passed through post-handshake action accounting; with valid max_actions=0 the connection failed ACTION_LIMIT_EXCEEDED instead of executing the flushandclosestate close.",
+    "fix": "transport EOF now bypasses the action counters whenever the handshake never completed (WebSocketImpl.eot() is transport-driven); never-connected CLOSED absorbs a further EOF as the typed closed-state refusal outside the counters. RED-first regression eof_after_pre_open_close_ignores_action_budget.",
+    "reverification": "gates 0; go 0 FAIL (sanctioned refreeze); corpus 74/74 exit 0 with 0 non-runtime diffs vs pinned baseline."
+  }
+}

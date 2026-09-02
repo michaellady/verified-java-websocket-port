@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-authorized-inherited-contract-amendment",
+  "supersedes_clarifies": "us007-contract-amendment-rlimit-enforcement.json",
+  "plane": "verified-java-websocket-port-claude (Claude parallel authority plane)",
+  "story": "US-007",
+  "authorized_at": "2026-08-26T13:05:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner explicit AskUserQuestion decision 2026-08-26T13:05Z ('Amend to the honest guarantee (Recommended)') after being shown that Docker sbx v0.39.0's unprivileged sandbox cannot hard-cap per-workload RSS memory for Go-runtime workloads: RLIMIT_AS bounds virtual address space (Go over-reserves VSZ, so a tight cap aborts the runtime), RLIMIT_DATA is brk-only and does not bound the mmap heap, and a per-process cgroup RSS cap requires CAP_SYS_ADMIN which the sandbox withholds. The prior enforcement amendment listed RLIMIT_AS+RLIMIT_DATA as per-workload memory primitives; this amendment corrects that per-workload-memory language to the enforceable, honest guarantee below. Surfaced by the mandatory gpt-5.6-sol xhigh review (session 01a03e14-577d-7ea0-a064-2bc08f442234) as blocking finding B3.",
+  "amendment": {
+    "criterion_amended": "US-007 acceptance: 'a complete externally imposed per-workload envelope for CPU time, memory, processes, file descriptors, output, workspace/disk, and wall time' — specifically the MEMORY dimension.",
+    "from": "Per-workload memory is hard-capped for every hostile workload (as the retired cgroup memory.max design did at 512 MiB RSS per workload).",
+    "to": "The memory dimension is enforced as the strongest guarantee available under sbx's unprivileged posture: (1) a per-workload address-space (RLIMIT_AS) cap of 512 MiB set before exec on the memory-allocation canary, proving the AS mechanism kills an over-allocating workload kernel-side; (2) the outer sbx --memory 2 GiB whole-sandbox RSS envelope, imposed externally by sbx at sandbox creation, bounding the aggregate RSS of every workload including the Go-runtime workloads whose VSZ over-reservation makes a tight per-workload RLIMIT_AS abort them at startup; (3) RLIMIT_DATA is explicitly NOT relied upon (brk-only, does not bound mmap). This is a scoped, honestly-labeled guarantee, weaker than a per-workload RSS cap, and it is the enforceable ceiling for this runtime. It must be recorded as exactly this and never described as a uniform per-workload memory cap.",
+    "unchanged_dimensions": "CPU time (RLIMIT_CPU), processes (RLIMIT_NPROC), file descriptors (RLIMIT_NOFILE), output (supervisor byte cap), workspace/disk (RLIMIT_FSIZE + /run tmpfs ENOSPC), and wall time (supervisor deadline) remain genuinely per-workload enforced and were live-proven in attempt 0123.",
+    "unchanged_invariants": [
+      "Enforcement is kernel-enforced or supervisor-parent-owned, never a workload-authored boolean",
+      "Assurance stays OWNER_ATTESTED_NOT_INDEPENDENT, independent_review_claimed false; production/signing/publication false",
+      "The evidence must claim exactly this scoped memory guarantee and no more; overclaiming a per-workload memory cap is forbidden",
+      "No Autobahn rerun"
+    ]
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

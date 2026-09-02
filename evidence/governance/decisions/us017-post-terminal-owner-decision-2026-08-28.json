@@ -1,0 +1,27 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "owner-decision-post-terminal-driver-paths",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "decided_at": "2026-08-28T10:38:37Z",
+  "decided_at_provenance": "Captured from date -u immediately before writing; the owner answered the AskUserQuestion immediately prior.",
+  "owner": "mikelady",
+  "context": "The sibling audit mandated by the eof-after-closed decision (protected/us017-eof-after-closed-owner-decision-2026-08-28.json, sha bd7849c3) found the same defect shape on two further driver paths, both gated on terminal_delivered. (1) DriverInput::Inbound after Terminal delivery: no branch runs, so poll() returns the initial InputDisposition::Consumed{bytes:N} while the core never sees the bytes. Measured empirically with a scratch probe: Consumed{bytes:7} with counts.input_bytes 0 before and 0 after. This is WORSE than the EOF defect, which merely absorbed an input silently — this one absorbs it AND reports success, so a correct adapter cannot detect the loss, and none of the three fail-closed driver codes would catch it. (2) Producer commands after Terminal: TerminalRejected without a core call, where the oracle reports STATE_VIOLATION. Both are unreachable in the public corpus today, so neither masks a current result.",
+  "decisions": [
+    {
+      "id": "post-terminal-inbound",
+      "decision": "SAME RULING AS THE EOF DEFECT — PASS IT THROUGH. The bytes must reach the core so its typed refusal is surfaced. The owner's stated reasoning extends directly and with more force: absorbing an event the reference implementation reports is a real behavioural change, and reporting success for work never done is strictly worse than silence because it defeats detection."
+    },
+    {
+      "id": "post-terminal-command",
+      "decision": "MAKE IT CONSISTENT — apply the same principle so every post-terminal path behaves alike. This path at least reports a refusal rather than false success, so it is less severe, but leaving two post-terminal paths on different principles is how the next sibling hides."
+    }
+  ],
+  "constraints": [
+    "The public corpus must stay 74/74 with the transcript byte-identical modulo the runtime object, and scored-field disagreements with live Java must remain zero.",
+    "Any driver-side detection mechanism that would require the adapter to read core counters around a poll edges toward adapter-side protocol logic and needs its own owner decision; do not add one silently.",
+    "If either fix makes any of the three fail-closed driver codes reachable, say so and test them against a real occurrence."
+  ],
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-opus-5"
+}

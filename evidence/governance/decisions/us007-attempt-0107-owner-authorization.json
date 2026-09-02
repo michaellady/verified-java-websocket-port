@@ -1,0 +1,37 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "fresh-generic-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude parallel authority plane)",
+  "attempt_id": "us007-sbx-output-live-0107",
+  "sandbox_name": "us007-resource-envelope-0107",
+  "target_commit": "870aac28139604e217ae44469e679557994f7a0d",
+  "scope": "ONE_GENERIC_NON_AUTOBAHN_PROTECTED_SBX_ATTEMPT",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-26T03:05:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner standing iteration approval ('I approve of you running any tests you need and iterating') combined with the owner's explicit US-007 contract amendment decision ('Redesign enforcement (Recommended)', AskUserQuestion 2026-08-26T02:35Z) recorded at protected/us007-contract-amendment-rlimit-enforcement.json. This attempt carries the amended rlimit-based enforcement: parent-set POSIX rlimits (CPU/NPROC/NOFILE/FSIZE uniform; RLIMIT_AS 512MiB scoped to the memory-bomb descriptor only), supervisor-owned wall/output kills, /run tmpfs workspace boundary, wait4/getrusage observation, uid-65534 workload drop. Recorded owner decisions, not independent attestations.",
+  "predecessor_attempts": [
+    {"attempt_id": "us007-sbx-output-live-0101", "state": "BLOCKED inspect mismatch + absence-validator defect"},
+    {"attempt_id": "us007-sbx-output-live-0102", "state": "BLOCKED extra global openai secret (owner-approved removal followed)"},
+    {"attempt_id": "us007-sbx-output-live-0103/0105/0106", "state": "BLOCKED SANDBOX_ENFORCEMENT_UNAVAILABLE: runtime denies CAP_SYS_ADMIN, read-only cgroupfs (ground-truth receipt retained); led to the owner-authorized contract amendment"}
+  ],
+  "driver": "claude-fable-5",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "constraints": [
+    "One live attempt under this authorization; failures preserved immutably",
+    "No Autobahn rerun of any kind",
+    "Codex-plane ledger, nonces, receipts, and attempt dirs remain untouched",
+    "production=false, signing=false, publication=false"
+  ],
+  "compiled_identity": {
+    "host_operator_digest": "sha256:2ece5962fec9b75113ac1c0eab9347e65f81b6c20d752c78e8dce76b29f62455",
+    "linux_supervisor_digest": "sha256:306638fc5463eb63ebd71c2914afc4e212a187b55c82f51b9ff7857a8bc34c40",
+    "owner_anchor_digest": "sha256:69dba7886f3b80235c5ed2e3b2b15d3cc316f48db49ce72eeac8266fdf747b06",
+    "owner_public_key_digest": "sha256:441147ea2da5e63d2411bc01242153c86a81022935635ca8edad494416055f22",
+    "role_snapshot_digest": "sha256:11cacdccca949676aa712d58575995c5eeb041aa9e1cc4adcf279add37ecee39",
+    "revocation_snapshot_digest": "sha256:bca86576c90f52d97677fa4be0783a050383aef0edace19bbec7b60fb4665459",
+    "sbx_cli_digest": "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf",
+    "source_clone_tree": "4937f8fab01300b542ca4dd23f90f6202ed3f268"
+  }
+}

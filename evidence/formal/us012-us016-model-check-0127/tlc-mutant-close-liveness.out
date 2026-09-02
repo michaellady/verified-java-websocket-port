@@ -1,0 +1,79 @@
+Picked up JAVA_TOOL_OPTIONS: -Dhttp.proxyHost=gateway.docker.internal -Dhttp.proxyPort=3128 -Dhttps.proxyHost=gateway.docker.internal -Dhttps.proxyPort=3128 -Dhttp.nonProxyHosts=localhost|127.*|[::1]|gateway.docker.internal
+TLC2 Version 2026.08.21.155922 (rev: 9787e65)
+Warning: Please run the Java VM, which executes TLC with a throughput optimized garbage collector, by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 129 and seed 4055334013435352916 with 1 worker on 2 cores with 512MB heap and 64MB offheap memory [pid: 248] (Linux 7.0.12 aarch64, Ubuntu 25.0.3 64bit, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/agent/tlc/mut/close-liveness/CloseModel.tla
+Parsing file /tmp/tlc-13185268880141759378/Integers.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Integers.tla)
+Parsing file /tmp/tlc-13185268880141759378/_TLCTrace.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/_TLCTrace.tla)
+Parsing file /tmp/tlc-13185268880141759378/Naturals.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Naturals.tla)
+Parsing file /tmp/tlc-13185268880141759378/TLC.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLC.tla)
+Parsing file /tmp/tlc-13185268880141759378/TLCExt.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/TLCExt.tla)
+Parsing file /tmp/tlc-13185268880141759378/Sequences.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/Sequences.tla)
+Parsing file /tmp/tlc-13185268880141759378/FiniteSets.tla (jar:file:/home/agent/tlc/tla2tools.jar!/tla2sany/StandardModules/FiniteSets.tla)
+Semantic processing of module Naturals
+Semantic processing of module Integers
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module TLC
+Semantic processing of module TLCExt
+Semantic processing of module _TLCTrace
+Semantic processing of module CloseModel
+Linting of module TLCExt
+Linting of module _TLCTrace
+Linting of module CloseModel
+Starting... (2026-08-27 23:58:53)
+Implied-temporal checking--satisfiability problem has 1 branches.
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-08-27 23:58:53.
+Progress(5) at 2026-08-27 23:58:53: 348 states generated, 168 distinct states found, 0 states left on queue.
+Checking temporal properties for the complete state space with 168 total distinct states at (2026-08-27 23:58:53)
+Error: Temporal property ClosingResolves was violated.
+
+Error: The following behavior constitutes a counter-example:
+
+State 1: <Initial predicate>
+/\ closeDetail = [ origin |-> "none",
+  code |-> 0,
+  reason |-> "none",
+  remote |-> FALSE,
+  hsComplete |-> FALSE ]
+/\ refusals = FALSE
+/\ lastInbound = [code |-> 0, class |-> "none", kind |-> "none"]
+/\ state = "NotYetConnected"
+/\ lastSend = [ reason |-> "none",
+  requested |-> 0,
+  normalized |-> 0,
+  outcome |-> "none",
+  reported |-> 0 ]
+/\ terminalEntries = 0
+/\ poisoned = FALSE
+/\ handshakeDone = FALSE
+/\ lastOutbound = [code |-> 0, kind |-> "none", payload |-> "none"]
+
+State 2: <PreOpenSendClose(1002,"text") line 282, col 3 to line 289, col 51 of module CloseModel>
+/\ closeDetail = [ origin |-> "local",
+  code |-> 1002,
+  reason |-> "text",
+  remote |-> FALSE,
+  hsComplete |-> FALSE ]
+/\ refusals = FALSE
+/\ lastInbound = [code |-> 0, class |-> "none", kind |-> "none"]
+/\ state = "Closing"
+/\ lastSend = [ reason |-> "none",
+  requested |-> 0,
+  normalized |-> 0,
+  outcome |-> "none",
+  reported |-> 0 ]
+/\ terminalEntries = 0
+/\ poisoned = FALSE
+/\ handshakeDone = FALSE
+/\ lastOutbound = [code |-> 0, kind |-> "none", payload |-> "none"]
+
+State 3: Stuttering
+Warning: The stuttering counterexample above may be caused by the absence of a fairness constraint in the behavior specification Spec defined at line 490, col 1 to line 490, col 29 of module CloseModel. To rule out such counterexamples, conjoin a suitable fairness constraint to Spec (compare Chapter 8, page 87ff of Specifying Systems at https://lamport.azurewebsites.net/tla/book.html).
+Finished checking temporal properties in 00s at 2026-08-27 23:58:53
+348 states generated, 168 distinct states found, 0 states left on queue.
+The depth of the complete state graph search is 5.
+Finished in 00s at (2026-08-27 23:58:53)
+Trace exploration spec path: ./CloseModel_TTrace_1787875133.tla

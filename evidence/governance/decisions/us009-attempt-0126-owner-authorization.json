@@ -1,0 +1,59 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us009-ac1-rust-gates-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "attempt_id": "us007-sbx-output-live-0126",
+  "sandbox_name": "us009-gates-0126",
+  "story": "US-009 AC1 (execute the full Rust workspace gates — make -C rust fmt-check/clippy/test/test-release plus the ac1-gates suite incl. both canary polarity checks — inside the accepted US-007 sandbox workload profile, against mainline 1b382a7)",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-27T20:19:50Z",
+  "authorized_at_provenance": "Captured from `date -u` immediately before this record was written (standing no-estimates rule).",
+  "owner": "mikelady",
+  "authorization_basis": "Owner standing sbx authorization (same basis as attempts 0101-0125: standing iteration approval plus the /loop directive's protected-operator attempt-series instruction) PLUS the explicit owner decision protected/us009-sbx-toolchain-owner-decision-2026-08-27.json (sha256 421d94476cce633949e28642c7c553a495db4efa3a8d65f4aacf0c2ddcd9273e, verified at read) authorizing host-side acquisition and digest-verified per-attempt materialization of the pinned Rust 1.95.0 toolchain (aarch64-unknown-linux-gnu, rustup-managed) plus a C linker sufficient for cargo test. The pre-probe that motivated the decision is protected/us009-attempt-0126-toolchain-preprobe-blocked.json.",
+  "materialization_artifacts": {
+    "rust_combined_installer": {
+      "artifact": "rust-1.95.0-aarch64-unknown-linux-gnu.tar.xz (components: rustc, rust-std-aarch64-unknown-linux-gnu, cargo, rustfmt-preview, clippy-preview, rust-docs, rust-docs-json-preview, rust-analyzer-preview, llvm-tools-preview, rust-analysis; read from the tarball's components file after host verification)",
+      "source_url": "https://static.rust-lang.org/dist/rust-1.95.0-aarch64-unknown-linux-gnu.tar.xz",
+      "published_sha256_source": "https://static.rust-lang.org/dist/rust-1.95.0-aarch64-unknown-linux-gnu.tar.xz.sha256 (fetched FIRST per probe-before-wire, then the artifact)",
+      "sha256": "094c9c36531911c5cc7dd6ab2d3069ab8dcd744d6239b0bda1387b243dfc391e",
+      "bytes": 170785780,
+      "host_verification": "shasum -a 256 -c against the upstream .sha256: OK (exit 0, read)"
+    },
+    "rustup_init": {
+      "artifact": "rustup-init (aarch64-unknown-linux-gnu) — installed as the rustup binary + proxy hardlinks so `rustup toolchain list` and the rustup-shimmed cargo genuinely execute for the msrv gate",
+      "source_url": "https://static.rust-lang.org/rustup/dist/aarch64-unknown-linux-gnu/rustup-init",
+      "published_sha256_source": "https://static.rust-lang.org/rustup/dist/aarch64-unknown-linux-gnu/rustup-init.sha256 (fetched first)",
+      "sha256": "9732d6c5e2a098d3521fca8145d826ae0aaa067ef2385ead08e6feac88fa5792",
+      "bytes": 19502880,
+      "host_verification": "shasum -a 256 -c against the upstream .sha256: OK (exit 0, read)"
+    },
+    "c_toolchain_debs": {
+      "artifact": "39 Ubuntu 26.04 arm64 .deb packages: the exact apt closure of `gcc libc6-dev` resolved INSIDE a pristine container of the pinned template image itself (so the closure matches the template's installed package set), downloaded by apt from ports.ubuntu.com under apt's signed-index (InRelease) verification",
+      "resolution_vehicle": "docker run --rm on docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec (plain host-side container for RESOLUTION AND FETCH ONLY; the template image itself is never modified; sandbox materialization happens per-attempt inside the clone)",
+      "per_deb_verification": "Every .deb's computed sha256 compared programmatically against the SHA256 field of the signed apt index (apt-cache show in the pristine template container): TOTAL=39 MISMATCHES=0, ALL_DEB_DIGESTS_MATCH (exit 0, read). Full table: deb-verify.txt (transferred with the batch and listed in the manifest).",
+      "packages_include": "gcc 4:15.2.0-5ubuntu1, gcc-15 15.2.0-16ubuntu1, binutils 2.46-3ubuntu2, libc6-dev 2.43-2ubuntu2.3, linux-libc-dev 7.0.0-30.30, libgcc-15-dev, cpp-15, plus their resolved dependency closure"
+    },
+    "rustgatectl_binary": {
+      "artifact": "rustgatectl-linux-arm64-0126 — the repo-incumbent AC1 gate runner cross-compiled from the clean source clone at 1b382a7 (GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -trimpath ./cmd/rustgatectl); a BUILT binary is used in-sbx per the standing never-go-run rule (deviation from the Makefile's ac1-gates recipe `go run`, semantics identical, recorded here)",
+      "sha256": "18488dd4e6c3aa727efb6a5a15357ad4c35037c0b332c60321e2ce85e17b04d3",
+      "build_exit": "0 (read)"
+    },
+    "transfer_manifest": "work/us009-sbx-0126/materialize/transfer-manifest.sha256 (43 entries) — every artifact digest-verified INSIDE the sandbox after copy before use; sbx cp exit codes are untrusted per the 0124 finding"
+  },
+  "constraints": [
+    "One live sandbox attempt under this authorization; failures preserved immutably; no retry-until-pretty",
+    "Accepted US-007 profile shape: unprivileged workload uid 1000, no --privileged, --deny-network '**', clone-mode source (clean clone @ 1b382a7), pinned template digest sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec, sbx v0.39.0 def8cb0523a77e757bdd6ef52b459fe374f3783e",
+    "Materialization is per-attempt into the cloned sandbox only; the template is never mutated. The C-toolchain deb installation uses the template's own passwordless-sudo capability granted to uid 1000 (agent is in group sudo by template design, present in all accepted attempts); the gate workload itself runs unprivileged as uid 1000",
+    "Exact pinned Rust 1.95.0 only; rustup-managed layout so the msrv gate's rustup requirement genuinely executes; cargo runs offline (workspace has zero non-path dependencies)",
+    "Every gate exit code read from real output; a failing gate is a finding to report, never to paper over",
+    "Codex plane untouched; production=false, signing=false, publication=false"
+  ],
+  "target_platform": {
+    "sbx_cli": "v0.39.0 def8cb0523a77e757bdd6ef52b459fe374f3783e",
+    "template": "docker.io/docker/sandbox-templates:shell@sha256:1e642f7fadebcbff3d8de67114e9b42a5971ba9b4287ebffa1d05662f5a0f5ec",
+    "os_arch": "linux/arm64"
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

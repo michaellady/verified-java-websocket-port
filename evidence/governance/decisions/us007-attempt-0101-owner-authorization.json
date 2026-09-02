@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "fresh-generic-sbx-attempt-owner-authorization",
+  "plane": "verified-java-websocket-port-claude (Claude parallel authority plane)",
+  "attempt_id": "us007-sbx-output-live-0101",
+  "sandbox_name": "us007-resource-envelope-0101",
+  "target_commit": "870aac28139604e217ae44469e679557994f7a0d",
+  "scope": "ONE_GENERIC_NON_AUTOBAHN_PROTECTED_SBX_ATTEMPT",
+  "attempt_limit": 1,
+  "authorized_at": "2026-08-26T01:25:00Z",
+  "owner": "mikelady",
+  "authorization_basis": "Owner session directives of 2026-08-26: (1) explicit instruction to duplicate the project, continue from the Codex snapshot, and 'start working immediately' (AskUserQuestion answer); (2) explicit /goal directive 'set a goal to complete this Java to rust port story' issued after the driver stated the next step was a single live sbx attempt gated on owner authorization; (3) explicit owner approval 'Yes, run both' (AskUserQuestion, 2026-08-26T01:30Z) for the no-key fail-closed preflight AND the single live attempt, given with the description: one disposable Docker micro-VM created from the standalone clone, canaries executed, sandbox destroyed, absence proven, nothing published or deployed. This is a recorded owner decision, not an independent attestation.",
+  "driver": "claude-fable-5",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "constraints": [
+    "Exactly one live attempt under this authorization; a failed attempt is preserved as an immutable receipt and does not authorize a rerun",
+    "No Autobahn rerun of any kind",
+    "Codex-plane ledger, nonces, receipts, and attempt dirs remain untouched and immutable",
+    "production=false, signing=false, publication=false"
+  ],
+  "compiled_identity": {
+    "host_operator_digest": "sha256:04187ce3ea19d5b34699924a65ff5e740683729485f3926edd4efb45f6b64fec",
+    "linux_supervisor_digest": "sha256:a882a34d15629a1b2588a09aabb3d5f70b6e5012eef379bd20671801bb614064",
+    "owner_anchor_digest": "sha256:cd7d0701af534d50a57b648c471f1921f929ebfaa71c3774623d4d8bb7a35c99",
+    "owner_public_key_digest": "sha256:441147ea2da5e63d2411bc01242153c86a81022935635ca8edad494416055f22",
+    "role_snapshot_digest": "sha256:11cacdccca949676aa712d58575995c5eeb041aa9e1cc4adcf279add37ecee39",
+    "revocation_snapshot_digest": "sha256:bca86576c90f52d97677fa4be0783a050383aef0edace19bbec7b60fb4665459",
+    "sbx_cli_digest": "sha256:f2a9e83f41a1cc20292d1f0e40974c495065f59a933aaec98f0619c286ddbeaf",
+    "source_clone_tree": "4937f8fab01300b542ca4dd23f90f6202ed3f268"
+  }
+}

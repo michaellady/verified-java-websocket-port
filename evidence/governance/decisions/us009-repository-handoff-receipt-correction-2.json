@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0.0",
+  "kind": "us009-repository-handoff-receipt-correction-2",
+  "plane": "verified-java-websocket-port-claude (Claude authority plane)",
+  "corrects": "protected/us009-repository-handoff-receipt-correction.json (program_registry field only; everything else in that sidecar stands)",
+  "recorded_at": "2026-08-27T20:48:51Z",
+  "recorded_at_provenance": "Captured from date -u immediately before writing; the registry file was read and digested in the same command.",
+  "finding": "US-009 reality review round 2 (session 01a044f4-37ec-7cc0-8153-2aaee56fd47a) found the first correction sidecar still wrong on the program registry: it substituted the EVC PRD metadata and called registration open, while the canonical program registry exists at companies/enterprise-vibe-code/projects/verified-java-to-rust-port/program-registry.json with the repository's entry.",
+  "root_cause": "The driver searched companies/manifest.yaml and the -websocket- project trees but never the parent program project verified-java-to-rust-port on the EVC plane. Same failure class as round 1: incomplete cross-plane artifact search before an existence claim.",
+  "corrected_binding": {
+    "program_registry": "companies/enterprise-vibe-code/projects/verified-java-to-rust-port/program-registry.json (sha256 8c3e2474f2d0ab476da101ec9d112c084e8aebc74e1b8e946b37b7eca8150bbb at 2026-08-27T20:48:51Z), entry id lab-java-websocket: name verified-java-websocket-port, repository_url https://github.com/michaellady/verified-java-websocket-port, kind laboratory, status existing, visibility PUBLIC, license Apache-2.0, owners [michaellady], default_branch main.",
+    "agreement": "Registry entry AGREES with the fresh GitHub probe recorded in correction 1 (default_branch main, license apache-2.0, owner/name michaellady/verified-java-websocket-port) and with the laboratory manifest (default_branch main). AC1's owner/name + default-branch + license + authorization agreement requirement is therefore satisfied across authorization receipt, laboratory manifest, and program registry.",
+    "note": "The registry's hq_registration_path names companies/manifest.yaml#companies.open-source-projects.repos as the HQ registration target; that manifest.yaml entry's presence remains an HQ bookkeeping item outside this story's repo, now correctly identified as the registry's own pointer rather than the registry itself."
+  },
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "driver": "claude-fable-5"
+}

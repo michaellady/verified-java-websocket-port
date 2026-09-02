@@ -1,0 +1,352 @@
+{
+  "schema_version": "1.0.0",
+  "evidence_kind": "e5b-close-composition-receipt",
+  "plane": "verified-java-websocket-port-claude",
+  "branch": "claude/e5b-close-composition",
+  "base_commit": "86ab881108e8fe32a3481285822fab494fa9916b",
+  "commit": "9b8984e375437773a73b43b4660bae844f80a580 (round 2; round 1 = 03f333be52840cd904febf23fb985e85b4ac4252, not rewritten)",
+  "generated_at": "2026-08-28T00:12:21Z",
+  "assurance": "OWNER_ATTESTED_NOT_INDEPENDENT",
+  "independent_review_claimed": false,
+  "production": false,
+  "publication": false,
+  "mission": "Close the two follow-ups the merged E5 Autobahn leg recorded as unledgered divergences: (1) fix the Autobahn 7.3.2 wire-level close composition at the ADAPTER layer toward live full-stack Java, without touching the live-oracle-confirmed ws_core; (2) append delta-ledger records for the 5.15 ordering divergence and the 7.3.2 composition divergence.",
+  "java_sites_verified": {
+    "source_of_truth": "digest-pinned quarantined Java-WebSocket 1.6.0 tree at /Users/mikelady/hq/workspace/worktrees/vjwp-claude-us005/.quarantine/Java-WebSocket-da3cf2a777aed862f2f5b5cf060cae7969958667/src/main/java/org/java_websocket (read directly this leg; every line number below was opened and read, not inherited)",
+    "sites": [
+      {
+        "file": "framing/FramedataImpl1.java",
+        "lines": "241-242",
+        "fact": "FramedataImpl1.get(Opcode.CLOSING) returns new CloseFrame()"
+      },
+      {
+        "file": "framing/CloseFrame.java",
+        "lines": "168-172",
+        "fact": "the CloseFrame constructor runs setReason(\"\") + setCode(NORMAL), so the frame's payload buffer is [0x03,0xE8]"
+      },
+      {
+        "file": "framing/CloseFrame.java",
+        "lines": "246-271",
+        "fact": "setPayload OVERRIDES the base method and assigns only the code/reason FIELDS - it never calls super.setPayload, so a DECODED close frame object keeps the constructor payload. This is the mechanism behind quirk Q10."
+      },
+      {
+        "file": "framing/CloseFrame.java",
+        "lines": "252-253",
+        "fact": "a 1-byte close payload sets code = PROTOCOL_ERROR (1002)"
+      },
+      {
+        "file": "framing/CloseFrame.java",
+        "lines": "226-243",
+        "fact": "isValid() does NOT reject 1002, so a 1-byte close raises no exception at translate time"
+      },
+      {
+        "file": "framing/CloseFrame.java",
+        "lines": "294-302",
+        "fact": "updatePayload composes the payload as the low two bytes of the code (big-endian) followed by the UTF-8 reason"
+      },
+      {
+        "file": "drafts/Draft_6455.java",
+        "lines": "595",
+        "fact": "translateSingleFrame calls frame.isValid() after decoding"
+      },
+      {
+        "file": "drafts/Draft_6455.java",
+        "lines": "896-897",
+        "fact": "processFrame routes Opcode.CLOSING to processFrameClosing"
+      },
+      {
+        "file": "drafts/Draft_6455.java",
+        "lines": "1053-1072",
+        "fact": "processFrameClosing reads cf.getCloseCode()/cf.getMessage() (1055-1060) and, when the state is not CLOSING, calls webSocketImpl.close(code, reason, true) for a TWOWAY draft (1067-1068)"
+      },
+      {
+        "file": "drafts/Draft_6455.java",
+        "lines": "1111-1113",
+        "fact": "Draft_6455.getCloseHandshakeType() returns TWOWAY"
+      },
+      {
+        "file": "WebSocketImpl.java",
+        "lines": "463-505",
+        "fact": "close(int,String,boolean) is the single method both a LOCAL close and the inbound-close echo go through"
+      },
+      {
+        "file": "WebSocketImpl.java",
+        "lines": "482-486",
+        "fact": "it builds a BRAND NEW frame: new CloseFrame(); setReason(message); setCode(code); isValid(); sendFrame(closeFrame) - so the wire payload is the RECEIVED code and reason, never the received frame object"
+      }
+    ],
+    "prompt_hypothesis_corrected": "The task prompt guessed the full stack reaches its own close frame 'after the close-payload parse throws InvalidDataException'. That is NOT what the pinned source does and the guess was not adopted: CloseFrame.setPayload maps a 1-byte payload to 1002 (CloseFrame.java:252-253) and isValid accepts 1002 (CloseFrame.java:226-243), so NOTHING throws. The full stack reaches WebSocketImpl.close by the ORDINARY processFrameClosing path with code=1002, and that method composes its own frame. The fix implements the verified path, not the guess.",
+    "why_ws_core_legitimately_differs": "The core's Q19/Q10 echo is pinned to the java-oracle harness, which re-emits the RECEIVED CloseFrame object (java-oracle/src/main/java/OracleEngine.java:382, emitOutbound(List.of(frame), index, \"echo_close\")). Because CloseFrame.setPayload never writes super's buffer, that object's payload really is [0x03,0xE8] - so the core observable is CORRECT AT ITS LAYER and its 74/74 live-oracle confirmation stands. The harness's echo COMPOSITION, however, is the harness's, not WebSocketImpl's. Full-stack composition therefore belongs one layer up, exactly like the US-015 automatic pong."
+  },
+  "wire_level_before_after": {
+    "stimulus": "Autobahn 7.3.2: one masked close frame with a 1-byte payload (0x88 0x81 <mask> <byte>)",
+    "before": "0x88 0x02 0x03 0xE8 (close code 1000) - read from the pre-fix RED runs, both at the driver tier and end to end over a real socket",
+    "after": "0x88 0x02 0x03 0xEA (close code 1002)",
+    "general_rule_now_implemented": "the echo payload is the RECEIVED code (2 bytes big-endian) followed by the RECEIVED reason - byte-identical to what ws_core's LOCAL send_close already emits, because in shipped Java both are the same WebSocketImpl.close method",
+    "coincidence_that_hid_the_bug": "for a received close of 1000 with an empty reason the composed payload EQUALS the constructor payload, so every corpus close-remote case and every non-7.3.2 Autobahn close case produced identical bytes"
+  },
+  "implementation": {
+    "layer": "rust/ws-driver (the WebSocketImpl mirror) - ws_core UNCHANGED (git diff --stat over rust/ws-core is empty on this branch)",
+    "api": "ws_driver::CloseEchoPolicy { WebSocketImplComposition (default, shipped-Java full stack), CoreDraftEcho (opt-out, keeps the core's Draft-level bytes) }; new constructors connection_driver_with_policies and connection_driver_in_state_with_policies; the existing constructors delegate with the default",
+    "mechanism": "ConnectionDriver arms a one-shot flag when an inbound chunk takes the core from Open to Closing with a REMOTE governing close (the Q19 echo arm). The next write pulled from the core is decoded with ws_core::framing::Draft6455::decode_frame_header; if it is a close frame whose (unmasked) payload equals CLOSE_CONSTRUCTOR_PAYLOAD, it is re-encoded with the received code+reason via Draft6455::encode_frame, REUSING the frame's own mask key so the core's deterministic client-role mask sequence is undisturbed. A Shutdown input disarms it with the other undeliverable output.",
+    "what_is_NOT_changed": "the core's semantic events, frame records (the outbound echo record still carries the constructor payload, matching the oracle observable), governing close detail, state machine, and every corpus expectation. Only the transport bytes the WebSocketImpl mirror hands to the socket change.",
+    "unreachable_arm_not_invented": "Java's closeFrame.isValid() at WebSocketImpl.java:485 cannot reject on this path - the code/reason came from a received CloseFrame that already passed the identical isValid chain at translate time (Draft_6455.java:595; CloseFrame.java:226-243) - so no speculative rejection/flushAndClose arm was written. Documented in the source rather than coded.",
+    "constraints_held": "forbid(unsafe_code) on every first-party crate (rustgatectl forbid-unsafe gate PASS); zero new dependencies (dependency-inventory and lockfile gates PASS); protected/ untouched; the Codex plane untouched",
+    "files": [
+      "rust/ws-driver/src/lib.rs (CloseEchoPolicy, arm_close_echo, compose_close_echo)",
+      "rust/ws-driver/tests/close_composition.rs (new, 6 tests)",
+      "rust/ws-testee/tests/loopback.rs (new end-to-end wire test + one stale comment corrected)"
+    ]
+  },
+  "tdd": {
+    "order": "RED first, at the driver/io_loop tier, before any behavior change",
+    "driver_tier_red": "cargo test -p ws-driver --test close_composition with the policy present but unwired: 3 passed / 3 FAILED, read verbatim - autobahn_7_3_2... left [136,2,3,232] right [136,2,3,234]; the_echo_mirrors_the_received_code_and_reason left [136,2,3,232] right [136,5,3,240,119,104,121]; a_client_role_echo... left [3,232] right [3,234]",
+    "io_loop_tier_red": "the end-to-end wire test rust/ws-testee/tests/loopback.rs::autobahn_7_3_2_wire_reply_is_1002_end_to_end was run with CloseEchoPolicy's Default temporarily flipped to CoreDraftEcho, over a REAL socket through run_server_once: FAILED, left [136,2,3,232] right [136,2,3,234]. The default was then restored and the same test passed. Both RED observations are the pre-fix wire bytes read from the real path, not asserted.",
+    "green": "6/6 driver-tier tests and 12/12 loopback tests pass; full workspace cargo test exit 0"
+  },
+  "autobahn_rerun": {
+    "infra": {
+      "image": "crossbario/autobahn-testsuite@sha256:519915fb568b04c9383f70a1c405ae3ff44ab9e35835b085239c258b6fac3074 (suite 25.10.1), the same pinned manifest digest as the US-002 Java baseline and the E5 leg",
+      "pull_policy": "never (image already present locally; docker emitted its own platform-mismatch warning, captured verbatim in wstest-run*.log - no --platform flag was passed, matching E5's invocation)",
+      "platform": "linux/amd64 emulated on darwin/arm64 Docker Desktop, server version 29.7.2 (read from docker version)",
+      "endpoint": "rust/target/release/ws-testee serve 127.0.0.1:9010 <sessions> (the E5 'serve' subcommand and its ceiling-tier fixture config, unchanged)",
+      "transport": "wstest (in container) -> ws://host.docker.internal:9010 -> Docker Desktop host proxy -> ws-testee on 127.0.0.1:9010 - the same disclosed path E5 used",
+      "config_digests": {
+        "fuzzingclient-run1.json (247 cases, case selection byte-equal to E5 run1 apart from the agent name)": "sha256:8ffe6a1f82cdb781d9c775cf2af23ed92b9a998d8ccbd7e3a3003705053569b7",
+        "fuzzingclient-run2.json (33 cases)": "sha256:1e728e23e5455d258111a19965f6678c74f8a4b3b400e0242ea9d4a37ee9bed9",
+        "fuzzingclient-smoke.json (7.3.* only)": "read from evidence/rust/autobahn-e5b/digest-manifest.json"
+      }
+    },
+    "runs": {
+      "smoke": {
+        "cases": 6,
+        "wstest_exit_code_read": 0,
+        "serve_terminal_line_read": "served=6",
+        "result": "7.3.2 flipped to OK with remoteCloseCode 1002; 7.3.1/7.3.3/7.3.4/7.3.5/7.3.6 unchanged"
+      },
+      "run1_full": {
+        "cases": 247,
+        "wstest_exit_code_read": 0,
+        "serve_terminal_line_read": "served=247",
+        "session_lines_read": 247
+      },
+      "run2_stability": {
+        "cases": 33,
+        "wstest_exit_code_read": 0,
+        "serve_terminal_line_read": "served=33",
+        "note": "the 15 cases E5's run2 re-ran, plus the whole 7.3.* and 7.7.* families (every case whose echoed close code the fix could move)"
+      }
+    },
+    "tallies_read_from_the_reports": {
+      "before_merged_e5_baseline": {
+        "total": 247,
+        "OK": 232,
+        "NON-STRICT": 11,
+        "INFORMATIONAL": 3,
+        "FAILED": 1
+      },
+      "after_e5b": {
+        "total": 247,
+        "OK": 233,
+        "NON-STRICT": 11,
+        "INFORMATIONAL": 3,
+        "FAILED": 0
+      },
+      "behaviorClose_before": {
+        "OK": 117,
+        "FAILED BY CLIENT": 90,
+        "UNCLEAN": 36,
+        "INFORMATIONAL": 3,
+        "WRONG CODE": 1
+      },
+      "behaviorClose_after": {
+        "OK": 117,
+        "FAILED BY CLIENT": 91,
+        "UNCLEAN": 36,
+        "INFORMATIONAL": 3
+      }
+    },
+    "class_changes": {
+      "behavior": [
+        "7.3.2: FAILED -> OK"
+      ],
+      "behaviorClose": [
+        "7.3.2: WRONG CODE -> FAILED BY CLIENT"
+      ],
+      "verdict": "EXACTLY ONE case changed class in either dimension. Every other one of the 247 cases kept its merged-baseline behavior AND behaviorClose class."
+    },
+    "disclosed_side_effect_no_class_change": {
+      "what": "remoteCloseCode changed on 12 cases: 7.3.2 (1000->1002) and eleven 7.7.x cases whose echoed code now mirrors the code the fuzzer sent - 7.7.2 (1001), 7.7.3 (1002), 7.7.4 (1003), 7.7.6 (1008), 7.7.7 (1009), 7.7.8 (1010), 7.7.9 (1011), 7.7.10 (3000), 7.7.11 (3999), 7.7.12 (4000), 7.7.13 (4999)",
+      "why": "this is exactly the WebSocketImpl.close composition; before the fix every echo carried 1000",
+      "impact": "none of those eleven changed behavior or behaviorClose class; they are reported because a reader comparing raw per-case JSON will see the field move"
+    },
+    "java_agreement": {
+      "basis": "per-case Autobahn behavior class, E5b run1 vs the Java server leg in 13-qualification-pass.json",
+      "before": "245 / 247 (divergences 5.15 and 7.3.2)",
+      "after": "246 / 247 (only 5.15 remains)"
+    },
+    "stability": "33/33 run2 cases reproduced run1's behavior, behaviorClose AND remoteCloseCode exactly (zero differences)",
+    "evidence_path": "evidence/rust/autobahn-e5b/ (index-run1/run2/smoke, 247+33+6 per-case JSONs, serve and wstest logs, fuzzingclient specs, digest-manifest.json; the 289 HTML reports are digest-pinned in the manifest and left out of git, the E5 convention)"
+  },
+  "ledger_records": {
+    "append_path": "cmd/deltaledgerctl over internal/deltaledger definitions - the canonical hash-chained CAS append. No ledger byte was hand-edited.",
+    "records": [
+      {
+        "sequence": 33,
+        "delta_id": "delta-c5429efb69d93e52fcbc5e26542b511df205a8a932c8cd3bb981d961ca00b58b",
+        "subject_ref": "semantic:org.java-websocket.websocketimpl.close-echo-wire-composition:provisional-v1",
+        "autobahn_ref": "autobahn-v25.10.1:7.3.2",
+        "covers": "BOTH the pre-fix divergence (wire 1000 where the full stack sends 1002) AND the adapter fix that restores full-stack fidelity, with the Java sites and the before/after Autobahn evidence"
+      },
+      {
+        "sequence": 34,
+        "delta_id": "delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8",
+        "subject_ref": "semantic:org.java-websocket.websocketimpl.batch-drain-echo-flush-ordering:provisional-v1",
+        "autobahn_ref": "autobahn-v25.10.1:5.15",
+        "covers": "the retained divergence (Rust NON-STRICT vs Java OK, both wstest-passing, Rust RFC-stricter under 7.1.7), with the two-phase Java mechanism corrected in review round 2; deliberately NOT resolved in code"
+      }
+    ],
+    "head_before": "sha256:b7a8492493d2752b8826a5d85d817f1dc90c7d6fa644ffdeb9b4886b3e99516e (32 records)",
+    "head_after": "sha256:a8bf37b4b9e40dd803b6d36386f5bd50e3035e1d8e51c26e6f3d04b1b4e08f11 (34 records)",
+    "chain_prefix_unchanged": "verified: the 34-record chain's first 32 records are byte-identical to the committed 32, because the new definitions are appended last",
+    "envelope_unchanged": "accepted_root_digest, status (BLOCKED_PENDING_BASELINE), unledgered_disagreements (0), production and publication all unchanged - the in-repo Java Autobahn BASELINE is still BLOCKED and these records do not flip it",
+    "code_change_to_the_definition_layer": "internal/deltaledger gained optional Definition.AutobahnResult / Definition.AutobahnValue overrides. Reason: BuildDeltas hard-bound every record's autobahn_result/autobahn_value digest to the AUTOBAHN_NOT_EXECUTED marker, which would have been a FALSE preimage for these two records - their Autobahn refs ARE executed observations. The 32 existing definitions leave the fields empty and keep the marker, so their digests are bit-identical (proven by the unchanged chain prefix).",
+    "census_gate": "TestEveryShippedQuirkWithAnRFCCounterpartIsLedgered initially FAILED because a rationale mentioned the token Q28, which the allowlist reserves as having no RFC counterpart. Resolved the sanctioned way - by removing the incorrect citation from the rationale (the mask-key seam is not a divergence), NOT by touching the allowlist or the test. deltaledgerctl --check then passed (exit 0, 34 records).",
+    "review_round_2_note": "sequence 34's preimage was corrected after review; sequence 33 and the first 32 records are bit-identical across both rounds. See review_round_2."
+  },
+  "corpus_invariance": {
+    "pipeline": "corporactl oracle-requests --tier public -> ws-oracle-harness (release) x2 -> corporactl evaluate --tier public, re-run at the FINAL tree",
+    "requests_sha256": "0c1503c043172d0962f44aca068d57cac5588b9d933669e5221a11b880c72d85 (byte-identical to the E5 baseline)",
+    "transcript_sha256": "fd3f7a1c1eb0eeed0a7b214eac2dc517ab169511ce266d98280f7eff571f2326",
+    "transcript_claim": "BYTE-IDENTICAL to the merged E5 receipt's recorded transcript, and identical INCLUDING the embedded runtime object {artifact: ws-oracle-harness, sha256:496b4f2a...} - the release harness binary itself reproduced bit-for-bit, since ws-oracle-harness depends only on the untouched ws-core. No 'modulo the runtime object' allowance was needed.",
+    "determinism": "two consecutive harness runs byte-identical",
+    "evaluate_counts_read": {
+      "executed": 74,
+      "passed": 74,
+      "failed": 0,
+      "missing": 0,
+      "unmatched": 0
+    },
+    "exit_codes_read": {
+      "oracle_requests": 0,
+      "harness_run_1": 0,
+      "harness_run_2": 0,
+      "evaluate": 0
+    },
+    "structural_argument": "ws-oracle-harness depends on ws-core ONLY (rust/ws-oracle-harness/Cargo.toml), so the ws-driver change is not even linked into the corpus binary; the byte-identical transcript is the empirical confirmation."
+  },
+  "back_pressure": {
+    "write_deadline": "0 WriteStalled outcomes across 286 served sessions (247 + 33 + 6); the 2s IoBounds write_stall_limit never tripped",
+    "poll_budget": "0 BudgetExhausted outcomes",
+    "socket": "0 SocketError outcomes",
+    "outcome_split_read_from_serve_logs": {
+      "run1": {
+        "Terminal": 124,
+        "ProtocolFailure": 123
+      },
+      "run2": {
+        "Terminal": 17,
+        "ProtocolFailure": 16
+      }
+    },
+    "typed_failures": "expected: those are the Autobahn cases that deliberately poison the protocol, and the core owns the failure vocabulary",
+    "recomposition_cost": "the fix rewrites at most one <=125-byte control frame per connection and allocates one Vec for it; it adds no queue, no retry path, and no unbounded buffer"
+  },
+  "gates": {
+    "make_rust_gates": "exit 0 READ (fmt-check, clippy -D warnings, test, test-release, ac1-gates); 71 'test result: ok' lines; ac1-gates verdict=PASS gates_passed=8/8 (forbid-unsafe, dependency-inventory, msrv, license, audit, lockfile, canaries, adapter-linkage all PASS)",
+    "fmt": "cargo fmt --all -- --check first exited nonzero on the new code; cargo fmt --all was applied and the re-check exited 0 READ",
+    "go_build": "go build ./... exit 0 READ",
+    "go_test": "go test -count=1 ./... exit 0 READ, 28 packages ok, 0 FAIL (final run)",
+    "go_test_first_run": "exit 1 READ with 5 package FAILs, every one an expected drift gate on a deliberate change - see refreezes"
+  },
+  "refreezes_disclosed": [
+    {
+      "gate": "internal/linkage (LINKAGE_DAG_DRIFTED + 'symbol ws_driver::ConnectionDriver digest is stale')",
+      "trigger": "rust/ws-driver source changed, exactly as anticipated",
+      "action": "LINKAGE_REGENERATE=1 go test ./internal/linkage/ then a plain re-run: exit 0 READ",
+      "artifact": "evidence/linkage/evidence-dag.json"
+    },
+    {
+      "gate": "internal/formalplan PLAN_LEDGER_BINDING_MISMATCH (3 tests)",
+      "trigger": "assurance/concurrency/plan.json records the OBSERVED ledger head and record count; appending two records moved both",
+      "action": "updated observed_head to sha256:7fc75028... and observed_record_count to 34, and extended the append_blocker narrative to describe the two E5b records honestly (including that they are the only records binding EXECUTED Autobahn observations, and that the in-repo Java BASELINE is still BLOCKED so append_state is unchanged). No generator exists for this binding; it is an observation field and was corrected to the truth.",
+      "artifact": "assurance/concurrency/plan.json"
+    },
+    {
+      "gate": "internal/formalplan TestUS006FixtureCatalogThroughRealCLI realized-tree digests",
+      "trigger": "NOT a ws_core change. The US-006 base fixture manifest (assurance/replay/fixtures/us006-base/mutation.json) copies evidence/java/behavior-delta-ledger.json and assurance/concurrency/plan.json into every realized tree, so the deliberate ledger append moved all 22 frozen tree digests. git diff --stat over rust/ws-core is EMPTY on this branch, and rust/ws-core/src/connection.rs (also copied into the fixture) is unchanged.",
+      "action": "US006_REGENERATE=1 go test -run TestUS006FixtureCatalogThroughRealCLI ./internal/formalplan/: exit 0 READ",
+      "artifact": "assurance/replay/fixtures/us006-cases.json",
+      "scope_of_the_diff_verified": "ONLY the 22 realized_tree_sha256 values changed. No expected exit_code, state, findings, or obligation counter moved - every case still runs through the REAL CLI in both formal-preflight and formal-replay modes against its unchanged expected verdict.",
+      "prompt_guidance_note": "The task said US006_REGENERATE only if ws_core sources change. ws_core did NOT change; the trigger was the mandated ledger append flowing into the fixture tree. The refreeze is disclosed here rather than silently taken."
+    }
+  ],
+  "no_cheating_attestation": {
+    "ws_core_untouched": "git diff --stat over rust/ws-core is empty on this branch; the live-oracle-confirmed core behavior, its Q19/Q10 echo and every corpus expectation are unchanged",
+    "no_test_weakened": "no test was skipped, loosened, deleted, or marked ignore. The census gate that fired was satisfied by fixing the wrong citation, not by editing the allowlist. Two comments were corrected for accuracy (a loopback comment that described the echo as the constructor payload, and the ws-driver module doc).",
+    "no_protected_write": "nothing under protected/ was modified; the receipt is written to drafts/",
+    "no_codex_plane_write": "the Codex plane was not touched",
+    "no_push": "no push, no PR; the parent owns push/review/merge",
+    "numbers_are_read": "every count, exit code, digest and class in this receipt was read from the real command's output or the real report file; none was estimated or carried over from the E5 receipt except where explicitly labelled 'before/baseline'",
+    "timestamps": "generated_at and the evidence manifest's generated_at both come from date -u at write time"
+  },
+  "honesty_notes": [
+    "The recovered Java qualification receipt records a per-case behavior STATUS CLASS only - no behaviorClose and no close codes. So 'live Java replied 1002' is NOT claimed anywhere: what is claimed is that live Java scored 7.3.2 OK, which wstest grants for 1002 OR a TCP drop, and that the pinned SOURCE composes 1002. Which observable live Java actually produced remains unknown and is stated as unknown in the ledger record.",
+    "The task prompt's guess about an InvalidDataException throw was checked against the pinned source and found wrong; the implemented path is the ordinary processFrameClosing -> WebSocketImpl.close path. This is recorded so no reader inherits the wrong mental model.",
+    "ws_core's constructor-payload echo is not a bug at its own layer. It faithfully reproduces the java-oracle harness observable, which itself faithfully reproduces a real Java quirk (CloseFrame.setPayload never writing the base payload). The divergence was purely one of LAYER: the harness echoes the received object, the shipped stack composes a new frame.",
+    "The fix changes the WIRE bytes only. The core's outbound FrameObserved record for the echo still carries the constructor payload, so the core observable and the wire now disagree for a non-1000 inbound close. In shipped Java they agree (the sent object is the wire frame). This is a deliberate consequence of not touching the corpus-pinned core, and it is called out in the ledger record rather than papered over.",
+    "Eleven 7.7.x cases changed remoteCloseCode without changing class. That was not required by the mission and is disclosed in full; it is the same WebSocketImpl.close composition, and it moves those cases toward - never away from - Java's behavior.",
+    "5.15 was deliberately NOT fixed. Changing the adapter's batch-drain ordering would trade an RFC-stricter observable (fail immediately on violation, RFC 6455 7.1.7) for a Java-faithful one with no Autobahn class gain. It is ledgered as retained, pending an owner fidelity decision.",
+    "The client-mode Autobahn leg (fuzzingserver) is still not exercised - the same scope boundary E5 disclosed. ws-testee has no fuzzingserver agent protocol.",
+    "Autobahn runs cross the Docker Desktop host proxy rather than US-002's docker-attach relay. Same provenance difference E5 disclosed; the loopback-only guard still holds because the listener observes peer 127.0.0.1.",
+    "This receipt is OWNER_ATTESTED_NOT_INDEPENDENT. No independent review was performed or is claimed.",
+    "Review round 2 caught a WRONG Java mechanism in the sequence-34 ledger preimage: it claimed Java decodes and dispatches one frame at a time. The pinned source shows a two-phase decode \u2014 translateFrame returns every complete frame in the chop, then decodeFrames dispatches them \u2014 so the poisoned frame is decoded BEFORE the echo is enqueued and only dispatched after it. The preimage was corrected and rehashed. The finding was verified against the source rather than adopted on the reviewer's word, and the corrected record states the mechanism more precisely than either version."
+  ],
+  "blockers": [],
+  "artifacts": {
+    "autobahn_evidence": "evidence/rust/autobahn-e5b/",
+    "digest_manifest_sha256": "sha256:74aa1176be85be1f69808659bf1d3def8600cd24355f594f82596c094559804b",
+    "ledger_sha256": "sha256:78695565d5945331aca48988b5b33ba3d91e1724733294aabfad02637c752c82",
+    "index_run1_sha256": "sha256:6c3d77627c2332c1b37fb6a90cbd9b087d4f1274505a9cfbf80a111b2ed72fe8",
+    "index_run2_sha256": "sha256:8264d9a3968ff160d5a5635d3dc14976587f05130617aee5fc98119943ef8763"
+  },
+  "review_round_2": {
+    "session_id": "01a045b9-7292-7961-9483-211103fdf53d",
+    "verdict_received": "BLOCK \u2014 exactly one blocking finding; the close-composition implementation and all six other verification areas PASSED",
+    "finding_verbatim": "Sequence 34 hashes an incorrect Java mechanism: internal/deltaledger/definitions_autobahn.go:97 says Java decodes one frame at a time and flushes the echo before decoding the poisoned frame, but Draft_6455.translateFrame translates all complete frames first and WebSocketImpl.decodeFrames only then dispatches them sequentially. The accurate mechanism is echo enqueue during earlier processFrame dispatch, followed by the later sequence failure and flushAndClose draining queued output. Correct the preimage and regenerate sequence 34, the ledger head, plan binding, and dependent fixtures.",
+    "finding_accepted": true,
+    "my_independent_source_reading": {
+      "method": "Read Draft_6455.translateFrame, WebSocketImpl.decodeFrames, Draft_6455.processFrame/processFrameContinuousAndNonFin, WebSocketImpl.send/write/outQueue, close(InvalidDataException) and flushAndClose directly in the digest-pinned quarantined 1.6.0 tree, rather than adopting either the original preimage or the reviewer's wording on trust.",
+      "agreement": "The reviewer is RIGHT on the load-bearing point and my original preimage was WRONG. Java decodes in two phases: WebSocketImpl.decodeFrames calls draft.translateFrame ONCE (WebSocketImpl.java:394), and Draft_6455.translateFrame (drafts/Draft_6455.java:724-773) loops translateSingleFrame over the whole buffer and returns a List of EVERY complete frame in the chop; only then does decodeFrames dispatch them with for (Framedata f : frames) draft.processFrame(this, f) (WebSocketImpl.java:395-398). So the poisoned frame is DECODED before the echo exists \u2014 it is merely DISPATCHED later. My original 'decodes and dispatches ONE frame at a time' was false.",
+      "refinements_i_add_beyond_the_reviewers_wording": [
+        "WHY the poison survives phase 1 (the reviewer did not say): the 5.15 poison is a SEQUENCE error, not a decode error. A lone CONTINUATION frame is structurally valid to translateSingleFrame, so it translates cleanly and only fails in phase 2.",
+        "The exact throw site: Draft_6455.processFrameContinuousAndNonFin's currentContinuousFrame == null arm at drafts/Draft_6455.java:934-937. This is the FIN=false arm, and Autobahn 5.15's own case description in the per-case report says 'Continuation Frame with FIN = false where there is nothing to continue' \u2014 so it is NOT the processFrameIsFin twin at :1001-1004. My round-1 rationale had also loosely called it 'a dangling continuation' without pinning FIN.",
+        "Enqueue path made explicit: dispatching the SECOND fragment completes the message (processFrameIsFin -> onWebsocketMessage), the echo listener's send runs WebSocketImpl.send(Collection):667-681 -> write(List):749-755 -> write(ByteBuffer):736-742, doing outQueue.add at :740 and wsl.onWriteDemand at :741 \u2014 all before the third frame is dispatched.",
+        "Failure path made explicit: processFrame throws, decodeFrames catches at WebSocketImpl.java:405-408 and calls close(e) -> close(1002,...) (:631-633 -> :463), which enqueues Java's OWN close frame (:482-486) and then calls flushAndClose (:494).",
+        "One precision where I state it slightly differently from the reviewer: flushAndClose does not itself drain the queue \u2014 it raises the final write demand, wsl.onWriteDemand(this) at WebSocketImpl.java:594-595, whose in-source comment reads 'ensures that all outgoing frames are flushed before closing the connection'; the actual socket drain is performed by the listener's write path servicing that demand. The reviewer's 'flushAndClose draining queued output' is right in effect; the record now states the mechanism precisely. This is a refinement, not a disagreement.",
+        "The Rust side is sharper than the round-1 preimage claimed. It does NOT 'suppress queued output': the echo is never ENQUEUED at all, because ws_core's typed failure short-circuits the poll before the completed message's Text event is delivered (ws_driver finish_poll returns DriverOutput::Failure without draining queued events, rust/ws-driver/src/lib.rs:599-611; rust/ws-testee/src/io_loop.rs:221-225 then shuts the socket and breaks), so the adapter's event-driven echo policy never runs. Confirmed empirically, not just by reading: the 5.15 adapter session line reads texts=0 (evidence/rust/autobahn-e5b/serve-run2.log session=7).",
+        "The Java observable is better founded than 7.3.2's. The 5.15 per-case report's own expectation map is {NON-STRICT: [], OK: [['message','fragment1fragment2',false]]}, so the Java receipt's OK class ENTAILS that live Java echoed the completed message \u2014 a single admissible observable, unlike 7.3.2 where OK admitted 1002-or-drop. The record now says so."
+      ]
+    },
+    "what_regenerated": {
+      "definition": "internal/deltaledger/definitions_autobahn.go sequence-34 definition: JavaRef corrected from WebSocketImpl:decode to WebSocketImpl:decodeFrames (the method actually cited), JavaObservation rewritten to the verified two-phase mechanism with file:line citations, JavaValue changed from 'echo-then-fail' to 'enqueue-then-flush', AutobahnValue strengthened with the expectation-map entailment, Rationale corrected and carrying an explicit MECHANISM CORRECTION note naming this review session.",
+      "ledger": "regenerated through cmd/deltaledgerctl (no hand-edited bytes); deltaledgerctl --check exits 0 with 34 records",
+      "sequence_34_delta_id": "delta-7ec0b936b08dc5456c606bc038dc738e66843018d24982442c31ad9cb5cc11f1 -> delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8 (expected: the delta id hashes the preimage, and the preimage was corrected)",
+      "ledger_head": "sha256:7fc75028b941b9cef25d15f438c80f6eac2abb68593ce1c5afee490eb7f9c576 -> sha256:a8bf37b4b9e40dd803b6d36386f5bd50e3035e1d8e51c26e6f3d04b1b4e08f11",
+      "immutability_verified": "the first 32 records are bit-identical to the ORIGINAL committed 32 (compared against the pre-E5b ledger), and sequence 33 (delta-c5429efb69d93e52f, the close-composition record) is bit-identical to its round-1 form. Only sequence 34 and the head moved.",
+      "plan_binding": "assurance/concurrency/plan.json observed_head updated to sha256:a8bf37b4\u2026; observed_record_count stays 34; the append_blocker narrative's reference to the 5.15 record updated to the new id and corrected title",
+      "us006_fixtures": "US006_REGENERATE=1 go test -run TestUS006FixtureCatalogThroughRealCLI ./internal/formalplan/ exit 0 READ; the diff is 22 realized_tree_sha256 values and NOTHING else (verified by counting non-digest changed lines: 0). No expected exit code, state, finding, or counter moved.",
+      "linkage": "no refreeze needed this round \u2014 no Rust source changed, and internal/linkage passed in the full suite"
+    },
+    "re_verification_exits_read": {
+      "make_rust_gates": "exit 0 READ; 71 'test result: ok' lines; ac1-gates verdict=PASS gates_passed=8/8",
+      "go_build": "go build ./... exit 0 READ",
+      "go_test": "go test -count=1 ./... exit 0 READ, 28 packages ok, 0 FAIL",
+      "deltaledgerctl_check": "exit 0 READ",
+      "corpus": "requests sha256 0c1503c043\u2026 unchanged; transcript sha256 fd3f7a1c1eb0eeed0a7b214eac2dc517ab169511ce266d98280f7eff571f2326 still byte-identical to the merged E5 baseline (two consecutive harness runs identical); evaluate executed 74 / passed 74 / failed 0 / missing 0 / unmatched 0, exit 0 READ"
+    },
+    "no_autobahn_rerun": "Confirmed and agreed: this round changed only a documentation preimage inside internal/deltaledger plus the derived ledger/plan/fixture digests. No Rust source, no adapter behavior, and no wire byte changed \u2014 git shows rust/ is untouched in this round's diff \u2014 so the round-1 Autobahn evidence (247/247, 7.3.2 OK, one class change) stands unmodified and was not re-executed.",
+    "unrelated_observation_not_touched": "gofmt -l flags internal/deltaledger/definitions_close.go, a file this branch never edits. Verified pre-existing on base commit 86ab881 (gofmt -l on the base blob flags it too). No Go formatting gate runs in this repo's test suite, so it is reported rather than silently changed under an unrelated commit.",
+    "regenerated_at": "2026-08-28T00:32:31Z"
+  }
+}
