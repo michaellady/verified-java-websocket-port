@@ -1,0 +1,26 @@
+--- host rlimits of this SSM shell ---
+Limit                     Soft Limit           Hard Limit           Units     
+Max cpu time              unlimited            unlimited            seconds   
+Max file size             unlimited            unlimited            bytes     
+Max data size             unlimited            unlimited            bytes     
+Max stack size            10485760             10485760             bytes     
+Max core file size        unlimited            unlimited            bytes     
+Max resident set          unlimited            unlimited            bytes     
+Max processes             unlimited            unlimited            processes 
+Max open files            65535                65535                files     
+Max locked memory         unlimited            unlimited            bytes     
+Max address space         unlimited            unlimited            bytes     
+Max file locks            unlimited            unlimited            locks     
+Max pending signals       30446                30446                signals   
+Max msgqueue size         819200               819200               bytes     
+Max nice priority         0                    0                    
+Max realtime priority     0                    0                    
+Max realtime timeout      unlimited            unlimited            us        
+--- host cgroup v2 controllers ---
+cpuset cpu io memory hugetlb pids misc
+--- host memory ---
+MemTotal:        7969868 kB
+MemFree:         3916292 kB
+MemAvailable:    7176968 kB
+--- nproc ---
+4

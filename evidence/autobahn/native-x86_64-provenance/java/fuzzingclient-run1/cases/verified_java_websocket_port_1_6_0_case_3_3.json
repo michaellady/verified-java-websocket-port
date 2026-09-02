@@ -1,0 +1,197 @@
+{
+   "agent": "verified-java-websocket-port-1.6.0",
+   "behavior": "NON-STRICT",
+   "behaviorClose": "OK",
+   "case": 30,
+   "closedByMe": false,
+   "createStats": true,
+   "createWirelog": true,
+   "description": "Send small text message, then send again with <b>RSV = 3</b>, then send Ping. Octets are sent in frame-wise chops. Octets are sent in octet-wise chops.",
+   "droppedByMe": false,
+   "duration": 1,
+   "expectation": "Echo for first message is received, but then connection is failed immediately, since RSV must be 0, when no extension defining RSV meaning has been negotiated. The Pong is not received.",
+   "expected": {
+      "NON-STRICT": [],
+      "OK": [
+         [
+            "message",
+            "Hello, world!",
+            false
+         ]
+      ]
+   },
+   "expectedClose": {
+      "closeCode": [
+         1002
+      ],
+      "closedByMe": false,
+      "requireClean": false
+   },
+   "failedByMe": false,
+   "httpRequest": "GET / HTTP/1.1\r\nUser-Agent: AutobahnTestSuite/25.10.1-0.10.9\r\nHost: 127.0.0.1:9011\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nSec-WebSocket-Key: Q/oqqZMoVx4dyqXNG+e7sw==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+   "httpResponse": "HTTP/1.1 101 Web Socket Protocol Handshake\r\nConnection: Upgrade\r\nDate: Fri, 28 Aug 2026 18:51:39 GMT\r\nSec-WebSocket-Accept: qh6gXwd2VpWa/j+CfLU1jqcShNU=\r\nServer: TooTallNate Java-WebSocket\r\nUpgrade: websocket\r\n\r\n",
+   "id": "3.3",
+   "isServer": false,
+   "localCloseCode": 1000,
+   "localCloseReason": null,
+   "received": [],
+   "remoteCloseCode": 1002,
+   "remoteCloseReason": "bad rsv RSV1: false RSV2: true RSV3: true",
+   "reportCompressionRatio": false,
+   "reportTime": false,
+   "result": "Actual events match at least one expected.",
+   "resultClose": "Connection was properly closed",
+   "rxFrameStats": {
+      "8": 1
+   },
+   "rxOctetStats": {
+      "45": 1,
+      "212": 1
+   },
+   "started": "2026-08-28T18:51:39.639Z",
+   "trafficStats": null,
+   "txFrameStats": {
+      "1": 2,
+      "8": 1,
+      "9": 1
+   },
+   "txOctetStats": {
+      "6": 1,
+      "8": 1,
+      "19": 2,
+      "242": 1
+   },
+   "wasClean": true,
+   "wasCloseHandshakeTimeout": false,
+   "wasNotCleanReason": null,
+   "wasOpenHandshakeTimeout": false,
+   "wasServerConnectionDropTimeout": false,
+   "wirelog": [
+      [
+         "TO",
+         [
+            242,
+            "474554202f20485454502f312e310d0a557365722d4167656e743a204175746f6261686e5465737453756974652f32352e31302e312d302e31302e390d0a486f ..."
+         ],
+         false
+      ],
+      [
+         "RO",
+         [
+            212,
+            "485454502f312e31203130312057656220536f636b65742050726f746f636f6c2048616e647368616b650d0a436f6e6e656374696f6e3a20557067726164650d ..."
+         ]
+      ],
+      [
+         "TF",
+         [
+            13,
+            "Hello, world!"
+         ],
+         1,
+         true,
+         0,
+         "ec52da6c",
+         null,
+         null,
+         true
+      ],
+      [
+         "TO",
+         [
+            19,
+            "818dec52da6ca437b600837efa1b8320b608cd"
+         ],
+         true
+      ],
+      [
+         "TF",
+         [
+            13,
+            "Hello, world!"
+         ],
+         1,
+         true,
+         3,
+         "89ea9c84",
+         null,
+         null,
+         true
+      ],
+      [
+         "TF",
+         [
+            0,
+            ""
+         ],
+         9,
+         true,
+         0,
+         "270fc941",
+         null,
+         null,
+         true
+      ],
+      [
+         "KL",
+         1
+      ],
+      [
+         "TO",
+         [
+            19,
+            "b18d89ea9c84c18ff0e8e6c6bcf3e698f0e0a8"
+         ],
+         true
+      ],
+      [
+         "TO",
+         [
+            6,
+            "8980270fc941"
+         ],
+         true
+      ],
+      [
+         "RO",
+         [
+            45,
+            "882b03ea6261642072737620525356313a2066616c736520525356323a207472756520525356333a2074727565"
+         ]
+      ],
+      [
+         "RF",
+         [
+            43,
+            "0x03ea6261642072737620525356313a2066616c736520525356323a207472756520525356333a2074727565"
+         ],
+         8,
+         true,
+         0,
+         false,
+         null
+      ],
+      [
+         "TF",
+         [
+            2,
+            "0x03e8"
+         ],
+         8,
+         true,
+         0,
+         "3ae8be5f",
+         null,
+         null,
+         false
+      ],
+      [
+         "TO",
+         [
+            8,
+            "88823ae8be5f3900"
+         ],
+         false
+      ]
+   ]
+}

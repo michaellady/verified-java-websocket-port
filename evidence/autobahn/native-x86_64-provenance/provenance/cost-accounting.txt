@@ -1,0 +1,8 @@
+PRICING_API_ONDEMAND_USD_PER_HOUR = 0.1785
+PRICING_API_DESCRIPTION = $0.1785 per On Demand Linux c7i.xlarge Instance Hour
+BILLED_SECONDS = 567  (9.45 min)
+BILLED_HOURS   = 0.157500
+COMPUTE_USD    = 0.02811
+EBS_40GiB_gp3_USD = 0.00070
+S3_USD         = < 0.00100 (about 15 MiB stored ~10 min, tens of requests)
+TOTAL_USD      = 0.02881 plus sub-cent S3

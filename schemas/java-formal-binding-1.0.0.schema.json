@@ -1,0 +1,200 @@
+{
+  "$id": "java-formal-binding-1.0.0.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Java formal-binding artifacts",
+  "description": "Shapes for the three artifacts of the Java formal-binding lane: the reviewable binding specification, the retained execution receipt, and the derived coverage projection over the immutable 24-obligation catalog. None of these artifacts expresses a proof of the Java library; see docs/java-formal-binding-design.md.",
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "artifactIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"$ref": "#/$defs/digest"},
+        "git_blob": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "assurance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assurance", "independent_review_claimed", "production", "publication", "signing"],
+      "properties": {
+        "assurance": {"const": "OWNER_ATTESTED_NOT_INDEPENDENT"},
+        "independent_review_claimed": {"const": false},
+        "production": {"const": false},
+        "publication": {"const": false},
+        "signing": {"const": false}
+      }
+    },
+    "pinnedSource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["archive_sha256", "tree_directory", "source_revision", "source_root"],
+      "properties": {
+        "archive_sha256": {"$ref": "#/$defs/digest"},
+        "tree_directory": {"type": "string"},
+        "source_revision": {"type": "string"},
+        "source_root": {"type": "string"}
+      }
+    },
+    "pinnedRuntime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact", "sha256"],
+      "properties": {
+        "artifact": {"type": "string"},
+        "sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "predicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {
+          "enum": ["outcome", "error_code", "error_close_code", "close_code", "counts_field", "frame_field", "frame_count", "event_field", "event_absent"]
+        },
+        "direction": {"enum": ["inbound", "outbound"]},
+        "event_type": {"type": "string"},
+        "field": {"type": "string"},
+        "index": {"type": "integer", "minimum": 0},
+        "string": {"type": "string"},
+        "number": {"type": "integer"}
+      }
+    },
+    "mutation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mutation_id", "chain_member", "relative_offset", "length", "removed_sha256", "replacement", "scenario_id", "expectation"],
+      "properties": {
+        "mutation_id": {"type": "string"},
+        "chain_member": {"type": "string"},
+        "relative_offset": {"type": "integer", "minimum": 0},
+        "length": {"type": "integer", "minimum": 1},
+        "removed_sha256": {"$ref": "#/$defs/digest"},
+        "replacement": {"type": "string"},
+        "scenario_id": {"type": "string"},
+        "expectation": {"type": "string"}
+      }
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "spec_id", "catalog", "pinned_source", "pinned_runtime", "scenarios", "bindings", "unbound"],
+      "properties": {
+        "schema_version": {"const": "1.0.0"},
+        "spec_id": {"const": "java-formal-binding-spec"},
+        "catalog": {"$ref": "#/$defs/artifactIdentity"},
+        "pinned_source": {"$ref": "#/$defs/pinnedSource"},
+        "pinned_runtime": {"$ref": "#/$defs/pinnedRuntime"},
+        "scenarios": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["scenario_id", "purpose", "role", "initial_state", "steps", "limits"],
+            "properties": {
+              "scenario_id": {"type": "string"},
+              "purpose": {"type": "string"},
+              "role": {"enum": ["client", "server"]},
+              "initial_state": {"enum": ["open", "closing", "closed"]},
+              "steps": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+              "limits": {"type": "object"}
+            }
+          }
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["obligation_id", "catalog_symbol", "source_file", "declaring_type", "chain", "clauses"],
+            "properties": {
+              "obligation_id": {"type": "string"},
+              "catalog_symbol": {"type": "string"},
+              "source_file": {"type": "string"},
+              "declaring_type": {"type": "string"},
+              "chain": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+              "chain_rationale": {"type": "string"},
+              "clauses": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["clause_id", "statement", "witnesses"],
+                  "properties": {
+                    "clause_id": {"type": "string"},
+                    "statement": {"type": "string"},
+                    "witnesses": {
+                      "type": "array",
+                      "minItems": 1,
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": ["scenario_id", "predicate"],
+                        "properties": {
+                          "scenario_id": {"type": "string"},
+                          "predicate": {"$ref": "#/$defs/predicate"}
+                        }
+                      }
+                    },
+                    "mutation": {"$ref": "#/$defs/mutation"},
+                    "no_canary_reason": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "unbound": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["obligation_id", "reason_code", "detail"],
+            "properties": {
+              "obligation_id": {"type": "string"},
+              "reason_code": {
+                "enum": [
+                  "CATALOG_SYMBOL_SCOPE_MISMATCH",
+                  "CATALOG_SYMBOL_NOT_ON_EXECUTED_PATH",
+                  "INTERFACE_DECLARATION_NO_IMPLEMENTATION_SITE",
+                  "JAVA_CONSTRUCT_DOES_NOT_IMPLEMENT_CLAUSE",
+                  "NOT_OBSERVABLE_THROUGH_ADAPTER",
+                  "NOT_ATTEMPTED_THIS_ROUND"
+                ]
+              },
+              "detail": {"type": "string", "minLength": 40}
+            }
+          }
+        }
+      }
+    },
+    "coverageCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "denominator", "java_bindings_connected", "java_bindings_partial", "java_bindings_disconnected",
+        "java_mutation_sensitive", "java_bindings_at_required_strength", "refinement", "aggregate",
+        "clauses_declared", "clauses_satisfied", "canaries_declared", "canaries_killed"
+      ],
+      "properties": {
+        "denominator": {"const": 24},
+        "java_bindings_connected": {"type": "integer", "minimum": 0, "maximum": 24},
+        "java_bindings_partial": {"type": "integer", "minimum": 0, "maximum": 24},
+        "java_bindings_disconnected": {"type": "integer", "minimum": 0, "maximum": 24},
+        "java_mutation_sensitive": {"type": "integer", "minimum": 0, "maximum": 24},
+        "java_bindings_at_required_strength": {"const": 0},
+        "refinement": {"const": 0},
+        "aggregate": {"const": 0},
+        "clauses_declared": {"type": "integer", "minimum": 0},
+        "clauses_satisfied": {"type": "integer", "minimum": 0},
+        "canaries_declared": {"type": "integer", "minimum": 0},
+        "canaries_killed": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "oneOf": [{"$ref": "#/$defs/spec"}]
+}

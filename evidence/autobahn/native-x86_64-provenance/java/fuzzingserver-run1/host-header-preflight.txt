@@ -1,0 +1,3 @@
+Host '172.30.242.4:9001' -> bytes=215 b'HTTP/1.1 101 Switching Protocols\r\nServer: AutobahnTestSuite/25.1'
+Host '127.0.0.1:9001' -> bytes=215 b'HTTP/1.1 101 Switching Protocols\r\nServer: AutobahnTestSuite/25.1'
+PREFLIGHT_FIXED_AUTHORITY_ACCEPTED=YES

@@ -1,0 +1,99 @@
+{
+   "agent": "verified-rust-ws-testee-us019",
+   "behavior": "OK",
+   "behaviorClose": "OK",
+   "case": 120,
+   "closedByMe": false,
+   "createStats": true,
+   "createWirelog": true,
+   "description": "Send a text message with payload which is not valid UTF-8 in one fragment.<br><br>Payload: 0xc020c120c220c320c420c520c620c720c820c920ca20cb20cc20cd20ce20cf20d020d120d220d320d420d520d620d720d820d920da20db20dc20dd20de20",
+   "droppedByMe": false,
+   "duration": 0,
+   "expectation": "The connection is failed immediately, since the payload is not valid UTF-8.",
+   "expected": {
+      "OK": []
+   },
+   "expectedClose": {
+      "closeCode": [
+         1007
+      ],
+      "closedByMe": false,
+      "closedByWrongEndpointIsFatal": true,
+      "requireClean": false
+   },
+   "failedByMe": false,
+   "httpRequest": "GET / HTTP/1.1\r\nUser-Agent: AutobahnTestSuite/25.10.1-0.10.9\r\nHost: 127.0.0.1:9010\r\nUpgrade: WebSocket\r\nConnection: Upgrade\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nSec-WebSocket-Key: urbORUv2F102ZHJ4oXZHGg==\r\nSec-WebSocket-Version: 13\r\n\r\n",
+   "httpResponse": "HTTP/1.1 101 Web Socket Protocol Handshake\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: UOsLCMXr/Puly+kosZpzNmNlg8k=\r\n\r\n",
+   "id": "6.13.1",
+   "isServer": false,
+   "localCloseCode": null,
+   "localCloseReason": null,
+   "received": [],
+   "remoteCloseCode": null,
+   "remoteCloseReason": null,
+   "reportCompressionRatio": false,
+   "reportTime": false,
+   "result": "Actual events match at least one expected.",
+   "resultClose": "Connection was properly closed",
+   "rxFrameStats": {},
+   "rxOctetStats": {
+      "139": 1
+   },
+   "started": "2026-08-28T18:49:54.906Z",
+   "trafficStats": null,
+   "txFrameStats": {
+      "1": 1
+   },
+   "txOctetStats": {
+      "68": 1,
+      "242": 1
+   },
+   "wasClean": false,
+   "wasCloseHandshakeTimeout": false,
+   "wasNotCleanReason": "peer dropped the TCP connection without previous WebSocket closing handshake",
+   "wasOpenHandshakeTimeout": false,
+   "wasServerConnectionDropTimeout": false,
+   "wirelog": [
+      [
+         "TO",
+         [
+            242,
+            "474554202f20485454502f312e310d0a557365722d4167656e743a204175746f6261686e5465737453756974652f32352e31302e312d302e31302e390d0a486f ..."
+         ],
+         false
+      ],
+      [
+         "RO",
+         [
+            139,
+            "485454502f312e31203130312057656220536f636b65742050726f746f636f6c2048616e647368616b650d0a557067726164653a20776562736f636b65740d0a ..."
+         ]
+      ],
+      [
+         "TF",
+         [
+            62,
+            "0xc020c120c220c320c420c520c620c720c820c920ca20cb20cc20cd20ce20cf20d020d120d220d320d420d520d620d720d820d920da20db20dc20dd20de20 ..."
+         ],
+         1,
+         true,
+         0,
+         "ff6e834f",
+         null,
+         null,
+         false
+      ],
+      [
+         "TO",
+         [
+            68,
+            "81beff6e834f3f4e426f3d4e406f3b4e466f394e446f374e4a6f354e486f334e4e6f314e4c6f2f4e526f2d4e506f2b4e566f294e546f274e5a6f254e586f234e ..."
+         ],
+         false
+      ],
+      [
+         "KL",
+         0.5
+      ]
+   ]
+}
