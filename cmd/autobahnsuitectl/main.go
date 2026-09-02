@@ -176,8 +176,40 @@ func buildManifest(arguments []string, write bool) int {
 				"(committed %d bytes, derived %d bytes)\n", len(committed), len(rendered))
 		return exitGate
 	}
-	fmt.Printf("manifest=%s VERIFIED cases=%d\n", *manifestPath, manifest.ExpectedCaseCount)
+	// Byte equality with a re-expansion of the SAME sources proves the
+	// manifest is immutable; it proves nothing about whether those sources
+	// described the suite (review 01a04961 finding 7). The independent
+	// constraints are checked here, against the frozen family policy, the
+	// pinned selected-case count, the suite's identity grammar and the
+	// configurations the runs were launched with.
+	var configs []*autobahnsuite.SuiteConfig
+	for _, name := range nativeSuiteConfigs {
+		config, err := autobahnsuite.ReadSuiteConfig(filepath.Join(absoluteRoot, name))
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "verify-manifest: %v\n", err)
+			return exitGate
+		}
+		configs = append(configs, config)
+	}
+	status := exitOK
+	for _, problem := range autobahnsuite.VerifyManifestIndependence(manifest, configs) {
+		fmt.Fprintf(os.Stderr, "independence %s\n", problem)
+		status = exitGate
+	}
+	if status != exitOK {
+		return status
+	}
+	fmt.Printf("manifest=%s VERIFIED cases=%d independent-constraints=ok\n",
+		*manifestPath, manifest.ExpectedCaseCount)
 	return exitOK
+}
+
+// nativeSuiteConfigs are the committed wstest configurations the four legs of
+// the native run were launched with.
+var nativeSuiteConfigs = []string{
+	"evidence/autobahn/native-x86_64-provenance/config/fuzzingclient-rust.json",
+	"evidence/autobahn/native-x86_64-provenance/config/fuzzingclient-java.json",
+	"evidence/autobahn/native-x86_64-provenance/config/fuzzingserver-derived.json",
 }
 
 // amendedAC3 computes the amended AC3 verdict from two runs' own reports.
