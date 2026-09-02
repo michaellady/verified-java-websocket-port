@@ -1,0 +1,25 @@
+{
+  "schema_version": "1.0.0",
+  "entity_type": "AutobahnBehaviorClassDivergenceRegister",
+  "note": "The closed set of per-case Autobahn behavior-class divergences between the port and the pinned Java baseline on the native x86_64 run, one entry per case and role. AC3 as amended (owner decision us019-ac3-strict-pass-reading, 2026-08-28) requires per-case behavior-class agreement with that baseline with any residual difference analysed and ledgered; this register is what makes 'analysed and ledgered' checkable. It is exact in both directions: internal/autobahnsuite refuses an observed divergence that is not registered AND a registered entry the runs do not exhibit, and it resolves each entry's ledger reference in the behavior-delta ledger's own bytes. It is NOT a waiver list: every entry records an open divergence whose ledger disposition is stated, and sequence 34's disposition is unresolved.",
+  "entries": [
+    {
+      "case_id": "5.15",
+      "role": "client",
+      "subject_behavior": "NON-STRICT",
+      "baseline_behavior": "OK",
+      "ledger_delta_id": "delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8",
+      "ledger_sequence": 34,
+      "rationale": "Dispatch-phase echo enqueue versus fail-before-delivery. The fuzzer sends a complete two-fragment text message, a CONTINUATION frame with FIN=false where there is nothing to continue, and an unfragmented text, all in one chop. Java translates the whole chop before dispatching frame by frame, so its echo is already enqueued when the failure path flushes; the port fails before delivery. Autobahn scores Java OK and the port NON-STRICT. Analysed in behavior-delta ledger sequence 34, disposition unresolved."
+    },
+    {
+      "case_id": "5.15",
+      "role": "server",
+      "subject_behavior": "NON-STRICT",
+      "baseline_behavior": "OK",
+      "ledger_delta_id": "delta-71c02bf6294792a4689c89bbd4c9b859c5667215e311dd6059013e14b7809ee8",
+      "ledger_sequence": 34,
+      "rationale": "Dispatch-phase echo enqueue versus fail-before-delivery. The fuzzer sends a complete two-fragment text message, a CONTINUATION frame with FIN=false where there is nothing to continue, and an unfragmented text, all in one chop. Java translates the whole chop before dispatching frame by frame, so its echo is already enqueued when the failure path flushes; the port fails before delivery. Autobahn scores Java OK and the port NON-STRICT. Analysed in behavior-delta ledger sequence 34, disposition unresolved."
+    }
+  ]
+}

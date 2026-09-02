@@ -1,0 +1,50 @@
+TEARDOWN_STARTED_AT=2026-08-28T18:53:50Z
+ATTEMPT=us019-prov-20260828T183623Z
+REGION=us-east-1
+ROLE=vjwp-us019-prov-host
+ROLE_MANAGED_POLICY=arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+INSTANCE_PROFILE=vjwp-us019-prov-host
+BUCKET=vjwp-us019-prov-539402214167
+ROLE_INLINE_POLICY=transfer-bucket
+SGID=sg-08066fe59346a60fd
+INSTANCE_ID=i-0fd462789e9e80548
+LAUNCH_TIME=2026-08-28T18:44:56+00:00
+VOLUME_ID=vol-0fa35fde4b90691d4
+ENI_ID=eni-0012c87790625597a
+=== TERMINATE i-0fd462789e9e80548 ===
+TERMINATE_REQUESTED_AT=2026-08-28T18:53:50Z
+{
+    "TerminatingInstances": [
+        {
+            "InstanceId": "i-0fd462789e9e80548",
+            "CurrentState": {
+                "Code": 32,
+                "Name": "shutting-down"
+            },
+            "PreviousState": {
+                "Code": 16,
+                "Name": "running"
+            }
+        }
+    ]
+}
+WAIT_TERMINATED_EXIT=0
+i-0fd462789e9e80548	terminated
+TERMINATED_AT=2026-08-28T18:54:23Z
+=== DESTRUCTION PROOFS (read independently of the terminate call) ===
+PROOF_VOLUME_GONE_EXIT=254 (nonzero means the volume no longer exists)
+PROOF_ENI_GONE_EXIT=254 (nonzero means the interface no longer exists)
+=== SCAFFOLDING ===
+DELETE_BUCKET_EXIT=0
+{
+    "Return": true,
+    "GroupId": "sg-08066fe59346a60fd"
+}
+DELETE_SG_EXIT=0
+DELETE_INSTANCE_PROFILE_EXIT=0
+DELETE_ROLE_EXIT=0
+=== FINAL SWEEP: anything still alive under this project's tags ===
+(no rows above means nothing is left running)
+(no rows above means no volumes are left)
+(no rows above means no roles are left)
+TEARDOWN_FINISHED_AT=2026-08-28T18:54:33Z

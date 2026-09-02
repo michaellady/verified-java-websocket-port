@@ -1,0 +1,78 @@
+{
+  "artifact_digests": {
+    "autobahn-endpoint/src/main/java/AutobahnEndpoint.java": {
+      "status": "OBSERVED",
+      "value": "sha256:43540e7f047158238bf227a816ffab2f8faf93c96368ed004b539eb7bfec0a46",
+      "source": "sha256 of /opt/vjwp/autobahn-endpoint/src/main/java/AutobahnEndpoint.java"
+    },
+    "autobahn/case-manifest.json": {
+      "status": "OBSERVED",
+      "value": "sha256:27243d52b4aa5907f6f0ab0b2f07661e137bdc9a8fc2ba832eddb981b7c730ba",
+      "source": "sha256 of /opt/vjwp/autobahn/case-manifest.json"
+    },
+    "autobahn/fuzzingclient.json": {
+      "status": "OBSERVED",
+      "value": "sha256:68dc019c489f7cd64dfd68b0beac6015e51978acd6e57e033202111d4b57b8a7",
+      "source": "sha256 of /opt/vjwp/autobahn/fuzzingclient.json"
+    },
+    "autobahn/fuzzingserver.json": {
+      "status": "OBSERVED",
+      "value": "sha256:f754a144403edec7ff23331ffdc338f4607b48937ab148c057a82571ab88ede6",
+      "source": "sha256 of /opt/vjwp/autobahn/fuzzingserver.json"
+    },
+    "bin/autobahnsuitectl": {
+      "status": "OBSERVED",
+      "value": "sha256:5afd79f58012671947f19366e58606f10bbdf3490cb847c7781105f4d7d8c033",
+      "source": "sha256 of /opt/vjwp/bin/autobahnsuitectl"
+    },
+    "build/java/Java-WebSocket-1.6.0.jar": {
+      "status": "OBSERVED",
+      "value": "sha256:eae29213e4f16515639c28957200f011b3967fffcada1962cf0255d24919c22f",
+      "source": "sha256 of /opt/vjwp/build/java/Java-WebSocket-1.6.0.jar"
+    },
+    "build/java/autobahn-endpoint.jar": {
+      "status": "OBSERVED",
+      "value": "sha256:98ca1c7fdb5584386ff87bf993d962f9d4aa68ed1fbb5340558a5b0e93a3c95a",
+      "source": "sha256 of /opt/vjwp/build/java/autobahn-endpoint.jar"
+    },
+    "build/java/slf4j-api-2.0.13.jar": {
+      "status": "OBSERVED",
+      "value": "sha256:e7c2a48e8515ba1f49fa637d57b4e2f590b3f5bd97407ac699c3aa5efb1204a9",
+      "source": "sha256 of /opt/vjwp/build/java/slf4j-api-2.0.13.jar"
+    },
+    "rust/target/release/ws-testee": {
+      "status": "OBSERVED",
+      "value": "sha256:4f0d1c37badee36d1d3862ff533b01a9a703d44b8af9958f4134048cb2065342",
+      "source": "sha256 of /opt/vjwp/rust/target/release/ws-testee"
+    }
+  },
+  "branch": {
+    "status": "OBSERVED",
+    "value": "claude/us019-native-run",
+    "source": "supplied by the launching operator from git rev-parse --abbrev-ref HEAD"
+  },
+  "captured_at": "2026-08-28T18:48:27Z",
+  "commit_sha": {
+    "status": "OBSERVED",
+    "value": "518b77aa3ecdc180c832a0d988adf498d687e1b8",
+    "source": "supplied by the launching operator from git rev-parse HEAD"
+  },
+  "entity_type": "SourceProvenance",
+  "payload_digest_expected": {
+    "status": "OBSERVED",
+    "value": "sha256:967caaefdc6fe655057dfebe799f085f50a04c94b6b54b428eb54eccc2736aac",
+    "source": "sha256 computed on the launching workstation before upload"
+  },
+  "payload_digest_matches": {
+    "status": "OBSERVED",
+    "value": true,
+    "source": "comparison of the two digests above"
+  },
+  "payload_digest_observed_here": {
+    "status": "OBSERVED",
+    "value": "sha256:967caaefdc6fe655057dfebe799f085f50a04c94b6b54b428eb54eccc2736aac",
+    "source": "sha256 of /tmp/vjwp-payload.tgz as delivered to this host"
+  },
+  "root": "/opt/vjwp",
+  "schema_version": "1.0.0"
+}
