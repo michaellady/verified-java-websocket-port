@@ -10,3 +10,4 @@ bytes cannot be recomputed from them. Parts are added as they arrive.
 | Part | File | Content |
 | --- | --- | --- |
 | 1 | `01-structure-and-index.md` | program structure, topology, master and child story indexes with status |
+| 2 | `02-master-stories-foundation.md` | master stories US-001 to US-006 and US-024 in full (foundation wave) |
