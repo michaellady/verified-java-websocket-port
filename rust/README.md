@@ -28,6 +28,8 @@ From this directory (or `make -C rust gates` from the repo root):
 ```sh
 make fmt-check      # cargo fmt --all -- --check
 make clippy         # cargo clippy --workspace --all-targets --all-features -- -D warnings
+make fixture-guard  # go run ../cmd/fixtureguardctl: refuse a count-shaped liveness
+                    # guard in a Rust test fixture (the F002/F004/F005 class)
 make test           # cargo test --workspace --all-targets --all-features
 make test-release   # cargo test --workspace --release
 make ac1-gates      # go run ../cmd/rustgatectl: forbid-unsafe scan, dependency-unsafe
@@ -37,7 +39,11 @@ make gates          # all of the above
 
 The AC1 gates and the good/bad scaffold canaries are documented in
 [`../docs/rust-workspace.md`](../docs/rust-workspace.md) ("AC1 workspace
-gates"). Executing the gates through the accepted US-007 Docker sbx workload
+gates"). `fixture-guard` is documented in
+[`../drafts/self-review/fixture-liveness-guard-detector.md`](../drafts/self-review/fixture-liveness-guard-detector.md),
+including the errors the rule knowingly makes in both directions and the
+escape hatch (`// FIXTURE-COUNT-GUARD-ALLOWED: <justification>`, ceiling
+declared as `-max-waivers` in this Makefile, currently 0). Executing the gates through the accepted US-007 Docker sbx workload
 profile before artifact promotion is a separate parent-run step, not claimed
 here.
 
