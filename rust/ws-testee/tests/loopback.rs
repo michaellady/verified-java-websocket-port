@@ -888,6 +888,230 @@ fn autobahn_7_3_2_wire_reply_is_1002_end_to_end() {
     assert!(close.remote);
 }
 
+/// C6 LAYER SPLIT, MEASURED AT THE WIRE (owner decision
+/// `us017-c6-layer-split-owner-decision-2026-08-28.json`, sha256 d41b5307…).
+///
+/// On a PURE protocol violation — RSV1 set on a TEXT frame — shipped
+/// `WebSocketImpl` answers with a 1002 close frame before the connection
+/// goes away (WebSocketImpl.java:405-408 -> :631-633 -> :481-487, flushed by
+/// :494/:594-595). Before this decision we sent NOTHING and dropped TCP,
+/// which is what all 17 Autobahn section-3/4 cases recorded
+/// (`close_frames=0`, `remoteCloseCode: null`).
+///
+/// The reaction deliberately does NOT live in `ws_core`: placing it there
+/// moved 18 of the 74 public corpus cases off live Java. It lives in
+/// `ws_testee`'s `io_loop`, which the corpus harness cannot reach.
+///
+/// This test is the difference between the two states, on a real socket.
+#[test]
+fn a_protocol_violation_gets_the_shipped_java_1002_close_on_the_wire() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+    let server = server_thread(listener, IoBounds::default());
+
+    let mut stream = TcpStream::connect(address).expect("connect");
+    let (_sender, mut driver) = ws_driver::connection_driver(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Client,
+    );
+    driver
+        .begin_client_handshake("/chat", "localhost")
+        .expect("handshake start");
+    let mut report = ws_testee::io_loop::empty_report();
+    assert!(ws_testee::io_loop::drive_until_open(
+        &mut driver,
+        &mut stream,
+        &IoBounds::default(),
+        &mut report,
+    ));
+
+    // Raw wire: FIN=1, RSV1=1, opcode=TEXT -> 0xC1; MASK=1, len=0 -> 0x80;
+    // zeroed mask key. The core would never SEND this, so it goes straight
+    // onto the socket the way wstest puts it there.
+    use std::io::{Read, Write};
+    stream
+        .write_all(&[0xC1, 0x80, 0x00, 0x00, 0x00, 0x00])
+        .expect("write the RSV1 violation frame");
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("read timeout");
+    let mut reply = Vec::new();
+    let mut buffer = [0u8; 64];
+    while reply.len() < 4 {
+        match stream.read(&mut buffer) {
+            Ok(0) => break,
+            Ok(n) => reply.extend_from_slice(&buffer[..n]),
+            Err(error) => panic!("reading the server's violation close: {error:?}"),
+        }
+    }
+    drop(stream);
+    let served = server.join().expect("server thread");
+
+    assert_eq!(
+        reply,
+        vec![0x88, 0x02, 0x03, 0xEA],
+        "REGRESSION: a protocol violation must put shipped Java's 1002 close frame on the \
+         wire (unmasked, server role) instead of dropping TCP silently"
+    );
+    assert_eq!(
+        served.violation_close_sent,
+        Some(1002),
+        "the adapter must report the close code it actually wrote"
+    );
+    assert!(
+        matches!(
+            served.outcome,
+            ws_testee::io_loop::LoopOutcome::ProtocolFailure(_)
+        ),
+        "the halt itself is unchanged — only what goes on the wire on the way out: {:?}",
+        served.outcome
+    );
+}
+
+/// Drive `driver`'s already-committed handshake output onto `stream`.
+///
+/// `drive_until_open` returns as soon as the core leaves `NotYetConnected`,
+/// which for the SERVER role happens on the poll that consumes the client's
+/// request — one poll BEFORE the response write is drained. The shipped
+/// `run_server_once` flushes it inside `drive_connection`; a peer that wants
+/// the raw wire afterwards has to drain it explicitly. Public driver seam
+/// only (`poll` + `WriteProgress`); no protocol knowledge lives here.
+fn flush_committed_writes(driver: &mut ws_driver::ConnectionDriver, stream: &mut TcpStream) {
+    use std::io::Write;
+    for _ in 0..256 {
+        let pending = match driver.poll(ws_driver::DriverInput::Wake).output {
+            ws_driver::DriverOutput::Write(suffix) => suffix.to_vec(),
+            ws_driver::DriverOutput::Idle => return,
+            _ => continue,
+        };
+        let written = stream.write(&pending).expect("peer flush write");
+        driver.poll(ws_driver::DriverInput::WriteProgress { bytes: written });
+    }
+}
+
+/// Read whatever the peer puts on the wire until EOF or the read timeout.
+fn read_raw_until_eof(stream: &mut TcpStream) -> Vec<u8> {
+    use std::io::{ErrorKind, Read};
+    stream
+        .set_read_timeout(Some(Duration::from_secs(5)))
+        .expect("read timeout");
+    let mut raw = Vec::new();
+    let mut buffer = [0u8; 256];
+    loop {
+        match stream.read(&mut buffer) {
+            Ok(0) => return raw,
+            Ok(n) => raw.extend_from_slice(&buffer[..n]),
+            Err(error) if matches!(error.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
+                return raw;
+            }
+            Err(_) => return raw,
+        }
+    }
+}
+
+/// C6 MUST NOT ANSWER A LOCALLY REJECTED COMMAND (review finding: "C6 loses
+/// failure provenance").
+///
+/// C5 (`us017-post-failure-owner-decisions-2026-08-28.json`,
+/// `c5-fatal-command-rejection-surfaces-failure`) makes a fatal COMMAND
+/// rejection surface as `DriverOutput::Failure`, exactly like an inbound
+/// decode fatal. C6 (`us017-c6-layer-split-owner-decision-2026-08-28.json`)
+/// answers a decode-path violation with shipped Java's 1002 close. Their
+/// intersection made every failure look like an inbound decode violation.
+///
+/// `send_close {code: 999}` is rejected LOCALLY by the Q13 validity chain
+/// (`close_code_rejection`, reported close code 1002) and emits no frame —
+/// the pinned Java oracle's own run of `us005.pub.0000` reports
+/// `final_state: "open"`, i.e. NOTHING went on the wire. So nothing may go
+/// on the wire here either: `decodeFrames` never ran, so `close(e)` was
+/// never reached and there is no `InvalidDataException` to answer.
+#[test]
+fn a_locally_rejected_command_puts_no_violation_close_on_the_wire() {
+    let listener = TcpListener::bind("127.0.0.1:0").expect("ephemeral loopback bind");
+    let address = listener.local_addr().expect("bound address");
+
+    // The peer completes a real server handshake through ws_core, then stops
+    // driving the protocol and records the raw bytes the subject sends.
+    let peer = thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        let (_sender, mut driver) = ws_driver::connection_driver(
+            ConnectionConfig::default(),
+            ws_core::connection::Role::Server,
+        );
+        let mut report = ws_testee::io_loop::empty_report();
+        assert!(ws_testee::io_loop::drive_until_open(
+            &mut driver,
+            &mut stream,
+            &IoBounds::default(),
+            &mut report,
+        ));
+        flush_committed_writes(&mut driver, &mut stream);
+        read_raw_until_eof(&mut stream)
+    });
+
+    let mut stream = TcpStream::connect(address).expect("connect");
+    let (sender, mut driver) = ws_driver::connection_driver(
+        ConnectionConfig::default(),
+        ws_core::connection::Role::Client,
+    );
+    driver
+        .begin_client_handshake("/chat", "localhost")
+        .expect("handshake start");
+    let mut report = ws_testee::io_loop::empty_report();
+    assert!(ws_testee::io_loop::drive_until_open(
+        &mut driver,
+        &mut stream,
+        &IoBounds::default(),
+        &mut report,
+    ));
+
+    // The reviewer's exact case: a command the CORE rejects, arriving from
+    // the local producer seam and never off the wire.
+    sender
+        .try_send(ws_core::connection::LocalCommand::SendClose {
+            code: 999,
+            reason: String::new(),
+        })
+        .expect("bounded command queue has room");
+    let mut policy = ws_testee::io_loop::ObserveOnly;
+    ws_testee::io_loop::drive_connection(
+        &mut driver,
+        &sender,
+        &mut stream,
+        &IoBounds::default(),
+        // The subject is the CLIENT half, which never hangs up on its own
+        // (WebSocketClient's write thread closes only when it ends), so the
+        // role-gated transport close cannot fire here and the raw bytes this
+        // test reads are the whole of what the subject put on the wire.
+        ws_core::connection::Role::Client,
+        &mut policy,
+        &mut report,
+    );
+    drop(stream);
+    let raw = peer.join().expect("peer thread");
+
+    // The halt is unchanged: C5 still surfaces the fatal.
+    assert!(
+        matches!(
+            report.outcome,
+            ws_testee::io_loop::LoopOutcome::ProtocolFailure(_)
+        ),
+        "C5 must still surface the locally rejected fatal: {:?}",
+        report.outcome
+    );
+    assert!(
+        raw.is_empty(),
+        "REGRESSION: a locally rejected send_close put {} byte(s) on the wire \
+         ({raw:02x?}); C6's 1002 close answers an INBOUND decode violation only",
+        raw.len()
+    );
+    assert_eq!(
+        report.violation_close_sent, None,
+        "REGRESSION: a LOCALLY rejected command must not report C6's \
+         inbound-violation close"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Pre-landing review ROUND 2 (session 01a04960 re-review): "the protocol-
 // failure exception still leaks committed writes". A fatal core step can

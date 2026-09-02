@@ -209,6 +209,16 @@ func Definitions() []Definition {
 	// Appended after those so the prefix they correct, and the corrections
 	// themselves, are both undisturbed by the protocol-rejection class record.
 	definitions = append(definitions, protocolRejectionStateDefinitions()...)
+	// Appended LAST of all, at this landing: the C6 layer-split record.
+	//
+	// It was written on claude/post-failure against a 35-record chain, where
+	// it was sequence 36. Mainline's gap-closure, prefix-correction and
+	// protocol-rejection records landed into 36-48 first, so appending the
+	// layer split here rather than at its original index is what leaves BOTH
+	// prefixes byte-identical — every record either branch already froze
+	// keeps its digest, and only this record's own sequence and
+	// previous_digest move.
+	definitions = append(definitions, layerSplitDefinitions()...)
 	return definitions
 }
 

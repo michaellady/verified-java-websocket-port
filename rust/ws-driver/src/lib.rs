@@ -22,14 +22,91 @@
 //! (WebSocketImpl.java:482-486). Autobahn 7.3.2 is the case that separates
 //! them.
 //!
+//! ## Post-failure
+//!
+//! This contract did not exist anywhere in `contracts/`, `docs/` or `rust/`
+//! before it was written here, which is why three separate rounds of the
+//! exploration suite asserted around it. What the driver guarantees after a
+//! fatal:
+//!
+//! **New work is refused.** The first fatal poisons
+//! [`ws_core::ConnectionCore`], so every later input comes back as
+//! `STATE_VIOLATION` (`ws_core::ConnectionCore::handle`).
+//!
+//! **Work committed BEFORE the failure still drains, in committed order.**
+//! Poisoning gates INPUTS, not output drain: [`ConnectionDriver::poll`]
+//! suppresses `next_output()` only on the single poll that carries the
+//! failure, so queued writes and events drain on the polls after it and a
+//! `Terminal` already earned (the core reached `Closed`) is still delivered
+//! exactly once. **No quiescence is promised.** This half MATCHES shipped
+//! Java, which flushes explicitly: `flushAndClose` calls `onWriteDemand`
+//! with the comment "ensures that all outgoing frames are flushed before
+//! closing the connection" (WebSocketImpl.java:594-595), and on the server
+//! `SocketChannelIOHelper.batch` completes the shutdown only once
+//! `outQueue` empties (SocketChannelIOHelper.java:110-113). Halting instead
+//! would DROP committed output, contradicting the
+//! `accepted-eventual-exactly-once` and `fifo-owner-order` properties the
+//! same suite checks. Adapters that need a hard stop implement it
+//! themselves — see `ws-testee`'s `io_loop`.
+//!
+//! **A fatal surfaces as [`DriverOutput::Failure`] however it arrived** —
+//! as inbound bytes or as a rejected command. See
+//! [`ConnectionDriver::finish_poll`] for the defect that made those two
+//! paths distinguishable and the owner decision that closed it.
+//!
+//! **…but the ARRIVAL PATH itself is never erased.** Surfacing uniformly is
+//! about the HALT: every fatal must stop an adapter. It is not a claim that
+//! every fatal deserves the same wire REACTION, and conflating the two is a
+//! landed defect: C5 made the two paths indistinguishable, C6 then answered
+//! every failure as though it were an inbound decode violation, and a
+//! locally rejected `send_close {code: 999}` — which the pinned Java oracle
+//! records as leaving the connection `open` with nothing on the wire — put a
+//! 1002 close frame on the socket. [`DriverOutput::Failure`] therefore
+//! carries a [`FailureOrigin`] beside the failure, and the C6 reaction is
+//! gated on [`FailureOrigin::InboundDecode`].
+//!
+//! **The driver takes NO action in RESPONSE to a fatal — and the owner has
+//! ruled that this must change.** Measured on a real protocol violation
+//! (RSV1 on TEXT; reserved opcode `0x3`): the stack composes no close
+//! frame, performs no state transition, stays in `Open` and therefore never
+//! converges or delivers a `Terminal`; the close code travels as failure
+//! metadata, exactly the java-oracle `error.close_code` shape
+//! (`OracleEngine.java:591-606`). Shipped `WebSocketImpl` on the identical
+//! input does the opposite: it sends a 1002 close frame
+//! (WebSocketImpl.java:405-408, :481-487) and moves `OPEN -> CLOSING`
+//! (:503), later `-> CLOSED` (:566).
+//!
+//! Owner decision `us017-post-failure-owner-decisions-2026-08-28.json`
+//! (`c6-match-java-fully`) rules that the stack must follow shipped
+//! `WebSocketImpl` here. That change is IMPLEMENTED AND MEASURED but NOT
+//! LANDED, because it trips the decision's own hard-stop condition: placing
+//! the reaction in `ws_core` moves 18 of the 74 public corpus cases off
+//! live Java on `final_state` (`open` -> `closing`) and `counts.frames`
+//! (+1), taking scored-field disagreement with the live oracle from ZERO to
+//! 18. The decision requires that shift be surfaced for an explicit
+//! layer-split ruling rather than re-baselined. Until that ruling lands
+//! this paragraph describes the behaviour, NOT an endorsement of it: the
+//! full measurement is in
+//! `workspace/orchestrator/verified-java-websocket-port-claude/drafts/post-failure-receipt.json`.
+//!
 //! ## Borrow attribution (owner strategy: borrow with attribution)
 //!
 //! Adapted from the Codex-plane US-017 `websocket-driver` (codex-import
 //! 6a7606a): the pull-driven `poll(DriverInput) -> PollResult` shape, the
 //! partial-write cursor with exact `WriteProgress` validation, the
-//! inbound-vs-command alternation turn, EOF/shutdown latching, the
-//! exactly-once `Terminal` delivery, and the terminal rejection of still
-//! queued commands are their design. **Adaptation to `ws_core`:** their
+//! inbound-vs-command alternation turn, EOF/shutdown latching and the
+//! exactly-once `Terminal` delivery are their design. Their terminal
+//! REJECTION of still-queued commands was adopted and has since been
+//! REMOVED: under owner decision
+//! `us017-post-terminal-owner-decision-2026-08-28.json`
+//! (`post-terminal-command`) a command that arrives after convergence is
+//! applied to the core like any other, so the refusal that surfaces is the
+//! core's own `STATE_VIOLATION` rather than a driver-invented verdict. The
+//! same decision (`post-terminal-inbound`) removed the `terminal_delivered`
+//! gate on input application, which had made post-terminal inbound bytes
+//! report `Consumed` while the core never saw them. `terminal_delivered`
+//! remains what its name says: a DELIVERY latch keeping `Terminal`
+//! once-only. **Adaptation to `ws_core`:** their
 //! `AdmissionGate` + `mpsc::sync_channel` producer machinery is NOT adopted —
 //! the incumbent `ws_core` bounded multi-producer command channel
 //! ([`ws_core::CommandQueue`] / [`ws_core::CommandSender`], the US-009 AC4
@@ -292,6 +369,24 @@ pub enum DriverInputError {
         /// Currently offered suffix length.
         remaining: usize,
     },
+    /// The bounded pending transport-EOF notification set is full, so this
+    /// `TransportEof`/`Shutdown` was NOT admitted and nothing changed at
+    /// all — including a `Shutdown`'s write-abandonment side effects. Drain
+    /// by polling until pending notifications are consumed, then retry the
+    /// identical input.
+    ///
+    /// This arm exists because the alternative — saturating the count — is
+    /// the very defect the count replaced: at the ceiling a notification
+    /// would be reported `Consumed` while never reaching the core (review
+    /// 01a04899-5adb-78c3-b8ae-ec78ea14e377, blocking 1). The ceiling is
+    /// unreachable in practice; that is deliberately NOT the justification.
+    /// The counter's contract is that every admitted notification is
+    /// preserved, and a refusal keeps that contract where a silent
+    /// saturation would break it.
+    PendingEofOverflow {
+        /// Notifications already pending; none was added.
+        pending: u32,
+    },
 }
 
 /// Exact consumption result for the supplied driver input.
@@ -309,6 +404,17 @@ pub enum InputDisposition {
 }
 
 /// Exactly-once owner disposition of one accepted producer command.
+///
+/// Every disposition is the CORE's own verdict. There is deliberately no
+/// driver-invented refusal: a command that arrives after the connection has
+/// converged on `Closed` — even after the once-only terminal has been
+/// delivered — is still applied to the core, which answers with its typed
+/// `STATE_VIOLATION`, and that is what `Rejected` carries. The former
+/// `TerminalRejected` variant, which the owner produced WITHOUT calling the
+/// core, was removed under owner decision
+/// `us017-post-terminal-owner-decision-2026-08-28.json` (`post-terminal-command`):
+/// leaving one post-terminal path on a driver-invented verdict while the
+/// inbound path passes through is how the next sibling defect hides.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CommandDisposition {
     /// The core accepted and fully applied the command.
@@ -320,15 +426,45 @@ pub enum CommandDisposition {
         /// The exact typed core failure.
         failure: TypedProtocolFailure,
     },
-    /// Terminal convergence rejected a command that was still queued when
-    /// the connection closed.
-    TerminalRejected(LocalCommand),
 }
 
 /// The single normalized terminal result: the core reached its one
 /// absorbing `Closed` state and every ordered output before it delivered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TerminalOutcome;
+
+/// WHERE a surfaced fatal arrived from.
+///
+/// Every fatal surfaces as [`DriverOutput::Failure`] whatever its origin —
+/// that is the C5 halt property and it is not weakened here. This enum is
+/// the orthogonal fact C5 accidentally erased: the failure's ARRIVAL PATH,
+/// which decides what (if anything) shipped Java puts on the wire in answer.
+/// Java reacts to a decode-path `InvalidDataException` with a close frame
+/// (`decodeFrames` -> `close(e)`, WebSocketImpl.java:405-408, :631-633) and
+/// to nothing else, so a reaction gated on anything coarser than this is a
+/// reaction Java does not have.
+///
+/// Exhaustive over the four sites in [`ConnectionDriver::poll`] and
+/// [`ConnectionDriver::next_output`] that can produce a fatal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum FailureOrigin {
+    /// The core rejected INBOUND TRANSPORT BYTES — the port-side image of
+    /// `decodeFrames`, and the ONLY origin shipped Java answers with a close
+    /// frame.
+    InboundDecode,
+    /// The core rejected a transport-EOF notification
+    /// (`DriverInput::TransportEof` / `DriverInput::Shutdown`). Java's `eot`
+    /// path composes no frame — the peer is already gone.
+    TransportEof,
+    /// The core rejected a producer [`LocalCommand`] (owner decision
+    /// `c5-fatal-command-rejection-surfaces-failure`). Nothing was decoded;
+    /// the local caller asked for something the core refused, and the pinned
+    /// oracle records no wire output for it.
+    LocalCommand,
+    /// The core rejected a DRIVER-INJECTED automatic reply (the US-015 AC1
+    /// pong). No producer command and no inbound decode owns it.
+    AutomaticReply,
+}
 
 /// The typed disposition of committed wire writes the adapter can no
 /// longer deliver, reported once the transport service ends
@@ -367,7 +503,8 @@ pub enum DriverOutput<'owner> {
     /// One owned semantic event (frame records, transitions, and detail
     /// events all travel this stream, as in the core).
     Event(SemanticEvent),
-    /// One typed failure the core reported for an owner-applied input.
+    /// One typed failure the core reported for an owner-applied input,
+    /// together with the path it arrived on.
     ///
     /// Ordered strictly AFTER every write the core had committed when it
     /// failed, including any the failing step itself committed (US-017 AC2;
@@ -375,7 +512,14 @@ pub enum DriverOutput<'owner> {
     /// `Failure` — the shipped adapter's contract — has therefore already
     /// been offered every committed byte, so halting abandons nothing and
     /// needs no [`DriverInput::Shutdown`] to account for a residue.
-    Failure(TypedProtocolFailure),
+    Failure {
+        /// The exact typed core failure.
+        failure: TypedProtocolFailure,
+        /// Where it arrived from. Never inferred from the failure's own
+        /// contents: the same [`TypedProtocolFailure`] value is reachable
+        /// from more than one origin.
+        origin: FailureOrigin,
+    },
     /// Committed wire writes the ended transport can no longer deliver
     /// (US-017 AC2 adapter shutdown). Reported before
     /// [`DriverOutput::Terminal`], never silently abandoned.
@@ -413,12 +557,42 @@ pub struct ConnectionDriver {
     /// Fairness alternation: after a command turn, inbound bytes get the
     /// next quiescent turn (borrowed design: codex 6a7606a `command_turn`).
     command_turn: bool,
-    eof_latched: bool,
+    /// A transport EOF notification awaiting application to the core.
+    /// PER-NOTIFICATION: cleared once the core consumes it, and re-armed by
+    /// any later `TransportEof`/`Shutdown` input, because each notification
+    /// is a scored event the core answers in its own right (owner decision
+    /// us017-repeated-eof-owner-decision-2026-08-28).
+    /// COUNT of admitted transport-EOF notifications awaiting application to
+    /// the core — one per `TransportEof`/`Shutdown` input, decremented as
+    /// each is consumed.
+    ///
+    /// This was a PAIR OF BOOLEANS, which silently coalesced: two
+    /// notifications admitted before the arm could run (while a write is
+    /// offered, say) set the same flag and produced ONE core action after the
+    /// drain. Each notification is a scored event the core answers in its own
+    /// right (owner decision us017-repeated-eof-owner-decision-2026-08-28), so
+    /// the pending set must COUNT, not latch. Found by review
+    /// 01a04866-df4b-7521-8abe-d8bad09edf38 after an earlier probe that only
+    /// exercised immediately-applied notifications reported the property
+    /// satisfied.
+    pending_eofs: u32,
+    /// Whether TRANSPORT SERVICE HAS ENDED — set by `DriverInput::Shutdown`
+    /// and never cleared.
+    ///
+    /// This is NOT a duplicate of [`Self::pending_eofs`], and the two must
+    /// not be collapsed again. `pending_eofs` counts EOF notifications the
+    /// core has still to score, so it falls back to zero as each is
+    /// consumed; this flag records the irreversible fact that no byte can
+    /// reach the peer any more. US-017 AC2 needs exactly that fact and not
+    /// the count: committed writes appearing after shutdown are swept into
+    /// the [`DroppedWrites`] report rather than offered
+    /// ([`Self::abort_pending_writes`], [`Self::next_output`]), and the
+    /// US-015 AC1 automatic pong is suppressed, because a connection whose
+    /// transport service has ended sends no automatic reply. Keying either
+    /// on `pending_eofs > 0` would silently re-open both the moment the core
+    /// consumed the notification.
     shutdown_latched: bool,
-    eof_applied: bool,
     terminal_delivered: bool,
-    /// Queued command dispositions not yet surfaced (terminal rejections).
-    dispositions: VecDeque<CommandDisposition>,
     /// The configured automatic response policy (US-015 AC1).
     policy: AutoResponsePolicy,
     /// Automatic pong payloads whose injection the core refused with
@@ -447,7 +621,13 @@ pub struct ConnectionDriver {
     /// the failure first would abandon those bytes for every embedder that
     /// halts at its first `Failure` — which is exactly what the shipped
     /// adapter does by contract.
-    pending_failure: Option<TypedProtocolFailure>,
+    ///
+    /// The [`FailureOrigin`] travels WITH the latched failure. Holding the
+    /// failure without its arrival path would re-erase the fact C6 is gated
+    /// on, and the origin is not recoverable from the failure value:
+    /// `java_invalid_data(1002)` is produced both by an inbound RSV1
+    /// violation and by a locally rejected `send_close {code: 999}`.
+    pending_failure: Option<(TypedProtocolFailure, FailureOrigin)>,
     /// Committed wire writes abandoned when the transport service ended,
     /// awaiting their exactly-once [`DriverOutput::WritesDropped`] report
     /// (US-017 AC2; story review BLOCKING-1/2, session 01a04626).
@@ -474,11 +654,9 @@ impl ConnectionDriver {
             offered_write: None,
             write_cursor: 0,
             command_turn: true,
-            eof_latched: false,
+            pending_eofs: 0,
             shutdown_latched: false,
-            eof_applied: false,
             terminal_delivered: false,
-            dispositions: VecDeque::new(),
             policy,
             pending_auto_pongs: VecDeque::new(),
             injected_failure: None,
@@ -522,6 +700,56 @@ impl ConnectionDriver {
         self.core.close_detail()
     }
 
+    /// The close frame shipped `WebSocketImpl` would put on the wire in
+    /// answer to `failure`, or `None` when Java would send nothing.
+    ///
+    /// `origin` is the arrival path the SAME poll reported alongside the
+    /// failure ([`DriverOutput::Failure`]); it is a required argument
+    /// precisely so a caller cannot compose a reaction without saying what
+    /// it is reacting to. That requirement is not merely local to this
+    /// method: [`violation_close_frame`] takes a [`ViolationClose`] verdict
+    /// that only [`violation_close_verdict`] can mint, so there is no
+    /// lower-level door an adapter can use to compose the frame with an
+    /// origin it never named. See [`violation_close_verdict`] for the
+    /// carve-outs and the Java citations, [`ViolationClose`] for the bypass
+    /// that shape closes, and [`violation_close_frame`] for why the
+    /// composition lives in this crate rather than in the adapter that
+    /// writes the bytes.
+    ///
+    /// Reads the lifecycle state from the core and RESERVES the mask key
+    /// from the core's own masking sequence, so neither can drift from the
+    /// connection actually being driven.
+    ///
+    /// # This is no longer inert, and that is the fix
+    ///
+    /// It used to be documented as pure. It is not any more: on the
+    /// client role it advances the core's masking sequence
+    /// ([`ws_core::ConnectionCore::reserve_mask_key`]) so the composed frame
+    /// occupies a slot of its own instead of re-deriving a key the core may
+    /// already have used. The previous derivation mixed `mask_key_seed` with
+    /// the CLOSE CODE through the same SplitMix64 finalizer the core mixes
+    /// with its frame counter, so the two agreed exactly whenever counter ==
+    /// close code — a 1002 reaction after the 1002nd outbound frame reused
+    /// that frame's key, against the distinct-successive-key contract
+    /// (`mask_key_derivation_advances_per_outbound_frame`).
+    ///
+    /// What still holds: no path inside [`ConnectionDriver::poll`] calls
+    /// this, so the differential corpus — which drives `poll` and never this
+    /// method — cannot observe it. The reservation moves only the
+    /// transcript-invisible masking sequence (quirk Q28); no frame, event,
+    /// transition or corpus counter changes.
+    pub fn compose_violation_close(
+        &mut self,
+        failure: &TypedProtocolFailure,
+        origin: FailureOrigin,
+    ) -> Option<(u16, Vec<u8>)> {
+        let verdict = violation_close_verdict(failure, origin, self.core.state())?;
+        // Reserved AFTER every carve-out: a decision to send nothing must
+        // not consume a key.
+        let mask = self.core.reserve_mask_key();
+        Some((verdict.code(), violation_close_frame(verdict, mask)))
+    }
+
     /// Performs at most one owner transition and returns the next ordered
     /// output. Deterministic: the same input sequence yields the same
     /// result sequence.
@@ -529,6 +757,14 @@ impl ConnectionDriver {
         let mut input_disposition = consumed(&input);
         match input {
             DriverInput::Shutdown => {
+                if !self.admit_eof() {
+                    // Refused: nothing changed, INCLUDING the write
+                    // abandonment below.
+                    return self.reject_pending_eof_overflow();
+                }
+                // Only now, past the refusal: transport service has ended
+                // irreversibly. A REFUSED shutdown must not set this, for the
+                // same reason it must not abandon a write — nothing changed.
                 self.shutdown_latched = true;
                 // Undeliverable wire output is aborted; the protocol EOF
                 // below still applies (borrowed design: abort-undrainable-
@@ -548,7 +784,9 @@ impl ConnectionDriver {
                 self.close_echo_armed = false;
             }
             DriverInput::TransportEof => {
-                self.eof_latched = true;
+                if !self.admit_eof() {
+                    return self.reject_pending_eof_overflow();
+                }
             }
             DriverInput::WriteProgress { bytes } => {
                 let remaining = self.write_remaining();
@@ -565,7 +803,9 @@ impl ConnectionDriver {
                         self.write_cursor = 0;
                     }
                 }
-                let command = self.dispositions.pop_front();
+                // Write progress is transport accounting and never applies
+                // a producer command, so no disposition can surface here.
+                let command = None;
                 let state = self.core.state();
                 let output = self.next_output();
                 return PollResult {
@@ -585,15 +825,15 @@ impl ConnectionDriver {
             if matches!(input, DriverInput::Inbound(_)) {
                 input_disposition = InputDisposition::Deferred(DeferredReason::OutputPending);
             }
-        } else if (self.eof_latched || self.shutdown_latched) && !self.eof_applied {
-            // The latched transport EOF gets the first quiescent turn. The
+        } else if self.pending_eofs > 0 {
+            // A PENDING transport EOF gets the first quiescent turn. The
             // core owns the semantics (Q20). A NON-FATAL refusal is the
-            // core's event-queue backpressure: the EOF stays latched and is
+            // core's event-queue backpressure: the EOF stays pending and is
             // retried on the next quiescent turn once outputs drain (the
             // US-017 bounded schedule exploration retained the minimized
             // counterexample `enqueue-close-b,inbound-close,shutdown` —
             // fuzz-seeds/us017/regressions/eof-backpressure-livelock.seed —
-            // where latching `eof_applied` on a refused EOF lost the EOF
+            // where clearing the pending flag on a refused EOF lost the EOF
             // forever and the connection never terminated). A fatal
             // refusal is surfaced as a Failure output, never invented
             // around.
@@ -608,22 +848,77 @@ impl ConnectionDriver {
             if !self.pending_auto_pongs.is_empty() {
                 // The reply is still refused: this poll drains one queued
                 // output below, so the retry makes progress.
-            } else if self.core.state() == ReadyState::Closed {
-                self.eof_applied = true;
             } else {
+                // DEFECT FIX (owner ruling us017-ac5-eof-after-closed-driver-
+                // defect): the latched EOF is handed to the core on EVERY
+                // path, including the one where the core has already
+                // converged on `Closed`. This arm used to short-circuit —
+                // `else if self.core.state() == ReadyState::Closed {
+                // self.eof_applied = true; }` — which set the latch WITHOUT
+                // ever calling the core, so `ConnectionCore::handle_eof`'s
+                // `derive.go eof: closed refuses` arm never ran and the
+                // connection silently swallowed an event shipped Java
+                // reports. Live Java-WebSocket 1.6.0 answers a transport EOF
+                // in CLOSED with STATE_VIOLATION ("eof repeated in CLOSED
+                // state") after counting the action, which the corpus pins
+                // as `us005.pub.0070`; this plane is JAVA_FAITHFUL_PLUS_SAFE,
+                // so absorbing it was a real behavioural change and not an
+                // adapter convenience. Surfaced by routing the corpus
+                // differential harness through this driver (US-017 AC5).
+                //
+                // AMENDING FIX (owner decision
+                // us017-repeated-eof-owner-decision-2026-08-28, sha
+                // f6270948, which AMENDS bd7849c3): the flags below are
+                // PER-NOTIFICATION, not at-most-once-ever. The arm used to
+                // carry `&& !self.eof_applied`, a latch that was set once
+                // and never cleared, so a REPEATED `DriverInput::TransportEof`
+                // (or a `Shutdown` after an applied EOF) never reached the
+                // core at all. `DriverInput::TransportEof` is a SCORED EVENT
+                // like any other input, not an idempotent transport fact the
+                // owner may absorb: `ConnectionCore::handle_eof` counts the
+                // action and refuses a repeat with `STATE_VIOLATION`, which
+                // live Java reports as "eof repeated in CLOSED state". The
+                // core decides.
+                //
+                // Clearing on application (rather than latching forever)
+                // keeps BOTH properties: one notification is applied exactly
+                // once, so a quiescent poll cannot re-apply it and spin; and
+                // a NEW notification re-arms the flags and is scored in its
+                // own right. The non-fatal arm deliberately leaves them set,
+                // which is what preserves the eof-backpressure-livelock fix.
                 match self.core.handle(Input::TransportEof) {
-                    Ok(()) => self.eof_applied = true,
+                    Ok(()) => self.consume_one_pending_eof(),
                     Err(failure) if !failure.code.is_fatal() => {
-                        // Backpressure: this poll still drains one queued
-                        // output below, so the retry makes progress.
+                        // Backpressure: nothing was consumed, so the pending
+                        // COUNT is untouched and this notification is retried
+                        // on the next quiescent turn. That is what preserves
+                        // the eof-backpressure-livelock fix.
                     }
                     Err(failure) => {
-                        self.eof_applied = true;
-                        return self.finish_poll(input_disposition, None, Some(failure));
+                        self.consume_one_pending_eof();
+                        return self.finish_poll(
+                            input_disposition,
+                            None,
+                            Some((failure, FailureOrigin::TransportEof)),
+                        );
                     }
                 }
             }
-        } else if !self.terminal_delivered {
+        } else {
+            // NOTE (owner decision us017-post-terminal-owner-decision-2026-08-28,
+            // `post-terminal-inbound` / `post-terminal-command`): this arm was
+            // gated on `!self.terminal_delivered`. That gate meant that once
+            // the once-only terminal had been delivered NO branch ran, so
+            // `poll` returned the initial `consumed(&input)` disposition —
+            // reporting inbound bytes as `Consumed { bytes: N }` that the core
+            // never saw. Reporting success for work never done is strictly
+            // worse than absorbing it silently, because no correct adapter can
+            // detect it. The gate is gone: post-terminal work is applied to the
+            // core like any other input and the core's own typed refusal is
+            // what surfaces. The terminal stays once-only via the
+            // `terminal_delivered` latch in `next_output`, which is a
+            // DELIVERY latch and was never meant to gate input application.
+            //
             // A backpressured automatic reply holds priority over new owner
             // work (see the EOF arm above for why); until it lands, new
             // inbound facts and held commands wait like committed output.
@@ -652,7 +947,13 @@ impl ConnectionDriver {
                                     InputDisposition::Deferred(DeferredReason::Backpressure);
                             }
                             Err(failure) => {
-                                return self.finish_poll(input_disposition, None, Some(failure));
+                                // The decode path — the one origin shipped
+                                // Java answers with a close frame.
+                                return self.finish_poll(
+                                    input_disposition,
+                                    None,
+                                    Some((failure, FailureOrigin::InboundDecode)),
+                                );
                             }
                         }
                     }
@@ -664,31 +965,93 @@ impl ConnectionDriver {
             }
         }
 
-        self.prepare_terminal();
-        let command = command_disposition.or_else(|| self.dispositions.pop_front());
-        self.finish_poll(input_disposition, command, None)
+        self.finish_poll(input_disposition, command_disposition, None)
     }
 
-    /// US-017 AC2 (pre-landing review round 2): a supplied fatal failure is
-    /// LATCHED rather than returned directly, and the ordinary output order
-    /// runs. [`Self::next_output`] drains every committed write first and
-    /// only then surfaces the latch, so a committed write can never be
-    /// overtaken by the failure that ended the connection. The latch also
-    /// counts as pending output ([`Self::has_pending_output`]), so no
-    /// further input is applied while it is outstanding and the FIRST
+    /// The single funnel every `poll` return passes through, and therefore
+    /// the ONE place a fatal's arrival path can be made invisible.
+    ///
+    /// Owner decision `us017-post-failure-owner-decisions-2026-08-28.json`,
+    /// decision `c5-fatal-command-rejection-surfaces-failure`: a fatal
+    /// arriving as a rejected COMMAND used to be handed back only as
+    /// [`CommandDisposition::Rejected`], with `failure = None` reaching here,
+    /// so `next_output()` ran and no [`DriverOutput::Failure`] was ever
+    /// produced. [`ws_core::ConnectionCore::handle`] had nonetheless set
+    /// `poisoned` on that same failure, so the core was dead while the
+    /// output stream looked healthy. Both halt models in the tree key on
+    /// `DriverOutput::Failure` — `ws-testee`'s `io_loop` and the exploration
+    /// interpreter — so neither halted, and the poisoned connection could go
+    /// on to deliver a clean `Terminal`.
+    ///
+    /// Lifting the failure out of the disposition HERE, rather than at
+    /// either `apply_held_command` call site, is what makes the two arrival
+    /// paths indistinguishable by construction: every future caller inherits
+    /// it without having to remember to.
+    ///
+    /// The disposition is still returned alongside the failure. They are two
+    /// views of one event, not two events: an adapter that reconciles
+    /// commands needs the disposition, and one that halts on fatals needs
+    /// the output. Suppressing either would trade this defect for its mirror
+    /// image.
+    ///
+    /// # What this method must NOT erase
+    ///
+    /// Lifting the failure here makes the two paths indistinguishable FOR
+    /// HALTING, which is all the owner decision asked for. It went one step
+    /// too far: the arrival path vanished with it, and the C6 reaction
+    /// downstream — which shipped Java performs for a decode-path
+    /// `InvalidDataException` and for nothing else — began firing on locally
+    /// rejected commands too, putting a 1002 close frame on the wire for a
+    /// `send_close {code: 999}` the pinned oracle records as leaving the
+    /// connection `open` and silent. So the origin travels WITH the failure
+    /// ([`FailureOrigin`]), and the C5 lift below states its own:
+    /// [`FailureOrigin::LocalCommand`], never the inbound decode path.
+    ///
+    /// # Latched, not returned
+    ///
+    /// US-017 AC2 (pre-landing review round 2): the failure — with its
+    /// origin — is LATCHED rather than returned directly, and the ordinary
+    /// output order runs. [`Self::next_output`] drains every committed write
+    /// first and only then surfaces the latch, so a committed write can
+    /// never be overtaken by the failure that ended the connection. The
+    /// latch also counts as pending output ([`Self::has_pending_output`]),
+    /// so no further input is applied while it is outstanding and the FIRST
     /// failure is the one delivered.
+    ///
+    /// That supersedes this lane's earlier "yield the failure first, the
+    /// committed output drains on later polls" stance, which was true only
+    /// for an adapter that keeps polling. It was reproduced FALSE for the
+    /// one that halts at its first `Failure` — the shipped `ws-testee`
+    /// contract — where a fatal step that had itself committed a write (a
+    /// server handshake rejection's HTTP error head; a close echo followed
+    /// by a refused data frame) abandoned those bytes with nothing counted.
+    /// Latching keeps both properties: the fatal still surfaces however it
+    /// arrived, and still carries the origin C6 is gated on.
     fn finish_poll<'owner>(
         &'owner mut self,
         input: InputDisposition,
         command: Option<CommandDisposition>,
-        failure: Option<TypedProtocolFailure>,
+        failure: Option<(TypedProtocolFailure, FailureOrigin)>,
     ) -> PollResult<'owner> {
+        // `apply_held_command` only builds a `Rejected` for a fatal (a
+        // non-fatal refusal re-holds the command and returns `None`), so the
+        // `is_fatal` guard is belt-and-braces: it keeps the promise this
+        // method's name makes even if that invariant ever changes.
+        let failure = failure.or_else(|| match &command {
+            Some(CommandDisposition::Rejected { failure, .. }) if failure.code.is_fatal() => {
+                Some((failure.clone(), FailureOrigin::LocalCommand))
+            }
+            _ => None,
+        });
+        // Latched, never returned here: `next_output` surfaces it only once
+        // every committed write has been offered and drained. `is_none()`
+        // keeps the FIRST failure — a later one cannot overwrite the one the
+        // adapter is entitled to see, and its origin cannot be replaced.
         if let Some(failure) = failure
             && self.pending_failure.is_none()
         {
             self.pending_failure = Some(failure);
         }
-        self.prepare_terminal();
         let state = self.core.state();
         let output = self.next_output();
         PollResult {
@@ -721,22 +1084,45 @@ impl ConnectionDriver {
         }
     }
 
-    /// After the core reaches its absorbing `Closed` state and no queued
-    /// output remains, still-queued commands are disposed as
-    /// `TerminalRejected` exactly once each (borrowed design: codex
-    /// terminal convergence).
-    fn prepare_terminal(&mut self) {
-        if self.core.state() != ReadyState::Closed {
-            return;
+    /// Admits one transport-EOF notification, reporting whether there was
+    /// room. Each admitted notification is scored separately by the core, so
+    /// they accumulate rather than collapsing into a single flag.
+    ///
+    /// `checked_add`, NOT `saturating_add`: saturating would silently drop a
+    /// notification at the ceiling while `poll` still reported it consumed,
+    /// recreating false-consumption-without-a-core-call inside the very fix
+    /// that eliminated it.
+    fn admit_eof(&mut self) -> bool {
+        match self.pending_eofs.checked_add(1) {
+            Some(next) => {
+                self.pending_eofs = next;
+                true
+            }
+            None => false,
         }
-        if let Some(command) = self.held.take() {
-            self.dispositions
-                .push_back(CommandDisposition::TerminalRejected(command));
+    }
+
+    /// The explicit typed refusal for a transport-EOF notification that did
+    /// not fit. The input changed nothing; outputs still drain on this poll
+    /// so the adapter can make room and retry (a refusal that also refused
+    /// to drain would deadlock).
+    fn reject_pending_eof_overflow(&mut self) -> PollResult<'_> {
+        let pending = self.pending_eofs;
+        let state = self.core.state();
+        let output = self.next_output();
+        PollResult {
+            input: InputDisposition::Rejected(DriverInputError::PendingEofOverflow { pending }),
+            command: None,
+            output,
+            state,
         }
-        while let Some(command) = self.commands.pop() {
-            self.dispositions
-                .push_back(CommandDisposition::TerminalRejected(command));
-        }
+    }
+
+    /// Marks exactly ONE pending transport-EOF notification consumed by the
+    /// core. Any others admitted alongside it stay pending and get their own
+    /// core call on a later quiescent turn.
+    fn consume_one_pending_eof(&mut self) {
+        self.pending_eofs = self.pending_eofs.saturating_sub(1);
     }
 
     /// Abort every committed wire write the ended transport can no longer
@@ -908,13 +1294,16 @@ impl ConnectionDriver {
         // byte the core committed, including the bytes the failing step
         // itself committed (a server handshake rejection's HTTP error head,
         // a close echo followed by a refused data frame).
-        if let Some(failure) = self.pending_failure.take() {
-            return DriverOutput::Failure(failure);
+        if let Some((failure, origin)) = self.pending_failure.take() {
+            return DriverOutput::Failure { failure, origin };
         }
         // A fatal failure from an injected automatic pong surfaces before
         // further event drain (there is no producer command to carry it).
         if let Some(failure) = self.injected_failure.take() {
-            return DriverOutput::Failure(failure);
+            return DriverOutput::Failure {
+                failure,
+                origin: FailureOrigin::AutomaticReply,
+            };
         }
         if let Some(event) = self.core.next_event() {
             // US-015 AC1: the automatic reply is injected exactly when the
@@ -951,8 +1340,16 @@ impl ConnectionDriver {
             }
             return DriverOutput::Event(event);
         }
+        // Terminal convergence: the core is in its absorbing state AND no
+        // producer work remains undisposed. Held/queued commands keep the
+        // terminal waiting rather than being swept aside with a
+        // driver-invented verdict (owner decision
+        // us017-post-terminal-owner-decision-2026-08-28, `post-terminal-command`);
+        // each is applied to the core on a later turn and surfaces the
+        // core's own refusal.
         if self.core.state() == ReadyState::Closed
-            && self.dispositions.is_empty()
+            && self.held.is_none()
+            && self.commands.is_empty()
             && !self.terminal_delivered
         {
             self.terminal_delivered = true;
@@ -990,6 +1387,149 @@ fn inject_auto_pong(
             *injected = Some(failure);
         }
     }
+}
+
+/// Java's `CloseFrame.ABNORMAL_CLOSE`. `WebSocketImpl.close` reaches
+/// `CLOSING` on this code WITHOUT building or sending a frame
+/// (WebSocketImpl.java:466-471), so it is the one close code whose reaction
+/// puts nothing on the wire.
+pub const ABNORMAL_CLOSE_CODE: u16 = 1006;
+
+/// The origin gate's VERDICT: shipped `WebSocketImpl` does answer this
+/// failure with a close frame, and this is the close code it carries.
+///
+/// # Opaque BY CONSTRUCTION, which is the whole point
+///
+/// The field is private and this crate exposes NO constructor, no
+/// `Default`, and no `From` — so the only way any code outside `ws_driver`
+/// can obtain a value of this type is [`violation_close_verdict`], the
+/// origin gate. [`violation_close_frame`] demands one. An adapter therefore
+/// cannot compose the C6 frame without having passed the gate, and it
+/// cannot pass the gate without naming a [`FailureOrigin`].
+///
+/// Review 01a04899 round 2 blocked the previous shape, in which the gate
+/// merely took the origin as a required ARGUMENT while
+/// `violation_close_frame(code: u16, mask)` stayed reachable beside it. A
+/// required argument constrains only the caller who chooses that function;
+/// it does nothing to a caller who picks the other one. That was measured,
+/// not argued: an adapter calling `violation_close_frame(1002, None)` with
+/// no origin anywhere in scope produced exactly the shipped-Java bytes
+/// `88 02 03 EA`. The requirement was conventional. It is now structural —
+/// the bypass does not fail a check, it does not COMPILE.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ViolationClose {
+    code: u16,
+}
+
+impl ViolationClose {
+    /// The close code this verdict authorises on the wire — the rejection's
+    /// own code, which [`violation_close_verdict`] carried through.
+    #[must_use]
+    pub const fn code(self) -> u16 {
+        self.code
+    }
+}
+
+/// The origin gate. Returns the [`ViolationClose`] verdict when shipped
+/// `WebSocketImpl` puts a frame on the wire in answer to a decode-path
+/// protocol violation, or `None` when Java would send nothing (owner
+/// decision `us017-c6-layer-split-owner-decision-2026-08-28.json`,
+/// sha256 d41b5307…, resolving C6 from
+/// `us017-post-failure-owner-decisions-2026-08-28.json`, sha256 612546e8…).
+///
+/// This is the SOLE producer of [`ViolationClose`], so it is the sole route
+/// to a composed C6 frame.
+///
+/// `decodeFrames`' InvalidDataException arm (WebSocketImpl.java:405-408)
+/// calls `close(e)` (:631-633) -> `close(int,String,boolean)` (:463-507),
+/// which builds a `CloseFrame` carrying the rejection's OWN close code and
+/// sends it (:481-487), flushes it (:494, :594-595) and moves `OPEN ->
+/// CLOSING` (:503).
+///
+/// # The carve-outs, in evaluation order
+///
+/// 1. **`origin` is not [`FailureOrigin::InboundDecode`].** `decodeFrames`
+///    is the ONLY site that reaches `close(e)`. A fatal that arrived as a
+///    rejected command, a transport EOF, or a refused automatic reply never
+///    passed through a decoder, so Java composes nothing. This carve-out is
+///    FIRST because it is the one a caller cannot recover from the failure
+///    value: `TypedProtocolFailure::java_invalid_data(1002)` is produced
+///    both by an inbound RSV1 violation and by a locally rejected
+///    `send_close {code: 999}`, and only the first may answer.
+/// 2. **Not `Open`.** `close(int,String,boolean)`'s :464 guard makes the
+///    whole method a no-op outside OPEN.
+/// 3. **No close code.** No close code means no `InvalidDataException`, so
+///    `decodeFrames` never reached `close(e)`: STATE_VIOLATION and the limit
+///    codes land here.
+/// 4. **1006.** `WebSocketImpl.close` answers `ABNORMAL_CLOSE` by reaching
+///    CLOSING with nothing on the wire (:466-471).
+#[must_use]
+pub fn violation_close_verdict(
+    failure: &TypedProtocolFailure,
+    origin: FailureOrigin,
+    state: ReadyState,
+) -> Option<ViolationClose> {
+    if origin != FailureOrigin::InboundDecode {
+        return None;
+    }
+    if state != ReadyState::Open {
+        return None;
+    }
+    let code = failure.close_code?;
+    if code == ABNORMAL_CLOSE_CODE {
+        return None;
+    }
+    Some(ViolationClose { code })
+}
+
+/// Encode the close frame for a [`ViolationClose`] verdict: shipped
+/// `WebSocketImpl.close` builds its own `CloseFrame` (:482-486) rather than
+/// asking the Draft for one, so this composes the two big-endian code bytes
+/// directly.
+///
+/// # Why this takes a verdict and not a `u16`
+///
+/// A `u16` is manufacturable by anyone; a [`ViolationClose`] is not. Taking
+/// the verdict is what makes the origin requirement unskippable rather than
+/// conventional — there is no second door into this encoder, because the
+/// only way to hold its argument is to have passed
+/// [`violation_close_verdict`]. See [`ViolationClose`] for the bypass this
+/// closes and the bytes that demonstrated it.
+///
+/// `mask` comes from the connection's OWN masking sequence — see
+/// [`ConnectionDriver::compose_violation_close`], which reserves it. `None`
+/// is the server role, which must not mask.
+///
+/// # Why this lives in `ws_driver` and not in the adapter that calls it
+///
+/// This crate is the WebSocketImpl mirror — it already owns the close-echo
+/// WIRE composition for exactly this layering reason (see
+/// [`CloseEchoPolicy`]) — and the `adapter-linkage` gate
+/// (`cmd/rustgatectl`) forbids adapter sources from naming
+/// `ws_core::framing` or `Draft6455` at all. Composing the frame inside
+/// `ws-testee` tripped that gate, which was right to reject it: framing
+/// belongs to the protocol layers, and an adapter that hand-rolls a frame is
+/// the thing the gate exists to catch.
+///
+/// # Why this cannot move the differential corpus
+///
+/// Nothing inside [`ConnectionDriver::poll`] calls it or
+/// [`violation_close_verdict`]. Only an embedding adapter invokes them, so the
+/// oracle harness — which drives this crate but never this path — produces
+/// byte-identical transcripts with and without them. That was measured, not
+/// assumed.
+///
+/// # Departures from Java, stated rather than buried
+///
+/// The reason is EMPTY. Java sends `e.getMessage()`;
+/// [`TypedProtocolFailure`] carries a code and a close code but no message,
+/// and inventing a diagnostic string would put a fabricated Java message on
+/// the wire.
+#[must_use]
+pub fn violation_close_frame(verdict: ViolationClose, mask: Option<[u8; 4]>) -> Vec<u8> {
+    let mut payload = Vec::with_capacity(2);
+    payload.extend_from_slice(&verdict.code().to_be_bytes());
+    Draft6455::encode_frame(true, Opcode::Closing, &payload, mask)
 }
 
 /// Recompose the core's Q19 close echo into the frame shipped Java's
@@ -1050,5 +1590,180 @@ fn consumed(input: &DriverInput<'_>) -> InputDisposition {
             DriverInput::Inbound(bytes) => bytes.len(),
             _ => 0,
         },
+    }
+}
+
+#[cfg(test)]
+mod pending_eof_ceiling_tests {
+    use super::*;
+    use ws_core::TransportWrite;
+    use ws_core::config::ConnectionConfig;
+
+    /// A driver carrying EVERY piece of state a `Shutdown` abandons, so a
+    /// refusal has something to protect.
+    ///
+    /// Review 01a048b4-b557-7313-a895-f4575c6953f1 blocked the previous
+    /// version of this fixture as VACUOUS: it seeded only `pending_eofs`,
+    /// and `close_echo_armed` already starts `false`, so the
+    /// "no side effects" assertions passed whether or not the early return
+    /// protected anything. Every field below is seeded and its precondition
+    /// asserted here, so the fixture cannot silently become empty again.
+    fn fixture_with_abandonable_state() -> ConnectionDriver {
+        let (_sender, mut driver) = connection_driver_in_state(
+            ConnectionConfig::default(),
+            Role::Server,
+            InitialState::Open,
+        );
+        // 1. An OFFERED write, partially accepted, which Shutdown clears
+        //    along with its cursor.
+        driver.offered_write = Some(TransportWrite {
+            bytes: vec![0x81, 0x03, b'h', b'e', b'y'],
+        });
+        driver.write_cursor = 2;
+        // 2. A write still queued INSIDE THE CORE, which Shutdown drains via
+        //    drop_pending_writes. Applied straight to the core so the driver
+        //    has not yet taken it into `offered_write`.
+        driver
+            .core
+            .handle(Input::Command(LocalCommand::SendText {
+                text: "queued".to_owned(),
+            }))
+            .expect("the core accepts a send while Open");
+        // 3. A parked automatic pong, which Shutdown clears.
+        driver.pending_auto_pongs.push_back(vec![0xDE, 0xAD]);
+        // 4. An armed close-echo recomposition, which Shutdown disarms.
+        driver.close_echo_armed = true;
+
+        assert!(
+            driver.offered_write.is_some(),
+            "precondition: offered write"
+        );
+        assert_eq!(driver.write_cursor, 2, "precondition: partial cursor");
+        assert_eq!(
+            driver.pending_auto_pongs.len(),
+            1,
+            "precondition: parked auto-pong"
+        );
+        assert!(driver.close_echo_armed, "precondition: close echo armed");
+        driver
+    }
+
+    /// At the ceiling a further `TransportEof` is REFUSED with a typed
+    /// error, not silently swallowed while being reported consumed
+    /// (review 01a04899-5adb-78c3-b8ae-ec78ea14e377, blocking 1).
+    #[test]
+    fn transport_eof_at_the_ceiling_is_explicitly_refused() {
+        let (_sender, mut driver) = connection_driver_in_state(
+            ConnectionConfig::default(),
+            Role::Server,
+            InitialState::Open,
+        );
+        driver.pending_eofs = u32::MAX;
+        let result = driver.poll(DriverInput::TransportEof);
+        assert_eq!(
+            result.input,
+            InputDisposition::Rejected(DriverInputError::PendingEofOverflow { pending: u32::MAX }),
+            "the notification must be refused, never reported consumed"
+        );
+        assert_eq!(
+            driver.pending_eofs,
+            u32::MAX,
+            "a refused notification changes nothing"
+        );
+    }
+
+    /// A `Shutdown` refused at the ceiling performs NONE of its
+    /// abandonment side effects, on state that genuinely exists.
+    #[test]
+    fn shutdown_at_the_ceiling_abandons_nothing() {
+        let mut driver = fixture_with_abandonable_state();
+        driver.pending_eofs = u32::MAX;
+
+        let result = driver.poll(DriverInput::Shutdown);
+        assert!(
+            matches!(
+                result.input,
+                InputDisposition::Rejected(DriverInputError::PendingEofOverflow { .. })
+            ),
+            "the notification must be refused"
+        );
+
+        assert_eq!(
+            driver
+                .offered_write
+                .as_ref()
+                .map(|write| write.bytes.clone()),
+            Some(vec![0x81, 0x03, b'h', b'e', b'y']),
+            "the offered write survives a refused shutdown"
+        );
+        assert_eq!(driver.write_cursor, 2, "the write cursor survives");
+        assert_eq!(
+            driver.pending_auto_pongs.front().cloned(),
+            Some(vec![0xDE, 0xAD]),
+            "the parked automatic pong survives"
+        );
+        assert!(driver.close_echo_armed, "the armed close echo survives");
+        assert_eq!(
+            driver.pending_eofs,
+            u32::MAX,
+            "the pending count is untouched"
+        );
+        // Consuming, so asserted last: the core's queued write was NOT
+        // drained by drop_pending_writes.
+        assert!(
+            driver.core.next_write().is_some(),
+            "the core's queued write survives a refused shutdown"
+        );
+    }
+
+    /// POSITIVE CONTROL for the test above. Same fixture, room to admit the
+    /// notification: the shutdown is ACCEPTED and every one of those fields
+    /// is abandoned. Without this, `shutdown_at_the_ceiling_abandons_nothing`
+    /// could not distinguish "the refusal protected the state" from "there
+    /// was nothing to protect" — which is exactly how the previous version
+    /// of that test was vacuous.
+    #[test]
+    fn shutdown_below_the_ceiling_does_abandon_all_of_it() {
+        let mut driver = fixture_with_abandonable_state();
+        assert_eq!(driver.pending_eofs, 0, "precondition: room to admit");
+
+        let result = driver.poll(DriverInput::Shutdown);
+        assert!(
+            matches!(result.input, InputDisposition::Consumed { .. }),
+            "with room, the notification is admitted"
+        );
+
+        assert!(
+            driver.offered_write.is_none(),
+            "an accepted shutdown clears the offered write"
+        );
+        assert_eq!(driver.write_cursor, 0, "and its cursor");
+        assert!(
+            driver.pending_auto_pongs.is_empty(),
+            "and the parked automatic pong"
+        );
+        assert!(!driver.close_echo_armed, "and disarms the close echo");
+        assert!(
+            driver.core.next_write().is_none(),
+            "and drains the core's queued write"
+        );
+    }
+
+    /// Below the ceiling nothing changes: notifications still accumulate
+    /// one per admission, which is the property the counter exists for.
+    #[test]
+    fn below_the_ceiling_notifications_still_accumulate() {
+        let (_sender, mut driver) = connection_driver_in_state(
+            ConnectionConfig::default(),
+            Role::Server,
+            InitialState::Open,
+        );
+        driver.pending_eofs = u32::MAX - 2;
+        assert!(driver.admit_eof());
+        assert_eq!(driver.pending_eofs, u32::MAX - 1);
+        assert!(driver.admit_eof());
+        assert_eq!(driver.pending_eofs, u32::MAX);
+        assert!(!driver.admit_eof(), "the next one does not fit");
+        assert_eq!(driver.pending_eofs, u32::MAX);
     }
 }

@@ -12,23 +12,40 @@
     "symbol": "ws_driver::ConnectionDriver::poll",
     "source": {
       "path": "rust/ws-driver/src/lib.rs",
-      "git_blob": "b0bea8c9609d1ee5566e33ddb5b8fbb6115ef776"
+      "git_blob": "ca05da2e578be4e8d8a67dc8e2ba0edb8125d314"
     },
     "harness": {
       "path": "rust/ws-driver/tests/schedule_exploration.rs",
-      "git_blob": "94382798cea2661f57c68179a80837921670a79a"
+      "git_blob": "178e017020c80cbb137fa4f30ff95cda9601a71d"
     }
   },
   "preregistered_plan": {
     "path": "assurance/concurrency/plan.json",
-    "sha256": "sha256:6370a157a9603c58265719c732e8e8bf34984390f090a854cf049c6033bb9cfa",
-    "conformance": "the exploration stays inside the plan bounds: 2 producer tasks (<= producer_tasks_max 3), 1 owner, command/write/event queue capacities 2/2/8 (<= 8), 12 actions per schedule (<= max_actions_per_schedule 64), preemption budget 3 (= preemption_bound), 79920 schedules (<= schedule_count_max 100000), 315070 enumeration branches (<= branch_count_max 1000000); the PRODUCER_ADMISSION_FAIRNESS_ABSENT stance is honored (queue-full refusals are final for that producer step, no retry fairness assumed) and the three weak-fairness assumptions gate only the final drain",
-    "sha256_provenance": "recomputed with sha256sum over assurance/concurrency/plan.json in the merged tree at landing (2026-09-02T09:50:50Z); supersedes fe39048e... recorded at 4b187b8, which described the plan before claude/ledger-integrity changed its behavior_delta_ledger metadata on mainline (see revision_note, LANDING RE-BINDING); that digest in turn superseded the stale d73659b4... recorded at 7ea4780"
+    "sha256": "sha256:15c51c7d180d13f47ed175a1bf0cc8ee7044fbf72c7fddf5de7df12e3025aada",
+    "conformance": "the exploration stays inside the plan bounds across BOTH scenarios: 2 producer tasks (<= producer_tasks_max 3), 1 owner, command/write/event queue capacities 2/2/8 (<= 8), 2 scenarios of 12 and 7 actions, so at most 12 actions per schedule (<= max_actions_per_schedule 64), preemption budget 3 (= preemption_bound), 81180 schedules (<= schedule_count_max 100000), 318661 enumeration branches (<= branch_count_max 1000000); the PRODUCER_ADMISSION_FAIRNESS_ABSENT stance is honored (queue-full refusals are final for that producer step, no retry fairness assumed) and the three weak-fairness assumptions gate only the final drain",
+    "sha256_provenance": "recomputed with sha256sum over assurance/concurrency/plan.json in the merged tree at the claude/post-failure landing (2026-09-02T17:56:11Z); supersedes 6370a157... recorded at the claude/evidence-validation landing, which described the plan before the C6 layer-split record was appended to the behavior-delta ledger as sequence 49 and moved the plan's behavior_delta_ledger observed_head, observed_record_count and append_blocker. The bounds object of the plan is unchanged, so the conformance statement above holds as written."
   },
   "bounds": {
     "actor_programs": 5,
+    "scenarios": 2,
     "program_shape": "producer A [send_text, send_binary]; producer B [send_ping, send_close]; transport-read [inbound-ping, inbound-close, transport-eof]; transport-write [write-partial, write-all, write-all]; adapter-control [wake, shutdown]",
-    "actions_per_schedule": 12,
+    "scenario_shapes": [
+      {
+        "name": "abnormal-teardown",
+        "program_shape": "producer A [send_text, send_binary]; producer B [send_ping, send_close]; transport-read [inbound-ping, inbound-close, transport-eof]; transport-write [write-partial, write-all, write-all]; adapter-control [wake, shutdown]",
+        "actions_per_schedule": 12,
+        "models": "the exceptional path: the embedding application tearing down, or the write side failing, while the peer is also closing. The adapter Shutdowns AND the read side reaches EOF, so the connection is terminated twice.",
+        "why_explored": "the original and, until owner decision us017-exploration-program-set-owner-decision-2026-08-28 (sha 86793909), the ONLY program set. With the driver's EOF coalescing fixed, every schedule here halts on the second scored termination, which is correct and is why a second scenario is required to cover the normal lifecycle at all."
+      },
+      {
+        "name": "clean-finish",
+        "program_shape": "producer A [send_text]; producer B [send_close]; transport-read [inbound-close, transport-eof]; transport-write [write-all, write-all]; adapter-control [wake]",
+        "actions_per_schedule": 7,
+        "models": "the ordinary WebSocket close lifecycle: the application sends a message and initiates close, the peer's close frame arrives, the committed frames flush, and the read side reaches EOF exactly ONCE. A healthy adapter never calls Shutdown on this path - Shutdown means the adapter can provide no further transport service and belongs to abnormal teardown. The ws-testee io_loop drives exactly this shape.",
+        "why_explored": "owner decision us017-exploration-program-set-owner-decision-2026-08-28 (sha 86793909). The previous single-scenario set modelled ONLY the abnormal double-termination path, so the normal lifecycle every real deployment spends its life in was never actually explored - its apparent coverage came from two terminations being silently merged into one by the driver's EOF coalescing defect."
+      }
+    ],
+    "actions_across_scenarios": 19,
     "context_switch_bound": 7,
     "context_switch_bound_derivation": "(5 programs - 1) mandatory switches + preemption budget 3",
     "preemption_budget": 3,
@@ -41,37 +58,36 @@
   },
   "adapter_model": "the interpreter drives the public driver boundary exactly as the real adapter does: a surfaced DriverOutput::Failure HALTS the run at that instant (ws-testee io_loop maps it to LoopOutcome::ProtocolFailure and stops), so no schedule action, drain poll, or quiescence poll follows a Failure; Terminal-after-Failure is impossible by construction and additionally asserted. WHY THAT HALT IS SAFE (round-2 re-review, io_loop.rs:228): halting is only sound because DriverOutput::Failure is ordered strictly AFTER the committed write stream, so an adapter that stops there has already been offered every byte the core committed - including the bytes the failing step itself committed. Before that ordering existed the same halt abandoned a committed write at the peer with nothing counted, which this model would not have caught: the boundary computes what the transport OWED only on Action::Shutdown, so a run that halts without a shutdown records owed=0 by construction. The ordering guarantee is therefore evidenced by driver_contract.rs and by ws-testee loopback tests over real sockets, NOT by this sweep",
   "execution": {
-    "explored_schedules": 79920,
+    "explored_schedules": 81180,
     "exhaustive_within_bound": true,
     "truncated": false,
-    "enumeration_branches": 315070,
-    "distinct_schedule_digests": 79920,
-    "executions": 159840,
+    "enumeration_branches": 318661,
+    "distinct_schedule_digests": 81180,
+    "executions": 162360,
     "replay_determinism": "every schedule executed twice with FULL structured-trace equality: every poll record compares the input (kind + byte length), the complete typed input disposition (rejection details included), the complete command disposition (command payloads and typed rejection failures included), the complete owned output (semantic-event contents, typed failure values, byte-exact write suffixes), and the lifecycle state; the enumeration itself is re-run and compared; trace digests hash the full structured records plus the committed wire log",
-    "distinct_semantic_trace_digests": 18755,
-    "closed_terminal_runs": 56777,
-    "failure_halted_runs": 23143,
-    "terminal_disposition_exclusivity": "asserted per run AND in aggregate: terminals total 56777 == closed_terminal_runs (exactly one each), surfaced failures total 23143 == failure_halted_runs (exactly one each, the halting failure); 56777 + 23143 == 79920",
+    "distinct_semantic_trace_digests": 3129,
+    "closed_terminal_runs": 49,
+    "failure_halted_runs": 81131,
+    "terminal_disposition_exclusivity": "asserted per run AND in aggregate as an ORDERING property rather than an exclusivity one: surfaced failures total 81131 == failure_halted_runs, exactly one each. Since a converged connection now REFUSES work still pushed at it instead of absorbing it, a schedule may take its one clean Terminal and only then reach a fatal, so terminals total equals closed_terminal_runs plus the clean terminals of runs that later halted; the no-Terminal-AFTER-a-Failure property is what the harness asserts, against the trace itself. Closed-terminal runs plus 81131 halted runs are 81180 schedules in all.",
     "counters": {
-      "accepted_commands": 222723,
-      "queue_full_refusals": 63482,
-      "applied": 68144,
-      "typed_rejections": 20696,
-      "terminal_rejections": 121207,
-      "reconciliation": "clean-terminal runs reconcile EXACTLY per run (accepted == applied + rejected + terminal_rejected); halted runs assert at-most-once disposition of accepted commands, with commands still queued at the halt belonging to the embedding adapter's teardown (aggregate disposed 210047 of 222723 accepted; the 12676 remainder were queued at halt boundaries and never double-disposed)",
-      "events_drained": 483003,
-      "surfaced_typed_failures": 23143,
-      "deferred_output_pending": 41773,
-      "deferred_command_turn": 31383,
-      "deferred_backpressure": 3550,
-      "typed_input_rejections": 54100,
-      "max_drain_polls_observed": 12,
+      "accepted_commands": 195694,
+      "queue_full_refusals": 66946,
+      "applied": 68823,
+      "typed_rejections": 20269,
+      "reconciliation": "clean-terminal runs reconcile EXACTLY per run (accepted == applied + rejected): the driver-invented TerminalRejected verdict is gone under the owner post-terminal-command decision, so a post-convergence command is applied to the core and its STATE_VIOLATION lands in typed_rejections like any other core refusal. Halted runs assert at-most-once disposition of accepted commands, with commands still queued at the halt belonging to the embedding adapter's teardown: aggregate disposed 89092 of 195694 accepted, and the 106602 remainder were queued at halt boundaries and never double-disposed.",
+      "events_drained": 300415,
+      "surfaced_typed_failures": 81131,
+      "deferred_output_pending": 41944,
+      "deferred_command_turn": 33488,
+      "deferred_backpressure": 3645,
+      "typed_input_rejections": 52826,
+      "max_drain_polls_observed": 9,
       "dropped_write_reports": 37813,
       "dropped_write_frames": 37813,
       "dropped_write_bytes": 134430,
       "dropped_write_partial_front_runs": 4172,
       "max_dropped_frames_in_one_report": 1,
-      "receiver_drop_typed_refusals": 79920
+      "receiver_drop_typed_refusals": 81180
     },
     "weak_fairness": [
       "WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING",
@@ -82,70 +98,70 @@
     "executed_run": {
       "command": "cargo test -p ws-driver --release --test schedule_exploration bounded_exploration -- --nocapture",
       "exit": 0,
-      "exit_provenance": "read from the cargo process itself, not inferred from its output text; this run's stdout line was captured before the harness's own citation check, which necessarily failed until this block existed, and the same command is re-run to exit 0 against this document before landing",
-      "executed_at": "2026-09-02T10:34:09Z",
-      "executed_against": "the tree named by target.source.git_blob and target.harness.git_blob above, on the forward-merged claude/evidence-validation branch during its landing onto mainline (Linux x86_64 cloud session)",
-      "stdout_line": "US017_EXPLORATION programs=5 actions_total=12 context_switch_bound=7 preemption_budget=3 command_queue_capacity=2 write_queue_capacity=2 event_queue_capacity=8 drain_budget_polls=256 schedules=79920 branches=315070 truncated=false executions=159840 distinct_trace_digests=18755 closed_terminal_runs=56777 failure_halted_runs=23143 accepted=222723 refused_full=63482 applied=68144 rejected=20696 terminal_rejected=121207 events=483003 failures=23143 deferred_output_pending=41773 deferred_command_turn=31383 deferred_backpressure=3550 rejected_inputs=54100 write_drop_reports=37813 dropped_frames=37813 dropped_bytes=134430 partial_front_drops=4172 max_dropped_frames=1 receiver_drop_refusals=79920 max_drain_polls=12 invariants=concurrency.single-owner:PASS,concurrency.queue-bounds:PASS,concurrency.accepted-eventual-exactly-once:PASS,concurrency.fifo-owner-order:PASS,concurrency.no-write-bypass:PASS,concurrency.close-convergence:PASS,concurrency.terminal-exactly-once:PASS,concurrency.no-post-terminal:PASS,concurrency.failure-halt-exclusivity:PASS,concurrency.deterministic-replay:PASS,concurrency.shutdown-write-drop-reported:PASS,concurrency.no-write-after-shutdown:PASS,concurrency.receiver-drop-typed:PASS weak_fairness=WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING,WEAK_FLUSH_PROGRESS_WHEN_WRITABLE,WEAK_EVENT_DRAIN_WHEN_OUTPUT_PENDING producer_admission_fairness=absent",
+      "exit_provenance": "read from the cargo process itself, not inferred from its output text; this run's stdout line was captured from a run that failed the harness's own citation check (assert_committed_results_cite_this_run), which necessarily failed until this block was refreshed, and the same command is re-run to exit 0 against this document before landing",
+      "executed_at": "2026-09-02T17:56:11Z",
+      "executed_against": "the tree named by target.source.git_blob and target.harness.git_blob above, on the forward-merged claude/post-failure branch during its landing onto mainline (Linux x86_64 cloud session)",
+      "stdout_line": "US017_EXPLORATION scenarios=2 programs_per_scenario=5 actions_total=19 context_switch_bound=7 preemption_budget=3 command_queue_capacity=2 write_queue_capacity=2 event_queue_capacity=8 drain_budget_polls=256 schedules=81180 branches=318661 truncated=false executions=162360 distinct_trace_digests=3129 closed_terminal_runs=49 failure_halted_runs=81131 accepted=195694 refused_full=66946 applied=68823 rejected=20269 events=300415 failures=81131 deferred_output_pending=41944 deferred_command_turn=33488 deferred_backpressure=3645 rejected_inputs=52826 write_drop_reports=37813 dropped_frames=37813 dropped_bytes=134430 partial_front_drops=4172 max_dropped_frames=1 receiver_drop_refusals=81180 max_drain_polls=9 invariants=concurrency.single-owner:PASS,concurrency.queue-bounds:PASS,concurrency.accepted-eventual-exactly-once:PASS,concurrency.fifo-owner-order:PASS,concurrency.no-write-bypass:PASS,concurrency.close-convergence:PASS,concurrency.terminal-exactly-once:PASS,concurrency.no-post-terminal:PASS,concurrency.interpreter-halts-at-first-surfaced-failure:PASS,concurrency.deterministic-replay:PASS,concurrency.shutdown-write-drop-reported:PASS,concurrency.no-write-after-shutdown:PASS,concurrency.receiver-drop-typed:PASS weak_fairness=WEAK_OWNER_PROGRESS_WHEN_WORK_PENDING,WEAK_FLUSH_PROGRESS_WHEN_WRITABLE,WEAK_EVENT_DRAIN_WHEN_OUTPUT_PENDING producer_admission_fairness=absent",
       "binding": "This line is the load-bearing link between the document and the run. rust/ws-driver/tests/schedule_exploration.rs formats the same line from its own measured totals and compares it byte-for-byte with the string recorded here, so the line cannot be anything but what a real run emits; internal/formalplan/concurrencyresults.go re-derives every counter, bound and aggregate in this document from that line, so no counter here can be edited, fabricated or half-refreshed without contradicting it. Since the 2026-09-02 landing the line also carries the six write-drop and receiver-drop tokens of claude/us017-ac2, each re-derived against execution.counters, and the invariant list carries all thirteen properties this record claims."
     },
-    "outcome": "PASS - zero invariant violations across all 79920 schedules in the main sweep and across all 79920 schedules at each of the 4 fatal-termination action budgets",
-    "new_disposition_coverage": "US-017 AC2 story-review dispositions are REACHED by the sweeps, not only by unit fixtures. Receiver-drop: all 79,920 schedules end with a deterministic post-run EPILOGUE that drops the sole owner and probes the producer seam once, and every one refuses with CommandRefusalReason::ReceiverDropped rather than accepting. SCOPE (pre-landing review finding 3, session 01a04960): that counter equals the schedule count because the epilogue runs exactly once per schedule. It exercises the typed refusal from every END STATE the sweep reaches; it explores no receiver-drop RACE, since the drop and the send are sequenced on one thread. The racing evidence is the native-thread test ws-core/tests/concurrency_boundary.rs::a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accept. Dropped writes, CLEAN route: 37,813 of the 79,920 schedules shut down with a committed write pending and every one surfaced exactly one typed report whose frames/bytes/partial_front matched the boundary's independent count of what the ended transport owed (134,430 undelivered bytes, 4,172 with a partially written front frame). Dropped writes, FATAL route (round 2): the same schedule space re-swept under action budgets 0/1/2/3 exercises fatal termination with abandoned committed writes 56,189 times (198,037 undelivered bytes; per budget 7,572 / 23,072 / 13,985 / 11,560), and the same owed-vs-reported equality holds on every one",
+    "outcome": "PASS - zero invariant violations across all 81180 schedules in the main sweep and across all 81180 schedules at each of the 4 fatal-termination action budgets",
+    "new_disposition_coverage": "US-017 AC2 story-review dispositions are REACHED by the sweeps, not only by unit fixtures. Receiver-drop: all 81,180 schedules end with a deterministic post-run EPILOGUE that drops the sole owner and probes the producer seam once, and every one refuses with CommandRefusalReason::ReceiverDropped rather than accepting. SCOPE (pre-landing review finding 3, session 01a04960): that counter equals the schedule count because the epilogue runs exactly once per schedule. It exercises the typed refusal from every END STATE the sweep reaches; it explores no receiver-drop RACE, since the drop and the send are sequenced on one thread. The racing evidence is the native-thread test ws-core/tests/concurrency_boundary.rs::a_producer_racing_the_owner_drop_never_blocks_and_never_reports_a_stale_accept. Dropped writes, CLEAN route: 37,813 of the 81,180 schedules shut down with a committed write pending and every one surfaced exactly one typed report whose frames/bytes/partial_front matched the boundary's independent count of what the ended transport owed (134,430 undelivered bytes, 4,172 with a partially written front frame). Dropped writes, FATAL route (round 2): the same schedule space re-swept under action budgets 0/1/2/3 exercises fatal termination with abandoned committed writes 112,002 times (398,137 undelivered bytes; per budget 7,572 / 30,644 / 35,973 / 37,813), and the same owed-vs-reported equality holds on every one",
     "fatal_termination_sweep": {
       "why": "the main sweep's action budget is the harness constant MAX_ACTIONS_UNREACHED (1024, chosen by rust/ws-driver/tests/schedule_exploration.rs so the budget cannot bind), far above the 12-action alphabet, so no schedule there can terminate fatally with a pending dropped-write report. That unreachability is exactly what let the round-2 defect hide. CORRECTION (pre-landing review finding 5): this field previously called 1024 the ConnectionConfig default; it is not. The real ConnectionConfig default for max_actions is 64 (rust/ws-core/src/config.rs, LimitField::MaxActions), and 1024 is the exploration harness's own deliberately unreachable budget.",
-      "method": "the SAME exhaustive enumeration (79,920 schedules, identical alphabet, bounds, and capacities) re-executed under tightened max_actions budgets so ActionLimitExceeded ends runs fatally while committed writes are outstanding; each schedule executed twice for replay equality, all invariants asserted, and the boundary's owed-vs-reported equality applied to halted runs too",
+      "method": "the SAME exhaustive enumeration (81,180 schedules, identical alphabet, bounds, and capacities) re-executed under tightened max_actions budgets so ActionLimitExceeded ends runs fatally while committed writes are outstanding; each schedule executed twice for replay equality, all invariants asserted, and the boundary's owed-vs-reported equality applied to halted runs too",
       "action_budgets": [
         0,
         1,
         2,
         3
       ],
-      "fatal_path_drop_runs_total": 56189,
-      "fatal_path_dropped_bytes_total": 198037,
+      "fatal_path_drop_runs_total": 112002,
+      "fatal_path_dropped_bytes_total": 398137,
       "per_budget_fatal_path_drop_runs": {
         "0": 7572,
-        "1": 23072,
-        "2": 13985,
-        "3": 11560
+        "1": 30644,
+        "2": 35973,
+        "3": 37813
       },
       "per_budget_halted_runs": {
-        "0": 79920,
-        "1": 58616,
-        "2": 34680,
-        "3": 24882
+        "0": 81180,
+        "1": 81180,
+        "2": 81180,
+        "3": 81131
       },
       "per_budget_closed_terminal_runs": {
         "0": 0,
-        "1": 21304,
-        "2": 45240,
-        "3": 55038
+        "1": 0,
+        "2": 0,
+        "3": 49
       },
       "per_budget_fatal_path_dropped_bytes": {
         "0": 28534,
-        "1": 78900,
-        "2": 50119,
-        "3": 40484
+        "1": 107434,
+        "2": 127739,
+        "3": 134430
       },
       "per_budget_clean_path_drop_runs": {
         "0": 0,
-        "1": 7572,
-        "2": 21988,
-        "3": 26253
+        "1": 0,
+        "2": 0,
+        "3": 0
       },
-      "exclusivity": "asserted per run at every budget: halted runs have exactly one surfaced failure and zero terminals, non-halted runs converge with exactly one terminal and zero failures, and halted + closed == 79920 at each budget",
-      "receiver_drop": "79,920 typed receiver-drop refusals at every budget: the disposition holds under fatal termination too",
+      "exclusivity": "asserted per run at every budget: halted runs have exactly one surfaced failure and at most one terminal (taken before the failure, never after it), non-halted runs converge with exactly one terminal and zero failures, and halted + closed == 81180 at each budget",
+      "receiver_drop": "81,180 typed receiver-drop refusals at every budget: the disposition holds under fatal termination too",
       "harness_polarity_read": "the sweep was run against the PRE-FIX driver and FAILED as required: \"budget 1: schedule enqueue-text-a,enqueue-binary-a,enqueue-ping-b,enqueue-close-b,inbound-ping,inbound-close,transport-eof,write-partial,wake,shutdown,write-all,write-all violated [UnreportedWriteDrop]\". That read is a WORKING-SESSION observation and is not rerunnable from the committed tree, because a pin against the shipped driver cannot replay a pre-fix one. The RERUNNABLE round-2 polarity evidence is rust/ws-driver/fuzz-seeds/us017/controls/fatal-halt-write-drop-accounting.seed, whose declared mutation (drop-writes-dropped-report) is parsed and executed on the fatal-halt route by schedule_exploration.rs::round_two_fatal_halt_accounting_control_replays_both_polarities: faulted it must record UnreportedWriteDrop on a halted run, clean it must surface exactly one report before the halting failure. Re-exempting halted runs from check_write_drop_accounting was executed and read: the faulted run reported write_drop_reports=0 dropped_frames=0 with violations [] - the control goes red, which is what makes it a control.",
       "executed_run": {
         "command": "cargo test -p ws-driver --release --test schedule_exploration fatal_termination_sweep_reports_every_abandoned_committed_write -- --nocapture",
         "exit": 0,
         "exit_provenance": "read from the cargo process itself, not inferred from its output text; the five lines were captured from a first run that exited 101 at the harness's own sweep-citation check (assert_committed_results_cite_this_sweep), which necessarily failed until this block existed, and the same command is re-run to exit 0 against this document before landing",
-        "executed_at": "2026-09-02T11:02:03Z",
-        "executed_against": "the tree named by target.source.git_blob and target.harness.git_blob above, on the forward-merged claude/evidence-validation branch during its landing onto mainline (Linux x86_64 cloud session)",
+        "executed_at": "2026-09-02T17:56:11Z",
+        "executed_against": "the tree named by target.source.git_blob and target.harness.git_blob above, on the forward-merged claude/post-failure branch during its landing onto mainline (Linux x86_64 cloud session)",
         "sweep_stdout_lines": [
-          "US017_FATAL_SWEEP budget=0 schedules=79920 halted_runs=79920 closed_terminal_runs=0 fatal_path_drop_runs=7572 fatal_path_dropped_bytes=28534 clean_path_drop_runs=0",
-          "US017_FATAL_SWEEP budget=1 schedules=79920 halted_runs=58616 closed_terminal_runs=21304 fatal_path_drop_runs=23072 fatal_path_dropped_bytes=78900 clean_path_drop_runs=7572",
-          "US017_FATAL_SWEEP budget=2 schedules=79920 halted_runs=34680 closed_terminal_runs=45240 fatal_path_drop_runs=13985 fatal_path_dropped_bytes=50119 clean_path_drop_runs=21988",
-          "US017_FATAL_SWEEP budget=3 schedules=79920 halted_runs=24882 closed_terminal_runs=55038 fatal_path_drop_runs=11560 fatal_path_dropped_bytes=40484 clean_path_drop_runs=26253",
-          "US017_FATAL_SWEEP_TOTAL budgets=[0, 1, 2, 3] fatal_path_drop_runs=56189 fatal_path_dropped_bytes=198037 per_budget=[(0, 7572), (1, 23072), (2, 13985), (3, 11560)]"
+          "US017_FATAL_SWEEP budget=0 schedules=81180 halted_runs=81180 closed_terminal_runs=0 fatal_path_drop_runs=7572 fatal_path_dropped_bytes=28534 clean_path_drop_runs=0",
+          "US017_FATAL_SWEEP budget=1 schedules=81180 halted_runs=81180 closed_terminal_runs=0 fatal_path_drop_runs=30644 fatal_path_dropped_bytes=107434 clean_path_drop_runs=0",
+          "US017_FATAL_SWEEP budget=2 schedules=81180 halted_runs=81180 closed_terminal_runs=0 fatal_path_drop_runs=35973 fatal_path_dropped_bytes=127739 clean_path_drop_runs=0",
+          "US017_FATAL_SWEEP budget=3 schedules=81180 halted_runs=81131 closed_terminal_runs=49 fatal_path_drop_runs=37813 fatal_path_dropped_bytes=134430 clean_path_drop_runs=0",
+          "US017_FATAL_SWEEP_TOTAL budgets=[0, 1, 2, 3] fatal_path_drop_runs=112002 fatal_path_dropped_bytes=398137 per_budget=[(0, 7572), (1, 30644), (2, 35973), (3, 37813)]"
         ],
         "binding": "These five lines are the load-bearing link between the fatal-termination sweep block and the run that produced it. rust/ws-driver/tests/schedule_exploration.rs formats the same lines from its own measured totals and compares them element-for-element with the array recorded here, so they cannot be anything but what a real sweep emits; internal/formalplan/concurrencyresults.go re-derives action_budgets, every per-budget map and both totals from them, so no sweep magnitude here can be edited, fabricated or half-refreshed without contradicting a line. Before this landing these magnitudes were transcribed (limitations record the correction)."
       }
@@ -185,7 +201,7 @@
       "outcome": "PASS"
     },
     {
-      "property_id": "concurrency.failure-halt-exclusivity",
+      "property_id": "concurrency.interpreter-halts-at-first-surfaced-failure",
       "outcome": "PASS"
     },
     {
@@ -205,7 +221,7 @@
       "outcome": "PASS"
     }
   ],
-  "terminal_disposition_model": "every full schedule reaches EXACTLY ONE typed terminal disposition, mirroring the real adapter: the clean Terminal from the absorbing Closed state (56777 runs, exactly one Terminal each, zero surfaced failures), or the halt at the first surfaced fatal Failure (23143 runs, exactly one surfaced failure each, zero Terminals) - the poisoned core retains its final state per the oracle's partial-execution semantics and the adapter stops there; both classes fully quiesce, clean-terminal runs reconcile every accepted command exactly once. The typed dropped-write disposition is NOT a third terminal: it precedes the Terminal (or the halting Failure) in the same run and is scored on BOTH routes. CORRECTION (pre-landing review finding 5, session 01a04960): this field previously retained the pre-round-2 53247/26673 split and said drops were scored only on non-halted runs. Both were stale - the round-2 fix moved the split to 56777/23143 and extended the boundary's owed-vs-reported equality to halted runs, which is the exemption that had hidden the defect.",
+  "terminal_disposition_model": "every full schedule ends in one of two typed dispositions: the halt at the first surfaced fatal Failure (81131 runs, exactly one surfaced failure each), the poisoned core retaining its final state under the oracle's partial-execution semantics, which is why the halt is itself a terminal disposition; or the clean Terminal from the absorbing Closed state (49 runs, all in the clean-finish scenario). The two are ORDERED, not mutually exclusive: a converged connection refuses work still pushed at it rather than absorbing it, so a run may take its one clean Terminal and only then reach a fatal. No terminal is ever recorded after a failure, and that ordering - not exclusivity - is what the harness asserts against the trace. Both classes reconcile every accepted command exactly once on the clean route and at most once on the halted one.",
   "defects_found_and_fixed": [
     {
       "defect_id": "eof-backpressure-livelock",
@@ -375,10 +391,10 @@
       {
         "seed": "lost-command",
         "property": "accepted-eventual-exactly-once",
-        "found_index": 0,
-        "shrink": "12 -> 2",
-        "schedule": "enqueue-close-b,shutdown",
-        "sha256": "sha256:36217c5c2f07f368c39978f0687fc734a4a2f15d58ea3c3c8135dc739e9c9565"
+        "found_index": 79925,
+        "shrink": "7 -> 3",
+        "schedule": "enqueue-close-b,write-all,transport-eof",
+        "sha256": "sha256:0d13345754a5341283e4f6580ec3e1250b5f0837e38b82b5c54804dd4400ae8a"
       },
       {
         "seed": "queue-bypass",
@@ -399,18 +415,18 @@
       {
         "seed": "close-race",
         "property": "close-convergence",
-        "found_index": 0,
-        "shrink": "12 -> 1",
-        "schedule": "shutdown",
-        "sha256": "sha256:6870c4775d963fadc6a547c9a0777528e246b1d95916cbbf3068a621fe8efdc4"
+        "found_index": 79925,
+        "shrink": "7 -> 1",
+        "schedule": "transport-eof",
+        "sha256": "sha256:a81fe8df647d98f13df5f70057bcc075d9d6ee6b783734a03f07ce2972859004"
       },
       {
         "seed": "duplicate-delivery",
         "property": "terminal-exactly-once",
-        "found_index": 0,
+        "found_index": 45006,
         "shrink": "12 -> 1",
         "schedule": "shutdown",
-        "sha256": "sha256:65cedfb5961ef9c5567e882aeb44440114c22734c11c59677612109f499e9056"
+        "sha256": "sha256:1bdb64b836f6dfbf1cb2c87f1a89e8670e306f1fb3d673ba78a7d182acefe05b"
       },
       {
         "seed": "silent-write-drop",
@@ -449,7 +465,7 @@
     "no Loom, Miri, or TSAN execution (zero-dependency gate; the exploration harness is hand-built against the sans-io core)",
     "the event-queue capacity used is 8, not the config floor 4: ConnectionCore::byte_input_event_bound needs 6 free slots to admit even a one-frame chunk, so floor-4 configurations can never make byte-path progress (recorded as an open config-floor observation, not changed by this closure)",
     "no live Java executed; no Java-equivalence claim",
-    "max_dropped_frames_in_one_report is 1 across all 79920 schedules of THIS sweep, which runs under the explicit AutoResponsePolicy::Disabled configuration. CORRECTION (pre-landing review finding 1, session 01a04960): the previous text called that value structural, and it is not. Under the DEFAULT AutoResponsePolicy::PongInboundPing an automatic pong is injected while a semantic event is being RETURNED, so it never passes through the offered-write gate; it sits in the core's write queue while the next poll applies a producer command on top of it, and the shutdown that follows reports frames=2,bytes=12. That was reproduced by execution before this correction was written and is now pinned by driver_contract.rs::a_shutdown_report_accounts_for_every_committed_frame_not_just_the_offered_one. The plural accumulation in abort_pending_writes is therefore an EXERCISED path under the shipped default, and only the report COUNT (one per run) is a bounded property; the frame count is not.",
+    "max_dropped_frames_in_one_report is 1 across all 81180 schedules of THIS sweep, which runs under the explicit AutoResponsePolicy::Disabled configuration. CORRECTION (pre-landing review finding 1, session 01a04960): the previous text called that value structural, and it is not. Under the DEFAULT AutoResponsePolicy::PongInboundPing an automatic pong is injected while a semantic event is being RETURNED, so it never passes through the offered-write gate; it sits in the core's write queue while the next poll applies a producer command on top of it, and the shutdown that follows reports frames=2,bytes=12. That was reproduced by execution before this correction was written and is now pinned by driver_contract.rs::a_shutdown_report_accounts_for_every_committed_frame_not_just_the_offered_one. The plural accumulation in abort_pending_writes is therefore an EXERCISED path under the shipped default, and only the report COUNT (one per run) is a bounded property; the frame count is not.",
     "assurance/concurrency/plan.json is preregistered and was NOT edited by this revision, so its action vocabulary still names neither a dropped-write outcome under action.shutdown (SHUTDOWN_IDEMPOTENT, LATE_CONNECTION_GOING_AWAY, DRAIN_WINDOW_BOUNDED) nor any receiver-drop action at all. The two AC2 dispositions added here are therefore evidenced by the exploration and the unit suites, not by the preregistered action model",
     "the fatal-termination sweep reaches fatal termination via ActionLimitExceeded (a tightened max_actions budget), which is one fatal family, not all of them. It is the family reachable from the existing 12-action alphabet without changing the alphabet or the pinned corpus; other fatal refusals are covered only insofar as they share the same finish_poll path, which they do by construction",
     "a fatal Failure halt with NO shutdown ever polled leaves committed writes with the driver rather than abandoned by it, so no dropped-write report is owed there; the ws-testee io_loop deliberately does not pump Shutdown on its protocol-failure path. CORRECTED (round-2 re-review, session 01a04960): the previous text asserted that stance was safe, and it was not. A fatal core step can COMMIT a wire write and FAIL in the same call - a server handshake rejection queues its HTTP error head before returning java_invalid_data, and a chunk carrying an inbound close followed by a data frame queues the Q19 echo before failing the state gate - and finish_poll surfaced that Failure without draining, so the halt abandoned a committed write AT THE PEER with dropped_frames=0. Reproduced over real sockets before it was fixed. DriverOutput::Failure is now ordered strictly after the committed write stream, so the no-shutdown exit covers only connections that have already handed over everything committed; the exception is narrowed to that, not removed. This sweep does NOT witness the guarantee: no schedule in the 12-action alphabet reaches a fatal step with a committed write outstanding, so an owed-at-halt assertion here would be vacuous. It is pinned instead by driver_contract.rs::a_fatal_input_that_commits_a_write_offers_the_write_before_the_failure, driver_contract.rs::an_undrained_committed_write_is_reported_when_the_failing_run_shuts_down, and three ws-testee loopback tests that read what the PEER receives (a_rejected_server_handshake_delivers_its_committed_error_head_before_failing, a_protocol_failure_after_a_committed_close_echo_still_delivers_the_echo, a_protocol_failure_whose_committed_write_cannot_be_delivered_is_accounted)",

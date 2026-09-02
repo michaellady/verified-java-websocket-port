@@ -4,4 +4,4 @@ mutation=repeat-terminal-on-wake
 event_queue_capacity=8
 schedule=shutdown
 counterexample=terminal-count-two
-found_index=0
+found_index=45006
