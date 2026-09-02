@@ -105,7 +105,7 @@
     },
     "harness": {
       "path": "rust/ws-driver/tests/schedule_exploration.rs",
-      "git_blob": "53e08b8d4cb6a77bab3c1111117e17777fb1bedc"
+      "git_blob": "800c0d51c833ebf8f2b528c5b764f64c257854c5"
     }
   },
   "preregistered_plan": {

@@ -330,7 +330,10 @@ const SCENARIO_CLEAN_FINISH_INBOUND_PING: ProgramSet = [
 const SCENARIOS: [(&str, ProgramSet); 3] = [
     ("abnormal-teardown", SCENARIO_ABNORMAL_TEARDOWN),
     ("clean-finish", SCENARIO_CLEAN_FINISH),
-    ("clean-finish-inbound-ping", SCENARIO_CLEAN_FINISH_INBOUND_PING),
+    (
+        "clean-finish-inbound-ping",
+        SCENARIO_CLEAN_FINISH_INBOUND_PING,
+    ),
 ];
 
 // ---------------------------------------------------------------------------

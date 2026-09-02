@@ -140,7 +140,7 @@
       "id": "evidence.linkage.schedule-exploration",
       "kind": "evidence",
       "title": "US-017 exhaustive bounded schedule exploration results (92160 schedules across 3 scenarios)",
-      "sha256": "sha256:36c92b5e8c887c2253ef2f7b0fe93b068ca9b14fd6c509e0b369a8ec9bd87f2b",
+      "sha256": "sha256:8f2c64c78821a692cdb825b16ba0038c5c7a3440c4c0ae5238668b67622efb07",
       "lineage": "deterministic ws-driver schedule exploration with full-trace replay equality",
       "path": "assurance/concurrency/results.json"
     },
