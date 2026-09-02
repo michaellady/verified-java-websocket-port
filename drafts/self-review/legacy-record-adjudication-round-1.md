@@ -298,10 +298,12 @@ the run.
 **Result: 41 red, exit 1 on every one. Zero attacks left the suite green.**
 Every attack's red probe is the probe aimed at that rule.
 
-**33 of the 41 isolate at the ADMISSION level** — with the rule deleted the gate
-ACCEPTED the mutated document, so the rule is the only thing standing between
-the chain and acceptance. **8 are red by MESSAGE only**: the document is still
-refused, by a rule that overlaps. Naming them is the point of this section.
+**In 33 of the 41, a probe aimed at the deleted rule reported that the gate
+ACCEPTED the mutated document** — so that rule is the only thing standing
+between the chain and acceptance. **8 are red by MESSAGE only**: the document is
+still refused, by a rule that overlaps, and the probe fails because the refusal
+does not say what it was aimed at. Naming those eight is the point of this
+section.
 
 | attack | rule deleted | why it is message-only |
 |---|---|---|
@@ -379,10 +381,13 @@ Both need a malformed CHAIN rather than a malformed document, and the chain is
 regenerated and verified by a different gate. I did not build a probe for
 either.
 
-Every probe mutates the COMMITTED document in a temporary root and calls
-`VerifyLegacyAdjudications` — the exported function `VerifyIntegrity` calls — so
-no rule can be strong in the test binary and absent from the gate. The tests
-have no rules of their own.
+Every probe reads the COMMITTED artifacts, applies one mutation in a temporary
+root, and calls `VerifyLegacyAdjudications` — the exported function
+`VerifyIntegrity` calls — so no rule can be strong in the test binary and absent
+from the gate. The tests have no rules of their own. Three probes additionally
+tamper the in-memory CHAIN (a forged stored `delta_id`, a drifted one, a
+truncated chain), which is the only way to reach rules the committed chain
+cannot exercise by construction.
 
 ---
 
