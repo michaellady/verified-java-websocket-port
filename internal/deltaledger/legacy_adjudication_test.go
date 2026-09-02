@@ -330,6 +330,18 @@ func TestVerifyLegacyAdjudicationsRefusesEachWayAnEntryCanFailToBind(t *testing.
 			expect: "the chain records no supersession of this record at all",
 		},
 		{
+			// This one discriminates by MESSAGE only, and the round-1
+			// self-review says so: a superseded_by_sequence without the flag is
+			// always ALSO either a supersession the chain does not record or a
+			// withdrawn record left undeclared, so one of the 9b arms speaks
+			// too. The guard is kept because it names the actual defect.
+			name: "an entry names a superseding sequence without declaring the contest",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				file.Adjudications[indexOfSequence(file, 20)].SupersededBySequence = 45
+			},
+			expect: "a superseded_by_sequence is named but contests_record_basis is not set",
+		},
+		{
 			// Sequence 14's own sealed rfc_value opens "reject:", so the
 			// determinacy rule permits java-quirk and cannot be what refuses
 			// this. Only the disagreement with sequence 45 can.
