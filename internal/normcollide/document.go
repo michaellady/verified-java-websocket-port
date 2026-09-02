@@ -142,17 +142,8 @@ func Build(root string, runner Runner) (*Document, error) {
 	}
 	document.Census = []Census{public, handshake}
 
-	// Every observed key set must belong to a named projection. A response
-	// shape this audit never enumerated would land here with an empty
-	// projection name and fail, which is the point: the surface table cannot
-	// go stale silently.
-	for _, census := range document.Census {
-		for _, keySet := range census.KeySets {
-			if keySet.Projection == "" {
-				return nil, fmt.Errorf("%s carries an unclassified response shape %v: "+
-					"the normalization surface table is incomplete", census.Source, keySet.Keys)
-			}
-		}
+	if err := PartitionCensus(document.Census); err != nil {
+		return nil, err
 	}
 
 	var blind int
@@ -218,6 +209,27 @@ func Build(root string, runner Runner) (*Document, error) {
 			"measurement of how coarse the observation is, not of who produced it.",
 	}
 	return document, nil
+}
+
+// PartitionCensus requires every observed response shape to belong to a named
+// projection. A shape this audit never enumerated arrives with an empty
+// projection name and fails here, which is the point: the surface table cannot
+// go stale silently while the document keeps claiming to describe it.
+//
+// This is exported so it can be attacked directly. Build calls it, but Build
+// needs a harness, so a check that lived only inside Build would have no test
+// in the default suite — and a deletion attack confirmed exactly that before
+// it was lifted out.
+func PartitionCensus(censuses []Census) error {
+	for _, census := range censuses {
+		for _, keySet := range census.KeySets {
+			if keySet.Projection == "" {
+				return fmt.Errorf("%s carries an unclassified response shape %v: "+
+					"the normalization surface table is incomplete", census.Source, keySet.Keys)
+			}
+		}
+	}
+	return nil
 }
 
 // Marshal renders the document deterministically.
