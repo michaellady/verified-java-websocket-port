@@ -939,8 +939,16 @@ impl ConnectionCore {
             match self.role {
                 Role::Server => {
                     let limits = handshake::HandshakeLimits::from_config(&self.config);
+                    // The 101 response carries a `Date` field Java reads
+                    // from the wall clock (Draft_6455.java:450). This core
+                    // is clockless, so the owner supplies the instant on the
+                    // config; see
+                    // `ConnectionConfig::with_server_date_epoch_seconds`.
                     self.handshake =
-                        HandshakeDriver::Server(handshake::server::ServerHandshake::new(limits));
+                        HandshakeDriver::Server(handshake::server::ServerHandshake::new(
+                            limits,
+                            self.config.server_date_epoch_seconds(),
+                        ));
                 }
                 Role::Client => {
                     // Bytes before begin_client_handshake: the port never
