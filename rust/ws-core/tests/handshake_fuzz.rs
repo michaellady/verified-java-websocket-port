@@ -551,16 +551,30 @@ fn assert_matches_model(label: &str, actual: &Verdict, expected: &Verdict) {
 // Head generators.
 // ---------------------------------------------------------------------------
 
-const METHODS: [&str; 7] = ["GET", "get", "GeT", "POST", "HEAD", "", "GET "];
-const HTTP_VERSIONS: [&str; 6] = [
+const METHODS: [&str; 9] = [
+    "GET", "get", "GeT", "POST", "HEAD", "", "GET ", "\tGET", "GET\t",
+];
+/// HTTP-version tokens. `\tHTTP/1.1` is the case that separates Java's
+/// `equalsIgnoreCase` (Draft.java:141-155, :164-180) from a trimmed
+/// comparison; a space-padded form would split into an extra token instead.
+const HTTP_VERSIONS: [&str; 8] = [
     "HTTP/1.1",
     "http/1.1",
     "HTTP/1.0",
     "HTTP/1.1 ",
     "HTTP/2",
     "",
+    "\tHTTP/1.1",
+    "HTTP/1.1\t",
 ];
-const STATUS_CODES: [&str; 8] = ["101", "200", "404", " 101", "101 ", "1010", "0101", ""];
+/// Status tokens. Java compares `first_line[1]` against the literal `"101"`
+/// (Draft.java:164-180) with NO trim, so the tab-padded forms below are the
+/// cases that separate a literal comparison from a trimmed one. A
+/// SPACE-padded form cannot reach `first_line[1]` at all — space is the
+/// `split(" ", 3)` delimiter — which is why the padding here is `\t`.
+const STATUS_CODES: [&str; 10] = [
+    "101", "200", "404", " 101", "101 ", "1010", "0101", "", "\t101", "101\t",
+];
 const VERSION_VALUES: [&str; 12] = [
     "13", " 13", "13 ", " 13 ", "+13", "0013", "13x", "", "8", "-13", "99999999999999999999",
     "1 3",
@@ -623,7 +637,11 @@ fn draw_header_line(rng: &mut SplitMix64, role_specific: &[(&str, &[&str])]) -> 
     }
     let (name, values) = rng.pick(role_specific);
     let value = *rng.pick(values);
-    let spacing = if rng.chance(4) { "" } else { " " };
+    // Java strips only leading SPACES from a header value (Draft.java:115-125),
+    // so a TAB after the colon stays part of the value. `Sec-WebSocket-Key:\t`
+    // is therefore a NON-empty key, and is the case that separates that rule
+    // from a general `trim_start`.
+    let spacing = *rng.pick(&["", " ", "  ", "\t", " \t"]);
     // Casing quirk: the map is case-insensitive, so the model must agree.
     let rendered_name = match rng.below(5) {
         0 => name.to_ascii_lowercase(),
@@ -662,6 +680,68 @@ const ACCEPT_VALUES: [&str; 6] = [
     " s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
 ];
 
+/// The canonical upgrade request, and the canonical 101 response for the
+/// recorded key `CLIENT_KEYS[0]`. Half the modeled cases are drawn as
+/// NEAR-VALID heads: the canonical head with exactly one element perturbed.
+///
+/// Without this bias almost every drawn head dies at the first line or the
+/// first predicate, and the deeper clauses (`Connection` containing
+/// "upgrade", the accept-value comparison, the key derivation) are reached
+/// so rarely that a defect planted in them survives the campaign. That is
+/// not a hypothetical: RED-4 of this file's planted-defect log
+/// (`trim_start` for the header value) was caught by the server family and
+/// MISSED by the client family until this bias existed.
+const CANONICAL_REQUEST_LINE: &str = "GET /chat HTTP/1.1";
+const CANONICAL_REQUEST_HEADERS: [&str; 5] = [
+    "Host: server.example.com",
+    "Upgrade: websocket",
+    "Connection: Upgrade",
+    "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==",
+    "Sec-WebSocket-Version: 13",
+];
+const CANONICAL_STATUS_LINE: &str = "HTTP/1.1 101 Switching Protocols";
+const CANONICAL_RESPONSE_HEADERS: [&str; 3] = [
+    "Upgrade: websocket",
+    "Connection: Upgrade",
+    "Sec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=",
+];
+
+/// Perturb a canonical head by exactly one element: replace the first line,
+/// replace one header line with a drawn one, drop one header, or duplicate
+/// one (the `"; "` join quirk).
+fn perturb(
+    rng: &mut SplitMix64,
+    first: &str,
+    canonical: &[&str],
+    drawn_first: String,
+    alphabet: &[(&'static str, &'static [&'static str])],
+) -> (String, Vec<String>) {
+    let mut headers: Vec<String> = canonical.iter().map(|line| (*line).to_string()).collect();
+    let mut line = first.to_string();
+    match rng.below(5) {
+        0 => line = drawn_first,
+        1 => {
+            let at = rng.below(headers.len() as u64) as usize;
+            headers[at] = draw_header_line(rng, alphabet);
+        }
+        2 => {
+            let at = rng.below(headers.len() as u64) as usize;
+            headers.remove(at);
+        }
+        3 => {
+            let at = rng.below(headers.len() as u64) as usize;
+            let extra = draw_header_line(rng, alphabet);
+            headers.insert(at, extra);
+        }
+        _ => {
+            let at = rng.below(headers.len() as u64) as usize;
+            let duplicate = headers[at].clone();
+            headers.insert(at, duplicate);
+        }
+    }
+    (line, headers)
+}
+
 /// Draw a modeled request head for the server parser.
 fn draw_request_model(rng: &mut SplitMix64) -> HeadModel {
     let alphabet = server_header_alphabet();
@@ -683,6 +763,16 @@ fn draw_request_model(rng: &mut SplitMix64) -> HeadModel {
             format!("{method} {target} {version}")
         }
     };
+    if rng.chance(2) {
+        let (line, headers) = perturb(
+            rng,
+            CANONICAL_REQUEST_LINE,
+            &CANONICAL_REQUEST_HEADERS,
+            first,
+            &alphabet,
+        );
+        return finish_model(rng, line, headers);
+    }
     let header_count = rng.below(6) as usize;
     let headers: Vec<String> = (0..header_count)
         .map(|_| draw_header_line(rng, &alphabet))
@@ -706,6 +796,16 @@ fn draw_response_model(rng: &mut SplitMix64) -> HeadModel {
             format!("{version} {status} {message}")
         }
     };
+    if rng.chance(2) {
+        let (line, headers) = perturb(
+            rng,
+            CANONICAL_STATUS_LINE,
+            &CANONICAL_RESPONSE_HEADERS,
+            first,
+            &alphabet,
+        );
+        return finish_model(rng, line, headers);
+    }
     let header_count = rng.below(6) as usize;
     let headers: Vec<String> = (0..header_count)
         .map(|_| draw_header_line(rng, &alphabet))
@@ -1467,6 +1567,44 @@ fn handshake_shrinker_normal_forms_are_pinned() {
         b"HTTP/1.1 101 \r\n\r\n".to_vec(),
         "client NotMatched normal form drifted: {:?}",
         String::from_utf8_lossy(&shrunk)
+    );
+
+    // The BUDGET-REFUSAL normal form is what makes the shrinker's byte
+    // simplification pass load-bearing rather than decorative. A refusal on
+    // `max_handshake_bytes` cannot be shrunk by deletion below the byte that
+    // breaches the budget -- the length IS the property -- so the only
+    // remaining reduction is on byte VALUES. With the budget at 8, every
+    // input of nine or more bytes refuses identically, so the 1-minimal
+    // witness is nine bytes long and every one of them canonicalizes.
+    //
+    // Deleting pass 2 of `shrink_to_1_minimal` leaves every other pin in
+    // this test green; only this one falls.
+    let tight = HandshakeLimits {
+        max_handshake_bytes: 8,
+        max_header_count: 1024,
+        max_header_line_bytes: 65_536,
+    };
+    let tight_server = move |bytes: &[u8]| judge_server(&[bytes.to_vec()], tight);
+    let overlong = b"GET /chat HTTP/1.1\r\nSec-WebSocket-Version: 13\r\n\r\n";
+    assert_eq!(
+        tight_server(overlong),
+        Verdict::Limit(HandshakeLimitExceeded {
+            limit: HandshakeLimitKind::TotalBytes,
+            attempted: 9,
+        })
+    );
+    let shrunk = shrink_to_1_minimal(overlong, &tight_server);
+    assert_eq!(
+        shrunk,
+        b"         ".to_vec(),
+        "server budget-refusal normal form drifted: {:?}",
+        String::from_utf8_lossy(&shrunk)
+    );
+    assert_1_minimal(
+        "budget-refusal normal form",
+        overlong,
+        &shrunk,
+        &tight_server,
     );
 }
 
