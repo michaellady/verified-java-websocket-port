@@ -297,3 +297,32 @@ which I was told not to touch. The actions below are for the owner to weigh.
    small budget would silently create unfalsifiable rows.
 5. **Decide the five candidates in §4**, particularly `CAND-CROSSARRAY`, which
    needs a mutated harness (`cmd/mutctl`) rather than a request seed.
+
+---
+
+## 10. The soundness question a reviewer should press on
+
+**Objection.** The differential never compares row A against row B. It compares
+`O_java(R)` against `O_rust(R)` for one request `R`. So what does a collision
+between two *different requests* prove?
+
+**Answer.** It proves the projection `O` is blind to a distinction, and `O` is
+the same function on both arms. Every probe is built so its two requests differ
+**only** in the content whose behavioural effect is at issue — the text payload
+(NC-01), the frame octets (NC-03, NC-04), the handshake octets (NC-07..09) —
+with limits, role and `initial_state` held equal. So an equal pair of answers
+shows `O(b1) == O(b2)` for two behaviours `b1 != b2` that the same projection
+maps together.
+
+The differential consequence follows: if the port, on request A, produced `b2`
+where Java produced `b1`, both arms' rows for A would be equal and the
+differential would read parity. NC-01 makes that concrete — a port that emitted
+the wrong outbound payload before failing is invisible. NC-04 makes it concrete
+on a single bit — a port that mis-read the FIN flag of a frame it then rejected
+is invisible.
+
+**What this does NOT establish** is that any such port defect exists. A
+collision bounds what the differential *could* detect. It is not a defect
+report, and nothing in this audit claims one. The 74/74 and 49/49 results
+remain true statements about what was run; what the audit changes is what they
+can be taken to mean.

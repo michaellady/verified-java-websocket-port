@@ -40,6 +40,31 @@
 // all. It lives in Candidates(), is labelled HYPOTHESIS, and is never counted
 // as a finding.
 //
+// # Why a two-REQUEST collision bounds a two-ARM differential
+//
+// The obvious objection: the differential never compares row A against row B.
+// It compares O_java(R) against O_rust(R) for one request R. So what does a
+// collision between two different requests prove?
+//
+// It proves the projection O is blind to a distinction, and O is the same
+// function on both arms. Every probe here is built so its two requests differ
+// ONLY in the content whose behavioural effect is at issue — the text payload
+// (NC-01), the frame octets (NC-03, NC-04), the handshake octets (NC-07..09) —
+// with limits, role and initial_state held equal. So when the two answers are
+// equal modulo identity, what has been shown is O(b1) == O(b2) for two
+// behaviours b1 != b2 that the SAME projection maps together.
+//
+// The differential consequence follows directly: if the port, on request A,
+// produced b2 where Java produced b1, the two arms' rows for A would be equal
+// and the differential would read parity. NC-01 makes that concrete — a port
+// that emitted the wrong outbound payload before failing is invisible. NC-04
+// makes it concrete on a bit — a port that mis-read the FIN flag of a frame it
+// then rejected is invisible.
+//
+// What this does NOT establish is that any such port defect exists. A
+// collision bounds what the differential could detect; it is not itself a
+// defect report, and nothing in this package claims one.
+//
 // # The limit of this enumeration
 //
 // Enumerating a surface is not a proof the enumeration is complete. This
