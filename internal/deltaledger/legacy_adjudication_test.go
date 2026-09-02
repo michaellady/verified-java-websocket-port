@@ -157,6 +157,22 @@ func TestVerifyLegacyAdjudicationsRefusesEachWayAnEntryCanFailToBind(t *testing.
 			expect: "sequence 7 carries no adjudication",
 		},
 		{
+			// THE ISOLATING FORM of the probe above. Dropping an entry alone
+			// goes red on the RESIDUAL recomputation, not on totality, because
+			// the record it named then counts as unclassed. Correcting the
+			// published residual for it removes that signal, so only the
+			// totality rule is left to refuse — which is the rule that stops
+			// "adjudicate 48 of 49 and publish an honest 2" from being a way
+			// to make a record disappear rather than be judged.
+			name: "an entry is dropped AND the residual is corrected for it, so only totality can refuse",
+			mutate: func(file *LegacyAdjudicationsFile) {
+				index := indexOfSequence(file, 7)
+				file.Adjudications = append(file.Adjudications[:index], file.Adjudications[index+1:]...)
+				file.RecordsWithoutAC3Class++
+			},
+			expect: "sequence 7 carries no adjudication",
+		},
+		{
 			name: "an entry claims a delta_id the record's disagreement digest does not produce",
 			mutate: func(file *LegacyAdjudicationsFile) {
 				index := indexOfSequence(file, 3)
@@ -320,6 +336,47 @@ func TestVerifyLegacyAdjudicationsRefusesEachWayAnEntryCanFailToBind(t *testing.
 					"\ngot: %v", testCase.expect, err)
 			}
 		})
+	}
+}
+
+// TestTheRecomputedIdentityCatchesATamperedStoredDeltaID isolates the one rule
+// the committed chain cannot exercise.
+//
+// VerifyLegacyAdjudications checks an entry's delta_id TWICE: against the
+// identity recomputed from the record's own disagreement digest, and against
+// the delta_id the record stores. On the committed chain those two are always
+// equal — the ledger builder derives the stored value from the digest — so a
+// probe that changes only the entry goes red on the cheaper comparison and
+// proves nothing about the recomputation. The deletion attack recorded in this
+// round's self-review says so rather than counting it.
+//
+// This is the probe that isolates it: the RECORD's stored delta_id is tampered
+// to agree with a tampered entry, so the two agree with each other and only the
+// recomputation from the disagreement digest can refuse. That is the shape a
+// hand-edited ledger document has, and it is the reason the rule is not
+// redundant.
+func TestTheRecomputedIdentityCatchesATamperedStoredDeltaID(t *testing.T) {
+	records := committedChain(t)
+	const forged = "delta-" +
+		"beefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeefbeef"
+	tampered := make([]lab.BehaviorLedgerRecord, len(records))
+	copy(tampered, records)
+	tampered[6].Delta.DeltaID = forged
+
+	root := legacyProbeRoot(t, func(file *LegacyAdjudicationsFile) {
+		for index := range file.Adjudications {
+			if file.Adjudications[index].Sequence == 7 {
+				file.Adjudications[index].DeltaID = forged
+			}
+		}
+	})
+	err := VerifyLegacyAdjudications(root, tampered, Definitions())
+	if err == nil {
+		t.Fatal("the gate accepted an entry whose delta_id agrees with a TAMPERED stored delta_id but not with " +
+			"the identity the record's own disagreement digest produces")
+	}
+	if !strings.Contains(err.Error(), "RECOMPUTED from the record's own disagreement digest") {
+		t.Fatalf("the gate refused, but not on the recomputation.\ngot: %v", err)
 	}
 }
 
