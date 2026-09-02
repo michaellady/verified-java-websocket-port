@@ -17,6 +17,20 @@ fact below before relying on it; mainline moves.
    adapter-safety divergences (for example the bounded write deadline) stay
    disclosed and do not count as failures.
 
+## Program context (from `docs/prd-pack/01-structure-and-index.md`)
+
+This repository is Laboratory 1 of the four-laboratory program
+`verified-java-to-rust-port`. The 27 stories below are the child lab's. The
+canonical child (the Codex plane, `feature/verified-java-websocket-port`)
+records all 27 done under owner-attested scope, `STORY_EXECUTION_COMPLETE`;
+this Claude-runtime variant recorded 9 done as of 2026-08-25. The master gate
+that everything downstream waits on is master US-008, independent acceptance
+of this laboratory, deliberately still open: 0 of 26 claims strongly accepted,
+24 formal obligations blocked, no independent custodian, no two-host resource
+envelope, cutover blocked. Independence cannot be self-granted, so the loop's
+job is to make every claim strong enough to survive that acceptance and to
+record exactly which owner or independent step remains.
+
 ## Owner decisions binding this loop (answered 2026-09-02)
 
 - **Equivalence target:** shipped Java 1.6.0, quirks included. RFC departures
@@ -33,9 +47,12 @@ fact below before relying on it; mainline moves.
 - **Owner gates:** never trigger AWS, benchmark, or additional Autobahn runs.
   Bring the story to the owner's step, record the exact action needed, count
   it as evidence-complete.
-- **PRD:** the owner pastes it; it is committed at `docs/prd.json`. Until it
-  exists the board below is PROVISIONAL and no acceptance criteria may be
-  invented.
+- **PRD:** delivered from HQ as a six-part pack through a bridge session,
+  stored verbatim under `docs/prd-pack/` as parts arrive (part 1 received
+  2026-09-02). Board titles and status flags come from it. Acceptance criteria
+  arrive in parts 2 to 6 and may not be invented before they land.
+  `docs/prd.json` is added only if the owner supplies the JSON bytes; the pack
+  is a rendering, so `prd.json` digests cannot be recomputed from it.
 - **PR #3** (against `main`) is closed; `main` stays the shared root.
 - **Cadence:** every two hours into the originating session.
 
@@ -151,43 +168,44 @@ PR-to-open in the log; never block the work on it.
   Rust side; map retained Kani obligations to the Java behaviours they cover.
   Hidden and sealed corpora are protected: owner gate.
 
-## Story board (PROVISIONAL: titles inferred from file names on both planes; replace from `docs/prd.json`)
+## Story board (titles from the child PRD index in `docs/prd-pack/01-structure-and-index.md`; acceptance criteria pending parts 2 to 6)
 
 Claude-plane status: "passes" means `passes: true` per the handoff's reading
 of the PRD on 2026-08-29; everything else is read from branches and files on
-2026-09-02. Codex-plane status is what Codex's own files claim, not a verified
-result; its README states its maximum result is
+2026-09-02. Codex-plane status is what the canonical child PRD flags and Codex's own
+files claim, not a verified result; the PRD marks all 27 done under
+owner-attested scope and Codex's README states its maximum result is
 `PASS_OWNER_RELAXED_MECHANICS` under `OWNER_ATTESTED_NOT_INDEPENDENT`.
 
-| Story | Provisional title | Claude plane | Codex plane | Next on Claude plane |
+| Story | Title (child PRD) | Claude plane | Codex plane (canonical child) | Next on Claude plane |
 | --- | --- | --- | --- | --- |
-| US-001 | Immutable input intake | passes | complete (README) | none |
-| US-002 | Autobahn laboratory qualification | passes | qualified; attempt budget consumed | none |
-| US-003 | Intake freeze, exact pins | passes | referenced | none |
-| US-004 | Evidence lifecycle | passes | 6 files | none |
-| US-005 | Corpora, handshake verdicts, sbx candidates | passes | 2 files | none |
-| US-006 | Formal concurrency model (TLA+/TLC) | passes | TLA+ model + Kani backend qualification | none |
-| US-007 | Sandbox release firewall, resource supervisor | passes | 1 file | none |
-| US-008 | Benchmark preregistration, confirmation host | `us008-restart` (PASS r5) landed on mainline 2026-09-02 as e7a66a0; story completion judged against the PRD once committed; confirmation-host run is an owner gate | 1 file | owner: PRD flag, benchmark host run |
-| US-009 | Rust workspace core, AC1 gates, oracle harness | passes | 1 file | none |
-| US-010 | Client handshake | exam 49/49 (drafts); borrowed batch B; reproduced here 2026-09-02, port and live Java both 49/49 | contract + evidence DAG | closure receipt |
-| US-011 | Server handshake | exam 49/49 (drafts); borrowed batch B; reproduced here 2026-09-02, port and live Java both 49/49 | contract + frozen cases | closure receipt |
-| US-012 | Frame codec, core data path; AC5 actual-code Kani | borrowed batch A; Kani qualified (merged) | contract + codec tests | closure receipt |
-| US-013 | Messages, UTF-8 | borrowed batch A | contract | closure receipt |
-| US-014 | Fragmentation | borrowed batch A | contract | closure receipt |
-| US-015 | Control frames, ping/pong | e4 auto-pong merged | contract | closure receipt |
-| US-016 | Close lifecycle | e4/e5b merged; owner decisions retained | contract | closure receipt |
-| US-017 | Single-owner driver, schedule exploration | closure receipt in drafts; `us017-ac2` PASS r4 unmerged | contract | P1 merge |
-| US-018 | Blocking adapters (loopback testee) | passes; fixture made kernel-independent 2026-09-02 | contract | receipt correction is owner's |
-| US-019 | Autobahn client agent, native run | `us019-autobahn` 1 ahead; `us019-native-run` BLOCK; AC1 owner gate (AWS) | readiness only, no current-subject run | P1 self-review, then owner gate |
-| US-020 | Differential, current-head qualification | not started | 4 files | P3 |
-| US-021 | Verification campaign: property, fuzz, runtime | not started | 5 files | P3 |
-| US-022 | Mutation denominators, protected | not started | 6 files | P3 |
-| US-023 | Parity freeze, claims register, formal obligations | not started | 9 files; every gate BLOCKED in its own register | P3 |
-| US-024 | Deterministic refinement | not started | "complete" for owner-relaxed mechanics; 8 blockers | P3 |
-| US-025 | Resource envelope | not started | 1 file | P3, owner gate on hosts |
-| US-026 | Cutover rehearsal | not started | contracts only | P3 |
-| US-027 | Independent acceptance, projection, receipts | not started | receipts: codex/reality owner-attested, human NOT_EXECUTED | P3, owner gate |
+| US-001 | Promote every immutable laboratory input | passes | PRD done (owner-attested); complete (README) | none |
+| US-002 | Establish the fresh Java authority and Autobahn baseline | passes | PRD done (owner-attested); qualified; attempt budget consumed | none |
+| US-003 | Freeze intake, compatibility, semantic IDs, and port seams | passes | PRD done (owner-attested); referenced | none |
+| US-004 | Instantiate the inherited evidence lifecycle | passes | PRD done (owner-attested); 6 files | none |
+| US-005 | Calibrate public, hidden, sealed, and handshake corpora | passes | PRD done (owner-attested); 2 files | none |
+| US-006 | Qualify implementation-linked proof and concurrency seams | passes | PRD done (owner-attested); TLA+ model + Kani backend qualification | none |
+| US-007 | Prove sandbox and release-firewall isolation | passes | PRD done (owner-attested); 1 file | none |
+| US-008 | Pre-register controlled Java and Rust resource benchmarks | `us008-restart` (PASS r5) landed on mainline 2026-09-02 as e7a66a0; story completion judged against the PRD once committed; confirmation-host run is an owner gate | PRD done (owner-attested); 1 file | owner: PRD flag, benchmark host run |
+| US-009 | Establish the safe Rust ConnectionCore contract | passes | PRD done (owner-attested); 1 file | none |
+| US-010 | Implement the client opening-handshake slice | exam 49/49 (drafts); borrowed batch B; reproduced here 2026-09-02, port and live Java both 49/49 | PRD done (owner-attested); contract + evidence DAG | closure receipt |
+| US-011 | Implement the server opening-handshake slice | exam 49/49 (drafts); borrowed batch B; reproduced here 2026-09-02, port and live Java both 49/49 | PRD done (owner-attested); contract + frozen cases | closure receipt |
+| US-012 | Implement canonical framing, masking, and allocation limits | borrowed batch A; Kani qualified (merged) | PRD done (owner-attested); contract + codec tests | closure receipt |
+| US-013 | Deliver strict text and binary messages | borrowed batch A | PRD done (owner-attested); contract | closure receipt |
+| US-014 | Reassemble fragmented messages with bounded state | borrowed batch A | PRD done (owner-attested); contract | closure receipt |
+| US-015 | Implement ping and pong control behavior | e4 auto-pong merged | PRD done (owner-attested); contract | closure receipt |
+| US-016 | Complete close, EOF, and terminal-state behavior | e4/e5b merged; owner decisions retained | PRD done (owner-attested); contract | closure receipt |
+| US-017 | Drive bounded concurrent commands through one owner | closure receipt in drafts; `us017-ac2` PASS r4 unmerged | PRD done (owner-attested); contract | P1 merge |
+| US-018 | Add thin blocking TCP client and server adapters | passes; fixture made kernel-independent 2026-09-02 | PRD done (owner-attested); contract | receipt correction is owner's |
+| US-019 | Pass both pinned Autobahn conformance modes | `us019-autobahn` 1 ahead; `us019-native-run` BLOCK; AC1 owner gate (AWS) | PRD done (owner-attested); readiness only, no current-subject run | P1 self-review, then owner gate |
+| US-020 | Close Java and Rust differential divergences | not started | PRD done (owner-attested); 4 files | P3 |
+| US-021 | Close property, fuzz, and runtime evidence | not started | PRD done (owner-attested); 5 files | P3 |
+| US-022 | Pass normalized mutation and protected evaluation | not started | PRD done (owner-attested); 6 files | P3 |
+| US-023 | Freeze the complete parity candidate | not started | PRD done (owner-attested); 9 files; every gate BLOCKED in its own register | P3 |
+| US-024 | Refine idiomatic Rust without changing parity | not started | PRD done (owner-attested); "complete" for owner-relaxed mechanics; 8 blockers | P3 |
+| US-025 | Decide every preregistered resource envelope | not started | PRD done (owner-attested); 1 file | P3, owner gate on hosts |
+| US-026 | Rehearse shadow, canary, soak, and Java rollback | not started | PRD done (owner-attested); contracts only | P3 |
+| US-027 | Independently accept and project the complete child snapshot | not started | PRD done (owner-attested); receipts: codex/reality owner-attested, human NOT_EXECUTED | P3, owner gate |
 
 ## Plane comparison (read 2026-09-02)
 
@@ -221,3 +239,4 @@ a close echo (open, unledgered).
 - 2026-09-02T05:24:42Z iteration 0 (interactive): fetched all heads; compared planes; built the provisional board; created Routine trig_019dqmkqgWGFkXwSSJrBYXqJ (cron 22 */2 * * *, next 06:22Z); closed PR #3; PRD still to be pasted by the owner. Mainline head 51962e5.
 - 2026-09-02T06:35:20Z iteration 1 (routine): P0 environment proof. Public differential: port 74/74 (harness sha256 414d7e5b…adb9), live Java 74/74 with -Dstdout.encoding=UTF-8 (65/74 without, encoding artefact). Handshake exam: port 49/49 with the runtime field neutralised, live Java 49/49, 16 documented divergences; no non-runtime field differs between the two transcripts; public transcripts differ only in free-text error detail. Requests from two throwaway secrets byte-identical; handshake request digest e00d968f… equals the batch-B record. java-oracle self-test 18 PASS. go build ok; go test fails only in internal/lab (Darwin-only canary) and internal/formalplan + internal/portplan (quarantined Java source: archive 403 via session proxy; add_repo denied by the auto-mode classifier) — OWNER ACTION recorded under P0. No code changed. Next: P1 merge claude/us008-restart. Mainline head dbac020.
 - 2026-09-02T08:30:28Z iteration 2 (routine): P1 landed claude/us008-restart. Forward merge 9096f07 (clean; tree 8d4801a equals the merge-tree dry run), mainline merge e7a66a0 with identical tree. Gates 8/8 exit 0; go build 0; go test 28 ok plus the three known environment packages only (same typed findings as iteration 1). rust/ unchanged, so the differential and exam were not re-run. Record: drafts/self-review/us008-restart-landing.md. Both branches pushed. PRD still absent. Next: P1 claude/ledger-integrity. Mainline head e7a66a0.
+- 2026-09-02T09:19:02Z interactive: PRD pack part 1 of 6 received from HQ via bridge session; stored verbatim at docs/prd-pack/01-structure-and-index.md. Board titles replaced with the canonical child-PRD titles; program context added (master US-008 independent acceptance is the open gate). Acceptance criteria await parts 2 to 6. Mainline head before this commit 70a10bc.
