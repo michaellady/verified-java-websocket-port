@@ -395,7 +395,30 @@ have no rules of their own.
 - **The contest sweep script is not committed.** Its findings are pinned by
   tests; the script itself is an authoring aid and would rot.
 
-## 8. Where this can be overturned
+## 8. What the gate cannot check, stated plainly
+
+The mechanism can refuse an entry that is not bound to its record, an entry that
+files `java-quirk` against a record whose own sealed preimage says the RFC does
+not determine the observable, an entry that leaves a record unjudged, an entry
+that adjudicates a withdrawn record in silence, and a published residual that
+understates the chain. **It cannot tell a true adjudication from a plausible
+one.**
+
+The concrete consequence, and it should be read as a limit rather than
+explained away: `records_without_ac3_class` could be driven from 1 to 0 today by
+filing sequence 19 as `java-quirk` with a well-written argument. Sequence 19's
+own `rfc_value` opens `reject:`, which is determinate, so the determinacy rule
+would not object; every binding would still hold; the gate would pass. Nothing
+but the argument stands between that and the honest `evidence-does-not-settle-it`
+the entry actually carries — and the argument is published, unhashed, and meant
+to be argued with. That is why §2 reports the unresolved count as a first-class
+number and why `not-examined` is representable at all.
+
+The floors — 160 bytes of argument, 60 bytes of blocking question, 60 bytes of
+quote — are floors on EFFORT. They are not, and cannot be made into, a check on
+whether the reasoning is right.
+
+## 9. Where this can be overturned
 
 1. **Sequence 10** (`duplicate-header`, `java-quirk`) is the weakest of the
    java-quirk calls and the entry says so in its own argument: RFC 9110 section
