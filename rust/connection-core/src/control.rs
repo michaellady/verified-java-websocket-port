@@ -251,3 +251,51 @@ mod proofs {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use alloc::sync::Arc;
+
+    use super::is_observed_control;
+    use crate::frame::{Frame, Opcode};
+
+    fn frame_with(opcode: Opcode) -> Frame {
+        Frame::new(true, opcode, false, Arc::new(vec![0x01, 0x02]))
+    }
+
+    /// `is_observed_control` is the sole predicate deciding whether a decoded
+    /// frame contributes a `ControlPayload` clone and an extra reserved output
+    /// slot. Every downstream consumer either re-checks the opcode in a `match`
+    /// that dominates the predicate, or folds it into a `try_reserve_exact`
+    /// capacity, so no end-to-end connection assertion can distinguish the real
+    /// predicate from a constant `true`. A direct assertion can, and this test
+    /// is the one that does.
+    ///
+    /// Kills the cargo-mutants survivor `control.rs:155:5` (genre `FnValue`,
+    /// `is_observed_control` body replaced with `true`), recorded as
+    /// `ALLOCATION_SHAPE_ONLY` in
+    /// `evidence/mutation/external-38428a5/adjudication.json`.
+    #[test]
+    fn is_observed_control_admits_ping_and_pong_and_rejects_every_other_opcode() {
+        assert!(
+            is_observed_control(&frame_with(Opcode::Ping)),
+            "Ping is an observed control frame"
+        );
+        assert!(
+            is_observed_control(&frame_with(Opcode::Pong)),
+            "Pong is an observed control frame"
+        );
+
+        for opcode in [
+            Opcode::Continuation,
+            Opcode::Text,
+            Opcode::Binary,
+            Opcode::Close,
+        ] {
+            assert!(
+                !is_observed_control(&frame_with(opcode)),
+                "{opcode:?} must not be observed as a Ping/Pong control frame"
+            );
+        }
+    }
+}
