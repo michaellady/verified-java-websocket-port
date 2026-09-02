@@ -1,0 +1,88 @@
+{
+  "digest_preimages": {
+    "autobahn_result_digest": "",
+    "autobahn_value_digest": "",
+    "java_observation_digest": "Draft.readLine terminates only on CRLF (Draft.java:78, `prev == '\\r' \u0026\u0026 cur == '\\n'`), so shipped Java declines RFC 9112 section 2.2's MAY: a bare-LF line folds into the following CRLF-terminated line as one header, and the surviving fields decide the observable. For the recorded server seed the fold leaves Java's thin accept predicate satisfied and the request is accepted. FIDELITY EVIDENCE: live handshake exam case us005.hs.0034 (corpora/handshake/cases.jsonl, LIVE_EXECUTED against the pinned Java-WebSocket 1.6.0 jar sha256 eae29213..., recorded transcript protected/us005-corpora/live/handshake/transcript.jsonl with byte-identical rerun); seed rust/ws-core/fuzz-seeds/us011/bare-lf.hex. NOTHING ABOUT THE RECORDED JAVA BEHAVIOUR CHANGES IN THIS CORRECTION; only the normative framing does.",
+    "java_value_digest": "accept: 101 Switching Protocols with the derived Sec-WebSocket-Accept; the connection opens",
+    "note": "The six strings the digests above are DigestBytes over. internal/deltaledger.ReadProposalDraft rebuilds the disagreement and the delta identity from these, so the delta_id above is a FUNCTION of this evidence rather than a value typed beside it.",
+    "rfc_expectation_digest": "CORRECTED BASIS. Sections 4.1 and 4.2.1 govern the client's generation of the opening handshake and the server's reading and validation of it. Neither says anything about line terminators, so the governing rule is HTTP's, and the superseded record read it backwards. RFC 9112 section 2.2 reads, verbatim: \"Although the line terminator for the start-line and fields is the sequence CRLF, a recipient MAY recognize a single LF as a line terminator and ignore any preceding CR.\" That is a MAY, addressed to the RECIPIENT. It permits recognizing a bare LF; it does not require it, and it does not make a message containing one malformed. A recipient that declines the MAY does not refuse the message either: no line ever terminates at that point, so the bare LF is an ordinary content byte and the surviving CRLF-terminated lines decide the observable. Both behaviours conform, so RFC 6455 and RFC 9112 together leave this observable undetermined.",
+    "rfc_value_digest": "recipient-choice: RFC 9112 section 2.2 permits but does not require recognizing a bare LF as a line terminator, so folding the bare-LF line into the next and refusing the message are both conformant"
+  },
+  "draft_kind": "behavior-delta-ledger-record-proposal",
+  "draft_status": "NOT APPENDED — proposal only",
+  "drafted_at": "2026-09-02T00:00:00Z",
+  "drafted_by": "claude/legacy-record-adjudication",
+  "finding": {
+    "contested_by_sequence": 39,
+    "contested_delta_id": "delta-5084efaf08126e24d74a1bdea7da8b88eca6ef69fce631aef388c61ea3a86db2",
+    "contested_sequence": 13,
+    "precedent": "Sequences 45, 46 and 47 supersede 14, 15 and 16 for exactly this shape of defect: a normative premise found wrong after the record was sealed. Owner decision protected/ledger-frozen-prefix-owner-decision-2026-08-28.json rules SUPERSEDE, DO NOT REWRITE.",
+    "the_contradiction": "Sequence 13 rfc_expectation: \"RFC 9112 section 2.2 terminates lines with CRLF and forbids a bare LF as a line terminator, so the message is malformed and must be refused.\" Sequence 39 rfc_expectation: \"RFC 9112 section 2.2 makes bare-LF handling a RECIPIENT CHOICE, not a rejection requirement.\" Both are inside their records' digest preimages, so neither can be edited; the later one is right.",
+    "why_it_matters_for_us020_ac3": "The class turns on it. On sequence 13's own basis the mismatch is a java-quirk (RFC determinate, Java on the other side). On sequence 39's basis the RFC does not determine the observable and the mismatch is underspecified-behavior. evidence/java/legacy-record-adjudications.json files sequence 13 as underspecified-behavior, on the later reading, and marks it contests_record_basis."
+  },
+  "open_questions_for_the_owner": [
+    "APPEND OR NOT. Sequence 13 is not superseded today and its basis is refuted by sequence 39. Appending this record puts the correction beside the error, as sequences 45-47 did.",
+    "SUPERSESSION SIDE EFFECT, checked before proposing: supersededSubjects marks sequence 13's subject WITHDRAWN, and coveringDefinitionsForRow / VerifyCensusRowsAreLedgered / UnledgeredEvidenceDemands all refuse a superseded record as coverage. Sequences 14-16 were superseded the same way without driving unledgered_disagreements off zero because the superseding record covers the same census rows. THIS PROPOSAL HAS NOT BEEN EXECUTED, so that property is ARGUED FROM THE 45-47 PRECEDENT, NOT MEASURED. Whoever appends it must run `deltaledgerctl --root . --check` and confirm unledgered_disagreements is still 0.",
+    "WHETHER SEQUENCE 39 SHOULD ALSO BE RE-EXAMINED: its basis is the correct one, so nothing is owed there; it is named only because it is the source of the correction."
+  ],
+  "proposed_definition": {
+    "AutobahnRefs": [
+      "autobahn-v25.10.1:1.1.1"
+    ],
+    "AutobahnResult": "",
+    "AutobahnValue": "",
+    "Disposition": "adopt-java",
+    "JavaObservation": "Draft.readLine terminates only on CRLF (Draft.java:78, `prev == '\\r' \u0026\u0026 cur == '\\n'`), so shipped Java declines RFC 9112 section 2.2's MAY: a bare-LF line folds into the following CRLF-terminated line as one header, and the surviving fields decide the observable. For the recorded server seed the fold leaves Java's thin accept predicate satisfied and the request is accepted. FIDELITY EVIDENCE: live handshake exam case us005.hs.0034 (corpora/handshake/cases.jsonl, LIVE_EXECUTED against the pinned Java-WebSocket 1.6.0 jar sha256 eae29213..., recorded transcript protected/us005-corpora/live/handshake/transcript.jsonl with byte-identical rerun); seed rust/ws-core/fuzz-seeds/us011/bare-lf.hex. NOTHING ABOUT THE RECORDED JAVA BEHAVIOUR CHANGES IN THIS CORRECTION; only the normative framing does.",
+    "JavaRef": "org.java_websocket.drafts.Draft:readLine",
+    "JavaValue": "accept: 101 Switching Protocols with the derived Sec-WebSocket-Accept; the connection opens",
+    "MismatchClass": "underspecified-behavior",
+    "RFCExpectation": "CORRECTED BASIS. Sections 4.1 and 4.2.1 govern the client's generation of the opening handshake and the server's reading and validation of it. Neither says anything about line terminators, so the governing rule is HTTP's, and the superseded record read it backwards. RFC 9112 section 2.2 reads, verbatim: \"Although the line terminator for the start-line and fields is the sequence CRLF, a recipient MAY recognize a single LF as a line terminator and ignore any preceding CR.\" That is a MAY, addressed to the RECIPIENT. It permits recognizing a bare LF; it does not require it, and it does not make a message containing one malformed. A recipient that declines the MAY does not refuse the message either: no line ever terminates at that point, so the bare LF is an ordinary content byte and the surviving CRLF-terminated lines decide the observable. Both behaviours conform, so RFC 6455 and RFC 9112 together leave this observable undetermined.",
+    "RFCRefs": [
+      "rfc6455#section-4.1",
+      "rfc6455#section-4.2.1"
+    ],
+    "RFCValue": "recipient-choice: RFC 9112 section 2.2 permits but does not require recognizing a bare LF as a line terminator, so folding the bare-LF line into the next and refusing the message are both conformant",
+    "Rationale": "SUPERSEDING CORRECTION for ledger sequence 13 (delta-5084efaf08126e24d74a1bdea7da8b88eca6ef69fce631aef388c61ea3a86db2, subject semantic:org.java-websocket.draft6455.server-handshake.bare-lf.hs0034:provisional-v1). THE SUPERSEDED RECORD'S BASIS WAS WRONG, and the chain already contains the reading that shows it. Sequence 13 bound, verbatim: \"RFC 9112 section 2.2 terminates lines with CRLF and forbids a bare LF as a line terminator, so the message is malformed and must be refused.\" Section 2.2 does not forbid it. It reads \"a recipient MAY recognize a single LF as a line terminator\", which PERMITS the recognition and imposes nothing on a recipient that declines it. Sequence 39, appended later for the CLIENT direction of the same clause, states the correction in as many words -- \"THE NORMATIVE POSITION IS NARROWER THAN AN EARLIER DRAFT OF THIS RECORD CLAIMED\" -- but corrected only its own direction, leaving the server-direction record at sequence 13 standing on the refuted reading. This is the same defect sequences 45-47 corrected for the section 10.4 basis: a normative premise nobody re-checked after it was found wrong elsewhere. WHAT CHANGES AS A RESULT: the superseded record is classed as a leniency divergence, as though shipped Java were failing an RFC requirement. It is not. Since the RFC leaves bare-LF recognition to the recipient, what is recorded is a MODEL-versus-JAVA divergence at a point the RFC does not determine, plus the genuine field-value consequence the mid-message fold produces. WHAT DOES NOT CHANGE: the recorded Java behaviour, the live evidence, the corpus case and the port's behaviour are all exactly as the superseded record described. WS_CORE SITE: rust/ws-core/src/handshake/server.rs over rust/ws-core/src/handshake/http.rs (parse_java_head) reproduces the fold exactly; pinned by rust/ws-core/tests/handshake_server.rs::bare_lf_folds_into_the_next_line_and_still_accepts. SCOPE NOTE: this record corrects the NORMATIVE BASIS only. It does not withdraw the superseded record, which remains in the chain at sequence 13 with its digest intact. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors.",
+    "Subject": "org.java-websocket.draft6455.server-handshake.bare-lf.hs0034.corrected",
+    "Supersedes": [
+      {
+        "DeltaID": "delta-5084efaf08126e24d74a1bdea7da8b88eca6ef69fce631aef388c61ea3a86db2",
+        "Reason": "wrong-rfc-basis-9112-2.2-is-a-recipient-may-not-a-rejection-requirement",
+        "Sequence": 13,
+        "Subject": "semantic:org.java-websocket.draft6455.server-handshake.bare-lf.hs0034:provisional-v1"
+      }
+    ],
+    "note": "The internal/deltaledger.Definition that regenerates `proposed_record`."
+  },
+  "proposed_record": {
+    "delta": {
+      "autobahn_refs": [
+        "autobahn-v25.10.1:1.1.1"
+      ],
+      "autobahn_result_digest": "sha256:49dcadf52678fde8129cd5b6a85deadc06d85611a95b8f5c14ffe7cc94222754",
+      "autobahn_value_digest": "sha256:ecf4ff3e04f7cd985cbf0ef26c604dd45c4a3325446939eb1b1aa2080ac02eee",
+      "delta_id": "delta-3905e4669f52383df8aa4bc2965d64f320f6e2f4fdb6b609904dba627112a906",
+      "disagreement_digest": "sha256:3905e4669f52383df8aa4bc2965d64f320f6e2f4fdb6b609904dba627112a906",
+      "disposition": "adopt-java",
+      "java_observation_digest": "sha256:ed3560ec7484f1358481ddb7c787f57fa95c7875ae35c7bd02fe1854d5065286",
+      "java_ref": "java-v1.6.0:org.java_websocket.drafts.Draft:readLine",
+      "java_value_digest": "sha256:18c729f05530bb185a3d2c7724eebe38cfb40ab901b3c585e7cc97001218f1c1",
+      "mismatch_class": "underspecified-behavior",
+      "normative_authority": "rfc6455",
+      "rationale": "SUPERSEDING CORRECTION for ledger sequence 13 (delta-5084efaf08126e24d74a1bdea7da8b88eca6ef69fce631aef388c61ea3a86db2, subject semantic:org.java-websocket.draft6455.server-handshake.bare-lf.hs0034:provisional-v1). THE SUPERSEDED RECORD'S BASIS WAS WRONG, and the chain already contains the reading that shows it. Sequence 13 bound, verbatim: \"RFC 9112 section 2.2 terminates lines with CRLF and forbids a bare LF as a line terminator, so the message is malformed and must be refused.\" Section 2.2 does not forbid it. It reads \"a recipient MAY recognize a single LF as a line terminator\", which PERMITS the recognition and imposes nothing on a recipient that declines it. Sequence 39, appended later for the CLIENT direction of the same clause, states the correction in as many words -- \"THE NORMATIVE POSITION IS NARROWER THAN AN EARLIER DRAFT OF THIS RECORD CLAIMED\" -- but corrected only its own direction, leaving the server-direction record at sequence 13 standing on the refuted reading. This is the same defect sequences 45-47 corrected for the section 10.4 basis: a normative premise nobody re-checked after it was found wrong elsewhere. WHAT CHANGES AS A RESULT: the superseded record is classed as a leniency divergence, as though shipped Java were failing an RFC requirement. It is not. Since the RFC leaves bare-LF recognition to the recipient, what is recorded is a MODEL-versus-JAVA divergence at a point the RFC does not determine, plus the genuine field-value consequence the mid-message fold produces. WHAT DOES NOT CHANGE: the recorded Java behaviour, the live evidence, the corpus case and the port's behaviour are all exactly as the superseded record described. WS_CORE SITE: rust/ws-core/src/handshake/server.rs over rust/ws-core/src/handshake/http.rs (parse_java_head) reproduces the fold exactly; pinned by rust/ws-core/tests/handshake_server.rs::bare_lf_folds_into_the_next_line_and_still_accepts. SCOPE NOTE: this record corrects the NORMATIVE BASIS only. It does not withdraw the superseded record, which remains in the chain at sequence 13 with its digest intact. AUTOBAHN: leg not executed (baseline BLOCKED 0/247, NO_FURTHER_RERUNS_AUTHORIZED); refs are nominal anchors.",
+      "rfc_expectation_digest": "sha256:241c82c1ce6981d13645e4adfeb2fd622d69130e216425a8487e1503e1fb47a7",
+      "rfc_refs": [
+        "rfc6455#section-4.1",
+        "rfc6455#section-4.2.1"
+      ],
+      "rfc_value_digest": "sha256:c575b73e8ac133b0cd6ebfe6d7a92eff7bbf8ff2e56d48e08b66e71b40fdd013",
+      "schema_version": "1.0.0",
+      "subject_ref": "semantic:org.java-websocket.draft6455.server-handshake.bare-lf.hs0034.corrected:provisional-v1"
+    },
+    "schema_version": "1.0.0"
+  },
+  "schema_version": "1.0.0",
+  "sequence_and_previous_digest": "DELIBERATELY OMITTED. Both are a function of the ledger head at landing time, and this branch does not append.",
+  "target_ledger": "evidence/java/behavior-delta-ledger.json",
+  "why_this_is_a_draft_and_not_an_append": "This branch appends nothing to the ledger. The finding is that ledger sequence 13's sealed rfc_expectation reads RFC 9112 section 2.2 as FORBIDDING a bare LF, while sequence 39 -- appended later, about the same clause on the client direction -- reads it correctly as a recipient MAY and says so explicitly. Sequence 13 was never revisited, so the chain carries both readings of one clause. Sealed records are never edited, so the remedy is a superseding record in the shape of sequences 45-47, and appending it is an owner decision."
+}
