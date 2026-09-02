@@ -423,7 +423,7 @@ every round it has existed.
 | `go test ./internal/linkage/` before regeneration | **1** by design — `LINKAGE_DAG_DRIFTED`, `schedule-exploration digest is stale` |
 | `LINKAGE_REGENERATE=1 go test ./internal/linkage/ -run TestRegenerateLinkageArtifacts` | **0** |
 | `go test ./internal/linkage/` after regeneration | **0** |
-| `go test ./internal/formalplan/ -run 'TestConcurrencyResults\|TestCommittedConcurrencyResults'` | see below |
+| `go test ./internal/formalplan/ -run 'TestConcurrencyResults\|TestCommittedConcurrencyResults'` | **0** — 633s, including the 401-leaf substitution enumeration and the 489-position omission walk |
 
 `cargo fmt` moved the harness blob, so `target.harness.git_blob` is rebound
 `53e08b8d…` → `800c0d51…` and the sweep re-run. Both cited runs remain
